@@ -23,6 +23,7 @@
 #include <Kokkos_Core.hpp>
 
 #include "config.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -166,7 +167,7 @@ enum class TopologicalElement : std::size_t {
   E3 = 8,
   NN = 9
 };
-enum class TopologicalType { Cell, Face, Edge, Node };
+enum class TopologicalType : std::size_t { Cell = 0, Face = 3, Edge = 6, Node = 9 };
 
 KOKKOS_FORCEINLINE_FUNCTION
 constexpr TopologicalType GetTopologicalType(TopologicalElement el) {
@@ -181,6 +182,13 @@ constexpr TopologicalType GetTopologicalType(TopologicalElement el) {
   } else {
     return TT::Edge;
   }
+}
+
+KOKKOS_FORCEINLINE_FUNCTION
+constexpr std::size_t GetNumberOfElements(TopologicalType tt) {
+  using TT = TopologicalType;
+  if (tt == TT::Cell || tt == TT::Node) return 1;
+  return 3;
 }
 
 inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt) {
@@ -212,14 +220,28 @@ TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
 using TE = TopologicalElement;
 // Returns one if the I coordinate of el is offset from the zone center coordinates,
 // and zero otherwise
-inline constexpr int TopologicalOffsetI(TE el) {
+KOKKOS_FORCEINLINE_FUNCTION
+constexpr int TopologicalOffsetI(TE el) {
   return (el == TE::F1 || el == TE::E2 || el == TE::E3 || el == TE::NN);
 }
-inline constexpr int TopologicalOffsetJ(TE el) {
+KOKKOS_FORCEINLINE_FUNCTION
+constexpr int TopologicalOffsetJ(TE el) {
   return (el == TE::F2 || el == TE::E3 || el == TE::E1 || el == TE::NN);
 }
-inline constexpr int TopologicalOffsetK(TE el) {
+KOKKOS_FORCEINLINE_FUNCTION
+constexpr int TopologicalOffsetK(TE el) {
   return (el == TE::F3 || el == TE::E2 || el == TE::E1 || el == TE::NN);
+}
+
+KOKKOS_FORCEINLINE_FUNCTION
+constexpr int TopologicalOffset(CoordinateDirection dir, TE el) {
+  if (X1DIR == dir)
+    return TopologicalOffsetI(el);
+  else if (X2DIR == dir)
+    return TopologicalOffsetJ(el);
+  else if (X3DIR == dir)
+    return TopologicalOffsetK(el);
+  return 0;
 }
 
 // Returns wether or not topological element containee is a boundary of

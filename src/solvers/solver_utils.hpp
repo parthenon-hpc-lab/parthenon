@@ -14,23 +14,54 @@
 #define SOLVERS_SOLVER_UTILS_HPP_
 
 #include <algorithm>
+#include <cstdio>
 #include <limits>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "kokkos_abstraction.hpp"
 
-#define PARTHENON_INTERNALSOLVERVARIABLE(base, varname)                                  \
-  struct varname : public parthenon::variable_names::base_t<false> {                     \
-    template <class... Ts>                                                               \
-    KOKKOS_INLINE_FUNCTION varname(Ts &&...args)                                         \
-        : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}         \
-    static std::string name() { return base::name() + "." #varname; }                    \
-  }
-
 namespace parthenon {
+
+template <class pack_t, class func_t>
+KOKKOS_FORCEINLINE_FUNCTION void LoopOverBlockVarsAndTEs(const int b, pack_t &pack,
+                                                         func_t func) {
+  const int nvars = pack.GetUpperBound(b) - pack.GetLowerBound(b) + 1;
+  for (int c = 0; c < nvars; ++c) {
+    const auto tt = pack.GetTopologicalType(b, c);
+    const auto nel = GetNumberOfElements(tt);
+    for (int el = 0; el < nel; ++el) {
+      const auto te = GetTopologicalElementInDir(tt, el);
+      func(te, c);
+    }
+  }
+}
+
+template <class TL_t>
+TaskStatus PrintFields(const std::shared_ptr<MeshData<Real>> &md_a, std::string label) {
+  using TE = parthenon::TopologicalElement;
+  IndexRange ib = md_a->GetBoundsI(IndexDomain::interior, TE::NN);
+  IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior, TE::NN);
+  IndexRange kb = md_a->GetBoundsK(IndexDomain::interior, TE::NN);
+
+  printf("%s\n", label.c_str());
+  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL_t>(md_a.get());
+  auto pack_a = desc.GetPack(md_a.get());
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "print", parthenon::DevExecSpace(), 0,
+      pack_a.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        printf("[%i](%i, %i, %i) ", b, k, j, i);
+        LoopOverBlockVarsAndTEs(b, pack_a, [&](TopologicalElement te, int c) {
+          printf("[%i, %i] = %e ", c, static_cast<int>(te), pack_a(b, te, c, k, j, i));
+        });
+        printf("\n");
+      });
+  return TaskStatus::complete;
+}
 
 namespace solvers {
 
@@ -184,31 +215,22 @@ TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md) {
 template <class TL, bool only_fine_on_composite = true>
 TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md_in,
                     const std::shared_ptr<MeshData<Real>> &md_out) {
-  using TE = parthenon::TopologicalElement;
-  TE te = TE::CC;
-  IndexRange ib = md_in->GetBoundsI(IndexDomain::entire, te);
-  IndexRange jb = md_in->GetBoundsJ(IndexDomain::entire, te);
-  IndexRange kb = md_in->GetBoundsK(IndexDomain::entire, te);
-
   static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_in.get());
   auto pack_in = desc.GetPack(md_in.get(), only_fine_on_composite);
   auto pack_out = desc.GetPack(md_out.get(), only_fine_on_composite);
   const int scratch_size = 0;
   const int scratch_level = 0;
-  // Warning: This inner loop strategy only works because we are using IndexDomain::entire
-  const int npoints_inner = (kb.e - kb.s + 1) * (jb.e - jb.s + 1) * (ib.e - ib.s + 1);
   parthenon::par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, "CopyData", DevExecSpace(), scratch_size, scratch_level,
       0, pack_in.GetNBlocks() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
-        const int nvars = pack_in.GetUpperBound(b) - pack_in.GetLowerBound(b) + 1;
-        for (int c = 0; c < nvars; ++c) {
-          Real *in = &pack_in(b, te, c, kb.s, jb.s, ib.s);
-          Real *out = &pack_out(b, te, c, kb.s, jb.s, ib.s);
-          parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0,
-                                   npoints_inner - 1,
+        LoopOverBlockVarsAndTEs(b, pack_in, [&](TopologicalElement te, int c) {
+          const int npts = pack_in(b, te, c).size();
+          Real const *const in = pack_in(b, te, c).data();
+          Real *out = pack_out(b, te, c).data();
+          parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0, npts - 1,
                                    [&](const int idx) { out[idx] = in[idx]; });
-        }
+        });
       });
   return TaskStatus::complete;
 }
@@ -216,8 +238,6 @@ TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md_in,
 template <class TL, bool only_fine_on_composite = true>
 TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
   int nblocks = md->NumBlocks();
-  using TE = parthenon::TopologicalElement;
-  TE te = TE::CC;
   static auto desc = [&] {
     if constexpr (isTypeList<TL>::value) {
       return parthenon::MakePackDescriptorFromTypeList<TL>(md.get());
@@ -233,17 +253,12 @@ TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
       DEFAULT_OUTER_LOOP_PATTERN, "SetFieldsToZero", DevExecSpace(),
       scratch_size_in_bytes, scratch_level, 0, pack.GetNBlocks() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
-        auto cb = GetIndexShape(pack(b, te, 0), ng);
-        const auto &coords = pack.GetCoordinates(b);
-        IndexRange ib = cb.GetBoundsI(IndexDomain::interior, te);
-        IndexRange jb = cb.GetBoundsJ(IndexDomain::interior, te);
-        IndexRange kb = cb.GetBoundsK(IndexDomain::interior, te);
-        const int nvars = pack.GetUpperBound(b) - pack.GetLowerBound(b) + 1;
-        for (int c = 0; c < nvars; ++c) {
-          parthenon::par_for_inner(
-              DEFAULT_INNER_LOOP_PATTERN, member, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-              [&](int k, int j, int i) { pack(b, te, c, k, j, i) = 0.0; });
-        }
+        LoopOverBlockVarsAndTEs(b, pack, [&](TopologicalElement te, int c) {
+          const int npts = pack(b, te, c).size();
+          Real *out = pack(b, te, c).data();
+          parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0, npts - 1,
+                                   [&](const int idx) { out[idx] = 0.0; });
+        });
       });
   return TaskStatus::complete;
 }
@@ -307,12 +322,6 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
                                            const std::shared_ptr<MeshData<Real>> &md_out,
                                            Real wa = 1.0, Real wb = 1.0,
                                            bool only_interior_blocks = false) {
-  using TE = parthenon::TopologicalElement;
-  TE te = TE::CC;
-  IndexRange ib = md_a->GetBoundsI(IndexDomain::entire, te);
-  IndexRange jb = md_a->GetBoundsJ(IndexDomain::entire, te);
-  IndexRange kb = md_a->GetBoundsK(IndexDomain::entire, te);
-
   int nblocks = md_a->NumBlocks();
   std::vector<bool> include_block(nblocks, true);
   if (only_interior_blocks) {
@@ -327,21 +336,19 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
   auto pack_out = desc.GetPack(md_out.get(), include_block, only_fine_on_composite);
   const int scratch_size = 0;
   const int scratch_level = 0;
-  // Warning: This inner loop strategy only works because we are using IndexDomain::entire
-  const int npoints_inner = (kb.e - kb.s + 1) * (jb.e - jb.s + 1) * (ib.e - ib.s + 1);
   parthenon::par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, "AddFieldsAndStore", DevExecSpace(), scratch_size,
       scratch_level, 0, pack_a.GetNBlocks() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
-        const int nvars = pack_a.GetUpperBound(b) - pack_a.GetLowerBound(b) + 1;
-        for (int c = 0; c < nvars; ++c) {
-          Real *avar = &pack_a(b, te, c, kb.s, jb.s, ib.s);
-          Real *bvar = &pack_b(b, te, c, kb.s, jb.s, ib.s);
-          Real *out = &pack_out(b, te, c, kb.s, jb.s, ib.s);
+        LoopOverBlockVarsAndTEs(b, pack_a, [&](TopologicalElement te, int c) {
+          const int npts = pack_a(b, te, c).size();
+          Real const *const avar = pack_a(b, te, c).data();
+          Real const *const bvar = pack_b(b, te, c).data();
+          Real *out = pack_out(b, te, c).data();
           parthenon::par_for_inner(
-              DEFAULT_INNER_LOOP_PATTERN, member, 0, npoints_inner - 1,
+              DEFAULT_INNER_LOOP_PATTERN, member, 0, npts - 1,
               [&](const int idx) { out[idx] = wa * avar[idx] + wb * bvar[idx]; });
-        }
+        });
       });
   return TaskStatus::complete;
 }
@@ -504,10 +511,13 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
                            const std::shared_ptr<MeshData<Real>> &md_b,
                            AllReduce<Real> *adotb) {
   using TE = parthenon::TopologicalElement;
-  TE te = TE::CC;
-  IndexRange ib = md_a->GetBoundsI(IndexDomain::interior, te);
-  IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior, te);
-  IndexRange kb = md_a->GetBoundsK(IndexDomain::interior, te);
+  // We iterate over the nodal index range since this encompasses all possible
+  // active cells for every topological type, then mask out elements that aren't
+  // owned/required by a given block
+  IndexRange ib = md_a->GetBoundsI(IndexDomain::interior, TE::NN);
+  IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior, TE::NN);
+  IndexRange kb = md_a->GetBoundsK(IndexDomain::interior, TE::NN);
+  const int ndim = md_a->GetMeshPointer()->ndim;
 
   static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());
   auto pack_a = desc.GetPack(md_a.get());
@@ -517,12 +527,21 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
       parthenon::loop_pattern_mdrange_tag, "DotProduct", DevExecSpace(), 0,
       pack_a.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
-        const int nvars = pack_a.GetUpperBound(b) - pack_a.GetLowerBound(b) + 1;
         // TODO(LFR): If this becomes a bottleneck, exploit hierarchical parallelism and
         //            pull the loop over vars outside of the innermost loop to promote
         //            vectorization.
-        for (int c = 0; c < nvars; ++c)
-          lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i);
+        LoopOverBlockVarsAndTEs(b, pack_a, [&](TopologicalElement te, int c) {
+          const int oi = TopologicalOffsetI(te) * ((ib.e == i) - (ib.s == i));
+          const int oj = TopologicalOffsetJ(te) * ((jb.e == j) - (jb.s == j));
+          const int ok = TopologicalOffsetK(te) * ((kb.e == k) - (kb.s == k));
+          // Mask cell centered directions if loop bounds take them into ghosts
+          const int maski = (TopologicalOffsetI(te) || ndim < 1) ? 1 : (i < ib.e);
+          const int maskj = (TopologicalOffsetJ(te) || ndim < 2) ? 1 : (j < jb.e);
+          const int maskk = (TopologicalOffsetK(te) || ndim < 3) ? 1 : (k < kb.e);
+          if (pack_a.IsOwned(b, ok, oj, oi) *
+              (!pack_a.IsPhysicalBoundary(b, ok, oj, oi)) * maski * maskj * maskk)
+            lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i);
+        });
       },
       Kokkos::Sum<Real>(gsum));
   adotb->val += gsum;
@@ -549,6 +568,50 @@ TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
       tl.AddTask(TaskQualifier::once_per_region | TaskQualifier::local_sync,
                  start_global_adotb, &AllReduce<Real>::CheckReduce, adotb);
   return finish_global_adotb;
+}
+
+template <class TL>
+TaskStatus ConstantBC(std::shared_ptr<MeshData<Real>> &md, bool coarse, Real val) {
+  using TE = TopologicalElement;
+  const int ndim = md->GetMeshPointer()->ndim;
+
+  std::set<PDOpt> opts{};
+  if (coarse) opts.emplace(PDOpt::Coarse);
+  auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(
+      md.get(), std::vector<MetadataFlag>{}, opts);
+  auto pack = desc.GetPack(md.get(), GetBlockSelector::OnPhysicalBoundary());
+  const auto cellbounds = md->GetCellBounds(coarse ? CellLevel::coarse : CellLevel::same);
+
+  const int scratch_size = 0;
+  const int scratch_level = 0;
+  Indexer3D offset_idxer({-ndim > 2, ndim > 2}, {-ndim > 1, ndim > 1},
+                         {-ndim > 0, ndim > 0});
+  parthenon::par_for_outer(
+      DEFAULT_OUTER_LOOP_PATTERN, "DoBCs", DevExecSpace(), scratch_size, scratch_level, 0,
+      pack.GetNBlocks() - 1, 0, offset_idxer.size() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int oidx) {
+        IndexDomain idomains[3]{IndexDomain::inner, IndexDomain::unshared_interior,
+                                IndexDomain::outer};
+        const auto offset_tup = offset_idxer(oidx);
+        const int ok = std::get<0>(offset_tup);
+        const int oj = std::get<1>(offset_tup);
+        const int oi = std::get<2>(offset_tup);
+        if (pack.IsPhysicalBoundary(b, ok, oj, oi)) {
+          LoopOverBlockVarsAndTEs(b, pack, [&](TopologicalElement te, int c) {
+            const auto ib = cellbounds.GetBoundsI(idomains[oi + 1], te);
+            const auto jb = cellbounds.GetBoundsJ(idomains[oj + 1], te);
+            const auto kb = cellbounds.GetBoundsK(idomains[ok + 1], te);
+            Indexer3D idxer({kb.s, kb.e}, {jb.s, jb.e}, {ib.s, ib.e});
+            parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member, 0,
+                                     idxer.size() - 1, [&](int idx) {
+                                       const auto [k, j, i] = idxer(idx);
+                                       pack(b, te, c, k, j, i) = val;
+                                     });
+          });
+        }
+      });
+
+  return TaskStatus::complete;
 }
 
 } // namespace utils

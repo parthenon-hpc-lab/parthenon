@@ -58,6 +58,9 @@ void Mesh::SetMeshBlockNeighbors(
     const auto &loc = pmb->loc;
     auto neighbors = forest.FindNeighbors(loc, grid_id);
 
+    // Set this blocks ownership
+    pmb->ownership = DetermineOwnership(loc, neighbors, newly_refined);
+
     // Build NeighborBlocks for unique neighbors
     for (const auto &nloc : neighbors) {
       auto gid = forest.GetGid(nloc.global_loc);

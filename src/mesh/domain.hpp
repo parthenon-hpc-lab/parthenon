@@ -64,9 +64,20 @@ namespace parthenon {
 // containing the ghost zones above
 // and below the interior
 //
+// For non-cell centered topoplogical types, the
+// inner_* and outer_* domains include the outer
+// layer of elements that are shared between
+// blocks or sit on the boundary surface of the
+// domain. unshared_interior runs over only the
+// positions that are not shared with another
+// block or with the physical boundary of the
+// domain.
 enum class IndexDomain {
   entire,
   interior,
+  unshared_interior,
+  inner,
+  outer,
   inner_x1,
   outer_x1,
   inner_x2,
@@ -78,6 +89,32 @@ KOKKOS_FORCEINLINE_FUNCTION
 bool DomainTouchesOuterGhosts(const IndexDomain domain) {
   return (domain == IndexDomain::entire) || (domain == IndexDomain::outer_x1) ||
          (domain == IndexDomain::outer_x2) || (domain == IndexDomain::outer_x3);
+}
+
+// inner_x1 and outer_x1 imply IndexDomain::entire for directions not
+// equal to X1DIR, encode that here
+KOKKOS_FORCEINLINE_FUNCTION
+IndexDomain DecayIndexDomain(CoordinateDirection dir, IndexDomain domain) noexcept {
+  if (domain == IndexDomain::inner_x1) {
+    if (dir == X1DIR) return IndexDomain::inner;
+    return IndexDomain::entire;
+  } else if (domain == IndexDomain::outer_x1) {
+    if (dir == X1DIR) return IndexDomain::outer;
+    return IndexDomain::entire;
+  } else if (domain == IndexDomain::inner_x2) {
+    if (dir == X2DIR) return IndexDomain::inner;
+    return IndexDomain::entire;
+  } else if (domain == IndexDomain::outer_x2) {
+    if (dir == X2DIR) return IndexDomain::outer;
+    return IndexDomain::entire;
+  } else if (domain == IndexDomain::inner_x3) {
+    if (dir == X3DIR) return IndexDomain::inner;
+    return IndexDomain::entire;
+  } else if (domain == IndexDomain::outer_x3) {
+    if (dir == X3DIR) return IndexDomain::outer;
+    return IndexDomain::entire;
+  }
+  return domain;
 }
 
 //! \class IndexVolume
@@ -164,6 +201,40 @@ class IndexShape {
     return out;
   }
 
+  KOKKOS_INLINE_FUNCTION int GetStartIdx(CoordinateDirection dir, IndexDomain domain,
+                                         TE el = TE::CC) const noexcept {
+    const int idx = dir - 1;
+    domain = DecayIndexDomain(dir, domain);
+    switch (domain) {
+    case IndexDomain::interior:
+      return x_[idx].s;
+    case IndexDomain::unshared_interior:
+      return x_[idx].s + TopologicalOffset(dir, el);
+    case IndexDomain::outer:
+      return entire_ncells_[idx] == 1 ? 0 : x_[idx].e + 1;
+    default:
+      return 0;
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION int GetEndIdx(CoordinateDirection dir, IndexDomain domain,
+                                       TE el = TE::CC) const noexcept {
+    const int idx = dir - 1;
+    domain = DecayIndexDomain(dir, domain);
+    switch (domain) {
+    case IndexDomain::interior:
+      return entire_ncells_[idx] == 1 ? 0 : x_[idx].e + TopologicalOffset(dir, el);
+    case IndexDomain::unshared_interior:
+      return entire_ncells_[idx] == 1 ? 0 : x_[idx].e;
+    case IndexDomain::inner:
+      return x_[idx].s == 0 ? 0 : x_[idx].s - 1 + TopologicalOffset(dir, el);
+    default:
+      return entire_ncells_[idx] == 1
+                 ? 0
+                 : entire_ncells_[idx] - 1 + TopologicalOffset(dir, el);
+    }
+  }
+
   KOKKOS_INLINE_FUNCTION const IndexRange GetBoundsI(const IndexDomain &domain,
                                                      TE el = TE::CC) const noexcept {
     return (domain == IndexDomain::interior && el == TE::CC)
@@ -187,74 +258,32 @@ class IndexShape {
 
   KOKKOS_INLINE_FUNCTION int is(const IndexDomain &domain,
                                 TE el = TE::CC) const noexcept {
-    switch (domain) {
-    case IndexDomain::interior:
-      return x_[0].s;
-    case IndexDomain::outer_x1:
-      return entire_ncells_[0] == 1 ? 0 : x_[0].e + 1 + TopologicalOffsetI(el);
-    default:
-      return 0;
-    }
+    return GetStartIdx(X1DIR, domain, el);
   }
 
   KOKKOS_INLINE_FUNCTION int js(const IndexDomain &domain,
                                 TE el = TE::CC) const noexcept {
-    switch (domain) {
-    case IndexDomain::interior:
-      return x_[1].s;
-    case IndexDomain::outer_x2:
-      return entire_ncells_[1] == 1 ? 0 : x_[1].e + 1 + TopologicalOffsetJ(el);
-    default:
-      return 0;
-    }
+    return GetStartIdx(X2DIR, domain, el);
   }
 
   KOKKOS_INLINE_FUNCTION int ks(const IndexDomain &domain,
                                 TE el = TE::CC) const noexcept {
-    switch (domain) {
-    case IndexDomain::interior:
-      return x_[2].s;
-    case IndexDomain::outer_x3:
-      return entire_ncells_[2] == 1 ? 0 : x_[2].e + 1 + TopologicalOffsetK(el);
-    default:
-      return 0;
-    }
+    return GetStartIdx(X3DIR, domain, el);
   }
 
   KOKKOS_INLINE_FUNCTION int ie(const IndexDomain &domain,
                                 TE el = TE::CC) const noexcept {
-    switch (domain) {
-    case IndexDomain::interior:
-      return entire_ncells_[0] == 1 ? 0 : x_[0].e + TopologicalOffsetI(el);
-    case IndexDomain::inner_x1:
-      return x_[0].s == 0 ? 0 : x_[0].s - 1;
-    default:
-      return entire_ncells_[0] == 1 ? 0 : entire_ncells_[0] - 1 + TopologicalOffsetI(el);
-    }
+    return GetEndIdx(X1DIR, domain, el);
   }
 
   KOKKOS_INLINE_FUNCTION int je(const IndexDomain &domain,
                                 TE el = TE::CC) const noexcept {
-    switch (domain) {
-    case IndexDomain::interior:
-      return entire_ncells_[1] == 1 ? 0 : x_[1].e + TopologicalOffsetJ(el);
-    case IndexDomain::inner_x2:
-      return x_[1].s == 0 ? 0 : x_[1].s - 1;
-    default:
-      return entire_ncells_[1] == 1 ? 0 : entire_ncells_[1] - 1 + TopologicalOffsetJ(el);
-    }
+    return GetEndIdx(X2DIR, domain, el);
   }
 
   KOKKOS_INLINE_FUNCTION int ke(const IndexDomain &domain,
                                 TE el = TE::CC) const noexcept {
-    switch (domain) {
-    case IndexDomain::interior:
-      return entire_ncells_[2] == 1 ? 0 : x_[2].e + TopologicalOffsetK(el);
-    case IndexDomain::inner_x3:
-      return x_[2].s == 0 ? 0 : x_[2].s - 1;
-    default:
-      return entire_ncells_[2] == 1 ? 0 : entire_ncells_[2] - 1 + TopologicalOffsetK(el);
-    }
+    return GetEndIdx(X3DIR, domain, el);
   }
 
   KOKKOS_INLINE_FUNCTION int ncellsi(const IndexDomain &domain,

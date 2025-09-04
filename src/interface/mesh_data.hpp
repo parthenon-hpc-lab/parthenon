@@ -238,6 +238,13 @@ class MeshData {
     return IndexRange{-1, -2};
   }
 
+  template <class... Ts>
+  IndexShape GetCellBounds(Ts &&...args) const {
+    if (block_data_.size() > 0)
+      return block_data_[0]->GetBlockPointer()->GetCellBounds(std::forward<Ts>(args)...);
+    return IndexShape();
+  }
+
   template <class... Args>
   void Add(Args &&...args) {
     for (const auto &pbd : block_data_) {
