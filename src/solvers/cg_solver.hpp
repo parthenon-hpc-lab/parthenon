@@ -31,6 +31,7 @@
 #include "solvers/solver_utils.hpp"
 #include "tasks/tasks.hpp"
 #include "utils/type_list.hpp"
+#include "utils/reductions.hpp"
 
 namespace parthenon {
 

@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "interface/mesh_data.hpp"
-
 namespace parthenon {
 
 namespace solvers {

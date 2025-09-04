@@ -32,6 +32,7 @@
 #include "tasks/tasks.hpp"
 #include "utils/robust.hpp"
 #include "utils/type_list.hpp"
+#include "utils/reductions.hpp"
 
 namespace parthenon {
 

@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include "utils/reductions.hpp"
 #include "kokkos_abstraction.hpp"
 
 #define PARTHENON_INTERNALSOLVERVARIABLE(base, varname)                                  \
