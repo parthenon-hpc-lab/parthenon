@@ -132,29 +132,6 @@ TaskID AddBoundaryExchangeTasks(
 // These tasks should not be called in down stream code
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus BuildGMGBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
-
-bool IsMeshMultilevel(std::shared_ptr<MeshData<Real>> &md);
-
-template <BoundaryType bounds = BoundaryType::any>
-TaskID AddBoundaryExchangeTasks(
-    TaskID dependency, TaskList &tl, std::shared_ptr<MeshData<Real>> &md, bool multilevel,
-    BValOnMDFunc_t ApplyBCs = ApplyBoundaryConditionsOnCoarseOrFineMD) {
-  static_assert(bounds == BoundaryType::any || bounds == BoundaryType::gmg_same);
-
-  auto send = tl.AddTask(dependency, TF(SendBoundBufs<bounds>), md);
-  auto recv = tl.AddTask(dependency, TF(ReceiveBoundBufs<bounds>), md);
-  auto set = tl.AddTask(recv, TF(SetBounds<bounds>), md);
-
-  auto pro = set;
-  if (IsMeshMultilevel(md)) {
-    auto cbound = tl.AddTask(set, TF(ApplyBCs), md, true);
-    pro = tl.AddTask(cbound, TF(ProlongateBounds<bounds>), md);
-  }
-  auto fbound = tl.AddTask(pro, TF(ApplyBCs), md, false);
-
-  return fbound;
-}
-
 } // namespace parthenon
 
 #endif // BVALS_COMMS_BVALS_IN_ONE_HPP_

@@ -65,14 +65,6 @@ TaskStatus PrintFields(const std::shared_ptr<MeshData<Real>> &md_a, std::string 
 
 namespace solvers {
 
-template <typename T, typename = void>
-struct has_SetBoundary : std::false_type {};
-template <typename T>
-struct has_SetBoundary<
-    T, std::void_t<decltype(std::declval<T>().SetBoundary(
-           std::declval<std::shared_ptr<MeshData<Real>>&>(), std::declval<bool>()))>>
-    : std::true_type {};
-
 struct SparseMatrixAccessor {
   ParArray1D<int> ioff, joff, koff;
   const int nstencil;

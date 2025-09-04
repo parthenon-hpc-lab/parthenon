@@ -465,9 +465,4 @@ TaskID AddFluxCorrectionTasks(TaskID dependency, TaskList &tl,
       tl.AddTask(dependency, TF(ReceiveBoundBufs<BoundaryType::flxcor_recv>), md);
   return tl.AddTask(receive, TF(SetBounds<BoundaryType::flxcor_recv>), md);
 }
-
-bool IsMeshMultilevel(std::shared_ptr<MeshData<Real>> &md) {
-  return md->GetMeshPointer()->multilevel;
-}
-
 } // namespace parthenon

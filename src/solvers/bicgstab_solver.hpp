@@ -19,7 +19,7 @@
 #include <utility>
 #include <vector>
 
-#include "bvals/boundary_conditions.hpp"
+#include "bvals/comms/bvals_in_one.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"

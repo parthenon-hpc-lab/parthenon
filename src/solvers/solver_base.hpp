@@ -27,6 +27,17 @@ namespace parthenon {
 
 namespace solvers {
 
+// Used for checking if a given equations class has a SetBoundary function
+template <typename T, typename = void>
+struct has_SetBoundary : std::false_type {};
+
+template <typename T>
+struct has_SetBoundary<
+    T, std::void_t<decltype(std::declval<T>().SetBoundary(
+           std::declval<std::shared_ptr<MeshData<Real>> &>(), std::declval<bool>()))>>
+    : std::true_type {};
+
+// Solver base class
 class SolverBase {
  public:
   SolverBase(const std::string &container_base, const std::string &container_u,
