@@ -47,7 +47,9 @@ auto ToSizeN(Container_t<T, extra...> &container, const int N) {
   using std::to_string;
   using namespace partition_impl;
 
-  PARTHENON_REQUIRE_THROWS(N > 0, "Your partition must be at least size 1");
+  if (N <= 0) {
+    return Partition_t<T>();
+  }
 
   int nelements = container.size();
   int npartitions = IntCeil(nelements, N);
