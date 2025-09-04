@@ -122,7 +122,7 @@ template <BoundaryType bounds = BoundaryType::any>
 TaskID AddBoundaryExchangeTasks(
     TaskID dependency, TaskList &tl, std::shared_ptr<MeshData<Real>> &md, bool multilevel,
     BValOnMDFunc_t ApplyBCs = ApplyBoundaryConditionsOnCoarseOrFineMD) {
-  return AddBoundaryExchangeTasks(
+  return AddBoundaryExchangeTasks<bounds>(
       dependency, tl, md, multilevel,
       [&](TaskID id, TaskList *tl, std::shared_ptr<MeshData<Real>> md, bool coarse) {
         return tl->AddTask(id, TF(ApplyBCs), md, coarse);
