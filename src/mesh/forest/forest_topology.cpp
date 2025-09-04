@@ -55,10 +55,13 @@ std::optional<CellCentOffsets> Face::IsEdge(const Edge &edge) {
 }
 
 void Face::SetNeighbors() {
-  std::unordered_set<std::shared_ptr<Face>> neighbors_local;
+  std::unordered_set<std::weak_ptr<Face>, WeakPtrHash<Face>, WeakPtrEqual<Face>>
+      neighbors_local;
   for (auto &node : nodes)
     neighbors_local.insert(node->associated_faces.begin(), node->associated_faces.end());
-  for (std::shared_ptr<Face> neighbor : neighbors_local) {
+  for (std::weak_ptr<Face> w_neighbor : neighbors_local) {
+    PARTHENON_REQUIRE(!w_neighbor.expired(), "Invalid weak pointer to face.");
+    auto neighbor = w_neighbor.lock();
     auto node_overlap = NodeListOverlap(nodes, neighbor->nodes);
     if (node_overlap.size() > 0 && node_overlap.size() < 4) {
       std::array<int, 2> offset{0, 0};
@@ -105,7 +108,9 @@ void Face::SetEdgeCoordinateTransforms() {
   for (int ox = -1; ox <= 1; ++ox) {
     for (int oy = -1; oy <= 1; ++oy) {
       if (std::abs(ox) + std::abs(oy) == 1) {
-        for (auto &[neighbor, coord_trans] : neighbors(ox, oy)) {
+        for (auto &[w_neighbor, coord_trans] : neighbors(ox, oy)) {
+          PARTHENON_REQUIRE(!w_neighbor.expired(), "Invalid weak pointer to face.");
+          auto neighbor = w_neighbor.lock();
           auto node_overlap = NodeListOverlap(nodes, neighbor->nodes);
           PARTHENON_REQUIRE(node_overlap.size() == 2, "This is clearly not an edge.");
           std::sort(node_overlap.begin(), node_overlap.end(), [this](auto &n1, auto &n2) {
@@ -142,11 +147,16 @@ void Face::SetNodeCoordinateTransforms() {
   for (int n = 0; n < offset_idxer.size(); ++n) {
     auto [ox1, ox2] = offset_idxer(n);
     if (std::abs(ox1) + std::abs(ox2) == 2) {
-      for (auto &[neighbor, coord_trans] : neighbors(ox1, ox2)) {
+      for (auto &[w_neighbor, coord_trans] : neighbors(ox1, ox2)) {
+        PARTHENON_REQUIRE(!w_neighbor.expired(), "Invalid weak pointer to face.");
+        auto neighbor = w_neighbor.lock();
         auto node_overlap = NodeListOverlap(nodes, neighbor->nodes);
         PARTHENON_REQUIRE(node_overlap.size() == 1,
                           "Must only have a single node overlap for node neighbors.");
-        for (auto &possible_shared_neighbor : node_overlap[0]->associated_faces) {
+        for (auto &w_possible_shared_neighbor : node_overlap[0]->associated_faces) {
+          PARTHENON_REQUIRE(!w_possible_shared_neighbor.expired(),
+                            "Invalid weak pointer to face.");
+          auto possible_shared_neighbor = w_possible_shared_neighbor.lock();
           if (neighbors_to_offsets.count(possible_shared_neighbor) &&
               neighbor->neighbors_to_offsets.count(possible_shared_neighbor)) {
             if (neighbors_to_offsets[possible_shared_neighbor].IsEdge() &&
