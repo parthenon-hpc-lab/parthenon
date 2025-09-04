@@ -17,9 +17,11 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
+#include "bvals/comms/bvals_in_one.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
@@ -54,41 +56,33 @@ struct CGParams {
   }
 };
 
-// The equations class must include a template method
+struct CGSolverCounter {
+  static inline std::size_t id{0};
+};
+
+// The equations_t class must include a template method
 //
 //   template <class x_t, class y_t, class TL_t>
 //   TaskID Ax(TL_t &tl, TaskID depends_on, std::shared_ptr<MeshData<Real>> &md)
 //
 // that takes a field associated with x_t and applies
 // the matrix A to it and stores the result in y_t.
-template <class equations, class preconditioner_t = MGSolver<equations>>
-class CGSolver : public SolverBase {
-  using FieldTL = typename equations::IndependentVars;
+template <class equations_t, class preconditioner_t = MGSolver<equations_t>>
+class CGSolver : public SolverBase, CGSolverCounter {
+  using FieldTL = typename equations_t::IndependentVars;
 
-  std::vector<std::string> sol_fields;
-  // Name of user defined container that should contain information required to
-  // calculate the matrix part of the matrix vector product
-  std::string container_base;
-  // User defined container in which the solution will reside, only needs to contain
-  // sol_fields
-  // TODO(LFR): Also allow for an initial guess to come in here
-  std::string container_u;
-  // User defined container containing the rhs vector, only needs to contain sol_fields
-  std::string container_rhs;
   // Internal containers for solver which create deep copies of sol_fields
   std::string container_x, container_r, container_v, container_p;
-
-  static inline std::size_t id{0};
+  BValOnMDFunc_t BCFunc;
 
  public:
   CGSolver(const std::string &container_base, const std::string &container_u,
            const std::string &container_rhs, ParameterInput *pin,
-           const std::string &input_block, const equations &eq_in = equations())
-      : preconditioner(container_base, container_u, container_rhs, pin, input_block,
+           const std::string &input_block, const equations_t &eq_in = equations_t())
+      : SolverBase(container_base, container_u, container_rhs),
+        preconditioner(container_base, container_u, container_rhs, pin, input_block,
                        eq_in),
-        container_base(container_base), container_u(container_u),
-        container_rhs(container_rhs), params_(pin, input_block), iter_counter(0),
-        eqs_(eq_in) {
+        params_(pin, input_block), iter_counter(0), eqs_(eq_in) {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
     std::string solver_id = "cg" + std::to_string(id++);
@@ -96,6 +90,17 @@ class CGSolver : public SolverBase {
     container_r = solver_id + "_r";
     container_v = solver_id + "_v";
     container_p = solver_id + "_p";
+    if constexpr (has_SetBoundary<equations_t>::value) {
+      BCFunc = equations_t::SetBoundary;
+    } else {
+      BCFunc = ApplyBoundaryConditionsOnCoarseOrFineMD;
+    }
+  }
+
+  TaskID Ax(TaskList &tl, TaskID dependence, std::shared_ptr<MeshData<Real>> &md_mat,
+            std::shared_ptr<MeshData<Real>> &md_in,
+            std::shared_ptr<MeshData<Real>> &md_out) {
+    return eqs_.Ax(tl, dependence, md_mat, md_in, md_out);
   }
 
   TaskID AddSetupTasks(TaskList &tl, TaskID dependence, int partition, Mesh *pmesh) {
@@ -154,7 +159,7 @@ class CGSolver : public SolverBase {
                            : *res_tol;
             printf("# [0] v-cycle\n# [1] rms-residual (tol = %e) \n# [2] rms-error\n",
                    tol);
-            printf("0 %e\n", std::sqrt(solver->rhs2.val / pm->GetTotalCells()));
+            printf("\t0 %e\n", std::sqrt(solver->rhs2.val / pm->GetTotalCells()));
             return TaskStatus::complete;
           },
           this, params_.residual_tolerance, params_.relative_residual, pmesh);
@@ -199,8 +204,8 @@ class CGSolver : public SolverBase {
         this, md_u, md_p);
 
     // 4. v <- A p
-    auto comm =
-        AddBoundaryExchangeTasks<BoundaryType::any>(correct_p, itl, md_p, multilevel);
+    auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(correct_p, itl, md_p,
+                                                            multilevel, BCFunc);
     auto get_v = eqs_.Ax(itl, comm, md_base, md_p, md_v);
 
     // 5. alpha <- r dot u / p dot v (calculate denominator)
@@ -234,7 +239,7 @@ class CGSolver : public SolverBase {
         [&](CGSolver *solver, Mesh *pmesh) {
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           if (Globals::my_rank == 0 && solver->params_.print_per_step)
-            printf("\t%i %e\n", solver->iter_counter, rms_res);
+            printf("\t%i %e\n", solver->iter_counter + 1, rms_res);
           return TaskStatus::complete;
         },
         this, pmesh);
@@ -273,7 +278,7 @@ class CGSolver : public SolverBase {
   int iter_counter;
   AllReduce<Real> ru, pAp, residual, rhs2;
   Real ru_old;
-  equations eqs_;
+  equations_t eqs_;
 };
 
 } // namespace solvers

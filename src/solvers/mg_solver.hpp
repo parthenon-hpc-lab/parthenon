@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "bvals/comms/bvals_in_one.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
@@ -60,6 +61,9 @@ struct MGParams {
   }
 };
 
+struct MGSolverCounter {
+  static inline std::size_t id{0};
+};
 // The equations_t class must include a template method
 //
 //   template <class x_t, class y_t, class TL_t>
@@ -75,25 +79,13 @@ struct MGParams {
 // That stores the (possibly approximate) diagonal of matrix A in the field
 // associated with the type diag_t. This is used for Jacobi iteration.
 template <class equations_t, class prolongator_t = ProlongationBlockInteriorDefault>
-class MGSolver : public SolverBase {
-  static inline std::size_t id{0};
-
+class MGSolver : public SolverBase, MGSolverCounter {
  public:
   using FieldTL = typename equations_t::IndependentVars;
 
-  std::vector<std::string> sol_fields;
-
-  // Name of user defined container that should contain information required to
-  // calculate the matrix part of the matrix vector product
-  std::string container_base;
-  // User defined container in which the solution will reside, only needs to contain
-  // sol_fields
-  // TODO(LFR): Also allow for an initial guess to come in here
-  std::string container_u;
-  // User defined container containing the rhs vector, only needs to contain sol_fields
-  std::string container_rhs;
   // Internal containers for solver which create deep copies of sol_fields
   std::string container_res_err, container_temp, container_u0, container_diag;
+  BValOnMDFunc_t BCFunc;
 
   MGSolver(const std::string &container_base, const std::string &container_u,
            const std::string &container_rhs, ParameterInput *pin,
@@ -104,9 +96,8 @@ class MGSolver : public SolverBase {
   MGSolver(const std::string &container_base, const std::string &container_u,
            const std::string &container_rhs, MGParams params_in,
            equations_t eq_in = equations_t(), prolongator_t prol_in = prolongator_t())
-      : container_base(container_base), container_u(container_u),
-        container_rhs(container_rhs), params_(params_in), iter_counter(0), eqs_(eq_in),
-        prolongator_(prol_in) {
+      : SolverBase(container_base, container_u, container_rhs), params_(params_in),
+        iter_counter(0), eqs_(eq_in), prolongator_(prol_in) {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
     std::string solver_id = "mg" + std::to_string(id++);
@@ -114,6 +105,17 @@ class MGSolver : public SolverBase {
     container_temp = solver_id + "_temp";
     container_u0 = solver_id + "_u0";
     container_diag = solver_id + "_diag";
+    if constexpr (has_SetBoundary<equations_t>::value) {
+      BCFunc = equations_t::SetBoundary;
+    } else {
+      BCFunc = ApplyBoundaryConditionsOnCoarseOrFineMD;
+    }
+  }
+
+  TaskID Ax(TaskList &tl, TaskID dependence, std::shared_ptr<MeshData<Real>> &md_mat,
+            std::shared_ptr<MeshData<Real>> &md_in,
+            std::shared_ptr<MeshData<Real>> &md_out) {
+    return eqs_.Ax(tl, dependence, md_mat, md_in, md_out);
   }
 
   TaskID AddTasks(TaskList &tl, TaskID dependence, const int partition, Mesh *pmesh) {
@@ -140,7 +142,8 @@ class MGSolver : public SolverBase {
     auto &md_res_err = pmesh->mesh_data.Add(container_res_err, md, sol_fields);
     auto &md_rhs = pmesh->mesh_data.Add(container_rhs, md, sol_fields);
     auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(mg_finest, itl, md_u,
-                                                            pmesh->multilevel);
+                                                            pmesh->multilevel, BCFunc);
+
     auto calc_pointwise_res = eqs_.Ax(itl, comm, md, md_u, md_res_err);
     calc_pointwise_res =
         itl.AddTask(calc_pointwise_res, TF(AddFieldsAndStoreInteriorSelect<FieldTL>),
@@ -288,8 +291,8 @@ class MGSolver : public SolverBase {
     auto &md_rhs = pmesh->mesh_data.Add(container_rhs, partitions[partition], sol_fields);
     auto &md_diag = pmesh->mesh_data.Add(container_diag, md_base, sol_fields);
 
-    auto comm =
-        AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md_in, multilevel);
+    auto comm = AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md_in, multilevel,
+                                                        BCFunc);
     auto mat_mult = eqs_.Ax(tl, comm, md_base, md_in, md_out);
     return tl.AddTask(mat_mult, TF(&MGSolver::Jacobi), this, md_rhs, md_out, md_diag,
                       md_in, md_out, omega);
@@ -436,7 +439,7 @@ class MGSolver : public SolverBase {
         // calling Ax. That being said, at least in one case commenting this line out
         // didn't seem to impact the solution.
         set_from_finer = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
-            set_from_finer, tl, md_u, multilevel);
+            set_from_finer, tl, md_u, multilevel, BCFunc);
         set_from_finer =
             tl.AddTask(set_from_finer, BTF(CopyData<FieldTL, true>), md_u, md_u0);
         // This should set the rhs only in blocks that correspond to interior nodes, the
@@ -460,7 +463,7 @@ class MGSolver : public SolverBase {
     if (level > min_level) {
       // 3. Communicate same level boundaries so that u is up to date everywhere
       auto comm_u = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(pre_smooth, tl, md_u,
-                                                                     multilevel);
+                                                                     multilevel, BCFunc);
 
       // 4. Caclulate residual and store in communication field
       auto residual = eqs_.Ax(tl, comm_u, md, md_u, md_temp);
@@ -515,7 +518,7 @@ class MGSolver : public SolverBase {
       // This is required to make sure boundaries of res_err are up to date before
       // prolongation
       auto boundary = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
-          copy_over, tl, md_res_err, multilevel);
+          copy_over, tl, md_res_err, multilevel, BCFunc);
       last_task = tl.AddTask(
           boundary, BTF(SendBoundBufs<BoundaryType::gmg_prolongate_send>), md_res_err);
     }
