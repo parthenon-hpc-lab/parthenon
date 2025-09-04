@@ -509,10 +509,6 @@ class MGSolver : public SolverBase, MGSolverCounter {
       }
       // This is required to make sure boundaries of res_err are up to date before
       // prolongation
-      // TODO(LFR): Determine what to actually do here
-      auto set_bc = [](std::shared_ptr<MeshData<Real>> &md, bool coarse) {
-        return utils::ConstantBC<FieldTL>(md, coarse, 0.0);
-      };
       auto boundary = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
           copy_over, tl, md_res_err, multilevel, BCFunc);
       last_task = tl.AddTask(
