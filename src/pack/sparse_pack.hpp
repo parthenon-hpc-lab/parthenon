@@ -316,7 +316,7 @@ class SparsePack : public SparsePackBase {
   KOKKOS_INLINE_FUNCTION const Real operator()(const int b, const Tin &t, const int k,
                                                const int j, const int i,
                                                Args &&...args) const {
-    return evaluate_derived(typename Tin::dependent_vars(), b, t, k, j, i,
+    return evaluate_virtual(typename Tin::dependent_vars(), b, t, k, j, i,
                             std::forward<Args>(args)...);
   }
 
@@ -383,8 +383,8 @@ class SparsePack : public SparsePackBase {
 
  private:
   template <typename Tin, typename... Vs, typename... Args,
-            REQUIRES(variable_names::derived_variable_v<Tin, Args...>)>
-  KOKKOS_INLINE_FUNCTION const Real evaluate_derived(TypeList<Vs...>, const int b,
+            REQUIRES(variable_names::virtual_variable_v<Tin, Args...>)>
+  KOKKOS_INLINE_FUNCTION const Real evaluate_virtual(TypeList<Vs...>, const int b,
                                                      const Tin &t, const int k,
                                                      const int j, const int i,
                                                      Args &&...args) const {

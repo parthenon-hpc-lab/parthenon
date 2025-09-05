@@ -151,10 +151,10 @@ struct any_nonautoflux : public base_t<true> {
 using any = any_nonautoflux;
 
 template <typename, int... NCOMP>
-struct derived_variable_t;
+struct virtual_variable_t;
 
 template <template <typename...> typename TL, typename... Ts, int... NCOMP>
-struct derived_variable_t<TL<Ts...>, NCOMP...>
+struct virtual_variable_t<TL<Ts...>, NCOMP...>
     : public var_base_t<false, Real, NCOMP...> {
   using Base_t = var_base_t<false, Real, NCOMP...>;
   using dependent_vars = TypeList<Ts...>;
@@ -170,7 +170,7 @@ struct DependentVariable {
 template <typename T>
 constexpr bool dependent_variable_v = implements<DependentVariable(T)>::value;
 
-struct DerivedVariable {
+struct VirtualVariable {
   template <typename T>
   auto requires_(T &&x)
       -> void_t<ENABLEIF(std::is_member_function_pointer_v<decltype(&T::evaluate)>)>;
@@ -180,7 +180,7 @@ struct DerivedVariable {
 };
 
 template <typename T, typename... Args>
-constexpr bool derived_variable_v = implements<DerivedVariable(T)>::value;
+constexpr bool virtual_variable_v = implements<VirtualVariable(T)>::value;
 
 namespace impl {
 

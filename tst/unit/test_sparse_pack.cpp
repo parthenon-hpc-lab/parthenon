@@ -89,7 +89,7 @@ struct v7 : public parthenon::variable_names::base_t<false, ANYDIM, 3> {
 };
 
 struct d1
-    : public parthenon::variable_names::derived_variable_t<parthenon::TypeList<v1, v5>> {
+    : public parthenon::variable_names::virtual_variable_t<parthenon::TypeList<v1, v5>> {
   static std::string name() { return "d1"; }
 
   KOKKOS_INLINE_FUNCTION const Real evaluate(const Real &var1, const Real &var5,
@@ -451,13 +451,13 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
     auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::entire);
     auto kb = block_list[0]->cellbounds.GetBoundsK(IndexDomain::entire);
 
-    WHEN("We get a sparse pack for a derived variable dependent on "
+    WHEN("We get a sparse pack for a virtual variable dependent on "
          "our pair of fields.") {
       auto desc = parthenon::MakePackDescriptor<d1>(pkg.get());
       auto pack = desc.GetPack(&mesh_data);
 
       THEN("We can initialize the dependent fields with "
-           "the pack on the derived field") {
+           "the pack on the virtual field") {
         par_for(
             "initialize d1", 0, NBLOCKS - 1, kb, jb, ib,
             KOKKOS_LAMBDA(int b, int k, int j, int i) {
@@ -468,10 +468,10 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
             });
       }
 
-      THEN("We can correctly evaluate the derived field.") {
+      THEN("We can correctly evaluate the virtual field.") {
         int nwrong = 0;
         par_reduce(
-            "check derived", 0, NBLOCKS - 1, kb, jb, ib,
+            "check virtual", 0, NBLOCKS - 1, kb, jb, ib,
             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
               const Real x = 3.8;
               const Real answer = pack(b, v1(), k, j, i) * pack(b, v5(), k, j, i) + x;
