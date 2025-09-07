@@ -99,11 +99,13 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
     auto setup = psolver->AddSetupTasks(tl, zero_u, i, pmesh);
     auto solve = psolver->AddTasks(tl, setup, i, pmesh);
 
+    // Move the solution back so it is output
+    auto copy_back =
+        tl.AddTask(solve, TF(solvers::utils::CopyData<parthenon::TypeList<u>>), md_u, md);
+
     // If we are using a rhs to which we know the exact solution, compare our computed
     // solution to the exact solution
     if (use_exact_rhs) {
-      auto copy_back = tl.AddTask(
-          solve, TF(solvers::utils::CopyData<parthenon::TypeList<u>>), md_u, md);
       auto diff = tl.AddTask(
           copy_back, TF(solvers::utils::between_fields::AddFieldsAndStore<exact, u, u>),
           md, 1.0, -1.0);

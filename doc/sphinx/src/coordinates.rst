@@ -10,7 +10,10 @@ Alternatively, coordinate systems can be incorporated in the fluid
 equations such as is done
 in*\ `Phoebus <https://github.com/lanl/phoebus>`__\ *.*
 
-Coordinates are selected at compile time by passing the appropriate option to cmake.  The default coordinate system is ``UniformCartesian``.  To select an alternative, or just to explicitly select the default, pass `-DPARTHENON_COORDINATES=OPTION` where `OPTION` is one of `{UniformCartesian, UniformCylindrical, UniformSpherical}`.
+Coordinates are selected at compile time by passing the appropriate option to cmake.
+The default coordinate system is ``UniformCartesian``.  To select an alternative, or
+just to explicitly select the default, pass `-DPARTHENON_COORDINATES=OPTION` where
+`OPTION` is one of `{UniformCartesian, UniformCylindrical, UniformSpherical}`.
 
 Coordinate objects under the ``Coordinates_t`` type are created for each
 meshblock. Coordinate information such as positions of different
