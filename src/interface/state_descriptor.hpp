@@ -445,6 +445,10 @@ class StateDescriptor {
   std::function<void(SimTime const &simtime, MeshData<Real> *rc)>
       PostStepDiagnosticsMesh = nullptr;
 
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostInitializationMesh =
+      nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> PostInitializationBlock = nullptr;
+
   std::function<Real(MeshBlockData<Real> *rc)> EstimateTimestepBlock = nullptr;
   std::function<Real(MeshData<Real> *rc)> EstimateTimestepMesh = nullptr;
 

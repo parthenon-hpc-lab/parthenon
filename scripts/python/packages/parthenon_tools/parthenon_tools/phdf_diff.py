@@ -580,7 +580,7 @@ def compare(
         return ERROR_DATA_DIFFER
 
 
-if __name__ == "__main__":
+def main():
     addPath()
 
     # process arguments
@@ -615,3 +615,7 @@ if __name__ == "__main__":
         relative,
     )
     sys.exit(ret)
+
+
+if __name__ == "__main__":
+    main()

@@ -49,6 +49,10 @@ void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *md, const std::stri
                       const int &idx, ParArray1D<AmrTag> &amr_tags,
                       const Real refine_criteria_, const Real derefine_criteria_,
                       const int max_level_);
+void Magnitude(const AMRBounds &bnds, MeshData<Real> *md, const std::string &field,
+               const int &idx, ParArray1D<AmrTag> &amr_tags, const Real sign,
+               const Real refine_criteria_, const Real derefine_criteria_,
+               const int max_level_);
 
 } // namespace Refinement
 } // namespace parthenon
