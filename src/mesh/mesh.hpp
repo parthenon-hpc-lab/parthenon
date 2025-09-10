@@ -136,6 +136,7 @@ class Mesh {
 
   int step_since_lb;
   int gflag;
+  int task_collection_timeout_in_seconds;
 
   BlockList_t block_list;
   Packages_t packages;

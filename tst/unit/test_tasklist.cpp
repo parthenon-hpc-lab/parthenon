@@ -48,3 +48,14 @@ TEST_CASE("Task Object Lifecycle", "[TaskList][AddTask]") {
     REQUIRE(track_destruction.expired());
   }
 }
+
+TEST_CASE("TaskCollection timeout", "[TaskList][AddTask]") {
+  GIVEN("A TaskCollection") {
+    parthenon::TaskCollection tc;
+    parthenon::TaskRegion &region = tc.AddRegion(1);
+    region[0].AddTask(TaskID(0), []() { return TaskStatus::incomplete; });
+    const std::size_t timeout_in_seconds = 4;
+    parthenon::TaskListStatus status = tc.Execute(timeout_in_seconds);
+    REQUIRE(status == parthenon::TaskListStatus::fail);
+  }
+}

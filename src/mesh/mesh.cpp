@@ -78,6 +78,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                                      "enable a multigrid mesh")),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       resolved_packages(ResolvePackages(packages)),
+      task_collection_timeout_in_seconds(pin->GetOrAddInteger(
+          "parthenon/mesh", "task_collection_timeout_in_seconds", 60 * 5)),
       // private members:
       num_mesh_threads_(
           pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1,
@@ -653,70 +655,17 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
 void Mesh::CommunicateBoundaries(std::string md_name,
                                  const std::vector<std::string> &fields) {
   const int num_partitions = DefaultNumPartitions();
-  const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
-  constexpr std::int64_t max_it = 1e10;
-  std::vector<bool> sent(num_partitions, false);
-  bool all_sent;
-  std::int64_t send_iters = 0;
 
+  TaskCollection tc;
+  TaskRegion &region = tc.AddRegion(num_partitions);
   auto partitions = GetDefaultBlockPartitions();
-  do {
-    all_sent = true;
-    for (int i = 0; i < partitions.size(); ++i) {
-      auto &md = mesh_data.Add(md_name, partitions[i], fields);
-      if (!sent[i]) {
-        if (SendBoundaryBuffers(md) != TaskStatus::complete) {
-          all_sent = false;
-        } else {
-          sent[i] = true;
-        }
-      }
-    }
-    send_iters++;
-  } while (!all_sent && send_iters < max_it);
-  PARTHENON_REQUIRE(
-      send_iters < max_it,
-      "Too many iterations waiting to send boundary communication buffers.");
-
-  // wait to receive FillGhost variables
-  // TODO(someone) evaluate if ReceiveWithWait kind of logic is better, also related to
-  // https://github.com/lanl/parthenon/issues/418
-  std::vector<bool> received(num_partitions, false);
-  bool all_received;
-  std::int64_t receive_iters = 0;
-  do {
-    all_received = true;
-    for (int i = 0; i < partitions.size(); ++i) {
-      auto &md = mesh_data.Add(md_name, partitions[i], fields);
-      if (!received[i]) {
-        if (ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
-          all_received = false;
-        } else {
-          received[i] = true;
-        }
-      }
-    }
-    receive_iters++;
-  } while (!all_received && receive_iters < max_it);
-  PARTHENON_REQUIRE(
-      receive_iters < max_it,
-      "Too many iterations waiting to receive boundary communication buffers.");
-
-  for (auto &partition : partitions) {
-    auto &md = mesh_data.Add(md_name, partition, fields);
-    // unpack FillGhost variables
-    SetBoundaries(md);
+  for (int i = 0; i < num_partitions; i++) {
+    auto &md = mesh_data.Add(md_name, partitions[i], fields);
+    auto bound = AddBoundaryExchangeTasks(TaskID(0), region[i], md, multilevel);
   }
-
-  //  Now do prolongation, compute primitives, apply BCs
-  for (auto &partition : partitions) {
-    auto &md = mesh_data.Add(md_name, partition, fields);
-    if (multilevel) {
-      ApplyBoundaryConditionsOnCoarseOrFineMD(md, true);
-      ProlongateBoundaries(md);
-    }
-    ApplyBoundaryConditionsOnCoarseOrFineMD(md, false);
-  }
+  TaskListStatus status = tc.Execute(task_collection_timeout_in_seconds);
+  PARTHENON_REQUIRE(status == TaskListStatus::complete,
+                    "Boundary communication called internal by mesh failed.");
 }
 
 void Mesh::PreCommFillDerived() {
