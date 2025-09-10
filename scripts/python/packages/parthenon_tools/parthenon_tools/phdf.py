@@ -852,7 +852,7 @@ class phdf:
         )
 
 
-if __name__ == "__main__":
+def main():
     files = sys.argv[1:]
     for filename in files:
         ba = phdf(filename)
@@ -862,3 +862,7 @@ if __name__ == "__main__":
         l = ba.Get("c.c.bulk.bulk_modulus")
         print("mod=", l.shape)
         print(help(ba))
+
+
+if __name__ == "__main__":
+    main()

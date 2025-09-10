@@ -15,6 +15,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "defs.hpp"
 #include "mesh/domain.hpp"
@@ -55,6 +56,24 @@ struct AMRSecondDerivative : public AMRCriteria {
   AMRSecondDerivative(ParameterInput *pin, std::string &block_name)
       : AMRCriteria(pin, block_name) {}
   void operator()(MeshData<Real> *md, ParArray1D<AmrTag> &delta_level) const override;
+};
+
+struct AMRMagnitude : public AMRCriteria {
+  AMRMagnitude(ParameterInput *pin, std::string &block_name)
+      : AMRCriteria(pin, block_name) {
+    std::string comparator =
+        pin->GetOrAddString(block_name, "comparator", "greater_than",
+                            std::vector<std::string>{"greater_than", "less_than"},
+                            "greater_than implies large magnitudes trigger refinement. "
+                            "less_than implies small magnitudes trigger refinement.");
+    if (comparator == "greater_than") {
+      sign = 1.0;
+    } else { // if (comarator == "less_than") {
+      sign = -1.0;
+    }
+  }
+  void operator()(MeshData<Real> *md, ParArray1D<AmrTag> &delta_level) const override;
+  Real sign;
 };
 
 } // namespace parthenon

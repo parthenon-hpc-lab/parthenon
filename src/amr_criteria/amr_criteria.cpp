@@ -80,6 +80,7 @@ std::shared_ptr<AMRCriteria> AMRCriteria::MakeAMRCriteria(std::string &criteria,
     return std::make_shared<AMRFirstDerivative>(pin, block_name);
   if (criteria == "derivative_order_2")
     return std::make_shared<AMRSecondDerivative>(pin, block_name);
+  if (criteria == "magnitude") return std::make_shared<AMRMagnitude>(pin, block_name);
   throw std::invalid_argument("\n  Invalid selection for refinment method in " +
                               block_name + ": " + criteria);
 }
@@ -122,6 +123,25 @@ void AMRSecondDerivative::operator()(MeshData<Real> *md,
   const int idx = comp4 + n4 * (comp5 + n5 * comp6);
   Refinement::SecondDerivative(bnds, md, field, idx, amr_tags, refine_criteria,
                                derefine_criteria, max_level);
+}
+
+void AMRMagnitude::operator()(MeshData<Real> *md, ParArray1D<AmrTag> &amr_tags) const {
+  auto ib = md->GetBoundsI(IndexDomain::interior);
+  auto jb = md->GetBoundsJ(IndexDomain::interior);
+  auto kb = md->GetBoundsK(IndexDomain::interior);
+  auto bnds = AMRBounds(ib, jb, kb);
+  auto dims = md->GetMeshPointer()->resolved_packages->FieldMetadata(field).Shape();
+  int n5(0), n4(0);
+  if (dims.size() > 2) {
+    n5 = dims[1];
+    n4 = dims[2];
+  } else if (dims.size() > 1) {
+    n5 = dims[0];
+    n4 = dims[1];
+  }
+  const int idx = comp4 + n4 * (comp5 + n5 * comp6);
+  Refinement::Magnitude(bnds, md, field, idx, amr_tags, sign, refine_criteria,
+                        derefine_criteria, max_level);
 }
 
 } // namespace parthenon
