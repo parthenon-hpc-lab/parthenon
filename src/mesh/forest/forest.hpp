@@ -68,6 +68,8 @@ class ForestDefinition {
       PARTHENON_REQUIRE(periodic_connection,
                         "Must specify another edge for periodic boundary conditions.");
     bc_edges.emplace_back(ForestBC<Edge>{edge, bf, periodic_connection});
+    for (auto &pnode : edge.nodes)
+      pnode->on_physical_boundary = true;
   }
 
   void AddInitialRefinement(const LogicalLocation &loc) {

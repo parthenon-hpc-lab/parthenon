@@ -51,6 +51,9 @@ struct LogicalCoordinateTransformation {
   LogicalLocation InverseTransform(const LogicalLocation &loc_in,
                                    std::int64_t origin) const;
   CellCentOffsets Transform(CellCentOffsets in) const;
+  CellCentOffsets InverseTransform(CellCentOffsets in) const;
+  block_ownership_t Transform(const block_ownership_t &in) const;
+  block_ownership_t InverseTransform(const block_ownership_t &in) const;
 
   KOKKOS_INLINE_FUNCTION
   std::tuple<TopologicalElement, Real> Transform(TopologicalElement el) const {
@@ -112,9 +115,12 @@ struct NeighborLocation {
   NeighborLocation(const LogicalLocation &g, const LogicalLocation &o,
                    const LogicalCoordinateTransformation &lcoord_trans)
       : global_loc(g), origin_loc(o), lcoord_trans(lcoord_trans) {}
-  LogicalLocation global_loc; // Global location of neighboring block
-  LogicalLocation
-      origin_loc; // Logical location of neighboring block in index space of origin block
+  // Global location of neighboring block
+  LogicalLocation global_loc;
+  // Logical location of neighboring block in index space of origin block
+  LogicalLocation origin_loc;
+  // Coordinate transform to coords of neighbor tree from origin tree
+  // (i.e. global_loc = lcoord_trans.Transform(origin_loc))
   LogicalCoordinateTransformation lcoord_trans;
 };
 

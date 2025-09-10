@@ -34,6 +34,7 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
+#include "utils/cell_center_offsets.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/morton_number.hpp"
 
@@ -121,6 +122,10 @@ class LogicalLocation { // aggregate and POD type
   // is (0, 0, 0) and the upper right corner of the block is (1, 1, 1)
   std::array<int, 3> GetLocationInParent() const {
     return {(lx1() & 1LL) == 1LL, (lx2() & 1LL) == 1LL, (lx3() & 1LL) == 1LL};
+  }
+
+  bool IsOnTreeBoundary(CellCentOffsets offset) const {
+    return IsOnTreeBoundary(offset(X1DIR), offset(X2DIR), offset(X3DIR));
   }
 
   bool IsOnTreeBoundary(int ox1, int ox2, int ox3) const {

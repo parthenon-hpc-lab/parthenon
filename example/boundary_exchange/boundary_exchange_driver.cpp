@@ -34,24 +34,7 @@ using boundary_exchange::BoundaryExchangeDriver;
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
 
-int main(int argc, char *argv[]) {
-  ParthenonManager pman;
-
-  pman.app_input->ProcessPackages = ProcessPackages;
-
-  // This is called on each mesh block whenever the mesh changes.
-  // pman.app_input->InitMeshBlockUserData = &calculate_pi::SetInOrOutBlock;
-
-  auto manager_status = pman.ParthenonInitEnv(argc, argv);
-  if (manager_status == ParthenonStatus::complete) {
-    pman.ParthenonFinalize();
-    return 0;
-  }
-  if (manager_status == ParthenonStatus::error) {
-    pman.ParthenonFinalize();
-    return 1;
-  }
-
+parthenon::forest::ForestDefinition MakeFourTreeForestWithOneTreeRotated() {
   // Create the nodes for the forest, the x-y positions are only used for
   // visualizing the forest configuration and *do not* determine the global
   // coordinates of the trees.
@@ -95,7 +78,100 @@ int main(int argc, char *argv[]) {
   forest_def.AddBC(edge_t({n[7], n[8]}));
 
   forest_def.AddInitialRefinement(parthenon::LogicalLocation(0, 1, 0, 0, 0));
-  pman.ParthenonInitPackagesAndMesh(forest_def);
+
+  return forest_def;
+}
+
+parthenon::forest::ForestDefinition n_blocks(int nblocks) {
+  using namespace parthenon::forest;
+  std::unordered_map<uint64_t, std::shared_ptr<Node>> nodes;
+  ForestDefinition forest_def;
+  parthenon::Real xoffset = 0.1;
+  parthenon::Real yoffset = 0.1;
+
+  for (int point = 0; point < 2 * nblocks; ++point) {
+    nodes[point] = Node::create(point, {-std::sin(point * M_PI / nblocks) + xoffset,
+                                        -std::cos(point * M_PI / nblocks) + yoffset});
+  }
+
+  using edge_t = parthenon::forest::Edge;
+  for (int point = 0; point < 2 * nblocks; ++point) {
+    forest_def.AddBC(
+        edge_t({nodes[point % (2 * nblocks)], nodes[(point + 1) % (2 * nblocks)]}));
+  }
+
+  nodes[2 * nblocks] = Node::create(2 * nblocks, {xoffset, yoffset});
+  auto &n = nodes;
+  for (int t = 0; t < nblocks; ++t)
+    forest_def.AddFace(
+        t, {n[2 * t + 1], n[2 * t], n[(2 * t + 2) % (2 * nblocks)], n[2 * nblocks]});
+
+  int level = 1;
+  forest_def.AddInitialRefinement(
+      parthenon::LogicalLocation(0, level, (1 << level) - 1, (1 << level) - 1, 0));
+  forest_def.AddInitialRefinement(
+      parthenon::LogicalLocation(1, level, (1 << level) - 1, (1 << level) - 1, 0));
+  forest_def.AddInitialRefinement(
+      parthenon::LogicalLocation(2, level, (1 << level) - 1, (1 << level) - 1, 0));
+
+  return forest_def;
+}
+
+parthenon::forest::ForestDefinition cubed_circle(std::vector<double> radii) {
+  using namespace parthenon::forest;
+  std::vector<std::shared_ptr<Node>> nodes_x, nodes_y, nodes_c;
+  std::size_t node_idx{0};
+  std::shared_ptr<Node> origin = Node::create(node_idx++, {0.0, 0.0});
+  double fac = 1.0 / sqrt(2.0);
+  for (auto rad : radii) {
+    nodes_x.push_back(Node::create(node_idx++, {rad, 0.0}));
+    nodes_c.push_back(Node::create(node_idx++, {rad * fac, rad * fac}));
+    nodes_y.push_back(Node::create(node_idx++, {0.0, rad}));
+  }
+
+  ForestDefinition forest_def;
+  std::size_t face_idx{0};
+  forest_def.AddFace(face_idx++, {origin, nodes_x[0], nodes_y[0], nodes_c[0]});
+  forest_def.AddBC(Edge({origin, nodes_x[0]}));
+  forest_def.AddBC(Edge({origin, nodes_y[0]}));
+  for (int i = 0; i < nodes_x.size() - 1; ++i) {
+    forest_def.AddFace(face_idx++,
+                       {nodes_x[i], nodes_x[i + 1], nodes_c[i], nodes_c[i + 1]});
+    forest_def.AddFace(face_idx++,
+                       {nodes_c[i], nodes_c[i + 1], nodes_y[i], nodes_y[i + 1]});
+    forest_def.AddBC(Edge({nodes_x[i], nodes_x[i + 1]}));
+    forest_def.AddBC(Edge({nodes_y[i], nodes_y[i + 1]}));
+  }
+  forest_def.AddBC(Edge({nodes_x.back(), nodes_c.back()}));
+  forest_def.AddBC(Edge({nodes_c.back(), nodes_y.back()}));
+
+  int level = 2;
+  forest_def.AddInitialRefinement(
+      parthenon::LogicalLocation(1, level, 0, (1 << level) - 1, 0));
+
+  return forest_def;
+}
+
+int main(int argc, char *argv[]) {
+  ParthenonManager pman;
+
+  pman.app_input->ProcessPackages = ProcessPackages;
+
+  // This is called on each mesh block whenever the mesh changes.
+  // pman.app_input->InitMeshBlockUserData = &calculate_pi::SetInOrOutBlock;
+
+  auto manager_status = pman.ParthenonInitEnv(argc, argv);
+  if (manager_status == ParthenonStatus::complete) {
+    pman.ParthenonFinalize();
+    return 0;
+  }
+  if (manager_status == ParthenonStatus::error) {
+    pman.ParthenonFinalize();
+    return 1;
+  }
+
+  pman.ParthenonInitPackagesAndMesh(cubed_circle({1.0, 2.0, 3.0}));
+  // pman.ParthenonInitPackagesAndMesh(n_blocks(3));
 
   // This needs to be scoped so that the driver object is destructed before Finalize
   {
@@ -150,7 +226,14 @@ TaskCollection BoundaryExchangeDriver::MakeTaskCollection(T &blocks) {
       auto &md = pmesh->mesh_data.GetOrAdd("base", i);
       TaskID none(0);
       auto fill = tl.AddTask(none, SetBlockValues, md.get());
-      auto bound = AddBoundaryExchangeTasks(fill, tl, md, true);
+      auto set_coords = tl.AddTask(none, SetCoordinates, md.get());
+      auto bound = AddBoundaryExchangeTasks(
+          fill | set_coords, tl, md, true,
+          [](TaskID depend, TaskList *ptl, std::shared_ptr<MeshData<Real>> md,
+             bool coarse) {
+            return ptl->AddTask(depend, FixTrivalentNodes2D, md.get(), coarse);
+          });
+      // auto fix = tl.AddTask(bound, FixTrivalentNodes2D, md.get(), false);
     }
   }
 

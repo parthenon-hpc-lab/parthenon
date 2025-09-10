@@ -80,9 +80,12 @@ static TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
 }
 
 // Adds all relevant boundary communication to a single task list
+using bound_task_adder_t =
+    std::function<TaskID(TaskID, TaskList *, std::shared_ptr<MeshData<Real>>, bool)>;
 template <BoundaryType bounds = BoundaryType::any>
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
-                                std::shared_ptr<MeshData<Real>> &md, bool multilevel);
+                                std::shared_ptr<MeshData<Real>> &md, bool multilevel,
+                                bound_task_adder_t extra_bounds = bound_task_adder_t());
 
 // Adds all relevant flux correction tasks to a single task list
 TaskID AddFluxCorrectionTasks(TaskID dependency, TaskList &tl,

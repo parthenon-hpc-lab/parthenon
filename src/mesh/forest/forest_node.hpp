@@ -33,7 +33,8 @@ namespace forest {
 class Face;
 class Node {
  public:
-  Node(int id_in, std::array<Real, NDIM> pos) : id(id_in), x(pos), associated_faces{} {}
+  Node(int id_in, std::array<Real, NDIM> pos)
+      : id(id_in), x(pos), associated_faces{}, on_physical_boundary{false} {}
 
   static std::shared_ptr<Node> create(int id, std::array<Real, NDIM> pos) {
     return std::make_shared<Node>(id, pos);
@@ -43,6 +44,7 @@ class Node {
   std::array<Real, NDIM> x;
   std::unordered_set<std::weak_ptr<Face>, WeakPtrHash<Face>, WeakPtrEqual<Face>>
       associated_faces;
+  bool on_physical_boundary;
 };
 } // namespace forest
 } // namespace parthenon

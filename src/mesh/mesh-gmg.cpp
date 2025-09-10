@@ -76,13 +76,15 @@ void Mesh::SetMeshBlockNeighbors(
       all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, nloc.origin_loc,
                                  ranklist[lgid], gid, offsets, bid, tid, f[0], f[1]);
 
-      // Set neighbor block ownership
+      // Set neighbor block ownership (note that this is ownership in coordinates of the
+      // neighbor block)
       auto &nb = all_neighbors.back();
       auto neighbor_neighbors = forest.FindNeighbors(nloc.global_loc, grid_id);
-
       nb.ownership =
           DetermineOwnership(nloc.global_loc, neighbor_neighbors, newly_refined);
       nb.ownership.initialized = true;
+      nb.origin_ownership = nloc.lcoord_trans.InverseTransform(nb.ownership);
+      nb.origin_ownership.initialized = true;
 
       // Set logical coordinate transformation from this block to the neighbor
       nb.lcoord_trans = nloc.lcoord_trans;
