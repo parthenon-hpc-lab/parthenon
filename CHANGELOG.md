@@ -4,6 +4,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 1244]](https://github.com/parthenon-hpc-lab/parthenon/pull/1244) Add TaskCollection timeout capability
+- [[PR 1311]](https://github.com/parthenon-hpc-lab/parthenon/pull/1311) Magnitude refinement criteria, per-package PostInitialize function hooks, mergescv and prettyparams utilities
 - [[PR 1142]](https://github.com/parthenon-hpc-lab/parthenon/pull/1142) Unify par_dispatch, par_for_outer & par_for_inner overloads
 - [[PR 1255]](https://github.com/parthenon-hpc-lab/parthenon/pull/1255) RK34 low storage 3rd order 4 stage SSP integrator with CFL <= 2 from Spiteri & Ruuth 2002, SIAM Journal on Numerical Analysis, 40(2):469–491
 - [[PR 1283]](https://github.com/parthenon-hpc-lab/parthenon/pull/1283) Ability to automatically document ParameterInputs
@@ -11,6 +12,7 @@
 - [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Add dev container (e.g., GitHub Codepsacer or VSCode)
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1311]](https://github.com/parthenon-hpc-lab/parthenon/pull/1311) Refinement criteria no longer need to be a contiguous index range in the input deck
 - [[PR 1305]](https://github.com/parthenon-hpc-lab/parthenon/pull/1305) Minor tweaks and quality of life improvements to python package and some debugging output options
 - [[PR 1266]](https://github.com/parthenon-hpc-lab/parthenon/pull/1266) Remove `next_time`, which the code previously stashed in ParameterInput for outputs. Instead last time is stashed in a new Outputs package params. Changing output cadence upon restart now works as expected.
 - [[PR 1239]](https://github.com/parthenon-hpc-lab/parthenon/pull/1239) Automatically cache PackDescriptors in Mesh

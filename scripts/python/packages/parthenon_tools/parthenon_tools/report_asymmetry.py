@@ -41,7 +41,9 @@ parser.add_argument(
 )
 
 dset_type = h5py._hl.dataset.Dataset
-if __name__ == "__main__":
+
+
+def main():
     args = parser.parse_args()
     for fname in args.files:
         asym_fields = {}
@@ -85,3 +87,7 @@ if __name__ == "__main__":
                         k, absdiff, absval, frac_diff
                     )
                 )
+
+
+if __name__ == "__main__":
+    main()

@@ -167,14 +167,16 @@ class Mesh {
       return default_pack_size_ < 1 ? std::max(static_cast<int>(block_list.size()), 1)
                                     : default_pack_size_;
     } else {
-      return partition::partition_impl::IntCeil(block_list.size(), default_num_packs_);
+      return std::max(
+          1, partition::partition_impl::IntCeil(block_list.size(), default_num_packs_));
     }
   }
   int DefaultNumPartitions() {
     if (use_pack_size_) {
       return partition::partition_impl::IntCeil(block_list.size(), DefaultPackSize());
     } else {
-      return std::min(default_num_packs_, block_list.size());
+      return std::max(1,
+                      static_cast<int>(std::min(default_num_packs_, block_list.size())));
     }
   }
 
