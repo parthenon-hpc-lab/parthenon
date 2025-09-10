@@ -78,6 +78,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                                      "enable a multigrid mesh")),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       resolved_packages(ResolvePackages(packages)),
+      task_collection_timeout_in_seconds(pin->GetOrAddInteger(
+          "parthenon/mesh", "task_collection_timeout_in_seconds", 60 * 5)),
       // private members:
       num_mesh_threads_(
           pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1,
@@ -652,16 +654,18 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
 
 void Mesh::CommunicateBoundaries(std::string md_name,
                                  const std::vector<std::string> &fields) {
-  TaskCollection tc;
-  TaskID none(0);
+  const int num_partitions = DefaultNumPartitions();
 
+  TaskCollection tc;
+  TaskRegion &region = tc.AddRegion(num_partitions);
   auto partitions = GetDefaultBlockPartitions();
-  TaskRegion &region = tc.AddRegion(partitions.size());
-  for (int i = 0; i < partitions.size(); i++) {
+  for (int i = 0; i < num_partitions; i++) {
     auto &md = mesh_data.Add(md_name, partitions[i], fields);
-    AddBoundaryExchangeTasks(none, region[i], md, multilevel);
+    auto bound = AddBoundaryExchangeTasks(TaskID(0), region[i], md, multilevel);
   }
-  tc.Execute();
+  TaskListStatus status = tc.Execute(task_collection_timeout_in_seconds);
+  PARTHENON_REQUIRE(status == TaskListStatus::complete,
+                    "Boundary communication called internal by mesh failed.");
 }
 
 void Mesh::PreCommFillDerived() {
