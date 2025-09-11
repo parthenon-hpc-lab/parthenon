@@ -19,6 +19,8 @@
 #include <utility>
 #include <vector>
 
+#include <Kokkos_Core.hpp>
+
 #include "basic_types.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
@@ -150,15 +152,26 @@ struct any_nonautoflux : public base_t<true> {
 };
 using any = any_nonautoflux;
 
-template <typename, int... NCOMP>
-struct virtual_variable_t;
+namespace impl {
+// wrapper struct to get a type that refers to a particular
+// tuv index of another type-based var
+template <typename T, TopologicalElement te, int... tuv>
+struct TUV_t {
+  using var_type = T;
+  static constexpr TopologicalElement TE = te;
 
-template <template <typename...> typename TL, typename... Ts, int... NCOMP>
-struct virtual_variable_t<TL<Ts...>, NCOMP...>
-    : public var_base_t<false, Real, NCOMP...> {
-  using Base_t = var_base_t<false, Real, NCOMP...>;
-  using dependent_vars = TypeList<Ts...>;
+  KOKKOS_INLINE_FUNCTION static T get() { return T(tuv...); }
 };
+} // namespace impl
+
+template <typename, auto...>
+struct TUV_t {};
+
+template <typename T, int... tuv>
+struct TUV_t<T, tuv...> : impl::TUV_t<T, TopologicalElement::CC, tuv...> {};
+
+template <typename T, TopologicalElement te, int... tuv>
+struct TUV_t<T, te, tuv...> : impl::TUV_t<T, te, tuv...> {};
 
 // Concept to state that a typed-field is dependent on other
 // fields, and is not itself an actual indexable field.
@@ -172,22 +185,59 @@ constexpr bool dependent_variable_v = implements<DependentVariable(T)>::value;
 
 struct VirtualVariable {
   template <typename T>
-  auto requires_(T &&x)
+  auto requires_(T)
       -> void_t<ENABLEIF(std::is_member_function_pointer_v<decltype(&T::evaluate)>)>;
-
-  template <typename T>
-  const Real process_real(T);
 };
 
-template <typename T, typename... Args>
+template <typename T>
 constexpr bool virtual_variable_v = implements<VirtualVariable(T)>::value;
+
+// concept for types that wrap the constructor of a type var
+struct WrapVariable {
+  template <typename T>
+  auto requires_(T) -> void_t<typename T::var_type, decltype(T::get()), decltype(T::TE)>;
+};
+
+template <typename T>
+constexpr bool wrap_variable_v = implements<WrapVariable(T)>::value;
+
+template <typename, int... NCOMP>
+struct virtual_variable_t;
+
+template <template <typename...> typename TL, typename... Ts, int... NCOMP>
+struct virtual_variable_t<TL<Ts...>, NCOMP...>
+    : public var_base_t<false, Real, NCOMP...> {
+  using Base_t = var_base_t<false, Real, NCOMP...>;
+  using dependent_vars = TypeList<Ts...>;
+
+  template <typename T>
+  KOKKOS_INLINE_FUNCTION static auto get(T) {
+    if constexpr (wrap_variable_v<T>) {
+      return T::get();
+    } else {
+      return T();
+    }
+  }
+
+  template <typename T>
+  KOKKOS_INLINE_FUNCTION static TopologicalElement TE(T) {
+    if constexpr (wrap_variable_v<T>) {
+      return T::TE;
+    }
+    return TopologicalElement::CC;
+  }
+};
 
 namespace impl {
 
 struct AllDependentVariables {
   template <typename T, REQUIRES(!dependent_variable_v<T>)>
   static auto get(T) {
-    return TypeList<T>();
+    if constexpr (wrap_variable_v<T>) {
+      return TypeList<typename T::var_type>();
+    } else {
+      return TypeList<T>();
+    }
   }
 
   template <template <typename...> typename TL, typename... Ts>
