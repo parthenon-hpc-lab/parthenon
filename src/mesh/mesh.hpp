@@ -137,6 +137,7 @@ class Mesh {
 
   int step_since_lb;
   int gflag;
+  int task_collection_timeout_in_seconds;
 
   const bool do_coalesced_comms;
 
