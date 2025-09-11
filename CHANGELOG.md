@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1314]](https://github.com/parthenon-hpc-lab/parthenon/pull/1314) Add option of user specified BCs in AddBoundaryExchangeTasks
 - [[PR 1244]](https://github.com/parthenon-hpc-lab/parthenon/pull/1244) Add TaskCollection timeout capability
 - [[PR 1311]](https://github.com/parthenon-hpc-lab/parthenon/pull/1311) Magnitude refinement criteria, per-package PostInitialize function hooks, mergescv and prettyparams utilities
 - [[PR 1142]](https://github.com/parthenon-hpc-lab/parthenon/pull/1142) Unify par_dispatch, par_for_outer & par_for_inner overloads

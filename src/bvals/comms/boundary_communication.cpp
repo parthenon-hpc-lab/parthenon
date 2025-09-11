@@ -168,6 +168,8 @@ template TaskStatus
 SendBoundBufs<BoundaryType::gmg_prolongate_send>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 SendBoundBufs<BoundaryType::flxcor_send>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+SendBoundBufs<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -196,6 +198,8 @@ template TaskStatus StartReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>(
     std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 StartReceiveBoundBufs<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+StartReceiveBoundBufs<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -246,6 +250,8 @@ template TaskStatus
 ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ReceiveBoundBufs<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ReceiveBoundBufs<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
@@ -356,6 +362,7 @@ template TaskStatus
 SetBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 SetBounds<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus SetBounds<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
@@ -400,56 +407,55 @@ template TaskStatus
 ProlongateBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ProlongateBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ProlongateBounds<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
 
-// Adds all relevant boundary communication to a single task list
-template <BoundaryType bounds>
-TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
-                                std::shared_ptr<MeshData<Real>> &md, bool multilevel) {
-  // TODO(LFR): Splitting up the boundary tasks while doing prolongation can cause some
-  //            possible issues for sparse fields. In particular, the order in which
-  //            fields are allocated and then set could potentially result in different
-  //            results if the default sparse value is non-zero.
-  // const auto any = BoundaryType::any;
-  static_assert(bounds == BoundaryType::any || bounds == BoundaryType::gmg_same);
-  // const auto local = BoundaryType::local;
-  // const auto nonlocal = BoundaryType::nonlocal;
+template <BoundaryType bound_type>
+TaskStatus ProlongateInternalBounds(std::shared_ptr<MeshData<Real>> &md) {
+  PARTHENON_INSTRUMENT
 
-  // auto send = tl.AddTask(dependency, SendBoundBufs<nonlocal>, md);
-  // auto send_local = tl.AddTask(dependency, SendBoundBufs<local>, md);
+  Mesh *pmesh = md->GetMeshPointer();
+  auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
 
-  // auto recv_local = tl.AddTask(dependency, ReceiveBoundBufs<local>, md);
-  // auto set_local = tl.AddTask(recv_local, SetBounds<local>, md);
+  auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);
 
-  // auto recv = tl.AddTask(dependency, ReceiveBoundBufs<nonlocal>, md);
-  // auto set = tl.AddTask(recv, SetBounds<nonlocal>, md);
-
-  // auto cbound = tl.AddTask(set, ApplyCoarseBoundaryConditions, md);
-
-  // auto pro_local = tl.AddTask(cbound | set_local | set, ProlongateBounds<local>, md);
-  // auto pro = tl.AddTask(cbound | set_local | set, ProlongateBounds<nonlocal>, md);
-
-  // auto out = (pro_local | pro);
-
-  auto send = tl.AddTask(dependency, TF(SendBoundBufs<bounds>), md);
-  auto recv = tl.AddTask(dependency, TF(ReceiveBoundBufs<bounds>), md);
-  auto set = tl.AddTask(recv, TF(SetBounds<bounds>), md);
-
-  auto pro = set;
-  if (md->GetMeshPointer()->multilevel) {
-    auto cbound = tl.AddTask(set, TF(ApplyBoundaryConditionsOnCoarseOrFineMD), md, true);
-    pro = tl.AddTask(cbound, TF(ProlongateBounds<bounds>), md);
+  if (rebuild) {
+    if constexpr (bound_type == BoundaryType::gmg_prolongate_recv) {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetInteriorProlongate);
+    } else if constexpr (bound_type == BoundaryType::gmg_restrict_recv) {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetNull);
+    } else {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetSet);
+    }
   }
-  auto fbound = tl.AddTask(pro, TF(ApplyBoundaryConditionsOnCoarseOrFineMD), md, false);
 
-  return fbound;
+  if (nbound > 0 && pmesh->multilevel && md->NumBlocks() > 0) {
+    auto pmb = md->GetBlockData(0)->GetBlockPointer();
+    StateDescriptor *resolved_packages = pmb->resolved_packages.get();
+
+    // Prolongate from coarse buffer
+    refinement::ProlongateInternal(resolved_packages, cache.prores_cache, pmb->cellbounds,
+                                   pmb->c_cellbounds);
+  }
+  return TaskStatus::complete;
 }
-template TaskID
-AddBoundaryExchangeTasks<BoundaryType::any>(TaskID, TaskList &,
-                                            std::shared_ptr<MeshData<Real>> &, bool);
+template TaskStatus
+ProlongateInternalBounds<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ProlongateInternalBounds<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ProlongateInternalBounds<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus ProlongateInternalBounds<BoundaryType::gmg_prolongate_recv>(
+    std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ProlongateInternalBounds<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
 
-template TaskID
-AddBoundaryExchangeTasks<BoundaryType::gmg_same>(TaskID, TaskList &,
-                                                 std::shared_ptr<MeshData<Real>> &, bool);
+bool IsMeshMultilevel(std::shared_ptr<MeshData<Real>> &md) {
+  return md->GetMeshPointer()->multilevel;
+}
 
 TaskID AddFluxCorrectionTasks(TaskID dependency, TaskList &tl,
                               std::shared_ptr<MeshData<Real>> &md, bool multilevel) {
