@@ -3,6 +3,9 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1314]](https://github.com/parthenon-hpc-lab/parthenon/pull/1314) Add option of user specified BCs in AddBoundaryExchangeTasks
+- [[PR 1244]](https://github.com/parthenon-hpc-lab/parthenon/pull/1244) Add TaskCollection timeout capability
+- [[PR 1311]](https://github.com/parthenon-hpc-lab/parthenon/pull/1311) Magnitude refinement criteria, per-package PostInitialize function hooks, mergescv and prettyparams utilities
 - [[PR 1142]](https://github.com/parthenon-hpc-lab/parthenon/pull/1142) Unify par_dispatch, par_for_outer & par_for_inner overloads
 - [[PR 1255]](https://github.com/parthenon-hpc-lab/parthenon/pull/1255) RK34 low storage 3rd order 4 stage SSP integrator with CFL <= 2 from Spiteri & Ruuth 2002, SIAM Journal on Numerical Analysis, 40(2):469–491
 - [[PR 1283]](https://github.com/parthenon-hpc-lab/parthenon/pull/1283) Ability to automatically document ParameterInputs
@@ -10,6 +13,7 @@
 - [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Add dev container (e.g., GitHub Codepsacer or VSCode)
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1311]](https://github.com/parthenon-hpc-lab/parthenon/pull/1311) Refinement criteria no longer need to be a contiguous index range in the input deck
 - [[PR 1305]](https://github.com/parthenon-hpc-lab/parthenon/pull/1305) Minor tweaks and quality of life improvements to python package and some debugging output options
 - [[PR 1266]](https://github.com/parthenon-hpc-lab/parthenon/pull/1266) Remove `next_time`, which the code previously stashed in ParameterInput for outputs. Instead last time is stashed in a new Outputs package params. Changing output cadence upon restart now works as expected.
 - [[PR 1239]](https://github.com/parthenon-hpc-lab/parthenon/pull/1239) Automatically cache PackDescriptors in Mesh
@@ -18,6 +22,8 @@
 - [[PR 1280]](https://github.com/parthenon-hpc-lab/parthenon/pull/1280) Print history file headers on restart
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1288]](https://github.com/parthenon-hpc-lab/parthenon/pull/1288) Fix restriction bug for non-cartesian coordinates and make poisson_gmg example work for curvilinear coordinates
+- [[PR 1307]](https://github.com/parthenon-hpc-lab/parthenon/pull/1307) Fix imports in parthenon tools + phdf_diff logic
 - [[PR 1310]](https://github.com/parthenon-hpc-lab/parthenon/pull/1310) Fix logic causing issues for restarts with varying output blocks (introduced in #1266)
 - [[PR 1297]](https://github.com/parthenon-hpc-lab/parthenon/pull/1297) Backward compatibility fixes (`last_/next_` output package, restart with new `Restart` vars, `is_restart`)
 - [[PR 1303]](https://github.com/parthenon-hpc-lab/parthenon/pull/1303) Guard against block_list access when nmb==0
@@ -32,6 +38,7 @@
 - [[PR 1284]](https://github.com/parthenon-hpc-lab/parthenon/pull/1284) Fix some parameter types, move `DumpInputParameters` to `Driver`
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1292]](https://github.com/parthenon-hpc-lab/parthenon/pull/1292_ Remove shared ptr cycle and add a destructor for reductions
 - [[PR 1281]](https://github.com/parthenon-hpc-lab/parthenon/pull/1281) Move params implementation to std::any
 - [[PR 1268]](https://github.com/parthenon-hpc-lab/parthenon/pull/1268) Adds build information to phdf output
 - [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Update CI container to Cuda 12.8

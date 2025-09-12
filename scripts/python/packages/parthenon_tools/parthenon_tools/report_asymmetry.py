@@ -19,7 +19,11 @@ from argparse import ArgumentParser
 import os, re
 
 import h5py
-from compute_asymmetry import compute_asymmetry
+
+try:
+    from compute_asymmetry import compute_asymmetry
+except ModuleNotFoundError:
+    from parthenon_tools.compute_asymmetry import compute_asymmetry
 
 parser = ArgumentParser(
     prog="report_asymmetry.py",
@@ -37,7 +41,9 @@ parser.add_argument(
 )
 
 dset_type = h5py._hl.dataset.Dataset
-if __name__ == "__main__":
+
+
+def main():
     args = parser.parse_args()
     for fname in args.files:
         asym_fields = {}
@@ -81,3 +87,7 @@ if __name__ == "__main__":
                         k, absdiff, absval, frac_diff
                     )
                 )
+
+
+if __name__ == "__main__":
+    main()

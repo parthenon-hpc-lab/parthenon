@@ -14,6 +14,7 @@
 #ifndef TASKS_THREAD_POOL_HPP_
 #define TASKS_THREAD_POOL_HPP_
 
+#include <chrono>
 #include <condition_variable>
 #include <functional>
 #include <future>
@@ -66,17 +67,22 @@ class ThreadQueue {
     complete = true;
     cv.notify_all();
   }
-  void wait_for_complete() {
-    std::unique_lock<std::mutex> lock(mutex);
-    waiting = true;
-    if (queue.empty() && nwaiting == nworkers) {
+  bool wait_for_complete(std::chrono::seconds max_time) {
+    bool timeout{false};
+    {
+      std::unique_lock<std::mutex> lock(mutex);
+      waiting = true;
+      if (queue.empty() && nwaiting == nworkers) {
+        complete = false;
+        waiting = false;
+        return timeout;
+      }
+      timeout = !complete_cv.wait_for(lock, max_time, [this]() { return complete; });
       complete = false;
       waiting = false;
-      return;
     }
-    complete_cv.wait(lock, [this]() { return complete; });
-    complete = false;
-    waiting = false;
+    if (timeout) signal_kill();
+    return timeout;
   }
 
  private:
@@ -124,8 +130,9 @@ class ThreadVector {
 
 class ThreadPool {
  public:
-  explicit ThreadPool(const int numthreads = std::thread::hardware_concurrency())
-      : nthreads(numthreads), queue(nthreads) {
+  explicit ThreadPool(const std::size_t timeout_in_seconds,
+                      const int numthreads = std::thread::hardware_concurrency())
+      : nthreads(numthreads), queue(nthreads), timeout_duration(timeout_in_seconds) {
     for (int i = 0; i < nthreads; i++) {
       auto worker = [&]() {
         while (true) {
@@ -145,8 +152,6 @@ class ThreadPool {
     }
   }
 
-  void wait() { queue.wait_for_complete(); }
-
   void kill() { queue.signal_kill(); }
 
   template <typename F, class... Args>
@@ -164,8 +169,8 @@ class ThreadPool {
   // Mostly this exists to throw any exceptions,
   // but we can check returns too.
   // Would need changes for >1 failure mode
-  TaskStatus check_task_returns() {
-    queue.wait_for_complete();
+  TaskStatus wait() {
+    const bool timeout = queue.wait_for_complete(timeout_duration);
     TaskStatus overall = TaskStatus::complete;
     for (auto &task : run_tasks) {
       TaskStatus task_return = task->get_future().get();
@@ -173,7 +178,7 @@ class ThreadPool {
     }
     run_tasks.clear();
 
-    return overall;
+    return timeout ? TaskStatus::fail : overall;
   }
 
  private:
@@ -181,12 +186,15 @@ class ThreadPool {
   std::vector<std::thread> threads;
   ThreadQueue<std::function<void()>> queue;
   ThreadVector<std::shared_ptr<std::packaged_task<TaskStatus()>>> run_tasks;
+  std::chrono::seconds timeout_duration;
 };
 
 template <typename return_t = TaskStatus>
 class SerialPool {
  public:
-  explicit SerialPool([[maybe_unused]] const int numthreads = 1) {}
+  explicit SerialPool(const std::size_t timeout_in_seconds,
+                      [[maybe_unused]] const int numthreads = 1)
+      : timeout_duration(timeout_in_seconds) {}
 
   template <typename F, class... Args>
   void enqueue(F &&f, Args &&...args) {
@@ -197,10 +205,18 @@ class SerialPool {
   }
 
   int size() const { return 1; }
-  void wait() {}
 
-  TaskStatus check_task_returns() {
+  TaskStatus wait() {
     TaskStatus overall = TaskStatus::complete;
+
+    const auto start_time = std::chrono::high_resolution_clock::now();
+    auto timeout_check = [start_time, timeout_duration = timeout_duration]() {
+      const auto end_time = std::chrono::high_resolution_clock::now();
+      const auto duration =
+          std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time);
+      return duration >= timeout_duration;
+    };
+
     while (!queue.empty()) {
       auto f = queue.front();
       auto ret = f();
@@ -208,12 +224,14 @@ class SerialPool {
         if (ret == TaskStatus::fail) overall = TaskStatus::fail;
       }
       queue.pop();
+      if (timeout_check()) return TaskStatus::fail;
     }
     return overall;
   }
 
  private:
   std::queue<std::function<return_t()>> queue;
+  std::chrono::seconds timeout_duration;
 };
 
 #ifdef PARTHENON_USE_SERIAL_POOL

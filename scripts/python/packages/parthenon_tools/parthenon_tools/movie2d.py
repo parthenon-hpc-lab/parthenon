@@ -18,7 +18,11 @@ import re
 import os
 import logging
 import numpy as np
-from phdf import phdf
+
+try:
+    from phdf import phdf
+except ModuleNotFoundError:
+    from parthenon_tools.phdf import phdf
 
 from argparse import ArgumentParser
 from pathlib import Path
@@ -33,6 +37,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.colors import is_color_like
+from matplotlib.colors import LogNorm
 
 
 def maybe_float(string):
@@ -68,6 +73,9 @@ parser.add_argument(
 )
 parser.add_argument(
     "--colorbar", type=str, default=None, help="Add a colorbar with the specified label"
+)
+parser.add_argument(
+    "--logcolor", action="store_true", help="Colorbar is on a log scale"
 )
 parser.add_argument("--colormap", type=str, default="plasma", help="Colormap to use")
 parser.add_argument(
@@ -179,6 +187,7 @@ parser.add_argument(
     nargs=2,
     default=None,
 )
+parser.add_argument("--xlabel", type=str, help="Label for x axis", default=None)
 parser.add_argument(
     "--ylim",
     type=float,
@@ -186,6 +195,7 @@ parser.add_argument(
     nargs=2,
     default=None,
 )
+parser.add_argument("--ylabel", type=str, help="Label for y axis", default=None)
 parser.add_argument("field", type=str, help="field to plot")
 parser.add_argument("files", type=str, nargs="+", help="files to plot")
 
@@ -221,6 +231,7 @@ def plot_dump(
     time_title,
     output_file: Path,
     colormap="viridis",
+    logcolor=False,
     colorbar=None,
     colorbounds=None,
     symmetrize_colors=False,
@@ -236,7 +247,9 @@ def plot_dump(
     swarmcolor=None,
     particlesize=None,
     xlim=None,
+    xlabel=None,
     ylim=None,
+    ylabel=None,
 ):
     if xe is None:
         xe = xf
@@ -265,10 +278,13 @@ def plot_dump(
     # move to 2d
     q = q[..., 0, :, :]
 
-    fig = plt.figure()
-    p = fig.add_subplot(111, aspect=1)
+    fig, p = plt.subplots()
+    p.set_aspect(1)
     if time_title is not None:
         p.set_title(f"t = {time_title}")
+
+    if logcolor:
+        q = np.abs(q)
 
     qm = np.ma.masked_where(np.isnan(q), q)
     qmin = qm.min()
@@ -287,13 +303,26 @@ def plot_dump(
         qmin = min(qmin, -qmax)
         qmax = max(qmax, -qmin)
 
+    if logcolor:
+        if qmin <= 0 or qmax <= 0 or qmax < qmin:
+            raise ValueError("Log plot must have strictly positive bounds")
+
     n_blocks = q.shape[0]
     for i in range(n_blocks):
         # Plot the actual data, should work if parthenon/output*/ghost_zones = true/false
         # but obviously no ghost data will be shown if ghost_zones = false
-        pm = p.pcolormesh(
-            xf[i, :], yf[i, :], q[i, :, :], cmap=colormap, vmin=qmin, vmax=qmax
-        )
+        if logcolor:
+            pm = p.pcolormesh(
+                xf[i, :],
+                yf[i, :],
+                q[i, :, :],
+                cmap=colormap,
+                norm=LogNorm(vmin=qmin, vmax=qmax),
+            )
+        else:
+            pm = p.pcolormesh(
+                xf[i, :], yf[i, :], q[i, :, :], cmap=colormap, vmin=qmin, vmax=qmax
+            )
 
         # Print the block gid in the center of the block
         if len(block_ids) > 0:
@@ -340,13 +369,17 @@ def plot_dump(
         p.scatter(swarmx, swarmy, s=particlesize, c=swarmcolor)
     if colorbar is not None:
         plt.colorbar(pm, label=colorbar, fraction=0.02, pad=0.04, ax=p)
+    if xlabel is not None:
+        p.set_xlabel(xlabel)
+    if ylabel is not None:
+        p.set_ylabel(ylabel)
 
-    fig.savefig(output_file, dpi=300)
+    fig.savefig(output_file, dpi=300, bbox_inches="tight")
     plt.close(fig=fig)
     logger.debug(f"Saved {time_title}s time-step to {output_file}")
 
 
-if __name__ == "__main__":
+def main():
     ERROR_FLAG = False
     args = parser.parse_args()
     logger.setLevel(args.log_level)
@@ -442,7 +475,7 @@ if __name__ == "__main__":
             output_file = args.output_directory / name
 
             # NOTE: After doing 5 test on different precision, keeping 2 looks more promising
-            current_time = format(round(data.Time, 2), ".2f")
+            current_time = format(data.Time, ".2e")
             if args.debug_plot:
                 futures.append(
                     pool.submit(
@@ -453,6 +486,7 @@ if __name__ == "__main__":
                         current_time,
                         output_file,
                         args.colormap,
+                        args.logcolor,
                         args.colorbar,
                         args.colorbounds,
                         args.symmetrizecolors,
@@ -468,7 +502,9 @@ if __name__ == "__main__":
                         swarmcolor,
                         particlesize,
                         args.xlim,
+                        args.xlabel,
                         args.ylim,
+                        args.ylabel,
                     )
                 )
             else:
@@ -481,6 +517,7 @@ if __name__ == "__main__":
                         current_time,
                         output_file,
                         args.colormap,
+                        args.logcolor,
                         args.colorbar,
                         args.colorbounds,
                         args.symmetrizecolors,
@@ -491,7 +528,9 @@ if __name__ == "__main__":
                         swarmcolor=swarmcolor,
                         particlesize=particlesize,
                         xlim=args.xlim,
+                        xlabel=args.xlabel,
                         ylim=args.ylim,
+                        ylabel=args.ylabel,
                     )
                 )
         wait(futures, return_when=ALL_COMPLETED)
@@ -520,3 +559,7 @@ if __name__ == "__main__":
             logger.debug(f"Executing ffmpeg command: {ffmpeg_cmd}")
             os.system(ffmpeg_cmd)
             logger.info(f"Movie saved to {output_filename}")
+
+
+if __name__ == "__main__":
+    main()

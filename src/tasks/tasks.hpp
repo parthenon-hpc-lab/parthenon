@@ -493,8 +493,8 @@ class TaskCollection {
     regions.emplace_back(num_lists);
     return regions.back();
   }
-  TaskListStatus Execute() {
-    static Pool_t pool(1);
+  TaskListStatus Execute(std::size_t timeout_in_seconds = 60 * 5) {
+    static Pool_t pool(timeout_in_seconds, 1);
     return Execute(pool);
   }
   TaskListStatus Execute(Pool_t &pool) {
