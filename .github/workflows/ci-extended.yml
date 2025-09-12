@@ -34,7 +34,7 @@ jobs:
         parallel: ['serial', 'mpi']
     runs-on: [self-hosted, A100]
     container:
-      image: ghcr.io/parthenon-hpc-lab/cuda12.8-mpi-hdf5-ascent
+      image: ghcr.io/parthenon-hpc-lab/cuda12.8-mpi-hdf5-opmd
       # map to local user id on CI  machine to allow writing to build cache
       options: --user 1001 --cap-add CAP_SYS_PTRACE --shm-size="8g" --ulimit memlock=134217728
     steps:
