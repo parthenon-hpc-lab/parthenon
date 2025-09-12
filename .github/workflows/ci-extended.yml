@@ -94,7 +94,9 @@ jobs:
 
       # Test Ascent integration (only most complex setup with MPI and on device)
       - name: Ascent tests
-        if: ${{ matrix.parallel == 'mpi' && matrix.device == 'cuda' }}
+        #if: ${{ matrix.parallel == 'mpi' && matrix.device == 'cuda' }}
+        # disable until build works again, see https://github.com/Alpine-DAV/ascent/issues/1614
+        if: false
         run: |
           cmake -B build-ascent \
             -DCMAKE_BUILD_TYPE=Release \
@@ -123,7 +125,7 @@ jobs:
             build/CMakeFiles/CMakeOutput.log
             build/tst/regression/outputs/advection_convergence*/advection-errors.dat
             build/tst/regression/outputs/advection_convergence*/advection-errors.png
-            example/advection/ascent_render_57.png
+            #            example/advection/ascent_render_57.png
           retention-days: 3
 
   perf-and-regression-amdgpu:
