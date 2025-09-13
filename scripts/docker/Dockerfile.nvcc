@@ -105,6 +105,9 @@ RUN ln -s /opt/venv/bin/esbonio /usr/bin/esbonio
 RUN groupadd -g 109 render
 RUN useradd --create-home --shell /bin/bash -G render,sudo ci
 
+# make venv user owned so that pip install works
+RUN chown -R ci /opt/venv
+
 USER ci
 
 WORKDIR /home/ci
