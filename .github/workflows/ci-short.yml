@@ -88,7 +88,7 @@ jobs:
           submodules: 'true'
       - name: Install parthenon_tools
         run: |
-          pip install --user --break-system-packages scripts/python/packages/parthenon_tools
+          pip install scripts/python/packages/parthenon_tools
       - name: Configure
         run: |
           cmake -B build \
@@ -157,7 +157,7 @@ jobs:
           submodules: 'true'
       - name: Install parthenon_tools
         run: |
-          pip install --user --break-system-packages scripts/python/packages/parthenon_tools
+          pip install scripts/python/packages/parthenon_tools
       - name: Configure
         run: |
           git config --global --add safe.directory $(pwd)
