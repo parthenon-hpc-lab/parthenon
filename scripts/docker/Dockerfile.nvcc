@@ -36,7 +36,7 @@ RUN cd /tmp && \
     wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.8.tar.bz2 && \
     tar xjf openmpi-5.0.8.tar.bz2 && \
     cd openmpi-5.0.8 && \
-    ./configure --prefix=/opt/openmpi --disable-mpi-fortran --disable-oshmem --with-cuda && \
+    ./configure --prefix=/opt/openmpi --disable-mpi-fortran --disable-oshmem --with-cuda=/usr/local/cuda --with-cuda-libdir=/usr/local/cuda/lib64/stubs && \
     make -j16 && \
     make install && \
     cd / && \
@@ -80,6 +80,9 @@ ENV PYTHONPATH=/usr/local/lib/python3.12/site-packages
 
 # Create symlink for clangd
 RUN ln -s /usr/bin/clangd-20 /usr/bin/clangd
+
+# Create symlink for esbonio
+RUN ln -s /opt/venv/bin/esbonio /usr/bin/esbonio
 
 # PG giving up on Ascent for now
 # https://github.com/Alpine-DAV/ascent/issues/1614
