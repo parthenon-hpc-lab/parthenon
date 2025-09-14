@@ -4,6 +4,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 1192]](https://github.com/parthenon-hpc-lab/parthenon/pull/1192) Coalesced buffer communication
+- [[PR 1314]](https://github.com/parthenon-hpc-lab/parthenon/pull/1314) Add option of user specified BCs in AddBoundaryExchangeTasks
 - [[PR 1244]](https://github.com/parthenon-hpc-lab/parthenon/pull/1244) Add TaskCollection timeout capability
 - [[PR 1311]](https://github.com/parthenon-hpc-lab/parthenon/pull/1311) Magnitude refinement criteria, per-package PostInitialize function hooks, mergescv and prettyparams utilities
 - [[PR 1142]](https://github.com/parthenon-hpc-lab/parthenon/pull/1142) Unify par_dispatch, par_for_outer & par_for_inner overloads
@@ -38,7 +39,8 @@
 - [[PR 1284]](https://github.com/parthenon-hpc-lab/parthenon/pull/1284) Fix some parameter types, move `DumpInputParameters` to `Driver`
 
 ### Infrastructure (changes irrelevant to downstream codes)
-- [[PR 1292]](https://github.com/parthenon-hpc-lab/parthenon/pull/1292_ Remove shared ptr cycle and add a destructor for reductions
+- [[PR 1316]](https://github.com/parthenon-hpc-lab/parthenon/pull/1316) Update Cuda CI container (main change g++-13 to fix asan bug)
+- [[PR 1292]](https://github.com/parthenon-hpc-lab/parthenon/pull/1292) Remove shared ptr cycle and add a destructor for reductions
 - [[PR 1281]](https://github.com/parthenon-hpc-lab/parthenon/pull/1281) Move params implementation to std::any
 - [[PR 1268]](https://github.com/parthenon-hpc-lab/parthenon/pull/1268) Adds build information to phdf output
 - [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Update CI container to Cuda 12.8
