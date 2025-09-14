@@ -645,9 +645,8 @@ bool Mesh::GatherCostListAndCheckBalance() {
 void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                            int ntot) {
   PARTHENON_INSTRUMENT
-  // kill any cached packs
-  mesh_data.PurgeNonBase();
-  mesh_data.Get()->ClearCaches();
+  // kill all old MeshData
+  mesh_data.clear();
 
   // compute nleaf= number of leaf MeshBlocks per refined block
   int nleaf = 2;
@@ -987,8 +986,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     FillDerived();
 
     // Initialize the "base" MeshData object
-    // TODO(LFR): Is this necessary? Do we ever pull out the entire mesh MeshData?
-    mesh_data.Get()->Initialize(block_list, this);
+    mesh_data.Add("base", GetBasePartition());
   } // AMR Recv and unpack data
 
   ResetLoadBalanceVariables();

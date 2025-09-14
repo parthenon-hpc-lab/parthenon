@@ -43,6 +43,7 @@
 #include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
+#include "bvals/comms/coalesced_buffers.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
 #include "interface/packages.hpp"
@@ -88,7 +89,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       lb_manual_(), nslist(Globals::nranks), nblist(Globals::nranks),
       nref(Globals::nranks), nderef(Globals::nranks), rdisp(Globals::nranks),
       ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
-      brdisp(Globals::nranks), bddisp(Globals::nranks) {
+      brdisp(Globals::nranks), bddisp(Globals::nranks),
+      pcoalesced_comms(std::make_shared<CoalescedComms>(this)),
+      do_coalesced_comms{pin->GetOrAddBoolean(
+          "parthenon/mesh", "do_coalesced_comms", false,
+          "Use coalesced MPI messages for inter-block communication")} {
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =
@@ -411,6 +416,9 @@ void Mesh::BuildBlockPartitions(GridIdentifier grid) {
   for (auto &part_bl : partition_blocklists)
     out.emplace_back(std::make_shared<BlockListPartition>(id++, grid, part_bl, this));
   block_partitions_[grid] = out;
+  if (grid.type == GridType::leaf)
+    base_block_partition_ =
+        std::make_shared<BlockListPartition>(id++, grid, block_list, this);
 }
 
 //----------------------------------------------------------------------------------------
@@ -634,6 +642,7 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
 
   // Clear boundary communication buffers
   boundary_comm_map.clear();
+  pcoalesced_comms->clear();
 
   // Build the boundary buffers for the current mesh
   for (auto &partition : GetDefaultBlockPartitions()) {
@@ -650,6 +659,10 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
       }
     }
   }
+
+  pcoalesced_comms->ResolveAndSendSendBuffers();
+  // This operation is blocking
+  pcoalesced_comms->ReceiveBufferInfo();
 }
 
 void Mesh::CommunicateBoundaries(std::string md_name,
@@ -843,7 +856,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 #endif
 
   // Initialize the "base" MeshData object
-  mesh_data.Get()->Initialize(block_list, this);
+  mesh_data.Add("base", GetBasePartition());
 }
 
 /// Finds location of a block with ID `tgid`.

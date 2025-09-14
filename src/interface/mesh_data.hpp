@@ -197,7 +197,7 @@ class MeshData {
   explicit MeshData(const std::string &name) : stage_name_(name) {}
 
   GridIdentifier grid;
-  int partition;
+  int partition = -1;
 
   const auto &StageName() const { return stage_name_; }
 
@@ -237,6 +237,8 @@ class MeshData {
       return block_data_[0]->GetBoundsK(std::forward<Ts>(args)...);
     return IndexRange{-1, -2};
   }
+
+  const auto &GetUids() const { return block_data_[0]->GetUids(); }
 
   template <class... Args>
   void Add(Args &&...args) {
