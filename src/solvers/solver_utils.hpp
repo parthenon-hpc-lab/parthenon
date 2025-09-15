@@ -20,8 +20,8 @@
 #include <utility>
 #include <vector>
 
-#include "utils/reductions.hpp"
 #include "kokkos_abstraction.hpp"
+#include "utils/reductions.hpp"
 
 #define PARTHENON_INTERNALSOLVERVARIABLE(base, varname)                                  \
   struct varname : public parthenon::variable_names::base_t<false> {                     \

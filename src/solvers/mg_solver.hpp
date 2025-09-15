@@ -30,9 +30,9 @@
 #include "solvers/solver_base.hpp"
 #include "solvers/solver_utils.hpp"
 #include "tasks/tasks.hpp"
+#include "utils/reductions.hpp"
 #include "utils/robust.hpp"
 #include "utils/type_list.hpp"
-#include "utils/reductions.hpp"
 
 namespace parthenon {
 
