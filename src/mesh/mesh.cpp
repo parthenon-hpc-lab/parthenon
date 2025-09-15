@@ -43,6 +43,7 @@
 #include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
+#include "bvals/comms/coalesced_buffers.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
 #include "interface/packages.hpp"
@@ -78,6 +79,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                                      "enable a multigrid mesh")),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       resolved_packages(ResolvePackages(packages)),
+      task_collection_timeout_in_seconds(pin->GetOrAddInteger(
+          "parthenon/mesh", "task_collection_timeout_in_seconds", 60 * 5)),
       // private members:
       num_mesh_threads_(
           pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1,
@@ -86,7 +89,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       lb_manual_(), nslist(Globals::nranks), nblist(Globals::nranks),
       nref(Globals::nranks), nderef(Globals::nranks), rdisp(Globals::nranks),
       ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
-      brdisp(Globals::nranks), bddisp(Globals::nranks) {
+      brdisp(Globals::nranks), bddisp(Globals::nranks),
+      pcoalesced_comms(std::make_shared<CoalescedComms>(this)),
+      do_coalesced_comms{pin->GetOrAddBoolean(
+          "parthenon/mesh", "do_coalesced_comms", false,
+          "Use coalesced MPI messages for inter-block communication")} {
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =
@@ -409,6 +416,9 @@ void Mesh::BuildBlockPartitions(GridIdentifier grid) {
   for (auto &part_bl : partition_blocklists)
     out.emplace_back(std::make_shared<BlockListPartition>(id++, grid, part_bl, this));
   block_partitions_[grid] = out;
+  if (grid.type == GridType::leaf)
+    base_block_partition_ =
+        std::make_shared<BlockListPartition>(id++, grid, block_list, this);
 }
 
 //----------------------------------------------------------------------------------------
@@ -632,6 +642,7 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
 
   // Clear boundary communication buffers
   boundary_comm_map.clear();
+  pcoalesced_comms->clear();
 
   // Build the boundary buffers for the current mesh
   for (auto &partition : GetDefaultBlockPartitions()) {
@@ -648,20 +659,26 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
       }
     }
   }
+
+  pcoalesced_comms->ResolveAndSendSendBuffers();
+  // This operation is blocking
+  pcoalesced_comms->ReceiveBufferInfo();
 }
 
 void Mesh::CommunicateBoundaries(std::string md_name,
                                  const std::vector<std::string> &fields) {
-  TaskCollection tc;
-  TaskID none(0);
+  const int num_partitions = DefaultNumPartitions();
 
+  TaskCollection tc;
+  TaskRegion &region = tc.AddRegion(num_partitions);
   auto partitions = GetDefaultBlockPartitions();
-  TaskRegion &region = tc.AddRegion(partitions.size());
-  for (int i = 0; i < partitions.size(); i++) {
+  for (int i = 0; i < num_partitions; i++) {
     auto &md = mesh_data.Add(md_name, partitions[i], fields);
-    AddBoundaryExchangeTasks(none, region[i], md, multilevel);
+    auto bound = AddBoundaryExchangeTasks(TaskID(0), region[i], md, multilevel);
   }
-  tc.Execute();
+  TaskListStatus status = tc.Execute(task_collection_timeout_in_seconds);
+  PARTHENON_REQUIRE(status == TaskListStatus::complete,
+                    "Boundary communication called internal by mesh failed.");
 }
 
 void Mesh::PreCommFillDerived() {
@@ -763,6 +780,29 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
         }
       }
 
+      // Call per-package initialization
+      for (const auto &[name, pkg] : packages.AllPackages()) {
+        PARTHENON_REQUIRE_THROWS(
+            !(pkg->PostInitializationMesh != nullptr &&
+              (pkg->PostInitializationBlock != nullptr)),
+            "Mesh and MeshBlock PostInitializations are defined for package " + name +
+                ". Please use only one.");
+
+        // first on the mesh...
+        if (pkg->PostInitializationMesh != nullptr) {
+          for (auto &partition : GetDefaultBlockPartitions(GridIdentifier::leaf())) {
+            auto &md = mesh_data.Add("base", partition);
+            pkg->PostInitializationMesh(this, pin, md.get());
+          }
+        }
+        // and then per block
+        if (pkg->PostInitializationBlock != nullptr) {
+          for (auto &pmb : block_list) {
+            pkg->PostInitializationBlock(pmb.get(), pin);
+          }
+        }
+      }
+
       std::for_each(block_list.begin(), block_list.end(),
                     [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
     }
@@ -816,7 +856,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 #endif
 
   // Initialize the "base" MeshData object
-  mesh_data.Get()->Initialize(block_list, this);
+  mesh_data.Add("base", GetBasePartition());
 }
 
 /// Finds location of a block with ID `tgid`.

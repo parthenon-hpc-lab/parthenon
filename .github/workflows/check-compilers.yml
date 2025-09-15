@@ -27,7 +27,7 @@ jobs:
         parallel: ['serial', 'mpi']
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/parthenon-hpc-lab/cuda12.8-mpi-hdf5-ascent
+      image: ghcr.io/parthenon-hpc-lab/cuda12.8-mpi-hdf5-opmd
     env:
       CMAKE_GENERATOR: Ninja
     steps:

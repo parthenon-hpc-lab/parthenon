@@ -18,6 +18,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "amr_criteria/amr_criteria.hpp"
 #include "interface/mesh_data.hpp"
@@ -37,17 +38,16 @@ namespace Refinement {
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto ref = std::make_shared<StateDescriptor>("Refinement");
 
-  int numcrit = 0;
-  while (true) {
-    std::string block_name = "parthenon/refinement" + std::to_string(numcrit);
-    if (!pin->DoesBlockExist(block_name)) {
-      break;
+  for (InputBlock *pib = pin->pfirst_block; pib != nullptr; pib = pib->pnext) {
+    if (pib->block_name.compare(0, 20, "parthenon/refinement") != 0) {
+      continue;
     }
-    std::string method =
-        pin->GetOrAddString(block_name, "method", "PLEASE SPECIFY method",
-                            "method to use to check for refinement");
-    ref->amr_criteria.push_back(AMRCriteria::MakeAMRCriteria(method, pin, block_name));
-    numcrit++;
+    std::string method = pin->GetString(
+        pib->block_name, "method",
+        std::vector<std::string>{"derivative_order_1", "derivative_order_2", "magnitude"},
+        "method to use to check for refinement");
+    ref->amr_criteria.push_back(
+        AMRCriteria::MakeAMRCriteria(method, pin, pib->block_name));
   }
   return ref;
 }
@@ -145,8 +145,6 @@ void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *md, const std::strin
         if (maxd > refine_criteria && pack.GetLevel(b, 0, 0, 0) < max_level)
           flag = AmrTag::refine;
         if (maxd < derefine_criteria) flag = AmrTag::derefine;
-        // ScatterMax view will use an atomic_max to prevent race condition across k,j
-        // indices
         tags_access(b).update(flag);
       });
   amr_tags.ContributeScatter(scatter_tags);
@@ -196,8 +194,45 @@ void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *md, const std::stri
         if (maxd > refine_criteria && pack.GetLevel(b, 0, 0, 0) < max_level)
           flag = AmrTag::refine;
         if (maxd < derefine_criteria) flag = AmrTag::derefine;
-        // ScatterMax view will use an atomic_max to prevent race condition across k,j
-        // indices
+        tags_access(b).update(flag);
+      });
+  amr_tags.ContributeScatter(scatter_tags);
+}
+
+void Magnitude(const AMRBounds &bnds, MeshData<Real> *md, const std::string &field,
+               const int &idx, ParArray1D<AmrTag> &amr_tags, const Real sign,
+               const Real refine_criteria_, const Real derefine_criteria_,
+               const int max_level_) {
+  const auto desc = MakePackDescriptor(md, {field});
+  auto pack = desc.GetPack(md);
+  const int ndim = md->GetMeshPointer()->ndim;
+  const int nvars = pack.GetMaxNumberOfVars();
+
+  const Real refine_criteria = refine_criteria_;
+  const Real derefine_criteria = derefine_criteria_;
+  const int max_level = max_level_;
+  const int var = idx;
+  // get a scatterview for the tags that will use Kokkos::Max as the reduction operation
+  auto scatter_tags = amr_tags.ToScatterView<Kokkos::Experimental::ScatterMax>();
+  par_for_outer(
+      PARTHENON_AUTO_LABEL, 0, 0, 0, pack.GetNBlocks() - 1, bnds.ks, bnds.ke, bnds.js,
+      bnds.je,
+      KOKKOS_LAMBDA(team_mbr_t team_member, const int b, const int k, const int j) {
+        // JMM: sign = 1  if you want to refine on mag > threshold
+        //      sign = -1 if you want to regine on mag < threshold
+        Real maxval;
+        par_reduce_inner(
+            inner_loop_pattern_ttr_tag, team_member, bnds.is, bnds.ie,
+            [&](const int i, Real &r) {
+              Real val = sign * pack(b, var, k, j, i);
+              r = std::max(r, val);
+            },
+            Kokkos::Max<Real>(maxval));
+        auto tags_access = scatter_tags.access();
+        auto flag = AmrTag::same;
+        if (maxval > sign * refine_criteria && pack.GetLevel(b, 0, 0, 0) < max_level)
+          flag = AmrTag::refine;
+        if (maxval < sign * derefine_criteria) flag = AmrTag::derefine;
         tags_access(b).update(flag);
       });
   amr_tags.ContributeScatter(scatter_tags);
