@@ -112,11 +112,15 @@ void CheckRefinementLoop(const AMRBounds &bnds, MeshData<Real> *md,
   const Real derefine_criteria = derefine_criteria_;
   const int max_level = max_level_;
   const int var = idx;
+
+  const std::size_t nblocks = pack.GetNBlocks();
+  if (nblocks < 1) return;
+
   // get a scatterview for the tags that will use Kokkos::Max as the reduction operation
   auto scatter_tags = amr_tags.ToScatterView<Kokkos::Experimental::ScatterMax>();
+
   par_for_outer(
-      PARTHENON_AUTO_LABEL, 0, 0, 0, pack.GetNBlocks() - 1, bnds.ks, bnds.ke, bnds.js,
-      bnds.je,
+      PARTHENON_AUTO_LABEL, 0, 0, 0, nblocks - 1, bnds.ks, bnds.ke, bnds.js, bnds.je,
       KOKKOS_LAMBDA(team_mbr_t team_member, const int b, const int k, const int j) {
         Real maxval = 0;
         bool on_block = (pack.GetUpperBound(b) >= 0);
