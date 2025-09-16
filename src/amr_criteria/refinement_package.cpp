@@ -146,8 +146,8 @@ void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *md, const std::strin
                      const int max_level_) {
   CheckRefinementLoop(
       bnds, md, field, idx, amr_tags, refine_criteria_, derefine_criteria_, max_level_,
-      KOKKOS_LAMBDA(auto pack, const int ndim, const int b, const int var, const int k,
-                    const int j, const int i, Real &maxder) {
+      KOKKOS_LAMBDA(SparsePack<> pack, const int ndim, const int b, const int var,
+                    const int k, const int j, const int i, Real &maxder) {
         Real scale = std::abs(pack(b, var, k, j, i));
         Real d = 0.5 * std::abs((pack(b, var, k, j, i + 1) - pack(b, var, k, j, i - 1))) /
                  (scale + TINY_NUMBER);
@@ -171,8 +171,8 @@ void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *md, const std::stri
                       const int max_level_) {
   CheckRefinementLoop(
       bnds, md, field, idx, amr_tags, refine_criteria_, derefine_criteria_, max_level_,
-      KOKKOS_LAMBDA(auto pack, const int ndim, const int b, const int var, const int k,
-                    const int j, const int i, Real &maxder) {
+      KOKKOS_LAMBDA(SparsePack<> pack, const int ndim, const int b, const int var,
+                    const int k, const int j, const int i, Real &maxder) {
         Real aqt = std::abs(pack(b, var, k, j, i)) + TINY_NUMBER;
         Real qavg = 0.5 * (pack(b, var, k, j, i + 1) + pack(b, var, k, j, i - 1));
         Real d = std::abs(qavg - pack(b, var, k, j, i)) / (std::abs(qavg) + aqt);
@@ -196,8 +196,8 @@ void Magnitude(const AMRBounds &bnds, MeshData<Real> *md, const std::string &fie
                const int max_level_) {
   CheckRefinementLoop(
       bnds, md, field, idx, amr_tags, refine_criteria_, derefine_criteria_, max_level_,
-      KOKKOS_LAMBDA(auto pack, const int ndim, const int b, const int var, const int k,
-                    const int j, const int i, Real &r) {
+      KOKKOS_LAMBDA(SparsePack<> pack, const int ndim, const int b, const int var,
+                    const int k, const int j, const int i, Real &r) {
         Real val = sign * pack(b, var, k, j, i);
         r = std::max(r, val);
       },
