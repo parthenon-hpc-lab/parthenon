@@ -123,7 +123,7 @@ void CheckRefinementLoop(const AMRBounds &bnds, MeshData<Real> *md,
       PARTHENON_AUTO_LABEL, 0, 0, 0, nblocks - 1, bnds.ks, bnds.ke, bnds.js, bnds.je,
       KOKKOS_LAMBDA(team_mbr_t team_member, const int b, const int k, const int j) {
         Real maxval = 0;
-        bool on_block = (pack.GetUpperBound(b) >= 0);
+        bool on_block = (pack.GetUpperBound(b) >= var);
         if (on_block) {
           par_reduce_inner(
               inner_loop_pattern_ttr_tag, team_member, bnds.is, bnds.ie,
