@@ -42,6 +42,7 @@ dependencies = [
 
 [project.scripts]
 movie2d = "parthenon_tools.movie2d:main"
+contour1d = "parthenon_tools.contour1d:main"
 compute-asymmetry = "parthenon_tools.compute_asymmetry:main"
 mergecsv = "parthenon_tools.mergecsv:main"
 phdf-diff = "parthenon_tools.phdf_diff:main"
