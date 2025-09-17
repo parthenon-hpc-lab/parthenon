@@ -34,6 +34,11 @@ class TestCase(utils.test_case.TestCaseAbs):
         except ModuleNotFoundError:
             print("Couldn't find module h5py.")
             return False
+        try:
+            import numpy as np
+        except ModuleNotFoundError:
+            print("Couldn't find module numpy")
+            return False
 
         vol_sum = 0
         vol_sum_true = 0.07080078125
@@ -42,7 +47,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 dx = (f["Locations/x"][:, 1:] - f["Locations/x"][:, :-1])[:, 0]
                 dy = (f["Locations/y"][:, 1:] - f["Locations/y"][:, :-1])[:, 0]
                 vol = dx * dy
-                vol_sum = (vols[:, None, None] * f["advected"][:, 0, 0, ...]).sum()
+                vol_sum = (vol[:, None, None] * f["advected"][:, 0, 0, ...]).sum()
         except:
             print("Couldn't open dump file or read all fields")
             return False
