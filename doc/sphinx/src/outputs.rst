@@ -471,6 +471,14 @@ invoked as
 which will produce a ``png`` image per dump suitable for encoding into a
 movie.
 
+The ``contour1d.py`` script generates a spacetime plot of a field for
+1D simulations. It may also be imported to provide tooling for
+building spacetime grids on a uniform covering mesh. It may be invoked as
+
+::
+
+   python3 /path/to/contour1d.py name_of_variable *.phdf
+
 Visualization software
 ----------------------
 
