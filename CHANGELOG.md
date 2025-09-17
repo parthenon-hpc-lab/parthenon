@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1315]](https://github.com/parthenon-hpc-lab/parthenon/pull/1315) Add user specifiable BCs to solvers
 - [[PR 1192]](https://github.com/parthenon-hpc-lab/parthenon/pull/1192) Coalesced buffer communication
 - [[PR 1314]](https://github.com/parthenon-hpc-lab/parthenon/pull/1314) Add option of user specified BCs in AddBoundaryExchangeTasks
 - [[PR 1244]](https://github.com/parthenon-hpc-lab/parthenon/pull/1244) Add TaskCollection timeout capability
@@ -23,6 +24,7 @@
 - [[PR 1280]](https://github.com/parthenon-hpc-lab/parthenon/pull/1280) Print history file headers on restart
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1317]](https://github.com/parthenon-hpc-lab/parthenon/pull/1317) Make VariableExits logic in HDF5 restart reader work
 - [[PR 1288]](https://github.com/parthenon-hpc-lab/parthenon/pull/1288) Fix restriction bug for non-cartesian coordinates and make poisson_gmg example work for curvilinear coordinates
 - [[PR 1307]](https://github.com/parthenon-hpc-lab/parthenon/pull/1307) Fix imports in parthenon tools + phdf_diff logic
 - [[PR 1310]](https://github.com/parthenon-hpc-lab/parthenon/pull/1310) Fix logic causing issues for restarts with varying output blocks (introduced in #1266)
