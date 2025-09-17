@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1320]](https://github.com/parthenon-hpc-lab/parthenon/pull/1320) 1D Contour plotting
 - [[PR 1315]](https://github.com/parthenon-hpc-lab/parthenon/pull/1315) Add user specifiable BCs to solvers
 - [[PR 1192]](https://github.com/parthenon-hpc-lab/parthenon/pull/1192) Coalesced buffer communication
 - [[PR 1314]](https://github.com/parthenon-hpc-lab/parthenon/pull/1314) Add option of user specified BCs in AddBoundaryExchangeTasks
