@@ -1,4 +1,4 @@
-#========================================================================================
+# ========================================================================================
 # Parthenon performance portable AMR framework
 # Copyright(C) 2020-2025 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
