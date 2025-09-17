@@ -18,9 +18,6 @@
 
 from __future__ import print_function
 
-import sys
-import re
-import os
 import numpy as np
 from scipy import interpolate
 from functools import partial
@@ -32,12 +29,7 @@ except ModuleNotFoundError:
 
 from argparse import ArgumentParser
 from multiprocessing import Pool
-
-import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.colors import is_color_like
-from matplotlib.colors import LogNorm
 
 
 parser = ArgumentParser(prog="contour1d", description="Make a spacetime contour plot")
