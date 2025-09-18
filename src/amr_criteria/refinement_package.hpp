@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -53,7 +53,6 @@ void Magnitude(const AMRBounds &bnds, MeshData<Real> *md, const std::string &fie
                const int &idx, ParArray1D<AmrTag> &amr_tags, const Real sign,
                const Real refine_criteria_, const Real derefine_criteria_,
                const int max_level_);
-
 } // namespace Refinement
 } // namespace parthenon
 #endif // AMR_CRITERIA_REFINEMENT_PACKAGE_HPP_
