@@ -1,0 +1,26 @@
+# Checks that all RST files under doc/sphinx/src are included in the
+# documentation table of contents reachable from doc/sphinx/index.rst.
+
+name: docs-toc
+
+on:
+  pull_request:
+  push:
+    branches: [ main, develop ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run docs ToC check
+        run: |
+          python scripts/check_docs_toc.py
+
