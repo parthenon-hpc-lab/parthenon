@@ -16,6 +16,7 @@
 #include <functional>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -233,29 +234,30 @@ class StateDescriptor {
     return AddField(T::name(), m, controlling_field);
   }
 
-  template <typename... Ts>
-  bool AddField(ScratchVariableList<Ts...>) {
-    using SL = ScratchVariableList<Ts...>;
-    bool success = true;
-#ifndef PARTHENON_DEBUG_SCRATCH
-    auto m = Metadata(
-        {TopologicalTypeToMetaData(SL::TT), Metadata::Derived, Metadata::Overridable});
-    for (const auto var : SL::GetVarNames()) {
-      success = AddField(var, m) && success;
+  template <typename T>
+  bool AddScratch() {
+    TopologicalType tt = T::type;
+    if constexpr (!debug_scratch_variables()) {
+      // tally how many scratch variables of this topologicaltype have already been added
+      int lower_bound = 0;
+      if (num_scratch_.find(tt) != num_scratch_.end()) {
+        lower_bound = num_scratch_.at(tt);
+      }
+      num_scratch_[tt] = T::update_bounds(lower_bound);
+      auto m = Metadata(
+          {TopologicalTypeToMetaData(T::type), Metadata::Derived, Metadata::Overridable});
+      bool success = true;
+      for (const auto var : T::GetVarNames()) {
+        success = AddField(var, m) && success;
+      }
+      return success;
+    } else {
+      // in debug mode each scratch variable is a unique field
+      auto m = Metadata(
+          {TopologicalTypeToMetaData(tt), Metadata::Derived, Metadata::Overridable},
+          std::vector<int>(std::begin(T::shape), std::end(T::shape)));
+      return AddField<T>(m);
     }
-#else
-    // in debug mode each scratch variable is a unique field
-    (
-        [&] {
-          auto m = Metadata({TopologicalTypeToMetaData(SL::TT), Metadata::Derived,
-                             Metadata::Overridable},
-                            std::vector<int>(std::begin(Ts::shape), std::end(Ts::shape)));
-          success = AddField<Ts>(m) && success;
-        }(),
-        ...);
-#endif
-
-    return success;
   }
 
   // add sparse pool, all arguments will be forwarded to the SparsePool constructor, so
@@ -520,6 +522,7 @@ class StateDescriptor {
   Dictionary<Dictionary<Metadata>> swarmValueMetadataMap_;
 
   RefinementFunctionMaps refinementFuncMaps_;
+  std::map<TopologicalType, std::size_t> num_scratch_;
 };
 
 inline std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {

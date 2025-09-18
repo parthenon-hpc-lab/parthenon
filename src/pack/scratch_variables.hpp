@@ -26,7 +26,6 @@
 
 #include "basic_types.hpp"
 #include "interface/metadata.hpp"
-#include "interface/state_descriptor.hpp"
 #include "pack/pack_utils.hpp"
 #include "utils/type_list.hpp"
 
@@ -43,82 +42,74 @@ inline std::string range_regex(unsigned a, unsigned b) {
 }
 
 template <TopologicalType TT, int... NCOMPS>
-struct ScratchVariable {
+struct ScratchVariable : public parthenon::variable_names::base_t<true, NCOMPS...> {
   using base_t = parthenon::variable_names::base_t<true, NCOMPS...>;
+  template <typename... Ts>
+  KOKKOS_INLINE_FUNCTION ScratchVariable(Ts &&...args)
+      : base_t(std::forward<Ts>(args)...) {}
   static constexpr TopologicalType type = TT;
   static constexpr int ncomps = sizeof...(NCOMPS);
-  static constexpr int size = (NCOMPS * ...);
+  static constexpr int size = (NCOMPS * ... * (1));
   static constexpr std::array<int, ncomps> shape{NCOMPS...};
 };
 
-#define SCRATCH_VARIABLE(var_name, TT, ...)                                              \
-  struct var_name##_t : public ScratchVariable<TT, __VA_ARGS__> {                        \
-    static std::string name() { return #var_name; }                                      \
+constexpr bool debug_scratch_variables() {
+#ifdef PARTHENON_DEBUG_SCRATCH
+  return true;
+#else
+  return false;
+#endif
+}
+
+// All this macro nonsense is necessary to pass the var_name as a string
+// to use in the name() method. C++-20 allows parsing strings as template
+// parameters, in which case ScratchVariable can just template on a
+// compile time string to use as the name.
+#define SCRATCH_VARIABLE_IMPL(var_name, TT, ...)                                         \
+  struct var_name : public ScratchVariable<TT, __VA_ARGS__> {                            \
+    friend class StateDescriptor;                                                        \
+    template <typename... Ts>                                                            \
+    KOKKOS_INLINE_FUNCTION var_name(Ts &&...args)                                        \
+        : ScratchVariable<TT, __VA_ARGS__>(std::forward<Ts>(args)...) {}                 \
+    static std::string name() {                                                          \
+      if constexpr (debug_scratch_variables()) {                                         \
+        return std::string("scratch_") + std::string(#var_name);                         \
+      } else {                                                                           \
+        return "scratch_" + TopologicalTypeToString(type) + "_" + range_regex(lb, ub);   \
+      }                                                                                  \
+    }                                                                                    \
+                                                                                         \
+   protected:                                                                            \
+    inline static int lb;                                                                \
+    inline static int ub;                                                                \
+    static int update_bounds(const int lower) {                                          \
+      lb = lower;                                                                        \
+      ub = lower + size - 1;                                                             \
+      return ub + 1;                                                                     \
+    }                                                                                    \
+    static const auto GetVarNames() {                                                    \
+      std::array<std::string, size> vars;                                                \
+      auto base = "scratch_" + TopologicalTypeToString(TT) + "_";                        \
+      for (int i = 0; i < size; i++) {                                                   \
+        vars[i] = base + std::to_string(i + lb);                                         \
+      }                                                                                  \
+      return vars;                                                                       \
+    }                                                                                    \
   };
 
-template <typename SV, int lower>
-struct ScratchVariable_impl : public SV::base_t {
-  using type = SV;
-  static constexpr int lb = lower;
-  static constexpr int ub = lower + SV::size - 1;
-  static constexpr auto shape = SV::shape;
+#define SCRATCH_VARIABLE_IMPL2(var_name, TT) SCRATCH_VARIABLE_IMPL(var_name, TT, 1)
+#define SCRATCH_VARIABLE_IMPL3(var_name, TT, t) SCRATCH_VARIABLE_IMPL(var_name, TT, t)
+#define SCRATCH_VARIABLE_IMPL4(var_name, TT, t, u)                                       \
+  SCRATCH_VARIABLE_IMPL(var_name, TT, t, u)
+#define SCRATCH_VARIABLE_IMPL5(var_name, TT, t, u, v)                                    \
+  SCRATCH_VARIABLE_IMPL(var_name, TT, t, u, v)
+#define SCRATCH_EXPAND(x) x
+#define SCRATCH_GET_IMPL(_1, _2, _3, _4, _5, macro, ...) macro
 
-  template <class... Ts>
-  KOKKOS_INLINE_FUNCTION ScratchVariable_impl(Ts &&...args)
-      : SV::base_t(std::forward<Ts>(args)...) {}
-
-  static std::string name() {
-#ifdef PARTHENON_DEBUG_SCRATCH
-    return "scratch_" + SV::Name();
-#else
-    return "scratch_" + TopologicalTypeToString(SV::type) + "_" + range_regex(lb, ub);
-#endif
-  }
-};
-
-namespace impl {
-template <typename...>
-struct SVList_impl {};
-
-template <typename SV>
-struct SVList_impl<SV> {
-  using type = ScratchVariable_impl<SV, 0>;
-  using value = TypeList<type>;
-};
-
-template <typename SV, typename... SVs>
-struct SVList_impl<SV, SVs...> {
-  using list = SVList_impl<SVs...>;
-  using type = ScratchVariable_impl<SV, list::type::ub + 1>;
-  using value = concatenate_type_lists_t<TypeList<type>, typename list::value>;
-};
-} // namespace impl
-
-// Gives a tuv index into the common scratch data for a given TopologicalType
-// by using an agreed upon pool of scratch_TT_# overrideable var names
-// that way the total memory allocated across all packages is the maximum
-// size of any single ScratchVariableList for a given TT, but allows
-// for each package to index into the common space with their own
-// unique types & sizes
-template <typename V, typename... SVs>
-struct ScratchVariableList {
-  static constexpr TopologicalType TT = V::type;
-  static constexpr int n_vars = V::size + (SVs::size + ... + 0);
-  using TL = TypeList<V, SVs...>;
-  using list = impl::SVList_impl<V, SVs...>;
-
-  template <typename SV>
-  using type = typename list::value::template type<TL::template GetIdx<SV>()>;
-
-  static const auto GetVarNames() {
-    std::array<std::string, n_vars> vars;
-    auto base = "scratch_" + TopologicalTypeToString(TT) + "_";
-    for (int i = 0; i < n_vars; i++) {
-      vars[i] = base + std::to_string(i);
-    }
-    return vars;
-  }
-};
+#define SCRATCH_VARIABLE(...)                                                            \
+  SCRATCH_EXPAND(SCRATCH_GET_IMPL(__VA_ARGS__, SCRATCH_VARIABLE_IMPL5,                   \
+                                  SCRATCH_VARIABLE_IMPL4, SCRATCH_VARIABLE_IMPL3,        \
+                                  SCRATCH_VARIABLE_IMPL2)(__VA_ARGS__))
 
 } // namespace parthenon
 #endif // PACK_SCRATCH_VARIABLES_HPP_
