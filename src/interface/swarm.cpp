@@ -342,6 +342,9 @@ void Swarm::UpdateEmptyIndices() {
         }
       });
 
+  // this is evidently needed for some HIP/ROCm/AMD platforms
+  Kokkos::fence();
+  
   // Update list of empty indices such that it is contiguous and in ascending order
   parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, nmax_pool_ - 1, KOKKOS_LAMBDA(const int n) {
@@ -406,6 +409,9 @@ void Swarm::Defrag() {
         }
       });
 
+  // this might be needed for some HIP/ROCm/AMD platforms
+  Kokkos::fence();
+  
   parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, nmax_pool_ - 1, KOKKOS_LAMBDA(const int n) {
         if (n >= num_active) {
@@ -416,6 +422,9 @@ void Swarm::Defrag() {
         }
       });
 
+  // this might be needed for some HIP/ROCm/AMD platforms
+  Kokkos::fence();
+  
   // Reuse scratch memory
   auto &scan_scratch_towrite = scan_scratch_toread;
 
@@ -430,6 +439,9 @@ void Swarm::Defrag() {
         if (final) scan_scratch_towrite(n) = update;
       });
 
+  // this might be needed for some HIP/ROCm/AMD platforms
+  Kokkos::fence();
+  
   // Get all dynamical variables in swarm
   auto &int_vector = std::get<getType<int>()>(vectors_);
   auto &uint64_vector = std::get<getType<std::uint64_t>()>(vectors_);
