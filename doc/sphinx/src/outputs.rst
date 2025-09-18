@@ -480,8 +480,15 @@ building spacetime grids on a uniform covering mesh. It may be invoked as
    python3 /path/to/contour1d.py name_of_variable *.phdf
 
 This can be useful to plot 1D data as a function of time, especially
-for spherically symmetric problems. Here is an example run on our
-diffusion example in the parthenon examples folder:
+for spherically symmetric problems. For example contour plots like
+this one, from a simulaiton of inertial confinement fusion, are
+possible with the script:
+
+.. figure:: figs/sagert_icf_spacetime.png
+   :alt: Figure of an ICF implosion. From Sagert et al., LA-UR-24-25529
+
+Here is an example run on our diffusion example in the parthenon
+examples folder:
 
 .. figure:: figs/diffusion_contour.png
    :alt: contour plot of diffision
