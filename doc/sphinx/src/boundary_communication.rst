@@ -550,6 +550,7 @@ being in a received state. Once they are all in a received state, setting of bou
 prolongation, etc. can proceed normally. 
 
 Some notes:
+
 - Internally ``CoalescedComms`` contains maps from MPI rank and ``BoundaryType`` (e.g. regular
   communication, flux correction) to ``CoalescedBuffersRank`` objects for sending and receiving
   rank pairs. These ``CoalescedBuffersRank`` objects in turn contain maps from ``MeshData``
