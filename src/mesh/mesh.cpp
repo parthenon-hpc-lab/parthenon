@@ -1135,10 +1135,10 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
             << "Refinement level must be larger than 0 (root level = 0)" << std::endl;
         PARTHENON_FAIL(msg);
       }
-      if (lrlev > max_level) {
+      if (lrlev > max_level + GetLegacyTreeRootLevel()) {
         msg << "### FATAL ERROR in Mesh constructor" << std::endl
             << "Refinement level exceeds the maximum level (specify "
-            << "'maxlevel' parameter in <parthenon/mesh> input block if adaptive)."
+            << "'numlevel' parameter in <parthenon/mesh> input block if adaptive)."
             << std::endl;
 
         PARTHENON_FAIL(msg);
