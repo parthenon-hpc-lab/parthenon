@@ -74,6 +74,7 @@ class MeshBlockData {
     return pmy_block.lock();
   }
   MeshBlock *GetBlockPointer() const { return GetBlockSharedPointer().get(); }
+  MeshBlockData<T> *GetBlockDataRawPointer(int n = 0) { return this; }
   MeshBlock *GetParentPointer() const { return GetBlockPointer(); }
   void SetAllowedDt(const Real dt) const { GetBlockPointer()->SetAllowedDt(dt); }
   Mesh *GetMeshPointer() const { return GetBlockPointer()->pmy_mesh; }

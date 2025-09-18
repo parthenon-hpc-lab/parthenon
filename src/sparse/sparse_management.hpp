@@ -16,6 +16,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include "basic_types.hpp"
 #include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "kokkos_abstraction.hpp"
@@ -27,9 +28,19 @@
 #define SPARSE_SPARSE_MANAGEMENT_HPP_
 
 namespace parthenon {
+
+template <typename T>
+TaskStatus InitNewlyAllocatedVars(T *rc);
+
+TaskStatus SparseDealloc(MeshData<Real> *md);
+
 template <typename T>
 void SparseDeallocOnCount(T *rc, std::size_t count,
                           const std::unordered_set<std::string> &exclude = {});
+
+extern template TaskStatus
+InitNewlyAllocatedVars<MeshBlockData<Real>>(MeshBlockData<Real> *rc);
+extern template TaskStatus InitNewlyAllocatedVars<MeshData<Real>>(MeshData<Real> *rc);
 
 extern template void
 SparseDeallocOnCount<MeshData<Real>>(MeshData<Real> *, std::size_t,

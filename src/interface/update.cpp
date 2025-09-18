@@ -140,14 +140,6 @@ TaskStatus UpdateWithFluxDivergence(MeshData<Real> *u0_data, MeshData<Real> *u1_
   return TaskStatus::complete;
 }
 
-TaskStatus SparseDealloc(MeshData<Real> *md) {
-  PARTHENON_INSTRUMENT
-  if (Globals::sparse_config.enabled && (md->NumBlocks() > 0)) {
-    SparseDeallocOnCount(md, Globals::sparse_config.deallocation_count);
-  }
-  return TaskStatus::complete;
-}
-
 } // namespace Update
 
 } // namespace parthenon

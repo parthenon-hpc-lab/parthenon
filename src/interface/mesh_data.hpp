@@ -282,6 +282,11 @@ class MeshData {
 
   void Initialize(BlockList_t blocks, Mesh *pmesh, std::optional<int> gmg_level = {});
 
+  MeshBlockData<T> *GetBlockDataRawPointer(int n) {
+    assert(n >= 0 && n < block_data_.size());
+    return block_data_[n].get();
+  }
+
   const std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) const {
     assert(n >= 0 && n < block_data_.size());
     return block_data_[n];
@@ -535,16 +540,6 @@ std::vector<Uid_t> UidIntersection(MeshData<T> *md1, MeshData<T> *md2, Args &&..
   return UidIntersection(md1->GetBlockData(0).get(), md2->GetBlockData(0).get(),
                          std::forward<Args>(args)...);
 }
-
-template <typename T>
-MeshBlockData<Real> *GetBlockDataPointer(T *rc, std::size_t b) {
-  if constexpr (std::is_same_v<T, MeshBlockData<Real>>) {
-    return rc;
-  } else {
-    return rc->GetBlockData(b).get();
-  }
-}
-
 } // namespace parthenon
 
 #endif // INTERFACE_MESH_DATA_HPP_

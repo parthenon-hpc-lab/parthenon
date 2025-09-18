@@ -18,6 +18,79 @@
 
 namespace parthenon {
 
+TaskStatus SparseDealloc(MeshData<Real> *md) {
+  PARTHENON_INSTRUMENT
+  if (Globals::sparse_config.enabled && (md->NumBlocks() > 0)) {
+    SparseDeallocOnCount(md, Globals::sparse_config.deallocation_count);
+  }
+  return TaskStatus::complete;
+}
+
+template <typename T>
+TaskStatus InitNewlyAllocatedVars(T *rc) {
+  PARTHENON_INSTRUMENT
+  if (!rc->AllVariablesInitialized()) {
+    const IndexDomain interior = IndexDomain::interior;
+    const IndexRange ib = rc->GetBoundsI(interior);
+    const IndexRange jb = rc->GetBoundsJ(interior);
+    const IndexRange kb = rc->GetBoundsK(interior);
+    const int Ni = ib.e + 1 - ib.s;
+    const int Nj = jb.e + 1 - jb.s;
+    const int Nk = kb.e + 1 - kb.s;
+    const int NjNi = Nj * Ni;
+    const int NkNjNi = Nk * NjNi;
+
+    // This pack will always be freshly built, since we only get here if sparse data
+    // was allocated and hasn't been initialized, which in turn implies the cached
+    // pack must be stale.
+    auto desc =
+        parthenon::MakePackDescriptor<variable_names::any>(rc, {Metadata::Sparse});
+    auto v = desc.GetPack(rc);
+
+    Kokkos::parallel_for(
+        PARTHENON_AUTO_LABEL,
+        Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), v.GetNBlocks(), Kokkos::AUTO),
+        KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
+          const int b = team_member.league_rank();
+          int lo = v.GetLowerBound(b, variable_names::any());
+          int hi = v.GetUpperBound(b, variable_names::any());
+
+          for (int vidx = lo; vidx <= hi; ++vidx) {
+            if (!v(b, vidx).initialized) {
+              Real val = v(b, vidx).sparse_default_val;
+              Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, NkNjNi),
+                                   [&](const int idx) {
+                                     const int k = kb.s + idx / NjNi;
+                                     const int j = jb.s + (idx % NjNi) / Ni;
+                                     const int i = ib.s + idx % Ni;
+                                     v(b, vidx, k, j, i) = val;
+                                   });
+            }
+          }
+        });
+
+    // Set initialized here since everything has been filled with default values,
+    // user defined functions may overwrite these in the next step but that doesn't
+    // change initialization status of the interior
+    rc->SetAllVariablesToInitialized();
+  }
+
+  // Do user defined initializations if present
+  // This has to be done even in the case where no blocks have been allocated
+  // since the boundaries of allocated blocks could have received default data
+  // In any case
+  auto pm = rc->GetParentPointer();
+  for (const auto &pkg : pm->packages.AllPackages()) {
+    pkg.second->InitNewlyAllocatedVars(rc);
+  }
+
+  // Don't worry about flagging variables as initialized
+  // since they will be flagged at the beginning of the
+  // next step in the evolution driver
+
+  return TaskStatus::complete;
+}
+
 template <typename T>
 void SparseDeallocOnCount(T *rc, std::size_t count,
                           const std::unordered_set<std::string> &exclude) {
@@ -64,7 +137,7 @@ void SparseDeallocOnCount(T *rc, std::size_t count,
   auto is_zero_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), is_zero);
 
   for (int b = 0; b < pack.GetNBlocks(); ++b) {
-    auto pmbdata = GetBlockDataPointer(rc, b);
+    auto pmbdata = rc->GetBlockDataRawPointer(b);
     auto pmb = pmbdata->GetBlockPointer();
     for (auto &control_var : control_vars) {
       if (exclude.count(control_var) > 0) continue;
@@ -91,6 +164,9 @@ void SparseDeallocOnCount(T *rc, std::size_t count,
     }
   }
 }
+
+template TaskStatus InitNewlyAllocatedVars<MeshBlockData<Real>>(MeshBlockData<Real> *rc);
+template TaskStatus InitNewlyAllocatedVars<MeshData<Real>>(MeshData<Real> *rc);
 
 template void
 SparseDeallocOnCount<MeshData<Real>>(MeshData<Real> *, std::size_t,
