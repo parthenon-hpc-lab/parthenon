@@ -75,7 +75,7 @@ parser.add_argument(
     nargs=2,
     default=None,
 )
-parser.add_argument("--xlabel", type=str, help="Label for x axis", default="Time")
+parser.add_argument("--xlabel", type=str, help="Label for x axis", default="time")
 parser.add_argument(
     "--ylim",
     type=float,
@@ -83,7 +83,7 @@ parser.add_argument(
     nargs=2,
     default=None,
 )
-parser.add_argument("--ylabel", type=str, help="Label for y axis", default="radius")
+parser.add_argument("--ylabel", type=str, help="Label for y axis", default="position")
 parser.add_argument(
     "-o", "--spline-order", type=int, default=0, help="Order of spline interpolation"
 )
