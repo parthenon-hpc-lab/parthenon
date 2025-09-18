@@ -42,6 +42,45 @@ which inherits from ``parthenon::variable_names::base_t`` [5]_. Rather than writ
 
 The advantage of using types instead of just strings to denote field names is that the types are accessible within kernels on device. Under the hood, ``SparsePack::operator()`` is overloaded on each of the type list of variable name types used to create the pack, so an instance of the variable name type can be used to access desired field within a pack.
 
+Scratch Variable Packing
+------------------------
+
+Parthenon provides the capability to access non-persistent fields allocated on the meshblocks by aliasing a pool of ``Metadata::overrideable`` fields with different types.
+These scratch variables are registered and pooled per ``StateDescriptor`` and the total number fields allocated determined by the maximum registered to any single ``StateDescriptor``.
+
+Scratch variables can be defined using the ``SCRATCH_VARIABLE`` macro, 
+
+.. code:: c++
+
+   using TT = parthenon::TopologicalType;
+   namespace parthenon { // scratch variables need to be declared in the parthenon namespace
+   SCRATCH_VARIABLE(First, TT::Cell, 3)     // 3 fields
+   SCRATCH_VARIABLE(Second, TT::Cell, 2, 4) // 8 fields
+   SCRATCH_VARIABLE(Third, TT::Cell)        // 1 field
+   SCRATCH_VARIABLE(Fourth, TT::Cell, 5)    // 5 fields
+   } // namespace parthenon
+
+   // pkgA requests a total of 11 fields
+   pkgA->AddScratch<parthenon::First>();
+   pkgA->AddScratch<parthenon::Second>();
+
+   // pkgB requests a total of 6 fields
+   pkgB->AddScratch<parthenon::Third>();
+   pkgB->AddScratch<parthenon::Fourth>();
+
+In the above example 4 scratch variables are registered to two different packages, totalling
+17 indexable fields across the 4 types, but only 11 fields will be allocated.
+These types can then be packed and accessed as normal in type-based sparse packs. 
+An example of usage can be found in `the unit
+test <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/tst/unit/test_scratch_variables.cpp>`
+
+It should not be expected that values in these fields will persist outside the local
+scope of the tasks where they are packed. For debugging purposes the cmake build can
+be configured with ``-DPARTHENON_DEBUG_SCRATCH=ON``, in which case the fields will
+be registered with unique names, ``scratch_First`` as an example from the above
+snippet.
+
+
 Building and Using a ``SparsePack``
 -----------------------------------
 
