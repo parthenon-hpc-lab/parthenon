@@ -1135,8 +1135,7 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
             << "Refinement level must be larger than 0 (root level = 0)" << std::endl;
         PARTHENON_FAIL(msg);
       }
-      int numlevel = pin->GetInteger("parthenon/mesh", "numlevel", 1,
-                                     "maximum level of refinement globally");
+      int numlevel = pin->GetInteger("parthenon/mesh", "numlevel");
       if (ref_lev > numlevel) {
         msg << "### FATAL ERROR in Mesh constructor" << std::endl
             << "Refinement level exceeds the maximum level (specify "
