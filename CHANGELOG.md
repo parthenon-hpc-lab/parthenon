@@ -15,6 +15,7 @@
 - [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Add dev container (e.g., GitHub Codepsacer or VSCode)
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1323]](https://github.com/parthenon-hpc-lab/parthenon/pull/1323) Added per-block `sparse_dealloc` functionality outside of tasking to new `sparse/sparse_management` header.
 - [[PR 1311]](https://github.com/parthenon-hpc-lab/parthenon/pull/1311) Refinement criteria no longer need to be a contiguous index range in the input deck
 - [[PR 1305]](https://github.com/parthenon-hpc-lab/parthenon/pull/1305) Minor tweaks and quality of life improvements to python package and some debugging output options
 - [[PR 1266]](https://github.com/parthenon-hpc-lab/parthenon/pull/1266) Remove `next_time`, which the code previously stashed in ParameterInput for outputs. Instead last time is stashed in a new Outputs package params. Changing output cadence upon restart now works as expected.
