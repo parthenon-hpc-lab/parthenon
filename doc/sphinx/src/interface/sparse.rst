@@ -348,13 +348,9 @@ those fields are reset to ``ParArrayND``\ s of size 0.
 Deallocation
 ~~~~~~~~~~~~
 
-The header file ``src/sparse/sparse_management.hpp`` contains two
-functions:
-- ``SparseCheckIsZero``, which returns a kokkos view mapping sparse
-  variables to whether or not a sparse variable is zero on a given
-  meshblock
-- ``SparseDeallocOnCount``, which deallocates sparse variables if they
-  have been below the dealloc threshold for ``count`` checks. 
+The header file ``src/sparse/sparse_management.hpp`` contains the
+function ``SparseDeallocOnCount``, which deallocates sparse variables
+if they have been below the dealloc threshold for ``count`` checks.
 
 The task ``SparseDealloc`` in ``src/interface/update.cpp`` calls
 ``SparseDeallocOnCount`` in a task list. It takes a ``MeshData``

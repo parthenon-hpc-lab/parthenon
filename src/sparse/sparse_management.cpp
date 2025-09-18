@@ -11,21 +11,64 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <string>
+#include <unordered_set>
+
 #include "sparse/sparse_management.hpp"
 
 namespace parthenon {
 
 template <typename T>
-void SparseDeallocOnCount(T *rc, std::size_t count) {
-  auto [pack, packIdx, control_vars, is_zero_h] = SparseCheckIsZero(rc);
-  if (!Globals::sparse_config.enabled || (pack.GetNBlocks() < 1)) {
-    return;
-  }
+void SparseDeallocOnCount(T *rc, std::size_t count,
+                          const std::unordered_set<std::string> &exclude) {
+  PARTHENON_INSTRUMENT
+  auto control_vars = rc->GetMeshPointer()->resolved_packages->GetControlVariables();
+  static auto desc = MakePackDescriptor(rc, control_vars, {Metadata::Sparse});
+  auto pack = desc.GetPack(rc);
+  auto packIdx = desc.GetMap();
+  if (pack.GetNBlocks() < 1) return;
+
+  const IndexRange ib = rc->GetBoundsI(IndexDomain::entire);
+  const IndexRange jb = rc->GetBoundsJ(IndexDomain::entire);
+  const IndexRange kb = rc->GetBoundsK(IndexDomain::entire);
+
+  ParArray2D<bool> is_zero("IsZero", pack.GetNBlocks(), pack.GetMaxNumberOfVars());
+  Kokkos::parallel_for(
+      PARTHENON_AUTO_LABEL,
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), pack.GetNBlocks(), Kokkos::AUTO),
+      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
+        const int b = team_member.league_rank();
+
+        const int lo = pack.GetLowerBound(b);
+        const int hi = pack.GetUpperBound(b);
+
+        for (int v = lo; v <= hi; ++v) {
+          const auto &var = pack(b, v);
+          const Real threshold = var.deallocation_threshold;
+          bool all_zero = true;
+          const auto &var_raw = var.data();
+          Kokkos::parallel_reduce(
+              Kokkos::TeamThreadRange<>(team_member, var.size()),
+              [&](const int idx, bool &lall_zero) {
+                if (std::abs(var_raw[idx]) > threshold) {
+                  lall_zero = false;
+                  return;
+                }
+              },
+              Kokkos::LAnd<bool, DevMemSpace>(all_zero));
+          Kokkos::single(Kokkos::PerTeam(team_member),
+                         [&]() { is_zero(b, v) = all_zero; });
+        }
+      });
+
+  auto is_zero_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), is_zero);
 
   for (int b = 0; b < pack.GetNBlocks(); ++b) {
     auto pmbdata = GetBlockDataPointer(rc, b);
     auto pmb = pmbdata->GetBlockPointer();
     for (auto &control_var : control_vars) {
+      if (exclude.count(control_var) > 0) continue;
+
       int lo = pack.GetLowerBoundHost(b, PackIdx(packIdx[control_var]));
       int hi = pack.GetUpperBoundHost(b, PackIdx(packIdx[control_var]));
       if (lo <= hi) { // Check that this control variable is actually in the pack
@@ -49,8 +92,11 @@ void SparseDeallocOnCount(T *rc, std::size_t count) {
   }
 }
 
-template void SparseDeallocOnCount<MeshData<Real>>(MeshData<Real> *, std::size_t);
-template void SparseDeallocOnCount<MeshBlockData<Real>>(MeshBlockData<Real> *,
-                                                        std::size_t);
+template void
+SparseDeallocOnCount<MeshData<Real>>(MeshData<Real> *, std::size_t,
+                                     const std::unordered_set<std::string> &);
+template void
+SparseDeallocOnCount<MeshBlockData<Real>>(MeshBlockData<Real> *, std::size_t,
+                                          const std::unordered_set<std::string> &);
 
 } // namespace parthenon
