@@ -72,8 +72,8 @@ TEST_CASE("Test registering scratch variables to different StateDescriptors",
     packages.Add(pkgA);
     packages.Add(pkgB);
 
-    parthenon::AddScratch<scratch_list_a>(pkgA.get());
-    parthenon::AddScratch<scratch_list_b>(pkgB.get());
+    pkgA->AddField(scratch_list_a());
+    pkgB->AddField(scratch_list_b());
     auto pkg = parthenon::ResolvePackages(packages);
 
     THEN("Packages have the right number of scratch fields present") {

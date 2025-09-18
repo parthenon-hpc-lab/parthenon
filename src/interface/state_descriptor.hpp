@@ -31,6 +31,7 @@
 #include "interface/sparse_pool.hpp"
 #include "interface/var_id.hpp"
 #include "outputs/output_parameters.hpp"
+#include "pack/scratch_variables.hpp"
 #include "parameter_input.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
@@ -230,6 +231,31 @@ class StateDescriptor {
   template <typename T>
   bool AddField(const Metadata &m, const std::string &controlling_field = "") {
     return AddField(T::name(), m, controlling_field);
+  }
+
+  template <typename... Ts>
+  bool AddField(ScratchVariableList<Ts...>) {
+    using SL = ScratchVariableList<Ts...>;
+    bool success = true;
+#ifndef PARTHENON_DEBUG_SCRATCH
+    auto m = Metadata(
+        {TopologicalTypeToMetaData(SL::TT), Metadata::Derived, Metadata::Overridable});
+    for (const auto var : SL::GetVarNames()) {
+      success = AddField(var, m) && success;
+    }
+#else
+    // in debug mode each scratch variable is a unique field
+    (
+        [&] {
+          auto m = Metadata({TopologicalTypeToMetaData(SL::TT), Metadata::Derived,
+                             Metadata::Overridable},
+                            std::vector<int>(std::begin(Ts::shape), std::end(Ts::shape)));
+          success = AddField<Ts>(m) && success;
+        }(),
+        ...);
+#endif
+
+    return success;
   }
 
   // add sparse pool, all arguments will be forwarded to the SparsePool constructor, so

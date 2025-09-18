@@ -31,29 +31,6 @@
 #include "utils/type_list.hpp"
 
 namespace parthenon {
-KOKKOS_INLINE_FUNCTION constexpr auto TopologicalTypeToMetaData(TopologicalType tt) {
-  using TT = TopologicalType;
-  if (tt == TT::Face) {
-    return Metadata::Face;
-  } else if (tt == TT::Edge) {
-    return Metadata::Edge;
-  } else if (tt == TT::Node) {
-    return Metadata::Node;
-  }
-  return Metadata::Cell;
-}
-
-inline std::string TopologicalTypeToString(TopologicalType tt) {
-  using TT = TopologicalType;
-  if (tt == TT::Face) {
-    return "face";
-  } else if (tt == TT::Edge) {
-    return "edge";
-  } else if (tt == TT::Node) {
-    return "node";
-  }
-  return "cell";
-}
 
 inline std::string range_regex(unsigned a, unsigned b) {
   std::ostringstream pattern;
@@ -142,35 +119,6 @@ struct ScratchVariableList {
     return vars;
   }
 };
-
-namespace impl {
-template <typename... Ts>
-void AddScratch(ScratchVariableList<Ts...>, StateDescriptor *pkg) {
-  using SL = ScratchVariableList<Ts...>;
-  (
-      [&] {
-        auto m = Metadata(
-            {TopologicalTypeToMetaData(SL::TT), Metadata::Derived, Metadata::Overridable},
-            std::vector<int>(std::begin(Ts::shape), std::end(Ts::shape)));
-        pkg->AddField<Ts>(m);
-      }(),
-      ...);
-}
-} // namespace impl
-
-template <typename SL>
-void AddScratch(StateDescriptor *pkg) {
-#ifdef PARTHENON_DEBUG_SCRATCH
-  // in debug mode each scratch variable has its own unique name
-  impl::AddScratch(SL(), pkg);
-#else
-  auto m = Metadata(
-      {TopologicalTypeToMetaData(SL::TT), Metadata::Derived, Metadata::Overridable});
-  for (const auto var : SL::GetVarNames()) {
-    pkg->AddField(var, m);
-  }
-#endif
-}
 
 } // namespace parthenon
 #endif // PACK_SCRATCH_VARIABLES_HPP_
