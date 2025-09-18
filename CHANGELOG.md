@@ -43,6 +43,7 @@
 - [[PR 1284]](https://github.com/parthenon-hpc-lab/parthenon/pull/1284) Fix some parameter types, move `DumpInputParameters` to `Driver`
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1321]](https://github.com/parthenon-hpc-lab/parthenon/pull/1321) Reorganize docs into chapters
 - [[PR 1316]](https://github.com/parthenon-hpc-lab/parthenon/pull/1316) Update Cuda CI container (main change g++-13 to fix asan bug)
 - [[PR 1292]](https://github.com/parthenon-hpc-lab/parthenon/pull/1292) Remove shared ptr cycle and add a destructor for reductions
 - [[PR 1281]](https://github.com/parthenon-hpc-lab/parthenon/pull/1281) Move params implementation to std::any
