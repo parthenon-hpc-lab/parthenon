@@ -536,6 +536,15 @@ std::vector<Uid_t> UidIntersection(MeshData<T> *md1, MeshData<T> *md2, Args &&..
                          std::forward<Args>(args)...);
 }
 
+template <typename T>
+MeshBlockData<Real> *GetBlockDataPointer(T *rc, std::size_t b) {
+  if constexpr (std::is_same_v<T, MeshBlockData<Real>>) {
+    return rc;
+  } else {
+    return rc->GetBlockData(b).get();
+  }
+}
+
 } // namespace parthenon
 
 #endif // INTERFACE_MESH_DATA_HPP_

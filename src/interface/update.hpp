@@ -312,6 +312,7 @@ TaskStatus FillDerived(T *rc) {
   return TaskStatus::complete;
 }
 
+// TODO(JMM): Should this move into sparse_management?
 template <typename T>
 TaskStatus InitNewlyAllocatedVars(T *rc) {
   PARTHENON_INSTRUMENT
@@ -364,7 +365,7 @@ TaskStatus InitNewlyAllocatedVars(T *rc) {
   // Do user defined initializations if present
   // This has to be done even in the case where no blocks have been allocated
   // since the boundaries of allocated blocks could have received default data
-  // in any case
+  // In any case
   auto pm = rc->GetParentPointer();
   for (const auto &pkg : pm->packages.AllPackages()) {
     pkg.second->InitNewlyAllocatedVars(rc);

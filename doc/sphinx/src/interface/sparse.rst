@@ -348,17 +348,26 @@ those fields are reset to ``ParArrayND``\ s of size 0.
 Deallocation
 ~~~~~~~~~~~~
 
-There is a new task called ``SparseDealloc`` in
-``src/interface/update.cpp`` taking a ``MeshData`` pointer. It is meant
-to be run after the update task for the last stage (of course, it does
-not have to be run every time step). On every block, it checks the
-values of all sparse variables. If the maximum absolute value is below
-the user-defined deallocation threshold, the variable is flagged for
-deallocation on that block. The variable is only actually deallocated if
-it has been flagged for deallocation a certain number of times in a row
-(if any of the values exceeds the deallocation threshold, the counter is
-reset to 0). That number is the deallocation count, which is also
-settable by the user in the input file.
+The header file ``src/sparse/sparse_management.hpp`` contains two
+functions:
+- ``SparseCheckIsZero``, which returns a kokkos view mapping sparse
+  variables to whether or not a sparse variable is zero on a given
+  meshblock
+- ``SparseDeallocOnCount``, which deallocates sparse variables if they
+  have been below the dealloc threshold for ``count`` checks. 
+
+The task ``SparseDealloc`` in ``src/interface/update.cpp`` calls
+``SparseDeallocOnCount`` in a task list. It takes a ``MeshData``
+pointer. It is meant to be run after the update task for the last
+stage (of course, it does not have to be run every time step). On
+every block, it checks the values of all sparse variables. If the
+maximum absolute value is below the user-defined deallocation
+threshold, the variable is flagged for deallocation on that block. The
+variable is only actually deallocated if it has been flagged for
+deallocation a certain number of times in a row (if any of the values
+exceeds the deallocation threshold, the counter is reset to 0). That
+number is the deallocation count, which is also settable by the user
+in the input file.
 
 Boundary exchange
 ~~~~~~~~~~~~~~~~~

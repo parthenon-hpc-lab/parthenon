@@ -247,6 +247,9 @@ add_library(parthenon
   reconstruct/dc_inline.hpp
   reconstruct/plm_inline.hpp
 
+  sparse/sparse_management.cpp
+  sparse/sparse_management.hpp
+
   amr_criteria/amr_criteria.cpp
   amr_criteria/amr_criteria.hpp
   amr_criteria/refinement_package.cpp
