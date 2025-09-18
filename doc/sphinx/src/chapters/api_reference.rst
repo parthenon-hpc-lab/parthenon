@@ -1,7 +1,7 @@
 API Reference
 =============
 
-Authoritative API docs for Parthenon’s public interfaces: metadata,
+API docs for Parthenon’s public interfaces: metadata,
 containers, state, boundary and refinement operations, and the
 mesh/domain classes.
 
