@@ -343,8 +343,8 @@ void Swarm::UpdateEmptyIndices() {
       });
 
   // this is evidently needed for some HIP/ROCm/AMD platforms
-  Kokkos::fence();
-  
+  DevExecSpace().fence();
+
   // Update list of empty indices such that it is contiguous and in ascending order
   parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, nmax_pool_ - 1, KOKKOS_LAMBDA(const int n) {
@@ -410,7 +410,7 @@ void Swarm::Defrag() {
       });
 
   // this might be needed for some HIP/ROCm/AMD platforms
-  Kokkos::fence();
+  DevExecSpace().fence();
   
   parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, nmax_pool_ - 1, KOKKOS_LAMBDA(const int n) {
@@ -423,7 +423,7 @@ void Swarm::Defrag() {
       });
 
   // this might be needed for some HIP/ROCm/AMD platforms
-  Kokkos::fence();
+  DevExecSpace().fence();
   
   // Reuse scratch memory
   auto &scan_scratch_towrite = scan_scratch_toread;
@@ -440,7 +440,7 @@ void Swarm::Defrag() {
       });
 
   // this might be needed for some HIP/ROCm/AMD platforms
-  Kokkos::fence();
+  DevExecSpace().fence();
   
   // Get all dynamical variables in swarm
   auto &int_vector = std::get<getType<int>()>(vectors_);
