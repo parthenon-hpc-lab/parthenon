@@ -45,6 +45,7 @@ class ParthenonManager {
   ParthenonInitPackagesAndMesh(std::optional<forest::ForestDefinition> forest_def = {});
   ParthenonStatus ParthenonFinalize();
 
+  bool IsRestart() { return (arg.restart_filename == nullptr ? false : true); }
   static Packages_t ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin);
   void RestartPackages(Mesh &rm, RestartReader &resfile);
 

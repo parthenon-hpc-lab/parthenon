@@ -24,16 +24,16 @@ endif()
 # See `kokkos_abstraction.hpp` for available tags and what they translate to.
 if (Kokkos_ENABLE_CUDA OR Kokkos_ENABLE_HIP)
   set(PAR_LOOP_LAYOUT "MANUAL1D_LOOP" CACHE STRING
-    "Default loop layout for parallel_for wrapper")
+    "Default loop layout for parallel_for wrapper" FORCE)
 
   set(PAR_LOOP_LAYOUT_VALUES "MANUAL1D_LOOP;MDRANGE_LOOP;TPTTR_LOOP;TPTTRTVR_LOOP"
-    CACHE STRING "Possible loop layout options.")
+    CACHE STRING "Possible loop layout options." FORCE)
 
   set(PAR_LOOP_INNER_LAYOUT "TVR_INNER_LOOP" CACHE STRING
-    "Default loop layout for par_for_inner wrapper")
+    "Default loop layout for par_for_inner wrapper" FORCE)
 
   set(PAR_LOOP_INNER_LAYOUT_VALUES "TVR_INNER_LOOP"
-    CACHE STRING "Possible inner loop layout options.")
+    CACHE STRING "Possible inner loop layout options." FORCE)
 
 elseif(Kokkos_ENABLE_HPX)
   message( FATAL_ERROR "Need to add/fix/test default loop layouts for HPX backend.")
@@ -41,15 +41,15 @@ elseif(Kokkos_ENABLE_HPX)
 else()
   # use simd for loop when running on host
   set(PAR_LOOP_LAYOUT "SIMDFOR_LOOP" CACHE STRING
-    "Default loop layout for parallel_for wrapper")
+    "Default loop layout for parallel_for wrapper" FORCE)
   set(PAR_LOOP_LAYOUT_VALUES "SIMDFOR_LOOP;MANUAL1D_LOOP;MDRANGE_LOOP;TPTTR_LOOP;TPTVR_LOOP;TPTTRTVR_LOOP"
-    CACHE STRING "Possible loop layout options.")
+    CACHE STRING "Possible loop layout options." FORCE)
 
   set(PAR_LOOP_INNER_LAYOUT "SIMDFOR_INNER_LOOP" CACHE STRING
-    "Default loop layout for par_for_inner wrapper")
+    "Default loop layout for par_for_inner wrapper" FORCE)
 
   set(PAR_LOOP_INNER_LAYOUT_VALUES "SIMDFOR_INNER_LOOP;TVR_INNER_LOOP"
-    CACHE STRING "Possible inner loop layout options.")
+    CACHE STRING "Possible inner loop layout options." FORCE)
 
 endif()
 
