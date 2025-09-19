@@ -92,7 +92,8 @@ class Swarm {
   }
 
  public:
-  Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in);
+  Swarm(const std::string &label, const Metadata &metadata,
+        const std::size_t nmax_pool_in);
   Swarm(const std::string &label, const Metadata &metadata)
       : Swarm(label, metadata, metadata.InitialSwarmPoolReservation()) {}
 
