@@ -375,6 +375,9 @@ class Metadata {
   std::shared_ptr<Metadata> flux_metadata;
 
  public:
+  // TODO(JMM): I'm not sure where this should go...
+  static constexpr const std::size_t SWARM_DEFAULT_NMAX_POOL = 3;
+
   // Static routines
   static MetadataFlag AddUserFlag(const std::string &name);
   static bool FlagNameExists(const std::string &flagname);
@@ -601,6 +604,9 @@ class Metadata {
     return component_labels_;
   }
 
+  void SetInitialSwarmPoolReservation(const std::size_t s) { swarm_nmax_pool_ = s; }
+  std::size_t InitialSwarmPoolReservation() const noexcept { return swarm_nmax_pool_; }
+
  private:
   /// the attribute flags that are set for the class
   refinement::RefinementFunctions_t refinement_funcs_;
@@ -613,6 +619,7 @@ class Metadata {
   parthenon::Real allocation_threshold_;
   parthenon::Real deallocation_threshold_;
   parthenon::Real default_value_;
+  std::size_t swarm_nmax_pool_ = SWARM_DEFAULT_NMAX_POOL;
 
   /// if flag is true set bit, clears otherwise
   void DoBit(MetadataFlag bit, bool flag) {
