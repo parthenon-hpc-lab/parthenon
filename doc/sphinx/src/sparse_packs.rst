@@ -80,6 +80,11 @@ be configured with ``-DPARTHENON_DEBUG_SCRATCH=ON``, in which case the fields wi
 be registered with unique names, ``scratch_First`` as an example from the above
 snippet.
 
+.. warning::
+   Parthenon's tasking infrastructure can not make guarantees about the order that tasks are executed. Therefore
+   care should be taken not to assume that scratch variables can persist between tasks, even when they are directly
+   dependent on each other. Issues resolved by setting ``-DPARTHENON_DEBUG_SCRATCH=ON`` can be an indication of this issue.
+
 
 Building and Using a ``SparsePack``
 -----------------------------------
