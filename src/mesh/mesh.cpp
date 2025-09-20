@@ -667,6 +667,11 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
 
 void Mesh::CommunicateBoundaries(std::string md_name,
                                  const std::vector<std::string> &fields) {
+  // JMM: The tasking logic isn't robust against blocks < ranks, which
+  // we may have at this point, so if there's no blocks on this rank,
+  // just quit out and continue
+  if (GetNumMeshBlocksThisRank(Globals::my_rank) < 1) return;
+
   const int num_partitions = DefaultNumPartitions();
 
   TaskCollection tc;

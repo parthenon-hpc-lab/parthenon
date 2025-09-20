@@ -4,6 +4,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 1319]](https://github.com/parthenon-hpc-lab/parthenon/pull/1319) Add common scratch variable utilities
+- [[PR 1320]](https://github.com/parthenon-hpc-lab/parthenon/pull/1320) 1D Contour plotting
 - [[PR 1315]](https://github.com/parthenon-hpc-lab/parthenon/pull/1315) Add user specifiable BCs to solvers
 - [[PR 1192]](https://github.com/parthenon-hpc-lab/parthenon/pull/1192) Coalesced buffer communication
 - [[PR 1314]](https://github.com/parthenon-hpc-lab/parthenon/pull/1314) Add option of user specified BCs in AddBoundaryExchangeTasks
@@ -25,6 +26,7 @@
 - [[PR 1280]](https://github.com/parthenon-hpc-lab/parthenon/pull/1280) Print history file headers on restart
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1318]](https://github.com/parthenon-hpc-lab/parthenon/pull/1318) Fix AMR criteria for sparse variables and re-fix blocks < ranks
 - [[PR 1317]](https://github.com/parthenon-hpc-lab/parthenon/pull/1317) Make VariableExits logic in HDF5 restart reader work
 - [[PR 1288]](https://github.com/parthenon-hpc-lab/parthenon/pull/1288) Fix restriction bug for non-cartesian coordinates and make poisson_gmg example work for curvilinear coordinates
 - [[PR 1307]](https://github.com/parthenon-hpc-lab/parthenon/pull/1307) Fix imports in parthenon tools + phdf_diff logic
@@ -42,6 +44,7 @@
 - [[PR 1284]](https://github.com/parthenon-hpc-lab/parthenon/pull/1284) Fix some parameter types, move `DumpInputParameters` to `Driver`
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1321]](https://github.com/parthenon-hpc-lab/parthenon/pull/1321) Reorganize docs into chapters
 - [[PR 1316]](https://github.com/parthenon-hpc-lab/parthenon/pull/1316) Update Cuda CI container (main change g++-13 to fix asan bug)
 - [[PR 1292]](https://github.com/parthenon-hpc-lab/parthenon/pull/1292) Remove shared ptr cycle and add a destructor for reductions
 - [[PR 1281]](https://github.com/parthenon-hpc-lab/parthenon/pull/1281) Move params implementation to std::any
