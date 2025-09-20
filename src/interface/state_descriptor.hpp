@@ -236,7 +236,7 @@ class StateDescriptor {
 
   template <typename T>
   bool AddScratch() {
-    TopologicalType tt = T::type;
+    TopologicalType tt = T::topo_type;
     if constexpr (!debug_scratch_variables()) {
       // tally how many scratch variables of this topologicaltype have already been added
       int lower_bound = 0;
@@ -244,8 +244,8 @@ class StateDescriptor {
         lower_bound = num_scratch_.at(tt);
       }
       num_scratch_[tt] = T::update_bounds(lower_bound);
-      auto m = Metadata(
-          {TopologicalTypeToMetaData(T::type), Metadata::Derived, Metadata::Overridable});
+      auto m = Metadata({TopologicalTypeToMetaData(T::topo_type), Metadata::Derived,
+                         Metadata::Overridable});
       bool success = true;
       for (const auto var : T::GetVarNames()) {
         success = AddField(var, m) && success;

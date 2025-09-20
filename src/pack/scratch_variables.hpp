@@ -47,7 +47,7 @@ struct ScratchVariable : public parthenon::variable_names::base_t<true, NCOMPS..
   template <typename... Ts>
   KOKKOS_INLINE_FUNCTION ScratchVariable(Ts &&...args)
       : base_t(std::forward<Ts>(args)...) {}
-  static constexpr TopologicalType type = TT;
+  static constexpr TopologicalType topo_type = TT;
   static constexpr int ncomps = sizeof...(NCOMPS);
   static constexpr int size = (NCOMPS * ... * (1));
   static constexpr std::array<int, ncomps> shape{NCOMPS...};
@@ -75,7 +75,8 @@ constexpr bool debug_scratch_variables() {
       if constexpr (debug_scratch_variables()) {                                         \
         return std::string("scratch_") + std::string(#var_name);                         \
       } else {                                                                           \
-        return "scratch_" + TopologicalTypeToString(type) + "_" + range_regex(lb, ub);   \
+        return "scratch_" + TopologicalTypeToString(topo_type) + "_" +                   \
+               range_regex(lb, ub);                                                      \
       }                                                                                  \
     }                                                                                    \
                                                                                          \
