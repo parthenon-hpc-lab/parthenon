@@ -20,14 +20,11 @@
 
 #include <string>
 #include <utility>
-#include <vector>
 
 #include <Kokkos_Core.hpp>
 
 #include "basic_types.hpp"
-#include "interface/metadata.hpp"
 #include "pack/pack_utils.hpp"
-#include "utils/type_list.hpp"
 
 namespace parthenon {
 

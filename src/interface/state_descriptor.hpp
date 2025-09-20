@@ -245,7 +245,7 @@ class StateDescriptor {
       }
       num_scratch_[tt] = T::update_bounds(lower_bound);
       auto m = Metadata({TopologicalTypeToMetaData(T::topo_type), Metadata::Derived,
-                         Metadata::Overridable});
+                         Metadata::Overridable, Metadata::OneCopy});
       bool success = true;
       for (const auto var : T::GetVarNames()) {
         success = AddField(var, m) && success;
