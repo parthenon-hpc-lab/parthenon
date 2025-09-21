@@ -166,11 +166,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   root_level = 0;
   // SMR / AMR:
   if (adaptive) {
-    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
-                                     "maximum level of refinement globally") +
-                root_level - 1;
+    max_level_ref_ = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
+                                          "maximum level of refinement globally");
+    max_level = max_level_ref_ + root_level - 1;
   } else {
-    max_level = 63;
+    max_level_ref_ = 63;
+    max_level = max_level_ref_;
   }
 
   SetupMPIComms();
@@ -201,11 +202,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   // SMR / AMR:
   if (adaptive) {
-    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
-                                     "maximum level of refinement globally") +
-                root_level - 1;
+    max_level_ref_ = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
+                                          "maximum level of refinement globally");
+    max_level = max_level_ref_ + root_level - 1;
   } else {
-    max_level = 63;
+    max_level_ref_ = 63;
+    max_level = max_level_ref_;
   }
 
   // Register user defined boundary conditions
@@ -1135,10 +1137,10 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
             << "Refinement level must be larger than 0 (root level = 0)" << std::endl;
         PARTHENON_FAIL(msg);
       }
-      if (lrlev > max_level) {
+      if (ref_lev > max_level_ref_) {
         msg << "### FATAL ERROR in Mesh constructor" << std::endl
             << "Refinement level exceeds the maximum level (specify "
-            << "'maxlevel' parameter in <parthenon/mesh> input block if adaptive)."
+            << "'numlevel' parameter in <parthenon/mesh> input block if adaptive)."
             << std::endl;
 
         PARTHENON_FAIL(msg);

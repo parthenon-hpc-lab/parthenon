@@ -302,6 +302,7 @@ class Mesh {
  private:
   // data
   int root_level, max_level, current_level;
+  int max_level_ref_; // the max level as interpreted by the input deck/user
   int num_mesh_threads_;
   /// Maps Global Block IDs to which rank the block is mapped to.
   std::vector<int> ranklist;
