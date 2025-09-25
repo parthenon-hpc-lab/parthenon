@@ -727,9 +727,8 @@ template <typename T = DevMemSpace>
 auto ViewOfViewAlloc(const std::string &label) {
   if constexpr (std::is_same_v<T, HostMemSpace>) {
     return Kokkos::view_alloc(Kokkos::SequentialHostInit, label);
-  } else {
-    return Kokkos::view_alloc(label);
   }
+  return Kokkos::view_alloc(label);
 }
 
 // Returns a host mirror view with the `SequentialHostInit` property for proper
