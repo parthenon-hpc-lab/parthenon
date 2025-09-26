@@ -723,12 +723,16 @@ par_reduce_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int il, cons
 // on the host. If the ViewOfViews in on the device, then `SequentialHostInit` should be
 // passed when calling `create_mirror_view`, which is automatically handled by the
 // create_view_of_view_mirror() function below.
+// JMM: Replaced if constexpr with template specialization to quiet
+// clang-based compiler warnings. Clang didn't likat the return
+// statement was in an if constexpr/else block.
 template <typename T = DevMemSpace>
 auto ViewOfViewAlloc(const std::string &label) {
-  if constexpr (std::is_same_v<T, HostMemSpace>) {
-    return Kokkos::view_alloc(Kokkos::SequentialHostInit, label);
-  }
   return Kokkos::view_alloc(label);
+}
+template <>
+inline auto ViewOfViewAlloc<HostMemSpace>(const std::string &label) {
+  return Kokkos::view_alloc(Kokkos::SequentialHostInit, label);
 }
 
 // Returns a host mirror view with the `SequentialHostInit` property for proper
