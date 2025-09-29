@@ -44,6 +44,7 @@ struct CGParams {
   bool precondition = true;
   bool print_per_step = false;
   bool relative_residual = false;
+  bool densitize = false;
   CGParams() = default;
   CGParams(ParameterInput *pin, const std::string &input_block) {
     max_iters = pin->GetOrAddInteger(input_block, "max_iterations", max_iters);
@@ -54,6 +55,7 @@ struct CGParams {
     mg_params = MGParams(pin, input_block);
     relative_residual =
         pin->GetOrAddBoolean(input_block, "relative_residual", relative_residual);
+    densitize = pin->GetOrAddBoolean(input_block, "densitize", densitize);
   }
 };
 
@@ -192,7 +194,7 @@ class CGSolver : public SolverBase, CGSolverCounter {
     }
 
     // 2. beta <- r dot u / r dot u {old}
-    auto get_ru = DotProduct<FieldTL>(precon, itl, &ru, md_r, md_u);
+    auto get_ru = DotProduct<FieldTL>(precon, itl, &ru, md_r, md_u, params_.densitize);
 
     // 3. p <- u + beta p
     auto correct_p = itl.AddTask(
@@ -210,7 +212,7 @@ class CGSolver : public SolverBase, CGSolverCounter {
     auto get_v = eqs_.Ax(itl, comm, md_base, md_p, md_v);
 
     // 5. alpha <- r dot u / p dot v (calculate denominator)
-    auto get_pAp = DotProduct<FieldTL>(get_v, itl, &pAp, md_p, md_v);
+    auto get_pAp = DotProduct<FieldTL>(get_v, itl, &pAp, md_p, md_v, params_.densitize);
 
     // 6. x <- x + alpha p
     auto correct_x = itl.AddTask(
