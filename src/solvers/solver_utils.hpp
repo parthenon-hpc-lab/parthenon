@@ -521,7 +521,8 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
           const int nvars = pack_a.GetUpperBound(b) - pack_a.GetLowerBound(b) + 1;
           const auto &coords = pack_a.GetCoordinates(b);
-          const Real vol2 = coords.template Volume<TE::CC>(k, j, i) * coords.template Volume<TE::CC>(k, j, i);
+          const Real vol2 = coords.template Volume<TE::CC>(k, j, i) *
+                            coords.template Volume<TE::CC>(k, j, i);
           // TODO(LFR): If this becomes a bottleneck, exploit hierarchical parallelism and
           //            pull the loop over vars outside of the innermost loop to promote
           //            vectorization.
@@ -529,7 +530,7 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
             lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i) * vol2;
         },
         Kokkos::Sum<Real>(gsum));
-  } else { 
+  } else {
     parthenon::par_reduce(
         parthenon::loop_pattern_mdrange_tag, "DotProduct", DevExecSpace(), 0,
         pack_a.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -543,7 +544,7 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
             lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i);
         },
         Kokkos::Sum<Real>(gsum));
-  } 
+  }
   adotb->val += gsum;
   return TaskStatus::complete;
 }

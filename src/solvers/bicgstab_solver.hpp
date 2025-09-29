@@ -63,8 +63,7 @@ struct BiCGSTABParams {
     mg_params = MGParams(pin, input_block);
     relative_residual =
         pin->GetOrAddBoolean(input_block, "relative_residual", relative_residual);
-    densitize =
-        pin->GetOrAddBoolean(input_block, "densitize", densitize);
+    densitize = pin->GetOrAddBoolean(input_block, "densitize", densitize);
   }
 };
 
@@ -168,7 +167,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     auto copy_r = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_r);
     auto copy_p = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_p);
     auto copy_rhat0 = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_rhat0);
-    auto get_rhat0r_init = DotProduct<FieldTL>(dependence, tl, &rhat0r, md_rhat0, md_r, params_.densitize);
+    auto get_rhat0r_init =
+        DotProduct<FieldTL>(dependence, tl, &rhat0r, md_rhat0, md_r, params_.densitize);
     auto get_rhs2 = get_rhat0r_init;
     if (params_.relative_residual || params_.print_per_step)
       get_rhs2 = DotProduct<FieldTL>(dependence, tl, &rhs2, md_rhs, md_rhs);
@@ -230,7 +230,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     auto get_v = eqs_.Ax(itl, comm, md_base, md_u, md_v);
 
     // 3. rhat0v <- (rhat0, v)
-    auto get_rhat0v = DotProduct<FieldTL>(get_v, itl, &rhat0v, md_rhat0, md_v, params_.densitize);
+    auto get_rhat0v =
+        DotProduct<FieldTL>(get_v, itl, &rhat0v, md_rhat0, md_v, params_.densitize);
 
     // 4. h <- x + alpha u (alpha = rhat0r_old / rhat0v)
     auto correct_h = itl.AddTask(
@@ -323,7 +324,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
         this, pmesh);
 
     // 11. rhat0r <- (rhat0, r)
-    auto get_rhat0r = DotProduct<FieldTL>(correct_r, itl, &rhat0r, md_rhat0, md_r, params_.densitize);
+    auto get_rhat0r =
+        DotProduct<FieldTL>(correct_r, itl, &rhat0r, md_rhat0, md_r, params_.densitize);
 
     // 12. beta <- rhat0r / rhat0r_old * alpha / omega
     // 13. p <- r + beta * (p - omega * v)
