@@ -503,7 +503,7 @@ TaskID GlobalMin(TaskID dependency_in, TaskList &tl, AllReduce<Real> *amin,
 template <class TL>
 TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
                            const std::shared_ptr<MeshData<Real>> &md_b,
-                           AllReduce<Real> *adotb) {
+                           AllReduce<Real> *adotb, bool densitize) {
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
   IndexRange ib = md_a->GetBoundsI(IndexDomain::interior, te);
@@ -514,20 +514,36 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
   auto pack_a = desc.GetPack(md_a.get());
   auto pack_b = desc.GetPack(md_b.get());
   Real gsum(0);
-  parthenon::par_reduce(
-      parthenon::loop_pattern_mdrange_tag, "DotProduct", DevExecSpace(), 0,
-      pack_a.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
-        const int nvars = pack_a.GetUpperBound(b) - pack_a.GetLowerBound(b) + 1;
-        const auto &coords = pack_a.GetCoordinates(b);
-        const Real vol2 = coords.template Volume<TE::CC>(k, j, i) * coords.template Volume<TE::CC>(k, j, i);
-        // TODO(LFR): If this becomes a bottleneck, exploit hierarchical parallelism and
-        //            pull the loop over vars outside of the innermost loop to promote
-        //            vectorization.
-        for (int c = 0; c < nvars; ++c)
-          lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i) * vol2;
-      },
-      Kokkos::Sum<Real>(gsum));
+  if (densitize) {
+    parthenon::par_reduce(
+        parthenon::loop_pattern_mdrange_tag, "DotProduct", DevExecSpace(), 0,
+        pack_a.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
+          const int nvars = pack_a.GetUpperBound(b) - pack_a.GetLowerBound(b) + 1;
+          const auto &coords = pack_a.GetCoordinates(b);
+          const Real vol2 = coords.template Volume<TE::CC>(k, j, i) * coords.template Volume<TE::CC>(k, j, i);
+          // TODO(LFR): If this becomes a bottleneck, exploit hierarchical parallelism and
+          //            pull the loop over vars outside of the innermost loop to promote
+          //            vectorization.
+          for (int c = 0; c < nvars; ++c)
+            lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i) * vol2;
+        },
+        Kokkos::Sum<Real>(gsum));
+  } else { 
+    parthenon::par_reduce(
+        parthenon::loop_pattern_mdrange_tag, "DotProduct", DevExecSpace(), 0,
+        pack_a.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
+          const int nvars = pack_a.GetUpperBound(b) - pack_a.GetLowerBound(b) + 1;
+          const auto &coords = pack_a.GetCoordinates(b);
+          // TODO(LFR): If this becomes a bottleneck, exploit hierarchical parallelism and
+          //            pull the loop over vars outside of the innermost loop to promote
+          //            vectorization.
+          for (int c = 0; c < nvars; ++c)
+            lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i);
+        },
+        Kokkos::Sum<Real>(gsum));
+  } 
   adotb->val += gsum;
   return TaskStatus::complete;
 }
@@ -535,7 +551,7 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
 template <class TL>
 TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
                   const std::shared_ptr<MeshData<Real>> &md_a,
-                  const std::shared_ptr<MeshData<Real>> &md_b) {
+                  const std::shared_ptr<MeshData<Real>> &md_b, bool densitize = false) {
   using namespace impl;
   auto zero_adotb = tl.AddTask(
       TaskQualifier::once_per_region | TaskQualifier::local_sync, dependency_in,
@@ -545,59 +561,13 @@ TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
       },
       adotb);
   auto get_adotb = tl.AddTask(TaskQualifier::local_sync, zero_adotb, DotProductLocal<TL>,
-                              md_a, md_b, adotb);
+                              md_a, md_b, adotb, densitize);
   auto start_global_adotb = tl.AddTask(TaskQualifier::once_per_region, get_adotb,
                                        &AllReduce<Real>::StartReduce, adotb, MPI_SUM);
   auto finish_global_adotb =
       tl.AddTask(TaskQualifier::once_per_region | TaskQualifier::local_sync,
                  start_global_adotb, &AllReduce<Real>::CheckReduce, adotb);
   return finish_global_adotb;
-}
-
-template <class TL>
-TaskStatus DensitizeFields(const std::shared_ptr<MeshData<Real>> &md) {
-  using TE = parthenon::TopologicalElement;
-  TE te = TE::CC;
-  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
-  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
-  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
-
-  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md.get());
-  auto pack = desc.GetPack(md.get());
-  parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "DotProduct", DevExecSpace(), 0, pack.GetNBlocks() - 1, kb.s,
-      kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        const int nvars = pack.GetUpperBound(b) - pack.GetLowerBound(b) + 1;
-        const auto &coords = pack.GetCoordinates(b);
-        const Real vol = coords.template Volume<TE::CC>(k, j, i);
-        for (int c = 0; c < nvars; ++c)
-          pack(b, te, c, k, j, i) *= vol;
-      });
-  return TaskStatus::complete;
-}
-
-template <class TL>
-TaskStatus UnDensitizeFields(const std::shared_ptr<MeshData<Real>> &md) {
-  using TE = parthenon::TopologicalElement;
-  TE te = TE::CC;
-  IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
-  IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
-  IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
-
-  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md.get());
-  auto pack = desc.GetPack(md.get());
-  parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "DotProduct", DevExecSpace(), 0, pack.GetNBlocks() - 1, kb.s,
-      kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        const int nvars = pack.GetUpperBound(b) - pack.GetLowerBound(b) + 1;
-        const auto &coords = pack.GetCoordinates(b);
-        const Real vol = coords.template Volume<TE::CC>(k, j, i);
-        for (int c = 0; c < nvars; ++c)
-          pack(b, te, c, k, j, i) /= vol;
-      });
-  return TaskStatus::complete;
 }
 
 } // namespace utils

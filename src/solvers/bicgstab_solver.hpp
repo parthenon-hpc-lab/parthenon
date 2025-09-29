@@ -43,6 +43,7 @@ struct BiCGSTABParams {
   Preconditioner precondition_type = Preconditioner::Multigrid;
   bool print_per_step = false;
   bool relative_residual = false;
+  bool densitize = false;
   BiCGSTABParams() = default;
   BiCGSTABParams(ParameterInput *pin, const std::string &input_block) {
     max_iters = pin->GetOrAddInteger(input_block, "max_iterations", max_iters);
@@ -62,6 +63,8 @@ struct BiCGSTABParams {
     mg_params = MGParams(pin, input_block);
     relative_residual =
         pin->GetOrAddBoolean(input_block, "relative_residual", relative_residual);
+    densitize =
+        pin->GetOrAddBoolean(input_block, "densitize", densitize);
   }
 };
 
@@ -165,7 +168,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     auto copy_r = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_r);
     auto copy_p = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_p);
     auto copy_rhat0 = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_rhat0);
-    auto get_rhat0r_init = DotProduct<FieldTL>(dependence, tl, &rhat0r, md_rhat0, md_r);
+    auto get_rhat0r_init = DotProduct<FieldTL>(dependence, tl, &rhat0r, md_rhat0, md_r, params_.densitize);
     auto get_rhs2 = get_rhat0r_init;
     if (params_.relative_residual || params_.print_per_step)
       get_rhs2 = DotProduct<FieldTL>(dependence, tl, &rhs2, md_rhs, md_rhs);
@@ -227,7 +230,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     auto get_v = eqs_.Ax(itl, comm, md_base, md_u, md_v);
 
     // 3. rhat0v <- (rhat0, v)
-    auto get_rhat0v = DotProduct<FieldTL>(get_v, itl, &rhat0v, md_rhat0, md_v);
+    auto get_rhat0v = DotProduct<FieldTL>(get_v, itl, &rhat0v, md_rhat0, md_v, params_.densitize);
 
     // 4. h <- x + alpha u (alpha = rhat0r_old / rhat0v)
     auto correct_h = itl.AddTask(
@@ -250,17 +253,19 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
         this, md_r, md_v, md_s);
 
     // Check and print out residual
-    auto get_res = DotProduct<FieldTL>(correct_s, itl, &residual, md_s, md_s);
+    if (params_.print_per_step) {
+      auto get_res = DotProduct<FieldTL>(correct_s, itl, &residual, md_s, md_s);
 
-    auto print = itl.AddTask(
-        TaskQualifier::once_per_region, get_res,
-        [&](BiCGSTABSolver *solver, Mesh *pmesh) {
-          Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
-          if (Globals::my_rank == 0 && solver->params_.print_per_step)
-            printf("%i %e\n", solver->iter_counter * 2 + 1, rms_res);
-          return TaskStatus::complete;
-        },
-        this, pmesh);
+      auto print = itl.AddTask(
+          TaskQualifier::once_per_region, get_res,
+          [&](BiCGSTABSolver *solver, Mesh *pmesh) {
+            Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
+            if (Globals::my_rank == 0 && solver->params_.print_per_step)
+              printf("%i %e\n", solver->iter_counter * 2 + 1, rms_res);
+            return TaskStatus::complete;
+          },
+          this, pmesh);
+    }
 
     // 6. u <- M s
     auto precon2 = correct_s;
@@ -281,8 +286,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     auto get_t = eqs_.Ax(itl, pre_t_comm, md_base, md_u, md_t);
 
     // 8. omega <- (t,s) / (t,t)
-    auto get_ts = DotProduct<FieldTL>(get_t, itl, &ts, md_t, md_s);
-    auto get_tt = DotProduct<FieldTL>(get_t, itl, &tt, md_t, md_t);
+    auto get_ts = DotProduct<FieldTL>(get_t, itl, &ts, md_t, md_s, params_.densitize);
+    auto get_tt = DotProduct<FieldTL>(get_t, itl, &tt, md_t, md_t, params_.densitize);
 
     // 9. x <- h + omega u
     auto correct_x = itl.AddTask(
@@ -318,7 +323,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
         this, pmesh);
 
     // 11. rhat0r <- (rhat0, r)
-    auto get_rhat0r = DotProduct<FieldTL>(correct_r, itl, &rhat0r, md_rhat0, md_r);
+    auto get_rhat0r = DotProduct<FieldTL>(correct_r, itl, &rhat0r, md_rhat0, md_r, params_.densitize);
 
     // 12. beta <- rhat0r / rhat0r_old * alpha / omega
     // 13. p <- r + beta * (p - omega * v)
