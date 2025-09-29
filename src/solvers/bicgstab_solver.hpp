@@ -355,7 +355,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
                          : *res_tol;
           if (rms_res < tol || solver->iter_counter >= max_iter) {
             solver->final_residual = rms_res;
-            solver->final_iteration = solver->iter_counter;
+            solver->final_iteration = solver->iter_counter + 1;
             return TaskStatus::complete;
           }
           return TaskStatus::iterate;
