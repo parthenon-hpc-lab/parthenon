@@ -37,7 +37,7 @@ inline void print_timeout_warning_message(std::chrono::seconds max_time) {
   if (Globals::my_rank == 0) {
     std::stringstream msg;
     msg << "A given task list took longer than the current max number of\n"
-        << max_time.count() << " seconds to complete and program terminated.\n"
+        << max_time.count() << " seconds to complete and terminated.\n"
         << "If this long duration is intended, change the timeout by updating\n"
         << "the parameter parthenon/mesh/task_collection_timeout_in_seconds\n"
         << "to a larger value. You may also wish to run on more resources.";
