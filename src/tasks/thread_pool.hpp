@@ -21,13 +21,30 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <sstream>
 #include <thread>
 #include <utility>
 #include <vector>
 
+#include "utils/error_checking.hpp"
+
 namespace parthenon {
 
 class TaskList;
+
+namespace impl {
+inline void print_timeout_warning_message(std::chrono::seconds max_time) {
+  if (Globals::my_rank == 0) {
+    std::stringstream msg;
+    msg << "\nA given task collection took longer than the current max number of\n"
+        << "\t" << max_time.count() << " seconds to complete and terminated.\n"
+        << "\tIf this long duration is intended, change the timeout by updating\n"
+        << "\tthe parameter parthenon/mesh/task_collection_timeout_in_seconds\n"
+        << "\tto a larger value. You may also wish to run on more resources.";
+    PARTHENON_WARN(msg);
+  }
+}
+} // namespace impl
 
 template <typename T>
 class ThreadQueue {
@@ -81,7 +98,10 @@ class ThreadQueue {
       complete = false;
       waiting = false;
     }
-    if (timeout) signal_kill();
+    if (timeout) {
+      impl::print_timeout_warning_message(max_time);
+      signal_kill();
+    }
     return timeout;
   }
 
@@ -224,7 +244,10 @@ class SerialPool {
         if (ret == TaskStatus::fail) overall = TaskStatus::fail;
       }
       queue.pop();
-      if (timeout_check()) return TaskStatus::fail;
+      if (timeout_check()) {
+        impl::print_timeout_warning_message(timeout_duration);
+        return TaskStatus::fail;
+      }
     }
     return overall;
   }
