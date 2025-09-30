@@ -234,7 +234,9 @@ Forest Forest::Make2D(ForestDefinition &forest_def) {
   for (auto &bc_edge : forest_def.bc_edges) {
     auto edge = bc_edge.element;
     for (auto &node : edge.nodes) {
-      for (auto &face : node->associated_faces) {
+      for (auto &w_face : node->associated_faces) {
+        PARTHENON_REQUIRE(!w_face.expired(), "Invalid weak pointer to face.");
+        auto face = w_face.lock();
         auto opt_offset = face->IsEdge(edge);
         if (opt_offset) {
           auto &bcs = tree_bcs[face->GetId()];
@@ -276,8 +278,9 @@ Forest Forest::Make2D(ForestDefinition &forest_def) {
     for (int ox1 = -1; ox1 < 2; ++ox1) {
       for (int ox2 = -1; ox2 < 2; ++ox2) {
         for (auto &[neighbor, ct] : face->neighbors(ox1, ox2)) {
-          trees[face->GetId()]->AddNeighborTree(CellCentOffsets(ox1, ox2, 0),
-                                                trees[neighbor->GetId()], ct, false);
+          PARTHENON_REQUIRE(!neighbor.expired(), "Invalid weak pointer to face.");
+          trees[face->GetId()]->AddNeighborTree(
+              CellCentOffsets(ox1, ox2, 0), trees[neighbor.lock()->GetId()], ct, false);
         }
       }
     }

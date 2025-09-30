@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "bvals/comms/bnd_id.hpp"
 #include "bvals/comms/bnd_info.hpp"
 #include "bvals/comms/bvals_in_one.hpp"
 #include "interface/variable.hpp"
@@ -65,6 +66,11 @@ inline Mesh::channel_key_t ReceiveKey(const MeshBlock *pmb, const NeighborBlock 
                   ? 1
                   : 0;
   return {sender_id, receiver_id, pcv->label(), location_idx, other};
+}
+
+inline Mesh::channel_key_t GetChannelKey(BndId &in) {
+  return {in.send_gid(), in.recv_gid(), Variable<Real>::GetLabel(in.var_id()),
+          in.loc_idx(), in.extra_id()};
 }
 
 // Build a vector of pointers to all of the sending or receiving communication buffers on

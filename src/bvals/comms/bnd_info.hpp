@@ -56,6 +56,16 @@ struct BndInfo {
   SpatiallyMaskedIndexer6D idxer[3];
   forest::LogicalCoordinateTransformation lcoord_trans;
 
+  // Number of points contained in this boundary region
+  KOKKOS_FORCEINLINE_FUNCTION
+  std::size_t size() const {
+    std::size_t s = 0;
+    for (int n = 0; n < ntopological_elements; ++n) {
+      s += idxer[n].size();
+    }
+    return s;
+  }
+
   CoordinateDirection dir{CoordinateDirection::X0DIR};
   bool allocated = true;
   bool buf_allocated = true;
@@ -125,7 +135,7 @@ struct ProResInfo {
                                         std::shared_ptr<Variable<Real>> v);
 };
 
-int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
+int GetBufferSize(const MeshBlock *const pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v);
 
 using BndInfoArr_t = ParArray1DRaw<BndInfo>;
