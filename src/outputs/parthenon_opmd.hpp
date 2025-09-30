@@ -8,12 +8,13 @@
 //! \file restart_opmd.hpp
 //  \brief Provides support for restarting from OpenPMD output
 
-// OpenPMD headers
-#include <openPMD/openPMD.hpp>
-
+// C++ stdlib
 #include <memory>
 #include <string>
 #include <tuple>
+
+// OpenPMD headers
+#include <openPMD/openPMD.hpp>
 
 #include "basic_types.hpp"
 #include "mesh/meshblock.hpp"

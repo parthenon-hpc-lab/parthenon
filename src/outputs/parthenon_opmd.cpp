@@ -17,10 +17,12 @@
 //! \file parthenon_openpmd.cpp
 //  \brief Output for OpenPMD https://www.openpmd.org/ (supporting various backends)
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -834,7 +836,6 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   //   WRITING PARTICLE DATA                                                          //
   // -------------------------------------------------------------------------------- //
   if (!is_slice) {
-
     Kokkos::Profiling::pushRegion("write particle data");
     // TODO(pgrete) as above, first wrt differentiating between restart_ (last arg)
     AllSwarmInfo all_swarm_info(pm->block_list, output_params.swarms,
