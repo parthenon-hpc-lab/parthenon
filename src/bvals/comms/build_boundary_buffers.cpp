@@ -189,6 +189,8 @@ TaskStatus BuildGMGBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
                                                              pmesh->boundary_comm_map);
   BuildBoundaryBufferSubset<BoundaryType::gmg_restrict_recv>(md,
                                                              pmesh->boundary_comm_map);
+  BuildBoundaryBufferSubset<BoundaryType::flxcor_send>(md, pmesh->boundary_comm_map);
+  BuildBoundaryBufferSubset<BoundaryType::flxcor_recv>(md, pmesh->boundary_comm_map);
 
   Kokkos::Profiling::popRegion(); // "Task_BuildSendBoundBufs"
   return TaskStatus::complete;
