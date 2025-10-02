@@ -185,9 +185,15 @@ class MGSolver : public SolverBase, MGSolverCounter {
                                []() { return TaskStatus::complete; });
     auto mg = pre_sync;
     for (int level = max_level; level >= min_level; --level) {
-      mg = mg | AddMultiGridTasksPartitionLevel(tl, dependence, partition, level,
-                                                min_level, max_level, pmesh);
+      mg = AddMultiGridTasksPartitionLevelUp(tl, mg, partition, level,
+                                           min_level, max_level, pmesh);
     }
+    
+    for (int level = min_level; level <= max_level; ++level) {
+      mg = AddMultiGridTasksPartitionLevelDown(tl, mg, partition, level,
+                                               min_level, max_level, pmesh);
+    }
+
     auto post_sync =
         tl.AddTask(TaskQualifier::local_sync, mg, []() { return TaskStatus::complete; });
     return post_sync;
@@ -368,7 +374,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
     return task_out;
   }
 
-  TaskID AddMultiGridTasksPartitionLevel(TaskList &tl, TaskID dependence, int partition,
+  TaskID AddMultiGridTasksPartitionLevelUp(TaskList &tl, TaskID dependence, int partition,
                                          int level, int min_level, int max_level,
                                          Mesh *pmesh) {
     using namespace utils;
@@ -473,15 +479,70 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
       // 5. Restrict communication field and send to next level
       // TODO(LFR): Other place where we are receiving two stage communication
-      auto communicate_to_coarse =
+      post_smooth =
           tl.AddTask(residual, BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_u);
-      communicate_to_coarse =
-          tl.AddTask(communicate_to_coarse,
+      // We don't have any tasks depend on this one, since a receive on the next coarser 
+      // level has to finish before this taks can start    
+          tl.AddTask(post_smooth,
                      BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_res_err);
 
+    } else {
+      post_smooth =
+          tl.AddTask(pre_smooth, BTF(CopyData<FieldTL, true>), md_u, md_res_err);
+    }
+    return post_smooth;
+#undef BTF
+  }
+
+  TaskID AddMultiGridTasksPartitionLevelDown(TaskList &tl, TaskID dependence, int partition,
+                                             int level, int min_level, int max_level,
+                                             Mesh *pmesh) {
+    using namespace utils;
+    auto smoother = params_.smoother;
+    bool do_FAS = params_.do_FAS;
+    int pre_stages, post_stages;
+    if (smoother == "none") {
+      pre_stages = 0;
+      post_stages = 0;
+    } else if (smoother == "SRJ1") {
+      pre_stages = 1;
+      post_stages = 1;
+    } else if (smoother == "SRJ2") {
+      pre_stages = 2;
+      post_stages = 2;
+    } else if (smoother == "SRJ3") {
+      pre_stages = 3;
+      post_stages = 3;
+    } else {
+      PARTHENON_FAIL("Unknown smoother type.");
+    }
+
+//    auto decorate_task_name = [partition, level](const std::string &in, auto b) {
+//      return std::make_tuple(in + "(p:" + std::to_string(partition) +
+//                                 ", l:" + std::to_string(level) + ")",
+//                             1, b);
+//    };
+
+// #define BTF(...) decorate_task_name(TF(__VA_ARGS__))
+#define BTF(...) TF(__VA_ARGS__)
+    bool multilevel = (level != min_level);
+
+    auto partitions =
+        pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
+    if (partition >= partitions.size()) return dependence;
+    auto &md = pmesh->mesh_data.Add(container_base, partitions[partition]);
+    auto &md_u = pmesh->mesh_data.Add(container_u, partitions[partition], sol_fields);
+    auto &md_rhs = pmesh->mesh_data.Add(container_rhs, partitions[partition], sol_fields);
+    auto &md_res_err = pmesh->mesh_data.Add(container_res_err, md, sol_fields);
+    auto &md_temp = pmesh->mesh_data.Add(container_temp, md, sol_fields);
+    auto &md_u0 = pmesh->mesh_data.Add(container_u0, md, sol_fields);
+    auto &md_diag = pmesh->mesh_data.Add(container_diag, md, sol_fields);
+    
+    auto post_smooth = dependence;
+    if (level > min_level) {
       // 6. Receive error field into communication field and prolongate
       auto recv_from_coarser =
-          tl.AddTask(communicate_to_coarse,
+          tl.AddTask(dependence,
                      TF(ReceiveBoundBufs<BoundaryType::gmg_prolongate_recv>), md_res_err);
       auto set_from_coarser =
           tl.AddTask(recv_from_coarser, BTF(SetBounds<BoundaryType::gmg_prolongate_recv>),
@@ -497,10 +558,6 @@ class MGSolver : public SolverBase, MGSolverCounter {
       // 8. Post smooth using communication field and stored RHS
       post_smooth = AddSRJIteration<BoundaryType::gmg_same>(
           tl, update_sol, post_stages, multilevel, partition, level, pmesh);
-
-    } else {
-      post_smooth =
-          tl.AddTask(pre_smooth, BTF(CopyData<FieldTL, true>), md_u, md_res_err);
     }
 
     // 9. Send communication field to next finer level (should be error field for that

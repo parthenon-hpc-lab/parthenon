@@ -54,17 +54,17 @@ class SparsePack : public SparsePackBase {
     // accessed on device via instance of types in the type list Ts...
     // The pack will be created and accessible on the device
     template <class T>
-    SparsePack GetPack(T *pmd, bool only_fine_two_level_composite_blocks = true) const;
+    SparsePack GetPack(T *pmd, bool only_fine_two_level_composite_blocks = false) const;
     template <class T>
     SparsePack GetPack(T *pmd, std::vector<bool> &include_block,
-                       bool only_fine_two_level_composite_blocks = true) const;
+                       bool only_fine_two_level_composite_blocks = false) const;
     template <class T>
     SparsePack GetPack(T *pmd, const block_selector_func_t &block_selector,
-                       bool only_fine_two_level_composite_blocks = true) const;
+                       bool only_fine_two_level_composite_blocks = false) const;
     template <class T>
     SparsePack GetPack(T *pmd, const block_selector_func_t &block_selector,
                        std::vector<bool> &include_block,
-                       bool only_fine_two_level_composite_blocks = true) const;
+                       bool only_fine_two_level_composite_blocks = false) const;
 
     SparsePackIdxMap GetMap() const {
       PARTHENON_REQUIRE(sizeof...(Ts) == 0,
