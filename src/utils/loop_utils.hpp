@@ -80,9 +80,14 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
-    auto *gmg_same = pmb->loc.level() == md->grid.logical_level
-                         ? &(pmb->gmg_same_neighbors)
-                         : &(pmb->gmg_composite_finer_neighbors);
+    
+    auto *neighbors = &(pmb->neighbors);
+    if (md->grid.type == GridType::two_level_composite) {
+      neighbors = pmb->loc.level() == md->grid.logical_level
+                   ? &(pmb->gmg_same_neighbors)
+                   : &(pmb->gmg_composite_finer_neighbors);
+    }
+
     for (auto &v : rc->GetVariableVector()) {
       if constexpr (bound == BoundaryType::gmg_restrict_send) {
         if (v->IsSet(Metadata::GMGRestrict)) {
@@ -122,43 +127,42 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
             }
           }
         }
-      } else if constexpr (bound == BoundaryType::gmg_same) {
-        if (v->IsSet(Metadata::FillGhost)) {
-          for (auto &nb : *gmg_same) {
-            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
-              return;
+      } else if constexpr (bound == BoundaryType::flxcor_send) {
+        if (v->IsSet(Metadata::Flux)) {
+          for (auto &nb : *neighbors) {
+            const bool coarser = nb.loc.level() < pmb->loc.level();
+            if (coarser) { 
+              bool include = nb.offsets.IsFace() && (v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge) || v->IsSet(Metadata::Node)); 
+              include = include || (nb.offsets.IsEdge() && (v->IsSet(Metadata::Edge) || v->IsSet(Metadata::Node))); 
+              include = include || (nb.offsets.IsNode() && (v->IsSet(Metadata::Node)));
+              if (include) { 
+                if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return; 
+              }
+            }
+          }
+        }
+      } else if constexpr (bound == BoundaryType::flxcor_recv) {
+        if (v->IsSet(Metadata::Flux)) {
+          for (auto &nb : *neighbors) {
+            const bool finer = nb.loc.level() > pmb->loc.level();
+            if (finer) { 
+              bool include = nb.offsets.IsFace() && (v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge) || v->IsSet(Metadata::Node)); 
+              include = include || (nb.offsets.IsEdge() && (v->IsSet(Metadata::Edge) || v->IsSet(Metadata::Node))); 
+              include = include || (nb.offsets.IsNode() && (v->IsSet(Metadata::Node)));
+              if (include) { 
+                if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return; 
+              }
             }
           }
         }
       } else {
-        if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::Flux)) {
-          [[maybe_unused]] constexpr bool flx_bound =
-              bound == BoundaryType::flxcor_send || bound == BoundaryType::flxcor_recv;
-          for (auto &nb : pmb->neighbors) {
+        if (v->IsSet(Metadata::FillGhost)) {
+          for (auto &nb : *neighbors) {
             if constexpr (bound == BoundaryType::local) {
-              if (!v->IsSet(Metadata::FillGhost)) continue;
               if (nb.rank != Globals::my_rank) continue;
             } else if constexpr (bound == BoundaryType::nonlocal) {
-              if (!v->IsSet(Metadata::FillGhost)) continue;
               if (nb.rank == Globals::my_rank) continue;
-            } else if constexpr (bound == BoundaryType::any) {
-              if (!v->IsSet(Metadata::FillGhost)) continue;
-            } else if constexpr (flx_bound) {
-              if (!v->IsSet(Metadata::Flux)) continue;
-              // Check if this boundary requires flux correction
-              if (nb.loc.level() - (bound == BoundaryType::flxcor_recv) !=
-                  pmb->loc.level() - (bound == BoundaryType::flxcor_send))
-                continue;
-              bool correct = false;
-              if (nb.offsets.IsFace() && v->IsSet(Metadata::Face)) correct = true;
-              if ((nb.offsets.IsFace() || nb.offsets.IsEdge()) &&
-                  v->IsSet(Metadata::Edge))
-                correct = true;
-              if ((nb.offsets.IsFace() || nb.offsets.IsEdge() || nb.offsets.IsNode()) &&
-                  v->IsSet(Metadata::Node))
-                correct = true;
-              if (!correct) continue;
-            }
+            } 
             if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
           }
         }
