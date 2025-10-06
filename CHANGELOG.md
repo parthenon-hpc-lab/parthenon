@@ -26,6 +26,7 @@
 - [[PR 1280]](https://github.com/parthenon-hpc-lab/parthenon/pull/1280) Print history file headers on restart
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1327]](https://github.com/parthenon-hpc-lab/parthenon/pull/1327) Eliminate warnings from ViewOfViewAlloc
 - [[PR 1328]](https://github.com/parthenon-hpc-lab/parthenon/pull/1328) Add more useful error message for task list timeout
 - [[PR 1324]](https://github.com/parthenon-hpc-lab/parthenon/pull/1324) Fix SMR error check at initialization
 - [[PR 1318]](https://github.com/parthenon-hpc-lab/parthenon/pull/1318) Fix AMR criteria for sparse variables and re-fix blocks < ranks
