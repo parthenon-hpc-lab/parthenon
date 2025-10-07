@@ -393,30 +393,7 @@ MPI messages have the same size and the sender and receiver know what
 that size is without needing the know the allocation status of the other
 block. The remaining changes are as follows:
 
--  In ``Mesh::PrepareSendSameLevel`` we only fill the send buffer (using
-   ``BufferUtility::PackData``) if the variable is allocated, otherwise
-   we simply skip that region of the buffer (and leave its values
-   uninitialized, since they won't be read) so that the data for each
-   variable is in the same place as if all variables were allocated.
--  In ``Mesh::PrepareSendCoarseToFineAMR`` and
-   ``Mesh::PrepareSendFineToCoarseAMR`` we do the same as above, but
-   instead of leaving regions of the buffer belonging to unallocated
-   variables uninitialized, we fill them with zeros (using
-   ``BufferUtility::PackZero``) since the target block may have the
-   variable allocated even if the sender doesn't (actually, I think this
-   can only happen for fine-to-coarse and not for coarse-to-fine).
--  In ``Mesh::FillSameRankFineToCoarseAMR`` when filling in the
-   destination data, we write zeros if the fine source block doesn't
-   have the variable allocated. Whereas in
-   ``Mesh::FillSameRankCoarseToFineAMR`` we make sure the source and
-   destination blocks have the same allocation status for each variable
-   and we simply skip unallocated variables.
--  In all three types of ``Mesh::FinishRecv*`` functions, we read the
-   allocation flags for all variables from the buffer, and we allocate
-   it on the receiving block if the sending block had it allocated but
-   it's not yet allocated on the receiving block. We then proceed to
-   read the buffer only if the variable is allocated on the receiving
-   block.
+- @lroberts36 any updated doc for this section?
 
 Memory Footprint Reporting
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
