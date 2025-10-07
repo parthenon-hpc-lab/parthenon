@@ -67,7 +67,8 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   return context;
 }
 
-Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in)
+Swarm::Swarm(const std::string &label, const Metadata &metadata,
+             const std::size_t nmax_pool_in)
     : label_(label), m_(metadata), nmax_pool_(nmax_pool_in), mask_("mask", nmax_pool_),
       marked_for_removal_("mfr", nmax_pool_),
       empty_indices_("empty_indices_", nmax_pool_),
