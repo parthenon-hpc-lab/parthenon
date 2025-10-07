@@ -17,6 +17,7 @@
 #include <openPMD/openPMD.hpp>
 
 #include "basic_types.hpp"
+#include "outputs/parthenon_opmd.hpp"
 #include "outputs/restart.hpp"
 #include "pack/swarm_default_names.hpp"
 
@@ -71,36 +72,18 @@ class RestartReaderOPMD : public RestartReader {
 
     const auto &shape = m.Shape();
     const int rank = shape.size();
-    std::size_t nvar = 1;
+    std::size_t ncomp = 1;
     for (int i = 0; i < rank; ++i) {
-      nvar *= shape[rank - 1 - i];
+      ncomp *= shape[rank - 1 - i];
     }
-    std::size_t total_count = nvar * count;
+    std::size_t total_count = ncomp * count;
     if (data_vec.size() < total_count) { // greedy re-alloc
       data_vec.resize(total_count);
     }
 
-    std::string particle_record;
-    std::string particle_record_component;
-    for (auto n = 0; n < nvar; n++) {
-      if (varname == swarm_position::x::name()) {
-        particle_record = "position";
-        particle_record_component = "x";
-      } else if (varname == swarm_position::y::name()) {
-        particle_record = "position";
-        particle_record_component = "y";
-      } else if (varname == swarm_position::z::name()) {
-        particle_record = "position";
-        particle_record_component = "z";
-      } else if (varname == swarm_position::id::name()) {
-        particle_record = "id";
-        particle_record_component = openPMD::MeshRecordComponent::SCALAR;
-      } else {
-        particle_record = varname;
-        particle_record_component =
-            rank == 0 ? openPMD::MeshRecordComponent::SCALAR : std::to_string(n);
-      }
-
+    for (auto n = 0; n < ncomp; n++) {
+      auto [particle_record, particle_record_component] =
+          OpenPMDUtils::GetParticleRecordAndComponentNames(varname, rank, n);
       openPMD::RecordComponent rc = swm[particle_record][particle_record_component];
       rc.loadChunkRaw(&data_vec[n * count], {offset}, {count});
     }
@@ -155,10 +138,30 @@ class RestartReaderOPMD : public RestartReader {
     }
     Kokkos::deep_copy(view, view_h);
   }
-  [[nodiscard]] bool VariableExists(const std::string &name,
-                                    const DataType data_type) const override {
-    // TODO(pgrete) needs impl
-    return true;
+  [[nodiscard]] bool VariableExists(const std::string &name, const DataType data_type,
+                                    const std::string swarmvarname = "") const override {
+    if (data_type == DataType::Field) {
+      // Given that MeshRecord labels also carry information about the topological element
+      // and level, we just check for the prefix (this silently assumes that if one
+      // matching record is found, then the variable exists on all levels/for all
+      // components). Might cause issue for edge cases (and or variable combinations that
+      // contain the `_` separator), but this should not be an issue as the error message
+      // in the OpenPMD restart reader is clear (about the variable) when reading fails
+      // later.
+      for (auto [label, mesh] : it->meshes) {
+        if (label.compare(0, name.length() + 1, name + "_") == 0) {
+          return true;
+        }
+      }
+    } else if (data_type == DataType::Swarm) {
+      return it->particles.contains(name);
+    } else if (data_type == DataType::SwarmVar) {
+      // rank = 0, and component index = 0 because we just care about the record name
+      auto [particle_record, particle_record_component] =
+          OpenPMDUtils::GetParticleRecordAndComponentNames(swarmvarname, 0, 0);
+      return it->particles[name].contains(particle_record);
+    }
+    return false;
   }
   // closes out the restart file
   // perhaps belongs in a destructor?

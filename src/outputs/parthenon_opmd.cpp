@@ -156,58 +156,61 @@ void WriteSwarmVar(const SwarmInfo &swinfo, openPMD::ParticleSpecies swm,
 
     auto const dataset = openPMD::Dataset(openPMD::determineDatatype(host_data.data()),
                                           {swinfo.global_count});
-    // TODO(pgrete) ask OpenPMD group if this is the right approach of if our non-scalar
-    // partices should be a multi-D `dataset` if is scalar
-    if (vinfo.tensor_rank == 0) {
-      // special sauce to align "positions" with standard
-      std::string particle_record;
-      std::string particle_record_component;
-      if (vname == swarm_position::x::name()) {
-        particle_record = "position";
-        particle_record_component = "x";
-      } else if (vname == swarm_position::y::name()) {
-        particle_record = "position";
-        particle_record_component = "y";
-      } else if (vname == swarm_position::z::name()) {
-        particle_record = "position";
-        particle_record_component = "z";
-      } else if (vname == swarm_position::id::name()) {
-        particle_record = "id";
-        particle_record_component = openPMD::MeshRecordComponent::SCALAR;
-      } else {
-        particle_record = vname;
-        particle_record_component = openPMD::MeshRecordComponent::SCALAR;
-      }
+    // TODO(pgrete) ask OpenPMD group if this is the right approach (flatten vector and
+    // tensors with flattended indices as string component names) or if our non-scalar
+    // particle variables should be a multi-D `dataset` (if possible)
+    for (auto n = 0; n < vinfo.nvar; n++) {
+      auto [particle_record, particle_record_component] =
+          OpenPMDUtils::GetParticleRecordAndComponentNames(vname, vinfo.tensor_rank, n);
+
       openPMD::RecordComponent rc = swm[particle_record][particle_record_component];
       rc.resetDataset(dataset);
       // only write if there's sth to write (otherwise the host_data nullptr is caught)
       if (swinfo.count_on_rank != 0) {
-        rc.storeChunk(host_data, {swinfo.global_offset}, {host_data.size()});
+        rc.storeChunkRaw(&host_data[n * swinfo.count_on_rank], {swinfo.global_offset},
+                         {swinfo.count_on_rank});
       }
 
       // if positional, add offsets
-      if (particle_record_component != openPMD::MeshRecordComponent::SCALAR) {
+      if (particle_record == "position") {
         auto rc_offset = swm["positionOffset"][particle_record_component];
         rc_offset.resetDataset(dataset);
         rc_offset.makeConstant(0.0);
-      }
-
-      // else flatten components
-    } else {
-      for (auto n = 0; n < vinfo.nvar; n++) {
-        openPMD::RecordComponent rc = swm[vname][std::to_string(n)];
-        rc.resetDataset(dataset);
-        // only write if there's sth to write (otherwise the host_data nullptr is caught)
-        if (swinfo.count_on_rank != 0) {
-          rc.storeChunkRaw(&host_data[n * swinfo.count_on_rank], {swinfo.global_offset},
-                           {swinfo.count_on_rank});
-        }
       }
     }
     // Flush because the host buffer is temporary
     it.seriesFlush();
   }
 }
+
+std::tuple<std::string, std::string>
+GetParticleRecordAndComponentNames(const std::string &vname, const int rank,
+                                   const int flat_comp_idx) {
+
+  std::string particle_record;
+  std::string particle_record_component;
+
+  // special sauce to align "positions" with standard
+  if (vname == swarm_position::x::name()) {
+    particle_record = "position";
+    particle_record_component = "x";
+  } else if (vname == swarm_position::y::name()) {
+    particle_record = "position";
+    particle_record_component = "y";
+  } else if (vname == swarm_position::z::name()) {
+    particle_record = "position";
+    particle_record_component = "z";
+  } else if (vname == swarm_position::id::name()) {
+    particle_record = "id";
+    particle_record_component = openPMD::MeshRecordComponent::SCALAR;
+  } else {
+    particle_record = vname;
+    particle_record_component =
+        rank == 0 ? openPMD::MeshRecordComponent::SCALAR : std::to_string(flat_comp_idx);
+  }
+  return {particle_record, particle_record_component};
+}
+
 std::tuple<std::string, std::string>
 GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te,
                                const int comp_idx, const int level) {
@@ -807,8 +810,8 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
               }
             }
           } // loop over components
-        }   // loop over topological elements
-      }     // out_var->IsAllocated()
+        } // loop over topological elements
+      } // out_var->IsAllocated()
       if (vinfo.is_sparse) {
         auto sparse_idx = sparse_field_idx.at(vinfo.label);
         sparse_allocated.at(b_idx * num_sparse + sparse_idx) =
@@ -817,7 +820,7 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
       }
     } // loop over blocks
     it.seriesFlush();
-  }                               // loop over vars
+  } // loop over vars
   Kokkos::Profiling::popRegion(); // write all variable data
 
   // -------------------------------------------------------------------------------- //
