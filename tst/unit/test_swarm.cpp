@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -99,11 +99,14 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
   }
   meshblock->pmy_mesh = mesh.get();
   Metadata m;
-  auto swarm = std::make_shared<Swarm>("test swarm", m, NUMINIT);
+  m.SetInitialSwarmPoolReservation(NUMINIT);
+  auto swarm = std::make_shared<Swarm>("test swarm", m);
   swarm->SetBlockPointer(meshblock);
   auto swarm_d = swarm->GetDeviceContext();
   REQUIRE(swarm->GetNumActive() == 0);
   REQUIRE(swarm->GetMaxActiveIndex() == Swarm::inactive_max_active_index);
+  auto mask = swarm->GetMask();
+  REQUIRE(mask.size() == NUMINIT);
   ParArrayND<int> failures_d("Number of failures", 1);
   meshblock->par_for(
       "Reset", 0, 0, KOKKOS_LAMBDA(const int n) { failures_d(n) = 0; });
