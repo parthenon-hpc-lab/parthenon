@@ -78,26 +78,27 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
       // An alternative would be "1", which would reduce the memory footprint, but
       // increase the number of individual memory allocations.
       const int64_t nbuf = pmesh->DefaultNumPartitions();
+      auto resource_allocation_method = [buf_size, nbuf](buf_pool_t<Real> *pool) {
+        const auto pool_size = nbuf * buf_size;
+        buf_t chunk("pool buffer", pool_size);
+        for (int i = 1; i < nbuf; ++i) {
+          pool->AddFreeObjectToPool(
+              buf_t(chunk, std::make_pair(i * buf_size, (i + 1) * buf_size)));
+        }
+        return buf_t(chunk, std::make_pair(0, buf_size));
+      };
       pmesh->pool_map.emplace(
-          buf_size, buf_pool_t<Real>([buf_size, nbuf](buf_pool_t<Real> *pool) {
-            const auto pool_size = nbuf * buf_size;
-            buf_t chunk("pool buffer", pool_size);
-            for (int i = 1; i < nbuf; ++i) {
-              pool->AddFreeObjectToPool(
-                  buf_t(chunk, std::make_pair(i * buf_size, (i + 1) * buf_size)));
-            }
-            return buf_t(chunk, std::make_pair(0, buf_size));
-          }));
+          buf_size, std::make_shared<buf_pool_t<Real>>(resource_allocation_method));
     }
     // Now that the pool is guaranteed to exist we can add free objects of the required
     // amount.
     auto &pool = pmesh->pool_map.at(buf_size);
-    const std::int64_t new_buffers_req = nbufs.at(buf_size) - pool.NumBuffersInPool();
+    const std::int64_t new_buffers_req = nbufs.at(buf_size) - pool->NumBuffersInPool();
     if (new_buffers_req > 0) {
       const auto pool_size = new_buffers_req * buf_size;
       buf_t chunk("pool buffer", pool_size);
       for (int i = 0; i < new_buffers_req; ++i) {
-        pool.AddFreeObjectToPool(
+        pool->AddFreeObjectToPool(
             buf_t(chunk, std::make_pair(i * buf_size, (i + 1) * buf_size)));
       }
     }
@@ -122,7 +123,7 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     auto get_resource_method = [pmesh, buf_size](int size) {
       PARTHENON_REQUIRE(size <= buf_size,
                         "Asking for a buffer that is larger than size of pool.");
-      return buf_pool_t<Real>::owner_t(pmesh->pool_map.at(buf_size).Get());
+      return buf_pool_t<Real>::owner_t(pmesh->pool_map.at(buf_size)->Get());
     };
 
     // Build send buffer (unless this is a receiving flux boundary)

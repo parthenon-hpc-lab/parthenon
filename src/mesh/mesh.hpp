@@ -263,7 +263,7 @@ class Mesh {
   // between two blocks for a given variable
   using channel_key_t = std::tuple<int, int, std::string, int, int>;
   using comm_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
-  std::unordered_map<int, buf_pool_t<Real>> pool_map;
+  std::unordered_map<int, std::shared_ptr<buf_pool_t<Real>>> pool_map;
   using comm_buf_map_t = std::unordered_map<channel_key_t, comm_buf_t>;
   comm_buf_map_t boundary_comm_map;
   TagMap tag_map;
@@ -286,7 +286,7 @@ class Mesh {
   uint64_t GetBufferPoolSizeInBytes() const {
     std::uint64_t buffer_memory = 0;
     for (auto &p : pool_map) {
-      buffer_memory += p.second.SizeInBytes();
+      buffer_memory += p.second->SizeInBytes();
     }
     return buffer_memory;
   }
