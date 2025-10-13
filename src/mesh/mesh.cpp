@@ -655,6 +655,7 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   // JMM: Estimates about chunk size, pre-allocation, etc., are tuned to
   // all blocks on a rank, so we use the base partition.
   BuildBoundaryBuffers(mesh_data.Get());
+  if (do_coalesced_comms) RegisterCoalescedComms(this);
   if (multigrid) { // But... multigrid is sufficiently hairy that I'm
                    // going to let LFR figure this one out later.
     for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
@@ -663,13 +664,16 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
         auto &mdg = mesh_data.Add("base", partition);
         BuildBoundaryBuffers(mdg);
         BuildGMGBoundaryBuffers(mdg);
+        if (do_coalesced_comms) RegisterCoalescedCommsGMG(mdg);
       }
     }
   }
 
-  pcoalesced_comms->ResolveAndSendSendBuffers();
-  // This operation is blocking
-  pcoalesced_comms->ReceiveBufferInfo();
+  if (do_coalesced_comms) {
+    pcoalesced_comms->ResolveAndSendSendBuffers();
+    // This operation is blocking
+    pcoalesced_comms->ReceiveBufferInfo();
+  }
 }
 
 void Mesh::CommunicateBoundaries(std::string md_name,
