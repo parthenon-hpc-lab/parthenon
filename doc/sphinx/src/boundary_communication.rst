@@ -338,6 +338,30 @@ Note that every stage shares the same ``CommBuffer``\ s, but we keep
 separate buffers for boundary value communication and flux correction
 communication so these operations can occur concurrently if necessary.
 
+Chunking of sparsely allocated comm buffers
+--------------------------------------------
+
+Memory for comm buffers in the buffer pools is allocated in "chunks"
+of some fixed size. Ideally this chunk size is large enough to
+minimize individual ``malloc`` calls but not over-allocate by too
+much. This can be set via the ``comm_buffer_granuarity`` setting in
+the ``parthenon/mesh`` block of the input deck. E.g.,
+
+.. code::
+
+   <parthenon/mesh>
+   comm_buffer_granularity = 200
+
+The default, ``-1``, tells parthenon to make a heuristic choice based
+on the number of meshblocks per rank. This chunk size will always be
+at least 1 buffer and never more than the total number of buffers it
+is possible for a given mesh to require.
+
+In general a smaller chunk size will require more ``malloc`` calls
+(which are expensive) but will imply a smaller memory footprint, as
+the code is less likely to over-allocate beyond the number of buffers
+it needs.
+
 Send and Receive Ordering
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 

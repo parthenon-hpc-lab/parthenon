@@ -92,7 +92,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       pcoalesced_comms(std::make_shared<CoalescedComms>(this)),
       do_coalesced_comms{pin->GetOrAddBoolean(
           "parthenon/mesh", "do_coalesced_comms", false,
-          "Use coalesced MPI messages for inter-block communication")} {
+          "Use coalesced MPI messages for inter-block communication")},
+      nbuf_add_{pin->GetOrAddInteger(
+          "parthenon/mesh", "comm_buffer_granularity", -1,
+          "Number of comm buffers to allocate when more are required. Default is a "
+          "heuristic.")} {
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =
@@ -646,11 +650,12 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   pcoalesced_comms->clear();
 
   // Build the boundary buffers for the current mesh
-  for (auto &partition : GetDefaultBlockPartitions()) {
-    auto &md = mesh_data.Add("base", partition);
-    BuildBoundaryBuffers(md);
-  }
-  if (multigrid) {
+
+  // JMM: Estimates about chunk size, pre-allocation, etc., are tuned to
+  // all blocks on a rank, so we use the base partition.
+  BuildBoundaryBuffers(mesh_data.Get());
+  if (multigrid) { // But... multigrid is sufficiently hairy that I'm
+                   // going to let LFR figure this one out later.
     for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
       const auto grid_id = GridIdentifier::two_level_composite(gmg_level);
       for (auto &partition : GetDefaultBlockPartitions(grid_id)) {
