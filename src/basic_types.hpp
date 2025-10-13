@@ -199,6 +199,18 @@ constexpr TopologicalType GetTopologicalType(TopologicalElement el) {
   }
 }
 
+inline std::string TopologicalTypeToString(TopologicalType tt) {
+  using TT = TopologicalType;
+  if (tt == TT::Face) {
+    return "face";
+  } else if (tt == TT::Edge) {
+    return "edge";
+  } else if (tt == TT::Node) {
+    return "node";
+  }
+  return "cell";
+}
+
 inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt) {
   using TE = TopologicalElement;
   using TT = TopologicalType;

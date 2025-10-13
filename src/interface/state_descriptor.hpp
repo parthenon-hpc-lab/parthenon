@@ -16,6 +16,7 @@
 #include <functional>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -31,6 +32,7 @@
 #include "interface/sparse_pool.hpp"
 #include "interface/var_id.hpp"
 #include "outputs/output_parameters.hpp"
+#include "pack/scratch_variables.hpp"
 #include "parameter_input.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
@@ -230,6 +232,32 @@ class StateDescriptor {
   template <typename T>
   bool AddField(const Metadata &m, const std::string &controlling_field = "") {
     return AddField(T::name(), m, controlling_field);
+  }
+
+  template <typename T>
+  bool AddScratch() {
+    TopologicalType tt = T::topo_type;
+    if constexpr (!debug_scratch_variables()) {
+      // tally how many scratch variables of this topologicaltype have already been added
+      int lower_bound = 0;
+      if (num_scratch_.find(tt) != num_scratch_.end()) {
+        lower_bound = num_scratch_.at(tt);
+      }
+      num_scratch_[tt] = T::update_bounds(lower_bound);
+      auto m = Metadata({TopologicalTypeToMetaData(T::topo_type), Metadata::Derived,
+                         Metadata::Overridable, Metadata::OneCopy});
+      bool success = true;
+      for (const auto var : T::GetVarNames()) {
+        success = AddField(var, m) && success;
+      }
+      return success;
+    } else {
+      // in debug mode each scratch variable is a unique field
+      auto m = Metadata(
+          {TopologicalTypeToMetaData(tt), Metadata::Derived, Metadata::Overridable},
+          std::vector<int>(std::begin(T::shape), std::end(T::shape)));
+      return AddField<T>(m);
+    }
   }
 
   // add sparse pool, all arguments will be forwarded to the SparsePool constructor, so
@@ -494,6 +522,7 @@ class StateDescriptor {
   Dictionary<Dictionary<Metadata>> swarmValueMetadataMap_;
 
   RefinementFunctionMaps refinementFuncMaps_;
+  std::map<TopologicalType, std::size_t> num_scratch_;
 };
 
 inline std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
