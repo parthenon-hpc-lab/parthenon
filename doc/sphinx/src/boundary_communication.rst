@@ -324,7 +324,7 @@ pools for various buffer sizes.
 
    template <typename T>
    using buf_pool_t = ObjectPool<BufArray1D<T>>
-   std::unordered_map<int, buf_pool_t<Real>> pool_map;
+   std::unordered_map<int, std::shared_ptr<buf_pool_t<Real>>> pool_map;
 
 As well as the map from communication channel keys to communication
 buffers associated with each channel
