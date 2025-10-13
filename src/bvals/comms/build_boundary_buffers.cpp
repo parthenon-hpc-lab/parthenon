@@ -91,13 +91,14 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
         }
         return buf_t(chunk, std::make_pair(0, buf_size));
       };
-      pmesh->pool_map.emplace(
-          buf_size, std::make_shared<buf_pool_t<Real>>(allocation_strategy));
+      pmesh->pool_map.emplace(buf_size,
+                              std::make_shared<buf_pool_t<Real>>(allocation_strategy));
     }
     // Now that the pool is guaranteed to exist we can add free objects of the required
     // amount.
     auto &pool = pmesh->pool_map.at(buf_size);
-    const std::int64_t new_buffers_req = nbufs.at(buf_size) - pool->NumBuffersInPool();
+    const std::int64_t new_buffers_req =
+        nbufs_allocated.at(buf_size) - pool->NumBuffersInPool();
     if (new_buffers_req > 0) {
       const auto pool_size = new_buffers_req * buf_size;
       buf_t chunk("pool buffer", pool_size);
