@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "prolong_restrict/pr_ops.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
@@ -711,6 +712,18 @@ Set_t GetByFlag(const Metadata::FlagCollection &flags, NameMap_t &nameMap,
   return out;
 }
 } // namespace MetadataUtils
+
+KOKKOS_INLINE_FUNCTION constexpr auto TopologicalTypeToMetaData(TopologicalType tt) {
+  using TT = TopologicalType;
+  if (tt == TT::Face) {
+    return Metadata::Face;
+  } else if (tt == TT::Edge) {
+    return Metadata::Edge;
+  } else if (tt == TT::Node) {
+    return Metadata::Node;
+  }
+  return Metadata::Cell;
+}
 } // namespace parthenon
 
 template <>
