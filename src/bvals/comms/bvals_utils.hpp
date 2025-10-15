@@ -89,7 +89,7 @@ inline Mesh::channel_key_t GetChannelKey(BndId &in) {
 // it (LFR).
 template <BoundaryType bound_type, class COMM_MAP, class F>
 void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_map,
-                           BvarsSubCache_t *pcache, F KeyFunc, bool initialize_flags) {
+                           BvarsSubCache_t *pcache, F KeyFunc) {
   using namespace loops;
   using namespace loops::shorthands;
   Mesh *pmesh = md->GetMeshPointer();
@@ -132,15 +132,6 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
     pcache->buf_vec.push_back(&((*comm_map)[std::get<2>(t)]));
     (pcache->idx_vec)[std::get<1>(t)] = buff_idx++;
   });
-
-  const int nbound = pcache->buf_vec.size();
-  if (initialize_flags && nbound > 0) {
-    if (nbound != pcache->sending_non_zero_flags.size()) {
-      pcache->sending_non_zero_flags = ParArray1D<bool>("sending_nonzero_flags", nbound);
-      pcache->sending_non_zero_flags_h =
-          Kokkos::create_mirror_view(pcache->sending_non_zero_flags);
-    }
-  }
 }
 
 template <BoundaryType BOUND_TYPE, bool SENDER>
