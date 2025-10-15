@@ -108,9 +108,13 @@ add_library(parthenon
   bvals/comms/bvals_in_one.hpp
   bvals/comms/bvals_utils.hpp
   bvals/comms/build_boundary_buffers.cpp
+  bvals/comms/bnd_id.cpp
+  bvals/comms/bnd_id.hpp
   bvals/comms/bnd_info.cpp
   bvals/comms/bnd_info.hpp
   bvals/comms/boundary_communication.cpp
+  bvals/comms/coalesced_buffers.cpp
+  bvals/comms/coalesced_buffers.hpp
   bvals/comms/tag_map.cpp
   bvals/comms/tag_map.hpp
 
@@ -242,6 +246,9 @@ add_library(parthenon
 
   reconstruct/dc_inline.hpp
   reconstruct/plm_inline.hpp
+
+  sparse/sparse_management.cpp
+  sparse/sparse_management.hpp
 
   amr_criteria/amr_criteria.cpp
   amr_criteria/amr_criteria.hpp

@@ -61,6 +61,7 @@ void MeshBlockData<T>::Add(std::shared_ptr<Variable<T>> var) noexcept {
   varVector_.push_back(var);
   varMap_[var->label()] = var;
   varUidMap_[var->GetUniqueID()] = var;
+  varUidSet_.insert(var->GetUniqueID());
   for (const auto &flag : var->metadata().Flags()) {
     flagsToVars_[flag].insert(var);
   }

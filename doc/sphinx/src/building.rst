@@ -49,6 +49,7 @@ General list of cmake options:
 || PARTHENON\_USE\_SYSTEM\_PACKAGES         || OFF                           || Option || If ON, attempt to link to system dependencies for Kokkos and Ascent if possible. If OFF, will avoid doing so by default.                                    |
 || PARTHENON\_IMPORT\_KOKKOS                || OFF/ON                        || Option || If ON, attempt to link to an external Kokkos library. Else build from source. Default is ON if PARTHENON\_USE\_SYSTEM\_PACKAGES and OFF otherwise.          |
 || BUILD\_SHARED\_LIBS                      || OFF                           || Option || If installing Parthenon, whether to build as shared rather than static                                                                                      |
+|| PARTHENON_DEBUG_SCRATCH                  || OFF                           || Option || If ON, will register scratch variables with unique persistent fields per package.                                                                           |
 +-------------------------------------------+--------------------------------+---------+--------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 

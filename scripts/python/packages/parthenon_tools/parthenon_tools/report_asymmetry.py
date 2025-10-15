@@ -1,5 +1,9 @@
 #!/usr/bin/env/python
 # ========================================================================================
+# Parthenon performance portable AMR framework
+# Copyright(C) 2020-2025 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for details
+# ========================================================================================
 #  (C) (or copyright) 2025. Triad National Security, LLC. All rights reserved.
 #
 #  This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -41,7 +45,9 @@ parser.add_argument(
 )
 
 dset_type = h5py._hl.dataset.Dataset
-if __name__ == "__main__":
+
+
+def main():
     args = parser.parse_args()
     for fname in args.files:
         asym_fields = {}
@@ -85,3 +91,7 @@ if __name__ == "__main__":
                         k, absdiff, absval, frac_diff
                     )
                 )
+
+
+if __name__ == "__main__":
+    main()

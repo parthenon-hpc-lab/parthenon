@@ -25,9 +25,10 @@ where ``LayoutWrapper`` is currently hardcoded to
 with the default execution space. If UVM is enabled, it is
 ``Kokkos::CudaUVMSpace``.
 
-The above ``ParArray#D``s are also aliased with an integral template parameter
+The above ``ParArray#D`` types are also aliased with an integral template parameter
 
 .. code:: c++
+
    ParArray3D<Real> myArray("a 3d array", 6, 5, 4);
    ParArray<3, Real> myArray2("same type as myArray", 6, 5, 4);
 

@@ -43,6 +43,7 @@
 #include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
+#include "bvals/comms/coalesced_buffers.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
 #include "interface/packages.hpp"
@@ -78,6 +79,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                                      "enable a multigrid mesh")),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
       resolved_packages(ResolvePackages(packages)),
+      task_collection_timeout_in_seconds(pin->GetOrAddInteger(
+          "parthenon/mesh", "task_collection_timeout_in_seconds", 60 * 5)),
       nteams_per_boundary_buffer(
           pin->GetOrAddInteger("parthenon/mesh", "nteams_per_boundary_buffer", 1)),
       boundary_buffer_work_chunk_size(
@@ -90,7 +93,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       lb_manual_(), nslist(Globals::nranks), nblist(Globals::nranks),
       nref(Globals::nranks), nderef(Globals::nranks), rdisp(Globals::nranks),
       ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
-      brdisp(Globals::nranks), bddisp(Globals::nranks) {
+      brdisp(Globals::nranks), bddisp(Globals::nranks),
+      pcoalesced_comms(std::make_shared<CoalescedComms>(this)),
+      do_coalesced_comms{pin->GetOrAddBoolean(
+          "parthenon/mesh", "do_coalesced_comms", false,
+          "Use coalesced MPI messages for inter-block communication")} {
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =
@@ -163,11 +170,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   root_level = 0;
   // SMR / AMR:
   if (adaptive) {
-    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
-                                     "maximum level of refinement globally") +
-                root_level - 1;
+    max_level_ref_ = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
+                                          "maximum level of refinement globally");
+    max_level = max_level_ref_ + root_level - 1;
   } else {
-    max_level = 63;
+    max_level_ref_ = 63;
+    max_level = max_level_ref_;
   }
 
   SetupMPIComms();
@@ -198,11 +206,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   // SMR / AMR:
   if (adaptive) {
-    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
-                                     "maximum level of refinement globally") +
-                root_level - 1;
+    max_level_ref_ = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
+                                          "maximum level of refinement globally");
+    max_level = max_level_ref_ + root_level - 1;
   } else {
-    max_level = 63;
+    max_level_ref_ = 63;
+    max_level = max_level_ref_;
   }
 
   // Register user defined boundary conditions
@@ -413,6 +422,9 @@ void Mesh::BuildBlockPartitions(GridIdentifier grid) {
   for (auto &part_bl : partition_blocklists)
     out.emplace_back(std::make_shared<BlockListPartition>(id++, grid, part_bl, this));
   block_partitions_[grid] = out;
+  if (grid.type == GridType::leaf)
+    base_block_partition_ =
+        std::make_shared<BlockListPartition>(id++, grid, block_list, this);
 }
 
 //----------------------------------------------------------------------------------------
@@ -636,6 +648,7 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
 
   // Clear boundary communication buffers
   boundary_comm_map.clear();
+  pcoalesced_comms->clear();
 
   // Build the boundary buffers for the current mesh
   for (auto &partition : GetDefaultBlockPartitions()) {
@@ -652,75 +665,31 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
       }
     }
   }
+
+  pcoalesced_comms->ResolveAndSendSendBuffers();
+  // This operation is blocking
+  pcoalesced_comms->ReceiveBufferInfo();
 }
 
 void Mesh::CommunicateBoundaries(std::string md_name,
                                  const std::vector<std::string> &fields) {
+  // JMM: The tasking logic isn't robust against blocks < ranks, which
+  // we may have at this point, so if there's no blocks on this rank,
+  // just quit out and continue
+  if (GetNumMeshBlocksThisRank(Globals::my_rank) < 1) return;
+
   const int num_partitions = DefaultNumPartitions();
-  const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
-  constexpr std::int64_t max_it = 1e10;
-  std::vector<bool> sent(num_partitions, false);
-  bool all_sent;
-  std::int64_t send_iters = 0;
 
+  TaskCollection tc;
+  TaskRegion &region = tc.AddRegion(num_partitions);
   auto partitions = GetDefaultBlockPartitions();
-  do {
-    all_sent = true;
-    for (int i = 0; i < partitions.size(); ++i) {
-      auto &md = mesh_data.Add(md_name, partitions[i], fields);
-      if (!sent[i]) {
-        if (SendBoundaryBuffers(md) != TaskStatus::complete) {
-          all_sent = false;
-        } else {
-          sent[i] = true;
-        }
-      }
-    }
-    send_iters++;
-  } while (!all_sent && send_iters < max_it);
-  PARTHENON_REQUIRE(
-      send_iters < max_it,
-      "Too many iterations waiting to send boundary communication buffers.");
-
-  // wait to receive FillGhost variables
-  // TODO(someone) evaluate if ReceiveWithWait kind of logic is better, also related to
-  // https://github.com/lanl/parthenon/issues/418
-  std::vector<bool> received(num_partitions, false);
-  bool all_received;
-  std::int64_t receive_iters = 0;
-  do {
-    all_received = true;
-    for (int i = 0; i < partitions.size(); ++i) {
-      auto &md = mesh_data.Add(md_name, partitions[i], fields);
-      if (!received[i]) {
-        if (ReceiveBoundaryBuffers(md) != TaskStatus::complete) {
-          all_received = false;
-        } else {
-          received[i] = true;
-        }
-      }
-    }
-    receive_iters++;
-  } while (!all_received && receive_iters < max_it);
-  PARTHENON_REQUIRE(
-      receive_iters < max_it,
-      "Too many iterations waiting to receive boundary communication buffers.");
-
-  for (auto &partition : partitions) {
-    auto &md = mesh_data.Add(md_name, partition, fields);
-    // unpack FillGhost variables
-    SetBoundaries(md);
+  for (int i = 0; i < num_partitions; i++) {
+    auto &md = mesh_data.Add(md_name, partitions[i], fields);
+    auto bound = AddBoundaryExchangeTasks(TaskID(0), region[i], md, multilevel);
   }
-
-  //  Now do prolongation, compute primitives, apply BCs
-  for (auto &partition : partitions) {
-    auto &md = mesh_data.Add(md_name, partition, fields);
-    if (multilevel) {
-      ApplyBoundaryConditionsOnCoarseOrFineMD(md, true);
-      ProlongateBoundaries(md);
-    }
-    ApplyBoundaryConditionsOnCoarseOrFineMD(md, false);
-  }
+  TaskListStatus status = tc.Execute(task_collection_timeout_in_seconds);
+  PARTHENON_REQUIRE(status == TaskListStatus::complete,
+                    "Boundary communication called internal by mesh failed.");
 }
 
 void Mesh::PreCommFillDerived() {
@@ -822,6 +791,29 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
         }
       }
 
+      // Call per-package initialization
+      for (const auto &[name, pkg] : packages.AllPackages()) {
+        PARTHENON_REQUIRE_THROWS(
+            !(pkg->PostInitializationMesh != nullptr &&
+              (pkg->PostInitializationBlock != nullptr)),
+            "Mesh and MeshBlock PostInitializations are defined for package " + name +
+                ". Please use only one.");
+
+        // first on the mesh...
+        if (pkg->PostInitializationMesh != nullptr) {
+          for (auto &partition : GetDefaultBlockPartitions(GridIdentifier::leaf())) {
+            auto &md = mesh_data.Add("base", partition);
+            pkg->PostInitializationMesh(this, pin, md.get());
+          }
+        }
+        // and then per block
+        if (pkg->PostInitializationBlock != nullptr) {
+          for (auto &pmb : block_list) {
+            pkg->PostInitializationBlock(pmb.get(), pin);
+          }
+        }
+      }
+
       std::for_each(block_list.begin(), block_list.end(),
                     [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
     }
@@ -875,7 +867,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 #endif
 
   // Initialize the "base" MeshData object
-  mesh_data.Get()->Initialize(block_list, this);
+  mesh_data.Add("base", GetBasePartition());
 }
 
 /// Finds location of a block with ID `tgid`.
@@ -1149,10 +1141,10 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
             << "Refinement level must be larger than 0 (root level = 0)" << std::endl;
         PARTHENON_FAIL(msg);
       }
-      if (lrlev > max_level) {
+      if (ref_lev > max_level_ref_) {
         msg << "### FATAL ERROR in Mesh constructor" << std::endl
             << "Refinement level exceeds the maximum level (specify "
-            << "'maxlevel' parameter in <parthenon/mesh> input block if adaptive)."
+            << "'numlevel' parameter in <parthenon/mesh> input block if adaptive)."
             << std::endl;
 
         PARTHENON_FAIL(msg);

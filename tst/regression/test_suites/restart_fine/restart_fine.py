@@ -39,6 +39,13 @@ class TestCase(utils.test_case.TestCaseAbs):
                 "gold.out0.00004.rhdf",
                 "parthenon/job/problem_id=silver",
             ]
+        elif step == 3:
+            parameters.driver_cmd_line_args = [
+                "-r",
+                "gold.out0.00004.rhdf",
+                "parthenon/job/problem_id=silver_coalesced",
+                "parthenon/mesh/do_coalesced_comms=true",
+            ]
         # check that we can dynamically enable outputs
         else:
             parameters.driver_cmd_line_args = [
@@ -74,12 +81,14 @@ class TestCase(utils.test_case.TestCaseAbs):
                     "{}.out0.{}.rhdf".format(base, name),
                 ],
                 one=True,
+                tol=0.0,
             )
 
             if delta != 0:
                 print(
-                    "ERROR: Found difference between gold and silver output '%s'."
-                    % name
+                    "ERROR: Found difference between gold and {} output {}.".format(
+                        base, name
+                    )
                 )
                 return False
             delta = compare(
@@ -103,7 +112,8 @@ class TestCase(utils.test_case.TestCaseAbs):
 
             return True
 
-        # comapre a few files throughout the simulations
-        success &= compare_files("final")
+        # compare a few files throughout the simulations
+        success &= compare_files("final", "silver")
+        success &= compare_files("final", "silver_coalesced")
 
         return success

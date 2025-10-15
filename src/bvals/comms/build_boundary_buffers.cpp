@@ -27,6 +27,7 @@
 
 #include "bvals_in_one.hpp"
 #include "bvals_utils.hpp"
+#include "coalesced_buffers.hpp"
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/variable.hpp"
@@ -110,6 +111,7 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     tag = pmesh->tag_map.GetTag(pmb, nb);
     auto comm_label = v->label();
     mpi_comm_t comm = pmesh->GetMPIComm(comm_label);
+
 #else
       // Setting to zero is fine here since this doesn't actually get used when everything
       // is on the same rank
@@ -117,7 +119,9 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
 #endif
 
     bool use_sparse_buffers = v->IsSet(Metadata::Sparse);
-    auto get_resource_method = [pmesh, buf_size]() {
+    auto get_resource_method = [pmesh, buf_size](int size) {
+      PARTHENON_REQUIRE(size <= buf_size,
+                        "Asking for a buffer that is larger than size of pool.");
       return buf_pool_t<Real>::owner_t(pmesh->pool_map.at(buf_size).Get());
     };
 
@@ -128,6 +132,11 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
         buf_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
             tag, sender_rank, receiver_rank, comm, get_resource_method,
             use_sparse_buffers);
+
+      // Register this buffer with the combined buffers (must happen after CommBuffer is
+      // created)
+      if (receiver_rank != sender_rank)
+        pmesh->pcoalesced_comms->AddSendBuffer(md->partition, pmb, nb, v, BTYPE);
     }
 
     // Also build the non-local receive buffers here
@@ -138,6 +147,9 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
           buf_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
               tag, receiver_rank, sender_rank, comm, get_resource_method,
               use_sparse_buffers);
+        // Register this buffer with the combined buffers (must happen after CommBuffer is
+        // created)
+        pmesh->pcoalesced_comms->AddRecvBuffer(pmb, nb, v, BTYPE);
       }
     }
   });

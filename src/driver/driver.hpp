@@ -161,7 +161,7 @@ TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
   for (auto &pmb : driver->pmesh->block_list) {
     tr[i++] = driver->MakeTaskList(pmb.get(), std::forward<Args>(args)...);
   }
-  TaskListStatus status = tc.Execute();
+  TaskListStatus status = tc.Execute(driver->pmesh->task_collection_timeout_in_seconds);
   return status;
 }
 
@@ -169,7 +169,7 @@ template <typename T, class... Args>
 TaskListStatus ConstructAndExecuteTaskLists(T *driver, Args... args) {
   TaskCollection tc =
       driver->MakeTaskCollection(driver->pmesh->block_list, std::forward<Args>(args)...);
-  TaskListStatus status = tc.Execute();
+  TaskListStatus status = tc.Execute(driver->pmesh->task_collection_timeout_in_seconds);
   return status;
 }
 
