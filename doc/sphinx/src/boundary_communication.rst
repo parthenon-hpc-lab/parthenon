@@ -362,6 +362,41 @@ In general a smaller chunk size will require more ``malloc`` calls
 the code is less likely to over-allocate beyond the number of buffers
 it needs.
 
+Deallocating pooled comm buffers
+----------------------------------
+
+Comm buffers in the buffer pool are, by default, never
+deallocated. This provides a performance improvement (at the cost of
+memory) by saving on memory allocations if those buffers should be
+needed again. However, in memory constrained environments, that may
+not be desirable. The mesh member function
+``Mesh::TryReallocCommBufferPools`` will check to see if deallocating
+and reseting the buffer pools is appropriate. It will do so by
+checking whether the current number of buffers in use is less than
+some factor times the total number allocated **and** that the
+difference between the number in use and number allocated is larger
+than the chunk size described above. If these conditions are met, all
+comm buffers will be deallocated and then reallocated as appropriate
+for the current mesh. This constant factor may be set with the input
+variable ``parthenon/mesh/comm_buffer_reset_fraction``.
+
+This function may be called by hand in user code. However, it may also
+be automatically called at a fixed cadence. The evolution driver (and
+thus any code with a concept of a time step) will check whether or not
+comm buffers may be reallocated every
+``parthenon/time/comm_buffer_reallocate_cadence`` cycles. This
+variable is set to ``-1`` by default, which indicates comm buffers are
+never reset. An input deck that changes these settings by hand might
+look like:
+
+.. code::
+
+   <parthenon/time>
+   comm_buffer_reallocate_cadence = 1000 # Re-allocate comm buffers every 1000 cycles...
+
+   <parthenon/mesh>
+   comm_buffer_reset_fraction = 0.9 # ...if at least 10% of all comm buffers are unused
+
 Send and Receive Ordering
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 

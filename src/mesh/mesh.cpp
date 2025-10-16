@@ -96,13 +96,19 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       nbuf_add_{pin->GetOrAddInteger(
           "parthenon/mesh", "comm_buffer_granularity", -1,
           "Number of comm buffers to allocate when more are required. Default is a "
-          "heuristic.")} {
+          "heuristic.")},
+      buffer_reset_frac_{pin->GetOrAddReal(
+          "parthenon/mesh", "comm_buffer_reset_fraction", 0.8,
+          "When a check for comm buffer realocation is made (see "
+          "comm_buffer_reallocate_cadence), reallocation happens only if the number of "
+          "buffers in use divided by the number of buffers allocated is less than this "
+          "variable.")} {
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =
       pin->DoesParameterExist("parthenon/mesh", "packs_per_rank");
-  // If both exists, the assumption is that packs_per_rank was added later on purpose (as
-  // pack_size existed first) so the new value should take precedent.
+  // If both exists, the assumption is that packs_per_rank was added later on purpose
+  // (as pack_size existed first) so the new value should take precedent.
   if (pack_size_exists && num_partitions_exists) {
     use_pack_size_ = false;
     default_num_packs_ =
