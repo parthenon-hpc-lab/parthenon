@@ -62,6 +62,7 @@ class ObjectPool : public std::enable_shared_from_this<ObjectPool<T>> {
   }
 
   auto NumBuffersInPool() const { return inuse_.size() + available_.size(); }
+  auto NumBuffersInUse() const { return inuse_.size(); }
 
   std::uint64_t SizeInBytes() const {
     constexpr std::uint64_t datum_size = sizeof(typename base_t::value_type);

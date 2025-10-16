@@ -279,6 +279,23 @@ class Mesh {
 
   std::shared_ptr<CoalescedComms> pcoalesced_comms;
 
+  bool TryReallocCommBufferPools() {
+    bool realloc = false;
+    for (auto [k, ppool] : pool_map) {
+      std::size_t inuse = ppool->NumBuffersInUse();
+      std::size_t total = ppool->NumBuffersInPool();
+      std::size_t delta = total - inuse;
+      if ((inuse < buffer_reset_frac_ * total) && (delta > CommBufferChunkSize())) {
+        realloc = true;
+        break;
+      }
+    }
+    if (realloc) {
+      pool_map.clear();
+    }
+    return realloc;
+  }
+
 #ifdef MPI_PARALLEL
   MPI_Comm GetMPIComm(const std::string &label) const { return mpi_comm_map_.at(label); }
 #endif
@@ -354,6 +371,10 @@ class Mesh {
   // number of comm buffers to add when more need to be allocated
   // TODO(JMM): Stash this in globals or a param maybe?
   std::int64_t nbuf_add_;
+
+  // Tracking for when to re-allocate comm-buffers to minimize memory
+  // footprint.
+  Real buffer_reset_frac_;
 
   int gmg_min_logical_level_ = 0;
 
