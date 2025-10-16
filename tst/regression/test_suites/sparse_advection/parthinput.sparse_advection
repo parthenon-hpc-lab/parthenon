@@ -57,7 +57,7 @@ nlim = -1
 tlim = 1.0
 integrator = rk2
 ncycle_out_mesh = -10000
-comm_buffer_reallocate_cadence = 10
+comm_buffer_reset_cadence = 10
 
 <sparse_advection>
 cfl = 0.45

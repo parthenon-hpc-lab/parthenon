@@ -384,7 +384,7 @@ This function may be called by hand in user code. However, it may also
 be automatically called at a fixed cadence. The evolution driver (and
 thus any code with a concept of a time step) will check whether or not
 comm buffers may be reallocated every
-``parthenon/time/comm_buffer_reallocate_cadence`` cycles. This
+``parthenon/time/comm_buffer_reset_cadence`` cycles. This
 variable is set to ``-1`` by default, which indicates comm buffers are
 never reset. An input deck that changes these settings by hand might
 look like:
