@@ -129,7 +129,7 @@ class EvolutionDriver : public Driver {
         "of the step. By default outputs happen AFTER remeshing if remeshing happens. "
         "WARNING: this will make restarts not bitwise-exact.");
     buffer_reset_cadence_ = pin->GetOrAddInteger(
-        "parthenon/time", "comm_buffer_reallocate_cadence", -1,
+        "parthenon/time", "comm_buffer_reset_cadence", -1,
         "If set to a positive number N, the comm buffer object pool will be reset "
         "every N remeshing events if the expected number of required buffers has "
         "decreased to parthenon/mesh/comm_buffer_reset_fraction times the total number "
