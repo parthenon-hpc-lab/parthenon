@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1319]](https://github.com/parthenon-hpc-lab/parthenon/pull/1319) Add common scratch variable utilities
 - [[PR 1326]](https://github.com/parthenon-hpc-lab/parthenon/pull/1326) Thread initial swarm pool size into userspace via metadata
 - [[PR 1320]](https://github.com/parthenon-hpc-lab/parthenon/pull/1320) 1D Contour plotting
 - [[PR 1315]](https://github.com/parthenon-hpc-lab/parthenon/pull/1315) Add user specifiable BCs to solvers
