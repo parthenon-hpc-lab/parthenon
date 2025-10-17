@@ -34,4 +34,4 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 }
 } // namespace parthenon
 
-#endif // INSTRUMENTATION_PACKAGE
+#endif // INSTRUMENTATION_INSTRUMENTATION_PACKAGE_HPP_
