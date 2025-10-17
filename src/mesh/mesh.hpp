@@ -401,6 +401,7 @@ class Mesh {
 
   // Re-used functionality in constructor
   void RegisterLoadBalancing_(ParameterInput *pin);
+  void BuildAndRegisterCommBuffers_();
 
   void SetupMPIComms();
   void BuildTagMapAndBoundaryBuffers();
