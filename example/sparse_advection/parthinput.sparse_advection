@@ -27,6 +27,7 @@ dealloc_count = 5
 <parthenon/mesh>
 refinement = adaptive
 numlevel = 3
+do_coalesced_comms = false
 
 nx1 = 64
 x1min = -1.0
@@ -57,7 +58,6 @@ tlim = 2.0
 integrator = rk2
 ncycle_out_mesh = -10000
 comm_buffer_reset_cadence = 10
-do_coalesced_comms = false
 
 <sparse_advection>
 restart_test = false
