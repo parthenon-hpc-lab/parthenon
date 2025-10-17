@@ -81,8 +81,9 @@ struct BndId {
   BndId() = default;
   KOKKOS_DEFAULTED_FUNCTION
   BndId(const BndId &) = default;
-  KOKKOS_DEFAULTED_FUNCTION
-  ~BndId() = default;
+
+  KOKKOS_INLINE_FUNCTION
+  ~BndId() {}
 
   explicit BndId(const int *const data_in) {
     for (int i = 0; i < NDAT; ++i) {
