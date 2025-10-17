@@ -82,7 +82,7 @@ struct BndId {
   KOKKOS_DEFAULTED_FUNCTION
   BndId(const BndId &) = default;
 
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_FUNCTION
   ~BndId() {}
 
   explicit BndId(const int *const data_in) {
