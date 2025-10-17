@@ -1180,8 +1180,13 @@ void Mesh::BuildAndRegisterCommBuffers_() {
 
   // JMM: Estimates about chunk size, pre-allocation, etc., are tuned to
   // all blocks on a rank, so we use the base partition.
-  BuildBoundaryBuffers(mesh_data.Get());
+
+  // TODO(JMM): I don't like that we need to add base with the base
+  // partition here. We shouldn't have to, but I don't know how to fix
+  // it without a refactor.
+  BuildBoundaryBuffers(mesh_data.Add("base", GetBasePartition()));
   if (do_coalesced_comms) RegisterCoalescedComms(this);
+
   if (multigrid) { // But... multigrid is sufficiently hairy that I'm
                    // going to let LFR figure this one out later.
     for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {

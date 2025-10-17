@@ -156,14 +156,15 @@ template <BoundaryType BTYPE>
 void RegisterCoalescedCommsSubset(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v) {
-    if constexpr (IsSender(BTYPE)) {
-      const int receiver_rank = nb.rank;
-      const int sender_rank = Globals::my_rank;
-      if (receiver_rank != sender_rank)
+    const int receiver_rank = nb.rank;
+    const int sender_rank = Globals::my_rank;
+    if (receiver_rank != sender_rank) {
+      if constexpr (IsSender(BTYPE)) {
         pmesh->pcoalesced_comms->AddSendBuffer(md->partition, pmb, nb, v, BTYPE);
-    }
-    if constexpr (IsReceiver(BTYPE)) {
-      pmesh->pcoalesced_comms->AddRecvBuffer(pmb, nb, v, BTYPE);
+      }
+      if constexpr (IsReceiver(BTYPE)) {
+        pmesh->pcoalesced_comms->AddRecvBuffer(pmb, nb, v, BTYPE);
+      }
     }
   });
 }
