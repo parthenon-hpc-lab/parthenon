@@ -651,34 +651,8 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
       test_iters < max_it,
       "Too many iterations waiting to delete boundary communication buffers.");
 
-  // Clear boundary communication buffers
-  boundary_comm_map.clear();
-  pcoalesced_comms->clear();
-
   // Build the boundary buffers for the current mesh
-
-  // JMM: Estimates about chunk size, pre-allocation, etc., are tuned to
-  // all blocks on a rank, so we use the base partition.
-  BuildBoundaryBuffers(mesh_data.Get());
-  if (do_coalesced_comms) RegisterCoalescedComms(this);
-  if (multigrid) { // But... multigrid is sufficiently hairy that I'm
-                   // going to let LFR figure this one out later.
-    for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
-      const auto grid_id = GridIdentifier::two_level_composite(gmg_level);
-      for (auto &partition : GetDefaultBlockPartitions(grid_id)) {
-        auto &mdg = mesh_data.Add("base", partition);
-        BuildBoundaryBuffers(mdg);
-        BuildGMGBoundaryBuffers(mdg);
-        if (do_coalesced_comms) RegisterCoalescedCommsGMG(mdg);
-      }
-    }
-  }
-
-  if (do_coalesced_comms) {
-    pcoalesced_comms->ResolveAndSendSendBuffers();
-    // This operation is blocking
-    pcoalesced_comms->ReceiveBufferInfo();
-  }
+  BuildAndRegisterCommBuffers_();
 }
 
 void Mesh::CommunicateBoundaries(std::string md_name,
@@ -1199,6 +1173,35 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
   }
 }
 
+void Mesh::BuildAndRegisterCommBuffers_() {
+  // Clear boundary communication buffers
+  boundary_comm_map.clear();
+  pcoalesced_comms->clear();
+
+  // JMM: Estimates about chunk size, pre-allocation, etc., are tuned to
+  // all blocks on a rank, so we use the base partition.
+  BuildBoundaryBuffers(mesh_data.Get());
+  if (do_coalesced_comms) RegisterCoalescedComms(this);
+  if (multigrid) { // But... multigrid is sufficiently hairy that I'm
+                   // going to let LFR figure this one out later.
+    for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
+      const auto grid_id = GridIdentifier::two_level_composite(gmg_level);
+      for (auto &partition : GetDefaultBlockPartitions(grid_id)) {
+        auto &mdg = mesh_data.Add("base", partition);
+        BuildBoundaryBuffers(mdg);
+        BuildGMGBoundaryBuffers(mdg);
+        if (do_coalesced_comms) RegisterCoalescedCommsGMG(mdg);
+      }
+    }
+  }
+
+  if (do_coalesced_comms) {
+    pcoalesced_comms->ResolveAndSendSendBuffers();
+    // This operation is blocking
+    pcoalesced_comms->ReceiveBufferInfo();
+  }
+}
+
 bool Mesh::TryReallocCommBufferPools() {
   bool realloc = false;
   for (auto &[k, pool] : pool_map) {
@@ -1218,19 +1221,9 @@ bool Mesh::TryReallocCommBufferPools() {
     }
     // We need to clear the caches because comm buffers are kokkos
     // views, which are reference counted, and they're stored in the
-    // caches. We call BuildBoundaryBuffers again to rebuild the
-    // buffer cache as from zero in the hopes that saves some
-    // mallocs/frees.
-    BuildBoundaryBuffers(mesh_data.Get());
-    if (multigrid) {
-      for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
-        const auto grid_id = GridIdentifier::two_level_composite(gmg_level);
-        for (auto &partition : GetDefaultBlockPartitions(grid_id)) {
-          auto &mdg = mesh_data.Add("base", partition);
-          BuildBoundaryBuffers(mdg);
-          BuildGMGBoundaryBuffers(mdg);
-        }
-      }
+    // caches.
+    for (auto &[label, pdata] : mesh_data.Stages()) {
+      pdata->GetBvarsCache().clear();
     }
   }
   return realloc;
