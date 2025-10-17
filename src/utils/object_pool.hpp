@@ -141,7 +141,7 @@ struct ObjectPool<T>::weak_t : public T {
   KOKKOS_IMPL_HOST_FUNCTION
   inline KEY_T GetKey() const { return key_; }
 
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_FUNCTION
   ~weak_t() {}
 
   KOKKOS_DEFAULTED_FUNCTION
