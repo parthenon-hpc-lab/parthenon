@@ -35,7 +35,7 @@ namespace parthenon {
 // Object for managing a pool of Kokkos::Views that
 // have the same instantiation call signature
 template <class T>
-class ObjectPool : public std::enable_shared_from_this<ObjectPool<T>> {
+class ObjectPool {
  public:
   using base_t = T;
   // Forward declarations of pool types
@@ -51,6 +51,7 @@ class ObjectPool : public std::enable_shared_from_this<ObjectPool<T>> {
   KEY_T keyc_;
 
  public:
+  template <class... Ts>
   explicit ObjectPool(std::function<T(ObjectPool *)> get_resource)
       : get_resource_(get_resource), available_(), inuse_(), keyc_(default_key_) {}
 
@@ -79,6 +80,26 @@ class ObjectPool : public std::enable_shared_from_this<ObjectPool<T>> {
   // in the pool
   void AddFreeObjectToPool(const T &in) { available_.push(in); }
   void AddFreeObjectToPool(T &&in) { available_.emplace(in); }
+
+  // JMM: Note that calling this while, e.g., comm buffers still exist
+  // will make the memory a comm buffer points to
+  // invalid. Fortunately, comm buffers always call `Allocate`
+  // beforehand.
+  void Clear() {
+    // normalize by moving everything into the stack
+    for (auto &[k, v] : inuse_) {
+      v.first.pool_ = nullptr;
+      Free(v.first);
+    }
+    // walk through the stack, disable reference counting, kill the
+    // buffer
+    while (!available_.empty()) {
+      available_.top().pool_ = nullptr;
+      available_.pop();
+    }
+  }
+
+  ~ObjectPool() { Clear(); }
 
  private:
   bool IsValid(const weak_t &in) const { return inuse_.count(in.key_); }
@@ -127,22 +148,19 @@ struct ObjectPool<T>::weak_t : public T {
       : T(std::forward<Ts>(args)...), key_(default_key_) {}
 
   KOKKOS_IMPL_HOST_FUNCTION
-  inline void Free() {
-    if (auto spool = pool_.lock()) spool->Free(*this);
-  }
+  inline void Free() { (*pool_).Free(*this); }
 
   KOKKOS_IMPL_HOST_FUNCTION
   inline bool IsValid() {
-    if (key_ == default_key_) return false;
-    if (auto spool = pool_.lock()) return spool->IsValid(*this);
-    return false;
+    if (key_ == default_key_ || pool_ == nullptr) return false;
+    return (*pool_).IsValid(*this);
   }
 
   KOKKOS_IMPL_HOST_FUNCTION
   inline KEY_T GetKey() const { return key_; }
 
-  KOKKOS_FUNCTION
-  ~weak_t() {}
+  KOKKOS_DEFAULTED_FUNCTION
+  ~weak_t() = default;
 
   KOKKOS_DEFAULTED_FUNCTION
   weak_t() = default;
@@ -168,7 +186,7 @@ struct ObjectPool<T>::weak_t : public T {
 
  protected:
   KEY_T key_ = 0;
-  std::weak_ptr<ObjectPool> pool_;
+  ObjectPool *pool_ = nullptr;
 };
 
 // Reference counted version of pool member that has ownership over a resource
@@ -182,8 +200,8 @@ class ObjectPool<T>::owner_t : public ObjectPool<T>::weak_t {
 
   KOKKOS_FUNCTION
   ~owner_t() noexcept {
-    KOKKOS_IF_ON_HOST(if (auto spool = weak_t::pool_.lock()) {
-      spool->ReferenceCountedFree(*this);
+    KOKKOS_IF_ON_HOST(if (weak_t::pool_ != nullptr) {
+      (*weak_t::pool_).ReferenceCountedFree(*this);
     }) // NOLINT
   }
 
@@ -195,12 +213,12 @@ class ObjectPool<T>::owner_t : public ObjectPool<T>::weak_t {
     // the weak_t copy ctor above, even though the T gets moved
     weak_t::key_ = in.key_;
     weak_t::pool_ = in.pool_;
-    if (auto spool = weak_t::pool_.lock()) spool->AddCount(*this);
+    if (weak_t::pool_ != nullptr) (*weak_t::pool_).AddCount(*this);
   }
 
   KOKKOS_IMPL_HOST_FUNCTION
   explicit owner_t(const weak_t &in) : weak_t(in) {
-    if (auto spool = weak_t::pool_.lock()) spool->AddCount(*this);
+    if (weak_t::pool_ != nullptr) (*weak_t::pool_).AddCount(*this);
   }
 
   KOKKOS_IMPL_HOST_FUNCTION
@@ -218,16 +236,13 @@ class ObjectPool<T>::owner_t : public ObjectPool<T>::weak_t {
  private:
   template <class TIN>
   KOKKOS_IMPL_HOST_FUNCTION owner_t &assign(TIN &&in) {
-    const bool same_resource =
-        (weak_t::key_ == in.key_) && (weak_t::pool_.lock() == in.pool_.lock());
-    if (!same_resource) {
-      if (auto spool = weak_t::pool_.lock()) spool->ReferenceCountedFree(*this);
-    }
+    const bool same_resource = (weak_t::key_ == in.key_) && (weak_t::pool_ == in.pool_);
+    if ((weak_t::pool_ != nullptr) && !same_resource)
+      (*weak_t::pool_).ReferenceCountedFree(*this);
     weak_t::key_ = in.key_;
     weak_t::pool_ = in.pool_;
-    if (!same_resource) {
-      if (auto spool = weak_t::pool_.lock()) spool->AddCount(*this);
-    }
+    if (weak_t::pool_ != nullptr && !same_resource) (*weak_t::pool_).AddCount(*this);
+
     weak_t::operator=(std::forward<TIN>(in));
 
     return *this;
@@ -253,7 +268,7 @@ typename ObjectPool<T>::weak_t ObjectPool<T>::Get() {
   //  the pool unless it is explicitly freed.
   inuse_[keyc_] = {out, 0};
   out.key_ = keyc_;
-  out.pool_ = this->shared_from_this();
+  out.pool_ = this;
   return out;
 }
 

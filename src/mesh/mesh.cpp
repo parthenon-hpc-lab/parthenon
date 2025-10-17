@@ -1199,6 +1199,44 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
     pib = pib->pnext;
   }
 }
+
+bool Mesh::TryReallocCommBufferPools() {
+  bool realloc = false;
+  for (auto &[k, pool] : pool_map) {
+    std::size_t inuse = pool.NumBuffersInUse();
+    std::size_t total = pool.NumBuffersInPool();
+    std::size_t delta = total - inuse;
+    if ((inuse < buffer_reset_frac_ * total) && (delta > CommBufferChunkSize())) {
+      realloc = true;
+      break;
+    }
+  }
+  if (realloc) {
+    // The buffer pool must be cleared out, since otherwise, buffers
+    // will just be reference-count-freed
+    for (auto &[k, pool] : pool_map) {
+      pool.Clear();
+    }
+    // We need to clear the caches because comm buffers are kokkos
+    // views, which are reference counted, and they're stored in the
+    // caches. We call BuildBoundaryBuffers again to rebuild the
+    // buffer cache as from zero in the hopes that saves some
+    // mallocs/frees.
+    BuildBoundaryBuffers(mesh_data.Get());
+    if (multigrid) {
+      for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
+        const auto grid_id = GridIdentifier::two_level_composite(gmg_level);
+        for (auto &partition : GetDefaultBlockPartitions(grid_id)) {
+          auto &mdg = mesh_data.Add("base", partition);
+          BuildBoundaryBuffers(mdg);
+          BuildGMGBoundaryBuffers(mdg);
+        }
+      }
+    }
+  }
+  return realloc;
+}
+
 // Return list of locations and levels for the legacy tree
 // TODO(LFR): It doesn't make sense to offset the level by the
 //   legacy tree root level since the location indices are defined

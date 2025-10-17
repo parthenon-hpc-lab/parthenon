@@ -272,29 +272,14 @@ class Mesh {
   // between two blocks for a given variable
   using channel_key_t = std::tuple<int, int, std::string, int, int>;
   using comm_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
-  std::unordered_map<int, std::shared_ptr<buf_pool_t<Real>>> pool_map;
+  std::unordered_map<int, buf_pool_t<Real>> pool_map;
   using comm_buf_map_t = std::unordered_map<channel_key_t, comm_buf_t>;
   comm_buf_map_t boundary_comm_map;
   TagMap tag_map;
 
   std::shared_ptr<CoalescedComms> pcoalesced_comms;
 
-  bool TryReallocCommBufferPools() {
-    bool realloc = false;
-    for (auto [k, ppool] : pool_map) {
-      std::size_t inuse = ppool->NumBuffersInUse();
-      std::size_t total = ppool->NumBuffersInPool();
-      std::size_t delta = total - inuse;
-      if ((inuse < buffer_reset_frac_ * total) && (delta > CommBufferChunkSize())) {
-        realloc = true;
-        break;
-      }
-    }
-    if (realloc) {
-      pool_map.clear();
-    }
-    return realloc;
-  }
+  bool TryReallocCommBufferPools();
 
 #ifdef MPI_PARALLEL
   MPI_Comm GetMPIComm(const std::string &label) const { return mpi_comm_map_.at(label); }
@@ -312,7 +297,7 @@ class Mesh {
   uint64_t GetBufferPoolSizeInBytes() const {
     std::uint64_t buffer_memory = 0;
     for (auto &p : pool_map) {
-      buffer_memory += p.second->SizeInBytes();
+      buffer_memory += p.second.SizeInBytes();
     }
     return buffer_memory;
   }
