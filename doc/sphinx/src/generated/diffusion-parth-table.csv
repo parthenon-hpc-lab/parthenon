@@ -62,7 +62,7 @@ block,parameters,type,default,description
 "parthenon/swarm","ox2_bc","string","outflow","global particle boundary condition on outer X2 face"
 "parthenon/swarm","ox3_bc","string","periodic","global particle boundary condition on outer X3 face"
 "","","","",""
-"parthenon/time","comm_buffer_reset_cadence","int","-1","If set to a positive number N, the comm buffer object pool will be reset every N remeshing events if the expected number of required buffers has decreased to parthenon/mesh/comm_buffer_reset_fraction times the total number of allocated buffers. If set to a non-positive number, the buffer pool is never cleared."
+"parthenon/time","comm_buffer_reset_cadence","int","-1","If set to a positive number N, the comm buffer object pool will be reset every N cycles if the expected number of required buffers has decreased to parthenon/mesh/comm_buffer_reset_fraction times the total number of allocated buffers. If set to a non-positive number, the buffer pool is never cleared."
 "parthenon/time","dt","Real","1.7976931e+308","initial value of time step before constraining via cfl"
 "parthenon/time","dt_ceil","Real","1.7976931e+308","maximum allowed timestep"
 "parthenon/time","dt_factor","Real","2","maximum relative change in dt per timestep"

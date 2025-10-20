@@ -81,10 +81,6 @@ class ObjectPool {
   void AddFreeObjectToPool(const T &in) { available_.push(in); }
   void AddFreeObjectToPool(T &&in) { available_.emplace(in); }
 
-  // JMM: Note that calling this while, e.g., comm buffers still exist
-  // will make the memory a comm buffer points to
-  // invalid. Fortunately, comm buffers always call `Allocate`
-  // beforehand.
   void Clear() {
     // normalize by moving everything into the stack
     for (auto &[k, v] : inuse_) {

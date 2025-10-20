@@ -131,7 +131,7 @@ class EvolutionDriver : public Driver {
     buffer_reset_cadence_ = pin->GetOrAddInteger(
         "parthenon/time", "comm_buffer_reset_cadence", -1,
         "If set to a positive number N, the comm buffer object pool will be reset "
-        "every N remeshing events if the expected number of required buffers has "
+        "every N cycles if the expected number of required buffers has "
         "decreased to parthenon/mesh/comm_buffer_reset_fraction times the total number "
         "of allocated buffers. If set to a non-positive number, the buffer "
         "pool is never cleared.");
