@@ -91,14 +91,26 @@ struct v7 : public parthenon::variable_names::base_t<false, ANYDIM, 3> {
 template <typename T, int... tuv>
 using TUV_t = parthenon::variable_names::TUV_t<T, tuv...>;
 
-struct d1 : public parthenon::variable_names::virtual_variable_t<
-                parthenon::TypeList<v1, TUV_t<v3, 1>, TUV_t<v3, 2>>> {
+struct d1
+    : public parthenon::variable_names::virtual_variable_t<parthenon::TypeList<v1, v3>> {
   static std::string name() { return "d1"; }
+  using parent_type =
+      parthenon::variable_names::virtual_variable_t<parthenon::TypeList<v1, v3>>;
 
-  KOKKOS_INLINE_FUNCTION const Real evaluate(const Real &var1, const Real &var3_1,
-                                             const Real &var3_2, const Real &x) const {
-    return var1 * var3_1 * var3_2 + x;
+  template <typename... Args>
+  KOKKOS_INLINE_FUNCTION d1(Args &&...args) : parent_type(std::forward<Args>(args)...) {}
+
+  template <typename... Args>
+  KOKKOS_INLINE_FUNCTION d1(const Real &xx, Args &&...args)
+      : x(xx), parent_type(std::forward<Args>(args)...) {}
+
+  template <typename Pack_t>
+  KOKKOS_INLINE_FUNCTION const Real evaluate(const Pack_t &pack, const int b, const int k,
+                                             const int j, const int i) const {
+    return pack(b, v1(), k, j, i) * pack(b, v3(1), k, j, i) * pack(b, v3(2), k, j, i) + x;
   }
+
+  Real x;
 };
 
 } // namespace
@@ -480,7 +492,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
               const Real answer = pack(b, v1(), k, j, i) * pack(b, v3(1), k, j, i) *
                                       pack(b, v3(2), k, j, i) +
                                   x;
-              if (pack(b, d1(), k, j, i, x) != answer) {
+              if (pack(b, d1(x), k, j, i) != answer) {
                 ltot += 1;
               }
             },

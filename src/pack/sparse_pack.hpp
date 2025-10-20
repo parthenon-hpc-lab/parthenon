@@ -312,13 +312,10 @@ class SparsePack : public SparsePackBase {
   }
 
   template <typename Tin, typename... Args,
-            REQUIRES(variable_names::dependent_variable_v<Tin>
-                         &&variable_names::virtual_variable_v<Tin>)>
+            REQUIRES(variable_names::virtual_variable_v<Tin>)>
   KOKKOS_INLINE_FUNCTION const Real operator()(const int b, const Tin &t, const int k,
-                                               const int j, const int i,
-                                               Args &&...args) const {
-    return evaluate_virtual(typename Tin::dependent_vars(), b, t, k, j, i,
-                            std::forward<Args>(args)...);
+                                               const int j, const int i) const {
+    return t.evaluate(static_cast<const SparsePack<Ts...> &>(*this), b, k, j, i);
   }
 
   // flux() overloads
@@ -380,17 +377,6 @@ class SparsePack : public SparsePackBase {
   KOKKOS_INLINE_FUNCTION auto GetPtrs(const int b, const TE el, int k, int j, int i,
                                       VTs... vts) const {
     return std::make_tuple(&(*this)(b, el, vts, k, j, i)...);
-  }
-
- private:
-  template <typename Tin, typename... Vs, typename... Args,
-            REQUIRES(variable_names::virtual_variable_v<Tin>)>
-  KOKKOS_INLINE_FUNCTION const Real evaluate_virtual(TypeList<Vs...>, const int b,
-                                                     const Tin &t, const int k,
-                                                     const int j, const int i,
-                                                     Args &&...args) const {
-    return t.evaluate((*this)(b, Tin::TE(Vs()), Tin::get(Vs()), k, j, i)...,
-                      std::forward<Args>(args)...);
   }
 };
 

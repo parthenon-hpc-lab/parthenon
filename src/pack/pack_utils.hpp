@@ -183,61 +183,32 @@ struct DependentVariable {
 template <typename T>
 constexpr bool dependent_variable_v = implements<DependentVariable(T)>::value;
 
+template <typename>
+struct virtual_variable_t;
+
+template <template <typename...> typename TL, typename... Ts>
+struct virtual_variable_t<TL<Ts...>> : public var_base_t<false, Real> {
+  using type = virtual_variable_t<TL<Ts...>>;
+  using Base_t = var_base_t<false, Real>;
+  using dependent_vars = TypeList<Ts...>;
+};
+
+// Cocnept to check that a type shares an ancestor with virtual_variable_t
 struct VirtualVariable {
   template <typename T>
-  auto requires_(T)
-      -> void_t<ENABLEIF(std::is_member_function_pointer_v<decltype(&T::evaluate)>)>;
+  auto requires_(T) -> void_t<
+      ENABLEIF(is_specialization_of<typename T::type, virtual_variable_t>::value)>;
 };
 
 template <typename T>
 constexpr bool virtual_variable_v = implements<VirtualVariable(T)>::value;
-
-// concept for types that wrap the constructor of a type var
-struct WrapVariable {
-  template <typename T>
-  auto requires_(T) -> void_t<typename T::var_type, decltype(T::get()), decltype(T::TE)>;
-};
-
-template <typename T>
-constexpr bool wrap_variable_v = implements<WrapVariable(T)>::value;
-
-template <typename, int... NCOMP>
-struct virtual_variable_t;
-
-template <template <typename...> typename TL, typename... Ts, int... NCOMP>
-struct virtual_variable_t<TL<Ts...>, NCOMP...>
-    : public var_base_t<false, Real, NCOMP...> {
-  using Base_t = var_base_t<false, Real, NCOMP...>;
-  using dependent_vars = TypeList<Ts...>;
-
-  template <typename T>
-  KOKKOS_INLINE_FUNCTION static auto get(T) {
-    if constexpr (wrap_variable_v<T>) {
-      return T::get();
-    } else {
-      return T();
-    }
-  }
-
-  template <typename T>
-  KOKKOS_INLINE_FUNCTION static TopologicalElement TE(T) {
-    if constexpr (wrap_variable_v<T>) {
-      return T::TE;
-    }
-    return TopologicalElement::CC;
-  }
-};
 
 namespace impl {
 
 struct AllDependentVariables {
   template <typename T, REQUIRES(!dependent_variable_v<T>)>
   static auto get(T) {
-    if constexpr (wrap_variable_v<T>) {
-      return TypeList<typename T::var_type>();
-    } else {
-      return TypeList<T>();
-    }
+    return TypeList<T>();
   }
 
   template <template <typename...> typename TL, typename... Ts>
