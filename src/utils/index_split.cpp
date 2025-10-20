@@ -64,7 +64,7 @@ void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
   // equivalent to NSMS in Kokkos
   // TODO(JMM): I'm not sure if this is really the best way to do
   // this. Based on discussion on Kokkos slack.
-#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
+#ifdef PARTHENON_ENABLE_GPU
   const auto space = DevExecSpace();
   team_policy policy(space, (md->NumBlocks()) * total_k, Kokkos::AUTO);
   // JMM: In principle, should pass a realistic functor here. Using a
@@ -76,7 +76,7 @@ void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
   concurrency_ = space.concurrency() / nteams;
 #else
   concurrency_ = 1;
-#endif // defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
+#endif // PARTHENON_ENABLE_GPU
 
   if (nkp_ == all_outer)
     nkp_ = total_k;
@@ -88,23 +88,23 @@ void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
     njp_ = 1;
 
   if (nkp_ == 0) {
-#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
+#ifdef PARTHENON_ENABLE_GPU
     nkp_ = total_k;
 #else
     nkp_ = 1;
-#endif
+#endif // PARTHENON_ENABLE_GPU
   } else if (nkp_ > total_k) {
     nkp_ = total_k;
   }
   if (njp_ == 0) {
-#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
+#ifdef PARTHENON_ENABLE_GPU
     // From Forrest Glines:
     // nkp_ * njp_ >= number of SMs / number of streams
     // => njp_ >= SMS / streams / NKP
     njp_ = std::min(concurrency_ / (NSTREAMS_ * nkp_), total_j);
 #else
     njp_ = 1;
-#endif
+#endif // PARTHENON_ENABLE_GPU
   } else if (njp_ > total_j) {
     njp_ = total_j;
   }
