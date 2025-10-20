@@ -64,7 +64,7 @@ void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
   // equivalent to NSMS in Kokkos
   // TODO(JMM): I'm not sure if this is really the best way to do
   // this. Based on discussion on Kokkos slack.
-#ifdef KOKKOS_ENABLE_CUDA
+#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
   const auto space = DevExecSpace();
   team_policy policy(space, (md->NumBlocks()) * total_k, Kokkos::AUTO);
   // JMM: In principle, should pass a realistic functor here. Using a
@@ -76,7 +76,7 @@ void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
   concurrency_ = space.concurrency() / nteams;
 #else
   concurrency_ = 1;
-#endif // KOKKOS_ENABLE_CUDA
+#endif // defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
 
   if (nkp_ == all_outer)
     nkp_ = total_k;
@@ -88,7 +88,7 @@ void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
     njp_ = 1;
 
   if (nkp_ == 0) {
-#ifdef KOKKOS_ENABLE_CUDA
+#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
     nkp_ = total_k;
 #else
     nkp_ = 1;
@@ -97,7 +97,7 @@ void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
     nkp_ = total_k;
   }
   if (njp_ == 0) {
-#ifdef KOKKOS_ENABLE_CUDA
+#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
     // From Forrest Glines:
     // nkp_ * njp_ >= number of SMs / number of streams
     // => njp_ >= SMS / streams / NKP
