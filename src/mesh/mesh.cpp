@@ -1225,9 +1225,8 @@ bool Mesh::TryReallocCommBufferPools() {
     for (auto &[k, pool] : pool_map) {
       pool.Clear();
     }
-    // We need to clear the caches because comm buffers are kokkos
-    // views, which are reference counted, and they're stored in the
-    // caches.
+    // We need to clear the caches because they point to comm buffers that
+    // are no longer valid
     for (auto &[label, pdata] : mesh_data.Stages()) {
       pdata->GetBvarsCache().clear();
     }
