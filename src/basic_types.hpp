@@ -135,6 +135,9 @@ inline bool operator<(const GridIdentifier &lhs, const GridIdentifier &rhs) {
   return lhs.logical_level < rhs.logical_level;
 }
 
+// Enumeration for accessing spatial axes of a meshblock
+enum class Axis { K = 0, J = 1, I = 2 };
+
 // Enumeration for accessing a field on different locations of the grid:
 // CC = cell center of (i, j, k)
 // F1 = x-normal face at (i - 1/2, j, k)

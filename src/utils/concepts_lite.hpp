@@ -31,6 +31,10 @@ constexpr std::false_type always_false{};
 #define ENABLEIF(...) typename std::enable_if<(__VA_ARGS__), int>::type
 using TYPE_OF_SUCCESSFUL_REQUIRES = int;
 
+// this is in c++20 to remove any const & ref from a given type
+template <typename T>
+using base_type = typename std::remove_cv_t<typename std::remove_reference_t<T>>;
+
 // Include a useful type trait for checking if a type is a specialization of
 // a template. Only works if all template arguments are types
 template <class SPECIAL, template <class...> class TEMPL>

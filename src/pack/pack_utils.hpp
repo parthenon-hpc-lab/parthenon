@@ -152,27 +152,6 @@ struct any_nonautoflux : public base_t<true> {
 };
 using any = any_nonautoflux;
 
-namespace impl {
-// wrapper struct to get a type that refers to a particular
-// tuv index of another type-based var
-template <typename T, TopologicalElement te, int... tuv>
-struct TUV_t {
-  using var_type = T;
-  static constexpr TopologicalElement TE = te;
-
-  KOKKOS_INLINE_FUNCTION static T get() { return T(tuv...); }
-};
-} // namespace impl
-
-template <typename, auto...>
-struct TUV_t {};
-
-template <typename T, int... tuv>
-struct TUV_t<T, tuv...> : impl::TUV_t<T, TopologicalElement::CC, tuv...> {};
-
-template <typename T, TopologicalElement te, int... tuv>
-struct TUV_t<T, te, tuv...> : impl::TUV_t<T, te, tuv...> {};
-
 // Concept to state that a typed-field is dependent on other
 // fields, and is not itself an actual indexable field.
 struct DependentVariable {
@@ -202,6 +181,17 @@ struct VirtualVariable {
 
 template <typename T>
 constexpr bool virtual_variable_v = implements<VirtualVariable(T)>::value;
+
+// Concept to check that a type wants a subpack to evaluate the virtual field
+struct VirtualSubPack {
+  template <typename T>
+  auto requires_(T)
+      -> void_t<typename T::pack_type,
+                ENABLEIF(std::is_same_v<decltype(T::pack_type::Naxes), const int>)>;
+};
+
+template <typename T>
+constexpr bool virtual_subpack_v = implements<VirtualSubPack(T)>::value;
 
 namespace impl {
 

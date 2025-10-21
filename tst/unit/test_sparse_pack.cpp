@@ -30,6 +30,7 @@
 
 // TODO(jcd): can't call the MeshBlock constructor without mesh_refinement.hpp???
 #include "mesh/mesh_refinement.hpp"
+#include "pack/subpack.hpp"
 #include "utils/type_list.hpp"
 
 using parthenon::BlockList_t;
@@ -88,9 +89,6 @@ struct v7 : public parthenon::variable_names::base_t<false, ANYDIM, 3> {
   static std::string name() { return "v7"; }
 };
 
-template <typename T, int... tuv>
-using TUV_t = parthenon::variable_names::TUV_t<T, tuv...>;
-
 struct d1
     : public parthenon::variable_names::virtual_variable_t<parthenon::TypeList<v1, v3>> {
   static std::string name() { return "d1"; }
@@ -108,6 +106,31 @@ struct d1
   KOKKOS_INLINE_FUNCTION const Real evaluate(const Pack_t &pack, const int b, const int k,
                                              const int j, const int i) const {
     return pack(b, v1(), k, j, i) * pack(b, v3(1), k, j, i) * pack(b, v3(2), k, j, i) + x;
+  }
+
+  Real x;
+};
+
+// use a subpack to index into the sparse pack
+struct d1_subpack
+    : public parthenon::variable_names::virtual_variable_t<parthenon::TypeList<v1, v3>> {
+  // declare the type of subpack we want to use for our evaluate method
+  using pack_type = parthenon::SubPack0D;
+  static std::string name() { return "d1_subpack"; }
+  using parent_type =
+      parthenon::variable_names::virtual_variable_t<parthenon::TypeList<v1, v3>>;
+
+  template <typename... Args>
+  KOKKOS_INLINE_FUNCTION d1_subpack(Args &&...args)
+      : parent_type(std::forward<Args>(args)...) {}
+
+  template <typename... Args>
+  KOKKOS_INLINE_FUNCTION d1_subpack(const Real &xx, Args &&...args)
+      : x(xx), parent_type(std::forward<Args>(args)...) {}
+
+  template <typename Pack_t>
+  KOKKOS_INLINE_FUNCTION const Real evaluate(const Pack_t &pack) const {
+    return pack(v1()) * pack(v3(1)) * pack(v3(2)) + x;
   }
 
   Real x;
@@ -493,6 +516,9 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
                                       pack(b, v3(2), k, j, i) +
                                   x;
               if (pack(b, d1(x), k, j, i) != answer) {
+                ltot += 1;
+              }
+              if (pack(b, d1(x), k, j, i) != pack(b, d1_subpack(x), k, j, i)) {
                 ltot += 1;
               }
             },

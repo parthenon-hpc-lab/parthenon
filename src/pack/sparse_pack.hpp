@@ -21,6 +21,7 @@
 #include "pack/block_selector.hpp"
 #include "pack/pack_utils.hpp"
 #include "pack/sparse_pack_base.hpp"
+#include "pack/subpack.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/type_list.hpp"
 
@@ -312,10 +313,33 @@ class SparsePack : public SparsePackBase {
   }
 
   template <typename Tin, typename... Args,
-            REQUIRES(variable_names::virtual_variable_v<Tin>)>
+            REQUIRES(variable_names::virtual_variable_v<Tin> &&
+                     !variable_names::virtual_subpack_v<Tin>)>
   KOKKOS_INLINE_FUNCTION const Real operator()(const int b, const Tin &t, const int k,
                                                const int j, const int i) const {
     return t.evaluate(static_cast<const SparsePack<Ts...> &>(*this), b, k, j, i);
+  }
+
+  template <typename Tin, typename... Args,
+            REQUIRES(variable_names::virtual_variable_v<Tin>
+                         &&variable_names::virtual_subpack_v<Tin>)>
+  KOKKOS_INLINE_FUNCTION const Real operator()(const int b, const Tin &t, const int k,
+                                               const int j, const int i) const {
+    using pack_type = typename Tin::pack_type;
+    constexpr int Naxes = pack_type::Naxes;
+    if constexpr (Naxes == 3) {
+      return t.evaluate(SubPack<pack_type::Axis1, pack_type::Axis2, pack_type::Axis3>(
+          static_cast<const SparsePack<Ts...> &>(*this), b, k, j, i));
+    } else if constexpr (Naxes == 2) {
+      return t.evaluate(SubPack<pack_type::Axis1, pack_type::Axis2>(
+          static_cast<const SparsePack<Ts...> &>(*this), b, k, j, i));
+    } else if constexpr (Naxes == 1) {
+      return t.evaluate(SubPack<pack_type::Axis1>(
+          static_cast<const SparsePack<Ts...> &>(*this), b, k, j, i));
+    } else {
+      return t.evaluate(
+          SubPack(static_cast<const SparsePack<Ts...> &>(*this), b, k, j, i));
+    }
   }
 
   // flux() overloads
