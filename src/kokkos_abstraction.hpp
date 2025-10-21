@@ -45,9 +45,9 @@ namespace parthenon {
 
 // namespaced constexpr version of above macro
 #ifdef PARTHENON_ENABLE_GPU
-constexpr bool ENABLE_GPU = true;
+constexpr const bool ENABLE_GPU = true;
 #else
-constexpr bool ENABLE_GPU = true;
+constexpr const bool ENABLE_GPU = false;
 #endif // PARTHENON_ENABLE_GPU
 
 // Defining tags to determine loop_patterns using a tag dispatch design pattern
