@@ -94,7 +94,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           "parthenon/mesh", "do_coalesced_comms", false,
           "Use coalesced MPI messages for inter-block communication")},
       nbuf_add_{pin->GetOrAddInteger(
-          "parthenon/mesh", "comm_buffer_granularity", -1,
+          "parthenon/mesh", "comm_buffer_chunk_size", -1,
           "Number of comm buffers to allocate when more are required. Default is a "
           "heuristic.")},
       buffer_reset_frac_{pin->GetOrAddReal(
