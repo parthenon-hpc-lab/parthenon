@@ -40,7 +40,6 @@
 #include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/bit_hacks.hpp"
-#include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {

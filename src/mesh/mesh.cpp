@@ -57,7 +57,6 @@
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
-#include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/partition_stl_containers.hpp"
 
