@@ -19,6 +19,7 @@
 #include <chrono>
 #include <functional>
 #include <list>
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -32,6 +33,7 @@
 #include <parthenon_mpi.hpp>
 
 #include "globals.hpp"
+#include "task_timing.hpp"
 #include "thread_pool.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
@@ -93,7 +95,6 @@ class TaskID {
 };
 
 class TimingAccumulator;
-
 class Task {
  public:
   Task() = default;
@@ -139,9 +140,9 @@ class Task {
     return task_status;
   }
   void reset_iteration() { num_calls = 0; }
-  
+
   std::vector<std::shared_ptr<TimingAccumulator>> timing_accumulators;
-  bool time_task{false}; 
+  bool time_task{false};
 
  private:
   std::function<TaskStatus()> f;
@@ -161,65 +162,6 @@ class Task {
 std::ostream &WriteTaskGraph(std::ostream &stream,
                              const std::vector<std::shared_ptr<Task>> &tasks);
 
-class TimingAccumulator : public std::enable_shared_from_this<TimingAccumulator> { 
- public:
-  using time_t = std::chrono::time_point<std::chrono::steady_clock>;
-  using timing_chunk_t = std::tuple<time_t, time_t, TaskStatus>;
- private:
-  bool collecting{false};
-  std::vector<timing_chunk_t> timings;
-  int ntasks{0};
-
-  class private_t{};
- public:
-  explicit TimingAccumulator(private_t){};
-  
-  static std::shared_ptr<TimingAccumulator> create() {
-    return std::make_shared<TimingAccumulator>(private_t());
-  }
-
-  void AddTiming(const timing_chunk_t &timing) {
-    timings.push_back(timing);
-  }
-
-  void StopCollectingTasks() {collecting = false;} 
-  void StartCollectingTasks() {collecting = true;}
-
-  void CollectTask(TaskID id) {
-    ntasks++;
-    id.GetTask()->time_task = true;
-    id.GetTask()->timing_accumulators.push_back(shared_from_this());
-  }
-  void CollectTaskIfCollecting(TaskID id) {
-    if (collecting) CollectTask(id);
-  }
-  
-  double GetDurationInSeconds(std::chrono::time_point<std::chrono::steady_clock> start,
-                              std::chrono::time_point<std::chrono::steady_clock> end) const {
-    return 1.e-9 * static_cast<double>(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
-  }
-
-  Real GetTotalTime() const {
-    Real total_time{0.0};
-    for (auto &[start, end, status] : timings) 
-      total_time += GetDurationInSeconds(start, end);
-    return total_time;
-  }
-
-  int GetTotalTasks() const {
-    return ntasks;
-  }
-};
-
-struct TimingAccumulatorGuard { 
-  TimingAccumulatorGuard(std::shared_ptr<TimingAccumulator> timing_accumulator) : tidc(timing_accumulator) {
-    tidc->StartCollectingTasks();
-  }
-  ~TimingAccumulatorGuard() {
-    tidc->StopCollectingTasks();
-  }
-  std::shared_ptr<TimingAccumulator> tidc;
-};
 class TaskRegion;
 class TaskList {
   friend class TaskRegion;
@@ -258,16 +200,16 @@ class TaskList {
         exec_limits));
     last_task = tasks.back().get();
   }
-  
+
   std::set<std::shared_ptr<TimingAccumulator>> timing_accumulators_;
-  
+
   void RegisterTimingAccumulator(std::shared_ptr<TimingAccumulator> timing_accumulator) {
     timing_accumulators_.insert(timing_accumulator);
   }
-  
+
   std::shared_ptr<TimingAccumulator> CreateSptrTimingAccumulator() {
     auto new_collector = TimingAccumulator::create();
-    RegisterTimingAccumulator(new_collector); 
+    RegisterTimingAccumulator(new_collector);
     return new_collector;
   }
 
@@ -316,8 +258,9 @@ class TaskList {
 
     Task *my_task = tasks.back().get();
     TaskID id(my_task);
-    
-    for (auto &timing_accumulator : timing_accumulators_) timing_accumulator->CollectTaskIfCollecting(id);
+
+    for (auto &timing_accumulator : timing_accumulators_)
+      timing_accumulator->CollectTaskIfCollecting(my_task);
 
     if (tq.LocalSync() || tq.GlobalSync() || tq.Once()) {
       regional_tasks.push_back(my_task);
@@ -532,21 +475,6 @@ class TaskList {
         },
         exec_limits));
   }
-};
-
-class TimingAccumulatorDictionary {
-  std::map<std::string, std::shared_ptr<TimingAccumulator>> dict_;
- public:
-  std::shared_ptr<TimingAccumulator> GetOrAddAndRegister(const std::string& label, TaskList &tl) {
-    if (dict_.count(label) == 0) dict_[label] = TimingAccumulator::create(); 
-    tl.RegisterTimingAccumulator(dict_[label]);
-    return dict_[label];
-  }
-  void clear() {dict_.clear();} 
-  auto begin() { return dict_.begin(); }
-  auto end() { return dict_.end(); }
-  auto begin() const { return dict_.begin(); }
-  auto end() const { return dict_.end(); }
 };
 
 class TaskCollection;
