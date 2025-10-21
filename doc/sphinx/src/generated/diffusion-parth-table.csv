@@ -7,7 +7,7 @@ block,parameters,type,default,description
 "parthenon/loadbalancing","interval","int","10","how frequently load balancing is performed if the mesh does not change"
 "parthenon/loadbalancing","tolerance","Real","0.5","load balancer tolerance"
 "","","","",""
-"parthenon/mesh","comm_buffer_granularity","int","-1","Number of comm buffers to allocate when more are required. Default is a heuristic."
+"parthenon/mesh","comm_buffer_chunk_size","int","-1","Number of comm buffers to allocate when more are required. Default is a heuristic."
 "parthenon/mesh","comm_buffer_reset_fraction","Real","0.8","When a check for comm buffer realocation is made (see comm_buffer_reallocate_cadence), reallocation happens only if the number of buffers in use divided by the number of buffers allocated is less than this variable."
 "parthenon/mesh","derefine_count","int","10","number of iterations a block must request derefinement before it is derefined"
 "parthenon/mesh","do_coalesced_comms","bool","0","Use coalesced MPI messages for inter-block communication"
