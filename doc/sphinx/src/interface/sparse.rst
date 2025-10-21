@@ -378,22 +378,28 @@ communication and flux correction implementation in Parthenon is given
 AMR and load balancing
 ~~~~~~~~~~~~~~~~~~~~~~
 
-The sparse implementation for AMR and load balancing is quite straight
-forward. For AMR, when we create new mesh blocks, we allocate the same
-variables on them as there were allocated on the old mesh blocks the new
-ones are created from.
+The sparse implementation for AMR and load balancing is straight
+forward. When a block is refined or derefined, ``Mesh::SendCoarseToFine``
+or ``Mesh::SendFineToCoarse`` is called for each independent variable.
+If the variable is allocated on the block, its (coarse) data is sent to the
+rank holding the new block. If the variable is unallocated a message of
+size zero is sent, indicating to the receiver the variable is unallocated.
+The fields are received, allocated if necessary based on the message
+size, and have their internal values set if they are allocated in
+``Mesh::TryReceiveCoarseToFine`` and ``Mesh::TryReceiveFineToCoarse``.
 
-For the load balancing, we need to send the allocation statuses of the
-variables together with their data. So we add flags at the beginning of
-the send/receive buffers to indicate the allocation statuses. There is
-one flag per variable. The rest of the buffer is unchanged and always
-includes space for all variables regardless whether they are allocated
-or not. This simplifies the implementation drastically, because all the
-MPI messages have the same size and the sender and receiver know what
-that size is without needing the know the allocation status of the other
-block. The remaining changes are as follows:
+When blocks are transferred between ranks for load balancing,
+``Mesh::SendSameToSame`` either sends a message containing the
+allocated field with the ``derefinement_count`` for the block and
+``dealloc_count`` for the variable saved in the first two ghost zones or
+if it is unallocated just sends a message of size two containing the
+``derefinement_count`` and ``dealloc_count``.
+``Mesh::TryReceiveSameToSame`` then allocates or doesn't allocate
+the variable depending on the size of the message it receives, fills the
+variable if it is allocated, and sets the ``derefinement_count`` and
+``dealloc_count`` on the moved block and variable to maintain
+consistent state independent of the number of MPI ranks.
 
-- @lroberts36 any updated doc for this section?
 
 Memory Footprint Reporting
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
