@@ -34,6 +34,9 @@ struct SubPack_impl {
     return pack_.GetSize(b_, var);
   }
 
+  KOKKOS_INLINE_FUNCTION
+  const auto &GetCoordinates() const { return pack_.GetCoordinates(b_); }
+
  private:
   PackType &pack_;
   const int b_, k_, j_, i_;
@@ -46,7 +49,7 @@ struct StencilSubPack_impl {
       : pack_(pack), b_(b), kji_({k, j, i}) {}
 
   template <typename Var_t, typename... Is>
-  KOKKOS_INLINE_FUNCTION Real &operator()(const Var_t &var, Is &&...idxs) {
+  KOKKOS_INLINE_FUNCTION Real &operator()(const Var_t &var, Is &&...idxs) const {
     static_assert(sizeof...(Is) == sizeof...(axes),
                   "number of indices passed to sub pack must match number of axes.");
     Kokkos::Array<int, 3> kji = kji_;
@@ -56,7 +59,7 @@ struct StencilSubPack_impl {
 
   template <typename Var_t, typename... Is>
   KOKKOS_INLINE_FUNCTION Real &operator()(TopologicalElement te, const Var_t &var,
-                                          Is &&...idxs) {
+                                          Is &&...idxs) const {
     static_assert(sizeof...(Is) == sizeof...(axes),
                   "number of indices passed to sub pack must match number of axes.");
     Kokkos::Array<int, 3> kji = kji_;
@@ -66,7 +69,7 @@ struct StencilSubPack_impl {
 
   template <typename Var_t, typename... Is>
   KOKKOS_INLINE_FUNCTION Real &flux(TopologicalElement te, const Var_t &var,
-                                    Is &&...idxs) {
+                                    Is &&...idxs) const {
     static_assert(sizeof...(Is) == sizeof...(axes),
                   "number of indices passed to sub pack must match number of axes.");
     Kokkos::Array<int, 3> kji = kji_;
@@ -78,6 +81,9 @@ struct StencilSubPack_impl {
   KOKKOS_INLINE_FUNCTION std::size_t GetSize(const V &var) const {
     return pack_.GetSize(b_, var);
   }
+
+  KOKKOS_INLINE_FUNCTION
+  const auto &GetCoordinates() const { return pack_.GetCoordinates(b_); }
 
  private:
   const PackType &pack_;
@@ -93,7 +99,7 @@ struct VarStencilSubPack_impl {
       : pack_(pack), b_(b), var_(var), kji_({k, j, i}) {}
 
   template <typename... Is>
-  KOKKOS_INLINE_FUNCTION Real &operator()(Is &&...idxs) {
+  KOKKOS_INLINE_FUNCTION Real &operator()(Is &&...idxs) const {
     static_assert(sizeof...(Is) == sizeof...(axes),
                   "number of indices passed to sub pack must match number of axes.");
     Kokkos::Array<int, 3> kji = kji_;
@@ -102,7 +108,7 @@ struct VarStencilSubPack_impl {
   }
 
   template <typename... Is>
-  KOKKOS_INLINE_FUNCTION Real &operator()(TopologicalElement te, Is &&...idxs) {
+  KOKKOS_INLINE_FUNCTION Real &operator()(TopologicalElement te, Is &&...idxs) const {
     static_assert(sizeof...(Is) == sizeof...(axes),
                   "number of indices passed to sub pack must match number of axes.");
     Kokkos::Array<int, 3> kji = kji_;
@@ -111,13 +117,16 @@ struct VarStencilSubPack_impl {
   }
 
   template <typename... Is>
-  KOKKOS_INLINE_FUNCTION Real &flux(TopologicalElement te, Is &&...idxs) {
+  KOKKOS_INLINE_FUNCTION Real &flux(TopologicalElement te, Is &&...idxs) const {
     static_assert(sizeof...(Is) == sizeof...(axes),
                   "number of indices passed to sub pack must match number of axes.");
     Kokkos::Array<int, 3> kji = kji_;
     ([&]() { kji[static_cast<int>(axes)] += idxs; }(), ...);
     return pack_.flux(b_, te, var_, kji[0], kji[1], kji[2]);
   }
+
+  KOKKOS_INLINE_FUNCTION
+  const auto &GetCoordinates() const { return pack_.GetCoordinates(b_); }
 
  private:
   const PackType &pack_;

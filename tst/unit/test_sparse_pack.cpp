@@ -136,6 +136,19 @@ struct d1_subpack
   Real x;
 };
 
+// use 1D subpack to get the gradient of v1()
+template <parthenon::Axis axis>
+struct gradient
+    : public parthenon::variable_names::virtual_variable_t<parthenon::TypeList<v1>> {
+  using pack_type = parthenon::SubPack1D<axis>;
+  static std::string name() { return "gradient"; }
+
+  template <typename Pack_t>
+  KOKKOS_INLINE_FUNCTION const Real evaluate(const Pack_t &pack) const {
+    return 0.5 * (pack(v1(), 1) - pack(v1(), -1));
+  }
+};
+
 } // namespace
 
 TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
@@ -493,7 +506,9 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
 
     WHEN("We get a sparse pack for a virtual variable dependent on "
          "our pair of fields, and initialize the dependent vars.") {
-      auto desc = parthenon::MakePackDescriptor<d1>(pkg.get());
+      auto desc =
+          parthenon::MakePackDescriptor<d1, d1_subpack, gradient<parthenon::Axis::I>>(
+              pkg.get());
       auto pack = desc.GetPack(&mesh_data);
       par_for(
           "initialize d1", 0, NBLOCKS - 1, kb, jb, ib,
@@ -519,6 +534,38 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
                 ltot += 1;
               }
               if (pack(b, d1(x), k, j, i) != pack(b, d1_subpack(x), k, j, i)) {
+                ltot += 1;
+              }
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
+      }
+      THEN("We can correctly use subpacks to get gradients.") {
+        par_for(
+            "initialize v1", 0, NBLOCKS - 1, kb, jb, ib,
+            KOKKOS_LAMBDA(int b, int k, int j, int i) {
+              pack(b, v1(), k, j, i) = 11.0 * i + 22.0 * j + 33.0 * k;
+            });
+        int nwrong = 0;
+        kb.s += 1;
+        jb.s += 1;
+        ib.s += 1;
+        kb.e -= 1;
+        jb.e -= 1;
+        ib.e -= 1;
+        par_reduce(
+            "check virtual", 0, NBLOCKS - 1, kb, jb, ib,
+            KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+              if (std::abs(pack(b, gradient<parthenon::Axis::I>(), k, j, i) - 11.0) >=
+                  1.e-12) {
+                ltot += 1;
+              }
+              if (std::abs(pack(b, gradient<parthenon::Axis::J>(), k, j, i) - 22.0) >=
+                  1.e-12) {
+                ltot += 1;
+              }
+              if (std::abs(pack(b, gradient<parthenon::Axis::K>(), k, j, i) - 33.0) >=
+                  1.e-12) {
                 ltot += 1;
               }
             },

@@ -328,13 +328,13 @@ class SparsePack : public SparsePackBase {
     using pack_type = typename Tin::pack_type;
     constexpr int Naxes = pack_type::Naxes;
     if constexpr (Naxes == 3) {
-      return t.evaluate(SubPack<pack_type::Axis1, pack_type::Axis2, pack_type::Axis3>(
+      return t.evaluate(SubPack<pack_type::axis1, pack_type::axis2, pack_type::axis3>(
           static_cast<const SparsePack<Ts...> &>(*this), b, k, j, i));
     } else if constexpr (Naxes == 2) {
-      return t.evaluate(SubPack<pack_type::Axis1, pack_type::Axis2>(
+      return t.evaluate(SubPack<pack_type::axis1, pack_type::axis2>(
           static_cast<const SparsePack<Ts...> &>(*this), b, k, j, i));
     } else if constexpr (Naxes == 1) {
-      return t.evaluate(SubPack<pack_type::Axis1>(
+      return t.evaluate(SubPack<pack_type::axis>(
           static_cast<const SparsePack<Ts...> &>(*this), b, k, j, i));
     } else {
       return t.evaluate(
