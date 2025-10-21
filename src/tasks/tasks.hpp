@@ -207,12 +207,6 @@ class TaskList {
     timing_accumulators_.insert(timing_accumulator);
   }
 
-  std::shared_ptr<TimingAccumulator> CreateSptrTimingAccumulator() {
-    auto new_collector = TimingAccumulator::create();
-    RegisterTimingAccumulator(new_collector);
-    return new_collector;
-  }
-
   template <class... Args>
   TaskID AddTask(TaskID dep, Args &&...args) {
     return AddTask(TaskQualifier::normal, dep, std::forward<Args>(args)...);
