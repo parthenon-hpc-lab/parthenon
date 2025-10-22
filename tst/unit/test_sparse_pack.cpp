@@ -112,7 +112,8 @@ struct d1
 };
 
 // use a subpack to index into the sparse pack
-struct d1_subpack {
+struct d1_subpack
+    : public parthenon::variable_names::virtual_variable_t<parthenon::TypeList<v1, v3>> {
   // declare the type of subpack we want to use for our evaluate method
   using pack_type = parthenon::SubPack0D;
   static std::string name() { return "d1_subpack"; }
@@ -124,7 +125,8 @@ struct d1_subpack {
       : parent_type(std::forward<Args>(args)...) {}
 
   template <typename... Args>
-  KOKKOS_INLINE_FUNCTION d1_subpack(const Real &xx, Args &&...args) : x(xx) {}
+  KOKKOS_INLINE_FUNCTION d1_subpack(const Real &xx, Args &&...args)
+      : x(xx), parent_type(std::forward<Args>(args)...) {}
 
   template <typename Pack_t>
   KOKKOS_INLINE_FUNCTION const Real evaluate(const Pack_t &pack) const {
