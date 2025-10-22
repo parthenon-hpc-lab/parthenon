@@ -160,9 +160,9 @@ void Swarm::SetupPersistentMPI() {
 void Swarm::LoadBuffers_() {
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
-  const int particle_size = GetParticleDataSize();
+  const size_t particle_size = GetParticleDataSize();
   vbswarm->particle_size = particle_size;
-  const int nneighbor = pmb->neighbors.size();
+  const size_t nneighbor = pmb->neighbors.size();
   // Fence to make sure particles aren't currently being transported locally
   pmb->exec_space.fence();
 
@@ -345,7 +345,7 @@ void Swarm::UnloadBuffers_() {
     const int intPackDim = vint.GetDim(2);
     const int uint64PackDim = vuint64.GetDim(2);
 
-    const int particle_size = GetParticleDataSize();
+    const size_t particle_size = GetParticleDataSize();
     auto swarm_d = GetDeviceContext();
 
     // Change meaning of neighbor_received_particles from particles per neighbor to

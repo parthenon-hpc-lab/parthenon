@@ -79,20 +79,21 @@ Triple_t<IndexRange> VarInfo::GetPaddedBoundsKJI(const IndexDomain domain) const
   return std::make_tuple(kb, jb, ib);
 }
 
-int VarInfo::Size() const {
-  return std::accumulate(nx_.begin(), nx_.end(), 1, std::multiplies<int>());
+size_t VarInfo::Size() const {
+  return std::accumulate(nx_.begin(), nx_.end(), size_t{1}, std::multiplies<size_t>());
 }
 
 // Includes topological element shape
-int VarInfo::TensorSize() const {
+size_t VarInfo::TensorSize() const {
   if (where == MetadataFlag({Metadata::None})) {
     return Size();
   } else {
-    return std::accumulate(rnx_.begin() + 1, rnx_.end() - 3, 1, std::multiplies<int>());
+    return std::accumulate(rnx_.begin() + 1, rnx_.end() - 3, size_t{1},
+                           std::multiplies<size_t>());
   }
 }
 
-int VarInfo::FillSize(const IndexDomain domain) const {
+size_t VarInfo::FillSize(const IndexDomain domain) const {
   if (where == MetadataFlag({Metadata::None})) {
     return Size();
   } else {
@@ -238,7 +239,7 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
     // we're just doing I/O right now, so probably ok?
     std::size_t tot_count;
     info.global_offset = MPIPrefixSum(info.count_on_rank, tot_count);
-    for (int i = 0; i < info.offsets.size(); ++i) {
+    for (size_t i = 0; i < info.offsets.size(); ++i) {
       info.offsets[i] += info.global_offset;
     }
     info.global_count = tot_count;

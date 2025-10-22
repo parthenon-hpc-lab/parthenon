@@ -212,8 +212,8 @@ class Swarm {
 
   // This is the particle data size for indexing boundary data buffers, for which
   // integers are cast as Reals.
-  int GetParticleDataSize() {
-    int size = 0;
+  size_t GetParticleDataSize() {
+    size_t size = 0;
     for (auto &v : std::get<0>(vectors_)) {
       size += v->NumComponents();
     }

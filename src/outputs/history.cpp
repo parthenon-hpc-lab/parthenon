@@ -124,7 +124,7 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       const auto &hist_vecs = params.Get<HstVec_list>(hist_vec_param_key);
       for (const auto &hist_vec : hist_vecs) {
         auto result = hist_vec.hst_vec_fun(md_base.get());
-        for (int n = 0; n < result.size(); n++) {
+        for (size_t n = 0; n < result.size(); n++) {
           std::string label = hist_vec.label + "_" + std::to_string(n);
           results[hist_vec.hst_op].push_back(result[n]);
           labels[hist_vec.hst_op].push_back(label);

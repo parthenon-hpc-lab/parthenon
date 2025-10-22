@@ -152,7 +152,7 @@ auto GetEdges(ParameterInput *pin, const std::string &block_name,
   }
   auto edges = ParArray1D<Real>(prefix, edges_in.size());
   auto edges_h = edges.GetHostMirror();
-  for (int i = 0; i < edges_in.size(); i++) {
+  for (size_t i = 0; i < edges_in.size(); i++) {
     edges_h(i) = edges_in[i];
   }
   Kokkos::deep_copy(edges, edges_h);

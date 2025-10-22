@@ -320,8 +320,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
                                    " is marked as sparse in restart file");
     }
 
-    max_fillsize =
-        std::max(max_fillsize, static_cast<size_t>(v_info.FillSize(theDomain)));
+    max_fillsize = std::max(max_fillsize, v_info.FillSize(theDomain));
   }
 
   // make sure we have all sparse variables that are in the restart file

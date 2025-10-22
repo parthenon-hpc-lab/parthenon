@@ -99,10 +99,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // This first loop is actually unnecessary,
   // as Kokkos initializes to zero automatically.
   // We show it here just for illustration.
-  for (int i = 0; i < view_reduce.val.size(); i++) {
+  for (size_t i = 0; i < view_reduce.val.size(); i++) {
     view_reduce.val(i) = 0;
   }
-  for (int i = 0; i < view_reduce.val.size(); i++) {
+  for (size_t i = 0; i < view_reduce.val.size(); i++) {
     view_reduce.val(i) += i;
   }
   pkg->AddParam("view_reduce", view_reduce, true);

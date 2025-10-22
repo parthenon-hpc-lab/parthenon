@@ -66,8 +66,8 @@ void SwarmContainer::Add(const std::string &label, const Metadata &metadata) {
 // TODO(JMM): Should we support this operation
 void SwarmContainer::Remove(const std::string &label) {
   // Find index of swarm
-  int isize = swarmVector_.size();
-  int idx = 0;
+  size_t isize = swarmVector_.size();
+  size_t idx = 0;
   for (const auto &s : swarmVector_) {
     if (!label.compare(s->label())) {
       break;

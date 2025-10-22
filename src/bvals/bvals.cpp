@@ -70,7 +70,7 @@ void BoundarySwarm::SetupPersistentMPI() {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
 
   // Initialize neighbor communications to other ranks
-  for (int n = 0; n < pmb->neighbors.size(); n++) {
+  for (size_t n = 0; n < pmb->neighbors.size(); n++) {
     NeighborBlock &nb = pmb->neighbors[n];
     // Neighbor on different MPI process
     if (nb.rank != Globals::my_rank) {
@@ -93,7 +93,7 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   // Fence to make sure buffers are loaded before sending
   pmb->exec_space.fence();
-  for (int n = 0; n < pmb->neighbors.size(); n++) {
+  for (size_t n = 0; n < pmb->neighbors.size(); n++) {
     NeighborBlock &nb = pmb->neighbors[n];
     if (nb.rank != Globals::my_rank) {
 #ifdef MPI_PARALLEL
@@ -131,7 +131,7 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
 #ifdef MPI_PARALLEL
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   const int &mylevel = pmb->loc.level();
-  for (int n = 0; n < pmb->neighbors.size(); n++) {
+  for (size_t n = 0; n < pmb->neighbors.size(); n++) {
     NeighborBlock &nb = pmb->neighbors[n];
     if (nb.rank != Globals::my_rank) {
       // Check to see if we got a message

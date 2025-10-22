@@ -156,8 +156,8 @@ void Variable<T>::AllocateCoarse(std::weak_ptr<MeshBlock> wpmb) {
 
 template <typename T>
 std::int64_t Variable<T>::Deallocate() {
-  std::int64_t mem_size = 0;
 #ifdef ENABLE_SPARSE
+  std::int64_t mem_size = 0;
   if (!IsAllocated()) {
     return 0;
   }

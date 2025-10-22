@@ -572,7 +572,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       // eliminate the extra geometry dump and/or (2) directly write the auxillary
       // positions via low-level HDF writes, such that the vector manipulation below is
       // unnecessary.
-      const int npart = pos_tmp.size() / 3;
+      const size_t npart = pos_tmp.size() / 3;
       std::vector<Real> swarm_positions(pos_tmp.size());
       int spcnt = 0;
       for (int i = 0; i < npart; ++i) {

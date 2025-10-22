@@ -102,7 +102,7 @@ struct var_base_t {
   KOKKOS_INLINE_FUNCTION
   static int ndim() { return sizeof...(NCOMP); }
   KOKKOS_INLINE_FUNCTION
-  static int size() { return multiply<NCOMP...>::value; }
+  static size_t size() { return multiply<NCOMP...>::value; }
 
   const int idx;
 

@@ -135,7 +135,7 @@ class SwarmContainer {
   void Print() const;
 
   // return number of stored arrays
-  int Size() const { return swarmVector_.size(); }
+  size_t Size() const { return swarmVector_.size(); }
 
   // Element accessor functions
   std::vector<std::shared_ptr<Swarm>> &allSwarms() { return swarmVector_; }

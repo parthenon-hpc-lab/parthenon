@@ -536,7 +536,7 @@ class MeshBlockData {
   void Print();
 
   // return number of stored arrays
-  int Size() noexcept { return varVector_.size(); }
+  size_t Size() noexcept { return varVector_.size(); }
 
   bool operator==(const MeshBlockData<T> &cmp);
 

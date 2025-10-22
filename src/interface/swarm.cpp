@@ -441,9 +441,9 @@ void Swarm::Defrag() {
   auto vreal = PackAllVariables_<Real>(real_imap);
   auto vint = PackAllVariables_<int>(int_imap);
   auto vuint64 = PackAllVariables_<std::uint64_t>(uint64_imap);
-  int real_vars_size = real_vector.size();
-  int int_vars_size = int_vector.size();
-  int uint64_vars_size = uint64_vector.size();
+  size_t real_vars_size = real_vector.size();
+  size_t int_vars_size = int_vector.size();
+  size_t uint64_vars_size = uint64_vector.size();
   auto real_map = real_imap.Map();
   auto int_map = int_imap.Map();
   auto uint64_map = uint64_imap.Map();

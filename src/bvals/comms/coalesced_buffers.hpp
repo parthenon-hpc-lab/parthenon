@@ -60,8 +60,8 @@ struct CoalescedBuffer {
   CoalescedBuffer(bool sender, int partition, int other_rank, BoundaryType b_type,
                   mpi_comm_t comm, Mesh *pmesh);
 
-  int TotalBuffers() const {
-    int total_buffers{0};
+  size_t TotalBuffers() const {
+    size_t total_buffers{0};
     for (const auto &[uid, v] : coalesced_info_buf)
       total_buffers += v.size();
     return total_buffers;

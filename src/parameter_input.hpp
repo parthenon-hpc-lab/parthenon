@@ -425,11 +425,11 @@ class ParameterInput {
   template <typename T>
   std::string ConcatVector_(std::vector<T> &vec) {
     std::stringstream ss;
-    const int n = vec.size();
+    const size_t n = vec.size();
     if (n == 0) return "";
 
     ss << vec[0];
-    for (int i = 1; i < n; i++) {
+    for (size_t i = 1; i < n; i++) {
       ss << "," << vec[i];
     }
     return ss.str();

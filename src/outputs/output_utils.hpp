@@ -75,11 +75,11 @@ struct VarInfo {
   Triple_t<int> GetNumKJI(const IndexDomain domain) const;
   Triple_t<IndexRange> GetPaddedBoundsKJI(const IndexDomain domain) const;
 
-  int Size() const;
+  size_t Size() const;
   // Includes topological element shape
-  int TensorSize() const;
+  size_t TensorSize() const;
   // Size of region that needs to be filled with 0s if not allocated
-  int FillSize(const IndexDomain domain) const;
+  size_t FillSize(const IndexDomain domain) const;
   // number of elements of data that describe variable shape
   int GetNDim() const;
 

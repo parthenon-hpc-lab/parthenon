@@ -199,7 +199,7 @@ TaskStatus AccumulateAreas(ParArrayHost<Real> areas, Packages_t &packages) {
   const auto &radius = packages.Get("calculate_pi")->Param<Real>("radius");
 
   Real area = 0.0;
-  for (int i = 0; i < areas.GetSize(); i++) {
+  for (size_t i = 0; i < areas.GetSize(); i++) {
     area += areas(i);
   }
   area /= (radius * radius);

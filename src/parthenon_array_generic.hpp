@@ -235,7 +235,7 @@ class ParArrayGeneric : public State {
   }
 
   // a function to get the total size of the array
-  KOKKOS_INLINE_FUNCTION int GetSize() const {
+  KOKKOS_INLINE_FUNCTION size_t GetSize() const {
     return data_.size();
     // TODO(LFR) : Make sure there is no inconsistency here
     // return GetDim(1) * GetDim(2) * GetDim(3) * GetDim(4) * GetDim(5) * GetDim(6);
