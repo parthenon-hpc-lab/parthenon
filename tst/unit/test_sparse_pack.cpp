@@ -112,8 +112,7 @@ struct d1
 };
 
 // use a subpack to index into the sparse pack
-struct d1_subpack
-    : public parthenon::variable_names::virtual_variable_t<parthenon::TypeList<v1, v3>> {
+struct d1_subpack {
   // declare the type of subpack we want to use for our evaluate method
   using pack_type = parthenon::SubPack0D;
   static std::string name() { return "d1_subpack"; }
@@ -125,8 +124,7 @@ struct d1_subpack
       : parent_type(std::forward<Args>(args)...) {}
 
   template <typename... Args>
-  KOKKOS_INLINE_FUNCTION d1_subpack(const Real &xx, Args &&...args)
-      : x(xx), parent_type(std::forward<Args>(args)...) {}
+  KOKKOS_INLINE_FUNCTION d1_subpack(const Real &xx, Args &&...args) : x(xx) {}
 
   template <typename Pack_t>
   KOKKOS_INLINE_FUNCTION const Real evaluate(const Pack_t &pack) const {
@@ -167,6 +165,29 @@ struct curl
     constexpr int ax3 = static_cast<int>(axis3);
     return 0.5 * ((pack(v3(ax3), 1, 0) - pack(v3(ax3), -1, 0)) -
                   (pack(v3(ax2), 0, 1) - pack(v3(ax2), 0, -1)));
+  }
+};
+
+// use 3d subpack to get the third derivative
+// d_1 d_2 d_3 v1
+struct der3
+    : public parthenon::variable_names::virtual_variable_t<parthenon::TypeList<v1>> {
+  using pack_type =
+      parthenon::SubPack3D<parthenon::Axis::I, parthenon::Axis::J, parthenon::Axis::K>;
+
+  static std::string name() { return "der3"; }
+
+  template <typename Pack_t>
+  KOKKOS_INLINE_FUNCTION const Real evaluate(const Pack_t &pack) const {
+    Real d3 = 0.;
+    parthenon::IndexRange pm{0, 1};
+    parthenon::seq_for(pm, pm, pm, [&](const int k, const int j, const int i) {
+      const int kk = 2 * k - 1;
+      const int jj = 2 * j - 1;
+      const int ii = 2 * i - 1;
+      d3 += kk * jj * ii * pack(v1(), kk, jj, ii);
+    });
+    return d3 * 0.125;
   }
 };
 
@@ -616,6 +637,25 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
               }
               if (std::abs(pack(b, curl<parthenon::Axis::I>(), k, j, i) -
                            (axy - azx) * i) >= 1.e-12) {
+                ltot += 1;
+              }
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
+      }
+      THEN("We can use 3D subpacks") {
+        const Real a = 12.345;
+        par_for(
+            "Initialize a simple vector with curl", 0, NBLOCKS - 1, kb, jb, ib,
+            KOKKOS_LAMBDA(int b, int k, int j, int i) {
+              pack(b, v1(), k, j, i) = a * static_cast<Real>(i * j * k);
+            });
+
+        int nwrong = 0;
+        par_reduce(
+            "check virtual", 0, NBLOCKS - 1, kbi, jbi, ibi,
+            KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+              if (std::abs(pack(b, der3(), k, j, i) - a) >= 1.e-12) {
                 ltot += 1;
               }
             },
