@@ -368,6 +368,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   } else {
     Kokkos::Profiling::pushRegion("OPMD::WriteOutputFileRealPrec");
   }
+  double time_total, time_fill_outbuf, time_flush, time_close;
+  Kokkos::Timer timer_total, timer_fill_outbuf, timer_flush, timer_close;
+  timer_total.reset();
   // Check that the parameter input is safe to write (i.e., consistent across ranks)
   OutputUtils::CheckParameterInputConsistent(pin);
 
@@ -402,6 +405,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   filename.append(".%05T");
 
   filename.append(".bp");
+  if (Globals::my_rank == 0) {
+    std::cerr << "[OPMDLOG] Going to write " << filename << "\n";
+  }
   Series series = Series(filename, Access::CREATE,
 #ifdef MPI_PARALLEL
                          MPI_COMM_WORLD,
@@ -485,6 +491,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
       OpenPMDUtils::WriteAllParams(params, pkg_name, &it);
     }
   }
+  if (Globals::my_rank == 0) {
+    std::cerr << "[OPMDLOG] Start writing InputFile\n";
+  }
   // Then our own
   if (!is_slice) {
     PARTHENON_INSTRUMENT_REGION("write input");
@@ -492,6 +501,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     std::ostringstream oss;
     pin->ParameterDump(oss);
     it.setAttribute("InputFile", oss.str());
+  }
+  if (Globals::my_rank == 0) {
+    std::cerr << "[OPMDLOG] Other Parthenon params\n";
   }
 
   if (!is_slice) {
@@ -566,6 +578,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
 
   Kokkos::Profiling::popRegion(); // write Attributes
 
+  if (Globals::my_rank == 0) {
+    std::cerr << "[OPMDLOG] Start writing Block metadata\n";
+  }
   // Write block metadata
   if (!is_slice) {
     // Manually gather all block data first as it allows to use the (simpler)
@@ -591,6 +606,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   //   WRITING VARIABLES DATA                                                         //
   // -------------------------------------------------------------------------------- //
   Kokkos::Profiling::pushRegion("write all variable data");
+  if (Globals::my_rank == 0) {
+    std::cerr << "[OPMDLOG] Start writing all variable data\n";
+  }
 
   const auto &bounds = pm->block_list.front()->cellbounds;
   const auto &f_bounds = pm->block_list.front()->f_cellbounds;
@@ -690,6 +708,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // for each variable we write
   for (auto &vinfo : all_vars_info) {
     PARTHENON_INSTRUMENT_REGION("Write variable loop")
+    if (Globals::my_rank == 0) {
+      std::cerr << "[OPMDLOG] Write var " << vinfo.label << "\n";
+    }
 
     // Reset host write bufer. Not really necessary, but doesn't hurt.
     memset(tmp_data.data(), 0, tmp_data.size() * sizeof(OutT));
@@ -916,7 +937,14 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
         sparse_dealloc_count.at(b_idx * num_sparse + sparse_idx) = out_var->dealloc_count;
       }
     } // loop over blocks
+    if (Globals::my_rank == 0) {
+      std::cerr << "[OPMDLOG] Going to flush\n";
+    }
+    // Note the timers only for for AthenaPK at the moment (for single var vec dump)
+    time_fill_outbuf = timer_fill_outbuf.seconds();
+    timer_flush.reset();
     it.seriesFlush();
+    time_flush = timer_flush.seconds();
   } // loop over vars
   Kokkos::Profiling::popRegion(); // write all variable data
 
@@ -992,9 +1020,23 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // The iteration can be closed in order to help free up resources.
   // The iteration's content will be flushed automatically.
   // An iteration once closed cannot (yet) be reopened.
+  if (Globals::my_rank == 0) {
+    std::cerr << "[OPMDLOG] Closing iteration\n";
+  }
+  timer_close.reset();
   it.close();
+  if (Globals::my_rank == 0) {
+    std::cerr << "[OPMDLOG] Closing file\n";
+  }
   series.close();
   Kokkos::Profiling::popRegion(); // WriteOutputFile???Prec
+  time_close = timer_close.seconds();
+  time_total = timer_total.seconds();
+  if (Globals::my_rank == 0) {
+    std::cerr << "[OPMDLOG] SUMMARY " << filename << " total: " << time_total
+              << " fill_outbuf: " << time_fill_outbuf << " flush: " << time_flush
+              << " close: " << time_close << "\n";
+  }
 }
 // explicit template instantiation
 template void
