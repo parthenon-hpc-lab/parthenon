@@ -69,6 +69,9 @@ auto GetFlatHostVecFromView(T view) {
   // smarter way but thinks that it's not a performance issue as this is only called for
   // outputs (thus not that often) and for mostly small amounts of data. With a C++20 span
   // we could probably direct reuse the host mirror data pointer.
+  if (Globals::my_rank == 0) {
+    std::cerr << "[OPMDLOG] GetFlatHostVecFromView for " << view.label() << "\n";
+  }
   auto view_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), view);
 
   using base_t = typename std::remove_pointer<decltype(view_h.data())>::type;
@@ -97,6 +100,9 @@ void WriteAllParamsOfType(const Params &params, const std::string &prefix,
       // in attribute keys with said character not being exposed.
       // Thus we replace it.
       std::replace(full_path.begin(), full_path.end(), '/', delim[0]);
+      if (Globals::my_rank == 0) {
+        std::cerr << "[OPMDLOG] Writing attribute " << full_path << "\n";
+      }
 
       if constexpr (implements<kokkos_view(T)>::value) {
         const auto &view = params.Get<T>(key);
@@ -345,6 +351,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   filename.append(".%05T");
 
   filename.append(".bp");
+  if (Globals::my_rank == 0) {
+    std::cerr << "[OPMDLOG] Going to write " << filename << "\n";
+  }
   Series series = Series(filename, Access::CREATE,
 #ifdef MPI_PARALLEL
                          MPI_COMM_WORLD,
@@ -389,6 +398,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // Note, that profiling is likely skewed as data is actually written to disk/flushed
   // only later.
   Kokkos::Profiling::pushRegion("write Attributes");
+  if (Globals::my_rank == 0) {
+    std::cerr << "[OPMDLOG] Start writing attributes\n";
+  }
   // First the ones required by the OpenPMD standard
   if (tm != nullptr) {
     it.setTime(tm->time);
@@ -435,6 +447,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
       OpenPMDUtils::WriteAllParams(params, pkg_name, &it);
     }
   }
+  if (Globals::my_rank == 0) {
+    std::cerr << "[OPMDLOG] Start writing InputFile\n";
+  }
   // Then our own
   if (!is_slice) {
     PARTHENON_INSTRUMENT_REGION("write input");
@@ -442,6 +457,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     std::ostringstream oss;
     pin->ParameterDump(oss);
     it.setAttribute("InputFile", oss.str());
+  }
+  if (Globals::my_rank == 0) {
+    std::cerr << "[OPMDLOG] Other Parthenon params\n";
   }
 
   if (!is_slice) {
@@ -504,6 +522,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
 
   Kokkos::Profiling::popRegion(); // write Attributes
 
+  if (Globals::my_rank == 0) {
+    std::cerr << "[OPMDLOG] Start writing Block metadata\n";
+  }
   // Write block metadata
   if (!is_slice) {
     // Manually gather all block data first as it allows to use the (simpler)
@@ -533,6 +554,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   //   WRITING VARIABLES DATA                                                         //
   // -------------------------------------------------------------------------------- //
   Kokkos::Profiling::pushRegion("write all variable data");
+  if (Globals::my_rank == 0) {
+    std::cerr << "[OPMDLOG] Start writing all variable data\n";
+  }
 
   auto &bounds = pm->block_list.front()->cellbounds;
   // get list of all vars, just use the first block since the list is the same for all
@@ -586,12 +610,18 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     var_size_max = std::max(var_size_max, var_size);
   }
 
+  if (Globals::my_rank == 0) {
+    std::cerr << "[OPMDLOG] Allocate output vector\n";
+  }
   using OutT = typename std::conditional<WRITE_SINGLE_PRECISION, float, Real>::type;
   std::vector<OutT> tmp_data(var_size_max * num_blocks_local);
 
   // for each variable we write
   for (auto &vinfo : all_vars_info) {
     PARTHENON_INSTRUMENT_REGION("Write variable loop")
+    if (Globals::my_rank == 0) {
+      std::cerr << "[OPMDLOG] Write var " << vinfo.label << "\n";
+    }
 
     // Reset host write bufer. Not really necessary, but doesn't hurt.
     memset(tmp_data.data(), 0, tmp_data.size() * sizeof(OutT));
@@ -614,6 +644,10 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
         for (int comp_idx = 0; comp_idx < vinfo.component_labels.size(); comp_idx++) {
           const auto [record_name, comp_name] =
               OpenPMDUtils::GetMeshRecordAndComponentNames(vinfo, te, comp_idx, level);
+          if (Globals::my_rank == 0) {
+            std::cerr << "[OPMDLOG] Start var record " << record_name << " component "
+                      << comp_name << "\n";
+          }
 
           // Create the mesh_record for this variable at the given level (if it doesn't
           // exist yet)
@@ -727,6 +761,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
       auto out_var = pmb->meshblock_data.Get()->GetVarPtr(vinfo.label);
 
       if (out_var->IsAllocated()) {
+        if (Globals::my_rank == 0) {
+          std::cerr << "[OPMDLOG] Write var data " << vinfo.label << "\n";
+        }
         // TODO(pgrete) check if we can work with a direct copy from a subview to not
         // duplicate the memory footprint here
 #if 0
@@ -818,6 +855,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
         sparse_dealloc_count.at(b_idx * num_sparse + sparse_idx) = out_var->dealloc_count;
       }
     } // loop over blocks
+    if (Globals::my_rank == 0) {
+      std::cerr << "[OPMDLOG] Going to flush\n";
+    }
     it.seriesFlush();
   }                               // loop over vars
   Kokkos::Profiling::popRegion(); // write all variable data
@@ -873,7 +913,13 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // The iteration can be closed in order to help free up resources.
   // The iteration's content will be flushed automatically.
   // An iteration once closed cannot (yet) be reopened.
+  if (Globals::my_rank == 0) {
+    std::cerr << "[OPMDLOG] Closing iteration\n";
+  }
   it.close();
+  if (Globals::my_rank == 0) {
+    std::cerr << "[OPMDLOG] Closing file\n";
+  }
   series.close();
   Kokkos::Profiling::popRegion(); // WriteOutputFile???Prec
 }
