@@ -604,7 +604,7 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // Allocate space for largest size variable
   // Could in principle be reduced for coarsended outputs, but lets better be safe than
   // sorry given the edge cases with non cell centered vars.
-  int var_size_max = 0;
+  size_t var_size_max = 0;
   for (auto &vinfo : all_vars_info) {
     const auto var_size = vinfo.Size();
     var_size_max = std::max(var_size_max, var_size);

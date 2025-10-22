@@ -75,13 +75,13 @@ struct VarInfo {
   Triple_t<int> GetPaddedNumKJI(const IndexDomain domain) const;
   Triple_t<IndexRange> GetPaddedBoundsKJI(const IndexDomain domain) const;
 
-  int Size() const;
+  size_t Size() const;
   // Includes topological element shape
-  int TensorSize() const;
+  size_t TensorSize() const;
   // Size of region that needs to be filled with 0s if not allocated.
   // is_padded is set to true by default as it's the assumption in the original (HDF5)
   // output files.
-  int FillSize(const IndexDomain domain, const bool is_padded = true) const;
+  size_t FillSize(const IndexDomain domain, const bool is_padded = true) const;
   // number of elements of data that describe variable shape
   int GetNDim() const;
 
