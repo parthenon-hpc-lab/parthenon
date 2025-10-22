@@ -23,7 +23,6 @@
 #include "pack/sparse_pack_base.hpp"
 #include "pack/subpack.hpp"
 #include "utils/concepts_lite.hpp"
-#include "utils/type_list.hpp"
 
 namespace parthenon {
 

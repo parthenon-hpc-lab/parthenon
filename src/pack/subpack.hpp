@@ -1,3 +1,15 @@
+//========================================================================================
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+//
+// This program was produced under U.S. Government contract 89233218CNA000001 for Los
+// Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+// for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+// in the program are reserved by Triad National Security, LLC, and the U.S. Department
+// of Energy/National Nuclear Security Administration. The Government is granted for
+// itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+// license in this material to reproduce, prepare derivative works, distribute copies to
+// the public, perform publicly and display publicly, and to permit others to do so.
+//========================================================================================
 #ifndef PACK_SUBPACK_HPP_
 #define PACK_SUBPACK_HPP_
 
@@ -7,17 +19,6 @@
 namespace parthenon {
 
 namespace impl {
-
-constexpr int axis_to_kji(Axis axis) {
-  switch (axis) {
-  case (Axis::I):
-    return 2;
-  case (Axis::J):
-    return 1;
-  case (Axis::K):
-    return 0;
-  }
-}
 
 template <typename PackType, Axis... axes>
 struct SubPack_impl {
@@ -57,15 +58,15 @@ template <typename PackType, Axis... axes>
 struct StencilSubPack_impl {
   KOKKOS_INLINE_FUNCTION StencilSubPack_impl(PackType &pack, const int &b, const int &k,
                                              const int &j, const int &i)
-      : pack_(pack), b_(b), kji_({k, j, i}) {}
+      : pack_(pack), b_(b), ijk_({i, j, k}) {}
 
   template <typename Var_t, typename... Is>
   KOKKOS_INLINE_FUNCTION Real &operator()(const Var_t &var, Is &&...idxs) const {
     static_assert(sizeof...(Is) == sizeof...(axes),
                   "number of indices passed to sub pack must match number of axes.");
-    Kokkos::Array<int, 3> kji = kji_;
-    ([&]() { kji[axis_to_kji(axes)] += idxs; }(), ...);
-    return pack_(b_, var, kji[0], kji[1], kji[2]);
+    Kokkos::Array<int, 3> ijk = ijk_;
+    ([&]() { ijk[static_cast<int>(axes)] += idxs; }(), ...);
+    return pack_(b_, var, ijk[2], ijk[1], ijk[0]);
   }
 
   template <typename Var_t, typename... Is>
@@ -73,9 +74,9 @@ struct StencilSubPack_impl {
                                           Is &&...idxs) const {
     static_assert(sizeof...(Is) == sizeof...(axes),
                   "number of indices passed to sub pack must match number of axes.");
-    Kokkos::Array<int, 3> kji = kji_;
-    ([&]() { kji[axis_to_kji(axes)] += idxs; }(), ...);
-    return pack_(b_, te, var, kji[0], kji[1], kji[2]);
+    Kokkos::Array<int, 3> ijk = ijk_;
+    ([&]() { ijk[static_cast<int>(axes)] += idxs; }(), ...);
+    return pack_(b_, te, var, ijk[2], ijk[1], ijk[0]);
   }
 
   template <typename Var_t, typename... Is>
@@ -83,9 +84,9 @@ struct StencilSubPack_impl {
                                     Is &&...idxs) const {
     static_assert(sizeof...(Is) == sizeof...(axes),
                   "number of indices passed to sub pack must match number of axes.");
-    Kokkos::Array<int, 3> kji = kji_;
-    ([&]() { kji[axis_to_kji(axes)] += idxs; }(), ...);
-    return pack_.flux(b_, te, var, kji[0], kji[1], kji[2]);
+    Kokkos::Array<int, 3> ijk = ijk_;
+    ([&]() { ijk[static_cast<int>(axes)] += idxs; }(), ...);
+    return pack_.flux(b_, te, var, ijk[2], ijk[1], ijk[0]);
   }
 
   template <typename V>
@@ -98,7 +99,7 @@ struct StencilSubPack_impl {
 
  private:
   const PackType &pack_;
-  const Kokkos::Array<int, 3> kji_;
+  const Kokkos::Array<int, 3> ijk_;
   const int b_;
 };
 
@@ -107,33 +108,33 @@ struct VarStencilSubPack_impl {
   KOKKOS_INLINE_FUNCTION VarStencilSubPack_impl(PackType &pack, const int &b,
                                                 const Var_t &var, const int &k,
                                                 const int &j, const int &i)
-      : pack_(pack), b_(b), var_(var), kji_({k, j, i}) {}
+      : pack_(pack), b_(b), var_(var), ijk_({i, j, k}) {}
 
   template <typename... Is>
   KOKKOS_INLINE_FUNCTION Real &operator()(Is &&...idxs) const {
     static_assert(sizeof...(Is) == sizeof...(axes),
                   "number of indices passed to sub pack must match number of axes.");
-    Kokkos::Array<int, 3> kji = kji_;
-    ([&]() { kji[axis_to_kji(axes)] += idxs; }(), ...);
-    return pack_(b_, var_, kji[0], kji[1], kji[2]);
+    Kokkos::Array<int, 3> ijk = ijk_;
+    ([&]() { ijk[static_cast<int>(axes)] += idxs; }(), ...);
+    return pack_(b_, var_, ijk[2], ijk[1], ijk[0]);
   }
 
   template <typename... Is>
   KOKKOS_INLINE_FUNCTION Real &operator()(TopologicalElement te, Is &&...idxs) const {
     static_assert(sizeof...(Is) == sizeof...(axes),
                   "number of indices passed to sub pack must match number of axes.");
-    Kokkos::Array<int, 3> kji = kji_;
-    ([&]() { kji[axis_to_kji(axes)] += idxs; }(), ...);
-    return pack_(b_, te, var_, kji[0], kji[1], kji[2]);
+    Kokkos::Array<int, 3> ijk = ijk_;
+    ([&]() { ijk[static_cast<int>(axes)] += idxs; }(), ...);
+    return pack_(b_, te, var_, ijk[2], ijk[1], ijk[0]);
   }
 
   template <typename... Is>
   KOKKOS_INLINE_FUNCTION Real &flux(TopologicalElement te, Is &&...idxs) const {
     static_assert(sizeof...(Is) == sizeof...(axes),
                   "number of indices passed to sub pack must match number of axes.");
-    Kokkos::Array<int, 3> kji = kji_;
-    ([&]() { kji[axis_to_kji(axes)] += idxs; }(), ...);
-    return pack_.flux(b_, te, var_, kji[0], kji[1], kji[2]);
+    Kokkos::Array<int, 3> ijk = ijk_;
+    ([&]() { ijk[static_cast<int>(axes)] += idxs; }(), ...);
+    return pack_.flux(b_, te, var_, ijk[2], ijk[1], ijk[0]);
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -141,7 +142,7 @@ struct VarStencilSubPack_impl {
 
  private:
   const PackType &pack_;
-  const Kokkos::Array<int, 3> kji_;
+  const Kokkos::Array<int, 3> ijk_;
   const Var_t var_;
   const int b_;
 };

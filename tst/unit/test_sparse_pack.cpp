@@ -103,8 +103,8 @@ struct d1
       : x(xx), parent_type(std::forward<Args>(args)...) {}
 
   template <typename Pack_t>
-  KOKKOS_INLINE_FUNCTION const Real evaluate(const Pack_t &pack, const int b, const int k,
-                                             const int j, const int i) const {
+  KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack, const int b, const int k,
+                                       const int j, const int i) const {
     return pack(b, v1(), k, j, i) * pack(b, v3(1), k, j, i) * pack(b, v3(2), k, j, i) + x;
   }
 
@@ -129,7 +129,7 @@ struct d1_subpack
       : x(xx), parent_type(std::forward<Args>(args)...) {}
 
   template <typename Pack_t>
-  KOKKOS_INLINE_FUNCTION const Real evaluate(const Pack_t &pack) const {
+  KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack) const {
     return pack(v1()) * pack(v3(1)) * pack(v3(2)) + x;
   }
 
@@ -144,7 +144,7 @@ struct gradient
   static std::string name() { return "gradient"; }
 
   template <typename Pack_t>
-  KOKKOS_INLINE_FUNCTION const Real evaluate(const Pack_t &pack) const {
+  KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack) const {
     return 0.5 * (pack(v1(), 1) - pack(v1(), -1));
   }
 };
