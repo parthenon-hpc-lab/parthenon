@@ -8,6 +8,17 @@ namespace parthenon {
 
 namespace impl {
 
+constexpr int axis_to_kji(Axis axis) {
+  switch (axis) {
+  case (Axis::I):
+    return 2;
+  case (Axis::J):
+    return 1;
+  case (Axis::K):
+    return 0;
+  }
+}
+
 template <typename PackType, Axis... axes>
 struct SubPack_impl {
   KOKKOS_INLINE_FUNCTION SubPack_impl(PackType &pack, const int &b, const int &k,
@@ -53,7 +64,7 @@ struct StencilSubPack_impl {
     static_assert(sizeof...(Is) == sizeof...(axes),
                   "number of indices passed to sub pack must match number of axes.");
     Kokkos::Array<int, 3> kji = kji_;
-    ([&]() { kji[static_cast<int>(axes)] += idxs; }(), ...);
+    ([&]() { kji[axis_to_kji(axes)] += idxs; }(), ...);
     return pack_(b_, var, kji[0], kji[1], kji[2]);
   }
 
@@ -63,7 +74,7 @@ struct StencilSubPack_impl {
     static_assert(sizeof...(Is) == sizeof...(axes),
                   "number of indices passed to sub pack must match number of axes.");
     Kokkos::Array<int, 3> kji = kji_;
-    ([&]() { kji[static_cast<int>(axes)] += idxs; }(), ...);
+    ([&]() { kji[axis_to_kji(axes)] += idxs; }(), ...);
     return pack_(b_, te, var, kji[0], kji[1], kji[2]);
   }
 
@@ -73,7 +84,7 @@ struct StencilSubPack_impl {
     static_assert(sizeof...(Is) == sizeof...(axes),
                   "number of indices passed to sub pack must match number of axes.");
     Kokkos::Array<int, 3> kji = kji_;
-    ([&]() { kji[static_cast<int>(axes)] += idxs; }(), ...);
+    ([&]() { kji[axis_to_kji(axes)] += idxs; }(), ...);
     return pack_.flux(b_, te, var, kji[0], kji[1], kji[2]);
   }
 
@@ -103,7 +114,7 @@ struct VarStencilSubPack_impl {
     static_assert(sizeof...(Is) == sizeof...(axes),
                   "number of indices passed to sub pack must match number of axes.");
     Kokkos::Array<int, 3> kji = kji_;
-    ([&]() { kji[static_cast<int>(axes)] += idxs; }(), ...);
+    ([&]() { kji[axis_to_kji(axes)] += idxs; }(), ...);
     return pack_(b_, var_, kji[0], kji[1], kji[2]);
   }
 
@@ -112,7 +123,7 @@ struct VarStencilSubPack_impl {
     static_assert(sizeof...(Is) == sizeof...(axes),
                   "number of indices passed to sub pack must match number of axes.");
     Kokkos::Array<int, 3> kji = kji_;
-    ([&]() { kji[static_cast<int>(axes)] += idxs; }(), ...);
+    ([&]() { kji[axis_to_kji(axes)] += idxs; }(), ...);
     return pack_(b_, te, var_, kji[0], kji[1], kji[2]);
   }
 
@@ -121,7 +132,7 @@ struct VarStencilSubPack_impl {
     static_assert(sizeof...(Is) == sizeof...(axes),
                   "number of indices passed to sub pack must match number of axes.");
     Kokkos::Array<int, 3> kji = kji_;
-    ([&]() { kji[static_cast<int>(axes)] += idxs; }(), ...);
+    ([&]() { kji[axis_to_kji(axes)] += idxs; }(), ...);
     return pack_.flux(b_, te, var_, kji[0], kji[1], kji[2]);
   }
 

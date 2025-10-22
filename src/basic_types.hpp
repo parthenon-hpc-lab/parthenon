@@ -136,7 +136,7 @@ inline bool operator<(const GridIdentifier &lhs, const GridIdentifier &rhs) {
 }
 
 // Enumeration for accessing spatial axes of a meshblock
-enum class Axis { K = 0, J = 1, I = 2 };
+enum class Axis { I = 0, J = 1, K = 2 };
 
 // Enumeration for accessing a field on different locations of the grid:
 // CC = cell center of (i, j, k)

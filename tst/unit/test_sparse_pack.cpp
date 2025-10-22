@@ -149,6 +149,27 @@ struct gradient
   }
 };
 
+// use 2d subpack to get the curl of a vector
+template <parthenon::Axis axis>
+struct curl
+    : public parthenon::variable_names::virtual_variable_t<parthenon::TypeList<v3>> {
+  static constexpr parthenon::Axis axis2 =
+      static_cast<parthenon::Axis>((static_cast<int>(axis) + 1) % 3);
+  static constexpr parthenon::Axis axis3 =
+      static_cast<parthenon::Axis>((static_cast<int>(axis) + 2) % 3);
+  using pack_type = parthenon::SubPack2D<axis2, axis3>;
+
+  static std::string name() { return "curl"; }
+
+  template <typename Pack_t>
+  KOKKOS_INLINE_FUNCTION const Real evaluate(const Pack_t &pack) const {
+    constexpr int ax2 = static_cast<int>(axis2);
+    constexpr int ax3 = static_cast<int>(axis3);
+    return 0.5 * ((pack(v3(ax3), 1, 0) - pack(v3(ax3), -1, 0)) -
+                  (pack(v3(ax2), 0, 1) - pack(v3(ax2), 0, -1)));
+  }
+};
+
 } // namespace
 
 TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
@@ -504,6 +525,9 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
     auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::entire);
     auto kb = block_list[0]->cellbounds.GetBoundsK(IndexDomain::entire);
 
+    const parthenon::IndexRange ibi{ib.s + 1, ib.e - 1}, jbi{jb.s + 1, jb.e - 1},
+        kbi{kb.s + 1, kb.e - 1};
+
     WHEN("We get a sparse pack for a virtual variable dependent on "
          "our pair of fields, and initialize the dependent vars.") {
       auto desc =
@@ -547,14 +571,8 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
               pack(b, v1(), k, j, i) = 11.0 * i + 22.0 * j + 33.0 * k;
             });
         int nwrong = 0;
-        kb.s += 1;
-        jb.s += 1;
-        ib.s += 1;
-        kb.e -= 1;
-        jb.e -= 1;
-        ib.e -= 1;
         par_reduce(
-            "check virtual", 0, NBLOCKS - 1, kb, jb, ib,
+            "check virtual", 0, NBLOCKS - 1, kbi, jbi, ibi,
             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
               if (std::abs(pack(b, gradient<parthenon::Axis::I>(), k, j, i) - 11.0) >=
                   1.e-12) {
@@ -566,6 +584,38 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
               }
               if (std::abs(pack(b, gradient<parthenon::Axis::K>(), k, j, i) - 33.0) >=
                   1.e-12) {
+                ltot += 1;
+              }
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
+      }
+      THEN("We can use 2D subpacks") {
+        const Real axy = 12.;
+        const Real azx = 48.32;
+        const Real ayz = 3.14;
+        par_for(
+            "Initialize a simple vector with curl", 0, NBLOCKS - 1, kb, jb, ib,
+            KOKKOS_LAMBDA(int b, int k, int j, int i) {
+              pack(b, v3(0), k, j, i) = ayz * static_cast<Real>(j * k);
+              pack(b, v3(1), k, j, i) = azx * static_cast<Real>(k * i);
+              pack(b, v3(2), k, j, i) = axy * static_cast<Real>(i * j);
+            });
+
+        int nwrong = 0;
+        par_reduce(
+            "check virtual", 0, NBLOCKS - 1, kbi, jbi, ibi,
+            KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+              if (std::abs(pack(b, curl<parthenon::Axis::K>(), k, j, i) -
+                           (azx - ayz) * k) >= 1.e-12) {
+                ltot += 1;
+              }
+              if (std::abs(pack(b, curl<parthenon::Axis::J>(), k, j, i) -
+                           (ayz - axy) * j) >= 1.e-12) {
+                ltot += 1;
+              }
+              if (std::abs(pack(b, curl<parthenon::Axis::I>(), k, j, i) -
+                           (axy - azx) * i) >= 1.e-12) {
                 ltot += 1;
               }
             },
