@@ -325,6 +325,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   } else {
     Kokkos::Profiling::pushRegion("OPMD::WriteOutputFileRealPrec");
   }
+  double time_total, time_fill_outbuf, time_flush, time_close;
+  Kokkos::Timer timer_total, timer_fill_outbuf, timer_flush, timer_close;
+  timer_total.reset();
   // Check that the parameter input is safe to write (i.e., consistent across ranks)
   OutputUtils::CheckParameterInputConsistent(pin);
 
@@ -609,7 +612,7 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     const auto var_size = vinfo.Size();
     var_size_max = std::max(var_size_max, var_size);
   }
-
+  timer_fill_outbuf.reset();
   if (Globals::my_rank == 0) {
     std::cerr << "[OPMDLOG] Allocate output vector\n";
   }
@@ -858,7 +861,11 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     if (Globals::my_rank == 0) {
       std::cerr << "[OPMDLOG] Going to flush\n";
     }
+    // Note the timers only for for AthenaPK at the moment (for single var vec dump)
+    time_fill_outbuf = timer_fill_outbuf.seconds();
+    timer_flush.reset();
     it.seriesFlush();
+    time_flush = timer_flush.seconds();
   }                               // loop over vars
   Kokkos::Profiling::popRegion(); // write all variable data
 
@@ -916,12 +923,20 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   if (Globals::my_rank == 0) {
     std::cerr << "[OPMDLOG] Closing iteration\n";
   }
+  timer_close.reset();
   it.close();
   if (Globals::my_rank == 0) {
     std::cerr << "[OPMDLOG] Closing file\n";
   }
   series.close();
   Kokkos::Profiling::popRegion(); // WriteOutputFile???Prec
+  time_close = timer_close.seconds();
+  time_total = timer_total.seconds();
+  if (Globals::my_rank == 0) {
+    std::cerr << "[OPMDLOG] SUMMARY " << filename << " total: " << time_total
+              << " fill_outbuf: " << time_fill_outbuf << " flush: " << time_flush
+              << " close: " << time_close << "\n";
+  }
 }
 // explicit template instantiation
 template void
