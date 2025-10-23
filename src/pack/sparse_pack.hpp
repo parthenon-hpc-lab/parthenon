@@ -23,6 +23,7 @@
 #include "pack/sparse_pack_base.hpp"
 #include "pack/subpack.hpp"
 #include "utils/concepts_lite.hpp"
+#include "utils/type_list.hpp"
 
 namespace parthenon {
 
@@ -316,6 +317,9 @@ class SparsePack : public SparsePackBase {
                      !variable_names::virtual_subpack_v<Tin>)>
   KOKKOS_INLINE_FUNCTION Real operator()(const int b, const Tin &t, const int k,
                                          const int j, const int i) const {
+    static_assert(
+        TypeList<Ts...>::IsIn(typename Tin::independent_vars()),
+        "SparsePack must pack all independent_vars needed for virtual variable");
     return t.evaluate(static_cast<const SparsePack<Ts...> &>(*this), b, k, j, i);
   }
 
@@ -324,6 +328,9 @@ class SparsePack : public SparsePackBase {
                          &&variable_names::virtual_subpack_v<Tin>)>
   KOKKOS_INLINE_FUNCTION Real operator()(const int b, const Tin &t, const int k,
                                          const int j, const int i) const {
+    static_assert(
+        TypeList<Ts...>::IsIn(typename Tin::independent_vars()),
+        "SparsePack must pack all independent_vars needed for virtual variable");
     using pack_type = typename Tin::pack_type;
     constexpr int Naxes = pack_type::Naxes;
     if constexpr (Naxes == 3) {

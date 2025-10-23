@@ -66,6 +66,11 @@ struct TypeList {
     }
   }
 
+  template <template <typename...> typename TL, typename... Ts>
+  static constexpr bool IsIn(TL<Ts...>) {
+    return (IsIn<Ts>() && ...);
+  }
+
   template <class F>
   static void IterateTypes(F func) {
     (func(Args()), ...);
