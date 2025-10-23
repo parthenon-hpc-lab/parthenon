@@ -205,15 +205,6 @@ class Mesh {
 
   auto GetBasePartition() const { return base_block_partition_; }
 
-  // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
-  // Moved here given Cuda/nvcc restriction:
-  // "error: The enclosing parent function ("...")
-  // for an extended __host__ __device__ lambda cannot have private or
-  // protected access within its class"
-  void FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
-                                   LogicalLocation &newloc);
-  void FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb, LogicalLocation &loc);
-
   std::shared_ptr<MeshBlock> FindMeshBlock(int tgid) const;
 
   void ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin, SimTime const &time);
