@@ -372,6 +372,125 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         REQUIRE(nwrong == 0);
       }
 
+      THEN("A sub pack correctly loads this data and can be read from v3 on all "
+           "blocks") {
+        // Create a pack use type variables
+        auto desc =
+            parthenon::MakePackDescriptor<v5, v3>(pkg.get(), {Metadata::WithFluxes});
+        auto sparse_pack = desc.GetPack(&mesh_data);
+
+        const int v = 1; // v3 is the second variable in the loop above so v = 1 there
+        int nwrong = 0;
+        par_reduce(
+            loop_pattern_mdrange_tag, "check vector", DevExecSpace(), 0,
+            sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+              int lo = sparse_pack.GetLowerBound(b, v3());
+              int hi = sparse_pack.GetUpperBound(b, v3());
+              for (int c = 0; c <= hi - lo; ++c) {
+                Real n = i + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
+                auto sub_pack = parthenon::SubPack(sparse_pack, b, k, j, i);
+                if (n != sub_pack(v3(c))) ltot += 1;
+              }
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
+
+        using Axis = parthenon::Axis;
+        AND_THEN("1D Stencil subpacks can correctly access the data") {
+          const int ni = ib.e - ib.s + 1;
+          const int ic = ib.s + ni / 2;
+          par_reduce(
+              loop_pattern_mdrange_tag, "check vector", DevExecSpace(), 0,
+              sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
+              KOKKOS_LAMBDA(int b, int k, int j, int &ltot) {
+                int lo = sparse_pack.GetLowerBound(b, v3());
+                int hi = sparse_pack.GetUpperBound(b, v3());
+                int vc = (hi - lo) / 2;
+                auto sub_pack_v =
+                    parthenon::SubPack<Axis::I>(sparse_pack, b, v3(vc), k, j, ic);
+                auto sub_pack = parthenon::SubPack<Axis::I>(sparse_pack, b, k, j, ic);
+
+                for (int i = ib.s - ni / 2; i <= ib.e - ni / 2; i++) {
+                  for (int c = 0; c <= hi - lo; ++c) {
+                    Real n = i + ic + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
+                    if (n != sub_pack(v3(c), i)) ltot += 1;
+                    if (n != sub_pack_v(i) && c == vc) ltot += 1;
+                  }
+                }
+              },
+              nwrong);
+          REQUIRE(nwrong == 0);
+        }
+
+        AND_THEN("2D Stencil subpacks can correctly access the data") {
+          const int ni = ib.e - ib.s + 1;
+          const int ic = ib.s + ni / 2;
+          const int nj = jb.e - jb.s + 1;
+          const int jc = jb.s + nj / 2;
+          par_reduce(
+              loop_pattern_mdrange_tag, "check vector", DevExecSpace(), 0,
+              sparse_pack.GetNBlocks() - 1, kb.s, kb.e,
+              KOKKOS_LAMBDA(int b, int k, int &ltot) {
+                int lo = sparse_pack.GetLowerBound(b, v3());
+                int hi = sparse_pack.GetUpperBound(b, v3());
+                int vc = (hi - lo) / 2;
+                auto sub_pack_v = parthenon::SubPack<Axis::I, Axis::J>(sparse_pack, b,
+                                                                       v3(vc), k, jc, ic);
+                auto sub_pack =
+                    parthenon::SubPack<Axis::I, Axis::J>(sparse_pack, b, k, jc, ic);
+
+                for (int j = jb.s - nj / 2; j <= jb.e - nj / 2; j++) {
+                  for (int i = ib.s - ni / 2; i <= ib.e - ni / 2; i++) {
+                    for (int c = 0; c <= hi - lo; ++c) {
+                      Real n =
+                          i + ic + 1e1 * (j + jc) + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
+                      if (n != sub_pack(v3(c), i, j)) ltot += 1;
+                      if (n != sub_pack_v(i, j) && c == vc) ltot += 1;
+                    }
+                  }
+                }
+              },
+              nwrong);
+          REQUIRE(nwrong == 0);
+        }
+
+        AND_THEN("3D Stencil subpacks can correctly access the data") {
+          const int ni = ib.e - ib.s + 1;
+          const int ic = ib.s + ni / 2;
+          const int nj = jb.e - jb.s + 1;
+          const int jc = jb.s + nj / 2;
+          const int nk = kb.e - kb.s + 1;
+          const int kc = kb.s + nk / 2;
+          parthenon::par_reduce(
+              "check vector", 0, sparse_pack.GetNBlocks() - 1,
+              KOKKOS_LAMBDA(int b, int &ltot) {
+                int lo = sparse_pack.GetLowerBound(b, v3());
+                int hi = sparse_pack.GetUpperBound(b, v3());
+                int vc = (hi - lo) / 2;
+                auto sub_pack_v = parthenon::SubPack<Axis::I, Axis::J, Axis::K>(
+                    sparse_pack, b, v3(vc), kc, jc, ic);
+                auto sub_pack = parthenon::SubPack<Axis::I, Axis::J, Axis::K>(
+                    sparse_pack, b, kc, jc, ic);
+
+                for (int k = kb.s - nk / 2; k <= kb.e - nk / 2; k++) {
+                  for (int j = jb.s - nj / 2; j <= jb.e - nj / 2; j++) {
+                    for (int i = ib.s - ni / 2; i <= ib.e - ni / 2; i++) {
+                      for (int c = 0; c <= hi - lo; ++c) {
+                        Real n = i + ic + 1e1 * (j + jc) + 1e2 * (k + kc) + 1e4 * c +
+                                 1e5 * v + 1e3 * b;
+                        if (n != sub_pack(v3(c), i, j, k)) ltot += 1;
+                        if (n != sub_pack_v(i, j, k) && c == vc) ltot += 1;
+                      }
+                    }
+                  }
+                }
+              },
+              nwrong);
+          REQUIRE(nwrong == 0);
+        }
+      }
+
       THEN("A flattened sparse pack can correctly load this data in a unified outer "
            "index space") {
         using parthenon::PDOpt;

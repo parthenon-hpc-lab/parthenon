@@ -314,16 +314,16 @@ class SparsePack : public SparsePackBase {
   template <typename Tin, typename... Args,
             REQUIRES(variable_names::virtual_variable_v<Tin> &&
                      !variable_names::virtual_subpack_v<Tin>)>
-  KOKKOS_INLINE_FUNCTION const Real operator()(const int b, const Tin &t, const int k,
-                                               const int j, const int i) const {
+  KOKKOS_INLINE_FUNCTION Real operator()(const int b, const Tin &t, const int k,
+                                         const int j, const int i) const {
     return t.evaluate(static_cast<const SparsePack<Ts...> &>(*this), b, k, j, i);
   }
 
   template <typename Tin, typename... Args,
             REQUIRES(variable_names::virtual_variable_v<Tin>
                          &&variable_names::virtual_subpack_v<Tin>)>
-  KOKKOS_INLINE_FUNCTION const Real operator()(const int b, const Tin &t, const int k,
-                                               const int j, const int i) const {
+  KOKKOS_INLINE_FUNCTION Real operator()(const int b, const Tin &t, const int k,
+                                         const int j, const int i) const {
     using pack_type = typename Tin::pack_type;
     constexpr int Naxes = pack_type::Naxes;
     if constexpr (Naxes == 3) {
