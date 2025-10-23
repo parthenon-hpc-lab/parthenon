@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1330]](https://github.com/parthenon-hpc-lab/parthenon/pull/1330) Add userspace mechanisms to control number of comm buffers allocated
 - [[PR 1319]](https://github.com/parthenon-hpc-lab/parthenon/pull/1319) Add common scratch variable utilities
 - [[PR 1326]](https://github.com/parthenon-hpc-lab/parthenon/pull/1326) Thread initial swarm pool size into userspace via metadata
 - [[PR 1320]](https://github.com/parthenon-hpc-lab/parthenon/pull/1320) 1D Contour plotting
@@ -28,6 +29,7 @@
 - [[PR 1280]](https://github.com/parthenon-hpc-lab/parthenon/pull/1280) Print history file headers on restart
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1330]](https://github.com/parthenon-hpc-lab/parthenon/pull/1330) Add missing device-side destructor to BndId. Make comm buffer pools safe to clear.
 - [[PR 1327]](https://github.com/parthenon-hpc-lab/parthenon/pull/1327) Eliminate warnings from ViewOfViewAlloc
 - [[PR 1328]](https://github.com/parthenon-hpc-lab/parthenon/pull/1328) Add more useful error message for task list timeout
 - [[PR 1324]](https://github.com/parthenon-hpc-lab/parthenon/pull/1324) Fix SMR error check at initialization

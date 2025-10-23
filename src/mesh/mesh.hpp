@@ -182,6 +182,15 @@ class Mesh {
                       static_cast<int>(std::min(default_num_packs_, block_list.size())));
     }
   }
+  std::size_t CommBufferChunkSize() {
+    // Might be worth discussing what a good default is.  The number
+    // of blocks on a rank is a "greatest common denominator" of the
+    // number of buffers required, assuming each block has similar
+    // buffer configurations, which may or may not be a good
+    // approximation. To minimize the memory footprint at the cost of
+    // more allocations, the user may set this to "1."
+    return (nbuf_add_ > 0) ? nbuf_add_ : std::max(std::size_t{1}, block_list.size());
+  }
 
   const std::vector<std::shared_ptr<BlockListPartition>> &
   GetDefaultBlockPartitions(GridIdentifier grid = GridIdentifier::leaf()) const {
@@ -261,6 +270,8 @@ class Mesh {
 
   std::shared_ptr<CoalescedComms> pcoalesced_comms;
 
+  bool TryReallocCommBufferPools();
+
 #ifdef MPI_PARALLEL
   MPI_Comm GetMPIComm(const std::string &label) const { return mpi_comm_map_.at(label); }
 #endif
@@ -333,6 +344,14 @@ class Mesh {
   int default_pack_size_;
   std::size_t default_num_packs_;
 
+  // number of comm buffers to add when more need to be allocated
+  // TODO(JMM): Stash this in globals or a param maybe?
+  std::int64_t nbuf_add_;
+
+  // Tracking for when to re-allocate comm-buffers to minimize memory
+  // footprint.
+  Real buffer_reset_frac_;
+
   int gmg_min_logical_level_ = 0;
 
 #ifdef MPI_PARALLEL
@@ -373,6 +392,7 @@ class Mesh {
 
   // Re-used functionality in constructor
   void RegisterLoadBalancing_(ParameterInput *pin);
+  void BuildAndRegisterCommBuffers_();
 
   void SetupMPIComms();
   void BuildTagMapAndBoundaryBuffers();

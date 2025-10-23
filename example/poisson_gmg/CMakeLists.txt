@@ -24,5 +24,12 @@ if( "poisson-gmg-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
           parthenon_app_inputs.cpp
   )
   target_link_libraries(poisson-gmg-example PRIVATE Parthenon::parthenon)
+
+  # Suppresses annoying ABI notes. See:
+  # https://stackoverflow.com/questions/52020305/what-exactly-does-gccs-wpsabi-option-do-what-are-the-implications-of-supressi
+  target_compile_options(poisson-gmg-example PRIVATE
+    $<$<AND:$<CXX_COMPILER_ID:GNU>,$<COMPILE_LANGUAGE:CXX>>:-Wno-psabi>
+  )
+
   lint_target(poisson-gmg-example)
 endif()

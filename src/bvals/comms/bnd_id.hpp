@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2024 The Parthenon collaboration
+// Copyright(C) 2024-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -81,6 +81,8 @@ struct BndId {
   BndId() = default;
   KOKKOS_DEFAULTED_FUNCTION
   BndId(const BndId &) = default;
+  KOKKOS_DEFAULTED_FUNCTION
+  ~BndId() = default;
 
   explicit BndId(const int *const data_in) {
     for (int i = 0; i < NDAT; ++i) {
