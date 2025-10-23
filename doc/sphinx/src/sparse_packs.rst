@@ -85,6 +85,82 @@ snippet.
    care should be taken not to assume that scratch variables can persist between tasks, even when they are directly
    dependent on each other. Issues resolved by setting ``-DPARTHENON_DEBUG_SCRATCH=ON`` can be an indication of this issue.
 
+Slicing into ``SparsePack``\ s with ``SubPack``\ s
+--------------------------------------------------
+
+A `SubPack` provdies a view into a slice of a `SparsePack` along a given dimension(s).
+`SubPack`\ s are constructed with a block + `kji` index to give a slice into the 
+fields at the meshblock + cell index. When a `SubPack` is constructed with the
+`Axis` template parameters then the `SubPack` also providies a view into slices
+of the `SparsePack` along the provided axes offset from the provided `kji` indices.
+
+.. code:: c++
+
+  const int ni = ib.e - ib.s + 1;
+  const int ic = ib.s + ni / 2;
+  par_for(
+      PARTHENON_AUTO_LABEL, 0, sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
+      KOKKOS_LAMBDA(int b, int k, int j) {
+        int ltot = 0;
+        int lo = sparse_pack.GetLowerBound(b, v3());
+        int hi = sparse_pack.GetUpperBound(b, v3());
+        auto sub_pack = parthenon::SubPack<Axis::I>(sparse_pack, b, k, j, ic);
+
+        for (int i = ib.s - ni / 2; i <= ib.e - ni / 2; i++) {
+          for (int c = 0; c <= hi - lo; ++c) {
+            Real n = i + ic + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
+            // indexes into sparse_pack(b, v3(c), k, j, ic + i)
+            if (n != sub_pack(v3(c), i)) ltot += 1;
+          }
+        }
+      });
+
+Using Virtual Fields
+--------------------
+
+Type-based ``SparsePack``\ s, when indexed with special ``virtual_variable_t`` types will return a value that is
+calculated from other variables in the pack from the ``evaluate`` function registered to the type. Virtual variable types
+need to export the other fields that their ``evaluate`` method depends on, allowing the virtual variable type, when included
+in the ``PackDescriptor``, to pack the real variables. 
+
+At the simplest a virtual variable's ``evaluate`` method has its signature take in a ``SparsePack<Ts...>`` as well as the ``i,j,k``
+indices and returns a ``Real`` as the value for the virtual field. 
+
+Additionally a virtual variable can declare a ``pack_type`` to refer to a 0D, 1D, 2D, or 3D ``SubPack``, which case the ``evaluate``
+signature only takes in the desired ``SubPack`` centered at teh ``i,j,k`` index.
+
+.. code:: c++
+   struct d1 : parthenon::variable_names::virtual_variable_t<v1, v3> {
+     KOKKOS_INLINE_FUNCTION d1() = default;
+
+     KOKKOS_INLINE_FUNCTION d1(const Real &xx) : x(xx) {}
+
+     template <typename Pack_t>
+     KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack, const int b, const int k,
+                                          const int j, const int i) const {
+       return pack(b, v1(), k, j, i) * pack(b, v3(1), k, j, i) * pack(b, v3(2), k, j, i) + x;
+     }
+
+     Real x;
+   };
+
+   // use a subpack to index into the sparse pack
+   struct d1_subpack : public parthenon::variable_names::virtual_variable_t<v1, v3> {
+     // declare the type of subpack we want to use for our evaluate method
+     using pack_type = parthenon::SubPack0D;
+
+     KOKKOS_INLINE_FUNCTION d1_subpack() = default
+
+     KOKKOS_INLINE_FUNCTION d1_subpack(const Real &xx) : x(xx) {}
+
+     template <typename Pack_t>
+     KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack) const {
+       return pack(v1()) * pack(v3(1)) * pack(v3(2)) + x;
+     }
+
+     Real x;
+   };
+
 
 Building and Using a ``SparsePack``
 -----------------------------------
