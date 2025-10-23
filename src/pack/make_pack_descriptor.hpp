@@ -119,7 +119,7 @@ template <class... Ts, class MT,
 inline auto MakePackDescriptor(MT *pmd, const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
   return MakePackDescriptorFromTypeList(
-      variable_names::all_dependent_variables_t<Ts...>(), pmd, flags, options);
+      variable_names::all_independent_variables_t<Ts...>(), pmd, flags, options);
 }
 
 struct PackDescriptorCacheBase {

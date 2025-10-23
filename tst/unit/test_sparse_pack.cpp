@@ -1,5 +1,5 @@
-//========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+//=======================================================================================
+//(C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -89,18 +89,10 @@ struct v7 : public parthenon::variable_names::base_t<false, ANYDIM, 3> {
   static std::string name() { return "v7"; }
 };
 
-struct d1
-    : public parthenon::variable_names::virtual_variable_t<parthenon::TypeList<v1, v3>> {
-  static std::string name() { return "d1"; }
-  using parent_type =
-      parthenon::variable_names::virtual_variable_t<parthenon::TypeList<v1, v3>>;
+struct d1 : parthenon::variable_names::virtual_variable_t<v1, v3> {
+  KOKKOS_INLINE_FUNCTION d1() = default;
 
-  template <typename... Args>
-  KOKKOS_INLINE_FUNCTION d1(Args &&...args) : parent_type(std::forward<Args>(args)...) {}
-
-  template <typename... Args>
-  KOKKOS_INLINE_FUNCTION d1(const Real &xx, Args &&...args)
-      : x(xx), parent_type(std::forward<Args>(args)...) {}
+  KOKKOS_INLINE_FUNCTION d1(const Real &xx) : x(xx) {}
 
   template <typename Pack_t>
   KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack, const int b, const int k,
@@ -112,21 +104,14 @@ struct d1
 };
 
 // use a subpack to index into the sparse pack
-struct d1_subpack
-    : public parthenon::variable_names::virtual_variable_t<parthenon::TypeList<v1, v3>> {
+struct d1_subpack : public parthenon::variable_names::virtual_variable_t<v1, v3> {
   // declare the type of subpack we want to use for our evaluate method
   using pack_type = parthenon::SubPack0D;
-  static std::string name() { return "d1_subpack"; }
-  using parent_type =
-      parthenon::variable_names::virtual_variable_t<parthenon::TypeList<v1, v3>>;
+
+  KOKKOS_INLINE_FUNCTION d1_subpack() = default;
 
   template <typename... Args>
-  KOKKOS_INLINE_FUNCTION d1_subpack(Args &&...args)
-      : parent_type(std::forward<Args>(args)...) {}
-
-  template <typename... Args>
-  KOKKOS_INLINE_FUNCTION d1_subpack(const Real &xx, Args &&...args)
-      : x(xx), parent_type(std::forward<Args>(args)...) {}
+  KOKKOS_INLINE_FUNCTION d1_subpack(const Real &xx) : x(xx) {}
 
   template <typename Pack_t>
   KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack) const {
@@ -138,10 +123,8 @@ struct d1_subpack
 
 // use 1D subpack to get the gradient of v1()
 template <parthenon::Axis axis>
-struct gradient
-    : public parthenon::variable_names::virtual_variable_t<parthenon::TypeList<v1>> {
+struct gradient : public parthenon::variable_names::virtual_variable_t<v1> {
   using pack_type = parthenon::SubPack1D<axis>;
-  static std::string name() { return "gradient"; }
 
   template <typename Pack_t>
   KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack) const {
@@ -151,15 +134,12 @@ struct gradient
 
 // use 2d subpack to get the curl of a vector
 template <parthenon::Axis axis>
-struct curl
-    : public parthenon::variable_names::virtual_variable_t<parthenon::TypeList<v3>> {
+struct curl : public parthenon::variable_names::virtual_variable_t<v3> {
   static constexpr parthenon::Axis axis2 =
       static_cast<parthenon::Axis>((static_cast<int>(axis) + 1) % 3);
   static constexpr parthenon::Axis axis3 =
       static_cast<parthenon::Axis>((static_cast<int>(axis) + 2) % 3);
   using pack_type = parthenon::SubPack2D<axis2, axis3>;
-
-  static std::string name() { return "curl"; }
 
   template <typename Pack_t>
   KOKKOS_INLINE_FUNCTION const Real evaluate(const Pack_t &pack) const {
@@ -172,17 +152,14 @@ struct curl
 
 // use 3d subpack to get the third derivative
 // d_1 d_2 d_3 v1
-struct der3
-    : public parthenon::variable_names::virtual_variable_t<parthenon::TypeList<v1>> {
+struct der3 : public parthenon::variable_names::virtual_variable_t<v1> {
   using pack_type =
       parthenon::SubPack3D<parthenon::Axis::I, parthenon::Axis::J, parthenon::Axis::K>;
-
-  static std::string name() { return "der3"; }
 
   template <typename Pack_t>
   KOKKOS_INLINE_FUNCTION const Real evaluate(const Pack_t &pack) const {
     Real d3 = 0.;
-    parthenon::IndexRange pm{0, 1};
+    const parthenon::IndexRange pm{0, 1};
     parthenon::seq_for(pm, pm, pm, [&](const int k, const int j, const int i) {
       const int kk = 2 * k - 1;
       const int jj = 2 * j - 1;
@@ -672,9 +649,9 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
 
     WHEN("We get a sparse pack for a virtual variable dependent on "
          "our pair of fields, and initialize the dependent vars.") {
-      auto desc =
-          parthenon::MakePackDescriptor<d1, d1_subpack, gradient<parthenon::Axis::I>>(
-              pkg.get());
+      using Axis = parthenon::Axis;
+      auto desc = parthenon::MakePackDescriptor<d1, d1_subpack, gradient<Axis::I>,
+                                                curl<Axis::J>, der3>(pkg.get());
       auto pack = desc.GetPack(&mesh_data);
       par_for(
           "initialize d1", 0, NBLOCKS - 1, kb, jb, ib,

@@ -156,20 +156,16 @@ using any = any_nonautoflux;
 // fields, and is not itself an actual indexable field.
 struct DependentVariable {
   template <typename T>
-  auto requires_(T) -> void_t<typename T::dependent_vars>;
+  auto requires_(T) -> void_t<typename T::independent_vars>;
 };
 
 template <typename T>
 constexpr bool dependent_variable_v = implements<DependentVariable(T)>::value;
 
-template <typename>
-struct virtual_variable_t;
-
-template <template <typename...> typename TL, typename... Ts>
-struct virtual_variable_t<TL<Ts...>> : public var_base_t<false, Real> {
-  using type = virtual_variable_t<TL<Ts...>>;
-  using Base_t = var_base_t<false, Real>;
-  using dependent_vars = TypeList<Ts...>;
+template <typename... Ts>
+struct virtual_variable_t {
+  using type = virtual_variable_t<Ts...>;
+  using independent_vars = TypeList<Ts...>;
 };
 
 // Cocnept to check that a type shares an ancestor with virtual_variable_t
@@ -195,7 +191,7 @@ constexpr bool virtual_subpack_v = implements<VirtualSubPack(T)>::value;
 
 namespace impl {
 
-struct AllDependentVariables {
+struct AllIndependentVariables {
   template <typename T, REQUIRES(!dependent_variable_v<T>)>
   static auto get(T) {
     return TypeList<T>();
@@ -203,25 +199,25 @@ struct AllDependentVariables {
 
   template <template <typename...> typename TL, typename... Ts>
   static auto get(TL<Ts...>) {
-    return AllDependentVariables::get(Ts()...);
+    return AllIndependentVariables::get(Ts()...);
   }
 
   template <typename T, REQUIRES(dependent_variable_v<T>)>
   static auto get(T) {
-    return AllDependentVariables::get(typename T::dependent_vars());
+    return AllIndependentVariables::get(typename T::independent_vars());
   }
 
   template <typename T, typename... Ts>
   static auto get(T, Ts...) {
-    return union_type_lists_t<decltype(AllDependentVariables::get(T())),
-                              decltype(AllDependentVariables::get(Ts()...))>();
+    return union_type_lists_t<decltype(AllIndependentVariables::get(T())),
+                              decltype(AllIndependentVariables::get(Ts()...))>();
   }
 };
 } // namespace impl
 
-// Get a TypeList of all the non-dependent variables that make up the requested types.
+// Get a TypeList of all the independent variables that make up the requested types.
 template <typename... Ts>
-using all_dependent_variables_t = decltype(impl::AllDependentVariables::get(Ts()...));
+using all_independent_variables_t = decltype(impl::AllIndependentVariables::get(Ts()...));
 
 } // namespace variable_names
 
