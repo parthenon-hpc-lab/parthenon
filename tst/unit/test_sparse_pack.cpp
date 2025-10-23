@@ -90,7 +90,7 @@ struct v7 : public parthenon::variable_names::base_t<false, ANYDIM, 3> {
 };
 
 struct d1 : parthenon::variable_names::virtual_variable_t<v1, v3> {
-  KOKKOS_INLINE_FUNCTION d1() = default;
+  KOKKOS_INLINE_FUNCTION d1() : x(0.0) {}
 
   KOKKOS_INLINE_FUNCTION d1(const Real &xx) : x(xx) {}
 
@@ -108,7 +108,7 @@ struct d1_subpack : public parthenon::variable_names::virtual_variable_t<v1, v3>
   // declare the type of subpack we want to use for our evaluate method
   using pack_type = parthenon::SubPack0D;
 
-  KOKKOS_INLINE_FUNCTION d1_subpack() = default;
+  KOKKOS_INLINE_FUNCTION d1_subpack() : x(0.0) {}
 
   template <typename... Args>
   KOKKOS_INLINE_FUNCTION d1_subpack(const Real &xx) : x(xx) {}
@@ -118,7 +118,7 @@ struct d1_subpack : public parthenon::variable_names::virtual_variable_t<v1, v3>
     return pack(v1()) * pack(v3(1)) * pack(v3(2)) + x;
   }
 
-  Real x;
+  const Real x;
 };
 
 // use 1D subpack to get the gradient of v1()
@@ -142,7 +142,7 @@ struct curl : public parthenon::variable_names::virtual_variable_t<v3> {
   using pack_type = parthenon::SubPack2D<axis2, axis3>;
 
   template <typename Pack_t>
-  KOKKOS_INLINE_FUNCTION const Real evaluate(const Pack_t &pack) const {
+  KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack) const {
     constexpr int ax2 = static_cast<int>(axis2);
     constexpr int ax3 = static_cast<int>(axis3);
     return 0.5 * ((pack(v3(ax3), 1, 0) - pack(v3(ax3), -1, 0)) -
@@ -157,7 +157,7 @@ struct der3 : public parthenon::variable_names::virtual_variable_t<v1> {
       parthenon::SubPack3D<parthenon::Axis::I, parthenon::Axis::J, parthenon::Axis::K>;
 
   template <typename Pack_t>
-  KOKKOS_INLINE_FUNCTION const Real evaluate(const Pack_t &pack) const {
+  KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack) const {
     Real d3 = 0.;
     const parthenon::IndexRange pm{0, 1};
     parthenon::seq_for(pm, pm, pm, [&](const int k, const int j, const int i) {

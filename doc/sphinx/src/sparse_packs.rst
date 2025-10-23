@@ -92,7 +92,7 @@ A `SubPack` provdies a view into a slice of a `SparsePack` along a given dimensi
 `SubPack`\ s are constructed with a block + `kji` index to give a slice into the 
 fields at the meshblock + cell index. When a `SubPack` is constructed with the
 `Axis` template parameters then the `SubPack` also providies a view into slices
-of the `SparsePack` along the provided axes offset from the provided `kji` indices.
+of the `SparsePack` along the provided axes offset from the provided `ijk` indices.
 
 .. code:: c++
 
@@ -130,8 +130,9 @@ Additionally a virtual variable can declare a ``pack_type`` to refer to a 0D, 1D
 signature only takes in the desired ``SubPack`` centered at teh ``i,j,k`` index.
 
 .. code:: c++
+
    struct d1 : parthenon::variable_names::virtual_variable_t<v1, v3> {
-     KOKKOS_INLINE_FUNCTION d1() = default;
+     KOKKOS_INLINE_FUNCTION d1() : x(0.0) {}
 
      KOKKOS_INLINE_FUNCTION d1(const Real &xx) : x(xx) {}
 
@@ -149,7 +150,7 @@ signature only takes in the desired ``SubPack`` centered at teh ``i,j,k`` index.
      // declare the type of subpack we want to use for our evaluate method
      using pack_type = parthenon::SubPack0D;
 
-     KOKKOS_INLINE_FUNCTION d1_subpack() = default
+     KOKKOS_INLINE_FUNCTION d1_subpack() : x(0.0) {}
 
      KOKKOS_INLINE_FUNCTION d1_subpack(const Real &xx) : x(xx) {}
 
