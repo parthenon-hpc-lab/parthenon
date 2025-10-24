@@ -281,8 +281,6 @@ add_library(parthenon
   utils/alias_method.hpp
   utils/array_to_tuple.hpp
   utils/bit_hacks.hpp
-  utils/buffer_utils.cpp
-  utils/buffer_utils.hpp
   utils/cell_center_offsets.cpp
   utils/cell_center_offsets.hpp
   utils/change_rundir.cpp
@@ -314,6 +312,7 @@ add_library(parthenon
   utils/unique_id.cpp
   utils/unique_id.hpp
   utils/utils.hpp
+  utils/watchdog.cpp
 
   argument_parser.hpp
   basic_types.hpp

@@ -149,6 +149,11 @@ DriverStatus EvolutionDriver::Execute() {
     while (tm.KeepGoing() && signal != OutputSignal::analysis) {
       if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
+      // poke the dog
+      if (Globals::watchdog_enabled) {
+        WatchDog::WatchDog(0);
+      }
+
       if (pmesh->PreStepUserWorkInLoop != nullptr) {
         pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
       }
@@ -182,6 +187,9 @@ DriverStatus EvolutionDriver::Execute() {
 
       timer_LBandAMR.reset();
       pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput, app_input);
+      if ((buffer_reset_cadence_ > 0) && (tm.ncycle % buffer_reset_cadence_ == 0)) {
+        pmesh->TryReallocCommBufferPools();
+      }
       if (pmesh->modified) InitializeBlockTimeSteps();
       time_LBandAMR += timer_LBandAMR.seconds();
       SetGlobalTimeStep();

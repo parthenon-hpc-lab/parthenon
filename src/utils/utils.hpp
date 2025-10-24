@@ -74,6 +74,10 @@ constexpr auto get_array_from_tuple(tuple_t &&tuple) {
   return std::apply(get_array, std::forward<tuple_t>(tuple));
 }
 
+namespace WatchDog {
+void WatchDog(int timeout);
+}
+
 //----------------------------------------------------------------------------------------
 //! SignalHandler
 //  \brief static data and functions that implement a simple signal handling system

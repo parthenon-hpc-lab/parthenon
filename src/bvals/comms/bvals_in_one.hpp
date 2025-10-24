@@ -132,7 +132,10 @@ TaskID AddBoundaryExchangeTasks(
 // These tasks should not be called in down stream code
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus BuildGMGBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
-
+// And this one should only be called AFTER the ones above
+TaskStatus RegisterCoalescedComms(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus RegisterCoalescedCommsGMG(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus RegisterCoalescedComms(Mesh *pmesh);
 } // namespace parthenon
 
 #endif // BVALS_COMMS_BVALS_IN_ONE_HPP_

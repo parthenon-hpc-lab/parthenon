@@ -3,7 +3,8 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
-- [[PR 1271]](https://github.com/parthenon-hpc-lab/parthenon/pull/1271) Add option of specifying number of teams used to fill each boundary buffer
+- [[PR 1332]](https://github.com/parthenon-hpc-lab/parthenon/pull/1332) Add global WatchDog
+- [[PR 1330]](https://github.com/parthenon-hpc-lab/parthenon/pull/1330) Add userspace mechanisms to control number of comm buffers allocated
 - [[PR 1319]](https://github.com/parthenon-hpc-lab/parthenon/pull/1319) Add common scratch variable utilities
 - [[PR 1326]](https://github.com/parthenon-hpc-lab/parthenon/pull/1326) Thread initial swarm pool size into userspace via metadata
 - [[PR 1320]](https://github.com/parthenon-hpc-lab/parthenon/pull/1320) 1D Contour plotting
@@ -29,6 +30,7 @@
 - [[PR 1280]](https://github.com/parthenon-hpc-lab/parthenon/pull/1280) Print history file headers on restart
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1330]](https://github.com/parthenon-hpc-lab/parthenon/pull/1330) Add missing device-side destructor to BndId. Make comm buffer pools safe to clear.
 - [[PR 1327]](https://github.com/parthenon-hpc-lab/parthenon/pull/1327) Eliminate warnings from ViewOfViewAlloc
 - [[PR 1328]](https://github.com/parthenon-hpc-lab/parthenon/pull/1328) Add more useful error message for task list timeout
 - [[PR 1324]](https://github.com/parthenon-hpc-lab/parthenon/pull/1324) Fix SMR error check at initialization
@@ -58,7 +60,8 @@
 - [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Update CI container to Cuda 12.8
 
 
-### Removed (removing behavior/API/varaibles/...)
+### Removed (removing behavior/API/variables/...)
+- [[PR 1329]](https://github.com/parthenon-hpc-lab/parthenon/pull/1329) Remove unused/deprecated buffer packing utils
 
 
 ### Incompatibilities (i.e. breaking changes)
@@ -122,7 +125,7 @@ Date: 2025-05-19
 - [[PR 1218]](https://github.com/parthenon-hpc-lab/parthenon/pull/1219) Add ability to run the tasking without threading
 - [[PR 1176]](https://github.com/parthenon-hpc-lab/parthenon/pull/1176) Move some code from header to implementation files
 
-### Removed (removing behavior/API/varaibles/...)
+### Removed (removing behavior/API/variables/...)
 
 
 ### Incompatibilities (i.e. breaking changes)
@@ -220,7 +223,7 @@ Date: 2024-08-30
 - [[PR 1009]](https://github.com/parthenon-hpc-lab/parthenon/pull/1009) Move from a single octree to a forest of octrees
 
 
-### Removed (removing behavior/API/varaibles/...)
+### Removed (removing behavior/API/variables/...)
 - [[PR 1108]](https://github.com/parthenon-hpc-lab/parthenon/pull/1108) Remove NaN payload tags infrastructure
 
 ### Incompatibilities (i.e. breaking changes)
@@ -268,7 +271,7 @@ Date: 2024-03-21
 
 ### Incompatibilities (i.e. breaking changes)
 - [[PR 987]](https://github.com/parthenon-hpc-lab/parthenon/pull/987) Change the API for what was IterativeTasks
-- [[PR 974]](https://github.com/parthenon-hpc-lab/parthenon/pull/974) Change GetParentPointer to always return T*
+- [[PR 974]](https://github.com/parthenon-hpc-lab/parthenon/pull/974) Change GetParentPointer to always return T\*
 - [[PR 996]](https://github.com/parthenon-hpc-lab/parthenon/pull/996) Remove dynamic allocations from swarm particle creation
 
 
@@ -323,7 +326,7 @@ Date: 2023-11-16
 - [[PR 918]](https://github.com/parthenon-hpc-lab/parthenon/pull/918) Refactor RegionSize
 - [[PR 901]](https://github.com/parthenon-hpc-lab/parthenon/pull/901) Implement shared element ownership model
 
-### Removed (removing behavior/API/varaibles/...)
+### Removed (removing behavior/API/variables/...)
 - [[PR 930]](https://github.com/parthenon-hpc-lab/parthenon/pull/930) Remove ParthenonManager::ParthenonInit as it is error-prone and the split functions are the recommended usage.
 
 
@@ -404,7 +407,7 @@ Date: 2023-05-26
 - [[PR 735]](https://github.com/parthenon-hpc-lab/parthenon/pull/735) Clean up HDF5 output
 - [[PR 708]](https://github.com/parthenon-hpc-lab/parthenon/pull/708) Bump minimum version of Kokkos to 3.6
 
-### Removed (removing behavior/API/varaibles/...)
+### Removed (removing behavior/API/variables/...)
 - [[PR 829]](https://github.com/parthenon-hpc-lab/parthenon/pull/829) Remove dead output code
 - [[PR 738]](https://github.com/parthenon-hpc-lab/parthenon/pull/738) Remove old incomplete face-centered variables
 
@@ -536,7 +539,7 @@ Date: 09/22/2021
 - [[PR 560]](https://github.com/parthenon-hpc-lab/parthenon/pull/560) Rename `png_files_to_upload` to more generic `figure_files_to_upload`
 - [[PR 561]](https://github.com/parthenon-hpc-lab/parthenon/pull/561) Adding documentation to help with adding new performance regression tests.
 
-### Removed (removing behavior/API/varaibles/...)
+### Removed (removing behavior/API/variables/...)
 - [[PR 498]](https://github.com/parthenon-hpc-lab/parthenon/pull/498) Cleanup unused user hooks and variables
 - [[PR 481]](https://github.com/parthenon-hpc-lab/parthenon/pull/481) Cleanup unused/untested/not fully ported code (mostly OpenMP and reconstruction)
 
@@ -616,7 +619,7 @@ Date: 01/19/2021
 - [[PR 403]](https://github.com/parthenon-hpc-lab/parthenon/pull/403) Cleanup Codacy warnings
 - [[PR 377]](https://github.com/parthenon-hpc-lab/parthenon/pull/377) New machine configuration file for LLNL's RZAnsel cluster
 
-### Removed (removing behavior/API/varaibles/...)
+### Removed (removing behavior/API/variables/...)
 - [[PR 410]](https://github.com/parthenon-hpc-lab/parthenon/pull/410) Addresses issue of cpp linter calling python instead of python3
 
 ## Release 0.3.0

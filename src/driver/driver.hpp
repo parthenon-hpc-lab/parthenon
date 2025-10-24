@@ -128,6 +128,13 @@ class EvolutionDriver : public Driver {
         "Set to true to generate outputs in a step BEFORE modifying the mesh at the end "
         "of the step. By default outputs happen AFTER remeshing if remeshing happens. "
         "WARNING: this will make restarts not bitwise-exact.");
+    buffer_reset_cadence_ = pin->GetOrAddInteger(
+        "parthenon/time", "comm_buffer_reset_cadence", -1,
+        "If set to a positive number N, the comm buffer object pool will be reset "
+        "every N cycles if the expected number of required buffers has "
+        "decreased to parthenon/mesh/comm_buffer_reset_fraction times the total number "
+        "of allocated buffers. If set to a non-positive number, the buffer "
+        "pool is never cleared.");
   }
   DriverStatus Execute() override;
   virtual void SetGlobalTimeStep();
@@ -143,6 +150,7 @@ class EvolutionDriver : public Driver {
   bool dt_init_force;
   int dt_min_count, dt_max_count;
   int dt_min_count_max, dt_max_count_max;
+  std::int64_t buffer_reset_cadence_;
   bool output_before_amr;
 
  private:

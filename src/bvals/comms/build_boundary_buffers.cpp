@@ -3,7 +3,7 @@
 // Copyright(C) 2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2022-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2022-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -48,8 +48,11 @@ template <BoundaryType BTYPE>
 void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
                                Mesh::comm_buf_map_t &buf_map) {
   Mesh *pmesh = md->GetMeshPointer();
-  std::unordered_map<int, int>
-      nbufs; // total (existing and new) number of buffers for given size
+  std::unordered_map<std::size_t, std::size_t>
+      nbufs; // total (existing and new) number of buffers for
+             // given size (ignoring sparse)
+  std::unordered_map<std::size_t, std::size_t>
+      nbufs_allocated; // total that are actually allocated
 
   ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v) {
     // Calculate the required size of the buffer for this boundary
@@ -61,6 +64,7 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     if (pmb->gid == nb.gid && nb.offsets.IsCell()) buf_size = 0;
 
     nbufs[buf_size] += 1; // relying on value init of int to 0 for initial entry
+    nbufs_allocated[buf_size] += v->IsAllocated();
   });
 
   ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v) {
@@ -72,27 +76,28 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     // Add a buffer pool if one does not exist for this size
     using buf_t = buf_pool_t<Real>::base_t;
     if (pmesh->pool_map.count(buf_size) == 0) {
-      // Might be worth discussing what a good default is.
-      // Using the number of packs, assumes that all blocks in a pack have fairly similar
-      // buffer configurations, which may or may not be a good approximation.
-      // An alternative would be "1", which would reduce the memory footprint, but
-      // increase the number of individual memory allocations.
-      const int64_t nbuf = pmesh->DefaultNumPartitions();
-      pmesh->pool_map.emplace(
-          buf_size, buf_pool_t<Real>([buf_size, nbuf](buf_pool_t<Real> *pool) {
-            const auto pool_size = nbuf * buf_size;
-            buf_t chunk("pool buffer", pool_size);
-            for (int i = 1; i < nbuf; ++i) {
-              pool->AddFreeObjectToPool(
-                  buf_t(chunk, std::make_pair(i * buf_size, (i + 1) * buf_size)));
-            }
-            return buf_t(chunk, std::make_pair(0, buf_size));
-          }));
+      // Minimum number of comm buffers to initialize a pool of a
+      // given shape with. As an upper bound, we use the maximum
+      // number that might be present.
+      const std::size_t nbuf = std::min(pmesh->CommBufferChunkSize(), nbufs.at(buf_size));
+      // This lambda is called whenever a buffer is requested but no
+      // buffers remain in the pool
+      auto allocation_strategy = [buf_size, nbuf](buf_pool_t<Real> *pool) {
+        const auto pool_size = nbuf * buf_size;
+        buf_t chunk("pool buffer", pool_size);
+        for (int i = 1; i < nbuf; ++i) {
+          pool->AddFreeObjectToPool(
+              buf_t(chunk, std::make_pair(i * buf_size, (i + 1) * buf_size)));
+        }
+        return buf_t(chunk, std::make_pair(0, buf_size));
+      };
+      pmesh->pool_map.emplace(buf_size, buf_pool_t<Real>(allocation_strategy));
     }
     // Now that the pool is guaranteed to exist we can add free objects of the required
     // amount.
     auto &pool = pmesh->pool_map.at(buf_size);
-    const std::int64_t new_buffers_req = nbufs.at(buf_size) - pool.NumBuffersInPool();
+    const std::int64_t new_buffers_req =
+        nbufs_allocated.at(buf_size) - pool.NumBuffersInPool();
     if (new_buffers_req > 0) {
       const auto pool_size = new_buffers_req * buf_size;
       buf_t chunk("pool buffer", pool_size);
@@ -132,11 +137,6 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
         buf_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
             tag, sender_rank, receiver_rank, comm, get_resource_method,
             use_sparse_buffers);
-
-      // Register this buffer with the combined buffers (must happen after CommBuffer is
-      // created)
-      if (receiver_rank != sender_rank)
-        pmesh->pcoalesced_comms->AddSendBuffer(md->partition, pmb, nb, v, BTYPE);
     }
 
     // Also build the non-local receive buffers here
@@ -147,13 +147,28 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
           buf_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
               tag, receiver_rank, sender_rank, comm, get_resource_method,
               use_sparse_buffers);
-        // Register this buffer with the combined buffers (must happen after CommBuffer is
-        // created)
+      }
+    }
+  });
+}
+
+template <BoundaryType BTYPE>
+void RegisterCoalescedCommsSubset(std::shared_ptr<MeshData<Real>> &md) {
+  Mesh *pmesh = md->GetMeshPointer();
+  ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v) {
+    const int receiver_rank = nb.rank;
+    const int sender_rank = Globals::my_rank;
+    if (receiver_rank != sender_rank) {
+      if constexpr (IsSender(BTYPE)) {
+        pmesh->pcoalesced_comms->AddSendBuffer(md->partition, pmb, nb, v, BTYPE);
+      }
+      if constexpr (IsReceiver(BTYPE)) {
         pmesh->pcoalesced_comms->AddRecvBuffer(pmb, nb, v, BTYPE);
       }
     }
   });
 }
+
 } // namespace
 
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
@@ -173,7 +188,7 @@ TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 }
 
 TaskStatus BuildGMGBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
-  Kokkos::Profiling::pushRegion("Task_BuildSendBoundBufs");
+  PARTHENON_INSTRUMENT
   Mesh *pmesh = md->GetMeshPointer();
   auto &all_caches = md->GetBvarsCache();
 
@@ -190,7 +205,36 @@ TaskStatus BuildGMGBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   BuildBoundaryBufferSubset<BoundaryType::gmg_restrict_recv>(md,
                                                              pmesh->boundary_comm_map);
 
-  Kokkos::Profiling::popRegion(); // "Task_BuildSendBoundBufs"
+  return TaskStatus::complete;
+}
+
+TaskStatus RegisterCoalescedComms(std::shared_ptr<MeshData<Real>> &md) {
+  PARTHENON_INSTRUMENT
+
+  RegisterCoalescedCommsSubset<BoundaryType::any>(md);
+  RegisterCoalescedCommsSubset<BoundaryType::flxcor_send>(md);
+  RegisterCoalescedCommsSubset<BoundaryType::flxcor_recv>(md);
+
+  return TaskStatus::complete;
+}
+
+TaskStatus RegisterCoalescedCommsGMG(std::shared_ptr<MeshData<Real>> &md) {
+  PARTHENON_INSTRUMENT
+
+  RegisterCoalescedCommsSubset<BoundaryType::gmg_same>(md);
+  RegisterCoalescedCommsSubset<BoundaryType::gmg_prolongate_send>(md);
+  RegisterCoalescedCommsSubset<BoundaryType::gmg_prolongate_recv>(md);
+  RegisterCoalescedCommsSubset<BoundaryType::gmg_restrict_send>(md);
+  RegisterCoalescedCommsSubset<BoundaryType::gmg_restrict_recv>(md);
+
+  return TaskStatus::complete;
+}
+
+TaskStatus RegisterCoalescedComms(Mesh *pmesh) {
+  for (auto &partition : pmesh->GetDefaultBlockPartitions()) {
+    auto &md = pmesh->mesh_data.Add("base", partition);
+    RegisterCoalescedComms(md);
+  }
   return TaskStatus::complete;
 }
 
