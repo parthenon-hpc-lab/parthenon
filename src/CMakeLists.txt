@@ -307,6 +307,7 @@ add_library(parthenon
   utils/unique_id.cpp
   utils/unique_id.hpp
   utils/utils.hpp
+  utils/watchdog.cpp
 
   argument_parser.hpp
   basic_types.hpp

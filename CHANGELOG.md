@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1332]](https://github.com/parthenon-hpc-lab/parthenon/pull/1332) Add global WatchDog
 - [[PR 1330]](https://github.com/parthenon-hpc-lab/parthenon/pull/1330) Add userspace mechanisms to control number of comm buffers allocated
 - [[PR 1319]](https://github.com/parthenon-hpc-lab/parthenon/pull/1319) Add common scratch variable utilities
 - [[PR 1326]](https://github.com/parthenon-hpc-lab/parthenon/pull/1326) Thread initial swarm pool size into userspace via metadata
