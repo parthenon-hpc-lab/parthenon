@@ -531,6 +531,8 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   using parthenon::MetadataFlag;
 
+  sleep(5);
+
   PARTHENON_INSTRUMENT
   auto pmb = rc->GetBlockPointer();
 

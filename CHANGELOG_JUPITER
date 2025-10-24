@@ -1,4 +1,6 @@
 This branch contains (beyond develop)
 - OpenPMD
 - Add more teams per communication buffer #1271
+- soft disable final #1332 
+- add watchdog #1333
 - 
