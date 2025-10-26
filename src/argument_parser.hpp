@@ -51,11 +51,17 @@ class ArgParse {
         switch (opt_letter) {
         case 'i': // -i <input_filename>
           invalid = invalid_arg();
-          input_filename = argv[++i];
+          input_filename.push_back(argv[++i]);
           break;
         case 'r': // -r <restart_file>
           invalid = invalid_arg();
           is_restart = true;
+          restart_filename = argv[++i];
+          break;
+        case 'R': // -R <restart_file>
+          invalid = invalid_arg();
+          is_restart = true;
+          is_old_restart = true;
           restart_filename = argv[++i];
           break;
         case 'a': // -a <restart_file>
@@ -92,10 +98,11 @@ class ArgParse {
           complete = true;
         default:
           if (Globals::my_rank == 0) {
-            std::cout << "Usage: " << argv[0] << " [options] [block/par=value ...]\n";
+            std::cout << "Usage: " << argv[0] << " [options] [block.par=value ...]\n";
             std::cout << "Options:" << std::endl;
             std::cout << "  -i <file>       specify input file [athinput]\n";
             std::cout << "  -r <file>       restart with this file\n";
+            std::cout << "  -R <file>       restart with this file but with the old syntax\n";
             std::cout << "  -a <file>       analyze/postprocess this file\n";
             std::cout << "  -d <directory>  specify run dir [current dir]\n";
             std::cout << "  -p [regex]      parse input file, report parameters\n"
@@ -122,10 +129,12 @@ class ArgParse {
           }
           return ArgStatus::error;
         }
-      } // else if argv[i] not of form "-?" ignore it here (tested in ModifyFromCmdline)
+      } else {
+        mods.push_back(argv[i]);
+      }
     }
 
-    if (restart_filename == nullptr && input_filename == nullptr) {
+    if (restart_filename == nullptr && input_filename.empty()) {
       // no input file is given
       std::cout << "### FATAL ERROR in main" << std::endl
                 << "No input file or restart file is specified." << std::endl;
@@ -134,12 +143,14 @@ class ArgParse {
     return ArgStatus::ok;
   }
 
-  char *input_filename = nullptr;
+  std::vector<std::string> input_filename;
+  std::vector<std::string> mods;
   char *restart_filename = nullptr;
   char *prundir = nullptr;
   char *params_regex = nullptr;
   bool analysis_flag = false;
   bool is_restart = false;
+  bool is_old_restart = false;
   int param_flag = 0;
   int mesh_flag = 0;
   int wtlim = 0;
