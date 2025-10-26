@@ -108,28 +108,12 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     }
 
     // Load input stream
-    pinput = std::make_unique<ParameterInput>();
     auto inputString = restartReader->GetInputString();
     std::istringstream is(inputString);
-    pinput->LoadFromStream(is);
+    pinput = std::make_unique<ParameterInput>(is, arg.is_old_restart, arg.input_filename, arg.mods);
+  } else {
+    pinput = std::make_unique<ParameterInput>(arg.input_filename, arg.mods);
   }
-  // If an input file was provided
-  if (arg.input_filename != nullptr) {
-    // Modify info read from restart file
-    if (arg.is_restart) {
-      IOWrapper infile;
-      infile.Open(arg.input_filename, IOWrapper::FileMode::read);
-      pinput->LoadFromFile(infile);
-      infile.Close();
-
-      // Populate new object for fresh simulation
-    } else {
-      pinput = std::make_unique<ParameterInput>(arg.input_filename);
-    }
-  }
-
-  // Modify based on command line inputs
-  pinput->ModifyFromCmdline(argc, argv);
 
   PARTHENON_REQUIRE_THROWS(
       !pinput->DoesParameterExist("parthenon/job", "run_only_analysis") ||

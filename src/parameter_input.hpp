@@ -36,6 +36,9 @@
 #include <utility> // for std::forward, std::pair
 #include <vector>
 
+#include <rummy/deck.hpp>
+
+
 #include "config.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
@@ -194,7 +197,8 @@ class ParameterInput {
  public:
   // constructor/destructor
   ParameterInput();
-  explicit ParameterInput(std::string input_filename);
+  explicit ParameterInput(std::istringstream &is, const bool old, std::vector<std::string> input_filename={}, std::vector<std::string> mods={});
+  explicit ParameterInput(std::vector<std::string> input_filename, std::vector<std::string> mods={});
   ~ParameterInput();
 
   // data
@@ -204,8 +208,11 @@ class ParameterInput {
   // functions
   void LoadFromStream(std::istream &is);
   void LoadFromFile(IOWrapper &input);
+  void LoadFromRestart(std::istringstream &is);
+  void LoadFromOldRestart(std::istringstream &is);
   void ModifyFromCmdline(int argc, char *argv[]);
   void ParameterDump(std::ostream &os);
+  void GenerateLinkedList();
   // TODO(JMM): Make this more general?
   void OutputParameterTable(std::ostream &os,
                             const std::regex &block_regex = std::regex("(.*)")) const;
@@ -326,19 +333,7 @@ class ParameterInput {
   std::vector<T>
   GetVector(const std::string &block, const std::string &name,
             const std::optional<std::string> &docstring = std::optional<std::string>{}) {
-    std::vector<std::string> fields = GetVector_(block, name);
-    if constexpr (std::is_same<T, std::string>::value) return fields;
-
-    std::vector<T> ret;
-    for (auto &f : fields) {
-      if constexpr (std::is_same<T, int>::value) {
-        ret.push_back(stoi(f));
-      } else if constexpr (std::is_same<T, Real>::value) {
-        ret.push_back(atof(f.c_str()));
-      } else if constexpr (std::is_same<T, bool>::value) {
-        ret.push_back(stob(f));
-      }
-    }
+    auto ret = deck.GetVector<T>(block, name);
     CheckAndUpdateQueries_<std::vector<T>>(block, name, docstring);
     return ret;
   }
@@ -350,9 +345,7 @@ class ParameterInput {
                                            std::vector<std::vector<T>>{}, docstring);
     if (DoesParameterExist(block, name)) return GetVector<T>(block, name);
 
-    std::string cname = ConcatVector_(def);
-    auto *pb = FindOrAddBlock(block);
-    AddParameter(pb, name, cname, "# Default value added at run time");
+    deck.AddVector(block, name, def, "# Default value added at run time");
     return def;
   }
   template <typename T>
@@ -366,17 +359,13 @@ class ParameterInput {
   }
 
  private:
+  Rummy::Deck deck;
   std::string last_filename_; // last input file opened, to prevent duplicate reads
   // We will want to iterate through the record in lexicographic
   // order, so this needs to be an ordered map
   std::map<std::pair<std::string, std::string>, QueryRecord> queries_;
 
   InputBlock *FindOrAddBlock(const std::string &name);
-  InputBlock *GetPtrToBlock(const std::string &name);
-  bool ParseLine(InputBlock *pib, std::string line, std::string &name, std::string &value,
-                 std::string &comment);
-  void AddParameter(InputBlock *pib, const std::string &name, const std::string &value,
-                    const std::string &comment);
   bool stob(std::string val) {
     // check is string contains integers 0 or 1 (instead of true or false) and return
     if (val.compare(0, 1, "0") == 0 || val.compare(0, 1, "1") == 0) {
@@ -408,35 +397,9 @@ class ParameterInput {
       PARTHENON_THROW(msg);
     }
   }
-  std::vector<std::string> GetVector_(const std::string &block, const std::string &name) {
-    std::string s = GetString(block, name);
-    std::string delimiter = ",";
-    size_t pos = 0;
-    std::string token;
-    std::vector<std::string> variables;
-    while ((pos = s.find(delimiter)) != std::string::npos) {
-      token = s.substr(0, pos);
-      variables.push_back(string_utils::trim(token));
-      s.erase(0, pos + delimiter.length());
-    }
-    variables.push_back(string_utils::trim(s));
-    return variables;
-  }
-  template <typename T>
-  std::string ConcatVector_(std::vector<T> &vec) {
-    std::stringstream ss;
-    const int n = vec.size();
-    if (n == 0) return "";
-
-    ss << vec[0];
-    for (int i = 1; i < n; i++) {
-      ss << "," << vec[i];
-    }
-    return ss.str();
-  }
 
   // JMM: Using std::optional here aggressively to simplify overload
-  // and default parameter logic logic
+  // and default parameter logic
   template <typename T, template <class...> class Container_t, class... extra>
   void CheckAndUpdateQueries_(const std::string &block, const std::string &name,
                               const std::optional<T> &defval,
