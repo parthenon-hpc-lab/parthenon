@@ -208,7 +208,6 @@ void ParameterInput::LoadFromOldRestart(std::istringstream &is) {
     }
   }
   deck.Build(ss);
-
 }
 
 
@@ -221,7 +220,8 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
   std::stringstream par, msg;
   constexpr int kBufSize = 4096;
   char buf[kBufSize];
-  IOWrapperSizeT header = 0, ret, loc;
+  IOWrapperSizeT header = 0, ret;
+  std::size_t loc;
 
   // search <par_end> or EOF.
   do {
@@ -233,7 +233,7 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
         MPI_Bcast(&ret, sizeof(IOWrapperSizeT), MPI_BYTE, 0, MPI_COMM_WORLD));
     PARTHENON_MPI_CHECK(MPI_Bcast(buf, ret, MPI_BYTE, 0, MPI_COMM_WORLD));
 #endif
-    par.write(buf, ret); // add the buffer into the stjuream
+    par.write(buf, ret); // add the buffer into the stream
     header += ret;
     std::string sbuf = par.str();    // create string for search
     loc = sbuf.find("<par_end>", 0); // search from the top of the stream
@@ -247,11 +247,12 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
           << "Probably the file is broken or a wrong file is specified" << std::endl;
       PARTHENON_FAIL(msg);
     }
-    // remove <par_end>
-    par = std::stringstream(sbuf.substr(0, loc)); 
   } while (ret == kBufSize); // till EOF (or par_end is found)
 
-  // Now par contains the parameter inputs + some additional including <par_end>
+  if (loc != std::string::npos) {
+    par = std::stringstream(par.str().substr(0, std::size_t(loc)));
+  }
+  // Now par contains the parameter inputs but without <par_end>
   // Read the stream and load the parameters
   LoadFromStream(par);
   // Seek the file to the end of the header
