@@ -16,28 +16,28 @@
 # ========================================================================================
 
 <parthenon/job>
-problem_id = particles
+problem_id = "particles"
 
 <parthenon/mesh>
-refinement = static
+refinement = "static"
 
 nx1 = 16
 x1min = -0.5
 x1max = 0.5
-ix1_bc = periodic
-ox1_bc = periodic
+ix1_bc = "periodic"
+ox1_bc = "periodic"
 
 nx2 = 16
 x2min = -0.5
 x2max = 0.5
-ix2_bc = periodic
-ox2_bc = periodic
+ix2_bc = "periodic"
+ox2_bc = "periodic"
 
 nx3 = 16
 x3min = -0.5
 x3max = 0.5
-ix3_bc = periodic
-ox3_bc = periodic
+ix3_bc = "periodic"
+ox3_bc = "periodic"
 
 <parthenon/meshblock>
 nx1 = 8
@@ -56,18 +56,18 @@ x3max = 0
 <parthenon/time>
 tlim = 1.0
 nlim = 100000
-integrator = rk1
+integrator = "rk1"
 
 <Particles>
 cfl = 0.3
 disable = false
 
 <parthenon/output0>
-file_type = hdf5
+file_type = "hdf5"
 dt = 0.05
-swarms = my_particles
-my_particles_variables = id, v, vv
+swarms = "my_particles"
+my_particles_variables = "id", "v", "vv"
 
 <parthenon/output1>
-file_type = rst
+file_type = "rst"
 dt = 1.0

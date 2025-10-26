@@ -12,10 +12,10 @@
 # ========================================================================================
 
 <parthenon/job>
-problem_id = boundary_exchange
+problem_id = "boundary_exchange"
 
 <parthenon/mesh>
-refinement = static
+refinement = "static"
 numlevel = 1
 # The structure of the mesh is built in main as a forest
 
@@ -29,6 +29,6 @@ nx2 = 4
 nx3 = 1
 
 <parthenon/output0>
-file_type = hdf5
+file_type = "hdf5"
 ghost_zones = true
-variables = morton_num
+variables = "morton_num"

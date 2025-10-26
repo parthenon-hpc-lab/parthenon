@@ -16,29 +16,29 @@
 # ========================================================================================
 
 <parthenon/job>
-problem_id = diffusion
+problem_id = "diffusion"
 
 <parthenon/mesh>
-refinement = static
+refinement = "static"
 multigrid = true 
 
 nx1 = 64
 x1min = -1.0
 x1max = 1.0
-ix1_bc = outflow 
-ox1_bc = outflow
+ix1_bc = "outflow" 
+ox1_bc = "outflow"
 
 nx2 = 64
 x2min = -1.0
 x2max = 1.0
-ix2_bc = outflow
-ox2_bc = outflow
+ix2_bc = "outflow"
+ox2_bc = "outflow"
 
 nx3 = 1
 x3min = 0.0
 x3max = 1.0
-ix3_bc = periodic
-ox3_bc = periodic
+ix3_bc = "periodic"
+ox3_bc = "periodic"
 
 <parthenon/meshblock>
 nx1 = 32
@@ -48,25 +48,25 @@ nx3 = 1
 <parthenon/time>
 nlim = -1
 tlim = 0.02
-integrator = rk1
+integrator = "rk1"
 #ncycle_out_mesh = -10000
 
 <parthenon/output0>
-file_type = hdf5
+file_type = "hdf5"
 dt = 0.0001
-variables = diffusion.u
+variables = "diffusion.u"
 ghost_zones = false
 
 <parthenon/static_refinement0> 
 x1min = -0.15
-x1max = +0.15
+x1max = 0.15
 x2min = -0.15
-x2max = +0.15
+x2max = 0.15
 level = 3
 
 <diffusion>
 #solver = BiCGSTAB # or MG
-solver = MG
+solver = "MG"
 flux_correct = true
 diagonal_alpha = 1.0
 cfl = 10.0
@@ -82,5 +82,5 @@ precondition = true
 max_iterations = 20
 residual_tolerance = 1.e-9
 print_per_step = true
-smoother = SRJ2
+smoother = "SRJ2"
 do_FAS = true

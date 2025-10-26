@@ -16,29 +16,29 @@
 # ========================================================================================
 
 <parthenon/job>
-problem_id = poisson
+problem_id = "poisson"
 
 <parthenon/mesh>
-refinement = static
+refinement = "static"
 multigrid = true 
 
 nx1 = 64
 x1min = -1.0
 x1max = 1.0
-ix1_bc = outflow
-ox1_bc = outflow
+ix1_bc = "outflow"
+ox1_bc = "outflow"
 
 nx2 = 64
 x2min = -1.0
 x2max = 1.0
-ix2_bc = outflow
-ox2_bc = outflow
+ix2_bc = "outflow"
+ox2_bc = "outflow"
 
 nx3 = 1
 x3min = 0.0
 x3max = 1.0
-ix3_bc = periodic
-ox3_bc = periodic
+ix3_bc = "periodic"
+ox3_bc = "periodic"
 
 <parthenon/meshblock>
 nx1 = 32
@@ -52,9 +52,9 @@ nx3 = 1
 #ncycle_out_mesh = -10000
 
 <parthenon/output0>
-file_type = hdf5
+file_type = "hdf5"
 dt = 0.05
-variables = poisson.res_err, poisson.u, poisson.x, poisson.r, poisson.rhs, poisson.p, poisson.s, poisson.t, poisson.v, poisson.exact
+variables = "poisson.res_err", "poisson.u", "poisson.x", "poisson.r", "poisson.rhs", "poisson.p", "poisson.s", "poisson.t", "poisson.v", "poisson.exact"
 ghost_zones = true 
 
 <parthenon/static_refinement0> 
@@ -65,7 +65,7 @@ x2max = -0.75
 level = 3
 
 <poisson>
-solver = BiCGSTAB # or MG
+solver = "BiCGSTAB" # or MG
 flux_correct = true
 diagonal_alpha = 0.0
 
@@ -81,5 +81,5 @@ precondition = true
 max_iterations = 15
 residual_tolerance = 1.e-8
 print_per_step = true
-smoother = SRJ2
+smoother = "SRJ2"
 do_FAS = true

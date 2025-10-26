@@ -16,7 +16,7 @@
 # ========================================================================================
 
 <parthenon/job>
-problem_id = sparse
+problem_id = "sparse"
 
 <parthenon/sparse>
 enable_sparse = true
@@ -25,26 +25,26 @@ dealloc_threshold = 1e-6
 dealloc_count = 5
 
 <parthenon/mesh>
-refinement = adaptive
+refinement = "adaptive"
 numlevel = 3
 
 nx1 = 64
 x1min = -1.0
 x1max = 1.0
-ix1_bc = periodic
-ox1_bc = periodic
+ix1_bc = "periodic"
+ox1_bc = "periodic"
 
 nx2 = 64
 x2min = -1.0
 x2max = 1.0
-ix2_bc = periodic
-ox2_bc = periodic
+ix2_bc = "periodic"
+ox2_bc = "periodic"
 
 nx3 = 1
 x3min = -1.0
 x3max = 1.0
-ix3_bc = periodic
-ox3_bc = periodic
+ix3_bc = "periodic"
+ox3_bc = "periodic"
 
 <parthenon/meshblock>
 nx1 = 8
@@ -54,7 +54,7 @@ nx3 = 1
 <parthenon/time>
 nlim = -1
 tlim = 2.0
-integrator = rk2
+integrator = "rk2"
 ncycle_out_mesh = -10000
 
 <sparse_advection>
@@ -67,14 +67,14 @@ refine_tol = 0.3    # control the package specific refinement tagging function
 derefine_tol = 0.03
 
 <parthenon/output1>
-file_type = rst
+file_type = "rst"
 dt = 0.5
 
 <parthenon/output0>
-file_type = hdf5
+file_type = "hdf5"
 dt = 0.1
-variables = sparse, dense_A, dense_B, shape_shift
+variables = "sparse", "dense_A", "dense_B", "shape_shift"
 
 <parthenon/output3>
-file_type = hst
+file_type = "hst"
 dt = 0.00001
