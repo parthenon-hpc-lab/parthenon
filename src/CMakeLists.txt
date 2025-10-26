@@ -373,6 +373,8 @@ endif()
 
 target_link_libraries(parthenon PUBLIC Kokkos::kokkos Threads::Threads)
 
+target_link_libraries(parthenon PUBLIC Rummy::rummy)
+
 if (PARTHENON_ENABLE_ASCENT)
   if (ENABLE_MPI)
     target_link_libraries(parthenon PUBLIC ascent::ascent_mpi)
@@ -397,6 +399,18 @@ target_include_directories(parthenon PUBLIC
   )
 
 install(TARGETS parthenon EXPORT parthenonTargets)
+
+if(NOT Rummy_FOUND)
+  install(TARGETS rummylib pipslib EXPORT parthenonTargets
+      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  )
+  install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../external/rummy/rummy 
+      DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+      FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h"
+  )
+endif()
 
 # Maintain directory structure in installed include files
 install(DIRECTORY ./ TYPE INCLUDE FILES_MATCHING PATTERN "*.hpp")
