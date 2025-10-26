@@ -335,6 +335,19 @@ class SparsePack : public SparsePackBase {
     return t.evaluate(SubPack<typename Tin::pack_type>(*this, b, k, j, i),
                       std::forward<Args>(args)...);
   }
+  template <typename Tin, typename... Args,
+            REQUIRES(variable_names::virtual_variable_v<Tin>
+                         &&variable_names::virtual_subpack_v<Tin>)>
+  KOKKOS_INLINE_FUNCTION Real operator()(const int b, const TE el, const Tin &t,
+                                         const int k, const int j, const int i,
+                                         Args &&...args) const {
+    static_assert(
+        TypeList<Ts...>::IsIn(typename Tin::independent_vars()),
+        "SparsePack must pack all independent_vars needed for virtual variable");
+    using sub_pack_type = decltype(SubPack<typename Tin::pack_type>(*this, b, k, j, i));
+    return t.evaluate(SubPack<typename Tin::pack_type>(*this, b, k, j, i), el,
+                      std::forward<Args>(args)...);
+  }
 
   template <typename Tin, typename... Args,
             REQUIRES(variable_names::virtual_variable_v<Tin> &&

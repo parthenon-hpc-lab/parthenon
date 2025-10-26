@@ -31,6 +31,7 @@
 // TODO(jcd): can't call the MeshBlock constructor without mesh_refinement.hpp???
 #include "mesh/mesh_refinement.hpp"
 #include "pack/subpack.hpp"
+#include "utils/error_checking.hpp"
 #include "utils/type_list.hpp"
 
 using parthenon::BlockList_t;
@@ -124,6 +125,26 @@ struct gradient : public parthenon::variable_names::virtual_variable_t<v1> {
   template <typename Pack_t>
   KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack) const {
     return 0.5 * (pack(v1(), 1) - pack(v1(), -1));
+  }
+};
+
+// gradient normal to face from te
+struct gradient_te : public parthenon::variable_names::virtual_variable_t<v1> {
+  template <typename Pack_t>
+  KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack, const int b,
+                                       const parthenon::TopologicalElement el,
+                                       const int k, const int j, const int i) const {
+    using TE = parthenon::TopologicalElement;
+    switch (el) {
+    case (TE::F1):
+      return (pack(b, v1(), k, j, i) - pack(b, v1(), k, j, i - 1));
+    case (TE::F2):
+      return (pack(b, v1(), k, j, i) - pack(b, v1(), k, j - 1, i));
+    case (TE::F3):
+      return (pack(b, v1(), k, j, i) - pack(b, v1(), k - 1, j, i));
+    default:
+      return 0.;
+    }
   }
 };
 
@@ -698,6 +719,19 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
               }
               if (std::abs(pack(b, gradient<parthenon::Axis::K>(), k, j, i) - 33.0) >=
                   1.e-12) {
+                ltot += 1;
+              }
+              using TE = parthenon::TopologicalElement;
+              if (std::abs(pack(b, gradient<parthenon::Axis::I>(), k, j, i) -
+                           pack(b, TE::F1, gradient_te(), k, j, i)) >= 1.e-12) {
+                ltot += 1;
+              }
+              if (std::abs(pack(b, gradient<parthenon::Axis::J>(), k, j, i) -
+                           pack(b, TE::F2, gradient_te(), k, j, i)) >= 1.e-12) {
+                ltot += 1;
+              }
+              if (std::abs(pack(b, gradient<parthenon::Axis::K>(), k, j, i) -
+                           pack(b, TE::F3, gradient_te(), k, j, i)) >= 1.e-12) {
                 ltot += 1;
               }
             },
