@@ -316,36 +316,36 @@ class SparsePack : public SparsePackBase {
             REQUIRES(variable_names::virtual_variable_v<Tin> &&
                      !variable_names::virtual_subpack_v<Tin>)>
   KOKKOS_INLINE_FUNCTION Real operator()(const int b, const Tin &t, const int k,
-                                         const int j, const int i) const {
+                                         const int j, const int i, Args &&...args) const {
     static_assert(
         TypeList<Ts...>::IsIn(typename Tin::independent_vars()),
         "SparsePack must pack all independent_vars needed for virtual variable");
-    return t.evaluate(static_cast<const SparsePack<Ts...> &>(*this), b, k, j, i);
+    return t.evaluate(*this, b, k, j, i, std::forward<Args>(args)...);
   }
 
   template <typename Tin, typename... Args,
             REQUIRES(variable_names::virtual_variable_v<Tin>
                          &&variable_names::virtual_subpack_v<Tin>)>
   KOKKOS_INLINE_FUNCTION Real operator()(const int b, const Tin &t, const int k,
-                                         const int j, const int i) const {
+                                         const int j, const int i, Args &&...args) const {
     static_assert(
         TypeList<Ts...>::IsIn(typename Tin::independent_vars()),
         "SparsePack must pack all independent_vars needed for virtual variable");
-    using pack_type = typename Tin::pack_type;
-    constexpr int Naxes = pack_type::Naxes;
-    if constexpr (Naxes == 3) {
-      return t.evaluate(SubPack<pack_type::axis1, pack_type::axis2, pack_type::axis3>(
-          static_cast<const SparsePack<Ts...> &>(*this), b, k, j, i));
-    } else if constexpr (Naxes == 2) {
-      return t.evaluate(SubPack<pack_type::axis1, pack_type::axis2>(
-          static_cast<const SparsePack<Ts...> &>(*this), b, k, j, i));
-    } else if constexpr (Naxes == 1) {
-      return t.evaluate(SubPack<pack_type::axis>(
-          static_cast<const SparsePack<Ts...> &>(*this), b, k, j, i));
-    } else {
-      return t.evaluate(
-          SubPack(static_cast<const SparsePack<Ts...> &>(*this), b, k, j, i));
-    }
+    using sub_pack_type = decltype(SubPack<typename Tin::pack_type>(*this, b, k, j, i));
+    return t.evaluate(SubPack<typename Tin::pack_type>(*this, b, k, j, i),
+                      std::forward<Args>(args)...);
+  }
+
+  template <typename Tin, typename... Args,
+            REQUIRES(variable_names::virtual_variable_v<Tin> &&
+                     !variable_names::virtual_subpack_v<Tin>)>
+  KOKKOS_INLINE_FUNCTION Real operator()(const int b, const TE el, const Tin &t,
+                                         const int k, const int j, const int i,
+                                         Args &&...args) const {
+    static_assert(
+        TypeList<Ts...>::IsIn(typename Tin::independent_vars()),
+        "SparsePack must pack all independent_vars needed for virtual variable");
+    return t.evaluate(*this, b, el, k, j, i, std::forward<Args>(args)...);
   }
 
   // flux() overloads

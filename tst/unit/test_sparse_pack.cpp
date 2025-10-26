@@ -108,17 +108,12 @@ struct d1_subpack : public parthenon::variable_names::virtual_variable_t<v1, v3>
   // declare the type of subpack we want to use for our evaluate method
   using pack_type = parthenon::SubPack0D;
 
-  KOKKOS_INLINE_FUNCTION d1_subpack() : x(0.0) {}
-
-  template <typename... Args>
-  KOKKOS_INLINE_FUNCTION d1_subpack(const Real &xx) : x(xx) {}
+  KOKKOS_INLINE_FUNCTION d1_subpack() {}
 
   template <typename Pack_t>
-  KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack) const {
+  KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack, const Real &x) const {
     return pack(v1()) * pack(v3(1)) * pack(v3(2)) + x;
   }
-
-  const Real x;
 };
 
 // use 1D subpack to get the gradient of v1()
@@ -676,7 +671,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
               if (pack(b, d1(x), k, j, i) != answer) {
                 ltot += 1;
               }
-              if (pack(b, d1(x), k, j, i) != pack(b, d1_subpack(x), k, j, i)) {
+              if (pack(b, d1(x), k, j, i) != pack(b, d1_subpack(), k, j, i, x)) {
                 ltot += 1;
               }
             },

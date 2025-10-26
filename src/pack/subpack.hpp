@@ -155,25 +155,6 @@ template <typename PackType>
 constexpr bool is_sparse_pack =
     is_specialization_of<base_type<PackType>, SparsePack>::value;
 
-template <Axis axis, Axis... axes, typename Var_t, typename PackType,
-          REQUIRES(is_sparse_pack<PackType>)>
-KOKKOS_INLINE_FUNCTION auto SubPack(PackType &pack, const int &b, const Var_t &var,
-                                    const int &k, const int &j, const int &i) {
-  return VarStencilSubPack_impl<Var_t, PackType, axis, axes...>(pack, b, var, k, j, i);
-}
-
-template <Axis axis, Axis... axes, typename PackType, REQUIRES(is_sparse_pack<PackType>)>
-KOKKOS_INLINE_FUNCTION auto SubPack(PackType &pack, const int &b, const int &k,
-                                    const int &j, const int &i) {
-  return StencilSubPack_impl<PackType, axis, axes...>(pack, b, k, j, i);
-}
-
-template <typename PackType, REQUIRES(is_sparse_pack<PackType>)>
-KOKKOS_INLINE_FUNCTION auto SubPack(PackType &pack, const int &b, const int &k,
-                                    const int &j, const int &i) {
-  return SubPack_impl<PackType>(pack, b, k, j, i);
-}
-
 // Some convenience types to differentiate between the types of subpacks
 struct SubPack0D {
   static constexpr int Naxes = 0;
@@ -199,6 +180,43 @@ struct SubPack3D {
   static constexpr Axis axis2 = a2;
   static constexpr Axis axis3 = a3;
 };
+
+template <Axis axis, Axis... axes, typename Var_t, typename SparsePackType,
+          REQUIRES(is_sparse_pack<SparsePackType>)>
+KOKKOS_INLINE_FUNCTION auto SubPack(SparsePackType &pack, const int &b, const Var_t &var,
+                                    const int &k, const int &j, const int &i) {
+  return VarStencilSubPack_impl<Var_t, SparsePackType, axis, axes...>(pack, b, var, k, j,
+                                                                      i);
+}
+
+template <Axis axis, Axis... axes, typename SparsePackType,
+          REQUIRES(is_sparse_pack<SparsePackType>)>
+KOKKOS_INLINE_FUNCTION auto SubPack(SparsePackType &pack, const int &b, const int &k,
+                                    const int &j, const int &i) {
+  return StencilSubPack_impl<SparsePackType, axis, axes...>(pack, b, k, j, i);
+}
+
+template <typename SparsePackType, REQUIRES(is_sparse_pack<SparsePackType>)>
+KOKKOS_INLINE_FUNCTION auto SubPack(SparsePackType &pack, const int &b, const int &k,
+                                    const int &j, const int &i) {
+  return SubPack_impl<SparsePackType>(pack, b, k, j, i);
+}
+
+template <typename PackType, typename SparsePackType,
+          REQUIRES(is_sparse_pack<SparsePackType>)>
+KOKKOS_INLINE_FUNCTION auto SubPack(SparsePackType &pack, const int &b, const int &k,
+                                    const int &j, const int &i) {
+  constexpr int Naxes = PackType::Naxes;
+  if constexpr (Naxes == 3) {
+    return SubPack<PackType::axis1, PackType::axis2, PackType::axis3>(pack, b, k, j, i);
+  } else if constexpr (Naxes == 2) {
+    return SubPack<PackType::axis1, PackType::axis2>(pack, b, k, j, i);
+  } else if constexpr (Naxes == 1) {
+    return SubPack<PackType::axis>(pack, b, k, j, i);
+  } else {
+    return SubPack(pack, b, k, j, i);
+  }
+}
 
 } // namespace parthenon
 #endif // PACK_SUBPACK_HPP_
