@@ -17,6 +17,7 @@
 #include <string>
 
 #include "amr_criteria/refinement_package.hpp"
+#include "globals.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
@@ -60,14 +61,11 @@ AMRCriteria::AMRCriteria(ParameterInput *pin, std::string &block_name)
   max_level =
       pin->GetOrAddInteger(block_name, "max_level", global_max_level,
                            "maximum level this refinement criterion will achieve");
-  if (max_level > global_max_level) {
+  if ((max_level > global_max_level) && (Globals::my_rank == 0)) {
     std::cerr << "WARNING: max_level in " << block_name
               << " exceeds numlevel (the global maximum number of levels) set in "
-                 "<parthenon/mesh>."
-              << std::endl
-              << std::endl
-              << "Setting max_level = numlevel, but this may not be what you want."
-              << std::endl
+                 "<parthenon/mesh>.\n"
+              << "\tSetting max_level = numlevel, but this may not be what you want.\n"
               << std::endl;
     max_level = global_max_level;
   }
