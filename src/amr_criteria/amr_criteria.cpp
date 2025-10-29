@@ -14,6 +14,7 @@
 
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 
 #include "amr_criteria/refinement_package.hpp"
@@ -30,8 +31,9 @@ AMRCriteria::AMRCriteria(ParameterInput *pin, std::string &block_name)
   field =
       pin->GetOrAddString(block_name, "field", "NO FIELD WAS SET", "Field to refine on");
   if (field == "NO FIELD WAS SET") {
-    std::cerr << "Error in " << block_name << ": no field set" << std::endl;
-    exit(1);
+    std::stringstream msg;
+    msg << "Error in " << block_name << ": no field set" << std::endl;
+    PARTHENON_THROW(msg);
   }
   if (pin->DoesParameterExist(block_name, "tensor_ijk")) {
     auto index = pin->GetVector<int>(block_name, "tensor_ijk");
@@ -62,11 +64,13 @@ AMRCriteria::AMRCriteria(ParameterInput *pin, std::string &block_name)
       pin->GetOrAddInteger(block_name, "max_level", global_max_level,
                            "maximum level this refinement criterion will achieve");
   if ((max_level > global_max_level) && (Globals::my_rank == 0)) {
-    std::cerr << "WARNING: max_level in " << block_name
-              << " exceeds numlevel (the global maximum number of levels) set in "
-                 "<parthenon/mesh>.\n"
-              << "\tSetting max_level = numlevel, but this may not be what you want.\n"
-              << std::endl;
+    std::stringstream msg;
+    msg << "max_level in " << block_name
+        << " exceeds numlevel (the global maximum number of levels) set in "
+           "<parthenon/mesh>. Setting max_level = numlevel, but this may not be what you "
+           "want."
+        << std::endl;
+    PARTHENON_WARN(msg);
     max_level = global_max_level;
   }
 }
