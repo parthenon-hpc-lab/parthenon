@@ -83,6 +83,24 @@ struct std::hash<std::tuple<Ts...>> {
   }
 };
 
+template <class T1, class T2>
+struct std::hash<std::pair<T1, T2>> {
+  std::size_t operator()(const std::pair<T1, T2> &p) const {
+    return parthenon::impl::hash_combine(std::hash<typename std::remove_const<T1>::type>()(p.first),
+                                         std::hash<typename std::remove_const<T2>::type>()(p.second));
+  }
+};
+
+template <class Key, class T, class Compare, class Allocator>
+struct std::hash<std::map<Key, T, Compare, Allocator>> {
+  std::size_t operator()(const std::map<Key, T, Compare, Allocator> &m) const {
+    std::size_t h{0};
+    for (auto &&kv : m)
+      parthenon::impl::boost_hash_combine(h, hash<std::pair<const Key, T>>()(kv));
+    return h;
+  }
+};
+
 namespace parthenon {
 template <class T>
 struct WeakPtrHash {
@@ -100,6 +118,7 @@ struct WeakPtrEqual {
     return !lhs.owner_before(rhs) && !rhs.owner_before(lhs);
   }
 };
+
 
 // This is just here for backward compatibility
 template <class T>
