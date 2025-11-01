@@ -592,12 +592,12 @@ void ParameterInput::CheckDesired(const std::string &block, const std::string &n
 
 void ParameterInput::CheckOrphans() const {
   std::set<std::pair<std::string, std::string>> orphans;
-  for (InputBlock *pib = pfirst_block; pib != nullptr; pib = pib->pnext) {
-    for (InputLine *pline = pib->pline; pline != nullptr; pline = pline->pnext) {
-      auto key = std::make_pair(pib->block_name, pline->param_name);
-      if (queries_.count(key) == 0) {
+  for (auto &block_name : deck.GetSuitsInOrder()) {
+    for( auto &param : deck.FindSuitInOrder(block_name)) {
+       auto key = std::make_pair(block_name, param.name);
+       if (queries_.count(key) == 0) {
         orphans.insert(key);
-      }
+        }
     }
   }
   std::stringstream msg;
@@ -631,12 +631,12 @@ void ParameterInput::OutputParameterTable(std::ostream &os,
                                           const std::regex &block_regex) const {
   // Loop through once and store in a map for lexicographic ordering
   std::map<std::string, std::map<std::string, std::string>> csvblocks;
-  for (InputBlock *pb = pfirst_block; pb != nullptr; pb = pb->pnext) {
-    const std::string &block_name = pb->block_name;
+
+  for (auto &block_name : deck.GetSuitsInOrder()) {
     if (std::regex_match(block_name, block_regex)) {
       auto &csvlines = csvblocks[block_name];
-      for (InputLine *pl = pb->pline; pl != nullptr; pl = pl->pnext) {
-        const std::string &param_name = pl->param_name;
+      for( auto &param : deck.FindSuitInOrder(block_name)) {
+        const std::string &param_name = param.name;
         auto record_key = std::make_pair(block_name, param_name);
         /* clang-format off */
         // This ensures the code doesn't crash for orphan parameters

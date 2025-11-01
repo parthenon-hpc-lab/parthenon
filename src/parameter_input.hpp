@@ -518,24 +518,11 @@ class ParameterInput {
 // JMM: Believe it or not, this is the recommended way to overload hash functions
 // See: https://en.cppreference.com/w/cpp/utility/hash
 namespace std {
-template <>
-struct hash<parthenon::InputLine> {
-  std::size_t operator()(const parthenon::InputLine &il) {
-    return parthenon::impl::hash_combine(0, il.param_name, il.param_value,
-                                         il.param_comment);
-  }
-};
 
 template <>
-struct hash<parthenon::InputBlock> {
-  std::size_t operator()(const parthenon::InputBlock &ib) {
-    using parthenon::impl::hash_combine;
-    std::size_t out =
-        hash_combine(0, ib.block_name, ib.max_len_parname, ib.max_len_parvalue);
-    for (parthenon::InputLine *pline = ib.pline; pline != nullptr; pline = pline->pnext) {
-      out = hash_combine(out, *pline);
-    }
-    return out;
+struct hash<Rummy::Card> {
+  std::size_t operator()(const Rummy::Card &card) const {
+    return parthenon::impl::hash_combine(0, card.name, card.GetString(), card.GetComment());
   }
 };
 
@@ -546,9 +533,9 @@ struct hash<parthenon::ParameterInput> {
     using parthenon::impl::hash_combine;
     std::size_t out = 0;
     out = hash_combine(out, in.last_filename_);
-    for (InputBlock *pblock = in.pfirst_block; pblock != nullptr;
-         pblock = pblock->pnext) {
-      out = hash_combine(out, *pblock);
+    for (auto &block_name : in.deck.GetSuitsInOrder()) {
+      auto &block = in.deck.GetSuit(block_name);
+      out = hash_combine(out, std::make_pair(block_name, block));
     }
     return out;
   }
