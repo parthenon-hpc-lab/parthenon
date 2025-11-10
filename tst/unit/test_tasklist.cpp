@@ -13,6 +13,7 @@
 
 // STL Includes
 #include <memory>
+#include <set>
 
 // Third Party Includes
 #include <catch2/catch.hpp>
@@ -54,7 +55,7 @@ struct TaskChecker {
   std::vector<parthenon::TaskRegion*> regions;
 
   std::size_t current_global_task_id{0};
-  std::vector<std::vector<std::size_t>> dag_dependencies;
+  std::vector<std::set<std::size_t>> dag_dependencies;
   std::vector<std::vector<std::size_t>> region_tasks;
   std::map<Task*, std::size_t> task_to_id; 
   std::map<std::size_t, Task*> id_to_task;
@@ -85,7 +86,7 @@ struct TaskChecker {
       for (auto &task : task_checker->dag_dependencies[task_id]) { 
         all_dependencies_complete = all_dependencies_complete && task_checker->task_complete[task];
       }
-      printf("running task %i, all_dependencies_complete = %i\n", task_id, all_dependencies_complete);
+      printf("running task %i, all_dependencies_complete = %i (%i)\n", task_id, all_dependencies_complete, dag_dependencies[task_id].size());
       if (all_dependencies_complete) {
         task_complete[task_id] = true;
         return parthenon::TaskStatus::complete;
@@ -99,15 +100,19 @@ struct TaskChecker {
     task_complete[current_global_task_id] = false;
     region_tasks[region].push_back(current_global_task_id); 
 
-    // Add dependencies:
-    //  1. First from this task list 
-    dag_dependencies.push_back(deps);
+    // Add *all* for this task dependencies:
+    //  1. First from the explicitly stated dependencies
+    dag_dependencies.emplace_back();
+    auto &cur_task_deps = dag_dependencies.back();
+    cur_task_deps.insert(deps.begin(), deps.end());
+    //  2. Implicit dependencies to other tasks in the list
+    for (auto dep : deps)
+      cur_task_deps.insert(dag_dependencies[dep].begin(), dag_dependencies[dep].end());
 
     //  2. From previous task regions 
-    auto &cur_deps = dag_dependencies.back();
     for (int r = 0; r < region; ++r) {
       for (auto &t : region_tasks[r]) {
-        cur_deps.push_back(t);
+        cur_task_deps.insert(t);
       } 
     }
 
