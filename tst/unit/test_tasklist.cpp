@@ -22,36 +22,13 @@
 
 // Internal Includes
 #include "basic_types.hpp"
+#include "tasks/task_timing.hpp"
 #include "tasks/tasks.hpp"
 
 using parthenon::Task;
 using parthenon::TaskID;
 using parthenon::TaskList;
 using parthenon::TaskStatus;
-
-TEST_CASE("Task Object Lifecycle", "[TaskList][AddTask]") {
-  GIVEN("A TaskList") {
-    // This weak_ptr is just used to make sure TaskList destroys its objects when it
-    // goes out of scope.
-    std::weak_ptr<int> track_destruction;
-
-    {
-      auto obj = std::make_shared<int>(0);
-
-      // A weak ptr is taken to the shared ptr to check that it is destroyed later.
-      track_destruction = obj;
-
-      TaskList task_list;
-      task_list.AddTask(TaskID{}, [obj] { return TaskStatus::complete; });
-
-      // Task objects should still be alive here.
-      REQUIRE(!track_destruction.expired());
-    }
-
-    // Task objects are now destroyed
-    REQUIRE(track_destruction.expired());
-  }
-}
 
 // TaskChecker: Provides functionality to build and verify task dependency graphs
 struct TaskChecker {
@@ -198,6 +175,30 @@ struct TaskChecker {
   }
 };
 
+TEST_CASE("Task Object Lifecycle", "[TaskList][AddTask]") {
+  GIVEN("A TaskList") {
+    // This weak_ptr is just used to make sure TaskList destroys its objects when it
+    // goes out of scope.
+    std::weak_ptr<int> track_destruction;
+
+    {
+      auto obj = std::make_shared<int>(0);
+
+      // A weak ptr is taken to the shared ptr to check that it is destroyed later.
+      track_destruction = obj;
+
+      TaskList task_list;
+      task_list.AddTask(TaskID{}, [obj] { return TaskStatus::complete; });
+
+      // Task objects should still be alive here.
+      REQUIRE(!track_destruction.expired());
+    }
+
+    // Task objects are now destroyed
+    REQUIRE(track_destruction.expired());
+  }
+}
+
 TEST_CASE("TaskCollection dependence", "[TaskList][AddTask]") {
   GIVEN("A TaskCollection") {
     TaskChecker tc;
@@ -232,5 +233,76 @@ TEST_CASE("TaskCollection timeout", "[TaskList][AddTask]") {
     const std::size_t timeout_in_seconds = 4;
     parthenon::TaskListStatus status = tc.Execute(timeout_in_seconds);
     REQUIRE(status == parthenon::TaskListStatus::fail);
+  }
+}
+
+auto WaitTask(int milliseconds) {
+  return [milliseconds]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+    return TaskStatus::complete;
+  };
+}
+
+TEST_CASE("TaskCollection timing", "[TaskList][AddTask]") {
+  GIVEN("A TimingAccumulator") {
+    parthenon::TimingAccumulatorDictionary timing_dict;
+    int total_ms_in_region_1{0};
+    int total_ms_in_all{0};
+    const int niters = 3;
+    const int nregions = 5;
+
+    WHEN("We iterate through a task list, timing collections of tasks") {
+      for (int iter = 0; iter < niters; ++iter) {
+        parthenon::TaskCollection tc;
+
+        parthenon::TaskRegion &region = tc.AddRegion(nregions);
+        for (int r = 0; r < nregions; ++r) {
+          auto &tl = region[r];
+          auto timer_guard = parthenon::TimingAccumulatorGuard(
+              timing_dict.GetOrAddAndRegister("timing all", tl));
+          auto timer1 = timing_dict.GetOrAddAndRegister("timing region 1", tl);
+
+          timer1->StartCollectingTasks();
+          auto t1 = tl.AddTask(TaskID(0), WaitTask(10));
+          total_ms_in_region_1 += 10;
+          total_ms_in_all += 10;
+          auto t2 = tl.AddTask(t1, WaitTask(20));
+          total_ms_in_region_1 += 20;
+          total_ms_in_all += 20;
+          timer1->StopCollectingTasks();
+
+          auto t3 = tl.AddTask(t2, WaitTask(30));
+          total_ms_in_all += 30;
+
+          auto t4 = tl.AddTask(t3, WaitTask(40));
+          timer1->CollectTask(t4.GetTask());
+          total_ms_in_region_1 += 40;
+          total_ms_in_all += 40;
+        }
+
+        parthenon::TaskListStatus status = tc.Execute();
+        REQUIRE(status == parthenon::TaskListStatus::complete);
+      }
+
+      THEN("The timing in region 1 is what we expect") {
+        auto region1_timing = timing_dict.Get("timing region 1");
+        auto total_time_in_s = region1_timing->GetTotalTime();
+
+        // Check that the timing is what is expected within \pm 2%
+        double expected_time_in_ms = total_ms_in_region_1;
+        REQUIRE(total_time_in_s * 1e3 > expected_time_in_ms * 0.98);
+        REQUIRE(total_time_in_s * 1e3 < expected_time_in_ms * 1.02);
+      }
+
+      THEN("The total timing is what we expect") {
+        auto region_timing = timing_dict.Get("timing all");
+        auto total_time_in_s = region_timing->GetTotalTime();
+
+        // Check that the timing is what is expected within \pm 2%
+        double expected_time_in_ms = total_ms_in_all;
+        REQUIRE(total_time_in_s * 1e3 > expected_time_in_ms * 0.98);
+        REQUIRE(total_time_in_s * 1e3 < expected_time_in_ms * 1.02);
+      }
+    }
   }
 }

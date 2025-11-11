@@ -91,6 +91,12 @@ class TimingAccumulatorDictionary {
  public:
   std::shared_ptr<TimingAccumulator> GetOrAddAndRegister(const std::string &label,
                                                          TaskList &tl);
+
+  std::shared_ptr<TimingAccumulator> Get(const std::string &label) {
+    PARTHENON_REQUIRE(dict_.count(label) > 0, "Asking for non-existent timing region.");
+    return dict_[label];
+  }
+
   void clear() { dict_.clear(); }
   auto begin() { return dict_.begin(); }
   auto end() { return dict_.end(); }
