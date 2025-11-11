@@ -93,8 +93,6 @@ struct TaskChecker {
         for (auto task : task_ids)
           combined_dependencies.insert(tc->dag_dependencies[task].begin(), tc->dag_dependencies[task].end());
         
-        printf("combined_dependencies = %i\n", combined_dependencies.size()); 
-        
         // Do a brute force search through all tasks and check if they depend on 
         // any of the tasks in this local sync region
         for (std::size_t task = 0; task < tc->current_global_task_id; ++task) { 
@@ -148,7 +146,6 @@ struct TaskChecker {
       for (auto &task : task_checker->dag_dependencies[task_id]) { 
         all_dependencies_complete = all_dependencies_complete && task_checker->task_complete[task];
       }
-      printf("running task %i, all_dependencies_complete = %i (%i)\n", task_id, all_dependencies_complete, dag_dependencies[task_id].size());
       if (all_dependencies_complete) {
         task_complete[task_id] = true;
         return parthenon::TaskStatus::complete;
