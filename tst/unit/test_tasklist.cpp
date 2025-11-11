@@ -50,6 +50,7 @@ TEST_CASE("Task Object Lifecycle", "[TaskList][AddTask]") {
     REQUIRE(track_destruction.expired());
   }
 }
+
 struct TaskChecker {
   parthenon::TaskCollection tc;
   std::vector<parthenon::TaskRegion*> regions;
@@ -61,6 +62,51 @@ struct TaskChecker {
   std::map<std::size_t, Task*> id_to_task;
   std::map<std::size_t, bool> task_complete; 
 
+  struct Qualifier { 
+    std::set<std::size_t> task_ids;
+    parthenon::TaskQualifier pqualifier;
+    TaskChecker *tc;
+    
+    Qualifier() : pqualifier(parthenon::TaskQualifier::normal) {}
+
+    static Qualifier LocalSync(TaskChecker &tc) {
+      Qualifier qual;
+      qual.tc = &tc;
+      qual.pqualifier = parthenon::TaskQualifier::local_sync; 
+      return qual;
+    }
+
+    void Resolve() { 
+      if (pqualifier.LocalSync()) {
+        // A task list sync implies that all downstream tasks require
+        // all of the sync marked tasks be completed. 
+        std::set<std::size_t> combined_dependencies; 
+        combined_dependencies.insert(task_ids.begin(), task_ids.end());
+        for (auto task : task_ids)
+          combined_dependencies.insert(tc->dag_dependencies[task].begin(), tc->dag_dependencies[task].end());
+        
+        printf("combined_dependencies = %i\n", combined_dependencies.size()); 
+        // Do a brute force search through all tasks and check if they depend on 
+        // any of the tasks in this local sync region
+        for (std::size_t task = 0; task < tc->current_global_task_id; ++task) { 
+          auto &deps = tc->dag_dependencies[task];
+          bool depends_on{false};
+          for (auto dep : deps) {
+            for (auto task : task_ids) {
+              if (task == dep) depends_on = true;
+            }
+          }
+          // If they do depend on the local sync region, add all of the dependencies from 
+          // other task lists
+          if (depends_on)
+            deps.insert(combined_dependencies.begin(), combined_dependencies.end());
+        }
+      }
+    }
+  };
+  
+  inline static Qualifier default_qualifier{};
+
   auto Execute() {
     return tc.Execute();
   }
@@ -71,7 +117,8 @@ struct TaskChecker {
     return regions.size() - 1;
   }
   
-  std::size_t AddTask(std::size_t region, std::size_t task_list, std::vector<std::size_t> deps) { 
+
+  std::size_t AddTask(std::size_t region, std::size_t task_list, std::vector<std::size_t> deps, Qualifier &qualifier = default_qualifier) { 
     // Build up the dependency
     TaskID tid(0); 
     for (auto dep : deps) { 
@@ -81,7 +128,7 @@ struct TaskChecker {
     // Get the requested region and task list
     auto &tl = (*regions[region])[task_list]; 
     
-    auto id_out = tl.AddTask(tid, [&](std::size_t task_id, TaskChecker *task_checker){
+    auto id_out = tl.AddTask(qualifier.pqualifier, tid, [&](std::size_t task_id, TaskChecker *task_checker){
       bool all_dependencies_complete{true};
       for (auto &task : task_checker->dag_dependencies[task_id]) { 
         all_dependencies_complete = all_dependencies_complete && task_checker->task_complete[task];
@@ -100,7 +147,7 @@ struct TaskChecker {
     task_complete[current_global_task_id] = false;
     region_tasks[region].push_back(current_global_task_id); 
 
-    // Add *all* for this task dependencies:
+    // Add *all* dependencies for this task:
     //  1. First from the explicitly stated dependencies
     dag_dependencies.emplace_back();
     auto &cur_task_deps = dag_dependencies.back();
@@ -116,8 +163,8 @@ struct TaskChecker {
       } 
     }
 
-    //  3. Regional dependencies
-    // TODO: Include these 
+    //  3. Add regional interdependencies, which are resolved later
+    qualifier.task_ids.insert(current_global_task_id);
 
     // Increment to next task
     current_global_task_id++;
@@ -132,10 +179,14 @@ TEST_CASE("TaskCollection dependence", "[TaskList][AddTask]") {
     TaskChecker tc; 
     int region1_size = 3;
     auto r1 = tc.AddRegion(region1_size);
-    for (int l = 0; l < region1_size; ++l) { 
-      auto t1 = tc.AddTask(r1, l, {});
+    auto local_sync1 = TaskChecker::Qualifier::LocalSync(tc);
+    for (int l = 0; l < region1_size; ++l) {
+      auto t0 = tc.AddTask(r1, l, {}); 
+      if (l == 0) t0 = tc.AddTask(r1, l, {t0});
+      auto t1 = tc.AddTask(r1, l, {t0}, local_sync1);
       tc.AddTask(r1, l, {t1});
     }
+    local_sync1.Resolve();
 
     int region2_size = 2;
     auto r2 = tc.AddRegion(region2_size);
