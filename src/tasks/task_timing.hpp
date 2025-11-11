@@ -73,6 +73,8 @@ class TimingAccumulator : public std::enable_shared_from_this<TimingAccumulator>
   Real GetTotalTime() const;
 
   int GetTotalTasks() const { return ntasks; }
+
+  const std::vector<timing_chunk_t> &GetTimings() const { return timings; }
 };
 
 struct TimingAccumulatorGuard {
@@ -102,6 +104,8 @@ class TimingAccumulatorDictionary {
   auto end() { return dict_.end(); }
   auto begin() const { return dict_.begin(); }
   auto end() const { return dict_.end(); }
+
+  void WriteToJSON(const std::string &file_name);
 };
 
 } // namespace parthenon
