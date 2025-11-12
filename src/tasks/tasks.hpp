@@ -117,6 +117,8 @@ class Task {
     dependent[static_cast<int>(TaskStatus::incomplete)].push_back(this);
   }
 
+  static inline bool enable_timing{false};
+
   TaskStatus operator()();
   TaskID GetID() { return this; }
   std::string GetLabel() const { return label_; }

@@ -251,6 +251,9 @@ TEST_CASE("TaskCollection timing", "[TaskList][AddTask]") {
     const int niters = 3;
     const int nregions = 5;
 
+    // Set the global bool that enables task timing
+    parthenon::Task::enable_timing = true;
+
     WHEN("We iterate through a task list, timing collections of tasks") {
       for (int iter = 0; iter < niters; ++iter) {
         parthenon::TaskCollection tc;

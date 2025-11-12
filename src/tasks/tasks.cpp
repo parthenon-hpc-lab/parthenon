@@ -44,12 +44,12 @@ TaskID TaskID::operator|(const TaskID &other) const {
 
 TaskStatus Task::operator()() {
   TimingAccumulator::time_t start;
-  if (time_task) {
+  if (time_task && enable_timing) {
     Kokkos::fence();
     start = std::chrono::steady_clock::now();
   }
   auto status = f();
-  if (time_task) {
+  if (time_task && enable_timing) {
     Kokkos::fence();
     TimingAccumulator::time_t end = std::chrono::steady_clock::now();
     TimingAccumulator::timing_chunk_t timing_chunk = std::make_tuple(start, end, status);
