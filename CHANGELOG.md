@@ -31,6 +31,7 @@
 - [[PR 1280]](https://github.com/parthenon-hpc-lab/parthenon/pull/1280) Print history file headers on restart
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1338]](https://github.com/parthenon-hpc-lab/parthenon/pull/1338) Fix bug where gmg block list wasn't completely cleared after remesh
 - [[PR 1330]](https://github.com/parthenon-hpc-lab/parthenon/pull/1330) Add missing device-side destructor to BndId. Make comm buffer pools safe to clear.
 - [[PR 1327]](https://github.com/parthenon-hpc-lab/parthenon/pull/1327) Eliminate warnings from ViewOfViewAlloc
 - [[PR 1328]](https://github.com/parthenon-hpc-lab/parthenon/pull/1328) Add more useful error message for task list timeout
