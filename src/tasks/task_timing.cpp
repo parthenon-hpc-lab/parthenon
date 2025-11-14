@@ -83,7 +83,7 @@ void TimingAccumulatorDictionary::WriteToJSON(const std::string &filename) {
       file << ",";
     }
     firstKey = false;
-
+    std::cout << "Writing key " << key << std::endl;
     file << "\"" << key << "\":[";
 
     bool firstPair = true;

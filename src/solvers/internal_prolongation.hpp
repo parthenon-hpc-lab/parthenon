@@ -145,21 +145,23 @@ class ProlongationBlockInteriorZeroDirichlet {
           const int ck = (ndim > 2) ? (fk - kb.s) / 2 + ckb.s : ckb.s;
           const int cj = (ndim > 1) ? (fj - jb.s) / 2 + cjb.s : cjb.s;
           const int ci = (ndim > 0) ? (fi - ib.s) / 2 + cib.s : cib.s;
-          const int fok = (fk - kb.s) % 2;
-          const int foj = (fj - jb.s) % 2;
-          const int foi = (fi - ib.s) % 2;
-          const bool bound[6]{pack.IsPhysicalBoundary(b, 0, 0, -1) && (ib.s == fi),
-                              pack.IsPhysicalBoundary(b, 0, 0, 1) && (ib.e == fi),
-                              pack.IsPhysicalBoundary(b, 0, -1, 0) && (jb.s == fj),
-                              pack.IsPhysicalBoundary(b, 0, 1, 0) && (jb.e == fj),
-                              pack.IsPhysicalBoundary(b, -1, 0, 0) && (kb.s == fk),
-                              pack.IsPhysicalBoundary(b, 1, 0, 0) && (kb.e == fk)};
+          
           // Use both pack and pack_coarse outside of the constexpr if
           // statements to prevent compilation errors in some CUDA compilers
           pack(b, n, fk, fj, fi) = pack_coarse(b, n, ck, cj, ci);
-          if constexpr (ProlongationType::Constant == prolongation_type) {
-            pack(b, n, fk, fj, fi) = pack_coarse(b, n, ck, cj, ci);
-          } else if constexpr (ProlongationType::Linear == prolongation_type) {
+          // if constexpr (ProlongationType::Constant == prolongation_type) {
+          //   pack(b, n, fk, fj, fi) = pack_coarse(b, n, ck, cj, ci);
+          // } else 
+          if constexpr (ProlongationType::Linear == prolongation_type) {
+            const int fok = (fk - kb.s) % 2;
+            const int foj = (fj - jb.s) % 2;
+            const int foi = (fi - ib.s) % 2;
+            const bool bound[6]{pack.IsPhysicalBoundary(b, 0, 0, -1) && (ib.s == fi),
+                                pack.IsPhysicalBoundary(b, 0, 0, 1) && (ib.e == fi),
+                                pack.IsPhysicalBoundary(b, 0, -1, 0) && (jb.s == fj),
+                                pack.IsPhysicalBoundary(b, 0, 1, 0) && (jb.e == fj),
+                                pack.IsPhysicalBoundary(b, -1, 0, 0) && (kb.s == fk),
+                                pack.IsPhysicalBoundary(b, 1, 0, 0) && (kb.e == fk)};
             pack(b, n, fk, fj, fi) = 0.0;
             for (int ok = -(ndim > 2); ok < 1 + (ndim > 2); ++ok) {
               for (int oj = -(ndim > 1); oj < 1 + (ndim > 1); ++oj) {
@@ -175,6 +177,15 @@ class ProlongationBlockInteriorZeroDirichlet {
               }
             }
           } else if constexpr (ProlongationType::Kwak == prolongation_type) {
+            const int fok = (fk - kb.s) % 2;
+            const int foj = (fj - jb.s) % 2;
+            const int foi = (fi - ib.s) % 2;
+            const bool bound[6]{pack.IsPhysicalBoundary(b, 0, 0, -1) && (ib.s == fi),
+                                pack.IsPhysicalBoundary(b, 0, 0, 1) && (ib.e == fi),
+                                pack.IsPhysicalBoundary(b, 0, -1, 0) && (jb.s == fj),
+                                pack.IsPhysicalBoundary(b, 0, 1, 0) && (jb.e == fj),
+                                pack.IsPhysicalBoundary(b, -1, 0, 0) && (kb.s == fk),
+                                pack.IsPhysicalBoundary(b, 1, 0, 0) && (kb.e == fk)};
             pack(b, n, fk, fj, fi) = 0.0;
             if (ndim > 2 && !bound[4 + fok]) {
               for (int ok = fok - 1; ok <= fok; ++ok) {
@@ -196,6 +207,65 @@ class ProlongationBlockInteriorZeroDirichlet {
         });
     return TaskStatus::complete;
   }
+ 
+  template <class VarTL>
+  parthenon::TaskID Restrict(parthenon::TaskList &tl, parthenon::TaskID depends_on,
+                             std::shared_ptr<parthenon::MeshData<Real>> &md) {
+      return tl.AddTask(depends_on, TF(RestrictImpl<VarTL>),
+                        md);
+  }
+
+  template <class VarTL>
+  static parthenon::TaskStatus
+  RestrictImpl(std::shared_ptr<parthenon::MeshData<Real>> &md) {
+    using namespace parthenon;
+    const int ndim = md->GetMeshPointer()->ndim;
+    IndexRange ib = md->GetBoundsI(IndexDomain::interior);
+    IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
+    IndexRange kb = md->GetBoundsK(IndexDomain::interior);
+    IndexRange cib = md->GetBoundsI(CellLevel::coarse, IndexDomain::interior);
+    IndexRange cjb = md->GetBoundsJ(CellLevel::coarse, IndexDomain::interior);
+    IndexRange ckb = md->GetBoundsK(CellLevel::coarse, IndexDomain::interior);
+
+    using TE = parthenon::TopologicalElement;
+
+    int nblocks = md->NumBlocks();
+    std::vector<bool> include_block(nblocks, true);
+    for (int b = 0; b < nblocks; ++b) {
+      include_block[b] =
+          md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level();
+    }
+    const auto desc = parthenon::MakePackDescriptorFromTypeList<VarTL>(md.get());
+    const auto desc_coarse = parthenon::MakePackDescriptorFromTypeList<VarTL>(
+        md.get(), std::vector<MetadataFlag>{}, std::set<PDOpt>{PDOpt::Coarse});
+    auto pack = desc.GetPack(md.get(), include_block);
+    auto pack_coarse = desc_coarse.GetPack(md.get(), include_block);
+    if (pack.GetNBlocks() == 0) return TaskStatus::complete;
+    const int joff = ndim > 1; 
+    const int koff = ndim > 2; 
+    const Real fac = 1.0 / 8.0;
+    parthenon::par_for(
+        "Prolongate", 0, pack.GetNBlocks() - 1, pack.GetLowerBoundHost(0),
+        pack.GetUpperBoundHost(0), ckb.s, ckb.e, cjb.s, cjb.e, cib.s, cib.e,
+        KOKKOS_LAMBDA(const int b, const int n, const int ck, const int cj,
+                      const int ci) {
+
+          const int fk = (ndim > 2) ? (ck - ckb.s) * 2 + kb.s : kb.s;
+          const int fj = (ndim > 1) ? (cj - cjb.s) * 2 + jb.s : jb.s;
+          const int fi = (ndim > 0) ? (ci - cib.s) * 2 + ib.s : ib.s;
+          pack_coarse(b, n, ck, cj, ci) = pack(b, n, fk, fj, fi)
+                                        + pack(b, n, fk, fj, fi + 1)
+                                        + pack(b, n, fk, fj + joff, fi)  
+                                        + pack(b, n, fk, fj + joff, fi + 1)  
+                                        + pack(b, n, fk + koff, fj, fi)  
+                                        + pack(b, n, fk + koff, fj, fi + 1)  
+                                        + pack(b, n, fk + koff, fj + joff, fi)  
+                                        + pack(b, n, fk + koff, fj + joff, fi + 1);
+          pack_coarse(b, n, ck, cj, ci) *= fac; 
+        });
+    return TaskStatus::complete;
+  }
+
 };
 } // namespace solvers
 

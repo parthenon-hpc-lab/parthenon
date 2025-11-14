@@ -87,7 +87,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     }
   }
   // Restrict
-  if (md->NumBlocks() > 0) {
+  if (md->NumBlocks() > 0 && bound_type != BoundaryType::gmg_restrict_send) {
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
     StateDescriptor *resolved_packages = pmb->resolved_packages.get();
     refinement::Restrict(resolved_packages, cache.prores_cache, pmb->cellbounds,
