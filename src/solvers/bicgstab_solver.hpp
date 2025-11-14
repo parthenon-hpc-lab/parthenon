@@ -303,6 +303,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     auto timer_omega = solver_timings.GetOrAddAndRegister("BiCGSTAB: omega update", itl);
     timer_omega->StartCollectingTasks();
     auto get_tt_ts = DoubleDotProduct<FieldTL>(get_t, itl, &tt_ts, md_t, md_s);
+
     // 9. x <- h + omega u
     auto correct_x = itl.AddTask(
         get_tt_ts, "x <- h + omega u",
