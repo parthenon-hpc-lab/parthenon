@@ -309,8 +309,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
     auto mat_mult = eqs_.Ax(tl, comm, md_base, md_in, md_out);
     time_ax->StopCollectingTasks();
 
-
-    auto guard = TimingAccumulatorGuard(solver_timings.GetOrAddAndRegister(GetTimeLabel("Jacobi Ax", level), tl));
+    auto guard = TimingAccumulatorGuard(solver_timings.GetOrAddAndRegister(GetTimeLabel("Jacobi", level), tl));
     return tl.AddTask(mat_mult, TF(&MGSolver::Jacobi), this, md_rhs, md_out, md_diag,
                       md_in, md_out, omega);
   }
