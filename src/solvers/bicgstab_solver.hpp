@@ -273,6 +273,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
         },
         this, pmesh);
 
+    timer_alpha->StopCollectingTasks();
+
     // 6. u <- M s
     auto precon2 = correct_s;
     if (params_.precondition_type == Preconditioner::Multigrid) {
@@ -302,6 +304,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     // 8. omega <- (t,s) / (t,t)
     auto timer_omega = solver_timings.GetOrAddAndRegister("BiCGSTAB: omega update", itl);
     timer_omega->StartCollectingTasks();
+    auto get_ts = DotProduct<FieldTL>(get_t, itl, &ts, md_t, md_s);
+    auto get_tt = DotProduct<FieldTL>(get_t, itl, &tt, md_t, md_t);
 
     // 9. x <- h + omega u
     auto correct_x = itl.AddTask(
@@ -327,6 +331,10 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     // Check and print out residual
     auto timer_res = solver_timings.GetOrAddAndRegister("BiCGSTAB: residual", itl);
     timer_res->StartCollectingTasks();
+    auto get_res2 = DotProduct<FieldTL>(correct_r, itl, &residual, md_r, md_r);
+
+    get_res2 = itl.AddTask(
+        TaskQualifier::once_per_region, get_res2,
         [&](BiCGSTABSolver *solver, Mesh *pmesh) {
           Real rms_err = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           if (Globals::my_rank == 0 && solver->params_.print_per_step)
