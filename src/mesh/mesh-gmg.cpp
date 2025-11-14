@@ -115,6 +115,7 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
 
   const int gmg_min_level = -gmg_level_offset;
   gmg_min_logical_level_ = gmg_min_level;
+  gmg_block_lists_.clear();
   for (int level = gmg_min_level; level <= current_level; ++level) {
     gmg_block_lists_[level] = BlockList_t();
   }
