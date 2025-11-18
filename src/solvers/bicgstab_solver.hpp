@@ -212,11 +212,11 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     if (params_.precondition_type == Preconditioner::Multigrid) {
       auto timer = solver_timings.GetOrAddAndRegister("BiCGSTAB: Precon setup", itl);
       timer->StartCollectingTasks();
-      auto set_rhs = itl.AddTask(precon1, TF(CopyData<FieldTL>), md_p, md_rhs);
       auto zero_u = itl.AddTask(precon1, TF(SetToZero<FieldTL>), md_u);
       timer->StopCollectingTasks();
+      preconditioner.SetRHSContainerLabel(container_p);
       precon1 =
-          preconditioner.AddLinearOperatorTasks(itl, set_rhs | zero_u, partition, pmesh);
+          preconditioner.AddLinearOperatorTasks(itl, zero_u, partition, pmesh);
     } else if (params_.precondition_type == Preconditioner::Diagonal) {
       precon1 = itl.AddTask(precon1, TF(ADividedByB<FieldTL>), md_p, md_diag, md_u);
     } else {
@@ -278,11 +278,11 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     if (params_.precondition_type == Preconditioner::Multigrid) {
       auto timer = solver_timings.GetOrAddAndRegister("BiCGSTAB: Precon setup", itl);
       timer->StartCollectingTasks();
-      auto set_rhs = itl.AddTask(precon2, TF(CopyData<FieldTL>), md_s, md_rhs);
       auto zero_u = itl.AddTask(precon2, TF(SetToZero<FieldTL>), md_u);
       timer->StopCollectingTasks();
+      preconditioner.SetRHSContainerLabel(container_s);
       precon2 =
-          preconditioner.AddLinearOperatorTasks(itl, set_rhs | zero_u, partition, pmesh);
+          preconditioner.AddLinearOperatorTasks(itl, zero_u, partition, pmesh);
     } else if (params_.precondition_type == Preconditioner::Diagonal) {
       precon2 = itl.AddTask(precon2, TF(ADividedByB<FieldTL>), md_s, md_diag, md_u);
     } else {
