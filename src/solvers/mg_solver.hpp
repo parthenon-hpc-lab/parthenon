@@ -300,9 +300,10 @@ class MGSolver : public SolverBase, MGSolverCounter {
     auto &md_base = pmesh->mesh_data.Add(container_base, partitions[partition]);
     auto &md_rhs = pmesh->mesh_data.Add(container_rhs, partitions[partition], sol_fields);
     auto &md_diag = pmesh->mesh_data.Add(container_diag, md_base, sol_fields);
+    auto &md_ax = pmesh->mesh_data.Add(container_temp, md_base, sol_fields);
     auto mat_mult = depends_on;
     if (in_is_zero) { 
-      mat_mult = tl.AddTask(depends_on, TF(SetToZero<FieldTL, true>), md_out); 
+      mat_mult = tl.AddTask(depends_on, TF(SetToZero<FieldTL, true>), md_ax); 
     } else { 
       auto time_comm = solver_timings.GetOrAddAndRegister(GetTimeLabel("Boundary", level), tl);
       time_comm->StartCollectingTasks();
@@ -312,12 +313,12 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
       auto time_ax = solver_timings.GetOrAddAndRegister(GetTimeLabel("Jacobi Ax", level), tl);
       time_ax->StartCollectingTasks();
-      mat_mult = eqs_.Ax(tl, comm, md_base, md_in, md_out);
+      mat_mult = eqs_.Ax(tl, comm, md_base, md_in, md_ax);
       time_ax->StopCollectingTasks();
     }
 
     auto guard = TimingAccumulatorGuard(solver_timings.GetOrAddAndRegister(GetTimeLabel("Jacobi", level), tl));
-    return tl.AddTask(mat_mult, TF(&MGSolver::Jacobi), this, md_rhs, md_out, md_diag,
+    return tl.AddTask(mat_mult, TF(&MGSolver::Jacobi), this, md_rhs, md_ax, md_diag,
                       md_in, md_out, omega);
   }
 
@@ -331,7 +332,6 @@ class MGSolver : public SolverBase, MGSolverCounter {
         pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
     auto &md_base = pmesh->mesh_data.Add(container_base, partitions[partition]);
     auto &md_u = pmesh->mesh_data.Add(container_u, md_base, sol_fields);
-    auto &md_temp = pmesh->mesh_data.Add(container_temp, md_base, sol_fields);
 
     std::array<std::array<Real, 3>, 3> omega_M1{
         {{1.0, 0.0, 0.0}, {1.0, 0.0, 0.0}, {1.0, 0.0, 0.0}}};
@@ -346,24 +346,21 @@ class MGSolver : public SolverBase, MGSolverCounter {
     if (stages == 0) return depends_on;
 
     const bool in_is_zero = (level == max_level) && initial_guess_is_zero && first;
-    // This copy is to set the coarse blocks in temp to the values in u so that
-    // fine-coarse boundaries of temp are correctly updated during communication
-    depends_on = tl.AddTask(depends_on, TF(CopyData<FieldTL, false>), md_u, md_temp);
     if (stages == 1) {
       return AddJacobiIteration<comm_boundary>(
-        tl, depends_on, multilevel, omega_M1[ndim - 1][0], partition, level, in_is_zero, md_temp, md_u);
+        tl, depends_on, multilevel, omega_M1[ndim - 1][0], partition, level, in_is_zero, md_u, md_u);
     } else if (stages == 2) {
       auto jacobi1 = AddJacobiIteration<comm_boundary>(
-        tl, depends_on, multilevel, omega_M2[ndim - 1][0], partition, level, in_is_zero, md_u, md_temp);
+        tl, depends_on, multilevel, omega_M2[ndim - 1][0], partition, level, in_is_zero, md_u, md_u);
       return AddJacobiIteration<comm_boundary>(
-        tl, jacobi1, multilevel, omega_M2[ndim - 1][1], partition, level, false, md_temp, md_u);
+        tl, jacobi1, multilevel, omega_M2[ndim - 1][1], partition, level, false, md_u, md_u);
     } else if (stages == 3) {
       auto jacobi1 = AddJacobiIteration<comm_boundary>(
-        tl, depends_on, multilevel, omega_M3[ndim - 1][0], partition, level, in_is_zero, md_temp, md_u);
+        tl, depends_on, multilevel, omega_M3[ndim - 1][0], partition, level, in_is_zero, md_u, md_u);
       auto jacobi2 = AddJacobiIteration<comm_boundary>(
-        tl, jacobi1, multilevel, omega_M3[ndim - 1][1], partition, level, false, md_u, md_temp); 
+        tl, jacobi1, multilevel, omega_M3[ndim - 1][1], partition, level, false, md_u, md_u); 
       return AddJacobiIteration<comm_boundary>(
-        tl, jacobi2, multilevel, omega_M3[ndim - 1][2], partition, level, false, md_temp, md_u); 
+        tl, jacobi2, multilevel, omega_M3[ndim - 1][2], partition, level, false, md_u, md_u); 
     } else {
       PARTHENON_FAIL("More than three stages not implemented.");
       return depends_on;
