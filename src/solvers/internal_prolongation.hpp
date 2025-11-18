@@ -46,6 +46,13 @@ class ProlongationBlockInteriorDefault {
     return tl.AddTask(depends_on, TF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>),
                       md);
   }
+
+  template <class>
+  parthenon::TaskID Prolongate(parthenon::TaskList &tl, parthenon::TaskID depends_on,
+                               std::shared_ptr<parthenon::MeshData<Real>> &md) {
+    return tl.AddTask(depends_on, TF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>),
+                      md);
+  }
 };
 
 // Using this class overrides the prolongation operator set in a fields metadata when
@@ -145,13 +152,13 @@ class ProlongationBlockInteriorZeroDirichlet {
           const int ck = (ndim > 2) ? (fk - kb.s) / 2 + ckb.s : ckb.s;
           const int cj = (ndim > 1) ? (fj - jb.s) / 2 + cjb.s : cjb.s;
           const int ci = (ndim > 0) ? (fi - ib.s) / 2 + cib.s : cib.s;
-          
+
           // Use both pack and pack_coarse outside of the constexpr if
           // statements to prevent compilation errors in some CUDA compilers
           pack(b, n, fk, fj, fi) = pack_coarse(b, n, ck, cj, ci);
           // if constexpr (ProlongationType::Constant == prolongation_type) {
           //   pack(b, n, fk, fj, fi) = pack_coarse(b, n, ck, cj, ci);
-          // } else 
+          // } else
           if constexpr (ProlongationType::Linear == prolongation_type) {
             const int fok = (fk - kb.s) % 2;
             const int foj = (fj - jb.s) % 2;
@@ -207,12 +214,11 @@ class ProlongationBlockInteriorZeroDirichlet {
         });
     return TaskStatus::complete;
   }
- 
+
   template <class VarTL>
   parthenon::TaskID Restrict(parthenon::TaskList &tl, parthenon::TaskID depends_on,
                              std::shared_ptr<parthenon::MeshData<Real>> &md) {
-      return tl.AddTask(depends_on, TF(RestrictImpl<VarTL>),
-                        md);
+    return tl.AddTask(depends_on, TF(RestrictImpl<VarTL>), md);
   }
 
   template <class VarTL>
@@ -241,31 +247,27 @@ class ProlongationBlockInteriorZeroDirichlet {
     auto pack = desc.GetPack(md.get(), include_block);
     auto pack_coarse = desc_coarse.GetPack(md.get(), include_block);
     if (pack.GetNBlocks() == 0) return TaskStatus::complete;
-    const int joff = ndim > 1; 
-    const int koff = ndim > 2; 
+    const int joff = ndim > 1;
+    const int koff = ndim > 2;
     const Real fac = 1.0 / 8.0;
     parthenon::par_for(
         "Restrict", 0, pack.GetNBlocks() - 1, pack.GetLowerBoundHost(0),
         pack.GetUpperBoundHost(0), ckb.s, ckb.e, cjb.s, cjb.e, cib.s, cib.e,
         KOKKOS_LAMBDA(const int b, const int n, const int ck, const int cj,
                       const int ci) {
-
           const int fk = koff * 2 * (ck - ckb.s) + kb.s;
           const int fj = joff * 2 * (cj - cjb.s) + jb.s;
           const int fi = 2 * (ci - cib.s) + ib.s;
-          pack_coarse(b, n, ck, cj, ci) = pack(b, n, fk, fj, fi)
-                                        + pack(b, n, fk, fj, fi + 1)
-                                        + pack(b, n, fk, fj + joff, fi)  
-                                        + pack(b, n, fk, fj + joff, fi + 1)  
-                                        + pack(b, n, fk + koff, fj, fi)  
-                                        + pack(b, n, fk + koff, fj, fi + 1)  
-                                        + pack(b, n, fk + koff, fj + joff, fi)  
-                                        + pack(b, n, fk + koff, fj + joff, fi + 1);
-          pack_coarse(b, n, ck, cj, ci) /= 8.0; 
+          pack_coarse(b, n, ck, cj, ci) =
+              pack(b, n, fk, fj, fi) + pack(b, n, fk, fj, fi + 1) +
+              pack(b, n, fk, fj + joff, fi) + pack(b, n, fk, fj + joff, fi + 1) +
+              pack(b, n, fk + koff, fj, fi) + pack(b, n, fk + koff, fj, fi + 1) +
+              pack(b, n, fk + koff, fj + joff, fi) +
+              pack(b, n, fk + koff, fj + joff, fi + 1);
+          pack_coarse(b, n, ck, cj, ci) /= 8.0;
         });
     return TaskStatus::complete;
   }
-
 };
 } // namespace solvers
 

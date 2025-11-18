@@ -40,15 +40,16 @@ template <typename T>
 class Variable;
 
 template <BoundaryType bound_type>
-TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md, bool restrict);
+TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
+                                           bool restrict);
 
 template <BoundaryType bound_type>
-inline TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) { 
+inline TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   return SendBoundBufsWithRestrictOption<bound_type>(md, true);
 }
 
 template <BoundaryType bound_type>
-inline TaskStatus SendBoundBufsNoRestrict(std::shared_ptr<MeshData<Real>> &md) { 
+inline TaskStatus SendBoundBufsNoRestrict(std::shared_ptr<MeshData<Real>> &md) {
   return SendBoundBufsWithRestrictOption<bound_type>(md, false);
 }
 

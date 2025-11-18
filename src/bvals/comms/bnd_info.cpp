@@ -149,9 +149,11 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
   std::array<int, 3> top_offset{TopologicalOffsetI(el), TopologicalOffsetJ(el),
                                 TopologicalOffsetK(el)};
   std::array<int, 3> block_offset = nb.offsets;
-  
-  int communicated_ghosts = Globals::nghost; 
-  if (!prores && loc.level() == nb.origin_loc.level() && v->IsSet(Metadata::GMGProlongate)) communicated_ghosts = 1;
+
+  int communicated_ghosts = Globals::nghost;
+  if (!prores && loc.level() == nb.origin_loc.level() &&
+      v->IsSet(Metadata::GMGProlongate))
+    communicated_ghosts = 1;
   int interior_offset =
       ir_type == IndexRangeType::BoundaryInteriorSend ? communicated_ghosts : 0;
   int exterior_offset =

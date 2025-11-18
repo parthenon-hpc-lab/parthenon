@@ -56,12 +56,12 @@ class SolverBase {
                     std::shared_ptr<MeshData<Real>> &md_mat,
                     std::shared_ptr<MeshData<Real>> &md_in,
                     std::shared_ptr<MeshData<Real>> &md_out) = 0;
-  
+
   virtual void SetConstantProlongation(bool const_pro) {}
 
   Real GetFinalResidual() const { return final_residual; }
   int GetFinalIterations() const { return final_iteration; }
-  
+
   void SetRHSContainerLabel(const std::string &rhs) { container_rhs = rhs; }
   const std::string &GetBaseContainerLabel() const { return container_base; }
   const std::string &GetRHSContainerLabel() const { return container_rhs; }

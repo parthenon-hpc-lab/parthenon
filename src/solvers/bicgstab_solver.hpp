@@ -113,7 +113,9 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     }
   }
 
-  void SetConstantProlongation(bool const_pro) {preconditioner.SetConstantProlongation(const_pro);}
+  void SetConstantProlongation(bool const_pro) {
+    preconditioner.SetConstantProlongation(const_pro);
+  }
 
   TaskID Ax(TaskList &tl, TaskID dependence, std::shared_ptr<MeshData<Real>> &md_mat,
             std::shared_ptr<MeshData<Real>> &md_in,
@@ -168,7 +170,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     auto copy_r = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_r);
     auto copy_p = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_p);
     auto copy_rhat0 = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_rhat0);
-    auto get_rhs2_rhat0r_init = DoubleDotProduct<FieldTL>(dependence, tl, &res_rhat0r, md_r, md_rhat0);
+    auto get_rhs2_rhat0r_init =
+        DoubleDotProduct<FieldTL>(dependence, tl, &res_rhat0r, md_r, md_rhat0);
     auto initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
         zero_x | zero_u_init | copy_r | copy_p | copy_rhat0 | get_rhs2_rhat0r_init,
@@ -217,8 +220,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
       auto zero_u = itl.AddTask(precon1, TF(SetToZero<FieldTL>), md_u);
       timer->StopCollectingTasks();
       preconditioner.SetRHSContainerLabel(container_p);
-      precon1 =
-          preconditioner.AddLinearOperatorTasks(itl, zero_u, partition, pmesh);
+      precon1 = preconditioner.AddLinearOperatorTasks(itl, zero_u, partition, pmesh);
     } else if (params_.precondition_type == Preconditioner::Diagonal) {
       precon1 = itl.AddTask(precon1, TF(ADividedByB<FieldTL>), md_p, md_diag, md_u);
     } else {
@@ -235,7 +237,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     timer_comm->StopCollectingTasks();
     auto get_v = eqs_.Ax(itl, comm, md_base, md_u, md_v);
     timer_Auv->StopCollectingTasks();
-    
+
     // 3. rhat0v <- (rhat0, v)
     auto timer_alpha = solver_timings.GetOrAddAndRegister("BiCGSTAB: alpha update", itl);
     timer_alpha->StartCollectingTasks();
@@ -285,8 +287,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
       auto zero_u = itl.AddTask(precon2, TF(SetToZero<FieldTL>), md_u);
       timer->StopCollectingTasks();
       preconditioner.SetRHSContainerLabel(container_s);
-      precon2 =
-          preconditioner.AddLinearOperatorTasks(itl, zero_u, partition, pmesh);
+      precon2 = preconditioner.AddLinearOperatorTasks(itl, zero_u, partition, pmesh);
     } else if (params_.precondition_type == Preconditioner::Diagonal) {
       precon2 = itl.AddTask(precon2, TF(ADividedByB<FieldTL>), md_s, md_diag, md_u);
     } else {
@@ -333,7 +334,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     auto timer_res = solver_timings.GetOrAddAndRegister("BiCGSTAB: residual", itl);
     timer_res->StartCollectingTasks();
     // 11. rhat0r <- (rhat0, r) and residual
-    auto get_res2_rhat0r = DoubleDotProduct<FieldTL>(correct_r, itl, &res_rhat0r, md_r, md_rhat0);
+    auto get_res2_rhat0r =
+        DoubleDotProduct<FieldTL>(correct_r, itl, &res_rhat0r, md_r, md_rhat0);
     get_res2_rhat0r = itl.AddTask(
         TaskQualifier::once_per_region, get_res2_rhat0r,
         [&](BiCGSTABSolver *solver, Mesh *pmesh) {
