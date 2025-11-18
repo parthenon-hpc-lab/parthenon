@@ -260,17 +260,19 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
         this, md_r, md_v, md_s);
 
     // Check and print out residual
-    // auto get_res = DotProduct<FieldTL>(correct_s, itl, &residual, md_s, md_s);
+    if (params_.print_per_step) {
+      auto get_res = DotProduct<FieldTL>(correct_s, itl, &residual, md_s, md_s);
 
-    // auto print = itl.AddTask(
-    //     TaskQualifier::once_per_region, get_res,
-    //     [&](BiCGSTABSolver *solver, Mesh *pmesh) {
-    //       Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
-    //       if (Globals::my_rank == 0 && solver->params_.print_per_step)
-    //         printf("%i %e\n", solver->iter_counter * 2 + 1, rms_res);
-    //       return TaskStatus::complete;
-    //     },
-    //     this, pmesh);
+      auto print = itl.AddTask(
+          TaskQualifier::once_per_region, get_res,
+          [&](BiCGSTABSolver *solver, Mesh *pmesh) {
+            Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
+            if (Globals::my_rank == 0 && solver->params_.print_per_step)
+              printf("%i %e\n", solver->iter_counter * 2 + 1, rms_res);
+            return TaskStatus::complete;
+          },
+          this, pmesh);
+    }
     timer_alpha->StopCollectingTasks();
 
     // 6. u <- M s
