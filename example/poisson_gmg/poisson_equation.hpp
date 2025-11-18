@@ -112,8 +112,8 @@ class PoissonEquation {
 
     auto desc_mat = parthenon::MakePackDescriptor<D_t>(md_mat.get());
     auto desc_diag = parthenon::MakePackDescriptor<var_t>(md_diag.get());
-    auto pack_mat = desc_mat.GetPack(md_mat.get(), include_block);
-    auto pack_diag = desc_diag.GetPack(md_diag.get(), include_block);
+    auto pack_mat = desc_mat.GetPack(md_mat.get());
+    auto pack_diag = desc_diag.GetPack(md_diag.get());
     using TE = parthenon::TopologicalElement;
     parthenon::par_for(
         "StoreDiagonal", 0, pack_mat.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -158,9 +158,9 @@ class PoissonEquation {
     std::vector<bool> include_block(nblocks, true);
 
     auto desc = parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
-    auto pack = desc.GetPack(md.get(), include_block);
+    auto pack = desc.GetPack(md.get());
     auto desc_mat = parthenon::MakePackDescriptor<D_t>(md_mat.get(), {});
-    auto pack_mat = desc_mat.GetPack(md_mat.get(), include_block);
+    auto pack_mat = desc_mat.GetPack(md_mat.get());
     parthenon::par_for(
         "CaclulateFluxes", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
@@ -217,8 +217,8 @@ class PoissonEquation {
 
     auto desc = parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
     auto desc_mat = parthenon::MakePackDescriptor<D_t>(md.get());
-    auto pack = desc.GetPack(md.get(), include_block);
-    auto pack_mat = desc_mat.GetPack(md_mat.get(), include_block);
+    auto pack = desc.GetPack(md.get());
+    auto pack_mat = desc_mat.GetPack(md_mat.get());
     const std::size_t scratch_size_in_bytes = 0;
     const std::size_t scratch_level = 1;
 
@@ -298,8 +298,8 @@ class PoissonEquation {
     static auto desc =
         parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
     static auto desc_out = parthenon::MakePackDescriptor<var_t>(md_out.get());
-    auto pack = desc.GetPack(md.get(), include_block);
-    auto pack_out = desc_out.GetPack(md_out.get(), include_block);
+    auto pack = desc.GetPack(md.get());
+    auto pack_out = desc_out.GetPack(md_out.get());
     parthenon::par_for(
         "FluxMultiplyMatrix", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
         ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
