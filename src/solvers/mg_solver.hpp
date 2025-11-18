@@ -419,10 +419,10 @@ class MGSolver : public SolverBase, MGSolverCounter {
       pre_stages = 1;
       post_stages = 1;
     } else if (smoother == "SRJ2") {
-      pre_stages = 1;
+      pre_stages = 2;
       post_stages = 2;
     } else if (smoother == "SRJ3") {
-      pre_stages = 1;
+      pre_stages = 3;
       post_stages = 3;
     } else {
       PARTHENON_FAIL("Unknown smoother type.");
@@ -530,11 +530,11 @@ class MGSolver : public SolverBase, MGSolverCounter {
       timer_res->StartCollectingTasks();
       residual = prolongator_.template Restrict<FieldTL>(tl, residual, md_u);
       auto communicate_to_coarse =
-          tl.AddTask(residual, BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_u);
+          tl.AddTask(residual, BTF(SendBoundBufsNoRestrict<BoundaryType::gmg_restrict_send>), md_u);
       communicate_to_coarse = prolongator_.template Restrict<FieldTL>(tl, communicate_to_coarse, md_res_err);
       communicate_to_coarse =
           tl.AddTask(communicate_to_coarse,
-                     BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_res_err);
+                     BTF(SendBoundBufsNoRestrict<BoundaryType::gmg_restrict_send>), md_res_err);
       timer_res->StopCollectingTasks();
 
       // 6. Receive error field into communication field and prolongate

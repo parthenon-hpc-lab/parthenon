@@ -245,14 +245,14 @@ class ProlongationBlockInteriorZeroDirichlet {
     const int koff = ndim > 2; 
     const Real fac = 1.0 / 8.0;
     parthenon::par_for(
-        "Prolongate", 0, pack.GetNBlocks() - 1, pack.GetLowerBoundHost(0),
+        "Restrict", 0, pack.GetNBlocks() - 1, pack.GetLowerBoundHost(0),
         pack.GetUpperBoundHost(0), ckb.s, ckb.e, cjb.s, cjb.e, cib.s, cib.e,
         KOKKOS_LAMBDA(const int b, const int n, const int ck, const int cj,
                       const int ci) {
 
-          const int fk = (ndim > 2) ? (ck - ckb.s) * 2 + kb.s : kb.s;
-          const int fj = (ndim > 1) ? (cj - cjb.s) * 2 + jb.s : jb.s;
-          const int fi = (ndim > 0) ? (ci - cib.s) * 2 + ib.s : ib.s;
+          const int fk = koff * 2 * (ck - ckb.s) + kb.s;
+          const int fj = joff * 2 * (cj - cjb.s) + jb.s;
+          const int fi = 2 * (ci - cib.s) + ib.s;
           pack_coarse(b, n, ck, cj, ci) = pack(b, n, fk, fj, fi)
                                         + pack(b, n, fk, fj, fi + 1)
                                         + pack(b, n, fk, fj + joff, fi)  
@@ -261,7 +261,7 @@ class ProlongationBlockInteriorZeroDirichlet {
                                         + pack(b, n, fk + koff, fj, fi + 1)  
                                         + pack(b, n, fk + koff, fj + joff, fi)  
                                         + pack(b, n, fk + koff, fj + joff, fi + 1);
-          pack_coarse(b, n, ck, cj, ci) *= fac; 
+          pack_coarse(b, n, ck, cj, ci) /= 8.0; 
         });
     return TaskStatus::complete;
   }

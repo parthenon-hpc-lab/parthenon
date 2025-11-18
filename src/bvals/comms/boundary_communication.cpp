@@ -48,7 +48,7 @@ using namespace loops;
 using namespace loops::shorthands;
 
 template <BoundaryType bound_type>
-TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
+TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md, bool restrict) {
   PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
@@ -87,7 +87,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     }
   }
   // Restrict
-  if (md->NumBlocks() > 0 && bound_type != BoundaryType::gmg_restrict_send) {
+  if (md->NumBlocks() > 0 && restrict) {
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
     StateDescriptor *resolved_packages = pmb->resolved_packages.get();
     refinement::Restrict(resolved_packages, cache.prores_cache, pmb->cellbounds,
