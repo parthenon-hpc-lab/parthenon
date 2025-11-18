@@ -113,6 +113,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     }
   }
 
+  void SetConstantProlongation(bool const_pro) {preconditioner.SetConstantProlongation(const_pro);}
+
   TaskID Ax(TaskList &tl, TaskID dependence, std::shared_ptr<MeshData<Real>> &md_mat,
             std::shared_ptr<MeshData<Real>> &md_in,
             std::shared_ptr<MeshData<Real>> &md_out) {
@@ -390,7 +392,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
   preconditioner_t preconditioner;
   BiCGSTABParams params_;
   int iter_counter;
-  AllReduce<Real> rhat0v;
+  AllReduce<Real> rhat0v, residual;
   AllReduce<utils::summable_array_t<Real, 2>> tt_ts, res_rhat0r;
   Real rhat0r_old, rhs2;
   equations_t eqs_;

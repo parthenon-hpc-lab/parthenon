@@ -89,7 +89,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
   BValOnMDFunc_t BCFunc;
 
   bool initial_guess_is_zero;
-
+  bool constant_prolongation;
   MGSolver(const std::string &container_base, const std::string &container_u,
            const std::string &container_rhs, ParameterInput *pin,
            const std::string &input_block, equations_t eq_in = equations_t())
@@ -101,7 +101,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
            equations_t eq_in = equations_t(), prolongator_t prol_in = prolongator_t())
       : SolverBase(container_base, container_u, container_rhs), params_(params_in),
         iter_counter(0), eqs_(eq_in), prolongator_(prol_in),
-        initial_guess_is_zero{false} {
+        initial_guess_is_zero{false}, constant_prolongation{false} {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
     std::string solver_id = "mg" + std::to_string(id++);
@@ -115,6 +115,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
       BCFunc = ApplyBoundaryConditionsOnCoarseOrFineMD;
     }
   }
+
+  void SetConstantProlongation(bool const_pro) {constant_prolongation = const_pro;}
 
   TaskID Ax(TaskList &tl, TaskID dependence, std::shared_ptr<MeshData<Real>> &md_mat,
             std::shared_ptr<MeshData<Real>> &md_in,
@@ -580,11 +582,14 @@ class MGSolver : public SolverBase, MGSolverCounter {
       }
       // This is required to make sure boundaries of res_err are up to date before
       // prolongation
-      auto timer_comm = solver_timings.GetOrAddAndRegister(GetTimeLabel("Boundary", level), tl);
-      timer_comm->StartCollectingTasks();
-      auto boundary = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
-          copy_over, tl, md_res_err, multilevel, BCFunc);
-      timer_comm->StopCollectingTasks();
+      auto boundary = copy_over;
+      if (!constant_prolongation) {
+        auto timer_comm = solver_timings.GetOrAddAndRegister(GetTimeLabel("Boundary", level), tl);
+        timer_comm->StartCollectingTasks();
+        auto boundary = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
+            copy_over, tl, md_res_err, multilevel, BCFunc);
+        timer_comm->StopCollectingTasks();
+      }
       last_task = tl.AddTask(
           boundary, BTF(SendBoundBufs<BoundaryType::gmg_prolongate_send>), md_res_err);
     }
