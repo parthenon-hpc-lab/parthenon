@@ -58,8 +58,9 @@ AMRCriteria::AMRCriteria(ParameterInput *pin, std::string &block_name)
                                       "magnitude that triggers refinement");
   derefine_criteria = pin->GetOrAddReal(block_name, "derefine_tol", 0.05,
                                         "magnitude that triggers de-refinement");
-  int global_max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
-                                              "maximum level of refinement globally when AMR is on");
+  int global_max_level =
+      pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
+                           "maximum level of refinement globally when AMR is on");
   max_level =
       pin->GetOrAddInteger(block_name, "max_level", global_max_level,
                            "maximum level this refinement criterion will achieve");
