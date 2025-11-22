@@ -176,7 +176,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // SMR / AMR:
   if (adaptive) {
     max_level_ref_ = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
-                                          "maximum level of refinement globally");
+                                          "maximum level of refinement globally when AMR is on");
     max_level = max_level_ref_ + root_level - 1;
   } else {
     max_level_ref_ = 63;
@@ -212,7 +212,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   // SMR / AMR:
   if (adaptive) {
     max_level_ref_ = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
-                                          "maximum level of refinement globally");
+                                          "maximum level of refinement globally when AMR is on");
     max_level = max_level_ref_ + root_level - 1;
   } else {
     max_level_ref_ = 63;
