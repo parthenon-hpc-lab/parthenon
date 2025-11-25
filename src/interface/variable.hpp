@@ -155,8 +155,8 @@ class Variable {
     if (IsSet(Metadata::Node)) return {TE::NN};
     return {TE::CC};
   }
-  
-  bool RequiresCoarseBuffer() const { 
+
+  bool RequiresCoarseBuffer() const {
     return IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent) ||
            IsSet(Metadata::ForceRemeshComm) || IsSet(Metadata::Flux) ||
            IsSet(Metadata::GMGRestrict) || IsSet(Metadata::GMGProlongate);
