@@ -152,7 +152,7 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
 
   int communicated_ghosts = Globals::nghost;
   if (!prores && loc.level() == nb.origin_loc.level() &&
-      v->IsSet(Metadata::GMGProlongate))
+      v->IsSet(Metadata::CommunicateOne))
     communicated_ghosts = 1;
   int interior_offset =
       ir_type == IndexRangeType::BoundaryInteriorSend ? communicated_ghosts : 0;
