@@ -246,6 +246,10 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
       if (sox3 == 0) sox3 = loc.l(2) % 2 == 1 ? 1 : -1;
     }
     owns = GetIndexRangeMaskFromOwnership(el, nb.ownership, sox1, sox2, sox3);
+  } else if (ir_type == IndexRangeType::InteriorRecv) {
+    // Also need to set ownership when a parent block receives from a daughter
+    // block during multigrid operations
+    owns = GetIndexRangeMaskFromOwnership(el, nb.ownership, 0, 0, 0);
   }
   return SpatiallyMaskedIndexer6D(owns, {0, tensor_shape[0] - 1},
                                   {0, tensor_shape[1] - 1}, {0, tensor_shape[2] - 1},
