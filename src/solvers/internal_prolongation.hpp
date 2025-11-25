@@ -46,13 +46,6 @@ class ProlongationBlockInteriorDefault {
     return tl.AddTask(depends_on, TF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>),
                       md);
   }
-
-  template <class>
-  parthenon::TaskID Prolongate(parthenon::TaskList &tl, parthenon::TaskID depends_on,
-                               std::shared_ptr<parthenon::MeshData<Real>> &md) {
-    return tl.AddTask(depends_on, TF(ProlongateBounds<BoundaryType::gmg_prolongate_recv>),
-                      md);
-  }
 };
 
 // Using this class overrides the prolongation operator set in a fields metadata when
