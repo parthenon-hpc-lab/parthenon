@@ -304,7 +304,7 @@ void MeshBlock::AllocateSparse(std::string const &label, bool only_control,
         v->AllocateData(this, flag_uninitialized);
 
         // copy fluxes and boundary variable from variable on base stage
-        v->CopyFluxesAndBdryVar(base_var.get());
+        v->CopyCoarseBuffer(base_var.get());
       }
     }
   };
