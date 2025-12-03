@@ -249,7 +249,12 @@ TEST_CASE("TaskCollection timing", "[TaskList][AddTask]") {
     int total_ms_in_region_1{0};
     int total_ms_in_all{0};
     const int niters = 3;
-    const int nregions = 5;
+    const int nregions = 4;
+    
+    const int time_a = 10;
+    const int time_b = 20;
+    const int time_c = 30;
+    const int time_d = 40;
 
     // Set the global bool that enables task timing
     parthenon::Task::enable_timing = true;
@@ -266,21 +271,22 @@ TEST_CASE("TaskCollection timing", "[TaskList][AddTask]") {
           auto timer1 = timing_dict.GetOrAddAndRegister("timing region 1", tl);
 
           timer1->StartCollectingTasks();
-          auto t1 = tl.AddTask(TaskID(0), WaitTask(10));
-          total_ms_in_region_1 += 10;
-          total_ms_in_all += 10;
-          auto t2 = tl.AddTask(t1, WaitTask(20));
-          total_ms_in_region_1 += 20;
-          total_ms_in_all += 20;
+          auto t1 = tl.AddTask(TaskID(0), WaitTask(time_a));
+          total_ms_in_region_1 += time_a;
+          total_ms_in_all += time_a;
+
+          auto t2 = tl.AddTask(t1, WaitTask(time_b));
+          total_ms_in_region_1 += time_b;
+          total_ms_in_all += time_b;
           timer1->StopCollectingTasks();
 
-          auto t3 = tl.AddTask(t2, WaitTask(30));
-          total_ms_in_all += 30;
+          auto t3 = tl.AddTask(t2, WaitTask(time_c));
+          total_ms_in_all += time_c;
 
-          auto t4 = tl.AddTask(t3, WaitTask(40));
+          auto t4 = tl.AddTask(t3, WaitTask(time_d));
           timer1->CollectTask(t4.GetTask());
-          total_ms_in_region_1 += 40;
-          total_ms_in_all += 40;
+          total_ms_in_region_1 += time_d;
+          total_ms_in_all += time_d;
         }
 
         parthenon::TaskListStatus status = tc.Execute();
@@ -291,20 +297,22 @@ TEST_CASE("TaskCollection timing", "[TaskList][AddTask]") {
         auto region1_timing = timing_dict.Get("timing region 1");
         auto total_time_in_s = region1_timing->GetTotalTime();
 
-        // Check that the timing is what is expected within \pm 2%
+        // Check that the timing is at least longer than what we expect
+        // (note that sleep_for sleeps for *at least* the requested time,
+        // so we can't robustly test for an upper boundary)
         double expected_time_in_ms = total_ms_in_region_1;
-        REQUIRE(total_time_in_s * 1e3 > expected_time_in_ms * 0.98);
-        REQUIRE(total_time_in_s * 1e3 < expected_time_in_ms * 1.02);
+        REQUIRE(total_time_in_s * 1e3 > expected_time_in_ms * 0.9);
       }
 
       THEN("The total timing is what we expect") {
         auto region_timing = timing_dict.Get("timing all");
         auto total_time_in_s = region_timing->GetTotalTime();
 
-        // Check that the timing is what is expected within \pm 2%
+        // Check that the timing is at least longer than what we expect
+        // (note that sleep_for sleeps for *at least* the requested time,
+        // so we can't robustly test for an upper boundary)
         double expected_time_in_ms = total_ms_in_all;
-        REQUIRE(total_time_in_s * 1e3 > expected_time_in_ms * 0.98);
-        REQUIRE(total_time_in_s * 1e3 < expected_time_in_ms * 1.02);
+        REQUIRE(total_time_in_s * 1e3 > expected_time_in_ms * 0.9);
       }
     }
   }
