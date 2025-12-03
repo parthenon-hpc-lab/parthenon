@@ -38,7 +38,7 @@ class SparsePackBase {
   using alloc_t = std::vector<int>;
   using include_t = std::vector<bool>;
   using pack_t = ParArray3DRaw<ParArray3D<Real, VariableState>>;
-  using pack_h_t = typename pack_t::HostMirror;
+  using pack_h_t = typename pack_t::host_mirror_type;
   using bounds_t = ParArray3D<int>;
   using bounds_h_t = typename bounds_t::HostMirror;
   using block_props_t = ParArray2D<int>;

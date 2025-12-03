@@ -538,7 +538,7 @@ class MeshBlockData {
   // return number of stored arrays
   int Size() noexcept { return varVector_.size(); }
 
-  bool operator==(const MeshBlockData<T> &cmp);
+  bool operator==(const MeshBlockData<T> &cmp) const;
 
   bool Contains(const std::string &name) const noexcept { return varMap_.count(name); }
   bool Contains(const Uid_t &uid) const noexcept { return varUidMap_.count(uid); }

@@ -147,7 +147,7 @@ template <typename T, typename Layout = LayoutWrapper>
 using device_view_t =
     Kokkos::View<multi_pointer_t<T, MAX_VARIABLE_DIMENSION>, Layout, DevMemSpace>;
 template <typename T, typename Layout = LayoutWrapper>
-using host_view_t = typename device_view_t<T, Layout>::HostMirror;
+using host_view_t = typename device_view_t<T, Layout>::host_mirror_type;
 
 template <typename ND, typename State = empty_state_t>
 struct ParArrayND_impl {
