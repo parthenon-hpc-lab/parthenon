@@ -250,7 +250,7 @@ TEST_CASE("TaskCollection timing", "[TaskList][AddTask]") {
     int total_ms_in_all{0};
     const int niters = 3;
     const int nregions = 4;
-    
+
     const int time_a = 10;
     const int time_b = 20;
     const int time_c = 30;
