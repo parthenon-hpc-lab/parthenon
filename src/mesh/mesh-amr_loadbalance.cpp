@@ -37,6 +37,8 @@
 #include "bvals/boundary_conditions.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
+#include "interface/swarm.hpp"
+#include "interface/swarm_container.hpp"
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
@@ -638,6 +640,103 @@ bool Mesh::GatherCostListAndCheckBalance() {
 }
 
 //----------------------------------------------------------------------------------------
+// Helper function to determine which child block a particle belongs to after refinement
+// \brief Returns the child block index (0 to nleaf-1) based on particle position
+int DetermineChildBlock(Real x, Real y, Real z, MeshBlock *pmb, int nleaf, int ndim) {
+  // Get block bounds (using interior bounds for simplicity)
+  const auto &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  const auto &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const auto &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+  
+  Real x_min = pmb->coords.Xf<1>(ib.s);
+  Real x_max = pmb->coords.Xf<1>(ib.e + 1);
+  Real x_mid = 0.5 * (x_min + x_max);
+  int i = (x >= x_mid) ? 1 : 0;
+
+  if (nleaf == 2 || ndim == 1) return i;
+
+  Real y_min = pmb->coords.Xf<2>(jb.s);
+  Real y_max = pmb->coords.Xf<2>(jb.e + 1);
+  Real y_mid = 0.5 * (y_min + y_max);
+  int j = (y >= y_mid) ? 1 : 0;
+
+  if (nleaf == 4 || ndim == 2) return j * 2 + i;
+
+  Real z_min = pmb->coords.Xf<3>(kb.s);
+  Real z_max = pmb->coords.Xf<3>(kb.e + 1);
+  Real z_mid = 0.5 * (z_min + z_max);
+  int k = (z >= z_mid) ? 1 : 0;
+
+  return k * 4 + j * 2 + i;
+}
+
+//----------------------------------------------------------------------------------------
+// Helper function to copy particles from source swarm to destination swarm
+// \brief Copies specified particles (by indices) from src to dest swarm
+void CopyParticlesToSwarm(Swarm *src_swarm, Swarm *dest_swarm,
+                          const std::vector<int> &particle_indices, int new_block_gid) {
+  int num_to_copy = particle_indices.size();
+  if (num_to_copy == 0) return;
+
+  // Add empty slots in destination swarm
+  auto new_particles_context = dest_swarm->AddEmptyParticles(num_to_copy);
+
+  // Get all variable names from source swarm
+  const auto &int_vector = src_swarm->GetVariableVector<int>();
+  const auto &real_vector = src_swarm->GetVariableVector<Real>();
+
+  // Copy integer variables
+  for (const auto &var : int_vector) {
+    const auto &vname = var->label();
+    auto &src_var = src_swarm->Get<int>(vname).Get();
+    auto &dest_var = dest_swarm->Get<int>(vname).Get();
+
+    // Copy on host for simplicity (particles are typically few during AMR)
+    auto src_var_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), src_var);
+    auto dest_var_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), dest_var);
+
+    for (int i = 0; i < num_to_copy; ++i) {
+      int src_idx = particle_indices[i];
+      int dest_idx = new_particles_context.GetNewParticleIndex(i);
+      dest_var_h(dest_idx) = src_var_h(src_idx);
+    }
+
+    Kokkos::deep_copy(dest_var, dest_var_h);
+  }
+
+  // Copy real variables
+  for (const auto &var : real_vector) {
+    const auto &vname = var->label();
+    auto &src_var = src_swarm->Get<Real>(vname).Get();
+    auto &dest_var = dest_swarm->Get<Real>(vname).Get();
+
+    auto src_var_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), src_var);
+    auto dest_var_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), dest_var);
+
+    for (int i = 0; i < num_to_copy; ++i) {
+      int src_idx = particle_indices[i];
+      int dest_idx = new_particles_context.GetNewParticleIndex(i);
+      dest_var_h(dest_idx) = src_var_h(src_idx);
+    }
+
+    Kokkos::deep_copy(dest_var, dest_var_h);
+  }
+
+  // Update block indices for the copied particles
+  if (dest_swarm->Contains<int>("block_index_")) {
+    auto &block_idx = dest_swarm->Get<int>("block_index_").Get();
+    auto block_idx_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), block_idx);
+
+    for (int i = 0; i < num_to_copy; ++i) {
+      int dest_idx = new_particles_context.GetNewParticleIndex(i);
+      block_idx_h(dest_idx) = new_block_gid;
+    }
+
+    Kokkos::deep_copy(block_idx, block_idx_h);
+  }
+}
+
+//----------------------------------------------------------------------------------------
 // \!fn void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot)
 // \brief redistribute MeshBlocks according to the new load balance
 
@@ -662,7 +761,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
   std::unordered_set<LogicalLocation> newly_refined;
   // store old nbstart and nbend before load balancing.
   int onbs = nslist[Globals::my_rank];
-  int onbe = onbs + nblist[Globals::my_rank] - 1;
+  int onbe = onbs + nblist[ Globals::my_rank] - 1;
 
   { // Construct new list region
     PARTHENON_INSTRUMENT
@@ -983,6 +1082,174 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     PreCommFillDerived();
     CommunicateBoundaries();
     FillDerived();
+
+    // Redistribute swarms after mesh fields are transferred
+    { // Swarm redistribution region
+      PARTHENON_INSTRUMENT
+      // Process refinement: split particles from parent to children
+      for (int on = onbs; on <= onbe; on++) {
+        int nn = oldtonew[on];
+        if (newloc[nn].level() > loclist[on].level()) {
+          // This block refined from coarse to fine
+          auto old_pmb = old_block_list[on - onbs];
+          auto swarm_container = old_pmb->meshblock_data.Get()->GetSwarmData();
+
+          if (swarm_container == nullptr) continue;
+
+          // For each swarm in the container
+          for (auto &swarm : swarm_container->GetSwarmVector()) {
+            const std::string swarm_name = swarm->label();
+
+            // Get particle positions (use swarm position names if available)
+            bool has_positions = swarm->Contains<Real>("x") && swarm->Contains<Real>("y") &&
+                                 swarm->Contains<Real>("z");
+            if (!has_positions) continue;
+
+            auto x_h = Kokkos::create_mirror_view_and_copy(
+                Kokkos::HostSpace(), swarm->Get<Real>("x").Get());
+            auto y_h = Kokkos::create_mirror_view_and_copy(
+                Kokkos::HostSpace(), swarm->Get<Real>("y").Get());
+            auto z_h = Kokkos::create_mirror_view_and_copy(
+                Kokkos::HostSpace(), swarm->Get<Real>("z").Get());
+            auto mask_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),
+                                                               swarm->GetMask());
+
+            // Bin particles by which child block they belong to
+            std::vector<std::vector<int>> particles_per_child(nleaf);
+
+            for (int n = 0; n < swarm->GetMaxActiveIndex(); n++) {
+              if (!mask_h(n)) continue;
+
+              // Determine which child block this particle should go to
+              int child_idx =
+                  DetermineChildBlock(x_h(n), y_h(n), z_h(n), old_pmb.get(), nleaf, ndim);
+              particles_per_child[child_idx].push_back(n);
+            }
+
+            // Transfer particles to each child block
+            for (int l = 0; l < nleaf; l++) {
+              int new_gid = nn + l;
+              if (new_gid < nbs || new_gid > nbe) continue; // Not on this rank
+
+              auto new_pmb = FindMeshBlock(new_gid);
+              auto new_swarm_container = new_pmb->meshblock_data.Get()->GetSwarmData();
+
+              // Get swarm container (already initialized in MeshBlockData)
+              if (new_swarm_container == nullptr) {
+                new_swarm_container = new_pmb->meshblock_data.Get()->GetSwarmData();
+              }
+
+              std::shared_ptr<Swarm> new_swarm;
+              if (!new_swarm_container->Contains(swarm_name)) {
+                // Create new swarm with same structure as parent
+                new_swarm =
+                    std::make_shared<Swarm>(swarm_name, swarm->metadata(), nleaf);
+                new_swarm_container->Add(new_swarm);
+                new_swarm->SetBlockPointer(new_pmb);
+
+                // Add all the same variables as the parent swarm
+                for (const auto &var : swarm->GetVariableVector<int>()) {
+                  new_swarm->Add(var->label(), var->metadata());
+                }
+                for (const auto &var : swarm->GetVariableVector<Real>()) {
+                  new_swarm->Add(var->label(), var->metadata());
+                }
+              } else {
+                new_swarm = new_swarm_container->Get(swarm_name);
+              }
+
+              // Copy particles to this child
+              CopyParticlesToSwarm(swarm.get(), new_swarm.get(),
+                                   particles_per_child[l], new_gid);
+            }
+          }
+        }
+      }
+
+      // Process derefinement: collect particles from siblings to parent
+      for (int on = onbs; on <= onbe; on++) {
+        int nn = oldtonew[on];
+        if (newloc[nn].level() < loclist[on].level()) {
+          // This block is being derefined from fine to coarse
+          // Only process once when we hit the first sibling
+          if (on % nleaf == 0) {
+            int parent_gid = nn;
+            if (parent_gid < nbs || parent_gid > nbe) continue; // Not on this rank
+
+            auto parent_pmb = FindMeshBlock(parent_gid);
+            auto parent_swarm_container = parent_pmb->meshblock_data.Get()->GetSwarmData();
+
+            // Collect particles from all siblings
+            for (int l = 0; l < nleaf; l++) {
+              int sibling_on = on + l;
+              if (sibling_on > onbe) break;
+
+              auto sibling_pmb = old_block_list[sibling_on - onbs];
+              auto sibling_swarm_container =
+                  sibling_pmb->meshblock_data.Get()->GetSwarmData();
+
+              if (sibling_swarm_container == nullptr) continue;
+
+              for (auto &sibling_swarm : sibling_swarm_container->GetSwarmVector()) {
+                const std::string swarm_name = sibling_swarm->label();
+
+                // Check if swarm has particles
+                bool has_positions = sibling_swarm->Contains<Real>("x") &&
+                                     sibling_swarm->Contains<Real>("y") &&
+                                     sibling_swarm->Contains<Real>("z");
+                if (!has_positions) continue;
+
+                // Get parent swarm container (already initialized in MeshBlockData)
+                if (parent_swarm_container == nullptr) {
+                  parent_swarm_container = parent_pmb->meshblock_data.Get()->GetSwarmData();
+                }
+
+                // Create parent swarm on-demand
+                std::shared_ptr<Swarm> parent_swarm;
+                if (!parent_swarm_container->Contains(swarm_name)) {
+                  parent_swarm = std::make_shared<Swarm>(swarm_name,
+                                                         sibling_swarm->metadata(), 1);
+                  parent_swarm_container->Add(parent_swarm);
+                  parent_swarm->SetBlockPointer(parent_pmb);
+
+                  // Add all the same variables as the sibling swarm
+                  for (const auto &var : sibling_swarm->GetVariableVector<int>()) {
+                    parent_swarm->Add(var->label(), var->metadata());
+                  }
+                  for (const auto &var : sibling_swarm->GetVariableVector<Real>()) {
+                    parent_swarm->Add(var->label(), var->metadata());
+                  }
+                } else {
+                  parent_swarm = parent_swarm_container->Get(swarm_name);
+                }
+
+                // Collect all active particles from this sibling
+                auto mask_h = Kokkos::create_mirror_view_and_copy(
+                    Kokkos::HostSpace(), sibling_swarm->GetMask());
+                std::vector<int> all_particles;
+                for (int n = 0; n < sibling_swarm->GetMaxActiveIndex(); n++) {
+                  if (mask_h(n)) all_particles.push_back(n);
+                }
+
+                // Copy all particles from sibling to parent
+                CopyParticlesToSwarm(sibling_swarm.get(), parent_swarm.get(),
+                                     all_particles, parent_gid);
+              }
+            }
+          }
+        }
+      }
+
+      // After redistribution, call defragmentation on all swarms
+      for (auto &pmb : block_list) {
+        auto swarm_container = pmb->meshblock_data.Get()->GetSwarmData();
+        if (swarm_container != nullptr) {
+          for (auto &swarm : swarm_container->GetSwarmVector()) {
+            swarm->Defrag();
+          }
+        }
+      }
+    } // Swarm redistribution region
 
     // Initialize the "base" MeshData object
     mesh_data.Add("base", GetBasePartition());
