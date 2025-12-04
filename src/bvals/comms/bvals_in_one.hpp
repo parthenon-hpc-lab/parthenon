@@ -41,7 +41,7 @@ class Variable;
 
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
-                                           bool restrict);
+                                           bool do_restriction);
 
 template <BoundaryType bound_type>
 inline TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {

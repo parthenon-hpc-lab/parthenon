@@ -43,7 +43,7 @@ struct has_Restrict : std::false_type {};
 template <typename T, typename FieldTL>
 struct has_Restrict<T, FieldTL,
                     std::void_t<decltype(std::declval<T>().template Restrict<FieldTL>(
-                        std::declval<TaskList&>(), std::declval<TaskID>(),
+                        std::declval<TaskList &>(), std::declval<TaskID>(),
                         std::declval<std::shared_ptr<MeshData<Real>> &>()))>>
     : std::true_type {};
 
