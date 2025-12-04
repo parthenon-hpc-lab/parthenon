@@ -125,7 +125,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   std::vector<MetadataFlag> flags{Metadata::Cell,        Metadata::Independent,
                                   Metadata::FillGhost,   Metadata::WithFluxes,
-                                  Metadata::GMGRestrict, Metadata::GMGProlongate};
+                                  Metadata::GMGRestrict, Metadata::GMGProlongate,
+                                  Metadata::CommunicateOne};
   auto mflux_comm = Metadata(flags);
   if (prolong == "Linear") {
     mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
