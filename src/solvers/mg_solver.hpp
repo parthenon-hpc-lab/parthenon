@@ -146,6 +146,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
     auto partitions = pmesh->GetDefaultBlockPartitions(GridIdentifier::leaf());
     if (partition >= partitions.size())
       PARTHENON_FAIL("Does not work with non-default partitioning.");
+
     auto &md = pmesh->mesh_data.Add(container_base, partitions[partition]);
     auto &md_u = pmesh->mesh_data.Add(container_u, md, sol_fields);
     auto &md_res_err = pmesh->mesh_data.Add(container_res_err, md, sol_fields);
@@ -176,14 +177,20 @@ class MGSolver : public SolverBase, MGSolverCounter {
     return solve_id;
   }
 
+  auto GetMinMaxLevel(Mesh *pmesh) const {
+    int min_level = std::max(pmesh->GetGMGMaxLevel() - params_.max_coarsenings,
+                             pmesh->GetGMGMinLevel());
+    int max_level = pmesh->GetGMGMaxLevel();  
+    return std::make_pair(min_level, max_level);
+  }
+
   TaskID AddLinearOperatorTasks(TaskList &tl, TaskID dependence, int partition,
                                 Mesh *pmesh) {
     using namespace utils;
     iter_counter = 0;
+    
+    const auto [min_level, max_level] = GetMinMaxLevel(pmesh);
 
-    int min_level = std::max(pmesh->GetGMGMaxLevel() - params_.max_coarsenings,
-                             pmesh->GetGMGMinLevel());
-    int max_level = pmesh->GetGMGMaxLevel();
     // We require a local pre- and post-MG sync since multigrid iterations require
     // communication across blocks and partitions on the multigrid levels do not
     // necessarily contain the same blocks as partitions on the leaf grid. This
@@ -193,8 +200,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
                                []() { return TaskStatus::complete; });
     auto mg = pre_sync;
     for (int level = max_level; level >= min_level; --level) {
-      mg = mg | AddMultiGridTasksPartitionLevel(tl, dependence, partition, level,
-                                                min_level, max_level, pmesh);
+      mg = mg | AddMultiGridTasksPartitionLevel(tl, dependence, partition, level, pmesh);
     }
     auto post_sync =
         tl.AddTask(TaskQualifier::local_sync, mg, []() { return TaskStatus::complete; });
@@ -204,15 +210,12 @@ class MGSolver : public SolverBase, MGSolverCounter {
   TaskID AddSetupTasks(TaskList &tl, TaskID dependence, int partition, Mesh *pmesh) {
     using namespace utils;
 
-    int min_level = std::max(pmesh->GetGMGMaxLevel() - params_.max_coarsenings,
-                             pmesh->GetGMGMinLevel());
-    int max_level = pmesh->GetGMGMaxLevel();
+    const auto [min_level, max_level] = GetMinMaxLevel(pmesh);
 
     auto mg_setup = dependence;
     for (int level = max_level; level >= min_level; --level) {
       mg_setup =
-          mg_setup | AddMultiGridSetupPartitionLevel(tl, dependence, partition, level,
-                                                     min_level, max_level, pmesh);
+          mg_setup | AddMultiGridSetupPartitionLevel(tl, dependence, partition, level, pmesh);
     }
     return mg_setup;
   }
@@ -330,10 +333,12 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
   template <parthenon::BoundaryType comm_boundary, class TL_t>
   TaskID AddSRJIteration(TL_t &tl, TaskID depends_on, int stages, bool multilevel,
-                         int partition, int level, int max_level, bool first,
+                         int partition, int level, bool first,
                          Mesh *pmesh) {
     using namespace utils;
 
+    const auto [min_level, max_level] = GetMinMaxLevel(pmesh);
+    
     const int ndim = pmesh->ndim;
     auto partitions =
         pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
@@ -383,10 +388,11 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
   template <class TL_t>
   TaskID AddMultiGridSetupPartitionLevel(TL_t &tl, TaskID dependence, int partition,
-                                         int level, int min_level, int max_level,
-                                         Mesh *pmesh) {
+                                         int level, Mesh *pmesh) {
     using namespace utils;
 
+    const auto [min_level, max_level] = GetMinMaxLevel(pmesh);
+    
     auto partitions =
         pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
     if (partition >= partitions.size()) return dependence;
@@ -420,9 +426,11 @@ class MGSolver : public SolverBase, MGSolverCounter {
   }
 
   TaskID AddMultiGridTasksPartitionLevel(TaskList &tl, TaskID dependence, int partition,
-                                         int level, int min_level, int max_level,
-                                         Mesh *pmesh) {
+                                         int level, Mesh *pmesh) {
     using namespace utils;
+    
+    const auto [min_level, max_level] = GetMinMaxLevel(pmesh);
+
     auto smoother = params_.smoother;
     bool do_FAS = params_.do_FAS;
     int pre_stages, post_stages;
@@ -519,7 +527,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
     // 2. Do pre-smooth and fill solution on this level
     auto pre_smooth = AddSRJIteration<BoundaryType::gmg_same>(
-        tl, set_from_finer, pre_stages, multilevel, partition, level, max_level, true,
+        tl, set_from_finer, pre_stages, multilevel, partition, level, true,
         pmesh);
     // If we are finer than the coarsest level:
     auto post_smooth = pre_smooth;
@@ -593,7 +601,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
       // 8. Post smooth using communication field and stored RHS
       post_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, update_sol, post_stages,
                                                             multilevel, partition, level,
-                                                            max_level, false, pmesh);
+                                                            false, pmesh);
 
     } else {
       post_smooth =
