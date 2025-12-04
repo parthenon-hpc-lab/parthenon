@@ -40,9 +40,9 @@ class SparsePackBase {
   using pack_t = ParArray3DRaw<ParArray3D<Real, VariableState>>;
   using pack_h_t = typename pack_t::host_mirror_type;
   using bounds_t = ParArray3D<int>;
-  using bounds_h_t = typename bounds_t::HostMirror;
+  using bounds_h_t = typename bounds_t::host_mirror_type;
   using block_props_t = ParArray2D<int>;
-  using block_props_h_t = typename block_props_t::HostMirror;
+  using block_props_h_t = typename block_props_t::host_mirror_type;
   using coords_t = ParArray1DRaw<ParArray0D<Coordinates_t>>;
 
   static constexpr int physical_bnd_flag = -2000;
