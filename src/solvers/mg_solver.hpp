@@ -528,11 +528,25 @@ class MGSolver : public SolverBase, MGSolverCounter {
       auto timer_res =
           solver_timings.GetOrAddAndRegister(GetTimeLabel("Restrict send", level), tl);
       timer_res->StartCollectingTasks();
-      auto communicate_to_coarse =
-          tl.AddTask(residual, BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_u);
-      communicate_to_coarse =
-          tl.AddTask(communicate_to_coarse,
-                     BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_res_err);
+      auto communicate_to_coarse = residual;
+      if constexpr (has_Restrict<decltype(prolongator_), FieldTL>::value) {
+        communicate_to_coarse =
+            prolongator_.template Restrict<FieldTL>(tl, communicate_to_coarse, md_u);
+        communicate_to_coarse = tl.AddTask(
+            residual, BTF(SendBoundBufsNoRestrict<BoundaryType::gmg_restrict_send>),
+            md_u);
+        communicate_to_coarse = prolongator_.template Restrict<FieldTL>(
+            tl, communicate_to_coarse, md_res_err);
+        communicate_to_coarse = tl.AddTask(
+            communicate_to_coarse,
+            BTF(SendBoundBufsNoRestrict<BoundaryType::gmg_restrict_send>), md_res_err);
+      } else {
+        communicate_to_coarse = tl.AddTask(
+            residual, BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_u);
+        communicate_to_coarse =
+            tl.AddTask(communicate_to_coarse,
+                       BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_res_err);
+      }
       timer_res->StopCollectingTasks();
 
       // 6. Receive error field into communication field and prolongate
