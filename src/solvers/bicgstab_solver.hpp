@@ -105,6 +105,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     container_p = solver_id + "_p";
     container_x = solver_id + "_x";
     container_diag = solver_id + "_diag";
+    preconditioner.initial_guess_is_zero = true;
     if constexpr (has_SetBoundary<equations_t>::value) {
       BCFunc = equations_t::SetBoundary;
     } else {
