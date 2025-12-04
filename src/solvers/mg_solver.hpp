@@ -295,7 +295,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
   }
 
   template <parthenon::BoundaryType comm_boundary>
-  TaskID AddJacobiIteration(TaskList &tl, TaskID depends_on, bool multilevel, Real omega,
+  TaskID AddJacobiIteration(TaskList &tl, TaskID depends_on, Real omega,
                             int partition, int level, bool in_is_zero,
                             std::shared_ptr<MeshData<Real>> &md_in,
                             std::shared_ptr<MeshData<Real>> &md_out) {
@@ -315,7 +315,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
           solver_timings.GetOrAddAndRegister(GetTimeLabel("Boundary", level), tl);
       time_comm->StartCollectingTasks();
       auto comm = AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md_in,
-                                                          multilevel, BCFunc);
+                                                          pmesh->multilevel, BCFunc);
       time_comm->StopCollectingTasks();
 
       auto time_ax =
@@ -332,7 +332,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
   }
 
   template <parthenon::BoundaryType comm_boundary, class TL_t>
-  TaskID AddSRJIteration(TL_t &tl, TaskID depends_on, int stages, bool multilevel,
+  TaskID AddSRJIteration(TL_t &tl, TaskID depends_on, int stages,
                          int partition, int level, bool first,
                          Mesh *pmesh) {
     using namespace utils;
@@ -360,24 +360,24 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
     const bool in_is_zero = (level == max_level) && initial_guess_is_zero && first;
     if (stages == 1) {
-      return AddJacobiIteration<comm_boundary>(tl, depends_on, multilevel,
+      return AddJacobiIteration<comm_boundary>(tl, depends_on,
                                                omega_M1[ndim - 1][0], partition, level,
                                                in_is_zero, md_u, md_u);
     } else if (stages == 2) {
-      auto jacobi1 = AddJacobiIteration<comm_boundary>(tl, depends_on, multilevel,
+      auto jacobi1 = AddJacobiIteration<comm_boundary>(tl, depends_on,
                                                        omega_M2[ndim - 1][0], partition,
                                                        level, in_is_zero, md_u, md_u);
-      return AddJacobiIteration<comm_boundary>(tl, jacobi1, multilevel,
+      return AddJacobiIteration<comm_boundary>(tl, jacobi1,
                                                omega_M2[ndim - 1][1], partition, level,
                                                false, md_u, md_u);
     } else if (stages == 3) {
-      auto jacobi1 = AddJacobiIteration<comm_boundary>(tl, depends_on, multilevel,
+      auto jacobi1 = AddJacobiIteration<comm_boundary>(tl, depends_on,
                                                        omega_M3[ndim - 1][0], partition,
                                                        level, in_is_zero, md_u, md_u);
-      auto jacobi2 = AddJacobiIteration<comm_boundary>(tl, jacobi1, multilevel,
+      auto jacobi2 = AddJacobiIteration<comm_boundary>(tl, jacobi1,
                                                        omega_M3[ndim - 1][1], partition,
                                                        level, false, md_u, md_u);
-      return AddJacobiIteration<comm_boundary>(tl, jacobi2, multilevel,
+      return AddJacobiIteration<comm_boundary>(tl, jacobi2,
                                                omega_M3[ndim - 1][2], partition, level,
                                                false, md_u, md_u);
     } else {
@@ -458,7 +458,6 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
 // #define BTF(...) decorate_task_name(TF(__VA_ARGS__))
 #define BTF(...) TF(__VA_ARGS__)
-    bool multilevel = (level != min_level);
 
     auto partitions =
         pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
@@ -511,7 +510,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
             solver_timings.GetOrAddAndRegister(GetTimeLabel("Boundary", level), tl);
         timer_comm->StartCollectingTasks();
         set_from_finer = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
-            set_from_finer, tl, md_u, multilevel, BCFunc);
+            set_from_finer, tl, md_u, pmesh->multilevel, BCFunc);
         timer_comm->StopCollectingTasks();
         set_from_finer =
             tl.AddTask(set_from_finer, BTF(CopyData<FieldTL, true>), md_u, md_u0);
@@ -527,7 +526,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
     // 2. Do pre-smooth and fill solution on this level
     auto pre_smooth = AddSRJIteration<BoundaryType::gmg_same>(
-        tl, set_from_finer, pre_stages, multilevel, partition, level, true,
+        tl, set_from_finer, pre_stages, partition, level, true,
         pmesh);
     // If we are finer than the coarsest level:
     auto post_smooth = pre_smooth;
@@ -540,7 +539,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
           solver_timings.GetOrAddAndRegister(GetTimeLabel("Boundary", level), tl);
       timer_comm->StartCollectingTasks();
       auto comm_u = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(pre_smooth, tl, md_u,
-                                                                     multilevel, BCFunc);
+                                                                     pmesh->multilevel, BCFunc);
       timer_comm->StopCollectingTasks();
 
       // 4. Caclulate residual and store in communication field
@@ -600,7 +599,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
       // 8. Post smooth using communication field and stored RHS
       post_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, update_sol, post_stages,
-                                                            multilevel, partition, level,
+                                                            partition, level,
                                                             false, pmesh);
 
     } else {
@@ -631,7 +630,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
             solver_timings.GetOrAddAndRegister(GetTimeLabel("Boundary", level), tl);
         timer_comm->StartCollectingTasks();
         boundary = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
-            copy_over, tl, md_res_err, multilevel, BCFunc);
+            copy_over, tl, md_res_err, pmesh->multilevel, BCFunc);
         timer_comm->StopCollectingTasks();
       }
       last_task = tl.AddTask(
