@@ -116,6 +116,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
     }
   }
 
+  void SetConstantProlongation(bool const_pro) { constant_prolongation = const_pro; }
+
   TaskID Ax(TaskList &tl, TaskID dependence, std::shared_ptr<MeshData<Real>> &md_mat,
             std::shared_ptr<MeshData<Real>> &md_in,
             std::shared_ptr<MeshData<Real>> &md_out) {
@@ -601,12 +603,15 @@ class MGSolver : public SolverBase, MGSolverCounter {
       }
       // This is required to make sure boundaries of res_err are up to date before
       // prolongation
-      auto timer_comm =
-          solver_timings.GetOrAddAndRegister(GetTimeLabel("Boundary", level), tl);
-      timer_comm->StartCollectingTasks();
-      auto boundary = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
-          copy_over, tl, md_res_err, multilevel, BCFunc);
-      timer_comm->StopCollectingTasks();
+      auto boundary = copy_over;
+      if (!constant_prolongation) {
+        auto timer_comm =
+            solver_timings.GetOrAddAndRegister(GetTimeLabel("Boundary", level), tl);
+        timer_comm->StartCollectingTasks();
+        boundary = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
+            copy_over, tl, md_res_err, multilevel, BCFunc);
+        timer_comm->StopCollectingTasks();
+      }
       last_task = tl.AddTask(
           boundary, BTF(SendBoundBufs<BoundaryType::gmg_prolongate_send>), md_res_err);
     }

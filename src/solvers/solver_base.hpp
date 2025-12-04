@@ -57,6 +57,8 @@ class SolverBase {
                     std::shared_ptr<MeshData<Real>> &md_in,
                     std::shared_ptr<MeshData<Real>> &md_out) = 0;
 
+  virtual void SetConstantProlongation(bool const_pro) {}
+
   Real GetFinalResidual() const { return final_residual; }
   int GetFinalIterations() const { return final_iteration; }
 
