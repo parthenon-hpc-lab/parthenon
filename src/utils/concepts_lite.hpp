@@ -139,6 +139,25 @@ struct container {
   auto requires_(T &&x) -> void_t<decltype(x.size()), typename T::value_type>;
 };
 
+template <typename T>
+concept Container = requires(T x) {
+  x.size();
+  typename T::value_type;
+};
+
+template <typename T>
+concept ContiguousContainer_arr = requires(T x) {
+  x.size();
+  x.data();
+  typename T::value_type;
+};
+
+template <typename T>
+concept ContiguousContainer_scalar = std::is_fundamental<T>::value && !Container<T>;
+
+template <typename T>
+concept ContiguousContainer = ContiguousContainer_scalar<T> || ContiguousContainer_arr<T>;
+
 // Concept defining the interface of a container with continuous
 // storage. Also defines helper functions for treating single
 // objects as contiguous containers of size one
@@ -152,46 +171,52 @@ struct contiguous_container {
   // containers. Note that this should fail for objects that
   // are containers but not contiguous_containers, since there
   // isn't a (easy) way to treat them as contiguous
-  template <class T, REQUIRES(implements<contiguous_container(T)>::value)>
+  template <class T>
+    requires(ContiguousContainer_arr<T>)
   static std::size_t size(const T &x) {
     return x.size();
   }
 
-  template <class T,
-            REQUIRES(!implements<container(T)>::value && std::is_fundamental<T>::value)>
+  template <class T>
+    requires(ContiguousContainer_scalar<T>)
   static std::size_t size(const T &x) {
     return 1;
   }
 
-  template <class T, std::size_t N, REQUIRES(is_fundamental_c_array<T[N]>::value)>
+  template <class T, std::size_t N>
+    requires(is_fundamental_c_array<T[N]>::value)
   static std::size_t size(const T (&)[N]) {
     return N;
   }
 
-  template <class T, REQUIRES(implements<contiguous_container(T)>::value)>
+  template <class T>
+    requires(ContiguousContainer_arr<T>)
   static typename T::value_type *data(T &x) {
     return x.data();
   }
 
-  template <class T,
-            REQUIRES(!implements<container(T)>::value && std::is_fundamental<T>::value)>
+  template <class T>
+    requires(ContiguousContainer_scalar<T>)
   static T *data(T &x) {
     return &x;
   }
 
-  template <class T, std::size_t N, REQUIRES(is_fundamental_c_array<T[N]>::value)>
+  template <class T, std::size_t N>
+    requires(is_fundamental_c_array<T[N]>::value)
   static T *data(T (&x)[N]) {
     return x;
   }
 
-  template <class T, REQUIRES(implements<contiguous_container(T)>::value)>
+  template <class T>
+    requires(ContiguousContainer_arr<T>)
   static typename T::value_type value_type(T &);
 
-  template <class T,
-            REQUIRES(!implements<container(T)>::value && std::is_fundamental<T>::value)>
+  template <class T>
+    requires(ContiguousContainer_scalar<T>)
   static T value_type(T &);
 
-  template <class T, std::size_t N, REQUIRES(is_fundamental_c_array<T[N]>::value)>
+  template <class T, std::size_t N>
+    requires(is_fundamental_c_array<T[N]>::value)
   static T value_type(T (&)[N]);
 };
 
@@ -229,6 +254,16 @@ struct kokkos_view {
                                 typename T::host_mirror_type, typename T::execution_space,
                                 typename T::memory_space, typename T::device_type,
                                 typename T::memory_traits, typename T::host_mirror_space>;
+};
+
+template <typename T>
+concept KokkosView = implements<contiguous_container(T)>::value && requires {
+  typename T::host_mirror_type;
+  typename T::execution_space;
+  typename T::memory_space;
+  typename T::device_type;
+  typename T::memory_traits;
+  typename T::host_mirror_space;
 };
 
 //---------------------------------------------------------
