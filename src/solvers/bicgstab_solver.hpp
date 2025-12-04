@@ -165,16 +165,15 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     auto copy_r = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_r);
     auto copy_p = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_p);
     auto copy_rhat0 = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_rhat0);
-    auto get_rhat0r_init = DotProduct<FieldTL>(dependence, tl, &rhat0r, md_rhat0, md_r);
-    auto get_rhs2 = get_rhat0r_init;
-    if (params_.relative_residual || params_.print_per_step)
-      get_rhs2 = DotProduct<FieldTL>(dependence, tl, &rhs2, md_rhs, md_rhs);
+    auto get_rhs2_rhat0r_init =
+        DoubleDotProduct<FieldTL>(dependence, tl, &res_rhat0r, md_r, md_rhat0);
     auto initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
-        zero_x | zero_u_init | copy_r | copy_p | copy_rhat0 | get_rhat0r_init | get_rhs2,
+        zero_x | zero_u_init | copy_r | copy_p | copy_rhat0 | get_rhs2_rhat0r_init,
         "zero factors",
         [](BiCGSTABSolver *solver) {
           solver->iter_counter = -1;
+          solver->rhs2 = solver->res_rhat0r.val[0];
           return TaskStatus::complete;
         },
         this);
@@ -184,11 +183,11 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
             Mesh *pm) {
           if (Globals::my_rank == 0 && params_.print_per_step) {
             Real tol = relative_residual
-                           ? *res_tol * std::sqrt(solver->rhs2.val / pm->GetTotalCells())
+                           ? *res_tol * std::sqrt(solver->rhs2 / pm->GetTotalCells())
                            : *res_tol;
             printf("# [0] v-cycle\n# [1] rms-residual (tol = %e) \n# [2] rms-error\n",
                    tol);
-            printf("0 %e\n", std::sqrt(solver->rhs2.val / pm->GetTotalCells()));
+            printf("0 %e\n", std::sqrt(solver->rhs2 / pm->GetTotalCells()));
           }
           return TaskStatus::complete;
         },
@@ -202,7 +201,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     auto reset = itl.AddTask(
         TaskQualifier::once_per_region, sync, "update values",
         [](BiCGSTABSolver *solver) {
-          solver->rhat0r_old = solver->rhat0r.val;
+          solver->rhat0r_old = solver->res_rhat0r.val[1];
           solver->iter_counter++;
           return TaskStatus::complete;
         },
@@ -305,25 +304,24 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     // 8. omega <- (t,s) / (t,t)
     auto timer_omega = solver_timings.GetOrAddAndRegister("BiCGSTAB: omega update", itl);
     timer_omega->StartCollectingTasks();
-    auto get_ts = DotProduct<FieldTL>(get_t, itl, &ts, md_t, md_s);
-    auto get_tt = DotProduct<FieldTL>(get_t, itl, &tt, md_t, md_t);
+    auto get_tt_ts = DoubleDotProduct<FieldTL>(get_t, itl, &tt_ts, md_t, md_s);
 
     // 9. x <- h + omega u
     auto correct_x = itl.AddTask(
-        get_tt | get_ts, "x <- h + omega u",
+        get_tt_ts, "x <- h + omega u",
         [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md_h,
            std::shared_ptr<MeshData<Real>> &md_u, std::shared_ptr<MeshData<Real>> &md_x) {
-          Real omega = solver->ts.val / solver->tt.val;
+          Real omega = solver->tt_ts.val[1] / solver->tt_ts.val[0];
           return AddFieldsAndStore<FieldTL>(md_h, md_u, md_x, 1.0, omega);
         },
         this, md_h, md_u, md_x);
 
     // 10. r <- s - omega t
     auto correct_r = itl.AddTask(
-        get_tt | get_ts, "r <- s - omega t",
+        get_tt_ts, "r <- s - omega t",
         [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md_s,
            std::shared_ptr<MeshData<Real>> &md_t, std::shared_ptr<MeshData<Real>> &md_r) {
-          Real omega = solver->ts.val / solver->tt.val;
+          Real omega = solver->tt_ts.val[1] / solver->tt_ts.val[0];
           return AddFieldsAndStore<FieldTL>(md_s, md_t, md_r, 1.0, -omega);
         },
         this, md_s, md_t, md_r);
@@ -332,30 +330,28 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     // Check and print out residual
     auto timer_res = solver_timings.GetOrAddAndRegister("BiCGSTAB: residual", itl);
     timer_res->StartCollectingTasks();
-    auto get_res2 = DotProduct<FieldTL>(correct_r, itl, &residual, md_r, md_r);
-
-    get_res2 = itl.AddTask(
-        TaskQualifier::once_per_region, get_res2,
+    // 11. rhat0r <- (rhat0, r) and residual
+    auto get_res2_rhat0r =
+        DoubleDotProduct<FieldTL>(correct_r, itl, &res_rhat0r, md_r, md_rhat0);
+    get_res2_rhat0r = itl.AddTask(
+        TaskQualifier::once_per_region, get_res2_rhat0r,
         [&](BiCGSTABSolver *solver, Mesh *pmesh) {
-          Real rms_err = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
+          Real rms_err = std::sqrt(solver->res_rhat0r.val[0] / pmesh->GetTotalCells());
           if (Globals::my_rank == 0 && solver->params_.print_per_step)
             printf("%i %e\n", solver->iter_counter * 2 + 2, rms_err);
           return TaskStatus::complete;
         },
         this, pmesh);
 
-    // 11. rhat0r <- (rhat0, r)
-    auto get_rhat0r = DotProduct<FieldTL>(correct_r, itl, &rhat0r, md_rhat0, md_r);
-
     // 12. beta <- rhat0r / rhat0r_old * alpha / omega
     // 13. p <- r + beta * (p - omega * v)
     auto update_p = itl.AddTask(
-        get_rhat0r | get_res2, "p <- r + beta * (p - omega * v)",
+        get_res2_rhat0r, "p <- r + beta * (p - omega * v)",
         [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md_p,
            std::shared_ptr<MeshData<Real>> &md_v, std::shared_ptr<MeshData<Real>> &md_r) {
           Real alpha = solver->rhat0r_old / solver->rhat0v.val;
-          Real omega = solver->ts.val / solver->tt.val;
-          Real beta = solver->rhat0r.val / solver->rhat0r_old * alpha / omega;
+          Real omega = solver->tt_ts.val[1] / solver->tt_ts.val[0];
+          Real beta = solver->res_rhat0r.val[1] / solver->rhat0r_old * alpha / omega;
           AddFieldsAndStore<FieldTL>(md_p, md_v, md_p, 1.0, -omega);
           return AddFieldsAndStore<FieldTL>(md_r, md_p, md_p, 1.0, beta);
           return TaskStatus::complete;
@@ -367,11 +363,11 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
         TaskQualifier::completion, update_p | correct_x, "rhat0r_old <- rhat0r",
         [partition](BiCGSTABSolver *solver, Mesh *pmesh, int max_iter,
                     std::shared_ptr<Real> res_tol, bool relative_residual) {
-          Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
+          Real rms_res = std::sqrt(solver->res_rhat0r.val[0] / pmesh->GetTotalCells());
           solver->final_residual = rms_res;
           solver->final_iteration = solver->iter_counter;
           Real tol = relative_residual
-                         ? *res_tol * std::sqrt(solver->rhs2.val / pmesh->GetTotalCells())
+                         ? *res_tol * std::sqrt(solver->rhs2 / pmesh->GetTotalCells())
                          : *res_tol;
           if (rms_res < tol || solver->iter_counter >= max_iter) {
             solver->final_residual = rms_res;
@@ -386,7 +382,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     return tl.AddTask(solver_id, TF(CopyData<FieldTL>), md_x, md_u);
   }
 
-  Real GetSquaredResidualSum() const { return residual.val; }
+  Real GetSquaredResidualSum() const { return res_rhat0r.val[0]; }
   int GetCurrentIterations() const { return iter_counter; }
 
   BiCGSTABParams &GetParams() { return params_; }
@@ -395,8 +391,9 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
   preconditioner_t preconditioner;
   BiCGSTABParams params_;
   int iter_counter;
-  AllReduce<Real> rtr, pAp, rhat0v, rhat0r, ts, tt, residual, rhs2;
-  Real rhat0r_old;
+  AllReduce<Real> rhat0v, residual;
+  AllReduce<utils::summable_array_t<Real, 2>> tt_ts, res_rhat0r;
+  Real rhat0r_old, rhs2;
   equations_t eqs_;
   std::string container_;
 };
