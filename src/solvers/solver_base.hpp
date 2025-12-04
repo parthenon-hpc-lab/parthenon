@@ -36,6 +36,17 @@ struct has_SetBoundary<
            std::declval<std::shared_ptr<MeshData<Real>> &>(), std::declval<bool>()))>>
     : std::true_type {};
 
+// Used for checking if a given equations class has a SetBoundary function
+template <typename T, typename FieldTL, typename = void>
+struct has_Restrict : std::false_type {};
+
+template <typename T, typename FieldTL>
+struct has_Restrict<T, FieldTL,
+                    std::void_t<decltype(std::declval<T>().template Restrict<FieldTL>(
+                        std::declval<TaskList &>(), std::declval<TaskID>(),
+                        std::declval<std::shared_ptr<MeshData<Real>> &>()))>>
+    : std::true_type {};
+
 // Solver base class
 class SolverBase {
  public:
