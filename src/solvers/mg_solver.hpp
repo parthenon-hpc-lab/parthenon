@@ -100,8 +100,9 @@ class MGSolver : public SolverBase, MGSolverCounter {
            const std::string &container_rhs, MGParams params_in,
            equations_t eq_in = equations_t(), prolongator_t prol_in = prolongator_t())
       : SolverBase(container_base, container_u, container_rhs), params_(params_in),
-        iter_counter(0), eqs_(eq_in), prolongator_(prol_in), initial_guess_is_zero{false},
-        constant_prolongation{false} {
+        iter_counter(0), eqs_(eq_in),
+        prolongator_(prol_in), initial_guess_is_zero{false}, constant_prolongation{
+                                                                 false} {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
     std::string solver_id = "mg" + std::to_string(id++);
