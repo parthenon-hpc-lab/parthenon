@@ -325,7 +325,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
   TaskID AddJacobiIteration(TaskList &tl, TaskID depends_on, Real omega,
                             std::shared_ptr<BlockListPartition> partition,
-                            Mesh *pmesh, bool in_is_zero) {
+                            Mesh *pmesh, bool input_is_zero) {
     using namespace utils;
 
     auto &md_base = pmesh->mesh_data.Add(container_base, partition);
@@ -334,7 +334,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
     auto &md_ax = pmesh->mesh_data.Add(container_temp, partition, sol_fields);
     auto &md_u = pmesh->mesh_data.Add(container_u, partition, sol_fields);
     auto mat_mult = depends_on;
-    if (in_is_zero) {
+    if (input_is_zero) {
       mat_mult = tl.AddTask(depends_on, TF(SetToZero<FieldTL, true>), md_ax);
     } else {
       auto time_comm =
