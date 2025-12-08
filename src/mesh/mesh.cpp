@@ -616,8 +616,7 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
 
   if (multigrid) {
     for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
-      const auto grid_id = GridIdentifier::two_level_composite(gmg_level);
-      for (auto &partition : GetDefaultBlockPartitions(grid_id)) {
+      for (auto &partition : GetMultigridBlockPartitions(gmg_level)) {
         auto &md = mesh_data.Add("base", partition);
         tag_map.AddMeshDataToMap<BoundaryType::gmg_same>(md);
         tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(md);
@@ -745,7 +744,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
       // Call Mesh ProblemGenerator
       if (ProblemGenerator != nullptr) {
-        for (auto &partition : GetDefaultBlockPartitions(GridIdentifier::leaf())) {
+        for (auto &partition : GetDefaultBlockPartitions()) {
           auto &md = mesh_data.Add("base", partition);
           ProblemGenerator(this, pin, md.get());
         }
@@ -761,7 +760,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
       // Call Mesh PostInitialization
       if (PostInitialization != nullptr) {
-        for (auto &partition : GetDefaultBlockPartitions(GridIdentifier::leaf())) {
+        for (auto &partition : GetDefaultBlockPartitions()) {
           auto &md = mesh_data.Add("base", partition);
           PostInitialization(this, pin, md.get());
         }
@@ -785,7 +784,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
         // first on the mesh...
         if (pkg->PostInitializationMesh != nullptr) {
-          for (auto &partition : GetDefaultBlockPartitions(GridIdentifier::leaf())) {
+          for (auto &partition : GetDefaultBlockPartitions()) {
             auto &md = mesh_data.Add("base", partition);
             pkg->PostInitializationMesh(this, pin, md.get());
           }
@@ -811,7 +810,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     FillDerived();
 
     if (init_problem && adaptive) {
-      for (auto &partition : GetDefaultBlockPartitions(GridIdentifier::leaf())) {
+      for (auto &partition : GetDefaultBlockPartitions()) {
         auto &md = mesh_data.Add("base", partition);
         Refinement::Tag(md.get());
       }
@@ -873,9 +872,9 @@ std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
 // \brief Set the physical part of a block_size structure and block boundary conditions
 
 bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
-                                     BoundaryFlag *block_bcs) {
+                                     BoundaryFlag *block_bcs, std::size_t coarsenings) {
   bool valid_region = true;
-  block_size = forest.GetBlockDomain(loc);
+  block_size = forest.GetBlockDomain(loc, coarsenings);
   auto bcs = forest.GetBlockBCs(loc);
   for (int i = 0; i < BOUNDARY_NFACES; ++i)
     block_bcs[i] = bcs[i];
@@ -1190,8 +1189,7 @@ void Mesh::BuildAndRegisterCommBuffers_() {
   if (multigrid) { // But... multigrid is sufficiently hairy that I'm
                    // going to let LFR figure this one out later.
     for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
-      const auto grid_id = GridIdentifier::two_level_composite(gmg_level);
-      for (auto &partition : GetDefaultBlockPartitions(grid_id)) {
+      for (auto &partition : GetMultigridBlockPartitions(gmg_level)) {
         auto &mdg = mesh_data.Add("base", partition);
         BuildBoundaryBuffers(mdg);
         BuildGMGBoundaryBuffers(mdg);

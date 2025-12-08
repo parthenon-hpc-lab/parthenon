@@ -147,21 +147,14 @@ class Mesh {
 
   DataCollection<MeshData<Real>> mesh_data;
 
-  const BlockList_t &GetGMGBlockList(int level) const {
-    PARTHENON_REQUIRE(multigrid, "Asking for multigrid blocks on a Mesh that was created "
-                                 "without parthenon/mesh/multigrid = true set.");
-    PARTHENON_REQUIRE(gmg_block_lists_.count(level),
-                      "Asking for a multigrid level that doesn't exist.");
-    return gmg_block_lists_.at(level);
-  }
   int GetGMGMaxLevel() const { return current_level; }
-  int GetGMGMinLevel() const { return gmg_min_logical_level_; }
+  int GetGMGMinLevel() const { return gmg_min_level_; }
 
   // functions
   void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
 
   bool SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
-                                 BoundaryFlag *block_bcs);
+                                 BoundaryFlag *block_bcs, std::size_t coarsenings = 0);
   void OutputCycleDiagnostics();
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);
@@ -193,10 +186,19 @@ class Mesh {
   }
 
   const std::vector<std::shared_ptr<BlockListPartition>> &
-  GetDefaultBlockPartitions(GridIdentifier grid = GridIdentifier::leaf()) const {
-    if (grid.type == GridType::two_level_composite)
-      PARTHENON_REQUIRE(multigrid, "Asking for a partition of a multigrid grid when "
-                                   "parthenon/mesh/multigrid = false.")
+  GetDefaultBlockPartitions() const {
+    auto grid = GridIdentifier::leaf();
+    PARTHENON_REQUIRE(
+        block_partitions_.count(grid),
+        "There isn't a block partition available for this grid for some reason.");
+    return block_partitions_.at(grid);
+  }
+
+  const std::vector<std::shared_ptr<BlockListPartition>> &
+  GetMultigridBlockPartitions(int multigrid_level) const {
+    auto grid = GridIdentifier::two_level_composite(multigrid_level);
+    PARTHENON_REQUIRE(multigrid, "Asking for a partition of a multigrid grid when "
+                                 "parthenon/mesh/multigrid = false.")
     PARTHENON_REQUIRE(
         block_partitions_.count(grid),
         "There isn't a block partition available for this grid for some reason.");
@@ -329,7 +331,8 @@ class Mesh {
   std::vector<LogicalLocation> loclist;
 
   // Block lists for internal nodes in the tree corresponding to multigrid levels
-  std::map<int, BlockList_t> gmg_block_lists_;
+  std::map<int, GridIdentifier> gmg_grids;
+  std::map<int, BlockList_t> gmg_block_lists_; // maps from *GMG* level to blocks list
 
   // flags are false if using non-uniform or user meshgen function
   bool use_uniform_meshgen_fn_[4];
@@ -352,7 +355,7 @@ class Mesh {
   // footprint.
   Real buffer_reset_frac_;
 
-  int gmg_min_logical_level_ = 0;
+  int gmg_min_level_ = 0;
 
 #ifdef MPI_PARALLEL
   // Global map of MPI comms for separate variables

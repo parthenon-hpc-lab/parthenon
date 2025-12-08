@@ -126,8 +126,8 @@ class Forest {
     return 0;
   }
 
-  RegionSize GetBlockDomain(const LogicalLocation &loc) const {
-    return trees.at(loc.tree())->GetBlockDomain(loc);
+  RegionSize GetBlockDomain(const LogicalLocation &loc, std::size_t coarsenings = 0) const {
+    return trees.at(loc.tree())->GetBlockDomain(loc, coarsenings);
   }
 
   std::array<BoundaryFlag, BOUNDARY_NFACES>

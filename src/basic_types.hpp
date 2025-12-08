@@ -110,14 +110,31 @@ inline constexpr BoundaryType GetAssociatedSender(BoundaryType btype) {
   return btype;
 }
 
-enum class GridType : int { none, leaf, two_level_composite, single_level_with_internal };
+enum class GridType : int { none, leaf, two_level_composite};
 struct GridIdentifier {
   GridType type = GridType::none;
-  int logical_level = 0;
+  int logical_level = 0; // Only meaningful for two_level_composite
+  int multigrid_level = 0; // Not always meaningful
+  int coarsenings = 0;
 
-  static GridIdentifier leaf() { return GridIdentifier{GridType::leaf, 0}; }
-  static GridIdentifier two_level_composite(int level) {
-    return GridIdentifier{GridType::two_level_composite, level};
+  static GridIdentifier leaf(int coarsenings = 0) { 
+    GridIdentifier out;
+    out.type = GridType::leaf;
+    out.logical_level = -1111;
+    out.multigrid_level = -1;
+    out.coarsenings = coarsenings;
+    return out;
+  }
+
+  static GridIdentifier two_level_composite(int level, int coarsenings = 0) {
+    GridIdentifier out;
+    out.type = GridType::two_level_composite;
+    out.logical_level = level;
+    out.multigrid_level = -1;
+    out.coarsenings = coarsenings;
+    return out;
+  }
+
   }
 
   std::string label() const {

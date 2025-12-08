@@ -51,7 +51,7 @@ std::shared_ptr<MeshData<Real>> &
 DataCollection<MeshData<Real>>::GetOrAdd(const std::string &mbd_label,
                                          const int &partition_id) {
   return Add(mbd_label,
-             pmy_mesh_->GetDefaultBlockPartitions(GridIdentifier::leaf())[partition_id]);
+             pmy_mesh_->GetDefaultBlockPartitions()[partition_id]);
 }
 
 template <>
@@ -59,8 +59,7 @@ std::shared_ptr<MeshData<Real>> &
 DataCollection<MeshData<Real>>::GetOrAdd(int gmg_level, const std::string &mbd_label,
                                          const int &partition_id) {
   return Add(mbd_label,
-             pmy_mesh_->GetDefaultBlockPartitions(
-                 GridIdentifier::two_level_composite(gmg_level))[partition_id]);
+             pmy_mesh_->GetMultigridBlockPartitions(gmg_level)[partition_id]);
 }
 
 template <class T>

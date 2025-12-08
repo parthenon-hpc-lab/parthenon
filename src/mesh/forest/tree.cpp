@@ -293,7 +293,7 @@ std::vector<LogicalLocation> Tree::GetSortedInternalNodeList() const {
   return mb_list;
 }
 
-RegionSize Tree::GetBlockDomain(const LogicalLocation &loc) const {
+RegionSize Tree::GetBlockDomain(const LogicalLocation &loc, std::size_t coarsenings) const {
   PARTHENON_REQUIRE(loc.IsInTree(), "Probably there is a mistake...");
   RegionSize out = domain;
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {
@@ -303,14 +303,13 @@ RegionSize Tree::GetBlockDomain(const LogicalLocation &loc) const {
             loc.LLCoord(dir, BlockLocation::Left), dir);
         out.xmax(dir) = domain.SymmetrizedLogicalToActualPosition(
             loc.LLCoord(dir, BlockLocation::Right), dir);
-      } else {
-        // Negative logical levels correspond to reduced block sizes covering the entire
-        // domain.
-        auto reduction_fac = 1LL << (-loc.level());
-        PARTHENON_REQUIRE(domain.nx(dir) % reduction_fac == 0,
-                          "Trying to go to too large of a negative level.");
-        out.nx(dir) = domain.nx(dir) / reduction_fac;
       }
+      // Negative logical levels correspond to reduced block sizes covering the entire
+      // domain.
+      auto reduction_fac = 1LL << (std::max(0, -loc.level()) + coarsenings);
+      PARTHENON_REQUIRE(domain.nx(dir) % reduction_fac == 0,
+                        "Trying to go to too large of a negative level.");
+      out.nx(dir) = domain.nx(dir) / reduction_fac;
     }
     // If this is a translational symmetry direction, set the cell to cover the entire
     // tree in that direction.

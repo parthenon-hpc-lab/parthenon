@@ -161,7 +161,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
     auto timing_guard =
         TimingAccumulatorGuard(solver_timings.GetOrAddAndRegister("MG: Residual", tl));
 
-    auto partitions = pmesh->GetDefaultBlockPartitions(GridIdentifier::leaf());
+    auto partitions = pmesh->GetDefaultBlockPartitions();
     if (default_partition_idx >= partitions.size())
       PARTHENON_FAIL("Does not work with non-default partitioning.");
     auto partition = partitions[default_partition_idx];
@@ -219,7 +219,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
                                []() { return TaskStatus::complete; });
     auto mg = pre_sync;
     for (int level = max_level; level >= min_level; --level) {
-      auto partitions = pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
+      auto partitions = pmesh->GetMultigridBlockPartitions(level);
       if (default_partition_idx < partitions.size()) {
         mg = mg | AddMultiGridTasksPartitionLevel(tl, dependence, partitions[default_partition_idx], pmesh);
       }
@@ -236,7 +236,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
     auto mg_setup = dependence;
     for (int level = max_level; level >= min_level; --level) {
-      auto partitions = pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
+      auto partitions = pmesh->GetMultigridBlockPartitions(level);
       if (default_partition_idx < partitions.size()) {
         mg_setup =
             mg_setup | AddMultiGridSetupPartitionLevel(tl, dependence, partitions[default_partition_idx], pmesh);

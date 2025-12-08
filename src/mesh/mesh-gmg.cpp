@@ -112,11 +112,18 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
       gmg_level_offset = std::min(dir_allowed_levels, gmg_level_offset);
     }
   }
+  gmg_min_level_ = -gmg_level_offset;
 
-  const int gmg_min_level = -gmg_level_offset;
-  gmg_min_logical_level_ = gmg_min_level;
+  // Populate a list of multigrid grids from finest level to coarsest
+  const int leaf_coarsenings{0}; // TODO(LFR): Change this from zero
+  for (int gmg_level = GetGMGMaxLevel(); gmg_level >= GetGMGMinLevel(); --gmg_level) {
+    int logical_level = gmg_level; // TODO(LFR): update this to respect chosen hierarchy
+    gmg_grids[gmg_level] = GridIdentifier::two_level_composite(logical_level, leaf_coarsenings);
+    gmg_grids[gmg_level].multigrid_level = gmg_level;
+  }
+
   gmg_block_lists_.clear();
-  for (int level = gmg_min_level; level <= current_level; ++level) {
+  for (int level = GetGMGMinLevel(); level <= GetGMGMaxLevel(); ++level) {
     gmg_block_lists_[level] = BlockList_t();
   }
 
@@ -135,7 +142,7 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
     // and add them to gmg two-level composite grid block lists. This
     // determines which process internal blocks live on
     auto loc = pmb->loc.GetParent();
-    while (loc.level() >= gmg_min_level && loc.morton() == pmb->loc.morton()) {
+    while (loc.level() >= gmg_min_level_ && loc.morton() == pmb->loc.morton()) {
       RegionSize block_size = GetDefaultBlockSize();
       BoundaryFlag block_bcs[6];
       SetBlockSizeAndBoundaries(loc, block_size, block_bcs);
