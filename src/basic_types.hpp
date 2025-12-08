@@ -135,8 +135,6 @@ struct GridIdentifier {
     return out;
   }
 
-  }
-
   std::string label() const {
     if (type == GridType::leaf) {
       return "GridType::leaf";

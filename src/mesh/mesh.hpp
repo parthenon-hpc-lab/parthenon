@@ -331,7 +331,7 @@ class Mesh {
   std::vector<LogicalLocation> loclist;
 
   // Block lists for internal nodes in the tree corresponding to multigrid levels
-  std::map<int, GridIdentifier> gmg_grids;
+  std::map<int, GridIdentifier> gmg_grids_;
   std::map<int, BlockList_t> gmg_block_lists_; // maps from *GMG* level to blocks list
 
   // flags are false if using non-uniform or user meshgen function
