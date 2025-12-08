@@ -26,7 +26,11 @@ void MeshData<T>::Initialize(BlockList_t blocks, Mesh *pmesh,
     block_data_[i] = blocks[i]->meshblock_data.Add(stage_name_, blocks[i]);
   }
   if (gmg_level) {
-    grid = GridIdentifier::two_level_composite(*gmg_level);
+    if (pmesh) {
+      grid = pmesh->GetGMGGrid(*gmg_level);
+    } else {
+      PARTHENON_FAIL("Cannot initialize MeshData without Mesh."); 
+    }
   } else {
     grid = GridIdentifier::leaf();
   }

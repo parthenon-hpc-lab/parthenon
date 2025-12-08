@@ -149,7 +149,7 @@ class Mesh {
 
   int GetGMGMaxLevel() const { return current_level; }
   int GetGMGMinLevel() const { return gmg_min_level_; }
-
+  GridIdentifier GetGMGGrid(int gmg_level) { return gmg_grids_[gmg_level]; }
   // functions
   void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
 
@@ -195,8 +195,8 @@ class Mesh {
   }
 
   const std::vector<std::shared_ptr<BlockListPartition>> &
-  GetMultigridBlockPartitions(int multigrid_level) const {
-    auto grid = GridIdentifier::two_level_composite(multigrid_level);
+  GetMultigridBlockPartitions(int gmg_level) const {
+    auto grid = gmg_grids_.at(gmg_level);
     PARTHENON_REQUIRE(multigrid, "Asking for a partition of a multigrid grid when "
                                  "parthenon/mesh/multigrid = false.")
     PARTHENON_REQUIRE(
