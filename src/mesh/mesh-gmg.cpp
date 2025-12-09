@@ -117,11 +117,11 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
   // Populate a list of multigrid grids from coarsest to finest level
   gmg_block_lists_.clear();
   gmg_grids_.clear();
-  const int leaf_coarsenings{0}; // TODO(LFR): Change this from zero
+  const int coarsenings{0}; // TODO(LFR): Change this from zero
   for (int level = GetGMGMinLevel(); level <= GetGMGMaxLevel(); ++level) {
     int logical_level = level; // TODO(LFR): update this to respect chosen hierarchy
     gmg_block_lists_[level] = BlockList_t();
-    gmg_grids_[level] = GridIdentifier::two_level_composite(logical_level, leaf_coarsenings);
+    gmg_grids_[level] = GridIdentifier::two_level_composite(logical_level, coarsenings);
     gmg_grids_[level].multigrid_level = level;
   }
 
