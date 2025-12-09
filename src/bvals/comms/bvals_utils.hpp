@@ -52,6 +52,7 @@ inline Mesh::channel_key_t SendKey(const MeshBlock *pmb, const NeighborBlock &nb
                                       btype == BoundaryType::gmg_restrict_send))
                   ? 1
                   : 0;
+  other += 2 * pmb->coarsenings;
   return {sender_id, receiver_id, pcv->label(), location_idx, other};
 }
 
@@ -65,6 +66,7 @@ inline Mesh::channel_key_t ReceiveKey(const MeshBlock *pmb, const NeighborBlock 
                                       btype == BoundaryType::gmg_restrict_send))
                   ? 1
                   : 0;
+  other += 2 * nb.coarsenings;
   return {sender_id, receiver_id, pcv->label(), location_idx, other};
 }
 

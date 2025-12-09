@@ -55,6 +55,8 @@ struct NeighborBlock {
   LogicalLocation loc;
   // LogicalLocation of neighbor block in origin tree
   LogicalLocation origin_loc;
+  // Number of coarsenings from the base block size
+  std::size_t coarsenings{0};
   // offsets of neighbor block if it is on a finer level
   // TODO(LFR): Remove these
   int fi1, fi2;

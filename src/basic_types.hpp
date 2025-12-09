@@ -115,9 +115,9 @@ struct GridIdentifier {
   GridType type = GridType::none;
   int logical_level = 0; // Only meaningful for two_level_composite
   int multigrid_level = 0; // Not always meaningful
-  int coarsenings = 0;
+  std::size_t coarsenings = 0;
 
-  static GridIdentifier leaf(int coarsenings = 0) { 
+  static GridIdentifier leaf(std::size_t coarsenings = 0) { 
     GridIdentifier out;
     out.type = GridType::leaf;
     out.logical_level = -1111;
@@ -126,7 +126,7 @@ struct GridIdentifier {
     return out;
   }
 
-  static GridIdentifier two_level_composite(int level, int coarsenings = 0) {
+  static GridIdentifier two_level_composite(int level, std::size_t coarsenings = 0) {
     GridIdentifier out;
     out.type = GridType::two_level_composite;
     out.logical_level = level;

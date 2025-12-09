@@ -74,7 +74,7 @@ void Mesh::SetMeshBlockNeighbors(
       int lgid = forest.GetLeafGid(nloc.global_loc);
       all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, nloc.origin_loc,
                                  ranklist[lgid], gid, offsets, bid, tid, f[0], f[1]);
-
+      
       // Set neighbor block ownership
       auto &nb = all_neighbors.back();
       auto neighbor_neighbors = forest.FindNeighbors(nloc.global_loc, grid_id);
@@ -85,6 +85,9 @@ void Mesh::SetMeshBlockNeighbors(
 
       // Set logical coordinate transformation from this block to the neighbor
       nb.lcoord_trans = nloc.lcoord_trans;
+      
+      // Set the number of coarsenings
+      nb.coarsenings = pmb->coarsenings;
     }
 
     if (grid_id.type == GridType::leaf) {
@@ -117,7 +120,7 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
   // Populate a list of multigrid grids from coarsest to finest level
   gmg_block_lists_.clear();
   gmg_grids_.clear();
-  const int coarsenings{0}; // TODO(LFR): Change this from zero
+  const std::size_t coarsenings{0}; // TODO(LFR): Change this from zero
   for (int level = GetGMGMinLevel(); level <= GetGMGMaxLevel(); ++level) {
     int logical_level = level; // TODO(LFR): update this to respect chosen hierarchy
     gmg_block_lists_[level] = BlockList_t();
