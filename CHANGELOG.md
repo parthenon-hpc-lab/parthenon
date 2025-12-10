@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1331]](https://github.com/parthenon-hpc-lab/parthenon/pull/1331) Add control over whether to include/exclude an output on final signal
 - [[PR 1330]](https://github.com/parthenon-hpc-lab/parthenon/pull/1330) Add userspace mechanisms to control number of comm buffers allocated
 - [[PR 1319]](https://github.com/parthenon-hpc-lab/parthenon/pull/1319) Add common scratch variable utilities
 - [[PR 1326]](https://github.com/parthenon-hpc-lab/parthenon/pull/1326) Thread initial swarm pool size into userspace via metadata
@@ -28,7 +29,9 @@
 - [[PR 1253]](https://github.com/parthenon-hpc-lab/parthenon/pull/1253) Add support for uint64 swarm variables and add default id
 - [[PR 1280]](https://github.com/parthenon-hpc-lab/parthenon/pull/1280) Print history file headers on restart
 
-### Fixed (not changing behavior/API/variables/...)
+### Fixed (not changing behavior/API/variables/...)1340
+- [[PR 1340]](https://github.com/parthenon-hpc-lab/parthenon/pull/1340) Set ownership for finer multigrid neighbors 
+- [[PR 1338]](https://github.com/parthenon-hpc-lab/parthenon/pull/1338) Fix bug where gmg block list wasn't completely cleared after remesh
 - [[PR 1330]](https://github.com/parthenon-hpc-lab/parthenon/pull/1330) Add missing device-side destructor to BndId. Make comm buffer pools safe to clear.
 - [[PR 1327]](https://github.com/parthenon-hpc-lab/parthenon/pull/1327) Eliminate warnings from ViewOfViewAlloc
 - [[PR 1328]](https://github.com/parthenon-hpc-lab/parthenon/pull/1328) Add more useful error message for task list timeout
@@ -51,6 +54,7 @@
 - [[PR 1284]](https://github.com/parthenon-hpc-lab/parthenon/pull/1284) Fix some parameter types, move `DumpInputParameters` to `Driver`
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1335]](https://github.com/parthenon-hpc-lab/parthenon/pull/1335) Clean up annoying warnings in AMR criteria
 - [[PR 1321]](https://github.com/parthenon-hpc-lab/parthenon/pull/1321) Reorganize docs into chapters
 - [[PR 1316]](https://github.com/parthenon-hpc-lab/parthenon/pull/1316) Update Cuda CI container (main change g++-13 to fix asan bug)
 - [[PR 1292]](https://github.com/parthenon-hpc-lab/parthenon/pull/1292) Remove shared ptr cycle and add a destructor for reductions
