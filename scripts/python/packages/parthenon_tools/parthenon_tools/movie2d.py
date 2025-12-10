@@ -200,6 +200,13 @@ parser.add_argument(
     default=None,
 )
 parser.add_argument("--ylabel", type=str, help="Label for y axis", default=None)
+
+parser.add_argument(
+    "--blocks",
+    type=bool,
+    default=True,
+    help="Whether or not to plot block boundaries. Default is true.")
+
 parser.add_argument("field", type=str, help="field to plot")
 parser.add_argument("files", type=str, nargs="+", help="files to plot")
 
@@ -494,7 +501,7 @@ def main():
                         args.colorbar,
                         args.colorbounds,
                         args.symmetrizecolors,
-                        True,
+                        args.blocks,
                         data.gid,
                         data.xig,
                         data.yig,
@@ -525,7 +532,7 @@ def main():
                         args.colorbar,
                         args.colorbounds,
                         args.symmetrizecolors,
-                        True,
+                        args.blocks,
                         components=components,
                         swarmx=swarmx,
                         swarmy=swarmy,
