@@ -64,7 +64,7 @@ class MeshBlockData {
   // Public Methods
   //-----------------
   /// Constructor
-  MeshBlockData<T>() = default;
+  MeshBlockData() = default;
   explicit MeshBlockData<T>(const std::string &name) : stage_name_(name) {}
 
   std::shared_ptr<MeshBlock> GetBlockSharedPointer() const {
@@ -164,7 +164,7 @@ class MeshBlockData {
     coarseVarPackMap_.clear();
     varFluxPackMap_.clear();
 
-    [[maybe_unused]] auto add_var = [=](auto var) {
+    [[maybe_unused]] auto add_var = [=, this](auto var) {
       if (shallow_copy || var->IsSet(Metadata::OneCopy)) {
         Add(var);
       } else {
