@@ -107,9 +107,6 @@ class PoissonEquation {
     auto pkg = md_mat->GetMeshPointer()->packages.Get("poisson_package");
     const auto alpha = pkg->Param<Real>("diagonal_alpha");
 
-    int nblocks = md_mat->NumBlocks();
-    std::vector<bool> include_block(nblocks, true);
-
     auto desc_mat = parthenon::MakePackDescriptor<D_t>(md_mat.get());
     auto desc_diag = parthenon::MakePackDescriptor<var_t>(md_diag.get());
     auto pack_mat = desc_mat.GetPack(md_mat.get());
@@ -211,9 +208,6 @@ class PoissonEquation {
 
     using TE = parthenon::TopologicalElement;
 
-    int nblocks = md->NumBlocks();
-    std::vector<bool> include_block(nblocks, true);
-
     auto desc = parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
     auto desc_mat = parthenon::MakePackDescriptor<D_t>(md.get());
     auto pack = desc.GetPack(md.get());
@@ -290,9 +284,6 @@ class PoissonEquation {
 
     auto pkg = md->GetMeshPointer()->packages.Get("poisson_package");
     const auto alpha = pkg->Param<Real>("diagonal_alpha");
-
-    int nblocks = md->NumBlocks();
-    std::vector<bool> include_block(nblocks, true);
 
     static auto desc =
         parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
