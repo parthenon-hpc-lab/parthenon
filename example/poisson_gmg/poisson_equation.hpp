@@ -155,7 +155,6 @@ class PoissonEquation {
     using TE = parthenon::TopologicalElement;
 
     int nblocks = md->NumBlocks();
-    std::vector<bool> include_block(nblocks, true);
 
     auto desc = parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
     auto pack = desc.GetPack(md.get());
