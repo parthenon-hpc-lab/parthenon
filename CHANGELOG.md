@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1337]](https://github.com/parthenon-hpc-lab/parthenon/pull/1337) Add task list based timing capabilities
 - [[PR 1331]](https://github.com/parthenon-hpc-lab/parthenon/pull/1331) Add control over whether to include/exclude an output on final signal
 - [[PR 1330]](https://github.com/parthenon-hpc-lab/parthenon/pull/1330) Add userspace mechanisms to control number of comm buffers allocated
 - [[PR 1319]](https://github.com/parthenon-hpc-lab/parthenon/pull/1319) Add common scratch variable utilities
