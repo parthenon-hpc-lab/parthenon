@@ -69,6 +69,8 @@ class SolverBase {
 
   const std::vector<std::string> &GetFieldLabels() const { return sol_fields; }
 
+  bool initial_guess_is_zero{false};
+
   static inline TimingAccumulatorDictionary solver_timings;
 
  protected:
