@@ -202,17 +202,10 @@ parser.add_argument(
 parser.add_argument("--ylabel", type=str, help="Label for y axis", default=None)
 
 parser.add_argument(
-    "--blocks",
-    dest="blocks",
-    default=True,
-    action="store_true",
-    help="Whether or not to plot block boundaries. Default is true.",
-)
-parser.add_argument(
     "--no-blocks",
     dest="blocks",
     action="store_false",
-    help="Whether or not to plot block boundaries. Default is true.",
+    help="Disables the plotting of block boundaries. They are plotted by default.",
 )
 
 parser.add_argument(
@@ -361,7 +354,7 @@ def plot_dump(
                 0.5 * (xf[i, 0] + xf[i, -1]),
                 0.5 * (yf[i, 0] + yf[i, -1]),
                 str(block_ids[i]),
-                fontsize=int((3.0 / 4.0) * fontsize),
+                fontsize=int((2.0 / 3.0) * fontsize),
                 color="w",
                 ha="center",
                 va="center",
