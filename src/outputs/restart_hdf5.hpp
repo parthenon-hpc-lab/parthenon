@@ -28,6 +28,7 @@
 #include <hdf5.h>
 
 #include "interface/metadata.hpp"
+#include "outputs/parthenon_hdf5.hpp"
 #include "outputs/parthenon_hdf5_types.hpp"
 
 using namespace parthenon::HDF5;
@@ -233,14 +234,25 @@ class RestartReaderHDF5 : public RestartReader {
 
   void ReadParams(const std::string &name, Params &p) override;
 
-  [[nodiscard]] bool VariableExists(const std::string &name,
-                                    const DataType /*data_type*/) const override {
+  [[nodiscard]] bool VariableExists(const std::string &name, const DataType data_type,
+                                    const std::string swarmvarname = ""
+
+  ) const override {
 #ifdef ENABLE_HDF5
-    // Make sure dataset exists
-    // Our HDF5 output does not differentiate between fields and swarms. Everything is an
-    // object, so we can ignore the data_type. Note, we may eventually want to fix is as
-    // swarm and fields with the same name may cause issues.
-    return PARTHENON_HDF5_CHECK(H5Oexists_by_name(fh_, name.c_str(), H5P_DEFAULT));
+    // Make sure dataset exists. Our HDF5 output does not differentiate between
+    // fields and swarms, so we can ignore the data_type. Note, we may eventually
+    // want to fix this as swarms and fields with the same name may cause issues.
+    // disable error handling/printing while probing so missing datasets do not
+    // spam the log, then restore the aborting handler.
+    std::string full_name = name;
+    if (data_type == DataType::SwarmVar) {
+      full_name = name + "/SwarmVars/" + swarmvarname;
+    }
+    H5Eset_auto(H5E_DEFAULT, NULL, NULL);
+    auto status =
+        PARTHENON_HDF5_CHECK(H5Oexists_by_name(fh_, full_name.c_str(), H5P_DEFAULT));
+    H5Eset_auto(H5E_DEFAULT, aborting_error_handler, NULL);
+    return status > 0;
 #else
     PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
     return false;

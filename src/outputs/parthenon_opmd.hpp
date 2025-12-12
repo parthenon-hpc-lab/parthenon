@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2024 The Parthenon collaboration
+// Copyright(C) 2024-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 #ifndef OUTPUTS_PARTHENON_OPMD_HPP_
@@ -8,12 +8,13 @@
 //! \file restart_opmd.hpp
 //  \brief Provides support for restarting from OpenPMD output
 
-// OpenPMD headers
-#include <openPMD/openPMD.hpp>
-
+// C++ stdlib
 #include <memory>
 #include <string>
 #include <tuple>
+
+// OpenPMD headers
+#include <openPMD/openPMD.hpp>
 
 #include "basic_types.hpp"
 #include "mesh/meshblock.hpp"
@@ -53,6 +54,15 @@ std::tuple<openPMD::Offset, openPMD::Extent>
 GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
                         const TopologicalElement te, const int coarsening_factor,
                         const SubOutputType outupt_type);
+
+// Construct OpenPMD Particle "record" name and comonnent identifier.
+// - vname is the variable name
+// - rank is the variable rank (i.e., 0 is scalar etc)
+// - comp_idx is a flattended index over all components of the vectors and tensors, i.e.,
+// the typical v,u,t indices.
+std::tuple<std::string, std::string>
+GetParticleRecordAndComponentNames(const std::string &vname, const int rank,
+                                   const int flat_comp_idx);
 
 } // namespace OpenPMDUtils
 } // namespace parthenon

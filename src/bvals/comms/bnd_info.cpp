@@ -24,6 +24,7 @@
 
 #include "basic_types.hpp"
 #include "bvals/comms/bnd_info.hpp"
+#include "bvals/comms/bvals_utils.hpp"
 #include "bvals/neighbor_block.hpp"
 #include "config.hpp"
 #include "globals.hpp"
@@ -251,7 +252,7 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
                                   {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
-int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
+int GetBufferSize(const MeshBlock *const pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v) {
   // This does not do a careful job of calculating the buffer size, in many
   // cases there will be some extra storage that is not required, but there
@@ -277,10 +278,13 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   allocated = v->IsAllocated();
   alloc_status = v->GetAllocationStatus();
 
-  buf = combuf->buffer();
+  // Sometimes we may build a BndInfo object just to get the
+  // size of the index space associated with the boundary. In
+  // that case an associated communication buffer may not exist
+  // and a nullptr will be passed instead.
+  if (combuf != nullptr) buf = combuf->buffer();
   same_to_same = pmb->gid == nb.gid && nb.offsets.IsCell();
   lcoord_trans = nb.lcoord_trans;
-  if (!allocated) return;
 
   if (nb.origin_loc.level() < pmb->loc.level()) {
     var = v->coarse_s.Get();
@@ -326,7 +330,7 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorRecv;
   BndInfo out(pmb, nb, v, buf, idx_range_type);
 
-  auto buf_state = buf->GetState();
+  auto buf_state = buf != nullptr ? buf->GetState() : BufferState::received;
   if (buf_state == BufferState::received) {
     out.buf_allocated = true;
   } else if (buf_state == BufferState::received_null) {

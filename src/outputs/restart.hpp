@@ -137,8 +137,9 @@ class RestartReader {
   virtual void ReadParams(const std::string &name, Params &p) = 0;
 
   enum class DataType { Field, Swarm, SwarmVar };
-  [[nodiscard]] virtual bool VariableExists(const std::string &name,
-                                            const DataType data_type) const = 0;
+  [[nodiscard]] virtual bool
+  VariableExists(const std::string &name, const DataType data_type,
+                 const std::string swarmvarname = "") const = 0;
 
   // closes out the restart file
   // perhaps belongs in a destructor?

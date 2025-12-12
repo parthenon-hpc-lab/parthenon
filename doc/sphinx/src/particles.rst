@@ -39,6 +39,13 @@ by the associated ``MeshBlock``. The ``MeshBlock`` is pointed to by ``Swarm::pmy
 ``MeshBlockData`` pointed to by the ``b`` index within a ``MeshData``.  We currently only
 permit ``Swarm``s to be retrieved from ``"base"`` ``MeshBlockData`` and ``MeshData``.
 
+.. note::
+
+   Swarms manage a "pool" of particles. Memory is reserved for this
+   pool in a greedy fashion. When more particles are required, the
+   pool is expanded. You can set the default initial number of
+   particles that the reservation holds for a given swarm by calling
+   ``metadata.SetInitialSwarmPoolReservation(nparticles);``.
 
 The ``Swarm`` is a host-side object, but some of its data members are
 required for device- side compution. To access this data, a

@@ -62,6 +62,7 @@ option(CODE_COVERAGE "Enable code coverage reporting" OFF)
 option(ENABLE_ASAN "Turn on ASAN" OFF)
 option(ENABLE_HWASAN "Turn on HWASAN (currently ARM-only)" OFF)
 option(PARTHENON_USE_SERIAL_POOL "Disable threaded tasking" ON)
+option(PARTHENON_DEBUG_SCRATCH "Enable debugging for scratch variables" OFF)
 
 option(PARTHENON_USE_SYSTEM_PACKAGES "Enables search for system packages when available" OFF)
 if (PARTHENON_USE_SYSTEM_PACKAGES)
@@ -375,6 +376,13 @@ if(ENABLE_HWASAN)
   add_compile_options(-fsanitize=hwaddress)
   add_link_options(-fsanitize=hwaddress)
 endif(ENABLE_HWASAN)
+
+# option to have separate field names for scratch variables
+# for debugging purposes
+if(PARTHENON_DEBUG_SCRATCH)
+   message(STATUS "Compiling with scratch variable debugging enabled.")
+   target_compile_definitions(parthenon PUBLIC PARTHENON_DEBUG_SCRATCH)
+endif(PARTHENON_DEBUG_SCRATCH)
 
 
 # Build Tests and download Catch2

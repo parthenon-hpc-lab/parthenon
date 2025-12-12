@@ -73,7 +73,7 @@ class ParthenonManager {
       auto arrdims = m.GetArrayDims(pswarm->GetBlockPointer(), false);
 
       auto var_missing_on_disk = !restartReader->VariableExists(
-          swarmname + "/SwarmVars/" + varname, RestartReader::DataType::SwarmVar);
+          swarmname, RestartReader::DataType::SwarmVar, varname);
       if (Globals::my_rank == 0) {
         std::cout << "SwarmVar: " << varname
                   << (var_missing_on_disk ? " missing on disk\n" : "\n");

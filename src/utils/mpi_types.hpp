@@ -72,9 +72,11 @@ namespace parthenon {
 #ifdef MPI_PARALLEL
 using mpi_request_t = MPI_Request;
 using mpi_comm_t = MPI_Comm;
+using mpi_message_t = MPI_Message;
 #else
 using mpi_request_t = int;
 using mpi_comm_t = int;
+using mpi_message_t = int;
 #endif
 
 } // namespace parthenon

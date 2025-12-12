@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include "bvals/comms/bvals_in_one.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/state_descriptor.hpp"
@@ -27,6 +28,7 @@
 #include "solvers/solver_base.hpp"
 #include "solvers/solver_utils.hpp"
 #include "tasks/tasks.hpp"
+#include "utils/reductions.hpp"
 #include "utils/type_list.hpp"
 
 namespace parthenon {
@@ -63,42 +65,34 @@ struct BiCGSTABParams {
   }
 };
 
-// The equations class must include a template method
+struct BiCGSTABSolverCounter {
+  static inline std::size_t id{0};
+};
+
+// The equations_t class must include a template method
 //
 //   template <class x_t, class y_t, class TL_t>
 //   TaskID Ax(TL_t &tl, TaskID depends_on, std::shared_ptr<MeshData<Real>> &md)
 //
 // that takes a field associated with x_t and applies
 // the matrix A to it and stores the result in y_t.
-template <class equations, class preconditioner_t = MGSolver<equations>>
-class BiCGSTABSolver : public SolverBase {
-  using FieldTL = typename equations::IndependentVars;
+template <class equations_t, class preconditioner_t = MGSolver<equations_t>>
+class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
+  using FieldTL = typename equations_t::IndependentVars;
 
-  std::vector<std::string> sol_fields;
-  // Name of user defined container that should contain information required to
-  // calculate the matrix part of the matrix vector product
-  std::string container_base;
-  // User defined container in which the solution will reside, only needs to contain
-  // sol_fields
-  // TODO(LFR): Also allow for an initial guess to come in here
-  std::string container_u;
-  // User defined container containing the rhs vector, only needs to contain sol_fields
-  std::string container_rhs;
   // Internal containers for solver which create deep copies of sol_fields
   std::string container_rhat0, container_v, container_h, container_s;
   std::string container_t, container_r, container_p, container_x, container_diag;
-
-  static inline std::size_t id{0};
+  BValOnMDFunc_t BCFunc;
 
  public:
   BiCGSTABSolver(const std::string &container_base, const std::string &container_u,
                  const std::string &container_rhs, ParameterInput *pin,
-                 const std::string &input_block, equations eq_in = equations())
+                 const std::string &input_block, equations_t eq_in = equations_t())
       : preconditioner(container_base, container_u, container_rhs, pin, input_block,
                        eq_in),
-        container_base(container_base), container_u(container_u),
-        container_rhs(container_rhs), params_(pin, input_block), iter_counter(0),
-        eqs_(eq_in) {
+        SolverBase(container_base, container_u, container_rhs), params_(pin, input_block),
+        iter_counter(0), eqs_(eq_in) {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
     std::string solver_id = "bicgstab" + std::to_string(id++);
@@ -111,6 +105,17 @@ class BiCGSTABSolver : public SolverBase {
     container_p = solver_id + "_p";
     container_x = solver_id + "_x";
     container_diag = solver_id + "_diag";
+    if constexpr (has_SetBoundary<equations_t>::value) {
+      BCFunc = equations_t::SetBoundary;
+    } else {
+      BCFunc = ApplyBoundaryConditionsOnCoarseOrFineMD;
+    }
+  }
+
+  TaskID Ax(TaskList &tl, TaskID dependence, std::shared_ptr<MeshData<Real>> &md_mat,
+            std::shared_ptr<MeshData<Real>> &md_in,
+            std::shared_ptr<MeshData<Real>> &md_out) {
+    return eqs_.Ax(tl, dependence, md_mat, md_in, md_out);
   }
 
   TaskID AddSetupTasks(TaskList &tl, TaskID dependence, int partition, Mesh *pmesh) {
@@ -120,7 +125,7 @@ class BiCGSTABSolver : public SolverBase {
       auto partitions = pmesh->GetDefaultBlockPartitions();
       auto &md = pmesh->mesh_data.Add(container_base, partitions[partition]);
       auto &md_diag = pmesh->mesh_data.Add(container_diag, md, sol_fields);
-      return tl.AddTask(dependence, &equations::SetDiagonal, &eqs_, md, md_diag);
+      return tl.AddTask(dependence, &equations_t::SetDiagonal, &eqs_, md, md_diag);
     } else {
       return dependence;
     }
@@ -217,8 +222,8 @@ class BiCGSTABSolver : public SolverBase {
     }
 
     // 2. v <- A u
-    auto comm =
-        AddBoundaryExchangeTasks<BoundaryType::any>(precon1, itl, md_u, multilevel);
+    auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon1, itl, md_u,
+                                                            multilevel, BCFunc);
     auto get_v = eqs_.Ax(itl, comm, md_base, md_u, md_v);
 
     // 3. rhat0v <- (rhat0, v)
@@ -271,8 +276,8 @@ class BiCGSTABSolver : public SolverBase {
     }
 
     // 7. t <- A u
-    auto pre_t_comm =
-        AddBoundaryExchangeTasks<BoundaryType::any>(precon2, itl, md_u, multilevel);
+    auto pre_t_comm = AddBoundaryExchangeTasks<BoundaryType::any>(precon2, itl, md_u,
+                                                                  multilevel, BCFunc);
     auto get_t = eqs_.Ax(itl, pre_t_comm, md_base, md_u, md_t);
 
     // 8. omega <- (t,s) / (t,t)
@@ -365,7 +370,7 @@ class BiCGSTABSolver : public SolverBase {
   int iter_counter;
   AllReduce<Real> rtr, pAp, rhat0v, rhat0r, ts, tt, residual, rhs2;
   Real rhat0r_old;
-  equations eqs_;
+  equations_t eqs_;
   std::string container_;
 };
 

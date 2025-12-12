@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -197,7 +197,7 @@ class MeshData {
   explicit MeshData(const std::string &name) : stage_name_(name) {}
 
   GridIdentifier grid;
-  int partition;
+  int partition = -1;
 
   const auto &StageName() const { return stage_name_; }
 
@@ -237,6 +237,8 @@ class MeshData {
       return block_data_[0]->GetBoundsK(std::forward<Ts>(args)...);
     return IndexRange{-1, -2};
   }
+
+  const auto &GetUids() const { return block_data_[0]->GetUids(); }
 
   template <class... Args>
   void Add(Args &&...args) {
@@ -279,6 +281,11 @@ class MeshData {
   }
 
   void Initialize(BlockList_t blocks, Mesh *pmesh, std::optional<int> gmg_level = {});
+
+  MeshBlockData<T> *GetBlockDataRawPointer(int n) {
+    assert(n >= 0 && n < block_data_.size());
+    return block_data_[n].get();
+  }
 
   const std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) const {
     assert(n >= 0 && n < block_data_.size());
@@ -533,7 +540,6 @@ std::vector<Uid_t> UidIntersection(MeshData<T> *md1, MeshData<T> *md2, Args &&..
   return UidIntersection(md1->GetBlockData(0).get(), md2->GetBlockData(0).get(),
                          std::forward<Args>(args)...);
 }
-
 } // namespace parthenon
 
 #endif // INTERFACE_MESH_DATA_HPP_

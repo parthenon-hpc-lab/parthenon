@@ -34,6 +34,10 @@ namespace parthenon {
 
 namespace solvers {
 
+struct TridiagSolverCounter {
+  static inline std::size_t id{0};
+};
+
 // The equations class must include a template method
 //
 //   template <class x_t, class y_t, class TL_t>
@@ -42,32 +46,20 @@ namespace solvers {
 // that takes a field associated with x_t and applies
 // the matrix A to it and stores the result in y_t.
 template <class equations>
-class TridiagSolver : public SolverBase {
+class TridiagSolver : public SolverBase, TridiagSolverCounter {
   using FieldTL = typename equations::IndependentVars;
 
-  std::vector<std::string> sol_fields;
-  // Name of user defined container that should contain information required to
-  // calculate the matrix part of the matrix vector product
-  std::string container_base;
-  // User defined container in which the solution will reside, only needs to contain
-  // sol_fields
-  // TODO(LFR): Also allow for an initial guess to come in here
-  std::string container_u;
-  // User defined container containing the rhs vector, only needs to contain sol_fields
-  std::string container_rhs;
   // Internal containers for solver which create deep copies of sol_fields
   std::string container_100, container_010, container_001, container_100_out,
       container_010_out, container_001_out, container_Aup, container_Adi, container_Alo,
       container_r;
 
-  static inline std::size_t id{0};
-
  public:
   TridiagSolver(const std::string &container_base, const std::string &container_u,
                 const std::string &container_rhs, ParameterInput *pin,
                 const std::string &input_block, const equations &eq_in = equations())
-      : container_base(container_base), container_u(container_u),
-        container_rhs(container_rhs), iter_counter(0), eqs_(eq_in),
+      : SolverBase(container_base, container_u, container_rhs), iter_counter(0),
+        eqs_(eq_in),
         print_solution_(pin->GetOrAddBoolean(input_block, "print_solution", false)) {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
@@ -302,6 +294,12 @@ class TridiagSolver : public SolverBase {
 
   Real GetSquaredResidualSum() const { return 0.0; }
   int GetCurrentIterations() const { return 1; }
+
+  TaskID Ax(TaskList &tl, TaskID dependence, std::shared_ptr<MeshData<Real>> &md_mat,
+            std::shared_ptr<MeshData<Real>> &md_in,
+            std::shared_ptr<MeshData<Real>> &md_out) {
+    return eqs_.Ax(tl, dependence, md_mat, md_in, md_out);
+  }
 
  protected:
   int iter_counter;
