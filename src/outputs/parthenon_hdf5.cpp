@@ -150,7 +150,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     HDF5WriteAttribute("File", oss.str().c_str(), input_group);
     Kokkos::Profiling::popRegion(); // write input
-  }                                 // Input section
+  } // Input section
 
   // we'll need this again at the end
   const H5G info_group = MakeGroup(file, "/Info");
@@ -224,7 +224,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     HDF5WriteAttribute("BoundaryConditions", pm->mesh_bc_names, info_group);
     HDF5WriteAttribute("SwarmBoundaryConditions", pm->mesh_swarm_bc_names, info_group);
     Kokkos::Profiling::popRegion(); // write Info
-  }                                 // Info section
+  } // Info section
 
   // write Params
   {
@@ -237,8 +237,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       state->AllParams().WriteAllToHDF5(state->label(), params_group);
     }
     Kokkos::Profiling::popRegion(); // behold: write Params
-  }                                 // Params section
-  Kokkos::Profiling::popRegion();   // write Attributes
+  } // Params section
+  Kokkos::Profiling::popRegion(); // write Attributes
 
   // -------------------------------------------------------------------------------- //
   //   WRITING MESHBLOCK METADATA                                                     //
@@ -272,7 +272,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // All blocks have the same list of variable metadata that exist in the entire
   // simulation, but not all variables may be allocated on all blocks
 
-  auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
+  auto get_vars = [=, this](const std::shared_ptr<MeshBlock> pmb) {
     const auto &data = pmb->meshblock_data.Get(output_params.meshdata_name);
     const VariableVector<Real> &var_vec = data->GetVariableVector();
     VariableVector<Real> coords_vars =
