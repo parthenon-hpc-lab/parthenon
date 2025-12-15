@@ -268,6 +268,8 @@ add_library(parthenon
   solvers/solver_utils.hpp
   solvers/tridiag_solver.hpp
 
+  tasks/task_timing.cpp
+  tasks/task_timing.hpp
   tasks/tasks.cpp
   tasks/tasks.hpp
   tasks/thread_pool.hpp

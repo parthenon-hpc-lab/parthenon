@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1337]](https://github.com/parthenon-hpc-lab/parthenon/pull/1337) Add task list based timing capabilities
 - [[PR 1331]](https://github.com/parthenon-hpc-lab/parthenon/pull/1331) Add control over whether to include/exclude an output on final signal
 - [[PR 1330]](https://github.com/parthenon-hpc-lab/parthenon/pull/1330) Add userspace mechanisms to control number of comm buffers allocated
 - [[PR 1319]](https://github.com/parthenon-hpc-lab/parthenon/pull/1319) Add common scratch variable utilities
@@ -29,7 +30,8 @@
 - [[PR 1253]](https://github.com/parthenon-hpc-lab/parthenon/pull/1253) Add support for uint64 swarm variables and add default id
 - [[PR 1280]](https://github.com/parthenon-hpc-lab/parthenon/pull/1280) Print history file headers on restart
 
-### Fixed (not changing behavior/API/variables/...)
+### Fixed (not changing behavior/API/variables/...)1340
+- [[PR 1340]](https://github.com/parthenon-hpc-lab/parthenon/pull/1340) Set ownership for finer multigrid neighbors 
 - [[PR 1338]](https://github.com/parthenon-hpc-lab/parthenon/pull/1338) Fix bug where gmg block list wasn't completely cleared after remesh
 - [[PR 1330]](https://github.com/parthenon-hpc-lab/parthenon/pull/1330) Add missing device-side destructor to BndId. Make comm buffer pools safe to clear.
 - [[PR 1327]](https://github.com/parthenon-hpc-lab/parthenon/pull/1327) Eliminate warnings from ViewOfViewAlloc
