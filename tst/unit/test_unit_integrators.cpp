@@ -189,6 +189,18 @@ TEST_CASE("Low storage integrator", "[StagedIntegrator]") {
         REQUIRE(std::abs(u[1] - ufinal[1]) <= 1e-2);
       }
     }
+    WHEN("We integrate with LowStorage rk34") {
+      // still accurate with large timestep
+      constexpr Real dt = 1e-2;
+      auto integrator = MakeIntegrator<LowStorageIntegrator>("rk34");
+      State_t u;
+      GetInitialData(u);
+      Integrate(integrator, Step2SStar, tf, dt, u);
+      THEN("The final state doesn't differ too much from the true solution") {
+        REQUIRE(std::abs(u[0] - ufinal[0]) <= 1e-2);
+        REQUIRE(std::abs(u[1] - ufinal[1]) <= 1e-2);
+      }
+    }
     WHEN("We integrate with LowStorage rk4") {
       // still accurate with large timestep
       constexpr Real dt = 1e-2;
