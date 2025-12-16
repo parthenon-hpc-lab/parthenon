@@ -67,7 +67,8 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   return context;
 }
 
-Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in)
+Swarm::Swarm(const std::string &label, const Metadata &metadata,
+             const std::size_t nmax_pool_in)
     : label_(label), m_(metadata), nmax_pool_(nmax_pool_in), mask_("mask", nmax_pool_),
       marked_for_removal_("mfr", nmax_pool_),
       empty_indices_("empty_indices_", nmax_pool_),
@@ -272,7 +273,7 @@ void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
 
   // Eliminate any cached SwarmPacks, as they will need to be rebuilt following SetPoolMax
   pmb->meshblock_data.Get()->ClearSwarmCaches();
-  pm->mesh_data.Get("base")->ClearSwarmCaches();
+  pm->mesh_data.Add("base", pm->GetBasePartition())->ClearSwarmCaches();
   for (auto &partition : pm->GetDefaultBlockPartitions()) {
     pm->mesh_data.Add("base", partition)->ClearSwarmCaches();
   }

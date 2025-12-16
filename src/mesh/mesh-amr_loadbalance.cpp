@@ -42,7 +42,6 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
-#include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -112,9 +111,10 @@ bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fin
       auto &c_cellbounds =
           var->IsSet(Metadata::Fine) ? pmb->cellbounds : pmb->c_cellbounds;
       for (auto te : var->GetTopologicalElements()) {
-        IndexRange ib = c_cellbounds.GetBoundsI(IndexDomain::entire, te);
-        IndexRange jb = c_cellbounds.GetBoundsJ(IndexDomain::entire, te);
-        IndexRange kb = c_cellbounds.GetBoundsK(IndexDomain::entire, te);
+        const auto te_entire = var->IsSet(Metadata::CellMemAligned) ? TE::CC : te;
+        IndexRange ib = c_cellbounds.GetBoundsI(IndexDomain::entire, te_entire);
+        IndexRange jb = c_cellbounds.GetBoundsJ(IndexDomain::entire, te_entire);
+        IndexRange kb = c_cellbounds.GetBoundsK(IndexDomain::entire, te_entire);
 
         IndexRange ib_int = cellbounds.GetBoundsI(IndexDomain::interior, te);
         IndexRange jb_int = cellbounds.GetBoundsJ(IndexDomain::interior, te);
@@ -644,9 +644,8 @@ bool Mesh::GatherCostListAndCheckBalance() {
 void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                            int ntot) {
   PARTHENON_INSTRUMENT
-  // kill any cached packs
-  mesh_data.PurgeNonBase();
-  mesh_data.Get()->ClearCaches();
+  // kill all old MeshData
+  mesh_data.clear();
 
   // compute nleaf= number of leaf MeshBlocks per refined block
   int nleaf = 2;
@@ -986,8 +985,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     FillDerived();
 
     // Initialize the "base" MeshData object
-    // TODO(LFR): Is this necessary? Do we ever pull out the entire mesh MeshData?
-    mesh_data.Get()->Initialize(block_list, this);
+    mesh_data.Add("base", GetBasePartition());
   } // AMR Recv and unpack data
 
   ResetLoadBalanceVariables();

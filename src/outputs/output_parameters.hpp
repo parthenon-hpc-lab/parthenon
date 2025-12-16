@@ -41,11 +41,11 @@ struct OutputParameters {
   OutputParameters() = default;
 
   int block_number = 0;
-  int contiguous_block_index;
   std::string block_name;
   std::string file_basename;
   int file_number_width;
   bool file_label_final;
+  bool include_in_final;
   bool analysis_flag; // write this output for analysis/postprocessing restarts
   std::string file_id;
   std::vector<std::string> variables;

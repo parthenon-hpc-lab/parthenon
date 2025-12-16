@@ -63,6 +63,7 @@ class ObjectPool {
   }
 
   auto NumBuffersInPool() const { return inuse_.size() + available_.size(); }
+  auto NumBuffersInUse() const { return inuse_.size(); }
 
   std::uint64_t SizeInBytes() const {
     constexpr std::uint64_t datum_size = sizeof(typename base_t::value_type);
@@ -79,6 +80,22 @@ class ObjectPool {
   // in the pool
   void AddFreeObjectToPool(const T &in) { available_.push(in); }
   void AddFreeObjectToPool(T &&in) { available_.emplace(in); }
+
+  void Clear() {
+    // normalize by moving everything into the stack
+    for (auto &[k, v] : inuse_) {
+      v.first.pool_ = nullptr;
+      Free(v.first);
+    }
+    // walk through the stack, disable reference counting, kill the
+    // buffer
+    while (!available_.empty()) {
+      available_.top().pool_ = nullptr;
+      available_.pop();
+    }
+  }
+
+  ~ObjectPool() { Clear(); }
 
  private:
   bool IsValid(const weak_t &in) const { return inuse_.count(in.key_); }

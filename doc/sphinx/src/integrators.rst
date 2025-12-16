@@ -87,6 +87,8 @@ The ``LowStorageIntegrator`` contains arrays for ``delta``, ``beta``,
 
 * ``RK4``, a strong stability preserving variant.
 
+* ``RK34``, a 3rd order 4 stage SSP integrator with CFL <= 2 from `Spiteri & Ruuth 2002 <https://doi.org/10.1137/S0036142901389025>`__.
+
 ButcherIntegrator
 ---------------------
 

@@ -60,6 +60,7 @@ option(CODE_COVERAGE "Enable code coverage reporting" OFF)
 option(ENABLE_ASAN "Turn on ASAN" OFF)
 option(ENABLE_HWASAN "Turn on HWASAN (currently ARM-only)" OFF)
 option(PARTHENON_USE_SERIAL_POOL "Disable threaded tasking" ON)
+option(PARTHENON_DEBUG_SCRATCH "Enable debugging for scratch variables" OFF)
 
 option(PARTHENON_USE_SYSTEM_PACKAGES "Enables search for system packages when available" OFF)
 if (PARTHENON_USE_SYSTEM_PACKAGES)
@@ -77,9 +78,9 @@ include(cmake/Lint.cmake)
 
 
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 27 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_VER 28 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
-  "SHA512=9a1285612fe8a99861630232b1ca2cb382711b45863f9aad99fcb5e25d6daaba6c18158058c73ac61d4df3b78aee987a8f86ecf7eb61717c7932d1ef6651d100"
+  "SHA512=5755189763f00d68a942d20216a9e875bf4379102398f811754f271978792319eef76cb7dd30743c0c2cd7c5a56f082874e34c05f536805d434033c98c384628"
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
@@ -329,6 +330,13 @@ if(ENABLE_HWASAN)
   add_link_options(-fsanitize=hwaddress)
 endif(ENABLE_HWASAN)
 
+# option to have separate field names for scratch variables
+# for debugging purposes
+if(PARTHENON_DEBUG_SCRATCH)
+   message(STATUS "Compiling with scratch variable debugging enabled.")
+   target_compile_definitions(parthenon PUBLIC PARTHENON_DEBUG_SCRATCH)
+endif(PARTHENON_DEBUG_SCRATCH)
+
 
 # Build Tests and download Catch2
 if (PARTHENON_ENABLE_UNIT_TESTS OR PARTHENON_ENABLE_INTEGRATION_TESTS OR PARTHENON_ENABLE_REGRESSION_TESTS OR PARTHENON_ENABLE_PERFORMANCE_TESTS)
@@ -401,6 +409,9 @@ endif()
 include(GNUInstallDirs)
 set(CMAKE_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
 
+set(DOC_GEN_PATH "${CMAKE_SOURCE_DIR}/doc/sphinx/src/generated" CACHE STRING
+  "Path to save generated data for docs.")
+
 add_subdirectory(src)
 add_subdirectory(example)
 add_subdirectory(benchmarks)
@@ -409,6 +420,13 @@ create_pathenon_coverage_targets()
 include(cmake/CheckCopyright.cmake)
 
 configure_file("${PROJECT_SOURCE_DIR}/cmake/parthenonConfig.cmake.in" "${PROJECT_BINARY_DIR}/cmake/parthenonConfig.cmake" @ONLY)
+
+if (NOT PARTHENON_DISABLE_EXAMPLES)
+  add_custom_target(param-docs
+    DEPENDS
+    burgers-csv
+    diffusion-csv)
+endif()
 
 # Currently Ctest/Cmake doesn't ensure that tests are not stale
 # before running them.

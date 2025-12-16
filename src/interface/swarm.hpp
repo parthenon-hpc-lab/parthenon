@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -92,7 +92,10 @@ class Swarm {
   }
 
  public:
-  Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in = 3);
+  Swarm(const std::string &label, const Metadata &metadata,
+        const std::size_t nmax_pool_in);
+  Swarm(const std::string &label, const Metadata &metadata)
+      : Swarm(label, metadata, metadata.InitialSwarmPoolReservation()) {}
 
   ~Swarm() = default;
 
@@ -272,7 +275,7 @@ class Swarm {
   int num_active_ = 0;
   std::string label_;
   Metadata m_;
-  int nmax_pool_;
+  std::size_t nmax_pool_;
   std::string info_;
   std::tuple<ParticleVariableVector<int>, ParticleVariableVector<Real>,
              ParticleVariableVector<std::uint64_t>>

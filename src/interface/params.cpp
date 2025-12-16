@@ -11,10 +11,12 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <sstream>
 #include <string>
 
 #include "utils/error_checking.hpp"
 
+#include "globals.hpp"
 #include "kokkos_abstraction.hpp"
 #include "parthenon_arrays.hpp"
 
@@ -55,13 +57,23 @@ template <typename T>
 void Params::ReadFromHDF5AllParamsOfType(const std::string &prefix,
                                          const HDF5::H5G &group) {
   for (auto &[key, pparam] : myParams_) {
-    auto mutability = myMutable_.at(key);
     if (std::type_index(pparam->type()) == std::type_index(typeid(T)) &&
-        mutability == Mutability::Restart) {
+        GetMutability(key) == Mutability::Restart) {
       auto typed_ptr = std::any_cast<T>(pparam.get());
       auto &val = *typed_ptr;
-      HDF5::HDF5ReadAttribute(group, prefix + "/" + key, val);
-      Update(key, val);
+      std::string fullpath = prefix + "/" + key;
+      try {
+        HDF5::HDF5ReadAttribute(group, fullpath, val);
+        Update(key, val);
+      } catch (std::runtime_error e) {
+        // TODO(JMM/PG) Add failed load list of "fail/needs fix" list
+        if (Globals::my_rank == 0) {
+          std::stringstream ss;
+          ss << "Failed to load parameter " << fullpath
+             << " from the restart file! Using default value." << std::endl;
+          PARTHENON_WARN(ss);
+        }
+      }
     }
   }
 }

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "prolong_restrict/pr_ops.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
@@ -375,6 +376,9 @@ class Metadata {
   std::shared_ptr<Metadata> flux_metadata;
 
  public:
+  // TODO(JMM): I'm not sure where this should go...
+  static constexpr const std::size_t SWARM_DEFAULT_NMAX_POOL = 3;
+
   // Static routines
   static MetadataFlag AddUserFlag(const std::string &name);
   static bool FlagNameExists(const std::string &flagname);
@@ -601,6 +605,9 @@ class Metadata {
     return component_labels_;
   }
 
+  void SetInitialSwarmPoolReservation(const std::size_t s) { swarm_nmax_pool_ = s; }
+  std::size_t InitialSwarmPoolReservation() const noexcept { return swarm_nmax_pool_; }
+
  private:
   /// the attribute flags that are set for the class
   refinement::RefinementFunctions_t refinement_funcs_;
@@ -613,6 +620,7 @@ class Metadata {
   parthenon::Real allocation_threshold_;
   parthenon::Real deallocation_threshold_;
   parthenon::Real default_value_;
+  std::size_t swarm_nmax_pool_ = SWARM_DEFAULT_NMAX_POOL;
 
   /// if flag is true set bit, clears otherwise
   void DoBit(MetadataFlag bit, bool flag) {
@@ -704,6 +712,18 @@ Set_t GetByFlag(const Metadata::FlagCollection &flags, NameMap_t &nameMap,
   return out;
 }
 } // namespace MetadataUtils
+
+KOKKOS_INLINE_FUNCTION constexpr auto TopologicalTypeToMetaData(TopologicalType tt) {
+  using TT = TopologicalType;
+  if (tt == TT::Face) {
+    return Metadata::Face;
+  } else if (tt == TT::Edge) {
+    return Metadata::Edge;
+  } else if (tt == TT::Node) {
+    return Metadata::Node;
+  }
+  return Metadata::Cell;
+}
 } // namespace parthenon
 
 template <>

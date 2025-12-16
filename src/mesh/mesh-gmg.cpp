@@ -40,7 +40,6 @@
 #include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/bit_hacks.hpp"
-#include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -116,6 +115,7 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
 
   const int gmg_min_level = -gmg_level_offset;
   gmg_min_logical_level_ = gmg_min_level;
+  gmg_block_lists_.clear();
   for (int level = gmg_min_level; level <= current_level; ++level) {
     gmg_block_lists_[level] = BlockList_t();
   }
@@ -168,7 +168,10 @@ void Mesh::SetGMGNeighbors() {
           int leaf_gid = forest.GetLeafGid(ploc);
           pmb->gmg_coarser_neighbors.emplace_back(
               pmb->pmy_mesh, ploc, ploc, ranklist[leaf_gid], gid,
-              std::array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
+              Kokkos::Array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
+          // No need to explicitly set ownership (which defaults to
+          // true), since the coarse block owns all elements of all
+          // of its daughter blocks
         }
       }
 
@@ -182,15 +185,26 @@ void Mesh::SetGMGNeighbors() {
           if (gid >= 0) {
             int leaf_gid = forest.GetLeafGid(d);
             pmb->gmg_finer_neighbors.emplace_back(pmb->pmy_mesh, d, d, ranklist[leaf_gid],
-                                                  gid, std::array<int, 3>{0, 0, 0}, 0, 0,
-                                                  0, 0);
+                                                  gid, Kokkos::Array<int, 3>{0, 0, 0}, 0,
+                                                  0, 0, 0);
           }
         }
         if (pmb->gmg_finer_neighbors.size() == 0) {
           // This is a leaf block, so add itself as a finer neighbor
-          pmb->gmg_leaf_neighbors.emplace_back(pmb->pmy_mesh, pmb->loc, pmb->loc,
-                                               Globals::my_rank, pmb->gid,
-                                               std::array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
+          pmb->gmg_leaf_neighbors.emplace_back(
+              pmb->pmy_mesh, pmb->loc, pmb->loc, Globals::my_rank, pmb->gid,
+              Kokkos::Array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
+        } else if (pmb->gmg_finer_neighbors.size() > 1) {
+          // This block has multiple finer neighbors, so we need to set ownership
+          // on shared elements in the interior of the coarse block. We do not need
+          // to worry about coordinate transformations, since all daughter blocks
+          // are guaranteed to be in the same logical coordinate system.
+          std::vector<forest::NeighborLocation> neighbor_locs;
+          for (const auto &n : pmb->gmg_finer_neighbors)
+            neighbor_locs.emplace_back(n.loc, n.loc,
+                                       forest::LogicalCoordinateTransformation());
+          for (auto &n : pmb->gmg_finer_neighbors)
+            n.ownership = DetermineOwnership(n.loc, neighbor_locs);
         }
       }
 

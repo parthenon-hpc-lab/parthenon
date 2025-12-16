@@ -338,6 +338,68 @@ Note that every stage shares the same ``CommBuffer``\ s, but we keep
 separate buffers for boundary value communication and flux correction
 communication so these operations can occur concurrently if necessary.
 
+Chunking of sparsely allocated comm buffers
+--------------------------------------------
+
+Memory for comm buffers in the buffer pools is allocated in "chunks"
+of some fixed size. Ideally this chunk size is large enough to
+minimize individual ``malloc`` calls but not over-allocate by too
+much. This can be set via the ``comm_buffer_chunk_size`` setting in
+the ``parthenon/mesh`` block of the input deck. E.g.,
+
+.. code::
+
+   <parthenon/mesh>
+   comm_buffer_chunk_size = 200
+
+The default, ``-1``, tells parthenon to make a heuristic choice based
+on the number of meshblocks per rank. This chunk size will always be
+at least 1 buffer and never more than the total number of buffers it
+is possible for a given mesh to require.
+
+In general (for sparse fields or AMR meshes) a smaller chunk size will
+require more ``malloc`` calls (which are expensive) but will imply a
+smaller memory footprint, as the code is less likely to over-allocate
+beyond the number of buffers it needs. For static meshes with only
+dense fields, the chunk size should be set to roughly the number of
+variables required, and the heuristic will choose something
+appropriate.
+
+Deallocating pooled comm buffers
+----------------------------------
+
+Comm buffers in the buffer pool are, by default, never
+deallocated. This provides a performance improvement (at the cost of
+memory) by saving on memory allocations if those buffers should be
+needed again. However, in memory constrained environments, that may
+not be desirable. The mesh member function
+``Mesh::TryReallocCommBufferPools`` will check to see if deallocating
+and reseting the buffer pools is appropriate. It will do so by
+checking whether the current number of buffers in use is less than
+some factor times the total number allocated **and** that the
+difference between the number in use and number allocated is larger
+than the chunk size described above. If these conditions are met, all
+comm buffers will be deallocated and then reallocated as appropriate
+for the current mesh. This constant factor may be set with the input
+variable ``parthenon/mesh/comm_buffer_reset_fraction``.
+
+This function may be called by hand in user code. However, it may also
+be automatically called at a fixed cadence. The evolution driver (and
+thus any code with a concept of a time step) will check whether or not
+comm buffers may be reallocated every
+``parthenon/time/comm_buffer_reset_cadence`` cycles. This
+variable is set to ``-1`` by default, which indicates comm buffers are
+never reset. An input deck that changes these settings by hand might
+look like:
+
+.. code::
+
+   <parthenon/time>
+   comm_buffer_reallocate_cadence = 1000 # Re-allocate comm buffers every 1000 cycles...
+
+   <parthenon/mesh>
+   comm_buffer_reset_fraction = 0.9 # ...if at least 10% of all comm buffers are unused
+
 Send and Receive Ordering
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -476,3 +538,103 @@ For backwards compatibility, we keep the aliases
 - ``ReceiveFluxCorrections`` = ``ReceiveBoundBufs<BoundaryType::flxcor_recv>`` 
 - ``SetFluxCorrections`` = ``SetBoundBufs<BoundaryType::flxcor_recv>``
 
+Coalesced MPI Communication
+---------------------------
+
+As is described above, a one-dimensional buffer is packed and unpacked for each communicated 
+field on each pair of blocks that share a unique topological element (below we refer to this
+as a variable-boundary buffer). For codes with larger numbers of variables and/or in 
+simulations run with smaller block sizes, this can result in a large total number of buffers
+and importantly a large number of buffers that need to be communicated across MPI ranks. The
+latter fact can have significant performance implications, as each ``CommBuffer<T>::Send()``
+call for these non-local buffers corresponds to an ``MPI_Isend``. Generally, these messages
+contain a small amount of data which results in a small effective MPI bandwith. Additionally,
+MPI implementations seem to have a hard time dealing with the large number of messages
+required. In some cases, this can result in poor scaling behavior for Parthenon. 
+
+To get around this, we introduce a second level of buffers for communicating across ranks.
+For each ``MeshData`` object on a given MPI rank, coalesced buffers equal in size to all
+MPI non-local variable-boundary buffers are created for each other MPI rank that ``MeshData``
+communicates to. These coalesced buffers are then filled from the single variable-boundary
+buffers, a *single* MPI send is called per MPI rank pair, and the receiving ranks unpack the 
+coalesced buffer into the single variable-boundary buffers. This can drastically reduce the 
+number of MPI sends and increase the total amount of data sent per message, thereby
+increasing the effective bandwidth. Further, in cases where Parthenon is running on GPUs but
+GPUDirect MPI is not available, this can also minimize the number of DtoH and HtoD copies
+during communication. On the other hand, using coalesced communications implies an extra
+set of copies from the variable-boundary buffers to the coalesced buffers. As a result,
+using coalesced communications can have a negative performance impact in some situations 
+(e.g. when running with large meshblocks (>~128^3) and small numbers of fields). 
+
+To use coalesced communication, your input must include: 
+
+.. code::
+   
+   parthenon/mesh/do_coalesced_comms = true
+
+curently by default this is set to ``false``.
+
+Implementation Details
+~~~~~~~~~~~~~~~~~~~~~~
+
+The coalesced send and receive buffers for each rank are stored in ``Mesh::pcoalesced_comms``,
+which is a ``std::shared_ptr`` to a ``CoalescedComms`` object. To do coalesced communication 
+two pieces are required: 1) an initialization step telling all ranks what coalesced buffer
+messages they can expect and 2) a mechanism for packing, sending and unpacking the coalesced 
+buffers during each boundary communication step.
+
+For the first piece, after every remesh during ``BuildBoundaryBuffers``, each non-local
+variable-boundary buffer is registered with ``pcoalesced_comms``. Once all these buffers are
+registered, ``CoalescedComms::ResolveAndSendSendBuffers()`` is called, which determines all
+the coalesced buffers that are going to be sent from a given rank to every other rank, packs
+information about each of the coalesced buffers into MPI messages, and sends them to the other
+ranks so that the receiving ranks know how to interpret the subsequent messages they receive
+from a given rank. ``CoalescedComms::ReceiveBufferInfo()`` is then called to receive this
+information from other ranks. This process basically just packs ``BndId`` objects, which contain
+the information necessary to identify a variable-boundary communication channel and the amount
+of data that is communicated across that channel, and then unpacks them on the receiving end and
+finds the correct variable-boundary buffers. These routines are called once per rank (rather than
+per ``MeshData``). 
+
+For the second piece, variable-boundary buffers are first filled as normal in ``SendBoundBufs``
+but the states of the ``CommBuffer``\ s are updated without actually calling the associated
+``MPI_Isend``\ s. Then ``CoalescedComms::PackAndSend(MeshData<Real> *pmd, BoundaryType b_type)``
+is called, which for each rank pair associated with ``pmd`` packs the variable-boundary buffers
+into the coalesced buffer, packs a second message containing the sparse allocation status of 
+each variable-boundary buffer, send these two messages, and then stales the associated 
+variable-boundary buffers since their data is no longer required. On the receiving side, 
+``ReceiveBoundBufs`` receives these messages, sets the corresponding variable-boundary 
+buffers to the correct ``received`` or ``received_null`` state, and then unpacks the data
+into the buffers. Note that the messages received here do not necessarily correspond to the
+``MeshData`` that is passed to the associated ``ReceiveBoundBufs`` call, so all
+variable-boundary associated with a given receiving ``MeshData`` must still be checked for
+being in a received state. Once they are all in a received state, setting of boundaries,
+prolongation, etc. can proceed normally. 
+
+Some notes:
+
+- Internally ``CoalescedComms`` contains maps from MPI rank and ``BoundaryType`` (e.g. regular
+  communication, flux correction) to ``CoalescedBuffersRank`` objects for sending and receiving
+  rank pairs. These ``CoalescedBuffersRank`` objects in turn contain maps from ``MeshData``
+  partition id of the sending ``MeshData`` (which also doubles as the MPI tag for the messages) 
+  to ``CoalescedBuffer`` objects). 
+- ``CoalescedBuffersRank`` is where the post-remesh initialization routines are actually
+  implemented. This can either correspond to the send or receive side.
+- ``CoalescedBuffer`` corresponds to each coalesced buffer and is where 
+  the packing, sending, receiving, and unpacking details for coalesced boundary communication 
+  are implemented. This object internally owns the ``CommunicationBuffer<BufArray1D<Real>>``
+  that is used for sending and receiving the coalesced data (as well as the communication buffer
+  used for communicating allocation status).
+- Because Parthenon allows communication on ``MeshData`` objects that contain a subset of the 
+  ``MetaData::FillGhost`` fields in a simulation, we need to be able to interpret coalesced
+  messages that that contain a subset of fields. Most of what is needed for this is implemented 
+  in ``GetBndIdsOnDevice``.
+- The coalesced buffers are sparse aware and approximately allocate the amount of space required
+  to store the *allocated* fields. This means the size of the buffers can change dynamically 
+  between steps. Currently, we allocate twice as much memory as is required to store the allocated
+  variable-boundary buffers whenever their total size becomes larger than current size of the 
+  coalesced buffer in an attempt to balance the number of allocations and memory consumption. Since
+  the receiving end does not *a priori* know the size of the coalesced messages it is going to
+  receive, we first check the size of the incoming MPI message, reallocate the coalesced receive
+  buffer if necessary, and then actually post the `Irecv`. FWIW, this prevents pre-posting
+  the `Irecv`. 

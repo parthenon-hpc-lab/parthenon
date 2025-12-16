@@ -33,11 +33,29 @@ class TestCase(utils.test_case.TestCaseAbs):
         # run baseline (to the very end)
         if step == 1:
             parameters.driver_cmd_line_args = ["parthenon/job/problem_id=gold"]
-        else:
+        elif step == 2:
             parameters.driver_cmd_line_args = [
                 "-r",
                 "gold.out0.00004.rhdf",
                 "parthenon/job/problem_id=silver",
+            ]
+        elif step == 3:
+            parameters.driver_cmd_line_args = [
+                "-r",
+                "gold.out0.00004.rhdf",
+                "parthenon/job/problem_id=silver_coalesced",
+                "parthenon/mesh/do_coalesced_comms=true",
+            ]
+        # check that we can dynamically enable outputs
+        else:
+            parameters.driver_cmd_line_args = [
+                "-r",
+                "gold.out0.00005.rhdf",
+                "parthenon/job/problem_id=bronze",
+                "parthenon/output1/file_type=hdf5",
+                "parthenon/output1/dt=0.25",
+                "parthenon/output1/last_time=0.25",
+                "parthenon/output1/variables=advection.C",
             ]
         return parameters
 
@@ -63,18 +81,39 @@ class TestCase(utils.test_case.TestCaseAbs):
                     "{}.out0.{}.rhdf".format(base, name),
                 ],
                 one=True,
+                tol=0.0,
             )
 
             if delta != 0:
                 print(
-                    "ERROR: Found difference between gold and silver output '%s'."
+                    "ERROR: Found difference between gold and {} output {}.".format(
+                        base, name
+                    )
+                )
+                return False
+            delta = compare(
+                [
+                    "bronze.out1.%s.phdf" % name,
+                    "{}.out2.{}.phdf".format(base, name),
+                ],
+                # no need for metadata as the dynamically added output will cause
+                # different metadata and we're just interested in the right data
+                # being there.
+                one=True,
+                check_metadata=False,
+            )
+
+            if delta != 0:
+                print(
+                    "ERROR: Found difference between gold and bronze output '%s'."
                     % name
                 )
                 return False
 
             return True
 
-        # comapre a few files throughout the simulations
-        success &= compare_files("final")
+        # compare a few files throughout the simulations
+        success &= compare_files("final", "silver")
+        success &= compare_files("final", "silver_coalesced")
 
         return success

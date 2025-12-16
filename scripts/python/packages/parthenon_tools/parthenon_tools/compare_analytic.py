@@ -1,3 +1,7 @@
+# ========================================================================================
+# Parthenon performance portable AMR framework
+# Copyright(C) 2020-2025 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for details
 # =========================================================================================
 # (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
 #
@@ -100,8 +104,11 @@ def compare_analytic(
     try:
         import phdf
     except ModuleNotFoundError:
-        print("Couldn't find module to read Parthenon hdf5 files.")
-        return False
+        try:
+            from parthenon_tools import phdf
+        except ModuleNotFoundError:
+            print("Couldn't find module to read Parthenon hdf5 files.")
+            return False
 
     datafile = phdf.phdf(filename)
 
@@ -114,7 +121,6 @@ def compare_analytic(
     # Check all components for which an analytic version exists
     all_ok = True
     for component in analytic_components.keys():
-
         # Compute the analytic component at Z,Y,X
         analytic_component = analytic_components[component](Z, Y, X, datafile.Time)
 

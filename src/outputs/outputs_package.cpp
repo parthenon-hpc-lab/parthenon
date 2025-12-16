@@ -25,6 +25,7 @@
 #include <string>
 #include <vector>
 
+#include "globals.hpp"
 #include "interface/state_descriptor.hpp"
 #include "outputs/outputs_package.hpp"
 #include "parameter_input.hpp"
@@ -36,58 +37,47 @@ namespace OutputsPackage {
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("Outputs");
 
-  std::string basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon");
-  std::vector<std::string> block_names;
-  std::vector<int> block_numbers;
-
-  std::vector<bool> active;
-  std::vector<int> file_numbers;
-  std::vector<Real> last_times;
-  std::vector<int> last_ns;
-
-  // loop over input block names.  Find those that start with "parthenon/output", read
-  // parameters, and construct singly linked list of OutputTypes.
+  // loop over input block names.  Find those that start with "parthenon/output" and
+  // add/initialize `Params` for further processing (so that they're available to be read
+  // from restart files or are cleanly initialized).
   for (InputBlock *pib = pin->pfirst_block; pib != nullptr; pib = pib->pnext) {
     if (pib->block_name.compare(0, 16, "parthenon/output") == 0) {
-      std::string outn = pib->block_name.substr(16); // 6 because counting starts at 0!
+      std::string outn = pib->block_name.substr(16); // 16 because counting starts at 0!
       std::string block_name = pib->block_name;
 
-      if (pin->DoesParameterExist(block_name, "next_time")) {
-        std::stringstream msg;
-        msg << "You have used the next_time parameter in the " << block_name
-            << " output block. This parameter is deprecated. Instead change"
-            << " the output cadence with dt." << std::endl;
-        PARTHENON_THROW(msg);
-      }
-      if (pin->DoesParameterExist(block_name, "next_n")) {
-        std::stringstream msg;
-        msg << "You have used the next_n parameter in the " << block_name
-            << " output block. This parameter is deprecated. Instead change"
-            << " the output cadence with dn." << std::endl;
-        PARTHENON_THROW(msg);
-      }
-
-      // these are used for book-keeping
-      block_names.push_back(block_name);
-      block_numbers.push_back(atoi(outn.c_str()));
-
       // These will be updated later or restarted from
-      active.push_back(false);
-      file_numbers.push_back(0);
+      int file_number = 0;
 
       // JMM: Limits to indicate these haven't been set yet. The reason
       // to set these to a "signal" number, rather than to start_time
       // is that we want to ensure a first output is performed.
-      last_times.push_back(std::numeric_limits<Real>::lowest());
-      last_ns.push_back(std::numeric_limits<int>::lowest());
+      auto last_time = std::numeric_limits<Real>::lowest();
+      auto last_n = std::numeric_limits<int>::lowest();
+
+      bool next_time_exists = pin->DoesParameterExist(block_name, "next_time");
+      bool next_n_exists = pin->DoesParameterExist(block_name, "next_n");
+      if (next_time_exists || next_n_exists) {
+        std::stringstream msg;
+        msg << "You have used the next_time or next_n parameter in the " << block_name
+            << " output block. This parameter is deprecated. Instead change"
+            << " the output cadence with dt or dn." << std::endl;
+        if (parthenon::Globals::is_restart) {
+          if (Globals::my_rank == 0) {
+            msg << "The parameters will automatically be updated internally and the "
+                   "warning should not be shown for subsequent "
+                   "restarts.\n";
+            PARTHENON_WARN(msg);
+          }
+        } else {
+          PARTHENON_THROW(msg);
+        }
+      }
+      // It should be safe here to just use outn as output blocks are unique
+      pkg->AddParam(outn + "/file_number", file_number, Params::Mutability::Restart);
+      pkg->AddParam(outn + "/last_time", last_time, Params::Mutability::Restart);
+      pkg->AddParam(outn + "/last_n", last_n, Params::Mutability::Restart);
     }
   }
-  pkg->AddParam("block_names", block_names);
-  pkg->AddParam("block_numbers", block_numbers);
-  pkg->AddParam("active", active, Params::Mutability::Restart);
-  pkg->AddParam("file_numbers", file_numbers, Params::Mutability::Restart);
-  pkg->AddParam("last_times", last_times, Params::Mutability::Restart);
-  pkg->AddParam("last_ns", last_ns, Params::Mutability::Restart);
 
   return pkg;
 }
