@@ -66,6 +66,8 @@ class SolverBase {
 
   const std::vector<std::string> &GetFieldLabels() const { return sol_fields; }
 
+  static inline TimingAccumulatorDictionary solver_timings;
+
  protected:
   // Labels of all fields included in the vector
   std::vector<std::string> sol_fields;
