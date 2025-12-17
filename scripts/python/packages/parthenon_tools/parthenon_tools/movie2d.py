@@ -200,6 +200,21 @@ parser.add_argument(
     default=None,
 )
 parser.add_argument("--ylabel", type=str, help="Label for y axis", default=None)
+
+parser.add_argument(
+    "--no-blocks",
+    dest="blocks",
+    action="store_false",
+    help="Disables the plotting of block boundaries. They are plotted by default.",
+)
+
+parser.add_argument(
+    "--fontsize",
+    type=float,
+    default=12,
+    help="Font size for title, colorbar label, axis labels",
+)
+
 parser.add_argument("field", type=str, help="field to plot")
 parser.add_argument("files", type=str, nargs="+", help="files to plot")
 
@@ -254,7 +269,12 @@ def plot_dump(
     xlabel=None,
     ylim=None,
     ylabel=None,
+    fontsize=12,
 ):
+    from matplotlib.pyplot import rc
+
+    rc("font", size=fontsize)
+
     if xe is None:
         xe = xf
     if ye is None:
@@ -285,7 +305,7 @@ def plot_dump(
     fig, p = plt.subplots()
     p.set_aspect(1)
     if time_title is not None:
-        p.set_title(f"t = {time_title}")
+        p.set_title(f"t = {time_title}", fontsize=fontsize)
 
     if logcolor:
         q = np.abs(q)
@@ -334,7 +354,7 @@ def plot_dump(
                 0.5 * (xf[i, 0] + xf[i, -1]),
                 0.5 * (yf[i, 0] + yf[i, -1]),
                 str(block_ids[i]),
-                fontsize=8,
+                fontsize=int((2.0 / 3.0) * fontsize),
                 color="w",
                 ha="center",
                 va="center",
@@ -372,11 +392,13 @@ def plot_dump(
     if swarmx is not None and swarmy is not None:
         p.scatter(swarmx, swarmy, s=particlesize, c=swarmcolor)
     if colorbar is not None:
-        plt.colorbar(pm, label=colorbar, fraction=0.02, pad=0.04, ax=p)
+        plt.colorbar(
+            pm, label=colorbar, fontsize=fontsize, fraction=0.02, pad=0.04, ax=p
+        )
     if xlabel is not None:
-        p.set_xlabel(xlabel)
+        p.set_xlabel(xlabel, fontsize=fontsize)
     if ylabel is not None:
-        p.set_ylabel(ylabel)
+        p.set_ylabel(ylabel, fontsize=fontsize)
 
     fig.savefig(output_file, dpi=300, bbox_inches="tight")
     plt.close(fig=fig)
@@ -494,7 +516,7 @@ def main():
                         args.colorbar,
                         args.colorbounds,
                         args.symmetrizecolors,
-                        True,
+                        args.blocks,
                         data.gid,
                         data.xig,
                         data.yig,
@@ -509,6 +531,7 @@ def main():
                         args.xlabel,
                         args.ylim,
                         args.ylabel,
+                        args.fontsize,
                     )
                 )
             else:
@@ -525,7 +548,7 @@ def main():
                         args.colorbar,
                         args.colorbounds,
                         args.symmetrizecolors,
-                        True,
+                        args.blocks,
                         components=components,
                         swarmx=swarmx,
                         swarmy=swarmy,
@@ -535,6 +558,7 @@ def main():
                         xlabel=args.xlabel,
                         ylim=args.ylim,
                         ylabel=args.ylabel,
+                        fontsize=args.fontsize,
                     )
                 )
         wait(futures, return_when=ALL_COMPLETED)
