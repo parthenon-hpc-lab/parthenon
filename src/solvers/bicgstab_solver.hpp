@@ -392,7 +392,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
   BiCGSTABParams params_;
   int iter_counter;
   AllReduce<Real> rhat0v, residual;
-  AllReduce<utils::summable_array_t<Real, 2>> tt_ts, res_rhat0r;
+  AllReduce<summable_array_t<Real, 2>> tt_ts, res_rhat0r;
   Real rhat0r_old, rhs2;
   equations_t eqs_;
   std::string container_;
