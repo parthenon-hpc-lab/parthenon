@@ -43,6 +43,7 @@ list(APPEND unit_tests_SOURCES
     test_scratch_variables.cpp
     test_state_descriptor.cpp
     test_swarm.cpp
+    test_tensors.cpp
     test_unit_integrators.cpp
     test_upper_bound.cpp
 )

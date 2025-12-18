@@ -25,22 +25,21 @@ using namespace parthenon::tensors;
 
 TEST_CASE("Parthenon Tensors", "[TensorCores]") {
 
-  auto allocation_strategy = [nc, chunk_size](ObjectPool<contiguous_data_t> *p) {
+  auto allocation_strategy = [nc, chunk_size](pool_t *p) {
     const auto tot_size = nbuf * buf_size;
-    contiguous_data_t chunk("pool buffer", tot_size);
+    pool_t::base_t chunk("pool buffer", tot_size);
     for (int i = 1; i < chunk_size; ++i) {
       pool->AddFreeObjectToPool(
-          contiguous_data_t(chunk, std::make_pair(i * nc, (i + 1) * nc)));
+          pool_t::base_t(chunk, std::make_pair(i * nc, (i + 1) * nc)));
     }
-    return contiguous_data_t(chunk, std::make_pair(0, buf_size));
+    return pool_t::base_t(chunk, std::make_pair(0, buf_size));
   };
-  pmesh->pool_map.emplac(enc, ObjectPool<contiguous_data_t>(allocation_strategy));
 
   size_t nc = 5;
   size_t chunk_size = 30;
 
-  pool_t object_pool;
+  pool_map_t object_pool;
+  object_pool.emplace(nc, pool_t(allocation_strategy));
 
   TensorCore tc();
-
 }

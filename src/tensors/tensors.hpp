@@ -16,57 +16,55 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
-#include "parthenon_arrays.hpp"
 #include "kokkos_abstraction.hpp"
+#include "parthenon_arrays.hpp"
 #include "utils/object_pool.hpp"
 
-namespace parthenon{
+namespace parthenon {
 
-  namespace tensors {
+namespace tensors {
 
-    // in this model, we carry around a host copy and a device copy of the
-    // tensor core
-    using contiguous_data_t = ParArray1DRaw<Real>;
-    using core_data_host_t = Kokkos::View<contiguous_data_t::owner_t**, LayoutWrapper, HostMemSpace>;
-    using core_data_device_t = Kokkos::View<contiguous_data_t::weak_t**, LayoutWrapper, DevMemSpace>;
-    using pool_t = std::map<std::size_t, ObjectPool<contiguous_data_t>>;
+// in this model, we carry around a host copy and a device copy of the
+// tensor core
+using pool_t = ObjectPool<ParArray1DRaw<Real>>;
+using core_data_host_t =
+    Kokkos::View<pool_t::owner_t **, LayoutWrapper, HostMemSpace>;
+using core_data_device_t =
+    Kokkos::View<pool_t::weak_t **, LayoutWrapper, DevMemSpace>;
+using pool_map_t = std::map<std::size_t, pool_t>;
 
-    class TensorCore{
+class TensorCore {
 
-      TensorCore(pool_t &pool; const int rL, const int
-          rR, const int c): rL_(rL), rR_(rR), c_(c) {
+  TensorCore(pool_map_t &pool, const int rL, const int rR, const int c)
+      : rL_(rL), rR_(rR), c_(c) {
 
-        // data_ is a host-only object because of how the object pools manage
-        // memory. Reference counting is done on host, allowing for freeing of
-        // pool memory when references are no longer being used
-        data_host_ = core_data_host_t("tensor core host", rL, rR);
-        data_device_ = core_data_device_t("tensor core device", rL, rR);
+    // data_ is a host-only object because of how the object pools manage
+    // memory. Reference counting is done on host, allowing for freeing of
+    // pool memory when references are no longer being used
+    data_host_ = core_data_host_t("tensor core host", rL, rR);
+    data_device_ = core_data_device_t("tensor core device", rL, rR);
 
-        // construct data object 1d arrays on host, assigning memory from the pool
-        for (size_t iL = 0; iL < rL; iL++) {
-          for (size_t iR = 0; iR < rR; iR++) {
-            data_host_(iL, iR) = pool.at(c).Get();
-          }
-        }
-
-        Kokkos::deep_copy(data_device_, data_host_);
-
+    // construct data object 1d arrays on host, assigning memory from the pool
+    for (size_t iL = 0; iL < rL; iL++) {
+      for (size_t iR = 0; iR < rR; iR++) {
+        data_host_(iL, iR) = pool.at(c).Get();
       }
+    }
 
-      KOKKOS_INLINE_FUNCTION
-      Real &operator()(int iL, int ic, int iR) { 
-        return data_device_(iL, iR)[ic];
-      }
+    Kokkos::deep_copy(data_device_, data_host_);
+  }
 
-      private:
-      std::size_t rL_, rR_, c_;
-      core_data_host_t data_host_;
-      core_data_device_t data_device_;
+  KOKKOS_INLINE_FUNCTION
+  Real &operator()(int iL, int ic, int iR) { return data_device_(iL, iR)[ic]; }
 
+ private:
+  std::size_t rL_, rR_, c_;
+  core_data_host_t data_host_;
+  core_data_device_t data_device_;
 
-    }; // Class TensorCore
+}; // Class TensorCore
 
-  } // namespace tensors
+} // namespace tensors
 
 } // namespace parthenon
 

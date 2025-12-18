@@ -28,6 +28,7 @@
 #include <parthenon_arrays.hpp>
 #include <parthenon_manager.hpp>
 #include <parthenon_mpi.hpp>
+#include <tensors/tensors.hpp>
 
 namespace parthenon {
 namespace prelude {
