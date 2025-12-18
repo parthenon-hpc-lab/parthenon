@@ -73,15 +73,28 @@ else()
     OFF)
 endif()
 
-# Developer-only targets: format, lint, etc.
-option(PARTHENON_ENABLE_DEVELOPER_TARGETS "Enable Parthenon developer targets (format, lint, etc.)" ON)
-# Only add formatting and linting targets if they are asked for and if we are working in the base
-# directory of parthenon
-if(PARTHENON_ENABLE_DEVELOPER_TARGETS
-   AND CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+# Check if we are using Parthenon as a subproject
+set(_parthenon_is_toplevel OFF)
+if (CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    set(_parthenon_is_toplevel ON)
+endif()
+
+# Optionally disable formatting and linting, disabled by default
+# if Parthenon is a subdirectory to prevent collision with downstream 
+# code targets
+if (NOT DEFINED PARTHENON_ENABLE_DEVELOPER_TARGETS)
+    set(PARTHENON_ENABLE_DEVELOPER_TARGETS
+        ${_parthenon_is_toplevel}
+        CACHE BOOL "Enable Parthenon developer targets (format, lint, etc.)"
+    )
+endif()
+
+if(PARTHENON_ENABLE_DEVELOPER_TARGETS)
   include(cmake/Format.cmake)
   include(cmake/Lint.cmake)
 endif()
+
+
 
 
 # regression test reference data
