@@ -73,8 +73,15 @@ else()
     OFF)
 endif()
 
-include(cmake/Format.cmake)
-include(cmake/Lint.cmake)
+# Developer-only targets: format, lint, etc.
+option(PARTHENON_ENABLE_DEVELOPER_TARGETS "Enable Parthenon developer targets (format, lint, etc.)" ON)
+# Only add formatting and linting targets if they are asked for and if we are working in the base
+# directory of parthenon
+if(PARTHENON_ENABLE_DEVELOPER_TARGETS
+   AND CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+  include(cmake/Format.cmake)
+  include(cmake/Lint.cmake)
+endif()
 
 
 # regression test reference data
