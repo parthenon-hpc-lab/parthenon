@@ -92,6 +92,14 @@ endif()
 if(PARTHENON_ENABLE_DEVELOPER_TARGETS)
   include(cmake/Format.cmake)
   include(cmake/Lint.cmake)
+else()
+    # Disabled path: define no-op stubs so scattered lint_target/format_target calls
+    # don't break when Parthenon is used as a subproject.
+    if (NOT COMMAND lint_target)
+        function(lint_target target)
+            # intentionally empty
+        endfunction()
+    endif()
 endif()
 
 
