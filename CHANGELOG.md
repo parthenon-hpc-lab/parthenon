@@ -12,7 +12,7 @@
 
 
 ### Infrastructure (changes irrelevant to downstream codes)
-
+- [[1356]](https://github.com/parthenon-hpc-lab/parthenon/pull/1356) Implement ObjectPoolMap type
 
 ### Removed (removing behavior/API/variables/...)
 
