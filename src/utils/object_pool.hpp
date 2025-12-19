@@ -273,6 +273,51 @@ bool UsingSameResource(const T &lhs, const U &rhs) {
   return lhs.GetKey() == rhs.GetKey();
 }
 
+template <typename T>
+class ObjectPoolMap {
+ public:
+  using map_t = std::unordered_map<std::size_t, ObjectPool<T>>;
+
+  auto &GetPool(const std::size_t shape) { return map_.at(shape); }
+  // TODO(JMM): This assumes the pool is of a Kokkos view-like object
+  void AddPool(const std::size_t shape, const std::size_t chunk_size) {
+    if (map_.count(shape) > 0) return;
+    // This lambda is called whenever a buffer is requested but no
+    // buffers remain in the pool
+    auto allocation_strategy = [shape, chunk_size](ObjectPool<T> *pool) {
+      const auto pool_size = shape * chunk_size;
+      auto label = "pool buffer of size " + std::to_string(shape) + " x " +
+                   std::to_string(chunk_size);
+      T chunk(label, pool_size);
+      for (std::size_t i = 1; i < chunk_size; ++i) {
+        pool->AddFreeObjectToPool(T(chunk, std::make_pair(i * shape, (i + 1) * shape)));
+      }
+      return T(chunk, std::make_pair(static_cast<std::size_t>(0), shape));
+    };
+    map_.emplace(shape, ObjectPool<T>(allocation_strategy));
+  }
+  void AddFreeObjectsToPool(const std::size_t shape, const std::size_t nobjs) const {
+    auto pool = map_.at(shape);
+    const auto pool_size = shape * nobjs;
+    auto label =
+        "pool buffer of size " + std::to_string(shape) + " x " + std::to_string(nobjs);
+    T chunk(label, pool_size);
+    for (int i = 0; i < nobjs; ++i) {
+      pool.AddFreeObjectToPool(T(chunk, std::make_pair(i * shape, (i + 1) * shape)));
+    }
+  }
+  void Clear() {
+    for (auto &[k, p] : map_) {
+      p.Clear();
+    }
+  }
+  auto &GetMap() const { return map_; }
+  bool Contains(const std::size_t shape) const { return map_.count(shape) > 0; }
+
+ private:
+  map_t map_;
+};
+
 } // namespace parthenon
 
 #endif // UTILS_OBJECT_POOL_HPP_
