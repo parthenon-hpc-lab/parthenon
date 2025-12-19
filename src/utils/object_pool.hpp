@@ -28,6 +28,7 @@
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
+#include <utils/error_checking.hpp>
 
 #include <Kokkos_Core.hpp>
 
@@ -274,20 +275,34 @@ bool UsingSameResource(const T &lhs, const U &rhs) {
   return lhs.GetKey() == rhs.GetKey();
 }
 
+/*
+  TODO(JMM): Currently the key type here is always size_t. It can
+  easily be extended to vector types such as std::tuple if needed,
+  but I didn't bother since we don't need that right now.
+ */
 template <typename T>
 class ObjectPoolMap {
  public:
-  using map_t = std::unordered_map<std::size_t, ObjectPool<T>>;
+  using pool_t = ObjectPool<T>;
+  using map_t = std::unordered_map<std::size_t, pool_t>;
+  using owner_t = typename pool_t::owner_t;
+  using weak_t = typename pool_t::weak_t;
 
   auto &GetPool(const std::size_t shape) {
     if (!Contains(shape)) {
       std::stringstream msg;
       msg << "ObjectPoolMap must contain an ObjectPool "
-          << "for objects of shape "
-          << shape << "!" << std::endl;
+          << "for objects of shape " << shape << "!" << std::endl;
       PARTHENON_THROW(msg);
     }
     return map_.at(shape);
+  }
+  auto GetBuffer(const std::size_t shape) { return GetPool(shape).Get(); }
+  // Sometimes the compiler complains about requiring a static cast
+  // when going from weak_t to owner_t. This just is syntatic sugar
+  // for that cast.
+  auto GetOwningBuffer(const std::size_t shape) {
+    return static_cast<owner_t>(GetBuffer(shape));
   }
   // TODO(JMM): This assumes the pool is of a Kokkos view-like object
   void AddPool(const std::size_t shape, const std::size_t chunk_size) {
@@ -306,8 +321,8 @@ class ObjectPoolMap {
     };
     map_.emplace(shape, ObjectPool<T>(allocation_strategy));
   }
-  void AddFreeObjectsToPool(const std::size_t shape, const std::size_t nobjs) const {
-    auto pool = map_.at(shape);
+  void AddFreeObjectsToPool(const std::size_t shape, const std::size_t nobjs) {
+    auto &pool = map_.at(shape);
     const auto pool_size = shape * nobjs;
     auto label =
         "pool buffer of size " + std::to_string(shape) + " x " + std::to_string(nobjs);
