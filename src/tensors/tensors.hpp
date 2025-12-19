@@ -27,16 +27,19 @@ namespace tensors {
 // in this model, we carry around a host copy and a device copy of the
 // tensor core
 using pool_t = ObjectPool<ParArray1DRaw<Real>>;
-using core_data_host_t =
-    Kokkos::View<pool_t::owner_t **, LayoutWrapper, HostMemSpace>;
-using core_data_device_t =
-    Kokkos::View<pool_t::weak_t **, LayoutWrapper, DevMemSpace>;
-using pool_map_t = std::map<std::size_t, pool_t>;
+using pool_map_t = ObjectPoolMap<ParArray1DRaw<Real>>;
+using core_data_host_t = Kokkos::View<pool_t::owner_t **, LayoutWrapper, HostMemSpace>;
+using core_data_device_t = Kokkos::View<pool_t::weak_t **, LayoutWrapper, DevMemSpace>;
 
+/* TODO(JMM): If we wanted to generalize this machinery to an
+   arbitrary number of tensor indices, we would need an array to
+   track index ordering, but we could use variadic templates to
+   express constructors and operator().
+*/
 class TensorCore {
-
-  TensorCore(pool_map_t &pool, const int rL, const int rR, const int c)
-      : rL_(rL), rR_(rR), c_(c) {
+ public:
+  TensorCore(pool_map_t &pool, const int rL, const int c, const int rR)
+      : rL_(rL), c_(c), rR_(rR) {
 
     // data_ is a host-only object because of how the object pools manage
     // memory. Reference counting is done on host, allowing for freeing of
@@ -47,7 +50,7 @@ class TensorCore {
     // construct data object 1d arrays on host, assigning memory from the pool
     for (size_t iL = 0; iL < rL; iL++) {
       for (size_t iR = 0; iR < rR; iR++) {
-        data_host_(iL, iR) = pool.at(c).Get();
+        data_host_(iL, iR) = pool.GetPool(c).Get();
       }
     }
 
@@ -58,7 +61,7 @@ class TensorCore {
   Real &operator()(int iL, int ic, int iR) { return data_device_(iL, iR)[ic]; }
 
  private:
-  std::size_t rL_, rR_, c_;
+  std::size_t rL_, c_, rR_;
   core_data_host_t data_host_;
   core_data_device_t data_device_;
 
