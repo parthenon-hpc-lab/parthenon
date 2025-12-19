@@ -58,7 +58,7 @@ class TensorCore {
   }
 
   KOKKOS_INLINE_FUNCTION
-  Real &operator()(int iL, int ic, int iR) { return data_device_(iL, iR)[ic]; }
+  Real &operator()(int iL, int ic, int iR) const { return data_device_(iL, iR)[ic]; }
 
  private:
   std::size_t rL_, c_, rR_;
