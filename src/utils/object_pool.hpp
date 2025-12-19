@@ -275,6 +275,11 @@ bool UsingSameResource(const T &lhs, const U &rhs) {
   return lhs.GetKey() == rhs.GetKey();
 }
 
+/*
+  TODO(JMM): Currently the key type here is always size_t. It can
+  easily be extended to vector types such as std::tuple if needed,
+  but I didn't bother since we don't need that right now.
+ */
 template <typename T>
 class ObjectPoolMap {
  public:
