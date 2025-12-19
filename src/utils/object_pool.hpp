@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <stack>
 #include <type_traits>
 #include <unordered_map>
@@ -278,7 +279,16 @@ class ObjectPoolMap {
  public:
   using map_t = std::unordered_map<std::size_t, ObjectPool<T>>;
 
-  auto &GetPool(const std::size_t shape) { return map_.at(shape); }
+  auto &GetPool(const std::size_t shape) {
+    if (!Contains(shape)) {
+      std::stringstream msg;
+      msg << "ObjectPoolMap must contain an ObjectPool "
+          << "for objects of shape "
+          << shape << "!" << std::endl;
+      PARTHENON_THROW(msg);
+    }
+    return map_.at(shape);
+  }
   // TODO(JMM): This assumes the pool is of a Kokkos view-like object
   void AddPool(const std::size_t shape, const std::size_t chunk_size) {
     if (map_.count(shape) > 0) return;
