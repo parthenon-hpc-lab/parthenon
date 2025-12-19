@@ -14,6 +14,9 @@
 #ifndef TENSORS_TENSORS_HPP_
 #define TENSORS_TENSORS_HPP_
 
+#include <string>
+#include <tuple>
+
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "kokkos_abstraction.hpp"
@@ -38,14 +41,18 @@ using core_data_device_t = Kokkos::View<pool_t::weak_t **, LayoutWrapper, DevMem
 */
 class TensorCore {
  public:
+  TensorCore() = default;
   TensorCore(pool_map_t &pool, const int rL, const int c, const int rR)
       : rL_(rL), c_(c), rR_(rR) {
 
     // data_ is a host-only object because of how the object pools manage
     // memory. Reference counting is done on host, allowing for freeing of
     // pool memory when references are no longer being used
-    data_host_ = core_data_host_t("tensor core host", rL, rR);
-    data_device_ = core_data_device_t("tensor core device", rL, rR);
+    // Kokkos view of views, the destructor for the view of views must
+    // happen on host, not device. This enforces that.
+    data_host_ =
+        core_data_host_t(ViewOfViewAlloc<HostMemSpace>("tensor core host"), rL, rR);
+    data_device_ = core_data_device_t(ViewOfViewAlloc("tensor core device"), rL, rR);
 
     // construct data object 1d arrays on host, assigning memory from the pool
     for (size_t iL = 0; iL < rL; iL++) {
@@ -60,15 +67,49 @@ class TensorCore {
   KOKKOS_INLINE_FUNCTION
   Real &operator()(int iL, int ic, int iR) const { return data_device_(iL, iR)[ic]; }
 
+  KOKKOS_INLINE_FUNCTION
+  auto GetShape() const { return std::make_tuple(rL_, c_, rR_); }
+
+  KOKKOS_INLINE_FUNCTION
+  auto GetRanks() const { return std::make_pair(rL_, rR_); }
+
+  KOKKOS_INLINE_FUNCTION
+  std::size_t GetLeftRank() const { return rL_; }
+
+  KOKKOS_INLINE_FUNCTION
+  std::size_t GetRightRank() const { return rR_; }
+
+  KOKKOS_INLINE_FUNCTION
+  std::size_t GetPhysicalIndexSize() const { return c_; }
+
  private:
   std::size_t rL_, c_, rR_;
   core_data_host_t data_host_;
   core_data_device_t data_device_;
-
 }; // Class TensorCore
 
-} // namespace tensors
+class TensorTrain {
+ public:
+  using cores_device_t = ParArray1DRaw<TensorCore>;
+  using cores_host_t = typename ParArray1DRaw<TensorCore>::HostMirror;
 
+  TensorTrain(const std::string &name, const std::vector<TensorCore> &cores) {
+    // Kokkos view of views, the destructor for the view of views must
+    // happen on host, not device. This enforces that.
+    cores_host_ = cores_host_t(ViewOfViewAlloc<HostMemSpace>(name), cores.size());
+    cores_device_ = cores_device_t(ViewOfViewAlloc(name), cores.size());
+    for (std::size_t i = 0; i < cores.size(); ++i) {
+      cores_host_(i) = cores[i];
+    }
+    Kokkos::deep_copy(cores_device_, cores_host_);
+  }
+
+ private:
+  cores_host_t cores_host_;
+  cores_device_t cores_device_;
+}; // class TensorTrain
+
+} // namespace tensors
 } // namespace parthenon
 
 #endif // TENSORS_TENSORS_HPP_

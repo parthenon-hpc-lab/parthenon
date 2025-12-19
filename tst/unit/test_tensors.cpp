@@ -24,7 +24,7 @@
 
 using namespace parthenon::tensors;
 
-SCENARIO("Parthenon Tensors", "[TensorCores]") {
+SCENARIO("Parthenon Tensor Cores", "[TensorCores]") {
   GIVEN("An object pool for a tensor core") {
     const std::size_t nc = 5;
     const std::size_t chunk_size = 30;
@@ -67,6 +67,40 @@ SCENARIO("Parthenon Tensors", "[TensorCores]") {
       AND_THEN("The pool map contains the right number of total buffers") {
         REQUIRE(pool_map.GetPool(nc).NumBuffersInPool() == chunk_size);
       }
+    }
+  }
+}
+
+SCENARIO("Parthenon tensor trains", "[TensorTrains]") {
+  GIVEN("Six cores") {
+    constexpr std::size_t NCORES_PER_TRAIN = 3;
+    constexpr std::size_t NC[NCORES_PER_TRAIN] = {4, 5, 6};
+
+    constexpr std::size_t NRANKS = NCORES_PER_TRAIN + 1;
+    constexpr std::size_t RANKS[NRANKS] = {1, 2, 3, 1};
+
+    const std::size_t chunk_size = 6;
+    pool_map_t pool_map;
+    for (int i = 0; i < NCORES_PER_TRAIN; ++i) {
+      pool_map.AddPool(NC[i], chunk_size);
+    }
+
+    std::cout << "pools created" << std::endl;
+
+    std::vector<TensorCore> cores1, cores2;
+    for (int i = 0; i < NCORES_PER_TRAIN; ++i) {
+      cores1.emplace_back(pool_map, RANKS[i], NC[i], RANKS[i + 1]);
+      cores2.emplace_back(pool_map, RANKS[i], NC[i], RANKS[i + 1]);
+    }
+
+    std::cout << "vectors created" << std::endl;
+
+    WHEN("We make two tensor trains") {
+      TensorTrain A("Train A", cores1);
+      TensorTrain B("Train B", cores2);
+      REQUIRE(true);
+
+      std::cout << "trains achieved" << std::endl;
     }
   }
 }
