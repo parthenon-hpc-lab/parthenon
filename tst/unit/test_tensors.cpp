@@ -35,17 +35,22 @@ SCENARIO("Parthenon Tensor Cores", "[TensorCores]") {
       const std::size_t rl = 2;
       const std::size_t rr = 3;
       { /* scoped */
-        TensorCore tc(pool_map, rl, nc, rr);
+        TensorCoreHost tc(pool_map, rl, nc, rr);
         AND_THEN("The pool provided the right number of buffers to represent the ranks") {
           REQUIRE(pool_map.GetPool(nc).NumBuffersInUse() == rl * rr);
         }
+        AND_THEN("We can copy a tensor core object and reference counting works") {
+          auto copy = tc;
+          REQUIRE(pool_map.GetPool(nc).NumBuffersInUse() == rl * rr);
+        }
         AND_THEN("We can access the core on device") {
+          auto tc_d = tc.GetOnDevice();
           parthenon::par_for_outer(
               PARTHENON_AUTO_LABEL, 0, 0, 0, rl - 1, 0, rr - 1,
               KOKKOS_LAMBDA(parthenon::team_mbr_t mbr, const int il, const int ir) {
                 parthenon::par_for_inner(
                     mbr, 0, nc - 1, KOKKOS_LAMBDA(const int ic) {
-                      tc(il, ic, ir) = 100 * il + 10 * ic + ir;
+                      tc_d(il, ic, ir) = 100 * il + 10 * ic + ir;
                     });
               });
           Kokkos::fence();
@@ -53,7 +58,7 @@ SCENARIO("Parthenon Tensor Cores", "[TensorCores]") {
           parthenon::par_reduce(
               PARTHENON_AUTO_LABEL, 0, rl - 1, 0, nc - 1, 0, rr - 1,
               KOKKOS_LAMBDA(const int il, const int ic, const int ir, int &nw) {
-                if (tc(il, ic, ir) != 100 * il + 10 * ic + ir) {
+                if (tc_d(il, ic, ir) != 100 * il + 10 * ic + ir) {
                   nw += 1;
                 }
               },
@@ -87,10 +92,10 @@ SCENARIO("Parthenon tensor trains", "[TensorTrains]") {
 
     std::cout << "pools created" << std::endl;
 
-    std::vector<TensorCore> cores1, cores2;
+    std::vector<TensorCoreHost> cores1, cores2;
     for (int i = 0; i < NCORES_PER_TRAIN; ++i) {
-      cores1.emplace_back(pool_map, RANKS[i], NC[i], RANKS[i + 1]);
-      cores2.emplace_back(pool_map, RANKS[i], NC[i], RANKS[i + 1]);
+      cores1.push_back(TensorCoreHost(pool_map, RANKS[i], NC[i], RANKS[i + 1]));
+      cores2.push_back(TensorCoreHost(pool_map, RANKS[i], NC[i], RANKS[i + 1]));
     }
 
     std::cout << "vectors created" << std::endl;
