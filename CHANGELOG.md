@@ -7,7 +7,7 @@
 
 
 ### Changed (changing behavior/API/variables/...)
-
+- [[PR 1355]](https://github.com/parthenon-hpc-lab/parthenon/pull/1355) Allow disabling format and lint targets
 
 ### Fixed (not changing behavior/API/variables/...)
 
