@@ -76,6 +76,8 @@ class TensorCoreDevice {
   KOKKOS_INLINE_FUNCTION
   std::size_t GetPhysicalIndexSize() const { return c_; }
 
+  // Actual constructor is private so that it can only be called from
+  // TensorCoreHost
  private:
   explicit TensorCoreDevice(const core_data_device_unmanaged_t &device_data)
       : rL_(device_data.extent(0)), c_(device_data(0, 0).extent(0)),
@@ -147,10 +149,62 @@ class TensorTrain {
     Kokkos::deep_copy(cores_device_, cores_device_hm);
   }
 
+  // get number of cores in tensor train
+  KOKKOS_INLINE_FUNCTION
+  std::size_t GetNumCores() const {
+    return cores_device_.size();
+  }
+
+  // =====================================
+  // HOST functions
+  // =====================================
+  //
+  // get left rank for tensor core core_index
+  std::size_t GetLeftRankHost(const int core_index) const {
+    return cores_host_(core_index).GetLeftRank();
+  }
+
+  // get right rank for tensor core core_index
+  std::size_t GetRightRankHost(const int core_index) const {
+    return cores_host_(core_index).GetRightRank();
+  }
+
+  // get physical index size rank for tensor core core_index
+  std::size_t GetPhysicalIndexSizeHost(const int core_index) const {
+    return cores_host_(core_index).GetPhysicalIndexSize();
+  }
+  // =====================================
+
+  // =====================================
+  // DEVICE functions
+  // =====================================
+  //
+  // get left rank for tensor core core_index
+  KOKKOS_INLINE_FUNCTION
+  std::size_t GetLeftRank(const int core_index) const {
+    return cores_device_(core_index).GetLeftRank();
+  }
+
+  // get right rank for tensor core core_index
+  KOKKOS_INLINE_FUNCTION
+  std::size_t GetRightRank(const int core_index) const {
+    return cores_device_(core_index).GetRightRank();
+  }
+
+  // get physical index size rank for tensor core core_index
+  KOKKOS_INLINE_FUNCTION
+  std::size_t GetPhysicalIndexSize(const int core_index) const {
+    return cores_device_(core_index).GetPhysicalIndexSize();
+  }
+  // =====================================
+
   // Evaluates the tensor train and returns the dense array it
   // represents as a Kokkos view. This is mostly for debugging!
   // TODO(JMM): I am giving up on doing this generically. It's not
   // worth it.
+  // This assumes that the full rank tensor has 3 dimensions, just for testing.
+  // For generality, we would need to support arbitrary dimensionality of
+  // parthenon arrays or a clever indexer function with arbitrary dimension
   auto ToDenseArray3D() const {
     // Jump through a lot of stupid hoops to generate a ParArrayND
     // TODO(JMM): Only works for howevery many dims ParArrayND supports
@@ -179,13 +233,111 @@ class TensorTrain {
 
   auto label() const { return label_; }
 
+  friend TensorTrain aXPlusY(pool_map_t pool_map, const Real a, const
+      TensorTrain &X, const TensorTrain &Y);
+
+
  private:
   std::string label_;
   cores_host_t cores_host_;
   cores_device_t cores_device_;
 }; // class TensorTrain
 
+// take two tensor trains and a scalar, returning a new tensor object Z = aX + Y
+TensorTrain aXPlusY(pool_map_t pool_map, const Real a, const TensorTrain &X,
+    const TensorTrain &Y) {
+
+  PARTHENON_REQUIRE_THROWS(X.GetNumCores() == Y.GetNumCores(), "Ensure tensor
+      trains being added have same number of cores");
+
+  // declare and construct the tensor cores for the resulting train
+  std::vector<TensorCoreHost> cores;
+  for (int i = 0; i < X.GetNumCores(); i++) {
+
+    PARTHENON_REQUIRE_THROWS(X.GetPhysicalIndexSizeHost(i) ==
+        Y.GetPhysicalIndexSizeHost(i), "Ensure tensor trains being added have
+        same physical index size in corresponding cores");
+
+    const std::size_t rL = (i==0) ? 1 : X.GetLeftRankHost(i) + Y.GetLeftRankHost(i);
+    const std::size_t nc = X.GetPhysicalIndexSizeHost(i);
+    const std::size_t rR = (i==X.GetNumCores()-1) ? 1 : X.GetLeftRankHost(i) + Y.GetLeftRankHost(i);
+
+    cores.emplace_back(pool_map, rL, nc, rR);
+  }
+
+  // construct the train that will contain the result with these cores
+  TensorTrain Z(std::to_string(a) + "*" + X.label() + " + " + Y.label(),
+      cores);
+
+  par_for(PARTHENON_AUTO_LABEL, 0, X.GetNumCores()-1, 
+      KOKKOS_LAMBDA(const int i) {
+
+      const std::size_t nXL = X.GetLeftRank(i);
+      const std::size_t nXR = X.GetRightRank(i);
+
+        // zero initialize 
+        for (int iL = 0; iL < Z.GetLeftRank(i); iL++) {
+          for (int iR = 0; iR < Z.GetRightRank(i); iR++) {
+            for (int ic = 0; ic < Z.GetPhysicalIndexSize(i); ic++) {
+              Z.cores_device_(i)(iL, ic, iR) = 0.;
+            }
+          }
+        }
+
+        // from X
+        for (int iL = 0; iL < nXL; iL++) {
+          for (int iR = 0; iR < nXR; iR++) {
+            for (int ic = 0; ic < X.GetPhysicalIndexSize(i); ic++) {
+              Z.cores_device_(i)(iL, ic, iR) = X.cores_device_(i)(iL, ic, iR);
+              if (i == 0) Z.cores_device_(i)(iL, ic, iR) *= a;
+            }
+          }
+        }
+
+        // from Y - left (right) offset is zero for first (last) core
+        const int oL = (i > 0) * nXL;
+        const int oR = (i < X.GetNumCores()-1) * nXR;
+        for (int iL = 0; iL < Y.GetLeftRank(i); iL++) {
+          for (int iR = 0; iR < Y.GetRightRank(i); iR++) {
+            for (int ic = 0; ic < Y.GetPhysicalIndexSize(i); ic++) {
+              Z.cores_device_(i)(oL + iL, ic, oR + iR) = Y.cores_device_(i)(iL,
+                  ic, iR);
+            }
+          }
+        }
+
+    });
+
+  return Z;
+
+} // AXPlusY
+
 } // namespace tensors
 } // namespace parthenon
 
 #endif // TENSORS_TENSORS_HPP_
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
