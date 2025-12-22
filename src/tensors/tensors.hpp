@@ -151,52 +151,22 @@ class TensorTrain {
 
   // get number of cores in tensor train
   KOKKOS_INLINE_FUNCTION
-  std::size_t GetNumCores() const {
-    return cores_device_.size();
-  }
+  std::size_t GetNumCores() const { return cores_device_.size(); }
 
-  // =====================================
-  // HOST functions
-  // =====================================
-  //
   // get left rank for tensor core core_index
-  std::size_t GetLeftRankHost(const int core_index) const {
+  std::size_t GetLeftRank(const int core_index) const {
     return cores_host_(core_index).GetLeftRank();
   }
 
   // get right rank for tensor core core_index
-  std::size_t GetRightRankHost(const int core_index) const {
+  std::size_t GetRightRank(const int core_index) const {
     return cores_host_(core_index).GetRightRank();
   }
 
   // get physical index size rank for tensor core core_index
-  std::size_t GetPhysicalIndexSizeHost(const int core_index) const {
+  std::size_t GetPhysicalIndexSize(const int core_index) const {
     return cores_host_(core_index).GetPhysicalIndexSize();
   }
-  // =====================================
-
-  // =====================================
-  // DEVICE functions
-  // =====================================
-  //
-  // get left rank for tensor core core_index
-  KOKKOS_INLINE_FUNCTION
-  std::size_t GetLeftRank(const int core_index) const {
-    return cores_device_(core_index).GetLeftRank();
-  }
-
-  // get right rank for tensor core core_index
-  KOKKOS_INLINE_FUNCTION
-  std::size_t GetRightRank(const int core_index) const {
-    return cores_device_(core_index).GetRightRank();
-  }
-
-  // get physical index size rank for tensor core core_index
-  KOKKOS_INLINE_FUNCTION
-  std::size_t GetPhysicalIndexSize(const int core_index) const {
-    return cores_device_(core_index).GetPhysicalIndexSize();
-  }
-  // =====================================
 
   // Evaluates the tensor train and returns the dense array it
   // represents as a Kokkos view. This is mostly for debugging!
@@ -233,23 +203,23 @@ class TensorTrain {
 
   auto label() const { return label_; }
 
-  friend TensorTrain aXPlusY(pool_map_t pool_map, const Real a, const
-      TensorTrain &X, const TensorTrain &Y);
+  friend TensorTrain aXPlusY(pool_map_t pool_map, const Real a, const TensorTrain &X,
+                             const TensorTrain &Y);
 
   void SetOnes() {
-    // zero initialize 
-    par_for(PARTHENON_AUTO_LABEL, 0, GetNumCores()-1, 
-        KOKKOS_LAMBDA(const int i) {
-      for (int iL = 0; iL < GetLeftRank(i); iL++) {
-        for (int iR = 0; iR < GetRightRank(i); iR++) {
-          for (int ic = 0; ic < GetPhysicalIndexSize(i); ic++) {
-            cores_device_(i)(iL, ic, iR) = 1.;
+    // zero initialize
+    auto cores = cores_device_;
+    par_for(
+        PARTHENON_AUTO_LABEL, 0, GetNumCores() - 1, KOKKOS_LAMBDA(const int i) {
+          for (int iL = 0; iL < cores(i).GetLeftRank(); iL++) {
+            for (int iR = 0; iR < cores(i).GetRightRank(); iR++) {
+              for (int ic = 0; ic < cores(i).GetPhysicalIndexSize(); ic++) {
+                cores(i)(iL, ic, iR) = 1.;
+              }
+            }
           }
-        }
-      }
-    });
+        });
   }
-
 
  private:
   std::string label_;
@@ -259,41 +229,42 @@ class TensorTrain {
 
 // take two tensor trains and a scalar, returning a new tensor object Z = aX + Y
 inline TensorTrain aXPlusY(pool_map_t pool_map, const Real a, const TensorTrain &X,
-    const TensorTrain &Y) {
-
-  PARTHENON_REQUIRE_THROWS(X.GetNumCores() == Y.GetNumCores(), "Ensure tensor"
-      " trains being added have same number of cores");
+                           const TensorTrain &Y) {
+  PARTHENON_REQUIRE_THROWS(X.GetNumCores() == Y.GetNumCores(),
+                           "Ensure tensor"
+                           " trains being added have same number of cores");
 
   // declare and construct the tensor cores for the resulting train
   std::vector<TensorCoreHost> cores;
   for (int i = 0; i < X.GetNumCores(); i++) {
+    PARTHENON_REQUIRE_THROWS(X.GetPhysicalIndexSize(i) == Y.GetPhysicalIndexSize(i),
+                             "Ensure tensor trains being added have"
+                             " same physical index size in corresponding cores");
 
-    PARTHENON_REQUIRE_THROWS(X.GetPhysicalIndexSizeHost(i) ==
-        Y.GetPhysicalIndexSizeHost(i), "Ensure tensor trains being added have"
-        " same physical index size in corresponding cores");
-
-    const std::size_t rL = (i==0) ? 1 : X.GetLeftRankHost(i) + Y.GetLeftRankHost(i);
-    const std::size_t nc = X.GetPhysicalIndexSizeHost(i);
-    const std::size_t rR = (i==X.GetNumCores()-1) ? 1 : X.GetRightRankHost(i) + Y.GetRightRankHost(i);
+    const std::size_t rL = (i == 0) ? 1 : X.GetLeftRank(i) + Y.GetLeftRank(i);
+    const std::size_t nc = X.GetPhysicalIndexSize(i);
+    const std::size_t rR =
+        (i == X.GetNumCores() - 1) ? 1 : X.GetRightRank(i) + Y.GetRightRank(i);
 
     cores.emplace_back(pool_map, rL, nc, rR);
   }
 
   // construct the train that will contain the result with these cores
-  TensorTrain Z(std::to_string(a) + "*" + X.label() + " + " + Y.label(),
-      cores);
+  TensorTrain Z(std::to_string(a) + "*" + X.label() + " + " + Y.label(), cores);
 
-  par_for(PARTHENON_AUTO_LABEL, 0, X.GetNumCores()-1, 
-      KOKKOS_LAMBDA(const int i) {
+  auto Xcores = X.cores_device_;
+  auto Ycores = Y.cores_device_;
+  auto Zcores = Z.cores_device_;
+  par_for(
+      PARTHENON_AUTO_LABEL, 0, X.GetNumCores() - 1, KOKKOS_LAMBDA(const int i) {
+        const std::size_t nXL = Xcores(i).GetLeftRank();
+        const std::size_t nXR = Xcores(i).GetRightRank();
 
-      const std::size_t nXL = X.GetLeftRank(i);
-      const std::size_t nXR = X.GetRightRank(i);
-
-        // zero initialize 
-        for (int iL = 0; iL < Z.GetLeftRank(i); iL++) {
-          for (int iR = 0; iR < Z.GetRightRank(i); iR++) {
-            for (int ic = 0; ic < Z.GetPhysicalIndexSize(i); ic++) {
-              Z.cores_device_(i)(iL, ic, iR) = 0.;
+        // zero initialize
+        for (int iL = 0; iL < Zcores(i).GetLeftRank(); iL++) {
+          for (int iR = 0; iR < Zcores(i).GetRightRank(); iR++) {
+            for (int ic = 0; ic < Zcores(i).GetPhysicalIndexSize(); ic++) {
+              Zcores(i)(iL, ic, iR) = 0.;
             }
           }
         }
@@ -301,57 +272,28 @@ inline TensorTrain aXPlusY(pool_map_t pool_map, const Real a, const TensorTrain 
         // from X
         for (int iL = 0; iL < nXL; iL++) {
           for (int iR = 0; iR < nXR; iR++) {
-            for (int ic = 0; ic < X.GetPhysicalIndexSize(i); ic++) {
-              Z.cores_device_(i)(iL, ic, iR) = X.cores_device_(i)(iL, ic, iR);
-              if (i == 0) Z.cores_device_(i)(iL, ic, iR) *= a;
+            for (int ic = 0; ic < Xcores(i).GetPhysicalIndexSize(); ic++) {
+              Zcores(i)(iL, ic, iR) = Xcores(i)(iL, ic, iR);
+              if (i == 0) Zcores(i)(iL, ic, iR) *= a;
             }
           }
         }
 
         // from Y - left (right) offset is zero for first (last) core
         const int oL = (i > 0) * nXL;
-        const int oR = (i < X.GetNumCores()-1) * nXR;
-        for (int iL = 0; iL < Y.GetLeftRank(i); iL++) {
-          for (int iR = 0; iR < Y.GetRightRank(i); iR++) {
-            for (int ic = 0; ic < Y.GetPhysicalIndexSize(i); ic++) {
-              Z.cores_device_(i)(oL + iL, ic, oR + iR) = Y.cores_device_(i)(iL,
-                  ic, iR);
+        const int oR = (i < X.GetNumCores() - 1) * nXR;
+        for (int iL = 0; iL < Ycores(i).GetLeftRank(); iL++) {
+          for (int iR = 0; iR < Ycores(i).GetRightRank(); iR++) {
+            for (int ic = 0; ic < Ycores(i).GetPhysicalIndexSize(); ic++) {
+              Zcores(i)(oL + iL, ic, oR + iR) = Ycores(i)(iL, ic, iR);
             }
           }
         }
-
-    });
+      });
 
   return Z;
-
 } // AXPlusY
-
 } // namespace tensors
 } // namespace parthenon
 
 #endif // TENSORS_TENSORS_HPP_
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

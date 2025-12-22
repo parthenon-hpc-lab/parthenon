@@ -94,39 +94,36 @@ SCENARIO("Parthenon tensor trains", "[TensorTrains]") {
       pool_map.AddPool(NC[i], chunk_size);
     }
 
-    std::cout << "pools created" << std::endl;
-
     std::vector<TensorCoreHost> cores1, cores2;
     for (int i = 0; i < NCORES_PER_TRAIN; ++i) {
       cores1.push_back(TensorCoreHost(pool_map, RANKS[i], NC[i], RANKS[i + 1]));
       cores2.push_back(TensorCoreHost(pool_map, RANKS[i], NC[i], RANKS[i + 1]));
     }
 
-    std::cout << "vectors created" << std::endl;
-
     WHEN("We make two tensor trains") {
       TensorTrain A("Train A", cores1);
       TensorTrain B("Train B", cores2);
       A.SetOnes();
       B.SetOnes();
-      REQUIRE(true);
 
-      std::cout << "trains achieved" << std::endl;
-
-      THEN("We add them and create a new TT with the result 2*A + B"){
+      THEN("We add them and create a new TT with the result 2*A + B") {
         TensorTrain C = aXPlusY(pool_map, 2, A, B);
         ParArrayND<Real> Cdense = C.ToDenseArray3D();
+        AND_THEN("The resultant array has appropriate dense extents") {
+          for (std::size_t i = 0; i < NCORES_PER_TRAIN; ++i) {
+            REQUIRE(Cdense.GetDim(3 - i) == NC[i]);
+          }
+        }
         int nwrong = 0;
-        par_reduce("Check if its right", 0, Cdense.extent(0), 0, Cdense.extent(1), 0, Cdense.extent(2), KOKKOS_LAMBDA(const int k, const int j, const int i, int &nw) {
-            if (Cdense(k, j, i) != 3*2*3) nw += 1;
-            }, nwrong);
+        par_reduce(
+            "Check if its right", 0, Cdense.GetDim(3) - 1, 0, Cdense.GetDim(2) - 1, 0,
+            Cdense.GetDim(1) - 1,
+            KOKKOS_LAMBDA(const int k, const int j, const int i, int &nw) {
+              if (Cdense(k, j, i) != 3 * 2 * 3) nw += 1;
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
       }
     }
   }
 }
-
-
-
-
-
-
