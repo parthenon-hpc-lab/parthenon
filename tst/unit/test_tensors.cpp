@@ -25,6 +25,7 @@
 #include "kokkos_abstraction.hpp"
 #include "tensors/tensors.hpp"
 
+using namespace parthenon;
 using namespace parthenon::tensors;
 
 SCENARIO("Parthenon Tensor Cores", "[TensorCores]") {
@@ -106,9 +107,26 @@ SCENARIO("Parthenon tensor trains", "[TensorTrains]") {
     WHEN("We make two tensor trains") {
       TensorTrain A("Train A", cores1);
       TensorTrain B("Train B", cores2);
+      A.SetOnes();
+      B.SetOnes();
       REQUIRE(true);
 
       std::cout << "trains achieved" << std::endl;
+
+      THEN("We add them and create a new TT with the result 2*A + B"){
+        TensorTrain C = aXPlusY(pool_map, 2, A, B);
+        ParArrayND<Real> Cdense = C.ToDenseArray3D();
+        int nwrong = 0;
+        par_reduce("Check if its right", 0, Cdense.extent(0), 0, Cdense.extent(1), 0, Cdense.extent(2), KOKKOS_LAMBDA(const int k, const int j, const int i, int &nw) {
+            if (Cdense(k, j, i) != 3*2*3) nw += 1;
+            }, nwrong);
+      }
     }
   }
 }
+
+
+
+
+
+

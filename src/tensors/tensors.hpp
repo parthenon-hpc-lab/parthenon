@@ -236,6 +236,20 @@ class TensorTrain {
   friend TensorTrain aXPlusY(pool_map_t pool_map, const Real a, const
       TensorTrain &X, const TensorTrain &Y);
 
+  void SetOnes() {
+    // zero initialize 
+    par_for(PARTHENON_AUTO_LABEL, 0, GetNumCores()-1, 
+        KOKKOS_LAMBDA(const int i) {
+      for (int iL = 0; iL < GetLeftRank(i); iL++) {
+        for (int iR = 0; iR < GetRightRank(i); iR++) {
+          for (int ic = 0; ic < GetPhysicalIndexSize(i); ic++) {
+            cores_device_(i)(iL, ic, iR) = 1.;
+          }
+        }
+      }
+    });
+  }
+
 
  private:
   std::string label_;
@@ -244,23 +258,23 @@ class TensorTrain {
 }; // class TensorTrain
 
 // take two tensor trains and a scalar, returning a new tensor object Z = aX + Y
-TensorTrain aXPlusY(pool_map_t pool_map, const Real a, const TensorTrain &X,
+inline TensorTrain aXPlusY(pool_map_t pool_map, const Real a, const TensorTrain &X,
     const TensorTrain &Y) {
 
-  PARTHENON_REQUIRE_THROWS(X.GetNumCores() == Y.GetNumCores(), "Ensure tensor
-      trains being added have same number of cores");
+  PARTHENON_REQUIRE_THROWS(X.GetNumCores() == Y.GetNumCores(), "Ensure tensor"
+      " trains being added have same number of cores");
 
   // declare and construct the tensor cores for the resulting train
   std::vector<TensorCoreHost> cores;
   for (int i = 0; i < X.GetNumCores(); i++) {
 
     PARTHENON_REQUIRE_THROWS(X.GetPhysicalIndexSizeHost(i) ==
-        Y.GetPhysicalIndexSizeHost(i), "Ensure tensor trains being added have
-        same physical index size in corresponding cores");
+        Y.GetPhysicalIndexSizeHost(i), "Ensure tensor trains being added have"
+        " same physical index size in corresponding cores");
 
     const std::size_t rL = (i==0) ? 1 : X.GetLeftRankHost(i) + Y.GetLeftRankHost(i);
     const std::size_t nc = X.GetPhysicalIndexSizeHost(i);
-    const std::size_t rR = (i==X.GetNumCores()-1) ? 1 : X.GetLeftRankHost(i) + Y.GetLeftRankHost(i);
+    const std::size_t rR = (i==X.GetNumCores()-1) ? 1 : X.GetRightRankHost(i) + Y.GetRightRankHost(i);
 
     cores.emplace_back(pool_map, rL, nc, rR);
   }
