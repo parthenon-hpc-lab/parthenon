@@ -17,6 +17,9 @@
 // so.
 //========================================================================================
 
+#include <iostream>
+#include <vector>
+
 #include <catch2/catch.hpp>
 
 #include "kokkos_abstraction.hpp"

@@ -16,6 +16,7 @@
 
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "basic_types.hpp"
@@ -76,7 +77,7 @@ class TensorCoreDevice {
   std::size_t GetPhysicalIndexSize() const { return c_; }
 
  private:
-  TensorCoreDevice(const core_data_device_unmanaged_t &device_data)
+  explicit TensorCoreDevice(const core_data_device_unmanaged_t &device_data)
       : rL_(device_data.extent(0)), c_(device_data(0, 0).extent(0)),
         rR_(device_data.extent(1)), data_device_(device_data) {}
   std::size_t rL_, c_, rR_;
@@ -176,7 +177,7 @@ class TensorTrain {
     return out;
   }
 
-  auto label() const { return label_; };
+  auto label() const { return label_; }
 
  private:
   std::string label_;
