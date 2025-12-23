@@ -1,5 +1,5 @@
 //========================================================================================
-// Parthenon performance portable AMR framework
+// parthenon performance portable AMR framework
 // Copyright(C) 2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
@@ -279,14 +279,18 @@ bool UsingSameResource(const T &lhs, const U &rhs) {
   TODO(JMM): Currently the key type here is always size_t. It can
   easily be extended to vector types such as std::tuple if needed,
   but I didn't bother since we don't need that right now.
+
+  This means that right now, T really needs to be a 1D Kokkos view
+  under the hood.
  */
-template <typename T>
+template <typename T, class = ENABLEIF(implements<kokkos_view(T)>::value)>
 class ObjectPoolMap {
  public:
   using pool_t = ObjectPool<T>;
   using map_t = std::unordered_map<std::size_t, pool_t>;
   using owner_t = typename pool_t::owner_t;
   using weak_t = typename pool_t::weak_t;
+  using data_t = typename T::data_type;
 
   auto &GetPool(const std::size_t shape) {
     if (!Contains(shape)) {
@@ -304,8 +308,12 @@ class ObjectPoolMap {
   auto GetOwningBuffer(const std::size_t shape) {
     return static_cast<owner_t>(GetBuffer(shape));
   }
-  // TODO(JMM): This assumes the pool is of a Kokkos view-like object
+  // TODO(JMM): This assumes the pool is of a 1D Kokkos view-like object
   void AddPool(const std::size_t shape, const std::size_t chunk_size) {
+    static_assert(
+        std::is_pointer_v<std::remove_reference_t<data_t>> &&
+            !std::is_pointer_v<std::remove_pointer_t<std::remove_reference_t<data_t>>>,
+        "Underlying view must be 1D");
     if (map_.count(shape) > 0) return;
     // This lambda is called whenever a buffer is requested but no
     // buffers remain in the pool
@@ -321,7 +329,12 @@ class ObjectPoolMap {
     };
     map_.emplace(shape, ObjectPool<T>(allocation_strategy));
   }
+  // TODO(JMM): This assumes the pool is of a 1D Kokkos view-like object
   void AddFreeObjectsToPool(const std::size_t shape, const std::size_t nobjs) {
+    static_assert(
+        std::is_pointer_v<std::remove_reference_t<data_t>> &&
+            !std::is_pointer_v<std::remove_pointer_t<std::remove_reference_t<data_t>>>,
+        "Underlying view must be 1D");
     auto &pool = map_.at(shape);
     const auto pool_size = shape * nobjs;
     auto label =
