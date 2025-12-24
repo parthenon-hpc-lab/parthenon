@@ -274,6 +274,7 @@ add_library(parthenon
   time_integration/low_storage_integrator.cpp
   time_integration/staged_integrator.cpp
   time_integration/staged_integrator.hpp
+  tensors/tensors.cpp
   tensors/tensors.hpp
 
   utils/alias_method.cpp
