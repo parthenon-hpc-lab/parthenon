@@ -314,6 +314,9 @@ add_library(parthenon
   utils/unique_id.cpp
   utils/unique_id.hpp
   utils/utils.hpp
+  utils/FFTManager.cpp
+  utils/FFTManager.hpp
+
 
   argument_parser.hpp
   basic_types.hpp
@@ -347,6 +350,16 @@ target_compile_definitions(parthenon PRIVATE
     FS_HEADER=<${CXX_FILESYSTEM_HEADER}>
     FS_NAMESPACE=${CXX_FILESYSTEM_NAMESPACE}
     )
+
+# HeFFTe paths
+set(HEFFTE_INCLUDE_DIR "/p/home/jusers/kasselmann1/juwels/heffte_gpu/include")
+set(HEFFTE_LIBRARY "/p/home/jusers/kasselmann1/juwels/heffte_gpu/lib64/libheffte.so")  # adjust if static: libheffte.a
+
+# Attach include path directly to the target
+target_include_directories(parthenon PRIVATE ${HEFFTE_INCLUDE_DIR})
+
+# Link library to the target
+target_link_libraries(parthenon PRIVATE ${HEFFTE_LIBRARY})
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
   target_compile_options(parthenon PUBLIC -std=c++1y -qxflag=disable__cplusplusOverride)
