@@ -116,6 +116,17 @@ const char hist_param_key[] = "HistoryFunctions";
 const char hist_vec_param_key[] = "HistoryVectorFunctions";
 
 //----------------------------------------------------------------------------------------
+//! \class SpectralOutput
+//  \brief derived OutputType class for Spectrum dumps
+
+class SpectralOutput : public OutputType {
+ public:
+  explicit SpectralOutput(const OutputParameters &oparams) : OutputType(oparams) {}
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                       const SignalHandler::OutputSignal signal) override;
+};
+
+//----------------------------------------------------------------------------------------
 //! \class HistoryFile
 //  \brief derived OutputType class for history dumps
 

@@ -219,6 +219,7 @@ add_library(parthenon
   outputs/restart.hpp
   outputs/restart_hdf5.cpp
   outputs/restart_hdf5.hpp
+  outputs/spectrum.cpp
 
   pack/block_selector.hpp
   pack/make_pack_descriptor.hpp

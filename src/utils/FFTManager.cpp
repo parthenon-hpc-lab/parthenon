@@ -37,17 +37,6 @@ void FFTManager::Initialize() {
   // create an effective uniform grid.)
   const auto level =
       mesh_->Forest().GetLegacyTreeLocation(mesh_->block_list[0]->loc).level();
-
-  std::array local_loc_min{
-      std::numeric_limits<std::int64_t>::max(),
-      std::numeric_limits<std::int64_t>::max(),
-      std::numeric_limits<std::int64_t>::max(),
-  };
-  std::array local_loc_max{
-      std::numeric_limits<std::int64_t>::min(),
-      std::numeric_limits<std::int64_t>::min(),
-      std::numeric_limits<std::int64_t>::min(),
-  };
   
   for (int b = 0; b < mesh_->GetNumMeshBlocksThisRank(); b++) {
     auto pmb = mesh_->block_list[b];
@@ -98,13 +87,13 @@ void FFTManager::Initialize() {
 
   const auto block_size = mesh_->GetDefaultBlockSize();
   // block sizes
-  const int nx1b = block_size.nx(parthenon::X1DIR);
-  const int nx2b = block_size.nx(parthenon::X2DIR);
-  const int nx3b = block_size.nx(parthenon::X3DIR);
+  nx1b = block_size.nx(parthenon::X1DIR);
+  nx2b = block_size.nx(parthenon::X2DIR);
+  nx3b = block_size.nx(parthenon::X3DIR);
   // all local blocks sizes (based on logical locations)
-  const std::int64_t nx1l = local_nlocs.at(0) * nx1b;
-  const std::int64_t nx2l = local_nlocs.at(1) * nx2b;
-  const std::int64_t nx3l = local_nlocs.at(2) * nx3b;
+  nx1l = local_nlocs.at(0) * nx1b;
+  nx2l = local_nlocs.at(1) * nx2b;
+  nx3l = local_nlocs.at(2) * nx3b;
   const int gis = local_loc_min.at(0) * nx1b;
   const int gjs = local_loc_min.at(1) * nx2b;
   const int gks = local_loc_min.at(2) * nx3b;
