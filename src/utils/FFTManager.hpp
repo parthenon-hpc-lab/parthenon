@@ -5,10 +5,6 @@
 
 namespace parthenon {
 class Mesh;
-}
-
-namespace parthenon {
-
 class FFTManager {
   
   friend class Mesh;

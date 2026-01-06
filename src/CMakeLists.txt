@@ -194,6 +194,8 @@ add_library(parthenon
   mesh/meshblock.hpp
   mesh/meshblock_pack.hpp
   mesh/meshblock.cpp
+  mesh/uniform_grid_helper.cpp 
+  mesh/uniform_grid_helper.hpp
 
   outputs/ascent.cpp
   outputs/histogram.cpp
