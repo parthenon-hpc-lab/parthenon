@@ -8,8 +8,9 @@ FFTManager::FFTManager(Mesh *mesh) : mesh_(mesh) {}
 
 void FFTManager::Initialize() {
   // Create FFT plan to be used by Forward() and Backward()
-
   if (initialized_) return;
+
+  auto UniformGridHelper = mesh_->GetUniformGridHelper();
 
   // Determine global box sizes
   auto mesh_size = mesh_->mesh_size;
@@ -25,52 +26,6 @@ void FFTManager::Initialize() {
   // check if the complex indexes have correct dimension
   assert(real_indexes.r2c(r2c_direction) == complex_indexes);
 
-  // Need to store this info in a way this can be used on device later
-  parthenon::ParArray2D<std::int64_t> loc_view("logical location of local blocks",
-                                               mesh_->GetNumMeshBlocksThisRank(), 3);
-  auto loc_view_h = loc_view.GetHostMirror();
-
-  // Set rank local min and max logical locations.
-  // Also check if all blocks are on the same level (we use this check instead of
-  // checking for refinement=none because AMR could have been used to dynamically refine
-  // a simulation. We just need to ensure that all blocks are on the same level to
-  // create an effective uniform grid.)
-  const auto level =
-      mesh_->Forest().GetLegacyTreeLocation(mesh_->block_list[0]->loc).level();
-  
-  for (int b = 0; b < mesh_->GetNumMeshBlocksThisRank(); b++) {
-    auto pmb = mesh_->block_list[b];
-    const auto loc = mesh_->Forest().GetLegacyTreeLocation(pmb->loc);
-    for (int i = 0; i <= 2; i++) {
-      local_loc_min.at(i) = std::min(loc.l(i), local_loc_min.at(i));
-      local_loc_max.at(i) = std::max(loc.l(i), local_loc_max.at(i));
-      loc_view_h(b, i) = loc.l(i);
-    }
-    PARTHENON_REQUIRE_THROWS(loc.level() == level,
-                             "Not all blocks are on the same level.");
-  }
-
-  // convert global logical locations to rank-local logical locs
-  for (int b = 0; b < mesh_->GetNumMeshBlocksThisRank(); b++) {
-    for (int i = 0; i <= 2; i++) {
-      loc_view_h(b, i) -= local_loc_min.at(i);
-    }
-  }
-  Kokkos::deep_copy(loc_view, loc_view_h);
-
-  std::array local_nlocs{
-      (local_loc_max.at(0) - local_loc_min.at(0)) + 1,
-      (local_loc_max.at(1) - local_loc_min.at(1)) + 1,
-      (local_loc_max.at(2) - local_loc_min.at(2)) + 1,
-  };
-  const auto loc_max_vol = local_nlocs.at(0) * local_nlocs.at(1) * local_nlocs.at(2);
-  // std::cerr << "[" << parthenon::Globals::my_rank << "] got local vol of: " <<
-  // loc_max_vol << "\n";
-  PARTHENON_REQUIRE_THROWS(loc_max_vol == mesh_->GetNumMeshBlocksThisRank(),
-                           "Block coverage on rank cannot be matched to a contiguous "
-                           "array, which is required for FFTs. Try a different amount of "
-                           "ranks (one block per rank will always work).");
-
   // TODO(pgrete) not nice, make nicer
   //#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
   //using backend_tag = heffte::backend::default_backend<heffte::tag::gpu>::type;
@@ -85,22 +40,12 @@ void FFTManager::Initialize() {
   // Since this is only executed once at the beginning of the simulation, this is acceptable for now.
   using backend_tag = heffte::backend::default_backend<heffte::tag::cpu>::type;
 
-  const auto block_size = mesh_->GetDefaultBlockSize();
-  // block sizes
-  nx1b = block_size.nx(parthenon::X1DIR);
-  nx2b = block_size.nx(parthenon::X2DIR);
-  nx3b = block_size.nx(parthenon::X3DIR);
-  // all local blocks sizes (based on logical locations)
-  nx1l = local_nlocs.at(0) * nx1b;
-  nx2l = local_nlocs.at(1) * nx2b;
-  nx3l = local_nlocs.at(2) * nx3b;
-  const int gis = local_loc_min.at(0) * nx1b;
-  const int gjs = local_loc_min.at(1) * nx2b;
-  const int gks = local_loc_min.at(2) * nx3b;
-  // fft() interface below requires box3d's of int (to we need to cast down)
-  const heffte::box3d<> real_space_box({gis, gjs, gks}, {static_cast<int>(gis + nx1l - 1),
-                                                static_cast<int>(gjs + nx2l - 1),
-                                                static_cast<int>(gks + nx3l - 1)});
+  auto &mesh_start_idx = UniformGridHelper->mesh_start_idx;
+  auto &mesh_end_idx = UniformGridHelper->mesh_end_idx;
+
+  const heffte::box3d<> real_space_box({mesh_start_idx[0], mesh_start_idx[1], mesh_start_idx[2]}, {static_cast<int>(mesh_end_idx[0]),
+                                                static_cast<int>(mesh_end_idx[1]),
+                                                static_cast<int>(mesh_end_idx[2])});
 
   // for the fourier space box, we let heffte decide the best decomposition: 
   std::array<int, 3> proc_grid = heffte::proc_setup_min_surface(complex_indexes, parthenon::Globals::nranks);
