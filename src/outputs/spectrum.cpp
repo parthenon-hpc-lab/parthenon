@@ -72,10 +72,9 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       std::numeric_limits<std::int64_t>::min(),
   };
 
-  auto *pmesh = md->GetMeshPointer();
   // Need to store this info in a way this can be used on device later
   parthenon::ParArray2D<std::int64_t> loc_view("logical location of local blocks",
-                                               pmesh->GetNumMeshBlocksThisRank(), 3);
+                                               pm->GetNumMeshBlocksThisRank(), 3);
   auto loc_view_h = loc_view.GetHostMirror();
 
   // Set rank local min and max logical locations.
@@ -84,10 +83,10 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   // a simulation. We just need to ensure that all blocks are on the same level to
   // create an effective uniform grid.)
   const auto level =
-      pmesh->Forest().GetLegacyTreeLocation(pmesh->block_list[0]->loc).level();
-  for (int b = 0; b < pmesh->GetNumMeshBlocksThisRank(); b++) {
-    auto pmb = pmesh->block_list[b];
-    const auto loc = pmesh->Forest().GetLegacyTreeLocation(pmb->loc);
+      pm->Forest().GetLegacyTreeLocation(pm->block_list[0]->loc).level();
+  for (int b = 0; b < pm->GetNumMeshBlocksThisRank(); b++) {
+    auto pmb = pm->block_list[b];
+    const auto loc = pm->Forest().GetLegacyTreeLocation(pmb->loc);
     for (int i = 0; i <= 2; i++) {
       local_loc_min.at(i) = std::min(loc.l(i), local_loc_min.at(i));
       local_loc_max.at(i) = std::max(loc.l(i), local_loc_max.at(i));
@@ -98,7 +97,7 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   }
 
   // convert global logical locations to rank-local logical locs
-  for (int b = 0; b < pmesh->GetNumMeshBlocksThisRank(); b++) {
+  for (int b = 0; b < pm->GetNumMeshBlocksThisRank(); b++) {
     for (int i = 0; i <= 2; i++) {
       loc_view_h(b, i) -= local_loc_min.at(i);
     }
@@ -113,7 +112,7 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   const auto loc_max_vol = local_nlocs.at(0) * local_nlocs.at(1) * local_nlocs.at(2);
   // std::cerr << "[" << parthenon::Globals::my_rank << "] got local vol of: " <<
   // loc_max_vol << "\n";
-  PARTHENON_REQUIRE_THROWS(loc_max_vol == pmesh->GetNumMeshBlocksThisRank(),
+  PARTHENON_REQUIRE_THROWS(loc_max_vol == pm->GetNumMeshBlocksThisRank(),
                            "Block coverage on rank cannot be matched to a contiguous "
                            "array, which is required for FFTs. Try a different amount of "
                            "ranks (one block per rank will always work).");
@@ -131,27 +130,24 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   if (parthenon::Globals::my_rank == 0)
     std::cerr << "using backend: " << heffte::backend::name<backend_tag>() << "\n";
 
-  std::cout << "Got to line 146\n";
-
-  std::cout << "Set r2c direction\n";
   // Adjust (logical) grid size at levels other than the root level.
   // This is required for simulation with mesh refinement so that the phases calculated
   // below take the logical grid size into account. For example, the local phases at
   // level 1 should be calculated assuming a grid that is twice as large as the root
   // grid.
 
-  // PARTHENON_REQUIRE_THROWS(!pmesh->adaptive, "Ask Luke about the logic here.");
-  // const auto root_level = pmesh->GetRootLevel();
+  // PARTHENON_REQUIRE_THROWS(!pm->adaptive, "Ask Luke about the logic here.");
+  // const auto root_level = pm->GetRootLevel();
   // auto gnx1 =
-  // static_cast<int>(pmesh->mesh_size.nx(X1DIR) * std::pow(2, level - root_level));
+  // static_cast<int>(pm->mesh_size.nx(X1DIR) * std::pow(2, level - root_level));
   // auto gnx2 =
-  // static_cast<int>(pmesh->mesh_size.nx(X2DIR) * std::pow(2, level - root_level));
+  // static_cast<int>(pm->mesh_size.nx(X2DIR) * std::pow(2, level - root_level));
   // auto gnx3 =
-  // static_cast<int>(pmesh->mesh_size.nx(X3DIR) * std::pow(2, level - root_level));
+  // static_cast<int>(pm->mesh_size.nx(X3DIR) * std::pow(2, level - root_level));
 
-  // const auto gnx1 = pmesh->mesh_size.nx(X1DIR);
-  // const auto gnx2 = pmesh->mesh_size.nx(X2DIR);
-  // const auto gnx3 = pmesh->mesh_size.nx(X3DIR);
+  // const auto gnx1 = pm->mesh_size.nx(X1DIR);
+  // const auto gnx2 = pm->mesh_size.nx(X2DIR);
+  // const auto gnx3 = pm->mesh_size.nx(X3DIR);
   // Determine global box sizes
   auto mesh_size = pm->mesh_size;
   auto Nx = mesh_size.nx(X1DIR);
@@ -179,7 +175,7 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   // Need to use legacy locations from above (which are global) because locations now
   // are local to the tree, which results in inconsistencies for meshes with multiple
   // trees.
-  const auto block_size = pmesh->GetDefaultBlockSize();
+  const auto block_size = pm->GetDefaultBlockSize();
   // block sizes
   const auto nx1b = block_size.nx(X1DIR);
   const auto nx2b = block_size.nx(X2DIR);
@@ -214,11 +210,11 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                                    n_comp * fft.size_outbox());
   parthenon::ParArray1D<std::complex<Real>> workspace("fft workspace",
                                                       fft.size_workspace());
-  PARTHENON_REQUIRE_THROWS(pmesh->DefaultNumPartitions() == 1,
+  PARTHENON_REQUIRE_THROWS(pm->DefaultNumPartitions() == 1,
                            "Only pack_size=-1 currently supported for heffte.")
   // for (int spec_type = 0; spec_type < 3; spec_type++) {
   par_for(
-      "Init FFT fields", 0, pmesh->GetNumMeshBlocksThisRank() - 1, kb.s, kb.e, jb.s, jb.e,
+      "Init FFT fields", 0, pm->GetNumMeshBlocksThisRank() - 1, kb.s, kb.e, jb.s, jb.e,
       ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const auto kk = k - kb.s + loc_view(b, 2) * nx3b;
         const auto jj = j - jb.s + loc_view(b, 1) * nx2b;
@@ -338,7 +334,7 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
     std::ofstream fout(fname);
     if (!fout.is_open()) {
-        PARTHENON_FAIL("Could not open spectrum.txt for writing");
+        PARTHENON_FAIL("Could not open " + fname + " for writing");
     }
 
     // Decide prefix based on spec_type (optional)

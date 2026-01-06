@@ -112,6 +112,17 @@ void FFTManager::Initialize() {
   initialized_ = true;
 }
 
+auto FFTManager::Forward(int field) {
+    Initialize();
+    // field: 0 = rho, 1 = vx, 2 = vy, 3 = vz, 4 = energy, 5 = Bx, 6 = By, 7 = Bz
+    // Create input array
+    std::vector<double> input(fft_plan_->size_inbox());
+    // Fill input array from meshblocks
+    // TODO(pgrete) implement
+    PARTHENON_FAIL("Not implemented yet");
+    return fft_plan_->forward(input, heffte::scale::full);
+}
+
 } // namespace parthenon
 
 

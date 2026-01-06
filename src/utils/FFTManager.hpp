@@ -17,14 +17,9 @@ class FFTManager {
 
     explicit FFTManager(Mesh *mesh);
     void Initialize();
-    auto Forward(const std::vector<double> &input) {
-        Initialize();
-        return fft_plan_->forward(input, heffte::scale::full);
-    }
-    auto Backward(const std::vector<std::complex<double>> &input) {
-        Initialize();
-        return fft_plan_->backward(input, heffte::scale::full);
-    }
+    auto Forward(int field);
+    auto Backward(const std::vector<std::complex<double>> &input);
+
     std::unique_ptr<heffte::fft3d_r2c<heffte::backend::default_backend<heffte::tag::cpu>::type>> fft_plan_;
     // Quantities needed for mapping data to/from meshblocks. Declared public for ease of access.
     std::array<std::int64_t, 3> local_loc_min{
