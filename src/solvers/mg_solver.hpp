@@ -88,6 +88,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
   std::string container_res_err, container_temp, container_u0, container_diag;
   BValOnMDFunc_t BCFunc;
 
+  bool constant_prolongation;
   MGSolver(const std::string &container_base, const std::string &container_u,
            const std::string &container_rhs, ParameterInput *pin,
            const std::string &input_block, equations_t eq_in = equations_t())
@@ -98,7 +99,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
            const std::string &container_rhs, MGParams params_in,
            equations_t eq_in = equations_t(), prolongator_t prol_in = prolongator_t())
       : SolverBase(container_base, container_u, container_rhs), params_(params_in),
-        iter_counter(0), eqs_(eq_in), prolongator_(prol_in) {
+        iter_counter(0), eqs_(eq_in),
+        prolongator_(prol_in), constant_prolongation{false} {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
     std::string solver_id = "mg" + std::to_string(id++);
@@ -112,6 +114,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
       BCFunc = ApplyBoundaryConditionsOnCoarseOrFineMD;
     }
   }
+
+  void SetConstantProlongation(bool const_pro) { constant_prolongation = const_pro; }
 
   TaskID Ax(TaskList &tl, TaskID dependence, std::shared_ptr<MeshData<Real>> &md_mat,
             std::shared_ptr<MeshData<Real>> &md_in,
@@ -288,7 +292,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
   template <parthenon::BoundaryType comm_boundary>
   TaskID AddJacobiIteration(TaskList &tl, TaskID depends_on, bool multilevel, Real omega,
-                            int partition, int level,
+                            int partition, int level, bool in_is_zero,
                             std::shared_ptr<MeshData<Real>> &md_in,
                             std::shared_ptr<MeshData<Real>> &md_out) {
     using namespace utils;
@@ -298,27 +302,35 @@ class MGSolver : public SolverBase, MGSolverCounter {
     auto &md_base = pmesh->mesh_data.Add(container_base, partitions[partition]);
     auto &md_rhs = pmesh->mesh_data.Add(container_rhs, partitions[partition], sol_fields);
     auto &md_diag = pmesh->mesh_data.Add(container_diag, md_base, sol_fields);
+    auto &md_ax = pmesh->mesh_data.Add(container_temp, md_base, sol_fields);
+    auto mat_mult = depends_on;
+    if (in_is_zero) {
+      mat_mult = tl.AddTask(depends_on, TF(SetToZero<FieldTL, true>), md_ax);
+    } else {
+      auto time_comm =
+          solver_timings.GetOrAddAndRegister(GetTimeLabel("Boundary", level), tl);
+      time_comm->StartCollectingTasks();
+      auto comm = AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md_in,
+                                                          multilevel, BCFunc);
+      time_comm->StopCollectingTasks();
 
-    auto time_comm =
-        solver_timings.GetOrAddAndRegister(GetTimeLabel("Boundary", level), tl);
-    time_comm->StartCollectingTasks();
-    auto comm = AddBoundaryExchangeTasks<comm_boundary>(depends_on, tl, md_in, multilevel,
-                                                        BCFunc);
-    time_comm->StopCollectingTasks();
-    auto time_ax =
-        solver_timings.GetOrAddAndRegister(GetTimeLabel("Jacobi Ax", level), tl);
-    time_ax->StartCollectingTasks();
-    auto mat_mult = eqs_.Ax(tl, comm, md_base, md_in, md_out);
-    time_ax->StopCollectingTasks();
+      auto time_ax =
+          solver_timings.GetOrAddAndRegister(GetTimeLabel("Jacobi Ax", level), tl);
+      time_ax->StartCollectingTasks();
+      mat_mult = eqs_.Ax(tl, comm, md_base, md_in, md_ax);
+      time_ax->StopCollectingTasks();
+    }
+
     auto guard = TimingAccumulatorGuard(
         solver_timings.GetOrAddAndRegister(GetTimeLabel("Jacobi", level), tl));
-    return tl.AddTask(mat_mult, TF(&MGSolver::Jacobi), this, md_rhs, md_out, md_diag,
+    return tl.AddTask(mat_mult, TF(&MGSolver::Jacobi), this, md_rhs, md_ax, md_diag,
                       md_in, md_out, omega);
   }
 
   template <parthenon::BoundaryType comm_boundary, class TL_t>
   TaskID AddSRJIteration(TL_t &tl, TaskID depends_on, int stages, bool multilevel,
-                         int partition, int level, Mesh *pmesh) {
+                         int partition, int level, int max_level, bool first,
+                         Mesh *pmesh) {
     using namespace utils;
 
     const int ndim = pmesh->ndim;
@@ -326,7 +338,6 @@ class MGSolver : public SolverBase, MGSolverCounter {
         pmesh->GetDefaultBlockPartitions(GridIdentifier::two_level_composite(level));
     auto &md_base = pmesh->mesh_data.Add(container_base, partitions[partition]);
     auto &md_u = pmesh->mesh_data.Add(container_u, md_base, sol_fields);
-    auto &md_temp = pmesh->mesh_data.Add(container_temp, md_base, sol_fields);
 
     std::array<std::array<Real, 3>, 3> omega_M1{
         {{1.0, 0.0, 0.0}, {1.0, 0.0, 0.0}, {1.0, 0.0, 0.0}}};
@@ -340,23 +351,33 @@ class MGSolver : public SolverBase, MGSolverCounter {
         solver_timings.GetOrAddAndRegister(GetTimeLabel("Smooth", level), tl));
 
     if (stages == 0) return depends_on;
-    auto omega = omega_M1;
-    if (stages == 2) omega = omega_M2;
-    if (stages == 3) omega = omega_M3;
-    // This copy is to set the coarse blocks in temp to the values in u so that
-    // fine-coarse boundaries of temp are correctly updated during communication
-    depends_on = tl.AddTask(depends_on, TF(CopyData<FieldTL, false>), md_u, md_temp);
-    auto jacobi1 = AddJacobiIteration<comm_boundary>(
-        tl, depends_on, multilevel, omega[ndim - 1][0], partition, level, md_u, md_temp);
-    auto copy1 = tl.AddTask(jacobi1, TF(CopyData<FieldTL, true>), md_temp, md_u);
-    if (stages < 2) return copy1;
-    auto jacobi2 = AddJacobiIteration<comm_boundary>(
-        tl, copy1, multilevel, omega[ndim - 1][1], partition, level, md_u, md_temp);
-    auto copy2 = tl.AddTask(jacobi2, TF(CopyData<FieldTL, true>), md_temp, md_u);
-    if (stages < 3) return copy2;
-    auto jacobi3 = AddJacobiIteration<comm_boundary>(
-        tl, copy2, multilevel, omega[ndim - 1][2], partition, level, md_u, md_temp);
-    return tl.AddTask(jacobi3, TF(CopyData<FieldTL, true>), md_temp, md_u);
+
+    const bool in_is_zero = (level == max_level) && initial_guess_is_zero && first;
+    if (stages == 1) {
+      return AddJacobiIteration<comm_boundary>(tl, depends_on, multilevel,
+                                               omega_M1[ndim - 1][0], partition, level,
+                                               in_is_zero, md_u, md_u);
+    } else if (stages == 2) {
+      auto jacobi1 = AddJacobiIteration<comm_boundary>(tl, depends_on, multilevel,
+                                                       omega_M2[ndim - 1][0], partition,
+                                                       level, in_is_zero, md_u, md_u);
+      return AddJacobiIteration<comm_boundary>(tl, jacobi1, multilevel,
+                                               omega_M2[ndim - 1][1], partition, level,
+                                               false, md_u, md_u);
+    } else if (stages == 3) {
+      auto jacobi1 = AddJacobiIteration<comm_boundary>(tl, depends_on, multilevel,
+                                                       omega_M3[ndim - 1][0], partition,
+                                                       level, in_is_zero, md_u, md_u);
+      auto jacobi2 = AddJacobiIteration<comm_boundary>(tl, jacobi1, multilevel,
+                                                       omega_M3[ndim - 1][1], partition,
+                                                       level, false, md_u, md_u);
+      return AddJacobiIteration<comm_boundary>(tl, jacobi2, multilevel,
+                                               omega_M3[ndim - 1][2], partition, level,
+                                               false, md_u, md_u);
+    } else {
+      PARTHENON_FAIL("More than three stages not implemented.");
+      return depends_on;
+    }
   }
 
   template <class TL_t>
@@ -493,16 +514,12 @@ class MGSolver : public SolverBase, MGSolverCounter {
                                     BTF(AddFieldsAndStoreInteriorSelect<FieldTL, true>),
                                     md_temp, md_res_err, md_rhs, 1.0, 1.0, true);
       }
-    } else {
-      auto timer_guard = TimingAccumulatorGuard(
-          solver_timings.GetOrAddAndRegister(GetTimeLabel("Copy u0", level), tl));
-      set_from_finer =
-          tl.AddTask(set_from_finer, BTF(CopyData<FieldTL, true>), md_u, md_u0);
     }
 
     // 2. Do pre-smooth and fill solution on this level
     auto pre_smooth = AddSRJIteration<BoundaryType::gmg_same>(
-        tl, set_from_finer, pre_stages, multilevel, partition, level, pmesh);
+        tl, set_from_finer, pre_stages, multilevel, partition, level, max_level, true,
+        pmesh);
     // If we are finer than the coarsest level:
     auto post_smooth = pre_smooth;
     if (level > min_level) {
@@ -559,8 +576,9 @@ class MGSolver : public SolverBase, MGSolverCounter {
       timer_u->StopCollectingTasks();
 
       // 8. Post smooth using communication field and stored RHS
-      post_smooth = AddSRJIteration<BoundaryType::gmg_same>(
-          tl, update_sol, post_stages, multilevel, partition, level, pmesh);
+      post_smooth = AddSRJIteration<BoundaryType::gmg_same>(tl, update_sol, post_stages,
+                                                            multilevel, partition, level,
+                                                            max_level, false, pmesh);
 
     } else {
       post_smooth =
@@ -584,12 +602,15 @@ class MGSolver : public SolverBase, MGSolverCounter {
       }
       // This is required to make sure boundaries of res_err are up to date before
       // prolongation
-      auto timer_comm =
-          solver_timings.GetOrAddAndRegister(GetTimeLabel("Boundary", level), tl);
-      timer_comm->StartCollectingTasks();
-      auto boundary = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
-          copy_over, tl, md_res_err, multilevel, BCFunc);
-      timer_comm->StopCollectingTasks();
+      auto boundary = copy_over;
+      if (!constant_prolongation) {
+        auto timer_comm =
+            solver_timings.GetOrAddAndRegister(GetTimeLabel("Boundary", level), tl);
+        timer_comm->StartCollectingTasks();
+        boundary = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
+            copy_over, tl, md_res_err, multilevel, BCFunc);
+        timer_comm->StopCollectingTasks();
+      }
       last_task = tl.AddTask(
           boundary, BTF(SendBoundBufs<BoundaryType::gmg_prolongate_send>), md_res_err);
     }
