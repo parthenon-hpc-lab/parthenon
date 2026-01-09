@@ -1184,7 +1184,11 @@ void Mesh::BuildAndRegisterCommBuffers_() {
   // TODO(JMM): I don't like that we need to add base with the base
   // partition here. We shouldn't have to, but I don't know how to fix
   // it without a refactor.
-  BuildBoundaryBuffers(mesh_data.Add("base", GetBasePartition()));
+  for (auto &partition : GetDefaultBlockPartitions()) {
+    auto &md = mesh_data.Add("base", partition);
+    BuildBoundaryBuffers(md);
+  }
+
   if (do_coalesced_comms) RegisterCoalescedComms(this);
 
   if (multigrid) { // But... multigrid is sufficiently hairy that I'm
