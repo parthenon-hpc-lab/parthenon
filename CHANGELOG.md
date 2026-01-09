@@ -12,7 +12,7 @@
 
 
 ### Infrastructure (changes irrelevant to downstream codes)
-
+- [[PR 1361]] Bump formatters to clang-format-18 and black 25.12
 
 ### Removed (removing behavior/API/variables/...)
 

@@ -14,6 +14,8 @@
 find_program(
     CLANG_FORMAT
     NAMES
+        clang-format-18 # Debian package manager, among others, provide this name
+        clang-format-mp-18.0 # MacPorts
         clang-format-13 # Debian package manager, among others, provide this name
         clang-format-mp-13.0 # MacPorts
         clang-format-12 # Debian package manager, among others, provide this name
