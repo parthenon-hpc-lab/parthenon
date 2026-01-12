@@ -43,6 +43,7 @@
 #include "application_input.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "bvals/bvals.hpp"
+#include "bvals/comms/coalesced_buffers.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
 #include "interface/packages.hpp"
@@ -56,7 +57,6 @@
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
-#include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/partition_stl_containers.hpp"
 
@@ -88,13 +88,27 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       lb_manual_(), nslist(Globals::nranks), nblist(Globals::nranks),
       nref(Globals::nranks), nderef(Globals::nranks), rdisp(Globals::nranks),
       ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
-      brdisp(Globals::nranks), bddisp(Globals::nranks) {
+      brdisp(Globals::nranks), bddisp(Globals::nranks),
+      pcoalesced_comms(std::make_shared<CoalescedComms>(this)),
+      do_coalesced_comms{pin->GetOrAddBoolean(
+          "parthenon/mesh", "do_coalesced_comms", false,
+          "Use coalesced MPI messages for inter-block communication")},
+      nbuf_add_{pin->GetOrAddInteger(
+          "parthenon/mesh", "comm_buffer_chunk_size", -1,
+          "Number of comm buffers to allocate when more are required. Default is a "
+          "heuristic.")},
+      buffer_reset_frac_{pin->GetOrAddReal(
+          "parthenon/mesh", "comm_buffer_reset_fraction", 0.8,
+          "When a check for comm buffer realocation is made (see "
+          "comm_buffer_reallocate_cadence), reallocation happens only if the number of "
+          "buffers in use divided by the number of buffers allocated is less than this "
+          "variable.")} {
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =
       pin->DoesParameterExist("parthenon/mesh", "packs_per_rank");
-  // If both exists, the assumption is that packs_per_rank was added later on purpose (as
-  // pack_size existed first) so the new value should take precedent.
+  // If both exists, the assumption is that packs_per_rank was added later on purpose
+  // (as pack_size existed first) so the new value should take precedent.
   if (pack_size_exists && num_partitions_exists) {
     use_pack_size_ = false;
     default_num_packs_ =
@@ -161,11 +175,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   root_level = 0;
   // SMR / AMR:
   if (adaptive) {
-    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
-                                     "maximum level of refinement globally") +
-                root_level - 1;
+    max_level_ref_ = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
+                                          "maximum level of refinement globally");
+    max_level = max_level_ref_ + root_level - 1;
   } else {
-    max_level = 63;
+    max_level_ref_ = 63;
+    max_level = max_level_ref_;
   }
 
   SetupMPIComms();
@@ -196,11 +211,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   // SMR / AMR:
   if (adaptive) {
-    max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
-                                     "maximum level of refinement globally") +
-                root_level - 1;
+    max_level_ref_ = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
+                                          "maximum level of refinement globally");
+    max_level = max_level_ref_ + root_level - 1;
   } else {
-    max_level = 63;
+    max_level_ref_ = 63;
+    max_level = max_level_ref_;
   }
 
   // Register user defined boundary conditions
@@ -411,6 +427,9 @@ void Mesh::BuildBlockPartitions(GridIdentifier grid) {
   for (auto &part_bl : partition_blocklists)
     out.emplace_back(std::make_shared<BlockListPartition>(id++, grid, part_bl, this));
   block_partitions_[grid] = out;
+  if (grid.type == GridType::leaf)
+    base_block_partition_ =
+        std::make_shared<BlockListPartition>(id++, grid, block_list, this);
 }
 
 //----------------------------------------------------------------------------------------
@@ -632,28 +651,17 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
       test_iters < max_it,
       "Too many iterations waiting to delete boundary communication buffers.");
 
-  // Clear boundary communication buffers
-  boundary_comm_map.clear();
-
   // Build the boundary buffers for the current mesh
-  for (auto &partition : GetDefaultBlockPartitions()) {
-    auto &md = mesh_data.Add("base", partition);
-    BuildBoundaryBuffers(md);
-  }
-  if (multigrid) {
-    for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
-      const auto grid_id = GridIdentifier::two_level_composite(gmg_level);
-      for (auto &partition : GetDefaultBlockPartitions(grid_id)) {
-        auto &mdg = mesh_data.Add("base", partition);
-        BuildBoundaryBuffers(mdg);
-        BuildGMGBoundaryBuffers(mdg);
-      }
-    }
-  }
+  BuildAndRegisterCommBuffers_();
 }
 
 void Mesh::CommunicateBoundaries(std::string md_name,
                                  const std::vector<std::string> &fields) {
+  // JMM: The tasking logic isn't robust against blocks < ranks, which
+  // we may have at this point, so if there's no blocks on this rank,
+  // just quit out and continue
+  if (GetNumMeshBlocksThisRank(Globals::my_rank) < 1) return;
+
   const int num_partitions = DefaultNumPartitions();
 
   TaskCollection tc;
@@ -843,7 +851,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 #endif
 
   // Initialize the "base" MeshData object
-  mesh_data.Get()->Initialize(block_list, this);
+  mesh_data.Add("base", GetBasePartition());
 }
 
 /// Finds location of a block with ID `tgid`.
@@ -1117,10 +1125,10 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
             << "Refinement level must be larger than 0 (root level = 0)" << std::endl;
         PARTHENON_FAIL(msg);
       }
-      if (lrlev > max_level) {
+      if (ref_lev > max_level_ref_) {
         msg << "### FATAL ERROR in Mesh constructor" << std::endl
             << "Refinement level exceeds the maximum level (specify "
-            << "'maxlevel' parameter in <parthenon/mesh> input block if adaptive)."
+            << "'numlevel' parameter in <parthenon/mesh> input block if adaptive)."
             << std::endl;
 
         PARTHENON_FAIL(msg);
@@ -1164,6 +1172,67 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
     pib = pib->pnext;
   }
 }
+
+void Mesh::BuildAndRegisterCommBuffers_() {
+  // Clear boundary communication buffers
+  boundary_comm_map.clear();
+  pcoalesced_comms->clear();
+
+  // JMM: Estimates about chunk size, pre-allocation, etc., are tuned to
+  // all blocks on a rank, so we use the base partition.
+
+  // TODO(JMM): I don't like that we need to add base with the base
+  // partition here. We shouldn't have to, but I don't know how to fix
+  // it without a refactor.
+  BuildBoundaryBuffers(mesh_data.Add("base", GetBasePartition()));
+  if (do_coalesced_comms) RegisterCoalescedComms(this);
+
+  if (multigrid) { // But... multigrid is sufficiently hairy that I'm
+                   // going to let LFR figure this one out later.
+    for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
+      const auto grid_id = GridIdentifier::two_level_composite(gmg_level);
+      for (auto &partition : GetDefaultBlockPartitions(grid_id)) {
+        auto &mdg = mesh_data.Add("base", partition);
+        BuildBoundaryBuffers(mdg);
+        BuildGMGBoundaryBuffers(mdg);
+        if (do_coalesced_comms) RegisterCoalescedCommsGMG(mdg);
+      }
+    }
+  }
+
+  if (do_coalesced_comms) {
+    pcoalesced_comms->ResolveAndSendSendBuffers();
+    // This operation is blocking
+    pcoalesced_comms->ReceiveBufferInfo();
+  }
+}
+
+bool Mesh::TryReallocCommBufferPools() {
+  bool realloc = false;
+  for (auto &[k, pool] : pool_map) {
+    std::size_t inuse = pool.NumBuffersInUse();
+    std::size_t total = pool.NumBuffersInPool();
+    std::size_t delta = total - inuse;
+    if ((inuse < buffer_reset_frac_ * total) && (delta > CommBufferChunkSize())) {
+      realloc = true;
+      break;
+    }
+  }
+  if (realloc) {
+    // The buffer pool must be cleared out, since otherwise, buffers
+    // will just be reference-count-freed
+    for (auto &[k, pool] : pool_map) {
+      pool.Clear();
+    }
+    // We need to clear the caches because they point to comm buffers that
+    // are no longer valid
+    for (auto &[label, pdata] : mesh_data.Stages()) {
+      pdata->GetBvarsCache().clear();
+    }
+  }
+  return realloc;
+}
+
 // Return list of locations and levels for the legacy tree
 // TODO(LFR): It doesn't make sense to offset the level by the
 //   legacy tree root level since the location indices are defined

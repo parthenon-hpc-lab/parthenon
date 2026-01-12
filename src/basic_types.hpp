@@ -80,6 +80,36 @@ enum class BoundaryType : int {
   gmg_prolongate_recv
 };
 
+inline constexpr bool IsSender(BoundaryType btype) {
+  if (btype == BoundaryType::flxcor_recv) return false;
+  if (btype == BoundaryType::gmg_restrict_recv) return false;
+  if (btype == BoundaryType::gmg_prolongate_recv) return false;
+  return true;
+}
+
+inline constexpr bool IsReceiver(BoundaryType btype) {
+  if (btype == BoundaryType::flxcor_send) return false;
+  if (btype == BoundaryType::gmg_restrict_send) return false;
+  if (btype == BoundaryType::gmg_prolongate_send) return false;
+  return true;
+}
+
+inline constexpr BoundaryType GetAssociatedReceiver(BoundaryType btype) {
+  if (btype == BoundaryType::flxcor_send) return BoundaryType::flxcor_recv;
+  if (btype == BoundaryType::gmg_restrict_send) return BoundaryType::gmg_restrict_recv;
+  if (btype == BoundaryType::gmg_prolongate_send)
+    return BoundaryType::gmg_prolongate_recv;
+  return btype;
+}
+
+inline constexpr BoundaryType GetAssociatedSender(BoundaryType btype) {
+  if (btype == BoundaryType::flxcor_recv) return BoundaryType::flxcor_send;
+  if (btype == BoundaryType::gmg_restrict_recv) return BoundaryType::gmg_restrict_send;
+  if (btype == BoundaryType::gmg_prolongate_recv)
+    return BoundaryType::gmg_prolongate_send;
+  return btype;
+}
+
 enum class GridType : int { none, leaf, two_level_composite, single_level_with_internal };
 struct GridIdentifier {
   GridType type = GridType::none;
@@ -103,20 +133,6 @@ struct GridIdentifier {
 inline bool operator<(const GridIdentifier &lhs, const GridIdentifier &rhs) {
   if (lhs.type != rhs.type) return lhs.type < rhs.type;
   return lhs.logical_level < rhs.logical_level;
-}
-
-constexpr bool IsSender(BoundaryType btype) {
-  if (btype == BoundaryType::flxcor_recv) return false;
-  if (btype == BoundaryType::gmg_restrict_recv) return false;
-  if (btype == BoundaryType::gmg_prolongate_recv) return false;
-  return true;
-}
-
-constexpr bool IsReceiver(BoundaryType btype) {
-  if (btype == BoundaryType::flxcor_send) return false;
-  if (btype == BoundaryType::gmg_restrict_send) return false;
-  if (btype == BoundaryType::gmg_prolongate_send) return false;
-  return true;
 }
 
 // Enumeration for accessing a field on different locations of the grid:
@@ -181,6 +197,18 @@ constexpr TopologicalType GetTopologicalType(TopologicalElement el) {
   } else {
     return TT::Edge;
   }
+}
+
+inline std::string TopologicalTypeToString(TopologicalType tt) {
+  using TT = TopologicalType;
+  if (tt == TT::Face) {
+    return "face";
+  } else if (tt == TT::Edge) {
+    return "edge";
+  } else if (tt == TT::Node) {
+    return "node";
+  }
+  return "cell";
 }
 
 inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt) {

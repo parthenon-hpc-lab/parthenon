@@ -60,6 +60,7 @@ namespace parthenon {
 
 // Forward declarations
 class ApplicationInput;
+class CoalescedComms;
 class MeshBlock;
 class MeshRefinement;
 class Packages_t;
@@ -138,6 +139,8 @@ class Mesh {
   int gflag;
   int task_collection_timeout_in_seconds;
 
+  const bool do_coalesced_comms;
+
   BlockList_t block_list;
   Packages_t packages;
   std::shared_ptr<StateDescriptor> resolved_packages;
@@ -179,6 +182,15 @@ class Mesh {
                       static_cast<int>(std::min(default_num_packs_, block_list.size())));
     }
   }
+  std::size_t CommBufferChunkSize() {
+    // Might be worth discussing what a good default is.  The number
+    // of blocks on a rank is a "greatest common denominator" of the
+    // number of buffers required, assuming each block has similar
+    // buffer configurations, which may or may not be a good
+    // approximation. To minimize the memory footprint at the cost of
+    // more allocations, the user may set this to "1."
+    return (nbuf_add_ > 0) ? nbuf_add_ : std::max(std::size_t{1}, block_list.size());
+  }
 
   const std::vector<std::shared_ptr<BlockListPartition>> &
   GetDefaultBlockPartitions(GridIdentifier grid = GridIdentifier::leaf()) const {
@@ -191,14 +203,7 @@ class Mesh {
     return block_partitions_.at(grid);
   }
 
-  // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
-  // Moved here given Cuda/nvcc restriction:
-  // "error: The enclosing parent function ("...")
-  // for an extended __host__ __device__ lambda cannot have private or
-  // protected access within its class"
-  void FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
-                                   LogicalLocation &newloc);
-  void FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb, LogicalLocation &loc);
+  auto GetBasePartition() const { return base_block_partition_; }
 
   std::shared_ptr<MeshBlock> FindMeshBlock(int tgid) const;
 
@@ -253,12 +258,19 @@ class Mesh {
 
   // Ordering here is important to prevent deallocation of pools before boundary
   // communication buffers
+  // channel_key_t is tuple of (gid_sender, gid_receiver, variable_name,
+  // block_location_idx, extra_delineater) which uniquely define a communication channel
+  // between two blocks for a given variable
   using channel_key_t = std::tuple<int, int, std::string, int, int>;
   using comm_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
   using comm_buf_map_t = std::unordered_map<channel_key_t, comm_buf_t>;
   comm_buf_map_t boundary_comm_map;
   TagMap tag_map;
+
+  std::shared_ptr<CoalescedComms> pcoalesced_comms;
+
+  bool TryReallocCommBufferPools();
 
 #ifdef MPI_PARALLEL
   MPI_Comm GetMPIComm(const std::string &label) const { return mpi_comm_map_.at(label); }
@@ -292,6 +304,7 @@ class Mesh {
  private:
   // data
   int root_level, max_level, current_level;
+  int max_level_ref_; // the max level as interpreted by the input deck/user
   int num_mesh_threads_;
   /// Maps Global Block IDs to which rank the block is mapped to.
   std::vector<int> ranklist;
@@ -330,6 +343,14 @@ class Mesh {
   bool use_pack_size_;
   int default_pack_size_;
   std::size_t default_num_packs_;
+
+  // number of comm buffers to add when more need to be allocated
+  // TODO(JMM): Stash this in globals or a param maybe?
+  std::int64_t nbuf_add_;
+
+  // Tracking for when to re-allocate comm-buffers to minimize memory
+  // footprint.
+  Real buffer_reset_frac_;
 
   int gmg_min_logical_level_ = 0;
 
@@ -371,6 +392,7 @@ class Mesh {
 
   // Re-used functionality in constructor
   void RegisterLoadBalancing_(ParameterInput *pin);
+  void BuildAndRegisterCommBuffers_();
 
   void SetupMPIComms();
   void BuildTagMapAndBoundaryBuffers();
@@ -382,6 +404,7 @@ class Mesh {
   void BuildBlockPartitions(GridIdentifier grid);
   std::map<GridIdentifier, std::vector<std::shared_ptr<BlockListPartition>>>
       block_partitions_;
+  std::shared_ptr<BlockListPartition> base_block_partition_;
 };
 
 } // namespace parthenon

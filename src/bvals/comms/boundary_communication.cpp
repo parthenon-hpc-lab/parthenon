@@ -16,6 +16,7 @@
 //========================================================================================
 
 #include <algorithm>
+#include <cstdio>
 #include <iostream> // debug
 #include <memory>
 #include <random>
@@ -26,6 +27,7 @@
 #include "bvals/boundary_conditions.hpp"
 #include "bvals_in_one.hpp"
 #include "bvals_utils.hpp"
+#include "coalesced_buffers.hpp"
 #include "config.hpp"
 #include "globals.hpp"
 #include "interface/variable.hpp"
@@ -62,7 +64,13 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (nbound == 0) {
     return TaskStatus::complete;
   }
-  if (other_communication_unfinished) {
+
+  bool can_write_combined{true};
+  if (pmesh->do_coalesced_comms)
+    can_write_combined =
+        pmesh->pcoalesced_comms->IsAvailableForWrite(md.get(), bound_type);
+
+  if (other_communication_unfinished || !can_write_combined) {
     return TaskStatus::incomplete;
   }
 
@@ -146,14 +154,16 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (bound_type == BoundaryType::any || bound_type == BoundaryType::nonlocal)
     Kokkos::fence();
 #endif
-
+  const bool coal_comm = pmesh->do_coalesced_comms;
   for (int ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
     auto &buf = *cache.buf_vec[ibuf];
     if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
-      buf.Send();
+      buf.Send(coal_comm);
     else
-      buf.SendNull();
+      buf.SendNull(coal_comm);
   }
+  if (pmesh->do_coalesced_comms)
+    pmesh->pcoalesced_comms->PackAndSend(md.get(), bound_type);
 
   return TaskStatus::complete;
 }
@@ -179,9 +189,10 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   if (cache.buf_vec.size() == 0)
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
                                       false);
-
-  std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
-                [](auto pbuf) { pbuf->TryStartReceive(); });
+  if (!pmesh->do_coalesced_comms) {
+    std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
+                  [](auto pbuf) { pbuf->TryStartReceive(); });
+  }
 
   return TaskStatus::complete;
 }
@@ -211,10 +222,13 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
                                       false);
 
+  const bool coal_comm = pmesh->do_coalesced_comms;
+  if (coal_comm) pmesh->pcoalesced_comms->TryReceiveAny(md.get(), bound_type);
   bool all_received = true;
-  std::for_each(
-      std::begin(cache.buf_vec), std::end(cache.buf_vec),
-      [&all_received](auto pbuf) { all_received = pbuf->TryReceive() && all_received; });
+  std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
+                [&all_received, coal_comm](auto pbuf) {
+                  all_received = pbuf->TryReceive(coal_comm) && all_received;
+                });
 
   int ibound = 0;
   if (Globals::sparse_config.enabled && all_received) {
@@ -373,18 +387,12 @@ TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
 
   auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);
 
-  if (rebuild) {
-    if constexpr (bound_type == BoundaryType::gmg_prolongate_recv) {
-      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
-                                            ProResInfo::GetInteriorProlongate);
-    } else if constexpr (bound_type == BoundaryType::gmg_restrict_recv) {
-      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
-                                            ProResInfo::GetNull);
-    } else {
-      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
-                                            ProResInfo::GetSet);
-    }
-  }
+  // We should not rebuild the cache here even if it is flagged as such. When using
+  // coalesced communication, the state of the buffers associated with this MeshData
+  // partition can be updated by TryReceives on other MeshData partitions. As a result,
+  // the buffer states and allocation statuses can change between calls to SetBounds and
+  // ProlongateBounds. This would trigger a rebuild of the buffer cache when the receive
+  // states are unknown (which is a requirement for rebuilding the receive buffer cache).
 
   if (nbound > 0 && pmesh->multilevel && md->NumBlocks() > 0) {
     auto pmb = md->GetBlockData(0)->GetBlockPointer();

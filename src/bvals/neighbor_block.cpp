@@ -33,7 +33,6 @@
 #include "globals.hpp"
 #include "mesh/forest/logical_location.hpp"
 #include "mesh/mesh.hpp"
-#include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {

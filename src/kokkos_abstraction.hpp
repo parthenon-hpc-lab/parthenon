@@ -37,7 +37,18 @@
 #include "utils/instrument.hpp"
 #include "utils/type_list.hpp"
 
+#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
+#define PARTHENON_ENABLE_GPU
+#endif // defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
+
 namespace parthenon {
+
+// namespaced constexpr version of above macro
+#ifdef PARTHENON_ENABLE_GPU
+constexpr const bool ENABLE_GPU = true;
+#else
+constexpr const bool ENABLE_GPU = false;
+#endif // PARTHENON_ENABLE_GPU
 
 // Defining tags to determine loop_patterns using a tag dispatch design pattern
 
@@ -723,13 +734,16 @@ par_reduce_inner(InnerLoopPatternTTR, team_mbr_t team_member, const int il, cons
 // on the host. If the ViewOfViews in on the device, then `SequentialHostInit` should be
 // passed when calling `create_mirror_view`, which is automatically handled by the
 // create_view_of_view_mirror() function below.
+// JMM: Replaced if constexpr with template specialization to quiet
+// clang-based compiler warnings. Clang didn't likat the return
+// statement was in an if constexpr/else block.
 template <typename T = DevMemSpace>
 auto ViewOfViewAlloc(const std::string &label) {
-  if constexpr (std::is_same_v<T, HostMemSpace>) {
-    return Kokkos::view_alloc(Kokkos::SequentialHostInit, label);
-  } else {
-    return Kokkos::view_alloc(label);
-  }
+  return Kokkos::view_alloc(label);
+}
+template <>
+inline auto ViewOfViewAlloc<HostMemSpace>(const std::string &label) {
+  return Kokkos::view_alloc(Kokkos::SequentialHostInit, label);
 }
 
 // Returns a host mirror view with the `SequentialHostInit` property for proper
