@@ -187,9 +187,7 @@ struct BvarsSubCache_t {
     prores_cache.clear();
   }
 
-  bool RequiresReinitialize(std::size_t current_epoch) {
-    return buf_vec.size() == 0 || epoch != current_epoch;
-  }
+  bool RequiresReinitialize(Mesh *pmesh) const;
 
   // Stores prolongation and restriction information for boundary regions
   ProResCache_t prores_cache;
@@ -211,8 +209,6 @@ struct BvarsCache_t {
   auto &GetSubCache(BoundaryType boundType, bool send) {
     return caches[2 * static_cast<int>(boundType) + send];
   }
-  // auto &operator[](BoundaryType boundType) { return
-  // caches[static_cast<int>(boundType)]; }
   void clear() {
     for (int i = 0; i < caches.size(); ++i)
       caches[i].clear();

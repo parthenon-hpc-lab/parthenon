@@ -1185,10 +1185,6 @@ void Mesh::BuildAndRegisterCommBuffers_() {
   // partition here. We shouldn't have to, but I don't know how to fix
   // it without a refactor.
   BuildBoundaryBuffers(mesh_data.Add("base", GetBasePartition()));
-  for (auto &partition : GetDefaultBlockPartitions()) {
-    auto &md = mesh_data.Add("base", partition);
-    md->GetBvarsCache().clear();
-  }
 
   if (do_coalesced_comms) RegisterCoalescedComms(this);
 
