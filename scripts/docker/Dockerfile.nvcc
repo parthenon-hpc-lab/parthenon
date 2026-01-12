@@ -22,7 +22,7 @@ RUN pip3 install blosc2
 RUN pip3 install esbonio
 
 # current formatting standard
-RUN pip3 install clang-format==18.1.1
+RUN pip3 install clang-format==20.1.8
 
 RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key| apt-key add - && \
     echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main" > /etc/apt/sources.list.d/llvm.list

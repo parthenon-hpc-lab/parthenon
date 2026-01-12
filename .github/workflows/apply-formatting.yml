@@ -11,5 +11,5 @@ jobs:
     - uses: pgrete/cpp-py-formatter/command@v0.4.0
       with:
         botName: par-hermes
-        clangFormatVersion: 18
+        clangFormatVersion: 20
         token: ${{ secrets.GITHUB_TOKEN }}

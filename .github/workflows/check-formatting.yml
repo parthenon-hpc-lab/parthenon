@@ -7,5 +7,5 @@ jobs:
     steps:
     - uses: pgrete/cpp-py-formatter/check@v0.4.0
       with:
-        clangFormatVersion: 18
+        clangFormatVersion: 20
         token: ${{ secrets.GITHUB_TOKEN }}
