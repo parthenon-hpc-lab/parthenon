@@ -406,6 +406,32 @@ The following is a minimal example to plot a 1D and 2D histogram from the output
       plt.pcolormesh(x,y,z,)
       plt.show()
 
+User
+----
+
+Parthenon provides a simple callback for downstream codes to enroll their own
+output routines.
+In the input file, include a ``<parthenon/output*>`` block and specify
+``file_type = user``.
+Output frequency is controlld via ``dt`` or ``dn`` as for other output types.
+Using this callback requires a downstream code to implement the
+``UserOutput::WriteOutputFile`` (required) and  ``UserOutput::GenerateFilename_``
+(optional, but recommended given the structure of the other output types)
+functions.
+
+.. code:: c++
+
+   class UserOutput : public OutputType {
+     public:
+       explicit UserOutput(const OutputParameters &oparams) : OutputType(oparams) {}
+       void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                            const SignalHandler::OutputSignal signal) override;
+     private:
+      std::string GenerateFilename_(ParameterInput *pin, SimTime *tm,
+                                    const SignalHandler::OutputSignal signal);
+   };
+
+
 Ascent (optional)
 -----------------
 

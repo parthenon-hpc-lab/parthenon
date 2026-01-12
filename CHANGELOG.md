@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1362]](https://github.com/parthenon-hpc-lab/parthenon/pull/1362) Add support for completely custom "user" output
 
 
 ### Changed (changing behavior/API/variables/...)
