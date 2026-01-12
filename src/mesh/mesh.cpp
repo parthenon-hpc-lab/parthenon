@@ -1185,7 +1185,6 @@ void Mesh::BuildAndRegisterCommBuffers_() {
   // partition here. We shouldn't have to, but I don't know how to fix
   // it without a refactor.
   BuildBoundaryBuffers(mesh_data.Add("base", GetBasePartition()));
-
   if (do_coalesced_comms) RegisterCoalescedComms(this);
 
   if (multigrid) { // But... multigrid is sufficiently hairy that I'm
