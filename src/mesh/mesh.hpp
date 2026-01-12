@@ -264,7 +264,26 @@ class Mesh {
   using channel_key_t = std::tuple<int, int, std::string, int, int>;
   using comm_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
-  using comm_buf_map_t = std::unordered_map<channel_key_t, comm_buf_t>;
+
+  struct comm_buf_map_t {
+    std::size_t epoch{0};
+    using map_t = std::unordered_map<channel_key_t, comm_buf_t>;
+    map_t m;
+    auto &operator[](const channel_key_t &k) { return m[k]; }
+    auto &at(const channel_key_t &k) { return m.at(k); }
+    auto count(const channel_key_t &k) const { return m.count(k); }
+
+    auto begin() noexcept { return m.begin(); }
+    auto end() noexcept { return m.end(); }
+    auto begin() const noexcept { return m.begin(); }
+    auto end() const noexcept { return m.end(); }
+
+    void clear() {
+      m.clear();
+      epoch++;
+    }
+  };
+
   comm_buf_map_t boundary_comm_map;
   TagMap tag_map;
 

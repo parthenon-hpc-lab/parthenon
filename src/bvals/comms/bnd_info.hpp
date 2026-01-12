@@ -186,6 +186,11 @@ struct BvarsSubCache_t {
     bnd_info_h = BndInfoArr_t::host_mirror_type{};
     prores_cache.clear();
   }
+
+  bool RequiresReinitialize(std::size_t current_epoch) {
+    return buf_vec.size() == 0 || epoch != current_epoch;
+  }
+
   // Stores prolongation and restriction information for boundary regions
   ProResCache_t prores_cache;
 
@@ -198,6 +203,7 @@ struct BvarsSubCache_t {
 
   BndInfoArr_t bnd_info{};
   BndInfoArr_t::host_mirror_type bnd_info_h{};
+  std::size_t epoch{0};
 };
 
 struct BvarsCache_t {
