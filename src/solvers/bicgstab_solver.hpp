@@ -105,11 +105,16 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     container_p = solver_id + "_p";
     container_x = solver_id + "_x";
     container_diag = solver_id + "_diag";
+    preconditioner.initial_guess_is_zero = true;
     if constexpr (has_SetBoundary<equations_t>::value) {
       BCFunc = equations_t::SetBoundary;
     } else {
       BCFunc = ApplyBoundaryConditionsOnCoarseOrFineMD;
     }
+  }
+
+  void SetConstantProlongation(bool const_pro) {
+    preconditioner.SetConstantProlongation(const_pro);
   }
 
   TaskID Ax(TaskList &tl, TaskID dependence, std::shared_ptr<MeshData<Real>> &md_mat,
@@ -158,18 +163,29 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     iter_counter = 0;
     bool multilevel = pmesh->multilevel;
 
-    // Initialization: x <- 0, r <- rhs, rhat0 <- rhs,
+    // Initialization: x <- 0, r <- rhs, rhat0 <- r,
     // rhat0r_old <- (rhat0, r), p <- r, u <- 0
-    auto zero_x = tl.AddTask(dependence, TF(SetToZero<FieldTL>), md_x);
-    auto zero_u_init = tl.AddTask(dependence, TF(SetToZero<FieldTL>), md_u);
-    auto copy_r = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_r);
-    auto copy_p = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_p);
-    auto copy_rhat0 = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_rhat0);
+    auto initialize = dependence;
+    if (initial_guess_is_zero) {
+      auto zero_x = tl.AddTask(dependence, TF(SetToZero<FieldTL>), md_x);
+      auto zero_u_init = tl.AddTask(dependence, TF(SetToZero<FieldTL>), md_u);
+      auto copy_r = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_r);
+      initialize = zero_x | zero_u_init | copy_r;
+    } else {
+      auto copy_x = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_u, md_x);
+      auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_x, tl, md_u,
+                                                              multilevel, BCFunc);
+      auto get_Ax = eqs_.Ax(tl, comm, md_base, md_u, md_r);
+      initialize =
+          tl.AddTask(get_Ax, AddFieldsAndStore<FieldTL>, md_rhs, md_r, md_r, 1.0, -1.0);
+    }
+    auto copy_p = tl.AddTask(initialize, TF(CopyData<FieldTL>), md_r, md_p);
+    auto copy_rhat0 = tl.AddTask(initialize, TF(CopyData<FieldTL>), md_r, md_rhat0);
     auto get_rhs2_rhat0r_init =
-        DoubleDotProduct<FieldTL>(dependence, tl, &res_rhat0r, md_r, md_rhat0);
+        DoubleDotProduct<FieldTL>(initialize, tl, &res_rhat0r, md_r, md_rhat0);
     auto initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
-        zero_x | zero_u_init | copy_r | copy_p | copy_rhat0 | get_rhs2_rhat0r_init,
+        initialize | copy_p | copy_rhat0 | get_rhs2_rhat0r_init,
         "zero factors",
         [](BiCGSTABSolver *solver) {
           solver->iter_counter = -1;
@@ -212,11 +228,10 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     if (params_.precondition_type == Preconditioner::Multigrid) {
       auto timer = solver_timings.GetOrAddAndRegister("BiCGSTAB: Precon setup", itl);
       timer->StartCollectingTasks();
-      auto set_rhs = itl.AddTask(precon1, TF(CopyData<FieldTL>), md_p, md_rhs);
       auto zero_u = itl.AddTask(precon1, TF(SetToZero<FieldTL>), md_u);
       timer->StopCollectingTasks();
-      precon1 =
-          preconditioner.AddLinearOperatorTasks(itl, set_rhs | zero_u, partition, pmesh);
+      preconditioner.SetRHSContainerLabel(container_p);
+      precon1 = preconditioner.AddLinearOperatorTasks(itl, zero_u, partition, pmesh);
     } else if (params_.precondition_type == Preconditioner::Diagonal) {
       precon1 = itl.AddTask(precon1, TF(ADividedByB<FieldTL>), md_p, md_diag, md_u);
     } else {
@@ -280,11 +295,10 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     if (params_.precondition_type == Preconditioner::Multigrid) {
       auto timer = solver_timings.GetOrAddAndRegister("BiCGSTAB: Precon setup", itl);
       timer->StartCollectingTasks();
-      auto set_rhs = itl.AddTask(precon2, TF(CopyData<FieldTL>), md_s, md_rhs);
       auto zero_u = itl.AddTask(precon2, TF(SetToZero<FieldTL>), md_u);
       timer->StopCollectingTasks();
-      precon2 =
-          preconditioner.AddLinearOperatorTasks(itl, set_rhs | zero_u, partition, pmesh);
+      preconditioner.SetRHSContainerLabel(container_s);
+      precon2 = preconditioner.AddLinearOperatorTasks(itl, zero_u, partition, pmesh);
     } else if (params_.precondition_type == Preconditioner::Diagonal) {
       precon2 = itl.AddTask(precon2, TF(ADividedByB<FieldTL>), md_s, md_diag, md_u);
     } else {
