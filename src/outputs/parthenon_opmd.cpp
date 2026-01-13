@@ -405,13 +405,15 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
 
   const auto output_type_str = pin->GetOrAddString(
       output_params.block_name, "output_type", "restart",
-      std::vector<std::string>{"restart", "x1slice", "x2slice", "x3slice"},
+      std::vector<std::string>{"restart", "data", "x1slice", "x2slice", "x3slice"},
       "Type of output in the file.");
   // C++20 please
   // using enum OpenPMDUtils::SubOutputType;
   using OpenPMDUtils::SubOutputType;
   auto output_type = SubOutputType::Restart;
-  if (output_type_str == "x1slice") {
+  if (output_type_str == "data") {
+    output_type = SubOutputType::Data;
+  } else if (output_type_str == "x1slice") {
     output_type = SubOutputType::X1Slice;
   } else if (output_type_str == "x2slice") {
     output_type = SubOutputType::X2Slice;
@@ -534,13 +536,53 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // -------------------------------------------------------------------------------- //
   Kokkos::Profiling::pushRegion("write all variable data");
 
-  auto &bounds = pm->block_list.front()->cellbounds;
-  // get list of all vars, just use the first block since the list is the same for all
-  // blocks
-  // TODO(pgrete) add restart_ var to output
-  // TODO(pgrete) check if this needs to be updated/unifed with get_var logic in hdf5
-  auto all_vars_info = GetAllVarsInfo(
-      GetVarsToWrite(pm->block_list.front(), true, output_params.variables), bounds);
+  const auto &bounds = pm->block_list.front()->cellbounds;
+  const auto &f_bounds = pm->block_list.front()->f_cellbounds;
+
+  // All blocks have the same list of variable metadata that exist in the entire
+  // simulation, but not all variables may be allocated on all blocks
+
+  auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
+    const auto &data = pmb->meshblock_data.Get(output_params.meshdata_name);
+    const VariableVector<Real> &var_vec = data->GetVariableVector();
+    VariableVector<Real> coords_vars =
+        GetAnyVariables(var_vec, {parthenon::Metadata::CoordinatesVec});
+    PARTHENON_DEBUG_REQUIRE(
+        coords_vars.size() == 0,
+        "Writing/handling explicit coordinate is currently not handled in OpenPMD "
+        "output. Please get in touch on GitHub if there's a use case.");
+    VariableVector<Real> fine_vars =
+        GetAnyVariables(var_vec, {parthenon::Metadata::Fine});
+    PARTHENON_DEBUG_REQUIRE(
+        fine_vars.size() == 0,
+        "Writing/handling explicit Fine fields is currently not handled in OpenPMD "
+        "output. Please get in touch on GitHub if there's a use case.");
+
+    VariableVector<Real> out;
+    // Dump required vars for restarts or use those vars as default if none are given
+    // (e.g, for slices or data dumps)
+    if (output_type == SubOutputType::Restart || output_params.variables.empty()) {
+      // get all vars with flag Independent OR restart
+      out = GetAnyVariables(
+          var_vec, {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
+    }
+
+    // Always add any (additional) variables specified manually
+    auto extra_vars = GetAnyVariables(var_vec, output_params.variables);
+    for (auto &pextra_var : extra_vars) {
+      if (std::none_of(out.begin(), out.end(), [&](const auto &pout_var) {
+            return pextra_var->label() == pout_var->label();
+          })) {
+        out.push_back(pextra_var);
+      }
+    }
+
+    return out;
+  };
+
+  // get list of all vars, just use first block as the list is the same for all blocks
+  auto all_vars_info =
+      VarInfo::GetAll(get_vars(pm->block_list.front()), bounds, f_bounds);
 
   // Mirroring the SparseInfo handling in HDF5 here.
   // Could probably made easier by just sequentially filling vectors, but better be safe
@@ -727,20 +769,6 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
       auto out_var = pmb->meshblock_data.Get()->GetVarPtr(vinfo.label);
 
       if (out_var->IsAllocated()) {
-        // TODO(pgrete) check if we can work with a direct copy from a subview to not
-        // duplicate the memory footprint here
-#if 0
-        // Pick a subview of the active cells of this component
-        auto const data = Kokkos::subview(
-            var->data, 0, 0, icomp, std::make_pair(kb.s, kb.e + 1),
-            std::make_pair(jb.s, jb.e + 1), std::make_pair(ib.s, ib.e + 1));
-
-        // Map a view onto a host allocation (so that we can call deep_copy)
-        auto component_buffer = buffer_list.emplace_back(ncells);
-        Kokkos::View<Real ***, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-            component_buffer_view(component_buffer.data(), nk, nj, ni);
-        Kokkos::deep_copy(component_buffer_view, data);
-#endif
         auto &coords = pmb->coords;
         auto out_var_h = out_var->data.GetHostMirrorAndCopy();
         for (const auto &te : vinfo.topological_elements) {

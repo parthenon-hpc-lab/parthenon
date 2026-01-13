@@ -24,7 +24,7 @@ namespace parthenon {
 
 namespace OpenPMDUtils {
 
-enum class SubOutputType { Restart, X1Slice, X2Slice, X3Slice };
+enum class SubOutputType { Restart, Data, X1Slice, X2Slice, X3Slice };
 
 template <typename T>
 void RestoreViewAttribute(const std::string &full_path, T &view, openPMD::Iteration *it);

@@ -73,20 +73,24 @@ zero-padded integer that is increased for each output written.
 
 Restarting from outputs using these minimal, simple block is supported by
 default (i.e., it contains all the information for restarting a simulation,
-such as independent field, mesh structure, input file, and other parameters).
+such as independent field, mesh structure, input file, and other parameters
+as the ``output_type`` for ``file_type=openpmd`` defaults to ``restart``).
 
 More complex configurations are possible, e.g.,
 
 ::
 
    <parthenon/output5>
-   file_type  = openpmd           # write data in openPMD format
-   dt         = 0.125             # time increment between outputs
-   id         = compressed        # arb. string used in resulting directory name
-   backend_config  = openpmd.toml # path to external config file controlling IO behavior
+   file_type   = openpmd           # write data in openPMD format
+   dt          = 0.125             # time increment between outputs
+   id          = compressed        # arb. string used in resulting directory name
+   backend_config = openpmd.toml   # path to external config file controlling IO behavior
+   output_type = data              # only write subset of fields
+   variables   = density, pressure # list of fields to be written in output
 
 Here, the resulting outputs will be written to ``parthenon.compressed.#####.bp``
-directories and an external config file (arbitrarily named ``openpmd.toml``)
+directories and only include the fields named ``density`` and ``pressure``.
+Moreover, an external config file (arbitrarily named ``openpmd.toml``)
 is parsed to tune IO behavior (like performance or compression).
 This might be particuarly relevant at scale or for reduced outputs.
 For example, it could be useful to tune the total number of files being written
