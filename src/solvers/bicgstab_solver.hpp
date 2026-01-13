@@ -185,8 +185,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
         DoubleDotProduct<FieldTL>(initialize, tl, &res_rhat0r, md_r, md_rhat0);
     initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
-        initialize | copy_p | copy_rhat0 | get_rhs2_rhat0r_init,
-        "zero factors",
+        initialize | copy_p | copy_rhat0 | get_rhs2_rhat0r_init, "zero factors",
         [](BiCGSTABSolver *solver) {
           solver->iter_counter = -1;
           solver->rhs2 = solver->res_rhat0r.val[0];
