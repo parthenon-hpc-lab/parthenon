@@ -191,7 +191,7 @@ TEST_CASE("Catch2 Container Iterator Performance",
             });
       });
     } // GIVEN
-  }   // SECTION
+  } // SECTION
 
   SECTION("Iterate Variables") {
     GIVEN("A container.") {
@@ -233,7 +233,7 @@ TEST_CASE("Catch2 Container Iterator Performance",
         }
       });
     } // GIVEN
-  }   // SECTION
+  } // SECTION
 
   SECTION("View of Views") {
     GIVEN("A container.") {
@@ -308,5 +308,5 @@ TEST_CASE("Catch2 Container Iterator Performance",
         });
       }
     } // GIVEN
-  }   // SECTION
+  } // SECTION
 } // TEST_CASE
