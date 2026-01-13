@@ -266,15 +266,15 @@ class Mesh {
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
 
   class comm_buf_map_t {
-   public: 
-    using map_t = std::unordered_map<channel_key_t, comm_buf_t>; 
+   public:
+    using map_t = std::unordered_map<channel_key_t, comm_buf_t>;
     using key_type = map_t::key_type;
     using mapped_type = map_t::mapped_type;
-  
+
    private:
     // On initial meshing and after remeshing, the comm buffer map is cleared and
     // rebuilt. The member epoch_ stores the number of times the comm buffers have
-    // been built so that various boundary cache objects that point to the comm 
+    // been built so that various boundary cache objects that point to the comm
     // buffers can easily check if they point to buffers from an old mesh
     // configuration that have been cleared.
     std::size_t epoch_{1};
@@ -289,8 +289,8 @@ class Mesh {
     auto end() noexcept { return m_.end(); }
     auto begin() const noexcept { return m_.begin(); }
     auto end() const noexcept { return m_.end(); }
-    
-    auto GetCurrentEpoch() const {return epoch_; } 
+
+    auto GetCurrentEpoch() const { return epoch_; }
     void clear() {
       m_.clear();
       epoch_++;
