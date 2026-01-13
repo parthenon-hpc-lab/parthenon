@@ -252,8 +252,8 @@ void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block
           }
         }
       } // loop over components
-    }   // loop over topological elements
-  }     // loop over blocks
+    } // loop over topological elements
+  } // loop over blocks
 
   // Now actually read the registered chunks form disk
   it->seriesFlush();

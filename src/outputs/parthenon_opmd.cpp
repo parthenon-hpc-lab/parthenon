@@ -837,8 +837,8 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
               }
             }
           } // loop over components
-        }   // loop over topological elements
-      }     // out_var->IsAllocated()
+        } // loop over topological elements
+      } // out_var->IsAllocated()
       if (vinfo.is_sparse) {
         auto sparse_idx = sparse_field_idx.at(vinfo.label);
         sparse_allocated.at(b_idx * num_sparse + sparse_idx) =
@@ -847,7 +847,7 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
       }
     } // loop over blocks
     it.seriesFlush();
-  }                               // loop over vars
+  } // loop over vars
   Kokkos::Profiling::popRegion(); // write all variable data
 
   // -------------------------------------------------------------------------------- //
