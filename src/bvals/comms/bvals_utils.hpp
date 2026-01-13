@@ -143,7 +143,7 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
           Kokkos::create_mirror_view(pcache->sending_non_zero_flags);
     }
   }
-  pcache->epoch = comm_map->epoch;
+  pcache->epoch = comm_map->GetCurrentEpoch();
 }
 
 template <BoundaryType BOUND_TYPE, bool SENDER>

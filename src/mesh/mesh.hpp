@@ -265,22 +265,35 @@ class Mesh {
   using comm_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
   std::unordered_map<int, buf_pool_t<Real>> pool_map;
 
-  struct comm_buf_map_t {
-    std::size_t epoch{0};
-    using map_t = std::unordered_map<channel_key_t, comm_buf_t>;
-    map_t m;
-    auto &operator[](const channel_key_t &k) { return m[k]; }
-    auto &at(const channel_key_t &k) { return m.at(k); }
-    auto count(const channel_key_t &k) const { return m.count(k); }
+  class comm_buf_map_t {
+   public: 
+    using map_t = std::unordered_map<channel_key_t, comm_buf_t>; 
+    using key_type = map_t::key_type;
+    using mapped_type = map_t::mapped_type;
+  
+   private:
+    // On initial meshing and after remeshing, the comm buffer map is cleared and
+    // rebuilt. The member epoch_ stores the number of times the comm buffers have
+    // been built so that various boundary cache objects that point to the comm 
+    // buffers can easily check if they point to buffers from an old mesh
+    // configuration that have been cleared.
+    std::size_t epoch_{1};
+    map_t m_;
 
-    auto begin() noexcept { return m.begin(); }
-    auto end() noexcept { return m.end(); }
-    auto begin() const noexcept { return m.begin(); }
-    auto end() const noexcept { return m.end(); }
+   public:
+    auto &operator[](const key_type &k) { return m_[k]; }
+    auto &at(const key_type &k) { return m_.at(k); }
+    auto count(const key_type &k) const { return m_.count(k); }
 
+    auto begin() noexcept { return m_.begin(); }
+    auto end() noexcept { return m_.end(); }
+    auto begin() const noexcept { return m_.begin(); }
+    auto end() const noexcept { return m_.end(); }
+    
+    auto GetCurrentEpoch() const {return epoch_; } 
     void clear() {
-      m.clear();
-      epoch++;
+      m_.clear();
+      epoch_++;
     }
   };
 
