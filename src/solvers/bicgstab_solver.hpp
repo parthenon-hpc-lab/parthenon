@@ -183,7 +183,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     auto copy_rhat0 = tl.AddTask(initialize, TF(CopyData<FieldTL>), md_r, md_rhat0);
     auto get_rhs2_rhat0r_init =
         DoubleDotProduct<FieldTL>(initialize, tl, &res_rhat0r, md_r, md_rhat0);
-    auto initialize = tl.AddTask(
+    initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
         initialize | copy_p | copy_rhat0 | get_rhs2_rhat0r_init,
         "zero factors",
