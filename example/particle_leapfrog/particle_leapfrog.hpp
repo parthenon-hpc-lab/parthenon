@@ -45,6 +45,17 @@ class ParticleDriver : public EvolutionDriver {
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
 
+//----------------------------------------------------------------------------------------
+//! \class ParticleUserOutput
+//  \brief derived OutputType class for User enrolled outputs
+
+class ParticleUserOutput : public OutputType {
+ public:
+  explicit ParticleUserOutput() : OutputType({}) {}
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                       const SignalHandler::OutputSignal signal) override;
+};
+
 namespace Particles {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);

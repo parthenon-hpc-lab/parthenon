@@ -14,6 +14,7 @@
 #include "parthenon_manager.hpp"
 
 #include "particle_leapfrog.hpp"
+#include <memory>
 
 int main(int argc, char *argv[]) {
   using parthenon::ParthenonManager;
@@ -23,6 +24,10 @@ int main(int argc, char *argv[]) {
   // Redefine parthenon defaults
   pman.app_input->ProcessPackages = particles_leapfrog::ProcessPackages;
   pman.app_input->ProblemGenerator = particles_leapfrog::ProblemGenerator;
+
+  // Create user output and enroll
+  pman.app_input->RegisterUserOutput(
+      "particle_user_output", std::make_shared<particles_leapfrog::ParticleUserOutput>());
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInitEnv(argc, argv);

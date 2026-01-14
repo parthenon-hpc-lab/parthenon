@@ -412,24 +412,29 @@ User
 Parthenon provides a simple callback for downstream codes to enroll their own
 output routines.
 In the input file, include a ``<parthenon/output*>`` block and specify
-``file_type = user``.
+``file_type = my_user_type`` where the latter is an arbitrary string.
 Output frequency is controlld via ``dt`` or ``dn`` as for other output types.
-Using this callback requires a downstream code to implement the
-``UserOutput::WriteOutputFile`` (required) and  ``UserOutput::GenerateFilename_``
-(optional, but recommended given the structure of the other output types)
-functions.
+Using this callback requires a downstream code to implement and enroll a derived
+``OutputType`` object with the ``my_user_type`` string name.
 
 .. code:: c++
 
-   class UserOutput : public OutputType {
-     public:
-       explicit UserOutput(const OutputParameters &oparams) : OutputType(oparams) {}
-       void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
-                            const SignalHandler::OutputSignal signal) override;
-     private:
-      std::string GenerateFilename_(ParameterInput *pin, SimTime *tm,
-                                    const SignalHandler::OutputSignal signal);
+  pman.app_input->RegisterUserOutput("my_user_type", std::make_shared<MyOutput>());
+
+where ``MyOutput`` has to minimally implement ``WriteOutputFile``
+
+.. code:: c++
+
+   class MyOutput : public OutputType {
+    public:
+     explicit MyOutput() : OutputType({}) {}
+     void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                          const SignalHandler::OutputSignal signal) override;
    };
+
+A minimal implementation is demonstrated in the
+`particle_leapfrog <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/particle_leapfrog/particle_leapfrog.cpp>`__
+example.
 
 
 Ascent (optional)

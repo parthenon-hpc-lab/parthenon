@@ -69,6 +69,7 @@
 #include <string>
 #include <vector>
 
+#include "application_input.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
@@ -91,7 +92,7 @@ OutputType::OutputType(OutputParameters oparams) : output_params(oparams), num_v
 //----------------------------------------------------------------------------------------
 // Outputs constructor
 
-Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
+Outputs::Outputs(Mesh *pm, ParameterInput *pin, ApplicationInput *papp_in, SimTime *tm) {
   std::stringstream msg;
   // We should only have at most one each of these output types. Count
   // them so we can raise an error.
@@ -298,7 +299,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     // set output variable and optional data format string used in formatted writes
     if ((op.file_type != "hst") && (op.file_type != "rst") &&
         (op.file_type != "corehdf5") && (op.file_type != "ascent") &&
-        (op.file_type != "histogram") && op.file_type != "user") {
+        (op.file_type != "histogram")) {
       // Do not use GetOrAddVector because it will pollute the input parameters for
       // restarts
       if (pin->DoesParameterExist(op.block_name, "variables")) {
@@ -391,11 +392,18 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
           << std::endl;
       PARTHENON_FAIL(msg);
 #endif // ifdef ENABLE_HDF5
+       // Finally, check if block is an enrolled user output.
     } else {
-      msg << "### FATAL ERROR in Outputs constructor" << std::endl
-          << "Unrecognized file format = '" << op.file_type << "' in output block '"
-          << op.block_name << "'" << std::endl;
-      PARTHENON_FAIL(msg);
+      pnew_type = papp_in->GetUserOutput(op.file_type);
+      if (pnew_type) {
+        // Update empty OutputParams op with actual ones
+        pnew_type->output_params = op;
+      } else {
+        msg << "### FATAL ERROR in Outputs constructor" << std::endl
+            << "Unrecognized file format = '" << op.file_type << "' in output block '"
+            << op.block_name << "'" << std::endl;
+        PARTHENON_FAIL(msg);
+      }
     }
 
     // Append type

@@ -57,3 +57,7 @@ file_type = hdf5
 dt = 2.0
 swarms = my_particles
 my_particles_variables = id, v, vv
+
+<parthenon/output1>
+file_type = particle_user_output # this is a custom user output defined by the application
+dt = 2.0

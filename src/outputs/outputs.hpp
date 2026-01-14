@@ -31,6 +31,7 @@
 
 #include "Kokkos_ScatterView.hpp"
 
+#include "application_input.hpp"
 #include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
 #include "interface/mesh_data.hpp"
@@ -214,7 +215,8 @@ class HistogramOutput : public OutputType {
 
 class Outputs {
  public:
-  Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm = nullptr);
+  Outputs(Mesh *pm, ParameterInput *pin, ApplicationInput *papp_in,
+          SimTime *tm = nullptr);
 
   void
   MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm = nullptr,

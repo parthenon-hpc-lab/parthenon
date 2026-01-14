@@ -22,6 +22,7 @@
 #include "basic_types.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "defs.hpp"
+#include "interface/outputs.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
@@ -93,9 +94,16 @@ class ApplicationInput {
   BValFunc GetBoundaryCondition(BoundaryFace face, const std::string &name) const;
   SBValFunc GetSwarmBoundaryCondition(BoundaryFace face, const std::string &name) const;
 
+  // Custom user outputs
+  void RegisterUserOutput(const std::string &name,
+                          std::shared_ptr<OutputType> output_type);
+  std::shared_ptr<OutputType> GetUserOutput(const std::string &name);
+
  private:
   Dictionary<BValFunc> boundary_conditions_[BOUNDARY_NFACES];
   Dictionary<SBValFunc> swarm_boundary_conditions_[BOUNDARY_NFACES];
+
+  Dictionary<std::shared_ptr<OutputType>> user_outputs_;
 };
 
 } // namespace parthenon
