@@ -4,6 +4,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 1362]](https://github.com/parthenon-hpc-lab/parthenon/pull/1362) Add support for completely custom "user" output
+- [[PR 1344]](https://github.com/parthenon-hpc-lab/parthenon/pull/1344) Add option to communicate single layer of ghosts, only communicate required two-level composite boundaries
 
 
 ### Changed (changing behavior/API/variables/...)
@@ -13,7 +14,7 @@
 
 
 ### Infrastructure (changes irrelevant to downstream codes)
-
+- [[PR 1361]] Bump formatters to clang-format-20 and black 25.12
 
 ### Removed (removing behavior/API/variables/...)
 
