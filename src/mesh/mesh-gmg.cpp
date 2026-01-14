@@ -120,37 +120,34 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
   // Populate a list of multigrid grids from coarsest to finest level
   gmg_block_lists_.clear();
   gmg_grids_.clear();
-  const std::size_t coarsenings{0}; // TODO(LFR): Change this from zero
-  for (int level = GetGMGMinLevel(); level <= GetGMGMaxLevel(); ++level) {
-    int logical_level = level; // TODO(LFR): update this to respect chosen hierarchy
-    gmg_block_lists_[level] = BlockList_t();
-    gmg_grids_[level] = GridIdentifier::two_level_composite(logical_level, coarsenings);
-    gmg_grids_[level].multigrid_level = level;
+  // Number of coarsenings to perform on the leaf grid
+  const std::size_t base_coarsenings{0}; // TODO(LFR): Change this from zero
+  for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
+    int logical_level = gmg_level; //std::max(gmg_level, 0);
+    int coarsenings = 0; //std::max(-gmg_level, 0);
+    gmg_block_lists_[gmg_level] = BlockList_t();
+    gmg_grids_[gmg_level] = GridIdentifier::two_level_composite(logical_level, base_coarsenings + coarsenings);
+    gmg_grids_[gmg_level].multigrid_level = gmg_level;
   }
-
-  // Fill/create gmg block lists based on this ranks block list
-  for (auto &pmb : block_list) {
-    const int level = pmb->loc.level();
-    // Add the leaf block to its level
-    gmg_block_lists_[level].push_back(pmb);
-
-    // Add the leaf block to the next finer level if required
-    if (level < current_level) {
-      gmg_block_lists_[level + 1].push_back(pmb);
-    }
-
-    // Create internal blocks that share a Morton number with this block
-    // and add them to gmg two-level composite grid block lists. This
-    // determines which process internal blocks live on
-    auto loc = pmb->loc.GetParent();
-    while (loc.level() >= gmg_min_level_ && loc.morton() == pmb->loc.morton()) {
-      RegionSize block_size = GetDefaultBlockSize();
-      BoundaryFlag block_bcs[6];
-      SetBlockSizeAndBoundaries(loc, block_size, block_bcs);
-      gmg_block_lists_[loc.level()].push_back(
-          MeshBlock::Make(forest.GetGid(loc), -1, loc, block_size, block_bcs, this, pin,
-                          app_in, packages, resolved_packages, gflag));
-      loc = loc.GetParent();
+  
+  for (int gmg_level = GetGMGMaxLevel(); gmg_level >= GetGMGMinLevel(); --gmg_level) {
+    auto grid = gmg_grids_[gmg_level];
+    auto &cur_block_list = gmg_block_lists_[gmg_level];
+    for (auto &pmb : block_list) {
+      if (pmb->loc.level() == grid.logical_level || pmb->loc.level() == grid.logical_level - 1) {
+        cur_block_list.push_back(pmb);
+      } else if (pmb->loc.level() > grid.logical_level) {
+        auto loc = pmb->loc.GetParent(pmb->loc.level() - grid.logical_level);
+        if (loc.morton() == pmb->loc.morton()) {
+          RegionSize block_size = GetDefaultBlockSize();
+          BoundaryFlag block_bcs[6];
+          SetBlockSizeAndBoundaries(loc, block_size, block_bcs, grid.coarsenings);
+          cur_block_list.push_back(
+            MeshBlock::Make(forest.GetGid(loc), -1, loc, block_size, block_bcs, this, pin,
+                            app_in, packages, resolved_packages, gflag));
+          cur_block_list.back()->coarsenings = grid.coarsenings;
+        }
+      }
     }
   }
 
@@ -166,17 +163,28 @@ void Mesh::SetGMGNeighbors() {
   const int gmg_min_level = GetGMGMinLevel();
   // Sort the gmg block lists by gid and find neighbors
   for (auto &[level, bl] : gmg_block_lists_) {
+    auto cur_grid = gmg_grids_[level];
     for (auto &pmb : bl) {
       // Coarser neighbor
       pmb->gmg_coarser_neighbors.clear();
-      if (pmb->loc.level() > gmg_min_level) {
-        auto ploc = pmb->loc.GetParent();
-        int gid = forest.GetGid(ploc);
+      if (gmg_grids_.count(level - 1)) {
+        auto coarse_grid = gmg_grids_.at(level - 1);
+        // By default assume that there is a block level coarsening between the two
+        // grids so that the blocks on both multi-grid levels have the same 
+        // logical location
+        auto coarse_loc = pmb->loc;
+        // If they have the same number of block level coarsenings, replace with 
+        // the logical location of the parent block
+        if (coarse_grid.coarsenings == cur_grid.coarsenings)
+            coarse_loc = pmb->loc.GetParent();
+
+        int gid = forest.GetGid(coarse_loc);
         if (gid >= 0) {
-          int leaf_gid = forest.GetLeafGid(ploc);
+          int leaf_gid = forest.GetLeafGid(coarse_loc);
           pmb->gmg_coarser_neighbors.emplace_back(
-              pmb->pmy_mesh, ploc, ploc, ranklist[leaf_gid], gid,
+              pmb->pmy_mesh, coarse_loc, coarse_loc, ranklist[leaf_gid], gid,
               Kokkos::Array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
+          pmb->gmg_coarser_neighbors.back().coarsenings = coarse_grid.coarsenings;
           // No need to explicitly set ownership (which defaults to
           // true), since the coarse block owns all elements of all
           // of its daughter blocks
@@ -185,35 +193,50 @@ void Mesh::SetGMGNeighbors() {
 
       // Finer neighbor(s)
       pmb->gmg_finer_neighbors.clear();
-      pmb->gmg_leaf_neighbors.clear();
-      if (pmb->loc.level() < current_level) {
-        auto dlocs = pmb->loc.GetDaughters(ndim);
-        for (auto &d : dlocs) {
-          int gid = forest.GetGid(d);
-          if (gid >= 0) {
-            int leaf_gid = forest.GetLeafGid(d);
-            pmb->gmg_finer_neighbors.emplace_back(pmb->pmy_mesh, d, d, ranklist[leaf_gid],
-                                                  gid, Kokkos::Array<int, 3>{0, 0, 0}, 0,
+      pmb->gmg_self_neighbors.clear();
+      // Check if there is a finer grid below this one
+      if (gmg_grids_.count(level + 1)) {
+        auto fine_grid = gmg_grids_.at(level + 1);
+        // There must be an internal coarsening between the two grids
+        if (fine_grid.logical_level == cur_grid.logical_level) {
+          PARTHENON_REQUIRE(fine_grid.coarsenings == cur_grid.coarsenings - 1, "Must be related by a single coarsening");
+          pmb->gmg_finer_neighbors.emplace_back(pmb->pmy_mesh, pmb->loc, pmb->loc, Globals::my_rank,
+                                                  pmb->gid, Kokkos::Array<int, 3>{0, 0, 0}, 0,
                                                   0, 0, 0);
-          }
+          pmb->gmg_finer_neighbors.back().coarsenings = fine_grid.coarsenings;
+        } else { 
+          for (auto &d : pmb->loc.GetDaughters(ndim)) {
+            int gid = forest.GetGid(d);
+            if (gid >= 0) {
+              int leaf_gid = forest.GetLeafGid(d);
+              pmb->gmg_finer_neighbors.emplace_back(pmb->pmy_mesh, d, d, ranklist[leaf_gid],
+                                                    gid, Kokkos::Array<int, 3>{0, 0, 0}, 0,
+                                                    0, 0, 0);
+            }
+          } 
         }
-        if (pmb->gmg_finer_neighbors.size() == 0) {
-          // This is a leaf block, so add itself as a finer neighbor
-          pmb->gmg_leaf_neighbors.emplace_back(
-              pmb->pmy_mesh, pmb->loc, pmb->loc, Globals::my_rank, pmb->gid,
-              Kokkos::Array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
-        } else if (pmb->gmg_finer_neighbors.size() > 1) {
-          // This block has multiple finer neighbors, so we need to set ownership
-          // on shared elements in the interior of the coarse block. We do not need
-          // to worry about coordinate transformations, since all daughter blocks
-          // are guaranteed to be in the same logical coordinate system.
-          std::vector<forest::NeighborLocation> neighbor_locs;
-          for (const auto &n : pmb->gmg_finer_neighbors)
-            neighbor_locs.emplace_back(n.loc, n.loc,
-                                       forest::LogicalCoordinateTransformation());
-          for (auto &n : pmb->gmg_finer_neighbors)
-            n.ownership = DetermineOwnership(n.loc, neighbor_locs);
-        }
+      }
+       
+      // Add the block as its own neighbor 
+      // so that when restricting/prolongating between two two_level_composite 
+      // grids, a block that lives on both levels communicates a message to itself, 
+      // which must be received before operations can be performed on the next level
+      pmb->gmg_self_neighbors.emplace_back(
+          pmb->pmy_mesh, pmb->loc, pmb->loc, Globals::my_rank, pmb->gid,
+          Kokkos::Array<int, 3>{0, 0, 0}, 0, 0, 0, 0);
+      pmb->gmg_self_neighbors.back().coarsenings = pmb->coarsenings;
+      
+      if (pmb->gmg_finer_neighbors.size() > 1) {
+        // This block has multiple finer neighbors, so we need to set ownership
+        // on shared elements in the interior of the coarse block. We do not need
+        // to worry about coordinate transformations, since all daughter blocks
+        // are guaranteed to be in the same logical coordinate system.
+        std::vector<forest::NeighborLocation> neighbor_locs;
+        for (const auto &n : pmb->gmg_finer_neighbors)
+          neighbor_locs.emplace_back(n.loc, n.loc,
+                                     forest::LogicalCoordinateTransformation());
+        for (auto &n : pmb->gmg_finer_neighbors)
+          n.ownership = DetermineOwnership(n.loc, neighbor_locs);
       }
 
       // Same level neighbors

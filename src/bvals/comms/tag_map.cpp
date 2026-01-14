@@ -46,10 +46,10 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
     auto *neighbors = [&pmb, &md] {
       if constexpr (BOUND == BoundaryType::gmg_restrict_send)
         return pmb->loc.level() == md->grid.logical_level ? &(pmb->gmg_coarser_neighbors)
-                                                          : &(pmb->gmg_leaf_neighbors);
+                                                          : &(pmb->gmg_self_neighbors);
       if constexpr (BOUND == BoundaryType::gmg_restrict_recv)
         return pmb->gmg_finer_neighbors.size() > 0 ? &(pmb->gmg_finer_neighbors)
-                                                   : &(pmb->gmg_leaf_neighbors);
+                                                   : &(pmb->gmg_self_neighbors);
       if constexpr (BOUND == BoundaryType::gmg_prolongate_send)
         return &(pmb->gmg_finer_neighbors);
       if constexpr (BOUND == BoundaryType::gmg_prolongate_recv)

@@ -89,7 +89,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
         if (v->IsSet(Metadata::GMGRestrict)) {
           for (auto &nb : pmb->loc.level() == md->grid.logical_level
                               ? pmb->gmg_coarser_neighbors
-                              : pmb->gmg_leaf_neighbors) {
+                              : pmb->gmg_self_neighbors) {
             if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
           }
         }
@@ -97,7 +97,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
         if (pmb->loc.level() != md->grid.logical_level) continue;
         if (v->IsSet(Metadata::GMGRestrict)) {
           for (auto &nb : pmb->gmg_finer_neighbors.size() > 0 ? pmb->gmg_finer_neighbors
-                                                              : pmb->gmg_leaf_neighbors) {
+                                                              : pmb->gmg_self_neighbors) {
             if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
               return;
             }
@@ -107,7 +107,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
         if (pmb->loc.level() != md->grid.logical_level) continue;
         if (v->IsSet(Metadata::GMGProlongate)) {
           for (auto &nb : pmb->gmg_finer_neighbors.size() > 0 ? pmb->gmg_finer_neighbors
-                                                              : pmb->gmg_leaf_neighbors) {
+                                                              : pmb->gmg_self_neighbors) {
             if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
               return;
             }
@@ -117,7 +117,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
         if (v->IsSet(Metadata::GMGProlongate)) {
           for (auto &nb : pmb->loc.level() == md->grid.logical_level
                               ? pmb->gmg_coarser_neighbors
-                              : pmb->gmg_leaf_neighbors) {
+                              : pmb->gmg_self_neighbors) {
             if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
               return;
             }
