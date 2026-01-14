@@ -72,9 +72,9 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
+#include "interface/outputs.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
-#include "outputs/output_parameters.hpp"
 #include "pack/swarm_default_names.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -365,8 +365,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
           << std::endl;
       PARTHENON_FAIL(msg);
 #endif // ifdef ENABLE_HDF5
-    } else if (op.file_type == "user") {
-      pnew_type = std::make_shared<UserOutput>(op);
+      // } else if (op.file_type == "user") {
+      // pnew_type = std::make_shared<UserOutput>(op);
     } else if (is_hdf5_output) {
       restart = (op.file_type == "rst");
       const bool coredump = (op.file_type == "corehdf5");
