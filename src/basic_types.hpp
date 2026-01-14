@@ -137,9 +137,9 @@ struct GridIdentifier {
 
   std::string label() const {
     if (type == GridType::leaf) {
-      return "GridType::leaf";
+      return "GridType::leaf[" + std::to_string(coarsenings) + "]";
     } else if (type == GridType::two_level_composite) {
-      return "GridType::two_level_composite[" + std::to_string(logical_level) + "]";
+      return "GridType::two_level_composite[" + std::to_string(logical_level) + ", " + std::to_string(coarsenings) + "]";
     }
     return "GridType::none";
   }
