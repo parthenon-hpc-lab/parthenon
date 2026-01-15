@@ -128,7 +128,7 @@ class ProlongationBlockInteriorZeroDirichlet {
     std::vector<bool> include_block(nblocks, true);
     for (int b = 0; b < nblocks; ++b) {
       include_block[b] =
-          md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level();
+          md->grid.logical_level() == md->GetBlockData(b)->GetBlockPointer()->loc.level();
     }
     const auto desc = parthenon::MakePackDescriptorFromTypeList<VarTL>(md.get());
     const auto desc_coarse = parthenon::MakePackDescriptorFromTypeList<VarTL>(
@@ -231,7 +231,7 @@ class ProlongationBlockInteriorZeroDirichlet {
     std::vector<bool> include_block(nblocks, true);
     for (int b = 0; b < nblocks; ++b) {
       include_block[b] =
-          md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level();
+          md->grid.logical_level() == md->GetBlockData(b)->GetBlockPointer()->loc.level();
     }
     const auto desc = parthenon::MakePackDescriptorFromTypeList<VarTL>(md.get());
     const auto desc_coarse = parthenon::MakePackDescriptorFromTypeList<VarTL>(

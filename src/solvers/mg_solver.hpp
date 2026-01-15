@@ -274,8 +274,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
     int nblocks = md_rhs->NumBlocks();
     std::vector<bool> include_block(nblocks, true);
-    if (md_rhs->grid.type == GridType::two_level_composite) {
-      int current_level = md_rhs->grid.logical_level;
+    if (md_rhs->grid.type() == GridType::two_level_composite) {
+      int current_level = md_rhs->grid.logical_level();
       for (int b = 0; b < nblocks; ++b) {
         include_block[b] =
             md_rhs->GetBlockData(b)->GetBlockPointer()->loc.level() == current_level;
@@ -320,7 +320,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
   }
 
   std::string GetTimeLabel(const std::string &name, const std::shared_ptr<BlockListPartition> &partition) {
-    return GetTimeLabel(name, partition->grid.logical_level);
+    return GetTimeLabel(name, partition->grid.logical_level());
   }
 
   TaskID AddJacobiIteration(TaskList &tl, TaskID depends_on, Real omega,
@@ -362,7 +362,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
                          Mesh *pmesh) {
     using namespace utils;
 
-    const int level = partition->grid.logical_level;
+    const int level = partition->grid.logical_level();
     const auto [min_level, max_level] = GetMinMaxLevel(pmesh);
 
     auto timing_guard = TimingAccumulatorGuard(
@@ -396,7 +396,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
   TaskID AddMultiGridSetupPartitionLevel(TaskList &tl, TaskID dependence, std::shared_ptr<BlockListPartition> partition, Mesh *pmesh) {
     using namespace utils;
     
-    const int level = partition->grid.logical_level;
+    const int level = partition->grid.multigrid_level();
     const auto [min_level, max_level] = GetMinMaxLevel(pmesh);
     
     auto &md = pmesh->mesh_data.Add(container_base, partition);
@@ -431,7 +431,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
   TaskID AddMultiGridTasksPartitionLevel(TaskList &tl, TaskID dependence, std::shared_ptr<BlockListPartition> partition, Mesh *pmesh) {
     using namespace utils;
     
-    const int level = partition->grid.logical_level;
+    const int level = partition->grid.multigrid_level();
     const auto [min_level, max_level] = GetMinMaxLevel(pmesh);
 
     bool do_FAS = params_.do_FAS;

@@ -45,7 +45,7 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
     // returns  to reduce initializations of var
     auto *neighbors = [&pmb, &md] {
       if constexpr (BOUND == BoundaryType::gmg_restrict_send)
-        return pmb->loc.level() == md->grid.logical_level ? &(pmb->gmg_coarser_neighbors)
+        return pmb->loc.level() == md->grid.logical_level() ? &(pmb->gmg_coarser_neighbors)
                                                           : &(pmb->gmg_self_neighbors);
       if constexpr (BOUND == BoundaryType::gmg_restrict_recv)
         return pmb->gmg_finer_neighbors.size() > 0 ? &(pmb->gmg_finer_neighbors)
@@ -57,7 +57,7 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
       if constexpr (BOUND == BoundaryType::gmg_prolongate_recv)
         return &(pmb->gmg_coarser_neighbors);
       if constexpr (BOUND == BoundaryType::gmg_same)
-        return pmb->loc.level() == md->grid.logical_level
+        return pmb->loc.level() == md->grid.logical_level()
                    ? &(pmb->gmg_same_neighbors)
                    : &(pmb->gmg_composite_finer_neighbors);
       return &(pmb->neighbors);

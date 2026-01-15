@@ -189,8 +189,8 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
     pack.block_props_h_(blidx, bp_idxer.size()) = pmb->gid;
     auto *neighbors = &(pmb->neighbors);
     if constexpr (!std::is_same_v<T, mbd_t>) {
-      if (pmd->grid.type == GridType::two_level_composite) {
-        if (pmb->loc.level() == pmd->grid.logical_level) {
+      if (pmd->grid.type() == GridType::two_level_composite) {
+        if (pmb->loc.level() == pmd->grid.logical_level()) {
           neighbors = &(pmb->gmg_same_neighbors);
         } else {
           neighbors = &(pmb->gmg_composite_finer_neighbors);

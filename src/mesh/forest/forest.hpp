@@ -126,8 +126,8 @@ class Forest {
     return 0;
   }
 
-  RegionSize GetBlockDomain(const LogicalLocation &loc, std::size_t coarsenings = 0) const {
-    return trees.at(loc.tree())->GetBlockDomain(loc, coarsenings);
+  RegionSize GetBlockDomain(const LogicalLocation &loc, std::size_t block_coarsenings = 0) const {
+    return trees.at(loc.tree())->GetBlockDomain(loc, block_coarsenings);
   }
 
   std::array<BoundaryFlag, BOUNDARY_NFACES>
@@ -154,10 +154,18 @@ class Forest {
                 GridIdentifier grid_id = GridIdentifier::leaf()) const {
     return trees.at(loc.tree())->FindNeighbors(loc, grid_id);
   }
-  std::size_t CountMeshBlock() const {
+
+  std::size_t CountLeafMeshBlock() const {
     std::size_t count{0};
     for (auto &[id, tree] : trees)
-      count += tree->CountMeshBlock();
+      count += tree->CountLeafMeshBlock();
+    return count;
+  }
+
+  std::size_t CountInternalMeshBlock() const {
+    std::size_t count{0};
+    for (auto &[id, tree] : trees)
+      count += tree->CountInternalMeshBlock();
     return count;
   }
 
@@ -170,9 +178,11 @@ class Forest {
 
   std::size_t CountTrees() const { return trees.size(); }
 
-  std::int64_t GetGid(const LogicalLocation &loc) const {
+  std::int64_t GetGid(const LogicalLocation &loc, std::size_t block_coarsenings = 0) const {
     PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
-    return trees.at(loc.tree())->GetGid(loc);
+    auto gid = trees.at(loc.tree())->GetGid(loc);
+    gid += block_coarsenings * (CountInternalMeshBlock() + CountLeafMeshBlock());
+    return gid;
   }
 
   // Get the gid of the leaf block with the same Morton number

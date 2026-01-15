@@ -111,8 +111,8 @@ class Mesh {
   // TODO(JMM): Move block_size into mesh.
   int GetNumberOfMeshBlockCells() const;
   const RegionSize &GetDefaultBlockSize() const { return base_block_size; }
-  RegionSize GetBlockSize(const LogicalLocation &loc) const {
-    return forest.GetBlockDomain(loc);
+  RegionSize GetBlockSize(const LogicalLocation &loc, std::size_t coarsenings = 0) const {
+    return forest.GetBlockDomain(loc, coarsenings);
   }
   const IndexShape GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
 
@@ -154,7 +154,7 @@ class Mesh {
   void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
 
   bool SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
-                                 BoundaryFlag *block_bcs, std::size_t coarsenings = 0);
+                                 BoundaryFlag *block_bcs, std::size_t block_coarsenings = 0);
   void OutputCycleDiagnostics();
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);

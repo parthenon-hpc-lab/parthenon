@@ -324,7 +324,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   for (int i = 0; i < nbtotal; i++)
     forest.AddMeshBlock(loclist[i], false);
 
-  int nnb = forest.CountMeshBlock();
+  int nnb = forest.CountLeafMeshBlock();
   if (nnb != nbtotal) {
     msg << "### FATAL ERROR in Mesh constructor" << std::endl
         << "Tree reconstruction failed. The total numbers of the blocks do not match. ("
@@ -388,6 +388,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
     BoundaryFlag block_bcs[6];
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
+    PARTHENON_REQUIRE(i == forest.GetGid(loclist[i]), "There is an inconsistency in the GIDs.");
     block_list[i - nbs] =
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag, costlist[i]);
@@ -420,14 +421,14 @@ Mesh::~Mesh() {
 
 void Mesh::BuildBlockPartitions(GridIdentifier grid) {
   auto partition_blocklists = partition::ToSizeN(
-      grid.type == GridType::leaf ? block_list : gmg_block_lists_[grid.logical_level],
+      grid.type() == GridType::leaf ? block_list : gmg_block_lists_[grid.multigrid_level()],
       DefaultPackSize());
   std::vector<std::shared_ptr<BlockListPartition>> out;
   int id = 0;
   for (auto &part_bl : partition_blocklists)
     out.emplace_back(std::make_shared<BlockListPartition>(id++, grid, part_bl, this));
   block_partitions_[grid] = out;
-  if (grid.type == GridType::leaf)
+  if (grid.type() == GridType::leaf)
     base_block_partition_ =
         std::make_shared<BlockListPartition>(id++, grid, block_list, this);
 }
@@ -872,9 +873,9 @@ std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
 // \brief Set the physical part of a block_size structure and block boundary conditions
 
 bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
-                                     BoundaryFlag *block_bcs, std::size_t coarsenings) {
+                                     BoundaryFlag *block_bcs, std::size_t block_coarsenings) {
   bool valid_region = true;
-  block_size = forest.GetBlockDomain(loc, coarsenings);
+  block_size = forest.GetBlockDomain(loc, block_coarsenings);
   auto bcs = forest.GetBlockBCs(loc);
   for (int i = 0; i < BOUNDARY_NFACES; ++i)
     block_bcs[i] = bcs[i];

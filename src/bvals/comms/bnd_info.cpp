@@ -103,6 +103,18 @@ GetFluxCorrectionElements(const std::shared_ptr<Variable<Real>> &v,
   return elements;
 }
 
+bool NeighborIsCoarser(MeshBlock *pmb, const NeighborBlock &nb) { 
+  return nb.loc.level() < pmb->loc.level() || nb.block_coarsenings > pmb->block_coarsenings; 
+}
+
+bool NeighborIsFiner(MeshBlock *pmb, const NeighborBlock &nb) { 
+  return nb.loc.level() > pmb->loc.level() || nb.block_coarsenings < pmb->block_coarsenings; 
+}
+
+bool NeighborIsSame(MeshBlock *pmb, const NeighborBlock &nb) { 
+  return nb.loc.level() == pmb->loc.level() && nb.block_coarsenings == pmb->block_coarsenings;
+}
+
 SpatiallyMaskedIndexer6D
 CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
             const std::shared_ptr<Variable<Real>> &v, TopologicalElement el,
@@ -115,17 +127,22 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
   const auto &loc = pmb->loc;
   bool is_fine_field = v->IsSet(Metadata::Fine);
   auto shape = is_fine_field ? pmb->f_cellbounds : pmb->cellbounds;
+
+  const bool nb_is_coarser = NeighborIsCoarser(pmb, nb);
+  const bool nb_is_finer = NeighborIsFiner(pmb, nb);
+  const bool nb_is_same = NeighborIsSame(pmb, nb);
+  PARTHENON_REQUIRE(nb_is_coarser + nb_is_finer + nb_is_same == 1, "Only one should be set.");
   // Both prolongation and restriction always operate in the coarse
   // index space. Also need to use the coarse index space if the
   // neighbor is coarser than you, wether or not you are setting
   // interior or exterior cells
-  if (prores || nb.loc.level() < loc.level())
+  if (prores || nb_is_coarser)
     shape = is_fine_field ? pmb->cellbounds : pmb->c_cellbounds;
 
   // Re-create the index space for the neighbor block (either the main block or
   // the coarse buffer as required)
   int fine_field_fac = is_fine_field ? 2 : 1;
-  int coarse_fac = nb.loc.level() > loc.level() ? 2 : 1;
+  int coarse_fac = nb_is_finer ? 2 : 1;
   auto neighbor_shape =
       IndexShape(nb.block_size.nx(X3DIR) * fine_field_fac / coarse_fac,
                  nb.block_size.nx(X2DIR) * fine_field_fac / coarse_fac,
@@ -151,7 +168,7 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
   std::array<int, 3> block_offset = nb.offsets;
 
   int communicated_ghosts = Globals::nghost;
-  if (!prores && loc.level() == nb.origin_loc.level() &&
+  if (!prores && nb_is_same &&
       v->IsSet(Metadata::CommunicateOne))
     communicated_ghosts = 1;
   int interior_offset =
@@ -170,8 +187,8 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
     if (block_offset[dir] == 0) {
       s[dir] = bounds[dir].s;
       e[dir] = bounds[dir].e;
-      if ((loc.level() < nb.origin_loc.level()) &&
-          not_symmetry[dir]) { // Check that this dimension has ghost zones
+      // Check that this dimension has ghost zones
+      if (nb_is_finer && not_symmetry[dir]) {
         // The requested neighbor block is at a finer level, so it only abuts
         // approximately half of the zones in any given direction with offset zero. If we
         // are asking for an interior index range, we also send nghost "extra" zones in
@@ -189,7 +206,7 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
           e[dir] += Globals::nghost;
         }
       }
-      if (loc.level() > nb.origin_loc.level() && not_symmetry[dir]) {
+      if (nb_is_coarser && not_symmetry[dir]) {
         // If we are setting (i.e. have non-zero exterior_offset) from a neighbor block
         // that is coarser, we got extra ghost zones from the neighbor (see inclusion of
         // interior_offset in the above if block)
@@ -232,7 +249,6 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
       }
     }
   }
-
   block_ownership_t owns(true);
   // Although it wouldn't hurt to include ownership when producing an interior
   // index range, it is unecessary. This is probably not immediately obvious,
@@ -242,7 +258,7 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
     int sox1 = -block_offset[0];
     int sox2 = -block_offset[1];
     int sox3 = -block_offset[2];
-    if (nb.origin_loc.level() < loc.level()) {
+    if (nb_is_coarser) {
       // For coarse to fine interfaces, we are passing zones from only an
       // interior corner of the cell, never an entire face or edge
       if (sox1 == 0) sox1 = loc.l(0) % 2 == 1 ? 1 : -1;
@@ -294,7 +310,7 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   same_to_same = pmb->gid == nb.gid && nb.offsets.IsCell();
   lcoord_trans = nb.lcoord_trans;
 
-  if (nb.origin_loc.level() < pmb->loc.level()) {
+  if (NeighborIsCoarser(pmb, nb)) {
     var = v->coarse_s.Get();
   } else {
     var = v->data.Get();
@@ -369,7 +385,7 @@ ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
-  if (nb.loc.level() < pmb->loc.level()) {
+  if (NeighborIsCoarser(pmb, nb)) {
     for (auto el : v->GetTopologicalElements()) {
       out.IncludeTopoEl(el) = true;
       out.idxer[static_cast<int>(el)] =
@@ -385,7 +401,7 @@ ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
-  if (nb.loc.level() < pmb->loc.level()) {
+  if (NeighborIsCoarser(pmb, nb)) {
     for (auto el : v->GetTopologicalElements())
       out.IncludeTopoEl(el) = true;
     for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
@@ -401,7 +417,7 @@ ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
-  if (nb.origin_loc.level() < pmb->loc.level()) {
+  if (NeighborIsCoarser(pmb, nb)) {
     auto elements = v->GetTopologicalElements();
     if (v->IsSet(Metadata::Flux)) elements = GetFluxCorrectionElements(v, nb.offsets);
     for (auto el : elements) {
@@ -431,7 +447,7 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
 
   for (auto el : v->GetTopologicalElements()) {
     out.IncludeTopoEl(el) = true;
-    if (nb.origin_loc.level() < mylevel) {
+    if (NeighborIsCoarser(pmb, nb)) {
       out.refinement_op = RefinementOp_t::Prolongation;
     } else {
       if (restricted) {
@@ -451,7 +467,7 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
   //      I doubt that the extra calculations matter, but the storage overhead could
   //      matter since each 6D indexer contains 18 ints and we are always carrying around
   //      10 indexers per bound info even if the field isn't allocated
-  if (nb.origin_loc.level() < mylevel) {
+  if (NeighborIsCoarser(pmb, nb)) {
     for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
       out.idxer[static_cast<int>(el)] =
           CalcIndices(nb, pmb, v, el, IndexRangeType::BoundaryExteriorRecv, true);

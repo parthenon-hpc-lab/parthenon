@@ -92,7 +92,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // data
   Mesh *pmy_mesh = nullptr; // ptr to Mesh containing this MeshBlock
   LogicalLocation loc;
-  std::size_t coarsenings{0};
+  std::size_t block_coarsenings{0};
   RegionSize block_size;
   // for convenience: "max" # of real+ghost cells along each dir for allocating "standard"
   // sized MeshBlock arrays, depending on ndim i.e.

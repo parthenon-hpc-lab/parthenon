@@ -111,43 +111,51 @@ inline constexpr BoundaryType GetAssociatedSender(BoundaryType btype) {
 }
 
 enum class GridType : int { none, leaf, two_level_composite};
-struct GridIdentifier {
-  GridType type = GridType::none;
-  int logical_level = 0; // Only meaningful for two_level_composite
-  int multigrid_level = 0; // Not always meaningful
-  std::size_t coarsenings = 0;
+class GridIdentifier {
+  GridType type_ = GridType::none;
+  int logical_level_ = 0; // Only meaningful for two_level_composite
+  int multigrid_level_ = 0; // Not always meaningful
+  std::size_t block_coarsenings_ = 0;
 
-  static GridIdentifier leaf(std::size_t coarsenings = 0) { 
+ public:
+  auto type() const { return type_; }
+  auto logical_level() const { return logical_level_; }
+  auto &multigrid_level() { return multigrid_level_; }
+  auto const &multigrid_level() const { return multigrid_level_; }
+  auto block_coarsenings() const { return block_coarsenings_; }
+
+  static GridIdentifier leaf(std::size_t block_coarsenings = 0) { 
     GridIdentifier out;
-    out.type = GridType::leaf;
-    out.logical_level = -1111;
-    out.multigrid_level = -1;
-    out.coarsenings = coarsenings;
+    out.type_ = GridType::leaf;
+    out.logical_level_ = -1111;
+    out.multigrid_level_ = -1;
+    out.block_coarsenings_ = block_coarsenings;
     return out;
   }
 
-  static GridIdentifier two_level_composite(int level, std::size_t coarsenings = 0) {
+  static GridIdentifier two_level_composite(int level, std::size_t block_coarsenings = 0) {
     GridIdentifier out;
-    out.type = GridType::two_level_composite;
-    out.logical_level = level;
-    out.multigrid_level = -1;
-    out.coarsenings = coarsenings;
+    out.type_ = GridType::two_level_composite;
+    out.logical_level_ = level;
+    out.multigrid_level_ = -1;
+    out.block_coarsenings_ = block_coarsenings;
     return out;
   }
 
   std::string label() const {
-    if (type == GridType::leaf) {
-      return "GridType::leaf[" + std::to_string(coarsenings) + "]";
-    } else if (type == GridType::two_level_composite) {
-      return "GridType::two_level_composite[" + std::to_string(logical_level) + ", " + std::to_string(coarsenings) + "]";
+    if (type_ == GridType::leaf) {
+      return "GridType::leaf[" + std::to_string(block_coarsenings_) + "]";
+    } else if (type_ == GridType::two_level_composite) {
+      return "GridType::two_level_composite[" + std::to_string(logical_level_) + ", " + std::to_string(block_coarsenings_) + "]";
     }
     return "GridType::none";
   }
 };
 // Add a comparator so we can store in std::map
 inline bool operator<(const GridIdentifier &lhs, const GridIdentifier &rhs) {
-  if (lhs.type != rhs.type) return lhs.type < rhs.type;
-  return lhs.logical_level < rhs.logical_level;
+  if (lhs.type() != rhs.type()) return lhs.type() < rhs.type();
+  if (lhs.block_coarsenings() != rhs.block_coarsenings()) return lhs.block_coarsenings() < rhs.block_coarsenings();
+  return lhs.logical_level() < rhs.logical_level();
 }
 
 // Enumeration for accessing a field on different locations of the grid:
