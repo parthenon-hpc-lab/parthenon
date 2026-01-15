@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2021-2024 The Parthenon collaboration
+// Copyright(C) 2021-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
@@ -56,7 +56,6 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
 // *************************************************//
 void ParticleUserOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                          const SignalHandler::OutputSignal signal) {
-
   // For simplicitly, only rank 0 writes the current cycle.
   // Typically writing is a parallel operation.
   if (Globals::my_rank == 0) {

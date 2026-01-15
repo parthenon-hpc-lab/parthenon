@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2021-2026 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -11,10 +15,10 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "parthenon_manager.hpp"
-
-#include "particle_leapfrog.hpp"
 #include <memory>
+
+#include "parthenon_manager.hpp"
+#include "particle_leapfrog.hpp"
 
 int main(int argc, char *argv[]) {
   using parthenon::ParthenonManager;

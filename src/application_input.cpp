@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2026 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -11,6 +15,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <memory>
 #include <string>
 
 #include "application_input.hpp"
@@ -123,6 +128,6 @@ std::shared_ptr<OutputType> ApplicationInput::GetUserOutput(const std::string &n
   } else {
     return user_outputs_[name];
   }
-};
+}
 
 } // namespace parthenon
