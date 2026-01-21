@@ -77,6 +77,7 @@ inline auto func_caller(F func, Args &&...args) -> typename std::enable_if<
 // need to be a template parameter, it could just be a function argument]
 template <BoundaryType bound = BoundaryType::any, class F>
 inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
+  int fine_level = md->grid.logical_level;
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
@@ -125,8 +126,10 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
       } else if constexpr (bound == BoundaryType::gmg_same) {
         if (v->IsSet(Metadata::FillGhost)) {
           for (auto &nb : *gmg_same) {
-            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
-              return;
+            if (pmb->loc.level() == fine_level || nb.loc.level() == fine_level) {
+              if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
+                return;
+              }
             }
           }
         }
