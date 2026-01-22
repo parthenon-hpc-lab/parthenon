@@ -1,9 +1,9 @@
 //========================================================================================
-// parthenon performance portable AMR framework
-// Copyright(C) 2022 The Parthenon collaboration
+// Parthenon performance portable AMR framework
+// Copyright(C) 2022-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2022-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -282,6 +282,9 @@ bool UsingSameResource(const T &lhs, const U &rhs) {
 
   This means that right now, T really needs to be a 1D Kokkos view
   under the hood.
+
+  Also note this is not thread safe, so will need to be updated if we
+  ever worry about that.
  */
 template <typename T, class = ENABLEIF(implements<kokkos_view(T)>::value)>
 class ObjectPoolMap {
@@ -318,9 +321,10 @@ class ObjectPoolMap {
     // This lambda is called whenever a buffer is requested but no
     // buffers remain in the pool
     auto allocation_strategy = [shape, chunk_size](ObjectPool<T> *pool) {
+      static std::size_t counter = 0; // per shape/chunk size. NOT thread safe.
       const auto pool_size = shape * chunk_size;
-      auto label = "pool buffer of size " + std::to_string(shape) + " x " +
-                   std::to_string(chunk_size);
+      auto label = "pool buffer " + std::to_string(counter++) + " of size " +
+                   std::to_string(shape) + " x " + std::to_string(chunk_size);
       T chunk(label, pool_size);
       for (std::size_t i = 1; i < chunk_size; ++i) {
         pool->AddFreeObjectToPool(T(chunk, std::make_pair(i * shape, (i + 1) * shape)));
@@ -335,7 +339,7 @@ class ObjectPoolMap {
         std::is_pointer_v<std::remove_reference_t<data_t>> &&
             !std::is_pointer_v<std::remove_pointer_t<std::remove_reference_t<data_t>>>,
         "Underlying view must be 1D");
-    auto &pool = map_.at(shape);
+    auto &pool = GetPool(shape);
     const auto pool_size = shape * nobjs;
     auto label =
         "pool buffer of size " + std::to_string(shape) + " x " + std::to_string(nobjs);
