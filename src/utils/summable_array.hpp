@@ -42,25 +42,29 @@ struct summable_array_t {
       data_[i] += src.data_[i];
     return *this;
   }
-
+  
+  KOKKOS_INLINE_FUNCTION
   value_type &operator[](std::size_t i) { return data_[i]; }
+  
+  KOKKOS_INLINE_FUNCTION
   const value_type &operator[](std::size_t i) const { return data_[i]; }
 
   // Contiguous container requirements
   KOKKOS_INLINE_FUNCTION
   std::size_t size() const { return N; }
-
+  
+  KOKKOS_INLINE_FUNCTION
   value_type *data() { return data_; }
 };
 
 } // namespace parthenon
 
 namespace Kokkos { // reduction identity must be defined in Kokkos namespace
-template <>
-struct reduction_identity<parthenon::summable_array_t<parthenon::Real, 2>> {
-  KOKKOS_FORCEINLINE_FUNCTION static parthenon::summable_array_t<parthenon::Real, 2>
+template <class T, std::size_t N>
+struct reduction_identity<parthenon::summable_array_t<T, N>> {
+  KOKKOS_FORCEINLINE_FUNCTION static parthenon::summable_array_t<T, N>
   sum() {
-    return parthenon::summable_array_t<parthenon::Real, 2>();
+    return parthenon::summable_array_t<T, N>();
   }
 };
 
