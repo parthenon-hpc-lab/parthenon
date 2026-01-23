@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1346]](https://github.com/parthenon-hpc-lab/parthenon/pull/1346) Allow for user defined inter-level restrictions in multigrid 
 - [[PR 1344]](https://github.com/parthenon-hpc-lab/parthenon/pull/1344) Add option to communicate single layer of ghosts, only communicate required two-level composite boundaries
 
 
