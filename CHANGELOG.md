@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1344]](https://github.com/parthenon-hpc-lab/parthenon/pull/1344) Add option to communicate single layer of ghosts, only communicate required two-level composite boundaries
 
 
 ### Changed (changing behavior/API/variables/...)
@@ -12,6 +13,7 @@
 
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[1356]](https://github.com/parthenon-hpc-lab/parthenon/pull/1356) Implement ObjectPoolMap type
 - [[PR 1361]] Bump formatters to clang-format-20 and black 25.12
 
 ### Removed (removing behavior/API/variables/...)
