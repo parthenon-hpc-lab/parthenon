@@ -13,6 +13,7 @@
 - [[PR 1345]](https://github.com/parthenon-hpc-lab/parthenon/pull/1345) Coalesce dot product reductions and speed up kernels
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[1356]](https://github.com/parthenon-hpc-lab/parthenon/pull/1356) Implement ObjectPoolMap type
 - [[PR 1361]] Bump formatters to clang-format-20 and black 25.12
 
 ### Removed (removing behavior/API/variables/...)
