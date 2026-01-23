@@ -433,11 +433,15 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                                  kb.s, kb.e, jb.s, jb.e, ib.s, ib.e, function,
                                  std::forward<Args>(args)...);
   }
+  
+  bool IsLeafLL() const { return is_leaf_ll_; }
 
  private:
   // data
   Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_;
   std::vector<std::shared_ptr<Variable<Real>>> vars_cc_;
+
+  bool is_leaf_ll_{true};
 
   // Initializer to set up a meshblock called with the default constructor
   // This is necessary because the back pointers can't be set up until

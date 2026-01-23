@@ -316,10 +316,11 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
 
   int nblocks = md_a->NumBlocks();
   std::vector<bool> include_block(nblocks, true);
-  if (only_interior_blocks) {
-    // The neighbors array will only be set for a block if its a leaf block
-    for (int b = 0; b < nblocks; ++b)
-      include_block[b] = md_a->GetBlockData(b)->GetBlockPointer()->neighbors.size() == 0;
+  if (only_interior_blocks && (md_a->grid.type() == GridType::two_level_composite)) {
+    for (int b = 0; b < nblocks; ++b) {
+      auto pmb = md_a->GetBlockData(b)->GetBlockPointer();
+      include_block[b] = !pmb->IsLeafLL() || (pmb->block_coarsenings != 0);
+    }
   }
 
   static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());

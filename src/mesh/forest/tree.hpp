@@ -98,6 +98,7 @@ class Tree : public std::enable_shared_from_this<Tree> {
                                               int ox2, int ox3) const;
   std::size_t CountLeafMeshBlock() const { return leaves.size(); }
   std::size_t CountInternalMeshBlock() const { return internal_nodes.size(); }
+  bool IsLeaf(const LogicalLocation &loc) const { return leaves.count(loc); }
 
   // Gid related methods
   void InsertGid(const LogicalLocation &loc, std::int64_t gid);

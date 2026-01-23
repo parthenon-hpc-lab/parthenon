@@ -272,21 +272,12 @@ class MGSolver : public SolverBase, MGSolverCounter {
     IndexRange jb = md_rhs->GetBoundsJ(IndexDomain::interior, te);
     IndexRange kb = md_rhs->GetBoundsK(IndexDomain::interior, te);
 
-    int nblocks = md_rhs->NumBlocks();
-    std::vector<bool> include_block(nblocks, true);
-    if (md_rhs->grid.type() == GridType::two_level_composite) {
-      int current_level = md_rhs->grid.logical_level();
-      for (int b = 0; b < nblocks; ++b) {
-        include_block[b] =
-            md_rhs->GetBlockData(b)->GetBlockPointer()->loc.level() == current_level;
-      }
-    }
     static auto desc = parthenon::MakePackDescriptorFromTypeList<FieldTL>(md_rhs.get());
-    auto pack_rhs = desc.GetPack(md_rhs.get(), include_block);
-    auto pack_Ax = desc.GetPack(md_Ax.get(), include_block);
-    auto pack_diag = desc.GetPack(md_diag.get(), include_block);
-    auto pack_xold = desc.GetPack(md_xold.get(), include_block);
-    auto pack_xnew = desc.GetPack(md_xnew.get(), include_block);
+    auto pack_rhs = desc.GetPack(md_rhs.get());
+    auto pack_Ax = desc.GetPack(md_Ax.get());
+    auto pack_diag = desc.GetPack(md_diag.get());
+    auto pack_xold = desc.GetPack(md_xold.get());
+    auto pack_xnew = desc.GetPack(md_xnew.get());
     const int scratch_size = 0;
     const int scratch_level = 0;
     parthenon::par_for_outer(
@@ -443,7 +434,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
     auto &md_temp = pmesh->mesh_data.Add(container_temp, partition, sol_fields);
     auto &md_u0 = pmesh->mesh_data.Add(container_u0, partition, sol_fields);
     auto &md_diag = pmesh->mesh_data.Add(container_diag, partition, sol_fields);
-
+    md_res_err->SetBoundBufferId(BoundaryType::gmg_restrict_send, 1); // Use a separate set of communication buffers
+    md_res_err->SetBoundBufferId(BoundaryType::gmg_restrict_recv, 1); // Use a separate set of communication buffers
     auto timer_guard_total = TimingAccumulatorGuard(
         solver_timings.GetOrAddAndRegister(GetTimeLabel("Total", partition), tl));
 

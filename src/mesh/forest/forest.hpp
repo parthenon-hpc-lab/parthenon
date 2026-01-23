@@ -196,6 +196,11 @@ class Forest {
     PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
     return trees.at(loc.tree())->GetOldGid(loc);
   }
+ 
+  bool IsLeaf(const LogicalLocation &loc) const {
+    PARTHENON_REQUIRE(trees.count(loc.tree()), "Must ask for a tree that exists.");
+    return trees.at(loc.tree())->IsLeaf(loc);
+  }
 
   // Build a logically hyper-rectangular forest that mimics the grid
   // setups available in Athena++

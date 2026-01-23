@@ -102,7 +102,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           "When a check for comm buffer realocation is made (see "
           "comm_buffer_reallocate_cadence), reallocation happens only if the number of "
           "buffers in use divided by the number of buffers allocated is less than this "
-          "variable.")} {
+          "variable.")},
+      base_block_coarsenings{pin->GetOrAddInteger(
+          "parthenon/mesh", "base_block_coarsenings", 0,
+          "How many times to internally coarsen blocks before going to two-level composite grids")} {
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =
@@ -420,15 +423,15 @@ Mesh::~Mesh() {
 //  \brief Partition a given block list for use by MeshData
 
 void Mesh::BuildBlockPartitions(GridIdentifier grid) {
-  auto partition_blocklists = partition::ToSizeN(
-      grid.type() == GridType::leaf ? block_list : gmg_block_lists_[grid.multigrid_level()],
-      DefaultPackSize());
+  auto &bl = grid.IsMultigrid() ? gmg_block_lists_[grid.multigrid_level()] : block_list;
+  auto partition_blocklists = partition::ToSizeN(bl, DefaultPackSize());
   std::vector<std::shared_ptr<BlockListPartition>> out;
   int id = 0;
-  for (auto &part_bl : partition_blocklists)
+  for (auto &part_bl : partition_blocklists) {
     out.emplace_back(std::make_shared<BlockListPartition>(id++, grid, part_bl, this));
+  }
   block_partitions_[grid] = out;
-  if (grid.type() == GridType::leaf)
+  if (!grid.IsMultigrid())
     base_block_partition_ =
         std::make_shared<BlockListPartition>(id++, grid, block_list, this);
 }
@@ -621,9 +624,9 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
         auto &md = mesh_data.Add("base", partition);
         tag_map.AddMeshDataToMap<BoundaryType::gmg_same>(md);
         tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(md);
-        tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_send>(md);
+        tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_send>(md, 2);
         tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_recv>(md);
-        tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_recv>(md);
+        tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_recv>(md, 2);
       }
     }
   }

@@ -78,8 +78,8 @@ class NeighborBlock;
 class TagMap {
   // Unique keys defined by a two-way communication channel
   using rank_pair_t = UnorderedPair<BlockGeometricElementId>;
-  // Map between a communication channel key and a unique MPI tag
-  using rank_pair_map_t = std::map<rank_pair_t, int>;
+  // Map between a communication channel key (+ buffer id on that channel) and a unique MPI tag
+  using rank_pair_map_t = std::map<std::pair<rank_pair_t, int>, int>;
   // Map of maps where the key corresponds to the MPI rank of the
   // other process
   using tag_map_t = std::unordered_map<int, rank_pair_map_t>;
@@ -97,7 +97,7 @@ class TagMap {
 
   // Inserts all of the communication channels known about by MeshData md into the map
   template <BoundaryType BOUND>
-  void AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md);
+  void AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md, int channels_per_pair = 1);
 
   // Once all MeshData objects have inserted their known channels into the map, we can
   // iterate through a map for a given rank pair (which is already ordered by key because
@@ -107,7 +107,7 @@ class TagMap {
 
   // After the map has been resolved, get the tag for a particular MeshBlock NeighborBlock
   // pair
-  int GetTag(const MeshBlock *pmb, const NeighborBlock &nb);
+  int GetTag(const MeshBlock *pmb, const NeighborBlock &nb, int id = 0);
 };
 } // namespace parthenon
 

@@ -55,11 +55,6 @@ Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level)
       }
     }
   }
-
-  // Build in negative levels
-  for (int l = -20; l < 0; ++l) {
-    internal_nodes.emplace(LocMapEntry(LogicalLocation(my_id, l, 0, 0, 0), -1, -1));
-  }
 }
 
 Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level,

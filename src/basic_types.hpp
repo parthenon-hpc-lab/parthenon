@@ -114,30 +114,44 @@ enum class GridType : int { none, leaf, two_level_composite};
 class GridIdentifier {
   GridType type_ = GridType::none;
   int logical_level_ = 0; // Only meaningful for two_level_composite
+  bool is_multigrid_ = false;
   int multigrid_level_ = 0; // Not always meaningful
   std::size_t block_coarsenings_ = 0;
 
  public:
   auto type() const { return type_; }
   auto logical_level() const { return logical_level_; }
-  auto &multigrid_level() { return multigrid_level_; }
-  auto const &multigrid_level() const { return multigrid_level_; }
+  auto multigrid_level() const { return multigrid_level_; }
   auto block_coarsenings() const { return block_coarsenings_; }
+  auto IsMultigrid() const { return is_multigrid_; }  
 
-  static GridIdentifier leaf(std::size_t block_coarsenings = 0) { 
-    GridIdentifier out;
-    out.type_ = GridType::leaf;
-    out.logical_level_ = -1111;
-    out.multigrid_level_ = -1;
-    out.block_coarsenings_ = block_coarsenings;
+  static GridIdentifier leaf() {
+    auto out = GridIdentifier::leaf(-1, 0);
+    out.is_multigrid_ = false;
     return out;
   }
 
-  static GridIdentifier two_level_composite(int level, std::size_t block_coarsenings = 0) {
+  static GridIdentifier leaf(int multigrid_level, std::size_t block_coarsenings) { 
+    GridIdentifier out;
+    out.type_ = GridType::leaf;
+    out.logical_level_ = -1111;
+    out.multigrid_level_ = multigrid_level;
+    out.block_coarsenings_ = block_coarsenings;
+    out.is_multigrid_ = true;
+    return out;
+  }
+  
+  static GridIdentifier none() {
+    GridIdentifier out;
+    return out;
+  }
+
+  static GridIdentifier two_level_composite(int multigrid_level, int logical_level, std::size_t block_coarsenings) {
     GridIdentifier out;
     out.type_ = GridType::two_level_composite;
-    out.logical_level_ = level;
-    out.multigrid_level_ = -1;
+    out.logical_level_ = logical_level;
+    out.multigrid_level_ = multigrid_level;
+    out.is_multigrid_ = true;
     out.block_coarsenings_ = block_coarsenings;
     return out;
   }

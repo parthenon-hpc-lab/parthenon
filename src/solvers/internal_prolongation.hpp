@@ -124,17 +124,11 @@ class ProlongationBlockInteriorZeroDirichlet {
 
     using TE = parthenon::TopologicalElement;
 
-    int nblocks = md->NumBlocks();
-    std::vector<bool> include_block(nblocks, true);
-    for (int b = 0; b < nblocks; ++b) {
-      include_block[b] =
-          md->grid.logical_level() == md->GetBlockData(b)->GetBlockPointer()->loc.level();
-    }
     const auto desc = parthenon::MakePackDescriptorFromTypeList<VarTL>(md.get());
     const auto desc_coarse = parthenon::MakePackDescriptorFromTypeList<VarTL>(
         md.get(), std::vector<MetadataFlag>{}, std::set<PDOpt>{PDOpt::Coarse});
-    auto pack = desc.GetPack(md.get(), include_block);
-    auto pack_coarse = desc_coarse.GetPack(md.get(), include_block);
+    auto pack = desc.GetPack(md.get());
+    auto pack_coarse = desc_coarse.GetPack(md.get());
     if (pack.GetNBlocks() == 0) return TaskStatus::complete;
 
     parthenon::par_for(
@@ -226,18 +220,11 @@ class ProlongationBlockInteriorZeroDirichlet {
     IndexRange cjb = md->GetBoundsJ(CellLevel::coarse, IndexDomain::interior);
     IndexRange ckb = md->GetBoundsK(CellLevel::coarse, IndexDomain::interior);
 
-    using TE = parthenon::TopologicalElement;
-    int nblocks = md->NumBlocks();
-    std::vector<bool> include_block(nblocks, true);
-    for (int b = 0; b < nblocks; ++b) {
-      include_block[b] =
-          md->grid.logical_level() == md->GetBlockData(b)->GetBlockPointer()->loc.level();
-    }
     const auto desc = parthenon::MakePackDescriptorFromTypeList<VarTL>(md.get());
     const auto desc_coarse = parthenon::MakePackDescriptorFromTypeList<VarTL>(
         md.get(), std::vector<MetadataFlag>{}, std::set<PDOpt>{PDOpt::Coarse});
-    auto pack = desc.GetPack(md.get(), include_block);
-    auto pack_coarse = desc_coarse.GetPack(md.get(), include_block);
+    auto pack = desc.GetPack(md.get());
+    auto pack_coarse = desc_coarse.GetPack(md.get());
     if (pack.GetNBlocks() == 0) return TaskStatus::complete;
     const int joff = ndim > 1;
     const int koff = ndim > 2;

@@ -110,10 +110,8 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     const int receiver_rank = nb.rank;
     const int sender_rank = Globals::my_rank;
 
-    int tag = 0;
 #ifdef MPI_PARALLEL
     // Get a bi-directional mpi tag for this pair of blocks
-    tag = pmesh->tag_map.GetTag(pmb, nb);
     auto comm_label = v->label();
     mpi_comm_t comm = pmesh->GetMPIComm(comm_label);
 
@@ -132,21 +130,27 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
 
     // Build send buffer (unless this is a receiving flux boundary)
     if constexpr (IsSender(BTYPE)) {
-      auto s_key = SendKey(pmb, nb, v, BTYPE);
-      if (buf_map.count(s_key) == 0)
-        buf_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
-            tag, sender_rank, receiver_rank, comm, get_resource_method,
-            use_sparse_buffers);
+      for (int id = 0; id <= (BTYPE == BoundaryType::gmg_restrict_send); ++id) {
+        auto s_key = SendKey(pmb, nb, v, BTYPE, id);
+        const int tag = pmesh->tag_map.GetTag(pmb, nb, id);
+        if (buf_map.count(s_key) == 0)
+          buf_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
+              tag, sender_rank, receiver_rank, comm, get_resource_method,
+              use_sparse_buffers);
+      }
     }
 
     // Also build the non-local receive buffers here
     if constexpr (IsReceiver(BTYPE)) {
       if (sender_rank != receiver_rank) {
-        auto r_key = ReceiveKey(pmb, nb, v, BTYPE);
-        if (buf_map.count(r_key) == 0)
-          buf_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
-              tag, receiver_rank, sender_rank, comm, get_resource_method,
-              use_sparse_buffers);
+        for (int id = 0; id <= (BTYPE == BoundaryType::gmg_restrict_recv); ++id) {
+          auto r_key = ReceiveKey(pmb, nb, v, BTYPE, id);
+          const int tag = pmesh->tag_map.GetTag(pmb, nb, id);
+          if (buf_map.count(r_key) == 0)
+            buf_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
+                tag, receiver_rank, sender_rank, comm, get_resource_method,
+                use_sparse_buffers);
+        }
       }
     }
   });
