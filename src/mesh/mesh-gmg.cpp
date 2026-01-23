@@ -107,22 +107,25 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
 
   // See how many times we can go below logical level zero based on the
   // number of times a blocks zones can be reduced by 2^D
-  int gmg_level_offset = std::numeric_limits<int>::max();
+  int max_block_coarsenings = std::numeric_limits<int>::max();
   auto block_size_default = GetDefaultBlockSize();
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {
     if (!mesh_size.symmetry(dir)) {
       int dir_allowed_levels = NumberOfBinaryTrailingZeros(block_size_default.nx(dir));
-      gmg_level_offset = std::min(dir_allowed_levels, gmg_level_offset);
+      max_block_coarsenings = std::min(dir_allowed_levels, max_block_coarsenings);
     }
   }
-  gmg_min_level_ = -gmg_level_offset;
+  gmg_min_level_ = -max_block_coarsenings;
 
   // Populate a list of multigrid
   gmg_block_lists_.clear();
   gmg_grids_.clear();
   
+  PARTHENON_REQUIRE(base_block_coarsenings <= max_block_coarsenings,
+                    "Asking for more block coarsenings than are allowed by the chosen meshblock size.");
+
   // Add initially coarsened leaf grids first
-  for (int c = 0; c < std::min(base_block_coarsenings, gmg_level_offset); ++c) {
+  for (int c = 0; c < base_block_coarsenings; ++c) {
     const int gmg_level = GetGMGMaxLevel() - c;
     gmg_grids_[gmg_level] = GridIdentifier::leaf(gmg_level, c);
   }
