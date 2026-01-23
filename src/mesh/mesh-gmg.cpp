@@ -102,6 +102,104 @@ void Mesh::SetMeshBlockNeighbors(
   }
 }
 
+// Terminology and GridIdentifier conventions for Parthenon GMG on a forest-of-octrees AMR mesh
+//
+// The GMG hierarchy is constructed over two independent notions of coarsening:
+//
+//   (1) AMR/tree refinement, indexed by logical_level (Athena++ / Parthenon convention):
+//         - Larger logical_level => finer AMR blocks.
+//         - For a domain of size L in a given direction, the physical block size is
+//               L_block = L / 2^logical_level
+//           (ignoring that the domain is represented by a forest of octrees).
+//
+//   (2) In-block geometric coarsening, indexed by block_coarsenings:
+//         - Starting from an N^3 block, after block_coarsenings=k the block resolution is
+//               N_block = N / 2^k
+//           in each direction (conceptually N^3 -> (N/2)^3 -> (N/4)^3 -> ...).
+//
+// GridIdentifier specifies which *set of blocks* constitutes a grid, and whether that
+// grid participates in the GMG hierarchy (is_multigrid_).
+//
+// Important: multigrid_level ordering
+//   In this implementation, larger multigrid_level values are *finer*.
+//   The finest GMG grid corresponds to the finest level of the default Parthenon mesh,
+//   stored in Mesh::current_level. Coarser GMG levels decrease multigrid_level.
+//
+// Grid types:
+//
+//   GridType::leaf
+//     - Grid consisting only of AMR leaf blocks.
+//     - logical_level_ is not meaningful (sentinel), since leaves span multiple AMR levels.
+//     - block_coarsenings_ specifies in-block GMG coarsening.
+//     - Two cases exist:
+//         * Non-multigrid leaf grid (GridIdentifier::leaf()):
+//             - is_multigrid_ = false
+//             - Used for the base Parthenon grid on which the final solution is defined.
+//         * Multigrid leaf grid (GridIdentifier::leaf(mg_level, k)):
+//             - is_multigrid_ = true
+//             - Leaf-only GMG level with block_coarsenings = k.
+//
+//   GridType::two_level_composite
+//     - Composite GMG grid anchored at a target logical_level = ell.
+//     - Contains (all at the specified block_coarsenings):
+//         * level ell:
+//             - leaf blocks at logical_level ell, and
+//             - internal-node blocks at ell that are parents of finer-level leaf blocks
+//               (to maintain coverage and coupling across refinement boundaries);
+//         * level ell-1:
+//             - leaf blocks at logical_level ell-1, used to provide boundary conditions
+//               for the level-ell blocks.
+//     - logical_level_ stores ell (the fine level of the composite).
+//     - block_coarsenings_ specifies in-block GMG coarsening.
+//     - is_multigrid_ = true.
+//
+// GMG hierarchy construction:
+//
+//   The number of initial multigrid leaf grids is controlled by
+//
+//       parthenon/mesh/base_block_coarsenings = n_leaf
+//
+//   Let max_level denote the finest GMG multigrid_level (typically Mesh::current_level).
+//   The hierarchy consists of:
+//
+//     (A) Base (non-multigrid) leaf grid:
+//           leaf()
+//         This corresponds to the default Parthenon mesh resolution and is not part of GMG.
+//
+//     (B) n_leaf multigrid leaf grids with explicit coarsenings, ordered from fine to coarse
+//         by decreasing multigrid_level:
+//
+//           leaf(max_level,         0),
+//           leaf(max_level - 1,     1),
+//           ...
+//           leaf(max_level - (n_leaf - 1),  n_leaf - 1)
+//
+//     (C) Two-level composite grids, starting after the last leaf grid. The composite grids
+//         begin with block_coarsenings fixed at n_leaf (i.e., one more than the last leaf grid
+//         when n_leaf > 0), and proceed by moving up the AMR tree in logical_level.
+//
+//         During this phase, multigrid_level continues to decrease as grids become coarser,
+//         while block_coarsenings remains fixed at n_leaf and logical_level decreases
+//         (ell_max -> ... -> 0), e.g.:
+//
+//           two_level_composite(mg, ell_max,   n_leaf),
+//           two_level_composite(mg-1, ell_max-1, n_leaf),
+//           ...
+//           two_level_composite(..., 0,       n_leaf)
+//
+//     (D) After reaching the root (logical_level = 0), further GMG coarsening proceeds by
+//         increasing block_coarsenings at ell = 0:
+//
+//           two_level_composite(..., 0, n_leaf + 1),
+//           two_level_composite(..., 0, n_leaf + 2),
+//           ...
+//
+// Notes:
+//   - block_coarsenings_ refers exclusively to in-block GMG coarsening, not AMR refinement.
+//   - logical_level refers to AMR level; multigrid_level refers to GMG hierarchy index.
+//   - operator< orders GridIdentifier by GridType, then block_coarsenings, then logical_level,
+//     providing a stable ordering for associative containers.
+
 void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
   if (!multigrid) return;
 
