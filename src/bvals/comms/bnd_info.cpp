@@ -154,10 +154,14 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
                                 TopologicalOffsetK(el)};
   std::array<int, 3> block_offset = nb.offsets;
 
+  int communicated_ghosts = Globals::nghost;
+  if (!prores && loc.level() == nb.origin_loc.level() &&
+      v->IsSet(Metadata::CommunicateOne))
+    communicated_ghosts = 1;
   int interior_offset =
-      ir_type == IndexRangeType::BoundaryInteriorSend ? Globals::nghost : 0;
+      ir_type == IndexRangeType::BoundaryInteriorSend ? communicated_ghosts : 0;
   int exterior_offset =
-      ir_type == IndexRangeType::BoundaryExteriorRecv ? Globals::nghost : 0;
+      ir_type == IndexRangeType::BoundaryExteriorRecv ? communicated_ghosts : 0;
   if (prores) {
     // The coarse ghosts cover twice as much volume as the fine ghosts, so when working in
     // the exterior (i.e. ghosts) we must only go over the coarse ghosts that have
