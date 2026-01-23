@@ -94,7 +94,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
            const std::string &container_rhs, ParameterInput *pin,
            const std::string &input_block, equations_t eq_in = equations_t())
       : MGSolver(container_base, container_u, container_rhs, MGParams(pin, input_block),
-                 eq_in, prolongator_t(pin, input_block), restrictor_t(pin, input_block)) {}
+                 eq_in, prolongator_t(pin, input_block), restrictor_t(pin, input_block)) {
+  }
 
   MGSolver(const std::string &container_base, const std::string &container_u,
            const std::string &container_rhs, MGParams params_in,
@@ -555,8 +556,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
         communicate_to_coarse = tl.AddTask(
             residual, BTF(SendBoundBufsNoRestrict<BoundaryType::gmg_restrict_send>),
             md_u);
-        communicate_to_coarse = restrictor_.template Restrict<FieldTL>(
-            tl, communicate_to_coarse, md_res_err);
+        communicate_to_coarse =
+            restrictor_.template Restrict<FieldTL>(tl, communicate_to_coarse, md_res_err);
         communicate_to_coarse = tl.AddTask(
             communicate_to_coarse,
             BTF(SendBoundBufsNoRestrict<BoundaryType::gmg_restrict_send>), md_res_err);

@@ -96,7 +96,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   std::shared_ptr<parthenon::solvers::SolverBase> psolver;
   using prolongator_t = parthenon::solvers::ProlongationBlockInteriorZeroDirichlet;
   using restrictor_t = parthenon::solvers::RestrictionCombined;
-  using preconditioner_t = parthenon::solvers::MGSolver<PoissEq, prolongator_t, restrictor_t>;
+  using preconditioner_t =
+      parthenon::solvers::MGSolver<PoissEq, prolongator_t, restrictor_t>;
   if (solver == "MG") {
     psolver = std::make_shared<parthenon::solvers::MGSolver<PoissEq, prolongator_t>>(
         "base", "u", "rhs", pin, "poisson/solver_params", PoissEq(pin, "poisson"));
