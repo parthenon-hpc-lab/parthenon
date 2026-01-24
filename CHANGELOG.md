@@ -10,7 +10,8 @@
 - [[PR 1355]](https://github.com/parthenon-hpc-lab/parthenon/pull/1355) Allow disabling format and lint targets
 
 ### Fixed (not changing behavior/API/variables/...)
-- [[PR 1345]](https://github.com/parthenon-hpc-lab/parthenon/pull/1345) Coalesce dot product reductions and speed up kernels
+- [[PR 1345]](https://github.com/parthenon-hpc-lab/parthenon/pull/1345) Coalesce dot product reductions and speed up kernel
+- [[PR 1360]](https://github.com/parthenon-hpc-lab/parthenon/pull/1360) Fix boundary cache clearing in different MeshData partitions
 
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[1356]](https://github.com/parthenon-hpc-lab/parthenon/pull/1356) Implement ObjectPoolMap type
