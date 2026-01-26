@@ -22,6 +22,7 @@
 
 #include "kokkos_abstraction.hpp"
 #include "utils/reductions.hpp"
+#include "utils/summable_array.hpp"
 
 #define PARTHENON_INTERNALSOLVERVARIABLE(base, varname)                                  \
   struct varname : public parthenon::variable_names::base_t<false> {                     \
@@ -551,44 +552,6 @@ TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
   return finish_global_adotb;
 }
 
-template <class T, std::size_t N>
-struct summable_array_t {
-  using value_type = T;
-  value_type data_[N];
-
-  // Kokkos reduction requirements
-  KOKKOS_INLINE_FUNCTION
-  summable_array_t() { init(); }
-
-  KOKKOS_INLINE_FUNCTION
-  summable_array_t(const summable_array_t &rhs) {
-    for (int i = 0; i < N; i++)
-      data_[i] = rhs.data_[i];
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  void init() {
-    for (int i = 0; i < N; i++)
-      data_[i] = 0;
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  summable_array_t &operator+=(const summable_array_t &src) {
-    for (int i = 0; i < N; i++)
-      data_[i] += src.data_[i];
-    return *this;
-  }
-
-  value_type &operator[](std::size_t i) { return data_[i]; }
-  const value_type &operator[](std::size_t i) const { return data_[i]; }
-
-  // Contiguous container requirements
-  KOKKOS_INLINE_FUNCTION
-  std::size_t size() const { return N; }
-
-  value_type *data() { return data_; }
-};
-
 template <class TL>
 TaskStatus DoubleDotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
                                  const std::shared_ptr<MeshData<Real>> &md_b,
@@ -647,17 +610,5 @@ TaskID DoubleDotProduct(TaskID dependency_in, TaskList &tl,
 } // namespace solvers
 
 } // namespace parthenon
-
-namespace Kokkos { // reduction identity must be defined in Kokkos namespace
-template <>
-struct reduction_identity<
-    parthenon::solvers::utils::summable_array_t<parthenon::Real, 2>> {
-  KOKKOS_FORCEINLINE_FUNCTION static parthenon::solvers::utils::summable_array_t<
-      parthenon::Real, 2>
-  sum() {
-    return parthenon::solvers::utils::summable_array_t<parthenon::Real, 2>();
-  }
-};
-} // namespace Kokkos
 
 #endif // SOLVERS_SOLVER_UTILS_HPP_
