@@ -773,7 +773,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
                                                   oloc, var.get(), this));
       }
     }
-  }    // AMR Send region
+  } // AMR Send region
 #endif // MPI_PARALLEL
 
   // Construct a new MeshBlock list (moving the data within the MPI rank)

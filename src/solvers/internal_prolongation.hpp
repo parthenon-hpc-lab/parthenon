@@ -201,7 +201,24 @@ class ProlongationBlockInteriorZeroDirichlet {
         });
     return TaskStatus::complete;
   }
+};
 
+// This is just an empty class without a Restrict method, which will trigger 
+// calling the default restriction machinery in multigrid
+class RestrictionDefault {
+ public:
+  RestrictionDefault() = default;
+  RestrictionDefault(parthenon::ParameterInput *pin,
+                     const std::string &label){}
+};
+
+class RestrictionCombined {
+ public:
+
+  RestrictionCombined() = default;
+  RestrictionCombined(parthenon::ParameterInput *pin,
+                      const std::string &label){}
+  
   template <class VarTL>
   parthenon::TaskID Restrict(parthenon::TaskList &tl, parthenon::TaskID depends_on,
                              std::shared_ptr<parthenon::MeshData<Real>> &md) {

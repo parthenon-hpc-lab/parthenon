@@ -163,19 +163,29 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     iter_counter = 0;
     bool multilevel = pmesh->multilevel;
 
-    // Initialization: x <- 0, r <- rhs, rhat0 <- rhs,
+    // Initialization: x <- 0, r <- rhs, rhat0 <- r,
     // rhat0r_old <- (rhat0, r), p <- r, u <- 0
-    auto zero_x = tl.AddTask(dependence, TF(SetToZero<FieldTL>), md_x);
-    auto zero_u_init = tl.AddTask(dependence, TF(SetToZero<FieldTL>), md_u);
-    auto copy_r = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_r);
-    auto copy_p = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_p);
-    auto copy_rhat0 = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_rhat0);
+    auto initialize = dependence;
+    if (initial_guess_is_zero) {
+      auto zero_x = tl.AddTask(dependence, TF(SetToZero<FieldTL>), md_x);
+      auto zero_u_init = tl.AddTask(dependence, TF(SetToZero<FieldTL>), md_u);
+      auto copy_r = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_r);
+      initialize = zero_x | zero_u_init | copy_r;
+    } else {
+      auto copy_x = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_u, md_x);
+      auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(copy_x, tl, md_u,
+                                                              multilevel, BCFunc);
+      auto get_Ax = eqs_.Ax(tl, comm, md_base, md_u, md_r);
+      initialize =
+          tl.AddTask(get_Ax, AddFieldsAndStore<FieldTL>, md_rhs, md_r, md_r, 1.0, -1.0);
+    }
+    auto copy_p = tl.AddTask(initialize, TF(CopyData<FieldTL>), md_r, md_p);
+    auto copy_rhat0 = tl.AddTask(initialize, TF(CopyData<FieldTL>), md_r, md_rhat0);
     auto get_rhs2_rhat0r_init =
-        DoubleDotProduct<FieldTL>(dependence, tl, &res_rhat0r, md_r, md_rhat0);
-    auto initialize = tl.AddTask(
+        DoubleDotProduct<FieldTL>(initialize, tl, &res_rhat0r, md_r, md_rhat0);
+    initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
-        zero_x | zero_u_init | copy_r | copy_p | copy_rhat0 | get_rhs2_rhat0r_init,
-        "zero factors",
+        initialize | copy_p | copy_rhat0 | get_rhs2_rhat0r_init, "zero factors",
         [](BiCGSTABSolver *solver) {
           solver->iter_counter = -1;
           solver->rhs2 = solver->res_rhat0r.val[0];
@@ -196,7 +206,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
           }
           return TaskStatus::complete;
         },
-        this, params_.residual_tolerance, params_.relative_residual, pmesh);
+        this, params_.residual_tolerance, params_.relative_residual, pmesh); 
+   
 
     // BEGIN ITERATIVE TASKS
     auto [itl, solver_id] = tl.AddSublist(initialize, {1, params_.max_iters});
