@@ -22,6 +22,7 @@
 
 #include "kokkos_abstraction.hpp"
 #include "utils/reductions.hpp"
+#include "utils/summable_array.hpp"
 
 #define PARTHENON_INTERNALSOLVERVARIABLE(base, varname)                                  \
   struct varname : public parthenon::variable_names::base_t<false> {                     \
@@ -514,16 +515,13 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
   auto pack_a = desc.GetPack(md_a.get());
   auto pack_b = desc.GetPack(md_b.get());
   Real gsum(0);
+  const int nvars = pack_a.GetUpperBoundHost(0) - pack_a.GetLowerBoundHost(0) + 1;
   parthenon::par_reduce(
       parthenon::loop_pattern_mdrange_tag, "DotProduct", DevExecSpace(), 0,
-      pack_a.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
-        const int nvars = pack_a.GetUpperBound(b) - pack_a.GetLowerBound(b) + 1;
-        // TODO(LFR): If this becomes a bottleneck, exploit hierarchical parallelism and
-        //            pull the loop over vars outside of the innermost loop to promote
-        //            vectorization.
-        for (int c = 0; c < nvars; ++c)
-          lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i);
+      pack_a.GetNBlocks() - 1, 0, nvars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int c, const int k, const int j, const int i,
+                    Real &lsum) {
+        lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i);
       },
       Kokkos::Sum<Real>(gsum));
   adotb->val += gsum;
@@ -549,6 +547,58 @@ TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
   auto finish_global_adotb =
       tl.AddTask(TaskQualifier::once_per_region | TaskQualifier::local_sync,
                  start_global_adotb, &AllReduce<Real>::CheckReduce, adotb);
+  return finish_global_adotb;
+}
+
+template <class TL>
+TaskStatus DoubleDotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
+                                 const std::shared_ptr<MeshData<Real>> &md_b,
+                                 AllReduce<summable_array_t<Real, 2>> *adotb) {
+  using TE = parthenon::TopologicalElement;
+  IndexRange ib = md_a->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = md_a->GetBoundsK(IndexDomain::interior);
+
+  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());
+  auto pack_a = desc.GetPack(md_a.get());
+  auto pack_b = desc.GetPack(md_b.get());
+  summable_array_t<Real, 2> gsum;
+  const int nvars = pack_a.GetUpperBoundHost(0) - pack_a.GetLowerBoundHost(0) + 1;
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag, "DotProduct", DevExecSpace(), 0,
+      pack_a.GetNBlocks() - 1, 0, nvars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int c, const int k, const int j, const int i,
+                    summable_array_t<Real, 2> &lsum) {
+        lsum[0] += pack_a(b, c, k, j, i) * pack_a(b, c, k, j, i);
+        lsum[1] += pack_a(b, c, k, j, i) * pack_b(b, c, k, j, i);
+      },
+      Kokkos::Sum<summable_array_t<Real, 2>>(gsum));
+  adotb->val += gsum;
+  return TaskStatus::complete;
+}
+
+template <class TL>
+TaskID DoubleDotProduct(TaskID dependency_in, TaskList &tl,
+                        AllReduce<summable_array_t<Real, 2>> *adotb,
+                        const std::shared_ptr<MeshData<Real>> &md_a,
+                        const std::shared_ptr<MeshData<Real>> &md_b) {
+  using namespace impl;
+  using value_t = summable_array_t<Real, 2>;
+
+  auto zero_adotb = tl.AddTask(
+      TaskQualifier::once_per_region | TaskQualifier::local_sync, dependency_in,
+      [](AllReduce<value_t> *r) {
+        r->val.init();
+        return TaskStatus::complete;
+      },
+      adotb);
+  auto get_adotb = tl.AddTask(TaskQualifier::local_sync, zero_adotb,
+                              DoubleDotProductLocal<TL>, md_a, md_b, adotb);
+  auto start_global_adotb = tl.AddTask(TaskQualifier::once_per_region, get_adotb,
+                                       &AllReduce<value_t>::StartReduce, adotb, MPI_SUM);
+  auto finish_global_adotb =
+      tl.AddTask(TaskQualifier::once_per_region | TaskQualifier::local_sync,
+                 start_global_adotb, &AllReduce<value_t>::CheckReduce, adotb);
   return finish_global_adotb;
 }
 
