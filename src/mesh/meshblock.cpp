@@ -90,8 +90,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   this->resolved_packages = resolved_packages;
   cost_ = icost;
   
-  if(pm)
-    is_leaf_ll_ = pm->forest.IsLeaf(iloc);
+  if(pm) is_leaf_ll_ = pm->forest.IsLeaf(iloc);
   
   // initialize grid indices
   if (pmy_mesh->ndim >= 3) {
