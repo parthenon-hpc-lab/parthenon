@@ -40,7 +40,9 @@ class Driver {
   Driver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
       : pinput(pin), app_input(app_in), pmesh(pm), mbcnt_prev(), time_LBandAMR() {}
   virtual DriverStatus Execute() = 0;
-  void InitializeOutputs() { pouts = std::make_unique<Outputs>(pmesh, pinput); }
+  void InitializeOutputs() {
+    pouts = std::make_unique<Outputs>(pmesh, pinput, app_input);
+  }
   void DumpInputParameters();
 
   ParameterInput *pinput;
@@ -121,7 +123,7 @@ class EvolutionDriver : public Driver {
     const auto nout_mesh = pinput->GetOrAddInteger("parthenon/time", "ncycle_out_mesh", 0,
                                                    "cadence of outputs describing mesh");
     tm = SimTime(start_time, tstop, nmax, ncycle, nout, nout_mesh, dt);
-    pouts = std::make_unique<Outputs>(pmesh, pinput, &tm);
+    pouts = std::make_unique<Outputs>(pmesh, pinput, app_in, &tm);
 
     output_before_amr = pinput->GetOrAddBoolean(
         "parthenon/time", "output_before_amr", false,

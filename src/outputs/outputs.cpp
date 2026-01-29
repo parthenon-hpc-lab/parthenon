@@ -69,12 +69,13 @@
 #include <string>
 #include <vector>
 
+#include "application_input.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
+#include "interface/outputs.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
-#include "outputs/output_parameters.hpp"
 #include "pack/swarm_default_names.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -91,7 +92,7 @@ OutputType::OutputType(OutputParameters oparams) : output_params(oparams), num_v
 //----------------------------------------------------------------------------------------
 // Outputs constructor
 
-Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
+Outputs::Outputs(Mesh *pm, ParameterInput *pin, ApplicationInput *papp_in, SimTime *tm) {
   std::stringstream msg;
   // We should only have at most one each of these output types. Count
   // them so we can raise an error.
@@ -365,6 +366,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
           << std::endl;
       PARTHENON_FAIL(msg);
 #endif // ifdef ENABLE_HDF5
+      // } else if (op.file_type == "user") {
+      // pnew_type = std::make_shared<UserOutput>(op);
     } else if (is_hdf5_output) {
       restart = (op.file_type == "rst");
       const bool coredump = (op.file_type == "corehdf5");
@@ -389,11 +392,18 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
           << std::endl;
       PARTHENON_FAIL(msg);
 #endif // ifdef ENABLE_HDF5
+       // Finally, check if block is an enrolled user output.
     } else {
-      msg << "### FATAL ERROR in Outputs constructor" << std::endl
-          << "Unrecognized file format = '" << op.file_type << "' in output block '"
-          << op.block_name << "'" << std::endl;
-      PARTHENON_FAIL(msg);
+      pnew_type = papp_in->GetUserOutput(op.file_type);
+      if (pnew_type) {
+        // Update empty OutputParams op with actual ones
+        pnew_type->output_params = op;
+      } else {
+        msg << "### FATAL ERROR in Outputs constructor" << std::endl
+            << "Unrecognized file format = '" << op.file_type << "' in output block '"
+            << op.block_name << "'" << std::endl;
+        PARTHENON_FAIL(msg);
+      }
     }
 
     // Append type

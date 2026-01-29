@@ -19,6 +19,7 @@
 import numpy as np
 from numpy.lib.recfunctions import structured_to_unstructured
 
+import os
 import sys
 import utils.test_case
 
@@ -55,7 +56,33 @@ class TestCase(utils.test_case.TestCaseAbs):
                 [-0.1, 0.3, 0.475, 0.0, 0.0, 0.5],
             ]
         )
+
+        success = True
         if ref_data.shape != final_data.shape:
             print("TEST FAIL: Mismatch between actual and reference data shape.")
-            return False
-        return (np.abs(final_data - ref_data) <= 1e-10).all()
+            success = False
+        if not (np.abs(final_data - ref_data) <= 1e-10).all():
+            print("TEST FAIL: Error between actual and reference data too large.")
+            success = False
+
+        if not os.path.isfile("user_output.0"):
+            print("TEST FAIL: Missing initial custom enrolled user output.")
+            success = False
+        else:
+            with open("user_output.0", "r") as infile:
+                line = infile.readline()
+                if line != "cycle = 0":
+                    print("TEST FAIL: Wrong content in initial user outfile.", line)
+                    success = False
+
+        if not os.path.isfile("user_output.1"):
+            print("TEST FAIL: Missing final custom enrolled user output.")
+            success = False
+        else:
+            with open("user_output.1", "r") as infile:
+                line = infile.readline()
+                if line != "cycle = 50":
+                    print("TEST FAIL: Wrong content in final user outfile.", line)
+                    success = False
+
+        return success

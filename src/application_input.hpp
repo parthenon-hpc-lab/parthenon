@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2026 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -22,6 +26,7 @@
 #include "basic_types.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "defs.hpp"
+#include "interface/outputs.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
@@ -93,9 +98,16 @@ class ApplicationInput {
   BValFunc GetBoundaryCondition(BoundaryFace face, const std::string &name) const;
   SBValFunc GetSwarmBoundaryCondition(BoundaryFace face, const std::string &name) const;
 
+  // Custom user outputs
+  void RegisterUserOutput(const std::string &name,
+                          std::shared_ptr<OutputType> output_type);
+  std::shared_ptr<OutputType> GetUserOutput(const std::string &name);
+
  private:
   Dictionary<BValFunc> boundary_conditions_[BOUNDARY_NFACES];
   Dictionary<SBValFunc> swarm_boundary_conditions_[BOUNDARY_NFACES];
+
+  Dictionary<std::shared_ptr<OutputType>> user_outputs_;
 };
 
 } // namespace parthenon

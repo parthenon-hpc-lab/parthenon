@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2026 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -11,6 +15,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <memory>
 #include <string>
 
 #include "application_input.hpp"
@@ -102,6 +107,27 @@ SBValFunc ApplicationInput::GetSwarmBoundaryCondition(BoundaryFace face,
     PARTHENON_THROW(msg);
   }
   return swarm_boundary_conditions_[face].at(name);
+}
+void ApplicationInput::RegisterUserOutput(const std::string &name,
+                                          std::shared_ptr<OutputType> output_type) {
+  PARTHENON_REQUIRE_THROWS(!(name == "hst" || name == "rst" || name == "hdf5" ||
+                             name == "corehdf5" || name == "histogram" ||
+                             name == "ascent"),
+                           "Trying to enroll UserOutput with name in conflict with "
+                           "internal Parthenon file_type.");
+  if (user_outputs_.count(name) > 0) {
+    PARTHENON_THROW("User OutputType " + name + " already registered.");
+  }
+  user_outputs_[name] = output_type;
+}
+
+// Returns pointer to user output (if it exists) or nullptr if not found.
+std::shared_ptr<OutputType> ApplicationInput::GetUserOutput(const std::string &name) {
+  if (user_outputs_.count(name) == 0) {
+    return nullptr;
+  } else {
+    return user_outputs_[name];
+  }
 }
 
 } // namespace parthenon

@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2025 The Parthenon collaboration
+// Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // Athena++ astrophysical MHD code
@@ -31,12 +31,13 @@
 
 #include "Kokkos_ScatterView.hpp"
 
+#include "application_input.hpp"
 #include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
 #include "interface/mesh_data.hpp"
+#include "interface/outputs.hpp"
 #include "io_wrapper.hpp"
 #include "kokkos_abstraction.hpp"
-#include "outputs/output_parameters.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
 
@@ -45,42 +46,6 @@ namespace parthenon {
 // forward declarations
 class Mesh;
 class ParameterInput;
-
-//----------------------------------------------------------------------------------------
-//  \brief abstract base class for different output types (modes/formats). Each OutputType
-//  is designed to be a node in a singly linked list created & stored in the Outputs class
-
-class OutputType {
- public:
-  // mark single parameter constructors as "explicit" to prevent them from acting as
-  // implicit conversion functions: for f(OutputType arg), prevent f(anOutputParameters)
-  explicit OutputType(OutputParameters oparams);
-
-  // rule of five:
-  virtual ~OutputType() = default;
-  // copied)
-  OutputType(const OutputType &copy_other) = default;
-  OutputType &operator=(const OutputType &copy_other) = default;
-  // move constructor and assignment operator
-  OutputType(OutputType &&) = default;
-  OutputType &operator=(OutputType &&) = default;
-
-  // data
-  OutputParameters output_params; // control data read from <output> block
-
-  // following pure virtual function must be implemented in all derived classes
-  virtual void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
-                               const SignalHandler::OutputSignal signal) = 0;
-  virtual void WriteContainer(SimTime &tm, Mesh *pm, ParameterInput *pin, bool flag) {
-    return;
-  }
-
- protected:
-  int num_vars_; // number of variables in output
-
-  // Update book-keeping such as next output time to next output
-  void UpdateNextOutput_(Mesh *pm, SimTime *tm);
-};
 
 //----------------------------------------------------------------------------------------
 // Helper definitions to enroll user output variables
@@ -250,7 +215,8 @@ class HistogramOutput : public OutputType {
 
 class Outputs {
  public:
-  Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm = nullptr);
+  Outputs(Mesh *pm, ParameterInput *pin, ApplicationInput *papp_in,
+          SimTime *tm = nullptr);
 
   void
   MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm = nullptr,

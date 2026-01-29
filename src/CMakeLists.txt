@@ -146,6 +146,7 @@ add_library(parthenon
   interface/meshblock_data.hpp
   interface/metadata.cpp
   interface/metadata.hpp
+  interface/outputs.hpp
   interface/packages.hpp
   interface/params.cpp
   interface/params.hpp
@@ -202,7 +203,6 @@ add_library(parthenon
   outputs/outputs.hpp
   outputs/outputs_package.cpp
   outputs/outputs_package.hpp
-  outputs/output_parameters.hpp
   outputs/parthenon_hdf5.cpp
   outputs/parthenon_hdf5_attributes.cpp
   outputs/parthenon_hdf5_attributes_read.cpp

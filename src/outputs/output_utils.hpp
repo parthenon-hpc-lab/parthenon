@@ -36,12 +36,12 @@
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "interface/metadata.hpp"
+#include "interface/outputs.hpp"
 #include "interface/variable.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
-#include "outputs/output_parameters.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
