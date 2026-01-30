@@ -94,6 +94,8 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   using namespace loops::shorthands;
   Mesh *pmesh = md->GetMeshPointer();
 
+  pcache->clear();
+
   std::vector<std::tuple<int, int, Mesh::channel_key_t>> key_order;
 
   int boundary_idx = 0;
@@ -141,6 +143,7 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
           Kokkos::create_mirror_view(pcache->sending_non_zero_flags);
     }
   }
+  pcache->epoch = comm_map->GetCurrentEpoch();
 }
 
 template <BoundaryType BOUND_TYPE, bool SENDER>

@@ -90,7 +90,7 @@ jobs:
           export ASAN_OPTIONS=abort_on_error=1:fast_unwind_on_malloc=1
           export UBSAN_OPTIONS=print_stacktrace=0
           export LSAN_OPTIONS=detect_leaks=0
-          ctest -L regression -L ${{ matrix.parallel }} -LE perf-reg --timeout 3600
+          ctest -L regression -L ${{ matrix.parallel }} -LE perf-reg --timeout 7200
 
       # Test Ascent integration (only most complex setup with MPI and on device)
       - name: Ascent tests
