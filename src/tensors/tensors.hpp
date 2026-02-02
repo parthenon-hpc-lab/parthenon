@@ -168,6 +168,24 @@ class TensorTrain {
     return cores_host_(core_index).GetPhysicalIndexSize();
   }
 
+  // get largest left rank
+  std::size_t GetMaximumLeftRank() const {
+    std::size_t max_left_rank = 0;
+    for (int i = 0; i < GetNumCores(); i++) {
+      max_left_rank = std::max(max_left_rank, GetLeftRank(i));
+    }
+    return max_left_rank;
+  }
+
+  // get largest right rank
+  std::size_t GetMaximumRightRank() const {
+    std::size_t max_right_rank = 0;
+    for (int i = 0; i < GetNumCores(); i++) {
+      max_right_rank = std::max(max_right_rank, GetRightRank(i));
+    }
+    return max_right_rank;
+  }
+
   // Evaluates the tensor train and returns the dense array it
   // represents as a Kokkos view. This is mostly for debugging!
   // TODO(JMM): I am giving up on doing this generically. It's not
@@ -221,6 +239,10 @@ class TensorTrain {
           }
         });
   }
+
+  // Gram-SVD TT rounding with tolerance eps. Reduces TT ranks while
+  // preserving the tensor up to Frobenius error eps.
+  void GramSVDRound(const Real eps);
 
  private:
   std::string label_;
