@@ -1,7 +1,7 @@
 #ifndef IMPLICIT_QR_HPP
 #define IMPLICIT_QR_HPP
 
-#include <parthenon/parthenon.hpp>
+#include "parthenon/parthenon.hpp"
 
 #include "givens.hpp"
 #include "householder.hpp"

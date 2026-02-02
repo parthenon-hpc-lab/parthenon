@@ -1,7 +1,7 @@
 #ifndef SYMMETRIC_EVD_HPP
 #define SYMMETRIC_EVD_HPP
 
-#include <parthenon/parthenon.hpp>
+#include "parthenon/parthenon.hpp"
 
 #include "householder.hpp"
 #include "implicit_qr.hpp"

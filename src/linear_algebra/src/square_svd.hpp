@@ -1,7 +1,7 @@
 #ifndef SQUARE_SVD_HPP
 #define SQUARE_SVD_HPP
 
-#include <parthenon/parthenon.hpp>
+#include "parthenon/parthenon.hpp"
 
 #include "householder.hpp"
 #include "implicit_qr.hpp"

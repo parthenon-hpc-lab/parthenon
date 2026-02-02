@@ -1,3 +1,0 @@
-[submodule "external/parthenon"]
-	path = external/parthenon
-	url = https://github.com/parthenon-hpc-lab/parthenon.git

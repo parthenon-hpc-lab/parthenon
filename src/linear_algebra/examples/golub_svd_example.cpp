@@ -3,7 +3,7 @@
 #include <tuple>
 #include <vector>
 
-#include <parthenon/parthenon.hpp>
+#include "parthenon/parthenon.hpp"
 
 #include "matrix.hpp"
 #include "square_svd.hpp"

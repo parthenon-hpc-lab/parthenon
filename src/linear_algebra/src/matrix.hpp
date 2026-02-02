@@ -4,7 +4,7 @@
 #include <iosfwd>
 #include <vector>
 
-#include <parthenon/parthenon.hpp>
+#include "parthenon/parthenon.hpp"
 
 using Vector = std::vector<double>;
 using serial_tm_t = int; // TODO: parthenon::team_mbr_t;

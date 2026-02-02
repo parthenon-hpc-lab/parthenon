@@ -3,7 +3,7 @@
 #include <tuple>
 #include <vector>
 
-#include <parthenon/parthenon.hpp>
+#include "parthenon/parthenon.hpp"
 
 #include "symmetric_evd.hpp"
 
