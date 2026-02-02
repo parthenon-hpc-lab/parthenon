@@ -5,7 +5,7 @@
 
 #include "parthenon/parthenon.hpp"
 
-#include "symmetric_evd.hpp"
+#include "linear_algebra/symmetric_evd.hpp"
 
 int main(int argc, char *argv[]) {
   Kokkos::ScopeGuard guard(argc, argv);

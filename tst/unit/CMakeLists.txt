@@ -47,6 +47,8 @@ list(APPEND unit_tests_SOURCES
     test_tensors.cpp
     test_unit_integrators.cpp
     test_upper_bound.cpp
+    test_svd.cpp
+    test_implicit_qr.cpp
 )
 
 add_executable(unit_tests "${unit_tests_SOURCES}")

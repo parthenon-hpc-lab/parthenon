@@ -167,6 +167,15 @@ add_library(parthenon
   interface/variable.cpp
   interface/variable.hpp
 
+  linear_algebra/givens.hpp
+  linear_algebra/householder.hpp
+  linear_algebra/implicit_qr.hpp
+  linear_algebra/matrix.cpp
+  linear_algebra/matrix.hpp
+  linear_algebra/qr_decomposition.hpp
+  linear_algebra/square_svd.hpp
+  linear_algebra/symmetric_evd.hpp
+
   mesh/domain.hpp
   mesh/forest/block_ownership.cpp
   mesh/forest/block_ownership.hpp

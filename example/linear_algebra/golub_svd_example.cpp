@@ -5,8 +5,8 @@
 
 #include "parthenon/parthenon.hpp"
 
-#include "matrix.hpp"
-#include "square_svd.hpp"
+#include "linear_algebra/matrix.hpp"
+#include "linear_algebra/square_svd.hpp"
 
 int main(int argc, char *argv[]) {
   Kokkos::ScopeGuard guard(argc, argv);

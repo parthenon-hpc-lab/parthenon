@@ -4,10 +4,11 @@
 #include <random>
 #include <vector>
 
-#include <catch2/catch_test_macros.hpp>
+//#include <catch2/catch_test_macros.hpp>
+#include <catch2/catch.hpp>
 
-#include "matrix.hpp"
-#include "symmetric_evd.hpp"
+#include "linear_algebra/matrix.hpp"
+#include "linear_algebra/symmetric_evd.hpp"
 
 static double FrobeniusNorm(const Matrix &A) {
   double s = 0.0;

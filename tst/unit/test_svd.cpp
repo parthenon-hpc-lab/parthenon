@@ -5,11 +5,12 @@
 #include <random>
 #include <vector>
 
-#include <catch2/catch_test_macros.hpp>
+//#include <catch2/catch_test_macros.hpp>
+#include <catch2/catch.hpp>
 
-#include "matrix.hpp"
-#include "square_svd.hpp"
-#include "symmetric_evd.hpp"
+#include "linear_algebra/matrix.hpp"
+#include "linear_algebra/square_svd.hpp"
+#include "linear_algebra/symmetric_evd.hpp"
 
 // ---------- basic norms / helpers ----------
 
