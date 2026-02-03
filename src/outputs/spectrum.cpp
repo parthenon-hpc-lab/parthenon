@@ -41,6 +41,7 @@
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/FFTManager.hpp"
+#include "heffte.h"
 
 namespace parthenon {
 
@@ -52,6 +53,9 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                      const SignalHandler::OutputSignal signal) {
                                         
   const auto spec_type = pin->GetInteger("parthenon/output4", "spec_type"); // How to make this work so that it doesn't have to be output4?
+  
+  auto FFTManager = pm->GetFFTManager();
+  auto UniformGridHelper = pm->GetUniformGridHelper();
 
   auto &md = pm->mesh_data.Get();
 
@@ -159,17 +163,8 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   heffte::box3d<> real_indexes({0, 0, 0}, {Nx - 1, Ny - 1, Nz - 1});
   heffte::box3d<> complex_indexes({0, 0, 0}, {(Nx)/2, Ny - 1, Nz - 1});
 
-  std::cout << "Defined heffte boxes\n";
   // check if the complex indexes have correct dimension
   assert(real_indexes.r2c(r2c_direction) == complex_indexes);
-  std::cout << "Checked heffte boxes\n";
-  // report the indexes
-  if (parthenon::Globals::my_rank == 0) {
-    std::cout << "The global input contains " << real_indexes.count()
-              << " real indexes.\n";
-    std::cout << "The global output contains " << complex_indexes.count()
-              << " complex indexes.\n";
-  }
 
   // Set local real indices based on the local infos
   // Need to use legacy locations from above (which are global) because locations now

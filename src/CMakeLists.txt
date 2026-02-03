@@ -364,6 +364,14 @@ target_include_directories(parthenon PRIVATE ${HEFFTE_INCLUDE_DIR})
 # Link library to the target
 target_link_libraries(parthenon PRIVATE ${HEFFTE_LIBRARY})
 
+find_package(CUDAToolkit REQUIRED)
+
+target_link_libraries(parthenon
+  PRIVATE
+    CUDA::cufft
+)
+
+
 if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
   target_compile_options(parthenon PUBLIC -std=c++1y -qxflag=disable__cplusplusOverride)
 endif()
