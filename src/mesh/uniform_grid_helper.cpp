@@ -14,7 +14,7 @@ void UniformGridHelper::Initialize() {
     global_mesh_size[1] = mesh_size.nx(X2DIR);
     global_mesh_size[2] = mesh_size.nx(X3DIR);
     
-    parthenon::ParArray2D<std::int64_t> loc_view = parthenon::ParArray2D<std::int64_t>("logical location of local blocks",
+    loc_view = parthenon::ParArray2D<std::int64_t>("logical location of local blocks",
                                                 mesh_->GetNumMeshBlocksThisRank(), 3); 
     auto loc_view_h = loc_view.GetHostMirror();
 

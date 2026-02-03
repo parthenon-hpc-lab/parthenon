@@ -17,11 +17,11 @@ public:
 
   void Initialize();
 
-  void Forward(const ParArray1D<double> &input,
-               ParArray1D<std::complex<double>> &output);
+  void Forward(const double* input,
+               std::complex<double>* output);
 
-  void Backward(const ParArray1D<std::complex<double>> &input,
-                ParArray1D<double> &output);
+  void Backward(const std::complex<double>* input,
+                double* output);
   // -----------------------------
   // Box info 
   // -----------------------------

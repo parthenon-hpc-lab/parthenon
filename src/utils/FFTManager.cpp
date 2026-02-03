@@ -12,12 +12,14 @@ struct FFTManager::Impl {
 #endif
 
     heffte::fft3d_r2c<BackendTag> fft_plan;
+    ParArray1D<std::complex<double>> workspace_;
 
     Impl(const heffte::box3d<> &real_space_box,
          const heffte::box3d<> &fourier_space_box,
          int r2c_direction,
          MPI_Comm comm)
-        : fft_plan(real_space_box, fourier_space_box, r2c_direction, comm) {}
+        : fft_plan(real_space_box, fourier_space_box, r2c_direction, comm),
+        workspace_("fft workspace", fft_plan.size_workspace()) {}
 };
 
 FFTManager::FFTManager(Mesh *mesh) : mesh_(mesh) {}
@@ -66,16 +68,16 @@ void FFTManager::Initialize() {
 // -----------------------------
 // Forward / Backward
 // -----------------------------
-void FFTManager::Forward(const parthenon::ParArray1D<double> &input,
-                         parthenon::ParArray1D<std::complex<double>> &output) {
+void FFTManager::Forward(const double* input,
+                         std::complex<double>* output) {
     Initialize();
-    impl_->fft_plan.forward(input.data(), output.data());
+    impl_->fft_plan.forward(input, output, impl_->workspace_.data(), heffte::scale::full); // r2c needs a workspace, c2r does not
 }
 
-void FFTManager::Backward(const parthenon::ParArray1D<std::complex<double>> &input,
-                          parthenon::ParArray1D<double> &output) {
+void FFTManager::Backward(const std::complex<double>* input,
+                          double* output) {
     Initialize();
-    impl_->fft_plan.backward(input.data(), output.data());
+    impl_->fft_plan.backward(input, output, heffte::scale::full); // r2c needs a workspace, c2r does not
 }
 
 // -----------------------------
