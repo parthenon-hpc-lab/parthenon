@@ -13,6 +13,8 @@
 
 #include <vector>
 
+#include "linear_algebra/symmetric_evd.hpp"
+#include "linear_algebra/square_svd.hpp"
 #include "tensors/tensors.hpp"
 
 namespace parthenon {
@@ -125,21 +127,14 @@ void TensorTrain::GramSVDRound(const Real eps) {
       scratch_size,
       scratch_level, 0, 1, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int dummy) {
 
+      auto &ts = member.team_scratch(scratch_level);
+
       // assign scratch space for right Gram matrices
-      ScratchPad3D<Real> GR( member.team_scratch(scratch_level), Ngram, GN, GN);
-      ScratchPad3D<Real> GL( member.team_scratch(scratch_level), Ngram, GN, GN);
+      ScratchPad3D<Real> GR(ts, Ngram, GN, GN);
+      ScratchPad3D<Real> GL(ts, Ngram, GN, GN);
 
       // pull out cores object
       auto cores = cores_device_;
-
-      // zero Gram matrices
-      for (int k = 0; k < Ngram; ++k) {
-        for (int j = 0; j < max_right_rank; ++j) {
-          for (int i = 0; i < max_right_rank; ++i) {
-            GR(k, j, i) = 0.;
-          }
-        }
-      }
 
       // compute all the right Gram matrices (recursive sweep from right to
       // left)
@@ -148,21 +143,20 @@ void TensorTrain::GramSVDRound(const Real eps) {
       for (int n = Ngram-2; n >= 0; --n) {
 
         // loop over elements of this Gram matrix
+        // TODO experiment with patterns for reductions to find what is optimal
         for (int a = 0; a < cores(n).GetRightRank(); a++) {
           for (int ap = 0; ap < cores(n).GetRightRank(); ap++) {
 
           // perform the contraction; we could do this with par reduce inner
           // only over the physical index (which is the fastest moving) but
           // that would come at the expense of more reductions
+          // TODO put the inner loops into the par for inner
           Real accum{0.};
-          par_reduce_inner(parthenon::InnerLoopPatternTTR(), member, 0, cores(n+1).GetPhysicalIndexSize(), 
-              [&](const int i, Real &tmp) {
-            for (int b = 0; b < cores(n+1).GetRightRank(); b++) {
-              for (int bp = 0; bp < cores(n+1).GetRightRank(); bp++) {
+          par_reduce_inner(parthenon::InnerLoopPatternTTR(), member, 0, cores(n+1).GetPhysicalIndexSize()-1, 
+              0, cores(n+1).GetRightRank()-1, 0, cores(n+1).GetRightRank()-1,
+              [&](const int i, const int b, const int bp, Real &tmp) {
                     tmp += cores(n+1)(a, i, b) * GR(n+1, b, bp) * 
                       cores(n+1)(ap, i, bp);
-                }
-              }
             }, 
             Kokkos::Sum<Real, parthenon::DevMemSpace>(accum)); // par_reduce_inner
             GR(n, a, ap) = accum;
@@ -178,19 +172,17 @@ void TensorTrain::GramSVDRound(const Real eps) {
       for (int n = 1; n < Ngram; ++n) {
 
         // loop over elements of this Gram matrix
-        for (int b = 0; b < cores(n-1).GetLeftRank(); b++) {
-          for (int bp = 0; bp < cores(n-1).GetLeftRank(); bp++) {
+        // TODO experiment with patterns for reductions to find what is optimal
+        for (int b = 0; b < cores(n).GetLeftRank(); b++) {
+          for (int bp = 0; bp < cores(n).GetLeftRank(); bp++) {
 
           // perform the contraction
           Real accum{0.};
-          par_reduce_inner(parthenon::InnerLoopPatternTTR(), member, 0, cores(n).GetPhysicalIndexSize(), 
-              [&](const int i, Real &tmp) {
-            for (int a = 0; a < cores(n-1).GetLeftRank(); a++) {
-              for (int ap = 0; ap < cores(n-1).GetLeftRank(); ap++) {
+          par_reduce_inner(parthenon::InnerLoopPatternTTR(), member, 0, cores(n).GetPhysicalIndexSize()-1, 
+              0, cores(n).GetLeftRank()-1, 0, cores(n).GetLeftRank()-1,
+              [&](const int i, const int a, const int ap, Real &tmp) {
                     tmp += cores(n)(a, i, b) * GL(n-1, a, ap) * 
                       cores(n)(ap, i, bp);
-                }
-              }
             }, 
             Kokkos::Sum<Real, parthenon::DevMemSpace>(accum)); // par_reduce_inner
             GL(n, b, bp) = accum;
@@ -207,6 +199,94 @@ void TensorTrain::GramSVDRound(const Real eps) {
       // * update the right index space of the left core and the left index
       //   space of the right core using the truncated SVD result
       for (int n = 0; n < Ngram; ++n) {
+
+        /////////////////////////////////////////////////////////////////////////////////////
+        // LEFT GRAM
+        /////////////////////////////////////////////////////////////////////////////////////
+        const std::size_t rn = cores(n).GetLeftRank();
+
+        // allocate scratch for input matrix (which is destroyed), eigenvalues
+        // and output matrix (eigenvectors)
+        ScratchPad2D<Real> AL(ts, rn, rn);
+        ScratchPad2D<Real> QL(ts, rn, rn);
+        ScratchPad1D<Real> eigsL(ts, rn);
+        // allocate scratch required by SymmetricEVD::execute
+        ScratchPad1D<Real> lscratchL(ts, SymmetricEVD::sizet_scratch_size(rn));
+        ScratchPad1D<std::size_t> liscratchL(ts, SymmetricEVD::sizet_scratch_size(rn));
+
+        // write left Gram matrix to A (so that it is in contiguous memory)
+        par_for_inner(member, 0, rn-1, 0, rn-1, [&](const int b, const int bp) {
+            AL(b,bp) = GL(n, b, bp); });
+
+        // perform the eigenvalue decomposition
+        member.team_barrier();
+        SymmetricEVD::execute(member, &AL, &QL, eigsL.data(), lscratchL.data(), liscratchL.data());
+
+
+        /////////////////////////////////////////////////////////////////////////////////////
+        // RIGHT GRAM
+        /////////////////////////////////////////////////////////////////////////////////////
+
+        // allocate scratch for input matrix (which is destroyed), eigenvalues
+        // and output matrix (eigenvectors)
+        ScratchPad2D<Real> AR(ts, rn, rn);
+        ScratchPad2D<Real> QR(ts, rn, rn);
+        ScratchPad1D<Real> eigsR(ts, rn);
+        // allocate scratch required by SymmetricEVD::execute
+        ScratchPad1D<Real> lscratchR(ts, SymmetricEVD::sizet_scratch_size(rn));
+        ScratchPad1D<std::size_t> liscratchR(ts, SymmetricEVD::sizet_scratch_size(rn));
+
+        // write left Gram matrix to A (so that it is in contiguous memory)
+        par_for_inner(member, 0, rn-1, 0, rn-1, [&](const int a, const int ap) {
+            AR(a,ap) = GR(n, a, ap); });
+
+        // perform the eigenvalue decomposition
+        member.team_barrier();
+        SymmetricEVD::execute(member, &AR, &QR, eigsR.data(), lscratchR.data(), liscratchR.data());
+
+        //////////////////////////////////////////////////////////////////////////////////
+        // Now we have the left gram's eigenvalues and eigenvectors eigsL, QL
+        // and the right gram's eigenvalues and eigenvectors eigsR, QR.
+        // Construct the matrix that we want to obtain the truncated SVD
+        // of.
+        ScratchPad2D<Real> M(ts, rn, rn);
+
+        // as a par reduce inner
+        for (int a = 0; a < rn; a++) {
+          for (int b = 0; b < rn; b++) {
+          Real accum{0.};
+          par_reduce_inner(parthenon::InnerLoopPatternTTR(), member, 0, rn-1, [&](const int i, Real &tmp) {
+                  tmp += QL(a, i) * QR(i, b);
+            }, 
+            Kokkos::Sum<Real, parthenon::DevMemSpace>(accum)); // par_reduce_inner
+
+            M(a, b) = std::sqrt(eigsL(a)) * accum * std::sqrt(eigsR(b));
+          }
+        }
+
+        // Now we have the whitened linear map we can perform the SVD
+        ScratchPad1D<Real> sings(ts, rn); // singular values
+        ScratchPad2D<Real> U(ts, rn, rn); // left eigenvectors
+        ScratchPad2D<Real> V(ts, rn, rn); // right eigenvectors
+        SquareSVD::execute(&M, &U, &V, sings.data());
+
+        // Now we have the SVD of M in rank space; truncate by discarding
+        // singular vectors associated with singular values below the
+        // requested error tolerance.
+        //
+        // find maximum singular value
+        Real sigmax{-1.e30};
+        for (int i = 0; i < rn; i++) {sigmax = std::max(sigmax, sings(i));};
+
+        // flag which singular values we should keep
+        ScratchPad1D<int> keep(ts, rn);
+        const Real sigmaxeps = sigmax * eps;
+        for (int i = 0; i < rn; i++) {keep(i) = (sings(i) > sigmaxeps) ? 1 : 0;};
+
+        // 
+
+        //
+        // Create a new core, which we will replace the old one with
 
       }
 
