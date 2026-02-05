@@ -244,13 +244,59 @@ class TensorTrain {
   // preserving the tensor up to Frobenius error eps.
   void GramSVDRound(const Real eps);
 
+  // const access to cores_device_
+  const cores_device_t &cores_device() const { return cores_device_; }
+  //cores_device_t &cores_device() { return cores_device_; }
+
  private:
   std::string label_;
   cores_host_t cores_host_;
   cores_device_t cores_device_;
 }; // class TensorTrain
 
+KOKKOS_INLINE_FUNCTION
+void CalculateRightGramMatrices(const TensorTrain &TT, const Real &GR, const parthenon::team_mbr_t member);
+
+KOKKOS_INLINE_FUNCTION
+void CalculateLeftGramMatrices(const TensorTrain &TT, const Real &GL, const parthenon::team_mbr_t member);
+
+KOKKOS_INLINE_FUNCTION
+void SelectSingularModes(const TensorTrain &TT, const ScratchPad2D<Real> &svdS, const ScratchPad2D<int> &keep,
+    const Real &eps) {
+
+  const size_t Ngram = TT.GetNumCores();
+  auto cores = TT.cores_device();
+  const std::size_t RMax = TT.GetMaximumRightRank();
+
+  for (int n = 0; n < Ngram; n++) {
+    const std::size_t Rn = cores(n).GetRightRank();
+
+    for (int i = 0; i < RMax; i++) {keep(n,i) = 0;};
+
+    // find maximum singular value
+    Real sigmax{-1.e30};
+    for (int i = 0; i < Rn; i++) {sigmax = std::max(sigmax, svdS(n,i));};
+
+    // flag which singular values we should keep
+    const Real sigmaxeps = sigmax * eps;
+    for (int i = 0; i < Rn; i++) {keep(n,i) = (svdS(n,i) > sigmaxeps) ? 1 : 0;};
+  }
+}
+
+
 } // namespace tensors
 } // namespace parthenon
 
 #endif // TENSORS_TENSORS_HPP_
+
+
+
+
+
+
+
+
+
+
+
+
