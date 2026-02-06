@@ -35,8 +35,7 @@ KOKKOS_FORCEINLINE_FUNCTION int Partition(tm_t tm, double *d, double *b,
       },
       scale);
   scale = std::max(scale, std::abs(d[nrows - 1]));
-  if (scale == 0.0)
-    scale = 1.0; // avoid all-zero edge case
+  if (scale == 0.0) scale = 1.0; // avoid all-zero edge case
 
   auto should_split = [&](int i) -> bool {
     const double bi = std::abs(b[i]);
@@ -44,10 +43,8 @@ KOKKOS_FORCEINLINE_FUNCTION int Partition(tm_t tm, double *d, double *b,
     const double dj = std::abs(d[i + 1]);
 
     // 1) floating-point "negligible" test
-    if (di + bi == di)
-      return true;
-    if (dj + bi == dj)
-      return true;
+    if (di + bi == di) return true;
+    if (dj + bi == dj) return true;
 
     // 2) scale-aware relative test with a floor
     const double thresh = tol * (di + dj + scale);
@@ -81,16 +78,14 @@ KOKKOS_FORCEINLINE_FUNCTION int Partition(tm_t tm, double *d, double *b,
 // contain the eigenvalues of A.
 template <class tm_t, class matrix_t>
 KOKKOS_FORCEINLINE_FUNCTION int
-ImplicitQRTridiag(tm_t tm, double *d, double *b, matrix_t *pQ,
-                  std::size_t *start, std::size_t *end, const int nrows,
-                  const int max_iters) {
+ImplicitQRTridiag(tm_t tm, double *d, double *b, matrix_t *pQ, std::size_t *start,
+                  std::size_t *end, const int nrows, const int max_iters) {
   int iter{0};
   for (iter = 0; iter < max_iters; ++iter) {
     // Collect decoupled regions of the matrix
     std::size_t npartitions = Partition(tm, d, b, start, end, nrows);
     // If all off diagonal elements are close to zero, we are done
-    if (npartitions == 0)
-      break;
+    if (npartitions == 0) break;
 
     // Partitions are independent of each other, so could distribute this over
     // team members, not obvious how to cleanly abstract this second level of
@@ -103,27 +98,22 @@ ImplicitQRTridiag(tm_t tm, double *d, double *b, matrix_t *pQ,
       // size one partition is already by definition diagonal
       if (ep - sp == 2) {
         // Directly calculate Givens rotation required to diagonalize 2x2 matrix
-        const auto [c, s] =
-            ComputeGivensDiagonalize2by2(d[sp], d[sp + 1], b[sp]);
+        const auto [c, s] = ComputeGivensDiagonalize2by2(d[sp], d[sp + 1], b[sp]);
         bulge = ApplyGivensLeftRight<true, true>(tm, sp, c, s, bulge, d, b);
-        if (pQ)
-          ApplyGivensRight(tm, sp, c, s, *pQ);
+        if (pQ) ApplyGivensRight(tm, sp, c, s, *pQ);
       } else if (ep - sp > 2) {
         const double mu = WilkinsonShift(d[ep - 2], d[ep - 1], b[ep - 2]);
         const auto [c, s] = ComputeGivensZeroSecond(d[sp] - mu, b[sp]);
         bulge = ApplyGivensLeftRight<true, false>(tm, sp, c, s, bulge, d, b);
-        if (pQ)
-          ApplyGivensRight(tm, sp, c, s, *pQ);
+        if (pQ) ApplyGivensRight(tm, sp, c, s, *pQ);
         sequential_loop(sp + 1, ep - 3, [&](const int i) {
           const auto [c, s] = ComputeGivensZeroSecond(b[i - 1], bulge);
           bulge = ApplyGivensLeftRight<false, false>(tm, i, c, s, bulge, d, b);
-          if (pQ)
-            ApplyGivensRight(tm, i, c, s, *pQ);
+          if (pQ) ApplyGivensRight(tm, i, c, s, *pQ);
         });
         const auto [c2, s2] = ComputeGivensZeroSecond(b[ep - 3], bulge);
         ApplyGivensLeftRight<false, true>(tm, ep - 2, c2, s2, bulge, d, b);
-        if (pQ)
-          ApplyGivensRight(tm, ep - 2, c2, s2, *pQ);
+        if (pQ) ApplyGivensRight(tm, ep - 2, c2, s2, *pQ);
       }
     }
   }
@@ -135,17 +125,16 @@ ImplicitQRTridiag(tm_t tm, double *d, double *b, matrix_t *pQ,
 // in place. On return, all elements of b should be ~zero and d should
 // contain the eigenvalues of A.
 template <class tm_t, class matrix_t>
-KOKKOS_FORCEINLINE_FUNCTION int
-ImplicitQRBidiag(tm_t tm, double *d, double *b, matrix_t *pU, matrix_t *pV,
-                 std::size_t *start, std::size_t *end, const int nrows,
-                 const int max_iters) {
+KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRBidiag(tm_t tm, double *d, double *b,
+                                                 matrix_t *pU, matrix_t *pV,
+                                                 std::size_t *start, std::size_t *end,
+                                                 const int nrows, const int max_iters) {
   int iter{0};
   for (iter = 0; iter < max_iters; ++iter) {
     // Collect decoupled regions of the matrix
     std::size_t npartitions = Partition(tm, d, b, start, end, nrows);
     // If all off diagonal elements are close to zero, we are done
-    if (npartitions == 0)
-      break;
+    if (npartitions == 0) break;
 
     // Partitions are independent of each other, so could distribute this over
     // team members, not obvious how to cleanly abstract this second level of
@@ -164,12 +153,10 @@ ImplicitQRBidiag(tm_t tm, double *d, double *b, matrix_t *pU, matrix_t *pV,
         const double t11 = d[sp + 1] * d[sp + 1] + b[sp] * b[sp];
         const auto [c1, s1] = ComputeGivensDiagonalize2by2(t00, t11, t01);
         bulge = ApplyGivensRight<true, true>(tm, sp, c1, s1, bulge, d, b);
-        if (pV)
-          ApplyGivensRight(tm, sp, c1, s1, *pV);
+        if (pV) ApplyGivensRight(tm, sp, c1, s1, *pV);
         const auto [c2, s2] = ComputeGivensZeroSecond(d[sp], bulge);
         bulge = ApplyGivensLeft<true, true>(tm, sp, c2, s2, bulge, d, b);
-        if (pU)
-          ApplyGivensRight(tm, sp, c2, s2, *pU);
+        if (pU) ApplyGivensRight(tm, sp, c2, s2, *pU);
       } else if (ep - sp > 2) {
         // Compute shift and initial Given's rotation (which must satisfy
         // implicit QR) for the Gram matrix T = A^T A
@@ -183,31 +170,25 @@ ImplicitQRBidiag(tm_t tm, double *d, double *b, matrix_t *pU, matrix_t *pV,
         const double t01 = b[sp] * d[sp];
         const auto [c1, s1] = ComputeGivensZeroSecond(t00 - mu, t01);
         bulge = ApplyGivensRight<true, false>(tm, sp, c1, s1, bulge, d, b);
-        if (pV)
-          ApplyGivensRight(tm, sp, c1, s1, *pV);
+        if (pV) ApplyGivensRight(tm, sp, c1, s1, *pV);
 
         const auto [c2, s2] = ComputeGivensZeroSecond(d[sp], bulge);
         bulge = ApplyGivensLeft<true, false>(tm, sp, c2, s2, bulge, d, b);
-        if (pU)
-          ApplyGivensRight(tm, sp, c2, s2, *pU);
+        if (pU) ApplyGivensRight(tm, sp, c2, s2, *pU);
         sequential_loop(sp + 1, ep - 3, [&](const int i) {
           const auto [c1, s1] = ComputeGivensZeroSecond(b[i - 1], bulge);
           bulge = ApplyGivensRight<false, false>(tm, i, c1, s1, bulge, d, b);
-          if (pV)
-            ApplyGivensRight(tm, i, c1, s1, *pV);
+          if (pV) ApplyGivensRight(tm, i, c1, s1, *pV);
           const auto [c2, s2] = ComputeGivensZeroSecond(d[i], bulge);
           bulge = ApplyGivensLeft<false, false>(tm, i, c2, s2, bulge, d, b);
-          if (pU)
-            ApplyGivensRight(tm, i, c2, s2, *pU);
+          if (pU) ApplyGivensRight(tm, i, c2, s2, *pU);
         });
         const auto [c3, s3] = ComputeGivensZeroSecond(b[ep - 3], bulge);
         bulge = ApplyGivensRight<false, true>(tm, ep - 2, c3, s3, bulge, d, b);
-        if (pV)
-          ApplyGivensRight(tm, ep - 2, c3, s3, *pV);
+        if (pV) ApplyGivensRight(tm, ep - 2, c3, s3, *pV);
         const auto [c4, s4] = ComputeGivensZeroSecond(d[ep - 2], bulge);
         bulge = ApplyGivensLeft<false, true>(tm, ep - 2, c4, s4, bulge, d, b);
-        if (pU)
-          ApplyGivensRight(tm, ep - 2, c4, s4, *pU);
+        if (pU) ApplyGivensRight(tm, ep - 2, c4, s4, *pU);
       }
     }
   }

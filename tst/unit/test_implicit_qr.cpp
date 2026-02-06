@@ -50,8 +50,8 @@ static double EigenResidual2Norm(const Matrix &A, const std::vector<double> &v,
 
 // Check all eigenpairs: columns of Q are eigenvectors, eigs are eigenvalues
 static void CheckEigenpairsResidual(const Matrix &A_orig, const Matrix &Q,
-                                    const std::vector<double> &eigs,
-                                    double rtol = 1e-10, double atol = 1e-12) {
+                                    const std::vector<double> &eigs, double rtol = 1e-10,
+                                    double atol = 1e-12) {
   const double An = FrobeniusNorm(A_orig);
   const double denomA = std::max(An, atol);
 
@@ -310,8 +310,7 @@ TEST_CASE("Gram matrix eigenvalues: nearly rank-deficient", "[gram][eig]") {
 
     // Near-rank-deficient: smallest eigenvalue should be "small"
     // relative to largest
-    double rel_small =
-        std::abs(d.front()) / std::max(std::abs(lambda_max), 1.0);
+    double rel_small = std::abs(d.front()) / std::max(std::abs(lambda_max), 1.0);
     REQUIRE(rel_small < 1e-6);
   }
 }
@@ -363,8 +362,7 @@ TEST_CASE("Gram matrix eigenvalues: strongly rank-deficient", "[gram][eig]") {
     int num_small = 0;
     for (int i = 0; i < n; ++i) {
       double rel = std::abs(d[i]) / std::max(std::abs(lambda_max), 1.0);
-      if (rel < 1e-8)
-        ++num_small;
+      if (rel < 1e-8) ++num_small;
     }
     REQUIRE(num_small >= (n - k) / 2);
   }

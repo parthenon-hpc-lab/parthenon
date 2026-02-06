@@ -37,10 +37,9 @@ static double OrthoError(const Matrix &Q) {
 }
 
 // Check reconstruction: ||A - U*diag(s)*V^T||_F / max(||A||_F, atol)
-static void CheckSVDReconstruction(const Matrix &A0, const Matrix &U,
-                                   const Matrix &V,
-                                   const std::vector<double> &sings,
-                                   double rtol = 1e-10, double atol = 1e-12) {
+static void CheckSVDReconstruction(const Matrix &A0, const Matrix &U, const Matrix &V,
+                                   const std::vector<double> &sings, double rtol = 1e-10,
+                                   double atol = 1e-12) {
   Matrix S = Matrix::FromDiagonal(sings);
   Matrix US = Multiply2(U, S);
   Matrix Vt = Matrix::Transpose(V);
@@ -76,10 +75,10 @@ static void SortAbs(std::vector<double> &v) {
   std::sort(v.begin(), v.end());
 }
 
-static void RunSVDStress(const std::vector<double> &sings_template,
-                         int num_realizations, int max_iter_factor,
-                         double recon_rtol, double ortho_rtol = 1e-10,
-                         double sv_rtol = 1e-8, double min_floor = 1e-12) {
+static void RunSVDStress(const std::vector<double> &sings_template, int num_realizations,
+                         int max_iter_factor, double recon_rtol,
+                         double ortho_rtol = 1e-10, double sv_rtol = 1e-8,
+                         double min_floor = 1e-12) {
   const int n = static_cast<int>(sings_template.size());
 
   std::vector<double> s_ref = sings_template;
@@ -131,8 +130,7 @@ static void RunSVDStress(const std::vector<double> &sings_template,
 
 // ---------- Tests ----------
 
-TEST_CASE("ImplicitQR bidiag SVD stress tests over spectra",
-          "[svd][qr][bidiag]") {
+TEST_CASE("ImplicitQR bidiag SVD stress tests over spectra", "[svd][qr][bidiag]") {
   const int n = 50;
   const int num_realizations = 100;
 
@@ -279,8 +277,7 @@ TEST_CASE("SVD vs Gram eigenvalues: singular values match sqrt(eigs(A^T A))",
   }
 }
 
-TEST_CASE("SVD handles scaled matrices: scaling singular values",
-          "[svd][scale]") {
+TEST_CASE("SVD handles scaled matrices: scaling singular values", "[svd][scale]") {
   const int n = 25;
   const int num_realizations = 30;
 

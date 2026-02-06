@@ -15,8 +15,8 @@ int main(int argc, char *argv[]) {
   parthenon::ParArray2D<double> eigenvalues("diagonal", nmatrices, N);
   parthenon::ParArray2D<double> scratch("scratch", nmatrices,
                                         SymmetricEVD::double_scratch_size(N));
-  parthenon::ParArray2D<std::size_t> iscratch(
-      "iscratch", nmatrices, SymmetricEVD::sizet_scratch_size(N));
+  parthenon::ParArray2D<std::size_t> iscratch("iscratch", nmatrices,
+                                              SymmetricEVD::sizet_scratch_size(N));
 
   // Build matrices with known spectrum on host
   auto matrices_h = matrices.GetHostMirror();
@@ -40,8 +40,8 @@ int main(int argc, char *argv[]) {
         auto local_scratch = scratch.Get(m);
         auto local_iscratch = iscratch.Get(m);
         // Perform the eigenvalue decomposition
-        SymmetricEVD::execute(&cmat, eigenvalues_local.data(),
-                              local_scratch.data(), local_iscratch.data());
+        SymmetricEVD::execute(&cmat, eigenvalues_local.data(), local_scratch.data(),
+                              local_iscratch.data());
       });
 
   // Bring diagonal back to host and check eigenvalues

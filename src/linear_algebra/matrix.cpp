@@ -21,9 +21,7 @@ Matrix Matrix::Transpose(const Matrix &A) {
   return AT;
 }
 
-Matrix Matrix::Identity(const Matrix &A) {
-  return Identity(A.nrows(), A.ncols());
-}
+Matrix Matrix::Identity(const Matrix &A) { return Identity(A.nrows(), A.ncols()); }
 
 Matrix Matrix::Identity(int nrows, int ncols) {
   Matrix I(nrows, ncols);
@@ -79,8 +77,7 @@ Matrix Matrix::FromSpectrum(const std::vector<double> &lambda, unsigned seed) {
   return A;
 }
 
-Matrix Matrix::FromSingularValues(const std::vector<double> &lambda,
-                                  unsigned seed) {
+Matrix Matrix::FromSingularValues(const std::vector<double> &lambda, unsigned seed) {
   const int n = static_cast<int>(lambda.size());
 
   Matrix U = Matrix::RandomOrthogonal(n, seed * 17 + 1);
@@ -122,15 +119,13 @@ std::ostream &operator<<(std::ostream &os, const Matrix &m) {
       if (std::abs(m(r, c)) < 1.e-12) {
         os << "   ~0    ";
       } else {
-        os << std::setw(width) << std::scientific
-           << std::setprecision(precision) << std::showpos << m(r, c);
+        os << std::setw(width) << std::scientific << std::setprecision(precision)
+           << std::showpos << m(r, c);
       }
-      if (c + 1 < nc)
-        os << " ";
+      if (c + 1 < nc) os << " ";
     }
     os << " ]";
-    if (r + 1 < nr)
-      os << "\n";
+    if (r + 1 < nr) os << "\n";
   }
 
   os << std::noshowpos;

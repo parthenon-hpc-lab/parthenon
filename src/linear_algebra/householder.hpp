@@ -22,22 +22,20 @@
 /// This reflector is intended for left application: A ← H A.
 template <class tm_t, class matrix_t>
 KOKKOS_FORCEINLINE_FUNCTION void
-build_householder_vector_col(tm_t tm, int row, int col, const matrix_t &A,
-                             double *v) {
+build_householder_vector_col(tm_t tm, int row, int col, const matrix_t &A, double *v) {
   const int nrows = GetNrows(A);
   const int ncols = GetNcols(A);
   double norm_x{0.0};
 
   summation(
       tm, row, nrows - 1,
-      KOKKOS_LAMBDA(const int r, double &norm) {
-        norm += A(r, col) * A(r, col);
-      },
+      KOKKOS_LAMBDA(const int r, double &norm) { norm += A(r, col) * A(r, col); },
       norm_x);
 
   norm_x = std::sqrt(norm_x);
   if (norm_x == 0.0) {
-    parallel_loop(tm, 0, nrows - 1, KOKKOS_LAMBDA(const int i) { v[i] = 0.0; });
+    parallel_loop(
+        tm, 0, nrows - 1, KOKKOS_LAMBDA(const int i) { v[i] = 0.0; });
     return;
   }
 
@@ -55,14 +53,12 @@ build_householder_vector_col(tm_t tm, int row, int col, const matrix_t &A,
 
   double inv_norm_v = 1.0 / norm_v;
   parallel_loop(
-      tm, 0, nrows - 1,
-      KOKKOS_LAMBDA(const int i) { v[i] *= (i >= row) * inv_norm_v; });
+      tm, 0, nrows - 1, KOKKOS_LAMBDA(const int i) { v[i] *= (i >= row) * inv_norm_v; });
 }
 
 template <class tm_t, class matrix_t>
 KOKKOS_FORCEINLINE_FUNCTION void
-build_householder_vector_row(tm_t tm, int row, int col, const matrix_t &A,
-                             double *v) {
+build_householder_vector_row(tm_t tm, int row, int col, const matrix_t &A, double *v) {
   const int nrows = GetNrows(A);
   const int ncols = GetNcols(A);
 
@@ -71,16 +67,15 @@ build_householder_vector_row(tm_t tm, int row, int col, const matrix_t &A,
   // Compute ||x|| where x = A(row, col:ncols-1)
   summation(
       tm, col, ncols - 1,
-      KOKKOS_LAMBDA(const int c, double &norm) {
-        norm += A(row, c) * A(row, c);
-      },
+      KOKKOS_LAMBDA(const int c, double &norm) { norm += A(row, c) * A(row, c); },
       norm_x);
 
   norm_x = std::sqrt(norm_x);
 
   // If the row segment is already zero, the reflector is identity
   if (norm_x == 0.0) {
-    parallel_loop(tm, 0, ncols - 1, KOKKOS_LAMBDA(const int j) { v[j] = 0.0; });
+    parallel_loop(
+        tm, 0, ncols - 1, KOKKOS_LAMBDA(const int j) { v[j] = 0.0; });
     return;
   }
 
@@ -105,16 +100,15 @@ build_householder_vector_row(tm_t tm, int row, int col, const matrix_t &A,
 
   // Zero entries before col and normalize the active part
   parallel_loop(
-      tm, 0, ncols - 1,
-      KOKKOS_LAMBDA(const int j) { v[j] *= (j >= col) * inv_norm_v; });
+      tm, 0, ncols - 1, KOKKOS_LAMBDA(const int j) { v[j] *= (j >= col) * inv_norm_v; });
 }
 
 // Apply the Householder transformation H = I - 2 v^T v to A in place,
 // i.e. A <- H A. Here v is assumed to be normalized.
 template <class tm_t, class matrix_t>
 KOKKOS_FORCEINLINE_FUNCTION void
-apply_left_householder_transformation(tm_t tm, const double *const v,
-                                      double *scratch, matrix_t &A) {
+apply_left_householder_transformation(tm_t tm, const double *const v, double *scratch,
+                                      matrix_t &A) {
   const int nrows = GetNrows(A);
   const int ncols = GetNcols(A);
   for (int c = 0; c < ncols; ++c) {
@@ -122,7 +116,8 @@ apply_left_householder_transformation(tm_t tm, const double *const v,
     summation(
         tm, 0, nrows - 1,
         KOKKOS_LAMBDA(int r, double &ww) { ww += 2.0 * v[r] * A(r, c); }, w);
-    once_per_team(tm, KOKKOS_LAMBDA() { scratch[c] = w; });
+    once_per_team(
+        tm, KOKKOS_LAMBDA() { scratch[c] = w; });
   }
   barrier(tm);
   parallel_loop(
@@ -134,8 +129,8 @@ apply_left_householder_transformation(tm_t tm, const double *const v,
 // place, i.e. A <- A H. Here v is assumed to be normalized.
 template <class tm_t, class matrix_t>
 KOKKOS_FORCEINLINE_FUNCTION void
-apply_right_householder_transformation(tm_t tm, const double *const v,
-                                       double *scratch, matrix_t &A) {
+apply_right_householder_transformation(tm_t tm, const double *const v, double *scratch,
+                                       matrix_t &A) {
   const int nrows = GetNrows(A);
   const int ncols = GetNcols(A);
   for (int r = 0; r < nrows; ++r) {
@@ -143,7 +138,8 @@ apply_right_householder_transformation(tm_t tm, const double *const v,
     summation(
         tm, 0, ncols - 1,
         KOKKOS_LAMBDA(int c, double &ww) { ww += 2.0 * v[c] * A(r, c); }, w);
-    once_per_team(tm, KOKKOS_LAMBDA() { scratch[r] = w; });
+    once_per_team(
+        tm, KOKKOS_LAMBDA() { scratch[r] = w; });
   }
   barrier(tm);
   parallel_loop(

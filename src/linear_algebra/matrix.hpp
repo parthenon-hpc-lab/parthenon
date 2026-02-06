@@ -10,7 +10,7 @@ using Vector = std::vector<double>;
 using serial_tm_t = int; // TODO: parthenon::team_mbr_t;
 
 class Matrix {
-public:
+ public:
   Matrix(int nrows, int ncols);
   Matrix(int nrows) : Matrix(nrows, nrows) {}
 
@@ -33,8 +33,7 @@ public:
 
   // Build symmetric matrix A = Q Λ Qᵀ
   // where Λ holds the given eigenvalues.
-  static Matrix FromSpectrum(const std::vector<double> &lambda,
-                             unsigned seed = 12345);
+  static Matrix FromSpectrum(const std::vector<double> &lambda, unsigned seed = 12345);
 
   static Matrix FromSingularValues(const std::vector<double> &lambda,
                                    unsigned seed = 12345);
@@ -60,7 +59,7 @@ public:
     return other;
   }
 
-private:
+ private:
   parthenon::ParArray2D<double>::HostMirror data_;
   int ncols_, nrows_;
 };
@@ -86,12 +85,14 @@ std::ostream &operator<<(std::ostream &os, const Matrix &m);
 void Multiply(const Matrix &A, const Matrix &B, Matrix &C);
 
 // Template must stay in the header so callers can instantiate it.
-template <typename T> inline int sign_of(T val) {
+template <typename T>
+inline int sign_of(T val) {
   constexpr T zero{0};
   return (zero < val) - (val < zero);
 }
 
-template <class tm_t> KOKKOS_FORCEINLINE_FUNCTION void barrier(tm_t tm) {
+template <class tm_t>
+KOKKOS_FORCEINLINE_FUNCTION void barrier(tm_t tm) {
   if constexpr (std::is_same_v<tm_t, parthenon::team_mbr_t>) {
     tm.team_barrier();
   }
@@ -114,8 +115,8 @@ KOKKOS_FORCEINLINE_FUNCTION void sequential_loop(const int il, const int iu,
 }
 
 template <class tm_t, class F>
-KOKKOS_FORCEINLINE_FUNCTION void parallel_loop(tm_t tm, const int il,
-                                               const int iu, const F &func) {
+KOKKOS_FORCEINLINE_FUNCTION void parallel_loop(tm_t tm, const int il, const int iu,
+                                               const F &func) {
   if constexpr (std::is_same_v<tm_t, serial_tm_t>) {
     for (int i = il; i <= iu; ++i)
       func(i);
@@ -125,9 +126,9 @@ KOKKOS_FORCEINLINE_FUNCTION void parallel_loop(tm_t tm, const int il,
 }
 
 template <class tm_t, class F>
-KOKKOS_FORCEINLINE_FUNCTION void parallel_loop(tm_t tm, const int jl,
-                                               const int ju, const int il,
-                                               const int iu, const F &func) {
+KOKKOS_FORCEINLINE_FUNCTION void parallel_loop(tm_t tm, const int jl, const int ju,
+                                               const int il, const int iu,
+                                               const F &func) {
   if constexpr (std::is_same_v<tm_t, serial_tm_t>) {
     for (int j = jl; j <= ju; ++j) {
       for (int i = il; i <= iu; ++i) {
@@ -146,27 +147,27 @@ KOKKOS_FORCEINLINE_FUNCTION void summation(tm_t tm, const int il, const int iu,
     for (int i = il; i <= iu; ++i)
       func(i, sum);
   } else if constexpr (std::is_same_v<tm_t, parthenon::team_mbr_t>) {
-    parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag, tm, il,
-                                iu, func, Kokkos::Sum<double>(sum));
+    parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag, tm, il, iu, func,
+                                Kokkos::Sum<double>(sum));
   }
 }
 
 template <class tm_t, class F>
-KOKKOS_FORCEINLINE_FUNCTION void
-find_maximum(tm_t tm, const int il, const int iu, const F &func, double &mx) {
+KOKKOS_FORCEINLINE_FUNCTION void find_maximum(tm_t tm, const int il, const int iu,
+                                              const F &func, double &mx) {
   if constexpr (std::is_same_v<tm_t, serial_tm_t>) {
     for (int i = il; i <= iu; ++i)
       func(i, mx);
   } else if constexpr (std::is_same_v<tm_t, parthenon::team_mbr_t>) {
-    parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag, tm, il,
-                                iu, func, Kokkos::Max<double>(mx));
+    parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag, tm, il, iu, func,
+                                Kokkos::Max<double>(mx));
   }
 }
 
 template <class tm_t, class F>
 KOKKOS_FORCEINLINE_FUNCTION void summation(tm_t tm, const int jl, const int ju,
-                                           const int il, const int iu,
-                                           const F &func, double *sum) {
+                                           const int il, const int iu, const F &func,
+                                           double *sum) {
   if constexpr (std::is_same_v<tm_t, serial_tm_t>) {
     for (int j = jl; j <= ju; ++j) {
       for (int i = il; i <= iu; ++i) {

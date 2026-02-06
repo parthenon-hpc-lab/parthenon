@@ -8,7 +8,7 @@
 #include "matrix.hpp"
 
 class SymmetricEVD {
-public:
+ public:
   /// Compute the eigen-decomposition of a real symmetric matrix A in place.
   ///
   /// On entry:
@@ -70,13 +70,13 @@ public:
       barrier(tm);
       apply_right_householder_transformation(tm, v, s, A);
       barrier(tm);
-      if (pQ)
-        apply_right_householder_transformation(tm, v, s, *pQ);
+      if (pQ) apply_right_householder_transformation(tm, v, s, *pQ);
     });
 
     // Move to tridiagonal storage
     barrier(tm);
-    once_per_team(tm, KOKKOS_LAMBDA() { eigs[0] = A(0, 0); });
+    once_per_team(
+        tm, KOKKOS_LAMBDA() { eigs[0] = A(0, 0); });
     parallel_loop(
         tm, 0, ncols - 2, KOKKOS_LAMBDA(int i) {
           eigs[i + 1] = A(i + 1, i + 1);
@@ -86,21 +86,19 @@ public:
     barrier(tm);
     std::size_t *start = &(iscratch[0]);
     std::size_t *end = &(iscratch[ncols / 2 + 1]);
-    return ImplicitQRTridiag(tm, eigs, scratch, pQ, start, end, ncols,
-                             10 * ncols);
+    return ImplicitQRTridiag(tm, eigs, scratch, pQ, start, end, ncols, 10 * ncols);
   }
 
   template <class tm_t, class matrix_t>
   KOKKOS_INLINE_FUNCTION static int execute(tm_t tm, matrix_t *pA, double *eigs,
-                                            double *scratch,
-                                            std::size_t *iscratch) {
+                                            double *scratch, std::size_t *iscratch) {
     matrix_t *pQ = nullptr;
     return execute(tm, pA, pQ, eigs, scratch, iscratch);
   }
 
   template <class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int
-  execute(matrix_t *pA, double *eigs, double *scratch, std::size_t *iscratch) {
+  KOKKOS_INLINE_FUNCTION static int execute(matrix_t *pA, double *eigs, double *scratch,
+                                            std::size_t *iscratch) {
     matrix_t *pQ = nullptr;
     return execute(serial_tm_t(), pA, pQ, eigs, scratch, iscratch);
   }
@@ -108,13 +106,11 @@ public:
   // Version that is only callable on host and allocates its own
   // scratch space
   template <class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int execute(matrix_t *pA, matrix_t *pQ,
-                                            double *eigs) {
+  KOKKOS_INLINE_FUNCTION static int execute(matrix_t *pA, matrix_t *pQ, double *eigs) {
     const int ncols = GetNcols(*pA);
     std::vector<double> scratch(double_scratch_size(ncols));
     std::vector<std::size_t> iscratch(sizet_scratch_size(ncols));
-    return execute(serial_tm_t(), pA, pQ, eigs, scratch.data(),
-                   iscratch.data());
+    return execute(serial_tm_t(), pA, pQ, eigs, scratch.data(), iscratch.data());
   }
 
   template <class matrix_t>
@@ -123,23 +119,18 @@ public:
     std::vector<double> scratch(double_scratch_size(ncols));
     std::vector<std::size_t> iscratch(sizet_scratch_size(ncols));
     matrix_t *pQ = nullptr;
-    return execute(serial_tm_t(), pA, pQ, eigs, scratch.data(),
-                   iscratch.data());
+    return execute(serial_tm_t(), pA, pQ, eigs, scratch.data(), iscratch.data());
   }
 
   KOKKOS_INLINE_FUNCTION
-  static std::size_t double_scratch_size(std::size_t ncols) {
-    return 2 * ncols;
-  }
+  static std::size_t double_scratch_size(std::size_t ncols) { return 2 * ncols; }
 
   KOKKOS_INLINE_FUNCTION
   static std::size_t sizet_scratch_size(std::size_t ncols) { return ncols + 2; }
 
   static std::size_t total_shmem_scratch_size(std::size_t ncols) {
-    return parthenon::ScratchPad1D<double>::shmem_size(
-               double_scratch_size(ncols)) +
-           parthenon::ScratchPad1D<std::size_t>::shmem_size(
-               sizet_scratch_size(ncols));
+    return parthenon::ScratchPad1D<double>::shmem_size(double_scratch_size(ncols)) +
+           parthenon::ScratchPad1D<std::size_t>::shmem_size(sizet_scratch_size(ncols));
   }
 };
 

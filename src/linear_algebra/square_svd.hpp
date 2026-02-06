@@ -8,7 +8,7 @@
 #include "matrix.hpp"
 
 class SquareSVD {
-public:
+ public:
   /// Compute the singular value decomposition (SVD) of a real square matrix A
   /// in place.
   ///
@@ -49,9 +49,9 @@ public:
   ///     limit indicates non-convergence).
 
   template <class tm_t, class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int
-  execute(tm_t tm, matrix_t *pA, matrix_t *pU, matrix_t *pV, double *sings,
-          double *scratch, std::size_t *iscratch) {
+  KOKKOS_INLINE_FUNCTION static int execute(tm_t tm, matrix_t *pA, matrix_t *pU,
+                                            matrix_t *pV, double *sings, double *scratch,
+                                            std::size_t *iscratch) {
     PARTHENON_REQUIRE(pA, "A must not be null.");
     auto &A = *pA;
     const int ncols = GetNcols(A);
@@ -73,26 +73,24 @@ public:
       build_householder_vector_col(tm, col, col, A, v);
       barrier(tm);
       apply_left_householder_transformation(tm, v, s, A);
-      if (pU)
-        apply_right_householder_transformation(tm, v, s, *pU);
+      if (pU) apply_right_householder_transformation(tm, v, s, *pU);
 
       barrier(tm);
       build_householder_vector_row(tm, col, col + 1, A, v);
       barrier(tm);
       apply_right_householder_transformation(tm, v, s, A);
-      if (pV)
-        apply_right_householder_transformation(tm, v, s, *pV);
+      if (pV) apply_right_householder_transformation(tm, v, s, *pV);
     });
     barrier(tm);
     build_householder_vector_col(tm, ncols - 2, ncols - 2, A, v);
     barrier(tm);
     apply_left_householder_transformation(tm, v, s, A);
-    if (pU)
-      apply_right_householder_transformation(tm, v, s, *pU);
+    if (pU) apply_right_householder_transformation(tm, v, s, *pU);
 
     // Move to tridiagonal storage
     barrier(tm);
-    once_per_team(tm, KOKKOS_LAMBDA() { sings[0] = A(0, 0); });
+    once_per_team(
+        tm, KOKKOS_LAMBDA() { sings[0] = A(0, 0); });
     parallel_loop(
         tm, 0, ncols - 2, KOKKOS_LAMBDA(int i) {
           sings[i + 1] = A(i + 1, i + 1);
@@ -102,22 +100,20 @@ public:
     barrier(tm);
     std::size_t *start = &(iscratch[0]);
     std::size_t *end = &(iscratch[ncols / 2 + 1]);
-    return ImplicitQRBidiag(tm, sings, scratch, pU, pV, start, end, ncols,
-                            10 * ncols);
+    return ImplicitQRBidiag(tm, sings, scratch, pU, pV, start, end, ncols, 10 * ncols);
   }
 
   template <class tm_t, class matrix_t>
   KOKKOS_INLINE_FUNCTION static int execute(tm_t tm, matrix_t *pA, double *eigs,
-                                            double *scratch,
-                                            std::size_t *iscratch) {
+                                            double *scratch, std::size_t *iscratch) {
     matrix_t *pU = nullptr;
     matrix_t *pV = nullptr;
     return execute(tm, pA, pU, pV, eigs, scratch, iscratch);
   }
 
   template <class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int
-  execute(matrix_t *pA, double *eigs, double *scratch, std::size_t *iscratch) {
+  KOKKOS_INLINE_FUNCTION static int execute(matrix_t *pA, double *eigs, double *scratch,
+                                            std::size_t *iscratch) {
     matrix_t *pU = nullptr;
     matrix_t *pV = nullptr;
     return execute(serial_tm_t(), pA, pU, pV, eigs, scratch, iscratch);
@@ -126,13 +122,12 @@ public:
   // Version that is only callable on host and allocates its own
   // scratch space
   template <class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int execute(matrix_t *pA, matrix_t *pU,
-                                            matrix_t *pV, double *eigs) {
+  KOKKOS_INLINE_FUNCTION static int execute(matrix_t *pA, matrix_t *pU, matrix_t *pV,
+                                            double *eigs) {
     const int ncols = GetNcols(*pA);
     std::vector<double> scratch(double_scratch_size(ncols));
     std::vector<std::size_t> iscratch(sizet_scratch_size(ncols));
-    return execute(serial_tm_t(), pA, pU, pV, eigs, scratch.data(),
-                   iscratch.data());
+    return execute(serial_tm_t(), pA, pU, pV, eigs, scratch.data(), iscratch.data());
   }
 
   template <class matrix_t>
@@ -142,23 +137,18 @@ public:
     std::vector<std::size_t> iscratch(sizet_scratch_size(ncols));
     matrix_t *pU = nullptr;
     matrix_t *pV = nullptr;
-    return execute(serial_tm_t(), pA, pU, pV, eigs, scratch.data(),
-                   iscratch.data());
+    return execute(serial_tm_t(), pA, pU, pV, eigs, scratch.data(), iscratch.data());
   }
 
   KOKKOS_INLINE_FUNCTION
-  static std::size_t double_scratch_size(std::size_t ncols) {
-    return 2 * ncols;
-  }
+  static std::size_t double_scratch_size(std::size_t ncols) { return 2 * ncols; }
 
   KOKKOS_INLINE_FUNCTION
   static std::size_t sizet_scratch_size(std::size_t ncols) { return ncols + 2; }
 
   static std::size_t total_shmem_scratch_size(std::size_t ncols) {
-    return parthenon::ScratchPad1D<double>::shmem_size(
-               double_scratch_size(ncols)) +
-           parthenon::ScratchPad1D<std::size_t>::shmem_size(
-               sizet_scratch_size(ncols));
+    return parthenon::ScratchPad1D<double>::shmem_size(double_scratch_size(ncols)) +
+           parthenon::ScratchPad1D<std::size_t>::shmem_size(sizet_scratch_size(ncols));
   }
 };
 

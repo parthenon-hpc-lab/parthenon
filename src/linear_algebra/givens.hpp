@@ -18,8 +18,7 @@ auto ComputeGivensZeroSecond(double a1, double a2) {
   // c^2 (1 - a2^2 / a1^2) = 1
   // c^2 = a1^2 / (a1^2 + a2^2)
   // s^2 = a2^2 / (a1^2 + a2^2)
-  if (a2 == 0.0)
-    return std::make_pair(1.0, 0.0);
+  if (a2 == 0.0) return std::make_pair(1.0, 0.0);
   double norm = 1.0 / std::hypot(a1, a2);
   // (c, s)
   return std::make_pair(norm * a1, -norm * a2);
@@ -31,8 +30,7 @@ auto ComputeGivensZeroSecond(double a1, double a2) {
 // such that sigma . (a1, a2)^T = (0, alpha)^T
 KOKKOS_FORCEINLINE_FUNCTION
 auto ComputeGivensZeroFirst(double a1, double a2) {
-  if (a2 == 0.0)
-    return std::make_pair(1.0, 0.0);
+  if (a2 == 0.0) return std::make_pair(1.0, 0.0);
   double norm = 1.0 / std::hypot(a1, a2);
   // (c, s)
   return std::make_pair(norm * a2, norm * a1);
@@ -62,9 +60,9 @@ KOKKOS_FORCEINLINE_FUNCTION double ValueAtIndexOrZero(int idx, double *arr) {
 // diagonal elements d and off-diagonal elements b, and bulge element bulge at
 // (gidx - 1, gidx + 1) and (gidx + 1, gidx - 1).
 template <bool first, bool last, class tm_t>
-KOKKOS_FORCEINLINE_FUNCTION double
-ApplyGivensLeftRight(tm_t tm, int gidx, double c, double s, double bulge,
-                     double *d, double *b) {
+KOKKOS_FORCEINLINE_FUNCTION double ApplyGivensLeftRight(tm_t tm, int gidx, double c,
+                                                        double s, double bulge, double *d,
+                                                        double *b) {
   const double d1 = d[gidx];
   const double d2 = d[gidx + 1];
   const double b0 = ValueAtIndexOrZero<first>(gidx - 1, b);
@@ -81,11 +79,9 @@ ApplyGivensLeftRight(tm_t tm, int gidx, double c, double s, double bulge,
         // Apply G A G^T to the tridiagonal elements
         d[gidx] = c2 * d1 + s2 * d2 - 2 * cs * b1;
         d[gidx + 1] = s2 * d1 + c2 * d2 + 2 * cs * b1;
-        if constexpr (!first)
-          b[gidx - 1] = c * b0 - s * bulge;
+        if constexpr (!first) b[gidx - 1] = c * b0 - s * bulge;
         b[gidx] = cs * (d1 - d2) + (c2 - s2) * b1;
-        if constexpr (!last)
-          b[gidx + 1] = c * b2;
+        if constexpr (!last) b[gidx + 1] = c * b2;
       });
   barrier(tm);
 
@@ -98,9 +94,8 @@ ApplyGivensLeftRight(tm_t tm, int gidx, double c, double s, double bulge,
 // and G_{gidx, gidx + 1} = -G_{gidx + 1, gidx} = -s
 // Bulge starts at element (gidx + 1, gidx)
 template <bool first, bool last, class tm_t>
-KOKKOS_FORCEINLINE_FUNCTION double ApplyGivensLeft(tm_t tm, int gidx, double c,
-                                                   double s, double bulge,
-                                                   double *d, double *b) {
+KOKKOS_FORCEINLINE_FUNCTION double ApplyGivensLeft(tm_t tm, int gidx, double c, double s,
+                                                   double bulge, double *d, double *b) {
   const double d1 = d[gidx];
   const double d2 = d[gidx + 1];
   const double b1 = b[gidx];
@@ -113,8 +108,7 @@ KOKKOS_FORCEINLINE_FUNCTION double ApplyGivensLeft(tm_t tm, int gidx, double c,
         d[gidx] = c * d1 - bulge * s;
         d[gidx + 1] = c * d2 + s * b1;
         b[gidx] = c * b1 - s * d2;
-        if constexpr (!last)
-          b[gidx + 1] = c * b2;
+        if constexpr (!last) b[gidx + 1] = c * b2;
       });
   barrier(tm);
 
@@ -127,9 +121,8 @@ KOKKOS_FORCEINLINE_FUNCTION double ApplyGivensLeft(tm_t tm, int gidx, double c,
 // and G_{gidx, gidx + 1} = -G_{gidx + 1, gidx} = -s
 // Bulge starts at element (gidx - 1, gidx + 1)
 template <bool first, bool last, class tm_t>
-KOKKOS_FORCEINLINE_FUNCTION double ApplyGivensRight(tm_t tm, int gidx, double c,
-                                                    double s, double bulge,
-                                                    double *d, double *b) {
+KOKKOS_FORCEINLINE_FUNCTION double ApplyGivensRight(tm_t tm, int gidx, double c, double s,
+                                                    double bulge, double *d, double *b) {
   const double d1 = d[gidx];
   const double d2 = d[gidx + 1];
   const double b0 = ValueAtIndexOrZero<first>(gidx - 1, b);
@@ -141,8 +134,7 @@ KOKKOS_FORCEINLINE_FUNCTION double ApplyGivensRight(tm_t tm, int gidx, double c,
         // Apply A G to the upper bidiagonal elements
         d[gidx] = c * d1 - s * b1;
         d[gidx + 1] = c * d2;
-        if constexpr (!first)
-          b[gidx - 1] = c * b0 - s * bulge;
+        if constexpr (!first) b[gidx - 1] = c * b0 - s * bulge;
         b[gidx] = c * b1 + s * d1;
         // If first = false, this assumes that c and s are chosen such that
         // A' = A G element
@@ -158,8 +150,8 @@ KOKKOS_FORCEINLINE_FUNCTION double ApplyGivensRight(tm_t tm, int gidx, double c,
 // with G_{gidx, gidx} = G_{gidx + 1, gidx + 1} = c
 // and G_{gidx, gidx + 1} = -G_{gidx + 1, gidx} = -s
 template <class tm_t, class matrix_t>
-KOKKOS_INLINE_FUNCTION void ApplyGivensLeft(tm_t tm, int gidx, double c,
-                                            double s, matrix_t &A) {
+KOKKOS_INLINE_FUNCTION void ApplyGivensLeft(tm_t tm, int gidx, double c, double s,
+                                            matrix_t &A) {
   const int ncols = GetNcols(A);
   parallel_loop(
       tm, 0, ncols - 1, KOKKOS_LAMBDA(const int col) {
@@ -174,8 +166,8 @@ KOKKOS_INLINE_FUNCTION void ApplyGivensLeft(tm_t tm, int gidx, double c,
 // with G_{gidx, gidx} = G_{gidx + 1, gidx + 1} = c
 // and G_{gidx, gidx + 1} = -G_{gidx + 1, gidx} = -s
 template <class tm_t, class matrix_t>
-KOKKOS_INLINE_FUNCTION void ApplyGivensRight(tm_t tm, int gidx, double c,
-                                             double s, matrix_t &A) {
+KOKKOS_INLINE_FUNCTION void ApplyGivensRight(tm_t tm, int gidx, double c, double s,
+                                             matrix_t &A) {
   const int nrows = GetNrows(A);
   parallel_loop(
       tm, 0, nrows - 1, KOKKOS_LAMBDA(const int row) {
@@ -190,8 +182,8 @@ KOKKOS_INLINE_FUNCTION void ApplyGivensRight(tm_t tm, int gidx, double c,
 // with G_{gidx, gidx} = G_{gidx + 1, gidx + 1} = c
 // and G_{gidx, gidx + 1} = -G_{gidx + 1, gidx} = -s
 template <class tm_t, class matrix_t>
-KOKKOS_INLINE_FUNCTION void ApplyGivensLeftRight(tm_t tm, int gidx, double c,
-                                                 double s, matrix_t &A) {
+KOKKOS_INLINE_FUNCTION void ApplyGivensLeftRight(tm_t tm, int gidx, double c, double s,
+                                                 matrix_t &A) {
   ApplyGivensLeft(tm, gidx, c, s, A);
   ApplyGivensRight(tm, gidx, c, s, A);
 }

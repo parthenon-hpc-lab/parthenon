@@ -34,25 +34,25 @@ int main(int argc, char *argv[]) {
       parthenon::ScratchPad1D<double>::shmem_size(N) +
       SymmetricEVD::total_shmem_scratch_size(N);
   parthenon::par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, "QR", parthenon::DevExecSpace(),
-      scratch_size_in_bytes, scratch_level, 0, nmatrices - 1,
+      DEFAULT_OUTER_LOOP_PATTERN, "QR", parthenon::DevExecSpace(), scratch_size_in_bytes,
+      scratch_level, 0, nmatrices - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int m) {
         auto &ts = tm.team_scratch(scratch_level);
         auto mat = parthenon::ScratchPad2D<double>(ts, N, N);
         auto Q = parthenon::ScratchPad2D<double>(ts, N, N);
         auto eigs = parthenon::ScratchPad1D<double>(ts, N);
 
-        auto lscratch = parthenon::ScratchPad1D<double>(
-            ts, SymmetricEVD::double_scratch_size(N));
-        auto liscratch = parthenon::ScratchPad1D<std::size_t>(
-            ts, SymmetricEVD::sizet_scratch_size(N));
+        auto lscratch =
+            parthenon::ScratchPad1D<double>(ts, SymmetricEVD::double_scratch_size(N));
+        auto liscratch =
+            parthenon::ScratchPad1D<std::size_t>(ts, SymmetricEVD::sizet_scratch_size(N));
 
         // First, put the given matrix into scratch memory [In a real Gram-SVD,
         // the Gram matrices should already be in scratch after reductions over
         // tensor cores]
-        parthenon::par_for_inner(
-            tm, 0, N - 1, 0, N - 1,
-            [&](const int r, const int c) { mat(r, c) = matrices(m, r, c); });
+        parthenon::par_for_inner(tm, 0, N - 1, 0, N - 1, [&](const int r, const int c) {
+          mat(r, c) = matrices(m, r, c);
+        });
 
         // Actually calculate eigenvalues
         tm.team_barrier();
@@ -61,11 +61,11 @@ int main(int argc, char *argv[]) {
         tm.team_barrier();
 
         // Copy eigenvalues out of scratch so they can be investigated on host
-        parthenon::par_for_inner(
-            tm, 0, N - 1, [&](const int r) { eigenvalues(m, r) = eigs(r); });
-        parthenon::par_for_inner(
-            tm, 0, N - 1, 0, N - 1,
-            [&](const int r, const int c) { eigenvectors(m, r, c) = Q(r, c); });
+        parthenon::par_for_inner(tm, 0, N - 1,
+                                 [&](const int r) { eigenvalues(m, r) = eigs(r); });
+        parthenon::par_for_inner(tm, 0, N - 1, 0, N - 1, [&](const int r, const int c) {
+          eigenvectors(m, r, c) = Q(r, c);
+        });
       });
 
   // Bring diagonal back to host and check eigenvalues
@@ -102,8 +102,7 @@ int main(int argc, char *argv[]) {
         Av[r] -= eigenvectors_h(m, r, e) * eigenvalues_h(m, e);
         mag += Av[r] * Av[r];
       }
-      printf("||A v_{%i} - lambda_{%i} v_%i||_2 = %e\n", e, e, e,
-             std::sqrt(mag));
+      printf("||A v_{%i} - lambda_{%i} v_%i||_2 = %e\n", e, e, e, std::sqrt(mag));
     }
   }
 
