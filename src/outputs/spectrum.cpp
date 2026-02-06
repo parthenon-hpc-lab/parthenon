@@ -41,7 +41,6 @@
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/FFTManager.hpp"
-#include "heffte.h"
 
 namespace parthenon {
 
@@ -52,11 +51,9 @@ namespace parthenon {
 void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                      const SignalHandler::OutputSignal signal) {
                                         
-  const auto spec_type = pin->GetInteger("parthenon/output4", "spec_type"); // How to make this work so that it doesn't have to be output4?
+  const auto spec_type =
+    pin->GetInteger(output_params.block_name, "spec_type");
   
-  auto FFTManager = pm->GetFFTManager();
-  auto UniformGridHelper = pm->GetUniformGridHelper();
-
   auto &md = pm->mesh_data.Get();
 
   IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
@@ -64,6 +61,8 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   IndexRange kb = md->GetBlockData(0)->GetBoundsK(IndexDomain::interior);
   auto cons = md->PackVariables(std::vector<std::string>{"cons"});
 
+  // Get Mesh geometry information: 
+  auto UniformGridHelper = pm->GetUniformGridHelper();
   auto &loc_view = UniformGridHelper->loc_view;
   const auto &block_size = UniformGridHelper->block_size;
   const auto &local_mesh_size = UniformGridHelper->local_mesh_size;
@@ -77,14 +76,14 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   const auto Ny = UniformGridHelper->global_mesh_size[1];
   const auto Nz = UniformGridHelper->global_mesh_size[2];
 
-  // TODO(pgrete) Eventually make these persistent
-  int n_comp = 3;
+  int n_comp = 3; // number of field components to transform 
+  auto FFTManager = pm->GetFFTManager(); 
   const auto fft_size_inbox = FFTManager->size_real_space_box();
   parthenon::ParArray1D<Real> input("fft input", n_comp * fft_size_inbox);
   parthenon::ParArray1D<std::complex<Real>> output("fft output",
                                                    n_comp * FFTManager->size_fourier_space_box());
-  PARTHENON_REQUIRE_THROWS(pm->DefaultNumPartitions() == 1,
-                           "Only pack_size=-1 currently supported for heffte.")
+  PARTHENON_REQUIRE_THROWS(pm->DefaultNumPartitions() == 1, 
+                           "Only pack_size=-1 currently supported for heffte.") // pack size -1 means 1 pack per rank
   // for (int spec_type = 0; spec_type < 3; spec_type++) {
   par_for(
       "Init FFT fields", 0, pm->GetNumMeshBlocksThisRank() - 1, kb.s, kb.e, jb.s, jb.e,

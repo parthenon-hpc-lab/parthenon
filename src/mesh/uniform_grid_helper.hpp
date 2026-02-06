@@ -32,7 +32,7 @@ public:
     std::array<int, 3> mesh_start_idx;
     std::array<int, 3> mesh_end_idx;
     
-    parthenon::ParArray2D<std::int64_t> loc_view;
+    parthenon::ParArray2D<std::int64_t> loc_view; // logical location of local blocks; stored on device
 
 private:
     Mesh *mesh_;           
