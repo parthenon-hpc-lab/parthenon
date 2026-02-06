@@ -234,26 +234,32 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     // read single precision output option
     const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5") ||
                                 (op.file_type == "corehdf5");
+    const bool is_openpmd_output = (op.file_type == "openpmd");
 
-    if (is_hdf5_output) {
+    if (is_hdf5_output || is_openpmd_output) {
       op.single_precision_output =
           pin->GetOrAddBoolean(op.block_name, "single_precision_output", false);
+    } else {
+      op.single_precision_output = false;
+      if (pin->DoesParameterExist(op.block_name, "single_precision_output")) {
+        std::stringstream warn;
+        warn << "Output option single_precision_output only applies to "
+                "HDF5 outputs or restarts. Ignoring it for output block '"
+             << op.block_name << "'";
+        if (Globals::my_rank == 0) {
+          PARTHENON_WARN(warn);
+        }
+      }
+    }
+
+    if (is_hdf5_output) {
       op.sparse_seed_nans =
           pin->GetOrAddBoolean(op.block_name, "sparse_seed_nans", false,
                                "write non-allocated sparse data as NaN");
       op.meshdata_name = pin->GetOrAddString(op.block_name, "meshdata_name", "base",
                                              "which meshdata object to write from");
     } else {
-      op.single_precision_output = false;
       op.sparse_seed_nans = false;
-
-      if (pin->DoesParameterExist(op.block_name, "single_precision_output")) {
-        std::stringstream warn;
-        warn << "Output option single_precision_output only applies to "
-                "HDF5 outputs or restarts. Ignoring it for output block '"
-             << op.block_name << "'";
-        PARTHENON_WARN(warn);
-      }
     }
 
     if (is_hdf5_output) {
@@ -354,6 +360,27 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       pnew_type = std::make_shared<HistoryOutput>(op);
     } else if (op.file_type == "ascent") {
       pnew_type = std::make_shared<AscentOutput>(op);
+    }  else if (op.file_type == "spectrum") {
+    pnew_type = std::make_shared<SpectralOutput>(op);
+    } else if (op.file_type == "openpmd") {
+#ifdef PARTHENON_ENABLE_OPENPMD
+      const auto backend_config =
+          pin->GetOrAddString(op.block_name, "backend_config", "default");
+      const auto coarsening_factor =
+          pin->GetOrAddInteger(op.block_name, "coarsening_factor", 1,
+                               "Output data coarsened by given factor n. Every n^dim "
+                               "data point is used, i.e., the data is not average. "
+                               "Requires even number of cells in each block dimension.");
+
+      pnew_type = std::make_shared<OpenPMDOutput>(op, backend_config, coarsening_factor);
+#else
+      msg << "### FATAL ERROR in Outputs constructor" << std::endl
+          << "Executable not configured for OpenPMD outputs, but OpenPMD file format "
+          << "is requested in output/restart block '" << op.block_name << "'. "
+          << "You can disable this block without deleting it by setting a dt < 0."
+          << std::endl;
+      PARTHENON_FAIL(msg);
+#endif // ifdef PARTHENON_ENABLE_OPENPMD
     } else if (op.file_type == "histogram") {
 #ifdef ENABLE_HDF5
       pnew_type = std::make_shared<HistogramOutput>(op, pin);

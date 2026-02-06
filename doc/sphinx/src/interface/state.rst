@@ -50,7 +50,7 @@ several useful features and functions.
   restart file and updated upon restart. In contrast, ``Mutable``
   params not marked ``Restart`` are updated only by user code, not
   automatically. Note that not all parameter types can be output to
-  HDF5 file. However, most common scalar, vector, and ``Kokkos`` view
+  restart files. However, most common scalar, vector, and ``Kokkos`` view
   types are supported. Note also that if the value of a ``Param`` is
   different on different MPI ranks, this will result in undefined
   behaviour.

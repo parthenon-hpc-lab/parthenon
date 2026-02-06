@@ -32,8 +32,9 @@ jobs:
       - name: cpplint
         run: python3 ./tst/style/cpplint.py --counting=detailed --recursive src example tst
       - name: copyright
+        # using variant mpi because openpmd lib is only installed with mpi support (no serial)
         run: |
-          cmake -DCMAKE_CXX_FLAGS=-Werror -Bbuild-copyright-check
+          cmake -DCMAKE_CXX_FLAGS=-Werror -Bbuild-copyright-check -DMACHINE_VARIANT=mpi
           cmake --build build-copyright-check -t check-copyright
       - uses: actions/upload-artifact@v4
         with:
@@ -104,6 +105,7 @@ jobs:
           # make sure parthenon tools is in our python path
           export PYTHONPATH="$PYTHONPATH:$(python -m site --user-site)"
           ctest -R regression_mpi_test:output_hdf5
+          ctest -R regression_mpi_test:restart_opmd
       # Test example with swarms
       - name: particle-leapfrog
         run: |
@@ -174,6 +176,7 @@ jobs:
           # make sure parthenon tools is in our python path
           export PYTHONPATH="$PYTHONPATH:$(python -m site --user-site)"
           ctest -R regression_mpi_test:output_hdf5
+          ctest -R regression_mpi_test:restart_opmd
       # Test example with swarms
       - name: particle-leapfrog
         run: |

@@ -27,6 +27,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "Kokkos_ScatterView.hpp"
@@ -115,6 +116,17 @@ const char hist_param_key[] = "HistoryFunctions";
 const char hist_vec_param_key[] = "HistoryVectorFunctions";
 
 //----------------------------------------------------------------------------------------
+//! \class SpectralOutput
+//  \brief derived OutputType class for Spectrum dumps
+
+class SpectralOutput : public OutputType {
+ public:
+  explicit SpectralOutput(const OutputParameters &oparams) : OutputType(oparams) {}
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                       const SignalHandler::OutputSignal signal) override;
+};
+
+//----------------------------------------------------------------------------------------
 //! \class HistoryFile
 //  \brief derived OutputType class for history dumps
 
@@ -139,6 +151,28 @@ class AscentOutput : public OutputType {
   //  Ghost mask currently (Ascent 0.9) needs to be of float type on device as the
   //  automated conversion between int and float does not work
   ParArray1D<Real> ghost_mask_;
+};
+
+//----------------------------------------------------------------------------------------
+//! \class OpenPMDOutput
+//  \brief derived OutputType class for OpenPMD based output
+
+class OpenPMDOutput : public OutputType {
+ public:
+  explicit OpenPMDOutput(const OutputParameters &oparams, std::string backend_config,
+                         int coarsening_factor)
+      : OutputType(oparams), backend_config_(std::move(backend_config)),
+        coarsening_factor_(coarsening_factor) {}
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                       const SignalHandler::OutputSignal signal) override;
+  template <bool WRITE_SINGLE_PRECISION>
+  void WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                           const SignalHandler::OutputSignal signal);
+
+ private:
+  //  path to file containing config passed to backend
+  std::string backend_config_;
+  int coarsening_factor_;
 };
 
 #ifdef ENABLE_HDF5

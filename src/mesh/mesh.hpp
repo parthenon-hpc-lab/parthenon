@@ -55,6 +55,8 @@
 #include "utils/hash.hpp"
 #include "utils/object_pool.hpp"
 #include "utils/partition_stl_containers.hpp"
+#include "utils/FFTManager.hpp"
+#include "mesh/uniform_grid_helper.hpp"
 
 namespace parthenon {
 
@@ -81,6 +83,7 @@ class Mesh {
   friend class HistoryOutput;
   friend class MeshBlock;
   friend class MeshRefinement;
+  friend class FFTManager;
 
   struct base_constructor_selector_t {};
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
@@ -90,6 +93,26 @@ class Mesh {
        hyper_rectangular_constructor_selector_t);
 
  public:
+  std::unique_ptr<parthenon::FFTManager> fft_manager;
+
+    FFTManager* GetFFTManager() {
+        if (!fft_manager) {
+            fft_manager = std::make_unique<FFTManager>(this);
+            fft_manager->Initialize();  // only runs once
+        }
+        return fft_manager.get();
+    }
+
+  std::unique_ptr<parthenon::UniformGridHelper> uniform_grid_helper;
+
+    UniformGridHelper* GetUniformGridHelper() {
+      if (!uniform_grid_helper) {
+          uniform_grid_helper = std::make_unique<UniformGridHelper>(this);
+          uniform_grid_helper->Initialize();
+      }
+      return uniform_grid_helper.get();
+    }
+
   // 2x function overloads of ctor: normal and restarted simulation
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        int test_flag = 0);
