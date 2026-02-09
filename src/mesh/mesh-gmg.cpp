@@ -258,7 +258,7 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
           auto loc = leaf_loc.GetParent(std::max(leaf_loc.level() - grid.logical_level(), 0));
            // Only want to work with this block if the leaf is the lower left corner of the parent block
            // (otherwise all daughters would add the same parent and blocks could be duplicated across ranks)
-          if (loc.morton() == leaf_loc.morton()) {
+          if (leaf_loc.IsLowerLeftRepresentativeOf(loc)) {
             if (all_blocks.count({loc, grid.block_coarsenings()})) { 
               // Block already exists, so just add pointer to list
               cur_block_list.push_back(all_blocks[{loc, grid.block_coarsenings()}]);
