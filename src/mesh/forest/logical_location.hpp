@@ -121,7 +121,9 @@ class LogicalLocation { // aggregate and POD type
     if (loc.tree() == tree()) {
       return loc.morton() == morton();
     }
+    return false;
   }
+
   // Get the location in the parent, i.e. the lower left corner of the block
   // is (0, 0, 0) and the upper right corner of the block is (1, 1, 1)
   std::array<int, 3> GetLocationInParent() const {
