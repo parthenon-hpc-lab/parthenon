@@ -29,6 +29,11 @@ namespace parthenon {
 
 namespace tensors {
 
+// unmanaged 2d and 3d kokkos view spiel
+using DevSpace = parthenon::DevMemSpace;
+using View2DUnmanaged = Kokkos::View<double**, Kokkos::LayoutRight, DevSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+using View3DUnmanaged = Kokkos::View<double***, Kokkos::LayoutRight, DevSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+
 // JMM: We need a TensorCoreHost type and a TensorCoreDevice type
 // because the reference counting for the cores is done on host, and
 // so a host array needs to stick around. But if you copy that array
@@ -186,6 +191,15 @@ class TensorTrain {
     return max_right_rank;
   }
 
+  // get largest physical index size
+  std::size_t GetMaximumPhysicaIndexSize() const {
+    std::size_t max_physical_index_size = 0;
+    for (int i = 0; i < GetNumCores(); i++) {
+      max_physical_index_size = std::max(max_physical_index_size, GetPhysicalIndexSize(i));
+    }
+    return max_physical_index_size;
+  }
+
   // Evaluates the tensor train and returns the dense array it
   // represents as a Kokkos view. This is mostly for debugging!
   // TODO(JMM): I am giving up on doing this generically. It's not
@@ -245,8 +259,63 @@ class TensorTrain {
   void GramSVDRound(const Real eps);
 
   // const access to cores_device_
-  const cores_device_t &cores_device() const { return cores_device_; }
+  //const cores_device_t &cores_device() const { return cores_device_; }
   // cores_device_t &cores_device() { return cores_device_; }
+
+  KOKKOS_INLINE_FUNCTION
+  void CalculateRightGramMatrices(const ScratchPad2D<Real> &GR,
+                                  const parthenon::team_mbr_t &member);
+
+  KOKKOS_INLINE_FUNCTION
+  void CalculateLeftGramMatrices(const ScratchPad2D<Real> &GL,
+                                 const parthenon::team_mbr_t &member);
+
+  void CalculateGramSVD(const int n,
+    View2DUnmanaged GL, View2DUnmanaged GR, 
+    ScratchPad2D<Real> &EVL, ScratchPad2D<Real> &EVR,
+    ScratchPad1D<Real> &ELamL, ScratchPad1D<Real> &ELamR,
+    ScratchPad2D<Real> &svdU,
+                       ScratchPad2D<Real> &svdV, ScratchPad1D<Real> &svdS,
+                       parthenon::team_mbr_t member, const int scratch_level);
+
+  // examine SVD's singular values for core n and return:
+  // keep: flag should we keep (1) or discard (0) this singular values
+  // gamma_map: compactified map to retained singular values
+  // integer return: number of retained singular values
+  KOKKOS_INLINE_FUNCTION
+  int SelectSingularModes(const int n, const ScratchPad1D<Real> &svdS,
+                           const ScratchPad1D<int> &keep, 
+                           ScratchPad1D<int> &gamma_map,
+                           const Real eps) {
+
+    auto cores = this->cores_device_;
+    const std::size_t Rn = cores(n).GetRightRank();
+
+    for (int i = 0; i < Rn; i++) { keep(i) = 0; };
+
+    // find maximum singular value
+    Real sigmax{-1.e30};
+    for (int i = 0; i < Rn; i++) { sigmax = std::max(sigmax, svdS(i)); };
+
+    // flag which singular values we should keep
+    const Real sigmaxeps = sigmax * eps;
+    int Rn_new{0};
+    for (int i = 0; i < Rn; i++) {
+      if (svdS(i) > sigmaxeps) {
+        keep(i) = 1;
+        gamma_map(Rn_new) = i;
+        Rn_new++;
+      }
+    };
+
+    return Rn_new;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void UpdateCoreIndexSpaces(const int n, const int Rn_new, ScratchPad1D<int> &gamma_map,
+      ScratchPad2D<Real> &svdU, ScratchPad2D<Real> &svdV, ScratchPad1D<Real> &svdS,
+      ScratchPad1D<Real> &ELamL, ScratchPad2D<Real> &EVL, ScratchPad1D<Real> &ELamR,
+      ScratchPad2D<Real> &EVR, parthenon::team_mbr_t tm, ScratchPad1D<Real> &temporary_core_scratch);
 
  private:
   std::string label_;
@@ -254,42 +323,6 @@ class TensorTrain {
   cores_device_t cores_device_;
 }; // class TensorTrain
 
-KOKKOS_INLINE_FUNCTION
-void CalculateRightGramMatrices(const TensorTrain &TT, const Real &GR,
-                                const parthenon::team_mbr_t member);
-
-KOKKOS_INLINE_FUNCTION
-void CalculateLeftGramMatrices(const TensorTrain &TT, const Real &GL,
-                               const parthenon::team_mbr_t member);
-
-KOKKOS_INLINE_FUNCTION
-void SelectSingularModes(const TensorTrain &TT, const ScratchPad2D<Real> &svdS,
-                         const ScratchPad2D<int> &keep, const Real &eps) {
-
-  const size_t Ngram = TT.GetNumCores();
-  auto cores = TT.cores_device();
-  const std::size_t RMax = TT.GetMaximumRightRank();
-
-  for (int n = 0; n < Ngram; n++) {
-    const std::size_t Rn = cores(n).GetRightRank();
-
-    for (int i = 0; i < RMax; i++) {
-      keep(n, i) = 0;
-    };
-
-    // find maximum singular value
-    Real sigmax{-1.e30};
-    for (int i = 0; i < Rn; i++) {
-      sigmax = std::max(sigmax, svdS(n, i));
-    };
-
-    // flag which singular values we should keep
-    const Real sigmaxeps = sigmax * eps;
-    for (int i = 0; i < Rn; i++) {
-      keep(n, i) = (svdS(n, i) > sigmaxeps) ? 1 : 0;
-    };
-  }
-}
 
 } // namespace tensors
 } // namespace parthenon
