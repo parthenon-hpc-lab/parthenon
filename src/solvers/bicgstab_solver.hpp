@@ -162,7 +162,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
 
     iter_counter = 0;
     bool multilevel = pmesh->multilevel;
-
+    auto timer_guard_total = TimingAccumulatorGuard(solver_timings.GetOrAddAndRegister("BiCGSTAB: Total", tl));
     // Initialization: x <- 0, r <- rhs, rhat0 <- r,
     // rhat0r_old <- (rhat0, r), p <- r, u <- 0
     auto initialize = dependence;
@@ -186,12 +186,13 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
         initialize | copy_p | copy_rhat0 | get_rhs2_rhat0r_init, "zero factors",
-        [](BiCGSTABSolver *solver) {
+        [](BiCGSTABSolver *solver, Mesh *pm) {
           solver->iter_counter = -1;
           solver->rhs2 = solver->res_rhat0r.val[0];
+          solver->initial_residual = std::sqrt(solver->rhs2 / pm->GetTotalCells());
           return TaskStatus::complete;
         },
-        this);
+        this, pmesh);
     tl.AddTask(
         TaskQualifier::once_per_region, initialize, "print to screen",
         [&](BiCGSTABSolver *solver, std::shared_ptr<Real> res_tol, bool relative_residual,
