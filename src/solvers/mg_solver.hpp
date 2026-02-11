@@ -42,7 +42,8 @@ struct MGParams {
   int max_iters = 1000;
   Real residual_tolerance = 1.e-12;
   bool do_FAS = true;
-  std::string smoother = "SRJ2";
+  std::string presmoother = "SRJ2";
+  std::string postsmoother = "SRJ2";
   bool two_by_two_diagonal = false;
   int max_coarsenings = std::numeric_limits<int>::max();
   std::string prolongation = "OldLinear";
@@ -53,7 +54,9 @@ struct MGParams {
     residual_tolerance =
         pin->GetOrAddReal(input_block, "residual_tolerance", residual_tolerance);
     do_FAS = pin->GetOrAddBoolean(input_block, "do_FAS", do_FAS);
-    smoother = pin->GetOrAddString(input_block, "smoother", smoother);
+    std::string smoother = pin->GetOrAddString(input_block, "smoother", "SRJ2");
+    presmoother = pin->GetOrAddString(input_block, "presmoother", smoother); 
+    postsmoother = pin->GetOrAddString(input_block, "postsmoother", smoother); 
     prolongation = pin->GetOrAddString(input_block, "prolongation", prolongation);
     two_by_two_diagonal =
         pin->GetOrAddBoolean(input_block, "two_by_two_diagonal", two_by_two_diagonal);
@@ -118,23 +121,24 @@ class MGSolver : public SolverBase, MGSolverCounter {
     } else {
       BCFunc = ApplyBoundaryConditionsOnCoarseOrFineMD;
     }
+    
+    auto get_stages = [](const std::string &sm) {
+      if (sm == "none") {
+        return 0;
+      } else if (sm == "SRJ1") {
+        return 1;
+      } else if (sm == "SRJ2") {
+        return 2;
+      } else if (sm == "SRJ3") {
+        return 3;
+      } else {
+        PARTHENON_FAIL("Unknown smoother type.");
+      } 
+      return 0;
+    };
 
-    auto smoother = params_.smoother;
-    if (smoother == "none") {
-      pre_stages = 0;
-      post_stages = 0;
-    } else if (smoother == "SRJ1") {
-      pre_stages = 1;
-      post_stages = 1;
-    } else if (smoother == "SRJ2") {
-      pre_stages = 2;
-      post_stages = 2;
-    } else if (smoother == "SRJ3") {
-      pre_stages = 3;
-      post_stages = 3;
-    } else {
-      PARTHENON_FAIL("Unknown smoother type.");
-    }
+    pre_stages = get_stages(params_.presmoother);
+    post_stages = get_stages(params_.postsmoother);
   }
 
   void SetConstantProlongation(bool const_pro) { constant_prolongation = const_pro; }
@@ -315,7 +319,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
   }
 
   std::string GetTimeLabel(const std::string &name, const std::shared_ptr<BlockListPartition> &partition) {
-    return GetTimeLabel(name, partition->grid.logical_level());
+    return GetTimeLabel(name, partition->grid.multigrid_level());
   }
 
   TaskID AddJacobiIteration(TaskList &tl, TaskID depends_on, Real omega,
@@ -370,7 +374,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
     if (stages == 0) {
       return depends_on;
     } else if (stages == 1) {
-      return AddJacobiIteration(tl, depends_on, 1.0, partition, pmesh, in_is_zero);
+      return AddJacobiIteration(tl, depends_on, 0.666, partition, pmesh, in_is_zero);
     } else if (stages == 2) {
       // Damping factors from Yang & Mittal (2017)
       const std::array<std::array<Real, 2>, 3> omega{{{0.8723, 0.5395}, {1.3895, 0.5617}, {1.7319, 0.5695}}};
