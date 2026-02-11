@@ -70,8 +70,9 @@ class SolverBase {
 
   virtual void SetConstantProlongation(bool const_pro) {}
 
+  Real GetInitialResidual() const { return initial_residual; }
   Real GetFinalResidual() const { return final_residual; }
-  int GetFinalIterations() const { return final_iteration; }
+  int GetFinalIterations() const { return final_iteration + 1; }
 
   void SetRHSContainerLabel(const std::string &rhs) { container_rhs = rhs; }
   const std::string &GetBaseContainerLabel() const { return container_base; }
@@ -96,7 +97,8 @@ class SolverBase {
   std::string container_u;
   // User defined container containing the rhs vector, only needs to contain sol_fields
   std::string container_rhs;
-
+  
+  Real initial_residual{-1.0};
   Real final_residual;
   int final_iteration;
 };
