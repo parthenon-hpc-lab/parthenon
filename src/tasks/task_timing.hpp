@@ -18,9 +18,12 @@
 #include <cassert>
 #include <chrono>
 #include <functional>
+#include <iomanip>
+#include <ios>
 #include <list>
 #include <map>
 #include <memory>
+#include <ostream>
 #include <set>
 #include <string>
 #include <tuple>
@@ -106,6 +109,22 @@ class TimingAccumulatorDictionary {
   auto end() const { return dict_.end(); }
 
   void WriteToJSON(const std::string &file_name);
+
+  friend std::ostream &operator<<(std::ostream &os,
+                                  const TimingAccumulatorDictionary &tad) {
+    os << std::fixed << std::setprecision(6);
+
+    for (const auto &[name, acc] : tad.dict_) {
+      os << name << ": ";
+      if (acc) {
+        os << acc->GetTotalTime() << " (s)";
+      } else {
+        os << "(null)";
+      }
+      os << '\n';
+    }
+    return os;
+  }
 };
 
 } // namespace parthenon
