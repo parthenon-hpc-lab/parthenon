@@ -127,3 +127,104 @@ SCENARIO("Parthenon tensor trains", "[TensorTrains]") {
     }
   }
 }
+
+SCENARIO("TensorTrain Gram-SVD rounding", "[TensorTrains][GramSVD]") {
+  GIVEN("A small tensor train with nontrivial ranks") {
+    constexpr std::size_t NCORES = 3;
+    constexpr std::size_t NC[NCORES] = {4, 5, 6};
+
+    constexpr std::size_t NRANKS = NCORES + 1;
+    constexpr std::size_t RANKS[NRANKS] = {1, 4, 4, 1};
+
+    const std::size_t chunk_size = 16;
+    pool_map_t pool_map;
+    for (int i = 0; i < NCORES; ++i) {
+      pool_map.AddPool(NC[i], chunk_size);
+    }
+
+    std::vector<TensorCoreHost> cores;
+    for (int i = 0; i < NCORES; ++i) {
+      cores.emplace_back(pool_map, RANKS[i], NC[i], RANKS[i + 1]);
+    }
+
+    TensorTrain T("Rounded TT", cores);
+
+    // Fill with deterministic nontrivial data
+    T.SetOnes();
+
+    // Dense reference BEFORE rounding
+    ParArrayND<Real> dense_before = T.ToDenseArray3D();
+
+    // Save original ranks
+    std::vector<std::size_t> ranks_before;
+    for (int n = 0; n < T.GetNumCores(); ++n) {
+      ranks_before.push_back(T.GetRightRank(n));
+    }
+
+    WHEN("We apply Gram-SVD rounding with a loose tolerance") {
+      const Real eps = 1e-6;
+      T.GramSVDRound(eps);
+
+      THEN("The dense representation is preserved within tolerance") {
+        ParArrayND<Real> dense_after = T.ToDenseArray3D();
+
+        int nwrong = 0;
+        par_reduce(
+            "Check dense error after GramSVD round",
+            0, dense_after.GetDim(3) - 1,
+            0, dense_after.GetDim(2) - 1,
+            0, dense_after.GetDim(1) - 1,
+            KOKKOS_LAMBDA(const int k, const int j, const int i, int &nw) {
+              const Real diff =
+                  dense_after(k, j, i) - dense_before(k, j, i);
+              if (std::abs(diff) > 1e-8) nw += 1;
+              printf("Dense before/after rounding: %23.15e  %23.15e\n",
+                dense_before(k, j, i), dense_after(k, j, i) );
+            },
+            nwrong);
+
+        REQUIRE(nwrong == 0);
+      }
+
+      THEN("Tensor-train ranks do not increase") {
+        for (int n = 0; n < T.GetNumCores(); ++n) {
+          REQUIRE(T.GetRightRank(n) <= ranks_before[n]);
+          printf("Rank %d before: %d, after: %d\n", n, 
+            T.GetRightRank(n), ranks_before[n]);
+        }
+      }
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

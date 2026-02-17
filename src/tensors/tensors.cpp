@@ -20,6 +20,106 @@
 namespace parthenon {
 namespace tensors {
 
+  // ============================================================
+  // GramSVDStorage Scratch size computation
+  // ============================================================
+
+  size_t GramSVDStorage::GetScratchSize(const TensorTrain& TT,
+                               int evd_scratch_max)
+  {
+    int RMax  = TT.GetMaximumRightRank();
+    int PIMax = TT.GetMaximumPhysicalIndexSize();
+    int Ngram = TT.GetNumCores() - 1;
+
+    int total = 0;
+    for (int n = 0; n < Ngram; ++n)
+      total += TT.GetRightRank(n) * TT.GetRightRank(n);
+
+    return
+        NumRealCores *
+          ScratchPad3D<Real>::shmem_size(RMax, PIMax, RMax)
+      + NumRealMatrices *
+          ScratchPad2D<Real>::shmem_size(RMax, RMax)
+      + NumRealVecs *
+          ScratchPad1D<Real>::shmem_size(RMax)
+      + NumIntVecs *
+          ScratchPad1D<int>::shmem_size(RMax)
+      + NumRealAlgoVecs *
+          ScratchPad1D<Real>::shmem_size(evd_scratch_max)
+      + NumSizeTAlgoVecs *
+          ScratchPad1D<std::size_t>::shmem_size(evd_scratch_max)
+      + 2 * ScratchPad1D<Real>::shmem_size(total)
+      + 2 * ScratchPad1D<int>::shmem_size(Ngram);
+  }
+
+  // ============================================================
+  // GramSVDStorage Constructor
+  // ============================================================
+
+  KOKKOS_INLINE_FUNCTION
+  GramSVDStorage::GramSVDStorage(ScratchSpace ts,
+                 const TensorTrain& TT,
+                 int evd_scratch_max_)
+      : evd_scratch_max(evd_scratch_max_)
+  {
+    RMax   = TT.GetMaximumRightRank();
+    PIMax  = TT.GetMaximumPhysicalIndexSize();
+    Ngram_ = TT.GetNumCores() - 1;
+
+    // ----- Compute packed Gram offsets -----
+
+    gram_offsets_ = ScratchPad1D<int>(ts, Ngram_);
+    gram_sizes_   = ScratchPad1D<int>(ts, Ngram_);
+
+    int total = 0;
+
+    for (int n = 0; n < Ngram_; ++n) {
+      int Rn = TT.GetRightRank(n);
+      gram_offsets_(n) = total;
+      gram_sizes_(n)   = Rn;
+      total += Rn * Rn;
+    }
+
+    GL_storage_ = GramStorage(ts, total);
+    GR_storage_ = GramStorage(ts, total);
+
+    // ----- Core scratch -----
+
+    for (int i = 0; i < NumRealCores; ++i)
+      real_cores_storage_[i] =
+        RealCoreStorage(ts, RMax, PIMax, RMax);
+
+    // ----- Work matrices -----
+
+    for (int i = 0; i < NumRealMatrices; ++i)
+      real_mats_storage_[i] =
+        RealMat(ts, RMax, RMax);
+
+    // ----- Rank-sized vectors -----
+
+    for (int i = 0; i < NumRealVecs; ++i)
+      real_vecs_storage_[i] =
+        RealVec(ts, RMax);
+
+    for (int i = 0; i < NumIntVecs; ++i)
+      int_vecs_storage_[i] =
+        IntVec(ts, RMax);
+
+    // ----- Algorithm scratch -----
+
+    for (int i = 0; i < NumRealAlgoVecs; ++i)
+      real_algo_vecs_storage_[i] =
+        RealVec(ts, evd_scratch_max);
+
+    for (int i = 0; i < NumSizeTAlgoVecs; ++i)
+      sizet_algo_vecs_storage_[i] =
+        SizeTVec(ts, evd_scratch_max);
+
+    ResizeRankViews(RMax, evd_scratch_max);
+  }
+
+
+
 TensorTrain aXPlusY(pool_map_t &pool_map, const Real a, const TensorTrain &X,
                     const TensorTrain &Y) {
   PARTHENON_REQUIRE_THROWS(X.GetNumCores() == Y.GetNumCores(),
@@ -87,92 +187,95 @@ TensorTrain aXPlusY(pool_map_t &pool_map, const Real a, const TensorTrain &X,
 } // AXPlusY
 
 KOKKOS_INLINE_FUNCTION
-void TensorTrain::CalculateRightGramMatrices(const ScratchPad2D<Real> &GR,
+void TensorTrain::CalculateRightGramMatrices(GramSVDStorage &GS,
                                 const parthenon::team_mbr_t &member) {
-  const int Ngram = this->GetNumCores();
+  const int Ngram = this->GetNumCores() - 1;
   // pull out cores object
   auto cores = this->cores_device_;
 
-  // Last right gram matrix is simply a 1x1 with entry 1
-  GR(Ngram - 1, 0) = 1.;
-  for (int n = Ngram - 2; n >= 0; --n) {
+  for (int n = Ngram - 1; n >= 0; --n) {
 
     // rank of this core
     std::size_t Rn = cores(n).GetRightRank();
     // rank of next core
     std::size_t Rnp1 = cores(n+1).GetRightRank();
 
-    // raw pointer to beginning of this gram matrix
-    // this is a bit naughty
-    Real *p = &GR(n, 0);
-    View2DUnmanaged GRn(p, Rn, Rn);
-    Real *pp1 = &GR(n+1, 0);
-    View2DUnmanaged GRnp1(p, Rnp1, Rnp1);
-
-
     // loop over elements of this Gram matrix
     // TODO experiment with patterns for reductions to find what is optimal
     for (int a = 0; a < cores(n).GetRightRank(); a++) {
       for (int ap = 0; ap < cores(n).GetRightRank(); ap++) {
 
-        // perform the contraction; we could do this with par reduce inner
-        // only over the physical index (which is the fastest moving) but
-        // that would come at the expense of more reductions
-        // TODO put the inner loops into the par for inner
         Real accum{0.};
-        par_reduce_inner(
-            parthenon::InnerLoopPatternTTR(), member, 0,
-            cores(n + 1).GetPhysicalIndexSize() - 1, 0, cores(n + 1).GetRightRank() - 1,
-            0, cores(n + 1).GetRightRank() - 1,
-            [&](const int i, const int b, const int bp, Real &tmp) {
-              tmp += cores(n + 1)(a, i, b) * GRnp1(b, bp) * cores(n + 1)(ap, i, bp);
-            },
-            Kokkos::Sum<Real, parthenon::DevMemSpace>(accum)); // par_reduce_inner
-        GRn(a, ap) = accum;
+        if (n == Ngram - 1) {
+          // Last gram matrix is 1x1, contract only over physical index space
+          par_reduce_inner(
+              parthenon::InnerLoopPatternTTR(), member, 0,
+              cores(n + 1).GetPhysicalIndexSize() - 1,
+              [&](const int i, Real &tmp) {
+                tmp += cores(n + 1)(a, i, 0) * cores(n + 1)(ap, i, 0);
+              },
+              Kokkos::Sum<Real, parthenon::DevMemSpace>(accum)); // par_reduce_inner
+        }
+        else {
+          par_reduce_inner(
+              parthenon::InnerLoopPatternTTR(), member, 0, Rnp1 - 1, 0, Rnp1 - 1, 0,
+              cores(n + 1).GetPhysicalIndexSize() - 1,
+              [&](const int b, const int bp, const int i, Real &tmp) {
+                tmp +=
+                    cores(n + 1)(a, i, b) * GS.GR(n + 1)(b, bp) * cores(n + 1)(ap, i, bp);
+              },
+              Kokkos::Sum<Real, parthenon::DevMemSpace>(accum)); // par_reduce_inner
+        } // if (n == Ngram - 1)
+        GS.GR(n)(a, ap) = accum;
+        // printf("Right gram %d %d = %23.15e\n", a, ap, accum);
       }
     }
   }
 }
 
 KOKKOS_INLINE_FUNCTION
-void TensorTrain::CalculateLeftGramMatrices(const ScratchPad2D<Real> &GL,
+void TensorTrain::CalculateLeftGramMatrices(GramSVDStorage &GS,
                                const parthenon::team_mbr_t &member) {
-  const int Ngram = this->GetNumCores();
+  const int Ngram = this->GetNumCores() - 1;
   // pull out cores object
   auto cores = this->cores_device_;
 
-  // first gram matrix is 1x1 with element 1
-  GL(0, 0) = 1.;
-  for (int n = 1; n < Ngram; ++n) {
+  for (int n = 0; n < Ngram; ++n) {
 
     // rank of this core
     std::size_t Rn = cores(n).GetRightRank();
-    // rank of previous core
-    std::size_t Rnm1 = cores(n-1).GetRightRank();
-
-    // raw pointer to beginning of this gram matrix
-    // this is a bit naughty
-    Real *p = &GL(n, 0);
-    View2DUnmanaged GLn(p, Rn, Rn);
-    Real *pm1 = &GL(n-1, 0);
-    View2DUnmanaged GLnm1(p, Rnm1, Rnm1);
 
     // loop over elements of this Gram matrix
     // TODO experiment with patterns for reductions to find what is optimal
-    for (int b = 0; b < cores(n).GetLeftRank(); b++) {
-      for (int bp = 0; bp < cores(n).GetLeftRank(); bp++) {
-
+    for (int b = 0; b < cores(n).GetRightRank(); b++) {
+      for (int bp = 0; bp < cores(n).GetRightRank(); bp++) {
         // perform the contraction
+
         Real accum{0.};
-        par_reduce_inner(
-            parthenon::InnerLoopPatternTTR(), member, 0,
-            cores(n).GetPhysicalIndexSize() - 1, 0, cores(n).GetLeftRank() - 1, 0,
-            cores(n).GetLeftRank() - 1,
-            [&](const int i, const int a, const int ap, Real &tmp) {
-              tmp += cores(n)(a, i, b) * GLnm1(a, ap) * cores(n)(ap, i, bp);
-            },
-            Kokkos::Sum<Real, parthenon::DevMemSpace>(accum)); // par_reduce_inner
-        GLn(b, bp) = accum;
+        if (n == 0) {
+          par_reduce_inner(
+              parthenon::InnerLoopPatternTTR(), member, 0,
+              cores(n).GetPhysicalIndexSize() - 1,
+              [&](const int i, Real &tmp) {
+                tmp += cores(n)(0, i, b) * cores(n)(0, i, bp);
+              },
+              Kokkos::Sum<Real, parthenon::DevMemSpace>(accum)); // par_reduce_inner
+        }
+
+        else {
+          // rank of previous core
+          std::size_t Rnm1 = cores(n-1).GetRightRank();
+          par_reduce_inner(
+              parthenon::InnerLoopPatternTTR(), member, 0,
+              cores(n).GetPhysicalIndexSize() - 1, 0, cores(n-1).GetRightRank() - 1, 0,
+              cores(n-1).GetRightRank() - 1,
+              [&](const int i, const int a, const int ap, Real &tmp) {
+                tmp += cores(n)(a, i, b) * GS.GL(n - 1)(a, ap) * cores(n)(ap, i, bp);
+              },
+              Kokkos::Sum<Real, parthenon::DevMemSpace>(accum)); // par_reduce_inner
+        }
+        GS.GL(n)(b, bp) = accum;
+        // printf("Left gram %d %d = %23.15e\n", b, bp, accum);
       }
     }
   }
@@ -185,14 +288,8 @@ void TensorTrain::CalculateLeftGramMatrices(const ScratchPad2D<Real> &GL,
 // * perform the SVD of that matrix
 KOKKOS_INLINE_FUNCTION
 void TensorTrain::CalculateGramSVD(const int n,
-    View2DUnmanaged GL, View2DUnmanaged GR, 
-    ScratchPad2D<Real> &EVL, ScratchPad2D<Real> &EVR,
-    ScratchPad1D<Real> &ELamL, ScratchPad1D<Real> &ELamR,
-    ScratchPad2D<Real> &svdU,
-                       ScratchPad2D<Real> &svdV, ScratchPad1D<Real> &svdS,
-                       parthenon::team_mbr_t member, const int scratch_level) {
-
-  auto &ts = member.team_scratch(scratch_level);
+                       parthenon::team_mbr_t member, GramSVDStorage &GS)
+{
 
   // pull out cores object
   auto cores = this->cores_device_;
@@ -202,41 +299,85 @@ void TensorTrain::CalculateGramSVD(const int n,
   // LEFT GRAM
   /////////////////////////////////////////////////////////////////////////////////////
 
-  // allocate scratch for input matrix (which is destroyed), eigenvalues
-  // and output matrix (eigenvectors)
-  ScratchPad2D<Real> A(ts, Rn, Rn);
-  // allocate scratch required by SymmetricEVD::execute
-  ScratchPad1D<Real> lscratch(ts, SymmetricEVD::sizet_scratch_size(Rn));
-  ScratchPad1D<std::size_t> liscratch(ts, SymmetricEVD::sizet_scratch_size(Rn));
-
   // write left Gram matrix to A (so that it is not destroyed)
+  // TODO(SWJ) we can probably destroy it actually
   par_for_inner(member, 0, Rn - 1, 0, Rn - 1,
-                [&](const int b, const int bp) { A(b, bp) = GL(b, bp); });
+                [&](const int b, const int bp) { GS.A()(b, bp) = GS.GL(n)(b, bp); });
   member.team_barrier();
 
   // perform the eigenvalue decomposition
-  SymmetricEVD::execute(member, &A, &EVL, ELamL.data(), lscratch.data(),
-                        liscratch.data());
+  SymmetricEVD::execute(member, &GS.A(), &GS.EVL(), GS.EvalL().data(), GS.EVDRealScratch().data(),
+                        GS.EVDSizeTScratch().data());
 
   /////////////////////////////////////////////////////////////////////////////////////
   // RIGHT GRAM
   /////////////////////////////////////////////////////////////////////////////////////
 
   // write left Gram matrix to A (so that it is not destroyed)
+  // TODO(SWJ): We can actually probably just destroy it since it is not needed
+  // once we have the eigenvalue decomposition of it 
   par_for_inner(member, 0, Rn - 1, 0, Rn - 1,
-                [&](const int a, const int ap) { A(a, ap) = GR(a, ap); });
+                [&](const int a, const int ap) { GS.A()(a, ap) = GS.GR(n)(a, ap); });
   member.team_barrier();
 
   // perform the eigenvalue decomposition
-  SymmetricEVD::execute(member, &A, &EVR, ELamR.data(), lscratch.data(),
-                        liscratch.data());
+  SymmetricEVD::execute(member, &GS.A(), &GS.EVR(), GS.EvalR().data(), GS.EVDRealScratch().data(),
+                        GS.EVDSizeTScratch().data());
+
+  printf("Eigenvalues L: ");
+  for (int i = 0; i < Rn; i++)
+    printf("%e ", GS.EvalL()(i));
+  printf("\n");
+  printf("Eigenvalues R: ");
+  for (int i = 0; i < Rn; i++)
+    printf("%e ", GS.EvalR()(i));
+  printf("\n");
+
+  // clean the eigensystems
+  Real eps{1e-12};
+  Real LambdamaxL{0.};
+  Real LambdamaxR{0.};
+  for (int i = 0; i < Rn; i++) {
+    LambdamaxL = std::max(LambdamaxL, GS.EvalL()(i));
+    LambdamaxR = std::max(LambdamaxR, GS.EvalR()(i));
+  }
+  for (int i = 0; i < Rn; i++) {
+    if (GS.EvalL()(i) < eps * LambdamaxL) GS.EvalL()(i) = 0.;
+    if (GS.EvalR()(i) < eps * LambdamaxR) GS.EvalR()(i) = 0.;
+  }
+
+  printf("Cleaned Eigenvalues L: ");
+  for (int i = 0; i < Rn; i++)
+    printf("%e ", GS.EvalL()(i));
+  printf("\n");
+  printf("Cleaned Eigenvalues R: ");
+  for (int i = 0; i < Rn; i++)
+    printf("%e ", GS.EvalR()(i));
+  printf("\n");
+
+  printf("VL:\n");
+  for (int i = 0; i < Rn; ++i){
+    for (int j = 0; j < Rn; ++j){
+      printf("  %12.5e", GS.EVL()(i, j));
+    }
+    printf("\n");
+  }
+
+
+  printf("VR:\n");
+  for (int i = 0; i < Rn; ++i){
+    for (int j = 0; j < Rn; ++j){
+      printf("  %12.5e", GS.EVR()(i, j));
+    }
+    printf("\n");
+  }
+
 
   //////////////////////////////////////////////////////////////////////////////////
   // Now we have the left gram's eigenvalues and eigenvectors ELamL, EVL
   // and the right gram's eigenvalues and eigenvectors ELamR, EVR.
   // Construct the matrix that we want to obtain the truncated SVD
   // of.
-  ScratchPad2D<Real> M(ts, Rn, Rn);
 
   // as a par reduce inner
   for (int a = 0; a < Rn; a++) {
@@ -244,138 +385,136 @@ void TensorTrain::CalculateGramSVD(const int n,
       Real accum{0.};
       par_reduce_inner(
           parthenon::InnerLoopPatternTTR(), member, 0, Rn - 1,
-          [&](const int i, Real &tmp) { tmp += EVL(a, i) * EVR(i, b); },
+          [&](const int i, Real &tmp) { tmp += GS.EVL()(i, a) * GS.EVR()(i, b); },
           Kokkos::Sum<Real, parthenon::DevMemSpace>(accum)); // par_reduce_inner
 
-      M(a, b) = std::sqrt(ELamL(a)) * accum * std::sqrt(ELamR(b));
+      GS.M()(a, b) = safe_sqrt(GS.EvalL()(a)) 
+      * accum * safe_sqrt(GS.EvalR()(b));
     }
   }
 
-  SquareSVD::execute(&M, &svdU, &svdV, svdS.data());
+  printf("M:\n");
+  for (int i = 0; i < Rn; ++i){
+    for (int j = 0; j < Rn; ++j){
+      printf("  %12.5e", GS.M()(i, j));
+    }
+    printf("\n");
+  }
+
+  if (Rn == 1) {
+    // Trivial case
+    GS.SVDS()(0) = GS.M()(0,0);
+    GS.SVDU()(0,0) = 1.0;
+    GS.SVDV()(0,0) = 1.0;
+  }
+  else {
+    SquareSVD::execute(&GS.M(), &GS.SVDU(), &GS.SVDV(), GS.SVDS().data());
+  }
+
+  printf("SVDU:\n");
+  for (int i = 0; i < Rn; ++i){
+    for (int j = 0; j < Rn; ++j){
+      printf("  %12.5e", GS.SVDU()(i, j));
+    }
+    printf("\n");
+  }
+
+  printf("SVDV:\n");
+  for (int i = 0; i < Rn; ++i){
+    for (int j = 0; j < Rn; ++j){
+      printf("  %12.5e", GS.SVDV()(i, j));
+    }
+    printf("\n");
+  }
+
+  printf("SVDS:\n");
+  for (int i = 0; i < Rn; ++i){
+    printf("  %12.5e", GS.SVDS()(i));
+  }
+  printf("\n");
+
 }
 
 // Gram-SVD TT rounding with tolerance eps. Reduces TT ranks while
 // preserving the tensor up to Frobenius error eps.
 void TensorTrain::GramSVDRound(const Real eps) {
   // get max right ranks, which set max gram matrix sizes for malloc
-  const std::size_t RMax = GetMaximumRightRank();
-  const std::size_t PIMax = GetMaximumPhysicaIndexSize();
+  const int RMax = GetMaximumRightRank();
+  int evd_scratch_max = SymmetricEVD::sizet_scratch_size(RMax); 
 
   // number of Gram matrices (this many left, this many right)
-  const int Ngram = GetNumCores();
-  // maximum gram matrix size (this should not be needed, should be the same)
-  const int Gdim = RMax * RMax;
+  const int Ngram = GetNumCores() - 1;
 
-  // calculate scratch size for maximum storage needed:
-  // * one left and one right Gram matrix per tensor core, hence 2
-  const int s_RG = Ngram * Gdim; // size of all right gram matrices
-  const int s_LG = Ngram * Gdim; // size of all right gram matrices
-  const int s_EVec = Gdim;       // size of an eigenvector matrix
-  const int s_EVal = RMax;       // size of an eigenvalue diagonal matrix
-  const int s_SVD = 2 * Ngram * Gdim + Ngram * s_EVal; // size of all SVDs
-  const int s_core = RMax * RMax * PIMax; // temporary core for updates
-  // total scratch size:
-  // Gram matrices:
-  // * Ncores right Gram matrices
-  // * Ncores left Gram matrices
-  // * Ncores SVD (2 Rmax x Rmax matrices and 1 Rmax eigenvalue vector)
-  // * 2 eigenvector (left and right) matrices
-  // * 2 eigenvalue diagonal matrices (left and right)
-  // * 1 input matrx for passing to SVD
-  // SVD output:
-  // * 1 left singular vector matrix from SVD
-  // * 1 right singular vector matrix from SVD
-  // * 1 diagonal singular value matrix from SVD
-  // Update:
-  // * 1 temporary core
-  // Totals:
-  // * 2 * Ncores Gram matrices
-  // * 4 eigenvector matrices
-  // * 2 diagonal matrices
-  const int scratch_size = s_RG + s_LG + 4 * s_EVec + 2 * s_EVal + s_SVD;
+  const size_t scratch_size = GramSVDStorage::GetScratchSize(*this, evd_scratch_max);
   const int scratch_level = 0; // ? team or thread?
 
   par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, "Gram SVD rounding", DevExecSpace(), scratch_size,
-      scratch_level, 0, 1, KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int dummy) {
+      scratch_level, 0, 0, KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int dummy) {
         auto &ts = tm.team_scratch(scratch_level);
+
+        // construct GRAMSVDStorage object
+        GramSVDStorage GS(ts, *this, evd_scratch_max);
 
         // pull out cores object
         auto cores = cores_device_;
 
-        // assign scratch space for right Gram matrices and compute all the right
-        // Gram matrices (recursive sweep from right to left)
-        // this is 2D: GR(ts, Ngram, RMax * RMax) so is contiguous and
-        // kokkos 2d views handle indexing
-        ScratchPad2D<Real> GR(ts, Ngram, RMax * RMax);
-        CalculateRightGramMatrices(GR, tm);
+        // compute all the right Gram matrices (recursive sweep from right to
+        // left)
+        CalculateRightGramMatrices(GS, tm);
 
-        // assign scratch space for left Gram matrices and compute all the left
-        // Gram matrices (recursive sweep from left to right)
-        // this is 2D: GL(ts, Ngram, RMax * RMax) so is contiguous and
-        // kokkos 2d views handle indexing
-        ScratchPad2D<Real> GL(ts, Ngram, RMax * RMax);
-        CalculateLeftGramMatrices(GL, tm);
+        // compute all the left Gram matrices (recursive sweep from left to
+        // right)
+        CalculateLeftGramMatrices(GS, tm);
 
-        // allocate temporary cores needed for update
-        const int PIMax = this->GetMaximumPhysicaIndexSize();
-        ScratchPad1D<Real> temporary_core_scratch(ts, RMax * PIMax * RMax);
+        for (int n = 0; n < Ngram; ++n) {
+          Real traceL = 0;
+          Real traceR = 0;
+          int Rn = cores(n).GetRightRank();
 
-        Real *p0 = &temporary_core_scratch(0);
-        View3DUnmanaged CTmp(p0, cores(0).GetLeftRank(), cores(0).GetPhysicalIndexSize(), 
-            cores(0).GetRightRank());
+          for (int i = 0; i < Rn; ++i) {
+            traceL += GS.GL(n)(i, i);
+            traceR += GS.GR(n)(i, i);
+          }
 
-        // copy out the first core into this temporary core, since there is no
-        // left index space update for the first core
-        par_for_inner(tm, 0, cores(0).GetLeftRank() - 1, 0, 
-            cores(0).GetRightRank() - 1, 0, cores(0).GetPhysicalIndexSize(),
-            [&](const int rl, const int rr, const int i) { 
-            CTmp(rl, i, rr) = cores(0)(rl, i, rr); 
-            });
-
+          printf("bond %d traceL=%e traceR=%e\n", n, traceL, traceR);
+        }
 
         // loop over bond spaces and compute SVDs
         for (int n = 0; n < Ngram; ++n) {
           const std::size_t Rn = cores(n).GetRightRank();
+          const std::size_t PIn = cores(n).GetPhysicalIndexSize();
+          const int evd_scratch_n = SymmetricEVD::sizet_scratch_size(Rn);
 
-          // assign scratch space for eigenvalue decompositions of left and
-          // right Gram matrices
-          ScratchPad2D<Real> EVL(ts, Rn, Rn); // left Gram's eigenvectors
-          ScratchPad2D<Real> EVR(ts, Rn, Rn); // right Gram's eigenvectors
-          ScratchPad1D<Real> ELamL(ts, Rn); // left Gram's eigenvalues (diag)
-          ScratchPad1D<Real> ELamR(ts, Rn); // right Gram's eigenvalues (diag)
+          // resize views for this bond space
+          GS.ResizeRankViews(Rn, evd_scratch_n);
 
-          // assign scratch space for SVD
-          ScratchPad2D<Real> svdU(ts, Rn, Rn); // left singular vectors
-          ScratchPad2D<Real> svdV(ts, Rn, Rn); // right singular vectors
-          ScratchPad1D<Real> svdS(ts, Rn); // singular values (diag)
-
-          // pull out views of the Gram matrices for this bond space
-          // using raw pointer to beginning of the gram matrices
-          // this is a bit naughty
-          Real *pL = &GL(n, 0);
-          View2DUnmanaged GLn(pL, Rn, Rn);
-          Real *pR = &GR(n, 0);
-          View2DUnmanaged GRn(pR, Rn, Rn);
+          if (n == 0) {
+            // copy out the first core into this temporary core, since there is no
+            // left index space update for the first core
+            GS.ResizeCoreView(1, PIn, Rn);
+            par_for_inner(tm, 0, cores(n).GetRightRank() - 1, 0, cores(n).GetPhysicalIndexSize() - 1,
+                [&](const int rr, const int i) { 
+                GS.CTmp()(0, i, rr) = cores(n)(0, i, rr); 
+                });
+            tm.team_barrier();
+          }
 
           // compute SVD for this bond space, returning:
           // left Gram's eigenvectors, right Gram's eigenvectors
           // left Gram's eigenvalues (diag), right Gram's eigenvalues (diag)
           // SVD: left singular vectors, right singular vectors, singular values (diag)
-          CalculateGramSVD(n, GLn, GRn, EVL, EVR, ELamL, ELamR, svdU, svdV, svdS, tm, scratch_level);
+          CalculateGramSVD(n, tm, GS);
 
           // select singular modes and obtain the number of retained modes and
           // a map to them
-          ScratchPad1D<int> keep(ts, Rn);
-          ScratchPad1D<int> gamma_map(ts, Rn);
-          int Rn_new = SelectSingularModes(n, svdS, keep, gamma_map, eps);
+          int Rn_new = SelectSingularModes(n, GS, eps);
 
           // update the right index space of temporary core (which already had
           // its left index space updated) and write back into the TT's core.
           // Update the left index space of core n+1 and write the result into
           // the temporary core core n+1.
-          UpdateCoreIndexSpaces(n, Rn_new, gamma_map, svdU, svdV, svdS, ELamL, EVL,
-              ELamR, EVR, tm, temporary_core_scratch);
+          UpdateCoreIndexSpaces(n, Rn_new, tm, GS);
 
         } // loop over bond spaces
 
@@ -383,64 +522,74 @@ void TensorTrain::GramSVDRound(const Real eps) {
 }
 
 KOKKOS_INLINE_FUNCTION
-void TensorTrain::UpdateCoreIndexSpaces(const int n, const int Rn_new, ScratchPad1D<int> &gamma_map,
-    ScratchPad2D<Real> &svdU, ScratchPad2D<Real> &svdV, ScratchPad1D<Real> &svdS,
-    ScratchPad1D<Real> &ELamL, ScratchPad2D<Real> &EVL, ScratchPad1D<Real> &ELamR,
-    ScratchPad2D<Real> &EVR, parthenon::team_mbr_t tm, ScratchPad1D<Real> &temporary_core_scratch) {
+void TensorTrain::UpdateCoreIndexSpaces(const int n, const int Rn_new, 
+     parthenon::team_mbr_t tm, GramSVDStorage &GS) {
 
     // pull out cores object
     auto cores = this->cores_device_;
     //const int Ncores = cores.GetNumCores();
     const int Ncores = cores.size();
+    const int Rnm1 = static_cast<int>(cores(n).GetLeftRank());
     const int Rn = static_cast<int>(cores(n).GetRightRank());
+    const int PIn = static_cast<int>(cores(n).GetPhysicalIndexSize());
 
-    // create a view of the temporary core that we are going to read from
-    Real *p = &temporary_core_scratch(0);
-    View3DUnmanaged CTmp(p, cores(n).GetLeftRank(), cores(n).GetPhysicalIndexSize(), 
-        cores(n).GetRightRank());
+    // Ensure view of temporary core is the same size as core n
+    // GS.ResizeCoreView(Rnm1, PIn, Rn);
+
+    // reset core n
+    // par_for_inner(
+    //     tm, 0, Rnm1 - 1, 0, Rn - 1, 0, PIn - 1,
+    //     [&](const int rL, const int rR, const int i) { cores(n)(rL, i, rR) = 0.; });
+    // tm.team_barrier();
 
     // first use what's in the temporary core (already has left index
     // space updated) to update the right index space of core n and store
     // in the actual tensor object.
-    const int Rnm1 = static_cast<int>(cores(n).GetLeftRank());
-    const int PIS = static_cast<int>(cores(n).GetPhysicalIndexSize());
-    par_for_inner(tm, 0, Rnm1 - 1, 0, Rn_new - 1, 0, PIS - 1, 
-        [&](const int alf, const int gam, const int i) {
-      Real accum{0.};
-      for (int bet = 0; bet < Rn; bet++) {
-        for (int mu = 0; mu < Rn; mu++) {
-          accum += CTmp(alf, i, bet) * EVL(bet, mu) 
-          / std::sqrt(ELamL(mu)) * svdU(mu, gamma_map(gam));
-        }
-      }
-      cores(n)(alf, i, gam) = accum;
-    });
+    par_for_inner(tm, 0, Rnm1 - 1, 0, Rn_new - 1, 0, PIn - 1,
+                  [&](const int alf, const int gam, const int i) {
+                    Real accum{0.};
+                    for (int bet = 0; bet < Rn; bet++) {
+                      for (int mu = 0; mu < Rn; mu++) {
+                        accum += GS.CTmp()(alf, i, bet) * GS.EVL()(bet, mu) /
+                                 (safe_sqrt(GS.EvalL()(mu)) + 1e-15) *
+                                 GS.SVDU()(mu, GS.ModeMap()(gam));
+                      }
+                    }
+                    cores(n)(alf, i, gam) = accum;
+                    printf("core(%d)(%d, %d, %d) = %23.15e \n",
+                    n, alf, i, gam, accum);
+                  });
     tm.team_barrier();
+
+    cores(n).SetRightRank(Rn_new);
 
     // now update the left index space of core n+1 and store the result
     // in the temporary core
     // (not for the last core)
     if (n < Ncores - 1) {
+      const int Rnp1 = static_cast<int>(cores(n + 1).GetRightRank());
+      const int PInp1 = static_cast<int>(cores(n + 1).GetPhysicalIndexSize());
 
-      // create a view of the temporary core that we are going to write to
-      View3DUnmanaged CTmp(p, cores(n+1).GetLeftRank(), cores(n+1).GetPhysicalIndexSize(), 
-          cores(n+1).GetRightRank());
+      // Ensure view of temporary core is the same size as core n+1
+      GS.ResizeCoreView(Rn, PInp1, Rnp1);
 
-      const int Rnp1 = static_cast<int>(cores(n+1).GetRightRank());
-      const int PISp1 = static_cast<int>(cores(n+1).GetPhysicalIndexSize());
-      par_for_inner(tm, 0, Rn_new - 1, 0, Rnp1 - 1, 0, PISp1 - 1, 
-          [&](const int gam, const int alf, const int i) {
-        Real accum{0.};
-        for (int bet = 0; bet < Rn; bet++) {
-          for (int nu = 0; nu < Rn; nu++) {
-            accum += svdS(gamma_map(gam)) *svdV(nu, gamma_map(gam))
-            / std::sqrt(ELamR(nu)) * EVR(bet,nu)
-            * cores(n+1)(bet, i, alf);
-          }
-        }
-        CTmp(gam, i, alf) = accum;
-      });
+      par_for_inner(tm, 0, Rn_new - 1, 0, Rnp1 - 1, 0, PInp1 - 1,
+                    [&](const int gam, const int alf, const int i) {
+                      Real accum{0.};
+                      for (int bet = 0; bet < Rn; bet++) {
+                        for (int nu = 0; nu < Rn; nu++) {
+                          accum += GS.SVDS()(GS.ModeMap()(gam)) *
+                                   GS.SVDV()(nu, GS.ModeMap()(gam)) /
+                                   (safe_sqrt(GS.EvalR()(nu)) + 1e-15) *
+                                   GS.EVR()(bet, nu) * cores(n + 1)(bet, i, alf);
+                        }
+                      }
+                      GS.CTmp()(gam, i, alf) = accum;
+                    });
     }
+    tm.team_barrier();
+
+    cores(n + 1).SetLeftRank(Rn_new);
 
 } // TensorTrain::UpdateCoreIndexSpaces
 
