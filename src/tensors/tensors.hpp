@@ -39,6 +39,10 @@ using DevSpace = parthenon::DevMemSpace;
 using View2DUnmanaged = Kokkos::View<double**, Kokkos::LayoutRight, DevSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 using View3DUnmanaged = Kokkos::View<double***, Kokkos::LayoutRight, DevSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 
+constexpr const std::size_t NINDICES = 3;
+using shape_t = Kokkos::View<std::size_t[NINDICES]>;
+using shape_host_t = typename Kokkos::View<std::size_t[NINDICES]>::host_mirror_type;
+
 // JMM: We need a TensorCoreHost type and a TensorCoreDevice type
 // because the reference counting for the cores is done on host, and
 // so a host array needs to stick around. But if you copy that array
@@ -285,15 +289,15 @@ class TensorCoreDevice {
   Real &operator()(int iL, int ic, int iR) const { return data_device_(iL, iR)[ic]; }
 
   KOKKOS_INLINE_FUNCTION
-  auto GetShape() const { return std::make_tuple(rL_, c_, rR_); }
+  auto GetShape() const { return shape_; }
   KOKKOS_INLINE_FUNCTION
-  auto GetRanks() const { return std::make_pair(rL_, rR_); }
+  auto GetRanks() const { return std::make_pair(shape_[0], shape_[2]); }
   KOKKOS_INLINE_FUNCTION
-  std::size_t GetLeftRank() const { return rL_; }
+  std::size_t GetLeftRank() const { return shape_[0]; }
   KOKKOS_INLINE_FUNCTION
-  std::size_t GetRightRank() const { return rR_; }
+  std::size_t GetRightRank() const { return shape_[2]; }
   KOKKOS_INLINE_FUNCTION
-  std::size_t GetPhysicalIndexSize() const { return c_; }
+  std::size_t GetPhysicalIndexSize() const { return shape_[1]; }
 
   void SetLeftRank(const int new_rank) {
     rL_ = new_rank;
@@ -306,10 +310,9 @@ class TensorCoreDevice {
   // Actual constructor is private so that it can only be called from
   // TensorCoreHost
  private:
-  explicit TensorCoreDevice(const core_data_device_unmanaged_t &device_data)
-      : rL_(device_data.extent(0)), c_(device_data(0, 0).extent(0)),
-        rR_(device_data.extent(1)), data_device_(device_data) {}
-  std::size_t rL_, c_, rR_;
+  explicit TensorCoreDevice(const core_data_device_unmanaged_t &device_data, shape_t shape)
+    : data_device_(device_data), shape_(shape) {}
+  shape_t shape_;
   core_data_device_unmanaged_t data_device_;
 }; // Class TensorCoreDevice
 
@@ -319,6 +322,13 @@ class TensorCoreHost {
   TensorCoreHost(pool_map_t &pool, const std::size_t rL, const std::size_t c,
                  const std::size_t rR)
       : rL_(rL), c_(c), rR_(rR) {
+    shape_ = shape_t("shape of tensor core (device)");
+    shape_host_ = shape_host_t("shape of tensor core (host)");
+    shape_host_[0] = rL;
+    shape_host_[1] = c;
+    shape_host_[2] = rR;
+    Kokkos::deep_copy(shape_, shape_host_);
+
     // Kokkos view of views, the destructor for the view of views must
     // happen on host, not device. This enforces that.
     data_host_ =
@@ -335,17 +345,41 @@ class TensorCoreHost {
   }
 
   TensorCoreDevice GetOnDevice() const {
-    return TensorCoreDevice(core_data_device_unmanaged_t(data_device_.data(), rL_, rR_));
+    return TensorCoreDevice(
+        core_data_device_unmanaged_t(data_device_.data(), GetLeftRank(), GetRightRank()),
+        shape_);
   }
 
-  auto GetShape() const { return std::make_tuple(rL_, c_, rR_); }
-  auto GetRanks() const { return std::make_pair(rL_, rR_); }
-  std::size_t GetLeftRank() const { return rL_; }
-  std::size_t GetRightRank() const { return rR_; }
-  std::size_t GetPhysicalIndexSize() const { return c_; }
+  auto GetShape() const { return shape_host_; }
+  auto GetRanks() const { return std::make_pair(shape_host_[0], shape_host_[2]); }
+  std::size_t GetLeftRank() const { return shape_host_[0]; }
+  std::size_t GetRightRank() const { return shape_host_[2]; }
+  std::size_t GetPhysicalIndexSize() const { return shape_host_[1]; }
+
+  // if the shape_ array was modified on device, shrink to that
+  // size. 
+  void ResizeToNewShape() {
+    Kokkos::deep_copy(shape_host_, shape_);
+    // TODO(JMM) Currently assumes the new shape is less than the old
+    // one. Maybe we want to relax this
+    PARTHENON_REQUIRE_THROWS(shape_host_[0] <= data_host_.extent(0), "left index shrinks");
+    PARTHENON_REQUIRE_THROWS(shape_host_[2] <= data_host_.extent(1), "right index shrinks");
+
+    core_data_host_t new_data_host(ViewOfViewAlloc<HostMemSpace>("tensor core host"), shape_[0], shape_[2]);
+    core_data_device_t new_data_device(ViewOfViewAlloc("tensor core device"), shape_[0], shape_[2]);
+    for (std::size_t iL = 0; iL < shape_[0]; iL++) {
+      for (std::size_t iR = 0; iR < shape_[2]; iR++) {
+        new_data_host(iL, iR) = data_host_(iL, iR);
+      }
+    }
+    Kokkos::deep_copy(new_data_device_, new_data_host_);
+    data_host_ = new_data_host;
+    data_device_ = new_data_device;
+  }
 
  private:
-  std::size_t rL_, c_, rR_;
+  shape_t shape_;
+  shape_host_t shape_host_;
   core_data_host_t data_host_;
   core_data_device_t data_device_;
 }; // Class TensorCoreHost
@@ -524,9 +558,10 @@ auto ToDenseArray2D() const {
   // preserving the tensor up to Frobenius error eps.
   void GramSVDRound(const Real eps);
 
-  // const access to cores_device_
-  //const cores_device_t &cores_device() const { return cores_device_; }
-  // cores_device_t &cores_device() { return cores_device_; }
+  // TODO(SWJ): remove this and make the things that need it able to
+  // access private scope somehow
+  // SWJ: I think this can be removed now.
+  const cores_device_t &cores_device() const { return cores_device_; }
 
   KOKKOS_INLINE_FUNCTION
   void CalculateRightGramMatrices(GramSVDStorage &GS,
