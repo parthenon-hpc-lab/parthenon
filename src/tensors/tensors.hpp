@@ -299,12 +299,11 @@ class TensorCoreDevice {
   KOKKOS_INLINE_FUNCTION
   std::size_t GetPhysicalIndexSize() const { return shape_[1]; }
 
-  void SetLeftRank(const int new_rank) {
-    rL_ = new_rank;
-  }
-
-  void SetRightRank(const int new_rank) {
-    rR_ = new_rank;
+  KOKKOS_INLINE_FUNCTION
+  void SetShape(const int rL, const int PIS, const int rR) { 
+    shape_[0] = rL; 
+    shape_[1] = PIS; 
+    shape_[2] = rR; 
   }
 
   // Actual constructor is private so that it can only be called from
@@ -321,7 +320,7 @@ class TensorCoreHost {
   TensorCoreHost() = default;
   TensorCoreHost(pool_map_t &pool, const std::size_t rL, const std::size_t c,
                  const std::size_t rR)
-      : rL_(rL), c_(c), rR_(rR) {
+      {
     shape_ = shape_t("shape of tensor core (device)");
     shape_host_ = shape_host_t("shape of tensor core (host)");
     shape_host_[0] = rL;
@@ -343,6 +342,8 @@ class TensorCoreHost {
     }
     Kokkos::deep_copy(data_device_, data_host_);
   }
+
+  Real &operator()(int iL, int ic, int iR) const { return data_host_(iL, iR)[ic]; }
 
   TensorCoreDevice GetOnDevice() const {
     return TensorCoreDevice(
@@ -372,7 +373,7 @@ class TensorCoreHost {
         new_data_host(iL, iR) = data_host_(iL, iR);
       }
     }
-    Kokkos::deep_copy(new_data_device_, new_data_host_);
+    Kokkos::deep_copy(new_data_device, new_data_host);
     data_host_ = new_data_host;
     data_device_ = new_data_device;
   }

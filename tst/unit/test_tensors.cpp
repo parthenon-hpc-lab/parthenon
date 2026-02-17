@@ -197,7 +197,61 @@ SCENARIO("TensorTrain Gram-SVD rounding", "[TensorTrains][GramSVD]") {
   }
 }
 
+SCENARIO("TensorTrain Resizing", "[TensorTrains][Resize]") {
+  GIVEN("A small tensor train with nontrivial ranks") {
 
+    const std::size_t chunk_size = 16;
+    pool_map_t pool_map;
+    pool_map.AddPool(8, chunk_size);
+
+    const int shape_before[3]{4, 8, 6};
+    const int shape_after[3]{1, 8, 2};
+
+    TensorCoreHost core_host(pool_map, shape_before[0], shape_before[1], shape_before[2]);
+    TensorCoreDevice core_device = core_host.GetOnDevice();
+
+    // Fill with deterministic nontrivial data
+    Kokkos::parallel_for(
+        0, 1, KOKKOS_LAMBDA(int) {
+          // TensorCoreDevice core_device = core_host.GetOnDevice();
+          for (int iL = 0; iL < shape_before[0]; iL++) {
+            for (int iR = 0; iR < shape_before[2]; iR++) {
+              for (int ic = 0; ic < shape_before[1]; ic++) {
+                core_device(iL, ic, iR) = 100 * iL + 10 * iR + ic;
+              }
+            }
+          }
+        });
+    Kokkos::fence();
+
+    // set the new shape (needs to be done on device)
+    core_device.SetShape(shape_after[0], shape_after[1], shape_after[2]);
+
+    // now resize on host
+    core_host.ResizeToNewShape();
+
+    THEN("Extents match new shape") {
+      REQUIRE(core_host.GetLeftRank() == shape_after[0]);
+      REQUIRE(core_host.GetPhysicalIndexSize() == shape_after[1]);
+      REQUIRE(core_host.GetRightRank() == shape_after[2]);
+    }
+
+    // check that data in kept block is preserved. Since we have to call REQUIRE
+    // on host, this also checks that the host and device data matches.
+    // In the resize, the data was already copied from device to host.
+
+    THEN("Data in kept block is preserved") {
+      for (int iL = 0; iL < shape_after[0]; iL++) {
+        for (int iR = 0; iR < shape_after[2]; iR++) {
+          for (int ic = 0; ic < shape_after[1]; ic++) {
+            REQUIRE(core_host(iL, ic, iR) == 100 * iL + 10 * iR + ic);
+          }
+        }
+      }
+    }
+
+  }
+}
 
 
 

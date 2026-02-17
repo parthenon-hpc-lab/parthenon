@@ -561,8 +561,6 @@ void TensorTrain::UpdateCoreIndexSpaces(const int n, const int Rn_new,
                   });
     tm.team_barrier();
 
-    cores(n).SetRightRank(Rn_new);
-
     // now update the left index space of core n+1 and store the result
     // in the temporary core
     // (not for the last core)
@@ -588,8 +586,6 @@ void TensorTrain::UpdateCoreIndexSpaces(const int n, const int Rn_new,
                     });
     }
     tm.team_barrier();
-
-    cores(n + 1).SetLeftRank(Rn_new);
 
 } // TensorTrain::UpdateCoreIndexSpaces
 
