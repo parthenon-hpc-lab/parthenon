@@ -21,7 +21,7 @@ class SquareSVD {
   ///     reduced to bidiagonal form via Householder transformations and then
   ///     diagonalized by an implicit QR iteration.
   ///   - sings[0..n-1] contains the computed singular values (not guaranteed
-  ///     sorted and not guaranteed positive).
+  ///     sorted but guaranteed positive).
   ///   - If pU != nullptr, *pU is overwritten and its *columns* contain the
   ///   left
   ///     singular vectors.
@@ -100,7 +100,21 @@ class SquareSVD {
     barrier(tm);
     std::size_t *start = &(iscratch[0]);
     std::size_t *end = &(iscratch[ncols / 2 + 1]);
-    return ImplicitQRBidiag(tm, sings, scratch, pU, pV, start, end, ncols, 10 * ncols);
+    const int status = ImplicitQRBidiag(tm, sings, scratch, pU, pV, start, end, ncols, 10 * ncols);
+
+    // Ensure singular values are positive
+    parallel_loop(
+        tm, 0, ncols - 1, KOKKOS_LAMBDA(int row) {
+          if (sings[row] < 0.) {
+            sings[row] *= -1.;
+            for (int col = 0; col < ncols; col++) {
+              (*pU)(row, col) *= -1.;
+            }
+          }
+        });
+    barrier(tm);
+
+    return status;
   }
 
   template <class tm_t, class matrix_t>
