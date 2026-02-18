@@ -227,7 +227,7 @@ void TensorTrain::CalculateRightGramMatrices(GramSVDStorage &GS,
               Kokkos::Sum<Real, parthenon::DevMemSpace>(accum)); // par_reduce_inner
         } // if (n == Ngram - 1)
         GS.GR(n)(a, ap) = accum;
-        // printf("Right gram %d %d = %23.15e\n", a, ap, accum);
+        printf("Right gram %d %d = %22.15e\n", a, ap, accum);
       }
     }
   }
@@ -275,7 +275,7 @@ void TensorTrain::CalculateLeftGramMatrices(GramSVDStorage &GS,
               Kokkos::Sum<Real, parthenon::DevMemSpace>(accum)); // par_reduce_inner
         }
         GS.GL(n)(b, bp) = accum;
-        // printf("Left gram %d %d = %23.15e\n", b, bp, accum);
+        printf("Left gram %d %d = %23.15e\n", b, bp, accum);
       }
     }
   }
@@ -541,7 +541,37 @@ void TensorTrain::UpdateCoreIndexSpaces(const int n, const int Rn_new,
   const int Rn = static_cast<int>(cores(n).GetRightRank());
   const int PIn = static_cast<int>(cores(n).GetPhysicalIndexSize());
 
-  // if (n > 0) return; // only update first bong space
+  // if (n > 0) return; // only update first bond space
+
+  printf("In UpdateCoreIndexSpaces:\n");
+  printf("LamL, sigma:\n");
+  for (int i = 0; i < Rn; i++) {
+    printf("%23.15e   %23.15e\n", GS.EvalL()(i), GS.SVDS()(i));
+  }
+
+  printf("EVL:\n");
+  for (int i = 0; i < Rn; ++i){
+    for (int j = 0; j < Rn; ++j){
+      printf("  %12.5e", GS.EVL()(i, j));
+    }
+    printf("\n");
+  }
+
+  printf("core n:\n");
+  for (int i = 0; i < PIn; ++i){
+    for (int j = 0; j < Rn; ++j){
+      printf("  %12.5e", cores(n)(0, i, j));
+    }
+    printf("\n");
+  }
+
+  printf("coreTMP n:\n");
+  for (int i = 0; i < PIn; ++i){
+    for (int j = 0; j < Rn; ++j){
+      printf("  %12.5e", GS.CTmp()(0, i, j));
+    }
+    printf("\n");
+  }
 
   // first use what's in the temporary core (already has left index
   // space updated) to update the right index space of core n and store
@@ -567,34 +597,43 @@ void TensorTrain::UpdateCoreIndexSpaces(const int n, const int Rn_new,
 
   // now update the left index space of core n+1 and store the result
   // in the temporary core
-  // (not for the last core)
-  if (n < Ncores - 1) {
-    const int Rnp1 = static_cast<int>(cores(n + 1).GetRightRank());
-    const int PInp1 = static_cast<int>(cores(n + 1).GetPhysicalIndexSize());
+  const int Rnp1 = static_cast<int>(cores(n + 1).GetRightRank());
+  const int PInp1 = static_cast<int>(cores(n + 1).GetPhysicalIndexSize());
 
-    // Ensure view of temporary core is the same size as core n+1
-    GS.ResizeCoreView(Rn_new, PInp1, Rnp1);
+  // Ensure view of temporary core is the same size as core n+1
+  GS.ResizeCoreView(Rn_new, PInp1, Rnp1);
 
-    par_for_inner(tm, 0, Rn_new - 1, 0, Rnp1 - 1, 0, PInp1 - 1,
-                  [&](const int gam, const int alf, const int i) {
-                    // printf("bond %d, sigma = %12.5e\n", n,
-                    // GS.SVDS()(GS.ModeMap()(gam)));
-                    Real sqrt_sigma = safe_sqrt(GS.SVDS()(GS.ModeMap()(gam)));
-                    Real accum{0.};
-                    for (int bet = 0; bet < Rn; bet++) {
-                      for (int nu = 0; nu < Rn; nu++) {
-                        accum += GS.SVDV()(nu, GS.ModeMap()(gam)) /
-                                 (safe_sqrt(GS.EvalR()(nu)) + 1e-15) * GS.EVR()(bet, nu) *
-                                 cores(n + 1)(bet, i, alf);
-                      }
+  par_for_inner(tm, 0, Rn_new - 1, 0, Rnp1 - 1, 0, PInp1 - 1,
+                [&](const int gam, const int alf, const int i) {
+                  // printf("bond %d, sigma = %12.5e\n", n,
+                  // GS.SVDS()(GS.ModeMap()(gam)));
+                  Real sqrt_sigma = safe_sqrt(GS.SVDS()(GS.ModeMap()(gam)));
+                  Real accum{0.};
+                  for (int bet = 0; bet < Rn; bet++) {
+                    for (int nu = 0; nu < Rn; nu++) {
+                      accum += GS.SVDV()(nu, GS.ModeMap()(gam)) /
+                               (safe_sqrt(GS.EvalR()(nu)) + 1e-15) * GS.EVR()(bet, nu) *
+                               cores(n + 1)(bet, i, alf);
                     }
-                    GS.CTmp()(gam, i, alf) = accum * sqrt_sigma;
-                  });
-    tm.team_barrier();
+                  }
+                  GS.CTmp()(gam, i, alf) = accum * sqrt_sigma;
+                });
+  tm.team_barrier();
 
-    // update the shape of the left index space
-    cores(n + 1).SetShape(Rn_new, PInp1, Rnp1);
+  // update the shape of the left index space
+  cores(n + 1).SetShape(Rn_new, PInp1, Rnp1);
+
+  // The last bond needs to write the left-index-updated temporary core back to
+  // the actual core
+  if (n == Ncores - 2) {
+    printf("last core:\n");
+    par_for_inner(tm, 0, Rn_new - 1, 0, Rnp1 - 1, 0, PInp1 - 1,
+                  [&](const int iL, const int iR, const int ic) {
+                    cores(n + 1)(iL, ic, iR) = GS.CTmp()(iL, ic, iR);
+                    printf("%12.5e\n", cores(n + 1)(iL, ic, iR));
+                  });
   }
+  tm.team_barrier();
 
 } // TensorTrain::UpdateCoreIndexSpaces
 
