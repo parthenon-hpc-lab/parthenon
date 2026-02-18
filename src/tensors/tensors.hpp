@@ -562,7 +562,7 @@ auto ToDenseArray2D() const {
   // TODO(SWJ): remove this and make the things that need it able to
   // access private scope somehow
   // SWJ: I think this can be removed now.
-  const cores_device_t &cores_device() const { return cores_device_; }
+  // const cores_device_t &cores_device() const { return cores_device_; }
 
   KOKKOS_INLINE_FUNCTION
   void CalculateRightGramMatrices(GramSVDStorage &GS,

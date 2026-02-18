@@ -190,7 +190,7 @@ SCENARIO("TensorTrain Gram-SVD rounding", "[TensorTrains][GramSVD]") {
         for (int n = 0; n < T.GetNumCores(); ++n) {
           REQUIRE(T.GetRightRank(n) <= ranks_before[n]);
           printf("Rank %d before: %d, after: %d\n", n, 
-            T.GetRightRank(n), ranks_before[n]);
+            ranks_before[n], T.GetRightRank(n));
         }
       }
     }
@@ -211,8 +211,8 @@ SCENARIO("TensorTrain Resizing", "[TensorTrains][Resize]") {
     TensorCoreDevice core_device = core_host.GetOnDevice();
 
     // Fill with deterministic nontrivial data
-    Kokkos::parallel_for(
-        0, 1, KOKKOS_LAMBDA(int) {
+    Kokkos::parallel_for("fill the core",
+        Kokkos::RangePolicy<>(0, 1), KOKKOS_LAMBDA(const int) {
           // TensorCoreDevice core_device = core_host.GetOnDevice();
           for (int iL = 0; iL < shape_before[0]; iL++) {
             for (int iR = 0; iR < shape_before[2]; iR++) {

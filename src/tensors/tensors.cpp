@@ -519,73 +519,82 @@ void TensorTrain::GramSVDRound(const Real eps) {
         } // loop over bond spaces
 
       }); // par_for_outer
+
+      // Now, on host, resize the cores
+      for (int n = 0; n < GetNumCores(); n++) {
+        cores_host_(n).ResizeToNewShape();
+      }
 }
 
+// This is Algorithm 5 in Al Daas et al. Note the sqrt(sigma) used in both L/R
+// core updates.
+// Updating bond space n
 KOKKOS_INLINE_FUNCTION
 void TensorTrain::UpdateCoreIndexSpaces(const int n, const int Rn_new, 
      parthenon::team_mbr_t tm, GramSVDStorage &GS) {
 
-    // pull out cores object
-    auto cores = this->cores_device_;
-    //const int Ncores = cores.GetNumCores();
-    const int Ncores = cores.size();
-    const int Rnm1 = static_cast<int>(cores(n).GetLeftRank());
-    const int Rn = static_cast<int>(cores(n).GetRightRank());
-    const int PIn = static_cast<int>(cores(n).GetPhysicalIndexSize());
+  // pull out cores object
+  auto cores = this->cores_device_;
+  // const int Ncores = cores.GetNumCores();
+  const int Ncores = cores.size();
+  const int Rnm1 = static_cast<int>(cores(n).GetLeftRank());
+  const int Rn = static_cast<int>(cores(n).GetRightRank());
+  const int PIn = static_cast<int>(cores(n).GetPhysicalIndexSize());
 
-    // Ensure view of temporary core is the same size as core n
-    // GS.ResizeCoreView(Rnm1, PIn, Rn);
+  // if (n > 0) return; // only update first bong space
 
-    // reset core n
-    // par_for_inner(
-    //     tm, 0, Rnm1 - 1, 0, Rn - 1, 0, PIn - 1,
-    //     [&](const int rL, const int rR, const int i) { cores(n)(rL, i, rR) = 0.; });
-    // tm.team_barrier();
+  // first use what's in the temporary core (already has left index
+  // space updated) to update the right index space of core n and store
+  // in the actual tensor object.
+  par_for_inner(tm, 0, Rnm1 - 1, 0, Rn_new - 1, 0, PIn - 1,
+                [&](const int alf, const int gam, const int i) {
+                  Real sqrt_sigma = safe_sqrt(GS.SVDS()(GS.ModeMap()(gam)));
+                  Real accum{0.};
+                  for (int bet = 0; bet < Rn; bet++) {
+                    for (int mu = 0; mu < Rn; mu++) {
+                      accum += GS.CTmp()(alf, i, bet) * GS.EVL()(bet, mu) /
+                               (safe_sqrt(GS.EvalL()(mu)) + 1e-15) *
+                               GS.SVDU()(mu, GS.ModeMap()(gam));
+                    }
+                  }
+                  cores(n)(alf, i, gam) = accum * sqrt_sigma;
+                  printf("core(%d)(%d, %d, %d) = %23.15e \n", n, alf, i, gam, accum);
+                });
+  tm.team_barrier();
 
-    // first use what's in the temporary core (already has left index
-    // space updated) to update the right index space of core n and store
-    // in the actual tensor object.
-    par_for_inner(tm, 0, Rnm1 - 1, 0, Rn_new - 1, 0, PIn - 1,
-                  [&](const int alf, const int gam, const int i) {
+  // update the shape of the right index space
+  cores(n).SetShape(Rnm1, PIn, Rn_new);
+
+  // now update the left index space of core n+1 and store the result
+  // in the temporary core
+  // (not for the last core)
+  if (n < Ncores - 1) {
+    const int Rnp1 = static_cast<int>(cores(n + 1).GetRightRank());
+    const int PInp1 = static_cast<int>(cores(n + 1).GetPhysicalIndexSize());
+
+    // Ensure view of temporary core is the same size as core n+1
+    GS.ResizeCoreView(Rn_new, PInp1, Rnp1);
+
+    par_for_inner(tm, 0, Rn_new - 1, 0, Rnp1 - 1, 0, PInp1 - 1,
+                  [&](const int gam, const int alf, const int i) {
+                    // printf("bond %d, sigma = %12.5e\n", n,
+                    // GS.SVDS()(GS.ModeMap()(gam)));
+                    Real sqrt_sigma = safe_sqrt(GS.SVDS()(GS.ModeMap()(gam)));
                     Real accum{0.};
                     for (int bet = 0; bet < Rn; bet++) {
-                      for (int mu = 0; mu < Rn; mu++) {
-                        accum += GS.CTmp()(alf, i, bet) * GS.EVL()(bet, mu) /
-                                 (safe_sqrt(GS.EvalL()(mu)) + 1e-15) *
-                                 GS.SVDU()(mu, GS.ModeMap()(gam));
+                      for (int nu = 0; nu < Rn; nu++) {
+                        accum += GS.SVDV()(nu, GS.ModeMap()(gam)) /
+                                 (safe_sqrt(GS.EvalR()(nu)) + 1e-15) * GS.EVR()(bet, nu) *
+                                 cores(n + 1)(bet, i, alf);
                       }
                     }
-                    cores(n)(alf, i, gam) = accum;
-                    printf("core(%d)(%d, %d, %d) = %23.15e \n",
-                    n, alf, i, gam, accum);
+                    GS.CTmp()(gam, i, alf) = accum * sqrt_sigma;
                   });
     tm.team_barrier();
 
-    // now update the left index space of core n+1 and store the result
-    // in the temporary core
-    // (not for the last core)
-    if (n < Ncores - 1) {
-      const int Rnp1 = static_cast<int>(cores(n + 1).GetRightRank());
-      const int PInp1 = static_cast<int>(cores(n + 1).GetPhysicalIndexSize());
-
-      // Ensure view of temporary core is the same size as core n+1
-      GS.ResizeCoreView(Rn, PInp1, Rnp1);
-
-      par_for_inner(tm, 0, Rn_new - 1, 0, Rnp1 - 1, 0, PInp1 - 1,
-                    [&](const int gam, const int alf, const int i) {
-                      Real accum{0.};
-                      for (int bet = 0; bet < Rn; bet++) {
-                        for (int nu = 0; nu < Rn; nu++) {
-                          accum += GS.SVDS()(GS.ModeMap()(gam)) *
-                                   GS.SVDV()(nu, GS.ModeMap()(gam)) /
-                                   (safe_sqrt(GS.EvalR()(nu)) + 1e-15) *
-                                   GS.EVR()(bet, nu) * cores(n + 1)(bet, i, alf);
-                        }
-                      }
-                      GS.CTmp()(gam, i, alf) = accum;
-                    });
-    }
-    tm.team_barrier();
+    // update the shape of the left index space
+    cores(n + 1).SetShape(Rn_new, PInp1, Rnp1);
+  }
 
 } // TensorTrain::UpdateCoreIndexSpaces
 
