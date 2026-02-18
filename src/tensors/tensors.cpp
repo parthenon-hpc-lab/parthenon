@@ -20,105 +20,86 @@
 namespace parthenon {
 namespace tensors {
 
-  // ============================================================
-  // GramSVDStorage Scratch size computation
-  // ============================================================
+// ============================================================
+// GramSVDStorage Scratch size computation
+// ============================================================
 
-  size_t GramSVDStorage::GetScratchSize(const TensorTrain& TT,
-                               int evd_scratch_max)
-  {
-    int RMax  = TT.GetMaximumRightRank();
-    int PIMax = TT.GetMaximumPhysicalIndexSize();
-    int Ngram = TT.GetNumCores() - 1;
+size_t GramSVDStorage::GetScratchSize(const TensorTrain &TT, int evd_scratch_max) {
+  int RMax = TT.GetMaximumRightRank();
+  int PIMax = TT.GetMaximumPhysicalIndexSize();
+  int Ngram = TT.GetNumCores() - 1;
 
-    int total = 0;
-    for (int n = 0; n < Ngram; ++n)
-      total += TT.GetRightRank(n) * TT.GetRightRank(n);
+  int total = 0;
+  for (int n = 0; n < Ngram; ++n)
+    total += TT.GetRightRank(n) * TT.GetRightRank(n);
 
-    return
-        NumRealCores *
-          ScratchPad3D<Real>::shmem_size(RMax, PIMax, RMax)
-      + NumRealMatrices *
-          ScratchPad2D<Real>::shmem_size(RMax, RMax)
-      + NumRealVecs *
-          ScratchPad1D<Real>::shmem_size(RMax)
-      + NumIntVecs *
-          ScratchPad1D<int>::shmem_size(RMax)
-      + NumRealAlgoVecs *
-          ScratchPad1D<Real>::shmem_size(evd_scratch_max)
-      + NumSizeTAlgoVecs *
-          ScratchPad1D<std::size_t>::shmem_size(evd_scratch_max)
-      + 2 * ScratchPad1D<Real>::shmem_size(total)
-      + 2 * ScratchPad1D<int>::shmem_size(Ngram);
+  return NumRealCores * ScratchPad3D<Real>::shmem_size(RMax, PIMax, RMax) +
+         NumRealMatrices * ScratchPad2D<Real>::shmem_size(RMax, RMax) +
+         NumRealVecs * ScratchPad1D<Real>::shmem_size(RMax) +
+         NumIntVecs * ScratchPad1D<int>::shmem_size(RMax) +
+         NumRealAlgoVecs * ScratchPad1D<Real>::shmem_size(evd_scratch_max) +
+         NumSizeTAlgoVecs * ScratchPad1D<std::size_t>::shmem_size(evd_scratch_max) +
+         2 * ScratchPad1D<Real>::shmem_size(total) +
+         2 * ScratchPad1D<int>::shmem_size(Ngram);
+}
+
+// ============================================================
+// GramSVDStorage Constructor
+// ============================================================
+
+KOKKOS_INLINE_FUNCTION
+GramSVDStorage::GramSVDStorage(ScratchSpace ts, const TensorTrain &TT,
+                               int evd_scratch_max_)
+    : evd_scratch_max(evd_scratch_max_) {
+  RMax = TT.GetMaximumRightRank();
+  PIMax = TT.GetMaximumPhysicalIndexSize();
+  Ngram_ = TT.GetNumCores() - 1;
+
+  // ----- Compute packed Gram offsets -----
+
+  gram_offsets_ = ScratchPad1D<int>(ts, Ngram_);
+  gram_sizes_ = ScratchPad1D<int>(ts, Ngram_);
+
+  int total = 0;
+
+  for (int n = 0; n < Ngram_; ++n) {
+    int Rn = TT.GetRightRank(n);
+    gram_offsets_(n) = total;
+    gram_sizes_(n) = Rn;
+    total += Rn * Rn;
   }
 
-  // ============================================================
-  // GramSVDStorage Constructor
-  // ============================================================
+  GL_storage_ = GramStorage(ts, total);
+  GR_storage_ = GramStorage(ts, total);
 
-  KOKKOS_INLINE_FUNCTION
-  GramSVDStorage::GramSVDStorage(ScratchSpace ts,
-                 const TensorTrain& TT,
-                 int evd_scratch_max_)
-      : evd_scratch_max(evd_scratch_max_)
-  {
-    RMax   = TT.GetMaximumRightRank();
-    PIMax  = TT.GetMaximumPhysicalIndexSize();
-    Ngram_ = TT.GetNumCores() - 1;
+  // ----- Core scratch -----
 
-    // ----- Compute packed Gram offsets -----
+  for (int i = 0; i < NumRealCores; ++i)
+    real_cores_storage_[i] = RealCoreStorage(ts, RMax, PIMax, RMax);
 
-    gram_offsets_ = ScratchPad1D<int>(ts, Ngram_);
-    gram_sizes_   = ScratchPad1D<int>(ts, Ngram_);
+  // ----- Work matrices -----
 
-    int total = 0;
+  for (int i = 0; i < NumRealMatrices; ++i)
+    real_mats_storage_[i] = RealMat(ts, RMax, RMax);
 
-    for (int n = 0; n < Ngram_; ++n) {
-      int Rn = TT.GetRightRank(n);
-      gram_offsets_(n) = total;
-      gram_sizes_(n)   = Rn;
-      total += Rn * Rn;
-    }
+  // ----- Rank-sized vectors -----
 
-    GL_storage_ = GramStorage(ts, total);
-    GR_storage_ = GramStorage(ts, total);
+  for (int i = 0; i < NumRealVecs; ++i)
+    real_vecs_storage_[i] = RealVec(ts, RMax);
 
-    // ----- Core scratch -----
+  for (int i = 0; i < NumIntVecs; ++i)
+    int_vecs_storage_[i] = IntVec(ts, RMax);
 
-    for (int i = 0; i < NumRealCores; ++i)
-      real_cores_storage_[i] =
-        RealCoreStorage(ts, RMax, PIMax, RMax);
+  // ----- Algorithm scratch -----
 
-    // ----- Work matrices -----
+  for (int i = 0; i < NumRealAlgoVecs; ++i)
+    real_algo_vecs_storage_[i] = RealVec(ts, evd_scratch_max);
 
-    for (int i = 0; i < NumRealMatrices; ++i)
-      real_mats_storage_[i] =
-        RealMat(ts, RMax, RMax);
+  for (int i = 0; i < NumSizeTAlgoVecs; ++i)
+    sizet_algo_vecs_storage_[i] = SizeTVec(ts, evd_scratch_max);
 
-    // ----- Rank-sized vectors -----
-
-    for (int i = 0; i < NumRealVecs; ++i)
-      real_vecs_storage_[i] =
-        RealVec(ts, RMax);
-
-    for (int i = 0; i < NumIntVecs; ++i)
-      int_vecs_storage_[i] =
-        IntVec(ts, RMax);
-
-    // ----- Algorithm scratch -----
-
-    for (int i = 0; i < NumRealAlgoVecs; ++i)
-      real_algo_vecs_storage_[i] =
-        RealVec(ts, evd_scratch_max);
-
-    for (int i = 0; i < NumSizeTAlgoVecs; ++i)
-      sizet_algo_vecs_storage_[i] =
-        SizeTVec(ts, evd_scratch_max);
-
-    ResizeRankViews(RMax, evd_scratch_max);
-  }
-
-
+  ResizeRankViews(RMax, evd_scratch_max);
+}
 
 TensorTrain aXPlusY(pool_map_t &pool_map, const Real a, const TensorTrain &X,
                     const TensorTrain &Y) {
@@ -188,7 +169,7 @@ TensorTrain aXPlusY(pool_map_t &pool_map, const Real a, const TensorTrain &X,
 
 KOKKOS_INLINE_FUNCTION
 void TensorTrain::CalculateRightGramMatrices(GramSVDStorage &GS,
-                                const parthenon::team_mbr_t &member) {
+                                             const parthenon::team_mbr_t &member) {
   const int Ngram = this->GetNumCores() - 1;
   // pull out cores object
   auto cores = this->cores_device_;
@@ -198,7 +179,7 @@ void TensorTrain::CalculateRightGramMatrices(GramSVDStorage &GS,
     // rank of this core
     std::size_t Rn = cores(n).GetRightRank();
     // rank of next core
-    std::size_t Rnp1 = cores(n+1).GetRightRank();
+    std::size_t Rnp1 = cores(n + 1).GetRightRank();
 
     // loop over elements of this Gram matrix
     // TODO experiment with patterns for reductions to find what is optimal
@@ -215,8 +196,7 @@ void TensorTrain::CalculateRightGramMatrices(GramSVDStorage &GS,
                 tmp += cores(n + 1)(a, i, 0) * cores(n + 1)(ap, i, 0);
               },
               Kokkos::Sum<Real, parthenon::DevMemSpace>(accum)); // par_reduce_inner
-        }
-        else {
+        } else {
           par_reduce_inner(
               parthenon::InnerLoopPatternTTR(), member, 0, Rnp1 - 1, 0, Rnp1 - 1, 0,
               cores(n + 1).GetPhysicalIndexSize() - 1,
@@ -225,7 +205,7 @@ void TensorTrain::CalculateRightGramMatrices(GramSVDStorage &GS,
                     cores(n + 1)(a, i, b) * GS.GR(n + 1)(b, bp) * cores(n + 1)(ap, i, bp);
               },
               Kokkos::Sum<Real, parthenon::DevMemSpace>(accum)); // par_reduce_inner
-        } // if (n == Ngram - 1)
+        }                                                        // if (n == Ngram - 1)
         GS.GR(n)(a, ap) = accum;
         printf("Right gram %d %d = %22.15e\n", a, ap, accum);
       }
@@ -235,7 +215,7 @@ void TensorTrain::CalculateRightGramMatrices(GramSVDStorage &GS,
 
 KOKKOS_INLINE_FUNCTION
 void TensorTrain::CalculateLeftGramMatrices(GramSVDStorage &GS,
-                               const parthenon::team_mbr_t &member) {
+                                            const parthenon::team_mbr_t &member) {
   const int Ngram = this->GetNumCores() - 1;
   // pull out cores object
   auto cores = this->cores_device_;
@@ -264,11 +244,11 @@ void TensorTrain::CalculateLeftGramMatrices(GramSVDStorage &GS,
 
         else {
           // rank of previous core
-          std::size_t Rnm1 = cores(n-1).GetRightRank();
+          std::size_t Rnm1 = cores(n - 1).GetRightRank();
           par_reduce_inner(
               parthenon::InnerLoopPatternTTR(), member, 0,
-              cores(n).GetPhysicalIndexSize() - 1, 0, cores(n-1).GetRightRank() - 1, 0,
-              cores(n-1).GetRightRank() - 1,
+              cores(n).GetPhysicalIndexSize() - 1, 0, cores(n - 1).GetRightRank() - 1, 0,
+              cores(n - 1).GetRightRank() - 1,
               [&](const int i, const int a, const int ap, Real &tmp) {
                 tmp += cores(n)(a, i, b) * GS.GL(n - 1)(a, ap) * cores(n)(ap, i, bp);
               },
@@ -287,9 +267,8 @@ void TensorTrain::CalculateLeftGramMatrices(GramSVDStorage &GS,
 // * construct the matrix we want to SVD
 // * perform the SVD of that matrix
 KOKKOS_INLINE_FUNCTION
-void TensorTrain::CalculateGramSVD(const int n,
-                       parthenon::team_mbr_t member, GramSVDStorage &GS)
-{
+void TensorTrain::CalculateGramSVD(const int n, parthenon::team_mbr_t member,
+                                   GramSVDStorage &GS) {
 
   // pull out cores object
   auto cores = this->cores_device_;
@@ -306,8 +285,8 @@ void TensorTrain::CalculateGramSVD(const int n,
   member.team_barrier();
 
   // perform the eigenvalue decomposition
-  SymmetricEVD::execute(member, &GS.A(), &GS.EVL(), GS.EvalL().data(), GS.EVDRealScratch().data(),
-                        GS.EVDSizeTScratch().data());
+  SymmetricEVD::execute(member, &GS.A(), &GS.EVL(), GS.EvalL().data(),
+                        GS.EVDRealScratch().data(), GS.EVDSizeTScratch().data());
 
   /////////////////////////////////////////////////////////////////////////////////////
   // RIGHT GRAM
@@ -315,14 +294,14 @@ void TensorTrain::CalculateGramSVD(const int n,
 
   // write left Gram matrix to A (so that it is not destroyed)
   // TODO(SWJ): We can actually probably just destroy it since it is not needed
-  // once we have the eigenvalue decomposition of it 
+  // once we have the eigenvalue decomposition of it
   par_for_inner(member, 0, Rn - 1, 0, Rn - 1,
                 [&](const int a, const int ap) { GS.A()(a, ap) = GS.GR(n)(a, ap); });
   member.team_barrier();
 
   // perform the eigenvalue decomposition
-  SymmetricEVD::execute(member, &GS.A(), &GS.EVR(), GS.EvalR().data(), GS.EVDRealScratch().data(),
-                        GS.EVDSizeTScratch().data());
+  SymmetricEVD::execute(member, &GS.A(), &GS.EVR(), GS.EvalR().data(),
+                        GS.EVDRealScratch().data(), GS.EVDSizeTScratch().data());
 
   printf("Eigenvalues L: ");
   for (int i = 0; i < Rn; i++)
@@ -356,22 +335,20 @@ void TensorTrain::CalculateGramSVD(const int n,
   printf("\n");
 
   printf("VL:\n");
-  for (int i = 0; i < Rn; ++i){
-    for (int j = 0; j < Rn; ++j){
+  for (int i = 0; i < Rn; ++i) {
+    for (int j = 0; j < Rn; ++j) {
       printf("  %12.5e", GS.EVL()(i, j));
     }
     printf("\n");
   }
 
-
   printf("VR:\n");
-  for (int i = 0; i < Rn; ++i){
-    for (int j = 0; j < Rn; ++j){
+  for (int i = 0; i < Rn; ++i) {
+    for (int j = 0; j < Rn; ++j) {
       printf("  %12.5e", GS.EVR()(i, j));
     }
     printf("\n");
   }
-
 
   //////////////////////////////////////////////////////////////////////////////////
   // Now we have the left gram's eigenvalues and eigenvectors ELamL, EVL
@@ -388,14 +365,13 @@ void TensorTrain::CalculateGramSVD(const int n,
           [&](const int i, Real &tmp) { tmp += GS.EVL()(i, a) * GS.EVR()(i, b); },
           Kokkos::Sum<Real, parthenon::DevMemSpace>(accum)); // par_reduce_inner
 
-      GS.M()(a, b) = safe_sqrt(GS.EvalL()(a)) 
-      * accum * safe_sqrt(GS.EvalR()(b));
+      GS.M()(a, b) = safe_sqrt(GS.EvalL()(a)) * accum * safe_sqrt(GS.EvalR()(b));
     }
   }
 
   printf("M:\n");
-  for (int i = 0; i < Rn; ++i){
-    for (int j = 0; j < Rn; ++j){
+  for (int i = 0; i < Rn; ++i) {
+    for (int j = 0; j < Rn; ++j) {
       printf("  %12.5e", GS.M()(i, j));
     }
     printf("\n");
@@ -403,36 +379,34 @@ void TensorTrain::CalculateGramSVD(const int n,
 
   if (Rn == 1) {
     // Trivial case
-    GS.SVDS()(0) = GS.M()(0,0);
-    GS.SVDU()(0,0) = 1.0;
-    GS.SVDV()(0,0) = 1.0;
-  }
-  else {
+    GS.SVDS()(0) = GS.M()(0, 0);
+    GS.SVDU()(0, 0) = 1.0;
+    GS.SVDV()(0, 0) = 1.0;
+  } else {
     SquareSVD::execute(&GS.M(), &GS.SVDU(), &GS.SVDV(), GS.SVDS().data());
   }
 
   printf("SVDU:\n");
-  for (int i = 0; i < Rn; ++i){
-    for (int j = 0; j < Rn; ++j){
+  for (int i = 0; i < Rn; ++i) {
+    for (int j = 0; j < Rn; ++j) {
       printf("  %12.5e", GS.SVDU()(i, j));
     }
     printf("\n");
   }
 
   printf("SVDV:\n");
-  for (int i = 0; i < Rn; ++i){
-    for (int j = 0; j < Rn; ++j){
+  for (int i = 0; i < Rn; ++i) {
+    for (int j = 0; j < Rn; ++j) {
       printf("  %12.5e", GS.SVDV()(i, j));
     }
     printf("\n");
   }
 
   printf("SVDS:\n");
-  for (int i = 0; i < Rn; ++i){
+  for (int i = 0; i < Rn; ++i) {
     printf("  %12.5e", GS.SVDS()(i));
   }
   printf("\n");
-
 }
 
 // Gram-SVD TT rounding with tolerance eps. Reduces TT ranks while
@@ -440,7 +414,7 @@ void TensorTrain::CalculateGramSVD(const int n,
 void TensorTrain::GramSVDRound(const Real eps) {
   // get max right ranks, which set max gram matrix sizes for malloc
   const int RMax = GetMaximumRightRank();
-  int evd_scratch_max = SymmetricEVD::sizet_scratch_size(RMax); 
+  int evd_scratch_max = SymmetricEVD::sizet_scratch_size(RMax);
 
   // number of Gram matrices (this many left, this many right)
   const int Ngram = GetNumCores() - 1;
@@ -493,10 +467,11 @@ void TensorTrain::GramSVDRound(const Real eps) {
             // copy out the first core into this temporary core, since there is no
             // left index space update for the first core
             GS.ResizeCoreView(1, PIn, Rn);
-            par_for_inner(tm, 0, cores(n).GetRightRank() - 1, 0, cores(n).GetPhysicalIndexSize() - 1,
-                [&](const int rr, const int i) { 
-                GS.CTmp()(0, i, rr) = cores(n)(0, i, rr); 
-                });
+            par_for_inner(tm, 0, cores(n).GetRightRank() - 1, 0,
+                          cores(n).GetPhysicalIndexSize() - 1,
+                          [&](const int rr, const int i) {
+                            GS.CTmp()(0, i, rr) = cores(n)(0, i, rr);
+                          });
             tm.team_barrier();
           }
 
@@ -517,21 +492,20 @@ void TensorTrain::GramSVDRound(const Real eps) {
           UpdateCoreIndexSpaces(n, Rn_new, tm, GS);
 
         } // loop over bond spaces
-
       }); // par_for_outer
 
-      // Now, on host, resize the cores
-      for (int n = 0; n < GetNumCores(); n++) {
-        cores_host_(n).ResizeToNewShape();
-      }
+  // Now, on host, resize the cores
+  for (int n = 0; n < GetNumCores(); n++) {
+    cores_host_(n).ResizeToNewShape();
+  }
 }
 
 // This is Algorithm 5 in Al Daas et al. Note the sqrt(sigma) used in both L/R
 // core updates.
 // Updating bond space n
 KOKKOS_INLINE_FUNCTION
-void TensorTrain::UpdateCoreIndexSpaces(const int n, const int Rn_new, 
-     parthenon::team_mbr_t tm, GramSVDStorage &GS) {
+void TensorTrain::UpdateCoreIndexSpaces(const int n, const int Rn_new,
+                                        parthenon::team_mbr_t tm, GramSVDStorage &GS) {
 
   // pull out cores object
   auto cores = this->cores_device_;
@@ -550,24 +524,24 @@ void TensorTrain::UpdateCoreIndexSpaces(const int n, const int Rn_new,
   }
 
   printf("EVL:\n");
-  for (int i = 0; i < Rn; ++i){
-    for (int j = 0; j < Rn; ++j){
+  for (int i = 0; i < Rn; ++i) {
+    for (int j = 0; j < Rn; ++j) {
       printf("  %12.5e", GS.EVL()(i, j));
     }
     printf("\n");
   }
 
   printf("core n:\n");
-  for (int i = 0; i < PIn; ++i){
-    for (int j = 0; j < Rn; ++j){
+  for (int i = 0; i < PIn; ++i) {
+    for (int j = 0; j < Rn; ++j) {
       printf("  %12.5e", cores(n)(0, i, j));
     }
     printf("\n");
   }
 
   printf("coreTMP n:\n");
-  for (int i = 0; i < PIn; ++i){
-    for (int j = 0; j < Rn; ++j){
+  for (int i = 0; i < PIn; ++i) {
+    for (int j = 0; j < Rn; ++j) {
       printf("  %12.5e", GS.CTmp()(0, i, j));
     }
     printf("\n");
@@ -639,34 +613,3 @@ void TensorTrain::UpdateCoreIndexSpaces(const int n, const int Rn_new,
 
 } // namespace tensors
 } // namespace parthenon
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

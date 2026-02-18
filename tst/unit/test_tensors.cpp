@@ -170,16 +170,13 @@ SCENARIO("TensorTrain Gram-SVD rounding", "[TensorTrains][GramSVD]") {
 
         int nwrong = 0;
         par_reduce(
-            "Check dense error after GramSVD round",
-            0, dense_after.GetDim(3) - 1,
-            0, dense_after.GetDim(2) - 1,
-            0, dense_after.GetDim(1) - 1,
+            "Check dense error after GramSVD round", 0, dense_after.GetDim(3) - 1, 0,
+            dense_after.GetDim(2) - 1, 0, dense_after.GetDim(1) - 1,
             KOKKOS_LAMBDA(const int k, const int j, const int i, int &nw) {
-              const Real diff =
-                  dense_after(k, j, i) - dense_before(k, j, i);
+              const Real diff = dense_after(k, j, i) - dense_before(k, j, i);
               if (std::abs(diff) > 1e-8) nw += 1;
               printf("Dense before/after rounding: %23.15e  %23.15e\n",
-                dense_before(k, j, i), dense_after(k, j, i) );
+                     dense_before(k, j, i), dense_after(k, j, i));
             },
             nwrong);
 
@@ -189,8 +186,8 @@ SCENARIO("TensorTrain Gram-SVD rounding", "[TensorTrains][GramSVD]") {
       THEN("Tensor-train ranks do not increase") {
         for (int n = 0; n < T.GetNumCores(); ++n) {
           REQUIRE(T.GetRightRank(n) <= ranks_before[n]);
-          printf("Rank %d before: %d, after: %d\n", n, 
-            ranks_before[n], T.GetRightRank(n));
+          printf("Rank %d before: %d, after: %d\n", n, ranks_before[n],
+                 T.GetRightRank(n));
         }
       }
     }
@@ -211,8 +208,8 @@ SCENARIO("TensorTrain Resizing", "[TensorTrains][Resize]") {
     TensorCoreDevice core_device = core_host.GetOnDevice();
 
     // Fill with deterministic nontrivial data
-    Kokkos::parallel_for("fill the core",
-        Kokkos::RangePolicy<>(0, 1), KOKKOS_LAMBDA(const int) {
+    Kokkos::parallel_for(
+        "fill the core", Kokkos::RangePolicy<>(0, 1), KOKKOS_LAMBDA(const int) {
           // TensorCoreDevice core_device = core_host.GetOnDevice();
           for (int iL = 0; iL < shape_before[0]; iL++) {
             for (int iR = 0; iR < shape_before[2]; iR++) {
@@ -249,36 +246,5 @@ SCENARIO("TensorTrain Resizing", "[TensorTrains][Resize]") {
         }
       }
     }
-
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
