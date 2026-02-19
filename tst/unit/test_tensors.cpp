@@ -131,10 +131,10 @@ SCENARIO("Parthenon tensor trains", "[TensorTrains]") {
 SCENARIO("TensorTrain Gram-SVD rounding", "[TensorTrains][GramSVD]") {
   GIVEN("A small tensor train with nontrivial ranks") {
     constexpr std::size_t NCORES = 3;
-    constexpr std::size_t NC[NCORES] = {4, 5, 6};
+    constexpr std::size_t NC[NCORES] = {7, 11, 13};
 
     constexpr std::size_t NRANKS = NCORES + 1;
-    constexpr std::size_t RANKS[NRANKS] = {1, 4, 4, 1};
+    constexpr std::size_t RANKS[NRANKS] = {1, 4, 9, 1};
 
     const std::size_t chunk_size = 16;
     pool_map_t pool_map;
@@ -149,8 +149,33 @@ SCENARIO("TensorTrain Gram-SVD rounding", "[TensorTrains][GramSVD]") {
 
     TensorTrain T("Rounded TT", cores);
 
+    // Fill with trivial data
+    // T.SetOnes();
+
     // Fill with deterministic nontrivial data
-    T.SetOnes();
+    int core = 0;
+    par_for(
+        PARTHENON_AUTO_LABEL, 0, RANKS[core] - 1, 0, RANKS[core + 1] - 1, 0, NC[core] - 1,
+        KOKKOS_LAMBDA(const int iL, const int iR, const int i) {
+          cores[core](iL, i, iR) = std::sin((iR + 1) * (i + 1));
+        });
+    Kokkos::fence();
+
+    core = 1;
+    par_for(
+        PARTHENON_AUTO_LABEL, 0, RANKS[core] - 1, 0, RANKS[core + 1] - 1, 0, NC[core] - 1,
+        KOKKOS_LAMBDA(const int iL, const int iR, const int i) {
+          cores[core](iL, i, iR) = std::pow(10., -iR) * std::cos((iL + 1) * (i + 1));
+        });
+    Kokkos::fence();
+
+    core = 2;
+    par_for(
+        PARTHENON_AUTO_LABEL, 0, RANKS[core] - 1, 0, RANKS[core + 1] - 1, 0, NC[core] - 1,
+        KOKKOS_LAMBDA(const int iL, const int iR, const int i) {
+          cores[core](iL, i, iR) = std::sin((iL + 1) * (i + 1));
+        });
+    Kokkos::fence();
 
     // Dense reference BEFORE rounding
     ParArrayND<Real> dense_before = T.ToDenseArray3D();

@@ -20,6 +20,125 @@
 namespace parthenon {
 namespace tensors {
 
+KOKKOS_INLINE_FUNCTION
+void GramSVDStorage::ComputeSVD(const int Rn, const int nnzL, const int nnzR) {
+
+  // initialize SVD to zero
+  for (int i = 0; i < Rn; ++i) {
+    SVDS()(i) = 0.0;
+    for (int j = 0; j < Rn; ++j) {
+      SVDU()(i, j) = 0.0;
+      SVDV()(i, j) = 0.0;
+    }
+  }
+
+  if (nnzL == 0 || nnzR == 0) {
+    return;
+  }
+
+  // effective rank 1 case
+  if (nnzL == 1 || nnzR == 1) {
+    // Compute Frobenius norm
+    double sigma = 0.0;
+    for (int i = 0; i < Rn; ++i)
+      for (int j = 0; j < Rn; ++j)
+        sigma += M()(i, j) * M()(i, j);
+
+    sigma = sqrt(sigma);
+
+    if (sigma == 0.0) return;
+
+    SVDS()(0) = sigma;
+
+    // --- Compute right singular vector first ---
+
+    // Find a nonzero row
+    int pivot = -1;
+    double row_norm = 0.0;
+
+    for (int i = 0; i < Rn; ++i) {
+      row_norm = 0.0;
+      for (int j = 0; j < Rn; ++j)
+        row_norm += M()(i, j) * M()(i, j);
+      if (row_norm > 0.0) {
+        pivot = i;
+        break;
+      }
+    }
+
+    row_norm = sqrt(row_norm);
+
+    // v = normalized pivot row
+    for (int j = 0; j < Rn; ++j)
+      SVDV()(j, 0) = M()(pivot, j) / row_norm;
+
+    // u = M v / sigma
+    for (int i = 0; i < Rn; ++i) {
+      double val = 0.0;
+      for (int j = 0; j < Rn; ++j)
+        val += M()(i, j) * SVDV()(j, 0);
+      SVDU()(i, 0) = val / sigma;
+    }
+    return;
+  }
+
+  Real Morig[Rn][Rn];
+  for (int i = 0; i < Rn; i++) {
+    for (int j = 0; j < Rn; j++) {
+      Morig[i][j] = M()(i,j);
+    }
+  }
+
+  printf("doing svd\n");
+  // regular case
+  SquareSVD::execute(&M(), &SVDU(), &SVDV(), SVDS().data());
+
+  // check the SVD
+  printf("SVD CHECK:\n");
+  Real Mrec[Rn][Rn];
+  for (int i = 0; i < Rn; i++) {
+    for (int j = 0; j < Rn; j++) {
+      Mrec[i][j] = 0.;
+    }
+  }
+  for (int i = 0; i < Rn; i++) {
+    for (int j = 0; j < Rn; j++) {
+      for (int k = 0; k < Rn; k++) {
+        Mrec[i][j] += SVDU()(i, k) * SVDS()(k) * SVDV()(j, k);
+        // Mrec[i][j] += SVDU()(k, i) * SVDS()(k) * SVDV()(k, j);
+        // Mrec[i][j] += SVDU()(k, i) * SVDS()(k) * SVDV()(j, k);
+        // Mrec[i][j] += SVDU()(i, k) * SVDS()(k) * SVDV()(k, j);
+      }
+      printf("old, new = %23.15e %23.15e\n", Morig[i][j], Mrec[i][j]);
+    }
+  }
+
+  Real B[Rn][Rn]; // or [MAX_R][MAX_R] if you prefer
+
+  // zero B
+  for (int i = 0; i < Rn; ++i)
+    for (int j = 0; j < Rn; ++j)
+      B[i][j] = 0.0;
+
+  // compute B = U^T * M * V
+  for (int i = 0; i < Rn; ++i) {
+    for (int j = 0; j < Rn; ++j) {
+
+      Real sum = 0.0;
+
+      for (int p = 0; p < Rn; ++p) {
+        for (int q = 0; q < Rn; ++q) {
+          sum += SVDU()(p, i)                  // U^T = U(p,i)
+                 * Morig[p][q] * SVDV()(q, j); // V(q,j)
+        }
+      }
+
+      B[i][j] = sum;
+      printf("BMAT: %d %d  %23.15e\n", i, j, B[i][j]);
+    }
+  }
+}
+
 // ============================================================
 // GramSVDStorage Scratch size computation
 // ============================================================
@@ -304,51 +423,24 @@ void TensorTrain::CalculateGramSVD(const int n, parthenon::team_mbr_t member,
                         GS.EVDRealScratch().data(), GS.EVDSizeTScratch().data());
 
   printf("Eigenvalues L: ");
-  for (int i = 0; i < Rn; i++)
-    printf("%e ", GS.EvalL()(i));
-  printf("\n");
+  GS.PrintRealVec(GS.EvalL(), Rn);
   printf("Eigenvalues R: ");
-  for (int i = 0; i < Rn; i++)
-    printf("%e ", GS.EvalR()(i));
-  printf("\n");
+  GS.PrintRealVec(GS.EvalR(), Rn);
 
   // clean the eigensystems
-  Real eps{1e-12};
-  Real LambdamaxL{0.};
-  Real LambdamaxR{0.};
-  for (int i = 0; i < Rn; i++) {
-    LambdamaxL = std::max(LambdamaxL, GS.EvalL()(i));
-    LambdamaxR = std::max(LambdamaxR, GS.EvalR()(i));
-  }
-  for (int i = 0; i < Rn; i++) {
-    if (GS.EvalL()(i) < eps * LambdamaxL) GS.EvalL()(i) = 0.;
-    if (GS.EvalR()(i) < eps * LambdamaxR) GS.EvalR()(i) = 0.;
-  }
+  const Real eps{1e-12};
+  int nnzL = GS.CleanAndCountNonZeroEigenValues(GS.EVL(), GS.EvalL(), Rn, eps);
+  int nnzR = GS.CleanAndCountNonZeroEigenValues(GS.EVR(), GS.EvalR(), Rn, eps);
 
   printf("Cleaned Eigenvalues L: ");
-  for (int i = 0; i < Rn; i++)
-    printf("%e ", GS.EvalL()(i));
-  printf("\n");
+  GS.PrintRealVec(GS.EvalL(), Rn);
   printf("Cleaned Eigenvalues R: ");
-  for (int i = 0; i < Rn; i++)
-    printf("%e ", GS.EvalR()(i));
-  printf("\n");
+  GS.PrintRealVec(GS.EvalR(), Rn);
 
   printf("VL:\n");
-  for (int i = 0; i < Rn; ++i) {
-    for (int j = 0; j < Rn; ++j) {
-      printf("  %12.5e", GS.EVL()(i, j));
-    }
-    printf("\n");
-  }
-
+  GS.PrintRealMat(GS.EVL(), Rn);
   printf("VR:\n");
-  for (int i = 0; i < Rn; ++i) {
-    for (int j = 0; j < Rn; ++j) {
-      printf("  %12.5e", GS.EVR()(i, j));
-    }
-    printf("\n");
-  }
+  GS.PrintRealMat(GS.EVR(), Rn);
 
   //////////////////////////////////////////////////////////////////////////////////
   // Now we have the left gram's eigenvalues and eigenvectors ELamL, EVL
@@ -370,43 +462,19 @@ void TensorTrain::CalculateGramSVD(const int n, parthenon::team_mbr_t member,
   }
 
   printf("M:\n");
-  for (int i = 0; i < Rn; ++i) {
-    for (int j = 0; j < Rn; ++j) {
-      printf("  %12.5e", GS.M()(i, j));
-    }
-    printf("\n");
-  }
+  GS.PrintRealMat(GS.M(), Rn);
 
-  if (Rn == 1) {
-    // Trivial case
-    GS.SVDS()(0) = GS.M()(0, 0);
-    GS.SVDU()(0, 0) = 1.0;
-    GS.SVDV()(0, 0) = 1.0;
-  } else {
-    SquareSVD::execute(&GS.M(), &GS.SVDU(), &GS.SVDV(), GS.SVDS().data());
-  }
+  // compute the SVD of M
+  GS.ComputeSVD(Rn, nnzL, nnzR);
 
   printf("SVDU:\n");
-  for (int i = 0; i < Rn; ++i) {
-    for (int j = 0; j < Rn; ++j) {
-      printf("  %12.5e", GS.SVDU()(i, j));
-    }
-    printf("\n");
-  }
+  GS.PrintRealMat(GS.SVDU(), Rn);
 
   printf("SVDV:\n");
-  for (int i = 0; i < Rn; ++i) {
-    for (int j = 0; j < Rn; ++j) {
-      printf("  %12.5e", GS.SVDV()(i, j));
-    }
-    printf("\n");
-  }
+  GS.PrintRealMat(GS.SVDV(), Rn);
 
   printf("SVDS:\n");
-  for (int i = 0; i < Rn; ++i) {
-    printf("  %12.5e", GS.SVDS()(i));
-  }
-  printf("\n");
+  GS.PrintRealVec(GS.SVDS(), Rn);
 }
 
 // Gram-SVD TT rounding with tolerance eps. Reduces TT ranks while

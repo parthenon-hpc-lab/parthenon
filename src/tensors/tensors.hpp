@@ -211,8 +211,52 @@ class GramSVDStorage {
   KOKKOS_INLINE_FUNCTION
   GramSVDStorage(ScratchSpace ts, const TensorTrain &TT, int evd_scratch_max_);
 
- private:
-  int RMax;
+  KOKKOS_INLINE_FUNCTION
+  int CleanAndCountNonZeroEigenValues(RealMat &EVs, RealVec &EVals, const int Rn,
+  const Real eps) {
+    int nnz_eig = 0;
+
+    Real Lambdamax{0.};
+    for (int i = 0; i < Rn; i++) {
+      Lambdamax = std::max(Lambdamax, EVals(i));
+    }
+
+    for (int i = 0; i < Rn; i++) {
+      if (EVals(i) < eps * Lambdamax) {
+        EVals(i) = 0.;
+        for (int j = 0; j < Rn; j++) {
+          EVs(j, i) = 0.;
+        }
+      } else {
+        nnz_eig += 1;
+      }
+    }
+    return nnz_eig;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void PrintRealVec(RealVec &V, const int Rn) {
+    for (int i = 0; i < Rn; i++)
+      printf("%e ", V(i));
+    printf("\n");
+    printf("\n");
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void PrintRealMat(RealMat &M, const int Rn) {
+    for (int i = 0; i < Rn; ++i) {
+      for (int j = 0; j < Rn; ++j) {
+        printf("  %12.5e", M(i, j));
+      }
+      printf("\n");
+      printf("\n");
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void ComputeSVD(const int Rn, const int nnzL, const int nnzR);
+
+private : int RMax;
   int PIMax;
   int Ngram_;
   int evd_scratch_max;
@@ -551,8 +595,10 @@ class TensorTrain {
 
     // find maximum singular value
     Real sigmax{-1.e30};
+    int sigmax_loc;
     for (int i = 0; i < Rn; i++) {
       sigmax = std::max(sigmax, std::abs(GS.SVDS()(i)));
+      sigmax_loc = i;
     };
 
     // flag which singular values we should keep
