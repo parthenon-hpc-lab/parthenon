@@ -40,6 +40,10 @@
 
 namespace parthenon {
 
+bool BvarsSubCache_t::RequiresReinitialize(Mesh *pmesh) const {
+  return buf_vec.size() == 0 || epoch != pmesh->boundary_comm_map.GetCurrentEpoch();
+}
+
 void ProResCache_t::Initialize(int n_regions, StateDescriptor *pkg) {
   prores_info = ProResInfoArr_t(ViewOfViewAlloc("prores_info"), n_regions);
   prores_info_h = create_view_of_view_mirror(prores_info);
@@ -150,10 +154,14 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
                                 TopologicalOffsetK(el)};
   std::array<int, 3> block_offset = nb.offsets;
 
+  int communicated_ghosts = Globals::nghost;
+  if (!prores && loc.level() == nb.origin_loc.level() &&
+      v->IsSet(Metadata::CommunicateOne))
+    communicated_ghosts = 1;
   int interior_offset =
-      ir_type == IndexRangeType::BoundaryInteriorSend ? Globals::nghost : 0;
+      ir_type == IndexRangeType::BoundaryInteriorSend ? communicated_ghosts : 0;
   int exterior_offset =
-      ir_type == IndexRangeType::BoundaryExteriorRecv ? Globals::nghost : 0;
+      ir_type == IndexRangeType::BoundaryExteriorRecv ? communicated_ghosts : 0;
   if (prores) {
     // The coarse ghosts cover twice as much volume as the fine ghosts, so when working in
     // the exterior (i.e. ghosts) we must only go over the coarse ghosts that have
@@ -246,6 +254,10 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
       if (sox3 == 0) sox3 = loc.l(2) % 2 == 1 ? 1 : -1;
     }
     owns = GetIndexRangeMaskFromOwnership(el, nb.ownership, sox1, sox2, sox3);
+  } else if (ir_type == IndexRangeType::InteriorRecv) {
+    // Also need to set ownership when a parent block receives from a daughter
+    // block during multigrid operations
+    owns = GetIndexRangeMaskFromOwnership(el, nb.ownership, 0, 0, 0);
   }
   return SpatiallyMaskedIndexer6D(owns, {0, tensor_shape[0] - 1},
                                   {0, tensor_shape[1] - 1}, {0, tensor_shape[2] - 1},

@@ -1211,7 +1211,7 @@ void Mesh::BuildAndRegisterCommBuffers_() {
 
 bool Mesh::TryReallocCommBufferPools() {
   bool realloc = false;
-  for (auto &[k, pool] : pool_map) {
+  for (auto &[k, pool] : pool_map.GetMap()) {
     std::size_t inuse = pool.NumBuffersInUse();
     std::size_t total = pool.NumBuffersInPool();
     std::size_t delta = total - inuse;
@@ -1223,9 +1223,7 @@ bool Mesh::TryReallocCommBufferPools() {
   if (realloc) {
     // The buffer pool must be cleared out, since otherwise, buffers
     // will just be reference-count-freed
-    for (auto &[k, pool] : pool_map) {
-      pool.Clear();
-    }
+    pool_map.Clear();
     // We need to clear the caches because they point to comm buffers that
     // are no longer valid
     for (auto &[label, pdata] : mesh_data.Stages()) {
