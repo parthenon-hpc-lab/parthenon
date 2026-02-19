@@ -42,7 +42,6 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
-#include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -645,9 +644,8 @@ bool Mesh::GatherCostListAndCheckBalance() {
 void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                            int ntot) {
   PARTHENON_INSTRUMENT
-  // kill any cached packs
-  mesh_data.PurgeNonBase();
-  mesh_data.Get()->ClearCaches();
+  // kill all old MeshData
+  mesh_data.clear();
 
   // compute nleaf= number of leaf MeshBlocks per refined block
   int nleaf = 2;
@@ -775,7 +773,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
                                                   oloc, var.get(), this));
       }
     }
-  }    // AMR Send region
+  } // AMR Send region
 #endif // MPI_PARALLEL
 
   // Construct a new MeshBlock list (moving the data within the MPI rank)
@@ -987,8 +985,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     FillDerived();
 
     // Initialize the "base" MeshData object
-    // TODO(LFR): Is this necessary? Do we ever pull out the entire mesh MeshData?
-    mesh_data.Get()->Initialize(block_list, this);
+    mesh_data.Add("base", GetBasePartition());
   } // AMR Recv and unpack data
 
   ResetLoadBalanceVariables();

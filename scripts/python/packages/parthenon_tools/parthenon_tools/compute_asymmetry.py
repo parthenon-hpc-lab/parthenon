@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 # ========================================================================================
+# Parthenon performance portable AMR framework
+# Copyright(C) 2020-2025 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for details
+# ========================================================================================
 #  (C) (or copyright) 2025. Triad National Security, LLC. All rights reserved.
 #
 #  This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -94,7 +98,8 @@ parser = ArgumentParser(
 parser.add_argument("field", type=str, help="Variable to compute")
 parser.add_argument("files", type=str, nargs="+", help="Files to compute")
 
-if __name__ == "__main__":
+
+def main():
     args = parser.parse_args()
     for i, fname in enumerate(args.files):
         with h5py.File(fname, "a") as f:
@@ -105,3 +110,7 @@ if __name__ == "__main__":
                 f.create_dataset(savename, data=var_diff)
             except ValueError:
                 f[savename][:] = var_diff
+
+
+if __name__ == "__main__":
+    main()

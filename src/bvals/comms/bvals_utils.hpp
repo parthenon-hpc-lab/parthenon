@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "bvals/comms/bnd_id.hpp"
 #include "bvals/comms/bnd_info.hpp"
 #include "bvals/comms/bvals_in_one.hpp"
 #include "interface/variable.hpp"
@@ -67,6 +68,11 @@ inline Mesh::channel_key_t ReceiveKey(const MeshBlock *pmb, const NeighborBlock 
   return {sender_id, receiver_id, pcv->label(), location_idx, other};
 }
 
+inline Mesh::channel_key_t GetChannelKey(BndId &in) {
+  return {in.send_gid(), in.recv_gid(), Variable<Real>::GetLabel(in.var_id()),
+          in.loc_idx(), in.extra_id()};
+}
+
 // Build a vector of pointers to all of the sending or receiving communication buffers on
 // MeshData md. This cache is important for performance, since this elides a map look up
 // for the buffer every time the bvals code iterates over boundaries.
@@ -87,6 +93,8 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   using namespace loops;
   using namespace loops::shorthands;
   Mesh *pmesh = md->GetMeshPointer();
+
+  pcache->clear();
 
   std::vector<std::tuple<int, int, Mesh::channel_key_t>> key_order;
 
@@ -135,6 +143,7 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
           Kokkos::create_mirror_view(pcache->sending_non_zero_flags);
     }
   }
+  pcache->epoch = comm_map->GetCurrentEpoch();
 }
 
 template <BoundaryType BOUND_TYPE, bool SENDER>

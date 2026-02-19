@@ -80,7 +80,7 @@ if (ENABLE_HDF5)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/fine_advection/fine_advection-example \
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart_fine/parthinput.restart_fine \
-    --num_steps 3")
+    --num_steps 4")
   list(APPEND EXTRA_TEST_LABELS "")
 
   # Calculate pi example
@@ -116,6 +116,12 @@ if (ENABLE_HDF5)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_outflow/parthinput.advection_outflow")
+  list(APPEND EXTRA_TEST_LABELS "")
+
+  list(APPEND TEST_DIRS advection_undersubscribed)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_undersubscribed/parthinput.advection_undersubscribed")
   list(APPEND EXTRA_TEST_LABELS "")
 
   list(APPEND TEST_DIRS bvals)

@@ -135,6 +135,7 @@ class ProlongationBlockInteriorZeroDirichlet {
         md.get(), std::vector<MetadataFlag>{}, std::set<PDOpt>{PDOpt::Coarse});
     auto pack = desc.GetPack(md.get(), include_block);
     auto pack_coarse = desc_coarse.GetPack(md.get(), include_block);
+    if (pack.GetNBlocks() == 0) return TaskStatus::complete;
 
     parthenon::par_for(
         "Prolongate", 0, pack.GetNBlocks() - 1, pack.GetLowerBoundHost(0),
@@ -144,21 +145,23 @@ class ProlongationBlockInteriorZeroDirichlet {
           const int ck = (ndim > 2) ? (fk - kb.s) / 2 + ckb.s : ckb.s;
           const int cj = (ndim > 1) ? (fj - jb.s) / 2 + cjb.s : cjb.s;
           const int ci = (ndim > 0) ? (fi - ib.s) / 2 + cib.s : cib.s;
-          const int fok = (fk - kb.s) % 2;
-          const int foj = (fj - jb.s) % 2;
-          const int foi = (fi - ib.s) % 2;
-          const bool bound[6]{pack.IsPhysicalBoundary(b, 0, 0, -1) && (ib.s == fi),
-                              pack.IsPhysicalBoundary(b, 0, 0, 1) && (ib.e == fi),
-                              pack.IsPhysicalBoundary(b, 0, -1, 0) && (jb.s == fj),
-                              pack.IsPhysicalBoundary(b, 0, 1, 0) && (jb.e == fj),
-                              pack.IsPhysicalBoundary(b, -1, 0, 0) && (kb.s == fk),
-                              pack.IsPhysicalBoundary(b, 1, 0, 0) && (kb.e == fk)};
+
           // Use both pack and pack_coarse outside of the constexpr if
           // statements to prevent compilation errors in some CUDA compilers
           pack(b, n, fk, fj, fi) = pack_coarse(b, n, ck, cj, ci);
-          if constexpr (ProlongationType::Constant == prolongation_type) {
-            pack(b, n, fk, fj, fi) = pack_coarse(b, n, ck, cj, ci);
-          } else if constexpr (ProlongationType::Linear == prolongation_type) {
+          // if constexpr (ProlongationType::Constant == prolongation_type) {
+          //   pack(b, n, fk, fj, fi) = pack_coarse(b, n, ck, cj, ci);
+          // } else
+          if constexpr (ProlongationType::Linear == prolongation_type) {
+            const int fok = (fk - kb.s) % 2;
+            const int foj = (fj - jb.s) % 2;
+            const int foi = (fi - ib.s) % 2;
+            const bool bound[6]{pack.IsPhysicalBoundary(b, 0, 0, -1) && (ib.s == fi),
+                                pack.IsPhysicalBoundary(b, 0, 0, 1) && (ib.e == fi),
+                                pack.IsPhysicalBoundary(b, 0, -1, 0) && (jb.s == fj),
+                                pack.IsPhysicalBoundary(b, 0, 1, 0) && (jb.e == fj),
+                                pack.IsPhysicalBoundary(b, -1, 0, 0) && (kb.s == fk),
+                                pack.IsPhysicalBoundary(b, 1, 0, 0) && (kb.e == fk)};
             pack(b, n, fk, fj, fi) = 0.0;
             for (int ok = -(ndim > 2); ok < 1 + (ndim > 2); ++ok) {
               for (int oj = -(ndim > 1); oj < 1 + (ndim > 1); ++oj) {
@@ -174,6 +177,15 @@ class ProlongationBlockInteriorZeroDirichlet {
               }
             }
           } else if constexpr (ProlongationType::Kwak == prolongation_type) {
+            const int fok = (fk - kb.s) % 2;
+            const int foj = (fj - jb.s) % 2;
+            const int foi = (fi - ib.s) % 2;
+            const bool bound[6]{pack.IsPhysicalBoundary(b, 0, 0, -1) && (ib.s == fi),
+                                pack.IsPhysicalBoundary(b, 0, 0, 1) && (ib.e == fi),
+                                pack.IsPhysicalBoundary(b, 0, -1, 0) && (jb.s == fj),
+                                pack.IsPhysicalBoundary(b, 0, 1, 0) && (jb.e == fj),
+                                pack.IsPhysicalBoundary(b, -1, 0, 0) && (kb.s == fk),
+                                pack.IsPhysicalBoundary(b, 1, 0, 0) && (kb.e == fk)};
             pack(b, n, fk, fj, fi) = 0.0;
             if (ndim > 2 && !bound[4 + fok]) {
               for (int ok = fok - 1; ok <= fok; ++ok) {

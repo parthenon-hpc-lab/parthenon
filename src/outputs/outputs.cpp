@@ -213,6 +213,9 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     op.file_label_final = pin->GetOrAddBoolean(
         op.block_name, "use_final_label", true,
         "final output will use the word final instead of a number for its index");
+    op.include_in_final =
+        pin->GetOrAddBoolean(op.block_name, "include_in_final", true,
+                             "include output when triggered on final signal");
     char define_id[10];
     std::snprintf(define_id, sizeof(define_id), "out%d",
                   op.block_number); // default id="outN"
@@ -441,7 +444,8 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
             (tm->nlim > 0 && tm->ncycle >= tm->nlim))) ||
           // or by manual triggers
           (signal == SignalHandler::OutputSignal::now) ||
-          (signal == SignalHandler::OutputSignal::final) ||
+          (signal == SignalHandler::OutputSignal::final &&
+           ptype->output_params.include_in_final) ||
           (signal == SignalHandler::OutputSignal::analysis &&
            ptype->output_params.analysis_flag)))) {
       if (first && ptype->output_params.file_type != "hst") {

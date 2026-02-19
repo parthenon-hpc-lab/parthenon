@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
+# ========================================================================================
+# Parthenon performance portable AMR framework
+# Copyright(C) 2020-2025 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for details
 # =========================================================================================
-# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -22,8 +26,8 @@ setup(
     description="Python helper scripts to be used with Parthenon",
     long_description=long_description,
     url="https://github.com/lanl/parthenon/tree/develop/scripts/python/parthenon_tools",
-    author="Josh Dolence, Philipp Grete, Andrew Gaspar, Joshua S. Brown",
-    author_email="joshbro42867@yahoo.com",
+    author="The Parthenon collaboration",
+    author_email="jonahm@lanl.gov",
     license="LICENSE.txt",
     classifiers=[
         "Development Status :: 3 - Alpha",
@@ -36,4 +40,13 @@ setup(
     keywords="simulations science computing githubapp",
     packages=find_packages(),
     install_requires=["h5py", "matplotlib", "numpy", "argparse", "cython"],
+    scripts=[
+        "parthenon_tools/movie2d.py",
+        "parthenon_tools/contour1d.py",
+        "parthenon_tools/compute_asymmetry.py",
+        "parthenon_tools/mergecsv.py",
+        "parthenon_tools/phdf_diff.py",
+        "parthenon_tools/prettyparams.py",
+        "parthenon_tools/report_asymmetry.py",
+    ],
 )

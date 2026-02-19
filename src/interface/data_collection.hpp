@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
+#include "globals.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
 
@@ -87,15 +88,29 @@ class DataCollection {
   auto &Stages() { return containers_; }
   const auto &Stages() const { return containers_; }
 
-  std::shared_ptr<T> &Get(const std::string &label) {
-    auto it = containers_.find(label);
+  template <class SRC_t>
+  const std::shared_ptr<T> &Get(const std::string &name,
+                                const std::shared_ptr<SRC_t> &src) const {
+    const auto key = GetKey(name, src);
+    const auto it = containers_.find(key);
     if (it == containers_.end()) {
-      throw std::runtime_error("Container " + label + " does not exist in collection.");
+      throw std::runtime_error("Container " + key + " does not exist in collection.");
     }
     return it->second;
   }
-  std::shared_ptr<T> &Get() { return Get("base"); }
-  const std::shared_ptr<T> &Get() const { return containers_.at("base"); }
+
+  template <class SRC_t>
+  std::shared_ptr<T> &Get(const std::string &name, const std::shared_ptr<SRC_t> &src) {
+    const auto key = GetKey(name, src);
+    const auto it = containers_.find(key);
+    if (it == containers_.end()) {
+      throw std::runtime_error("Container " + key + " does not exist in collection.");
+    }
+    return it->second;
+  }
+
+  std::shared_ptr<T> &Get(const std::string &name = "base");
+  const std::shared_ptr<T> &Get(const std::string &name = "base") const;
 
   void Set(const std::string &name, std::shared_ptr<T> &d) { containers_[name] = d; }
 
@@ -104,24 +119,15 @@ class DataCollection {
   std::shared_ptr<T> &GetOrAdd(int gmg_level, const std::string &mbd_label,
                                const int &partition_id);
 
-  void PurgeNonBase() {
-    auto c = containers_.begin();
-    while (c != containers_.end()) {
-      if (c->first != "base") {
-        c = containers_.erase(c);
-      } else {
-        ++c;
-      }
-    }
-  }
+  void clear() { containers_.clear(); }
 
  private:
   std::string GetKey(const std::string &stage_label,
-                     const std::shared_ptr<BlockListPartition> &in);
+                     const std::shared_ptr<BlockListPartition> &in) const;
   std::string GetKey(const std::string &stage_label,
-                     const std::shared_ptr<MeshData<Real>> &in);
+                     const std::shared_ptr<MeshData<Real>> &in) const;
   template <class U>
-  std::string GetKey(const std::string &stage_label, const std::shared_ptr<U> &in) {
+  std::string GetKey(const std::string &stage_label, const std::shared_ptr<U> &in) const {
     return stage_label;
   }
 

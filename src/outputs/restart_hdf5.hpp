@@ -28,6 +28,7 @@
 #include <hdf5.h>
 
 #include "interface/metadata.hpp"
+#include "outputs/parthenon_hdf5.hpp"
 #include "outputs/parthenon_hdf5_types.hpp"
 
 using namespace parthenon::HDF5;
@@ -231,7 +232,12 @@ class RestartReaderHDF5 : public RestartReader {
   [[nodiscard]] bool VariableExists(const std::string &name) const override {
 #ifdef ENABLE_HDF5
     // make sure dataset exists
-    return PARTHENON_HDF5_CHECK(H5Oexists_by_name(fh_, name.c_str(), H5P_DEFAULT));
+    // disabling error handling/printing as we take care of it
+    H5Eset_auto(H5E_DEFAULT, NULL, NULL);
+    auto status = H5Oexists_by_name(fh_, name.c_str(), H5P_DEFAULT);
+    // reenable HDF5 error handling to throw an error
+    H5Eset_auto(H5E_DEFAULT, aborting_error_handler, NULL);
+    return status > 0;
 #else
     PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
     return false;

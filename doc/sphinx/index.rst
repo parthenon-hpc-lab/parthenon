@@ -32,13 +32,16 @@ Community
 
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Contents:
-   :glob:
+   :maxdepth: 2
+   :caption: Chapters
 
-   src/*
-   src/interface/*
-   src/mesh/*
+   src/chapters/getting_started
+   src/chapters/core_concepts
+   src/chapters/parallelism_performance
+   src/chapters/advanced_features
+   src/chapters/reference
+   src/chapters/api_reference
+   src/chapters/developer_guide
 
 Indices and tables
 ==================

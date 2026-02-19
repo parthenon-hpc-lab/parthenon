@@ -16,9 +16,12 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <chrono>
 #include <functional>
 #include <list>
+#include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -30,6 +33,7 @@
 #include <parthenon_mpi.hpp>
 
 #include "globals.hpp"
+#include "task_timing.hpp"
 #include "thread_pool.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
@@ -90,6 +94,7 @@ class TaskID {
   std::vector<Task *> dep;
 };
 
+class TimingAccumulator;
 class Task {
  public:
   Task() = default;
@@ -111,6 +116,8 @@ class Task {
     // always add "this" to repeat task if it's incomplete
     dependent[static_cast<int>(TaskStatus::incomplete)].push_back(this);
   }
+
+  static inline bool enable_timing{false};
 
   TaskStatus operator()();
   TaskID GetID() { return this; }
@@ -135,6 +142,9 @@ class Task {
     return task_status;
   }
   void reset_iteration() { num_calls = 0; }
+
+  std::vector<std::shared_ptr<TimingAccumulator>> timing_accumulators;
+  bool time_task{false};
 
  private:
   std::function<TaskStatus()> f;
@@ -193,6 +203,12 @@ class TaskList {
     last_task = tasks.back().get();
   }
 
+  std::set<std::shared_ptr<TimingAccumulator>> timing_accumulators_;
+
+  void RegisterTimingAccumulator(std::shared_ptr<TimingAccumulator> timing_accumulator) {
+    timing_accumulators_.insert(timing_accumulator);
+  }
+
   template <class... Args>
   TaskID AddTask(TaskID dep, Args &&...args) {
     return AddTask(TaskQualifier::normal, dep, std::forward<Args>(args)...);
@@ -238,6 +254,9 @@ class TaskList {
 
     Task *my_task = tasks.back().get();
     TaskID id(my_task);
+
+    for (auto &timing_accumulator : timing_accumulators_)
+      timing_accumulator->CollectTaskIfCollecting(my_task);
 
     if (tq.LocalSync() || tq.GlobalSync() || tq.Once()) {
       regional_tasks.push_back(my_task);
@@ -342,6 +361,7 @@ class TaskList {
   std::pair<TaskList &, TaskID> AddSublist(TID &&dep, std::pair<int, int> minmax_iters) {
     sublists.push_back(std::make_shared<TaskList>(dep, minmax_iters));
     auto &tl = *sublists.back();
+    tl.timing_accumulators_ = this->timing_accumulators_;
     tl.SetID(unique_id);
     return std::make_pair(std::ref(tl), TaskID(tl.last_task));
   }
@@ -493,8 +513,8 @@ class TaskCollection {
     regions.emplace_back(num_lists);
     return regions.back();
   }
-  TaskListStatus Execute() {
-    static Pool_t pool(1);
+  TaskListStatus Execute(std::size_t timeout_in_seconds = 60 * 5) {
+    static Pool_t pool(timeout_in_seconds, 1);
     return Execute(pool);
   }
   TaskListStatus Execute(Pool_t &pool) {

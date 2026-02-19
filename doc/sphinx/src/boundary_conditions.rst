@@ -145,3 +145,17 @@ for a more complete example):
     pkg->UserBoundaryFunctions[BF::inner_x2].push_back(GetMyBC<X2DIR, BCSide::Inner>());
     ...
   }
+
+User override of boundary conditions in `AddBoundaryExchangeTasks`.
+-------------------------------------------------------------------
+
+Sometimes it is desirable to apply different boundary conditions when communicating 
+on different containers (e.g. when one container represents the value of a variable
+and another container represents a Newton-Raphson correction to that variable). To
+easily allow this, `AddBoundaryExchangeTasks` can take a final argument with type 
+`std::function<TaskStatus(std::shared_ptr<MeshData<Real>> &, bool)>` or with type 
+`std::function<TaskID(TaskID, TaskList *, std::shared_ptr<MeshData<Real>>, bool)>`.
+When this argument is specified, all other boundary conditions will be ignored and
+the passed functions will be used as boundary conditions instead. The final boolean
+arguments of the functions specify if the boundary condition needs to be applied on
+the coarse buffer.

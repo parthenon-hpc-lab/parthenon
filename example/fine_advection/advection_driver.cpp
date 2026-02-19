@@ -145,7 +145,6 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
     auto set_flx = parthenon::AddFluxCorrectionTasks(
         start_flxcor | flx | flx_fine | vf_dep, tl, mc0, pmesh->multilevel);
-
     auto update = set_flx;
     if (do_regular_advection) {
       update = AddUpdateTasks(set_flx, tl, parthenon::CellLevel::same, TT::Cell, beta, dt,
