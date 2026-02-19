@@ -167,6 +167,15 @@ add_library(parthenon
   interface/variable.cpp
   interface/variable.hpp
 
+  linear_algebra/givens.hpp
+  linear_algebra/householder.hpp
+  linear_algebra/implicit_qr.hpp
+  linear_algebra/matrix.cpp
+  linear_algebra/matrix.hpp
+  linear_algebra/qr_decomposition.hpp
+  linear_algebra/square_svd.hpp
+  linear_algebra/symmetric_evd.hpp
+
   mesh/domain.hpp
   mesh/forest/block_ownership.cpp
   mesh/forest/block_ownership.hpp
@@ -236,6 +245,7 @@ add_library(parthenon
   parthenon/package.hpp
   parthenon/parthenon.hpp
   parthenon/prelude.hpp
+  parthenon/tensor_networks.hpp
 
   pgen/default_pgen.cpp
 
@@ -273,6 +283,8 @@ add_library(parthenon
   time_integration/low_storage_integrator.cpp
   time_integration/staged_integrator.cpp
   time_integration/staged_integrator.hpp
+  tensors/tensors.cpp
+  tensors/tensors.hpp
 
   utils/alias_method.cpp
   utils/alias_method.hpp
@@ -330,6 +342,7 @@ add_library(parthenon
   $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated>/provenance.hpp
 )
 add_library(Parthenon::parthenon ALIAS parthenon)
+target_compile_options(parthenon PRIVATE -Wno-psabi)
 
 set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
 
