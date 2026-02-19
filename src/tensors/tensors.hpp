@@ -213,7 +213,7 @@ class GramSVDStorage {
 
   KOKKOS_INLINE_FUNCTION
   int CleanAndCountNonZeroEigenValues(RealMat &EVs, RealVec &EVals, const int Rn,
-  const Real eps) {
+                                      const Real eps) {
     int nnz_eig = 0;
 
     Real Lambdamax{0.};
@@ -256,7 +256,8 @@ class GramSVDStorage {
   KOKKOS_INLINE_FUNCTION
   void ComputeSVD(const int Rn, const int nnzL, const int nnzR);
 
-private : int RMax;
+ private:
+  int RMax;
   int PIMax;
   int Ngram_;
   int evd_scratch_max;
@@ -612,12 +613,6 @@ class TensorTrain {
         Rn_new++;
       }
     };
-
-    for (int i = 0; i < Rn; i++) {
-      printf("keep(%d) = %d, gamma_map(%d) = %d, svdS(%d) = %23.15e\n", i,
-             GS.KeepFlags()(i), i, GS.ModeMap()(i), i, GS.SVDS()(i));
-    }
-    printf("Rn_new = %d\n", Rn_new);
 
     return Rn_new;
   }

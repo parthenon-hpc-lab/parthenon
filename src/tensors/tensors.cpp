@@ -39,7 +39,7 @@ void GramSVDStorage::ComputeSVD(const int Rn, const int nnzL, const int nnzR) {
   // effective rank 1 case
   if (nnzL == 1 || nnzR == 1) {
     // Compute Frobenius norm
-    double sigma = 0.0;
+    Real sigma = 0.0;
     for (int i = 0; i < Rn; ++i)
       for (int j = 0; j < Rn; ++j)
         sigma += M()(i, j) * M()(i, j);
@@ -54,7 +54,7 @@ void GramSVDStorage::ComputeSVD(const int Rn, const int nnzL, const int nnzR) {
 
     // Find a nonzero row
     int pivot = -1;
-    double row_norm = 0.0;
+    Real row_norm = 0.0;
 
     for (int i = 0; i < Rn; ++i) {
       row_norm = 0.0;
@@ -74,7 +74,7 @@ void GramSVDStorage::ComputeSVD(const int Rn, const int nnzL, const int nnzR) {
 
     // u = M v / sigma
     for (int i = 0; i < Rn; ++i) {
-      double val = 0.0;
+      Real val = 0.0;
       for (int j = 0; j < Rn; ++j)
         val += M()(i, j) * SVDV()(j, 0);
       SVDU()(i, 0) = val / sigma;
@@ -82,61 +82,8 @@ void GramSVDStorage::ComputeSVD(const int Rn, const int nnzL, const int nnzR) {
     return;
   }
 
-  Real Morig[Rn][Rn];
-  for (int i = 0; i < Rn; i++) {
-    for (int j = 0; j < Rn; j++) {
-      Morig[i][j] = M()(i,j);
-    }
-  }
-
-  printf("doing svd\n");
   // regular case
   SquareSVD::execute(&M(), &SVDU(), &SVDV(), SVDS().data());
-
-  // check the SVD
-  printf("SVD CHECK:\n");
-  Real Mrec[Rn][Rn];
-  for (int i = 0; i < Rn; i++) {
-    for (int j = 0; j < Rn; j++) {
-      Mrec[i][j] = 0.;
-    }
-  }
-  for (int i = 0; i < Rn; i++) {
-    for (int j = 0; j < Rn; j++) {
-      for (int k = 0; k < Rn; k++) {
-        Mrec[i][j] += SVDU()(i, k) * SVDS()(k) * SVDV()(j, k);
-        // Mrec[i][j] += SVDU()(k, i) * SVDS()(k) * SVDV()(k, j);
-        // Mrec[i][j] += SVDU()(k, i) * SVDS()(k) * SVDV()(j, k);
-        // Mrec[i][j] += SVDU()(i, k) * SVDS()(k) * SVDV()(k, j);
-      }
-      printf("old, new = %23.15e %23.15e\n", Morig[i][j], Mrec[i][j]);
-    }
-  }
-
-  Real B[Rn][Rn]; // or [MAX_R][MAX_R] if you prefer
-
-  // zero B
-  for (int i = 0; i < Rn; ++i)
-    for (int j = 0; j < Rn; ++j)
-      B[i][j] = 0.0;
-
-  // compute B = U^T * M * V
-  for (int i = 0; i < Rn; ++i) {
-    for (int j = 0; j < Rn; ++j) {
-
-      Real sum = 0.0;
-
-      for (int p = 0; p < Rn; ++p) {
-        for (int q = 0; q < Rn; ++q) {
-          sum += SVDU()(p, i)                  // U^T = U(p,i)
-                 * Morig[p][q] * SVDV()(q, j); // V(q,j)
-        }
-      }
-
-      B[i][j] = sum;
-      printf("BMAT: %d %d  %23.15e\n", i, j, B[i][j]);
-    }
-  }
 }
 
 // ============================================================
@@ -326,7 +273,6 @@ void TensorTrain::CalculateRightGramMatrices(GramSVDStorage &GS,
               Kokkos::Sum<Real, parthenon::DevMemSpace>(accum)); // par_reduce_inner
         }                                                        // if (n == Ngram - 1)
         GS.GR(n)(a, ap) = accum;
-        printf("Right gram %d %d = %22.15e\n", a, ap, accum);
       }
     }
   }
@@ -374,7 +320,6 @@ void TensorTrain::CalculateLeftGramMatrices(GramSVDStorage &GS,
               Kokkos::Sum<Real, parthenon::DevMemSpace>(accum)); // par_reduce_inner
         }
         GS.GL(n)(b, bp) = accum;
-        printf("Left gram %d %d = %23.15e\n", b, bp, accum);
       }
     }
   }
@@ -422,25 +367,10 @@ void TensorTrain::CalculateGramSVD(const int n, parthenon::team_mbr_t member,
   SymmetricEVD::execute(member, &GS.A(), &GS.EVR(), GS.EvalR().data(),
                         GS.EVDRealScratch().data(), GS.EVDSizeTScratch().data());
 
-  printf("Eigenvalues L: ");
-  GS.PrintRealVec(GS.EvalL(), Rn);
-  printf("Eigenvalues R: ");
-  GS.PrintRealVec(GS.EvalR(), Rn);
-
   // clean the eigensystems
   const Real eps{1e-12};
   int nnzL = GS.CleanAndCountNonZeroEigenValues(GS.EVL(), GS.EvalL(), Rn, eps);
   int nnzR = GS.CleanAndCountNonZeroEigenValues(GS.EVR(), GS.EvalR(), Rn, eps);
-
-  printf("Cleaned Eigenvalues L: ");
-  GS.PrintRealVec(GS.EvalL(), Rn);
-  printf("Cleaned Eigenvalues R: ");
-  GS.PrintRealVec(GS.EvalR(), Rn);
-
-  printf("VL:\n");
-  GS.PrintRealMat(GS.EVL(), Rn);
-  printf("VR:\n");
-  GS.PrintRealMat(GS.EVR(), Rn);
 
   //////////////////////////////////////////////////////////////////////////////////
   // Now we have the left gram's eigenvalues and eigenvectors ELamL, EVL
@@ -461,20 +391,8 @@ void TensorTrain::CalculateGramSVD(const int n, parthenon::team_mbr_t member,
     }
   }
 
-  printf("M:\n");
-  GS.PrintRealMat(GS.M(), Rn);
-
   // compute the SVD of M
   GS.ComputeSVD(Rn, nnzL, nnzR);
-
-  printf("SVDU:\n");
-  GS.PrintRealMat(GS.SVDU(), Rn);
-
-  printf("SVDV:\n");
-  GS.PrintRealMat(GS.SVDV(), Rn);
-
-  printf("SVDS:\n");
-  GS.PrintRealVec(GS.SVDS(), Rn);
 }
 
 // Gram-SVD TT rounding with tolerance eps. Reduces TT ranks while
@@ -508,19 +426,6 @@ void TensorTrain::GramSVDRound(const Real eps) {
         // compute all the left Gram matrices (recursive sweep from left to
         // right)
         CalculateLeftGramMatrices(GS, tm);
-
-        for (int n = 0; n < Ngram; ++n) {
-          Real traceL = 0;
-          Real traceR = 0;
-          int Rn = cores(n).GetRightRank();
-
-          for (int i = 0; i < Rn; ++i) {
-            traceL += GS.GL(n)(i, i);
-            traceR += GS.GR(n)(i, i);
-          }
-
-          printf("bond %d traceL=%e traceR=%e\n", n, traceL, traceR);
-        }
 
         // loop over bond spaces and compute SVDs
         for (int n = 0; n < Ngram; ++n) {
@@ -585,36 +490,6 @@ void TensorTrain::UpdateCoreIndexSpaces(const int n, const int Rn_new,
 
   // if (n > 0) return; // only update first bond space
 
-  printf("In UpdateCoreIndexSpaces:\n");
-  printf("LamL, sigma:\n");
-  for (int i = 0; i < Rn; i++) {
-    printf("%23.15e   %23.15e\n", GS.EvalL()(i), GS.SVDS()(i));
-  }
-
-  printf("EVL:\n");
-  for (int i = 0; i < Rn; ++i) {
-    for (int j = 0; j < Rn; ++j) {
-      printf("  %12.5e", GS.EVL()(i, j));
-    }
-    printf("\n");
-  }
-
-  printf("core n:\n");
-  for (int i = 0; i < PIn; ++i) {
-    for (int j = 0; j < Rn; ++j) {
-      printf("  %12.5e", cores(n)(0, i, j));
-    }
-    printf("\n");
-  }
-
-  printf("coreTMP n:\n");
-  for (int i = 0; i < PIn; ++i) {
-    for (int j = 0; j < Rn; ++j) {
-      printf("  %12.5e", GS.CTmp()(0, i, j));
-    }
-    printf("\n");
-  }
-
   // first use what's in the temporary core (already has left index
   // space updated) to update the right index space of core n and store
   // in the actual tensor object.
@@ -630,7 +505,6 @@ void TensorTrain::UpdateCoreIndexSpaces(const int n, const int Rn_new,
                     }
                   }
                   cores(n)(alf, i, gam) = accum * sqrt_sigma;
-                  printf("core(%d)(%d, %d, %d) = %23.15e \n", n, alf, i, gam, accum);
                 });
   tm.team_barrier();
 
@@ -647,8 +521,6 @@ void TensorTrain::UpdateCoreIndexSpaces(const int n, const int Rn_new,
 
   par_for_inner(tm, 0, Rn_new - 1, 0, Rnp1 - 1, 0, PInp1 - 1,
                 [&](const int gam, const int alf, const int i) {
-                  // printf("bond %d, sigma = %12.5e\n", n,
-                  // GS.SVDS()(GS.ModeMap()(gam)));
                   Real sqrt_sigma = safe_sqrt(GS.SVDS()(GS.ModeMap()(gam)));
                   Real accum{0.};
                   for (int bet = 0; bet < Rn; bet++) {
@@ -668,11 +540,9 @@ void TensorTrain::UpdateCoreIndexSpaces(const int n, const int Rn_new,
   // The last bond needs to write the left-index-updated temporary core back to
   // the actual core
   if (n == Ncores - 2) {
-    printf("last core:\n");
     par_for_inner(tm, 0, Rn_new - 1, 0, Rnp1 - 1, 0, PInp1 - 1,
                   [&](const int iL, const int iR, const int ic) {
                     cores(n + 1)(iL, ic, iR) = GS.CTmp()(iL, ic, iR);
-                    printf("%12.5e\n", cores(n + 1)(iL, ic, iR));
                   });
   }
   tm.team_barrier();
