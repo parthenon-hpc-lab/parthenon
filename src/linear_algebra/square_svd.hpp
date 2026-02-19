@@ -105,10 +105,10 @@ class SquareSVD {
 
     // Ensure singular values are positive
     parallel_loop(
-        tm, 0, ncols - 1, KOKKOS_LAMBDA(int row) {
-          if (sings[row] < 0.) {
-            sings[row] *= -1.;
-            for (int col = 0; col < ncols; col++) {
+        tm, 0, ncols - 1, KOKKOS_LAMBDA(int col) {
+          if (sings[col] < 0.) {
+            sings[col] *= -1.;
+            for (int row = 0; row < ncols; row++) {
               (*pU)(row, col) *= -1.;
             }
           }
