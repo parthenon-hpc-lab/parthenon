@@ -108,8 +108,7 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
   auto mask = swarm->GetMask();
   REQUIRE(mask.size() == NUMINIT);
   ParArrayND<int> failures_d("Number of failures", 1);
-  meshblock->par_for(
-      "Reset", 0, 0, KOKKOS_LAMBDA(const int n) { failures_d(n) = 0; });
+  meshblock->par_for("Reset", 0, 0, KOKKOS_LAMBDA(const int n) { failures_d(n) = 0; });
   meshblock->par_for(
       "Check mask", 0, NUMINIT - 1, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n) == true) {

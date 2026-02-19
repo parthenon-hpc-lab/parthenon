@@ -123,9 +123,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // for the standard Poisson equation.
   pkg->AddField(D::name(), mD);
 
-  std::vector<MetadataFlag> flags{Metadata::Cell,        Metadata::Independent,
-                                  Metadata::FillGhost,   Metadata::WithFluxes,
-                                  Metadata::GMGRestrict, Metadata::GMGProlongate};
+  std::vector<MetadataFlag> flags{Metadata::Cell,          Metadata::Independent,
+                                  Metadata::FillGhost,     Metadata::WithFluxes,
+                                  Metadata::GMGRestrict,   Metadata::GMGProlongate,
+                                  Metadata::CommunicateOne};
   auto mflux_comm = Metadata(flags);
   if (prolong == "Linear") {
     mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();

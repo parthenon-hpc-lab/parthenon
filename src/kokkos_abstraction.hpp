@@ -37,7 +37,18 @@
 #include "utils/instrument.hpp"
 #include "utils/type_list.hpp"
 
+#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
+#define PARTHENON_ENABLE_GPU
+#endif // defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
+
 namespace parthenon {
+
+// namespaced constexpr version of above macro
+#ifdef PARTHENON_ENABLE_GPU
+constexpr const bool ENABLE_GPU = true;
+#else
+constexpr const bool ENABLE_GPU = false;
+#endif // PARTHENON_ENABLE_GPU
 
 // Defining tags to determine loop_patterns using a tag dispatch design pattern
 

@@ -54,7 +54,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, true);
 
-  if (cache.buf_vec.size() == 0)
+  if (cache.RequiresReinitialize(pmesh))
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, SendKey,
                                       true);
 
@@ -186,7 +186,7 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
-  if (cache.buf_vec.size() == 0)
+  if (cache.RequiresReinitialize(pmesh))
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
                                       false);
   if (!pmesh->do_coalesced_comms) {
@@ -218,7 +218,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
-  if (cache.buf_vec.size() == 0)
+  if (cache.RequiresReinitialize(pmesh))
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
                                       false);
 
