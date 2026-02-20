@@ -30,7 +30,8 @@ jobs:
 
     - name: Install dependencies
       run: |
-        brew install openmpi hdf5-mpi adios2 || true
+        brew install openmpi adios2 || true
+        brew install https://raw.githubusercontent.com/Homebrew/homebrew-core/0c3d786402ad7d9dd5eb6907e3ed3f2525a0472d/Formula/h/hdf5-mpi.rb || true
 
     - name: Install parthenon_tools
       run: |
