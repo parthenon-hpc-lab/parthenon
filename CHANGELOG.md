@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1308]](https://github.com/parthenon-hpc-lab/parthenon/pull/1308) Add additional indexing options for (b, type, ...indices) meshdata fields. Helpful for lower dimensional Metadata::None fields.
 - [[PR 1344]](https://github.com/parthenon-hpc-lab/parthenon/pull/1344) Add option to communicate single layer of ghosts, only communicate required two-level composite boundaries
 
 
