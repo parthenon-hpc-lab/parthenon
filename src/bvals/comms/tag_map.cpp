@@ -49,7 +49,7 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
                                                           : pmb->GetGMGLeafNeighbors();
       if constexpr (BOUND == BoundaryType::gmg_restrict_recv)
         return pmb->GetGMGFinerNeighbors().size() > 0 ? pmb->GetGMGFinerNeighbors()
-                                                     : pmb->GetGMGLeafNeighbors();
+                                                      : pmb->GetGMGLeafNeighbors();
       if constexpr (BOUND == BoundaryType::gmg_prolongate_send)
         return pmb->GetGMGFinerNeighbors();
       if constexpr (BOUND == BoundaryType::gmg_prolongate_recv)

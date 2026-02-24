@@ -187,7 +187,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
     }
     // This block's gid stored at the end of the flattened array
     pack.block_props_h_(blidx, bp_idxer.size()) = pmb->gid;
-    const auto &neighbors = [pmb, pmd]() -> const std::vector<NeighborBlock>& {
+    const auto &neighbors = [pmb, pmd]() -> const std::vector<NeighborBlock> & {
       if constexpr (!std::is_same_v<T, mbd_t>) {
         if (pmd->grid.type == GridType::two_level_composite) {
           if (pmb->loc.level() == pmd->grid.logical_level) {

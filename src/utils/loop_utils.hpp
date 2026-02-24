@@ -82,14 +82,14 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
     const auto &gmg_same = pmb->loc.level() == md->grid.logical_level
-                         ? pmb->GetGMGSameNeighbors()
-                         : pmb->GetGMGCompositeFinerNeighbors();
+                               ? pmb->GetGMGSameNeighbors()
+                               : pmb->GetGMGCompositeFinerNeighbors();
     for (auto &v : rc->GetVariableVector()) {
       if constexpr (bound == BoundaryType::gmg_restrict_send) {
         if (v->IsSet(Metadata::GMGRestrict)) {
           const auto &neighbors = pmb->loc.level() == md->grid.logical_level
-                              ? pmb->GetGMGCoarserNeighbors()
-                              : pmb->GetGMGLeafNeighbors();
+                                      ? pmb->GetGMGCoarserNeighbors()
+                                      : pmb->GetGMGLeafNeighbors();
           for (const auto &nb : neighbors) {
             if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
           }
@@ -97,9 +97,9 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
       } else if constexpr (bound == BoundaryType::gmg_restrict_recv) {
         if (pmb->loc.level() != md->grid.logical_level) continue;
         if (v->IsSet(Metadata::GMGRestrict)) {
-          const auto &neighbors = pmb->GetGMGFinerNeighbors().size() > 0 
-                              ? pmb->GetGMGFinerNeighbors()
-                              : pmb->GetGMGLeafNeighbors();
+          const auto &neighbors = pmb->GetGMGFinerNeighbors().size() > 0
+                                      ? pmb->GetGMGFinerNeighbors()
+                                      : pmb->GetGMGLeafNeighbors();
           for (const auto &nb : neighbors) {
             if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
               return;
@@ -109,9 +109,9 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
       } else if constexpr (bound == BoundaryType::gmg_prolongate_send) {
         if (pmb->loc.level() != md->grid.logical_level) continue;
         if (v->IsSet(Metadata::GMGProlongate)) {
-          const auto &neighbors = pmb->GetGMGFinerNeighbors().size() > 0 
-                              ? pmb->GetGMGFinerNeighbors()
-                              : pmb->GetGMGLeafNeighbors();
+          const auto &neighbors = pmb->GetGMGFinerNeighbors().size() > 0
+                                      ? pmb->GetGMGFinerNeighbors()
+                                      : pmb->GetGMGLeafNeighbors();
           for (const auto &nb : neighbors) {
             if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
               return;
@@ -121,8 +121,8 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
       } else if constexpr (bound == BoundaryType::gmg_prolongate_recv) {
         if (v->IsSet(Metadata::GMGProlongate)) {
           const auto &neighbors = pmb->loc.level() == md->grid.logical_level
-                              ? pmb->GetGMGCoarserNeighbors()
-                              : pmb->GetGMGLeafNeighbors();
+                                      ? pmb->GetGMGCoarserNeighbors()
+                                      : pmb->GetGMGLeafNeighbors();
           for (const auto &nb : neighbors) {
             if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
               return;

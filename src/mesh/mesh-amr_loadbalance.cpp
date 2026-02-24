@@ -951,7 +951,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       // in order to maintain a consistent global state.
       // Thus we rebuild and synchronize the mesh now, but using a unique
       // neighbor precedence favoring the "old" fine blocks over "new" ones
-      SetMeshBlockNeighbors(this, GridIdentifier::leaf(), block_list, ranklist, newly_refined);
+      SetMeshBlockNeighbors(this, GridIdentifier::leaf(), block_list, ranklist,
+                            newly_refined);
       SetGMGNeighbors();
       BuildTagMapAndBoundaryBuffers();
       std::string noncc = "mesh_internal_noncc";

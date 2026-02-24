@@ -36,9 +36,9 @@ using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;
 // Sets the neighbors for a list of MeshBlocks
 // If newly_refined is empty, ownership of shared elements will be determined
 // purely by block gid
-void SetMeshBlockNeighbors(Mesh* pmesh, GridIdentifier grid_id, BlockList_t &block_list,
-                      const std::vector<int> &ranklist,
-                      const std::unordered_set<LogicalLocation> &newly_refined = {});
+void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &block_list,
+                           const std::vector<int> &ranklist,
+                           const std::unordered_set<LogicalLocation> &newly_refined = {});
 
 } // namespace parthenon
 

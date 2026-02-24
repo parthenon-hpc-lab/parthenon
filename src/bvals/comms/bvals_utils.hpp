@@ -99,16 +99,17 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   std::vector<std::tuple<int, int, Mesh::channel_key_t>> key_order;
 
   int boundary_idx = 0;
-  ForEachBoundary<bound_type>(md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v) {
-    auto key = KeyFunc(pmb, nb, v, bound_type);
-    PARTHENON_DEBUG_REQUIRE(comm_map->count(key) > 0,
-                            "Boundary communicator does not exist");
-    // Create a unique index by combining receiver gid (second element of the key
-    // tuple) and geometric element index (fourth element of the key tuple)
-    int recvr_idx = 27 * GetReceiverGid(key) + GetLocIdx(key);
-    key_order.push_back({recvr_idx, boundary_idx, key});
-    ++boundary_idx;
-  });
+  ForEachBoundary<bound_type>(
+      md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v) {
+        auto key = KeyFunc(pmb, nb, v, bound_type);
+        PARTHENON_DEBUG_REQUIRE(comm_map->count(key) > 0,
+                                "Boundary communicator does not exist");
+        // Create a unique index by combining receiver gid (second element of the key
+        // tuple) and geometric element index (fourth element of the key tuple)
+        int recvr_idx = 27 * GetReceiverGid(key) + GetLocIdx(key);
+        key_order.push_back({recvr_idx, boundary_idx, key});
+        ++boundary_idx;
+      });
 
   // If desired, sort the keys and boundary indices by receiver_idx
   // std::sort(key_order.begin(), key_order.end(),
@@ -155,7 +156,8 @@ inline auto CheckSendBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
   bool rebuild = false;
   bool other_communication_unfinished = false;
   int nbound = 0;
-  ForEachBoundary<BOUND_TYPE>(md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v) {
+  ForEachBoundary<BOUND_TYPE>(md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb,
+                                      const sp_cv_t v) {
     const std::size_t ibuf = cache.idx_vec[nbound];
     auto &buf = *(cache.buf_vec[ibuf]);
 
@@ -187,7 +189,8 @@ inline auto CheckReceiveBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md
   bool rebuild = false;
   int nbound = 0;
 
-  ForEachBoundary<BOUND_TYPE>(md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v) {
+  ForEachBoundary<BOUND_TYPE>(md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb,
+                                      const sp_cv_t v) {
     const std::size_t ibuf = cache.idx_vec[nbound];
     auto &buf = *cache.buf_vec[ibuf];
     if (ibuf < cache.bnd_info_h.size()) {
@@ -237,19 +240,20 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   cache.prores_cache.Initialize(nbound, pkg);
 
   int ibound = 0;
-  ForEachBoundary<BOUND_TYPE>(md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v) {
-    // bnd_info
-    const std::size_t ibuf = cache.idx_vec[ibound];
-    cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf]);
+  ForEachBoundary<BOUND_TYPE>(
+      md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v) {
+        // bnd_info
+        const std::size_t ibuf = cache.idx_vec[ibound];
+        cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf]);
 
-    // subsets ordering is same as in cache.bnd_info
-    // RefinementFunctions_t owns all relevant functionality, so
-    // only one ParArray2D needed.
-    cache.prores_cache.RegisterRegionHost(ibuf, ProResInfoCreator(pmb, nb, v), v.get(),
-                                          pkg);
+        // subsets ordering is same as in cache.bnd_info
+        // RefinementFunctions_t owns all relevant functionality, so
+        // only one ParArray2D needed.
+        cache.prores_cache.RegisterRegionHost(ibuf, ProResInfoCreator(pmb, nb, v),
+                                              v.get(), pkg);
 
-    ++ibound;
-  });
+        ++ibound;
+      });
   Kokkos::deep_copy(cache.bnd_info, cache.bnd_info_h);
   cache.prores_cache.CopyToDevice();
 }
