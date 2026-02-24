@@ -96,8 +96,8 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
     if (grid_id.type == GridType::leaf) {
       pmb->neighbors = all_neighbors;
       for (const auto &n : all_neighbors) {
-        if (n.loc.level() > pmb->loc.level()) pmb->has_finer_neighbors_ = true;
-        if (n.loc.level() < pmb->loc.level()) pmb->has_coarser_neighbors_ = true;
+        if (n.loc.level() < pmb->loc.level())
+            pmb->has_coarser_neighbors_ = true;
       }
     } else if (grid_id.type == GridType::two_level_composite &&
                pmb->loc.level() == grid_id.logical_level) {

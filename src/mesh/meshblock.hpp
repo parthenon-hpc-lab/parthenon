@@ -202,7 +202,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   }
 
   bool HasCoarserNeighbors() const { return has_coarser_neighbors_; }
-  bool HasFinerNeighbors() const { return has_finer_neighbors_; }
 
   BoundaryFlag boundary_flag[6];
 
@@ -504,7 +503,6 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::vector<NeighborBlock> gmg_leaf_neighbors;
 
   bool has_coarser_neighbors_ = false;
-  bool has_finer_neighbors_ = false;
 };
 
 using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;
