@@ -115,6 +115,7 @@ InputBlock::~InputBlock() {
 //  and stored in a singly linked list of InputLines.
 
 void ParameterInput::LoadFromStream(std::istream &is) {
+  PARTHENON_REQUIRE(!map_resolved_, "Can't add new parameters to the linked list after the map is resolved.");
   std::string line, block_name, param_name, param_value, param_comment;
   std::size_t first_char, last_char;
   std::stringstream msg;
@@ -218,6 +219,7 @@ void ParameterInput::LoadFromStream(std::istream &is) {
 //         Return the position at the end of the header, which is used in restarting
 
 void ParameterInput::LoadFromFile(IOWrapper &input) {
+  PARTHENON_REQUIRE(!map_resolved_, "Can't add new parameters to the linked list after the map is resolved.");
   std::stringstream par, msg;
   constexpr int kBufSize = 4096;
   char buf[kBufSize];
@@ -402,6 +404,7 @@ void ParameterInput::AddParameter(InputBlock *pb, const std::string &name,
 // Note this function is very forgiving (no warnings!) if there is an error in format
 
 void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
+  PARTHENON_REQUIRE(!map_resolved_, "Can't add new parameters to the linked list after the map is resolved.");
   std::string input_text, block, name, value;
   std::stringstream msg;
   InputBlock *pb;
@@ -1136,6 +1139,9 @@ void ParameterInput::ResolveParametersToMap() {
       block_map[pl->param_name] = UnresolvedString(pl->param_value);
     }
   }
+  
+  // Phase 2: Mark that map is resolved and locked
+  map_resolved_ = true;
 }
 
 //----------------------------------------------------------------------------------------
@@ -1166,6 +1172,67 @@ std::vector<std::string> ParameterInput::GetBlocksWithPrefix(const std::string& 
   }
   
   return matching_blocks;
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn void ParameterInput::EnsureMapResolved_()
+//  \brief Ensure parameters have been resolved to map before Get* operations
+
+void ParameterInput::EnsureMapResolved_() {
+  if (!map_resolved_) {
+    ResolveParametersToMap();
+  }
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn ParamValue* ParameterInput::FindParameter_()
+//  \brief Helper to find a parameter in the map, returns pointer for in-place modification
+
+ParameterInput::ParamValue* ParameterInput::FindParameter_(const std::string& block, 
+                                                             const std::string& name) {
+  EnsureMapResolved_();
+  auto block_it = param_map_.find(block);
+  if (block_it != param_map_.end()) {
+    auto param_it = block_it->second.find(name);
+    if (param_it != block_it->second.end()) {
+      return &(param_it->second);
+    }
+  }
+  return nullptr;
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn template <typename T> std::optional<T> ParameterInput::GetFromMap_()
+//  \brief Helper to get a typed parameter from map with caching
+//  Returns nullopt if not in map, throws on type mismatch
+
+template <typename T>
+std::optional<T> ParameterInput::GetFromMap_(const std::string& block, 
+                                             const std::string& name) {
+  EnsureMapResolved_();
+  ParamValue* pvalue = FindParameter_(block, name);
+  if (pvalue == nullptr) {
+    return std::nullopt;  // Not in map, caller should try linked list
+  }
+  
+  // If it's an UnresolvedString, convert and cache
+  if (std::holds_alternative<UnresolvedString>(*pvalue)) {
+    T typed_val = ConvertParamValue<T>(*pvalue, block, name);
+    *pvalue = typed_val;  // Cache the typed value in the variant
+    return typed_val;
+  }
+  
+  // If it's already the correct type, return it
+  if (std::holds_alternative<T>(*pvalue)) {
+    return std::get<T>(*pvalue);
+  }
+  
+  // Type mismatch - was previously resolved as a different type
+  std::stringstream msg;
+  msg << "### FATAL ERROR in ParameterInput::GetFromMap_" << std::endl
+      << "Parameter '" << name << "' in block '" << block
+      << "' was previously accessed as a different type" << std::endl;
+  PARTHENON_FAIL(msg);
 }
 
 //----------------------------------------------------------------------------------------
@@ -1262,5 +1329,23 @@ template std::vector<bool> ParameterInput::ConvertParamValue<std::vector<bool>>(
     const ParamValue&, const std::string&, const std::string&);
 template std::vector<std::string> ParameterInput::ConvertParamValue<std::vector<std::string>>(
     const ParamValue&, const std::string&, const std::string&);
+
+// Explicit instantiations for GetFromMap_
+template std::optional<int> ParameterInput::GetFromMap_<int>(
+    const std::string&, const std::string&);
+template std::optional<Real> ParameterInput::GetFromMap_<Real>(
+    const std::string&, const std::string&);
+template std::optional<bool> ParameterInput::GetFromMap_<bool>(
+    const std::string&, const std::string&);
+template std::optional<std::string> ParameterInput::GetFromMap_<std::string>(
+    const std::string&, const std::string&);
+template std::optional<std::vector<int>> ParameterInput::GetFromMap_<std::vector<int>>(
+    const std::string&, const std::string&);
+template std::optional<std::vector<Real>> ParameterInput::GetFromMap_<std::vector<Real>>(
+    const std::string&, const std::string&);
+template std::optional<std::vector<bool>> ParameterInput::GetFromMap_<std::vector<bool>>(
+    const std::string&, const std::string&);
+template std::optional<std::vector<std::string>> ParameterInput::GetFromMap_<std::vector<std::string>>(
+    const std::string&, const std::string&);
 
 } // namespace parthenon

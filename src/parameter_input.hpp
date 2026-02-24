@@ -410,11 +410,24 @@ class ParameterInput {
   using BlockParameterMap = std::map<std::string, ParamValue>;
   
   std::map<std::string, BlockParameterMap> param_map_;
+  bool map_resolved_ = false;  // Track if we've locked down to map-based access
   
   // === HELPER METHODS (parser-agnostic) ===
+  // Ensure map is resolved before any Get* operation
+  void EnsureMapResolved_();
   template <typename T>
   T ConvertParamValue(const ParamValue& value, const std::string& block, 
                       const std::string& name);
+  
+  // Helper to find a parameter in map or linked list, with type caching
+  // Returns pointer to ParamValue in map if found, nullptr otherwise
+  ParamValue* FindParameter_(const std::string& block, const std::string& name);
+  
+  // Helper to get a typed parameter value from map with caching
+  // Returns std::nullopt if parameter not found in map (caller should try linked list)
+  // Throws if type mismatch detected
+  template <typename T>
+  std::optional<T> GetFromMap_(const std::string& block, const std::string& name);
   
   std::vector<std::string> SplitCommaSeparated(const std::string& s);
   
