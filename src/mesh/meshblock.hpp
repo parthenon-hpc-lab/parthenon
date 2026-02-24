@@ -500,8 +500,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::vector<NeighborBlock> gmg_finer_neighbors;
   std::vector<NeighborBlock> gmg_leaf_neighbors;
 
-  bool has_coarser_neighbors_;
-  bool has_finer_neighbors_;
+  bool has_coarser_neighbors_ = false;
+  bool has_finer_neighbors_ = false;
 };
 
 using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;
