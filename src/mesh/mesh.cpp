@@ -50,6 +50,7 @@
 #include "interface/state_descriptor.hpp"
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/mesh_neighbors.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/restart.hpp"
@@ -397,7 +398,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
   }
   BuildBlockPartitions(GridIdentifier::leaf());
   BuildGMGBlockLists(pin, app_in);
-  SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
+  SetMeshBlockNeighbors(this, GridIdentifier::leaf(), block_list, ranklist);
   SetGMGNeighbors();
   ResetLoadBalanceVariables();
 }

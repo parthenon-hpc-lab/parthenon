@@ -39,6 +39,7 @@
 #include "globals.hpp"
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/mesh_neighbors.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
@@ -950,7 +951,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       // in order to maintain a consistent global state.
       // Thus we rebuild and synchronize the mesh now, but using a unique
       // neighbor precedence favoring the "old" fine blocks over "new" ones
-      SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist, newly_refined);
+      SetMeshBlockNeighbors(this, GridIdentifier::leaf(), block_list, ranklist, newly_refined);
       SetGMGNeighbors();
       BuildTagMapAndBoundaryBuffers();
       std::string noncc = "mesh_internal_noncc";
@@ -973,7 +974,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
     // Rebuild just the ownership model, this time weighting the "new" fine blocks just
     // like any other blocks at their level.
-    SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
+    SetMeshBlockNeighbors(this, GridIdentifier::leaf(), block_list, ranklist);
     SetGMGNeighbors();
     // Ownership does not impact anything about the buffers, so we don't need to
     // rebuild them if they were built above

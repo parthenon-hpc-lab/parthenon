@@ -428,7 +428,7 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
   bool restricted = false;
   int mylevel = pmb->loc.level();
   if (mylevel > 0) {
-    for (const auto &nb : pmb->neighbors) {
+    for (const auto &nb : pmb->GetNeighbors()) {
       restricted = restricted || (nb.origin_loc.level() == (mylevel - 1));
     }
   }

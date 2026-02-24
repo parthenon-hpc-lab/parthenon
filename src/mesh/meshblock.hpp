@@ -22,6 +22,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -35,6 +36,8 @@
 #include "interface/data_collection.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/packages.hpp"
+#include "mesh/mesh_neighbors.hpp"
+#include "mesh/forest/forest_topology.hpp"
 #include "interface/swarm_container.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/forest/forest.hpp"
@@ -72,6 +75,7 @@ std::array<IndexShape, 3> GetIndexShapes(const int nx1, const int nx2, const int
 class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   friend class RestartOutput;
   friend class Mesh;
+  friend void SetMeshBlockNeighbors(Mesh*, GridIdentifier, BlockList_t&, const std::vector<int>&, const std::unordered_set<LogicalLocation>&);
 
  public:
   MeshBlock() = default;
@@ -176,14 +180,17 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::unique_ptr<BoundarySwarms> pbswarm;
   std::unique_ptr<MeshRefinement> pmr;
 
-  // Block connectivity information
-  std::vector<NeighborBlock> neighbors;
-  std::vector<NeighborBlock> gmg_coarser_neighbors;
-  std::vector<NeighborBlock> gmg_composite_finer_neighbors;
-  std::vector<NeighborBlock> gmg_same_neighbors;
-  std::vector<NeighborBlock> gmg_finer_neighbors;
-  std::vector<NeighborBlock> gmg_leaf_neighbors;
-
+  // Public accessors for neighbor information
+  const std::vector<NeighborBlock>& GetNeighbors() const { return neighbors; }
+  const std::vector<NeighborBlock>& GetGMGCoarserNeighbors() const { return gmg_coarser_neighbors; }
+  const std::vector<NeighborBlock>& GetGMGCompositeFinerNeighbors() const { return gmg_composite_finer_neighbors; }
+  const std::vector<NeighborBlock>& GetGMGSameNeighbors() const { return gmg_same_neighbors; }
+  const std::vector<NeighborBlock>& GetGMGFinerNeighbors() const { return gmg_finer_neighbors; }
+  const std::vector<NeighborBlock>& GetGMGLeafNeighbors() const { return gmg_leaf_neighbors; }
+  
+  bool HasCoarserNeighbors() const {return has_coarser_neighbors_;}
+  bool HasFinerNeighbors() const {return has_finer_neighbors_;}
+  
   BoundaryFlag boundary_flag[6];
 
   bool IsPhysicalBoundary(BoundaryFace bf) const {
@@ -471,6 +478,18 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // memory usage on a block
   std::uint64_t mem_usage_;
+
+  // Block connectivity information - private to enforce modification only through SetMeshBlockNeighbors
+  std::vector<NeighborBlock> neighbors;
+  std::vector<NeighborBlock> gmg_coarser_neighbors;
+  std::vector<NeighborBlock> gmg_composite_finer_neighbors;
+  std::vector<NeighborBlock> gmg_same_neighbors;
+  std::vector<NeighborBlock> gmg_finer_neighbors;
+  std::vector<NeighborBlock> gmg_leaf_neighbors;
+
+  bool has_coarser_neighbors_;
+  bool has_finer_neighbors_;
+
 };
 
 using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;
