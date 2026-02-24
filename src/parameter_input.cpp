@@ -1121,4 +1121,146 @@ InputLine *InputBlock::GetPtrToLine(std::string name) {
   return nullptr;
 }
 
+//----------------------------------------------------------------------------------------
+//! \fn void ParameterInput::ResolveParametersToMap()
+//  \brief Convert linked list structure to map for efficient access
+
+void ParameterInput::ResolveParametersToMap() {
+  param_map_.clear();
+  
+  for (InputBlock *pb = pfirst_block; pb != nullptr; pb = pb->pnext) {
+    auto& block_map = param_map_[pb->block_name];
+    
+    for (InputLine *pl = pb->pline; pl != nullptr; pl = pl->pnext) {
+      // Store as UnresolvedString - will be converted to proper type on first Get* call
+      block_map[pl->param_name] = UnresolvedString(pl->param_value);
+    }
+  }
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn std::vector<std::string> ParameterInput::GetBlockNames()
+//  \brief Return all block names in the input
+
+std::vector<std::string> ParameterInput::GetBlockNames() const {
+  std::vector<std::string> block_names;
+  
+  for (InputBlock *pib = pfirst_block; pib != nullptr; pib = pib->pnext) {
+    block_names.push_back(pib->block_name);
+  }
+  
+  return block_names;
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn std::vector<std::string> ParameterInput::GetBlocksWithPrefix()
+//  \brief Return all block names that start with the given prefix
+
+std::vector<std::string> ParameterInput::GetBlocksWithPrefix(const std::string& prefix) const {
+  std::vector<std::string> matching_blocks;
+  
+  for (InputBlock *pib = pfirst_block; pib != nullptr; pib = pib->pnext) {
+    if (pib->block_name.compare(0, prefix.length(), prefix) == 0) {
+      matching_blocks.push_back(pib->block_name);
+    }
+  }
+  
+  return matching_blocks;
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn std::vector<std::string> ParameterInput::SplitCommaSeparated()
+//  \brief Helper to split comma-separated values
+
+std::vector<std::string> ParameterInput::SplitCommaSeparated(const std::string& s) {
+  std::string str = s;
+  std::string delimiter = ",";
+  size_t pos = 0;
+  std::string token;
+  std::vector<std::string> variables;
+  
+  while ((pos = str.find(delimiter)) != std::string::npos) {
+    token = str.substr(0, pos);
+    variables.push_back(string_utils::trim(token));
+    str.erase(0, pos + delimiter.length());
+  }
+  variables.push_back(string_utils::trim(str));
+  
+  return variables;
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn template <typename T> T ParameterInput::ConvertParamValue()
+//  \brief Convert a ParamValue variant to the requested type
+
+template <typename T>
+T ParameterInput::ConvertParamValue(const ParamValue& value, 
+                                    const std::string& block, 
+                                    const std::string& name) {
+  std::stringstream msg;
+  
+  // If it's already the right type, return it
+  if (std::holds_alternative<T>(value)) {
+    return std::get<T>(value);
+  }
+  
+  // If it's an unresolved string, convert it
+  if (std::holds_alternative<UnresolvedString>(value)) {
+    const std::string& str_val = std::get<UnresolvedString>(value).value;
+    
+    if constexpr (std::is_same_v<T, int>) {
+      return stoi(str_val);
+    } else if constexpr (std::is_same_v<T, Real>) {
+      return static_cast<Real>(atof(str_val.c_str()));
+    } else if constexpr (std::is_same_v<T, bool>) {
+      return stob(str_val);
+    } else if constexpr (std::is_same_v<T, std::string>) {
+      return str_val;
+    } else if constexpr (std::is_same_v<T, std::vector<int>> ||
+                         std::is_same_v<T, std::vector<Real>> ||
+                         std::is_same_v<T, std::vector<bool>> ||
+                         std::is_same_v<T, std::vector<std::string>>) {
+      using ElemType = typename T::value_type;
+      std::vector<std::string> fields = SplitCommaSeparated(str_val);
+      T result;
+      
+      for (const auto& field : fields) {
+        if constexpr (std::is_same_v<ElemType, int>) {
+          result.push_back(stoi(field));
+        } else if constexpr (std::is_same_v<ElemType, Real>) {
+          result.push_back(static_cast<Real>(atof(field.c_str())));
+        } else if constexpr (std::is_same_v<ElemType, bool>) {
+          result.push_back(stob(field));
+        } else if constexpr (std::is_same_v<ElemType, std::string>) {
+          result.push_back(field);
+        }
+      }
+      return result;
+    }
+  }
+  
+  msg << "### FATAL ERROR in function [ParameterInput::ConvertParamValue]" << std::endl
+      << "Type mismatch for parameter '" << name << "' in block '" << block << "'" 
+      << std::endl;
+  PARTHENON_FAIL(msg);
+}
+
+// Explicit template instantiations
+template int ParameterInput::ConvertParamValue<int>(
+    const ParamValue&, const std::string&, const std::string&);
+template Real ParameterInput::ConvertParamValue<Real>(
+    const ParamValue&, const std::string&, const std::string&);
+template bool ParameterInput::ConvertParamValue<bool>(
+    const ParamValue&, const std::string&, const std::string&);
+template std::string ParameterInput::ConvertParamValue<std::string>(
+    const ParamValue&, const std::string&, const std::string&);
+template std::vector<int> ParameterInput::ConvertParamValue<std::vector<int>>(
+    const ParamValue&, const std::string&, const std::string&);
+template std::vector<Real> ParameterInput::ConvertParamValue<std::vector<Real>>(
+    const ParamValue&, const std::string&, const std::string&);
+template std::vector<bool> ParameterInput::ConvertParamValue<std::vector<bool>>(
+    const ParamValue&, const std::string&, const std::string&);
+template std::vector<std::string> ParameterInput::ConvertParamValue<std::vector<std::string>>(
+    const ParamValue&, const std::string&, const std::string&);
+
 } // namespace parthenon

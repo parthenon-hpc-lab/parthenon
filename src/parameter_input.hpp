@@ -205,6 +205,14 @@ class ParameterInput {
   void LoadFromStream(std::istream &is);
   void LoadFromFile(IOWrapper &input);
   void ModifyFromCmdline(int argc, char *argv[]);
+  
+  // === RESOLUTION (bridge between parsing and storage) ===
+  void ResolveParametersToMap();
+  
+  // === STORAGE ACCESS (parser-agnostic) ===
+  std::vector<std::string> GetBlockNames() const;
+  std::vector<std::string> GetBlocksWithPrefix(const std::string& prefix) const;
+  
   void ParameterDump(std::ostream &os);
   // TODO(JMM): Make this more general?
   void OutputParameterTable(std::ostream &os,
@@ -377,6 +385,39 @@ class ParameterInput {
                  std::string &comment);
   void AddParameter(InputBlock *pib, const std::string &name, const std::string &value,
                     const std::string &comment);
+  
+  // === NEW STORAGE (map - parser-agnostic) ===
+  // Wrapper type to distinguish unresolved strings (from legacy parser)
+  // from actual string parameter values
+  struct UnresolvedString {
+    std::string value;
+    UnresolvedString() = default;
+    explicit UnresolvedString(const std::string& v) : value(v) {}
+    explicit UnresolvedString(std::string&& v) : value(std::move(v)) {}
+  };
+  
+  using ParamValue = std::variant<
+      UnresolvedString, // Must be first - this is what legacy parser produces
+      bool, 
+      int, 
+      Real, 
+      std::string,      // Actual string parameter (typed by parser or Get/Set)
+      std::vector<bool>,
+      std::vector<int>,
+      std::vector<Real>,
+      std::vector<std::string>
+  >;
+  using BlockParameterMap = std::map<std::string, ParamValue>;
+  
+  std::map<std::string, BlockParameterMap> param_map_;
+  
+  // === HELPER METHODS (parser-agnostic) ===
+  template <typename T>
+  T ConvertParamValue(const ParamValue& value, const std::string& block, 
+                      const std::string& name);
+  
+  std::vector<std::string> SplitCommaSeparated(const std::string& s);
+  
   bool stob(std::string val) {
     // check is string contains integers 0 or 1 (instead of true or false) and return
     if (val.compare(0, 1, "0") == 0 || val.compare(0, 1, "1") == 0) {
