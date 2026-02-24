@@ -130,6 +130,10 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // Modify based on command line inputs
   pinput->ModifyFromCmdline(argc, argv);
+  
+  // Phase 1: Resolve all parameters into efficient map structure
+  // This must be called AFTER all parsing/modification is complete
+  pinput->ResolveParametersToMap();
 
   PARTHENON_REQUIRE_THROWS(
       !pinput->DoesParameterExist("parthenon/job", "run_only_analysis") ||

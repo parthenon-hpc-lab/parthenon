@@ -40,10 +40,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // loop over input block names.  Find those that start with "parthenon/output" and
   // add/initialize `Params` for further processing (so that they're available to be read
   // from restart files or are cleanly initialized).
-  for (InputBlock *pib = pin->pfirst_block; pib != nullptr; pib = pib->pnext) {
-    if (pib->block_name.compare(0, 16, "parthenon/output") == 0) {
-      std::string outn = pib->block_name.substr(16); // 16 because counting starts at 0!
-      std::string block_name = pib->block_name;
+  auto output_blocks = pin->GetBlocksWithPrefix("parthenon/output");
+  for (const auto& block_name : output_blocks) {
+    std::string outn = block_name.substr(16); // 16 because counting starts at 0!
 
       // These will be updated later or restarted from
       int file_number = 0;
@@ -76,7 +75,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       pkg->AddParam(outn + "/file_number", file_number, Params::Mutability::Restart);
       pkg->AddParam(outn + "/last_time", last_time, Params::Mutability::Restart);
       pkg->AddParam(outn + "/last_n", last_n, Params::Mutability::Restart);
-    }
   }
 
   return pkg;

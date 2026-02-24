@@ -1097,27 +1097,26 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
     return std::pair<int, int>{lxmin, lxmax};
   };
 
-  InputBlock *pib = pin->pfirst_block;
-  while (pib != nullptr) {
-    if (pib->block_name.compare(0, 27, "parthenon/static_refinement") == 0) {
-      RegionSize ref_size;
-      ref_size.xmin(X1DIR) = pin->GetReal(pib->block_name, "x1min");
-      ref_size.xmax(X1DIR) = pin->GetReal(pib->block_name, "x1max");
-      if (ndim >= 2) {
-        ref_size.xmin(X2DIR) = pin->GetReal(pib->block_name, "x2min");
-        ref_size.xmax(X2DIR) = pin->GetReal(pib->block_name, "x2max");
+  auto static_ref_blocks = pin->GetBlocksWithPrefix("parthenon/static_refinement");
+  for (const auto& block_name : static_ref_blocks) {
+    RegionSize ref_size;
+    ref_size.xmin(X1DIR) = pin->GetReal(block_name, "x1min");
+            ref_size.xmax(X1DIR) = pin->GetReal(block_name, "x1max");
+    if (ndim >= 2) {
+      ref_size.xmin(X2DIR) = pin->GetReal(block_name, "x2min");
+      ref_size.xmax(X2DIR) = pin->GetReal(block_name, "x2max");
       } else {
         ref_size.xmin(X2DIR) = mesh_size.xmin(X2DIR);
         ref_size.xmax(X2DIR) = mesh_size.xmax(X2DIR);
       }
-      if (ndim == 3) {
-        ref_size.xmin(X3DIR) = pin->GetReal(pib->block_name, "x3min");
-        ref_size.xmax(X3DIR) = pin->GetReal(pib->block_name, "x3max");
+          if (ndim == 3) {
+      ref_size.xmin(X3DIR) = pin->GetReal(block_name, "x3min");
+      ref_size.xmax(X3DIR) = pin->GetReal(block_name, "x3max");
       } else {
         ref_size.xmin(X3DIR) = mesh_size.xmin(X3DIR);
         ref_size.xmax(X3DIR) = mesh_size.xmax(X3DIR);
       }
-      int ref_lev = pin->GetInteger(pib->block_name, "level");
+      int ref_lev = pin->GetInteger(block_name, "level");
       int lrlev = ref_lev + GetLegacyTreeRootLevel();
       // range check
       if (ref_lev < 1) {
@@ -1168,8 +1167,6 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
           }
         }
       }
-    }
-    pib = pib->pnext;
   }
 }
 

@@ -199,3 +199,97 @@ TEST_CASE("Test deleting parameters from ParameterInput", "[ParameterInput]") {
     }
   }
 }
+
+// Phase 1 Tests: Map Resolution and Block Prefix Queries
+TEST_CASE("ResolveParametersToMap populates internal map correctly", "[ParameterInput][Phase1]") {
+  GIVEN("A ParameterInput with multiple blocks and parameters") {
+    ParameterInput in;
+    std::stringstream ss;
+    ss << "<block1>" << std::endl
+       << "int_param = 42" << std::endl
+       << "real_param = 3.14" << std::endl
+       << "bool_param = true" << std::endl
+       << "string_param = hello" << std::endl
+       << "<block2>" << std::endl
+       << "vector_param = 1, 2, 3, 4" << std::endl;
+
+    std::istringstream s(ss.str());
+    in.LoadFromStream(s);
+
+    WHEN("ResolveParametersToMap is called") {
+      in.ResolveParametersToMap();
+
+      THEN("All parameters remain accessible via Get methods") {
+        REQUIRE(in.GetInteger("block1", "int_param") == 42);
+        REQUIRE(in.GetReal("block1", "real_param") == Approx(3.14));
+        REQUIRE(in.GetBoolean("block1", "bool_param") == true);
+        REQUIRE(in.GetString("block1", "string_param") == "hello");
+        
+        auto vec = in.GetVector<int>("block2", "vector_param");
+        REQUIRE(vec.size() == 4);
+        REQUIRE(vec[0] == 1);
+        REQUIRE(vec[3] == 4);
+      }
+    }
+  }
+}
+
+TEST_CASE("GetBlocksWithPrefix returns matching blocks only", "[ParameterInput][Phase1]") {
+  GIVEN("A ParameterInput with blocks having different prefixes") {
+    ParameterInput in;
+    std::stringstream ss;
+    ss << "<parthenon/output1>" << std::endl
+       << "dt = 0.1" << std::endl
+       << "<parthenon/output2>" << std::endl
+       << "dt = 0.2" << std::endl
+       << "<parthenon/mesh>" << std::endl
+       << "nx1 = 64" << std::endl
+       << "<other/block>" << std::endl
+       << "value = 5" << std::endl;
+
+    std::istringstream s(ss.str());
+    in.LoadFromStream(s);
+
+    WHEN("GetBlocksWithPrefix is called for 'parthenon/output'") {
+      auto blocks = in.GetBlocksWithPrefix("parthenon/output");
+
+      THEN("It returns only the output blocks") {
+        REQUIRE(blocks.size() == 2);
+        REQUIRE(std::find(blocks.begin(), blocks.end(), "parthenon/output1") != blocks.end());
+        REQUIRE(std::find(blocks.begin(), blocks.end(), "parthenon/output2") != blocks.end());
+      }
+    }
+  }
+}
+
+TEST_CASE("Phase 1 type safety: wrong type access behavior", "[ParameterInput][Phase1]") {
+  GIVEN("A ParameterInput with typed parameters") {
+    ParameterInput in;
+    std::stringstream ss;
+    ss << "<types>" << std::endl
+       << "int_val = 42" << std::endl
+       << "string_val = hello" << std::endl
+       << "bool_val = true" << std::endl;
+
+    std::istringstream s(ss.str());
+    in.LoadFromStream(s);
+    in.ResolveParametersToMap();
+
+    WHEN("We try to read a non-numeric string as a number") {
+      THEN("GetInteger should fail during conversion") {
+        REQUIRE_THROWS(in.GetInteger("types", "string_val"));
+      }
+      THEN("GetReal returns 0.0 for invalid strings (atof behavior)") {
+        // Note: atof() doesn't throw, it just returns 0.0 for invalid input
+        // This is existing behavior, not a Phase 1 bug
+        REQUIRE(in.GetReal("types", "string_val") == Approx(0.0));
+      }
+    }
+
+    WHEN("We try to read a boolean string as a number") {
+      THEN("It should fail during conversion") {
+        REQUIRE_THROWS(in.GetInteger("types", "bool_val"));
+      }
+    }
+  }
+}

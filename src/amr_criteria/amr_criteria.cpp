@@ -26,7 +26,7 @@
 
 namespace parthenon {
 
-AMRCriteria::AMRCriteria(ParameterInput *pin, std::string &block_name)
+AMRCriteria::AMRCriteria(ParameterInput *pin, const std::string &block_name)
     : comp6(0), comp5(0), comp4(0) {
   field =
       pin->GetOrAddString(block_name, "field", "NO FIELD WAS SET", "Field to refine on");
@@ -75,9 +75,9 @@ AMRCriteria::AMRCriteria(ParameterInput *pin, std::string &block_name)
   }
 }
 
-std::shared_ptr<AMRCriteria> AMRCriteria::MakeAMRCriteria(std::string &criteria,
+std::shared_ptr<AMRCriteria> AMRCriteria::MakeAMRCriteria(const std::string &criteria,
                                                           ParameterInput *pin,
-                                                          std::string &block_name) {
+                                                          const std::string &block_name) {
   if (criteria == "derivative_order_1")
     return std::make_shared<AMRFirstDerivative>(pin, block_name);
   if (criteria == "derivative_order_2")

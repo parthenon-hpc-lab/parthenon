@@ -35,7 +35,7 @@ struct AMRBounds {
 };
 
 struct AMRCriteria {
-  AMRCriteria(ParameterInput *pin, std::string &block_name);
+  AMRCriteria(ParameterInput *pin, const std::string &block_name);
   virtual ~AMRCriteria() {}
   virtual void operator()(MeshData<Real> *md, ParArray1D<AmrTag> &delta_level) const = 0;
   std::string field;
@@ -43,23 +43,23 @@ struct AMRCriteria {
   int max_level;
   int comp6, comp5, comp4;
   static std::shared_ptr<AMRCriteria>
-  MakeAMRCriteria(std::string &criteria, ParameterInput *pin, std::string &block_name);
+  MakeAMRCriteria(const std::string &criteria, ParameterInput *pin, const std::string &block_name);
 };
 
 struct AMRFirstDerivative : public AMRCriteria {
-  AMRFirstDerivative(ParameterInput *pin, std::string &block_name)
+  AMRFirstDerivative(ParameterInput *pin, const std::string &block_name)
       : AMRCriteria(pin, block_name) {}
   void operator()(MeshData<Real> *md, ParArray1D<AmrTag> &delta_level) const override;
 };
 
 struct AMRSecondDerivative : public AMRCriteria {
-  AMRSecondDerivative(ParameterInput *pin, std::string &block_name)
+  AMRSecondDerivative(ParameterInput *pin, const std::string &block_name)
       : AMRCriteria(pin, block_name) {}
   void operator()(MeshData<Real> *md, ParArray1D<AmrTag> &delta_level) const override;
 };
 
 struct AMRMagnitude : public AMRCriteria {
-  AMRMagnitude(ParameterInput *pin, std::string &block_name)
+  AMRMagnitude(ParameterInput *pin, const std::string &block_name)
       : AMRCriteria(pin, block_name) {
     std::string comparator =
         pin->GetOrAddString(block_name, "comparator", "greater_than",
