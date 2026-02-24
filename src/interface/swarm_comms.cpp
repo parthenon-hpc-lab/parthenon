@@ -434,8 +434,8 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
 
 void Swarm::ResetCommunication() {
   auto pmb = GetBlockPointer();
-#ifdef MPI_PARALLEL
   const auto &neighbors = pmb->GetNeighbors();
+#ifdef MPI_PARALLEL
   for (int n = 0; n < neighbors.size(); n++) {
     const NeighborBlock &nb = neighbors[n];
     if (vbswarm->bd_var_.req_send[nb.bufid] != MPI_REQUEST_NULL) {
