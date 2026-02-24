@@ -150,9 +150,10 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   //
   IndexShape c_cellbounds;
   IndexShape f_cellbounds;
-  int gid, lid;
-  int cnghost;
-  int gflag;
+  int gid = -1;
+  int lid = -1;
+  int cnghost = 0;
+  int gflag = 0;
 
   const IndexShape &GetCellBounds(CellLevel cl) const {
     if (cl == CellLevel::same) {
@@ -454,7 +455,9 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
  private:
   // data
-  Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_;
+  Real new_block_dt_ = 0.0;
+  Real new_block_dt_hyperbolic_ = 0.0;
+  Real new_block_dt_parabolic_ = 0.0;
   std::vector<std::shared_ptr<Variable<Real>>> vars_cc_;
 
   // Initializer to set up a meshblock called with the default constructor
@@ -481,7 +484,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // functions and variables for automatic load balancing based on timing
   Kokkos::Timer lb_timer;
-  double cost_;
+  double cost_ = 1.0;
   // JMM: these are private since the timing machinery only works
   // per-meshblock nopt per-meshdata.
   void ResetTimeMeasurement();
@@ -489,7 +492,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   void StopTimeMeasurement();
 
   // memory usage on a block
-  std::uint64_t mem_usage_;
+  std::uint64_t mem_usage_ = 0;
 
   // Block connectivity information - private to enforce modification only through
   // SetMeshBlockNeighbors
