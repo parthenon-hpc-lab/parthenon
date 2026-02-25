@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI
 
 #include "string_utils.hpp"
 
@@ -65,6 +67,58 @@ std::vector<std::string> UnpackStrings(const std::string &pack, char delimiter) 
 
   return unpack;
 }
+
+template <typename T>
+Table2D<T> ParseAsciiTable(std::istream &in) {
+  Table2D<T> out;
+
+  std::string line;
+  std::size_t line_no = 0;
+
+  while (std::getline(in, line)) {
+    ++line_no;
+
+    // Strip comments...
+    if (auto pos = line.find('#'); pos != std::string::npos) {
+      line.erase(pos);
+    }
+
+    // ...and whitespace
+    line = trim(line);
+    if (line.empty()) continue;
+
+    std::istringstream iss(line);
+    T value;
+    std::size_t row_count = 0;
+
+    while (iss >> value) {
+      out.data.push_back(value);
+      ++row_count;
+    }
+
+    if (!iss.eof()) {
+      PARTHENON_THROW("ASCII parser error on line: " + std::to_string(line_no) +
+                      "! Incorrect type.");
+    }
+    if (row_count == 0) continue; // should not happen after trim, but safe
+
+    if (out.rows == 0) {
+      out.cols = row_count;
+      if (out.cols == 0) { // table is empty. We can just return.
+        return out;
+      }
+    } else if (row_count != out.cols) {
+      PARTHENON_THROW("Parsed ASCII table is ragged.");
+    }
+    ++out.rows;
+  }
+
+  return out;
+}
+template Table2D<double> ParseAsciiTable(std::istream &);
+template Table2D<float> ParseAsciiTable(std::istream &);
+template Table2D<int> ParseAsciiTable(std::istream &);
+template Table2D<std::size_t> ParseAsciiTable(std::istream &);
 
 } // namespace string_utils
 } // namespace parthenon
