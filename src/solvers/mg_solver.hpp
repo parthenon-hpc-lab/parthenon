@@ -79,7 +79,8 @@ struct MGSolverCounter {
 //
 // That stores the (possibly approximate) diagonal of matrix A in the field
 // associated with the type diag_t. This is used for Jacobi iteration.
-template <class equations_t, class prolongator_t = ProlongationBlockInteriorDefault>
+template <class equations_t, class prolongator_t = ProlongationBlockInteriorDefault,
+          class restrictor_t = RestrictionDefault>
 class MGSolver : public SolverBase, MGSolverCounter {
  public:
   using FieldTL = typename equations_t::IndependentVars;
@@ -93,13 +94,15 @@ class MGSolver : public SolverBase, MGSolverCounter {
            const std::string &container_rhs, ParameterInput *pin,
            const std::string &input_block, equations_t eq_in = equations_t())
       : MGSolver(container_base, container_u, container_rhs, MGParams(pin, input_block),
-                 eq_in, prolongator_t(pin, input_block)) {}
+                 eq_in, prolongator_t(pin, input_block), restrictor_t(pin, input_block)) {
+  }
 
   MGSolver(const std::string &container_base, const std::string &container_u,
            const std::string &container_rhs, MGParams params_in,
-           equations_t eq_in = equations_t(), prolongator_t prol_in = prolongator_t())
+           equations_t eq_in = equations_t(), prolongator_t prol_in = prolongator_t(),
+           restrictor_t rest_in = restrictor_t())
       : SolverBase(container_base, container_u, container_rhs), params_(params_in),
-        iter_counter(0), eqs_(eq_in), prolongator_(prol_in),
+        iter_counter(0), eqs_(eq_in), prolongator_(prol_in), restrictor_(rest_in),
         constant_prolongation{false} {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
@@ -225,6 +228,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
   AllReduce<Real> residual;
   equations_t eqs_;
   prolongator_t prolongator_;
+  restrictor_t restrictor_;
   std::string container_;
 
   // These functions apparently have to be public to compile with cuda since
@@ -545,11 +549,25 @@ class MGSolver : public SolverBase, MGSolverCounter {
       auto timer_res =
           solver_timings.GetOrAddAndRegister(GetTimeLabel("Restrict send", level), tl);
       timer_res->StartCollectingTasks();
-      auto communicate_to_coarse =
-          tl.AddTask(residual, BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_u);
-      communicate_to_coarse =
-          tl.AddTask(communicate_to_coarse,
-                     BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_res_err);
+      auto communicate_to_coarse = residual;
+      if constexpr (has_Restrict<decltype(restrictor_), FieldTL>::value) {
+        communicate_to_coarse =
+            restrictor_.template Restrict<FieldTL>(tl, communicate_to_coarse, md_u);
+        communicate_to_coarse = tl.AddTask(
+            residual, BTF(SendBoundBufsNoRestrict<BoundaryType::gmg_restrict_send>),
+            md_u);
+        communicate_to_coarse =
+            restrictor_.template Restrict<FieldTL>(tl, communicate_to_coarse, md_res_err);
+        communicate_to_coarse = tl.AddTask(
+            communicate_to_coarse,
+            BTF(SendBoundBufsNoRestrict<BoundaryType::gmg_restrict_send>), md_res_err);
+      } else {
+        communicate_to_coarse = tl.AddTask(
+            residual, BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_u);
+        communicate_to_coarse =
+            tl.AddTask(communicate_to_coarse,
+                       BTF(SendBoundBufs<BoundaryType::gmg_restrict_send>), md_res_err);
+      }
       timer_res->StopCollectingTasks();
 
       // 6. Receive error field into communication field and prolongate
