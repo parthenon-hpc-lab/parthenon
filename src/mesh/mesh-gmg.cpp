@@ -113,6 +113,7 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
   }
 }
 
+// This comment was written with the help of generative AI:
 // Terminology and GridIdentifier conventions for Parthenon GMG on a forest-of-octrees AMR
 // mesh
 //

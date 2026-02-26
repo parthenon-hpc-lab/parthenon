@@ -119,3 +119,191 @@ with a particular matrix element. Like ``Stencil``, the
 ``SparseMatrixAccessor`` class provides ``MatVec`` and ``Jacobi`` member
 functions. A simple demonstration of usage can be found in the `Poisson
 example <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/poisson/poisson_package.cpp>`__.
+
+.. _parthenon_gmg_hierarchy:
+
+Geometric Multigrid Hierarchy
+=============================
+
+[This documentation was generated with assistance from generative AI]
+
+Parthenon implements a geometric multigrid (GMG) solver on a forest-of-octrees
+adaptive mesh. The multigrid hierarchy is constructed from two independent
+coarsening mechanisms:
+
+1. AMR (tree) refinement, indexed by ``logical_level``.
+2. In-block geometric coarsening, indexed by ``block_coarsenings``.
+
+The GMG hierarchy is realized explicitly: for each multigrid level,
+Parthenon constructs (or reuses) a concrete ``MeshBlock`` for every participating
+pair
+
+::
+
+   (LogicalLocation, block_coarsenings).
+
+Each ``MeshBlock`` in the GMG hierarchy therefore corresponds to a specific
+location in the refinement tree and a specific internal coarsening level.
+
+
+AMR Refinement and In-Block Coarsening
+---------------------------------------
+
+AMR refinement follows the Athena++ convention:
+
+- Larger ``logical_level`` corresponds to finer spatial resolution.
+- For a domain of size :math:`L` in a given direction, the physical block size is
+
+  .. math::
+
+     L_{\text{block}} = \frac{L}{2^{\text{logical\_level}}}.
+
+Changing ``logical_level`` corresponds to moving up or down the octree.
+
+Independently of AMR refinement, geometric coarsening can be applied inside
+each block. If a block has base resolution :math:`N^3`, then after
+``block_coarsenings = k`` the resolution becomes
+
+  .. math::
+
+     N_{\text{block}} = \frac{N}{2^k}.
+
+This reduces the number of zones per block without changing its physical
+extent.
+
+
+Grids and GridIdentifier
+------------------------
+
+Each multigrid level is described by a ``GridIdentifier``. A
+``GridIdentifier`` records the structural properties of a grid:
+
+- the grid type (leaf or two-level composite),
+- the number of ``block_coarsenings``,
+- the ``logical_level`` (for two-level composite grids),
+- the ``multigrid_level`` index,
+- whether the grid participates in the GMG hierarchy.
+
+The ``GridIdentifier`` does not contain pointers to blocks and does not own
+data. It is purely a description of which blocks belong to a given multigrid
+level. The actual ``MeshBlock`` instances for a grid are stored separately.
+
+
+Leaf Grids
+----------
+
+A leaf grid consists of all leaf nodes in the AMR refinement tree, at a fixed
+value of ``block_coarsenings``.
+
+In an adaptive mesh, leaf nodes may exist at multiple ``logical_level`` values.
+A leaf grid therefore contains blocks spanning potentially many AMR levels.
+However, all blocks in a leaf grid share the same in-block coarsening level.
+
+Equivalently, a leaf grid is the collection of all AMR leaf logical locations,
+each paired with a single specified value of ``block_coarsenings``.
+
+
+Two-Level Composite Grids
+-------------------------
+
+A two-level composite grid is anchored at a specific AMR level
+``logical_level = ℓ`` and contains, at a fixed ``block_coarsenings``:
+
+- all leaf blocks at level ``ℓ``,
+- all internal-node blocks at level ``ℓ`` that are parents of finer leaf blocks,
+- all leaf blocks at level ``ℓ − 1``, which provide boundary conditions for
+  the level-``ℓ`` blocks.
+
+Two-level composite grids are required to correctly couple coarse and fine
+regions of the AMR mesh while preserving geometric consistency of the
+multigrid operators.
+
+
+Allowed Multigrid Hierarchies
+-----------------------------
+
+The GMG hierarchy is not arbitrary. There is a finite family of admissible
+hierarchies determined by the base block size and the parameter
+
+::
+
+   parthenon/mesh/base_block_coarsenings
+
+which specifies the number of initial leaf-only multigrid levels.
+
+The hierarchy always proceeds in three distinct phases.
+
+
+Initial Leaf-Only Phase
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The hierarchy may begin with zero or more leaf-only multigrid levels.
+The number of such levels is controlled by the input parameter
+``parthenon/mesh/base_block_coarsenings``.
+
+During this phase:
+
+- The grid consists of all AMR leaf logical locations.
+- The value of ``block_coarsenings`` increases by one at each successive
+  multigrid level.
+- The AMR tree structure is not traversed.
+
+The maximum number of such levels is limited by the base block resolution,
+since in-block coarsening cannot exceed the number of times the block
+dimensions may be divided by two.
+
+
+Tree-Traversal Phase
+~~~~~~~~~~~~~~~~~~~~
+
+After the leaf-only phase, the hierarchy transitions to two-level composite
+grids.
+
+In this phase:
+
+- The value of ``block_coarsenings`` remains fixed at the value reached
+  at the end of the leaf-only phase.
+- The hierarchy moves upward through the AMR tree by decreasing
+  ``logical_level`` one level at a time.
+- At each step, a two-level composite grid is constructed that couples
+  blocks at levels ``ℓ`` and ``ℓ − 1``.
+
+This phase continues until ``logical_level = 0`` is reached.
+
+
+Root-Level In-Block Coarsening Phase
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Once the hierarchy reaches the root of the AMR tree (``logical_level = 0``),
+further coarsening is achieved exclusively through additional in-block
+coarsening.
+
+In this phase:
+
+- The AMR structure remains fixed at the root.
+- The value of ``block_coarsenings`` increases by one at each successive
+  multigrid level.
+
+At this stage, there is a single logical location per tree, and multigrid
+coarsening proceeds purely by reducing the number of zones inside the root
+blocks.
+
+
+Summary of Hierarchy Structure
+------------------------------
+
+Every admissible GMG hierarchy in Parthenon has the following structure:
+
+1. Zero or more leaf-only grids at increasing in-block coarsening.
+2. A sequence of two-level composite grids that traverse the AMR tree from
+   the finest level to the root, at fixed in-block coarsening.
+3. Zero or more additional two-level composite grids at the root with
+   further in-block coarsening.
+
+For each grid in this sequence, Parthenon constructs (or reuses) the
+corresponding ``MeshBlock`` instances for all participating
+``(LogicalLocation, block_coarsenings)`` pairs.
+
+This construction cleanly separates AMR refinement from in-block resolution
+changes while providing a consistent geometric multigrid hierarchy on
+fully adaptive forest-of-octrees meshes.
