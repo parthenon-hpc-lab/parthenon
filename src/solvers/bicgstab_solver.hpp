@@ -43,6 +43,7 @@ struct BiCGSTABParams {
   Preconditioner precondition_type = Preconditioner::Multigrid;
   bool print_per_step = false;
   bool relative_residual = false;
+  bool volume_weight = false;
   BiCGSTABParams() = default;
   BiCGSTABParams(ParameterInput *pin, const std::string &input_block) {
     max_iters = pin->GetOrAddInteger(input_block, "max_iterations", max_iters);
@@ -62,6 +63,8 @@ struct BiCGSTABParams {
     mg_params = MGParams(pin, input_block);
     relative_residual =
         pin->GetOrAddBoolean(input_block, "relative_residual", relative_residual);
+    volume_weight = pin->GetOrAddBoolean(input_block, "volume_weight", volume_weight,
+                                         "Volume weight fields in dot products.");
   }
 };
 
@@ -182,8 +185,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     }
     auto copy_p = tl.AddTask(initialize, TF(CopyData<FieldTL>), md_r, md_p);
     auto copy_rhat0 = tl.AddTask(initialize, TF(CopyData<FieldTL>), md_r, md_rhat0);
-    auto get_rhs2_rhat0r_init =
-        DoubleDotProduct<FieldTL>(initialize, tl, &res_rhat0r, md_r, md_rhat0);
+    auto get_rhs2_rhat0r_init = DoubleDotProduct<FieldTL>(
+        initialize, tl, &res_rhat0r, md_r, md_rhat0, params_.volume_weight);
     initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
         initialize | copy_p | copy_rhat0 | get_rhs2_rhat0r_init, "zero factors",
@@ -253,7 +256,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     // 3. rhat0v <- (rhat0, v)
     auto timer_alpha = solver_timings.GetOrAddAndRegister("BiCGSTAB: alpha update", itl);
     timer_alpha->StartCollectingTasks();
-    auto get_rhat0v = DotProduct<FieldTL>(get_v, itl, &rhat0v, md_rhat0, md_v);
+    auto get_rhat0v =
+        DotProduct<FieldTL>(get_v, itl, &rhat0v, md_rhat0, md_v, params_.volume_weight);
 
     // 4. h <- x + alpha u (alpha = rhat0r_old / rhat0v)
     auto correct_h = itl.AddTask(
@@ -277,7 +281,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
 
     // Check and print out residual
     if (params_.print_per_step) {
-      auto get_res = DotProduct<FieldTL>(correct_s, itl, &residual, md_s, md_s);
+      auto get_res = DotProduct<FieldTL>(correct_s, itl, &residual, md_s, md_s,
+                                         params_.volume_weight);
 
       auto print = itl.AddTask(
           TaskQualifier::once_per_region, get_res,
@@ -319,7 +324,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     // 8. omega <- (t,s) / (t,t)
     auto timer_omega = solver_timings.GetOrAddAndRegister("BiCGSTAB: omega update", itl);
     timer_omega->StartCollectingTasks();
-    auto get_tt_ts = DoubleDotProduct<FieldTL>(get_t, itl, &tt_ts, md_t, md_s);
+    auto get_tt_ts =
+        DoubleDotProduct<FieldTL>(get_t, itl, &tt_ts, md_t, md_s, params_.volume_weight);
 
     // 9. x <- h + omega u
     auto correct_x = itl.AddTask(
@@ -346,8 +352,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     auto timer_res = solver_timings.GetOrAddAndRegister("BiCGSTAB: residual", itl);
     timer_res->StartCollectingTasks();
     // 11. rhat0r <- (rhat0, r) and residual
-    auto get_res2_rhat0r =
-        DoubleDotProduct<FieldTL>(correct_r, itl, &res_rhat0r, md_r, md_rhat0);
+    auto get_res2_rhat0r = DoubleDotProduct<FieldTL>(correct_r, itl, &res_rhat0r, md_r,
+                                                     md_rhat0, params_.volume_weight);
     get_res2_rhat0r = itl.AddTask(
         TaskQualifier::once_per_region, get_res2_rhat0r,
         [&](BiCGSTABSolver *solver, Mesh *pmesh) {

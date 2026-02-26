@@ -503,7 +503,7 @@ TaskID GlobalMin(TaskID dependency_in, TaskList &tl, AllReduce<Real> *amin,
                     start_global_amin, &AllReduce<Real>::CheckReduce, amin);
 }
 
-template <class TL, bool densitize = false>
+template <class TL, bool VolumeWeight = false>
 TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
                            const std::shared_ptr<MeshData<Real>> &md_b,
                            AllReduce<Real> *adotb) {
@@ -523,7 +523,7 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
       pack_a.GetNBlocks() - 1, 0, nvars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int c, const int k, const int j, const int i,
                     Real &lsum) {
-        if constexpr (densitize) {
+        if constexpr (VolumeWeight) {
           const auto vol = pack_a.GetCoordinates(b).CellVolume(k, j, i);
           lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i) * vol * vol;
         } else {
@@ -538,7 +538,8 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
 template <class TL>
 TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
                   const std::shared_ptr<MeshData<Real>> &md_a,
-                  const std::shared_ptr<MeshData<Real>> &md_b) {
+                  const std::shared_ptr<MeshData<Real>> &md_b,
+                  bool volume_weight = false) {
   using namespace impl;
   auto zero_adotb = tl.AddTask(
       TaskQualifier::once_per_region | TaskQualifier::local_sync, dependency_in,
@@ -547,8 +548,14 @@ TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
         return TaskStatus::complete;
       },
       adotb);
-  auto get_adotb = tl.AddTask(TaskQualifier::local_sync, zero_adotb, DotProductLocal<TL>,
-                              md_a, md_b, adotb);
+  auto get_adotb = zero_adotb;
+  if (volume_weight) {
+    get_adotb = tl.AddTask(TaskQualifier::local_sync, zero_adotb,
+                           DotProductLocal<TL, true>, md_a, md_b, adotb);
+  } else {
+    get_adotb = tl.AddTask(TaskQualifier::local_sync, zero_adotb,
+                           DotProductLocal<TL, false>, md_a, md_b, adotb);
+  }
   auto start_global_adotb = tl.AddTask(TaskQualifier::once_per_region, get_adotb,
                                        &AllReduce<Real>::StartReduce, adotb, MPI_SUM);
   auto finish_global_adotb =
@@ -557,7 +564,7 @@ TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
   return finish_global_adotb;
 }
 
-template <class TL, bool densitize = false>
+template <class TL, bool VolumeWeight = false>
 TaskStatus DoubleDotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
                                  const std::shared_ptr<MeshData<Real>> &md_b,
                                  AllReduce<summable_array_t<Real, 2>> *adotb) {
@@ -576,7 +583,7 @@ TaskStatus DoubleDotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
       pack_a.GetNBlocks() - 1, 0, nvars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int c, const int k, const int j, const int i,
                     summable_array_t<Real, 2> &lsum) {
-        if constexpr (densitize) {
+        if constexpr (VolumeWeight) {
           const auto vol = pack_a.GetCoordinates(b).CellVolume(k, j, i);
           lsum[0] += pack_a(b, c, k, j, i) * pack_a(b, c, k, j, i) * vol * vol;
           lsum[1] += pack_a(b, c, k, j, i) * pack_b(b, c, k, j, i) * vol * vol;
@@ -594,7 +601,8 @@ template <class TL>
 TaskID DoubleDotProduct(TaskID dependency_in, TaskList &tl,
                         AllReduce<summable_array_t<Real, 2>> *adotb,
                         const std::shared_ptr<MeshData<Real>> &md_a,
-                        const std::shared_ptr<MeshData<Real>> &md_b) {
+                        const std::shared_ptr<MeshData<Real>> &md_b,
+                        bool volume_weight = false) {
   using namespace impl;
   using value_t = summable_array_t<Real, 2>;
 
@@ -605,8 +613,14 @@ TaskID DoubleDotProduct(TaskID dependency_in, TaskList &tl,
         return TaskStatus::complete;
       },
       adotb);
-  auto get_adotb = tl.AddTask(TaskQualifier::local_sync, zero_adotb,
-                              DoubleDotProductLocal<TL>, md_a, md_b, adotb);
+  auto get_adotb = zero_adotb;
+  if (volume_weight) {
+    get_adotb = tl.AddTask(TaskQualifier::local_sync, zero_adotb,
+                           DoubleDotProductLocal<TL, true>, md_a, md_b, adotb);
+  } else {
+    get_adotb = tl.AddTask(TaskQualifier::local_sync, zero_adotb,
+                           DoubleDotProductLocal<TL, false>, md_a, md_b, adotb);
+  }
   auto start_global_adotb = tl.AddTask(TaskQualifier::once_per_region, get_adotb,
                                        &AllReduce<value_t>::StartReduce, adotb, MPI_SUM);
   auto finish_global_adotb =
