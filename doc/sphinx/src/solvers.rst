@@ -85,8 +85,7 @@ Some notes:
   argument to the multi-grid solver class. An example of using these interior prolongation
   operators is contained in the ``poisson_gmg`` example.
 
-Some implementation notes about geometric multi-grid can be found in 
-`these notes <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/doc/latex/main.pdf>`_.
+
 
 Stencil
 -------
@@ -120,10 +119,10 @@ with a particular matrix element. Like ``Stencil``, the
 functions. A simple demonstration of usage can be found in the `Poisson
 example <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/poisson/poisson_package.cpp>`__.
 
-.. _parthenon_gmg_hierarchy:
+.. _parthenon_gmg:
 
-Geometric Multigrid Hierarchy
-=============================
+Geometric Multigrid
+-------------------
 
 [This documentation was generated with assistance from generative AI]
 
@@ -145,9 +144,12 @@ pair
 Each ``MeshBlock`` in the GMG hierarchy therefore corresponds to a specific
 location in the refinement tree and a specific internal coarsening level.
 
+Some details about our AMR geometric multi-grid can be found in 
+`these notes <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/doc/latex/main.pdf>`_.
+Note that they only focus on hierarchies with only two-level composite grids.
 
 AMR Refinement and In-Block Coarsening
----------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 AMR refinement follows the Athena++ convention:
 
@@ -173,7 +175,7 @@ extent.
 
 
 Grids and GridIdentifier
-------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Each multigrid level is described by a ``GridIdentifier``. A
 ``GridIdentifier`` records the structural properties of a grid:
@@ -190,7 +192,7 @@ level. The actual ``MeshBlock`` instances for a grid are stored separately.
 
 
 Leaf Grids
-----------
+~~~~~~~~~~
 
 A leaf grid consists of all leaf nodes in the AMR refinement tree, at a fixed
 value of ``block_coarsenings``.
@@ -204,7 +206,7 @@ each paired with a single specified value of ``block_coarsenings``.
 
 
 Two-Level Composite Grids
--------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A two-level composite grid is anchored at a specific AMR level
 ``logical_level = ℓ`` and contains, at a fixed ``block_coarsenings``:
@@ -220,7 +222,7 @@ multigrid operators.
 
 
 Allowed Multigrid Hierarchies
------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The GMG hierarchy is not arbitrary. There is a finite family of admissible
 hierarchies determined by the base block size and the parameter
@@ -235,7 +237,7 @@ The hierarchy always proceeds in three distinct phases.
 
 
 Initial Leaf-Only Phase
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 The hierarchy may begin with zero or more leaf-only multigrid levels.
 The number of such levels is controlled by the input parameter
@@ -254,7 +256,7 @@ dimensions may be divided by two.
 
 
 Tree-Traversal Phase
-~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^
 
 After the leaf-only phase, the hierarchy transitions to two-level composite
 grids.
@@ -272,7 +274,7 @@ This phase continues until ``logical_level = 0`` is reached.
 
 
 Root-Level In-Block Coarsening Phase
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Once the hierarchy reaches the root of the AMR tree (``logical_level = 0``),
 further coarsening is achieved exclusively through additional in-block
@@ -290,7 +292,7 @@ blocks.
 
 
 Summary of Hierarchy Structure
-------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Every admissible GMG hierarchy in Parthenon has the following structure:
 
