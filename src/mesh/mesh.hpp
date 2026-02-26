@@ -312,7 +312,7 @@ class Mesh {
   // is called internally, so use beyond the defaults with care
   void SetNumberOfCommChannels(BoundaryType bound, std::size_t n_channels) {
     // TODO(LFR): Fix this, there is no fundamental issue just requires work
-    PARTHENON_REQUIRE(!coalesced_comms || n_channels == 1,
+    PARTHENON_REQUIRE(!do_coalesced_comms || n_channels == 1,
                       "Currently coalesced comms and multiple communication stages can't "
                       "be used concurrently.");
 
