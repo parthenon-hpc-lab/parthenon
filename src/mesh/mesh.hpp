@@ -311,6 +311,11 @@ class Mesh {
   // for a given boundary type. This *must* be called before build boundary buffers
   // is called internally, so use beyond the defaults with care
   void SetNumberOfCommChannels(BoundaryType bound, std::size_t n_channels) {
+    // TODO(LFR): Fix this
+    PARTHENON_REQUIRE(!coalesced_comms || n_channels == 1,
+                      "Currently coalesced comms and multiple communication stages can't "
+                      "be used concurrently.");
+
     if (locked_comm_channel_numbers_.count(bound))
       PARTHENON_FAIL("Trying to reset the number of comm channels after boundary buffers "
                      "have been set up.");
