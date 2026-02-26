@@ -43,26 +43,26 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
     auto pmb = rc->GetBlockPointer();
     // type_t var = []{...}() pattern defines and uses a lambda that
     // returns  to reduce initializations of var
-    auto *neighbors = [&pmb, &md] {
+    const auto &neighbors = [&pmb, &md] {
       if constexpr (BOUND == BoundaryType::gmg_restrict_send)
-        return pmb->loc.level() == md->grid.logical_level ? &(pmb->gmg_coarser_neighbors)
-                                                          : &(pmb->gmg_leaf_neighbors);
+        return pmb->loc.level() == md->grid.logical_level ? pmb->GetGMGCoarserNeighbors()
+                                                          : pmb->GetGMGLeafNeighbors();
       if constexpr (BOUND == BoundaryType::gmg_restrict_recv)
-        return pmb->gmg_finer_neighbors.size() > 0 ? &(pmb->gmg_finer_neighbors)
-                                                   : &(pmb->gmg_leaf_neighbors);
+        return pmb->GetGMGFinerNeighbors().size() > 0 ? pmb->GetGMGFinerNeighbors()
+                                                      : pmb->GetGMGLeafNeighbors();
       if constexpr (BOUND == BoundaryType::gmg_prolongate_send)
-        return &(pmb->gmg_finer_neighbors);
+        return pmb->GetGMGFinerNeighbors();
       if constexpr (BOUND == BoundaryType::gmg_prolongate_recv)
-        return &(pmb->gmg_coarser_neighbors);
+        return pmb->GetGMGCoarserNeighbors();
       if constexpr (BOUND == BoundaryType::gmg_prolongate_recv)
-        return &(pmb->gmg_coarser_neighbors);
+        return pmb->GetGMGCoarserNeighbors();
       if constexpr (BOUND == BoundaryType::gmg_same)
         return pmb->loc.level() == md->grid.logical_level
-                   ? &(pmb->gmg_same_neighbors)
-                   : &(pmb->gmg_composite_finer_neighbors);
-      return &(pmb->neighbors);
+                   ? pmb->GetGMGSameNeighbors()
+                   : pmb->GetGMGCompositeFinerNeighbors();
+      return pmb->GetNeighbors();
     }();
-    for (auto &nb : *neighbors) {
+    for (const auto &nb : neighbors) {
       const int other_rank = nb.rank;
       if (map_.count(other_rank) < 1) map_[other_rank] = rank_pair_map_t();
       auto &pair_map = map_[other_rank];

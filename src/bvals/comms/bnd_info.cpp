@@ -40,6 +40,10 @@
 
 namespace parthenon {
 
+bool BvarsSubCache_t::RequiresReinitialize(Mesh *pmesh) const {
+  return buf_vec.size() == 0 || epoch != pmesh->boundary_comm_map.GetCurrentEpoch();
+}
+
 void ProResCache_t::Initialize(int n_regions, StateDescriptor *pkg) {
   prores_info = ProResInfoArr_t(ViewOfViewAlloc("prores_info"), n_regions);
   prores_info_h = create_view_of_view_mirror(prores_info);
@@ -150,10 +154,14 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
                                 TopologicalOffsetK(el)};
   std::array<int, 3> block_offset = nb.offsets;
 
+  int communicated_ghosts = Globals::nghost;
+  if (!prores && loc.level() == nb.origin_loc.level() &&
+      v->IsSet(Metadata::CommunicateOne))
+    communicated_ghosts = 1;
   int interior_offset =
-      ir_type == IndexRangeType::BoundaryInteriorSend ? Globals::nghost : 0;
+      ir_type == IndexRangeType::BoundaryInteriorSend ? communicated_ghosts : 0;
   int exterior_offset =
-      ir_type == IndexRangeType::BoundaryExteriorRecv ? Globals::nghost : 0;
+      ir_type == IndexRangeType::BoundaryExteriorRecv ? communicated_ghosts : 0;
   if (prores) {
     // The coarse ghosts cover twice as much volume as the fine ghosts, so when working in
     // the exterior (i.e. ghosts) we must only go over the coarse ghosts that have
@@ -417,17 +425,11 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
   // This will select a superset of the boundaries that actually need to be restricted,
   // more logic could be added to only restrict boundary regions that abut boundary
   // regions that were filled by coarser neighbors
-  bool restricted = false;
-  int mylevel = pmb->loc.level();
-  if (mylevel > 0) {
-    for (const auto &nb : pmb->neighbors) {
-      restricted = restricted || (nb.origin_loc.level() == (mylevel - 1));
-    }
-  }
+  bool restricted = pmb->HasCoarserNeighbors();
 
   for (auto el : v->GetTopologicalElements()) {
     out.IncludeTopoEl(el) = true;
-    if (nb.origin_loc.level() < mylevel) {
+    if (nb.origin_loc.level() < pmb->loc.level()) {
       out.refinement_op = RefinementOp_t::Prolongation;
     } else {
       if (restricted) {
@@ -447,7 +449,7 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
   //      I doubt that the extra calculations matter, but the storage overhead could
   //      matter since each 6D indexer contains 18 ints and we are always carrying around
   //      10 indexers per bound info even if the field isn't allocated
-  if (nb.origin_loc.level() < mylevel) {
+  if (nb.origin_loc.level() < pmb->loc.level()) {
     for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
       out.idxer[static_cast<int>(el)] =
           CalcIndices(nb, pmb, v, el, IndexRangeType::BoundaryExteriorRecv, true);

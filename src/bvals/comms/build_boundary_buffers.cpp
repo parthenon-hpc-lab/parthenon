@@ -54,20 +54,23 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
   std::unordered_map<std::size_t, std::size_t>
       nbufs_allocated; // total that are actually allocated
 
-  ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v) {
-    // Calculate the required size of the buffer for this boundary
-    int buf_size = GetBufferSize(pmb, nb, v);
-    //  LR: Multigrid logic requires blocks sending messages to themselves (since the same
-    //  block can show up on two multigrid levels). This doesn't require any data
-    //  transfer, so the message size can be zero. It is essentially just a flag to show
-    //  that the block is done being used on one level and can be used on the next level.
-    if (pmb->gid == nb.gid && nb.offsets.IsCell()) buf_size = 0;
+  ForEachBoundary<BTYPE>(
+      md, [&](auto pmb, sp_mbd_t /*rc*/, const nb_t &nb, const sp_cv_t v) {
+        // Calculate the required size of the buffer for this boundary
+        int buf_size = GetBufferSize(pmb, nb, v);
+        //  LR: Multigrid logic requires blocks sending messages to themselves (since the
+        //  same block can show up on two multigrid levels). This doesn't require any data
+        //  transfer, so the message size can be zero. It is essentially just a flag to
+        //  show that the block is done being used on one level and can be used on the
+        //  next level.
+        if (pmb->gid == nb.gid && nb.offsets.IsCell()) buf_size = 0;
 
-    nbufs[buf_size] += 1; // relying on value init of int to 0 for initial entry
-    nbufs_allocated[buf_size] += v->IsAllocated();
-  });
+        nbufs[buf_size] += 1; // relying on value init of int to 0 for initial entry
+        nbufs_allocated[buf_size] += v->IsAllocated();
+      });
 
-  ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v) {
+  ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, const nb_t &nb,
+                                 const sp_cv_t v) {
     // Calculate the required size of the buffer for this boundary
     int buf_size = GetBufferSize(pmb, nb, v);
     // See comment above on the same logic.
@@ -75,36 +78,20 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
 
     // Add a buffer pool if one does not exist for this size
     using buf_t = buf_pool_t<Real>::base_t;
-    if (pmesh->pool_map.count(buf_size) == 0) {
+    if (!pmesh->pool_map.Contains(buf_size)) {
       // Minimum number of comm buffers to initialize a pool of a
       // given shape with. As an upper bound, we use the maximum
       // number that might be present.
       const std::size_t nbuf = std::min(pmesh->CommBufferChunkSize(), nbufs.at(buf_size));
-      // This lambda is called whenever a buffer is requested but no
-      // buffers remain in the pool
-      auto allocation_strategy = [buf_size, nbuf](buf_pool_t<Real> *pool) {
-        const auto pool_size = nbuf * buf_size;
-        buf_t chunk("pool buffer", pool_size);
-        for (int i = 1; i < nbuf; ++i) {
-          pool->AddFreeObjectToPool(
-              buf_t(chunk, std::make_pair(i * buf_size, (i + 1) * buf_size)));
-        }
-        return buf_t(chunk, std::make_pair(0, buf_size));
-      };
-      pmesh->pool_map.emplace(buf_size, buf_pool_t<Real>(allocation_strategy));
+      pmesh->pool_map.AddPool(buf_size, nbuf);
     }
     // Now that the pool is guaranteed to exist we can add free objects of the required
     // amount.
-    auto &pool = pmesh->pool_map.at(buf_size);
     const std::int64_t new_buffers_req =
-        nbufs_allocated.at(buf_size) - pool.NumBuffersInPool();
+        nbufs_allocated.at(buf_size) -
+        pmesh->pool_map.GetPool(buf_size).NumBuffersInPool();
     if (new_buffers_req > 0) {
-      const auto pool_size = new_buffers_req * buf_size;
-      buf_t chunk("pool buffer", pool_size);
-      for (int i = 0; i < new_buffers_req; ++i) {
-        pool.AddFreeObjectToPool(
-            buf_t(chunk, std::make_pair(i * buf_size, (i + 1) * buf_size)));
-      }
+      pmesh->pool_map.AddFreeObjectsToPool(buf_size, new_buffers_req);
     }
 
     const int receiver_rank = nb.rank;
@@ -127,7 +114,7 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     auto get_resource_method = [pmesh, buf_size](int size) {
       PARTHENON_REQUIRE(size <= buf_size,
                         "Asking for a buffer that is larger than size of pool.");
-      return buf_pool_t<Real>::owner_t(pmesh->pool_map.at(buf_size).Get());
+      return buf_pool_t<Real>::owner_t(pmesh->pool_map.GetPool(buf_size).Get());
     };
 
     // Build send buffer (unless this is a receiving flux boundary)
@@ -155,18 +142,19 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
 template <BoundaryType BTYPE>
 void RegisterCoalescedCommsSubset(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
-  ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v) {
-    const int receiver_rank = nb.rank;
-    const int sender_rank = Globals::my_rank;
-    if (receiver_rank != sender_rank) {
-      if constexpr (IsSender(BTYPE)) {
-        pmesh->pcoalesced_comms->AddSendBuffer(md->partition, pmb, nb, v, BTYPE);
-      }
-      if constexpr (IsReceiver(BTYPE)) {
-        pmesh->pcoalesced_comms->AddRecvBuffer(pmb, nb, v, BTYPE);
-      }
-    }
-  });
+  ForEachBoundary<BTYPE>(
+      md, [&](auto pmb, sp_mbd_t /*rc*/, const nb_t &nb, const sp_cv_t v) {
+        const int receiver_rank = nb.rank;
+        const int sender_rank = Globals::my_rank;
+        if (receiver_rank != sender_rank) {
+          if constexpr (IsSender(BTYPE)) {
+            pmesh->pcoalesced_comms->AddSendBuffer(md->partition, pmb, nb, v, BTYPE);
+          }
+          if constexpr (IsReceiver(BTYPE)) {
+            pmesh->pcoalesced_comms->AddRecvBuffer(pmb, nb, v, BTYPE);
+          }
+        }
+      });
 }
 
 } // namespace
@@ -174,11 +162,6 @@ void RegisterCoalescedCommsSubset(std::shared_ptr<MeshData<Real>> &md) {
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
   Mesh *pmesh = md->GetMeshPointer();
-  auto &all_caches = md->GetBvarsCache();
-
-  // Clear the fast access vectors for this block since they are no longer valid
-  // after all MeshData call BuildBoundaryBuffers
-  all_caches.clear();
 
   BuildBoundaryBufferSubset<BoundaryType::any>(md, pmesh->boundary_comm_map);
   BuildBoundaryBufferSubset<BoundaryType::flxcor_send>(md, pmesh->boundary_comm_map);
@@ -190,11 +173,7 @@ TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
 TaskStatus BuildGMGBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
   Mesh *pmesh = md->GetMeshPointer();
-  auto &all_caches = md->GetBvarsCache();
 
-  // Clear the fast access vectors for this block since they are no longer valid
-  // after all MeshData call BuildBoundaryBuffers
-  all_caches.clear();
   BuildBoundaryBufferSubset<BoundaryType::gmg_same>(md, pmesh->boundary_comm_map);
   BuildBoundaryBufferSubset<BoundaryType::gmg_prolongate_send>(md,
                                                                pmesh->boundary_comm_map);
