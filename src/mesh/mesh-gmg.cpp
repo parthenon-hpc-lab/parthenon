@@ -17,7 +17,6 @@
 //! \file mesh_amr.cpp
 //  \brief implementation of Mesh::AdaptiveMeshRefinement() and related utilities
 
-#include <unistd.h>
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
@@ -28,6 +27,7 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <unistd.h>
 #include <unordered_set>
 #include <vector>
 
