@@ -104,9 +104,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           "comm_buffer_reallocate_cadence), reallocation happens only if the number of "
           "buffers in use divided by the number of buffers allocated is less than this "
           "variable.")},
-      base_block_coarsenings{pin->GetOrAddInteger(
-          "parthenon/mesh", "base_block_coarsenings", 0,
-          "How many times to internally coarsen blocks before going to two-level composite grids")} {
+      base_block_coarsenings{
+          pin->GetOrAddInteger("parthenon/mesh", "base_block_coarsenings", 0,
+                               "How many times to internally coarsen blocks before going "
+                               "to two-level composite grids")} {
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =
@@ -392,7 +393,8 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
     BoundaryFlag block_bcs[6];
     SetBlockSizeAndBoundaries(loclist[i], block_size, block_bcs);
     // create a block and add into the link list
-    PARTHENON_REQUIRE(i == forest.GetGid(loclist[i]), "There is an inconsistency in the GIDs.");
+    PARTHENON_REQUIRE(i == forest.GetGid(loclist[i]),
+                      "There is an inconsistency in the GIDs.");
     block_list[i - nbs] =
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
                         packages, resolved_packages, gflag, costlist[i]);
@@ -877,7 +879,8 @@ std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
 // \brief Set the physical part of a block_size structure and block boundary conditions
 
 bool Mesh::SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
-                                     BoundaryFlag *block_bcs, std::size_t block_coarsenings) {
+                                     BoundaryFlag *block_bcs,
+                                     std::size_t block_coarsenings) {
   bool valid_region = true;
   block_size = forest.GetBlockDomain(loc, block_coarsenings);
   auto bcs = forest.GetBlockBCs(loc);

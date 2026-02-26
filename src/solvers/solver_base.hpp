@@ -97,7 +97,7 @@ class SolverBase {
   std::string container_u;
   // User defined container containing the rhs vector, only needs to contain sol_fields
   std::string container_rhs;
-  
+
   Real initial_residual{-1.0};
   Real final_residual;
   int final_iteration;

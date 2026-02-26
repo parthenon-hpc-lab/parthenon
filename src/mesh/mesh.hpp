@@ -149,9 +149,8 @@ class Mesh {
 
   int GetGMGMaxLevel() const { return current_level; }
   int GetGMGMinLevel() const { return gmg_min_level_; }
-  GridIdentifier GetGMGGrid(int gmg_level) { 
-    if (gmg_grids_.count(gmg_level)) 
-      return gmg_grids_[gmg_level];
+  GridIdentifier GetGMGGrid(int gmg_level) {
+    if (gmg_grids_.count(gmg_level)) return gmg_grids_[gmg_level];
     return GridIdentifier::none();
   }
 
@@ -159,7 +158,8 @@ class Mesh {
   void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
 
   bool SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
-                                 BoundaryFlag *block_bcs, std::size_t block_coarsenings = 0);
+                                 BoundaryFlag *block_bcs,
+                                 std::size_t block_coarsenings = 0);
   void OutputCycleDiagnostics();
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);
@@ -345,7 +345,7 @@ class Mesh {
   int max_level_ref_; // the max level as interpreted by the input deck/user
   int num_mesh_threads_;
   int base_block_coarsenings;
-  
+
   /// Maps Global Block IDs to which rank the block is mapped to.
   std::vector<int> ranklist;
   /// Maps rank to start of local block IDs.

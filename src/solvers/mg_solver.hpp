@@ -55,8 +55,8 @@ struct MGParams {
         pin->GetOrAddReal(input_block, "residual_tolerance", residual_tolerance);
     do_FAS = pin->GetOrAddBoolean(input_block, "do_FAS", do_FAS);
     std::string smoother = pin->GetOrAddString(input_block, "smoother", "SRJ2");
-    presmoother = pin->GetOrAddString(input_block, "presmoother", smoother); 
-    postsmoother = pin->GetOrAddString(input_block, "postsmoother", smoother); 
+    presmoother = pin->GetOrAddString(input_block, "presmoother", smoother);
+    postsmoother = pin->GetOrAddString(input_block, "postsmoother", smoother);
     prolongation = pin->GetOrAddString(input_block, "prolongation", prolongation);
     two_by_two_diagonal =
         pin->GetOrAddBoolean(input_block, "two_by_two_diagonal", two_by_two_diagonal);
@@ -86,6 +86,7 @@ template <class equations_t, class prolongator_t = ProlongationBlockInteriorDefa
           class restrictor_t = RestrictionDefault>
 class MGSolver : public SolverBase, MGSolverCounter {
   int pre_stages, post_stages;
+
  public:
   using FieldTL = typename equations_t::IndependentVars;
 
@@ -121,7 +122,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
     } else {
       BCFunc = ApplyBoundaryConditionsOnCoarseOrFineMD;
     }
-    
+
     auto get_stages = [](const std::string &sm) {
       if (sm == "none") {
         return 0;
@@ -133,7 +134,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
         return 3;
       } else {
         PARTHENON_FAIL("Unknown smoother type.");
-      } 
+      }
       return 0;
     };
 
@@ -149,7 +150,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
     return eqs_.Ax(tl, dependence, md_mat, md_in, md_out);
   }
 
-  TaskID AddTasks(TaskList &tl, TaskID dependence, const int default_partition_idx, Mesh *pmesh) {
+  TaskID AddTasks(TaskList &tl, TaskID dependence, const int default_partition_idx,
+                  Mesh *pmesh) {
     using namespace utils;
     TaskID none;
     auto [itl, solve_id] = tl.AddSublist(dependence, {1, this->params_.max_iters});
@@ -163,7 +165,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
           return TaskStatus::complete;
         },
         &iter_counter);
-    auto mg_finest = AddLinearOperatorTasks(itl, update_iter, default_partition_idx, pmesh);
+    auto mg_finest =
+        AddLinearOperatorTasks(itl, update_iter, default_partition_idx, pmesh);
 
     auto timing_guard =
         TimingAccumulatorGuard(solver_timings.GetOrAddAndRegister("MG: Residual", tl));
@@ -206,15 +209,15 @@ class MGSolver : public SolverBase, MGSolverCounter {
   auto GetMinMaxLevel(Mesh *pmesh) const {
     int min_level = std::max(pmesh->GetGMGMaxLevel() - params_.max_coarsenings,
                              pmesh->GetGMGMinLevel());
-    int max_level = pmesh->GetGMGMaxLevel();  
+    int max_level = pmesh->GetGMGMaxLevel();
     return std::make_pair(min_level, max_level);
   }
 
-  TaskID AddLinearOperatorTasks(TaskList &tl, TaskID dependence, int default_partition_idx,
-                                Mesh *pmesh) {
+  TaskID AddLinearOperatorTasks(TaskList &tl, TaskID dependence,
+                                int default_partition_idx, Mesh *pmesh) {
     using namespace utils;
     iter_counter = 0;
-    
+
     const auto [min_level, max_level] = GetMinMaxLevel(pmesh);
 
     // We require a local pre- and post-MG sync since multigrid iterations require
@@ -228,7 +231,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
     for (int level = max_level; level >= min_level; --level) {
       auto partitions = pmesh->GetMultigridBlockPartitions(level);
       if (default_partition_idx < partitions.size()) {
-        mg = mg | AddMultiGridTasksPartitionLevel(tl, dependence, partitions[default_partition_idx], pmesh);
+        mg = mg | AddMultiGridTasksPartitionLevel(
+                      tl, dependence, partitions[default_partition_idx], pmesh);
       }
     }
     auto post_sync =
@@ -236,7 +240,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
     return post_sync;
   }
 
-  TaskID AddSetupTasks(TaskList &tl, TaskID dependence, int default_partition_idx, Mesh *pmesh) {
+  TaskID AddSetupTasks(TaskList &tl, TaskID dependence, int default_partition_idx,
+                       Mesh *pmesh) {
     using namespace utils;
 
     const auto [min_level, max_level] = GetMinMaxLevel(pmesh);
@@ -246,7 +251,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
       auto partitions = pmesh->GetMultigridBlockPartitions(level);
       if (default_partition_idx < partitions.size()) {
         mg_setup =
-            mg_setup | AddMultiGridSetupPartitionLevel(tl, dependence, partitions[default_partition_idx], pmesh);
+            mg_setup | AddMultiGridSetupPartitionLevel(
+                           tl, dependence, partitions[default_partition_idx], pmesh);
       }
     }
     return mg_setup;
@@ -318,13 +324,14 @@ class MGSolver : public SolverBase, MGSolverCounter {
     return "MG: " + name + " [level = " + std::to_string(level) + "]";
   }
 
-  std::string GetTimeLabel(const std::string &name, const std::shared_ptr<BlockListPartition> &partition) {
+  std::string GetTimeLabel(const std::string &name,
+                           const std::shared_ptr<BlockListPartition> &partition) {
     return GetTimeLabel(name, partition->grid.multigrid_level());
   }
 
   TaskID AddJacobiIteration(TaskList &tl, TaskID depends_on, Real omega,
-                            std::shared_ptr<BlockListPartition> partition,
-                            Mesh *pmesh, bool input_is_zero) {
+                            std::shared_ptr<BlockListPartition> partition, Mesh *pmesh,
+                            bool input_is_zero) {
     using namespace utils;
 
     auto &md_base = pmesh->mesh_data.Add(container_base, partition);
@@ -339,8 +346,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
       auto time_comm =
           solver_timings.GetOrAddAndRegister(GetTimeLabel("Boundary", partition), tl);
       time_comm->StartCollectingTasks();
-      auto comm = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(depends_on, tl, md_u,
-                                                          pmesh->multilevel, BCFunc);
+      auto comm = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
+          depends_on, tl, md_u, pmesh->multilevel, BCFunc);
       time_comm->StopCollectingTasks();
 
       auto time_ax =
@@ -352,8 +359,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
     auto guard = TimingAccumulatorGuard(
         solver_timings.GetOrAddAndRegister(GetTimeLabel("Jacobi", partition), tl));
-    return tl.AddTask(mat_mult, TF(&MGSolver::Jacobi), this, md_rhs, md_ax, md_diag,
-                      md_u, md_u, omega);
+    return tl.AddTask(mat_mult, TF(&MGSolver::Jacobi), this, md_rhs, md_ax, md_diag, md_u,
+                      md_u, omega);
   }
 
   TaskID AddSRJIteration(TaskList &tl, TaskID depends_on,
@@ -366,7 +373,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
     auto timing_guard = TimingAccumulatorGuard(
         solver_timings.GetOrAddAndRegister(GetTimeLabel("Smooth", partition), tl));
-    
+
     const int stages = pre_smooth ? pre_stages : post_stages;
 
     const int ndim = pmesh->ndim;
@@ -377,14 +384,19 @@ class MGSolver : public SolverBase, MGSolverCounter {
       return AddJacobiIteration(tl, depends_on, 0.666, partition, pmesh, in_is_zero);
     } else if (stages == 2) {
       // Damping factors from Yang & Mittal (2017)
-      const std::array<std::array<Real, 2>, 3> omega{{{0.8723, 0.5395}, {1.3895, 0.5617}, {1.7319, 0.5695}}};
-      auto jacobi1 = AddJacobiIteration(tl, depends_on, omega[ndim - 1][0], partition, pmesh, in_is_zero);
+      const std::array<std::array<Real, 2>, 3> omega{
+          {{0.8723, 0.5395}, {1.3895, 0.5617}, {1.7319, 0.5695}}};
+      auto jacobi1 = AddJacobiIteration(tl, depends_on, omega[ndim - 1][0], partition,
+                                        pmesh, in_is_zero);
       return AddJacobiIteration(tl, jacobi1, omega[ndim - 1][1], partition, pmesh, false);
     } else if (stages == 3) {
       // Damping factors from Yang & Mittal (2017)
-      const std::array<std::array<Real, 3>, 3> omega{{{0.9372, 0.6667, 0.5173}, {1.6653, 0.8000, 0.5264}, {2.2473, 0.8571, 0.5296}}};
-      auto jacobi1 = AddJacobiIteration(tl, depends_on, omega[ndim - 1][0], partition, pmesh, in_is_zero);
-      auto jacobi2 = AddJacobiIteration(tl, jacobi1, omega[ndim - 1][1], partition, pmesh, false);
+      const std::array<std::array<Real, 3>, 3> omega{
+          {{0.9372, 0.6667, 0.5173}, {1.6653, 0.8000, 0.5264}, {2.2473, 0.8571, 0.5296}}};
+      auto jacobi1 = AddJacobiIteration(tl, depends_on, omega[ndim - 1][0], partition,
+                                        pmesh, in_is_zero);
+      auto jacobi2 =
+          AddJacobiIteration(tl, jacobi1, omega[ndim - 1][1], partition, pmesh, false);
       return AddJacobiIteration(tl, jacobi2, omega[ndim - 1][2], partition, pmesh, false);
     } else {
       PARTHENON_FAIL("More than three stages not implemented.");
@@ -392,15 +404,17 @@ class MGSolver : public SolverBase, MGSolverCounter {
     }
   }
 
-  TaskID AddMultiGridSetupPartitionLevel(TaskList &tl, TaskID dependence, std::shared_ptr<BlockListPartition> partition, Mesh *pmesh) {
+  TaskID AddMultiGridSetupPartitionLevel(TaskList &tl, TaskID dependence,
+                                         std::shared_ptr<BlockListPartition> partition,
+                                         Mesh *pmesh) {
     using namespace utils;
-    
+
     const int level = partition->grid.multigrid_level();
     const auto [min_level, max_level] = GetMinMaxLevel(pmesh);
-    
+
     auto &md = pmesh->mesh_data.Add(container_base, partition);
     auto &md_diag = pmesh->mesh_data.Add(container_diag, partition, sol_fields);
-    
+
     auto task_out = dependence;
     if (level < max_level) {
       auto timing_guard = TimingAccumulatorGuard(solver_timings.GetOrAddAndRegister(
@@ -427,9 +441,11 @@ class MGSolver : public SolverBase, MGSolverCounter {
     return task_out;
   }
 
-  TaskID AddMultiGridTasksPartitionLevel(TaskList &tl, TaskID dependence, std::shared_ptr<BlockListPartition> partition, Mesh *pmesh) {
+  TaskID AddMultiGridTasksPartitionLevel(TaskList &tl, TaskID dependence,
+                                         std::shared_ptr<BlockListPartition> partition,
+                                         Mesh *pmesh) {
     using namespace utils;
-    
+
     const int level = partition->grid.multigrid_level();
     const auto [min_level, max_level] = GetMinMaxLevel(pmesh);
 
@@ -442,8 +458,10 @@ class MGSolver : public SolverBase, MGSolverCounter {
     auto &md_temp = pmesh->mesh_data.Add(container_temp, partition, sol_fields);
     auto &md_u0 = pmesh->mesh_data.Add(container_u0, partition, sol_fields);
     auto &md_diag = pmesh->mesh_data.Add(container_diag, partition, sol_fields);
-    md_res_err->SetBoundBufferId(BoundaryType::gmg_restrict_send, 1); // Use a separate set of communication buffers
-    md_res_err->SetBoundBufferId(BoundaryType::gmg_restrict_recv, 1); // Use a separate set of communication buffers
+    md_res_err->SetBoundBufferId(BoundaryType::gmg_restrict_send,
+                                 1); // Use a separate set of communication buffers
+    md_res_err->SetBoundBufferId(BoundaryType::gmg_restrict_recv,
+                                 1); // Use a separate set of communication buffers
     auto timer_guard_total = TimingAccumulatorGuard(
         solver_timings.GetOrAddAndRegister(GetTimeLabel("Total", partition), tl));
 
@@ -453,8 +471,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
       // Fill fields with restricted values
       // TODO(LFR): Need to make sure that this communication pattern is ok, since we are
       //            trying to concurrently communicate on two stages
-      auto timer =
-          solver_timings.GetOrAddAndRegister(GetTimeLabel("Restrict recv", partition), tl);
+      auto timer = solver_timings.GetOrAddAndRegister(
+          GetTimeLabel("Restrict recv", partition), tl);
       timer->StartCollectingTasks();
       auto recv_from_finer = tl.AddTask(
           dependence, TF(ReceiveBoundBufs<BoundaryType::gmg_restrict_recv>), md_u);
@@ -492,9 +510,9 @@ class MGSolver : public SolverBase, MGSolverCounter {
         // RHS of leaf blocks that are on this GMG level should have already been set on
         // entry into multigrid
         set_from_finer = eqs_.Ax(tl, set_from_finer, md, md_u, md_temp);
-        set_from_finer = tl.AddTask(set_from_finer,
-                                    TF(AddFieldsAndStoreInteriorSelect<FieldTL, true>),
-                                    md_temp, md_res_err, md_rhs, 1.0, 1.0, true);
+        set_from_finer =
+            tl.AddTask(set_from_finer, TF(AddFieldsAndStoreInteriorSelect<FieldTL, true>),
+                       md_temp, md_res_err, md_rhs, 1.0, 1.0, true);
       }
     }
 
@@ -510,8 +528,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
       auto timer_comm =
           solver_timings.GetOrAddAndRegister(GetTimeLabel("Boundary", partition), tl);
       timer_comm->StartCollectingTasks();
-      auto comm_u = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(pre_smooth, tl, md_u,
-                                                                     pmesh->multilevel, BCFunc);
+      auto comm_u = AddBoundaryExchangeTasks<BoundaryType::gmg_same>(
+          pre_smooth, tl, md_u, pmesh->multilevel, BCFunc);
       timer_comm->StopCollectingTasks();
 
       // 4. Caclulate residual and store in communication field
@@ -522,16 +540,15 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
       // 5. Restrict communication field and send to next level
       // TODO(LFR): Other place where we are receiving two stage communication
-      auto timer_res =
-          solver_timings.GetOrAddAndRegister(GetTimeLabel("Restrict send", partition), tl);
+      auto timer_res = solver_timings.GetOrAddAndRegister(
+          GetTimeLabel("Restrict send", partition), tl);
       timer_res->StartCollectingTasks();
       auto communicate_to_coarse = residual;
       if constexpr (has_Restrict<decltype(restrictor_), FieldTL>::value) {
         communicate_to_coarse =
             restrictor_.template Restrict<FieldTL>(tl, communicate_to_coarse, md_u);
         communicate_to_coarse = tl.AddTask(
-            residual, TF(SendBoundBufsNoRestrict<BoundaryType::gmg_restrict_send>),
-            md_u);
+            residual, TF(SendBoundBufsNoRestrict<BoundaryType::gmg_restrict_send>), md_u);
         communicate_to_coarse =
             restrictor_.template Restrict<FieldTL>(tl, communicate_to_coarse, md_res_err);
         communicate_to_coarse = tl.AddTask(
@@ -565,24 +582,23 @@ class MGSolver : public SolverBase, MGSolverCounter {
       auto timer_u =
           solver_timings.GetOrAddAndRegister(GetTimeLabel("Update u", partition), tl);
       timer_u->StartCollectingTasks();
-      auto update_sol = tl.AddTask(prolongate, TF(AddFieldsAndStore<FieldTL, true>),
-                                   md_u, md_res_err, md_u, 1.0, 1.0);
+      auto update_sol = tl.AddTask(prolongate, TF(AddFieldsAndStore<FieldTL, true>), md_u,
+                                   md_res_err, md_u, 1.0, 1.0);
       timer_u->StopCollectingTasks();
 
       // 8. Post smooth using communication field and stored RHS
       post_smooth = AddSRJIteration(tl, update_sol, partition, false, pmesh);
 
     } else {
-      post_smooth =
-          tl.AddTask(pre_smooth, TF(CopyData<FieldTL, true>), md_u, md_res_err);
+      post_smooth = tl.AddTask(pre_smooth, TF(CopyData<FieldTL, true>), md_u, md_res_err);
     }
 
     // 9. Send communication field to next finer level (should be error field for that
     // level)
     TaskID last_task = post_smooth;
     if (level < max_level) {
-      auto timer_guard = TimingAccumulatorGuard(
-          solver_timings.GetOrAddAndRegister(GetTimeLabel("Prolong send", partition), tl));
+      auto timer_guard = TimingAccumulatorGuard(solver_timings.GetOrAddAndRegister(
+          GetTimeLabel("Prolong send", partition), tl));
       auto copy_over = post_smooth;
       if (!do_FAS) {
         copy_over =

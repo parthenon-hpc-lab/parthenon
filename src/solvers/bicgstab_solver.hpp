@@ -162,7 +162,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
 
     iter_counter = 0;
     bool multilevel = pmesh->multilevel;
-    auto timer_guard_total = TimingAccumulatorGuard(solver_timings.GetOrAddAndRegister("BiCGSTAB: Total", tl));
+    auto timer_guard_total =
+        TimingAccumulatorGuard(solver_timings.GetOrAddAndRegister("BiCGSTAB: Total", tl));
     // Initialization: x <- 0, r <- rhs, rhat0 <- r,
     // rhat0r_old <- (rhat0, r), p <- r, u <- 0
     auto initialize = dependence;
@@ -207,8 +208,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
           }
           return TaskStatus::complete;
         },
-        this, params_.residual_tolerance, params_.relative_residual, pmesh); 
-   
+        this, params_.residual_tolerance, params_.relative_residual, pmesh);
 
     // BEGIN ITERATIVE TASKS
     auto [itl, solver_id] = tl.AddSublist(initialize, {1, params_.max_iters});

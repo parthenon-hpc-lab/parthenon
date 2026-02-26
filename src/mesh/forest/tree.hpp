@@ -89,7 +89,8 @@ class Tree : public std::enable_shared_from_this<Tree> {
   int count(const LogicalLocation &loc) const { return leaves.count(loc); }
   std::vector<LogicalLocation> GetSortedMeshBlockList() const;
   std::vector<LogicalLocation> GetSortedInternalNodeList() const;
-  RegionSize GetBlockDomain(const LogicalLocation &loc, std::size_t block_coarsenings) const;
+  RegionSize GetBlockDomain(const LogicalLocation &loc,
+                            std::size_t block_coarsenings) const;
   std::array<BoundaryFlag, BOUNDARY_NFACES> GetBlockBCs(const LogicalLocation &loc) const;
   std::vector<NeighborLocation>
   FindNeighbors(const LogicalLocation &loc,

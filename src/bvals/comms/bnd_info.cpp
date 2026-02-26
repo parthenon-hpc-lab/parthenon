@@ -107,16 +107,19 @@ GetFluxCorrectionElements(const std::shared_ptr<Variable<Real>> &v,
   return elements;
 }
 
-bool NeighborIsCoarser(MeshBlock *pmb, const NeighborBlock &nb) { 
-  return nb.loc.level() < pmb->loc.level() || nb.block_coarsenings > pmb->block_coarsenings; 
+bool NeighborIsCoarser(MeshBlock *pmb, const NeighborBlock &nb) {
+  return nb.loc.level() < pmb->loc.level() ||
+         nb.block_coarsenings > pmb->block_coarsenings;
 }
 
-bool NeighborIsFiner(MeshBlock *pmb, const NeighborBlock &nb) { 
-  return nb.loc.level() > pmb->loc.level() || nb.block_coarsenings < pmb->block_coarsenings; 
+bool NeighborIsFiner(MeshBlock *pmb, const NeighborBlock &nb) {
+  return nb.loc.level() > pmb->loc.level() ||
+         nb.block_coarsenings < pmb->block_coarsenings;
 }
 
-bool NeighborIsSame(MeshBlock *pmb, const NeighborBlock &nb) { 
-  return nb.loc.level() == pmb->loc.level() && nb.block_coarsenings == pmb->block_coarsenings;
+bool NeighborIsSame(MeshBlock *pmb, const NeighborBlock &nb) {
+  return nb.loc.level() == pmb->loc.level() &&
+         nb.block_coarsenings == pmb->block_coarsenings;
 }
 
 SpatiallyMaskedIndexer6D
@@ -135,7 +138,8 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
   const bool nb_is_coarser = NeighborIsCoarser(pmb, nb);
   const bool nb_is_finer = NeighborIsFiner(pmb, nb);
   const bool nb_is_same = NeighborIsSame(pmb, nb);
-  PARTHENON_REQUIRE(nb_is_coarser + nb_is_finer + nb_is_same == 1, "Only one should be set.");
+  PARTHENON_REQUIRE(nb_is_coarser + nb_is_finer + nb_is_same == 1,
+                    "Only one should be set.");
   // Both prolongation and restriction always operate in the coarse
   // index space. Also need to use the coarse index space if the
   // neighbor is coarser than you, wether or not you are setting
@@ -172,8 +176,7 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
   std::array<int, 3> block_offset = nb.offsets;
 
   int communicated_ghosts = Globals::nghost;
-  if (!prores && nb_is_same &&
-      v->IsSet(Metadata::CommunicateOne))
+  if (!prores && nb_is_same && v->IsSet(Metadata::CommunicateOne))
     communicated_ghosts = 1;
   int interior_offset =
       ir_type == IndexRangeType::BoundaryInteriorSend ? communicated_ghosts : 0;

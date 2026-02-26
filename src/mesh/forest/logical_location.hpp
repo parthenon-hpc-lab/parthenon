@@ -116,8 +116,8 @@ class LogicalLocation { // aggregate and POD type
   bool IsLowerLeftCornerOfParent() const {
     return ((lx1() & 1LL) == 0LL) && ((lx2() & 1LL) == 0LL) && ((lx3() & 1LL) == 0LL);
   }
-  
-  bool IsLowerLeftRepresentativeOf(const LogicalLocation &loc) { 
+
+  bool IsLowerLeftRepresentativeOf(const LogicalLocation &loc) {
     if (loc.tree() == tree()) {
       return loc.morton() == morton();
     }

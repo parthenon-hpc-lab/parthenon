@@ -126,7 +126,8 @@ class Forest {
     return 0;
   }
 
-  RegionSize GetBlockDomain(const LogicalLocation &loc, std::size_t block_coarsenings = 0) const {
+  RegionSize GetBlockDomain(const LogicalLocation &loc,
+                            std::size_t block_coarsenings = 0) const {
     return trees.at(loc.tree())->GetBlockDomain(loc, block_coarsenings);
   }
 
@@ -178,7 +179,8 @@ class Forest {
 
   std::size_t CountTrees() const { return trees.size(); }
 
-  std::int64_t GetGid(const LogicalLocation &loc, std::size_t block_coarsenings = 0) const {
+  std::int64_t GetGid(const LogicalLocation &loc,
+                      std::size_t block_coarsenings = 0) const {
     PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
     auto gid = trees.at(loc.tree())->GetGid(loc);
     gid += block_coarsenings * (CountInternalMeshBlock() + CountLeafMeshBlock());
@@ -196,7 +198,7 @@ class Forest {
     PARTHENON_REQUIRE(gids_resolved, "Asking for GID in invalid state.");
     return trees.at(loc.tree())->GetOldGid(loc);
   }
- 
+
   bool IsLeaf(const LogicalLocation &loc) const {
     PARTHENON_REQUIRE(trees.count(loc.tree()), "Must ask for a tree that exists.");
     return trees.at(loc.tree())->IsLeaf(loc);

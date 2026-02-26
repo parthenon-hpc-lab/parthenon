@@ -69,28 +69,27 @@ inline auto func_caller(F func, Args &&...args) -> typename std::enable_if<
   return LoopControl::cont;
 }
 
-inline auto &GetNeighborsOnCoarserGMGGrid(MeshBlock *pmb, const GridIdentifier &grid) { 
-  if (grid.type() == GridType::two_level_composite && 
-      pmb->loc.level() != grid.logical_level()) { 
+inline auto &GetNeighborsOnCoarserGMGGrid(MeshBlock *pmb, const GridIdentifier &grid) {
+  if (grid.type() == GridType::two_level_composite &&
+      pmb->loc.level() != grid.logical_level()) {
     // This is a boundary block on a two-level composite grid, its
     // data is up to date but it needs to send a message to itself
-    // on the next coarser grid for synchronization 
+    // on the next coarser grid for synchronization
     return pmb->GetGMGSelfNeighbors();
-  } 
-  return pmb->GetGMGCoarserNeighbors(); 
+  }
+  return pmb->GetGMGCoarserNeighbors();
 }
 
-inline auto &GetNeighborsOnFinerGMGGrid(MeshBlock *pmb, const GridIdentifier &grid) { 
+inline auto &GetNeighborsOnFinerGMGGrid(MeshBlock *pmb, const GridIdentifier &grid) {
   const auto finer_grid = pmb->pmy_mesh->GetGMGGrid(grid.multigrid_level() + 1);
-  if (finer_grid.type() == GridType::two_level_composite && 
+  if (finer_grid.type() == GridType::two_level_composite &&
       finer_grid.block_coarsenings() == grid.block_coarsenings() &&
-      pmb->loc.level() == grid.logical_level() &&
-      pmb->IsLeafLL()) { 
+      pmb->loc.level() == grid.logical_level() && pmb->IsLeafLL()) {
     // This is a boundary block on a two-level composite grid below this
     // one, its data is up to date but it needs to send a message to itself
-    // on the next coarser grid for synchronization 
+    // on the next coarser grid for synchronization
     return pmb->GetGMGSelfNeighbors();
-  } 
+  }
   return pmb->GetGMGFinerNeighbors();
 }
 
@@ -107,8 +106,8 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
     const auto &gmg_same = pmb->loc.level() == md->grid.logical_level()
-                         ? pmb->GetGMGSameNeighbors()
-                         : pmb->GetGMGCompositeFinerNeighbors();
+                               ? pmb->GetGMGSameNeighbors()
+                               : pmb->GetGMGCompositeFinerNeighbors();
     for (auto &v : rc->GetVariableVector()) {
       if constexpr (bound == BoundaryType::gmg_restrict_send) {
         if (v->IsSet(Metadata::GMGRestrict)) {
@@ -144,7 +143,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
                 }
               }
             }
-          } else { 
+          } else {
             for (auto &nb : pmb->GetNeighbors()) {
               if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
             }

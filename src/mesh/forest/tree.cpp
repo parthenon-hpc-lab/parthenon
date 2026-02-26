@@ -288,7 +288,8 @@ std::vector<LogicalLocation> Tree::GetSortedInternalNodeList() const {
   return mb_list;
 }
 
-RegionSize Tree::GetBlockDomain(const LogicalLocation &loc, std::size_t block_coarsenings) const {
+RegionSize Tree::GetBlockDomain(const LogicalLocation &loc,
+                                std::size_t block_coarsenings) const {
   PARTHENON_REQUIRE(loc.IsInTree(), "Probably there is a mistake...");
   RegionSize out = domain;
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {

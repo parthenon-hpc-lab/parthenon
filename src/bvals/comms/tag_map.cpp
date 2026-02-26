@@ -37,7 +37,8 @@ TagMap::rank_pair_t TagMap::MakeChannelPair(const MeshBlock *pmb,
 }
 
 template <BoundaryType BOUND>
-void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md, int channels_per_pair) {
+void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md,
+                              int channels_per_pair) {
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
@@ -45,8 +46,9 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md, int channels_
     // returns  to reduce initializations of var
     const auto &neighbors = [&pmb, &md] {
       if constexpr (BOUND == BoundaryType::gmg_restrict_send)
-        return pmb->loc.level() == md->grid.logical_level() ? pmb->GetGMGCoarserNeighbors()
-                                                          : pmb->GetGMGSelfNeighbors();
+        return pmb->loc.level() == md->grid.logical_level()
+                   ? pmb->GetGMGCoarserNeighbors()
+                   : pmb->GetGMGSelfNeighbors();
       if constexpr (BOUND == BoundaryType::gmg_restrict_recv)
         return pmb->GetGMGFinerNeighbors().size() > 0 ? pmb->GetGMGFinerNeighbors()
                                                       : pmb->GetGMGSelfNeighbors();
@@ -55,8 +57,7 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md, int channels_
       if constexpr (BOUND == BoundaryType::gmg_prolongate_recv)
         return pmb->GetGMGCoarserNeighbors();
       if constexpr (BOUND == BoundaryType::gmg_same) {
-        if (md->grid.type() == GridType::leaf)
-          return pmb->GetNeighbors();
+        if (md->grid.type() == GridType::leaf) return pmb->GetNeighbors();
         return pmb->loc.level() == md->grid.logical_level()
                    ? pmb->GetGMGSameNeighbors()
                    : pmb->GetGMGCompositeFinerNeighbors();
@@ -76,7 +77,8 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md, int channels_
 template void
 TagMap::AddMeshDataToMap<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &md, int);
 template void
-TagMap::AddMeshDataToMap<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &md, int);
+TagMap::AddMeshDataToMap<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &md,
+                                                 int);
 template void TagMap::AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(
     std::shared_ptr<MeshData<Real>> &md, int);
 template void TagMap::AddMeshDataToMap<BoundaryType::gmg_restrict_send>(

@@ -42,10 +42,12 @@ inline auto &GetReceiverGid(Mesh::channel_key_t &key) { return std::get<1>(key);
 inline auto &GetVariable(Mesh::channel_key_t &key) { return std::get<2>(key); }
 inline auto &GetLocIdx(Mesh::channel_key_t &key) { return std::get<3>(key); }
 inline auto &GetOther(Mesh::channel_key_t &key) { return std::get<4>(key); }
-inline std::string GetLabel(Mesh::channel_key_t &key) { return "sender: " + std::to_string(GetSenderGid(key)) + ", receiver: " +
-                     std::to_string(GetReceiverGid(key)) + ", var: " + GetVariable(key) +
-                     ", location: " + std::to_string(GetLocIdx(key)) + ", other:" 
-                     + std::to_string(GetOther(key));}
+inline std::string GetLabel(Mesh::channel_key_t &key) {
+  return "sender: " + std::to_string(GetSenderGid(key)) +
+         ", receiver: " + std::to_string(GetReceiverGid(key)) +
+         ", var: " + GetVariable(key) + ", location: " + std::to_string(GetLocIdx(key)) +
+         ", other:" + std::to_string(GetOther(key));
+}
 inline Mesh::channel_key_t SendKey(const MeshBlock *pmb, const NeighborBlock &nb,
                                    const std::shared_ptr<Variable<Real>> &pcv,
                                    BoundaryType btype, int id) {
@@ -105,16 +107,17 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   std::vector<std::tuple<int, int, Mesh::channel_key_t>> key_order;
 
   int boundary_idx = 0;
-  ForEachBoundary<bound_type>(md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v) {
-    auto key = KeyFunc(pmb, nb, v, bound_type, md->GetBoundBufferId(bound_type));
-    PARTHENON_DEBUG_REQUIRE(comm_map->count(key) > 0,
-                            "Boundary communicator does not exist");
-    // Create a unique index by combining receiver gid (second element of the key
-    // tuple) and geometric element index (fourth element of the key tuple)
-    int recvr_idx = 27 * GetReceiverGid(key) + GetLocIdx(key);
-    key_order.push_back({recvr_idx, boundary_idx, key});
-    ++boundary_idx;
-  });
+  ForEachBoundary<bound_type>(
+      md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v) {
+        auto key = KeyFunc(pmb, nb, v, bound_type, md->GetBoundBufferId(bound_type));
+        PARTHENON_DEBUG_REQUIRE(comm_map->count(key) > 0,
+                                "Boundary communicator does not exist");
+        // Create a unique index by combining receiver gid (second element of the key
+        // tuple) and geometric element index (fourth element of the key tuple)
+        int recvr_idx = 27 * GetReceiverGid(key) + GetLocIdx(key);
+        key_order.push_back({recvr_idx, boundary_idx, key});
+        ++boundary_idx;
+      });
 
   // If desired, sort the keys and boundary indices by receiver_idx
   // std::sort(key_order.begin(), key_order.end(),
@@ -132,8 +135,8 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   std::for_each(std::begin(key_order), std::end(key_order), [&](auto &t) {
     if (comm_map->count(std::get<2>(t)) == 0) {
       auto key = std::get<2>(t);
-      PARTHENON_FAIL(std::string("Asking for buffer that doesn't exist") +
-                     " (" + GetLabel(key) + ")");
+      PARTHENON_FAIL(std::string("Asking for buffer that doesn't exist") + " (" +
+                     GetLabel(key) + ")");
     }
     pcache->buf_vec.push_back(&((*comm_map)[std::get<2>(t)]));
     (pcache->idx_vec)[std::get<1>(t)] = buff_idx++;

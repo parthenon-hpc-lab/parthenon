@@ -452,7 +452,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                                  kb.s, kb.e, jb.s, jb.e, ib.s, ib.e, function,
                                  std::forward<Args>(args)...);
   }
-  
+
   bool IsLeafLL() const { return is_leaf_ll_; }
 
  private:

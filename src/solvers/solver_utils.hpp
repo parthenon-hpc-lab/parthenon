@@ -523,8 +523,8 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
       pack_a.GetNBlocks() - 1, 0, nvars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int c, const int k, const int j, const int i,
                     Real &lsum) {
-        //const auto vol = pack_a.GetCoordinates(b).CellVolume(k, j, i);
-        lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i);// * vol * vol;
+        // const auto vol = pack_a.GetCoordinates(b).CellVolume(k, j, i);
+        lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i); // * vol * vol;
       },
       Kokkos::Sum<Real>(gsum));
   adotb->val += gsum;
@@ -573,8 +573,8 @@ TaskStatus DoubleDotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
       KOKKOS_LAMBDA(const int b, const int c, const int k, const int j, const int i,
                     summable_array_t<Real, 2> &lsum) {
         // const auto vol = pack_a.GetCoordinates(b).CellVolume(k, j, i);
-        lsum[0] += pack_a(b, c, k, j, i) * pack_a(b, c, k, j, i);// * vol * vol;
-        lsum[1] += pack_a(b, c, k, j, i) * pack_b(b, c, k, j, i);// * vol * vol;
+        lsum[0] += pack_a(b, c, k, j, i) * pack_a(b, c, k, j, i); // * vol * vol;
+        lsum[1] += pack_a(b, c, k, j, i) * pack_b(b, c, k, j, i); // * vol * vol;
       },
       Kokkos::Sum<summable_array_t<Real, 2>>(gsum));
   adotb->val += gsum;

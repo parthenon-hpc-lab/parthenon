@@ -26,9 +26,9 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <unistd.h>
 #include <unordered_set>
 #include <vector>
-#include <unistd.h>
 
 #include "parthenon_mpi.hpp"
 
@@ -81,8 +81,9 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
       int tid = buffer_id.GetID(-offsets[0], -offsets[1], -offsets[2], fn[0], fn[1]);
       int lgid = forest.GetLeafGid(nloc.global_loc);
       all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, nloc.origin_loc,
-                                 ranklist[lgid], gid, offsets, bid, tid, f[0], f[1], pmb->block_coarsenings);
-      
+                                 ranklist[lgid], gid, offsets, bid, tid, f[0], f[1],
+                                 pmb->block_coarsenings);
+
       // Set neighbor block ownership
       auto &nb = all_neighbors.back();
       auto neighbor_neighbors = forest.FindNeighbors(nloc.global_loc, grid_id);
@@ -93,12 +94,11 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
 
       // Set logical coordinate transformation from this block to the neighbor
       nb.lcoord_trans = nloc.lcoord_trans;
-
     }
 
     if (grid_id.type() == GridType::leaf) {
       pmb->neighbors = all_neighbors;
-      pmb->has_coarser_neighbors_ = false;  
+      pmb->has_coarser_neighbors_ = false;
       for (const auto &n : all_neighbors) {
         if (n.loc.level() < pmb->loc.level()) pmb->has_coarser_neighbors_ = true;
       }
@@ -112,7 +112,8 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
   }
 }
 
-// Terminology and GridIdentifier conventions for Parthenon GMG on a forest-of-octrees AMR mesh
+// Terminology and GridIdentifier conventions for Parthenon GMG on a forest-of-octrees AMR
+// mesh
 //
 // The GMG hierarchy is constructed over two independent notions of coarsening:
 //
@@ -139,7 +140,8 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
 //
 //   GridType::leaf
 //     - Grid consisting only of AMR leaf blocks.
-//     - logical_level_ is not meaningful (sentinel), since leaves span multiple AMR levels.
+//     - logical_level_ is not meaningful (sentinel), since leaves span multiple AMR
+//     levels.
 //     - block_coarsenings_ specifies in-block GMG coarsening.
 //     - Two cases exist:
 //         * Non-multigrid leaf grid (GridIdentifier::leaf()):
@@ -174,9 +176,11 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
 //
 //     (A) Base (non-multigrid) leaf grid:
 //           leaf()
-//         This corresponds to the default Parthenon mesh resolution and is not part of GMG.
+//         This corresponds to the default Parthenon mesh resolution and is not part of
+//         GMG.
 //
-//     (B) n_leaf multigrid leaf grids with explicit coarsenings, ordered from fine to coarse
+//     (B) n_leaf multigrid leaf grids with explicit coarsenings, ordered from fine to
+//     coarse
 //         by decreasing multigrid_level:
 //
 //           leaf(max_level,         0),
@@ -184,13 +188,14 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
 //           ...
 //           leaf(max_level - (n_leaf - 1),  n_leaf - 1)
 //
-//     (C) Two-level composite grids, starting after the last leaf grid. The composite grids
-//         begin with block_coarsenings fixed at n_leaf (i.e., one more than the last leaf grid
-//         when n_leaf > 0), and proceed by moving up the AMR tree in logical_level.
+//     (C) Two-level composite grids, starting after the last leaf grid. The composite
+//     grids
+//         begin with block_coarsenings fixed at n_leaf (i.e., one more than the last leaf
+//         grid when n_leaf > 0), and proceed by moving up the AMR tree in logical_level.
 //
-//         During this phase, multigrid_level continues to decrease as grids become coarser,
-//         while block_coarsenings remains fixed at n_leaf and logical_level decreases
-//         (ell_max -> ... -> 0), e.g.:
+//         During this phase, multigrid_level continues to decrease as grids become
+//         coarser, while block_coarsenings remains fixed at n_leaf and logical_level
+//         decreases (ell_max -> ... -> 0), e.g.:
 //
 //           two_level_composite(mg, ell_max,   n_leaf),
 //           two_level_composite(mg-1, ell_max-1, n_leaf),
@@ -205,9 +210,11 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
 //           ...
 //
 // Notes:
-//   - block_coarsenings_ refers exclusively to in-block GMG coarsening, not AMR refinement.
+//   - block_coarsenings_ refers exclusively to in-block GMG coarsening, not AMR
+//   refinement.
 //   - logical_level refers to AMR level; multigrid_level refers to GMG hierarchy index.
-//   - operator< orders GridIdentifier by GridType, then block_coarsenings, then logical_level,
+//   - operator< orders GridIdentifier by GridType, then block_coarsenings, then
+//   logical_level,
 //     providing a stable ordering for associative containers.
 
 void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
@@ -228,9 +235,10 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
   // Populate a list of multigrid
   gmg_block_lists_.clear();
   gmg_grids_.clear();
-  
-  PARTHENON_REQUIRE(base_block_coarsenings <= max_block_coarsenings,
-                    "Asking for more block coarsenings than are allowed by the chosen meshblock size.");
+
+  PARTHENON_REQUIRE(
+      base_block_coarsenings <= max_block_coarsenings,
+      "Asking for more block coarsenings than are allowed by the chosen meshblock size.");
 
   // Add initially coarsened leaf grids first
   for (int c = 0; c < base_block_coarsenings; ++c) {
@@ -238,68 +246,79 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
     gmg_grids_[gmg_level] = GridIdentifier::leaf(gmg_level, c);
   }
 
-  // Build up the subsequent two-level composite grids 
-  for (int gmg_level = GetGMGMinLevel(); gmg_level <= (GetGMGMaxLevel() - base_block_coarsenings); ++gmg_level) {
+  // Build up the subsequent two-level composite grids
+  for (int gmg_level = GetGMGMinLevel();
+       gmg_level <= (GetGMGMaxLevel() - base_block_coarsenings); ++gmg_level) {
     int logical_level = std::max(gmg_level + base_block_coarsenings, 0);
     std::size_t block_coarsenings = std::max(-base_block_coarsenings - gmg_level, 0);
     gmg_block_lists_[gmg_level] = BlockList_t();
-    gmg_grids_[gmg_level] = GridIdentifier::two_level_composite(gmg_level, logical_level, base_block_coarsenings + block_coarsenings);
+    gmg_grids_[gmg_level] = GridIdentifier::two_level_composite(
+        gmg_level, logical_level, base_block_coarsenings + block_coarsenings);
   }
-  
-  // Only want to create one of each block at each position in the octree location - block_coarsenings
-  // space, so store them in a map and populate it initially with the base blocks
+
+  // Only want to create one of each block at each position in the octree location -
+  // block_coarsenings space, so store them in a map and populate it initially with the
+  // base blocks
   std::map<std::pair<LogicalLocation, int>, std::shared_ptr<MeshBlock>> all_blocks;
   for (auto &b : block_list)
     all_blocks[{b->loc, b->block_coarsenings}] = b;
-  
-  const std::size_t nnodes = forest.CountLeafMeshBlock() + forest.CountInternalMeshBlock();
+
+  const std::size_t nnodes =
+      forest.CountLeafMeshBlock() + forest.CountInternalMeshBlock();
   for (int gmg_level = GetGMGMaxLevel(); gmg_level >= GetGMGMinLevel(); --gmg_level) {
     auto grid = gmg_grids_[gmg_level];
     auto &cur_block_list = gmg_block_lists_[gmg_level];
     if (grid.type() == GridType::two_level_composite) {
       // Algorithm for building a two level composite grid
-      // Loop over leaf blocks on this rank since we want parent blocks of leaf blocks stored on the 
-      // same rank 
-      for (auto &plmb: block_list) {
+      // Loop over leaf blocks on this rank since we want parent blocks of leaf blocks
+      // stored on the same rank
+      for (auto &plmb : block_list) {
         auto leaf_loc = plmb->loc;
         if (leaf_loc.level() >= grid.logical_level() - 1) {
-          // Logical location of the parent block, should naturally give leaf locations on the two-level
-          // composite grid as well as internal node location on the two-level composite grid
-          auto loc = leaf_loc.GetParent(std::max(leaf_loc.level() - grid.logical_level(), 0));
-           // Only want to work with this block if the leaf is the lower left corner of the parent block
-           // (otherwise all daughters would add the same parent and blocks could be duplicated across ranks)
+          // Logical location of the parent block, should naturally give leaf locations on
+          // the two-level composite grid as well as internal node location on the
+          // two-level composite grid
+          auto loc =
+              leaf_loc.GetParent(std::max(leaf_loc.level() - grid.logical_level(), 0));
+          // Only want to work with this block if the leaf is the lower left corner of the
+          // parent block (otherwise all daughters would add the same parent and blocks
+          // could be duplicated across ranks)
           if (leaf_loc.IsLowerLeftRepresentativeOf(loc)) {
-            if (all_blocks.count({loc, grid.block_coarsenings()})) { 
+            if (all_blocks.count({loc, grid.block_coarsenings()})) {
               // Block already exists, so just add pointer to list
               cur_block_list.push_back(all_blocks[{loc, grid.block_coarsenings()}]);
             } else {
               // Current block needs to be created
               RegionSize block_size = GetDefaultBlockSize();
               BoundaryFlag block_bcs[6];
-              SetBlockSizeAndBoundaries(loc, block_size, block_bcs, grid.block_coarsenings());
+              SetBlockSizeAndBoundaries(loc, block_size, block_bcs,
+                                        grid.block_coarsenings());
               const int gid = forest.GetGid(loc, grid.block_coarsenings());
-              auto new_block = MeshBlock::Make(gid, -1, loc, block_size, block_bcs,
-                                               this, pin, app_in, packages, resolved_packages, gflag);
+              auto new_block =
+                  MeshBlock::Make(gid, -1, loc, block_size, block_bcs, this, pin, app_in,
+                                  packages, resolved_packages, gflag);
               new_block->block_coarsenings = grid.block_coarsenings();
               cur_block_list.push_back(new_block);
-              all_blocks[{loc, grid.block_coarsenings()}] = new_block; 
+              all_blocks[{loc, grid.block_coarsenings()}] = new_block;
             }
           }
         }
       }
     } else if (grid.type() == GridType::leaf) {
-      for (auto &plmb : block_list) { 
+      for (auto &plmb : block_list) {
         // Just add every block at this coarsening
         if (all_blocks.count({plmb->loc, grid.block_coarsenings()})) {
           cur_block_list.push_back(all_blocks[{plmb->loc, grid.block_coarsenings()}]);
-        } else { 
+        } else {
           // Current block needs to be created
           RegionSize block_size = GetDefaultBlockSize();
           BoundaryFlag block_bcs[6];
-          SetBlockSizeAndBoundaries(plmb->loc, block_size, block_bcs, grid.block_coarsenings());
+          SetBlockSizeAndBoundaries(plmb->loc, block_size, block_bcs,
+                                    grid.block_coarsenings());
           const int gid = forest.GetGid(plmb->loc, grid.block_coarsenings());
-          auto new_block = MeshBlock::Make(gid, -1, plmb->loc, block_size, block_bcs,
-                                           this, pin, app_in, packages, resolved_packages, gflag);
+          auto new_block =
+              MeshBlock::Make(gid, -1, plmb->loc, block_size, block_bcs, this, pin,
+                              app_in, packages, resolved_packages, gflag);
           new_block->block_coarsenings = grid.block_coarsenings();
           cur_block_list.push_back(new_block);
           all_blocks[{plmb->loc, grid.block_coarsenings()}] = new_block;
@@ -307,7 +326,7 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
       }
     }
   }
-  
+
   // Sort the gmg block lists by gid
   for (auto &[level, bl] : gmg_block_lists_) {
     std::sort(bl.begin(), bl.end(), [](auto &a, auto &b) { return a->gid < b->gid; });
@@ -316,8 +335,9 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
 }
 
 void Mesh::SetGMGNeighbors() {
-  auto write_block_str = [](const auto &in) { 
-    return std::to_string(in.gid) + " " + in.loc.label() + "{" + std::to_string(in.block_coarsenings) + "}"; 
+  auto write_block_str = [](const auto &in) {
+    return std::to_string(in.gid) + " " + in.loc.label() + "{" +
+           std::to_string(in.block_coarsenings) + "}";
   };
   if (!multigrid) return;
   const int gmg_min_level = GetGMGMinLevel();
@@ -327,10 +347,11 @@ void Mesh::SetGMGNeighbors() {
     for (auto &pmb : bl) {
       // Set relevant neighbors for this grid on pmb
       SetMeshBlockNeighbors(this, gmg_grids_[gmg_level], bl, ranklist);
-      
-      // Don't set inter-grid neighbors if this is a boundary block, since it is shared by another 
-      // multigrid level and its inter-grid neighbors will be set there
-      const bool boundary_block = cur_grid.type() == GridType::two_level_composite && pmb->loc.level() != cur_grid.logical_level();
+
+      // Don't set inter-grid neighbors if this is a boundary block, since it is shared by
+      // another multigrid level and its inter-grid neighbors will be set there
+      const bool boundary_block = cur_grid.type() == GridType::two_level_composite &&
+                                  pmb->loc.level() != cur_grid.logical_level();
       if (boundary_block) continue;
 
       // Coarser neighbor
@@ -338,20 +359,21 @@ void Mesh::SetGMGNeighbors() {
       if (gmg_grids_.count(gmg_level - 1)) {
         auto coarse_grid = gmg_grids_.at(gmg_level - 1);
         // By default assume that there is a block level coarsening between the two
-        // grids so that the blocks on both multi-grid levels have the same 
+        // grids so that the blocks on both multi-grid levels have the same
         // logical location
         auto coarse_loc = pmb->loc;
-        // If they have the same number of block level block_coarsenings, replace with 
+        // If they have the same number of block level block_coarsenings, replace with
         // the logical location of the parent block
         if (coarse_grid.block_coarsenings() == cur_grid.block_coarsenings())
-            coarse_loc = pmb->loc.GetParent();
-        
+          coarse_loc = pmb->loc.GetParent();
+
         int gid = forest.GetGid(coarse_loc, coarse_grid.block_coarsenings());
         if (gid >= 0) {
           int leaf_gid = forest.GetLeafGid(coarse_loc);
-          pmb->gmg_coarser_neighbors.emplace_back(
-              pmb->pmy_mesh, coarse_loc, coarse_loc, ranklist[leaf_gid], gid,
-              Kokkos::Array<int, 3>{0, 0, 0}, 0, 0, 0, 0, coarse_grid.block_coarsenings());
+          pmb->gmg_coarser_neighbors.emplace_back(pmb->pmy_mesh, coarse_loc, coarse_loc,
+                                                  ranklist[leaf_gid], gid,
+                                                  Kokkos::Array<int, 3>{0, 0, 0}, 0, 0, 0,
+                                                  0, coarse_grid.block_coarsenings());
           // No need to explicitly set ownership (which defaults to
           // true), since the coarse block owns all elements of all
           // of its daughter blocks
@@ -362,52 +384,60 @@ void Mesh::SetGMGNeighbors() {
       pmb->gmg_finer_neighbors.clear();
       pmb->gmg_self_neighbors.clear();
       const bool is_leaf = forest.GetGid(pmb->loc) == forest.GetLeafGid(pmb->loc);
-      
+
       // Possibilities:
-      // 1. This is a leaf block 
+      // 1. This is a leaf block
       //   a. It has zero internal coarsenings, so no finer neighbors
-      //   b. It has internal coarsenings, so one finer neighbor at the same logical location but with one less internal coarsening
-      // 2. This is an internal block, which implies it must be on a two-level composite grid and the next finer grid must also
+      //   b. It has internal coarsenings, so one finer neighbor at the same logical
+      //   location but with one less internal coarsening
+      // 2. This is an internal block, which implies it must be on a two-level composite
+      // grid and the next finer grid must also
       //    be a two-level composite grid
-      //   a. If the next finer grid has the same number of block coarsenings, it must have 2^D finer neighbors on that grid
-      //   b. Otherwise, there is a coarsening between the two-level composite grids
+      //   a. If the next finer grid has the same number of block coarsenings, it must
+      //   have 2^D finer neighbors on that grid b. Otherwise, there is a coarsening
+      //   between the two-level composite grids
       if (is_leaf) {
         if (pmb->block_coarsenings > 0) {
           int gid = forest.GetGid(pmb->loc, pmb->block_coarsenings - 1);
-          pmb->gmg_finer_neighbors.emplace_back(pmb->pmy_mesh, pmb->loc, pmb->loc, Globals::my_rank,
-                                                  gid, Kokkos::Array<int, 3>{0, 0, 0}, 0,
-                                                  0, 0, 0, pmb->block_coarsenings - 1); 
+          pmb->gmg_finer_neighbors.emplace_back(
+              pmb->pmy_mesh, pmb->loc, pmb->loc, Globals::my_rank, gid,
+              Kokkos::Array<int, 3>{0, 0, 0}, 0, 0, 0, 0, pmb->block_coarsenings - 1);
         }
-      } else { 
-        PARTHENON_REQUIRE(gmg_grids_.count(gmg_level + 1), "Must have a finer grid than this one if there is an internal block.");
+      } else {
+        PARTHENON_REQUIRE(
+            gmg_grids_.count(gmg_level + 1),
+            "Must have a finer grid than this one if there is an internal block.");
         auto fine_grid = gmg_grids_.at(gmg_level + 1);
-        if (fine_grid.block_coarsenings() == pmb->block_coarsenings) { 
+        if (fine_grid.block_coarsenings() == pmb->block_coarsenings) {
           for (auto &d : pmb->loc.GetDaughters(ndim)) {
             int gid = forest.GetGid(d, fine_grid.block_coarsenings());
             if (gid >= 0) {
               int leaf_gid = forest.GetLeafGid(d);
-              pmb->gmg_finer_neighbors.emplace_back(pmb->pmy_mesh, d, d, ranklist[leaf_gid],
-                                                    gid, Kokkos::Array<int, 3>{0, 0, 0}, 0,
-                                                    0, 0, 0, fine_grid.block_coarsenings());
+              pmb->gmg_finer_neighbors.emplace_back(pmb->pmy_mesh, d, d,
+                                                    ranklist[leaf_gid], gid,
+                                                    Kokkos::Array<int, 3>{0, 0, 0}, 0, 0,
+                                                    0, 0, fine_grid.block_coarsenings());
             }
-          }  
-        } else { 
-          PARTHENON_REQUIRE(fine_grid.block_coarsenings() == cur_grid.block_coarsenings() - 1, "Grids must be related by a single coarsening");
+          }
+        } else {
+          PARTHENON_REQUIRE(fine_grid.block_coarsenings() ==
+                                cur_grid.block_coarsenings() - 1,
+                            "Grids must be related by a single coarsening");
           int gid = forest.GetGid(pmb->loc, fine_grid.block_coarsenings());
-          pmb->gmg_finer_neighbors.emplace_back(pmb->pmy_mesh, pmb->loc, pmb->loc, Globals::my_rank,
-                                                  gid, Kokkos::Array<int, 3>{0, 0, 0}, 0,
-                                                  0, 0, 0, fine_grid.block_coarsenings()); 
+          pmb->gmg_finer_neighbors.emplace_back(
+              pmb->pmy_mesh, pmb->loc, pmb->loc, Globals::my_rank, gid,
+              Kokkos::Array<int, 3>{0, 0, 0}, 0, 0, 0, 0, fine_grid.block_coarsenings());
         }
       }
 
-      // Add the block as its own neighbor 
-      // so that when restricting/prolongating between two two_level_composite 
-      // grids, a block that lives on both levels communicates a message to itself, 
+      // Add the block as its own neighbor
+      // so that when restricting/prolongating between two two_level_composite
+      // grids, a block that lives on both levels communicates a message to itself,
       // which must be received before operations can be performed on the next level
       pmb->gmg_self_neighbors.emplace_back(
           pmb->pmy_mesh, pmb->loc, pmb->loc, Globals::my_rank, pmb->gid,
           Kokkos::Array<int, 3>{0, 0, 0}, 0, 0, 0, 0, pmb->block_coarsenings);
-      
+
       if (pmb->gmg_finer_neighbors.size() > 1) {
         // This block has multiple finer neighbors, so we need to set ownership
         // on shared elements in the interior of the coarse block. We do not need
@@ -420,7 +450,7 @@ void Mesh::SetGMGNeighbors() {
         for (auto &n : pmb->gmg_finer_neighbors)
           n.ownership = DetermineOwnership(n.loc, neighbor_locs);
       }
-    } 
+    }
   }
 }
 } // namespace parthenon

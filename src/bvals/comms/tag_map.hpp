@@ -78,7 +78,8 @@ class NeighborBlock;
 class TagMap {
   // Unique keys defined by a two-way communication channel
   using rank_pair_t = UnorderedPair<BlockGeometricElementId>;
-  // Map between a communication channel key (+ buffer id on that channel) and a unique MPI tag
+  // Map between a communication channel key (+ buffer id on that channel) and a unique
+  // MPI tag
   using rank_pair_map_t = std::map<std::pair<rank_pair_t, int>, int>;
   // Map of maps where the key corresponds to the MPI rank of the
   // other process

@@ -199,11 +199,9 @@ class MeshData {
   GridIdentifier grid;
   int partition{-1};
 
-  void SetBoundBufferId(BoundaryType btype, int id) { 
-    bound_buffer_ids_[btype] = id;
-  }
-  
-  int GetBoundBufferId(BoundaryType btype) const { 
+  void SetBoundBufferId(BoundaryType btype, int id) { bound_buffer_ids_[btype] = id; }
+
+  int GetBoundBufferId(BoundaryType btype) const {
     if (bound_buffer_ids_.count(btype)) return bound_buffer_ids_.at(btype);
     return 0;
   }
