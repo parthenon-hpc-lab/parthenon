@@ -26,6 +26,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -306,6 +307,37 @@ class Mesh {
   comm_buf_map_t boundary_comm_map;
   TagMap tag_map;
 
+  // Sets the number of communication buffers that can be in-flight concurrently
+  // for a given boundary type. This *must* be called before build boundary buffers
+  // is called internally, so use beyond the defaults with care
+  void SetNumberOfCommChannels(BoundaryType bound, std::size_t n_channels) {
+    if (locked_comm_channel_numbers_.count(bound))
+      PARTHENON_FAIL("Trying to reset the number of comm channels after boundary buffers "
+                     "have been set up.");
+    if (number_of_comm_channels_.count(bound) &&
+        number_of_comm_channels_[bound] > n_channels)
+      PARTHENON_WARN(
+          "You are reducing the number of comm channels from a previously set value.");
+    number_of_comm_channels_[bound] = n_channels;
+
+    // Need to set the complementary channels to the same value
+    if (!IsSender(bound))
+      number_of_comm_channels_[GetAssociatedSender(bound)] = n_channels;
+    if (!IsReceiver(bound))
+      number_of_comm_channels_[GetAssociatedReceiver(bound)] = n_channels;
+  }
+
+  void LockCommChannelNumbers(BoundaryType bound) {
+    locked_comm_channel_numbers_.insert(GetAssociatedSender(bound));
+    locked_comm_channel_numbers_.insert(GetAssociatedReceiver(bound));
+  }
+
+  std::size_t GetNumberOfCommChannels(BoundaryType bound) const {
+    if (number_of_comm_channels_.count(bound)) return number_of_comm_channels_.at(bound);
+    // We default to only having a single communication channel
+    return 1;
+  }
+
   std::shared_ptr<CoalescedComms> pcoalesced_comms;
 
   bool TryReallocCommBufferPools();
@@ -365,6 +397,8 @@ class Mesh {
   // the last 4x should be std::size_t, but are limited to int by MPI
   // Refinement tags used by MeshData checks
   ParArray1D<AmrTag> amr_tags;
+  std::map<BoundaryType, std::size_t> number_of_comm_channels_;
+  std::set<BoundaryType> locked_comm_channel_numbers_;
 
   std::vector<LogicalLocation> loclist;
 

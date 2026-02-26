@@ -44,7 +44,6 @@ struct MGParams {
   bool do_FAS = true;
   std::string presmoother = "SRJ2";
   std::string postsmoother = "SRJ2";
-  bool two_by_two_diagonal = false;
   int max_coarsenings = std::numeric_limits<int>::max();
   std::string prolongation = "OldLinear";
 
@@ -53,15 +52,22 @@ struct MGParams {
     max_iters = pin->GetOrAddInteger(input_block, "max_iterations", max_iters);
     residual_tolerance =
         pin->GetOrAddReal(input_block, "residual_tolerance", residual_tolerance);
-    do_FAS = pin->GetOrAddBoolean(input_block, "do_FAS", do_FAS);
-    std::string smoother = pin->GetOrAddString(input_block, "smoother", "SRJ2");
-    presmoother = pin->GetOrAddString(input_block, "presmoother", smoother);
-    postsmoother = pin->GetOrAddString(input_block, "postsmoother", smoother);
+    do_FAS = pin->GetOrAddBoolean(
+        input_block, "do_FAS", do_FAS,
+        "Use the full approximation scheme in multigrid, required for amr.");
+    std::string smoother =
+        pin->GetOrAddString(input_block, "smoother", "SRJ2", {"SRJ1", "SRJ2", "SRJ3"},
+                            "Default value of the pre- and post-smoother in multigrid.");
+    presmoother =
+        pin->GetOrAddString(input_block, "presmoother", smoother,
+                            {"SRJ1", "SRJ2", "SRJ3"}, "Pre-smoother used in multigrid.");
+    postsmoother =
+        pin->GetOrAddString(input_block, "postsmoother", smoother,
+                            {"SRJ1", "SRJ2", "SRJ3"}, "Post-smoother used in multigrid.");
     prolongation = pin->GetOrAddString(input_block, "prolongation", prolongation);
-    two_by_two_diagonal =
-        pin->GetOrAddBoolean(input_block, "two_by_two_diagonal", two_by_two_diagonal);
-    max_coarsenings =
-        pin->GetOrAddInteger(input_block, "max_coarsenings", max_coarsenings);
+    max_coarsenings = pin->GetOrAddInteger(
+        input_block, "max_coarsenings", max_coarsenings,
+        "Maximum number of levels to include in the multigrid hierarchy.");
   }
 };
 

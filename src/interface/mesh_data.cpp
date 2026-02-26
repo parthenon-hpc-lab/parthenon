@@ -44,6 +44,15 @@ void MeshData<T>::SetMeshProperties(Mesh *pmesh) {
   ndim_ = pmesh == nullptr ? 0 : pmesh->ndim;
 }
 
+template <typename T>
+void MeshData<T>::SetBoundBufferId(BoundaryType btype, int id) {
+  PARTHENON_REQUIRE(id < pmy_mesh_->GetNumberOfCommChannels(btype),
+                    "Trying to set MeshData to communicate on a non-existent channel.");
+  // We do not enforce symmetry here between associated senders and
+  // receivers for maximum flexibility.
+  bound_buffer_ids_[btype] = id;
+}
+
 template class MeshData<Real>;
 
 } // namespace parthenon

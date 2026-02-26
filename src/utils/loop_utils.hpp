@@ -73,7 +73,7 @@ inline auto &GetNeighborsOnCoarserGMGGrid(MeshBlock *pmb, const GridIdentifier &
   if (grid.type() == GridType::two_level_composite &&
       pmb->loc.level() != grid.logical_level()) {
     // This is a boundary block on a two-level composite grid, its
-    // data is up to date but it needs to send a message to itself
+    // data is up to date but it needs to send a dummy message to itself
     // on the next coarser grid for synchronization
     return pmb->GetGMGSelfNeighbors();
   }
@@ -86,7 +86,7 @@ inline auto &GetNeighborsOnFinerGMGGrid(MeshBlock *pmb, const GridIdentifier &gr
       finer_grid.block_coarsenings() == grid.block_coarsenings() &&
       pmb->loc.level() == grid.logical_level() && pmb->IsLeafLL()) {
     // This is a boundary block on a two-level composite grid below this
-    // one, its data is up to date but it needs to send a message to itself
+    // one, its data is up to date but it needs to send a dummy message to itself
     // on the next coarser grid for synchronization
     return pmb->GetGMGSelfNeighbors();
   }

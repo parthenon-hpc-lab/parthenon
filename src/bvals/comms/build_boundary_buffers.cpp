@@ -117,7 +117,8 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
 
     // Build send buffer (unless this is a receiving flux boundary)
     if constexpr (IsSender(BTYPE)) {
-      for (int id = 0; id <= (BTYPE == BoundaryType::gmg_restrict_send); ++id) {
+      pmesh->LockCommChannelNumbers(BTYPE);
+      for (int id = 0; id < pmesh->GetNumberOfCommChannels(BTYPE); ++id) {
         auto s_key = SendKey(pmb, nb, v, BTYPE, id);
         const int tag = pmesh->tag_map.GetTag(pmb, nb, id);
         if (buf_map.count(s_key) == 0)
@@ -130,7 +131,8 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     // Also build the non-local receive buffers here
     if constexpr (IsReceiver(BTYPE)) {
       if (sender_rank != receiver_rank) {
-        for (int id = 0; id <= (BTYPE == BoundaryType::gmg_restrict_recv); ++id) {
+        pmesh->LockCommChannelNumbers(BTYPE);
+        for (int id = 0; id < pmesh->GetNumberOfCommChannels(BTYPE); ++id) {
           auto r_key = ReceiveKey(pmb, nb, v, BTYPE, id);
           const int tag = pmesh->tag_map.GetTag(pmb, nb, id);
           if (buf_map.count(r_key) == 0)

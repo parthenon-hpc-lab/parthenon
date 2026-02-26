@@ -43,7 +43,7 @@ namespace parthenon {
 BndId BndId::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
                      std::shared_ptr<Variable<Real>> v, BoundaryType b_type,
                      int partition, int start_idx) {
-  // TODO: This needs to be fixed for unique buffer ids
+  // TODO(LFR): This needs to be fixed for unique buffer ids
   auto [send_gid, recv_gid, vlabel, loc, extra_id] = SendKey(pmb, nb, v, b_type, 0);
   BndId out;
   out.send_gid() = send_gid;

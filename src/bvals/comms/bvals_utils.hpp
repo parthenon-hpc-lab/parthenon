@@ -54,11 +54,13 @@ inline Mesh::channel_key_t SendKey(const MeshBlock *pmb, const NeighborBlock &nb
   const int sender_id = pmb->gid;
   const int receiver_id = nb.gid;
   const int location_idx = nb.offsets.GetIdx();
-  int other = (nb.gid == pmb->gid && (btype == BoundaryType::gmg_restrict_recv ||
-                                      btype == BoundaryType::gmg_restrict_send))
-                  ? 1
-                  : 0;
-  other += 2 * id;
+
+  int gmg_self_comm = (nb.gid == pmb->gid && (btype == BoundaryType::gmg_restrict_recv ||
+                                              btype == BoundaryType::gmg_restrict_send))
+                          ? 1
+                          : 0;
+  int other =
+      gmg_self_comm + 2 * id; // Combine the id and gmg_self_comm into a single tag
   return {sender_id, receiver_id, pcv->label(), location_idx, other};
 }
 
@@ -68,11 +70,12 @@ inline Mesh::channel_key_t ReceiveKey(const MeshBlock *pmb, const NeighborBlock 
   const int receiver_id = pmb->gid;
   const int sender_id = nb.gid;
   const int location_idx = nb.lcoord_trans.Transform(nb.offsets).GetReverseIdx();
-  int other = (nb.gid == pmb->gid && (btype == BoundaryType::gmg_restrict_recv ||
-                                      btype == BoundaryType::gmg_restrict_send))
-                  ? 1
-                  : 0;
-  other += 2 * id;
+  int gmg_self_comm = (nb.gid == pmb->gid && (btype == BoundaryType::gmg_restrict_recv ||
+                                              btype == BoundaryType::gmg_restrict_send))
+                          ? 1
+                          : 0;
+  int other =
+      gmg_self_comm + 2 * id; // Combine the id and gmg_self_comm into a single tag
   return {sender_id, receiver_id, pcv->label(), location_idx, other};
 }
 

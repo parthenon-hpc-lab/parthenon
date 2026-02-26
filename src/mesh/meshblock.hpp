@@ -453,6 +453,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                                  std::forward<Args>(args)...);
   }
 
+  // Checks if the LogicalLocation of this block is a leaf logical location
   bool IsLeafLL() const { return is_leaf_ll_; }
 
  private:
