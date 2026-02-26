@@ -212,6 +212,8 @@ class RestrictionDefault {
 };
 
 class RestrictionCombined {
+  // This Restriction class is an example that is only correct for uniform
+  // cartesian coordinates
  public:
   RestrictionCombined() = default;
   RestrictionCombined(parthenon::ParameterInput *pin, const std::string &label) {}

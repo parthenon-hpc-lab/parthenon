@@ -56,14 +56,14 @@ enum class LoopControl { cont, break_out };
 // out of the loop if desired
 template <class F, class... Args>
 inline auto func_caller(F func, Args &&...args) -> typename std::enable_if<
-    std::is_same<decltype(func(std::declval<Args>()...)), LoopControl>::value,
+    std::is_same<decltype(func(std::forward<Args>(args)...)), LoopControl>::value,
     LoopControl>::type {
   return func(std::forward<Args>(args)...);
 }
 
 template <class F, class... Args>
 inline auto func_caller(F func, Args &&...args) -> typename std::enable_if<
-    !std::is_same<decltype(func(std::declval<Args>()...)), LoopControl>::value,
+    !std::is_same<decltype(func(std::forward<Args>(args)...)), LoopControl>::value,
     LoopControl>::type {
   func(std::forward<Args>(args)...);
   return LoopControl::cont;
@@ -75,9 +75,9 @@ inline auto &GetNeighborsOnCoarserGMGGrid(MeshBlock *pmb, const GridIdentifier &
     // This is a boundary block on a two-level composite grid, its
     // data is up to date but it needs to send a message to itself
     // on the next coarser grid for synchronization 
-    return pmb->gmg_self_neighbors;
+    return pmb->GetGMGSelfNeighbors();
   } 
-  return pmb->gmg_coarser_neighbors; 
+  return pmb->GetGMGCoarserNeighbors(); 
 }
 
 inline auto &GetNeighborsOnFinerGMGGrid(MeshBlock *pmb, const GridIdentifier &grid) { 
@@ -89,9 +89,9 @@ inline auto &GetNeighborsOnFinerGMGGrid(MeshBlock *pmb, const GridIdentifier &gr
     // This is a boundary block on a two-level composite grid below this
     // one, its data is up to date but it needs to send a message to itself
     // on the next coarser grid for synchronization 
-    return pmb->gmg_self_neighbors;
+    return pmb->GetGMGSelfNeighbors();
   } 
-  return pmb->gmg_finer_neighbors;
+  return pmb->GetGMGFinerNeighbors();
 }
 
 // Loop over boundaries (or shared geometric elements) for blocks contained
@@ -106,9 +106,9 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
-    auto *gmg_same = pmb->loc.level() == md->grid.logical_level()
-                         ? &(pmb->gmg_same_neighbors)
-                         : &(pmb->gmg_composite_finer_neighbors);
+    const auto &gmg_same = pmb->loc.level() == md->grid.logical_level()
+                         ? pmb->GetGMGSameNeighbors()
+                         : pmb->GetGMGCompositeFinerNeighbors();
     for (auto &v : rc->GetVariableVector()) {
       if constexpr (bound == BoundaryType::gmg_restrict_send) {
         if (v->IsSet(Metadata::GMGRestrict)) {
@@ -137,7 +137,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
       } else if constexpr (bound == BoundaryType::gmg_same) {
         if (v->IsSet(Metadata::FillGhost)) {
           if (md->grid.type() == GridType::two_level_composite) {
-            for (auto &nb : *gmg_same) {
+            for (auto &nb : gmg_same) {
               if (pmb->loc.level() == fine_level || nb.loc.level() == fine_level) {
                 if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
                   return;
@@ -145,7 +145,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
               }
             }
           } else { 
-            for (auto &nb : pmb->neighbors) {
+            for (auto &nb : pmb->GetNeighbors()) {
               if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
             }
           }
@@ -154,7 +154,8 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
         if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::Flux)) {
           [[maybe_unused]] constexpr bool flx_bound =
               bound == BoundaryType::flxcor_send || bound == BoundaryType::flxcor_recv;
-          for (auto &nb : pmb->neighbors) {
+          const auto &neighbors = pmb->GetNeighbors();
+          for (const auto &nb : neighbors) {
             if constexpr (bound == BoundaryType::local) {
               if (!v->IsSet(Metadata::FillGhost)) continue;
               if (nb.rank != Globals::my_rank) continue;

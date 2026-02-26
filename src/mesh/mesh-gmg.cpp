@@ -38,6 +38,7 @@
 #include "interface/update.hpp"
 #include "mesh/forest/forest.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/mesh_neighbors.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
@@ -46,9 +47,14 @@
 
 namespace parthenon {
 
-void Mesh::SetMeshBlockNeighbors(
-    GridIdentifier grid_id, BlockList_t &block_list, const std::vector<int> &ranklist,
-    const std::unordered_set<LogicalLocation> &newly_refined) {
+void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &block_list,
+                           const std::vector<int> &ranklist,
+                           const std::unordered_set<LogicalLocation> &newly_refined) {
+  // Extract frequently used variables
+  const int ndim = pmesh->ndim;
+  const bool multilevel = pmesh->multilevel;
+  const forest::Forest &forest = pmesh->forest;
+
   Indexer3D offsets({ndim > 0 ? -1 : 0, ndim > 0 ? 1 : 0},
                     {ndim > 1 ? -1 : 0, ndim > 1 ? 1 : 0},
                     {ndim > 2 ? -1 : 0, ndim > 2 ? 1 : 0});
@@ -92,6 +98,10 @@ void Mesh::SetMeshBlockNeighbors(
 
     if (grid_id.type() == GridType::leaf) {
       pmb->neighbors = all_neighbors;
+      pmb->has_coarser_neighbors_ = false;  
+      for (const auto &n : all_neighbors) {
+        if (n.loc.level() < pmb->loc.level()) pmb->has_coarser_neighbors_ = true;
+      }
     } else if (grid_id.type() == GridType::two_level_composite &&
                pmb->loc.level() == grid_id.logical_level()) {
       pmb->gmg_same_neighbors = all_neighbors;
@@ -316,7 +326,7 @@ void Mesh::SetGMGNeighbors() {
     auto cur_grid = gmg_grids_[gmg_level];
     for (auto &pmb : bl) {
       // Set relevant neighbors for this grid on pmb
-      SetMeshBlockNeighbors(gmg_grids_[gmg_level], bl, ranklist);
+      SetMeshBlockNeighbors(this, gmg_grids_[gmg_level], bl, ranklist);
       
       // Don't set inter-grid neighbors if this is a boundary block, since it is shared by another 
       // multigrid level and its inter-grid neighbors will be set there

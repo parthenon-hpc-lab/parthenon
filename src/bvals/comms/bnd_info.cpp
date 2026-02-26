@@ -441,13 +441,7 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
   // This will select a superset of the boundaries that actually need to be restricted,
   // more logic could be added to only restrict boundary regions that abut boundary
   // regions that were filled by coarser neighbors
-  bool restricted = false;
-  int mylevel = pmb->loc.level();
-  if (mylevel > 0) {
-    for (const auto &nb : pmb->neighbors) {
-      restricted = restricted || (nb.origin_loc.level() == (mylevel - 1));
-    }
-  }
+  bool restricted = pmb->HasCoarserNeighbors();
 
   for (auto el : v->GetTopologicalElements()) {
     out.IncludeTopoEl(el) = true;

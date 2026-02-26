@@ -269,7 +269,8 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
   if (only_interior_blocks) {
     // The neighbors array will only be set for a block if its a leaf block
     for (int b = 0; b < nblocks; ++b)
-      include_block[b] = md->GetBlockData(b)->GetBlockPointer()->neighbors.size() == 0;
+      include_block[b] =
+          md->GetBlockData(b)->GetBlockPointer()->GetNeighbors().size() == 0;
   }
 
   static auto desc = parthenon::MakePackDescriptor<a_t, b_t, out_t>(md.get());
