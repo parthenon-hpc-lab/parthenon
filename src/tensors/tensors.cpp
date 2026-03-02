@@ -82,8 +82,17 @@ void GramSVDStorage::ComputeSVD(const int Rn, const int nnzL, const int nnzR) {
     return;
   }
 
+  printf("M:\n");
+  PrintRealMat(M(), Rn);
+
   // regular case
   SquareSVD::execute(&M(), &SVDU(), &SVDV(), SVDS().data());
+  printf("U:\n");
+  PrintRealMat(SVDU(), Rn);
+  printf("V:\n");
+  PrintRealMat(SVDV(), Rn);
+  printf("S:\n");
+  PrintRealVec(SVDS(), Rn);
 }
 
 // ============================================================

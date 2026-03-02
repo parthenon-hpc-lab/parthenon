@@ -34,8 +34,11 @@ Real safe_sqrt(const Real a) { return std::sqrt(std::max(a, Real(0.))); }
 
 // unmanaged 2d and 3d kokkos view spiel
 using DevSpace = parthenon::DevMemSpace;
+using ScratchSpace = Kokkos::ScratchMemorySpace<DevSpace>;
 using View2DUnmanaged = Kokkos::View<double **, Kokkos::LayoutRight, DevSpace,
                                      Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+// using View2DUnmanaged = Kokkos::View<double **, Kokkos::LayoutRight, ScratchSpace,
+//                                      Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 using View3DUnmanaged = Kokkos::View<double ***, Kokkos::LayoutRight, DevSpace,
                                      Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 
@@ -77,10 +80,12 @@ class GramSVDStorage {
   using ExecSpace = parthenon::DevExecSpace;
   using ScratchSpace = Kokkos::ScratchMemorySpace<ExecSpace>;
 
+  // TODO(@SWJ): also make the RealCore a scratchpad1d because why not, the views wrap it as 3d
   using RealCoreStorage = ScratchPad3D<Real>;
   using RealCoreView = Kokkos::View<Real ***, Kokkos::LayoutStride, ScratchSpace,
                                     Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 
+  // TODO(@SWJ): make the RealMat a scratchpad1d because why not, the views wrap it as 2d
   using RealMat = ScratchPad2D<Real>;
   using RealVec = ScratchPad1D<Real>;
   using IntVec = ScratchPad1D<int>;
@@ -116,11 +121,16 @@ class GramSVDStorage {
   // Resize rank-sized views
   // ============================================================
 
+  // TODO(@SWJ) these should probably really be Kokkos::Views with LayoutRight
+  // and specified dimensions so that we are *really* accessing contiguous
+  // memory. Subviews preserve the stride of the original maximally sized 2d
+  // array
   KOKKOS_INLINE_FUNCTION
   void ResizeRankViews(int Rn, int evd_scratch_n) {
     for (int i = 0; i < NumRealMatrices; ++i)
-      real_mats_view_[i] = Kokkos::subview(real_mats_storage_[i], std::make_pair(0, Rn),
+      real_mats_view_[i] = Kokkos::subview(real_mats_storage_[i], std::make_pair(-1, Rn),
                                            std::make_pair(0, Rn));
+      // real_mats_view_[i] = View2DUnmanaged(&real_mats_storage_[i](0,0), Rn, Rn);
 
     for (int i = 0; i < NumRealVecs; ++i)
       real_vecs_view_[i] = Kokkos::subview(real_vecs_storage_[i], std::make_pair(0, Rn));
@@ -308,8 +318,9 @@ class TensorCoreDevice {
   KOKKOS_INLINE_FUNCTION
   std::size_t GetPhysicalIndexSize() const { return shape_[1]; }
 
-  KOKKOS_INLINE_FUNCTION
-  void SetShape(const int rL, const int PIS, const int rR) {
+  // set shape on device
+  KOKKOS_FUNCTION
+  void SetShape(const int rL, const int PIS, const int rR) const {
     shape_[0] = rL;
     shape_[1] = PIS;
     shape_[2] = rR;
@@ -349,7 +360,22 @@ class TensorCoreHost {
         data_host_(iL, iR) = pool.GetPool(c).Get();
       }
     }
-    Kokkos::deep_copy(data_device_, data_host_);
+    // This deep copy doesn't work because types are mismatched between host and device
+    // Kokkos::pdeep_copy(data_device_, data_host_);
+    
+    // Instead:
+    // Create a host mirror of the device view
+    auto data_device_mirror = Kokkos::create_mirror_view(data_device_);
+
+    // Fill the mirror from the host view
+    for (std::size_t iL = 0; iL < rL; iL++) {
+      for (std::size_t iR = 0; iR < rR; iR++) {
+        data_device_mirror(iL, iR) = data_host_(iL, iR);
+      }
+    }
+
+    // Copy mirror to device
+    Kokkos::deep_copy(data_device_, data_device_mirror);
   }
 
   Real &operator()(int iL, int ic, int iR) const { return data_host_(iL, iR)[ic]; }
@@ -372,21 +398,29 @@ class TensorCoreHost {
     Kokkos::deep_copy(shape_host_, shape_);
     // TODO(JMM) Currently assumes the new shape is less than the old
     // one. Maybe we want to relax this
-    PARTHENON_REQUIRE_THROWS(shape_host_[0] <= data_host_.extent(0),
+    PARTHENON_REQUIRE_THROWS(shape_host_(0) <= data_host_.extent(0),
                              "left index shrinks");
-    PARTHENON_REQUIRE_THROWS(shape_host_[2] <= data_host_.extent(1),
+    PARTHENON_REQUIRE_THROWS(shape_host_(2) <= data_host_.extent(1),
                              "right index shrinks");
 
     core_data_host_t new_data_host(ViewOfViewAlloc<HostMemSpace>("tensor core host"),
-                                   shape_[0], shape_[2]);
-    core_data_device_t new_data_device(ViewOfViewAlloc("tensor core device"), shape_[0],
-                                       shape_[2]);
-    for (std::size_t iL = 0; iL < shape_[0]; iL++) {
-      for (std::size_t iR = 0; iR < shape_[2]; iR++) {
+                                   shape_host_(0), shape_host_(2));
+    core_data_device_t new_data_device(ViewOfViewAlloc("tensor core device"), shape_host_(0),
+                                       shape_host_(2));
+    
+    // we have to use a mirror to copy to device again
+    auto mirror = Kokkos::create_mirror_view(new_data_device);
+
+    for (std::size_t iL = 0; iL < shape_host_(0); iL++) {
+      for (std::size_t iR = 0; iR < shape_host_(2); iR++) {
         new_data_host(iL, iR) = data_host_(iL, iR);
+        mirror(iL, iR) = new_data_host(iL, iR);
       }
     }
-    Kokkos::deep_copy(new_data_device, new_data_host);
+    // this deep copy doesn't work on device because the types are different. use a mirror instead
+    // Kokkos::deep_copy(new_data_device, new_data_host);
+    Kokkos::deep_copy(new_data_device, mirror);
+
     data_host_ = new_data_host;
     data_device_ = new_data_device;
   }
@@ -481,7 +515,7 @@ class TensorTrain {
   // This assumes that the full rank tensor has 3 dimensions, just for testing.
   // For generality, we would need to support arbitrary dimensionality of
   // parthenon arrays or a clever indexer function with arbitrary dimension
-  auto ToDenseArray3D() const {
+  ParArrayND<Real> ToDenseArray3D() const {
     // Jump through a lot of stupid hoops to generate a ParArrayND
     // TODO(JMM): Only works for howevery many dims ParArrayND supports
     PARTHENON_REQUIRE_THROWS(
@@ -504,34 +538,6 @@ class TensorTrain {
             }
           }
         });
-    return out;
-  }
-
-  // Dense matrix for 2-core TT (for debugging Gram logic)
-  auto ToDenseArray2D() const {
-
-    PARTHENON_REQUIRE(cores_host_.size() == 2,
-                      "ToDenseMatrix2D requires exactly 2 cores");
-
-    const std::size_t I0 = cores_host_[0].GetPhysicalIndexSize();
-    const std::size_t I1 = cores_host_[1].GetPhysicalIndexSize();
-
-    Kokkos::View<Real **> out("dense2d", I0, I1);
-
-    par_for(
-        PARTHENON_AUTO_LABEL, 0, I0 - 1, 0, I1 - 1,
-        KOKKOS_CLASS_LAMBDA(const int i0, const int i1) {
-          Real val = 0.0;
-
-          // Sum over internal bond
-          for (std::size_t r = 0; r < cores_device_(0).GetRightRank(); ++r) {
-
-            val += cores_device_(0)(0, i0, r) * cores_device_(1)(r, i1, 0);
-          }
-
-          out(i0, i1) = val;
-        });
-
     return out;
   }
 

@@ -53,7 +53,9 @@ SCENARIO("Parthenon Tensor Cores", "[TensorCores]") {
               PARTHENON_AUTO_LABEL, 0, 0, 0, rl - 1, 0, rr - 1,
               KOKKOS_LAMBDA(parthenon::team_mbr_t mbr, const int il, const int ir) {
                 parthenon::par_for_inner(
-                    mbr, 0, nc - 1, KOKKOS_LAMBDA(const int ic) {
+                    mbr, 0, nc - 1, 
+                    // KOKKOS_LAMBDA(const int ic) {
+                      [&](const int ic) {
                       tc_d(il, ic, ir) = 100 * il + 10 * ic + ir;
                     });
               });
@@ -80,7 +82,7 @@ SCENARIO("Parthenon Tensor Cores", "[TensorCores]") {
   }
 }
 
-SCENARIO("Parthenon tensor trains", "[TensorTrains]") {
+SCENARIO("Parthenon tensor trains", "[TensorTrains][Add]") {
   GIVEN("Six cores") {
     constexpr std::size_t NCORES_PER_TRAIN = 3;
     constexpr std::size_t NC[NCORES_PER_TRAIN] = {4, 5, 6};
@@ -247,7 +249,14 @@ SCENARIO("TensorTrain Resizing", "[TensorTrains][Resize]") {
     Kokkos::fence();
 
     // set the new shape (needs to be done on device)
-    core_device.SetShape(shape_after[0], shape_after[1], shape_after[2]);
+    // core_device.SetShape(shape_after[0], shape_after[1], shape_after[2]);
+    parthenon::par_for(
+        PARTHENON_AUTO_LABEL, 0, 0,
+        KOKKOS_LAMBDA(const int) { 
+          core_device.SetShape(shape_after[0], shape_after[1], shape_after[2]); 
+        });
+
+    Kokkos::fence();
 
     // now resize on host
     core_host.ResizeToNewShape();
