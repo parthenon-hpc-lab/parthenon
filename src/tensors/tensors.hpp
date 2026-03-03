@@ -508,6 +508,18 @@ class TensorTrain {
     return max_physical_index_size;
   }
 
+  // After resizing a core (on host) following rounding, the device cores are now stale
+  // and need to be updated as well
+  void SyncDeviceCores() {
+    auto mirror = Kokkos::create_mirror_view(cores_device_);
+
+    for (int i = 0; i < GetNumCores(); ++i) {
+      mirror(i) = cores_host_(i).GetOnDevice();
+    }
+
+    Kokkos::deep_copy(cores_device_, mirror);
+  }
+
   // Evaluates the tensor train and returns the dense array it
   // represents as a Kokkos view. This is mostly for debugging!
   // TODO(JMM): I am giving up on doing this generically. It's not

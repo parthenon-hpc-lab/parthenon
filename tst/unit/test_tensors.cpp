@@ -272,13 +272,16 @@ SCENARIO("TensorTrain Resizing", "[TensorTrains][Resize]") {
     // In the resize, the data was already copied from device to host.
 
     THEN("Data in kept block is preserved") {
-      for (int iL = 0; iL < shape_after[0]; iL++) {
-        for (int iR = 0; iR < shape_after[2]; iR++) {
-          for (int ic = 0; ic < shape_after[1]; ic++) {
-            REQUIRE(core_host(iL, ic, iR) == 100 * iL + 10 * iR + ic);
-          }
-        }
-      }
+      int nwrong = 0;
+      parthenon::par_reduce(
+          PARTHENON_AUTO_LABEL, 0, shape_after[0] - 1, 0, shape_after[2] - 1, 0, shape_after[1] - 1,
+          KOKKOS_LAMBDA(const int il, const int ir, const int ic, int &nw) {
+            if (core_host(il, ic, ir) != 100 * il + 10 * ir + ic) {
+              nw += 1;
+            }
+          },
+          nwrong);
+      REQUIRE(nwrong == 0);
     }
   }
 }

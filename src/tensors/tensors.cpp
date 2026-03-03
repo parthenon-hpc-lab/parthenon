@@ -480,6 +480,9 @@ void TensorTrain::GramSVDRound(const Real eps) {
   for (int n = 0; n < GetNumCores(); n++) {
     cores_host_(n).ResizeToNewShape();
   }
+  // Sync the device cores to reflect the new resized cores on host
+  SyncDeviceCores();
+  Kokkos::fence();
 }
 
 // This is Algorithm 5 in Al Daas et al. Note the sqrt(sigma) used in both L/R
