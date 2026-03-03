@@ -350,6 +350,7 @@ class phdf:
             )
 
             idx_i += num_components
+
     def close(self):
         try:
             self.fid.close()
@@ -362,7 +363,7 @@ class phdf:
     def __exit__(self, exc_type, exc, tb):
         self.close()
         return False
-     
+
     def GenAuxData(self):
         """
         Additional attributes filled in by function GenAuxData():
