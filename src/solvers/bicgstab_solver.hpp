@@ -40,6 +40,8 @@ struct BiCGSTABParams {
   MGParams mg_params;
   int max_iters = 1000;
   std::shared_ptr<Real> residual_tolerance = std::make_shared<Real>(1.e-12);
+  std::shared_ptr<Real> relative_residual_tolerance = std::make_shared<Real>(0.0);
+  std::shared_ptr<Real> absolute_residual_tolerance = std::make_shared<Real>(0.0);
   Preconditioner precondition_type = Preconditioner::Multigrid;
   bool print_per_step = false;
   bool relative_residual = false;
@@ -49,6 +51,19 @@ struct BiCGSTABParams {
     max_iters = pin->GetOrAddInteger(input_block, "max_iterations", max_iters);
     *residual_tolerance =
         pin->GetOrAddReal(input_block, "residual_tolerance", *residual_tolerance);
+    relative_residual =
+        pin->GetOrAddBoolean(input_block, "relative_residual", relative_residual);
+    if (relative_residual) {
+      *relative_residual_tolerance =
+      pin->GetOrAddReal(input_block, "relative_residual_tolerance", *residual_tolerance);
+      *absolute_residual_tolerance =
+      pin->GetOrAddReal(input_block, "absolute_residual_tolerance", 0.0);
+    } else {
+      *relative_residual_tolerance =
+      pin->GetOrAddReal(input_block, "relative_residual_tolerance", 0.0);
+      *absolute_residual_tolerance =
+      pin->GetOrAddReal(input_block, "absolute_residual_tolerance", *residual_tolerance);
+    }
     bool precondition = pin->GetOrAddBoolean(input_block, "precondition", true);
     std::string precondition_str =
         pin->GetOrAddString(input_block, "preconditioner", "Multigrid");
@@ -61,8 +76,7 @@ struct BiCGSTABParams {
     }
     print_per_step = pin->GetOrAddBoolean(input_block, "print_per_step", print_per_step);
     mg_params = MGParams(pin, input_block);
-    relative_residual =
-        pin->GetOrAddBoolean(input_block, "relative_residual", relative_residual);
+    
     volume_weight = pin->GetOrAddBoolean(input_block, "volume_weight", volume_weight,
                                          "Volume weight fields in dot products.");
   }
@@ -199,19 +213,17 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
         this, pmesh);
     tl.AddTask(
         TaskQualifier::once_per_region, initialize, "print to screen",
-        [&](BiCGSTABSolver *solver, std::shared_ptr<Real> res_tol, bool relative_residual,
+        [&](BiCGSTABSolver *solver, std::shared_ptr<Real> abs_res_tol, std::shared_ptr<Real> rel_res_tol,
             Mesh *pm) {
           if (Globals::my_rank == 0 && params_.print_per_step) {
-            Real tol = relative_residual
-                           ? *res_tol * std::sqrt(solver->rhs2 / pm->GetTotalCells())
-                           : *res_tol;
-            printf("# [0] v-cycle\n# [1] rms-residual (tol = %e) \n# [2] rms-error\n",
-                   tol);
+            Real res_tol = *rel_res_tol * std::sqrt(solver->rhs2 / pm->GetTotalCells());
+            printf("# [0] v-cycle\n# [1] rms-residual (abs_tol = %e, rel_tol = %e) \n# [2] rms-error\n",
+                   *abs_res_tol, res_tol);
             printf("0 %e\n", std::sqrt(solver->rhs2 / pm->GetTotalCells()));
           }
           return TaskStatus::complete;
         },
-        this, params_.residual_tolerance, params_.relative_residual, pmesh);
+        this, params_.absolute_residual_tolerance, params_.relative_residual_tolerance, pmesh);
 
     // BEGIN ITERATIVE TASKS
     auto [itl, solver_id] = tl.AddSublist(initialize, {1, params_.max_iters});
@@ -383,22 +395,21 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     auto check = itl.AddTask(
         TaskQualifier::completion, update_p | correct_x, "rhat0r_old <- rhat0r",
         [partition](BiCGSTABSolver *solver, Mesh *pmesh, int max_iter,
-                    std::shared_ptr<Real> res_tol, bool relative_residual) {
+                    std::shared_ptr<Real> abs_res_tol, std::shared_ptr<Real> rel_res_tol) {
           Real rms_res = std::sqrt(solver->res_rhat0r.val[0] / pmesh->GetTotalCells());
           solver->final_residual = rms_res;
           solver->final_iteration = solver->iter_counter;
-          Real tol = relative_residual
-                         ? *res_tol * std::sqrt(solver->rhs2 / pmesh->GetTotalCells())
-                         : *res_tol;
-          if (rms_res < tol || solver->iter_counter >= max_iter) {
+          Real rel_tol = *rel_res_tol * std::sqrt(solver->rhs2 / pmesh->GetTotalCells()); 
+          if ((rms_res < rel_tol) || (rms_res < *abs_res_tol) || (solver->iter_counter >= max_iter)) {
             solver->final_residual = rms_res;
             solver->final_iteration = solver->iter_counter;
             return TaskStatus::complete;
           }
           return TaskStatus::iterate;
         },
-        this, pmesh, params_.max_iters, params_.residual_tolerance,
-        params_.relative_residual);
+        this, pmesh, params_.max_iters,
+        params_.absolute_residual_tolerance,
+        params_.relative_residual_tolerance);
     timer_res->StopCollectingTasks();
     return tl.AddTask(solver_id, TF(CopyData<FieldTL>), md_x, md_u);
   }
