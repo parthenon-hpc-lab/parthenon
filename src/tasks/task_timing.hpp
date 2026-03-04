@@ -48,6 +48,7 @@ class TimingAccumulator : public std::enable_shared_from_this<TimingAccumulator>
  private:
   bool collecting{false};
   std::vector<timing_chunk_t> timings;
+  Real total_time;
   int ntasks{0};
 
   class private_t {};
@@ -59,8 +60,7 @@ class TimingAccumulator : public std::enable_shared_from_this<TimingAccumulator>
     return std::make_shared<TimingAccumulator>(private_t());
   }
 
-  void AddTiming(const timing_chunk_t &timing) { timings.push_back(timing); }
-
+  void AddTiming(const timing_chunk_t &timing);
   void StopCollectingTasks() { collecting = false; }
   void StartCollectingTasks() { collecting = true; }
 
