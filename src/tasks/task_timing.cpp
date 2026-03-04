@@ -29,11 +29,10 @@
 
 namespace parthenon {
 
-void TimingAccumulator::AddTiming(const timing_chunk_t &timing) { 
+void TimingAccumulator::AddTiming(const timing_chunk_t &timing) {
   total_time += GetDurationInSeconds(std::get<0>(timing), std::get<1>(timing));
   if (Task::enable_timing_chunks) timings.push_back(timing);
 }
-
 
 void TimingAccumulator::CollectTask(Task *task) {
   ntasks++;
@@ -45,9 +44,7 @@ void TimingAccumulator::CollectTaskIfCollecting(Task *task) {
   if (collecting) CollectTask(task);
 }
 
-Real TimingAccumulator::GetTotalTime() const {
-  return total_time;
-}
+Real TimingAccumulator::GetTotalTime() const { return total_time; }
 
 std::shared_ptr<TimingAccumulator>
 TimingAccumulatorDictionary::GetOrAddAndRegister(const std::string &label, TaskList &tl) {
