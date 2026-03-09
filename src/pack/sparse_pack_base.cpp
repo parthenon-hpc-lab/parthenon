@@ -187,17 +187,19 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
     }
     // This block's gid stored at the end of the flattened array
     pack.block_props_h_(blidx, bp_idxer.size()) = pmb->gid;
-    auto *neighbors = &(pmb->neighbors);
-    if constexpr (!std::is_same_v<T, mbd_t>) {
-      if (pmd->grid.type == GridType::two_level_composite) {
-        if (pmb->loc.level() == pmd->grid.logical_level) {
-          neighbors = &(pmb->gmg_same_neighbors);
-        } else {
-          neighbors = &(pmb->gmg_composite_finer_neighbors);
+    const auto &neighbors = [pmb, pmd]() -> const std::vector<NeighborBlock> & {
+      if constexpr (!std::is_same_v<T, mbd_t>) {
+        if (pmd->grid.type == GridType::two_level_composite) {
+          if (pmb->loc.level() == pmd->grid.logical_level) {
+            return pmb->GetGMGSameNeighbors();
+          } else {
+            return pmb->GetGMGCompositeFinerNeighbors();
+          }
         }
       }
-    }
-    for (auto &neighbor : *neighbors) {
+      return pmb->GetNeighbors();
+    }();
+    for (const auto &neighbor : neighbors) {
       // Multiple refined neighbors may write to the same index but they will always have
       // the same refinement level.
 

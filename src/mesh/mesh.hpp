@@ -413,10 +413,6 @@ class Mesh {
                                        int ntot);
   void BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in);
   void SetGMGNeighbors();
-  void
-  SetMeshBlockNeighbors(GridIdentifier grid_id, BlockList_t &block_list,
-                        const std::vector<int> &ranklist,
-                        const std::unordered_set<LogicalLocation> &newly_refined = {});
 
   // Optionally defined in the problem file
   std::function<void(Mesh *, ParameterInput *)> InitUserMeshData = nullptr;
