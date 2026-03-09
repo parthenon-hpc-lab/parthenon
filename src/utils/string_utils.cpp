@@ -152,7 +152,7 @@ template Table2D<float> ParseAsciiTable(std::istream &);
 template Table2D<int> ParseAsciiTable(std::istream &);
 template Table2D<std::size_t> ParseAsciiTable(std::istream &);
 
-template <typename T = Real>
+template <typename T>
 Table2D<T> ParseAsciiTable(const std::string &filename) {
   std::string str = BroadcastFileString(filename);
   std::istringstream stream(str);
