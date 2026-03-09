@@ -21,6 +21,8 @@
 #include <catch2/catch.hpp>
 
 #include "basic_types.hpp"
+#include "globals.hpp"
+#include "parthenon_mpi.hpp"
 #include "utils/string_utils.hpp"
 
 using parthenon::Real;
@@ -83,9 +85,7 @@ SCENARIO("We can parse a simple ASCII table", "[AsciiTableParser][StringUtils]")
     WHEN("When we attempt to parse it") {
       std::istringstream s(ss.str());
       auto table = parthenon::string_utils::ParseAsciiTable<Real>(s);
-      THEN("We get an empty table object") {
-        REQUIRE(table.data.size() == 0);
-      }
+      THEN("We get an empty table object") { REQUIRE(table.data.size() == 0); }
     }
   }
 
@@ -93,12 +93,55 @@ SCENARIO("We can parse a simple ASCII table", "[AsciiTableParser][StringUtils]")
     std::stringstream ss;
     ss << "1 2 3 4\n"
        << "5 6\n"
-       << "7 8 9 10"
-       << std::endl;
+       << "7 8 9 10" << std::endl;
     WHEN("We attempt to parse it") {
       std::istringstream s(ss.str());
       THEN("Parthenon throws an error") {
-        REQUIRE_THROWS_AS(parthenon::string_utils::ParseAsciiTable<int>(s), std::runtime_error);
+        REQUIRE_THROWS_AS(parthenon::string_utils::ParseAsciiTable<int>(s),
+                          std::runtime_error);
+      }
+    }
+  }
+}
+
+SCENARIO("We can MPI broadcast a string from a file",
+         "[MPI][BroadcastFileString][StringUtils]") {
+  GIVEN("A file that contains a simple string") {
+    std::stringstream ss;
+    ss << "# header comment line\n"
+       << "0 0.0 123.0e4\n"
+       << "1 2.0 -4567.89e-1\n"
+       << "3 4.0 5.0\n"
+       << std::endl;
+    std::string teststring = ss.str();
+
+    const std::string filename = "testfile.txt";
+    if (parthenon::Globals::my_rank == 0) {
+      std::ofstream out(filename);
+      out << teststring;
+    }
+
+    WHEN("We try to read the file via broadcast") {
+      auto newstring = parthenon::string_utils::BroadcastFileString(filename);
+      THEN("The strings match") { REQUIRE(newstring == teststring); }
+    }
+
+    WHEN("We parse it via broadcast") {
+      auto table = parthenon::string_utils::ParseAsciiTable<Real>(filename);
+      THEN("The resultant table has the right number of rows and columns") {
+        REQUIRE(table.rows == 3);
+        REQUIRE(table.cols == 3);
+        AND_THEN("The resultant table as the correct contents") {
+          REQUIRE(table(0, 0) == 0.0);
+          REQUIRE(table(0, 1) == 0.0);
+          REQUIRE(std::abs(table(0, 2) - 123e4) < EPS);
+          REQUIRE(table(1, 0) == 1);
+          REQUIRE(table(1, 1) == 2);
+          REQUIRE(std::abs(table(1, 2) - -4567.89e-1) < EPS);
+          REQUIRE(table(2, 0) == 3);
+          REQUIRE(table(2, 1) == 4);
+          REQUIRE(table(2, 2) == 5);
+        }
       }
     }
   }

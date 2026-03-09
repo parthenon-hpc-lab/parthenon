@@ -46,24 +46,28 @@ std::string trim(const std::string &s);
 
 // pack/unpack strings (basically join and split with a given delimiter)
 std::string PackStrings(const std::vector<std::string> &strs, char delimiter);
-std::vector<std::string> UnpackStrings(const std::string &pack, char delimiter
-);
+std::vector<std::string> UnpackStrings(const std::string &pack, char delimiter);
 
-template <typename T=Real>
+// A mechanism to read an ascii file on a single rank and MPI
+// broadcast it to all ranks. May be used for parsing in a massively
+// parallel context where all ranks accessing a file might kill the
+// filesystem. Note this idea could be generalized.
+std::string BroadcastFileString(const std::string &filename);
+
+template <typename T = Real>
 Table2D<T> ParseAsciiTable(std::istream &in);
 extern template Table2D<double> ParseAsciiTable(std::istream &);
 extern template Table2D<float> ParseAsciiTable(std::istream &);
 extern template Table2D<int> ParseAsciiTable(std::istream &);
 extern template Table2D<std::size_t> ParseAsciiTable(std::istream &);
 
-template<typename T = Real>
-inline Table2D<T> ParseAsciiTable(const std::string &filename) {
-  std::ifstream in(filename);
-  if (!in) {
-    PARTHENON_THROW("Failed to open file " + filename);
-  }
-  return ParseAsciiTable(filename);
-}
+template <typename T = Real>
+Table2D<T> ParseAsciiTable(const std::string &filename);
+extern template Table2D<double> ParseAsciiTable(const std::string &);
+extern template Table2D<float> ParseAsciiTable(const std::string &);
+extern template Table2D<int> ParseAsciiTable(const std::string &);
+extern template Table2D<std::size_t> ParseAsciiTable(const std::string &);
+
 } // namespace string_utils
 } // namespace parthenon
 

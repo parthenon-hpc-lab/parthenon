@@ -19,7 +19,10 @@
 #include <string>
 #include <vector>
 
+#include "config.hpp"
 #include "error_checking.hpp"
+#include "globals.hpp"
+#include "parthenon_mpi.hpp"
 
 namespace parthenon {
 namespace string_utils {
@@ -66,6 +69,35 @@ std::vector<std::string> UnpackStrings(const std::string &pack, char delimiter) 
   }
 
   return unpack;
+}
+
+std::string BroadcastFileString(const std::string &filename) {
+  std::uint64_t strlen;
+  std::string str;
+
+  if (Globals::my_rank == 0) {
+    std::ifstream in(filename);
+    if (!in) {
+      PARTHENON_THROW("Failed to open file " + filename);
+    }
+
+    // allocates memory for string upfront
+    in.seekg(0, std::ios::end);
+    strlen = static_cast<std::uint64_t>(in.tellg());
+    str.reserve(strlen);
+    in.seekg(0, std::ios::beg);
+
+    str.assign((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  }
+
+#ifdef MPI_PARALLEL
+  MPI_Bcast(&strlen, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
+  if (Globals::my_rank != 0) {
+    str.resize(strlen);
+  }
+  MPI_Bcast(str.data(), strlen, MPI_BYTE, 0, MPI_COMM_WORLD);
+#endif // MPI_PARALLEL
+  return str;
 }
 
 template <typename T>
@@ -119,6 +151,17 @@ template Table2D<double> ParseAsciiTable(std::istream &);
 template Table2D<float> ParseAsciiTable(std::istream &);
 template Table2D<int> ParseAsciiTable(std::istream &);
 template Table2D<std::size_t> ParseAsciiTable(std::istream &);
+
+template <typename T = Real>
+Table2D<T> ParseAsciiTable(const std::string &filename) {
+  std::string str = BroadcastFileString(filename);
+  std::istringstream stream(str);
+  return ParseAsciiTable<T>(stream);
+}
+template Table2D<double> ParseAsciiTable(const std::string &);
+template Table2D<float> ParseAsciiTable(const std::string &);
+template Table2D<int> ParseAsciiTable(const std::string &);
+template Table2D<std::size_t> ParseAsciiTable(const std::string &);
 
 } // namespace string_utils
 } // namespace parthenon
