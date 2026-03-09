@@ -54,8 +54,8 @@ inline block_selector_func_t WithCoarserNeighbors(const MeshData<Real> *pmd) {
     auto pmb = pmbd->GetParentPointer();
     // Coarser blocks on two-level composite grids can only have same and finer neighbors
     if (tl_comp && pmb->loc.level() != level_comp) return false;
-    auto *pneighbors = tl_comp ? &(pmb->gmg_same_neighbors) : &(pmb->neighbors);
-    for (const auto &neighbor : *pneighbors) {
+    const auto &neighbors = tl_comp ? pmb->GetGMGSameNeighbors() : pmb->GetNeighbors();
+    for (const auto &neighbor : neighbors) {
       if (neighbor.loc.level() < level_comp) return true;
     }
     return false;

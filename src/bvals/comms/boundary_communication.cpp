@@ -234,7 +234,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   int ibound = 0;
   if (Globals::sparse_config.enabled && all_received) {
     ForEachBoundary<bound_type>(
-        md, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+        md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v) {
           const std::size_t ibuf = cache.idx_vec[ibound];
           auto &buf = *cache.buf_vec[ibuf];
 

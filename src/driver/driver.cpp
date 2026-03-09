@@ -350,6 +350,8 @@ void EvolutionDriver::OutputCycleDiagnostics() {
                   << " wsec_AMR=" << time_LBandAMR;
       }
 
+      OutputDownstreamCycleDiagnostics();
+
       // insert more diagnostics here
       std::cout << std::endl;
 

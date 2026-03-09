@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1368]](https://github.com/parthenon-hpc-lab/parthenon/pull/1368) Add close, __enter__, and __exit__ for phdf / Add EvolutionDriver::OutputDownstreamCycleDiagnostics()
 - [[PR 1346]](https://github.com/parthenon-hpc-lab/parthenon/pull/1346) Allow for user defined inter-level restrictions in multigrid 
 - [[PR 1308]](https://github.com/parthenon-hpc-lab/parthenon/pull/1308) Add additional indexing options for (b, type, ...indices) meshdata fields. Helpful for lower dimensional Metadata::None fields.
 - [[PR 1344]](https://github.com/parthenon-hpc-lab/parthenon/pull/1344) Add option to communicate single layer of ghosts, only communicate required two-level composite boundaries
@@ -12,6 +13,7 @@
 - [[PR 1355]](https://github.com/parthenon-hpc-lab/parthenon/pull/1355) Allow disabling format and lint targets
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1365]](https://github.com/parthenon-hpc-lab/parthenon/pull/1365) Fix boundary condition being called with coarse=true but no coarse neighbors.
 - [[PR 1345]](https://github.com/parthenon-hpc-lab/parthenon/pull/1345) Coalesce dot product reductions and speed up kernel
 - [[PR 1360]](https://github.com/parthenon-hpc-lab/parthenon/pull/1360) Fix boundary cache clearing in different MeshData partitions
 

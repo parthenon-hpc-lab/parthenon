@@ -54,20 +54,23 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
   std::unordered_map<std::size_t, std::size_t>
       nbufs_allocated; // total that are actually allocated
 
-  ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v) {
-    // Calculate the required size of the buffer for this boundary
-    int buf_size = GetBufferSize(pmb, nb, v);
-    //  LR: Multigrid logic requires blocks sending messages to themselves (since the same
-    //  block can show up on two multigrid levels). This doesn't require any data
-    //  transfer, so the message size can be zero. It is essentially just a flag to show
-    //  that the block is done being used on one level and can be used on the next level.
-    if (pmb->gid == nb.gid && nb.offsets.IsCell()) buf_size = 0;
+  ForEachBoundary<BTYPE>(
+      md, [&](auto pmb, sp_mbd_t /*rc*/, const nb_t &nb, const sp_cv_t v) {
+        // Calculate the required size of the buffer for this boundary
+        int buf_size = GetBufferSize(pmb, nb, v);
+        //  LR: Multigrid logic requires blocks sending messages to themselves (since the
+        //  same block can show up on two multigrid levels). This doesn't require any data
+        //  transfer, so the message size can be zero. It is essentially just a flag to
+        //  show that the block is done being used on one level and can be used on the
+        //  next level.
+        if (pmb->gid == nb.gid && nb.offsets.IsCell()) buf_size = 0;
 
-    nbufs[buf_size] += 1; // relying on value init of int to 0 for initial entry
-    nbufs_allocated[buf_size] += v->IsAllocated();
-  });
+        nbufs[buf_size] += 1; // relying on value init of int to 0 for initial entry
+        nbufs_allocated[buf_size] += v->IsAllocated();
+      });
 
-  ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v) {
+  ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, const nb_t &nb,
+                                 const sp_cv_t v) {
     // Calculate the required size of the buffer for this boundary
     int buf_size = GetBufferSize(pmb, nb, v);
     // See comment above on the same logic.
@@ -139,18 +142,19 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
 template <BoundaryType BTYPE>
 void RegisterCoalescedCommsSubset(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
-  ForEachBoundary<BTYPE>(md, [&](auto pmb, sp_mbd_t /*rc*/, nb_t &nb, const sp_cv_t v) {
-    const int receiver_rank = nb.rank;
-    const int sender_rank = Globals::my_rank;
-    if (receiver_rank != sender_rank) {
-      if constexpr (IsSender(BTYPE)) {
-        pmesh->pcoalesced_comms->AddSendBuffer(md->partition, pmb, nb, v, BTYPE);
-      }
-      if constexpr (IsReceiver(BTYPE)) {
-        pmesh->pcoalesced_comms->AddRecvBuffer(pmb, nb, v, BTYPE);
-      }
-    }
-  });
+  ForEachBoundary<BTYPE>(
+      md, [&](auto pmb, sp_mbd_t /*rc*/, const nb_t &nb, const sp_cv_t v) {
+        const int receiver_rank = nb.rank;
+        const int sender_rank = Globals::my_rank;
+        if (receiver_rank != sender_rank) {
+          if constexpr (IsSender(BTYPE)) {
+            pmesh->pcoalesced_comms->AddSendBuffer(md->partition, pmb, nb, v, BTYPE);
+          }
+          if constexpr (IsReceiver(BTYPE)) {
+            pmesh->pcoalesced_comms->AddRecvBuffer(pmb, nb, v, BTYPE);
+          }
+        }
+      });
 }
 
 } // namespace
