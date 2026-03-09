@@ -42,8 +42,15 @@ using View2DUnmanaged = Kokkos::View<double **, Kokkos::LayoutRight, DevSpace,
 using View3DUnmanaged = Kokkos::View<double ***, Kokkos::LayoutRight, DevSpace,
                                      Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 
+// TODO(@SWJ): make the RealMat a scratchpad1d because why not, the views wrap it as 2d
+using RealMat = ScratchPad2D<Real>;
+using RealVec = ScratchPad1D<Real>;
+using IntVec = ScratchPad1D<int>;
+using SizeTVec = ScratchPad1D<std::size_t>;
+
 constexpr const std::size_t NINDICES = 3;
-using shape_t = Kokkos::View<std::size_t[NINDICES]>;
+// using shape_t = Kokkos::View<std::size_t[NINDICES]>;
+using shape_t = Kokkos::View<std::size_t[NINDICES], DevMemSpace>;
 using shape_host_t = typename Kokkos::View<std::size_t[NINDICES]>::host_mirror_type;
 
 // JMM: We need a TensorCoreHost type and a TensorCoreDevice type
@@ -73,23 +80,47 @@ using core_data_device_unmanaged_t =
    express constructors and operator().
 */
 
+KOKKOS_INLINE_FUNCTION
+void PrintRealVec(RealVec &V, const int Rn, const parthenon::team_mbr_t &tm,
+                  const char *label) {
+  if (tm.team_rank() == 0) {
+    printf("%s:\n", label);
+    for (int i = 0; i < Rn; i++)
+      printf("%e ", V(i));
+    printf("\n");
+    printf("\n");
+  }
+}
+
+KOKKOS_INLINE_FUNCTION
+void PrintRealMat(RealMat &M, const int Rn, const parthenon::team_mbr_t &tm,
+                  const char *label) {
+  if (tm.team_rank() == 0) {
+    printf("%s:\n", label);
+    for (int i = 0; i < Rn; ++i) {
+      for (int j = 0; j < Rn; ++j) {
+        printf("  %12.5e", M(i, j));
+      }
+      printf("\n");
+      printf("\n");
+    }
+  }
+}
+
 class TensorTrain; // Forward declaration
+
+class TensorTrainDeviceView; // Forward Declaration
 
 class GramSVDStorage {
 
   using ExecSpace = parthenon::DevExecSpace;
   using ScratchSpace = Kokkos::ScratchMemorySpace<ExecSpace>;
 
-  // TODO(@SWJ): also make the RealCore a scratchpad1d because why not, the views wrap it as 3d
+  // TODO(@SWJ): also make the RealCore a scratchpad1d because why not, the views wrap it
+  // as 3d
   using RealCoreStorage = ScratchPad3D<Real>;
   using RealCoreView = Kokkos::View<Real ***, Kokkos::LayoutStride, ScratchSpace,
                                     Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
-
-  // TODO(@SWJ): make the RealMat a scratchpad1d because why not, the views wrap it as 2d
-  using RealMat = ScratchPad2D<Real>;
-  using RealVec = ScratchPad1D<Real>;
-  using IntVec = ScratchPad1D<int>;
-  using SizeTVec = ScratchPad1D<std::size_t>;
 
   using GramStorage = ScratchPad1D<Real>;
   using GramMatView = Kokkos::View<Real **, Kokkos::LayoutRight, ScratchSpace,
@@ -114,8 +145,8 @@ class GramSVDStorage {
 
   enum RealVectorName { EvalL_vec, EvalR_vec, SVDS_vec, NumRealVecs };
   enum IntVectorName { KeepFlags_vec, ModeMap_vec, NumIntVecs };
-  enum RealAlgoVecName { EVDRealScratch_vec, NumRealAlgoVecs };
-  enum SizeTAlgoVecName { EVDSizeTScratch_vec, NumSizeTAlgoVecs };
+  enum RealAlgoVecName { RealScratch_vec, NumRealAlgoVecs };
+  enum SizeTAlgoVecName { SizeTScratch_vec, NumSizeTAlgoVecs };
 
   // ============================================================
   // Resize rank-sized views
@@ -127,24 +158,33 @@ class GramSVDStorage {
   // array
   KOKKOS_INLINE_FUNCTION
   void ResizeRankViews(int Rn, int evd_scratch_n) {
-    for (int i = 0; i < NumRealMatrices; ++i)
-      real_mats_view_[i] = Kokkos::subview(real_mats_storage_[i], std::make_pair(-1, Rn),
-                                           std::make_pair(0, Rn));
+    for (int i = 0; i < NumRealMatrices; ++i) {
+      real_mats_view_[i] =
+          Kokkos::subview(real_mats_storage_[i],
+                          // std::make_pair(0, Rn), std::make_pair(0, Rn));
+                          Kokkos::pair<int, int>(0, Rn), Kokkos::pair<int, int>(0, Rn));
       // real_mats_view_[i] = View2DUnmanaged(&real_mats_storage_[i](0,0), Rn, Rn);
+    }
 
-    for (int i = 0; i < NumRealVecs; ++i)
-      real_vecs_view_[i] = Kokkos::subview(real_vecs_storage_[i], std::make_pair(0, Rn));
+    for (int i = 0; i < NumRealVecs; ++i) {
+      real_vecs_view_[i] =
+          Kokkos::subview(real_vecs_storage_[i], Kokkos::pair<int, int>(0, Rn));
+    }
 
-    for (int i = 0; i < NumIntVecs; ++i)
-      int_vecs_view_[i] = Kokkos::subview(int_vecs_storage_[i], std::make_pair(0, Rn));
+    for (int i = 0; i < NumIntVecs; ++i) {
+      int_vecs_view_[i] =
+          Kokkos::subview(int_vecs_storage_[i], Kokkos::pair<int, int>(0, Rn));
+    }
 
-    for (int i = 0; i < NumRealAlgoVecs; ++i)
-      real_algo_vecs_view_[i] =
-          Kokkos::subview(real_algo_vecs_storage_[i], std::make_pair(0, evd_scratch_n));
+    for (int i = 0; i < NumRealAlgoVecs; ++i) {
+      real_algo_vecs_view_[i] = Kokkos::subview(real_algo_vecs_storage_[i],
+                                                Kokkos::pair<int, int>(0, evd_scratch_n));
+    }
 
-    for (int i = 0; i < NumSizeTAlgoVecs; ++i)
-      sizet_algo_vecs_view_[i] =
-          Kokkos::subview(sizet_algo_vecs_storage_[i], std::make_pair(0, evd_scratch_n));
+    for (int i = 0; i < NumSizeTAlgoVecs; ++i) {
+      sizet_algo_vecs_view_[i] = Kokkos::subview(
+          sizet_algo_vecs_storage_[i], Kokkos::pair<int, int>(0, evd_scratch_n));
+    }
   }
 
   // ============================================================
@@ -154,8 +194,10 @@ class GramSVDStorage {
   KOKKOS_INLINE_FUNCTION
   void ResizeCoreView(int Rl, int PIn, int Rr) {
     real_cores_view_[CTmp_core] =
-        Kokkos::subview(real_cores_storage_[CTmp_core], std::make_pair(0, Rl),
-                        std::make_pair(0, PIn), std::make_pair(0, Rr));
+        // Kokkos::subview(real_cores_storage_[CTmp_core], std::make_pair(0, Rl),
+        // std::make_pair(0, PIn), std::make_pair(0, Rr));
+        Kokkos::subview(real_cores_storage_[CTmp_core], Kokkos::pair<int, int>(0, Rl),
+                        Kokkos::pair<int, int>(0, PIn), Kokkos::pair<int, int>(0, Rr));
   }
 
   // ============================================================
@@ -206,20 +248,21 @@ class GramSVDStorage {
 
   KOKKOS_INLINE_FUNCTION IntVec &ModeMap() { return int_vecs_view_[ModeMap_vec]; }
 
-  KOKKOS_INLINE_FUNCTION RealVec &EVDRealScratch() {
-    return real_algo_vecs_view_[EVDRealScratch_vec];
+  KOKKOS_INLINE_FUNCTION RealVec &RealScratch() {
+    return real_algo_vecs_view_[RealScratch_vec];
   }
 
-  KOKKOS_INLINE_FUNCTION SizeTVec &EVDSizeTScratch() {
-    return sizet_algo_vecs_view_[EVDSizeTScratch_vec];
+  KOKKOS_INLINE_FUNCTION SizeTVec &SizeTScratch() {
+    return sizet_algo_vecs_view_[SizeTScratch_vec];
   }
-
-  // Constructor - defined in cpp
-  static size_t GetScratchSize(const TensorTrain &TT, int evd_scratch_max);
 
   // Get storage requirements - defined in cpp
+  static size_t GetScratchSize(const TensorTrain &TT, int evd_scratch_max);
+
+  // Constructor - defined in cpp
   KOKKOS_INLINE_FUNCTION
-  GramSVDStorage(ScratchSpace ts, const TensorTrain &TT, int evd_scratch_max_);
+  GramSVDStorage(ScratchSpace ts, const TensorTrainDeviceView ttd, int evd_scratch_max_,
+                 const parthenon::team_mbr_t &tm);
 
   KOKKOS_INLINE_FUNCTION
   int CleanAndCountNonZeroEigenValues(RealMat &EVs, RealVec &EVals, const int Rn,
@@ -245,26 +288,8 @@ class GramSVDStorage {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void PrintRealVec(RealVec &V, const int Rn) {
-    for (int i = 0; i < Rn; i++)
-      printf("%e ", V(i));
-    printf("\n");
-    printf("\n");
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  void PrintRealMat(RealMat &M, const int Rn) {
-    for (int i = 0; i < Rn; ++i) {
-      for (int j = 0; j < Rn; ++j) {
-        printf("  %12.5e", M(i, j));
-      }
-      printf("\n");
-      printf("\n");
-    }
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  void ComputeSVD(const int Rn, const int nnzL, const int nnzR);
+  void ComputeSVD(const int Rn, const int nnzL, const int nnzR,
+                  const parthenon::team_mbr_t &tm);
 
  private:
   int RMax;
@@ -310,7 +335,8 @@ class TensorCoreDevice {
   KOKKOS_INLINE_FUNCTION
   auto GetShape() const { return shape_; }
   KOKKOS_INLINE_FUNCTION
-  auto GetRanks() const { return std::make_pair(shape_[0], shape_[2]); }
+  // auto GetRanks() const { return std::make_pair(shape_[0], shape_[2]); }
+  auto GetRanks() const { return Kokkos::pair<int, int>(shape_[0], shape_[2]); }
   KOKKOS_INLINE_FUNCTION
   std::size_t GetLeftRank() const { return shape_[0]; }
   KOKKOS_INLINE_FUNCTION
@@ -362,7 +388,7 @@ class TensorCoreHost {
     }
     // This deep copy doesn't work because types are mismatched between host and device
     // Kokkos::pdeep_copy(data_device_, data_host_);
-    
+
     // Instead:
     // Create a host mirror of the device view
     auto data_device_mirror = Kokkos::create_mirror_view(data_device_);
@@ -405,9 +431,9 @@ class TensorCoreHost {
 
     core_data_host_t new_data_host(ViewOfViewAlloc<HostMemSpace>("tensor core host"),
                                    shape_host_(0), shape_host_(2));
-    core_data_device_t new_data_device(ViewOfViewAlloc("tensor core device"), shape_host_(0),
-                                       shape_host_(2));
-    
+    core_data_device_t new_data_device(ViewOfViewAlloc("tensor core device"),
+                                       shape_host_(0), shape_host_(2));
+
     // we have to use a mirror to copy to device again
     auto mirror = Kokkos::create_mirror_view(new_data_device);
 
@@ -417,8 +443,8 @@ class TensorCoreHost {
         mirror(iL, iR) = new_data_host(iL, iR);
       }
     }
-    // this deep copy doesn't work on device because the types are different. use a mirror instead
-    // Kokkos::deep_copy(new_data_device, new_data_host);
+    // this deep copy doesn't work on device because the types are different. use a mirror
+    // instead Kokkos::deep_copy(new_data_device, new_data_host);
     Kokkos::deep_copy(new_data_device, mirror);
 
     data_host_ = new_data_host;
@@ -434,6 +460,22 @@ class TensorCoreHost {
 using cores_device_t = Kokkos::View<TensorCoreDevice *, LayoutWrapper, DevMemSpace>;
 // TODO(JMM): Should this be a view? Or a std::vector? Any reason to use Kokkos here?
 using cores_host_t = Kokkos::View<TensorCoreHost *, LayoutWrapper, HostMemSpace>;
+
+// View of the TT on device, for accessing metadata such as maximum rank, etc
+class TensorTrainDeviceView {
+ public:
+  cores_device_t cores;
+  std::size_t RMax;
+  std::size_t PIMax;
+  int NGram;
+
+  KOKKOS_INLINE_FUNCTION TensorTrainDeviceView() = default;
+
+  KOKKOS_INLINE_FUNCTION
+  TensorTrainDeviceView(cores_device_t cores_, std::size_t RMax_, std::size_t PIMax_,
+                        int NGram_)
+      : cores(cores_), RMax(RMax_), PIMax(PIMax_), NGram(NGram_) {}
+};
 
 class TensorTrain {
  public:
@@ -530,20 +572,19 @@ class TensorTrain {
   ParArrayND<Real> ToDenseArray3D() const {
     // Jump through a lot of stupid hoops to generate a ParArrayND
     // TODO(JMM): Only works for howevery many dims ParArrayND supports
+    const int d0 = cores_host_[0].GetPhysicalIndexSize();
+    const int d1 = cores_host_[1].GetPhysicalIndexSize();
+    const int d2 = cores_host_[2].GetPhysicalIndexSize();
     PARTHENON_REQUIRE_THROWS(
-        cores_host_.size() <= 3,
+        cores_host_.size() == 3,
         "The dense object must have less dimensions than the output array");
-    ParArrayND<Real> out(
-        "dense version of " + label_, cores_host_[0].GetPhysicalIndexSize(),
-        cores_host_[1].GetPhysicalIndexSize(), cores_host_[2].GetPhysicalIndexSize());
+    ParArrayND<Real> out("dense version of " + label_, d0, d1, d2);
     par_for(
-        PARTHENON_AUTO_LABEL, 0, cores_host_[0].GetPhysicalIndexSize() - 1, 0,
-        cores_host_[1].GetPhysicalIndexSize() - 1, 0,
-        cores_host_[2].GetPhysicalIndexSize() - 1,
+        PARTHENON_AUTO_LABEL, 0, d0 - 1, 0, d1 - 1, 0, d2 - 1,
         KOKKOS_CLASS_LAMBDA(const int c0, const int c1, const int c2) {
           out(c0, c1, c2) = 0;
-          for (std::size_t r01 = 0; r01 < cores_device_(0).GetRightRank(); ++r01) {
-            for (std::size_t r12 = 0; r12 < cores_device_(1).GetRightRank(); ++r12) {
+          for (int r01 = 0; r01 < cores_device_(0).GetRightRank(); ++r01) {
+            for (int r12 = 0; r12 < cores_device_(1).GetRightRank(); ++r12) {
               out(c0, c1, c2) += cores_device_(0)(0, c0, r01) *
                                  cores_device_(1)(r01, c1, r12) *
                                  cores_device_(2)(r12, c2, 0);
@@ -590,22 +631,25 @@ class TensorTrain {
   // const cores_device_t &cores_device() const { return cores_device_; }
 
   KOKKOS_INLINE_FUNCTION
-  void CalculateRightGramMatrices(GramSVDStorage &GS,
-                                  const parthenon::team_mbr_t &member);
+  static void CalculateRightGramMatrices(GramSVDStorage &GS, TensorTrainDeviceView ttd,
+                                         const parthenon::team_mbr_t &member);
 
   KOKKOS_INLINE_FUNCTION
-  void CalculateLeftGramMatrices(GramSVDStorage &GS, const parthenon::team_mbr_t &member);
+  static void CalculateLeftGramMatrices(GramSVDStorage &GS, TensorTrainDeviceView ttd,
+                                        const parthenon::team_mbr_t &member);
   KOKKOS_INLINE_FUNCTION
-  void CalculateGramSVD(const int n, parthenon::team_mbr_t member, GramSVDStorage &GS);
+  static void CalculateGramSVD(const int n, parthenon::team_mbr_t member,
+                               TensorTrainDeviceView ttd, GramSVDStorage &GS);
 
   // examine SVD's singular values for core n and return:
   // keep: flag should we keep (1) or discard (0) this singular values
   // gamma_map: compactified map to retained singular values
   // integer return: number of retained singular values
   KOKKOS_INLINE_FUNCTION
-  int SelectSingularModes(const int n, GramSVDStorage &GS, const Real eps) {
+  static int SelectSingularModes(const int n, GramSVDStorage &GS,
+                                 const TensorTrainDeviceView ttd, const Real eps) {
 
-    auto cores = this->cores_device_;
+    auto cores = ttd.cores;
     const std::size_t Rn = cores(n).GetRightRank();
 
     for (int i = 0; i < Rn; i++) {
@@ -614,10 +658,8 @@ class TensorTrain {
 
     // find maximum singular value
     Real sigmax{-1.e30};
-    int sigmax_loc;
     for (int i = 0; i < Rn; i++) {
       sigmax = std::max(sigmax, std::abs(GS.SVDS()(i)));
-      sigmax_loc = i;
     };
 
     // flag which singular values we should keep
@@ -636,8 +678,17 @@ class TensorTrain {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void UpdateCoreIndexSpaces(const int n, const int Rn_new, parthenon::team_mbr_t tm,
-                             GramSVDStorage &GS);
+  static void UpdateCoreIndexSpaces(const int n, const int Rn_new,
+                                    parthenon::team_mbr_t tm, TensorTrainDeviceView ttd,
+                                    GramSVDStorage &GS);
+
+  // Optionally: small convenience to get a device POD for kernels
+  TensorTrainDeviceView GetDeviceView() const {
+    const int NGram = static_cast<int>(GetNumCores()) - 1;
+    const std::size_t RMax = GetMaximumRightRank();
+    const std::size_t PIMax = GetMaximumPhysicalIndexSize();
+    return TensorTrainDeviceView(cores_device_, RMax, PIMax, NGram);
+  }
 
  private:
   std::string label_;

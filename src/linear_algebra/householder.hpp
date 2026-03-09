@@ -32,7 +32,7 @@ build_householder_vector_col(tm_t tm, int row, int col, const matrix_t &A, doubl
       KOKKOS_LAMBDA(const int r, double &norm) { norm += A(r, col) * A(r, col); },
       norm_x);
 
-  norm_x = std::sqrt(norm_x);
+  norm_x = safe_sqrt(norm_x);
   if (norm_x == 0.0) {
     parallel_loop(
         tm, 0, nrows - 1, KOKKOS_LAMBDA(const int i) { v[i] = 0.0; });
@@ -49,9 +49,9 @@ build_householder_vector_col(tm_t tm, int row, int col, const matrix_t &A, doubl
       },
       norm_v);
   norm_v += v[row] * v[row];
-  norm_v = std::sqrt(norm_v);
+  norm_v = safe_sqrt(norm_v);
 
-  double inv_norm_v = 1.0 / norm_v;
+  double inv_norm_v = 1.0 / (norm_v + 1e-15);
   parallel_loop(
       tm, 0, nrows - 1, KOKKOS_LAMBDA(const int i) { v[i] *= (i >= row) * inv_norm_v; });
 }
@@ -70,7 +70,7 @@ build_householder_vector_row(tm_t tm, int row, int col, const matrix_t &A, doubl
       KOKKOS_LAMBDA(const int c, double &norm) { norm += A(row, c) * A(row, c); },
       norm_x);
 
-  norm_x = std::sqrt(norm_x);
+  norm_x = safe_sqrt(norm_x);
 
   // If the row segment is already zero, the reflector is identity
   if (norm_x == 0.0) {
@@ -94,9 +94,9 @@ build_householder_vector_row(tm_t tm, int row, int col, const matrix_t &A, doubl
       norm_v);
 
   norm_v += v[col] * v[col];
-  norm_v = std::sqrt(norm_v);
+  norm_v = safe_sqrt(norm_v);
 
-  const double inv_norm_v = 1.0 / norm_v;
+  const double inv_norm_v = 1.0 / (norm_v + 1e-15);
 
   // Zero entries before col and normalize the active part
   parallel_loop(

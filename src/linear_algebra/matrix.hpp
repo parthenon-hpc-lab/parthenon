@@ -9,6 +9,9 @@
 using Vector = std::vector<double>;
 using serial_tm_t = int; // TODO: parthenon::team_mbr_t;
 
+KOKKOS_INLINE_FUNCTION
+double safe_sqrt(const double a) { return std::sqrt(std::max(a, 0.)); }
+
 class Matrix {
  public:
   Matrix(int nrows, int ncols);
@@ -86,7 +89,7 @@ void Multiply(const Matrix &A, const Matrix &B, Matrix &C);
 
 // Template must stay in the header so callers can instantiate it.
 template <typename T>
-inline int sign_of(T val) {
+KOKKOS_INLINE_FUNCTION int sign_of(T val) {
   constexpr T zero{0};
   return (zero < val) - (val < zero);
 }
@@ -95,6 +98,15 @@ template <class tm_t>
 KOKKOS_FORCEINLINE_FUNCTION void barrier(tm_t tm) {
   if constexpr (std::is_same_v<tm_t, parthenon::team_mbr_t>) {
     tm.team_barrier();
+  }
+}
+
+template <class tm_t>
+KOKKOS_FORCEINLINE_FUNCTION int rank(tm_t tm) {
+  if constexpr (std::is_same_v<tm_t, parthenon::team_mbr_t>) {
+    return tm.team_rank();
+  } else {
+    return 0;
   }
 }
 

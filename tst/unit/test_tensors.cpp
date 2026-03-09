@@ -53,11 +53,9 @@ SCENARIO("Parthenon Tensor Cores", "[TensorCores]") {
               PARTHENON_AUTO_LABEL, 0, 0, 0, rl - 1, 0, rr - 1,
               KOKKOS_LAMBDA(parthenon::team_mbr_t mbr, const int il, const int ir) {
                 parthenon::par_for_inner(
-                    mbr, 0, nc - 1, 
+                    mbr, 0, nc - 1,
                     // KOKKOS_LAMBDA(const int ic) {
-                      [&](const int ic) {
-                      tc_d(il, ic, ir) = 100 * il + 10 * ic + ir;
-                    });
+                    [&](const int ic) { tc_d(il, ic, ir) = 100 * il + 10 * ic + ir; });
               });
           Kokkos::fence();
           int nwrong = 0;
@@ -151,6 +149,10 @@ SCENARIO("TensorTrain Gram-SVD rounding", "[TensorTrains][GramSVD]") {
 
     TensorTrain T("Rounded TT", cores);
 
+    // create a device view of the TT with relevant metadata and pointer to device cores
+    TensorTrainDeviceView ttd = T.GetDeviceView();
+    auto cores_d = ttd.cores;
+
     // Fill with trivial data
     // T.SetOnes();
 
@@ -159,7 +161,7 @@ SCENARIO("TensorTrain Gram-SVD rounding", "[TensorTrains][GramSVD]") {
     par_for(
         PARTHENON_AUTO_LABEL, 0, RANKS[core] - 1, 0, RANKS[core + 1] - 1, 0, NC[core] - 1,
         KOKKOS_LAMBDA(const int iL, const int iR, const int i) {
-          cores[core](iL, i, iR) = std::sin((iR + 1) * (i + 1));
+          cores_d[core](iL, i, iR) = std::sin((iR + 1) * (i + 1));
         });
     Kokkos::fence();
 
@@ -167,7 +169,7 @@ SCENARIO("TensorTrain Gram-SVD rounding", "[TensorTrains][GramSVD]") {
     par_for(
         PARTHENON_AUTO_LABEL, 0, RANKS[core] - 1, 0, RANKS[core + 1] - 1, 0, NC[core] - 1,
         KOKKOS_LAMBDA(const int iL, const int iR, const int i) {
-          cores[core](iL, i, iR) = std::pow(10., -iR) * std::cos((iL + 1) * (i + 1));
+          cores_d[core](iL, i, iR) = std::pow(10., -iR) * std::cos((iL + 1) * (i + 1));
         });
     Kokkos::fence();
 
@@ -175,12 +177,13 @@ SCENARIO("TensorTrain Gram-SVD rounding", "[TensorTrains][GramSVD]") {
     par_for(
         PARTHENON_AUTO_LABEL, 0, RANKS[core] - 1, 0, RANKS[core + 1] - 1, 0, NC[core] - 1,
         KOKKOS_LAMBDA(const int iL, const int iR, const int i) {
-          cores[core](iL, i, iR) = std::sin((iL + 1) * (i + 1));
+          cores_d[core](iL, i, iR) = std::sin((iL + 1) * (i + 1));
         });
     Kokkos::fence();
 
     // Dense reference BEFORE rounding
     ParArrayND<Real> dense_before = T.ToDenseArray3D();
+    Kokkos::fence();
 
     // Save original ranks
     std::vector<std::size_t> ranks_before;
@@ -191,9 +194,11 @@ SCENARIO("TensorTrain Gram-SVD rounding", "[TensorTrains][GramSVD]") {
     WHEN("We apply Gram-SVD rounding with a loose tolerance") {
       const Real eps = 1e-6;
       T.GramSVDRound(eps);
+      Kokkos::fence();
 
       THEN("The dense representation is preserved within tolerance") {
         ParArrayND<Real> dense_after = T.ToDenseArray3D();
+        Kokkos::fence();
 
         int nwrong = 0;
         par_reduce(
@@ -251,9 +256,8 @@ SCENARIO("TensorTrain Resizing", "[TensorTrains][Resize]") {
     // set the new shape (needs to be done on device)
     // core_device.SetShape(shape_after[0], shape_after[1], shape_after[2]);
     parthenon::par_for(
-        PARTHENON_AUTO_LABEL, 0, 0,
-        KOKKOS_LAMBDA(const int) { 
-          core_device.SetShape(shape_after[0], shape_after[1], shape_after[2]); 
+        PARTHENON_AUTO_LABEL, 0, 0, KOKKOS_LAMBDA(const int) {
+          core_device.SetShape(shape_after[0], shape_after[1], shape_after[2]);
         });
 
     Kokkos::fence();
@@ -274,7 +278,8 @@ SCENARIO("TensorTrain Resizing", "[TensorTrains][Resize]") {
     THEN("Data in kept block is preserved") {
       int nwrong = 0;
       parthenon::par_reduce(
-          PARTHENON_AUTO_LABEL, 0, shape_after[0] - 1, 0, shape_after[2] - 1, 0, shape_after[1] - 1,
+          PARTHENON_AUTO_LABEL, 0, shape_after[0] - 1, 0, shape_after[2] - 1, 0,
+          shape_after[1] - 1,
           KOKKOS_LAMBDA(const int il, const int ir, const int ic, int &nw) {
             if (core_host(il, ic, ir) != 100 * il + 10 * ir + ic) {
               nw += 1;

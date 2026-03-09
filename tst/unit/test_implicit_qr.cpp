@@ -62,6 +62,7 @@ static void CheckEigenpairsResidual(const Matrix &A_orig, const Matrix &Q,
 
     const double res = EigenResidual2Norm(A_orig, v, eigs[i]);
     REQUIRE(res / denom < rtol);
+    REQUIRE(std::isfinite(eigs[i]));
   }
 }
 
