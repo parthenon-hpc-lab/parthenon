@@ -92,7 +92,7 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
         const auto jj = j - jb.s + loc_view(b, 1) * nx2b;
         const auto ii = i - ib.s + loc_view(b, 0) * nx1b;
         const std::int64_t idx = (kk * nx2l + jj) * nx1l + ii;
-        if (spec_type == 0) {
+        if (spec_type == 0) { // velocity field
           const auto rho = cons(b, 0, k, j, i);
           input(idx) = cons(b, 1, k, j, i) / rho;
           input(idx + fft_size_inbox) = cons(b, 2, k, j, i) / rho;
@@ -102,7 +102,7 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
           input(idx) = sqrtrho_inv * cons(b, 1, k, j, i);
           input(idx + fft_size_inbox) = sqrtrho_inv * cons(b, 2, k, j, i);
           input(idx + 2 * fft_size_inbox) = sqrtrho_inv * cons(b, 3, k, j, i);
-        } else if (spec_type == 2) {
+        } else if (spec_type == 2) { // magnetic field
           input(idx) = cons(b, 5, k, j, i);
           input(idx + fft_size_inbox) = cons(b, 6, k, j, i);
           input(idx + 2 * fft_size_inbox) = cons(b, 7, k, j, i);
@@ -186,6 +186,8 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     
     std::string fname;
     fname.assign(output_params.file_basename);
+    fname.append(".spec_type_");
+    fname.append(std::to_string(spec_type));
     fname.append(".");
     fname.append(output_params.file_id);
     fname.append(".");
