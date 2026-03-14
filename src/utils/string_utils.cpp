@@ -22,6 +22,7 @@
 #include "config.hpp"
 #include "error_checking.hpp"
 #include "globals.hpp"
+#include "kokkos_types.hpp"
 #include "parthenon_mpi.hpp"
 
 namespace parthenon {
@@ -105,14 +106,14 @@ std::string BroadcastFileString(const std::string &filename) {
 }
 
 template <typename T>
-Table2D<T> ParseAsciiTable(std::istream &in) {
-  Table2D<T> out;
+HostArray2D<T> ParseAsciiTable(std::istream &in) {
+  std::vector<T> data;
 
   std::string line;
-  std::size_t line_no = 0;
+  std::size_t rows = 0;
+  std::size_t cols = 0;
 
   while (std::getline(in, line)) {
-    ++line_no;
 
     // Strip comments...
     if (auto pos = line.find('#'); pos != std::string::npos) {
@@ -128,44 +129,57 @@ Table2D<T> ParseAsciiTable(std::istream &in) {
     std::size_t row_count = 0;
 
     while (iss >> value) {
-      out.data.push_back(value);
+      data.push_back(value);
       ++row_count;
     }
 
     if (!iss.eof()) {
-      PARTHENON_THROW("ASCII parser error on line: " + std::to_string(line_no) +
+      PARTHENON_THROW("ASCII parser error on line: " + std::to_string(rows) +
                       "! Incorrect type.");
     }
     if (row_count == 0) continue; // should not happen after trim, but safe
 
-    if (out.rows == 0) {
-      out.cols = row_count;
-      if (out.cols == 0) { // table is empty. We can just return.
-        return out;
+    if (rows == 0) {
+      cols = row_count;
+      if (cols == 0) { // table is empty. We can just return.
+        break;
       }
-    } else if (row_count != out.cols) {
+    } else if (row_count != cols) {
       PARTHENON_THROW("Parsed ASCII table is ragged.");
     }
-    ++out.rows;
+    ++rows;
+  }
+
+  // JMM: Thought about doing this by just copying the data, but doing
+  // it this way safeguards against HostArray2D having a different
+  // layout than row-major ordering.
+  HostArray2D<T> out("Parsed ascii table", rows, cols);
+  {
+    std::size_t idx = 0;
+    for (std::size_t row = 0; row < rows; ++row) {
+      for (std::size_t col = 0; col < cols; ++col) {
+        out(row, col) = data[idx++];
+      }
+    }
   }
 
   return out;
 }
-template Table2D<double> ParseAsciiTable(std::istream &);
-template Table2D<float> ParseAsciiTable(std::istream &);
-template Table2D<int> ParseAsciiTable(std::istream &);
-template Table2D<std::size_t> ParseAsciiTable(std::istream &);
+template HostArray2D<double> ParseAsciiTable<double>(std::istream &);
+template HostArray2D<float> ParseAsciiTable<float>(std::istream &);
+template HostArray2D<int> ParseAsciiTable<int>(std::istream &);
+template HostArray2D<std::size_t> ParseAsciiTable<std::size_t>(std::istream &);
 
 template <typename T>
-Table2D<T> ParseAsciiTable(const std::string &filename) {
+HostArray2D<T> ParseAsciiTable(const std::string &filename) {
   std::string str = BroadcastFileString(filename);
   std::istringstream stream(str);
   return ParseAsciiTable<T>(stream);
 }
-template Table2D<double> ParseAsciiTable(const std::string &);
-template Table2D<float> ParseAsciiTable(const std::string &);
-template Table2D<int> ParseAsciiTable(const std::string &);
-template Table2D<std::size_t> ParseAsciiTable(const std::string &);
+template HostArray2D<double> ParseAsciiTable<double>(const std::string &);
+template HostArray2D<float> ParseAsciiTable<float>(const std::string &);
+template HostArray2D<int> ParseAsciiTable<int>(const std::string &);
+template HostArray2D<std::size_t> ParseAsciiTable<std::size_t>(const std::string &);
 
 } // namespace string_utils
 } // namespace parthenon

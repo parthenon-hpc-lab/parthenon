@@ -21,23 +21,10 @@
 #include <vector>
 
 #include "basic_types.hpp"
+#include "kokkos_types.hpp"
 
 namespace parthenon {
 namespace string_utils {
-
-// Return type for ParseAsciiTable
-// could alternatively be a HostArray2D
-template <typename T>
-struct Table2D {
-  std::vector<T> data;
-  std::size_t rows = 0;
-  std::size_t cols = 0;
-
-  T &operator()(std::size_t r, std::size_t c) { return data.at(r * cols + c); }
-  const T &operator()(std::size_t r, std::size_t c) const {
-    return data.at(r * cols + c);
-  }
-};
 
 // trim whitespace
 std::string ltrim(const std::string &s);
@@ -55,18 +42,19 @@ std::vector<std::string> UnpackStrings(const std::string &pack, char delimiter);
 std::string BroadcastFileString(const std::string &filename);
 
 template <typename T = Real>
-Table2D<T> ParseAsciiTable(std::istream &in);
-extern template Table2D<double> ParseAsciiTable(std::istream &);
-extern template Table2D<float> ParseAsciiTable(std::istream &);
-extern template Table2D<int> ParseAsciiTable(std::istream &);
-extern template Table2D<std::size_t> ParseAsciiTable(std::istream &);
+HostArray2D<T> ParseAsciiTable(std::istream &in);
+extern template HostArray2D<double> ParseAsciiTable<double>(std::istream &);
+extern template HostArray2D<float> ParseAsciiTable<float>(std::istream &);
+extern template HostArray2D<int> ParseAsciiTable<int>(std::istream &);
+extern template HostArray2D<std::size_t> ParseAsciiTable<std::size_t>(std::istream &);
 
 template <typename T = Real>
-Table2D<T> ParseAsciiTable(const std::string &filename);
-extern template Table2D<double> ParseAsciiTable(const std::string &);
-extern template Table2D<float> ParseAsciiTable(const std::string &);
-extern template Table2D<int> ParseAsciiTable(const std::string &);
-extern template Table2D<std::size_t> ParseAsciiTable(const std::string &);
+HostArray2D<T> ParseAsciiTable(const std::string &filename);
+extern template HostArray2D<double> ParseAsciiTable<double>(const std::string &);
+extern template HostArray2D<float> ParseAsciiTable<float>(const std::string &);
+extern template HostArray2D<int> ParseAsciiTable<int>(const std::string &);
+extern template HostArray2D<std::size_t>
+ParseAsciiTable<std::size_t>(const std::string &);
 
 } // namespace string_utils
 } // namespace parthenon

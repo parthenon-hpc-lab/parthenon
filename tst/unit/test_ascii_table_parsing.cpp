@@ -42,8 +42,8 @@ SCENARIO("We can parse a simple ASCII table", "[AsciiTableParser][StringUtils]")
       std::istringstream s(ss.str());
       auto table = parthenon::string_utils::ParseAsciiTable<Real>(s);
       THEN("The resultant table has the right number of rows and columns") {
-        REQUIRE(table.rows == 3);
-        REQUIRE(table.cols == 3);
+        REQUIRE(table.extent_int(0) == 3);
+        REQUIRE(table.extent_int(1) == 3);
         AND_THEN("The resultant table as the correct contents") {
           REQUIRE(table(0, 0) == 0.0);
           REQUIRE(table(0, 1) == 0.0);
@@ -66,8 +66,8 @@ SCENARIO("We can parse a simple ASCII table", "[AsciiTableParser][StringUtils]")
       std::istringstream s(ss.str());
       auto table = parthenon::string_utils::ParseAsciiTable<int>(s);
       THEN("The resultant table has the right number of rows and columns") {
-        REQUIRE(table.rows == 1);
-        REQUIRE(table.cols == 5);
+        REQUIRE(table.extent_int(0) == 1);
+        REQUIRE(table.extent_int(1) == 5);
         AND_THEN("The contents are correct") {
           for (int i = 1; i < 5; ++i) {
             REQUIRE(table(0, i - 1) == i);
@@ -85,7 +85,7 @@ SCENARIO("We can parse a simple ASCII table", "[AsciiTableParser][StringUtils]")
     WHEN("When we attempt to parse it") {
       std::istringstream s(ss.str());
       auto table = parthenon::string_utils::ParseAsciiTable<Real>(s);
-      THEN("We get an empty table object") { REQUIRE(table.data.size() == 0); }
+      THEN("We get an empty table object") { REQUIRE(table.size() == 0); }
     }
   }
 
@@ -129,8 +129,8 @@ SCENARIO("We can MPI broadcast a string from a file",
     WHEN("We parse it via broadcast") {
       auto table = parthenon::string_utils::ParseAsciiTable<Real>(filename);
       THEN("The resultant table has the right number of rows and columns") {
-        REQUIRE(table.rows == 3);
-        REQUIRE(table.cols == 3);
+        REQUIRE(table.extent_int(0) == 3);
+        REQUIRE(table.extent_int(1) == 3);
         AND_THEN("The resultant table as the correct contents") {
           REQUIRE(table(0, 0) == 0.0);
           REQUIRE(table(0, 1) == 0.0);
