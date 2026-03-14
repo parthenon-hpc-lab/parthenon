@@ -114,7 +114,6 @@ HostArray2D<T> ParseAsciiTable(std::istream &in) {
   std::size_t cols = 0;
 
   while (std::getline(in, line)) {
-
     // Strip comments...
     if (auto pos = line.find('#'); pos != std::string::npos) {
       line.erase(pos);
