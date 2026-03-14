@@ -81,9 +81,13 @@ std::string BroadcastFileString(const std::string &filename) {
       PARTHENON_THROW("Failed to open file " + filename);
     }
 
-    // allocates memory for string upfront
+    // Figure out length of file. Careful with tellg error code.
     in.seekg(0, std::ios::end);
-    strlen = static_cast<std::uint64_t>(in.tellg());
+    auto maybe_strlen = static_cast<std::int64_t>(in.tellg());
+    PARTHENON_REQUIRE(maybe_strlen > 0, "File has menaingful length");
+    strlen = static_cast<std::uint64_t>(maybe_strlen);
+
+    // allocate memory for string upfront
     str.reserve(strlen);
     in.seekg(0, std::ios::beg);
 
@@ -91,7 +95,7 @@ std::string BroadcastFileString(const std::string &filename) {
   }
 
 #ifdef MPI_PARALLEL
-  MPI_Bcast(&strlen, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&strlen, 1, MPI_UINT64_T, 0, MPI_COMM_WORLD);
   if (Globals::my_rank != 0) {
     str.resize(strlen);
   }
