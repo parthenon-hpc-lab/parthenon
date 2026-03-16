@@ -122,7 +122,7 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
 //
 //   (1) AMR/tree refinement, indexed by logical_level (Athena++ / Parthenon convention):
 //         - Larger logical_level => finer AMR blocks.
-//         - For a domain of size L in a given direction, the physical block size is
+//         - For a tree domain of size L in a given direction, the physical block size is
 //               L_block = L / 2^logical_level
 //           (ignoring that the domain is represented by a forest of octrees).
 //
