@@ -38,11 +38,16 @@ auto ComputeGivensZeroFirst(double a1, double a2) {
 
 KOKKOS_FORCEINLINE_FUNCTION
 auto ComputeGivensDiagonalize2by2(double d1, double d2, double b1) {
-  const double t = (d1 - d2) / (2.0 * b1 + 1e-15);
-  const double tau = t + sign_of(t) * safe_sqrt(1.0 + t * t);
-  const double s = -1.0 / safe_sqrt(1.0 + tau * tau);
-  const double c = -tau * s;
-  return std::make_pair(c, s);
+  // Computes a Givens rotation to diagonalize a symmetric 2x2 matrix
+  // Fixes the pi/2 ambiguity in the diagonalizing rotation by selecting
+  // the eigenvector of the larger eigenvalue as the first rotated basis
+  // vector, ensuring the first diagonal entry of Q A Q^T is the larger
+  // eigenvalue.
+  const double half_diff = 0.5 * (d1 - d2);
+  const double r = sqrt(half_diff * half_diff + b1 * b1);
+  const double y = 0.5 * (d2 - d1) + r;
+  const double norm = std::hypot(b1, y);
+  return std::make_pair(b1 / norm, -y / norm);
 }
 
 template <bool return_zero>
