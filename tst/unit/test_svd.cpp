@@ -94,6 +94,7 @@ static void RunSVDStress(const std::vector<double> &sings_template, int num_real
 
     int iters = SquareSVD::execute(&A, &U, &V, s.data());
     REQUIRE(iters < max_iter_factor * n);
+    REQUIRE(iters > 0);
 
     // 1) reconstruction
     CheckSVDReconstruction(A0, U, V, s, recon_rtol, /*atol=*/1e-12);
@@ -180,7 +181,7 @@ TEST_CASE("ImplicitQR bidiag SVD stress tests over spectra", "[svd][qr][bidiag]"
     s[0] = 1.0;
     s[1] = 3.0;
 
-    RunSVDStress(s, num_realizations, /*max_iter_factor=*/10, recon_rtol,
+    RunSVDStress(s, num_realizations, /*max_iter_factor=*/2, recon_rtol,
                  /*ortho_rtol=*/1e-10, sv_rtol);
   }
 
@@ -240,7 +241,7 @@ TEST_CASE("SVD handles single row/column non-zero matrices", "[svd][edge_case]")
       
       int iters = SquareSVD::execute(&A, &U, &V, s.data());
       REQUIRE(iters < 15 * n);
-      for (const auto &sig : s) std::cout << sig << " ";
+      REQUIRE(iters > 0);
 
       // Check for NaNs in the results
       for (int i = 0; i < n; ++i) {
@@ -285,6 +286,7 @@ TEST_CASE("SVD vs Gram eigenvalues: singular values match sqrt(eigs(A^T A))",
     std::vector<double> s(n);
     int iters = SquareSVD::execute(&A, &U, &V, s.data());
     REQUIRE(iters < 15 * n);
+    REQUIRE(iters > 0);
 
     // Form G = A0^T A0
     Matrix At = Matrix::Transpose(A0);
@@ -296,7 +298,7 @@ TEST_CASE("SVD vs Gram eigenvalues: singular values match sqrt(eigs(A^T A))",
     std::vector<double> d(n);
     Matrix G0 = G.GetDeepCopy();
     int iters_e = SymmetricEVD::execute(&G, &Q, d.data());
-    REQUIRE(iters_e < 10 * n);
+    REQUIRE(iters_e < 5 * n);
 
     // Compare sorted singular values to sorted sqrt of eigenvalues (clamp tiny
     // negatives)
@@ -338,7 +340,9 @@ TEST_CASE("SVD handles scaled matrices: scaling singular values", "[svd][scale]"
     // Baseline SVD
     Matrix U0(n, n), V0(n, n);
     std::vector<double> s0(n);
-    SquareSVD::execute(&A, &U0, &V0, s0.data());
+    int iters = SquareSVD::execute(&A, &U0, &V0, s0.data());
+    REQUIRE(iters < 5 * n);
+    REQUIRE(iters > 0);
     SortAbs(s0);
 
     for (double alpha : scales) {
@@ -349,7 +353,9 @@ TEST_CASE("SVD handles scaled matrices: scaling singular values", "[svd][scale]"
 
       Matrix U(n, n), V(n, n);
       std::vector<double> s(n);
-      SquareSVD::execute(&As, &U, &V, s.data());
+      int iters = SquareSVD::execute(&As, &U, &V, s.data());
+      REQUIRE(iters < 5 * n);
+      REQUIRE(iters > 0);
       SortAbs(s);
 
       // Compare s ≈ |alpha| s0

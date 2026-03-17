@@ -2,6 +2,8 @@
 #define HOUSEHOLDER_HPP
 
 #include "matrix.hpp"
+#include "utils/robust.hpp"
+
 #include <cmath>
 
 /// Construct a normalized Householder vector for a column transformation.
@@ -51,7 +53,7 @@ build_householder_vector_col(tm_t tm, int row, int col, const matrix_t &A, doubl
   norm_v += v[row] * v[row];
   norm_v = safe_sqrt(norm_v);
 
-  double inv_norm_v = 1.0 / (norm_v + 1e-15);
+  double inv_norm_v = parthenon::robust::ratio(1.0, norm_v);
   parallel_loop(
       tm, 0, nrows - 1, KOKKOS_LAMBDA(const int i) { v[i] *= (i >= row) * inv_norm_v; });
 }
@@ -96,7 +98,7 @@ build_householder_vector_row(tm_t tm, int row, int col, const matrix_t &A, doubl
   norm_v += v[col] * v[col];
   norm_v = safe_sqrt(norm_v);
 
-  const double inv_norm_v = 1.0 / (norm_v + 1e-15);
+  const double inv_norm_v = parthenon::robust::ratio(1.0, norm_v);
 
   // Zero entries before col and normalize the active part
   parallel_loop(

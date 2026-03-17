@@ -102,6 +102,7 @@ class SquareSVD {
     std::size_t *end = &(iscratch[ncols / 2 + 1]);
     const int status =
         ImplicitQRBidiag(tm, sings, scratch, pU, pV, start, end, ncols, 10 * ncols);
+    if (status == 10 * ncols) return -status;
 
     // Ensure singular values are positive
     parallel_loop(

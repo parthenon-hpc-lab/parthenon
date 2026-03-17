@@ -86,7 +86,9 @@ class SymmetricEVD {
     barrier(tm);
     std::size_t *start = &(iscratch[0]);
     std::size_t *end = &(iscratch[ncols / 2 + 1]);
-    return ImplicitQRTridiag(tm, eigs, scratch, pQ, start, end, ncols, 10 * ncols);
+    const int status = ImplicitQRTridiag(tm, eigs, scratch, pQ, start, end, ncols, 10 * ncols);
+    if (status == 10 * ncols) return -status;
+    return status;
   }
 
   template <class tm_t, class matrix_t>

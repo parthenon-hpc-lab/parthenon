@@ -147,17 +147,12 @@ KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRBidiag(tm_t tm, double *d, double *b,
 
       // size one partition is already by definition diagonal
       if (ep - sp == 2) {
-        // Directly calculate Givens rotation required to diagonalize 2x2 Gram
-        // matrix T = A^T A
-        const double t00 = d[sp] * d[sp];
-        const double t01 = d[sp] * b[sp];
-        const double t11 = d[sp + 1] * d[sp + 1] + b[sp] * b[sp];
-        const auto [c1, s1] = ComputeGivensDiagonalize2by2(t00, t11, t01);
-        bulge = ApplyGivensRight<true, true>(tm, sp, c1, s1, bulge, d, b);
-        if (pV) ApplyGivensRight(tm, sp, c1, s1, *pV);
-        const auto [c2, s2] = ComputeGivensZeroSecond(d[sp], bulge);
-        bulge = ApplyGivensLeft<true, true>(tm, sp, c2, s2, bulge, d, b);
-        if (pU) ApplyGivensRight(tm, sp, c2, s2, *pU);
+        auto result = ComputeSVD2by2UpperTriangular(d[sp], b[sp], d[sp + 1]);
+        d[sp] = result.smax;
+        d[sp+1] = result.smin;
+        b[sp] = 0.0;
+        if (pV) ApplyGivensRight(tm, sp, result.cr, result.sr, *pV);
+        if (pU) ApplyGivensRight(tm, sp, result.cl, result.sl, *pU);
       } else if (ep - sp > 2) {
         // Compute shift and initial Given's rotation (which must satisfy
         // implicit QR) for the Gram matrix T = A^T A

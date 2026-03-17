@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "matrix.hpp"
+#include "utils/robust.hpp"
 
 // Returns the 2x2 unitary matrix components
 // sigma = [c -s]
@@ -19,7 +20,7 @@ auto ComputeGivensZeroSecond(double a1, double a2) {
   // c^2 = a1^2 / (a1^2 + a2^2)
   // s^2 = a2^2 / (a1^2 + a2^2)
   if (a2 == 0.0) return std::make_pair(1.0, 0.0);
-  double norm = 1.0 / (std::hypot(a1, a2) + 1e-15);
+  double norm = parthenon::robust::ratio(1.0, std::hypot(a1, a2));
   // (c, s)
   return std::make_pair(norm * a1, -norm * a2);
 }
@@ -31,24 +32,97 @@ auto ComputeGivensZeroSecond(double a1, double a2) {
 KOKKOS_FORCEINLINE_FUNCTION
 auto ComputeGivensZeroFirst(double a1, double a2) {
   if (a2 == 0.0) return std::make_pair(1.0, 0.0);
-  double norm = 1.0 / (std::hypot(a1, a2) + 1e-15);
+  double norm = parthenon::robust::ratio(1.0, std::hypot(a1, a2));
   // (c, s)
   return std::make_pair(norm * a2, norm * a1);
 }
 
 KOKKOS_FORCEINLINE_FUNCTION
 auto ComputeGivensDiagonalize2by2(double d1, double d2, double b1) {
-  // Computes a Givens rotation to diagonalize a symmetric 2x2 matrix
-  // Fixes the pi/2 ambiguity in the diagonalizing rotation by selecting
-  // the eigenvector of the larger eigenvalue as the first rotated basis
-  // vector, ensuring the first diagonal entry of Q A Q^T is the larger
-  // eigenvalue.
-  const double half_diff = 0.5 * (d1 - d2);
-  const double r = sqrt(half_diff * half_diff + b1 * b1);
-  const double y = 0.5 * (d2 - d1) + r;
-  const double norm = std::hypot(b1, y);
-  return std::make_pair(b1 / norm, -y / norm);
-}
+  const double t = (d1 - d2) / (2.0 * b1);
+  const double tau = t + sign_of(t) * std::sqrt(1.0 + t * t);
+  const double s = -1.0 / std::sqrt(1.0 + tau * tau);
+  const double c = -tau * s;
+  return std::make_pair(c, s);
+} 
+
+struct SVD2by2Result {
+  double smin;
+  double smax;
+  double sr;
+  double cr;
+  double sl;
+  double cl;
+};
+
+KOKKOS_FORCEINLINE_FUNCTION
+SVD2by2Result ComputeSVD2by2UpperTriangular(double a11, double a12, double a22) {
+  using namespace parthenon::robust;
+  // Scale the matrix to order unity 
+  double scale = std::max(std::max(std::abs(a11), std::abs(a22)), std::abs(a12));
+  if (scale == 0.0) return SVD2by2Result{0, 0, 0, 1, 0, 1};
+
+  // and make the dominant diagonal positive (if there is one)
+  if (a11 != 0.0 || a22 != 0.0)
+    scale *= std::abs(a11) > std::abs(a22) ? sign_of(a11) : sign_of(a22);
+  a11 = ratio(a11, scale);
+  a12 = ratio(a12, scale);
+  a22 = ratio(a22, scale);
+
+  // If the trailing diagonal is dominant in the working frame, swap the
+  // diagonal entries so the formulas act on a matrix with dominant leading
+  // diagonal
+  const bool swap = a22 > a11;
+  if (swap) {
+    const double temp = a22;
+    a22 = a11;
+    a11 = temp;
+  }
+
+  // Singular values of [a11 a12; 0 a22] in the LAPACK 2x2 form
+  const double sp = safe_sqrt((a11 + a22) * (a11 + a22) + a12 * a12);
+  const double sm = safe_sqrt((a11 - a22) * (a11 - a22) + a12 * a12);
+  const double aa = 0.5 * (sp + sm);
+
+  SVD2by2Result out;
+  out.smax = scale * aa;
+  out.smin = ratio(scale * a11 * a22, aa);
+  
+  // First right singular vector v1 is proportional to
+  // [a11 * a12, -(sigma_max^2 - a11^2)]
+  double xr = a11 * a12;
+  // Evaluate -(sigma_max^2 - a11^2) in a form that avoids cancellation when
+  // sigma_max is close to a11 by rationalizing the relevant differences
+  double yr = ratio(a12 * a12, sp + (a11 + a22));
+  yr += ratio(a12 * a12, sm + (a11 - a22));
+  yr *= -0.5 * (aa + a11);
+  const double normr = std::hypot(xr, yr);
+  const double cr = ratio(xr, normr);
+  const double sr = ratio(yr, normr);
+
+  // Recover the first left singular vector from A v1 = sigma_max u1
+  const double cl = ratio(a11 * cr - a12 * sr, aa);
+  const double sl = ratio(a22 * sr, aa);
+  // Renormalize for floating-point safety
+  const double norml = std::hypot(cl, sl);
+  
+  if (swap) {
+    // Swapping the working-frame diagonal entries corresponds to a transpose-
+    // permutation relation, so the left and right singular vectors map back
+    // with exchanged roles and permuted components.
+    out.cr = ratio(sl, norml);
+    out.sr = ratio(cl, norml);
+    out.cl = sr;
+    out.sl = cr;
+  } else {
+    out.cr = cr;
+    out.sr = sr;
+    out.cl = ratio(cl, norml);
+    out.sl = ratio(sl, norml);
+  }
+
+  return out;
+}  
 
 template <bool return_zero>
 KOKKOS_FORCEINLINE_FUNCTION double ValueAtIndexOrZero(int idx, double *arr) {
