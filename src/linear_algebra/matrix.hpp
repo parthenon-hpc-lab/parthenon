@@ -1,3 +1,16 @@
+//========================================================================================
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
+//
+// This program was produced under U.S. Government contract 89233218CNA000001 for Los
+// Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+// for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+// in the program are reserved by Triad National Security, LLC, and the U.S. Department
+// of Energy/National Nuclear Security Administration. The Government is granted for
+// itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+// license in this material to reproduce, prepare derivative works, distribute copies to
+// the public, perform publicly and display publicly, and to permit others to do so.
+//========================================================================================
+
 #ifndef MATRIX_HPP
 #define MATRIX_HPP
 
@@ -86,6 +99,8 @@ std::ostream &operator<<(std::ostream &os, const Matrix &m);
 
 // Matrix–matrix multiply
 void Multiply(const Matrix &A, const Matrix &B, Matrix &C);
+
+// TODO(LFR): Move all the stuff below to a new header
 
 // Template must stay in the header so callers can instantiate it.
 template <typename T>
