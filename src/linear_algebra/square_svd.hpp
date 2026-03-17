@@ -103,8 +103,7 @@ class SquareSVD {
 
     // Move to tridiagonal storage
     barrier(tm);
-    once_per_team(
-        tm, KOKKOS_LAMBDA() { sings[0] = A(0, 0); });
+    once_per_team(tm, KOKKOS_LAMBDA() { sings[0] = A(0, 0); });
     parallel_loop(
         tm, 0, ncols - 2, KOKKOS_LAMBDA(int i) {
           sings[i + 1] = A(i + 1, i + 1);

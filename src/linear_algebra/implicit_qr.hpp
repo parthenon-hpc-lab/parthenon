@@ -136,7 +136,7 @@ ImplicitQRTridiag(tm_t tm, double *d, double *b, matrix_t *pQ, std::size_t *star
 // Perform implicit QR (Francis algorithm) on Gram matrix of a symmetric, bidiagonal
 // matrix A with diagonals d_i = A_{i,i} and off-diagonals b_i = A_{i, i+1}
 // in place. On return, all elements of b should be ~zero and d should
-// contain the singular values of A. The Gram matrix B = A^T A is never explicitly 
+// contain the singular values of A. The Gram matrix B = A^T A is never explicitly
 // formed.
 template <class tm_t, class matrix_t>
 KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRBidiag(tm_t tm, double *d, double *b,
@@ -162,7 +162,7 @@ KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRBidiag(tm_t tm, double *d, double *b,
       if (ep - sp == 2) {
         auto result = ComputeSVD2by2UpperTriangular(d[sp], b[sp], d[sp + 1]);
         d[sp] = result.smax;
-        d[sp+1] = result.smin;
+        d[sp + 1] = result.smin;
         b[sp] = 0.0;
         if (pV) ApplyGivensRight(tm, sp, result.cr, result.sr, *pV);
         if (pU) ApplyGivensRight(tm, sp, result.cl, result.sl, *pU);

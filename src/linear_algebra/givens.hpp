@@ -57,7 +57,7 @@ auto ComputeGivensDiagonalize2by2(double d1, double d2, double b1) {
   const double s = -1.0 / std::sqrt(1.0 + tau * tau);
   const double c = -tau * s;
   return std::make_pair(c, s);
-} 
+}
 
 struct SVD2by2Result {
   double smin;
@@ -71,7 +71,7 @@ struct SVD2by2Result {
 KOKKOS_FORCEINLINE_FUNCTION
 SVD2by2Result ComputeSVD2by2UpperTriangular(double a11, double a12, double a22) {
   using namespace parthenon::robust;
-  // Scale the matrix to order unity 
+  // Scale the matrix to order unity
   double scale = std::max(std::max(std::abs(a11), std::abs(a22)), std::abs(a12));
   if (scale == 0.0) return SVD2by2Result{0, 0, 0, 1, 0, 1};
 
@@ -100,7 +100,7 @@ SVD2by2Result ComputeSVD2by2UpperTriangular(double a11, double a12, double a22) 
   SVD2by2Result out;
   out.smax = scale * aa;
   out.smin = ratio(scale * a11 * a22, aa);
-  
+
   // First right singular vector v1 is proportional to
   // [a11 * a12, -(sigma_max^2 - a11^2)]
   double xr = a11 * a12;
@@ -118,7 +118,7 @@ SVD2by2Result ComputeSVD2by2UpperTriangular(double a11, double a12, double a22) 
   const double sl = ratio(a22 * sr, aa);
   // Renormalize for floating-point safety
   const double norml = std::hypot(cl, sl);
-  
+
   if (swap) {
     // Swapping the working-frame diagonal entries corresponds to a transpose-
     // permutation relation, so the left and right singular vectors map back
@@ -135,7 +135,7 @@ SVD2by2Result ComputeSVD2by2UpperTriangular(double a11, double a12, double a22) 
   }
 
   return out;
-}  
+}
 
 template <bool return_zero>
 KOKKOS_FORCEINLINE_FUNCTION double ValueAtIndexOrZero(int idx, double *arr) {

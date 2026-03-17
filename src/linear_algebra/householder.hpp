@@ -50,8 +50,7 @@ build_householder_vector_col(tm_t tm, int row, int col, const matrix_t &A, doubl
 
   norm_x = safe_sqrt(norm_x);
   if (norm_x == 0.0) {
-    parallel_loop(
-        tm, 0, nrows - 1, KOKKOS_LAMBDA(const int i) { v[i] = 0.0; });
+    parallel_loop(tm, 0, nrows - 1, KOKKOS_LAMBDA(const int i) { v[i] = 0.0; });
     return;
   }
 
@@ -90,8 +89,7 @@ build_householder_vector_row(tm_t tm, int row, int col, const matrix_t &A, doubl
 
   // If the row segment is already zero, the reflector is identity
   if (norm_x == 0.0) {
-    parallel_loop(
-        tm, 0, ncols - 1, KOKKOS_LAMBDA(const int j) { v[j] = 0.0; });
+    parallel_loop(tm, 0, ncols - 1, KOKKOS_LAMBDA(const int j) { v[j] = 0.0; });
     return;
   }
 
@@ -132,8 +130,7 @@ apply_left_householder_transformation(tm_t tm, const double *const v, double *sc
     summation(
         tm, 0, nrows - 1,
         KOKKOS_LAMBDA(int r, double &ww) { ww += 2.0 * v[r] * A(r, c); }, w);
-    once_per_team(
-        tm, KOKKOS_LAMBDA() { scratch[c] = w; });
+    once_per_team(tm, KOKKOS_LAMBDA() { scratch[c] = w; });
   }
   barrier(tm);
   parallel_loop(
@@ -154,8 +151,7 @@ apply_right_householder_transformation(tm_t tm, const double *const v, double *s
     summation(
         tm, 0, ncols - 1,
         KOKKOS_LAMBDA(int c, double &ww) { ww += 2.0 * v[c] * A(r, c); }, w);
-    once_per_team(
-        tm, KOKKOS_LAMBDA() { scratch[r] = w; });
+    once_per_team(tm, KOKKOS_LAMBDA() { scratch[r] = w; });
   }
   barrier(tm);
   parallel_loop(

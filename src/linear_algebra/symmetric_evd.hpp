@@ -89,8 +89,7 @@ class SymmetricEVD {
 
     // Move to tridiagonal storage
     barrier(tm);
-    once_per_team(
-        tm, KOKKOS_LAMBDA() { eigs[0] = A(0, 0); });
+    once_per_team(tm, KOKKOS_LAMBDA() { eigs[0] = A(0, 0); });
     parallel_loop(
         tm, 0, ncols - 2, KOKKOS_LAMBDA(int i) {
           eigs[i + 1] = A(i + 1, i + 1);
@@ -100,7 +99,8 @@ class SymmetricEVD {
     barrier(tm);
     std::size_t *start = &(iscratch[0]);
     std::size_t *end = &(iscratch[ncols / 2 + 1]);
-    const int status = ImplicitQRTridiag(tm, eigs, scratch, pQ, start, end, ncols, 10 * ncols);
+    const int status =
+        ImplicitQRTridiag(tm, eigs, scratch, pQ, start, end, ncols, 10 * ncols);
     if (status == 10 * ncols) return -status;
     return status;
   }

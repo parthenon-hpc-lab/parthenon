@@ -72,9 +72,8 @@ void GramSVDStorage::ComputeSVD(const int Rn, const int nnzL, const int nnzR,
     row_norm = safe_sqrt(row_norm);
 
     // v = normalized pivot row
-    par_for_inner(tm, 0, Rn - 1, [&](const int j) {
-      SVDV()(j, 0) = M()(pivot, j) / row_norm;
-    });
+    par_for_inner(tm, 0, Rn - 1,
+                  [&](const int j) { SVDV()(j, 0) = M()(pivot, j) / row_norm; });
     tm.team_barrier();
 
     // u = M v / sigma
@@ -283,7 +282,7 @@ void TensorTrain::CalculateRightGramMatrices(GramSVDStorage &GS,
                     cores(n + 1)(a, i, b) * GS.GR(n + 1)(b, bp) * cores(n + 1)(ap, i, bp);
               },
               Kokkos::Sum<Real, parthenon::DevMemSpace>(accum)); // par_reduce_inner
-        }                                                        // if (n == Ngram - 1)
+        } // if (n == Ngram - 1)
         GS.GR(n)(a, ap) = accum;
       }
     }

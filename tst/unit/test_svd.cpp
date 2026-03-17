@@ -228,17 +228,17 @@ TEST_CASE("ImplicitQR bidiag SVD stress tests over spectra", "[svd][qr][bidiag]"
 
 TEST_CASE("SVD handles single row/column non-zero matrices", "[svd][edge_case]") {
   SECTION("Matrix with only first row non-zero") {
-    for (int n : {5}) {  // Test multiple sizes
-      Matrix A(n, n);  // Initialize with zeros
+    for (int n : {5}) { // Test multiple sizes
+      Matrix A(n, n);   // Initialize with zeros
       // Set only the first row to non-zero values
       for (int j = 0; j < n; ++j) {
-        A(0, j) = 1.0 + j;  // Simple increasing pattern
+        A(0, j) = 1.0 + j; // Simple increasing pattern
       }
-      
+
       Matrix A0 = A.GetDeepCopy();
       Matrix U(n, n), V(n, n);
       std::vector<double> s(n);
-      
+
       int iters = SquareSVD::execute(&A, &U, &V, s.data());
       REQUIRE(iters < 15 * n);
       REQUIRE(iters > 0);
@@ -251,20 +251,20 @@ TEST_CASE("SVD handles single row/column non-zero matrices", "[svd][edge_case]")
           REQUIRE_FALSE(std::isnan(V(i, j)));
         }
       }
-      
+
       // Verify reconstruction
       CheckSVDReconstruction(A0, U, V, s, /*rtol=*/1e-9, /*atol=*/1e-12);
-      
+
       // For a single-row matrix, there should be exactly one non-zero singular value
       double row_norm = 0.0;
       for (int j = 0; j < n; ++j) {
         row_norm += A0(0, j) * A0(0, j);
       }
       row_norm = std::sqrt(row_norm);
-      
+
       // The first singular value should match the norm of the row
       REQUIRE(std::abs(s[0] - row_norm) / row_norm < 1e-10);
-      
+
       // All other singular values should be effectively zero
       for (int i = 1; i < n; ++i) {
         REQUIRE(std::abs(s[i]) < 1e-10 * row_norm);
