@@ -140,4 +140,4 @@ how to use them.
 | Ben Ryan | @brryan | LANL Physics |
 | Clell J. (CJ) Solomon | @clellsolomon | LANL Physics |
 | Luke Roberts | @lroberts36 | LANL Physics |
-| Ben Prather | @bprather | LANL Physics |
+| Cora Prather | @c-prather | Harvard BHI |

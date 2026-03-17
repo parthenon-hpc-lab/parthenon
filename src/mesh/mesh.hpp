@@ -182,6 +182,15 @@ class Mesh {
                       static_cast<int>(std::min(default_num_packs_, block_list.size())));
     }
   }
+  std::size_t CommBufferChunkSize() {
+    // Might be worth discussing what a good default is.  The number
+    // of blocks on a rank is a "greatest common denominator" of the
+    // number of buffers required, assuming each block has similar
+    // buffer configurations, which may or may not be a good
+    // approximation. To minimize the memory footprint at the cost of
+    // more allocations, the user may set this to "1."
+    return (nbuf_add_ > 0) ? nbuf_add_ : std::max(std::size_t{1}, block_list.size());
+  }
 
   const std::vector<std::shared_ptr<BlockListPartition>> &
   GetDefaultBlockPartitions(GridIdentifier grid = GridIdentifier::leaf()) const {
@@ -195,15 +204,6 @@ class Mesh {
   }
 
   auto GetBasePartition() const { return base_block_partition_; }
-
-  // step 7: create new MeshBlock list (same MPI rank but diff level: create new block)
-  // Moved here given Cuda/nvcc restriction:
-  // "error: The enclosing parent function ("...")
-  // for an extended __host__ __device__ lambda cannot have private or
-  // protected access within its class"
-  void FillSameRankCoarseToFineAMR(MeshBlock *pob, MeshBlock *pmb,
-                                   LogicalLocation &newloc);
-  void FillSameRankFineToCoarseAMR(MeshBlock *pob, MeshBlock *pmb, LogicalLocation &loc);
 
   std::shared_ptr<MeshBlock> FindMeshBlock(int tgid) const;
 
@@ -263,14 +263,47 @@ class Mesh {
   // between two blocks for a given variable
   using channel_key_t = std::tuple<int, int, std::string, int, int>;
   using comm_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
-  std::unordered_map<int, buf_pool_t<Real>> pool_map;
-  using comm_buf_map_t = std::unordered_map<channel_key_t, comm_buf_t>;
+  class comm_buf_map_t {
+   public:
+    using map_t = std::unordered_map<channel_key_t, comm_buf_t>;
+    using key_type = map_t::key_type;
+    using mapped_type = map_t::mapped_type;
+
+   private:
+    // On initial meshing and after remeshing, the comm buffer map is cleared and
+    // rebuilt. The member epoch_ stores the number of times the comm buffers have
+    // been built so that various boundary cache objects that point to the comm
+    // buffers can easily check if they point to buffers from an old mesh
+    // configuration that have been cleared.
+    std::size_t epoch_{1};
+    map_t m_;
+
+   public:
+    auto &operator[](const key_type &k) { return m_[k]; }
+    auto &at(const key_type &k) { return m_.at(k); }
+    auto count(const key_type &k) const { return m_.count(k); }
+
+    auto begin() noexcept { return m_.begin(); }
+    auto end() noexcept { return m_.end(); }
+    auto begin() const noexcept { return m_.begin(); }
+    auto end() const noexcept { return m_.end(); }
+
+    auto GetCurrentEpoch() const { return epoch_; }
+    void clear() {
+      m_.clear();
+      epoch_++;
+    }
+  };
+
+  ObjectPoolMap<BufArray1D<Real>> pool_map;
   comm_buf_map_t boundary_comm_map;
   TagMap tag_map;
   int nteams_per_boundary_buffer;
   int boundary_buffer_work_chunk_size;
 
   std::shared_ptr<CoalescedComms> pcoalesced_comms;
+
+  bool TryReallocCommBufferPools();
 
 #ifdef MPI_PARALLEL
   MPI_Comm GetMPIComm(const std::string &label) const { return mpi_comm_map_.at(label); }
@@ -287,7 +320,7 @@ class Mesh {
 
   uint64_t GetBufferPoolSizeInBytes() const {
     std::uint64_t buffer_memory = 0;
-    for (auto &p : pool_map) {
+    for (auto &p : pool_map.GetMap()) {
       buffer_memory += p.second.SizeInBytes();
     }
     return buffer_memory;
@@ -344,6 +377,14 @@ class Mesh {
   int default_pack_size_;
   std::size_t default_num_packs_;
 
+  // number of comm buffers to add when more need to be allocated
+  // TODO(JMM): Stash this in globals or a param maybe?
+  std::int64_t nbuf_add_;
+
+  // Tracking for when to re-allocate comm-buffers to minimize memory
+  // footprint.
+  Real buffer_reset_frac_;
+
   int gmg_min_logical_level_ = 0;
 
 #ifdef MPI_PARALLEL
@@ -374,16 +415,13 @@ class Mesh {
                                        int ntot);
   void BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in);
   void SetGMGNeighbors();
-  void
-  SetMeshBlockNeighbors(GridIdentifier grid_id, BlockList_t &block_list,
-                        const std::vector<int> &ranklist,
-                        const std::unordered_set<LogicalLocation> &newly_refined = {});
 
   // Optionally defined in the problem file
   std::function<void(Mesh *, ParameterInput *)> InitUserMeshData = nullptr;
 
   // Re-used functionality in constructor
   void RegisterLoadBalancing_(ParameterInput *pin);
+  void BuildAndRegisterCommBuffers_();
 
   void SetupMPIComms();
   void BuildTagMapAndBoundaryBuffers();

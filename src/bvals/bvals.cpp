@@ -39,7 +39,6 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
-#include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -71,8 +70,9 @@ void BoundarySwarm::SetupPersistentMPI() {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
 
   // Initialize neighbor communications to other ranks
-  for (int n = 0; n < pmb->neighbors.size(); n++) {
-    NeighborBlock &nb = pmb->neighbors[n];
+  const auto &neighbors = pmb->GetNeighbors();
+  for (int n = 0; n < neighbors.size(); n++) {
+    const NeighborBlock &nb = neighbors[n];
     // Neighbor on different MPI process
     if (nb.rank != Globals::my_rank) {
       send_tag[nb.bufid] = pmb->pmy_mesh->tag_map.GetTag(pmb.get(), nb);
@@ -94,8 +94,9 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   // Fence to make sure buffers are loaded before sending
   pmb->exec_space.fence();
-  for (int n = 0; n < pmb->neighbors.size(); n++) {
-    NeighborBlock &nb = pmb->neighbors[n];
+  const auto &neighbors = pmb->GetNeighbors();
+  for (int n = 0; n < neighbors.size(); n++) {
+    const NeighborBlock &nb = neighbors[n];
     if (nb.rank != Globals::my_rank) {
 #ifdef MPI_PARALLEL
       PARTHENON_REQUIRE(bd_var_.req_send[nb.bufid] == MPI_REQUEST_NULL,
@@ -132,8 +133,9 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
 #ifdef MPI_PARALLEL
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   const int &mylevel = pmb->loc.level();
-  for (int n = 0; n < pmb->neighbors.size(); n++) {
-    NeighborBlock &nb = pmb->neighbors[n];
+  const auto &neighbors = pmb->GetNeighbors();
+  for (int n = 0; n < neighbors.size(); n++) {
+    const NeighborBlock &nb = neighbors[n];
     if (nb.rank != Globals::my_rank) {
       // Check to see if we got a message
       int test;

@@ -82,6 +82,8 @@ struct BndInfo {
   BndInfo(const BndInfo &) = default;
   BndInfo(MeshBlock *pmb, const NeighborBlock &nb, std::shared_ptr<Variable<Real>> v,
           CommBuffer<buf_pool_t<Real>::owner_t> *combuf, IndexRangeType idx_range_type);
+  KOKKOS_DEFAULTED_FUNCTION
+  ~BndInfo() = default;
 
   // These are are used to generate the BndInfo struct for various
   // kinds of boundary types and operations.
@@ -184,6 +186,9 @@ struct BvarsSubCache_t {
     bnd_info_h = BndInfoArr_t::host_mirror_type{};
     prores_cache.clear();
   }
+
+  bool RequiresReinitialize(Mesh *pmesh) const;
+
   // Stores prolongation and restriction information for boundary regions
   ProResCache_t prores_cache;
 
@@ -196,6 +201,7 @@ struct BvarsSubCache_t {
 
   BndInfoArr_t bnd_info{};
   BndInfoArr_t::host_mirror_type bnd_info_h{};
+  std::size_t epoch{0};
 };
 
 struct BvarsCache_t {
@@ -203,8 +209,6 @@ struct BvarsCache_t {
   auto &GetSubCache(BoundaryType boundType, bool send) {
     return caches[2 * static_cast<int>(boundType) + send];
   }
-  // auto &operator[](BoundaryType boundType) { return
-  // caches[static_cast<int>(boundType)]; }
   void clear() {
     for (int i = 0; i < caches.size(); ++i)
       caches[i].clear();

@@ -17,6 +17,7 @@
 ##========================================================================================
 
 list(APPEND unit_tests_SOURCES
+    test_ascii_table_parsing.cpp
     test_concepts_lite.cpp
     test_coordinates.cpp
     test_data_collection.cpp
@@ -39,6 +40,7 @@ list(APPEND unit_tests_SOURCES
     test_sparse_pack.cpp
     test_parameter_input.cpp
     test_error_checking.cpp
+    test_object_pool.cpp
     test_partitioning.cpp
     test_scratch_variables.cpp
     test_state_descriptor.cpp

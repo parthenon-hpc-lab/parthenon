@@ -302,6 +302,44 @@ On host a lot of this functionality could be replicated with
 be able to exist on device (even though the reference counting doesn’t
 work there).
 
+It is often convenient to hold multiple pools, one for each different
+size of object that we might want to pool. (For example for
+differently shaped comm buffers.) We implement that via the
+``ObjectPoolMap<T>`` type, which owns an arbitrary number of
+pools. The main functionality that it provides is it can construct a
+pool with an allocation strategy that allocates buffers in chunks of
+contiguous blocks of memory, reducing the number of malloc calls
+required. For example, the code
+
+.. code:: cpp
+
+  ObjectPoolMap<ParArray1D<Real>> pool_map;
+  pool_map.AddPool(buf_len, nbufs);
+
+tells the pool map that you would like a pool of objects of size
+``buf_len`` that allocates ``nbufs`` at once when it runs out of
+memory, minimizing allocation costs. Objects can be explicitly added
+to the pool with
+
+.. code:: cpp
+
+  pool_map.AddFreeObjectsToPool(buf_len, nbufs);
+
+A pool for objects of a given size may be requested with
+``pool_map.GetPool(buf_len)``, a ``weak_t`` buffer may be requested
+with ``pool_map.GetBuffer(buf_len)`` and an ``owning_t`` may be
+requested with ``GetOwningBuffer``. The existence of a pool for
+objects may be checked with ``pool_map.Contains(buf_len)`` and all
+pools may be cleared and their buffers deallocated with
+``pool_map.Clear()``. Finally, the underlying map may be accessed for,
+e.g., iteration, with ``pool_map.GetMap()``.
+
+.. note::
+
+   The pool map is bounds checking. It will not add a new pool of
+   objects of a given shape unless they are requested. If you request
+   a buffer from a non-existent pool, the code will throw an error.
+
 Sparse boundary communication implementation
 --------------------------------------------
 
@@ -337,6 +375,68 @@ buffers associated with each channel
 Note that every stage shares the same ``CommBuffer``\ s, but we keep
 separate buffers for boundary value communication and flux correction
 communication so these operations can occur concurrently if necessary.
+
+Chunking of sparsely allocated comm buffers
+--------------------------------------------
+
+Memory for comm buffers in the buffer pools is allocated in "chunks"
+of some fixed size. Ideally this chunk size is large enough to
+minimize individual ``malloc`` calls but not over-allocate by too
+much. This can be set via the ``comm_buffer_chunk_size`` setting in
+the ``parthenon/mesh`` block of the input deck. E.g.,
+
+.. code::
+
+   <parthenon/mesh>
+   comm_buffer_chunk_size = 200
+
+The default, ``-1``, tells parthenon to make a heuristic choice based
+on the number of meshblocks per rank. This chunk size will always be
+at least 1 buffer and never more than the total number of buffers it
+is possible for a given mesh to require.
+
+In general (for sparse fields or AMR meshes) a smaller chunk size will
+require more ``malloc`` calls (which are expensive) but will imply a
+smaller memory footprint, as the code is less likely to over-allocate
+beyond the number of buffers it needs. For static meshes with only
+dense fields, the chunk size should be set to roughly the number of
+variables required, and the heuristic will choose something
+appropriate.
+
+Deallocating pooled comm buffers
+----------------------------------
+
+Comm buffers in the buffer pool are, by default, never
+deallocated. This provides a performance improvement (at the cost of
+memory) by saving on memory allocations if those buffers should be
+needed again. However, in memory constrained environments, that may
+not be desirable. The mesh member function
+``Mesh::TryReallocCommBufferPools`` will check to see if deallocating
+and reseting the buffer pools is appropriate. It will do so by
+checking whether the current number of buffers in use is less than
+some factor times the total number allocated **and** that the
+difference between the number in use and number allocated is larger
+than the chunk size described above. If these conditions are met, all
+comm buffers will be deallocated and then reallocated as appropriate
+for the current mesh. This constant factor may be set with the input
+variable ``parthenon/mesh/comm_buffer_reset_fraction``.
+
+This function may be called by hand in user code. However, it may also
+be automatically called at a fixed cadence. The evolution driver (and
+thus any code with a concept of a time step) will check whether or not
+comm buffers may be reallocated every
+``parthenon/time/comm_buffer_reset_cadence`` cycles. This
+variable is set to ``-1`` by default, which indicates comm buffers are
+never reset. An input deck that changes these settings by hand might
+look like:
+
+.. code::
+
+   <parthenon/time>
+   comm_buffer_reallocate_cadence = 1000 # Re-allocate comm buffers every 1000 cycles...
+
+   <parthenon/mesh>
+   comm_buffer_reset_fraction = 0.9 # ...if at least 10% of all comm buffers are unused
 
 Send and Receive Ordering
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -510,7 +610,7 @@ To use coalesced communication, your input must include:
    
    parthenon/mesh/do_coalesced_comms = true
 
-curently by default this is set to ``true``.
+curently by default this is set to ``false``.
 
 Implementation Details
 ~~~~~~~~~~~~~~~~~~~~~~

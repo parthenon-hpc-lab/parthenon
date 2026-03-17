@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2022-2025 The Parthenon collaboration
+// Copyright(C) 2022-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2022-2024. Triad National Security, LLC. All rights reserved.
@@ -40,7 +40,6 @@
 
 #include "tasks/tasks.hpp"
 #include "utils/error_checking.hpp"
-#include "utils/indexer.hpp"
 #include "utils/loop_utils.hpp"
 
 namespace parthenon {
@@ -49,13 +48,14 @@ using namespace loops;
 using namespace loops::shorthands;
 
 template <BoundaryType bound_type>
-TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
+TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
+                                           bool do_restriction) {
   PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, true);
 
-  if (cache.buf_vec.size() == 0)
+  if (cache.RequiresReinitialize(pmesh))
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, SendKey);
 
   auto [rebuild, nbound, other_communication_unfinished] =
@@ -87,7 +87,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     }
   }
   // Restrict
-  if (md->NumBlocks() > 0) {
+  if (md->NumBlocks() > 0 && do_restriction) {
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
     StateDescriptor *resolved_packages = pmb->resolved_packages.get();
     refinement::Restrict(resolved_packages, cache.prores_cache, pmb->cellbounds,
@@ -211,10 +211,8 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
-  if (cache.buf_vec.size() == 0)
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache,
-                                      ReceiveKey);
-
+  if (cache.RequiresReinitialize(pmesh))
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey);
   if (!pmesh->do_coalesced_comms) {
     std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                   [](auto pbuf) { pbuf->TryStartReceive(); });
@@ -244,9 +242,8 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
 
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
-  if (cache.buf_vec.size() == 0)
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache,
-                                      ReceiveKey);
+  if (cache.RequiresReinitialize(pmesh))
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey);
 
   const bool coal_comm = pmesh->do_coalesced_comms;
   if (coal_comm) pmesh->pcoalesced_comms->TryReceiveAny(md.get(), bound_type);
@@ -259,7 +256,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   int ibound = 0;
   if (Globals::sparse_config.enabled && all_received) {
     ForEachBoundary<bound_type>(
-        md, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+        md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v) {
           const std::size_t ibuf = cache.idx_vec[ibound];
           auto &buf = *cache.buf_vec[ibuf];
 

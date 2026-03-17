@@ -50,6 +50,7 @@
 #include "interface/state_descriptor.hpp"
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/mesh_neighbors.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/restart.hpp"
@@ -57,7 +58,6 @@
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
-#include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/partition_stl_containers.hpp"
 
@@ -97,13 +97,23 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       pcoalesced_comms(std::make_shared<CoalescedComms>(this)),
       do_coalesced_comms{pin->GetOrAddBoolean(
           "parthenon/mesh", "do_coalesced_comms", false,
-          "Use coalesced MPI messages for inter-block communication")} {
+          "Use coalesced MPI messages for inter-block communication")},
+      nbuf_add_{pin->GetOrAddInteger(
+          "parthenon/mesh", "comm_buffer_chunk_size", -1,
+          "Number of comm buffers to allocate when more are required. Default is a "
+          "heuristic.")},
+      buffer_reset_frac_{pin->GetOrAddReal(
+          "parthenon/mesh", "comm_buffer_reset_fraction", 0.8,
+          "When a check for comm buffer realocation is made (see "
+          "comm_buffer_reallocate_cadence), reallocation happens only if the number of "
+          "buffers in use divided by the number of buffers allocated is less than this "
+          "variable.")} {
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =
       pin->DoesParameterExist("parthenon/mesh", "packs_per_rank");
-  // If both exists, the assumption is that packs_per_rank was added later on purpose (as
-  // pack_size existed first) so the new value should take precedent.
+  // If both exists, the assumption is that packs_per_rank was added later on purpose
+  // (as pack_size existed first) so the new value should take precedent.
   if (pack_size_exists && num_partitions_exists) {
     use_pack_size_ = false;
     default_num_packs_ =
@@ -392,7 +402,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
   }
   BuildBlockPartitions(GridIdentifier::leaf());
   BuildGMGBlockLists(pin, app_in);
-  SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
+  SetMeshBlockNeighbors(this, GridIdentifier::leaf(), block_list, ranklist);
   SetGMGNeighbors();
   ResetLoadBalanceVariables();
 }
@@ -646,29 +656,8 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
       test_iters < max_it,
       "Too many iterations waiting to delete boundary communication buffers.");
 
-  // Clear boundary communication buffers
-  boundary_comm_map.clear();
-  pcoalesced_comms->clear();
-
   // Build the boundary buffers for the current mesh
-  for (auto &partition : GetDefaultBlockPartitions()) {
-    auto &md = mesh_data.Add("base", partition);
-    BuildBoundaryBuffers(md);
-  }
-  if (multigrid) {
-    for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
-      const auto grid_id = GridIdentifier::two_level_composite(gmg_level);
-      for (auto &partition : GetDefaultBlockPartitions(grid_id)) {
-        auto &mdg = mesh_data.Add("base", partition);
-        BuildBoundaryBuffers(mdg);
-        BuildGMGBoundaryBuffers(mdg);
-      }
-    }
-  }
-
-  pcoalesced_comms->ResolveAndSendSendBuffers();
-  // This operation is blocking
-  pcoalesced_comms->ReceiveBufferInfo();
+  BuildAndRegisterCommBuffers_();
 }
 
 void Mesh::CommunicateBoundaries(std::string md_name,
@@ -1188,6 +1177,65 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
     pib = pib->pnext;
   }
 }
+
+void Mesh::BuildAndRegisterCommBuffers_() {
+  // Clear boundary communication buffers
+  boundary_comm_map.clear();
+  pcoalesced_comms->clear();
+
+  // JMM: Estimates about chunk size, pre-allocation, etc., are tuned to
+  // all blocks on a rank, so we use the base partition.
+
+  // TODO(JMM): I don't like that we need to add base with the base
+  // partition here. We shouldn't have to, but I don't know how to fix
+  // it without a refactor.
+  BuildBoundaryBuffers(mesh_data.Add("base", GetBasePartition()));
+  if (do_coalesced_comms) RegisterCoalescedComms(this);
+
+  if (multigrid) { // But... multigrid is sufficiently hairy that I'm
+                   // going to let LFR figure this one out later.
+    for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
+      const auto grid_id = GridIdentifier::two_level_composite(gmg_level);
+      for (auto &partition : GetDefaultBlockPartitions(grid_id)) {
+        auto &mdg = mesh_data.Add("base", partition);
+        BuildBoundaryBuffers(mdg);
+        BuildGMGBoundaryBuffers(mdg);
+        if (do_coalesced_comms) RegisterCoalescedCommsGMG(mdg);
+      }
+    }
+  }
+
+  if (do_coalesced_comms) {
+    pcoalesced_comms->ResolveAndSendSendBuffers();
+    // This operation is blocking
+    pcoalesced_comms->ReceiveBufferInfo();
+  }
+}
+
+bool Mesh::TryReallocCommBufferPools() {
+  bool realloc = false;
+  for (auto &[k, pool] : pool_map.GetMap()) {
+    std::size_t inuse = pool.NumBuffersInUse();
+    std::size_t total = pool.NumBuffersInPool();
+    std::size_t delta = total - inuse;
+    if ((inuse < buffer_reset_frac_ * total) && (delta > CommBufferChunkSize())) {
+      realloc = true;
+      break;
+    }
+  }
+  if (realloc) {
+    // The buffer pool must be cleared out, since otherwise, buffers
+    // will just be reference-count-freed
+    pool_map.Clear();
+    // We need to clear the caches because they point to comm buffers that
+    // are no longer valid
+    for (auto &[label, pdata] : mesh_data.Stages()) {
+      pdata->GetBvarsCache().clear();
+    }
+  }
+  return realloc;
+}
+
 // Return list of locations and levels for the legacy tree
 // TODO(LFR): It doesn't make sense to offset the level by the
 //   legacy tree root level since the location indices are defined

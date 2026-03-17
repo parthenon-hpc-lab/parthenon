@@ -187,6 +187,7 @@ add_library(parthenon
   mesh/mesh-gmg.cpp
   mesh/mesh.cpp
   mesh/mesh.hpp
+  mesh/mesh_neighbors.hpp
   mesh/meshblock.hpp
   mesh/meshblock_pack.hpp
   mesh/meshblock.cpp
@@ -263,6 +264,8 @@ add_library(parthenon
   solvers/solver_utils.hpp
   solvers/tridiag_solver.hpp
 
+  tasks/task_timing.cpp
+  tasks/task_timing.hpp
   tasks/tasks.cpp
   tasks/tasks.hpp
   tasks/thread_pool.hpp
@@ -276,8 +279,6 @@ add_library(parthenon
   utils/alias_method.hpp
   utils/array_to_tuple.hpp
   utils/bit_hacks.hpp
-  utils/buffer_utils.cpp
-  utils/buffer_utils.hpp
   utils/cell_center_offsets.cpp
   utils/cell_center_offsets.hpp
   utils/change_rundir.cpp

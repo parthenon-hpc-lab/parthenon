@@ -182,6 +182,9 @@ DriverStatus EvolutionDriver::Execute() {
 
       timer_LBandAMR.reset();
       pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput, app_input);
+      if ((buffer_reset_cadence_ > 0) && (tm.ncycle % buffer_reset_cadence_ == 0)) {
+        pmesh->TryReallocCommBufferPools();
+      }
       if (pmesh->modified) InitializeBlockTimeSteps();
       time_LBandAMR += timer_LBandAMR.seconds();
       SetGlobalTimeStep();
@@ -205,7 +208,7 @@ DriverStatus EvolutionDriver::Execute() {
       }
     } // END OF MAIN INTEGRATION LOOP
       // ======================================================
-  }   // Main t < tmax loop region
+  } // Main t < tmax loop region
 
   if (pmesh->UserWorkAfterLoop != nullptr) {
     pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
@@ -346,6 +349,8 @@ void EvolutionDriver::OutputCycleDiagnostics() {
                   << static_cast<double>(zonecycles) / (time_cycle_step + time_LBandAMR)
                   << " wsec_AMR=" << time_LBandAMR;
       }
+
+      OutputDownstreamCycleDiagnostics();
 
       // insert more diagnostics here
       std::cout << std::endl;
