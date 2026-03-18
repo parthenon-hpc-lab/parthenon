@@ -70,8 +70,10 @@ exterior_D = 1.0
 
 <poisson/solver_params>
 precondition = true
-max_iterations = 15
-residual_tolerance = 1.e-13
+max_iterations = 50
+absolute_residual_tolerance = 1.e-12
 print_per_step = true
-smoother = SRJ2
+presmoother = SRJ1
+postsmoother = SRJ2
 do_FAS = true
+volume_weight = true
