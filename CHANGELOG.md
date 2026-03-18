@@ -4,6 +4,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 1353]](https://github.com/parthenon-hpc-lab/parthenon/pull/1363) Generalize multigrid hierarchy to include initially include leaf grids
+- [[PR 1369]](https://github.com/parthenon-hpc-lab/parthenon/pull/1369) Add an ascii table parser and a string broadcast operator
 - [[PR 1368]](https://github.com/parthenon-hpc-lab/parthenon/pull/1368) Add close, __enter__, and __exit__ for phdf / Add EvolutionDriver::OutputDownstreamCycleDiagnostics()
 - [[PR 1346]](https://github.com/parthenon-hpc-lab/parthenon/pull/1346) Allow for user defined inter-level restrictions in multigrid 
 - [[PR 1308]](https://github.com/parthenon-hpc-lab/parthenon/pull/1308) Add additional indexing options for (b, type, ...indices) meshdata fields. Helpful for lower dimensional Metadata::None fields.

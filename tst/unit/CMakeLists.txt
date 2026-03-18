@@ -17,6 +17,7 @@
 ##========================================================================================
 
 list(APPEND unit_tests_SOURCES
+    test_ascii_table_parsing.cpp
     test_concepts_lite.cpp
     test_coordinates.cpp
     test_data_collection.cpp
