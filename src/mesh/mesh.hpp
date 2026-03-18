@@ -343,6 +343,13 @@ class Mesh {
     return 1;
   }
 
+  template <BoundaryType bound_type>
+  void AddToTagMap(std::shared_ptr<MeshData<Real>> &md) {
+    LockCommChannelNumbers(bound_type);
+    int channels = GetNumberOfCommChannels(bound_type);
+    tag_map.AddMeshDataToMap<bound_type>(md, channels);
+  }
+
   std::shared_ptr<CoalescedComms> pcoalesced_comms;
 
   bool TryReallocCommBufferPools();

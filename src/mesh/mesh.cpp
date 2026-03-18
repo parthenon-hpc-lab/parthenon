@@ -620,18 +620,18 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   tag_map.clear();
   for (auto &partition : GetDefaultBlockPartitions()) {
     auto &md = mesh_data.Add("base", partition);
-    tag_map.AddMeshDataToMap<BoundaryType::any>(md);
+    AddToTagMap<BoundaryType::any>(md);
   }
 
   if (multigrid) {
     for (int gmg_level = GetGMGMinLevel(); gmg_level <= GetGMGMaxLevel(); ++gmg_level) {
       for (auto &partition : GetMultigridBlockPartitions(gmg_level)) {
         auto &md = mesh_data.Add("base", partition);
-        tag_map.AddMeshDataToMap<BoundaryType::gmg_same>(md);
-        tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(md);
-        tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_send>(md, 2);
-        tag_map.AddMeshDataToMap<BoundaryType::gmg_prolongate_recv>(md);
-        tag_map.AddMeshDataToMap<BoundaryType::gmg_restrict_recv>(md, 2);
+        AddToTagMap<BoundaryType::gmg_same>(md);
+        AddToTagMap<BoundaryType::gmg_prolongate_send>(md);
+        AddToTagMap<BoundaryType::gmg_restrict_send>(md);
+        AddToTagMap<BoundaryType::gmg_prolongate_recv>(md);
+        AddToTagMap<BoundaryType::gmg_restrict_recv>(md);
       }
     }
   }
