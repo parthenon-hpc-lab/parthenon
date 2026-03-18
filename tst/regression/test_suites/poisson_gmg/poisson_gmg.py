@@ -82,7 +82,9 @@ class TestCase(utils.test_case.TestCaseAbs):
     def Analyse(self, parameters):
         success = True
 
-        cycle_line_re = re.compile(r"^\s*\d+\s+[0-9.eE+\-]+(?:\s+[0-9.eE+\-]+)?\s*$", re.MULTILINE)
+        cycle_line_re = re.compile(
+            r"^\s*\d+\s+[0-9.eE+\-]+(?:\s+[0-9.eE+\-]+)?\s*$", re.MULTILINE
+        )
         final_error_re = re.compile(r"Final rms error:\s*([0-9.eE+\-]+)")
 
         for case, stdout in zip(self.cases, parameters.stdouts):
@@ -117,9 +119,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                     case_success = False
 
                 if case_success:
-                    print(
-                        f"[{case['name']}] PASS: final rms error = {final_error:.6e}"
-                    )
+                    print(f"[{case['name']}] PASS: final rms error = {final_error:.6e}")
 
             success = success and case_success
 
