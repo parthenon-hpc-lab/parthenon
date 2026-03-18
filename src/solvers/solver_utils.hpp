@@ -523,12 +523,13 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
       pack_a.GetNBlocks() - 1, 0, nvars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int c, const int k, const int j, const int i,
                     Real &lsum) {
-        const Real var = pack_a(b, te, c, k, j, i);
+        const Real var_a = pack_a(b, te, c, k, j, i);
+        const Real var_b = pack_b(b, te, c, k, j, i);
         if constexpr (VolumeWeight) {
           const auto vol = pack_a.GetCoordinates(b).CellVolume(k, j, i);
-          lsum += var * var * vol * vol;
+          lsum += var_a * var_b * vol * vol;
         } else {
-          lsum += var * var;
+          lsum += var_a * var_b;
         }
       },
       Kokkos::Sum<Real>(gsum));
