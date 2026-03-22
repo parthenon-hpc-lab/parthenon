@@ -1,5 +1,9 @@
 #=========================================================================================
-# (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
+# Parthenon performance portable AMR framework
+# Copyright(C) 2026 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for details
+#========================================================================================
+# (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -13,17 +17,13 @@
 
 # This file was made in part with generative AI
 
-add_subdirectory(stochastic_subgrid)
-add_subdirectory(advection)
-add_subdirectory(boundary_exchange)
-add_subdirectory(fine_advection)
-add_subdirectory(calculate_pi)
-add_subdirectory(kokkos_pi)
-add_subdirectory(particles)
-add_subdirectory(particle_leapfrog)
-add_subdirectory(particle_tracers)
-add_subdirectory(particle_tracers_amr_source_sink)
-add_subdirectory(poisson)
-add_subdirectory(poisson_gmg)
-add_subdirectory(diffusion)
-add_subdirectory(sparse_advection)
+get_property(DRIVER_LIST GLOBAL PROPERTY DRIVERS_USED_IN_TESTS)
+if( "particles-tracers" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
+  add_executable(
+      particle-tracers-amr-source-sink
+          main.cpp
+          particle_tracers.cpp
+  )
+  target_link_libraries(particle-tracers-amr-source-sink PRIVATE parthenon)
+  lint_target(particle-tracers-amr-source-sink)
+endif()

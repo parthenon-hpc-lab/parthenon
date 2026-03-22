@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI
+
 #ifndef PACK_SWARM_PACK_HPP_
 #define PACK_SWARM_PACK_HPP_
 
@@ -30,7 +33,7 @@
 #include "interface/swarm.hpp"
 #include "interface/variable.hpp"
 #include "pack/pack_utils.hpp"
-#include "pack/swarm_pack_base.hpp"
+#include "pack/swarm_pack/swarm_pack_base.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/utils.hpp"
 
@@ -53,7 +56,7 @@ class SwarmPack : public SwarmPackBase<TYPE> {
       static_assert(std::is_same<TYPE, typename GetDataType<Ts...>::value>::value,
                     "Type mismatch in SwarmPack! When passing type-based variables as "
                     "template argument to SwarmPack, ensure that the first template "
-                    "parameter is a data type (e.g., Real or int) that matches the "
+                    "parameter is a data type (e.g., Real, int, or uint64_t) that matches the "
                     "data type of subsequent variable types!");
     }
   }
@@ -65,9 +68,7 @@ class SwarmPack : public SwarmPackBase<TYPE> {
         : impl::SwarmPackDescriptor<TYPE>(desc_in) {}
 
     template <class T>
-    SwarmPack GetPack(T *pmd) const {
-      return SwarmPack(SwarmPackBase<TYPE>::GetPack(pmd, *this));
-    }
+    SwarmPack GetPack(T *pmd) const;
 
     SparsePackIdxMap GetMap() const {
       PARTHENON_REQUIRE(sizeof...(Ts) == 0,
@@ -153,6 +154,18 @@ class SwarmPack : public SwarmPackBase<TYPE> {
     return pack_(0, b, vidx)(n);
   }
 };
+
+// Implementation below
+namespace impl {
+template <typename TYPE, class T>
+SwarmPackBase<TYPE> GetSwarmPack(T *pmd, const SwarmPackDescriptor<TYPE> &desc);
+} // namespace impl
+
+template <typename TYPE, class... Ts>
+template <class T>
+inline SwarmPack<TYPE, Ts...> SwarmPack<TYPE, Ts...>::Descriptor::GetPack(T *pmd) const {
+  return SwarmPack(impl::GetSwarmPack<TYPE>(pmd, *this));
+}
 
 } // namespace parthenon
 

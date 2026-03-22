@@ -1,3 +1,5 @@
+.. This file was made in part with generative AI
+
 Particles
 =========
 
@@ -152,7 +154,8 @@ must be repeated in the driver’s evolution function until all particles
 are completed. See the ``particles`` example for further details. Note
 that this pattern is blocking, and may be replaced in the future.
 
-AMR is currently not supported, but support will be added in the future.
+Particle transport is supported on both SMR and AMR hierarchies, including particle
+reassignment during refinement and derefinement events.
 
 Variable Packing
 ----------------
@@ -185,7 +188,7 @@ one must specify the data type by template argument:
    auto pack = desc.GetPack(md);
 
 
-For packing via type-based variables (see pack/swarm_default_names.hpp for an
+For packing via type-based variables (see pack/swarm_pack/swarm_default_names.hpp for an
 example), the type can be inferred automatically:
 
 .. code:: cpp

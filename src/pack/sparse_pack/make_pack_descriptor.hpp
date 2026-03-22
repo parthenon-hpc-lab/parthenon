@@ -10,6 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI
+
 #ifndef PACK_MAKE_PACK_DESCRIPTOR_HPP_
 #define PACK_MAKE_PACK_DESCRIPTOR_HPP_
 
@@ -24,8 +27,8 @@
 #include "interface/metadata.hpp"
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
-#include "pack/pack_descriptor.hpp"
-#include "pack/sparse_pack.hpp"
+#include "pack/sparse_pack/pack_descriptor.hpp"
+#include "pack/sparse_pack/sparse_pack.hpp"
 #include "utils/type_list.hpp"
 
 namespace parthenon {

@@ -23,7 +23,7 @@
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/meshblock.hpp"
-#include "pack/make_pack_descriptor.hpp"
+#include "pack/sparse_pack/make_pack_descriptor.hpp"
 #include "pack/scratch_variables.hpp"
 
 using TT = parthenon::TopologicalType;

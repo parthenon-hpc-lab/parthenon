@@ -1,13 +1,13 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2025 The Parthenon collaboration
+// Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // Athena++ astrophysical MHD code
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -21,8 +21,10 @@
 //! \file mesh-amr_loadbalance.cpp
 //  \brief implementation of Mesh::AdaptiveMeshRefinement() and related utilities
 
+
+// This file was made in part with generative AI
+
 #include <algorithm>
-#include <cstdint>
 #include <iostream>
 #include <numeric>
 #include <sstream>
@@ -42,6 +44,7 @@
 #include "mesh/mesh_neighbors.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
+#include "mesh/swarm_amr_remesh.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
 
@@ -915,6 +918,15 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
                                    block_list[0]->cellbounds,
                                    block_list[0]->c_cellbounds);
     }
+
+    // Fields already have native c2f/f2c/same2same AMR transfer operations on the old and
+    // new block topology. Swarms do not: a particle may need to move to an arbitrary
+    // post-remesh owning leaf, so swarm remesh runs as a separate ownership-based pass
+    // after field prolongation/restriction has rebuilt the mesh hierarchy.
+    const SwarmRemeshContext swarm_remesh_context{onbs, onbe, oldtonew, loclist,
+                                                  newloc, ranklist, newrank};
+    RemeshSwarms(resolved_packages, old_block_list, this, swarm_remesh_context);
+    ClearSwarmCachesAfterRemesh(this, block_list);
 
     // update the lists
     loclist = std::move(newloc);

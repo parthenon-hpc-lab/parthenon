@@ -3,7 +3,7 @@
 // Copyright(C) 2021-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI
 
 #include "particle_tracers.hpp"
 
@@ -33,7 +35,7 @@
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/swarm_pack/swarm_default_names.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 
 using namespace parthenon::driver::prelude;

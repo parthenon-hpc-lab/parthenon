@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI
+
 #ifndef PACK_SPARSE_PACK_CACHE_HPP_
 #define PACK_SPARSE_PACK_CACHE_HPP_
 
@@ -19,8 +22,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "pack/pack_descriptor.hpp"
-#include "pack/sparse_pack_base.hpp"
+#include "pack/sparse_pack/pack_descriptor.hpp"
+#include "pack/sparse_pack/sparse_pack_base.hpp"
 
 namespace parthenon {
 // Object for cacheing sparse packs in MeshData and MeshBlockData objects. This

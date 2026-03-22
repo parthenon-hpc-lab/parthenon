@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -16,6 +16,8 @@
 // the public, perform publicly and display publicly, and to permit others to do
 // so.
 //========================================================================================
+
+// This file was made in part with generative AI
 
 #include <cmath>
 #include <iostream>
@@ -32,7 +34,7 @@
 #include "interface/swarm.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/swarm_pack/swarm_default_names.hpp"
 
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
@@ -40,6 +42,7 @@
 using Real = double;
 using parthenon::ApplicationInput;
 using parthenon::BoundaryFlag;
+using parthenon::IndexDomain;
 using parthenon::Mesh;
 using parthenon::MeshBlock;
 using parthenon::Metadata;
@@ -244,4 +247,60 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
       });
   failures_h = failures_d.GetHostMirrorAndCopy();
   REQUIRE(failures_h(0) == 0);
+
+  SECTION("Particles exactly on the upper block face map to the final owned cell") {
+    auto face_swarm = std::make_shared<Swarm>("face swarm", m);
+    face_swarm->SetBlockPointer(meshblock);
+    face_swarm->AddEmptyParticles(1);
+
+    auto &x_face = face_swarm->Get<Real>(swarm_position::x::name()).Get();
+    auto &y_face = face_swarm->Get<Real>(swarm_position::y::name()).Get();
+    auto &z_face = face_swarm->Get<Real>(swarm_position::z::name()).Get();
+    auto x_face_h = x_face.GetHostMirrorAndCopy();
+    auto y_face_h = y_face.GetHostMirrorAndCopy();
+    auto z_face_h = z_face.GetHostMirrorAndCopy();
+
+    const auto ib = meshblock->cellbounds.GetBoundsI(IndexDomain::interior);
+    const auto jb = meshblock->cellbounds.GetBoundsJ(IndexDomain::interior);
+    const auto kb = meshblock->cellbounds.GetBoundsK(IndexDomain::interior);
+
+    x_face_h(0) = meshblock->coords.Xf<1>(ib.e + 1);
+    y_face_h(0) = 0.5 * (meshblock->coords.Xf<2>(jb.s) + meshblock->coords.Xf<2>(jb.e + 1));
+    z_face_h(0) = 0.5 * (meshblock->coords.Xf<3>(kb.s) + meshblock->coords.Xf<3>(kb.e + 1));
+    x_face.DeepCopy(x_face_h);
+    y_face.DeepCopy(y_face_h);
+    z_face.DeepCopy(z_face_h);
+
+    face_swarm->SortParticlesByCell();
+    auto face_ctx = face_swarm->GetDeviceContext();
+    REQUIRE(face_ctx.GetParticleCountPerCell(kb.e, jb.e, ib.e) == 1);
+  }
+
+  SECTION("Particles exactly on a physical boundary remain in the domain") {
+    auto boundary_swarm = std::make_shared<Swarm>("boundary swarm", m);
+    boundary_swarm->SetBlockPointer(meshblock);
+    boundary_swarm->AddEmptyParticles(1);
+
+    auto &x_b = boundary_swarm->Get<Real>(swarm_position::x::name()).Get();
+    auto &y_b = boundary_swarm->Get<Real>(swarm_position::y::name()).Get();
+    auto &z_b = boundary_swarm->Get<Real>(swarm_position::z::name()).Get();
+    auto x_b_h = x_b.GetHostMirrorAndCopy();
+    auto y_b_h = y_b.GetHostMirrorAndCopy();
+    auto z_b_h = z_b.GetHostMirrorAndCopy();
+
+    const auto ib = meshblock->cellbounds.GetBoundsI(IndexDomain::interior);
+    const auto jb = meshblock->cellbounds.GetBoundsJ(IndexDomain::interior);
+    const auto kb = meshblock->cellbounds.GetBoundsK(IndexDomain::interior);
+    x_b_h(0) = meshblock->coords.Xf<1>(ib.s);
+    y_b_h(0) = 0.5 * (meshblock->coords.Xf<2>(jb.s) + meshblock->coords.Xf<2>(jb.e + 1));
+    z_b_h(0) = 0.5 * (meshblock->coords.Xf<3>(kb.s) + meshblock->coords.Xf<3>(kb.e + 1));
+    x_b.DeepCopy(x_b_h);
+    y_b.DeepCopy(y_b_h);
+    z_b.DeepCopy(z_b_h);
+
+    ApplySwarmBoundaryConditions(boundary_swarm);
+    boundary_swarm->RemoveMarkedParticles();
+    REQUIRE(boundary_swarm->GetNumActive() == 1);
+  }
+
 }

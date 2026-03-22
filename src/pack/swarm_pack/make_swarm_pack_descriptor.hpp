@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,34 +10,23 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI
+
 #ifndef PACK_MAKE_SWARM_PACK_DESCRIPTOR_HPP_
 #define PACK_MAKE_SWARM_PACK_DESCRIPTOR_HPP_
 
-#include <algorithm>
-#include <functional>
-#include <limits>
-#include <map>
-#include <memory>
-#include <set>
 #include <string>
-#include <tuple>
-#include <type_traits>
-#include <utility>
 #include <vector>
 
-#include "interface/mesh_data.hpp"
-#include "interface/meshblock_data.hpp"
-#include "mesh/mesh.hpp"
-#include "pack/swarm_pack.hpp"
+#include "pack/swarm_pack/swarm_pack.hpp"
 
 namespace parthenon {
 
 template <typename TYPE>
-inline auto MakeSwarmPackDescriptor(const std::string &swarm_name,
-                                    const std::vector<std::string> &vars) {
-  impl::SwarmPackDescriptor<TYPE> base_desc(swarm_name, vars);
-  return typename SwarmPack<TYPE>::Descriptor(base_desc);
-}
+typename SwarmPack<TYPE>::Descriptor
+MakeSwarmPackDescriptor(const std::string &swarm_name,
+                        const std::vector<std::string> &vars);
 
 template <class... Ts>
 inline auto MakeSwarmPackDescriptor(const std::string &swarm_name) {

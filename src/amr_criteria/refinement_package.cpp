@@ -28,7 +28,7 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "pack/make_pack_descriptor.hpp"
+#include "pack/sparse_pack/make_pack_descriptor.hpp"
 #include "parameter_input.hpp"
 #include "utils/instrument.hpp"
 

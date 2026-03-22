@@ -48,7 +48,7 @@
 #include "outputs/parthenon_hdf5.hpp"
 #include "outputs/parthenon_xdmf.hpp"
 #include "outputs/restart.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/swarm_pack/swarm_default_names.hpp"
 #include "provenance.hpp"
 #include "utils/string_utils.hpp"
 

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,18 +10,24 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI
+
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
 #include <memory>
+#include <cmath>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "mesh/forest/block_ownership.hpp"
+#include "pack/swarm_pack/swarm_default_names.hpp"
 #include "swarm.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/sort.hpp"
@@ -63,6 +69,15 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   context.z_max_global_ = mesh_size.xmax(X3DIR);
   context.ndim_ = pmb->pmy_mesh->ndim;
   context.my_rank_ = Globals::my_rank;
+  context.current_ownership_ = block_ownership_t(true);
+  context.current_ownership_.initialized = true;
+  for (const auto &nb : pmb->GetNeighbors()) {
+    const int ox1 = nb.offsets(X1DIR);
+    const int ox2 = nb.offsets(X2DIR);
+    const int ox3 = nb.offsets(X3DIR);
+    context.current_ownership_(ox1, ox2, ox3) =
+        !nb.ownership(-ox1, -ox2, -ox3);
+  }
   context.coords_ = pmb->coords;
   return context;
 }
@@ -589,7 +604,7 @@ void Swarm::SortParticlesByCell() {
       });
 }
 
-void Swarm::Validate(bool test_comms) const {
+void Swarm::Validate(bool test_comms, bool check_exact_face_placement) const {
   auto mask = mask_;
   auto neighbor_indices = neighbor_indices_;
   auto empty_indices = empty_indices_;
@@ -635,6 +650,60 @@ void Swarm::Validate(bool test_comms) const {
       Kokkos::Sum<int>(num_err));
   PARTHENON_REQUIRE(num_err == 0,
                     "empty_indices_ array pointing to unmasked particle indices!");
+
+#ifndef NDEBUG
+  if (check_exact_face_placement) {
+    auto pmb = GetBlockPointer();
+    auto x_h = GetP<Real>(swarm_position::x::name())->Get().GetHostMirrorAndCopy();
+    auto y_h = GetP<Real>(swarm_position::y::name())->Get().GetHostMirrorAndCopy();
+    auto z_h = GetP<Real>(swarm_position::z::name())->Get().GetHostMirrorAndCopy();
+    auto mask_h = mask.GetHostMirrorAndCopy();
+    const auto &block_size = pmb->block_size;
+    const auto &cellbounds = pmb->cellbounds;
+    const int ndim = pmb->pmy_mesh->ndim;
+    const auto ib = cellbounds.GetBoundsI(IndexDomain::interior);
+    const auto jb = cellbounds.GetBoundsJ(IndexDomain::interior);
+    const auto kb = cellbounds.GetBoundsK(IndexDomain::interior);
+
+    const auto on_face = [&](const Real coord, const CoordinateDirection dir,
+                             const IndexRange &bounds) {
+      if (coord == block_size.xmin(dir) || coord == block_size.xmax(dir)) return true;
+      for (int f = bounds.s + 1; f <= bounds.e; ++f) {
+        Real face = 0.0;
+        if (dir == X1DIR) {
+          face = pmb->coords.Xf<1>(f);
+        } else if (dir == X2DIR) {
+          face = pmb->coords.Xf<2>(f);
+        } else {
+          face = pmb->coords.Xf<3>(f);
+        }
+        if (coord == face) return true;
+      }
+      return false;
+    };
+
+    int nface = 0;
+    for (int n = 0; n < nmax_pool_; ++n) {
+      if (!mask_h(n)) continue;
+      const bool on_x_face = on_face(x_h(n), X1DIR, ib);
+      const bool on_y_face = (ndim > 1) && on_face(y_h(n), X2DIR, jb);
+      const bool on_z_face = (ndim > 2) && on_face(z_h(n), X3DIR, kb);
+      if (on_x_face || on_y_face || on_z_face) {
+        ++nface;
+      }
+    }
+
+    if (nface > 0) {
+      std::stringstream msg;
+      msg << "Swarm '" << label_ << "' on MeshBlock gid " << pmb->gid << " has " << nface
+          << " active particle(s) exactly on a block or cell face. Parthenon now applies "
+             "an explicit ownership and cell-mapping convention for these cases, but "
+             "exact-face placement remains convention-sensitive and is worth auditing in "
+             "structured particle setups, source routines, and aggressive SMR/AMR runs.";
+      PARTHENON_DEBUG_WARN(msg);
+    }
+  }
+#endif
 }
 
 } // namespace parthenon

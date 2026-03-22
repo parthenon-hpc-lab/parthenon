@@ -1,0 +1,67 @@
+# ========================================================================================
+#  (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
+# ========================================================================================
+
+# This file was made in part with generative AI
+
+<parthenon/job>
+problem_id = particle_tracers_amr_source_sink
+
+<parthenon/mesh>
+refinement = adaptive
+derefine_count = 1
+numlevel = 2
+
+nx1 = 64
+x1min = -0.5
+x1max = 0.5
+ix1_bc = periodic
+ox1_bc = periodic
+
+nx2 = 64
+x2min = -0.5
+x2max = 0.5
+ix2_bc = periodic
+ox2_bc = periodic
+
+nx3 = 1
+x3min = -0.5
+x3max = 0.5
+ix3_bc = periodic
+ox3_bc = periodic
+
+<parthenon/meshblock>
+nx1 = 16
+nx2 = 16
+nx3 = 1
+
+<parthenon/time>
+tlim = 1.0
+nlim = 100000
+integrator = rk1
+
+<Background>
+cfl = 0.3
+vx = 0.85
+vy = 0.35
+
+<parthenon/output0>
+file_type = hdf5
+dt = 0.01
+variables = advected, tracer_deposition
+swarms = tracers
+swarm_variables = id, cohort
+
+<Tracers>
+stress_mode = source_sink
+num_tracers = 3000
+packet_width_x = 0.10
+packet_width_y = 0.70
+refine_band_halfwidth = 0.08
+derefine_band_halfwidth = 0.14
+refine_blob_radius = 0.12
+derefine_blob_radius = 0.20
+source_particles_per_cycle = 120
+source_strip_width = 0.08
+sink_strip_height = 0.10
+rng_seed = 314159

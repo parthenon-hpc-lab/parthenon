@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI
+
 #ifndef INTERFACE_SWARM_HPP_
 #define INTERFACE_SWARM_HPP_
 
@@ -250,8 +253,10 @@ class Swarm {
   }
 
   // Check for internal consistency among member variables and arrays, mainly for
-  // debugging
-  void Validate(bool test_comms = false) const;
+  // debugging. The optional exact-face check is intentionally opt-in because it is a
+  // diagnostic for ambiguous ownership/cell-mapping cases, not a property required by
+  // normal hot-path execution.
+  void Validate(bool test_comms = false, bool check_exact_face_placement = false) const;
 
   static constexpr int inactive_max_active_index = -1;
 

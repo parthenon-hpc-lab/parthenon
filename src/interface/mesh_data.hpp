@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI
+
 #ifndef INTERFACE_MESH_DATA_HPP_
 #define INTERFACE_MESH_DATA_HPP_
 
@@ -28,9 +31,9 @@
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "pack/sparse_pack_base.hpp"
-#include "pack/sparse_pack_cache.hpp"
-#include "pack/swarm_pack_base.hpp"
+#include "pack/sparse_pack/sparse_pack_base.hpp"
+#include "pack/sparse_pack/sparse_pack_cache.hpp"
+#include "pack/swarm_pack/swarm_pack_cache.hpp"
 #include "utils/communication_buffer.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/object_pool.hpp"
@@ -516,13 +519,16 @@ class MeshData {
       return swarm_pack_int_cache_;
     } else if constexpr (std::is_same<TYPE, Real>::value) {
       return swarm_pack_real_cache_;
+    } else if constexpr (std::is_same<TYPE, std::uint64_t>::value) {
+      return swarm_pack_uint64_cache_;
     }
-    PARTHENON_THROW("SwarmPacks only compatible with int and Real types");
+    PARTHENON_THROW("SwarmPacks only compatible with int, Real, and uint64_t types");
   }
 
   void ClearSwarmCaches() {
     if (swarm_pack_real_cache_.size() > 0) swarm_pack_real_cache_.clear();
     if (swarm_pack_int_cache_.size() > 0) swarm_pack_int_cache_.clear();
+    if (swarm_pack_uint64_cache_.size() > 0) swarm_pack_uint64_cache_.clear();
   }
 
  private:
@@ -539,6 +545,7 @@ class MeshData {
   SparsePackCache sparse_pack_cache_;
   SwarmPackCache<int> swarm_pack_int_cache_;
   SwarmPackCache<Real> swarm_pack_real_cache_;
+  SwarmPackCache<std::uint64_t> swarm_pack_uint64_cache_;
   // caches for boundary information
   BvarsCache_t bvars_cache_;
 };

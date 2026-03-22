@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -11,12 +11,14 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI
+
 #include <vector>
 
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "pack/block_selector.hpp"
-#include "pack/sparse_pack.hpp"
+#include "pack/sparse_pack/sparse_pack.hpp"
 
 namespace parthenon {
 namespace impl {

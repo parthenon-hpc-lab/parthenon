@@ -24,7 +24,7 @@
 #include <interface/variable.hpp>
 #include <mesh/domain.hpp>
 #include <mesh/mesh.hpp>
-#include <pack/swarm_default_names.hpp>
+#include <pack/swarm_pack/swarm_default_names.hpp>
 #include <parthenon_arrays.hpp>
 #include <parthenon_manager.hpp>
 #include <parthenon_mpi.hpp>

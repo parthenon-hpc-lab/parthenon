@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI
 
 #include <algorithm>
 #include <limits>
@@ -176,13 +178,6 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  const Real &dx_i = pmb->coords.Dxf<1>(pmb->cellbounds.is(IndexDomain::interior));
-  const Real &dx_j = pmb->coords.Dxf<2>(pmb->cellbounds.js(IndexDomain::interior));
-  const Real &dx_k = pmb->coords.Dxf<3>(pmb->cellbounds.ks(IndexDomain::interior));
-  const Real &minx_i = pmb->coords.Xf<1>(ib.s);
-  const Real &minx_j = pmb->coords.Xf<2>(jb.s);
-  const Real &minx_k = pmb->coords.Xf<3>(kb.s);
-
   const auto &x = swarm->Get<Real>(swarm_position::x::name()).Get();
   const auto &y = swarm->Get<Real>(swarm_position::y::name()).Get();
   const auto &z = swarm->Get<Real>(swarm_position::z::name()).Get();
@@ -203,15 +198,11 @@ TaskStatus DepositParticles(MeshBlock *pmb) {
     pmb->par_for(
         PARTHENON_AUTO_LABEL, 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
           if (swarm_d.IsActive(n)) {
-            int i = static_cast<int>(std::floor((x(n) - minx_i) / dx_i) + ib.s);
-            int j = 0;
-            if (ndim > 1) {
-              j = static_cast<int>(std::floor((y(n) - minx_j) / dx_j) + jb.s);
-            }
-            int k = 0;
-            if (ndim > 2) {
-              k = static_cast<int>(std::floor((z(n) - minx_k) / dx_k) + kb.s);
-            }
+            // Keep the example's per-particle deposition rule aligned with the swarm
+            // runtime's own cell ownership convention, especially for particles that land
+            // exactly on cell or block faces.
+            int i, j, k;
+            swarm_d.Xtoijk(x(n), y(n), z(n), i, j, k);
 
             if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s &&
                 k <= kb.e) {

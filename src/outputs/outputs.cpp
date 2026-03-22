@@ -75,7 +75,7 @@
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_parameters.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/swarm_pack/swarm_default_names.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"

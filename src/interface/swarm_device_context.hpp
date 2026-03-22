@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,12 +10,16 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI
+
 #ifndef INTERFACE_SWARM_DEVICE_CONTEXT_HPP_
 #define INTERFACE_SWARM_DEVICE_CONTEXT_HPP_
 
 #include <cstdio>
 
 #include "coordinates/coordinates.hpp"
+#include "utils/indexer.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
@@ -62,6 +66,24 @@ class SwarmDeviceContext {
     int j = static_cast<int>(std::floor((y - y_min_) / ((y_max_ - y_min_) / 2.))) + 1;
     int k = static_cast<int>(std::floor((z - z_min_) / ((z_max_ - z_min_) / 2.))) + 1;
 
+    // Match Parthenon's shared-element ownership convention when a particle lies exactly
+    // on a block face/edge/node. The generic floor-based binning below already behaves
+    // like a half-open partition for non-face points, but exact shared coordinates need
+    // an ownership-aware tie break so runtime transport is consistent with field
+    // ownership and AMR remesh ownership.
+    const int ox1 = (x == x_min_) ? -1 : ((x == x_max_) ? 1 : 0);
+    const int ox2 = (y == y_min_) ? -1 : ((y == y_max_) ? 1 : 0);
+    const int ox3 = (z == z_min_) ? -1 : ((z == z_max_) ? 1 : 0);
+    if (ox1 != 0 || (ndim_ > 1 && ox2 != 0) || (ndim_ > 2 && ox3 != 0)) {
+      const bool current_owns = current_ownership_(ox1, ox2, ox3);
+      if (ox1 == -1) i = current_owns ? 1 : 0;
+      if (ox1 == 1) i = current_owns ? 2 : 3;
+      if (ndim_ > 1 && ox2 == -1) j = current_owns ? 1 : 0;
+      if (ndim_ > 1 && ox2 == 1) j = current_owns ? 2 : 3;
+      if (ndim_ > 2 && ox3 == -1) k = current_owns ? 1 : 0;
+      if (ndim_ > 2 && ox3 == 1) k = current_owns ? 2 : 3;
+    }
+
     // Particle is on neither this block nor a neighboring block
     if (i < 0 || i > 3 || ((j < 0 || j > 3) && ndim_ > 1) ||
         ((k < 0 || k > 3) && ndim_ > 2)) {
@@ -93,17 +115,27 @@ class SwarmDeviceContext {
   // TODO(BRR) This logic will change for non-uniform cartesian meshes
   KOKKOS_INLINE_FUNCTION
   void Xtoijk(const Real &x, const Real &y, const Real &z, int &i, int &j, int &k) const {
-    i = static_cast<int>(
-            std::floor((x - x_min_) / coords_.Dx<CoordinateDirection::X1DIR>())) +
-        ib_s_;
-    j = (ndim_ > 1) ? static_cast<int>(std::floor(
-                          (y - y_min_) / coords_.Dx<CoordinateDirection::X2DIR>())) +
-                          jb_s_
-                    : jb_s_;
-    k = (ndim_ > 2) ? static_cast<int>(std::floor(
-                          (z - z_min_) / coords_.Dx<CoordinateDirection::X3DIR>())) +
-                          kb_s_
-                    : kb_s_;
+    // Clamp onto the valid owned-cell range so particles that land exactly on the upper
+    // block face follow the block's cell ownership convention instead of producing an
+    // out-of-range cell index.
+    const auto idx_in_dir = [&](const Real coord, const Real xmin, const Real dx,
+                                const Real xmax, const int start) {
+      const int count = std::max(
+          1, static_cast<int>(std::lround((xmax - xmin) / std::max(dx, TINY_NUMBER))));
+      const Real scaled = (coord - xmin) / dx;
+      const int offset =
+          Kokkos::clamp(static_cast<int>(std::floor(scaled)), 0, std::max(0, count - 1));
+      return start + offset;
+    };
+    i = idx_in_dir(x, x_min_, coords_.Dx<CoordinateDirection::X1DIR>(), x_max_, ib_s_);
+    j = (ndim_ > 1)
+            ? idx_in_dir(y, y_min_, coords_.Dx<CoordinateDirection::X2DIR>(), y_max_,
+                         jb_s_)
+            : jb_s_;
+    k = (ndim_ > 2)
+            ? idx_in_dir(z, z_min_, coords_.Dx<CoordinateDirection::X3DIR>(), z_max_,
+                         kb_s_)
+            : kb_s_;
   }
 
   KOKKOS_INLINE_FUNCTION
@@ -147,6 +179,7 @@ class SwarmDeviceContext {
   constexpr static int this_block_ = -1; // Mirrors definition in Swarm class
   constexpr static int no_block_ = -2;   // Mirrors definition in Swarm class
   int my_rank_;
+  block_ownership_t current_ownership_;
   Coordinates_t coords_;
 };
 
