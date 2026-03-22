@@ -28,6 +28,7 @@
 #include <utility>
 #include <vector>
 
+#include "amr_criteria/refinement_package.hpp"
 #include "basic_types.hpp"
 #include "bvals/comms/bvals_in_one.hpp"
 #include "config.hpp"
@@ -35,7 +36,6 @@
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
-#include "amr_criteria/refinement_package.hpp"
 #include "pack/swarm_pack/make_swarm_pack_descriptor.hpp"
 #include "pack/swarm_pack/swarm_default_names.hpp"
 #include "utils/robust.hpp"
@@ -65,8 +65,10 @@ KOKKOS_INLINE_FUNCTION
 Real WrapPeriodic(const Real x, const Real xmin, const Real xmax) {
   const Real width = xmax - xmin;
   Real out = x;
-  while (out < xmin) out += width;
-  while (out >= xmax) out -= width;
+  while (out < xmin)
+    out += width;
+  while (out >= xmax)
+    out -= width;
   return out;
 }
 
@@ -81,8 +83,10 @@ KOKKOS_INLINE_FUNCTION
 Real PeriodicDisplacement(const Real x, const Real x0, const Real xmin, const Real xmax) {
   const Real width = xmax - xmin;
   Real dx = x - x0;
-  while (dx > 0.5 * width) dx -= width;
-  while (dx < -0.5 * width) dx += width;
+  while (dx > 0.5 * width)
+    dx -= width;
+  while (dx < -0.5 * width)
+    dx += width;
   return dx;
 }
 
@@ -112,8 +116,8 @@ DrivingGeometry ComputeDrivingGeometry(const Real time, const Real tlim,
   geom.band2_y = ymin + 0.48 * height + 0.28 * height * std::cos(3.0 * M_PI * phase);
 
   // A compact blob adds local refine/derefine churn where the band structure overlaps.
-  geom.blob_x = WrapPeriodic(xmin + 0.50 * width + 0.18 * width * std::cos(4.0 * M_PI * phase),
-                             xmin, xmax);
+  geom.blob_x = WrapPeriodic(
+      xmin + 0.50 * width + 0.18 * width * std::cos(4.0 * M_PI * phase), xmin, xmax);
   geom.blob_y = ymin + 0.50 * height + 0.18 * height * std::sin(4.0 * M_PI * phase);
 
   // Source and sink regions move independently of both the particle packet and the AMR
@@ -260,9 +264,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   const auto stress_mode = pin->GetOrAddString("Tracers", "stress_mode", "fixed");
   const bool enable_source_sink = (stress_mode == "source_sink");
-  PARTHENON_REQUIRE(
-      stress_mode == "fixed" || stress_mode == "source_sink",
-      "Tracers/stress_mode must be either 'fixed' or 'source_sink'.");
+  PARTHENON_REQUIRE(stress_mode == "fixed" || stress_mode == "source_sink",
+                    "Tracers/stress_mode must be either 'fixed' or 'source_sink'.");
   pkg->AddParam<>("stress_mode", stress_mode);
   pkg->AddParam<>("enable_source_sink", enable_source_sink);
 
@@ -278,7 +281,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   const Real derefine_band_halfwidth =
       pin->GetOrAddReal("Tracers", "derefine_band_halfwidth", 0.14);
   pkg->AddParam<>("derefine_band_halfwidth", derefine_band_halfwidth);
-  const Real refine_blob_radius = pin->GetOrAddReal("Tracers", "refine_blob_radius", 0.12);
+  const Real refine_blob_radius =
+      pin->GetOrAddReal("Tracers", "refine_blob_radius", 0.12);
   pkg->AddParam<>("refine_blob_radius", refine_blob_radius);
   const Real derefine_blob_radius =
       pin->GetOrAddReal("Tracers", "derefine_blob_radius", 0.20);
@@ -289,8 +293,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   const Real source_strip_width =
       pin->GetOrAddReal("Tracers", "source_strip_width", 0.08);
   pkg->AddParam<>("source_strip_width", source_strip_width);
-  const Real sink_strip_height =
-      pin->GetOrAddReal("Tracers", "sink_strip_height", 0.10);
+  const Real sink_strip_height = pin->GetOrAddReal("Tracers", "sink_strip_height", 0.10);
   pkg->AddParam<>("sink_strip_height", sink_strip_height);
   const Real placement_omega =
       pin->GetOrAddReal("Tracers", "particle_placement_omega", kParticlePlacementOmega);
@@ -311,8 +314,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("sink_y", ymin + 0.74 * height, true);
   pkg->AddParam<>("current_cycle", 0, true);
   pkg->AddParam<>("rng_seed", pin->GetOrAddInteger("Tracers", "rng_seed", 314159));
-  pkg->AddParam<>("source_id_cycle_stride",
-                  static_cast<std::uint64_t>(10000000000ULL));
+  pkg->AddParam<>("source_id_cycle_stride", static_cast<std::uint64_t>(10000000000ULL));
   pkg->AddParam<>("source_id_gid_stride", static_cast<std::uint64_t>(100000ULL));
   RNGPool rng_pool(pkg->Param<int>("rng_seed"));
   pkg->AddParam<>("rng_pool", rng_pool);
@@ -361,10 +363,10 @@ AmrTag CheckRefinement(MeshBlockData<Real> *mbd) {
   // The AMR driver deliberately uses geometry that is independent of particle motion.
   // The two bands and one blob create refinement from multiple directions so ownership
   // changes are forced even when particles simply coast ballistically.
-  const Real band1_dist = DistanceToPeriodicBand(xc, yc, band1_x, band1_y, 0.83, 0.55,
-                                                 pmesh->mesh_size);
-  const Real band2_dist = DistanceToPeriodicBand(xc, yc, band2_x, band2_y, -0.57, 0.82,
-                                                 pmesh->mesh_size);
+  const Real band1_dist =
+      DistanceToPeriodicBand(xc, yc, band1_x, band1_y, 0.83, 0.55, pmesh->mesh_size);
+  const Real band2_dist =
+      DistanceToPeriodicBand(xc, yc, band2_x, band2_y, -0.57, 0.82, pmesh->mesh_size);
   const Real blob_dx = PeriodicDistance(xc, blob_x, xmin, xmax);
   const Real blob_dy = pmesh->ndim > 1 ? PeriodicDistance(yc, blob_y, ymin, ymax) : 0.0;
   const Real blob_dist = std::sqrt(blob_dx * blob_dx + blob_dy * blob_dy);
@@ -390,8 +392,7 @@ TaskStatus DestroySinkParticles(MeshData<Real> *md) {
   const Real sink_y = pkg->Param<Real>("sink_y");
   const Real sink_half_height = 0.5 * pkg->Param<Real>("sink_strip_height") *
                                 (mesh_size.xmax(X2DIR) - mesh_size.xmin(X2DIR));
-  static auto desc =
-      MakeSwarmPackDescriptor<swarm_position::y>("tracers");
+  static auto desc = MakeSwarmPackDescriptor<swarm_position::y>("tracers");
   auto pack = desc.GetPack(md);
 
   parthenon::par_for(
@@ -400,9 +401,9 @@ TaskStatus DestroySinkParticles(MeshData<Real> *md) {
         auto [b, n] = pack.GetBlockParticleIndices(idx);
         const auto &swarm_d = pack.GetContext(b);
         if (swarm_d.IsActive(n)) {
-          const Real dy = PeriodicDisplacement(
-              pack(b, swarm_position::y(), n), sink_y, mesh_size.xmin(X2DIR),
-                                              mesh_size.xmax(X2DIR));
+          const Real dy =
+              PeriodicDisplacement(pack(b, swarm_position::y(), n), sink_y,
+                                   mesh_size.xmin(X2DIR), mesh_size.xmax(X2DIR));
           if (std::abs(dy) <= sink_half_height) {
             swarm_d.MarkParticleForRemoval(n);
           }
@@ -432,10 +433,12 @@ TaskStatus SourceStripParticles(MeshData<Real> *md) {
   const Real mesh_height = ymax_mesh - ymin_mesh;
 
   const Real source_center = pkg->Param<Real>("source_x");
-  const Real source_half_width = 0.5 * pkg->Param<Real>("source_strip_width") * mesh_width;
+  const Real source_half_width =
+      0.5 * pkg->Param<Real>("source_strip_width") * mesh_width;
   const Real source_area = 2.0 * source_half_width * mesh_height;
   const int current_cycle = pkg->Param<int>("current_cycle");
-  const std::uint64_t id_cycle_stride = pkg->Param<std::uint64_t>("source_id_cycle_stride");
+  const std::uint64_t id_cycle_stride =
+      pkg->Param<std::uint64_t>("source_id_cycle_stride");
   const std::uint64_t id_gid_stride = pkg->Param<std::uint64_t>("source_id_gid_stride");
   const Real placement_omega = pkg->Param<Real>("particle_placement_omega");
 
@@ -483,11 +486,10 @@ TaskStatus SourceStripParticles(MeshData<Real> *md) {
     }
     const Real overlap_y = IntervalOverlap(block_ymin, block_ymax, ymin_mesh, ymax_mesh);
     const Real overlap_area = overlap_x * overlap_y;
-    const int num_new_particles = source_area > 0.0
-                                      ? static_cast<int>(std::round(
-                                            source_particles_per_cycle * overlap_area /
-                                            source_area))
-                                      : 0;
+    const int num_new_particles =
+        source_area > 0.0 ? static_cast<int>(std::round(source_particles_per_cycle *
+                                                        overlap_area / source_area))
+                          : 0;
 
     source_overlap_xmin_h(b) = overlap_xmin;
     source_overlap_xmax_h(b) = overlap_xmax;
@@ -531,10 +533,9 @@ TaskStatus SourceStripParticles(MeshData<Real> *md) {
         for (int new_n = 0; new_n <= new_contexts(b).GetNewParticlesMaxIndex(); ++new_n) {
           const int n = new_contexts(b).GetNewParticleIndex(new_n);
           auto rng_gen = rng_pool.get_state();
-          real_pack(b, x_idx, n) =
-              source_overlap_xmin(b) +
-              placement_omega * rng_gen.drand() *
-                  (source_overlap_xmax(b) - source_overlap_xmin(b));
+          real_pack(b, x_idx, n) = source_overlap_xmin(b) +
+                                   placement_omega * rng_gen.drand() *
+                                       (source_overlap_xmax(b) - source_overlap_xmin(b));
           real_pack(b, y_idx, n) =
               block_ymins(b) + placement_omega * rng_gen.drand() * overlap_ys(b);
           real_pack(b, z_idx, n) =
@@ -742,12 +743,14 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const Real overlap_x =
       std::max(0.0, std::min(x_max, packet_xmax) - std::max(x_min, packet_xmin));
   const Real overlap_y =
-      ndim > 1 ? std::max(0.0, std::min(y_max, packet_ymax) - std::max(y_min, packet_ymin))
-               : 1.0;
+      ndim > 1
+          ? std::max(0.0, std::min(y_max, packet_ymax) - std::max(y_min, packet_ymin))
+          : 1.0;
   const Real packet_area =
       (packet_xmax - packet_xmin) * (ndim > 1 ? (packet_ymax - packet_ymin) : 1.0);
   int num_tracers_meshblock =
-      packet_area > 0.0 ? std::round(num_tracers * overlap_x * overlap_y / packet_area) : 0;
+      packet_area > 0.0 ? std::round(num_tracers * overlap_x * overlap_y / packet_area)
+                        : 0;
 
   auto new_particles_context = swarm->AddEmptyParticles(num_tracers_meshblock);
 
@@ -773,10 +776,10 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
         real_pack(0, x_idx, n) =
             std::max(x_min, packet_xmin) + placement_omega * rng_gen.drand() * overlap_x;
-        real_pack(0, y_idx, n) =
-            ndim > 1 ? (std::max(y_min, packet_ymin) +
-                        placement_omega * rng_gen.drand() * overlap_y)
-                     : 0.0;
+        real_pack(0, y_idx, n) = ndim > 1
+                                     ? (std::max(y_min, packet_ymin) +
+                                        placement_omega * rng_gen.drand() * overlap_y)
+                                     : 0.0;
         real_pack(0, z_idx, n) =
             z_min + placement_omega * rng_gen.drand() * (z_max - z_min);
         id_pack(0, swarm_position::id(), n) =
@@ -898,8 +901,8 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
       auto &tl = async_region2[n];
       auto &pmb = blocks[n];
       auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
-      auto send = tl.AddTask(none, &SwarmContainer::Send, sc.get(),
-                             BoundaryCommSubset::all);
+      auto send =
+          tl.AddTask(none, &SwarmContainer::Send, sc.get(), BoundaryCommSubset::all);
       tl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
     }
 
@@ -920,7 +923,8 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
       // Defragment if swarm memory pool occupancy is 90%
       auto defrag = tl.AddTask(none, &SwarmContainer::Defrag, sc.get(), 0.9);
       if (pmesh->adaptive) {
-        tl.AddTask(defrag, parthenon::Refinement::Tag<MeshBlockData<Real>>, pmb->meshblock_data.Get().get());
+        tl.AddTask(defrag, parthenon::Refinement::Tag<MeshBlockData<Real>>,
+                   pmb->meshblock_data.Get().get());
       }
     }
   }

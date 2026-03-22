@@ -55,8 +55,8 @@ using UInt64SwarmHostMirror =
 // path verbatim.
 
 template <typename T, typename F>
-// Visit every logical component stored in a particle variable so the remesh serializer can
-// treat scalars and small fixed-size arrays uniformly.
+// Visit every logical component stored in a particle variable so the remesh serializer
+// can treat scalars and small fixed-size arrays uniformly.
 void ForEachParticleComponent(const ParticleVariable<T> &var, F &&f) {
   for (int n6 = 0; n6 < var.GetDim(6); ++n6) {
     for (int n5 = 0; n5 < var.GetDim(5); ++n5) {
@@ -82,11 +82,11 @@ template <typename T>
 void AppendParticleVariableData(const std::shared_ptr<ParticleVariable<T>> &var,
                                 const decltype(var->GetHostMirrorAndCopy()) &host,
                                 int particle_idx, std::vector<char> &buffer) {
-  ForEachParticleComponent(*var, [&](const int n6, const int n5, const int n4,
-                                     const int n3, const int n2) {
-    const T value = host(n6, n5, n4, n3, n2, particle_idx);
-    AppendBytes(buffer, &value, sizeof(T));
-  });
+  ForEachParticleComponent(
+      *var, [&](const int n6, const int n5, const int n4, const int n3, const int n2) {
+        const T value = host(n6, n5, n4, n3, n2, particle_idx);
+        AppendBytes(buffer, &value, sizeof(T));
+      });
 }
 
 template <typename T, typename HostMirror>
@@ -94,13 +94,13 @@ template <typename T, typename HostMirror>
 void LoadParticleVariableData(const std::shared_ptr<ParticleVariable<T>> &var,
                               HostMirror &host, int particle_idx,
                               const char *&buffer_ptr) {
-  ForEachParticleComponent(*var, [&](const int n6, const int n5, const int n4,
-                                     const int n3, const int n2) {
-    T value;
-    std::memcpy(&value, buffer_ptr, sizeof(T));
-    host(n6, n5, n4, n3, n2, particle_idx) = value;
-    buffer_ptr += sizeof(T);
-  });
+  ForEachParticleComponent(
+      *var, [&](const int n6, const int n5, const int n4, const int n3, const int n2) {
+        T value;
+        std::memcpy(&value, buffer_ptr, sizeof(T));
+        host(n6, n5, n4, n3, n2, particle_idx) = value;
+        buffer_ptr += sizeof(T);
+      });
 }
 
 std::size_t GetSwarmRemeshRecordSizeBytes(const std::shared_ptr<Swarm> &swarm) {
@@ -186,8 +186,8 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
       for (int n = 0; n <= swarm->GetMaxActiveIndex(); ++n) {
         if (!mask_h(n)) continue;
 
-        const int dest_gid = amr::FindOwningBlock(pmesh, context.new_locs, x_h(n), y_h(n),
-                                                  z_h(n));
+        const int dest_gid =
+            amr::FindOwningBlock(pmesh, context.new_locs, x_h(n), y_h(n), z_h(n));
         PARTHENON_REQUIRE(dest_gid >= 0,
                           "Failed to find destination block for remeshed particle.");
 
@@ -213,8 +213,8 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
                         "Swarm remesh send buffer too large for MPI.");
       send_counts[rank] = static_cast<int>(send_buffers[rank].size());
     }
-    PARTHENON_MPI_CHECK(MPI_Alltoall(send_counts.data(), 1, MPI_INT, recv_counts.data(), 1,
-                                     MPI_INT, MPI_COMM_WORLD));
+    PARTHENON_MPI_CHECK(MPI_Alltoall(send_counts.data(), 1, MPI_INT, recv_counts.data(),
+                                     1, MPI_INT, MPI_COMM_WORLD));
 
     std::vector<int> send_displs(Globals::nranks, 0);
     std::vector<int> recv_displs(Globals::nranks, 0);
@@ -321,8 +321,8 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
 
 // Swarm layout changes can invalidate cached SwarmPacks at both the MeshBlockData and
 // MeshData levels. `mesh_data.clear()` destroys most MeshData containers in this remesh
-// path already, but clearing any surviving MeshData caches here as well is cheap and makes
-// the post-remesh cleanup rule explicit and conservative.
+// path already, but clearing any surviving MeshData caches here as well is cheap and
+// makes the post-remesh cleanup rule explicit and conservative.
 void ClearSwarmCachesAfterRemesh(Mesh *pmesh, const BlockList_t &block_list) {
   for (const auto &pmb : block_list) {
     for (const auto &[label, mbd] : pmb->meshblock_data.Stages()) {
@@ -334,9 +334,9 @@ void ClearSwarmCachesAfterRemesh(Mesh *pmesh, const BlockList_t &block_list) {
   }
 }
 
-// Find the post-remesh leaf block that owns the given particle position. When a point lies
-// on a shared face, edge, or node, break ties with the same ownership ordering Parthenon
-// already uses for shared field elements.
+// Find the post-remesh leaf block that owns the given particle position. When a point
+// lies on a shared face, edge, or node, break ties with the same ownership ordering
+// Parthenon already uses for shared field elements.
 int amr::FindOwningBlock(const Mesh *pmesh, const std::vector<LogicalLocation> &locs,
                          const Real x, const Real y, const Real z) {
   int owner_gid = -1;

@@ -18,8 +18,8 @@
 // This file was made in part with generative AI
 
 #include <algorithm>
-#include <optional>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <vector>
 
@@ -100,13 +100,14 @@ std::vector<LogicalLocation> ReplaceLeaf(const std::vector<LogicalLocation> &lea
 
 Real CellCenter(const RegionSize &block_size, const CoordinateDirection dir,
                 const int local_cell_index) {
-  const Real dx =
-      (block_size.xmax(dir) - block_size.xmin(dir)) / static_cast<Real>(block_size.nx(dir));
+  const Real dx = (block_size.xmax(dir) - block_size.xmin(dir)) /
+                  static_cast<Real>(block_size.nx(dir));
   return block_size.xmin(dir) + (static_cast<Real>(local_cell_index) + 0.5) * dx;
 }
 
 LogicalLocation FindLeafWithSameLevelNeighbor(const std::vector<LogicalLocation> &leaves,
-                                              const int ox1, const int ox2, const int ox3) {
+                                              const int ox1, const int ox2,
+                                              const int ox3) {
   for (const auto &loc : leaves) {
     const auto neighbor = loc.GetSameLevelNeighbor(ox1, ox2, ox3);
     if (std::find(leaves.begin(), leaves.end(), neighbor) != leaves.end()) {
@@ -121,11 +122,10 @@ bool IntervalsOverlap(const Real a0, const Real a1, const Real b0, const Real b1
   return std::max(a0, b0) < std::min(a1, b1);
 }
 
-std::optional<std::pair<LogicalLocation, LogicalLocation>>
-FindSharedXFacePair(const std::shared_ptr<Mesh> &mesh,
-                    const std::vector<LogicalLocation> &leaves,
-                    const std::function<bool(const LogicalLocation &, const LogicalLocation &)>
-                        &predicate) {
+std::optional<std::pair<LogicalLocation, LogicalLocation>> FindSharedXFacePair(
+    const std::shared_ptr<Mesh> &mesh, const std::vector<LogicalLocation> &leaves,
+    const std::function<bool(const LogicalLocation &, const LogicalLocation &)>
+        &predicate) {
   for (std::size_t i = 0; i < leaves.size(); ++i) {
     const auto a = leaves[i];
     const auto as = mesh->GetBlockSize(a);
@@ -155,14 +155,15 @@ std::optional<std::tuple<LogicalLocation, std::vector<LogicalLocation>,
 FindRefinementWithFineCoarseSharedFace(const std::shared_ptr<Mesh> &mesh,
                                        const std::vector<LogicalLocation> &base_leaves) {
   for (const auto &candidate_parent : base_leaves) {
-    const auto candidate_leaves =
-        ReplaceLeaf(base_leaves, candidate_parent, candidate_parent.GetDaughters(mesh->ndim));
-    const auto pair = FindSharedXFacePair(mesh, candidate_leaves,
-                                          [](const auto &a, const auto &b) {
-                                            return a.level() != b.level();
-                                          });
-    if (pair.has_value()) return std::make_optional(
-        std::make_tuple(candidate_parent, candidate_leaves, *pair));
+    const auto candidate_leaves = ReplaceLeaf(base_leaves, candidate_parent,
+                                              candidate_parent.GetDaughters(mesh->ndim));
+    const auto pair =
+        FindSharedXFacePair(mesh, candidate_leaves, [](const auto &a, const auto &b) {
+          return a.level() != b.level();
+        });
+    if (pair.has_value())
+      return std::make_optional(
+          std::make_tuple(candidate_parent, candidate_leaves, *pair));
   }
   return std::nullopt;
 }
@@ -201,7 +202,8 @@ TEST_CASE("AMR particle ownership lookup matches refine and derefine expectation
     const Real y = CellCenter(daughter_size, parthenon::X2DIR, local_j);
     const Real z = 0.0;
 
-    const int owner = parthenon::amr::FindOwningBlock(mesh.get(), refined_leaves, x, y, z);
+    const int owner =
+        parthenon::amr::FindOwningBlock(mesh.get(), refined_leaves, x, y, z);
     REQUIRE(owner >= 0);
     REQUIRE(refined_leaves[owner] == expected_daughter);
 
@@ -266,7 +268,8 @@ TEST_CASE("AMR particle ownership lookup matches refine and derefine expectation
     const Real y = CellCenter(right_size, parthenon::X2DIR, 3);
     const Real z = 0.0;
 
-    const int owner = parthenon::amr::FindOwningBlock(mesh.get(), refined_leaves, x, y, z);
+    const int owner =
+        parthenon::amr::FindOwningBlock(mesh.get(), refined_leaves, x, y, z);
     REQUIRE(owner >= 0);
     REQUIRE(refined_leaves[owner] == right_daughter);
     REQUIRE(refined_leaves[owner] != left_daughter);
@@ -278,16 +281,17 @@ TEST_CASE("AMR particle ownership lookup matches refine and derefine expectation
     REQUIRE(ijk[2] == kb.s);
   }
 
-  SECTION("Exact same-level shared-face ownership follows Parthenon tree/Morton priority") {
+  SECTION(
+      "Exact same-level shared-face ownership follows Parthenon tree/Morton priority") {
     const auto left = parent.GetDaughter(0, 0, 0);
     const auto right = parent.GetDaughter(1, 0, 0);
     const auto left_size = mesh->GetBlockSize(left);
     const auto right_size = mesh->GetBlockSize(right);
     const Real x = left_size.xmax(parthenon::X1DIR);
-    const Real y = 0.5 * (std::max(left_size.xmin(parthenon::X2DIR),
-                                   right_size.xmin(parthenon::X2DIR)) +
-                          std::min(left_size.xmax(parthenon::X2DIR),
-                                   right_size.xmax(parthenon::X2DIR)));
+    const Real y =
+        0.5 *
+        (std::max(left_size.xmin(parthenon::X2DIR), right_size.xmin(parthenon::X2DIR)) +
+         std::min(left_size.xmax(parthenon::X2DIR), right_size.xmax(parthenon::X2DIR)));
     const Real z = 0.0;
 
     const auto expected_owner =
@@ -298,7 +302,8 @@ TEST_CASE("AMR particle ownership lookup matches refine and derefine expectation
     // refining `parent`, so the owning block must be searched for on the refined leaf
     // set. Looking on the base leaf set would ask a different question entirely: which
     // coarse block owns the same physical position before refinement.
-    const int owner = parthenon::amr::FindOwningBlock(mesh.get(), refined_leaves, x, y, z);
+    const int owner =
+        parthenon::amr::FindOwningBlock(mesh.get(), refined_leaves, x, y, z);
     REQUIRE(owner >= 0);
     REQUIRE(refined_leaves[owner] == expected_owner);
 
@@ -325,10 +330,10 @@ TEST_CASE("AMR particle ownership lookup matches refine and derefine expectation
     const Real x = fine_size.xmax(parthenon::X1DIR) == coarse_size.xmin(parthenon::X1DIR)
                        ? fine_size.xmax(parthenon::X1DIR)
                        : coarse_size.xmax(parthenon::X1DIR);
-    const Real y = 0.5 * (std::max(fine_size.xmin(parthenon::X2DIR),
-                                   coarse_size.xmin(parthenon::X2DIR)) +
-                          std::min(fine_size.xmax(parthenon::X2DIR),
-                                   coarse_size.xmax(parthenon::X2DIR)));
+    const Real y =
+        0.5 *
+        (std::max(fine_size.xmin(parthenon::X2DIR), coarse_size.xmin(parthenon::X2DIR)) +
+         std::min(fine_size.xmax(parthenon::X2DIR), coarse_size.xmax(parthenon::X2DIR)));
     const Real z = 0.0;
 
     const int owner = parthenon::amr::FindOwningBlock(mesh.get(), chosen_leaves, x, y, z);

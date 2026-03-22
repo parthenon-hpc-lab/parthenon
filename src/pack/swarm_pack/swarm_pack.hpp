@@ -53,11 +53,12 @@ class SwarmPack : public SwarmPackBase<TYPE> {
 
   explicit SwarmPack(const SwarmPackBase<TYPE> &spb) : SwarmPackBase<TYPE>(spb) {
     if constexpr (sizeof...(Ts) != 0) {
-      static_assert(std::is_same<TYPE, typename GetDataType<Ts...>::value>::value,
-                    "Type mismatch in SwarmPack! When passing type-based variables as "
-                    "template argument to SwarmPack, ensure that the first template "
-                    "parameter is a data type (e.g., Real, int, or uint64_t) that matches the "
-                    "data type of subsequent variable types!");
+      static_assert(
+          std::is_same<TYPE, typename GetDataType<Ts...>::value>::value,
+          "Type mismatch in SwarmPack! When passing type-based variables as "
+          "template argument to SwarmPack, ensure that the first template "
+          "parameter is a data type (e.g., Real, int, or uint64_t) that matches the "
+          "data type of subsequent variable types!");
     }
   }
 

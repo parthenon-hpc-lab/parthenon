@@ -27,11 +27,11 @@
 #include <mesh/mesh.hpp>
 #include <mesh/meshblock.hpp>
 #include <mesh/meshblock_pack.hpp>
-#include <pack/sparse_pack/make_pack_descriptor.hpp>
-#include <pack/swarm_pack/make_swarm_pack_descriptor.hpp>
-#include <pack/sparse_pack/pack_descriptor.hpp>
 #include <pack/scratch_variables.hpp>
+#include <pack/sparse_pack/make_pack_descriptor.hpp>
+#include <pack/sparse_pack/pack_descriptor.hpp>
 #include <pack/sparse_pack/sparse_pack.hpp>
+#include <pack/swarm_pack/make_swarm_pack_descriptor.hpp>
 #include <pack/swarm_pack/swarm_pack.hpp>
 #include <parameter_input.hpp>
 #include <parthenon_manager.hpp>

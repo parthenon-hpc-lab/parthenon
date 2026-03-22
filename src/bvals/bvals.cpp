@@ -121,8 +121,8 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
               BufArray1D<Real>("Buffer", send_size[nb.bufid]);
         }
 
-        auto send_subview = Kokkos::subview(
-            bd_var_.send[nb.bufid], std::make_pair(0, send_size[nb.bufid]));
+        auto send_subview = Kokkos::subview(bd_var_.send[nb.bufid],
+                                            std::make_pair(0, send_size[nb.bufid]));
         target_block.deep_copy(ptarget_bswarm->bd_var_.recv[nb.targetid], send_subview);
         ptarget_bswarm->recv_size[nb.targetid] = send_size[nb.bufid];
         ptarget_bswarm->bd_var_.flag[nb.targetid] = BoundaryStatus::arrived;

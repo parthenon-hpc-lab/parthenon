@@ -21,7 +21,6 @@
 //! \file mesh-amr_loadbalance.cpp
 //  \brief implementation of Mesh::AdaptiveMeshRefinement() and related utilities
 
-
 // This file was made in part with generative AI
 
 #include <algorithm>
@@ -923,7 +922,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     // new block topology. Swarms do not: a particle may need to move to an arbitrary
     // post-remesh owning leaf, so swarm remesh runs as a separate ownership-based pass
     // after field prolongation/restriction has rebuilt the mesh hierarchy.
-    const SwarmRemeshContext swarm_remesh_context{onbs, onbe, oldtonew, loclist,
+    const SwarmRemeshContext swarm_remesh_context{onbs,   onbe,     oldtonew, loclist,
                                                   newloc, ranklist, newrank};
     RemeshSwarms(resolved_packages, old_block_list, this, swarm_remesh_context);
     ClearSwarmCachesAfterRemesh(this, block_list);

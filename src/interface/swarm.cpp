@@ -14,19 +14,19 @@
 // This file was made in part with generative AI
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
 #include <memory>
-#include <cmath>
 #include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "interface/metadata.hpp"
-#include "mesh/mesh.hpp"
 #include "mesh/forest/block_ownership.hpp"
+#include "mesh/mesh.hpp"
 #include "pack/swarm_pack/swarm_default_names.hpp"
 #include "swarm.hpp"
 #include "utils/error_checking.hpp"
@@ -75,8 +75,7 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
     const int ox1 = nb.offsets(X1DIR);
     const int ox2 = nb.offsets(X2DIR);
     const int ox3 = nb.offsets(X3DIR);
-    context.current_ownership_(ox1, ox2, ox3) =
-        !nb.ownership(-ox1, -ox2, -ox3);
+    context.current_ownership_(ox1, ox2, ox3) = !nb.ownership(-ox1, -ox2, -ox3);
   }
   context.coords_ = pmb->coords;
   return context;

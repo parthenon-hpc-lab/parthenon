@@ -29,8 +29,9 @@ namespace parthenon {
 
 template <typename TYPE>
 template <class T>
-void SwarmPackBase<TYPE>::BuildSupplemental(
-    T *pmd, const impl::SwarmPackDescriptor<TYPE> &desc, SwarmPackBase<TYPE> &pack) {
+void SwarmPackBase<TYPE>::BuildSupplemental(T *pmd,
+                                            const impl::SwarmPackDescriptor<TYPE> &desc,
+                                            SwarmPackBase<TYPE> &pack) {
   auto flat_index_map_h = Kokkos::create_mirror_view(pack.flat_index_map_);
   auto max_active_indices_h = Kokkos::create_mirror_view(pack.max_active_indices_);
   ForEachBlock(pmd, std::vector<bool>{}, [&](int b, auto *pmbd) {
@@ -51,8 +52,8 @@ void SwarmPackBase<TYPE>::BuildSupplemental(
 
 template <typename TYPE>
 template <class T>
-SwarmPackBase<TYPE> SwarmPackBase<TYPE>::Build(
-    T *pmd, const impl::SwarmPackDescriptor<TYPE> &desc) {
+SwarmPackBase<TYPE>
+SwarmPackBase<TYPE>::Build(T *pmd, const impl::SwarmPackDescriptor<TYPE> &desc) {
   const int nvar = desc.vars.size();
 
   SwarmPackBase<TYPE> pack;
@@ -130,15 +131,15 @@ SwarmPackBase<TYPE> SwarmPackBase<TYPE>::Build(
 
 template <typename TYPE>
 template <class T>
-SwarmPackBase<TYPE> SwarmPackBase<TYPE>::GetPack(
-    T *pmd, const impl::SwarmPackDescriptor<TYPE> &desc) {
+SwarmPackBase<TYPE>
+SwarmPackBase<TYPE>::GetPack(T *pmd, const impl::SwarmPackDescriptor<TYPE> &desc) {
   auto &cache = pmd->template GetSwarmPackCache<TYPE>();
   return cache.Get(pmd, desc);
 }
 
 template <typename TYPE>
-typename SwarmPackBase<TYPE>::idx_map_t SwarmPackBase<TYPE>::GetIdxMap(
-    const desc_t &desc) {
+typename SwarmPackBase<TYPE>::idx_map_t
+SwarmPackBase<TYPE>::GetIdxMap(const desc_t &desc) {
   idx_map_t map;
   std::size_t idx = 0;
   for (const auto &var : desc.vars) {
@@ -164,29 +165,35 @@ template void SwarmPackBase<std::uint64_t>::BuildSupplemental<MeshBlockData<Real
     MeshBlockData<Real> *, const impl::SwarmPackDescriptor<std::uint64_t> &,
     SwarmPackBase<std::uint64_t> &);
 
-template SwarmPackBase<Real> SwarmPackBase<Real>::Build<MeshData<Real>>(
-    MeshData<Real> *, const impl::SwarmPackDescriptor<Real> &);
-template SwarmPackBase<Real> SwarmPackBase<Real>::Build<MeshBlockData<Real>>(
-    MeshBlockData<Real> *, const impl::SwarmPackDescriptor<Real> &);
-template SwarmPackBase<int> SwarmPackBase<int>::Build<MeshData<Real>>(
-    MeshData<Real> *, const impl::SwarmPackDescriptor<int> &);
-template SwarmPackBase<int> SwarmPackBase<int>::Build<MeshBlockData<Real>>(
-    MeshBlockData<Real> *, const impl::SwarmPackDescriptor<int> &);
-template SwarmPackBase<std::uint64_t>
-SwarmPackBase<std::uint64_t>::Build<MeshData<Real>>(
+template SwarmPackBase<Real>
+SwarmPackBase<Real>::Build<MeshData<Real>>(MeshData<Real> *,
+                                           const impl::SwarmPackDescriptor<Real> &);
+template SwarmPackBase<Real>
+SwarmPackBase<Real>::Build<MeshBlockData<Real>>(MeshBlockData<Real> *,
+                                                const impl::SwarmPackDescriptor<Real> &);
+template SwarmPackBase<int>
+SwarmPackBase<int>::Build<MeshData<Real>>(MeshData<Real> *,
+                                          const impl::SwarmPackDescriptor<int> &);
+template SwarmPackBase<int>
+SwarmPackBase<int>::Build<MeshBlockData<Real>>(MeshBlockData<Real> *,
+                                               const impl::SwarmPackDescriptor<int> &);
+template SwarmPackBase<std::uint64_t> SwarmPackBase<std::uint64_t>::Build<MeshData<Real>>(
     MeshData<Real> *, const impl::SwarmPackDescriptor<std::uint64_t> &);
 template SwarmPackBase<std::uint64_t>
 SwarmPackBase<std::uint64_t>::Build<MeshBlockData<Real>>(
     MeshBlockData<Real> *, const impl::SwarmPackDescriptor<std::uint64_t> &);
 
-template SwarmPackBase<Real> SwarmPackBase<Real>::GetPack<MeshData<Real>>(
-    MeshData<Real> *, const impl::SwarmPackDescriptor<Real> &);
+template SwarmPackBase<Real>
+SwarmPackBase<Real>::GetPack<MeshData<Real>>(MeshData<Real> *,
+                                             const impl::SwarmPackDescriptor<Real> &);
 template SwarmPackBase<Real> SwarmPackBase<Real>::GetPack<MeshBlockData<Real>>(
     MeshBlockData<Real> *, const impl::SwarmPackDescriptor<Real> &);
-template SwarmPackBase<int> SwarmPackBase<int>::GetPack<MeshData<Real>>(
-    MeshData<Real> *, const impl::SwarmPackDescriptor<int> &);
-template SwarmPackBase<int> SwarmPackBase<int>::GetPack<MeshBlockData<Real>>(
-    MeshBlockData<Real> *, const impl::SwarmPackDescriptor<int> &);
+template SwarmPackBase<int>
+SwarmPackBase<int>::GetPack<MeshData<Real>>(MeshData<Real> *,
+                                            const impl::SwarmPackDescriptor<int> &);
+template SwarmPackBase<int>
+SwarmPackBase<int>::GetPack<MeshBlockData<Real>>(MeshBlockData<Real> *,
+                                                 const impl::SwarmPackDescriptor<int> &);
 template SwarmPackBase<std::uint64_t>
 SwarmPackBase<std::uint64_t>::GetPack<MeshData<Real>>(
     MeshData<Real> *, const impl::SwarmPackDescriptor<std::uint64_t> &);
@@ -194,10 +201,10 @@ template SwarmPackBase<std::uint64_t>
 SwarmPackBase<std::uint64_t>::GetPack<MeshBlockData<Real>>(
     MeshBlockData<Real> *, const impl::SwarmPackDescriptor<std::uint64_t> &);
 
-template SwarmPackBase<Real>::idx_map_t SwarmPackBase<Real>::GetIdxMap(
-    const SwarmPackBase<Real>::desc_t &);
-template SwarmPackBase<int>::idx_map_t SwarmPackBase<int>::GetIdxMap(
-    const SwarmPackBase<int>::desc_t &);
+template SwarmPackBase<Real>::idx_map_t
+SwarmPackBase<Real>::GetIdxMap(const SwarmPackBase<Real>::desc_t &);
+template SwarmPackBase<int>::idx_map_t
+SwarmPackBase<int>::GetIdxMap(const SwarmPackBase<int>::desc_t &);
 template SwarmPackBase<std::uint64_t>::idx_map_t
 SwarmPackBase<std::uint64_t>::GetIdxMap(const SwarmPackBase<std::uint64_t>::desc_t &);
 

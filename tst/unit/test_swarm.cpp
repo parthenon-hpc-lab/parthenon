@@ -265,8 +265,10 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
     const auto kb = meshblock->cellbounds.GetBoundsK(IndexDomain::interior);
 
     x_face_h(0) = meshblock->coords.Xf<1>(ib.e + 1);
-    y_face_h(0) = 0.5 * (meshblock->coords.Xf<2>(jb.s) + meshblock->coords.Xf<2>(jb.e + 1));
-    z_face_h(0) = 0.5 * (meshblock->coords.Xf<3>(kb.s) + meshblock->coords.Xf<3>(kb.e + 1));
+    y_face_h(0) =
+        0.5 * (meshblock->coords.Xf<2>(jb.s) + meshblock->coords.Xf<2>(jb.e + 1));
+    z_face_h(0) =
+        0.5 * (meshblock->coords.Xf<3>(kb.s) + meshblock->coords.Xf<3>(kb.e + 1));
     x_face.DeepCopy(x_face_h);
     y_face.DeepCopy(y_face_h);
     z_face.DeepCopy(z_face_h);
@@ -302,5 +304,4 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
     boundary_swarm->RemoveMarkedParticles();
     REQUIRE(boundary_swarm->GetNumActive() == 1);
   }
-
 }

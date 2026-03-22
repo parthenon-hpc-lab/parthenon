@@ -128,14 +128,12 @@ class SwarmDeviceContext {
       return start + offset;
     };
     i = idx_in_dir(x, x_min_, coords_.Dx<CoordinateDirection::X1DIR>(), x_max_, ib_s_);
-    j = (ndim_ > 1)
-            ? idx_in_dir(y, y_min_, coords_.Dx<CoordinateDirection::X2DIR>(), y_max_,
-                         jb_s_)
-            : jb_s_;
-    k = (ndim_ > 2)
-            ? idx_in_dir(z, z_min_, coords_.Dx<CoordinateDirection::X3DIR>(), z_max_,
-                         kb_s_)
-            : kb_s_;
+    j = (ndim_ > 1) ? idx_in_dir(y, y_min_, coords_.Dx<CoordinateDirection::X2DIR>(),
+                                 y_max_, jb_s_)
+                    : jb_s_;
+    k = (ndim_ > 2) ? idx_in_dir(z, z_min_, coords_.Dx<CoordinateDirection::X3DIR>(),
+                                 z_max_, kb_s_)
+                    : kb_s_;
   }
 
   KOKKOS_INLINE_FUNCTION

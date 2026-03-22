@@ -37,7 +37,8 @@ bool SwarmPackDescriptor<TYPE>::IncludeVariable(
 template <typename TYPE>
 std::string SwarmPackDescriptor<TYPE>::GetIdentifier() const {
   std::string ident("");
-  for (const auto &var : vars) ident += var;
+  for (const auto &var : vars)
+    ident += var;
   ident += "|swarm_name:";
   ident += swarm_name;
   return ident;

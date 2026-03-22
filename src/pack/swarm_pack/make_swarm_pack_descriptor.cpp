@@ -22,8 +22,9 @@
 namespace parthenon {
 
 template <typename TYPE>
-typename SwarmPack<TYPE>::Descriptor MakeSwarmPackDescriptor(
-    const std::string &swarm_name, const std::vector<std::string> &vars) {
+typename SwarmPack<TYPE>::Descriptor
+MakeSwarmPackDescriptor(const std::string &swarm_name,
+                        const std::vector<std::string> &vars) {
   impl::SwarmPackDescriptor<TYPE> base_desc(swarm_name, vars);
   return typename SwarmPack<TYPE>::Descriptor(base_desc);
 }

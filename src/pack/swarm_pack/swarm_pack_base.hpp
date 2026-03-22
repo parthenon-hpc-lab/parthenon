@@ -73,8 +73,7 @@ class SwarmPackBase {
   static SwarmPackBase<TYPE> Build(T *pmd, const SwarmPackDescriptor<TYPE> &desc);
 
   template <class T>
-  static SwarmPackBase<TYPE> GetPack(T *pmd,
-                                     const impl::SwarmPackDescriptor<TYPE> &desc);
+  static SwarmPackBase<TYPE> GetPack(T *pmd, const impl::SwarmPackDescriptor<TYPE> &desc);
 
   static idx_map_t GetIdxMap(const desc_t &desc);
 

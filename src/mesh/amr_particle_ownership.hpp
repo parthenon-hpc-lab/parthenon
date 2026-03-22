@@ -63,8 +63,8 @@ inline bool OwnershipLessThan(const LogicalLocation &a, const LogicalLocation &b
   return a.morton() < b.morton();
 }
 
-int FindOwningBlock(const Mesh *pmesh, const std::vector<LogicalLocation> &locs, const Real x,
-                    const Real y, const Real z);
+int FindOwningBlock(const Mesh *pmesh, const std::vector<LogicalLocation> &locs,
+                    const Real x, const Real y, const Real z);
 
 // Map a particle position to the owning cell on a uniform Cartesian block.
 // This mirrors SwarmDeviceContext::Xtoijk, but is written in terms of RegionSize and

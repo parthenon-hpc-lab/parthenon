@@ -27,7 +27,8 @@ namespace impl {
 
 template <typename TYPE>
 struct SwarmPackDescriptor {
-  SwarmPackDescriptor(const std::string &swarm_name, const std::vector<std::string> &vars);
+  SwarmPackDescriptor(const std::string &swarm_name,
+                      const std::vector<std::string> &vars);
 
   bool IncludeVariable(int vidx, const std::shared_ptr<ParticleVariable<TYPE>> &pv) const;
 
