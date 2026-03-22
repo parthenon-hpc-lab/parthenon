@@ -22,7 +22,7 @@ if( "particles-tracers" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
   add_executable(
       particle-tracers-amr-source-sink
           main.cpp
-          particle_tracers.cpp
+          particle_tracers_amr_source_sink.cpp
   )
   target_link_libraries(particle-tracers-amr-source-sink PRIVATE parthenon)
   lint_target(particle-tracers-amr-source-sink)

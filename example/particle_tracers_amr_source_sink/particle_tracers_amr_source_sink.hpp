@@ -17,8 +17,8 @@
 
 // This file was made in part with generative AI
 
-#ifndef EXAMPLE_PARTICLE_TRACERS_PARTICLE_TRACERS_HPP_
-#define EXAMPLE_PARTICLE_TRACERS_PARTICLE_TRACERS_HPP_
+#ifndef EXAMPLE_PARTICLE_TRACERS_AMR_SOURCE_SINK_PARTICLE_TRACERS_AMR_SOURCE_SINK_HPP_
+#define EXAMPLE_PARTICLE_TRACERS_AMR_SOURCE_SINK_PARTICLE_TRACERS_AMR_SOURCE_SINK_HPP_
 
 #include <memory>
 
@@ -31,7 +31,7 @@ using namespace parthenon::driver::prelude;
 using namespace parthenon::package::prelude;
 using namespace parthenon;
 
-namespace tracers_example {
+namespace particle_tracers_amr_source_sink {
 
 class ParticleDriver : public MultiStageDriver {
  public:
@@ -58,6 +58,6 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc);
 
 } // namespace advection_package
 
-} // namespace tracers_example
+} // namespace particle_tracers_amr_source_sink
 
-#endif // EXAMPLE_PARTICLE_TRACERS_PARTICLE_TRACERS_HPP_
+#endif // EXAMPLE_PARTICLE_TRACERS_AMR_SOURCE_SINK_PARTICLE_TRACERS_AMR_SOURCE_SINK_HPP_

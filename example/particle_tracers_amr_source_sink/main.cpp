@@ -15,7 +15,7 @@
 
 #include "parthenon_manager.hpp"
 
-#include "particle_tracers.hpp"
+#include "particle_tracers_amr_source_sink.hpp"
 
 int main(int argc, char *argv[]) {
   using parthenon::ParthenonManager;
@@ -23,8 +23,8 @@ int main(int argc, char *argv[]) {
   ParthenonManager pman;
 
   // Redefine parthenon defaults
-  pman.app_input->ProcessPackages = tracers_example::ProcessPackages;
-  pman.app_input->ProblemGenerator = tracers_example::ProblemGenerator;
+  pman.app_input->ProcessPackages = particle_tracers_amr_source_sink::ProcessPackages;
+  pman.app_input->ProblemGenerator = particle_tracers_amr_source_sink::ProblemGenerator;
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInitEnv(argc, argv);
@@ -43,8 +43,8 @@ int main(int argc, char *argv[]) {
   pman.ParthenonInitPackagesAndMesh();
   {
     // Initialize the driver
-    tracers_example::ParticleDriver driver(pman.pinput.get(), pman.app_input.get(),
-                                           pman.pmesh.get());
+    particle_tracers_amr_source_sink::ParticleDriver driver(
+        pman.pinput.get(), pman.app_input.get(), pman.pmesh.get());
 
     // This line actually runs the simulation
     auto driver_status = driver.Execute();

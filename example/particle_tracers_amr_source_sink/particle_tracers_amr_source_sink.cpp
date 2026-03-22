@@ -17,7 +17,7 @@
 
 // This file was made in part with generative AI
 
-#include "particle_tracers.hpp"
+#include "particle_tracers_amr_source_sink.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -46,7 +46,7 @@ using namespace parthenon::Update;
 typedef Kokkos::Random_XorShift64_Pool<> RNGPool;
 constexpr Real kParticlePlacementOmega = 1.0 - 4.0e8 * parthenon::robust::EPS();
 
-namespace tracers_example {
+namespace particle_tracers_amr_source_sink {
 
 namespace {
 
@@ -823,7 +823,8 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     auto &dudt = pmb->meshblock_data.Get("dUdt");
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-    auto advect_flux = tl.AddTask(none, tracers_example::CalculateFluxes, sc0.get());
+    auto advect_flux =
+        tl.AddTask(none, particle_tracers_amr_source_sink::CalculateFluxes, sc0.get());
   }
 
   auto partitions = pmesh->GetDefaultBlockPartitions();
@@ -893,7 +894,8 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     for (int i = 0; i < num_partitions; ++i) {
       auto &tl = tracer_transport[i];
       auto &base = pmesh->mesh_data.Add("base", partitions[i]);
-      tl.AddTask(none, tracers_example::AdvectTracers, base.get(), integrator.get());
+      tl.AddTask(none, particle_tracers_amr_source_sink::AdvectTracers, base.get(),
+                 integrator.get());
     }
 
     TaskRegion &async_region2 = tc.AddRegion(nblocks);
@@ -910,9 +912,11 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     for (int i = 0; i < num_partitions; ++i) {
       auto &tl = tracer_post_comm[i];
       auto &base = pmesh->mesh_data.Add("base", partitions[i]);
-      auto sink = tl.AddTask(none, tracers_example::DestroySinkParticles, base.get());
-      auto source = tl.AddTask(sink, tracers_example::SourceStripParticles, base.get());
-      tl.AddTask(source, tracers_example::DepositTracers, base.get());
+      auto sink = tl.AddTask(
+          none, particle_tracers_amr_source_sink::DestroySinkParticles, base.get());
+      auto source = tl.AddTask(
+          sink, particle_tracers_amr_source_sink::SourceStripParticles, base.get());
+      tl.AddTask(source, particle_tracers_amr_source_sink::DepositTracers, base.get());
     }
 
     TaskRegion &async_region3 = tc.AddRegion(nblocks);
@@ -932,4 +936,4 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
   return tc;
 }
 
-} // namespace tracers_example
+} // namespace particle_tracers_amr_source_sink
