@@ -912,8 +912,8 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     for (int i = 0; i < num_partitions; ++i) {
       auto &tl = tracer_post_comm[i];
       auto &base = pmesh->mesh_data.Add("base", partitions[i]);
-      auto sink = tl.AddTask(
-          none, particle_tracers_amr_source_sink::DestroySinkParticles, base.get());
+      auto sink = tl.AddTask(none, particle_tracers_amr_source_sink::DestroySinkParticles,
+                             base.get());
       auto source = tl.AddTask(
           sink, particle_tracers_amr_source_sink::SourceStripParticles, base.get());
       tl.AddTask(source, particle_tracers_amr_source_sink::DepositTracers, base.get());
