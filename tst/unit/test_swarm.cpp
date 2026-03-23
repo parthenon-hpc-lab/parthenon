@@ -304,4 +304,58 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
     boundary_swarm->RemoveMarkedParticles();
     REQUIRE(boundary_swarm->GetNumActive() == 1);
   }
+
+  SECTION("Particles exactly on a physical boundary edge remain in the domain") {
+    auto boundary_swarm = std::make_shared<Swarm>("boundary edge swarm", m);
+    boundary_swarm->SetBlockPointer(meshblock);
+    boundary_swarm->AddEmptyParticles(1);
+
+    auto &x_b = boundary_swarm->Get<Real>(swarm_position::x::name()).Get();
+    auto &y_b = boundary_swarm->Get<Real>(swarm_position::y::name()).Get();
+    auto &z_b = boundary_swarm->Get<Real>(swarm_position::z::name()).Get();
+    auto x_b_h = x_b.GetHostMirrorAndCopy();
+    auto y_b_h = y_b.GetHostMirrorAndCopy();
+    auto z_b_h = z_b.GetHostMirrorAndCopy();
+
+    const auto ib = meshblock->cellbounds.GetBoundsI(IndexDomain::interior);
+    const auto jb = meshblock->cellbounds.GetBoundsJ(IndexDomain::interior);
+    const auto kb = meshblock->cellbounds.GetBoundsK(IndexDomain::interior);
+    x_b_h(0) = meshblock->coords.Xf<1>(ib.s);
+    y_b_h(0) = meshblock->coords.Xf<2>(jb.s);
+    z_b_h(0) = 0.5 * (meshblock->coords.Xf<3>(kb.s) + meshblock->coords.Xf<3>(kb.e + 1));
+    x_b.DeepCopy(x_b_h);
+    y_b.DeepCopy(y_b_h);
+    z_b.DeepCopy(z_b_h);
+
+    ApplySwarmBoundaryConditions(boundary_swarm);
+    boundary_swarm->RemoveMarkedParticles();
+    REQUIRE(boundary_swarm->GetNumActive() == 1);
+  }
+
+  SECTION("Particles exactly on a physical boundary node remain in the domain") {
+    auto boundary_swarm = std::make_shared<Swarm>("boundary node swarm", m);
+    boundary_swarm->SetBlockPointer(meshblock);
+    boundary_swarm->AddEmptyParticles(1);
+
+    auto &x_b = boundary_swarm->Get<Real>(swarm_position::x::name()).Get();
+    auto &y_b = boundary_swarm->Get<Real>(swarm_position::y::name()).Get();
+    auto &z_b = boundary_swarm->Get<Real>(swarm_position::z::name()).Get();
+    auto x_b_h = x_b.GetHostMirrorAndCopy();
+    auto y_b_h = y_b.GetHostMirrorAndCopy();
+    auto z_b_h = z_b.GetHostMirrorAndCopy();
+
+    const auto ib = meshblock->cellbounds.GetBoundsI(IndexDomain::interior);
+    const auto jb = meshblock->cellbounds.GetBoundsJ(IndexDomain::interior);
+    const auto kb = meshblock->cellbounds.GetBoundsK(IndexDomain::interior);
+    x_b_h(0) = meshblock->coords.Xf<1>(ib.s);
+    y_b_h(0) = meshblock->coords.Xf<2>(jb.s);
+    z_b_h(0) = meshblock->coords.Xf<3>(kb.s);
+    x_b.DeepCopy(x_b_h);
+    y_b.DeepCopy(y_b_h);
+    z_b.DeepCopy(z_b_h);
+
+    ApplySwarmBoundaryConditions(boundary_swarm);
+    boundary_swarm->RemoveMarkedParticles();
+    REQUIRE(boundary_swarm->GetNumActive() == 1);
+  }
 }

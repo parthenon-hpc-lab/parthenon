@@ -84,6 +84,42 @@ std::shared_ptr<Mesh> MakeUniformMesh() {
   return std::make_shared<Mesh>(pin.get(), app_in.get(), packages, 1);
 }
 
+std::shared_ptr<Mesh> MakeUniformMesh3D() {
+  // This mirrors the 2D helper above, but keeps all three directions active so the test
+  // can exercise exact shared-edge and shared-node ownership among 3D octants.
+  std::stringstream is;
+  is << "<parthenon/mesh>\n";
+  is << "refinement = adaptive\n";
+  is << "numlevel = 2\n";
+  is << "nx1 = 64\n";
+  is << "x1min = -0.5\n";
+  is << "x1max = 0.5\n";
+  is << "ix1_bc = periodic\n";
+  is << "ox1_bc = periodic\n";
+  is << "nx2 = 64\n";
+  is << "x2min = -0.5\n";
+  is << "x2max = 0.5\n";
+  is << "ix2_bc = periodic\n";
+  is << "ox2_bc = periodic\n";
+  is << "nx3 = 64\n";
+  is << "x3min = -0.5\n";
+  is << "x3max = 0.5\n";
+  is << "ix3_bc = periodic\n";
+  is << "ox3_bc = periodic\n";
+  is << "<parthenon/meshblock>\n";
+  is << "nx1 = 16\n";
+  is << "nx2 = 16\n";
+  is << "nx3 = 16\n";
+
+  auto pin = std::make_shared<ParameterInput>();
+  pin->LoadFromStream(is);
+  auto app_in = std::make_shared<ApplicationInput>();
+  Packages_t packages;
+  packages.Add(std::make_shared<StateDescriptor>("test"));
+
+  return std::make_shared<Mesh>(pin.get(), app_in.get(), packages, 1);
+}
+
 std::vector<LogicalLocation> ReplaceLeaf(const std::vector<LogicalLocation> &leaves,
                                          const LogicalLocation &old_leaf,
                                          const std::vector<LogicalLocation> &new_leaves) {
@@ -354,5 +390,81 @@ TEST_CASE("AMR particle ownership lookup matches refine and derefine expectation
     REQUIRE(coarse_ijk[1] >= jb.s);
     REQUIRE(coarse_ijk[1] <= jb.e);
     REQUIRE(coarse_ijk[2] == kb.s);
+  }
+}
+
+TEST_CASE("AMR particle ownership resolves exact shared edges and nodes consistently",
+          "[AMR][Swarm][Ownership][MPI]") {
+  auto mesh = MakeUniformMesh3D();
+  const auto base_leaves = mesh->GetLocList();
+  REQUIRE(!base_leaves.empty());
+
+  const auto parent = base_leaves.front();
+  const auto daughters = parent.GetDaughters(mesh->ndim);
+  const auto refined_leaves = ReplaceLeaf(base_leaves, parent, daughters);
+
+  MeshBlock reference_block(16, mesh->ndim);
+  const auto &cellbounds = reference_block.cellbounds;
+  const auto ib = cellbounds.GetBoundsI(IndexDomain::interior);
+  const auto jb = cellbounds.GetBoundsJ(IndexDomain::interior);
+  const auto kb = cellbounds.GetBoundsK(IndexDomain::interior);
+
+  SECTION("Exact same-level shared-edge ownership follows Parthenon priority") {
+    const std::vector<LogicalLocation> edge_candidates = {
+        parent.GetDaughter(0, 0, 0), parent.GetDaughter(1, 0, 0),
+        parent.GetDaughter(0, 1, 0), parent.GetDaughter(1, 1, 0)};
+    const auto block_size = mesh->GetBlockSize(edge_candidates.front());
+    const Real x = block_size.xmax(parthenon::X1DIR);
+    const Real y = block_size.xmax(parthenon::X2DIR);
+    const Real z = CellCenter(block_size, parthenon::X3DIR, 5);
+
+    const auto expected_owner = *std::max_element(
+        edge_candidates.begin(), edge_candidates.end(), [](const auto &a, const auto &b) {
+          return parthenon::amr::OwnershipLessThan(a, b);
+        });
+    const auto expected_size = mesh->GetBlockSize(expected_owner);
+
+    const int owner =
+        parthenon::amr::FindOwningBlock(mesh.get(), refined_leaves, x, y, z);
+    REQUIRE(owner >= 0);
+    REQUIRE(refined_leaves[owner] == expected_owner);
+
+    const auto ijk =
+        parthenon::amr::FindCellIndices(expected_size, cellbounds, x, y, z, mesh->ndim);
+    REQUIRE(ijk[0] >= ib.s);
+    REQUIRE(ijk[0] <= ib.e);
+    REQUIRE(ijk[1] >= jb.s);
+    REQUIRE(ijk[1] <= jb.e);
+    REQUIRE(ijk[2] == kb.s + 5);
+  }
+
+  SECTION("Exact same-level shared-node ownership follows Parthenon priority") {
+    const auto parent_size = mesh->GetBlockSize(parent);
+    const Real x =
+        0.5 * (parent_size.xmin(parthenon::X1DIR) + parent_size.xmax(parthenon::X1DIR));
+    const Real y =
+        0.5 * (parent_size.xmin(parthenon::X2DIR) + parent_size.xmax(parthenon::X2DIR));
+    const Real z =
+        0.5 * (parent_size.xmin(parthenon::X3DIR) + parent_size.xmax(parthenon::X3DIR));
+
+    const auto expected_owner = *std::max_element(
+        daughters.begin(), daughters.end(), [](const auto &a, const auto &b) {
+          return parthenon::amr::OwnershipLessThan(a, b);
+        });
+    const auto expected_size = mesh->GetBlockSize(expected_owner);
+
+    const int owner =
+        parthenon::amr::FindOwningBlock(mesh.get(), refined_leaves, x, y, z);
+    REQUIRE(owner >= 0);
+    REQUIRE(refined_leaves[owner] == expected_owner);
+
+    const auto ijk =
+        parthenon::amr::FindCellIndices(expected_size, cellbounds, x, y, z, mesh->ndim);
+    REQUIRE(ijk[0] >= ib.s);
+    REQUIRE(ijk[0] <= ib.e);
+    REQUIRE(ijk[1] >= jb.s);
+    REQUIRE(ijk[1] <= jb.e);
+    REQUIRE(ijk[2] >= kb.s);
+    REQUIRE(ijk[2] <= kb.e);
   }
 }
