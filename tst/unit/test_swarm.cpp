@@ -290,12 +290,11 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
     auto y_b_h = y_b.GetHostMirrorAndCopy();
     auto z_b_h = z_b.GetHostMirrorAndCopy();
 
-    const auto ib = meshblock->cellbounds.GetBoundsI(IndexDomain::interior);
-    const auto jb = meshblock->cellbounds.GetBoundsJ(IndexDomain::interior);
-    const auto kb = meshblock->cellbounds.GetBoundsK(IndexDomain::interior);
-    x_b_h(0) = meshblock->coords.Xf<1>(ib.s);
-    y_b_h(0) = 0.5 * (meshblock->coords.Xf<2>(jb.s) + meshblock->coords.Xf<2>(jb.e + 1));
-    z_b_h(0) = 0.5 * (meshblock->coords.Xf<3>(kb.s) + meshblock->coords.Xf<3>(kb.e + 1));
+    x_b_h(0) = mesh->mesh_size.xmin(X1DIR);
+    y_b_h(0) = 0.5 * (meshblock->block_size.xmin(parthenon::X2DIR) +
+                      meshblock->block_size.xmax(parthenon::X2DIR));
+    z_b_h(0) = 0.5 * (meshblock->block_size.xmin(parthenon::X3DIR) +
+                      meshblock->block_size.xmax(parthenon::X3DIR));
     x_b.DeepCopy(x_b_h);
     y_b.DeepCopy(y_b_h);
     z_b.DeepCopy(z_b_h);
@@ -317,12 +316,10 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
     auto y_b_h = y_b.GetHostMirrorAndCopy();
     auto z_b_h = z_b.GetHostMirrorAndCopy();
 
-    const auto ib = meshblock->cellbounds.GetBoundsI(IndexDomain::interior);
-    const auto jb = meshblock->cellbounds.GetBoundsJ(IndexDomain::interior);
-    const auto kb = meshblock->cellbounds.GetBoundsK(IndexDomain::interior);
-    x_b_h(0) = meshblock->coords.Xf<1>(ib.s);
-    y_b_h(0) = meshblock->coords.Xf<2>(jb.s);
-    z_b_h(0) = 0.5 * (meshblock->coords.Xf<3>(kb.s) + meshblock->coords.Xf<3>(kb.e + 1));
+    x_b_h(0) = mesh->mesh_size.xmin(X1DIR);
+    y_b_h(0) = mesh->mesh_size.xmin(parthenon::X2DIR);
+    z_b_h(0) = 0.5 * (meshblock->block_size.xmin(parthenon::X3DIR) +
+                      meshblock->block_size.xmax(parthenon::X3DIR));
     x_b.DeepCopy(x_b_h);
     y_b.DeepCopy(y_b_h);
     z_b.DeepCopy(z_b_h);
@@ -344,12 +341,9 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
     auto y_b_h = y_b.GetHostMirrorAndCopy();
     auto z_b_h = z_b.GetHostMirrorAndCopy();
 
-    const auto ib = meshblock->cellbounds.GetBoundsI(IndexDomain::interior);
-    const auto jb = meshblock->cellbounds.GetBoundsJ(IndexDomain::interior);
-    const auto kb = meshblock->cellbounds.GetBoundsK(IndexDomain::interior);
-    x_b_h(0) = meshblock->coords.Xf<1>(ib.s);
-    y_b_h(0) = meshblock->coords.Xf<2>(jb.s);
-    z_b_h(0) = meshblock->coords.Xf<3>(kb.s);
+    x_b_h(0) = mesh->mesh_size.xmin(X1DIR);
+    y_b_h(0) = mesh->mesh_size.xmin(parthenon::X2DIR);
+    z_b_h(0) = mesh->mesh_size.xmin(parthenon::X3DIR);
     x_b.DeepCopy(x_b_h);
     y_b.DeepCopy(y_b_h);
     z_b.DeepCopy(z_b_h);
