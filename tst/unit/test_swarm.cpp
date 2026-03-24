@@ -282,6 +282,7 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
     auto boundary_swarm = std::make_shared<Swarm>("boundary swarm", m);
     boundary_swarm->SetBlockPointer(meshblock);
     boundary_swarm->AddEmptyParticles(1);
+    const auto boundary_ctx = boundary_swarm->GetDeviceContext();
 
     auto &x_b = boundary_swarm->Get<Real>(swarm_position::x::name()).Get();
     auto &y_b = boundary_swarm->Get<Real>(swarm_position::y::name()).Get();
@@ -290,14 +291,20 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
     auto y_b_h = y_b.GetHostMirrorAndCopy();
     auto z_b_h = z_b.GetHostMirrorAndCopy();
 
+    CAPTURE(mesh->mesh_size.xmin(X1DIR), boundary_ctx.x_min_global_);
+    REQUIRE(mesh->mesh_size.xmin(X1DIR) == boundary_ctx.x_min_global_);
+
     x_b_h(0) = mesh->mesh_size.xmin(X1DIR);
-    y_b_h(0) = 0.5 * (meshblock->block_size.xmin(parthenon::X2DIR) +
-                      meshblock->block_size.xmax(parthenon::X2DIR));
-    z_b_h(0) = 0.5 * (meshblock->block_size.xmin(parthenon::X3DIR) +
-                      meshblock->block_size.xmax(parthenon::X3DIR));
+    y_b_h(0) = 0.5 * (mesh->mesh_size.xmin(parthenon::X2DIR) +
+                      mesh->mesh_size.xmax(parthenon::X2DIR));
+    z_b_h(0) = 0.5 * (mesh->mesh_size.xmin(parthenon::X3DIR) +
+                      mesh->mesh_size.xmax(parthenon::X3DIR));
     x_b.DeepCopy(x_b_h);
     y_b.DeepCopy(y_b_h);
     z_b.DeepCopy(z_b_h);
+    auto x_b_roundtrip = x_b.GetHostMirrorAndCopy();
+    CAPTURE(x_b_roundtrip(0), mesh->mesh_size.xmin(X1DIR));
+    REQUIRE(x_b_roundtrip(0) == mesh->mesh_size.xmin(X1DIR));
 
     ApplySwarmBoundaryConditions(boundary_swarm);
     boundary_swarm->RemoveMarkedParticles();
@@ -308,6 +315,7 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
     auto boundary_swarm = std::make_shared<Swarm>("boundary edge swarm", m);
     boundary_swarm->SetBlockPointer(meshblock);
     boundary_swarm->AddEmptyParticles(1);
+    const auto boundary_ctx = boundary_swarm->GetDeviceContext();
 
     auto &x_b = boundary_swarm->Get<Real>(swarm_position::x::name()).Get();
     auto &y_b = boundary_swarm->Get<Real>(swarm_position::y::name()).Get();
@@ -316,13 +324,24 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
     auto y_b_h = y_b.GetHostMirrorAndCopy();
     auto z_b_h = z_b.GetHostMirrorAndCopy();
 
+    CAPTURE(mesh->mesh_size.xmin(X1DIR), boundary_ctx.x_min_global_);
+    CAPTURE(mesh->mesh_size.xmin(parthenon::X2DIR), boundary_ctx.y_min_global_);
+    REQUIRE(mesh->mesh_size.xmin(X1DIR) == boundary_ctx.x_min_global_);
+    REQUIRE(mesh->mesh_size.xmin(parthenon::X2DIR) == boundary_ctx.y_min_global_);
+
     x_b_h(0) = mesh->mesh_size.xmin(X1DIR);
     y_b_h(0) = mesh->mesh_size.xmin(parthenon::X2DIR);
-    z_b_h(0) = 0.5 * (meshblock->block_size.xmin(parthenon::X3DIR) +
-                      meshblock->block_size.xmax(parthenon::X3DIR));
+    z_b_h(0) = 0.5 * (mesh->mesh_size.xmin(parthenon::X3DIR) +
+                      mesh->mesh_size.xmax(parthenon::X3DIR));
     x_b.DeepCopy(x_b_h);
     y_b.DeepCopy(y_b_h);
     z_b.DeepCopy(z_b_h);
+    auto x_b_roundtrip = x_b.GetHostMirrorAndCopy();
+    auto y_b_roundtrip = y_b.GetHostMirrorAndCopy();
+    CAPTURE(x_b_roundtrip(0), mesh->mesh_size.xmin(X1DIR));
+    CAPTURE(y_b_roundtrip(0), mesh->mesh_size.xmin(parthenon::X2DIR));
+    REQUIRE(x_b_roundtrip(0) == mesh->mesh_size.xmin(X1DIR));
+    REQUIRE(y_b_roundtrip(0) == mesh->mesh_size.xmin(parthenon::X2DIR));
 
     ApplySwarmBoundaryConditions(boundary_swarm);
     boundary_swarm->RemoveMarkedParticles();
@@ -333,6 +352,7 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
     auto boundary_swarm = std::make_shared<Swarm>("boundary node swarm", m);
     boundary_swarm->SetBlockPointer(meshblock);
     boundary_swarm->AddEmptyParticles(1);
+    const auto boundary_ctx = boundary_swarm->GetDeviceContext();
 
     auto &x_b = boundary_swarm->Get<Real>(swarm_position::x::name()).Get();
     auto &y_b = boundary_swarm->Get<Real>(swarm_position::y::name()).Get();
@@ -341,12 +361,28 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
     auto y_b_h = y_b.GetHostMirrorAndCopy();
     auto z_b_h = z_b.GetHostMirrorAndCopy();
 
+    CAPTURE(mesh->mesh_size.xmin(X1DIR), boundary_ctx.x_min_global_);
+    CAPTURE(mesh->mesh_size.xmin(parthenon::X2DIR), boundary_ctx.y_min_global_);
+    CAPTURE(mesh->mesh_size.xmin(parthenon::X3DIR), boundary_ctx.z_min_global_);
+    REQUIRE(mesh->mesh_size.xmin(X1DIR) == boundary_ctx.x_min_global_);
+    REQUIRE(mesh->mesh_size.xmin(parthenon::X2DIR) == boundary_ctx.y_min_global_);
+    REQUIRE(mesh->mesh_size.xmin(parthenon::X3DIR) == boundary_ctx.z_min_global_);
+
     x_b_h(0) = mesh->mesh_size.xmin(X1DIR);
     y_b_h(0) = mesh->mesh_size.xmin(parthenon::X2DIR);
     z_b_h(0) = mesh->mesh_size.xmin(parthenon::X3DIR);
     x_b.DeepCopy(x_b_h);
     y_b.DeepCopy(y_b_h);
     z_b.DeepCopy(z_b_h);
+    auto x_b_roundtrip = x_b.GetHostMirrorAndCopy();
+    auto y_b_roundtrip = y_b.GetHostMirrorAndCopy();
+    auto z_b_roundtrip = z_b.GetHostMirrorAndCopy();
+    CAPTURE(x_b_roundtrip(0), mesh->mesh_size.xmin(X1DIR));
+    CAPTURE(y_b_roundtrip(0), mesh->mesh_size.xmin(parthenon::X2DIR));
+    CAPTURE(z_b_roundtrip(0), mesh->mesh_size.xmin(parthenon::X3DIR));
+    REQUIRE(x_b_roundtrip(0) == mesh->mesh_size.xmin(X1DIR));
+    REQUIRE(y_b_roundtrip(0) == mesh->mesh_size.xmin(parthenon::X2DIR));
+    REQUIRE(z_b_roundtrip(0) == mesh->mesh_size.xmin(parthenon::X3DIR));
 
     ApplySwarmBoundaryConditions(boundary_swarm);
     boundary_swarm->RemoveMarkedParticles();
