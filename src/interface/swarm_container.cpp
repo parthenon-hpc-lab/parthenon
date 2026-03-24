@@ -246,22 +246,23 @@ TaskStatus ResetSwarmCommunication(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
-TaskStatus SendSwarms(std::shared_ptr<MeshData<Real>> &md, BoundaryCommSubset phase) {
+TaskStatus SendSwarms(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
 
   for (int b = 0; b < md->NumBlocks(); ++b) {
-    md->GetBlockData(b)->GetSwarmData()->Send(phase);
+    md->GetBlockData(b)->GetSwarmData()->Send(BoundaryCommSubset::all);
   }
 
   return TaskStatus::complete;
 }
 
-TaskStatus ReceiveSwarms(std::shared_ptr<MeshData<Real>> &md, BoundaryCommSubset phase) {
+TaskStatus ReceiveSwarms(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
 
   auto status = TaskStatus::complete;
   for (int b = 0; b < md->NumBlocks(); ++b) {
-    if (md->GetBlockData(b)->GetSwarmData()->Receive(phase) == TaskStatus::incomplete) {
+    if (md->GetBlockData(b)->GetSwarmData()->Receive(BoundaryCommSubset::all) ==
+        TaskStatus::incomplete) {
       status = TaskStatus::incomplete;
     }
   }

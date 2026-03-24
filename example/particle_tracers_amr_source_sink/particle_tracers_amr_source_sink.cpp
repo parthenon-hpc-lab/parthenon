@@ -895,10 +895,8 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
       auto reset = tl.AddTask(none, parthenon::ResetSwarmCommunication, base);
       auto advect = tl.AddTask(reset, particle_tracers_amr_source_sink::AdvectTracers,
                                base.get(), integrator.get());
-      auto send =
-          tl.AddTask(advect, parthenon::SendSwarms, base, BoundaryCommSubset::all);
-      auto receive =
-          tl.AddTask(send, parthenon::ReceiveSwarms, base, BoundaryCommSubset::all);
+      auto send = tl.AddTask(advect, parthenon::SendSwarms, base);
+      auto receive = tl.AddTask(send, parthenon::ReceiveSwarms, base);
       auto sink = tl.AddTask(
           receive, particle_tracers_amr_source_sink::DestroySinkParticles, base.get());
       auto source = tl.AddTask(

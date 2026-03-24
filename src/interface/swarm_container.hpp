@@ -231,10 +231,8 @@ class SwarmContainer {
 };
 
 TaskStatus ResetSwarmCommunication(std::shared_ptr<MeshData<Real>> &md);
-TaskStatus SendSwarms(std::shared_ptr<MeshData<Real>> &md,
-                      BoundaryCommSubset phase = BoundaryCommSubset::all);
-TaskStatus ReceiveSwarms(std::shared_ptr<MeshData<Real>> &md,
-                         BoundaryCommSubset phase = BoundaryCommSubset::all);
+TaskStatus SendSwarms(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus ReceiveSwarms(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus RemoveMarkedParticles(std::shared_ptr<MeshData<Real>> &md,
                                  const std::string &swarm_name);
 TaskStatus RemoveMarkedParticles(MeshData<Real> *md, const std::string &swarm_name);
