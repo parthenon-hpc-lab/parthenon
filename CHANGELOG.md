@@ -3,10 +3,11 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
-- [[PR 1353]](https://github.com/parthenon-hpc-lab/parthenon/pull/1363) Generalize multigrid hierarchy to include initially include leaf grids
+- [[PR 1373]](https://github.com/parthenon-hpc-lab/parthenon/pull/1373) Particle AMR Support
+- [[PR 1363]](https://github.com/parthenon-hpc-lab/parthenon/pull/1363) Generalize multigrid hierarchy to include initially include leaf grids
 - [[PR 1369]](https://github.com/parthenon-hpc-lab/parthenon/pull/1369) Add an ascii table parser and a string broadcast operator
 - [[PR 1368]](https://github.com/parthenon-hpc-lab/parthenon/pull/1368) Add close, __enter__, and __exit__ for phdf / Add EvolutionDriver::OutputDownstreamCycleDiagnostics()
-- [[PR 1346]](https://github.com/parthenon-hpc-lab/parthenon/pull/1346) Allow for user defined inter-level restrictions in multigrid 
+- [[PR 1346]](https://github.com/parthenon-hpc-lab/parthenon/pull/1346) Allow for user defined inter-level restrictions in multigrid
 - [[PR 1308]](https://github.com/parthenon-hpc-lab/parthenon/pull/1308) Add additional indexing options for (b, type, ...indices) meshdata fields. Helpful for lower dimensional Metadata::None fields.
 - [[PR 1344]](https://github.com/parthenon-hpc-lab/parthenon/pull/1344) Add option to communicate single layer of ghosts, only communicate required two-level composite boundaries
 
@@ -27,7 +28,7 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
-
+- [[PR 1373]](https://github.com/parthenon-hpc-lab/parthenon/pull/1373) Particle AMR Support
 
 
 ## Release 25.12
@@ -62,7 +63,7 @@ Date: 2025-12-17
 - [[PR 1280]](https://github.com/parthenon-hpc-lab/parthenon/pull/1280) Print history file headers on restart
 
 ### Fixed (not changing behavior/API/variables/...)
-- [[PR 1340]](https://github.com/parthenon-hpc-lab/parthenon/pull/1340) Set ownership for finer multigrid neighbors 
+- [[PR 1340]](https://github.com/parthenon-hpc-lab/parthenon/pull/1340) Set ownership for finer multigrid neighbors
 - [[PR 1338]](https://github.com/parthenon-hpc-lab/parthenon/pull/1338) Fix bug where gmg block list wasn't completely cleared after remesh
 - [[PR 1330]](https://github.com/parthenon-hpc-lab/parthenon/pull/1330) Add missing device-side destructor to BndId. Make comm buffer pools safe to clear.
 - [[PR 1327]](https://github.com/parthenon-hpc-lab/parthenon/pull/1327) Eliminate warnings from ViewOfViewAlloc
@@ -75,7 +76,7 @@ Date: 2025-12-17
 - [[PR 1310]](https://github.com/parthenon-hpc-lab/parthenon/pull/1310) Fix logic causing issues for restarts with varying output blocks (introduced in #1266)
 - [[PR 1297]](https://github.com/parthenon-hpc-lab/parthenon/pull/1297) Backward compatibility fixes (`last_/next_` output package, restart with new `Restart` vars, `is_restart`)
 - [[PR 1303]](https://github.com/parthenon-hpc-lab/parthenon/pull/1303) Guard against `block_list` access when `nmb==0`
-- [[PR 1291]](https://github.com/parthenon-hpc-lab/parthenon/pull/1291) Fix provenance for downstream codes 
+- [[PR 1291]](https://github.com/parthenon-hpc-lab/parthenon/pull/1291) Fix provenance for downstream codes
 - [[PR 1289]](https://github.com/parthenon-hpc-lab/parthenon/pull/1289) Fix a bug in 1214
 - [[PR 1214]](https://github.com/parthenon-hpc-lab/parthenon/pull/1214) Initialize MPI in catch2 to prevent errors when constructing Meshes
 - [[PR 1276]](https://github.com/parthenon-hpc-lab/parthenon/pull/1276) Specialize `Kokkos::reduction_identity` for AmrTag
