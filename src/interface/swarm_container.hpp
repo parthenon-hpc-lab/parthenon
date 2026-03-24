@@ -36,6 +36,55 @@ namespace parthenon {
 ///
 
 class MeshBlock;
+template <typename T>
+class MeshData;
+
+class MeshNewParticlesContext {
+ public:
+  KOKKOS_DEFAULTED_FUNCTION
+  MeshNewParticlesContext() = default;
+
+  KOKKOS_FUNCTION
+  MeshNewParticlesContext(const ParArray1D<NewParticlesContext> &block_contexts,
+                          const ParArray1D<int> &flat_index_map, const int nblocks,
+                          const int max_flat_index)
+      : block_contexts_(block_contexts), flat_index_map_(flat_index_map),
+        nblocks_(nblocks), max_flat_index_(max_flat_index) {}
+
+  KOKKOS_INLINE_FUNCTION
+  int GetNBlocks() const { return nblocks_; }
+
+  KOKKOS_INLINE_FUNCTION
+  int GetMaxFlatIndex() const { return max_flat_index_; }
+
+  KOKKOS_INLINE_FUNCTION
+  auto GetBlockParticleIndices(const int idx) const {
+    PARTHENON_DEBUG_REQUIRE(idx >= 0 && idx <= max_flat_index_,
+                            "Requested new-particle flat index out of bounds!");
+    int b = 0;
+    int r = nblocks_;
+    while (r - b > 1) {
+      const int c = static_cast<int>(0.5 * (b + r));
+      if (flat_index_map_(c) > idx) {
+        r = c;
+      } else {
+        b = c;
+      }
+    }
+    return std::make_tuple(b, idx - flat_index_map_(b));
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  int GetNewParticleIndex(const int b, const int n) const {
+    return block_contexts_(b).GetNewParticleIndex(n);
+  }
+
+ private:
+  ParArray1D<NewParticlesContext> block_contexts_;
+  ParArray1D<int> flat_index_map_;
+  int nblocks_ = 0;
+  int max_flat_index_ = -1;
+};
 
 class SwarmContainer {
  public:
@@ -180,6 +229,23 @@ class SwarmContainer {
   SwarmMap swarmMap_ = {};
   SwarmMetadataMap swarmMetadataMap_ = {};
 };
+
+TaskStatus ResetSwarmCommunication(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus SendSwarms(std::shared_ptr<MeshData<Real>> &md,
+                      BoundaryCommSubset phase = BoundaryCommSubset::all);
+TaskStatus ReceiveSwarms(std::shared_ptr<MeshData<Real>> &md,
+                         BoundaryCommSubset phase = BoundaryCommSubset::all);
+TaskStatus RemoveMarkedParticles(std::shared_ptr<MeshData<Real>> &md,
+                                 const std::string &swarm_name);
+TaskStatus RemoveMarkedParticles(MeshData<Real> *md, const std::string &swarm_name);
+TaskStatus DefragSwarms(std::shared_ptr<MeshData<Real>> &md, double min_occupancy);
+TaskStatus DefragAllSwarms(std::shared_ptr<MeshData<Real>> &md);
+MeshNewParticlesContext AddEmptyParticles(std::shared_ptr<MeshData<Real>> &md,
+                                          const std::string &swarm_name,
+                                          const ParArray1D<int> &num_to_add);
+MeshNewParticlesContext AddEmptyParticles(MeshData<Real> *md,
+                                          const std::string &swarm_name,
+                                          const ParArray1D<int> &num_to_add);
 
 } // namespace parthenon
 #endif // INTERFACE_SWARM_CONTAINER_HPP_

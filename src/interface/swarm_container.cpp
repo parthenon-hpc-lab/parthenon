@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "globals.hpp" // my_rank
+#include "interface/mesh_data.hpp"
 #include "mesh/mesh.hpp"
 #include "swarm_container.hpp"
 #include "utils/error_checking.hpp"
@@ -232,6 +233,124 @@ bool SwarmContainer::operator==(const SwarmContainer &cmp) {
     i++;
   }
   return my_keys == cmp_keys;
+}
+
+TaskStatus ResetSwarmCommunication(std::shared_ptr<MeshData<Real>> &md) {
+  PARTHENON_INSTRUMENT
+
+  for (int b = 0; b < md->NumBlocks(); ++b) {
+    md->GetBlockData(b)->GetSwarmData()->ResetCommunication();
+  }
+
+  return TaskStatus::complete;
+}
+
+TaskStatus SendSwarms(std::shared_ptr<MeshData<Real>> &md, BoundaryCommSubset phase) {
+  PARTHENON_INSTRUMENT
+
+  for (int b = 0; b < md->NumBlocks(); ++b) {
+    md->GetBlockData(b)->GetSwarmData()->Send(phase);
+  }
+
+  return TaskStatus::complete;
+}
+
+TaskStatus ReceiveSwarms(std::shared_ptr<MeshData<Real>> &md, BoundaryCommSubset phase) {
+  PARTHENON_INSTRUMENT
+
+  auto status = TaskStatus::complete;
+  for (int b = 0; b < md->NumBlocks(); ++b) {
+    if (md->GetBlockData(b)->GetSwarmData()->Receive(phase) == TaskStatus::incomplete) {
+      status = TaskStatus::incomplete;
+    }
+  }
+
+  return status;
+}
+
+TaskStatus RemoveMarkedParticles(std::shared_ptr<MeshData<Real>> &md,
+                                 const std::string &swarm_name) {
+  PARTHENON_INSTRUMENT
+
+  return RemoveMarkedParticles(md.get(), swarm_name);
+}
+
+TaskStatus RemoveMarkedParticles(MeshData<Real> *md, const std::string &swarm_name) {
+  PARTHENON_INSTRUMENT
+
+  for (int b = 0; b < md->NumBlocks(); ++b) {
+    md->GetSwarmData(b)->Get(swarm_name)->RemoveMarkedParticles();
+  }
+
+  return TaskStatus::complete;
+}
+
+TaskStatus DefragSwarms(std::shared_ptr<MeshData<Real>> &md, double min_occupancy) {
+  PARTHENON_INSTRUMENT
+
+  PARTHENON_REQUIRE_THROWS(min_occupancy >= 0. && min_occupancy <= 1.,
+                           "Max fractional occupancy of swarm must be >= 0 and <= 1");
+
+  for (int b = 0; b < md->NumBlocks(); ++b) {
+    md->GetBlockData(b)->GetSwarmData()->Defrag(min_occupancy);
+  }
+
+  return TaskStatus::complete;
+}
+
+TaskStatus DefragAllSwarms(std::shared_ptr<MeshData<Real>> &md) {
+  PARTHENON_INSTRUMENT
+
+  for (int b = 0; b < md->NumBlocks(); ++b) {
+    md->GetBlockData(b)->GetSwarmData()->DefragAll();
+  }
+
+  return TaskStatus::complete;
+}
+
+namespace {
+MeshNewParticlesContext AddEmptyParticlesImpl(MeshData<Real> *md,
+                                              const std::string &swarm_name,
+                                              const ParArray1D<int> &num_to_add) {
+  const int nblocks = md->NumBlocks();
+  PARTHENON_REQUIRE(num_to_add.extent_int(0) == nblocks,
+                    "MeshData particle allocation counts must match NumBlocks().");
+
+  auto counts_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), num_to_add);
+  ParArray1D<NewParticlesContext> block_contexts("new particle contexts", nblocks);
+  auto block_contexts_h = Kokkos::create_mirror_view(block_contexts);
+  ParArray1D<int> flat_index_map("new particle flat index map", nblocks + 1);
+  auto flat_index_map_h = Kokkos::create_mirror_view(flat_index_map);
+
+  int flat_offset = 0;
+  for (int b = 0; b < nblocks; ++b) {
+    flat_index_map_h(b) = flat_offset;
+    auto swarm = md->GetSwarmData(b)->Get(swarm_name);
+    block_contexts_h(b) = swarm->AddEmptyParticles(counts_h(b));
+    flat_offset += std::max(0, block_contexts_h(b).GetNewParticlesMaxIndex() + 1);
+  }
+  flat_index_map_h(nblocks) = flat_offset;
+
+  Kokkos::deep_copy(block_contexts, block_contexts_h);
+  Kokkos::deep_copy(flat_index_map, flat_index_map_h);
+
+  return MeshNewParticlesContext(block_contexts, flat_index_map, nblocks,
+                                 flat_offset - 1);
+}
+} // namespace
+
+MeshNewParticlesContext AddEmptyParticles(std::shared_ptr<MeshData<Real>> &md,
+                                          const std::string &swarm_name,
+                                          const ParArray1D<int> &num_to_add) {
+  PARTHENON_INSTRUMENT
+  return AddEmptyParticlesImpl(md.get(), swarm_name, num_to_add);
+}
+
+MeshNewParticlesContext AddEmptyParticles(MeshData<Real> *md,
+                                          const std::string &swarm_name,
+                                          const ParArray1D<int> &num_to_add) {
+  PARTHENON_INSTRUMENT
+  return AddEmptyParticlesImpl(md, swarm_name, num_to_add);
 }
 
 } // namespace parthenon

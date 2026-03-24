@@ -48,6 +48,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         data = phdf("particle_tracers_amr_source_sink.out0.final.phdf")
         swarm = data.GetSwarm("tracers")
         cohort = swarm.Get("cohort")
+        tracer_dep = data.Get("tracer_deposition")
         if len(swarm.x) == 0:
             print("TEST FAIL: AMR source/sink swarm is empty.")
             success = False
@@ -59,5 +60,12 @@ class TestCase(utils.test_case.TestCaseAbs):
             success = False
         if not np.any(cohort >= 0):
             print("TEST FAIL: missing sourced particle cohort population.")
+            success = False
+        dep_sum = float(np.sum(tracer_dep))
+        if not math.isclose(dep_sum, float(len(swarm.x)), rel_tol=0.0, abs_tol=1.0e-12):
+            print(
+                "TEST FAIL: tracer_deposition sum does not match active tracer count "
+                f"({dep_sum} != {len(swarm.x)})."
+            )
             success = False
         return success

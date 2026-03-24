@@ -95,12 +95,14 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata,
       neighbor_received_particles_("neighbor_received_particles_", NMAX_NEIGHBORS),
       cell_sorted_("cell_sorted_", nmax_pool_),
       buffer_sorted_("buffer_sorted_", nmax_pool_), mpiStatus(true) {
-  PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
-                           "SwarmDeviceContext only supports a uniform Cartesian mesh!");
-
   uid_ = get_uid_(label_);
 
   // Add default swarm fields
+  // Swarm positions always live in the active mesh coordinate system. For Cartesian
+  // builds these are x/y/z, for cylindrical builds they are R/z/phi, and for spherical
+  // builds they are r/theta/phi. The swarm transport and ownership logic operates on
+  // those native coordinates through Coordinates_t, so there is no need to restrict
+  // swarms to UniformCartesian specifically.
   if (!metadata.IsSet(Metadata::NoPersistentParticleIds)) {
     Add(swarm_position::id::name(), Metadata({Metadata::UInt64}));
   }

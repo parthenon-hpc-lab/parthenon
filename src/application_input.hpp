@@ -47,6 +47,8 @@ class ApplicationInput {
       nullptr;
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> MeshPostInitialization =
       nullptr;
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)>
+      MeshFinalInitialization = nullptr;
 
   std::function<void(Mesh *, ParameterInput *, SimTime &)> PreStepMeshUserWorkInLoop =
       nullptr;

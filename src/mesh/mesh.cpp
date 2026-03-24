@@ -154,6 +154,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   if (app_in->MeshPostInitialization != nullptr) {
     PostInitialization = app_in->MeshPostInitialization;
   }
+  if (app_in->MeshFinalInitialization != nullptr) {
+    FinalInitialization = app_in->MeshFinalInitialization;
+  }
   if (app_in->PreStepMeshUserWorkInLoop != nullptr) {
     PreStepUserWorkInLoop = app_in->PreStepMeshUserWorkInLoop;
   }
@@ -846,6 +849,66 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
     }
   } while (!init_done);
+
+  // Run any final mesh initialization exactly once after the startup refinement loop has
+  // converged on a mesh topology. This is the safe place for one-shot initialization
+  // that must see the final startup mesh rather than any intermediate refinement states
+  // visited while Mesh::Initialize() iterates to convergence.
+  if (init_problem) {
+    bool ran_final_initialization = false;
+    if (FinalInitialization != nullptr) {
+      for (auto &partition : GetDefaultBlockPartitions()) {
+        auto &md = mesh_data.Add("base", partition);
+        FinalInitialization(this, pin, md.get());
+      }
+      ran_final_initialization = true;
+    }
+
+    for (const auto &[name, pkg] : packages.AllPackages()) {
+      PARTHENON_REQUIRE_THROWS(
+          !(pkg->FinalInitializationMesh != nullptr &&
+            (pkg->FinalInitializationBlock != nullptr)),
+          "Mesh and MeshBlock FinalInitializations are defined for package " + name +
+              ". Please use only one.");
+
+      if (pkg->FinalInitializationMesh != nullptr) {
+        for (auto &partition : GetDefaultBlockPartitions()) {
+          auto &md = mesh_data.Add("base", partition);
+          pkg->FinalInitializationMesh(this, pin, md.get());
+        }
+        ran_final_initialization = true;
+      }
+
+      if (pkg->FinalInitializationBlock != nullptr) {
+        for (auto &pmb : block_list) {
+          pkg->FinalInitializationBlock(pmb.get(), pin);
+        }
+        ran_final_initialization = true;
+      }
+    }
+
+    if (ran_final_initialization) {
+      // Final initialization is allowed to modify state on the converged startup mesh,
+      // so refresh any derived data and boundary values before any final startup
+      // redistribution/remeshing step.
+      PreCommFillDerived();
+      BuildTagMapAndBoundaryBuffers();
+      CommunicateBoundaries();
+      FillDerived();
+
+      if (adaptive) {
+        for (auto &partition : GetDefaultBlockPartitions()) {
+          auto &md = mesh_data.Add("base", partition);
+          Refinement::Tag(md.get());
+        }
+        LoadBalancingAndAdaptiveMeshRefinement(pin, app_in);
+        PreCommFillDerived();
+        BuildTagMapAndBoundaryBuffers();
+        CommunicateBoundaries();
+        FillDerived();
+      }
+    }
+  }
 
 #ifdef MPI_PARALLEL
   // check if there are sufficient blocks

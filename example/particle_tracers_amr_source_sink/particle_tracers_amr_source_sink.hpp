@@ -33,6 +33,18 @@ using namespace parthenon;
 
 namespace particle_tracers_amr_source_sink {
 
+struct advected {
+  static std::string name() { return "advected"; }
+  static bool regex() { return false; }
+  static constexpr int idx = 0;
+};
+
+struct tracer_deposition {
+  static std::string name() { return "tracer_deposition"; }
+  static bool regex() { return false; }
+  static constexpr int idx = 0;
+};
+
 class ParticleDriver : public MultiStageDriver {
  public:
   ParticleDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
@@ -47,14 +59,13 @@ namespace particles_package {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 AmrTag CheckRefinement(MeshBlockData<Real> *rc);
-Real EstimateTimestepBlock(MeshBlockData<Real> *rc);
+void FinalInitialization(Mesh *pm, ParameterInput *pin, MeshData<Real> *md);
 
 } // namespace particles_package
 
 namespace advection_package {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-Real EstimateTimestepBlock(MeshBlockData<Real> *rc);
 
 } // namespace advection_package
 

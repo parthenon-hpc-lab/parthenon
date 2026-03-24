@@ -39,10 +39,13 @@ namespace driver {
 namespace prelude {
 using namespace ::parthenon::prelude;
 
+using ::parthenon::AddEmptyParticles;
 using ::parthenon::AllReduce;
 using ::parthenon::ApplicationInput;
 using ::parthenon::ApplyBoundaryConditions;
 using ::parthenon::BlockList_t;
+using ::parthenon::DefragAllSwarms;
+using ::parthenon::DefragSwarms;
 using ::parthenon::Driver;
 using ::parthenon::DriverStatus;
 using ::parthenon::EvolutionDriver;
@@ -57,7 +60,11 @@ using ::parthenon::Outputs;
 using ::parthenon::Packages_t;
 using ::parthenon::ParameterInput;
 using ::parthenon::ParthenonManager;
+using ::parthenon::ReceiveSwarms;
 using ::parthenon::Reduce;
+using ::parthenon::RemoveMarkedParticles;
+using ::parthenon::ResetSwarmCommunication;
+using ::parthenon::SendSwarms;
 using ::parthenon::StagedIntegrator;
 using ::parthenon::Task;
 using ::parthenon::TaskCollection;
