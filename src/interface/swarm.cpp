@@ -526,10 +526,16 @@ void Swarm::SortParticlesByCell() {
   // Write an unsorted list
   pmb->par_for(
       PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
-        int i, j, k;
-        swarm_d.Xtoijk(x(n), y(n), z(n), i, j, k);
-        const int64_t cell_idx_1d = i + nx1 * (j + nx2 * k);
-        cell_sorted(n) = SwarmKey(static_cast<int>(cell_idx_1d), n);
+        if (swarm_d.IsActive(n)) {
+          int i, j, k;
+          swarm_d.Xtoijk(x(n), y(n), z(n), i, j, k);
+          const int64_t cell_idx_1d = i + nx1 * (j + nx2 * k);
+          cell_sorted(n) = SwarmKey(static_cast<int>(cell_idx_1d), n);
+        } else {
+          // Sort inactive holes to the end so per-cell iteration sees only active
+          // particle indices even when the swarm has not yet been defragmented.
+          cell_sorted(n) = SwarmKey(ncells, n);
+        }
       });
 
   sort(cell_sorted, SwarmKeyComparator(), 0, max_active_index);
