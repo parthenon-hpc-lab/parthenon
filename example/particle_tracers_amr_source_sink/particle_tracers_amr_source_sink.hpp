@@ -21,6 +21,7 @@
 #define EXAMPLE_PARTICLE_TRACERS_AMR_SOURCE_SINK_PARTICLE_TRACERS_AMR_SOURCE_SINK_HPP_
 
 #include <memory>
+#include <string>
 
 #include "Kokkos_Random.hpp"
 

@@ -22,7 +22,9 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <memory>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "parthenon_mpi.hpp"
