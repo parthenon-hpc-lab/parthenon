@@ -13,8 +13,8 @@
 
 // This file was made in part with generative AI
 
-#ifndef PACK_SWARM_PACK_DESCRIPTOR_HPP_
-#define PACK_SWARM_PACK_DESCRIPTOR_HPP_
+#ifndef PACK_SWARM_PACK_SWARM_PACK_DESCRIPTOR_HPP_
+#define PACK_SWARM_PACK_SWARM_PACK_DESCRIPTOR_HPP_
 
 #include <memory>
 #include <string>
@@ -43,4 +43,4 @@ struct SwarmPackDescriptor {
 } // namespace impl
 } // namespace parthenon
 
-#endif // PACK_SWARM_PACK_DESCRIPTOR_HPP_
+#endif // PACK_SWARM_PACK_SWARM_PACK_DESCRIPTOR_HPP_

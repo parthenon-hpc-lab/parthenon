@@ -13,8 +13,8 @@
 
 // This file was made in part with generative AI
 
-#ifndef PACK_SPARSE_PACK_CACHE_HPP_
-#define PACK_SPARSE_PACK_CACHE_HPP_
+#ifndef PACK_SPARSE_PACK_SPARSE_PACK_CACHE_HPP_
+#define PACK_SPARSE_PACK_SPARSE_PACK_CACHE_HPP_
 
 #include <map>
 #include <string>
@@ -64,4 +64,4 @@ class SparsePackCache {
 
 } // namespace parthenon
 
-#endif // PACK_SPARSE_PACK_CACHE_HPP_
+#endif // PACK_SPARSE_PACK_SPARSE_PACK_CACHE_HPP_

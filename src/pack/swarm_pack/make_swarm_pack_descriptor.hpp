@@ -13,8 +13,8 @@
 
 // This file was made in part with generative AI
 
-#ifndef PACK_MAKE_SWARM_PACK_DESCRIPTOR_HPP_
-#define PACK_MAKE_SWARM_PACK_DESCRIPTOR_HPP_
+#ifndef PACK_SWARM_PACK_MAKE_SWARM_PACK_DESCRIPTOR_HPP_
+#define PACK_SWARM_PACK_MAKE_SWARM_PACK_DESCRIPTOR_HPP_
 
 #include <string>
 #include <vector>
@@ -42,4 +42,4 @@ inline auto MakeSwarmPackDescriptor(const std::string &swarm_name) {
 
 } // namespace parthenon
 
-#endif // PACK_MAKE_SWARM_PACK_DESCRIPTOR_HPP_
+#endif // PACK_SWARM_PACK_MAKE_SWARM_PACK_DESCRIPTOR_HPP_

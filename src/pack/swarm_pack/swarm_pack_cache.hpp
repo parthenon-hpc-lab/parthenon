@@ -13,8 +13,8 @@
 
 // This file was made in part with generative AI
 
-#ifndef PACK_SWARM_PACK_CACHE_HPP_
-#define PACK_SWARM_PACK_CACHE_HPP_
+#ifndef PACK_SWARM_PACK_SWARM_PACK_CACHE_HPP_
+#define PACK_SWARM_PACK_SWARM_PACK_CACHE_HPP_
 
 #include <string>
 #include <unordered_map>
@@ -48,4 +48,4 @@ class SwarmPackCache {
 
 } // namespace parthenon
 
-#endif // PACK_SWARM_PACK_CACHE_HPP_
+#endif // PACK_SWARM_PACK_SWARM_PACK_CACHE_HPP_

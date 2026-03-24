@@ -13,8 +13,8 @@
 
 // This file was made in part with generative AI
 
-#ifndef PACK_PACK_DESCRIPTOR_HPP_
-#define PACK_PACK_DESCRIPTOR_HPP_
+#ifndef PACK_SPARSE_PACK_PACK_DESCRIPTOR_HPP_
+#define PACK_SPARSE_PACK_PACK_DESCRIPTOR_HPP_
 
 #include <algorithm>
 #include <set>
@@ -140,4 +140,4 @@ struct PackDescriptor {
 
 } // namespace parthenon
 
-#endif // PACK_PACK_DESCRIPTOR_HPP_
+#endif // PACK_SPARSE_PACK_PACK_DESCRIPTOR_HPP_

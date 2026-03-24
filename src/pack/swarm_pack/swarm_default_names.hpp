@@ -13,8 +13,8 @@
 
 // This file was made in part with generative AI
 
-#ifndef PACK_SWARM_DEFAULT_NAMES_HPP_
-#define PACK_SWARM_DEFAULT_NAMES_HPP_
+#ifndef PACK_SWARM_PACK_SWARM_DEFAULT_NAMES_HPP_
+#define PACK_SWARM_PACK_SWARM_DEFAULT_NAMES_HPP_
 
 #include <cstdint>
 #include <string>
@@ -41,4 +41,4 @@ SWARM_VARIABLE(parthenon::Real, swarm, z);
 
 } // namespace swarm_position
 
-#endif // PACK_SWARM_DEFAULT_NAMES_HPP_
+#endif // PACK_SWARM_PACK_SWARM_DEFAULT_NAMES_HPP_

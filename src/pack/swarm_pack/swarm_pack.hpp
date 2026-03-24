@@ -13,8 +13,8 @@
 
 // This file was made in part with generative AI
 
-#ifndef PACK_SWARM_PACK_HPP_
-#define PACK_SWARM_PACK_HPP_
+#ifndef PACK_SWARM_PACK_SWARM_PACK_HPP_
+#define PACK_SWARM_PACK_SWARM_PACK_HPP_
 
 #include <algorithm>
 #include <functional>
@@ -170,4 +170,4 @@ inline SwarmPack<TYPE, Ts...> SwarmPack<TYPE, Ts...>::Descriptor::GetPack(T *pmd
 
 } // namespace parthenon
 
-#endif // PACK_SWARM_PACK_HPP_
+#endif // PACK_SWARM_PACK_SWARM_PACK_HPP_

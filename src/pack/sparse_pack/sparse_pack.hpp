@@ -13,8 +13,8 @@
 
 // This file was made in part with generative AI
 
-#ifndef PACK_SPARSE_PACK_HPP_
-#define PACK_SPARSE_PACK_HPP_
+#ifndef PACK_SPARSE_PACK_SPARSE_PACK_HPP_
+#define PACK_SPARSE_PACK_SPARSE_PACK_HPP_
 
 #include <algorithm>
 #include <utility>
@@ -447,4 +447,4 @@ inline SparsePack<Ts...> SparsePack<Ts...>::Descriptor::GetPack(
 
 } // namespace parthenon
 
-#endif // PACK_SPARSE_PACK_HPP_
+#endif // PACK_SPARSE_PACK_SPARSE_PACK_HPP_

@@ -13,8 +13,8 @@
 
 // This file was made in part with generative AI
 
-#ifndef PACK_MAKE_PACK_DESCRIPTOR_HPP_
-#define PACK_MAKE_PACK_DESCRIPTOR_HPP_
+#ifndef PACK_SPARSE_PACK_MAKE_PACK_DESCRIPTOR_HPP_
+#define PACK_SPARSE_PACK_MAKE_PACK_DESCRIPTOR_HPP_
 
 #include <memory>
 #include <set>
@@ -157,4 +157,4 @@ class PackDescCache : public PackDescriptorCacheBase {
 
 } // namespace parthenon
 
-#endif // PACK_MAKE_PACK_DESCRIPTOR_HPP_
+#endif // PACK_SPARSE_PACK_MAKE_PACK_DESCRIPTOR_HPP_

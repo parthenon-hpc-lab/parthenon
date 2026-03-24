@@ -13,8 +13,8 @@
 
 // This file was made in part with generative AI
 
-#ifndef PACK_SPARSE_PACK_BASE_HPP_
-#define PACK_SPARSE_PACK_BASE_HPP_
+#ifndef PACK_SPARSE_PACK_SPARSE_PACK_BASE_HPP_
+#define PACK_SPARSE_PACK_SPARSE_PACK_BASE_HPP_
 
 #include <string>
 #include <unordered_map>
@@ -91,4 +91,4 @@ class SparsePackBase {
 
 } // namespace parthenon
 
-#endif // PACK_SPARSE_PACK_BASE_HPP_
+#endif // PACK_SPARSE_PACK_SPARSE_PACK_BASE_HPP_

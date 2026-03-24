@@ -13,8 +13,8 @@
 
 // This file was made in part with generative AI
 
-#ifndef PACK_SWARM_PACK_BASE_HPP_
-#define PACK_SWARM_PACK_BASE_HPP_
+#ifndef PACK_SWARM_PACK_SWARM_PACK_BASE_HPP_
+#define PACK_SWARM_PACK_SWARM_PACK_BASE_HPP_
 
 #include <memory>
 #include <string>
@@ -91,4 +91,4 @@ class SwarmPackBase {
 
 } // namespace parthenon
 
-#endif // PACK_SWARM_PACK_BASE_HPP_
+#endif // PACK_SWARM_PACK_SWARM_PACK_BASE_HPP_
