@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef PACK_PACK_DESCRIPTOR_HPP_
-#define PACK_PACK_DESCRIPTOR_HPP_
+#ifndef PACK_SPARSE_PACK_PACK_DESCRIPTOR_HPP_
+#define PACK_SPARSE_PACK_PACK_DESCRIPTOR_HPP_
 
 #include <algorithm>
 #include <set>
@@ -137,4 +137,4 @@ struct PackDescriptor {
 
 } // namespace parthenon
 
-#endif // PACK_PACK_DESCRIPTOR_HPP_
+#endif // PACK_SPARSE_PACK_PACK_DESCRIPTOR_HPP_

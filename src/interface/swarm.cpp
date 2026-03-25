@@ -21,7 +21,7 @@
 
 #include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/default_names.hpp"
 #include "swarm.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/sort.hpp"

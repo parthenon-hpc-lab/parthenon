@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef PACK_MAKE_SWARM_PACK_DESCRIPTOR_HPP_
-#define PACK_MAKE_SWARM_PACK_DESCRIPTOR_HPP_
+#ifndef PACK_SWARM_PACK_MAKE_SWARM_PACK_DESCRIPTOR_HPP_
+#define PACK_SWARM_PACK_MAKE_SWARM_PACK_DESCRIPTOR_HPP_
 
 #include <algorithm>
 #include <functional>
@@ -28,7 +28,7 @@
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "mesh/mesh.hpp"
-#include "pack/swarm_pack.hpp"
+#include "pack/swarm_pack/swarm_pack.hpp"
 
 namespace parthenon {
 
@@ -53,4 +53,4 @@ inline auto MakeSwarmPackDescriptor(const std::string &swarm_name) {
 
 } // namespace parthenon
 
-#endif // PACK_MAKE_SWARM_PACK_DESCRIPTOR_HPP_
+#endif // PACK_SWARM_PACK_MAKE_SWARM_PACK_DESCRIPTOR_HPP_

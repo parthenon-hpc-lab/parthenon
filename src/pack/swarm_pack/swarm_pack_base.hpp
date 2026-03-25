@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef PACK_SWARM_PACK_BASE_HPP_
-#define PACK_SWARM_PACK_BASE_HPP_
+#ifndef PACK_SWARM_PACK_SWARM_PACK_BASE_HPP_
+#define PACK_SWARM_PACK_SWARM_PACK_BASE_HPP_
 
 #include <algorithm>
 #include <functional>
@@ -251,4 +251,4 @@ class SwarmPackCache {
 
 } // namespace parthenon
 
-#endif // PACK_SWARM_PACK_BASE_HPP_
+#endif // PACK_SWARM_PACK_SWARM_PACK_BASE_HPP_

@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef PACK_SWARM_PACK_HPP_
-#define PACK_SWARM_PACK_HPP_
+#ifndef PACK_SWARM_PACK_SWARM_PACK_HPP_
+#define PACK_SWARM_PACK_SWARM_PACK_HPP_
 
 #include <algorithm>
 #include <functional>
@@ -30,7 +30,7 @@
 #include "interface/swarm.hpp"
 #include "interface/variable.hpp"
 #include "pack/pack_utils.hpp"
-#include "pack/swarm_pack_base.hpp"
+#include "pack/swarm_pack/swarm_pack_base.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/utils.hpp"
 
@@ -157,4 +157,4 @@ class SwarmPack : public SwarmPackBase<TYPE> {
 
 } // namespace parthenon
 
-#endif // PACK_SWARM_PACK_HPP_
+#endif // PACK_SWARM_PACK_SWARM_PACK_HPP_

@@ -14,7 +14,7 @@
 #include <cstdio>
 #include <string>
 
-#include "pack/pack_descriptor.hpp"
+#include "pack/sparse_pack/pack_descriptor.hpp"
 
 namespace parthenon {
 namespace impl {

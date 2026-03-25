@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef PACK_SPARSE_PACK_BASE_HPP_
-#define PACK_SPARSE_PACK_BASE_HPP_
+#ifndef PACK_SPARSE_PACK_SPARSE_PACK_BASE_HPP_
+#define PACK_SPARSE_PACK_SPARSE_PACK_BASE_HPP_
 
 #include <string>
 #include <unordered_map>
@@ -21,7 +21,7 @@
 #include "interface/variable.hpp"
 #include "interface/variable_state.hpp"
 #include "kokkos_abstraction.hpp"
-#include "pack/pack_descriptor.hpp"
+#include "pack/sparse_pack/pack_descriptor.hpp"
 
 namespace parthenon {
 // Map for going from variable names to sparse pack variable indices
@@ -88,4 +88,4 @@ class SparsePackBase {
 
 } // namespace parthenon
 
-#endif // PACK_SPARSE_PACK_BASE_HPP_
+#endif // PACK_SPARSE_PACK_SPARSE_PACK_BASE_HPP_
