@@ -512,17 +512,20 @@ class MeshData {
 
   template <typename TYPE>
   SwarmPackCache<TYPE> &GetSwarmPackCache() {
-    if constexpr (std::is_same<TYPE, int>::value) {
-      return swarm_pack_int_cache_;
-    } else if constexpr (std::is_same<TYPE, Real>::value) {
+    if constexpr (std::is_same<TYPE, Real>::value) {
       return swarm_pack_real_cache_;
+    } else if constexpr (std::is_same<TYPE, int>::value) {
+      return swarm_pack_int_cache_;
+    } else if constexpr (std::is_same<TYPE, std::uint64_t>::value) {
+      return swarm_pack_uint64_cache_;
     }
-    PARTHENON_THROW("SwarmPacks only compatible with int and Real types");
+    PARTHENON_THROW("SwarmPacks only compatible with Real, int, or uint64_t types");
   }
 
   void ClearSwarmCaches() {
     if (swarm_pack_real_cache_.size() > 0) swarm_pack_real_cache_.clear();
     if (swarm_pack_int_cache_.size() > 0) swarm_pack_int_cache_.clear();
+    if (swarm_pack_uint64_cache_.size() > 0) swarm_pack_uint64_cache_.clear();
   }
 
  private:
@@ -537,8 +540,9 @@ class MeshData {
   MapToMeshBlockVarPack<T> varPackMap_;
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
-  SwarmPackCache<int> swarm_pack_int_cache_;
   SwarmPackCache<Real> swarm_pack_real_cache_;
+  SwarmPackCache<int> swarm_pack_int_cache_;
+  SwarmPackCache<std::uint64_t> swarm_pack_uint64_cache_;
   // caches for boundary information
   BvarsCache_t bvars_cache_;
 };

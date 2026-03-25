@@ -232,6 +232,10 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
   auto pack_v_map = desc_v.GetMap();
   parthenon::PackIdx spi_v(pack_v_map["v"]);
 
+  // Make a SwarmPack containing ids (of type uint64_t)
+  static auto desc_id = MakeSwarmPackDescriptor<swarm_position::id>(swarm_name);
+  auto pack_id = desc_id.GetPack(md);
+
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "TestSwarmPack", DevExecSpace(), 0,
       pack_pos.GetMaxFlatIndex(), KOKKOS_LAMBDA(const int idx) {

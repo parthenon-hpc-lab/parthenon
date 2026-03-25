@@ -169,7 +169,7 @@ This also supports ``FlatIdx`` for indexing; see the
 
 Similar to grid variables, swarms can be packed over ``MeshBlock``\ s via ``SwarmPack``\ s.
 ``SwarmPack``\ s are the particle analog to ``SparsePack``\ s for field variables.  A single
-``SwarmPack`` can contain either ``int`` or ``Real`` entries, but not both.  One can pack
+``SwarmPack`` can contain either ``int``, ``uint64_t``, or ``Real`` entries, but not combinations of them.  One can pack
 a ``SwarmPack`` via a ``std::vector<std::string>`` or the type-based variable prescription
 previously used by ``SparsePack``\ s (see :ref:`sparse_packs`).
 
