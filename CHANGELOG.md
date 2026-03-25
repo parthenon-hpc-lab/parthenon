@@ -3,6 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1375]](https://github.com/parthenon-hpc-lab/parthenon/pull/1375) Add uint64 support to SwarmPacks
 - [[PR 1353]](https://github.com/parthenon-hpc-lab/parthenon/pull/1363) Generalize multigrid hierarchy to include initially include leaf grids
 - [[PR 1369]](https://github.com/parthenon-hpc-lab/parthenon/pull/1369) Add an ascii table parser and a string broadcast operator
 - [[PR 1368]](https://github.com/parthenon-hpc-lab/parthenon/pull/1368) Add close, __enter__, and __exit__ for phdf / Add EvolutionDriver::OutputDownstreamCycleDiagnostics()
