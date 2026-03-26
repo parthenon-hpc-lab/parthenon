@@ -98,6 +98,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // data
   Mesh *pmy_mesh = nullptr; // ptr to Mesh containing this MeshBlock
   LogicalLocation loc;
+  std::size_t block_coarsenings{0};
   RegionSize block_size;
   // for convenience: "max" # of real+ghost cells along each dir for allocating "standard"
   // sized MeshBlock arrays, depending on ndim i.e.
@@ -197,8 +198,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   const std::vector<NeighborBlock> &GetGMGFinerNeighbors() const {
     return gmg_finer_neighbors;
   }
-  const std::vector<NeighborBlock> &GetGMGLeafNeighbors() const {
-    return gmg_leaf_neighbors;
+  const std::vector<NeighborBlock> &GetGMGSelfNeighbors() const {
+    return gmg_self_neighbors;
   }
 
   bool HasCoarserNeighbors() const { return has_coarser_neighbors_; }
@@ -452,12 +453,17 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                                  std::forward<Args>(args)...);
   }
 
+  // Checks if the LogicalLocation of this block is a leaf logical location
+  bool IsLeafLL() const { return is_leaf_ll_; }
+
  private:
   // data
   Real new_block_dt_ = 0.0;
   Real new_block_dt_hyperbolic_ = 0.0;
   Real new_block_dt_parabolic_ = 0.0;
   std::vector<std::shared_ptr<Variable<Real>>> vars_cc_;
+
+  bool is_leaf_ll_{true};
 
   // Initializer to set up a meshblock called with the default constructor
   // This is necessary because the back pointers can't be set up until
@@ -500,7 +506,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::vector<NeighborBlock> gmg_composite_finer_neighbors;
   std::vector<NeighborBlock> gmg_same_neighbors;
   std::vector<NeighborBlock> gmg_finer_neighbors;
-  std::vector<NeighborBlock> gmg_leaf_neighbors;
+  std::vector<NeighborBlock> gmg_self_neighbors;
 
   bool has_coarser_neighbors_ = false;
 };

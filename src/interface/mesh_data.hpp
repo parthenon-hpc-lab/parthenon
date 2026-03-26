@@ -197,7 +197,16 @@ class MeshData {
   explicit MeshData(const std::string &name) : stage_name_(name) {}
 
   GridIdentifier grid;
-  int partition = -1;
+  int partition{-1};
+
+  void SetBoundBufferId(BoundaryType btype, int id);
+
+  int GetBoundBufferId(BoundaryType btype) const {
+    if (bound_buffer_ids_.count(btype)) return bound_buffer_ids_.at(btype);
+    return 0;
+  }
+
+  std::map<BoundaryType, int> bound_buffer_ids_{};
 
   const auto &StageName() const { return stage_name_; }
 

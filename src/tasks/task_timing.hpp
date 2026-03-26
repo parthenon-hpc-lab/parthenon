@@ -18,9 +18,12 @@
 #include <cassert>
 #include <chrono>
 #include <functional>
+#include <iomanip>
+#include <ios>
 #include <list>
 #include <map>
 #include <memory>
+#include <ostream>
 #include <set>
 #include <string>
 #include <tuple>
@@ -45,6 +48,7 @@ class TimingAccumulator : public std::enable_shared_from_this<TimingAccumulator>
  private:
   bool collecting{false};
   std::vector<timing_chunk_t> timings;
+  Real total_time;
   int ntasks{0};
 
   class private_t {};
@@ -56,8 +60,7 @@ class TimingAccumulator : public std::enable_shared_from_this<TimingAccumulator>
     return std::make_shared<TimingAccumulator>(private_t());
   }
 
-  void AddTiming(const timing_chunk_t &timing) { timings.push_back(timing); }
-
+  void AddTiming(const timing_chunk_t &timing);
   void StopCollectingTasks() { collecting = false; }
   void StartCollectingTasks() { collecting = true; }
 
@@ -106,6 +109,22 @@ class TimingAccumulatorDictionary {
   auto end() const { return dict_.end(); }
 
   void WriteToJSON(const std::string &file_name);
+
+  friend std::ostream &operator<<(std::ostream &os,
+                                  const TimingAccumulatorDictionary &tad) {
+    os << std::fixed << std::setprecision(6);
+
+    for (const auto &[name, acc] : tad.dict_) {
+      os << name << ": ";
+      if (acc) {
+        os << acc->GetTotalTime() << " (s)";
+      } else {
+        os << "(null)";
+      }
+      os << '\n';
+    }
+    return os;
+  }
 };
 
 } // namespace parthenon

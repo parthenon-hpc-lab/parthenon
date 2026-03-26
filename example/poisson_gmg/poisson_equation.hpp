@@ -59,7 +59,8 @@ class PoissonEquation {
     if (set_flux_boundary) {
       flux_res = tl.AddTask(flux_res, SetFluxBoundaries, md_mat, md_in, include_flux_dx);
     }
-    if (do_flux_cor && !(md_mat->grid.type == parthenon::GridType::two_level_composite)) {
+    if (do_flux_cor &&
+        !(md_mat->grid.type() == parthenon::GridType::two_level_composite)) {
       auto start_flxcor =
           tl.AddTask(flux_res, parthenon::StartReceiveFluxCorrections, md_in);
       auto send_flxcor =
