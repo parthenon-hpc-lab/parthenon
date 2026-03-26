@@ -180,6 +180,7 @@ Mesh
 -  ``InitUserMeshData``
 -  ``ProblemGenerator``
 -  ``PostInitialization``
+-  ``FinalInitialization``
 -  ``PreStepUserWorkInLoop``
 -  ``PostStepUserWorkInLoop``
 -  ``UserWorkAfterLoop``
@@ -193,6 +194,7 @@ MeshBlock
 -  ``InitMeshBlockUserData``
 -  ``ProblemGenerator``
 -  ``PostInitialization``
+-  ``FinalInitialization``
 -  ``UserWorkBeforeOutput``
 
 To redefine these functions, the user sets the respective function
@@ -200,7 +202,7 @@ pointers in the ApplicationInput member app_input of the
 ParthenonManager class prior to calling ``ParthenonInit``. This is
 demonstrated in the ``main()`` functions in the examples.
 
-Note that the ``ProblemGenerator``\ s (and ``PostInitialization``\ s) of
+Note that the ``ProblemGenerator``\ s (and ``PostInitialization`` and ``FinalInitialization``) of
 ``Mesh`` and ``MeshBlock`` are mutually exclusive. Moreover, the ``Mesh``
 ones requires ``parthenon/mesh/pack_size=-1`` during initialization, i.e.,
 all blocks on a rank need to be in a single pack. This allows to use MPI

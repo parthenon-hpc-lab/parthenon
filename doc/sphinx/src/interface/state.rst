@@ -129,7 +129,12 @@ several useful features and functions.
   is also carefully positioned after ``ProblemGenerator`` and before
   ``PreCommFillDerived`` (and hence communications).  In practice, when
   additional granularity is required inbetween initialization and communication,
-  ``PostInitialization`` may be the desired hook.
+  ``PostInitialization`` may be the desired hook.  Finally we highlight
+  ``FinalInitialization``, yet another function hook that enables a user to provide 
+  any last initialization changes after the AMR mesh has converged in initialization. Both
+  mesh level and block-level versions of ``FinalInitialization`` are provided (i.e.,
+  ``FinalInitializationMesh`` and ``FinalInitializationBlock``, respectively).
+
 
 The reasoning for providing ``FillDerived*`` and ``EstimateTimestep*``
 function pointers appropriate for usage with both ``MeshData`` and

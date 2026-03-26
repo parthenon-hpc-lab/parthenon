@@ -32,15 +32,16 @@ runtimes. The function
 Calls the ``Initialize(ParameterInput *pin)`` function of all packages
 to be utilized and creates the grid hierarchy, including the ``Mesh``
 and ``MeshBlock`` objects, and calls the ``ProblemGenerator`` (and
-``PostInitialization``) routines.
+``PostInitialization`` and ``FinalInitialization``) routines.
 
 The reason these functions are split out is to enable decisions to be
 made by the application between reading the input deck and setting up
 the grid. For example, during problem initialization, ``ProblemGenerator``
 may be used to be the user-facing API to describe initial conditions,
 whereas, ``PostInitialization`` could use those user-specified fields
-to sync *all* fields prior to entering communication routines. A common
-use-case is:
+to sync *all* fields prior to entering communication routines. ``FinalInitialization`` 
+could be used to make any last initialization changes after the AMR mesh has converged. 
+A common use-case is:
 
 .. code:: cpp
 

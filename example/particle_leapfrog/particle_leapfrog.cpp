@@ -132,7 +132,11 @@ const Kokkos::Array<Kokkos::Array<Real, 6>, num_test_particles> particles_ic = {
     {0.0, 0.0, 0.0, -1.0, -1.0, -1.0}, // along -x-y-z diagonal
 }};
 
-void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
+// We will source particles via the FinalInitialization Hook.  Therefore ProblemGenerator
+// is simply a no-op.
+void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) { return; }
+
+void FinalInitialization(MeshBlock *pmb, ParameterInput *pin) {
   auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("my_particles");
 

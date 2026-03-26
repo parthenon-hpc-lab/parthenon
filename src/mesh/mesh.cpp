@@ -860,20 +860,19 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // There exists Mesh, MeshBlock, and Per-Package FinalInitializations.  If any one
     // of them is invoked, we need to go through the call chain to set derived variables.
     // Therefore we keep track via the final_init_invoked boolean
+    bool final_init_invoked = false;
+
+    // Call Mesh or MeshBlockk FinalInitialization
     PARTHENON_REQUIRE_THROWS(
         !(FinalInitialization != nullptr &&
           (nmb != 0 && block_list[0]->FinalInitialization != nullptr)),
         "Mesh and MeshBlock FinalInitializations are defined. Please use only one.");
-    bool final_init_invoked = false;
-
-    // Call Mesh FinalInitialization
     if (FinalInitialization != nullptr) {
       for (auto &partition : GetDefaultBlockPartitions()) {
         auto &md = mesh_data.Add("base", partition);
         FinalInitialization(this, pin, md.get());
       }
       final_init_invoked = true;
-      // Call individual MeshBlock FinalInitialization
     } else {
       for (int i = 0; i < nmb; ++i) {
         auto &pmb = block_list[i];
@@ -915,8 +914,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       CommunicateBoundaries();
       FillDerived();
 
-      // Something we might have done in FinialInitialization might have triggered a
-      // refinement event, or it might have promoted load imbalance (e.g., particles).
+      // Something we might have done in FinialInitialization might have updated a
+      // refinement criteria, or it might have promoted load imbalance (e.g., particles).
       // Therefore one more pass...
       if (adaptive) {
         for (auto &partition : GetDefaultBlockPartitions()) {
