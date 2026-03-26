@@ -16,6 +16,7 @@
 #include "pack/swarm_pack/swarm_pack_cache.hpp"
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
+#include "pack/swarm_pack/swarm_pack_types.hpp"
 
 namespace parthenon {
 
@@ -35,23 +36,13 @@ SwarmPackCache<TYPE>::Get(T *pmd, const impl::SwarmPackDescriptor<TYPE> &desc) {
   return BuildAndAdd(pmd, desc);
 }
 
-template SwarmPackBase<Real> &
-SwarmPackCache<Real>::Get<MeshData<Real>>(MeshData<Real> *,
-                                          const impl::SwarmPackDescriptor<Real> &);
-template SwarmPackBase<Real> &
-SwarmPackCache<Real>::Get<MeshBlockData<Real>>(MeshBlockData<Real> *,
-                                               const impl::SwarmPackDescriptor<Real> &);
-template SwarmPackBase<int> &
-SwarmPackCache<int>::Get<MeshData<Real>>(MeshData<Real> *,
-                                         const impl::SwarmPackDescriptor<int> &);
-template SwarmPackBase<int> &
-SwarmPackCache<int>::Get<MeshBlockData<Real>>(MeshBlockData<Real> *,
-                                              const impl::SwarmPackDescriptor<int> &);
-template SwarmPackBase<std::uint64_t> &SwarmPackCache<std::uint64_t>::Get<MeshData<Real>>(
-    MeshData<Real> *, const impl::SwarmPackDescriptor<std::uint64_t> &);
-template SwarmPackBase<std::uint64_t> &
-SwarmPackCache<std::uint64_t>::Get<MeshBlockData<Real>>(
-    MeshBlockData<Real> *, const impl::SwarmPackDescriptor<std::uint64_t> &);
+#define INSTANTIATE_GET(TYPE)                                                            \
+  template SwarmPackBase<TYPE> &SwarmPackCache<TYPE>::Get<MeshData<Real>>(               \
+      MeshData<Real> *, const impl::SwarmPackDescriptor<TYPE> &);                        \
+  template SwarmPackBase<TYPE> &SwarmPackCache<TYPE>::Get<MeshBlockData<Real>>(          \
+      MeshBlockData<Real> *, const impl::SwarmPackDescriptor<TYPE> &);
+PARTHENON_SWARM_PACK_TYPES(INSTANTIATE_GET)
+#undef INSTANTIATE_GET
 
 //----------------------------------------------------------------------------------------
 template <typename TYPE>
@@ -62,20 +53,12 @@ SwarmPackCache<TYPE>::BuildAndAdd(T *pmd, const impl::SwarmPackDescriptor<TYPE> 
   return pack_map[desc.identifier];
 }
 
-template SwarmPackBase<Real> &SwarmPackCache<Real>::BuildAndAdd<MeshData<Real>>(
-    MeshData<Real> *, const impl::SwarmPackDescriptor<Real> &);
-template SwarmPackBase<Real> &SwarmPackCache<Real>::BuildAndAdd<MeshBlockData<Real>>(
-    MeshBlockData<Real> *, const impl::SwarmPackDescriptor<Real> &);
-template SwarmPackBase<int> &
-SwarmPackCache<int>::BuildAndAdd<MeshData<Real>>(MeshData<Real> *,
-                                                 const impl::SwarmPackDescriptor<int> &);
-template SwarmPackBase<int> &SwarmPackCache<int>::BuildAndAdd<MeshBlockData<Real>>(
-    MeshBlockData<Real> *, const impl::SwarmPackDescriptor<int> &);
-template SwarmPackBase<std::uint64_t> &
-SwarmPackCache<std::uint64_t>::BuildAndAdd<MeshData<Real>>(
-    MeshData<Real> *, const impl::SwarmPackDescriptor<std::uint64_t> &);
-template SwarmPackBase<std::uint64_t> &
-SwarmPackCache<std::uint64_t>::BuildAndAdd<MeshBlockData<Real>>(
-    MeshBlockData<Real> *, const impl::SwarmPackDescriptor<std::uint64_t> &);
+#define INSTANTIATE_GET(TYPE)                                                            \
+  template SwarmPackBase<TYPE> &SwarmPackCache<TYPE>::BuildAndAdd<MeshData<Real>>(       \
+      MeshData<Real> *, const impl::SwarmPackDescriptor<TYPE> &);                        \
+  template SwarmPackBase<TYPE> &SwarmPackCache<TYPE>::BuildAndAdd<MeshBlockData<Real>>(  \
+      MeshBlockData<Real> *, const impl::SwarmPackDescriptor<TYPE> &);
+PARTHENON_SWARM_PACK_TYPES(INSTANTIATE_GET)
+#undef INSTANTIATE_GET
 
 } // namespace parthenon

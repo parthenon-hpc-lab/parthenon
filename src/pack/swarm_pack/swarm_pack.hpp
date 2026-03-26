@@ -58,8 +58,7 @@ class SwarmPack : public SwarmPackBase<TYPE> {
           std::is_same<TYPE, typename GetDataType<Ts...>::value>::value,
           "Type mismatch in SwarmPack! When passing type-based variables as template "
           "argument to SwarmPack, ensure that the first template parameter is a data "
-          "type (e.g., Real or int or uint64_t) that matches the data type of subsequent "
-          "variable types!");
+          "type that matches the data type of subsequent variable types!");
     }
   }
 

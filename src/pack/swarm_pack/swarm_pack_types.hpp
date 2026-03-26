@@ -10,28 +10,38 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#ifndef PACK_SWARM_PACK_SWARM_PACK_TYPES_HPP_
+#define PACK_SWARM_PACK_SWARM_PACK_TYPES_HPP_
 
 // This file was made in part with generative AI
 
-#include <cstdio>
-#include <string>
+#include <cstdint>
 
-#include "pack/swarm_pack/swarm_pack_descriptor.hpp"
-#include "pack/swarm_pack/swarm_pack_types.hpp"
+#include "basic_types.hpp"
+#include "utils/type_list.hpp"
 
 namespace parthenon {
-namespace impl {
+
+#define PARTHENON_SWARM_PACK_TYPES(X)                                                    \
+  X(Real)                                                                                \
+  X(int)                                                                                 \
+  X(std::uint64_t)
+
+using SwarmPackTypes = TypeList<int, Real, std::uint64_t>;
 
 template <typename TYPE>
-void SwarmPackDescriptor<TYPE>::Print() const {
-  printf("--------------------\n");
-  printf("%s\n", identifier.c_str());
-  printf("--------------------\n");
-}
+class SwarmPackCache;
 
-#define INSTANTIATE_PRINT(TYPE) template void SwarmPackDescriptor<TYPE>::Print() const;
-PARTHENON_SWARM_PACK_TYPES(INSTANTIATE_PRINT)
-#undef INSTANTIATE_PRINT
+template <typename TypeList>
+struct SwarmPackCacheTuple;
 
-} // namespace impl
+template <typename... Ts>
+struct SwarmPackCacheTuple<TypeList<Ts...>> {
+  using type = std::tuple<SwarmPackCache<Ts>...>;
+};
+
+using SwarmPackCaches = typename SwarmPackCacheTuple<SwarmPackTypes>::type;
+
 } // namespace parthenon
+
+#endif // PACK_SWARM_PACK_SWARM_PACK_TYPES_HPP_
