@@ -27,7 +27,7 @@
 #include "interface/metadata.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/meshblock.hpp"
-#include "pack/sparse_pack.hpp"
+#include "pack/sparse_pack/sparse_pack.hpp"
 #include "parthenon/package.hpp"
 #include "utils/index_split.hpp"
 
