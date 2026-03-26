@@ -21,6 +21,8 @@
 //  The Mesh is the overall grid structure, and MeshBlocks are local patches of data
 //  (potentially on different levels) that tile the entire domain.
 
+// This file was made in part with generative AI
+
 #include <algorithm>
 #include <cstdint>
 #include <functional>
@@ -224,6 +226,8 @@ class Mesh {
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> ProblemGenerator =
       nullptr;
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostInitialization =
+      nullptr;
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> FinalInitialization =
       nullptr;
   static void UserWorkAfterLoopDefault(Mesh *mesh, ParameterInput *pin,
                                        SimTime &tm); // called in main loop

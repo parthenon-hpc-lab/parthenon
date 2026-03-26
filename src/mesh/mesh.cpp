@@ -17,6 +17,8 @@
 //! \file mesh.cpp
 //  \brief implementation of functions in Mesh class
 
+// This file was made in part with generative AI
+
 #include <algorithm>
 #include <cinttypes>
 #include <cmath>
@@ -153,6 +155,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
   if (app_in->MeshPostInitialization != nullptr) {
     PostInitialization = app_in->MeshPostInitialization;
+  }
+  if (app_in->MeshFinalInitialization != nullptr) {
+    FinalInitialization = app_in->MeshFinalInitialization;
   }
   if (app_in->PreStepMeshUserWorkInLoop != nullptr) {
     PreStepUserWorkInLoop = app_in->PreStepMeshUserWorkInLoop;
@@ -846,6 +851,86 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
     }
   } while (!init_done);
+
+  // At this point, the mesh has resolved if AMR was invoked during initialization.  We
+  // want to permit the user one last pass at initialization after such.
+  if (init_problem) {
+    int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
+
+    // There exists Mesh, MeshBlock, and Per-Package FinalInitializations.  If any one
+    // of them is invoked, we need to go through the call chain to set derived variables.
+    // Therefore we keep track via the final_init_invoked boolean
+    PARTHENON_REQUIRE_THROWS(
+        !(FinalInitialization != nullptr &&
+          (nmb != 0 && block_list[0]->FinalInitialization != nullptr)),
+        "Mesh and MeshBlock FinalInitializations are defined. Please use only one.");
+    bool final_init_invoked = false;
+
+    // Call Mesh FinalInitialization
+    if (FinalInitialization != nullptr) {
+      for (auto &partition : GetDefaultBlockPartitions()) {
+        auto &md = mesh_data.Add("base", partition);
+        FinalInitialization(this, pin, md.get());
+      }
+      final_init_invoked = true;
+      // Call individual MeshBlock FinalInitialization
+    } else {
+      for (int i = 0; i < nmb; ++i) {
+        auto &pmb = block_list[i];
+        if (pmb->FinalInitialization != nullptr) {
+          pmb->FinalInitialization(pmb.get(), pin);
+          final_init_invoked = true;
+        }
+      }
+    }
+
+    // Call per-package final initialization
+    for (const auto &[name, pkg] : packages.AllPackages()) {
+      PARTHENON_REQUIRE_THROWS(
+          !(pkg->FinalInitializationMesh != nullptr &&
+            (pkg->FinalInitializationBlock != nullptr)),
+          "Mesh and MeshBlock FinalInitializations are defined for package " + name +
+              ". Please use only one.");
+
+      // first on the mesh...
+      if (pkg->FinalInitializationMesh != nullptr) {
+        for (auto &partition : GetDefaultBlockPartitions()) {
+          auto &md = mesh_data.Add("base", partition);
+          pkg->FinalInitializationMesh(this, pin, md.get());
+        }
+        final_init_invoked = true;
+      }
+      // and then per block
+      if (pkg->FinalInitializationBlock != nullptr) {
+        for (auto &pmb : block_list) {
+          pkg->FinalInitializationBlock(pmb.get(), pin);
+        }
+        final_init_invoked = true;
+      }
+    }
+
+    if (final_init_invoked) {
+      PreCommFillDerived();
+      BuildTagMapAndBoundaryBuffers();
+      CommunicateBoundaries();
+      FillDerived();
+
+      // Something we might have done in FinialInitialization might have triggered a
+      // refinement event, or it might have promoted load imbalance (e.g., particles).
+      // Therefore one more pass...
+      if (adaptive) {
+        for (auto &partition : GetDefaultBlockPartitions()) {
+          auto &md = mesh_data.Add("base", partition);
+          Refinement::Tag(md.get());
+        }
+        LoadBalancingAndAdaptiveMeshRefinement(pin, app_in);
+        PreCommFillDerived();
+        BuildTagMapAndBoundaryBuffers();
+        CommunicateBoundaries();
+        FillDerived();
+      }
+    }
+  }
 
 #ifdef MPI_PARALLEL
   // check if there are sufficient blocks

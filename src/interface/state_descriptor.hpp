@@ -13,6 +13,8 @@
 #ifndef INTERFACE_STATE_DESCRIPTOR_HPP_
 #define INTERFACE_STATE_DESCRIPTOR_HPP_
 
+// This file was made in part with generative AI
+
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -476,6 +478,9 @@ class StateDescriptor {
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostInitializationMesh =
       nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> PostInitializationBlock = nullptr;
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)>
+      FinalInitializationMesh = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> FinalInitializationBlock = nullptr;
 
   std::function<Real(MeshBlockData<Real> *rc)> EstimateTimestepBlock = nullptr;
   std::function<Real(MeshData<Real> *rc)> EstimateTimestepMesh = nullptr;
