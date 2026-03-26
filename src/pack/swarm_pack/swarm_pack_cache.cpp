@@ -53,12 +53,12 @@ SwarmPackCache<TYPE>::BuildAndAdd(T *pmd, const impl::SwarmPackDescriptor<TYPE> 
   return pack_map[desc.identifier];
 }
 
-#define INSTANTIATE_GET(TYPE)                                                            \
+#define INSTANTIATE_BUILDANDADD(TYPE)                                                    \
   template SwarmPackBase<TYPE> &SwarmPackCache<TYPE>::BuildAndAdd<MeshData<Real>>(       \
       MeshData<Real> *, const impl::SwarmPackDescriptor<TYPE> &);                        \
   template SwarmPackBase<TYPE> &SwarmPackCache<TYPE>::BuildAndAdd<MeshBlockData<Real>>(  \
       MeshBlockData<Real> *, const impl::SwarmPackDescriptor<TYPE> &);
-PARTHENON_SWARM_PACK_TYPES(INSTANTIATE_GET)
-#undef INSTANTIATE_GET
+PARTHENON_SWARM_PACK_TYPES(INSTANTIATE_BUILDANDADD)
+#undef INSTANTIATE_BUILDANDADD
 
 } // namespace parthenon
