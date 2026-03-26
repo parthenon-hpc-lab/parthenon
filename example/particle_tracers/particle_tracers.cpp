@@ -33,7 +33,7 @@
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/default_names.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 
 using namespace parthenon::driver::prelude;

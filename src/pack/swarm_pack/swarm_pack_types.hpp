@@ -27,7 +27,7 @@ namespace parthenon {
   X(int)                                                                                 \
   X(std::uint64_t)
 
-using SwarmPackTypes = TypeList<int, Real, std::uint64_t>;
+using SwarmPackTypes = TypeList<Real, int, std::uint64_t>;
 
 template <typename TYPE>
 class SwarmPackCache;
