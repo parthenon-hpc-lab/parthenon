@@ -257,6 +257,10 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
           pack_pos(b, swarm_position::x(), n) += pack_v(b, iv + 0, n) * 0.5 * dt;
           pack_pos(b, swarm_position::y(), n) += pack_v(b, iv + 1, n) * 0.5 * dt;
           pack_pos(b, swarm_position::z(), n) += pack_v(b, iv + 2, n) * 0.5 * dt;
+
+          // id
+          PARTHENON_REQUIRE(pack_id(b, swarm_position::id(), n) >= 0,
+                            "Issue with SwarmPack containing uint64 IDs!");
         }
       });
 
