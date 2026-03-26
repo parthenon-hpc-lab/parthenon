@@ -13,6 +13,8 @@
 #ifndef PACK_SWARM_PACK_SWARM_PACK_HPP_
 #define PACK_SWARM_PACK_SWARM_PACK_HPP_
 
+// This file was made in part with generative AI
+
 #include <algorithm>
 #include <functional>
 #include <limits>
@@ -48,6 +50,8 @@ class SwarmPack : public SwarmPackBase<TYPE> {
   using SwarmPackBase<TYPE>::nblocks_;
   using SwarmPackBase<TYPE>::max_flat_index_;
 
+  SwarmPack() = default;
+
   explicit SwarmPack(const SwarmPackBase<TYPE> &spb) : SwarmPackBase<TYPE>(spb) {
     if constexpr (sizeof...(Ts) != 0) {
       static_assert(
@@ -65,12 +69,14 @@ class SwarmPack : public SwarmPackBase<TYPE> {
     explicit Descriptor(const impl::SwarmPackDescriptor<TYPE> &desc_in)
         : impl::SwarmPackDescriptor<TYPE>(desc_in) {}
 
+    // Make a `SwarmPack` from variable_name types in the type list Ts..., creating the
+    // pack in `pmd->SwarmPackCache` if it doesn't already exist. Variables can be
+    // accessed on device via instance of types in the type list Ts...
+    // The pack will be created and accessible on the device
     template <class T>
-    SwarmPack GetPack(T *pmd) const {
-      return SwarmPack(SwarmPackBase<TYPE>::GetPack(pmd, *this));
-    }
+    SwarmPack GetPack(T *pmd) const;
 
-    SparsePackIdxMap GetMap() const {
+    SwarmPackIdxMap GetMap() const {
       PARTHENON_REQUIRE(sizeof...(Ts) == 0,
                         "Should not be getting an IdxMap for a type based pack");
       return SwarmPackBase<TYPE>::GetIdxMap(*this);
@@ -154,6 +160,12 @@ class SwarmPack : public SwarmPackBase<TYPE> {
     return pack_(0, b, vidx)(n);
   }
 };
+
+template <typename TYPE, class... Ts>
+template <class T>
+inline SwarmPack<TYPE, Ts...> SwarmPack<TYPE, Ts...>::Descriptor::GetPack(T *pmd) const {
+  return SwarmPack<TYPE, Ts...>(SwarmPackBase<TYPE>::GetPack(pmd, *this));
+}
 
 } // namespace parthenon
 

@@ -10,49 +10,56 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef PACK_SWARM_PACK_MAKE_SWARM_PACK_DESCRIPTOR_HPP_
-#define PACK_SWARM_PACK_MAKE_SWARM_PACK_DESCRIPTOR_HPP_
+#ifndef PACK_SWARM_PACK_SWARM_PACK_DESCRIPTOR_HPP_
+#define PACK_SWARM_PACK_SWARM_PACK_DESCRIPTOR_HPP_
 
 // This file was made in part with generative AI
 
 #include <algorithm>
-#include <functional>
-#include <limits>
-#include <map>
-#include <memory>
 #include <set>
 #include <string>
 #include <tuple>
-#include <type_traits>
-#include <utility>
+#include <unordered_map>
 #include <vector>
 
-#include "interface/mesh_data.hpp"
-#include "interface/meshblock_data.hpp"
-#include "mesh/mesh.hpp"
-#include "pack/swarm_pack/swarm_pack.hpp"
+#include "interface/variable.hpp"
 
 namespace parthenon {
 
+namespace impl {
 template <typename TYPE>
-inline auto MakeSwarmPackDescriptor(const std::string &swarm_name,
-                                    const std::vector<std::string> &vars) {
-  impl::SwarmPackDescriptor<TYPE> base_desc(swarm_name, vars);
-  return typename SwarmPack<TYPE>::Descriptor(base_desc);
-}
+struct SwarmPackDescriptor {
+  void Print() const;
 
-template <class... Ts>
-inline auto MakeSwarmPackDescriptor(const std::string &swarm_name) {
-  static_assert(sizeof...(Ts) > 0, "Must have at least one variable type for type pack");
-  using TYPE = typename GetDataType<Ts...>::value;
+  // default constructor needed for certain use cases
+  SwarmPackDescriptor() : swarm_name(""), vars({}), identifier("") {}
 
-  std::vector<std::string> vars{Ts::name()...};
+  SwarmPackDescriptor(const std::string &swarm_name, const std::vector<std::string> &vars)
+      : swarm_name(swarm_name), vars(vars), identifier(GetIdentifier()) {}
 
-  return typename SwarmPack<TYPE, Ts...>::Descriptor(
-      static_cast<impl::SwarmPackDescriptor<TYPE>>(
-          MakeSwarmPackDescriptor<TYPE>(swarm_name, vars)));
-}
+  // Determining if variable pv should be included in SwarmPack
+  bool IncludeVariable(int vidx,
+                       const std::shared_ptr<ParticleVariable<TYPE>> &pv) const {
+    if (vars[vidx] == pv->label()) return true;
+    return false;
+  }
+
+  const std::string swarm_name;
+  const std::vector<std::string> vars;
+  const std::string identifier;
+
+ private:
+  std::string GetIdentifier() const {
+    std::string ident("");
+    for (const auto &var : vars)
+      ident += var;
+    ident += "|swarm_name:";
+    ident += swarm_name;
+    return ident;
+  }
+};
+} // namespace impl
 
 } // namespace parthenon
 
-#endif // PACK_SWARM_PACK_MAKE_SWARM_PACK_DESCRIPTOR_HPP_
+#endif // PACK_SWARM_PACK_SWARM_PACK_DESCRIPTOR_HPP_
