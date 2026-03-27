@@ -75,7 +75,7 @@ class SwarmPack : public SwarmPackBase<TYPE> {
     template <class T>
     SwarmPack GetPack(T *pmd) const;
 
-    SwarmPackIdxMap GetMap() const {
+    PackIdxMap GetMap() const {
       PARTHENON_REQUIRE(sizeof...(Ts) == 0,
                         "Should not be getting an IdxMap for a type based pack");
       return SwarmPackBase<TYPE>::GetIdxMap(*this);
