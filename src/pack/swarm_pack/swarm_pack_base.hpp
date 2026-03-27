@@ -21,6 +21,7 @@
 
 #include "interface/swarm_device_context.hpp"
 #include "kokkos_abstraction.hpp"
+#include "pack/pack_utils.hpp"
 #include "pack/swarm_pack/swarm_pack_descriptor.hpp"
 #include "utils/utils.hpp"
 
@@ -31,9 +32,6 @@ class SwarmPackBase;
 
 template <typename TYPE>
 class SwarmPackCache;
-
-// Map for going from variable names to swarm pack variable indices
-using SwarmPackIdxMap = std::unordered_map<std::string, std::size_t>;
 
 template <typename TYPE>
 class SwarmPackBase {
@@ -52,7 +50,7 @@ class SwarmPackBase {
   using desc_t = impl::SwarmPackDescriptor<TYPE>;
 
   // Return a map from variable names to pack variable indices
-  static SwarmPackIdxMap GetIdxMap(const impl::SwarmPackDescriptor<TYPE> &desc);
+  static PackIdxMap GetIdxMap(const impl::SwarmPackDescriptor<TYPE> &desc);
 
   // Actually build a `SwarmPackBase` (i.e. create a view of views, fill on host, and
   // deep copy the view of views to device) from the variables specified in desc contained

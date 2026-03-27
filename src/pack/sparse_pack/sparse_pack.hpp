@@ -19,6 +19,7 @@
 
 #include "coordinates/coordinates.hpp"
 #include "pack/block_selector.hpp"
+#include "pack/pack_utils.hpp"
 #include "pack/sparse_pack/sparse_pack_base.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/type_list.hpp"
@@ -66,7 +67,7 @@ class SparsePack : public SparsePackBase {
                        std::vector<bool> &include_block,
                        bool only_fine_two_level_composite_blocks = true) const;
 
-    SparsePackIdxMap GetMap() const {
+    PackIdxMap GetMap() const {
       PARTHENON_REQUIRE(sizeof...(Ts) == 0,
                         "Should not be getting an IdxMap for a type based pack");
       return SparsePackBase::GetIdxMap(*this);

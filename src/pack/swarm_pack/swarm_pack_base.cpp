@@ -55,9 +55,8 @@ PARTHENON_SWARM_PACK_TYPES(INSTANTIATE_GETPACK)
 
 //----------------------------------------------------------------------------------------
 template <typename TYPE>
-SwarmPackIdxMap
-SwarmPackBase<TYPE>::GetIdxMap(const impl::SwarmPackDescriptor<TYPE> &desc) {
-  SwarmPackIdxMap map;
+PackIdxMap SwarmPackBase<TYPE>::GetIdxMap(const impl::SwarmPackDescriptor<TYPE> &desc) {
+  PackIdxMap map;
   std::size_t idx = 0;
   for (const auto &var : desc.vars) {
     map[var] = idx;
@@ -67,7 +66,7 @@ SwarmPackBase<TYPE>::GetIdxMap(const impl::SwarmPackDescriptor<TYPE> &desc) {
 }
 
 #define INSTANTIATE_GETIDXMAP(TYPE)                                                      \
-  template SwarmPackIdxMap SwarmPackBase<TYPE>::GetIdxMap(                               \
+  template PackIdxMap SwarmPackBase<TYPE>::GetIdxMap(                                    \
       const impl::SwarmPackDescriptor<TYPE> &);
 PARTHENON_SWARM_PACK_TYPES(INSTANTIATE_GETIDXMAP)
 #undef INSTANTIATE_GETIDXMAP

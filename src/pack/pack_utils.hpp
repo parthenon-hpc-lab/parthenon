@@ -54,6 +54,9 @@ struct GetDataType<T> {
 
 namespace parthenon {
 
+// Map for going from variable names to pack variable indices
+using PackIdxMap = std::unordered_map<std::string, std::size_t>;
+
 // Namespace in which to put variable name types that are used for indexing into
 // SparsePack<[type list of variable name types]> on device
 namespace variable_names {

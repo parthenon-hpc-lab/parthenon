@@ -45,8 +45,8 @@ template SparsePackBase
 SparsePackBase::GetPack<MeshData<Real>>(MeshData<Real> *, const impl::PackDescriptor &,
                                         const std::vector<bool> &);
 
-SparsePackIdxMap SparsePackBase::GetIdxMap(const impl::PackDescriptor &desc) {
-  SparsePackIdxMap map;
+PackIdxMap SparsePackBase::GetIdxMap(const impl::PackDescriptor &desc) {
+  PackIdxMap map;
   std::size_t idx = 0;
   for (const auto &var : desc.var_group_names) {
     map[var] = idx;
