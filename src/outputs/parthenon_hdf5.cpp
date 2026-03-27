@@ -272,7 +272,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // All blocks have the same list of variable metadata that exist in the entire
   // simulation, but not all variables may be allocated on all blocks
 
-  auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
+  auto get_vars = [=, this](const std::shared_ptr<MeshBlock> pmb) {
     const auto &data = pmb->meshblock_data.Get(output_params.meshdata_name);
     const VariableVector<Real> &var_vec = data->GetVariableVector();
     VariableVector<Real> coords_vars =
