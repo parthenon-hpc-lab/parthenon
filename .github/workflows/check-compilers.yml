@@ -67,11 +67,15 @@ jobs:
         # compile time, see https://github.com/parthenon-hpc-lab/parthenon/pull/1191#issuecomment-2492035364
         run: |
           git config --global --add safe.directory $(pwd)
+          # The extra CMAKE_PREFIX_PATH seems to be required for current rocm6.2, see
+          # https://github.com/kokkos/kokkos/pull/8747/changes#r2621509391
+          # Try to remove in next rocm bump.
           cmake -B builddir \
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
             -DMACHINE_CFG=${PWD}/cmake/machinecfg/GitHubActions.cmake \
             -DMACHINE_VARIANT=${{ matrix.device }}_${{ matrix.parallel }} \
+            -DCMAKE_PREFIX_PATH=/opt/rocm-6.2.0 \
             -DKokkos_ARCH_AMD_GFX90A=ON -DKokkos_ARCH_NAVI1030=OFF
       - name: Build
         run: |
