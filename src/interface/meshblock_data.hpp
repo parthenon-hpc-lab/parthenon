@@ -64,8 +64,8 @@ class MeshBlockData {
   // Public Methods
   //-----------------
   /// Constructor
-  MeshBlockData<T>() = default;
-  explicit MeshBlockData<T>(const std::string &name) : stage_name_(name) {}
+  MeshBlockData() = default;
+  explicit MeshBlockData(const std::string &name) : stage_name_(name) {}
 
   std::shared_ptr<MeshBlock> GetBlockSharedPointer() const {
     if (pmy_block.expired()) {
@@ -164,7 +164,7 @@ class MeshBlockData {
     coarseVarPackMap_.clear();
     varFluxPackMap_.clear();
 
-    [[maybe_unused]] auto add_var = [=](auto var) {
+    [[maybe_unused]] auto add_var = [=, this](auto var) {
       if (shallow_copy || var->IsSet(Metadata::OneCopy)) {
         Add(var);
       } else {
@@ -541,7 +541,7 @@ class MeshBlockData {
   // return number of stored arrays
   int Size() noexcept { return varVector_.size(); }
 
-  bool operator==(const MeshBlockData<T> &cmp);
+  bool operator==(const MeshBlockData<T> &cmp) const;
 
   bool Contains(const std::string &name) const noexcept { return varMap_.count(name); }
   bool Contains(const Uid_t &uid) const noexcept { return varUidMap_.count(uid); }
