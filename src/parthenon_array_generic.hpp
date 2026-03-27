@@ -59,7 +59,7 @@ class ParArrayGeneric : public State {
   using index_pair_t = std::pair<size_t, size_t>;
   using base_t = Data;
   using state_t = State;
-  using HostMirror = ParArrayGeneric<typename Data::HostMirror, State>;
+  using HostMirror = ParArrayGeneric<typename Data::host_mirror_type, State>;
   using host_mirror_type = HostMirror;
   using value_type = typename Data::value_type; // To conform to vector and View types
 
