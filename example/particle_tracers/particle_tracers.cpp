@@ -49,7 +49,7 @@ namespace tracers_example {
 // Define variables/names to be used by this example. *//
 // ****************************************************//
 
-static const std::string swarm_name = "tracers";
+static const char swarm_name[] = "tracers";
 
 namespace field {
 VARIABLE(field, advected);
