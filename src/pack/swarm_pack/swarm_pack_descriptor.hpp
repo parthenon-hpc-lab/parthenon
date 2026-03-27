@@ -16,6 +16,7 @@
 // This file was made in part with generative AI
 
 #include <algorithm>
+#include <memory>
 #include <set>
 #include <string>
 #include <tuple>

@@ -16,6 +16,7 @@
 // This file was made in part with generative AI
 
 #include <cstdint>
+#include <tuple>
 
 #include "basic_types.hpp"
 #include "utils/type_list.hpp"
