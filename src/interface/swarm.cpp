@@ -22,12 +22,9 @@
 #include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
 #include "pack/default_names.hpp"
-#include "pack/swarm_pack/swarm_pack_types.hpp"
 #include "swarm.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/sort.hpp"
-
-// This file was made in part with generative AI
 
 namespace parthenon {
 
@@ -124,13 +121,6 @@ std::shared_ptr<Swarm> Swarm::AllocateCopy(MeshBlock * /*pmb*/) {
 ///
 /// @param label the name of the variable
 /// @param metadata the metadata associated with the particle
-template <typename T, typename TypeListT>
-struct type_list_contains;
-
-template <typename T, typename... Ts>
-struct type_list_contains<T, TypeList<Ts...>>
-    : std::bool_constant<(std::is_same_v<T, Ts> || ...)> {};
-
 void Swarm::Add(const std::string &label, const Metadata &metadata) {
   // labels must be unique, even between different types of data
   //  if (intMap_.count(label) > 0 || realMap_.count(label) > 0) {
@@ -146,16 +136,10 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
 
   if (newm.Type() == Metadata::Integer) {
     Add_<int>(label, newm);
-    PARTHENON_REQUIRE((type_list_contains<int, SwarmPackTypes>::value),
-                      "Type int is not contained in SwarmPackTypes");
   } else if (newm.Type() == Metadata::UInt64) {
     Add_<std::uint64_t>(label, newm);
-    PARTHENON_REQUIRE((type_list_contains<std::uint64_t, SwarmPackTypes>::value),
-                      "Type std::uint64_t is not contained in SwarmPackTypes");
   } else if (newm.Type() == Metadata::Real) {
     Add_<Real>(label, newm);
-    PARTHENON_REQUIRE((type_list_contains<Real, SwarmPackTypes>::value),
-                      "Type Real is not contained in SwarmPackTypes");
   } else {
     PARTHENON_FAIL("swarm variable " + label +
                    " does not have a valid type during Add()");
