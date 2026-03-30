@@ -142,7 +142,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   using namespace parthenon::refinement_ops;
   auto mD = Metadata({Metadata::Independent, Metadata::OneCopy, Metadata::Face,
-                      Metadata::GMGRestrict, Metadata::FillGhost});
+                      Metadata::GMGRestrict, Metadata::CellMemAligned});
   mD.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
 
   // Holds the discretized version of D in \nabla \cdot D(\vec{x}) \nabla u = rhs. D = 1

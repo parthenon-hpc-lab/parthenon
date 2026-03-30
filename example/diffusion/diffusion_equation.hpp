@@ -23,6 +23,7 @@
 #include <parthenon/package.hpp>
 
 #include "diffusion_package.hpp"
+#include "raw_memory_indexer.hpp"
 
 namespace diffusion_package {
 // Calculate A in_t = out_t (in the region covered by md) for a given set of fluxes
@@ -49,29 +50,45 @@ FluxMultiplyMatrix(std::shared_ptr<parthenon::MeshData<Real>> &md,
   static auto desc_out = parthenon::MakePackDescriptor<var_t>(md_out.get());
   auto pack = desc.GetPack(md.get(), include_block);
   auto pack_out = desc_out.GetPack(md_out.get(), include_block);
-  parthenon::par_for(
-      "FluxMultiplyMatrix", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+
+  const auto idxer =
+      RawMemoryIndexer::IJ(IndexDomain::interior, 0, md.get(), TE::CC, TE::CC);
+  const int max_inner_raw = idxer.GetMaxNinnerRaw();
+  auto scratch_size_in_bytes =
+      0 * parthenon::ScratchPad1D<Real>::shmem_size(max_inner_raw);
+  const std::size_t scratch_level = 1;
+  const int ioff = (ndim > 0);
+  const int joff = (ndim > 1);
+  const int koff = (ndim > 2);
+  parthenon::par_for_outer(
+      DEFAULT_OUTER_LOOP_PATTERN, "FluxMultiplyMatrix", DevExecSpace(),
+      scratch_size_in_bytes, scratch_level, 0, pack.GetNBlocks() - 1, 0,
+      idxer.GetNouter() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int idx_out) {
+        const auto [ks, js, is] = idxer.GetStartIndices(idx_out);
+        const auto ninner = idxer.GetNinnerRaw(idx_out);
+        const auto raw_idx_start = idxer.GetStartingRawFlatIdx(idx_out);
+        
         const auto &coords = pack.GetCoordinates(b);
-        Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
-        pack_out(b, var_t(), k, j, i) = -alpha * pack(b, var_t(), k, j, i);
-        pack_out(b, var_t(), k, j, i) += (pack.flux(b, X1DIR, var_t(), k, j, i) -
-                                          pack.flux(b, X1DIR, var_t(), k, j, i + 1)) /
-                                         dx1;
+        const Real invdx1 = ioff / coords.template Dxc<X1DIR>(ks, js, is);
+        const Real invdx2 = joff / coords.template Dxc<X2DIR>(ks, js, is);
+        const Real invdx3 = koff / coords.template Dxc<X3DIR>(ks, js, is);
 
-        if (ndim > 1) {
-          Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
-          pack_out(b, var_t(), k, j, i) += (pack.flux(b, X2DIR, var_t(), k, j, i) -
-                                            pack.flux(b, X2DIR, var_t(), k, j + 1, i)) /
-                                           dx2;
-        }
-
-        if (ndim > 2) {
-          Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
-          pack_out(b, var_t(), k, j, i) += (pack.flux(b, X3DIR, var_t(), k, j, i) -
-                                            pack.flux(b, X3DIR, var_t(), k + 1, j, i)) /
-                                           dx3;
-        }
+        const Real *const flx1_up = &pack.flux(b, X1DIR, var_t(), ks, js, is + 1);
+        const Real *const flx1_lo = &pack.flux(b, X1DIR, var_t(), ks, js, is);
+        const Real *const flx2_up = &pack.flux(b, X2DIR, var_t(), ks, js + joff, is);
+        const Real *const flx2_lo = &pack.flux(b, X2DIR, var_t(), ks, js, is);
+        const Real *const flx3_up = &pack.flux(b, X3DIR, var_t(), ks + koff, js, is);
+        const Real *const flx3_lo = &pack.flux(b, X3DIR, var_t(), ks, js, is);
+        const Real *const in = &pack(b, var_t(), ks, js, is);
+        Real *out = &pack_out(b, var_t(), ks, js, is);
+        parthenon::par_for_inner(
+            DEFAULT_INNER_LOOP_PATTERN, member, 0, ninner - 1, [&](const int idx) {
+              const Real dfx = (flx1_up[idx] - flx1_lo[idx]) * invdx1;
+              const Real dfy = (flx2_up[idx] - flx2_lo[idx]) * invdx2;
+              const Real dfz = (flx3_up[idx] - flx3_lo[idx]) * invdx3;
+              out[idx] = - alpha * in[idx] - dfx - dfy - dfz;
+            });
       });
   return TaskStatus::complete;
 }
@@ -225,6 +242,8 @@ class DiffusionEquation {
                   (pack(b, var_t(), k, j, i) - pack(b, var_t(), k + 1, j, i)) / dx3;
           }
         });
+
+
     return TaskStatus::complete;
   }
 
