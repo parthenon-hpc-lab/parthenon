@@ -52,8 +52,8 @@ namespace tracers_example {
 static const char swarm_name[] = "tracers";
 
 namespace field {
-VARIABLE(field, advected);
-VARIABLE(field, deposition);
+PAR_VAR(field, advected);
+PAR_VAR(field, deposition);
 } // namespace field
 
 // ****************************************************//
@@ -89,9 +89,9 @@ Real EstimateTimestepMesh(MeshData<Real> *md) {
   dx.fill(std::numeric_limits<Real>::max());
   for (auto &pmb : pm->block_list) {
     const auto &reg = pmb->block_size;
-    dx[0] = std::min(dx[0], (reg.xmax_[0] - reg.xmin_[0]) / reg.nx_[0]);
-    dx[1] = std::min(dx[1], (reg.xmax_[1] - reg.xmin_[1]) / reg.nx_[1]);
-    dx[2] = std::min(dx[2], (reg.xmax_[2] - reg.xmin_[2]) / reg.nx_[2]);
+    dx[0] = std::min(dx[0], pmb->coords.Dxc<X1DIR>(0));
+    dx[1] = std::min(dx[1], pmb->coords.Dxc<X2DIR>(0));
+    dx[2] = std::min(dx[2], pmb->coords.Dxc<X3DIR>(0));
   }
 
   Real min_dt = dx[0] / std::abs(vx + TINY_NUMBER);
@@ -114,7 +114,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   adv_pkg->AddParam("advected_mean", advected_mean);
   adv_pkg->AddParam("advected_amp", advected_amp);
   PARTHENON_REQUIRE(advected_mean > advected_amp,
-                    "Require advected_mean > advected_amp!");
+                    "Advected field must be everywere positive!");
 
   // Add advected field
   Metadata madv(
@@ -140,6 +140,9 @@ namespace particles_package {
 // timestep and initialization functions.          *//
 // *************************************************//
 
+// NOTE(@pdmullen): The below tracers timestep function is currently redundant with the
+// advection timestep, however, its inclusion demonstrates having two packages with votes
+// towards the global timestep.
 Real EstimateTimestepMesh(MeshData<Real> *md) {
   auto pm = md->GetParentPointer();
   auto adv_pkg = pm->packages.Get("advection_package");
@@ -154,9 +157,9 @@ Real EstimateTimestepMesh(MeshData<Real> *md) {
   dx.fill(std::numeric_limits<Real>::max());
   for (auto &pmb : pm->block_list) {
     const auto &reg = pmb->block_size;
-    dx[0] = std::min(dx[0], (reg.xmax_[0] - reg.xmin_[0]) / reg.nx_[0]);
-    dx[1] = std::min(dx[1], (reg.xmax_[1] - reg.xmin_[1]) / reg.nx_[1]);
-    dx[2] = std::min(dx[2], (reg.xmax_[2] - reg.xmin_[2]) / reg.nx_[2]);
+    dx[0] = std::min(dx[0], pmb->coords.Dxc<X1DIR>(0));
+    dx[1] = std::min(dx[1], pmb->coords.Dxc<X2DIR>(0));
+    dx[2] = std::min(dx[2], pmb->coords.Dxc<X3DIR>(0));
   }
 
   Real min_dt = dx[0] / std::abs(vx + TINY_NUMBER);
