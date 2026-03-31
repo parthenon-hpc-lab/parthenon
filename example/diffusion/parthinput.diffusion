@@ -21,7 +21,7 @@ problem_id = diffusion
 <parthenon/mesh>
 refinement = static
 multigrid = true 
-base_block_coarsenings = 2
+base_block_coarsenings = 3
 
 nx1 = 64
 x1min = -0.5
@@ -65,13 +65,13 @@ x2min = -0.075
 x2max = +0.075
 x3min = -0.075
 x3max = +0.075
-level = 3
+level = 8
 
 <diffusion>
 solver = BiCGSTAB # or MG
 flux_correct = true
 diagonal_alpha = 1.0
-cfl = 20.0
+cfl = 100.0
 set_flux_boundary = true
 constant_coefficient = false
 boundary_prolongation = Constant
@@ -84,10 +84,10 @@ t0 = 0.001
 <diffusion/solver_params>
 precondition = true
 max_iterations = 1000
-absolute_residual_tolerance = 1.e-13
+absolute_residual_tolerance = 1.e-16
 print_per_step = false
 presmoother = SRJ1
-postsmoother = SRJ2
+postsmoother = SRJ3
 do_FAS = true
-block_interior_prolongation = Linear
+block_interior_prolongation = Kwak
 volume_weight = true
