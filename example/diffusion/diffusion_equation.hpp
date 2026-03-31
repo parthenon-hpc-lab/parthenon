@@ -68,7 +68,7 @@ FluxMultiplyMatrix(std::shared_ptr<parthenon::MeshData<Real>> &md,
         const auto [ks, js, is] = idxer.GetStartIndices(idx_out);
         const auto ninner = idxer.GetNinnerRaw(idx_out);
         const auto raw_idx_start = idxer.GetStartingRawFlatIdx(idx_out);
-        
+
         const auto &coords = pack.GetCoordinates(b);
         const Real invdx1 = ioff / coords.template Dxc<X1DIR>(ks, js, is);
         const Real invdx2 = joff / coords.template Dxc<X2DIR>(ks, js, is);
@@ -87,7 +87,7 @@ FluxMultiplyMatrix(std::shared_ptr<parthenon::MeshData<Real>> &md,
               const Real dfx = (flx1_up[idx] - flx1_lo[idx]) * invdx1;
               const Real dfy = (flx2_up[idx] - flx2_lo[idx]) * invdx2;
               const Real dfz = (flx3_up[idx] - flx3_lo[idx]) * invdx3;
-              out[idx] = - alpha * in[idx] - dfx - dfy - dfz;
+              out[idx] = -alpha * in[idx] - dfx - dfy - dfz;
             });
       });
   return TaskStatus::complete;
@@ -225,11 +225,11 @@ class DiffusionEquation {
             const auto [ks, js, is] = idxer.GetStartIndices(idx_out);
             const auto ninner = idxer.GetNinnerRaw(idx_out);
             const auto raw_idx_start = idxer.GetStartingRawFlatIdx(idx_out);
-            
+
             const auto &coords = pack.GetCoordinates(b);
-            const Real inv_dx = ioff / coords.template Dxc<X1DIR>(ks, js, is)
-                              + joff / coords.template Dxc<X2DIR>(ks, js, is)
-                              + koff / coords.template Dxc<X3DIR>(ks, js, is);
+            const Real inv_dx = ioff / coords.template Dxc<X1DIR>(ks, js, is) +
+                                joff / coords.template Dxc<X2DIR>(ks, js, is) +
+                                koff / coords.template Dxc<X3DIR>(ks, js, is);
 
             Real *flx = &(pack.flux(b, dir, var_t(), ks, js, is));
             const Real *const D = &pack_mat(b, te, D_t(), ks, js, is);
@@ -237,7 +237,7 @@ class DiffusionEquation {
             const Real *const vlo = &pack(b, var_t(), ks - koff, js - joff, is - ioff);
             parthenon::par_for_inner(
                 DEFAULT_INNER_LOOP_PATTERN, member, 0, ninner - 1, [&](const int idx) {
-                  flx[idx] = - D[idx] * (vup[idx] - vlo[idx]) * inv_dx;
+                  flx[idx] = -D[idx] * (vup[idx] - vlo[idx]) * inv_dx;
                 });
           });
     }
@@ -342,10 +342,10 @@ class DiffusionEquation {
       const std::size_t scratch_level = 1;
       parthenon::par_for_outer(
           DEFAULT_OUTER_LOOP_PATTERN, "SetBoundaries", DevExecSpace(),
-          scratch_size_in_bytes, scratch_level, 0, pack.GetNBlocks() - 1,
-          -(ndim > 2), (ndim > 2), -(ndim > 1), (ndim > 1), -1, 1,
-          KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, int ok,
-                        int oj, int oi) {
+          scratch_size_in_bytes, scratch_level, 0, pack.GetNBlocks() - 1, -(ndim > 2),
+          (ndim > 2), -(ndim > 1), (ndim > 1), -1, 1,
+          KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, int ok, int oj,
+                        int oi) {
             const int tot_offset = std::abs(ok) + std::abs(oj) + std::abs(oi);
 
             auto get_lower = [](int offset, auto bound) {
@@ -364,20 +364,18 @@ class DiffusionEquation {
             };
 
             if (tot_offset == 1 && pack.IsPhysicalBoundary(b, ok, oj, oi)) {
-              parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member,
-                                       get_lower(ok, kb), get_upper(ok, kb),
-                                       get_lower(oj, jb), get_upper(oj, jb),
-                                       get_lower(oi, ib), get_upper(oi, ib),
-                                       [&](const int k, const int j, const int i) {
-                                         pack(b, var_t(), k + ok, j + oj, i + oi) =
-                                             -pack(b, var_t(), k, j, i);
-                                       });
+              parthenon::par_for_inner(
+                  DEFAULT_INNER_LOOP_PATTERN, member, get_lower(ok, kb),
+                  get_upper(ok, kb), get_lower(oj, jb), get_upper(oj, jb),
+                  get_lower(oi, ib), get_upper(oi, ib),
+                  [&](const int k, const int j, const int i) {
+                    pack(b, var_t(), k + ok, j + oj, i + oi) = -pack(b, var_t(), k, j, i);
+                  });
             }
           });
     }
     return TaskStatus::complete;
   }
-
 };
 
 } // namespace diffusion_package

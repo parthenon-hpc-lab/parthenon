@@ -170,7 +170,7 @@ inline auto CheckSendBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
                                       const sp_cv_t v) {
     const std::size_t ibuf = cache.idx_vec[nbound];
     auto &buf = *(cache.buf_vec[ibuf]);
-    
+
     any_sparse = any_sparse || v->IsSparse();
 
     if (!buf.IsAvailableForWrite()) other_communication_unfinished = true;

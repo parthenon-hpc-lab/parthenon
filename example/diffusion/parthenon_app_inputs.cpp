@@ -76,7 +76,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
         };
         const Real val = profile(x1, x2, x3);
         pack(b, diffusion_package::u(), k, j, i) = val;
-        
+
         auto profile_D = [](Real x, Real y, Real z) {
           const Real xcrit = 0.15 * sin(2.0 * M_PI * y);
           if (x >= xcrit) return 1.e5;

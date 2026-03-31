@@ -46,9 +46,9 @@ struct LogicalCoordinateTransformation {
     dir_flip[origin - 1] = reversed;
     is_identity = is_identity && (origin == neighbor) && !reversed;
   }
-  
+
   KOKKOS_INLINE_FUNCTION
-  bool IsIdentity() const {return is_identity;}
+  bool IsIdentity() const { return is_identity; }
 
   LogicalLocation Transform(const LogicalLocation &loc_in,
                             std::int64_t destination) const;
