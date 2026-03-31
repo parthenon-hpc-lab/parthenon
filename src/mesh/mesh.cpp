@@ -156,8 +156,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   if (app_in->MeshPostInitialization != nullptr) {
     PostInitialization = app_in->MeshPostInitialization;
   }
-  if (app_in->MeshFinalInitialization != nullptr) {
-    FinalInitialization = app_in->MeshFinalInitialization;
+  if (app_in->MeshPostAMRInitialization != nullptr) {
+    PostAMRInitialization = app_in->MeshPostAMRInitialization;
   }
   if (app_in->PreStepMeshUserWorkInLoop != nullptr) {
     PreStepUserWorkInLoop = app_in->PreStepMeshUserWorkInLoop;
@@ -857,28 +857,28 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
   if (init_problem) {
     int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
 
-    // There exists Mesh, MeshBlock, and Per-Package FinalInitializations.  If any one
+    // There exists Mesh, MeshBlock, and Per-Package PostAMRInitializations.  If any one
     // of them is invoked, we need to go through the call chain to set derived variables.
-    // Therefore we keep track via the final_init_invoked boolean
-    bool final_init_invoked = false;
+    // Therefore we keep track via the post_amr_init_invoked boolean
+    bool post_amr_init_invoked = false;
 
-    // Call Mesh or MeshBlockk FinalInitialization
+    // Call Mesh or MeshBlockk PostAMRInitialization
     PARTHENON_REQUIRE_THROWS(
-        !(FinalInitialization != nullptr &&
-          (nmb != 0 && block_list[0]->FinalInitialization != nullptr)),
-        "Mesh and MeshBlock FinalInitializations are defined. Please use only one.");
-    if (FinalInitialization != nullptr) {
+        !(PostAMRInitialization != nullptr &&
+          (nmb != 0 && block_list[0]->PostAMRInitialization != nullptr)),
+        "Mesh and MeshBlock PostAMRInitializations are defined. Please use only one.");
+    if (PostAMRInitialization != nullptr) {
       for (auto &partition : GetDefaultBlockPartitions()) {
         auto &md = mesh_data.Add("base", partition);
-        FinalInitialization(this, pin, md.get());
+        PostAMRInitialization(this, pin, md.get());
       }
-      final_init_invoked = true;
+      post_amr_init_invoked = true;
     } else {
       for (int i = 0; i < nmb; ++i) {
         auto &pmb = block_list[i];
-        if (pmb->FinalInitialization != nullptr) {
-          pmb->FinalInitialization(pmb.get(), pin);
-          final_init_invoked = true;
+        if (pmb->PostAMRInitialization != nullptr) {
+          pmb->PostAMRInitialization(pmb.get(), pin);
+          post_amr_init_invoked = true;
         }
       }
     }
@@ -886,43 +886,52 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     // Call per-package final initialization
     for (const auto &[name, pkg] : packages.AllPackages()) {
       PARTHENON_REQUIRE_THROWS(
-          !(pkg->FinalInitializationMesh != nullptr &&
-            (pkg->FinalInitializationBlock != nullptr)),
-          "Mesh and MeshBlock FinalInitializations are defined for package " + name +
+          !(pkg->PostAMRInitializationMesh != nullptr &&
+            (pkg->PostAMRInitializationBlock != nullptr)),
+          "Mesh and MeshBlock PostAMRInitializations are defined for package " + name +
               ". Please use only one.");
 
       // first on the mesh...
-      if (pkg->FinalInitializationMesh != nullptr) {
+      if (pkg->PostAMRInitializationMesh != nullptr) {
         for (auto &partition : GetDefaultBlockPartitions()) {
           auto &md = mesh_data.Add("base", partition);
-          pkg->FinalInitializationMesh(this, pin, md.get());
+          pkg->PostAMRInitializationMesh(this, pin, md.get());
         }
-        final_init_invoked = true;
+        post_amr_init_invoked = true;
       }
       // and then per block
-      if (pkg->FinalInitializationBlock != nullptr) {
+      if (pkg->PostAMRInitializationBlock != nullptr) {
         for (auto &pmb : block_list) {
-          pkg->FinalInitializationBlock(pmb.get(), pin);
+          pkg->PostAMRInitializationBlock(pmb.get(), pin);
         }
-        final_init_invoked = true;
+        post_amr_init_invoked = true;
       }
     }
 
-    if (final_init_invoked) {
+    if (post_amr_init_invoked) {
       PreCommFillDerived();
       BuildTagMapAndBoundaryBuffers();
       CommunicateBoundaries();
       FillDerived();
 
-      // Something we might have done in FinialInitialization might have updated a
-      // refinement criteria, or it might have promoted load imbalance (e.g., particles).
-      // Therefore one more pass...
       if (adaptive) {
+        // Something done in PostAMRInitialization might have promoted load imbalance
+        // (e.g., particles), therefore, call the load balancer.  Currently, AMR and load
+        // balancing are quite intertwined, so we manipulate lb_flag_, step_since_lb, and
+        // AmrTags to prevent AMR but permit load balancing. See discussion in PR1377.
+        lb_flag_ = true;
+        step_since_lb = std::numeric_limits<int>::max();
         for (auto &partition : GetDefaultBlockPartitions()) {
           auto &md = mesh_data.Add("base", partition);
-          Refinement::Tag(md.get());
+          for (int b = 0; b < md->NumBlocks(); b++) {
+            auto pmb = md->GetBlockData(b).get()->GetBlockPointer();
+            pmb->pmr->SetRefinement(AmrTag::same);
+          }
         }
         LoadBalancingAndAdaptiveMeshRefinement(pin, app_in);
+        lb_flag_ = false;
+        step_since_lb = 0;
+
         PreCommFillDerived();
         BuildTagMapAndBoundaryBuffers();
         CommunicateBoundaries();

@@ -184,7 +184,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   tr_pkg->EstimateTimestepMesh = EstimateTimestepMesh;
 
   // Assign package final initialization hook
-  tr_pkg->FinalInitializationBlock = SourceTracers;
+  tr_pkg->PostAMRInitializationBlock = SourceTracers;
 
   return tr_pkg;
 }

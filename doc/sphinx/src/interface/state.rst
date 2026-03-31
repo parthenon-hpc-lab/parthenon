@@ -130,10 +130,10 @@ several useful features and functions.
   ``PreCommFillDerived`` (and hence communications).  In practice, when
   additional granularity is required inbetween initialization and communication,
   ``PostInitialization`` may be the desired hook.  Finally we highlight
-  ``FinalInitialization``, yet another function hook that enables a user to provide 
+  ``PostAMRInitialization``, yet another function hook that enables a user to provide 
   any last initialization changes after the AMR mesh has converged in initialization. Both
-  mesh level and block-level versions of ``FinalInitialization`` are provided (i.e.,
-  ``FinalInitializationMesh`` and ``FinalInitializationBlock``, respectively).
+  mesh level and block-level versions of ``PostAMRInitialization`` are provided (i.e.,
+  ``PostAMRInitializationMesh`` and ``PostAMRInitializationBlock``, respectively).
 
 
 The reasoning for providing ``FillDerived*`` and ``EstimateTimestep*``

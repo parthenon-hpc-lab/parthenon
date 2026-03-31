@@ -483,7 +483,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // Optionally defined in the prob file or provided by ApplicationInput
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> PostInitialization = nullptr;
-  std::function<void(MeshBlock *, ParameterInput *)> FinalInitialization = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> PostAMRInitialization = nullptr;
   std::function<pMeshBlockApplicationData_t(MeshBlock *, ParameterInput *)>
       InitApplicationMeshBlockData = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> InitMeshBlockUserData = nullptr;
