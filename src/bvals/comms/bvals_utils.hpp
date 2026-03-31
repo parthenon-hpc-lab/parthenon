@@ -162,13 +162,16 @@ inline auto CheckSendBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
   using namespace loops::shorthands;
   BvarsSubCache_t &cache = md->GetBvarsCache().GetSubCache(BOUND_TYPE, SENDER);
 
-  bool rebuild = false;
-  bool other_communication_unfinished = false;
-  int nbound = 0;
+  bool rebuild{false};
+  bool other_communication_unfinished{false};
+  int nbound{0};
+  bool any_sparse{false};
   ForEachBoundary<BOUND_TYPE>(md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb,
                                       const sp_cv_t v) {
     const std::size_t ibuf = cache.idx_vec[nbound];
     auto &buf = *(cache.buf_vec[ibuf]);
+    
+    any_sparse = any_sparse || v->IsSparse();
 
     if (!buf.IsAvailableForWrite()) other_communication_unfinished = true;
 
@@ -186,7 +189,7 @@ inline auto CheckSendBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
     }
     ++nbound;
   });
-  return std::make_tuple(rebuild, nbound, other_communication_unfinished);
+  return std::make_tuple(rebuild, nbound, other_communication_unfinished, any_sparse);
 }
 
 template <BoundaryType BOUND_TYPE, bool SENDER>

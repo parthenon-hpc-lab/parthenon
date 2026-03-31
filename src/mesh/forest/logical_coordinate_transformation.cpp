@@ -114,6 +114,7 @@ ComposeTransformations(const LogicalCoordinateTransformation &first,
   for (int dir : {0, 1, 2})
     out.dir_connection_inverse[out.dir_connection[dir]] = dir;
   out.use_offset = first.use_offset && second.use_offset;
+  out.is_identity = first.is_identity && second.is_identity;
   return out;
 }
 
