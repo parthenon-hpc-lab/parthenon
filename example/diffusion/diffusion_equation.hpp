@@ -200,49 +200,47 @@ class DiffusionEquation {
 
     using TE = parthenon::TopologicalElement;
 
-    int nblocks = md->NumBlocks();
-    std::vector<bool> include_block(nblocks, true);
-
     auto desc = parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
-    auto pack = desc.GetPack(md.get(), include_block);
+    auto pack = desc.GetPack(md.get());
     auto desc_mat = parthenon::MakePackDescriptor<D_t>(md_mat.get(), {});
-    auto pack_mat = desc_mat.GetPack(md_mat.get(), include_block);
-    parthenon::par_for(
-        "CaclulateFluxes", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          const auto &coords = pack.GetCoordinates(b);
-          Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
-          pack.flux(b, X1DIR, var_t(), k, j, i) =
-              pack_mat(b, TE::F1, D_t(), k, j, i) / dx1 *
-              (pack(b, var_t(), k, j, i - 1) - pack(b, var_t(), k, j, i));
-          if (i == ib.e)
-            pack.flux(b, X1DIR, var_t(), k, j, i + 1) =
-                pack_mat(b, TE::F1, D_t(), k, j, i + 1) / dx1 *
-                (pack(b, var_t(), k, j, i) - pack(b, var_t(), k, j, i + 1));
+    auto pack_mat = desc_mat.GetPack(md_mat.get());
 
-          if (ndim > 1) {
-            Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
-            pack.flux(b, X2DIR, var_t(), k, j, i) =
-                pack_mat(b, TE::F2, D_t(), k, j, i) *
-                (pack(b, var_t(), k, j - 1, i) - pack(b, var_t(), k, j, i)) / dx2;
-            if (j == jb.e)
-              pack.flux(b, X2DIR, var_t(), k, j + 1, i) =
-                  pack_mat(b, TE::F2, D_t(), k, j + 1, i) *
-                  (pack(b, var_t(), k, j, i) - pack(b, var_t(), k, j + 1, i)) / dx2;
-          }
+    for (int dim = 0; dim < ndim; ++dim) {
+      const auto te = dim == 0 ? TE::F1 : (dim == 1 ? TE::F2 : TE::F3);
+      const int ioff = dim == 0;
+      const int joff = dim == 1;
+      const int koff = dim == 2;
+      const int dir = dim + 1;
+      // The diffusion coefficient arrays are cell mem aligned
+      const auto idxer =
+          RawMemoryIndexer::IJ(IndexDomain::interior, 0, md.get(), te, TE::CC);
+      const std::size_t scratch_level = 1;
+      auto scratch_size_in_bytes =
+          0 * parthenon::ScratchPad1D<Real>::shmem_size(idxer.GetMaxNinnerRaw());
+      parthenon::par_for_outer(
+          DEFAULT_OUTER_LOOP_PATTERN, "CalculateFluxes", DevExecSpace(),
+          scratch_size_in_bytes, scratch_level, 0, pack.GetNBlocks() - 1, 0,
+          idxer.GetNouter() - 1,
+          KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int idx_out) {
+            const auto [ks, js, is] = idxer.GetStartIndices(idx_out);
+            const auto ninner = idxer.GetNinnerRaw(idx_out);
+            const auto raw_idx_start = idxer.GetStartingRawFlatIdx(idx_out);
+            
+            const auto &coords = pack.GetCoordinates(b);
+            const Real inv_dx = ioff / coords.template Dxc<X1DIR>(ks, js, is)
+                              + joff / coords.template Dxc<X2DIR>(ks, js, is)
+                              + koff / coords.template Dxc<X3DIR>(ks, js, is);
 
-          if (ndim > 2) {
-            Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
-            pack.flux(b, X3DIR, var_t(), k, j, i) =
-                pack_mat(b, TE::F3, D_t(), k, j, i) *
-                (pack(b, var_t(), k - 1, j, i) - pack(b, var_t(), k, j, i)) / dx3;
-            if (k == kb.e)
-              pack.flux(b, X2DIR, var_t(), k + 1, j, i) =
-                  pack_mat(b, TE::F3, D_t(), k + 1, j, i) *
-                  (pack(b, var_t(), k, j, i) - pack(b, var_t(), k + 1, j, i)) / dx3;
-          }
-        });
-
+            Real *flx = &(pack.flux(b, dir, var_t(), ks, js, is));
+            const Real *const D = &pack_mat(b, te, D_t(), ks, js, is);
+            const Real *const vup = &pack(b, var_t(), ks, js, is);
+            const Real *const vlo = &pack(b, var_t(), ks - koff, js - joff, is - ioff);
+            parthenon::par_for_inner(
+                DEFAULT_INNER_LOOP_PATTERN, member, 0, ninner - 1, [&](const int idx) {
+                  flx[idx] = - D[idx] * (vup[idx] - vlo[idx]) * inv_dx;
+                });
+          });
+    }
 
     return TaskStatus::complete;
   }
