@@ -122,8 +122,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("diffusion_equation", eq, parthenon::Params::Mutability::Mutable);
 
   std::shared_ptr<parthenon::solvers::SolverBase> psolver;
-  using prolongator_t = parthenon::solvers::ProlongationBlockInteriorDefault;
-  using preconditioner_t = parthenon::solvers::MGSolver<PoissEq, prolongator_t>;
+  
+  using prolongator_t = parthenon::solvers::ProlongationBlockInteriorZeroDirichlet;
+  using restrictor_t = parthenon::solvers::RestrictionCombined;
+  
+  using preconditioner_t = parthenon::solvers::MGSolver<PoissEq, prolongator_t, restrictor_t>;
+  
   if (solver == "MG") {
     psolver = std::make_shared<parthenon::solvers::MGSolver<PoissEq, prolongator_t>>(
         "base", "u", "rhs", pin, "diffusion/solver_params", PoissEq(pin, "diffusion"));
@@ -151,7 +155,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   std::vector<MetadataFlag> flags{Metadata::Cell,        Metadata::Independent,
                                   Metadata::FillGhost,   Metadata::WithFluxes,
-                                  Metadata::GMGRestrict, Metadata::GMGProlongate};
+                                  Metadata::GMGRestrict, Metadata::GMGProlongate,
+                                  Metadata::CommunicateOne};
   auto mflux_comm = Metadata(flags);
   if (prolong == "Linear") {
     mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();

@@ -322,6 +322,62 @@ class DiffusionEquation {
         });
     return TaskStatus::complete;
   }
+
+  static parthenon::TaskStatus SetBoundary(std::shared_ptr<parthenon::MeshData<Real>> &md,
+                                           bool coarse) {
+    using namespace parthenon;
+    const int ndim = md->GetMeshPointer()->ndim;
+
+    std::set<PDOpt> opts{};
+    if (coarse) opts.emplace(PDOpt::Coarse);
+    auto desc = parthenon::MakePackDescriptor<var_t>(md.get(), {}, opts);
+    auto pack = desc.GetPack(md.get(), GetBlockSelector::OnPhysicalBoundary());
+    if (pack.GetNBlocks() > 0) {
+      CellLevel cl = coarse ? CellLevel::coarse : CellLevel::same;
+      IndexRange ib = md->GetBoundsI(cl, IndexDomain::interior);
+      IndexRange jb = md->GetBoundsJ(cl, IndexDomain::interior);
+      IndexRange kb = md->GetBoundsK(cl, IndexDomain::interior);
+
+      const int scratch_size_in_bytes = 0;
+      const std::size_t scratch_level = 1;
+      parthenon::par_for_outer(
+          DEFAULT_OUTER_LOOP_PATTERN, "SetBoundaries", DevExecSpace(),
+          scratch_size_in_bytes, scratch_level, 0, pack.GetNBlocks() - 1,
+          -(ndim > 2), (ndim > 2), -(ndim > 1), (ndim > 1), -1, 1,
+          KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, int ok,
+                        int oj, int oi) {
+            const int tot_offset = std::abs(ok) + std::abs(oj) + std::abs(oi);
+
+            auto get_lower = [](int offset, auto bound) {
+              if (offset != 0) {
+                return offset > 0 ? bound.e : bound.s;
+              } else {
+                return bound.s;
+              }
+            };
+            auto get_upper = [](int offset, auto bound) {
+              if (offset != 0) {
+                return offset > 0 ? bound.e : bound.s;
+              } else {
+                return bound.e;
+              }
+            };
+
+            if (tot_offset == 1 && pack.IsPhysicalBoundary(b, ok, oj, oi)) {
+              parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, member,
+                                       get_lower(ok, kb), get_upper(ok, kb),
+                                       get_lower(oj, jb), get_upper(oj, jb),
+                                       get_lower(oi, ib), get_upper(oi, ib),
+                                       [&](const int k, const int j, const int i) {
+                                         pack(b, var_t(), k + ok, j + oj, i + oi) =
+                                             -pack(b, var_t(), k, j, i);
+                                       });
+            }
+          });
+    }
+    return TaskStatus::complete;
+  }
+
 };
 
 } // namespace diffusion_package
