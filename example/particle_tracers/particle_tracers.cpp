@@ -162,7 +162,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata real_swarmvalue_metadata({Metadata::Real});
 
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
-  pkg->FinalInitializationBlock = SourceTracers;
+  pkg->PostAMRInitializationBlock = SourceTracers;
   return pkg;
 }
 

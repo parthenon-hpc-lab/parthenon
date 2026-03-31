@@ -43,7 +43,7 @@ class ParticleDriver : public EvolutionDriver {
 };
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);
-void FinalInitialization(MeshBlock *pmb, ParameterInput *pin);
+void PostAMRInitialization(MeshBlock *pmb, ParameterInput *pin);
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
 
 namespace Particles {

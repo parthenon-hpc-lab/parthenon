@@ -227,7 +227,7 @@ class Mesh {
       nullptr;
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostInitialization =
       nullptr;
-  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> FinalInitialization =
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostAMRInitialization =
       nullptr;
   static void UserWorkAfterLoopDefault(Mesh *mesh, ParameterInput *pin,
                                        SimTime &tm); // called in main loop

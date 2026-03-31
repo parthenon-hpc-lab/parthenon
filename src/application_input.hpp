@@ -50,7 +50,7 @@ class ApplicationInput {
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> MeshPostInitialization =
       nullptr;
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)>
-      MeshFinalInitialization = nullptr;
+      MeshPostAMRInitialization = nullptr;
 
   std::function<void(Mesh *, ParameterInput *, SimTime &)> PreStepMeshUserWorkInLoop =
       nullptr;
@@ -76,7 +76,7 @@ class ApplicationInput {
   std::function<void(MeshBlock *, ParameterInput *)> InitMeshBlockUserData = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> PostInitialization = nullptr;
-  std::function<void(MeshBlock *, ParameterInput *)> FinalInitialization = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> PostAMRInitialization = nullptr;
   std::function<void(MeshBlock *, ParameterInput *, const SimTime &)>
       MeshBlockUserWorkBeforeOutput = nullptr;
 
