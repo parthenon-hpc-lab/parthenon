@@ -280,12 +280,15 @@ parthenon::TaskStatus SetDiffusionCoefficient(std::shared_ptr<MeshData<Real>> md
           const Real u = 0.5 * (pack(b, TE::CC, diffusion_package::u(), k - offset_x3,
                                      j - offset_x2, i - offset_x1) +
                                 pack(b, TE::CC, diffusion_package::u(), k, j, i));
-          
+
           const auto &coords = pack.GetCoordinates(b);
-          const Real x1 = offset_x1 ? coords.Xc<1>(i, j, k) : coords.X<1, TE::F1>(k, j, i);
-          const Real x2 = offset_x2 ? coords.Xc<2>(i, j, k) : coords.X<2, TE::F2>(k, j, i);
-          const Real x3 = offset_x3 ? coords.Xc<3>(i, j, k) : coords.X<3, TE::F3>(k, j, i);
-          
+          const Real x1 =
+              offset_x1 ? coords.Xc<1>(i, j, k) : coords.X<1, TE::F1>(k, j, i);
+          const Real x2 =
+              offset_x2 ? coords.Xc<2>(i, j, k) : coords.X<2, TE::F2>(k, j, i);
+          const Real x3 =
+              offset_x3 ? coords.Xc<3>(i, j, k) : coords.X<3, TE::F3>(k, j, i);
+
           auto profile_D = [](Real x, Real y, Real z) {
             const Real xcrit = 0.15 * sin(2.0 * M_PI * y);
             if (x >= xcrit) return 1.e5;
