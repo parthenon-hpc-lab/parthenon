@@ -21,28 +21,29 @@ problem_id = diffusion
 <parthenon/mesh>
 refinement = static
 multigrid = true 
+base_block_coarsenings = 2
 
 nx1 = 64
-x1min = -1.0
-x1max = 1.0
+x1min = -0.5
+x1max = 0.5
 ix1_bc = outflow 
 ox1_bc = outflow
 
 nx2 = 64
-x2min = -1.0
-x2max = 1.0
-ix2_bc = outflow
-ox2_bc = outflow
+x2min = -0.5
+x2max = 0.5
+ix2_bc = periodic
+ox2_bc = periodic
 
 nx3 = 1
-x3min = 0.0
-x3max = 1.0
+x3min = -0.5
+x3max = 0.5
 ix3_bc = periodic
 ox3_bc = periodic
 
 <parthenon/meshblock>
-nx1 = 32
-nx2 = 32
+nx1 = 64
+nx2 = 64
 nx3 = 1
 
 <parthenon/time>
@@ -53,24 +54,27 @@ integrator = rk1
 
 <parthenon/output0>
 file_type = hdf5
-dt = 0.0001
+dt = 0.1
 variables = diffusion.u
 ghost_zones = false
 
 <parthenon/static_refinement0> 
-x1min = -0.15
-x1max = +0.15
-x2min = -0.15
-x2max = +0.15
+x1min = -0.075
+x1max = +0.075
+x2min = -0.075
+x2max = +0.075
+x3min = -0.075
+x3max = +0.075
 level = 3
 
 <diffusion>
-#solver = BiCGSTAB # or MG
-solver = MG
+solver = BiCGSTAB # or MG
 flux_correct = true
 diagonal_alpha = 1.0
-cfl = 10.0
+cfl = 20.0
 set_flux_boundary = true
+constant_coefficient = false
+boundary_prolongation = Constant
 
 x0 = 0.0
 y0 = 0.0
@@ -79,8 +83,11 @@ t0 = 0.001
 
 <diffusion/solver_params>
 precondition = true
-max_iterations = 20
-residual_tolerance = 1.e-9
-print_per_step = true
-smoother = SRJ2
+max_iterations = 1000
+absolute_residual_tolerance = 1.e-13
+print_per_step = false
+presmoother = SRJ1
+postsmoother = SRJ2
 do_FAS = true
+block_interior_prolongation = Linear
+volume_weight = true

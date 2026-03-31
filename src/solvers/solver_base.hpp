@@ -99,8 +99,8 @@ class SolverBase {
   std::string container_rhs;
 
   Real initial_residual{-1.0};
-  Real final_residual;
-  int final_iteration;
+  Real final_residual{-1.0};
+  int final_iteration{-1};
 };
 
 } // namespace solvers
