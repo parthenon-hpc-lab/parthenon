@@ -192,8 +192,6 @@ Real EstimateTimestep(MeshData<Real> *md) {
 
   const int ndim = md->GetMeshPointer()->ndim;
 
-  constexpr static Real ONE_FOURTH = 0.25;
-
   Real min_dt;
   parthenon::par_reduce(
       parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,

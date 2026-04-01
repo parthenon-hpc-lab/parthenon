@@ -80,7 +80,8 @@ TaskCollection DiffusionDriver::MakeTaskCollection() {
     auto setup = psolver->AddSetupTasks(tl, set_rhs, i, pmesh);
     auto solve = psolver->AddTasks(tl, setup, i, pmesh);
 
-    auto new_dt = tl.AddTask(solve, parthenon::Update::EstimateTimestep<MeshData<Real>>, md.get());
+    // Update the timestep
+    tl.AddTask(solve, parthenon::Update::EstimateTimestep<MeshData<Real>>, md.get());
   }
   return tc;
 }
