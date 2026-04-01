@@ -76,25 +76,35 @@ struct any_diffusion : public parthenon::variable_names::base_t<true> {
 };
 
 template <CoordinateDirection DIR, BCSide SIDE>
-auto GetBC() {
-  return [](std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) -> void {
+auto GetBC(Real val = 0.0) {
+  return [val](std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) -> void {
     using namespace parthenon;
     using namespace parthenon::BoundaryFunction;
-    GenericBC<DIR, SIDE, BCType::FixedFace, any_diffusion>(rc, coarse, 0.0);
+    GenericBC<DIR, SIDE, BCType::FixedFace, any_diffusion>(rc, coarse, val);
   };
 }
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("diffusion_package");
 
+  auto u_bounds =
+      pin->GetOrAddVector<Real>("diffusion", "boundary_u", {0.0}, "Boundary us.");
+  if (u_bounds.size() == 1) u_bounds = std::vector<Real>(6, u_bounds[0]);
+
   // Set boundary conditions for Diffusion variables
   using BF = parthenon::BoundaryFace;
-  pkg->UserBoundaryFunctions[BF::inner_x1].push_back(GetBC<X1DIR, BCSide::Inner>());
-  pkg->UserBoundaryFunctions[BF::inner_x2].push_back(GetBC<X2DIR, BCSide::Inner>());
-  pkg->UserBoundaryFunctions[BF::inner_x3].push_back(GetBC<X3DIR, BCSide::Inner>());
-  pkg->UserBoundaryFunctions[BF::outer_x1].push_back(GetBC<X1DIR, BCSide::Outer>());
-  pkg->UserBoundaryFunctions[BF::outer_x2].push_back(GetBC<X2DIR, BCSide::Outer>());
-  pkg->UserBoundaryFunctions[BF::outer_x3].push_back(GetBC<X3DIR, BCSide::Outer>());
+  pkg->UserBoundaryFunctions[BF::inner_x1].push_back(
+      GetBC<X1DIR, BCSide::Inner>(u_bounds[0]));
+  pkg->UserBoundaryFunctions[BF::inner_x2].push_back(
+      GetBC<X2DIR, BCSide::Inner>(u_bounds[2]));
+  pkg->UserBoundaryFunctions[BF::inner_x3].push_back(
+      GetBC<X3DIR, BCSide::Inner>(u_bounds[4]));
+  pkg->UserBoundaryFunctions[BF::outer_x1].push_back(
+      GetBC<X1DIR, BCSide::Outer>(u_bounds[1]));
+  pkg->UserBoundaryFunctions[BF::outer_x2].push_back(
+      GetBC<X2DIR, BCSide::Outer>(u_bounds[3]));
+  pkg->UserBoundaryFunctions[BF::outer_x3].push_back(
+      GetBC<X3DIR, BCSide::Outer>(u_bounds[5]));
 
   // probably should stay 1.0
   Real diagonal_alpha = pin->GetOrAddReal("diffusion", "diagonal_alpha", 1.0);
@@ -118,8 +128,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("diffusion_coefficient", DiffusionCoefficient(pin));
 
   using PoissEq = diffusion_package::DiffusionEquation<u, D>;
-  PoissEq eq(pin, "diffusion");
-  pkg->AddParam<>("diffusion_equation", eq, parthenon::Params::Mutability::Mutable);
+  pkg->AddParam<>("diffusion_equation", std::make_shared<PoissEq>(pin, "diffusion"));
 
   std::shared_ptr<parthenon::solvers::SolverBase> psolver;
 
@@ -154,9 +163,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // for the standard Diffusion equation.
   pkg->AddField<D>(mD);
 
-  std::vector<MetadataFlag> flags{Metadata::Cell,          Metadata::Independent,
-                                  Metadata::FillGhost,     Metadata::WithFluxes,
-                                  Metadata::GMGRestrict,   Metadata::GMGProlongate};
+  std::vector<MetadataFlag> flags{Metadata::Cell,        Metadata::Independent,
+                                  Metadata::FillGhost,   Metadata::WithFluxes,
+                                  Metadata::GMGRestrict, Metadata::GMGProlongate};
   auto mflux_comm = Metadata(flags);
   if (prolong == "Linear") {
     mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
@@ -201,17 +210,16 @@ Real EstimateTimestep(MeshData<Real> *md) {
         const Real dx1 = coords.Dxc<X1DIR>(k, j, i);
         const Real dx2 = coords.Dxc<X2DIR>(k, j, i);
         const Real dx3 = coords.Dxc<X3DIR>(k, j, i);
-        
+
         const Real x1 = coords.Xc<X1DIR>(k, j, i);
         const Real x2 = coords.Xc<X2DIR>(k, j, i);
         const Real x3 = coords.Xc<X3DIR>(k, j, i);
-        
+
         const Real D = profile_D(x1, x2, x3);
         Real dtc = dx1 * dx1 / D;
         if (ndim > 1) dtc = std::min(dtc, dx2 * dx2 / D);
         if (ndim > 2) dtc = std::min(dtc, dx3 * dx3 / D);
         lmin_dt = std::min(lmin_dt, dtc);
-
       },
       Kokkos::Min<Real>(min_dt));
   return cfl * min_dt;

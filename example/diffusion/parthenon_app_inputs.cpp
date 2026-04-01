@@ -34,6 +34,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
   const int ndim = md->GetMeshPointer()->ndim;
 
+  Real scale = pin->GetOrAddReal("diffusion", "scale", 1.0);
   Real x0 = pin->GetOrAddReal("diffusion", "x0", 0.0);
   Real y0 = pin->GetOrAddReal("diffusion", "y0", 0.0);
   Real z0 = pin->GetOrAddReal("diffusion", "z0", 0.0);
@@ -42,8 +43,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   const bool constant_coeff =
       pin->GetOrAddBoolean("diffusion", "constant_coefficient", true);
 
-  auto desc =
-      parthenon::MakePackDescriptor<diffusion_package::u>(md);
+  auto desc = parthenon::MakePackDescriptor<diffusion_package::u>(md);
   auto pack = desc.GetPack(md);
 
   using TE = parthenon::TopologicalElement;
@@ -51,7 +51,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   auto ib = cellbounds.GetBoundsI(IndexDomain::entire);
   auto jb = cellbounds.GetBoundsJ(IndexDomain::entire);
   auto kb = cellbounds.GetBoundsK(IndexDomain::entire);
-  
+
   pmb->par_for(
       "Diffusion::ProblemGenerator", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
       ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
@@ -76,7 +76,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
           return std::exp(exponent);
         };
         const Real val = profile(x1, x2, x3);
-        pack(b, diffusion_package::u(), k, j, i) = val;
+        pack(b, diffusion_package::u(), k, j, i) = scale * val;
       });
 }
 
