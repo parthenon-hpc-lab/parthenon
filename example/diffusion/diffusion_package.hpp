@@ -35,6 +35,30 @@ using namespace parthenon::package::prelude;
 VARIABLE(diffusion, D);
 VARIABLE(diffusion, u);
 
+struct DiffusionCoefficient {
+  Real Dright{1.e8};
+  Real Dleft{1.e3};
+  Real amplitude{0.15};
+  Real wavelength{1.0};
+  DiffusionCoefficient(parthenon::ParameterInput *pin) {
+    const bool constant_coeff =
+      pin->GetOrAddBoolean("diffusion", "constant_coefficient", true);
+    Dleft = pin->GetOrAddReal("diffusion", "Dleft", 1.e3, "Value of diffusion coefficient to the left."); 
+    Dright = pin->GetOrAddReal("diffusion", "Dright", 1.e8, "Value of diffusion coefficient to the right.");
+    if (constant_coeff) {
+      Dleft = 1.0;
+      Dright = 1.0;
+    } 
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  Real operator()(Real x, Real y, Real z) const {
+    const Real xcrit = 0.15 * sin(2.0 * M_PI * y / wavelength);
+    if (x >= xcrit) return Dright;
+    return Dleft;
+  }
+};
+
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 TaskStatus SetRHS(std::shared_ptr<MeshData<Real>> md,
                   std::shared_ptr<MeshData<Real>> md_rhs);

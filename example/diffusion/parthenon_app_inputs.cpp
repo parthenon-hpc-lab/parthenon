@@ -43,7 +43,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
       pin->GetOrAddBoolean("diffusion", "constant_coefficient", true);
 
   auto desc =
-      parthenon::MakePackDescriptor<diffusion_package::u, diffusion_package::D>(md);
+      parthenon::MakePackDescriptor<diffusion_package::u>(md);
   auto pack = desc.GetPack(md);
 
   using TE = parthenon::TopologicalElement;
@@ -51,6 +51,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   auto ib = cellbounds.GetBoundsI(IndexDomain::entire);
   auto jb = cellbounds.GetBoundsJ(IndexDomain::entire);
   auto kb = cellbounds.GetBoundsK(IndexDomain::entire);
+  
   pmb->par_for(
       "Diffusion::ProblemGenerator", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
       ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
@@ -76,22 +77,6 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
         };
         const Real val = profile(x1, x2, x3);
         pack(b, diffusion_package::u(), k, j, i) = val;
-
-        auto profile_D = [](Real x, Real y, Real z) {
-          const Real xcrit = 0.15 * sin(2.0 * M_PI * y);
-          if (x >= xcrit) return 1.e5;
-          return 1.0;
-        };
-
-        if (constant_coeff) {
-          pack(b, TE::F1, diffusion_package::D(), k, j, i) = 1.0 * dt;
-          pack(b, TE::F2, diffusion_package::D(), k, j, i) = 1.0 * dt;
-          pack(b, TE::F3, diffusion_package::D(), k, j, i) = 1.0 * dt;
-        } else {
-          pack(b, TE::F1, diffusion_package::D(), k, j, i) = profile_D(x1f, x2, x3) * dt;
-          pack(b, TE::F2, diffusion_package::D(), k, j, i) = profile_D(x1, x2f, x3) * dt;
-          pack(b, TE::F3, diffusion_package::D(), k, j, i) = profile_D(x1, x2, x3f) * dt;
-        }
       });
 }
 

@@ -102,8 +102,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   Real cfl = pin->GetOrAddReal("diffusion", "cfl", 1.0);
   pkg->AddParam<>("cfl", cfl);
-  pkg->AddParam<>("dt", 1.0,
-                  parthenon::Params::Mutability::Mutable); // hold timestep for controls
 
   Real t0 = pin->GetOrAddReal("diffusion", "t0", 0.001);
   pkg->AddParam<>("t0", t0);
@@ -116,6 +114,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   std::string prolong =
       pin->GetOrAddString("diffusion", "boundary_prolongation", "Linear");
+
+  pkg->AddParam<>("diffusion_coefficient", DiffusionCoefficient(pin));
 
   using PoissEq = diffusion_package::DiffusionEquation<u, D>;
   PoissEq eq(pin, "diffusion");
@@ -181,7 +181,7 @@ Real EstimateTimestep(MeshData<Real> *md) {
   std::shared_ptr<StateDescriptor> pkg =
       md->GetMeshPointer()->packages.Get("diffusion_package");
   const auto &cfl = pkg->Param<Real>("cfl");
-  const auto &old_dt = pkg->Param<Real>("dt");
+  const auto profile_D = pkg->Param<DiffusionCoefficient>("diffusion_coefficient");
 
   auto desc = parthenon::MakePackDescriptor<diffusion_package::D>(md);
   auto pack = desc.GetPack(md);
@@ -203,30 +203,20 @@ Real EstimateTimestep(MeshData<Real> *md) {
         const Real dx1 = coords.Dxc<X1DIR>(k, j, i);
         const Real dx2 = coords.Dxc<X2DIR>(k, j, i);
         const Real dx3 = coords.Dxc<X3DIR>(k, j, i);
+        
+        const Real x1 = coords.Xc<X1DIR>(k, j, i);
+        const Real x2 = coords.Xc<X2DIR>(k, j, i);
+        const Real x3 = coords.Xc<X3DIR>(k, j, i);
+        
+        const Real D = profile_D(x1, x2, x3);
+        Real dtc = dx1 * dx1 / D;
+        if (ndim > 1) dtc = std::min(dtc, dx2 * dx2 / D);
+        if (ndim > 2) dtc = std::min(dtc, dx3 * dx3 / D);
+        lmin_dt = std::min(lmin_dt, dtc);
 
-        // average face coefficients and divide by 2
-        const Real d1 = (pack(b, TE::F1, diffusion_package::D(), k, j, i + 1) +
-                         pack(b, TE::F1, diffusion_package::D(), k, j, i)) *
-                        ONE_FOURTH;
-        lmin_dt = std::min(lmin_dt, dx1 * dx1 / d1);
-        if (ndim > 1) {
-          const Real d2 = (pack(b, TE::F2, diffusion_package::D(), k, j + 1, i) +
-                           pack(b, TE::F2, diffusion_package::D(), k, j, i)) *
-                          ONE_FOURTH;
-          lmin_dt = std::min(lmin_dt, dx2 * dx2 / d2);
-        }
-        if (ndim > 2) {
-          const Real d3 = (pack(b, TE::F3, diffusion_package::D(), k + 1, j, i) +
-                           pack(b, TE::F3, diffusion_package::D(), k, j, i)) *
-                          ONE_FOURTH;
-          lmin_dt = std::min(lmin_dt, dx3 * dx3 / d3);
-        }
       },
       Kokkos::Min<Real>(min_dt));
-
-  const Real new_dt = cfl * min_dt * old_dt; // need to scale by dt as D := D * dt
-  pkg->UpdateParam<Real>("dt", new_dt);
-  return new_dt;
+  return cfl * min_dt;
 } // EstimateTimestep
 
 parthenon::TaskStatus SetRHS(std::shared_ptr<MeshData<Real>> md,
@@ -259,7 +249,7 @@ parthenon::TaskStatus SetDiffusionCoefficient(std::shared_ptr<MeshData<Real>> md
       parthenon::MakePackDescriptor<diffusion_package::u, diffusion_package::D>(md.get());
   auto pack = desc.GetPack(md.get());
 
-  const bool constant_coeff = pkg->Param<bool>("constant_coefficient");
+  const auto profile_D = pkg->Param<DiffusionCoefficient>("diffusion_coefficient");
 
   for (auto te : {TE::F1, TE::F2, TE::F3}) {
     IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
@@ -284,20 +274,7 @@ parthenon::TaskStatus SetDiffusionCoefficient(std::shared_ptr<MeshData<Real>> md
               offset_x2 ? coords.Xc<2>(k, j, i) : coords.X<2, TE::F2>(k, j, i);
           const Real x3 =
               offset_x3 ? coords.Xc<3>(k, j, i) : coords.X<3, TE::F3>(k, j, i);
-
-          auto profile_D = [](Real x, Real y, Real z) {
-            const Real xcrit = 0.15 * sin(2.0 * M_PI * y);
-            if (x >= xcrit) return 1.e8;
-            return 1.0e3;
-          };
-
-          if (constant_coeff) {
-            pack(b, te, diffusion_package::D(), k, j, i) = 1.0 * dt;
-          } else {
-            pack(b, te, diffusion_package::D(), k, j, i) =
-                10.0 * std::sqrt(std::fabs(u)) * dt;
-            pack(b, te, diffusion_package::D(), k, j, i) = dt * profile_D(x1, x2, x3);
-          }
+          pack(b, te, diffusion_package::D(), k, j, i) = dt * profile_D(x1, x2, x3);
         });
   }
   return TaskStatus::complete;
