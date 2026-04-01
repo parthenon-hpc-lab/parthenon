@@ -87,7 +87,7 @@ FluxMultiplyMatrix(std::shared_ptr<parthenon::MeshData<Real>> &md,
               const Real dfx = (flx1_up[idx] - flx1_lo[idx]) * invdx1;
               const Real dfy = (flx2_up[idx] - flx2_lo[idx]) * invdx2;
               const Real dfz = (flx3_up[idx] - flx3_lo[idx]) * invdx3;
-              out[idx] = -alpha * in[idx] - dfx - dfy - dfz;
+              out[idx] = alpha * in[idx] + dfx + dfy + dfz;
             });
       });
   return TaskStatus::complete;
@@ -168,19 +168,19 @@ class DiffusionEquation {
           const auto &coords = pack_mat.GetCoordinates(b);
           // Build the unigrid diagonal of the matrix
           Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
-          Real diag_elem = -(pack_mat(b, TE::F1, D_t(), k, j, i) +
-                             pack_mat(b, TE::F1, D_t(), k, j, i + 1)) /
-                               (dx1 * dx1) -
+          Real diag_elem = (pack_mat(b, TE::F1, D_t(), k, j, i) +
+                            pack_mat(b, TE::F1, D_t(), k, j, i + 1)) /
+                               (dx1 * dx1) +
                            alpha;
           if (ndim > 1) {
             Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
-            diag_elem -= (pack_mat(b, TE::F2, D_t(), k, j, i) +
+            diag_elem += (pack_mat(b, TE::F2, D_t(), k, j, i) +
                           pack_mat(b, TE::F2, D_t(), k, j + 1, i)) /
                          (dx2 * dx2);
           }
           if (ndim > 2) {
             Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
-            diag_elem -= (pack_mat(b, TE::F3, D_t(), k, j, i) +
+            diag_elem += (pack_mat(b, TE::F3, D_t(), k, j, i) +
                           pack_mat(b, TE::F3, D_t(), k + 1, j, i)) /
                          (dx3 * dx3);
           }

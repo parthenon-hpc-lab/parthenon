@@ -235,10 +235,7 @@ parthenon::TaskStatus SetRHS(std::shared_ptr<MeshData<Real>> md,
   const auto alpha = pkg->Param<Real>("diagonal_alpha");
   auto desc = parthenon::MakePackDescriptor<diffusion_package::u>(md.get());
   auto pack = desc.GetPack(md.get());
-
-  // holds rhs
-  auto desc_rhs = parthenon::MakePackDescriptor<diffusion_package::u>(md_rhs.get());
-  auto pack_rhs = desc_rhs.GetPack(md_rhs.get());
+  auto pack_rhs = desc.GetPack(md_rhs.get());
 
   IndexRange ib = md->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
@@ -248,7 +245,7 @@ parthenon::TaskStatus SetRHS(std::shared_ptr<MeshData<Real>> md,
       "SetRHS", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         pack_rhs(b, diffusion_package::u(), k, j, i) = // rhs
-            -alpha * pack(b, diffusion_package::u(), k, j, i);
+            alpha * pack(b, diffusion_package::u(), k, j, i);
       });
   return TaskStatus::complete;
 } // SetRHS
