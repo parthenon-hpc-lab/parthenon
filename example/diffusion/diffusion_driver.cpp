@@ -69,8 +69,8 @@ TaskCollection DiffusionDriver::MakeTaskCollection() {
     // SetDiffusionCoefficient
     auto set_d = tl.AddTask(none, TF(SetDiffusionCoefficient), md, tm.dt);
 
-    auto &md_u = pmesh->mesh_data.Add("u", md, {u::name()});
-    auto &md_rhs = pmesh->mesh_data.Add("rhs", md, {u::name()});
+    auto &md_u = psolver->AddSolutionMeshData(pmesh, md, /*shallow=*/true);
+    auto &md_rhs = psolver->AddRHSMeshData(pmesh, md);
 
     // SetRHS
     auto set_rhs = tl.AddTask(set_d, TF(SetRHS), md, md_rhs);
@@ -79,11 +79,8 @@ TaskCollection DiffusionDriver::MakeTaskCollection() {
     // auto zero_u = tl.AddTask(set_rhs, TF(solvers::utils::SetToZero<u>), md_u);
     auto setup = psolver->AddSetupTasks(tl, set_rhs, i, pmesh);
     auto solve = psolver->AddTasks(tl, setup, i, pmesh);
-    auto copy_back =
-        tl.AddTask(solve, TF(solvers::utils::CopyData<parthenon::TypeList<u>>), md_u, md);
 
-    auto new_dt = tl.AddTask(
-        copy_back, parthenon::Update::EstimateTimestep<MeshData<Real>>, md.get());
+    auto new_dt = tl.AddTask(solve, parthenon::Update::EstimateTimestep<MeshData<Real>>, md.get());
   }
   return tc;
 }
