@@ -156,8 +156,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   std::vector<MetadataFlag> flags{Metadata::Cell,          Metadata::Independent,
                                   Metadata::FillGhost,     Metadata::WithFluxes,
-                                  Metadata::GMGRestrict,   Metadata::GMGProlongate,
-                                  Metadata::CommunicateOne};
+                                  Metadata::GMGRestrict,   Metadata::GMGProlongate};
   auto mflux_comm = Metadata(flags);
   if (prolong == "Linear") {
     mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
@@ -283,16 +282,16 @@ parthenon::TaskStatus SetDiffusionCoefficient(std::shared_ptr<MeshData<Real>> md
 
           const auto &coords = pack.GetCoordinates(b);
           const Real x1 =
-              offset_x1 ? coords.Xc<1>(i, j, k) : coords.X<1, TE::F1>(k, j, i);
+              offset_x1 ? coords.Xc<1>(k, j, i) : coords.X<1, TE::F1>(k, j, i);
           const Real x2 =
-              offset_x2 ? coords.Xc<2>(i, j, k) : coords.X<2, TE::F2>(k, j, i);
+              offset_x2 ? coords.Xc<2>(k, j, i) : coords.X<2, TE::F2>(k, j, i);
           const Real x3 =
-              offset_x3 ? coords.Xc<3>(i, j, k) : coords.X<3, TE::F3>(k, j, i);
+              offset_x3 ? coords.Xc<3>(k, j, i) : coords.X<3, TE::F3>(k, j, i);
 
           auto profile_D = [](Real x, Real y, Real z) {
             const Real xcrit = 0.15 * sin(2.0 * M_PI * y);
-            if (x >= xcrit) return 1.e5;
-            return 1.0;
+            if (x >= xcrit) return 1.e8;
+            return 1.0e3;
           };
 
           if (constant_coeff) {

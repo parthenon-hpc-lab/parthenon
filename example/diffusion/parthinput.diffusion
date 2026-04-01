@@ -68,11 +68,11 @@ x3max = +0.075
 level = 8
 
 <diffusion>
-solver = BiCGSTAB # or MG
+solver = BiCGSTAB
 flux_correct = true
-diagonal_alpha = 1.0
-cfl = 100.0
-set_flux_boundary = true
+diagonal_alpha = 1.e7
+cfl = 1.e6
+set_flux_boundary = false
 constant_coefficient = false
 boundary_prolongation = Constant
 
