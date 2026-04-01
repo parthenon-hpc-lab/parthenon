@@ -80,22 +80,26 @@ class SolverBase {
   const std::string &GetSolutionContainerLabel() const { return container_u; }
 
   const std::vector<std::string> &GetFieldLabels() const { return sol_fields; }
-  
-  // We do not include a helper function for getting MeshData on the base container 
-  // since it may contain an arbitrary set of fields  
-  
-  template <class T>
-  auto &AddRHSMeshData(Mesh *pmesh, T&& other, bool shallow = false) {
-    if (shallow)
-      return pmesh->mesh_data.AddShallow(GetRHSContainerLabel(), std::forward<T>(other), GetFieldLabels());
-    return pmesh->mesh_data.Add(GetRHSContainerLabel(), std::forward<T>(other), GetFieldLabels());
-  } 
+
+  // We do not include a helper function for getting MeshData on the base container
+  // since it may contain an arbitrary set of fields
 
   template <class T>
-  auto &AddSolutionMeshData(Mesh *pmesh, T&& other, bool shallow = false) {
+  auto &AddRHSMeshData(Mesh *pmesh, T &&other, bool shallow = false) {
     if (shallow)
-      return pmesh->mesh_data.AddShallow(GetSolutionContainerLabel(), std::forward<T>(other), GetFieldLabels());
-    return pmesh->mesh_data.Add(GetSolutionContainerLabel(), std::forward<T>(other), GetFieldLabels());
+      return pmesh->mesh_data.AddShallow(GetRHSContainerLabel(), std::forward<T>(other),
+                                         GetFieldLabels());
+    return pmesh->mesh_data.Add(GetRHSContainerLabel(), std::forward<T>(other),
+                                GetFieldLabels());
+  }
+
+  template <class T>
+  auto &AddSolutionMeshData(Mesh *pmesh, T &&other, bool shallow = false) {
+    if (shallow)
+      return pmesh->mesh_data.AddShallow(GetSolutionContainerLabel(),
+                                         std::forward<T>(other), GetFieldLabels());
+    return pmesh->mesh_data.Add(GetSolutionContainerLabel(), std::forward<T>(other),
+                                GetFieldLabels());
   }
 
   bool initial_guess_is_zero{false};
