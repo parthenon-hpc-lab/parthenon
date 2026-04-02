@@ -29,6 +29,7 @@
 
 #include "defs.hpp"
 #include "diffusion_equation.hpp"
+#include "diffusion_hypre.hpp"
 #include "diffusion_package.hpp"
 #include "kokkos_abstraction.hpp"
 
@@ -129,7 +130,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   using PoissEq = diffusion_package::DiffusionEquation<u, D>;
   pkg->AddParam<>("diffusion_equation", std::make_shared<PoissEq>(pin, "diffusion"));
-  
+
   bool report_timings =
       pin->GetOrAddBoolean("diffusion", "report_timings", false,
                            "Report different timings of the diffusion solver "
@@ -190,6 +191,23 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   // timestep
   pkg->EstimateTimestepMesh = EstimateTimestep;
+
+  bool use_hypre = pin->GetOrAdd("hypre", "use_hypre", false,
+                                 "Use HYPRE solvers, requires -DDIFFUSION_WITH_HYPRE");
+  pkg->AddParam("use_hypre", use_hypre && WithHypre());
+  if constexpr (WithHypre()) {
+    auto hypre_solver = std::make_shared<HypreSolver>(pin);
+    pkg->AddParam("hypre_solver", hypre_solver);
+
+    if (use_hypre) {
+      // add a flux variable with 4 components to communicate fine face D up to the
+      // coarser blocks
+      auto m = Metadata(
+          {Metadata::Flux, Metadata::Face, Metadata::OneCopy, Metadata::CellMemAligned},
+          std::vector{4});
+      pkg->AddField<Dfc>(m);
+    }
+  }
 
   return pkg;
 }
@@ -292,6 +310,55 @@ parthenon::TaskStatus SetDiffusionCoefficient(std::shared_ptr<MeshData<Real>> md
               offset_x3 ? coords.Xc<3>(k, j, i) : coords.X<3, TE::F3>(k, j, i);
           pack(b, te, diffusion_package::D(), k, j, i) = dt * profile_D(x1, x2, x3);
         });
+  }
+  return TaskStatus::complete;
+} // SetRHS
+parthenon::TaskStatus SetDiffusionCoefficientHypre(std::shared_ptr<MeshData<Real>> md,
+                                                   const Real dt) {
+  if constexpr (WithHypre()) {
+    const int ndim = md->GetMeshPointer()->ndim;
+    auto pkg = md->GetMeshPointer()->packages.Get("diffusion_package");
+    auto desc = parthenon::MakePackDescriptor<diffusion_package::u, diffusion_package::D,
+                                              diffusion_package::Dfc>(md.get());
+    auto pack = desc.GetPack(md.get());
+
+    const auto profile_D = pkg->Param<DiffusionCoefficient>("diffusion_coefficient");
+
+    for (auto te : {TE::F1, TE::F2, TE::F3}) {
+      IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
+      IndexRange jb = md->GetBoundsJ(IndexDomain::interior, te);
+      IndexRange kb = md->GetBoundsK(IndexDomain::interior, te);
+
+      int offset_x1 = te == TE::F1 ? 1 : 0;
+      int offset_x2 = te == TE::F2 && (ndim > 1) ? 1 : 0;
+      int offset_x3 = te == TE::F3 && (ndim > 2) ? 1 : 0;
+
+      parthenon::par_for(
+          "SetDiffusionCoefficient", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
+          ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+            const Real u = 0.5 * (pack(b, TE::CC, diffusion_package::u(), k - offset_x3,
+                                       j - offset_x2, i - offset_x1) +
+                                  pack(b, TE::CC, diffusion_package::u(), k, j, i));
+
+            const auto &coords = pack.GetCoordinates(b);
+            const Real x1 =
+                offset_x1 ? coords.Xc<1>(k, j, i) : coords.X<1, TE::F1>(k, j, i);
+            const Real x2 =
+                offset_x2 ? coords.Xc<2>(k, j, i) : coords.X<2, TE::F2>(k, j, i);
+            const Real x3 =
+                offset_x3 ? coords.Xc<3>(k, j, i) : coords.X<3, TE::F3>(k, j, i);
+            pack(b, te, diffusion_package::D(), k, j, i) = dt * profile_D(x1, x2, x3);
+
+            auto face_comp = [&](const int k, const int j, const int i) {
+              const int comp1 = offset_x1 ? j % 2 : (offset_x2 ? k % 2 : i % 2);
+              const int comp2 = offset_x1 ? k % 2 : (offset_x2 ? i % 2 : j % 2);
+              return comp1 + 2 * comp2;
+            };
+
+            pack(b, te, diffusion_package::Dfc(face_comp(k, j, i)), k, j, i) =
+                pack(b, te, diffusion_package::D(), k, j, i);
+          });
+    }
   }
   return TaskStatus::complete;
 } // SetRHS

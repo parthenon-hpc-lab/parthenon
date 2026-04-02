@@ -11,6 +11,11 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include "diffusion_hypre.hpp"
+#include "diffusion_package.hpp"
+#include "mesh/mesh.hpp"
+#include "outputs/restart.hpp"
+#include "parameter_input.hpp"
 #include "parthenon_manager.hpp"
 
 #include "diffusion_driver.hpp"
@@ -23,6 +28,15 @@ int main(int argc, char *argv[]) {
   // Redefine parthenon defaults
   pman.app_input->ProcessPackages = diffusion_example::ProcessPackages;
   pman.app_input->MeshProblemGenerator = diffusion_example::ProblemGenerator;
+  pman.app_input->InitUserMeshData = [](parthenon::Mesh *pmesh,
+                                        parthenon::ParameterInput *pin) {
+    if constexpr (diffusion_package::WithHypre()) {
+      auto pkg = pmesh->packages.Get("diffusion_package");
+      auto hypre_solver =
+          pkg->Param<std::shared_ptr<diffusion_package::HypreSolver>>("hypre_solver");
+      hypre_solver->SetupGrid(pmesh);
+    }
+  };
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInitEnv(argc, argv);

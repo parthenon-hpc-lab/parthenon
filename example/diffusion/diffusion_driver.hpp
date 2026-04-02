@@ -34,6 +34,8 @@ class DiffusionDriver : public EvolutionDriver {
   }
   // This next function essentially defines the driver.
   TaskCollection MakeTaskCollection();
+  TaskCollection MakeTaskCollectionHypre();
+  TaskCollection MakeTaskCollectionNative();
   TaskListStatus Step() override;
 
   // DriverStatus Execute() override;

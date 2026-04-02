@@ -19,9 +19,11 @@
 
 // Local Includes
 #include "amr_criteria/refinement_package.hpp"
+#include "basic_types.hpp"
 #include "bvals/comms/bvals_in_one.hpp"
 #include "diffusion_driver.hpp"
 #include "diffusion_equation.hpp"
+#include "diffusion_hypre.hpp"
 #include "diffusion_package.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
@@ -32,6 +34,7 @@
 #include "solvers/cg_solver.hpp"
 #include "solvers/mg_solver.hpp"
 #include "solvers/solver_utils.hpp"
+#include "utils/error_checking.hpp"
 
 using namespace parthenon::driver::prelude;
 
@@ -50,6 +53,21 @@ TaskListStatus DiffusionDriver::Step() {
 } // Step
 
 TaskCollection DiffusionDriver::MakeTaskCollection() {
+  using namespace parthenon;
+  using namespace diffusion_package;
+  TaskCollection tc;
+  TaskID none(0);
+
+  auto pkg = pmesh->packages.Get("diffusion_package");
+  const auto use_hypre = pkg->Param<bool>("use_hypre");
+  if (use_hypre) {
+    return MakeTaskCollectionHypre();
+  } else {
+    return MakeTaskCollectionNative();
+  }
+}
+
+TaskCollection DiffusionDriver::MakeTaskCollectionNative() {
   using namespace parthenon;
   using namespace diffusion_package;
   TaskCollection tc;
@@ -99,6 +117,57 @@ TaskCollection DiffusionDriver::MakeTaskCollection() {
 
     // Update the timestep
     tl.AddTask(update_u, parthenon::Update::EstimateTimestep<MeshData<Real>>, md.get());
+  }
+  return tc;
+}
+TaskCollection DiffusionDriver::MakeTaskCollectionHypre() {
+  using namespace parthenon;
+  using namespace diffusion_package;
+  TaskCollection tc;
+  TaskID none(0);
+
+  if constexpr (WithHypre()) {
+
+    auto pkg = pmesh->packages.Get("diffusion_package");
+    auto hypre_solver = pkg->Param<std::shared_ptr<HypreSolver>>("hypre_solver");
+
+    auto partitions = pmesh->GetDefaultBlockPartitions();
+    const int num_partitions = partitions.size();
+    TaskRegion &region = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; ++i) {
+      TaskList &tl = region[i];
+      auto &md = pmesh->mesh_data.Add("base", partitions[i]);
+
+      auto start_fluxcor = tl.AddTask(none, parthenon::StartReceiveFluxCorrections, md);
+
+      // SetDiffusionCoefficient
+      auto set_d = tl.AddTask(none, TF(SetDiffusionCoefficientHypre), md, tm.dt);
+
+      auto set_fluxcor = parthenon::AddFluxCorrectionTasks(set_d | start_fluxcor, tl, md,
+                                                           pmesh->multilevel);
+    }
+
+    auto &blocks = pmesh->block_list;
+    TaskRegion &build_matrix_region = tc.AddRegion(blocks.size());
+    for (int i = 0; i < blocks.size(); i++) {
+      auto &tl = build_matrix_region[i];
+      auto &pmb = blocks[i];
+      auto build_block = tl.AddTask(none, TF(HypreSolver::BuildMatrixVector),
+                                    hypre_solver.get(), pmb.get(), integrator.dt);
+      // probably have a task for setting RHS and initial guess
+    }
+
+    TaskRegion &solve_region = tc.AddRegion(1);
+    auto solve =
+        solve_region[0].AddTask(none, TF(HypreSolver::Solve), hypre_solver.get());
+
+    TaskRegion &update_region = tc.AddRegion(blocks.size());
+    for (int i = 0; i < num_partitions; ++i) {
+      TaskList &tl = update_region[i];
+      auto &pmb = blocks[i];
+      auto update_block = tl.AddTask(none, TF(HypreSolver::UpdateSolution),
+                                     hypre_solver.get(), pmb.get());
+    }
   }
   return tc;
 }
