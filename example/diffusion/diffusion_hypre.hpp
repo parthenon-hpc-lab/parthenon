@@ -89,20 +89,20 @@ struct HypreSolver {
   // ---------------------------------------------------------------------------
   // Solver configuration (read from [hypre] input block)
   // ---------------------------------------------------------------------------
-  std::string solver_type = "pcg"; // "pcg" or "bicgstab"
-  parthenon::Real tol = 1e-12;     // relative convergence tolerance
-  int max_iter = 50;               // maximum solver iterations
-  int print_level = 1;             // solver verbosity
+  std::string solver_type; // "pcg" or "bicgstab"
+  parthenon::Real tol;     // relative convergence tolerance
+  int max_iter;            // maximum solver iterations
+  int print_level;         // solver verbosity
 
   // BoomerAMG preconditioner settings
-  int amg_coarsen_type = 10;                   // HMIS coarsening
-  int amg_interp_type = 6;                     // ext+i interpolation
-  int amg_relax_type = 6;                      // symmetric Gauss-Seidel
-  parthenon::Real amg_strong_threshold = 0.25; // strong threshold (0.25 for 2D)
-  int amg_num_sweeps = 1;                      // sweeps per AMG level
+  int amg_coarsen_type;                 // HMIS coarsening
+  int amg_interp_type;                  // ext+i interpolation
+  int amg_relax_type;                   // symmetric Gauss-Seidel
+  parthenon::Real amg_strong_threshold; // strong threshold (0.25 for 2D)
+  int amg_num_sweeps;                   // sweeps per AMG level
 
   // Problem parameters cached from package
-  parthenon::Real diagonal_alpha = 0.0;
+  parthenon::Real diagonal_alpha;
 
   // ---------------------------------------------------------------------------
   // Methods

@@ -7,7 +7,34 @@
 namespace diffusion_package {
 using Real = parthenon::Real;
 
-HypreSolver::HypreSolver(parthenon::ParameterInput *pin) {}
+HypreSolver::HypreSolver(parthenon::ParameterInput *pin) {
+  // Solver type
+  solver_type = pin->GetOrAddString("hypre", "solver_type", "pcg",
+                                    "Hypre outer solver: pcg or bicgstab");
+  tol = pin->GetOrAddReal("hypre", "tol", 1e-12, "Relative convergence tolerance");
+  max_iter = pin->GetOrAddInteger("hypre", "max_iter", 50, "Maximum solver iterations");
+  print_level = pin->GetOrAddInteger("hypre", "print_level", 1, "Solver print verbosity");
+
+  // BoomerAMG preconditioner settings
+  amg_coarsen_type =
+      pin->GetOrAddInteger("hypre", "amg_coarsen_type", 10, "AMG coarsening type (HMIS)");
+  amg_interp_type = pin->GetOrAddInteger("hypre", "amg_interp_type", 6,
+                                         "AMG interpolation type (ext+i)");
+  amg_relax_type = pin->GetOrAddInteger("hypre", "amg_relax_type", 6,
+                                        "AMG relaxation type (symmetric GS)");
+  amg_strong_threshold = pin->GetOrAddReal("hypre", "amg_strong_threshold", 0.25,
+                                           "AMG strong threshold (0.25 for 2D)");
+  amg_num_sweeps =
+      pin->GetOrAddInteger("hypre", "amg_num_sweeps", 1, "AMG sweeps per level");
+
+  // Cache problem parameters
+  diagonal_alpha = pin->GetReal("diffusion", "diagonal_alpha");
+
+  // Determine dimensionality
+  const int nx3 = pin->GetInteger("parthenon/mesh", "nx3");
+  ndim = (nx3 > 1) ? 3 : 2;
+  nstencil = (ndim == 2) ? 5 : 7;
+}
 
 HypreSolver::~HypreSolver() {
   if (solver_handle) {
