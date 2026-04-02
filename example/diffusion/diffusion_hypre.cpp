@@ -9,7 +9,46 @@ using Real = parthenon::Real;
 
 HypreSolver::HypreSolver(parthenon::ParameterInput *pin) {}
 
-parthenon::TaskStatus HypreSolver::BuildMatrixVector(HypreSolver *solver,
+HypreSolver::~HypreSolver() {
+  if (solver_handle) {
+    if (solver_type == "pcg") {
+      HYPRE_ParCSRPCGDestroy(solver_handle);
+    } else {
+      HYPRE_ParCSRBiCGSTABDestroy(solver_handle);
+    }
+    solver_handle = nullptr;
+  }
+  if (precond_handle) {
+    HYPRE_BoomerAMGDestroy(precond_handle);
+    precond_handle = nullptr;
+  }
+  if (A) {
+    HYPRE_SStructMatrixDestroy(A);
+    A = nullptr;
+  }
+  if (b) {
+    HYPRE_SStructVectorDestroy(b);
+    b = nullptr;
+  }
+  if (x) {
+    HYPRE_SStructVectorDestroy(x);
+    x = nullptr;
+  }
+  if (graph) {
+    HYPRE_SStructGraphDestroy(graph);
+    graph = nullptr;
+  }
+  if (stencil) {
+    HYPRE_SStructStencilDestroy(stencil);
+    stencil = nullptr;
+  }
+  if (grid) {
+    HYPRE_SStructGridDestroy(grid);
+    grid = nullptr;
+  }
+}
+
+parthenon::TaskStatus HypreSolver::BuildMatrixVector(HypreSolver *solver, int b,
                                                      parthenon::MeshBlock *pmb,
                                                      const Real dt) {
   // also ad diagnoal term dt
@@ -32,10 +71,12 @@ parthenon::TaskStatus HypreSolver::Solve(HypreSolver *solver) {
   return parthenon::TaskStatus::complete;
 }
 
-parthenon::TaskStatus HypreSolver::UpdateSolution(HypreSolver *solver,
+parthenon::TaskStatus HypreSolver::UpdateSolution(HypreSolver *solver, int b,
                                                   parthenon::MeshBlock *pmb) {
   return parthenon::TaskStatus::complete;
 }
+
+void HypreSolver::SetupSolver() {}
 
 void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
   // need to add all of the meshblocks in our mesh to the hypre grid using its block

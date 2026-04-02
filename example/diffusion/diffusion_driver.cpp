@@ -153,7 +153,7 @@ TaskCollection DiffusionDriver::MakeTaskCollectionHypre() {
       auto &tl = build_matrix_region[i];
       auto &pmb = blocks[i];
       auto build_block = tl.AddTask(none, TF(HypreSolver::BuildMatrixVector),
-                                    hypre_solver.get(), pmb.get(), integrator.dt);
+                                    hypre_solver.get(), i, pmb.get(), integrator.dt);
       // probably have a task for setting RHS and initial guess
     }
 
@@ -166,7 +166,7 @@ TaskCollection DiffusionDriver::MakeTaskCollectionHypre() {
       TaskList &tl = update_region[i];
       auto &pmb = blocks[i];
       auto update_block = tl.AddTask(none, TF(HypreSolver::UpdateSolution),
-                                     hypre_solver.get(), pmb.get());
+                                     hypre_solver.get(), i, pmb.get());
     }
   }
   return tc;
