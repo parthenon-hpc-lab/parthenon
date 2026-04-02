@@ -129,6 +129,16 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   using PoissEq = diffusion_package::DiffusionEquation<u, D>;
   pkg->AddParam<>("diffusion_equation", std::make_shared<PoissEq>(pin, "diffusion"));
+  
+  bool report_timings =
+      pin->GetOrAddBoolean("diffusion", "report_timings", false,
+                           "Report different timings of the diffusion solver "
+                           "at the end of the calculation.");
+  pkg->AddParam<>("report_timings", report_timings);
+  if (parthenon::Globals::my_rank == 0 && report_timings) {
+    parthenon::Task::enable_timing = true;
+    parthenon::Task::enable_timing_chunks = false;
+  }
 
   std::shared_ptr<parthenon::solvers::SolverBase> psolver;
 

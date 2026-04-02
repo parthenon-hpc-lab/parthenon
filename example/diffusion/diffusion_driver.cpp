@@ -88,6 +88,7 @@ TaskCollection DiffusionDriver::MakeTaskCollection() {
 
     // Set initial solution guess to zero
     auto zero_u = tl.AddTask(set_rhs, TF(solvers::utils::SetToZero<u>), md_deltau);
+    psolver->initial_guess_is_zero = true;
     auto setup = psolver->AddSetupTasks(tl, zero_u, i, pmesh);
     auto solve = psolver->AddTasks(tl, setup, i, pmesh);
 
