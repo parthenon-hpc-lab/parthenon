@@ -173,6 +173,12 @@ HypreSolver::HypreSolver(parthenon::ParameterInput *pin) {
                  [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
   PARTHENON_REQUIRE(solver_type == "pcg" || solver_type == "bicgstab",
                     "hypre/solver_type must be 'pcg' or 'bicgstab'.");
+  preconditioner = pin->GetOrAddString("hypre", "preconditioner", "amg",
+                                       "Hypre preconditioner: amg or none");
+  std::transform(preconditioner.begin(), preconditioner.end(), preconditioner.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  PARTHENON_REQUIRE(preconditioner == "amg" || preconditioner == "none",
+                    "hypre/preconditioner must be 'amg' or 'none'.");
   tol = pin->GetOrAddReal("hypre", "tol", 1e-12, "Relative convergence tolerance");
   max_iter = pin->GetOrAddInteger("hypre", "max_iter", 50, "Maximum solver iterations");
   print_level = pin->GetOrAddInteger("hypre", "print_level", 1, "Solver print verbosity");
@@ -661,15 +667,18 @@ void HypreSolver::SetupSolver() {
     precond_handle = nullptr;
   }
 
-  HYPRE_BoomerAMGCreate(&precond_handle);
-  HYPRE_BoomerAMGSetTol(precond_handle, 0.0);
-  HYPRE_BoomerAMGSetMaxIter(precond_handle, 1);
-  HYPRE_BoomerAMGSetCoarsenType(precond_handle, amg_coarsen_type);
-  HYPRE_BoomerAMGSetInterpType(precond_handle, amg_interp_type);
-  HYPRE_BoomerAMGSetRelaxType(precond_handle, amg_relax_type);
-  HYPRE_BoomerAMGSetStrongThreshold(precond_handle, amg_strong_threshold);
-  HYPRE_BoomerAMGSetNumSweeps(precond_handle, amg_num_sweeps);
-  HYPRE_BoomerAMGSetPrintLevel(precond_handle, 0);
+  const bool use_amg_preconditioner = (preconditioner == "amg");
+  if (use_amg_preconditioner) {
+    HYPRE_BoomerAMGCreate(&precond_handle);
+    HYPRE_BoomerAMGSetTol(precond_handle, 0.0);
+    HYPRE_BoomerAMGSetMaxIter(precond_handle, 1);
+    HYPRE_BoomerAMGSetCoarsenType(precond_handle, amg_coarsen_type);
+    HYPRE_BoomerAMGSetInterpType(precond_handle, amg_interp_type);
+    HYPRE_BoomerAMGSetRelaxType(precond_handle, amg_relax_type);
+    HYPRE_BoomerAMGSetStrongThreshold(precond_handle, amg_strong_threshold);
+    HYPRE_BoomerAMGSetNumSweeps(precond_handle, amg_num_sweeps);
+    HYPRE_BoomerAMGSetPrintLevel(precond_handle, 0);
+  }
 
   if (solver_type == "pcg") {
     HYPRE_ParCSRPCGCreate(MPI_COMM_WORLD, &solver_handle);
@@ -677,16 +686,20 @@ void HypreSolver::SetupSolver() {
     HYPRE_ParCSRPCGSetMaxIter(solver_handle, max_iter);
     HYPRE_ParCSRPCGSetPrintLevel(solver_handle, print_level);
     HYPRE_ParCSRPCGSetLogging(solver_handle, (print_level > 0) ? 1 : 0);
-    HYPRE_ParCSRPCGSetPrecond(solver_handle, HYPRE_BoomerAMGSolve, HYPRE_BoomerAMGSetup,
-                              precond_handle);
+    if (use_amg_preconditioner) {
+      HYPRE_ParCSRPCGSetPrecond(solver_handle, HYPRE_BoomerAMGSolve, HYPRE_BoomerAMGSetup,
+                                precond_handle);
+    }
   } else {
     HYPRE_ParCSRBiCGSTABCreate(MPI_COMM_WORLD, &solver_handle);
     HYPRE_ParCSRBiCGSTABSetTol(solver_handle, tol);
     HYPRE_ParCSRBiCGSTABSetMaxIter(solver_handle, max_iter);
     HYPRE_ParCSRBiCGSTABSetPrintLevel(solver_handle, print_level);
     HYPRE_ParCSRBiCGSTABSetLogging(solver_handle, (print_level > 0) ? 1 : 0);
-    HYPRE_ParCSRBiCGSTABSetPrecond(solver_handle, HYPRE_BoomerAMGSolve,
-                                   HYPRE_BoomerAMGSetup, precond_handle);
+    if (use_amg_preconditioner) {
+      HYPRE_ParCSRBiCGSTABSetPrecond(solver_handle, HYPRE_BoomerAMGSolve,
+                                     HYPRE_BoomerAMGSetup, precond_handle);
+    }
   }
 
   solver_is_setup = true;

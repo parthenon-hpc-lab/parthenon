@@ -92,10 +92,11 @@ struct HypreSolver {
   // ---------------------------------------------------------------------------
   // Solver configuration (read from [hypre] input block)
   // ---------------------------------------------------------------------------
-  std::string solver_type; // "pcg" or "bicgstab"
-  parthenon::Real tol;     // relative convergence tolerance
-  int max_iter;            // maximum solver iterations
-  int print_level;         // solver verbosity
+  std::string solver_type;    // "pcg" or "bicgstab"
+  std::string preconditioner; // "amg" or "none"
+  parthenon::Real tol;        // relative convergence tolerance
+  int max_iter;               // maximum solver iterations
+  int print_level;            // solver verbosity
 
   // BoomerAMG preconditioner settings
   int amg_coarsen_type;                 // HMIS coarsening
