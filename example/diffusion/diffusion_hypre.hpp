@@ -77,6 +77,7 @@ struct HypreSolver {
   // ---------------------------------------------------------------------------
   bool grid_is_setup = false;
   bool solver_is_setup = false;
+  bool needs_grid_setup = true;
 
   int ndim = 2;     // number of spatial dimensions (2 for this problem)
   int nparts = 0;   // number of distinct AMR levels with leaf blocks
@@ -105,6 +106,7 @@ struct HypreSolver {
 
   // Problem parameters cached from package
   parthenon::Real diagonal_alpha;
+  std::array<parthenon::Real, 6> boundary_u{};
 
   // ---------------------------------------------------------------------------
   // Methods
@@ -118,6 +120,8 @@ struct HypreSolver {
 
   // adds all the meshblocks to the hypre grid via the sstruct interface
   void SetupGrid(parthenon::Mesh *pmesh);
+  void DestroyGrid();
+  void MarkGridDirty() { needs_grid_setup = true; }
 
   void SetupSolver();
 

@@ -131,6 +131,18 @@ TaskCollection DiffusionDriver::MakeTaskCollectionHypre() {
     auto pkg = pmesh->packages.Get("diffusion_package");
     auto hypre_solver = pkg->Param<std::shared_ptr<HypreSolver>>("hypre_solver");
 
+    TaskRegion &grid_region = tc.AddRegion(1);
+    grid_region[0].AddTask(
+        none,
+        [](HypreSolver *solver, parthenon::Mesh *pmesh) {
+          if (pmesh->modified || solver->needs_grid_setup || !solver->grid_is_setup) {
+            solver->DestroyGrid();
+            solver->SetupGrid(pmesh);
+          }
+          return TaskStatus::complete;
+        },
+        hypre_solver.get(), pmesh);
+
     auto partitions = pmesh->GetDefaultBlockPartitions();
     const int num_partitions = partitions.size();
     TaskRegion &region = tc.AddRegion(num_partitions);
@@ -162,7 +174,7 @@ TaskCollection DiffusionDriver::MakeTaskCollectionHypre() {
         solve_region[0].AddTask(none, TF(HypreSolver::Solve), hypre_solver.get());
 
     TaskRegion &update_region = tc.AddRegion(blocks.size());
-    for (int i = 0; i < num_partitions; ++i) {
+    for (int i = 0; i < blocks.size(); ++i) {
       TaskList &tl = update_region[i];
       auto &pmb = blocks[i];
       auto update_block = tl.AddTask(none, TF(HypreSolver::UpdateSolution),
