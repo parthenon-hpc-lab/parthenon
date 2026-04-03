@@ -64,29 +64,6 @@ int FaceSide(const int face) {
   return 0;
 }
 
-int FaceFromAxisSide(const int axis, const int side) {
-  if (axis == 0)
-    return (side < 0) ? parthenon::BoundaryFace::inner_x1
-                      : parthenon::BoundaryFace::outer_x1;
-  if (axis == 1)
-    return (side < 0) ? parthenon::BoundaryFace::inner_x2
-                      : parthenon::BoundaryFace::outer_x2;
-  if (axis == 2)
-    return (side < 0) ? parthenon::BoundaryFace::inner_x3
-                      : parthenon::BoundaryFace::outer_x3;
-  return parthenon::BoundaryFace::undef;
-}
-
-int StencilEntryForFace(const int face) {
-  if (face == parthenon::BoundaryFace::inner_x1) return 1;
-  if (face == parthenon::BoundaryFace::outer_x1) return 2;
-  if (face == parthenon::BoundaryFace::inner_x2) return 3;
-  if (face == parthenon::BoundaryFace::outer_x2) return 4;
-  if (face == parthenon::BoundaryFace::inner_x3) return 5;
-  if (face == parthenon::BoundaryFace::outer_x3) return 6;
-  return -1;
-}
-
 int DfcComponentFromGlobal(const int axis, const int gi, const int gj, const int gk,
                            const int ndim) {
   if (axis == 0) {
@@ -722,7 +699,6 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
   block_iupper.resize(nblocks);
   block_neighbor_level.resize(nblocks);
   block_is_domain_boundary.resize(nblocks);
-  std::vector<std::vector<std::pair<std::array<int, 3>, std::array<int, 3>>>> part_boxes;
   std::vector<std::vector<std::pair<std::array<int, 3>, std::array<int, 3>>>>
       global_part_boxes;
 
@@ -775,7 +751,6 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
                     "HYPRE SetupGrid max active level mismatch.");
 
   HYPRE_SStructGridCreate(MPI_COMM_WORLD, ndim, nparts, &grid);
-  part_boxes.resize(nparts);
   global_part_boxes.resize(nparts);
 
   // Add block extents and cache per-block metadata.
@@ -799,7 +774,6 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
 
     HYPRE_SStructGridSetExtents(grid, part, block_ilower[b].data(),
                                 block_iupper[b].data());
-    part_boxes[part].push_back({block_ilower[b], block_iupper[b]});
 
     std::array<parthenon::CellLevel, 6> nbr_level;
     nbr_level.fill(parthenon::CellLevel::same);
