@@ -612,6 +612,8 @@ parthenon::TaskStatus HypreSolver::Solve(HypreSolver *solver) {
     std::cout << "[hypre] iterations=" << niter << " rel_resid=" << rnorm << "\n";
   }
 
+  HYPRE_SStructVectorGather(solver->x);
+
   return parthenon::TaskStatus::complete;
 }
 
@@ -632,10 +634,9 @@ parthenon::TaskStatus HypreSolver::UpdateSolution(HypreSolver *solver, int b,
   const auto &il = solver->block_ilower[b];
   const auto &iu = solver->block_iupper[b];
 
-  std::vector<HYPRE_Complex> delta(static_cast<std::size_t>(ncell), 0.0);
-  HYPRE_SStructVectorGather(solver->x);
+  std::vector<HYPRE_Complex> soln(static_cast<std::size_t>(ncell), 0.0);
   HYPRE_SStructVectorGetBoxValues(solver->x, part, const_cast<int *>(il.data()),
-                                  const_cast<int *>(iu.data()), 0, delta.data());
+                                  const_cast<int *>(iu.data()), 0, soln.data());
 
   auto &uvar = pmb->meshblock_data.Get()->Get(diffusion_package::u::name()).data;
   auto lin_idx = [&](const int k, const int j, const int i) {
@@ -645,7 +646,7 @@ parthenon::TaskStatus HypreSolver::UpdateSolution(HypreSolver *solver, int b,
   for (int k = kb.s; k <= kb.e; ++k) {
     for (int j = jb.s; j <= jb.e; ++j) {
       for (int i = ib.s; i <= ib.e; ++i) {
-        uvar(k, j, i) += delta[lin_idx(k, j, i)];
+        uvar(k, j, i) = soln[lin_idx(k, j, i)];
       }
     }
   }
