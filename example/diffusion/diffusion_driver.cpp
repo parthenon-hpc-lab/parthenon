@@ -135,6 +135,7 @@ TaskCollection DiffusionDriver::MakeTaskCollectionHypre() {
     grid_region[0].AddTask(
         none,
         [](HypreSolver *solver, parthenon::Mesh *pmesh) {
+          solver->debug_fc_samples_printed.store(0);
           if (pmesh->modified || solver->needs_grid_setup || !solver->grid_is_setup) {
             solver->DestroyGrid();
             solver->SetupGrid(pmesh);
@@ -179,6 +180,15 @@ TaskCollection DiffusionDriver::MakeTaskCollectionHypre() {
       auto &pmb = blocks[i];
       auto update_block = tl.AddTask(none, TF(HypreSolver::UpdateSolution),
                                      hypre_solver.get(), i, pmb.get());
+    }
+
+    TaskRegion &dt_region = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; ++i) {
+      TaskList &tl = dt_region[i];
+      auto &md = pmesh->mesh_data.Add("base", partitions[i]);
+
+      // Update the timestep
+      tl.AddTask(none, parthenon::Update::EstimateTimestep<MeshData<Real>>, md.get());
     }
   }
   return tc;

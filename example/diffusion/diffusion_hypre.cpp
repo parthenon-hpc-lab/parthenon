@@ -8,6 +8,7 @@
 #include <sstream>
 #include <vector>
 
+#include "HYPRE_parcsr_mv.h"
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "diffusion_package.hpp"
@@ -172,6 +173,18 @@ HypreSolver::HypreSolver(parthenon::ParameterInput *pin) {
   amg_num_sweeps =
       pin->GetOrAddInteger("hypre", "amg_num_sweeps", 1, "AMG sweeps per level");
 
+  print_matrix = pin->GetOrAddBoolean("hypre", "print_matrix", false,
+                                      "Print Hypre matrix after assemble");
+  print_vectors = pin->GetOrAddBoolean("hypre", "print_vectors", false,
+                                       "Print Hypre vectors after assemble");
+  print_matrix_all = pin->GetOrAddBoolean("hypre", "print_matrix_all", false,
+                                          "Print full matrix (all=1)");
+  debug_fc_couplings = pin->GetOrAddBoolean("hypre", "debug_fc_couplings", false,
+                                            "Print fine-coarse coupling diagnostics");
+  debug_fc_sample_rows = pin->GetOrAddInteger(
+      "hypre", "debug_fc_sample_rows", 16,
+      "Max number of detailed fine-coarse row diagnostics to print per run");
+
   // Cache problem parameters
   diagonal_alpha = pin->GetReal("diffusion", "diagonal_alpha");
   auto u_bounds =
@@ -233,7 +246,12 @@ void HypreSolver::DestroyGrid() {
   block_iupper.clear();
   block_neighbor_level.clear();
   block_is_domain_boundary.clear();
+  block_graph_f2c_entries.clear();
+  block_graph_c2f_entries.clear();
   level_to_part.clear();
+
+  setup_graph_f2c_entries = 0;
+  setup_graph_c2f_entries = 0;
 
   nparts = 0;
   min_active_level = -1;
@@ -345,6 +363,16 @@ parthenon::TaskStatus HypreSolver::BuildMatrixVector(HypreSolver *solver, int b,
       A(lin, 6) = 0.0;
   };
 
+  auto face_stencil_entry = [&](const int face) {
+    if (face == BoundaryFace::inner_x1) return 1;
+    if (face == BoundaryFace::outer_x1) return 2;
+    if (face == BoundaryFace::inner_x2) return 3;
+    if (face == BoundaryFace::outer_x2) return 4;
+    if (face == BoundaryFace::inner_x3) return 5;
+    if (face == BoundaryFace::outer_x3) return 6;
+    return -1;
+  };
+
   // Phase A: interior stencil + rhs (full-u solve form).
   parthenon::par_for(
       parthenon::loop_pattern_mdrange_tag, "build_matrix_rows",
@@ -418,6 +446,8 @@ parthenon::TaskStatus HypreSolver::BuildMatrixVector(HypreSolver *solver, int b,
 
   // Set non-stencil graph couplings at fine-coarse boundaries.
   std::vector<int> row_graph_count(static_cast<std::size_t>(ncell), 0);
+  long long matrix_graph_f2c_values = 0;
+  long long matrix_graph_c2f_values = 0;
   for (const auto &nb : pmb->GetNeighbors()) {
     const int ax = std::abs(nb.offsets(parthenon::X1DIR));
     const int ay = std::abs(nb.offsets(parthenon::X2DIR));
@@ -433,7 +463,8 @@ parthenon::TaskStatus HypreSolver::BuildMatrixVector(HypreSolver *solver, int b,
     if (neighbor_level_relation == 0) continue;
 
     int is, ie, js, je, ks, ke, axis, side;
-    NeighborFaceBounds(il, iu, solver->ndim, nb, lev, is, ie, js, je, ks, ke, axis, side);
+    NeighborFaceBounds(il, iu, solver->ndim, nb, neighbor_level_relation > 0, is, ie, js,
+                       je, ks, ke, axis, side);
 
     for (int gk = ks; gk <= ke; ++gk) {
       for (int gj = js; gj <= je; ++gj) {
@@ -450,17 +481,42 @@ parthenon::TaskStatus HypreSolver::BuildMatrixVector(HypreSolver *solver, int b,
             row_graph_count[lin] += 1;
           };
 
+          const int face_entry = face_stencil_entry(face);
+          PARTHENON_REQUIRE(face_entry >= 0,
+                            "Invalid face when applying FC graph/stencil corrections.");
+          const Real diag_before = A(lin, 0);
+          const Real face_stencil_before = A(lin, face_entry);
+
           const Real kface = face_conductance(axis, side, k, j, i);
+          const Real d_self = (axis == 0)
+                                  ? pmb->coords.Dxc<X1DIR>(k, j, i)
+                                  : ((axis == 1) ? pmb->coords.Dxc<X2DIR>(k, j, i)
+                                                 : pmb->coords.Dxc<X3DIR>(k, j, i));
+          const Real d_neighbor =
+              (neighbor_level_relation < 0) ? (2.0 * d_self) : (0.5 * d_self);
+          const Real d_eff = 0.5 * (d_self + d_neighbor);
           zero_face_stencil(face, lin);
 
+          Real graph_value_sum = 0.0;
+          int graph_value_count = 0;
+          Real diag_correction = 0.0;
+
           if (neighbor_level_relation < 0) {
-            // Fine row coupled to coarse neighbor:
-            // center contribution is +2/3 K and coarse coupling is -1/3 K.
-            A(lin, 0) -= (1.0 / 3.0) * kface;
-            set_graph_value(-(1.0 / 3.0) * kface);
+            // FLASH-style fine->coarse coupling:
+            // replace face contribution using d_eff = 0.5 * (d_f + d_c).
+            const Real cond_face = kface * d_self;
+            const Real fc_face_diag = cond_face / d_eff;
+            diag_correction = fc_face_diag - kface;
+            A(lin, 0) += diag_correction;
+            const Real gval = -fc_face_diag;
+            set_graph_value(gval);
+            graph_value_sum += gval;
+            graph_value_count += 1;
+            matrix_graph_f2c_values++;
           } else {
-            // Coarse row coupled to fine neighbors:
-            // each fine coupling is -2/3 K_sub and center gets +1/3 sum(K_sub).
+            // FLASH-style coarse->fine coupling:
+            // each fine graph entry uses cond_sub / d_eff and center uses the summed
+            // flux.
             const int nsub = (solver->ndim == 2) ? 2 : 4;
             const Real face_area =
                 (axis == 0)
@@ -471,9 +527,6 @@ parthenon::TaskStatus HypreSolver::BuildMatrixVector(HypreSolver *solver, int b,
                                          : pmb->coords.Volume<TE::F2>(k, j + 1, i))
                            : ((side < 0) ? pmb->coords.Volume<TE::F3>(k, j, i)
                                          : pmb->coords.Volume<TE::F3>(k + 1, j, i)));
-            const Real d = (axis == 0) ? pmb->coords.Dxc<X1DIR>(k, j, i)
-                                       : ((axis == 1) ? pmb->coords.Dxc<X2DIR>(k, j, i)
-                                                      : pmb->coords.Dxc<X3DIR>(k, j, i));
             const Real subface_area = face_area / static_cast<Real>(nsub);
 
             std::array<int, 3> fine_face_anchor = {2 * gi, 2 * gj, 2 * gk};
@@ -481,7 +534,7 @@ parthenon::TaskStatus HypreSolver::BuildMatrixVector(HypreSolver *solver, int b,
             const int tan_axis0 = (axis + 1) % solver->ndim;
             const int tan_axis1 = (axis + 2) % solver->ndim;
 
-            Real sum_k_sub = 0.0;
+            Real sum_cond_sub = 0.0;
             if (solver->ndim == 2) {
               for (int s = 0; s < 2; ++s) {
                 std::array<int, 3> to = fine_face_anchor;
@@ -498,9 +551,13 @@ parthenon::TaskStatus HypreSolver::BuildMatrixVector(HypreSolver *solver, int b,
                                ? pack(pb, TE::F2, diffusion_package::Dfc(comp), k, j, i)
                                : pack(pb, TE::F2, diffusion_package::Dfc(comp), k, j + 1,
                                       i));
-                const Real ksub = Dsub * subface_area / d;
-                sum_k_sub += ksub;
-                set_graph_value(-(2.0 / 3.0) * ksub);
+                const Real cond_sub = Dsub * subface_area;
+                sum_cond_sub += cond_sub;
+                const Real gval = -cond_sub / d_eff;
+                set_graph_value(gval);
+                graph_value_sum += gval;
+                graph_value_count += 1;
+                matrix_graph_c2f_values++;
               }
             } else {
               for (int s0 = 0; s0 < 2; ++s0) {
@@ -529,18 +586,48 @@ parthenon::TaskStatus HypreSolver::BuildMatrixVector(HypreSolver *solver, int b,
                                                k, j, i)
                                         : pack(pb, TE::F3, diffusion_package::Dfc(comp),
                                                k + 1, j, i)));
-                  const Real ksub = Dsub * subface_area / d;
-                  sum_k_sub += ksub;
-                  set_graph_value(-(2.0 / 3.0) * ksub);
+                  const Real cond_sub = Dsub * subface_area;
+                  sum_cond_sub += cond_sub;
+                  const Real gval = -cond_sub / d_eff;
+                  set_graph_value(gval);
+                  graph_value_sum += gval;
+                  graph_value_count += 1;
+                  matrix_graph_c2f_values++;
                 }
               }
             }
 
-            A(lin, 0) -= (2.0 / 3.0) * sum_k_sub;
+            const Real fc_face_diag = sum_cond_sub / d_eff;
+            diag_correction = fc_face_diag - kface;
+            A(lin, 0) += diag_correction;
+          }
+
+          if (solver->debug_fc_couplings && parthenon::Globals::my_rank == 0) {
+            const int nprinted = solver->debug_fc_samples_printed.fetch_add(1);
+            if (nprinted < solver->debug_fc_sample_rows) {
+              std::cout << "[hypre][fc-row] block=" << b << " part=" << part << " idx=("
+                        << gi << "," << gj << "," << gk << ")"
+                        << " face=" << face << " relation=" << neighbor_level_relation
+                        << " face_stencil_before=" << face_stencil_before
+                        << " face_stencil_after=" << A(lin, face_entry)
+                        << " d_self=" << d_self << " d_neighbor=" << d_neighbor
+                        << " d_eff=" << d_eff << " diag_before=" << diag_before
+                        << " diag_after=" << A(lin, 0)
+                        << " diag_correction=" << diag_correction
+                        << " graph_count=" << graph_value_count
+                        << " graph_sum=" << graph_value_sum << "\n";
+            }
           }
         }
       }
     }
+  }
+
+  if (solver->debug_fc_couplings && parthenon::Globals::my_rank == 0 &&
+      (matrix_graph_f2c_values + matrix_graph_c2f_values > 0)) {
+    std::cout << "[hypre] BuildMatrixVector block=" << b
+              << " graph values f2c=" << matrix_graph_f2c_values
+              << " c2f=" << matrix_graph_c2f_values << "\n";
   }
 
   HYPRE_SStructMatrixSetBoxValues(solver->A, part, const_cast<int *>(il.data()),
@@ -556,9 +643,29 @@ parthenon::TaskStatus HypreSolver::BuildMatrixVector(HypreSolver *solver, int b,
 }
 
 parthenon::TaskStatus HypreSolver::Solve(HypreSolver *solver) {
+  solver->solve_call_count += 1;
   HYPRE_SStructMatrixAssemble(solver->A);
   HYPRE_SStructVectorAssemble(solver->b);
   HYPRE_SStructVectorAssemble(solver->x);
+
+  if (solver->print_matrix || solver->print_vectors) {
+    std::ostringstream base;
+    base << "hypre_debug_step" << solver->solve_call_count << "_rank"
+         << parthenon::Globals::my_rank;
+    if (solver->print_matrix) {
+      std::string mat_name = base.str() + ".A";
+      HYPRE_SStructMatrixPrint(mat_name.c_str(), solver->A,
+                               solver->print_matrix_all ? 1 : 0);
+    }
+    if (solver->print_vectors) {
+      std::string b_name = base.str() + ".b";
+      std::string x_name = base.str() + ".x";
+      HYPRE_SStructVectorPrint(b_name.c_str(), solver->b,
+                               solver->print_matrix_all ? 1 : 0);
+      HYPRE_SStructVectorPrint(x_name.c_str(), solver->x,
+                               solver->print_matrix_all ? 1 : 0);
+    }
+  }
 
   HYPRE_ParCSRMatrix parA;
   HYPRE_ParVector parb, parx;
@@ -699,6 +806,10 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
   block_iupper.resize(nblocks);
   block_neighbor_level.resize(nblocks);
   block_is_domain_boundary.resize(nblocks);
+  block_graph_f2c_entries.assign(nblocks, 0);
+  block_graph_c2f_entries.assign(nblocks, 0);
+  setup_graph_f2c_entries = 0;
+  setup_graph_c2f_entries = 0;
   std::vector<std::vector<std::pair<std::array<int, 3>, std::array<int, 3>>>>
       global_part_boxes;
 
@@ -996,6 +1107,8 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
           std::array<int, 3> to{from[0] / 2, from[1] / 2, from[2] / 2};
           to[axis] = (from[axis] + ((side < 0) ? -1 : 1)) / 2;
           add_entry(from, to, to_part);
+          setup_graph_f2c_entries++;
+          block_graph_f2c_entries[b]++;
           continue;
         }
 
@@ -1009,6 +1122,8 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
             std::array<int, 3> to = base;
             to[t0] = 2 * from[t0] + s;
             add_entry(from, to, to_part);
+            setup_graph_c2f_entries++;
+            block_graph_c2f_entries[b]++;
           }
         } else {
           for (int s0 = 0; s0 < 2; ++s0) {
@@ -1017,11 +1132,18 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
               to[t0] = 2 * from[t0] + s0;
               to[t1] = 2 * from[t1] + s1;
               add_entry(from, to, to_part);
+              setup_graph_c2f_entries++;
+              block_graph_c2f_entries[b]++;
             }
           }
         }
       }
     }
+  }
+
+  if (debug_fc_couplings && parthenon::Globals::my_rank == 0) {
+    std::cout << "[hypre] SetupGrid graph entries f2c=" << setup_graph_f2c_entries
+              << " c2f=" << setup_graph_c2f_entries << "\n";
   }
 
   HYPRE_SStructGraphAssemble(graph);
