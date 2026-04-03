@@ -253,6 +253,7 @@ void HypreSolver::DestroyGrid() {
   block_neighbor_level.clear();
   block_is_domain_boundary.clear();
   level_to_part.clear();
+  part_periodic.clear();
 
   nparts = 0;
   min_active_level = -1;
@@ -510,11 +511,25 @@ parthenon::TaskStatus HypreSolver::BuildMatrixVector(HypreSolver *solver, int b,
             const int tan_axis0 = (axis + 1) % solver->ndim;
             const int tan_axis1 = (axis + 2) % solver->ndim;
 
+            // Periodic wrapping info for the fine-level part, used to canonicalize
+            // fine `to` indices before DfcComponentFromGlobal parity check.
+            const int fine_part = solver->level_to_part[nlev];
+            const auto &fpp = solver->part_periodic[fine_part];
+
+            auto wrap_to = [&](std::array<int, 3> &idx) {
+              for (int d = 0; d < solver->ndim; ++d) {
+                if (fpp[d] > 0) {
+                  idx[d] = ((idx[d] % fpp[d]) + fpp[d]) % fpp[d];
+                }
+              }
+            };
+
             Real sum_cond_sub = 0.0;
             if (solver->ndim == 2) {
               for (int s = 0; s < 2; ++s) {
                 std::array<int, 3> to = fine_face_anchor;
                 to[tan_axis0] = 2 * ((tan_axis0 == 0) ? gi : gj) + s;
+                wrap_to(to);
                 const int comp =
                     DfcComponentFromGlobal(axis, to[0], to[1], to[2], solver->ndim);
                 const Real Dsub =
@@ -540,6 +555,7 @@ parthenon::TaskStatus HypreSolver::BuildMatrixVector(HypreSolver *solver, int b,
                       2 * ((tan_axis0 == 0) ? gi : ((tan_axis0 == 1) ? gj : gk)) + s0;
                   to[tan_axis1] =
                       2 * ((tan_axis1 == 0) ? gi : ((tan_axis1 == 1) ? gj : gk)) + s1;
+                  wrap_to(to);
                   const int comp =
                       DfcComponentFromGlobal(axis, to[0], to[1], to[2], solver->ndim);
                   const Real Dsub =
@@ -924,6 +940,7 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
 
   // Variables and periodicity for each part.
   HYPRE_SStructVariable cell_var = HYPRE_SSTRUCT_VARIABLE_CELL;
+  part_periodic.resize(nparts, {0, 0, 0});
   for (int part = 0; part < nparts; ++part) {
     HYPRE_SStructGridSetVariables(grid, part, 1, &cell_var);
 
@@ -952,6 +969,7 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
 
     // Passing zeros is the Hypre convention for non-periodic directions.
     HYPRE_SStructGridSetPeriodic(grid, part, periodic.data());
+    part_periodic[part] = periodic;
   }
 
   HYPRE_SStructGridAssemble(grid);
@@ -993,8 +1011,17 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
     const auto &lo = block_ilower[b];
     const auto &hi = block_iupper[b];
 
-    auto add_entry = [&](const std::array<int, 3> &from, const std::array<int, 3> &to,
+    auto add_entry = [&](const std::array<int, 3> &from, std::array<int, 3> to,
                          int to_part) {
+      // Wrap periodic target indices into [0, period) before validation and Hypre call.
+      // HYPRE_SStructGraphAddEntries does NOT auto-wrap periodic indices.
+      const auto &pp = part_periodic[to_part];
+      for (int d = 0; d < ndim; ++d) {
+        if (pp[d] > 0) {
+          to[d] = ((to[d] % pp[d]) + pp[d]) % pp[d];
+        }
+      }
+
       bool valid_to = false;
       for (const auto &bx : global_part_boxes[to_part]) {
         const auto &lbx = bx.first;
@@ -1014,7 +1041,7 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
         PARTHENON_FAIL(msg);
       }
       HYPRE_SStructGraphAddEntries(graph, part, const_cast<int *>(from.data()), 0,
-                                   to_part, const_cast<int *>(to.data()), 0);
+                                   to_part, to.data(), 0);
     };
 
     for (const auto &nb : pmb->GetNeighbors()) {

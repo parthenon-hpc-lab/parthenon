@@ -90,6 +90,10 @@ struct HypreSolver {
   // Sized to max_level+1, indexed directly by level
   std::vector<int> level_to_part;
 
+  // Per-part periodic lengths: part_periodic[part][d] = total cells at that level
+  // if direction d is periodic, else 0. Used to wrap FC graph target indices.
+  std::vector<std::array<int, 3>> part_periodic;
+
   // ---------------------------------------------------------------------------
   // Solver configuration (read from [hypre] input block)
   // ---------------------------------------------------------------------------
