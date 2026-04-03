@@ -81,6 +81,8 @@ struct HypreSolver {
   int ndim = 2;     // number of spatial dimensions (2 for this problem)
   int nparts = 0;   // number of distinct AMR levels with leaf blocks
   int nstencil = 5; // stencil size (5 for 2D, 7 for 3D)
+  int min_active_level = -1;
+  int max_active_level = -1;
 
   // Map from AMR refinement level -> Hypre part index (0-based)
   // Sized to max_level+1, indexed directly by level
