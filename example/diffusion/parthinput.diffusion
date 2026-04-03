@@ -107,7 +107,7 @@ volume_weight = true
 
 <hypre>
 use_hypre = false
-solver_type = pcg
+solver_type = bicgstab
 preconditioner = amg
 tol = 1e-8
 max_iter = 100

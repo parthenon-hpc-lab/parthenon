@@ -145,7 +145,7 @@ void NeighborFaceBounds(const std::array<int, 3> &lo, const std::array<int, 3> &
 
 HypreSolver::HypreSolver(parthenon::ParameterInput *pin) {
   // Solver type
-  solver_type = pin->GetOrAddString("hypre", "solver_type", "pcg",
+  solver_type = pin->GetOrAddString("hypre", "solver_type", "bicgstab",
                                     "Hypre outer solver: pcg or bicgstab");
   std::transform(solver_type.begin(), solver_type.end(), solver_type.begin(),
                  [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
@@ -158,8 +158,17 @@ HypreSolver::HypreSolver(parthenon::ParameterInput *pin) {
   PARTHENON_REQUIRE(preconditioner == "amg" || preconditioner == "none",
                     "hypre/preconditioner must be 'amg' or 'none'.");
   tol = pin->GetOrAddReal("hypre", "tol", 1e-12, "Relative convergence tolerance");
+  absolute_tol =
+      pin->GetOrAddReal("hypre", "absolute_tol", 0.0,
+                        "Absolute convergence tolerance (0 disables absolute stop)");
   max_iter = pin->GetOrAddInteger("hypre", "max_iter", 50, "Maximum solver iterations");
   print_level = pin->GetOrAddInteger("hypre", "print_level", 1, "Solver print verbosity");
+  pcg_use_two_norm =
+      pin->GetOrAddBoolean("hypre", "pcg_use_two_norm", true,
+                           "Use true 2-norm residual in PCG stopping criterion");
+  pcg_recompute_residual =
+      pin->GetOrAddBoolean("hypre", "pcg_recompute_residual", false,
+                           "Recompute residual explicitly in PCG for robustness");
 
   // BoomerAMG preconditioner settings
   amg_coarsen_type =
@@ -402,7 +411,7 @@ parthenon::TaskStatus HypreSolver::BuildMatrixVector(HypreSolver *solver, int b,
 
         const Real u0 = pack(pb, diffusion_package::u(), k, j, i);
         rhsvals[lin] = solver->diagonal_alpha * cell_vol * u0;
-        xvals[lin] = 0.0;
+        xvals[lin] = u0;
       });
 
   // Phase B: physical Dirichlet boundary corrections.
@@ -768,7 +777,16 @@ void HypreSolver::SetupSolver() {
   if (solver_type == "pcg") {
     HYPRE_ParCSRPCGCreate(MPI_COMM_WORLD, &solver_handle);
     HYPRE_ParCSRPCGSetTol(solver_handle, tol);
+    if (absolute_tol > 0.0) {
+      HYPRE_ParCSRPCGSetAbsoluteTol(solver_handle, absolute_tol);
+    }
     HYPRE_ParCSRPCGSetMaxIter(solver_handle, max_iter);
+    if (pcg_use_two_norm) {
+      HYPRE_ParCSRPCGSetTwoNorm(solver_handle, 1);
+    }
+    if (pcg_recompute_residual) {
+      HYPRE_PCGSetRecomputeResidual(solver_handle, 1);
+    }
     HYPRE_ParCSRPCGSetPrintLevel(solver_handle, print_level);
     HYPRE_ParCSRPCGSetLogging(solver_handle, (print_level > 0) ? 1 : 0);
     if (use_amg_preconditioner) {
@@ -778,6 +796,9 @@ void HypreSolver::SetupSolver() {
   } else {
     HYPRE_ParCSRBiCGSTABCreate(MPI_COMM_WORLD, &solver_handle);
     HYPRE_ParCSRBiCGSTABSetTol(solver_handle, tol);
+    if (absolute_tol > 0.0) {
+      HYPRE_ParCSRBiCGSTABSetAbsoluteTol(solver_handle, absolute_tol);
+    }
     HYPRE_ParCSRBiCGSTABSetMaxIter(solver_handle, max_iter);
     HYPRE_ParCSRBiCGSTABSetPrintLevel(solver_handle, print_level);
     HYPRE_ParCSRBiCGSTABSetLogging(solver_handle, (print_level > 0) ? 1 : 0);

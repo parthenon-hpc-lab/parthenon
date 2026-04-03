@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "HYPRE_krylov.h"
 #include "HYPRE_parcsr_ls.h"
 #include "HYPRE_sstruct_ls.h"
 #include "HYPRE_sstruct_mv.h"
@@ -93,11 +94,14 @@ struct HypreSolver {
   // ---------------------------------------------------------------------------
   // Solver configuration (read from [hypre] input block)
   // ---------------------------------------------------------------------------
-  std::string solver_type;    // "pcg" or "bicgstab"
-  std::string preconditioner; // "amg" or "none"
-  parthenon::Real tol;        // relative convergence tolerance
-  int max_iter;               // maximum solver iterations
-  int print_level;            // solver verbosity
+  std::string solver_type;      // "pcg" or "bicgstab"
+  std::string preconditioner;   // "amg" or "none"
+  parthenon::Real tol;          // relative convergence tolerance
+  parthenon::Real absolute_tol; // optional absolute convergence tolerance (0 disables)
+  int max_iter;                 // maximum solver iterations
+  int print_level;              // solver verbosity
+  bool pcg_use_two_norm;        // use true (2-) norm in PCG stopping criterion
+  bool pcg_recompute_residual;  // recompute residual explicitly in PCG
 
   // BoomerAMG preconditioner settings
   int amg_coarsen_type;                 // HMIS coarsening
