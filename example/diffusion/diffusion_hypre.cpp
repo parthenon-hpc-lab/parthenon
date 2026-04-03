@@ -105,9 +105,9 @@ int DfcComponentFromGlobal(const int axis, const int gi, const int gj, const int
 }
 
 void NeighborFaceBounds(const std::array<int, 3> &lo, const std::array<int, 3> &hi,
-                        const int ndim, const parthenon::NeighborBlock &nb, const int lev,
-                        int &is, int &ie, int &js, int &je, int &ks, int &ke, int &axis,
-                        int &side) {
+                        const int ndim, const parthenon::NeighborBlock &nb,
+                        const bool neighbor_is_fine, int &is, int &ie, int &js, int &je,
+                        int &ks, int &ke, int &axis, int &side) {
   const int face = FaceFromOffsets(nb.offsets);
   axis = FaceAxis(face);
   side = FaceSide(face);
@@ -138,7 +138,7 @@ void NeighborFaceBounds(const std::array<int, 3> &lo, const std::array<int, 3> &
 
   // If neighbor is finer, this neighbor only covers a half-face (2D) or quarter-face
   // (3D). Restrict the tangential ranges using fi1/fi2.
-  if (static_cast<int>(nb.origin_loc.level()) > lev) {
+  if (neighbor_is_fine) {
     auto split_half = [](int &s, int &e, int fi) {
       const int n = e - s + 1;
       const int h = n / 2;
@@ -291,7 +291,9 @@ parthenon::TaskStatus HypreSolver::BuildMatrixVector(HypreSolver *solver, int b,
   const auto &il = solver->block_ilower[b];
   const auto &iu = solver->block_iupper[b];
   const int part = solver->block_part[b];
-  const int lev = static_cast<int>(pmb->loc.level());
+  const int legacy_root_level = pmb->pmy_mesh->GetLegacyTreeRootLevel();
+  const auto legacy_loc = pmb->pmy_mesh->Forest().GetLegacyTreeLocation(pmb->loc);
+  const int lev = static_cast<int>(legacy_loc.level()) - legacy_root_level;
 
   std::vector<int> stencil_entries(solver->nstencil);
   for (int e = 0; e < solver->nstencil; ++e)
@@ -442,7 +444,8 @@ parthenon::TaskStatus HypreSolver::BuildMatrixVector(HypreSolver *solver, int b,
     const int face = FaceFromOffsets(nb.offsets);
     if (face == parthenon::BoundaryFace::undef) continue;
 
-    const int nlev = static_cast<int>(nb.origin_loc.level());
+    const auto nlegacy_loc = pmb->pmy_mesh->Forest().GetLegacyTreeLocation(nb.origin_loc);
+    const int nlev = static_cast<int>(nlegacy_loc.level()) - legacy_root_level;
     const int neighbor_level_relation = (nlev > lev) ? 1 : ((nlev < lev) ? -1 : 0);
     if (neighbor_level_relation == 0) continue;
 
@@ -694,6 +697,7 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
 
   auto &blocks = pmesh->block_list;
   const int nblocks = static_cast<int>(blocks.size());
+  const int legacy_root_level = pmesh->GetLegacyTreeRootLevel();
 
   if (nblocks == 0) {
     PARTHENON_FAIL("SetupGrid called with empty block list.");
@@ -712,7 +716,8 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
   int local_max_level = -1;
   int local_min_level = std::numeric_limits<int>::max();
   for (const auto &pmb : blocks) {
-    const int lev = static_cast<int>(pmb->loc.level());
+    const auto legacy_loc = pmesh->Forest().GetLegacyTreeLocation(pmb->loc);
+    const int lev = static_cast<int>(legacy_loc.level()) - legacy_root_level;
     local_max_level = std::max(local_max_level, lev);
     local_min_level = std::min(local_min_level, lev);
   }
@@ -724,7 +729,8 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
 
   std::vector<int> local_level_present(std::max(max_level + 1, 0), 0);
   for (const auto &pmb : blocks) {
-    local_level_present[static_cast<int>(pmb->loc.level())] = 1;
+    const auto legacy_loc = pmesh->Forest().GetLegacyTreeLocation(pmb->loc);
+    local_level_present[static_cast<int>(legacy_loc.level()) - legacy_root_level] = 1;
   }
 
   std::vector<int> global_level_present(std::max(max_level + 1, 0), 0);
@@ -761,7 +767,8 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
   // Add block extents and cache per-block metadata.
   for (int b = 0; b < nblocks; ++b) {
     auto *pmb = blocks[b].get();
-    const int lev = static_cast<int>(pmb->loc.level());
+    const auto legacy_loc = pmesh->Forest().GetLegacyTreeLocation(pmb->loc);
+    const int lev = static_cast<int>(legacy_loc.level()) - legacy_root_level;
     const int part = level_to_part[lev];
     block_part[b] = part;
 
@@ -769,9 +776,9 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
     const int nx2 = pmb->block_size.nx(parthenon::X2DIR);
     const int nx3 = (ndim == 3) ? pmb->block_size.nx(parthenon::X3DIR) : 1;
 
-    const int i0 = static_cast<int>(pmb->loc.lx1()) * nx1;
-    const int j0 = static_cast<int>(pmb->loc.lx2()) * nx2;
-    const int k0 = (ndim == 3) ? static_cast<int>(pmb->loc.lx3()) * nx3 : 0;
+    const int i0 = static_cast<int>(legacy_loc.lx1()) * nx1;
+    const int j0 = static_cast<int>(legacy_loc.lx2()) * nx2;
+    const int k0 = (ndim == 3) ? static_cast<int>(legacy_loc.lx3()) * nx3 : 0;
 
     block_ilower[b] = {i0, j0, k0};
     block_iupper[b] = {i0 + nx1 - 1, j0 + nx2 - 1, (ndim == 3) ? (k0 + nx3 - 1) : 0};
@@ -806,7 +813,8 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
       const int face = FaceFromOffsets(nb.offsets);
       if (face == parthenon::BoundaryFace::undef) continue;
 
-      const int nlev = static_cast<int>(nb.origin_loc.level());
+      const auto nlegacy_loc = pmesh->Forest().GetLegacyTreeLocation(nb.origin_loc);
+      const int nlev = static_cast<int>(nlegacy_loc.level()) - legacy_root_level;
       if (nlev > lev) {
         block_neighbor_level[b][face] = parthenon::CellLevel::fine;
       } else if (nlev < lev) {
@@ -926,7 +934,8 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
   // Add non-stencil graph entries across fine-coarse boundaries.
   for (int b = 0; b < nblocks; ++b) {
     const auto *pmb = blocks[b].get();
-    const int lev = static_cast<int>(pmb->loc.level());
+    const auto legacy_loc = pmesh->Forest().GetLegacyTreeLocation(pmb->loc);
+    const int lev = static_cast<int>(legacy_loc.level()) - legacy_root_level;
     const int part = block_part[b];
     const auto &lo = block_ilower[b];
     const auto &hi = block_iupper[b];
@@ -964,7 +973,8 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
       const int face = FaceFromOffsets(nb.offsets);
       if (face == parthenon::BoundaryFace::undef) continue;
 
-      const int nlev = static_cast<int>(nb.origin_loc.level());
+      const auto nlegacy_loc = pmesh->Forest().GetLegacyTreeLocation(nb.origin_loc);
+      const int nlev = static_cast<int>(nlegacy_loc.level()) - legacy_root_level;
       const int relative_nbr_level = (nlev > lev) ? 1 : ((nlev < lev) ? -1 : 0);
       if (relative_nbr_level == 0) continue;
 
@@ -976,7 +986,8 @@ void HypreSolver::SetupGrid(parthenon::Mesh *pmesh) {
       PARTHENON_REQUIRE(to_part >= 0, "Invalid neighbor part mapping in SetupGrid.");
 
       int is, ie, js, je, ks, ke, axis, side;
-      NeighborFaceBounds(lo, hi, ndim, nb, lev, is, ie, js, je, ks, ke, axis, side);
+      NeighborFaceBounds(lo, hi, ndim, nb, relative_nbr_level > 0, is, ie, js, je, ks, ke,
+                         axis, side);
       PARTHENON_REQUIRE(axis >= 0 && axis < ndim,
                         "Invalid face axis in SetupGrid graph construction.");
 
