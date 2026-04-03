@@ -7,7 +7,6 @@
 #ifdef DIFFUSION_WITH_HYPRE
 
 #include <array>
-#include <atomic>
 #include <string>
 #include <vector>
 
@@ -100,6 +99,7 @@ struct HypreSolver {
   parthenon::Real absolute_tol; // optional absolute convergence tolerance (0 disables)
   int max_iter;                 // maximum solver iterations
   int print_level;              // solver verbosity
+  int internal_print_level;     // Hypre internal solver print level
   bool pcg_use_two_norm;        // use true (2-) norm in PCG stopping criterion
   bool pcg_recompute_residual;  // recompute residual explicitly in PCG
 
@@ -114,16 +114,7 @@ struct HypreSolver {
   bool print_matrix = false;
   bool print_vectors = false;
   bool print_matrix_all = false;
-  bool debug_fc_couplings = false;
-  int debug_fc_sample_rows = 16;
-  std::atomic<int> debug_fc_samples_printed{0};
   int solve_call_count = 0;
-
-  // Graph coupling diagnostics
-  long long setup_graph_f2c_entries = 0;
-  long long setup_graph_c2f_entries = 0;
-  std::vector<long long> block_graph_f2c_entries;
-  std::vector<long long> block_graph_c2f_entries;
 
   // Problem parameters cached from package
   parthenon::Real diagonal_alpha;

@@ -135,7 +135,6 @@ TaskCollection DiffusionDriver::MakeTaskCollectionHypre() {
     grid_region[0].AddTask(
         none,
         [](HypreSolver *solver, parthenon::Mesh *pmesh) {
-          solver->debug_fc_samples_printed.store(0);
           if (pmesh->modified || solver->needs_grid_setup || !solver->grid_is_setup) {
             solver->DestroyGrid();
             solver->SetupGrid(pmesh);
