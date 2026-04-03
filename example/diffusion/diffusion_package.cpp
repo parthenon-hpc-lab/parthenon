@@ -195,7 +195,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   bool use_hypre = pin->GetOrAdd("hypre", "use_hypre", false,
                                  "Use HYPRE solvers, requires -DDIFFUSION_WITH_HYPRE");
   pkg->AddParam("use_hypre", use_hypre && WithHypre());
-  if constexpr (WithHypre()) {
+#ifdef DIFFUSION_WITH_HYPRE
+  {
     auto hypre_solver = std::make_shared<HypreSolver>(pin);
     pkg->AddParam("hypre_solver", hypre_solver);
 
@@ -208,6 +209,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       pkg->AddField<Dfc>(m);
     }
   }
+#endif // DIFFUSION_WITH_HYPRE
 
   return pkg;
 }
@@ -315,7 +317,8 @@ parthenon::TaskStatus SetDiffusionCoefficient(std::shared_ptr<MeshData<Real>> md
 } // SetRHS
 parthenon::TaskStatus SetDiffusionCoefficientHypre(std::shared_ptr<MeshData<Real>> md,
                                                    const Real dt) {
-  if constexpr (WithHypre()) {
+#ifdef DIFFUSION_WITH_HYPRE
+  {
     const int ndim = md->GetMeshPointer()->ndim;
     auto pkg = md->GetMeshPointer()->packages.Get("diffusion_package");
     auto desc = parthenon::MakePackDescriptor<diffusion_package::u, diffusion_package::D,
@@ -360,7 +363,8 @@ parthenon::TaskStatus SetDiffusionCoefficientHypre(std::shared_ptr<MeshData<Real
           });
     }
   }
+#endif // DIFFUSION_WITH_HYPRE
   return TaskStatus::complete;
-} // SetRHS
+} // SetDiffusionCoefficientHypre
 
 } // namespace diffusion_package

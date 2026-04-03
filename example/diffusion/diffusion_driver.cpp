@@ -126,70 +126,70 @@ TaskCollection DiffusionDriver::MakeTaskCollectionHypre() {
   TaskCollection tc;
   TaskID none(0);
 
-  if constexpr (WithHypre()) {
+#ifdef DIFFUSION_WITH_HYPRE
 
-    auto pkg = pmesh->packages.Get("diffusion_package");
-    auto hypre_solver = pkg->Param<std::shared_ptr<HypreSolver>>("hypre_solver");
+  auto pkg = pmesh->packages.Get("diffusion_package");
+  auto hypre_solver = pkg->Param<std::shared_ptr<HypreSolver>>("hypre_solver");
 
-    TaskRegion &grid_region = tc.AddRegion(1);
-    grid_region[0].AddTask(
-        none,
-        [](HypreSolver *solver, parthenon::Mesh *pmesh) {
-          if (pmesh->modified || solver->needs_grid_setup || !solver->grid_is_setup) {
-            solver->DestroyGrid();
-            solver->SetupGrid(pmesh);
-          }
-          return TaskStatus::complete;
-        },
-        hypre_solver.get(), pmesh);
+  TaskRegion &grid_region = tc.AddRegion(1);
+  grid_region[0].AddTask(
+      none,
+      [](HypreSolver *solver, parthenon::Mesh *pmesh) {
+        if (pmesh->modified || solver->needs_grid_setup || !solver->grid_is_setup) {
+          solver->DestroyGrid();
+          solver->SetupGrid(pmesh);
+        }
+        return TaskStatus::complete;
+      },
+      hypre_solver.get(), pmesh);
 
-    auto partitions = pmesh->GetDefaultBlockPartitions();
-    const int num_partitions = partitions.size();
-    TaskRegion &region = tc.AddRegion(num_partitions);
-    for (int i = 0; i < num_partitions; ++i) {
-      TaskList &tl = region[i];
-      auto &md = pmesh->mesh_data.Add("base", partitions[i]);
+  auto partitions = pmesh->GetDefaultBlockPartitions();
+  const int num_partitions = partitions.size();
+  TaskRegion &region = tc.AddRegion(num_partitions);
+  for (int i = 0; i < num_partitions; ++i) {
+    TaskList &tl = region[i];
+    auto &md = pmesh->mesh_data.Add("base", partitions[i]);
 
-      auto start_fluxcor = tl.AddTask(none, parthenon::StartReceiveFluxCorrections, md);
+    auto start_fluxcor = tl.AddTask(none, parthenon::StartReceiveFluxCorrections, md);
 
-      // SetDiffusionCoefficient
-      auto set_d = tl.AddTask(none, TF(SetDiffusionCoefficientHypre), md, tm.dt);
+    // SetDiffusionCoefficient
+    auto set_d = tl.AddTask(none, TF(SetDiffusionCoefficientHypre), md, tm.dt);
 
-      auto set_fluxcor = parthenon::AddFluxCorrectionTasks(set_d | start_fluxcor, tl, md,
-                                                           pmesh->multilevel);
-    }
-
-    auto &blocks = pmesh->block_list;
-    TaskRegion &build_matrix_region = tc.AddRegion(blocks.size());
-    for (int i = 0; i < blocks.size(); i++) {
-      auto &tl = build_matrix_region[i];
-      auto &pmb = blocks[i];
-      auto build_block = tl.AddTask(none, TF(HypreSolver::BuildMatrixVector),
-                                    hypre_solver.get(), i, pmb.get(), integrator.dt);
-      // probably have a task for setting RHS and initial guess
-    }
-
-    TaskRegion &solve_region = tc.AddRegion(1);
-    auto solve =
-        solve_region[0].AddTask(none, TF(HypreSolver::Solve), hypre_solver.get());
-
-    TaskRegion &update_region = tc.AddRegion(blocks.size());
-    for (int i = 0; i < blocks.size(); ++i) {
-      TaskList &tl = update_region[i];
-      auto &pmb = blocks[i];
-      auto update_block = tl.AddTask(none, TF(HypreSolver::UpdateSolution),
-                                     hypre_solver.get(), i, pmb.get());
-    }
-
-    TaskRegion &dt_region = tc.AddRegion(num_partitions);
-    for (int i = 0; i < num_partitions; ++i) {
-      TaskList &tl = dt_region[i];
-      auto &md = pmesh->mesh_data.Add("base", partitions[i]);
-
-      // Update the timestep
-      tl.AddTask(none, parthenon::Update::EstimateTimestep<MeshData<Real>>, md.get());
-    }
+    auto set_fluxcor = parthenon::AddFluxCorrectionTasks(set_d | start_fluxcor, tl, md,
+                                                         pmesh->multilevel);
   }
+
+  auto &blocks = pmesh->block_list;
+  TaskRegion &build_matrix_region = tc.AddRegion(blocks.size());
+  for (int i = 0; i < blocks.size(); i++) {
+    auto &tl = build_matrix_region[i];
+    auto &pmb = blocks[i];
+    auto build_block = tl.AddTask(none, TF(HypreSolver::BuildMatrixVector),
+                                  hypre_solver.get(), i, pmb.get(), integrator.dt);
+    // probably have a task for setting RHS and initial guess
+  }
+
+  TaskRegion &solve_region = tc.AddRegion(1);
+  auto solve = solve_region[0].AddTask(none, TF(HypreSolver::Solve), hypre_solver.get());
+
+  TaskRegion &update_region = tc.AddRegion(blocks.size());
+  for (int i = 0; i < blocks.size(); ++i) {
+    TaskList &tl = update_region[i];
+    auto &pmb = blocks[i];
+    auto update_block = tl.AddTask(none, TF(HypreSolver::UpdateSolution),
+                                   hypre_solver.get(), i, pmb.get());
+  }
+
+  TaskRegion &dt_region = tc.AddRegion(num_partitions);
+  for (int i = 0; i < num_partitions; ++i) {
+    TaskList &tl = dt_region[i];
+    auto &md = pmesh->mesh_data.Add("base", partitions[i]);
+
+    // Update the timestep
+    tl.AddTask(none, parthenon::Update::EstimateTimestep<MeshData<Real>>, md.get());
+  }
+
+#endif // DIFFUSION_WITH_HYPRE
   return tc;
 }
 
