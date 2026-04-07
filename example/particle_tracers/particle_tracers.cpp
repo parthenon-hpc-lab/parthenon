@@ -544,8 +544,8 @@ TaskCollection ParticleDriver::StepTasks() {
     auto &amr_region = tc.AddRegion(num_partitions);
     for (int i = 0; i < num_partitions; ++i) {
       auto &tl = amr_region[i];
-      auto &u1 = pmesh->mesh_data.GetOrAdd("u1", i);
-      tl.AddTask(none, parthenon::Refinement::Tag<MeshData<Real>>, u1.get());
+      auto &base = pmesh->mesh_data.GetOrAdd("base", i);
+      tl.AddTask(none, parthenon::Refinement::Tag<MeshData<Real>>, base.get());
     }
   }
 
