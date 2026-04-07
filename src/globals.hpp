@@ -39,6 +39,7 @@ struct SparseConfig {
 
 extern int my_rank, nranks, nghost;
 extern bool is_restart;
+extern bool watchdog_enabled;
 
 extern SparseConfig sparse_config;
 
