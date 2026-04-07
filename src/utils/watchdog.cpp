@@ -94,4 +94,3 @@ void WatchDog(int timeout) {
 }
 } // namespace WatchDog
 } // namespace parthenon
-
