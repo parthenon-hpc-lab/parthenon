@@ -3,7 +3,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
-- [[PR 1381]](https://github.com/parthenon-hpc-lab/parthenon/pull/1381) Support Particle AMR
+- [[PR 1382]](https://github.com/parthenon-hpc-lab/parthenon/pull/1382) Support Particle AMR
 - [[PR 1378]](https://github.com/parthenon-hpc-lab/parthenon/pull/1378) MeshData Swarm Tasks
 - [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Add PostAMRInitialization Hook
 - [[PR 1375]](https://github.com/parthenon-hpc-lab/parthenon/pull/1375) Add uint64 support to SwarmPacks
