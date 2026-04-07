@@ -17,11 +17,11 @@
 #include <memory>
 #include <vector>
 
+#include "diffusion_hypre.hpp"
 #include <kokkos_abstraction.hpp>
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
 #include <solvers/solver_base.hpp>
-#include "diffusion_hypre.hpp"
 
 namespace diffusion_example {
 using namespace parthenon::driver::prelude;
@@ -31,7 +31,7 @@ class DiffusionDriver : public EvolutionDriver {
  public:
   DiffusionDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
       : EvolutionDriver(pin, app_in, pm), integrator(pin) {
-        u2.val = 1e200;
+    u2.val = 1e200;
     //    InitializeOutputs();
   }
   // This next function essentially defines the driver.
@@ -46,11 +46,13 @@ class DiffusionDriver : public EvolutionDriver {
     bool print{true};
 #ifdef DIFFUSION_WITH_HYPRE
     if (pkg->Param<bool>("use_hypre")) {
-      auto hypre_solver = pkg->Param<std::shared_ptr<diffusion_package::HypreSolver>>("hypre_solver");
-      std::cout << " v-cycles=" << hypre_solver->niter * 2 << " rel_resid=" << hypre_solver->rnorm; 
+      auto hypre_solver =
+          pkg->Param<std::shared_ptr<diffusion_package::HypreSolver>>("hypre_solver");
+      std::cout << " v-cycles=" << hypre_solver->niter * 2
+                << " rel_resid=" << hypre_solver->rnorm;
       print = false;
     }
-#endif 
+#endif
     if (print) {
       auto solver_type = pkg->Param<std::string>("solver");
       auto psolver =
@@ -59,10 +61,11 @@ class DiffusionDriver : public EvolutionDriver {
       int v_cycles = psolver->GetFinalIterations();
       auto res = psolver->GetFinalResidual();
       if (solver_type == "BiCGSTAB") v_cycles *= 2;
-      std::cout << " v-cycles=" << v_cycles << " rel_resid=" << res / (alpha * sqrt(u2.val));
+      std::cout << " v-cycles=" << v_cycles
+                << " rel_resid=" << res / (alpha * sqrt(u2.val));
     }
   }
-  
+
   void PostExecute(DriverStatus status) override {
     EvolutionDriver::PostExecute(status);
     if (parthenon::Globals::my_rank == 0) {
@@ -74,7 +77,6 @@ class DiffusionDriver : public EvolutionDriver {
         std::cout << "Solver breakdown: \n" << psolver->solver_timings;
         psolver->solver_timings.clear();
       }
-      
     }
   }
 

@@ -72,7 +72,7 @@ TaskCollection DiffusionDriver::MakeTaskCollectionNative() {
   using namespace diffusion_package;
   TaskCollection tc;
   TaskID none(0);
-  
+
   auto pkg = pmesh->packages.Get("diffusion_package");
   auto psolver =
       pkg->Param<std::shared_ptr<parthenon::solvers::SolverBase>>("solver_pointer");
@@ -104,16 +104,19 @@ TaskCollection DiffusionDriver::MakeTaskCollectionNative() {
     auto set_rhs =
         tl.AddTask(Au, solvers::utils::AddFieldsAndStore<parthenon::TypeList<u>>, md,
                    md_rhs, md_rhs, alpha, -1.0);
-    
+
     // Get the RHS scale for correct comparison to Hypre solver
-    set_rhs =
-        solvers::utils::DotProduct<parthenon::TypeList<u>>(set_rhs, tl, &u2, md, md, true);
-    
-    set_rhs = tl.AddTask(set_rhs, [alpha](parthenon::AllReduce<Real> *u2, 
-                                     std::shared_ptr<parthenon::solvers::SolverBase> psolver, Real rel_res){
-      *(psolver->absolute_residual_tolerance) = alpha * rel_res * sqrt(u2->val);
-      return parthenon::TaskStatus::complete;
-    }, &u2, psolver, rel_res);
+    set_rhs = solvers::utils::DotProduct<parthenon::TypeList<u>>(set_rhs, tl, &u2, md, md,
+                                                                 true);
+
+    set_rhs = tl.AddTask(
+        set_rhs,
+        [alpha](parthenon::AllReduce<Real> *u2,
+                std::shared_ptr<parthenon::solvers::SolverBase> psolver, Real rel_res) {
+          *(psolver->absolute_residual_tolerance) = alpha * rel_res * sqrt(u2->val);
+          return parthenon::TaskStatus::complete;
+        },
+        &u2, psolver, rel_res);
 
     // Set initial solution guess to zero
     auto zero_u = tl.AddTask(set_rhs, TF(solvers::utils::SetToZero<u>), md_deltau);

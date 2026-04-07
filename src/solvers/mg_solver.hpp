@@ -102,8 +102,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
            const std::string &container_rhs, ParameterInput *pin,
            const std::string &input_block, equations_t eq_in = equations_t())
       : SolverBase(container_base, container_u, container_rhs, pin, input_block),
-        params_(pin, input_block),
-        iter_counter(0), eqs_(eq_in), prolongator_(pin, input_block), initial_guess_is_zero{false},
+        params_(pin, input_block), iter_counter(0), eqs_(eq_in),
+        prolongator_(pin, input_block), initial_guess_is_zero{false},
         constant_prolongation{false}, restrictor_(pin, input_block) {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
@@ -393,7 +393,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
           {{0.9372, 0.6667, 0.5173}, {1.6653, 0.8000, 0.5264}, {2.2473, 0.8571, 0.5296}}};
       // Chebyshev for diffusion
       // const std::array<std::array<Real, 3>, 3> omega{
-      //     {{0.532079, 0.909091, 3.119832}, {0.532079, 0.909091, 3.119832}, {0.532079, 0.909091, 3.119832}}};
+      //     {{0.532079, 0.909091, 3.119832}, {0.532079, 0.909091, 3.119832}, {0.532079,
+      //     0.909091, 3.119832}}};
       auto jacobi1 = AddJacobiIteration(tl, depends_on, omega[ndim - 1][0], partition,
                                         pmesh, in_is_zero);
       auto jacobi2 =

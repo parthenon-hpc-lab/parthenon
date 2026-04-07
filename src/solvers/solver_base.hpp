@@ -51,17 +51,18 @@ struct has_Restrict<T, FieldTL,
 class SolverBase {
  public:
   SolverBase(const std::string &container_base, const std::string &container_u,
-             const std::string &container_rhs,
-             ParameterInput *pin,
+             const std::string &container_rhs, ParameterInput *pin,
              const std::string &input_block)
       : container_base(container_base), container_u(container_u),
-        container_rhs(container_rhs),
-        relative_residual(pin->GetOrAddBoolean(input_block, "relative_residual", false)), // Eventually needs to be deprecated
-        residual_tolerance(std::make_shared<Real>(0.0)), // Eventually needs to be deprecated
+        container_rhs(container_rhs), relative_residual(pin->GetOrAddBoolean(
+                                          input_block, "relative_residual",
+                                          false)), // Eventually needs to be deprecated
+        residual_tolerance(
+            std::make_shared<Real>(0.0)), // Eventually needs to be deprecated
         absolute_residual_tolerance(std::make_shared<Real>(0.0)),
         relative_residual_tolerance(std::make_shared<Real>(0.0)),
         max_iters(pin->GetOrAddInteger(input_block, "max_iterations", 1000)),
-        print_per_step(pin->GetOrAddBoolean(input_block, "print_per_step", false)){
+        print_per_step(pin->GetOrAddBoolean(input_block, "print_per_step", false)) {
     *residual_tolerance =
         pin->GetOrAddReal(input_block, "residual_tolerance", *residual_tolerance);
     if (relative_residual) {
@@ -127,7 +128,7 @@ class SolverBase {
   bool initial_guess_is_zero{false};
 
   static inline TimingAccumulatorDictionary solver_timings;
-  
+
   bool relative_residual;
   std::shared_ptr<Real> residual_tolerance;
   std::shared_ptr<Real> absolute_residual_tolerance;

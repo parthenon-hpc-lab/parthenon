@@ -202,8 +202,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
           }
           return TaskStatus::complete;
         },
-        this, absolute_residual_tolerance, relative_residual_tolerance,
-        pmesh);
+        this, absolute_residual_tolerance, relative_residual_tolerance, pmesh);
 
     // BEGIN ITERATIVE TASKS
     auto [itl, solver_id] = tl.AddSublist(initialize, {1, max_iters});
@@ -389,8 +388,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
           }
           return TaskStatus::iterate;
         },
-        this, pmesh, max_iters, absolute_residual_tolerance,
-        relative_residual_tolerance);
+        this, pmesh, max_iters, absolute_residual_tolerance, relative_residual_tolerance);
     timer_res->StopCollectingTasks();
     return tl.AddTask(solver_id, TF(CopyData<FieldTL>), md_x, md_u);
   }

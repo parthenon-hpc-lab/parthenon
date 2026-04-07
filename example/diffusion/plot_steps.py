@@ -1,4 +1,4 @@
-#========================================================================================
+# ========================================================================================
 # (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -9,7 +9,7 @@
 # itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
 # license in this material to reproduce, prepare derivative works, distribute copies to
 # the public, perform publicly and display publicly, and to permit others to do so.
-#========================================================================================
+# ========================================================================================
 
 #!/usr/bin/env python3
 """
@@ -40,10 +40,18 @@ from dataclasses import dataclass
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
-plt.rcParams["axes.prop_cycle"] = plt.cycler(color=[
-    "#0072B2", "#E69F00", "#009E73", "#CC79A7",
-    "#56B4E9", "#D55E00", "#F0E442", "#000000"
-])
+plt.rcParams["axes.prop_cycle"] = plt.cycler(
+    color=[
+        "#0072B2",
+        "#E69F00",
+        "#009E73",
+        "#CC79A7",
+        "#56B4E9",
+        "#D55E00",
+        "#F0E442",
+        "#000000",
+    ]
+)
 
 CYCLE_RE = re.compile(
     r"""
@@ -95,7 +103,9 @@ def parse_log(path: pathlib.Path, include_zero: bool = False) -> RunData:
     )
 
 
-def make_plot(runs: list[RunData], output: str | None = None, title: str | None = None) -> None:
+def make_plot(
+    runs: list[RunData], output: str | None = None, title: str | None = None
+) -> None:
     fig, ax1 = plt.subplots(figsize=(10, 6))
     ax2 = ax1.twinx()
 
@@ -177,7 +187,9 @@ def make_plot(runs: list[RunData], output: str | None = None, title: str | None 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("logs", nargs="+", help="Log files to read")
-    parser.add_argument("--output", "-o", help="Write figure to this file instead of showing it")
+    parser.add_argument(
+        "--output", "-o", help="Write figure to this file instead of showing it"
+    )
     parser.add_argument("--title", help="Custom plot title")
     parser.add_argument(
         "--include-zero",

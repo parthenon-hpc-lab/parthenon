@@ -58,8 +58,8 @@ class TridiagSolver : public SolverBase, TridiagSolverCounter {
   TridiagSolver(const std::string &container_base, const std::string &container_u,
                 const std::string &container_rhs, ParameterInput *pin,
                 const std::string &input_block, const equations &eq_in = equations())
-      : SolverBase(container_base, container_u, container_rhs, pin, input_block), iter_counter(0),
-        eqs_(eq_in),
+      : SolverBase(container_base, container_u, container_rhs, pin, input_block),
+        iter_counter(0), eqs_(eq_in),
         print_solution_(pin->GetOrAddBoolean(input_block, "print_solution", false)) {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });

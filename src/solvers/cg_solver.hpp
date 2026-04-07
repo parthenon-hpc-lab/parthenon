@@ -252,8 +252,7 @@ class CGSolver : public SolverBase, CGSolverCounter {
           }
           return TaskStatus::iterate;
         },
-        this, pmesh, max_iters, residual_tolerance,
-        relative_residual);
+        this, pmesh, max_iters, residual_tolerance, relative_residual);
 
     return tl.AddTask(solver_id, TF(CopyData<FieldTL>), md_x, md_u);
   }

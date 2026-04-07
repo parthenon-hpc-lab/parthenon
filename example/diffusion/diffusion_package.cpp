@@ -117,7 +117,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Real t0 = pin->GetOrAddReal("diffusion", "t0", 0.001);
   pkg->AddParam<>("t0", t0);
 
-  Real rel_res = pin->GetOrAddReal("diffusion/solver_params", "relative_residual_tolerance", 0.0);
+  Real rel_res =
+      pin->GetOrAddReal("diffusion/solver_params", "relative_residual_tolerance", 0.0);
   pkg->AddParam<>("rel_res", rel_res);
 
   bool constant_coeff = pin->GetOrAddBoolean("diffusion", "constant_coefficient", true);
