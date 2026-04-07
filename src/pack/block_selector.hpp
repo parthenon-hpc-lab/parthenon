@@ -48,14 +48,14 @@ namespace GetBlockSelector {
 
 // Find blocks that have at least one neighbor that is coarser than they are
 inline block_selector_func_t WithCoarserNeighbors(const MeshData<Real> *pmd) {
-  const bool tl_comp = (pmd->grid.type == GridType::two_level_composite);
-  const int level_comp = pmd->grid.logical_level;
+  const bool tl_comp = (pmd->grid.type() == GridType::two_level_composite);
+  const int level_comp = pmd->grid.logical_level();
   return [tl_comp, level_comp](MeshBlockData<Real> *pmbd) {
     auto pmb = pmbd->GetParentPointer();
     // Coarser blocks on two-level composite grids can only have same and finer neighbors
     if (tl_comp && pmb->loc.level() != level_comp) return false;
-    auto *pneighbors = tl_comp ? &(pmb->gmg_same_neighbors) : &(pmb->neighbors);
-    for (const auto &neighbor : *pneighbors) {
+    const auto &neighbors = tl_comp ? pmb->GetGMGSameNeighbors() : pmb->GetNeighbors();
+    for (const auto &neighbor : neighbors) {
       if (neighbor.loc.level() < level_comp) return true;
     }
     return false;
@@ -75,8 +75,8 @@ inline block_selector_func_t OnPhysicalBoundary() {
 }
 
 inline block_selector_func_t FineOnCompositeGrid(const MeshData<Real> *pmd) {
-  if (pmd->grid.type == GridType::two_level_composite) {
-    const int fine_level = pmd->grid.logical_level;
+  if (pmd->grid.type() == GridType::two_level_composite) {
+    const int fine_level = pmd->grid.logical_level();
     return [fine_level](MeshBlockData<Real> *pmbd) {
       return fine_level == pmbd->GetBlockPointer()->loc.level();
     };

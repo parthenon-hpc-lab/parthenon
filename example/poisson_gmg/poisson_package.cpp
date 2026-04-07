@@ -95,7 +95,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   std::shared_ptr<parthenon::solvers::SolverBase> psolver;
   using prolongator_t = parthenon::solvers::ProlongationBlockInteriorZeroDirichlet;
-  using preconditioner_t = parthenon::solvers::MGSolver<PoissEq, prolongator_t>;
+  using restrictor_t = parthenon::solvers::RestrictionCombined;
+  using preconditioner_t =
+      parthenon::solvers::MGSolver<PoissEq, prolongator_t, restrictor_t>;
   if (solver == "MG") {
     psolver = std::make_shared<parthenon::solvers::MGSolver<PoissEq, prolongator_t>>(
         "base", "u", "rhs", pin, "poisson/solver_params", PoissEq(pin, "poisson"));
@@ -123,9 +125,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // for the standard Poisson equation.
   pkg->AddField(D::name(), mD);
 
-  std::vector<MetadataFlag> flags{Metadata::Cell,        Metadata::Independent,
-                                  Metadata::FillGhost,   Metadata::WithFluxes,
-                                  Metadata::GMGRestrict, Metadata::GMGProlongate};
+  std::vector<MetadataFlag> flags{Metadata::Cell,          Metadata::Independent,
+                                  Metadata::FillGhost,     Metadata::WithFluxes,
+                                  Metadata::GMGRestrict,   Metadata::GMGProlongate,
+                                  Metadata::CommunicateOne};
   auto mflux_comm = Metadata(flags);
   if (prolong == "Linear") {
     mflux_comm.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();

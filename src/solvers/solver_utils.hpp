@@ -22,6 +22,7 @@
 
 #include "kokkos_abstraction.hpp"
 #include "utils/reductions.hpp"
+#include "utils/summable_array.hpp"
 
 #define PARTHENON_INTERNALSOLVERVARIABLE(base, varname)                                  \
   struct varname : public parthenon::variable_names::base_t<false> {                     \
@@ -268,7 +269,8 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
   if (only_interior_blocks) {
     // The neighbors array will only be set for a block if its a leaf block
     for (int b = 0; b < nblocks; ++b)
-      include_block[b] = md->GetBlockData(b)->GetBlockPointer()->neighbors.size() == 0;
+      include_block[b] =
+          md->GetBlockData(b)->GetBlockPointer()->GetNeighbors().size() == 0;
   }
 
   static auto desc = parthenon::MakePackDescriptor<a_t, b_t, out_t>(md.get());
@@ -316,10 +318,11 @@ TaskStatus AddFieldsAndStoreInteriorSelect(const std::shared_ptr<MeshData<Real>>
 
   int nblocks = md_a->NumBlocks();
   std::vector<bool> include_block(nblocks, true);
-  if (only_interior_blocks) {
-    // The neighbors array will only be set for a block if its a leaf block
-    for (int b = 0; b < nblocks; ++b)
-      include_block[b] = md_a->GetBlockData(b)->GetBlockPointer()->neighbors.size() == 0;
+  if (only_interior_blocks && (md_a->grid.type() == GridType::two_level_composite)) {
+    for (int b = 0; b < nblocks; ++b) {
+      auto pmb = md_a->GetBlockData(b)->GetBlockPointer();
+      include_block[b] = !pmb->IsLeafLL() || (pmb->block_coarsenings != 0);
+    }
   }
 
   static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());
@@ -500,7 +503,7 @@ TaskID GlobalMin(TaskID dependency_in, TaskList &tl, AllReduce<Real> *amin,
                     start_global_amin, &AllReduce<Real>::CheckReduce, amin);
 }
 
-template <class TL>
+template <class TL, bool VolumeWeight = false>
 TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
                            const std::shared_ptr<MeshData<Real>> &md_b,
                            AllReduce<Real> *adotb) {
@@ -514,16 +517,20 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
   auto pack_a = desc.GetPack(md_a.get());
   auto pack_b = desc.GetPack(md_b.get());
   Real gsum(0);
+  const int nvars = pack_a.GetUpperBoundHost(0) - pack_a.GetLowerBoundHost(0) + 1;
   parthenon::par_reduce(
       parthenon::loop_pattern_mdrange_tag, "DotProduct", DevExecSpace(), 0,
-      pack_a.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lsum) {
-        const int nvars = pack_a.GetUpperBound(b) - pack_a.GetLowerBound(b) + 1;
-        // TODO(LFR): If this becomes a bottleneck, exploit hierarchical parallelism and
-        //            pull the loop over vars outside of the innermost loop to promote
-        //            vectorization.
-        for (int c = 0; c < nvars; ++c)
-          lsum += pack_a(b, te, c, k, j, i) * pack_b(b, te, c, k, j, i);
+      pack_a.GetNBlocks() - 1, 0, nvars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int c, const int k, const int j, const int i,
+                    Real &lsum) {
+        const Real var_a = pack_a(b, te, c, k, j, i);
+        const Real var_b = pack_b(b, te, c, k, j, i);
+        if constexpr (VolumeWeight) {
+          const auto vol = pack_a.GetCoordinates(b).CellVolume(k, j, i);
+          lsum += var_a * var_b * vol * vol;
+        } else {
+          lsum += var_a * var_b;
+        }
       },
       Kokkos::Sum<Real>(gsum));
   adotb->val += gsum;
@@ -533,7 +540,8 @@ TaskStatus DotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
 template <class TL>
 TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
                   const std::shared_ptr<MeshData<Real>> &md_a,
-                  const std::shared_ptr<MeshData<Real>> &md_b) {
+                  const std::shared_ptr<MeshData<Real>> &md_b,
+                  bool volume_weight = false) {
   using namespace impl;
   auto zero_adotb = tl.AddTask(
       TaskQualifier::once_per_region | TaskQualifier::local_sync, dependency_in,
@@ -542,13 +550,86 @@ TaskID DotProduct(TaskID dependency_in, TaskList &tl, AllReduce<Real> *adotb,
         return TaskStatus::complete;
       },
       adotb);
-  auto get_adotb = tl.AddTask(TaskQualifier::local_sync, zero_adotb, DotProductLocal<TL>,
-                              md_a, md_b, adotb);
+  auto get_adotb = zero_adotb;
+  if (volume_weight) {
+    get_adotb = tl.AddTask(TaskQualifier::local_sync, zero_adotb,
+                           DotProductLocal<TL, true>, md_a, md_b, adotb);
+  } else {
+    get_adotb = tl.AddTask(TaskQualifier::local_sync, zero_adotb,
+                           DotProductLocal<TL, false>, md_a, md_b, adotb);
+  }
   auto start_global_adotb = tl.AddTask(TaskQualifier::once_per_region, get_adotb,
                                        &AllReduce<Real>::StartReduce, adotb, MPI_SUM);
   auto finish_global_adotb =
       tl.AddTask(TaskQualifier::once_per_region | TaskQualifier::local_sync,
                  start_global_adotb, &AllReduce<Real>::CheckReduce, adotb);
+  return finish_global_adotb;
+}
+
+template <class TL, bool VolumeWeight = false>
+TaskStatus DoubleDotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
+                                 const std::shared_ptr<MeshData<Real>> &md_b,
+                                 AllReduce<summable_array_t<Real, 2>> *adotb) {
+  using TE = parthenon::TopologicalElement;
+  IndexRange ib = md_a->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = md_a->GetBoundsK(IndexDomain::interior);
+
+  static auto desc = parthenon::MakePackDescriptorFromTypeList<TL>(md_a.get());
+  auto pack_a = desc.GetPack(md_a.get());
+  auto pack_b = desc.GetPack(md_b.get());
+  summable_array_t<Real, 2> gsum;
+  const int nvars = pack_a.GetUpperBoundHost(0) - pack_a.GetLowerBoundHost(0) + 1;
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag, "DotProduct", DevExecSpace(), 0,
+      pack_a.GetNBlocks() - 1, 0, nvars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int c, const int k, const int j, const int i,
+                    summable_array_t<Real, 2> &lsum) {
+        const Real var_a = pack_a(b, c, k, j, i);
+        const Real var_b = pack_b(b, c, k, j, i);
+        if constexpr (VolumeWeight) {
+          const auto vol = pack_a.GetCoordinates(b).CellVolume(k, j, i);
+          lsum[0] += var_a * var_a * vol * vol;
+          lsum[1] += var_a * var_b * vol * vol;
+        } else {
+          lsum[0] += var_a * var_a;
+          lsum[1] += var_a * var_b;
+        }
+      },
+      Kokkos::Sum<summable_array_t<Real, 2>>(gsum));
+  adotb->val += gsum;
+  return TaskStatus::complete;
+}
+
+template <class TL>
+TaskID DoubleDotProduct(TaskID dependency_in, TaskList &tl,
+                        AllReduce<summable_array_t<Real, 2>> *adotb,
+                        const std::shared_ptr<MeshData<Real>> &md_a,
+                        const std::shared_ptr<MeshData<Real>> &md_b,
+                        bool volume_weight = false) {
+  using namespace impl;
+  using value_t = summable_array_t<Real, 2>;
+
+  auto zero_adotb = tl.AddTask(
+      TaskQualifier::once_per_region | TaskQualifier::local_sync, dependency_in,
+      [](AllReduce<value_t> *r) {
+        r->val.init();
+        return TaskStatus::complete;
+      },
+      adotb);
+  auto get_adotb = zero_adotb;
+  if (volume_weight) {
+    get_adotb = tl.AddTask(TaskQualifier::local_sync, zero_adotb,
+                           DoubleDotProductLocal<TL, true>, md_a, md_b, adotb);
+  } else {
+    get_adotb = tl.AddTask(TaskQualifier::local_sync, zero_adotb,
+                           DoubleDotProductLocal<TL, false>, md_a, md_b, adotb);
+  }
+  auto start_global_adotb = tl.AddTask(TaskQualifier::once_per_region, get_adotb,
+                                       &AllReduce<value_t>::StartReduce, adotb, MPI_SUM);
+  auto finish_global_adotb =
+      tl.AddTask(TaskQualifier::once_per_region | TaskQualifier::local_sync,
+                 start_global_adotb, &AllReduce<value_t>::CheckReduce, adotb);
   return finish_global_adotb;
 }
 

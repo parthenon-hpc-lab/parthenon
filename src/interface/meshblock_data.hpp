@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -64,8 +64,8 @@ class MeshBlockData {
   // Public Methods
   //-----------------
   /// Constructor
-  MeshBlockData<T>() = default;
-  explicit MeshBlockData<T>(const std::string &name) : stage_name_(name) {}
+  MeshBlockData() = default;
+  explicit MeshBlockData(const std::string &name) : stage_name_(name) {}
 
   std::shared_ptr<MeshBlock> GetBlockSharedPointer() const {
     if (pmy_block.expired()) {
@@ -164,7 +164,7 @@ class MeshBlockData {
     coarseVarPackMap_.clear();
     varFluxPackMap_.clear();
 
-    [[maybe_unused]] auto add_var = [=](auto var) {
+    [[maybe_unused]] auto add_var = [=, this](auto var) {
       if (shallow_copy || var->IsSet(Metadata::OneCopy)) {
         Add(var);
       } else {
@@ -370,17 +370,20 @@ class MeshBlockData {
 
   template <typename TYPE>
   SwarmPackCache<TYPE> &GetSwarmPackCache() {
-    if constexpr (std::is_same<TYPE, int>::value) {
-      return swarm_pack_int_cache_;
-    } else if constexpr (std::is_same<TYPE, Real>::value) {
+    if constexpr (std::is_same<TYPE, Real>::value) {
       return swarm_pack_real_cache_;
+    } else if constexpr (std::is_same<TYPE, int>::value) {
+      return swarm_pack_int_cache_;
+    } else if constexpr (std::is_same<TYPE, std::uint64_t>::value) {
+      return swarm_pack_uint64_cache_;
     }
-    PARTHENON_THROW("SwarmPacks only compatible with int and Real types");
+    PARTHENON_THROW("SwarmPacks only compatible with Real, int, or uint64_t types");
   }
 
   void ClearSwarmCaches() {
     if (swarm_pack_real_cache_.size() > 0) swarm_pack_real_cache_.clear();
     if (swarm_pack_int_cache_.size() > 0) swarm_pack_int_cache_.clear();
+    if (swarm_pack_uint64_cache_.size() > 0) swarm_pack_uint64_cache_.clear();
   }
 
   /// Pack variables and fluxes by separate variables and fluxes names
@@ -538,7 +541,7 @@ class MeshBlockData {
   // return number of stored arrays
   int Size() noexcept { return varVector_.size(); }
 
-  bool operator==(const MeshBlockData<T> &cmp);
+  bool operator==(const MeshBlockData<T> &cmp) const;
 
   bool Contains(const std::string &name) const noexcept { return varMap_.count(name); }
   bool Contains(const Uid_t &uid) const noexcept { return varUidMap_.count(uid); }
@@ -618,8 +621,9 @@ class MeshBlockData {
   MapToVariablePack<T> coarseVarPackMap_; // cache for varpacks over coarse arrays
   MapToVariableFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
-  SwarmPackCache<int> swarm_pack_int_cache_;
   SwarmPackCache<Real> swarm_pack_real_cache_;
+  SwarmPackCache<int> swarm_pack_int_cache_;
+  SwarmPackCache<std::uint64_t> swarm_pack_uint64_cache_;
 
   // swarm data
   std::shared_ptr<SwarmContainer> swarm_data = std::make_shared<SwarmContainer>();

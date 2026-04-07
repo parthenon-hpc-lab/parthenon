@@ -128,6 +128,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(CellMemAligned)                                            \
   /** Particles in a Swarm will not contain a persistent, unique id field **/            \
   PARTHENON_INTERNAL_FOR_FLAG(NoPersistentParticleIds)                                   \
+  /** Only communicate one layer of ghosts at same-to-same boundaries **/                \
+  PARTHENON_INTERNAL_FOR_FLAG(CommunicateOne)                                            \
   /************************************************/                                     \
   /** Vars specifying coordinates for visualization purposes **/                         \
   /** You can specify a single 3D var **/                                                \
