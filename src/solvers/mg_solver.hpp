@@ -379,19 +379,21 @@ class MGSolver : public SolverBase, MGSolverCounter {
       return AddJacobiIteration(tl, depends_on, 0.666, partition, pmesh, in_is_zero);
     } else if (stages == 2) {
       // Damping factors from Yang & Mittal (2017)
-      // const std::array<std::array<Real, 2>, 3> omega{
-      //     {{0.8723, 0.5395}, {1.3895, 0.5617}, {1.7319, 0.5695}}};
       const std::array<std::array<Real, 2>, 3> omega{
-          {{0.576896, 2.159946}, {0.576896, 2.159946}, {0.576896, 2.159946}}};
+          {{0.8723, 0.5395}, {1.3895, 0.5617}, {1.7319, 0.5695}}};
+      // Chebyshev for diffusion
+      // const std::array<std::array<Real, 2>, 3> omega{
+      //     {{0.576896, 2.159946}, {0.576896, 2.159946}, {0.576896, 2.159946}}};
       auto jacobi1 = AddJacobiIteration(tl, depends_on, omega[ndim - 1][0], partition,
                                         pmesh, in_is_zero);
       return AddJacobiIteration(tl, jacobi1, omega[ndim - 1][1], partition, pmesh, false);
     } else if (stages == 3) {
       // Damping factors from Yang & Mittal (2017)
-      // const std::array<std::array<Real, 3>, 3> omega{
-      //     {{0.9372, 0.6667, 0.5173}, {1.6653, 0.8000, 0.5264}, {2.2473, 0.8571, 0.5296}}};
       const std::array<std::array<Real, 3>, 3> omega{
-          {{0.532079, 0.909091, 3.119832}, {0.532079, 0.909091, 3.119832}, {0.532079, 0.909091, 3.119832}}};
+          {{0.9372, 0.6667, 0.5173}, {1.6653, 0.8000, 0.5264}, {2.2473, 0.8571, 0.5296}}};
+      // Chebyshev for diffusion
+      // const std::array<std::array<Real, 3>, 3> omega{
+      //     {{0.532079, 0.909091, 3.119832}, {0.532079, 0.909091, 3.119832}, {0.532079, 0.909091, 3.119832}}};
       auto jacobi1 = AddJacobiIteration(tl, depends_on, omega[ndim - 1][0], partition,
                                         pmesh, in_is_zero);
       auto jacobi2 =
