@@ -14,15 +14,17 @@
 // This file was made in part with generative AI.
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
-#include <cstring>
 #include <limits>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include <Kokkos_BitManipulation.hpp>
 #include <Kokkos_Core.hpp>
 
 #include "defs.hpp"
@@ -63,21 +65,37 @@ struct RemeshPeerSets {
 };
 
 // Pack a trivially-copyable value into a byte buffer and advance the running offset.
+//
+// This helper runs inside device kernels, so it must avoid host-only library routines.
+// Kokkos::bit_cast gives a device-safe way to view the object representation as a fixed
+// byte array, and the byte array can then be copied into the packed MPI buffer.
 template <typename T>
 KOKKOS_INLINE_FUNCTION void PackValue(const ParArray1D<char> &buffer, int &offset,
                                       const T &value) {
-  std::memcpy(&buffer(offset), &value, sizeof(T));
+  static_assert(std::is_trivially_copyable_v<T>,
+                "Swarm remesh packing requires trivially copyable values.");
+  const auto bytes = Kokkos::bit_cast<std::array<unsigned char, sizeof(T)>>(value);
+  for (std::size_t i = 0; i < sizeof(T); ++i) {
+    buffer(offset + i) = static_cast<char>(bytes[i]);
+  }
   offset += sizeof(T);
 }
 
 //----------------------------------------------------------------------------------------
 // Unpack a trivially-copyable value from a byte buffer and advance the running offset.
+//
+// As above, keep this implementation device-safe by rebuilding a fixed byte array and
+// then bit-casting it back to the requested type.
 template <typename T>
 KOKKOS_INLINE_FUNCTION T UnpackValue(const ParArray1D<char> &buffer, int &offset) {
-  T value;
-  std::memcpy(&value, &buffer(offset), sizeof(T));
+  static_assert(std::is_trivially_copyable_v<T>,
+                "Swarm remesh unpacking requires trivially copyable values.");
+  std::array<unsigned char, sizeof(T)> bytes{};
+  for (std::size_t i = 0; i < sizeof(T); ++i) {
+    bytes[i] = static_cast<unsigned char>(buffer(offset + i));
+  }
   offset += sizeof(T);
-  return value;
+  return Kokkos::bit_cast<T>(bytes);
 }
 
 //----------------------------------------------------------------------------------------
