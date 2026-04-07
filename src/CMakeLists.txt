@@ -191,6 +191,8 @@ add_library(parthenon
   mesh/meshblock.hpp
   mesh/meshblock_pack.hpp
   mesh/meshblock.cpp
+  mesh/swarm_amr_remesh.cpp
+  mesh/swarm_amr_remesh.hpp
 
   outputs/ascent.cpp
   outputs/histogram.cpp

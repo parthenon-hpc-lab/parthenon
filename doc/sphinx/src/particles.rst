@@ -1,3 +1,6 @@
+..
+   This file was made in part with generative AI.
+
 Particles
 =========
 
@@ -152,7 +155,11 @@ must be repeated in the driver’s evolution function until all particles
 are completed. See the ``particles`` example for further details. Note
 that this pattern is blocking, and may be replaced in the future.
 
-AMR is currently not supported, but support will be added in the future.
+AMR support for swarms is available. When the mesh changes, swarm
+particles are redistributed to the correct new leaf block after
+same-level redistribution, refinement, or derefinement. The
+``particle_tracers`` example demonstrates this path for advected tracer
+particles on an adaptively refined mesh.
 
 Variable Packing
 ----------------

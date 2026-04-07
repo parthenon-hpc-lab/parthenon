@@ -15,6 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 // C++ includes
 #include <algorithm>
 #include <cmath>
@@ -26,6 +28,7 @@
 #include <vector>
 
 // Parthenon includes
+#include "amr_criteria/refinement_package.hpp"
 #include "basic_types.hpp"
 #include "bvals/comms/bvals_in_one.hpp"
 #include "config.hpp"
@@ -113,6 +116,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   const Real advected_amp = 0.5;
   adv_pkg->AddParam("advected_mean", advected_mean);
   adv_pkg->AddParam("advected_amp", advected_amp);
+  adv_pkg->AddParam("refine_tol", pin->GetOrAddReal("Background", "refine_tol", 1.25));
+  adv_pkg->AddParam("derefine_tol",
+                    pin->GetOrAddReal("Background", "derefine_tol", 1.05));
   PARTHENON_REQUIRE(advected_mean > advected_amp,
                     "Advected field must be everywere positive!");
 
@@ -127,8 +133,39 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   // Assign package timestep hook
   adv_pkg->EstimateTimestepMesh = EstimateTimestepMesh;
+  adv_pkg->CheckRefinementBlock = CheckRefinementBlock;
 
   return adv_pkg;
+}
+
+AmrTag CheckRefinementBlock(MeshBlockData<Real> *rc) {
+  auto pmb = rc->GetBlockPointer();
+  auto pkg = pmb->packages.Get("advection_package");
+  static auto desc = parthenon::MakePackDescriptor<field::advected>(
+      pmb->resolved_packages.get());
+  auto pack = desc.GetPack(rc);
+
+  const IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
+  const IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
+  const IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
+
+  typename Kokkos::MinMax<Real>::value_type minmax;
+  pmb->par_reduce(
+      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int k, const int j, const int i,
+                    typename Kokkos::MinMax<Real>::value_type &lminmax) {
+        const Real val = pack(0, field::advected(), k, j, i);
+        lminmax.min_val = val < lminmax.min_val ? val : lminmax.min_val;
+        lminmax.max_val = val > lminmax.max_val ? val : lminmax.max_val;
+      },
+      Kokkos::MinMax<Real>(minmax));
+
+  const auto &refine_tol = pkg->Param<Real>("refine_tol");
+  const auto &derefine_tol = pkg->Param<Real>("derefine_tol");
+
+  if (minmax.max_val > refine_tol) return AmrTag::refine;
+  if (minmax.max_val < derefine_tol) return AmrTag::derefine;
+  return AmrTag::same;
 }
 
 } // namespace advection_package
@@ -501,6 +538,15 @@ TaskCollection ParticleDriver::StepTasks() {
     auto receive = tl.AddTask(advect | send, parthenon::ReceiveSwarmsMesh, base);
     auto deposit = tl.AddTask(receive, DepositTracers, base.get());
     auto defrag = tl.AddTask(deposit, parthenon::DefragSwarmsMesh, base, 0.9);
+  }
+
+  if (pmesh->adaptive) {
+    auto &amr_region = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; ++i) {
+      auto &tl = amr_region[i];
+      auto &u1 = pmesh->mesh_data.GetOrAdd("u1", i);
+      tl.AddTask(none, parthenon::Refinement::Tag<MeshData<Real>>, u1.get());
+    }
   }
 
   return tc;
