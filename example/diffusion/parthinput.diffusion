@@ -100,7 +100,24 @@ absolute_residual_tolerance = 1.e-16
 relative_residual_tolerance = 1.e-8
 print_per_step = false
 presmoother = SRJ1
-postsmoother = SRJ3
+postsmoother = SRJ2
 do_FAS = true
-block_interior_prolongation = Kwak
+block_interior_prolongation = Constant 
 volume_weight = true
+
+<hypre>
+use_hypre = false
+solver_type = bicgstab
+preconditioner = amg
+tol = 1e-8
+max_iter = 100
+print_level = 1
+internal_print_level = 0
+amg_coarsen_type = 10
+amg_interp_type = 6
+amg_relax_type = 6
+amg_strong_threshold = 0.25
+amg_num_sweeps = 1
+print_matrix = false
+print_vectors = false
+print_matrix_all = false

@@ -34,6 +34,13 @@ if( "diffusion-example" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
 
   lint_target(diffusion-example)
 
+  if (DIFFUSION_WITH_HYPRE)
+    find_package(HYPRE REQUIRED)
+    target_link_libraries(diffusion-example PRIVATE HYPRE::HYPRE)
+    target_compile_definitions(diffusion-example PRIVATE DIFFUSION_WITH_HYPRE)
+    target_sources(diffusion-example PRIVATE diffusion_hypre.cpp)
+  endif()
+
   add_custom_command(
     OUTPUT ${DOC_GEN_PATH}/diffusion-parth-table.csv
     COMMAND ${CMAKE_COMMAND} -E env

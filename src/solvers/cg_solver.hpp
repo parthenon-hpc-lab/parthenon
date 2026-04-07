@@ -39,21 +39,11 @@ namespace solvers {
 
 struct CGParams {
   MGParams mg_params;
-  int max_iters = 1000;
-  std::shared_ptr<Real> residual_tolerance = std::make_shared<Real>(1.e-12);
   bool precondition = true;
-  bool print_per_step = false;
-  bool relative_residual = false;
   CGParams() = default;
   CGParams(ParameterInput *pin, const std::string &input_block) {
-    max_iters = pin->GetOrAddInteger(input_block, "max_iterations", max_iters);
-    *residual_tolerance =
-        pin->GetOrAddReal(input_block, "residual_tolerance", *residual_tolerance);
     precondition = pin->GetOrAddBoolean(input_block, "precondition", precondition);
-    print_per_step = pin->GetOrAddBoolean(input_block, "print_per_step", print_per_step);
     mg_params = MGParams(pin, input_block);
-    relative_residual =
-        pin->GetOrAddBoolean(input_block, "relative_residual", relative_residual);
   }
 };
 
@@ -80,7 +70,7 @@ class CGSolver : public SolverBase, CGSolverCounter {
   CGSolver(const std::string &container_base, const std::string &container_u,
            const std::string &container_rhs, ParameterInput *pin,
            const std::string &input_block, const equations_t &eq_in = equations_t())
-      : SolverBase(container_base, container_u, container_rhs),
+      : SolverBase(container_base, container_u, container_rhs, pin, input_block),
         preconditioner(container_base, container_u, container_rhs, pin, input_block,
                        eq_in),
         params_(pin, input_block), iter_counter(0), eqs_(eq_in) {
@@ -138,7 +128,7 @@ class CGSolver : public SolverBase, CGSolverCounter {
     auto zero_p = tl.AddTask(dependence, TF(SetToZero<FieldTL>), md_p);
     auto copy_r = tl.AddTask(dependence, TF(CopyData<FieldTL>), md_rhs, md_r);
     auto get_rhs2 = none;
-    if (params_.relative_residual || params_.print_per_step)
+    if (relative_residual || print_per_step)
       get_rhs2 = DotProduct<FieldTL>(dependence, tl, &rhs2, md_rhs, md_rhs);
     auto initialize = tl.AddTask(
         TaskQualifier::once_per_region | TaskQualifier::local_sync,
@@ -150,7 +140,7 @@ class CGSolver : public SolverBase, CGSolverCounter {
         },
         this);
 
-    if (params_.print_per_step && Globals::my_rank == 0) {
+    if (print_per_step && Globals::my_rank == 0) {
       initialize = tl.AddTask(
           TaskQualifier::once_per_region, initialize, "print to screen",
           [&](CGSolver *solver, std::shared_ptr<Real> res_tol, bool relative_residual,
@@ -163,11 +153,11 @@ class CGSolver : public SolverBase, CGSolverCounter {
             printf("\t0 %e\n", std::sqrt(solver->rhs2.val / pm->GetTotalCells()));
             return TaskStatus::complete;
           },
-          this, params_.residual_tolerance, params_.relative_residual, pmesh);
+          this, residual_tolerance, relative_residual, pmesh);
     }
 
     // BEGIN ITERATIVE TASKS
-    auto [itl, solver_id] = tl.AddSublist(initialize, {1, params_.max_iters});
+    auto [itl, solver_id] = tl.AddSublist(initialize, {1, max_iters});
 
     auto sync = itl.AddTask(TaskQualifier::local_sync, none,
                             []() { return TaskStatus::complete; });
@@ -239,7 +229,7 @@ class CGSolver : public SolverBase, CGSolverCounter {
         TaskQualifier::once_per_region, get_res,
         [&](CGSolver *solver, Mesh *pmesh) {
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
-          if (Globals::my_rank == 0 && solver->params_.print_per_step)
+          if (Globals::my_rank == 0 && solver->print_per_step)
             printf("\t%i %e\n", solver->iter_counter + 1, rms_res);
           return TaskStatus::complete;
         },
@@ -262,8 +252,7 @@ class CGSolver : public SolverBase, CGSolverCounter {
           }
           return TaskStatus::iterate;
         },
-        this, pmesh, params_.max_iters, params_.residual_tolerance,
-        params_.relative_residual);
+        this, pmesh, max_iters, residual_tolerance, relative_residual);
 
     return tl.AddTask(solver_id, TF(CopyData<FieldTL>), md_x, md_u);
   }

@@ -30,10 +30,18 @@
   }
 
 namespace diffusion_package {
+constexpr bool WithHypre() {
+#ifdef DIFFUSION_WITH_HYPRE
+  return true;
+#else
+  return false;
+#endif
+}
 using namespace parthenon::package::prelude;
 
 VARIABLE(diffusion, D);
 VARIABLE(diffusion, u);
+VARIABLE(diffusion, Dfc);
 
 struct DiffusionCoefficient {
   Real Dright{1.0};
@@ -70,6 +78,8 @@ TaskStatus SetRHS(std::shared_ptr<MeshData<Real>> md,
                   std::shared_ptr<MeshData<Real>> md_rhs);
 parthenon::TaskStatus SetDiffusionCoefficient(std::shared_ptr<MeshData<Real>> md,
                                               const Real dt);
+parthenon::TaskStatus SetDiffusionCoefficientHypre(std::shared_ptr<MeshData<Real>> md,
+                                                   const Real dt);
 Real EstimateTimestep(MeshData<Real> *md);
 
 } // namespace diffusion_package
