@@ -141,8 +141,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 AmrTag CheckRefinementBlock(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages.Get("advection_package");
-  static auto desc = parthenon::MakePackDescriptor<field::advected>(
-      pmb->resolved_packages.get());
+  static auto desc =
+      parthenon::MakePackDescriptor<field::advected>(pmb->resolved_packages.get());
   auto pack = desc.GetPack(rc);
 
   const IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);

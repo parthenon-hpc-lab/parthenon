@@ -55,7 +55,9 @@ class TestCase(utils.test_case.TestCaseAbs):
         amr_swarm = amr.GetSwarm("tracers")
         initial_swarm = initial.GetSwarm("tracers")
 
-        initial_pos = np.vstack((initial_swarm.x, initial_swarm.y, initial_swarm.z)).transpose()
+        initial_pos = np.vstack(
+            (initial_swarm.x, initial_swarm.y, initial_swarm.z)
+        ).transpose()
         amr_pos = np.vstack((amr_swarm.x, amr_swarm.y, amr_swarm.z)).transpose()
 
         initial_pos[:, 0] = ((initial_pos[:, 0] + 0.5 + 0.35) % 1.0) - 0.5
