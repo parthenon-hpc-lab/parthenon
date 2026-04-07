@@ -11,6 +11,8 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
+# This file was made in part with generative AI.
+
 # Adding regression tests
 #
 # To add additional regression tests to ctest, four things must be added to
