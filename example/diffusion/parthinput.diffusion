@@ -100,9 +100,9 @@ absolute_residual_tolerance = 1.e-16
 relative_residual_tolerance = 1.e-8
 print_per_step = false
 presmoother = SRJ1
-postsmoother = SRJ3
+postsmoother = SRJ2
 do_FAS = true
-block_interior_prolongation = Kwak
+block_interior_prolongation = Constant 
 volume_weight = true
 
 <hypre>
