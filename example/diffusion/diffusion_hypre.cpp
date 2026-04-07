@@ -654,12 +654,9 @@ parthenon::TaskStatus HypreSolver::Solve(HypreSolver *solver) {
     HYPRE_ParCSRBiCGSTABGetFinalRelativeResidualNorm(solver->solver_handle, &rnorm);
   }
 
-  if (parthenon::Globals::my_rank == 0 && solver->print_level > 0) {
-    std::cout << "[hypre] iterations=" << niter << " rel_resid=" << rnorm << "\n";
-  }
-
   HYPRE_SStructVectorGather(solver->x);
-
+  solver->niter = niter;
+  solver->rnorm = rnorm;
   return parthenon::TaskStatus::complete;
 }
 

@@ -39,8 +39,6 @@ namespace parthenon {
 namespace solvers {
 
 struct MGParams {
-  int max_iters = 1000;
-  Real residual_tolerance = 1.e-12;
   bool do_FAS = true;
   std::string presmoother = "SRJ2";
   std::string postsmoother = "SRJ2";
@@ -49,9 +47,6 @@ struct MGParams {
 
   MGParams() = default;
   MGParams(ParameterInput *pin, const std::string &input_block) {
-    max_iters = pin->GetOrAddInteger(input_block, "max_iterations", max_iters);
-    residual_tolerance =
-        pin->GetOrAddReal(input_block, "residual_tolerance", residual_tolerance);
     do_FAS = pin->GetOrAddBoolean(
         input_block, "do_FAS", do_FAS,
         "Use the full approximation scheme in multigrid, required for amr.");
@@ -102,20 +97,14 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
   bool initial_guess_is_zero;
   bool constant_prolongation;
+
   MGSolver(const std::string &container_base, const std::string &container_u,
            const std::string &container_rhs, ParameterInput *pin,
            const std::string &input_block, equations_t eq_in = equations_t())
-      : MGSolver(container_base, container_u, container_rhs, MGParams(pin, input_block),
-                 eq_in, prolongator_t(pin, input_block), restrictor_t(pin, input_block)) {
-  }
-
-  MGSolver(const std::string &container_base, const std::string &container_u,
-           const std::string &container_rhs, MGParams params_in,
-           equations_t eq_in = equations_t(), prolongator_t prol_in = prolongator_t(),
-           restrictor_t rest_in = restrictor_t())
-      : SolverBase(container_base, container_u, container_rhs), params_(params_in),
-        iter_counter(0), eqs_(eq_in), prolongator_(prol_in), initial_guess_is_zero{false},
-        constant_prolongation{false}, restrictor_(rest_in) {
+      : SolverBase(container_base, container_u, container_rhs, pin, input_block),
+        params_(pin, input_block),
+        iter_counter(0), eqs_(eq_in), prolongator_(pin, input_block), initial_guess_is_zero{false},
+        constant_prolongation{false}, restrictor_(pin, input_block) {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
     std::string solver_id = "mg" + std::to_string(id++);
@@ -160,7 +149,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
                   Mesh *pmesh) {
     using namespace utils;
     TaskID none;
-    auto [itl, solve_id] = tl.AddSublist(dependence, {1, this->params_.max_iters});
+    auto [itl, solve_id] = tl.AddSublist(dependence, {1, this->max_iters});
     iter_counter = -1;
     auto update_iter = itl.AddTask(
         TaskQualifier::local_sync | TaskQualifier::once_per_region, none, "print",
@@ -204,7 +193,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
             printf("%i %e\n", solver->iter_counter, rms_res);
           solver->final_residual = rms_res;
           solver->final_iteration = solver->iter_counter;
-          if (rms_res > solver->params_.residual_tolerance) return TaskStatus::iterate;
+          if (rms_res > *(solver->residual_tolerance)) return TaskStatus::iterate;
           return TaskStatus::complete;
         },
         this, pmesh);
@@ -390,15 +379,19 @@ class MGSolver : public SolverBase, MGSolverCounter {
       return AddJacobiIteration(tl, depends_on, 0.666, partition, pmesh, in_is_zero);
     } else if (stages == 2) {
       // Damping factors from Yang & Mittal (2017)
+      // const std::array<std::array<Real, 2>, 3> omega{
+      //     {{0.8723, 0.5395}, {1.3895, 0.5617}, {1.7319, 0.5695}}};
       const std::array<std::array<Real, 2>, 3> omega{
-          {{0.8723, 0.5395}, {1.3895, 0.5617}, {1.7319, 0.5695}}};
+          {{0.576896, 2.159946}, {0.576896, 2.159946}, {0.576896, 2.159946}}};
       auto jacobi1 = AddJacobiIteration(tl, depends_on, omega[ndim - 1][0], partition,
                                         pmesh, in_is_zero);
       return AddJacobiIteration(tl, jacobi1, omega[ndim - 1][1], partition, pmesh, false);
     } else if (stages == 3) {
       // Damping factors from Yang & Mittal (2017)
+      // const std::array<std::array<Real, 3>, 3> omega{
+      //     {{0.9372, 0.6667, 0.5173}, {1.6653, 0.8000, 0.5264}, {2.2473, 0.8571, 0.5296}}};
       const std::array<std::array<Real, 3>, 3> omega{
-          {{0.9372, 0.6667, 0.5173}, {1.6653, 0.8000, 0.5264}, {2.2473, 0.8571, 0.5296}}};
+          {{0.532079, 0.909091, 3.119832}, {0.532079, 0.909091, 3.119832}, {0.532079, 0.909091, 3.119832}}};
       auto jacobi1 = AddJacobiIteration(tl, depends_on, omega[ndim - 1][0], partition,
                                         pmesh, in_is_zero);
       auto jacobi2 =

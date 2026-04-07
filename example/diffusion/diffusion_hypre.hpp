@@ -123,7 +123,9 @@ struct HypreSolver {
   // Problem parameters cached from package
   parthenon::Real diagonal_alpha;
   std::array<parthenon::Real, 6> boundary_u{};
-
+  
+  int niter{0}; 
+  parthenon::Real rnorm{0.0};
   // ---------------------------------------------------------------------------
   // Methods
   // ---------------------------------------------------------------------------
