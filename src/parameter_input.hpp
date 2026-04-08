@@ -427,21 +427,8 @@ class ParameterInput {
   std::vector<T>
   GetVector(const std::string &block, const std::string &name,
             const std::optional<std::string> &docstring = std::optional<std::string>{}) {
-    std::vector<std::string> fields = GetVector_(block, name);
-    if constexpr (std::is_same<T, std::string>::value) return fields;
-
-    std::vector<T> ret;
-    for (auto &f : fields) {
-      if constexpr (std::is_same<T, int>::value) {
-        ret.push_back(stoi(f));
-      } else if constexpr (std::is_same<T, Real>::value) {
-        ret.push_back(atof(f.c_str()));
-      } else if constexpr (std::is_same<T, bool>::value) {
-        ret.push_back(stob(f));
-      }
-    }
-    CheckAndUpdateQueries_<std::vector<T>>(block, name, docstring);
-    return ret;
+    // Just use the unified Get<T> template - it handles vectors
+    return Get<std::vector<T>>(block, name, docstring);
   }
   template <typename T>
   std::vector<T> GetOrAddVector(
@@ -491,6 +478,9 @@ class ParameterInput {
   // === HELPER METHODS (parser-agnostic) ===
   // Ensure map is resolved before any Get* operation
   void EnsureMapResolved_();
+
+  // Convert ParamValue to string for linked list output
+  std::string ParamValueToString(const ParamValue& value);
   template <typename T>
   T ConvertParamValue(const ParamValue& value, const std::string& block, 
                       const std::string& name);
@@ -537,20 +527,6 @@ class ParameterInput {
       msg << std::endl;
       PARTHENON_THROW(msg);
     }
-  }
-  std::vector<std::string> GetVector_(const std::string &block, const std::string &name) {
-    std::string s = GetString(block, name);
-    std::string delimiter = ",";
-    size_t pos = 0;
-    std::string token;
-    std::vector<std::string> variables;
-    while ((pos = s.find(delimiter)) != std::string::npos) {
-      token = s.substr(0, pos);
-      variables.push_back(string_utils::trim(token));
-      s.erase(0, pos + delimiter.length());
-    }
-    variables.push_back(string_utils::trim(s));
-    return variables;
   }
   template <typename T>
   std::string ConcatVector_(std::vector<T> &vec) {

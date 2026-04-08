@@ -895,24 +895,12 @@ InputLine *InputBlock::GetPtrToLine(std::string name) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void ParameterInput::AddParsedParameter()
-//  \brief Generic interface for parsers to add parameters to storage
-//  Can be called by any parser (text, Python, TOML, etc.) to populate param_map_
+//! \fn std::string ParameterInput::ParamValueToString()
+//  \brief Convert a ParamValue variant to string for linked list output
 
-void ParameterInput::AddParsedParameter(const std::string &block,
-                                       const std::string &name,
-                                       const ParamValue &value) {
-  PARTHENON_REQUIRE(!map_resolved_,
-                   "Cannot add parameters after MarkResolved() has been called");
-
-  // Add to param_map_ (source of truth)
-  param_map_[block][name] = value;
-
-  // Also update linked list for output compatibility
-  auto *pb = FindOrAddBlock(block);
-
-  // Convert ParamValue to string for linked list
+std::string ParameterInput::ParamValueToString(const ParamValue& value) {
   std::stringstream ss;
+
   if (std::holds_alternative<UnresolvedString>(value)) {
     ss << std::get<UnresolvedString>(value).value;
   } else if (std::holds_alternative<int>(value)) {
@@ -951,7 +939,26 @@ void ParameterInput::AddParsedParameter(const std::string &block,
     }
   }
 
-  AddParameter(pb, name, ss.str(), "# From parser");
+  return ss.str();
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn void ParameterInput::AddParsedParameter()
+//  \brief Generic interface for parsers to add parameters to storage
+//  Can be called by any parser (text, Python, TOML, etc.) to populate param_map_
+
+void ParameterInput::AddParsedParameter(const std::string &block,
+                                       const std::string &name,
+                                       const ParamValue &value) {
+  PARTHENON_REQUIRE(!map_resolved_,
+                   "Cannot add parameters after MarkResolved() has been called");
+
+  // Add to param_map_ (source of truth)
+  param_map_[block][name] = value;
+
+  // Also update linked list for output compatibility
+  auto *pb = FindOrAddBlock(block);
+  AddParameter(pb, name, ParamValueToString(value), "# From parser");
 }
 
 //----------------------------------------------------------------------------------------
