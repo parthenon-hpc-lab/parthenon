@@ -149,11 +149,10 @@ BuildBlockSendPlan(const std::shared_ptr<Swarm> &swarm, const Mesh *pmesh,
 
     auto child_gids_h = GetRefinedDestinationGids(pmesh, old_loc, new_gid_by_loc);
     ParArray1D<int> child_gids("swarm_amr_remesh_child_gids", child_gids_h.size());
-    auto child_gids_mirror = child_gids.GetHostMirror();
-    for (int i = 0; i < child_gids_h.size(); ++i) {
-      child_gids_mirror(i) = child_gids_h[i];
-    }
-    child_gids.DeepCopy(child_gids_mirror);
+    auto child_gids_host = Kokkos::View<
+        const int *, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>(
+        child_gids_h.data(), child_gids_h.size());
+    Kokkos::deep_copy(child_gids.KokkosView(), child_gids_host);
 
     ParArray1D<int> refined_dest_gids("swarm_amr_remesh_refined_dest_gids",
                                       swarm->GetMaxActiveIndex() + 1);
