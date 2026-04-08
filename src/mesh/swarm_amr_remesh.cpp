@@ -145,8 +145,8 @@ BuildBlockSendPlan(const std::shared_ptr<Swarm> &swarm, const Mesh *pmesh,
   const auto &old_loc = context.OldLoc(old_gid);
   const auto &new_loc = context.NewLoc(new_gid);
   const bool refined = new_loc.level() > old_loc.level();
-  // The packed wire format stores one leading destination gid followed by the full swarm
-  // record for that particle in byte form.
+  // This format stores one leading destination gid followed by the full swarm record for
+  // that particle in byte form.
   const int record_size = sizeof(int) + swarm->GetRecordSize();
 
   // Particle activity lives on device. Ownership decisions below are branchy and rely on
