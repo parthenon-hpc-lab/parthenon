@@ -11,3 +11,7 @@
 # license in this material to reproduce, prepare derivative works, distribute copies to
 # the public, perform publicly and display publicly, and to permit others to do so.
 # =========================================================================================
+
+from .input_generator import InputFile, Block
+
+__all__ = ["InputFile", "Block"]

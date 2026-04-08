@@ -391,6 +391,9 @@ endif()
 
 lint_target(parthenon)
 
+# Python bindings (optional)
+add_subdirectory(pybind)
+
 target_include_directories(parthenon PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
