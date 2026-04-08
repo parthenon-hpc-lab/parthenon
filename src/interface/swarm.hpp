@@ -268,9 +268,7 @@ class Swarm {
     return count;
   }
 
-  int GetRecordSize() const {
-    return GetRecordSizeImpl<Real, int, std::uint64_t>();
-  }
+  int GetRecordSize() const { return GetRecordSizeImpl<Real, int, std::uint64_t>(); }
 
   template <typename T>
   const auto &GetVariableVector() const {

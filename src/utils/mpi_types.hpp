@@ -19,9 +19,10 @@
 #include <limits>
 #include <vector>
 
+#include "parthenon_mpi.hpp"
+
 #include "basic_types.hpp"
-#include <parthenon_mpi.hpp>
-#include <utils/error_checking.hpp>
+#include "utils/error_checking.hpp"
 
 #ifdef MPI_PARALLEL
 namespace parthenon {
