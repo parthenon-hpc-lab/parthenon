@@ -18,6 +18,7 @@
 #ifndef UTILS_OBJECT_POOL_HPP_
 #define UTILS_OBJECT_POOL_HPP_
 
+#include "utils/concepts_lite.hpp"
 #include <math.h>
 
 #include <cstdint>
@@ -286,7 +287,8 @@ bool UsingSameResource(const T &lhs, const U &rhs) {
   Also note this is not thread safe, so will need to be updated if we
   ever worry about that.
  */
-template <typename T, class = ENABLEIF(implements<kokkos_view(T)>::value)>
+template <typename T>
+  requires(KokkosView<T>)
 class ObjectPoolMap {
  public:
   using pool_t = ObjectPool<T>;
@@ -298,8 +300,8 @@ class ObjectPoolMap {
   auto &GetPool(const std::size_t shape) {
     if (!Contains(shape)) {
       std::stringstream msg;
-      msg << "ObjectPoolMap must contain an ObjectPool "
-          << "for objects of shape " << shape << "!" << std::endl;
+      msg << "ObjectPoolMap must contain an ObjectPool " << "for objects of shape "
+          << shape << "!" << std::endl;
       PARTHENON_THROW(msg);
     }
     return map_.at(shape);

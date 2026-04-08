@@ -273,9 +273,9 @@ class SparsePack : public SparsePackBase {
     return pack_(0, b, vidx);
   }
 
-  template <class TIn, typename... Args, REQUIRES(sizeof...(Args) > 0),
-            REQUIRES(all_implement<integral(Args...)>::value),
-            REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <class TIn, typename... Args>
+    requires((sizeof...(Args) > 0) && (Integral<Args> && ...) &&
+             (IncludesType<TIn, Ts...>::value))
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TIn &t,
                                           Args &&...args) const {
     PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");

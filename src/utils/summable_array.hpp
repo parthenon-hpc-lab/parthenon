@@ -19,6 +19,7 @@ template <class T, std::size_t N>
 struct summable_array_t {
   using value_type = T;
   value_type data_[N];
+  std::size_t size() { return N; }
 
   // Kokkos reduction requirements
   KOKKOS_INLINE_FUNCTION

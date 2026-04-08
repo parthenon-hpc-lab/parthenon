@@ -117,7 +117,7 @@ struct contiguous_container {
 
   template <class T>
     requires(ContiguousContainer_arr<T>)
-  static typename T::value_type value_type(T &);
+  static typename T::value_type value_type(const T &);
 
   template <class T>
     requires(ContiguousContainer_scalar<T>)
@@ -125,7 +125,7 @@ struct contiguous_container {
 
   template <class T>
     requires(FundamentalCArray<T>)
-  static std::remove_extent_t<T> value_type(T &);
+  static std::remove_extent_t<T> value_type(const T &);
 };
 
 template <typename T>
