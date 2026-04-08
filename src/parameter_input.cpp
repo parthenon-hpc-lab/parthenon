@@ -895,6 +895,74 @@ InputLine *InputBlock::GetPtrToLine(std::string name) {
 }
 
 //----------------------------------------------------------------------------------------
+//! \fn void ParameterInput::AddParsedParameter()
+//  \brief Generic interface for parsers to add parameters to storage
+//  Can be called by any parser (text, Python, TOML, etc.) to populate param_map_
+
+void ParameterInput::AddParsedParameter(const std::string &block,
+                                       const std::string &name,
+                                       const ParamValue &value) {
+  PARTHENON_REQUIRE(!map_resolved_,
+                   "Cannot add parameters after MarkResolved() has been called");
+
+  // Add to param_map_ (source of truth)
+  param_map_[block][name] = value;
+
+  // Also update linked list for output compatibility
+  auto *pb = FindOrAddBlock(block);
+
+  // Convert ParamValue to string for linked list
+  std::stringstream ss;
+  if (std::holds_alternative<UnresolvedString>(value)) {
+    ss << std::get<UnresolvedString>(value).value;
+  } else if (std::holds_alternative<int>(value)) {
+    ss << std::get<int>(value);
+  } else if (std::holds_alternative<Real>(value)) {
+    ss.precision(std::numeric_limits<Real>::max_digits10);
+    ss << std::get<Real>(value);
+  } else if (std::holds_alternative<bool>(value)) {
+    ss << (std::get<bool>(value) ? "true" : "false");
+  } else if (std::holds_alternative<std::string>(value)) {
+    ss << std::get<std::string>(value);
+  } else if (std::holds_alternative<std::vector<int>>(value)) {
+    const auto& vec = std::get<std::vector<int>>(value);
+    for (size_t i = 0; i < vec.size(); ++i) {
+      if (i > 0) ss << ", ";
+      ss << vec[i];
+    }
+  } else if (std::holds_alternative<std::vector<Real>>(value)) {
+    const auto& vec = std::get<std::vector<Real>>(value);
+    ss.precision(std::numeric_limits<Real>::max_digits10);
+    for (size_t i = 0; i < vec.size(); ++i) {
+      if (i > 0) ss << ", ";
+      ss << vec[i];
+    }
+  } else if (std::holds_alternative<std::vector<bool>>(value)) {
+    const auto& vec = std::get<std::vector<bool>>(value);
+    for (size_t i = 0; i < vec.size(); ++i) {
+      if (i > 0) ss << ", ";
+      ss << (vec[i] ? "true" : "false");
+    }
+  } else if (std::holds_alternative<std::vector<std::string>>(value)) {
+    const auto& vec = std::get<std::vector<std::string>>(value);
+    for (size_t i = 0; i < vec.size(); ++i) {
+      if (i > 0) ss << ", ";
+      ss << vec[i];
+    }
+  }
+
+  AddParameter(pb, name, ss.str(), "# From parser");
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn void ParameterInput::MarkResolved()
+//  \brief Mark that all parsing is complete - no more parameters can be added
+
+void ParameterInput::MarkResolved() {
+  map_resolved_ = true;
+}
+
+//----------------------------------------------------------------------------------------
 //! \fn void ParameterInput::ResolveParametersToMap()
 //  \brief Convert linked list structure to map for efficient access
 
@@ -967,7 +1035,15 @@ std::vector<std::string> ParameterInput::GetParameterNames(const std::string& bl
 
 void ParameterInput::EnsureMapResolved_() {
   if (!map_resolved_) {
-    ResolveParametersToMap();
+    // Check if map already has content (AddParsedParameter was used)
+    if (!param_map_.empty()) {
+      // New flow: AddParsedParameter was called but MarkResolved() was not
+      // Just mark as resolved and continue
+      MarkResolved();
+    } else {
+      // Old flow: LoadFromStream was used, need to resolve from linked list
+      ResolveParametersToMap();
+    }
   }
 }
 

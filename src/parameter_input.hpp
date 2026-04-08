@@ -200,6 +200,20 @@ class ParameterInput {
   friend class std::hash<ParameterInput>;
 
  public:
+  // === STORAGE TYPES (public for parser interface) ===
+  // Wrapper type to distinguish unresolved strings (from legacy parser)
+  // from actual string parameter values
+  struct UnresolvedString {
+    std::string value;
+    UnresolvedString() = default;
+    explicit UnresolvedString(const std::string& v) : value(v) {}
+    explicit UnresolvedString(std::string&& v) : value(std::move(v)) {}
+  };
+
+  // Build ParamValue variant from SupportedParamTypes + UnresolvedString
+  using ParamValue = type_list_to_variant_t<
+      insert_type_list_t<UnresolvedString, SupportedParamTypes, 0>>;
+
   // constructor/destructor
   ParameterInput();
   explicit ParameterInput(std::string input_filename);
@@ -209,6 +223,15 @@ class ParameterInput {
   void LoadFromStream(std::istream &is);
   void LoadFromFile(IOWrapper &input);
   void ModifyFromCmdline(int argc, char *argv[]);
+
+  // === PARSER → STORAGE INTERFACE ===
+  // Generic interface for any parser to populate parameter storage
+  // Can be called multiple times until MarkResolved() is called
+  void AddParsedParameter(const std::string &block, const std::string &name,
+                         const ParamValue &value);
+
+  // Explicitly mark parsing as complete - no more AddParsedParameter calls allowed
+  void MarkResolved();
 
   // === RESOLUTION (bridge between parsing and storage) ===
   void ResolveParametersToMap();
@@ -458,21 +481,8 @@ class ParameterInput {
                  std::string &comment);
   void AddParameter(InputBlock *pib, const std::string &name, const std::string &value,
                     const std::string &comment);
-  
+
   // === NEW STORAGE (map - parser-agnostic) ===
-  // Wrapper type to distinguish unresolved strings (from legacy parser)
-  // from actual string parameter values
-  struct UnresolvedString {
-    std::string value;
-    UnresolvedString() = default;
-    explicit UnresolvedString(const std::string& v) : value(v) {}
-    explicit UnresolvedString(std::string&& v) : value(std::move(v)) {}
-  };
-
-  // Build ParamValue variant from SupportedParamTypes + UnresolvedString
-  using ParamValue = type_list_to_variant_t<
-      insert_type_list_t<UnresolvedString, SupportedParamTypes, 0>>;
-
   using BlockParameterMap = std::map<std::string, ParamValue>;
   
   std::map<std::string, BlockParameterMap> param_map_;

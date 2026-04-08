@@ -47,7 +47,35 @@ class Block:
             **params: Parameter key-value pairs
         """
         self.name = name
-        self.params = params
+        self.params = {}
+        self._typed = {}  # Track which params are typed (True) vs from file (False)
+
+        for key, value in params.items():
+            self.params[key] = value
+            self._typed[key] = True  # Parameters passed at construction are typed
+
+    def set(self, **params: Any) -> None:
+        """
+        Set or update parameters with strong typing.
+
+        Args:
+            **params: Parameter key-value pairs to set
+
+        Example:
+            block.set(nx1=128, nx2=128, x1min=0.0)
+        """
+        for key, value in params.items():
+            self.params[key] = value
+            self._typed[key] = True  # Explicitly set parameters are typed
+
+    def _set_from_file(self, key: str, value: str) -> None:
+        """Internal: Set parameter from file (unresolved string)."""
+        self.params[key] = value
+        self._typed[key] = False  # From file, will need lazy conversion
+
+    def is_typed(self, key: str) -> bool:
+        """Check if a parameter is strongly typed (vs loaded from file)."""
+        return self._typed.get(key, True)
 
     def _format_value(self, value: Any) -> str:
         """Convert a Python value to input file format."""
@@ -111,11 +139,31 @@ class InputFile:
         Example:
             inp = InputFile()
             mesh = inp.block("parthenon/mesh", nx1=64)
-            mesh.params["nx2"] = 128  # Can modify after creation
+            mesh.set(nx2=128)  # Can modify after creation
         """
         blk = Block(name, **params)
         self.blocks.append(blk)
         return blk
+
+    def get_block(self, name: str) -> Optional[Block]:
+        """
+        Get a block by name.
+
+        Args:
+            name: Block name (e.g., "parthenon/mesh")
+
+        Returns:
+            Block object if found, None otherwise
+
+        Example:
+            mesh = inp.get_block("parthenon/mesh")
+            if mesh:
+                mesh.set(nx1=128)
+        """
+        for block in self.blocks:
+            if block.name == name:
+                return block
+        return None
 
     def to_parameter_input(self):
         """
@@ -150,34 +198,54 @@ class InputFile:
 
         for block in self.blocks:
             for key, value in block.params.items():
-                self._set_typed_parameter(pi, block.name, key, value)
+                is_typed = block.is_typed(key)
+                self._add_typed_parameter(pi, block.name, key, value, is_typed)
+
+        # NOTE: Don't call mark_resolved() here - application may still want to
+        # call ModifyFromCmdline() or other parsing. Application should call
+        # mark_resolved() or let first Get/GetOrAdd call it automatically.
 
         return pi
 
-    def _set_typed_parameter(self, pi, block_name: str, param_name: str, value: Any):
-        """Dispatch to appropriate Set<T>() method based on Python type."""
+    def _add_typed_parameter(self, pi, block_name: str, param_name: str, value: Any, is_typed: bool = True):
+        """
+        Dispatch to appropriate AddParsedParameter method based on parameter type and origin.
+
+        Args:
+            pi: C++ ParameterInput object
+            block_name: Block name
+            param_name: Parameter name
+            value: Parameter value
+            is_typed: If False, value is from file and should use UnresolvedString
+        """
+        # If parameter came from file, use unresolved string for lazy conversion
+        if not is_typed:
+            pi.add_unresolved(block_name, param_name, str(value))
+            return
+
+        # Otherwise dispatch based on Python type
         if isinstance(value, bool):
             # Must check bool before int (bool is subclass of int in Python)
-            pi.set_bool(block_name, param_name, value)
+            pi.add_bool(block_name, param_name, value)
         elif isinstance(value, int):
-            pi.set_int(block_name, param_name, value)
+            pi.add_int(block_name, param_name, value)
         elif isinstance(value, float):
-            pi.set_real(block_name, param_name, value)
+            pi.add_real(block_name, param_name, value)
         elif isinstance(value, str):
-            pi.set_string(block_name, param_name, value)
+            pi.add_string(block_name, param_name, value)
         elif isinstance(value, (list, tuple)):
             # Dispatch vector based on element type
             if len(value) == 0:
                 raise ValueError(f"Cannot infer type of empty list for {block_name}/{param_name}")
             first = value[0]
             if isinstance(first, bool):
-                pi.set_bool_vector(block_name, param_name, list(value))
+                pi.add_bool_vector(block_name, param_name, list(value))
             elif isinstance(first, int):
-                pi.set_int_vector(block_name, param_name, list(value))
+                pi.add_int_vector(block_name, param_name, list(value))
             elif isinstance(first, float):
-                pi.set_real_vector(block_name, param_name, list(value))
+                pi.add_real_vector(block_name, param_name, list(value))
             elif isinstance(first, str):
-                pi.set_string_vector(block_name, param_name, list(value))
+                pi.add_string_vector(block_name, param_name, list(value))
             else:
                 raise TypeError(f"Unsupported vector element type: {type(first)}")
         else:
@@ -241,4 +309,52 @@ class InputFile:
         inp = InputFile(header=header)
         for name, params in config.items():
             inp.block(name, **params)
+        return inp
+
+    @staticmethod
+    def from_file(filename: str) -> "InputFile":
+        """
+        Load an existing Parthenon input file.
+
+        Parameters loaded from file are stored as unresolved strings
+        for lazy type conversion (matching C++ behavior). Parameters
+        subsequently modified in Python become strongly typed.
+
+        Args:
+            filename: Path to .pin file
+
+        Returns:
+            InputFile object with parameters loaded from file
+
+        Example:
+            inp = InputFile.from_file("base.pin")
+            mesh = inp.get_block("parthenon/mesh")
+            mesh.set(nx1=128)  # This override becomes strongly typed
+            pi = inp.to_parameter_input()
+        """
+        inp = InputFile()
+        current_block = None
+
+        with open(filename, 'r') as f:
+            for line in f:
+                # Strip whitespace and comments
+                line = line.split('#')[0].strip()
+                if not line:
+                    continue
+
+                # Check for block header
+                if line.startswith('<') and line.endswith('>'):
+                    block_name = line[1:-1]
+                    current_block = Block(block_name)
+                    inp.blocks.append(current_block)
+                    continue
+
+                # Parse parameter line
+                if '=' in line and current_block is not None:
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip()
+                    # Store as unresolved string (lazy conversion)
+                    current_block._set_from_file(key, value)
+
         return inp

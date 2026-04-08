@@ -24,47 +24,56 @@ PYBIND11_MODULE(parthenon, m) {
   py::class_<parthenon::ParameterInput>(m, "ParameterInput")
       .def(py::init<>())
 
-      // Set methods with type dispatch
-      .def("set_int", [](parthenon::ParameterInput &self, const std::string &block,
+      // Parser interface - add parameters without creating QueryRecords
+      .def("add_unresolved", [](parthenon::ParameterInput &self, const std::string &block,
+                                 const std::string &name, const std::string &value) {
+        self.AddParsedParameter(block, name, parthenon::ParameterInput::UnresolvedString(value));
+      }, "Add a parameter as unresolved string (from file)")
+
+      .def("add_int", [](parthenon::ParameterInput &self, const std::string &block,
                          const std::string &name, int value) {
-        self.Set<int>(block, name, value);
-      }, "Set an integer parameter")
+        self.AddParsedParameter(block, name, value);
+      }, "Add an integer parameter")
 
-      .def("set_real", [](parthenon::ParameterInput &self, const std::string &block,
+      .def("add_real", [](parthenon::ParameterInput &self, const std::string &block,
                           const std::string &name, parthenon::Real value) {
-        self.Set<parthenon::Real>(block, name, value);
-      }, "Set a real parameter")
+        self.AddParsedParameter(block, name, value);
+      }, "Add a real parameter")
 
-      .def("set_bool", [](parthenon::ParameterInput &self, const std::string &block,
+      .def("add_bool", [](parthenon::ParameterInput &self, const std::string &block,
                           const std::string &name, bool value) {
-        self.Set<bool>(block, name, value);
-      }, "Set a boolean parameter")
+        self.AddParsedParameter(block, name, value);
+      }, "Add a boolean parameter")
 
-      .def("set_string", [](parthenon::ParameterInput &self, const std::string &block,
+      .def("add_string", [](parthenon::ParameterInput &self, const std::string &block,
                             const std::string &name, const std::string &value) {
-        self.Set<std::string>(block, name, value);
-      }, "Set a string parameter")
+        self.AddParsedParameter(block, name, value);
+      }, "Add a string parameter")
 
-      // Vector set methods
-      .def("set_int_vector", [](parthenon::ParameterInput &self, const std::string &block,
+      // Vector add methods
+      .def("add_int_vector", [](parthenon::ParameterInput &self, const std::string &block,
                                  const std::string &name, const std::vector<int> &value) {
-        self.Set<std::vector<int>>(block, name, value);
-      }, "Set an integer vector parameter")
+        self.AddParsedParameter(block, name, value);
+      }, "Add an integer vector parameter")
 
-      .def("set_real_vector", [](parthenon::ParameterInput &self, const std::string &block,
+      .def("add_real_vector", [](parthenon::ParameterInput &self, const std::string &block,
                                   const std::string &name, const std::vector<parthenon::Real> &value) {
-        self.Set<std::vector<parthenon::Real>>(block, name, value);
-      }, "Set a real vector parameter")
+        self.AddParsedParameter(block, name, value);
+      }, "Add a real vector parameter")
 
-      .def("set_bool_vector", [](parthenon::ParameterInput &self, const std::string &block,
+      .def("add_bool_vector", [](parthenon::ParameterInput &self, const std::string &block,
                                   const std::string &name, const std::vector<bool> &value) {
-        self.Set<std::vector<bool>>(block, name, value);
-      }, "Set a boolean vector parameter")
+        self.AddParsedParameter(block, name, value);
+      }, "Add a boolean vector parameter")
 
-      .def("set_string_vector", [](parthenon::ParameterInput &self, const std::string &block,
+      .def("add_string_vector", [](parthenon::ParameterInput &self, const std::string &block,
                                     const std::string &name, const std::vector<std::string> &value) {
-        self.Set<std::vector<std::string>>(block, name, value);
-      }, "Set a string vector parameter")
+        self.AddParsedParameter(block, name, value);
+      }, "Add a string vector parameter")
+
+      // Mark parsing complete
+      .def("mark_resolved", &parthenon::ParameterInput::MarkResolved,
+           "Mark that all parsing is complete")
 
       // Get methods with type dispatch
       .def("get_int", [](parthenon::ParameterInput &self, const std::string &block,
