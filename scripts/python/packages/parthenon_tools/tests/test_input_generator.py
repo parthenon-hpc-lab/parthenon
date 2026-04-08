@@ -122,13 +122,12 @@ def test_from_dict():
     assert any(b.name == "parthenon/time" for b in inp.blocks)
 
 
-@pytest.mark.skipif(True, reason="Requires C++ bindings")
 def test_cpp_transfer():
     """Test transferring to C++ ParameterInput (requires bindings)."""
     try:
         import parthenon
     except ImportError:
-        pytest.skip("Python bindings not available")
+        pytest.skip("Python bindings not available - build with -DPARTHENON_ENABLE_PYTHON_BINDINGS=ON")
 
     inp = InputFile()
     inp.block("test/block",

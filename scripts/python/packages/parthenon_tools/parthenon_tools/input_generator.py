@@ -165,26 +165,35 @@ class InputFile:
                 return block
         return None
 
-    def to_parameter_input(self):
+    def to_parameter_input(self, pi=None):
         """
         Transfer to C++ ParameterInput with full type preservation.
 
-        This dispatches each parameter to the appropriate Set<T>() method
+        This dispatches each parameter to the appropriate AddParsedParameter() method
         based on its Python type:
-            - int -> Set<int>()
-            - float -> Set<Real>()
-            - bool -> Set<bool>()
-            - str -> Set<std::string>()
-            - list[int] -> Set<std::vector<int>>()
+            - int -> add_int()
+            - float -> add_real()
+            - bool -> add_bool()
+            - str -> add_string()
+            - list[int] -> add_int_vector()
             - etc.
 
+        Args:
+            pi: Optional ParameterInput object to populate. If None, creates a new one.
+
         Returns:
-            Pybind11-wrapped ParameterInput object
+            Pybind11-wrapped ParameterInput object (either provided or newly created)
 
         Example:
             inp = InputFile()
             inp.block("parthenon/mesh", nx1=64, x1min=0.0)
             pi = inp.to_parameter_input()
+
+        Example with existing ParameterInput:
+            # pi provided by C++ code
+            inp = InputFile()
+            inp.block("parthenon/mesh", nx1=64)
+            inp.to_parameter_input(pi)  # populate existing pi
         """
         try:
             import parthenon
@@ -194,7 +203,8 @@ class InputFile:
                 "Make sure pybind11 bindings are built and installed."
             )
 
-        pi = parthenon.ParameterInput()
+        if pi is None:
+            pi = parthenon.ParameterInput()
 
         for block in self.blocks:
             for key, value in block.params.items():

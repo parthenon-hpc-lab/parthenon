@@ -30,6 +30,12 @@
 
 #include <Kokkos_Core.hpp>
 
+#ifdef PARTHENON_ENABLE_PYTHON_BINDINGS
+#include <pybind11/embed.h>
+#include <pybind11/pybind11.h>
+namespace py = pybind11;
+#endif
+
 #include "amr_criteria/amr_criteria.hpp"
 #include "amr_criteria/refinement_package.hpp"
 #include "config.hpp"
@@ -47,6 +53,42 @@
 namespace fs = FS_NAMESPACE;
 
 namespace parthenon {
+
+#ifdef PARTHENON_ENABLE_PYTHON_BINDINGS
+// Helper function to load ParameterInput from Python script
+std::unique_ptr<ParameterInput> LoadParameterInputFromPython(const char *python_filename) {
+  // Create ParameterInput in C++ - we own this
+  auto pinput = std::make_unique<ParameterInput>();
+
+  // Start Python interpreter
+  py::scoped_interpreter guard{};
+
+  try {
+    // Import the parthenon module to make ParameterInput bindings available
+    // The parthenon.so module must be in PYTHONPATH
+    py::module_::import("parthenon");
+
+    // Expose the C++ ParameterInput to Python as global variable 'pi'
+    py::globals()["pi"] = py::cast(pinput.get(), py::return_value_policy::reference);
+
+    // Execute the Python script
+    // The script should use 'pi' to populate parameters, typically via:
+    //   from parthenon_tools import InputFile
+    //   inp = InputFile()
+    //   inp.block("parthenon/mesh", nx1=64, ...)
+    //   inp.to_parameter_input(pi)  # populate the provided pi
+    py::eval_file(python_filename, py::globals());
+
+  } catch (py::error_already_set &e) {
+    std::stringstream msg;
+    msg << "### FATAL ERROR loading Python input file: " << python_filename << std::endl
+        << e.what() << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+
+  return pinput;
+}
+#endif
 
 ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   if (called_init_env_) {
@@ -115,16 +157,37 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   }
   // If an input file was provided
   if (arg.input_filename != nullptr) {
-    // Modify info read from restart file
-    if (arg.is_restart) {
-      IOWrapper infile;
-      infile.Open(arg.input_filename, IOWrapper::FileMode::read);
-      pinput->LoadFromFile(infile);
-      infile.Close();
+    // Check if it's a Python input file
+    std::string filename_str(arg.input_filename);
+    bool is_python_input = (filename_str.size() >= 3 &&
+                            filename_str.substr(filename_str.size() - 3) == ".py");
 
-      // Populate new object for fresh simulation
-    } else {
-      pinput = std::make_unique<ParameterInput>(arg.input_filename);
+#ifdef PARTHENON_ENABLE_PYTHON_BINDINGS
+    if (is_python_input) {
+      if (arg.is_restart) {
+        PARTHENON_FAIL("Python input files cannot be used with restart");
+      }
+      pinput = LoadParameterInputFromPython(arg.input_filename);
+    } else
+#else
+    if (is_python_input) {
+      PARTHENON_FAIL("Python input file detected but Parthenon was not built with "
+                     "-DPARTHENON_ENABLE_PYTHON_BINDINGS=ON");
+    } else
+#endif
+    {
+      // Standard .pin file handling
+      // Modify info read from restart file
+      if (arg.is_restart) {
+        IOWrapper infile;
+        infile.Open(arg.input_filename, IOWrapper::FileMode::read);
+        pinput->LoadFromFile(infile);
+        infile.Close();
+
+        // Populate new object for fresh simulation
+      } else {
+        pinput = std::make_unique<ParameterInput>(arg.input_filename);
+      }
     }
   }
 

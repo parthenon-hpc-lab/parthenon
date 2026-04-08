@@ -394,6 +394,12 @@ lint_target(parthenon)
 # Python bindings (optional)
 add_subdirectory(pybind)
 
+# Link parthenon against pybind11::embed if Python bindings are enabled
+# (needed for embedding Python interpreter in parthenon_manager.cpp)
+if(PARTHENON_ENABLE_PYTHON_BINDINGS)
+  target_link_libraries(parthenon PUBLIC pybind11::embed)
+endif()
+
 target_include_directories(parthenon PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
