@@ -48,16 +48,17 @@ struct BlockSendPlan {
 };
 
 // Remesh communication is sparse: only ranks that actually exchange remeshed particles
-// need MPI messages. This helper computes the possible peer sets from AMR topology alone.
+// need MPI messages. This helper computes the possible neighbor ranks from AMR topology
+// alone.
 //
 // The distinction between "possible" and "actual" matters:
 // - topology tells us which rank pairs might communicate after remesh
 // - particle counts tell us which of those pairs actually have nonzero payloads
 //
-// We use the possible peer sets only for the fixed-size count exchange. That avoids an
-// all-rank handshake while still guaranteeing that every posted receive has a matching
+// We use the possible neighbor ranks only for the fixed-size count exchange. That avoids
+// an all-rank handshake while still guaranteeing that every posted receive has a matching
 // send, even when the actual count later turns out to be zero.
-struct RemeshPeerSets {
+struct RemeshNeighborRanks {
   std::vector<int> send_ranks;
   std::vector<int> recv_ranks;
 };
@@ -384,9 +385,9 @@ std::vector<int> GetCandidateDestinationRanks(
 // which remote ranks it may need to exchange remeshed particles with. This lets the
 // remesh path stay in the same point-to-point style as the rest of Parthenon instead of
 // requiring an all-rank communication operation.
-RemeshPeerSets
-BuildRemeshPeerSets(const Mesh *pmesh, const SwarmRemeshContext &context,
-                    const std::unordered_map<LogicalLocation, int> &new_gid_by_loc) {
+RemeshNeighborRanks
+BuildRemeshNeighborRanks(const Mesh *pmesh, const SwarmRemeshContext &context,
+                         const std::unordered_map<LogicalLocation, int> &new_gid_by_loc) {
   const int nranks = Globals::nranks;
   const int my_rank = Globals::my_rank;
   std::vector<bool> may_send_to(nranks, false);
@@ -411,12 +412,12 @@ BuildRemeshPeerSets(const Mesh *pmesh, const SwarmRemeshContext &context,
     }
   }
 
-  RemeshPeerSets peers;
+  RemeshNeighborRanks neighbors;
   for (int rank = 0; rank < nranks; ++rank) {
-    if (may_send_to[rank]) peers.send_ranks.push_back(rank);
-    if (may_recv_from[rank]) peers.recv_ranks.push_back(rank);
+    if (may_send_to[rank]) neighbors.send_ranks.push_back(rank);
+    if (may_recv_from[rank]) neighbors.recv_ranks.push_back(rank);
   }
-  return peers;
+  return neighbors;
 }
 
 } // namespace
@@ -448,7 +449,7 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
 
   // The possible rank communication pattern depends only on AMR topology, not on swarm
   // contents. Compute it once here and reuse it for each swarm's count exchange.
-  const auto peers = BuildRemeshPeerSets(pmesh, context, new_gid_by_loc);
+  const auto neighbors = BuildRemeshNeighborRanks(pmesh, context, new_gid_by_loc);
 
   for (const auto &swarm_pair : resolved_packages->AllSwarms()) {
     const auto &swarm_name = swarm_pair.first;
@@ -520,8 +521,8 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
     constexpr int count_tag = 0;
     std::vector<MPI_Request> count_recv_reqs;
     std::vector<MPI_Request> count_send_reqs;
-    count_recv_reqs.reserve(peers.recv_ranks.size());
-    count_send_reqs.reserve(peers.send_ranks.size());
+    count_recv_reqs.reserve(neighbors.recv_ranks.size());
+    count_send_reqs.reserve(neighbors.send_ranks.size());
 
     // Same-rank traffic never touches MPI. The byte count is already known locally.
     recv_counts[Globals::my_rank] = send_counts[Globals::my_rank];
@@ -529,13 +530,13 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
     // Exchange one fixed-size integer count with each possible peer rank. Zero counts are
     // sent too, because the topology can say "communication is possible" even when this
     // particular swarm instance has no particles taking that path.
-    for (const int rank : peers.recv_ranks) {
+    for (const int rank : neighbors.recv_ranks) {
       MPI_Request req;
       PARTHENON_MPI_CHECK(
           MPI_Irecv(&recv_counts[rank], 1, MPI_INT, rank, count_tag, swarm_comm, &req));
       count_recv_reqs.push_back(req);
     }
-    for (const int rank : peers.send_ranks) {
+    for (const int rank : neighbors.send_ranks) {
       MPI_Request req;
       PARTHENON_MPI_CHECK(
           MPI_Isend(&send_counts[rank], 1, MPI_INT, rank, count_tag, swarm_comm, &req));
@@ -563,8 +564,8 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
     constexpr int payload_tag = 1;
     std::vector<MPI_Request> payload_recv_reqs;
     std::vector<MPI_Request> payload_send_reqs;
-    payload_recv_reqs.reserve(peers.recv_ranks.size());
-    payload_send_reqs.reserve(peers.send_ranks.size());
+    payload_recv_reqs.reserve(neighbors.recv_ranks.size());
+    payload_send_reqs.reserve(neighbors.send_ranks.size());
 
     // Same-rank payloads stay entirely on-device and bypass MPI. This preserves the
     // direct device-resident path while avoiding unnecessary trips through the MPI stack.
@@ -582,7 +583,7 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
     // Remote payloads use the usual sparse point-to-point pattern Parthenon already uses
     // for field and boundary communication. The buffers themselves remain device
     // resident, so GPU-aware MPI can still move particle data directly device-to-device.
-    for (const int rank : peers.recv_ranks) {
+    for (const int rank : neighbors.recv_ranks) {
       if (recv_counts[rank] == 0) continue;
       MPI_Request req;
       PARTHENON_MPI_CHECK(MPI_Irecv(recv_buffer.data() + recv_offsets[rank],
@@ -590,7 +591,7 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
                                     swarm_comm, &req));
       payload_recv_reqs.push_back(req);
     }
-    for (const int rank : peers.send_ranks) {
+    for (const int rank : neighbors.send_ranks) {
       if (send_counts[rank] == 0) continue;
       MPI_Request req;
       PARTHENON_MPI_CHECK(MPI_Isend(send_buffer.data() + send_offsets[rank],
