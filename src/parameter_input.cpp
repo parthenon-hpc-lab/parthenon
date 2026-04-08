@@ -206,7 +206,8 @@ void ParameterInput::LoadFromStream(std::istream &is) {
 
     if (!continuing) {
       if (param_name != "") {
-        AddParameter(pib, param_name, param_value, param_comment);
+        AddParsedParameter(block_name, param_name, UnresolvedString(param_value),
+                          param_comment);
       }
     }
   }
@@ -430,7 +431,8 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
     name = input_text.substr(slash_posn + 1, (equal_posn - slash_posn - 1));
     value = input_text.substr(equal_posn + 1, std::string::npos);
 
-    // get pointer to node with same block name in singly linked list of InputBlocks
+    // Use AddParsedParameter to update both map and linked list
+    // Check if block/parameter exists for warning messages
     pb = GetPtrToBlock(block);
     if (pb == nullptr) {
       if (Globals::my_rank == 0) {
@@ -439,26 +441,21 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
             << "' on command line not found in input/restart file. Block will be added.";
         PARTHENON_WARN(msg);
       }
-      pb = FindOrAddBlock(block);
-    }
-
-    // get pointer to node with same parameter name in singly linked list of InputLines
-    pl = pb->GetPtrToLine(name);
-    if (pl == nullptr) {
-      if (Globals::my_rank == 0) {
-        msg << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
-            << "               Parameter '" << name << "' in block '" << block
-            << "' on command line not found in input/restart file. Parameter will be "
-               "added.";
-        PARTHENON_WARN(msg);
-      }
-      AddParameter(pb, name, value, " # Added from command line");
-
     } else {
-      pl->param_value.assign(value); // replace existing value
+      pl = pb->GetPtrToLine(name);
+      if (pl == nullptr) {
+        if (Globals::my_rank == 0) {
+          msg << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
+              << "               Parameter '" << name << "' in block '" << block
+              << "' on command line not found in input/restart file. Parameter will be "
+                 "added.";
+          PARTHENON_WARN(msg);
+        }
+      }
     }
 
-    if (value.length() > pb->max_len_parvalue) pb->max_len_parvalue = value.length();
+    // Add or update parameter (handles both map and linked list)
+    AddParsedParameter(block, name, UnresolvedString(value), "# From command line");
   }
 }
 
@@ -481,7 +478,7 @@ InputBlock *ParameterInput::GetPtrToBlock(const std::string &name) {
 
 int ParameterInput::DoesParameterExist(const std::string &block,
                                        const std::string &name) {
-  EnsureMapResolved_();
+  MarkResolved();
 
   auto block_it = param_map_.find(block);
   if (block_it == param_map_.end()) return 0;
@@ -495,7 +492,7 @@ int ParameterInput::DoesParameterExist(const std::string &block,
 //  \brief check whether block exists
 
 int ParameterInput::DoesBlockExist(const std::string &block) {
-  EnsureMapResolved_();
+  MarkResolved();
 
   auto block_it = param_map_.find(block);
   return (block_it != param_map_.end()) ? 1 : 0;
@@ -949,16 +946,22 @@ std::string ParameterInput::ParamValueToString(const ParamValue& value) {
 
 void ParameterInput::AddParsedParameter(const std::string &block,
                                        const std::string &name,
-                                       const ParamValue &value) {
+                                       const ParamValue &value,
+                                       const std::string &comment) {
   PARTHENON_REQUIRE(!map_resolved_,
                    "Cannot add parameters after MarkResolved() has been called");
+
+  // Track block insertion order (first appearance only)
+  if (param_map_.find(block) == param_map_.end()) {
+    block_order_.push_back(block);
+  }
 
   // Add to param_map_ (source of truth)
   param_map_[block][name] = value;
 
   // Also update linked list for output compatibility
   auto *pb = FindOrAddBlock(block);
-  AddParameter(pb, name, ParamValueToString(value), "# From parser");
+  AddParameter(pb, name, ParamValueToString(value), comment);
 }
 
 //----------------------------------------------------------------------------------------
@@ -974,19 +977,10 @@ void ParameterInput::MarkResolved() {
 //  \brief Convert linked list structure to map for efficient access
 
 void ParameterInput::ResolveParametersToMap() {
-  param_map_.clear();
-  
-  for (InputBlock *pb = pfirst_block; pb != nullptr; pb = pb->pnext) {
-    auto& block_map = param_map_[pb->block_name];
-    
-    for (InputLine *pl = pb->pline; pl != nullptr; pl = pl->pnext) {
-      // Store as UnresolvedString - will be converted to proper type on first Get* call
-      block_map[pl->param_name] = UnresolvedString(pl->param_value);
-    }
-  }
-  
-  // Phase 2: Mark that map is resolved and locked
-  map_resolved_ = true;
+  // This function is now deprecated - the map is populated during parsing
+  // via AddParsedParameter() calls from LoadFromStream() and ModifyFromCmdline().
+  // Just mark as resolved.
+  MarkResolved();
 }
 
 //----------------------------------------------------------------------------------------
@@ -1009,13 +1003,14 @@ std::vector<std::string> ParameterInput::GetBlockNames() const {
 
 std::vector<std::string> ParameterInput::GetBlocksWithPrefix(const std::string& prefix) const {
   std::vector<std::string> matching_blocks;
-  
-  for (InputBlock *pib = pfirst_block; pib != nullptr; pib = pib->pnext) {
-    if (pib->block_name.compare(0, prefix.length(), prefix) == 0) {
-      matching_blocks.push_back(pib->block_name);
+
+  // Use block_order_ to preserve insertion order
+  for (const auto& block_name : block_order_) {
+    if (block_name.compare(0, prefix.length(), prefix) == 0) {
+      matching_blocks.push_back(block_name);
     }
   }
-  
+
   return matching_blocks;
 }
 
@@ -1037,30 +1032,12 @@ std::vector<std::string> ParameterInput::GetParameterNames(const std::string& bl
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void ParameterInput::EnsureMapResolved_()
-//  \brief Ensure parameters have been resolved to map before Get* operations
-
-void ParameterInput::EnsureMapResolved_() {
-  if (!map_resolved_) {
-    // Check if map already has content (AddParsedParameter was used)
-    if (!param_map_.empty()) {
-      // New flow: AddParsedParameter was called but MarkResolved() was not
-      // Just mark as resolved and continue
-      MarkResolved();
-    } else {
-      // Old flow: LoadFromStream was used, need to resolve from linked list
-      ResolveParametersToMap();
-    }
-  }
-}
-
-//----------------------------------------------------------------------------------------
 //! \fn ParamValue* ParameterInput::FindParameter_()
 //  \brief Helper to find a parameter in the map, returns pointer for in-place modification
 
 ParameterInput::ParamValue* ParameterInput::FindParameter_(const std::string& block, 
                                                              const std::string& name) {
-  EnsureMapResolved_();
+  MarkResolved();
   auto block_it = param_map_.find(block);
   if (block_it != param_map_.end()) {
     auto param_it = block_it->second.find(name);
@@ -1079,7 +1056,7 @@ ParameterInput::ParamValue* ParameterInput::FindParameter_(const std::string& bl
 template <typename T>
 std::optional<T> ParameterInput::GetFromMap_(const std::string& block, 
                                              const std::string& name) {
-  EnsureMapResolved_();
+  MarkResolved();
   ParamValue* pvalue = FindParameter_(block, name);
   if (pvalue == nullptr) {
     return std::nullopt;  // Not in map, caller should try linked list

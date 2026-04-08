@@ -228,7 +228,8 @@ class ParameterInput {
   // Generic interface for any parser to populate parameter storage
   // Can be called multiple times until MarkResolved() is called
   void AddParsedParameter(const std::string &block, const std::string &name,
-                         const ParamValue &value);
+                         const ParamValue &value,
+                         const std::string &comment = "# From parser");
 
   // Explicitly mark parsing as complete - no more AddParsedParameter calls allowed
   void MarkResolved();
@@ -325,7 +326,7 @@ class ParameterInput {
     static_assert(SupportedParamTypes::IsIn<T>(),
                   "Type not supported by parameter storage");
 
-    EnsureMapResolved_();
+    MarkResolved();
     std::stringstream msg;
 
     auto opt = GetFromMap_<T>(block, name);
@@ -346,7 +347,7 @@ class ParameterInput {
     static_assert(SupportedParamTypes::IsIn<T>(),
                   "Type not supported by parameter storage");
 
-    EnsureMapResolved_();
+    MarkResolved();
     std::stringstream ss_value;
 
     CheckAndUpdateQueries_<T>(block, name, def_value, std::vector<T>{}, docstring);
@@ -382,7 +383,7 @@ class ParameterInput {
     static_assert(SupportedParamTypes::IsIn<T>(),
                   "Type not supported by parameter storage");
 
-    EnsureMapResolved_();
+    MarkResolved();
 
     if (queries_.count(std::make_pair(block, name)) == 0) {
       CheckAndUpdateQueries_<T>(block, name, docstring);
@@ -471,14 +472,12 @@ class ParameterInput {
 
   // === NEW STORAGE (map - parser-agnostic) ===
   using BlockParameterMap = std::map<std::string, ParamValue>;
-  
+
   std::map<std::string, BlockParameterMap> param_map_;
+  std::vector<std::string> block_order_;  // Track insertion order of blocks
   bool map_resolved_ = false;  // Track if we've locked down to map-based access
   
   // === HELPER METHODS (parser-agnostic) ===
-  // Ensure map is resolved before any Get* operation
-  void EnsureMapResolved_();
-
   // Convert ParamValue to string for linked list output
   std::string ParamValueToString(const ParamValue& value);
   template <typename T>
