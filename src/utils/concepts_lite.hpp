@@ -58,14 +58,14 @@ template <typename T>
 concept Container = requires(T x) {
   x.size();
   typename T::value_type;
-};
+}; // NOLINT(readability/braces)
 
 template <typename T>
 concept ContiguousContainer_arr = requires(T x) {
   x.size();
   x.data();
   typename T::value_type;
-};
+}; // NOLINT(readability/braces)
 
 template <typename T>
 concept ContiguousContainer_scalar = std::is_fundamental<T>::value && !Container<T>;

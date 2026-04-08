@@ -18,12 +18,10 @@
 #ifndef UTILS_OBJECT_POOL_HPP_
 #define UTILS_OBJECT_POOL_HPP_
 
-#include "utils/concepts_lite.hpp"
 #include <math.h>
 
 #include <cstdint>
 #include <iostream>
-#include <memory>
 #include <sstream>
 #include <stack>
 #include <type_traits>
@@ -32,6 +30,8 @@
 #include <utils/error_checking.hpp>
 
 #include <Kokkos_Core.hpp>
+
+#include "utils/concepts_lite.hpp"
 
 namespace parthenon {
 
