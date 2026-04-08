@@ -44,7 +44,7 @@ namespace {
 struct BlockSendPlan {
   ParArray1D<char> buffer;
   std::vector<int> send_counts;
-  std::vector<int> send_displs;
+  std::vector<int> send_offsets;
 };
 
 // Remesh communication is sparse: only ranks that actually exchange remeshed particles
@@ -186,9 +186,9 @@ BuildBlockSendPlan(const std::shared_ptr<Swarm> &swarm, const Mesh *pmesh,
 
   int total_particles = 0;
   for (int rank = 0; rank < nranks; ++rank) {
-    // MPI counts/displacements are expressed in units of the communicated datatype. Here
-    // that datatype is MPI_BYTE, so send_counts and send_displs are byte counts.
-    plan.send_displs[rank] = total_particles * record_size;
+    // MPI counts/offsets are expressed in units of the communicated datatype. Here that
+    // datatype is MPI_BYTE, so send_counts and send_offsets are byte counts.
+    plan.send_offsets[rank] = total_particles * record_size;
     total_particles += source_indices_by_rank[rank].size();
     const auto count =
         static_cast<std::size_t>(source_indices_by_rank[rank].size()) * record_size;
@@ -210,7 +210,7 @@ BuildBlockSendPlan(const std::shared_ptr<Swarm> &swarm, const Mesh *pmesh,
   auto dest_gids_h = dest_gids.GetHostMirror();
 
   // Flatten the per-rank STL vectors into contiguous arrays. The order chosen here is the
-  // order used later by send_displs, so each rank already occupies one contiguous byte
+  // order used later by send_offsets, so each rank already occupies one contiguous byte
   // region inside the block-local payload.
   int offset = 0;
   for (int rank = 0; rank < nranks; ++rank) {
@@ -329,10 +329,10 @@ void UnpackReceivedParticles(const std::shared_ptr<Swarm> &swarm,
 
 //----------------------------------------------------------------------------------------
 // Convert per-rank counts into starting offsets and return the total size.
-int BuildDisplacements(const std::vector<int> &counts, std::vector<int> &displs) {
+int BuildOffsets(const std::vector<int> &counts, std::vector<int> &offsets) {
   int total = 0;
   for (int rank = 0; rank < counts.size(); ++rank) {
-    displs[rank] = total;
+    offsets[rank] = total;
     total += counts[rank];
   }
   return total;
@@ -457,7 +457,7 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
     // schema simple because each swarm can have its own set of variables.
     std::vector<BlockSendPlan> block_plans;
     std::vector<int> send_counts(nranks, 0);
-    std::vector<int> send_displs(nranks, 0);
+    std::vector<int> send_offsets(nranks, 0);
 
     for (int on = context.old_gid_first; on <= context.old_gid_last; ++on) {
       const int nn = context.NewGid(on);
@@ -486,20 +486,20 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
 
     // Each old block produced its own packed payload for clarity. MPI wants one payload
     // per rank, so concatenate those block-local payloads into one byte stream here.
-    const int send_total = BuildDisplacements(send_counts, send_displs);
+    const int send_total = BuildOffsets(send_counts, send_offsets);
 
     ParArray1D<char> send_buffer;
     if (send_total > 0) {
       send_buffer = ParArray1D<char>("swarm_amr_remesh_send", send_total);
-      auto next_offsets = send_displs;
+      auto next_offsets = send_offsets;
       for (const auto &plan : block_plans) {
         for (int rank = 0; rank < nranks; ++rank) {
-          // plan.send_displs/counts already describe byte ranges for this rank inside the
-          // block-local payload. Copy those byte ranges into the final rank-global send
-          // buffer without unpacking/repacking anything.
+          // plan.send_offsets/counts already describe byte ranges for this rank inside
+          // the block-local payload. Copy those byte ranges into the final rank-global
+          // send buffer without unpacking/repacking anything.
           const int count = plan.send_counts[rank];
           if (count == 0) continue;
-          const int src_begin = plan.send_displs[rank];
+          const int src_begin = plan.send_offsets[rank];
           const int dst_begin = next_offsets[rank];
           auto src = Kokkos::subview(plan.buffer.KokkosView(),
                                      std::make_pair(src_begin, src_begin + count));
@@ -512,7 +512,7 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
     }
 
     std::vector<int> recv_counts(nranks, 0);
-    std::vector<int> recv_displs(nranks, 0);
+    std::vector<int> recv_offsets(nranks, 0);
     int recv_total = 0;
 
 #ifdef MPI_PARALLEL
@@ -544,10 +544,10 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
 
     WaitAll(count_recv_reqs);
     WaitAll(count_send_reqs);
-    recv_total = BuildDisplacements(recv_counts, recv_displs);
+    recv_total = BuildOffsets(recv_counts, recv_offsets);
 #else
     recv_counts = send_counts;
-    recv_displs = send_displs;
+    recv_offsets = send_offsets;
     recv_total = send_total;
 #endif
 
@@ -569,8 +569,8 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
     // Same-rank payloads stay entirely on-device and bypass MPI. This preserves the
     // direct device-resident path while avoiding unnecessary trips through the MPI stack.
     if (recv_counts[Globals::my_rank] > 0) {
-      const int src_begin = send_displs[Globals::my_rank];
-      const int dst_begin = recv_displs[Globals::my_rank];
+      const int src_begin = send_offsets[Globals::my_rank];
+      const int dst_begin = recv_offsets[Globals::my_rank];
       const int count = recv_counts[Globals::my_rank];
       auto src = Kokkos::subview(send_buffer.KokkosView(),
                                  std::make_pair(src_begin, src_begin + count));
@@ -585,7 +585,7 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
     for (const int rank : peers.recv_ranks) {
       if (recv_counts[rank] == 0) continue;
       MPI_Request req;
-      PARTHENON_MPI_CHECK(MPI_Irecv(recv_buffer.data() + recv_displs[rank],
+      PARTHENON_MPI_CHECK(MPI_Irecv(recv_buffer.data() + recv_offsets[rank],
                                     recv_counts[rank], MPI_BYTE, rank, payload_tag,
                                     swarm_comm, &req));
       payload_recv_reqs.push_back(req);
@@ -593,7 +593,7 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
     for (const int rank : peers.send_ranks) {
       if (send_counts[rank] == 0) continue;
       MPI_Request req;
-      PARTHENON_MPI_CHECK(MPI_Isend(send_buffer.data() + send_displs[rank],
+      PARTHENON_MPI_CHECK(MPI_Isend(send_buffer.data() + send_offsets[rank],
                                     send_counts[rank], MPI_BYTE, rank, payload_tag,
                                     swarm_comm, &req));
       payload_send_reqs.push_back(req);
