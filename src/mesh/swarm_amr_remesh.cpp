@@ -14,17 +14,14 @@
 // This file was made in part with generative AI.
 
 #include <algorithm>
-#include <array>
 #include <cstdint>
 #include <limits>
 #include <memory>
 #include <string>
-#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include <Kokkos_BitManipulation.hpp>
 #include <Kokkos_Core.hpp>
 
 #include "defs.hpp"
@@ -34,8 +31,9 @@
 #include "mesh/swarm_amr_remesh.hpp"
 #include "pack/default_names.hpp"
 #include "parthenon_arrays.hpp"
-#include "parthenon_mpi.hpp"
+#include "utils/byte_utils.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/mpi_types.hpp"
 
 namespace parthenon {
 
@@ -63,40 +61,6 @@ struct RemeshPeerSets {
   std::vector<int> send_ranks;
   std::vector<int> recv_ranks;
 };
-
-// Pack a trivially-copyable value into a byte buffer and advance the running offset.
-//
-// This helper runs inside device kernels, so it must avoid host-only library routines.
-// Kokkos::bit_cast gives a device-safe way to view the object representation as a fixed
-// byte array, and the byte array can then be copied into the packed MPI buffer.
-template <typename T>
-KOKKOS_INLINE_FUNCTION void PackValue(const ParArray1D<char> &buffer, int &offset,
-                                      const T &value) {
-  static_assert(std::is_trivially_copyable_v<T>,
-                "Swarm remesh packing requires trivially copyable values.");
-  const auto bytes = Kokkos::bit_cast<std::array<unsigned char, sizeof(T)>>(value);
-  for (std::size_t i = 0; i < sizeof(T); ++i) {
-    buffer(offset + i) = static_cast<char>(bytes[i]);
-  }
-  offset += sizeof(T);
-}
-
-//----------------------------------------------------------------------------------------
-// Unpack a trivially-copyable value from a byte buffer and advance the running offset.
-//
-// As above, keep this implementation device-safe by rebuilding a fixed byte array and
-// then bit-casting it back to the requested type.
-template <typename T>
-KOKKOS_INLINE_FUNCTION T UnpackValue(const ParArray1D<char> &buffer, int &offset) {
-  static_assert(std::is_trivially_copyable_v<T>,
-                "Swarm remesh unpacking requires trivially copyable values.");
-  std::array<unsigned char, sizeof(T)> bytes{};
-  for (std::size_t i = 0; i < sizeof(T); ++i) {
-    bytes[i] = static_cast<unsigned char>(buffer(offset + i));
-  }
-  offset += sizeof(T);
-  return Kokkos::bit_cast<T>(bytes);
-}
 
 //----------------------------------------------------------------------------------------
 // Refinement is the only remesh case where particle coordinates matter. The topology is
@@ -285,15 +249,15 @@ BuildBlockSendPlan(const std::shared_ptr<Swarm> &swarm, const Mesh *pmesh,
         //
         // The first entry is routing metadata. Everything after that is the actual swarm
         // state that must survive remeshing.
-        PackValue(buffer, buffer_idx, dest_gids(n));
+        byte_utils::PackValue(buffer, buffer_idx, dest_gids(n));
         for (int i = 0; i < real_pack_dim; ++i) {
-          PackValue(buffer, buffer_idx, vreal(i, src_idx));
+          byte_utils::PackValue(buffer, buffer_idx, vreal(i, src_idx));
         }
         for (int i = 0; i < int_pack_dim; ++i) {
-          PackValue(buffer, buffer_idx, vint(i, src_idx));
+          byte_utils::PackValue(buffer, buffer_idx, vint(i, src_idx));
         }
         for (int i = 0; i < uint64_pack_dim; ++i) {
-          PackValue(buffer, buffer_idx, vuint64(i, src_idx));
+          byte_utils::PackValue(buffer, buffer_idx, vuint64(i, src_idx));
         }
       });
 
@@ -351,13 +315,14 @@ void UnpackReceivedParticles(const std::shared_ptr<Swarm> &swarm,
         // the caller. What remains is the serialized swarm state.
         int buffer_idx = record_indices_d(n) * record_size + sizeof(int);
         for (int i = 0; i < real_pack_dim; ++i) {
-          vreal(i, particle_idx) = UnpackValue<Real>(buffer, buffer_idx);
+          vreal(i, particle_idx) = byte_utils::UnpackValue<Real>(buffer, buffer_idx);
         }
         for (int i = 0; i < int_pack_dim; ++i) {
-          vint(i, particle_idx) = UnpackValue<int>(buffer, buffer_idx);
+          vint(i, particle_idx) = byte_utils::UnpackValue<int>(buffer, buffer_idx);
         }
         for (int i = 0; i < uint64_pack_dim; ++i) {
-          vuint64(i, particle_idx) = UnpackValue<std::uint64_t>(buffer, buffer_idx);
+          vuint64(i, particle_idx) =
+              byte_utils::UnpackValue<std::uint64_t>(buffer, buffer_idx);
         }
       });
 }
@@ -453,16 +418,6 @@ BuildRemeshPeerSets(const Mesh *pmesh, const SwarmRemeshContext &context,
   }
   return peers;
 }
-
-//----------------------------------------------------------------------------------------
-#ifdef MPI_PARALLEL
-// Wait on a small batch of remesh point-to-point requests.
-void WaitAll(std::vector<MPI_Request> &reqs) {
-  if (!reqs.empty()) {
-    PARTHENON_MPI_CHECK(MPI_Waitall(reqs.size(), reqs.data(), MPI_STATUSES_IGNORE));
-  }
-}
-#endif
 
 } // namespace
 
@@ -671,7 +626,7 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
           // here; the actual swarm state stays in the shared byte buffer until records
           // have been regrouped by destination block.
           int offset = n * record_size;
-          recv_gids(n) = UnpackValue<int>(recv_buffer, offset);
+          recv_gids(n) = byte_utils::UnpackValue<int>(recv_buffer, offset);
         });
     auto recv_gids_h = recv_gids.GetHostMirrorAndCopy();
 
