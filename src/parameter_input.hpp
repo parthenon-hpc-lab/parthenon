@@ -43,9 +43,17 @@
 #include "utils/hash.hpp"
 #include "utils/sort.hpp"
 #include "utils/string_utils.hpp"
+#include "utils/type_list.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
+
+//----------------------------------------------------------------------------------------
+// Supported parameter types - single source of truth
+//----------------------------------------------------------------------------------------
+using SupportedParamTypes = TypeList<bool, int, Real, std::string,
+                                      std::vector<bool>, std::vector<int>,
+                                      std::vector<Real>, std::vector<std::string>>;
 
 // We need to overload the stream operator for containers to output
 // something sensible
@@ -288,44 +296,109 @@ class ParameterInput {
   void CheckDesired(const std::string &block, const std::string &name);
   void CheckOrphans() const;
 
-  template <typename T, typename... Args>
-  T GetOrAdd(const std::string &block, const std::string &name, const T &value,
-             Args &&...args) {
-    if constexpr (std::is_same_v<T, bool>) {
-      return GetOrAddBoolean(block, name, value, std::forward<Args>(args)...);
-    } else if constexpr (std::is_same_v<T, Real>) {
-      return GetOrAddReal(block, name, value, std::forward<Args>(args)...);
-    } else if constexpr (std::is_same_v<T, std::string>) {
-      return GetOrAddString(block, name, value, std::forward<Args>(args)...);
-    } else if (std::is_integral_v<T>) {
-      return GetOrAddInteger(block, name, value, std::forward<Args>(args)...);
-    } else {
-      PARTHENON_THROW("Unknown type\n");
+  // === TEMPLATE INTERFACE (preferred for new code) ===
+
+  //! Get parameter value with compile-time type checking
+  template <typename T>
+  T Get(const std::string &block, const std::string &name,
+        const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+    static_assert(SupportedParamTypes::IsIn<T>(),
+                  "Type not supported by parameter storage");
+
+    EnsureMapResolved_();
+    std::stringstream msg;
+
+    auto opt = GetFromMap_<T>(block, name);
+    if (!opt.has_value()) {
+      msg << "### FATAL ERROR in function [ParameterInput::Get<T>]" << std::endl
+          << "Parameter name '" << name << "' not found in block '" << block << "'";
+      PARTHENON_FAIL(msg);
     }
+
+    CheckAndUpdateQueries_<T>(block, name, docstring);
+    return opt.value();
   }
-  template <typename T, typename... Args>
-  T Get(const std::string &block, const std::string &name, Args &&...args) {
-    if constexpr (std::is_same_v<T, bool>) {
-      return GetBoolean(block, name, std::forward<Args>(args)...);
-    } else if constexpr (std::is_same_v<T, Real>) {
-      return GetReal(block, name, std::forward<Args>(args)...);
-    } else if constexpr (std::is_same_v<T, std::string>) {
-      return GetString(block, name, std::forward<Args>(args)...);
-    } else if (std::is_integral_v<T>) {
-      return GetInteger(block, name, std::forward<Args>(args)...);
-    } else {
-      PARTHENON_THROW("Unknown type\n");
+
+  //! Get parameter value or add with default if not present
+  template <typename T>
+  T GetOrAdd(const std::string &block, const std::string &name, const T &def_value,
+             const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+    static_assert(SupportedParamTypes::IsIn<T>(),
+                  "Type not supported by parameter storage");
+
+    EnsureMapResolved_();
+    std::stringstream ss_value;
+
+    CheckAndUpdateQueries_<T>(block, name, def_value, std::vector<T>{}, docstring);
+
+    auto opt = GetFromMap_<T>(block, name);
+    if (opt.has_value()) {
+      return opt.value();
     }
+
+    // Add to map
+    param_map_[block][name] = def_value;
+
+    // Also add to linked list for output compatibility
+    auto *pb = FindOrAddBlock(block);
+
+    // Type-specific formatting (Real needs extra precision)
+    if constexpr (std::is_same_v<T, Real>) {
+      static_assert(sizeof(Real) <= sizeof(double), "Real is greater than double!");
+      ss_value.precision(std::numeric_limits<double>::max_digits10);
+    }
+    ss_value << def_value;
+
+    AddParameter(pb, name, ss_value.str(), "# Default value added at run time");
+    UpdateQueryProvenance_(block, name, QueryRecord::OriginType::Default);
+
+    return def_value;
   }
-  template <typename T, typename... Args>
-  T Get(const ParameterRef &r, Args &&...args) {
-    return Get<T>(r.block_, r.name_, std::forward<Args>(args)...);
+
+  //! Set parameter value (creates if doesn't exist)
+  template <typename T>
+  T Set(const std::string &block, const std::string &name, const T &value,
+        const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+    static_assert(SupportedParamTypes::IsIn<T>(),
+                  "Type not supported by parameter storage");
+
+    EnsureMapResolved_();
+
+    if (queries_.count(std::make_pair(block, name)) == 0) {
+      CheckAndUpdateQueries_<T>(block, name, docstring);
+    }
+
+    // Update map (source of truth)
+    param_map_[block][name] = value;
+
+    // Update linked list for output
+    auto *pb = FindOrAddBlock(block);
+    std::stringstream ss_value;
+
+    if constexpr (std::is_same_v<T, Real>) {
+      static_assert(sizeof(Real) <= sizeof(double), "Real is greater than double!");
+      ss_value.precision(std::numeric_limits<double>::max_digits10);
+    }
+    ss_value << value;
+
+    AddParameter(pb, name, ss_value.str(), "# Updated during run time");
+    UpdateQueryProvenance_(block, name, QueryRecord::OriginType::SetInCode);
+
+    return value;
   }
-  template <typename T, typename... Args>
+
+  //! Get parameter using ParameterRef
+  template <typename T>
+  T Get(const ParameterRef &r,
+        const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+    return Get<T>(r.block_, r.name_, docstring);
+  }
+
+  //! GetOrAdd with default from another parameter
+  template <typename T>
   T GetOrAdd(const std::string &block, const std::string &name, const ParameterRef &value,
-             Args &&...args) {
-    T ret = GetOrAdd<T>(block, name, Get<T>(value.block_, value.name_),
-                        std::forward<Args>(args)...);
+             const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+    T ret = GetOrAdd<T>(block, name, Get<T>(value.block_, value.name_), docstring);
     SetQueryDependency_(block, name, value);
     return ret;
   }
@@ -395,18 +468,11 @@ class ParameterInput {
     explicit UnresolvedString(const std::string& v) : value(v) {}
     explicit UnresolvedString(std::string&& v) : value(std::move(v)) {}
   };
-  
-  using ParamValue = std::variant<
-      UnresolvedString, // Must be first - this is what legacy parser produces
-      bool, 
-      int, 
-      Real, 
-      std::string,      // Actual string parameter (typed by parser or Get/Set)
-      std::vector<bool>,
-      std::vector<int>,
-      std::vector<Real>,
-      std::vector<std::string>
-  >;
+
+  // Build ParamValue variant from SupportedParamTypes + UnresolvedString
+  using ParamValue = type_list_to_variant_t<
+      insert_type_list_t<UnresolvedString, SupportedParamTypes, 0>>;
+
   using BlockParameterMap = std::map<std::string, ParamValue>;
   
   std::map<std::string, BlockParameterMap> param_map_;
