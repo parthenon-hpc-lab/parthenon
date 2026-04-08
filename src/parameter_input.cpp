@@ -761,9 +761,10 @@ void ParameterInput::CheckDesired(const std::string &block, const std::string &n
               << std::endl;
   }
   if (defaulted) {
+    auto *pvalue = FindParameter_(block, name);
     std::cout << std::endl
               << "Defaulting to <" << block << ">/" << name << " = "
-              << GetString(block, name) << std::endl;
+              << ParamValueToString(*pvalue) << std::endl;
   }
 }
 

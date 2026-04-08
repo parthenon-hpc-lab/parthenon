@@ -39,7 +39,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto ref = std::make_shared<StateDescriptor>("Refinement");
 
   auto refinement_blocks = pin->GetBlocksWithPrefix("parthenon/refinement");
-  for (const auto& block_name : refinement_blocks) {
+  for (auto block_name : refinement_blocks) {
     std::string method = pin->GetString(
         block_name, "method",
         std::vector<std::string>{"derivative_order_1", "derivative_order_2", "magnitude"},
