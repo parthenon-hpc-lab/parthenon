@@ -99,32 +99,26 @@ KOKKOS_INLINE_FUNCTION T UnpackValue(const ParArray1D<char> &buffer, int &offset
 }
 
 //----------------------------------------------------------------------------------------
-// Refinement is the only remesh case where particle coordinates matter. If a block is
-// replaced by its daughters, each particle must choose one daughter by position. In the
-// other cases, the AMR topology already tells us the unique new owner.
-int GetRefinedDestinationGid(
+// Refinement is the only remesh case where particle coordinates matter. The topology is
+// still simple, though: one old block can only send particles to its daughters. Build a
+// compact lookup table mapping daughter orientation bits -> new gid once on host, then
+// let a device kernel classify particles into those daughters.
+std::array<int, 8> GetRefinedDestinationGids(
     const Mesh *pmesh, const LogicalLocation &old_loc,
-    const std::unordered_map<LogicalLocation, int> &new_gid_by_loc, const Real x,
-    const Real y, const Real z) {
-  // old_loc is the logical location of the pre-remesh block. During refinement that
-  // block is replaced only by its daughters, so ownership can be resolved locally by
-  // asking which side of the block midpoint the particle lies on in each active
-  // direction.
-  const auto block = pmesh->GetBlockSize(old_loc);
-  const auto child_side = [&](const CoordinateDirection dir, const Real coord) {
-    if (dir > pmesh->ndim) return 0;
-    const Real midpoint = 0.5 * (block.xmin(dir) + block.xmax(dir));
-    return coord > midpoint ? 1 : 0;
-  };
-
-  // Convert the chosen child logical location back into the gid numbering used by the
-  // newly constructed leaf mesh.
-  const auto child = old_loc.GetDaughter(child_side(X1DIR, x), child_side(X2DIR, y),
-                                         child_side(X3DIR, z));
-  const auto it = new_gid_by_loc.find(child);
-  PARTHENON_REQUIRE(it != new_gid_by_loc.end(),
-                    "Failed to find destination child block for remeshed particle.");
-  return it->second;
+    const std::unordered_map<LogicalLocation, int> &new_gid_by_loc) {
+  std::array<int, 8> child_gids{};
+  for (int ox3 = 0; ox3 <= (pmesh->ndim > 2 ? 1 : 0); ++ox3) {
+    for (int ox2 = 0; ox2 <= (pmesh->ndim > 1 ? 1 : 0); ++ox2) {
+      for (int ox1 = 0; ox1 <= 1; ++ox1) {
+        const auto child = old_loc.GetDaughter(ox1, ox2, ox3);
+        const auto it = new_gid_by_loc.find(child);
+        PARTHENON_REQUIRE(it != new_gid_by_loc.end(),
+                          "Failed to find child block for swarm AMR remesh.");
+        child_gids[ox1 + 2 * ox2 + 4 * ox3] = it->second;
+      }
+    }
+  }
+  return child_gids;
 }
 
 //----------------------------------------------------------------------------------------
@@ -181,15 +175,45 @@ BuildBlockSendPlan(const std::shared_ptr<Swarm> &swarm, const Mesh *pmesh,
     }
   } else {
     // Refinement is the only case where particles from one old block fan out to several
-    // new leaf blocks. Pull just the coordinate arrays we need to host and classify each
-    // active particle among the daughters.
-    auto x_h = swarm->Get<Real>(swarm_position::x::name()).Get().GetHostMirrorAndCopy();
-    auto y_h = swarm->Get<Real>(swarm_position::y::name()).Get().GetHostMirrorAndCopy();
-    auto z_h = swarm->Get<Real>(swarm_position::z::name()).Get().GetHostMirrorAndCopy();
+    // new leaf blocks. Compute that daughter ownership on device and only copy back the
+    // compact destination-gid result, rather than mirroring full coordinate arrays.
+    const auto block = pmesh->GetBlockSize(old_loc);
+    const Real x_mid = 0.5 * (block.xmin(X1DIR) + block.xmax(X1DIR));
+    const Real y_mid = 0.5 * (block.xmin(X2DIR) + block.xmax(X2DIR));
+    const Real z_mid = 0.5 * (block.xmin(X3DIR) + block.xmax(X3DIR));
+
+    auto child_gids_h = GetRefinedDestinationGids(pmesh, old_loc, new_gid_by_loc);
+    ParArray1D<int> child_gids("swarm_amr_remesh_child_gids", child_gids_h.size());
+    auto child_gids_mirror = child_gids.GetHostMirror();
+    for (int i = 0; i < child_gids_h.size(); ++i) {
+      child_gids_mirror(i) = child_gids_h[i];
+    }
+    child_gids.DeepCopy(child_gids_mirror);
+
+    ParArray1D<int> refined_dest_gids("swarm_amr_remesh_refined_dest_gids",
+                                      swarm->GetMaxActiveIndex() + 1);
+    auto mask = swarm->GetMask();
+    auto x = swarm->Get<Real>(swarm_position::x::name()).Get();
+    auto y = swarm->Get<Real>(swarm_position::y::name()).Get();
+    auto z = swarm->Get<Real>(swarm_position::z::name()).Get();
+    const int ndim = pmesh->ndim;
+    parthenon::par_for(
+        DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
+        swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
+          if (!mask(n)) return;
+          const int ox1 = x(n) > x_mid ? 1 : 0;
+          // Inactive mesh directions do not participate in refinement, so they always
+          // contribute daughter bit 0 even if particles carry nontrivial coordinates in
+          // those directions.
+          const int ox2 = ndim > 1 ? (y(n) > y_mid ? 1 : 0) : 0;
+          const int ox3 = ndim > 2 ? (z(n) > z_mid ? 1 : 0) : 0;
+          refined_dest_gids(n) = child_gids(ox1 + 2 * ox2 + 4 * ox3);
+        });
+
+    auto refined_dest_gids_h = refined_dest_gids.GetHostMirrorAndCopy();
     for (int n = 0; n <= swarm->GetMaxActiveIndex(); ++n) {
       if (!mask_h(n)) continue;
-      const int dest_gid = GetRefinedDestinationGid(pmesh, old_loc, new_gid_by_loc,
-                                                    x_h(n), y_h(n), z_h(n));
+      const int dest_gid = refined_dest_gids_h(n);
       const int dest_rank = context.NewRank(dest_gid);
       source_indices_by_rank[dest_rank].push_back(n);
       dest_gids_by_rank[dest_rank].push_back(dest_gid);
