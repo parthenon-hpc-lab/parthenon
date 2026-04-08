@@ -269,9 +269,7 @@ class Swarm {
   }
 
   int GetRecordSize() const {
-    return GetComponentCount<Real>() * sizeof(Real) +
-           GetComponentCount<int>() * sizeof(int) +
-           GetComponentCount<std::uint64_t>() * sizeof(std::uint64_t);
+    return GetRecordSizeImpl<Real, int, std::uint64_t>();
   }
 
   template <typename T>
@@ -286,6 +284,11 @@ class Swarm {
   static constexpr int inactive_max_active_index = -1;
 
  private:
+  template <typename... Ts>
+  int GetRecordSizeImpl() const {
+    return (0 + ... + (GetComponentCount<Ts>() * sizeof(Ts)));
+  }
+
   template <class T>
   vpack_types::SwarmVarList<T> MakeVarListAll_();
   template <class T>
