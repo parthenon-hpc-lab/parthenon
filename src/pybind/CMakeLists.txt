@@ -15,6 +15,11 @@
 option(PARTHENON_ENABLE_PYTHON_BINDINGS "Build Python bindings for parameter input" OFF)
 
 if(PARTHENON_ENABLE_PYTHON_BINDINGS)
+  # Suppress policy warning about deprecated FindPythonInterp/FindPythonLibs
+  if(POLICY CMP0148)
+    cmake_policy(SET CMP0148 NEW)
+  endif()
+
   # First try to find system-installed pybind11
   find_package(pybind11 CONFIG QUIET)
 

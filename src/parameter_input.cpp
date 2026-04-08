@@ -408,8 +408,6 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
   PARTHENON_REQUIRE(!map_resolved_, "Can't add new parameters to the linked list after the map is resolved.");
   std::string input_text, block, name, value;
   std::stringstream msg;
-  InputBlock *pb;
-  InputLine *pl;
 
   for (int i = 1; i < argc; i++) {
     input_text = argv[i];
@@ -431,10 +429,9 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
     name = input_text.substr(slash_posn + 1, (equal_posn - slash_posn - 1));
     value = input_text.substr(equal_posn + 1, std::string::npos);
 
-    // Use AddParsedParameter to update both map and linked list
-    // Check if block/parameter exists for warning messages
-    pb = GetPtrToBlock(block);
-    if (pb == nullptr) {
+    // Check if block/parameter exists in map for warning messages
+    auto block_it = param_map_.find(block);
+    if (block_it == param_map_.end()) {
       if (Globals::my_rank == 0) {
         msg << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
             << "               Block name '" << block
@@ -442,8 +439,8 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
         PARTHENON_WARN(msg);
       }
     } else {
-      pl = pb->GetPtrToLine(name);
-      if (pl == nullptr) {
+      auto param_it = block_it->second.find(name);
+      if (param_it == block_it->second.end()) {
         if (Globals::my_rank == 0) {
           msg << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
               << "               Parameter '" << name << "' in block '" << block
@@ -705,30 +702,34 @@ std::string ParameterInput::SetString(const std::string &block, const std::strin
 }
 
 void ParameterInput::RemoveParameter(const std::string &block, const std::string &name) {
+  // Remove from map (source of truth)
+  auto block_it = param_map_.find(block);
+  if (block_it != param_map_.end()) {
+    block_it->second.erase(name);
+  }
+
+  // Remove from linked list (for output)
   InputBlock *pb = GetPtrToBlock(block);
-  InputLine *plast = pb->pline;
-  bool deleted = false;
-  for (InputLine *pl = pb->pline; pl != nullptr; pl = pl->pnext) {
-    if (name.compare(pl->param_name) == 0) {
-      // if head of list
-      if (plast == pb->pline) {
-        pb->pline = pl->pnext;
-      } else {
-        plast->pnext = pl->pnext;
+  if (pb != nullptr) {
+    InputLine *plast = pb->pline;
+    for (InputLine *pl = pb->pline; pl != nullptr; pl = pl->pnext) {
+      if (name.compare(pl->param_name) == 0) {
+        // if head of list
+        if (plast == pb->pline) {
+          pb->pline = pl->pnext;
+        } else {
+          plast->pnext = pl->pnext;
+        }
+        delete pl;
+        break;
       }
-      delete pl;
-      deleted = true;
-      break;
-    }
-    plast = pl;
-  }
-  if (deleted) {
-    auto key = std::make_pair(block, name);
-    auto it = queries_.find(key);
-    if (it != queries_.end()) {
-      queries_.erase(it);
+      plast = pl;
     }
   }
+
+  // Remove from query records
+  auto key = std::make_pair(block, name);
+  queries_.erase(key);
 }
 
 void ParameterInput::CheckRequired(const std::string &block, const std::string &name) {
@@ -988,13 +989,8 @@ void ParameterInput::ResolveParametersToMap() {
 //  \brief Return all block names in the input
 
 std::vector<std::string> ParameterInput::GetBlockNames() const {
-  std::vector<std::string> block_names;
-  
-  for (InputBlock *pib = pfirst_block; pib != nullptr; pib = pib->pnext) {
-    block_names.push_back(pib->block_name);
-  }
-  
-  return block_names;
+  // Use block_order_ to preserve insertion order
+  return block_order_;
 }
 
 //----------------------------------------------------------------------------------------
@@ -1021,10 +1017,14 @@ std::vector<std::string> ParameterInput::GetBlocksWithPrefix(const std::string& 
 std::vector<std::string> ParameterInput::GetParameterNames(const std::string& block) const {
   std::vector<std::string> param_names;
 
-  InputBlock *pib = const_cast<ParameterInput*>(this)->GetPtrToBlock(block);
-  if (pib != nullptr) {
-    for (InputLine *pl = pib->pline; pl != nullptr; pl = pl->pnext) {
-      param_names.push_back(pl->param_name);
+  // Query the map for parameter names
+  // NOTE: BREAKING CHANGE - Parameters are now returned in lexicographic order
+  // (from std::map), not insertion order. Block order is preserved via block_order_,
+  // but parameter order within blocks is not tracked.
+  auto block_it = param_map_.find(block);
+  if (block_it != param_map_.end()) {
+    for (const auto& [param_name, param_value] : block_it->second) {
+      param_names.push_back(param_name);
     }
   }
 
