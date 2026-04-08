@@ -205,21 +205,18 @@ class ParameterInput {
   explicit ParameterInput(std::string input_filename);
   ~ParameterInput();
 
-  // data
-  InputBlock *pfirst_block; // pointer to head node in singly linked list of InputBlock
-  // (not storing a reference to the tail node)
-
-  // functions
+  // === PARSING INTERFACE ===
   void LoadFromStream(std::istream &is);
   void LoadFromFile(IOWrapper &input);
   void ModifyFromCmdline(int argc, char *argv[]);
-  
+
   // === RESOLUTION (bridge between parsing and storage) ===
   void ResolveParametersToMap();
-  
-  // === STORAGE ACCESS (parser-agnostic) ===
+
+  // === QUERY INTERFACE (parser-agnostic) ===
   std::vector<std::string> GetBlockNames() const;
   std::vector<std::string> GetBlocksWithPrefix(const std::string& prefix) const;
+  std::vector<std::string> GetParameterNames(const std::string& block) const;
   
   void ParameterDump(std::ostream &os);
   // TODO(JMM): Make this more general?
@@ -447,6 +444,9 @@ class ParameterInput {
   }
 
  private:
+  // === LEGACY LINKED LIST STORAGE (for parsing and output) ===
+  InputBlock *pfirst_block; // pointer to head node in singly linked list of InputBlock
+
   std::string last_filename_; // last input file opened, to prevent duplicate reads
   // We will want to iterate through the record in lexicographic
   // order, so this needs to be an ordered map

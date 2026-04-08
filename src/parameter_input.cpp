@@ -945,6 +945,23 @@ std::vector<std::string> ParameterInput::GetBlocksWithPrefix(const std::string& 
 }
 
 //----------------------------------------------------------------------------------------
+//! \fn std::vector<std::string> ParameterInput::GetParameterNames()
+//  \brief Return all parameter names in the given block
+
+std::vector<std::string> ParameterInput::GetParameterNames(const std::string& block) const {
+  std::vector<std::string> param_names;
+
+  InputBlock *pib = const_cast<ParameterInput*>(this)->GetPtrToBlock(block);
+  if (pib != nullptr) {
+    for (InputLine *pl = pib->pline; pl != nullptr; pl = pl->pnext) {
+      param_names.push_back(pl->param_name);
+    }
+  }
+
+  return param_names;
+}
+
+//----------------------------------------------------------------------------------------
 //! \fn void ParameterInput::EnsureMapResolved_()
 //  \brief Ensure parameters have been resolved to map before Get* operations
 
