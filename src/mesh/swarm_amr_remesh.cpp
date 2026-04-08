@@ -107,8 +107,8 @@ std::array<int, 8> GetRefinedDestinationGids(
     const Mesh *pmesh, const LogicalLocation &old_loc,
     const std::unordered_map<LogicalLocation, int> &new_gid_by_loc) {
   std::array<int, 8> child_gids{};
-  for (int ox3 = 0; ox3 <= (pmesh->ndim > 2 ? 1 : 0); ++ox3) {
-    for (int ox2 = 0; ox2 <= (pmesh->ndim > 1 ? 1 : 0); ++ox2) {
+  for (int ox3 = 0; ox3 <= (pmesh->ndim > 2); ++ox3) {
+    for (int ox2 = 0; ox2 <= (pmesh->ndim > 1); ++ox2) {
       for (int ox1 = 0; ox1 <= 1; ++ox1) {
         const auto child = old_loc.GetDaughter(ox1, ox2, ox3);
         const auto it = new_gid_by_loc.find(child);
@@ -201,12 +201,12 @@ BuildBlockSendPlan(const std::shared_ptr<Swarm> &swarm, const Mesh *pmesh,
         DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
         swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
           if (!mask(n)) return;
-          const int ox1 = x(n) > x_mid ? 1 : 0;
+          const int ox1 = x(n) > x_mid;
           // Inactive mesh directions do not participate in refinement, so they always
           // contribute daughter bit 0 even if particles carry nontrivial coordinates in
           // those directions.
-          const int ox2 = ndim > 1 ? (y(n) > y_mid ? 1 : 0) : 0;
-          const int ox3 = ndim > 2 ? (z(n) > z_mid ? 1 : 0) : 0;
+          const int ox2 = ndim > 1 ? y(n) > y_mid : 0;
+          const int ox3 = ndim > 2 ? z(n) > z_mid : 0;
           refined_dest_gids(n) = child_gids(ox1 + 2 * ox2 + 4 * ox3);
         });
 
@@ -394,8 +394,8 @@ std::vector<int> GetCandidateDestinationRanks(
     return ranks;
   }
 
-  for (int ox3 = 0; ox3 <= (pmesh->ndim > 2 ? 1 : 0); ++ox3) {
-    for (int ox2 = 0; ox2 <= (pmesh->ndim > 1 ? 1 : 0); ++ox2) {
+  for (int ox3 = 0; ox3 <= (pmesh->ndim > 2); ++ox3) {
+    for (int ox2 = 0; ox2 <= (pmesh->ndim > 1); ++ox2) {
       for (int ox1 = 0; ox1 <= 1; ++ox1) {
         const auto child = old_loc.GetDaughter(ox1, ox2, ox3);
         const auto it = new_gid_by_loc.find(child);
