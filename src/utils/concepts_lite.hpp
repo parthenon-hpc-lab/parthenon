@@ -226,7 +226,7 @@ struct integral_or_enum_or_pair {
 struct kokkos_view {
   template <class T>
   auto requires_(T x) -> void_t<ENABLEIF(implements<contiguous_container(T)>::value),
-                                typename T::HostMirror, typename T::execution_space,
+                                typename T::host_mirror_type, typename T::execution_space,
                                 typename T::memory_space, typename T::device_type,
                                 typename T::memory_traits, typename T::host_mirror_space>;
 };

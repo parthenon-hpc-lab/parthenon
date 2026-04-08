@@ -47,7 +47,7 @@ class SwarmPackBase {
   using pack_t = ParArray3DRaw<ParArray1D<TYPE>>;
   using bounds_t = ParArray3D<int>;
   using contexts_t = ParArray1DRaw<SwarmDeviceContext>;
-  using contexts_h_t = typename contexts_t::HostMirror;
+  using contexts_h_t = typename contexts_t::host_mirror_type;
   using max_active_indices_t = ParArray1D<int>;
   using desc_t = impl::SwarmPackDescriptor<TYPE>;
   using idx_map_t = std::unordered_map<std::string, std::size_t>;
