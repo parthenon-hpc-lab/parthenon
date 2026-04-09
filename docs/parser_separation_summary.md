@@ -27,8 +27,8 @@ This refactoring separates parameter **parsing** from parameter **storage** in P
                   ↓
 ┌─────────────────────────────────────────────┐
 │  Storage Layer                              │
-│  - param_map_: typed storage (O(log n))     │
-│  - linked list: output format (legacy)      │
+│  - param_storage_: vector-of-vectors        │
+│    (preserves insertion order, O(n) lookup) │
 │  - UnresolvedString: lazy type conversion   │
 └─────────────────┬───────────────────────────┘
                   │ Get<T>(), GetOrAdd<T>()
@@ -113,9 +113,9 @@ pin->MarkResolved();
 
 ### AddParsedParameter Flow
 
-1. Check `!map_resolved_` (can't add after resolution)
-2. Add to `param_map_[block][name] = value` (typed or UnresolvedString)
-3. Update linked list for output compatibility
+1. Check `!parsing_resolved_` (can't add after resolution)
+2. Find or create Block in `param_storage_` vector
+3. Add or update Parameter with value (typed or UnresolvedString)
 4. **Does NOT create QueryRecord** (deferred until first Get/GetOrAdd)
 
 ### Type Handling
@@ -208,13 +208,24 @@ void LoadFromRummy(const std::string& file) {
 }
 ```
 
+## Storage Implementation
+
+The storage layer uses a vector-of-vectors approach that maintains backward
+compatibility with the original linked list implementation:
+- `std::vector<Block>` where each `Block` contains `std::vector<Parameter>`
+- Preserves insertion order (blocks and parameters within blocks)
+- Ensures restart files and parameter dumps maintain consistent ordering
+- Maps would provide O(log n) lookups vs O(n) linear search, but would break
+  ordering and thus backward compatibility with restart files
+
 ## Testing
 
 All existing tests pass:
 - ✓ Parameter hashing
 - ✓ Delete parameters
-- ✓ ResolveParametersToMap
+- ✓ MarkResolved
 - ✓ Python input generation
 - ✓ Type dispatch
+- ✓ All regression tests (restart files, parameter order)
 
 No breaking changes to existing code.
