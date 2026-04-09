@@ -10,16 +10,25 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef PACK_SWARM_DEFAULT_NAMES_HPP_
-#define PACK_SWARM_DEFAULT_NAMES_HPP_
+#ifndef PACK_DEFAULT_NAMES_HPP_
+#define PACK_DEFAULT_NAMES_HPP_
 
 #include <cstdint>
 #include <string>
 #include <utility>
 
-#include "swarm_pack.hpp"
+#include "pack/sparse_pack/sparse_pack.hpp"
+#include "pack/swarm_pack/swarm_pack.hpp"
 
-#define SWARM_VARIABLE(type, ns, varname)                                                \
+#define PAR_VAR(ns, varname)                                                             \
+  struct varname : public parthenon::variable_names::base_t<false> {                     \
+    template <class... Ts>                                                               \
+    KOKKOS_INLINE_FUNCTION varname(Ts &&...args)                                         \
+        : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}         \
+    static std::string name() { return #ns "." #varname; }                               \
+  }
+
+#define PAR_SWARMVAR(type, ns, varname)                                                  \
   struct varname : public parthenon::swarm_variable_names::base_t<type> {                \
     template <class... Ts>                                                               \
     KOKKOS_INLINE_FUNCTION varname(Ts &&...args)                                         \
@@ -28,14 +37,10 @@
   }
 
 namespace swarm_position {
-
-// TODO(review) technically not a position, but it feels overkill to add a separate
-// namespace
-SWARM_VARIABLE(std::uint64_t, swarm, id);
-SWARM_VARIABLE(parthenon::Real, swarm, x);
-SWARM_VARIABLE(parthenon::Real, swarm, y);
-SWARM_VARIABLE(parthenon::Real, swarm, z);
-
+PAR_SWARMVAR(std::uint64_t, swarm, id);
+PAR_SWARMVAR(parthenon::Real, swarm, x);
+PAR_SWARMVAR(parthenon::Real, swarm, y);
+PAR_SWARMVAR(parthenon::Real, swarm, z);
 } // namespace swarm_position
 
-#endif // PACK_SWARM_DEFAULT_NAMES_HPP_
+#endif // PACK_DEFAULT_NAMES_HPP_

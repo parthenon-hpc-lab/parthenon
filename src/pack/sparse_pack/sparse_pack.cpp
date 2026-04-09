@@ -16,7 +16,7 @@
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "pack/block_selector.hpp"
-#include "pack/sparse_pack.hpp"
+#include "pack/sparse_pack/sparse_pack.hpp"
 
 namespace parthenon {
 namespace impl {

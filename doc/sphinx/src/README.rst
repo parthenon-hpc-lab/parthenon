@@ -315,6 +315,28 @@ In the latter case, the input stored in the restart file will be read first,
 then updated from the content in the input file, and finally modified from the
 parameters provided on the command line.
 
+
+Watchdog
+~~~~~~~~
+
+Parthenon supports a global watchdog that kills a simulation after a given timeout.
+This can, for example, be useful on systems with unstable filesystems so that a job
+does not waste wallclock time while waiting for IO operations to (potentially never) finish.
+
+To enable pass ``-w ss`` on the command line with ``ss`` being the timeout in seconds.
+
+By default, the standard :ref:`drivers <driver>` poke the dog at the beginning of each cycle.
+If a downstream application wants to poke the dog manually (or more frequently) following
+code block is sufficient:
+
+::
+
+  // poke the dog
+  if (Globals::watchdog_enabled) {
+    WatchDog::WatchDog(0);
+  }
+
+
 Global reductions
 ~~~~~~~~~~~~~~~~~
 

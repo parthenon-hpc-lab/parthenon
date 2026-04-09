@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "mesh/meshblock.hpp"
-#include "pack/make_pack_descriptor.hpp"
+#include "pack/sparse_pack/make_pack_descriptor.hpp"
 
 namespace parthenon {
 namespace impl {

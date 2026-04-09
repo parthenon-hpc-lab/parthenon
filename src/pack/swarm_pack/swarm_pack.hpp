@@ -10,8 +10,10 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef PACK_SWARM_PACK_HPP_
-#define PACK_SWARM_PACK_HPP_
+#ifndef PACK_SWARM_PACK_SWARM_PACK_HPP_
+#define PACK_SWARM_PACK_SWARM_PACK_HPP_
+
+// This file was made in part with generative AI
 
 #include <algorithm>
 #include <functional>
@@ -30,7 +32,7 @@
 #include "interface/swarm.hpp"
 #include "interface/variable.hpp"
 #include "pack/pack_utils.hpp"
-#include "pack/swarm_pack_base.hpp"
+#include "pack/swarm_pack/swarm_pack_base.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/utils.hpp"
 
@@ -48,14 +50,15 @@ class SwarmPack : public SwarmPackBase<TYPE> {
   using SwarmPackBase<TYPE>::nblocks_;
   using SwarmPackBase<TYPE>::max_flat_index_;
 
+  SwarmPack() = default;
+
   explicit SwarmPack(const SwarmPackBase<TYPE> &spb) : SwarmPackBase<TYPE>(spb) {
     if constexpr (sizeof...(Ts) != 0) {
       static_assert(
           std::is_same<TYPE, typename GetDataType<Ts...>::value>::value,
           "Type mismatch in SwarmPack! When passing type-based variables as template "
           "argument to SwarmPack, ensure that the first template parameter is a data "
-          "type (e.g., Real or int or uint64_t) that matches the data type of subsequent "
-          "variable types!");
+          "type that matches the data type of subsequent variable types!");
     }
   }
 
@@ -65,12 +68,14 @@ class SwarmPack : public SwarmPackBase<TYPE> {
     explicit Descriptor(const impl::SwarmPackDescriptor<TYPE> &desc_in)
         : impl::SwarmPackDescriptor<TYPE>(desc_in) {}
 
+    // Make a `SwarmPack` from variable_name types in the type list Ts..., creating the
+    // pack in `pmd->SwarmPackCache` if it doesn't already exist. Variables can be
+    // accessed on device via instance of types in the type list Ts...
+    // The pack will be created and accessible on the device
     template <class T>
-    SwarmPack GetPack(T *pmd) const {
-      return SwarmPack(SwarmPackBase<TYPE>::GetPack(pmd, *this));
-    }
+    SwarmPack GetPack(T *pmd) const;
 
-    SparsePackIdxMap GetMap() const {
+    PackIdxMap GetMap() const {
       PARTHENON_REQUIRE(sizeof...(Ts) == 0,
                         "Should not be getting an IdxMap for a type based pack");
       return SwarmPackBase<TYPE>::GetIdxMap(*this);
@@ -127,13 +132,15 @@ class SwarmPack : public SwarmPackBase<TYPE> {
     return bounds_(1, b, idx.VariableIdx());
   }
 
-  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <class TIn>
+    requires(IncludesType<TIn, Ts...>::value)
   KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, const TIn &) const {
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_(0, b, vidx);
   }
 
-  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <class TIn>
+    requires(IncludesType<TIn, Ts...>::value)
   KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b, const TIn &) const {
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_(1, b, vidx);
@@ -148,13 +155,20 @@ class SwarmPack : public SwarmPackBase<TYPE> {
     return pack_(0, b, idx)(n);
   }
 
-  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <class TIn>
+    requires(IncludesType<TIn, Ts...>::value)
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TIn &t, const int n) const {
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(0, b, vidx)(n);
   }
 };
 
+template <typename TYPE, class... Ts>
+template <class T>
+inline SwarmPack<TYPE, Ts...> SwarmPack<TYPE, Ts...>::Descriptor::GetPack(T *pmd) const {
+  return SwarmPack<TYPE, Ts...>(SwarmPackBase<TYPE>::GetPack(pmd, *this));
+}
+
 } // namespace parthenon
 
-#endif // PACK_SWARM_PACK_HPP_
+#endif // PACK_SWARM_PACK_SWARM_PACK_HPP_

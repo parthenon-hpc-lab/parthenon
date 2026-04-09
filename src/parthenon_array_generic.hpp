@@ -52,8 +52,8 @@ struct empty_state_t {
 // The State class should be small and contain metadata that might be
 // useful to store, along with the array that will be (const) available
 // on device
-template <typename Data, typename State = empty_state_t,
-          class = ENABLEIF(implements<kokkos_view(Data)>::value)>
+template <typename Data, typename State = empty_state_t>
+  requires(::KokkosView<Data>)
 class ParArrayGeneric : public State {
  public:
   using index_pair_t = std::pair<size_t, size_t>;
@@ -117,42 +117,43 @@ class ParArrayGeneric : public State {
   // constructor. The first template parameter here is to get Data into the
   // immediate context of the function template so that it can be used in the
   // enable_if sfinae
-  template <class D = Data, REQUIRES(D::rank > 0)>
+  template <class D = Data>
+    requires(D::rank > 0)
   explicit ParArrayGeneric(const std::string & /*label*/, const State &state = State())
       : State(state), data_() {}
 
-  template <class D = Data, REQUIRES(D::rank > 0)>
+  template <class D = Data>
+    requires(D::rank > 0)
   KOKKOS_INLINE_FUNCTION explicit ParArrayGeneric(const State &state)
       : State(state), data_() {}
 
   // Otherwise, assume leading dimensions are not given and set sizes of them to one
-  template <class... Args, REQUIRES((sizeof...(Args) > 0) || (Data::rank == 0)),
-            REQUIRES(Data::rank - sizeof...(Args) >= 0),
-            REQUIRES(all_implement<integral(Args...)>::value)>
+  template <class... Args>
+    requires(((sizeof...(Args) > 0) || (Data::rank == 0)) &&
+             (Data::rank - sizeof...(Args) >= 0) && (Integral<Args> && ...))
   ParArrayGeneric(const std::string &label, Args... args)
       : ParArrayGeneric(label, State(),
                         std::make_index_sequence<Data::rank - sizeof...(Args)>{},
                         args...) {}
 
-  template <class... Args, REQUIRES((sizeof...(Args) > 0) || (Data::rank == 0)),
-            REQUIRES(Data::rank - sizeof...(Args) >= 0),
-            REQUIRES(all_implement<integral(Args...)>::value)>
+  template <class... Args>
+    requires(((sizeof...(Args) > 0) || (Data::rank == 0)) &&
+             (Data::rank - sizeof...(Args) >= 0) && (Integral<Args> && ...))
   ParArrayGeneric(const std::string &label, const State &state, Args... args)
       : ParArrayGeneric(label, state,
                         std::make_index_sequence<Data::rank - sizeof...(Args)>{},
                         args...) {}
 
-  template <class... Args, REQUIRES(all_implement<integral(Args...)>::value),
-            REQUIRES(Data::rank - sizeof...(Args) >= 0)>
+  template <class... Args>
+    requires((Integral<Args> && ...) && (Data::rank - sizeof...(Args) >= 0))
   void NewParArrayND(Args... args, const std::string &label = "ParArrayND") {
     assert(all_greater_than(0, args...));
     NewParArrayND(std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args...,
                   label);
   }
 
-  template <class... Args,
-            REQUIRES(all_implement<integral_or_enum_or_pair(Args...)>::value),
-            REQUIRES(Data::rank - sizeof...(Args) >= 0)>
+  template <class... Args>
+    requires((IntegralOrEnumOrPair<Args> && ...) && (Data::rank - sizeof...(Args) >= 0))
   KOKKOS_FORCEINLINE_FUNCTION auto Get(Args... args) const {
     return Get(std::make_index_sequence<Data::rank - sizeof...(Args)>{},
                static_cast<typename UnderlyingType<Args>::type>(args)...);
@@ -167,14 +168,14 @@ class ParArrayGeneric : public State {
     return Get_TemplateVersion_impl(std::make_index_sequence<Data::rank - N>{});
   }
 
-  template <class... Args, REQUIRES(all_implement<integral(Args...)>::value),
-            REQUIRES(Data::rank - sizeof...(Args) >= 0)>
+  template <class... Args>
+    requires((Integral<Args> && ...) && (Data::rank - sizeof...(Args) >= 0))
   void Resize(Args... args) {
     Resize(std::make_index_sequence<Data::rank - sizeof...(Args)>{}, args...);
   }
 
-  template <class... Args, REQUIRES(all_implement<integral_or_enum(Args...)>::value),
-            REQUIRES(Data::rank - sizeof...(Args) >= 0)>
+  template <class... Args>
+    requires((IntegralOrEnum<Args> && ...) && (Data::rank - sizeof...(Args) >= 0))
   KOKKOS_FORCEINLINE_FUNCTION auto &operator()(Args... args) const {
     return _operator_impl(std::make_index_sequence<Data::rank - sizeof...(Args)>{},
                           static_cast<typename UnderlyingType<Args>::type>(args)...);
@@ -274,7 +275,8 @@ class ParArrayGeneric : public State {
   bool is_allocated() const { return data_.is_allocated(); }
 
   // Want to be friends with all other specializations of ParArrayGeneric
-  template <class Data2, class State2, class enable_if_type>
+  template <class Data2, class State2>
+    requires(::KokkosView<Data2>)
   friend class ParArrayGeneric;
 
  private:
@@ -339,7 +341,8 @@ namespace Kokkos {
 
 // JMM: for some reason this works better than Slice. And it seems
 // like we're doing evil Kokkos namespace overloads anyway so...
-template <class U, class SU, typename... Args, REQUIRES(U::rank - sizeof...(Args) >= 0)>
+template <class U, class SU, typename... Args>
+  requires(U::rank - sizeof...(Args) >= 0)
 inline auto subview(const parthenon::ParArrayGeneric<U, SU> &arr, Args... args) {
   return subview(std::make_index_sequence<U::rank - sizeof...(args)>(), arr,
                  std::forward<Args>(args)...);
