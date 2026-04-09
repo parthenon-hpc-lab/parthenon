@@ -384,7 +384,6 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
 
 bool ParameterInput::DoesParameterExist(const std::string &block,
                                         const std::string &name) {
-  MarkResolved();
   return FindParameter_(block, name) != nullptr;
 }
 
@@ -393,7 +392,6 @@ bool ParameterInput::DoesParameterExist(const std::string &block,
 //  \brief check whether block exists
 
 bool ParameterInput::DoesBlockExist(const std::string &block) {
-  MarkResolved();
   return FindBlock_(block) != nullptr;
 }
 
