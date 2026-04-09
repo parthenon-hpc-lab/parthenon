@@ -218,9 +218,10 @@ class ParameterInput {
   void LoadFromFile(IOWrapper &input);
   void ModifyFromCmdline(int argc, char *argv[]);
 
-  // === PARSER → STORAGE INTERFACE ===
-  // Generic interface for any parser to populate parameter storage
-  // Can be called multiple times until MarkResolved() is called
+  // === PARSER INTERFACE (for input sources like text files, Python, TOML, etc.) ===
+  // Use AddParsedParameter to populate parameters from external input sources
+  // This is the proper interface for parsers - it enforces that parsing must not
+  // be complete yet. Can be called multiple times until MarkResolved() is called.
   void AddParsedParameter(const std::string &block, const std::string &name,
                           const ParamValue &value,
                           const std::string &comment = "# From parser");
@@ -241,6 +242,13 @@ class ParameterInput {
   bool DoesParameterExist(const std::string &block, const std::string &name);
   bool DoesBlockExist(const std::string &block);
   std::string GetComment(const std::string &block, const std::string &name);
+
+  // === PARAMETER ACCESS METHODS ===
+  // Get*: Retrieve parameter value (throws if missing)
+  // GetOrAdd*: Retrieve if exists, otherwise add default and return it
+  // Set*: RUNTIME OVERRIDE - Programmatically force a value (used for restart data,
+  //       command line overrides, etc.). Marks parameter as SetInCode origin.
+  //       DO NOT use Set* in parsers - use AddParsedParameter instead.
   int GetInteger(
       const std::string &block, const std::string &name,
       const std::optional<std::string> &docstring = std::optional<std::string>{});
@@ -354,7 +362,10 @@ class ParameterInput {
     return def_value;
   }
 
-  //! Set parameter value (creates if doesn't exist)
+  //! RUNTIME OVERRIDE: Programmatically force a parameter value
+  //! Use this for runtime overrides (restart data, command line flags, etc.)
+  //! NOT for parsers - parsers should use AddParsedParameter instead.
+  //! Marks parameter with SetInCode origin, distinguishing it from input file values.
   template <typename T>
   T Set(const std::string &block, const std::string &name, const T &value,
         const std::optional<std::string> &docstring = std::optional<std::string>{}) {
@@ -367,7 +378,7 @@ class ParameterInput {
       CheckAndUpdateQueries_<T>(block, name, docstring);
     }
 
-    // Update storage
+    // Update storage (uses AddParameter_ to bypass resolution check)
     AddParameter_(block, name, value, "# Updated during run time");
     UpdateQueryProvenance_(block, name, QueryRecord::OriginType::SetInCode);
 
