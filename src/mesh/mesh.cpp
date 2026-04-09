@@ -869,10 +869,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
           (nmb != 0 && block_list[0]->PostInitialization != nullptr)),
         "Mesh and MeshBlock PostInitializations are defined. Please use only one.");
     if (PostInitialization != nullptr) {
-      for (auto &partition : GetDefaultBlockPartitions()) {
-        auto &md = mesh_data.Add("base", partition);
-        PostInitialization(this, pin, md.get());
-      }
+      auto &base = mesh_data.Add("base", GetBasePartition());
+      PostInitialization(this, pin, base.get());
       post_init_invoked = true;
     } else {
       for (int i = 0; i < nmb; ++i) {
@@ -894,10 +892,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
       // first on the mesh...
       if (pkg->PostInitializationMesh != nullptr) {
-        for (auto &partition : GetDefaultBlockPartitions()) {
-          auto &md = mesh_data.Add("base", partition);
-          pkg->PostInitializationMesh(this, pin, md.get());
-        }
+        auto &base = mesh_data.Add("base", GetBasePartition());
+        pkg->PostInitializationMesh(this, pin, base.get());
         post_init_invoked = true;
       }
       // and then per block
