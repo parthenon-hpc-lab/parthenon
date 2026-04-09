@@ -49,7 +49,7 @@
 #include "mesh/forest/forest_topology.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "outputs/io_wrapper.hpp"
-#include "pack/pack_descriptor.hpp"
+#include "pack/sparse_pack/pack_descriptor.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/communication_buffer.hpp"

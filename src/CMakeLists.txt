@@ -1,5 +1,5 @@
 #=========================================================================================
-# (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -217,22 +217,28 @@ add_library(parthenon
   outputs/restart_hdf5.hpp
 
   pack/block_selector.hpp
-  pack/make_pack_descriptor.hpp
-  pack/make_pack_descriptor.cpp
-  pack/make_swarm_pack_descriptor.hpp
-  pack/pack_descriptor.cpp
-  pack/pack_descriptor.hpp
   pack/pack_utils.hpp
-  pack/sparse_pack.hpp
-  pack/sparse_pack.cpp
-  pack/sparse_pack_base.cpp
-  pack/sparse_pack_base.hpp
-  pack/sparse_pack_cache.hpp
-  pack/sparse_pack_cache.cpp
-  pack/swarm_default_names.hpp
-  pack/swarm_pack.hpp
-  pack/swarm_pack_base.hpp
-  
+  pack/default_names.hpp
+  pack/sparse_pack/make_pack_descriptor.cpp
+  pack/sparse_pack/make_pack_descriptor.hpp
+  pack/sparse_pack/pack_descriptor.cpp
+  pack/sparse_pack/pack_descriptor.hpp
+  pack/sparse_pack/sparse_pack.cpp
+  pack/sparse_pack/sparse_pack.hpp
+  pack/sparse_pack/sparse_pack_base.cpp
+  pack/sparse_pack/sparse_pack_base.hpp
+  pack/sparse_pack/sparse_pack_cache.cpp
+  pack/sparse_pack/sparse_pack_cache.hpp
+  pack/swarm_pack/make_swarm_pack_descriptor.hpp
+  pack/swarm_pack/swarm_pack_descriptor.cpp
+  pack/swarm_pack/swarm_pack_descriptor.hpp
+  pack/swarm_pack/swarm_pack.hpp
+  pack/swarm_pack/swarm_pack_base.cpp
+  pack/swarm_pack/swarm_pack_base.hpp
+  pack/swarm_pack/swarm_pack_cache.cpp
+  pack/swarm_pack/swarm_pack_cache.hpp
+  pack/swarm_pack/swarm_pack_types.hpp
+
   parthenon/driver.hpp
   parthenon/package.hpp
   parthenon/parthenon.hpp

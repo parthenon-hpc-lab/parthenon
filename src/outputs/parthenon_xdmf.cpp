@@ -18,7 +18,7 @@
 // options for building
 #include "config.hpp"
 #include "globals.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/default_names.hpp"
 #include "utils/error_checking.hpp"
 
 // only proceed if HDF5 output enabled

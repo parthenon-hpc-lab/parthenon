@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef PACK_SPARSE_PACK_HPP_
-#define PACK_SPARSE_PACK_HPP_
+#ifndef PACK_SPARSE_PACK_SPARSE_PACK_HPP_
+#define PACK_SPARSE_PACK_SPARSE_PACK_HPP_
 
 #include <algorithm>
 #include <utility>
@@ -19,7 +19,8 @@
 
 #include "coordinates/coordinates.hpp"
 #include "pack/block_selector.hpp"
-#include "pack/sparse_pack_base.hpp"
+#include "pack/pack_utils.hpp"
+#include "pack/sparse_pack/sparse_pack_base.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/type_list.hpp"
 
@@ -66,7 +67,7 @@ class SparsePack : public SparsePackBase {
                        std::vector<bool> &include_block,
                        bool only_fine_two_level_composite_blocks = true) const;
 
-    SparsePackIdxMap GetMap() const {
+    PackIdxMap GetMap() const {
       PARTHENON_REQUIRE(sizeof...(Ts) == 0,
                         "Should not be getting an IdxMap for a type based pack");
       return SparsePackBase::GetIdxMap(*this);
@@ -457,4 +458,4 @@ inline SparsePack<Ts...> SparsePack<Ts...>::Descriptor::GetPack(
 
 } // namespace parthenon
 
-#endif // PACK_SPARSE_PACK_HPP_
+#endif // PACK_SPARSE_PACK_SPARSE_PACK_HPP_

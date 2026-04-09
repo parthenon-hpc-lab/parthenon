@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -11,24 +11,27 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI
+
 #include <cstdio>
 #include <string>
 
-#include "pack/pack_descriptor.hpp"
+#include "pack/swarm_pack/swarm_pack_descriptor.hpp"
+#include "pack/swarm_pack/swarm_pack_types.hpp"
 
 namespace parthenon {
 namespace impl {
 
-void PackDescriptor::Print() const {
+template <typename TYPE>
+void SwarmPackDescriptor<TYPE>::Print() const {
   printf("--------------------\n");
-  for (int i = 0; i < var_group_names.size(); ++i) {
-    printf("group name: %s\n", var_group_names[i].c_str());
-    printf("--------------------\n");
-    for (const auto &[var_name, uid] : var_groups[i]) {
-      printf("%s\n", var_name.label().c_str());
-    }
-  }
+  printf("%s\n", identifier.c_str());
   printf("--------------------\n");
 }
+
+#define INSTANTIATE_PRINT(TYPE) template void SwarmPackDescriptor<TYPE>::Print() const;
+PARTHENON_SWARM_PACK_TYPES(INSTANTIATE_PRINT)
+#undef INSTANTIATE_PRINT
+
 } // namespace impl
 } // namespace parthenon
