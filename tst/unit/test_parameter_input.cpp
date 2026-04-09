@@ -296,3 +296,242 @@ TEST_CASE("Phase 1 type safety: wrong type access behavior", "[ParameterInput][P
     }
   }
 }
+
+// Parser Separation Tests: AddParsedParameter API
+TEST_CASE("AddParsedParameter with typed scalar values", "[ParameterInput][Parser]") {
+  GIVEN("An empty ParameterInput") {
+    ParameterInput in;
+
+    WHEN("We add typed scalar parameters via AddParsedParameter") {
+      in.AddParsedParameter("block1", "int_val", 42);
+      in.AddParsedParameter("block1", "real_val", 3.14);
+      in.AddParsedParameter("block1", "bool_val", true);
+      in.AddParsedParameter("block1", "string_val", std::string("hello"));
+      in.MarkResolved();
+
+      THEN("They can be retrieved with correct types") {
+        REQUIRE(in.GetInteger("block1", "int_val") == 42);
+        REQUIRE(in.GetReal("block1", "real_val") == Approx(3.14));
+        REQUIRE(in.GetBoolean("block1", "bool_val") == true);
+        REQUIRE(in.GetString("block1", "string_val") == "hello");
+      }
+    }
+  }
+}
+
+TEST_CASE("AddParsedParameter with typed vector values", "[ParameterInput][Parser]") {
+  GIVEN("An empty ParameterInput") {
+    ParameterInput in;
+
+    WHEN("We add typed vector parameters") {
+      std::vector<int> int_vec = {1, 2, 3, 4};
+      std::vector<parthenon::Real> real_vec = {1.1, 2.2, 3.3};
+      std::vector<bool> bool_vec = {true, false, true};
+      std::vector<std::string> str_vec = {"foo", "bar", "baz"};
+
+      in.AddParsedParameter("vectors", "int_vec", int_vec);
+      in.AddParsedParameter("vectors", "real_vec", real_vec);
+      in.AddParsedParameter("vectors", "bool_vec", bool_vec);
+      in.AddParsedParameter("vectors", "str_vec", str_vec);
+      in.MarkResolved();
+
+      THEN("They can be retrieved correctly") {
+        auto iv = in.GetVector<int>("vectors", "int_vec");
+        REQUIRE(iv.size() == 4);
+        REQUIRE(iv[0] == 1);
+        REQUIRE(iv[3] == 4);
+
+        auto rv = in.GetVector<parthenon::Real>("vectors", "real_vec");
+        REQUIRE(rv.size() == 3);
+        REQUIRE(rv[0] == Approx(1.1));
+        REQUIRE(rv[2] == Approx(3.3));
+
+        auto bv = in.GetVector<bool>("vectors", "bool_vec");
+        REQUIRE(bv.size() == 3);
+        REQUIRE(bv[0] == true);
+        REQUIRE(bv[1] == false);
+
+        auto sv = in.GetVector<std::string>("vectors", "str_vec");
+        REQUIRE(sv.size() == 3);
+        REQUIRE(sv[0] == "foo");
+        REQUIRE(sv[2] == "baz");
+      }
+    }
+  }
+}
+
+TEST_CASE("AddParsedParameter with UnresolvedString", "[ParameterInput][Parser]") {
+  GIVEN("An empty ParameterInput") {
+    ParameterInput in;
+
+    WHEN("We add UnresolvedString parameters that need lazy conversion") {
+      using parthenon::UnresolvedString;
+      in.AddParsedParameter("lazy", "int_str", UnresolvedString("42"));
+      in.AddParsedParameter("lazy", "real_str", UnresolvedString("3.14159"));
+      in.AddParsedParameter("lazy", "bool_str", UnresolvedString("true"));
+      in.AddParsedParameter("lazy", "vec_str", UnresolvedString("1, 2, 3, 4, 5"));
+      in.MarkResolved();
+
+      THEN("They are converted on first access") {
+        REQUIRE(in.GetInteger("lazy", "int_str") == 42);
+        REQUIRE(in.GetReal("lazy", "real_str") == Approx(3.14159));
+        REQUIRE(in.GetBoolean("lazy", "bool_str") == true);
+
+        auto vec = in.GetVector<int>("lazy", "vec_str");
+        REQUIRE(vec.size() == 5);
+        REQUIRE(vec[0] == 1);
+        REQUIRE(vec[4] == 5);
+      }
+
+      AND_THEN("Subsequent accesses use the converted value") {
+        // Access again to verify conversion is cached
+        REQUIRE(in.GetInteger("lazy", "int_str") == 42);
+        REQUIRE(in.GetReal("lazy", "real_str") == Approx(3.14159));
+      }
+    }
+  }
+}
+
+TEST_CASE("Mixing LoadFromStream and AddParsedParameter", "[ParameterInput][Parser]") {
+  GIVEN("A ParameterInput with file parameters") {
+    ParameterInput in;
+    std::stringstream ss;
+    ss << "<file_block>" << std::endl
+       << "file_param = 100" << std::endl
+       << "<shared_block>" << std::endl
+       << "from_file = text" << std::endl;
+
+    std::istringstream s(ss.str());
+    in.LoadFromStream(s);
+
+    WHEN("We add additional parameters via AddParsedParameter") {
+      in.AddParsedParameter("code_block", "code_param", 200);
+      in.AddParsedParameter("shared_block", "from_code", 3.14);
+      in.MarkResolved();
+
+      THEN("Both file and code parameters are accessible") {
+        REQUIRE(in.GetInteger("file_block", "file_param") == 100);
+        REQUIRE(in.GetString("shared_block", "from_file") == "text");
+        REQUIRE(in.GetInteger("code_block", "code_param") == 200);
+        REQUIRE(in.GetReal("shared_block", "from_code") == Approx(3.14));
+      }
+    }
+  }
+}
+
+TEST_CASE("AddParsedParameter overrides earlier values", "[ParameterInput][Parser]") {
+  GIVEN("A ParameterInput with parameters") {
+    ParameterInput in;
+
+    WHEN("We add a parameter multiple times") {
+      in.AddParsedParameter("override", "value", 100);
+      in.AddParsedParameter("override", "value", 200);
+      in.AddParsedParameter("override", "value", 300);
+      in.MarkResolved();
+
+      THEN("The last value wins") { REQUIRE(in.GetInteger("override", "value") == 300); }
+    }
+  }
+}
+
+TEST_CASE("MarkResolved prevents further parsing", "[ParameterInput][Parser]") {
+  GIVEN("A ParameterInput that has been marked resolved") {
+    ParameterInput in;
+    in.AddParsedParameter("block", "param", 42);
+    in.MarkResolved();
+
+    WHEN("We try to add more parameters") {
+      THEN("AddParsedParameter should throw") {
+        REQUIRE_THROWS_AS(in.AddParsedParameter("block", "new_param", 100),
+                          std::runtime_error);
+      }
+    }
+
+    AND_WHEN("We try to load from stream") {
+      std::stringstream ss;
+      ss << "<block2>" << std::endl << "param2 = 200" << std::endl;
+      std::istringstream s(ss.str());
+
+      THEN("LoadFromStream should throw") { REQUIRE_THROWS_AS(in.LoadFromStream(s), std::runtime_error); }
+    }
+  }
+}
+
+TEST_CASE("Parameter ordering is preserved for restart compatibility",
+          "[ParameterInput][Parser]") {
+  GIVEN("Parameters added in a specific order") {
+    ParameterInput in;
+
+    // Add parameters in deliberate order
+    in.AddParsedParameter("zblock", "zparam", 3);
+    in.AddParsedParameter("ablock", "aparam", 1);
+    in.AddParsedParameter("mblock", "mparam", 2);
+    in.AddParsedParameter("ablock", "zparam", 4);
+    in.AddParsedParameter("ablock", "bparam", 5);
+    in.MarkResolved();
+
+    WHEN("We query the blocks") {
+      auto blocks = in.GetBlocksWithPrefix("");
+
+      THEN("Blocks appear in insertion order") {
+        REQUIRE(blocks.size() >= 3);
+        auto zpos = std::find(blocks.begin(), blocks.end(), "zblock");
+        auto apos = std::find(blocks.begin(), blocks.end(), "ablock");
+        auto mpos = std::find(blocks.begin(), blocks.end(), "mblock");
+
+        REQUIRE(zpos != blocks.end());
+        REQUIRE(apos != blocks.end());
+        REQUIRE(mpos != blocks.end());
+
+        // zblock added first, ablock second, mblock third
+        REQUIRE(zpos < apos);
+        REQUIRE(apos < mpos);
+      }
+    }
+
+    WHEN("We iterate parameters within a block") {
+      // This tests that parameters within a block maintain insertion order
+      // Note: Current implementation doesn't expose parameter iteration directly,
+      // but this is verified by restart file consistency tests
+      THEN("Parameters are accessible in any order") {
+        REQUIRE(in.GetInteger("ablock", "aparam") == 1);
+        REQUIRE(in.GetInteger("ablock", "zparam") == 4);
+        REQUIRE(in.GetInteger("ablock", "bparam") == 5);
+      }
+    }
+  }
+}
+
+TEST_CASE("AddParsedParameter creates blocks automatically", "[ParameterInput][Parser]") {
+  GIVEN("An empty ParameterInput") {
+    ParameterInput in;
+
+    WHEN("We add parameters to non-existent blocks") {
+      in.AddParsedParameter("new_block1", "param1", 1);
+      in.AddParsedParameter("new_block2", "param2", 2);
+      in.AddParsedParameter("new_block1", "param3", 3);
+      in.MarkResolved();
+
+      THEN("Blocks are created automatically") {
+        REQUIRE(in.DoesParameterExist("new_block1", "param1"));
+        REQUIRE(in.DoesParameterExist("new_block2", "param2"));
+        REQUIRE(in.DoesParameterExist("new_block1", "param3"));
+      }
+    }
+  }
+}
+
+TEST_CASE("Parser interface works without MarkResolved for backward compatibility",
+          "[ParameterInput][Parser]") {
+  GIVEN("Parameters added via AddParsedParameter") {
+    ParameterInput in;
+    in.AddParsedParameter("block", "value", 42);
+
+    WHEN("We access parameters without calling MarkResolved") {
+      THEN("Parameters are automatically resolved on first access") {
+        REQUIRE_NOTHROW(in.GetInteger("block", "value"));
+        REQUIRE(in.GetInteger("block", "value") == 42);
+      }
+    }
+  }
+}

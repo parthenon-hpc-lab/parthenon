@@ -92,8 +92,8 @@ ParameterInput::~ParameterInput() = default;
 //  \brief Load input parameters from a stream
 
 void ParameterInput::LoadFromStream(std::istream &is) {
-  PARTHENON_REQUIRE(!parsing_resolved_,
-                    "Can't add new parameters after parsing is resolved.");
+  PARTHENON_REQUIRE_THROWS(!parsing_resolved_,
+                           "Can't add new parameters after parsing is resolved.");
   std::string line, block_name, param_name, param_value, param_comment;
   std::size_t first_char, last_char;
   std::stringstream msg;
@@ -190,7 +190,7 @@ void ParameterInput::LoadFromStream(std::istream &is) {
 //         Return the position at the end of the header, which is used in restarting
 
 void ParameterInput::LoadFromFile(IOWrapper &input) {
-  PARTHENON_REQUIRE(
+  PARTHENON_REQUIRE_THROWS(
       !parsing_resolved_,
       "Can't add new parameters to the linked list after the map is resolved.");
   std::stringstream par, msg;
@@ -328,7 +328,7 @@ bool ParameterInput::ParseLine(std::string line, std::string &name, std::string 
 // Note this function is very forgiving (no warnings!) if there is an error in format
 
 void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
-  PARTHENON_REQUIRE(
+  PARTHENON_REQUIRE_THROWS(
       !parsing_resolved_,
       "Can't add new parameters to the linked list after the map is resolved.");
   std::string input_text, block, name, value;
@@ -810,13 +810,13 @@ std::string ParameterInput::ParamValueToString(const ParamValue &value) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void ParameterInput::AddParsedParameter()
-//  \brief Generic interface for parsers to add parameters to storage
-//  Can be called by any parser (text, Python, TOML, etc.) to populate param_storage_
+//! \fn void ParameterInput::AddParameter_()
+//  \brief Internal helper to add/update parameter without resolution check
+//  Used by GetOrAdd/Set (which need to add defaults after resolution)
+//  and by AddParsedParameter (which enforces the resolution check for parsers)
 
-void ParameterInput::AddParsedParameter(const std::string &block, const std::string &name,
-                                        const ParamValue &value,
-                                        const std::string &comment) {
+void ParameterInput::AddParameter_(const std::string &block, const std::string &name,
+                                   const ParamValue &value, const std::string &comment) {
   // Find or add the block
   Block *pb = FindOrAddBlock_(block);
 
@@ -832,6 +832,20 @@ void ParameterInput::AddParsedParameter(const std::string &block, const std::str
 
   // Parameter doesn't exist - add new one
   pb->params.push_back(Parameter{name, comment, value});
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn void ParameterInput::AddParsedParameter()
+//  \brief Public interface for parsers to add parameters to storage
+//  Can be called by any parser (text, Python, TOML, etc.) to populate param_storage_
+//  Enforces that parsing must not be resolved yet.
+
+void ParameterInput::AddParsedParameter(const std::string &block, const std::string &name,
+                                        const ParamValue &value,
+                                        const std::string &comment) {
+  PARTHENON_REQUIRE_THROWS(!parsing_resolved_,
+                           "Can't add new parameters after parsing is resolved.");
+  AddParameter_(block, name, value, comment);
 }
 
 //----------------------------------------------------------------------------------------

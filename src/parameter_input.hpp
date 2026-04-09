@@ -348,7 +348,7 @@ class ParameterInput {
     }
 
     // Add to storage
-    AddParsedParameter(block, name, def_value, "# Default value added at run time");
+    AddParameter_(block, name, def_value, "# Default value added at run time");
     UpdateQueryProvenance_(block, name, QueryRecord::OriginType::Default);
 
     return def_value;
@@ -368,7 +368,7 @@ class ParameterInput {
     }
 
     // Update storage
-    AddParsedParameter(block, name, value, "# Updated during run time");
+    AddParameter_(block, name, value, "# Updated during run time");
     UpdateQueryProvenance_(block, name, QueryRecord::OriginType::SetInCode);
 
     return value;
@@ -405,7 +405,7 @@ class ParameterInput {
                                            std::vector<std::vector<T>>{}, docstring);
     if (DoesParameterExist(block, name)) return GetVector<T>(block, name);
 
-    AddParsedParameter(block, name, def, "# Default value added at run time");
+    AddParameter_(block, name, def, "# Default value added at run time");
     return def;
   }
   template <typename T>
@@ -434,6 +434,11 @@ class ParameterInput {
 
   // Helper to find or create a block (returns pointer to block)
   Block *FindOrAddBlock_(const std::string &name);
+
+  // Internal helper to add/update parameter without resolution check
+  // Used by GetOrAdd/Set and by AddParsedParameter (which does check resolution)
+  void AddParameter_(const std::string &block, const std::string &name,
+                     const ParamValue &value, const std::string &comment);
 
   // Legacy parser helpers (still used for text file parsing)
   bool ParseLine(std::string line, std::string &name, std::string &value,
