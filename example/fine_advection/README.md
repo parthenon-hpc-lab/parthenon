@@ -39,16 +39,19 @@ Python input files run **independently on every MPI rank**. Each rank:
 - Executes the entire script
 - Configures its own ParameterInput object
 
-For rank-specific operations (e.g., printing summary info only once), check `parthenon.my_rank`:
+To print only from rank 0, use the `mpi_print` helper:
 
 ```python
-if parthenon.my_rank == 0:
-    print(f"Configured {ndim}D problem with resolution {nx}")
+from parthenon_tools import mpi_print
+mpi_print(f"Configured {ndim}D problem with resolution {nx}")
 ```
+
+This behaves exactly like `print()` but only outputs from rank 0. For more complex
+rank-specific operations, check `parthenon.my_rank` and `parthenon.nranks`.
 
 Best practices:
 - Keep scripts deterministic (same parameters on all ranks)
-- Guard print statements with rank checks to avoid output spam
+- Use `mpi_print()` instead of `print()` to avoid output spam
 - Avoid file I/O unless coordinated (or use rank-specific filenames)
 - Don't use random numbers without setting seed based on rank
 
