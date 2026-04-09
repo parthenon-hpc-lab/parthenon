@@ -181,6 +181,8 @@ struct Parameter {
   std::string comment;
   // Value can be unresolved (string from file) or typed (from API or post-resolution)
   ParamValue value;
+  // TODO(future): Consider merging QueryRecord into Parameter as std::optional<QueryRecord>
+  // to eliminate the separate queries_ map
 };
 
 //----------------------------------------------------------------------------------------
