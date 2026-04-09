@@ -20,6 +20,10 @@
 // PURPOSE: Member functions of this class are used to read and parse the input file.
 //   Functionality is loosely modeled after FORTRAN namelist.
 //
+// NOTE: This describes the standard text-based input format. Parthenon also supports
+//   other input formats (e.g., Python scripts via -i script.py) that populate the
+//   same underlying parameter storage.
+//
 // EXAMPLE of input file in 'Athena++' format:
 //   <blockname1>      # block name; must be on a line by itself
 //                     # everything after a hash symbol is a comment and is ignored
@@ -45,6 +49,7 @@
 //   - 2003-2008: Many improvements and extensions by T. Gardiner and J.M. Stone
 //   - Jan 2014:  Rewritten in C++ for the Athena++ code by J.M. Stone
 //========================================================================================
+// This file was made in part with generative AI.
 
 #include "parameter_input.hpp"
 

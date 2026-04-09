@@ -14,6 +14,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
+// This file was made in part with generative AI.
 
 #ifndef PARAMETER_INPUT_HPP_
 #define PARAMETER_INPUT_HPP_

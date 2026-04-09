@@ -11,6 +11,7 @@
 # license in this material to reproduce, prepare derivative works, distribute copies to
 # the public, perform publicly and display publicly, and to permit others to do so.
 # ========================================================================================
+# This file was made in part with generative AI.
 
 # Example Python input file for fine_advection example
 # Demonstrates advantages over text input files:

@@ -1,3 +1,5 @@
+<!-- This file was made in part with generative AI. -->
+
 This example implements upwind advection of a cell-centered scalar variable defined
 on the regular grid and for another cell-centered variable on the fine grid (which
 is twice the resolution and is selected using Metadata::Fine). The newer type-based

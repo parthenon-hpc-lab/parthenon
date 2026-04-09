@@ -10,6 +10,7 @@
 # license in this material to reproduce, prepare derivative works, distribute copies to
 # the public, perform publicly and display publicly, and to permit others to do so.
 #========================================================================================
+# This file was made in part with generative AI.
 
 # Python bindings for Parthenon (optional)
 option(PARTHENON_ENABLE_PYTHON_BINDINGS "Build Python bindings for parameter input" OFF)
