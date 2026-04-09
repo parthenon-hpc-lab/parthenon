@@ -13,9 +13,24 @@ The example can be run with either a traditional text input file or a Python inp
 ./fine_advection-example -i parthinput.advection
 
 # Using Python input file (requires -DPARTHENON_ENABLE_PYTHON_BINDINGS=ON)
-PYTHONPATH=../../build/src/pybind:../../scripts/python/packages/parthenon_tools \
-  ./fine_advection-example -i parthinput.advection.py
+# Must set PYTHONPATH to find parthenon.so and parthenon_tools
+# From the repo root:
+PYTHONPATH=build/src/pybind:scripts/python/packages/parthenon_tools \
+  build/example/fine_advection/fine_advection-example -i example/fine_advection/parthinput.advection.py
+
+# Or export PYTHONPATH once:
+export PYTHONPATH=/path/to/parthenon/build/src/pybind:/path/to/parthenon/scripts/python/packages/parthenon_tools
+./fine_advection-example -i parthinput.advection.py
 ```
+
+### PYTHONPATH requirements
+
+Python input files require two modules:
+- `parthenon.so` - Python bindings (built in `build/src/pybind/`)
+- `parthenon_tools` - Input file helpers (in `scripts/python/packages/parthenon_tools/`)
+
+These paths must be in `PYTHONPATH` when running. After `make install`, they will be in
+`CMAKE_INSTALL_PREFIX/lib/python/` and no longer need manual `PYTHONPATH` configuration.
 
 ### Python input advantages
 
