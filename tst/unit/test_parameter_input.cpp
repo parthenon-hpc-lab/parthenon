@@ -452,7 +452,9 @@ TEST_CASE("MarkResolved prevents further parsing", "[ParameterInput][Parser]") {
       ss << "<block2>" << std::endl << "param2 = 200" << std::endl;
       std::istringstream s(ss.str());
 
-      THEN("LoadFromStream should throw") { REQUIRE_THROWS_AS(in.LoadFromStream(s), std::runtime_error); }
+      THEN("LoadFromStream should throw") {
+        REQUIRE_THROWS_AS(in.LoadFromStream(s), std::runtime_error);
+      }
     }
   }
 }
