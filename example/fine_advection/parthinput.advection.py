@@ -14,11 +14,13 @@
 
 # Example Python input file for fine_advection example
 # Demonstrates advantages over text input files:
-#  - Single file works for 1D, 2D, or 3D (just change ndim below)
+#  - Single file works for 1D, 2D, or 3D (just change ndim)
+#  - Command line arguments for easy parameter studies
 #  - Use variables and calculations
 #  - Compute derived quantities automatically
 #  - Cleaner than duplicating parameters across dimensions
 
+import argparse
 import parthenon
 from parthenon_tools import InputFile
 
@@ -26,16 +28,37 @@ from parthenon_tools import InputFile
 pi = parthenon.get_parameter_input()
 
 # ======================================================================================
-# PROBLEM CONFIGURATION - Change these to modify the problem
+# COMMAND LINE ARGUMENTS
 # ======================================================================================
-ndim = 2                  # Number of dimensions (1, 2, or 3)
-nx_base = 64              # Base mesh resolution (in active dimensions)
-meshblock_size = 16       # Meshblock size (in active dimensions)
-num_amr_levels = 3        # Number of AMR levels
+# Parse Python-style arguments (e.g., --nx=128 --ndim=3)
+# Use parse_known_args() to ignore Parthenon-style overrides (block/param=value)
+# which will be processed by C++ after this script runs
+parser = argparse.ArgumentParser(description='Fine advection example')
+parser.add_argument('--ndim', type=int, default=2,
+                    help='Number of dimensions (1, 2, or 3)')
+parser.add_argument('--nx', type=int, default=64,
+                    help='Base mesh resolution (in active dimensions)')
+parser.add_argument('--meshblock-size', type=int, default=16,
+                    help='Meshblock size (in active dimensions)')
+parser.add_argument('--num-levels', type=int, default=3,
+                    help='Number of AMR levels')
+parser.add_argument('--cfl', type=float, default=0.45,
+                    help='CFL number')
+args, unknown = parser.parse_known_args()
+
+# ======================================================================================
+# PROBLEM CONFIGURATION
+# ======================================================================================
+ndim = args.ndim
+nx_base = args.nx
+meshblock_size = args.meshblock_size
+num_amr_levels = args.num_levels
+cfl = args.cfl
+
+# Fixed parameters
 domain_min = -0.5         # Domain bounds
 domain_max = 0.5
 velocity = 1.0            # Advection velocity (in active dimensions)
-cfl = 0.45                # CFL number
 refine_tol = 0.3          # AMR refinement tolerance
 output_dt = 0.05          # Output cadence
 

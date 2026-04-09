@@ -414,15 +414,15 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
     std::size_t equal_posn = input_text.find_first_of("=");     // first "=" character
     std::size_t slash_posn = input_text.rfind("/", equal_posn); // last "/" before "="
 
+    // skip if either "/" or "=" do not exist in input
+    if ((slash_posn == std::string::npos) || (equal_posn == std::string::npos)) continue;
+
     if (slash_posn > equal_posn) {
       msg << "'/' used as value (rhs of =) when modifying " << input_text << "."
           << " Please update value of change "
           << "logic in ModifyFromCmdline function.";
       PARTHENON_FAIL(msg.str().c_str());
     }
-
-    // skip if either "/" or "=" do not exist in input
-    if ((slash_posn == std::string::npos) || (equal_posn == std::string::npos)) continue;
 
     // extract block/name/value strings
     block = input_text.substr(0, slash_posn);

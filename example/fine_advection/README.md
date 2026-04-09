@@ -20,8 +20,27 @@ PYTHONPATH=../../build/src/pybind:../../scripts/python/packages/parthenon_tools 
 ### Python input advantages
 
 The Python input file (`parthinput.advection.py`) demonstrates several advantages over text files:
-- **Dimensionality control**: Change `ndim` variable to easily switch between 1D, 2D, or 3D
+- **Command line arguments**: Pass Python-style flags like `--nx=128 --ndim=3`
+- **Dimensionality control**: Change `ndim` to easily switch between 1D, 2D, or 3D
 - **Calculated parameters**: Automatically derive `derefine_tol` from `refine_tol`
 - **Variables**: Define resolution once, use everywhere
 - **Type safety**: Use native Python types (lists, not comma-separated strings)
 - **Documentation**: Inline comments explaining parameter choices
+
+### Command line arguments
+
+Python input files support both Python-style and Parthenon-style arguments:
+
+```bash
+# Python-style arguments (parsed by the script)
+./fine_advection-example -i parthinput.advection.py --nx=128 --ndim=3
+
+# Parthenon-style overrides (processed by C++ after Python runs)
+./fine_advection-example -i parthinput.advection.py parthenon/time/tlim=0.5
+
+# Both can be combined
+./fine_advection-example -i parthinput.advection.py --nx=128 parthenon/time/tlim=0.5
+```
+
+Python scripts use `argparse.parse_known_args()` to parse their own flags while ignoring
+Parthenon-style overrides, which are applied by C++ after the script completes.
