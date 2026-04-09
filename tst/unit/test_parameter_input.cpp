@@ -201,8 +201,7 @@ TEST_CASE("Test deleting parameters from ParameterInput", "[ParameterInput]") {
 }
 
 // Phase 1 Tests: Map Resolution and Block Prefix Queries
-TEST_CASE("MarkResolved populates internal map correctly",
-          "[ParameterInput][Phase1]") {
+TEST_CASE("MarkResolved populates internal map correctly", "[ParameterInput][Phase1]") {
   GIVEN("A ParameterInput with multiple blocks and parameters") {
     ParameterInput in;
     std::stringstream ss;

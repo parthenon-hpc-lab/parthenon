@@ -322,7 +322,6 @@ bool ParameterInput::ParseLine(std::string line, std::string &name, std::string 
   return continuation;
 }
 
-
 //----------------------------------------------------------------------------------------
 //! void ParameterInput::ModifyFromCmdline(int argc, char *argv[])
 //  \brief parse commandline for changes to input parameters
@@ -378,7 +377,6 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
     AddParsedParameter(block, name, UnresolvedString(value), "# From command line");
   }
 }
-
 
 //----------------------------------------------------------------------------------------
 //! \fn bool ParameterInput::DoesParameterExist(const std::string & block, const
@@ -763,7 +761,6 @@ void ParameterInput::OutputParameterTable(std::ostream &os,
   }
 }
 
-
 //----------------------------------------------------------------------------------------
 //! \fn std::string ParameterInput::ParamValueToString()
 //  \brief Convert a ParamValue variant to string for linked list output
@@ -897,7 +894,7 @@ ParameterInput::GetParameterNames(const std::string &block) const {
 //  \brief Helper to find a parameter in storage
 
 Parameter *ParameterInput::FindParameter_(const std::string &block,
-                                         const std::string &name) {
+                                          const std::string &name) {
   Block *pb = FindBlock_(block);
   if (pb == nullptr) return nullptr;
 
@@ -908,7 +905,7 @@ Parameter *ParameterInput::FindParameter_(const std::string &block,
 }
 
 const Parameter *ParameterInput::FindParameter_(const std::string &block,
-                                               const std::string &name) const {
+                                                const std::string &name) const {
   const Block *pb = FindBlock_(block);
   if (pb == nullptr) return nullptr;
 
@@ -1056,21 +1053,24 @@ ParameterInput::ConvertParamValue<std::vector<std::string>>(const ParamValue &,
 
 // Explicit instantiations for GetFromStorage_
 template std::optional<int> ParameterInput::GetFromStorage_<int>(const std::string &,
-                                                             const std::string &);
+                                                                 const std::string &);
 template std::optional<Real> ParameterInput::GetFromStorage_<Real>(const std::string &,
-                                                               const std::string &);
+                                                                   const std::string &);
 template std::optional<bool> ParameterInput::GetFromStorage_<bool>(const std::string &,
-                                                               const std::string &);
+                                                                   const std::string &);
 template std::optional<std::string>
 ParameterInput::GetFromStorage_<std::string>(const std::string &, const std::string &);
 template std::optional<std::vector<int>>
-ParameterInput::GetFromStorage_<std::vector<int>>(const std::string &, const std::string &);
+ParameterInput::GetFromStorage_<std::vector<int>>(const std::string &,
+                                                  const std::string &);
 template std::optional<std::vector<Real>>
-ParameterInput::GetFromStorage_<std::vector<Real>>(const std::string &, const std::string &);
+ParameterInput::GetFromStorage_<std::vector<Real>>(const std::string &,
+                                                   const std::string &);
 template std::optional<std::vector<bool>>
-ParameterInput::GetFromStorage_<std::vector<bool>>(const std::string &, const std::string &);
+ParameterInput::GetFromStorage_<std::vector<bool>>(const std::string &,
+                                                   const std::string &);
 template std::optional<std::vector<std::string>>
 ParameterInput::GetFromStorage_<std::vector<std::string>>(const std::string &,
-                                                      const std::string &);
+                                                          const std::string &);
 
 } // namespace parthenon

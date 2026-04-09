@@ -181,8 +181,8 @@ struct Parameter {
   std::string comment;
   // Value can be unresolved (string from file) or typed (from API or post-resolution)
   ParamValue value;
-  // TODO(future): Consider merging QueryRecord into Parameter as std::optional<QueryRecord>
-  // to eliminate the separate queries_ map
+  // TODO(future): Consider merging QueryRecord into Parameter as
+  // std::optional<QueryRecord> to eliminate the separate queries_ map
 };
 
 //----------------------------------------------------------------------------------------
@@ -449,7 +449,8 @@ class ParameterInput {
   // Helper to find a parameter in storage
   // Returns pointer to Parameter if found, nullptr otherwise
   Parameter *FindParameter_(const std::string &block, const std::string &name);
-  const Parameter *FindParameter_(const std::string &block, const std::string &name) const;
+  const Parameter *FindParameter_(const std::string &block,
+                                  const std::string &name) const;
 
   // Helper to get a typed parameter value from storage
   // Returns std::nullopt if parameter not found
