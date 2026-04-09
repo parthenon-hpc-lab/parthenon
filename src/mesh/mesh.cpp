@@ -853,8 +853,8 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
   } while (!init_done);
 
   // At this point, the initialization hierarchy has resolved, whether that required
-  // adaptive refinement or not. We want to permit the user one last pass at
-  // initialization after that resolution.
+  // adaptive refinement or not. We now permit one last pass at initialization via
+  // PostInitialization, and may follow it with a load-balancing pass if needed.
   if (init_problem) {
     int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
 
@@ -910,30 +910,31 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       BuildTagMapAndBoundaryBuffers();
       CommunicateBoundaries();
       FillDerived();
+    }
 
+    if (!adaptive || post_init_invoked) {
+      // Non-adaptive meshes have not yet passed through the later AMR/LB initialization
+      // path, so always run the load-balancing stage once at the end of initialization.
+      // Adaptive meshes only need the extra pass if PostInitialization ran after the AMR
+      // initialization loop. For adaptive meshes, manipulate lb_flag_, step_since_lb,
+      // and AmrTags to prevent AMR but permit load balancing.
+      lb_flag_ = true;
+      step_since_lb = std::numeric_limits<int>::max();
       if (adaptive) {
-        // Something done in PostInitialization might have promoted load imbalance
-        // (e.g., particles), therefore, call the load balancer.  Currently, AMR and load
-        // balancing are quite intertwined, so we manipulate lb_flag_, step_since_lb, and
-        // AmrTags to prevent AMR but permit load balancing. See discussion in PR1377.
-        lb_flag_ = true;
-        step_since_lb = std::numeric_limits<int>::max();
-        for (auto &partition : GetDefaultBlockPartitions()) {
-          auto &md = mesh_data.Add("base", partition);
-          for (int b = 0; b < md->NumBlocks(); b++) {
-            auto pmb = md->GetBlockData(b).get()->GetBlockPointer();
-            pmb->pmr->SetRefinement(AmrTag::same);
-          }
+        auto &base = mesh_data.Add("base", GetBasePartition());
+        for (int b = 0; b < base->NumBlocks(); b++) {
+          auto pmb = base->GetBlockData(b).get()->GetBlockPointer();
+          pmb->pmr->SetRefinement(AmrTag::same);
         }
-        LoadBalancingAndAdaptiveMeshRefinement(pin, app_in);
-        lb_flag_ = false;
-        step_since_lb = 0;
-
-        PreCommFillDerived();
-        BuildTagMapAndBoundaryBuffers();
-        CommunicateBoundaries();
-        FillDerived();
       }
+      LoadBalancingAndAdaptiveMeshRefinement(pin, app_in);
+      lb_flag_ = false;
+      step_since_lb = 0;
+
+      PreCommFillDerived();
+      BuildTagMapAndBoundaryBuffers();
+      CommunicateBoundaries();
+      FillDerived();
     }
   }
 
