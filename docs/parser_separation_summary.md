@@ -19,9 +19,7 @@ This refactoring separates parameter **parsing** from parameter **storage** in P
 ┌─────────────────────────────────────────────┐
 │  Parser Layer                               │
 │  - Text (.pin files)                        │
-│  - Python (pybind11)                        │
-│  - TOML (future)                            │
-│  - Rummy bytecode (future)                  │
+│  - Future: Python, TOML, Rummy bytecode     │
 └─────────────────┬───────────────────────────┘
                   │ AddParsedParameter(block, name, ParamValue)
                   ↓
@@ -83,28 +81,12 @@ pin->MarkResolved();                // Done with parsing
 int val = pin->Get<int>(...);      // Query parameters
 ```
 
-### Pattern 2: Python Input
-
-```python
-# Python side
-inp = InputFile()
-inp.block("parthenon/mesh", nx1=64, nx2=64)
-pi = inp.to_parameter_input()  # Calls add_int(), add_real(), etc.
-```
-
-```cpp
-// C++ side
-pin->ModifyFromCmdline(argc, argv);  // Can still override!
-pin->MarkResolved();
-int val = pin->Get<int>(...);
-```
-
-### Pattern 3: Mixed Parsing
+### Pattern 2: Mixed Parsing
 
 ```cpp
 pin->LoadFromStream(base_file);      // Base config
 pin->LoadFromStream(override_file);  // Override some values
-// Python or other parser could add more here
+// Future parsers could add more parameters here via AddParsedParameter
 pin->ModifyFromCmdline(argc, argv);  // Final overrides
 pin->MarkResolved();
 ```
@@ -120,61 +102,26 @@ pin->MarkResolved();
 
 ### Type Handling
 
-- **UnresolvedString**: Lazy conversion on first access (like text files)
-- **Typed values**: Direct storage (Python, future parsers)
+- **UnresolvedString**: Lazy conversion on first access (used by text file parser)
+- **Typed values**: Direct storage (for future parsers that provide typed data)
 - **Conversion caching**: Once converted, typed value replaces UnresolvedString
 
 ### QueryRecord Creation
 
 QueryRecords are created on **first access** (Get/GetOrAdd), not at parse time:
-- `origin_type = Input` (default) for file/Python parameters
+- `origin_type = Input` (default) for parameters from any parser (text files, future parsers)
 - `origin_type = Default` when GetOrAdd adds missing parameter
 - `origin_type = SetInCode` when Set<T>() explicitly sets value
 
 This ensures:
 - Default value consistency checking works correctly
 - Command line overrides behave like input file values
-- Python-typed parameters don't get special SetInCode treatment
-
-## Python Bindings
-
-### Methods
-
-```python
-pi = parthenon.ParameterInput()
-
-# Add parameters (parser interface)
-pi.add_unresolved("block", "name", "value")  # From file
-pi.add_int("block", "name", 42)              # Typed
-pi.add_real("block", "name", 3.14)
-pi.add_bool("block", "name", True)
-pi.add_string("block", "name", "value")
-pi.add_int_vector("block", "name", [1, 2, 3])
-# ... similar for real_vector, bool_vector, string_vector
-
-# Mark complete (optional - done automatically on first Get)
-pi.mark_resolved()
-
-# Query parameters (normal API)
-val = pi.get_int("block", "name")
-```
-
-### High-Level API
-
-```python
-from parthenon_tools import InputFile
-
-inp = InputFile.from_file("base.pin")  # Load existing
-mesh = inp.get_block("parthenon/mesh")
-mesh.set(nx1=128, nx2=128)             # Override with types
-
-pi = inp.to_parameter_input()         # Transfer to C++
-```
+- Typed parameters from future parsers maintain Input origin
 
 ## Benefits
 
 1. **Flexibility**: Any parser can feed parameters through `AddParsedParameter`
-2. **Type Safety**: Python can provide typed values, avoiding string conversion
+2. **Type Safety**: Future parsers can provide typed values, avoiding string conversion
 3. **Backward Compatible**: Existing text files and code work unchanged
 4. **Explicit Control**: Applications decide when parsing is complete
 5. **Origin Tracking**: Parameters maintain correct origin (Input vs SetInCode)
@@ -223,8 +170,10 @@ compatibility with the original linked list implementation:
 All existing tests pass:
 - ✓ Parameter hashing
 - ✓ Delete parameters
-- ✓ MarkResolved
-- ✓ Python input generation
+- ✓ MarkResolved enforcement
+- ✓ AddParsedParameter with typed values
+- ✓ UnresolvedString lazy conversion
+- ✓ Parameter ordering preservation
 - ✓ Type dispatch
 - ✓ All regression tests (restart files, parameter order)
 
