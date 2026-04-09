@@ -15,11 +15,16 @@
 #include <pybind11/stl.h>
 
 #include "parameter_input.hpp"
+#include "globals.hpp"
 
 namespace py = pybind11;
 
 PYBIND11_MODULE(parthenon, m) {
   m.doc() = "Parthenon Python bindings for parameter input";
+
+  // Expose MPI rank info so scripts can do rank-specific operations
+  m.attr("my_rank") = parthenon::Globals::my_rank;
+  m.attr("nranks") = parthenon::Globals::nranks;
 
   py::class_<parthenon::ParameterInput>(m, "ParameterInput")
       .def(py::init<>())

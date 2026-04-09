@@ -32,6 +32,26 @@ Python input files require two modules:
 These paths must be in `PYTHONPATH` when running. After `make install`, they will be in
 `CMAKE_INSTALL_PREFIX/lib/python/` and no longer need manual `PYTHONPATH` configuration.
 
+### MPI considerations
+
+Python input files run **independently on every MPI rank**. Each rank:
+- Starts its own Python interpreter
+- Executes the entire script
+- Configures its own ParameterInput object
+
+For rank-specific operations (e.g., printing summary info only once), check `parthenon.my_rank`:
+
+```python
+if parthenon.my_rank == 0:
+    print(f"Configured {ndim}D problem with resolution {nx}")
+```
+
+Best practices:
+- Keep scripts deterministic (same parameters on all ranks)
+- Guard print statements with rank checks to avoid output spam
+- Avoid file I/O unless coordinated (or use rank-specific filenames)
+- Don't use random numbers without setting seed based on rank
+
 ### Python input advantages
 
 The Python input file (`parthinput.advection.py`) demonstrates several advantages over text files:

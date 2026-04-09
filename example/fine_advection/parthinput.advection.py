@@ -27,6 +27,9 @@ from parthenon_tools import InputFile
 # Get the ParameterInput object from C++
 pi = parthenon.get_parameter_input()
 
+# NOTE: This script runs on ALL MPI ranks independently
+# Use parthenon.my_rank to guard output or do rank-specific operations
+
 # ======================================================================================
 # COMMAND LINE ARGUMENTS
 # ======================================================================================
@@ -140,3 +143,11 @@ inp.block("parthenon/output0",
 
 # Transfer all configuration to C++ ParameterInput
 inp.to_parameter_input(pi)
+
+# Example: Print summary only from rank 0
+if parthenon.my_rank == 0:
+    print(f"Configured {ndim}D advection problem:")
+    print(f"  Resolution: {nx_base}^{ndim}")
+    print(f"  Meshblock size: {meshblock_size}")
+    print(f"  AMR levels: {num_amr_levels}")
+    print(f"  CFL: {cfl}")
