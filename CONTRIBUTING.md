@@ -13,6 +13,7 @@ and revision any time as necessary.
         * [Merging Code from a Fork](#merging-code-from-a-fork)
     - [Linting Code](#linting-code)
     - [Formatting Code](#formatting-code)
+    - [Use of agentic coding](#use-of-agentic-coding)
 2. [Test Suite](#test-suite)
     - [Continuous Testing/Integration Environment](#continuous-testingintegration-environment)
     - [Adding Tests](#adding-tests)
@@ -161,6 +162,25 @@ Running:
 ```
 
 Will also format all the ".py" files found in the repository.
+
+### Use of Agentic Coding
+
+The following general guidelines were discussed in March 2026 during a
+[regular call](https://github.com/parthenon-hpc-lab/parthenon/wiki/2026.03.26-Meeting-Notes#handling-llm-supportedassisted-prs).
+They are subject to live evaluation and may change in the future.
+
+In general, there are no limitations to the use of agentic coding/LLMs/... given that
+- the usage is disclosed
+  - by adding `// This file was made in part with generative AI` to the file, and
+  - by clearly stating the extent of usage in the PR description
+- the person submitting the PR keeps ownership/responsiblity of all changes (i.e., conducts a thorough review themself)
+
+In addition following recommendations should be followed
+- for large/feature-style PRs a `plan.md` document outlining the changes should be part of the PR
+  - if possible, large feature-style PRs are split into smaller, logically separated chunks (to ease reviewing)
+- condense/consolidate generated code (to ease maintenance) as it is (still) often much more verbose than necessary (and typical in the existing codebase)
+- reviewers are expected to be much more skeptical and thorough compared to code written by long-term contributors
+
 
 ## Test Suite
 
