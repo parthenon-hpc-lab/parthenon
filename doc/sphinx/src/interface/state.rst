@@ -112,6 +112,8 @@ several useful features and functions.
   deletgates to the ``std::function`` member ``PreStepDiagnosticsMesh`` if
   set (defaults to ``nullptr`` an therefore a no-op) to print diagnostics
   before the time-integration advance.
+.. This file was made in part with generative AI.
+
 - ``void PostStepDiagnostics(SimTime const &simtime, MeshData<Real> *rc)``
   deletgates to the ``std::function`` member ``PostStepDiagnosticsMesh``
   if set (defaults to ``nullptr`` an therefore a no-op) to print
@@ -124,16 +126,18 @@ several useful features and functions.
   work upon restart, you can check the ``Globals::is_restart`` variable.
   It is worth making a clear distinction
   between ``UserWorkBeforeLoopMesh`` and ``ApplicationInput``s
-  ``PostInitialization``.  ``PostInitialization`` is very much so tied to
-  initialization, and will not be called upon restarts.  ``PostInitialization``
+  ``PostProblemGenerator``. ``PostProblemGenerator`` is very much so tied to
+  initialization, and will not be called upon restarts. ``PostProblemGenerator``
   is also carefully positioned after ``ProblemGenerator`` and before
   ``PreCommFillDerived`` (and hence communications).  In practice, when
   additional granularity is required inbetween initialization and communication,
-  ``PostInitialization`` may be the desired hook.  Finally we highlight
-  ``PostAMRInitialization``, yet another function hook that enables a user to provide 
-  any last initialization changes after the AMR mesh has converged in initialization. Both
-  mesh level and block-level versions of ``PostAMRInitialization`` are provided (i.e.,
-  ``PostAMRInitializationMesh`` and ``PostAMRInitializationBlock``, respectively).
+  ``PostProblemGenerator`` may be the desired hook. Finally we highlight
+  ``PostInitialization``, yet another function hook that enables a user to
+  provide any last initialization changes after the initialization hierarchy
+  has converged. This final hook runs whether that convergence involved AMR,
+  SMR, or a uniform grid. Both mesh level and block-level versions of
+  ``PostInitialization`` are provided (i.e., ``PostInitializationMesh`` and
+  ``PostInitializationBlock``, respectively).
 
 
 The reasoning for providing ``FillDerived*`` and ``EstimateTimestep*``

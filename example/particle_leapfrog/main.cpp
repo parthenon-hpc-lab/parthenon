@@ -11,6 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #include "parthenon_manager.hpp"
 
 #include "particle_leapfrog.hpp"
@@ -23,7 +25,7 @@ int main(int argc, char *argv[]) {
   // Redefine parthenon defaults
   pman.app_input->ProcessPackages = particles_leapfrog::ProcessPackages;
   pman.app_input->ProblemGenerator = particles_leapfrog::ProblemGenerator;
-  pman.app_input->PostAMRInitialization = particles_leapfrog::PostAMRInitialization;
+  pman.app_input->PostInitialization = particles_leapfrog::PostInitialization;
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInitEnv(argc, argv);

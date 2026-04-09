@@ -15,6 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #include "particle_leapfrog.hpp"
 
 #include <algorithm>
@@ -132,11 +134,11 @@ const Kokkos::Array<Kokkos::Array<Real, 6>, num_test_particles> particles_ic = {
     {0.0, 0.0, 0.0, -1.0, -1.0, -1.0}, // along -x-y-z diagonal
 }};
 
-// We will source particles via the PostAMRInitialization Hook.  Therefore
-// ProblemGenerator is simply a no-op.
+// We source particles via the final PostInitialization hook after the initialization
+// hierarchy has resolved. Therefore ProblemGenerator is simply a no-op.
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) { return; }
 
-void PostAMRInitialization(MeshBlock *pmb, ParameterInput *pin) {
+void PostInitialization(MeshBlock *pmb, ParameterInput *pin) {
   auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("my_particles");
 

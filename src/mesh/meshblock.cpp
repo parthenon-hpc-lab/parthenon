@@ -17,7 +17,7 @@
 //! \file mesh.cpp
 //  \brief implementation of functions in MeshBlock class
 
-// This file was made in part with generative AI
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <cstdlib>
@@ -117,8 +117,8 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   if (app_in->PostInitialization != nullptr) {
     PostInitialization = app_in->PostInitialization;
   }
-  if (app_in->PostAMRInitialization != nullptr) {
-    PostAMRInitialization = app_in->PostAMRInitialization;
+  if (app_in->PostProblemGenerator != nullptr) {
+    PostProblemGenerator = app_in->PostProblemGenerator;
   }
   if (app_in->MeshBlockUserWorkBeforeOutput != nullptr) {
     UserWorkBeforeOutput = app_in->MeshBlockUserWorkBeforeOutput;

@@ -21,7 +21,7 @@
 //  The Mesh is the overall grid structure, and MeshBlocks are local patches of data
 //  (potentially on different levels) that tile the entire domain.
 
-// This file was made in part with generative AI
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <cstdint>
@@ -225,9 +225,9 @@ class Mesh {
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> ProblemGenerator =
       nullptr;
-  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostInitialization =
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostProblemGenerator =
       nullptr;
-  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostAMRInitialization =
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostInitialization =
       nullptr;
   static void UserWorkAfterLoopDefault(Mesh *mesh, ParameterInput *pin,
                                        SimTime &tm); // called in main loop

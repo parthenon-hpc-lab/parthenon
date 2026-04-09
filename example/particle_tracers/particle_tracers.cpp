@@ -15,6 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #include "particle_tracers.hpp"
 
 #include <algorithm>
@@ -162,7 +164,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata real_swarmvalue_metadata({Metadata::Real});
 
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
-  pkg->PostAMRInitializationBlock = SourceTracers;
+  pkg->PostInitializationBlock = SourceTracers;
   return pkg;
 }
 
