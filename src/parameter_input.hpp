@@ -142,6 +142,19 @@ struct QueryRecord {
   }
 };
 
+// Wrapper type to distinguish unresolved strings (from legacy parser)
+// from actual string parameter values
+struct UnresolvedString {
+  std::string value;
+  UnresolvedString() = default;
+  explicit UnresolvedString(const std::string &v) : value(v) {}
+  explicit UnresolvedString(std::string &&v) : value(std::move(v)) {}
+};
+
+// Build ParamValue variant from SupportedParamTypes + UnresolvedString
+using ParamValue =
+    type_list_to_variant_t<insert_type_list_t<UnresolvedString, SupportedParamTypes, 0>>;
+
 // This can be used to tell the params infrastructure that the default
 // value of one parameter depends on another one
 class ParameterInput;
@@ -160,36 +173,23 @@ class ParameterRef {
 };
 
 //----------------------------------------------------------------------------------------
-//! \struct InputLine
-//  \brief  node in a singly linked list of parameters contained within 1x input block
+//! \struct Parameter
+//  \brief  single parameter within a block
 
-struct InputLine {
-  std::string param_name;
-  std::string param_value; // value of the parameter is stored as a string!
-  std::string param_comment;
-  InputLine *pnext; // pointer to the next node in this nested singly linked list
+struct Parameter {
+  std::string name;
+  std::string comment;
+  // Value can be unresolved (string from file) or typed (from API or post-resolution)
+  ParamValue value;
 };
 
 //----------------------------------------------------------------------------------------
-//! \class InputBlock
-//  \brief node in a singly linked list of all input blocks contained within input file
+//! \struct Block
+//  \brief  parameter block containing a vector of parameters
 
-class InputBlock {
- public:
-  InputBlock() = default;
-  ~InputBlock();
-
-  // data
-  std::string block_name;
-  std::size_t max_len_parname;  // length of longest param_name, for nice-looking output
-  std::size_t max_len_parvalue; // length of longest param_value, to format outputs
-  InputBlock *pnext; // pointer to the next node in InputBlock singly linked list
-
-  InputLine *pline; // pointer to head node in nested singly linked list (in this block)
-  // (not storing a reference to the tail node)
-
-  // functions
-  InputLine *GetPtrToLine(std::string name);
+struct Block {
+  std::string name;
+  std::vector<Parameter> params;
 };
 
 //----------------------------------------------------------------------------------------
@@ -202,18 +202,9 @@ class ParameterInput {
 
  public:
   // === STORAGE TYPES (public for parser interface) ===
-  // Wrapper type to distinguish unresolved strings (from legacy parser)
-  // from actual string parameter values
-  struct UnresolvedString {
-    std::string value;
-    UnresolvedString() = default;
-    explicit UnresolvedString(const std::string &v) : value(v) {}
-    explicit UnresolvedString(std::string &&v) : value(std::move(v)) {}
-  };
-
-  // Build ParamValue variant from SupportedParamTypes + UnresolvedString
-  using ParamValue = type_list_to_variant_t<
-      insert_type_list_t<UnresolvedString, SupportedParamTypes, 0>>;
+  // For backward compatibility, make these types accessible from ParameterInput::
+  using UnresolvedString = parthenon::UnresolvedString;
+  using ParamValue = parthenon::ParamValue;
 
   // constructor/destructor
   ParameterInput();
@@ -235,9 +226,6 @@ class ParameterInput {
   // Explicitly mark parsing as complete - no more AddParsedParameter calls allowed
   void MarkResolved();
 
-  // === RESOLUTION (bridge between parsing and storage) ===
-  void ResolveParametersToMap();
-
   // === QUERY INTERFACE (parser-agnostic) ===
   std::vector<std::string> GetBlockNames() const;
   std::vector<std::string> GetBlocksWithPrefix(const std::string &prefix) const;
@@ -248,8 +236,8 @@ class ParameterInput {
   void OutputParameterTable(std::ostream &os,
                             const std::regex &block_regex = std::regex("(.*)")) const;
 
-  int DoesParameterExist(const std::string &block, const std::string &name);
-  int DoesBlockExist(const std::string &block);
+  bool DoesParameterExist(const std::string &block, const std::string &name);
+  bool DoesBlockExist(const std::string &block);
   std::string GetComment(const std::string &block, const std::string &name);
   int GetInteger(
       const std::string &block, const std::string &name,
@@ -330,7 +318,7 @@ class ParameterInput {
     MarkResolved();
     std::stringstream msg;
 
-    auto opt = GetFromMap_<T>(block, name);
+    auto opt = GetFromStorage_<T>(block, name);
     if (!opt.has_value()) {
       msg << "### FATAL ERROR in function [ParameterInput::Get<T>]" << std::endl
           << "Parameter name '" << name << "' not found in block '" << block << "'";
@@ -349,29 +337,16 @@ class ParameterInput {
                   "Type not supported by parameter storage");
 
     MarkResolved();
-    std::stringstream ss_value;
 
     CheckAndUpdateQueries_<T>(block, name, def_value, std::vector<T>{}, docstring);
 
-    auto opt = GetFromMap_<T>(block, name);
+    auto opt = GetFromStorage_<T>(block, name);
     if (opt.has_value()) {
       return opt.value();
     }
 
-    // Add to map
-    param_map_[block][name] = def_value;
-
-    // Also add to linked list for output compatibility
-    auto *pb = FindOrAddBlock(block);
-
-    // Type-specific formatting (Real needs extra precision)
-    if constexpr (std::is_same_v<T, Real>) {
-      static_assert(sizeof(Real) <= sizeof(double), "Real is greater than double!");
-      ss_value.precision(std::numeric_limits<double>::max_digits10);
-    }
-    ss_value << def_value;
-
-    AddParameter(pb, name, ss_value.str(), "# Default value added at run time");
+    // Add to storage
+    AddParsedParameter(block, name, def_value, "# Default value added at run time");
     UpdateQueryProvenance_(block, name, QueryRecord::OriginType::Default);
 
     return def_value;
@@ -390,20 +365,8 @@ class ParameterInput {
       CheckAndUpdateQueries_<T>(block, name, docstring);
     }
 
-    // Update map (source of truth)
-    param_map_[block][name] = value;
-
-    // Update linked list for output
-    auto *pb = FindOrAddBlock(block);
-    std::stringstream ss_value;
-
-    if constexpr (std::is_same_v<T, Real>) {
-      static_assert(sizeof(Real) <= sizeof(double), "Real is greater than double!");
-      ss_value.precision(std::numeric_limits<double>::max_digits10);
-    }
-    ss_value << value;
-
-    AddParameter(pb, name, ss_value.str(), "# Updated during run time");
+    // Update storage
+    AddParsedParameter(block, name, value, "# Updated during run time");
     UpdateQueryProvenance_(block, name, QueryRecord::OriginType::SetInCode);
 
     return value;
@@ -440,9 +403,7 @@ class ParameterInput {
                                            std::vector<std::vector<T>>{}, docstring);
     if (DoesParameterExist(block, name)) return GetVector<T>(block, name);
 
-    std::string cname = ConcatVector_(def);
-    auto *pb = FindOrAddBlock(block);
-    AddParameter(pb, name, cname, "# Default value added at run time");
+    AddParsedParameter(block, name, def, "# Default value added at run time");
     return def;
   }
   template <typename T>
@@ -456,44 +417,43 @@ class ParameterInput {
   }
 
  private:
-  // === LEGACY LINKED LIST STORAGE (for parsing and output) ===
-  InputBlock *pfirst_block; // pointer to head node in singly linked list of InputBlock
+  // === PARAMETER STORAGE (vector-of-vectors, preserves insertion order) ===
+  std::vector<Block> param_storage_;
+  bool parsing_resolved_ = false; // Track if parsing is complete
 
   std::string last_filename_; // last input file opened, to prevent duplicate reads
   // We will want to iterate through the record in lexicographic
   // order, so this needs to be an ordered map
   std::map<std::pair<std::string, std::string>, QueryRecord> queries_;
 
-  InputBlock *FindOrAddBlock(const std::string &name);
-  InputBlock *GetPtrToBlock(const std::string &name);
-  bool ParseLine(InputBlock *pib, std::string line, std::string &name, std::string &value,
+  // Helper to find a block by name (returns pointer to block or nullptr)
+  Block *FindBlock_(const std::string &name);
+  const Block *FindBlock_(const std::string &name) const;
+
+  // Helper to find or create a block (returns pointer to block)
+  Block *FindOrAddBlock_(const std::string &name);
+
+  // Legacy parser helpers (still used for text file parsing)
+  bool ParseLine(std::string line, std::string &name, std::string &value,
                  std::string &comment);
-  void AddParameter(InputBlock *pib, const std::string &name, const std::string &value,
-                    const std::string &comment);
-
-  // === NEW STORAGE (map - parser-agnostic) ===
-  using BlockParameterMap = std::map<std::string, ParamValue>;
-
-  std::map<std::string, BlockParameterMap> param_map_;
-  std::vector<std::string> block_order_; // Track insertion order of blocks
-  bool map_resolved_ = false;            // Track if we've locked down to map-based access
 
   // === HELPER METHODS (parser-agnostic) ===
-  // Convert ParamValue to string for linked list output
+  // Convert ParamValue to string for output
   std::string ParamValueToString(const ParamValue &value);
   template <typename T>
   T ConvertParamValue(const ParamValue &value, const std::string &block,
                       const std::string &name);
 
-  // Helper to find a parameter in map or linked list, with type caching
-  // Returns pointer to ParamValue in map if found, nullptr otherwise
-  ParamValue *FindParameter_(const std::string &block, const std::string &name);
+  // Helper to find a parameter in storage
+  // Returns pointer to Parameter if found, nullptr otherwise
+  Parameter *FindParameter_(const std::string &block, const std::string &name);
+  const Parameter *FindParameter_(const std::string &block, const std::string &name) const;
 
-  // Helper to get a typed parameter value from map with caching
-  // Returns std::nullopt if parameter not found in map (caller should try linked list)
+  // Helper to get a typed parameter value from storage
+  // Returns std::nullopt if parameter not found
   // Throws if type mismatch detected
   template <typename T>
-  std::optional<T> GetFromMap_(const std::string &block, const std::string &name);
+  std::optional<T> GetFromStorage_(const std::string &block, const std::string &name);
 
   std::vector<std::string> SplitCommaSeparated(const std::string &s);
 
@@ -662,21 +622,20 @@ class ParameterInput {
 // See: https://en.cppreference.com/w/cpp/utility/hash
 namespace std {
 template <>
-struct hash<parthenon::InputLine> {
-  std::size_t operator()(const parthenon::InputLine &il) {
-    return parthenon::impl::hash_combine(0, il.param_name, il.param_value,
-                                         il.param_comment);
+struct hash<parthenon::Parameter> {
+  std::size_t operator()(const parthenon::Parameter &p) {
+    // Hash the parameter name and comment (value is not hashable due to variant)
+    return parthenon::impl::hash_combine(0, p.name, p.comment);
   }
 };
 
 template <>
-struct hash<parthenon::InputBlock> {
-  std::size_t operator()(const parthenon::InputBlock &ib) {
+struct hash<parthenon::Block> {
+  std::size_t operator()(const parthenon::Block &b) {
     using parthenon::impl::hash_combine;
-    std::size_t out =
-        hash_combine(0, ib.block_name, ib.max_len_parname, ib.max_len_parvalue);
-    for (parthenon::InputLine *pline = ib.pline; pline != nullptr; pline = pline->pnext) {
-      out = hash_combine(out, *pline);
+    std::size_t out = hash_combine(0, b.name);
+    for (const auto &param : b.params) {
+      out = hash_combine(out, param);
     }
     return out;
   }
@@ -685,13 +644,11 @@ struct hash<parthenon::InputBlock> {
 template <>
 struct hash<parthenon::ParameterInput> {
   std::size_t operator()(const parthenon::ParameterInput &in) {
-    using parthenon::InputBlock;
     using parthenon::impl::hash_combine;
     std::size_t out = 0;
     out = hash_combine(out, in.last_filename_);
-    for (InputBlock *pblock = in.pfirst_block; pblock != nullptr;
-         pblock = pblock->pnext) {
-      out = hash_combine(out, *pblock);
+    for (const auto &block : in.param_storage_) {
+      out = hash_combine(out, block);
     }
     return out;
   }

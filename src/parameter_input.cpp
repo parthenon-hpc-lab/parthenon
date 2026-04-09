@@ -76,57 +76,27 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 // ParameterInput constructor
 
-ParameterInput::ParameterInput() : pfirst_block{}, last_filename_{} {}
+ParameterInput::ParameterInput() : last_filename_{} {}
 
-ParameterInput::ParameterInput(std::string input_filename)
-    : pfirst_block{}, last_filename_{} {
+ParameterInput::ParameterInput(std::string input_filename) : last_filename_{} {
   IOWrapper infile;
   infile.Open(input_filename.c_str(), IOWrapper::FileMode::read);
   LoadFromFile(infile);
   infile.Close();
 }
 
-// ParameterInput destructor- iterates through nested singly linked lists of blocks/lines
-// and deletes each InputBlock node (whose destructor below deletes linked list "line"
-// nodes)
-
-ParameterInput::~ParameterInput() {
-  InputBlock *pib = pfirst_block;
-  while (pib != nullptr) {
-    InputBlock *pold_block = pib;
-    pib = pib->pnext;
-    delete pold_block;
-  }
-}
-
-// InputBlock destructor- iterates through singly linked list of "line" nodes and deletes
-// them
-
-InputBlock::~InputBlock() {
-  InputLine *pil = pline;
-  while (pil != nullptr) {
-    InputLine *pold_line = pil;
-    pil = pil->pnext;
-    delete pold_line;
-  }
-}
+ParameterInput::~ParameterInput() = default;
 
 //----------------------------------------------------------------------------------------
 //! \fn  void ParameterInput::LoadFromStream(std::istream &is)
 //  \brief Load input parameters from a stream
 
-//  Input block names are allocated and stored in a singly linked list of InputBlocks.
-//  Within each InputBlock the names, values, and comments of each parameter are allocated
-//  and stored in a singly linked list of InputLines.
-
 void ParameterInput::LoadFromStream(std::istream &is) {
-  PARTHENON_REQUIRE(
-      !map_resolved_,
-      "Can't add new parameters to the linked list after the map is resolved.");
+  PARTHENON_REQUIRE(!parsing_resolved_,
+                    "Can't add new parameters after parsing is resolved.");
   std::string line, block_name, param_name, param_value, param_comment;
   std::size_t first_char, last_char;
   std::stringstream msg;
-  InputBlock *pib{};
   int line_num{-1}, blocks_found{0};
 
   // Buffer multiple lines if a continuation character is present
@@ -169,13 +139,6 @@ void ParameterInput::LoadFromStream(std::istream &is) {
         PARTHENON_FAIL(msg);
       }
 
-      pib = FindOrAddBlock(block_name); // find or add block to singly linked list
-
-      if (pib == nullptr) {
-        msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]" << std::endl
-            << "Block name '" << block_name << "' could not be found/added";
-        PARTHENON_FAIL(msg);
-      }
       blocks_found++;
       continue; // skip to next line if block name was found
     } // end "a new block was found"
@@ -189,7 +152,7 @@ void ParameterInput::LoadFromStream(std::istream &is) {
       PARTHENON_FAIL(msg);
     }
     // parse line and add name/value/comment strings (if found) to current block name
-    bool has_cont_char = ParseLine(pib, line, param_name, param_value, param_comment);
+    bool has_cont_char = ParseLine(line, param_name, param_value, param_comment);
     if (continuing || has_cont_char) {
       // Append line data
       multiline_name += param_name;
@@ -228,7 +191,7 @@ void ParameterInput::LoadFromStream(std::istream &is) {
 
 void ParameterInput::LoadFromFile(IOWrapper &input) {
   PARTHENON_REQUIRE(
-      !map_resolved_,
+      !parsing_resolved_,
       "Can't add new parameters to the linked list after the map is resolved.");
   std::stringstream par, msg;
   constexpr int kBufSize = 4096;
@@ -271,48 +234,45 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn InputBlock* ParameterInput::FindOrAddBlock(const std::string & name)
-//  \brief find or add specified InputBlock.  Returns pointer to block.
+//! \fn Block* ParameterInput::FindBlock_(const std::string & name)
+//  \brief find specified Block.  Returns pointer to block or nullptr.
 
-InputBlock *ParameterInput::FindOrAddBlock(const std::string &name) {
-  InputBlock *pib, *plast;
-  plast = pfirst_block;
-  pib = pfirst_block;
-
-  // Search singly linked list of InputBlocks to see if name exists, return if found.
-  while (pib != nullptr) {
-    if (name.compare(pib->block_name) == 0) return pib;
-    plast = pib;
-    pib = pib->pnext;
+Block *ParameterInput::FindBlock_(const std::string &name) {
+  for (auto &block : param_storage_) {
+    if (block.name == name) return &block;
   }
+  return nullptr;
+}
 
-  // Create new block in list if not found above
-  pib = new InputBlock;
-  pib->block_name.assign(name); // store the new block name
-  pib->pline = nullptr;         // Terminate the InputLine list
-  pib->pnext = nullptr;         // Terminate the InputBlock list
-
-  // Default max lengths to zero (in case of no parameters in this block)
-  pib->max_len_parname = 0;
-  pib->max_len_parvalue = 0;
-
-  // if this is the first block in list, save pointer to it in class
-  if (pfirst_block == nullptr) {
-    pfirst_block = pib;
-  } else {
-    plast->pnext = pib; // link new node into list
+const Block *ParameterInput::FindBlock_(const std::string &name) const {
+  for (const auto &block : param_storage_) {
+    if (block.name == name) return &block;
   }
-
-  return pib;
+  return nullptr;
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void ParameterInput::ParseLine(InputBlock *pib, std::string line,
+//! \fn Block* ParameterInput::FindOrAddBlock_(const std::string & name)
+//  \brief find or add specified Block.  Returns pointer to block.
+
+Block *ParameterInput::FindOrAddBlock_(const std::string &name) {
+  // Search vector to see if name exists, return if found
+  for (auto &block : param_storage_) {
+    if (block.name == name) return &block;
+  }
+
+  // Create new block if not found above
+  param_storage_.push_back(Block{name, {}});
+  return &param_storage_.back();
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn void ParameterInput::ParseLine(std::string line,
 //           std::string& name, std::string& value, std::string& comment)
 //  \brief parse "name = value # comment" format, return name/value/comment strings.
 
-bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &name,
-                               std::string &value, std::string &comment) {
+bool ParameterInput::ParseLine(std::string line, std::string &name, std::string &value,
+                               std::string &comment) {
   std::size_t first_char, last_char, equal_char, hash_char, cont_char, len;
   bool continuation = false;
 
@@ -362,51 +322,6 @@ bool ParameterInput::ParseLine(InputBlock *pib, std::string line, std::string &n
   return continuation;
 }
 
-//----------------------------------------------------------------------------------------
-//! \fn void ParameterInput::AddParameter(InputBlock *pb, const std::string & name,
-//   std::string value, const std::string & comment)
-//  \brief add name/value/comment tuple to the InputLine singly linked list in block *pb.
-//  If a parameter with the same name already exists, the value and comment strings
-//  are replaced (overwritten).
-
-void ParameterInput::AddParameter(InputBlock *pb, const std::string &name,
-                                  const std::string &value, const std::string &comment) {
-  InputLine *pl, *plast;
-  // Search singly linked list of InputLines to see if name exists.  This also sets *plast
-  // to point to the tail node (but not storing a pointer to the tail node in InputBlock)
-  pl = pb->pline;
-  plast = pb->pline;
-  while (pl != nullptr) {
-    if (name.compare(pl->param_name) == 0) { // param name already exists
-      pl->param_value.assign(value);         // replace existing param value
-      pl->param_comment.assign(comment);     // replace exisiting param comment
-      if (value.length() > pb->max_len_parvalue) pb->max_len_parvalue = value.length();
-      return;
-    }
-    plast = pl;
-    pl = pl->pnext;
-  }
-
-  // Create new node in singly linked list if name does not already exist
-  pl = new InputLine;
-  pl->param_name.assign(name);
-  pl->param_value.assign(value);
-  pl->param_comment.assign(comment);
-  pl->pnext = nullptr;
-
-  // if this is the first parameter in list, save pointer to it in block.
-  if (pb->pline == nullptr) {
-    pb->pline = pl;
-    pb->max_len_parname = name.length();
-    pb->max_len_parvalue = value.length();
-  } else {
-    plast->pnext = pl; // link new node into list
-    if (name.length() > pb->max_len_parname) pb->max_len_parname = name.length();
-    if (value.length() > pb->max_len_parvalue) pb->max_len_parvalue = value.length();
-  }
-
-  return;
-}
 
 //----------------------------------------------------------------------------------------
 //! void ParameterInput::ModifyFromCmdline(int argc, char *argv[])
@@ -415,7 +330,7 @@ void ParameterInput::AddParameter(InputBlock *pb, const std::string &name,
 
 void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
   PARTHENON_REQUIRE(
-      !map_resolved_,
+      !parsing_resolved_,
       "Can't add new parameters to the linked list after the map is resolved.");
   std::string input_text, block, name, value;
   std::stringstream msg;
@@ -440,25 +355,22 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
     name = input_text.substr(slash_posn + 1, (equal_posn - slash_posn - 1));
     value = input_text.substr(equal_posn + 1, std::string::npos);
 
-    // Check if block/parameter exists in map for warning messages
-    auto block_it = param_map_.find(block);
-    if (block_it == param_map_.end()) {
+    // Check if block/parameter exists for warning messages
+    Block *pb = FindBlock_(block);
+    if (pb == nullptr) {
       if (Globals::my_rank == 0) {
         msg << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
             << "               Block name '" << block
             << "' on command line not found in input/restart file. Block will be added.";
         PARTHENON_WARN(msg);
       }
-    } else {
-      auto param_it = block_it->second.find(name);
-      if (param_it == block_it->second.end()) {
-        if (Globals::my_rank == 0) {
-          msg << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
-              << "               Parameter '" << name << "' in block '" << block
-              << "' on command line not found in input/restart file. Parameter will be "
-                 "added.";
-          PARTHENON_WARN(msg);
-        }
+    } else if (FindParameter_(block, name) == nullptr) {
+      if (Globals::my_rank == 0) {
+        msg << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
+            << "               Parameter '" << name << "' in block '" << block
+            << "' on command line not found in input/restart file. Parameter will be "
+               "added.";
+        PARTHENON_WARN(msg);
       }
     }
 
@@ -467,70 +379,39 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
   }
 }
 
-//----------------------------------------------------------------------------------------
-//! \fn InputBlock* ParameterInput::GetPtrToBlock(const std::string & name)
-//  \brief return pointer to specified InputBlock if it exists
-
-InputBlock *ParameterInput::GetPtrToBlock(const std::string &name) {
-  InputBlock *pb;
-  for (pb = pfirst_block; pb != nullptr; pb = pb->pnext) {
-    if (name.compare(pb->block_name) == 0) return pb;
-  }
-  return nullptr;
-}
 
 //----------------------------------------------------------------------------------------
-//! \fn int ParameterInput::DoesParameterExist(const std::string & block, const
+//! \fn bool ParameterInput::DoesParameterExist(const std::string & block, const
 //! std::string & name)
 //  \brief check whether parameter of given name in given block exists
 
-int ParameterInput::DoesParameterExist(const std::string &block,
-                                       const std::string &name) {
+bool ParameterInput::DoesParameterExist(const std::string &block,
+                                        const std::string &name) {
   MarkResolved();
-
-  auto block_it = param_map_.find(block);
-  if (block_it == param_map_.end()) return 0;
-
-  auto param_it = block_it->second.find(name);
-  return (param_it != block_it->second.end()) ? 1 : 0;
+  return FindParameter_(block, name) != nullptr;
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn int ParameterInput::DoesBlockExist(const std::string & block)
+//! \fn bool ParameterInput::DoesBlockExist(const std::string & block)
 //  \brief check whether block exists
 
-int ParameterInput::DoesBlockExist(const std::string &block) {
+bool ParameterInput::DoesBlockExist(const std::string &block) {
   MarkResolved();
-
-  auto block_it = param_map_.find(block);
-  return (block_it != param_map_.end()) ? 1 : 0;
+  return FindBlock_(block) != nullptr;
 }
 
 std::string ParameterInput::GetComment(const std::string &block,
                                        const std::string &name) {
-  InputBlock *pb;
-  InputLine *pl;
   std::stringstream msg;
 
-  // get pointer to node with same block name in singly linked list of InputBlocks
-  pb = GetPtrToBlock(block);
-  if (pb == nullptr) {
+  const Parameter *param = FindParameter_(block, name);
+  if (param == nullptr) {
     msg << "### FATAL ERROR in function [ParameterInput::GetComment]" << std::endl
-        << "Block name '" << block << "' not found when trying to set value "
-        << "for parameter '" << name << "'";
+        << "Parameter '" << name << "' not found in block '" << block << "'";
     PARTHENON_FAIL(msg);
   }
 
-  // get pointer to node with same parameter name in singly linked list of InputLines
-  pl = pb->GetPtrToLine(name);
-  if (pl == nullptr) {
-    msg << "### FATAL ERROR in function [ParameterInput::GetComment]" << std::endl
-        << "Parameter name '" << name << "' not found in block '" << block << "'";
-    PARTHENON_FAIL(msg);
-  }
-
-  std::string val = pl->param_comment;
-  return val;
+  return param->comment;
 }
 
 //----------------------------------------------------------------------------------------
@@ -713,29 +594,12 @@ std::string ParameterInput::SetString(const std::string &block, const std::strin
 }
 
 void ParameterInput::RemoveParameter(const std::string &block, const std::string &name) {
-  // Remove from map (source of truth)
-  auto block_it = param_map_.find(block);
-  if (block_it != param_map_.end()) {
-    block_it->second.erase(name);
-  }
-
-  // Remove from linked list (for output)
-  InputBlock *pb = GetPtrToBlock(block);
+  // Remove from storage
+  Block *pb = FindBlock_(block);
   if (pb != nullptr) {
-    InputLine *plast = pb->pline;
-    for (InputLine *pl = pb->pline; pl != nullptr; pl = pl->pnext) {
-      if (name.compare(pl->param_name) == 0) {
-        // if head of list
-        if (plast == pb->pline) {
-          pb->pline = pl->pnext;
-        } else {
-          plast->pnext = pl->pnext;
-        }
-        delete pl;
-        break;
-      }
-      plast = pl;
-    }
+    auto it = std::remove_if(pb->params.begin(), pb->params.end(),
+                             [&name](const Parameter &p) { return p.name == name; });
+    pb->params.erase(it, pb->params.end());
   }
 
   // Remove from query records
@@ -772,18 +636,18 @@ void ParameterInput::CheckDesired(const std::string &block, const std::string &n
               << std::endl;
   }
   if (defaulted) {
-    auto *pvalue = FindParameter_(block, name);
+    auto *param = FindParameter_(block, name);
     std::cout << std::endl
               << "Defaulting to <" << block << ">/" << name << " = "
-              << ParamValueToString(*pvalue) << std::endl;
+              << ParamValueToString(param->value) << std::endl;
   }
 }
 
 void ParameterInput::CheckOrphans() const {
   std::set<std::pair<std::string, std::string>> orphans;
-  for (InputBlock *pib = pfirst_block; pib != nullptr; pib = pib->pnext) {
-    for (InputLine *pline = pib->pline; pline != nullptr; pline = pline->pnext) {
-      auto key = std::make_pair(pib->block_name, pline->param_name);
+  for (const auto &block : param_storage_) {
+    for (const auto &param : block.params) {
+      auto key = std::make_pair(block.name, param.name);
       if (queries_.count(key) == 0) {
         orphans.insert(key);
       }
@@ -800,28 +664,34 @@ void ParameterInput::CheckOrphans() const {
 
 //----------------------------------------------------------------------------------------
 //! \fn void ParameterInput::ParameterDump(std::ostream& os)
-//  \brief output entire InputBlock/InputLine hierarchy to specified stream
+//  \brief output entire parameter storage to specified stream
 
 void ParameterInput::ParameterDump(std::ostream &os) {
-  InputBlock *pb;
-  InputLine *pl;
-  std::string param_name, param_value;
-  std::size_t len;
-
   os << "#------------------------- PAR_DUMP -------------------------" << std::endl;
 
-  for (pb = pfirst_block; pb != nullptr; pb = pb->pnext) { // loop over InputBlocks
-    os << "<" << pb->block_name << ">" << std::endl;       // write block name
-    for (pl = pb->pline; pl != nullptr; pl = pl->pnext) {  // loop over InputLines
-      param_name.assign(pl->param_name);
-      param_value.assign(pl->param_value);
+  for (const auto &block : param_storage_) {
+    os << "<" << block.name << ">" << std::endl;
 
-      len = pb->max_len_parname - param_name.length() + 1;
+    // Find max lengths for alignment
+    std::size_t max_len_name = 0;
+    std::size_t max_len_value = 0;
+    for (const auto &param : block.params) {
+      std::string value_str = ParamValueToString(param.value);
+      max_len_name = std::max(max_len_name, param.name.length());
+      max_len_value = std::max(max_len_value, value_str.length());
+    }
+
+    // Output parameters with alignment
+    for (const auto &param : block.params) {
+      std::string param_name = param.name;
+      std::string param_value = ParamValueToString(param.value);
+
+      std::size_t len = max_len_name - param_name.length() + 1;
       param_name.append(len, ' '); // pad name to align vertically
-      len = pb->max_len_parvalue - param_value.length() + 1;
+      len = max_len_value - param_value.length() + 1;
       param_value.append(len, ' '); // pad value to align vertically
 
-      os << param_name << "= " << param_value << pl->param_comment << std::endl;
+      os << param_name << "= " << param_value << param.comment << std::endl;
     }
   }
 
@@ -833,12 +703,12 @@ void ParameterInput::OutputParameterTable(std::ostream &os,
                                           const std::regex &block_regex) const {
   // Loop through once and store in a map for lexicographic ordering
   std::map<std::string, std::map<std::string, std::string>> csvblocks;
-  for (InputBlock *pb = pfirst_block; pb != nullptr; pb = pb->pnext) {
-    const std::string &block_name = pb->block_name;
+  for (const auto &block : param_storage_) {
+    const std::string &block_name = block.name;
     if (std::regex_match(block_name, block_regex)) {
       auto &csvlines = csvblocks[block_name];
-      for (InputLine *pl = pb->pline; pl != nullptr; pl = pl->pnext) {
-        const std::string &param_name = pl->param_name;
+      for (const auto &param : block.params) {
+        const std::string &param_name = param.name;
         auto record_key = std::make_pair(block_name, param_name);
         /* clang-format off */
         // This ensures the code doesn't crash for orphan parameters
@@ -893,16 +763,6 @@ void ParameterInput::OutputParameterTable(std::ostream &os,
   }
 }
 
-//----------------------------------------------------------------------------------------
-//! \fn InputLine* InputBlock::GetPtrToLine(std::string name)
-//  \brief return pointer to InputLine containing specified parameter if it exists
-
-InputLine *InputBlock::GetPtrToLine(std::string name) {
-  for (InputLine *pl = pline; pl != nullptr; pl = pl->pnext) {
-    if (name.compare(pl->param_name) == 0) return pl;
-  }
-  return nullptr;
-}
 
 //----------------------------------------------------------------------------------------
 //! \fn std::string ParameterInput::ParamValueToString()
@@ -955,51 +815,45 @@ std::string ParameterInput::ParamValueToString(const ParamValue &value) {
 //----------------------------------------------------------------------------------------
 //! \fn void ParameterInput::AddParsedParameter()
 //  \brief Generic interface for parsers to add parameters to storage
-//  Can be called by any parser (text, Python, TOML, etc.) to populate param_map_
+//  Can be called by any parser (text, Python, TOML, etc.) to populate param_storage_
 
 void ParameterInput::AddParsedParameter(const std::string &block, const std::string &name,
                                         const ParamValue &value,
                                         const std::string &comment) {
-  PARTHENON_REQUIRE(!map_resolved_,
-                    "Cannot add parameters after MarkResolved() has been called");
+  // Find or add the block
+  Block *pb = FindOrAddBlock_(block);
 
-  // Track block insertion order (first appearance only)
-  if (param_map_.find(block) == param_map_.end()) {
-    block_order_.push_back(block);
+  // Search for existing parameter
+  for (auto &param : pb->params) {
+    if (param.name == name) {
+      // Parameter exists - update value and comment
+      param.value = value;
+      param.comment = comment;
+      return;
+    }
   }
 
-  // Add to param_map_ (source of truth)
-  param_map_[block][name] = value;
-
-  // Also update linked list for output compatibility
-  auto *pb = FindOrAddBlock(block);
-  AddParameter(pb, name, ParamValueToString(value), comment);
+  // Parameter doesn't exist - add new one
+  pb->params.push_back(Parameter{name, comment, value});
 }
 
 //----------------------------------------------------------------------------------------
 //! \fn void ParameterInput::MarkResolved()
 //  \brief Mark that all parsing is complete - no more parameters can be added
 
-void ParameterInput::MarkResolved() { map_resolved_ = true; }
-
-//----------------------------------------------------------------------------------------
-//! \fn void ParameterInput::ResolveParametersToMap()
-//  \brief Convert linked list structure to map for efficient access
-
-void ParameterInput::ResolveParametersToMap() {
-  // This function is now deprecated - the map is populated during parsing
-  // via AddParsedParameter() calls from LoadFromStream() and ModifyFromCmdline().
-  // Just mark as resolved.
-  MarkResolved();
-}
+void ParameterInput::MarkResolved() { parsing_resolved_ = true; }
 
 //----------------------------------------------------------------------------------------
 //! \fn std::vector<std::string> ParameterInput::GetBlockNames()
 //  \brief Return all block names in the input
 
 std::vector<std::string> ParameterInput::GetBlockNames() const {
-  // Use block_order_ to preserve insertion order
-  return block_order_;
+  std::vector<std::string> names;
+  names.reserve(param_storage_.size());
+  for (const auto &block : param_storage_) {
+    names.push_back(block.name);
+  }
+  return names;
 }
 
 //----------------------------------------------------------------------------------------
@@ -1010,10 +864,9 @@ std::vector<std::string>
 ParameterInput::GetBlocksWithPrefix(const std::string &prefix) const {
   std::vector<std::string> matching_blocks;
 
-  // Use block_order_ to preserve insertion order
-  for (const auto &block_name : block_order_) {
-    if (block_name.compare(0, prefix.length(), prefix) == 0) {
-      matching_blocks.push_back(block_name);
+  for (const auto &block : param_storage_) {
+    if (block.name.compare(0, prefix.length(), prefix) == 0) {
+      matching_blocks.push_back(block.name);
     }
   }
 
@@ -1028,14 +881,11 @@ std::vector<std::string>
 ParameterInput::GetParameterNames(const std::string &block) const {
   std::vector<std::string> param_names;
 
-  // Query the map for parameter names
-  // NOTE: BREAKING CHANGE - Parameters are now returned in lexicographic order
-  // (from std::map), not insertion order. Block order is preserved via block_order_,
-  // but parameter order within blocks is not tracked.
-  auto block_it = param_map_.find(block);
-  if (block_it != param_map_.end()) {
-    for (const auto &[param_name, param_value] : block_it->second) {
-      param_names.push_back(param_name);
+  const Block *pb = FindBlock_(block);
+  if (pb != nullptr) {
+    param_names.reserve(pb->params.size());
+    for (const auto &param : pb->params) {
+      param_names.push_back(param.name);
     }
   }
 
@@ -1043,52 +893,60 @@ ParameterInput::GetParameterNames(const std::string &block) const {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn ParamValue* ParameterInput::FindParameter_()
-//  \brief Helper to find a parameter in the map, returns pointer for in-place
-//  modification
+//! \fn Parameter* ParameterInput::FindParameter_()
+//  \brief Helper to find a parameter in storage
 
-ParameterInput::ParamValue *ParameterInput::FindParameter_(const std::string &block,
-                                                           const std::string &name) {
-  MarkResolved();
-  auto block_it = param_map_.find(block);
-  if (block_it != param_map_.end()) {
-    auto param_it = block_it->second.find(name);
-    if (param_it != block_it->second.end()) {
-      return &(param_it->second);
-    }
+Parameter *ParameterInput::FindParameter_(const std::string &block,
+                                         const std::string &name) {
+  Block *pb = FindBlock_(block);
+  if (pb == nullptr) return nullptr;
+
+  for (auto &param : pb->params) {
+    if (param.name == name) return &param;
+  }
+  return nullptr;
+}
+
+const Parameter *ParameterInput::FindParameter_(const std::string &block,
+                                               const std::string &name) const {
+  const Block *pb = FindBlock_(block);
+  if (pb == nullptr) return nullptr;
+
+  for (const auto &param : pb->params) {
+    if (param.name == name) return &param;
   }
   return nullptr;
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn template <typename T> std::optional<T> ParameterInput::GetFromMap_()
-//  \brief Helper to get a typed parameter from map with caching
-//  Returns nullopt if not in map, throws on type mismatch
+//! \fn template <typename T> std::optional<T> ParameterInput::GetFromStorage_()
+//  \brief Helper to get a typed parameter from storage with caching
+//  Returns nullopt if not in storage, throws on type mismatch
 
 template <typename T>
-std::optional<T> ParameterInput::GetFromMap_(const std::string &block,
-                                             const std::string &name) {
+std::optional<T> ParameterInput::GetFromStorage_(const std::string &block,
+                                                 const std::string &name) {
   MarkResolved();
-  ParamValue *pvalue = FindParameter_(block, name);
-  if (pvalue == nullptr) {
-    return std::nullopt; // Not in map, caller should try linked list
+  Parameter *param = FindParameter_(block, name);
+  if (param == nullptr) {
+    return std::nullopt; // Not in storage
   }
 
   // If it's an UnresolvedString, convert and cache
-  if (std::holds_alternative<UnresolvedString>(*pvalue)) {
-    T typed_val = ConvertParamValue<T>(*pvalue, block, name);
-    *pvalue = typed_val; // Cache the typed value in the variant
+  if (std::holds_alternative<UnresolvedString>(param->value)) {
+    T typed_val = ConvertParamValue<T>(param->value, block, name);
+    param->value = typed_val; // Cache the typed value in the variant
     return typed_val;
   }
 
   // If it's already the correct type, return it
-  if (std::holds_alternative<T>(*pvalue)) {
-    return std::get<T>(*pvalue);
+  if (std::holds_alternative<T>(param->value)) {
+    return std::get<T>(param->value);
   }
 
   // Type mismatch - was previously resolved as a different type
   std::stringstream msg;
-  msg << "### FATAL ERROR in ParameterInput::GetFromMap_" << std::endl
+  msg << "### FATAL ERROR in ParameterInput::GetFromStorage_" << std::endl
       << "Parameter '" << name << "' in block '" << block
       << "' was previously accessed as a different type" << std::endl;
   PARTHENON_FAIL(msg);
@@ -1196,23 +1054,23 @@ ParameterInput::ConvertParamValue<std::vector<std::string>>(const ParamValue &,
                                                             const std::string &,
                                                             const std::string &);
 
-// Explicit instantiations for GetFromMap_
-template std::optional<int> ParameterInput::GetFromMap_<int>(const std::string &,
+// Explicit instantiations for GetFromStorage_
+template std::optional<int> ParameterInput::GetFromStorage_<int>(const std::string &,
                                                              const std::string &);
-template std::optional<Real> ParameterInput::GetFromMap_<Real>(const std::string &,
+template std::optional<Real> ParameterInput::GetFromStorage_<Real>(const std::string &,
                                                                const std::string &);
-template std::optional<bool> ParameterInput::GetFromMap_<bool>(const std::string &,
+template std::optional<bool> ParameterInput::GetFromStorage_<bool>(const std::string &,
                                                                const std::string &);
 template std::optional<std::string>
-ParameterInput::GetFromMap_<std::string>(const std::string &, const std::string &);
+ParameterInput::GetFromStorage_<std::string>(const std::string &, const std::string &);
 template std::optional<std::vector<int>>
-ParameterInput::GetFromMap_<std::vector<int>>(const std::string &, const std::string &);
+ParameterInput::GetFromStorage_<std::vector<int>>(const std::string &, const std::string &);
 template std::optional<std::vector<Real>>
-ParameterInput::GetFromMap_<std::vector<Real>>(const std::string &, const std::string &);
+ParameterInput::GetFromStorage_<std::vector<Real>>(const std::string &, const std::string &);
 template std::optional<std::vector<bool>>
-ParameterInput::GetFromMap_<std::vector<bool>>(const std::string &, const std::string &);
+ParameterInput::GetFromStorage_<std::vector<bool>>(const std::string &, const std::string &);
 template std::optional<std::vector<std::string>>
-ParameterInput::GetFromMap_<std::vector<std::string>>(const std::string &,
+ParameterInput::GetFromStorage_<std::vector<std::string>>(const std::string &,
                                                       const std::string &);
 
 } // namespace parthenon

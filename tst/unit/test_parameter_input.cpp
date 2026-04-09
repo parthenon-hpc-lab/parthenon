@@ -201,7 +201,7 @@ TEST_CASE("Test deleting parameters from ParameterInput", "[ParameterInput]") {
 }
 
 // Phase 1 Tests: Map Resolution and Block Prefix Queries
-TEST_CASE("ResolveParametersToMap populates internal map correctly",
+TEST_CASE("MarkResolved populates internal map correctly",
           "[ParameterInput][Phase1]") {
   GIVEN("A ParameterInput with multiple blocks and parameters") {
     ParameterInput in;
@@ -217,8 +217,8 @@ TEST_CASE("ResolveParametersToMap populates internal map correctly",
     std::istringstream s(ss.str());
     in.LoadFromStream(s);
 
-    WHEN("ResolveParametersToMap is called") {
-      in.ResolveParametersToMap();
+    WHEN("MarkResolved is called") {
+      in.MarkResolved();
 
       THEN("All parameters remain accessible via Get methods") {
         REQUIRE(in.GetInteger("block1", "int_param") == 42);
@@ -277,7 +277,7 @@ TEST_CASE("Phase 1 type safety: wrong type access behavior", "[ParameterInput][P
 
     std::istringstream s(ss.str());
     in.LoadFromStream(s);
-    in.ResolveParametersToMap();
+    in.MarkResolved();
 
     WHEN("We try to read a non-numeric string as a number") {
       THEN("GetInteger should fail during conversion") {
