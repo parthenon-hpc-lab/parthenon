@@ -11,30 +11,3 @@
 # license in this material to reproduce, prepare derivative works, distribute copies to
 # the public, perform publicly and display publicly, and to permit others to do so.
 # =========================================================================================
-# This file was made in part with generative AI.
-
-from .input_generator import InputFile, Block
-
-
-def mpi_print(*args, **kwargs):
-    """Print only from MPI rank 0.
-
-    Behaves exactly like built-in print(), but only outputs from rank 0.
-    Useful in Python input files to avoid duplicated output.
-
-    Example:
-        from parthenon_tools import mpi_print
-        mpi_print(f"Configured {ndim}D problem with resolution {nx}")
-    """
-    try:
-        import parthenon
-
-        if parthenon.my_rank == 0:
-            print(*args, **kwargs)
-    except (ImportError, AttributeError):
-        # If parthenon module not available or my_rank not set, just print
-        # (e.g., when running outside of embedded context)
-        print(*args, **kwargs)
-
-
-__all__ = ["InputFile", "Block", "mpi_print"]

@@ -31,12 +31,6 @@
 
 #include <Kokkos_Core.hpp>
 
-#ifdef PARTHENON_ENABLE_PYTHON_BINDINGS
-#include <pybind11/embed.h>
-#include <pybind11/pybind11.h>
-namespace py = pybind11;
-#endif
-
 #include "amr_criteria/amr_criteria.hpp"
 #include "amr_criteria/refinement_package.hpp"
 #include "config.hpp"
@@ -54,66 +48,6 @@ namespace py = pybind11;
 namespace fs = FS_NAMESPACE;
 
 namespace parthenon {
-
-#ifdef PARTHENON_ENABLE_PYTHON_BINDINGS
-// Helper function to load ParameterInput from Python script
-std::unique_ptr<ParameterInput> LoadParameterInputFromPython(const char *python_filename,
-                                                             int argc, char *argv[]) {
-  // Create ParameterInput in C++ - we own this
-  auto pinput = std::make_unique<ParameterInput>();
-
-  // Start Python interpreter
-  py::scoped_interpreter guard{};
-
-  try {
-    // Import the parthenon module to make ParameterInput bindings available
-    // The parthenon.so module must be in PYTHONPATH
-    py::module_::import("parthenon");
-
-    // Build sys.argv for the Python script
-    // Include the script name and all command line arguments after "-i script.py"
-    // This allows Python scripts to use argparse to parse their own arguments
-    py::list py_argv;
-    py_argv.append(python_filename);
-
-    // Find where the input file appears in argv and include everything after it
-    bool found_input_file = false;
-    for (int i = 1; i < argc; i++) {
-      if (found_input_file) {
-        py_argv.append(argv[i]);
-      } else if (std::string(argv[i]) == "-i" && i + 1 < argc) {
-        // Skip -i and the filename, start collecting args after
-        i++; // Skip the filename
-        found_input_file = true;
-      }
-    }
-
-    // Set sys.argv for the Python script
-    py::module_::import("sys").attr("argv") = py_argv;
-
-    // Inject the ParameterInput into Python's global namespace
-    // The Python script can retrieve it via parthenon.get_parameter_input()
-    py::globals()["__parthenon_pi__"] =
-        py::cast(pinput.get(), py::return_value_policy::reference);
-
-    // Execute the Python script
-    // The script can now:
-    //   1. Use argparse.parse_known_args() to parse Python-style flags (e.g., --nx=32)
-    //   2. Retrieve ParameterInput via parthenon.get_parameter_input()
-    //   3. Configure parameters programmatically
-    // After this returns, C++ will apply Parthenon-style overrides (block/param=value)
-    // via ModifyFromCmdline(), which ignores Python-style flags
-    py::eval_file(python_filename, py::globals());
-  } catch (py::error_already_set &e) {
-    std::stringstream msg;
-    msg << "### FATAL ERROR loading Python input file: " << python_filename << std::endl
-        << e.what() << std::endl;
-    PARTHENON_FAIL(msg);
-  }
-
-  return pinput;
-}
-#endif
 
 ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   if (called_init_env_) {
@@ -187,36 +121,16 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   }
   // If an input file was provided
   if (arg.input_filename != nullptr) {
-    // Check if it's a Python input file
-    std::string filename_str(arg.input_filename);
-    bool is_python_input = (filename_str.size() >= 3 &&
-                            filename_str.substr(filename_str.size() - 3) == ".py");
+    // Modify info read from restart file
+    if (arg.is_restart) {
+      IOWrapper infile;
+      infile.Open(arg.input_filename, IOWrapper::FileMode::read);
+      pinput->LoadFromFile(infile);
+      infile.Close();
 
-#ifdef PARTHENON_ENABLE_PYTHON_BINDINGS
-    if (is_python_input) {
-      if (arg.is_restart) {
-        PARTHENON_FAIL("Python input files cannot be used with restart");
-      }
-      pinput = LoadParameterInputFromPython(arg.input_filename, argc, argv);
+      // Populate new object for fresh simulation
     } else {
-#else
-    if (is_python_input) {
-      PARTHENON_FAIL("Python input file detected but Parthenon was not built with "
-                     "-DPARTHENON_ENABLE_PYTHON_BINDINGS=ON");
-    } else {
-#endif
-      // Standard .pin file handling
-      // Modify info read from restart file
-      if (arg.is_restart) {
-        IOWrapper infile;
-        infile.Open(arg.input_filename, IOWrapper::FileMode::read);
-        pinput->LoadFromFile(infile);
-        infile.Close();
-
-        // Populate new object for fresh simulation
-      } else {
-        pinput = std::make_unique<ParameterInput>(arg.input_filename);
-      }
+      pinput = std::make_unique<ParameterInput>(arg.input_filename);
     }
   }
 
