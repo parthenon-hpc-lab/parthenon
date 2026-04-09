@@ -132,13 +132,15 @@ class SwarmPack : public SwarmPackBase<TYPE> {
     return bounds_(1, b, idx.VariableIdx());
   }
 
-  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <class TIn>
+    requires(IncludesType<TIn, Ts...>::value)
   KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, const TIn &) const {
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_(0, b, vidx);
   }
 
-  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <class TIn>
+    requires(IncludesType<TIn, Ts...>::value)
   KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b, const TIn &) const {
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_(1, b, vidx);
@@ -153,7 +155,8 @@ class SwarmPack : public SwarmPackBase<TYPE> {
     return pack_(0, b, idx)(n);
   }
 
-  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <class TIn>
+    requires(IncludesType<TIn, Ts...>::value)
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TIn &t, const int n) const {
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(0, b, vidx)(n);
