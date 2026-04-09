@@ -103,7 +103,6 @@ std::unique_ptr<ParameterInput> LoadParameterInputFromPython(const char *python_
     // After this returns, C++ will apply Parthenon-style overrides (block/param=value)
     // via ModifyFromCmdline(), which ignores Python-style flags
     py::eval_file(python_filename, py::globals());
-
   } catch (py::error_already_set &e) {
     std::stringstream msg;
     msg << "### FATAL ERROR loading Python input file: " << python_filename << std::endl
@@ -198,14 +197,13 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
         PARTHENON_FAIL("Python input files cannot be used with restart");
       }
       pinput = LoadParameterInputFromPython(arg.input_filename, argc, argv);
-    } else
+    } else {
 #else
     if (is_python_input) {
       PARTHENON_FAIL("Python input file detected but Parthenon was not built with "
                      "-DPARTHENON_ENABLE_PYTHON_BINDINGS=ON");
-    } else
+    } else {
 #endif
-    {
       // Standard .pin file handling
       // Modify info read from restart file
       if (arg.is_restart) {

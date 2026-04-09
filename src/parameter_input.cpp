@@ -1128,6 +1128,11 @@ T ParameterInput::ConvertParamValue(const ParamValue &value, const std::string &
   if (std::holds_alternative<UnresolvedString>(value)) {
     const std::string &str_val = std::get<UnresolvedString>(value).value;
 
+    constexpr bool is_vector_type = std::is_same_v<T, std::vector<int>> ||
+                                    std::is_same_v<T, std::vector<Real>> ||
+                                    std::is_same_v<T, std::vector<bool>> ||
+                                    std::is_same_v<T, std::vector<std::string>>;
+
     if constexpr (std::is_same_v<T, int>) {
       return stoi(str_val);
     } else if constexpr (std::is_same_v<T, Real>) {
@@ -1136,10 +1141,7 @@ T ParameterInput::ConvertParamValue(const ParamValue &value, const std::string &
       return stob(str_val);
     } else if constexpr (std::is_same_v<T, std::string>) {
       return str_val;
-    } else if constexpr (std::is_same_v<T, std::vector<int>> ||
-                         std::is_same_v<T, std::vector<Real>> ||
-                         std::is_same_v<T, std::vector<bool>> ||
-                         std::is_same_v<T, std::vector<std::string>>) {
+    } else if constexpr (is_vector_type) {
       using ElemType = typename T::value_type;
       std::vector<std::string> fields = SplitCommaSeparated(str_val);
       T result;
