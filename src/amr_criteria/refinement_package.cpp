@@ -44,8 +44,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
         block_name, "method",
         std::vector<std::string>{"derivative_order_1", "derivative_order_2", "magnitude"},
         "method to use to check for refinement");
-    ref->amr_criteria.push_back(
-        AMRCriteria::MakeAMRCriteria(method, pin, block_name));
+    ref->amr_criteria.push_back(AMRCriteria::MakeAMRCriteria(method, pin, block_name));
   }
   return ref;
 }

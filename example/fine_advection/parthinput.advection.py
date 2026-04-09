@@ -36,17 +36,21 @@ pi = parthenon.get_parameter_input()
 # Parse Python-style arguments (e.g., --nx=128 --ndim=3)
 # Use parse_known_args() to ignore Parthenon-style overrides (block/param=value)
 # which will be processed by C++ after this script runs
-parser = argparse.ArgumentParser(description='Fine advection example')
-parser.add_argument('--ndim', type=int, default=2,
-                    help='Number of dimensions (1, 2, or 3)')
-parser.add_argument('--nx', type=int, default=64,
-                    help='Base mesh resolution (in active dimensions)')
-parser.add_argument('--meshblock-size', type=int, default=16,
-                    help='Meshblock size (in active dimensions)')
-parser.add_argument('--num-levels', type=int, default=3,
-                    help='Number of AMR levels')
-parser.add_argument('--cfl', type=float, default=0.45,
-                    help='CFL number')
+parser = argparse.ArgumentParser(description="Fine advection example")
+parser.add_argument(
+    "--ndim", type=int, default=2, help="Number of dimensions (1, 2, or 3)"
+)
+parser.add_argument(
+    "--nx", type=int, default=64, help="Base mesh resolution (in active dimensions)"
+)
+parser.add_argument(
+    "--meshblock-size",
+    type=int,
+    default=16,
+    help="Meshblock size (in active dimensions)",
+)
+parser.add_argument("--num-levels", type=int, default=3, help="Number of AMR levels")
+parser.add_argument("--cfl", type=float, default=0.45, help="CFL number")
 args, unknown = parser.parse_known_args()
 
 # ======================================================================================
@@ -59,23 +63,22 @@ num_amr_levels = args.num_levels
 cfl = args.cfl
 
 # Fixed parameters
-domain_min = -0.5         # Domain bounds
+domain_min = -0.5  # Domain bounds
 domain_max = 0.5
-velocity = 1.0            # Advection velocity (in active dimensions)
-refine_tol = 0.3          # AMR refinement tolerance
-output_dt = 0.05          # Output cadence
+velocity = 1.0  # Advection velocity (in active dimensions)
+refine_tol = 0.3  # AMR refinement tolerance
+output_dt = 0.05  # Output cadence
 
 # ======================================================================================
 # BUILD CONFIGURATION (automatic based on ndim)
 # ======================================================================================
 inp = InputFile()
 
-inp.block("parthenon/job",
-    problem_id="advection"
-)
+inp.block("parthenon/job", problem_id="advection")
 
 # Mesh configuration - automatically set dimensions based on ndim
-inp.block("parthenon/mesh",
+inp.block(
+    "parthenon/mesh",
     refinement="adaptive",
     numlevel=num_amr_levels,
     # Dimension 1 (always active)
@@ -95,25 +98,22 @@ inp.block("parthenon/mesh",
     x3min=domain_min,
     x3max=domain_max,
     ix3_bc="periodic",
-    ox3_bc="periodic"
+    ox3_bc="periodic",
 )
 
 # Meshblock configuration - automatically sized based on ndim
-inp.block("parthenon/meshblock",
+inp.block(
+    "parthenon/meshblock",
     nx1=meshblock_size,
     nx2=meshblock_size if ndim >= 2 else 1,
-    nx3=meshblock_size if ndim >= 3 else 1
+    nx3=meshblock_size if ndim >= 3 else 1,
 )
 
-inp.block("parthenon/time",
-    nlim=-1,
-    tlim=1.0,
-    integrator="rk2",
-    ncycle_out_mesh=-10000
-)
+inp.block("parthenon/time", nlim=-1, tlim=1.0, integrator="rk2", ncycle_out_mesh=-10000)
 
 # Advection parameters - velocities set based on ndim
-inp.block("Advection",
+inp.block(
+    "Advection",
     cfl=cfl,
     vx=velocity,
     vy=velocity if ndim >= 2 else 0.0,
@@ -125,20 +125,18 @@ inp.block("Advection",
     # Feature flags
     do_regular_advection=True,
     do_fine_advection=True,
-    do_CT_advection=True
+    do_CT_advection=True,
 )
 
 # Restart output
-inp.block("parthenon/output1",
-    file_type="rst",
-    dt=output_dt
-)
+inp.block("parthenon/output1", file_type="rst", dt=output_dt)
 
 # HDF5 output
-inp.block("parthenon/output0",
+inp.block(
+    "parthenon/output0",
     file_type="hdf5",
     dt=output_dt,
-    variables=["advection.scalar", "advection.scalar_fine_restricted"]
+    variables=["advection.scalar", "advection.scalar_fine_restricted"],
 )
 
 # Transfer all configuration to C++ ParameterInput

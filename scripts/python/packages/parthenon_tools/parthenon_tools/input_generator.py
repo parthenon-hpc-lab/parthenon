@@ -217,7 +217,9 @@ class InputFile:
 
         return pi
 
-    def _add_typed_parameter(self, pi, block_name: str, param_name: str, value: Any, is_typed: bool = True):
+    def _add_typed_parameter(
+        self, pi, block_name: str, param_name: str, value: Any, is_typed: bool = True
+    ):
         """
         Dispatch to appropriate AddParsedParameter method based on parameter type and origin.
 
@@ -246,7 +248,9 @@ class InputFile:
         elif isinstance(value, (list, tuple)):
             # Dispatch vector based on element type
             if len(value) == 0:
-                raise ValueError(f"Cannot infer type of empty list for {block_name}/{param_name}")
+                raise ValueError(
+                    f"Cannot infer type of empty list for {block_name}/{param_name}"
+                )
             first = value[0]
             if isinstance(first, bool):
                 pi.add_bool_vector(block_name, param_name, list(value))
@@ -295,7 +299,9 @@ class InputFile:
             f.write(str(self))
 
     @staticmethod
-    def from_dict(config: Dict[str, Dict[str, Any]], header: Optional[str] = None) -> "InputFile":
+    def from_dict(
+        config: Dict[str, Dict[str, Any]], header: Optional[str] = None
+    ) -> "InputFile":
         """
         Create an InputFile from a nested dictionary.
 
@@ -345,23 +351,23 @@ class InputFile:
         inp = InputFile()
         current_block = None
 
-        with open(filename, 'r') as f:
+        with open(filename, "r") as f:
             for line in f:
                 # Strip whitespace and comments
-                line = line.split('#')[0].strip()
+                line = line.split("#")[0].strip()
                 if not line:
                     continue
 
                 # Check for block header
-                if line.startswith('<') and line.endswith('>'):
+                if line.startswith("<") and line.endswith(">"):
                     block_name = line[1:-1]
                     current_block = Block(block_name)
                     inp.blocks.append(current_block)
                     continue
 
                 # Parse parameter line
-                if '=' in line and current_block is not None:
-                    key, value = line.split('=', 1)
+                if "=" in line and current_block is not None:
+                    key, value = line.split("=", 1)
                     key = key.strip()
                     value = value.strip()
                     # Store as unresolved string (lazy conversion)

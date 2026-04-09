@@ -110,7 +110,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   // `pinput` again here as we're actually processing (potentially even modifying)
   // `pinput`.
   auto output_blocks = pin->GetBlocksWithPrefix("parthenon/output");
-  for (const auto& block_name : output_blocks) {
+  for (const auto &block_name : output_blocks) {
     std::shared_ptr<OutputType> pnew_type; // the new output we will create
     bool restart = false;                  // we track restart outputs separately so we
                                            // need this temp variable to check

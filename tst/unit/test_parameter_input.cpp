@@ -201,7 +201,8 @@ TEST_CASE("Test deleting parameters from ParameterInput", "[ParameterInput]") {
 }
 
 // Phase 1 Tests: Map Resolution and Block Prefix Queries
-TEST_CASE("ResolveParametersToMap populates internal map correctly", "[ParameterInput][Phase1]") {
+TEST_CASE("ResolveParametersToMap populates internal map correctly",
+          "[ParameterInput][Phase1]") {
   GIVEN("A ParameterInput with multiple blocks and parameters") {
     ParameterInput in;
     std::stringstream ss;
@@ -224,7 +225,7 @@ TEST_CASE("ResolveParametersToMap populates internal map correctly", "[Parameter
         REQUIRE(in.GetReal("block1", "real_param") == Approx(3.14));
         REQUIRE(in.GetBoolean("block1", "bool_param") == true);
         REQUIRE(in.GetString("block1", "string_param") == "hello");
-        
+
         auto vec = in.GetVector<int>("block2", "vector_param");
         REQUIRE(vec.size() == 4);
         REQUIRE(vec[0] == 1);
@@ -234,7 +235,8 @@ TEST_CASE("ResolveParametersToMap populates internal map correctly", "[Parameter
   }
 }
 
-TEST_CASE("GetBlocksWithPrefix returns matching blocks only", "[ParameterInput][Phase1]") {
+TEST_CASE("GetBlocksWithPrefix returns matching blocks only",
+          "[ParameterInput][Phase1]") {
   GIVEN("A ParameterInput with blocks having different prefixes") {
     ParameterInput in;
     std::stringstream ss;
@@ -255,8 +257,10 @@ TEST_CASE("GetBlocksWithPrefix returns matching blocks only", "[ParameterInput][
 
       THEN("It returns only the output blocks") {
         REQUIRE(blocks.size() == 2);
-        REQUIRE(std::find(blocks.begin(), blocks.end(), "parthenon/output1") != blocks.end());
-        REQUIRE(std::find(blocks.begin(), blocks.end(), "parthenon/output2") != blocks.end());
+        REQUIRE(std::find(blocks.begin(), blocks.end(), "parthenon/output1") !=
+                blocks.end());
+        REQUIRE(std::find(blocks.begin(), blocks.end(), "parthenon/output2") !=
+                blocks.end());
       }
     }
   }

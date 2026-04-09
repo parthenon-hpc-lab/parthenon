@@ -28,16 +28,18 @@ print("Building parameter structure...")
 inp = InputFile()
 
 # Add blocks with initial parameters
-mesh = inp.block("parthenon/mesh",
-                 nx1=64,
-                 nx2=64,
-                 nx3=64,
-                 x1min=0.0,
-                 x1max=1.0,
-                 x2min=0.0,
-                 x2max=1.0,
-                 x3min=0.0,
-                 x3max=1.0)
+mesh = inp.block(
+    "parthenon/mesh",
+    nx1=64,
+    nx2=64,
+    nx3=64,
+    x1min=0.0,
+    x1max=1.0,
+    x2min=0.0,
+    x2max=1.0,
+    x3min=0.0,
+    x3max=1.0,
+)
 
 # Can modify parameters after creation
 print("Modifying mesh parameters...")
@@ -45,27 +47,21 @@ mesh.params["nx1"] = 128  # Change resolution
 mesh.params["nx2"] = 128
 mesh.params["nx3"] = 128
 
-time = inp.block("parthenon/time",
-                 tlim=1.0,
-                 nlim=100,
-                 integrator="rk2")
+time = inp.block("parthenon/time", tlim=1.0, nlim=100, integrator="rk2")
 
 # Multiple output blocks
-output1 = inp.block("parthenon/output1",
-                    file_type="hdf5",
-                    dt=0.1,
-                    variables=["cons"])
+output1 = inp.block("parthenon/output1", file_type="hdf5", dt=0.1, variables=["cons"])
 
-output2 = inp.block("parthenon/output2",
-                    file_type="hist",
-                    dt=0.01)
+output2 = inp.block("parthenon/output2", file_type="hist", dt=0.01)
 
 # Problem-specific parameters with various types
-problem = inp.block("problem",
-                    velocity=[1.0, 0.5, 0.0],  # vector
-                    periodic=True,              # bool
-                    num_modes=3,                # int
-                    amplitude=0.01)             # float
+problem = inp.block(
+    "problem",
+    velocity=[1.0, 0.5, 0.0],  # vector
+    periodic=True,  # bool
+    num_modes=3,  # int
+    amplitude=0.01,
+)  # float
 
 print("\nParameter structure built:")
 for block in inp.blocks:

@@ -57,7 +57,7 @@ namespace parthenon {
 #ifdef PARTHENON_ENABLE_PYTHON_BINDINGS
 // Helper function to load ParameterInput from Python script
 std::unique_ptr<ParameterInput> LoadParameterInputFromPython(const char *python_filename,
-                                                              int argc, char *argv[]) {
+                                                             int argc, char *argv[]) {
   // Create ParameterInput in C++ - we own this
   auto pinput = std::make_unique<ParameterInput>();
 
@@ -92,7 +92,8 @@ std::unique_ptr<ParameterInput> LoadParameterInputFromPython(const char *python_
 
     // Inject the ParameterInput into Python's global namespace
     // The Python script can retrieve it via parthenon.get_parameter_input()
-    py::globals()["__parthenon_pi__"] = py::cast(pinput.get(), py::return_value_policy::reference);
+    py::globals()["__parthenon_pi__"] =
+        py::cast(pinput.get(), py::return_value_policy::reference);
 
     // Execute the Python script
     // The script can now:
@@ -222,7 +223,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // Modify based on command line inputs
   pinput->ModifyFromCmdline(argc, argv);
-  
+
   // Phase 1: Resolve all parameters into efficient map structure
   // This must be called AFTER all parsing/modification is complete
   pinput->ResolveParametersToMap();

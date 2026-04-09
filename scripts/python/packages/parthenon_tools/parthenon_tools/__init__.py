@@ -27,6 +27,7 @@ def mpi_print(*args, **kwargs):
     """
     try:
         import parthenon
+
         if parthenon.my_rank == 0:
             print(*args, **kwargs)
     except (ImportError, AttributeError):

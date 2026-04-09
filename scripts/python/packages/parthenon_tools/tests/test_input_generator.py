@@ -21,20 +21,25 @@ PARTHENON_ENABLE_PYTHON_BINDINGS was not enabled during build.
 
 try:
     import pytest
+
     HAVE_PYTEST = True
 except ImportError:
     HAVE_PYTEST = False
+
     # Mock pytest.skip for running tests without pytest
     class pytest:
         @staticmethod
         def skip(msg):
             pass
+
         class mark:
             @staticmethod
             def skipif(condition, reason=""):
                 def decorator(func):
                     return func
+
                 return decorator
+
 
 from parthenon_tools import InputFile, Block
 
@@ -112,7 +117,7 @@ def test_from_dict():
     """Test creating InputFile from dictionary."""
     config = {
         "parthenon/mesh": {"nx1": 64, "nx2": 64},
-        "parthenon/time": {"tlim": 1.0, "nlim": 100}
+        "parthenon/time": {"tlim": 1.0, "nlim": 100},
     }
 
     inp = InputFile.from_dict(config)
@@ -127,15 +132,19 @@ def test_cpp_transfer():
     try:
         import parthenon
     except ImportError:
-        pytest.skip("Python bindings not available - build with -DPARTHENON_ENABLE_PYTHON_BINDINGS=ON")
+        pytest.skip(
+            "Python bindings not available - build with -DPARTHENON_ENABLE_PYTHON_BINDINGS=ON"
+        )
 
     inp = InputFile()
-    inp.block("test/block",
-              int_param=42,
-              real_param=3.14,
-              bool_param=True,
-              string_param="hello",
-              vector_param=[1, 2, 3])
+    inp.block(
+        "test/block",
+        int_param=42,
+        real_param=3.14,
+        bool_param=True,
+        string_param="hello",
+        vector_param=[1, 2, 3],
+    )
 
     pi = inp.to_parameter_input()
 

@@ -41,40 +41,40 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // add/initialize `Params` for further processing (so that they're available to be read
   // from restart files or are cleanly initialized).
   auto output_blocks = pin->GetBlocksWithPrefix("parthenon/output");
-  for (const auto& block_name : output_blocks) {
+  for (const auto &block_name : output_blocks) {
     std::string outn = block_name.substr(16); // 16 because counting starts at 0!
 
-      // These will be updated later or restarted from
-      int file_number = 0;
+    // These will be updated later or restarted from
+    int file_number = 0;
 
-      // JMM: Limits to indicate these haven't been set yet. The reason
-      // to set these to a "signal" number, rather than to start_time
-      // is that we want to ensure a first output is performed.
-      auto last_time = std::numeric_limits<Real>::lowest();
-      auto last_n = std::numeric_limits<int>::lowest();
+    // JMM: Limits to indicate these haven't been set yet. The reason
+    // to set these to a "signal" number, rather than to start_time
+    // is that we want to ensure a first output is performed.
+    auto last_time = std::numeric_limits<Real>::lowest();
+    auto last_n = std::numeric_limits<int>::lowest();
 
-      bool next_time_exists = pin->DoesParameterExist(block_name, "next_time");
-      bool next_n_exists = pin->DoesParameterExist(block_name, "next_n");
-      if (next_time_exists || next_n_exists) {
-        std::stringstream msg;
-        msg << "You have used the next_time or next_n parameter in the " << block_name
-            << " output block. This parameter is deprecated. Instead change"
-            << " the output cadence with dt or dn." << std::endl;
-        if (parthenon::Globals::is_restart) {
-          if (Globals::my_rank == 0) {
-            msg << "The parameters will automatically be updated internally and the "
-                   "warning should not be shown for subsequent "
-                   "restarts.\n";
-            PARTHENON_WARN(msg);
-          }
-        } else {
-          PARTHENON_THROW(msg);
+    bool next_time_exists = pin->DoesParameterExist(block_name, "next_time");
+    bool next_n_exists = pin->DoesParameterExist(block_name, "next_n");
+    if (next_time_exists || next_n_exists) {
+      std::stringstream msg;
+      msg << "You have used the next_time or next_n parameter in the " << block_name
+          << " output block. This parameter is deprecated. Instead change"
+          << " the output cadence with dt or dn." << std::endl;
+      if (parthenon::Globals::is_restart) {
+        if (Globals::my_rank == 0) {
+          msg << "The parameters will automatically be updated internally and the "
+                 "warning should not be shown for subsequent "
+                 "restarts.\n";
+          PARTHENON_WARN(msg);
         }
+      } else {
+        PARTHENON_THROW(msg);
       }
-      // It should be safe here to just use outn as output blocks are unique
-      pkg->AddParam(outn + "/file_number", file_number, Params::Mutability::Restart);
-      pkg->AddParam(outn + "/last_time", last_time, Params::Mutability::Restart);
-      pkg->AddParam(outn + "/last_n", last_n, Params::Mutability::Restart);
+    }
+    // It should be safe here to just use outn as output blocks are unique
+    pkg->AddParam(outn + "/file_number", file_number, Params::Mutability::Restart);
+    pkg->AddParam(outn + "/last_time", last_time, Params::Mutability::Restart);
+    pkg->AddParam(outn + "/last_n", last_n, Params::Mutability::Restart);
   }
 
   return pkg;

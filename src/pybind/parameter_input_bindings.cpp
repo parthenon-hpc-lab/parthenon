@@ -14,8 +14,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "parameter_input.hpp"
 #include "globals.hpp"
+#include "parameter_input.hpp"
 
 namespace py = pybind11;
 
@@ -30,93 +30,131 @@ PYBIND11_MODULE(parthenon, m) {
       .def(py::init<>())
 
       // Parser interface - add parameters without creating QueryRecords
-      .def("add_unresolved", [](parthenon::ParameterInput &self, const std::string &block,
-                                 const std::string &name, const std::string &value) {
-        self.AddParsedParameter(block, name, parthenon::ParameterInput::UnresolvedString(value));
-      }, "Add a parameter as unresolved string (from file)")
+      .def(
+          "add_unresolved",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name, const std::string &value) {
+            self.AddParsedParameter(block, name,
+                                    parthenon::ParameterInput::UnresolvedString(value));
+          },
+          "Add a parameter as unresolved string (from file)")
 
-      .def("add_int", [](parthenon::ParameterInput &self, const std::string &block,
-                         const std::string &name, int value) {
-        self.AddParsedParameter(block, name, value);
-      }, "Add an integer parameter")
+      .def(
+          "add_int",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name,
+             int value) { self.AddParsedParameter(block, name, value); },
+          "Add an integer parameter")
 
-      .def("add_real", [](parthenon::ParameterInput &self, const std::string &block,
-                          const std::string &name, parthenon::Real value) {
-        self.AddParsedParameter(block, name, value);
-      }, "Add a real parameter")
+      .def(
+          "add_real",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name,
+             parthenon::Real value) { self.AddParsedParameter(block, name, value); },
+          "Add a real parameter")
 
-      .def("add_bool", [](parthenon::ParameterInput &self, const std::string &block,
-                          const std::string &name, bool value) {
-        self.AddParsedParameter(block, name, value);
-      }, "Add a boolean parameter")
+      .def(
+          "add_bool",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name,
+             bool value) { self.AddParsedParameter(block, name, value); },
+          "Add a boolean parameter")
 
-      .def("add_string", [](parthenon::ParameterInput &self, const std::string &block,
-                            const std::string &name, const std::string &value) {
-        self.AddParsedParameter(block, name, value);
-      }, "Add a string parameter")
+      .def(
+          "add_string",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name,
+             const std::string &value) { self.AddParsedParameter(block, name, value); },
+          "Add a string parameter")
 
       // Vector add methods
-      .def("add_int_vector", [](parthenon::ParameterInput &self, const std::string &block,
-                                 const std::string &name, const std::vector<int> &value) {
-        self.AddParsedParameter(block, name, value);
-      }, "Add an integer vector parameter")
+      .def(
+          "add_int_vector",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name, const std::vector<int> &value) {
+            self.AddParsedParameter(block, name, value);
+          },
+          "Add an integer vector parameter")
 
-      .def("add_real_vector", [](parthenon::ParameterInput &self, const std::string &block,
-                                  const std::string &name, const std::vector<parthenon::Real> &value) {
-        self.AddParsedParameter(block, name, value);
-      }, "Add a real vector parameter")
+      .def(
+          "add_real_vector",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name, const std::vector<parthenon::Real> &value) {
+            self.AddParsedParameter(block, name, value);
+          },
+          "Add a real vector parameter")
 
-      .def("add_bool_vector", [](parthenon::ParameterInput &self, const std::string &block,
-                                  const std::string &name, const std::vector<bool> &value) {
-        self.AddParsedParameter(block, name, value);
-      }, "Add a boolean vector parameter")
+      .def(
+          "add_bool_vector",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name, const std::vector<bool> &value) {
+            self.AddParsedParameter(block, name, value);
+          },
+          "Add a boolean vector parameter")
 
-      .def("add_string_vector", [](parthenon::ParameterInput &self, const std::string &block,
-                                    const std::string &name, const std::vector<std::string> &value) {
-        self.AddParsedParameter(block, name, value);
-      }, "Add a string vector parameter")
+      .def(
+          "add_string_vector",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name, const std::vector<std::string> &value) {
+            self.AddParsedParameter(block, name, value);
+          },
+          "Add a string vector parameter")
 
       // Get methods with type dispatch
-      .def("get_int", [](parthenon::ParameterInput &self, const std::string &block,
-                         const std::string &name) {
-        return self.Get<int>(block, name);
-      }, "Get an integer parameter")
+      .def(
+          "get_int",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name) { return self.Get<int>(block, name); },
+          "Get an integer parameter")
 
-      .def("get_real", [](parthenon::ParameterInput &self, const std::string &block,
-                          const std::string &name) {
-        return self.Get<parthenon::Real>(block, name);
-      }, "Get a real parameter")
+      .def(
+          "get_real",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name) { return self.Get<parthenon::Real>(block, name); },
+          "Get a real parameter")
 
-      .def("get_bool", [](parthenon::ParameterInput &self, const std::string &block,
-                          const std::string &name) {
-        return self.Get<bool>(block, name);
-      }, "Get a boolean parameter")
+      .def(
+          "get_bool",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name) { return self.Get<bool>(block, name); },
+          "Get a boolean parameter")
 
-      .def("get_string", [](parthenon::ParameterInput &self, const std::string &block,
-                            const std::string &name) {
-        return self.Get<std::string>(block, name);
-      }, "Get a string parameter")
+      .def(
+          "get_string",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name) { return self.Get<std::string>(block, name); },
+          "Get a string parameter")
 
       // Vector get methods
-      .def("get_int_vector", [](parthenon::ParameterInput &self, const std::string &block,
-                                 const std::string &name) {
-        return self.Get<std::vector<int>>(block, name);
-      }, "Get an integer vector parameter")
+      .def(
+          "get_int_vector",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name) { return self.Get<std::vector<int>>(block, name); },
+          "Get an integer vector parameter")
 
-      .def("get_real_vector", [](parthenon::ParameterInput &self, const std::string &block,
-                                  const std::string &name) {
-        return self.Get<std::vector<parthenon::Real>>(block, name);
-      }, "Get a real vector parameter")
+      .def(
+          "get_real_vector",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name) {
+            return self.Get<std::vector<parthenon::Real>>(block, name);
+          },
+          "Get a real vector parameter")
 
-      .def("get_bool_vector", [](parthenon::ParameterInput &self, const std::string &block,
-                                  const std::string &name) {
-        return self.Get<std::vector<bool>>(block, name);
-      }, "Get a boolean vector parameter")
+      .def(
+          "get_bool_vector",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name) {
+            return self.Get<std::vector<bool>>(block, name);
+          },
+          "Get a boolean vector parameter")
 
-      .def("get_string_vector", [](parthenon::ParameterInput &self, const std::string &block,
-                                    const std::string &name) {
-        return self.Get<std::vector<std::string>>(block, name);
-      }, "Get a string vector parameter")
+      .def(
+          "get_string_vector",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name) {
+            return self.Get<std::vector<std::string>>(block, name);
+          },
+          "Get a string vector parameter")
 
       // Utility methods
       .def("does_parameter_exist", &parthenon::ParameterInput::DoesParameterExist,
@@ -132,16 +170,19 @@ PYBIND11_MODULE(parthenon, m) {
            "Get all blocks with a given prefix");
 
   // Function to retrieve ParameterInput from embedded C++ context
-  m.def("get_parameter_input", []() -> parthenon::ParameterInput* {
-    // Retrieve the ParameterInput from the global namespace where C++ injected it
-    py::object pi_obj = py::globals()["__parthenon_pi__"];
-    if (pi_obj.is_none()) {
-      throw std::runtime_error(
-        "No ParameterInput available. This function should only be called from "
-        "Python scripts executed by Parthenon (e.g., ./executable -i script.py)");
-    }
-    return pi_obj.cast<parthenon::ParameterInput*>();
-  }, py::return_value_policy::reference,
-     "Get the ParameterInput object provided by the C++ executable. "
-     "Only available when running Python scripts via './executable -i script.py'");
+  m.def(
+      "get_parameter_input",
+      []() -> parthenon::ParameterInput * {
+        // Retrieve the ParameterInput from the global namespace where C++ injected it
+        py::object pi_obj = py::globals()["__parthenon_pi__"];
+        if (pi_obj.is_none()) {
+          throw std::runtime_error(
+              "No ParameterInput available. This function should only be called from "
+              "Python scripts executed by Parthenon (e.g., ./executable -i script.py)");
+        }
+        return pi_obj.cast<parthenon::ParameterInput *>();
+      },
+      py::return_value_policy::reference,
+      "Get the ParameterInput object provided by the C++ executable. "
+      "Only available when running Python scripts via './executable -i script.py'");
 }

@@ -115,7 +115,9 @@ InputBlock::~InputBlock() {
 //  and stored in a singly linked list of InputLines.
 
 void ParameterInput::LoadFromStream(std::istream &is) {
-  PARTHENON_REQUIRE(!map_resolved_, "Can't add new parameters to the linked list after the map is resolved.");
+  PARTHENON_REQUIRE(
+      !map_resolved_,
+      "Can't add new parameters to the linked list after the map is resolved.");
   std::string line, block_name, param_name, param_value, param_comment;
   std::size_t first_char, last_char;
   std::stringstream msg;
@@ -207,7 +209,7 @@ void ParameterInput::LoadFromStream(std::istream &is) {
     if (!continuing) {
       if (param_name != "") {
         AddParsedParameter(block_name, param_name, UnresolvedString(param_value),
-                          param_comment);
+                           param_comment);
       }
     }
   }
@@ -220,7 +222,9 @@ void ParameterInput::LoadFromStream(std::istream &is) {
 //         Return the position at the end of the header, which is used in restarting
 
 void ParameterInput::LoadFromFile(IOWrapper &input) {
-  PARTHENON_REQUIRE(!map_resolved_, "Can't add new parameters to the linked list after the map is resolved.");
+  PARTHENON_REQUIRE(
+      !map_resolved_,
+      "Can't add new parameters to the linked list after the map is resolved.");
   std::stringstream par, msg;
   constexpr int kBufSize = 4096;
   char buf[kBufSize];
@@ -405,7 +409,9 @@ void ParameterInput::AddParameter(InputBlock *pb, const std::string &name,
 // Note this function is very forgiving (no warnings!) if there is an error in format
 
 void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
-  PARTHENON_REQUIRE(!map_resolved_, "Can't add new parameters to the linked list after the map is resolved.");
+  PARTHENON_REQUIRE(
+      !map_resolved_,
+      "Can't add new parameters to the linked list after the map is resolved.");
   std::string input_text, block, name, value;
   std::stringstream msg;
 
@@ -897,7 +903,7 @@ InputLine *InputBlock::GetPtrToLine(std::string name) {
 //! \fn std::string ParameterInput::ParamValueToString()
 //  \brief Convert a ParamValue variant to string for linked list output
 
-std::string ParameterInput::ParamValueToString(const ParamValue& value) {
+std::string ParameterInput::ParamValueToString(const ParamValue &value) {
   std::stringstream ss;
 
   if (std::holds_alternative<UnresolvedString>(value)) {
@@ -912,26 +918,26 @@ std::string ParameterInput::ParamValueToString(const ParamValue& value) {
   } else if (std::holds_alternative<std::string>(value)) {
     ss << std::get<std::string>(value);
   } else if (std::holds_alternative<std::vector<int>>(value)) {
-    const auto& vec = std::get<std::vector<int>>(value);
+    const auto &vec = std::get<std::vector<int>>(value);
     for (size_t i = 0; i < vec.size(); ++i) {
       if (i > 0) ss << ", ";
       ss << vec[i];
     }
   } else if (std::holds_alternative<std::vector<Real>>(value)) {
-    const auto& vec = std::get<std::vector<Real>>(value);
+    const auto &vec = std::get<std::vector<Real>>(value);
     ss.precision(std::numeric_limits<Real>::max_digits10);
     for (size_t i = 0; i < vec.size(); ++i) {
       if (i > 0) ss << ", ";
       ss << vec[i];
     }
   } else if (std::holds_alternative<std::vector<bool>>(value)) {
-    const auto& vec = std::get<std::vector<bool>>(value);
+    const auto &vec = std::get<std::vector<bool>>(value);
     for (size_t i = 0; i < vec.size(); ++i) {
       if (i > 0) ss << ", ";
       ss << (vec[i] ? "true" : "false");
     }
   } else if (std::holds_alternative<std::vector<std::string>>(value)) {
-    const auto& vec = std::get<std::vector<std::string>>(value);
+    const auto &vec = std::get<std::vector<std::string>>(value);
     for (size_t i = 0; i < vec.size(); ++i) {
       if (i > 0) ss << ", ";
       ss << vec[i];
@@ -946,12 +952,11 @@ std::string ParameterInput::ParamValueToString(const ParamValue& value) {
 //  \brief Generic interface for parsers to add parameters to storage
 //  Can be called by any parser (text, Python, TOML, etc.) to populate param_map_
 
-void ParameterInput::AddParsedParameter(const std::string &block,
-                                       const std::string &name,
-                                       const ParamValue &value,
-                                       const std::string &comment) {
+void ParameterInput::AddParsedParameter(const std::string &block, const std::string &name,
+                                        const ParamValue &value,
+                                        const std::string &comment) {
   PARTHENON_REQUIRE(!map_resolved_,
-                   "Cannot add parameters after MarkResolved() has been called");
+                    "Cannot add parameters after MarkResolved() has been called");
 
   // Track block insertion order (first appearance only)
   if (param_map_.find(block) == param_map_.end()) {
@@ -970,9 +975,7 @@ void ParameterInput::AddParsedParameter(const std::string &block,
 //! \fn void ParameterInput::MarkResolved()
 //  \brief Mark that all parsing is complete - no more parameters can be added
 
-void ParameterInput::MarkResolved() {
-  map_resolved_ = true;
-}
+void ParameterInput::MarkResolved() { map_resolved_ = true; }
 
 //----------------------------------------------------------------------------------------
 //! \fn void ParameterInput::ResolveParametersToMap()
@@ -998,11 +1001,12 @@ std::vector<std::string> ParameterInput::GetBlockNames() const {
 //! \fn std::vector<std::string> ParameterInput::GetBlocksWithPrefix()
 //  \brief Return all block names that start with the given prefix
 
-std::vector<std::string> ParameterInput::GetBlocksWithPrefix(const std::string& prefix) const {
+std::vector<std::string>
+ParameterInput::GetBlocksWithPrefix(const std::string &prefix) const {
   std::vector<std::string> matching_blocks;
 
   // Use block_order_ to preserve insertion order
-  for (const auto& block_name : block_order_) {
+  for (const auto &block_name : block_order_) {
     if (block_name.compare(0, prefix.length(), prefix) == 0) {
       matching_blocks.push_back(block_name);
     }
@@ -1015,7 +1019,8 @@ std::vector<std::string> ParameterInput::GetBlocksWithPrefix(const std::string& 
 //! \fn std::vector<std::string> ParameterInput::GetParameterNames()
 //  \brief Return all parameter names in the given block
 
-std::vector<std::string> ParameterInput::GetParameterNames(const std::string& block) const {
+std::vector<std::string>
+ParameterInput::GetParameterNames(const std::string &block) const {
   std::vector<std::string> param_names;
 
   // Query the map for parameter names
@@ -1024,7 +1029,7 @@ std::vector<std::string> ParameterInput::GetParameterNames(const std::string& bl
   // but parameter order within blocks is not tracked.
   auto block_it = param_map_.find(block);
   if (block_it != param_map_.end()) {
-    for (const auto& [param_name, param_value] : block_it->second) {
+    for (const auto &[param_name, param_value] : block_it->second) {
       param_names.push_back(param_name);
     }
   }
@@ -1034,10 +1039,11 @@ std::vector<std::string> ParameterInput::GetParameterNames(const std::string& bl
 
 //----------------------------------------------------------------------------------------
 //! \fn ParamValue* ParameterInput::FindParameter_()
-//  \brief Helper to find a parameter in the map, returns pointer for in-place modification
+//  \brief Helper to find a parameter in the map, returns pointer for in-place
+//  modification
 
-ParameterInput::ParamValue* ParameterInput::FindParameter_(const std::string& block, 
-                                                             const std::string& name) {
+ParameterInput::ParamValue *ParameterInput::FindParameter_(const std::string &block,
+                                                           const std::string &name) {
   MarkResolved();
   auto block_it = param_map_.find(block);
   if (block_it != param_map_.end()) {
@@ -1055,26 +1061,26 @@ ParameterInput::ParamValue* ParameterInput::FindParameter_(const std::string& bl
 //  Returns nullopt if not in map, throws on type mismatch
 
 template <typename T>
-std::optional<T> ParameterInput::GetFromMap_(const std::string& block, 
-                                             const std::string& name) {
+std::optional<T> ParameterInput::GetFromMap_(const std::string &block,
+                                             const std::string &name) {
   MarkResolved();
-  ParamValue* pvalue = FindParameter_(block, name);
+  ParamValue *pvalue = FindParameter_(block, name);
   if (pvalue == nullptr) {
-    return std::nullopt;  // Not in map, caller should try linked list
+    return std::nullopt; // Not in map, caller should try linked list
   }
-  
+
   // If it's an UnresolvedString, convert and cache
   if (std::holds_alternative<UnresolvedString>(*pvalue)) {
     T typed_val = ConvertParamValue<T>(*pvalue, block, name);
-    *pvalue = typed_val;  // Cache the typed value in the variant
+    *pvalue = typed_val; // Cache the typed value in the variant
     return typed_val;
   }
-  
+
   // If it's already the correct type, return it
   if (std::holds_alternative<T>(*pvalue)) {
     return std::get<T>(*pvalue);
   }
-  
+
   // Type mismatch - was previously resolved as a different type
   std::stringstream msg;
   msg << "### FATAL ERROR in ParameterInput::GetFromMap_" << std::endl
@@ -1087,20 +1093,20 @@ std::optional<T> ParameterInput::GetFromMap_(const std::string& block,
 //! \fn std::vector<std::string> ParameterInput::SplitCommaSeparated()
 //  \brief Helper to split comma-separated values
 
-std::vector<std::string> ParameterInput::SplitCommaSeparated(const std::string& s) {
+std::vector<std::string> ParameterInput::SplitCommaSeparated(const std::string &s) {
   std::string str = s;
   std::string delimiter = ",";
   size_t pos = 0;
   std::string token;
   std::vector<std::string> variables;
-  
+
   while ((pos = str.find(delimiter)) != std::string::npos) {
     token = str.substr(0, pos);
     variables.push_back(string_utils::trim(token));
     str.erase(0, pos + delimiter.length());
   }
   variables.push_back(string_utils::trim(str));
-  
+
   return variables;
 }
 
@@ -1109,20 +1115,19 @@ std::vector<std::string> ParameterInput::SplitCommaSeparated(const std::string& 
 //  \brief Convert a ParamValue variant to the requested type
 
 template <typename T>
-T ParameterInput::ConvertParamValue(const ParamValue& value, 
-                                    const std::string& block, 
-                                    const std::string& name) {
+T ParameterInput::ConvertParamValue(const ParamValue &value, const std::string &block,
+                                    const std::string &name) {
   std::stringstream msg;
-  
+
   // If it's already the right type, return it
   if (std::holds_alternative<T>(value)) {
     return std::get<T>(value);
   }
-  
+
   // If it's an unresolved string, convert it
   if (std::holds_alternative<UnresolvedString>(value)) {
-    const std::string& str_val = std::get<UnresolvedString>(value).value;
-    
+    const std::string &str_val = std::get<UnresolvedString>(value).value;
+
     if constexpr (std::is_same_v<T, int>) {
       return stoi(str_val);
     } else if constexpr (std::is_same_v<T, Real>) {
@@ -1138,8 +1143,8 @@ T ParameterInput::ConvertParamValue(const ParamValue& value,
       using ElemType = typename T::value_type;
       std::vector<std::string> fields = SplitCommaSeparated(str_val);
       T result;
-      
-      for (const auto& field : fields) {
+
+      for (const auto &field : fields) {
         if constexpr (std::is_same_v<ElemType, int>) {
           result.push_back(stoi(field));
         } else if constexpr (std::is_same_v<ElemType, Real>) {
@@ -1153,47 +1158,54 @@ T ParameterInput::ConvertParamValue(const ParamValue& value,
       return result;
     }
   }
-  
+
   msg << "### FATAL ERROR in function [ParameterInput::ConvertParamValue]" << std::endl
-      << "Type mismatch for parameter '" << name << "' in block '" << block << "'" 
+      << "Type mismatch for parameter '" << name << "' in block '" << block << "'"
       << std::endl;
   PARTHENON_FAIL(msg);
 }
 
 // Explicit template instantiations
-template int ParameterInput::ConvertParamValue<int>(
-    const ParamValue&, const std::string&, const std::string&);
-template Real ParameterInput::ConvertParamValue<Real>(
-    const ParamValue&, const std::string&, const std::string&);
-template bool ParameterInput::ConvertParamValue<bool>(
-    const ParamValue&, const std::string&, const std::string&);
-template std::string ParameterInput::ConvertParamValue<std::string>(
-    const ParamValue&, const std::string&, const std::string&);
+template int ParameterInput::ConvertParamValue<int>(const ParamValue &,
+                                                    const std::string &,
+                                                    const std::string &);
+template Real ParameterInput::ConvertParamValue<Real>(const ParamValue &,
+                                                      const std::string &,
+                                                      const std::string &);
+template bool ParameterInput::ConvertParamValue<bool>(const ParamValue &,
+                                                      const std::string &,
+                                                      const std::string &);
+template std::string ParameterInput::ConvertParamValue<std::string>(const ParamValue &,
+                                                                    const std::string &,
+                                                                    const std::string &);
 template std::vector<int> ParameterInput::ConvertParamValue<std::vector<int>>(
-    const ParamValue&, const std::string&, const std::string&);
+    const ParamValue &, const std::string &, const std::string &);
 template std::vector<Real> ParameterInput::ConvertParamValue<std::vector<Real>>(
-    const ParamValue&, const std::string&, const std::string&);
+    const ParamValue &, const std::string &, const std::string &);
 template std::vector<bool> ParameterInput::ConvertParamValue<std::vector<bool>>(
-    const ParamValue&, const std::string&, const std::string&);
-template std::vector<std::string> ParameterInput::ConvertParamValue<std::vector<std::string>>(
-    const ParamValue&, const std::string&, const std::string&);
+    const ParamValue &, const std::string &, const std::string &);
+template std::vector<std::string>
+ParameterInput::ConvertParamValue<std::vector<std::string>>(const ParamValue &,
+                                                            const std::string &,
+                                                            const std::string &);
 
 // Explicit instantiations for GetFromMap_
-template std::optional<int> ParameterInput::GetFromMap_<int>(
-    const std::string&, const std::string&);
-template std::optional<Real> ParameterInput::GetFromMap_<Real>(
-    const std::string&, const std::string&);
-template std::optional<bool> ParameterInput::GetFromMap_<bool>(
-    const std::string&, const std::string&);
-template std::optional<std::string> ParameterInput::GetFromMap_<std::string>(
-    const std::string&, const std::string&);
-template std::optional<std::vector<int>> ParameterInput::GetFromMap_<std::vector<int>>(
-    const std::string&, const std::string&);
-template std::optional<std::vector<Real>> ParameterInput::GetFromMap_<std::vector<Real>>(
-    const std::string&, const std::string&);
-template std::optional<std::vector<bool>> ParameterInput::GetFromMap_<std::vector<bool>>(
-    const std::string&, const std::string&);
-template std::optional<std::vector<std::string>> ParameterInput::GetFromMap_<std::vector<std::string>>(
-    const std::string&, const std::string&);
+template std::optional<int> ParameterInput::GetFromMap_<int>(const std::string &,
+                                                             const std::string &);
+template std::optional<Real> ParameterInput::GetFromMap_<Real>(const std::string &,
+                                                               const std::string &);
+template std::optional<bool> ParameterInput::GetFromMap_<bool>(const std::string &,
+                                                               const std::string &);
+template std::optional<std::string>
+ParameterInput::GetFromMap_<std::string>(const std::string &, const std::string &);
+template std::optional<std::vector<int>>
+ParameterInput::GetFromMap_<std::vector<int>>(const std::string &, const std::string &);
+template std::optional<std::vector<Real>>
+ParameterInput::GetFromMap_<std::vector<Real>>(const std::string &, const std::string &);
+template std::optional<std::vector<bool>>
+ParameterInput::GetFromMap_<std::vector<bool>>(const std::string &, const std::string &);
+template std::optional<std::vector<std::string>>
+ParameterInput::GetFromMap_<std::vector<std::string>>(const std::string &,
+                                                      const std::string &);
 
 } // namespace parthenon

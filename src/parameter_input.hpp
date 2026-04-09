@@ -51,9 +51,9 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 // Supported parameter types - single source of truth
 //----------------------------------------------------------------------------------------
-using SupportedParamTypes = TypeList<bool, int, Real, std::string,
-                                      std::vector<bool>, std::vector<int>,
-                                      std::vector<Real>, std::vector<std::string>>;
+using SupportedParamTypes =
+    TypeList<bool, int, Real, std::string, std::vector<bool>, std::vector<int>,
+             std::vector<Real>, std::vector<std::string>>;
 
 // We need to overload the stream operator for containers to output
 // something sensible
@@ -206,8 +206,8 @@ class ParameterInput {
   struct UnresolvedString {
     std::string value;
     UnresolvedString() = default;
-    explicit UnresolvedString(const std::string& v) : value(v) {}
-    explicit UnresolvedString(std::string&& v) : value(std::move(v)) {}
+    explicit UnresolvedString(const std::string &v) : value(v) {}
+    explicit UnresolvedString(std::string &&v) : value(std::move(v)) {}
   };
 
   // Build ParamValue variant from SupportedParamTypes + UnresolvedString
@@ -228,8 +228,8 @@ class ParameterInput {
   // Generic interface for any parser to populate parameter storage
   // Can be called multiple times until MarkResolved() is called
   void AddParsedParameter(const std::string &block, const std::string &name,
-                         const ParamValue &value,
-                         const std::string &comment = "# From parser");
+                          const ParamValue &value,
+                          const std::string &comment = "# From parser");
 
   // Explicitly mark parsing as complete - no more AddParsedParameter calls allowed
   void MarkResolved();
@@ -239,9 +239,9 @@ class ParameterInput {
 
   // === QUERY INTERFACE (parser-agnostic) ===
   std::vector<std::string> GetBlockNames() const;
-  std::vector<std::string> GetBlocksWithPrefix(const std::string& prefix) const;
-  std::vector<std::string> GetParameterNames(const std::string& block) const;
-  
+  std::vector<std::string> GetBlocksWithPrefix(const std::string &prefix) const;
+  std::vector<std::string> GetParameterNames(const std::string &block) const;
+
   void ParameterDump(std::ostream &os);
   // TODO(JMM): Make this more general?
   void OutputParameterTable(std::ostream &os,
@@ -474,28 +474,28 @@ class ParameterInput {
   using BlockParameterMap = std::map<std::string, ParamValue>;
 
   std::map<std::string, BlockParameterMap> param_map_;
-  std::vector<std::string> block_order_;  // Track insertion order of blocks
-  bool map_resolved_ = false;  // Track if we've locked down to map-based access
-  
+  std::vector<std::string> block_order_; // Track insertion order of blocks
+  bool map_resolved_ = false;            // Track if we've locked down to map-based access
+
   // === HELPER METHODS (parser-agnostic) ===
   // Convert ParamValue to string for linked list output
-  std::string ParamValueToString(const ParamValue& value);
+  std::string ParamValueToString(const ParamValue &value);
   template <typename T>
-  T ConvertParamValue(const ParamValue& value, const std::string& block, 
-                      const std::string& name);
-  
+  T ConvertParamValue(const ParamValue &value, const std::string &block,
+                      const std::string &name);
+
   // Helper to find a parameter in map or linked list, with type caching
   // Returns pointer to ParamValue in map if found, nullptr otherwise
-  ParamValue* FindParameter_(const std::string& block, const std::string& name);
-  
+  ParamValue *FindParameter_(const std::string &block, const std::string &name);
+
   // Helper to get a typed parameter value from map with caching
   // Returns std::nullopt if parameter not found in map (caller should try linked list)
   // Throws if type mismatch detected
   template <typename T>
-  std::optional<T> GetFromMap_(const std::string& block, const std::string& name);
-  
-  std::vector<std::string> SplitCommaSeparated(const std::string& s);
-  
+  std::optional<T> GetFromMap_(const std::string &block, const std::string &name);
+
+  std::vector<std::string> SplitCommaSeparated(const std::string &s);
+
   bool stob(std::string val) {
     // check is string contains integers 0 or 1 (instead of true or false) and return
     if (val.compare(0, 1, "0") == 0 || val.compare(0, 1, "1") == 0) {
