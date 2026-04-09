@@ -237,17 +237,15 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
 //  \brief find specified Block.  Returns pointer to block or nullptr.
 
 Block *ParameterInput::FindBlock_(const std::string &name) {
-  for (auto &block : param_storage_) {
-    if (block.name == name) return &block;
-  }
-  return nullptr;
+  auto it = std::find_if(param_storage_.begin(), param_storage_.end(),
+                         [&name](const Block &b) { return b.name == name; });
+  return (it != param_storage_.end()) ? &(*it) : nullptr;
 }
 
 const Block *ParameterInput::FindBlock_(const std::string &name) const {
-  for (const auto &block : param_storage_) {
-    if (block.name == name) return &block;
-  }
-  return nullptr;
+  auto it = std::find_if(param_storage_.begin(), param_storage_.end(),
+                         [&name](const Block &b) { return b.name == name; });
+  return (it != param_storage_.end()) ? &(*it) : nullptr;
 }
 
 //----------------------------------------------------------------------------------------
@@ -256,9 +254,9 @@ const Block *ParameterInput::FindBlock_(const std::string &name) const {
 
 Block *ParameterInput::FindOrAddBlock_(const std::string &name) {
   // Search vector to see if name exists, return if found
-  for (auto &block : param_storage_) {
-    if (block.name == name) return &block;
-  }
+  auto it = std::find_if(param_storage_.begin(), param_storage_.end(),
+                         [&name](const Block &b) { return b.name == name; });
+  if (it != param_storage_.end()) return &(*it);
 
   // Create new block if not found above
   param_storage_.push_back(Block{name, {}});
@@ -818,13 +816,13 @@ void ParameterInput::AddParameter_(const std::string &block, const std::string &
   Block *pb = FindOrAddBlock_(block);
 
   // Search for existing parameter
-  for (auto &param : pb->params) {
-    if (param.name == name) {
-      // Parameter exists - update value and comment
-      param.value = value;
-      param.comment = comment;
-      return;
-    }
+  auto it = std::find_if(pb->params.begin(), pb->params.end(),
+                         [&name](const Parameter &p) { return p.name == name; });
+  if (it != pb->params.end()) {
+    // Parameter exists - update value and comment
+    it->value = value;
+    it->comment = comment;
+    return;
   }
 
   // Parameter doesn't exist - add new one
@@ -909,10 +907,9 @@ Parameter *ParameterInput::FindParameter_(const std::string &block,
   Block *pb = FindBlock_(block);
   if (pb == nullptr) return nullptr;
 
-  for (auto &param : pb->params) {
-    if (param.name == name) return &param;
-  }
-  return nullptr;
+  auto it = std::find_if(pb->params.begin(), pb->params.end(),
+                         [&name](const Parameter &p) { return p.name == name; });
+  return (it != pb->params.end()) ? &(*it) : nullptr;
 }
 
 const Parameter *ParameterInput::FindParameter_(const std::string &block,
