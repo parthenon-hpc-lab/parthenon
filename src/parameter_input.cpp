@@ -20,9 +20,8 @@
 // PURPOSE: Member functions of this class are used to read and parse the input file.
 //   Functionality is loosely modeled after FORTRAN namelist.
 //
-// NOTE: This describes the standard text-based input format. Parthenon also supports
-//   other input formats (e.g., Python scripts via -i script.py) that populate the
-//   same underlying parameter storage.
+// NOTE: This describes the standard text-based input format. Parthenon's architecture
+//   supports multiple input formats that populate the same underlying parameter storage.
 //
 // EXAMPLE of input file in 'Athena++' format:
 //   <blockname1>      # block name; must be on a line by itself
