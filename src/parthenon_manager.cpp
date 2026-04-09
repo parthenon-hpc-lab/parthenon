@@ -68,15 +68,18 @@ std::unique_ptr<ParameterInput> LoadParameterInputFromPython(const char *python_
     // The parthenon.so module must be in PYTHONPATH
     py::module_::import("parthenon");
 
-    // Expose the C++ ParameterInput to Python as global variable 'pi'
-    py::globals()["pi"] = py::cast(pinput.get(), py::return_value_policy::reference);
+    // Inject the ParameterInput into Python's global namespace
+    // The Python script can retrieve it via parthenon.get_parameter_input()
+    py::globals()["__parthenon_pi__"] = py::cast(pinput.get(), py::return_value_policy::reference);
 
     // Execute the Python script
-    // The script should use 'pi' to populate parameters, typically via:
+    // The script should retrieve the ParameterInput and populate it, typically via:
+    //   import parthenon
+    //   pi = parthenon.get_parameter_input()
     //   from parthenon_tools import InputFile
     //   inp = InputFile()
     //   inp.block("parthenon/mesh", nx1=64, ...)
-    //   inp.to_parameter_input(pi)  # populate the provided pi
+    //   inp.to_parameter_input(pi)
     py::eval_file(python_filename, py::globals());
 
   } catch (py::error_already_set &e) {

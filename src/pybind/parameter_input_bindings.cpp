@@ -71,10 +71,6 @@ PYBIND11_MODULE(parthenon, m) {
         self.AddParsedParameter(block, name, value);
       }, "Add a string vector parameter")
 
-      // Mark parsing complete
-      .def("mark_resolved", &parthenon::ParameterInput::MarkResolved,
-           "Mark that all parsing is complete")
-
       // Get methods with type dispatch
       .def("get_int", [](parthenon::ParameterInput &self, const std::string &block,
                          const std::string &name) {
@@ -129,4 +125,18 @@ PYBIND11_MODULE(parthenon, m) {
 
       .def("get_blocks_with_prefix", &parthenon::ParameterInput::GetBlocksWithPrefix,
            "Get all blocks with a given prefix");
+
+  // Function to retrieve ParameterInput from embedded C++ context
+  m.def("get_parameter_input", []() -> parthenon::ParameterInput* {
+    // Retrieve the ParameterInput from the global namespace where C++ injected it
+    py::object pi_obj = py::globals()["__parthenon_pi__"];
+    if (pi_obj.is_none()) {
+      throw std::runtime_error(
+        "No ParameterInput available. This function should only be called from "
+        "Python scripts executed by Parthenon (e.g., ./executable -i script.py)");
+    }
+    return pi_obj.cast<parthenon::ParameterInput*>();
+  }, py::return_value_policy::reference,
+     "Get the ParameterInput object provided by the C++ executable. "
+     "Only available when running Python scripts via './executable -i script.py'");
 }
