@@ -21,7 +21,7 @@ Provides a two-stage approach:
 2. Transfer to typed C++ ParameterInput when ready
 
 Example usage:
-    from parthenon_tools.input_generator import InputFile
+    from parthenon_input import InputFile
 
     inp = InputFile()
     mesh = inp.block("parthenon/mesh", nx1=64, nx2=64, nx3=64)
