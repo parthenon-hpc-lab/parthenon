@@ -1,6 +1,3 @@
-..
-   This file was made in part with generative AI.
-
 Particles
 =========
 
@@ -299,3 +296,6 @@ Putting it all together, you might have an output block that looks like this:
 The result would be that both ``swarm1`` and ``swarm2`` output the
 variables ``id``, ``x``, ``y``, ``z``, and ``shared_var``. But only ``swarm1``
 outputs ``per_swarm_var``.
+
+.. note::
+    This file was made in part with generative AI.
