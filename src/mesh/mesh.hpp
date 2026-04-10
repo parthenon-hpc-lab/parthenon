@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -20,6 +20,8 @@
 //  \brief defines Mesh and MeshBlock classes, and various structs used in them
 //  The Mesh is the overall grid structure, and MeshBlocks are local patches of data
 //  (potentially on different levels) that tile the entire domain.
+
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <cstdint>
@@ -222,6 +224,8 @@ class Mesh {
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> ProblemGenerator =
+      nullptr;
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostProblemGenerator =
       nullptr;
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostInitialization =
       nullptr;

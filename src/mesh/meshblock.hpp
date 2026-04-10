@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,6 +16,8 @@
 //========================================================================================
 #ifndef MESH_MESHBLOCK_HPP_
 #define MESH_MESHBLOCK_HPP_
+
+// This file was made in part with generative AI.
 
 #include <cstdint>
 #include <functional>
@@ -480,6 +482,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // Optionally defined in the prob file or provided by ApplicationInput
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> PostProblemGenerator = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> PostInitialization = nullptr;
   std::function<pMeshBlockApplicationData_t(MeshBlock *, ParameterInput *)>
       InitApplicationMeshBlockData = nullptr;
