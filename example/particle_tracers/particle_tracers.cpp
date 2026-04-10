@@ -118,6 +118,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   PARTHENON_REQUIRE(advected_mean > advected_amp,
                     "Advected field must be everywere positive!");
 
+  const Real advected_mean = 1.0;
+  const Real advected_amp = 0.5;
+  PARTHENON_REQUIRE(advected_mean > advected_amp, "Cannot have negative densities!");
+  pkg->AddParam<>("advected_mean", advected_mean);
+  pkg->AddParam<>("advected_amp", advected_amp);
+
   // Add advected field
   Metadata madv(
       {Metadata::Cell, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes});
@@ -224,8 +230,6 @@ void SourceTracers(MeshBlock *pmb, ParameterInput *pin) {
   // Mesh physical size
   const auto mesh_size = pmb->pmy_mesh->mesh_size;
   const Real x_min_mesh = mesh_size.xmin(X1DIR);
-  const Real y_min_mesh = mesh_size.xmin(X2DIR);
-  const Real z_min_mesh = mesh_size.xmin(X3DIR);
   const Real x_max_mesh = mesh_size.xmax(X1DIR);
   const Real y_max_mesh = mesh_size.xmax(X2DIR);
   const Real z_max_mesh = mesh_size.xmax(X3DIR);
