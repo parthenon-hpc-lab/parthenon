@@ -73,7 +73,7 @@ std::unique_ptr<ParameterInput> LoadParameterInputFromPython(const char *python_
     //   1. Use argparse.parse_known_args() to parse Python-style flags (e.g., --nx=32)
     //   2. Retrieve ParameterInput via parthenon.get_parameter_input()
     //   3. Configure parameters programmatically
-    // After this returns, C++ will apply Parthenon-style overrides (block/param=value)
+    // After this returns, C++ can apply Parthenon-style overrides (block/param=value)
     // via ModifyFromCmdline(), which ignores Python-style flags
     py::eval_file(python_filename, py::globals());
   } catch (py::error_already_set &e) {
