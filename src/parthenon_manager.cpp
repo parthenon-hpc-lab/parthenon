@@ -90,6 +90,11 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   } else if (arg_status == ArgStatus::complete) {
     return ParthenonStatus::complete;
   }
+
+  Globals::watchdog_enabled = arg.watchdog_enabled;
+  if (Globals::watchdog_enabled) {
+    parthenon::WatchDog::WatchDog(arg.watchdog_timeout);
+  }
   // Now that the input is parsed we can pass the info to globals
   Globals::is_restart = arg.is_restart;
 
