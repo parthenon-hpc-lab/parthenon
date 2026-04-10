@@ -107,13 +107,15 @@ class SparsePack : public SparsePackBase {
     return bounds_(1, b, idx.VariableIdx());
   }
 
-  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <class TIn>
+    requires(IncludesType<TIn, Ts...>::value)
   KOKKOS_INLINE_FUNCTION int GetLowerBound(const int b, const TIn &) const {
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_(0, b, vidx);
   }
 
-  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <class TIn>
+    requires(IncludesType<TIn, Ts...>::value)
   KOKKOS_INLINE_FUNCTION int GetUpperBound(const int b, const TIn &) const {
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_(1, b, vidx);
@@ -136,13 +138,15 @@ class SparsePack : public SparsePackBase {
     return bounds_h_(1, b, idx.VariableIdx());
   }
 
-  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <class TIn>
+    requires(IncludesType<TIn, Ts...>::value)
   int GetLowerBoundHost(const int b, const TIn &) const {
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_h_(0, b, vidx);
   }
 
-  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <class TIn>
+    requires(IncludesType<TIn, Ts...>::value)
   int GetUpperBoundHost(const int b, const TIn &) const {
     const int vidx = GetTypeIdx<TIn, Ts...>::value;
     return bounds_h_(1, b, vidx);
@@ -178,11 +182,13 @@ class SparsePack : public SparsePackBase {
   }
 
   // Index in pack
-  template <typename TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <typename TIn>
+    requires(IncludesType<TIn, Ts...>::value)
   KOKKOS_INLINE_FUNCTION int GetIndex(const int b, const TIn &var) const {
     return GetLowerBound(b, var) + var.idx;
   }
-  template <typename TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <typename TIn>
+    requires(IncludesType<TIn, Ts...>::value)
   int GetIndexHost(const int b, const TIn &var) const {
     return GetLowerBoundHost(b, var) + var.idx;
   }
@@ -205,7 +211,8 @@ class SparsePack : public SparsePackBase {
     return (... && Contains(b, args));
   }
   // Version that takes templates but no arguments passed
-  template <typename... Args, REQUIRES(sizeof...(Args) > 0)>
+  template <typename... Args>
+    requires(sizeof...(Args) > 0)
   KOKKOS_INLINE_FUNCTION bool Contains(const int b) const {
     return (... && Contains(b, Args()));
   }
@@ -219,7 +226,8 @@ class SparsePack : public SparsePackBase {
   bool ContainsHost(const int b, Args... args) const {
     return (... && ContainsHost(b, args));
   }
-  template <typename... Args, REQUIRES(sizeof...(Args) > 0)>
+  template <typename... Args>
+    requires(sizeof...(Args) > 0)
   bool ContainsHost(const int b) const {
     return (... && ContainsHost(b, Args()));
   }
@@ -251,22 +259,24 @@ class SparsePack : public SparsePackBase {
     return (*this)(b, TE::CC, idx);
   }
 
-  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <class TIn>
+    requires(IncludesType<TIn, Ts...>::value)
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TE el, const TIn &t) const {
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(static_cast<int>(el) % 3, b, vidx);
   }
 
-  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <class TIn>
+    requires(IncludesType<TIn, Ts...>::value)
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TIn &t) const {
     PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(0, b, vidx);
   }
 
-  template <class TIn, typename... Args, REQUIRES(sizeof...(Args) > 0),
-            REQUIRES(all_implement<integral(Args...)>::value),
-            REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <class TIn, typename... Args>
+    requires((sizeof...(Args) > 0) && (Integral<Args> && ...) &&
+             (IncludesType<TIn, Ts...>::value))
   KOKKOS_INLINE_FUNCTION auto &operator()(const int b, const TIn &t,
                                           Args &&...args) const {
     PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
@@ -306,7 +316,8 @@ class SparsePack : public SparsePackBase {
     return pack_(static_cast<int>(el) % 3, b, n)(k, j, i);
   }
 
-  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <class TIn>
+    requires(IncludesType<TIn, Ts...>::value)
   KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TIn &t, const int k,
                                           const int j, const int i) const {
     PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");
@@ -314,7 +325,8 @@ class SparsePack : public SparsePackBase {
     return pack_(0, b, vidx)(k, j, i);
   }
 
-  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <class TIn>
+    requires(IncludesType<TIn, Ts...>::value)
   KOKKOS_INLINE_FUNCTION Real &operator()(const int b, const TE el, const TIn &t,
                                           const int k, const int j, const int i) const {
     const int vidx = GetLowerBound(b, t) + t.idx;
@@ -367,7 +379,8 @@ class SparsePack : public SparsePackBase {
     return pack_(dir - 1 + flx_idx_, b, n)(k, j, i);
   }
 
-  template <class TIn, REQUIRES(IncludesType<TIn, Ts...>::value)>
+  template <class TIn>
+    requires(IncludesType<TIn, Ts...>::value)
   KOKKOS_INLINE_FUNCTION Real &flux(const int b, const int dir, const TIn &t, const int k,
                                     const int j, const int i) const {
     PARTHENON_DEBUG_REQUIRE(!flat_, "Accessor cannot be used for flat packs");

@@ -32,16 +32,17 @@ runtimes. The function
 Calls the ``Initialize(ParameterInput *pin)`` function of all packages
 to be utilized and creates the grid hierarchy, including the ``Mesh``
 and ``MeshBlock`` objects, and calls the ``ProblemGenerator`` (and
-``PostInitialization`` and ``PostAMRInitialization``) routines.
+``PostProblemGenerator`` and ``PostInitialization``) routines.
 
 The reason these functions are split out is to enable decisions to be
 made by the application between reading the input deck and setting up
 the grid. For example, during problem initialization, ``ProblemGenerator``
 may be used to be the user-facing API to describe initial conditions,
-whereas, ``PostInitialization`` could use those user-specified fields
-to sync *all* fields prior to entering communication routines. ``PostAMRInitialization`` 
-could be used to make any last initialization changes after the AMR mesh has converged. 
-A common use-case is:
+whereas, ``PostProblemGenerator`` could use those user-specified fields
+to sync *all* fields prior to entering communication routines.
+``PostInitialization`` could be used to make any last initialization changes
+after the initialization hierarchy has converged, regardless of whether that
+required AMR, SMR, or no refinement at all. A common use-case is:
 
 .. code:: cpp
 
@@ -65,9 +66,12 @@ A common use-case is:
   std::string prob = pman.pin->GetString("app", "problem");
   if (prob == "problem1") {
     pman.app_input->ProblemGenerator = Problem1Generator;
-    pman.app_input->PostInitialization = Problem1PostInitialization;
+    pman.app_input->PostProblemGenerator = Problem1PostProblemGenerator;
   } else {
     pman.app_input->ProblemGenerator = Problem2Generator;
   }
 
   pman.ParthenonInitPackagesAndMesh();
+
+.. note::
+    This file was made in part with generative AI.

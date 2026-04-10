@@ -17,6 +17,8 @@
 #ifndef EXAMPLE_PARTICLE_LEAPFROG_PARTICLE_LEAPFROG_HPP_
 #define EXAMPLE_PARTICLE_LEAPFROG_PARTICLE_LEAPFROG_HPP_
 
+// This file was made in part with generative AI.
+
 #include <memory>
 
 #include "Kokkos_Random.hpp"
@@ -43,7 +45,7 @@ class ParticleDriver : public EvolutionDriver {
 };
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);
-void PostAMRInitialization(MeshBlock *pmb, ParameterInput *pin);
+void PostInitialization(MeshBlock *pmb, ParameterInput *pin);
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
 
 namespace Particles {
