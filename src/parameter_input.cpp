@@ -91,7 +91,7 @@ ParameterInput::~ParameterInput() = default;
 //  \brief Load input parameters from a stream
 
 void ParameterInput::LoadFromStream(std::istream &is) {
-  PARTHENON_REQUIRE_THROWS(!parsing_resolved_,
+  PARTHENON_REQUIRE_THROWS(!parsing_finalized_,
                            "Can't add new parameters after parsing is resolved.");
   std::string line, block_name, param_name, param_value, param_comment;
   std::size_t first_char, last_char;
@@ -190,7 +190,7 @@ void ParameterInput::LoadFromStream(std::istream &is) {
 
 void ParameterInput::LoadFromFile(IOWrapper &input) {
   PARTHENON_REQUIRE_THROWS(
-      !parsing_resolved_,
+      !parsing_finalized_,
       "Can't add new parameters to the linked list after the map is resolved.");
   std::stringstream par, msg;
   constexpr int kBufSize = 4096;
@@ -326,7 +326,7 @@ bool ParameterInput::ParseLine(std::string line, std::string &name, std::string 
 
 void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
   PARTHENON_REQUIRE_THROWS(
-      !parsing_resolved_,
+      !parsing_finalized_,
       "Can't add new parameters to the linked list after the map is resolved.");
   std::string input_text, block, name, value;
   std::stringstream msg;
@@ -838,16 +838,16 @@ void ParameterInput::AddParameter_(const std::string &block, const std::string &
 void ParameterInput::AddParsedParameter(const std::string &block, const std::string &name,
                                         const ParamValue &value,
                                         const std::string &comment) {
-  PARTHENON_REQUIRE_THROWS(!parsing_resolved_,
+  PARTHENON_REQUIRE_THROWS(!parsing_finalized_,
                            "Can't add new parameters after parsing is resolved.");
   AddParameter_(block, name, value, comment);
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn void ParameterInput::MarkResolved()
-//  \brief Mark that all parsing is complete - no more parameters can be added
+//! \fn void ParameterInput::FinalizeParsing()
+//  \brief Finalize the parsing phase - no more parsing allowed (GetOrAdd/Set still work)
 
-void ParameterInput::MarkResolved() { parsing_resolved_ = true; }
+void ParameterInput::FinalizeParsing() { parsing_finalized_ = true; }
 
 //----------------------------------------------------------------------------------------
 //! \fn std::vector<std::string> ParameterInput::GetBlockNames()
@@ -931,7 +931,7 @@ const Parameter *ParameterInput::FindParameter_(const std::string &block,
 template <typename T>
 std::optional<T> ParameterInput::GetFromStorage_(const std::string &block,
                                                  const std::string &name) {
-  MarkResolved();
+  FinalizeParsing();
   Parameter *param = FindParameter_(block, name);
   if (param == nullptr) {
     return std::nullopt; // Not in storage

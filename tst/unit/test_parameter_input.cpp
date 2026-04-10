@@ -201,7 +201,7 @@ TEST_CASE("Test deleting parameters from ParameterInput", "[ParameterInput]") {
 }
 
 // Phase 1 Tests: Map Resolution and Block Prefix Queries
-TEST_CASE("MarkResolved populates internal map correctly", "[ParameterInput][Phase1]") {
+TEST_CASE("FinalizeParsing populates internal map correctly", "[ParameterInput][Phase1]") {
   GIVEN("A ParameterInput with multiple blocks and parameters") {
     ParameterInput in;
     std::stringstream ss;
@@ -216,8 +216,8 @@ TEST_CASE("MarkResolved populates internal map correctly", "[ParameterInput][Pha
     std::istringstream s(ss.str());
     in.LoadFromStream(s);
 
-    WHEN("MarkResolved is called") {
-      in.MarkResolved();
+    WHEN("FinalizeParsing is called") {
+      in.FinalizeParsing();
 
       THEN("All parameters remain accessible via Get methods") {
         REQUIRE(in.GetInteger("block1", "int_param") == 42);
@@ -276,7 +276,7 @@ TEST_CASE("Phase 1 type safety: wrong type access behavior", "[ParameterInput][P
 
     std::istringstream s(ss.str());
     in.LoadFromStream(s);
-    in.MarkResolved();
+    in.FinalizeParsing();
 
     WHEN("We try to read a non-numeric string as a number") {
       THEN("GetInteger should fail during conversion") {
@@ -307,7 +307,7 @@ TEST_CASE("AddParsedParameter with typed scalar values", "[ParameterInput][Parse
       in.AddParsedParameter("block1", "real_val", 3.14);
       in.AddParsedParameter("block1", "bool_val", true);
       in.AddParsedParameter("block1", "string_val", std::string("hello"));
-      in.MarkResolved();
+      in.FinalizeParsing();
 
       THEN("They can be retrieved with correct types") {
         REQUIRE(in.GetInteger("block1", "int_val") == 42);
@@ -333,7 +333,7 @@ TEST_CASE("AddParsedParameter with typed vector values", "[ParameterInput][Parse
       in.AddParsedParameter("vectors", "real_vec", real_vec);
       in.AddParsedParameter("vectors", "bool_vec", bool_vec);
       in.AddParsedParameter("vectors", "str_vec", str_vec);
-      in.MarkResolved();
+      in.FinalizeParsing();
 
       THEN("They can be retrieved correctly") {
         auto iv = in.GetVector<int>("vectors", "int_vec");
@@ -370,7 +370,7 @@ TEST_CASE("AddParsedParameter with UnresolvedString", "[ParameterInput][Parser]"
       in.AddParsedParameter("lazy", "real_str", UnresolvedString("3.14159"));
       in.AddParsedParameter("lazy", "bool_str", UnresolvedString("true"));
       in.AddParsedParameter("lazy", "vec_str", UnresolvedString("1, 2, 3, 4, 5"));
-      in.MarkResolved();
+      in.FinalizeParsing();
 
       THEN("They are converted on first access") {
         REQUIRE(in.GetInteger("lazy", "int_str") == 42);
@@ -407,7 +407,7 @@ TEST_CASE("Mixing LoadFromStream and AddParsedParameter", "[ParameterInput][Pars
     WHEN("We add additional parameters via AddParsedParameter") {
       in.AddParsedParameter("code_block", "code_param", 200);
       in.AddParsedParameter("shared_block", "from_code", 3.14);
-      in.MarkResolved();
+      in.FinalizeParsing();
 
       THEN("Both file and code parameters are accessible") {
         REQUIRE(in.GetInteger("file_block", "file_param") == 100);
@@ -427,18 +427,18 @@ TEST_CASE("AddParsedParameter overrides earlier values", "[ParameterInput][Parse
       in.AddParsedParameter("override", "value", 100);
       in.AddParsedParameter("override", "value", 200);
       in.AddParsedParameter("override", "value", 300);
-      in.MarkResolved();
+      in.FinalizeParsing();
 
       THEN("The last value wins") { REQUIRE(in.GetInteger("override", "value") == 300); }
     }
   }
 }
 
-TEST_CASE("MarkResolved prevents further parsing", "[ParameterInput][Parser]") {
+TEST_CASE("FinalizeParsing prevents further parsing", "[ParameterInput][Parser]") {
   GIVEN("A ParameterInput that has been marked resolved") {
     ParameterInput in;
     in.AddParsedParameter("block", "param", 42);
-    in.MarkResolved();
+    in.FinalizeParsing();
 
     WHEN("We try to add more parameters") {
       THEN("AddParsedParameter should throw") {
@@ -470,7 +470,7 @@ TEST_CASE("Parameter ordering is preserved for restart compatibility",
     in.AddParsedParameter("mblock", "mparam", 2);
     in.AddParsedParameter("ablock", "zparam", 4);
     in.AddParsedParameter("ablock", "bparam", 5);
-    in.MarkResolved();
+    in.FinalizeParsing();
 
     WHEN("We query the blocks") {
       auto blocks = in.GetBlocksWithPrefix("");
@@ -512,7 +512,7 @@ TEST_CASE("AddParsedParameter creates blocks automatically", "[ParameterInput][P
       in.AddParsedParameter("new_block1", "param1", 1);
       in.AddParsedParameter("new_block2", "param2", 2);
       in.AddParsedParameter("new_block1", "param3", 3);
-      in.MarkResolved();
+      in.FinalizeParsing();
 
       THEN("Blocks are created automatically") {
         REQUIRE(in.DoesParameterExist("new_block1", "param1"));
@@ -523,13 +523,13 @@ TEST_CASE("AddParsedParameter creates blocks automatically", "[ParameterInput][P
   }
 }
 
-TEST_CASE("Parser interface works without MarkResolved for backward compatibility",
+TEST_CASE("Parser interface works without FinalizeParsing for backward compatibility",
           "[ParameterInput][Parser]") {
   GIVEN("Parameters added via AddParsedParameter") {
     ParameterInput in;
     in.AddParsedParameter("block", "value", 42);
 
-    WHEN("We access parameters without calling MarkResolved") {
+    WHEN("We access parameters without calling FinalizeParsing") {
       THEN("Parameters are automatically resolved on first access") {
         REQUIRE_NOTHROW(in.GetInteger("block", "value"));
         REQUIRE(in.GetInteger("block", "value") == 42);

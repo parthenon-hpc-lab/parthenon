@@ -137,8 +137,8 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   // Modify based on command line inputs
   pinput->ModifyFromCmdline(argc, argv);
 
-  // Mark parsing as complete - no more parameters can be added
-  pinput->MarkResolved();
+  // Finalize parsing phase - parsers can no longer add parameters
+  pinput->FinalizeParsing();
 
   PARTHENON_REQUIRE_THROWS(
       !pinput->DoesParameterExist("parthenon/job", "run_only_analysis") ||

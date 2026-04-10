@@ -221,13 +221,13 @@ class ParameterInput {
   // === PARSER INTERFACE (for input sources like text files, Python, TOML, etc.) ===
   // Use AddParsedParameter to populate parameters from external input sources
   // This is the proper interface for parsers - it enforces that parsing must not
-  // be complete yet. Can be called multiple times until MarkResolved() is called.
+  // be complete yet. Can be called multiple times until FinalizeParsing() is called.
   void AddParsedParameter(const std::string &block, const std::string &name,
                           const ParamValue &value,
                           const std::string &comment = "# From parser");
 
-  // Explicitly mark parsing as complete - no more AddParsedParameter calls allowed
-  void MarkResolved();
+  // Finalize the parsing phase - no more parsing allowed (but GetOrAdd/Set still work)
+  void FinalizeParsing();
 
   // === QUERY INTERFACE (parser-agnostic) ===
   std::vector<std::string> GetBlockNames() const;
@@ -325,7 +325,7 @@ class ParameterInput {
     static_assert(SupportedParamTypes::IsIn<T>(),
                   "Type not supported by parameter storage");
 
-    MarkResolved();
+    FinalizeParsing();
     std::stringstream msg;
 
     auto opt = GetFromStorage_<T>(block, name);
@@ -346,7 +346,7 @@ class ParameterInput {
     static_assert(SupportedParamTypes::IsIn<T>(),
                   "Type not supported by parameter storage");
 
-    MarkResolved();
+    FinalizeParsing();
 
     CheckAndUpdateQueries_<T>(block, name, def_value, std::vector<T>{}, docstring);
 
@@ -372,7 +372,7 @@ class ParameterInput {
     static_assert(SupportedParamTypes::IsIn<T>(),
                   "Type not supported by parameter storage");
 
-    MarkResolved();
+    FinalizeParsing();
 
     if (queries_.count(std::make_pair(block, name)) == 0) {
       CheckAndUpdateQueries_<T>(block, name, docstring);
@@ -432,7 +432,7 @@ class ParameterInput {
  private:
   // === PARAMETER STORAGE (vector-of-vectors, preserves insertion order) ===
   std::vector<Block> param_storage_;
-  bool parsing_resolved_ = false; // Track if parsing is complete
+  bool parsing_finalized_ = false; // Track if parsing phase is complete
 
   std::string last_filename_; // last input file opened, to prevent duplicate reads
   // We will want to iterate through the record in lexicographic

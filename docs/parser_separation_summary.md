@@ -50,7 +50,7 @@ void AddParsedParameter(const std::string &block,
                        const ParamValue &value);
 
 // Explicitly mark parsing complete
-void MarkResolved();
+void FinalizeParsing();
 ```
 
 ### ParamValue Type
@@ -76,7 +76,7 @@ using ParamValue = std::variant<
 ```cpp
 pin->LoadFromStream(file);         // Populates linked list
 pin->ModifyFromCmdline(argc, argv); // Overrides from command line
-pin->MarkResolved();                // Done with parsing
+pin->FinalizeParsing();                // Done with parsing
 
 int val = pin->Get<int>(...);      // Query parameters
 ```
@@ -88,7 +88,7 @@ pin->LoadFromStream(base_file);      // Base config
 pin->LoadFromStream(override_file);  // Override some values
 // Future parsers could add more parameters here via AddParsedParameter
 pin->ModifyFromCmdline(argc, argv);  // Final overrides
-pin->MarkResolved();
+pin->FinalizeParsing();
 ```
 
 ## Implementation Details
@@ -170,7 +170,7 @@ compatibility with the original linked list implementation:
 All existing tests pass:
 - ✓ Parameter hashing
 - ✓ Delete parameters
-- ✓ MarkResolved enforcement
+- ✓ FinalizeParsing enforcement
 - ✓ AddParsedParameter with typed values
 - ✓ UnresolvedString lazy conversion
 - ✓ Parameter ordering preservation
