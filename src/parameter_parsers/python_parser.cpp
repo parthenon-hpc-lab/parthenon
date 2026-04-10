@@ -16,11 +16,12 @@
 
 #ifdef PARTHENON_ENABLE_PYTHON_BINDINGS
 
-#include <sstream>
-#include <string>
-
 #include <pybind11/embed.h>
 #include <pybind11/pybind11.h>
+
+#include <memory>
+#include <sstream>
+#include <string>
 
 #include "utils/error_checking.hpp"
 
@@ -29,7 +30,7 @@ namespace py = pybind11;
 namespace parthenon {
 
 std::unique_ptr<ParameterInput> LoadParameterInputFromPython(const char *python_filename,
-                                                              int argc, char *argv[]) {
+                                                             int argc, char *argv[]) {
   // Create ParameterInput in C++ - we own this
   auto pinput = std::make_unique<ParameterInput>();
 

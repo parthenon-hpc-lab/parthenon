@@ -25,7 +25,7 @@ namespace parthenon {
 // The script is executed in an embedded Python interpreter and can use
 // parthenon.get_parameter_input() to populate parameters programmatically.
 std::unique_ptr<ParameterInput> LoadParameterInputFromPython(const char *python_filename,
-                                                              int argc, char *argv[]);
+                                                             int argc, char *argv[]);
 
 } // namespace parthenon
 

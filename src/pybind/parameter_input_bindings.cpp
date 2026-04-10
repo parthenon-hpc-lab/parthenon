@@ -102,8 +102,9 @@ PYBIND11_MODULE(parthenon, m) {
           "Add a string vector parameter")
 
       // Query methods (const, safe to call during parsing)
-      // Note: Get methods are intentionally NOT exposed to prevent premature finalization.
-      // Python input scripts should only ADD parameters, not query their values.
+      // Note: Get methods are intentionally NOT exposed to prevent premature
+      // finalization. Python input scripts should only ADD parameters, not query their
+      // values.
       .def("does_parameter_exist", &parthenon::ParameterInput::DoesParameterExist,
            "Check if a parameter exists")
 
