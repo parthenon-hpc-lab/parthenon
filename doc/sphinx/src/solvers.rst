@@ -124,8 +124,6 @@ example <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/poi
 Geometric Multigrid
 -------------------
 
-[This documentation was generated with assistance from generative AI]
-
 Parthenon implements a geometric multigrid (GMG) solver on a forest-of-octrees
 adaptive mesh. The multigrid hierarchy is constructed from two independent
 coarsening mechanisms:
@@ -309,3 +307,6 @@ corresponding ``MeshBlock`` instances for all participating
 This construction cleanly separates AMR refinement from in-block resolution
 changes while providing a consistent geometric multigrid hierarchy on
 fully adaptive forest-of-octrees meshes.
+
+.. note::
+    This file was made in part with generative AI.

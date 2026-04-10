@@ -15,6 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 // C++ includes
 #include <algorithm>
 #include <cmath>
@@ -180,13 +182,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata m({Metadata::Provides, Metadata::None, Metadata::NoPersistentParticleIds});
   tr_pkg->AddSwarm(swarm_name, m);
 
-  // Assign package timestep hook
-  tr_pkg->EstimateTimestepMesh = EstimateTimestepMesh;
-
-  // Assign package final initialization hook
-  tr_pkg->PostAMRInitializationBlock = SourceTracers;
-
-  return tr_pkg;
+  pkg->EstimateTimestepBlock = EstimateTimestepBlock;
+  pkg->PostInitializationBlock = SourceTracers;
+  return pkg;
 }
 
 void SourceTracers(MeshBlock *pmb, ParameterInput *pin) {

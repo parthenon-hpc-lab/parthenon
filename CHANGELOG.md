@@ -1,10 +1,13 @@
+<!-- This file was made in part with generative AI. -->
+
 # Changelog
 
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+<<<<<<< HEAD
 - [[PR 1378]](https://github.com/parthenon-hpc-lab/parthenon/pull/1378) MeshData Swarm Tasks
-- [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Add PostAMRInitialization Hook
+- [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy
 - [[PR 1332]](https://github.com/parthenon-hpc-lab/parthenon/pull/1332) Add global WatchDog
 - [[PR 1375]](https://github.com/parthenon-hpc-lab/parthenon/pull/1375) Add uint64 support to SwarmPacks
 - [[PR 1353]](https://github.com/parthenon-hpc-lab/parthenon/pull/1363) Generalize multigrid hierarchy to include initially include leaf grids
@@ -25,10 +28,7 @@
 
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 1376]](https://github.com/parthenon-hpc-lab/parthenon/pull/1376) Refactor SwarmPacks
-<<<<<<< HEAD
-=======
 - [[PR 1352]](https://github.com/parthenon-hpc-lab/parthenon/pull/1352) Move to C++20 concepts
->>>>>>> origin/develop
 - [[PR 1356]](https://github.com/parthenon-hpc-lab/parthenon/pull/1356) Implement ObjectPoolMap type
 - [[PR 1361]] Bump formatters to clang-format-20 and black 25.12
 
@@ -36,6 +36,7 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy
 - [[PR 1376]](https://github.com/parthenon-hpc-lab/parthenon/pull/1376) Refactor SwarmPacks
 
 
