@@ -182,9 +182,13 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata m({Metadata::Provides, Metadata::None, Metadata::NoPersistentParticleIds});
   tr_pkg->AddSwarm(swarm_name, m);
 
-  pkg->EstimateTimestepBlock = EstimateTimestepBlock;
-  pkg->PostInitializationBlock = SourceTracers;
-  return pkg;
+  // Assign package timestep hook
+  tr_pkg->EstimateTimestepMesh = EstimateTimestepMesh;
+
+  // Assign package final initialization hook
+  tr_pkg->PostInitializationBlock = SourceTracers;
+
+  return tr_pkg;
 }
 
 void SourceTracers(MeshBlock *pmb, ParameterInput *pin) {
