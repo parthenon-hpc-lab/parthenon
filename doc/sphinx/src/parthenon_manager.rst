@@ -1,5 +1,3 @@
-.. This file was made in part with generative AI.
-
 .. _parthenonmanager:
 
 Parthenon Manager
@@ -74,3 +72,6 @@ required AMR, SMR, or no refinement at all. A common use-case is:
   }
 
   pman.ParthenonInitPackagesAndMesh();
+
+.. note::
+    This file was made in part with generative AI.

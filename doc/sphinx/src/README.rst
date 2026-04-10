@@ -167,8 +167,6 @@ Application can chose between a single and double stage initialization:
   package's behavior at runtime by setting the problem generator based on
   a variable in the input file.
 
-.. This file was made in part with generative AI.
-
 User-specified internal functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -354,3 +352,6 @@ Solvers
 
 Solvers are still a work in progress in Parthenon, but some basic
 building blocks are described :ref:`here <solvers>`.
+
+.. note::
+    This file was made in part with generative AI.

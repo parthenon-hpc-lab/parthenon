@@ -112,8 +112,6 @@ several useful features and functions.
   deletgates to the ``std::function`` member ``PreStepDiagnosticsMesh`` if
   set (defaults to ``nullptr`` an therefore a no-op) to print diagnostics
   before the time-integration advance.
-.. This file was made in part with generative AI.
-
 - ``void PostStepDiagnostics(SimTime const &simtime, MeshData<Real> *rc)``
   deletgates to the ``std::function`` member ``PostStepDiagnosticsMesh``
   if set (defaults to ``nullptr`` an therefore a no-op) to print
@@ -366,3 +364,6 @@ This means that any kind of communication (most prominently flux
 correction and ghost zone exchange) of a given variable at a given stage
 should not be interleaved with any other modifications/communication of
 said variable as it may result in undefined behavior.
+
+.. note::
+    This file was made in part with generative AI.
