@@ -277,6 +277,19 @@ pi.add_int("parthenon/mesh", "nx1", args.nx)
 # This sets parthenon/mesh/refinement = "static" (overriding any Python value)
 ```
 
+### Handling --help and Clean Exits
+
+When a Python script calls `sys.exit(0)` (e.g., argparse with `--help`), the application exits cleanly:
+
+```bash
+./myapp -i input.py --help
+```
+
+- Exit code 0: Clean exit, application returns immediately without starting simulation
+- Exit code non-zero: Fatal error with error message
+
+This allows Python scripts to provide rich help text via argparse.
+
 ## Provided Tooling (Optional)
 
 The `parthenon_input` package provides **example** helper classes:

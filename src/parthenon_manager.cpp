@@ -131,6 +131,10 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
         PARTHENON_FAIL("Python input files cannot be used with restart");
       }
       pinput = LoadParameterInputFromPython(arg.input_filename, argc, argv);
+      // nullptr signals clean exit requested (e.g., --help)
+      if (!pinput) {
+        return ParthenonStatus::complete;
+      }
     } else {
 #else
     if (is_python_input) {

@@ -77,6 +77,33 @@ std::unique_ptr<ParameterInput> LoadParameterInputFromPython(const char *python_
     // via ModifyFromCmdline(), which ignores Python-style flags
     py::eval_file(python_filename, py::globals());
   } catch (py::error_already_set &e) {
+    // Handle SystemExit specially (e.g., from argparse --help)
+    if (e.matches(PyExc_SystemExit)) {
+      // Extract exit code from SystemExit exception
+      py::object exit_code_obj = e.value().attr("code");
+      int exit_code = 1; // Default to error if we can't extract code
+      if (!exit_code_obj.is_none()) {
+        try {
+          exit_code = exit_code_obj.cast<int>();
+        } catch (...) {
+          // code might not be an int (could be a string or None), treat as error
+          exit_code = 1;
+        }
+      }
+
+      // If exit code is 0, this is a clean exit (e.g., --help)
+      // Return nullptr to signal caller to exit cleanly
+      if (exit_code == 0) {
+        return nullptr;
+      }
+
+      // Non-zero exit code is an error
+      std::stringstream msg;
+      msg << "### FATAL ERROR: Python script exited with code " << exit_code << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+
+    // Other Python exceptions are fatal errors
     std::stringstream msg;
     msg << "### FATAL ERROR loading Python input file: " << python_filename << std::endl
         << e.what() << std::endl;
