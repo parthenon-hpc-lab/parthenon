@@ -41,11 +41,12 @@ class ParameterInput;
 //              Empty vector {} means scalar or single component
 //
 // The Python function should have signature:
-//   def init_function(x, y, z, component, data):
+//   def init_function(x, y, z, component, data, pin):
 //       # x, y, z: 1D numpy arrays of coordinates (flattened, zero-copy views)
 //       # component: tuple of component indices (e.g., (), (0,), (1,2))
 //       # data: 1D numpy array to write to (flattened, zero-copy view, same length as
 //       x/y/z)
+//       # pin: ParameterInput object for reading parameters
 //
 // IMPORTANT: NumPy is required for Python field initialization
 void InitializeFieldFromPython(MeshBlock *pmb, const std::string &var_name,

@@ -49,6 +49,9 @@ void InitializeFieldFromPython(MeshBlock *pmb, const std::string &var_name,
   }
 
   try {
+    // Import parthenon module to make ParameterInput bindings available
+    py::module_::import("parthenon");
+
     // Get function name and file path from input
     std::string func_name = pin->GetString(block, func_param);
     std::string file_path = pin->GetString(block, file_param);
@@ -159,8 +162,9 @@ void InitializeFieldFromPython(MeshBlock *pmb, const std::string &var_name,
     auto z_array = py::array_t<Real>(ncells, z_coords_host.data());
     auto data_array = py::array_t<Real>(ncells, data.data());
 
-    // Call Python function with numpy arrays
-    init_func(x_array, y_array, z_array, comp_tuple, data_array);
+    // Call Python function with numpy arrays and ParameterInput
+    init_func(x_array, y_array, z_array, comp_tuple, data_array,
+              py::cast(pin, py::return_value_policy::reference));
 
     // Copy data back to field
     // Get host mirror for device compatibility
@@ -178,7 +182,7 @@ void InitializeFieldFromPython(MeshBlock *pmb, const std::string &var_name,
     int w = (component.size() > 2) ? component[2] : 0;
 
     // Copy data from flattened array back to field
-    idx = 0;
+    int idx = 0;
     for (int k = ks; k <= ke; ++k) {
       for (int j = js; j <= je; ++j) {
         for (int i = is; i <= ie; ++i) {

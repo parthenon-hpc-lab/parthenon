@@ -128,9 +128,6 @@ PYBIND11_MODULE(parthenon, m) {
           "Add a string vector parameter")
 
       // Query methods (const, safe to call during parsing)
-      // Note: Get methods are intentionally NOT exposed to prevent premature
-      // finalization. Python input scripts should only ADD parameters, not query their
-      // values.
       .def("does_parameter_exist", &parthenon::ParameterInput::DoesParameterExist,
            "Check if a parameter exists")
 
@@ -141,7 +138,60 @@ PYBIND11_MODULE(parthenon, m) {
            "Get all parameter names in a block")
 
       .def("get_blocks_with_prefix", &parthenon::ParameterInput::GetBlockNamesWithPrefix,
-           "Get all blocks with a given prefix");
+           "Get all blocks with a given prefix")
+
+      // Get methods (for field initialization)
+      // WARNING: These trigger FinalizeParsing(), do NOT use in
+      // parthenon_init_parameters()
+      .def(
+          "get_int",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name) { return self.GetInteger(block, name); },
+          "Get integer parameter (triggers finalization)")
+
+      .def(
+          "get_real",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name) { return self.GetReal(block, name); },
+          "Get real parameter (triggers finalization)")
+
+      .def(
+          "get_bool",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name) { return self.GetBoolean(block, name); },
+          "Get boolean parameter (triggers finalization)")
+
+      .def(
+          "get_string",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name) { return self.GetString(block, name); },
+          "Get string parameter (triggers finalization)")
+
+      .def(
+          "get_int_vector",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name) { return self.GetVector<int>(block, name); },
+          "Get integer vector parameter (triggers finalization)")
+
+      .def(
+          "get_real_vector",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name) {
+            return self.GetVector<parthenon::Real>(block, name);
+          },
+          "Get real vector parameter (triggers finalization)")
+
+      .def(
+          "get_bool_vector",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name) { return self.GetVector<bool>(block, name); },
+          "Get boolean vector parameter (triggers finalization)")
+
+      .def(
+          "get_string_vector",
+          [](parthenon::ParameterInput &self, const std::string &block,
+             const std::string &name) { return self.GetVector<std::string>(block, name); },
+          "Get string vector parameter (triggers finalization)");
 
   // NOTE: get_parameter_input() removed in favor of explicit parameter passing
   // Python input files should define: def parthenon_init_parameters(pin):
