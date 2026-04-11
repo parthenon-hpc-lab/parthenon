@@ -20,12 +20,38 @@
 
 namespace py = pybind11;
 
+// Functions that query MPI directly rather than using Globals
+// Note: We can't use Globals::my_rank here because the Python shared library (.so)
+// gets its own copy of the static variables when linking against libparthenon.a,
+// separate from the executable's copy. When MPI_Init sets Globals::my_rank in the
+// executable, the Python module's copy remains at 0. Calling MPI functions directly
+// avoids this issue.
+int GetMyRank() {
+#ifdef MPI_PARALLEL
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  return rank;
+#else
+  return 0;
+#endif
+}
+
+int GetNRanks() {
+#ifdef MPI_PARALLEL
+  int nranks;
+  MPI_Comm_size(MPI_COMM_WORLD, &nranks);
+  return nranks;
+#else
+  return 1;
+#endif
+}
+
 PYBIND11_MODULE(parthenon, m) {
   m.doc() = "Parthenon Python bindings for parameter input";
 
-  // Expose MPI rank info so scripts can do rank-specific operations
-  m.attr("my_rank") = parthenon::Globals::my_rank;
-  m.attr("nranks") = parthenon::Globals::nranks;
+  // Expose MPI rank info as functions that query MPI directly
+  m.def("my_rank", &GetMyRank, "Get the current MPI rank");
+  m.def("nranks", &GetNRanks, "Get the total number of MPI ranks");
 
   py::class_<parthenon::ParameterInput>(m, "ParameterInput")
       .def(py::init<>())

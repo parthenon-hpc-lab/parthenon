@@ -29,11 +29,11 @@ def mpi_print(*args, **kwargs):
     try:
         import parthenon
 
-        if parthenon.my_rank == 0:
+        if parthenon.my_rank() == 0:
             print(*args, **kwargs)
-    except (ImportError, AttributeError):
-        # If parthenon module not available or my_rank not set, just print
-        # (e.g., when running outside of embedded context)
+    except (ImportError, AttributeError, TypeError):
+        # If parthenon module not available, my_rank not set, or not callable,
+        # just print (e.g., when running outside of embedded context)
         print(*args, **kwargs)
 
 
