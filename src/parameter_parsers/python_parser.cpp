@@ -96,7 +96,11 @@ std::unique_ptr<ParameterInput> LoadParameterInputFromPython(const char *python_
     try {
       init_func(py::cast(pinput.get(), py::return_value_policy::reference));
     } catch (py::error_already_set &e) {
-      // Re-throw with better context
+      // Let SystemExit propagate to outer handler (e.g., for --help)
+      if (e.matches(PyExc_SystemExit)) {
+        throw;
+      }
+      // Re-throw other exceptions with better context
       std::stringstream msg;
       msg << "### FATAL ERROR in parthenon_init_parameters(): " << python_filename
           << std::endl << e.what() << std::endl;
