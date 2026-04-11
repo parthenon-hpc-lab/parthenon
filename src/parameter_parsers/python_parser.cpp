@@ -63,19 +63,45 @@ std::unique_ptr<ParameterInput> LoadParameterInputFromPython(const char *python_
     // Set sys.argv for the Python script
     py::module_::import("sys").attr("argv") = py_argv;
 
-    // Inject the ParameterInput into Python's global namespace
-    // The Python script can retrieve it via parthenon.get_parameter_input()
-    py::globals()["__parthenon_pi__"] =
-        py::cast(pinput.get(), py::return_value_policy::reference);
-
-    // Execute the Python script
-    // The script can now:
-    //   1. Use argparse.parse_known_args() to parse Python-style flags (e.g., --nx=32)
-    //   2. Retrieve ParameterInput via parthenon.get_parameter_input()
-    //   3. Configure parameters programmatically
+    // Execute the Python script to load function definitions
+    // The script can use argparse.parse_known_args() to parse Python-style flags (e.g., --nx=32)
     // After this returns, C++ can apply Parthenon-style overrides (block/param=value)
     // via ModifyFromCmdline(), which ignores Python-style flags
-    py::eval_file(python_filename, py::globals());
+    py::dict globals = py::globals();
+    py::eval_file(python_filename, globals);
+
+    // Look for required initialization function
+    if (!globals.contains("parthenon_init_parameters")) {
+      std::stringstream msg;
+      msg << "### FATAL ERROR loading Python input file: " << python_filename << std::endl
+          << "Python script must define function: parthenon_init_parameters(pin)" << std::endl
+          << std::endl
+          << "Example:" << std::endl
+          << "    def parthenon_init_parameters(pin):" << std::endl
+          << "        pin.add_int(\"block\", \"param\", value)" << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+
+    py::object init_func = globals["parthenon_init_parameters"];
+
+    // Check if it's callable
+    if (!py::isinstance<py::function>(init_func)) {
+      std::stringstream msg;
+      msg << "### FATAL ERROR loading Python input file: " << python_filename << std::endl
+          << "'parthenon_init_parameters' exists but is not a function" << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+
+    // Call the initialization function with the ParameterInput object
+    try {
+      init_func(py::cast(pinput.get(), py::return_value_policy::reference));
+    } catch (py::error_already_set &e) {
+      // Re-throw with better context
+      std::stringstream msg;
+      msg << "### FATAL ERROR in parthenon_init_parameters(): " << python_filename
+          << std::endl << e.what() << std::endl;
+      PARTHENON_FAIL(msg);
+    }
   } catch (py::error_already_set &e) {
     // Handle SystemExit specially (e.g., from argparse --help)
     if (e.matches(PyExc_SystemExit)) {
