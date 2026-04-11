@@ -14,47 +14,87 @@
 """
 Python input file for diffusion example with Python-based field initialization.
 
-Demonstrates using Python to initialize field values programmatically.
-The initialization function is in a separate file (diffusion_init.py).
+Demonstrates idiomatic Python input configuration with init function defined inline.
 """
 
-import parthenon
-import os
+from parthenon_input import InputFile
 
-# Get ParameterInput object from C++
-pi = parthenon.get_parameter_input()
+def init_gaussian(x, y, z, component, data):
+    """Initialize field with Gaussian profile.
+
+    Args:
+        x, y, z: Coordinate arrays (numpy arrays if available, else lists)
+        component: tuple of component indices (empty for scalar)
+        data: Data array to write (numpy array if available, else list)
+    """
+    # Try numpy for performance (vectorized operations)
+    try:
+        import numpy as np
+        x = np.asarray(x)
+        y = np.asarray(y)
+        z = np.asarray(z)
+
+        # Gaussian profile parameters
+        x0, y0, z0 = 0.0, 0.0, 0.0
+        t0 = 0.001
+        D = 1.0
+
+        # Vectorized computation
+        r2 = (x - x0)**2 + (y - y0)**2 + (z - z0)**2
+        data[:] = np.exp(-r2 / (4.0 * D * t0))
+
+        print(f"Initialized {len(data)} cells with Gaussian profile (numpy)")
+        print(f"  Value range: [{data.min():.6f}, {data.max():.6f}]")
+
+    except ImportError:
+        # Fallback to pure Python (slower but no dependencies)
+        import math
+        x0, y0, z0 = 0.0, 0.0, 0.0
+        t0 = 0.001
+        D = 1.0
+
+        for i in range(len(data)):
+            r2 = (x[i] - x0)**2 + (y[i] - y0)**2 + (z[i] - z0)**2
+            data[i] = math.exp(-r2 / (4.0 * D * t0))
+
+        print(f"Initialized {len(data)} cells with Gaussian profile (pure Python)")
+        min_val = min(data)
+        max_val = max(data)
+        print(f"  Value range: [{min_val:.6f}, {max_val:.6f}]")
+
+# Create input file
+inp = InputFile()
 
 # Mesh configuration
-pi.add_int("parthenon/mesh", "nx1", 64)
-pi.add_int("parthenon/mesh", "nx2", 64)
-pi.add_int("parthenon/mesh", "nx3", 1)
+inp.block("parthenon/mesh",
+          nx1=64, nx2=64, nx3=1,
+          x1min=-1.0, x1max=1.0,
+          x2min=-1.0, x2max=1.0,
+          x3min=0.0, x3max=1.0)
 
-pi.add_real("parthenon/mesh", "x1min", -1.0)
-pi.add_real("parthenon/mesh", "x1max", 1.0)
-pi.add_real("parthenon/mesh", "x2min", -1.0)
-pi.add_real("parthenon/mesh", "x2max", 1.0)
-pi.add_real("parthenon/mesh", "x3min", 0.0)
-pi.add_real("parthenon/mesh", "x3max", 1.0)
-
-pi.add_int("parthenon/meshblock", "nx1", 16)
-pi.add_int("parthenon/meshblock", "nx2", 16)
-pi.add_int("parthenon/meshblock", "nx3", 1)
+inp.block("parthenon/meshblock", nx1=16, nx2=16, nx3=1)
 
 # Time configuration
-pi.add_real("parthenon/time", "tlim", 0.01)
-pi.add_int("parthenon/time", "nlim", 100)
+inp.block("parthenon/time", tlim=0.01, nlim=100)
 
 # Diffusion parameters
-pi.add_real("diffusion", "dt", 1.0)
-pi.add_bool("diffusion", "constant_coefficient", True)
+inp.block("diffusion", dt=1.0, constant_coefficient=True)
 
-# Python initialization configuration
-# Point to separate init file in the same directory
-init_file = os.path.join(os.path.dirname(__file__), "diffusion_init.py")
-pi.add_string("diffusion/python_init", "u_function", "init_gaussian")
-pi.add_string("diffusion/python_init", "u_file", init_file)
+# Register Python initialization function
+inp.block("diffusion/python_init",
+          u_function="init_gaussian",
+          u_file=__file__)
 
-# Output
-pi.add_string("parthenon/output0", "file_type", "hdf5")
-pi.add_real("parthenon/output0", "dt", 0.01)
-pi.add_string_vector("parthenon/output0", "variables", ["diffusion.u"])
+# Output configuration
+out = inp.block("parthenon/output0")
+out.set(file_type="hdf5", dt=0.01, variables=["diffusion.u"])
+
+# Transfer to C++ (only if running as input file, not during field init)
+import parthenon
+try:
+    pi = parthenon.get_parameter_input()
+    inp.to_parameter_input(pi)
+except KeyError:
+    # Being loaded for field initialization, not input parsing
+    # The init_gaussian function is already defined above
+    pass

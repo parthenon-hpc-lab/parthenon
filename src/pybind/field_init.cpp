@@ -52,10 +52,41 @@ void InitializeFieldFromPython(MeshBlock *pmb, const std::string &var_name,
     std::string func_name = pin->GetString(block, func_param);
     std::string file_path = pin->GetString(block, file_param);
 
-    // Execute Python file directly to get function
-    py::dict globals = py::globals();
-    py::eval_file(file_path, globals);
-    py::object init_func = globals[func_name.c_str()];
+    // Get the init function from the Python file
+    // Try to reuse already-loaded module (e.g., if it's the input file)
+    py::module_ sys = py::module_::import("sys");
+    py::dict modules = sys.attr("modules");
+
+    py::object init_func;
+    bool found = false;
+
+    // Check if module is already loaded by looking for function in existing modules
+    for (auto item : modules) {
+      try {
+        py::module_ mod = item.second.cast<py::module_>();
+        if (py::hasattr(mod, func_name.c_str())) {
+          // Check if this is the right module by comparing __file__ attribute
+          if (py::hasattr(mod, "__file__")) {
+            std::string mod_file = mod.attr("__file__").cast<std::string>();
+            if (mod_file == file_path) {
+              init_func = mod.attr(func_name.c_str());
+              found = true;
+              break;
+            }
+          }
+        }
+      } catch (...) {
+        // Skip modules that can't be cast or don't have the attribute
+        continue;
+      }
+    }
+
+    // If not found in loaded modules, execute the file
+    if (!found) {
+      py::dict globals = py::globals();
+      py::eval_file(file_path, globals);
+      init_func = globals[func_name.c_str()];
+    }
 
     // Get the variable
     auto &var = pmb->meshblock_data.Get()->Get(var_name);
@@ -97,18 +128,39 @@ void InitializeFieldFromPython(MeshBlock *pmb, const std::string &var_name,
     // Convert component vector to Python tuple
     py::tuple comp_tuple = py::cast(component);
 
-    // Create Python lists from our C++ vectors
-    py::list x_list = py::cast(x_coords);
-    py::list y_list = py::cast(y_coords);
-    py::list z_list = py::cast(z_coords);
-    py::list data_list = py::cast(data);
+    // Try to create numpy arrays for performance
+    // These are views into C++ memory (no copy)
+    try {
+      // Create numpy arrays that directly reference C++ vector memory
+      // The arrays reference our C++ memory but we manage the lifetime
+      auto x_array = py::array_t<Real>(ncells, x_coords.data());
+      auto y_array = py::array_t<Real>(ncells, y_coords.data());
+      auto z_array = py::array_t<Real>(ncells, z_coords.data());
+      auto data_array = py::array_t<Real>(ncells, data.data());
 
-    // Call Python function
-    init_func(x_list, y_list, z_list, comp_tuple, data_list);
+      // Call Python function with numpy arrays
+      // Python will write directly to our C++ vectors
+      init_func(x_array, y_array, z_array, comp_tuple, data_array);
 
-    // Copy data back from Python list
-    for (int i = 0; i < ncells; i++) {
-      data[i] = data_list[i].cast<Real>();
+      // No copy back needed - Python wrote directly to C++ memory
+
+    } catch (py::error_already_set &e) {
+      // If numpy isn't available or the function expects lists, fall back
+      py::list x_list = py::cast(x_coords);
+      py::list y_list = py::cast(y_coords);
+      py::list z_list = py::cast(z_coords);
+      py::list data_list = py::cast(data);
+
+      // Clear the error and try with lists
+      e.restore();
+      PyErr_Clear();
+
+      init_func(x_list, y_list, z_list, comp_tuple, data_list);
+
+      // Copy data back from Python list
+      for (int i = 0; i < ncells; i++) {
+        data[i] = data_list[i].cast<Real>();
+      }
     }
 
     // Copy data back to field
