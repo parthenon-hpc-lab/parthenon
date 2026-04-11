@@ -205,13 +205,11 @@ def parthenon_init_parameters(pin):
 #!/usr/bin/env python3
 from parthenon_input import InputFile
 
-# Configure using helper class
-inp = InputFile()
-inp.block("parthenon/mesh", nx1=64, nx2=64, nx3=1)
-inp.block("parthenon/time", tlim=1.0, nlim=100)
-
 def parthenon_init_parameters(pin):
-    """Transfer configuration to C++."""
+    """Configure using helper class."""
+    inp = InputFile()
+    inp.block("parthenon/mesh", nx1=64, nx2=64, nx3=1)
+    inp.block("parthenon/time", tlim=1.0, nlim=100)
     inp.to_parameter_input(pin)
 ```
 
@@ -221,12 +219,11 @@ def parthenon_init_parameters(pin):
 #!/usr/bin/env python3
 import json
 
-# Load configuration from JSON
-with open("config.json") as f:
-    config = json.load(f)
-
 def parthenon_init_parameters(pin):
     """Populate parameters from JSON."""
+    with open("config.json") as f:
+        config = json.load(f)
+
     for block_name, params in config.items():
         for key, value in params.items():
             if isinstance(value, int):
@@ -426,9 +423,12 @@ config = json.load(open("config.json"))
 
 ### YAML Input
 ```python
-import yaml, parthenon
-config = yaml.safe_load(open("config.yaml"))
-# ... populate ParameterInput from config dict ...
+import yaml
+
+def parthenon_init_parameters(pin):
+    """Load configuration from YAML file."""
+    config = yaml.safe_load(open("config.yaml"))
+    # ... populate pin from config dict ...
 ```
 
 ### Parameter Sweeps
@@ -444,10 +444,12 @@ def parthenon_init_parameters(pin):
 ### Application-Specific Abstractions
 ```python
 # User writes their own abstractions
-from my_app_utils import PhysicsSetup
+from my_app_utils import ProblemSetup
 
-setup = PhysicsSetup(eos="ideal", gamma=1.4)
-setup.configure_parameter_input()  # Populates ParameterInput internally
+def parthenon_init_parameters(pin):
+    """Use application-specific configuration helper."""
+    setup = ProblemSetup(mode="standard", param_a=1.4, param_b=64)
+    setup.configure_parameter_input(pin)
 ```
 
 ## Testing
