@@ -35,7 +35,7 @@ Python scripts can use argparse for configuration:
 **Minimal Core, Flexible Tooling**: The C++ infrastructure only provides:
 1. Embedded Python interpreter (via pybind11)
 2. ParameterInput bindings (`add_int`, `add_real`, `add_bool`, `add_string`, `add_*_vector`)
-3. A way to retrieve the injected ParameterInput object
+3. Explicit function call pattern: Python files define `parthenon_init_parameters(pin)`
 
 Users can write their own Python abstractions to suit their needs:
 - Helper classes like `InputFile` and `Block` (provided as an example)
@@ -59,8 +59,8 @@ Users can write their own Python abstractions to suit their needs:
 │  parameter_parsers/python_parser.cpp        │
 │  - Start embedded Python interpreter       │
 │  - Set sys.argv for script                  │
-│  - Inject ParameterInput into globals       │
-│  - Execute user's .py file                  │
+│  - Execute .py file (load function defs)    │
+│  - Call parthenon_init_parameters(pin)      │
 └─────────────────┬───────────────────────────┘
                   │
                   ↓
@@ -69,7 +69,6 @@ Users can write their own Python abstractions to suit their needs:
 │  - Expose add_int, add_real, add_bool, ...  │
 │  - Expose add_*_vector methods              │
 │  - Expose query methods (does_exist, etc.)  │
-│  - get_parameter_input() → injected object  │
 └─────────────────────────────────────────────┘
 ```
 
@@ -78,15 +77,16 @@ Users can write their own Python abstractions to suit their needs:
 ```
 ┌─────────────────────────────────────────────┐
 │  User's input.py script                     │
-│  - import parthenon                         │
-│  - pi = parthenon.get_parameter_input()     │
-│  - pi.add_int("block", "param", value)      │
+│  - Define: parthenon_init_parameters(pin)   │
+│  - Inside function:                         │
+│    - pin.add_int("block", "param", value)   │
+│    - pin.add_real(...)                      │
 │                                             │
 │  Optional: use helper abstractions          │
 │  - from parthenon_input import InputFile    │
 │  - inp = InputFile()                        │
 │  - inp.block("mesh", nx1=64, nx2=64)        │
-│  - inp.to_parameter_input(pi)               │
+│  - inp.to_parameter_input(pin)              │
 └─────────────────────────────────────────────┘
 ```
 
@@ -129,12 +129,19 @@ std::unique_ptr<ParameterInput> LoadParameterInputFromPython(
   // ... add remaining arguments ...
   py::module_::import("sys").attr("argv") = py_argv;
 
-  // Inject ParameterInput into globals (accessible via get_parameter_input())
-  py::globals()["__parthenon_pi__"] =
-      py::cast(pinput.get(), py::return_value_policy::reference);
+  // Execute Python file to load function definitions
+  py::dict globals = py::globals();
+  py::eval_file(python_filename, globals);
 
-  // Execute user's script
-  py::eval_file(python_filename, py::globals());
+  // Look for required initialization function
+  if (!globals.contains("parthenon_init_parameters")) {
+    PARTHENON_FAIL("Python script must define parthenon_init_parameters(pin)");
+  }
+
+  py::object init_func = globals["parthenon_init_parameters"];
+
+  // Call initialization function with ParameterInput
+  init_func(py::cast(pinput.get(), py::return_value_policy::reference));
 
   return pinput;  // Interpreter destroyed, ParameterInput returned to C++
 }
@@ -163,14 +170,12 @@ PYBIND11_MODULE(parthenon, m) {
       .def("get_parameter_names", &parthenon::ParameterInput::GetParameterNames)
       .def("get_blocks_with_prefix", &parthenon::ParameterInput::GetBlocksWithPrefix);
 
-  // Retrieve injected ParameterInput from globals
-  m.def("get_parameter_input", []() {
-    return py::globals()["__parthenon_pi__"].cast<parthenon::ParameterInput*>();
-  });
+  // ParameterInput is passed explicitly to parthenon_init_parameters(pin)
+  // No global injection or get_parameter_input() function needed
 
-  // Note: Get methods (get_int, get_real, etc.) are NOT exposed.
+  // Note: Get methods (get_int, get_real, etc.) are NOT exposed during parsing.
   // They trigger FinalizeParsing(), which would break ModifyFromCmdline().
-  // Python scripts should only ADD parameters, not query their values.
+  // Python scripts should only ADD parameters during the parsing phase.
 }
 ```
 
@@ -180,19 +185,18 @@ PYBIND11_MODULE(parthenon, m) {
 
 ```python
 #!/usr/bin/env python3
-import parthenon
 
-pi = parthenon.get_parameter_input()
+def parthenon_init_parameters(pin):
+    """Configure parameters using direct API."""
+    # Add parameters directly
+    pin.add_int("parthenon/mesh", "nx1", 64)
+    pin.add_int("parthenon/mesh", "nx2", 64)
+    pin.add_int("parthenon/mesh", "nx3", 1)
+    pin.add_real("parthenon/mesh", "x1min", 0.0)
+    pin.add_real("parthenon/mesh", "x1max", 1.0)
 
-# Add parameters directly
-pi.add_int("parthenon/mesh", "nx1", 64)
-pi.add_int("parthenon/mesh", "nx2", 64)
-pi.add_int("parthenon/mesh", "nx3", 1)
-pi.add_real("parthenon/mesh", "x1min", 0.0)
-pi.add_real("parthenon/mesh", "x1max", 1.0)
-
-pi.add_real("parthenon/time", "tlim", 1.0)
-pi.add_int("parthenon/time", "nlim", 100)
+    pin.add_real("parthenon/time", "tlim", 1.0)
+    pin.add_int("parthenon/time", "nlim", 100)
 ```
 
 ### Pattern 2: With Helper Classes (Optional)
@@ -200,15 +204,15 @@ pi.add_int("parthenon/time", "nlim", 100)
 ```python
 #!/usr/bin/env python3
 from parthenon_input import InputFile
-import parthenon
 
+# Configure using helper class
 inp = InputFile()
 inp.block("parthenon/mesh", nx1=64, nx2=64, nx3=1)
 inp.block("parthenon/time", tlim=1.0, nlim=100)
 
-# Transfer to C++
-pi = parthenon.get_parameter_input()
-inp.to_parameter_input(pi)
+def parthenon_init_parameters(pin):
+    """Transfer configuration to C++."""
+    inp.to_parameter_input(pin)
 ```
 
 ### Pattern 3: From JSON (User-Written)
@@ -216,19 +220,20 @@ inp.to_parameter_input(pi)
 ```python
 #!/usr/bin/env python3
 import json
-import parthenon
 
+# Load configuration from JSON
 with open("config.json") as f:
     config = json.load(f)
 
-pi = parthenon.get_parameter_input()
-for block_name, params in config.items():
-    for key, value in params.items():
-        if isinstance(value, int):
-            pi.add_int(block_name, key, value)
-        elif isinstance(value, float):
-            pi.add_real(block_name, key, value)
-        # ... etc
+def parthenon_init_parameters(pin):
+    """Populate parameters from JSON."""
+    for block_name, params in config.items():
+        for key, value in params.items():
+            if isinstance(value, int):
+                pin.add_int(block_name, key, value)
+            elif isinstance(value, float):
+                pin.add_real(block_name, key, value)
+            # ... etc
 ```
 
 ### Pattern 4: Programmatic Generation
@@ -236,19 +241,18 @@ for block_name, params in config.items():
 ```python
 #!/usr/bin/env python3
 import argparse
-import parthenon
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--ndim", type=int, default=2)
-parser.add_argument("--nx", type=int, default=64)
-args, _ = parser.parse_known_args()
+def parthenon_init_parameters(pin):
+    """Generate parameters programmatically based on command line args."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ndim", type=int, default=2)
+    parser.add_argument("--nx", type=int, default=64)
+    args, _ = parser.parse_known_args()
 
-pi = parthenon.get_parameter_input()
-
-# Set mesh based on dimensionality
-pi.add_int("parthenon/mesh", "nx1", args.nx)
-pi.add_int("parthenon/mesh", "nx2", args.nx if args.ndim >= 2 else 1)
-pi.add_int("parthenon/mesh", "nx3", args.nx if args.ndim >= 3 else 1)
+    # Set mesh based on dimensionality
+    pin.add_int("parthenon/mesh", "nx1", args.nx)
+    pin.add_int("parthenon/mesh", "nx2", args.nx if args.ndim >= 2 else 1)
+    pin.add_int("parthenon/mesh", "nx3", args.nx if args.ndim >= 3 else 1)
 ```
 
 ## Command Line Argument Handling
@@ -262,16 +266,16 @@ Python scripts receive arguments via `sys.argv`:
 ```python
 # input.py sees: ["input.py", "--nx=128", "parthenon/mesh/refinement=static"]
 import argparse
-import parthenon
 
-# Parse Python-style arguments
-parser = argparse.ArgumentParser()
-parser.add_argument("--nx", type=int, default=64)
-args, remaining = parser.parse_known_args()  # remaining = ["parthenon/mesh/refinement=static"]
+def parthenon_init_parameters(pin):
+    """Parse arguments and configure parameters."""
+    # Parse Python-style arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--nx", type=int, default=64)
+    args, remaining = parser.parse_known_args()  # remaining = ["parthenon/mesh/refinement=static"]
 
-pi = parthenon.get_parameter_input()
-pi.add_int("parthenon/mesh", "nx1", args.nx)
-# Script completes...
+    pin.add_int("parthenon/mesh", "nx1", args.nx)
+    # Function completes...
 
 # C++ then processes remaining Parthenon-style arguments via ModifyFromCmdline()
 # This sets parthenon/mesh/refinement = "static" (overriding any Python value)
@@ -429,10 +433,12 @@ config = yaml.safe_load(open("config.yaml"))
 
 ### Parameter Sweeps
 ```python
-import parthenon, os
-run_id = int(os.environ.get("RUN_ID", 0))
-pi = parthenon.get_parameter_input()
-pi.add_real("problem", "amplitude", 0.1 * (run_id + 1))
+import os
+
+def parthenon_init_parameters(pin):
+    """Configure parameters based on environment variables."""
+    run_id = int(os.environ.get("RUN_ID", 0))
+    pin.add_real("problem", "amplitude", 0.1 * (run_id + 1))
 ```
 
 ### Application-Specific Abstractions
