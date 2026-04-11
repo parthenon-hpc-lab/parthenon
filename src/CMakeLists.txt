@@ -328,6 +328,8 @@ add_library(parthenon
   parameter_input.hpp
   parameter_parsers/python_parser.cpp
   parameter_parsers/python_parser.hpp
+  pybind/field_init.cpp
+  pybind/field_init.hpp
   parthenon_array_generic.hpp
   parthenon_arrays.cpp
   parthenon_arrays.hpp

@@ -19,6 +19,7 @@
 #include "config.hpp"
 #include "defs.hpp"
 #include "diffusion_package.hpp"
+#include "pybind/field_init.hpp"
 #include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
@@ -42,49 +43,86 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   const bool constant_coeff =
       pin->GetOrAddBoolean("diffusion", "constant_coefficient", true);
 
-  auto desc =
-      parthenon::MakePackDescriptor<diffusion_package::u, diffusion_package::D>(md);
-  auto pack = desc.GetPack(md);
+#ifdef PARTHENON_ENABLE_PYTHON_BINDINGS
+  // Check if Python initialization is requested
+  const bool use_python_init =
+      pin->DoesParameterExist("diffusion/python_init", "u_function") &&
+      pin->DoesParameterExist("diffusion/python_init", "u_file");
+#else
+  const bool use_python_init = false;
+#endif
 
+  // Initialize field u - either from Python or with C++ default
+  if (use_python_init) {
+#ifdef PARTHENON_ENABLE_PYTHON_BINDINGS
+    // Initialize each block using Python function
+    for (int b = 0; b < md->NumBlocks(); ++b) {
+      auto pmb_b = md->GetBlockData(b)->GetBlockPointer();
+      parthenon::InitializeFieldFromPython(pmb_b, "diffusion.u", pin,
+                                           "diffusion/python_init", "u_function",
+                                           "u_file", {});
+    }
+#endif
+  } else {
+    // Use C++ initialization (original code)
+    auto desc_u = parthenon::MakePackDescriptor<diffusion_package::u>(md);
+    auto pack_u = desc_u.GetPack(md);
+    auto &cellbounds = pmb->cellbounds;
+    auto ib = cellbounds.GetBoundsI(IndexDomain::entire);
+    auto jb = cellbounds.GetBoundsJ(IndexDomain::entire);
+    auto kb = cellbounds.GetBoundsK(IndexDomain::entire);
+    pmb->par_for(
+        "Diffusion::ProblemGenerator::u", 0, pack_u.GetNBlocks() - 1, kb.s, kb.e, jb.s,
+        jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+          const auto &coords = pack_u.GetCoordinates(b);
+          Real x1 = coords.Xc<1>(i);
+          Real x2 = coords.Xc<2>(j);
+          Real x3 = coords.Xc<3>(k);
+          Real rad = (x1 - x0) * (x1 - x0);
+          if (ndim > 1) rad += (x2 - y0) * (x2 - y0);
+          if (ndim > 2) rad += (x3 - z0) * (x3 - z0);
+          rad = std::sqrt(rad);
+          Real D = 1.0;
+          Real exponent = -rad * rad / (4.0 * D * t0);
+          pack_u(b, diffusion_package::u(), k, j, i) = std::exp(exponent);
+        });
+  }
+
+  // Initialize diffusion coefficient D (always done in C++)
+  auto desc_D = parthenon::MakePackDescriptor<diffusion_package::D>(md);
+  auto pack_D = desc_D.GetPack(md);
   using TE = parthenon::TopologicalElement;
   auto &cellbounds = pmb->cellbounds;
   auto ib = cellbounds.GetBoundsI(IndexDomain::entire);
   auto jb = cellbounds.GetBoundsJ(IndexDomain::entire);
   auto kb = cellbounds.GetBoundsK(IndexDomain::entire);
   pmb->par_for(
-      "Diffusion::ProblemGenerator", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
-      ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        const auto &coords = pack.GetCoordinates(b);
+      "Diffusion::ProblemGenerator::D", 0, pack_D.GetNBlocks() - 1, kb.s, kb.e, jb.s,
+      jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        const auto &coords = pack_D.GetCoordinates(b);
         Real x1 = coords.Xc<1>(i);
         Real x2 = coords.Xc<2>(j);
-        Real x3 = coords.Xc<2>(k);
+        Real x3 = coords.Xc<3>(k);
         Real x1f = coords.X<1, TE::F1>(k, j, i);
         Real x2f = coords.X<2, TE::F2>(k, j, i);
-        Real x3f = coords.X<2, TE::F3>(k, j, i);
-        Real dx1 = coords.Dxc<1>(k, j, i);
-        Real dx2 = coords.Dxc<2>(k, j, i);
-        Real dx3 = coords.Dxc<3>(k, j, i);
-        Real rad = (x1 - x0) * (x1 - x0);
-        if (ndim > 1) rad += (x2 - y0) * (x2 - y0);
-        if (ndim > 2) rad += (x3 - z0) * (x3 - z0);
-        rad = std::sqrt(rad);
-
-        auto profile = [rad, t0](Real x, Real y, Real z) {
-          Real D = 1.0; // initial profile uses constant coefficient
-          Real exponent = -rad * rad / (4.0 * D * t0);
-          return std::exp(exponent);
-        };
-        const Real val = profile(x1, x2, x3);
-        pack(b, diffusion_package::u(), k, j, i) = val;
-
+        Real x3f = coords.X<3, TE::F3>(k, j, i);
         if (constant_coeff) {
-          pack(b, TE::F1, diffusion_package::D(), k, j, i) = 1.0 * dt;
-          pack(b, TE::F2, diffusion_package::D(), k, j, i) = 1.0 * dt;
-          pack(b, TE::F3, diffusion_package::D(), k, j, i) = 1.0 * dt;
+          pack_D(b, TE::F1, diffusion_package::D(), k, j, i) = 1.0 * dt;
+          pack_D(b, TE::F2, diffusion_package::D(), k, j, i) = 1.0 * dt;
+          pack_D(b, TE::F3, diffusion_package::D(), k, j, i) = 1.0 * dt;
         } else {
-          pack(b, TE::F1, diffusion_package::D(), k, j, i) = profile(x1f, x2, x3) * dt;
-          pack(b, TE::F2, diffusion_package::D(), k, j, i) = profile(x1, x2f, x3) * dt;
-          pack(b, TE::F3, diffusion_package::D(), k, j, i) = profile(x1, x2, x3f) * dt;
+          auto profile = [=](Real x, Real y, Real z) {
+            Real r2 = (x - x0) * (x - x0);
+            if (ndim > 1) r2 += (y - y0) * (y - y0);
+            if (ndim > 2) r2 += (z - z0) * (z - z0);
+            Real D = 1.0;
+            return std::exp(-r2 / (4.0 * D * t0));
+          };
+          pack_D(b, TE::F1, diffusion_package::D(), k, j, i) = profile(x1f, x2, x3) * dt;
+          pack_D(b, TE::F2, diffusion_package::D(), k, j, i) = profile(x1, x2f, x3) * dt;
+          pack_D(b, TE::F3, diffusion_package::D(), k, j, i) = profile(x1, x2, x3f) * dt;
         }
       });
 }
