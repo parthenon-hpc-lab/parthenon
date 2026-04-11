@@ -42,9 +42,12 @@ class ParameterInput;
 //
 // The Python function should have signature:
 //   def init_function(x, y, z, component, data):
-//       # x, y, z: 1D numpy arrays of coordinates (flattened)
-//       # component: tuple of component indices (e.g., (0,), (1,2))
-//       # data: 1D numpy array to write to (flattened, same length as x/y/z)
+//       # x, y, z: 1D numpy arrays of coordinates (flattened, zero-copy views)
+//       # component: tuple of component indices (e.g., (), (0,), (1,2))
+//       # data: 1D numpy array to write to (flattened, zero-copy view, same length as
+//       x/y/z)
+//
+// IMPORTANT: NumPy is required for Python field initialization
 void InitializeFieldFromPython(MeshBlock *pmb, const std::string &var_name,
                                 ParameterInput *pin, const std::string &block,
                                 const std::string &func_param,

@@ -30,6 +30,7 @@
 #include "interface/meshblock_data.hpp"
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
+#include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
 
 namespace py = pybind11;
@@ -105,63 +106,61 @@ void InitializeFieldFromPython(MeshBlock *pmb, const std::string &var_name,
     int ke = cellbounds.ke(IndexDomain::interior);
 
     int ncells = (ie - is + 1) * (je - js + 1) * (ke - ks + 1);
+    int nx1 = ie - is + 1;
+    int nx2 = je - js + 1;
 
-    // Allocate coordinate arrays
-    std::vector<Real> x_coords(ncells);
-    std::vector<Real> y_coords(ncells);
-    std::vector<Real> z_coords(ncells);
+    // Create device arrays for coordinates (future-proof: works if coords become
+    // device-only)
+    ParArrayND<Real> x_coords_dev("x_coords", ncells);
+    ParArrayND<Real> y_coords_dev("y_coords", ncells);
+    ParArrayND<Real> z_coords_dev("z_coords", ncells);
+
+    // Extract coordinates using device kernel
+    pmb->par_for(
+        "InitPython::ExtractCoords", 0, ncells - 1,
+        KOKKOS_LAMBDA(const int idx) {
+          // Convert flat index to (k,j,i)
+          int k = idx / (nx1 * nx2);
+          int j = (idx % (nx1 * nx2)) / nx1;
+          int i = idx % nx1;
+
+          x_coords_dev(idx) = coords.Xc<1>(is + i);
+          y_coords_dev(idx) = coords.Xc<2>(js + j);
+          z_coords_dev(idx) = coords.Xc<3>(ks + k);
+        });
+
+    // Copy coordinates to host
+    auto x_coords_host = x_coords_dev.GetHostMirrorAndCopy();
+    auto y_coords_host = y_coords_dev.GetHostMirrorAndCopy();
+    auto z_coords_host = z_coords_dev.GetHostMirrorAndCopy();
+
+    // Allocate data vector on host
     std::vector<Real> data(ncells);
-
-    // Extract coordinates (cell centers)
-    int idx = 0;
-    for (int k = ks; k <= ke; ++k) {
-      for (int j = js; j <= je; ++j) {
-        for (int i = is; i <= ie; ++i) {
-          x_coords[idx] = coords.Xc<1>(i);
-          y_coords[idx] = coords.Xc<2>(j);
-          z_coords[idx] = coords.Xc<3>(k);
-          idx++;
-        }
-      }
-    }
 
     // Convert component vector to Python tuple
     py::tuple comp_tuple = py::cast(component);
 
-    // Try to create numpy arrays for performance
-    // These are views into C++ memory (no copy)
+    // Check that numpy is available (required for performance)
     try {
-      // Create numpy arrays that directly reference C++ vector memory
-      // The arrays reference our C++ memory but we manage the lifetime
-      auto x_array = py::array_t<Real>(ncells, x_coords.data());
-      auto y_array = py::array_t<Real>(ncells, y_coords.data());
-      auto z_array = py::array_t<Real>(ncells, z_coords.data());
-      auto data_array = py::array_t<Real>(ncells, data.data());
-
-      // Call Python function with numpy arrays
-      // Python will write directly to our C++ vectors
-      init_func(x_array, y_array, z_array, comp_tuple, data_array);
-
-      // No copy back needed - Python wrote directly to C++ memory
-
+      py::module_ np = py::module_::import("numpy");
     } catch (py::error_already_set &e) {
-      // If numpy isn't available or the function expects lists, fall back
-      py::list x_list = py::cast(x_coords);
-      py::list y_list = py::cast(y_coords);
-      py::list z_list = py::cast(z_coords);
-      py::list data_list = py::cast(data);
-
-      // Clear the error and try with lists
-      e.restore();
-      PyErr_Clear();
-
-      init_func(x_list, y_list, z_list, comp_tuple, data_list);
-
-      // Copy data back from Python list
-      for (int i = 0; i < ncells; i++) {
-        data[i] = data_list[i].cast<Real>();
-      }
+      std::stringstream msg;
+      msg << "### FATAL ERROR in InitializeFieldFromPython" << std::endl
+          << "Variable: " << var_name << std::endl
+          << "NumPy is required for Python field initialization but is not available."
+          << std::endl
+          << "Please install numpy in your Python environment." << std::endl;
+      PARTHENON_FAIL(msg);
     }
+
+    // Create numpy arrays as views into our memory (zero-copy)
+    auto x_array = py::array_t<Real>(ncells, x_coords_host.data());
+    auto y_array = py::array_t<Real>(ncells, y_coords_host.data());
+    auto z_array = py::array_t<Real>(ncells, z_coords_host.data());
+    auto data_array = py::array_t<Real>(ncells, data.data());
+
+    // Call Python function with numpy arrays
+    init_func(x_array, y_array, z_array, comp_tuple, data_array);
 
     // Copy data back to field
     // Get host mirror for device compatibility
