@@ -1,8 +1,11 @@
+<!-- This file was made in part with generative AI. -->
+
 # Changelog
 
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy
 - [[PR 1332]](https://github.com/parthenon-hpc-lab/parthenon/pull/1332) Add global WatchDog
 - [[PR 1375]](https://github.com/parthenon-hpc-lab/parthenon/pull/1375) Add uint64 support to SwarmPacks
 - [[PR 1353]](https://github.com/parthenon-hpc-lab/parthenon/pull/1363) Generalize multigrid hierarchy to include initially include leaf grids
@@ -33,6 +36,7 @@
 
 ### Incompatibilities (i.e. breaking changes)
 - [[PR 1385]](https://github.com/parthenon-hpc-lab/parthenon/pull/1385) ParameterInput internal storage refactor removes direct access to linked list (`pfirst_block`). Use `GetBlocksWithPrefix()` or `GetBlockNames()` instead.
+- [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy
 - [[PR 1376]](https://github.com/parthenon-hpc-lab/parthenon/pull/1376) Refactor SwarmPacks
 
 

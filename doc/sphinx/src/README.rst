@@ -179,6 +179,7 @@ Mesh
 
 -  ``InitUserMeshData``
 -  ``ProblemGenerator``
+-  ``PostProblemGenerator``
 -  ``PostInitialization``
 -  ``PreStepUserWorkInLoop``
 -  ``PostStepUserWorkInLoop``
@@ -192,6 +193,7 @@ MeshBlock
 -  ``InitApplicationMeshBlockData``
 -  ``InitMeshBlockUserData``
 -  ``ProblemGenerator``
+-  ``PostProblemGenerator``
 -  ``PostInitialization``
 -  ``UserWorkBeforeOutput``
 
@@ -200,15 +202,16 @@ pointers in the ApplicationInput member app_input of the
 ParthenonManager class prior to calling ``ParthenonInit``. This is
 demonstrated in the ``main()`` functions in the examples.
 
-Note that the ``ProblemGenerator``\ s (and ``PostInitialization``\ s) of
-``Mesh`` and ``MeshBlock`` are mutually exclusive. Moreover, the ``Mesh``
-ones requires ``parthenon/mesh/pack_size=-1`` during initialization, i.e.,
-all blocks on a rank need to be in a single pack. This allows to use MPI
-reductions inside the function, for example, to globally normalize quantities.
-The ``parthenon/mesh/pack_size=-1`` exists only during problem
-initialization, i.e., simulations can be restarted with an arbitrary
-``pack_size``. For an example of the ``Mesh`` version, see the `Poisson
-example <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/poisson/parthenon_app_inputs.cpp>`__.
+Note that the ``ProblemGenerator``\ s (and ``PostProblemGenerator`` and
+``PostInitialization`` hooks) of ``Mesh`` and ``MeshBlock`` are mutually
+exclusive. Moreover, the ``Mesh`` ones requires
+``parthenon/mesh/pack_size=-1`` during initialization, i.e., all blocks on a
+rank need to be in a single pack. This allows to use MPI reductions inside the
+function, for example, to globally normalize quantities. The
+``parthenon/mesh/pack_size=-1`` exists only during problem initialization,
+i.e., simulations can be restarted with an arbitrary ``pack_size``. For an
+example of the ``Mesh`` version, see the `Poisson example
+<https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/poisson/parthenon_app_inputs.cpp>`__.
 
 Error checking
 ~~~~~~~~~~~~~~
@@ -349,3 +352,6 @@ Solvers
 
 Solvers are still a work in progress in Parthenon, but some basic
 building blocks are described :ref:`here <solvers>`.
+
+.. note::
+    This file was made in part with generative AI.
