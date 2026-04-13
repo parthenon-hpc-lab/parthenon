@@ -40,7 +40,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // loop over input block names.  Find those that start with "parthenon/output" and
   // add/initialize `Params` for further processing (so that they're available to be read
   // from restart files or are cleanly initialized).
-  auto output_blocks = pin->GetBlocksWithPrefix("parthenon/output");
+  auto output_blocks = pin->GetBlockNamesWithPrefix("parthenon/output");
   for (const auto &block_name : output_blocks) {
     std::string outn = block_name.substr(16); // 16 because counting starts at 0!
 

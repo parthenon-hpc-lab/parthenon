@@ -38,7 +38,7 @@ namespace Refinement {
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto ref = std::make_shared<StateDescriptor>("Refinement");
 
-  auto refinement_blocks = pin->GetBlocksWithPrefix("parthenon/refinement");
+  auto refinement_blocks = pin->GetBlockNamesWithPrefix("parthenon/refinement");
   for (auto block_name : refinement_blocks) {
     std::string method = pin->GetString(
         block_name, "method",

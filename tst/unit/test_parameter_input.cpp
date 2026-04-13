@@ -235,7 +235,7 @@ TEST_CASE("FinalizeParsing populates internal map correctly",
   }
 }
 
-TEST_CASE("GetBlocksWithPrefix returns matching blocks only",
+TEST_CASE("GetBlockNamesWithPrefix returns matching blocks only",
           "[ParameterInput][Phase1]") {
   GIVEN("A ParameterInput with blocks having different prefixes") {
     ParameterInput in;
@@ -252,8 +252,8 @@ TEST_CASE("GetBlocksWithPrefix returns matching blocks only",
     std::istringstream s(ss.str());
     in.LoadFromStream(s);
 
-    WHEN("GetBlocksWithPrefix is called for 'parthenon/output'") {
-      auto blocks = in.GetBlocksWithPrefix("parthenon/output");
+    WHEN("GetBlockNamesWithPrefix is called for 'parthenon/output'") {
+      auto blocks = in.GetBlockNamesWithPrefix("parthenon/output");
 
       THEN("It returns only the output blocks") {
         REQUIRE(blocks.size() == 2);
@@ -474,7 +474,7 @@ TEST_CASE("Parameter ordering is preserved for restart compatibility",
     in.FinalizeParsing();
 
     WHEN("We query the blocks") {
-      auto blocks = in.GetBlocksWithPrefix("");
+      auto blocks = in.GetBlockNamesWithPrefix("");
 
       THEN("Blocks appear in insertion order") {
         REQUIRE(blocks.size() >= 3);

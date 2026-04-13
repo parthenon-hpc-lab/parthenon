@@ -28,6 +28,7 @@
 #include <any>
 #include <cstddef>
 #include <map>
+#include <unordered_map>
 #include <optional>
 #include <ostream>
 #include <regex>
@@ -191,7 +192,8 @@ struct Parameter {
 
 struct Block {
   std::string name;
-  std::vector<Parameter> params;
+  std::vector<Parameter> params;  // Ordered storage (for iteration)
+  std::unordered_map<std::string, size_t> param_index;  // Fast lookup within block (stores indices)
 };
 
 //----------------------------------------------------------------------------------------
@@ -231,7 +233,7 @@ class ParameterInput {
 
   // === QUERY INTERFACE (parser-agnostic) ===
   std::vector<std::string> GetBlockNames() const;
-  std::vector<std::string> GetBlocksWithPrefix(const std::string &prefix) const;
+  std::vector<std::string> GetBlockNamesWithPrefix(const std::string &prefix) const;
   std::vector<std::string> GetParameterNames(const std::string &block) const;
 
   void ParameterDump(std::ostream &os);
@@ -316,7 +318,7 @@ class ParameterInput {
   void CheckDesired(const std::string &block, const std::string &name);
   void CheckOrphans() const;
 
-  // === TEMPLATE INTERFACE (preferred for new code) ===
+  // === TEMPLATE INTERFACE ===
 
   //! Get parameter value with compile-time type checking
   template <typename T>
@@ -431,7 +433,8 @@ class ParameterInput {
 
  private:
   // === PARAMETER STORAGE (vector-of-vectors, preserves insertion order) ===
-  std::vector<Block> param_storage_;
+  std::vector<Block> param_storage_;  // Ordered storage (for iteration)
+  std::unordered_map<std::string, size_t> block_index_;  // Fast O(1) block lookup (stores indices)
   bool parsing_finalized_ = false; // Track if parsing phase is complete
 
   std::string last_filename_; // last input file opened, to prevent duplicate reads

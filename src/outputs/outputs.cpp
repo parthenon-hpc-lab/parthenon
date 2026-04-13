@@ -109,7 +109,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   // the outpus packages (as before), but I don't think it's bad practice to work on
   // `pinput` again here as we're actually processing (potentially even modifying)
   // `pinput`.
-  auto output_blocks = pin->GetBlocksWithPrefix("parthenon/output");
+  auto output_blocks = pin->GetBlockNamesWithPrefix("parthenon/output");
   for (const auto &block_name : output_blocks) {
     std::shared_ptr<OutputType> pnew_type; // the new output we will create
     bool restart = false;                  // we track restart outputs separately so we

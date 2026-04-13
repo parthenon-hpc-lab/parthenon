@@ -1106,7 +1106,7 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
     return std::pair<int, int>{lxmin, lxmax};
   };
 
-  auto static_ref_blocks = pin->GetBlocksWithPrefix("parthenon/static_refinement");
+  auto static_ref_blocks = pin->GetBlockNamesWithPrefix("parthenon/static_refinement");
   for (const auto &block_name : static_ref_blocks) {
     RegionSize ref_size;
     ref_size.xmin(X1DIR) = pin->GetReal(block_name, "x1min");

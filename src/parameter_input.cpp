@@ -237,30 +237,34 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
 //  \brief find specified Block.  Returns pointer to block or nullptr.
 
 Block *ParameterInput::FindBlock_(const std::string &name) {
-  auto it = std::find_if(param_storage_.begin(), param_storage_.end(),
-                         [&name](const Block &b) { return b.name == name; });
-  return (it != param_storage_.end()) ? &(*it) : nullptr;
+  auto it = block_index_.find(name);
+  return (it != block_index_.end()) ? &param_storage_[it->second] : nullptr;
 }
 
 const Block *ParameterInput::FindBlock_(const std::string &name) const {
-  auto it = std::find_if(param_storage_.begin(), param_storage_.end(),
-                         [&name](const Block &b) { return b.name == name; });
-  return (it != param_storage_.end()) ? &(*it) : nullptr;
+  auto it = block_index_.find(name);
+  return (it != block_index_.end()) ? &param_storage_[it->second] : nullptr;
 }
 
 //----------------------------------------------------------------------------------------
 //! \fn Block* ParameterInput::FindOrAddBlock_(const std::string & name)
-//  \brief find or add specified Block.  Returns pointer to block.
+//  \brief find or add specified Block.  Returns pointer to existing block if found,
+//         or creates new block if not found. This allows parameters from
+//         multiple sources (files, command line, Python, etc.) to populate
+//         the same logical block.
 
 Block *ParameterInput::FindOrAddBlock_(const std::string &name) {
-  // Search vector to see if name exists, return if found
-  auto it = std::find_if(param_storage_.begin(), param_storage_.end(),
-                         [&name](const Block &b) { return b.name == name; });
-  if (it != param_storage_.end()) return &(*it);
+  // Fast path: Check map first
+  auto map_it = block_index_.find(name);
+  if (map_it != block_index_.end()) {
+    return &param_storage_[map_it->second];  // Block exists, return pointer using index
+  }
 
-  // Create new block if not found above
-  param_storage_.push_back(Block{name, {}});
-  return &param_storage_.back();
+  // Not found - create new block in vector and index it
+  size_t new_idx = param_storage_.size();
+  param_storage_.emplace_back(Block{name, {}, {}});  // name, params vector, param_index map
+  block_index_[name] = new_idx;  // Index it
+  return &param_storage_[new_idx];
 }
 
 //----------------------------------------------------------------------------------------
@@ -593,6 +597,12 @@ void ParameterInput::RemoveParameter(const std::string &block, const std::string
     auto it = std::remove_if(pb->params.begin(), pb->params.end(),
                              [&name](const Parameter &p) { return p.name == name; });
     pb->params.erase(it, pb->params.end());
+
+    // Rebuild param_index since indices have shifted
+    pb->param_index.clear();
+    for (size_t i = 0; i < pb->params.size(); ++i) {
+      pb->param_index[pb->params[i].name] = i;
+    }
   }
 
   // Remove from query records
@@ -815,18 +825,20 @@ void ParameterInput::AddParameter_(const std::string &block, const std::string &
   // Find or add the block
   Block *pb = FindOrAddBlock_(block);
 
-  // Search for existing parameter
-  auto it = std::find_if(pb->params.begin(), pb->params.end(),
-                         [&name](const Parameter &p) { return p.name == name; });
-  if (it != pb->params.end()) {
+  // Check if parameter already exists in this block using the index
+  auto param_it = pb->param_index.find(name);
+  if (param_it != pb->param_index.end()) {
     // Parameter exists - update value and comment
-    it->value = value;
-    it->comment = comment;
+    size_t idx = param_it->second;
+    pb->params[idx].value = value;
+    pb->params[idx].comment = comment;
     return;
   }
 
   // Parameter doesn't exist - add new one
-  pb->params.push_back(Parameter{name, comment, value});
+  size_t new_idx = pb->params.size();
+  pb->params.emplace_back(Parameter{name, comment, value});
+  pb->param_index[name] = new_idx;  // Index it
 }
 
 //----------------------------------------------------------------------------------------
@@ -863,11 +875,11 @@ std::vector<std::string> ParameterInput::GetBlockNames() const {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn std::vector<std::string> ParameterInput::GetBlocksWithPrefix()
+//! \fn std::vector<std::string> ParameterInput::GetBlockNamesWithPrefix()
 //  \brief Return all block names that start with the given prefix
 
 std::vector<std::string>
-ParameterInput::GetBlocksWithPrefix(const std::string &prefix) const {
+ParameterInput::GetBlockNamesWithPrefix(const std::string &prefix) const {
   std::vector<std::string> matching_blocks;
 
   for (const auto &block : param_storage_) {
@@ -907,9 +919,8 @@ Parameter *ParameterInput::FindParameter_(const std::string &block,
   Block *pb = FindBlock_(block);
   if (pb == nullptr) return nullptr;
 
-  auto it = std::find_if(pb->params.begin(), pb->params.end(),
-                         [&name](const Parameter &p) { return p.name == name; });
-  return (it != pb->params.end()) ? &(*it) : nullptr;
+  auto it = pb->param_index.find(name);
+  return (it != pb->param_index.end()) ? &pb->params[it->second] : nullptr;
 }
 
 const Parameter *ParameterInput::FindParameter_(const std::string &block,
@@ -917,10 +928,8 @@ const Parameter *ParameterInput::FindParameter_(const std::string &block,
   const Block *pb = FindBlock_(block);
   if (pb == nullptr) return nullptr;
 
-  for (const auto &param : pb->params) {
-    if (param.name == name) return &param;
-  }
-  return nullptr;
+  auto it = pb->param_index.find(name);
+  return (it != pb->param_index.end()) ? &pb->params[it->second] : nullptr;
 }
 
 //----------------------------------------------------------------------------------------
