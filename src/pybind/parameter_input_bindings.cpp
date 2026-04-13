@@ -140,7 +140,7 @@ PYBIND11_MODULE(parthenon, m) {
       .def("get_parameter_names", &parthenon::ParameterInput::GetParameterNames,
            "Get all parameter names in a block")
 
-      .def("get_blocks_with_prefix", &parthenon::ParameterInput::GetBlocksWithPrefix,
+      .def("get_blocks_with_prefix", &parthenon::ParameterInput::GetBlockNamesWithPrefix,
            "Get all blocks with a given prefix");
 
   // NOTE: get_parameter_input() removed in favor of explicit parameter passing
