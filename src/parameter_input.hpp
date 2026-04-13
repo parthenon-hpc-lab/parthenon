@@ -28,13 +28,13 @@
 #include <any>
 #include <cstddef>
 #include <map>
-#include <unordered_map>
 #include <optional>
 #include <ostream>
 #include <regex>
 #include <set>
 #include <string>
 #include <typeinfo>
+#include <unordered_map>
 #include <utility> // for std::forward, std::pair
 #include <vector>
 
@@ -192,8 +192,9 @@ struct Parameter {
 
 struct Block {
   std::string name;
-  std::vector<Parameter> params;  // Ordered storage (for iteration)
-  std::unordered_map<std::string, size_t> param_index;  // Fast lookup within block (stores indices)
+  std::vector<Parameter> params; // Ordered storage (for iteration)
+  std::unordered_map<std::string, size_t>
+      param_index; // Fast lookup within block (stores indices)
 };
 
 //----------------------------------------------------------------------------------------
@@ -433,8 +434,9 @@ class ParameterInput {
 
  private:
   // === PARAMETER STORAGE (vector-of-vectors, preserves insertion order) ===
-  std::vector<Block> param_storage_;  // Ordered storage (for iteration)
-  std::unordered_map<std::string, size_t> block_index_;  // Fast O(1) block lookup (stores indices)
+  std::vector<Block> param_storage_; // Ordered storage (for iteration)
+  std::unordered_map<std::string, size_t>
+      block_index_;                // Fast O(1) block lookup (stores indices)
   bool parsing_finalized_ = false; // Track if parsing phase is complete
 
   std::string last_filename_; // last input file opened, to prevent duplicate reads

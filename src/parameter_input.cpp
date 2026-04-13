@@ -257,13 +257,14 @@ Block *ParameterInput::FindOrAddBlock_(const std::string &name) {
   // Fast path: Check map first
   auto map_it = block_index_.find(name);
   if (map_it != block_index_.end()) {
-    return &param_storage_[map_it->second];  // Block exists, return pointer using index
+    return &param_storage_[map_it->second]; // Block exists, return pointer using index
   }
 
   // Not found - create new block in vector and index it
   size_t new_idx = param_storage_.size();
-  param_storage_.emplace_back(Block{name, {}, {}});  // name, params vector, param_index map
-  block_index_[name] = new_idx;  // Index it
+  param_storage_.emplace_back(
+      Block{name, {}, {}});     // name, params vector, param_index map
+  block_index_[name] = new_idx; // Index it
   return &param_storage_[new_idx];
 }
 
@@ -838,7 +839,7 @@ void ParameterInput::AddParameter_(const std::string &block, const std::string &
   // Parameter doesn't exist - add new one
   size_t new_idx = pb->params.size();
   pb->params.emplace_back(Parameter{name, comment, value});
-  pb->param_index[name] = new_idx;  // Index it
+  pb->param_index[name] = new_idx; // Index it
 }
 
 //----------------------------------------------------------------------------------------
