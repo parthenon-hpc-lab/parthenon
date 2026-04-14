@@ -34,16 +34,23 @@ struct DummyFunctor {
 };
 
 IndexSplit::IndexSplit(MeshData<Real> *md, const IndexRange &kb, const IndexRange &jb,
-                       const IndexRange &ib, const int nkp, const int njp)
-    : nghost_(Globals::nghost), nkp_(nkp), njp_(njp), kbs_(kb.s), jbs_(jb.s), ibs_(ib.s),
+                       const IndexRange &ib, const int k_tiles, const int j_tiles)
+    : nghost_(Globals::nghost), k_tiles_(k_tiles), j_tiles_(j_tiles), kbs_(kb.s), jbs_(jb.s), ibs_(ib.s),
       ibe_(ib.e) {
+  // k_tiles_ and j_tiles_ define how the kj space is tiled into (k_tiles_ x j_tiles_) tiles. The k- and j- 
+  // bounds of each of the tiles are returned by `GetBoundsK` and `GetBoundsJ`. 
+  // The loop structure is:
+  //   - Outermost loop over tiles
+  //   - Middle loop over k range of the tile (since that can't be pulled into the inner contiguous memory loop)
+  //   - Inner contiguous memory loop over i-range and j-range of tile, including ghosts where necessary 
+
   Init(md, kb.e, jb.e);
   ndim_ = md->GetNDim();
 }
 
-IndexSplit::IndexSplit(MeshData<Real> *md, IndexDomain domain, const int nkp,
-                       const int njp)
-    : nghost_(Globals::nghost), nkp_(nkp), njp_(njp) {
+IndexSplit::IndexSplit(MeshData<Real> *md, IndexDomain domain, const int k_tiles,
+                       const int j_tiles)
+    : nghost_(Globals::nghost), k_tiles_(k_tiles), j_tiles_(j_tiles) {
   auto ib = md->GetBoundsI(domain);
   auto jb = md->GetBoundsJ(domain);
   auto kb = md->GetBoundsK(domain);
@@ -56,9 +63,22 @@ IndexSplit::IndexSplit(MeshData<Real> *md, IndexDomain domain, const int nkp,
 }
 
 void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
-  const int total_k = kbe - kbs_ + 1;
-  const int total_j = jbe - jbs_ + 1;
-  const int total_i = ibe_ - ibs_ + 1;
+  // Save the size of the logical domain (i.e. the requested index range)
+  logical_nk_ = kbe - kbs_ + 1;
+  logical_nj_ = jbe - jbs_ + 1;
+  logical_ni_ = ibe_ - ibs_ + 1;
+   
+  logical_idxer_ = Indexer3D({kbs_, kbe}, {jbs_, jbe}, {ibs_, ibe_});
+   
+  // save the size of the memory domain of the block we are iterating over
+  auto mib = md->GetBoundsI(IndexDomain::entire);
+  auto mjb = md->GetBoundsJ(IndexDomain::entire);
+  auto mkb = md->GetBoundsK(IndexDomain::entire);
+  memory_ni_ = mib.e + 1;
+  memory_nj_ = mjb.e + 1;
+  memory_nk_ = mkb.e + 1;
+
+  memory_idxer_ = Indexer3D({mkb.s, mkb.e}, {mjb.s, mjb.e}, {mib.s, mib.e});
 
   // Compute max parallelism (at outer loop level) from Kokkos
   // equivalent to NSMS in Kokkos
@@ -66,11 +86,11 @@ void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
   // this. Based on discussion on Kokkos slack.
 #ifdef PARTHENON_ENABLE_GPU
   const auto space = DevExecSpace();
-  team_policy policy(space, (md->NumBlocks()) * total_k, Kokkos::AUTO);
+  team_policy policy(space, (md->NumBlocks()) * logical_nk_, Kokkos::AUTO);
   // JMM: In principle, should pass a realistic functor here. Using a
   // dummy because we don't know what's available.
   // TODO(JMM): Should we expose the functor?
-  policy.set_scratch_size(1, Kokkos::PerTeam(sizeof(Real) * total_i * total_j));
+  policy.set_scratch_size(1, Kokkos::PerTeam(sizeof(Real) * logical_ni_ * logical_nj_));
   const int nteams =
       policy.team_size_recommended(DummyFunctor(), Kokkos::ParallelForTag());
   concurrency_ = space.concurrency() / nteams;
@@ -78,51 +98,36 @@ void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
   concurrency_ = 1;
 #endif // PARTHENON_ENABLE_GPU
 
-  if (nkp_ == all_outer)
-    nkp_ = total_k;
-  else if (nkp_ == no_outer)
-    nkp_ = 1;
-  if (njp_ == all_outer)
-    njp_ = total_j;
-  else if (njp_ == no_outer)
-    njp_ = 1;
+  if (k_tiles_ == all_outer)
+    k_tiles_ = logical_nk_;
+  else if (k_tiles_ == no_outer)
+    k_tiles_ = 1;
+  if (j_tiles_ == all_outer)
+    j_tiles_ = logical_nj_;
+  else if (j_tiles_ == no_outer)
+    j_tiles_ = 1;
 
-  if (nkp_ == 0) {
+  if (k_tiles_ == 0) {
 #ifdef PARTHENON_ENABLE_GPU
-    nkp_ = total_k;
+    k_tiles_ = logical_nk_;
 #else
-    nkp_ = 1;
+    k_tiles_ = 1;
 #endif // PARTHENON_ENABLE_GPU
-  } else if (nkp_ > total_k) {
-    nkp_ = total_k;
+  } else if (k_tiles_ > logical_nk_) {
+    k_tiles_ = logical_nk_;
   }
-  if (njp_ == 0) {
+  if (j_tiles_ == 0) {
 #ifdef PARTHENON_ENABLE_GPU
     // From Forrest Glines:
-    // nkp_ * njp_ >= number of SMs / number of streams
-    // => njp_ >= SMS / streams / NKP
-    njp_ = std::min(concurrency_ / (NSTREAMS_ * nkp_), total_j);
+    // k_tiles_ * j_tiles_ >= number of SMs / number of streams
+    // => j_tiles_ >= SMS / streams / k_tiles
+    j_tiles_ = std::min(concurrency_ / (NSTREAMS_ * k_tiles_), logical_nj_);
 #else
-    njp_ = 1;
+    j_tiles_ = 1;
 #endif // PARTHENON_ENABLE_GPU
-  } else if (njp_ > total_j) {
-    njp_ = total_j;
+  } else if (j_tiles_ > logical_nj_) {
+    j_tiles_ = logical_nj_;
   }
-
-  // add a tiny bit to avoid round-off issues when we ultimately convert to int
-  // JMM: Do NOT cast these to integers here. The casting happens later.
-  // These being doubles is necessary for proper interleaving of work.
-  target_k_ = (1.0 * total_k) / nkp_ + 1.e-6;
-  target_j_ = (1.0 * total_j) / njp_ + 1.e-6;
-
-  // save the "entire" ranges
-  // don't bother save ".s" since it's always zero
-  auto ib = md->GetBoundsI(IndexDomain::entire);
-  auto jb = md->GetBoundsJ(IndexDomain::entire);
-  auto kb = md->GetBoundsK(IndexDomain::entire);
-  kbe_entire_ = kb.e;
-  jbe_entire_ = jb.e;
-  ibe_entire_ = ib.e;
 }
 
 } // namespace parthenon
