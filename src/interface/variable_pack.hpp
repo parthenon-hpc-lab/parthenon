@@ -183,7 +183,7 @@ class PackIndexMap {
     return itr->second;
   }
 
-  bool operator==(const PackIndexMap &other) {
+  bool operator==(const PackIndexMap &other) const {
     return (map_ == other.map_) && (shape_map_ == other.shape_map_);
   }
 
