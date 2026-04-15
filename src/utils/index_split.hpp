@@ -120,9 +120,7 @@ class IndexSplit {
   KOKKOS_INLINE_FUNCTION void middle_for(int p, F &&f) const {
     // TODO(LFR): This could be generalized to allow for switching to including part of
     // k-space in the flattening.
-    const auto kb = GetBoundsK(p);
-    const auto jb = GetBoundsJ(p);
-    const auto ib = GetBoundsI(p);
+    const auto [kb, jb, ib] = GetBoundsKJI(p);
     for (int k = kb.s; k <= kb.e; ++k)
       f(k, jb.s, ib.s, inner_size(kb, jb, ib));
   }
