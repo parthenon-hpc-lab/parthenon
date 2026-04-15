@@ -122,16 +122,16 @@ struct Indexer {
     int end = ni + start[I] - 1;
     return end;
   }
-  
+
   template <std::size_t I>
   KOKKOS_FORCEINLINE_FUNCTION auto IdxInRange(int i) const {
     return i >= StartIdx<I>() && i <= EndIdx<I>();
   }
-  
+
   template <std::size_t I>
   KOKKOS_FORCEINLINE_FUNCTION auto Extent() const {
     return N[I] / GetN<I>();
-  } 
+  }
 
   KOKKOS_FORCEINLINE_FUNCTION auto End() const {
     return End_impl(std::make_index_sequence<sizeof...(Ts)>());

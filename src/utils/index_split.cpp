@@ -32,15 +32,19 @@ struct DummyFunctor {
   void operator()(team_mbr_t team_member) const {}
 };
 
-IndexSplit::IndexSplit(MeshData<Real> *md, IndexDomain domain, const int nk_tiles, const int nj_tiles, TopologicalElement te, TopologicalElement te_mem)
-    : IndexSplit(md, md->GetBoundsK(domain, te), md->GetBoundsJ(domain, te), md->GetBoundsI(domain, te), nk_tiles, nj_tiles, te_mem) {}
+IndexSplit::IndexSplit(MeshData<Real> *md, IndexDomain domain, const int nk_tiles,
+                       const int nj_tiles, TopologicalElement te,
+                       TopologicalElement te_mem)
+    : IndexSplit(md, md->GetBoundsK(domain, te), md->GetBoundsJ(domain, te),
+                 md->GetBoundsI(domain, te), nk_tiles, nj_tiles, te_mem) {}
 
-IndexSplit IndexSplit::RawMemIJ(IndexDomain domain, int halo, MeshData<Real> *md, TE logical_te, TE memory_te) { 
+IndexSplit IndexSplit::RawMemIJ(IndexDomain domain, int halo, MeshData<Real> *md,
+                                TE logical_te, TE memory_te) {
   auto pmesh = md->GetMeshPointer();
   const int ndim = pmesh->ndim;
   auto ib = md->GetBoundsI(domain, logical_te);
   auto jb = md->GetBoundsJ(domain, logical_te);
-  auto kb = md->GetBoundsK(domain, logical_te); 
+  auto kb = md->GetBoundsK(domain, logical_te);
   ib.s -= halo;
   ib.e += halo;
   jb.s -= (ndim > 1) * halo;
@@ -48,26 +52,32 @@ IndexSplit IndexSplit::RawMemIJ(IndexDomain domain, int halo, MeshData<Real> *md
   kb.s -= (ndim > 2) * halo;
   kb.e += (ndim > 2) * halo;
   int nk_tiles = kb.e - kb.s + 1; // Outer loop iterates over all k
-  int nj_tiles = 1; // Tile contains all j indices, so inner loops run over all i and j for a fixed k
+  int nj_tiles =
+      1; // Tile contains all j indices, so inner loops run over all i and j for a fixed k
   return IndexSplit(md, kb, jb, ib, kb.e - kb.s + 1, 1);
 }
 
 IndexSplit::IndexSplit(MeshData<Real> *md, const IndexRange &kb, const IndexRange &jb,
-                       const IndexRange &ib, const int nk_tiles, const int nj_tiles, TopologicalElement te_mem)
+                       const IndexRange &ib, const int nk_tiles, const int nj_tiles,
+                       TopologicalElement te_mem)
     : nk_tiles_(nk_tiles), nj_tiles_(nj_tiles) {
-  // nk_tiles_ and nj_tiles_ define how the kj space is tiled into (nk_tiles_ x nj_tiles_) tiles. The k- and j- 
-  // bounds of each of the tiles are returned by `GetBoundsK` and `GetBoundsJ`. 
-  // The loop structure is:
+  // nk_tiles_ and nj_tiles_ define how the kj space is tiled into (nk_tiles_ x nj_tiles_)
+  // tiles. The k- and j- bounds of each of the tiles are returned by `GetBoundsK` and
+  // `GetBoundsJ`. The loop structure is:
   //   - Outermost loop over tiles
-  //   - Middle loop over k range of the tile (since that can't be pulled into the inner contiguous memory loop)
-  //   - Inner contiguous memory loop over i-range and j-range of tile, including ghosts where necessary 
+  //   - Middle loop over k range of the tile (since that can't be pulled into the inner
+  //   contiguous memory loop)
+  //   - Inner contiguous memory loop over i-range and j-range of tile, including ghosts
+  //   where necessary
 
   // Save the size of the logical domain (i.e. the requested index range)
   logical_ = Indexer3D(kb, jb, ib);
-   
+
   // save the size of the memory domain of the block we are iterating over
   using TE = TopologicalElement;
-  PARTHENON_REQUIRE(te_mem == TE::CC || te_mem == TE::NN, "All memory layouts either are cell-centered or nodal, even for faces and edges.");
+  PARTHENON_REQUIRE(
+      te_mem == TE::CC || te_mem == TE::NN,
+      "All memory layouts either are cell-centered or nodal, even for faces and edges.");
   auto mib = md->GetBoundsI(IndexDomain::entire, te_mem);
   auto mjb = md->GetBoundsJ(IndexDomain::entire, te_mem);
   auto mkb = md->GetBoundsK(IndexDomain::entire, te_mem);
@@ -78,14 +88,15 @@ IndexSplit::IndexSplit(MeshData<Real> *md, const IndexRange &kb, const IndexRang
   // equivalent to NSMS in Kokkos
   // TODO(JMM): I'm not sure if this is really the best way to do
   // this. Based on discussion on Kokkos slack.
-  int concurrency{1};  //  = NSMs = 132 for NVIDIA H100
+  int concurrency{1}; //  = NSMs = 132 for NVIDIA H100
 #ifdef PARTHENON_ENABLE_GPU
   const auto space = DevExecSpace();
   team_policy policy(space, (md->NumBlocks()) * logical_.Extent<KDIM>(), Kokkos::AUTO);
   // JMM: In principle, should pass a realistic functor here. Using a
   // dummy because we don't know what's available.
   // TODO(JMM): Should we expose the functor?
-  policy.set_scratch_size(1, Kokkos::PerTeam(sizeof(Real) * logical_.Extent<IDIM>() * logical_.Extent<JDIM>()));
+  policy.set_scratch_size(1, Kokkos::PerTeam(sizeof(Real) * logical_.Extent<IDIM>() *
+                                             logical_.Extent<JDIM>()));
   const int nteams =
       policy.team_size_recommended(DummyFunctor(), Kokkos::ParallelForTag());
   concurrency = space.concurrency() / nteams;
