@@ -32,8 +32,8 @@ struct DummyFunctor {
   void operator()(team_mbr_t team_member) const {}
 };
 
-IndexSplit::IndexSplit(MeshData<Real> *md, IndexDomain domain, const int k_tiles, const int j_tiles, TopologicalElement te, TopologicalElement te_mem)
-    : IndexSplit(md, md->GetBoundsK(domain, te), md->GetBoundsJ(domain, te), md->GetBoundsI(domain, te), k_tiles, j_tiles, te_mem) {}
+IndexSplit::IndexSplit(MeshData<Real> *md, IndexDomain domain, const int nk_tiles, const int nj_tiles, TopologicalElement te, TopologicalElement te_mem)
+    : IndexSplit(md, md->GetBoundsK(domain, te), md->GetBoundsJ(domain, te), md->GetBoundsI(domain, te), nk_tiles, nj_tiles, te_mem) {}
 
 IndexSplit IndexSplit::RawMemIJ(IndexDomain domain, int halo, MeshData<Real> *md, TE logical_te, TE memory_te) { 
   auto pmesh = md->GetMeshPointer();
@@ -47,15 +47,15 @@ IndexSplit IndexSplit::RawMemIJ(IndexDomain domain, int halo, MeshData<Real> *md
   jb.e += (ndim > 1) * halo;
   kb.s -= (ndim > 2) * halo;
   kb.e += (ndim > 2) * halo;
-  int k_tiles = kb.e - kb.s + 1; // Outer loop iterates over all k
-  int j_tiles = 1; // Tile contains all j indices, so inner loops run over all i and j for a fixed k
+  int nk_tiles = kb.e - kb.s + 1; // Outer loop iterates over all k
+  int nj_tiles = 1; // Tile contains all j indices, so inner loops run over all i and j for a fixed k
   return IndexSplit(md, kb, jb, ib, kb.e - kb.s + 1, 1);
 }
 
 IndexSplit::IndexSplit(MeshData<Real> *md, const IndexRange &kb, const IndexRange &jb,
-                       const IndexRange &ib, const int k_tiles, const int j_tiles, TopologicalElement te_mem)
-    : k_tiles_(k_tiles), j_tiles_(j_tiles) {
-  // k_tiles_ and j_tiles_ define how the kj space is tiled into (k_tiles_ x j_tiles_) tiles. The k- and j- 
+                       const IndexRange &ib, const int nk_tiles, const int nj_tiles, TopologicalElement te_mem)
+    : nk_tiles_(nk_tiles), nj_tiles_(nj_tiles) {
+  // nk_tiles_ and nj_tiles_ define how the kj space is tiled into (nk_tiles_ x nj_tiles_) tiles. The k- and j- 
   // bounds of each of the tiles are returned by `GetBoundsK` and `GetBoundsJ`. 
   // The loop structure is:
   //   - Outermost loop over tiles
@@ -91,35 +91,35 @@ IndexSplit::IndexSplit(MeshData<Real> *md, const IndexRange &kb, const IndexRang
   concurrency = space.concurrency() / nteams;
 #endif // PARTHENON_ENABLE_GPU
 
-  if (k_tiles_ == all_outer)
-    k_tiles_ = logical_.Extent<KDIM>();
-  else if (k_tiles_ == no_outer)
-    k_tiles_ = 1;
-  if (j_tiles_ == all_outer)
-    j_tiles_ = logical_.Extent<JDIM>();
-  else if (j_tiles_ == no_outer)
-    j_tiles_ = 1;
+  if (nk_tiles_ == all_outer)
+    nk_tiles_ = logical_.Extent<KDIM>();
+  else if (nk_tiles_ == no_outer)
+    nk_tiles_ = 1;
+  if (nj_tiles_ == all_outer)
+    nj_tiles_ = logical_.Extent<JDIM>();
+  else if (nj_tiles_ == no_outer)
+    nj_tiles_ = 1;
 
-  if (k_tiles_ == 0) {
+  if (nk_tiles_ == 0) {
 #ifdef PARTHENON_ENABLE_GPU
-    k_tiles_ = logical_.Extent<KDIM>();
+    nk_tiles_ = logical_.Extent<KDIM>();
 #else
-    k_tiles_ = 1;
+    nk_tiles_ = 1;
 #endif // PARTHENON_ENABLE_GPU
-  } else if (k_tiles_ > logical_.Extent<KDIM>()) {
-    k_tiles_ = logical_.Extent<KDIM>();
+  } else if (nk_tiles_ > logical_.Extent<KDIM>()) {
+    nk_tiles_ = logical_.Extent<KDIM>();
   }
-  if (j_tiles_ == 0) {
+  if (nj_tiles_ == 0) {
 #ifdef PARTHENON_ENABLE_GPU
     // From Forrest Glines:
-    // k_tiles_ * j_tiles_ >= number of SMs / number of streams
-    // => j_tiles_ >= SMS / streams / k_tiles
-    j_tiles_ = std::min(concurrency / (NSTREAMS_ * k_tiles_), logical_.Extent<JDIM>());
+    // nk_tiles_ * nj_tiles_ >= number of SMs / number of streams
+    // => nj_tiles_ >= SMS / streams / nk_tiles
+    nj_tiles_ = std::min(concurrency / (NSTREAMS_ * nk_tiles_), logical_.Extent<JDIM>());
 #else
-    j_tiles_ = 1;
+    nj_tiles_ = 1;
 #endif // PARTHENON_ENABLE_GPU
-  } else if (j_tiles_ > logical_.Extent<JDIM>()) {
-    j_tiles_ = logical_.Extent<JDIM>();
+  } else if (nj_tiles_ > logical_.Extent<JDIM>()) {
+    nj_tiles_ = logical_.Extent<JDIM>();
   }
 }
 
