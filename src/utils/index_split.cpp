@@ -26,17 +26,35 @@
 #include "mesh/mesh.hpp"
 
 namespace parthenon {
-
 struct DummyFunctor {
   DummyFunctor() = default;
   KOKKOS_INLINE_FUNCTION
   void operator()(team_mbr_t team_member) const {}
 };
 
+IndexSplit::IndexSplit(MeshData<Real> *md, IndexDomain domain, const int k_tiles, const int j_tiles, TopologicalElement te, TopologicalElement te_mem)
+    : IndexSplit(md, md->GetBoundsK(domain, te), md->GetBoundsJ(domain, te), md->GetBoundsI(domain, te), k_tiles, j_tiles, te_mem) {}
+
+IndexSplit IndexSplit::RawMemIJ(IndexDomain domain, int halo, MeshData<Real> *md, TE logical_te, TE memory_te) { 
+  auto pmesh = md->GetMeshPointer();
+  const int ndim = pmesh->ndim;
+  auto ib = md->GetBoundsI(domain, logical_te);
+  auto jb = md->GetBoundsJ(domain, logical_te);
+  auto kb = md->GetBoundsK(domain, logical_te); 
+  ib.s -= halo;
+  ib.e += halo;
+  jb.s -= (ndim > 1) * halo;
+  jb.e += (ndim > 1) * halo;
+  kb.s -= (ndim > 2) * halo;
+  kb.e += (ndim > 2) * halo;
+  int k_tiles = kb.e - kb.s + 1; // Outer loop iterates over all k
+  int j_tiles = 1; // Tile contains all j indices, so inner loops run over all i and j for a fixed k
+  return IndexSplit(md, kb, jb, ib, kb.e - kb.s + 1, 1);
+}
+
 IndexSplit::IndexSplit(MeshData<Real> *md, const IndexRange &kb, const IndexRange &jb,
-                       const IndexRange &ib, const int k_tiles, const int j_tiles)
-    : nghost_(Globals::nghost), k_tiles_(k_tiles), j_tiles_(j_tiles), kbs_(kb.s), jbs_(jb.s), ibs_(ib.s),
-      ibe_(ib.e) {
+                       const IndexRange &ib, const int k_tiles, const int j_tiles, TopologicalElement te_mem)
+    : k_tiles_(k_tiles), j_tiles_(j_tiles) {
   // k_tiles_ and j_tiles_ define how the kj space is tiled into (k_tiles_ x j_tiles_) tiles. The k- and j- 
   // bounds of each of the tiles are returned by `GetBoundsK` and `GetBoundsJ`. 
   // The loop structure is:
@@ -44,89 +62,64 @@ IndexSplit::IndexSplit(MeshData<Real> *md, const IndexRange &kb, const IndexRang
   //   - Middle loop over k range of the tile (since that can't be pulled into the inner contiguous memory loop)
   //   - Inner contiguous memory loop over i-range and j-range of tile, including ghosts where necessary 
 
-  Init(md, kb.e, jb.e);
-  ndim_ = md->GetNDim();
-}
-
-IndexSplit::IndexSplit(MeshData<Real> *md, IndexDomain domain, const int k_tiles,
-                       const int j_tiles)
-    : nghost_(Globals::nghost), k_tiles_(k_tiles), j_tiles_(j_tiles) {
-  auto ib = md->GetBoundsI(domain);
-  auto jb = md->GetBoundsJ(domain);
-  auto kb = md->GetBoundsK(domain);
-  kbs_ = kb.s;
-  jbs_ = jb.s;
-  ibs_ = ib.s;
-  ibe_ = ib.e;
-  Init(md, kb.e, jb.e);
-  ndim_ = md->GetNDim();
-}
-
-void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
   // Save the size of the logical domain (i.e. the requested index range)
-  logical_nk_ = kbe - kbs_ + 1;
-  logical_nj_ = jbe - jbs_ + 1;
-  logical_ni_ = ibe_ - ibs_ + 1;
-   
-  logical_idxer_ = Indexer3D({kbs_, kbe}, {jbs_, jbe}, {ibs_, ibe_});
+  logical_ = Indexer3D(kb, jb, ib);
    
   // save the size of the memory domain of the block we are iterating over
-  auto mib = md->GetBoundsI(IndexDomain::entire);
-  auto mjb = md->GetBoundsJ(IndexDomain::entire);
-  auto mkb = md->GetBoundsK(IndexDomain::entire);
-  memory_ni_ = mib.e + 1;
-  memory_nj_ = mjb.e + 1;
-  memory_nk_ = mkb.e + 1;
+  using TE = TopologicalElement;
+  PARTHENON_REQUIRE(te_mem == TE::CC || te_mem == TE::NN, "All memory layouts either are cell-centered or nodal, even for faces and edges.");
+  auto mib = md->GetBoundsI(IndexDomain::entire, te_mem);
+  auto mjb = md->GetBoundsJ(IndexDomain::entire, te_mem);
+  auto mkb = md->GetBoundsK(IndexDomain::entire, te_mem);
 
-  memory_idxer_ = Indexer3D({mkb.s, mkb.e}, {mjb.s, mjb.e}, {mib.s, mib.e});
+  memory_ = Indexer3D(mkb, mjb, mib);
 
   // Compute max parallelism (at outer loop level) from Kokkos
   // equivalent to NSMS in Kokkos
   // TODO(JMM): I'm not sure if this is really the best way to do
   // this. Based on discussion on Kokkos slack.
+  int concurrency{1};  //  = NSMs = 132 for NVIDIA H100
 #ifdef PARTHENON_ENABLE_GPU
   const auto space = DevExecSpace();
-  team_policy policy(space, (md->NumBlocks()) * logical_nk_, Kokkos::AUTO);
+  team_policy policy(space, (md->NumBlocks()) * logical_.Extent<KDIM>(), Kokkos::AUTO);
   // JMM: In principle, should pass a realistic functor here. Using a
   // dummy because we don't know what's available.
   // TODO(JMM): Should we expose the functor?
-  policy.set_scratch_size(1, Kokkos::PerTeam(sizeof(Real) * logical_ni_ * logical_nj_));
+  policy.set_scratch_size(1, Kokkos::PerTeam(sizeof(Real) * logical_.Extent<IDIM>() * logical_.Extent<JDIM>()));
   const int nteams =
       policy.team_size_recommended(DummyFunctor(), Kokkos::ParallelForTag());
-  concurrency_ = space.concurrency() / nteams;
-#else
-  concurrency_ = 1;
+  concurrency = space.concurrency() / nteams;
 #endif // PARTHENON_ENABLE_GPU
 
   if (k_tiles_ == all_outer)
-    k_tiles_ = logical_nk_;
+    k_tiles_ = logical_.Extent<KDIM>();
   else if (k_tiles_ == no_outer)
     k_tiles_ = 1;
   if (j_tiles_ == all_outer)
-    j_tiles_ = logical_nj_;
+    j_tiles_ = logical_.Extent<JDIM>();
   else if (j_tiles_ == no_outer)
     j_tiles_ = 1;
 
   if (k_tiles_ == 0) {
 #ifdef PARTHENON_ENABLE_GPU
-    k_tiles_ = logical_nk_;
+    k_tiles_ = logical_.Extent<KDIM>();
 #else
     k_tiles_ = 1;
 #endif // PARTHENON_ENABLE_GPU
-  } else if (k_tiles_ > logical_nk_) {
-    k_tiles_ = logical_nk_;
+  } else if (k_tiles_ > logical_.Extent<KDIM>()) {
+    k_tiles_ = logical_.Extent<KDIM>();
   }
   if (j_tiles_ == 0) {
 #ifdef PARTHENON_ENABLE_GPU
     // From Forrest Glines:
     // k_tiles_ * j_tiles_ >= number of SMs / number of streams
     // => j_tiles_ >= SMS / streams / k_tiles
-    j_tiles_ = std::min(concurrency_ / (NSTREAMS_ * k_tiles_), logical_nj_);
+    j_tiles_ = std::min(concurrency / (NSTREAMS_ * k_tiles_), logical_.Extent<JDIM>());
 #else
     j_tiles_ = 1;
 #endif // PARTHENON_ENABLE_GPU
-  } else if (j_tiles_ > logical_nj_) {
-    j_tiles_ = logical_nj_;
+  } else if (j_tiles_ > logical_.Extent<JDIM>()) {
+    j_tiles_ = logical_.Extent<JDIM>();
   }
 }
 
