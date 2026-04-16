@@ -21,6 +21,12 @@ namespace parthenon {
 struct ManagedTag {};
 struct UnmanagedTag {};
 
+// TensorTraits collects the basic Kokkos type information used throughout the
+// tensor-train code. It centralizes the device type, scalar type, layout, and
+// managed/unmanaged view aliases so that the tensor data structures themselves
+// can stay relatively clean. In particular, view_t<DataType, OwnershipTag>
+// gives a device-space Kokkos::View, while host_view_t<DataType, OwnershipTag>
+// gives the corresponding host-mirror-space view with the same ownership mode.
 template <class Device,
           class RealT = Real,
           class Layout = Kokkos::LayoutRight>
@@ -51,5 +57,6 @@ struct TensorTraits {
       Kokkos::View<DataType, layout, host_mirror_space,
                    memory_traits<OwnershipTag>>;
 };
+
 } // namespace parthenon
 #endif // TENSOR_TT_TRAITS_HPP
