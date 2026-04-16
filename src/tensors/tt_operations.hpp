@@ -20,6 +20,7 @@
 #include "tt_types.hpp"
 
 namespace parthenon {
+namespace tensor2 {
 namespace impl {
 
 // Copy all fibers from a source core into a destination core with optional
@@ -28,8 +29,8 @@ namespace impl {
 template <class TTraits>
 KOKKOS_INLINE_FUNCTION
 void CopyCoreBlock(parthenon::team_mbr_t member,
-                   const TensorCoreDevice<TTraits> &src,
-                   TensorCoreDevice<TTraits> &dst,
+                   const TensorCoreDeviceT<TTraits> &src,
+                   TensorCoreDeviceT<TTraits> &dst,
                    int loffset = 0, int roffset = 0) {
   for (int l = 0; l < src.LR(); ++l) {
     for (int r = 0; r < src.RR(); ++r) {
@@ -46,7 +47,7 @@ void CopyCoreBlock(parthenon::team_mbr_t member,
 template <class TTraits>
 KOKKOS_INLINE_FUNCTION
 void SetCoreBlock(parthenon::team_mbr_t member,
-                  TensorCoreDevice<TTraits> &dst,
+                  TensorCoreDeviceT<TTraits> &dst,
                   typename TTraits::real_t value,
                   std::pair<int, int> lrange,
                   std::pair<int, int> rrange) {
@@ -65,9 +66,9 @@ void SetCoreBlock(parthenon::team_mbr_t member,
 template <class TTraits>
 KOKKOS_INLINE_FUNCTION
 void HadamardCoreBlocks(parthenon::team_mbr_t member,
-                        const TensorCoreDevice<TTraits> &core_a,
-                        const TensorCoreDevice<TTraits> &core_b,
-                        TensorCoreDevice<TTraits> &core_c) {
+                        const TensorCoreDeviceT<TTraits> &core_a,
+                        const TensorCoreDeviceT<TTraits> &core_b,
+                        TensorCoreDeviceT<TTraits> &core_c) {
   for (int la = 0; la < core_a.LR(); ++la) {
     for (int lb = 0; lb < core_b.LR(); ++lb) {
       const int lc = la * core_b.LR() + lb;
@@ -92,7 +93,7 @@ void HadamardCoreBlocks(parthenon::team_mbr_t member,
 
 // Set every entry in every core of a tensor-train pack to a single value.
 template <class TTraits>
-void SetTTPackToValue(TensorPack<TTraits> &pack, typename TTraits::real_t value) {
+void SetTTPackToValue(TensorPackT<TTraits> &pack, typename TTraits::real_t value) {
   constexpr int unused_scratch_size = 0;
   constexpr int unused_scratch_level = 1;
   parthenon::par_for_outer(
@@ -100,7 +101,7 @@ void SetTTPackToValue(TensorPack<TTraits> &pack, typename TTraits::real_t value)
       0, pack.GetNBlocks() - 1, 0, pack.GetNCores() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int c) {
         auto &core = pack(b, 0, c);
-        impl::SetCoreBlock(member, core, value, {0, core.LR()}, {0, core.RR()});
+        impl::SetCoreBlock(member, core, value,  std::pair<int, int>{0, core.LR()},  std::pair<int, int>{0, core.RR()});
       });
 }
 
@@ -108,13 +109,13 @@ void SetTTPackToValue(TensorPack<TTraits> &pack, typename TTraits::real_t value)
 // trains are allocated on host, packed, and then filled on device by copying
 // the two input trains into the appropriate diagonal blocks.
 template <class TTraits>
-std::vector<TensorTrain<TTraits>>
-NonDestructiveSum(std::vector<TensorTrain<TTraits>> &TrainsA,
-                  std::vector<TensorTrain<TTraits>> &TrainsB) {
+std::vector<TensorTrainT<TTraits>>
+NonDestructiveSum(const std::vector<TensorTrainT<TTraits>> &TrainsA,
+                  const std::vector<TensorTrainT<TTraits>> &TrainsB) {
   PARTHENON_REQUIRE(TrainsA.size() == TrainsB.size(),
                     "Must be adding the same number of TTs.");
 
-  std::vector<TensorTrain<TTraits>> TrainsC;
+  std::vector<TensorTrainT<TTraits>> TrainsC;
   TrainsC.reserve(TrainsA.size());
 
   for (int t = 0; t < TrainsA.size(); ++t) {
@@ -134,9 +135,9 @@ NonDestructiveSum(std::vector<TensorTrain<TTraits>> &TrainsA,
     TrainsC.emplace_back(phys_dims, target_ranks);
   }
 
-  TensorPack<TTraits> pack_a(TrainsA);
-  TensorPack<TTraits> pack_b(TrainsB);
-  TensorPack<TTraits> pack_c(TrainsC);
+  TensorPackT<TTraits> pack_a(TrainsA);
+  TensorPackT<TTraits> pack_b(TrainsB);
+  TensorPackT<TTraits> pack_c(TrainsC);
 
   constexpr int unused_scratch_size = 0;
   constexpr int unused_scratch_level = 1;
@@ -155,12 +156,12 @@ NonDestructiveSum(std::vector<TensorTrain<TTraits>> &TrainsA,
         impl::CopyCoreBlock(member, core_b, core_c, loffset, roffset);
 
         if (loffset && roffset) {
-          impl::SetCoreBlock(member, core_c, 0.0,
-                             {0, core_a.LR()},
-                             {core_a.RR(), core_a.RR() + core_b.RR()});
-          impl::SetCoreBlock(member, core_c, 0.0,
-                             {core_a.LR(), core_a.LR() + core_b.LR()},
-                             {0, core_a.RR()});
+          impl::SetCoreBlock(member, core_c, typename TTraits::real_t(0),
+                             std::pair<int, int>{0, core_a.LR()},
+                             std::pair<int, int>{core_a.RR(), core_a.RR() + core_b.RR()});
+          impl::SetCoreBlock(member, core_c, typename TTraits::real_t(0),
+                             std::pair<int, int>{core_a.LR(), core_a.LR() + core_b.LR()},
+                             std::pair<int, int>{0, core_a.RR()});
         }
       });
   return TrainsC;
@@ -170,13 +171,13 @@ NonDestructiveSum(std::vector<TensorTrain<TTraits>> &TrainsA,
 // are the products of the corresponding input ranks, and the core entries are
 // filled by pairwise fiber multiplication.
 template <class TTraits>
-std::vector<TensorTrain<TTraits>>
-HadamardProduct(std::vector<TensorTrain<TTraits>> &TrainsA,
-                std::vector<TensorTrain<TTraits>> &TrainsB) {
+std::vector<TensorTrainT<TTraits>>
+HadamardProduct(std::vector<TensorTrainT<TTraits>> &TrainsA,
+                std::vector<TensorTrainT<TTraits>> &TrainsB) {
   PARTHENON_REQUIRE(TrainsA.size() == TrainsB.size(),
                     "Must be taking the Hadamard product of the same number of TTs.");
 
-  std::vector<TensorTrain<TTraits>> TrainsC;
+  std::vector<TensorTrainT<TTraits>> TrainsC;
   TrainsC.reserve(TrainsA.size());
 
   for (int t = 0; t < TrainsA.size(); ++t) {
@@ -199,9 +200,9 @@ HadamardProduct(std::vector<TensorTrain<TTraits>> &TrainsA,
     TrainsC.emplace_back(phys_dims, target_ranks);
   }
 
-  TensorPack<TTraits> pack_a(TrainsA);
-  TensorPack<TTraits> pack_b(TrainsB);
-  TensorPack<TTraits> pack_c(TrainsC);
+  TensorPackT<TTraits> pack_a(TrainsA);
+  TensorPackT<TTraits> pack_b(TrainsB);
+  TensorPackT<TTraits> pack_c(TrainsC);
 
   constexpr int unused_scratch_size = 0;
   constexpr int unused_scratch_level = 1;
@@ -217,7 +218,7 @@ HadamardProduct(std::vector<TensorTrain<TTraits>> &TrainsA,
 
   return TrainsC;
 }
-
+} // namespace tensor2
 } // namespace parthenon
 
 #endif // TENSORS_TT_OPERATIONS_HPP

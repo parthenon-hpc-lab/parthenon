@@ -19,7 +19,7 @@
 #include "tt_traits.hpp"
 
 namespace parthenon {
-
+namespace tensor2 {
 // A FiberView is the fundamental 1D storage unit for tensor-core data.
 // Managed fibers own device memory, while unmanaged fibers are shallow
 // handles used inside device-facing descriptors.
@@ -32,7 +32,7 @@ using FiberView =
 // core dimensions (left rank, physical dimension, right rank). This is the
 // object kernels should use.
 template <class TTraits>
-class TensorCoreDevice {
+class TensorCoreDeviceT {
  public:
   using real_t = typename TTraits::real_t;
   using fiber_unmanaged_t = FiberView<TTraits, UnmanagedTag>;
@@ -40,10 +40,10 @@ class TensorCoreDevice {
       typename TTraits::template view_t<fiber_unmanaged_t**, UnmanagedTag>;
 
   KOKKOS_FUNCTION
-  TensorCoreDevice() = default;
+  TensorCoreDeviceT() = default;
 
   KOKKOS_FUNCTION
-  TensorCoreDevice(int lr, int dd, int rr, const device_fibers_view_t &fibers)
+  TensorCoreDeviceT(int lr, int dd, int rr, const device_fibers_view_t &fibers)
       : lr(lr), dd(dd), rr(rr), fibers(fibers) {}
 
   KOKKOS_INLINE_FUNCTION int RR() const { return rr; }
@@ -70,9 +70,9 @@ class TensorCoreDevice {
 //   1. a host-side managed outer view of managed fibers, and
 //   2. a device-side managed outer view of unmanaged fiber handles.
 // The latter is wrapped in an unmanaged view when constructing
-// TensorCoreDevice.
+// TensorCoreDeviceT.
 template <class TTraits>
-class TensorCoreHost {
+class TensorCoreHostT {
  public:
   using real_t = typename TTraits::real_t;
   using fiber_unmanaged_t = FiberView<TTraits, UnmanagedTag>;
@@ -84,12 +84,13 @@ class TensorCoreHost {
   using device_unmanaged_fibers_view_t =
       typename TTraits::template view_t<fiber_unmanaged_t**, UnmanagedTag>;
 
-  TensorCoreHost() = default;
+  TensorCoreHostT() = default;
 
-  TensorCoreHost(int lr_in, int dd, int rr_in) : dd(dd) {
-    RebuildOuterViews(lr_in, rr_in, [dd](int, int) {
+  TensorCoreHostT(int lr_in, int dd_in, int rr_in) : dd(dd_in) {
+    printf("Building core of size (%i, %i, %i)\n", lr_in, dd, rr_in);
+    RebuildOuterViews(lr_in, rr_in, [dd_in](int, int) {
       // TODO(LFR): Switch to memory pools
-      return fiber_managed_t("fiber_m", dd);
+      return fiber_managed_t("fiber_m", dd_in);
     });
   }
 
@@ -111,11 +112,64 @@ class TensorCoreHost {
   int LR() const { return lr; }
 
   // Construct a shallow device descriptor that is safe to place into a device
-  // pack. The returned object is valid as long as this TensorCoreHost remains
+  // pack. The returned object is valid as long as this TensorCoreHostT remains
   // alive and structurally unchanged.
-  TensorCoreDevice<TTraits> GetTensorCoreDevice() const {
-    return TensorCoreDevice<TTraits>(lr, dd, rr, device_unmanaged_fibers);
+  TensorCoreDeviceT<TTraits> GetTensorCoreDeviceT() const {
+    return TensorCoreDeviceT<TTraits>(lr, dd, rr, device_unmanaged_fibers);
   }
+  
+  // TensorCoreHost owns the persistent outer hierarchy for a tensor core.
+  // In addition to the owning host/device views, it stores
+  // device_unmanaged_fibers, which is a non-owning alias derived from
+  // device_managed_fibers.data() and the current (lr, rr) extents.
+  //
+  // Because this unmanaged view is derived state, the default copy/move
+  // operations are not sufficient: after any copy or move, the unmanaged alias
+  // must be rebound so that it matches the copied/moved managed device view.
+  // For that reason TensorCoreHost defines the full rule of five explicitly.
+  TensorCoreHostT(const TensorCoreHostT &other)
+      : lr(other.lr),
+        dd(other.dd),
+        rr(other.rr),
+        host_fibers(other.host_fibers),
+        device_managed_fibers(other.device_managed_fibers) {
+    RebindUnmanagedView();
+  }
+  
+  TensorCoreHostT &operator=(const TensorCoreHostT &other) {
+    if (this != &other) {
+      lr = other.lr;
+      dd = other.dd;
+      rr = other.rr;
+      host_fibers = other.host_fibers;
+      device_managed_fibers = other.device_managed_fibers;
+      RebindUnmanagedView();
+    }
+    return *this;
+  }
+  
+  TensorCoreHostT(TensorCoreHostT &&other) noexcept
+      : lr(other.lr),
+        dd(other.dd),
+        rr(other.rr),
+        host_fibers(std::move(other.host_fibers)),
+        device_managed_fibers(std::move(other.device_managed_fibers)) {
+    RebindUnmanagedView();
+  }
+  
+  TensorCoreHostT &operator=(TensorCoreHostT &&other) noexcept {
+    if (this != &other) {
+      lr = other.lr;
+      dd = other.dd;
+      rr = other.rr;
+      host_fibers = std::move(other.host_fibers);
+      device_managed_fibers = std::move(other.device_managed_fibers);
+      RebindUnmanagedView();
+    }
+    return *this;
+  }
+  
+  ~TensorCoreHostT() = default;
 
  private:
   int lr{0}, dd{0}, rr{0};
@@ -126,10 +180,15 @@ class TensorCoreHost {
   // descriptor alive.
   device_managed_fibers_view_t device_managed_fibers;
   // Unmanaged wrapper over the device-side outer descriptor, used when building
-  // TensorCoreDevice objects.
+  // TensorCoreDeviceT objects.
   device_unmanaged_fibers_view_t device_unmanaged_fibers;
+  
+  void RebindUnmanagedView() {
+    device_unmanaged_fibers =
+        device_unmanaged_fibers_view_t(device_managed_fibers.data(), lr, rr);
+  }
 
-  // The only routine that should change the structural state of a TensorCoreHost.
+  // The only routine that should change the structural state of a TensorCoreHostT.
   // It preserves the invariant that host_fibers, device_managed_fibers, and
   // device_unmanaged_fibers all describe the same (lr, rr) outer hierarchy.
   template <class ManagedFiberGetter>
@@ -137,10 +196,9 @@ class TensorCoreHost {
     lr = lr_new;
     rr = rr_new;
 
-    host_fibers = host_fibers_view_t("fibers_m", lr, rr);
-    device_managed_fibers = device_managed_fibers_view_t("fibers_u", lr, rr);
-    device_unmanaged_fibers =
-        device_unmanaged_fibers_view_t(device_managed_fibers.data(), lr, rr);
+    host_fibers = host_fibers_view_t(ViewOfViewAlloc<HostMemSpace>("fibers_m"), lr, rr);
+    device_managed_fibers = device_managed_fibers_view_t(ViewOfViewAlloc("fibers_u"), lr, rr);
+    RebindUnmanagedView();
 
     auto device_managed_fibers_h = Kokkos::create_mirror_view(device_managed_fibers);
 
@@ -155,16 +213,17 @@ class TensorCoreHost {
     // Only the outer descriptor is copied here. The fiber data already live on
     // device and are not copied by this deep_copy.
     Kokkos::deep_copy(device_managed_fibers, device_managed_fibers_h);
+
   }
 };
 
 // Host-side owning tensor train. This is primarily a lightweight container for
-// a sequence of TensorCoreHost objects with consistent adjacent ranks. It owns
-// no device pack state directly; device access happens through TensorPack.
+// a sequence of TensorCoreHostT objects with consistent adjacent ranks. It owns
+// no device pack state directly; device access happens through TensorPackT.
 template <class TTraits>
-class TensorTrain {
+class TensorTrainT {
  public:
-  TensorTrain(const std::vector<TensorCoreHost<TTraits>> &cores_in) : cores(cores_in) {
+  TensorTrainT(const std::vector<TensorCoreHostT<TTraits>> &cores_in) : cores(cores_in) {
     PARTHENON_REQUIRE(cores.front().LR() == 1,
                       "First core must have left side size one.");
     PARTHENON_REQUIRE(cores.back().RR() == 1,
@@ -177,9 +236,10 @@ class TensorTrain {
 
   // Construct a train from physical dimensions and internal bond ranks.
   // The boundary ranks are fixed to one.
-  TensorTrain(const std::vector<int> &phys_dims, const std::vector<int> &ranks) {
+  TensorTrainT(const std::vector<int> &phys_dims, const std::vector<int> &ranks) {
     PARTHENON_REQUIRE(phys_dims.size() - 1 == ranks.size(),
                       "Incompatible number of ranks and dimensions.");
+    // cores.reserve(phys_dims.size());
     if (ranks.size() == 0) {
       cores.emplace_back(1, phys_dims[0], 1);
     } else {
@@ -199,17 +259,17 @@ class TensorTrain {
   const auto &operator()(int c) const { return cores[c]; }
 
  private:
-  std::vector<TensorCoreHost<TTraits>> cores;
+  std::vector<TensorCoreHostT<TTraits>> cores;
 };
 
 // Packed device-facing view of tensor cores. For now this stores cores directly
 // with indices (block, variable, core) rather than introducing a separate
-// device-side TensorTrain descriptor. This is the main aggregate object used in
+// device-side TensorTrainT descriptor. This is the main aggregate object used in
 // kernels.
 template <class TTraits>
-struct TensorPack {
+struct TensorPackT {
   using view_t =
-      typename TTraits::template view_t<TensorCoreDevice<TTraits>***, ManagedTag>;
+      typename TTraits::template view_t<TensorCoreDeviceT<TTraits>***, ManagedTag>;
 
   // View of size (nblocks, nvars, ncores). At the moment nvars is a placeholder
   // and the pack stores tensor cores directly rather than explicit trains.
@@ -222,10 +282,10 @@ struct TensorPack {
   KOKKOS_INLINE_FUNCTION
   int GetNCores() const { return cores.extent_int(2); }
 
-  TensorPack(std::vector<TensorTrain<TTraits>> &trains) {
+  TensorPackT(const std::vector<TensorTrainT<TTraits>> &trains) {
     int nvars{1}; // Placeholder
     ncores_per_train = trains[0].NCores();
-    cores = view_t("TensorPack", trains.size(), nvars, ncores_per_train);
+    cores = view_t("TensorPackT", trains.size(), nvars, ncores_per_train);
     auto cores_h = Kokkos::create_mirror_view(cores);
 
     for (int v = 0; v < nvars; ++v) {
@@ -233,7 +293,7 @@ struct TensorPack {
         PARTHENON_REQUIRE(trains[t].NCores() == ncores_per_train,
                           "All trains must be the same dimension.");
         for (int c = 0; c < ncores_per_train; ++c) {
-          cores_h(t, v, c) = trains[t].GetCoreHost(c).GetTensorCoreDevice();
+          cores_h(t, v, c) = trains[t].GetCoreHost(c).GetTensorCoreDeviceT();
         }
       }
     }
@@ -241,12 +301,15 @@ struct TensorPack {
   }
 
   KOKKOS_INLINE_FUNCTION
-  auto &operator()(int b, int v, int c) { return cores(b, v, c); }
-
-  KOKKOS_INLINE_FUNCTION
-  const auto &operator()(int b, int v, int c) const { return cores(b, v, c); }
+  auto &operator()(int b, int v, int c) const { return cores(b, v, c); }
 };
 
+using TensorCoreDevice = TensorCoreDeviceT<DefaultTTraits>;
+using TensorCoreHost   = TensorCoreHostT<DefaultTTraits>;
+using TensorTrain      = TensorTrainT<DefaultTTraits>;
+using TensorPack       = TensorPackT<DefaultTTraits>;
+
+} // namespace tensor2
 } // namespace parthenon
 
 #endif // TENSORS_TT_TYPES_HPP

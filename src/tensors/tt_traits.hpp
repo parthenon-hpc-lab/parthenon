@@ -58,5 +58,7 @@ struct TensorTraits {
                    memory_traits<OwnershipTag>>;
 };
 
+using DefaultTTraits = TensorTraits<Kokkos::Device<DevExecSpace, DevMemSpace>>;
+
 } // namespace parthenon
 #endif // TENSOR_TT_TRAITS_HPP
