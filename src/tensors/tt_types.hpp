@@ -114,62 +114,10 @@ class TensorCoreHostT {
   // Construct a shallow device descriptor that is safe to place into a device
   // pack. The returned object is valid as long as this TensorCoreHostT remains
   // alive and structurally unchanged.
-  TensorCoreDeviceT<TTraits> GetTensorCoreDeviceT() const {
-    return TensorCoreDeviceT<TTraits>(lr, dd, rr, device_unmanaged_fibers);
+  TensorCoreDeviceT<TTraits> GetTensorCoreDevice() const {
+    return TensorCoreDeviceT<TTraits>(lr, dd, rr,
+        device_unmanaged_fibers_view_t(device_managed_fibers.data(), lr, rr));
   }
-  
-  // TensorCoreHost owns the persistent outer hierarchy for a tensor core.
-  // In addition to the owning host/device views, it stores
-  // device_unmanaged_fibers, which is a non-owning alias derived from
-  // device_managed_fibers.data() and the current (lr, rr) extents.
-  //
-  // Because this unmanaged view is derived state, the default copy/move
-  // operations are not sufficient: after any copy or move, the unmanaged alias
-  // must be rebound so that it matches the copied/moved managed device view.
-  // For that reason TensorCoreHost defines the full rule of five explicitly.
-  TensorCoreHostT(const TensorCoreHostT &other)
-      : lr(other.lr),
-        dd(other.dd),
-        rr(other.rr),
-        host_fibers(other.host_fibers),
-        device_managed_fibers(other.device_managed_fibers) {
-    RebindUnmanagedView();
-  }
-  
-  TensorCoreHostT &operator=(const TensorCoreHostT &other) {
-    if (this != &other) {
-      lr = other.lr;
-      dd = other.dd;
-      rr = other.rr;
-      host_fibers = other.host_fibers;
-      device_managed_fibers = other.device_managed_fibers;
-      RebindUnmanagedView();
-    }
-    return *this;
-  }
-  
-  TensorCoreHostT(TensorCoreHostT &&other) noexcept
-      : lr(other.lr),
-        dd(other.dd),
-        rr(other.rr),
-        host_fibers(std::move(other.host_fibers)),
-        device_managed_fibers(std::move(other.device_managed_fibers)) {
-    RebindUnmanagedView();
-  }
-  
-  TensorCoreHostT &operator=(TensorCoreHostT &&other) noexcept {
-    if (this != &other) {
-      lr = other.lr;
-      dd = other.dd;
-      rr = other.rr;
-      host_fibers = std::move(other.host_fibers);
-      device_managed_fibers = std::move(other.device_managed_fibers);
-      RebindUnmanagedView();
-    }
-    return *this;
-  }
-  
-  ~TensorCoreHostT() = default;
 
  private:
   int lr{0}, dd{0}, rr{0};
@@ -179,15 +127,7 @@ class TensorCoreHostT {
   // Managed device view of unmanaged fibers, used to keep the device-side outer
   // descriptor alive.
   device_managed_fibers_view_t device_managed_fibers;
-  // Unmanaged wrapper over the device-side outer descriptor, used when building
-  // TensorCoreDeviceT objects.
-  device_unmanaged_fibers_view_t device_unmanaged_fibers;
   
-  void RebindUnmanagedView() {
-    device_unmanaged_fibers =
-        device_unmanaged_fibers_view_t(device_managed_fibers.data(), lr, rr);
-  }
-
   // The only routine that should change the structural state of a TensorCoreHostT.
   // It preserves the invariant that host_fibers, device_managed_fibers, and
   // device_unmanaged_fibers all describe the same (lr, rr) outer hierarchy.
@@ -198,7 +138,6 @@ class TensorCoreHostT {
 
     host_fibers = host_fibers_view_t(ViewOfViewAlloc<HostMemSpace>("fibers_m"), lr, rr);
     device_managed_fibers = device_managed_fibers_view_t(ViewOfViewAlloc("fibers_u"), lr, rr);
-    RebindUnmanagedView();
 
     auto device_managed_fibers_h = Kokkos::create_mirror_view(device_managed_fibers);
 
@@ -213,7 +152,6 @@ class TensorCoreHostT {
     // Only the outer descriptor is copied here. The fiber data already live on
     // device and are not copied by this deep_copy.
     Kokkos::deep_copy(device_managed_fibers, device_managed_fibers_h);
-
   }
 };
 
@@ -293,7 +231,7 @@ struct TensorPackT {
         PARTHENON_REQUIRE(trains[t].NCores() == ncores_per_train,
                           "All trains must be the same dimension.");
         for (int c = 0; c < ncores_per_train; ++c) {
-          cores_h(t, v, c) = trains[t].GetCoreHost(c).GetTensorCoreDeviceT();
+          cores_h(t, v, c) = trains[t].GetCoreHost(c).GetTensorCoreDevice();
         }
       }
     }
