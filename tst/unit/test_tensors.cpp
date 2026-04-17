@@ -232,7 +232,7 @@ SCENARIO("TensorTrain Gram-SVD rounding", "[TensorTrains][GramSVD]") {
       THEN("Tensor-train ranks do not increase") {
         for (int n = 0; n < T.GetNumCores(); ++n) {
           REQUIRE(T.GetRightRank(n) <= ranks_before[n]);
-          printf("Rank %d before: %d, after: %d\n", n, ranks_before[n],
+          printf("Rank %d before: %zu, after: %zu\n", n, ranks_before[n],
                  T.GetRightRank(n));
         }
       }
