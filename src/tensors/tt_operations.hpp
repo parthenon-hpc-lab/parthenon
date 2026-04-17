@@ -218,6 +218,107 @@ HadamardProduct(std::vector<TensorTrainT<TTraits>> &TrainsA,
 
   return TrainsC;
 }
+/*
+template <class TTraits>
+std::vector<TensorTrainT<TTraits>>
+RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
+             typename TTraits::real_t eps) {
+  using real_t = typename TTraits::real_t;
+
+  // Find the number of cores and maximum rank 
+  int max_rank{0};
+  int n_cores{0};
+  for (const auto &train : trains) {
+    n_cores = train.Ncores();
+    for (int c = 0; c < Ncores(); ++c) {
+      std::max(max_rank, train(c).RR());
+    }
+  }
+  
+  int scratch_size{0};
+  // Calculate the max storage for Gram matrices
+  scratch_size += ScratchPad2D<real_t>::shmen_size(n_cores - 1, max_rank * max_rank);
+  scratch_size += ScratchPad1D<real_t>::shmen_size(max_rank * max_rank);
+
+  // Calculate the total storage for linear algebra scratch
+  scratch_size += SymmetricEVD::total_shmem_scratch_size(max_rank); 
+
+  // Calculate storage for eigen and singular value results
+  scratch_size += 4 * ScratchPad1D<real_t>::shmen_size(max_rank * max_rank);
+  scratch_size += 3 * ScratchPad1D<real_t>::shmen_size(max_rank);
+  
+  // Allocate array for storing final ranks to eventually copy back to host to
+  // round
+  using final_rank_arr_t = typename TTraits::template view_t<int**, ManagedTag>;
+  final_rank_arr_t final_rank_arr("Final ranks", pack.GetNBlocks(), n_cores - 1);
+  
+  TensorPackT<TTraits> pack(trains);
+
+  constexpr int scratch_level = 1;
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, scratch_size, scratch_level,
+      0, pack_a.GetNBlocks() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int b) {
+        // Allocate scratch, we allocate flat in the rank dimensions to make 
+        // it easier to reuse between cores of different rank size
+        auto &tm_scratch = tm.team_scratch(scratch_level);
+        // Gram matrices, need to store all right Gram matrices
+        ScratchPad2D<real_t> GR(tm_scratch, n_cores - 1, max_rank * max_rank);
+        ScratchPad1D<real_t> GL(tm_scratch, max_rank * max_rank);
+        
+        // Eigen systems
+        ScratchPad1D<real_t> QL(tm_scratch, max_rank * max_rank);
+        ScratchPad1D<real_t> eigL(tm_scratch, max_rank);
+        ScratchPad1D<real_t> QR(tm_scratch, max_rank * max_rank);
+        ScratchPad1D<real_t> eigR(tm_scratch, max_rank);
+        
+        // SVD
+        ScratchPad1D<real_t> U(tm_scratch, max_rank * max_rank); 
+        ScratchPad1D<real_t> V(tm_scratch, max_rank * max_rank); 
+        ScratchPad1D<real_t> sig(tm_scratch, max_rank);
+
+        // Scratch that can be re-used amongst solves
+        ScratchPad1D<real_t> real_scratch(tm_scratch, real_scratch_size_max);
+        ScratchPad1D<std::size_t> szt_scratch(tm_scratch, szt_scratch_size_max);
+        
+        // R-to-L sweep over cores
+        for (int b = n_cores - 1; c > 0; --c) {
+          // Compute and store right Gram matrix
+        }
+
+        // L-to-R sweep over bonds 
+        for (int b = 0; b < n_cores - 1; ++b) {
+          // Compute left Gram matrix
+          
+          // Compute eigen decomposition of L and R Gram matrices
+          matrix_wrap_t<real_t> GL_mat(GL.data(), rank, rank);
+          matrix_wrap_t<real_t> QL_mat(QL.data(), rank, rank);
+          SymmetricEVD::execute(tm, &GL_mat, &QL_mat, eigL.data(),
+                                real_scratch.data(), szt_scratch.data());
+          tm.team_barrier();
+
+          matrix_wrap_t<real_t> GR_mat(&GR(b, 0), rank, rank);
+          matrix_wrap_t<real_t> QR_mat(QR.data(), rank, rank);
+          tm.team_barrier();
+          SymmetricEVD::execute(tm, &GR_mat, &QR_mat, eigR.data(),
+                                real_scratch.data(), szt_scratch.data());
+          tm.team_barrier();
+
+          // Compute combined thing
+
+          // Compute truncated SVD of combined thing
+          
+          // Store rank 
+
+          // Push SVD U left
+
+          // Push SVD Sigma V right
+        }
+      });
+
+  return TrainsC;
+}
+*/
 } // namespace tensor2
 } // namespace parthenon
 
