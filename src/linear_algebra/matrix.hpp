@@ -80,6 +80,28 @@ class Matrix {
   int ncols_, nrows_;
 };
 
+template <class T>
+struct matrix_wrapper_t { 
+  KOKKOS_INLINE_FUNCTION
+  matrix_wrapper_t(T *data, int nrows, int ncols) 
+    : data(data), nrows(nrows), ncols(ncols) {}
+  
+  KOKKOS_INLINE_FUNCTION
+  T &operator()(int r, int c) {
+    return data[r * ncols + c];
+  }
+
+  int nrows, ncols;
+  T *data;
+};
+
+template <class T>
+KOKKOS_FORCEINLINE_FUNCTION
+int GetNrows(const matrix_wrapper_t<T> &m) { return m.nrows; }
+template <class T>
+KOKKOS_FORCEINLINE_FUNCTION
+int GetNCols(const matrix_wrapper_t<T> &m) { return m.ncols; }
+
 KOKKOS_FORCEINLINE_FUNCTION
 int GetNrows(const Matrix &m) { return m.nrows(); }
 KOKKOS_FORCEINLINE_FUNCTION
