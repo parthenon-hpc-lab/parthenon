@@ -267,6 +267,7 @@ void RunCpuHierarchicalLoop(const Dataset &dataset, const RawMemoryIndexer &idxe
         const double *const fz_up_ptr = &data.fz_up(b, v, ks, js, is);
         const double *const fz_lo_ptr = &data.fz_lo(b, v, ks, js, is);
         double *const out_ptr = &data.out(b, v, ks, js, is);
+#pragma omp simd
         for (int idx = 0; idx < ninner; ++idx) {
           out_ptr[idx] = body(in_ptr, aux_ptr, fx_up_ptr, fx_lo_ptr, fy_up_ptr, fy_lo_ptr,
                               fz_up_ptr, fz_lo_ptr, idx);
@@ -324,6 +325,7 @@ void RunCpuHierarchicalStencil(const Dataset &dataset, const RawMemoryIndexer &i
         const double *const fx_up_ptr = &data.fx_up(b, v, ks, js, is);
         const double *const fx_lo_ptr = &data.fx_lo(b, v, ks, js, is);
         double *const out_ptr = &data.out(b, v, ks, js, is);
+#pragma omp simd
         for (int idx = 0; idx < ninner; ++idx) {
           out_ptr[idx] =
               ComputeStencilCell(in_ptr[idx], in_ptr[idx - 1], in_ptr[idx + 1],
