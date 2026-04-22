@@ -419,7 +419,10 @@ class ParameterInput {
       variables.push_back(string_utils::trim(token));
       s.erase(0, pos + delimiter.length());
     }
-    variables.push_back(string_utils::trim(s));
+    token = string_utils::trim(s);
+    if (!token.empty()) {
+      variables.push_back(token);
+    }
     return variables;
   }
   template <typename T>
