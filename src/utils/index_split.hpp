@@ -125,7 +125,7 @@ class IndexSplit {
   IndexRange GetBoundsI(const int p) const { return GetBoundsI(); }
 
   KOKKOS_INLINE_FUNCTION
-  auto GetBoundsKJI(const int p) const {
+  std::tuple<IndexRange, IndexRange, IndexRange> GetBoundsKJI(const int p) const {
     const auto kb = GetBoundsK(p);
     const auto jb = GetBoundsJ(p);
     const auto ib = GetBoundsI(p);
