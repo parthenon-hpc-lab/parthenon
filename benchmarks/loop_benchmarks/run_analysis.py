@@ -7,6 +7,7 @@ import platform
 import subprocess
 import sys
 import tempfile
+import textwrap
 from collections import defaultdict
 from pathlib import Path
 
@@ -163,6 +164,13 @@ def run_command(cmd):
     return completed.stdout
 
 
+def try_run_command(cmd):
+    try:
+        return run_command(cmd).strip()
+    except Exception:
+        return ""
+
+
 def parse_summary(stdout_text):
     row = {}
     for line in stdout_text.strip().splitlines():
@@ -218,21 +226,148 @@ def numericize(row):
     return result
 
 
-def collect_system_info():
+def detect_cpu_description():
+    candidates = []
+    system = platform.system()
+    if system == "Darwin":
+        hardware = try_run_command(["system_profiler", "SPHardwareDataType"])
+        if hardware:
+            chip = ""
+            model_name = ""
+            for line in hardware.splitlines():
+                if ":" not in line:
+                    continue
+                key, value = line.split(":", 1)
+                key = key.strip()
+                value = value.strip()
+                if key == "Chip" and value:
+                    chip = value
+                elif key == "Model Name" and value:
+                    model_name = value
+            if chip and model_name:
+                candidates.append(f"{model_name} ({chip})")
+            elif chip:
+                candidates.append(chip)
+            elif model_name:
+                candidates.append(model_name)
+        candidates.extend(
+            [
+                try_run_command(["sysctl", "-n", "machdep.cpu.brand_string"]),
+                try_run_command(["sysctl", "-n", "hw.model"]),
+            ]
+        )
+    elif system == "Linux":
+        lscpu = try_run_command(["lscpu"])
+        if lscpu:
+            for line in lscpu.splitlines():
+                if ":" not in line:
+                    continue
+                key, value = line.split(":", 1)
+                if key.strip() in {"Model name", "Hardware"} and value.strip():
+                    candidates.append(value.strip())
+        cpuinfo = Path("/proc/cpuinfo")
+        if cpuinfo.exists():
+            for line in cpuinfo.read_text(encoding="utf-8", errors="ignore").splitlines():
+                if ":" not in line:
+                    continue
+                key, value = line.split(":", 1)
+                if key.strip() in {"model name", "Hardware"} and value.strip():
+                    candidates.append(value.strip())
+                    break
+
+    processor = platform.processor().strip()
+    if processor:
+        candidates.append(processor)
+
+    machine = platform.machine().strip()
+    if machine:
+        candidates.append(machine)
+
+    for candidate in candidates:
+        if candidate:
+            return candidate
+    return "unknown"
+
+
+def find_build_dir(binary):
+    binary_path = Path(binary).resolve()
+    for parent in binary_path.parents:
+        if (parent / "CMakeCache.txt").exists():
+            return parent
+    return None
+
+
+def parse_cmake_cache(cache_path):
+    cache = {}
+    if not cache_path.exists():
+        return cache
+    for line in cache_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        if not line or line.startswith(("#", "//")) or "=" not in line or ":" not in line:
+            continue
+        key_type, value = line.split("=", 1)
+        key, _sep, _value_type = key_type.partition(":")
+        cache[key] = value
+    return cache
+
+
+def parse_flags_make(flags_make_path):
+    info = {}
+    if not flags_make_path.exists():
+        return info
+    for line in flags_make_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        if " = " not in line:
+            continue
+        key, value = line.split(" = ", 1)
+        info[key.strip()] = value.strip()
+    return info
+
+
+def collect_system_info(binary):
     info = {
         "platform": platform.platform(),
         "python": sys.version.split()[0],
+        "cpu": detect_cpu_description(),
     }
-    commands = [
-        ("uname", ["uname", "-a"]),
-        ("cpu", ["sysctl", "-n", "machdep.cpu.brand_string"]),
-    ]
-    for key, cmd in commands:
-        try:
-            info[key] = run_command(cmd).strip()
-        except Exception:
-            continue
+    info["uname"] = try_run_command(["uname", "-a"]) or "unknown"
+
+    build_dir = find_build_dir(binary)
+    if build_dir is None:
+        return info
+
+    info["build_dir"] = str(build_dir)
+    cache = parse_cmake_cache(build_dir / "CMakeCache.txt")
+    info["build_type"] = cache.get("CMAKE_BUILD_TYPE", "unknown")
+    info["compiler"] = cache.get("CMAKE_CXX_COMPILER", "unknown")
+
+    compiler = info["compiler"]
+    if compiler and compiler != "unknown":
+        compiler_version = try_run_command([compiler, "--version"])
+        if compiler_version:
+            info["compiler_version"] = compiler_version.splitlines()[0]
+
+    build_type = info["build_type"]
+    common_flags = cache.get("CMAKE_CXX_FLAGS", "").strip()
+    build_flags = cache.get(f"CMAKE_CXX_FLAGS_{build_type.upper()}", "").strip()
+    info["cmake_cxx_flags"] = " ".join(part for part in [common_flags, build_flags] if part)
+
+    flags_make = build_dir / "benchmarks/loop_benchmarks/CMakeFiles/loop-benchmarks.dir/flags.make"
+    target_flags = parse_flags_make(flags_make)
+    info["target_compile_flags"] = target_flags.get("CXX_FLAGS", "")
+    info["target_defines"] = target_flags.get("CXX_DEFINES", "")
     return info
+
+
+def append_wrapped_line(lines, label, value, width=100):
+    if not value:
+        return
+    wrapped = textwrap.wrap(
+        f"{label}{value}",
+        width=width,
+        subsequent_indent=" " * len(label),
+        break_long_words=False,
+        break_on_hyphens=False,
+    )
+    lines.extend(wrapped or [f"{label}{value}"])
 
 
 def build_benchmark_command(binary, csv_path, kernel, variant, ni, args, chunk_length=None):
@@ -369,25 +504,36 @@ def add_title_page(pdf, title, args, system_info, rows, labels, chunk_values):
         f"Platform: {system_info.get('platform', 'unknown')}",
         f"CPU: {system_info.get('cpu', 'unknown')}",
         f"uname: {system_info.get('uname', 'unknown')}",
-        "",
-        "Experiments:",
-        (
-            f"- stencil ni sweep: {labels['cpu_simd']} vs "
-            f"{labels['cpu_coalesced_outer_var']} vs "
-            f"{labels['cpu_rowvar_simd']} vs {labels['cpu_hierarchical']} vs "
-            f"{labels['hierarchical']}"
-        ),
-        (
-            f"- heavy ni sweep: {labels['cpu_simd']} vs "
-            f"{labels['cpu_coalesced_outer_var']} vs "
-            f"{labels['cpu_rowvar_simd']} vs {labels['cpu_hierarchical']} vs "
-            f"{labels['hierarchical']}"
-        ),
-        (
-            f"- chunk sweeps at ni={args.chunk_sweep_ni}: raw-span variants and "
-            "Kokkos across explicit inner chunk lengths, with SIMD baselines included"
-        ),
     ]
+    append_wrapped_line(lines, "Build dir: ", system_info.get("build_dir", ""))
+    append_wrapped_line(lines, "Build type: ", system_info.get("build_type", ""))
+    append_wrapped_line(lines, "Compiler: ", system_info.get("compiler", ""))
+    append_wrapped_line(lines, "Compiler version: ", system_info.get("compiler_version", ""))
+    append_wrapped_line(lines, "Target compile flags: ", system_info.get("target_compile_flags", ""))
+    append_wrapped_line(lines, "Target defines: ", system_info.get("target_defines", ""))
+    append_wrapped_line(lines, "CMake CXX flags: ", system_info.get("cmake_cxx_flags", ""))
+    lines.extend(
+        [
+            "",
+            "Experiments:",
+            (
+                f"- stencil ni sweep: {labels['cpu_simd']} vs "
+                f"{labels['cpu_coalesced_outer_var']} vs "
+                f"{labels['cpu_rowvar_simd']} vs {labels['cpu_hierarchical']} vs "
+                f"{labels['hierarchical']}"
+            ),
+            (
+                f"- heavy ni sweep: {labels['cpu_simd']} vs "
+                f"{labels['cpu_coalesced_outer_var']} vs "
+                f"{labels['cpu_rowvar_simd']} vs {labels['cpu_hierarchical']} vs "
+                f"{labels['hierarchical']}"
+            ),
+            (
+                f"- chunk sweeps at ni={args.chunk_sweep_ni}: raw-span variants and "
+                "Kokkos across explicit inner chunk lengths, with SIMD baselines included"
+            ),
+        ]
+    )
     ax.text(0.05, 0.97, "\n".join(lines), va="top", ha="left", family="monospace", fontsize=11)
     pdf.savefig(fig, bbox_inches="tight")
     plt.close(fig)
@@ -657,7 +803,7 @@ def main():
     )
     write_combined_csv(combined_csv, rows)
 
-    system_info = collect_system_info()
+    system_info = collect_system_info(binary)
     with PdfPages(output_pdf) as pdf:
         add_title_page(pdf, args.title, args, system_info, rows, labels, chunk_values)
         add_variant_map_page(pdf, args, labels)
