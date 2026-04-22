@@ -43,6 +43,29 @@ VARIANT_STYLE = {
 }
 
 
+class ProgressReporter:
+    def __init__(self, total_runs):
+        self.total_runs = total_runs
+        self.completed_runs = 0
+
+    def log_completed(self, experiment, row):
+        self.completed_runs += 1
+        details = [
+            f"kernel={row['kernel']}",
+            f"variant={row['variant']}",
+            f"ni={row['ni']}",
+        ]
+        if "chunk_sweep" in experiment:
+            details.append(f"chunk={row['inner_chunk_length']}")
+        details.append(f"blocks={row['blocks']}")
+        details.append(f"min_seconds={row['min_seconds']:.6f}")
+        details.append(f"updates_per_second={row['updates_per_second']:.3e}")
+        print(
+            f"[{self.completed_runs}/{self.total_runs}] {experiment}: " + ", ".join(details),
+            flush=True,
+        )
+
+
 def variant_labels(analysis_mode):
     raw_chunk_label = "chunk=ni" if analysis_mode == "verify" else "default chunks"
     return {
@@ -245,7 +268,7 @@ def build_benchmark_command(binary, csv_path, kernel, variant, ni, args, chunk_l
     return cmd
 
 
-def run_sweep(binary, csv_path, kernel, variants, ni_values, args, analysis_mode):
+def run_sweep(binary, csv_path, kernel, variants, ni_values, args, analysis_mode, progress):
     rows = []
     raw_chunk_mode = cpu_raw_span_chunk_mode(analysis_mode)
     for ni in ni_values:
@@ -257,11 +280,13 @@ def run_sweep(binary, csv_path, kernel, variants, ni_values, args, analysis_mode
             summary = parse_summary(run_command(cmd))
             summary["repeats"] = str(args.repeats)
             summary["experiment"] = f"{kernel}_ni_sweep"
-            rows.append(numericize(summary))
+            row = numericize(summary)
+            rows.append(row)
+            progress.log_completed(summary["experiment"], row)
     return rows
 
 
-def run_chunk_sweep(binary, csv_path, kernel, variants, chunk_values, args):
+def run_chunk_sweep(binary, csv_path, kernel, variants, chunk_values, args, progress):
     rows = []
     ni = args.chunk_sweep_ni
     for chunk_length in chunk_values:
@@ -270,14 +295,26 @@ def run_chunk_sweep(binary, csv_path, kernel, variants, chunk_values, args):
             summary = parse_summary(run_command(cmd))
             summary["repeats"] = str(args.repeats)
             summary["experiment"] = f"{kernel}_chunk_sweep"
-            rows.append(numericize(summary))
+            row = numericize(summary)
+            rows.append(row)
+            progress.log_completed(summary["experiment"], row)
     for variant in ("cpu_simd", "cpu_rowvar_simd"):
         cmd = build_benchmark_command(binary, csv_path, kernel, variant, ni, args)
         summary = parse_summary(run_command(cmd))
         summary["repeats"] = str(args.repeats)
         summary["experiment"] = f"{kernel}_chunk_sweep"
-        rows.append(numericize(summary))
+        row = numericize(summary)
+        rows.append(row)
+        progress.log_completed(summary["experiment"], row)
     return rows
+
+
+def count_total_runs(ni_values, chunk_values):
+    return (
+        2 * len(BASE_VARIANTS) * len(ni_values)
+        + 2 * len(CHUNK_SWEEP_VARIANTS) * len(chunk_values)
+        + 4
+    )
 
 
 def write_combined_csv(path, rows):
@@ -577,15 +614,47 @@ def main():
     ni_values = [int(part.strip()) for part in args.ni_values.split(",") if part.strip()]
     chunk_values = [int(part.strip()) for part in args.chunk_values.split(",") if part.strip()]
     labels = variant_labels(args.analysis_mode)
+    progress = ProgressReporter(count_total_runs(ni_values, chunk_values))
 
     combined_csv = output_dir / "analysis.csv"
     output_pdf = output_dir / "analysis.pdf"
 
     rows = []
-    rows.extend(run_sweep(binary, combined_csv, "stencil", BASE_VARIANTS, ni_values, args, args.analysis_mode))
-    rows.extend(run_sweep(binary, combined_csv, "heavy", BASE_VARIANTS, ni_values, args, args.analysis_mode))
-    rows.extend(run_chunk_sweep(binary, combined_csv, "stencil", CHUNK_SWEEP_VARIANTS, chunk_values, args))
-    rows.extend(run_chunk_sweep(binary, combined_csv, "heavy", CHUNK_SWEEP_VARIANTS, chunk_values, args))
+    print(f"Starting analysis suite: {progress.total_runs} benchmark runs", flush=True)
+    rows.extend(
+        run_sweep(
+            binary,
+            combined_csv,
+            "stencil",
+            BASE_VARIANTS,
+            ni_values,
+            args,
+            args.analysis_mode,
+            progress,
+        )
+    )
+    rows.extend(
+        run_sweep(
+            binary,
+            combined_csv,
+            "heavy",
+            BASE_VARIANTS,
+            ni_values,
+            args,
+            args.analysis_mode,
+            progress,
+        )
+    )
+    rows.extend(
+        run_chunk_sweep(
+            binary, combined_csv, "stencil", CHUNK_SWEEP_VARIANTS, chunk_values, args, progress
+        )
+    )
+    rows.extend(
+        run_chunk_sweep(
+            binary, combined_csv, "heavy", CHUNK_SWEEP_VARIANTS, chunk_values, args, progress
+        )
+    )
     write_combined_csv(combined_csv, rows)
 
     system_info = collect_system_info()
