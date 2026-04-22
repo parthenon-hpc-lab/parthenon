@@ -116,15 +116,6 @@ class IndexSplit {
     return {start, stop};
   }
 
-  template <class F>
-  KOKKOS_INLINE_FUNCTION void middle_for(int p, F &&f) const {
-    // TODO(LFR): This could be generalized to allow for switching to including part of
-    // k-space in the flattening.
-    const auto [kb, jb, ib] = GetBoundsKJI(p);
-    for (int k = kb.s; k <= kb.e; ++k)
-      f(k, jb.s, ib.s, inner_size(kb, jb, ib));
-  }
-
   KOKKOS_INLINE_FUNCTION
   IndexRange GetBoundsI() const {
     return {logical_.StartIdx<IDIM>(), logical_.EndIdx<IDIM>()};
@@ -139,6 +130,15 @@ class IndexSplit {
     const auto jb = GetBoundsJ(p);
     const auto ib = GetBoundsI(p);
     return std::make_tuple(kb, jb, ib);
+  }
+  
+  template <class F>
+  KOKKOS_INLINE_FUNCTION void middle_for(int p, F &&f) const {
+    // TODO(LFR): This could be generalized to allow for switching to including part of
+    // k-space in the flattening.
+    const auto [kb, jb, ib] = GetBoundsKJI(p);
+    for (int k = kb.s; k <= kb.e; ++k)
+      f(k, jb.s, ib.s, inner_size(kb, jb, ib));
   }
 
   KOKKOS_INLINE_FUNCTION int inner_size(const IndexRange &kb, const IndexRange &jb,
