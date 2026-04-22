@@ -12,3 +12,4 @@
 #=========================================================================================
 
 add_subdirectory(burgers)
+add_subdirectory(loop_benchmarks)
