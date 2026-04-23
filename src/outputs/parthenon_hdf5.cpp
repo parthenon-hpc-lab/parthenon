@@ -19,6 +19,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 // options for building
 #include "config.hpp"
 #include "globals.hpp"
@@ -560,8 +562,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       HDF5WriteND(g_var, vname, host_data.data(), vinfo.tensor_rank + 1, local_offset,
                   local_count, global_count, pl_xfer, H5P_DEFAULT);
       if (output_params.write_swarm_xdmf &&
-          (vname == swarm_position::x::name() || vname == swarm_position::y::name() ||
-           vname == swarm_position::z::name())) {
+          (vname == swarm_position::x1::name() || vname == swarm_position::x2::name() ||
+           vname == swarm_position::x3::name())) {
         pos_tmp.insert(pos_tmp.end(), host_data.begin(), host_data.end());
       }
     }

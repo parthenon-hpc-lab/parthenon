@@ -10,6 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
+
 #include <algorithm>
 #include <cstdlib>
 #include <limits>
@@ -181,9 +184,9 @@ void Swarm::LoadBuffers_() {
   const int intPackDim = vint.GetDim(2);
   const int uint64PackDim = vuint64.GetDim(2);
 
-  auto &x = Get<Real>(swarm_position::x::name()).Get();
-  auto &y = Get<Real>(swarm_position::y::name()).Get();
-  auto &z = Get<Real>(swarm_position::z::name()).Get();
+  auto &x1 = Get<Real>(swarm_position::x1::name()).Get();
+  auto &x2 = Get<Real>(swarm_position::x2::name()).Get();
+  auto &x3 = Get<Real>(swarm_position::x3::name()).Get();
 
   if (max_active_index_ >= 0) {
     auto &buffer_sorted = buffer_sorted_;
@@ -193,8 +196,8 @@ void Swarm::LoadBuffers_() {
         PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
           if (swarm_d.IsActive(n)) {
             bool on_current_mesh_block = true;
-            const int m =
-                swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
+            const int m = swarm_d.GetNeighborBlockIndex(n, x1(n), x2(n), x3(n),
+                                                        on_current_mesh_block);
             buffer_sorted(n) = SwarmKey(m, n);
           } else {
             buffer_sorted(n) = SwarmKey(this_block_, n);

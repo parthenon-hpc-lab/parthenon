@@ -15,6 +15,8 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 # ========================================================================================
 
+# This file was made in part with generative AI.
+
 # Modules
 import math
 import numpy as np
@@ -46,7 +48,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         data = phdf("particle_tracers.out0.final.phdf")
         swarm = data.GetSwarm("tracers")
         inds = np.argsort(swarm.Get("id"))
-        final_data = np.vstack((swarm.x, swarm.y, swarm.z))
+        final_data = np.vstack((swarm.x1, swarm.x2, swarm.x3))
         final_data = final_data.transpose()[inds]
         final_data[np.abs(final_data) < 1e-12] = 0
         print(final_data)

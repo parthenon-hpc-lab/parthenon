@@ -197,6 +197,13 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   SetupMPIComms();
 
+  if constexpr (!std::is_same_v<Coordinates_t, UniformCartesian>) {
+    if (!resolved_packages->AllSwarms().empty()) {
+      PARTHENON_WARN("SwarmDeviceContext only supports a uniform Cartesian mesh! "
+                     "Curvilinear swarm support remains mostly untested.");
+    }
+  }
+
   RegisterLoadBalancing_(pin);
 
   mesh_data.SetMeshPointer(this);

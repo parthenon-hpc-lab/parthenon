@@ -1,3 +1,5 @@
+.. This file was made in part with generative AI.
+
 Particles
 =========
 
@@ -11,8 +13,8 @@ Swarms
 
 A ``Swarm`` contains all the particle data for all particles of a given
 species. It owns a set of ``ParticleVariable``\ s, one for each value of
-each particle. For example, the spatial positions ``x``, ``y``, and
-``z`` of the particles in a swarm are three separate
+each particle. For example, the spatial positions ``x1``, ``x2``, and
+``x3`` of the particles in a swarm are three separate
 ``ParticleVariable``\ s. ``ParticleVariable``\ s can be either ``Real``-,
 ``uint64_t``-, or ``int``-valued, which is specified by the metadata values
 ``Metadata::Real``, ``MetaData::UInt64``, and ``Metadata::Integer``. ``ParticleVariable``\ s
@@ -21,7 +23,7 @@ should also contain the ``Metadata::Particle`` flag. By default,
 to 2D data per particle is currently supported, by passing
 ``std::vector<int>{N1, N2}`` as the second argument to the
 ``ParticleVariable`` ``Metadata``. All ``Swarm``\ s by default contain
-positional ``x``, ``y``, and ``z`` ``ParticleVariable``\ s and a ``uint64`` particle
+positional ``x1``, ``x2``, and ``x3`` ``ParticleVariable``\ s and a ``uint64`` particle
 ``id`` that is persistent and unique for a given simulation.
 The latter field can be disabled (e.g., because it is not required for a method
 that constant creates and destroys anonymous particles) by providing the
@@ -46,6 +48,13 @@ permit ``Swarm``s to be retrieved from ``"base"`` ``MeshBlockData`` and ``MeshDa
    pool is expanded. You can set the default initial number of
    particles that the reservation holds for a given swarm by calling
    ``metadata.SetInitialSwarmPoolReservation(nparticles);``.
+
+.. note::
+
+   Particle infrastructure now operates in the native ``x1``, ``x2``, and ``x3``
+   coordinate directions rather than assuming Cartesian ``x``, ``y``, and ``z``.
+   That said, particles and swarms in curvilinear coordinate systems remain mostly
+   untested.
 
 The ``Swarm`` is a host-side object, but some of its data members are
 required for device- side compution. To access this data, a
@@ -92,11 +101,11 @@ computations on currently active particles:
 
 .. code:: cpp
 
-   auto &x = swarm.Get("x").Get();
+   auto &x1 = swarm.Get(swarm_position::x1::name()).Get();
    swarm.pmy_block->par_for("Simple loop", 0, swarm.GetMaxActiveIndex(),
      KOKKOS_LAMBDA(const int n) {
        if (swarm_d.IsActive(n)) {
-         x(n) += 1.0;
+         x1(n) += 1.0;
        }
      });
 
@@ -177,14 +186,14 @@ Similar to grid variables, swarms can be packed over ``MeshBlock``\ s via ``Swar
 a ``SwarmPack`` via a ``std::vector<std::string>`` or the type-based variable prescription
 previously used by ``SparsePack``\ s (see :ref:`sparse_packs`).
 
-For packing via string (wherein below, ``swarm_position::x::name()`` returns a string),
+For packing via string (wherein below, ``swarm_position::x1::name()`` returns a string),
 one must specify the data type by template argument:
 
 .. code:: cpp
 
-   std::vector<std::string> vars{swarm_position::x::name(),
-                                 swarm_position::y::name(),
-                                 swarm_position::z::name()};
+   std::vector<std::string> vars{swarm_position::x1::name(),
+                                 swarm_position::x2::name(),
+                                 swarm_position::x3::name()};
    static auto desc = MakeSwarmPackDescriptor<Real>(swarm_name, vars);
    auto pack = desc.GetPack(md);
 
@@ -194,9 +203,9 @@ example), the type can be inferred automatically:
 
 .. code:: cpp
 
-   static auto desc = MakeSwarmPackDescriptor<swarm_position::x,
-                                              swarm_position::y,
-                                              swarm_position::z>(swarm_name);
+   static auto desc = MakeSwarmPackDescriptor<swarm_position::x1,
+                                              swarm_position::x2,
+                                              swarm_position::x3>(swarm_name);
    auto pack = desc.GetPack(md);
 
 

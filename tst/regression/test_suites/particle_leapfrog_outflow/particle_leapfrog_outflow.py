@@ -15,6 +15,8 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 # ========================================================================================
 
+# This file was made in part with generative AI.
+
 # Modules
 import numpy as np
 from numpy.lib.recfunctions import structured_to_unstructured
@@ -42,7 +44,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         data = phdf("particles.out0.final.phdf")
         swarm = data.GetSwarm("my_particles")
         inds = np.argsort(swarm.id)
-        final_data = np.vstack((swarm.x, swarm.y, swarm.z, swarm["v"]))
+        final_data = np.vstack((swarm.x1, swarm.x2, swarm.x3, swarm["v"]))
         final_data = final_data.transpose()[inds]
 
         # see examples/particle_leapfrog/particle_leapfrog.cpp for reference data

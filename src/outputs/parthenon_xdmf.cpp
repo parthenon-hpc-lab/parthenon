@@ -15,6 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 // options for building
 #include "config.hpp"
 #include "globals.hpp"
@@ -241,9 +243,9 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
                                    "Float", "", swminfo.global_count);
       pxdmf << "      </Geometry>" << std::endl;
       for (const auto &[varname, varinfo] : swminfo.var_info) {
-        if ((varname == swarm_position::x::name()) ||
-            (varname == swarm_position::y::name()) ||
-            (varname == swarm_position::z::name())) {
+        if ((varname == swarm_position::x1::name()) ||
+            (varname == swarm_position::x2::name()) ||
+            (varname == swarm_position::x3::name())) {
           continue; // We already did this one!
         }
         ParticleVariableRef(pxdmf, varname, varinfo, swmname, hdfFile,

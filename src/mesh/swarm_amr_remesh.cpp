@@ -142,10 +142,13 @@ BuildBlockSendPlan(const std::shared_ptr<Swarm> &swarm, const Mesh *pmesh,
     // Refinement is the only case where particles from one old block fan out to several
     // new leaf blocks. Compute that daughter ownership on device and only copy back the
     // compact destination-gid result, rather than mirroring full coordinate arrays.
-    const auto block = pmesh->GetBlockSize(old_loc);
-    const Real x_mid = 0.5 * (block.xmin(X1DIR) + block.xmax(X1DIR));
-    const Real y_mid = 0.5 * (block.xmin(X2DIR) + block.xmax(X2DIR));
-    const Real z_mid = 0.5 * (block.xmin(X3DIR) + block.xmax(X3DIR));
+    const Real x1_split = pmesh->GetBlockSize(old_loc.GetDaughter(1, 0, 0)).xmin(X1DIR);
+    const Real x2_split =
+        pmesh->ndim > 1 ? pmesh->GetBlockSize(old_loc.GetDaughter(0, 1, 0)).xmin(X2DIR)
+                        : 0.0;
+    const Real x3_split =
+        pmesh->ndim > 2 ? pmesh->GetBlockSize(old_loc.GetDaughter(0, 0, 1)).xmin(X3DIR)
+                        : 0.0;
 
     auto child_gids_h = GetRefinedDestinationGids(pmesh, old_loc, new_gid_by_loc);
     ParArray1D<int> child_gids("swarm_amr_remesh_child_gids", child_gids_h.size());
@@ -157,20 +160,21 @@ BuildBlockSendPlan(const std::shared_ptr<Swarm> &swarm, const Mesh *pmesh,
     ParArray1D<int> refined_dest_gids("swarm_amr_remesh_refined_dest_gids",
                                       swarm->GetMaxActiveIndex() + 1);
     auto mask = swarm->GetMask();
-    auto x = swarm->Get<Real>(swarm_position::x::name()).Get();
-    auto y = swarm->Get<Real>(swarm_position::y::name()).Get();
-    auto z = swarm->Get<Real>(swarm_position::z::name()).Get();
+    auto x1 = swarm->Get<Real>(swarm_position::x1::name()).Get();
+    auto x2 = swarm->Get<Real>(swarm_position::x2::name()).Get();
+    auto x3 = swarm->Get<Real>(swarm_position::x3::name()).Get();
     const int ndim = pmesh->ndim;
     parthenon::par_for(
         DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
         swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
           if (!mask(n)) return;
-          const int ox1 = x(n) > x_mid;
+          const int ox1 = x1(n) > x1_split;
+          // Particle positions are stored in x1/x2/x3 coordinates. Compare those
+          // directly against the actual daughter interfaces in the same coordinates.
           // Inactive mesh directions do not participate in refinement, so they always
-          // contribute daughter bit 0 even if particles carry nontrivial coordinates in
-          // those directions.
-          const int ox2 = ndim > 1 ? y(n) > y_mid : 0;
-          const int ox3 = ndim > 2 ? z(n) > z_mid : 0;
+          // contribute daughter bit 0.
+          const int ox2 = ndim > 1 ? x2(n) > x2_split : 0;
+          const int ox3 = ndim > 2 ? x3(n) > x3_split : 0;
           refined_dest_gids(n) = child_gids(ox1 + 2 * ox2 + 4 * ox3);
         });
 

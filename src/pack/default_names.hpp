@@ -13,6 +13,8 @@
 #ifndef PACK_DEFAULT_NAMES_HPP_
 #define PACK_DEFAULT_NAMES_HPP_
 
+// This file was made in part with generative AI.
+
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -38,9 +40,9 @@
 
 namespace swarm_position {
 PAR_SWARMVAR(std::uint64_t, swarm, id);
-PAR_SWARMVAR(parthenon::Real, swarm, x);
-PAR_SWARMVAR(parthenon::Real, swarm, y);
-PAR_SWARMVAR(parthenon::Real, swarm, z);
+PAR_SWARMVAR(parthenon::Real, swarm, x1);
+PAR_SWARMVAR(parthenon::Real, swarm, x2);
+PAR_SWARMVAR(parthenon::Real, swarm, x3);
 } // namespace swarm_position
 
 #endif // PACK_DEFAULT_NAMES_HPP_

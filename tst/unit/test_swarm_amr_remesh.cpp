@@ -123,20 +123,20 @@ void AddParticles(const SP_Swarm &swarm,
                   const std::vector<std::array<Real, 2>> &positions) {
   REQUIRE(swarm->GetNumActive() == 0);
   swarm->AddEmptyParticles(positions.size());
-  auto x = swarm->Get<Real>(swarm_position::x::name()).Get();
-  auto y = swarm->Get<Real>(swarm_position::y::name()).Get();
-  auto z = swarm->Get<Real>(swarm_position::z::name()).Get();
-  auto x_h = x.GetHostMirrorAndCopy();
-  auto y_h = y.GetHostMirrorAndCopy();
-  auto z_h = z.GetHostMirrorAndCopy();
+  auto x1 = swarm->Get<Real>(swarm_position::x1::name()).Get();
+  auto x2 = swarm->Get<Real>(swarm_position::x2::name()).Get();
+  auto x3 = swarm->Get<Real>(swarm_position::x3::name()).Get();
+  auto x1_h = x1.GetHostMirrorAndCopy();
+  auto x2_h = x2.GetHostMirrorAndCopy();
+  auto x3_h = x3.GetHostMirrorAndCopy();
   for (int n = 0; n < positions.size(); ++n) {
-    x_h(n) = positions[n][0];
-    y_h(n) = positions[n][1];
-    z_h(n) = 0.0;
+    x1_h(n) = positions[n][0];
+    x2_h(n) = positions[n][1];
+    x3_h(n) = 0.0;
   }
-  x.DeepCopy(x_h);
-  y.DeepCopy(y_h);
-  z.DeepCopy(z_h);
+  x1.DeepCopy(x1_h);
+  x2.DeepCopy(x2_h);
+  x3.DeepCopy(x3_h);
 }
 
 //----------------------------------------------------------------------------------------
@@ -144,11 +144,11 @@ void AddParticles(const SP_Swarm &swarm,
 // against a deterministic reference ordering.
 std::vector<std::array<Real, 2>> GetParticles(const SP_Swarm &swarm) {
   auto mask_h = swarm->GetMask().GetHostMirrorAndCopy();
-  auto x_h = swarm->Get<Real>(swarm_position::x::name()).Get().GetHostMirrorAndCopy();
-  auto y_h = swarm->Get<Real>(swarm_position::y::name()).Get().GetHostMirrorAndCopy();
+  auto x1_h = swarm->Get<Real>(swarm_position::x1::name()).Get().GetHostMirrorAndCopy();
+  auto x2_h = swarm->Get<Real>(swarm_position::x2::name()).Get().GetHostMirrorAndCopy();
   std::vector<std::array<Real, 2>> particles;
   for (int n = 0; n <= swarm->GetMaxActiveIndex(); ++n) {
-    if (mask_h(n)) particles.push_back({x_h(n), y_h(n)});
+    if (mask_h(n)) particles.push_back({x1_h(n), x2_h(n)});
   }
   std::sort(particles.begin(), particles.end());
   return particles;
