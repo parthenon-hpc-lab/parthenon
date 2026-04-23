@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -12,6 +12,8 @@
 //========================================================================================
 #ifndef APPLICATION_INPUT_HPP_
 #define APPLICATION_INPUT_HPP_
+
+// This file was made in part with generative AI.
 
 #include <functional>
 #include <map>
@@ -45,6 +47,8 @@ class ApplicationInput {
   std::function<void(Mesh *, ParameterInput *)> InitUserMeshData = nullptr;
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> MeshProblemGenerator =
       nullptr;
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)>
+      MeshPostProblemGenerator = nullptr;
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> MeshPostInitialization =
       nullptr;
 
@@ -71,6 +75,7 @@ class ApplicationInput {
       InitApplicationMeshBlockData = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> InitMeshBlockUserData = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> PostProblemGenerator = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> PostInitialization = nullptr;
   std::function<void(MeshBlock *, ParameterInput *, const SimTime &)>
       MeshBlockUserWorkBeforeOutput = nullptr;

@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,6 +16,8 @@
 //========================================================================================
 //! \file mesh.cpp
 //  \brief implementation of functions in Mesh class
+
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <cinttypes>
@@ -153,6 +155,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   }
   if (app_in->MeshPostInitialization != nullptr) {
     PostInitialization = app_in->MeshPostInitialization;
+  }
+  if (app_in->MeshPostProblemGenerator != nullptr) {
+    PostProblemGenerator = app_in->MeshPostProblemGenerator;
   }
   if (app_in->PreStepMeshUserWorkInLoop != nullptr) {
     PreStepUserWorkInLoop = app_in->PreStepMeshUserWorkInLoop;
@@ -747,9 +752,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
             (nmb != 0 && block_list[0]->ProblemGenerator != nullptr)),
           "Mesh and MeshBlock ProblemGenerators are defined. Please use only one.");
       PARTHENON_REQUIRE_THROWS(
-          !(PostInitialization != nullptr &&
-            (nmb != 0 && block_list[0]->PostInitialization != nullptr)),
-          "Mesh and MeshBlock PostInitializations are defined. Please use only one.");
+          !(PostProblemGenerator != nullptr &&
+            (nmb != 0 && block_list[0]->PostProblemGenerator != nullptr)),
+          "Mesh and MeshBlock PostProblemGenerators are defined. Please use only one.");
 
       // Call Mesh ProblemGenerator
       if (ProblemGenerator != nullptr) {
@@ -767,18 +772,18 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
         }
       }
 
-      // Call Mesh PostInitialization
-      if (PostInitialization != nullptr) {
+      // Call Mesh PostProblemGenerator
+      if (PostProblemGenerator != nullptr) {
         for (auto &partition : GetDefaultBlockPartitions()) {
           auto &md = mesh_data.Add("base", partition);
-          PostInitialization(this, pin, md.get());
+          PostProblemGenerator(this, pin, md.get());
         }
-        // Call individual MeshBlock PostInitialization
+        // Call individual MeshBlock PostProblemGenerator
       } else {
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
-          if (pmb->PostInitialization != nullptr) {
-            pmb->PostInitialization(pmb.get(), pin);
+          if (pmb->PostProblemGenerator != nullptr) {
+            pmb->PostProblemGenerator(pmb.get(), pin);
           }
         }
       }
@@ -786,22 +791,22 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       // Call per-package initialization
       for (const auto &[name, pkg] : packages.AllPackages()) {
         PARTHENON_REQUIRE_THROWS(
-            !(pkg->PostInitializationMesh != nullptr &&
-              (pkg->PostInitializationBlock != nullptr)),
-            "Mesh and MeshBlock PostInitializations are defined for package " + name +
+            !(pkg->PostProblemGeneratorMesh != nullptr &&
+              (pkg->PostProblemGeneratorBlock != nullptr)),
+            "Mesh and MeshBlock PostProblemGenerators are defined for package " + name +
                 ". Please use only one.");
 
         // first on the mesh...
-        if (pkg->PostInitializationMesh != nullptr) {
+        if (pkg->PostProblemGeneratorMesh != nullptr) {
           for (auto &partition : GetDefaultBlockPartitions()) {
             auto &md = mesh_data.Add("base", partition);
-            pkg->PostInitializationMesh(this, pin, md.get());
+            pkg->PostProblemGeneratorMesh(this, pin, md.get());
           }
         }
         // and then per block
-        if (pkg->PostInitializationBlock != nullptr) {
+        if (pkg->PostProblemGeneratorBlock != nullptr) {
           for (auto &pmb : block_list) {
-            pkg->PostInitializationBlock(pmb.get(), pin);
+            pkg->PostProblemGeneratorBlock(pmb.get(), pin);
           }
         }
       }
@@ -846,6 +851,92 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
     }
   } while (!init_done);
+
+  // At this point, the initialization hierarchy has resolved, whether that required
+  // adaptive refinement or not. We now permit one last pass at initialization via
+  // PostInitialization, and may follow it with a load-balancing pass if needed.
+  if (init_problem) {
+    int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
+
+    // There exists Mesh, MeshBlock, and Per-Package PostInitializations. If any one of
+    // them is invoked, we need to go through the call chain to set derived variables.
+    // Therefore we keep track via the post_init_invoked boolean.
+    bool post_init_invoked = false;
+
+    // Call Mesh or MeshBlock PostInitialization
+    PARTHENON_REQUIRE_THROWS(
+        !(PostInitialization != nullptr &&
+          (nmb != 0 && block_list[0]->PostInitialization != nullptr)),
+        "Mesh and MeshBlock PostInitializations are defined. Please use only one.");
+    if (PostInitialization != nullptr) {
+      auto &base = mesh_data.Add("base", GetBasePartition());
+      PostInitialization(this, pin, base.get());
+      post_init_invoked = true;
+    } else {
+      for (int i = 0; i < nmb; ++i) {
+        auto &pmb = block_list[i];
+        if (pmb->PostInitialization != nullptr) {
+          pmb->PostInitialization(pmb.get(), pin);
+          post_init_invoked = true;
+        }
+      }
+    }
+
+    // Call per-package final initialization
+    for (const auto &[name, pkg] : packages.AllPackages()) {
+      PARTHENON_REQUIRE_THROWS(
+          !(pkg->PostInitializationMesh != nullptr &&
+            (pkg->PostInitializationBlock != nullptr)),
+          "Mesh and MeshBlock PostInitializations are defined for package " + name +
+              ". Please use only one.");
+
+      // first on the mesh...
+      if (pkg->PostInitializationMesh != nullptr) {
+        auto &base = mesh_data.Add("base", GetBasePartition());
+        pkg->PostInitializationMesh(this, pin, base.get());
+        post_init_invoked = true;
+      }
+      // and then per block
+      if (pkg->PostInitializationBlock != nullptr) {
+        for (auto &pmb : block_list) {
+          pkg->PostInitializationBlock(pmb.get(), pin);
+        }
+        post_init_invoked = true;
+      }
+    }
+
+    if (post_init_invoked) {
+      PreCommFillDerived();
+      BuildTagMapAndBoundaryBuffers();
+      CommunicateBoundaries();
+      FillDerived();
+    }
+
+    if (!adaptive || post_init_invoked) {
+      // Non-adaptive meshes have not yet passed through the later AMR/LB initialization
+      // path, so always run the load-balancing stage once at the end of initialization.
+      // Adaptive meshes only need the extra pass if PostInitialization ran after the AMR
+      // initialization loop. For adaptive meshes, manipulate lb_flag_, step_since_lb,
+      // and AmrTags to prevent AMR but permit load balancing.
+      lb_flag_ = true;
+      step_since_lb = std::numeric_limits<int>::max();
+      if (adaptive) {
+        auto &base = mesh_data.Add("base", GetBasePartition());
+        for (int b = 0; b < base->NumBlocks(); b++) {
+          auto pmb = base->GetBlockData(b).get()->GetBlockPointer();
+          pmb->pmr->SetRefinement(AmrTag::same);
+        }
+      }
+      LoadBalancingAndAdaptiveMeshRefinement(pin, app_in);
+      lb_flag_ = false;
+      step_since_lb = 0;
+
+      PreCommFillDerived();
+      BuildTagMapAndBoundaryBuffers();
+      CommunicateBoundaries();
+      FillDerived();
+    }
+  }
 
 #ifdef MPI_PARALLEL
   // check if there are sufficient blocks

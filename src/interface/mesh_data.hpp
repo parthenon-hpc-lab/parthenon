@@ -13,6 +13,8 @@
 #ifndef INTERFACE_MESH_DATA_HPP_
 #define INTERFACE_MESH_DATA_HPP_
 
+// This file was made in part with generative AI
+
 #include <algorithm>
 #include <limits>
 #include <map>
@@ -28,9 +30,11 @@
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "pack/sparse_pack_base.hpp"
-#include "pack/sparse_pack_cache.hpp"
-#include "pack/swarm_pack_base.hpp"
+#include "pack/sparse_pack/sparse_pack_base.hpp"
+#include "pack/sparse_pack/sparse_pack_cache.hpp"
+#include "pack/swarm_pack/swarm_pack_base.hpp"
+#include "pack/swarm_pack/swarm_pack_cache.hpp"
+#include "pack/swarm_pack/swarm_pack_types.hpp"
 #include "utils/communication_buffer.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/object_pool.hpp"
@@ -512,20 +516,13 @@ class MeshData {
 
   template <typename TYPE>
   SwarmPackCache<TYPE> &GetSwarmPackCache() {
-    if constexpr (std::is_same<TYPE, Real>::value) {
-      return swarm_pack_real_cache_;
-    } else if constexpr (std::is_same<TYPE, int>::value) {
-      return swarm_pack_int_cache_;
-    } else if constexpr (std::is_same<TYPE, std::uint64_t>::value) {
-      return swarm_pack_uint64_cache_;
-    }
-    PARTHENON_THROW("SwarmPacks only compatible with Real, int, or uint64_t types");
+    static_assert(SwarmPackTypes::template IsIn<TYPE>(),
+                  "Unsupported type encountered in SwarmPack");
+    return std::get<SwarmPackTypes::template GetIdx<TYPE>()>(swarm_pack_caches_);
   }
 
   void ClearSwarmCaches() {
-    if (swarm_pack_real_cache_.size() > 0) swarm_pack_real_cache_.clear();
-    if (swarm_pack_int_cache_.size() > 0) swarm_pack_int_cache_.clear();
-    if (swarm_pack_uint64_cache_.size() > 0) swarm_pack_uint64_cache_.clear();
+    std::apply([](auto &...caches) { (caches.clear(), ...); }, swarm_pack_caches_);
   }
 
  private:
@@ -540,9 +537,7 @@ class MeshData {
   MapToMeshBlockVarPack<T> varPackMap_;
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
-  SwarmPackCache<Real> swarm_pack_real_cache_;
-  SwarmPackCache<int> swarm_pack_int_cache_;
-  SwarmPackCache<std::uint64_t> swarm_pack_uint64_cache_;
+  SwarmPackCaches swarm_pack_caches_;
   // caches for boundary information
   BvarsCache_t bvars_cache_;
 };

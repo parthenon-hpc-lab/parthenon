@@ -32,7 +32,7 @@
 #include "interface/swarm.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/default_names.hpp"
 
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
