@@ -21,7 +21,18 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
 
-BASE_VARIANTS = [
+VARIANT_STYLE = {
+    "flat": ("#264653", "o"),
+    "mdrange": ("#287271", "D"),
+    "tuned": ("#8ab17d", "P"),
+    "cpu_simd": ("#0f4c5c", "o"),
+    "cpu_coalesced_outer_var": ("#2a9d8f", "P"),
+    "cpu_rowvar_simd": ("#355070", "D"),
+    "cpu_hierarchical": ("#b56576", "s"),
+    "hierarchical": ("#6d597a", "^"),
+}
+
+CPU_BASE_VARIANTS = [
     "cpu_simd",
     "cpu_coalesced_outer_var",
     "cpu_rowvar_simd",
@@ -29,19 +40,27 @@ BASE_VARIANTS = [
     "hierarchical",
 ]
 
-CHUNK_SWEEP_VARIANTS = [
+CPU_CHUNK_SWEEP_VARIANTS = [
     "cpu_coalesced_outer_var",
     "cpu_hierarchical",
     "hierarchical",
 ]
 
-VARIANT_STYLE = {
-    "cpu_simd": ("#0f4c5c", "o"),
-    "cpu_coalesced_outer_var": ("#2a9d8f", "P"),
-    "cpu_rowvar_simd": ("#355070", "D"),
-    "cpu_hierarchical": ("#b56576", "s"),
-    "hierarchical": ("#6d597a", "^"),
-}
+CPU_CHUNK_SWEEP_BASELINES = ["cpu_simd", "cpu_rowvar_simd"]
+
+GPU_BASE_VARIANTS = [
+    "flat",
+    "mdrange",
+    "hierarchical",
+    "tuned",
+]
+
+GPU_CHUNK_SWEEP_VARIANTS = [
+    "hierarchical",
+    "tuned",
+]
+
+GPU_CHUNK_SWEEP_BASELINES = ["flat", "mdrange"]
 
 
 class ProgressReporter:
@@ -67,15 +86,23 @@ class ProgressReporter:
         )
 
 
-def variant_labels(analysis_mode):
+def variant_labels(analysis_mode, run_set):
     raw_chunk_label = "chunk=ni" if analysis_mode == "verify" else "default chunks"
-    return {
+    cpu_labels = {
         "cpu_simd": "CPU SIMD, (v, outer, inner)",
         "cpu_coalesced_outer_var": f"CPU raw-span, {raw_chunk_label}, (v, outer, inner)",
         "cpu_rowvar_simd": "CPU SIMD, (outer, v, inner)",
         "cpu_hierarchical": f"CPU raw-span, {raw_chunk_label}, (outer, v, inner)",
         "hierarchical": "Kokkos raw-span, default chunks",
     }
+    if run_set == "gpu":
+        return {
+            "flat": "Kokkos flat range",
+            "mdrange": "Kokkos MDRange",
+            "hierarchical": "Kokkos raw-span, default chunks",
+            "tuned": "Kokkos tuned raw-span",
+        }
+    return cpu_labels
 
 
 def cpu_raw_span_chunk_mode(analysis_mode):
@@ -95,6 +122,12 @@ def default_chunk_description(args):
         "default inner chunk length = ni*nj "
         f"(so at fixed chunk-sweep ni={args.chunk_sweep_ni}, default={args.chunk_sweep_ni * args.nj})"
     )
+
+
+def analysis_variants(run_set):
+    if run_set == "gpu":
+        return GPU_BASE_VARIANTS, GPU_CHUNK_SWEEP_VARIANTS, GPU_CHUNK_SWEEP_BASELINES
+    return CPU_BASE_VARIANTS, CPU_CHUNK_SWEEP_VARIANTS, CPU_CHUNK_SWEEP_BASELINES
 
 
 def parse_args():
@@ -155,6 +188,11 @@ def parse_args():
         "--chunk-values",
         default="8,16,32,64,128,256,512,1024",
         help="Comma-separated inner chunk lengths to sweep at fixed ni",
+    )
+    parser.add_argument(
+        "--gpu",
+        action="store_true",
+        help="Run only GPU-capable Kokkos variants instead of the default CPU-focused suite",
     )
     return parser.parse_args()
 
@@ -421,7 +459,9 @@ def run_sweep(binary, csv_path, kernel, variants, ni_values, args, analysis_mode
     return rows
 
 
-def run_chunk_sweep(binary, csv_path, kernel, variants, chunk_values, args, progress):
+def run_chunk_sweep(
+    binary, csv_path, kernel, variants, baseline_variants, chunk_values, args, progress
+):
     rows = []
     ni = args.chunk_sweep_ni
     for chunk_length in chunk_values:
@@ -433,7 +473,7 @@ def run_chunk_sweep(binary, csv_path, kernel, variants, chunk_values, args, prog
             row = numericize(summary)
             rows.append(row)
             progress.log_completed(summary["experiment"], row)
-    for variant in ("cpu_simd", "cpu_rowvar_simd"):
+    for variant in baseline_variants:
         cmd = build_benchmark_command(binary, csv_path, kernel, variant, ni, args)
         summary = parse_summary(run_command(cmd))
         summary["repeats"] = str(args.repeats)
@@ -444,11 +484,11 @@ def run_chunk_sweep(binary, csv_path, kernel, variants, chunk_values, args, prog
     return rows
 
 
-def count_total_runs(ni_values, chunk_values):
+def count_total_runs(base_variants, chunk_sweep_variants, chunk_sweep_baselines, ni_values, chunk_values):
     return (
-        2 * len(BASE_VARIANTS) * len(ni_values)
-        + 2 * len(CHUNK_SWEEP_VARIANTS) * len(chunk_values)
-        + 4
+        2 * len(base_variants) * len(ni_values)
+        + 2 * len(chunk_sweep_variants) * len(chunk_values)
+        + 2 * len(chunk_sweep_baselines)
     )
 
 
@@ -493,6 +533,7 @@ def add_title_page(pdf, title, args, system_info, rows, labels, chunk_values):
         title,
         "",
         f"Binary: {args.binary}",
+        f"variant set: {'gpu' if args.gpu else 'cpu'}",
         f"analysis mode: {args.analysis_mode}",
         f"ni sweep: {ni_values}",
         f"chunk sweep: ni={args.chunk_sweep_ni}, chunks={chunk_values}",
@@ -516,21 +557,15 @@ def add_title_page(pdf, title, args, system_info, rows, labels, chunk_values):
         [
             "",
             "Experiments:",
-            (
-                f"- stencil ni sweep: {labels['cpu_simd']} vs "
-                f"{labels['cpu_coalesced_outer_var']} vs "
-                f"{labels['cpu_rowvar_simd']} vs {labels['cpu_hierarchical']} vs "
-                f"{labels['hierarchical']}"
-            ),
-            (
-                f"- heavy ni sweep: {labels['cpu_simd']} vs "
-                f"{labels['cpu_coalesced_outer_var']} vs "
-                f"{labels['cpu_rowvar_simd']} vs {labels['cpu_hierarchical']} vs "
-                f"{labels['hierarchical']}"
-            ),
+            ("- stencil ni sweep: " + " vs ".join(labels[row["variant"]] for row in rows if row["experiment"] == "stencil_ni_sweep" and row["ni"] == ni_values[0]))
+            if ni_values
+            else "",
+            ("- heavy ni sweep: " + " vs ".join(labels[row["variant"]] for row in rows if row["experiment"] == "heavy_ni_sweep" and row["ni"] == ni_values[0]))
+            if ni_values
+            else "",
             (
                 f"- chunk sweeps at ni={args.chunk_sweep_ni}: raw-span variants and "
-                "Kokkos across explicit inner chunk lengths, with SIMD baselines included"
+                "selected baselines across explicit inner chunk lengths"
             ),
         ]
     )
@@ -602,7 +637,28 @@ def add_chunk_sweep_pages(pdf, rows, labels, chunk_sweep_ni):
     plt.close(fig)
 
 
-def add_ratio_page(pdf, rows, labels):
+def ratio_pairs(run_set):
+    if run_set == "gpu":
+        return [("mdrange", "flat"), ("hierarchical", "flat"), ("tuned", "flat")]
+    return [
+        ("cpu_coalesced_outer_var", "cpu_simd"),
+        ("cpu_rowvar_simd", "cpu_simd"),
+        ("cpu_hierarchical", "cpu_simd"),
+        ("hierarchical", "cpu_simd"),
+    ]
+
+
+def chunk_ratio_pairs(run_set):
+    if run_set == "gpu":
+        return [("hierarchical", "flat"), ("tuned", "flat")]
+    return [
+        ("cpu_coalesced_outer_var", "cpu_simd"),
+        ("cpu_hierarchical", "cpu_rowvar_simd"),
+        ("hierarchical", "cpu_simd"),
+    ]
+
+
+def add_ratio_page(pdf, rows, labels, run_set):
     fig, axes = plt.subplots(2, 1, figsize=(10, 10))
     experiments = [
         ("stencil_ni_sweep", "Stencil Ratios"),
@@ -612,48 +668,23 @@ def add_ratio_page(pdf, rows, labels):
         exp_rows = [row for row in rows if row["experiment"] == experiment]
         by_key = {(row["variant"], row["ni"]): row["updates_per_second"] for row in exp_rows}
         nis = sorted({row["ni"] for row in exp_rows})
-        coalesced_ratio = []
-        rowvar_ratio = []
-        cpu_hier_ratio = []
-        hier_ratio = []
-        for ni in nis:
-            baseline = by_key[("cpu_simd", ni)]
-            coalesced = by_key[("cpu_coalesced_outer_var", ni)]
-            rowvar = by_key[("cpu_rowvar_simd", ni)]
-            cpu_hier = by_key[("cpu_hierarchical", ni)]
-            kokkos_hier = by_key[("hierarchical", ni)]
-            coalesced_ratio.append(coalesced / baseline)
-            rowvar_ratio.append(rowvar / baseline)
-            cpu_hier_ratio.append(cpu_hier / baseline)
-            hier_ratio.append(kokkos_hier / baseline)
-        ax.plot(
-            nis,
-            coalesced_ratio,
-            marker=VARIANT_STYLE["cpu_coalesced_outer_var"][1],
-            color=VARIANT_STYLE["cpu_coalesced_outer_var"][0],
-            label=f"{labels['cpu_coalesced_outer_var']} / {labels['cpu_simd']}",
-        )
-        ax.plot(
-            nis,
-            rowvar_ratio,
-            marker=VARIANT_STYLE["cpu_rowvar_simd"][1],
-            color=VARIANT_STYLE["cpu_rowvar_simd"][0],
-            label=f"{labels['cpu_rowvar_simd']} / {labels['cpu_simd']}",
-        )
-        ax.plot(
-            nis,
-            cpu_hier_ratio,
-            marker=VARIANT_STYLE["cpu_hierarchical"][1],
-            color=VARIANT_STYLE["cpu_hierarchical"][0],
-            label=f"{labels['cpu_hierarchical']} / {labels['cpu_simd']}",
-        )
-        ax.plot(
-            nis,
-            hier_ratio,
-            marker=VARIANT_STYLE["hierarchical"][1],
-            color=VARIANT_STYLE["hierarchical"][0],
-            label=f"{labels['hierarchical']} / {labels['cpu_simd']}",
-        )
+        for variant, baseline_variant in ratio_pairs(run_set):
+            ratios = []
+            valid_nis = []
+            for ni in nis:
+                if (variant, ni) not in by_key or (baseline_variant, ni) not in by_key:
+                    continue
+                valid_nis.append(ni)
+                ratios.append(by_key[(variant, ni)] / by_key[(baseline_variant, ni)])
+            if not valid_nis:
+                continue
+            ax.plot(
+                valid_nis,
+                ratios,
+                marker=VARIANT_STYLE[variant][1],
+                color=VARIANT_STYLE[variant][0],
+                label=f"{labels[variant]} / {labels[baseline_variant]}",
+            )
         ax.axhline(1.0, color="#333333", linestyle="--", linewidth=1)
         ax.set_xscale("log", base=2)
         ax.set_xlabel("ni")
@@ -666,7 +697,7 @@ def add_ratio_page(pdf, rows, labels):
     plt.close(fig)
 
 
-def add_chunk_ratio_page(pdf, rows, labels):
+def add_chunk_ratio_page(pdf, rows, labels, run_set):
     fig, axes = plt.subplots(2, 1, figsize=(10, 10))
     experiments = [
         ("stencil_chunk_sweep", "Stencil Chunk Ratios"),
@@ -678,21 +709,14 @@ def add_chunk_ratio_page(pdf, rows, labels):
         for row in exp_rows:
             by_variant[row["variant"]].append((row["inner_chunk_length"], row["updates_per_second"]))
 
-        simd_v = exp_rows[0]["updates_per_second"] if exp_rows else 0.0
-        simd_outer = simd_v
-        for row in exp_rows:
-            if row["variant"] == "cpu_simd":
-                simd_v = row["updates_per_second"]
-            elif row["variant"] == "cpu_rowvar_simd":
-                simd_outer = row["updates_per_second"]
-
-        plotted = [
-            ("cpu_coalesced_outer_var", simd_v, "cpu_simd"),
-            ("cpu_hierarchical", simd_outer, "cpu_rowvar_simd"),
-            ("hierarchical", simd_v, "cpu_simd"),
-        ]
-        for variant, baseline, baseline_variant in plotted:
+        baseline_values = {
+            row["variant"]: row["updates_per_second"]
+            for row in exp_rows
+            if row["variant"] in {pair[1] for pair in chunk_ratio_pairs(run_set)}
+        }
+        for variant, baseline_variant in chunk_ratio_pairs(run_set):
             samples = sorted(by_variant.get(variant, []))
+            baseline = baseline_values.get(baseline_variant, 0.0)
             if not samples or baseline == 0.0:
                 continue
             chunks = [chunk for chunk, _ in samples]
@@ -721,32 +745,34 @@ def add_chunk_ratio_page(pdf, rows, labels):
 def add_variant_map_page(pdf, args, labels):
     fig, ax = plt.subplots(figsize=(8.5, 11))
     ax.axis("off")
-    lines = [
-        "Variant Map",
-        "",
-        "PDF label -> benchmark flag",
-        "",
-        f"{labels['cpu_simd']} -> --variant cpu_simd",
-        f"{labels['cpu_coalesced_outer_var']} -> --variant cpu_coalesced_outer_var {chunk_flag_text('cpu_coalesced_outer_var', args.analysis_mode)}",
-        f"{labels['cpu_rowvar_simd']} -> --variant cpu_rowvar_simd",
-        f"{labels['cpu_hierarchical']} -> --variant cpu_hierarchical {chunk_flag_text('cpu_hierarchical', args.analysis_mode)}",
-        f"{labels['hierarchical']} -> --variant hierarchical {chunk_flag_text('hierarchical', args.analysis_mode)}",
-        "",
-        "Notes",
-        (
-            "- In verify mode the script sets --inner-chunk-length <ni> for both CPU raw-span"
-            " variants during the ni sweep."
-        ),
-        (
-            "- In default mode the CPU and Kokkos raw-span curves use the benchmark's"
-            " normal default chunking."
-        ),
-        f"- Here, {default_chunk_description(args)}.",
-        (
-            f"- The chunk sweep fixes ni={args.chunk_sweep_ni} and runs explicit chunk lengths"
-            " for the raw-span variants."
-        ),
-    ]
+    base_variants, chunk_variants, baseline_variants = analysis_variants("gpu" if args.gpu else "cpu")
+    lines = ["Variant Map", "", "PDF label -> benchmark flag", ""]
+    for variant in base_variants:
+        suffix = ""
+        if variant in chunk_variants or variant == "hierarchical":
+            suffix = f" {chunk_flag_text(variant, args.analysis_mode)}"
+        lines.append(f"{labels[variant]} -> --variant {variant}{suffix}")
+    lines.extend(
+        [
+            "",
+            "Notes",
+            (
+                "- In verify mode the script sets --inner-chunk-length <ni> for the CPU raw-span"
+                " variants during the ni sweep."
+            ),
+            (
+                "- In default mode the raw-span curves use the benchmark's"
+                " normal default chunking."
+            ),
+            f"- Here, {default_chunk_description(args)}.",
+            (
+                f"- The chunk sweep fixes ni={args.chunk_sweep_ni} and runs explicit chunk lengths"
+                " for the chunked variants, with baseline variants included once."
+            ),
+            f"- Chunked variants in this run: {', '.join(chunk_variants)}.",
+            f"- Baseline variants in this run: {', '.join(baseline_variants)}.",
+        ]
+    )
     ax.text(0.05, 0.97, "\n".join(lines), va="top", ha="left", family="monospace", fontsize=11)
     pdf.savefig(fig, bbox_inches="tight")
     plt.close(fig)
@@ -759,8 +785,14 @@ def main():
     binary = str(Path(args.binary))
     ni_values = [int(part.strip()) for part in args.ni_values.split(",") if part.strip()]
     chunk_values = [int(part.strip()) for part in args.chunk_values.split(",") if part.strip()]
-    labels = variant_labels(args.analysis_mode)
-    progress = ProgressReporter(count_total_runs(ni_values, chunk_values))
+    run_set = "gpu" if args.gpu else "cpu"
+    base_variants, chunk_sweep_variants, chunk_sweep_baselines = analysis_variants(run_set)
+    labels = variant_labels(args.analysis_mode, run_set)
+    progress = ProgressReporter(
+        count_total_runs(
+            base_variants, chunk_sweep_variants, chunk_sweep_baselines, ni_values, chunk_values
+        )
+    )
 
     combined_csv = output_dir / "analysis.csv"
     output_pdf = output_dir / "analysis.pdf"
@@ -772,7 +804,7 @@ def main():
             binary,
             combined_csv,
             "stencil",
-            BASE_VARIANTS,
+            base_variants,
             ni_values,
             args,
             args.analysis_mode,
@@ -784,7 +816,7 @@ def main():
             binary,
             combined_csv,
             "heavy",
-            BASE_VARIANTS,
+            base_variants,
             ni_values,
             args,
             args.analysis_mode,
@@ -793,12 +825,26 @@ def main():
     )
     rows.extend(
         run_chunk_sweep(
-            binary, combined_csv, "stencil", CHUNK_SWEEP_VARIANTS, chunk_values, args, progress
+            binary,
+            combined_csv,
+            "stencil",
+            chunk_sweep_variants,
+            chunk_sweep_baselines,
+            chunk_values,
+            args,
+            progress,
         )
     )
     rows.extend(
         run_chunk_sweep(
-            binary, combined_csv, "heavy", CHUNK_SWEEP_VARIANTS, chunk_values, args, progress
+            binary,
+            combined_csv,
+            "heavy",
+            chunk_sweep_variants,
+            chunk_sweep_baselines,
+            chunk_values,
+            args,
+            progress,
         )
     )
     write_combined_csv(combined_csv, rows)
@@ -808,9 +854,9 @@ def main():
         add_title_page(pdf, args.title, args, system_info, rows, labels, chunk_values)
         add_variant_map_page(pdf, args, labels)
         add_sweep_pages(pdf, rows, labels)
-        add_ratio_page(pdf, rows, labels)
+        add_ratio_page(pdf, rows, labels, run_set)
         add_chunk_sweep_pages(pdf, rows, labels, args.chunk_sweep_ni)
-        add_chunk_ratio_page(pdf, rows, labels)
+        add_chunk_ratio_page(pdf, rows, labels, run_set)
 
     print(f"Wrote {combined_csv}")
     print(f"Wrote {output_pdf}")

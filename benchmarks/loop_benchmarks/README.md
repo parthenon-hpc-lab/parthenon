@@ -40,6 +40,21 @@ Two analysis modes are supported:
 - `verify`: CPU raw-span uses `--inner-chunk-length <ni>` during the `ni` sweep
   for apples-to-apples comparison against the SIMD loop orders.
 
+By default the analysis script runs the CPU-focused suite:
+
+- `cpu_simd`
+- `cpu_coalesced_outer_var`
+- `cpu_rowvar_simd`
+- `cpu_hierarchical`
+- `hierarchical`
+
+For GPU-capable runs, pass `--gpu` to switch to a Kokkos-only suite:
+
+- `flat`
+- `mdrange`
+- `hierarchical`
+- `tuned`
+
 The report includes:
 
 - `stencil` and `heavy` `ni` sweeps
@@ -52,4 +67,10 @@ python3 benchmarks/loop_benchmarks/run_analysis.py \
   --binary build/benchmarks/loop_benchmarks/loop-benchmarks \
   --analysis-mode default \
   --output-dir reports/loop-benchmarks
+
+python3 benchmarks/loop_benchmarks/run_analysis.py \
+  --binary build/benchmarks/loop_benchmarks/loop-benchmarks \
+  --gpu \
+  --analysis-mode default \
+  --output-dir reports/loop-benchmarks-gpu
 ```
