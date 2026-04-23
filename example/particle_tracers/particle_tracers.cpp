@@ -581,8 +581,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const Real x_min_mesh = mesh_size.xmin(X1DIR);
   const Real x_max_mesh = mesh_size.xmax(X1DIR);
   const Real kwave = 2.0 * M_PI / (x_max_mesh - x_min_mesh);
-  const Real mesh_lx1 = mesh_size.xmax(X1DIR) - mesh_size.xmin(X1DIR);
-  const Real kwave = 2.0 * M_PI / mesh_lx1;
 
   // Create pack
   static auto desc = parthenon::MakePackDescriptor<field::advected>(resolved_pkgs.get());
