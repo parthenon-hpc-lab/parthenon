@@ -22,6 +22,7 @@
 - [[PR 1355]](https://github.com/parthenon-hpc-lab/parthenon/pull/1355) Allow disabling format and lint targets
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1390]](https://github.com/parthenon-hpc-lab/parthenon/pull/1390) Fix bug where trailing comma in list in input deck treated as wildcard in some cases.
 - [[PR 1365]](https://github.com/parthenon-hpc-lab/parthenon/pull/1365) Fix boundary condition being called with coarse=true but no coarse neighbors.
 - [[PR 1345]](https://github.com/parthenon-hpc-lab/parthenon/pull/1345) Coalesce dot product reductions and speed up kernel
 - [[PR 1360]](https://github.com/parthenon-hpc-lab/parthenon/pull/1360) Fix boundary cache clearing in different MeshData partitions
