@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2021-2022 The Parthenon collaboration
+// Copyright(C) 2021-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2021-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -144,12 +144,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   int num_tracers = pin->GetOrAddReal("Tracers", "num_tracers", 100);
   pkg->AddParam<>("num_tracers", num_tracers);
 
-  // Initialize random number generator pool
-  int rng_seed = pin->GetOrAddInteger("Tracers", "rng_seed", 1273);
-  pkg->AddParam<>("rng_seed", rng_seed);
-  RNGPool rng_pool(rng_seed);
-  pkg->AddParam<>("rng_pool", rng_pool);
-
   // Add swarm of tracer particles
   std::string swarm_name = "tracers";
   Metadata swarm_metadata({Metadata::Provides, Metadata::None});
@@ -165,16 +159,16 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 } // namespace particles_package
 
 TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
-  auto swarm = pmb->swarm_data.Get()->Get("tracers");
+  auto swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("tracers");
   auto adv_pkg = pmb->packages.Get("advection_package");
 
   int max_active_index = swarm->GetMaxActiveIndex();
 
   Real dt = integrator->dt;
 
-  auto &x = swarm->Get<Real>("x").Get();
-  auto &y = swarm->Get<Real>("y").Get();
-  auto &z = swarm->Get<Real>("z").Get();
+  auto &x = swarm->Get<Real>(swarm_position::x::name()).Get();
+  auto &y = swarm->Get<Real>(swarm_position::y::name()).Get();
+  auto &z = swarm->Get<Real>(swarm_position::z::name()).Get();
 
   const auto &vx = adv_pkg->Param<Real>("vx");
   const auto &vy = adv_pkg->Param<Real>("vy");
@@ -187,9 +181,6 @@ TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
           x(n) += vx * dt;
           y(n) += vy * dt;
           z(n) += vz * dt;
-
-          bool on_current_mesh_block = true;
-          swarm_d.GetNeighborBlockIndex(n, x(n), y(n), z(n), on_current_mesh_block);
         }
       });
 
@@ -197,7 +188,7 @@ TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
 }
 
 TaskStatus DepositTracers(MeshBlock *pmb) {
-  auto swarm = pmb->swarm_data.Get()->Get("tracers");
+  auto swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("tracers");
 
   // Meshblock geometry
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
@@ -211,9 +202,9 @@ TaskStatus DepositTracers(MeshBlock *pmb) {
   const Real &minx_j = pmb->coords.Xf<2>(jb.s);
   const Real &minx_k = pmb->coords.Xf<3>(kb.s);
 
-  const auto &x = swarm->Get<Real>("x").Get();
-  const auto &y = swarm->Get<Real>("y").Get();
-  const auto &z = swarm->Get<Real>("z").Get();
+  const auto &x = swarm->Get<Real>(swarm_position::x::name()).Get();
+  const auto &y = swarm->Get<Real>(swarm_position::y::name()).Get();
+  const auto &z = swarm->Get<Real>(swarm_position::z::name()).Get();
   auto swarm_d = swarm->GetDeviceContext();
 
   auto &tracer_dep = pmb->meshblock_data.Get()->Get("tracer_deposition").data;
@@ -237,7 +228,8 @@ TaskStatus DepositTracers(MeshBlock *pmb) {
             k = static_cast<int>(std::floor((z(n) - minx_k) / dx_k) + kb.s);
           }
 
-          // For testing in this example we make sure the indices are correct
+          // For testing in this example we make sure the indices are correct; these could
+          // be demoted to Debug-only calls
           if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s &&
               k <= kb.e) {
             Kokkos::atomic_add(&tracer_dep(k, j, i), 1.0);
@@ -265,8 +257,7 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
 
   auto advected = mbd->Get("advected").data;
 
-  auto x1flux = mbd->Get("advected").flux[X1DIR].Get<4>();
-
+  parthenon::ParArray4D<Real> x1flux = mbd->Get("bnd_flux::advected").data.Get(0, 0, 0);
   // Spatially first order upwind method
   pmb->par_for(
       PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e + 1,
@@ -280,7 +271,7 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
       });
 
   if (ndim > 1) {
-    auto x2flux = mbd->Get("advected").flux[X2DIR].Get<4>();
+    parthenon::ParArray4D<Real> x2flux = mbd->Get("bnd_flux::advected").data.Get(1, 0, 0);
     pmb->par_for(
         PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e + 1, ib.s, ib.e,
         KOKKOS_LAMBDA(const int k, const int j, const int i) {
@@ -294,7 +285,7 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
   }
 
   if (ndim > 2) {
-    auto x3flux = mbd->Get("advected").flux[X3DIR].Get<4>();
+    parthenon::ParArray4D<Real> x3flux = mbd->Get("bnd_flux::advected").data.Get(2, 0, 0);
     pmb->par_for(
         PARTHENON_AUTO_LABEL, kb.s, kb.e + 1, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int k, const int j, const int i) {
@@ -321,9 +312,10 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &tr_pkg = pmb->packages.Get("particles_package");
   auto &mbd = pmb->meshblock_data.Get();
   auto &advected = mbd->Get("advected").data;
-  auto &swarm = pmb->swarm_data.Get()->Get("tracers");
+  auto &swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("tracers");
   const auto num_tracers = tr_pkg->Param<int>("num_tracers");
-  auto rng_pool = tr_pkg->Param<RNGPool>("rng_pool");
+  auto rng_pool =
+      RNGPool(pmb->gid); // Seed is meshblock gid for consistency across MPI decomposition
 
   const int ndim = pmb->pmy_mesh->ndim;
   PARTHENON_REQUIRE(ndim <= 2, "Tracer particles example only supports <= 2D!");
@@ -375,19 +367,18 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   int num_tracers_meshblock = std::round(num_tracers * number_meshblock / number_mesh);
   int gid = pmb->gid;
 
-  ParArrayND<int> new_indices;
-  swarm->AddEmptyParticles(num_tracers_meshblock, new_indices);
+  auto new_particles_context = swarm->AddEmptyParticles(num_tracers_meshblock);
 
-  auto &x = swarm->Get<Real>("x").Get();
-  auto &y = swarm->Get<Real>("y").Get();
-  auto &z = swarm->Get<Real>("z").Get();
+  auto &x = swarm->Get<Real>(swarm_position::x::name()).Get();
+  auto &y = swarm->Get<Real>(swarm_position::y::name()).Get();
+  auto &z = swarm->Get<Real>(swarm_position::z::name()).Get();
   auto &id = swarm->Get<int>("id").Get();
 
   auto swarm_d = swarm->GetDeviceContext();
-  // This hardcoded implementation should only used in PGEN and not during runtime
-  // addition of particles as indices need to be taken into account.
   pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, num_tracers_meshblock - 1, KOKKOS_LAMBDA(const int n) {
+      PARTHENON_AUTO_LABEL, 0, new_particles_context.GetNewParticlesMaxIndex(),
+      KOKKOS_LAMBDA(const int new_n) {
+        const int n = new_particles_context.GetNewParticleIndex(new_n);
         auto rng_gen = rng_pool.get_state();
 
         // Rejection sample the x position
@@ -494,7 +485,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
       for (int i = 0; i < blocks.size(); i++) {
         auto &tl = sync_region0[0];
         auto &pmb = blocks[i];
-        auto &sc = pmb->swarm_data.Get();
+        auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
         auto reset_comms =
             tl.AddTask(none, &SwarmContainer::ResetCommunication, sc.get());
       }
@@ -504,7 +495,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
     for (int n = 0; n < nblocks; n++) {
       auto &tl = async_region1[n];
       auto &pmb = blocks[n];
-      auto &sc = pmb->swarm_data.Get();
+      auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
       auto tracerAdvect =
           tl.AddTask(none, tracers_example::AdvectTracers, pmb.get(), integrator.get());
 
@@ -517,7 +508,7 @@ TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage
       auto deposit = tl.AddTask(receive, tracers_example::DepositTracers, pmb.get());
 
       // Defragment if swarm memory pool occupancy is 90%
-      auto defrag = tl.AddTask(none, &SwarmContainer::Defrag, sc.get(), 0.9);
+      auto defrag = tl.AddTask(deposit, &SwarmContainer::Defrag, sc.get(), 0.9);
     }
   }
 

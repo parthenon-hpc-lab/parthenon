@@ -178,9 +178,13 @@ Mesh
 ^^^^
 
 -  ``InitUserMeshData``
+-  ``ProblemGenerator``
+-  ``PostInitialization``
 -  ``PreStepUserWorkInLoop``
 -  ``PostStepUserWorkInLoop``
 -  ``UserWorkAfterLoop``
+-  ``UserMeshWorkBeforeOutput``
+-  ``UserMeshWorkBeforeRestartOutput``
 
 MeshBlock
 ^^^^^^^^^
@@ -188,6 +192,7 @@ MeshBlock
 -  ``InitApplicationMeshBlockData``
 -  ``InitMeshBlockUserData``
 -  ``ProblemGenerator``
+-  ``PostInitialization``
 -  ``UserWorkBeforeOutput``
 
 To redefine these functions, the user sets the respective function
@@ -195,13 +200,13 @@ pointers in the ApplicationInput member app_input of the
 ParthenonManager class prior to calling ``ParthenonInit``. This is
 demonstrated in the ``main()`` functions in the examples.
 
-Note that the ``ProblemGenerator``\ s of ``Mesh`` and ``MeshBlock`` are
-mutually exclusive. Moreover, the ``Mesh`` one requires
-``parthenon/mesh/pack_size=-1`` during initialization, i.e., all blocks
-on a rank need to be in a single pack. This allows to use MPI reductions
-inside the function, for example, to globally normalize quantities. The
-``parthenon/mesh/pack_size=-1`` exists only during problem
-inititalization, i.e., simulations can be restarted with an arbitrary
+Note that the ``ProblemGenerator``\ s (and ``PostInitialization``\ s) of
+``Mesh`` and ``MeshBlock`` are mutually exclusive. Moreover, the ``Mesh``
+ones requires ``parthenon/mesh/pack_size=-1`` during initialization, i.e.,
+all blocks on a rank need to be in a single pack. This allows to use MPI
+reductions inside the function, for example, to globally normalize quantities.
+The ``parthenon/mesh/pack_size=-1`` exists only during problem
+initialization, i.e., simulations can be restarted with an arbitrary
 ``pack_size``. For an example of the ``Mesh`` version, see the `Poisson
 example <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/poisson/parthenon_app_inputs.cpp>`__.
 
@@ -303,7 +308,12 @@ command. For example, the ``refine_tol`` parameter in the
 appending ``parthenon/refinement0/refine_tol=my_new_value`` to the
 launch command (e.g.,
 ``srun ./myapp -i my_input.file parthenon/refinement0/refine_tol=my_new_value``).
-This similarly applies to simulations that are restarted.
+This similarly applies to simulations that are restarted, where modifications
+from the command line and through an input file are possible, e.g.,
+``srun ./myapp -r out0.rhdf -i modified_input.in parthenon/refinement0/refine_tol=my_new_value``.
+In the latter case, the input stored in the restart file will be read first,
+then updated from the content in the input file, and finally modified from the
+parameters provided on the command line.
 
 Global reductions
 ~~~~~~~~~~~~~~~~~

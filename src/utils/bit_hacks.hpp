@@ -88,6 +88,26 @@ inline int NumberOfBinaryTrailingZeros(std::uint64_t val) {
   return n;
 }
 
+inline int MaximumPowerOf2Divisor(int in) { return in & (~(in - 1)); }
+
+inline uint IntegerLog2Ceil(uint in) {
+  uint log2 = 0;
+  uint in_temp = in;
+  while (in_temp >>= 1) {
+    log2++;
+  }
+  uint pow = 1U << log2;
+  return log2 + (pow != in);
+}
+
+inline uint IntegerLog2Floor(uint in) {
+  uint log2 = 0;
+  while (in >>= 1) {
+    log2++;
+  }
+  return log2;
+}
+
 } // namespace parthenon
 
 #endif // UTILS_BIT_HACKS_HPP_

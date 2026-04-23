@@ -175,7 +175,7 @@ void AscentOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       if (!var->IsSet(Metadata::Cell)) {
         continue;
       }
-      const auto var_info = VarInfo(var);
+      const auto var_info = VarInfo(var, bounds);
 
       for (int icomp = 0; icomp < var_info.num_components; ++icomp) {
         auto const data = Kokkos::subview(var->data, 0, 0, icomp, Kokkos::ALL(),

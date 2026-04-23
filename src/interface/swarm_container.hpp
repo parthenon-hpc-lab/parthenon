@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -87,6 +87,11 @@ class SwarmContainer {
   ///
   void Add(const std::vector<std::string> &labelArray, const Metadata &metadata);
 
+  void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages,
+                  const std::shared_ptr<MeshBlock> pmb);
+
+  void InitializeBoundaries(const std::shared_ptr<MeshBlock> pmb);
+
   void Add(std::shared_ptr<Swarm> swarm) {
     swarmVector_.push_back(swarm);
     swarmMap_[swarm->label()] = swarm;
@@ -115,8 +120,6 @@ class SwarmContainer {
     }
     return -1;
   }
-
-  void AllocateBoundaries();
 
   const SwarmVector &GetSwarmVector() const { return swarmVector_; }
   const SwarmMap &GetSwarmMap() const { return swarmMap_; }

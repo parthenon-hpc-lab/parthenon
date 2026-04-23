@@ -11,4 +11,9 @@
         plt2:
           type: "mesh"
       image_prefix: "ascent_render_%02d"
-
+    scene2:
+      plots:
+        plt2:
+          type: "pseudocolor"
+          field: "my_derived_var"
+      image_prefix: "derived_render_%02d"

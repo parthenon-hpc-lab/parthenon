@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -106,10 +106,8 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
     auto start_flxcor = tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
     auto start_bound = tl.AddTask(none, parthenon::StartReceiveBoundBufs<any>, mc1);
 
-    auto send_flxcor =
-        tl.AddTask(start_flxcor, parthenon::LoadAndSendFluxCorrections, mc0);
-    auto recv_flxcor = tl.AddTask(start_flxcor, parthenon::ReceiveFluxCorrections, mc0);
-    auto set_flxcor = tl.AddTask(recv_flxcor, parthenon::SetFluxCorrections, mc0);
+    auto set_flxcor =
+        parthenon::AddFluxCorrectionTasks(start_flxcor, tl, mc0, pmesh->multilevel);
 
     // compute the divergence of fluxes of conserved variables
     auto flux_div =
@@ -122,12 +120,12 @@ TaskCollection SparseAdvectionDriver::MakeTaskCollection(BlockList_t &blocks,
                              mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
-    auto restrict =
+    auto boundary =
         parthenon::AddBoundaryExchangeTasks(update, tl, mc1, pmesh->multilevel);
 
     // if this is the last stage, check if we can deallocate any sparse variables
     if (stage == integrator->nstages) {
-      tl.AddTask(restrict, SparseDealloc, mc1.get());
+      tl.AddTask(boundary, SparseDealloc, mc1.get());
     }
   }
 

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -184,6 +184,88 @@ std::ostream &operator<<(std::ostream &os, const parthenon::Metadata &m) {
   return os;
 }
 
+// Return true if the flags constraints are satisfied, false otherwise. If throw_on_fail
+// is true, throw a descriptive exception when invalid
+bool Metadata::IsValid(bool throw_on_fail) const {
+  bool valid = true;
+
+  // Topology
+  if (CountSet({None, Node, Edge, Face, Cell}) != 1) {
+    valid = false;
+    if (throw_on_fail) {
+      PARTHENON_THROW("Exactly one topology flag must be set");
+    }
+  }
+
+  // Role
+  if (CountSet({Private, Provides, Requires, Overridable}) != 1) {
+    valid = false;
+    if (throw_on_fail) {
+      PARTHENON_THROW("Exactly one role flag must be set");
+    }
+  }
+
+  // Shape
+  if (CountSet({Vector, Tensor}) > 1) {
+    valid = false;
+    if (throw_on_fail) {
+      PARTHENON_THROW("At most one shape flag can be set");
+    }
+  }
+
+  // Coordinates
+  if (IsSet(CoordinatesVec)) {
+    if (Where() != Node) {
+      valid = false;
+      if (throw_on_fail) {
+        PARTHENON_THROW("Coordinate field must be node-centered");
+      }
+    }
+    if (shape_.size() != 1) {
+      valid = false;
+      if (throw_on_fail) {
+        PARTHENON_THROW("Coordinate field must be tensor rank 1");
+      }
+    }
+    if (shape_[0] != 3) {
+      valid = false;
+      if (throw_on_fail) {
+        PARTHENON_THROW(
+            "Coordinate field must be 3-vector. (Does not need Vector metadata flag).");
+      }
+    }
+  }
+
+  // Datatype
+  if (CountSet({Boolean, Integer, Real}) != 1) {
+    valid = false;
+    if (throw_on_fail) {
+      PARTHENON_THROW("Exactly one data type flag must be set");
+    }
+  }
+
+  // Independent
+  if (CountSet({Independent, Derived}) != 1) {
+    valid = false;
+    if (throw_on_fail) {
+      PARTHENON_THROW("Either the Independent or Derived flag must be set");
+    }
+  }
+
+  // Prolongation/restriction
+  if (IsRefined()) {
+    if (refinement_funcs_.label().size() == 0) {
+      valid = false;
+      if (throw_on_fail) {
+        PARTHENON_THROW(
+            "Registered for refinment but no prolongation/restriction ops found");
+      }
+    }
+  }
+
+  return valid;
+}
+
 std::vector<MetadataFlag> Metadata::Flags() const {
   std::vector<MetadataFlag> set_flags;
   const auto &flags = metadata_state.AllFlags();
@@ -223,6 +305,9 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
       arrDims[i + 3] = 1;
     if (IsSet(Cell)) {
       arrDims[MAX_VARIABLE_DIMENSION - 1] = 1; // Only one cell center per cell
+    } else if (IsSet(Face) && IsSet(Flux)) {
+      // 3 directions but keep the same ijk shape as cell var for performance
+      arrDims[MAX_VARIABLE_DIMENSION - 1] = 3;
     } else if (IsSet(Face) || IsSet(Edge)) {
       arrDims[MAX_VARIABLE_DIMENSION - 1] = 3; // Three faces and edges per cell
       arrDims[0]++;
@@ -249,11 +334,12 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
     // This variable is not necessarily tied to any specific
     // mesh element, so dims will be used as the actual array
     // size in each dimension
-    assert(N >= 1 && N <= MAX_VARIABLE_DIMENSION);
+    assert(N >= 1 && N < MAX_VARIABLE_DIMENSION);
     for (int i = 0; i < N; i++)
       arrDims[i] = shape[i];
     for (int i = N; i < MAX_VARIABLE_DIMENSION; i++)
       arrDims[i] = 1;
+    if (IsSet(Flux)) arrDims[MAX_VARIABLE_DIMENSION - 1] = 3;
   }
 
   return arrDims;

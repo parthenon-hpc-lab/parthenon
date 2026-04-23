@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -23,6 +23,7 @@
 
 #include <catch2/catch.hpp>
 
+#include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
 
 using parthenon::DevExecSpace;
@@ -479,58 +480,32 @@ TEST_CASE("Parallel scan", "[par_scan]") {
   }
 }
 
-struct MyTestStruct {
-  int i;
-};
-
-constexpr int test_int = 2;
-
-class MyTestBaseClass {
-  KOKKOS_INLINE_FUNCTION
-  virtual int GetInt() = 0;
-};
-
-struct MyTestDerivedClass : public MyTestBaseClass {
-  KOKKOS_INLINE_FUNCTION
-  int GetInt() { return test_int; }
-};
-
-TEST_CASE("Device Object Allocation", "[wrapper]") {
-  parthenon::ParArray1D<int> buffer("Testing buffer", 1);
-
-  GIVEN("A struct") {
-    THEN("We can create a unique_ptr to this on device") {
-      { auto ptr = parthenon::DeviceAllocate<MyTestStruct>(); }
-    }
+template <class T>
+bool test_wrapper_reduce_1d(T loop_pattern, DevExecSpace exec_space) {
+  constexpr int N = 10;
+  parthenon::IndexRange r{0, N - 1};
+  parthenon::ParArray1D<int> buffer("Testing buffer", N);
+  // Initialize data
+  parthenon::par_for(
+      loop_pattern, "Initialize parallel reduce array", exec_space, r,
+      KOKKOS_LAMBDA(const int i) { buffer(i) = i; });
+  int total = 0;
+  for (int i = 0; i < N; ++i) {
+    total += i;
   }
+  int test_tot = 0;
+  parthenon::par_reduce(
+      loop_pattern, "Sum via par reduce", exec_space, r,
+      KOKKOS_LAMBDA(const int i, int &t) { t += i; }, Kokkos::Sum<int>(test_tot));
+  return total == test_tot;
+}
 
-  GIVEN("An initialized host struct") {
-    MyTestStruct s;
-    s.i = 5;
-    THEN("We can create a unique_ptr to a copy on device") {
-      auto ptr = parthenon::DeviceCopy<MyTestStruct>(s);
-      auto devptr = ptr.get();
-
-      Kokkos::parallel_for(
-          Kokkos::RangePolicy<DevExecSpace>(0, 1),
-          KOKKOS_LAMBDA(const int i) { buffer(i) = devptr->i; });
-
-      auto buffer_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), buffer);
-      REQUIRE(buffer_h[0] == s.i);
-    }
-  }
-
-  GIVEN("A derived class") {
-    THEN("We can create a unique_ptr to this on device") {
-      auto ptr = parthenon::DeviceAllocate<MyTestDerivedClass>();
-      auto devptr = ptr.get();
-
-      Kokkos::parallel_for(
-          Kokkos::RangePolicy<DevExecSpace>(0, 1),
-          KOKKOS_LAMBDA(const int i) { buffer(i) = devptr->GetInt(); });
-
-      auto buffer_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), buffer);
-      REQUIRE(buffer_h[0] == test_int);
-    }
+TEST_CASE("Parallel reduce", "[par_reduce]") {
+  auto default_exec_space = DevExecSpace();
+  REQUIRE(test_wrapper_reduce_1d(parthenon::loop_pattern_flatrange_tag,
+                                 default_exec_space) == true);
+  if constexpr (std::is_same<DevExecSpace, Kokkos::Serial>::value) {
+    REQUIRE(test_wrapper_reduce_1d(parthenon::loop_pattern_simdfor_tag,
+                                   default_exec_space) == true);
   }
 }

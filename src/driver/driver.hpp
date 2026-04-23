@@ -27,7 +27,7 @@
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
 #include "parameter_input.hpp"
-#include "tasks/task_list.hpp"
+#include "tasks/tasks.hpp"
 
 namespace parthenon {
 
