@@ -15,6 +15,8 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 # =========================================================================================
 
+# This file was made in part with generative AI.
+
 from __future__ import print_function
 import h5py as h
 import os, sys, errno
@@ -27,7 +29,7 @@ class Swarm:
           name: The name of the swarm
           variables: The variables in available in the swarm.
           varData: The swarm variables. Greedily accessed.
-          x, y, z: The x, y, and z positions of the swarm
+          x1, x2, x3: The swarm positions in native mesh coordinates
     """
 
     def __init__(self, fid, swarmname):
@@ -62,16 +64,16 @@ class Swarm:
         return self.Get("swarm.id")
 
     @property
-    def x(self):
-        return self.Get("swarm.x")
+    def x1(self):
+        return self.Get("swarm.x1")
 
     @property
-    def y(self):
-        return self.Get("swarm.y")
+    def x2(self):
+        return self.Get("swarm.x2")
 
     @property
-    def z(self):
-        return self.Get("swarm.z")
+    def x3(self):
+        return self.Get("swarm.x3")
 
     def __getitem__(self, key):
         return self.Get(key)

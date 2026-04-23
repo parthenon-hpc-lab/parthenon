@@ -16,6 +16,8 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 # =========================================================================================
 
+# This file was made in part with generative AI.
+
 from __future__ import print_function
 
 import re
@@ -450,8 +452,8 @@ def main():
                     ERROR_FLAG = True
                     break
                 swarm = data.GetSwarm(args.swarm)
-                swarmx = subsample(swarm.x, args.maxparticles)
-                swarmy = subsample(swarm.y, args.maxparticles)
+                swarmx = subsample(swarm.x1, args.maxparticles)
+                swarmy = subsample(swarm.x2, args.maxparticles)
                 if args.swarmcolor is not None:
                     if not is_color_like(args.swarmcolor):
                         if args.swarmcolor not in swarm.variables:
