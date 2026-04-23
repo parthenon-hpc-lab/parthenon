@@ -72,7 +72,7 @@ struct block_ownership_t {
 template <class... Ts>
 struct Indexer {
   KOKKOS_INLINE_FUNCTION
-  Indexer() : N{}, start{} {};
+  Indexer() : start{}, N{} {}
 
   std::string GetRangesString() const {
     auto end = End();
@@ -85,14 +85,14 @@ struct Indexer {
 
   KOKKOS_INLINE_FUNCTION
   explicit Indexer(std::pair<Ts, Ts>... Ns)
-      : N{GetFactors({(Ns.second - Ns.first + 1)...},
-                     std::make_index_sequence<sizeof...(Ts)>())},
-        start{Ns.first...} {}
+      : start{Ns.first...},
+        N{GetFactors({(Ns.second - Ns.first + 1)...},
+                     std::make_index_sequence<sizeof...(Ts)>())} {}
 
   template <class... IndRngs>
   KOKKOS_INLINE_FUNCTION explicit Indexer(IndRngs... Ns)
-      : N{GetFactors({(Ns.e - Ns.s + 1)...}, std::make_index_sequence<sizeof...(Ts)>())},
-        start{Ns.s...} {}
+      : start{Ns.s...},
+        N{GetFactors({(Ns.e - Ns.s + 1)...}, std::make_index_sequence<sizeof...(Ts)>())} {}
 
   KOKKOS_FORCEINLINE_FUNCTION std::size_t size() const { return N[0]; }
 
@@ -190,7 +190,7 @@ struct Indexer {
 
  private:
   template <std::size_t I>
-  KOKKOS_FORCEINLINE_FUNCTION const auto GetN() const {
+  KOKKOS_FORCEINLINE_FUNCTION auto GetN() const {
     if constexpr (I == sizeof...(Ts) - 1) return 1;
 
     return N[I + 1];
@@ -209,10 +209,10 @@ struct Indexer {
 template <class... Ts>
 struct IndexRanger {
   KOKKOS_INLINE_FUNCTION
-  IndexRanger() : N{}, _size{} {};
+  IndexRanger() : N{}, _size{} {}
 
   KOKKOS_INLINE_FUNCTION
-  explicit IndexRanger(Ts... IdrsA) {}
+  explicit IndexRanger(Ts... IdrsA) : N{IdrsA...}, _size{} {}
 
   Kokkos::Array<IndexRange, sizeof...(Ts)> N;
   std::size_t _size;
@@ -222,7 +222,7 @@ template <>
 struct Indexer<> {
   // this is a dummy and shouldn't ever actually get used to index an array
   KOKKOS_FORCEINLINE_FUNCTION
-  Kokkos::Array<int, 1> GetIdxArray(int idx) const { return {-1}; }
+  Kokkos::Array<int, 1> GetIdxArray(int) const { return {-1}; }
 };
 
 template <class... Ts>
