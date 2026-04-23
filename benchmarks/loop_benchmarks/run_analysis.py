@@ -24,7 +24,9 @@ from matplotlib.backends.backend_pdf import PdfPages
 VARIANT_STYLE = {
     "flat": ("#264653", "o"),
     "mdrange": ("#287271", "D"),
-    "tuned": ("#8ab17d", "P"),
+    "gpu_rawspan_chunk_ninj": ("#6d597a", "^"),
+    "gpu_rawspan_chunk_ni": ("#8ab17d", "P"),
+    "gpu_rawspan_sweep": ("#8ab17d", "P"),
     "cpu_simd": ("#0f4c5c", "o"),
     "cpu_coalesced_outer_var": ("#2a9d8f", "P"),
     "cpu_rowvar_simd": ("#355070", "D"),
@@ -51,13 +53,12 @@ CPU_CHUNK_SWEEP_BASELINES = ["cpu_simd", "cpu_rowvar_simd"]
 GPU_BASE_VARIANTS = [
     "flat",
     "mdrange",
-    "hierarchical",
-    "tuned",
+    "gpu_rawspan_chunk_ninj",
+    "gpu_rawspan_chunk_ni",
 ]
 
 GPU_CHUNK_SWEEP_VARIANTS = [
-    "hierarchical",
-    "tuned",
+    "gpu_rawspan_sweep",
 ]
 
 GPU_CHUNK_SWEEP_BASELINES = ["flat", "mdrange"]
@@ -87,20 +88,21 @@ class ProgressReporter:
 
 
 def variant_labels(analysis_mode, run_set):
-    raw_chunk_label = "chunk=ni" if analysis_mode == "verify" else "default chunks"
+    raw_chunk_label = "ninner=ni" if analysis_mode == "verify" else "ninner=ni*nj"
     cpu_labels = {
         "cpu_simd": "CPU SIMD, (v, outer, inner)",
         "cpu_coalesced_outer_var": f"CPU raw-span, {raw_chunk_label}, (v, outer, inner)",
         "cpu_rowvar_simd": "CPU SIMD, (outer, v, inner)",
         "cpu_hierarchical": f"CPU raw-span, {raw_chunk_label}, (outer, v, inner)",
-        "hierarchical": "Kokkos raw-span, default chunks",
+        "hierarchical": "Kokkos raw-span, ninner=ni*nj",
     }
     if run_set == "gpu":
         return {
             "flat": "Kokkos flat range",
             "mdrange": "Kokkos MDRange",
-            "hierarchical": "Kokkos raw-span, default chunks",
-            "tuned": "Kokkos tuned raw-span",
+            "gpu_rawspan_chunk_ninj": "Kokkos raw-span, ninner=ni*nj",
+            "gpu_rawspan_chunk_ni": "Kokkos raw-span, ninner=ni",
+            "gpu_rawspan_sweep": "Kokkos raw-span",
         }
     return cpu_labels
 
@@ -111,9 +113,15 @@ def cpu_raw_span_chunk_mode(analysis_mode):
 
 def chunk_flag_text(variant, analysis_mode):
     if variant in {"cpu_coalesced_outer_var", "cpu_hierarchical"}:
-        return "--inner-chunk-length <ni>" if analysis_mode == "verify" else "(default chunks)"
+        return "--inner-chunk-length <ni>" if analysis_mode == "verify" else "(default ninner=ni*nj)"
     if variant == "hierarchical":
-        return "(default chunks)"
+        return "(default ninner=ni*nj)"
+    if variant == "gpu_rawspan_chunk_ninj":
+        return "--inner-chunk-length <ni*nj>"
+    if variant == "gpu_rawspan_chunk_ni":
+        return "--inner-chunk-length <ni>"
+    if variant == "gpu_rawspan_sweep":
+        return "--inner-chunk-length <chunk>"
     return ""
 
 
@@ -441,6 +449,16 @@ def build_benchmark_command(binary, csv_path, kernel, variant, ni, args, chunk_l
     return cmd
 
 
+def gpu_variant_command_settings(variant, ni, args, chunk_length=None):
+    if variant == "gpu_rawspan_chunk_ninj":
+        return "tuned", args.nj * ni
+    if variant == "gpu_rawspan_chunk_ni":
+        return "tuned", ni
+    if variant == "gpu_rawspan_sweep":
+        return "tuned", chunk_length
+    return variant, chunk_length
+
+
 def run_sweep(binary, csv_path, kernel, variants, ni_values, args, analysis_mode, progress):
     rows = []
     raw_chunk_mode = cpu_raw_span_chunk_mode(analysis_mode)
@@ -449,8 +467,14 @@ def run_sweep(binary, csv_path, kernel, variants, ni_values, args, analysis_mode
             chunk_length = None
             if variant in {"cpu_coalesced_outer_var", "cpu_hierarchical"} and raw_chunk_mode == "row":
                 chunk_length = ni
-            cmd = build_benchmark_command(binary, csv_path, kernel, variant, ni, args, chunk_length)
+            cmd_variant = variant
+            if args.gpu:
+                cmd_variant, chunk_length = gpu_variant_command_settings(variant, ni, args, chunk_length)
+            cmd = build_benchmark_command(
+                binary, csv_path, kernel, cmd_variant, ni, args, chunk_length
+            )
             summary = parse_summary(run_command(cmd))
+            summary["variant"] = variant
             summary["repeats"] = str(args.repeats)
             summary["experiment"] = f"{kernel}_ni_sweep"
             row = numericize(summary)
@@ -466,8 +490,14 @@ def run_chunk_sweep(
     ni = args.chunk_sweep_ni
     for chunk_length in chunk_values:
         for variant in variants:
-            cmd = build_benchmark_command(binary, csv_path, kernel, variant, ni, args, chunk_length)
+            cmd_variant = variant
+            if args.gpu:
+                cmd_variant, chunk_length = gpu_variant_command_settings(variant, ni, args, chunk_length)
+            cmd = build_benchmark_command(
+                binary, csv_path, kernel, cmd_variant, ni, args, chunk_length
+            )
             summary = parse_summary(run_command(cmd))
+            summary["variant"] = variant
             summary["repeats"] = str(args.repeats)
             summary["experiment"] = f"{kernel}_chunk_sweep"
             row = numericize(summary)
@@ -476,6 +506,7 @@ def run_chunk_sweep(
     for variant in baseline_variants:
         cmd = build_benchmark_command(binary, csv_path, kernel, variant, ni, args)
         summary = parse_summary(run_command(cmd))
+        summary["variant"] = variant
         summary["repeats"] = str(args.repeats)
         summary["experiment"] = f"{kernel}_chunk_sweep"
         row = numericize(summary)
@@ -639,7 +670,11 @@ def add_chunk_sweep_pages(pdf, rows, labels, chunk_sweep_ni):
 
 def ratio_pairs(run_set):
     if run_set == "gpu":
-        return [("mdrange", "flat"), ("hierarchical", "flat"), ("tuned", "flat")]
+        return [
+            ("mdrange", "flat"),
+            ("gpu_rawspan_chunk_ninj", "flat"),
+            ("gpu_rawspan_chunk_ni", "flat"),
+        ]
     return [
         ("cpu_coalesced_outer_var", "cpu_simd"),
         ("cpu_rowvar_simd", "cpu_simd"),
@@ -650,7 +685,7 @@ def ratio_pairs(run_set):
 
 def chunk_ratio_pairs(run_set):
     if run_set == "gpu":
-        return [("hierarchical", "flat"), ("tuned", "flat")]
+        return [("gpu_rawspan_sweep", "flat")]
     return [
         ("cpu_coalesced_outer_var", "cpu_simd"),
         ("cpu_hierarchical", "cpu_rowvar_simd"),
@@ -771,6 +806,10 @@ def add_variant_map_page(pdf, args, labels):
             ),
             f"- Chunked variants in this run: {', '.join(chunk_variants)}.",
             f"- Baseline variants in this run: {', '.join(baseline_variants)}.",
+            (
+                "- For GPU runs, the report uses a single Kokkos raw-span implementation and"
+                " distinguishes cases by explicit inner chunk length."
+            ),
         ]
     )
     ax.text(0.05, 0.97, "\n".join(lines), va="top", ha="left", family="monospace", fontsize=11)
