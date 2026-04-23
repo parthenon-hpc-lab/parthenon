@@ -6,6 +6,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 1271]](https://github.com/parthenon-hpc-lab/parthenon/pull/1271) Add option to set a minimum number of teams for boundary communication kernels
+- [[PR 1378]](https://github.com/parthenon-hpc-lab/parthenon/pull/1378) MeshData Swarm Tasks
 - [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy
 - [[PR 1332]](https://github.com/parthenon-hpc-lab/parthenon/pull/1332) Add global WatchDog
 - [[PR 1375]](https://github.com/parthenon-hpc-lab/parthenon/pull/1375) Add uint64 support to SwarmPacks
@@ -21,6 +22,7 @@
 - [[PR 1355]](https://github.com/parthenon-hpc-lab/parthenon/pull/1355) Allow disabling format and lint targets
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1390]](https://github.com/parthenon-hpc-lab/parthenon/pull/1390) Fix bug where trailing comma in list in input deck treated as wildcard in some cases.
 - [[PR 1365]](https://github.com/parthenon-hpc-lab/parthenon/pull/1365) Fix boundary condition being called with coarse=true but no coarse neighbors.
 - [[PR 1345]](https://github.com/parthenon-hpc-lab/parthenon/pull/1345) Coalesce dot product reductions and speed up kernel
 - [[PR 1360]](https://github.com/parthenon-hpc-lab/parthenon/pull/1360) Fix boundary cache clearing in different MeshData partitions
