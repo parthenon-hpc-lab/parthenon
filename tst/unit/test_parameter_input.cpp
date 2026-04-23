@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was created in part with the generative AI
 
 #include <iostream>
 #include <istream>
@@ -126,6 +128,22 @@ TEST_CASE("Test required/desired checking from inputs", "[ParameterInput]") {
       }
     }
   }
+
+  GIVEN("An input deck with a trailing comma in a vector-valued parameter") {
+    ParameterInput in;
+    std::stringstream ss;
+    ss << "<block1>" << std::endl << "var1 = 1, 2, 3," << std::endl;
+
+    std::istringstream s(ss.str());
+    in.LoadFromStream(s);
+
+    WHEN("The vector is read back") {
+      THEN("The trailing comma does not introduce an empty final element") {
+        auto var1 = in.GetVector<int>("block1", "var1");
+        REQUIRE(var1 == std::vector<int>{1, 2, 3});
+      }
+    }
+  }
 }
 
 TEST_CASE("Parameter inputs can be hashed and hashing provides useful sanity checks",
@@ -198,4 +216,12 @@ TEST_CASE("Test deleting parameters from ParameterInput", "[ParameterInput]") {
       THEN("And others still do") { REQUIRE(in.DoesParameterExist("block1", "var2")); }
     }
   }
+}
+
+TEST_CASE("Empty vector defaults round-trip through the parameter store",
+          "[ParameterInput]") {
+  ParameterInput in;
+  auto values = in.GetOrAddVector<std::string>("block1", "var1", {});
+  REQUIRE(values.empty());
+  REQUIRE(in.GetVector<std::string>("block1", "var1").empty());
 }
