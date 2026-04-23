@@ -15,6 +15,16 @@ using TeamPolicy = Kokkos::TeamPolicy<>;
 using TeamMember = TeamPolicy::member_type;
 using MDRange4 = Kokkos::MDRangePolicy<Kokkos::Rank<4>>;
 
+RawMemoryIndexer BuildRawMemoryIndexer(const ProblemShape &shape, int inner_length) {
+  return RawMemoryIndexer(inner_length, shape.ndim, shape.domain_k, shape.domain_j,
+                          shape.domain_i, shape.memory_k, shape.memory_j, shape.memory_i);
+}
+
+RawMemoryIndexer BuildTunedIndexer(const ProblemShape &shape, const BenchmarkConfig &config) {
+  return BuildRawMemoryIndexer(
+      shape, static_cast<int>(DefaultTunedChunkLength(config.ni, config.inner_chunk_length)));
+}
+
 ProblemShape BuildProblemShape(const BenchmarkConfig &config) {
   const parthenon::IndexRange block_range{0, config.blocks - 1};
   const int ndim = config.nk > 1 ? 3 : (config.nj > 1 ? 2 : 1);
@@ -41,13 +51,6 @@ ProblemShape BuildProblemShape(const BenchmarkConfig &config) {
                     shape.interior_i.e + config.ghost_zones};
   shape.cell_indexer =
       parthenon::Indexer4D(block_range, shape.domain_k, shape.domain_j, shape.domain_i);
-  shape.ij_indexer = RawMemoryIndexer::IJ(ndim, shape.domain_k, shape.domain_j, shape.domain_i,
-                                          shape.memory_k, shape.memory_j, shape.memory_i);
-  shape.tuned_indexer =
-      RawMemoryIndexer(DefaultTunedChunkLength(config.ni, config.inner_chunk_length), ndim,
-                       shape.domain_k, shape.domain_j, shape.domain_i, shape.memory_k,
-                       shape.memory_j,
-                       shape.memory_i);
   return shape;
 }
 
@@ -676,12 +679,12 @@ int RequestedTeamSize(const BenchmarkConfig &config) {
   return 0;
 }
 
-const RawMemoryIndexer &SelectedCpuHierarchicalIndexer(const Dataset &dataset,
-                                                       const BenchmarkConfig &config) {
+RawMemoryIndexer SelectedCpuHierarchicalIndexer(const Dataset &dataset,
+                                                const BenchmarkConfig &config) {
   if (config.inner_chunk_length > 0) {
-    return dataset.problem.tuned_indexer;
+    return BuildTunedIndexer(dataset.problem, config);
   }
-  return dataset.problem.ij_indexer;
+  return BuildRawMemoryIndexer(dataset.problem, dataset.problem.ni * dataset.problem.nj);
 }
 
 }  // namespace
@@ -734,42 +737,46 @@ void ExecuteLoopPattern(const BenchmarkConfig &config, const RaggedMetadata &met
       }
       break;
     case VariantKind::Hierarchical:
+      {
+      const auto idxer = BuildRawMemoryIndexer(
+          dataset->problem, dataset->problem.ni * dataset->problem.nj);
       switch (config.kernel) {
         case KernelKind::Light:
-          RunHierarchicalLight(*dataset, dataset->problem.ij_indexer, RequestedTeamSize(config));
+          RunHierarchicalLight(*dataset, idxer, RequestedTeamSize(config));
           break;
         case KernelKind::Flux:
-          RunHierarchicalFlux(*dataset, dataset->problem.ij_indexer, RequestedTeamSize(config));
+          RunHierarchicalFlux(*dataset, idxer, RequestedTeamSize(config));
           break;
         case KernelKind::Stencil:
-          RunHierarchicalStencil(*dataset, dataset->problem.ij_indexer, RequestedTeamSize(config));
+          RunHierarchicalStencil(*dataset, idxer, RequestedTeamSize(config));
           break;
         case KernelKind::Heavy:
-          RunHierarchicalHeavy(*dataset, dataset->problem.ij_indexer,
-                               RequestedTeamSize(config), config.heavy_iterations);
+          RunHierarchicalHeavy(*dataset, idxer, RequestedTeamSize(config),
+                               config.heavy_iterations);
           break;
       }
       break;
+      }
     case VariantKind::Tuned:
+      {
+      const auto idxer = BuildTunedIndexer(dataset->problem, config);
       switch (config.kernel) {
         case KernelKind::Light:
-          RunHierarchicalLight(*dataset, dataset->problem.tuned_indexer,
-                               RequestedTeamSize(config));
+          RunHierarchicalLight(*dataset, idxer, RequestedTeamSize(config));
           break;
         case KernelKind::Flux:
-          RunHierarchicalFlux(*dataset, dataset->problem.tuned_indexer,
-                              RequestedTeamSize(config));
+          RunHierarchicalFlux(*dataset, idxer, RequestedTeamSize(config));
           break;
         case KernelKind::Stencil:
-          RunHierarchicalStencil(*dataset, dataset->problem.tuned_indexer,
-                                 RequestedTeamSize(config));
+          RunHierarchicalStencil(*dataset, idxer, RequestedTeamSize(config));
           break;
         case KernelKind::Heavy:
-          RunHierarchicalHeavy(*dataset, dataset->problem.tuned_indexer,
-                               RequestedTeamSize(config), config.heavy_iterations);
+          RunHierarchicalHeavy(*dataset, idxer, RequestedTeamSize(config),
+                               config.heavy_iterations);
           break;
       }
       break;
+      }
     case VariantKind::CpuSIMD:
       switch (config.kernel) {
         case KernelKind::Light:

@@ -31,8 +31,6 @@ struct ProblemShape {
   parthenon::IndexRange memory_j;
   parthenon::IndexRange memory_i;
   parthenon::Indexer4D cell_indexer;
-  RawMemoryIndexer ij_indexer;
-  RawMemoryIndexer tuned_indexer;
 };
 
 struct LoopData {
