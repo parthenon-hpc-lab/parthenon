@@ -1,5 +1,6 @@
 #include "loop_patterns.hpp"
 
+#include <algorithm>
 #include <stdexcept>
 
 #include <Kokkos_Core.hpp>
@@ -114,6 +115,14 @@ int MemoryJStride(const ProblemShape &shape) { return shape.memory_i.size(); }
 KOKKOS_INLINE_FUNCTION
 int MemoryKStride(const ProblemShape &shape) { return shape.memory_i.size() * shape.memory_j.size(); }
 
+int SelectedInnerChunkLength(const BenchmarkConfig &config) {
+  if (config.inner_chunk_length > 0) {
+    return static_cast<int>(DefaultTunedChunkLength(config.ni, config.inner_chunk_length));
+  }
+  return static_cast<int>(
+      DefaultHierarchicalChunkLength(config.ni, config.nj, config.inner_chunk_length));
+}
+
 template <typename Body>
 void RunCpuSIMDLoop(const Dataset &dataset, Body body) {
   const auto &shape = dataset.problem;
@@ -188,43 +197,52 @@ void RunCpuSIMDStencil(const Dataset &dataset) {
 }
 
 template <typename Body>
-void RunCpuRowVarSIMDLoop(const Dataset &dataset, Body body) {
+void RunCpuLogicalOVILoop(const Dataset &dataset, int inner_chunk_length, Body body) {
   const auto &shape = dataset.problem;
   const auto &data = dataset.data;
+  const parthenon::Indexer3D logical_idxer(shape.domain_k, shape.domain_j, shape.domain_i);
+  const int cells_per_block = static_cast<int>(logical_idxer.size());
+  const int nouter = (cells_per_block + inner_chunk_length - 1) / inner_chunk_length;
+
   for (int b = 0; b < shape.blocks; ++b) {
     const int nvar = data.active_counts(b);
-    for (int km = shape.domain_k.s; km <= shape.domain_k.e; ++km) {
-      for (int jm = shape.domain_j.s; jm <= shape.domain_j.e; ++jm) {
-        for (int v = 0; v < nvar; ++v) {
-#pragma omp simd
-          for (int im = shape.domain_i.s; im <= shape.domain_i.e; ++im) {
-            data.out(b, v, km, jm, im) = body(data, b, v, km, jm, im);
-          }
+    for (int idx_out = 0; idx_out < nouter; ++idx_out) {
+      const int logical_start = idx_out * inner_chunk_length;
+      const int ninner = std::min(inner_chunk_length, cells_per_block - logical_start);
+      for (int v = 0; v < nvar; ++v) {
+        for (int idx = 0; idx < ninner; ++idx) {
+          const auto [km, jm, im] = logical_idxer(logical_start + idx);
+          data.out(b, v, km, jm, im) = body(data, b, v, km, jm, im);
         }
       }
     }
   }
 }
 
-void RunCpuRowVarSIMDLight(const Dataset &dataset) {
-  RunCpuRowVarSIMDLoop(dataset, [](const LoopData &data, const int b, const int v, const int km,
-                                   const int jm, const int im) {
-    return ComputeLightCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im));
-  });
+void RunCpuLogicalOVILight(const Dataset &dataset, int inner_chunk_length) {
+  RunCpuLogicalOVILoop(dataset, inner_chunk_length,
+                       [](const LoopData &data, const int b, const int v, const int km,
+                          const int jm, const int im) {
+                         return ComputeLightCell(data.in(b, v, km, jm, im),
+                                                 data.aux(b, v, km, jm, im));
+                       });
 }
 
-void RunCpuRowVarSIMDFlux(const Dataset &dataset) {
-  RunCpuRowVarSIMDLoop(dataset, [](const LoopData &data, const int b, const int v, const int km,
-                                   const int jm, const int im) {
-    return ComputeFluxCell(data.in(b, v, km, jm, im), data.fx_up(b, v, km, jm, im),
-                           data.fx_lo(b, v, km, jm, im), data.fy_up(b, v, km, jm, im),
-                           data.fy_lo(b, v, km, jm, im), data.fz_up(b, v, km, jm, im),
-                           data.fz_lo(b, v, km, jm, im));
-  });
+void RunCpuLogicalOVIFlux(const Dataset &dataset, int inner_chunk_length) {
+  RunCpuLogicalOVILoop(dataset, inner_chunk_length,
+                       [](const LoopData &data, const int b, const int v, const int km,
+                          const int jm, const int im) {
+                         return ComputeFluxCell(
+                             data.in(b, v, km, jm, im), data.fx_up(b, v, km, jm, im),
+                             data.fx_lo(b, v, km, jm, im), data.fy_up(b, v, km, jm, im),
+                             data.fy_lo(b, v, km, jm, im), data.fz_up(b, v, km, jm, im),
+                             data.fz_lo(b, v, km, jm, im));
+                       });
 }
 
-void RunCpuRowVarSIMDHeavy(const Dataset &dataset, const int heavy_iterations) {
-  RunCpuRowVarSIMDLoop(dataset,
+void RunCpuLogicalOVIHeavy(const Dataset &dataset, int inner_chunk_length,
+                           int heavy_iterations) {
+  RunCpuLogicalOVILoop(dataset, inner_chunk_length,
                        [heavy_iterations](const LoopData &data, const int b, const int v,
                                           const int km, const int jm, const int im) {
                          return ComputeHeavyCell(data.in(b, v, km, jm, im),
@@ -232,33 +250,22 @@ void RunCpuRowVarSIMDHeavy(const Dataset &dataset, const int heavy_iterations) {
                        });
 }
 
-void RunCpuRowVarSIMDStencil(const Dataset &dataset) {
+void RunCpuLogicalOVIStencil(const Dataset &dataset, int inner_chunk_length) {
   const auto &shape = dataset.problem;
-  const auto &data = dataset.data;
-  for (int b = 0; b < shape.blocks; ++b) {
-    const int nvar = data.active_counts(b);
-    for (int km = shape.domain_k.s; km <= shape.domain_k.e; ++km) {
-      const int km_m1 = shape.ndim > 2 ? km - 1 : km;
-      const int km_p1 = shape.ndim > 2 ? km + 1 : km;
-      for (int jm = shape.domain_j.s; jm <= shape.domain_j.e; ++jm) {
-        const int jm_m1 = shape.ndim > 1 ? jm - 1 : jm;
-        const int jm_p1 = shape.ndim > 1 ? jm + 1 : jm;
-        for (int v = 0; v < nvar; ++v) {
-#pragma omp simd
-          for (int im = shape.domain_i.s; im <= shape.domain_i.e; ++im) {
-            data.out(b, v, km, jm, im) =
-                ComputeStencilCell(data.in(b, v, km, jm, im), data.in(b, v, km, jm, im - 1),
-                                   data.in(b, v, km, jm, im + 1),
-                                   data.in(b, v, km, jm_m1, im),
-                                   data.in(b, v, km, jm_p1, im),
-                                   data.in(b, v, km_m1, jm, im),
-                                   data.in(b, v, km_p1, jm, im), data.aux(b, v, km, jm, im),
-                                   data.fx_up(b, v, km, jm, im), data.fx_lo(b, v, km, jm, im));
-          }
-        }
-      }
-    }
-  }
+  RunCpuLogicalOVILoop(dataset, inner_chunk_length,
+                       [&shape](const LoopData &data, const int b, const int v, const int km,
+                                const int jm, const int im) {
+                         const int km_m1 = shape.ndim > 2 ? km - 1 : km;
+                         const int km_p1 = shape.ndim > 2 ? km + 1 : km;
+                         const int jm_m1 = shape.ndim > 1 ? jm - 1 : jm;
+                         const int jm_p1 = shape.ndim > 1 ? jm + 1 : jm;
+                         return ComputeStencilCell(
+                             data.in(b, v, km, jm, im), data.in(b, v, km, jm, im - 1),
+                             data.in(b, v, km, jm, im + 1), data.in(b, v, km, jm_m1, im),
+                             data.in(b, v, km, jm_p1, im), data.in(b, v, km_m1, jm, im),
+                             data.in(b, v, km_p1, jm, im), data.aux(b, v, km, jm, im),
+                             data.fx_up(b, v, km, jm, im), data.fx_lo(b, v, km, jm, im));
+                       });
 }
 
 template <typename Body>
@@ -588,6 +595,87 @@ void RunMDRangeStencil(const Dataset &dataset) {
 }
 
 template <typename Body>
+void RunKokkosLogicalOVILoop(const Dataset &dataset, int inner_chunk_length, int team_size,
+                             const char *label, Body body) {
+  const auto shape = dataset.problem;
+  const auto data = dataset.data;
+  const parthenon::Indexer3D logical_idxer(shape.domain_k, shape.domain_j, shape.domain_i);
+  const int cells_per_block = static_cast<int>(logical_idxer.size());
+  const int nouter = (cells_per_block + inner_chunk_length - 1) / inner_chunk_length;
+  const int league_size = shape.blocks * nouter;
+  const TeamPolicy policy =
+      team_size > 0 ? TeamPolicy(league_size, team_size) : TeamPolicy(league_size, Kokkos::AUTO);
+
+  Kokkos::parallel_for(
+      label, policy, KOKKOS_LAMBDA(const TeamMember &member) {
+        const int league = member.league_rank();
+        const int b = league / nouter;
+        const int idx_out = league % nouter;
+        const int logical_start = idx_out * inner_chunk_length;
+        const int ninner = Kokkos::min(inner_chunk_length, cells_per_block - logical_start);
+
+        for (int v = 0; v < data.active_counts(b); ++v) {
+          Kokkos::parallel_for(Kokkos::TeamThreadRange(member, 0, ninner), [&](const int idx) {
+            const auto [km, jm, im] = logical_idxer(logical_start + idx);
+            data.out(b, v, km, jm, im) = body(data, b, v, km, jm, im);
+          });
+          member.team_barrier();
+        }
+      });
+}
+
+void RunKokkosLogicalOVILight(const Dataset &dataset, int inner_chunk_length, int team_size) {
+  RunKokkosLogicalOVILoop(
+      dataset, inner_chunk_length, team_size, "KokkosLogicalOVILight",
+      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km, const int jm,
+                    const int im) {
+        return ComputeLightCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im));
+      });
+}
+
+void RunKokkosLogicalOVIFlux(const Dataset &dataset, int inner_chunk_length, int team_size) {
+  RunKokkosLogicalOVILoop(
+      dataset, inner_chunk_length, team_size, "KokkosLogicalOVIFlux",
+      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km, const int jm,
+                    const int im) {
+        return ComputeFluxCell(data.in(b, v, km, jm, im), data.fx_up(b, v, km, jm, im),
+                               data.fx_lo(b, v, km, jm, im), data.fy_up(b, v, km, jm, im),
+                               data.fy_lo(b, v, km, jm, im), data.fz_up(b, v, km, jm, im),
+                               data.fz_lo(b, v, km, jm, im));
+      });
+}
+
+void RunKokkosLogicalOVIHeavy(const Dataset &dataset, int inner_chunk_length, int team_size,
+                              int heavy_iterations) {
+  RunKokkosLogicalOVILoop(
+      dataset, inner_chunk_length, team_size, "KokkosLogicalOVIHeavy",
+      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km, const int jm,
+                    const int im) {
+        return ComputeHeavyCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im),
+                                heavy_iterations);
+      });
+}
+
+void RunKokkosLogicalOVIStencil(const Dataset &dataset, int inner_chunk_length, int team_size) {
+  const auto shape = dataset.problem;
+  RunKokkosLogicalOVILoop(
+      dataset, inner_chunk_length, team_size, "KokkosLogicalOVIStencil",
+      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km, const int jm,
+                    const int im) {
+        const int km_m1 = shape.ndim > 2 ? km - 1 : km;
+        const int km_p1 = shape.ndim > 2 ? km + 1 : km;
+        const int jm_m1 = shape.ndim > 1 ? jm - 1 : jm;
+        const int jm_p1 = shape.ndim > 1 ? jm + 1 : jm;
+        return ComputeStencilCell(
+            data.in(b, v, km, jm, im), data.in(b, v, km, jm, im - 1),
+            data.in(b, v, km, jm, im + 1), data.in(b, v, km, jm_m1, im),
+            data.in(b, v, km, jm_p1, im), data.in(b, v, km_m1, jm, im),
+            data.in(b, v, km_p1, jm, im), data.aux(b, v, km, jm, im),
+            data.fx_up(b, v, km, jm, im), data.fx_lo(b, v, km, jm, im));
+      });
+}
+
+template <typename Body>
 void RunHierarchicalLoop(const Dataset &dataset, const RawMemoryIndexer &idxer, int team_size,
                          const char *label, Body body) {
   const auto shape = dataset.problem;
@@ -687,6 +775,14 @@ RawMemoryIndexer SelectedCpuHierarchicalIndexer(const Dataset &dataset,
   return BuildRawMemoryIndexer(dataset.problem, dataset.problem.ni * dataset.problem.nj);
 }
 
+RawMemoryIndexer SelectedKokkosRawspanIndexer(const Dataset &dataset,
+                                              const BenchmarkConfig &config) {
+  if (config.inner_chunk_length > 0) {
+    return BuildTunedIndexer(dataset.problem, config);
+  }
+  return BuildRawMemoryIndexer(dataset.problem, dataset.problem.ni * dataset.problem.nj);
+}
+
 }  // namespace
 
 Dataset BuildDataset(const BenchmarkConfig &config) {
@@ -704,7 +800,7 @@ void ExecuteLoopPattern(const BenchmarkConfig &config, const RaggedMetadata &met
                         Dataset *dataset) {
   (void)metadata;
   switch (config.variant) {
-    case VariantKind::Flat:
+    case VariantKind::KokkosFlatKJI:
       switch (config.kernel) {
         case KernelKind::Light:
           RunFlatRangeLight(*dataset);
@@ -720,7 +816,7 @@ void ExecuteLoopPattern(const BenchmarkConfig &config, const RaggedMetadata &met
           break;
       }
       break;
-    case VariantKind::MDRange:
+    case VariantKind::KokkosMDRangeKJI:
       switch (config.kernel) {
         case KernelKind::Light:
           RunMDRangeLight(*dataset);
@@ -736,10 +832,8 @@ void ExecuteLoopPattern(const BenchmarkConfig &config, const RaggedMetadata &met
           break;
       }
       break;
-    case VariantKind::Hierarchical:
-      {
-      const auto idxer = BuildRawMemoryIndexer(
-          dataset->problem, dataset->problem.ni * dataset->problem.nj);
+    case VariantKind::KokkosRawspanOVI: {
+      const auto idxer = SelectedKokkosRawspanIndexer(*dataset, config);
       switch (config.kernel) {
         case KernelKind::Light:
           RunHierarchicalLight(*dataset, idxer, RequestedTeamSize(config));
@@ -756,28 +850,27 @@ void ExecuteLoopPattern(const BenchmarkConfig &config, const RaggedMetadata &met
           break;
       }
       break;
-      }
-    case VariantKind::Tuned:
-      {
-      const auto idxer = BuildTunedIndexer(dataset->problem, config);
+    }
+    case VariantKind::KokkosLogicalOVI: {
+      const int inner_chunk_length = SelectedInnerChunkLength(config);
       switch (config.kernel) {
         case KernelKind::Light:
-          RunHierarchicalLight(*dataset, idxer, RequestedTeamSize(config));
+          RunKokkosLogicalOVILight(*dataset, inner_chunk_length, RequestedTeamSize(config));
           break;
         case KernelKind::Flux:
-          RunHierarchicalFlux(*dataset, idxer, RequestedTeamSize(config));
+          RunKokkosLogicalOVIFlux(*dataset, inner_chunk_length, RequestedTeamSize(config));
           break;
         case KernelKind::Stencil:
-          RunHierarchicalStencil(*dataset, idxer, RequestedTeamSize(config));
+          RunKokkosLogicalOVIStencil(*dataset, inner_chunk_length, RequestedTeamSize(config));
           break;
         case KernelKind::Heavy:
-          RunHierarchicalHeavy(*dataset, idxer, RequestedTeamSize(config),
-                               config.heavy_iterations);
+          RunKokkosLogicalOVIHeavy(*dataset, inner_chunk_length, RequestedTeamSize(config),
+                                   config.heavy_iterations);
           break;
       }
       break;
-      }
-    case VariantKind::CpuSIMD:
+    }
+    case VariantKind::CpuLogicalKJI:
       switch (config.kernel) {
         case KernelKind::Light:
           RunCpuSIMDLight(*dataset);
@@ -793,7 +886,25 @@ void ExecuteLoopPattern(const BenchmarkConfig &config, const RaggedMetadata &met
           break;
       }
       break;
-    case VariantKind::CpuHierarchical: {
+    case VariantKind::CpuLogicalOVI: {
+      const int inner_chunk_length = SelectedInnerChunkLength(config);
+      switch (config.kernel) {
+        case KernelKind::Light:
+          RunCpuLogicalOVILight(*dataset, inner_chunk_length);
+          break;
+        case KernelKind::Flux:
+          RunCpuLogicalOVIFlux(*dataset, inner_chunk_length);
+          break;
+        case KernelKind::Stencil:
+          RunCpuLogicalOVIStencil(*dataset, inner_chunk_length);
+          break;
+        case KernelKind::Heavy:
+          RunCpuLogicalOVIHeavy(*dataset, inner_chunk_length, config.heavy_iterations);
+          break;
+      }
+      break;
+    }
+    case VariantKind::CpuRawspanOVI: {
       const auto &idxer = SelectedCpuHierarchicalIndexer(*dataset, config);
       switch (config.kernel) {
         case KernelKind::Light:
@@ -811,7 +922,7 @@ void ExecuteLoopPattern(const BenchmarkConfig &config, const RaggedMetadata &met
       }
       break;
     }
-    case VariantKind::CpuCoalescedOuterVar: {
+    case VariantKind::CpuRawspanVOI: {
       const auto &idxer = SelectedCpuHierarchicalIndexer(*dataset, config);
       switch (config.kernel) {
         case KernelKind::Light:
@@ -829,22 +940,6 @@ void ExecuteLoopPattern(const BenchmarkConfig &config, const RaggedMetadata &met
       }
       break;
     }
-    case VariantKind::CpuRowVarSIMD:
-      switch (config.kernel) {
-        case KernelKind::Light:
-          RunCpuRowVarSIMDLight(*dataset);
-          break;
-        case KernelKind::Flux:
-          RunCpuRowVarSIMDFlux(*dataset);
-          break;
-        case KernelKind::Stencil:
-          RunCpuRowVarSIMDStencil(*dataset);
-          break;
-        case KernelKind::Heavy:
-          RunCpuRowVarSIMDHeavy(*dataset, config.heavy_iterations);
-          break;
-      }
-      break;
   }
   Kokkos::fence();
 }
@@ -863,15 +958,16 @@ std::uint64_t CountUpdates(const BenchmarkConfig &config, const RaggedMetadata &
 }
 
 int EffectiveInnerChunkLength(const BenchmarkConfig &config) {
-  if (config.variant == VariantKind::Flat || config.variant == VariantKind::MDRange ||
-      config.variant == VariantKind::CpuSIMD || config.variant == VariantKind::CpuRowVarSIMD) {
+  if (config.variant == VariantKind::KokkosFlatKJI ||
+      config.variant == VariantKind::KokkosMDRangeKJI ||
+      config.variant == VariantKind::CpuLogicalKJI) {
     return 0;
   }
-  if (config.variant == VariantKind::Tuned) {
-    return static_cast<int>(DefaultTunedChunkLength(config.ni, config.inner_chunk_length));
-  }
-  if ((config.variant == VariantKind::CpuHierarchical ||
-       config.variant == VariantKind::CpuCoalescedOuterVar) &&
+  if ((config.variant == VariantKind::KokkosRawspanOVI ||
+       config.variant == VariantKind::KokkosLogicalOVI ||
+       config.variant == VariantKind::CpuLogicalOVI ||
+       config.variant == VariantKind::CpuRawspanOVI ||
+       config.variant == VariantKind::CpuRawspanVOI) &&
       config.inner_chunk_length > 0) {
     return static_cast<int>(DefaultTunedChunkLength(config.ni, config.inner_chunk_length));
   }

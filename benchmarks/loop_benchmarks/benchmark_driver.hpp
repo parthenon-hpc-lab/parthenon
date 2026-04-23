@@ -9,20 +9,20 @@ namespace plb {
 
 enum class KernelKind { Light, Flux, Stencil, Heavy };
 enum class VariantKind {
-  Flat,
-  MDRange,
-  Hierarchical,
-  Tuned,
-  CpuSIMD,
-  CpuHierarchical,
-  CpuCoalescedOuterVar,
-  CpuRowVarSIMD
+  KokkosFlatKJI,    // Kokkos flat 1D policy over logical active cells
+  KokkosMDRangeKJI, // Kokkos MDRange policy over logical active cells
+  KokkosRawspanOVI, // Kokkos chunked raw-memory traversal: (outer, v, inner)
+  KokkosLogicalOVI, // Kokkos chunked logical traversal: (outer, v, inner)
+  CpuLogicalKJI,    // CPU logical traversal: (v, kji)
+  CpuRawspanOVI,    // CPU chunked raw-memory traversal: (outer, v, inner)
+  CpuRawspanVOI,    // CPU chunked raw-memory traversal: (v, outer, inner)
+  CpuLogicalOVI     // CPU chunked logical traversal: (outer, v, inner)
 };
 
 struct BenchmarkConfig {
   std::string backend = "Serial";
   KernelKind kernel = KernelKind::Flux;
-  VariantKind variant = VariantKind::Flat;
+  VariantKind variant = VariantKind::KokkosFlatKJI;
   int blocks = 8;
   int variables = 8;
   int nk = 8;

@@ -119,22 +119,22 @@ std::string ToString(KernelKind kind) {
 
 std::string ToString(VariantKind kind) {
   switch (kind) {
-    case VariantKind::Flat:
-      return "flat";
-    case VariantKind::MDRange:
-      return "mdrange";
-    case VariantKind::Hierarchical:
-      return "hierarchical";
-    case VariantKind::Tuned:
-      return "tuned";
-    case VariantKind::CpuSIMD:
-      return "cpu_simd";
-    case VariantKind::CpuHierarchical:
-      return "cpu_hierarchical";
-    case VariantKind::CpuCoalescedOuterVar:
-      return "cpu_coalesced_outer_var";
-    case VariantKind::CpuRowVarSIMD:
-      return "cpu_rowvar_simd";
+    case VariantKind::KokkosFlatKJI:
+      return "kokkos_flat_kji";
+    case VariantKind::KokkosMDRangeKJI:
+      return "kokkos_mdrange_kji";
+    case VariantKind::KokkosRawspanOVI:
+      return "kokkos_rawspan_ovi";
+    case VariantKind::KokkosLogicalOVI:
+      return "kokkos_logical_ovi";
+    case VariantKind::CpuLogicalKJI:
+      return "cpu_logical_kji";
+    case VariantKind::CpuRawspanOVI:
+      return "cpu_rawspan_ovi";
+    case VariantKind::CpuRawspanVOI:
+      return "cpu_rawspan_voi";
+    case VariantKind::CpuLogicalOVI:
+      return "cpu_logical_ovi";
   }
   return "unknown";
 }
@@ -160,36 +160,40 @@ bool ParseKernelKind(const std::string &text, KernelKind *kind) {
 }
 
 bool ParseVariantKind(const std::string &text, VariantKind *kind) {
-  if (text == "flat") {
-    *kind = VariantKind::Flat;
+  if (text == "kokkos_flat_kji" || text == "flat") {
+    *kind = VariantKind::KokkosFlatKJI;
     return true;
   }
-  if (text == "mdrange") {
-    *kind = VariantKind::MDRange;
+  if (text == "kokkos_mdrange_kji" || text == "mdrange") {
+    *kind = VariantKind::KokkosMDRangeKJI;
     return true;
   }
-  if (text == "hierarchical") {
-    *kind = VariantKind::Hierarchical;
+  if (text == "kokkos_rawspan_ovi" || text == "hierarchical") {
+    *kind = VariantKind::KokkosRawspanOVI;
+    return true;
+  }
+  if (text == "kokkos_logical_ovi") {
+    *kind = VariantKind::KokkosLogicalOVI;
     return true;
   }
   if (text == "tuned") {
-    *kind = VariantKind::Tuned;
+    *kind = VariantKind::KokkosRawspanOVI;
     return true;
   }
-  if (text == "cpu_simd") {
-    *kind = VariantKind::CpuSIMD;
+  if (text == "cpu_logical_kji" || text == "cpu_simd") {
+    *kind = VariantKind::CpuLogicalKJI;
     return true;
   }
-  if (text == "cpu_hierarchical") {
-    *kind = VariantKind::CpuHierarchical;
+  if (text == "cpu_rawspan_ovi" || text == "cpu_hierarchical") {
+    *kind = VariantKind::CpuRawspanOVI;
     return true;
   }
-  if (text == "cpu_coalesced_outer_var") {
-    *kind = VariantKind::CpuCoalescedOuterVar;
+  if (text == "cpu_rawspan_voi" || text == "cpu_coalesced_outer_var") {
+    *kind = VariantKind::CpuRawspanVOI;
     return true;
   }
-  if (text == "cpu_rowvar_simd") {
-    *kind = VariantKind::CpuRowVarSIMD;
+  if (text == "cpu_logical_ovi") {
+    *kind = VariantKind::CpuLogicalOVI;
     return true;
   }
   return false;
@@ -199,7 +203,7 @@ std::string Usage() {
   return
       "Usage: parthenon_loop_bench [options]\n"
       "  --kernel {light|flux|stencil|heavy}\n"
-      "  --variant {flat|mdrange|hierarchical|tuned|cpu_simd|cpu_hierarchical|cpu_coalesced_outer_var|cpu_rowvar_simd}\n"
+      "  --variant {kokkos_flat_kji|kokkos_mdrange_kji|kokkos_rawspan_ovi|kokkos_logical_ovi|cpu_logical_kji|cpu_rawspan_ovi|cpu_rawspan_voi|cpu_logical_ovi}\n"
       "  --backend NAME\n"
       "  --blocks N --vars N --nk N --nj N --ni N\n"
       "  --ghosts N\n"
