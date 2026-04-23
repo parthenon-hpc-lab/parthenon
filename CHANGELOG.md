@@ -5,6 +5,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1391]](https://github.com/parthenon-hpc-lab/parthenon/pull/1391) Towards Curvilinear Swarms
 - [[PR 1382]](https://github.com/parthenon-hpc-lab/parthenon/pull/1382) Support Particle AMR
 - [[PR 1378]](https://github.com/parthenon-hpc-lab/parthenon/pull/1378) MeshData Swarm Tasks
 - [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy
@@ -36,6 +37,7 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1391]](https://github.com/parthenon-hpc-lab/parthenon/pull/1391) Towards Curvilinear Swarms
 - [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy
 - [[PR 1376]](https://github.com/parthenon-hpc-lab/parthenon/pull/1376) Refactor SwarmPacks
 
