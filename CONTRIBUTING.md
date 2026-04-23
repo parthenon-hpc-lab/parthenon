@@ -175,11 +175,11 @@ In general, there are no limitations to the use of agentic coding/LLMs/... given
   - by clearly stating the extent of usage in the PR description
 - the person submitting the PR keeps ownership/responsiblity of all changes (i.e., conducts a thorough review themself)
 
-In addition following recommendations should be followed
-- for large/feature-style PRs a `plan.md` document outlining the changes should be part of the PR
+In addition, the following recommendations should be followed
+- for large/feature-style PRs a `plan.md` document outlining the changes should be part of the PR. The file should be named by the PR number and placed in the `doc/plan_histories` folder.
   - if possible, large feature-style PRs are split into smaller, logically separated chunks (to ease reviewing)
 - condense/consolidate generated code (to ease maintenance) as it is (still) often much more verbose than necessary (and typical in the existing codebase)
-- reviewers are expected to be much more skeptical and thorough compared to code written by long-term contributors
+- reviewers are expected to be much more skeptical and thorough compared to code written by long-term contributors, and possibly more willing to reject
 
 
 ## Test Suite
