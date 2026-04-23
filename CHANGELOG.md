@@ -5,7 +5,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
-- [[PR 1271]](https://github.com/parthenon-hpc-lab/parthenon/pull/1271) Add option of specifying number of teams used to fill each boundary buffer
+- [[PR 1271]](https://github.com/parthenon-hpc-lab/parthenon/pull/1271) Add option to set a minimum number of teams for boundary communication kernels
 - [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy
 - [[PR 1332]](https://github.com/parthenon-hpc-lab/parthenon/pull/1332) Add global WatchDog
 - [[PR 1375]](https://github.com/parthenon-hpc-lab/parthenon/pull/1375) Add uint64 support to SwarmPacks

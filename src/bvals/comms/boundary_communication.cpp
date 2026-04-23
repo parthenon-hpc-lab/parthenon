@@ -47,6 +47,14 @@ namespace parthenon {
 using namespace loops;
 using namespace loops::shorthands;
 
+namespace {
+int GetNteamsPerBoundaryBuffer(const Mesh *pmesh, const int nbound) {
+  if (nbound <= 0) return 1;
+  return std::max(1, (pmesh->minimum_number_of_teams_for_boundary_kernel + nbound - 1) /
+                         nbound);
+}
+} // namespace
+
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
                                            bool do_restriction) {
@@ -97,7 +105,7 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
   // Load buffer data
   auto &bnd_info = cache.bnd_info;
   PARTHENON_DEBUG_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
-  const int nteams_per_buffer = pmesh->nteams_per_boundary_buffer;
+  const int nteams_per_buffer = GetNteamsPerBoundaryBuffer(pmesh, nbound);
   const int work_chunk_size = pmesh->boundary_buffer_work_chunk_size;
   auto &sending_nonzero_flags = cache.sending_non_zero_flags;
   auto &sending_nonzero_flags_h = cache.sending_non_zero_flags_h;
@@ -313,7 +321,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   }
   // const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = cache.bnd_info;
-  const int nteams_per_buffer = pmesh->nteams_per_boundary_buffer;
+  const int nteams_per_buffer = GetNteamsPerBoundaryBuffer(pmesh, nbound);
   const int work_chunk_size = pmesh->boundary_buffer_work_chunk_size;
 
   Kokkos::parallel_for(
