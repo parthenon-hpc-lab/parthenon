@@ -66,6 +66,16 @@ void InitializeLoopData(const ProblemShape &shape, LoopData *data) {
   data->fz_lo = View5D("fz_lo", shape.blocks, shape.variables, nk_mem, nj_mem, ni_mem);
   data->active_counts = Kokkos::View<int *>("active_counts", shape.blocks);
 
+  const auto in = data->in;
+  const auto aux = data->aux;
+  const auto out = data->out;
+  const auto fx_up = data->fx_up;
+  const auto fx_lo = data->fx_lo;
+  const auto fy_up = data->fy_up;
+  const auto fy_lo = data->fy_lo;
+  const auto fz_up = data->fz_up;
+  const auto fz_lo = data->fz_lo;
+
   Kokkos::parallel_for(
       "InitializeData",
       Kokkos::MDRangePolicy<Kokkos::Rank<5>>({0, 0, 0, 0, 0},
@@ -73,15 +83,15 @@ void InitializeLoopData(const ProblemShape &shape, LoopData *data) {
                                               ni_mem}),
       KOKKOS_LAMBDA(const int b, const int v, const int k, const int j, const int i) {
         const double seed = static_cast<double>(1 + i + 17 * j + 31 * k + 101 * v + 1009 * b);
-        data->in(b, v, k, j, i) = 0.25 + 0.001 * seed;
-        data->aux(b, v, k, j, i) = 0.75 + 0.002 * seed;
-        data->out(b, v, k, j, i) = 0.0;
-        data->fx_up(b, v, k, j, i) = 0.50 + 0.0010 * seed;
-        data->fx_lo(b, v, k, j, i) = 0.45 + 0.0011 * seed;
-        data->fy_up(b, v, k, j, i) = 0.55 + 0.0012 * seed;
-        data->fy_lo(b, v, k, j, i) = 0.48 + 0.0013 * seed;
-        data->fz_up(b, v, k, j, i) = 0.60 + 0.0014 * seed;
-        data->fz_lo(b, v, k, j, i) = 0.51 + 0.0015 * seed;
+        in(b, v, k, j, i) = 0.25 + 0.001 * seed;
+        aux(b, v, k, j, i) = 0.75 + 0.002 * seed;
+        out(b, v, k, j, i) = 0.0;
+        fx_up(b, v, k, j, i) = 0.50 + 0.0010 * seed;
+        fx_lo(b, v, k, j, i) = 0.45 + 0.0011 * seed;
+        fy_up(b, v, k, j, i) = 0.55 + 0.0012 * seed;
+        fy_lo(b, v, k, j, i) = 0.48 + 0.0013 * seed;
+        fz_up(b, v, k, j, i) = 0.60 + 0.0014 * seed;
+        fz_lo(b, v, k, j, i) = 0.51 + 0.0015 * seed;
       });
   Kokkos::fence();
 }
