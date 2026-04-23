@@ -118,6 +118,7 @@ class Task {
   }
 
   static inline bool enable_timing{false};
+  static inline bool enable_timing_chunks{false};
 
   TaskStatus operator()();
   TaskID GetID() { return this; }

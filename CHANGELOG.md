@@ -1,9 +1,15 @@
+<!-- This file was made in part with generative AI. -->
+
 # Changelog
 
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
 - [[PR 1271]](https://github.com/parthenon-hpc-lab/parthenon/pull/1271) Add option of specifying number of teams used to fill each boundary buffer
+- [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy
+- [[PR 1332]](https://github.com/parthenon-hpc-lab/parthenon/pull/1332) Add global WatchDog
+- [[PR 1375]](https://github.com/parthenon-hpc-lab/parthenon/pull/1375) Add uint64 support to SwarmPacks
+- [[PR 1353]](https://github.com/parthenon-hpc-lab/parthenon/pull/1363) Generalize multigrid hierarchy to include initially include leaf grids
 - [[PR 1369]](https://github.com/parthenon-hpc-lab/parthenon/pull/1369) Add an ascii table parser and a string broadcast operator
 - [[PR 1368]](https://github.com/parthenon-hpc-lab/parthenon/pull/1368) Add close, __enter__, and __exit__ for phdf / Add EvolutionDriver::OutputDownstreamCycleDiagnostics()
 - [[PR 1346]](https://github.com/parthenon-hpc-lab/parthenon/pull/1346) Allow for user defined inter-level restrictions in multigrid 
@@ -20,14 +26,17 @@
 - [[PR 1360]](https://github.com/parthenon-hpc-lab/parthenon/pull/1360) Fix boundary cache clearing in different MeshData partitions
 
 ### Infrastructure (changes irrelevant to downstream codes)
-- [[1356]](https://github.com/parthenon-hpc-lab/parthenon/pull/1356) Implement ObjectPoolMap type
+- [[PR 1376]](https://github.com/parthenon-hpc-lab/parthenon/pull/1376) Refactor SwarmPacks
+- [[PR 1352]](https://github.com/parthenon-hpc-lab/parthenon/pull/1352) Move to C++20 concepts
+- [[PR 1356]](https://github.com/parthenon-hpc-lab/parthenon/pull/1356) Implement ObjectPoolMap type
 - [[PR 1361]] Bump formatters to clang-format-20 and black 25.12
 
 ### Removed (removing behavior/API/variables/...)
 
 
 ### Incompatibilities (i.e. breaking changes)
-
+- [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy
+- [[PR 1376]](https://github.com/parthenon-hpc-lab/parthenon/pull/1376) Refactor SwarmPacks
 
 
 ## Release 25.12
@@ -52,6 +61,7 @@ Date: 2025-12-17
 - [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Add dev container (e.g., GitHub Codepsacer or VSCode)
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 - [[PR 1323]](https://github.com/parthenon-hpc-lab/parthenon/pull/1323) Added per-block `sparse_dealloc` functionality outside of tasking to new `sparse/sparse_management` header.
 - [[PR 1311]](https://github.com/parthenon-hpc-lab/parthenon/pull/1311) Refinement criteria no longer need to be a contiguous index range in the input deck
 - [[PR 1305]](https://github.com/parthenon-hpc-lab/parthenon/pull/1305) Minor tweaks and quality of life improvements to python package and some debugging output options

@@ -3,7 +3,7 @@
 // Copyright(C) 2021-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
 
 #include "particle_tracers.hpp"
 
@@ -33,7 +35,7 @@
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/default_names.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 
 using namespace parthenon::driver::prelude;
@@ -94,6 +96,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   Real cfl = pin->GetOrAddReal("Background", "cfl", 0.3);
   pkg->AddParam<>("cfl", cfl);
+
+  const Real advected_mean = 1.0;
+  const Real advected_amp = 0.5;
+  PARTHENON_REQUIRE(advected_mean > advected_amp, "Cannot have negative densities!");
+  pkg->AddParam<>("advected_mean", advected_mean);
+  pkg->AddParam<>("advected_amp", advected_amp);
 
   // Add advected field
   std::string field_name = "advected";
@@ -156,8 +164,82 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   Metadata real_swarmvalue_metadata({Metadata::Real});
 
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
-
+  pkg->PostInitializationBlock = SourceTracers;
   return pkg;
+}
+
+void SourceTracers(MeshBlock *pmb, ParameterInput *pin) {
+  auto &adv_pkg = pmb->packages.Get("advection_package");
+  auto &tr_pkg = pmb->packages.Get("particles_package");
+  auto &swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("tracers");
+  const auto num_tracers = tr_pkg->Param<int>("num_tracers");
+  auto rng_pool =
+      RNGPool(pmb->gid); // Seed is meshblock gid for consistency across MPI decomposition
+
+  const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+  auto coords = pmb->coords;
+
+  const Real &advected_mean = adv_pkg->Param<Real>("advected_mean");
+  const Real &advected_amp = adv_pkg->Param<Real>("advected_amp");
+
+  const Real &x_min = pmb->coords.Xf<1>(ib.s);
+  const Real &y_min = pmb->coords.Xf<2>(jb.s);
+  const Real &z_min = pmb->coords.Xf<3>(kb.s);
+  const Real &x_max = pmb->coords.Xf<1>(ib.e + 1);
+  const Real &y_max = pmb->coords.Xf<2>(jb.e + 1);
+  const Real &z_max = pmb->coords.Xf<3>(kb.e + 1);
+
+  const auto mesh_size = pmb->pmy_mesh->mesh_size;
+  const Real x_min_mesh = mesh_size.xmin(X1DIR);
+  const Real y_min_mesh = mesh_size.xmin(X2DIR);
+  const Real z_min_mesh = mesh_size.xmin(X3DIR);
+  const Real x_max_mesh = mesh_size.xmax(X1DIR);
+  const Real y_max_mesh = mesh_size.xmax(X2DIR);
+  const Real z_max_mesh = mesh_size.xmax(X3DIR);
+  const Real kwave = 2. * M_PI / (x_max_mesh - x_min_mesh);
+
+  // Calculate fraction of total tracer particles on this meshblock by integrating the
+  // advected profile over both the mesh and this meshblock. Tracer number follows number
+  // = advected*volume.
+  Real number_meshblock =
+      advected_mean * (x_max - x_min) -
+      advected_amp / kwave * (std::cos(kwave * x_max) - std::cos(kwave * x_min));
+  number_meshblock *= (y_max - y_min) * (z_max - z_min);
+  Real number_mesh = advected_mean * (x_max_mesh - x_min_mesh);
+  number_mesh -= advected_amp / kwave *
+                 (std::cos(kwave * x_max_mesh) - std::cos(kwave * x_min_mesh));
+  number_mesh *= (y_max_mesh - y_min_mesh) * (z_max_mesh - z_min_mesh);
+
+  int num_tracers_meshblock = std::round(num_tracers * number_meshblock / number_mesh);
+  int gid = pmb->gid;
+
+  auto new_particles_context = swarm->AddEmptyParticles(num_tracers_meshblock);
+
+  auto &x = swarm->Get<Real>(swarm_position::x::name()).Get();
+  auto &y = swarm->Get<Real>(swarm_position::y::name()).Get();
+  auto &z = swarm->Get<Real>(swarm_position::z::name()).Get();
+
+  auto swarm_d = swarm->GetDeviceContext();
+  pmb->par_for(
+      PARTHENON_AUTO_LABEL, 0, new_particles_context.GetNewParticlesMaxIndex(),
+      KOKKOS_LAMBDA(const int new_n) {
+        const int n = new_particles_context.GetNewParticleIndex(new_n);
+        auto rng_gen = rng_pool.get_state();
+
+        // Rejection sample the x position
+        Real val;
+        do {
+          x(n) = x_min + rng_gen.drand() * (x_max - x_min);
+          val = advected_mean + advected_amp * std::sin(2. * M_PI * x(n));
+        } while (val < rng_gen.drand() * (advected_mean + advected_amp));
+
+        y(n) = y_min + rng_gen.drand() * (y_max - y_min);
+        z(n) = z_min + rng_gen.drand() * (z_max - z_min);
+
+        rng_pool.free_state(rng_gen);
+      });
 }
 
 } // namespace particles_package
@@ -313,13 +395,7 @@ TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   auto &adv_pkg = pmb->packages.Get("advection_package");
-  auto &tr_pkg = pmb->packages.Get("particles_package");
-  auto &mbd = pmb->meshblock_data.Get();
-  auto &advected = mbd->Get("advected").data;
-  auto &swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("tracers");
-  const auto num_tracers = tr_pkg->Param<int>("num_tracers");
-  auto rng_pool =
-      RNGPool(pmb->gid); // Seed is meshblock gid for consistency across MPI decomposition
+  auto &advected = pmb->meshblock_data.Get()->Get("advected").data;
 
   const int ndim = pmb->pmy_mesh->ndim;
   PARTHENON_REQUIRE(ndim <= 2, "Tracer particles example only supports <= 2D!");
@@ -329,72 +405,19 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
   auto coords = pmb->coords;
 
-  const Real advected_mean = 1.0;
-  const Real advected_amp = 0.5;
-  PARTHENON_REQUIRE(advected_mean > advected_amp, "Cannot have negative densities!");
-
-  const Real &x_min = pmb->coords.Xf<1>(ib.s);
-  const Real &y_min = pmb->coords.Xf<2>(jb.s);
-  const Real &z_min = pmb->coords.Xf<3>(kb.s);
-  const Real &x_max = pmb->coords.Xf<1>(ib.e + 1);
-  const Real &y_max = pmb->coords.Xf<2>(jb.e + 1);
-  const Real &z_max = pmb->coords.Xf<3>(kb.e + 1);
+  const Real &advected_mean = adv_pkg->Param<Real>("advected_mean");
+  const Real &advected_amp = adv_pkg->Param<Real>("advected_amp");
 
   const auto mesh_size = pmb->pmy_mesh->mesh_size;
   const Real x_min_mesh = mesh_size.xmin(X1DIR);
-  const Real y_min_mesh = mesh_size.xmin(X2DIR);
-  const Real z_min_mesh = mesh_size.xmin(X3DIR);
   const Real x_max_mesh = mesh_size.xmax(X1DIR);
-  const Real y_max_mesh = mesh_size.xmax(X2DIR);
-  const Real z_max_mesh = mesh_size.xmax(X3DIR);
-
   const Real kwave = 2. * M_PI / (x_max_mesh - x_min_mesh);
 
   pmb->par_for(
       PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        advected(k, j, i) = advected_mean + advected_amp * sin(kwave * coords.Xc<1>(i));
-      });
-
-  // Calculate fraction of total tracer particles on this meshblock by integrating the
-  // advected profile over both the mesh and this meshblock. Tracer number follows number
-  // = advected*volume.
-  Real number_meshblock =
-      advected_mean * (x_max - x_min) -
-      advected_amp / kwave * (cos(kwave * x_max) - cos(kwave * x_min));
-  number_meshblock *= (y_max - y_min) * (z_max - z_min);
-  Real number_mesh = advected_mean * (x_max_mesh - x_min_mesh);
-  number_mesh -=
-      advected_amp / kwave * (cos(kwave * x_max_mesh) - cos(kwave * x_min_mesh));
-  number_mesh *= (y_max_mesh - y_min_mesh) * (z_max_mesh - z_min_mesh);
-
-  int num_tracers_meshblock = std::round(num_tracers * number_meshblock / number_mesh);
-  int gid = pmb->gid;
-
-  auto new_particles_context = swarm->AddEmptyParticles(num_tracers_meshblock);
-
-  auto &x = swarm->Get<Real>(swarm_position::x::name()).Get();
-  auto &y = swarm->Get<Real>(swarm_position::y::name()).Get();
-  auto &z = swarm->Get<Real>(swarm_position::z::name()).Get();
-
-  auto swarm_d = swarm->GetDeviceContext();
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, new_particles_context.GetNewParticlesMaxIndex(),
-      KOKKOS_LAMBDA(const int new_n) {
-        const int n = new_particles_context.GetNewParticleIndex(new_n);
-        auto rng_gen = rng_pool.get_state();
-
-        // Rejection sample the x position
-        Real val;
-        do {
-          x(n) = x_min + rng_gen.drand() * (x_max - x_min);
-          val = advected_mean + advected_amp * sin(2. * M_PI * x(n));
-        } while (val < rng_gen.drand() * (advected_mean + advected_amp));
-
-        y(n) = y_min + rng_gen.drand() * (y_max - y_min);
-        z(n) = z_min + rng_gen.drand() * (z_max - z_min);
-
-        rng_pool.free_state(rng_gen);
+        advected(k, j, i) =
+            advected_mean + advected_amp * std::sin(kwave * coords.Xc<1>(i));
       });
 }
 

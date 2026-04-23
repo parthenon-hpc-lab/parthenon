@@ -26,8 +26,8 @@
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "pack/pack_utils.hpp"
-#include "pack/sparse_pack_base.hpp"
-#include "pack/sparse_pack_cache.hpp"
+#include "pack/sparse_pack/sparse_pack_base.hpp"
+#include "pack/sparse_pack/sparse_pack_cache.hpp"
 
 namespace parthenon {
 
@@ -45,8 +45,8 @@ template SparsePackBase
 SparsePackBase::GetPack<MeshData<Real>>(MeshData<Real> *, const impl::PackDescriptor &,
                                         const std::vector<bool> &);
 
-SparsePackIdxMap SparsePackBase::GetIdxMap(const impl::PackDescriptor &desc) {
-  SparsePackIdxMap map;
+PackIdxMap SparsePackBase::GetIdxMap(const impl::PackDescriptor &desc) {
+  PackIdxMap map;
   std::size_t idx = 0;
   for (const auto &var : desc.var_group_names) {
     map[var] = idx;
@@ -189,8 +189,8 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
     pack.block_props_h_(blidx, bp_idxer.size()) = pmb->gid;
     const auto &neighbors = [pmb, pmd]() -> const std::vector<NeighborBlock> & {
       if constexpr (!std::is_same_v<T, mbd_t>) {
-        if (pmd->grid.type == GridType::two_level_composite) {
-          if (pmb->loc.level() == pmd->grid.logical_level) {
+        if (pmd->grid.type() == GridType::two_level_composite) {
+          if (pmb->loc.level() == pmd->grid.logical_level()) {
             return pmb->GetGMGSameNeighbors();
           } else {
             return pmb->GetGMGCompositeFinerNeighbors();

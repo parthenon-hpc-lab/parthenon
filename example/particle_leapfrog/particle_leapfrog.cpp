@@ -3,7 +3,7 @@
 // Copyright(C) 2021-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
 
 #include "particle_leapfrog.hpp"
 
@@ -132,7 +134,11 @@ const Kokkos::Array<Kokkos::Array<Real, 6>, num_test_particles> particles_ic = {
     {0.0, 0.0, 0.0, -1.0, -1.0, -1.0}, // along -x-y-z diagonal
 }};
 
-void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
+// We source particles via the final PostInitialization hook after the initialization
+// hierarchy has resolved. Therefore ProblemGenerator is simply a no-op.
+void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) { return; }
+
+void PostInitialization(MeshBlock *pmb, ParameterInput *pin) {
   auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("my_particles");
 
@@ -232,6 +238,10 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
   auto pack_v_map = desc_v.GetMap();
   parthenon::PackIdx spi_v(pack_v_map["v"]);
 
+  // Make a SwarmPack containing ids (of type uint64_t)
+  static auto desc_id = MakeSwarmPackDescriptor<swarm_position::id>(swarm_name);
+  auto pack_id = desc_id.GetPack(md);
+
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "TestSwarmPack", DevExecSpace(), 0,
       pack_pos.GetMaxFlatIndex(), KOKKOS_LAMBDA(const int idx) {
@@ -253,6 +263,10 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
           pack_pos(b, swarm_position::x(), n) += pack_v(b, iv + 0, n) * 0.5 * dt;
           pack_pos(b, swarm_position::y(), n) += pack_v(b, iv + 1, n) * 0.5 * dt;
           pack_pos(b, swarm_position::z(), n) += pack_v(b, iv + 2, n) * 0.5 * dt;
+
+          // id
+          PARTHENON_REQUIRE(pack_id(b, swarm_position::id(), n) >= 0,
+                            "Issue with SwarmPack containing uint64 IDs!");
         }
       });
 
