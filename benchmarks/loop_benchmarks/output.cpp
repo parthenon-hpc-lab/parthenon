@@ -51,9 +51,9 @@ bool AppendCsvRow(const std::string &path, const BenchmarkRow &row, std::string 
 
   if (!exists) {
     out << "backend,variant,kernel,ragged,blocks,variables,nk,nj,ni,ghost_zones,active_min,active_max,"
-           "inner_chunk_length,team_size_mode,explicit_team_size,repeats,min_seconds,"
+           "inner_chunk_length,team_size_mode,explicit_team_size,heavy_iterations,repeats,min_seconds,"
            "median_seconds,mean_seconds,updates_per_second,estimated_bandwidth_gb_s,"
-           "total_updates\n";
+           "estimated_flops_per_update,arithmetic_intensity_flops_per_byte,total_updates\n";
   }
 
   out << CsvEscape(row.backend) << ','
@@ -71,12 +71,15 @@ bool AppendCsvRow(const std::string &path, const BenchmarkRow &row, std::string 
       << row.inner_chunk_length << ','
       << CsvEscape(row.team_size_mode) << ','
       << row.explicit_team_size << ','
+      << row.heavy_iterations << ','
       << row.repeats << ','
       << row.min_seconds << ','
       << row.median_seconds << ','
       << row.mean_seconds << ','
       << row.updates_per_second << ','
       << row.estimated_bandwidth_gb_s << ','
+      << row.estimated_flops_per_update << ','
+      << row.arithmetic_intensity_flops_per_byte << ','
       << row.total_updates << '\n';
 
   return true;

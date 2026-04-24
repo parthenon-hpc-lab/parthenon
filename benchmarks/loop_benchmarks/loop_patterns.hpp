@@ -57,5 +57,6 @@ void ExecuteLoopPattern(const BenchmarkConfig &config, const RaggedMetadata &met
 std::uint64_t CountUpdates(const BenchmarkConfig &config, const RaggedMetadata &metadata);
 int EffectiveInnerChunkLength(const BenchmarkConfig &config);
 double EstimatedBytesPerUpdate(KernelKind kind);
+double EstimatedFlopsPerUpdate(KernelKind kind, int heavy_iterations);
 
 }  // namespace plb

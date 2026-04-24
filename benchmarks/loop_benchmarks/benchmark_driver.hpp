@@ -11,8 +11,11 @@ enum class KernelKind { Light, Flux, Stencil, Heavy };
 enum class VariantKind {
   KokkosFlatKJI,    // Kokkos flat 1D policy over logical active cells
   KokkosMDRangeKJI, // Kokkos MDRange policy over logical active cells
+  KokkosDenseFlatBVKJI, // Dense traversal over full allocated memory (b, v, k, j, i)
   KokkosRawspanOVI, // Kokkos chunked raw-memory traversal: (outer, v, inner)
+  KokkosRawspanViewOVI, // Raw-memory chunking with View indexing over reconstructed (k,j,i)
   KokkosLogicalOVI, // Kokkos chunked logical traversal: (outer, v, inner)
+  CpuDenseFlatBVKJI, // Dense CPU traversal over full allocated memory (b, v, k, j, i)
   CpuLogicalKJI,    // CPU logical traversal: (v, kji)
   CpuRawspanOVI,    // CPU chunked raw-memory traversal: (outer, v, inner)
   CpuRawspanVOI,    // CPU chunked raw-memory traversal: (v, outer, inner)
@@ -57,12 +60,15 @@ struct BenchmarkRow {
   int inner_chunk_length = 0;
   std::string team_size_mode;
   int explicit_team_size = 0;
+  int heavy_iterations = 0;
   int repeats = 0;
   double min_seconds = 0.0;
   double median_seconds = 0.0;
   double mean_seconds = 0.0;
   double updates_per_second = 0.0;
   double estimated_bandwidth_gb_s = 0.0;
+  double estimated_flops_per_update = 0.0;
+  double arithmetic_intensity_flops_per_byte = 0.0;
   std::uint64_t total_updates = 0;
 };
 

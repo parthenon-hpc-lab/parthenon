@@ -42,35 +42,43 @@ Two analysis modes are supported:
 
 By default the analysis script runs the CPU-focused suite:
 
+- `cpu_dense_flat_bvkji` full-memory baseline
 - `cpu_logical_kji`
 - `cpu_rawspan_voi`
 - `cpu_rawspan_ovi`
 - `cpu_logical_ovi`
 - `kokkos_rawspan_ovi`
+- `kokkos_rawspan_view_ovi`
 - `kokkos_logical_ovi`
 
 For GPU-capable runs, pass `--gpu` to switch to a Kokkos-only suite:
 
+- `kokkos_dense_flat_bvkji` full-memory baseline
 - `kokkos_flat_kji`
 - `kokkos_mdrange_kji`
 - `kokkos_rawspan_ovi` via explicit `ninner=ni*nj`, `ninner=ni`, and chunk sweeps
+- `kokkos_rawspan_view_ovi` via explicit `ninner=ni*nj`, `ninner=ni`, and chunk sweeps
 - `kokkos_logical_ovi` via explicit `ninner=ni*nj`, `ninner=ni`, and chunk sweeps
 
 Available benchmark variants currently include:
 
+- `cpu_dense_flat_bvkji`
 - `cpu_logical_kji`
 - `cpu_rawspan_voi`
 - `cpu_rawspan_ovi`
 - `cpu_logical_ovi`
+- `kokkos_dense_flat_bvkji`
 - `kokkos_flat_kji`
 - `kokkos_mdrange_kji`
 - `kokkos_rawspan_ovi`
+- `kokkos_rawspan_view_ovi`
 - `kokkos_logical_ovi`
 
 The report includes:
 
 - `stencil` and `heavy` cubic edge sweeps with `ni=nj=nk`
 - a fixed-edge chunk-size sweep
+- a fixed-edge heavy-intensity sweep
 
 By default the analysis script chooses the number of blocks so
 `blocks * ni * nj * nk` stays close to an architecture-dependent

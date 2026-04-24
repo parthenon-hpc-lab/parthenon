@@ -59,7 +59,10 @@ BenchmarkRow Execute(const BenchmarkConfig &config) {
                               static_cast<double>(samples.size());
   const double median_seconds = Median(samples);
   const double updates_per_second = static_cast<double>(total_updates) / min_seconds;
-  const double bandwidth = (updates_per_second * EstimatedBytesPerUpdate(config.kernel)) / 1.0e9;
+  const double bytes_per_update = EstimatedBytesPerUpdate(config.kernel);
+  const double flops_per_update = EstimatedFlopsPerUpdate(config.kernel, config.heavy_iterations);
+  const double bandwidth = (updates_per_second * bytes_per_update) / 1.0e9;
+  const double arithmetic_intensity = flops_per_update / bytes_per_update;
 
   BenchmarkRow row;
   row.backend = config.backend;
@@ -77,12 +80,15 @@ BenchmarkRow Execute(const BenchmarkConfig &config) {
   row.inner_chunk_length = EffectiveInnerChunkLength(config);
   row.team_size_mode = config.team_size_mode;
   row.explicit_team_size = config.explicit_team_size;
+  row.heavy_iterations = config.heavy_iterations;
   row.repeats = config.repeats;
   row.min_seconds = min_seconds;
   row.median_seconds = median_seconds;
   row.mean_seconds = mean_seconds;
   row.updates_per_second = updates_per_second;
   row.estimated_bandwidth_gb_s = bandwidth;
+  row.estimated_flops_per_update = flops_per_update;
+  row.arithmetic_intensity_flops_per_byte = arithmetic_intensity;
   row.total_updates = total_updates;
   return row;
 }
@@ -123,10 +129,16 @@ std::string ToString(VariantKind kind) {
       return "kokkos_flat_kji";
     case VariantKind::KokkosMDRangeKJI:
       return "kokkos_mdrange_kji";
+    case VariantKind::KokkosDenseFlatBVKJI:
+      return "kokkos_dense_flat_bvkji";
     case VariantKind::KokkosRawspanOVI:
       return "kokkos_rawspan_ovi";
+    case VariantKind::KokkosRawspanViewOVI:
+      return "kokkos_rawspan_view_ovi";
     case VariantKind::KokkosLogicalOVI:
       return "kokkos_logical_ovi";
+    case VariantKind::CpuDenseFlatBVKJI:
+      return "cpu_dense_flat_bvkji";
     case VariantKind::CpuLogicalKJI:
       return "cpu_logical_kji";
     case VariantKind::CpuRawspanOVI:
@@ -168,8 +180,16 @@ bool ParseVariantKind(const std::string &text, VariantKind *kind) {
     *kind = VariantKind::KokkosMDRangeKJI;
     return true;
   }
+  if (text == "kokkos_dense_flat_bvkji" || text == "dense_flat" || text == "dense_kokkos") {
+    *kind = VariantKind::KokkosDenseFlatBVKJI;
+    return true;
+  }
   if (text == "kokkos_rawspan_ovi" || text == "hierarchical") {
     *kind = VariantKind::KokkosRawspanOVI;
+    return true;
+  }
+  if (text == "kokkos_rawspan_view_ovi" || text == "rawspan_view") {
+    *kind = VariantKind::KokkosRawspanViewOVI;
     return true;
   }
   if (text == "kokkos_logical_ovi") {
@@ -182,6 +202,10 @@ bool ParseVariantKind(const std::string &text, VariantKind *kind) {
   }
   if (text == "cpu_logical_kji" || text == "cpu_simd") {
     *kind = VariantKind::CpuLogicalKJI;
+    return true;
+  }
+  if (text == "cpu_dense_flat_bvkji" || text == "cpu_dense" || text == "dense_cpu") {
+    *kind = VariantKind::CpuDenseFlatBVKJI;
     return true;
   }
   if (text == "cpu_rawspan_ovi" || text == "cpu_hierarchical") {
@@ -203,7 +227,7 @@ std::string Usage() {
   return
       "Usage: parthenon_loop_bench [options]\n"
       "  --kernel {light|flux|stencil|heavy}\n"
-      "  --variant {kokkos_flat_kji|kokkos_mdrange_kji|kokkos_rawspan_ovi|kokkos_logical_ovi|cpu_logical_kji|cpu_rawspan_ovi|cpu_rawspan_voi|cpu_logical_ovi}\n"
+      "  --variant {kokkos_flat_kji|kokkos_mdrange_kji|kokkos_dense_flat_bvkji|kokkos_rawspan_ovi|kokkos_rawspan_view_ovi|kokkos_logical_ovi|cpu_dense_flat_bvkji|cpu_logical_kji|cpu_rawspan_ovi|cpu_rawspan_voi|cpu_logical_ovi}\n"
       "  --backend NAME\n"
       "  --blocks N --vars N --nk N --nj N --ni N\n"
       "  --ghosts N\n"
@@ -427,11 +451,15 @@ std::string FormatStdoutSummary(const BenchmarkRow &row) {
   out << "inner_chunk_length=" << row.inner_chunk_length << '\n';
   out << "team_size_mode=" << row.team_size_mode << '\n';
   out << "explicit_team_size=" << row.explicit_team_size << '\n';
+  out << "heavy_iterations=" << row.heavy_iterations << '\n';
   out << "min_seconds=" << row.min_seconds << '\n';
   out << "median_seconds=" << row.median_seconds << '\n';
   out << "mean_seconds=" << row.mean_seconds << '\n';
   out << "updates_per_second=" << row.updates_per_second << '\n';
   out << "estimated_bandwidth_gb_s=" << row.estimated_bandwidth_gb_s << '\n';
+  out << "estimated_flops_per_update=" << row.estimated_flops_per_update << '\n';
+  out << "arithmetic_intensity_flops_per_byte=" << row.arithmetic_intensity_flops_per_byte
+      << '\n';
   out << "total_updates=" << row.total_updates << '\n';
   return out.str();
 }

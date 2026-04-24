@@ -23,28 +23,36 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 
 VARIANT_STYLE = {
+    "kokkos_dense_flat_bvkji": ("#1d3557", "s"),
     "kokkos_flat_kji": ("#264653", "o"),
     "kokkos_mdrange_kji": ("#287271", "D"),
     "gpu_rawspan_chunk_ninj": ("#6d597a", "^"),
     "gpu_rawspan_chunk_ni": ("#8ab17d", "P"),
     "gpu_rawspan_sweep": ("#8ab17d", "P"),
+    "gpu_rawspan_view_chunk_ninj": ("#457b9d", ">"),
+    "gpu_rawspan_view_chunk_ni": ("#a8dadc", "<"),
+    "gpu_rawspan_view_sweep": ("#a8dadc", "<"),
     "gpu_logical_chunk_ninj": ("#bc6c25", "v"),
     "gpu_logical_chunk_ni": ("#dda15e", "X"),
     "gpu_logical_sweep": ("#dda15e", "X"),
+    "cpu_dense_flat_bvkji": ("#7f5539", "s"),
     "cpu_logical_kji": ("#0f4c5c", "o"),
     "cpu_rawspan_voi": ("#2a9d8f", "P"),
     "cpu_rawspan_ovi": ("#b56576", "s"),
     "kokkos_rawspan_ovi": ("#6d597a", "^"),
+    "kokkos_rawspan_view_ovi": ("#457b9d", ">"),
     "cpu_logical_ovi": ("#bc6c25", "v"),
     "kokkos_logical_ovi": ("#dda15e", "X"),
 }
 
 CPU_BASE_VARIANTS = [
+    "cpu_dense_flat_bvkji",
     "cpu_logical_kji",
     "cpu_rawspan_voi",
     "cpu_rawspan_ovi",
     "cpu_logical_ovi",
     "kokkos_rawspan_ovi",
+    "kokkos_rawspan_view_ovi",
     "kokkos_logical_ovi",
 ]
 
@@ -59,16 +67,20 @@ CPU_CHUNK_SWEEP_VARIANTS = [
 CPU_CHUNK_SWEEP_BASELINES = ["cpu_logical_kji"]
 
 GPU_BASE_VARIANTS = [
+    "kokkos_dense_flat_bvkji",
     "kokkos_flat_kji",
     "kokkos_mdrange_kji",
     "gpu_rawspan_chunk_ninj",
     "gpu_rawspan_chunk_ni",
+    "gpu_rawspan_view_chunk_ninj",
+    "gpu_rawspan_view_chunk_ni",
     "gpu_logical_chunk_ninj",
     "gpu_logical_chunk_ni",
 ]
 
 GPU_CHUNK_SWEEP_VARIANTS = [
     "gpu_rawspan_sweep",
+    "gpu_rawspan_view_sweep",
     "gpu_logical_sweep",
 ]
 
@@ -101,20 +113,26 @@ class ProgressReporter:
 def variant_labels(analysis_mode, run_set):
     raw_chunk_label = "ninner=ni" if analysis_mode == "verify" else "ninner=ni*nj"
     cpu_labels = {
+        "cpu_dense_flat_bvkji": "CPU dense full-memory (b, v, k, j, i)",
         "cpu_logical_kji": "CPU logical (v, kji)",
         "cpu_rawspan_voi": f"CPU raw-memory (v, outer, inner), {raw_chunk_label}",
         "cpu_rawspan_ovi": f"CPU raw-memory (outer, v, inner), {raw_chunk_label}",
         "cpu_logical_ovi": f"CPU logical (outer, v, inner), {raw_chunk_label}",
         "kokkos_rawspan_ovi": f"Kokkos raw-memory (outer, v, inner), {raw_chunk_label}",
+        "kokkos_rawspan_view_ovi": f"Kokkos raw-memory + View indexing (outer, v, inner), {raw_chunk_label}",
         "kokkos_logical_ovi": f"Kokkos logical (outer, v, inner), {raw_chunk_label}",
     }
     if run_set == "gpu":
         return {
+            "kokkos_dense_flat_bvkji": "Kokkos dense full-memory (b, v, k, j, i)",
             "kokkos_flat_kji": "Kokkos flat logical (kji)",
             "kokkos_mdrange_kji": "Kokkos MDRange logical (kji)",
             "gpu_rawspan_chunk_ninj": "Kokkos raw-memory (outer, v, inner), ninner=ni*nj",
             "gpu_rawspan_chunk_ni": "Kokkos raw-memory (outer, v, inner), ninner=ni",
+            "gpu_rawspan_view_chunk_ninj": "Kokkos raw-memory + View indexing, ninner=ni*nj",
+            "gpu_rawspan_view_chunk_ni": "Kokkos raw-memory + View indexing, ninner=ni",
             "gpu_rawspan_sweep": "Kokkos raw-memory (outer, v, inner)",
+            "gpu_rawspan_view_sweep": "Kokkos raw-memory + View indexing",
             "gpu_logical_chunk_ninj": "Kokkos logical (outer, v, inner), ninner=ni*nj",
             "gpu_logical_chunk_ni": "Kokkos logical (outer, v, inner), ninner=ni",
             "gpu_logical_sweep": "Kokkos logical (outer, v, inner)",
@@ -133,9 +151,11 @@ def chunk_sweep_variant_labels(run_set):
     }
     if run_set == "gpu":
         return {
+            "kokkos_dense_flat_bvkji": "Kokkos dense full-memory (b, v, k, j, i)",
             "kokkos_flat_kji": "Kokkos flat logical (kji)",
             "kokkos_mdrange_kji": "Kokkos MDRange logical (kji)",
             "gpu_rawspan_sweep": "Kokkos raw-memory (outer, v, inner)",
+            "gpu_rawspan_view_sweep": "Kokkos raw-memory + View indexing",
             "gpu_logical_sweep": "Kokkos logical (outer, v, inner)",
         }
     return cpu_labels
@@ -166,15 +186,23 @@ def verify_chunk_mode(analysis_mode):
 
 
 def chunk_flag_text(variant, analysis_mode):
+    if variant in {"cpu_dense_flat_bvkji", "kokkos_dense_flat_bvkji"}:
+        return "(dense full-memory baseline)"
     if variant in {"cpu_rawspan_voi", "cpu_rawspan_ovi", "cpu_logical_ovi"}:
         return "--inner-chunk-length <ni>" if analysis_mode == "verify" else "(default ninner=ni*nj)"
-    if variant in {"kokkos_rawspan_ovi", "kokkos_logical_ovi"}:
+    if variant in {"kokkos_rawspan_ovi", "kokkos_rawspan_view_ovi", "kokkos_logical_ovi"}:
         return "--inner-chunk-length <ni>" if analysis_mode == "verify" else "(default ninner=ni*nj)"
     if variant == "gpu_rawspan_chunk_ninj":
         return "--inner-chunk-length <ni*nj>"
     if variant == "gpu_rawspan_chunk_ni":
         return "--inner-chunk-length <ni>"
     if variant == "gpu_rawspan_sweep":
+        return "--inner-chunk-length <chunk>"
+    if variant == "gpu_rawspan_view_chunk_ninj":
+        return "--inner-chunk-length <ni*nj>"
+    if variant == "gpu_rawspan_view_chunk_ni":
+        return "--inner-chunk-length <ni>"
+    if variant == "gpu_rawspan_view_sweep":
         return "--inner-chunk-length <chunk>"
     if variant == "gpu_logical_chunk_ninj":
         return "--inner-chunk-length <ni*nj>"
@@ -257,6 +285,16 @@ def parse_args():
         help="Heavy-kernel iteration count for the heavy sweep",
     )
     parser.add_argument(
+        "--heavy-iteration-values",
+        default="1,2,4,8,16,32,64",
+        help="Comma-separated heavy-iteration counts for the fixed-size intensity sweep",
+    )
+    parser.add_argument(
+        "--skip-heavy-intensity-sweep",
+        action="store_true",
+        help="Skip the fixed-size heavy-iteration intensity sweep",
+    )
+    parser.add_argument(
         "--title",
         default="Parthenon Loop Benchmark Analysis",
         help="PDF title",
@@ -336,6 +374,7 @@ def numericize(row):
         "active_max",
         "inner_chunk_length",
         "explicit_team_size",
+        "heavy_iterations",
         "repeats",
         "total_updates",
     }
@@ -345,6 +384,8 @@ def numericize(row):
         "mean_seconds",
         "updates_per_second",
         "estimated_bandwidth_gb_s",
+        "estimated_flops_per_update",
+        "arithmetic_intensity_flops_per_byte",
     }
     for field in int_fields:
         result[field] = int(float(result[field]))
@@ -568,6 +609,12 @@ def gpu_variant_command_settings(variant, edge, args, chunk_length=None):
         return "kokkos_rawspan_ovi", edge
     if variant == "gpu_rawspan_sweep":
         return "kokkos_rawspan_ovi", chunk_length
+    if variant == "gpu_rawspan_view_chunk_ninj":
+        return "kokkos_rawspan_view_ovi", edge * edge
+    if variant == "gpu_rawspan_view_chunk_ni":
+        return "kokkos_rawspan_view_ovi", edge
+    if variant == "gpu_rawspan_view_sweep":
+        return "kokkos_rawspan_view_ovi", chunk_length
     if variant == "gpu_logical_chunk_ninj":
         return "kokkos_logical_ovi", edge * edge
     if variant == "gpu_logical_chunk_ni":
@@ -588,6 +635,7 @@ def run_sweep(binary, csv_path, kernel, variants, edge_values, args, analysis_mo
                 "cpu_rawspan_ovi",
                 "cpu_logical_ovi",
                 "kokkos_rawspan_ovi",
+                "kokkos_rawspan_view_ovi",
                 "kokkos_logical_ovi",
             } and chunk_mode == "row":
                 chunk_length = edge
@@ -639,11 +687,55 @@ def run_chunk_sweep(
     return rows
 
 
-def count_total_runs(base_variants, chunk_sweep_variants, chunk_sweep_baselines, ni_values, chunk_values):
+def run_heavy_intensity_sweep(binary, csv_path, variants, edge, heavy_iteration_values, args, progress):
+    rows = []
+    chunk_mode = verify_chunk_mode(args.analysis_mode)
+    for heavy_iterations in heavy_iteration_values:
+        for variant in variants:
+            chunk_length = None
+            if variant in {
+                "cpu_rawspan_voi",
+                "cpu_rawspan_ovi",
+                "cpu_logical_ovi",
+                "kokkos_rawspan_ovi",
+                "kokkos_rawspan_view_ovi",
+                "kokkos_logical_ovi",
+            } and chunk_mode == "row":
+                chunk_length = edge
+            cmd_variant = variant
+            if args.gpu:
+                cmd_variant, chunk_length = gpu_variant_command_settings(variant, edge, args, chunk_length)
+            cmd = build_benchmark_command(binary, csv_path, "heavy", cmd_variant, edge, args, chunk_length)
+            cmd.extend(["--heavy-iterations", str(heavy_iterations)])
+            summary = parse_summary(run_command(cmd))
+            summary["variant"] = variant
+            summary["repeats"] = str(args.repeats)
+            summary["heavy_iterations"] = str(heavy_iterations)
+            summary["experiment"] = "heavy_intensity_sweep"
+            row = numericize(summary)
+            rows.append(row)
+            progress.log_completed(summary["experiment"], row)
+    return rows
+
+
+def count_total_runs(
+    base_variants,
+    chunk_sweep_variants,
+    chunk_sweep_baselines,
+    ni_values,
+    chunk_values,
+    heavy_iteration_values,
+    include_heavy_intensity_sweep,
+):
     return (
         2 * len(base_variants) * len(ni_values)
         + 2 * len(chunk_sweep_variants) * len(chunk_values)
         + 2 * len(chunk_sweep_baselines)
+        + (
+            len(base_variants) * len(heavy_iteration_values)
+            if include_heavy_intensity_sweep
+            else 0
+        )
     )
 
 
@@ -665,12 +757,15 @@ def write_combined_csv(path, rows):
         "inner_chunk_length",
         "team_size_mode",
         "explicit_team_size",
+        "heavy_iterations",
         "repeats",
         "min_seconds",
         "median_seconds",
         "mean_seconds",
         "updates_per_second",
         "estimated_bandwidth_gb_s",
+        "estimated_flops_per_update",
+        "arithmetic_intensity_flops_per_byte",
         "total_updates",
     ]
     with open(path, "w", newline="", encoding="utf-8") as handle:
@@ -680,7 +775,7 @@ def write_combined_csv(path, rows):
             writer.writerow(row)
 
 
-def add_title_page(pdf, title, args, system_info, rows, labels, chunk_values):
+def add_title_page(pdf, title, args, system_info, rows, labels, chunk_values, heavy_iteration_values):
     fig, ax = plt.subplots(figsize=(8.5, 11))
     ax.axis("off")
     ni_values = sorted({row["ni"] for row in rows})
@@ -692,6 +787,11 @@ def add_title_page(pdf, title, args, system_info, rows, labels, chunk_values):
         f"analysis mode: {args.analysis_mode}",
         f"edge sweep (ni=nj=nk): {ni_values}",
         f"chunk sweep: ni=nj=nk={args.chunk_sweep_ni}, chunks={chunk_values}",
+        (
+            f"heavy intensity sweep: ni=nj=nk={args.chunk_sweep_ni}, heavy_iterations={heavy_iteration_values}"
+            if not args.skip_heavy_intensity_sweep
+            else "heavy intensity sweep: skipped"
+        ),
         f"shape base: vars={args.vars}, ghosts={args.ghosts}",
         default_chunk_description(args),
         f"target total cells: {args.target_total_cells}",
@@ -734,6 +834,12 @@ def add_title_page(pdf, title, args, system_info, rows, labels, chunk_values):
                 f"- chunk sweeps at ni=nj=nk={args.chunk_sweep_ni}: raw-span variants and "
                 "selected baselines across explicit inner chunk lengths"
             ),
+            (
+                f"- heavy intensity sweep at ni=nj=nk={args.chunk_sweep_ni}: "
+                "same variants with varying heavy-iteration count"
+            )
+            if not args.skip_heavy_intensity_sweep
+            else "- heavy intensity sweep skipped",
         ]
     )
     ax.text(0.05, 0.97, "\n".join(lines), va="top", ha="left", family="monospace", fontsize=11)
@@ -812,12 +918,52 @@ def add_chunk_sweep_pages(pdf, rows, analysis_mode, run_set, chunk_sweep_ni):
     plt.close(fig)
 
 
+def add_heavy_intensity_page(pdf, rows, analysis_mode, run_set, chunk_sweep_ni):
+    fig, axes = plt.subplots(2, 1, figsize=(10, 10))
+    plot_sweep(
+        axes[0],
+        rows,
+        "heavy_intensity_sweep",
+        f"Heavy Intensity Sweep (ni=nj=nk={chunk_sweep_ni})",
+        "heavy_iterations",
+        "heavy iterations",
+        experiment_labels("heavy_intensity_sweep", analysis_mode, run_set),
+    )
+
+    exp_rows = [row for row in rows if row["experiment"] == "heavy_intensity_sweep"]
+    by_variant = defaultdict(list)
+    for row in exp_rows:
+        by_variant[row["variant"]].append(
+            (row["arithmetic_intensity_flops_per_byte"], row["updates_per_second"])
+        )
+
+    labels = experiment_labels("heavy_intensity_sweep", analysis_mode, run_set)
+    for variant, samples in sorted(by_variant.items()):
+        samples.sort()
+        xs = [x for x, _ in samples]
+        ys = [y for _, y in samples]
+        color, marker = VARIANT_STYLE.get(variant, ("#333333", "o"))
+        axes[1].plot(xs, ys, marker=marker, color=color, label=labels.get(variant, variant))
+
+    axes[1].set_xscale("log", base=2)
+    axes[1].set_xlabel("estimated arithmetic intensity [flop/byte]")
+    axes[1].set_ylabel("updates/s")
+    axes[1].set_title("Heavy Roofline Proxy")
+    axes[1].grid(True, which="both", alpha=0.25)
+    axes[1].legend()
+    fig.tight_layout()
+    pdf.savefig(fig)
+    plt.close(fig)
+
+
 def ratio_pairs(run_set):
     if run_set == "gpu":
         return [
             ("kokkos_mdrange_kji", "kokkos_flat_kji"),
             ("gpu_rawspan_chunk_ninj", "kokkos_flat_kji"),
             ("gpu_rawspan_chunk_ni", "kokkos_flat_kji"),
+            ("gpu_rawspan_view_chunk_ninj", "kokkos_flat_kji"),
+            ("gpu_rawspan_view_chunk_ni", "kokkos_flat_kji"),
             ("gpu_logical_chunk_ninj", "kokkos_flat_kji"),
             ("gpu_logical_chunk_ni", "kokkos_flat_kji"),
         ]
@@ -834,6 +980,7 @@ def chunk_ratio_pairs(run_set):
     if run_set == "gpu":
         return [
             ("gpu_rawspan_sweep", "kokkos_flat_kji"),
+            ("gpu_rawspan_view_sweep", "kokkos_flat_kji"),
             ("gpu_logical_sweep", "kokkos_flat_kji"),
         ]
     return [
@@ -945,6 +1092,7 @@ def add_variant_map_page(pdf, args, labels):
         [
             "",
             "Notes",
+            "- Dense baseline variants traverse the full allocated memory box (including ghosts).",
             (
                 "- In verify mode the script sets --inner-chunk-length <ni> for the CPU and"
                 " Kokkos chunked variants during the edge sweep."
@@ -980,12 +1128,19 @@ def main():
         args.target_total_cells = default_target_total_cells(binary)
     edge_values = parse_csv_ints(args.edge_values)
     chunk_values = parse_csv_ints(args.chunk_values)
+    heavy_iteration_values = parse_csv_ints(args.heavy_iteration_values)
     run_set = "gpu" if args.gpu else "cpu"
     base_variants, chunk_sweep_variants, chunk_sweep_baselines = analysis_variants(run_set)
     labels = variant_labels(args.analysis_mode, run_set)
     progress = ProgressReporter(
         count_total_runs(
-            base_variants, chunk_sweep_variants, chunk_sweep_baselines, edge_values, chunk_values
+            base_variants,
+            chunk_sweep_variants,
+            chunk_sweep_baselines,
+            edge_values,
+            chunk_values,
+            heavy_iteration_values,
+            not args.skip_heavy_intensity_sweep,
         )
     )
 
@@ -1042,16 +1197,32 @@ def main():
             progress,
         )
     )
+    if not args.skip_heavy_intensity_sweep:
+        rows.extend(
+            run_heavy_intensity_sweep(
+                binary,
+                combined_csv,
+                base_variants,
+                args.chunk_sweep_ni,
+                heavy_iteration_values,
+                args,
+                progress,
+            )
+        )
     write_combined_csv(combined_csv, rows)
 
     system_info = collect_system_info(binary)
     with PdfPages(output_pdf) as pdf:
-        add_title_page(pdf, args.title, args, system_info, rows, labels, chunk_values)
+        add_title_page(
+            pdf, args.title, args, system_info, rows, labels, chunk_values, heavy_iteration_values
+        )
         add_variant_map_page(pdf, args, labels)
         add_sweep_pages(pdf, rows, args.analysis_mode, run_set)
         add_ratio_page(pdf, rows, args.analysis_mode, run_set)
         add_chunk_sweep_pages(pdf, rows, args.analysis_mode, run_set, args.chunk_sweep_ni)
         add_chunk_ratio_page(pdf, rows, args.analysis_mode, run_set)
+        if not args.skip_heavy_intensity_sweep:
+            add_heavy_intensity_page(pdf, rows, args.analysis_mode, run_set, args.chunk_sweep_ni)
 
     print(f"Wrote {combined_csv}")
     print(f"Wrote {output_pdf}")
