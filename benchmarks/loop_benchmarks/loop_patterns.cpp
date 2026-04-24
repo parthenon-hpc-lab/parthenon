@@ -173,6 +173,24 @@ void RunCpuSIMDLoop(const Dataset &dataset, Body body) {
   }
 }
 
+template <typename Body>
+void RunCpuDenseFlatLoop(const Dataset &dataset, Body body) {
+  const auto &shape = dataset.problem;
+  auto data = dataset.data;
+  for (int b = 0; b < shape.blocks; ++b) {
+    for (int v = 0; v < shape.variables; ++v) {
+      for (int km = shape.memory_k.s; km <= shape.memory_k.e; ++km) {
+        for (int jm = shape.memory_j.s; jm <= shape.memory_j.e; ++jm) {
+#pragma omp simd
+          for (int im = shape.memory_i.s; im <= shape.memory_i.e; ++im) {
+            data.out(b, v, km, jm, im) = body(data, b, v, km, jm, im);
+          }
+        }
+      }
+    }
+  }
+}
+
 void RunCpuSIMDLight(const Dataset &dataset) {
   RunCpuSIMDLoop(dataset, [](const LoopData &data, const int b, const int v, const int km,
                              const int jm, const int im) {
@@ -482,61 +500,29 @@ void RunCpuCoalescedOuterVarStencil(const Dataset &dataset, const RawMemoryIndex
 }
 
 void RunCpuDenseFlatLight(const Dataset &dataset) {
-  const auto &shape = dataset.problem;
-  auto data = dataset.data;
-  for (int b = 0; b < shape.blocks; ++b) {
-    for (int v = 0; v < shape.variables; ++v) {
-      for (int km = shape.memory_k.s; km <= shape.memory_k.e; ++km) {
-        for (int jm = shape.memory_j.s; jm <= shape.memory_j.e; ++jm) {
-#pragma omp simd
-          for (int im = shape.memory_i.s; im <= shape.memory_i.e; ++im) {
-            data.out(b, v, km, jm, im) =
-                ComputeLightCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im));
-          }
-        }
-      }
-    }
-  }
+  RunCpuDenseFlatLoop(dataset, [](const LoopData &data, const int b, const int v, const int km,
+                                  const int jm, const int im) {
+    return ComputeLightCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im));
+  });
 }
 
 void RunCpuDenseFlatFlux(const Dataset &dataset) {
-  const auto &shape = dataset.problem;
-  auto data = dataset.data;
-  for (int b = 0; b < shape.blocks; ++b) {
-    for (int v = 0; v < shape.variables; ++v) {
-      for (int km = shape.memory_k.s; km <= shape.memory_k.e; ++km) {
-        for (int jm = shape.memory_j.s; jm <= shape.memory_j.e; ++jm) {
-#pragma omp simd
-          for (int im = shape.memory_i.s; im <= shape.memory_i.e; ++im) {
-            data.out(b, v, km, jm, im) =
-                ComputeFluxCell(data.in(b, v, km, jm, im), data.fx_up(b, v, km, jm, im),
-                                data.fx_lo(b, v, km, jm, im), data.fy_up(b, v, km, jm, im),
-                                data.fy_lo(b, v, km, jm, im), data.fz_up(b, v, km, jm, im),
-                                data.fz_lo(b, v, km, jm, im));
-          }
-        }
-      }
-    }
-  }
+  RunCpuDenseFlatLoop(dataset, [](const LoopData &data, const int b, const int v, const int km,
+                                  const int jm, const int im) {
+    return ComputeFluxCell(data.in(b, v, km, jm, im), data.fx_up(b, v, km, jm, im),
+                           data.fx_lo(b, v, km, jm, im), data.fy_up(b, v, km, jm, im),
+                           data.fy_lo(b, v, km, jm, im), data.fz_up(b, v, km, jm, im),
+                           data.fz_lo(b, v, km, jm, im));
+  });
 }
 
 void RunCpuDenseFlatHeavy(const Dataset &dataset, int heavy_iterations) {
-  const auto &shape = dataset.problem;
-  auto data = dataset.data;
-  for (int b = 0; b < shape.blocks; ++b) {
-    for (int v = 0; v < shape.variables; ++v) {
-      for (int km = shape.memory_k.s; km <= shape.memory_k.e; ++km) {
-        for (int jm = shape.memory_j.s; jm <= shape.memory_j.e; ++jm) {
-#pragma omp simd
-          for (int im = shape.memory_i.s; im <= shape.memory_i.e; ++im) {
-            data.out(b, v, km, jm, im) =
-                ComputeHeavyCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im),
-                                 heavy_iterations);
-          }
-        }
-      }
-    }
-  }
+  RunCpuDenseFlatLoop(dataset, [heavy_iterations](const LoopData &data, const int b,
+                                                  const int v, const int km, const int jm,
+                                                  const int im) {
+    return ComputeHeavyCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im),
+                            heavy_iterations);
+  });
 }
 
 void RunCpuDenseFlatStencil(const Dataset &dataset) {
@@ -567,52 +553,68 @@ void RunCpuDenseFlatStencil(const Dataset &dataset) {
   }
 }
 
-void RunKokkosDenseFlatLight(const Dataset &dataset) {
+template <typename Body>
+void RunKokkosDenseFlatLoop(const Dataset &dataset, const char *label, Body body) {
   const auto shape = dataset.problem;
   const auto data = dataset.data;
   Kokkos::parallel_for(
-      "KokkosDenseFlatLight",
+      label,
       Kokkos::MDRangePolicy<Kokkos::Rank<5>>(
           {0, 0, shape.memory_k.s, shape.memory_j.s, shape.memory_i.s},
           {shape.blocks, shape.variables, shape.memory_k.e + 1, shape.memory_j.e + 1,
            shape.memory_i.e + 1}),
       KOKKOS_LAMBDA(const int b, const int v, const int km, const int jm, const int im) {
-        data.out(b, v, km, jm, im) =
-            ComputeLightCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im));
+        data.out(b, v, km, jm, im) = body(data, b, v, km, jm, im);
+      });
+}
+
+template <typename LightFn, typename FluxFn, typename StencilFn, typename HeavyFn>
+void DispatchKernel(const BenchmarkConfig &config, LightFn light, FluxFn flux,
+                    StencilFn stencil, HeavyFn heavy) {
+  switch (config.kernel) {
+    case KernelKind::Light:
+      light();
+      break;
+    case KernelKind::Flux:
+      flux();
+      break;
+    case KernelKind::Stencil:
+      stencil();
+      break;
+    case KernelKind::Heavy:
+      heavy();
+      break;
+  }
+}
+
+void RunKokkosDenseFlatLight(const Dataset &dataset) {
+  RunKokkosDenseFlatLoop(
+      dataset, "KokkosDenseFlatLight",
+      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km, const int jm,
+                    const int im) {
+        return ComputeLightCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im));
       });
 }
 
 void RunKokkosDenseFlatFlux(const Dataset &dataset) {
-  const auto shape = dataset.problem;
-  const auto data = dataset.data;
-  Kokkos::parallel_for(
-      "KokkosDenseFlatFlux",
-      Kokkos::MDRangePolicy<Kokkos::Rank<5>>(
-          {0, 0, shape.memory_k.s, shape.memory_j.s, shape.memory_i.s},
-          {shape.blocks, shape.variables, shape.memory_k.e + 1, shape.memory_j.e + 1,
-           shape.memory_i.e + 1}),
-      KOKKOS_LAMBDA(const int b, const int v, const int km, const int jm, const int im) {
-        data.out(b, v, km, jm, im) =
-            ComputeFluxCell(data.in(b, v, km, jm, im), data.fx_up(b, v, km, jm, im),
-                            data.fx_lo(b, v, km, jm, im), data.fy_up(b, v, km, jm, im),
-                            data.fy_lo(b, v, km, jm, im), data.fz_up(b, v, km, jm, im),
-                            data.fz_lo(b, v, km, jm, im));
+  RunKokkosDenseFlatLoop(
+      dataset, "KokkosDenseFlatFlux",
+      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km, const int jm,
+                    const int im) {
+        return ComputeFluxCell(data.in(b, v, km, jm, im), data.fx_up(b, v, km, jm, im),
+                               data.fx_lo(b, v, km, jm, im), data.fy_up(b, v, km, jm, im),
+                               data.fy_lo(b, v, km, jm, im), data.fz_up(b, v, km, jm, im),
+                               data.fz_lo(b, v, km, jm, im));
       });
 }
 
 void RunKokkosDenseFlatHeavy(const Dataset &dataset, int heavy_iterations) {
-  const auto shape = dataset.problem;
-  const auto data = dataset.data;
-  Kokkos::parallel_for(
-      "KokkosDenseFlatHeavy",
-      Kokkos::MDRangePolicy<Kokkos::Rank<5>>(
-          {0, 0, shape.memory_k.s, shape.memory_j.s, shape.memory_i.s},
-          {shape.blocks, shape.variables, shape.memory_k.e + 1, shape.memory_j.e + 1,
-           shape.memory_i.e + 1}),
-      KOKKOS_LAMBDA(const int b, const int v, const int km, const int jm, const int im) {
-        data.out(b, v, km, jm, im) =
-            ComputeHeavyCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im),
-                             heavy_iterations);
+  RunKokkosDenseFlatLoop(
+      dataset, "KokkosDenseFlatHeavy",
+      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km, const int jm,
+                    const int im) {
+        return ComputeHeavyCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im),
+                                heavy_iterations);
       });
 }
 
@@ -1074,194 +1076,93 @@ void ExecuteLoopPattern(const BenchmarkConfig &config, const RaggedMetadata &met
   (void)metadata;
   switch (config.variant) {
     case VariantKind::KokkosDenseFlatBVKJI:
-      switch (config.kernel) {
-        case KernelKind::Light:
-          RunKokkosDenseFlatLight(*dataset);
-          break;
-        case KernelKind::Flux:
-          RunKokkosDenseFlatFlux(*dataset);
-          break;
-        case KernelKind::Stencil:
-          RunKokkosDenseFlatStencil(*dataset);
-          break;
-        case KernelKind::Heavy:
-          RunKokkosDenseFlatHeavy(*dataset, config.heavy_iterations);
-          break;
-      }
+      DispatchKernel(
+          config, [&] { RunKokkosDenseFlatLight(*dataset); },
+          [&] { RunKokkosDenseFlatFlux(*dataset); },
+          [&] { RunKokkosDenseFlatStencil(*dataset); },
+          [&] { RunKokkosDenseFlatHeavy(*dataset, config.heavy_iterations); });
       break;
     case VariantKind::KokkosFlatKJI:
-      switch (config.kernel) {
-        case KernelKind::Light:
-          RunFlatRangeLight(*dataset);
-          break;
-        case KernelKind::Flux:
-          RunFlatRangeFlux(*dataset);
-          break;
-        case KernelKind::Stencil:
-          RunFlatRangeStencil(*dataset);
-          break;
-        case KernelKind::Heavy:
-          RunFlatRangeHeavy(*dataset, config.heavy_iterations);
-          break;
-      }
+      DispatchKernel(config, [&] { RunFlatRangeLight(*dataset); },
+                     [&] { RunFlatRangeFlux(*dataset); },
+                     [&] { RunFlatRangeStencil(*dataset); },
+                     [&] { RunFlatRangeHeavy(*dataset, config.heavy_iterations); });
       break;
     case VariantKind::KokkosMDRangeKJI:
-      switch (config.kernel) {
-        case KernelKind::Light:
-          RunMDRangeLight(*dataset);
-          break;
-        case KernelKind::Flux:
-          RunMDRangeFlux(*dataset);
-          break;
-        case KernelKind::Stencil:
-          RunMDRangeStencil(*dataset);
-          break;
-        case KernelKind::Heavy:
-          RunMDRangeHeavy(*dataset, config.heavy_iterations);
-          break;
-      }
+      DispatchKernel(config, [&] { RunMDRangeLight(*dataset); },
+                     [&] { RunMDRangeFlux(*dataset); },
+                     [&] { RunMDRangeStencil(*dataset); },
+                     [&] { RunMDRangeHeavy(*dataset, config.heavy_iterations); });
       break;
     case VariantKind::KokkosRawspanOVI: {
       const auto idxer = SelectedKokkosRawspanIndexer(*dataset, config);
-      switch (config.kernel) {
-        case KernelKind::Light:
-          RunHierarchicalLight(*dataset, idxer, RequestedTeamSize(config));
-          break;
-        case KernelKind::Flux:
-          RunHierarchicalFlux(*dataset, idxer, RequestedTeamSize(config));
-          break;
-        case KernelKind::Stencil:
-          RunHierarchicalStencil(*dataset, idxer, RequestedTeamSize(config));
-          break;
-        case KernelKind::Heavy:
-          RunHierarchicalHeavy(*dataset, idxer, RequestedTeamSize(config),
-                               config.heavy_iterations);
-          break;
-      }
+      const int team_size = RequestedTeamSize(config);
+      DispatchKernel(
+          config, [&] { RunHierarchicalLight(*dataset, idxer, team_size); },
+          [&] { RunHierarchicalFlux(*dataset, idxer, team_size); },
+          [&] { RunHierarchicalStencil(*dataset, idxer, team_size); },
+          [&] { RunHierarchicalHeavy(*dataset, idxer, team_size, config.heavy_iterations); });
       break;
     }
     case VariantKind::KokkosRawspanViewOVI: {
       const auto idxer = SelectedKokkosRawspanIndexer(*dataset, config);
-      switch (config.kernel) {
-        case KernelKind::Light:
-          RunHierarchicalViewLight(*dataset, idxer, RequestedTeamSize(config));
-          break;
-        case KernelKind::Flux:
-          RunHierarchicalViewFlux(*dataset, idxer, RequestedTeamSize(config));
-          break;
-        case KernelKind::Stencil:
-          RunHierarchicalViewStencil(*dataset, idxer, RequestedTeamSize(config));
-          break;
-        case KernelKind::Heavy:
-          RunHierarchicalViewHeavy(*dataset, idxer, RequestedTeamSize(config),
-                                   config.heavy_iterations);
-          break;
-      }
+      const int team_size = RequestedTeamSize(config);
+      DispatchKernel(
+          config, [&] { RunHierarchicalViewLight(*dataset, idxer, team_size); },
+          [&] { RunHierarchicalViewFlux(*dataset, idxer, team_size); },
+          [&] { RunHierarchicalViewStencil(*dataset, idxer, team_size); },
+          [&] { RunHierarchicalViewHeavy(*dataset, idxer, team_size, config.heavy_iterations); });
       break;
     }
     case VariantKind::KokkosLogicalOVI: {
       const int inner_chunk_length = SelectedInnerChunkLength(config);
-      switch (config.kernel) {
-        case KernelKind::Light:
-          RunKokkosLogicalOVILight(*dataset, inner_chunk_length, RequestedTeamSize(config));
-          break;
-        case KernelKind::Flux:
-          RunKokkosLogicalOVIFlux(*dataset, inner_chunk_length, RequestedTeamSize(config));
-          break;
-        case KernelKind::Stencil:
-          RunKokkosLogicalOVIStencil(*dataset, inner_chunk_length, RequestedTeamSize(config));
-          break;
-        case KernelKind::Heavy:
-          RunKokkosLogicalOVIHeavy(*dataset, inner_chunk_length, RequestedTeamSize(config),
-                                   config.heavy_iterations);
-          break;
-      }
+      const int team_size = RequestedTeamSize(config);
+      DispatchKernel(
+          config, [&] { RunKokkosLogicalOVILight(*dataset, inner_chunk_length, team_size); },
+          [&] { RunKokkosLogicalOVIFlux(*dataset, inner_chunk_length, team_size); },
+          [&] { RunKokkosLogicalOVIStencil(*dataset, inner_chunk_length, team_size); },
+          [&] {
+            RunKokkosLogicalOVIHeavy(*dataset, inner_chunk_length, team_size,
+                                     config.heavy_iterations);
+          });
       break;
     }
     case VariantKind::CpuDenseFlatBVKJI:
-      switch (config.kernel) {
-        case KernelKind::Light:
-          RunCpuDenseFlatLight(*dataset);
-          break;
-        case KernelKind::Flux:
-          RunCpuDenseFlatFlux(*dataset);
-          break;
-        case KernelKind::Stencil:
-          RunCpuDenseFlatStencil(*dataset);
-          break;
-        case KernelKind::Heavy:
-          RunCpuDenseFlatHeavy(*dataset, config.heavy_iterations);
-          break;
-      }
+      DispatchKernel(config, [&] { RunCpuDenseFlatLight(*dataset); },
+                     [&] { RunCpuDenseFlatFlux(*dataset); },
+                     [&] { RunCpuDenseFlatStencil(*dataset); },
+                     [&] { RunCpuDenseFlatHeavy(*dataset, config.heavy_iterations); });
       break;
     case VariantKind::CpuLogicalKJI:
-      switch (config.kernel) {
-        case KernelKind::Light:
-          RunCpuSIMDLight(*dataset);
-          break;
-        case KernelKind::Flux:
-          RunCpuSIMDFlux(*dataset);
-          break;
-        case KernelKind::Stencil:
-          RunCpuSIMDStencil(*dataset);
-          break;
-        case KernelKind::Heavy:
-          RunCpuSIMDHeavy(*dataset, config.heavy_iterations);
-          break;
-      }
+      DispatchKernel(config, [&] { RunCpuSIMDLight(*dataset); },
+                     [&] { RunCpuSIMDFlux(*dataset); },
+                     [&] { RunCpuSIMDStencil(*dataset); },
+                     [&] { RunCpuSIMDHeavy(*dataset, config.heavy_iterations); });
       break;
     case VariantKind::CpuLogicalOVI: {
       const int inner_chunk_length = SelectedInnerChunkLength(config);
-      switch (config.kernel) {
-        case KernelKind::Light:
-          RunCpuLogicalOVILight(*dataset, inner_chunk_length);
-          break;
-        case KernelKind::Flux:
-          RunCpuLogicalOVIFlux(*dataset, inner_chunk_length);
-          break;
-        case KernelKind::Stencil:
-          RunCpuLogicalOVIStencil(*dataset, inner_chunk_length);
-          break;
-        case KernelKind::Heavy:
-          RunCpuLogicalOVIHeavy(*dataset, inner_chunk_length, config.heavy_iterations);
-          break;
-      }
+      DispatchKernel(
+          config, [&] { RunCpuLogicalOVILight(*dataset, inner_chunk_length); },
+          [&] { RunCpuLogicalOVIFlux(*dataset, inner_chunk_length); },
+          [&] { RunCpuLogicalOVIStencil(*dataset, inner_chunk_length); },
+          [&] { RunCpuLogicalOVIHeavy(*dataset, inner_chunk_length, config.heavy_iterations); });
       break;
     }
     case VariantKind::CpuRawspanOVI: {
       const auto &idxer = SelectedCpuHierarchicalIndexer(*dataset, config);
-      switch (config.kernel) {
-        case KernelKind::Light:
-          RunCpuHierarchicalLight(*dataset, idxer);
-          break;
-        case KernelKind::Flux:
-          RunCpuHierarchicalFlux(*dataset, idxer);
-          break;
-        case KernelKind::Stencil:
-          RunCpuHierarchicalStencil(*dataset, idxer);
-          break;
-        case KernelKind::Heavy:
-          RunCpuHierarchicalHeavy(*dataset, idxer, config.heavy_iterations);
-          break;
-      }
+      DispatchKernel(config, [&] { RunCpuHierarchicalLight(*dataset, idxer); },
+                     [&] { RunCpuHierarchicalFlux(*dataset, idxer); },
+                     [&] { RunCpuHierarchicalStencil(*dataset, idxer); },
+                     [&] { RunCpuHierarchicalHeavy(*dataset, idxer, config.heavy_iterations); });
       break;
     }
     case VariantKind::CpuRawspanVOI: {
       const auto &idxer = SelectedCpuHierarchicalIndexer(*dataset, config);
-      switch (config.kernel) {
-        case KernelKind::Light:
-          RunCpuCoalescedOuterVarLight(*dataset, idxer);
-          break;
-        case KernelKind::Flux:
-          RunCpuCoalescedOuterVarFlux(*dataset, idxer);
-          break;
-        case KernelKind::Stencil:
-          RunCpuCoalescedOuterVarStencil(*dataset, idxer);
-          break;
-        case KernelKind::Heavy:
-          RunCpuCoalescedOuterVarHeavy(*dataset, idxer, config.heavy_iterations);
-          break;
-      }
+      DispatchKernel(
+          config, [&] { RunCpuCoalescedOuterVarLight(*dataset, idxer); },
+          [&] { RunCpuCoalescedOuterVarFlux(*dataset, idxer); },
+          [&] { RunCpuCoalescedOuterVarStencil(*dataset, idxer); },
+          [&] { RunCpuCoalescedOuterVarHeavy(*dataset, idxer, config.heavy_iterations); });
       break;
     }
   }
