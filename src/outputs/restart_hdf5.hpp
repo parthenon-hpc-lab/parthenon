@@ -140,7 +140,7 @@ class RestartReaderHDF5 : public RestartReader {
     for (int i = 0; i < CHUNK_MAX_DIM; ++i) {
       h5_offset[i] = h5_count[i] = 0;
     }
-    for (auto i = 0; i < rank; ++i) {
+    for (std::size_t i = 0; i < rank; ++i) {
       h5_count[i] = shape[rank - 1 - i];
       total_count *= shape[rank - 1 - i];
     }
