@@ -9,9 +9,14 @@ if("loop-benchmarks-v2" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
       benchmark_driver.cpp
       benchmark_driver.hpp
       config.hpp
+      dataset.cpp
+      dataset.hpp
       kernels.hpp
       loop_patterns.cpp
       loop_patterns.hpp
+      problem_spec.hpp
+      runner.cpp
+      runner.hpp
       main.cpp
   )
 
@@ -29,6 +34,9 @@ if("loop-benchmarks-v2" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
       $<$<CXX_COMPILER_ID:AppleClang,Clang,GNU>:-Wall -Wextra -Wpedantic>
       $<$<AND:$<NOT:$<BOOL:${Kokkos_ENABLE_HIP}>>,$<NOT:$<BOOL:${Kokkos_ENABLE_CUDA}>>,$<CXX_COMPILER_ID:GNU,Clang>>:-fopenmp-simd>
       $<$<AND:$<NOT:$<BOOL:${Kokkos_ENABLE_HIP}>>,$<NOT:$<BOOL:${Kokkos_ENABLE_CUDA}>>,$<CXX_COMPILER_ID:AppleClang>>:-Xclang -fopenmp-simd>
+      $<$<CXX_COMPILER_ID:AppleClang,Clang>:-Rpass=loop-vectorize>
+      $<$<CXX_COMPILER_ID:AppleClang,Clang>:-Rpass-missed=loop-vectorize>
+      $<$<CXX_COMPILER_ID:AppleClang,Clang>:-Rpass-analysis=loop-vectorize>
   )
 
   lint_target(loop-benchmarks-v2)

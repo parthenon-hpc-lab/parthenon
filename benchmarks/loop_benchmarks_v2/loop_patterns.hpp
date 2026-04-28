@@ -1,15 +1,6 @@
 #pragma once
 
-#include <cstdint>
+#include "dataset.hpp"
 
-#include "config.hpp"
-
-namespace plb2 {
-
-Dataset BuildDataset(const CaseSpec &spec);
-void PrepareDataset(const CaseSpec &spec, Dataset *dataset);
-
-std::uint64_t CountUpdates(const CaseSpec &spec);
-BenchmarkRow RunCase(const CaseSpec &spec);
-
-}  // namespace plb2
+// Loop traversal primitives live in loop_patterns.cpp and are consumed by the
+// runner layer. This header exists so the directory structure stays explicit.
