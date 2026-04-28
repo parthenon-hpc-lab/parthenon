@@ -124,17 +124,11 @@ class ProlongationBlockInteriorZeroDirichlet {
 
     using TE = parthenon::TopologicalElement;
 
-    int nblocks = md->NumBlocks();
-    std::vector<bool> include_block(nblocks, true);
-    for (int b = 0; b < nblocks; ++b) {
-      include_block[b] =
-          md->grid.logical_level == md->GetBlockData(b)->GetBlockPointer()->loc.level();
-    }
     const auto desc = parthenon::MakePackDescriptorFromTypeList<VarTL>(md.get());
     const auto desc_coarse = parthenon::MakePackDescriptorFromTypeList<VarTL>(
         md.get(), std::vector<MetadataFlag>{}, std::set<PDOpt>{PDOpt::Coarse});
-    auto pack = desc.GetPack(md.get(), include_block);
-    auto pack_coarse = desc_coarse.GetPack(md.get(), include_block);
+    auto pack = desc.GetPack(md.get());
+    auto pack_coarse = desc_coarse.GetPack(md.get());
     if (pack.GetNBlocks() == 0) return TaskStatus::complete;
 
     parthenon::par_for(
@@ -204,6 +198,67 @@ class ProlongationBlockInteriorZeroDirichlet {
             }
             pack(b, n, fk, fj, fi) /= 2.0 * ndim;
           }
+        });
+    return TaskStatus::complete;
+  }
+};
+
+// This is just an empty class without a Restrict method, which will trigger
+// calling the default restriction machinery in multigrid
+class RestrictionDefault {
+ public:
+  RestrictionDefault() = default;
+  RestrictionDefault(parthenon::ParameterInput *pin, const std::string &label) {}
+};
+
+class RestrictionCombined {
+  // This Restriction class is an example that is only correct for uniform
+  // cartesian coordinates
+ public:
+  RestrictionCombined() = default;
+  RestrictionCombined(parthenon::ParameterInput *pin, const std::string &label) {}
+
+  template <class VarTL>
+  parthenon::TaskID Restrict(parthenon::TaskList &tl, parthenon::TaskID depends_on,
+                             std::shared_ptr<parthenon::MeshData<Real>> &md) {
+    return tl.AddTask(depends_on, TF(RestrictImpl<VarTL>), md);
+  }
+
+  template <class VarTL>
+  static parthenon::TaskStatus
+  RestrictImpl(std::shared_ptr<parthenon::MeshData<Real>> &md) {
+    using namespace parthenon;
+    const int ndim = md->GetMeshPointer()->ndim;
+    IndexRange ib = md->GetBoundsI(IndexDomain::interior);
+    IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
+    IndexRange kb = md->GetBoundsK(IndexDomain::interior);
+    IndexRange cib = md->GetBoundsI(CellLevel::coarse, IndexDomain::interior);
+    IndexRange cjb = md->GetBoundsJ(CellLevel::coarse, IndexDomain::interior);
+    IndexRange ckb = md->GetBoundsK(CellLevel::coarse, IndexDomain::interior);
+
+    const auto desc = parthenon::MakePackDescriptorFromTypeList<VarTL>(md.get());
+    const auto desc_coarse = parthenon::MakePackDescriptorFromTypeList<VarTL>(
+        md.get(), std::vector<MetadataFlag>{}, std::set<PDOpt>{PDOpt::Coarse});
+    auto pack = desc.GetPack(md.get());
+    auto pack_coarse = desc_coarse.GetPack(md.get());
+    if (pack.GetNBlocks() == 0) return TaskStatus::complete;
+    const int joff = ndim > 1;
+    const int koff = ndim > 2;
+    parthenon::par_for(
+        "Restrict", 0, pack.GetNBlocks() - 1, pack.GetLowerBoundHost(0),
+        pack.GetUpperBoundHost(0), ckb.s, ckb.e, cjb.s, cjb.e, cib.s, cib.e,
+        KOKKOS_LAMBDA(const int b, const int n, const int ck, const int cj,
+                      const int ci) {
+          const int fk = koff * 2 * (ck - ckb.s) + kb.s;
+          const int fj = joff * 2 * (cj - cjb.s) + jb.s;
+          const int fi = 2 * (ci - cib.s) + ib.s;
+          pack_coarse(b, n, ck, cj, ci) =
+              pack(b, n, fk, fj, fi) + pack(b, n, fk, fj, fi + 1) +
+              pack(b, n, fk, fj + joff, fi) + pack(b, n, fk, fj + joff, fi + 1) +
+              pack(b, n, fk + koff, fj, fi) + pack(b, n, fk + koff, fj, fi + 1) +
+              pack(b, n, fk + koff, fj + joff, fi) +
+              pack(b, n, fk + koff, fj + joff, fi + 1);
+          pack_coarse(b, n, ck, cj, ci) /= 8.0;
         });
     return TaskStatus::complete;
   }

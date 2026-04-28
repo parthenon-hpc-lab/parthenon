@@ -37,7 +37,7 @@ namespace loops {
 // TODO(JMM) if LayoutLeft is ever relaxed, these might need to become
 // template parameters
 using Idx_t = ParArray1D<std::size_t>;
-using IdxHost_t = typename ParArray1D<std::size_t>::HostMirror;
+using IdxHost_t = typename ParArray1D<std::size_t>::host_mirror_type;
 
 template <typename Info_t>
 KOKKOS_FORCEINLINE_FUNCTION bool DoRefinementOp(const Info_t &info,

@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -17,11 +17,14 @@
 #ifndef MESH_MESHBLOCK_HPP_
 #define MESH_MESHBLOCK_HPP_
 
+// This file was made in part with generative AI.
+
 #include <cstdint>
 #include <functional>
 #include <map>
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -38,6 +41,8 @@
 #include "interface/swarm_container.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/forest/forest.hpp"
+#include "mesh/forest/forest_topology.hpp"
+#include "mesh/mesh_neighbors.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -72,6 +77,9 @@ std::array<IndexShape, 3> GetIndexShapes(const int nx1, const int nx2, const int
 class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   friend class RestartOutput;
   friend class Mesh;
+  friend void SetMeshBlockNeighbors(Mesh *, GridIdentifier, BlockList_t &,
+                                    const std::vector<int> &,
+                                    const std::unordered_set<LogicalLocation> &);
 
  public:
   MeshBlock() = default;
@@ -92,6 +100,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // data
   Mesh *pmy_mesh = nullptr; // ptr to Mesh containing this MeshBlock
   LogicalLocation loc;
+  std::size_t block_coarsenings{0};
   RegionSize block_size;
   // for convenience: "max" # of real+ghost cells along each dir for allocating "standard"
   // sized MeshBlock arrays, depending on ndim i.e.
@@ -144,9 +153,10 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   //
   IndexShape c_cellbounds;
   IndexShape f_cellbounds;
-  int gid, lid;
-  int cnghost;
-  int gflag;
+  int gid = -1;
+  int lid = -1;
+  int cnghost = 0;
+  int gflag = 0;
 
   const IndexShape &GetCellBounds(CellLevel cl) const {
     if (cl == CellLevel::same) {
@@ -176,13 +186,25 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::unique_ptr<BoundarySwarms> pbswarm;
   std::unique_ptr<MeshRefinement> pmr;
 
-  // Block connectivity information
-  std::vector<NeighborBlock> neighbors;
-  std::vector<NeighborBlock> gmg_coarser_neighbors;
-  std::vector<NeighborBlock> gmg_composite_finer_neighbors;
-  std::vector<NeighborBlock> gmg_same_neighbors;
-  std::vector<NeighborBlock> gmg_finer_neighbors;
-  std::vector<NeighborBlock> gmg_leaf_neighbors;
+  // Public accessors for neighbor information
+  const std::vector<NeighborBlock> &GetNeighbors() const { return neighbors; }
+  const std::vector<NeighborBlock> &GetGMGCoarserNeighbors() const {
+    return gmg_coarser_neighbors;
+  }
+  const std::vector<NeighborBlock> &GetGMGCompositeFinerNeighbors() const {
+    return gmg_composite_finer_neighbors;
+  }
+  const std::vector<NeighborBlock> &GetGMGSameNeighbors() const {
+    return gmg_same_neighbors;
+  }
+  const std::vector<NeighborBlock> &GetGMGFinerNeighbors() const {
+    return gmg_finer_neighbors;
+  }
+  const std::vector<NeighborBlock> &GetGMGSelfNeighbors() const {
+    return gmg_self_neighbors;
+  }
+
+  bool HasCoarserNeighbors() const { return has_coarser_neighbors_; }
 
   BoundaryFlag boundary_flag[6];
 
@@ -433,10 +455,17 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                                  std::forward<Args>(args)...);
   }
 
+  // Checks if the LogicalLocation of this block is a leaf logical location
+  bool IsLeafLL() const { return is_leaf_ll_; }
+
  private:
   // data
-  Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_;
+  Real new_block_dt_ = 0.0;
+  Real new_block_dt_hyperbolic_ = 0.0;
+  Real new_block_dt_parabolic_ = 0.0;
   std::vector<std::shared_ptr<Variable<Real>>> vars_cc_;
+
+  bool is_leaf_ll_{true};
 
   // Initializer to set up a meshblock called with the default constructor
   // This is necessary because the back pointers can't be set up until
@@ -453,6 +482,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // Optionally defined in the prob file or provided by ApplicationInput
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> PostProblemGenerator = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> PostInitialization = nullptr;
   std::function<pMeshBlockApplicationData_t(MeshBlock *, ParameterInput *)>
       InitApplicationMeshBlockData = nullptr;
@@ -462,7 +492,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // functions and variables for automatic load balancing based on timing
   Kokkos::Timer lb_timer;
-  double cost_;
+  double cost_ = 1.0;
   // JMM: these are private since the timing machinery only works
   // per-meshblock nopt per-meshdata.
   void ResetTimeMeasurement();
@@ -470,7 +500,18 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   void StopTimeMeasurement();
 
   // memory usage on a block
-  std::uint64_t mem_usage_;
+  std::uint64_t mem_usage_ = 0;
+
+  // Block connectivity information - private to enforce modification only through
+  // SetMeshBlockNeighbors
+  std::vector<NeighborBlock> neighbors;
+  std::vector<NeighborBlock> gmg_coarser_neighbors;
+  std::vector<NeighborBlock> gmg_composite_finer_neighbors;
+  std::vector<NeighborBlock> gmg_same_neighbors;
+  std::vector<NeighborBlock> gmg_finer_neighbors;
+  std::vector<NeighborBlock> gmg_self_neighbors;
+
+  bool has_coarser_neighbors_ = false;
 };
 
 using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;

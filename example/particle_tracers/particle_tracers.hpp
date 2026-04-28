@@ -3,7 +3,7 @@
 // Copyright(C) 2021 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -30,27 +30,35 @@ using namespace parthenon;
 
 namespace tracers_example {
 
-class ParticleDriver : public MultiStageDriver {
+class ParticleDriver : public EvolutionDriver {
  public:
+  using Integrator_t = parthenon::LowStorageIntegrator;
+  using IntegratorPtr_t = std::unique_ptr<Integrator_t>;
   ParticleDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-      : MultiStageDriver(pin, app_in, pm) {}
-  TaskCollection MakeTaskCollection(BlockList_t &blocks, int stage);
+      : EvolutionDriver(pin, app_in, pm),
+        integrator(std::make_unique<Integrator_t>(pin)) {}
+  TaskListStatus Step();
+  TaskCollection StepTasks();
+
+ protected:
+  IntegratorPtr_t integrator;
 };
 
-void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
+void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);
 
 namespace particles_package {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-Real EstimateTimestepBlock(MeshBlockData<Real> *rc);
+Real EstimateTimestepMesh(MeshData<Real> *rc);
+void SourceTracers(MeshBlock *pmb, ParameterInput *pin);
 
 } // namespace particles_package
 
 namespace advection_package {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
-Real EstimateTimestepBlock(MeshBlockData<Real> *rc);
+Real EstimateTimestepMesh(MeshData<Real> *rc);
 
 } // namespace advection_package
 

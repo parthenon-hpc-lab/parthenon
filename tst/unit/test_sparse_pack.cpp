@@ -24,8 +24,8 @@
 #include "interface/metadata.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/meshblock.hpp"
-#include "pack/make_pack_descriptor.hpp"
-#include "pack/sparse_pack.hpp"
+#include "pack/sparse_pack/make_pack_descriptor.hpp"
+#include "pack/sparse_pack/sparse_pack.hpp"
 
 // TODO(jcd): can't call the MeshBlock constructor without mesh_refinement.hpp???
 #include "mesh/mesh_refinement.hpp"

@@ -55,11 +55,6 @@ Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level)
       }
     }
   }
-
-  // Build in negative levels
-  for (int l = -20; l < 0; ++l) {
-    internal_nodes.emplace(LocMapEntry(LogicalLocation(my_id, l, 0, 0, 0), -1, -1));
-  }
 }
 
 Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level,
@@ -169,18 +164,18 @@ void Tree::FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int o
   int n_idx = neigh.NeighborTreeIndex();
 
   bool include_same, include_fine, include_internal, include_coarse;
-  if (grid_id.type == GridType::leaf) {
+  if (grid_id.type() == GridType::leaf) {
     include_same = true;
     include_fine = true;
     include_internal = false;
     include_coarse = true;
-  } else if (grid_id.type == GridType::two_level_composite) {
-    if (loc.level() == grid_id.logical_level) {
+  } else if (grid_id.type() == GridType::two_level_composite) {
+    if (loc.level() == grid_id.logical_level()) {
       include_same = true;
       include_fine = false;
       include_internal = true;
       include_coarse = true;
-    } else if (loc.level() == grid_id.logical_level - 1) {
+    } else if (loc.level() == grid_id.logical_level() - 1) {
       include_same = false;
       include_fine = true;
       include_internal = false;
@@ -293,7 +288,8 @@ std::vector<LogicalLocation> Tree::GetSortedInternalNodeList() const {
   return mb_list;
 }
 
-RegionSize Tree::GetBlockDomain(const LogicalLocation &loc) const {
+RegionSize Tree::GetBlockDomain(const LogicalLocation &loc,
+                                std::size_t block_coarsenings) const {
   PARTHENON_REQUIRE(loc.IsInTree(), "Probably there is a mistake...");
   RegionSize out = domain;
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {
@@ -303,14 +299,13 @@ RegionSize Tree::GetBlockDomain(const LogicalLocation &loc) const {
             loc.LLCoord(dir, BlockLocation::Left), dir);
         out.xmax(dir) = domain.SymmetrizedLogicalToActualPosition(
             loc.LLCoord(dir, BlockLocation::Right), dir);
-      } else {
-        // Negative logical levels correspond to reduced block sizes covering the entire
-        // domain.
-        auto reduction_fac = 1LL << (-loc.level());
-        PARTHENON_REQUIRE(domain.nx(dir) % reduction_fac == 0,
-                          "Trying to go to too large of a negative level.");
-        out.nx(dir) = domain.nx(dir) / reduction_fac;
       }
+      // Negative logical levels correspond to reduced block sizes covering the entire
+      // domain.
+      auto reduction_fac = 1LL << (std::max(0, -loc.level()) + block_coarsenings);
+      PARTHENON_REQUIRE(domain.nx(dir) % reduction_fac == 0,
+                        "Trying to go to too large of a negative level.");
+      out.nx(dir) = domain.nx(dir) / reduction_fac;
     }
     // If this is a translational symmetry direction, set the cell to cover the entire
     // tree in that direction.

@@ -13,6 +13,8 @@
 #ifndef INTERFACE_SWARM_HPP_
 #define INTERFACE_SWARM_HPP_
 
+// This file was made in part with generative AI
+
 ///
 /// A swarm contains all particles of a particular species
 /// Date: August 21, 2019
@@ -34,6 +36,7 @@
 #include "bvals/bvals.hpp"
 #include "globals.hpp" // my_rank
 #include "metadata.hpp"
+#include "pack/swarm_pack/swarm_pack_types.hpp"
 #include "parthenon_arrays.hpp"
 #include "parthenon_mpi.hpp"
 #include "swarm_device_context.hpp"
@@ -370,8 +373,18 @@ inline SwarmVariablePack<T> Swarm::PackAllVariables_(PackIndexMap &vmap) {
   return ret;
 }
 
+template <typename T, typename TypeListT>
+struct type_list_contains;
+
+template <typename T, typename... Ts>
+struct type_list_contains<T, TypeList<Ts...>>
+    : std::bool_constant<(std::is_same_v<T, Ts> || ...)> {};
+
 template <class T>
 inline void Swarm::Add_(const std::string &label, const Metadata &m) {
+  PARTHENON_REQUIRE((type_list_contains<T, SwarmPackTypes>::value),
+                    "Requested Swarm type is not contained in SwarmPackTypes");
+
   ParticleVariable<T> pvar(label, nmax_pool_, m);
   auto var = std::make_shared<ParticleVariable<T>>(pvar);
 
