@@ -41,6 +41,7 @@ inline int SelectNvarsForBlock(const Dataset &dataset, int block) {
 }
 
 template <typename Body>
+// cpu_flat_ghosts: flat walk over the full 5D memory space, including ghosts.
 inline void RunCpuFlatGhosts(const Dataset &dataset, Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
@@ -54,6 +55,8 @@ inline void RunCpuFlatGhosts(const Dataset &dataset, Body body) {
 }
 
 template <typename Body>
+// cpu_boiv_contiguous: direct-view form for the block/outer/inner/var order.
+// The inner span is contiguous, but the kernel still reads through the view.
 inline void RunCpuBoivContiguous(const Dataset &dataset, int logical_inner_size, Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
@@ -81,6 +84,8 @@ inline void RunCpuBoivContiguous(const Dataset &dataset, int logical_inner_size,
 }
 
 template <typename AccessBuilder, typename Body>
+// cpu_bovi_contiguous: hoisted-pointer form for block/outer/var/inner.
+// build_access() is called once per outer span and the inner loop indexes the hoisted span.
 inline void RunCpuBoviContiguous(const Dataset &dataset, int logical_inner_size,
                                  AccessBuilder build_access, Body body) {
   const auto &spec = dataset.problem;
@@ -112,6 +117,7 @@ inline void RunCpuBoviContiguous(const Dataset &dataset, int logical_inner_size,
 }
 
 template <typename Body>
+// cpu_boiv_logical: direct-view form for block/outer/inner/var over logical active cells.
 inline void RunCpuBoivLogical(const Dataset &dataset, int logical_inner_size, Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
@@ -138,6 +144,7 @@ inline void RunCpuBoivLogical(const Dataset &dataset, int logical_inner_size, Bo
 }
 
 template <typename Body>
+// cpu_bovi_logical: direct-view form for block/outer/var/inner over logical active cells.
 inline void RunCpuBoviLogical(const Dataset &dataset, int logical_inner_size, Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
@@ -165,6 +172,8 @@ inline void RunCpuBoviLogical(const Dataset &dataset, int logical_inner_size, Bo
 }
 
 template <typename AccessBuilder, typename Body>
+// cpu_bvoi_contiguous: hoisted-pointer form for block/var/outer/inner.
+// This swaps the variable loop ahead of the outer chunk loop, then walks a contiguous inner span.
 inline void RunCpuBvoiContiguous(const Dataset &dataset, int logical_inner_size,
                                  AccessBuilder build_access, Body body) {
   const auto &spec = dataset.problem;
@@ -196,6 +205,7 @@ inline void RunCpuBvoiContiguous(const Dataset &dataset, int logical_inner_size,
 }
 
 template <typename Body>
+// cpu_bvoi_logical: direct-view form for block/var/outer/inner over logical active cells.
 inline void RunCpuBvoiLogical(const Dataset &dataset, int logical_inner_size, Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
@@ -223,6 +233,7 @@ inline void RunCpuBvoiLogical(const Dataset &dataset, int logical_inner_size, Bo
 }
 
 template <typename Body>
+// kokkos_boiv_flat: single RangePolicy launch over logical (b,k,j,i), with a serial variable loop.
 inline void RunKokkosBoivFlat(const Dataset &dataset, Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
@@ -241,6 +252,7 @@ inline void RunKokkosBoivFlat(const Dataset &dataset, Body body) {
 }
 
 template <typename AccessBuilder, typename Body>
+// kokkos_bovi_team_contiguous: TeamPolicy launch with a hoisted contiguous span per outer chunk.
 inline void RunKokkosBoviTeamContiguous(const Dataset &dataset, int logical_inner_size,
                                         AccessBuilder build_access, Body body) {
   const auto &spec = dataset.problem;
@@ -275,6 +287,7 @@ inline void RunKokkosBoviTeamContiguous(const Dataset &dataset, int logical_inne
 }
 
 template <typename Body>
+// kokkos_bovi_team_logical: TeamPolicy launch over logical active cells, direct-view inside the team.
 inline void RunKokkosBoviTeamLogical(const Dataset &dataset, int logical_inner_size, Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
