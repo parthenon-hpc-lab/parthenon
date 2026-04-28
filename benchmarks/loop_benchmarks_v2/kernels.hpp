@@ -17,19 +17,18 @@ struct UnifiedSpanAccess {
 
 template <int SX, int SY, int SZ, typename ViewType>
 KOKKOS_INLINE_FUNCTION UnifiedSpanAccess<SX, SY, SZ> BuildUnifiedCellHoistedPointers(
-    const ViewType &in, int b, int v, int k, int j, int i, const std::array<int, 3> &strides,
-    const std::array<int, SX> &dx, const std::array<int, SY> &dy,
-    const std::array<int, SZ> &dz) {
+    const ViewType &in, int b, int v, int k, int j, int i, const std::array<int, SX> &dx,
+    const std::array<int, SY> &dy, const std::array<int, SZ> &dz) {
   UnifiedSpanAccess<SX, SY, SZ> access;
   access.center = &in(b, v, k, j, i);
   for (int ix = 0; ix < SX; ++ix) {
-    access.x_ptrs[ix] = access.center + dx[ix];
+    access.x_ptrs[ix] = &in(b, v, k, j, i + dx[ix]);
   }
   for (int iy = 0; iy < SY; ++iy) {
-    access.y_ptrs[iy] = access.center + dy[iy] * strides[0];
+    access.y_ptrs[iy] = &in(b, v, k, j + dy[iy], i);
   }
   for (int iz = 0; iz < SZ; ++iz) {
-    access.z_ptrs[iz] = access.center + dz[iz] * strides[0] * strides[1];
+    access.z_ptrs[iz] = &in(b, v, k + dz[iz], j, i);
   }
   return access;
 }

@@ -14,17 +14,17 @@ namespace {
 using TeamPolicy = Kokkos::TeamPolicy<>;
 using TeamMember = TeamPolicy::member_type;
 
-struct BlockSpan {
+struct FlatSpan {
   int start = 0;
   int end = -1;
   int size = 0;
 };
 
-KOKKOS_INLINE_FUNCTION BlockSpan GetBlockSpan(const parthenon::Indexer4D &indexer, int b) {
-  const int start =
-      indexer.GetFlatIdx(b, indexer.StartIdx<1>(), indexer.StartIdx<2>(), indexer.StartIdx<3>());
-  const int end =
-      indexer.GetFlatIdx(b, indexer.EndIdx<1>(), indexer.EndIdx<2>(), indexer.EndIdx<3>());
+template <typename IndexerType>
+KOKKOS_INLINE_FUNCTION FlatSpan MakeFlatSpan(const IndexerType &indexer, int outer,
+                                             int ninner) {
+  const int start = outer * ninner;
+  const int end = std::min(static_cast<int>(indexer.size()) - 1, start + ninner - 1);
   return {start, end, end - start + 1};
 }
 
@@ -41,74 +41,66 @@ inline int SelectNvarsForBlock(const Dataset &dataset, int block) {
 }
 
 template <typename Body>
-// cpu_flat_ghosts: flat walk over the full 5D memory space, including ghosts.
 inline void RunCpuFlatGhosts(const Dataset &dataset, Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
   const auto memory_indexer = spec.memory_indexer;
+  const int nmem = static_cast<int>(memory_indexer.size());
 
+  for (int b = 0; b < spec.nblocks; ++b) {
+    const int nvars = SelectNvarsForBlock(dataset, b);
+    for (int v = 0; v < nvars; ++v) {
 #pragma omp simd
-  for (int flat = 0; flat < static_cast<int>(memory_indexer.size()); ++flat) {
-    const auto [b, v, k, j, i] = memory_indexer(flat);
-    data.out(b, v, k, j, i) = body(data, b, v, k, j, i);
+      for (int flat = 0; flat < nmem; ++flat) {
+        const auto [k, j, i] = memory_indexer(flat);
+        data.out(b, v, k, j, i) = body(data, b, v, k, j, i);
+      }
+    }
   }
 }
 
+// cpu_boiv_contiguous: direct-view form for block/outer/inner/var over memory-order spans.
 template <typename Body>
-// cpu_boiv_contiguous: direct-view form for the block/outer/inner/var order.
-// The inner span is contiguous, but the kernel still reads through the view.
 inline void RunCpuBoivContiguous(const Dataset &dataset, int logical_inner_size, Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
-  const auto logical_indexer = spec.logical_indexer;
+  const auto memory_indexer = spec.memory_indexer;
+  const int outer_points = CeilDiv(static_cast<int>(memory_indexer.size()), logical_inner_size);
 
   for (int b = 0; b < spec.nblocks; ++b) {
-    const BlockSpan block_span = GetBlockSpan(logical_indexer, b);
-    const int outer_points = CeilDiv(block_span.size, logical_inner_size);
     const int nvars = SelectNvarsForBlock(dataset, b);
-
     for (int outer = 0; outer < outer_points; ++outer) {
-      const int logical_start = block_span.start + outer * logical_inner_size;
-      const int logical_end =
-          std::min(block_span.end, logical_start + logical_inner_size - 1);
-      const int ninner = logical_end - logical_start + 1;
-
-      for (int idx = 0; idx < ninner; ++idx) {
-        const auto [bb, k, j, i] = logical_indexer(logical_start + idx);
+      const FlatSpan span = MakeFlatSpan(memory_indexer, outer, logical_inner_size);
+      for (int idx = 0; idx < span.size; ++idx) {
+        const auto [k, j, i] = memory_indexer(span.start + idx);
         for (int v = 0; v < nvars; ++v) {
-          data.out(bb, v, k, j, i) = body(data, bb, v, k, j, i);
+          data.out(b, v, k, j, i) = body(data, b, v, k, j, i);
         }
       }
     }
   }
 }
 
+// cpu_bovi_contiguous: hoisted-pointer form for block/outer/var/inner over memory-order spans.
 template <typename AccessBuilder, typename Body>
-// cpu_bovi_contiguous: hoisted-pointer form for block/outer/var/inner.
-// build_access() is called once per outer span and the inner loop indexes the hoisted span.
 inline void RunCpuBoviContiguous(const Dataset &dataset, int logical_inner_size,
                                  AccessBuilder build_access, Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
-  const auto logical_indexer = spec.logical_indexer;
+  const auto memory_indexer = spec.memory_indexer;
+  const int outer_points = CeilDiv(static_cast<int>(memory_indexer.size()), logical_inner_size);
 
   for (int b = 0; b < spec.nblocks; ++b) {
-    const BlockSpan block_span = GetBlockSpan(logical_indexer, b);
-    const int outer_points = CeilDiv(block_span.size, logical_inner_size);
     const int nvars = SelectNvarsForBlock(dataset, b);
-
     for (int outer = 0; outer < outer_points; ++outer) {
-      const int logical_start = block_span.start + outer * logical_inner_size;
-      const int logical_end =
-          std::min(block_span.end, logical_start + logical_inner_size - 1);
-      const int ninner = logical_end - logical_start + 1;
-      const auto [bs, ks, js, is] = logical_indexer(logical_start);
+      const FlatSpan span = MakeFlatSpan(memory_indexer, outer, logical_inner_size);
+      const auto [k, j, i] = memory_indexer(span.start);
 
       for (int v = 0; v < nvars; ++v) {
-        const auto access = build_access(data, b, v, ks, js, is);
-        double *const out = &data.out(b, v, ks, js, is);
+        const auto access = build_access(data, b, v, k, j, i);
+        double *const out = &data.out(b, v, k, j, i);
 #pragma omp simd
-        for (int idx = 0; idx < ninner; ++idx) {
+        for (int idx = 0; idx < span.size; ++idx) {
           out[idx] = body(access, idx);
         }
       }
@@ -116,87 +108,72 @@ inline void RunCpuBoviContiguous(const Dataset &dataset, int logical_inner_size,
   }
 }
 
+// cpu_boiv_logical: direct-view form for block/outer/inner/var over active logical spans.
 template <typename Body>
-// cpu_boiv_logical: direct-view form for block/outer/inner/var over logical active cells.
 inline void RunCpuBoivLogical(const Dataset &dataset, int logical_inner_size, Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
   const auto logical_indexer = spec.logical_indexer;
+  const int outer_points = CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
 
   for (int b = 0; b < spec.nblocks; ++b) {
-    const BlockSpan block_span = GetBlockSpan(logical_indexer, b);
-    const int outer_points = CeilDiv(block_span.size, logical_inner_size);
     const int nvars = SelectNvarsForBlock(dataset, b);
-
     for (int outer = 0; outer < outer_points; ++outer) {
-      const int logical_start = block_span.start + outer * logical_inner_size;
-      const int logical_end =
-          std::min(block_span.end, logical_start + logical_inner_size - 1);
-
-      for (int idx = logical_start; idx <= logical_end; ++idx) {
-        const auto [bb, k, j, i] = logical_indexer(idx);
+      const FlatSpan span = MakeFlatSpan(logical_indexer, outer, logical_inner_size);
+      for (int idx = 0; idx < span.size; ++idx) {
+        const auto [k, j, i] = logical_indexer(span.start + idx);
         for (int v = 0; v < nvars; ++v) {
-          data.out(bb, v, k, j, i) = body(data, bb, v, k, j, i);
+          data.out(b, v, k, j, i) = body(data, b, v, k, j, i);
         }
       }
     }
   }
 }
 
+// cpu_bovi_logical: direct-view form for block/outer/var/inner over active logical spans.
 template <typename Body>
-// cpu_bovi_logical: direct-view form for block/outer/var/inner over logical active cells.
 inline void RunCpuBoviLogical(const Dataset &dataset, int logical_inner_size, Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
   const auto logical_indexer = spec.logical_indexer;
+  const int outer_points = CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
 
   for (int b = 0; b < spec.nblocks; ++b) {
-    const BlockSpan block_span = GetBlockSpan(logical_indexer, b);
-    const int outer_points = CeilDiv(block_span.size, logical_inner_size);
     const int nvars = SelectNvarsForBlock(dataset, b);
-
     for (int outer = 0; outer < outer_points; ++outer) {
-      const int logical_start = block_span.start + outer * logical_inner_size;
-      const int logical_end =
-          std::min(block_span.end, logical_start + logical_inner_size - 1);
+      const FlatSpan span = MakeFlatSpan(logical_indexer, outer, logical_inner_size);
 
       for (int v = 0; v < nvars; ++v) {
 #pragma omp simd
-        for (int idx = logical_start; idx <= logical_end; ++idx) {
-          const auto [bb, k, j, i] = logical_indexer(idx);
-          data.out(bb, v, k, j, i) = body(data, bb, v, k, j, i);
+        for (int idx = 0; idx < span.size; ++idx) {
+          const auto [k, j, i] = logical_indexer(span.start + idx);
+          data.out(b, v, k, j, i) = body(data, b, v, k, j, i);
         }
       }
     }
   }
 }
 
+// cpu_bvoi_contiguous: hoisted-pointer form for block/var/outer/inner over memory-order spans.
 template <typename AccessBuilder, typename Body>
-// cpu_bvoi_contiguous: hoisted-pointer form for block/var/outer/inner.
-// This swaps the variable loop ahead of the outer chunk loop, then walks a contiguous inner span.
 inline void RunCpuBvoiContiguous(const Dataset &dataset, int logical_inner_size,
                                  AccessBuilder build_access, Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
-  const auto logical_indexer = spec.logical_indexer;
+  const auto memory_indexer = spec.memory_indexer;
+  const int outer_points = CeilDiv(static_cast<int>(memory_indexer.size()), logical_inner_size);
 
   for (int b = 0; b < spec.nblocks; ++b) {
-    const BlockSpan block_span = GetBlockSpan(logical_indexer, b);
-    const int outer_points = CeilDiv(block_span.size, logical_inner_size);
     const int nvars = SelectNvarsForBlock(dataset, b);
-
     for (int v = 0; v < nvars; ++v) {
       for (int outer = 0; outer < outer_points; ++outer) {
-        const int logical_start = block_span.start + outer * logical_inner_size;
-        const int logical_end =
-            std::min(block_span.end, logical_start + logical_inner_size - 1);
-        const int ninner = logical_end - logical_start + 1;
-        const auto [bs, ks, js, is] = logical_indexer(logical_start);
-        const auto access = build_access(data, b, v, ks, js, is);
-        double *const out = &data.out(b, v, ks, js, is);
+        const FlatSpan span = MakeFlatSpan(memory_indexer, outer, logical_inner_size);
+        const auto [k, j, i] = memory_indexer(span.start);
+        const auto access = build_access(data, b, v, k, j, i);
+        double *const out = &data.out(b, v, k, j, i);
 
 #pragma omp simd
-        for (int idx = 0; idx < ninner; ++idx) {
+        for (int idx = 0; idx < span.size; ++idx) {
           out[idx] = body(access, idx);
         }
       }
@@ -204,46 +181,44 @@ inline void RunCpuBvoiContiguous(const Dataset &dataset, int logical_inner_size,
   }
 }
 
+// cpu_bvoi_logical: direct-view form for block/var/outer/inner over active logical spans.
 template <typename Body>
-// cpu_bvoi_logical: direct-view form for block/var/outer/inner over logical active cells.
 inline void RunCpuBvoiLogical(const Dataset &dataset, int logical_inner_size, Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
   const auto logical_indexer = spec.logical_indexer;
+  const int outer_points = CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
 
   for (int b = 0; b < spec.nblocks; ++b) {
-    const BlockSpan block_span = GetBlockSpan(logical_indexer, b);
-    const int outer_points = CeilDiv(block_span.size, logical_inner_size);
     const int nvars = SelectNvarsForBlock(dataset, b);
-
     for (int v = 0; v < nvars; ++v) {
       for (int outer = 0; outer < outer_points; ++outer) {
-        const int logical_start = block_span.start + outer * logical_inner_size;
-        const int logical_end =
-            std::min(block_span.end, logical_start + logical_inner_size - 1);
+        const FlatSpan span = MakeFlatSpan(logical_indexer, outer, logical_inner_size);
 
 #pragma omp simd
-        for (int idx = logical_start; idx <= logical_end; ++idx) {
-          const auto [bb, k, j, i] = logical_indexer(idx);
-          data.out(bb, v, k, j, i) = body(data, bb, v, k, j, i);
+        for (int idx = 0; idx < span.size; ++idx) {
+          const auto [k, j, i] = logical_indexer(span.start + idx);
+          data.out(b, v, k, j, i) = body(data, b, v, k, j, i);
         }
       }
     }
   }
 }
 
+// kokkos_boiv_flat: single RangePolicy launch over the active logical index space.
 template <typename Body>
-// kokkos_boiv_flat: single RangePolicy launch over logical (b,k,j,i), with a serial variable loop.
 inline void RunKokkosBoivFlat(const Dataset &dataset, Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
   const auto logical_indexer = spec.logical_indexer;
+  const int cells_per_block = static_cast<int>(logical_indexer.size());
+  const int total = spec.nblocks * cells_per_block;
 
   Kokkos::parallel_for(
-      "KokkosBoivFlat",
-      Kokkos::RangePolicy<>(0, static_cast<int>(logical_indexer.size())),
-      KOKKOS_LAMBDA(const int flat) {
-        const auto [b, k, j, i] = logical_indexer(flat);
+      "KokkosBoivFlat", Kokkos::RangePolicy<>(0, total), KOKKOS_LAMBDA(const int flat) {
+        const int b = flat / cells_per_block;
+        const int local = flat % cells_per_block;
+        const auto [k, j, i] = logical_indexer(local);
         const int nvars = data.active_counts(b);
         for (int v = 0; v < nvars; ++v) {
           data.out(b, v, k, j, i) = body(data, b, v, k, j, i);
@@ -251,14 +226,14 @@ inline void RunKokkosBoivFlat(const Dataset &dataset, Body body) {
       });
 }
 
-template <typename AccessBuilder, typename Body>
 // kokkos_bovi_team_contiguous: TeamPolicy launch with a hoisted contiguous span per outer chunk.
+template <typename AccessBuilder, typename Body>
 inline void RunKokkosBoviTeamContiguous(const Dataset &dataset, int logical_inner_size,
                                         AccessBuilder build_access, Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
-  const auto logical_indexer = spec.logical_indexer;
-  const int cells_per_block = static_cast<int>(logical_indexer.size()) / spec.nblocks;
+  const auto memory_indexer = spec.memory_indexer;
+  const int cells_per_block = static_cast<int>(memory_indexer.size());
   const int outer_points = CeilDiv(cells_per_block, logical_inner_size);
   const int league_size = spec.nblocks * outer_points;
   const TeamPolicy policy(league_size, Kokkos::AUTO);
@@ -268,31 +243,27 @@ inline void RunKokkosBoviTeamContiguous(const Dataset &dataset, int logical_inne
         const int league = member.league_rank();
         const int b = league / outer_points;
         const int outer = league % outer_points;
-        const int block_base = b * cells_per_block;
-        const int logical_start = block_base + outer * logical_inner_size;
-        const int logical_end =
-            std::min(block_base + cells_per_block - 1, logical_start + logical_inner_size - 1);
-        const int ninner = logical_end - logical_start + 1;
-        const auto [bs, ks, js, is] = logical_indexer(logical_start);
+        const FlatSpan span = MakeFlatSpan(memory_indexer, outer, logical_inner_size);
+        const auto [k, j, i] = memory_indexer(span.start);
         const int nvars = data.active_counts(b);
 
         for (int v = 0; v < nvars; ++v) {
-          const auto access = build_access(data, b, v, ks, js, is);
-          double *const out = &data.out(b, v, ks, js, is);
+          const auto access = build_access(data, b, v, k, j, i);
+          double *const out = &data.out(b, v, k, j, i);
           Kokkos::parallel_for(
-              Kokkos::TeamThreadRange(member, 0, ninner),
+              Kokkos::TeamThreadRange(member, 0, span.size),
               KOKKOS_LAMBDA(const int idx) { out[idx] = body(access, idx); });
         }
       });
 }
 
+// kokkos_bovi_team_logical: TeamPolicy launch over logical active spans, direct-view inside.
 template <typename Body>
-// kokkos_bovi_team_logical: TeamPolicy launch over logical active cells, direct-view inside the team.
 inline void RunKokkosBoviTeamLogical(const Dataset &dataset, int logical_inner_size, Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
   const auto logical_indexer = spec.logical_indexer;
-  const int cells_per_block = static_cast<int>(logical_indexer.size()) / spec.nblocks;
+  const int cells_per_block = static_cast<int>(logical_indexer.size());
   const int outer_points = CeilDiv(cells_per_block, logical_inner_size);
   const int league_size = spec.nblocks * outer_points;
   const TeamPolicy policy(league_size, Kokkos::AUTO);
@@ -302,18 +273,16 @@ inline void RunKokkosBoviTeamLogical(const Dataset &dataset, int logical_inner_s
         const int league = member.league_rank();
         const int b = league / outer_points;
         const int outer = league % outer_points;
-        const int block_base = b * cells_per_block;
-        const int logical_start = block_base + outer * logical_inner_size;
-        const int logical_end =
-            std::min(block_base + cells_per_block - 1, logical_start + logical_inner_size - 1);
+        const FlatSpan span = MakeFlatSpan(logical_indexer, outer, logical_inner_size);
         const int nvars = data.active_counts(b);
 
         for (int v = 0; v < nvars; ++v) {
-          Kokkos::parallel_for(Kokkos::TeamThreadRange(member, logical_start, logical_end + 1),
-                               KOKKOS_LAMBDA(const int idx) {
-                                 const auto [bb, k, j, i] = logical_indexer(idx);
-                                 data.out(bb, v, k, j, i) = body(data, bb, v, k, j, i);
-                               });
+          Kokkos::parallel_for(
+              Kokkos::TeamThreadRange(member, 0, span.size),
+              KOKKOS_LAMBDA(const int idx) {
+                const auto [k, j, i] = logical_indexer(span.start + idx);
+                data.out(b, v, k, j, i) = body(data, b, v, k, j, i);
+              });
         }
       });
 }

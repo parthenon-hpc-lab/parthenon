@@ -42,9 +42,8 @@ struct ProblemSpec {
   int nghost = 0;
   std::vector<int> vars_per_block;
   std::uint64_t target_cells = 0;
-  parthenon::Indexer5D memory_indexer;
-  parthenon::Indexer4D logical_indexer;
-  parthenon::Indexer4D ghost_indexer;
+  parthenon::Indexer3D memory_indexer;
+  parthenon::Indexer3D logical_indexer;
 };
 
 struct LoopSpec {

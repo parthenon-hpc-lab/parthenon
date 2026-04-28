@@ -13,9 +13,6 @@ template <int NITER, int SX, int SY, int SZ>
 BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
   const auto alpha = MakeAlpha<NITER>();
   const auto beta = MakeBeta<NITER>();
-  const int ni_mem = dataset.data.in.extent(4);
-  const int nj_mem = dataset.data.in.extent(3);
-  const std::array<int, 3> strides{ni_mem, nj_mem, 1};
   const auto dx = [] {
     std::array<int, SX> offsets{};
     for (int i = 0; i < SX; ++i) {
@@ -46,8 +43,7 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
 
   const auto build_access = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
                                           int i) {
-    return BuildUnifiedCellHoistedPointers<SX, SY, SZ>(data.in, b, v, k, j, i, strides, dx, dy,
-                                                        dz);
+    return BuildUnifiedCellHoistedPointers<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz);
   };
 
   const auto body_hoisted = KOKKOS_LAMBDA(const auto &access, int idx) {
