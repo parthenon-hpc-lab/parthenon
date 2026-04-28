@@ -3,11 +3,7 @@
 #include <chrono>
 
 #include "kernels.hpp"
-
-// The pattern file is intentionally included here so the template loop
-// implementations remain visible to this translation unit while the file can
-// still stay focused on loop mechanics.
-#include "loop_patterns.cpp"
+#include "loop_patterns.hpp"
 
 namespace plb2 {
 
