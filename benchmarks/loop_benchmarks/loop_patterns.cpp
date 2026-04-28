@@ -259,6 +259,7 @@ void RunCpuLogicalOVILoop(const Dataset &dataset, int inner_chunk_length, Body b
       const int logical_start = idx_out * inner_chunk_length;
       const int ninner = std::min(inner_chunk_length, cells_per_block - logical_start);
       for (int v = 0; v < nvar; ++v) {
+#pragma omp simd
         for (int idx = 0; idx < ninner; ++idx) {
           const auto [km, jm, im] = logical_idxer(logical_start + idx);
           data.out(b, v, km, jm, im) = body(data, b, v, km, jm, im);

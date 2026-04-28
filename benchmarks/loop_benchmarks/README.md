@@ -4,6 +4,15 @@ This benchmark provides a standalone loop microbenchmark executable inside
 Parthenon's `benchmarks/` tree. It preserves the current command-line interface
 of the benchmark while building directly with Parthenon's CMake configuration.
 
+The clean rewrite is being developed in
+[`benchmarks/loop_benchmarks_v2/`](../loop_benchmarks_v2/).
+
+For the benchmark objectives, constraints, and experimental plan, see
+[`GOALS.md`](./GOALS.md).
+
+For the proposed v2 organization of the benchmark code, see
+[`ARCHITECTURE.md`](./ARCHITECTURE.md).
+
 ## Build
 
 From the Parthenon repository root:
