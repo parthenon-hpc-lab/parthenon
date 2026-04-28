@@ -115,6 +115,7 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
   row.loop_name = ToString(spec.loop.kind);
   row.backend = spec.backend;
   row.nblocks = spec.problem.nblocks;
+  row.target_cells = spec.problem.target_cells;
   row.nvars = spec.problem.nvars;
   row.nz_interior = spec.problem.nz_interior;
   row.ny_interior = spec.problem.ny_interior;
@@ -127,6 +128,8 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
   row.stencil_z = spec.kernel.stencil_z;
   row.warmup = spec.warmup;
   row.repeats = spec.repeats;
+  row.logical_cells_per_block = static_cast<std::uint64_t>(dataset.problem.logical_indexer.size());
+  row.memory_cells_per_block = static_cast<std::uint64_t>(dataset.problem.memory_indexer.size());
   row.total_updates = CountUpdates(spec, dataset);
   row.avg_seconds = avg_seconds;
   row.min_seconds = min_seconds;

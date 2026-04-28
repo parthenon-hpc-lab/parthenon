@@ -1,6 +1,7 @@
 #include "benchmark_driver.hpp"
 
 #include <algorithm>
+#include <cstring>
 #include <iostream>
 
 #include "runner.hpp"
@@ -70,7 +71,7 @@ std::string Usage() {
       "Usage: loop-benchmarks-v2 [options]\n"
       "  --loop NAME\n"
       "  --backend NAME\n"
-      "  --nblocks N --nvars N --nz N --ny N --nx N --nghost N\n"
+      "  --nblocks N --target-cells N --nvars N --nz N --ny N --nx N --nghost N\n"
       "  --ninner N\n"
       "  --warmup N --repeats N\n"
       "  --niter N\n"
@@ -121,6 +122,17 @@ bool ParseArgs(int argc, char **argv, CaseSpec *spec, std::string *error) {
     } else if (arg == "--nghost") {
       const char *value = require_value(arg);
       if (value == nullptr || !ParseIntArg(value, &spec->problem.nghost)) return false;
+    } else if (arg == "--target-cells") {
+      const char *value = require_value(arg);
+      if (value == nullptr) return false;
+      try {
+        std::size_t pos = 0;
+        const std::uint64_t parsed = std::stoull(value, &pos);
+        if (pos != std::strlen(value)) return false;
+        spec->problem.target_cells = parsed;
+      } catch (...) {
+        return false;
+      }
     } else if (arg == "--ninner") {
       const char *value = require_value(arg);
       if (value == nullptr || !ParseIntArg(value, &spec->loop.ninner)) return false;
@@ -156,12 +168,7 @@ bool ParseArgs(int argc, char **argv, CaseSpec *spec, std::string *error) {
     }
     return false;
   }
-  if (spec->problem.vars_per_block.empty()) {
-    spec->problem.vars_per_block.assign(spec->problem.nblocks, spec->problem.nvars);
-  }
-  if (static_cast<int>(spec->problem.vars_per_block.size()) < spec->problem.nblocks) {
-    spec->problem.vars_per_block.resize(spec->problem.nblocks, spec->problem.nvars);
-  }
+  NormalizeCaseSpec(spec);
   return true;
 }
 

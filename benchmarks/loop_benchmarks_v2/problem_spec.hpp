@@ -71,6 +71,7 @@ struct BenchmarkRow {
   std::string loop_name;
   std::string backend;
   int nblocks = 0;
+  std::uint64_t target_cells = 0;
   int nvars = 0;
   int nz_interior = 0;
   int ny_interior = 0;
@@ -83,6 +84,8 @@ struct BenchmarkRow {
   int stencil_z = 0;
   int warmup = 0;
   int repeats = 0;
+  std::uint64_t memory_cells_per_block = 0;
+  std::uint64_t logical_cells_per_block = 0;
   std::uint64_t total_updates = 0;
   double avg_seconds = 0.0;
   double min_seconds = 0.0;
@@ -91,5 +94,6 @@ struct BenchmarkRow {
 
 LoopKind ParseLoopKind(const std::string &text);
 std::string ToString(LoopKind kind);
+void NormalizeCaseSpec(CaseSpec *spec);
 
 }  // namespace plb2

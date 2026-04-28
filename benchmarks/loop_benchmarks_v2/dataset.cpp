@@ -1,6 +1,7 @@
 #include "dataset.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 #include <Kokkos_Core.hpp>
 
@@ -13,6 +14,34 @@ int SelectNvarsForBlock(const CaseSpec &spec, int block) {
     return std::min(spec.problem.vars_per_block[block], spec.problem.nvars);
   }
   return spec.problem.nvars;
+}
+
+void NormalizeProblemSpec(ProblemSpec *problem) {
+  if (problem == nullptr) {
+    return;
+  }
+
+  if (problem->nblocks <= 0 && problem->target_cells > 0) {
+    const std::uint64_t cells_per_block =
+        static_cast<std::uint64_t>(problem->nz_interior) *
+        static_cast<std::uint64_t>(problem->ny_interior) *
+        static_cast<std::uint64_t>(problem->nx_interior);
+    if (cells_per_block > 0) {
+      const auto derived =
+          static_cast<std::uint64_t>(std::llround(static_cast<double>(problem->target_cells) /
+                                                  static_cast<double>(cells_per_block)));
+      problem->nblocks = static_cast<int>(std::max<std::uint64_t>(1, derived));
+    }
+  }
+  if (problem->nblocks <= 0) {
+    problem->nblocks = 1;
+  }
+  if (problem->vars_per_block.empty()) {
+    problem->vars_per_block.assign(problem->nblocks, problem->nvars);
+  }
+  if (static_cast<int>(problem->vars_per_block.size()) < problem->nblocks) {
+    problem->vars_per_block.resize(problem->nblocks, problem->nvars);
+  }
 }
 
 void InitializeDataViews(const CaseSpec &spec, const LoopData &data) {
@@ -35,9 +64,17 @@ void InitializeDataViews(const CaseSpec &spec, const LoopData &data) {
 
 }  // namespace
 
+void NormalizeCaseSpec(CaseSpec *spec) {
+  if (spec == nullptr) {
+    return;
+  }
+  NormalizeProblemSpec(&spec->problem);
+}
+
 Dataset BuildDataset(const CaseSpec &spec) {
   Dataset dataset;
   dataset.problem = spec.problem;
+  NormalizeProblemSpec(&dataset.problem);
 
   const auto logical_k = parthenon::IndexRange{spec.problem.nghost,
                                                 spec.problem.nghost + spec.problem.nz_interior - 1};

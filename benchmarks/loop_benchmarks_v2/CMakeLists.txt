@@ -12,6 +12,8 @@ if("loop-benchmarks-v2" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
       dataset.cpp
       dataset.hpp
       kernels.hpp
+      multicase.cpp
+      multicase.hpp
       loop_patterns.hpp
       problem_spec.hpp
       runner.cpp
