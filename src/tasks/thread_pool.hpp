@@ -136,7 +136,7 @@ class ThreadVector {
 
   TaskList &operator[](const int i) { return vec[i]; }
 
-  size_t size() const { return vec.size(); }
+  std::size_t size() const { return vec.size(); }
 
   // Pass through the bits we use of a vector for convenience
   typename std::vector<T>::iterator begin() { return vec.begin(); }

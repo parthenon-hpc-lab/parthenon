@@ -413,7 +413,7 @@ class ParameterInput {
   std::vector<std::string> GetVector_(const std::string &block, const std::string &name) {
     std::string s = GetString(block, name);
     std::string delimiter = ",";
-    size_t pos = 0;
+    std::size_t pos = 0;
     std::string token;
     std::vector<std::string> variables;
     while ((pos = s.find(delimiter)) != std::string::npos) {
@@ -430,11 +430,11 @@ class ParameterInput {
   template <typename T>
   std::string ConcatVector_(std::vector<T> &vec) {
     std::stringstream ss;
-    const size_t n = vec.size();
+    const std::size_t n = vec.size();
     if (n == 0) return "";
 
     ss << vec[0];
-    for (size_t i = 1; i < n; i++) {
+    for (std::size_t i = 1; i < n; i++) {
       ss << "," << vec[i];
     }
     return ss.str();

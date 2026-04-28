@@ -56,7 +56,7 @@ template <typename Data, typename State = empty_state_t>
   requires(::KokkosView<Data>)
 class ParArrayGeneric : public State {
  public:
-  using index_pair_t = std::pair<size_t, size_t>;
+  using index_pair_t = std::pair<std::size_t, std::size_t>;
   using base_t = Data;
   using state_t = State;
   using HostMirror = ParArrayGeneric<typename Data::host_mirror_type, State>;
@@ -236,7 +236,7 @@ class ParArrayGeneric : public State {
   }
 
   // a function to get the total size of the array
-  KOKKOS_INLINE_FUNCTION size_t GetSize() const {
+  KOKKOS_INLINE_FUNCTION std::size_t GetSize() const {
     return data_.size();
     // TODO(LFR) : Make sure there is no inconsistency here
     // return GetDim(1) * GetDim(2) * GetDim(3) * GetDim(4) * GetDim(5) * GetDim(6);

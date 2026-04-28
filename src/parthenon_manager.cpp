@@ -309,7 +309,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
   // Allocate space based on largest vector
   int num_sparse = 0;
-  size_t max_fillsize = 1;
+  std::size_t max_fillsize = 1;
   for (const auto &v_info : all_vars_info) {
     const auto &label = v_info.label;
 
@@ -337,7 +337,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   PARTHENON_REQUIRE_THROWS(
       num_sparse <= sparse_info.num_sparse,
       "Mismatch between sparse fields in simulation and restart file");
-  std::vector<Real> tmp(static_cast<size_t>(nb) * max_fillsize);
+  std::vector<Real> tmp(static_cast<std::size_t>(nb) * max_fillsize);
   for (const auto &v_info : all_vars_info) {
     const auto vlen = v_info.num_components * v_info.ntop_elems;
     const auto fill_size = v_info.FillSize(theDomain);
@@ -365,7 +365,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       PARTHENON_THROW(msg);
     }
 
-    size_t index = 0;
+    std::size_t index = 0;
     for (auto &pmb : rm.block_list) {
       if (v_info.is_sparse) {
         // check if the sparse variable is allocated on this block

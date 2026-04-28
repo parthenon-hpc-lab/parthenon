@@ -83,7 +83,7 @@ class SparsePack : public SparsePackBase {
 
   // Returns the total number of vars/components in pack
   KOKKOS_FORCEINLINE_FUNCTION
-  size_t GetSize() const { return size_; }
+  std::size_t GetSize() const { return size_; }
 
   KOKKOS_INLINE_FUNCTION
   const Coordinates_t &GetCoordinates(const int b = 0) const { return coords_(b)(); }

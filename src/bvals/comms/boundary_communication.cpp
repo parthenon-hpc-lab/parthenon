@@ -156,7 +156,7 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
     Kokkos::fence();
 #endif
   const bool coal_comm = pmesh->do_coalesced_comms;
-  for (size_t ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
+  for (std::size_t ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
     auto &buf = *cache.buf_vec[ibuf];
     if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
       buf.Send(coal_comm);

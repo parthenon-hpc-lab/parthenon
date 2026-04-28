@@ -128,7 +128,7 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
 
   std::vector<int> alloc_status_collection;
 
-  for (size_t i = 0; i < nblocks; i++) {
+  for (std::size_t i = 0; i < nblocks; i++) {
     const auto &pack = packing_function(block_data_[i], this_map, this_key);
     AppendKey(&total_key, &this_key);
     AllocationStatusCollector<P>::Append(&alloc_status_collection, pack);
@@ -158,7 +158,7 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
     ParArray1DRaw<P> packs(ViewOfViewAlloc("MeshData::PackVariables::packs"), nblocks);
     auto packs_host = create_view_of_view_mirror(packs);
 
-    for (size_t i = 0; i < nblocks; i++) {
+    for (std::size_t i = 0; i < nblocks; i++) {
       const auto &pack = packing_function(block_data_[i], this_map, this_key);
       packs_host(i) = pack;
     }

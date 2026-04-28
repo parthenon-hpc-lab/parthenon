@@ -66,8 +66,8 @@ void SwarmContainer::Add(const std::string &label, const Metadata &metadata) {
 // TODO(JMM): Should we support this operation
 void SwarmContainer::Remove(const std::string &label) {
   // Find index of swarm
-  size_t isize = swarmVector_.size();
-  size_t idx = 0;
+  std::size_t isize = swarmVector_.size();
+  std::size_t idx = 0;
   for (const auto &s : swarmVector_) {
     if (!label.compare(s->label())) {
       break;
@@ -191,7 +191,7 @@ bool SwarmContainer::operator==(const SwarmContainer &cmp) {
   std::vector<std::string> my_keys(swarmMap_.size());
   auto &cmpMap = cmp.GetSwarmMap();
   std::vector<std::string> cmp_keys(cmpMap.size());
-  size_t i = 0;
+  std::size_t i = 0;
   for (auto &s : swarmMap_) {
     my_keys[i] = s.first;
     i++;

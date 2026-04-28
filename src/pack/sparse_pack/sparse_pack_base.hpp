@@ -82,7 +82,7 @@ class SparsePackBase {
   bool flat_;
   int nblocks_;
   int nvar_;
-  size_t size_;
+  std::size_t size_;
 };
 
 } // namespace parthenon
