@@ -1,6 +1,8 @@
 #include "runner.hpp"
 
 #include <chrono>
+#include <limits>
+#include <utility>
 
 #include "kernels.hpp"
 #include "loop_patterns.hpp"
@@ -8,6 +10,27 @@
 namespace plb2 {
 
 namespace {
+
+template <typename RunFn>
+std::pair<double, double> TimeRepeatedRun(int warmup, int repeats, RunFn &&run_once) {
+  for (int i = 0; i < warmup; ++i) {
+    run_once();
+    Kokkos::fence();
+  }
+
+  double total_seconds = 0.0;
+  double best_seconds = std::numeric_limits<double>::infinity();
+  for (int i = 0; i < repeats; ++i) {
+    const auto start = std::chrono::steady_clock::now();
+    run_once();
+    Kokkos::fence();
+    const auto stop = std::chrono::steady_clock::now();
+    const double elapsed = std::chrono::duration<double>(stop - start).count();
+    total_seconds += elapsed;
+    best_seconds = std::min(best_seconds, elapsed);
+  }
+  return {total_seconds / std::max(repeats, 1), best_seconds};
+}
 
 template <int NITER, int SX, int SY, int SZ>
 BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
@@ -50,41 +73,43 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
     return ComputeUnifiedCellHoisted<NITER, SX, SY, SZ>(access, idx, alpha, beta);
   };
 
-  const auto start = std::chrono::steady_clock::now();
-  switch (spec.loop.kind) {
-    case LoopKind::CpuFlatGhosts:
-      RunCpuFlatGhosts(dataset, body_direct);
-      break;
-    case LoopKind::CpuBoviContiguous:
-      RunCpuBoviContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
-      break;
-    case LoopKind::CpuBoviLogical:
-      RunCpuBoviLogical(dataset, spec.loop.ninner, body_direct);
-      break;
-    case LoopKind::KokkosBoivFlat:
-      RunKokkosBoivFlat(dataset, body_direct);
-      break;
-    case LoopKind::KokkosBoviTeamContiguous:
-      RunKokkosBoviTeamContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
-      break;
-    case LoopKind::KokkosBoviTeamLogical:
-      RunKokkosBoviTeamLogical(dataset, spec.loop.ninner, body_direct);
-      break;
-    case LoopKind::CpuBoivContiguous:
-      RunCpuBoivContiguous(dataset, spec.loop.ninner, body_direct);
-      break;
-    case LoopKind::CpuBoivLogical:
-      RunCpuBoivLogical(dataset, spec.loop.ninner, body_direct);
-      break;
-    case LoopKind::CpuBvoiContiguous:
-      RunCpuBvoiContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
-      break;
-    case LoopKind::CpuBvoiLogical:
-      RunCpuBvoiLogical(dataset, spec.loop.ninner, body_direct);
-      break;
-  }
-  Kokkos::fence();
-  const auto stop = std::chrono::steady_clock::now();
+  const auto run_once = [&] {
+    switch (spec.loop.kind) {
+      case LoopKind::CpuFlatGhosts:
+        RunCpuFlatGhosts(dataset, body_direct);
+        break;
+      case LoopKind::CpuBoviContiguous:
+        RunCpuBoviContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
+        break;
+      case LoopKind::CpuBoviLogical:
+        RunCpuBoviLogical(dataset, spec.loop.ninner, body_direct);
+        break;
+      case LoopKind::KokkosBoivFlat:
+        RunKokkosBoivFlat(dataset, body_direct);
+        break;
+      case LoopKind::KokkosBoviTeamContiguous:
+        RunKokkosBoviTeamContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
+        break;
+      case LoopKind::KokkosBoviTeamLogical:
+        RunKokkosBoviTeamLogical(dataset, spec.loop.ninner, body_direct);
+        break;
+      case LoopKind::CpuBoivContiguous:
+        RunCpuBoivContiguous(dataset, spec.loop.ninner, body_direct);
+        break;
+      case LoopKind::CpuBoivLogical:
+        RunCpuBoivLogical(dataset, spec.loop.ninner, body_direct);
+        break;
+      case LoopKind::CpuBvoiContiguous:
+        RunCpuBvoiContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
+        break;
+      case LoopKind::CpuBvoiLogical:
+        RunCpuBvoiLogical(dataset, spec.loop.ninner, body_direct);
+        break;
+    }
+  };
+
+  const auto [avg_seconds, min_seconds] =
+      TimeRepeatedRun(spec.warmup, spec.repeats, run_once);
 
   BenchmarkRow row;
   row.loop_name = ToString(spec.loop.kind);
@@ -100,9 +125,12 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
   row.stencil_x = spec.kernel.stencil_x;
   row.stencil_y = spec.kernel.stencil_y;
   row.stencil_z = spec.kernel.stencil_z;
+  row.warmup = spec.warmup;
+  row.repeats = spec.repeats;
   row.total_updates = CountUpdates(spec, dataset);
-  row.min_seconds = std::chrono::duration<double>(stop - start).count();
-  row.updates_per_second = static_cast<double>(row.total_updates) / row.min_seconds;
+  row.avg_seconds = avg_seconds;
+  row.min_seconds = min_seconds;
+  row.updates_per_second = static_cast<double>(row.total_updates) / row.avg_seconds;
   return row;
 }
 

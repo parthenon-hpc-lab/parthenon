@@ -72,6 +72,7 @@ std::string Usage() {
       "  --backend NAME\n"
       "  --nblocks N --nvars N --nz N --ny N --nx N --nghost N\n"
       "  --ninner N\n"
+      "  --warmup N --repeats N\n"
       "  --niter N\n"
       "  --stencil-x N --stencil-y N --stencil-z N\n";
 }
@@ -123,6 +124,12 @@ bool ParseArgs(int argc, char **argv, CaseSpec *spec, std::string *error) {
     } else if (arg == "--ninner") {
       const char *value = require_value(arg);
       if (value == nullptr || !ParseIntArg(value, &spec->loop.ninner)) return false;
+    } else if (arg == "--warmup") {
+      const char *value = require_value(arg);
+      if (value == nullptr || !ParseIntArg(value, &spec->warmup)) return false;
+    } else if (arg == "--repeats") {
+      const char *value = require_value(arg);
+      if (value == nullptr || !ParseIntArg(value, &spec->repeats)) return false;
     } else if (arg == "--niter") {
       const char *value = require_value(arg);
       if (value == nullptr || !ParseIntArg(value, &spec->kernel.niter)) return false;
@@ -143,6 +150,12 @@ bool ParseArgs(int argc, char **argv, CaseSpec *spec, std::string *error) {
     }
   }
 
+  if (spec->warmup < 0 || spec->repeats < 1) {
+    if (error != nullptr) {
+      *error = "warmup must be >= 0 and repeats must be >= 1";
+    }
+    return false;
+  }
   if (spec->problem.vars_per_block.empty()) {
     spec->problem.vars_per_block.assign(spec->problem.nblocks, spec->problem.nvars);
   }
@@ -156,6 +169,10 @@ int RunBenchmark(const CaseSpec &spec) {
   const BenchmarkRow row = RunCase(spec);
   std::cout << row.loop_name << " "
             << "backend=" << row.backend << " "
+            << "warmup=" << row.warmup << " "
+            << "repeats=" << row.repeats << " "
+            << "avg_seconds=" << row.avg_seconds << " "
+            << "min_seconds=" << row.min_seconds << " "
             << "updates_per_second=" << row.updates_per_second << '\n';
   return 0;
 }

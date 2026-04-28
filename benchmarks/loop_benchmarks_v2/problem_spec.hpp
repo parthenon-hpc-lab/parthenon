@@ -81,7 +81,10 @@ struct BenchmarkRow {
   int stencil_x = 0;
   int stencil_y = 0;
   int stencil_z = 0;
+  int warmup = 0;
+  int repeats = 0;
   std::uint64_t total_updates = 0;
+  double avg_seconds = 0.0;
   double min_seconds = 0.0;
   double updates_per_second = 0.0;
 };
