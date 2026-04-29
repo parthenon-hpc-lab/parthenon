@@ -111,6 +111,29 @@ std::vector<int> ParseVarsPerBlock(const std::string &value) {
   return vars;
 }
 
+std::vector<int> ParseOffsetSet(const std::string &value) {
+  std::vector<int> offsets;
+  std::string normalized = value;
+  for (char &ch : normalized) {
+    if (ch == ';') {
+      ch = ',';
+    }
+  }
+  std::stringstream ss(normalized);
+  std::string item;
+  while (std::getline(ss, item, ',')) {
+    item = Trim(item);
+    if (item.empty()) {
+      continue;
+    }
+    int parsed = 0;
+    if (ParseInt(item, &parsed)) {
+      offsets.push_back(parsed);
+    }
+  }
+  return offsets;
+}
+
 bool WriteResultsCsv(const std::string &results_csv, const BenchmarkRow &row, bool append,
                      std::string *error) {
   namespace fs = std::filesystem;
@@ -137,8 +160,9 @@ bool WriteResultsCsv(const std::string &results_csv, const BenchmarkRow &row, bo
 
   if (!exists || !append) {
     out << "loop,backend,nblocks,target_cells,nvars,nz_interior,ny_interior,nx_interior,nghost,"
-           "ninner,niter,stencil_x,stencil_y,stencil_z,warmup,repeats,logical_cells_per_block,"
-           "memory_cells_per_block,total_updates,avg_seconds,min_seconds,updates_per_second\n";
+           "ninner,access_mode,niter,stencil_x,stencil_y,stencil_z,kernel_label,warmup,repeats,"
+           "logical_cells_per_block,memory_cells_per_block,total_updates,touched_cells,"
+           "avg_seconds,min_seconds,updates_per_second,touched_cells_per_second\n";
   }
 
   out << CsvEscape(row.loop_name) << ','
@@ -151,18 +175,22 @@ bool WriteResultsCsv(const std::string &results_csv, const BenchmarkRow &row, bo
       << row.nx_interior << ','
       << row.nghost << ','
       << row.ninner << ','
+      << CsvEscape(row.access_mode) << ','
       << row.niter << ','
-      << row.stencil_x << ','
-      << row.stencil_y << ','
-      << row.stencil_z << ','
+      << CsvEscape(row.stencil_x) << ','
+      << CsvEscape(row.stencil_y) << ','
+      << CsvEscape(row.stencil_z) << ','
+      << CsvEscape(row.kernel_label) << ','
       << row.warmup << ','
       << row.repeats << ','
       << row.logical_cells_per_block << ','
       << row.memory_cells_per_block << ','
       << row.total_updates << ','
+      << row.touched_cells << ','
       << row.avg_seconds << ','
       << row.min_seconds << ','
-      << row.updates_per_second << '\n';
+      << row.updates_per_second << ','
+      << row.touched_cells_per_second << '\n';
 
   return true;
 }
@@ -220,6 +248,10 @@ bool ParseCaseRow(const std::unordered_map<std::string, std::size_t> &columns,
     if (error != nullptr) *error = "bad ninner value";
     return false;
   }
+  const std::string access_mode = Trim(get("access_mode"));
+  if (!access_mode.empty()) {
+    spec->loop.access_mode = access_mode;
+  }
   if (!Trim(get("warmup")).empty() && !ParseInt(get("warmup"), &spec->warmup)) {
     if (error != nullptr) *error = "bad warmup value";
     return false;
@@ -232,17 +264,26 @@ bool ParseCaseRow(const std::unordered_map<std::string, std::size_t> &columns,
     if (error != nullptr) *error = "bad niter value";
     return false;
   }
-  if (!Trim(get("stencil_x")).empty() && !ParseInt(get("stencil_x"), &spec->kernel.stencil_x)) {
-    if (error != nullptr) *error = "bad stencil_x value";
-    return false;
+  if (!Trim(get("stencil_x")).empty()) {
+    spec->kernel.stencil_x = ParseOffsetSet(get("stencil_x"));
+    if (spec->kernel.stencil_x.empty()) {
+      if (error != nullptr) *error = "bad stencil_x value";
+      return false;
+    }
   }
-  if (!Trim(get("stencil_y")).empty() && !ParseInt(get("stencil_y"), &spec->kernel.stencil_y)) {
-    if (error != nullptr) *error = "bad stencil_y value";
-    return false;
+  if (!Trim(get("stencil_y")).empty()) {
+    spec->kernel.stencil_y = ParseOffsetSet(get("stencil_y"));
+    if (spec->kernel.stencil_y.empty()) {
+      if (error != nullptr) *error = "bad stencil_y value";
+      return false;
+    }
   }
-  if (!Trim(get("stencil_z")).empty() && !ParseInt(get("stencil_z"), &spec->kernel.stencil_z)) {
-    if (error != nullptr) *error = "bad stencil_z value";
-    return false;
+  if (!Trim(get("stencil_z")).empty()) {
+    spec->kernel.stencil_z = ParseOffsetSet(get("stencil_z"));
+    if (spec->kernel.stencil_z.empty()) {
+      if (error != nullptr) *error = "bad stencil_z value";
+      return false;
+    }
   }
 
   const std::string vars_per_block = Trim(get("vars_per_block"));

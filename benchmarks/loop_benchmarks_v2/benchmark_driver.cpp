@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstring>
 #include <iostream>
+#include <sstream>
 
 #include "runner.hpp"
 
@@ -22,6 +23,27 @@ bool ParseIntArg(const std::string &value, int *output) {
   } catch (...) {
     return false;
   }
+}
+
+std::vector<int> ParseOffsetArg(std::string value) {
+  std::vector<int> offsets;
+  for (char &ch : value) {
+    if (ch == ';') {
+      ch = ',';
+    }
+  }
+  std::stringstream ss(value);
+  std::string item;
+  while (std::getline(ss, item, ',')) {
+    if (item.empty()) {
+      continue;
+    }
+    int parsed = 0;
+    if (ParseIntArg(item, &parsed)) {
+      offsets.push_back(parsed);
+    }
+  }
+  return offsets;
 }
 
 }  // namespace
@@ -71,11 +93,13 @@ std::string Usage() {
       "Usage: loop-benchmarks-v2 [options]\n"
       "  --loop NAME\n"
       "  --backend NAME\n"
+      "  --access-mode direct|hoisted\n"
       "  --nblocks N --target-cells N --nvars N --nz N --ny N --nx N --nghost N\n"
       "  --ninner N\n"
       "  --warmup N --repeats N\n"
       "  --niter N\n"
-      "  --stencil-x N --stencil-y N --stencil-z N\n";
+      "  --stencil-x OFFSETS --stencil-y OFFSETS --stencil-z OFFSETS\n"
+      "    OFFSETS may be a single integer or a comma/semicolon-separated list.\n";
 }
 
 bool ParseArgs(int argc, char **argv, CaseSpec *spec, std::string *error) {
@@ -104,6 +128,10 @@ bool ParseArgs(int argc, char **argv, CaseSpec *spec, std::string *error) {
       const char *value = require_value(arg);
       if (value == nullptr) return false;
       spec->backend = value;
+    } else if (arg == "--access-mode") {
+      const char *value = require_value(arg);
+      if (value == nullptr) return false;
+      spec->loop.access_mode = value;
     } else if (arg == "--nblocks") {
       const char *value = require_value(arg);
       if (value == nullptr || !ParseIntArg(value, &spec->problem.nblocks)) return false;
@@ -147,13 +175,19 @@ bool ParseArgs(int argc, char **argv, CaseSpec *spec, std::string *error) {
       if (value == nullptr || !ParseIntArg(value, &spec->kernel.niter)) return false;
     } else if (arg == "--stencil-x") {
       const char *value = require_value(arg);
-      if (value == nullptr || !ParseIntArg(value, &spec->kernel.stencil_x)) return false;
+      if (value == nullptr) return false;
+      spec->kernel.stencil_x = ParseOffsetArg(value);
+      if (spec->kernel.stencil_x.empty()) return false;
     } else if (arg == "--stencil-y") {
       const char *value = require_value(arg);
-      if (value == nullptr || !ParseIntArg(value, &spec->kernel.stencil_y)) return false;
+      if (value == nullptr) return false;
+      spec->kernel.stencil_y = ParseOffsetArg(value);
+      if (spec->kernel.stencil_y.empty()) return false;
     } else if (arg == "--stencil-z") {
       const char *value = require_value(arg);
-      if (value == nullptr || !ParseIntArg(value, &spec->kernel.stencil_z)) return false;
+      if (value == nullptr) return false;
+      spec->kernel.stencil_z = ParseOffsetArg(value);
+      if (spec->kernel.stencil_z.empty()) return false;
     } else {
       if (error != nullptr) {
         *error = "unknown argument: " + arg;
@@ -168,6 +202,14 @@ bool ParseArgs(int argc, char **argv, CaseSpec *spec, std::string *error) {
     }
     return false;
   }
+  if (spec->loop.access_mode.empty()) {
+    spec->loop.access_mode =
+        (spec->loop.kind == LoopKind::CpuBoviContiguous ||
+         spec->loop.kind == LoopKind::CpuBvoiContiguous ||
+         spec->loop.kind == LoopKind::KokkosBoviTeamContiguous)
+            ? "hoisted"
+            : "direct";
+  }
   NormalizeCaseSpec(spec);
   return true;
 }
@@ -176,6 +218,8 @@ int RunBenchmark(const CaseSpec &spec) {
   const BenchmarkRow row = RunCase(spec);
   std::cout << row.loop_name << " "
             << "backend=" << row.backend << " "
+            << "access_mode=" << row.access_mode << " "
+            << "kernel=" << row.kernel_label << " "
             << "warmup=" << row.warmup << " "
             << "repeats=" << row.repeats << " "
             << "avg_seconds=" << row.avg_seconds << " "

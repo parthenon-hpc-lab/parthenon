@@ -21,5 +21,6 @@ struct Dataset {
 Dataset BuildDataset(const CaseSpec &spec);
 void PrepareDataset(const CaseSpec &spec, Dataset *dataset);
 std::uint64_t CountUpdates(const CaseSpec &spec, const Dataset &dataset);
+std::uint64_t CountTouchedCells(const CaseSpec &spec, const Dataset &dataset);
 
 }  // namespace plb2

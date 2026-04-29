@@ -12,6 +12,15 @@ import textwrap
 from collections import defaultdict
 from pathlib import Path
 
+os.environ.setdefault("MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "parthenon-loop-mpl"))
+os.environ.setdefault("XDG_CACHE_HOME", tempfile.gettempdir())
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+
 
 DEFAULT_LOOPS = [
     "cpu_flat_ghosts",
@@ -26,44 +35,92 @@ DEFAULT_LOOPS = [
     "kokkos_bovi_team_logical",
 ]
 
-LOOP_STYLES = {
-    "cpu_flat_ghosts": ("#264653", "o"),
-    "cpu_boiv_contiguous": ("#6d597a", "s"),
-    "cpu_bovi_contiguous": ("#2a9d8f", "^"),
-    "cpu_bvoi_contiguous": ("#b56576", "D"),
-    "cpu_boiv_logical": ("#457b9d", "<"),
-    "cpu_bovi_logical": ("#f4a261", ">"),
-    "cpu_bvoi_logical": ("#8ab17d", "P"),
-    "kokkos_boiv_flat": ("#1d3557", "o"),
-    "kokkos_bovi_team_contiguous": ("#7f5539", "s"),
-    "kokkos_bovi_team_logical": ("#bc6c25", "^"),
+LOOP_ACCESS_MODES = {
+    "cpu_flat_ghosts": ["direct", "hoisted"],
+    "cpu_boiv_contiguous": ["direct"],
+    "cpu_bovi_contiguous": ["direct", "hoisted"],
+    "cpu_bvoi_contiguous": ["direct", "hoisted"],
+    "cpu_boiv_logical": ["direct"],
+    "cpu_bovi_logical": ["direct"],
+    "cpu_bvoi_logical": ["direct"],
+    "kokkos_boiv_flat": ["direct"],
+    "kokkos_bovi_team_contiguous": ["direct", "hoisted"],
+    "kokkos_bovi_team_logical": ["direct"],
 }
 
-PAGE_W = 612.0
-PAGE_H = 792.0
-MARGIN = 42.0
+LOOP_STYLE = {
+    # Okabe-Ito colorblind-safe palette, with marker shape carrying extra identity.
+    "cpu_flat_ghosts": ("#000000", "o"),
+    "cpu_boiv_contiguous": ("#0072B2", "s"),
+    "cpu_bovi_contiguous": ("#E69F00", "^"),
+    "cpu_bvoi_contiguous": ("#009E73", "D"),
+    "cpu_boiv_logical": ("#D55E00", "<"),
+    "cpu_bovi_logical": ("#CC79A7", ">"),
+    "cpu_bvoi_logical": ("#56B4E9", "P"),
+    "kokkos_boiv_flat": ("#F0E442", "X"),
+    "kokkos_bovi_team_contiguous": ("#882255", "v"),
+    "kokkos_bovi_team_logical": ("#44AA99", "*"),
+}
+
+ACCESS_STYLE = {
+    "direct": "-",
+    "hoisted": "--",
+}
 
 
 def parse_csv_ints(text):
     return [int(part.strip()) for part in text.split(",") if part.strip()]
 
 
+def parse_stencil_shapes(text):
+    aliases = {
+        "point": ("0", "0", "0"),
+        "x3": ("-1;0;1", "0", "0"),
+        "y3": ("0", "-1;0;1", "0"),
+        "z3": ("0", "0", "-1;0;1"),
+    }
+    shapes = []
+    for part in text.split(","):
+        name = part.strip()
+        if not name:
+            continue
+        if name in aliases:
+            shapes.append(aliases[name])
+            continue
+        pieces = name.split("/")
+        if len(pieces) != 3:
+            raise ValueError(f"bad stencil shape '{name}'")
+        shapes.append(tuple(pieces))
+    return shapes
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Run the v2 loop benchmark analysis.")
+    parser.add_argument("--analysis-mode", choices=["standard", "ninner", "full"], default="standard")
     parser.add_argument("--binary", default="build-make/benchmarks/loop_benchmarks_v2/loop-benchmarks-v2")
     parser.add_argument("--output-dir", default="reports/loop_benchmarks_v2")
     parser.add_argument("--title", default="Parthenon Loop Benchmark v2")
     parser.add_argument("--loops", default=",".join(DEFAULT_LOOPS))
-    parser.add_argument("--edge-values", default="4,8,16,32,64")
-    parser.add_argument("--target-total-cells", type=int, default=8_388_608)
+    parser.add_argument("--edge-values", default="8,32,128")
+    parser.add_argument(
+        "--ninner-values",
+        default="",
+        help="Comma-separated ninner values. Defaults to edge^2 for each block edge.",
+    )
+    parser.add_argument("--niter-values", default="1,16,128")
+    parser.add_argument("--target-total-cells", type=int, default=1_048_576)
     parser.add_argument("--nvars", type=int, default=16)
     parser.add_argument("--nghost", type=int, default=2)
-    parser.add_argument("--niter", type=int, default=4)
-    parser.add_argument("--stencil-x", type=int, default=1)
-    parser.add_argument("--stencil-y", type=int, default=1)
-    parser.add_argument("--stencil-z", type=int, default=1)
-    parser.add_argument("--warmup", type=int, default=2)
-    parser.add_argument("--repeats", type=int, default=5)
+    parser.add_argument("--stencil-x", default="0")
+    parser.add_argument("--stencil-y", default="0")
+    parser.add_argument("--stencil-z", default="0")
+    parser.add_argument(
+        "--stencil-shapes",
+        default="",
+        help="Comma-separated aliases point,x3,y3,z3 or explicit x/y/z offset strings.",
+    )
+    parser.add_argument("--warmup", type=int, default=1)
+    parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--backend", default="Serial")
     return parser.parse_args()
 
@@ -180,12 +237,23 @@ def collect_metadata(binary):
     return meta
 
 
-def write_cases_csv(path, loops, edge_values, args):
+def write_cases_csv(path, loops, edge_values, ninner_values, stencil_shapes, args):
+    niter_values = parse_csv_ints(args.niter_values)
+
+    def kernel_label(niter, stencil_x, stencil_y, stencil_z):
+        offsets = f"offsets=x{{{stencil_x}}}y{{{stencil_y}}}z{{{stencil_z}}}"
+        return f"niter={niter},{offsets}"
+
+    def is_pointwise(stencil):
+        return stencil == ("0", "0", "0")
+
     with open(path, "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(
             handle,
             fieldnames=[
                 "loop",
+                "access_mode",
+                "kernel_label",
                 "backend",
                 "nblocks",
                 "target_cells",
@@ -206,31 +274,48 @@ def write_cases_csv(path, loops, edge_values, args):
         )
         writer.writeheader()
         for edge in edge_values:
+            edge_ninner_values = ninner_values if ninner_values else [edge * edge]
             for loop in loops:
-                writer.writerow(
-                    {
-                        "loop": loop,
-                        "backend": args.backend,
-                        "nblocks": 0,
-                        "target_cells": args.target_total_cells,
-                        "nvars": args.nvars,
-                        "nz": edge,
-                        "ny": edge,
-                        "nx": edge,
-                        "nghost": args.nghost,
-                        "ninner": edge * edge,
-                        "niter": args.niter,
-                        "stencil_x": args.stencil_x,
-                        "stencil_y": args.stencil_y,
-                        "stencil_z": args.stencil_z,
-                        "warmup": args.warmup,
-                        "repeats": args.repeats,
-                        "vars_per_block": "",
-                    }
-                )
+                loop_stencil_shapes = [
+                    stencil for stencil in stencil_shapes
+                    if loop != "cpu_flat_ghosts" or is_pointwise(stencil)
+                ]
+                for access_mode in LOOP_ACCESS_MODES.get(loop, ["direct"]):
+                    for ninner in edge_ninner_values:
+                        for stencil_x, stencil_y, stencil_z in loop_stencil_shapes:
+                            for niter in niter_values:
+                                writer.writerow(
+                                    {
+                                        "loop": loop,
+                                        "access_mode": access_mode,
+                                        "kernel_label": kernel_label(
+                                            niter, stencil_x, stencil_y, stencil_z
+                                        ),
+                                        "backend": args.backend,
+                                        "nblocks": 0,
+                                        "target_cells": args.target_total_cells,
+                                        "nvars": args.nvars,
+                                        "nz": edge,
+                                        "ny": edge,
+                                        "nx": edge,
+                                        "nghost": args.nghost,
+                                        "ninner": ninner,
+                                        "niter": niter,
+                                        "stencil_x": stencil_x,
+                                        "stencil_y": stencil_y,
+                                        "stencil_z": stencil_z,
+                                        "warmup": args.warmup,
+                                        "repeats": args.repeats,
+                                        "vars_per_block": "",
+                                    }
+                                )
 
 
 def run_binary(binary, cases_csv, results_csv):
+    cases_csv = Path(cases_csv)
+    results_csv = Path(results_csv)
+    if results_csv.exists():
+        results_csv.unlink()
     subprocess.run([binary, "--cases", cases_csv, "--csv-out", results_csv], check=True)
 
 
@@ -253,14 +338,37 @@ def numericize_rows(rows):
 
 
 def row_edge(row):
-    return row.get("nx", row.get("nx_interior"))
+    return row.get("nx_interior", row.get("nx"))
 
 
 def row_blocks(row):
     return row.get("nblocks", row.get("blocks"))
 
 
-def wrap_lines(items, width=86):
+def row_kernel(row):
+    return row.get("kernel_label", "unknown")
+
+
+def row_access_mode(row):
+    return row.get("access_mode", "direct")
+
+
+def series_key(row, x_key="edge"):
+    if x_key == "ninner":
+        return (row_kernel(row), row["loop"], row_access_mode(row), row_edge(row))
+    return (row_kernel(row), row["loop"], row_access_mode(row))
+
+
+def series_label(row, include_kernel=False, include_edge=False):
+    label = f"{row['loop']} [{row_access_mode(row)}]"
+    if include_edge:
+        label = f"{label}, edge={row_edge(row)}"
+    if include_kernel:
+        return f"{row_kernel(row)} | {label}"
+    return label
+
+
+def wrap_lines(items, width=94):
     lines = []
     for item in items:
         if item == "":
@@ -272,247 +380,187 @@ def wrap_lines(items, width=86):
     return lines
 
 
-def pdf_escape(text):
-    return text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+def add_text_page(pdf, title, lines):
+    fig, ax = plt.subplots(figsize=(8.5, 11))
+    ax.axis("off")
+    ax.set_title(title, loc="left", fontsize=14, pad=12)
+    ax.text(
+        0.05,
+        0.97,
+        "\n".join(wrap_lines(lines)),
+        va="top",
+        ha="left",
+        family="monospace",
+        fontsize=10.5,
+    )
+    pdf.savefig(fig, bbox_inches="tight")
+    plt.close(fig)
 
 
-class PdfBuilder:
-    def __init__(self):
-        self.pages = []
+def row_x(row, x_key):
+    if x_key == "ninner":
+        return row["ninner"]
+    return row_edge(row)
 
-    def add_page(self, commands):
-        self.pages.append(commands)
 
-    def _obj(self, obj_id, body):
-        return f"{obj_id} 0 obj\n{body}\nendobj\n"
+def plot_series(ax, rows, y_key, y_label, title, x_key="edge"):
+    by_loop = defaultdict(list)
+    for row in rows:
+        by_loop[series_key(row, x_key)].append(row)
 
-    def write(self, path):
-        objects = []
-        font_id = 1
-        objects.append(self._obj(font_id, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"))
-
-        page_ids = []
-        content_ids = []
-        next_id = 2
-        for _ in self.pages:
-            content_ids.append(next_id)
-            page_ids.append(next_id + 1)
-            next_id += 2
-
-        pages_tree_id = next_id
-        catalog_id = next_id + 1
-
-        for page_commands, content_id in zip(self.pages, content_ids):
-            stream = page_commands.encode("utf-8")
-            content = f"<< /Length {len(stream)} >>\nstream\n".encode("utf-8") + stream + b"\nendstream"
-            objects.append(self._obj(content_id, content.decode("latin1")))
-
-        for page_id, content_id in zip(page_ids, content_ids):
-            page_body = (
-                f"<< /Type /Page /Parent {pages_tree_id} 0 R /MediaBox [0 0 {PAGE_W} {PAGE_H}] "
-                f"/Resources << /Font << /F1 {font_id} 0 R >> >> /Contents {content_id} 0 R >>"
-            )
-            objects.append(self._obj(page_id, page_body))
-
-        kids = " ".join(f"{pid} 0 R" for pid in page_ids)
-        objects.append(self._obj(pages_tree_id, f"<< /Type /Pages /Kids [{kids}] /Count {len(page_ids)} >>"))
-        objects.append(self._obj(catalog_id, f"<< /Type /Catalog /Pages {pages_tree_id} 0 R >>"))
-
-        xref_offsets = []
-        pdf = ["%PDF-1.4\n"]
-        for obj in objects:
-            xref_offsets.append(sum(len(part.encode("latin1")) for part in pdf))
-            pdf.append(obj)
-        xref_start = sum(len(part.encode("latin1")) for part in pdf)
-        pdf.append(f"xref\n0 {len(objects)+1}\n")
-        pdf.append("0000000000 65535 f \n")
-        for offset in xref_offsets:
-            pdf.append(f"{offset:010d} 00000 n \n")
-        pdf.append(
-            f"trailer << /Size {len(objects)+1} /Root {catalog_id} 0 R >>\nstartxref\n{xref_start}\n%%EOF\n"
+    for key, points in sorted(by_loop.items()):
+        points = sorted(points, key=lambda row: row_x(row, x_key))
+        xs = [row_x(row, x_key) for row in points]
+        ys = [row[y_key] for row in points]
+        _kernel, loop, access_mode = key[:3]
+        color, marker = LOOP_STYLE.get(loop, ("#333333", "o"))
+        linestyle = ACCESS_STYLE.get(access_mode, "-")
+        ax.plot(
+            xs,
+            ys,
+            color=color,
+            marker=marker,
+            linestyle=linestyle,
+            linewidth=2.0,
+            markersize=5,
+            label=series_label(points[0], include_kernel=False, include_edge=(x_key == "ninner")),
         )
 
-        with open(path, "wb") as handle:
-            handle.write("".join(pdf).encode("latin1"))
+    ax.set_xlabel("ninner" if x_key == "ninner" else "block edge length")
+    ax.set_ylabel(y_label)
+    ax.set_title(title)
+    ax.set_xscale("log", base=2)
+    ax.set_xlim(
+        left=min(row_x(r, x_key) for r in rows) * 0.9,
+        right=max(row_x(r, x_key) for r in rows) * 1.1,
+    )
+    ax.set_ylim(bottom=0)
+    ax.grid(True, which="both", alpha=0.25)
+    ax.legend(fontsize=8, ncol=2, frameon=False)
 
 
-def text_page(title, lines):
-    commands = []
-    commands.append("BT")
-    commands.append("/F1 18 Tf")
-    commands.append(f"50 {PAGE_H - 45:.1f} Td")
-    commands.append(f"({pdf_escape(title)}) Tj")
-    commands.append("ET")
-    y = PAGE_H - 75
-    for line in wrap_lines(lines, width=88):
-        if line == "":
-            y -= 10
-            continue
-        commands.append("BT")
-        commands.append("/F1 10 Tf")
-        commands.append(f"50 {y:.1f} Td")
-        commands.append(f"({pdf_escape(line)}) Tj")
-        commands.append("ET")
-        y -= 12
-    return "\n".join(commands)
+def add_plot_page(pdf, rows, title, y_key, y_label, x_key="edge"):
+    fig, ax = plt.subplots(figsize=(10, 7))
+    plot_series(ax, rows, y_key, y_label, title, x_key)
+    fig.tight_layout()
+    pdf.savefig(fig, bbox_inches="tight")
+    plt.close(fig)
 
 
-def line_plot_page(title, rows, value_key, y_label):
-    groups = defaultdict(list)
-    for row in rows:
-        groups[row["loop"]].append(row)
-
-    series = []
-    for loop, points in sorted(groups.items()):
-        points = sorted(points, key=row_edge)
-        xs = [row_edge(row) for row in points]
-        ys = [row[value_key] for row in points]
-        series.append((loop, xs, ys))
-
-    all_x = sorted({x for _loop, xs, _ys in series for x in xs})
-    all_y = [y for _loop, _xs, ys in series for y in ys]
-    x_min = min(all_x)
-    x_max = max(all_x)
-    y_min = min(all_y)
-    y_max = max(all_y)
-    if math.isclose(y_min, y_max):
-        y_max = y_min + 1.0
-
-    left, right = 80.0, 560.0
-    bottom, top = 110.0, 670.0
-
-    def x_map(value):
-        if x_max == x_min:
-            return left
-        return left + (value - x_min) * (right - left) / (x_max - x_min)
-
-    def y_map(value):
-        return bottom + (value - y_min) * (top - bottom) / (y_max - y_min)
-
-    cmds = []
-    cmds.append("0 0 0 RG")
-    cmds.append("0 0 0 rg")
-    cmds.append("BT /F1 16 Tf")
-    cmds.append(f"50 {PAGE_H - 45:.1f} Td")
-    cmds.append(f"({pdf_escape(title)}) Tj")
-    cmds.append("ET")
-    cmds.append(f"{left} {bottom} m {right} {bottom} l {right} {top} l S")
-    cmds.append(f"BT /F1 10 Tf {((left+right)/2)-40:.1f} {70:.1f} Td ({pdf_escape('block edge length')}) Tj ET")
-    cmds.append(f"BT /F1 10 Tf 20 {(bottom+top)/2:.1f} Td ({pdf_escape(y_label)}) Tj ET")
-
-    for x in all_x:
-        xpos = x_map(x)
-        cmds.append(f"0.85 0.85 0.85 RG")
-        cmds.append(f"{xpos:.1f} {bottom} m {xpos:.1f} {top} l S")
-        cmds.append("0 0 0 RG")
-        cmds.append(f"BT /F1 9 Tf {xpos-8:.1f} {bottom-16:.1f} Td ({x}) Tj ET")
-
-    for tick in range(5):
-        value = y_min + (y_max - y_min) * tick / 4.0
-        ypos = y_map(value)
-        cmds.append("0.85 0.85 0.85 RG")
-        cmds.append(f"{left} {ypos:.1f} m {right} {ypos:.1f} l S")
-        cmds.append("0 0 0 RG")
-        cmds.append(f"BT /F1 9 Tf {left-42:.1f} {ypos-3:.1f} Td ({value:.2e}) Tj ET")
-
-    legend_x = 370.0
-    legend_y = 690.0
-    for loop, xs, ys in series:
-        color, _marker = LOOP_STYLES.get(loop, ("#000000", "o"))
-        r = int(color[1:3], 16) / 255.0
-        g = int(color[3:5], 16) / 255.0
-        b = int(color[5:7], 16) / 255.0
-        cmds.append(f"{r:.3f} {g:.3f} {b:.3f} RG")
-        cmds.append(f"{r:.3f} {g:.3f} {b:.3f} rg")
-        points = list(zip(xs, ys))
-        for (x0, y0), (x1, y1) in zip(points, points[1:]):
-            cmds.append(f"{x_map(x0):.1f} {y_map(y0):.1f} m {x_map(x1):.1f} {y_map(y1):.1f} l S")
-        for x0, y0 in points:
-            cmds.append(f"{x_map(x0)-2:.1f} {y_map(y0)-2:.1f} 4 4 re f")
-        cmds.append("0 0 0 RG")
-        cmds.append(f"BT /F1 9 Tf {legend_x:.1f} {legend_y:.1f} Td ({pdf_escape(loop)}) Tj ET")
-        legend_y -= 12
-
-    return "\n".join(cmds)
-
-
-def summary_page(title, rows):
+def add_summary_page(pdf, rows, title):
     best = {}
     for row in rows:
-        loop = row["loop"]
-        current = best.get(loop)
-        if current is None or row["updates_per_second"] > current["updates_per_second"]:
-            best[loop] = row
+        key = series_key(row)
+        if key not in best or row["updates_per_second"] > best[key]["updates_per_second"]:
+            best[key] = row
 
     lines = [title, ""]
-    for loop in sorted(best):
-        row = best[loop]
+    for key in sorted(best):
+        row = best[key]
         lines.append(
-            f"{loop}: {row['updates_per_second']:.3e} updates/s at edge={row_edge(row)} blocks={row_blocks(row)}"
+            f"{series_label(row, include_kernel=True)}: {row['updates_per_second']:.3e} updates/s "
+            f"at edge={row_edge(row)} ninner={row['ninner']} blocks={row_blocks(row)}"
         )
-    return text_page(title, lines)
-
-
-def collect_lines_for_metadata(args, meta, cases_csv, results_csv):
-    lines = [
-        "Sweep",
-        f"- loops: {args.loops}",
-        f"- edge values: {args.edge_values}",
-        f"- target total cells: {args.target_total_cells}",
-        f"- ninner = edge^2",
-        f"- warmup: {args.warmup}",
-        f"- repeats: {args.repeats}",
-        "",
-        "Environment",
-        f"- platform: {meta.get('platform', 'unknown')}",
-        f"- cpu: {meta.get('cpu', 'unknown')}",
-        f"- uname: {meta.get('uname', 'unknown')}",
-        f"- python: {meta.get('python', 'unknown')}",
-        f"- compiler: {meta.get('compiler', 'unknown')}",
-        f"- compiler id: {meta.get('compiler_id', 'unknown')}",
-        f"- compiler version: {meta.get('compiler_version', 'unknown')}",
-        f"- compiler text: {meta.get('compiler_version_text', 'unknown')}",
-        f"- kokkos backends: {meta.get('kokkos_backends', 'unknown')}",
-        "",
-        "Compiler flags",
-        meta.get("cxx_flags", "unknown"),
-        "",
-        f"cases csv: {cases_csv}",
-        f"results csv: {results_csv}",
-    ]
-    return lines
+    add_text_page(pdf, title, lines)
 
 
 def main():
     args = parse_args()
+    if args.analysis_mode == "full":
+        if args.edge_values == "8,32,128":
+            args.edge_values = "8,16,32,64,128"
+        if args.niter_values == "1,16,128":
+            args.niter_values = "1,4,16,64,128"
+        if not args.stencil_shapes:
+            args.stencil_shapes = "point,x3,y3,z3"
+    elif args.analysis_mode == "ninner":
+        if not args.ninner_values:
+            args.ninner_values = "64,128,256,384,512,640,768,896,1024,1152,1280,1536,1792,2048,3072,4096,8192,16384"
+        if args.edge_values == "8,32,128":
+            args.edge_values = "32"
+    if not args.stencil_shapes:
+        args.stencil_shapes = f"{args.stencil_x}/{args.stencil_y}/{args.stencil_z}"
+
     binary = str(Path(args.binary).resolve())
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     loops = [loop.strip() for loop in args.loops.split(",") if loop.strip()]
     edge_values = parse_csv_ints(args.edge_values)
+    ninner_values = parse_csv_ints(args.ninner_values) if args.ninner_values else []
+    stencil_shapes = parse_stencil_shapes(args.stencil_shapes)
+    x_key = "ninner" if ninner_values else "edge"
     cases_csv = output_dir / "cases.csv"
     results_csv = output_dir / "results.csv"
     pdf_path = output_dir / "summary.pdf"
 
-    write_cases_csv(cases_csv, loops, edge_values, args)
+    write_cases_csv(cases_csv, loops, edge_values, ninner_values, stencil_shapes, args)
     run_binary(binary, str(cases_csv), str(results_csv))
     rows = numericize_rows(read_results_csv(results_csv))
     meta = collect_metadata(binary)
+    kernel_labels = sorted({row_kernel(row) for row in rows}) or ["unknown"]
+    kernel_summary = ", ".join(kernel_labels)
 
-    pdf = PdfBuilder()
-    pdf.add_page(text_page(args.title, collect_lines_for_metadata(args, meta, cases_csv, results_csv)))
-    pdf.add_page(line_plot_page(f"{args.title}: throughput", rows, "updates_per_second", "updates / second"))
-    pdf.add_page(
-        line_plot_page(
-            f"{args.title}: throughput per block",
-            rows,
-            "updates_per_second",
-            "updates / second / block",
+    with PdfPages(pdf_path) as pdf:
+        add_text_page(
+            pdf,
+            f"{args.title} ({kernel_summary})",
+            [
+                "Sweep",
+                f"- analysis mode: {args.analysis_mode}",
+                f"- loops: {args.loops}",
+                f"- access modes: direct, hoisted",
+                f"- edge values: {args.edge_values}",
+                f"- niter values: {args.niter_values}",
+                f"- stencil shapes: {args.stencil_shapes}",
+                f"- target total cells: {args.target_total_cells}",
+                f"- ninner values: {args.ninner_values}" if ninner_values else "- ninner = edge^2",
+                f"- warmup: {args.warmup}",
+                f"- repeats: {args.repeats}",
+                "",
+                "Environment",
+                f"- platform: {meta.get('platform', 'unknown')}",
+                f"- cpu: {meta.get('cpu', 'unknown')}",
+                f"- uname: {meta.get('uname', 'unknown')}",
+                f"- python: {meta.get('python', 'unknown')}",
+                f"- compiler: {meta.get('compiler', 'unknown')}",
+                f"- compiler id: {meta.get('compiler_id', 'unknown')}",
+                f"- compiler version: {meta.get('compiler_version', 'unknown')}",
+                f"- compiler text: {meta.get('compiler_version_text', 'unknown')}",
+                f"- kokkos backends: {meta.get('kokkos_backends', 'unknown')}",
+                "",
+                "Compiler flags",
+                meta.get("cxx_flags", "unknown"),
+                "",
+                f"cases csv: {cases_csv}",
+                f"results csv: {results_csv}",
+            ],
         )
-    )
-    pdf.add_page(summary_page(f"{args.title}: best results", rows))
-    pdf.write(pdf_path)
+
+        rows_by_kernel = defaultdict(list)
+        for row in rows:
+            rows_by_kernel[row_kernel(row)].append(row)
+
+        for kernel_label in sorted(rows_by_kernel):
+            kernel_rows = rows_by_kernel[kernel_label]
+            add_plot_page(
+                pdf,
+                kernel_rows,
+                f"{args.title}: throughput ({kernel_label})",
+                "updates_per_second",
+                "updates / second",
+                x_key,
+            )
+            add_summary_page(pdf, kernel_rows, f"{args.title}: best results ({kernel_label})")
+            if all("touched_cells_per_second" in row for row in kernel_rows):
+                add_plot_page(
+                    pdf,
+                    kernel_rows,
+                    f"{args.title}: touched-cell rate ({kernel_label})",
+                    "touched_cells_per_second",
+                    "touched cells / second",
+                    x_key,
+                )
 
     print(f"Wrote {cases_csv}")
     print(f"Wrote {results_csv}")

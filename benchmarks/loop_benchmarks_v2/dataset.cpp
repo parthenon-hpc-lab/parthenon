@@ -44,6 +44,13 @@ void NormalizeProblemSpec(ProblemSpec *problem) {
   }
 }
 
+std::string KernelLabelForSpec(const CaseSpec &spec) {
+  return "niter=" + std::to_string(spec.kernel.niter) + ",offsets=x{" +
+         FormatOffsetSet(spec.kernel.stencil_x) + "}y{" +
+         FormatOffsetSet(spec.kernel.stencil_y) + "}z{" +
+         FormatOffsetSet(spec.kernel.stencil_z) + "}";
+}
+
 void InitializeDataViews(const CaseSpec &spec, const LoopData &data) {
   const auto memory_indexer = spec.problem.memory_indexer;
   const int nmem = static_cast<int>(memory_indexer.size());
@@ -69,7 +76,32 @@ void NormalizeCaseSpec(CaseSpec *spec) {
     return;
   }
   NormalizeProblemSpec(&spec->problem);
+  if (spec->loop.access_mode.empty()) {
+    spec->loop.access_mode = "direct";
+  }
+  if (spec->kernel.stencil_x.empty()) {
+    spec->kernel.stencil_x = {0};
+  }
+  if (spec->kernel.stencil_y.empty()) {
+    spec->kernel.stencil_y = {0};
+  }
+  if (spec->kernel.stencil_z.empty()) {
+    spec->kernel.stencil_z = {0};
+  }
 }
+
+std::string FormatOffsetSet(const std::vector<int> &offsets) {
+  std::string out;
+  for (std::size_t i = 0; i < offsets.size(); ++i) {
+    if (i > 0) {
+      out += ";";
+    }
+    out += std::to_string(offsets[i]);
+  }
+  return out;
+}
+
+std::string KernelLabel(const CaseSpec &spec) { return KernelLabelForSpec(spec); }
 
 Dataset BuildDataset(const CaseSpec &spec) {
   Dataset dataset;
@@ -116,9 +148,10 @@ std::uint64_t CountUpdates(const CaseSpec &spec, const Dataset &dataset) {
     return 0;
   }
 
-  const std::uint64_t per_block_cells = (spec.loop.kind == LoopKind::CpuFlatGhosts)
-                                            ? static_cast<std::uint64_t>(problem.memory_indexer.size())
-                                            : static_cast<std::uint64_t>(problem.logical_indexer.size());
+  const std::uint64_t per_block_cells =
+      spec.loop.kind == LoopKind::CpuFlatGhosts
+          ? static_cast<std::uint64_t>(problem.memory_indexer.size())
+          : static_cast<std::uint64_t>(problem.logical_indexer.size());
 
   std::uint64_t updates = 0;
   for (int b = 0; b < problem.nblocks; ++b) {
@@ -128,6 +161,51 @@ std::uint64_t CountUpdates(const CaseSpec &spec, const Dataset &dataset) {
     updates += per_block_cells * static_cast<std::uint64_t>(nvars);
   }
   return updates;
+}
+
+std::uint64_t CountTouchedCells(const CaseSpec &spec, const Dataset &dataset) {
+  const auto &problem = dataset.problem;
+  if (problem.nblocks <= 0) {
+    return 0;
+  }
+
+  const auto logical_indexer = problem.logical_indexer;
+  const auto memory_indexer = problem.memory_indexer;
+  const auto logical_cells = static_cast<std::uint64_t>(logical_indexer.size());
+  const auto memory_cells = static_cast<std::uint64_t>(memory_indexer.size());
+
+  std::uint64_t cells_per_variable = logical_cells;
+  if (spec.loop.kind == LoopKind::CpuFlatGhosts) {
+    cells_per_variable = memory_cells;
+  } else if (spec.loop.kind == LoopKind::CpuBoivContiguous ||
+             spec.loop.kind == LoopKind::CpuBoviContiguous ||
+             spec.loop.kind == LoopKind::CpuBvoiContiguous ||
+             spec.loop.kind == LoopKind::KokkosBoviTeamContiguous) {
+    const int ninner = std::max(spec.loop.ninner, 1);
+    const int outer_points =
+        static_cast<int>((logical_indexer.size() + static_cast<std::size_t>(ninner) - 1) /
+                         static_cast<std::size_t>(ninner));
+    cells_per_variable = 0;
+    for (int outer = 0; outer < outer_points; ++outer) {
+      const int logical_start = outer * ninner;
+      const int logical_end =
+          std::min(static_cast<int>(logical_indexer.size()) - 1, logical_start + ninner - 1);
+      const auto [ks, js, is] = logical_indexer(logical_start);
+      const auto [ke, je, ie] = logical_indexer(logical_end);
+      const auto memory_start = memory_indexer.GetFlatIdx(ks, js, is);
+      const auto memory_end = memory_indexer.GetFlatIdx(ke, je, ie);
+      cells_per_variable += static_cast<std::uint64_t>(memory_end - memory_start + 1);
+    }
+  }
+
+  std::uint64_t touched = 0;
+  for (int b = 0; b < problem.nblocks; ++b) {
+    const int nvars = (b >= 0 && b < static_cast<int>(spec.problem.vars_per_block.size()))
+                          ? std::min(spec.problem.vars_per_block[b], spec.problem.nvars)
+                          : spec.problem.nvars;
+    touched += cells_per_variable * static_cast<std::uint64_t>(nvars);
+  }
+  return touched;
 }
 
 }  // namespace plb2

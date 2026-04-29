@@ -1,7 +1,9 @@
 #include "runner.hpp"
 
 #include <chrono>
+#include <array>
 #include <limits>
+#include <stdexcept>
 #include <utility>
 
 #include "kernels.hpp"
@@ -36,24 +38,24 @@ template <int NITER, int SX, int SY, int SZ>
 BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
   const auto alpha = MakeAlpha<NITER>();
   const auto beta = MakeBeta<NITER>();
-  const auto dx = [] {
+  const auto dx = [&] {
     std::array<int, SX> offsets{};
     for (int i = 0; i < SX; ++i) {
-      offsets[i] = i + 1;
+      offsets[i] = spec.kernel.stencil_x[static_cast<std::size_t>(i)];
     }
     return offsets;
   }();
-  const auto dy = [] {
+  const auto dy = [&] {
     std::array<int, SY> offsets{};
     for (int i = 0; i < SY; ++i) {
-      offsets[i] = i + 1;
+      offsets[i] = spec.kernel.stencil_y[static_cast<std::size_t>(i)];
     }
     return offsets;
   }();
-  const auto dz = [] {
+  const auto dz = [&] {
     std::array<int, SZ> offsets{};
     for (int i = 0; i < SZ; ++i) {
-      offsets[i] = i + 1;
+      offsets[i] = spec.kernel.stencil_z[static_cast<std::size_t>(i)];
     }
     return offsets;
   }();
@@ -73,13 +75,23 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
     return ComputeUnifiedCellHoisted<NITER, SX, SY, SZ>(access, idx, alpha, beta);
   };
 
+  const bool use_hoisted = spec.loop.access_mode == "hoisted";
+
   const auto run_once = [&] {
     switch (spec.loop.kind) {
       case LoopKind::CpuFlatGhosts:
-        RunCpuFlatGhosts(dataset, body_direct);
+        if (use_hoisted) {
+          RunCpuFlatGhosts(dataset, build_access, body_hoisted);
+        } else {
+          RunCpuFlatGhosts(dataset, body_direct);
+        }
         break;
       case LoopKind::CpuBoviContiguous:
-        RunCpuBoviContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
+        if (use_hoisted) {
+          RunCpuBoviContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
+        } else {
+          RunCpuBoviContiguousDirect(dataset, spec.loop.ninner, body_direct);
+        }
         break;
       case LoopKind::CpuBoviLogical:
         RunCpuBoviLogical(dataset, spec.loop.ninner, body_direct);
@@ -88,7 +100,11 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
         RunKokkosBoivFlat(dataset, body_direct);
         break;
       case LoopKind::KokkosBoviTeamContiguous:
-        RunKokkosBoviTeamContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
+        if (use_hoisted) {
+          RunKokkosBoviTeamContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
+        } else {
+          RunKokkosBoviTeamContiguousDirect(dataset, spec.loop.ninner, body_direct);
+        }
         break;
       case LoopKind::KokkosBoviTeamLogical:
         RunKokkosBoviTeamLogical(dataset, spec.loop.ninner, body_direct);
@@ -100,7 +116,11 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
         RunCpuBoivLogical(dataset, spec.loop.ninner, body_direct);
         break;
       case LoopKind::CpuBvoiContiguous:
-        RunCpuBvoiContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
+        if (use_hoisted) {
+          RunCpuBvoiContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
+        } else {
+          RunCpuBvoiContiguousDirect(dataset, spec.loop.ninner, body_direct);
+        }
         break;
       case LoopKind::CpuBvoiLogical:
         RunCpuBvoiLogical(dataset, spec.loop.ninner, body_direct);
@@ -122,19 +142,45 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
   row.nx_interior = spec.problem.nx_interior;
   row.nghost = spec.problem.nghost;
   row.ninner = spec.loop.ninner;
+  row.access_mode = spec.loop.access_mode;
   row.niter = spec.kernel.niter;
-  row.stencil_x = spec.kernel.stencil_x;
-  row.stencil_y = spec.kernel.stencil_y;
-  row.stencil_z = spec.kernel.stencil_z;
+  row.stencil_x = FormatOffsetSet(spec.kernel.stencil_x);
+  row.stencil_y = FormatOffsetSet(spec.kernel.stencil_y);
+  row.stencil_z = FormatOffsetSet(spec.kernel.stencil_z);
+  row.kernel_label = KernelLabel(spec);
   row.warmup = spec.warmup;
   row.repeats = spec.repeats;
   row.logical_cells_per_block = static_cast<std::uint64_t>(dataset.problem.logical_indexer.size());
   row.memory_cells_per_block = static_cast<std::uint64_t>(dataset.problem.memory_indexer.size());
   row.total_updates = CountUpdates(spec, dataset);
+  row.touched_cells = CountTouchedCells(spec, dataset);
   row.avg_seconds = avg_seconds;
   row.min_seconds = min_seconds;
   row.updates_per_second = static_cast<double>(row.total_updates) / row.avg_seconds;
+  row.touched_cells_per_second = static_cast<double>(row.touched_cells) / row.avg_seconds;
   return row;
+}
+
+template <int NITER>
+BenchmarkRow RunNiterCase(const CaseSpec &spec, const Dataset &dataset) {
+  const auto sx = spec.kernel.stencil_x.size();
+  const auto sy = spec.kernel.stencil_y.size();
+  const auto sz = spec.kernel.stencil_z.size();
+  if (sx == 3 && sy == 1 && sz == 1) {
+    return RunTypedCase<NITER, 3, 1, 1>(spec, dataset);
+  }
+  if (sx == 1 && sy == 3 && sz == 1) {
+    return RunTypedCase<NITER, 1, 3, 1>(spec, dataset);
+  }
+  if (sx == 1 && sy == 1 && sz == 3) {
+    return RunTypedCase<NITER, 1, 1, 3>(spec, dataset);
+  }
+  if (sx == 1 && sy == 1 && sz == 1) {
+    return RunTypedCase<NITER, 1, 1, 1>(spec, dataset);
+  }
+  throw std::runtime_error("unsupported stencil shape: x{" + FormatOffsetSet(spec.kernel.stencil_x) +
+                           "}y{" + FormatOffsetSet(spec.kernel.stencil_y) + "}z{" +
+                           FormatOffsetSet(spec.kernel.stencil_z) + "}");
 }
 
 }  // namespace
@@ -143,14 +189,18 @@ BenchmarkRow RunCase(const CaseSpec &spec) {
   Dataset dataset = BuildDataset(spec);
   PrepareDataset(spec, &dataset);
   switch (spec.kernel.niter) {
-    case 0:
-      return RunTypedCase<0, 1, 1, 1>(spec, dataset);
+    case 1:
+      return RunNiterCase<1>(spec, dataset);
     case 4:
-      return RunTypedCase<4, 1, 1, 1>(spec, dataset);
-    case 8:
-      return RunTypedCase<8, 1, 1, 1>(spec, dataset);
+      return RunNiterCase<4>(spec, dataset);
+    case 16:
+      return RunNiterCase<16>(spec, dataset);
+    case 64:
+      return RunNiterCase<64>(spec, dataset);
+    case 128:
+      return RunNiterCase<128>(spec, dataset);
     default:
-      return RunTypedCase<4, 1, 1, 1>(spec, dataset);
+      return RunNiterCase<4>(spec, dataset);
   }
 }
 
