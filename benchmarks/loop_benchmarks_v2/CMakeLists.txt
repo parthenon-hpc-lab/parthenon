@@ -8,7 +8,6 @@ if("loop-benchmarks-v2" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
     loop-benchmarks-v2
       benchmark_driver.cpp
       benchmark_driver.hpp
-      config.hpp
       dataset.cpp
       dataset.hpp
       kernels.hpp
@@ -24,11 +23,12 @@ if("loop-benchmarks-v2" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
   target_include_directories(
     loop-benchmarks-v2
     PRIVATE
+      "${PROJECT_BINARY_DIR}/src/generated"
       "${CMAKE_CURRENT_LIST_DIR}"
       "${CMAKE_CURRENT_LIST_DIR}/../../src"
   )
 
-  target_link_libraries(loop-benchmarks-v2 PRIVATE Kokkos::kokkos)
+  target_link_libraries(loop-benchmarks-v2 PRIVATE Parthenon::parthenon)
   target_compile_options(
     loop-benchmarks-v2
     PRIVATE
@@ -41,4 +41,31 @@ if("loop-benchmarks-v2" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
   )
 
   lint_target(loop-benchmarks-v2)
+
+  add_executable(
+    loop-benchmarks-v2-sandbox
+      loop_abstraction_sandbox.cpp
+  )
+
+  target_include_directories(
+    loop-benchmarks-v2-sandbox
+    PRIVATE
+      "${PROJECT_BINARY_DIR}/src/generated"
+      "${CMAKE_CURRENT_LIST_DIR}"
+      "${CMAKE_CURRENT_LIST_DIR}/../../src"
+  )
+
+  target_link_libraries(loop-benchmarks-v2-sandbox PRIVATE Parthenon::parthenon)
+  target_compile_options(
+    loop-benchmarks-v2-sandbox
+    PRIVATE
+      $<$<CXX_COMPILER_ID:AppleClang,Clang,GNU>:-Wall -Wextra -Wpedantic>
+      $<$<AND:$<NOT:$<BOOL:${Kokkos_ENABLE_HIP}>>,$<NOT:$<BOOL:${Kokkos_ENABLE_CUDA}>>,$<CXX_COMPILER_ID:GNU,Clang>>:-fopenmp-simd>
+      $<$<AND:$<NOT:$<BOOL:${Kokkos_ENABLE_HIP}>>,$<NOT:$<BOOL:${Kokkos_ENABLE_CUDA}>>,$<CXX_COMPILER_ID:AppleClang>>:-Xclang -fopenmp-simd>
+      $<$<CXX_COMPILER_ID:AppleClang,Clang>:-Rpass=loop-vectorize>
+      $<$<CXX_COMPILER_ID:AppleClang,Clang>:-Rpass-missed=loop-vectorize>
+      $<$<CXX_COMPILER_ID:AppleClang,Clang>:-Rpass-analysis=loop-vectorize>
+  )
+
+  lint_target(loop-benchmarks-v2-sandbox)
 endif()

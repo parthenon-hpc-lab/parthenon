@@ -6,18 +6,7 @@
 
 #include <Kokkos_Core.hpp>
 
-namespace parthenon {
-
-struct IndexRange {
-  int s = 0;
-  int e = 0;
-  KOKKOS_INLINE_FUNCTION int size() const { return e - s + 1; }
-};
-
-}  // namespace parthenon
-
 #include "utils/indexer.hpp"
-
 namespace plb2 {
 
 enum class LoopKind {

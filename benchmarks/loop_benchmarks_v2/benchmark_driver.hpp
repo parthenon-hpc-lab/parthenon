@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "config.hpp"
+#include "problem_spec.hpp"
 
 namespace plb2 {
 
