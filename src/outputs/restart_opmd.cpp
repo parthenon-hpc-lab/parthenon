@@ -158,7 +158,7 @@ void RestartReaderOPMD::ReadAllParamsOfType(const std::string &prefix, Params &p
 
       try {
         T val;
-        if constexpr (implements<kokkos_view(T)>::value) {
+        if constexpr (::KokkosView<T>) {
           val = params.Get<T>(key);
           RestoreViewAttribute(full_path, val);
         } else if constexpr (is_specialization_of<T, ParArrayGeneric>::value) {

@@ -98,7 +98,7 @@ void WriteAllParamsOfType(const Params &params, const std::string &prefix,
       // Thus we replace it.
       std::replace(full_path.begin(), full_path.end(), '/', delim[0]);
 
-      if constexpr (implements<kokkos_view(T)>::value) {
+      if constexpr (::KokkosView<T>) {
         const auto &view = params.Get<T>(key);
         auto [rank_and_dims, host_vec] = GetFlatHostVecFromView(view);
         it->setAttribute(full_path + ".rankdims", rank_and_dims);
@@ -542,7 +542,7 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // All blocks have the same list of variable metadata that exist in the entire
   // simulation, but not all variables may be allocated on all blocks
 
-  auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
+  auto get_vars = [=, this](const std::shared_ptr<MeshBlock> pmb) {
     const auto &data = pmb->meshblock_data.Get("base");
     const VariableVector<Real> &var_vec = data->GetVariableVector();
     VariableVector<Real> coords_vars =
