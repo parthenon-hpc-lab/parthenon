@@ -18,11 +18,10 @@ using VW = plb2::loop_abstraction::var_view_t<IS>;
 
 extern "C"
 __attribute__((noinline))
-void raw_inner_probe(const IS& idx_space,
-                     const IR& idx_range,
+void raw_inner_probe(const IR& idx_range,
                      VW& outp,
                      VW& inp) {
-  plb2::loop_abstraction::inner(idx_space, idx_range,
+  plb2::loop_abstraction::inner(idx_range,
     [&](auto idx) {
       outp(idx) = inp(idx) * 2.01 + outp(idx);
     });
@@ -38,17 +37,25 @@ void RunKernel(const View5D &input, View5D &output, int nblocks, int nvar, int n
 
   loop_abstraction::index_space_t<LOOP_TAG, INNER_TAG> idx_space(nblocks, n, n, n,
                                                                   nghost);
-  loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_space,
-                                                   const auto &idx_range, int b) {
+  loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
     for (int v = 0; v < nvar; ++v) {
-      auto in = idx_space.GetInnerView(input, b, v);
-      auto out = idx_space.GetInnerView(output, b, v);
-      raw_inner_probe(idx_space, idx_range, out, in);
+      auto in = idx_range.view(input, v);
+      auto out = idx_range.view(output, v);
       
-      loop_abstraction::inner(idx_space, idx_range, KOKKOS_LAMBDA(auto idx) {
+      // Just to verify vectorization
+      raw_inner_probe(idx_range, out, in);
+      
+      loop_abstraction::inner(idx_range, KOKKOS_LAMBDA(auto idx) {
         out(idx) = in(idx) *  2.01 + out(idx);
       });
     }
+    
+    auto in = idx_range.view(input, 0);
+    auto out = idx_range.view(output, 0);
+    loop_abstraction::inner(idx_range, KOKKOS_LAMBDA(auto idx) {
+      out(idx) = in(idx) *  2.01 + out(idx);
+    });
+
   });
 }
 

@@ -80,7 +80,7 @@ struct index_space_t {
   KOKKOS_INLINE_FUNCTION
   auto GetInnerView(view_t& in, int block, int var, std::array<int, 3> offset = {0, 0, 0}) const {
     return var_view_t<index_space_t>{&in(block, var, 0, 0, 0),
-                                     memory_kji.GetFlatIdx(offset[0], offset[1], offset[2]),
+                                     static_cast<int>(memory_kji.GetFlatIdx(offset[0], offset[1], offset[2])),
                                      this};
   }
 
@@ -138,6 +138,12 @@ struct inner_index_range_t {
     }
   }
 
+  template <class view_t>
+  KOKKOS_INLINE_FUNCTION
+  auto view(view_t& in, int var, std::array<int, 3> offset = {0, 0, 0}) const {
+    return pidx_space->GetInnerView(in, block, var, offset);
+  }
+
  public:
   IndexSpace const * pidx_space = nullptr;
   int flat_start, flat_end;
@@ -155,7 +161,7 @@ void outer(idx_space_t idx_space, F&& f) {
       inner_idx_range_t idx_range;
       idx_range.pidx_space = &idx_space;
       idx_range.block = b;
-      f(idx_space, idx_range, b);
+      f(idx_range, b);
     }   
   } else if constexpr (idx_space.loop_tag == loop_tag::bovi) {
     const int nouter = idx_space.logical_kji.size() / idx_space.ninner
@@ -165,7 +171,7 @@ void outer(idx_space_t idx_space, F&& f) {
         const int logical_start = o * idx_space.ninner; 
         const int logical_end = std::min((o + 1) * idx_space.ninner - 1, static_cast<int>(idx_space.logical_kji.size()) - 1);
         const auto idx_range = inner_idx_range_t::flat_range(idx_space, b, logical_start, logical_end);
-        f(idx_space, idx_range, b);
+        f(idx_range, b);
       }
     }    
   } else if constexpr (idx_space.loop_tag == loop_tag::boiv) {
@@ -182,7 +188,7 @@ void outer(idx_space_t idx_space, F&& f) {
         for (idx_range.js = js; idx_range.js <= je; ++idx_range.js) {
 #pragma omp simd
           for (idx_range.is = is; idx_range.is <= ie; ++idx_range.is) {
-            f(idx_space, idx_range, idx_range.block);
+            f(idx_range, idx_range.block);
           }
         }
       }
@@ -190,9 +196,11 @@ void outer(idx_space_t idx_space, F&& f) {
   }
 }
 
-template <class idx_space_t, class inner_idx_range_t, class F> 
+template <class inner_idx_range_t, class F> 
 KOKKOS_FORCEINLINE_FUNCTION
-void inner(const idx_space_t &idx_space, const inner_idx_range_t &idx_range, F &&f) {
+void inner(const inner_idx_range_t &idx_range, F &&f) {
+  using idx_space_t = inner_idx_range_t::idx_space_t;
+  const auto &idx_space = *(idx_range.pidx_space);
   if constexpr (idx_space_t::loop_tag == loop_tag::bvoi) {
     if constexpr (idx_space_t::inner_tag == inner_tag::logical) { 
       const int ks = idx_space.logical_kji.template StartIdx<0>();
