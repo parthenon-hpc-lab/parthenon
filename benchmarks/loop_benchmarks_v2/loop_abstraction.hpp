@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <concepts>
+#include <optional>
 
 #include <Kokkos_Core.hpp>
 
@@ -66,14 +67,15 @@ struct index_space_t {
   static constexpr loop_tag loop_tag = LOOP_TAG;
   static constexpr inner_tag inner_tag = INNER_TAG;
   
-  index_space_t(int nblocks, int nx, int ny, int nz, int nghost, int ninner = -1) : nblocks(nblocks), ninner(ninner) {
+  index_space_t(int nblocks, int nx, int ny, int nz, int nghost,
+                std::optional<int> ninner = std::nullopt)
+      : nblocks(nblocks), ninner(ninner.value_or(nx * ny)) {
     logical_kji = parthenon::Indexer3D({nghost, nghost + nz - 1},
                                        {nghost, nghost + ny - 1},
                                        {nghost, nghost + nx - 1}); 
     memory_kji = parthenon::Indexer3D({0, 2 * nghost + nz - 1},
                                       {0, 2 * nghost + ny - 1},
                                       {0, 2 * nghost + nx - 1});
-    if (ninner < 0) ninner = nx * ny; 
   }
   
   template <class view_t>
