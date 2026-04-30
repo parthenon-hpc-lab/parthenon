@@ -46,6 +46,17 @@ if("loop-benchmarks-v2" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
     loop-benchmarks-v2-sandbox
       loop_abstraction_sandbox.cpp
   )
+   
+  target_compile_options(loop-benchmarks-v2-sandbox PRIVATE
+    -O3
+    -Rpass=loop-vectorize
+    -Rpass-missed=loop-vectorize
+    -Rpass-analysis=loop-vectorize
+    -fsave-optimization-record
+    -fvectorize
+    -fslp-vectorize
+    -Xclang -fopenmp-simd
+  )
 
   target_include_directories(
     loop-benchmarks-v2-sandbox

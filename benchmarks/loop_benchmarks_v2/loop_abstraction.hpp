@@ -22,53 +22,85 @@ struct Index3 {
   int k, j, i;
 };
 
+template <class idx_space_t, class F>
+void outer(idx_space_t idx_space, F &&f);
+
+template <class idx_space_t, class inner_idx_range_t, class F>
+KOKKOS_INLINE_FUNCTION
+void inner(const idx_space_t &idx_space, const inner_idx_range_t &idx_range, F &&f);
+
+template <class IndexSpace>
+struct inner_index_range_t;
+
 template <class idx_space_t>
 struct var_view_t {
+ public:
   parthenon::Real* data = nullptr;
-  int offset;
+  int shift;
   idx_space_t const * pidx_space = nullptr;
 
   KOKKOS_FUNCTION
   parthenon::Real &operator()(int idx) const {
-    return data[idx - offset];
+    return data[idx + shift];
   }
 
   KOKKOS_FUNCTION
   parthenon::Real &operator()(Index3 in) const {
-    return data[pidx_space->memory_kji.GetFlatIdx(in.k, in.j, in.i) - offset];
+    return data[pidx_space->memory_kji.GetFlatIdx(in.k, in.j, in.i) + shift];
   }
 };
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 struct index_space_t {
+  template <class idx_space_t, class F>
+  friend void outer(idx_space_t idx_space, F &&f);
+  template <class idx_space_t, class inner_idx_range_t, class F>
+  friend void inner(const idx_space_t &idx_space, const inner_idx_range_t &idx_range,
+                    F &&f);
+  template <class>
+  friend struct var_view_t;
+  template <class>
+  friend struct inner_index_range_t;
+
+ public:
   static constexpr loop_tag loop_tag = LOOP_TAG;
   static constexpr inner_tag inner_tag = INNER_TAG;
   
-  index_space_t(int nblocks, int nx, int ny, int nz, int nghost) : nblocks(nblocks) {
+  index_space_t(int nblocks, int nx, int ny, int nz, int nghost, int ninner = -1) : nblocks(nblocks), ninner(ninner) {
     logical_kji = parthenon::Indexer3D({nghost, nghost + nz - 1},
                                        {nghost, nghost + ny - 1},
                                        {nghost, nghost + nx - 1}); 
     memory_kji = parthenon::Indexer3D({0, 2 * nghost + nz - 1},
                                       {0, 2 * nghost + ny - 1},
                                       {0, 2 * nghost + nx - 1});
-    ninner = nx * ny; 
+    if (ninner < 0) ninner = nx * ny; 
+  }
+  
+  template <class view_t>
+  KOKKOS_INLINE_FUNCTION
+  auto GetInnerView(view_t& in, int block, int var, std::array<int, 3> offset = {0, 0, 0}) const {
+    return var_view_t<index_space_t>{&in(block, var, 0, 0, 0),
+                                     memory_kji.GetFlatIdx(offset[0], offset[1], offset[2]),
+                                     this};
   }
 
+ private:
   parthenon::Indexer3D logical_kji, memory_kji;
   int nblocks;
   int ninner;
-
-  template <class view_t>
-  KOKKOS_INLINE_FUNCTION
-  auto GetInnerView(view_t& in, int block, int var) const { 
-    return var_view_t<index_space_t>{&in(block, var, 0, 0, 0), 0, this};
-  }
 };
 
 
 template <class IndexSpace>
 struct inner_index_range_t {
+ public:
   using idx_space_t = IndexSpace;
+
+  template <class idx_space_t, class F>
+  friend void outer(idx_space_t idx_space, F &&f);
+  template <class idx_space_t, class inner_idx_range_t, class F>
+  friend void inner(const idx_space_t &idx_space, const inner_idx_range_t &idx_range,
+                    F &&f);
 
   KOKKOS_FUNCTION
   static inner_index_range_t flat_range(const IndexSpace &idx_space, int b, int logical_start, int logical_end) {
@@ -106,6 +138,7 @@ struct inner_index_range_t {
     }
   }
 
+ public:
   IndexSpace const * pidx_space = nullptr;
   int flat_start, flat_end;
   int block;
@@ -158,7 +191,7 @@ void outer(idx_space_t idx_space, F&& f) {
 }
 
 template <class idx_space_t, class inner_idx_range_t, class F> 
-KOKKOS_INLINE_FUNCTION
+KOKKOS_FORCEINLINE_FUNCTION
 void inner(const idx_space_t &idx_space, const inner_idx_range_t &idx_range, F &&f) {
   if constexpr (idx_space_t::loop_tag == loop_tag::bvoi) {
     if constexpr (idx_space_t::inner_tag == inner_tag::logical) { 
@@ -190,8 +223,10 @@ void inner(const idx_space_t &idx_space, const inner_idx_range_t &idx_range, F &
       }
     } 
   } else if constexpr (idx_space_t::loop_tag == loop_tag::bovi) {
-#pragma omp simd  
-    for (int idx = idx_range.flat_start; idx <= idx_range.flat_end; ++idx) {
+    const int start = idx_range.flat_start;
+    const int end_exclusive = idx_range.flat_end + 1;
+#pragma clang loop vectorize(enable)
+    for (int idx = start; idx < end_exclusive; ++idx) {
       if constexpr(idx_space_t::inner_tag == inner_tag::memory) {
         f(idx);
       } else { 
@@ -202,9 +237,7 @@ void inner(const idx_space_t &idx_space, const inner_idx_range_t &idx_range, F &
   } else if constexpr (idx_space_t::loop_tag == loop_tag::boiv) {
     f(Index3{idx_range.ks, idx_range.js, idx_range.is});
   }
-
 }
-
   
 } // namespace loop_abstraction
 
