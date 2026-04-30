@@ -41,7 +41,7 @@ void RunKernel(const View5D &input, View5D &output, int nblocks, int nvar, int n
     for (int v = 0; v < nvar; ++v) {
       auto in = idx_range.view(input, v);
       auto out = idx_range.view(output, v);
-      
+
       // Just to verify vectorization
       raw_inner_probe(idx_range, out, in);
       
@@ -50,12 +50,12 @@ void RunKernel(const View5D &input, View5D &output, int nblocks, int nvar, int n
       });
     }
     
-    auto in = idx_range.view(input, 0);
+    auto in0 = idx_range.view(input, 0);
+    auto in1 = idx_range.view(input, 1, {1, 0, 1});
     auto out = idx_range.view(output, 0);
     loop_abstraction::inner(idx_range, KOKKOS_LAMBDA(auto idx) {
-      out(idx) = in(idx) *  2.01 + out(idx);
+      out(idx) = in0(idx) *  2.01 + in1(idx) * 3.12341 + out(idx);
     });
-
   });
 }
 
