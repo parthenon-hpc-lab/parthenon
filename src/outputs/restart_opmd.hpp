@@ -19,7 +19,7 @@
 #include "basic_types.hpp"
 #include "outputs/parthenon_opmd.hpp"
 #include "outputs/restart.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/default_names.hpp"
 
 #include "mesh/domain.hpp"
 

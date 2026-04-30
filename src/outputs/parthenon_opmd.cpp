@@ -49,7 +49,7 @@
 #include "outputs/output_utils.hpp"
 #include "outputs/outputs.hpp"
 #include "outputs/parthenon_opmd.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/default_names.hpp"
 #include "parthenon_array_generic.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/instrument.hpp"
