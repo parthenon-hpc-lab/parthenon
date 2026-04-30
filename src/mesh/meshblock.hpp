@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,6 +16,8 @@
 //========================================================================================
 #ifndef MESH_MESHBLOCK_HPP_
 #define MESH_MESHBLOCK_HPP_
+
+// This file was made in part with generative AI.
 
 #include <cstdint>
 #include <functional>
@@ -98,6 +100,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // data
   Mesh *pmy_mesh = nullptr; // ptr to Mesh containing this MeshBlock
   LogicalLocation loc;
+  std::size_t block_coarsenings{0};
   RegionSize block_size;
   // for convenience: "max" # of real+ghost cells along each dir for allocating "standard"
   // sized MeshBlock arrays, depending on ndim i.e.
@@ -197,8 +200,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   const std::vector<NeighborBlock> &GetGMGFinerNeighbors() const {
     return gmg_finer_neighbors;
   }
-  const std::vector<NeighborBlock> &GetGMGLeafNeighbors() const {
-    return gmg_leaf_neighbors;
+  const std::vector<NeighborBlock> &GetGMGSelfNeighbors() const {
+    return gmg_self_neighbors;
   }
 
   bool HasCoarserNeighbors() const { return has_coarser_neighbors_; }
@@ -452,12 +455,17 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                                  std::forward<Args>(args)...);
   }
 
+  // Checks if the LogicalLocation of this block is a leaf logical location
+  bool IsLeafLL() const { return is_leaf_ll_; }
+
  private:
   // data
   Real new_block_dt_ = 0.0;
   Real new_block_dt_hyperbolic_ = 0.0;
   Real new_block_dt_parabolic_ = 0.0;
   std::vector<std::shared_ptr<Variable<Real>>> vars_cc_;
+
+  bool is_leaf_ll_{true};
 
   // Initializer to set up a meshblock called with the default constructor
   // This is necessary because the back pointers can't be set up until
@@ -474,6 +482,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // Optionally defined in the prob file or provided by ApplicationInput
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> PostProblemGenerator = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> PostInitialization = nullptr;
   std::function<pMeshBlockApplicationData_t(MeshBlock *, ParameterInput *)>
       InitApplicationMeshBlockData = nullptr;
@@ -500,7 +509,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::vector<NeighborBlock> gmg_composite_finer_neighbors;
   std::vector<NeighborBlock> gmg_same_neighbors;
   std::vector<NeighborBlock> gmg_finer_neighbors;
-  std::vector<NeighborBlock> gmg_leaf_neighbors;
+  std::vector<NeighborBlock> gmg_self_neighbors;
 
   bool has_coarser_neighbors_ = false;
 };

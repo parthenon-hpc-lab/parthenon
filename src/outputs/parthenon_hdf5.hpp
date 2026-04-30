@@ -129,7 +129,8 @@ template <>
 void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values,
                         hid_t location);
 
-template <typename T, REQUIRES(implements<kokkos_view(T)>::value)>
+template <typename T>
+  requires(KokkosView<T>)
 void HDF5WriteAttribute(const std::string &name, const T &view, hid_t location) {
   PARTHENON_REQUIRE(view.span_is_contiguous(), "Only works for contiguous views");
 
@@ -153,7 +154,8 @@ void HDF5WriteAttribute(const std::string &name, const T &view, hid_t location) 
   PARTHENON_HDF5_CHECK(H5Awrite(attribute, type, pdata));
 }
 
-template <typename T, REQUIRES(implements<scalar(T)>::value)>
+template <typename T>
+  requires(Scalar<T>)
 void HDF5WriteAttribute(const std::string &name, const T &value, hid_t location) {
   std::vector<T> vec(1);
   vec[0] = value;
@@ -166,13 +168,15 @@ void HDF5WriteAttribute(const std::string &name, const ParArrayGeneric<D, S> &vi
   return HDF5WriteAttribute(name, view.KokkosView(), location);
 }
 
-template <typename T, REQUIRES(implements<scalar(T)>::value)>
+template <typename T>
+  requires(Scalar<T>)
 void HDF5ReadAttribute(hid_t location, const std::string &name, T &val) {
   auto vec = HDF5ReadAttributeVec<T>(location, name);
   val = vec[0];
 }
 
-template <typename T, REQUIRES(implements<kokkos_view(T)>::value)>
+template <typename T>
+  requires(KokkosView<T>)
 void HDF5ReadAttribute(hid_t location, const std::string &name, T &view) {
   static_assert(std::is_same<typename T::array_layout, Kokkos::LayoutLeft>::value ||
                     std::is_same<typename T::array_layout, Kokkos::LayoutRight>::value,

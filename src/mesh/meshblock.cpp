@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,6 +16,8 @@
 //========================================================================================
 //! \file mesh.cpp
 //  \brief implementation of functions in MeshBlock class
+
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <cstdlib>
@@ -90,6 +92,8 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   this->resolved_packages = resolved_packages;
   cost_ = icost;
 
+  if (pm) is_leaf_ll_ = pm->forest.IsLeaf(iloc);
+
   // initialize grid indices
   if (pmy_mesh->ndim >= 3) {
     InitializeIndexShapes(block_size.nx(X1DIR), block_size.nx(X2DIR),
@@ -112,6 +116,9 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   }
   if (app_in->PostInitialization != nullptr) {
     PostInitialization = app_in->PostInitialization;
+  }
+  if (app_in->PostProblemGenerator != nullptr) {
+    PostProblemGenerator = app_in->PostProblemGenerator;
   }
   if (app_in->MeshBlockUserWorkBeforeOutput != nullptr) {
     UserWorkBeforeOutput = app_in->MeshBlockUserWorkBeforeOutput;

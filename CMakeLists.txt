@@ -195,6 +195,10 @@ if (NOT PARTHENON_DISABLE_HDF5)
   endif()
   set(ENABLE_HDF5 ON)
 
+  if((NOT HDF5_IS_PARALLEL) AND HDF5_PROVIDES_PARALLEL)
+    set(HDF5_IS_PARALLEL ON)
+  endif()
+
   if (ENABLE_MPI AND (NOT HDF5_IS_PARALLEL))
     message(FATAL_ERROR "Both MPI and HDF5 are enabled but only a serial version of HDF5 "
     "was found. Please install a parallel version of HDF5 (or point CMake to it by adding its path "
@@ -295,7 +299,7 @@ if (ENABLE_COMPILER_WARNINGS)
 endif()
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 if (NOT TARGET Kokkos::kokkos)
   if (PARTHENON_IMPORT_KOKKOS)

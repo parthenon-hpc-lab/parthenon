@@ -69,6 +69,30 @@ inline auto func_caller(F func, Args &&...args) -> typename std::enable_if<
   return LoopControl::cont;
 }
 
+inline auto &GetNeighborsOnCoarserGMGGrid(MeshBlock *pmb, const GridIdentifier &grid) {
+  if (grid.type() == GridType::two_level_composite &&
+      pmb->loc.level() != grid.logical_level()) {
+    // This is a boundary block on a two-level composite grid, its
+    // data is up to date but it needs to send a dummy message to itself
+    // on the next coarser grid for synchronization
+    return pmb->GetGMGSelfNeighbors();
+  }
+  return pmb->GetGMGCoarserNeighbors();
+}
+
+inline auto &GetNeighborsOnFinerGMGGrid(MeshBlock *pmb, const GridIdentifier &grid) {
+  const auto finer_grid = pmb->pmy_mesh->GetGMGGrid(grid.multigrid_level() + 1);
+  if (finer_grid.type() == GridType::two_level_composite &&
+      finer_grid.block_coarsenings() == grid.block_coarsenings() &&
+      pmb->loc.level() == grid.logical_level() && pmb->IsLeafLL()) {
+    // This is a boundary block on a two-level composite grid below this
+    // one, its data is up to date but it needs to send a dummy message to itself
+    // on the next coarser grid for synchronization
+    return pmb->GetGMGSelfNeighbors();
+  }
+  return pmb->GetGMGFinerNeighbors();
+}
+
 // Loop over boundaries (or shared geometric elements) for blocks contained
 // in MeshData, calling the passed function func for every boundary. Unifies
 // boundary looping that occurs in many places in the boundary communication
@@ -77,65 +101,51 @@ inline auto func_caller(F func, Args &&...args) -> typename std::enable_if<
 // need to be a template parameter, it could just be a function argument]
 template <BoundaryType bound = BoundaryType::any, class F>
 inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
-  int fine_level = md->grid.logical_level;
+  int fine_level = md->grid.logical_level();
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
-    const auto &gmg_same = pmb->loc.level() == md->grid.logical_level
+    const auto &gmg_same = pmb->loc.level() == md->grid.logical_level()
                                ? pmb->GetGMGSameNeighbors()
                                : pmb->GetGMGCompositeFinerNeighbors();
     for (auto &v : rc->GetVariableVector()) {
       if constexpr (bound == BoundaryType::gmg_restrict_send) {
         if (v->IsSet(Metadata::GMGRestrict)) {
-          const auto &neighbors = pmb->loc.level() == md->grid.logical_level
-                                      ? pmb->GetGMGCoarserNeighbors()
-                                      : pmb->GetGMGLeafNeighbors();
-          for (const auto &nb : neighbors) {
+          for (auto &nb : GetNeighborsOnCoarserGMGGrid(pmb, md->grid)) {
             if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
           }
         }
       } else if constexpr (bound == BoundaryType::gmg_restrict_recv) {
-        if (pmb->loc.level() != md->grid.logical_level) continue;
         if (v->IsSet(Metadata::GMGRestrict)) {
-          const auto &neighbors = pmb->GetGMGFinerNeighbors().size() > 0
-                                      ? pmb->GetGMGFinerNeighbors()
-                                      : pmb->GetGMGLeafNeighbors();
-          for (const auto &nb : neighbors) {
-            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
-              return;
-            }
+          for (auto &nb : GetNeighborsOnFinerGMGGrid(pmb, md->grid)) {
+            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
           }
         }
       } else if constexpr (bound == BoundaryType::gmg_prolongate_send) {
-        if (pmb->loc.level() != md->grid.logical_level) continue;
         if (v->IsSet(Metadata::GMGProlongate)) {
-          const auto &neighbors = pmb->GetGMGFinerNeighbors().size() > 0
-                                      ? pmb->GetGMGFinerNeighbors()
-                                      : pmb->GetGMGLeafNeighbors();
-          for (const auto &nb : neighbors) {
-            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
-              return;
-            }
+          for (auto &nb : GetNeighborsOnFinerGMGGrid(pmb, md->grid)) {
+            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
           }
         }
       } else if constexpr (bound == BoundaryType::gmg_prolongate_recv) {
         if (v->IsSet(Metadata::GMGProlongate)) {
-          const auto &neighbors = pmb->loc.level() == md->grid.logical_level
-                                      ? pmb->GetGMGCoarserNeighbors()
-                                      : pmb->GetGMGLeafNeighbors();
-          for (const auto &nb : neighbors) {
-            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
-              return;
-            }
+          for (auto &nb : GetNeighborsOnCoarserGMGGrid(pmb, md->grid)) {
+            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
           }
         }
       } else if constexpr (bound == BoundaryType::gmg_same) {
         if (v->IsSet(Metadata::FillGhost)) {
-          for (const auto &nb : gmg_same) {
-            if (pmb->loc.level() == fine_level || nb.loc.level() == fine_level) {
-              if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
-                return;
+          if (md->grid.type() == GridType::two_level_composite) {
+            for (auto &nb : gmg_same) {
+              if (pmb->loc.level() == fine_level || nb.loc.level() == fine_level) {
+                if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
+                  return;
+                }
               }
+            }
+          } else {
+            for (auto &nb : pmb->GetNeighbors()) {
+              if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
             }
           }
         }

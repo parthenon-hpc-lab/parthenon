@@ -44,7 +44,7 @@
 #include "outputs/parthenon_hdf5.hpp"
 #include "outputs/parthenon_xdmf.hpp"
 #include "outputs/restart.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/default_names.hpp"
 #include "provenance.hpp"
 #include "utils/string_utils.hpp"
 
@@ -268,7 +268,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // All blocks have the same list of variable metadata that exist in the entire
   // simulation, but not all variables may be allocated on all blocks
 
-  auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
+  auto get_vars = [=, this](const std::shared_ptr<MeshBlock> pmb) {
     const auto &data = pmb->meshblock_data.Get(output_params.meshdata_name);
     const VariableVector<Real> &var_vec = data->GetVariableVector();
     VariableVector<Real> coords_vars =

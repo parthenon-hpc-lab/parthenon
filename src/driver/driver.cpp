@@ -149,6 +149,11 @@ DriverStatus EvolutionDriver::Execute() {
     while (tm.KeepGoing() && signal != OutputSignal::analysis) {
       if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
+      // poke the dog
+      if (Globals::watchdog_enabled) {
+        WatchDog::WatchDog(0);
+      }
+
       if (pmesh->PreStepUserWorkInLoop != nullptr) {
         pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
       }

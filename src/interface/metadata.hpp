@@ -232,8 +232,8 @@ class Metadata {
   class FlagCollection {
    public:
     FlagCollection() = default;
-    template <typename T,
-              REQUIRES(std::is_same<typename T::value_type, MetadataFlag>::value)>
+    template <typename T>
+      requires(std::is_same<typename T::value_type, MetadataFlag>::value)
     explicit FlagCollection(const T &flags, bool take_union = false) {
       if (take_union) {
         unions_.insert(flags.begin(), flags.end());
@@ -516,8 +516,8 @@ class Metadata {
   /**
    * @brief Returns true if any flag is set
    */
-  template <class Container_t,
-            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  template <class Container_t>
+    requires(std::is_same<typename Container_t::value_type, MetadataFlag>::value)
   bool AnyFlagsSet(const Container_t &flags) const {
     return std::any_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
@@ -527,8 +527,8 @@ class Metadata {
     return AnyFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
   }
 
-  template <class Container_t,
-            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  template <class Container_t>
+    requires(std::is_same<typename Container_t::value_type, MetadataFlag>::value)
   bool AllFlagsSet(const Container_t &flags) const {
     return std::all_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
@@ -537,8 +537,8 @@ class Metadata {
   bool AllFlagsSet(const MetadataFlag &flag, Args... args) const {
     return AllFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
   }
-  template <class Container_t,
-            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  template <class Container_t>
+    requires(std::is_same<typename Container_t::value_type, MetadataFlag>::value)
   bool NoFlagsSet(const Container_t &flags) const {
     return std::none_of(flags.begin(), flags.end(),
                         [this](MetadataFlag const &f) { return IsSet(f); });

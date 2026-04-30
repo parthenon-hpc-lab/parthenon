@@ -29,6 +29,8 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "globals.hpp"
+
 #ifdef CATCH2_MPI_PARALLEL
 template <class T>
 bool HasMPITests(const T &config) {
@@ -49,6 +51,9 @@ bool HasMPITests(const T &config) {
 #endif // CATCH2_MPI_PARALLEL
 
 int main(int argc, char *argv[]) {
+  parthenon::Globals::my_rank = 0; // overwritten below as needed
+  parthenon::Globals::nranks = 1;
+
   // With Catch2 >2.13.4 catch_discover_tests() is used to discover tests by calling the
   // test executable with `--list-test-names-only` and parsing the results.
   // However, we have to init Kokkos first, which potentially shows warnings that are
@@ -77,6 +82,8 @@ int main(int argc, char *argv[]) {
                 << "MPI Initialization failed." << std::endl;
       return -1;
     }
+    MPI_Comm_rank(MPI_COMM_WORLD, &parthenon::Globals::my_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &parthenon::Globals::nranks);
   }
 #endif // CATCH2_MPI_PARALLEL
 

@@ -30,16 +30,7 @@ jobs:
 
     - name: Install dependencies (Homebrew)
       run: |
-        brew install openmpi adios2 || true
-
-    # this is a workaround because homebrew's stable is hdf5 2.0.0 and cmake's
-    # find_package(HDF5) doesn't properly determine HDF5_IS_PARALLEL
-    # this *should* be fixed in cmake 4.3
-    - name: Install hdf5 from old formula
-      run: |
-        mkdir -p $(brew --repository)/Library/Taps/user/homebrew-repo
-        curl -o $(brew --repository)/Library/Taps/user/homebrew-repo/hdf5-mpi.rb https://raw.githubusercontent.com/Homebrew/homebrew-core/d03791212a4670e68f21c66939c5d348bc1d4bef/Formula/h/hdf5-mpi.rb
-        brew install user/repo/hdf5-mpi
+        brew install openmpi hdf5-mpi adios2 || true
 
     - name: Install OpenPMD
       run: |
