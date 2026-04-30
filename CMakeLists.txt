@@ -278,7 +278,7 @@ if (NOT PARTHENON_DISABLE_OPENPMD)
     endif()
     FetchContent_Declare(openPMD
       GIT_REPOSITORY "https://github.com/openPMD/openPMD-api.git"
-      GIT_TAG        "3a60e77") # Release 0.16.1
+      GIT_TAG        "0.17.0") # Release 0.17.0
     FetchContent_MakeAvailable(openPMD)
     install(TARGETS openPMD EXPORT parthenonTargets)
   endif()
