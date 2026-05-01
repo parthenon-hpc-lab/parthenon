@@ -26,6 +26,7 @@
 #include "mesh/meshblock.hpp"
 #include "pack/sparse_pack/make_pack_descriptor.hpp"
 #include "pack/sparse_pack/sparse_pack.hpp"
+#include "pack/sparse_pack/view_pack.hpp"
 
 // TODO(jcd): can't call the MeshBlock constructor without mesh_refinement.hpp???
 #include "mesh/mesh_refinement.hpp"
@@ -62,6 +63,7 @@ struct v1 : public parthenon::variable_names::base_t<false> {
   KOKKOS_INLINE_FUNCTION v1(Ts &&...args)
       : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v1"; }
+  static constexpr bool is_sparse() {return false;}
 };
 
 struct v3 : public parthenon::variable_names::base_t<false, 3> {
@@ -69,6 +71,8 @@ struct v3 : public parthenon::variable_names::base_t<false, 3> {
   KOKKOS_INLINE_FUNCTION v3(Ts &&...args)
       : parthenon::variable_names::base_t<false, 3>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v3"; }
+  // This isn't made from a sparse pool, be we allocate and deallocate by hand below
+  static constexpr bool is_sparse() {return true;}
 };
 
 struct v5 : public parthenon::variable_names::base_t<false> {
@@ -76,6 +80,7 @@ struct v5 : public parthenon::variable_names::base_t<false> {
   KOKKOS_INLINE_FUNCTION v5(Ts &&...args)
       : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v5"; }
+  static constexpr bool is_sparse() {return false;}
 };
 
 using parthenon::variable_names::ANYDIM;
@@ -84,6 +89,7 @@ struct v7 : public parthenon::variable_names::base_t<false, ANYDIM, 3> {
   KOKKOS_INLINE_FUNCTION v7(Ts &&...args)
       : parthenon::variable_names::base_t<false, ANYDIM, 3>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v7"; }
+  static constexpr bool is_sparse() {return false;}
 };
 
 } // namespace
@@ -248,10 +254,12 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
               int lo = sparse_pack.GetLowerBound(b, v3());
               int hi = sparse_pack.GetUpperBound(b, v3());
+              auto sparse_pack_view = parthenon::make_sparse_view_pack(sparse_pack, b, 0);
               for (int c = 0; c <= hi - lo; ++c) {
                 Real n = i + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
                 if (n != sparse_pack(b, lo + c, k, j, i)) ltot += 1;
                 if (n != sparse_pack(b, v3(c), k, j, i)) ltot += 1;
+                if (n != sparse_pack_view(v3(c), k, j, i)) ltot += 1;
               }
               lo = sparse_pack_notype.GetLowerBound(b, iv3);
               hi = sparse_pack_notype.GetUpperBound(b, iv3);

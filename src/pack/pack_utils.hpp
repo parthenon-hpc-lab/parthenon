@@ -102,11 +102,11 @@ struct var_base_t {
   }
   static std::vector<int> GetShape() { return std::vector<int>{NCOMP...}; }
   KOKKOS_INLINE_FUNCTION
-  static bool regex() { return REGEX; }
+  static constexpr bool regex() { return REGEX; }
   KOKKOS_INLINE_FUNCTION
-  static int ndim() { return sizeof...(NCOMP); }
+  static constexpr int ndim() { return sizeof...(NCOMP); }
   KOKKOS_INLINE_FUNCTION
-  static int size() { return multiply<NCOMP...>::value; }
+  static constexpr int size() { return multiply<NCOMP...>::value; }
 
   const int idx;
 
