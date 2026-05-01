@@ -26,9 +26,9 @@ struct Index3 {
 template <class idx_space_t, class F>
 void outer(idx_space_t idx_space, F &&f);
 
-template <class idx_space_t, class inner_idx_range_t, class F>
+template <class inner_idx_range_t, class F>
 KOKKOS_INLINE_FUNCTION
-void inner(const idx_space_t &idx_space, const inner_idx_range_t &idx_range, F &&f);
+void inner(const inner_idx_range_t &idx_range, F &&f);
 
 template <class IndexSpace>
 struct inner_index_range_t;
@@ -55,9 +55,8 @@ template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 struct index_space_t {
   template <class idx_space_t, class F>
   friend void outer(idx_space_t idx_space, F &&f);
-  template <class idx_space_t, class inner_idx_range_t, class F>
-  friend void inner(const idx_space_t &idx_space, const inner_idx_range_t &idx_range,
-                    F &&f);
+  template <class inner_idx_range_t, class F>
+  friend void inner(const inner_idx_range_t &idx_range, F &&f);
   template <class>
   friend struct var_view_t;
   template <class>
@@ -100,9 +99,8 @@ struct inner_index_range_t {
 
   template <class idx_space_t, class F>
   friend void outer(idx_space_t idx_space, F &&f);
-  template <class idx_space_t, class inner_idx_range_t, class F>
-  friend void inner(const idx_space_t &idx_space, const inner_idx_range_t &idx_range,
-                    F &&f);
+  template <class inner_idx_range_t, class F>
+  friend void inner(const inner_idx_range_t &idx_range, F &&f);
 
   KOKKOS_FUNCTION
   static inner_index_range_t flat_range(const IndexSpace &idx_space, int b, int logical_start, int logical_end) {
@@ -153,8 +151,6 @@ struct inner_index_range_t {
   int ks, js, is;
 };
 
-
-
 template <class idx_space_t, class F> 
 void outer(idx_space_t idx_space, F&& f) {
   using inner_idx_range_t = inner_index_range_t<idx_space_t>;
@@ -189,7 +185,8 @@ void outer(idx_space_t idx_space, F&& f) {
       for (idx_range.ks = ks; idx_range.ks <= ke; ++idx_range.ks) {
         for (idx_range.js = js; idx_range.js <= je; ++idx_range.js) {
 #pragma omp simd
-          for (idx_range.is = is; idx_range.is <= ie; ++idx_range.is) {
+          for (int i = is; i <= ie; ++i) {
+            idx_range.is = i;
             f(idx_range, idx_range.block);
           }
         }
@@ -198,7 +195,7 @@ void outer(idx_space_t idx_space, F&& f) {
   }
 }
 
-template <class inner_idx_range_t, class F> 
+template <class inner_idx_range_t, class F>
 KOKKOS_FORCEINLINE_FUNCTION
 void inner(const inner_idx_range_t &idx_range, F &&f) {
   using idx_space_t = inner_idx_range_t::idx_space_t;
@@ -215,7 +212,7 @@ void inner(const inner_idx_range_t &idx_range, F &&f) {
         for (int j = js; j <= je; ++j) {
 #pragma omp simd
           for (int i = is; i <= ie; ++i) {
-            f(Index3{k, j, i});
+            f(idx_space.memory_kji.GetFlatIdx(k, j, i));
           }
         }
       }  

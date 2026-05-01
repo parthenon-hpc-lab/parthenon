@@ -76,7 +76,13 @@ void NormalizeCaseSpec(CaseSpec *spec) {
     return;
   }
   NormalizeProblemSpec(&spec->problem);
-  if (spec->loop.access_mode.empty()) {
+  if (spec->loop.kind == LoopKind::LoopAbstractionBoviMemory ||
+      spec->loop.kind == LoopKind::LoopAbstractionBoviLogical ||
+      spec->loop.kind == LoopKind::LoopAbstractionBoivLogical ||
+      spec->loop.kind == LoopKind::LoopAbstractionBvoiMemory ||
+      spec->loop.kind == LoopKind::LoopAbstractionBvoiLogical) {
+    spec->loop.access_mode = "hoisted";
+  } else if (spec->loop.access_mode.empty()) {
     spec->loop.access_mode = "direct";
   }
   if (spec->kernel.stencil_x.empty()) {
@@ -180,8 +186,11 @@ std::uint64_t CountTouchedCells(const CaseSpec &spec, const Dataset &dataset) {
   } else if (spec.loop.kind == LoopKind::CpuBoivContiguous ||
              spec.loop.kind == LoopKind::CpuBoviContiguous ||
              spec.loop.kind == LoopKind::CpuBvoiContiguous ||
-             spec.loop.kind == LoopKind::KokkosBoviTeamContiguous) {
-    const int ninner = std::max(spec.loop.ninner, 1);
+             spec.loop.kind == LoopKind::KokkosBoviTeamContiguous ||
+             spec.loop.kind == LoopKind::LoopAbstractionBoviMemory ||
+             spec.loop.kind == LoopKind::LoopAbstractionBvoiMemory) {
+    const int ninner =
+        spec.loop.ninner > 0 ? spec.loop.ninner : problem.nx_interior * problem.ny_interior;
     const int outer_points =
         static_cast<int>((logical_indexer.size() + static_cast<std::size_t>(ninner) - 1) /
                          static_cast<std::size_t>(ninner));

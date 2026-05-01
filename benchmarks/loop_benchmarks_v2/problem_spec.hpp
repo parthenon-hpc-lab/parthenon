@@ -20,6 +20,11 @@ enum class LoopKind {
   KokkosBoivFlat,
   KokkosBoviTeamContiguous,
   KokkosBoviTeamLogical,
+  LoopAbstractionBoviMemory,
+  LoopAbstractionBoviLogical,
+  LoopAbstractionBoivLogical,
+  LoopAbstractionBvoiMemory,
+  LoopAbstractionBvoiLogical,
 };
 
 struct ProblemSpec {

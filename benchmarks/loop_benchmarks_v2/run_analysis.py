@@ -33,6 +33,11 @@ DEFAULT_LOOPS = [
     "kokkos_boiv_flat",
     "kokkos_bovi_team_contiguous",
     "kokkos_bovi_team_logical",
+    "loop_abstraction_bovi_memory",
+    "loop_abstraction_bovi_logical",
+    "loop_abstraction_boiv_logical",
+    "loop_abstraction_bvoi_memory",
+    "loop_abstraction_bvoi_logical",
 ]
 
 LOOP_ACCESS_MODES = {
@@ -46,6 +51,11 @@ LOOP_ACCESS_MODES = {
     "kokkos_boiv_flat": ["direct"],
     "kokkos_bovi_team_contiguous": ["direct", "hoisted"],
     "kokkos_bovi_team_logical": ["direct"],
+    "loop_abstraction_bovi_memory": ["hoisted"],
+    "loop_abstraction_bovi_logical": ["hoisted"],
+    "loop_abstraction_boiv_logical": ["hoisted"],
+    "loop_abstraction_bvoi_memory": ["hoisted"],
+    "loop_abstraction_bvoi_logical": ["hoisted"],
 }
 
 LOOP_STYLE = {
@@ -60,6 +70,11 @@ LOOP_STYLE = {
     "kokkos_boiv_flat": ("#F0E442", "X"),
     "kokkos_bovi_team_contiguous": ("#882255", "v"),
     "kokkos_bovi_team_logical": ("#44AA99", "*"),
+    "loop_abstraction_bovi_memory": ("#999999", "h"),
+    "loop_abstraction_bovi_logical": ("#6A3D9A", "p"),
+    "loop_abstraction_boiv_logical": ("#B15928", "8"),
+    "loop_abstraction_bvoi_memory": ("#1B9E77", "H"),
+    "loop_abstraction_bvoi_logical": ("#D95F02", "d"),
 }
 
 ACCESS_STYLE = {

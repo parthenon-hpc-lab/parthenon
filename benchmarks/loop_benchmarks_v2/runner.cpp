@@ -3,10 +3,12 @@
 #include <chrono>
 #include <array>
 #include <limits>
+#include <optional>
 #include <stdexcept>
 #include <utility>
 
 #include "kernels.hpp"
+#include "loop_abstraction_kernel.hpp"
 #include "loop_patterns.hpp"
 
 namespace plb2 {
@@ -32,6 +34,22 @@ std::pair<double, double> TimeRepeatedRun(int warmup, int repeats, RunFn &&run_o
     best_seconds = std::min(best_seconds, elapsed);
   }
   return {total_seconds / std::max(repeats, 1), best_seconds};
+}
+
+template <loop_abstraction::loop_tag LOOP_TAG, loop_abstraction::inner_tag INNER_TAG,
+          int NITER, int SX, int SY, int SZ>
+void RunLoopAbstractionCase(const CaseSpec &spec, const Dataset &dataset,
+                            const std::array<int, SX> &dx, const std::array<int, SY> &dy,
+                            const std::array<int, SZ> &dz,
+                            const std::array<double, NITER> &alpha,
+                            const std::array<double, NITER> &beta) {
+  const std::optional<int> ninner =
+      spec.loop.ninner > 0 ? std::optional<int>{spec.loop.ninner} : std::nullopt;
+  const auto &problem = dataset.problem;
+  RunUnifiedKernelWithLoopAbstraction<LOOP_TAG, INNER_TAG, NITER, SX, SY, SZ>(
+      dataset.data.in, dataset.data.out, dataset.data.active_counts, problem.nblocks,
+      problem.nx_interior, problem.ny_interior, problem.nz_interior, problem.nghost, dx, dy, dz,
+      alpha, beta, ninner);
 }
 
 template <int NITER, int SX, int SY, int SZ>
@@ -108,6 +126,31 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
         break;
       case LoopKind::KokkosBoviTeamLogical:
         RunKokkosBoviTeamLogical(dataset, spec.loop.ninner, body_direct);
+        break;
+      case LoopKind::LoopAbstractionBoviMemory:
+        RunLoopAbstractionCase<loop_abstraction::loop_tag::bovi,
+                               loop_abstraction::inner_tag::memory, NITER, SX, SY, SZ>(
+            spec, dataset, dx, dy, dz, alpha, beta);
+        break;
+      case LoopKind::LoopAbstractionBoviLogical:
+        RunLoopAbstractionCase<loop_abstraction::loop_tag::bovi,
+                               loop_abstraction::inner_tag::logical, NITER, SX, SY, SZ>(
+            spec, dataset, dx, dy, dz, alpha, beta);
+        break;
+      case LoopKind::LoopAbstractionBoivLogical:
+        RunLoopAbstractionCase<loop_abstraction::loop_tag::boiv,
+                               loop_abstraction::inner_tag::logical, NITER, SX, SY, SZ>(
+            spec, dataset, dx, dy, dz, alpha, beta);
+        break;
+      case LoopKind::LoopAbstractionBvoiMemory:
+        RunLoopAbstractionCase<loop_abstraction::loop_tag::bvoi,
+                               loop_abstraction::inner_tag::memory, NITER, SX, SY, SZ>(
+            spec, dataset, dx, dy, dz, alpha, beta);
+        break;
+      case LoopKind::LoopAbstractionBvoiLogical:
+        RunLoopAbstractionCase<loop_abstraction::loop_tag::bvoi,
+                               loop_abstraction::inner_tag::logical, NITER, SX, SY, SZ>(
+            spec, dataset, dx, dy, dz, alpha, beta);
         break;
       case LoopKind::CpuBoivContiguous:
         RunCpuBoivContiguous(dataset, spec.loop.ninner, body_direct);

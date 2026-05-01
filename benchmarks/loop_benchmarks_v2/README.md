@@ -19,3 +19,11 @@ The analysis script performs a standard reduced sweep over block edges
 `8,32,128` and `niter` values `1,16,128`, with `ninner = nx * ny` for each
 cubic block size. It writes a CSV plus a summary PDF containing the compiler,
 flags, platform, and CPU information.
+
+The loop set now also includes abstraction-backed variants:
+
+- `loop_abstraction_bovi_memory`
+- `loop_abstraction_bovi_logical`
+- `loop_abstraction_boiv_logical`
+- `loop_abstraction_bvoi_memory`
+- `loop_abstraction_bvoi_logical`

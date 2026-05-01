@@ -70,6 +70,16 @@ std::string ToString(LoopKind kind) {
       return "kokkos_bovi_team_contiguous";
     case LoopKind::KokkosBoviTeamLogical:
       return "kokkos_bovi_team_logical";
+    case LoopKind::LoopAbstractionBoviMemory:
+      return "loop_abstraction_bovi_memory";
+    case LoopKind::LoopAbstractionBoviLogical:
+      return "loop_abstraction_bovi_logical";
+    case LoopKind::LoopAbstractionBoivLogical:
+      return "loop_abstraction_boiv_logical";
+    case LoopKind::LoopAbstractionBvoiMemory:
+      return "loop_abstraction_bvoi_memory";
+    case LoopKind::LoopAbstractionBvoiLogical:
+      return "loop_abstraction_bvoi_logical";
   }
   return "unknown";
 }
@@ -85,6 +95,11 @@ LoopKind ParseLoopKind(const std::string &text) {
   if (text == "kokkos_boiv_flat") return LoopKind::KokkosBoivFlat;
   if (text == "kokkos_bovi_team_contiguous") return LoopKind::KokkosBoviTeamContiguous;
   if (text == "kokkos_bovi_team_logical") return LoopKind::KokkosBoviTeamLogical;
+  if (text == "loop_abstraction_bovi_memory") return LoopKind::LoopAbstractionBoviMemory;
+  if (text == "loop_abstraction_bovi_logical") return LoopKind::LoopAbstractionBoviLogical;
+  if (text == "loop_abstraction_boiv_logical") return LoopKind::LoopAbstractionBoivLogical;
+  if (text == "loop_abstraction_bvoi_memory") return LoopKind::LoopAbstractionBvoiMemory;
+  if (text == "loop_abstraction_bvoi_logical") return LoopKind::LoopAbstractionBvoiLogical;
   return LoopKind::CpuBoivContiguous;
 }
 
@@ -206,7 +221,12 @@ bool ParseArgs(int argc, char **argv, CaseSpec *spec, std::string *error) {
     spec->loop.access_mode =
         (spec->loop.kind == LoopKind::CpuBoviContiguous ||
          spec->loop.kind == LoopKind::CpuBvoiContiguous ||
-         spec->loop.kind == LoopKind::KokkosBoviTeamContiguous)
+         spec->loop.kind == LoopKind::KokkosBoviTeamContiguous ||
+         spec->loop.kind == LoopKind::LoopAbstractionBoviMemory ||
+         spec->loop.kind == LoopKind::LoopAbstractionBoviLogical ||
+         spec->loop.kind == LoopKind::LoopAbstractionBoivLogical ||
+         spec->loop.kind == LoopKind::LoopAbstractionBvoiMemory ||
+         spec->loop.kind == LoopKind::LoopAbstractionBvoiLogical)
             ? "hoisted"
             : "direct";
   }
