@@ -22,7 +22,7 @@ The main pool manager that allocates scratch memory for all tokens.
 **Template Parameters:**
 - `MemorySpace` - Kokkos memory space (e.g., `HostSpace`, device memory space)
 - `ExecutionSpace` - Kokkos execution space
-- `TokenScope` - (Optional) `UniqueTokenScope::Global` (default) or `UniqueTokenScope::Instance`
+- `TokenScope` (optional) - `UniqueTokenScope::Global` (default) or `UniqueTokenScope::Instance`
 
 **Constructor:**
 ```cpp
