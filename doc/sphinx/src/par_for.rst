@@ -106,9 +106,9 @@ allocations inside the parallel region.
 
 .. warning::
 
-  The token scratch infrastructure is not compatible with hierarchical
-  parallelism. In this case, please use the team scratch provided by
-  Kokkos.
+  The token scratch infrastructure is not tested for hierarchical
+  parallelism. In this case, we recommend that you use the team
+  scratch provided by Kokkos.
 
 Cmake Options
 -------------
