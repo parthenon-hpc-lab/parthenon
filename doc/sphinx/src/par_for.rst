@@ -97,6 +97,13 @@ allocations inside the parallel region.
          // Use work(...) as temporary storage for this token.
        });
 
+.. note::
+
+  The view created by ``allocate_view<T>`` is unmanaged and thus
+  non-blocking when destructed. The backing view, which is created by
+  the ``TokenScratchPool`` object is owning and thus **does** fence
+  upon going out of scope.
+
 Cmake Options
 -------------
 
