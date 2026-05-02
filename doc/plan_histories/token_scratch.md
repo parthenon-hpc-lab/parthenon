@@ -95,24 +95,6 @@ Kokkos::parallel_for("multidim", N, KOKKOS_LAMBDA(int i) {
 });
 ```
 
-### With TeamPolicy
-
-```cpp
-using TeamPolicy = Kokkos::TeamPolicy<ExecSpace>;
-TokenScratchPool<MemSpace, ExecSpace> pool(32 * 1024);
-
-Kokkos::parallel_for("team_kernel", TeamPolicy(n_teams, team_size),
-  KOKKOS_LAMBDA(const member_type& team) {
-    // Each team gets its own token
-    auto scratch = pool.acquire();
-    auto shared_data = scratch.template allocate_view<double>(256);
-    
-    // Team-parallel work with shared scratch
-    Kokkos::parallel_for(Kokkos::TeamThreadRange(team, 256),
-      [&](int i) { shared_data(i) = ...; });
-  });
-```
-
 ## Design Considerations
 
 ### Memory Layout

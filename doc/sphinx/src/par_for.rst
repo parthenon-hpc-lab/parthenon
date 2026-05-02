@@ -104,6 +104,12 @@ allocations inside the parallel region.
   the ``TokenScratchPool`` object is owning and thus **does** fence
   upon going out of scope.
 
+.. warning::
+
+  The token scratch infrastructure is not compatible with hierarchical
+  parallelism. In this case, please use the team scratch provided by
+  Kokkos.
+
 Cmake Options
 -------------
 
