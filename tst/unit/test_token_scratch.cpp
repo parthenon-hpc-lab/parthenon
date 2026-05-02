@@ -26,9 +26,12 @@
 
 #include "utils/token_scratch.hpp"
 
+constexpr std::size_t bytes_double = 8;
+constexpr std::size_t bytes_int = 8;
+
 SCENARIO("TokenScratchPool basic allocation and usage", "[TokenScratch][Basic]") {
   GIVEN("A TokenScratchPool with 64KB per token") {
-    constexpr size_t scratch_bytes = 64 * 1024; // 64KB per token
+    constexpr size_t scratch_bytes = 100 * bytes_double + 50 * bytes_int;
     constexpr int n_iterations = 100;
 
     parthenon::TokenScratchPool<> pool(scratch_bytes);
@@ -90,9 +93,9 @@ SCENARIO("TokenScratchPool handles multi-dimensional views", "[TokenScratch][Mul
   GIVEN("A TokenScratchPool with 128KB per token") {
     using ExecSpace = Kokkos::DefaultExecutionSpace;
 
-    constexpr size_t scratch_bytes = 128 * 1024;
     constexpr int n_blocks = 50;
     constexpr int ni = 8, nj = 8, nk = 8;
+    constexpr size_t scratch_bytes = ni * nj * (1 + nk) * bytes_double;
 
     parthenon::TokenScratchPool<ExecSpace> pool(scratch_bytes);
 
@@ -158,7 +161,7 @@ SCENARIO("TokenScratchPool handles token reuse with many iterations",
     using ExecSpace = Kokkos::DefaultExecutionSpace;
     using MemSpace = ExecSpace::memory_space;
 
-    constexpr size_t scratch_bytes = 8 * 1024;
+    constexpr size_t scratch_bytes = 100 * bytes_int;
     constexpr int n_iterations = 10000;
 
     parthenon::TokenScratchPool<ExecSpace, MemSpace> pool(scratch_bytes);
@@ -204,7 +207,7 @@ SCENARIO("TokenScratchPool handles token reuse with many iterations",
 
 SCENARIO("TokenScratchPool supports 4D and higher views", "[TokenScratch][Variadic]") {
   GIVEN("A TokenScratchPool with sufficient memory") {
-    constexpr size_t scratch_bytes = 512 * 1024;
+    constexpr size_t scratch_bytes = bytes_double * 5 * 4 * 3 * 2;
     parthenon::TokenScratchPool<> pool(scratch_bytes);
 
     WHEN("We allocate a 4D view") {
@@ -309,7 +312,8 @@ SCENARIO("TokenScratchPool supports 4D and higher views", "[TokenScratch][Variad
 SCENARIO("Variadic allocate_view handles mixed dimensions in single kernel",
          "[TokenScratch][Variadic][Mixed]") {
   GIVEN("A TokenScratchPool with sufficient memory") {
-    constexpr size_t scratch_bytes = 256 * 1024;
+    constexpr size_t scratch_bytes =
+        bytes_double * (10 + 5 * 4 + 3 * 3 * 3 + 2 * 2 * 2 * 2 + 2 * 2 * 2 * 2 * 2);
     parthenon::TokenScratchPool<> pool(scratch_bytes);
 
     WHEN("We allocate views of different ranks in the same kernel") {
