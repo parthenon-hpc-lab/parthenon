@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef PACK_SPARSE_PACK_VIEW_PACK_HPP_
-#define PACK_SPARSE_PACK_VIEW_PACK_HPP_
+#ifndef PACK_SPARSE_PACK_PACK_VIEW_HPP_
+#define PACK_SPARSE_PACK_PACK_VIEW_HPP_
 
 #include <algorithm>
 #include <utility>
@@ -50,30 +50,35 @@ constexpr std::size_t SumSizesBefore() {
 struct var_view_t {
  public:
   parthenon::Real* data = nullptr;
-  int shift;
-  
-  // Temporary for testing, probably don't want to carry around the view
-  ParArray3D<Real, VariableState> var;
+  int shift, ni, nj;
 
-  KOKKOS_FUNCTION
+  KOKKOS_FORCEINLINE_FUNCTION
   parthenon::Real &operator()(int idx) const {
     return data[idx + shift];
   }
-  KOKKOS_FUNCTION
+  KOKKOS_FORCEINLINE_FUNCTION
   parthenon::Real &operator()(int k, int j, int i) const {
-    return var(k, j, i);
+    const int idx = i + ni * (j + nj * k);
+    return data[idx];
   }
 };
 
 template <class... Ts> 
-struct view_pack_t {
+struct pack_view_t {
   using TL = TypeList<Ts...>;
   KOKKOS_DEFAULTED_FUNCTION
-  view_pack_t() = default; 
+  pack_view_t() = default; 
   
   template <class var_t, class... Idxs>
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_FORCEINLINE_FUNCTION
   parthenon::Real &operator()(var_t v, Idxs&&... idxs) {
+    static_assert(TL::template IsIn<var_t>(), "Type must be in view pack type list."); 
+    return data_[SumSizesBefore<TL, var_t>() + v.idx](std::forward<Idxs>(idxs)...);
+  } 
+
+  template <class var_t, class... Idxs>
+  KOKKOS_FORCEINLINE_FUNCTION
+  parthenon::Real &operator()(var_t v, Idxs&&... idxs) const {
     static_assert(TL::template IsIn<var_t>(), "Type must be in view pack type list."); 
     return data_[SumSizesBefore<TL, var_t>() + v.idx](std::forward<Idxs>(idxs)...);
   } 
@@ -83,18 +88,19 @@ struct view_pack_t {
 
 template <class sparse_pack_t, class... Ts> 
 KOKKOS_INLINE_FUNCTION
-auto make_view_pack_impl(const sparse_pack_t& pack_in, const int b, const int s, TypeList<Ts...>) {
+auto make_pack_view_impl(const sparse_pack_t& pack_in, const int b, const int s, TypeList<Ts...>) {
   using TL = TypeList<Ts...>;
-  view_pack_t<Ts...> out;
+  pack_view_t<Ts...> out;
   ([&]{
     constexpr std::size_t vstart = SumSizesBefore<TL, Ts>();
     constexpr std::size_t vstop = vstart + Ts::size();
     const std::size_t sparse_offset = s * Ts::size();
-    for (std::size_t v = 0; v < Ts::size(); ++v) { 
-      out.data_[vstart + v].data = pack_in(b, Ts(v + sparse_offset)).data();
+    for (std::size_t v = 0; v < Ts::size(); ++v) {
+      const auto &var = pack_in(b, Ts(v + sparse_offset));
+      out.data_[vstart + v].data = var.data();
       out.data_[vstart + v].shift = 0;
-      // Temporary for testing, probably don't want to carry around the view
-      out.data_[vstart + v].var = pack_in(b, Ts(v + sparse_offset));
+      out.data_[vstart + v].ni = var.GetDim(1);
+      out.data_[vstart + v].nj = var.GetDim(2);
     }
   }(), ...);
   return out;
@@ -112,7 +118,7 @@ using check_fixed_size = std::bool_constant<(T::size() > 0)>;
 
 template <class... Ts>
 KOKKOS_INLINE_FUNCTION
-auto make_view_pack(const SparsePack<Ts...>& pack_in, const int b) {
+auto make_pack_view(const SparsePack<Ts...>& pack_in, const int b) {
   using full_tl = TypeList<Ts...>;
   // Filter out any types from the list that correspond to sparse variables
   using no_sparse_tl = filter_type_list_t<full_tl, check_not_sparse_type>;
@@ -120,12 +126,12 @@ auto make_view_pack(const SparsePack<Ts...>& pack_in, const int b) {
   // Filter out any types from the list that are not fixed size
   using filtered_tl = filter_type_list_t<no_sparse_tl, check_fixed_size>;
 
-  return make_view_pack_impl(pack_in, b, 0, filtered_tl{});
+  return make_pack_view_impl(pack_in, b, 0, filtered_tl{});
 }
 
 template <class... Ts>
 KOKKOS_INLINE_FUNCTION
-auto make_sparse_view_pack(const SparsePack<Ts...>& pack_in, const int b, const int s) {
+auto make_sparse_pack_view(const SparsePack<Ts...>& pack_in, const int b, const int s) {
   using full_tl = TypeList<Ts...>;
   // Filter out any types from the list that correspond to sparse variables
   using no_sparse_tl = filter_type_list_t<full_tl, check_sparse_type>;
@@ -133,9 +139,9 @@ auto make_sparse_view_pack(const SparsePack<Ts...>& pack_in, const int b, const 
   // Filter out any types from the list that are not fixed size
   using filtered_tl = filter_type_list_t<no_sparse_tl, check_fixed_size>;
 
-  return make_view_pack_impl(pack_in, b, s, filtered_tl{});
+  return make_pack_view_impl(pack_in, b, s, filtered_tl{});
 }
 
 } // namespace parthenon
 
-#endif // PACK_SPARSE_PACK_VIEW_PACK_HPP_
+#endif // PACK_SPARSE_PACK_PACK_VIEW_HPP_

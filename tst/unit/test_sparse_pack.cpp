@@ -26,7 +26,7 @@
 #include "mesh/meshblock.hpp"
 #include "pack/sparse_pack/make_pack_descriptor.hpp"
 #include "pack/sparse_pack/sparse_pack.hpp"
-#include "pack/sparse_pack/view_pack.hpp"
+#include "pack/sparse_pack/pack_view.hpp"
 
 // TODO(jcd): can't call the MeshBlock constructor without mesh_refinement.hpp???
 #include "mesh/mesh_refinement.hpp"
