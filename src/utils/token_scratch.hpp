@@ -123,6 +123,10 @@ class ScratchAllocator {
   KOKKOS_INLINE_FUNCTION
   std::size_t current_offset() const { return offset_; }
 
+  //! Get the acquired token id (useful for diagnostics and testing)
+  KOKKOS_INLINE_FUNCTION
+  int token_id() const { return token_id_; }
+
   //! Get remaining capacity
   KOKKOS_INLINE_FUNCTION
   std::size_t remaining() const { return capacity_ - offset_; }

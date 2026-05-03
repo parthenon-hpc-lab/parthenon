@@ -16,6 +16,7 @@
 //! \brief Unit tests for TokenScratchPool
 
 #include <cmath>
+#include <type_traits>
 
 #ifndef CATCH_CONFIG_FAST_COMPILE
 #define CATCH_CONFIG_FAST_COMPILE
@@ -200,6 +201,44 @@ SCENARIO("TokenScratchPool handles token reuse with many iterations",
           nwrong += (counters_h(i) != expected);
         }
         REQUIRE(nwrong == 0);
+      }
+    }
+  }
+}
+
+SCENARIO("TokenScratchPool exposes the expected token id for the execution space",
+         "[TokenScratch][TokenId]") {
+  GIVEN("A TokenScratchPool using the default execution space") {
+    using ExecSpace = Kokkos::DefaultExecutionSpace;
+
+    constexpr size_t scratch_bytes = bytes_double;
+    parthenon::TokenScratchPool<ExecSpace> pool(scratch_bytes);
+
+    WHEN("We record the token id for a single iteration") {
+      Kokkos::View<int *> actual_ids("actual_ids", 1);
+
+      Kokkos::parallel_for(
+          "test_token_ids", Kokkos::RangePolicy<ExecSpace>(0, 1),
+          KOKKOS_LAMBDA(const int i) {
+            auto scratch = pool.acquire();
+            actual_ids(i) = scratch.token_id();
+          });
+
+      Kokkos::fence();
+
+      THEN("The observed token ids match the execution-space mapping") {
+        auto actual_h =
+            Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), actual_ids);
+
+#ifdef KOKKOS_ENABLE_OPENMPTARGET
+        if constexpr (std::is_same_v<ExecSpace, Kokkos::Experimental::OpenMPTarget>) {
+          REQUIRE(0 <= actual_h(0));
+          REQUIRE(actual_h(0) < static_cast<int>(pool.size()));
+        } else
+#endif
+        {
+          REQUIRE(actual_h(0) == 0);
+        }
       }
     }
   }
