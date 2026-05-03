@@ -81,13 +81,21 @@ namespace parthenon {
 ParameterInput::ParameterInput() : last_filename_{} {}
 
 ParameterInput::ParameterInput(std::string input_filename) : last_filename_{} {
+  ReadFile(input_filename);
+}
+
+void ParameterInput::ReadFile(const std::string &input_filename) {
   if (IsRummyFormat(input_filename)) {
     LoadFromRummyFile(input_filename);
+    format = InputFormat::Rummy;
   } else {
     IOWrapper infile;
     infile.Open(input_filename.c_str(), IOWrapper::FileMode::read);
     LoadFromFile(infile);
     infile.Close();
+    if (format != InputFormat::Rummy) {
+      format = InputFormat::Native;
+    }
   }
 }
 
@@ -343,7 +351,6 @@ void ParameterInput::LoadFromRummyStream(std::istream &is) {
   PARTHENON_REQUIRE_THROWS(!parsing_finalized_,
                            "Can't add new parameters after parsing is resolved.");
 
-  Rummy::Deck deck;
   deck.Build(is);
 
   static const std::regex kVectorCardPattern(R"(^(.+)\[(\d+)\]$)");
@@ -516,15 +523,29 @@ bool ParameterInput::ParseLine(std::string line, std::string &name, std::string 
 //  \brief parse commandline for changes to input parameters
 // Note this function is very forgiving (no warnings!) if there is an error in format
 
-void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
+void ParameterInput::ModifyFromCmdline(std::vector<std::string> mods) {
   PARTHENON_REQUIRE_THROWS(
       !parsing_finalized_,
       "Can't add new parameters to the linked list after the map is resolved.");
+
+  if (mods.empty()) return;
+  PARTHENON_REQUIRE_THROWS(
+    format != InputFormat::Unknown,
+    "Can't determine the input format.");
+  if (format == InputFormat::Rummy) {
+    std::stringstream ss;
+    for (const auto &mod : mods) {
+      ss << mod << "\n";
+    }
+    LoadFromRummyStream(ss);
+    return;
+  }
+
+  // Native parsing
   std::string input_text, block, name, value;
   std::stringstream msg;
 
-  for (int i = 1; i < argc; i++) {
-    input_text = argv[i];
+  for (const auto &input_text : mods) {
     std::size_t equal_posn = input_text.find_first_of("=");     // first "=" character
     std::size_t slash_posn = input_text.rfind("/", equal_posn); // last "/" before "="
 

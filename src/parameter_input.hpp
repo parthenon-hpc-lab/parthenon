@@ -46,9 +46,12 @@
 #include "utils/sort.hpp"
 #include "utils/string_utils.hpp"
 #include "utils/type_list.hpp"
+#include "rummy/deck.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
+
+enum class InputFormat { Native, Rummy, Unknown };
 
 //----------------------------------------------------------------------------------------
 // Supported parameter types - single source of truth
@@ -215,6 +218,7 @@ class ParameterInput {
   ParameterInput();
   explicit ParameterInput(std::string input_filename);
   ~ParameterInput();
+  void ReadFile(const std::string &input_filename);
 
   // === PARSING INTERFACE ===
   void LoadFromStream(std::istream &is);
@@ -222,7 +226,7 @@ class ParameterInput {
   void LoadFromRummyFile(const std::string &filename);
   void LoadFromRummyStream(std::istream &is);
   static bool IsRummyFormat(const std::string &filename);
-  void ModifyFromCmdline(int argc, char *argv[]);
+  void ModifyFromCmdline(std::vector<std::string> mods);
 
   // === PARSER INTERFACE (for input sources like text files, Python, TOML, etc.) ===
   // Use AddParsedParameter to populate parameters from external input sources
@@ -435,7 +439,13 @@ class ParameterInput {
     return ret;
   }
 
+  void SetFormat(InputFormat fmt) { format = fmt; }
+  InputFormat GetFormat() const { return format; }
+
  private:
+
+  InputFormat format = InputFormat::Unknown;
+  Rummy::Deck deck;
   // === PARAMETER STORAGE (vector-of-vectors, preserves insertion order) ===
   std::vector<Block> param_storage_; // Ordered storage (for iteration)
   std::unordered_map<std::string, size_t>

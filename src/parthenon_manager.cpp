@@ -120,27 +120,24 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     pinput->LoadFromStream(is);
   }
   // If an input file was provided
-  if (arg.input_filename != nullptr) {
+  if (!arg.input_filenames.empty()) {
     // Modify info read from restart file
     if (arg.is_restart) {
-      if (ParameterInput::IsRummyFormat(arg.input_filename)) {
-        pinput->LoadFromRummyFile(arg.input_filename);
-      } else {
-        IOWrapper infile;
-        infile.Open(arg.input_filename, IOWrapper::FileMode::read);
-        pinput->LoadFromFile(infile);
-        infile.Close();
+      for(const auto &input_filename : arg.input_filenames) {
+        pinput->ReadFile(input_filename);
       }
-
       // Populate new object for fresh simulation
     } else {
-      pinput = std::make_unique<ParameterInput>(arg.input_filename);
+      pinput = std::make_unique<ParameterInput>();
+      for (const auto &input_filename : arg.input_filenames) {
+        pinput->ReadFile(input_filename);
+      }
     }
   }
-
+  
   // Modify based on command line inputs
-  pinput->ModifyFromCmdline(argc, argv);
-
+  pinput->ModifyFromCmdline(arg.modifiers);
+  
   // Finalize parsing phase - parsers can no longer add parameters
   pinput->FinalizeParsing();
 
