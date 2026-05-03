@@ -52,6 +52,9 @@
 
 #include "parameter_input.hpp"
 
+#include "parthenon_mpi.hpp"
+#include "rummy/deck.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -78,10 +81,14 @@ namespace parthenon {
 ParameterInput::ParameterInput() : last_filename_{} {}
 
 ParameterInput::ParameterInput(std::string input_filename) : last_filename_{} {
-  IOWrapper infile;
-  infile.Open(input_filename.c_str(), IOWrapper::FileMode::read);
-  LoadFromFile(infile);
-  infile.Close();
+  if (IsRummyFormat(input_filename)) {
+    LoadFromRummyFile(input_filename);
+  } else {
+    IOWrapper infile;
+    infile.Open(input_filename.c_str(), IOWrapper::FileMode::read);
+    LoadFromFile(infile);
+    infile.Close();
+  }
 }
 
 ParameterInput::~ParameterInput() = default;
@@ -230,6 +237,186 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
   input.Seek(header);
 
   return;
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn bool ParameterInput::IsRummyFormat(const std::string &filename)
+//  \brief Detect whether a file uses Rummy input format by scanning for markers:
+//           - First line is "# use rummy" (case-insensitive)
+//           - Non-comment, non-blank content before the first <block> line
+//           - Relative suit paths starting with <..
+//           - Rummy-specific value syntax: ** power operator, quoted strings,
+//             bracket syntax [ ] (vectors/slices), or slice colon inside brackets
+bool ParameterInput::IsRummyFormat(const std::string &filename) {
+  std::ifstream file(filename);
+  if (!file.is_open()) return false;
+
+  bool first_line = true;
+  bool found_block = false;
+  std::string line;
+  while (std::getline(file, line)) {
+    line.erase(std::remove_if(line.begin(), line.end(),
+                              [](char c) { return std::isspace(c) && c != ' '; }),
+               line.end());
+    if (line.empty()) continue;
+    auto first_char = line.find_first_not_of(" ");
+    if (first_char == std::string::npos) continue;
+
+    // Check first non-blank line for "# use rummy" (case-insensitive)
+    if (first_line) {
+      first_line = false;
+      if (line.compare(first_char, 1, "#") == 0) {
+        std::string after_hash = line.substr(first_char + 1);
+        auto text_start = after_hash.find_first_not_of(" ");
+        if (text_start != std::string::npos) {
+          std::string token = after_hash.substr(text_start);
+          std::transform(token.begin(), token.end(), token.begin(), ::tolower);
+          if (token.compare(0, 9, "use rummy") == 0) return true;
+        }
+        continue;
+      }
+    } else {
+      if (line.compare(first_char, 1, "#") == 0) continue;
+    }
+
+    if (line.compare(first_char, 1, "<") == 0) {
+      if (line.size() > first_char + 2 && line.compare(first_char + 1, 2, "..") == 0)
+        return true;
+      found_block = true;
+      continue;
+    }
+
+    // Non-comment, non-blank content before the first block = Rummy global variable
+    if (!found_block) return true;
+
+    // Rummy-specific syntax in the value part
+    auto eq_pos = line.find('=');
+    if (eq_pos != std::string::npos) {
+      std::string value_part = line.substr(eq_pos + 1);
+      if (value_part.find("**") != std::string::npos) return true;  // power operator
+      if (value_part.find('"') != std::string::npos) return true;   // quoted string
+      if (value_part.find('[') != std::string::npos) return true;   // vector/slice syntax
+    }
+    // Slice syntax on the LHS: name[:2] or name[0:2]
+    std::string lhs = line.substr(first_char, eq_pos == std::string::npos
+                                                  ? std::string::npos
+                                                  : eq_pos - first_char);
+    if (lhs.find('[') != std::string::npos) return true;
+  }
+  return false;
+}
+
+//----------------------------------------------------------------------------------------
+// Helper functions local to this translation unit for Rummy card conversion
+
+namespace {
+
+//! \fn ParameterInput::ParamValue ConvertRummyCard(const Rummy::Card &card)
+//   \brief Convert a Rummy Card to a ParameterInput::ParamValue for storage in ParameterInput.
+ParameterInput::ParamValue ConvertRummyCard(const Rummy::Card &card) {
+  if (card.isBool()) {
+    return card.Get<bool>();
+  } else if (card.isString()) {
+    return card.Get<std::string>();
+  } else {
+    // Otherwise store as UnresolvedString to preserve full precision
+    return ParameterInput::UnresolvedString(
+        card.GetString(std::numeric_limits<double>::max_digits10));
+  }
+}
+
+//! \fn std::string RummyCardToString(const Rummy::Card &card)
+//   \brief Convert a Rummy Card to its string representation.
+std::string RummyCardToString(const Rummy::Card &card) {
+  if (card.isBool()) {
+    return card.Get<bool>() ? "true" : "false";
+  }
+  return card.GetString(std::numeric_limits<double>::max_digits10);
+}
+
+} // anonymous namespace
+
+//----------------------------------------------------------------------------------------
+//! \fn void ParameterInput::LoadFromRummyStream(std::istream &is)
+//  \brief Load parameters from a Rummy-format stream into ParameterInput storage.
+void ParameterInput::LoadFromRummyStream(std::istream &is) {
+  PARTHENON_REQUIRE_THROWS(!parsing_finalized_,
+                           "Can't add new parameters after parsing is resolved.");
+
+  Rummy::Deck deck;
+  deck.Build(is);
+
+  static const std::regex kVectorCardPattern(R"(^(.+)\[(\d+)\]$)");
+
+  for (const auto &suit_name : deck.GetSuitsInOrder()) {
+    const std::string &block_name = suit_name;
+    const auto &suit_cards = deck.GetCardsInOrder(suit_name);
+    for (const auto &card_name : suit_cards) {
+      // match for vector 
+      if (deck.IsCardVector(suit_name, card_name)) {
+        std::vector<std::string> comments;
+        auto elements = deck.GetVector<std::string>(suit_name, card_name, comments);
+        std::string joined;
+        std::string joined_comments;
+        for (std::size_t i = 0; i < elements.size(); ++i) {
+          if (comments[i] != "") {
+            if (i > 0) { 
+              joined_comments += " ";
+            }
+            joined_comments += comments[i];
+          }
+          if (i > 0) {
+            joined += ",";
+          }
+          joined += elements[i];
+        }
+        AddParsedParameter(block_name, card_name, UnresolvedString(joined),
+                           joined_comments);
+      } else {
+        auto &card = deck.GetCard(suit_name, card_name);
+        AddParsedParameter(block_name, card_name, ConvertRummyCard(card), card.GetComment());
+      }
+    }
+  }
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn void ParameterInput::LoadFromRummyFile(const std::string &filename)
+//  \brief MPI-safe loader for Rummy-format input files.
+void ParameterInput::LoadFromRummyFile(const std::string &filename) {
+  PARTHENON_REQUIRE_THROWS(!parsing_finalized_,
+                           "Can't add new parameters after parsing is resolved.");
+
+  std::string content;
+
+#ifdef MPI_PARALLEL
+  std::size_t content_size = 0;
+  if (Globals::my_rank == 0) {
+    std::ifstream file(filename);
+    PARTHENON_REQUIRE_THROWS(file.is_open(),
+                             "Could not open Rummy input file: " + filename);
+    std::ostringstream oss;
+    oss << file.rdbuf();
+    content = oss.str();
+    content_size = content.size();
+  }
+  PARTHENON_MPI_CHECK(
+      MPI_Bcast(&content_size, sizeof(std::size_t), MPI_BYTE, 0, MPI_COMM_WORLD));
+  content.resize(content_size);
+  PARTHENON_MPI_CHECK(
+      MPI_Bcast(content.data(), static_cast<int>(content_size), MPI_BYTE, 0,
+                MPI_COMM_WORLD));
+#else
+  std::ifstream file(filename);
+  PARTHENON_REQUIRE_THROWS(file.is_open(),
+                           "Could not open Rummy input file: " + filename);
+  std::ostringstream oss;
+  oss << file.rdbuf();
+  content = oss.str();
+#endif
+
+  std::istringstream is(content);
+  LoadFromRummyStream(is);
 }
 
 //----------------------------------------------------------------------------------------
@@ -957,6 +1144,19 @@ std::optional<T> ParameterInput::GetFromStorage_(const std::string &block,
   // If it's already the correct type, return it
   if (std::holds_alternative<T>(param->value)) {
     return std::get<T>(param->value);
+  }
+
+  // If T is a vector and the stored value is the scalar element type, wrap it.
+  // This handles the case where a single-element vector was stored as a scalar
+  // (e.g. a one-element string vector stored as std::string).
+  if constexpr (std::is_same_v<T, std::vector<int>> ||
+                std::is_same_v<T, std::vector<Real>> ||
+                std::is_same_v<T, std::vector<bool>> ||
+                std::is_same_v<T, std::vector<std::string>>) {
+    using ElemType = typename T::value_type;
+    if (std::holds_alternative<ElemType>(param->value)) {
+      return T{std::get<ElemType>(param->value)};
+    }
   }
 
   // Type mismatch - was previously resolved as a different type

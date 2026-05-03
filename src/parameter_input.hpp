@@ -219,6 +219,9 @@ class ParameterInput {
   // === PARSING INTERFACE ===
   void LoadFromStream(std::istream &is);
   void LoadFromFile(IOWrapper &input);
+  void LoadFromRummyFile(const std::string &filename);
+  void LoadFromRummyStream(std::istream &is);
+  static bool IsRummyFormat(const std::string &filename);
   void ModifyFromCmdline(int argc, char *argv[]);
 
   // === PARSER INTERFACE (for input sources like text files, Python, TOML, etc.) ===

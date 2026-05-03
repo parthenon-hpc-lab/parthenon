@@ -123,10 +123,14 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   if (arg.input_filename != nullptr) {
     // Modify info read from restart file
     if (arg.is_restart) {
-      IOWrapper infile;
-      infile.Open(arg.input_filename, IOWrapper::FileMode::read);
-      pinput->LoadFromFile(infile);
-      infile.Close();
+      if (ParameterInput::IsRummyFormat(arg.input_filename)) {
+        pinput->LoadFromRummyFile(arg.input_filename);
+      } else {
+        IOWrapper infile;
+        infile.Open(arg.input_filename, IOWrapper::FileMode::read);
+        pinput->LoadFromFile(infile);
+        infile.Close();
+      }
 
       // Populate new object for fresh simulation
     } else {
