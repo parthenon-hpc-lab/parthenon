@@ -220,7 +220,8 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.RequiresReinitialize(pmesh))
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey);
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache,
+                                      ReceiveKey);
   if (!pmesh->do_coalesced_comms) {
     std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                   [](auto pbuf) { pbuf->TryStartReceive(); });
@@ -251,7 +252,8 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.RequiresReinitialize(pmesh))
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey);
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache,
+                                      ReceiveKey);
 
   const bool coal_comm = pmesh->do_coalesced_comms;
   if (coal_comm) pmesh->pcoalesced_comms->TryReceiveAny(md.get(), bound_type);
