@@ -33,7 +33,7 @@ namespace parthenon {
 //! released when the allocator goes out of scope.
 //========================================================================================
 template <Kokkos::Experimental::UniqueTokenScope TokenScope =
-              Kokkos::Experimental::UniqueTokenScope::Global,
+              Kokkos::Experimental::UniqueTokenScope::Instance,
           typename ExecutionSpace = Kokkos::DefaultExecutionSpace,
           typename MemorySpace = ExecutionSpace::memory_space>
 class ScratchAllocator {
@@ -154,7 +154,7 @@ class ScratchAllocator {
 template <typename ExecutionSpace = Kokkos::DefaultExecutionSpace,
           typename MemorySpace = ExecutionSpace::memory_space,
           Kokkos::Experimental::UniqueTokenScope TokenScope =
-              Kokkos::Experimental::UniqueTokenScope::Global>
+              Kokkos::Experimental::UniqueTokenScope::Instance>
 class TokenScratchPool {
  private:
   using PoolView = Kokkos::View<char **, MemorySpace>;

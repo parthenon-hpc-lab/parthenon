@@ -234,11 +234,12 @@ SCENARIO("TokenScratchPool exposes the expected token id for the execution space
         if constexpr (std::is_same_v<ExecSpace, Kokkos::Experimental::OpenMPTarget>) {
           REQUIRE(0 <= actual_h(0));
           REQUIRE(actual_h(0) < static_cast<int>(pool.size()));
-        } else
-#endif
-        {
+        } else {
           REQUIRE(actual_h(0) == 0);
         }
+#else
+        REQUIRE(actual_h(0) == 0);
+#endif
       }
     }
   }
