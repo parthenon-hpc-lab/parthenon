@@ -369,7 +369,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
                                "Output data coarsened by given factor n. Every n^dim "
                                "data point is used, i.e., the data is not average. "
                                "Requires even number of cells in each block dimension.");
-
+      PARTHENON_REQUIRE_THROWS(!op.include_ghost_zones,
+                               "Writing ghost zones not supported for OPMD outputs.");
       pnew_type = std::make_shared<OpenPMDOutput>(op, backend_config, coarsening_factor);
 #else
       msg << "### FATAL ERROR in Outputs constructor" << std::endl
