@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2023-2025 The Parthenon collaboration
+// Copyright(C) 2023-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
@@ -75,13 +75,13 @@ struct VarInfo {
   Triple_t<int> GetPaddedNumKJI(const IndexDomain domain) const;
   Triple_t<IndexRange> GetPaddedBoundsKJI(const IndexDomain domain) const;
 
-  int Size() const;
+  std::size_t Size() const;
   // Includes topological element shape
-  int TensorSize() const;
-  // Size of region that needs to be filled with 0s if not allocated.
+  std::size_t TensorSize() const;
+  // Size of region that needs to be filled with 0s if not allocated
   // is_padded is set to true by default as it's the assumption in the original (HDF5)
   // output files.
-  int FillSize(const IndexDomain domain, const bool is_padded = true) const;
+  std::size_t FillSize(const IndexDomain domain, const bool is_padded = true) const;
   // number of elements of data that describe variable shape
   int GetNDim() const;
 
