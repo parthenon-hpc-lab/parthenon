@@ -115,7 +115,11 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 #else // HDF5 disabled
       PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #endif
-    } else if (fs::path(arg.restart_filename).extension() == ".bp") {
+    } else if (fs::path(arg.restart_filename).extension() == ".bp" ||
+               // allow user input for /path/to/restart.bp/ (with trailing `/`), e.g.,
+               // from autocomplete
+               (fs::is_directory(arg.restart_filename) &&
+                fs::path(arg.restart_filename).parent_path().extension() == ".bp")) {
 #ifdef PARTHENON_ENABLE_OPENPMD
       restartReader = std::make_unique<RestartReaderOPMD>(arg.restart_filename);
 #else
