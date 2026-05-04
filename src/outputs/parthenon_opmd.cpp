@@ -18,10 +18,12 @@
 //  \brief Output for OpenPMD https://www.openpmd.org/ (supporting various backends)
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <format>
 #include <limits>
 #include <memory>
 #include <sstream>
