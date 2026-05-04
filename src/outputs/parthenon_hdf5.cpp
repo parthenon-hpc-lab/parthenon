@@ -286,7 +286,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       // include these, we must instead call `GetAllVariables` with
       // `FluxRequest::Any`.
       out = data->GetAllVariables({}, FluxRequest::Any).vars();
-    } else { // (mode_ == DUMP)
+    } else { // (mode == Data)
       out = GetAnyVariables(var_vec, output_params.variables);
     }
     auto coords_loc = std::find_if(out.begin(), out.end(), [](const auto &v) {
@@ -396,7 +396,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       int dealloc_count = 0;
       // TODO(reviewers) Why was the loop originally there? Does the direct Get causes
       // issue?
-      auto v = pmb->meshblock_data.Get()->GetVarPtr(var_name);
+      auto v = pmb->meshblock_data.Get(output_params.meshdata_name)->GetVarPtr(var_name);
       // For reference, if we update the logic here, there's also
       // a similar block in parthenon_manager.cpp
       if (v->IsAllocated() && (var_name == v->label())) {
