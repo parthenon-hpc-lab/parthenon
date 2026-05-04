@@ -380,7 +380,8 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
   const int nvar = advected.GetDim(4);
-  size_t scratch_size_in_bytes = parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
+  std::size_t scratch_size_in_bytes =
+      parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
   parthenon::ParArray4D<Real> x1flux = rc->Get("bnd_flux::advected").data.Get(0, 0, 0);
   // get x-fluxes
   pmb->par_for_outer(

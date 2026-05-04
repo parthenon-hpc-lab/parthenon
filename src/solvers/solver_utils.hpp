@@ -228,7 +228,7 @@ TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
     }
   }();
   auto pack = desc.GetPack(md.get(), only_fine_on_composite);
-  const size_t scratch_size_in_bytes = 0;
+  const std::size_t scratch_size_in_bytes = 0;
   const int scratch_level = 1;
   const int ng = parthenon::Globals::nghost;
   parthenon::par_for_outer(
