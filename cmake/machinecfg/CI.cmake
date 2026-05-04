@@ -34,9 +34,11 @@ if (${MACHINE_VARIANT} MATCHES "mpi")
   # not using the following as the default is determined correctly
   #set(TEST_MPIEXEC mpiexec CACHE STRING "Command to launch MPI applications")
   set(HDF5_ROOT /usr/local/hdf5/parallel CACHE STRING "HDF5 path")
+  set(PARTHENON_USE_SYSTEM_OPENPMD ON CACHE BOOL "Use API in container")
 else()
   set(HDF5_ROOT /usr/local/hdf5/serial CACHE STRING "HDF5 path")
   set(PARTHENON_DISABLE_MPI ON CACHE BOOL "Disable MPI")
+  # testing auto fetch and compile
+  set(PARTHENON_USE_SYSTEM_OPENPMD OFF CACHE BOOL "Use API in container")
 endif()
 
-set(PARTHENON_USE_SYSTEM_OPENPMD ON CACHE BOOL "Use API in container")
