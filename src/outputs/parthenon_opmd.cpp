@@ -407,22 +407,25 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
       output_params.block_name, "output_type", "restart",
       std::vector<std::string>{"restart", "data", "x1slice", "x2slice", "x3slice"},
       "Type of output in the file.");
-  // C++20 please
-  // using enum OpenPMDUtils::SubOutputType;
-  using OpenPMDUtils::SubOutputType;
-  auto output_type = SubOutputType::Restart;
+  using enum OpenPMDUtils::SubOutputType;
+  OpenPMDUtils::SubOutputType output_type = Restart;
   if (output_type_str == "data") {
-    output_type = SubOutputType::Data;
+    output_type = Data;
   } else if (output_type_str == "x1slice") {
-    output_type = SubOutputType::X1Slice;
+    output_type = X1Slice;
   } else if (output_type_str == "x2slice") {
-    output_type = SubOutputType::X2Slice;
+    output_type = X2Slice;
   } else if (output_type_str == "x3slice") {
-    output_type = SubOutputType::X3Slice;
+    output_type = X3Slice;
   }
-  const auto is_slice = output_type == SubOutputType::X1Slice ||
-                        output_type == SubOutputType::X2Slice ||
-                        output_type == SubOutputType::X3Slice;
+
+  if (output_type == Restart) {
+    PARTHENON_REQUIRE_THROWS(coarsening_factor_ == 1,
+                             "Restart outputs cannot be coarsened.");
+  }
+
+  const auto is_slice =
+      output_type == X1Slice || output_type == X2Slice || output_type == X3Slice;
   auto slice_loc = std::numeric_limits<Real>::signaling_NaN();
   if (is_slice) {
     PARTHENON_REQUIRE_THROWS(pm->ndim == 3, "Slices are only implemented in 3D");
@@ -561,7 +564,7 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     VariableVector<Real> out;
     // Dump required vars for restarts or use those vars as default if none are given
     // (e.g, for slices or data dumps)
-    if (output_type == SubOutputType::Restart || output_params.variables.empty()) {
+    if (output_type == Restart || output_params.variables.empty()) {
       // get all vars with flag Independent OR restart
       out = GetAnyVariables(
           var_vec, {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
@@ -708,11 +711,11 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                       TopologicalOffsetI(te),
               };
               int remove_comp = -1;
-              if (output_type == SubOutputType::X1Slice) {
+              if (output_type == X1Slice) {
                 remove_comp = 2;
-              } else if (output_type == SubOutputType::X2Slice) {
+              } else if (output_type == X2Slice) {
                 remove_comp = 1;
-              } else if (output_type == SubOutputType::X3Slice) {
+              } else if (output_type == X3Slice) {
                 remove_comp = 0;
               }
               if (remove_comp >= 0) {
@@ -800,15 +803,15 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                       }
                       // Skip cells outside slices
                       if (is_slice) {
-                        if (output_type == SubOutputType::X1Slice) {
+                        if (output_type == X1Slice) {
                           if (slice_loc < coords.Xf<X1DIR>(k, j, i)) continue;
                           if (slice_loc >= coords.Xf<X1DIR>(k, j, i + coarsening_factor_))
                             continue;
-                        } else if (output_type == SubOutputType::X2Slice) {
+                        } else if (output_type == X2Slice) {
                           if (slice_loc < coords.Xf<X2DIR>(k, j, i)) continue;
                           if (slice_loc >= coords.Xf<X2DIR>(k, j + coarsening_factor_, i))
                             continue;
-                        } else if (output_type == SubOutputType::X3Slice) {
+                        } else if (output_type == X3Slice) {
                           if (slice_loc < coords.Xf<X3DIR>(k, j, i)) continue;
                           if (slice_loc >= coords.Xf<X3DIR>(k + coarsening_factor_, j, i))
                             continue;
