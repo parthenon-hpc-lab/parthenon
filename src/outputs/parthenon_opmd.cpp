@@ -40,6 +40,7 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "driver/driver.hpp"
+#include FS_HEADER
 #include "globals.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable_state.hpp"
@@ -54,6 +55,8 @@
 #include "parthenon_array_generic.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/instrument.hpp"
+
+namespace fs = FS_NAMESPACE;
 
 namespace parthenon {
 
@@ -337,6 +340,16 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
       backend_config_ == "default" ? "{}" : "@" + backend_config_;
 
   auto filename = output_params.file_basename + "." + output_params.file_id;
+
+  // Write meta file (to be used by ParaView and Visit to recognize time series)
+  if (Globals::my_rank == 0) {
+    const auto meta_filename = filename + ".pmd";
+    if (!fs::is_regular_file(meta_filename)) {
+      std::ofstream outfile(meta_filename);
+      outfile << filename << ".%05T.bp\n";
+      outfile.close();
+    }
+  }
   if (signal == SignalHandler::OutputSignal::now) {
     filename.append(".now");
   } else if (signal == SignalHandler::OutputSignal::final &&
