@@ -65,6 +65,17 @@ using namespace OutputUtils;
 
 namespace OpenPMDUtils {
 
+void CheckValidName(const std::string &name) {
+  // also including \v as special char used for scalar records
+  auto is_alnum_underscore = [](char c) {
+    return (isalnum(c) || (c == '_') || c == '\v');
+  };
+  PARTHENON_REQUIRE_THROWS(
+      find_if_not(name.begin(), name.end(), is_alnum_underscore) == name.end(),
+      "Generated OpenPMD mesh or particle record'" + name +
+          "' is not standard compliant. Please contact Parthenon developers for a fix.");
+}
+
 template <typename T>
 auto GetFlatHostVecFromView(T view) {
   // Take a view and return a vector containing rank and dims and a flattened (1D)
@@ -212,6 +223,8 @@ GetParticleRecordAndComponentNames(const std::string &vname, const int rank,
     particle_record_component =
         rank == 0 ? openPMD::MeshRecordComponent::SCALAR : std::to_string(flat_comp_idx);
   }
+  CheckValidName(particle_record);
+  CheckValidName(particle_record_component);
   return {particle_record, particle_record_component};
 }
 
@@ -257,10 +270,11 @@ GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te
     PARTHENON_REQUIRE_THROWS(te == TopologicalElement::CC,
                              "Outputs for this type of TE not implemented.")
   }
-  // TODO(pgrete) need to make sure that var names are allowed within standard
   const std::string &mesh_record_name = vinfo.label + "_" + te_str +
                                         vinfo.component_labels[comp_idx] + "_lvl" +
                                         std::to_string(level);
+  CheckValidName(mesh_record_name);
+  CheckValidName(comp_name);
   return {mesh_record_name, comp_name};
 }
 
@@ -330,12 +344,10 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   using openPMD::Access;
   using openPMD::Series;
 
-  // TODO(pgrete) .h5 for hd5 and .bp for ADIOS2 or .json for JSON
   // TODO(pgrete) check if CREATE is the correct pattern (for not overwriting the series
   // but an interation) This just describes the pattern of the filename. The correct file
   // will be accessed through the iteration idx below. The file suffix maps to the chosen
   // backend.
-  // TODO(pgrete) add final and now logic
   // Prepending @ indicates that the config is a file to be read and parsed.
   std::string backend_config =
       backend_config_ == "default" ? "{}" : "@" + backend_config_;
@@ -384,7 +396,6 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   series.setIterationEncoding(openPMD::IterationEncoding::fileBased);
 
   // open iteration (corresponding to a timestep in OpenPMD naming)
-  // TODO(pgrete) fix iteration name <-> file naming
   auto it = series.iterations[output_params.file_number];
   it.open(); // explicit open() is important when run in parallel
 
@@ -533,10 +544,6 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     auto derefcnt_global = FlattenedLocalToGlobal<int>(pm, derefcnt_local);
     it.setAttribute("derefinement_count", derefcnt_global);
   }
-
-  // TODO(pgrete) check var name standard compatiblity
-  // e.g., description: names of records and their components are only allowed to contain
-  // the characters a-Z, the numbers 0-9 and the underscore _
 
   const int num_blocks_local = static_cast<int>(pm->block_list.size());
 
@@ -688,7 +695,6 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
             mesh_record.setDataOrder(openPMD::Mesh::DataOrder::C);
 
             auto mesh_comp = mesh_record[comp_name];
-            // TODO(pgrete) This feels wrong for deep hierachies... Check with OPMD people
             auto effective_nx = static_cast<std::uint64_t>(std::pow(2, level));
             openPMD::Extent global_extent;
             if (pm->ndim == 3) {

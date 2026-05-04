@@ -36,6 +36,10 @@ void WriteAllParams(const Params &params, const std::string &prefix,
 // access to non-standard groups (such as "Params" versus the standard "meshes").
 inline static const std::string delim = "~";
 
+// OpenPMD standard: names of records and their components are only allowed to contain
+// the characters a-Z, the numbers 0-9 and the underscore _
+void CheckValidName(const std::string &name);
+
 // Construct OpenPMD Mesh "record" name and comonnent identifier.
 // - te is the TopologicalElement (which is used as part of the variable name record)
 // - comp_idx is a flattened index over all components of the vectors and tensors, i.e.,
