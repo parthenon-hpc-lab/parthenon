@@ -181,6 +181,7 @@ void outer(idx_space_t idx_space, F&& f) {
     const int is = idx_space.logical_kji.template StartIdx<2>();
     const int ie = idx_space.logical_kji.template EndIdx<2>();
     inner_idx_range_t idx_range;
+    idx_range.pidx_space = &idx_space;
     for (idx_range.block = 0; idx_range.block < idx_space.nblocks; ++idx_range.block) {
       for (idx_range.ks = ks; idx_range.ks <= ke; ++idx_range.ks) {
         for (idx_range.js = js; idx_range.js <= je; ++idx_range.js) {
@@ -210,7 +211,6 @@ void inner(const inner_idx_range_t &idx_range, F &&f) {
       const int ie = idx_space.logical_kji.template EndIdx<2>();
       for (int k = ks; k <= ke; ++k) {
         for (int j = js; j <= je; ++j) {
-#pragma omp simd
           for (int i = is; i <= ie; ++i) {
             f(idx_space.memory_kji.GetFlatIdx(k, j, i));
           }

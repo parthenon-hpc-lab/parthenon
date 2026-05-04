@@ -349,16 +349,30 @@ bool RunCaseMatrix(const std::string &cases_csv, const std::string &results_csv,
   }
 
   for (std::size_t i = 0; i < cases.size(); ++i) {
-    std::cout << "[" << (i + 1) << "/" << cases.size() << "] "
-              << ToString(cases[i].loop.kind) << " "
-              << "blocks=" << cases[i].problem.nblocks << " "
-              << "edge=" << cases[i].problem.nx_interior << " "
-              << "ninner=" << cases[i].loop.ninner << std::endl;
     const BenchmarkRow row = RunCase(cases[i]);
+    const std::uint64_t logical_cells_total =
+        row.logical_cells_per_block * static_cast<std::uint64_t>(row.nblocks);
+    const std::uint64_t memory_cells_total =
+        row.memory_cells_per_block * static_cast<std::uint64_t>(row.nblocks);
     const bool append = exists || i > 0;
     if (!WriteResultsCsv(results_csv, row, append, error)) {
       return false;
     }
+    std::cout << "[" << (i + 1) << "/" << cases.size() << "] "
+              << ToString(cases[i].loop.kind) << " "
+              << "access_mode=" << row.access_mode << " "
+              << "blocks=" << row.nblocks << " "
+              << "edge=" << row.nx_interior << " "
+              << "logical_cells=" << logical_cells_total << " "
+              << "memory_cells=" << memory_cells_total << " "
+              << "ninner=" << row.ninner << " "
+              << "niter=" << row.niter << " "
+              << "stencil_x=" << row.stencil_x << " "
+              << "stencil_y=" << row.stencil_y << " "
+              << "stencil_z=" << row.stencil_z << " "
+              << "avg_seconds=" << row.avg_seconds << " "
+              << "min_seconds=" << row.min_seconds << " "
+              << "updates_per_second=" << row.updates_per_second << std::endl;
   }
   return true;
 }
