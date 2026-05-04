@@ -53,6 +53,7 @@
 #include "outputs/parthenon_opmd.hpp"
 #include "pack/default_names.hpp"
 #include "parthenon_array_generic.hpp"
+#include "provenance.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/instrument.hpp"
 
@@ -367,14 +368,17 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // TODO(pgrete) How to handle downstream info, e.g.,  on how/what defines a vector?
   // TODO(pgrete) Should we update for restart or only set this once? Or make it per
   // iteration?
-  // ... = pin->GetString(output_params.block_name, "actions_file");
-  series.setAuthor("My Name <mail@addre.es");
-  series.setComment("Hello world!");
-  series.setMachine("bla");
-  series.setSoftware("Parthenon + Downstream info");
-  series.setDate("2024-02-29 17:48:42 +0100");
 
-  // TODO(pgrete) Units?
+  // TODO(someone) discuss whether or not we want to use these "standard" infos
+  // on top of default provenance infos added as attributes below.
+  // series.setAuthor("My Name <mail@addre.es");
+  // series.setComment("Hello world!");
+  // series.setMachine("bla");
+  series.setSoftware("Parthenon + X");
+  const auto now = std::chrono::system_clock::now();
+  series.setDate(std::format("{:%F %T}", now));
+
+  // TODO(someone) Handle units
 
   // In line with existing outputs, we write one file per iteration/snapshot
   series.setIterationEncoding(openPMD::IterationEncoding::fileBased);
@@ -442,6 +446,20 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   if (!is_slice) {
     // It's not clear we need all these attributes, but they mirror what's done in the
     // hdf5 output.
+
+    // Writing build and provenance information
+    it.setAttribute("ParthenonGitHash", provenance::PARTHENON_GIT_HASH);
+    it.setAttribute("ParthenonGitBranch", provenance::PARTHENON_GIT_BRANCH);
+    it.setAttribute("ParthenonCompiler", provenance::PARTHENON_COMPILER);
+    it.setAttribute("ParthenonBuildTimestamp", provenance::PARTHENON_BUILD_TIMESTAMP);
+    it.setAttribute("ParthenonBuildArch", provenance::PARTHENON_ARCH);
+    it.setAttribute("ParthenonBuildOptLevel", provenance::PARTHENON_OPTIMIZATION);
+
+    // Pull out Kokkos config which can contain GPU information
+    std::ostringstream kokkos_config;
+    Kokkos::print_configuration(kokkos_config);
+    it.setAttribute("KokkosConfig", kokkos_config.str());
+
     it.setAttribute("WallTime", Driver::elapsed_main());
     it.setAttribute("NumDims", pm->ndim);
     it.setAttribute("NumMeshBlocks", pm->nbtotal);

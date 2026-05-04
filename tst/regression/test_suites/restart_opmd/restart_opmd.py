@@ -62,6 +62,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 "iterationFormat",  # Stores the file name format. Expected to differ.
                 "WallTime",
                 "InputFile",  # Is updated during runtime, e.g., startime and thus differs
+                "date",
             ]
             all_equal = True
             for attr in series_a.attributes:
