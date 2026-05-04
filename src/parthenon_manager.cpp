@@ -326,8 +326,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
                                    " is marked as sparse in restart file");
     }
 
-    max_fillsize = std::max(max_fillsize, static_cast<size_t>(v_info.FillSize(
-                                              theDomain, resfile.BlockdataIsPadded())));
+    max_fillsize =
+        std::max(max_fillsize, v_info.FillSize(theDomain, resfile.BlockdataIsPadded()));
   }
 
   // make sure we have all sparse variables that are in the restart file
@@ -444,7 +444,6 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     auto &params = pkg->AllParams();
     resfile.ReadParams(name, params);
   }
-#endif // ifdef ENABLE_HDF5
 }
 
 } // namespace parthenon

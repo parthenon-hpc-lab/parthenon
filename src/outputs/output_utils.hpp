@@ -374,7 +374,7 @@ std::vector<int> ComputeDerefinementCount(Mesh *pm);
 // Takes a vector containing flattened data of all rank local blocks and returns the
 // flattened data over all blocks.
 template <typename T>
-std::vector<T> FlattendedLocalToGlobal(Mesh *pm, const std::vector<T> &data_local);
+std::vector<T> FlattenedLocalToGlobal(Mesh *pm, const std::vector<T> &data_local);
 
 // TODO(JMM): If we ever need non-int need to generalize
 std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count);

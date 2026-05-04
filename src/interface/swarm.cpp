@@ -495,7 +495,7 @@ void Swarm::SortParticlesByCell() {
                     "Too many cells for an int32 to store cell_idx_1d below!");
 
   auto cell_sorted = cell_sorted_;
-  int ncells = pmb->cellbounds.GetTotal(IndexDomain::entire);
+  std::size_t ncells = pmb->cellbounds.GetTotal(IndexDomain::entire);
   int num_active = num_active_;
   int max_active_index = max_active_index_;
 

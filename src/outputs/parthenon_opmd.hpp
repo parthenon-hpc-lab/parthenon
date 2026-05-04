@@ -39,7 +39,7 @@ inline static const std::string delim = "~";
 
 // Construct OpenPMD Mesh "record" name and comonnent identifier.
 // - te is the TopologicalElement (which is used as part of the variable name record)
-// - comp_idx is a flattended index over all components of the vectors and tensors, i.e.,
+// - comp_idx is a flattened index over all components of the vectors and tensors, i.e.,
 // the typical v,u,t indices.
 // - level is the current effective level of the Mesh record
 std::tuple<std::string, std::string>
@@ -58,7 +58,7 @@ GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
 // Construct OpenPMD Particle "record" name and comonnent identifier.
 // - vname is the variable name
 // - rank is the variable rank (i.e., 0 is scalar etc)
-// - comp_idx is a flattended index over all components of the vectors and tensors, i.e.,
+// - comp_idx is a flattened index over all components of the vectors and tensors, i.e.,
 // the typical v,u,t indices.
 std::tuple<std::string, std::string>
 GetParticleRecordAndComponentNames(const std::string &vname, const int rank,

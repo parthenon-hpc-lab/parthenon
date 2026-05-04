@@ -157,7 +157,7 @@ void WriteSwarmVar(const SwarmInfo &swinfo, openPMD::ParticleSpecies swm,
     auto const dataset = openPMD::Dataset(openPMD::determineDatatype(host_data.data()),
                                           {swinfo.global_count});
     // TODO(pgrete) ask OpenPMD group if this is the right approach (flatten vector and
-    // tensors with flattended indices as string component names) or if our non-scalar
+    // tensors with flattened indices as string component names) or if our non-scalar
     // particle variables should be a multi-D `dataset` (if possible)
     for (auto n = 0; n < vinfo.nvar; n++) {
       auto [particle_record, particle_record_component] =
@@ -512,16 +512,16 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     // Attribute interface rather than writing a distributed dataset -- especially as all
     // data is being read on restart by every rank anyway.
     std::vector<int64_t> loc_local = OutputUtils::ComputeLocs(pm);
-    auto loc_global = FlattendedLocalToGlobal<int64_t>(pm, loc_local);
+    auto loc_global = FlattenedLocalToGlobal<int64_t>(pm, loc_local);
     it.setAttribute("loc.lx123", loc_global);
 
     std::vector<int> id_local = OutputUtils::ComputeIDsAndFlags(pm);
-    auto id_global = FlattendedLocalToGlobal<int>(pm, id_local);
+    auto id_global = FlattenedLocalToGlobal<int>(pm, id_local);
     it.setAttribute("loc.level-gid-lid-cnghost-gflag", id_global);
 
     // derefinement count
     std::vector<int> derefcnt_local = OutputUtils::ComputeDerefinementCount(pm);
-    auto derefcnt_global = FlattendedLocalToGlobal<int>(pm, derefcnt_local);
+    auto derefcnt_global = FlattenedLocalToGlobal<int>(pm, derefcnt_local);
     it.setAttribute("derefinement_count", derefcnt_global);
   }
 
@@ -622,14 +622,14 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // Allocate space for largest size variable
   // Could in principle be reduced for coarsended outputs, but lets better be safe than
   // sorry given the edge cases with non cell centered vars.
-  int var_size_max = 0;
+  std::size_t var_size_max = 0;
   for (auto &vinfo : all_vars_info) {
     const auto var_size = vinfo.Size();
     var_size_max = std::max(var_size_max, var_size);
   }
 
   using OutT = typename std::conditional<WRITE_SINGLE_PRECISION, float, Real>::type;
-  std::vector<OutT> tmp_data(var_size_max * num_blocks_local);
+  std::vector<OutT> tmp_data(var_size_max * static_cast<std::size_t>(num_blocks_local));
 
   // for each variable we write
   for (auto &vinfo : all_vars_info) {
@@ -854,11 +854,11 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   //   WRITING Sparse metadata                                                        //
   // -------------------------------------------------------------------------------- //
   if (!is_slice && num_sparse > 0) {
-    auto sparse_allocated_global = FlattendedLocalToGlobal<int8_t>(pm, sparse_allocated);
+    auto sparse_allocated_global = FlattenedLocalToGlobal<int8_t>(pm, sparse_allocated);
     it.setAttribute("SparseInfo", sparse_allocated_global);
     it.setAttribute("SparseFields", sparse_names);
     auto sparse_dealloc_count_global =
-        FlattendedLocalToGlobal<int>(pm, sparse_dealloc_count);
+        FlattenedLocalToGlobal<int>(pm, sparse_dealloc_count);
     it.setAttribute("SparseDeallocCount", sparse_dealloc_count_global);
   }
 
@@ -874,9 +874,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
       openPMD::ParticleSpecies swm = it.particles[swname];
       // These indicate particles/meshblock and location in global index
       // space where each meshblock starts
-      auto counts_global = FlattendedLocalToGlobal<std::size_t>(pm, swinfo.counts);
+      auto counts_global = FlattenedLocalToGlobal<std::size_t>(pm, swinfo.counts);
       swm.setAttribute("counts", counts_global);
-      auto offsets_global = FlattendedLocalToGlobal<std::size_t>(pm, swinfo.offsets);
+      auto offsets_global = FlattenedLocalToGlobal<std::size_t>(pm, swinfo.offsets);
       swm.setAttribute("offsets", offsets_global);
 
       if (swinfo.global_count == 0) {
