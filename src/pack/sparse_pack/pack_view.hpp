@@ -50,14 +50,14 @@ constexpr std::size_t SumSizesBefore() {
 struct var_view_t {
  public:
   parthenon::Real* data = nullptr;
-  int shift, ni, nj;
+  int ni, nj;
 
   KOKKOS_FORCEINLINE_FUNCTION
-  parthenon::Real &operator()(int idx) const {
-    return data[idx + shift];
+  parthenon::Real &operator()(const int idx) const {
+    return data[idx];
   }
   KOKKOS_FORCEINLINE_FUNCTION
-  parthenon::Real &operator()(int k, int j, int i) const {
+  parthenon::Real &operator()(const int k, const int j, const int i) const {
     const int idx = i + ni * (j + nj * k);
     return data[idx];
   }
@@ -92,13 +92,12 @@ auto make_pack_view_impl(const sparse_pack_t& pack_in, const int b, const int s,
   using TL = TypeList<Ts...>;
   pack_view_t<Ts...> out;
   ([&]{
-    constexpr std::size_t vstart = SumSizesBefore<TL, Ts>();
-    constexpr std::size_t vstop = vstart + Ts::size();
-    const std::size_t sparse_offset = s * Ts::size();
-    for (std::size_t v = 0; v < Ts::size(); ++v) {
+    constexpr int vstart = SumSizesBefore<TL, Ts>();
+    constexpr int vstop = vstart + Ts::size();
+    const int sparse_offset = s * Ts::size();
+    for (int v = 0; v < Ts::size(); ++v) {
       const auto &var = pack_in(b, Ts(v + sparse_offset));
       out.data_[vstart + v].data = var.data();
-      out.data_[vstart + v].shift = 0;
       out.data_[vstart + v].ni = var.GetDim(1);
       out.data_[vstart + v].nj = var.GetDim(2);
     }
