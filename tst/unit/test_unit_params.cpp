@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2025 The Parthenon collaboration
+// Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
@@ -26,13 +26,15 @@
 #include "config.hpp"
 #include "interface/params.hpp"
 #include "kokkos_abstraction.hpp"
-#include "openPMD/Series.hpp"
 #include "outputs/parthenon_hdf5.hpp"
-#include "outputs/parthenon_opmd.hpp"
 #include "outputs/restart_hdf5.hpp"
-#include "outputs/restart_opmd.hpp"
-#include "parameter_input.hpp"
 #include "parthenon_array_generic.hpp"
+
+#ifdef PARTHENON_ENABLE_OPENPMD
+#include "openPMD/Series.hpp"
+#include "outputs/parthenon_opmd.hpp"
+#include "outputs/restart_opmd.hpp"
+#endif
 
 using parthenon::Params;
 using parthenon::Real;
