@@ -277,11 +277,11 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                             "There can be at most one coordinates vector");
 
     VariableVector<Real> out;
-    if (mode_ == DumpOutputMode::RESTART) {
+    if (output_params.mode == DumpOutputMode::Restart) {
       // get all vars with flag Independent OR restart
       out = GetAnyVariables(
           var_vec, {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
-    } else if (mode_ == DumpOutputMode::CORE) {
+    } else if (output_params.mode == DumpOutputMode::Core) {
       // JMM: The VariableVector does not include flux vars. To
       // include these, we must instead call `GetAllVariables` with
       // `FluxRequest::Any`.
@@ -487,7 +487,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // -------------------------------------------------------------------------------- //
 
   Kokkos::Profiling::pushRegion("write particle data");
-  AllSwarmInfo swarm_info(pm->block_list, output_params.swarms, mode_,
+  AllSwarmInfo swarm_info(pm->block_list, output_params.swarms, output_params.mode,
                           output_params.meshdata_name);
   for (auto &[swname, swinfo] : swarm_info.all_info) {
     const H5G g_swm = MakeGroup(file, swname);

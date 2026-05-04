@@ -188,7 +188,7 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
     // pmb->meshblock_data.Get(meshdata_name)->GetSwarmData();
     const auto &swarm_container = pmb->meshblock_data.Get("base")->GetSwarmData();
     swarm_container->DefragAll(); // JMM: If we defrag, we don't need to mask?
-    if (mode == DumpOutputMode::RESTART) {
+    if (mode == DumpOutputMode::Restart) {
       using FC = parthenon::Metadata::FlagCollection;
       auto flags =
           FC({parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
@@ -210,7 +210,7 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
           info.Add(varname, var);
         }
       }
-    } else if (mode == DumpOutputMode::DUMP) {
+    } else if (mode == DumpOutputMode::Data) {
       for (const auto &[swarmname, varnames] : swarmnames) {
         if (swarm_container->Contains(swarmname)) {
           auto &swarm = swarm_container->Get(swarmname);
@@ -230,7 +230,7 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
           }
         }
       }
-    } else { // if (mode == DumpOutputMode::CORE) {
+    } else if (mode == DumpOutputMode::Core) {
       const auto &swarm_map = swarm_container->GetSwarmMap();
       for (const auto &[swarmname, swarm] : swarm_map) {
         auto &info = all_info[swarmname];
@@ -245,6 +245,8 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
           info.Add(var->label(), var);
         }
       }
+    } else {
+      PARTHENON_FAIL("Not sure how to handle/create swarm info for given output type");
     }
   }
   for (auto &[name, info] : all_info) {

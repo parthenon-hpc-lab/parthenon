@@ -18,13 +18,12 @@
 
 #include "basic_types.hpp"
 #include "mesh/meshblock.hpp"
+#include "outputs/output_parameters.hpp"
 #include "outputs/output_utils.hpp"
 
 namespace parthenon {
 
 namespace OpenPMDUtils {
-
-enum class SubOutputType { Restart, Data, X1Slice, X2Slice, X3Slice };
 
 template <typename T>
 void RestoreViewAttribute(const std::string &full_path, T &view, openPMD::Iteration *it);
@@ -53,7 +52,7 @@ GetMeshRecordAndComponentNames(const OutputUtils::VarInfo &vinfo,
 std::tuple<openPMD::Offset, openPMD::Extent>
 GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
                         const TopologicalElement te, const int coarsening_factor,
-                        const SubOutputType outupt_type);
+                        const DumpOutputMode outupt_type);
 
 // Construct OpenPMD Particle "record" name and comonnent identifier.
 // - vname is the variable name

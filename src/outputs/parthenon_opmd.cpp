@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2024-2025 The Parthenon collaboration
+// Copyright(C) 2024-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
@@ -46,6 +46,7 @@
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_attr.hpp"
+#include "outputs/output_parameters.hpp"
 #include "outputs/output_utils.hpp"
 #include "outputs/outputs.hpp"
 #include "outputs/parthenon_opmd.hpp"
@@ -262,7 +263,7 @@ GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te
 std::tuple<openPMD::Offset, openPMD::Extent>
 GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
                         const TopologicalElement te, const int coarsening_factor,
-                        const SubOutputType output_type) {
+                        const DumpOutputMode mode) {
   openPMD::Offset chunk_offset;
   openPMD::Extent chunk_extent;
   const auto loc = pm->Forest().GetLegacyTreeLocation(pmb->loc);
@@ -281,11 +282,11 @@ GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
     PARTHENON_THROW("1D output for openpmd not yet supported.");
   }
   int remove_comp = -1;
-  if (output_type == SubOutputType::X1Slice) {
+  if (mode == DumpOutputMode::X1Slice) {
     remove_comp = 2;
-  } else if (output_type == SubOutputType::X2Slice) {
+  } else if (mode == DumpOutputMode::X2Slice) {
     remove_comp = 1;
-  } else if (output_type == SubOutputType::X3Slice) {
+  } else if (mode == DumpOutputMode::X3Slice) {
     remove_comp = 0;
   }
   if (remove_comp >= 0) {
@@ -399,33 +400,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     it.setDt(-1.0);
   }
 
-  // TODO(reviewers): PG: I didn't want to pollute OutputParams with sth specific to this
-  // output type. It's not super nice to process `pin` info here but it did the job. Any
-  // suggestions?
-
-  const auto output_type_str = pin->GetOrAddString(
-      output_params.block_name, "output_type", "restart",
-      std::vector<std::string>{"restart", "data", "x1slice", "x2slice", "x3slice"},
-      "Type of output in the file.");
-  using enum OpenPMDUtils::SubOutputType;
-  OpenPMDUtils::SubOutputType output_type = Restart;
-  if (output_type_str == "data") {
-    output_type = Data;
-  } else if (output_type_str == "x1slice") {
-    output_type = X1Slice;
-  } else if (output_type_str == "x2slice") {
-    output_type = X2Slice;
-  } else if (output_type_str == "x3slice") {
-    output_type = X3Slice;
-  }
-
-  if (output_type == Restart) {
-    PARTHENON_REQUIRE_THROWS(coarsening_factor_ == 1,
-                             "Restart outputs cannot be coarsened.");
-  }
-
-  const auto is_slice =
-      output_type == X1Slice || output_type == X2Slice || output_type == X3Slice;
+  using enum DumpOutputMode;
+  const auto is_slice = output_params.mode == X1Slice || output_params.mode == X2Slice ||
+                        output_params.mode == X3Slice;
   auto slice_loc = std::numeric_limits<Real>::signaling_NaN();
   if (is_slice) {
     PARTHENON_REQUIRE_THROWS(pm->ndim == 3, "Slices are only implemented in 3D");
@@ -564,7 +541,7 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     VariableVector<Real> out;
     // Dump required vars for restarts or use those vars as default if none are given
     // (e.g, for slices or data dumps)
-    if (output_type == Restart || output_params.variables.empty()) {
+    if (output_params.mode == Restart || output_params.variables.empty()) {
       // get all vars with flag Independent OR restart
       out = GetAnyVariables(
           var_vec, {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
@@ -711,11 +688,11 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                       TopologicalOffsetI(te),
               };
               int remove_comp = -1;
-              if (output_type == X1Slice) {
+              if (output_params.mode == X1Slice) {
                 remove_comp = 2;
-              } else if (output_type == X2Slice) {
+              } else if (output_params.mode == X2Slice) {
                 remove_comp = 1;
-              } else if (output_type == X3Slice) {
+              } else if (output_params.mode == X3Slice) {
                 remove_comp = 0;
               }
               if (remove_comp >= 0) {
@@ -803,15 +780,15 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                       }
                       // Skip cells outside slices
                       if (is_slice) {
-                        if (output_type == X1Slice) {
+                        if (output_params.mode == X1Slice) {
                           if (slice_loc < coords.Xf<X1DIR>(k, j, i)) continue;
                           if (slice_loc >= coords.Xf<X1DIR>(k, j, i + coarsening_factor_))
                             continue;
-                        } else if (output_type == X2Slice) {
+                        } else if (output_params.mode == X2Slice) {
                           if (slice_loc < coords.Xf<X2DIR>(k, j, i)) continue;
                           if (slice_loc >= coords.Xf<X2DIR>(k, j + coarsening_factor_, i))
                             continue;
-                        } else if (output_type == X3Slice) {
+                        } else if (output_params.mode == X3Slice) {
                           if (slice_loc < coords.Xf<X3DIR>(k, j, i)) continue;
                           if (slice_loc >= coords.Xf<X3DIR>(k + coarsening_factor_, j, i))
                             continue;
@@ -832,7 +809,7 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                 }
                 const auto [chunk_offset, chunk_extent] =
                     OpenPMDUtils::GetChunkOffsetAndExtent(pm, pmb, te, coarsening_factor_,
-                                                          output_type);
+                                                          output_params.mode);
 
                 mesh_comp.storeChunkRaw(&tmp_data[comp_offset], chunk_offset,
                                         chunk_extent);
@@ -870,10 +847,31 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // -------------------------------------------------------------------------------- //
   if (!is_slice) {
     Kokkos::Profiling::pushRegion("write particle data");
-    // TODO(pgrete) as above, first wrt differentiating between restart_ (last arg)
-    AllSwarmInfo all_swarm_info(pm->block_list, output_params.swarms,
-                                DumpOutputMode::RESTART);
-    for (auto &[swname, swinfo] : all_swarm_info.all_info) {
+    std::map<std::string, SwarmInfo> swarm_infos;
+
+    // Dump required vars for restarts or use those vars as default if none are given
+    if (output_params.mode == Restart || output_params.swarms.empty()) {
+      AllSwarmInfo all_swarm_info(pm->block_list, output_params.swarms,
+                                  DumpOutputMode::Restart);
+      std::copy_if(
+          std::make_move_iterator(all_swarm_info.all_info.begin()),
+          std::make_move_iterator(all_swarm_info.all_info.end()),
+          std::inserter(swarm_infos, swarm_infos.end()),
+          [&swarm_infos](auto const &kv) { return swarm_infos.count(kv.first) == 0; });
+    }
+
+    // Always add any (additional) variables specified manually
+    {
+      AllSwarmInfo all_swarm_info(pm->block_list, output_params.swarms,
+                                  DumpOutputMode::Data);
+      std::copy_if(
+          std::make_move_iterator(all_swarm_info.all_info.begin()),
+          std::make_move_iterator(all_swarm_info.all_info.end()),
+          std::inserter(swarm_infos, swarm_infos.end()),
+          [&swarm_infos](auto const &kv) { return swarm_infos.count(kv.first) == 0; });
+    }
+
+    for (auto &[swname, swinfo] : swarm_infos) {
       openPMD::ParticleSpecies swm = it.particles[swname];
       // These indicate particles/meshblock and location in global index
       // space where each meshblock starts

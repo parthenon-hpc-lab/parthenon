@@ -371,6 +371,35 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
                                "Requires even number of cells in each block dimension.");
       PARTHENON_REQUIRE_THROWS(!op.include_ghost_zones,
                                "Writing ghost zones not supported for OPMD outputs.");
+
+      const auto output_type_str = pin->GetOrAddString(
+          op.block_name, "output_type", "restart",
+          std::vector<std::string>{"restart", "data", "x1slice", "x2slice", "x3slice"},
+          "Type of output in the file.");
+
+      using enum DumpOutputMode;
+      if (output_type_str == "restart") {
+        op.mode = Restart;
+        restart = true;
+        num_rst_outputs++;
+      } else if (output_type_str == "data") {
+        op.mode = Data;
+      } else if (output_type_str == "x1slice") {
+        op.mode = X1Slice;
+      } else if (output_type_str == "x2slice") {
+        op.mode = X2Slice;
+      } else if (output_type_str == "x3slice") {
+        op.mode = X3Slice;
+      } else {
+        PARTHENON_FAIL("Unknown output_type for openpmd output in block " +
+                       op.block_name);
+      }
+
+      if (op.mode == Restart) {
+        PARTHENON_REQUIRE_THROWS(coarsening_factor == 1,
+                                 "Restart outputs cannot be coarsened.");
+      }
+
       pnew_type = std::make_shared<OpenPMDOutput>(op, backend_config, coarsening_factor);
 #else
       msg << "### FATAL ERROR in Outputs constructor" << std::endl
@@ -392,21 +421,22 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       PARTHENON_FAIL(msg);
 #endif // ifdef ENABLE_HDF5
     } else if (is_hdf5_output) {
+      op.mode = DumpOutputMode::Data;
       restart = (op.file_type == "rst");
       const bool coredump = (op.file_type == "corehdf5");
       if (restart) {
         num_rst_outputs++;
+        op.mode = DumpOutputMode::Restart;
       }
       if (coredump) {
         num_core_outputs++;
+        op.mode = DumpOutputMode::Core;
       }
 #ifdef ENABLE_HDF5
       op.write_xdmf = pin->GetOrAddBoolean(op.block_name, "write_xdmf", true);
       op.write_swarm_xdmf =
           pin->GetOrAddBoolean(op.block_name, "write_swarm_xdmf", false);
-      pnew_type = std::make_shared<PHDF5Output>(
-          op, restart ? DumpOutputMode::RESTART
-                      : (coredump ? DumpOutputMode::CORE : DumpOutputMode::DUMP));
+      pnew_type = std::make_shared<PHDF5Output>(op);
 #else
       msg << "### FATAL ERROR in Outputs constructor" << std::endl
           << "Executable not configured for HDF5 outputs, but HDF5 file format "
@@ -481,7 +511,7 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
         }
         first = false;
       }
-      if (ptype->output_params.file_type == "rst") {
+      if (ptype->output_params.mode == DumpOutputMode::Restart) {
         pm->ApplyUserWorkBeforeRestartOutput(pm, pin, *tm, &(ptype->output_params));
         for (const auto &pkg : pm->packages.AllPackages()) {
           pkg.second->UserWorkBeforeRestartOutput(pm, pin, *tm, &(ptype->output_params));

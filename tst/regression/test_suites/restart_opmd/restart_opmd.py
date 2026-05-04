@@ -1,6 +1,6 @@
 # ========================================================================================
 # Parthenon performance portable AMR framework
-# Copyright(C) 2024 The Parthenon collaboration
+# Copyright(C) 2024-2026 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
 
@@ -8,7 +8,6 @@
 import sys
 import utils.test_case
 import numpy as np
-
 
 # To prevent littering up imported folders with .pyc files or __pycache_ folder
 sys.dont_write_bytecode = True
@@ -30,19 +29,21 @@ class TestCase(utils.test_case.TestCaseAbs):
         # run baseline (to the very end)
         if step == 1:
             parameters.driver_cmd_line_args = ["parthenon/job/problem_id=gold"]
-        # restart from an early openpmd snapshot
+        # restart from an early openpmd snapshot (and change type to HDF5)
         elif step == 2:
             parameters.driver_cmd_line_args = [
                 "-r",
                 "gold.out1.00001.bp",
+                "parthenon/output1/file_type=rst",
                 "-i",
                 f"{parameters.parthenon_path}/tst/regression/test_suites/restart_opmd/parthinput_override.restart",
             ]
-        # restart from an hdf5 snapshot produced from the restarted opmd one
+        # restart from an hdf5 snapshot produced from the restarted opmd one and switch back to opmd
         elif step == 3:
             parameters.driver_cmd_line_args = [
                 "-r",
-                "silver.out2.00002.rhdf",
+                "silver.out1.00002.rhdf",
+                "parthenon/output1/file_type=openpmd",
                 "parthenon/job/problem_id=bronze",
             ]
 
@@ -161,13 +162,8 @@ class TestCase(utils.test_case.TestCaseAbs):
 
             return all_good
 
-        # comapre a few files throughout the simulations
-        success &= compare_files(2, "gold", "silver")
-        # bronze outputs only exists from dump 3 on
-        success &= compare_files(3, "gold", "silver")
-        success &= compare_files(3, "silver", "bronze")
-        success &= compare_files(4, "gold", "silver")
-        success &= compare_files(4, "silver", "bronze")
-        # success &= compare_files("final")
+        # compare snaps between initial run and the one restarted twice (once hdf5 and opmd)
+        success &= compare_files(3, "gold", "bronze")
+        success &= compare_files(4, "gold", "bronze")
 
         return success
