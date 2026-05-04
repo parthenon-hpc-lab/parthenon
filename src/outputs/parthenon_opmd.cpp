@@ -478,8 +478,6 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     it.setAttribute("Multilevel", pm->multilevel ? 1 : 0);
 
     it.setAttribute("BlocksPerPE", pm->GetNbList());
-    // TODO(pgrete) Add safety check for supported coarsening factors
-    // probably already in or before ctor
     it.setAttribute("CoarseningFactor", coarsening_factor_);
 
     // Mesh block size

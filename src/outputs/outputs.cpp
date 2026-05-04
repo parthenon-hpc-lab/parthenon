@@ -69,6 +69,7 @@
 #include <string>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
@@ -369,6 +370,17 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
                                "Output data coarsened by given factor n. Every n^dim "
                                "data point is used, i.e., the data is not average. "
                                "Requires even number of cells in each block dimension.");
+      PARTHENON_REQUIRE_THROWS(coarsening_factor > 0, "Need positive coarsening factor");
+      const auto base_block_size = pm->GetDefaultBlockSize();
+      PARTHENON_REQUIRE_THROWS(
+          base_block_size.nx(X1DIR) % coarsening_factor == 0,
+          "Cannot coarsen with specified factor given nx1 block size");
+      PARTHENON_REQUIRE_THROWS(
+          base_block_size.nx(X2DIR) % coarsening_factor == 0,
+          "Cannot coarsen with specified factor given nx2 block size");
+      PARTHENON_REQUIRE_THROWS(
+          base_block_size.nx(X3DIR) % coarsening_factor == 0,
+          "Cannot coarsen with specified factor given nx3 block size");
       PARTHENON_REQUIRE_THROWS(!op.include_ghost_zones,
                                "Writing ghost zones not supported for OPMD outputs.");
 
