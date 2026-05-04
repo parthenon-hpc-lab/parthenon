@@ -376,10 +376,10 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
           base_block_size.nx(X1DIR) % coarsening_factor == 0,
           "Cannot coarsen with specified factor given nx1 block size");
       PARTHENON_REQUIRE_THROWS(
-          pm->ndim > 1 && base_block_size.nx(X2DIR) % coarsening_factor == 0,
+          base_block_size.nx(X2DIR) % coarsening_factor == 0 || pm->ndim < 2,
           "Cannot coarsen with specified factor given nx2 block size");
       PARTHENON_REQUIRE_THROWS(
-          pm->ndim == 3 && base_block_size.nx(X3DIR) % coarsening_factor == 0,
+          base_block_size.nx(X3DIR) % coarsening_factor == 0 || pm->ndim < 3,
           "Cannot coarsen with specified factor given nx3 block size");
       PARTHENON_REQUIRE_THROWS(!op.include_ghost_zones,
                                "Writing ghost zones not supported for OPMD outputs.");
