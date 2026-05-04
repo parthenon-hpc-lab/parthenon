@@ -107,15 +107,12 @@ std::size_t VarInfo::FillSize(const IndexDomain domain, const bool is_padded) co
     auto [n3, n2, n1] = GetPaddedNumKJI(domain);
     return ntop_elems * TensorSize() * n3 * n2 * n1;
   }
-  // Use raw info from topological elements (including some safety checks)
+  // Use raw info from topological elements
   auto ncells = cellbounds.GetTotal(domain, topological_elements.at(0));
   for (auto el_idx = 1; el_idx < ntop_elems; el_idx++) {
-    PARTHENON_REQUIRE_THROWS(
-        ncells == cellbounds.GetTotal(domain, topological_elements.at(el_idx)),
-        "All topological elements in a given output variable should have the same total "
-        "number of cells.");
+    ncells += cellbounds.GetTotal(domain, topological_elements.at(el_idx));
   }
-  return ntop_elems * TensorSize() * ncells;
+  return TensorSize() * ncells;
 }
 
 // number of elements of data that describe variable shape
