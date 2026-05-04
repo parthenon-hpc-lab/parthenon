@@ -46,8 +46,10 @@
 #include "utils/sort.hpp"
 #include "utils/string_utils.hpp"
 #include "utils/type_list.hpp"
-#include "rummy/deck.hpp"
 #include "utils/utils.hpp"
+
+// Forward-declare Rummy::Deck
+namespace Rummy { class Deck; }
 
 namespace parthenon {
 
@@ -445,7 +447,7 @@ class ParameterInput {
  private:
 
   InputFormat format = InputFormat::Unknown;
-  Rummy::Deck deck;
+  std::unique_ptr<Rummy::Deck> deck_;
   // === PARAMETER STORAGE (vector-of-vectors, preserves insertion order) ===
   std::vector<Block> param_storage_; // Ordered storage (for iteration)
   std::unordered_map<std::string, size_t>

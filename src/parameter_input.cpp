@@ -78,9 +78,9 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 // ParameterInput constructor
 
-ParameterInput::ParameterInput() : last_filename_{} {}
+ParameterInput::ParameterInput() : last_filename_{}, deck_(std::make_unique<Rummy::Deck>()) {}
 
-ParameterInput::ParameterInput(std::string input_filename) : last_filename_{} {
+ParameterInput::ParameterInput(std::string input_filename) : last_filename_{}, deck_(std::make_unique<Rummy::Deck>()) {
   ReadFile(input_filename);
 }
 
@@ -351,18 +351,18 @@ void ParameterInput::LoadFromRummyStream(std::istream &is) {
   PARTHENON_REQUIRE_THROWS(!parsing_finalized_,
                            "Can't add new parameters after parsing is resolved.");
 
-  deck.Build(is);
+  deck_->Build(is);
 
   static const std::regex kVectorCardPattern(R"(^(.+)\[(\d+)\]$)");
 
-  for (const auto &suit_name : deck.GetSuitsInOrder()) {
+  for (const auto &suit_name : deck_->GetSuitsInOrder()) {
     const std::string &block_name = suit_name;
-    const auto &suit_cards = deck.GetCardsInOrder(suit_name);
+    const auto &suit_cards = deck_->GetCardsInOrder(suit_name);
     for (const auto &card_name : suit_cards) {
       // match for vector 
-      if (deck.IsCardVector(suit_name, card_name)) {
+      if (deck_->IsCardVector(suit_name, card_name)) {
         std::vector<std::string> comments;
-        auto elements = deck.GetVector<std::string>(suit_name, card_name, comments);
+        auto elements = deck_->GetVector<std::string>(suit_name, card_name, comments);
         std::string joined;
         std::string joined_comments;
         for (std::size_t i = 0; i < elements.size(); ++i) {
@@ -380,7 +380,7 @@ void ParameterInput::LoadFromRummyStream(std::istream &is) {
         AddParsedParameter(block_name, card_name, UnresolvedString(joined),
                            joined_comments);
       } else {
-        auto &card = deck.GetCard(suit_name, card_name);
+        auto &card = deck_->GetCard(suit_name, card_name);
         AddParsedParameter(block_name, card_name, ConvertRummyCard(card), card.GetComment());
       }
     }
