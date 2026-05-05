@@ -230,7 +230,7 @@ class ParameterInput {
   void LoadFromRummyFile(const std::string &filename);
   void LoadFromRummyStream(std::istream &is);
   void SyncDeckFromStorage();
-  static bool IsRummyFormat(std::istream &is);
+  static bool IsRummyFormat(std::istream &is, const bool command_line);
   static bool IsRummyFormat(const std::string &filename);
   void ModifyFromCmdline(std::vector<std::string> mods);
 

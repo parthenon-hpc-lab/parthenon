@@ -261,7 +261,7 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
 //           - Relative suit paths starting with <..
 //           - Rummy-specific value syntax: ** power operator, quoted strings,
 //             bracket syntax [ ] (vectors/slices), or slice colon inside brackets
-bool ParameterInput::IsRummyFormat(std::istream &is) {
+bool ParameterInput::IsRummyFormat(std::istream &is, const bool command_line) {
   const auto start_pos = is.tellg();
   auto restore_and_return = [&](bool result) {
     is.clear();
@@ -298,31 +298,41 @@ bool ParameterInput::IsRummyFormat(std::istream &is) {
     }
 
     if (line.compare(first_char, 1, "<") == 0) {
-      if (line.size() > first_char + 2 && line.compare(first_char + 1, 2, "..") == 0)
+      if (line.size() > first_char + 2 && line.compare(first_char + 1, 2, "..") == 0) {
         return restore_and_return(true);
+      }
       found_block = true;
       continue;
     }
 
     // Non-comment, non-blank content before the first block = Rummy global variable
-    if (!found_block) return restore_and_return(true);
+    // Disable for command line modifications
+    if (!command_line && !found_block) {
+      return restore_and_return(true);
+    }
 
     // Rummy-specific syntax in the value part
     auto eq_pos = line.find('=');
     if (eq_pos != std::string::npos) {
       std::string name_part = line.substr(first_char, eq_pos - first_char);
-      if (name_part.find_first_of(".[") != std::string::npos)
+      if (name_part.find_first_of(".[") != std::string::npos) {
         return restore_and_return(true);
+      }
 
       std::string value_part = line.substr(eq_pos + 1);
-      if (value_part.find_first_of("*\"[+-/%^|") != std::string::npos)
+      // do not include +- because they can be used in exponential notation.
+      // / can be used in command line arguments
+      if (value_part.find_first_of("*\"[%^|") != std::string::npos) {
         return restore_and_return(true);
+      }
     }
     // Slice syntax on the LHS: name[:2] or name[0:2]
     std::string lhs =
         line.substr(first_char, eq_pos == std::string::npos ? std::string::npos
                                                             : eq_pos - first_char);
-    if (lhs.find('[') != std::string::npos) return restore_and_return(true);
+    if (lhs.find('[') != std::string::npos) {
+      return restore_and_return(true);
+    }
   }
   return restore_and_return(false);
 }
@@ -333,7 +343,7 @@ bool ParameterInput::IsRummyFormat(std::istream &is) {
 bool ParameterInput::IsRummyFormat(const std::string &filename) {
   std::ifstream file(filename);
   if (!file.is_open()) return false;
-  return IsRummyFormat(file);
+  return IsRummyFormat(file, false);
 }
 
 //----------------------------------------------------------------------------------------
@@ -664,7 +674,7 @@ void ParameterInput::ModifyFromCmdline(std::vector<std::string> mods) {
     ss << mod << "\n";
   }
 
-  if (format == InputFormat::Rummy || IsRummyFormat(ss)) {
+  if (format == InputFormat::Rummy || IsRummyFormat(ss, true)) {
     if (!deck_initialized_) {
       SyncDeckFromStorage();
       deck_initialized_ = true;
