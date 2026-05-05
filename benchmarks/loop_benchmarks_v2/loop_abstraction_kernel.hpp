@@ -23,8 +23,8 @@ inline void RunUnifiedKernelWithLoopAbstraction(
                                                                   ninner);
 
   loop_abstraction::outer(idx_space,
-                          KOKKOS_LAMBDA(const auto &idx_range, int /*b*/) {
-                            const int nvars = active_counts(idx_range.block);
+                          KOKKOS_LAMBDA(const auto &idx_range, int b) {
+                            const int nvars = active_counts(b);
                             for (int v = 0; v < nvars; ++v) {
                               auto in = idx_range.view(input, v);
                               auto out = idx_range.view(output, v);
