@@ -175,7 +175,7 @@ class TokenScratchPool {
   //! The allocator automatically manages token lifetime via RAII
   KOKKOS_INLINE_FUNCTION
   auto acquire() const {
-    const int token_id = tokens_.acquire();
+    const int token_id = bytes_per_token_ > 0 ? tokens_.acquire() : -1;
     return ScratchAllocator<TokenScope, ExecutionSpace, MemorySpace>(
         pool_, &tokens_, token_id, bytes_per_token_);
   }
