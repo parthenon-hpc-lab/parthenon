@@ -385,7 +385,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
                                "Writing ghost zones not supported for OPMD outputs.");
 
       const auto output_type_str = pin->GetOrAddString(
-          op.block_name, "output_type", "restart",
+          op.block_name, "output_type", "data",
           std::vector<std::string>{"restart", "data", "x1slice", "x2slice", "x3slice"},
           "Type of output in the file.");
 
