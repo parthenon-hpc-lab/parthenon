@@ -445,16 +445,9 @@ find_package(Rummy QUIET)
 
 if (NOT Rummy_FOUND)
   # If Rummy is not found, instead use the git submodule
-  if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/rummy/single_include)
-    # Unable to find the header files for Rummy or they don't exist
-    message(STATUS "Downloading Rummy submodule.")
-
-    # Clone the submodule
-    execute_process(COMMAND git submodule update --init --force -- external/rummy WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
-  endif()
-
+  set(RUMMY_ENABLE_COVERAGE OFF CACHE BOOL "Disable Rummy coverage" FORCE)
+  set(RUMMY_ENABLE_UNIT_TESTS OFF CACHE BOOL "Disable Rummy unit tests" FORCE)
   add_subdirectory(external/rummy)
-  list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/external/rummy/contrib")
 endif()
 
 
