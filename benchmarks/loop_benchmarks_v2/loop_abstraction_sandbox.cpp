@@ -36,7 +36,7 @@ void RunKernel(const View5D &input, View5D &output, int nblocks, int nvar, int n
   using namespace plb2;
 
   loop_abstraction::index_space_t<LOOP_TAG, INNER_TAG> idx_space(nblocks, n, n, n, nghost);
-  loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
+  loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int /*b*/) {
     for (int v = 0; v < nvar; ++v) {
       auto in = idx_range.view(input, v);
       auto out = idx_range.view(output, v);

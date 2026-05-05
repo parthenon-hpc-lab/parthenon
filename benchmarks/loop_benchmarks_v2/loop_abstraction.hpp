@@ -33,6 +33,28 @@ void inner(const inner_idx_range_t &idx_range, F &&f);
 template <class IndexSpace>
 struct inner_index_range_t;
 
+template <loop_tag LOOP_TAG>
+struct inner_index_range_payload_t;
+
+template <>
+struct inner_index_range_payload_t<loop_tag::boiv> {
+  int k = 0;
+  int j = 0;
+  int i = 0;
+};
+
+template <>
+struct inner_index_range_payload_t<loop_tag::bovi> {
+  int flat_start = 0;
+  int flat_end = -1;
+};
+
+template <>
+struct inner_index_range_payload_t<loop_tag::bvoi> {
+  int flat_start = 0;
+  int flat_end = -1;
+};
+
 template <class idx_space_t>
 struct var_view_t {
  public:
@@ -96,6 +118,7 @@ template <class IndexSpace>
 struct inner_index_range_t {
  public:
   using idx_space_t = IndexSpace;
+  using payload_t = inner_index_range_payload_t<IndexSpace::loop_tag>;
 
   template <class idx_space_t, class F>
   friend void outer(idx_space_t idx_space, F &&f);
@@ -108,35 +131,16 @@ struct inner_index_range_t {
     out.pidx_space = &idx_space; 
     const auto [ks, js, is] = idx_space.logical_kji(logical_start);
     out.block = b;
-    out.ks = ks;
-    out.js = js;
-    out.is = is;
     const auto [ke, je, ie] = idx_space.logical_kji(logical_end);
     if constexpr (idx_space_t::inner_tag == inner_tag::memory) {
-      out.flat_start = idx_space.memory_kji.GetFlatIdx(ks, js, is);
-      out.flat_end = idx_space.memory_kji.GetFlatIdx(ke, je, ie);
+      out.payload_.flat_start = idx_space.memory_kji.GetFlatIdx(ks, js, is);
+      out.payload_.flat_end = idx_space.memory_kji.GetFlatIdx(ke, je, ie);
     } else if constexpr (idx_space_t::inner_tag == inner_tag::logical) {
-      out.flat_start = logical_start;
-      out.flat_end = logical_end;
+      out.payload_.flat_start = logical_start;
+      out.payload_.flat_end = logical_end;
     } 
     return out;
   } 
-  
-  KOKKOS_INLINE_FUNCTION
-  auto GetSpatialIndices(Index3 in) const {
-    return std::make_tuple(in.k, in.j, in.i);
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  auto GetSpatialIndices(int flat) const {
-    if constexpr (IndexSpace::inner_tag == inner_tag::memory) {
-      return pidx_space->memory_kji(flat);
-    } else if constexpr (IndexSpace::inner_tag == inner_tag::logical) {
-      return pidx_space->logical_kji(flat);
-    } else {
-      static_assert(always_false_v<IndexSpace>, "Unsupported inner_tag");
-    }
-  }
 
   template <class view_t>
   KOKKOS_INLINE_FUNCTION
@@ -144,11 +148,10 @@ struct inner_index_range_t {
     return pidx_space->GetInnerView(in, block, var, offset);
   }
 
- public:
+ private:
   IndexSpace const * pidx_space = nullptr;
-  int flat_start, flat_end;
   int block;
-  int ks, js, is;
+  payload_t payload_{};
 };
 
 template <class idx_space_t, class F> 
@@ -183,15 +186,17 @@ void outer(idx_space_t idx_space, F&& f) {
     inner_idx_range_t idx_range;
     idx_range.pidx_space = &idx_space;
     for (idx_range.block = 0; idx_range.block < idx_space.nblocks; ++idx_range.block) {
-      for (idx_range.ks = ks; idx_range.ks <= ke; ++idx_range.ks) {
-        for (idx_range.js = js; idx_range.js <= je; ++idx_range.js) {
+      for (int k = ks; k <= ke; ++k) {
+        for (int j = js; j <= je; ++j) {
 #pragma omp simd
           for (int i = is; i <= ie; ++i) {
-            idx_range.is = i;
+            idx_range.payload_.k = k;
+            idx_range.payload_.j = j;
+            idx_range.payload_.i = i;
             f(idx_range, idx_range.block);
           }
         }
-      }
+      }  
     }  
   }
 }
@@ -211,6 +216,7 @@ void inner(const inner_idx_range_t &idx_range, F &&f) {
       const int ie = idx_space.logical_kji.template EndIdx<2>();
       for (int k = ks; k <= ke; ++k) {
         for (int j = js; j <= je; ++j) {
+#pragma omp simd
           for (int i = is; i <= ie; ++i) {
             f(idx_space.memory_kji.GetFlatIdx(k, j, i));
           }
@@ -224,15 +230,15 @@ void inner(const inner_idx_range_t &idx_range, F &&f) {
         const int logical_end = std::min((o + 1) * idx_space.ninner - 1, static_cast<int>(idx_space.logical_kji.size()) - 1);
         const auto inner_range = inner_idx_range_t::flat_range(idx_space, idx_range.block, logical_start, logical_end);
 #pragma omp simd  
-        for (int idx = inner_range.flat_start; idx <= inner_range.flat_end; ++idx) {
+        for (int idx = inner_range.payload_.flat_start; idx <= inner_range.payload_.flat_end; ++idx) {
           f(idx);
         }
       }
     } 
   } else if constexpr (idx_space_t::loop_tag == loop_tag::bovi) {
-    const int start = idx_range.flat_start;
-    const int end_exclusive = idx_range.flat_end + 1;
-#pragma clang loop vectorize(enable)
+    const int start = idx_range.payload_.flat_start;
+    const int end_exclusive = idx_range.payload_.flat_end + 1;
+#pragma omp simd
     for (int idx = start; idx < end_exclusive; ++idx) {
       if constexpr(idx_space_t::inner_tag == inner_tag::memory) {
         f(idx);
@@ -242,7 +248,7 @@ void inner(const inner_idx_range_t &idx_range, F &&f) {
       }
     }
   } else if constexpr (idx_space_t::loop_tag == loop_tag::boiv) {
-    f(Index3{idx_range.ks, idx_range.js, idx_range.is});
+    f(Index3{idx_range.payload_.k, idx_range.payload_.j, idx_range.payload_.i});
   }
 }
   
