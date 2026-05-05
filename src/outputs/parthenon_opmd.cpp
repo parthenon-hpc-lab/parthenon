@@ -25,6 +25,7 @@
 #include <cstdlib>
 #include <format>
 #include <limits>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -660,9 +661,8 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     if (vinfo.is_vector) {
       // sanity check
       PARTHENON_REQUIRE_THROWS(
-          vinfo.GetDim(4) == pm->ndim && vinfo.GetDim(5) == 1 && vinfo.GetDim(6) == 1,
-          "A 'standard' vector is expected to only have components matching the "
-          "dimensionality of the simulation.")
+          vinfo.GetDim(5) == 1 && vinfo.GetDim(6) == 1,
+          "A 'standard' vector is expected to not have higher dimensional indices.")
     }
 
     // for each local mesh block

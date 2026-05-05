@@ -172,7 +172,7 @@ class OpenPMDOutput : public OutputType {
 class PHDF5Output : public OutputType {
  public:
   // Function declarations
-  PHDF5Output(const OutputParameters &oparams) : OutputType(oparams) {}
+  explicit PHDF5Output(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                        const SignalHandler::OutputSignal signal) override;
   template <bool WRITE_SINGLE_PRECISION>
