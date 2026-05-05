@@ -19,6 +19,7 @@
 
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1331]](https://github.com/parthenon-hpc-lab/parthenon/pull/1331) Use `size_t` for sizes
 - [[PR 1355]](https://github.com/parthenon-hpc-lab/parthenon/pull/1355) Allow disabling format and lint targets
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 

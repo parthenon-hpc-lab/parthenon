@@ -949,6 +949,14 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
   }
 #endif
 
+  PARTHENON_REQUIRE_THROWS(
+      nbtotal < std::numeric_limits<int>::max(),
+      "Congratulations. You're the first one to run a simulation with more blocks than "
+      "max `int`. Many loops in parthenon still use `int` indices over blocks or use "
+      "`int` for pack indices and partitions, so who knows what happens next. Please get "
+      "in contact with the dev team before proceeding (or proceed on your own risk and "
+      "remove this statement).");
+
   // Initialize the "base" MeshData object
   mesh_data.Add("base", GetBasePartition());
 }
