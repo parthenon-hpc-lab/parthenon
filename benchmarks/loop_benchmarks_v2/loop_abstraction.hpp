@@ -3,9 +3,12 @@
 #include <algorithm>
 #include <concepts>
 #include <optional>
+#include <type_traits>
+#include <utility>
 
 #include <Kokkos_Core.hpp>
 
+#include "kokkos_types.hpp"
 #include "utils/indexer.hpp"
 #include "basic_types.hpp"
 
@@ -13,12 +16,33 @@ namespace plb2 {
 
 namespace loop_abstraction {
 
-// Forward declarations
+namespace impl {
+
+template <class idx_space_t, class F>
+KOKKOS_INLINE_FUNCTION
+void outer_raw_for(idx_space_t idx_space, F &&f);
+
+template <class inner_idx_range_t, class F>
+KOKKOS_FORCEINLINE_FUNCTION
+void inner_raw_for(const inner_idx_range_t &idx_range, F &&f);
+
+template <class idx_space_t, class F>
+void outer_kokkos(idx_space_t idx_space, F &&f);
+
+template <class inner_idx_range_t, class F>
+KOKKOS_FORCEINLINE_FUNCTION
+void inner_kokkos(const inner_idx_range_t &idx_range, F &&f);
+
+inline constexpr bool use_raw_for_v =
+    std::is_same_v<parthenon::DevExecSpace, parthenon::HostExecSpace>;
+
+} // namespace impl
+
 template <class idx_space_t, class F>
 void outer(idx_space_t idx_space, F &&f);
 
 template <class inner_idx_range_t, class F>
-KOKKOS_INLINE_FUNCTION
+KOKKOS_FORCEINLINE_FUNCTION
 void inner(const inner_idx_range_t &idx_range, F &&f);
 
 template <class IndexSpace>
@@ -82,9 +106,9 @@ template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 class index_space_t {
  public:
   template <class idx_space_t, class F>
-  friend void outer(idx_space_t idx_space, F &&f);
+  friend void impl::outer_raw_for(idx_space_t idx_space, F &&f);
   template <class inner_idx_range_t, class F>
-  friend void inner(const inner_idx_range_t &idx_range, F &&f);
+  friend void impl::inner_raw_for(const inner_idx_range_t &idx_range, F &&f);
   template <class>
   friend struct var_view_t;
   template <class>
@@ -133,16 +157,15 @@ class inner_index_range_t {
   }
 
  private:
-  using idx_space_t = IndexSpace;
   // Payload is specialized by loop_tag so each loop style carries only the
   // state it actually needs. This keeps the hot-path range descriptor as
   // small as possible.
   using payload_t = inner_index_range_payload_t<IndexSpace::loop_tag>;
 
   template <class idx_space_t, class F>
-  friend void outer(idx_space_t idx_space, F &&f);
+  friend void impl::outer_raw_for(idx_space_t idx_space, F &&f);
   template <class inner_idx_range_t, class F>
-  friend void inner(const inner_idx_range_t &idx_range, F &&f);
+  friend void impl::inner_raw_for(const inner_idx_range_t &idx_range, F &&f);
 
   KOKKOS_FUNCTION
   static inner_index_range_t flat_range(const IndexSpace &idx_space, int b, int logical_start, int logical_end) {
@@ -151,10 +174,10 @@ class inner_index_range_t {
     const auto [ks, js, is] = idx_space.logical_kji(logical_start);
     out.block = b;
     const auto [ke, je, ie] = idx_space.logical_kji(logical_end);
-    if constexpr (idx_space_t::inner_tag == inner_tag::memory) {
+    if constexpr (IndexSpace::inner_tag == inner_tag::memory) {
       out.payload_.flat_start = idx_space.memory_kji.GetFlatIdx(ks, js, is);
       out.payload_.flat_end = idx_space.memory_kji.GetFlatIdx(ke, je, ie);
-    } else if constexpr (idx_space_t::inner_tag == inner_tag::logical) {
+    } else if constexpr (IndexSpace::inner_tag == inner_tag::logical) {
       out.payload_.flat_start = logical_start;
       out.payload_.flat_end = logical_end;
     }
@@ -166,8 +189,11 @@ class inner_index_range_t {
   payload_t payload_{};
 };
 
-template <class idx_space_t, class F> 
-void outer(idx_space_t idx_space, F&& f) {
+namespace impl {
+
+template <class idx_space_t, class F>
+KOKKOS_INLINE_FUNCTION
+void outer_raw_for(idx_space_t idx_space, F&& f) {
   using inner_idx_range_t = inner_index_range_t<idx_space_t>;
   // outer() is the user-visible loop entry point. It materializes the current
   // outer iteration into an inner range descriptor and hands it to the kernel body.
@@ -215,10 +241,17 @@ void outer(idx_space_t idx_space, F&& f) {
   }
 }
 
+template <class idx_space_t, class F>
+void outer_kokkos(idx_space_t idx_space, F&& f) {
+  static_assert(!std::is_same_v<idx_space_t, idx_space_t>,
+                "outer_kokkos is a stub until the device-backed Kokkos implementation lands");
+  outer_raw_for(idx_space, std::forward<F>(f));
+}
+
 template <class inner_idx_range_t, class F>
 KOKKOS_FORCEINLINE_FUNCTION
-void inner(const inner_idx_range_t &idx_range, F &&f) {
-  using idx_space_t = inner_idx_range_t::idx_space_t;
+void inner_raw_for(const inner_idx_range_t &idx_range, F &&f) {
+  using idx_space_t = std::remove_cv_t<std::remove_reference_t<decltype(*idx_range.pidx_space)>>;
   const auto &idx_space = *(idx_range.pidx_space);
   // inner() is the portable execution contract: the same kernel body runs over
   // different backend-specific loop strategies without changing the call site.
@@ -265,6 +298,35 @@ void inner(const inner_idx_range_t &idx_range, F &&f) {
     }
   } else if constexpr (idx_space_t::loop_tag == loop_tag::boiv) {
     f(Index3{idx_range.payload_.k, idx_range.payload_.j, idx_range.payload_.i});
+  }
+}
+
+template <class inner_idx_range_t, class F>
+KOKKOS_FORCEINLINE_FUNCTION
+void inner_kokkos(const inner_idx_range_t &idx_range, F &&f) {
+  static_assert(!std::is_same_v<inner_idx_range_t, inner_idx_range_t>,
+                "inner_kokkos is a stub until the device-backed Kokkos implementation lands");
+  inner_raw_for(idx_range, std::forward<F>(f));
+}
+
+} // namespace impl
+
+template <class idx_space_t, class F>
+void outer(idx_space_t idx_space, F&& f) {
+  if constexpr (impl::use_raw_for_v) {
+    impl::outer_raw_for(idx_space, std::forward<F>(f));
+  } else {
+    impl::outer_kokkos(idx_space, std::forward<F>(f));
+  }
+}
+
+template <class inner_idx_range_t, class F>
+KOKKOS_FORCEINLINE_FUNCTION
+void inner(const inner_idx_range_t &idx_range, F &&f) {
+  if constexpr (impl::use_raw_for_v) {
+    impl::inner_raw_for(idx_range, std::forward<F>(f));
+  } else {
+    impl::inner_kokkos(idx_range, std::forward<F>(f));
   }
 }
   
