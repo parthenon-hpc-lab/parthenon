@@ -49,7 +49,9 @@
 #include "utils/utils.hpp"
 
 // Forward-declare Rummy::Deck
-namespace Rummy { class Deck; }
+namespace Rummy {
+class Deck;
+}
 
 namespace parthenon {
 
@@ -447,7 +449,6 @@ class ParameterInput {
   InputFormat GetFormat() const { return format; }
 
  private:
-
   InputFormat format = InputFormat::Native;
   bool deck_initialized_ = false;
   std::unique_ptr<Rummy::Deck> deck_;

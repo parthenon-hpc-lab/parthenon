@@ -123,7 +123,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   if (!arg.input_filenames.empty()) {
     // Modify info read from restart file
     if (arg.is_restart) {
-      for(const auto &input_filename : arg.input_filenames) {
+      for (const auto &input_filename : arg.input_filenames) {
         pinput->ReadFile(input_filename, arg.is_restart);
       }
       // Populate new object for fresh simulation
@@ -134,10 +134,10 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
       }
     }
   }
-  
+
   // Modify based on command line inputs
   pinput->ModifyFromCmdline(arg.modifiers);
-  
+
   // Finalize parsing phase - parsers can no longer add parameters
   pinput->FinalizeParsing();
 

@@ -129,7 +129,7 @@ class ArgParse {
           return ArgStatus::error;
         }
       } else {
-        modifiers.push_back(argv[i]); 
+        modifiers.push_back(argv[i]);
       }
     }
 

@@ -78,9 +78,11 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 // ParameterInput constructor
 
-ParameterInput::ParameterInput() : last_filename_{}, deck_(std::make_unique<Rummy::Deck>()) {}
+ParameterInput::ParameterInput()
+    : last_filename_{}, deck_(std::make_unique<Rummy::Deck>()) {}
 
-ParameterInput::ParameterInput(std::string input_filename) : last_filename_{}, deck_(std::make_unique<Rummy::Deck>()) {
+ParameterInput::ParameterInput(std::string input_filename)
+    : last_filename_{}, deck_(std::make_unique<Rummy::Deck>()) {
   ReadFile(input_filename, false);
 }
 
@@ -309,22 +311,25 @@ bool ParameterInput::IsRummyFormat(std::istream &is) {
     auto eq_pos = line.find('=');
     if (eq_pos != std::string::npos) {
       std::string name_part = line.substr(first_char, eq_pos - first_char);
-      if (name_part.find_first_of(".[") != std::string::npos) return restore_and_return(true);
+      if (name_part.find_first_of(".[") != std::string::npos)
+        return restore_and_return(true);
 
       std::string value_part = line.substr(eq_pos + 1);
-      if (value_part.find_first_of("*\"[+-/%^|") != std::string::npos) return restore_and_return(true);
+      if (value_part.find_first_of("*\"[+-/%^|") != std::string::npos)
+        return restore_and_return(true);
     }
     // Slice syntax on the LHS: name[:2] or name[0:2]
-    std::string lhs = line.substr(first_char, eq_pos == std::string::npos
-                                                  ? std::string::npos
-                                                  : eq_pos - first_char);
+    std::string lhs =
+        line.substr(first_char, eq_pos == std::string::npos ? std::string::npos
+                                                            : eq_pos - first_char);
     if (lhs.find('[') != std::string::npos) return restore_and_return(true);
   }
   return restore_and_return(false);
 }
 
 //! \fn bool ParameterInput::IsRummyFormat(const std::string &filename)
-//  \brief Detect whether a file uses Rummy input format. Delegates to the stream overload.
+//  \brief Detect whether a file uses Rummy input format. Delegates to the stream
+//  overload.
 bool ParameterInput::IsRummyFormat(const std::string &filename) {
   std::ifstream file(filename);
   if (!file.is_open()) return false;
@@ -339,16 +344,18 @@ namespace {
 //! \fn std::string SanitizeString(const std::string &input)
 //  \brief Strip leading/trailing whitespace and inline comments.
 std::string SanitizeString(const std::string &input) {
-    std::string output = input.substr(0, input.find('#')); // remove trailing comment
-    output.erase(output.begin(),
-            std::find_if(output.begin(), output.end(), [](char c) { return !std::isspace(c); }));
-    output.erase(std::find_if(output.rbegin(), output.rend(), [](char c) { return !std::isspace(c); })
-                .base(),
-            output.end());
-    return output;
+  std::string output = input.substr(0, input.find('#')); // remove trailing comment
+  output.erase(output.begin(), std::find_if(output.begin(), output.end(),
+                                            [](char c) { return !std::isspace(c); }));
+  output.erase(std::find_if(output.rbegin(), output.rend(),
+                            [](char c) { return !std::isspace(c); })
+                   .base(),
+               output.end());
+  return output;
 }
 //! \fn ParameterInput::ParamValue RummyCardToParamValue(const Rummy::Card &card)
-//   \brief Convert a Rummy Card to a ParameterInput::ParamValue for storage in ParameterInput.
+//   \brief Convert a Rummy Card to a ParameterInput::ParamValue for storage in
+//   ParameterInput.
 ParameterInput::ParamValue RummyCardToParamValue(const Rummy::Card &card) {
   if (card.isBool()) {
     return card.Get<bool>();
@@ -364,7 +371,7 @@ ParameterInput::ParamValue RummyCardToParamValue(const Rummy::Card &card) {
 //! \fn Rummy::Card ParamValueToRummyCard(suit, name, v)
 //   \brief Convert a scalar ParamValue to a Rummy::Card.
 Rummy::Card ParamValueToRummyCard(const std::string &suit, const std::string &name,
-                                   const ParameterInput::ParamValue &v) {
+                                  const ParameterInput::ParamValue &v) {
   if (std::holds_alternative<bool>(v))
     return Rummy::Card(suit, name, std::get<bool>(v), "");
   if (std::holds_alternative<int>(v))
@@ -386,7 +393,8 @@ Rummy::Card ParamValueToRummyCard(const std::string &suit, const std::string &na
     std::size_t pos;
     double d = std::stod(trimmed, &pos);
     return Rummy::Card(suit, name, d, "");
-  } catch (...) {}
+  } catch (...) {
+  }
   return Rummy::Card(suit, name, trimmed, "");
 }
 
@@ -407,7 +415,7 @@ void ParameterInput::LoadFromRummyStream(std::istream &is) {
     const std::string &block_name = suit_name;
     const auto &suit_cards = deck_->GetCardsInOrder(suit_name);
     for (const auto &card_name : suit_cards) {
-      // match for vector 
+      // match for vector
       if (deck_->IsCardVector(suit_name, card_name)) {
         std::vector<std::string> comments;
         auto elements = deck_->GetVector<std::string>(suit_name, card_name, comments);
@@ -415,7 +423,7 @@ void ParameterInput::LoadFromRummyStream(std::istream &is) {
         std::string joined_comments;
         for (std::size_t i = 0; i < elements.size(); ++i) {
           if (comments[i] != "") {
-            if (i > 0) { 
+            if (i > 0) {
               joined_comments += " ";
             }
             joined_comments += comments[i];
@@ -533,9 +541,8 @@ void ParameterInput::LoadFromRummyFile(const std::string &filename) {
   PARTHENON_MPI_CHECK(
       MPI_Bcast(&content_size, sizeof(std::size_t), MPI_BYTE, 0, MPI_COMM_WORLD));
   content.resize(content_size);
-  PARTHENON_MPI_CHECK(
-      MPI_Bcast(content.data(), static_cast<int>(content_size), MPI_BYTE, 0,
-                MPI_COMM_WORLD));
+  PARTHENON_MPI_CHECK(MPI_Bcast(content.data(), static_cast<int>(content_size), MPI_BYTE,
+                                0, MPI_COMM_WORLD));
 #else
   std::ifstream file(filename);
   PARTHENON_REQUIRE_THROWS(file.is_open(),
@@ -671,7 +678,7 @@ void ParameterInput::ModifyFromCmdline(std::vector<std::string> mods) {
   std::string input_text, block, name, value;
   std::stringstream msg;
 
-  while(std::getline(ss, input_text)) {
+  while (std::getline(ss, input_text)) {
     std::size_t equal_posn = input_text.find_first_of("=");     // first "=" character
     std::size_t slash_posn = input_text.rfind("/", equal_posn); // last "/" before "="
 
