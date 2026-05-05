@@ -11,4 +11,5 @@ so you can run your first example quickly.
    ../README
    ../building
    ../inputs
+   ../rummy_input
    ../outputs
