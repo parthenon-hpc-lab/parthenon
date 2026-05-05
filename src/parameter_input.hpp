@@ -220,13 +220,15 @@ class ParameterInput {
   ParameterInput();
   explicit ParameterInput(std::string input_filename);
   ~ParameterInput();
-  void ReadFile(const std::string &input_filename);
+  void ReadFile(const std::string &input_filename, const bool is_restart);
 
   // === PARSING INTERFACE ===
   void LoadFromStream(std::istream &is);
   void LoadFromFile(IOWrapper &input);
   void LoadFromRummyFile(const std::string &filename);
   void LoadFromRummyStream(std::istream &is);
+  void SyncDeckFromStorage();
+  static bool IsRummyFormat(std::istream &is);
   static bool IsRummyFormat(const std::string &filename);
   void ModifyFromCmdline(std::vector<std::string> mods);
 
@@ -446,7 +448,8 @@ class ParameterInput {
 
  private:
 
-  InputFormat format = InputFormat::Unknown;
+  InputFormat format = InputFormat::Native;
+  bool deck_initialized_ = false;
   std::unique_ptr<Rummy::Deck> deck_;
   // === PARAMETER STORAGE (vector-of-vectors, preserves insertion order) ===
   std::vector<Block> param_storage_; // Ordered storage (for iteration)

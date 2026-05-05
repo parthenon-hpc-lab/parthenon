@@ -124,13 +124,13 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     // Modify info read from restart file
     if (arg.is_restart) {
       for(const auto &input_filename : arg.input_filenames) {
-        pinput->ReadFile(input_filename);
+        pinput->ReadFile(input_filename, arg.is_restart);
       }
       // Populate new object for fresh simulation
     } else {
       pinput = std::make_unique<ParameterInput>();
       for (const auto &input_filename : arg.input_filenames) {
-        pinput->ReadFile(input_filename);
+        pinput->ReadFile(input_filename, arg.is_restart);
       }
     }
   }
