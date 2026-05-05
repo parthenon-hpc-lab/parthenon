@@ -13,16 +13,7 @@ namespace plb2 {
 
 namespace loop_abstraction {
 
-template<class...>
-inline constexpr bool always_false_v = false;
-
-enum class loop_tag {bvoi, bovi, boiv};
-enum class inner_tag {logical, memory};
-
-struct Index3 {
-  int k, j, i;
-};
-
+// Forward declarations
 template <class idx_space_t, class F>
 void outer(idx_space_t idx_space, F &&f);
 
@@ -31,11 +22,29 @@ KOKKOS_INLINE_FUNCTION
 void inner(const inner_idx_range_t &idx_range, F &&f);
 
 template <class IndexSpace>
-struct inner_index_range_t;
+class inner_index_range_t;
 
+// Selection tags that define how a loop is partitioned:
+// loop_tag chooses the outer/inner ordering, and inner_tag chooses whether the
+// inner traversal is expressed in logical or memory coordinates.
+enum class loop_tag {bvoi, bovi, boiv};
+enum class inner_tag {logical, memory};
+
+// Internal storage policy for the per-iteration range descriptor.
+// The primary template is the span-style contract; boiv fully specializes it
+// so the hot-path inner range stays as small as possible when iteration is
+// point-wise instead of span-based.
 template <loop_tag LOOP_TAG>
 struct inner_index_range_payload_t;
 
+// Span-style inner ranges carry flat bounds.
+template <loop_tag LOOP_TAG>
+struct inner_index_range_payload_t {
+  int flat_start = 0;
+  int flat_end = -1;
+};
+
+// Point-wise loop mode: the inner "range" is a single logical cell.
 template <>
 struct inner_index_range_payload_t<loop_tag::boiv> {
   int k = 0;
@@ -43,16 +52,8 @@ struct inner_index_range_payload_t<loop_tag::boiv> {
   int i = 0;
 };
 
-template <>
-struct inner_index_range_payload_t<loop_tag::bovi> {
-  int flat_start = 0;
-  int flat_end = -1;
-};
-
-template <>
-struct inner_index_range_payload_t<loop_tag::bvoi> {
-  int flat_start = 0;
-  int flat_end = -1;
+struct Index3 {
+  int k, j, i;
 };
 
 template <class idx_space_t>
@@ -73,8 +74,13 @@ struct var_view_t {
   }
 };
 
+// index_space_t describes the full loop index space for one kernel:
+// it owns the logical and memory coordinate systems, plus the span size used
+// by bovi/bvoi-style inner loops. The compile-time tags select the strategy
+// without changing the user-facing shape of the index space.
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
-struct index_space_t {
+class index_space_t {
+ public:
   template <class idx_space_t, class F>
   friend void outer(idx_space_t idx_space, F &&f);
   template <class inner_idx_range_t, class F>
@@ -82,7 +88,7 @@ struct index_space_t {
   template <class>
   friend struct var_view_t;
   template <class>
-  friend struct inner_index_range_t;
+  friend class inner_index_range_t;
 
  public:
   static constexpr loop_tag loop_tag = LOOP_TAG;
@@ -113,11 +119,24 @@ struct index_space_t {
   int ninner;
 };
 
-
+// inner_index_range_t is the user-facing per-iteration descriptor produced by
+// outer(). It keeps the mutable iteration state private so kernel code can
+// use view() and nested inner() calls without being able to corrupt the
+// active loop indices directly.
 template <class IndexSpace>
-struct inner_index_range_t {
+class inner_index_range_t {
  public:
+  template <class view_t>
+  KOKKOS_INLINE_FUNCTION
+  auto view(view_t& in, int var, std::array<int, 3> offset = {0, 0, 0}) const {
+    return pidx_space->GetInnerView(in, block, var, offset);
+  }
+
+ private:
   using idx_space_t = IndexSpace;
+  // Payload is specialized by loop_tag so each loop style carries only the
+  // state it actually needs. This keeps the hot-path range descriptor as
+  // small as possible.
   using payload_t = inner_index_range_payload_t<IndexSpace::loop_tag>;
 
   template <class idx_space_t, class F>
@@ -138,25 +157,20 @@ struct inner_index_range_t {
     } else if constexpr (idx_space_t::inner_tag == inner_tag::logical) {
       out.payload_.flat_start = logical_start;
       out.payload_.flat_end = logical_end;
-    } 
+    }
     return out;
   } 
 
-  template <class view_t>
-  KOKKOS_INLINE_FUNCTION
-  auto view(view_t& in, int var, std::array<int, 3> offset = {0, 0, 0}) const {
-    return pidx_space->GetInnerView(in, block, var, offset);
-  }
-
- private:
   IndexSpace const * pidx_space = nullptr;
-  int block;
+  int block = 0;
   payload_t payload_{};
 };
 
 template <class idx_space_t, class F> 
 void outer(idx_space_t idx_space, F&& f) {
   using inner_idx_range_t = inner_index_range_t<idx_space_t>;
+  // outer() is the user-visible loop entry point. It materializes the current
+  // outer iteration into an inner range descriptor and hands it to the kernel body.
   if constexpr (idx_space.loop_tag == loop_tag::bvoi) {
     for (int b = 0; b < idx_space.nblocks; ++b) { 
       inner_idx_range_t idx_range;
@@ -206,6 +220,8 @@ KOKKOS_FORCEINLINE_FUNCTION
 void inner(const inner_idx_range_t &idx_range, F &&f) {
   using idx_space_t = inner_idx_range_t::idx_space_t;
   const auto &idx_space = *(idx_range.pidx_space);
+  // inner() is the portable execution contract: the same kernel body runs over
+  // different backend-specific loop strategies without changing the call site.
   if constexpr (idx_space_t::loop_tag == loop_tag::bvoi) {
     if constexpr (idx_space_t::inner_tag == inner_tag::logical) { 
       const int ks = idx_space.logical_kji.template StartIdx<0>();
