@@ -29,7 +29,8 @@ class Swarm:
           name: The name of the swarm
           variables: The variables in available in the swarm.
           varData: The swarm variables. Greedily accessed.
-          x1, x2, x3: The swarm positions in native mesh coordinates
+          x, y, z: Legacy position accessors
+          x1, x2, x3: Position accessors in native mesh coordinates
     """
 
     def __init__(self, fid, swarmname):
@@ -45,6 +46,20 @@ class Swarm:
         """Returns a Python slice for the particles only on block b"""
         return slice(self.offsets[b], self.offsets[b] + self.counts[b] + 1)
 
+    def _get_exact(self, variable):
+        if variable not in self.varData:
+            self.varData[variable] = self.gid[variable][:]
+        return self.varData[variable]
+
+    def _get_compat(self, variables):
+        for variable in variables:
+            try:
+                return self._get_exact(variable)
+            except KeyError:
+                pass
+        print(f"ERROR: none of {variables} found in {self.name}")
+        return None
+
     def Get(self, variable):
         """Reads data for the named swarm var from file and caches it in the
         dictionary. Returns None if variable is not found in the file
@@ -52,9 +67,7 @@ class Swarm:
         [tensor indices, particle index]
         """
         try:
-            if self.varData.get(variable) is None:
-                self.varData[variable] = self.gid[variable][:]
-            return self.varData[variable]
+            return self._get_exact(variable)
         except KeyError:
             print(f"ERROR: {variable} not found in {self.name}")
             return None
@@ -64,16 +77,28 @@ class Swarm:
         return self.Get("swarm.id")
 
     @property
+    def x(self):
+        return self._get_compat(("swarm.x", "swarm.x1"))
+
+    @property
+    def y(self):
+        return self._get_compat(("swarm.y", "swarm.x2"))
+
+    @property
+    def z(self):
+        return self._get_compat(("swarm.z", "swarm.x3"))
+
+    @property
     def x1(self):
-        return self.Get("swarm.x1")
+        return self._get_compat(("swarm.x1", "swarm.x"))
 
     @property
     def x2(self):
-        return self.Get("swarm.x2")
+        return self._get_compat(("swarm.x2", "swarm.y"))
 
     @property
     def x3(self):
-        return self.Get("swarm.x3")
+        return self._get_compat(("swarm.x3", "swarm.z"))
 
     def __getitem__(self, key):
         return self.Get(key)
