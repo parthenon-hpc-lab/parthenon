@@ -3,10 +3,9 @@
 Rummy Input Files
 =================
 
-Parthenon supports an extended input file format called **Rummy**, in addition
-to the native ``param = value`` format.  Rummy retains full backwards
-compatibility with native input files while adding expression evaluation,
-global variables, vector parameters, relative block paths, file inclusion,
+Parthenon supports an extended input file format provided by the `Link Rummy <https://github.com/lanl/rummy>` library, in addition
+to the native, Athena++ format. Rummy input files provide expression evaluation,
+global variables, vector operations, relative block paths, file inclusion,
 and more.
 
 Rummy is auto-detected — no special build flag is required.  Whether a
@@ -36,8 +35,8 @@ so any card defined earlier can be referenced by name in a later expression.
 Global Variables
 ----------------
 
-Cards declared **before** the first ``<block>`` header are *global variables*.
-They live in the unnamed ``/`` suit and can be referenced by name anywhere in
+Variables declared **before** the first ``<block>`` header are *global variables*.
+Global variables can be referenced by name anywhere in
 the file without a block qualifier:
 
 .. code-block:: text
@@ -372,11 +371,9 @@ following is true:
 3. A block header begins with ``<..`` (relative path syntax).
 4. A parameter **name** contains ``.`` or ``[`` (dotted reference or vector
    index on the LHS).
-5. A parameter **value** contains any of: ``**``, ``"``, ``[``, ``+``, ``-``,
-   ``/``, ``%``, ``^``, or ``|`` (expression operators or quoted strings).
+5. A parameter **value** contains any of: ``**``, ``"``, ``[``, ``%``, ``^``, or ``|`` (expression operators or quoted strings).
 
-To unconditionally use the Rummy parser, place ``# use rummy`` as the very
-first line of the file:
+To unconditionally use the native (Rummy) parser, place ``# use native`` (``# use rummy``) at the first line of the file:
 
 .. code-block:: text
 
