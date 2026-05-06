@@ -37,7 +37,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         if step == 2:
             parameters.driver_cmd_line_args = [
                 "parthenon.mesh.nx2=32",
-                "parthenon.job.problem_id=\"sparse_twotree\"",
+                'parthenon.job.problem_id="sparse_twotree"',
             ]
 
         # Run a test with two trees and a statically refined region
@@ -45,7 +45,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             parameters.driver_cmd_line_args = [
                 "parthenon.mesh.nx2=32",
                 "parthenon.time.nlim=50",
-                "parthenon.job.problem_id=\"sparse_twotree_static\"",
+                'parthenon.job.problem_id="sparse_twotree_static"',
                 "parthenon.mesh.refinement=static",
                 "parthenon.static_refinement0.x1min=-0.75",
                 "parthenon.static_refinement0.x1max=-0.5",

@@ -27,17 +27,14 @@ TEST_CASE("LoadFromRummyStream: basic scalar types", "[Rummy]") {
   GIVEN("A Rummy-format stream with bool, string, and numeric cards") {
     ParameterInput in;
     in.SetFormat(parthenon::InputFormat::Rummy);
-    std::istringstream ss(
-        "<mesh>\n"
-        "nx = 64\n"
-        "cfl = 0.4\n"
-        "active = true\n"
-        "label = \"hydro\"\n");
+    std::istringstream ss("<mesh>\n"
+                          "nx = 64\n"
+                          "cfl = 0.4\n"
+                          "active = true\n"
+                          "label = \"hydro\"\n");
     in.LoadFromRummyStream(ss);
 
-    THEN("Integer parameter is readable") {
-      REQUIRE(in.GetInteger("mesh", "nx") == 64);
-    }
+    THEN("Integer parameter is readable") { REQUIRE(in.GetInteger("mesh", "nx") == 64); }
     THEN("Real parameter is readable") {
       REQUIRE(in.GetReal("mesh", "cfl") == Approx(0.4));
     }
@@ -47,9 +44,7 @@ TEST_CASE("LoadFromRummyStream: basic scalar types", "[Rummy]") {
     THEN("String parameter is readable") {
       REQUIRE(in.GetString("mesh", "label") == "hydro");
     }
-    THEN("Block exists") {
-      REQUIRE(in.DoesBlockExist("mesh"));
-    }
+    THEN("Block exists") { REQUIRE(in.DoesBlockExist("mesh")); }
     THEN("Parameters exist") {
       REQUIRE(in.DoesParameterExist("mesh", "nx"));
       REQUIRE(in.DoesParameterExist("mesh", "cfl"));
@@ -61,12 +56,11 @@ TEST_CASE("LoadFromRummyStream: global variables go to '/' block", "[Rummy]") {
   GIVEN("A Rummy-format stream with global variables") {
     ParameterInput in;
     in.SetFormat(parthenon::InputFormat::Rummy);
-    std::istringstream ss(
-        "Lx = 1.0\n"
-        "flag = false\n"
-        "name = \"global_scope\"\n"
-        "<mesh>\n"
-        "nx = 10\n");
+    std::istringstream ss("Lx = 1.0\n"
+                          "flag = false\n"
+                          "name = \"global_scope\"\n"
+                          "<mesh>\n"
+                          "nx = 10\n");
     in.LoadFromRummyStream(ss);
 
     THEN("Globals are stored under the '/' block") {
@@ -87,10 +81,9 @@ TEST_CASE("LoadFromRummyStream: numeric vector reconstruction", "[Rummy]") {
     ParameterInput in;
     in.SetFormat(parthenon::InputFormat::Rummy);
 
-    std::istringstream ss(
-        "<block>\n"
-        "vals = [1.5, 2.5, 3.5]\n"
-        "counts = [10, 20, 30]\n");
+    std::istringstream ss("<block>\n"
+                          "vals = [1.5, 2.5, 3.5]\n"
+                          "counts = [10, 20, 30]\n");
     in.LoadFromRummyStream(ss);
 
     THEN("Real vector is reconstructed correctly") {
@@ -114,9 +107,8 @@ TEST_CASE("LoadFromRummyStream: string vector reconstruction", "[Rummy]") {
   GIVEN("A Rummy stream with a vector of strings") {
     ParameterInput in;
     in.SetFormat(parthenon::InputFormat::Rummy);
-    std::istringstream ss(
-        "<block>\n"
-        "tags = [\"alpha\", \"beta\", \"gamma\"]\n");
+    std::istringstream ss("<block>\n"
+                          "tags = [\"alpha\", \"beta\", \"gamma\"]\n");
     in.LoadFromRummyStream(ss);
 
     THEN("String vector is reconstructed correctly") {
@@ -133,11 +125,10 @@ TEST_CASE("LoadFromRummyStream: expressions are evaluated", "[Rummy]") {
   GIVEN("A Rummy stream with arithmetic expressions and cross-suit references") {
     ParameterInput in;
     in.SetFormat(parthenon::InputFormat::Rummy);
-    std::istringstream ss(
-        "base = 4.0\n"
-        "<block>\n"
-        "doubled = base * 2.0\n"
-        "squared = base**2\n");
+    std::istringstream ss("base = 4.0\n"
+                          "<block>\n"
+                          "doubled = base * 2.0\n"
+                          "squared = base**2\n");
     in.LoadFromRummyStream(ss);
 
     THEN("Expressions are fully evaluated before storage") {
@@ -260,9 +251,7 @@ TEST_CASE("LoadFromRummyStream: ModifyFromCmdline overrides Rummy params", "[Rum
     WHEN("ModifyFromCmdline overrides   the parameter") {
       in.ModifyFromCmdline({"mesh.nx = 128"});
 
-      THEN("The override wins") {
-        REQUIRE(in.GetInteger("mesh", "nx") == 128);
-      }
+      THEN("The override wins") { REQUIRE(in.GetInteger("mesh", "nx") == 128); }
     }
   }
 }
@@ -271,10 +260,9 @@ TEST_CASE("LoadFromRummyStream: comma-separated vector without brackets", "[Rumm
   GIVEN("A Rummy stream using bare comma-separated syntax") {
     ParameterInput in;
     in.SetFormat(parthenon::InputFormat::Rummy);
-    std::istringstream ss(
-        "<block>\n"
-        "vals = 1.0, 2.0, 3.0\n"
-        "counts = 10, 20, 30\n");
+    std::istringstream ss("<block>\n"
+                          "vals = 1.0, 2.0, 3.0\n"
+                          "counts = 10, 20, 30\n");
     in.LoadFromRummyStream(ss);
 
     THEN("Real vector is reconstructed correctly") {
@@ -298,9 +286,8 @@ TEST_CASE("LoadFromRummyStream: slice assignment syntax", "[Rummy]") {
   GIVEN("A Rummy stream using slice assignment v[:N] = [...]") {
     ParameterInput in;
     in.SetFormat(parthenon::InputFormat::Rummy);
-    std::istringstream ss(
-        "<block>\n"
-        "v[:3] = [100, 200, 300]\n");
+    std::istringstream ss("<block>\n"
+                          "v[:3] = [100, 200, 300]\n");
     in.LoadFromRummyStream(ss);
 
     THEN("Vector is reconstructed correctly from slice assignment") {
@@ -317,12 +304,11 @@ TEST_CASE("LoadFromRummyStream: cross-block references are evaluated", "[Rummy]"
   GIVEN("A Rummy stream where one block references another block's variable") {
     ParameterInput in;
     in.SetFormat(parthenon::InputFormat::Rummy);
-    std::istringstream ss(
-        "<physics>\n"
-        "gamma = 1.4\n"
-        "<eos>\n"
-        "gamma_minus_one = physics.gamma - 1.0\n"
-        "gamma_sq = physics.gamma ** 2\n");
+    std::istringstream ss("<physics>\n"
+                          "gamma = 1.4\n"
+                          "<eos>\n"
+                          "gamma_minus_one = physics.gamma - 1.0\n"
+                          "gamma_sq = physics.gamma ** 2\n");
     in.LoadFromRummyStream(ss);
 
     THEN("Cross-block reference is fully evaluated before storage") {
@@ -336,11 +322,10 @@ TEST_CASE("LoadFromRummyStream: global variables accessible from blocks", "[Rumm
   GIVEN("A Rummy stream with a global variable used inside a block") {
     ParameterInput in;
     in.SetFormat(parthenon::InputFormat::Rummy);
-    std::istringstream ss(
-        "Lx = 10.0\n"
-        "<mesh>\n"
-        "dx = Lx / 100\n"
-        "half_Lx = Lx * 0.5\n");
+    std::istringstream ss("Lx = 10.0\n"
+                          "<mesh>\n"
+                          "dx = Lx / 100\n"
+                          "half_Lx = Lx * 0.5\n");
     in.LoadFromRummyStream(ss);
 
     THEN("Global is stored under the '/' block") {
@@ -359,21 +344,19 @@ TEST_CASE("LoadFromRummyStream: print statement outside a block", "[Rummy]") {
     in.SetFormat(parthenon::InputFormat::Rummy);
     // print is a Rummy/pips statement; it produces output but no card.
     // Verify it doesn't crash and doesn't appear as a parameter.
-    std::istringstream ss(
-        "x = 42.0\n"
-        "print(x)\n"
-        "<block>\n"
-        "y = x + 1\n");
+    std::istringstream ss("x = 42.0\n"
+                          "print(x)\n"
+                          "<block>\n"
+                          "y = x + 1\n");
 
     THEN("LoadFromRummyStream completes without error") {
       REQUIRE_NOTHROW(in.LoadFromRummyStream(ss));
     }
     AND_THEN("The print statement produces no stored parameter") {
-      std::istringstream ss2(
-          "x = 42.0\n"
-          "print(x)\n"
-          "<block>\n"
-          "y = x + 1\n");
+      std::istringstream ss2("x = 42.0\n"
+                             "print(x)\n"
+                             "<block>\n"
+                             "y = x + 1\n");
       in.LoadFromRummyStream(ss2);
       REQUIRE_FALSE(in.DoesParameterExist("/", "print"));
       REQUIRE(in.GetReal("block", "y") == Approx(43.0));
@@ -382,15 +365,15 @@ TEST_CASE("LoadFromRummyStream: print statement outside a block", "[Rummy]") {
 }
 
 TEST_CASE("LoadFromRummyStream: vector slice with element-wise math", "[Rummy]") {
-  GIVEN("A Rummy stream that defines a 3-element vector, then cubes a 2-element sub-slice") {
+  GIVEN("A Rummy stream that defines a 3-element vector, then cubes a 2-element "
+        "sub-slice") {
     ParameterInput in;
     in.SetFormat(parthenon::InputFormat::Rummy);
     // base[:3] defines [2.0, 3.0, 4.0].
     // cubed[:2] = base[:2] ** 3 takes only the first two elements and cubes them.
-    std::istringstream ss(
-        "<block>\n"
-        "base[:3] = [2.0, 3.0, 4.0]\n"
-        "cubed[:2] = base[:2] ** 3\n");
+    std::istringstream ss("<block>\n"
+                          "base[:3] = [2.0, 3.0, 4.0]\n"
+                          "cubed[:2] = base[:2] ** 3\n");
     in.LoadFromRummyStream(ss);
 
     THEN("Base vector retains all three elements") {
@@ -403,29 +386,28 @@ TEST_CASE("LoadFromRummyStream: vector slice with element-wise math", "[Rummy]")
     THEN("Cubed slice contains only the first two elements, each cubed") {
       auto c = in.GetVector<parthenon::Real>("block", "cubed");
       REQUIRE(c.size() == 2);
-      REQUIRE(c[0] == Approx(8.0));   // 2^3
-      REQUIRE(c[1] == Approx(27.0));  // 3^3
+      REQUIRE(c[0] == Approx(8.0));  // 2^3
+      REQUIRE(c[1] == Approx(27.0)); // 3^3
     }
   }
 }
 
-TEST_CASE("LoadFromRummyStream: second stream overwrites existing parameters", "[Rummy]") {
+TEST_CASE("LoadFromRummyStream: second stream overwrites existing parameters",
+          "[Rummy]") {
   GIVEN("A first Rummy stream establishing initial values") {
     ParameterInput in;
     in.SetFormat(parthenon::InputFormat::Rummy);
-    std::istringstream ss1(
-        "<mesh>\n"
-        "nx = 64\n"
-        "cfl = 0.3\n"
-        "<physics>\n"
-        "gamma = 1.4\n");
+    std::istringstream ss1("<mesh>\n"
+                           "nx = 64\n"
+                           "cfl = 0.3\n"
+                           "<physics>\n"
+                           "gamma = 1.4\n");
     in.LoadFromRummyStream(ss1);
 
     WHEN("A second Rummy stream updates some of those parameters") {
-      std::istringstream ss2(
-          "<mesh>\n"
-          "nx = 128\n"
-          "cfl = 0.5\n");
+      std::istringstream ss2("<mesh>\n"
+                             "nx = 128\n"
+                             "cfl = 0.5\n");
       in.LoadFromRummyStream(ss2);
 
       THEN("Updated parameters reflect the second stream") {
