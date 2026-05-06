@@ -44,7 +44,7 @@ namespace parthenon {
 /// @param sparse_id the sparse id of the variable
 template <typename T>
 void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &metadata,
-                                int sparse_id) {
+                                SparseID sparse_id) {
   auto pvar = std::make_shared<Variable<T>>(base_name, metadata, sparse_id, pmy_block);
   Add(pvar);
 

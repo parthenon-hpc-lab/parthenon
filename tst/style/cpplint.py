@@ -2337,7 +2337,7 @@ def CloseExpression(clean_lines, linenum, pos):
         return (line, clean_lines.NumLines(), -1)
 
     # Check first line
-    (end_pos, stack) = FindEndOfExpressionInLine(line, pos, [])
+    end_pos, stack = FindEndOfExpressionInLine(line, pos, [])
     if end_pos > -1:
         return (line, linenum, end_pos)
 
@@ -2345,7 +2345,7 @@ def CloseExpression(clean_lines, linenum, pos):
     while stack and linenum < clean_lines.NumLines() - 1:
         linenum += 1
         line = clean_lines.elided[linenum]
-        (end_pos, stack) = FindEndOfExpressionInLine(line, 0, stack)
+        end_pos, stack = FindEndOfExpressionInLine(line, 0, stack)
         if end_pos > -1:
             return (line, linenum, end_pos)
 
@@ -2455,7 +2455,7 @@ def ReverseCloseExpression(clean_lines, linenum, pos):
         return (line, 0, -1)
 
     # Check last line
-    (start_pos, stack) = FindStartOfExpressionInLine(line, pos, [])
+    start_pos, stack = FindStartOfExpressionInLine(line, pos, [])
     if start_pos > -1:
         return (line, linenum, start_pos)
 
@@ -2463,7 +2463,7 @@ def ReverseCloseExpression(clean_lines, linenum, pos):
     while stack and linenum > 0:
         linenum -= 1
         line = clean_lines.elided[linenum]
-        (start_pos, stack) = FindStartOfExpressionInLine(line, len(line) - 1, stack)
+        start_pos, stack = FindStartOfExpressionInLine(line, len(line) - 1, stack)
         if start_pos > -1:
             return (line, linenum, start_pos)
 
@@ -2517,7 +2517,7 @@ def PathSplitToList(path):
     """
     lst = []
     while True:
-        (head, tail) = os.path.split(path)
+        head, tail = os.path.split(path)
         if head == path:  # absolute paths end
             lst.append(head)
             break
@@ -3364,7 +3364,7 @@ class NestingState(object):
 
             # We can't be sure if we just find a single '<', and need to
             # find the matching '>'.
-            (_, end_line, end_pos) = CloseExpression(clean_lines, linenum, pos - 1)
+            _, end_line, end_pos = CloseExpression(clean_lines, linenum, pos - 1)
             if end_pos < 0:
                 # Not sure if template argument list or syntax error in file
                 return False
@@ -4362,7 +4362,7 @@ def CheckOperatorSpacing(filename, clean_lines, linenum, error):
         # space.  This is done to avoid some false positives with shifts.
         match = re.match(r"^(.*[^\s<])<[^\s=<,]", line)
         if match:
-            (_, _, end_pos) = CloseExpression(clean_lines, linenum, len(match.group(1)))
+            _, _, end_pos = CloseExpression(clean_lines, linenum, len(match.group(1)))
             if end_pos <= -1:
                 error(
                     filename,
@@ -4377,7 +4377,7 @@ def CheckOperatorSpacing(filename, clean_lines, linenum, error):
         # false positives with shifts.
         match = re.match(r"^(.*[^-\s>])>[^\s=>,]", line)
         if match:
-            (_, _, start_pos) = ReverseCloseExpression(
+            _, _, start_pos = ReverseCloseExpression(
                 clean_lines, linenum, len(match.group(1))
             )
             if start_pos <= -1:
@@ -4637,7 +4637,7 @@ def CheckBracesSpacing(filename, clean_lines, linenum, nesting_state, error):
         # spurious semicolons, e.g. "if (cond){};", but we will catch the
         # spurious semicolon with a separate check.
         leading_text = match.group(1)
-        (endline, endlinenum, endpos) = CloseExpression(
+        endline, endlinenum, endpos = CloseExpression(
             clean_lines, linenum, len(match.group(1))
         )
         trailing_text = ""
@@ -4700,7 +4700,7 @@ def IsDecltype(clean_lines, linenum, column):
     Returns:
       True if this token is decltype() expression, False otherwise.
     """
-    (text, _, start_col) = ReverseCloseExpression(clean_lines, linenum, column)
+    text, _, start_col = ReverseCloseExpression(clean_lines, linenum, column)
     if start_col < 0:
         return False
     if re.search(r"\bdecltype\s*$", text[0:start_col]):
@@ -4853,7 +4853,7 @@ def CheckBraces(filename, clean_lines, linenum, error):
         pos = line.find("else if")
         pos = line.find("(", pos)
         if pos > 0:
-            (endline, _, endpos) = CloseExpression(clean_lines, linenum, pos)
+            endline, _, endpos = CloseExpression(clean_lines, linenum, pos)
             brace_on_right = endline[endpos:].find("{") != -1
             if brace_on_left != brace_on_right:  # must be brace after if
                 error(
@@ -4923,7 +4923,7 @@ def CheckBraces(filename, clean_lines, linenum, error):
         if if_match:
             # This could be a multiline if condition, so find the end first.
             pos = if_match.end() - 1
-            (endline, endlinenum, endpos) = CloseExpression(clean_lines, linenum, pos)
+            endline, endlinenum, endpos = CloseExpression(clean_lines, linenum, pos)
         # Check for an opening brace, either directly after the if or on the next
         # line. If found, this isn't a single-statement conditional.
         if not re.match(
@@ -5128,7 +5128,7 @@ def CheckTrailingSemicolon(filename, clean_lines, linenum, error):
 
     # Check matching closing brace
     if match:
-        (endline, endlinenum, endpos) = CloseExpression(
+        endline, endlinenum, endpos = CloseExpression(
             clean_lines, linenum, len(match.group(1))
         )
         if endpos > -1 and re.match(r"^\s*;", endline[endpos:]):
@@ -5176,7 +5176,7 @@ def CheckEmptyBlockBody(filename, clean_lines, linenum, error):
     matched = re.match(r"\s*(for|while|if)\s*\(", line)
     if matched:
         # Find the end of the conditional expression.
-        (end_line, end_linenum, end_pos) = CloseExpression(
+        end_line, end_linenum, end_pos = CloseExpression(
             clean_lines, linenum, line.find("(")
         )
 
@@ -5226,7 +5226,7 @@ def CheckEmptyBlockBody(filename, clean_lines, linenum, error):
             if opening_linenum == end_linenum:
                 # We need to make opening_pos relative to the start of the entire line.
                 opening_pos += end_pos
-            (closing_line, closing_linenum, closing_pos) = CloseExpression(
+            closing_line, closing_linenum, closing_pos = CloseExpression(
                 clean_lines, opening_linenum, opening_pos
             )
             if closing_pos < 0:
@@ -5315,12 +5315,12 @@ def CheckCheck(filename, clean_lines, linenum, error):
 
     # Decide the set of replacement macros that should be suggested
     lines = clean_lines.elided
-    (check_macro, start_pos) = FindCheckMacro(lines[linenum])
+    check_macro, start_pos = FindCheckMacro(lines[linenum])
     if not check_macro:
         return
 
     # Find end of the boolean expression by matching parentheses
-    (last_line, end_line, end_pos) = CloseExpression(clean_lines, linenum, start_pos)
+    last_line, end_line, end_pos = CloseExpression(clean_lines, linenum, start_pos)
     if end_pos < 0:
         return
 
@@ -5354,7 +5354,7 @@ def CheckCheck(filename, clean_lines, linenum, error):
             if token == "(":
                 # Parenthesized operand
                 expression = matched.group(2)
-                (end, _) = FindEndOfExpressionInLine(expression, 0, ["("])
+                end, _ = FindEndOfExpressionInLine(expression, 0, ["("])
                 if end < 0:
                     return  # Unmatched parenthesis
                 lhs += "(" + expression[0:end]
@@ -6499,7 +6499,7 @@ def CheckForNonConstReference(filename, clean_lines, linenum, nesting_state, err
             # Check for templated parameter that is split across multiple lines
             endpos = line.rfind(">")
             if endpos > -1:
-                (_, startline, startpos) = ReverseCloseExpression(
+                _, startline, startpos = ReverseCloseExpression(
                     clean_lines, linenum, endpos
                 )
                 if startpos > -1 and startline < linenum:
@@ -7261,7 +7261,7 @@ def CheckRedundantVirtual(filename, clean_lines, linenum, error):
         parameter_list = re.match(r"^([^(]*)\(", line)
         if parameter_list:
             # Match parentheses to find the end of the parameter list
-            (_, end_line, end_col) = CloseExpression(
+            _, end_line, end_col = CloseExpression(
                 clean_lines, start_line, start_col + len(parameter_list.group(1))
             )
             break
@@ -7815,7 +7815,7 @@ def ParseArguments(args):
       The list of filenames to lint.
     """
     try:
-        (opts, filenames) = getopt.getopt(
+        opts, filenames = getopt.getopt(
             args,
             "",
             [

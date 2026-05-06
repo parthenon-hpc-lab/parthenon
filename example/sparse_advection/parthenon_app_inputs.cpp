@@ -89,9 +89,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
       VariablePack<Real> v;
 
       if (restart_test) {
-        pmb->AllocSparseID("shape_shift", 1);
-        pmb->AllocSparseID("shape_shift", 3);
-        pmb->AllocSparseID("shape_shift", 4);
+        pmb->AllocSparseID("shape_shift", parthenon::SparseID::Scalar(1));
+        pmb->AllocSparseID("shape_shift", parthenon::SparseID::Scalar(3));
+        pmb->AllocSparseID("shape_shift", parthenon::SparseID::Scalar(4));
 
         v = data->PackVariables(
             std::vector<std::string>{"dense_A", "dense_B", "shape_shift"});

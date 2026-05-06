@@ -31,7 +31,7 @@ namespace parthenon {
 
 template <typename T>
 Variable<T>::Variable(const std::string &base_name, const Metadata &metadata,
-                      int sparse_id, std::weak_ptr<MeshBlock> wpmb)
+                      SparseID sparse_id, std::weak_ptr<MeshBlock> wpmb)
     : m_(metadata), base_name_(base_name), sparse_id_(sparse_id),
       dims_(m_.GetArrayDims(wpmb, false)), coarse_dims_(m_.GetArrayDims(wpmb, true)) {
   PARTHENON_REQUIRE_THROWS(m_.IsSet(Metadata::Real),

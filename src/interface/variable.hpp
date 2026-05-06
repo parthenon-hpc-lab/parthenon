@@ -60,7 +60,7 @@ class Variable {
   friend class MeshBlockData<T>;
 
  public:
-  Variable(const std::string &base_name, const Metadata &metadata, int sparse_id,
+  Variable(const std::string &base_name, const Metadata &metadata, SparseID sparse_id,
            std::weak_ptr<MeshBlock> wpmb);
 
   Variable() = default;
@@ -113,7 +113,9 @@ class Variable {
   }
 
   /// Get Sparse ID (InvalidSparseID if not sparse)
-  inline int GetSparseID() const { return IsSparse() ? sparse_id_ : InvalidSparseID; }
+  inline SparseID GetSparseID() const {
+    return IsSparse() ? sparse_id_ : InvalidSparseID;
+  }
 
   inline bool IsSparse() const { return m_.IsSet(Metadata::Sparse); }
 
@@ -182,7 +184,7 @@ class Variable {
 
   Metadata m_;
   const std::string base_name_;
-  const int sparse_id_;
+  const SparseID sparse_id_;
   const std::array<int, MAX_VARIABLE_DIMENSION> dims_, coarse_dims_;
 
   // Machinery for giving each variable a unique ID that is faster to
