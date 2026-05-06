@@ -199,8 +199,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   if constexpr (!std::is_same_v<Coordinates_t, UniformCartesian>) {
     if (!resolved_packages->AllSwarms().empty()) {
-      PARTHENON_WARN("SwarmDeviceContext only supports a uniform Cartesian mesh! "
-                     "Curvilinear swarm support remains mostly untested.");
+      PARTHENON_WARN("Parthenon swarm infrastructure assumes a uniform mesh in native "
+                     "x1/x2/x3 coordinates. Curvilinear swarm support remains mostly "
+                     "untested.");
     }
   }
 
