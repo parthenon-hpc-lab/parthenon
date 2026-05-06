@@ -156,6 +156,11 @@ Almost all ``<cmath>`` functions are available as built-in keywords:
    lo    = min(r, 1.0)
 
 
+Environment Variables
+---------------------
+
+The special function ``env("VARIABLE")`` is available for reading environment variables. The output can be stored into a variable for later use.
+
 Ternary Operator
 ----------------
 
