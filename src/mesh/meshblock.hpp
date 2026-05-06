@@ -241,7 +241,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   void AllocateSparse(std::string const &label, bool only_control = false,
                       bool flag_uninitialized = false);
 
-  void AllocSparseID(std::string const &base_name, const int sparse_id) {
+  void AllocSparseID(std::string const &base_name, const SparseID sparse_id) {
     AllocateSparse(MakeVarLabel(base_name, sparse_id));
   }
 
@@ -252,7 +252,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
     return meshblock_data.Get()->IsAllocated(label);
   }
 
-  inline bool IsAllocated(std::string const &base_name, int sparse_id) const noexcept {
+  inline bool IsAllocated(std::string const &base_name,
+                          SparseID sparse_id) const noexcept {
     return IsAllocated(MakeVarLabel(base_name, sparse_id));
   }
 #else
@@ -261,7 +262,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   }
 
   inline constexpr bool IsAllocated(std::string const & /*base_name*/,
-                                    int /*sparse_id*/) const noexcept {
+                                    SparseID /*sparse_id*/) const noexcept {
     return true;
   }
 #endif

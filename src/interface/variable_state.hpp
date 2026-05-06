@@ -18,6 +18,7 @@
 #include "basic_types.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
+#include "interface/var_id.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
@@ -25,11 +26,9 @@ namespace parthenon {
 // forward declaration
 class Metadata;
 
-static constexpr int InvalidSparseID = std::numeric_limits<int>::min();
-
 struct VariableState : public empty_state_t {
   explicit VariableState(
-      const Metadata &md, int sparse_id = InvalidSparseID,
+      const Metadata &md, SparseID sparse_id = InvalidSparseID,
       const std::array<int, MAX_VARIABLE_DIMENSION> &dims = [] {
         std::array<int, MAX_VARIABLE_DIMENSION> d;
         for (int i = 0; i < MAX_VARIABLE_DIMENSION; ++i)
@@ -39,12 +38,12 @@ struct VariableState : public empty_state_t {
 
   KOKKOS_INLINE_FUNCTION
   VariableState(Real alloc, Real dealloc, Real sparse_default_val = 0.0,
-                int sparse_id = InvalidSparseID)
+                SparseID sparse_id = InvalidSparseID)
       : allocation_threshold(alloc), deallocation_threshold(dealloc),
         sparse_default_val(sparse_default_val), sparse_id(sparse_id) {}
 
   KOKKOS_INLINE_FUNCTION
-  VariableState(Real alloc, Real dealloc, int sparse_id)
+  VariableState(Real alloc, Real dealloc, SparseID sparse_id)
       : allocation_threshold(alloc), deallocation_threshold(dealloc),
         sparse_default_val(0.0), sparse_id(sparse_id) {}
 
@@ -58,7 +57,7 @@ struct VariableState : public empty_state_t {
   Real allocation_threshold;
   Real deallocation_threshold;
   Real sparse_default_val;
-  int sparse_id;
+  SparseID sparse_id;
   int vector_component = NODIR;
   bool initialized = true;
 

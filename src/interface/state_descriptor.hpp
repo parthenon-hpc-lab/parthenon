@@ -313,11 +313,16 @@ class StateDescriptor {
   }
   std::vector<std::string> GetVariableNames(const std::vector<std::string> &req_names,
                                             const Metadata::FlagCollection &flags,
-                                            const std::vector<int> &sparse_ids);
+                                            const std::vector<SparseID> &sparse_ids);
   std::vector<std::string> GetVariableNames(const std::vector<std::string> &req_names,
                                             const std::vector<int> &sparse_ids);
   std::vector<std::string> GetVariableNames(const Metadata::FlagCollection &flags,
                                             const std::vector<int> &sparse_ids);
+  std::vector<std::string> GetVariableNames(const std::vector<std::string> &req_names,
+                                            const Metadata::FlagCollection &flags,
+                                            const std::vector<int> &sparse_ids) {
+    return GetVariableNames(req_names, flags, SparsePool::ToSparseIDs(sparse_ids));
+  }
   std::vector<std::string> GetVariableNames(const std::vector<std::string> &req_names);
   std::vector<std::string> GetVariableNames(const Metadata::FlagCollection &flags);
 
@@ -344,7 +349,7 @@ class StateDescriptor {
   }
 
   bool FieldPresent(const std::string &base_name,
-                    int sparse_id = InvalidSparseID) const noexcept {
+                    SparseID sparse_id = InvalidSparseID) const noexcept {
     return metadataMap_.count(VarID(base_name, sparse_id)) > 0;
   }
   bool FieldPresent(const VarID &var_id) const noexcept {
@@ -366,7 +371,7 @@ class StateDescriptor {
 
   // retrieve metadata for a specific field
   const Metadata &FieldMetadata(const std::string &base_name,
-                                int sparse_id = InvalidSparseID) const;
+                                SparseID sparse_id = InvalidSparseID) const;
   // retrieve metadata for a specific swarm
   Metadata &SwarmMetadata(const std::string &swarm_name) noexcept {
     return swarmMetadataMap_[swarm_name];

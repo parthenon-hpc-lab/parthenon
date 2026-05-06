@@ -32,6 +32,7 @@
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
 #include "interface/state_descriptor.hpp"
+#include "interface/var_id.hpp"
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
 #include "kokkos_abstraction.hpp"
@@ -51,6 +52,7 @@ using parthenon::par_for;
 using parthenon::ParArray4D;
 using parthenon::ParArrayND;
 using parthenon::Real;
+using parthenon::SparseID;
 using parthenon::StateDescriptor;
 using parthenon::Variable;
 using parthenon::VariableVector;
@@ -357,8 +359,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       mbd.Initialize(pkg, dummy_mb);
 
       // TODO(JL) test packs with unallocated sparse fields
-      dummy_mb->AllocSparseID("vsparse", 1);
-      dummy_mb->AllocSparseID("vsparse", 13);
+      dummy_mb->AllocSparseID("vsparse", SparseID::Scalar(1));
+      dummy_mb->AllocSparseID("vsparse", SparseID::Scalar(13));
       dummy_mb->AllocateSparse("vsparse_42");
 
       THEN("the low and high index bounds are correct as returned by PackVariables") {
@@ -399,8 +401,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
         Kokkos::parallel_reduce(
             "add correct checks", 1,
             KOKKOS_LAMBDA(const int i, int &sum) {
-              sum = (v.GetSparseID(v3first) == parthenon::InvalidSparseID);
-              sum += (v.GetSparseID(v6first) == parthenon::InvalidSparseID);
+              sum = (v.GetSparseID(v3first) == parthenon::InvalidSparseID());
+              sum += (v.GetSparseID(v6first) == parthenon::InvalidSparseID());
               sum += (v.GetSparseID(vs1) == 1);
               sum += (v.GetSparseID(vs13) == 13);
               sum += (v.GetSparseID(vs42) == 42);

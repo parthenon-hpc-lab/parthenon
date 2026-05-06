@@ -42,6 +42,7 @@ using parthenon::Packages_t;
 using parthenon::ParArrayND;
 using parthenon::Real;
 using parthenon::ResolvePackages;
+using parthenon::SparseID;
 using parthenon::SparsePool;
 using parthenon::StateDescriptor;
 using FlagVec = std::vector<MetadataFlag>;
@@ -240,8 +241,10 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
           REQUIRE(!(pkg3->SparseBaseNamePresent("sparse")));
         }
         AND_THEN("The appropriate sparse metadata was added") {
-          REQUIRE(pkg3->FieldPresent("package1::sparse", sparse_ids[2]));
-          REQUIRE(pkg3->FieldPresent("package2::sparse", sparse_ids[3]));
+          REQUIRE(
+              pkg3->FieldPresent("package1::sparse", SparseID::Scalar(sparse_ids[2])));
+          REQUIRE(
+              pkg3->FieldPresent("package2::sparse", SparseID::Scalar(sparse_ids[3])));
         }
       }
     }
@@ -252,14 +255,15 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
         auto pkg4 = ResolvePackages(packages);
         AND_THEN("The sparse variable is present") {
           for (int i = 0; i < sparse_ids.size(); i++) {
-            REQUIRE(pkg4->FieldMetadata("sparse", sparse_ids[i]) == (m_sparse_provides));
+            REQUIRE(pkg4->FieldMetadata("sparse", SparseID::Scalar(sparse_ids[i])) ==
+                    (m_sparse_provides));
           }
         }
         AND_THEN("The sparse ids in the sparse pool are sorted") {
           auto &pool = (pkg4->GetSparsePool("sparse")).pool();
           std::vector<int> local_ids;
           for (auto &[id, m] : pool) {
-            local_ids.push_back(id);
+            local_ids.push_back(id());
           }
           REQUIRE(std::is_sorted(local_ids.begin(), local_ids.end()));
         }
@@ -333,7 +337,7 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
         AND_THEN("The overridable variables are retained") {
           REQUIRE(pkg4->FieldPresent("dense"));
           for (const int sid : sparse_ids) {
-            REQUIRE(pkg4->FieldPresent("sparse", sid));
+            REQUIRE(pkg4->FieldPresent("sparse", SparseID::Scalar(sid)));
           }
           REQUIRE(pkg4->SwarmPresent("myswarm"));
           REQUIRE(pkg4->SwarmValuePresent("value1", "myswarm"));
@@ -362,9 +366,9 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
       pkg2->AddSparsePool("sparse_c", m_sparse_provides, "sparse_b", sparse_ids);
 
       for (const int sid : sparse_ids) {
-        REQUIRE(pkg1->FieldPresent("sparse", sid));
-        REQUIRE(pkg2->FieldPresent("sparse", sid));
-        REQUIRE(pkg3->FieldPresent("sparse", sid));
+        REQUIRE(pkg1->FieldPresent("sparse", SparseID::Scalar(sid)));
+        REQUIRE(pkg2->FieldPresent("sparse", SparseID::Scalar(sid)));
+        REQUIRE(pkg3->FieldPresent("sparse", SparseID::Scalar(sid)));
       }
 
       THEN("We can safely resolve conflicts") {
@@ -388,10 +392,11 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
           REQUIRE(!(pkg4->SwarmValuePresent("overridable", "myswarm")));
           REQUIRE(pkg4->SparseBaseNamePresent("sparse"));
           for (const int sid : sparse_ids) {
-            REQUIRE(pkg4->FieldPresent("sparse", sid));
+            REQUIRE(pkg4->FieldPresent("sparse", SparseID::Scalar(sid)));
           }
           for (const int sid : sparse_ids) {
-            REQUIRE(pkg4->FieldMetadata("sparse", sid) == m_sparse_provides);
+            REQUIRE(pkg4->FieldMetadata("sparse", SparseID::Scalar(sid)) ==
+                    m_sparse_provides);
           }
         }
         AND_THEN("The correct sparse allocation control is resolved.") {
@@ -440,9 +445,8 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
                     (pkg3->RefinementFuncID(cell_funcs)));
             REQUIRE(pkg3->FieldMetadata("dense").GetRefinementFunctions() == cell_funcs);
             for (int i = 0; i < sparse_ids.size(); i++) {
-              REQUIRE(
-                  pkg3->FieldMetadata("sparse", sparse_ids[i]).GetRefinementFunctions() ==
-                  my_funcs);
+              REQUIRE(pkg3->FieldMetadata("sparse", SparseID::Scalar(sparse_ids[i]))
+                          .GetRefinementFunctions() == my_funcs);
             }
           }
         }
@@ -469,14 +473,14 @@ TEST_CASE("Test SparsePool interface", "[StateDescriptor]") {
     THEN("We can create a SparsePool with sparse metadata") {
       SparsePool pool("sparse", sparse_vec);
       AND_THEN("We can add sparse indices to the pool") {
-        const auto m2 = pool.Add(2);
+        const auto m2 = pool.Add(SparseID::Scalar(2));
         REQUIRE(m2 == sparse_vec);
         REQUIRE(m2.IsSet(Metadata::Vector));
         REQUIRE(!m2.IsSet(Metadata::Tensor));
 
         const int sparse_id = 5;
         const std::vector<int> shape = {2, 2, 4};
-        const auto m5 = pool.Add(sparse_id, shape, Metadata::Tensor);
+        const auto m5 = pool.Add(SparseID::Scalar(sparse_id), shape, Metadata::Tensor);
 
         const std::set<MetadataFlag> expected_flags{
             Metadata::Independent, Metadata::Sparse,   Metadata::Tensor,
@@ -490,12 +494,14 @@ TEST_CASE("Test SparsePool interface", "[StateDescriptor]") {
         REQUIRE(!m5.IsSet(Metadata::Vector));
         REQUIRE(m5.IsSet(Metadata::Tensor));
 
-        const auto mm17 = pool.Add(-17, {1}, Metadata::None, {"foo"});
+        const auto mm17 = pool.Add(SparseID::Scalar(-17), {1}, Metadata::None, {"foo"});
         REQUIRE(!mm17.IsSet(Metadata::Vector));
         REQUIRE(!mm17.IsSet(Metadata::Tensor));
         REQUIRE(mm17.getComponentLabels() == std::vector<std::string>{"foo"});
 
-        AND_THEN("We can't add the same sparse ID twice") { REQUIRE_THROWS(pool.Add(2)); }
+        AND_THEN("We can't add the same sparse ID twice") {
+          REQUIRE_THROWS(pool.Add(SparseID::Scalar(2)));
+        }
       }
 
       AND_THEN("We can't add InvalidSparseID") {
@@ -514,8 +520,8 @@ TEST_CASE("Test SparsePool interface", "[StateDescriptor]") {
 
     THEN("We can add sparse pools in different ways") {
       SparsePool pool1("pool1", meta_sparse);
-      pool1.Add(0);
-      pool1.Add(55);
+      pool1.Add(SparseID::Scalar(0));
+      pool1.Add(SparseID::Scalar(55));
       REQUIRE(pkg->AddSparsePool(pool1));
 
       const std::vector<int> sparse_ids_2{1, 55, 100};
@@ -529,13 +535,13 @@ TEST_CASE("Test SparsePool interface", "[StateDescriptor]") {
           "pool3", meta_sparse, sparse_ids_3, shapes,
           std::vector<MetadataFlag>{Metadata::Vector, Metadata::Tensor}));
 
-      REQUIRE(pkg->FieldPresent("pool1", 0));
-      REQUIRE(pkg->FieldPresent("pool1", 55));
-      REQUIRE(pkg->FieldPresent("pool2", 1));
-      REQUIRE(pkg->FieldPresent("pool2", 55));
-      REQUIRE(pkg->FieldPresent("pool2", 100));
-      REQUIRE(pkg->FieldPresent("pool3", 0));
-      REQUIRE(pkg->FieldPresent("pool3", 100));
+      REQUIRE(pkg->FieldPresent("pool1", SparseID::Scalar(0)));
+      REQUIRE(pkg->FieldPresent("pool1", SparseID::Scalar(55)));
+      REQUIRE(pkg->FieldPresent("pool2", SparseID::Scalar(1)));
+      REQUIRE(pkg->FieldPresent("pool2", SparseID::Scalar(55)));
+      REQUIRE(pkg->FieldPresent("pool2", SparseID::Scalar(100)));
+      REQUIRE(pkg->FieldPresent("pool3", SparseID::Scalar(0)));
+      REQUIRE(pkg->FieldPresent("pool3", SparseID::Scalar(100)));
 
       AND_THEN("We can't add a SparsePool with wrong number of Vector/Tensor flags") {
         REQUIRE_THROWS(pkg->AddSparsePool(
