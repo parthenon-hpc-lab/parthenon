@@ -73,7 +73,7 @@ void SetInOrOut(MeshBlockData<Real> *rc) {
     }
 
     pmb->AllocSparseID("in_or_out", parthenon::SparseID::Scalar(0));
-    v = rc->Get("in_or_out", 0).data;
+    v = rc->Get("in_or_out", parthenon::SparseID::Scalar(0)).data;
   } else {
     v = rc->Get("in_or_out").data;
   }

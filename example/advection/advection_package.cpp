@@ -404,7 +404,10 @@ void PostFill(MeshBlockData<Real> *rc) {
     const int in = imap.get("one_minus_advected_sq").first;
     // we can get sparse fields either by specifying base name and sparse id, or the full
     // name
-    const int out12 = imap.get("one_minus_sqrt_one_minus_advected_sq", 12).first;
+    const int out12 =
+        imap.get("one_minus_sqrt_one_minus_advected_sq",
+                 parthenon::SparseID::Scalar(12))
+            .first;
     const int out37 = imap.get("one_minus_sqrt_one_minus_advected_sq_37").first;
     const auto num_vars = rc->Get("advected").data.GetDim(4);
     pmb->par_for(
