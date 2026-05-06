@@ -31,7 +31,7 @@ struct SparseID {
   int id2_ = InvalidSparseIDValue;
 
   KOKKOS_INLINE_FUNCTION constexpr SparseID() = default;
-  KOKKOS_INLINE_FUNCTION explicit constexpr SparseID(int id)
+  KOKKOS_INLINE_FUNCTION constexpr SparseID(int id)
       : id_(id), id2_(InvalidSparseIDValue) {}
   KOKKOS_INLINE_FUNCTION constexpr SparseID(int id, int id2) : id_(id), id2_(id2) {}
 

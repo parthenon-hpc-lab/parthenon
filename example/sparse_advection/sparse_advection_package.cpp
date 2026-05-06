@@ -76,7 +76,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     SparsePool pool("sparse", m);
 
     for (int sid = 0; sid < NUM_FIELDS; ++sid) {
-      pool.Add(sid);
+      pool.Add(parthenon::SparseID::Scalar(sid));
     }
     pkg->AddSparsePool(pool);
   }
@@ -93,10 +93,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                        Metadata::FillGhost, Metadata::Sparse});
 
     SparsePool pool("shape_shift", m_sparse);
-    pool.Add(1, std::vector<int>{1}, std::vector<std::string>{"scalar"});
-    pool.Add(3, std::vector<int>{3}, Metadata::Vector,
+    pool.Add(parthenon::SparseID::Scalar(1), std::vector<int>{1},
+             std::vector<std::string>{"scalar"});
+    pool.Add(parthenon::SparseID::Scalar(3), std::vector<int>{3}, Metadata::Vector,
              std::vector<std::string>{"vec_x", "vec_y", "vec_z"});
-    pool.Add(4, std::vector<int>{4}, Metadata::Vector);
+    pool.Add(parthenon::SparseID::Scalar(4), std::vector<int>{4}, Metadata::Vector);
 
     pkg->AddSparsePool(pool);
   }
