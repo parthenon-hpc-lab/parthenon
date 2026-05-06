@@ -647,12 +647,12 @@ def main():
         if args.edge_values == "8,32,128":
             args.edge_values = "8,16,32,64,128"
         if not args.ninner_values:
-            args.ninner_values = "64,128,256,384,512,640,768,896,1024,1152,1280,1536,1792,2048,3072,4096,8192,16384"
+            args.ninner_values = "8,16,32,64,128,256,384,512,640,768,896,1024,1536,2048,4096,8192"
         if not args.stencil_shapes:
             args.stencil_shapes = "point,x3,y3,z3"
     elif args.analysis_mode == "ninner":
         if not args.ninner_values:
-            args.ninner_values = "64,128,256,384,512,640,768,896,1024,1152,1280,1536,1792,2048,3072,4096,8192,16384"
+            args.ninner_values = "8,16,32,64,128,256,384,512,640,768,896,1024,1536,2048,4096,8192"
         if args.edge_values == "8,32,128":
             args.edge_values = "32"
     if not args.stencil_shapes:

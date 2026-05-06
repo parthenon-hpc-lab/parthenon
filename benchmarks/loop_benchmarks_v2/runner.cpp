@@ -37,25 +37,25 @@ std::pair<double, double> TimeRepeatedRun(int warmup, int repeats, RunFn &&run_o
 }
 
 template <loop_abstraction::loop_tag LOOP_TAG, loop_abstraction::inner_tag INNER_TAG,
-          int NITER, int SX, int SY, int SZ>
+          int SX, int SY, int SZ>
 void RunLoopAbstractionCase(const CaseSpec &spec, const Dataset &dataset,
                             const std::array<int, SX> &dx, const std::array<int, SY> &dy,
                             const std::array<int, SZ> &dz,
-                            const std::array<double, NITER> &alpha,
-                            const std::array<double, NITER> &beta) {
+                            const std::array<double, kMaxNiter> &alpha,
+                            const std::array<double, kMaxNiter> &beta) {
   const std::optional<int> ninner =
       spec.loop.ninner > 0 ? std::optional<int>{spec.loop.ninner} : std::nullopt;
   const auto &problem = dataset.problem;
-  RunUnifiedKernelWithLoopAbstraction<LOOP_TAG, INNER_TAG, NITER, SX, SY, SZ>(
+  RunUnifiedKernelWithLoopAbstraction<LOOP_TAG, INNER_TAG, SX, SY, SZ>(
       dataset.data.in, dataset.data.out, dataset.data.active_counts, problem.nblocks,
       problem.nx_interior, problem.ny_interior, problem.nz_interior, problem.nghost, dx, dy, dz,
-      alpha, beta, ninner);
+      alpha, beta, spec.kernel.niter, ninner);
 }
 
-template <int NITER, int SX, int SY, int SZ>
+template <int SX, int SY, int SZ>
 BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
-  const auto alpha = MakeAlpha<NITER>();
-  const auto beta = MakeBeta<NITER>();
+  const auto alpha = MakeAlpha();
+  const auto beta = MakeBeta();
   const auto dx = [&] {
     std::array<int, SX> offsets{};
     for (int i = 0; i < SX; ++i) {
@@ -80,8 +80,8 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
 
   const auto body_direct = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
                                          int i) {
-    return ComputeUnifiedCellDirect<NITER, SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz, alpha,
-                                                       beta);
+    return ComputeUnifiedCellDirect<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz, alpha, beta,
+                                                spec.kernel.niter);
   };
 
   const auto build_access = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
@@ -90,7 +90,7 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
   };
 
   const auto body_hoisted = KOKKOS_LAMBDA(const auto &access, int idx) {
-    return ComputeUnifiedCellHoisted<NITER, SX, SY, SZ>(access, idx, alpha, beta);
+    return ComputeUnifiedCellHoisted<SX, SY, SZ>(access, idx, alpha, beta, spec.kernel.niter);
   };
 
   const bool use_hoisted = spec.loop.access_mode == "hoisted";
@@ -129,27 +129,27 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
         break;
       case LoopKind::LoopAbstractionBoviMemory:
         RunLoopAbstractionCase<loop_abstraction::loop_tag::bovi,
-                               loop_abstraction::inner_tag::memory, NITER, SX, SY, SZ>(
+                               loop_abstraction::inner_tag::memory, SX, SY, SZ>(
             spec, dataset, dx, dy, dz, alpha, beta);
         break;
       case LoopKind::LoopAbstractionBoviLogical:
         RunLoopAbstractionCase<loop_abstraction::loop_tag::bovi,
-                               loop_abstraction::inner_tag::logical, NITER, SX, SY, SZ>(
+                               loop_abstraction::inner_tag::logical, SX, SY, SZ>(
             spec, dataset, dx, dy, dz, alpha, beta);
         break;
       case LoopKind::LoopAbstractionBoivLogical:
         RunLoopAbstractionCase<loop_abstraction::loop_tag::boiv,
-                               loop_abstraction::inner_tag::logical, NITER, SX, SY, SZ>(
+                               loop_abstraction::inner_tag::logical, SX, SY, SZ>(
             spec, dataset, dx, dy, dz, alpha, beta);
         break;
       case LoopKind::LoopAbstractionBvoiMemory:
         RunLoopAbstractionCase<loop_abstraction::loop_tag::bvoi,
-                               loop_abstraction::inner_tag::memory, NITER, SX, SY, SZ>(
+                               loop_abstraction::inner_tag::memory, SX, SY, SZ>(
             spec, dataset, dx, dy, dz, alpha, beta);
         break;
       case LoopKind::LoopAbstractionBvoiLogical:
         RunLoopAbstractionCase<loop_abstraction::loop_tag::bvoi,
-                               loop_abstraction::inner_tag::logical, NITER, SX, SY, SZ>(
+                               loop_abstraction::inner_tag::logical, SX, SY, SZ>(
             spec, dataset, dx, dy, dz, alpha, beta);
         break;
       case LoopKind::CpuBoivContiguous:
@@ -204,47 +204,29 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
   return row;
 }
 
-template <int NITER>
-BenchmarkRow RunNiterCase(const CaseSpec &spec, const Dataset &dataset) {
-  const auto sx = spec.kernel.stencil_x.size();
-  const auto sy = spec.kernel.stencil_y.size();
-  const auto sz = spec.kernel.stencil_z.size();
-  if (sx == 3 && sy == 1 && sz == 1) {
-    return RunTypedCase<NITER, 3, 1, 1>(spec, dataset);
-  }
-  if (sx == 1 && sy == 3 && sz == 1) {
-    return RunTypedCase<NITER, 1, 3, 1>(spec, dataset);
-  }
-  if (sx == 1 && sy == 1 && sz == 3) {
-    return RunTypedCase<NITER, 1, 1, 3>(spec, dataset);
-  }
-  if (sx == 1 && sy == 1 && sz == 1) {
-    return RunTypedCase<NITER, 1, 1, 1>(spec, dataset);
-  }
-  throw std::runtime_error("unsupported stencil shape: x{" + FormatOffsetSet(spec.kernel.stencil_x) +
-                           "}y{" + FormatOffsetSet(spec.kernel.stencil_y) + "}z{" +
-                           FormatOffsetSet(spec.kernel.stencil_z) + "}");
-}
-
 }  // namespace
 
 BenchmarkRow RunCase(const CaseSpec &spec) {
   Dataset dataset = BuildDataset(spec);
   PrepareDataset(spec, &dataset);
-  switch (spec.kernel.niter) {
-    case 1:
-      return RunNiterCase<1>(spec, dataset);
-    case 4:
-      return RunNiterCase<4>(spec, dataset);
-    case 16:
-      return RunNiterCase<16>(spec, dataset);
-    case 64:
-      return RunNiterCase<64>(spec, dataset);
-    case 128:
-      return RunNiterCase<128>(spec, dataset);
-    default:
-      return RunNiterCase<4>(spec, dataset);
+  const auto sx = spec.kernel.stencil_x.size();
+  const auto sy = spec.kernel.stencil_y.size();
+  const auto sz = spec.kernel.stencil_z.size();
+  if (sx == 3 && sy == 1 && sz == 1) {
+    return RunTypedCase<3, 1, 1>(spec, dataset);
   }
+  if (sx == 1 && sy == 3 && sz == 1) {
+    return RunTypedCase<1, 3, 1>(spec, dataset);
+  }
+  if (sx == 1 && sy == 1 && sz == 3) {
+    return RunTypedCase<1, 1, 3>(spec, dataset);
+  }
+  if (sx == 1 && sy == 1 && sz == 1) {
+    return RunTypedCase<1, 1, 1>(spec, dataset);
+  }
+  throw std::runtime_error("unsupported stencil shape: x{" + FormatOffsetSet(spec.kernel.stencil_x) +
+                           "}y{" + FormatOffsetSet(spec.kernel.stencil_y) + "}z{" +
+                           FormatOffsetSet(spec.kernel.stencil_z) + "}");
 }
 
 }  // namespace plb2

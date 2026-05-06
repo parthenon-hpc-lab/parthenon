@@ -12,14 +12,14 @@
 namespace plb2 {
 
 template <loop_abstraction::loop_tag LOOP_TAG, loop_abstraction::inner_tag INNER_TAG,
-          int NITER, int SX, int SY, int SZ, typename InputView, typename OutputView,
+          int SX, int SY, int SZ, typename InputView, typename OutputView,
           typename CountsView>
 inline void RunUnifiedKernelWithLoopAbstraction(
     const InputView &input, OutputView &output, const CountsView &active_counts, int nblocks,
     int nx, int ny, int nz, int nghost, const std::array<int, SX> &dx,
     const std::array<int, SY> &dy, const std::array<int, SZ> &dz,
-    const std::array<double, NITER> &alpha, const std::array<double, NITER> &beta,
-    std::optional<int> ninner = std::nullopt) {
+    const std::array<double, kMaxNiter> &alpha, const std::array<double, kMaxNiter> &beta,
+    int niter, std::optional<int> ninner = std::nullopt) {
   loop_abstraction::index_space_t<LOOP_TAG, INNER_TAG> idx_space(nblocks, nx, ny, nz, nghost,
                                                                   ninner);
 
@@ -56,9 +56,7 @@ inline void RunUnifiedKernelWithLoopAbstraction(
                                     for (int iz = 0; iz < SZ; ++iz) {
                                       value += z_views[iz](idx);
                                     }
-                                    out(idx) =
-                                        ApplyKernelIterations<static_cast<std::size_t>(NITER)>(
-                                            value, alpha, beta);
+                                    out(idx) = ApplyKernelIterations(value, alpha, beta, niter);
                                   });
                             }
                           });
