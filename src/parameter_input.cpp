@@ -317,7 +317,6 @@ Rummy::Card ParamValueToRummyCard(const std::string &suit, const std::string &na
 
 } // anonymous namespace
 
-
 //----------------------------------------------------------------------------------------
 //! \fn bool ParameterInput::IsRummyFormat(std::istream &is)
 //  \brief Detect whether a stream uses Rummy input format by scanning for markers:
