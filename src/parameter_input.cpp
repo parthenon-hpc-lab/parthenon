@@ -254,99 +254,6 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn bool ParameterInput::IsRummyFormat(std::istream &is)
-//  \brief Detect whether a stream uses Rummy input format by scanning for markers:
-//           - First line is "# use rummy" (case-insensitive)
-//           - Non-comment, non-blank content before the first <block> line
-//           - Relative suit paths starting with <..
-//           - Rummy-specific value syntax: ** power operator, quoted strings,
-//             bracket syntax [ ] (vectors/slices), or slice colon inside brackets
-bool ParameterInput::IsRummyFormat(std::istream &is, const bool command_line) {
-  const auto start_pos = is.tellg();
-  auto restore_and_return = [&](bool result) {
-    is.clear();
-    is.seekg(start_pos);
-    return result;
-  };
-
-  bool first_line = true;
-  bool found_block = false;
-  std::string line;
-  while (std::getline(is, line)) {
-    line.erase(std::remove_if(line.begin(), line.end(),
-                              [](char c) { return std::isspace(c) && c != ' '; }),
-               line.end());
-    if (line.empty()) continue;
-    auto first_char = line.find_first_not_of(" ");
-    if (first_char == std::string::npos) continue;
-
-    // Check first non-blank line for "# use rummy" (case-insensitive)
-    if (first_line) {
-      first_line = false;
-      if (line.compare(first_char, 1, "#") == 0) {
-        std::string after_hash = line.substr(first_char + 1);
-        auto text_start = after_hash.find_first_not_of(" ");
-        if (text_start != std::string::npos) {
-          std::string token = after_hash.substr(text_start);
-          std::transform(token.begin(), token.end(), token.begin(), ::tolower);
-          if (token.compare(0, 9, "use rummy") == 0) return restore_and_return(true);
-        }
-        continue;
-      }
-    } else {
-      if (line.compare(first_char, 1, "#") == 0) continue;
-    }
-
-    if (line.compare(first_char, 1, "<") == 0) {
-      if (line.size() > first_char + 2 && line.compare(first_char + 1, 2, "..") == 0) {
-        return restore_and_return(true);
-      }
-      found_block = true;
-      continue;
-    }
-
-    // Non-comment, non-blank content before the first block = Rummy global variable
-    // Disable for command line modifications
-    if (!command_line && !found_block) {
-      return restore_and_return(true);
-    }
-
-    // Rummy-specific syntax in the value part
-    auto eq_pos = line.find('=');
-    if (eq_pos != std::string::npos) {
-      std::string name_part = line.substr(first_char, eq_pos - first_char);
-      if (name_part.find_first_of(".[") != std::string::npos) {
-        return restore_and_return(true);
-      }
-
-      std::string value_part = line.substr(eq_pos + 1);
-      // do not include +- because they can be used in exponential notation.
-      // / can be used in command line arguments
-      if (value_part.find_first_of("*\"[%^|") != std::string::npos) {
-        return restore_and_return(true);
-      }
-    }
-    // Slice syntax on the LHS: name[:2] or name[0:2]
-    std::string lhs =
-        line.substr(first_char, eq_pos == std::string::npos ? std::string::npos
-                                                            : eq_pos - first_char);
-    if (lhs.find('[') != std::string::npos) {
-      return restore_and_return(true);
-    }
-  }
-  return restore_and_return(false);
-}
-
-//! \fn bool ParameterInput::IsRummyFormat(const std::string &filename)
-//  \brief Detect whether a file uses Rummy input format. Delegates to the stream
-//  overload.
-bool ParameterInput::IsRummyFormat(const std::string &filename) {
-  std::ifstream file(filename);
-  if (!file.is_open()) return false;
-  return IsRummyFormat(file, false);
-}
-
-//----------------------------------------------------------------------------------------
 // Helper functions local to this translation unit for Rummy card conversion
 
 namespace {
@@ -409,6 +316,101 @@ Rummy::Card ParamValueToRummyCard(const std::string &suit, const std::string &na
 }
 
 } // anonymous namespace
+
+
+//----------------------------------------------------------------------------------------
+//! \fn bool ParameterInput::IsRummyFormat(std::istream &is)
+//  \brief Detect whether a stream uses Rummy input format by scanning for markers:
+//           - First line is "# use rummy" (case-insensitive)
+//           - Non-comment, non-blank content before the first <block> line
+//           - Relative suit paths starting with <..
+//           - Rummy-specific value syntax: ** power operator, quoted strings,
+//             bracket syntax [ ] (vectors/slices), or slice colon inside brackets
+bool ParameterInput::IsRummyFormat(std::istream &is, const bool command_line) {
+  const auto start_pos = is.tellg();
+  auto restore_and_return = [&](bool result) {
+    is.clear();
+    is.seekg(start_pos);
+    return result;
+  };
+
+  bool first_line = true;
+  bool found_block = false;
+  std::string line;
+  while (std::getline(is, line)) {
+    line.erase(std::remove_if(line.begin(), line.end(),
+                              [](char c) { return std::isspace(c) && c != ' '; }),
+               line.end());
+    if (line.empty()) continue;
+    auto first_char = line.find_first_not_of(" ");
+    if (first_char == std::string::npos) continue;
+
+    // Check first non-blank line for "# use rummy" (case-insensitive)
+    if (first_line) {
+      first_line = false;
+      if (line.compare(first_char, 1, "#") == 0) {
+        std::string after_hash = line.substr(first_char + 1);
+        auto text_start = after_hash.find_first_not_of(" ");
+        if (text_start != std::string::npos) {
+          std::string token = after_hash.substr(text_start);
+          std::transform(token.begin(), token.end(), token.begin(), ::tolower);
+          if (token.compare(0, 10, "use native") == 0) return restore_and_return(false);
+          if (token.compare(0, 9, "use rummy") == 0) return restore_and_return(true);
+        }
+        continue;
+      }
+    } else {
+      if (line.compare(first_char, 1, "#") == 0) continue;
+    }
+
+    if (line.compare(first_char, 1, "<") == 0) {
+      if (line.size() > first_char + 2 && line.compare(first_char + 1, 2, "..") == 0) {
+        return restore_and_return(true);
+      }
+      found_block = true;
+      continue;
+    }
+
+    // Non-comment, non-blank content before the first block = Rummy global variable
+    // Disable for command line modifications
+    if (!command_line && !found_block) {
+      return restore_and_return(true);
+    }
+
+    // Rummy-specific syntax in the value part
+    auto eq_pos = line.find('=');
+    if (eq_pos != std::string::npos) {
+      std::string name_part = line.substr(first_char, eq_pos - first_char);
+      if (name_part.find_first_of(".[") != std::string::npos) {
+        return restore_and_return(true);
+      }
+
+      std::string value_part = SanitizeString(line.substr(eq_pos + 1));
+      // do not include +- because they can be used in exponential notation.
+      // / can be used in command line arguments
+      if (value_part.find_first_of("*\"[%^|") != std::string::npos) {
+        return restore_and_return(true);
+      }
+    }
+    // Slice syntax on the LHS: name[:2] or name[0:2]
+    std::string lhs =
+        line.substr(first_char, eq_pos == std::string::npos ? std::string::npos
+                                                            : eq_pos - first_char);
+    if (lhs.find('[') != std::string::npos) {
+      return restore_and_return(true);
+    }
+  }
+  return restore_and_return(false);
+}
+
+//! \fn bool ParameterInput::IsRummyFormat(const std::string &filename)
+//  \brief Detect whether a file uses Rummy input format. Delegates to the stream
+//  overload.
+bool ParameterInput::IsRummyFormat(const std::string &filename) {
+  std::ifstream file(filename);
+  if (!file.is_open()) return false;
+  return IsRummyFormat(file, false);
+}
 
 //----------------------------------------------------------------------------------------
 //! \fn void ParameterInput::LoadFromRummyStream(std::istream &is)
