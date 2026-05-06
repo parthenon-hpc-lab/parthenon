@@ -51,7 +51,7 @@ ParArray1DRaw<BndId> &CoalescedBuffer::GetBndIdsOnDevice(const std::set<Uid_t> &
                                                          int *pcomb_size) {
   const auto &var_set = vars.size() == 0 ? all_vars : vars;
   int nbnd_id{0};
-  int comb_size{0};
+  std::size_t comb_size{0};
   for (auto uid : var_set) {
     // Skip this variable if it is not communicated in this BoundaryType
     if (coalesced_info_buf.count(uid) == 0) continue;
@@ -88,7 +88,7 @@ ParArray1DRaw<BndId> &CoalescedBuffer::GetBndIdsOnDevice(const std::set<Uid_t> &
   }
 
   int idx{0};
-  int c_buf_idx{0}; // Index at which v-b buffer starts in combined buffer
+  std::size_t c_buf_idx{0}; // Index at which v-b buffer starts in combined buffer
   for (auto uid : var_set) {
     // Skip this variable if it is not communicated in this BoundaryType
     if (coalesced_info_buf.count(uid) == 0) continue;
@@ -133,7 +133,7 @@ void CoalescedBuffer::PackAndSend(const std::set<Uid_t> &vars) {
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
         if (bids[b].buf_allocated) {
-          const int buf_size = bids[b].size();
+          const std::size_t buf_size = bids[b].size();
           Real *com_buf = &(bids[b].coalesced_buf(bids[b].start_idx()));
           Real *buf = &(bids[b].buf(0));
           Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
@@ -225,7 +225,7 @@ bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank();
         if (bids[b].buf_allocated) {
-          const int buf_size = bids[b].size();
+          const std::size_t buf_size = bids[b].size();
           Real *com_buf = &(bids[b].coalesced_buf(bids[b].start_idx()));
           Real *buf = &(bids[b].buf(0));
           Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
@@ -332,9 +332,10 @@ void CoalescedBuffersRank::ResolveAndSendBufInfo() {
   int total_buffers{0};
   for (auto &[partition, coalesced_buf] : coalesced_bufs)
     total_buffers += coalesced_buf.TotalBuffers();
-  int total_partitions = coalesced_bufs.size();
+  std::size_t total_partitions = coalesced_bufs.size();
 
-  int mesg_size = nglobal + nper_part * total_partitions + BndId::NDAT * total_buffers;
+  std::size_t mesg_size =
+      nglobal + nper_part * total_partitions + BndId::NDAT * total_buffers;
   message.Allocate(mesg_size);
 
   auto &mess_buf = message.buffer();

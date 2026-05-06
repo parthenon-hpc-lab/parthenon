@@ -159,7 +159,7 @@ void PostInitialization(MeshBlock *pmb, ParameterInput *pin) {
   if (no_particles) return;
 
   // determine which particles belong to this block
-  size_t num_particles_this_block = 0;
+  std::size_t num_particles_this_block = 0;
   auto ids_this_block =
       ParArray1D<int>("indices of particles in test", num_test_particles);
 
