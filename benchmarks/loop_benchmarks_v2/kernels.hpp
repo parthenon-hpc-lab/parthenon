@@ -7,6 +7,21 @@
 
 namespace plb2 {
 
+template <std::size_t NITER, std::size_t... I>
+KOKKOS_INLINE_FUNCTION double ApplyKernelIterationsImpl(
+    double value, const std::array<double, NITER> &alpha,
+    const std::array<double, NITER> &beta, std::index_sequence<I...>) {
+  ((value = value * alpha[I] + beta[I]), ...);
+  return value;
+}
+
+template <std::size_t NITER>
+KOKKOS_INLINE_FUNCTION double ApplyKernelIterations(
+    double value, const std::array<double, NITER> &alpha,
+    const std::array<double, NITER> &beta) {
+  return ApplyKernelIterationsImpl(value, alpha, beta, std::make_index_sequence<NITER>{});
+}
+
 template <int SX, int SY, int SZ>
 struct UnifiedSpanAccess {
   const double *center = nullptr;
@@ -49,11 +64,7 @@ KOKKOS_INLINE_FUNCTION double ComputeUnifiedCellHoisted(
     value += access.z_ptrs[iz][idx];
   }
 
-  for (int iter = 0; iter < NITER; ++iter) {
-    value = std::fma(value, alpha[iter], beta[iter]);
-  }
-
-  return value;
+  return ApplyKernelIterations<static_cast<std::size_t>(NITER)>(value, alpha, beta);
 }
 
 template <int NITER, int SX, int SY, int SZ, typename ViewType>
@@ -73,11 +84,7 @@ KOKKOS_INLINE_FUNCTION double ComputeUnifiedCellDirect(
     value += in(b, v, z + dz[iz], y, x);
   }
 
-  for (int iter = 0; iter < NITER; ++iter) {
-    value = std::fma(value, alpha[iter], beta[iter]);
-  }
-
-  return value;
+  return ApplyKernelIterations<static_cast<std::size_t>(NITER)>(value, alpha, beta);
 }
 
 template <int NITER>

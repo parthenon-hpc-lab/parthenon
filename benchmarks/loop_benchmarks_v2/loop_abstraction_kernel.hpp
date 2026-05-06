@@ -6,6 +6,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "kernels.hpp"
 #include "loop_abstraction.hpp"
 
 namespace plb2 {
@@ -55,10 +56,9 @@ inline void RunUnifiedKernelWithLoopAbstraction(
                                     for (int iz = 0; iz < SZ; ++iz) {
                                       value += z_views[iz](idx);
                                     }
-                                    for (int iter = 0; iter < NITER; ++iter) {
-                                      value = std::fma(value, alpha[iter], beta[iter]);
-                                    }
-                                    out(idx) = value;
+                                    out(idx) =
+                                        ApplyKernelIterations<static_cast<std::size_t>(NITER)>(
+                                            value, alpha, beta);
                                   });
                             }
                           });

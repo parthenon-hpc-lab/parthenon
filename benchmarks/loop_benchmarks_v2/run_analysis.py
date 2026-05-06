@@ -2,9 +2,11 @@
 
 import argparse
 import csv
+import copy
 import math
 import os
 import platform
+import re
 import subprocess
 import sys
 import tempfile
@@ -22,17 +24,19 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
 
-DEFAULT_LOOPS = [
+CPU_LOOPS = [
     "cpu_flat_ghosts",
-    "cpu_boiv_contiguous",
-    "cpu_bovi_contiguous",
     "cpu_bvoi_contiguous",
-    "cpu_boiv_logical",
-    "cpu_bovi_logical",
     "cpu_bvoi_logical",
+]
+
+DEVICE_LOOPS = [
     "kokkos_boiv_flat",
     "kokkos_bovi_team_contiguous",
     "kokkos_bovi_team_logical",
+]
+
+ABSTRACTION_LOOPS_CPU = [
     "loop_abstraction_bovi_memory",
     "loop_abstraction_bovi_logical",
     "loop_abstraction_boiv_logical",
@@ -40,11 +44,17 @@ DEFAULT_LOOPS = [
     "loop_abstraction_bvoi_logical",
 ]
 
+ABSTRACTION_LOOPS_DEVICE = [
+    "loop_abstraction_bovi_memory",
+    "loop_abstraction_bovi_logical",
+    "loop_abstraction_boiv_logical",
+]
+
 LOOP_ACCESS_MODES = {
     "cpu_flat_ghosts": ["direct", "hoisted"],
     "cpu_boiv_contiguous": ["direct"],
     "cpu_bovi_contiguous": ["direct", "hoisted"],
-    "cpu_bvoi_contiguous": ["direct", "hoisted"],
+    "cpu_bvoi_contiguous": ["hoisted"],
     "cpu_boiv_logical": ["direct"],
     "cpu_bovi_logical": ["direct"],
     "cpu_bvoi_logical": ["direct"],
@@ -77,9 +87,30 @@ LOOP_STYLE = {
     "loop_abstraction_bvoi_logical": ("#D95F02", "d"),
 }
 
+# Legend labels stay short and should reflect the contract of each loop family:
+# the abstraction cases use the memory-oriented naming, while the comparison
+# loops keep their contiguous/logical names.
+LOOP_DISPLAY_NAME = {
+    "cpu_flat_ghosts": "cpu flat ghosts",
+    "cpu_boiv_contiguous": "cpu boiv memory",
+    "cpu_bovi_contiguous": "cpu bovi memory",
+    "cpu_bvoi_contiguous": "cpu bvoi memory",
+    "cpu_boiv_logical": "cpu boiv logical",
+    "cpu_bovi_logical": "cpu bovi logical",
+    "cpu_bvoi_logical": "cpu bvoi logical",
+    "kokkos_boiv_flat": "kokkos boiv flat",
+    "kokkos_bovi_team_contiguous": "kokkos bovi team memory",
+    "kokkos_bovi_team_logical": "kokkos bovi team logical",
+    "loop_abstraction_bovi_memory": "abstraction bovi_memory",
+    "loop_abstraction_bovi_logical": "abstraction bovi_logical",
+    "loop_abstraction_boiv_logical": "abstraction boiv_logical",
+    "loop_abstraction_bvoi_memory": "abstraction bvoi_memory",
+    "loop_abstraction_bvoi_logical": "abstraction bvoi_logical",
+}
+
 ACCESS_STYLE = {
     "direct": "-",
-    "hoisted": "--",
+    "hoisted": ":",
 }
 
 
@@ -109,20 +140,49 @@ def parse_stencil_shapes(text):
     return shapes
 
 
+def loops_for_target(target):
+    if target == "cpu":
+        return CPU_LOOPS + ABSTRACTION_LOOPS_CPU
+    if target == "gpu":
+        return DEVICE_LOOPS + ABSTRACTION_LOOPS_DEVICE
+    raise ValueError(f"unknown target '{target}'")
+
+
+def filter_loops_for_target(loops, target):
+    allowed = set(loops_for_target(target))
+    return [loop for loop in loops if loop in allowed]
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Run the v2 loop benchmark analysis.")
-    parser.add_argument("--analysis-mode", choices=["standard", "ninner", "full"], default="standard")
+    parser.add_argument(
+        "--test-suite",
+        "--analysis-mode",
+        dest="analysis_mode",
+        choices=["standard", "ninner", "full"],
+        default="standard",
+        help="Select the sweep shape: standard, ninner, or full.",
+    )
+    parser.add_argument("--target", choices=["cpu", "gpu"], default="cpu")
     parser.add_argument("--binary", default="build-make/benchmarks/loop_benchmarks_v2/loop-benchmarks-v2")
     parser.add_argument("--output-dir", default="reports/loop_benchmarks_v2")
     parser.add_argument("--title", default="Parthenon Loop Benchmark v2")
-    parser.add_argument("--loops", default=",".join(DEFAULT_LOOPS))
+    parser.add_argument(
+        "--loops",
+        default="",
+        help="Optional comma-separated override. Defaults depend on --target.",
+    )
     parser.add_argument("--edge-values", default="8,32,128")
+    parser.add_argument("--niter-edge-values", default="32")
+    parser.add_argument("--niter-stencil-shapes", default="point")
+    parser.add_argument("--ninner-stencil-shapes", default="point")
     parser.add_argument(
         "--ninner-values",
         default="",
         help="Comma-separated ninner values. Defaults to edge^2 for each block edge.",
     )
-    parser.add_argument("--niter-values", default="1,16,128")
+    parser.add_argument("--niter-values", default="1,3,9,27,81")
+    parser.add_argument("--ninner-niter-values", default="1,9,81")
     parser.add_argument("--target-total-cells", type=int, default=1_048_576)
     parser.add_argument("--nvars", type=int, default=16)
     parser.add_argument("--nghost", type=int, default=2)
@@ -326,6 +386,32 @@ def write_cases_csv(path, loops, edge_values, ninner_values, stencil_shapes, arg
                                 )
 
 
+def count_cases(loops, edge_values, ninner_values, stencil_shapes, args):
+    niter_values = parse_csv_ints(args.niter_values)
+    total = 0
+    for edge in edge_values:
+        edge_ninner_values = ninner_values if ninner_values else [edge * edge]
+        for loop in loops:
+            loop_stencil_shapes = [
+                stencil
+                for stencil in stencil_shapes
+                if loop != "cpu_flat_ghosts" or stencil == ("0", "0", "0")
+            ]
+            total += (
+                len(LOOP_ACCESS_MODES.get(loop, ["direct"]))
+                * len(edge_ninner_values)
+                * len(loop_stencil_shapes)
+                * len(niter_values)
+            )
+    return total
+
+
+def with_niter_values(args, niter_values):
+    copied = copy.copy(args)
+    copied.niter_values = niter_values
+    return copied
+
+
 def run_binary(binary, cases_csv, results_csv):
     cases_csv = Path(cases_csv)
     results_csv = Path(results_csv)
@@ -337,6 +423,12 @@ def run_binary(binary, cases_csv, results_csv):
 def read_results_csv(path):
     with open(path, newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
+
+
+def run_sweep(binary, cases_csv, results_csv, loops, edge_values, ninner_values, stencil_shapes, args):
+    write_cases_csv(cases_csv, loops, edge_values, ninner_values, stencil_shapes, args)
+    run_binary(binary, str(cases_csv), str(results_csv))
+    return numericize_rows(read_results_csv(results_csv))
 
 
 def to_number(value):
@@ -368,6 +460,53 @@ def row_access_mode(row):
     return row.get("access_mode", "direct")
 
 
+def parse_offset_token(token):
+    if not token:
+        return ()
+    return tuple(int(part) for part in token.split(";") if part)
+
+
+def row_stencil_shape(row):
+    return (str(row.get("stencil_x", "")), str(row.get("stencil_y", "")), str(row.get("stencil_z", "")))
+
+
+def stencil_sort_key(stencil):
+    return tuple(parse_offset_token(part) for part in stencil)
+
+
+def format_stencil_shape(stencil):
+    if stencil == ("0", "0", "0"):
+        return "point"
+    return f"x{{{stencil[0]}}}y{{{stencil[1]}}}z{{{stencil[2]}}}"
+
+
+def kernel_sort_key(label):
+    niter = 0
+    stencil_x = ()
+    stencil_y = ()
+    stencil_z = ()
+    for part in label.split(","):
+        if part.startswith("niter="):
+            niter = int(part.split("=", 1)[1])
+            continue
+        if part.startswith("offsets="):
+            offsets = part.split("=", 1)[1]
+            match_x = re.search(r"x\{([^}]*)\}", offsets)
+            match_y = re.search(r"y\{([^}]*)\}", offsets)
+            match_z = re.search(r"z\{([^}]*)\}", offsets)
+            if match_x:
+                stencil_x = parse_offset_token(match_x.group(1))
+            if match_y:
+                stencil_y = parse_offset_token(match_y.group(1))
+            if match_z:
+                stencil_z = parse_offset_token(match_z.group(1))
+    return (niter, stencil_x, stencil_y, stencil_z)
+
+
+def display_loop_name(loop):
+    return LOOP_DISPLAY_NAME.get(loop, loop.replace("_", " "))
+
+
 def series_key(row, x_key="edge"):
     if x_key == "ninner":
         return (row_kernel(row), row["loop"], row_access_mode(row), row_edge(row))
@@ -375,7 +514,7 @@ def series_key(row, x_key="edge"):
 
 
 def series_label(row, include_kernel=False, include_edge=False):
-    label = f"{row['loop']} [{row_access_mode(row)}]"
+    label = f"{display_loop_name(row['loop'])} [{row_access_mode(row)}]"
     if include_edge:
         label = f"{label}, edge={row_edge(row)}"
     if include_kernel:
@@ -462,21 +601,44 @@ def add_plot_page(pdf, rows, title, y_key, y_label, x_key="edge"):
     plt.close(fig)
 
 
-def add_summary_page(pdf, rows, title):
-    best = {}
+def add_niter_plot_page(pdf, rows, title, y_key, y_label):
+    fig, ax = plt.subplots(figsize=(10, 7))
+    by_loop = defaultdict(list)
     for row in rows:
-        key = series_key(row)
-        if key not in best or row["updates_per_second"] > best[key]["updates_per_second"]:
-            best[key] = row
+        by_loop[(row["loop"], row_access_mode(row))].append(row)
 
-    lines = [title, ""]
-    for key in sorted(best):
-        row = best[key]
-        lines.append(
-            f"{series_label(row, include_kernel=True)}: {row['updates_per_second']:.3e} updates/s "
-            f"at edge={row_edge(row)} ninner={row['ninner']} blocks={row_blocks(row)}"
+    for key, points in sorted(by_loop.items()):
+        points = sorted(points, key=lambda row: row["niter"])
+        xs = [row["niter"] for row in points]
+        ys = [row[y_key] for row in points]
+        loop, access_mode = key
+        color, marker = LOOP_STYLE.get(loop, ("#333333", "o"))
+        linestyle = ACCESS_STYLE.get(access_mode, "-")
+        ax.plot(
+            xs,
+            ys,
+            color=color,
+            marker=marker,
+            linestyle=linestyle,
+            linewidth=2.0,
+            markersize=5,
+            label=f"{display_loop_name(loop)} [{access_mode}]",
         )
-    add_text_page(pdf, title, lines)
+
+    ax.set_xlabel("niter")
+    ax.set_ylabel(y_label)
+    ax.set_title(title)
+    ax.set_xscale("log", base=2)
+    ax.set_yscale("log")
+    ax.set_xlim(
+        left=min(row["niter"] for row in rows) * 0.9,
+        right=max(row["niter"] for row in rows) * 1.1,
+    )
+    ax.grid(True, which="both", alpha=0.25)
+    ax.legend(fontsize=8, ncol=2, frameon=False)
+    fig.tight_layout()
+    pdf.savefig(fig, bbox_inches="tight")
+    plt.close(fig)
 
 
 def main():
@@ -484,8 +646,8 @@ def main():
     if args.analysis_mode == "full":
         if args.edge_values == "8,32,128":
             args.edge_values = "8,16,32,64,128"
-        if args.niter_values == "1,16,128":
-            args.niter_values = "1,4,16,64,128"
+        if not args.ninner_values:
+            args.ninner_values = "64,128,256,384,512,640,768,896,1024,1152,1280,1536,1792,2048,3072,4096,8192,16384"
         if not args.stencil_shapes:
             args.stencil_shapes = "point,x3,y3,z3"
     elif args.analysis_mode == "ninner":
@@ -500,20 +662,57 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    loops = [loop.strip() for loop in args.loops.split(",") if loop.strip()]
+    if args.loops:
+        loops = [loop.strip() for loop in args.loops.split(",") if loop.strip()]
+        loops = filter_loops_for_target(loops, args.target)
+    else:
+        loops = loops_for_target(args.target)
     edge_values = parse_csv_ints(args.edge_values)
+    niter_edge_values = parse_csv_ints(args.niter_edge_values)
+    niter_stencil_shapes = parse_stencil_shapes(args.niter_stencil_shapes)
+    ninner_stencil_shapes = parse_stencil_shapes(args.ninner_stencil_shapes)
+    ninner_niter_values = parse_csv_ints(args.ninner_niter_values)
     ninner_values = parse_csv_ints(args.ninner_values) if args.ninner_values else []
     stencil_shapes = parse_stencil_shapes(args.stencil_shapes)
-    x_key = "ninner" if ninner_values else "edge"
     cases_csv = output_dir / "cases.csv"
     results_csv = output_dir / "results.csv"
+    ninner_cases_csv = output_dir / "cases_ninner.csv"
+    ninner_results_csv = output_dir / "results_ninner.csv"
     pdf_path = output_dir / "summary.pdf"
 
-    write_cases_csv(cases_csv, loops, edge_values, ninner_values, stencil_shapes, args)
-    run_binary(binary, str(cases_csv), str(results_csv))
-    rows = numericize_rows(read_results_csv(results_csv))
+    edge_rows = []
+    ninner_rows = []
+    passes = []
+    if args.analysis_mode != "ninner":
+        edge_case_count = count_cases(loops, edge_values, [], stencil_shapes, args)
+        passes.append(("edge sweep", edge_case_count))
+    if args.analysis_mode in ("full", "ninner"):
+        ninner_args = with_niter_values(args, args.ninner_niter_values)
+        ninner_case_count = count_cases(loops, [32], ninner_values, ninner_stencil_shapes, ninner_args)
+        passes.append(("ninner sweep", ninner_case_count))
+
+    if passes:
+        print(f"passes: {len(passes)}")
+        for idx, (label, count) in enumerate(passes, start=1):
+            print(f"  [{idx}] {label}: {count} cases")
+
+    if args.analysis_mode != "ninner":
+        edge_rows = run_sweep(binary, cases_csv, results_csv, loops, edge_values, [], stencil_shapes, args)
+    if args.analysis_mode in ("full", "ninner"):
+        ninner_args = with_niter_values(args, args.ninner_niter_values)
+        ninner_rows = run_sweep(
+            binary,
+            ninner_cases_csv,
+            ninner_results_csv,
+            loops,
+            [32],
+            ninner_values,
+            ninner_stencil_shapes,
+            ninner_args,
+        )
+    rows = edge_rows + ninner_rows
     meta = collect_metadata(binary)
-    kernel_labels = sorted({row_kernel(row) for row in rows}) or ["unknown"]
+    kernel_labels = sorted({row_kernel(row) for row in rows}, key=kernel_sort_key) or ["unknown"]
     kernel_summary = ", ".join(kernel_labels)
 
     with PdfPages(pdf_path) as pdf:
@@ -522,14 +721,20 @@ def main():
             f"{args.title} ({kernel_summary})",
             [
                 "Sweep",
-                f"- analysis mode: {args.analysis_mode}",
+                f"- test suite: {args.analysis_mode}",
+                f"- target: {args.target}",
                 f"- loops: {args.loops}",
                 f"- access modes: direct, hoisted",
                 f"- edge values: {args.edge_values}",
+                f"- niter edge values: {args.niter_edge_values}",
+                f"- niter stencil shapes: {args.niter_stencil_shapes}",
                 f"- niter values: {args.niter_values}",
+                f"- ninner niter values: {args.ninner_niter_values}",
                 f"- stencil shapes: {args.stencil_shapes}",
                 f"- target total cells: {args.target_total_cells}",
                 f"- ninner values: {args.ninner_values}" if ninner_values else "- ninner = edge^2",
+                f"- ninner stencil shapes: {args.ninner_stencil_shapes}",
+                "- ninner sweep: edge=32" if args.analysis_mode in ("full", "ninner") else "",
                 f"- warmup: {args.warmup}",
                 f"- repeats: {args.repeats}",
                 "",
@@ -552,33 +757,91 @@ def main():
             ],
         )
 
-        rows_by_kernel = defaultdict(list)
-        for row in rows:
-            rows_by_kernel[row_kernel(row)].append(row)
+        if edge_rows:
+            rows_by_kernel = defaultdict(list)
+            for row in edge_rows:
+                rows_by_kernel[row_kernel(row)].append(row)
 
-        for kernel_label in sorted(rows_by_kernel):
-            kernel_rows = rows_by_kernel[kernel_label]
-            add_plot_page(
-                pdf,
-                kernel_rows,
-                f"{args.title}: throughput ({kernel_label})",
-                "updates_per_second",
-                "updates / second",
-                x_key,
-            )
-            add_summary_page(pdf, kernel_rows, f"{args.title}: best results ({kernel_label})")
-            if all("touched_cells_per_second" in row for row in kernel_rows):
+            for kernel_label in sorted(rows_by_kernel, key=kernel_sort_key):
+                kernel_rows = rows_by_kernel[kernel_label]
                 add_plot_page(
                     pdf,
                     kernel_rows,
-                    f"{args.title}: touched-cell rate ({kernel_label})",
-                    "touched_cells_per_second",
-                    "touched cells / second",
-                    x_key,
+                    f"{args.title}: throughput ({kernel_label})",
+                    "updates_per_second",
+                    "updates / second",
+                    "edge",
                 )
+                if all("touched_cells_per_second" in row for row in kernel_rows):
+                    add_plot_page(
+                        pdf,
+                        kernel_rows,
+                        f"{args.title}: touched-cell rate ({kernel_label})",
+                        "touched_cells_per_second",
+                        "touched cells / second",
+                        "edge",
+                    )
+
+            niter_rows_by_page = defaultdict(list)
+            niter_stencil_set = set(niter_stencil_shapes)
+            for row in edge_rows:
+                edge = row_edge(row)
+                stencil = row_stencil_shape(row)
+                if edge in niter_edge_values and stencil in niter_stencil_set:
+                    niter_rows_by_page[(edge, stencil)].append(row)
+
+            for edge in sorted(niter_edge_values):
+                for stencil in sorted(niter_stencil_shapes, key=stencil_sort_key):
+                    page_rows = niter_rows_by_page.get((edge, stencil), [])
+                    if not page_rows:
+                        continue
+                    stencil_label = format_stencil_shape(stencil)
+                    add_niter_plot_page(
+                        pdf,
+                        page_rows,
+                        f"{args.title}: throughput vs niter (edge={edge}, {stencil_label})",
+                        "updates_per_second",
+                        "updates / second",
+                    )
+                    if all("touched_cells_per_second" in row for row in page_rows):
+                        add_niter_plot_page(
+                            pdf,
+                            page_rows,
+                            f"{args.title}: touched-cell rate vs niter (edge={edge}, {stencil_label})",
+                            "touched_cells_per_second",
+                            "touched cells / second",
+                        )
+
+        if ninner_rows:
+            rows_by_kernel = defaultdict(list)
+            for row in ninner_rows:
+                rows_by_kernel[row_kernel(row)].append(row)
+
+            for kernel_label in sorted(rows_by_kernel, key=kernel_sort_key):
+                kernel_rows = rows_by_kernel[kernel_label]
+                add_plot_page(
+                    pdf,
+                    kernel_rows,
+                    f"{args.title}: throughput vs ninner ({kernel_label})",
+                    "updates_per_second",
+                    "updates / second",
+                    "ninner",
+                )
+                if all("touched_cells_per_second" in row for row in kernel_rows):
+                    add_plot_page(
+                        pdf,
+                        kernel_rows,
+                        f"{args.title}: touched-cell rate vs ninner ({kernel_label})",
+                        "touched_cells_per_second",
+                        "touched cells / second",
+                        "ninner",
+                    )
 
     print(f"Wrote {cases_csv}")
     print(f"Wrote {results_csv}")
+    if ninner_rows:
+        print(f"Wrote {ninner_cases_csv}")
+        print(f"Wrote {ninner_results_csv}")
     print(f"Wrote {pdf_path}")
 
 
