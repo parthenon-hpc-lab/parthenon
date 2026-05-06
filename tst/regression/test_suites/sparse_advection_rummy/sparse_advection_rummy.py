@@ -46,7 +46,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 "parthenon.mesh.nx2=32",
                 "parthenon.time.nlim=50",
                 'parthenon.job.problem_id="sparse_twotree_static"',
-                "parthenon.mesh.refinement=static",
+                'parthenon.mesh.refinement="static"',
                 "parthenon.static_refinement0.x1min=-0.75",
                 "parthenon.static_refinement0.x1max=-0.5",
                 "parthenon.static_refinement0.x2min=-0.75",

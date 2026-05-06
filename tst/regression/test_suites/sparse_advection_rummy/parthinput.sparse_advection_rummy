@@ -75,7 +75,7 @@ cfl = 0.45
 speed = 1.5
 
 refine_tol = 0.3    # control the package specific refinement tagging function
-derefine_tol = 0.1 * derefine_tol
+derefine_tol = 0.1 * refine_tol
 
 <parthenon/output0>
 file_type = "hdf5"
