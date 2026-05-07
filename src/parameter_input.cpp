@@ -695,10 +695,10 @@ void ParameterInput::ModifyFromCmdline(std::vector<std::string> mods) {
     if ((slash_posn == std::string::npos) || (equal_posn == std::string::npos)) continue;
 
     if (slash_posn > equal_posn) {
-      std::stringstream msg << "'/' used as value (rhs of =) when modifying "
-                            << input_text << "."
-                            << " Please update value of change "
-                            << "logic in ModifyFromCmdline function.";
+      std::stringstream msg;
+      msg << "'/' used as value (rhs of =) when modifying " << input_text << "."
+          << " Please update value of change "
+          << "logic in ModifyFromCmdline function.";
       PARTHENON_FAIL(msg.str().c_str());
     }
 
@@ -711,16 +711,16 @@ void ParameterInput::ModifyFromCmdline(std::vector<std::string> mods) {
     Block *pb = FindBlock_(block);
     if (pb == nullptr) {
       if (Globals::my_rank == 0) {
-        std::stringstream msg
-            << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
+        std::stringstream msg;
+        msg << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
             << "               Block name '" << block
             << "' on command line not found in input/restart file. Block will be added.";
         PARTHENON_WARN(msg);
       }
     } else if (FindParameter_(block, name) == nullptr) {
       if (Globals::my_rank == 0) {
-        std::stringstream msg
-            << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
+        std::stringstream msg;
+        msg << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
             << "               Parameter '" << name << "' in block '" << block
             << "' on command line not found in input/restart file. Parameter will be "
                "added.";
