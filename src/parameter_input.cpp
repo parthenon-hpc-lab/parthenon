@@ -671,7 +671,7 @@ void ParameterInput::ModifyFromCmdline(std::vector<std::string> mods) {
   if (mods.empty()) return;
   std::stringstream ss;
   for (const auto &mod : mods) {
-    ss << mod << "\n";
+    ss << mod << " # From command line\n";
   }
 
   if (format == InputFormat::Rummy || IsRummyFormat(ss, true)) {
@@ -685,10 +685,9 @@ void ParameterInput::ModifyFromCmdline(std::vector<std::string> mods) {
   }
 
   // Native parsing
-  std::string input_text, block, name, value;
-  std::stringstream msg;
-
-  while (std::getline(ss, input_text)) {
+  std::string line;
+  while (std::getline(ss, line)) {
+    auto input_text = SanitizeString(line);
     std::size_t equal_posn = input_text.find_first_of("=");     // first "=" character
     std::size_t slash_posn = input_text.rfind("/", equal_posn); // last "/" before "="
 
@@ -696,29 +695,32 @@ void ParameterInput::ModifyFromCmdline(std::vector<std::string> mods) {
     if ((slash_posn == std::string::npos) || (equal_posn == std::string::npos)) continue;
 
     if (slash_posn > equal_posn) {
-      msg << "'/' used as value (rhs of =) when modifying " << input_text << "."
-          << " Please update value of change "
-          << "logic in ModifyFromCmdline function.";
+      std::stringstream msg << "'/' used as value (rhs of =) when modifying "
+                            << input_text << "."
+                            << " Please update value of change "
+                            << "logic in ModifyFromCmdline function.";
       PARTHENON_FAIL(msg.str().c_str());
     }
 
     // extract block/name/value strings
-    block = input_text.substr(0, slash_posn);
-    name = input_text.substr(slash_posn + 1, (equal_posn - slash_posn - 1));
-    value = input_text.substr(equal_posn + 1, std::string::npos);
+    auto block = input_text.substr(0, slash_posn);
+    auto name = input_text.substr(slash_posn + 1, (equal_posn - slash_posn - 1));
+    auto value = input_text.substr(equal_posn + 1, std::string::npos);
 
     // Check if block/parameter exists for warning messages
     Block *pb = FindBlock_(block);
     if (pb == nullptr) {
       if (Globals::my_rank == 0) {
-        msg << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
+        std::stringstream msg
+            << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
             << "               Block name '" << block
             << "' on command line not found in input/restart file. Block will be added.";
         PARTHENON_WARN(msg);
       }
     } else if (FindParameter_(block, name) == nullptr) {
       if (Globals::my_rank == 0) {
-        msg << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
+        std::stringstream msg
+            << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
             << "               Parameter '" << name << "' in block '" << block
             << "' on command line not found in input/restart file. Parameter will be "
                "added.";
