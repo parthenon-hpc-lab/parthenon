@@ -54,27 +54,33 @@ struct SparseID {
 
 inline constexpr SparseID InvalidSparseID{InvalidSparseIDValue, InvalidSparseIDValue};
 
-inline constexpr bool operator==(const SparseID lhs, const SparseID rhs) {
+KOKKOS_INLINE_FUNCTION constexpr bool operator==(const SparseID lhs,
+                                                 const SparseID rhs) {
   return lhs(0) == rhs(0) && lhs(1) == rhs(1);
 }
 
-inline constexpr bool operator!=(const SparseID lhs, const SparseID rhs) {
+KOKKOS_INLINE_FUNCTION constexpr bool operator!=(const SparseID lhs,
+                                                 const SparseID rhs) {
   return !(lhs == rhs);
 }
 
-inline constexpr bool operator<(const SparseID lhs, const SparseID rhs) {
+KOKKOS_INLINE_FUNCTION constexpr bool operator<(const SparseID lhs,
+                                                const SparseID rhs) {
   return (lhs(0) < rhs(0)) || (lhs(0) == rhs(0) && lhs(1) < rhs(1));
 }
 
-inline constexpr bool operator>(const SparseID lhs, const SparseID rhs) {
+KOKKOS_INLINE_FUNCTION constexpr bool operator>(const SparseID lhs,
+                                                const SparseID rhs) {
   return rhs < lhs;
 }
 
-inline constexpr bool operator<=(const SparseID lhs, const SparseID rhs) {
+KOKKOS_INLINE_FUNCTION constexpr bool operator<=(const SparseID lhs,
+                                                 const SparseID rhs) {
   return !(rhs < lhs);
 }
 
-inline constexpr bool operator>=(const SparseID lhs, const SparseID rhs) {
+KOKKOS_INLINE_FUNCTION constexpr bool operator>=(const SparseID lhs,
+                                                 const SparseID rhs) {
   return !(lhs < rhs);
 }
 
