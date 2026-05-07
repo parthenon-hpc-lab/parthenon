@@ -21,6 +21,7 @@
 #include <cstdio>
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include "defs.hpp"
 #include "globals.hpp"

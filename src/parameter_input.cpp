@@ -52,8 +52,6 @@
 
 #include "parameter_input.hpp"
 
-#include "parthenon_mpi.hpp"
-#include "rummy/deck.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -71,6 +69,8 @@
 #include <vector>
 
 #include "globals.hpp"
+#include "parthenon_mpi.hpp"
+#include "rummy/deck.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {

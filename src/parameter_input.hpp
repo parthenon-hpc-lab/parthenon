@@ -28,6 +28,7 @@
 #include <any>
 #include <cstddef>
 #include <map>
+#include <memory>
 #include <optional>
 #include <ostream>
 #include <regex>
