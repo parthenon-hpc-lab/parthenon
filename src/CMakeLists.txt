@@ -410,12 +410,12 @@ install(TARGETS parthenon EXPORT parthenonTargets)
 
 
 if(NOT Rummy_FOUND)
-  install(TARGETS rummylib pipslib EXPORT parthenonTargets
+  install(TARGETS rummylib EXPORT parthenonTargets
       RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
       LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
       ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   )
-  install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../external/rummy/rummy 
+  install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../external/rummy/rummy
       DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
       FILES_MATCHING PATTERN "*.hpp" PATTERN "*.h"
   )
