@@ -6,6 +6,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 1271]](https://github.com/parthenon-hpc-lab/parthenon/pull/1271) Add option to set a minimum number of teams for boundary communication kernels
+- [[PR 1382]](https://github.com/parthenon-hpc-lab/parthenon/pull/1382) Support Particle AMR
 - [[PR 1378]](https://github.com/parthenon-hpc-lab/parthenon/pull/1378) MeshData Swarm Tasks
 - [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy
 - [[PR 1332]](https://github.com/parthenon-hpc-lab/parthenon/pull/1332) Add global WatchDog
@@ -19,6 +20,7 @@
 
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1331]](https://github.com/parthenon-hpc-lab/parthenon/pull/1331) Use `size_t` for sizes
 - [[PR 1355]](https://github.com/parthenon-hpc-lab/parthenon/pull/1355) Allow disabling format and lint targets
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 

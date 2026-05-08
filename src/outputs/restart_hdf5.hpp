@@ -134,13 +134,13 @@ class RestartReaderHDF5 : public RestartReader {
     hsize_t h5_offset[CHUNK_MAX_DIM];
     hsize_t h5_count[CHUNK_MAX_DIM];
     const auto &shape = m.Shape();
-    const int rank = shape.size();
+    const auto rank = shape.size();
     const bool is_vector = m.IsSet(Metadata::Vector);
     std::size_t total_count = count;
     for (int i = 0; i < CHUNK_MAX_DIM; ++i) {
       h5_offset[i] = h5_count[i] = 0;
     }
-    for (int i = 0; i < rank; ++i) {
+    for (std::size_t i = 0; i < rank; ++i) {
       h5_count[i] = shape[rank - 1 - i];
       total_count *= shape[rank - 1 - i];
     }
