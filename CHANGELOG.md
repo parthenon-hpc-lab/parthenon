@@ -31,6 +31,7 @@
 - [[PR 1360]](https://github.com/parthenon-hpc-lab/parthenon/pull/1360) Fix boundary cache clearing in different MeshData partitions
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1397]](https://github.com/parthenon-hpc-lab/parthenon/pull/1397) Add Code of Conduct
 - [[PR 1383]](https://github.com/parthenon-hpc-lab/parthenon/pull/1382) Document agentic coding guidelines
 - [[PR 1376]](https://github.com/parthenon-hpc-lab/parthenon/pull/1376) Refactor SwarmPacks
 - [[PR 1352]](https://github.com/parthenon-hpc-lab/parthenon/pull/1352) Move to C++20 concepts
