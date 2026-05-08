@@ -49,7 +49,9 @@ using namespace loops::shorthands;
 
 namespace {
 int GetNteamsPerBoundaryBuffer(const Mesh *pmesh, const int nbound) {
-  if (nbound <= 0) return 1;
+  PARTHENON_REQUIRE_THROWS(
+      nbound >= 0,
+      "Sth. went wrong before when calling this function with negative nbound.");
   return std::max(1, (pmesh->minimum_number_of_teams_for_boundary_kernel + nbound - 1) /
                          nbound);
 }
