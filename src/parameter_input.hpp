@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,8 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
+
+// This file was created in part with the generative AI
 
 #ifndef PARAMETER_INPUT_HPP_
 #define PARAMETER_INPUT_HPP_
@@ -411,7 +413,7 @@ class ParameterInput {
   std::vector<std::string> GetVector_(const std::string &block, const std::string &name) {
     std::string s = GetString(block, name);
     std::string delimiter = ",";
-    size_t pos = 0;
+    std::size_t pos = 0;
     std::string token;
     std::vector<std::string> variables;
     while ((pos = s.find(delimiter)) != std::string::npos) {
@@ -419,17 +421,20 @@ class ParameterInput {
       variables.push_back(string_utils::trim(token));
       s.erase(0, pos + delimiter.length());
     }
-    variables.push_back(string_utils::trim(s));
+    token = string_utils::trim(s);
+    if (!token.empty()) {
+      variables.push_back(token);
+    }
     return variables;
   }
   template <typename T>
   std::string ConcatVector_(std::vector<T> &vec) {
     std::stringstream ss;
-    const int n = vec.size();
+    const std::size_t n = vec.size();
     if (n == 0) return "";
 
     ss << vec[0];
-    for (int i = 1; i < n; i++) {
+    for (std::size_t i = 1; i < n; i++) {
       ss << "," << vec[i];
     }
     return ss.str();

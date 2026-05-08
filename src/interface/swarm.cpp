@@ -21,7 +21,7 @@
 
 #include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/default_names.hpp"
 #include "swarm.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/sort.hpp"
@@ -116,7 +116,8 @@ std::shared_ptr<Swarm> Swarm::AllocateCopy(MeshBlock * /*pmb*/) {
 }
 
 ///
-/// The routine for allocating a particle variable in the current swarm.
+/// The routine for allocating a particle variable in the current swarm, with a type
+/// limited to those types contained in SwarmPackTypes type list
 ///
 /// @param label the name of the variable
 /// @param metadata the metadata associated with the particle
@@ -140,8 +141,8 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
   } else if (newm.Type() == Metadata::Real) {
     Add_<Real>(label, newm);
   } else {
-    throw std::invalid_argument("swarm variable " + label +
-                                " does not have a valid type during Add()");
+    PARTHENON_FAIL("swarm variable " + label +
+                   " does not have a valid type during Add()");
   }
 }
 
@@ -441,9 +442,9 @@ void Swarm::Defrag() {
   auto vreal = PackAllVariables_<Real>(real_imap);
   auto vint = PackAllVariables_<int>(int_imap);
   auto vuint64 = PackAllVariables_<std::uint64_t>(uint64_imap);
-  int real_vars_size = real_vector.size();
-  int int_vars_size = int_vector.size();
-  int uint64_vars_size = uint64_vector.size();
+  std::size_t real_vars_size = real_vector.size();
+  std::size_t int_vars_size = int_vector.size();
+  std::size_t uint64_vars_size = uint64_vector.size();
   auto real_map = real_imap.Map();
   auto int_map = int_imap.Map();
   auto uint64_map = uint64_imap.Map();

@@ -85,6 +85,11 @@ class ArgParse {
           std::sscanf(argv[++i], "%d:%d:%d", &wth, &wtm, &wts);
           wtlim = wth * 3600 + wtm * 60 + wts;
           break;
+        case 'w': // -w <seconds>
+          invalid = invalid_arg();
+          watchdog_enabled = true;
+          watchdog_timeout = static_cast<int>(std::strtol(argv[++i], nullptr, 10));
+          break;
         case 'c':
           if (Globals::my_rank == 0) ShowConfig();
           return ArgStatus::error;
@@ -104,6 +109,7 @@ class ArgParse {
             std::cout << "  -c              show configuration and quit\n";
             std::cout << "  -m <nproc>      output mesh structure and quit\n";
             std::cout << "  -t hh:mm:ss     wall time limit for final output\n";
+            std::cout << "  -w ss           watchdog timeout in seconds\n";
             std::cout << "  -h              this help\n";
           }
           error = true;
@@ -140,6 +146,8 @@ class ArgParse {
   char *params_regex = nullptr;
   bool analysis_flag = false;
   bool is_restart = false;
+  bool watchdog_enabled = false;
+  int watchdog_timeout = 0;
   int param_flag = 0;
   int mesh_flag = 0;
   int wtlim = 0;

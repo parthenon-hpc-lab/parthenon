@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef PACK_MAKE_PACK_DESCRIPTOR_HPP_
-#define PACK_MAKE_PACK_DESCRIPTOR_HPP_
+#ifndef PACK_SPARSE_PACK_MAKE_PACK_DESCRIPTOR_HPP_
+#define PACK_SPARSE_PACK_MAKE_PACK_DESCRIPTOR_HPP_
 
 #include <memory>
 #include <set>
@@ -24,8 +24,8 @@
 #include "interface/metadata.hpp"
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
-#include "pack/pack_descriptor.hpp"
-#include "pack/sparse_pack.hpp"
+#include "pack/sparse_pack/pack_descriptor.hpp"
+#include "pack/sparse_pack/sparse_pack.hpp"
 #include "utils/type_list.hpp"
 
 namespace parthenon {
@@ -154,4 +154,4 @@ class PackDescCache : public PackDescriptorCacheBase {
 
 } // namespace parthenon
 
-#endif // PACK_MAKE_PACK_DESCRIPTOR_HPP_
+#endif // PACK_SPARSE_PACK_MAKE_PACK_DESCRIPTOR_HPP_

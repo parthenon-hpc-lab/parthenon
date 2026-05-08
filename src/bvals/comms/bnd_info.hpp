@@ -141,10 +141,10 @@ int GetBufferSize(const MeshBlock *const pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v);
 
 using BndInfoArr_t = ParArray1DRaw<BndInfo>;
-using BndInfoArrHost_t = typename BndInfoArr_t::HostMirror;
+using BndInfoArrHost_t = typename BndInfoArr_t::host_mirror_type;
 
 using ProResInfoArr_t = ParArray1DRaw<ProResInfo>;
-using ProResInfoArrHost_t = typename ProResInfoArr_t::HostMirror;
+using ProResInfoArrHost_t = typename ProResInfoArr_t::host_mirror_type;
 class StateDescriptor;
 struct ProResCache_t {
   ProResInfoArr_t prores_info{};
@@ -210,7 +210,7 @@ struct BvarsCache_t {
     return caches[2 * static_cast<int>(boundType) + send];
   }
   void clear() {
-    for (int i = 0; i < caches.size(); ++i)
+    for (std::size_t i = 0; i < caches.size(); ++i)
       caches[i].clear();
   }
 };

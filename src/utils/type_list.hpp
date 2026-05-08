@@ -144,7 +144,7 @@ struct ListOfType<std::integral_constant<std::size_t, 1>, T> {
 };
 } // namespace impl
 
-template <size_t N, class T>
+template <std::size_t N, class T>
 using list_of_type_t =
     typename impl::ListOfType<std::integral_constant<std::size_t, N>, T>::type;
 //=======

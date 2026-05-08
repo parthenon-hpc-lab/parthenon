@@ -23,14 +23,6 @@
 template <class...>
 constexpr std::false_type always_false{};
 
-// These macros are just to make code more readable and self-explanatory,
-// generally it is best to write template<..., REQUIRES(... && ...)> in the code
-// but there are some instance where this causes issues. Switching to the construct
-// template<..., class = ENABLEIF(... && ...)> sometimes fixes those problems.
-#define REQUIRES(...) typename std::enable_if<(__VA_ARGS__), int>::type = 0
-#define ENABLEIF(...) typename std::enable_if<(__VA_ARGS__), int>::type
-using TYPE_OF_SUCCESSFUL_REQUIRES = int;
-
 // Include a useful type trait for checking if a type is a specialization of
 // a template. Only works if all template arguments are types
 template <class SPECIAL, template <class...> class TEMPL>
@@ -55,161 +47,95 @@ struct is_functor : std::false_type {};
 template <class F>
 struct is_functor<F, void_t<decltype(&F::operator())>> : std::true_type {};
 
-// implements is a template struct for checking if type T implements a particular
-// concept, which here simply means that it conforms to some interface.
-// (I think people call this concepts lite, since there are more
-// powerful things that concepts can do in C++20 and the compiler error
-// messages from this type of implementation can be kind of crazy). This cleaner
-// interface for using the void_t trick is partly inspired by Stackoverflow 26513095
-
-// General template that is accepted if the specialization below
-// is not well formed, inherits from false type so that implements<...>()
-// will return false. The default parameter for the second template argument
-// means that when you write implements<T>, the compiler inteprets this as
-// implements<T, void> and then looks to see if there is a specialization that
-// matches this pattern
-
-template <class T, class = void>
-struct implements : std::false_type {};
-
-// all_implements just checks if all types in a parameter pack implement
-// a given concept
-template <class T, class = void>
-struct all_implement : std::false_type {};
-
-// Specialization of implements that is chosen if all of the template
-// arguments to void_t are well formed, since in that case void_t = void
-// and this specialization matches the defined template pattern. Note that
-// pattern Concept(Ts...) is interpreted as a function taking types Ts...
-// and returning type Concept, but such a function doesn't get used for anything
-// we are doing. It is just a clean way of deducing multiple types from a single
-// input type Concept(Ts...) to the base template.
-
-template <class Concept, class... Ts>
-struct implements<Concept(Ts...), void_t<decltype(std::declval<Concept>().requires_(
-                                      std::declval<Ts>()...))>> : std::true_type {};
-
-template <class Concept, class... Ts>
-struct all_implement<Concept(Ts...), void_t<decltype(std::declval<Concept>().requires_(
-                                         std::declval<Ts>()))...>> : std::true_type {};
-
-//---------------------------
-// Various concepts are implemented below. The general useage of a
-// concept would be:
-//
-// template<class T, REQUIRES(implements<my_concept(T)>::value)>
-// void foo(T& in){ implementation when T conforms to my_concept}
-//
-// template<class T, REQUIRES(!implements<my_concept(T)>::value)>
-// void foo(T& in){ implementation when T doesn't conform to my_concept}
-//
-// Strangely, for some compilers, replacing implements<my_concept(T)>::value
-// with implements<my_concept(T)>() causes the code not to compile, so
-// we use value everywhere even though it is slightly more verbose.
-//---------------------------
-
-// Trying to use c-style arrays in the concepts pattern below seems not
-// to work for reasons I don't understand, so we need an independent
-// template using the void_t trck for detecting C arrays
-template <class T, class = void>
-struct is_fundamental_c_array : std::false_type {};
-template <class T, std::size_t N>
-struct is_fundamental_c_array<T[N], void_t<ENABLEIF(std::is_fundamental<T>::value)>>
-    : std::true_type {};
+template <typename T>
+concept FundamentalCArray = std::is_fundamental_v<std::remove_extent_t<T>> &&
+                            std::is_array_v<T> && (std::rank_v<T> == 1);
 
 // Concept for a general container, not necessarily with
 // contiguous data storage
-struct container {
-  // Every concept needs a requires_ method declaration, no
-  // implementation of requires_ is necessary though.
-  // requires_ should be well formed if the object T matches the
-  // concept of the struct (in this case a contiguous container).
-  // We just use void_t here since it is a variadic template that
-  // can accept any number of types and we don't care about the
-  // actual return type of requires_. Of course for it to be specialized,
-  // all of the type parameters should be well formed. Including
-  // the typename in front of the member type is important, since if
-  // it is not included T::value_type will not be interpreted as a
-  // type even if exists in T, void_t<...> will not be well formed
-  // since it only accepts types, the definition of requires_ will
-  // fail silently, implements<contiguous_container(T)> will always
-  // inherit from false_type (even if T is a contiguous container),
-  // and you will be left wondering what the hell is going on.
-  template <class T>
-  auto requires_(T &&x) -> void_t<decltype(x.size()), typename T::value_type>;
-};
 
-// Concept defining the interface of a container with continuous
-// storage. Also defines helper functions for treating single
-// objects as contiguous containers of size one
+template <typename T>
+concept Container = requires(T x) {
+  x.size();
+  typename T::value_type;
+}; // NOLINT(readability/braces)
+
+template <typename T>
+concept ContiguousContainer_arr = requires(T x) {
+  x.size();
+  x.data();
+  typename T::value_type;
+}; // NOLINT(readability/braces)
+
+template <typename T>
+concept ContiguousContainer_scalar = std::is_fundamental<T>::value && !Container<T>;
+
+template <typename T>
+concept ContiguousContainer = ContiguousContainer_scalar<T> || ContiguousContainer_arr<T>;
+
+// Below are helper functions and types for treating both
+// contiguous containers and single objects as contiguous
+// containers. Note that this should fail for objects that
+// are containers but not contiguous_containers, since there
+// isn't a (easy) way to treat them as contiguous
 struct contiguous_container {
   template <class T>
-  auto requires_(T &&x)
-      -> void_t<decltype(x.size()), decltype(x.data()), typename T::value_type>;
-
-  // Below are helper functions and types for treating both
-  // contiguous containers and single objects as contiguous
-  // containers. Note that this should fail for objects that
-  // are containers but not contiguous_containers, since there
-  // isn't a (easy) way to treat them as contiguous
-  template <class T, REQUIRES(implements<contiguous_container(T)>::value)>
+    requires(ContiguousContainer_arr<T>)
   static std::size_t size(const T &x) {
     return x.size();
   }
 
-  template <class T,
-            REQUIRES(!implements<container(T)>::value && std::is_fundamental<T>::value)>
+  template <class T>
+    requires(ContiguousContainer_scalar<T>)
   static std::size_t size(const T &x) {
     return 1;
   }
 
-  template <class T, std::size_t N, REQUIRES(is_fundamental_c_array<T[N]>::value)>
-  static std::size_t size(const T (&)[N]) {
-    return N;
+  template <class T>
+    requires(FundamentalCArray<T>)
+  static std::size_t size(const T &) {
+    return std::extent_v<T>;
   }
 
-  template <class T, REQUIRES(implements<contiguous_container(T)>::value)>
+  template <class T>
+    requires(ContiguousContainer_arr<T>)
   static typename T::value_type *data(T &x) {
     return x.data();
   }
 
-  template <class T,
-            REQUIRES(!implements<container(T)>::value && std::is_fundamental<T>::value)>
+  template <class T>
+    requires(ContiguousContainer_scalar<T>)
   static T *data(T &x) {
     return &x;
   }
 
-  template <class T, std::size_t N, REQUIRES(is_fundamental_c_array<T[N]>::value)>
-  static T *data(T (&x)[N]) {
+  template <class T>
+    requires(FundamentalCArray<T>)
+  static std::remove_extent_t<T> *data(T &x) {
     return x;
   }
 
-  template <class T, REQUIRES(implements<contiguous_container(T)>::value)>
-  static typename T::value_type value_type(T &);
+  template <class T>
+    requires(ContiguousContainer_arr<T>)
+  static typename T::value_type value_type(const T &);
 
-  template <class T,
-            REQUIRES(!implements<container(T)>::value && std::is_fundamental<T>::value)>
+  template <class T>
+    requires(ContiguousContainer_scalar<T>)
   static T value_type(T &);
 
-  template <class T, std::size_t N, REQUIRES(is_fundamental_c_array<T[N]>::value)>
-  static T value_type(T (&)[N]);
+  template <class T>
+    requires(FundamentalCArray<T>)
+  static std::remove_extent_t<T> value_type(const T &);
 };
 
-struct integral {
-  template <class T>
-  auto requires_(T) -> void_t<ENABLEIF(std::is_integral<T>::value)>;
-};
+template <typename T>
+concept Integral = std::is_integral<T>::value;
 
-struct integral_or_enum {
-  template <class T>
-  auto requires_(T)
-      -> void_t<ENABLEIF(std::is_integral<T>::value || std::is_enum<T>::value)>;
-};
+template <typename T>
+concept IntegralOrEnum = std::is_integral<T>::value || std::is_enum<T>::value;
 
-struct scalar {
-  template <class T>
-  auto requires_(T) -> void_t<ENABLEIF(std::is_scalar<T>::value)>;
-};
+template <typename T>
+concept Scalar = std::is_scalar<T>::value;
 
 template <typename>
 struct is_pair : std::false_type {};
@@ -217,18 +143,18 @@ struct is_pair : std::false_type {};
 template <typename T, typename U>
 struct is_pair<std::pair<T, U>> : std::true_type {};
 
-struct integral_or_enum_or_pair {
-  template <class T>
-  auto requires_(T) -> void_t<ENABLEIF(std::is_integral<T>::value ||
-                                       std::is_enum<T>::value || is_pair<T>::value)>;
-};
+template <typename T>
+concept IntegralOrEnumOrPair =
+    std::is_integral<T>::value || std::is_enum<T>::value || is_pair<T>::value;
 
-struct kokkos_view {
-  template <class T>
-  auto requires_(T x) -> void_t<ENABLEIF(implements<contiguous_container(T)>::value),
-                                typename T::HostMirror, typename T::execution_space,
-                                typename T::memory_space, typename T::device_type,
-                                typename T::memory_traits, typename T::host_mirror_space>;
+template <typename T>
+concept KokkosView = ContiguousContainer<T> && requires {
+  typename T::host_mirror_type;
+  typename T::execution_space;
+  typename T::memory_space;
+  typename T::device_type;
+  typename T::memory_traits;
+  typename T::host_mirror_space;
 };
 
 //---------------------------------------------------------
@@ -279,7 +205,7 @@ struct UnderlyingType {
 };
 
 template <class T>
-struct UnderlyingType<T, void_t<ENABLEIF(std::is_enum<T>::value)>>
-    : std::underlying_type<T> {};
+  requires(std::is_enum_v<T>)
+struct UnderlyingType<T> : std::underlying_type<T> {};
 
 #endif // UTILS_CONCEPTS_LITE_HPP_

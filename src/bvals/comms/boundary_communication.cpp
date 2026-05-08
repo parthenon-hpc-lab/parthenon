@@ -48,7 +48,8 @@ using namespace loops;
 using namespace loops::shorthands;
 
 template <BoundaryType bound_type>
-TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
+TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
+                                           bool do_restriction) {
   PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
@@ -87,7 +88,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     }
   }
   // Restrict
-  if (md->NumBlocks() > 0) {
+  if (md->NumBlocks() > 0 && do_restriction) {
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
     StateDescriptor *resolved_packages = pmb->resolved_packages.get();
     refinement::Restrict(resolved_packages, cache.prores_cache, pmb->cellbounds,
@@ -155,7 +156,7 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     Kokkos::fence();
 #endif
   const bool coal_comm = pmesh->do_coalesced_comms;
-  for (int ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
+  for (std::size_t ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
     auto &buf = *cache.buf_vec[ibuf];
     if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
       buf.Send(coal_comm);
@@ -233,7 +234,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   int ibound = 0;
   if (Globals::sparse_config.enabled && all_received) {
     ForEachBoundary<bound_type>(
-        md, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+        md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v) {
           const std::size_t ibuf = cache.idx_vec[ibound];
           auto &buf = *cache.buf_vec[ibuf];
 

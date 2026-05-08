@@ -36,6 +36,17 @@ struct has_SetBoundary<
            std::declval<std::shared_ptr<MeshData<Real>> &>(), std::declval<bool>()))>>
     : std::true_type {};
 
+// Used for checking if a given equations class has a SetBoundary function
+template <typename T, typename FieldTL, typename = void>
+struct has_Restrict : std::false_type {};
+
+template <typename T, typename FieldTL>
+struct has_Restrict<T, FieldTL,
+                    std::void_t<decltype(std::declval<T>().template Restrict<FieldTL>(
+                        std::declval<TaskList &>(), std::declval<TaskID>(),
+                        std::declval<std::shared_ptr<MeshData<Real>> &>()))>>
+    : std::true_type {};
+
 // Solver base class
 class SolverBase {
  public:
@@ -59,8 +70,9 @@ class SolverBase {
 
   virtual void SetConstantProlongation(bool const_pro) {}
 
+  Real GetInitialResidual() const { return initial_residual; }
   Real GetFinalResidual() const { return final_residual; }
-  int GetFinalIterations() const { return final_iteration; }
+  int GetFinalIterations() const { return final_iteration + 1; }
 
   void SetRHSContainerLabel(const std::string &rhs) { container_rhs = rhs; }
   const std::string &GetBaseContainerLabel() const { return container_base; }
@@ -86,6 +98,7 @@ class SolverBase {
   // User defined container containing the rhs vector, only needs to contain sol_fields
   std::string container_rhs;
 
+  Real initial_residual{-1.0};
   Real final_residual;
   int final_iteration;
 };

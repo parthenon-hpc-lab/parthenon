@@ -179,6 +179,7 @@ Mesh
 
 -  ``InitUserMeshData``
 -  ``ProblemGenerator``
+-  ``PostProblemGenerator``
 -  ``PostInitialization``
 -  ``PreStepUserWorkInLoop``
 -  ``PostStepUserWorkInLoop``
@@ -192,6 +193,7 @@ MeshBlock
 -  ``InitApplicationMeshBlockData``
 -  ``InitMeshBlockUserData``
 -  ``ProblemGenerator``
+-  ``PostProblemGenerator``
 -  ``PostInitialization``
 -  ``UserWorkBeforeOutput``
 
@@ -200,15 +202,16 @@ pointers in the ApplicationInput member app_input of the
 ParthenonManager class prior to calling ``ParthenonInit``. This is
 demonstrated in the ``main()`` functions in the examples.
 
-Note that the ``ProblemGenerator``\ s (and ``PostInitialization``\ s) of
-``Mesh`` and ``MeshBlock`` are mutually exclusive. Moreover, the ``Mesh``
-ones requires ``parthenon/mesh/pack_size=-1`` during initialization, i.e.,
-all blocks on a rank need to be in a single pack. This allows to use MPI
-reductions inside the function, for example, to globally normalize quantities.
-The ``parthenon/mesh/pack_size=-1`` exists only during problem
-initialization, i.e., simulations can be restarted with an arbitrary
-``pack_size``. For an example of the ``Mesh`` version, see the `Poisson
-example <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/poisson/parthenon_app_inputs.cpp>`__.
+Note that the ``ProblemGenerator``\ s (and ``PostProblemGenerator`` and
+``PostInitialization`` hooks) of ``Mesh`` and ``MeshBlock`` are mutually
+exclusive. Moreover, the ``Mesh`` ones requires
+``parthenon/mesh/pack_size=-1`` during initialization, i.e., all blocks on a
+rank need to be in a single pack. This allows to use MPI reductions inside the
+function, for example, to globally normalize quantities. The
+``parthenon/mesh/pack_size=-1`` exists only during problem initialization,
+i.e., simulations can be restarted with an arbitrary ``pack_size``. For an
+example of the ``Mesh`` version, see the `Poisson example
+<https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/poisson/parthenon_app_inputs.cpp>`__.
 
 Error checking
 ~~~~~~~~~~~~~~
@@ -315,6 +318,28 @@ In the latter case, the input stored in the restart file will be read first,
 then updated from the content in the input file, and finally modified from the
 parameters provided on the command line.
 
+
+Watchdog
+~~~~~~~~
+
+Parthenon supports a global watchdog that kills a simulation after a given timeout.
+This can, for example, be useful on systems with unstable filesystems so that a job
+does not waste wallclock time while waiting for IO operations to (potentially never) finish.
+
+To enable pass ``-w ss`` on the command line with ``ss`` being the timeout in seconds.
+
+By default, the standard :ref:`drivers <driver>` poke the dog at the beginning of each cycle.
+If a downstream application wants to poke the dog manually (or more frequently) following
+code block is sufficient:
+
+::
+
+  // poke the dog
+  if (Globals::watchdog_enabled) {
+    WatchDog::WatchDog(0);
+  }
+
+
 Global reductions
 ~~~~~~~~~~~~~~~~~
 
@@ -327,3 +352,6 @@ Solvers
 
 Solvers are still a work in progress in Parthenon, but some basic
 building blocks are described :ref:`here <solvers>`.
+
+.. note::
+    This file was made in part with generative AI.

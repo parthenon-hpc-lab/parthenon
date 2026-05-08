@@ -141,7 +141,7 @@ using UidVecPair = std::pair<std::vector<Uid_t>, std::vector<Uid_t>>;
 template <typename T>
 class VarListWithKeys {
  public:
-  VarListWithKeys<T>() = default;
+  VarListWithKeys() = default;
 
   // Adds a variable to the list if one of the following is true:
   // a) The variable is not sparse
@@ -183,7 +183,7 @@ class PackIndexMap {
     return itr->second;
   }
 
-  bool operator==(const PackIndexMap &other) {
+  bool operator==(const PackIndexMap &other) const {
     return (map_ == other.map_) && (shape_map_ == other.shape_map_);
   }
 
