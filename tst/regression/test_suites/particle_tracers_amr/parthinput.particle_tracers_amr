@@ -1,5 +1,5 @@
 # ========================================================================================
-#  (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
+#  (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
 #
 #  This program was produced under U.S. Government contract 89233218CNA000001 for Los
 #  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -11,47 +11,56 @@
 #  the public, perform publicly and display publicly, and to permit others to do so.
 # ========================================================================================
 
+# This file was made in part with generative AI.
+
 <parthenon/job>
-problem_id = boundary_exchange
+problem_id = particle_tracers_uniform
 
 <parthenon/mesh>
-refinement = static
+refinement = none
 
-nx1 = 8
-x1min = 0.0
-x1max = 1.0
-ix1_bc = outflow
-ox1_bc = outflow
+nx1 = 64
+x1min = -0.5
+x1max = 0.5
+ix1_bc = periodic
+ox1_bc = periodic
 
-nx2 = 8
-x2min = 0.0
-x2max = 1.0
-ix2_bc = outflow
-ox2_bc = outflow
+nx2 = 64
+x2min = -0.5
+x2max = 0.5
+ix2_bc = periodic
+ox2_bc = periodic
 
 nx3 = 1
 x3min = -0.5
 x3max = 0.5
-
-# How many meshblocks to use in a premade default kernel.
-# A value of <1 means use the whole mesh.
-pack_size = 4
+ix3_bc = periodic
+ox3_bc = periodic
 
 <parthenon/meshblock>
-nx1 = 4
-nx2 = 4
+nx1 = 16
+nx2 = 16
 nx3 = 1
 
-<parthenon/static_refinement0>
-level = 1     # refinement level
-x1min = 0.0   # refinement region inner boundary, X1-dir
-x1max = 0.5   # refinement region outer boundary, X1-dir
-x2min = 0.0   # refinement region inner boundary, X2-dir
-x2max = 0.5   # refinement region outer boundary, X2-dir
-x3min = -1.0  # refinement region inner boundary, X3-dir
-x3max = 1.0   # refinement region outer boundary, X3-dir
+<parthenon/time>
+tlim = 0.35
+nlim = 100000
+integrator = rk1
+
+<Background>
+cfl = 0.3
+vx = 1.0
+vy = 0.0
+vz = 0.0
+refine_tol = 1.25
+derefine_tol = 1.05
+
+<Tracers>
+num_tracers = 4096
 
 <parthenon/output0>
 file_type = hdf5
-ghost_zones = true
-variables = neighbor_info
+dt = 1.0
+variables = advected
+swarms = tracers
+swarm_variables = id
