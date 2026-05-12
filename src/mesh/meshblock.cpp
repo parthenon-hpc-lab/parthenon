@@ -324,12 +324,15 @@ void MeshBlock::AllocateSparse(std::string const &label, bool only_control,
   if (cont_set && meshblock_data.Get()->GetVarPtr(label)->IsSparse()) {
     if (only_control) {
       const auto &var_labels = pmy_mesh->resolved_packages->GetControlledVariables(label);
-      for (const auto &l : var_labels) AllocateVar(l);
+      for (const auto &l : var_labels)
+        AllocateVar(l);
     } else {
-      const auto &control_group = pmy_mesh->resolved_packages->GetFieldControlGroup(label);
-      const auto &var_labels =
-          pmy_mesh->resolved_packages->GetControlledVariables(control_group.begin()->label());
-      for (const auto &l : var_labels) AllocateVar(l);
+      const auto &control_group =
+          pmy_mesh->resolved_packages->GetFieldControlGroup(label);
+      const auto &var_labels = pmy_mesh->resolved_packages->GetControlledVariables(
+          control_group.begin()->label());
+      for (const auto &l : var_labels)
+        AllocateVar(l);
     }
   } else {
     AllocateVar(label);

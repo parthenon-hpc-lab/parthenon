@@ -97,9 +97,8 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
             std::vector<std::string>{"dense_A", "dense_B", "shape_shift"});
       } else {
         pmb->AllocSparseID("sparse", parthenon::SparseID::Scalar(f));
-        v = data->PackVariables(
-            std::vector<std::string>{
-                parthenon::MakeVarLabel("sparse", parthenon::SparseID::Scalar(f))});
+        v = data->PackVariables(std::vector<std::string>{
+            parthenon::MakeVarLabel("sparse", parthenon::SparseID::Scalar(f))});
       }
 
       pmb->par_for(

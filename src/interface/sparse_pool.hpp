@@ -120,7 +120,9 @@ class SparsePool {
   const std::map<SparseID, Metadata> &pool() const { return pool_; }
   auto size() const { return pool_.size(); }
   ControlSparseIDMode control_sparse_id_mode() const { return control_sparse_id_mode_; }
-  void SetControlSparseIDMode(ControlSparseIDMode mode) { control_sparse_id_mode_ = mode; }
+  void SetControlSparseIDMode(ControlSparseIDMode mode) {
+    control_sparse_id_mode_ = mode;
+  }
   SparseID ControlSparseID(SparseID sparse_id) const {
     if (control_sparse_id_mode_ == ControlSparseIDMode::FirstComponent) {
       return SparseID::Scalar(sparse_id(0));

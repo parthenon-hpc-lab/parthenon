@@ -360,9 +360,9 @@ bool StateDescriptor::AddSparsePoolImpl_(const SparsePool &pool) {
 
   // add all the sparse fields
   for (const auto itr : pool.pool()) {
-    const auto control_group =
-        pool.controller_base_name().empty() ? pool.ControlGroupFor(itr.first)
-                                            : ControlGroup{};
+    const auto control_group = pool.controller_base_name().empty()
+                                   ? pool.ControlGroupFor(itr.first)
+                                   : ControlGroup{};
     if (!AddFieldImpl_(VarID(pool.base_name(), itr.first), itr.second, control_group)) {
       // a field with this name already exists, this would leave the StateDescriptor in an
       // inconsistent state, so throw
@@ -407,9 +407,10 @@ bool StateDescriptor::FlagsPresent(std::vector<MetadataFlag> const &flags,
 
 std::string StateDescriptor::GetFieldController(const std::string &field_name) {
   const auto &controller_group = GetFieldControlGroup(field_name);
-  PARTHENON_REQUIRE_THROWS(controller_group.size() == 1,
-                           "Asking for legacy controlling field for grouped control set "
-                               + field_name + "; use GetFieldControlGroup instead");
+  PARTHENON_REQUIRE_THROWS(
+      controller_group.size() == 1,
+      "Asking for legacy controlling field for grouped control set " + field_name +
+          "; use GetFieldControlGroup instead");
   return controller_group.begin()->label();
 }
 
