@@ -13,6 +13,8 @@
 #ifndef INTERFACE_VARIABLE_PACK_HPP_
 #define INTERFACE_VARIABLE_PACK_HPP_
 
+// This file was made in part with generative AI.
+
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -150,7 +152,7 @@ class VarListWithKeys {
   void Add(const std::shared_ptr<Variable<T>> &var,
            const std::unordered_set<int> &sparse_ids = {}) {
     if (!var->IsSparse() || sparse_ids.empty() ||
-        (sparse_ids.count(var->GetSparseID()) > 0)) {
+        (sparse_ids.count(var->GetSparseID()()) > 0)) {
       vars_.push_back(var);
       uids_.push_back(var->GetUniqueID());
       alloc_status_.push_back(var->GetAllocationStatus());
@@ -173,7 +175,8 @@ class PackIndexMap {
 
   const auto &Map() const { return map_; }
 
-  const auto &get(const std::string &base_name, int sparse_id = InvalidSparseID) const {
+  const auto &get(const std::string &base_name,
+                  SparseID sparse_id = InvalidSparseID) const {
     const auto &key = MakeVarLabel(base_name, sparse_id);
     auto itr = map_.find(key);
     if (itr == map_.end()) {
@@ -227,7 +230,7 @@ class PackIndexMap {
     return itr_shape->second;
   }
 
-  bool Has(std::string const &base_name, int sparse_id = InvalidSparseID) const {
+  bool Has(std::string const &base_name, SparseID sparse_id = InvalidSparseID) const {
     return map_.count(MakeVarLabel(base_name, sparse_id)) > 0;
   }
 
@@ -370,7 +373,7 @@ class VariablePack {
   int GetSparseIndex(const int n) const { return GetSparseID(n); }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  bool IsSparse(const int n) const { return GetSparseID() != InvalidSparseID; }
+  bool IsSparse(const int n) const { return GetSparseID() != InvalidSparseID(); }
 
   KOKKOS_FORCEINLINE_FUNCTION
   int VectorComponent(const int n) const {
@@ -531,8 +534,8 @@ void AppendSparseBaseMap(const VariableVector<T> &vars, PackIndexMap *pvmap) {
     int start, stop;
     while (vi != vars.end()) {
       auto &v = *vi;
-      int sparse_id = v->GetSparseID();
-      if (sparse_id != InvalidSparseID) {
+      int sparse_id = v->GetSparseID()();
+      if (sparse_id != InvalidSparseID()) {
         std::vector<int> shape;
         auto mshape = v->metadata().Shape();
         if (mshape.size() > 0) shape.push_back(v->GetDim(4));
@@ -581,7 +584,7 @@ void FillVarView(const VariableVector<T> &vars, int vsize, bool coarse,
     for (int k = 0; k < v->GetDim(6); k++) {
       for (int j = 0; j < v->GetDim(5); j++) {
         for (int i = 0; i < v->GetDim(4); i++) {
-          host_sp(vindex) = v->GetSparseID();
+          host_sp(vindex) = v->GetSparseID()();
 
           // returns 1 for X1DIR, 2 for X2DIR, 3 for X3DIR
           // for tensors, returns flattened index.

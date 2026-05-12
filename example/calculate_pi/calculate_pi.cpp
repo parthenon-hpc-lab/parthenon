@@ -11,6 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 // Standard Includes
 #include <iostream>
 #include <memory>
@@ -72,8 +74,8 @@ void SetInOrOut(MeshBlockData<Real> *rc) {
       return;
     }
 
-    pmb->AllocSparseID("in_or_out", 0);
-    v = rc->Get("in_or_out", 0).data;
+    pmb->AllocSparseID("in_or_out", parthenon::SparseID::Scalar(0));
+    v = rc->Get("in_or_out", parthenon::SparseID::Scalar(0)).data;
   } else {
     v = rc->Get("in_or_out").data;
   }

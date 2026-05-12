@@ -20,6 +20,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -231,9 +232,21 @@ class StateDescriptor {
   // field addition / retrieval routines
   bool AddField(const std::string &field_name, const Metadata &m_in,
                 const std::string &controlling_field = "");
+  bool AddField(const std::string &field_name, const Metadata &m_in,
+                const std::vector<std::string> &controlling_fields);
+  bool AddField(const std::string &field_name, const Metadata &m_in,
+                const ControlGroup &controlling_fields);
   template <typename T>
   bool AddField(const Metadata &m, const std::string &controlling_field = "") {
     return AddField(T::name(), m, controlling_field);
+  }
+  template <typename T>
+  bool AddField(const Metadata &m, const std::vector<std::string> &controlling_fields) {
+    return AddField(T::name(), m, controlling_fields);
+  }
+  template <typename T>
+  bool AddField(const Metadata &m, const ControlGroup &controlling_fields) {
+    return AddField(T::name(), m, controlling_fields);
   }
 
   template <typename T>
@@ -313,11 +326,16 @@ class StateDescriptor {
   }
   std::vector<std::string> GetVariableNames(const std::vector<std::string> &req_names,
                                             const Metadata::FlagCollection &flags,
-                                            const std::vector<int> &sparse_ids);
+                                            const std::vector<SparseID> &sparse_ids);
   std::vector<std::string> GetVariableNames(const std::vector<std::string> &req_names,
                                             const std::vector<int> &sparse_ids);
   std::vector<std::string> GetVariableNames(const Metadata::FlagCollection &flags,
                                             const std::vector<int> &sparse_ids);
+  std::vector<std::string> GetVariableNames(const std::vector<std::string> &req_names,
+                                            const Metadata::FlagCollection &flags,
+                                            const std::vector<int> &sparse_ids) {
+    return GetVariableNames(req_names, flags, SparsePool::ToSparseIDs(sparse_ids));
+  }
   std::vector<std::string> GetVariableNames(const std::vector<std::string> &req_names);
   std::vector<std::string> GetVariableNames(const Metadata::FlagCollection &flags);
 
@@ -344,7 +362,7 @@ class StateDescriptor {
   }
 
   bool FieldPresent(const std::string &base_name,
-                    int sparse_id = InvalidSparseID) const noexcept {
+                    SparseID sparse_id = InvalidSparseID) const noexcept {
     return metadataMap_.count(VarID(base_name, sparse_id)) > 0;
   }
   bool FieldPresent(const VarID &var_id) const noexcept {
@@ -359,14 +377,19 @@ class StateDescriptor {
   bool SwarmValuePresent(const std::string &value_name,
                          const std::string &swarm_name) const noexcept;
 
+  // Legacy single-controller accessor. Only valid when the control group has one member.
   std::string GetFieldController(const std::string &field_name);
+  // The full controlling group for a field. This is the preferred API for grouped sparse
+  // control and also reflects the underlying model for ordinary single-controller cases.
+  const ControlGroup &GetFieldControlGroup(const std::string &field_name);
   bool ControlVariablesSet() { return (allocControllerMap_.size() > 0); }
+  const std::set<ControlGroup> &GetControlGroups() const { return allocControlGroups_; }
   const std::vector<std::string> &GetControlledVariables(const std::string &field_name);
   std::vector<std::string> GetControlVariables();
 
   // retrieve metadata for a specific field
   const Metadata &FieldMetadata(const std::string &base_name,
-                                int sparse_id = InvalidSparseID) const;
+                                SparseID sparse_id = InvalidSparseID) const;
   // retrieve metadata for a specific swarm
   Metadata &SwarmMetadata(const std::string &swarm_name) noexcept {
     return swarmMetadataMap_[swarm_name];
@@ -503,10 +526,12 @@ class StateDescriptor {
  protected:
   // internal function to add dense/sparse fields. Private because outside classes must
   // use the public interface below
-  bool AddFieldImpl_(const VarID &vid, const Metadata &m, const VarID &control_vid);
+  bool AddFieldImpl_(const VarID &vid, const Metadata &m,
+                     const ControlGroup &control_group);
 
   // add a sparse pool
   bool AddSparsePoolImpl_(const SparsePool &pool);
+  void ResolveSparseControllerGroups();
 
   void InvertControllerMap();
 
@@ -516,8 +541,9 @@ class StateDescriptor {
   // for each variable label (full label for sparse variables) hold metadata
   std::unordered_map<std::string, VarID> labelToVidMap_;
   std::unordered_map<VarID, Metadata, VarIDHasher> metadataMap_;
-  std::unordered_map<VarID, VarID, VarIDHasher> allocControllerReverseMap_;
+  std::unordered_map<VarID, ControlGroup, VarIDHasher> allocControllerReverseMap_;
   std::unordered_map<std::string, std::vector<std::string>> allocControllerMap_;
+  std::set<ControlGroup> allocControlGroups_;
   const std::vector<std::string> nullControl_{};
 
   // for each sparse base name hold its sparse pool

@@ -11,6 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -23,7 +25,7 @@
 namespace parthenon {
 
 SparsePool::SparsePool(const std::string &base_name, const Metadata &metadata,
-                       const std::vector<int> &sparse_ids,
+                       const std::vector<SparseID> &sparse_ids,
                        const std::vector<std::vector<int>> &shapes,
                        const std::vector<MetadataFlag> &vector_tensor_flags,
                        const std::vector<std::vector<std::string>> &component_labels,
@@ -92,7 +94,7 @@ MakeSparseVarMetadataImpl(Metadata *in, const std::vector<int> &shape,
   return this_metadata;
 }
 
-const Metadata &SparsePool::AddImpl(int sparse_id, const std::vector<int> &shape,
+const Metadata &SparsePool::AddImpl(SparseID sparse_id, const std::vector<int> &shape,
                                     const MetadataFlag *vector_tensor,
                                     const std::vector<std::string> &component_labels) {
   PARTHENON_REQUIRE_THROWS(sparse_id != InvalidSparseID,
@@ -107,22 +109,22 @@ const Metadata &SparsePool::AddImpl(int sparse_id, const std::vector<int> &shape
   }
 
   const auto ins = pool_.insert({sparse_id, *this_metadata});
-  PARTHENON_REQUIRE_THROWS(ins.second, "Tried to add sparse ID " +
-                                           std::to_string(sparse_id) +
-                                           " to sparse pool '" + base_name_ +
+  PARTHENON_REQUIRE_THROWS(ins.second, "Tried to add sparse field '" +
+                                           MakeVarLabel(base_name_, sparse_id) +
+                                           "' to sparse pool '" + base_name_ +
                                            "', but this sparse ID already exists");
 
   return ins.first->second;
 }
 
-const Metadata &SparsePool::Add(int sparse_id, const Metadata &md) {
+const Metadata &SparsePool::Add(SparseID sparse_id, const Metadata &md) {
   PARTHENON_REQUIRE_THROWS(sparse_id != InvalidSparseID,
                            "Tried to add InvalidSparseID to sparse pool " + base_name_);
 
   const auto ins = pool_.insert({sparse_id, md});
-  PARTHENON_REQUIRE_THROWS(ins.second, "Tried to add sparse ID " +
-                                           std::to_string(sparse_id) +
-                                           " to sparse pool '" + base_name_ +
+  PARTHENON_REQUIRE_THROWS(ins.second, "Tried to add sparse field '" +
+                                           MakeVarLabel(base_name_, sparse_id) +
+                                           "' to sparse pool '" + base_name_ +
                                            "', but this sparse ID already exists");
 
   return ins.first->second;

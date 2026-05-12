@@ -11,6 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #include <string>
 #include <unordered_set>
 
@@ -139,27 +141,49 @@ void SparseDeallocOnCount(T *rc, std::size_t count,
   for (int b = 0; b < pack.GetNBlocks(); ++b) {
     auto pmbdata = rc->GetBlockDataRawPointer(b);
     auto pmb = pmbdata->GetBlockPointer();
-    for (auto &control_var : control_vars) {
-      if (exclude.count(control_var) > 0) continue;
+    // Per group, update each member's deallocation counter using the old logic.
+    // If every member in the group is ready, deallocate the whole group together.
+    for (const auto &control_group :
+         rc->GetMeshPointer()->resolved_packages->GetControlGroups()) {
+      PARTHENON_REQUIRE_THROWS(!control_group.empty(),
+                               "Encountered an empty sparse control group");
+      const auto &representative = *control_group.begin();
 
-      int lo = pack.GetLowerBoundHost(b, PackIdx(packIdx[control_var]));
-      int hi = pack.GetUpperBoundHost(b, PackIdx(packIdx[control_var]));
-      if (lo <= hi) { // Check that this control variable is actually in the pack
-        auto &counter = pmbdata->Get(control_var).dealloc_count;
-        bool all_zero = true;
-        for (int iv = lo; iv <= hi; ++iv)
-          all_zero = all_zero && is_zero_h(b, iv);
-        if (all_zero) {
-          counter++;
+      bool group_excluded = false;
+      bool group_has_allocated_sparse_member = false;
+      bool deallocate_group = true;
+      for (const auto &control_var : control_group) {
+        if (exclude.count(control_var.label()) > 0) {
+          group_excluded = true;
         } else {
-          counter = 0;
+          const auto pack_idx = packIdx.find(control_var.label());
+          if (pack_idx != packIdx.end()) {
+            int lo = pack.GetLowerBoundHost(b, PackIdx(pack_idx->second));
+            int hi = pack.GetUpperBoundHost(b, PackIdx(pack_idx->second));
+            if (lo <= hi) {
+              group_has_allocated_sparse_member = true;
+
+              auto &counter = pmbdata->Get(control_var.label()).dealloc_count;
+              bool all_zero = true;
+              for (int iv = lo; iv <= hi; ++iv) {
+                all_zero = all_zero && is_zero_h(b, iv);
+              }
+              if (all_zero) {
+                counter++;
+              } else {
+                counter = 0;
+              }
+              deallocate_group = deallocate_group && (counter > count);
+            }
+          }
         }
-        if (counter > count) {
-          // this variable has been flagged for deallocation deallocation_count times in
-          // a row, now deallocate it
-          counter = 0;
-          pmb->DeallocateSparse(control_var);
+      }
+
+      if (!group_excluded && group_has_allocated_sparse_member && deallocate_group) {
+        for (const auto &control_var : control_group) {
+          pmbdata->Get(control_var.label()).dealloc_count = 0;
         }
+        pmb->DeallocateSparse(representative.label());
       }
     }
   }

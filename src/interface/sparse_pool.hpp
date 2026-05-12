@@ -13,7 +13,10 @@
 #ifndef INTERFACE_SPARSE_POOL_HPP_
 #define INTERFACE_SPARSE_POOL_HPP_
 
+// This file was made in part with generative AI.
+
 #include <map>
+#include <set>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -29,6 +32,17 @@ class MetadataFlag;
 
 class SparsePool {
  public:
+  enum class ControlSparseIDMode { Identity, FirstComponent };
+
+  static std::vector<SparseID> ToSparseIDs(const std::vector<int> &sparse_ids) {
+    std::vector<SparseID> typed_ids;
+    typed_ids.reserve(sparse_ids.size());
+    for (const auto sparse_id : sparse_ids) {
+      typed_ids.emplace_back(SparseID::Scalar(sparse_id));
+    }
+    return typed_ids;
+  }
+
   // Create an empty sparse pool
   SparsePool(const std::string &base_name, const Metadata &metadata,
              const std::string &controller_base_name = "")
@@ -41,12 +55,13 @@ class SparsePool {
   // Create a copy of the sparse pool with a different name
   SparsePool(const std::string &new_base_name, const SparsePool &src)
       : base_name_(new_base_name), controller_base_name_(src.controller_base_name_),
-        shared_metadata_(src.shared_metadata()), pool_(src.pool()) {}
+        shared_metadata_(src.shared_metadata()),
+        control_sparse_id_mode_(src.control_sparse_id_mode_), pool_(src.pool()) {}
 
   // Create a sparse pool with given sparse ids, shapes, Vector/Tensor flags, and optional
   // component labels
   SparsePool(const std::string &base_name, const Metadata &metadata,
-             const std::vector<int> &sparse_ids,
+             const std::vector<SparseID> &sparse_ids,
              const std::vector<std::vector<int>> &shapes,
              const std::vector<MetadataFlag> &vector_tensor_flags,
              const std::vector<std::vector<std::string>> &component_labels = {},
@@ -55,7 +70,8 @@ class SparsePool {
   // Create a sparse pool with given sparse ids and controlling base name and optional
   // shapes and component labels
   SparsePool(const std::string &base_name, const Metadata &metadata,
-             const std::string &controller_base_name, const std::vector<int> &sparse_ids,
+             const std::string &controller_base_name,
+             const std::vector<SparseID> &sparse_ids,
              const std::vector<std::vector<int>> &shapes = {},
              const std::vector<std::vector<std::string>> &component_labels = {})
       : SparsePool(base_name, metadata, sparse_ids, shapes, {}, component_labels,
@@ -63,16 +79,36 @@ class SparsePool {
 
   // Create a sparse pool with given sparse ids and optional shapes and component labels
   SparsePool(const std::string &base_name, const Metadata &metadata,
-             const std::vector<int> &sparse_ids,
+             const std::vector<SparseID> &sparse_ids,
              const std::vector<std::vector<int>> &shapes = {},
              const std::vector<std::vector<std::string>> &component_labels = {})
       : SparsePool(base_name, metadata, sparse_ids, shapes, {}, component_labels, "") {}
 
-  // Create a sparse pool with given sparse ids and component labels
+  // Bridge constructor that accepts scalar sparse ids and converts them to SparseID.
   SparsePool(const std::string &base_name, const Metadata &metadata,
              const std::vector<int> &sparse_ids,
-             const std::vector<std::vector<std::string>> &component_labels)
-      : SparsePool(base_name, metadata, sparse_ids, {}, {}, component_labels, "") {}
+             const std::vector<std::vector<int>> &shapes,
+             const std::vector<MetadataFlag> &vector_tensor_flags,
+             const std::vector<std::vector<std::string>> &component_labels = {},
+             const std::string &controller_base_name = "")
+      : SparsePool(base_name, metadata, ToSparseIDs(sparse_ids), shapes,
+                   vector_tensor_flags, component_labels, controller_base_name) {}
+
+  // Bridge constructor that accepts scalar sparse ids and converts them to SparseID.
+  SparsePool(const std::string &base_name, const Metadata &metadata,
+             const std::string &controller_base_name, const std::vector<int> &sparse_ids,
+             const std::vector<std::vector<int>> &shapes = {},
+             const std::vector<std::vector<std::string>> &component_labels = {})
+      : SparsePool(base_name, metadata, controller_base_name, ToSparseIDs(sparse_ids),
+                   shapes, component_labels) {}
+
+  // Bridge constructor that accepts scalar sparse ids and converts them to SparseID.
+  SparsePool(const std::string &base_name, const Metadata &metadata,
+             const std::vector<int> &sparse_ids,
+             const std::vector<std::vector<int>> &shapes = {},
+             const std::vector<std::vector<std::string>> &component_labels = {})
+      : SparsePool(base_name, metadata, ToSparseIDs(sparse_ids), shapes,
+                   component_labels) {}
 
   // template on variable type
   template <typename T, typename... Args>
@@ -83,15 +119,35 @@ class SparsePool {
   const std::string &base_name() const { return base_name_; }
   const std::string &controller_base_name() const { return controller_base_name_; }
   const Metadata &shared_metadata() const { return shared_metadata_; }
-  const std::map<int, Metadata> &pool() const { return pool_; }
+  const std::map<SparseID, Metadata> &pool() const { return pool_; }
   auto size() const { return pool_.size(); }
+  ControlSparseIDMode control_sparse_id_mode() const { return control_sparse_id_mode_; }
+  void SetControlSparseIDMode(ControlSparseIDMode mode) {
+    control_sparse_id_mode_ = mode;
+  }
+  SparseID ControlSparseID(SparseID sparse_id) const {
+    if (control_sparse_id_mode_ == ControlSparseIDMode::FirstComponent) {
+      return SparseID::Scalar(sparse_id(0));
+    }
+    return sparse_id;
+  }
+  ControlGroup ControlGroupFor(SparseID sparse_id) const {
+    ControlGroup control_group;
+    const auto control_id = ControlSparseID(sparse_id);
+    for (const auto &pair : pool_) {
+      if (ControlSparseID(pair.first) == control_id) {
+        control_group.emplace(base_name_, pair.first);
+      }
+    }
+    return control_group;
+  }
 
   // Add a new sparse ID to the pool with optional arguments:
   // shape: use this shape if not {}, otherwise use shape from shared metadata (the
   // Vector/Tensor flag will be copied from shared metadata)
   // component_labels: use these component labels if not {}, otherwise use component
   // labels from shared metadata
-  const Metadata &Add(int sparse_id, const std::vector<int> &shape = {},
+  const Metadata &Add(SparseID sparse_id, const std::vector<int> &shape = {},
                       const std::vector<std::string> &component_labels = {}) {
     return AddImpl(sparse_id, shape, nullptr, component_labels);
   }
@@ -99,25 +155,26 @@ class SparsePool {
   // As above, but explicitly set Vector/Tensor metadata flag. Valid values for
   // vector_tensor are: None (unset both Vector and Tensor flag), Vector (set only Vector
   // flag), Tensor (set only Tensor flag)
-  const Metadata &Add(int sparse_id, const std::vector<int> &shape,
+  const Metadata &Add(SparseID sparse_id, const std::vector<int> &shape,
                       MetadataFlag vector_tensor,
                       const std::vector<std::string> &component_labels = {}) {
     return AddImpl(sparse_id, shape, &vector_tensor, component_labels);
   }
 
-  const Metadata &Add(int sparse_id, const std::vector<std::string> &component_labels) {
+  const Metadata &Add(SparseID sparse_id,
+                      const std::vector<std::string> &component_labels) {
     return AddImpl(sparse_id, {}, nullptr, component_labels);
   }
 
   // Let someone specify arbitrary metadata for this field
-  const Metadata &Add(int sparse_id, const Metadata &md);
+  const Metadata &Add(SparseID sparse_id, const Metadata &md);
 
  private:
   // TODO(JL) Once we have C++17 with std::optional, we can use
   // std::optional<MetadataFlag> instead of a pointer. We need to differentiate between
   // the getting a value form the user and not getting a value, but there is no good
   // default value
-  const Metadata &AddImpl(int sparse_id, const std::vector<int> &shape,
+  const Metadata &AddImpl(SparseID sparse_id, const std::vector<int> &shape,
                           const MetadataFlag *vector_tensor,
                           const std::vector<std::string> &component_labels);
 
@@ -125,10 +182,10 @@ class SparsePool {
   const std::string controller_base_name_;
 
   Metadata shared_metadata_;
+  ControlSparseIDMode control_sparse_id_mode_ = ControlSparseIDMode::Identity;
   // Metadata per sparse id
-  // JMM: note that this map SHOULD be ordered as sparse ids, being
-  // integers, have an implicit ordering.
-  std::map<int, Metadata> pool_;
+  // Sparse IDs provide an explicit ordering for deterministic iteration.
+  std::map<SparseID, Metadata> pool_;
 };
 
 } // namespace parthenon

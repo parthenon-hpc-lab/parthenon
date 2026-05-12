@@ -11,6 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -76,7 +78,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     SparsePool pool("sparse", m);
 
     for (int sid = 0; sid < NUM_FIELDS; ++sid) {
-      pool.Add(sid);
+      pool.Add(parthenon::SparseID::Scalar(sid));
     }
     pkg->AddSparsePool(pool);
   }
@@ -93,10 +95,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                        Metadata::FillGhost, Metadata::Sparse});
 
     SparsePool pool("shape_shift", m_sparse);
-    pool.Add(1, std::vector<int>{1}, std::vector<std::string>{"scalar"});
-    pool.Add(3, std::vector<int>{3}, Metadata::Vector,
+    pool.Add(parthenon::SparseID::Scalar(1), std::vector<int>{1},
+             std::vector<std::string>{"scalar"});
+    pool.Add(parthenon::SparseID::Scalar(3), std::vector<int>{3}, Metadata::Vector,
              std::vector<std::string>{"vec_x", "vec_y", "vec_z"});
-    pool.Add(4, std::vector<int>{4}, Metadata::Vector);
+    pool.Add(parthenon::SparseID::Scalar(4), std::vector<int>{4}, Metadata::Vector);
 
     pkg->AddSparsePool(pool);
   }
@@ -216,7 +219,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
         for (int n = 0; n < nvar; n++) {
           if (!v.IsAllocated(n)) continue;
-          const auto this_v = vx[v(n).sparse_id % NUM_FIELDS];
+          const auto this_v = vx[v(n).sparse_id() % NUM_FIELDS];
           par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
             v.flux(X1DIR, n, k, j, i) = (this_v > 0.0 ? ql(n, i) : qr(n, i)) * this_v;
           });
@@ -246,7 +249,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
           for (int n = 0; n < nvar; n++) {
             if (!v.IsAllocated(n)) continue;
-            const auto this_v = vy[v(n).sparse_id % NUM_FIELDS];
+            const auto this_v = vy[v(n).sparse_id() % NUM_FIELDS];
             par_for_inner(member, ib.s, ib.e, [&](const int i) {
               v.flux(X2DIR, n, k, j, i) = (this_v > 0.0 ? ql(n, i) : qr(n, i)) * this_v;
             });

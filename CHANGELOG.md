@@ -42,6 +42,7 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1398]](https://github.com/parthenon-hpc-lab/parthenon/pull/1398) Generalize sparse identifiers and add sparse control groups. Downstream sparse-state access may need to change from `sparse_idx` to `sparse_idx()`.
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 - [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy
 - [[PR 1376]](https://github.com/parthenon-hpc-lab/parthenon/pull/1376) Refactor SwarmPacks

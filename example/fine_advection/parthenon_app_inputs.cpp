@@ -11,6 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #include <memory>
 #include <sstream>
 #include <string>
@@ -65,7 +67,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   if (do_regular_advection) {
     const int sparse_size = pkg->Param<int>("sparse_size");
     for (int s = 0; s < sparse_size; ++s)
-      pmb->AllocSparseID(phi::name(), s);
+      pmb->AllocSparseID(phi::name(), SparseID::Scalar(s));
   }
   static auto desc = parthenon::MakePackDescriptor<phi, phi_fine, C, D>(data.get());
   auto pack = desc.GetPack(data.get());

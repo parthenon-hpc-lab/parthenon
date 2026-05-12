@@ -10,6 +10,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #include <algorithm>
 #include <cstdio>
 #include <limits>
@@ -89,15 +91,16 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
       VariablePack<Real> v;
 
       if (restart_test) {
-        pmb->AllocSparseID("shape_shift", 1);
-        pmb->AllocSparseID("shape_shift", 3);
-        pmb->AllocSparseID("shape_shift", 4);
+        pmb->AllocSparseID("shape_shift", parthenon::SparseID::Scalar(1));
+        pmb->AllocSparseID("shape_shift", parthenon::SparseID::Scalar(3));
+        pmb->AllocSparseID("shape_shift", parthenon::SparseID::Scalar(4));
 
         v = data->PackVariables(
             std::vector<std::string>{"dense_A", "dense_B", "shape_shift"});
       } else {
-        pmb->AllocSparseID("sparse", f);
-        v = data->PackVariables(std::vector<std::string>{MakeVarLabel("sparse", f)});
+        pmb->AllocSparseID("sparse", parthenon::SparseID::Scalar(f));
+        v = data->PackVariables(std::vector<std::string>{
+            parthenon::MakeVarLabel("sparse", parthenon::SparseID::Scalar(f))});
       }
 
       pmb->par_for(
@@ -127,7 +130,7 @@ void PostStepDiagnosticsInLoop(Mesh *mesh, ParameterInput *pin, const SimTime &t
   for (auto &pmb : mesh->block_list) {
     auto rc = pmb->meshblock_data.Get(); // get base container
     for (int i = 0; i < n; ++i) {
-      if (rc->IsAllocated("sparse", i)) {
+      if (rc->IsAllocated("sparse", parthenon::SparseID::Scalar(i))) {
         num_allocated[i] += 1;
       }
     }

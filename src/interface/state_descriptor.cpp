@@ -11,6 +11,9 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
+#include <algorithm>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -167,8 +170,7 @@ class FieldProvider : public VariableProvider {
       const auto &src_pool = pkg->GetSparsePool(base_name);
       added = state_->AddSparsePool(new_name, src_pool);
     } else {
-      auto controller = packages_.Get(package)->GetFieldController(base_name);
-      added = state_->AddField(new_name, metadata, controller);
+      added = state_->AddField(new_name, metadata, pkg->GetFieldControlGroup(base_name));
     }
 
     PARTHENON_REQUIRE_THROWS(added, "Couldn't add private field '" + base_name +
@@ -182,8 +184,7 @@ class FieldProvider : public VariableProvider {
       const auto &pool = pkg->GetSparsePool(base_name);
       added = state_->AddSparsePool(pool);
     } else {
-      auto controller = packages_.Get(package)->GetFieldController(base_name);
-      added = state_->AddField(base_name, metadata, controller);
+      added = state_->AddField(base_name, metadata, pkg->GetFieldControlGroup(base_name));
     }
 
     PARTHENON_REQUIRE_THROWS(added, "Couldn't add provided field '" + base_name +
@@ -209,8 +210,8 @@ class FieldProvider : public VariableProvider {
       for (auto &pair : packages_.AllPackages()) {
         auto &package = pair.second;
         if (package->FieldPresent(base_name)) {
-          auto controller = package->GetFieldController(base_name);
-          added = state_->AddField(base_name, metadata, controller);
+          added = state_->AddField(base_name, metadata,
+                                   package->GetFieldControlGroup(base_name));
           break;
         }
       }
@@ -288,19 +289,37 @@ bool StateDescriptor::AddSwarmValue(const std::string &value_name,
 
 bool StateDescriptor::AddField(const std::string &field_name, const Metadata &m_in,
                                const std::string &controlling_field) {
+  if (controlling_field == "") {
+    return AddField(field_name, m_in, ControlGroup{VarID(field_name)});
+  }
+  return AddField(field_name, m_in, std::vector<std::string>{controlling_field});
+}
+
+bool StateDescriptor::AddField(const std::string &field_name, const Metadata &m_in,
+                               const std::vector<std::string> &controlling_fields) {
+  ControlGroup control_group;
+  for (const auto &controlling_field : controlling_fields) {
+    control_group.emplace(controlling_field);
+  }
+  if (control_group.empty()) control_group.emplace(field_name);
+  return AddField(field_name, m_in, control_group);
+}
+
+bool StateDescriptor::AddField(const std::string &field_name, const Metadata &m_in,
+                               const ControlGroup &controlling_fields) {
   Metadata m = m_in; // so we can modify it
   if (m.IsSet(Metadata::Sparse)) {
     PARTHENON_THROW(
         "Tried to add a sparse field with AddField, use AddSparsePool instead");
   }
   if (!m.IsSet(GetMetadataFlag())) m.Set(GetMetadataFlag());
-  VarID controller = VarID(controlling_field);
-  if (controlling_field == "") controller = VarID(field_name);
-  return AddFieldImpl_(VarID(field_name), m, controller);
+  ControlGroup control_group = controlling_fields;
+  if (control_group.empty()) control_group.emplace(VarID(field_name));
+  return AddFieldImpl_(VarID(field_name), m, control_group);
 }
 
 bool StateDescriptor::AddFieldImpl_(const VarID &vid, const Metadata &m_in,
-                                    const VarID &control_vid) {
+                                    const ControlGroup &control_group) {
   Metadata m = m_in; // Force const correctness
 
   const std::string &assoc = m.getAssociated();
@@ -313,13 +332,13 @@ bool StateDescriptor::AddFieldImpl_(const VarID &vid, const Metadata &m_in,
     if (m.IsSet(Metadata::WithFluxes) && m.GetFluxName() == "") {
       auto fId = VarID{internal_fluxname + internal_varname_seperator + vid.base_name,
                        vid.sparse_id};
-      AddFieldImpl_(fId, *(m.GetSPtrFluxMetadata()), control_vid);
+      AddFieldImpl_(fId, *(m.GetSPtrFluxMetadata()), control_group);
       m.SetFluxName(fId.label());
     }
     labelToVidMap_.insert({vid.label(), vid});
     metadataMap_.insert({vid, m});
     refinementFuncMaps_.Register(m, vid.label());
-    allocControllerReverseMap_.insert({vid, control_vid});
+    allocControllerReverseMap_.insert({vid, control_group});
     // Add this variable to the set of unique IDs at the
     // earliest possible time
     Variable<Real>::GetUniqueID(vid.label());
@@ -341,12 +360,12 @@ bool StateDescriptor::AddSparsePoolImpl_(const SparsePool &pool) {
   sparsePoolMap_.insert({pool.base_name(), pool});
   refinementFuncMaps_.Register(pool.shared_metadata(), pool.base_name());
 
-  std::string controller_base = pool.controller_base_name();
-  if (controller_base == "") controller_base = pool.base_name();
   // add all the sparse fields
   for (const auto itr : pool.pool()) {
-    if (!AddFieldImpl_(VarID(pool.base_name(), itr.first), itr.second,
-                       VarID(controller_base, itr.first))) {
+    const auto control_group = pool.controller_base_name().empty()
+                                   ? pool.ControlGroupFor(itr.first)
+                                   : ControlGroup{};
+    if (!AddFieldImpl_(VarID(pool.base_name(), itr.first), itr.second, control_group)) {
       // a field with this name already exists, this would leave the StateDescriptor in an
       // inconsistent state, so throw
       PARTHENON_THROW("Couldn't add sparse field " +
@@ -389,12 +408,21 @@ bool StateDescriptor::FlagsPresent(std::vector<MetadataFlag> const &flags,
 }
 
 std::string StateDescriptor::GetFieldController(const std::string &field_name) {
+  const auto &controller_group = GetFieldControlGroup(field_name);
+  PARTHENON_REQUIRE_THROWS(
+      controller_group.size() == 1,
+      "Asking for legacy controlling field for grouped control set " + field_name +
+          "; use GetFieldControlGroup instead");
+  return controller_group.begin()->label();
+}
+
+const ControlGroup &StateDescriptor::GetFieldControlGroup(const std::string &field_name) {
   VarID field_id(field_name);
   auto controller = allocControllerReverseMap_.find(field_id);
   PARTHENON_REQUIRE(controller != allocControllerReverseMap_.end(),
                     "Asking for controlling field that is not in this package (" +
                         field_name + ")");
-  return controller->second.label();
+  return controller->second;
 }
 
 bool StateDescriptor::SwarmValuePresent(const std::string &value_name,
@@ -420,7 +448,7 @@ std::vector<std::string> StateDescriptor::GetControlVariables() {
 
 // retrieve metadata for a specific field
 const Metadata &StateDescriptor::FieldMetadata(const std::string &base_name,
-                                               int sparse_id) const {
+                                               SparseID sparse_id) const {
   const auto itr = metadataMap_.find(VarID(base_name, sparse_id));
   PARTHENON_REQUIRE_THROWS(itr != metadataMap_.end(),
                            "FieldMetadata: Non-existent field: " +
@@ -465,30 +493,64 @@ std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd) {
   return os;
 }
 
-// Take a map going from variable 1 -> variable that controls variable 1 and invert it
-// to give control variable -> list of variables controlled by control variable.
-// TODO(LFR): Currently, calling this repeatedly will just add a controlled variable
-// to the vector of a controlling variable repeatedly. I think this shouldn't cause any
-// issues since allocating or deallocating a variable multiple times in a row is the
-// same as allocating it or deallocating it once. That being said, it could be switched
-// to an unordered_set from a vector so that variable names can only show up once. Also,
-// it is not clear to me exactly what behavior this should have if invert control map is
-// called more than once (I think the normal use case would be for just a single call
-// during resolution of the combined state descriptor). It may be that we should be
-// calling allocControllerMap_.clear() before starting the for_each loop.
+// Take the reverse controller map, which stores the controlling group for each variable,
+// and invert it into the runtime fan-out map used by allocation and deallocation.
+// The forward map is keyed by individual controller labels, so grouped controllers end up
+// sharing the same controlled-variable list. We deduplicate controlled labels because a
+// variable may appear in more than one controller member's reverse entry, but repeated
+// allocation/deallocation of the same sparse field is harmless.
 void StateDescriptor::InvertControllerMap() {
-  std::for_each(allocControllerReverseMap_.begin(), allocControllerReverseMap_.end(),
-                [this](const auto &pair) {
-                  auto var = pair.first.label();
-                  auto cont = pair.second.label();
-                  auto iter = allocControllerMap_.find(cont);
-                  if (iter == allocControllerMap_.end()) {
-                    allocControllerMap_.emplace(
-                        std::make_pair(cont, std::vector<std::string>{var}));
-                  } else {
-                    iter->second.push_back(var);
-                  }
-                });
+  allocControllerMap_.clear();
+  allocControlGroups_.clear();
+  for (const auto &pair : allocControllerReverseMap_) {
+    const auto var = pair.first.label();
+    const auto &control_group = pair.second;
+
+    allocControlGroups_.insert(control_group);
+    for (const auto &cont : control_group) {
+      auto iter = allocControllerMap_.find(cont.label());
+      if (iter == allocControllerMap_.end()) {
+        allocControllerMap_.emplace(
+            std::make_pair(cont.label(), std::vector<std::string>{var}));
+      } else if (std::find(iter->second.begin(), iter->second.end(), var) ==
+                 iter->second.end()) {
+        iter->second.push_back(var);
+      }
+    }
+  }
+}
+
+// Sparse pools may project their sparse ID space into a smaller controller key space.
+// That projection is resolved here once all sparse pools are known, so every sparse
+// variable ends up with the concrete control group of real field labels that owns it.
+void StateDescriptor::ResolveSparseControllerGroups() {
+  for (const auto &pool_pair : sparsePoolMap_) {
+    const auto &pool = pool_pair.second;
+    const bool has_controller_pool = !pool.controller_base_name().empty();
+    std::string controller_base = pool.controller_base_name();
+    if (controller_base == "") controller_base = pool.base_name();
+
+    auto controller_pool = sparsePoolMap_.find(controller_base);
+    PARTHENON_REQUIRE_THROWS(controller_pool != sparsePoolMap_.end(),
+                             "Couldn't find controlling sparse pool '" + controller_base +
+                                 "' for sparse pool '" + pool.base_name() + "'");
+
+    for (const auto &entry : pool.pool()) {
+      const auto vid = VarID(pool.base_name(), entry.first);
+      const auto control_group =
+          controller_pool->second.ControlGroupFor(pool.ControlSparseID(entry.first));
+      auto [iter, inserted] = allocControllerReverseMap_.emplace(vid, control_group);
+      if (!inserted) {
+        if (has_controller_pool) {
+          iter->second = control_group;
+        } else {
+          PARTHENON_REQUIRE_THROWS(iter->second == control_group,
+                                   "Sparse field '" + vid.label() +
+                                       "' resolved to more than one control group");
+        }
+      }
+    }
+  }
 }
 
 // Takes all packages and combines them into a single state descriptor
@@ -561,6 +623,7 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
   field_tracker.CheckOverridable(&field_provider);
   swarm_tracker.CheckOverridable(&swarm_provider);
 
+  state->ResolveSparseControllerGroups();
   state->InvertControllerMap();
 
   return state;
@@ -577,8 +640,9 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
 std::vector<std::string>
 StateDescriptor::GetVariableNames(const std::vector<std::string> &requested_names,
                                   const Metadata::FlagCollection &flags,
-                                  const std::vector<int> &sparse_ids) {
-  std::unordered_set<int> sparse_ids_set(sparse_ids.begin(), sparse_ids.end());
+                                  const std::vector<SparseID> &sparse_ids) {
+  std::unordered_set<SparseID, SparseIDHasher> sparse_ids_set(sparse_ids.begin(),
+                                                              sparse_ids.end());
   std::unordered_set<std::string> names;
   std::vector<std::string> names_vec;
   // first add names that are present
@@ -636,20 +700,22 @@ StateDescriptor::GetVariableNames(const std::vector<std::string> &requested_name
 std::vector<std::string>
 StateDescriptor::GetVariableNames(const std::vector<std::string> &requested_names,
                                   const std::vector<int> &sparse_ids) {
-  return GetVariableNames(requested_names, Metadata::FlagCollection(), sparse_ids);
+  return GetVariableNames(requested_names, Metadata::FlagCollection(),
+                          SparsePool::ToSparseIDs(sparse_ids));
 }
 std::vector<std::string>
 StateDescriptor::GetVariableNames(const Metadata::FlagCollection &flags,
                                   const std::vector<int> &sparse_ids) {
-  return GetVariableNames({}, flags, sparse_ids);
+  return GetVariableNames({}, flags, SparsePool::ToSparseIDs(sparse_ids));
 }
 std::vector<std::string>
 StateDescriptor::GetVariableNames(const std::vector<std::string> &requested_names) {
-  return GetVariableNames(requested_names, Metadata::FlagCollection(), {});
+  return GetVariableNames(requested_names, Metadata::FlagCollection(),
+                          std::vector<SparseID>{});
 }
 std::vector<std::string>
 StateDescriptor::GetVariableNames(const Metadata::FlagCollection &flags) {
-  return GetVariableNames({}, flags, {});
+  return GetVariableNames({}, flags, std::vector<SparseID>{});
 }
 
 // Get the total length of this StateDescriptor's variables when packed

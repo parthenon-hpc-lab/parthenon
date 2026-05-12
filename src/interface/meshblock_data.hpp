@@ -13,7 +13,7 @@
 #ifndef INTERFACE_MESHBLOCK_DATA_HPP_
 #define INTERFACE_MESHBLOCK_DATA_HPP_
 
-// This file was made in part with generative AI
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <limits>
@@ -266,7 +266,8 @@ class MeshBlockData {
 
   const auto &GetUidMap() const { return varUidMap_; }
 
-  Variable<T> &Get(const std::string &base_name, int sparse_id = InvalidSparseID) const {
+  Variable<T> &Get(const std::string &base_name,
+                   SparseID sparse_id = InvalidSparseID) const {
     return *GetVarPtr(MakeVarLabel(base_name, sparse_id));
   }
   Variable<T> &Get(const Uid_t &uid) const { return *(varUidMap_.at(uid)); }
@@ -286,7 +287,8 @@ class MeshBlockData {
     return it->second->IsAllocated();
   }
 
-  inline bool IsAllocated(std::string const &base_name, int sparse_id) const noexcept {
+  inline bool IsAllocated(std::string const &base_name,
+                          SparseID sparse_id) const noexcept {
     return IsAllocated(MakeVarLabel(base_name, sparse_id));
   }
 
@@ -585,14 +587,14 @@ class MeshBlockData {
 
  private:
   void AddField(const std::string &base_name, const Metadata &metadata,
-                int sparse_id = InvalidSparseID);
+                SparseID sparse_id);
 
   void Add(std::shared_ptr<Variable<T>> var) noexcept;
 
   std::shared_ptr<Variable<T>> AllocateSparse(std::string const &label,
                                               bool flag_uninitialized = false);
   std::shared_ptr<Variable<T>> AllocSparseID(std::string const &base_name,
-                                             const int sparse_id) {
+                                             const SparseID sparse_id) {
     return AllocateSparse(MakeVarLabel(base_name, sparse_id));
   }
   void DeallocateSparse(std::string const &label);

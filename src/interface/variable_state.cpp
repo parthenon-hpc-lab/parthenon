@@ -11,12 +11,14 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #include "interface/variable_state.hpp"
 #include "interface/metadata.hpp"
 
 namespace parthenon {
 
-VariableState::VariableState(const Metadata &md, int sparse_id,
+VariableState::VariableState(const Metadata &md, SparseID sparse_id,
                              const std::array<int, MAX_VARIABLE_DIMENSION> &dims) {
   allocation_threshold = md.GetAllocationThreshold();
   deallocation_threshold = md.GetDeallocationThreshold();

@@ -11,6 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -390,8 +392,10 @@ void PostFill(MeshBlockData<Real> *rc) {
     IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
 
     // check that we have the sparse indices we want
-    pmb->AllocSparseID("one_minus_sqrt_one_minus_advected_sq", 12);
-    pmb->AllocSparseID("one_minus_sqrt_one_minus_advected_sq", 37);
+    pmb->AllocSparseID("one_minus_sqrt_one_minus_advected_sq",
+                       parthenon::SparseID::Scalar(12));
+    pmb->AllocSparseID("one_minus_sqrt_one_minus_advected_sq",
+                       parthenon::SparseID::Scalar(37));
 
     // packing in principle unnecessary/convoluted here and just done for demonstration
     std::vector<std::string> vars(
@@ -402,7 +406,9 @@ void PostFill(MeshBlockData<Real> *rc) {
     const int in = imap.get("one_minus_advected_sq").first;
     // we can get sparse fields either by specifying base name and sparse id, or the full
     // name
-    const int out12 = imap.get("one_minus_sqrt_one_minus_advected_sq", 12).first;
+    const int out12 =
+        imap.get("one_minus_sqrt_one_minus_advected_sq", parthenon::SparseID::Scalar(12))
+            .first;
     const int out37 = imap.get("one_minus_sqrt_one_minus_advected_sq_37").first;
     const auto num_vars = rc->Get("advected").data.GetDim(4);
     pmb->par_for(

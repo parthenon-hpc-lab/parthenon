@@ -19,7 +19,6 @@
 import sys
 import utils.test_case
 
-
 # To prevent littering up imported folders with .pyc files or __pycache_ folder
 sys.dont_write_bytecode = True
 
