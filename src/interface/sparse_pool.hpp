@@ -14,6 +14,7 @@
 #define INTERFACE_SPARSE_POOL_HPP_
 
 #include <map>
+#include <set>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -29,6 +30,8 @@ class MetadataFlag;
 
 class SparsePool {
  public:
+  enum class ControlSparseIDMode { Identity, FirstComponent };
+
   static std::vector<SparseID> ToSparseIDs(const std::vector<int> &sparse_ids) {
     std::vector<SparseID> typed_ids;
     typed_ids.reserve(sparse_ids.size());
@@ -50,7 +53,8 @@ class SparsePool {
   // Create a copy of the sparse pool with a different name
   SparsePool(const std::string &new_base_name, const SparsePool &src)
       : base_name_(new_base_name), controller_base_name_(src.controller_base_name_),
-        shared_metadata_(src.shared_metadata()), pool_(src.pool()) {}
+        shared_metadata_(src.shared_metadata()),
+        control_sparse_id_mode_(src.control_sparse_id_mode_), pool_(src.pool()) {}
 
   // Create a sparse pool with given sparse ids, shapes, Vector/Tensor flags, and optional
   // component labels
@@ -115,6 +119,24 @@ class SparsePool {
   const Metadata &shared_metadata() const { return shared_metadata_; }
   const std::map<SparseID, Metadata> &pool() const { return pool_; }
   auto size() const { return pool_.size(); }
+  ControlSparseIDMode control_sparse_id_mode() const { return control_sparse_id_mode_; }
+  void SetControlSparseIDMode(ControlSparseIDMode mode) { control_sparse_id_mode_ = mode; }
+  SparseID ControlSparseID(SparseID sparse_id) const {
+    if (control_sparse_id_mode_ == ControlSparseIDMode::FirstComponent) {
+      return SparseID::Scalar(sparse_id(0));
+    }
+    return sparse_id;
+  }
+  ControlGroup ControlGroupFor(SparseID sparse_id) const {
+    ControlGroup control_group;
+    const auto control_id = ControlSparseID(sparse_id);
+    for (const auto &pair : pool_) {
+      if (ControlSparseID(pair.first) == control_id) {
+        control_group.emplace(base_name_, pair.first);
+      }
+    }
+    return control_group;
+  }
 
   // Add a new sparse ID to the pool with optional arguments:
   // shape: use this shape if not {}, otherwise use shape from shared metadata (the
@@ -156,6 +178,7 @@ class SparsePool {
   const std::string controller_base_name_;
 
   Metadata shared_metadata_;
+  ControlSparseIDMode control_sparse_id_mode_ = ControlSparseIDMode::Identity;
   // Metadata per sparse id
   // Sparse IDs provide an explicit ordering for deterministic iteration.
   std::map<SparseID, Metadata> pool_;

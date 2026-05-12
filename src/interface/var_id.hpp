@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <functional>
 #include <limits>
+#include <set>
 #include <string>
 
 #include <Kokkos_Core.hpp>
@@ -117,7 +118,10 @@ struct VarID {
   std::string label() const { return MakeVarLabel(base_name, sparse_id); }
 
   bool operator==(const VarID &other) const { return (label() == other.label()); }
+  bool operator<(const VarID &other) const { return label() < other.label(); }
 };
+
+using ControlGroup = std::set<VarID>;
 
 struct VarIDHasher {
   auto operator()(const VarID &vid) const {

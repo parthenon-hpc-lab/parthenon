@@ -42,6 +42,7 @@ using parthenon::Packages_t;
 using parthenon::ParArrayND;
 using parthenon::Real;
 using parthenon::ResolvePackages;
+using parthenon::ControlGroup;
 using parthenon::SparseID;
 using parthenon::SparsePool;
 using parthenon::StateDescriptor;
@@ -574,6 +575,60 @@ TEST_CASE("Test SparsePool interface", "[StateDescriptor]") {
       REQUIRE(pkg->AddField("fake2_sparse_27", Metadata()));
       REQUIRE_THROWS(
           pkg->AddSparsePool("fake2_sparse", meta_sparse, std::vector<int>{13, 27, 9}));
+    }
+  }
+
+  GIVEN("Sparse pools that group control by the first sparse ID component") {
+    Packages_t packages;
+    auto pkg = std::make_shared<StateDescriptor>("pkg");
+    packages.Add(pkg);
+    Metadata meta_sparse({Metadata::Sparse});
+
+    SparsePool rho("rho", meta_sparse);
+    rho.SetControlSparseIDMode(SparsePool::ControlSparseIDMode::FirstComponent);
+    rho.Add(SparseID::Pair(0, 0));
+    rho.Add(SparseID::Pair(0, 1));
+    rho.Add(SparseID::Pair(0, 2));
+    rho.Add(SparseID::Pair(1, 0));
+    REQUIRE(pkg->AddSparsePool(rho));
+
+    SparsePool other("other", meta_sparse, "rho");
+    other.SetControlSparseIDMode(SparsePool::ControlSparseIDMode::FirstComponent);
+    other.Add(SparseID::Pair(0, 0));
+    other.Add(SparseID::Pair(0, 1));
+    other.Add(SparseID::Pair(0, 2));
+    other.Add(SparseID::Pair(1, 0));
+    REQUIRE(pkg->AddSparsePool(other));
+
+    auto resolved = ResolvePackages(packages);
+
+    THEN("The first sparse ID component is used to build controller groups") {
+      REQUIRE(resolved->GetFieldControlGroup("rho_0_1") ==
+              ControlGroup{parthenon::VarID("rho", SparseID::Pair(0, 0)),
+                           parthenon::VarID("rho", SparseID::Pair(0, 1)),
+                           parthenon::VarID("rho", SparseID::Pair(0, 2))});
+      REQUIRE(resolved->GetFieldControlGroup("other_0_2") ==
+              ControlGroup{parthenon::VarID("rho", SparseID::Pair(0, 0)),
+                           parthenon::VarID("rho", SparseID::Pair(0, 1)),
+                           parthenon::VarID("rho", SparseID::Pair(0, 2))});
+      REQUIRE(resolved->GetFieldControlGroup("rho_1_0") ==
+              ControlGroup{parthenon::VarID("rho", SparseID::Pair(1, 0))});
+    }
+
+    AND_THEN("Legacy controller access remains valid for singleton groups") {
+      REQUIRE(resolved->GetFieldController("rho_1_0") == "rho_1_0");
+      REQUIRE_THROWS(resolved->GetFieldController("rho_0_1"));
+    }
+
+    AND_THEN("All sparse fields with the same first component share a controlled set") {
+      auto controlled_0 = resolved->GetControlledVariables("rho_0_0");
+      REQUIRE(std::count(controlled_0.begin(), controlled_0.end(), "rho_0_0") == 1);
+      REQUIRE(std::count(controlled_0.begin(), controlled_0.end(), "rho_0_1") == 1);
+      REQUIRE(std::count(controlled_0.begin(), controlled_0.end(), "rho_0_2") == 1);
+      REQUIRE(std::count(controlled_0.begin(), controlled_0.end(), "other_0_0") == 1);
+      REQUIRE(std::count(controlled_0.begin(), controlled_0.end(), "other_0_1") == 1);
+      REQUIRE(std::count(controlled_0.begin(), controlled_0.end(), "other_0_2") == 1);
+      REQUIRE(controlled_0.size() == 6);
     }
   }
 }
