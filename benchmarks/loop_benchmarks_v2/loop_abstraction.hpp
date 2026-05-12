@@ -162,7 +162,7 @@ class inner_index_range_t {
   template <class view_t>
   KOKKOS_INLINE_FUNCTION
   auto view(view_t& in, int var, std::array<int, 3> offset = {0, 0, 0}) const {
-    if constexpr (IndexSpace::loop_tag_v == loop_tag::bovi) {
+    if constexpr (IndexSpace::loop_tag_v == loop_tag::bovi && IndexSpace::inner_tag_v == inner_tag::memory) {
       return var_view_t<IndexSpace>{&in(block, var, payload_.ks + offset[0], payload_.js + offset[1], payload_.is + offset[2]),
                                      0, pidx_space};
     } else {
