@@ -69,6 +69,7 @@ template <loop_tag LOOP_TAG>
 struct inner_index_range_payload_t {
   int flat_start = 0;
   int flat_end = -1;
+  int ks, js, is;
   const device_team_member_t *team_member = nullptr;
 };
 
@@ -161,7 +162,12 @@ class inner_index_range_t {
   template <class view_t>
   KOKKOS_INLINE_FUNCTION
   auto view(view_t& in, int var, std::array<int, 3> offset = {0, 0, 0}) const {
-    return pidx_space->GetInnerView(in, block, var, offset);
+    if constexpr (IndexSpace::loop_tag == loop_tag::bovi) {
+      return var_view_t<IndexSpace>{&in(block, var, payload_.ks + offset[0], payload_.js + offset[1], payload_.is + offset[2]),
+                                     0, this};
+    } else {
+      return pidx_space->GetInnerView(in, block, var, offset);
+    }
   }
 
  private:
@@ -197,6 +203,9 @@ class inner_index_range_t {
     }
     if constexpr (IndexSpace::loop_tag != loop_tag::boiv) {
       out.payload_.team_member = team_member;
+      out.payload_.ks = ks;
+      out.payload_.js = js;
+      out.payload_.is = is;
     }
     return out;
   } 
@@ -353,13 +362,13 @@ void inner_raw_for(const inner_idx_range_t &idx_range, F &&f) {
     } 
   } else if constexpr (idx_space_t::loop_tag == loop_tag::bovi) {
     const int start = idx_range.payload_.flat_start;
-    const int end_exclusive = idx_range.payload_.flat_end + 1;
+    const int end_exclusive = idx_range.payload_.flat_end + 1 - start;
 #pragma omp simd
-    for (int idx = start; idx < end_exclusive; ++idx) {
+    for (int idx = 0; idx < end_exclusive; ++idx) {
       if constexpr(idx_space_t::inner_tag == inner_tag::memory) {
         f(idx);
       } else { 
-        const auto [k, j, i] = idx_space.logical_kji(idx);
+        const auto [k, j, i] = idx_space.logical_kji(idx + start);
         f(Index3{k, j, i});
       }
     }
@@ -380,14 +389,14 @@ void inner_kokkos(const inner_idx_range_t &idx_range, F &&f) {
     KOKKOS_ASSERT(team_member != nullptr);
     const auto &member = *team_member;
     const int start = idx_range.payload_.flat_start;
-    const int end_exclusive = idx_range.payload_.flat_end + 1;
+    const int end_exclusive = idx_range.payload_.flat_end + 1 - start;
     Kokkos::parallel_for(
-        Kokkos::TeamThreadRange(member, start, end_exclusive),
+        Kokkos::TeamThreadRange(member, 0, end_exclusive),
         KOKKOS_LAMBDA(const int idx) {
           if constexpr (idx_space_t::inner_tag == inner_tag::memory) {
             f(idx);
           } else {
-            const auto [k, j, i] = idx_space.logical_kji(idx);
+            const auto [k, j, i] = idx_space.logical_kji(idx + start);
             f(Index3{k, j, i});
           }
         });
