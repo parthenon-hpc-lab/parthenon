@@ -49,13 +49,15 @@ if("loop-benchmarks-v2" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
    
   target_compile_options(loop-benchmarks-v2-sandbox PRIVATE
     -O3
-    -Rpass=loop-vectorize
-    -Rpass-missed=loop-vectorize
-    -Rpass-analysis=loop-vectorize
-    -fsave-optimization-record
-    -fvectorize
-    -fslp-vectorize
-    -Xclang -fopenmp-simd
+    $<$<CXX_COMPILER_ID:AppleClang,Clang>:-Rpass=loop-vectorize>
+    $<$<CXX_COMPILER_ID:AppleClang,Clang>:-Rpass-missed=loop-vectorize>
+    $<$<CXX_COMPILER_ID:AppleClang,Clang>:-Rpass-analysis=loop-vectorize>
+    $<$<CXX_COMPILER_ID:AppleClang,Clang>:-fsave-optimization-record>
+    $<$<CXX_COMPILER_ID:AppleClang,Clang>:-fvectorize>
+    $<$<CXX_COMPILER_ID:AppleClang,Clang>:-fslp-vectorize>
+    $<$<CXX_COMPILER_ID:AppleClang>:-Xclang -fopenmp-simd>
+    $<$<CXX_COMPILER_ID:Clang>:-fopenmp-simd>
+    $<$<CXX_COMPILER_ID:GNU>:-fopenmp-simd>
   )
 
   target_include_directories(
