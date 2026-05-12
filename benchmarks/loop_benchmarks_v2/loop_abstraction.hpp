@@ -164,7 +164,7 @@ class inner_index_range_t {
   auto view(view_t& in, int var, std::array<int, 3> offset = {0, 0, 0}) const {
     if constexpr (IndexSpace::loop_tag_v == loop_tag::bovi) {
       return var_view_t<IndexSpace>{&in(block, var, payload_.ks + offset[0], payload_.js + offset[1], payload_.is + offset[2]),
-                                     0, this};
+                                     0, pidx_space};
     } else {
       return pidx_space->GetInnerView(in, block, var, offset);
     }
