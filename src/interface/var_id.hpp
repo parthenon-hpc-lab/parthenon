@@ -13,6 +13,8 @@
 #ifndef INTERFACE_VAR_ID_HPP_
 #define INTERFACE_VAR_ID_HPP_
 
+// This file was made in part with generative AI.
+
 #include <cstddef>
 #include <functional>
 #include <limits>

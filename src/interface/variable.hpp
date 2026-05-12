@@ -13,6 +13,8 @@
 #ifndef INTERFACE_VARIABLE_HPP_
 #define INTERFACE_VARIABLE_HPP_
 
+// This file was made in part with generative AI.
+
 ///
 /// A Variable type for Placebo-K.
 /// Builds on ParArrayNDs

@@ -13,7 +13,7 @@
 #ifndef INTERFACE_MESHBLOCK_DATA_HPP_
 #define INTERFACE_MESHBLOCK_DATA_HPP_
 
-// This file was made in part with generative AI
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <limits>

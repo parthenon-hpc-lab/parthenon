@@ -13,6 +13,8 @@
 #ifndef INTERFACE_VARIABLE_STATE_HPP_
 #define INTERFACE_VARIABLE_STATE_HPP_
 
+// This file was made in part with generative AI.
+
 #include <limits>
 
 #include "basic_types.hpp"

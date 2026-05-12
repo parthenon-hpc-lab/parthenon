@@ -13,6 +13,8 @@
 #ifndef INTERFACE_VARIABLE_PACK_HPP_
 #define INTERFACE_VARIABLE_PACK_HPP_
 
+// This file was made in part with generative AI.
+
 #include <algorithm>
 #include <array>
 #include <cstddef>

@@ -13,6 +13,8 @@
 #ifndef INTERFACE_SPARSE_POOL_HPP_
 #define INTERFACE_SPARSE_POOL_HPP_
 
+// This file was made in part with generative AI.
+
 #include <map>
 #include <set>
 #include <string>
