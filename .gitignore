@@ -3,6 +3,7 @@ build*/
 bin/
 debug*
 .cache/
+results/ 
 
 # Visualization package files
 .smhist

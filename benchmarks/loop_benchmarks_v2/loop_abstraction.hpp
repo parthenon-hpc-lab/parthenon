@@ -124,8 +124,8 @@ class index_space_t {
   friend class inner_index_range_t;
 
  public:
-  static constexpr loop_tag loop_tag = LOOP_TAG;
-  static constexpr inner_tag inner_tag = INNER_TAG;
+  static constexpr loop_tag loop_tag_v = LOOP_TAG;
+  static constexpr inner_tag inner_tag_v = INNER_TAG;
   
   index_space_t(int nblocks, int nx, int ny, int nz, int nghost,
                 std::optional<int> ninner = std::nullopt)
@@ -162,7 +162,7 @@ class inner_index_range_t {
   template <class view_t>
   KOKKOS_INLINE_FUNCTION
   auto view(view_t& in, int var, std::array<int, 3> offset = {0, 0, 0}) const {
-    if constexpr (IndexSpace::loop_tag == loop_tag::bovi) {
+    if constexpr (IndexSpace::loop_tag_v == loop_tag::bovi) {
       return var_view_t<IndexSpace>{&in(block, var, payload_.ks + offset[0], payload_.js + offset[1], payload_.is + offset[2]),
                                      0, this};
     } else {
@@ -174,7 +174,7 @@ class inner_index_range_t {
   // Payload is specialized by loop_tag so each loop style carries only the
   // state it actually needs. This keeps the hot-path range descriptor as
   // small as possible.
-  using payload_t = inner_index_range_payload_t<IndexSpace::loop_tag>;
+  using payload_t = inner_index_range_payload_t<IndexSpace::loop_tag_v>;
 
   template <class idx_space_t, class F>
   friend void impl::outer_raw_for(idx_space_t idx_space, F &&f);
@@ -194,14 +194,14 @@ class inner_index_range_t {
     const auto [ks, js, is] = idx_space.logical_kji(logical_start);
     out.block = b;
     const auto [ke, je, ie] = idx_space.logical_kji(logical_end);
-    if constexpr (IndexSpace::inner_tag == inner_tag::memory) {
+    if constexpr (IndexSpace::inner_tag_v == inner_tag::memory) {
       out.payload_.flat_start = idx_space.memory_kji.GetFlatIdx(ks, js, is);
       out.payload_.flat_end = idx_space.memory_kji.GetFlatIdx(ke, je, ie);
-    } else if constexpr (IndexSpace::inner_tag == inner_tag::logical) {
+    } else if constexpr (IndexSpace::inner_tag_v == inner_tag::logical) {
       out.payload_.flat_start = logical_start;
       out.payload_.flat_end = logical_end;
     }
-    if constexpr (IndexSpace::loop_tag != loop_tag::boiv) {
+    if constexpr (IndexSpace::loop_tag_v != loop_tag::boiv) {
       out.payload_.team_member = team_member;
       out.payload_.ks = ks;
       out.payload_.js = js;
@@ -223,14 +223,14 @@ void outer_raw_for(idx_space_t idx_space, F&& f) {
   using inner_idx_range_t = inner_index_range_t<idx_space_t>;
   // outer() is the user-visible loop entry point. It materializes the current
   // outer iteration into an inner range descriptor and hands it to the kernel body.
-  if constexpr (idx_space.loop_tag == loop_tag::bvoi) {
+  if constexpr (idx_space.loop_tag_v == loop_tag::bvoi) {
     for (int b = 0; b < idx_space.nblocks; ++b) { 
       inner_idx_range_t idx_range;
       idx_range.pidx_space = &idx_space;
       idx_range.block = b;
       f(idx_range, b);
     }   
-  } else if constexpr (idx_space.loop_tag == loop_tag::bovi) {
+  } else if constexpr (idx_space.loop_tag_v == loop_tag::bovi) {
     const int nouter = idx_space.logical_kji.size() / idx_space.ninner
                      + (idx_space.logical_kji.size() % idx_space.ninner != 0);
     for (int b = 0; b < idx_space.nblocks; ++b) { 
@@ -241,8 +241,8 @@ void outer_raw_for(idx_space_t idx_space, F&& f) {
         f(idx_range, b);
       }
     }    
-  } else if constexpr (idx_space.loop_tag == loop_tag::boiv) {
-    static_assert(idx_space.inner_tag == inner_tag::logical, "Probably don't want to do boiv over interior memory"); 
+  } else if constexpr (idx_space.loop_tag_v == loop_tag::boiv) {
+    static_assert(idx_space.inner_tag_v == inner_tag::logical, "Probably don't want to do boiv over interior memory"); 
     const int ks = idx_space.logical_kji.template StartIdx<0>();
     const int ke = idx_space.logical_kji.template EndIdx<0>();
     const int js = idx_space.logical_kji.template StartIdx<1>();
@@ -270,8 +270,8 @@ void outer_raw_for(idx_space_t idx_space, F&& f) {
 template <class idx_space_t, class F>
 void outer_kokkos(idx_space_t idx_space, F&& f) {
   using inner_idx_range_t = inner_index_range_t<idx_space_t>;
-  if constexpr (idx_space.loop_tag == loop_tag::boiv) {
-    static_assert(idx_space.inner_tag == inner_tag::logical,
+  if constexpr (idx_space.loop_tag_v == loop_tag::boiv) {
+    static_assert(idx_space.inner_tag_v == inner_tag::logical,
                   "boiv currently expects logical inner coordinates");
     const int cells_per_block = static_cast<int>(idx_space.logical_kji.size());
     const int total = idx_space.nblocks * cells_per_block;
@@ -290,7 +290,7 @@ void outer_kokkos(idx_space_t idx_space, F&& f) {
           idx_range.payload_.i = i;
           f(idx_range, b);
         });
-  } else if constexpr (idx_space.loop_tag == loop_tag::bovi) {
+  } else if constexpr (idx_space.loop_tag_v == loop_tag::bovi) {
     const int nouter = idx_space.logical_kji.size() / idx_space.ninner
                      + (idx_space.logical_kji.size() % idx_space.ninner != 0);
     const int league_size = idx_space.nblocks * nouter;
@@ -309,7 +309,7 @@ void outer_kokkos(idx_space_t idx_space, F&& f) {
               idx_space, b, logical_start, logical_end, &member);
           f(idx_range, b);
         });
-  } else if constexpr (idx_space.loop_tag == loop_tag::bvoi) {
+  } else if constexpr (idx_space.loop_tag_v == loop_tag::bvoi) {
     const Kokkos::TeamPolicy<parthenon::DevExecSpace> policy(idx_space.nblocks, Kokkos::AUTO);
     Kokkos::parallel_for(
         "loop_abstraction::outer_kokkos_bvoi", policy,
@@ -331,8 +331,8 @@ void inner_raw_for(const inner_idx_range_t &idx_range, F &&f) {
   const auto &idx_space = *(idx_range.pidx_space);
   // inner() is the portable execution contract: the same kernel body runs over
   // different backend-specific loop strategies without changing the call site.
-  if constexpr (idx_space_t::loop_tag == loop_tag::bvoi) {
-    if constexpr (idx_space_t::inner_tag == inner_tag::logical) { 
+  if constexpr (idx_space_t::loop_tag_v == loop_tag::bvoi) {
+    if constexpr (idx_space_t::inner_tag_v == inner_tag::logical) { 
       const int ks = idx_space.logical_kji.template StartIdx<0>();
       const int ke = idx_space.logical_kji.template EndIdx<0>();
       const int js = idx_space.logical_kji.template StartIdx<1>();
@@ -347,7 +347,7 @@ void inner_raw_for(const inner_idx_range_t &idx_range, F &&f) {
           }
         }
       }  
-    } else if constexpr (idx_space_t::inner_tag == inner_tag::memory) {
+    } else if constexpr (idx_space_t::inner_tag_v == inner_tag::memory) {
       const int nouter = idx_space.logical_kji.size() / idx_space.ninner
                      + (idx_space.logical_kji.size() % idx_space.ninner != 0);
       for (int o = 0; o < nouter; ++o) {
@@ -360,19 +360,19 @@ void inner_raw_for(const inner_idx_range_t &idx_range, F &&f) {
         }
       }
     } 
-  } else if constexpr (idx_space_t::loop_tag == loop_tag::bovi) {
+  } else if constexpr (idx_space_t::loop_tag_v == loop_tag::bovi) {
     const int start = idx_range.payload_.flat_start;
     const int end_exclusive = idx_range.payload_.flat_end + 1 - start;
 #pragma omp simd
     for (int idx = 0; idx < end_exclusive; ++idx) {
-      if constexpr(idx_space_t::inner_tag == inner_tag::memory) {
+    if constexpr(idx_space_t::inner_tag_v == inner_tag::memory) {
         f(idx);
       } else { 
         const auto [k, j, i] = idx_space.logical_kji(idx + start);
         f(Index3{k, j, i});
       }
     }
-  } else if constexpr (idx_space_t::loop_tag == loop_tag::boiv) {
+  } else if constexpr (idx_space_t::loop_tag_v == loop_tag::boiv) {
     f(Index3{idx_range.payload_.k, idx_range.payload_.j, idx_range.payload_.i});
   }
 }
@@ -382,9 +382,9 @@ KOKKOS_FORCEINLINE_FUNCTION
 void inner_kokkos(const inner_idx_range_t &idx_range, F &&f) {
   using idx_space_t = std::remove_cv_t<std::remove_reference_t<decltype(*idx_range.pidx_space)>>;
   const auto &idx_space = *(idx_range.pidx_space);
-  if constexpr (idx_space_t::loop_tag == loop_tag::boiv) {
+  if constexpr (idx_space_t::loop_tag_v == loop_tag::boiv) {
     f(Index3{idx_range.payload_.k, idx_range.payload_.j, idx_range.payload_.i});
-  } else if constexpr (idx_space_t::loop_tag == loop_tag::bovi) {
+  } else if constexpr (idx_space_t::loop_tag_v == loop_tag::bovi) {
     const auto *team_member = idx_range.payload_.team_member;
     KOKKOS_ASSERT(team_member != nullptr);
     const auto &member = *team_member;
@@ -393,14 +393,14 @@ void inner_kokkos(const inner_idx_range_t &idx_range, F &&f) {
     Kokkos::parallel_for(
         Kokkos::TeamThreadRange(member, 0, end_exclusive),
         KOKKOS_LAMBDA(const int idx) {
-          if constexpr (idx_space_t::inner_tag == inner_tag::memory) {
+          if constexpr (idx_space_t::inner_tag_v == inner_tag::memory) {
             f(idx);
           } else {
             const auto [k, j, i] = idx_space.logical_kji(idx + start);
             f(Index3{k, j, i});
           }
         });
-  } else if constexpr (idx_space_t::loop_tag == loop_tag::bvoi) {
+  } else if constexpr (idx_space_t::loop_tag_v == loop_tag::bvoi) {
     const auto *team_member = idx_range.payload_.team_member;
     KOKKOS_ASSERT(team_member != nullptr);
     const auto &member = *team_member;
@@ -412,7 +412,7 @@ void inner_kokkos(const inner_idx_range_t &idx_range, F &&f) {
           const int logical_end =
               std::min((o + 1) * idx_space.ninner - 1,
                        static_cast<int>(idx_space.logical_kji.size()) - 1);
-          if constexpr (idx_space_t::inner_tag == inner_tag::memory) {
+          if constexpr (idx_space_t::inner_tag_v == inner_tag::memory) {
             const auto [ks, js, is] = idx_space.logical_kji(logical_start);
             const auto [ke, je, ie] = idx_space.logical_kji(logical_end);
             const int flat_start = idx_space.memory_kji.GetFlatIdx(ks, js, is);
