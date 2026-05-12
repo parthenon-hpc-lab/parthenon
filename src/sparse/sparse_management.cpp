@@ -148,34 +148,41 @@ void SparseDeallocOnCount(T *rc, std::size_t count,
       const auto &representative = *control_group.begin();
 
       bool group_excluded = false;
+      bool group_has_allocated_sparse_member = false;
       bool deallocate_group = true;
       for (const auto &control_var : control_group) {
         if (exclude.count(control_var.label()) > 0) {
           group_excluded = true;
-          break;
-        }
-
-        int lo = pack.GetLowerBoundHost(b, PackIdx(packIdx[control_var.label()]));
-        int hi = pack.GetUpperBoundHost(b, PackIdx(packIdx[control_var.label()]));
-        if (lo > hi) continue; // This controller variable is not present in the pack.
-
-        auto &counter = pmbdata->Get(control_var.label()).dealloc_count;
-        bool all_zero = true;
-        for (int iv = lo; iv <= hi; ++iv) all_zero = all_zero && is_zero_h(b, iv);
-        if (all_zero) {
-          counter++;
         } else {
-          counter = 0;
+          const auto pack_idx = packIdx.find(control_var.label());
+          if (pack_idx != packIdx.end()) {
+            int lo = pack.GetLowerBoundHost(b, PackIdx(pack_idx->second));
+            int hi = pack.GetUpperBoundHost(b, PackIdx(pack_idx->second));
+            if (lo <= hi) {
+              group_has_allocated_sparse_member = true;
+
+              auto &counter = pmbdata->Get(control_var.label()).dealloc_count;
+              bool all_zero = true;
+              for (int iv = lo; iv <= hi; ++iv) {
+                all_zero = all_zero && is_zero_h(b, iv);
+              }
+              if (all_zero) {
+                counter++;
+              } else {
+                counter = 0;
+              }
+              deallocate_group = deallocate_group && (counter > count);
+            }
+          }
         }
-        deallocate_group = deallocate_group && (counter > count);
       }
 
-      if (group_excluded || !deallocate_group) continue;
-
-      for (const auto &control_var : control_group) {
-        pmbdata->Get(control_var.label()).dealloc_count = 0;
+      if (!group_excluded && group_has_allocated_sparse_member && deallocate_group) {
+        for (const auto &control_var : control_group) {
+          pmbdata->Get(control_var.label()).dealloc_count = 0;
+        }
+        pmb->DeallocateSparse(representative.label());
       }
-      pmb->DeallocateSparse(representative.label());
     }
   }
 }

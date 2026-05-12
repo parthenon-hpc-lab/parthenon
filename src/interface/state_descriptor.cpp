@@ -360,8 +360,10 @@ bool StateDescriptor::AddSparsePoolImpl_(const SparsePool &pool) {
 
   // add all the sparse fields
   for (const auto itr : pool.pool()) {
-    if (!AddFieldImpl_(VarID(pool.base_name(), itr.first), itr.second,
-                       pool.ControlGroupFor(itr.first))) {
+    const auto control_group =
+        pool.controller_base_name().empty() ? pool.ControlGroupFor(itr.first)
+                                            : ControlGroup{};
+    if (!AddFieldImpl_(VarID(pool.base_name(), itr.first), itr.second, control_group)) {
       // a field with this name already exists, this would leave the StateDescriptor in an
       // inconsistent state, so throw
       PARTHENON_THROW("Couldn't add sparse field " +
@@ -497,30 +499,12 @@ std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd) {
 void StateDescriptor::InvertControllerMap() {
   allocControllerMap_.clear();
   allocControlGroups_.clear();
-  std::unordered_map<std::string, ControlGroup> field_to_group;
   for (const auto &pair : allocControllerReverseMap_) {
     const auto var = pair.first.label();
     const auto &control_group = pair.second;
 
     allocControlGroups_.insert(control_group);
-
-    auto var_it = field_to_group.find(var);
-    if (var_it == field_to_group.end()) {
-      field_to_group.emplace(var, control_group);
-    } else {
-      PARTHENON_REQUIRE_THROWS(var_it->second == control_group,
-                               "Field '" + var + "' participates in more than one "
-                               "control group");
-    }
     for (const auto &cont : control_group) {
-      auto cont_it = field_to_group.find(cont.label());
-      if (cont_it == field_to_group.end()) {
-        field_to_group.emplace(cont.label(), control_group);
-      } else {
-        PARTHENON_REQUIRE_THROWS(cont_it->second == control_group,
-                                 "Field '" + cont.label() +
-                                     "' participates in more than one control group");
-      }
       auto iter = allocControllerMap_.find(cont.label());
       if (iter == allocControllerMap_.end()) {
         allocControllerMap_.emplace(
@@ -539,6 +523,7 @@ void StateDescriptor::InvertControllerMap() {
 void StateDescriptor::ResolveSparseControllerGroups() {
   for (const auto &pool_pair : sparsePoolMap_) {
     const auto &pool = pool_pair.second;
+    const bool has_controller_pool = !pool.controller_base_name().empty();
     std::string controller_base = pool.controller_base_name();
     if (controller_base == "") controller_base = pool.base_name();
 
@@ -551,13 +536,15 @@ void StateDescriptor::ResolveSparseControllerGroups() {
       const auto vid = VarID(pool.base_name(), entry.first);
       const auto control_group =
           controller_pool->second.ControlGroupFor(pool.ControlSparseID(entry.first));
-      auto iter = allocControllerReverseMap_.find(vid);
-      if (iter == allocControllerReverseMap_.end()) {
-        allocControllerReverseMap_.emplace(vid, control_group);
-      } else {
-        PARTHENON_REQUIRE_THROWS(iter->second == control_group,
-                                 "Sparse field '" + vid.label() +
-                                     "' resolved to more than one control group");
+      auto [iter, inserted] = allocControllerReverseMap_.emplace(vid, control_group);
+      if (!inserted) {
+        if (has_controller_pool) {
+          iter->second = control_group;
+        } else {
+          PARTHENON_REQUIRE_THROWS(iter->second == control_group,
+                                   "Sparse field '" + vid.label() +
+                                       "' resolved to more than one control group");
+        }
       }
     }
   }
