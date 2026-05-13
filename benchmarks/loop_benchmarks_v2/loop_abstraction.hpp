@@ -132,12 +132,15 @@ template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 class index_space_t {
  public:
   template <class idx_space_t, class F>
+  KOKKOS_INLINE_FUNCTION
   friend void impl::outer_raw_for(idx_space_t idx_space, F &&f);
   template <class inner_idx_range_t, class F>
+  KOKKOS_FORCEINLINE_FUNCTION
   friend void impl::inner_raw_for(const inner_idx_range_t &idx_range, F &&f);
   template <class idx_space_t, class F>
   friend void impl::outer_kokkos(idx_space_t idx_space, F &&f);
   template <class inner_idx_range_t, class F>
+  KOKKOS_FORCEINLINE_FUNCTION
   friend void impl::inner_kokkos(const inner_idx_range_t &idx_range, F &&f);
   template <class>
   friend struct var_view_t;
@@ -204,12 +207,15 @@ class inner_index_range_t {
   using payload_t = inner_index_range_payload_t<IndexSpace::loop_tag_v>;
 
   template <class idx_space_t, class F>
+  KOKKOS_INLINE_FUNCTION
   friend void impl::outer_raw_for(idx_space_t idx_space, F &&f);
   template <class inner_idx_range_t, class F>
+  KOKKOS_FORCEINLINE_FUNCTION
   friend void impl::inner_raw_for(const inner_idx_range_t &idx_range, F &&f);
   template <class idx_space_t, class F>
   friend void impl::outer_kokkos(idx_space_t idx_space, F &&f);
   template <class inner_idx_range_t, class F>
+  KOKKOS_FORCEINLINE_FUNCTION
   friend void impl::inner_kokkos(const inner_idx_range_t &idx_range, F &&f);
 
   KOKKOS_FUNCTION

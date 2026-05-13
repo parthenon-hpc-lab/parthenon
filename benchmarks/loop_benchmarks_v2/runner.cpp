@@ -56,6 +56,7 @@ template <int SX, int SY, int SZ>
 BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
   const auto alpha = MakeAlpha();
   const auto beta = MakeBeta();
+  const int niter = spec.kernel.niter;
   const auto dx = [&] {
     std::array<int, SX> offsets{};
     for (int i = 0; i < SX; ++i) {
@@ -81,7 +82,7 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
   const auto body_direct = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
                                          int i) {
     return ComputeUnifiedCellDirect<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz, alpha, beta,
-                                                spec.kernel.niter);
+                                                niter);
   };
 
   const auto build_access = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
@@ -90,7 +91,7 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
   };
 
   const auto body_hoisted = KOKKOS_LAMBDA(const auto &access, int idx) {
-    return ComputeUnifiedCellHoisted<SX, SY, SZ>(access, idx, alpha, beta, spec.kernel.niter);
+    return ComputeUnifiedCellHoisted<SX, SY, SZ>(access, idx, alpha, beta, niter);
   };
 
   const bool use_hoisted = spec.loop.access_mode == "hoisted";
