@@ -236,7 +236,7 @@ class inner_index_range_t {
     }
     return out;
   } 
-
+ public:
   IndexSpace const * pidx_space = nullptr;
   int block = 0;
   payload_t payload_{};
