@@ -153,6 +153,14 @@ def filter_loops_for_target(loops, target):
     return [loop for loop in loops if loop in allowed]
 
 
+def default_edge_ninner(edge, target, threshold):
+    if threshold <= 0:
+        return edge * edge
+    plane = edge * edge
+    chunks = (threshold + plane - 1) // plane
+    return min(max(1, chunks), edge) * plane
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Run the v2 loop benchmark analysis.")
     parser.add_argument(
@@ -184,6 +192,17 @@ def parse_args():
     parser.add_argument("--niter-values", default="1,3,9,27,81")
     parser.add_argument("--ninner-niter-values", default="1,9,81")
     parser.add_argument("--target-total-cells", type=int, default=1_048_576)
+    parser.add_argument(
+        "--min-default-ninner-cells",
+        "--ninner-threshold",
+        dest="min_default_ninner_cells",
+        type=int,
+        default=0,
+        help=(
+            "Minimum default edge-sweep chunk size in cells before rounding up to a multiple of "
+            "edge^2; 0 keeps the legacy edge^2 default."
+        ),
+    )
     parser.add_argument("--nvars", type=int, default=16)
     parser.add_argument("--nghost", type=int, default=2)
     parser.add_argument("--stencil-x", default="0")
@@ -349,7 +368,9 @@ def write_cases_csv(path, loops, edge_values, ninner_values, stencil_shapes, arg
         )
         writer.writeheader()
         for edge in edge_values:
-            edge_ninner_values = ninner_values if ninner_values else [edge * edge]
+            edge_ninner_values = ninner_values if ninner_values else [
+                default_edge_ninner(edge, args.target, args.min_default_ninner_cells)
+            ]
             for loop in loops:
                 loop_stencil_shapes = [
                     stencil for stencil in stencil_shapes
@@ -390,7 +411,9 @@ def count_cases(loops, edge_values, ninner_values, stencil_shapes, args):
     niter_values = parse_csv_ints(args.niter_values)
     total = 0
     for edge in edge_values:
-        edge_ninner_values = ninner_values if ninner_values else [edge * edge]
+        edge_ninner_values = ninner_values if ninner_values else [
+            default_edge_ninner(edge, args.target, args.min_default_ninner_cells)
+        ]
         for loop in loops:
             loop_stencil_shapes = [
                 stencil
