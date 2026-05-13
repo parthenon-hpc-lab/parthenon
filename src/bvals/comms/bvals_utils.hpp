@@ -75,19 +75,45 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   Mesh *pmesh = md->GetMeshPointer();
 
   using key_t = std::tuple<int, int, std::string, int>;
-  std::vector<std::tuple<int, int, key_t>> key_order;
+  //std::vector<std::tuple<int, int, key_t>> key_order;
 
+  //int boundary_idx = 0;
+  //ForEachBoundary<bound_type>(md, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+  //  auto key = KeyFunc(pmb, nb, v);
+  //  PARTHENON_DEBUG_REQUIRE(comm_map->count(key) > 0,
+  //                          "Boundary communicator does not exist");
+  //  // Create a unique index by combining receiver gid (second element of the key
+  //  // tuple) and geometric element index (fourth element of the key tuple)
+  //  int recvr_idx = 27 * std::get<1>(key) + std::get<3>(key);
+  //  key_order.push_back({recvr_idx, boundary_idx, key});
+  //  ++boundary_idx;
+  //});
+
+//WIP: OMP
   int boundary_idx = 0;
-  ForEachBoundary<bound_type>(md, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-    auto key = KeyFunc(pmb, nb, v);
-    PARTHENON_DEBUG_REQUIRE(comm_map->count(key) > 0,
-                            "Boundary communicator does not exist");
-    // Create a unique index by combining receiver gid (second element of the key
-    // tuple) and geometric element index (fourth element of the key tuple)
-    int recvr_idx = 27 * std::get<1>(key) + std::get<3>(key);
-    key_order.push_back({recvr_idx, boundary_idx, key});
-    ++boundary_idx;
+  ForEachBoundary2<bound_type>(md, [&](int ib, int iv, int in) {
+        ++boundary_idx;
+      });
+
+  boundIdx_t *boundIdx = (boundIdx_t*)malloc(boundary_idx*sizeof(boundIdx_t));
+  boundary_idx = 0;
+  ForEachBoundary2<bound_type>(md, [&](int ib, int iv, int in) {
+     boundIdx[boundary_idx].ib = ib;
+     boundIdx[boundary_idx].iv = iv;
+     boundIdx[boundary_idx].in = in;
+     boundary_idx++;
   });
+
+  std::vector<std::tuple<int, int, key_t>> key_order(boundary_idx);
+
+  ForEachBoundaryOMP1<bound_type>
+    (md, boundary_idx, boundIdx, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v, int i) {
+    auto key = KeyFunc(pmb, nb, v);
+    int recvr_idx = 27 * std::get<1>(key) + std::get<3>(key);
+    key_order[i] = std::make_tuple(recvr_idx, i, key);
+    });
+  free(boundIdx);
+//END WIP      
 
   // If desired, sort the keys and boundary indices by receiver_idx
   // std::sort(key_order.begin(), key_order.end(),
@@ -99,16 +125,27 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   std::mt19937 g(rd());
   std::shuffle(key_order.begin(), key_order.end(), g);
 
+  //int buff_idx = 0;
+  //pcache->buf_vec.clear();
+  //pcache->idx_vec = std::vector<std::size_t>(key_order.size());
+  //std::for_each(std::begin(key_order), std::end(key_order), [&](auto &t) {
+  //  if (comm_map->count(std::get<2>(t)) == 0) {
+  //    PARTHENON_FAIL("Asking for buffer that doesn't exist");
+  //  }
+  //  pcache->buf_vec.push_back(&((*comm_map)[std::get<2>(t)]));
+  //  (pcache->idx_vec)[std::get<1>(t)] = buff_idx++;
+  //});
+  //WIP: The above loop should use OMP for parallelization. Fix the below to be more "Parthenon"
   int buff_idx = 0;
-  pcache->buf_vec.clear();
+  pcache->buf_vec.resize(key_order.size());
   pcache->idx_vec = std::vector<std::size_t>(key_order.size());
-  std::for_each(std::begin(key_order), std::end(key_order), [&](auto &t) {
-    if (comm_map->count(std::get<2>(t)) == 0) {
-      PARTHENON_FAIL("Asking for buffer that doesn't exist");
-    }
-    pcache->buf_vec.push_back(&((*comm_map)[std::get<2>(t)]));
-    (pcache->idx_vec)[std::get<1>(t)] = buff_idx++;
-  });
+#pragma omp parallel for
+  for (int i = 0; i < key_order.size(); i++) {
+    auto &t = key_order[i];
+    pcache->buf_vec[i] = &((*comm_map)[std::get<2>(t)]);
+    (pcache->idx_vec)[std::get<1>(t)] = i;    
+  }
+  //END WIP
 
   const int nbound = pcache->buf_vec.size();
   if (initialize_flags && nbound > 0) {
@@ -209,12 +246,31 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   Mesh *pmesh = md->GetParentPointer();
   StateDescriptor *pkg = (pmesh->resolved_packages).get();
   cache.prores_cache.Initialize(nbound, pkg);
-
+//WIP
   int ibound = 0;
+  ForEachBoundary2<BOUND_TYPE>(md, [&](int ib, int iv, int in) {
+    ibound++; //WHY A FOR LOOP?
+  });  
+  boundIdx_t *boundIdx = (boundIdx_t*)malloc(ibound*sizeof(boundIdx_t));
+  ibound = 0;
+  ForEachBoundary2<BOUND_TYPE>(md, [&](int ib, int iv, int in) {
+     boundIdx[ibound].ib = ib;
+     boundIdx[ibound].iv = iv;
+     boundIdx[ibound].in = in;
+     ibound++;
+  });
+  ForEachBoundaryOMP1<BOUND_TYPE>
+    (md, ibound, boundIdx, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v, int i) {
+      const std::size_t ibuf = cache.idx_vec[i];
+      cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf]);
+    });
+    free(boundIdx);
+
+  ibound = 0;
   ForEachBoundary<BOUND_TYPE>(md, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
     // bnd_info
     const std::size_t ibuf = cache.idx_vec[ibound];
-    cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf]);
+    //cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf]); //WIP:Why?
 
     // subsets ordering is same as in cache.bnd_info
     // RefinementFunctions_t owns all relevant functionality, so
@@ -224,6 +280,7 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
 
     ++ibound;
   });
+  //END WIP
   Kokkos::deep_copy(cache.bnd_info, cache.bnd_info_h);
   cache.prores_cache.CopyToDevice();
 }

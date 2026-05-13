@@ -151,7 +151,10 @@ TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
     else
       buf.SendNull();
   }
-
+#ifdef MPI_PARALLEL
+  //FIXME: This optional MPI_Barrier forces many MPI libraries to start the MPI_Isend before continuing. Can improve performance
+  MPI_Barrier(MPI_COMM_WORLD);
+#endif  
   return TaskStatus::complete;
 }
 

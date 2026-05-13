@@ -147,7 +147,7 @@ void CalculateDerived(MeshData<Real> *md) {
   IndexRange kb = md->GetBoundsK(IndexDomain::interior);
 
   std::vector<std::string> vars({"derived", "U"});
-  auto &v = md->PackVariables(vars);
+  auto &v = md->PackVariablesByNames(vars);  
   const int nblocks = md->NumBlocks();
   size_t scratch_size = 0;
   constexpr int scratch_level = 0;
@@ -234,9 +234,10 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   // first we'll reconstruct the state to faces
   size_t scratch_size = 0;
   constexpr int scratch_level = 0;
+  const int teamSize = ib.e - ib.s + 1;
   parthenon::par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), scratch_size,
-      scratch_level, 0, nblocks - 1, kb.s - dk, kb.e + dk, jb.s - dj, jb.e + dj,
+      scratch_level, 0, nblocks - 1, kb.s - dk, kb.e + dk, jb.s - dj, jb.e + dj, teamSize,
       KOKKOS_LAMBDA(team_mbr_t member, const int b, const int k, const int j) {
         bool xrec = (k >= kb.s && k <= kb.e) && (j >= jb.s && j <= jb.e);
         bool yrec = (k >= kb.s && k <= kb.e) && (ndim > 1);
@@ -307,7 +308,7 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   scratch_size = 2 * ScratchPad1D<Real>::shmem_size(ib.e + 1);
   parthenon::par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), scratch_size,
-      scratch_level, 0, nblocks - 1, kb.s, kb.e + dk, jb.s, jb.e + dj,
+      scratch_level, 0, nblocks - 1, kb.s, kb.e + dk, jb.s, jb.e + dj, teamSize,
       KOKKOS_LAMBDA(team_mbr_t member, const int b, const int k, const int j) {
         bool xflux = (k <= kb.e && j <= jb.e);
         bool yflux = (ndim > 1 && k <= kb.e);

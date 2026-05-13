@@ -126,24 +126,20 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
     }
   }
 
-  TaskRegion &async_region2 = tc.AddRegion(blocks.size());
-  assert(blocks.size() == async_region2.size());
-  for (int i = 0; i < blocks.size(); i++) {
-    auto &pmb = blocks[i];
-    auto &tl = async_region2[i];
-    auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
+  // Apply boundary conditions and tag for refinement for each partition
+  TaskRegion &single_tasklist_per_pack_region3 = tc.AddRegion(num_partitions);
+  for (int i = 0; i < num_partitions; i++) {
+    auto &tl = single_tasklist_per_pack_region3[i];
+    auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
 
-    // set physical boundaries
-    auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditions, sc1);
-
-    if (stage == integrator->nstages) {
-      // Update refinement
-      if (pmesh->adaptive) {
-        auto tag_refine = tl.AddTask(
-            set_bc, parthenon::Refinement::Tag<MeshBlockData<Real>>, sc1.get());
-      }
+    auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditionsOnCoarseOrFineMD, mc1, false);
+    
+    if (stage == integrator->nstages && pmesh->adaptive) {
+      // auto tag_refine = tl.AddTask(none, parthenon::Refinement::Tag<MeshData<Real>>, mc1.get());
+      auto tag_refine = tl.AddTask(set_bc, parthenon::Refinement::Tag<MeshData<Real>>, mc1.get());
     }
-  }
+  } 
+
   return tc;
 }
 

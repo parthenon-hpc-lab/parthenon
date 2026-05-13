@@ -43,6 +43,12 @@ class MeshBlockData;
 
 template <typename T>
 using BlockDataList_t = std::vector<std::shared_ptr<MeshBlockData<T>>>;
+//WIP
+using FlagVarKeyMap_t = std::map<std::vector<MetadataFlag>, std::pair<vpack_types::VPackKey_t, std::vector<int>>>;
+using FlagVarFluxKeyMap_t = std::map<std::vector<MetadataFlag>, std::pair<vpack_types::UidVecPair, std::vector<int>>>;  
+using NameVarKeyMap_t = std::map<std::vector<std::string>, std::pair<vpack_types::VPackKey_t, std::vector<int>>>;
+using NameVarFluxKeyMap_t = std::map<std::vector<std::string>, std::pair<vpack_types::UidVecPair, std::vector<int>>>;
+//END WIP
 
 namespace pack_on_mesh_impl {
 
@@ -133,6 +139,93 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
       assert(this_map == pack_idx_map);
     }
   }
+  //WIP
+  auto itr = map.find(total_key);
+  bool make_new_pack = false;
+  if (itr == map.end()) {
+    // we don't have a cached pack, need to make a new one
+    make_new_pack = true;
+  } else {
+    // we have a cached pack, check allocation status
+    if (alloc_status_collection != itr->second.alloc_status) {
+      // allocation statuses differ, need to make a new pack and remove outdated one
+      make_new_pack = true;
+      map.erase(itr);
+    }
+  }
+
+  if (make_new_pack) {
+    ParArray1D<P> packs("MeshData::PackVariables::packs", nblocks);
+    auto packs_host = Kokkos::create_mirror_view(packs);
+
+    for (size_t i = 0; i < nblocks; i++) {
+      const auto &pack = packing_function(block_data_[i], this_map, this_key);
+      packs_host(i) = pack;
+    }
+
+    std::array<int, 5> dims;
+    for (int i = 0; i < 4; i++) {
+      dims[i] = packs_host(0).GetDim(i + 1);
+    }
+    dims[4] = nblocks;
+
+    Kokkos::deep_copy(packs, packs_host);
+
+    typename M::mapped_type new_item;
+    new_item.alloc_status = alloc_status_collection;
+    new_item.map = pack_idx_map;
+    new_item.pack = MeshBlockPack<P>(packs, dims);
+
+    itr = map.insert({total_key, new_item}).first;
+  }
+
+  if (map_out != nullptr) {
+    *map_out = itr->second.map;
+  }
+
+  //END WIP
+
+  return itr->second.pack;
+}
+//WIP
+
+template <typename P, typename K, typename M, typename F, typename FlagKeyMap>
+const MeshBlockPack<P> &PackOnMeshByFlags(M &map, BlockDataList_t<Real> &block_data_,
+                                          F &packing_function, PackIndexMap *map_out,
+                                          FlagKeyMap &flagKeyMap,
+                                          const std::vector<MetadataFlag> &flags) {
+  const auto nblocks = block_data_.size();
+
+  // since the pack keys used by MeshBlockData includes the allocation status of each
+  // variable, we cannot simply use the key from the first MeshBlockData, but we need to
+  // get the keys from all MeshBlockData instances and concatenate them
+  K total_key;
+  K this_key;  
+
+  PackIndexMap pack_idx_map;
+  PackIndexMap this_map;
+
+  std::vector<int> alloc_status_collection;
+
+
+  if (flagKeyMap.find(flags) == flagKeyMap.end()) {
+    for (size_t i = 0; i < nblocks; i++) {
+      const auto &pack = packing_function(block_data_[i], this_map, this_key);
+      AppendKey(&total_key, &this_key);
+      AllocationStatusCollector<P>::Append(&alloc_status_collection, pack);
+
+      if (i == 0) {
+        pack_idx_map = this_map;
+      } else {
+        assert(this_map == pack_idx_map);
+      }
+    }
+    flagKeyMap[flags].first = total_key;
+    flagKeyMap[flags].second = alloc_status_collection;
+  } else {
+    total_key = flagKeyMap[flags].first;
+    alloc_status_collection = flagKeyMap[flags].second;
+  }
 
   auto itr = map.find(total_key);
   bool make_new_pack = false;
@@ -179,6 +272,92 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
 
   return itr->second.pack;
 }
+
+  
+template <typename P, typename K, typename M, typename F, typename NameKeyMap>
+const MeshBlockPack<P> &PackOnMeshByNames(M &map, BlockDataList_t<Real> &block_data_,
+                                          F &packing_function, PackIndexMap *map_out,
+                                          NameKeyMap &nameKeyMap,
+                                          const std::vector<std::string> &names) {
+  const auto nblocks = block_data_.size();
+
+  // since the pack keys used by MeshBlockData includes the allocation status of each
+  // variable, we cannot simply use the key from the first MeshBlockData, but we need to
+  // get the keys from all MeshBlockData instances and concatenate them
+  K total_key;
+  K this_key;  
+
+  PackIndexMap pack_idx_map;
+  PackIndexMap this_map;
+
+  std::vector<int> alloc_status_collection;
+
+
+  if (nameKeyMap.find(names) == nameKeyMap.end()) {
+    for (size_t i = 0; i < nblocks; i++) {
+      const auto &pack = packing_function(block_data_[i], this_map, this_key);
+      AppendKey(&total_key, &this_key);
+      AllocationStatusCollector<P>::Append(&alloc_status_collection, pack);
+
+      if (i == 0) {
+        pack_idx_map = this_map;
+      } else {
+        assert(this_map == pack_idx_map);
+      }
+    }
+    nameKeyMap[names].first = total_key;
+    nameKeyMap[names].second = alloc_status_collection;
+  } else {
+    total_key = nameKeyMap[names].first;
+    alloc_status_collection = nameKeyMap[names].second;
+  }
+
+  auto itr = map.find(total_key);
+  bool make_new_pack = false;
+  if (itr == map.end()) {
+    // we don't have a cached pack, need to make a new one
+    make_new_pack = true;
+  } else {
+    // we have a cached pack, check allocation status
+    if (alloc_status_collection != itr->second.alloc_status) {
+      // allocation statuses differ, need to make a new pack and remove outdated one
+      make_new_pack = true;
+      map.erase(itr);
+    }
+  }
+
+  if (make_new_pack) {
+    ParArray1D<P> packs("MeshData::PackVariables::packs", nblocks);
+    auto packs_host = Kokkos::create_mirror_view(packs);
+
+    for (size_t i = 0; i < nblocks; i++) {
+      const auto &pack = packing_function(block_data_[i], this_map, this_key);
+      packs_host(i) = pack;
+    }
+
+    std::array<int, 5> dims;
+    for (int i = 0; i < 4; i++) {
+      dims[i] = packs_host(0).GetDim(i + 1);
+    }
+    dims[4] = nblocks;
+
+    Kokkos::deep_copy(packs, packs_host);
+
+    typename M::mapped_type new_item;
+    new_item.alloc_status = alloc_status_collection;
+    new_item.map = pack_idx_map;
+    new_item.pack = MeshBlockPack<P>(packs, dims);
+
+    itr = map.insert({total_key, new_item}).first;
+  }
+
+  if (map_out != nullptr) {
+    *map_out = itr->second.map;
+  }
+
+  return itr->second.pack;
+}
+//END WIP
 
 } // namespace pack_on_mesh_impl
 
@@ -326,6 +505,49 @@ class MeshData {
     return pack_on_mesh_impl::PackOnMesh<VariablePack<T>, vpack_types::VPackKey_t>(
         varPackMap_, block_data_, pack_function, map_out);
   }
+  //WIP
+  const auto &PackVariablesAndFluxesByFlagsImpl(PackIndexMap *map_out, const std::vector<MetadataFlag> &flags) {
+    auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data,
+                             PackIndexMap &map, vpack_types::UidVecPair &key) {
+      return meshblock_data->PackVariablesAndFluxes(flags, map, key);
+    };
+
+    return pack_on_mesh_impl::PackOnMeshByFlags<VariableFluxPack<T>, vpack_types::UidVecPair>
+      (varFluxPackMap_, block_data_, pack_function, map_out, flagVarFluxKeyMap_, flags);
+  }
+  
+  const auto &PackVariablesAndFluxesByNamesImpl(PackIndexMap *map_out,
+                                                const std::vector<std::string> &var_names,
+                                                const std::vector<std::string> &flx_names) {
+    auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data,
+                             PackIndexMap &map, vpack_types::UidVecPair &key) {
+      return meshblock_data->PackVariablesAndFluxes(var_names, flx_names, map, key);
+    };
+    std::vector<std::string> names(var_names);
+    names.insert(names.end(), flx_names.begin(), flx_names.end());
+    return pack_on_mesh_impl::PackOnMeshByNames<VariableFluxPack<T>, vpack_types::UidVecPair>
+      (varFluxPackMap_, block_data_, pack_function, map_out, nameVarFluxKeyMap_, names);
+  }  
+  //END WIP
+  const auto &PackVariablesByFlagsImpl(PackIndexMap *map_out, bool coarse, const std::vector<MetadataFlag> &flags) {
+    auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data,
+                             PackIndexMap &map, vpack_types::VPackKey_t &key) {
+      return meshblock_data->PackVariables(flags, map, key, coarse);
+    };
+    return pack_on_mesh_impl::PackOnMeshByFlags<VariablePack<T>, vpack_types::VPackKey_t>
+      (varPackMap_, block_data_, pack_function, map_out, flagVarKeyMap_, flags);    
+  }
+  
+  const auto &PackVariablesByNamesImpl(PackIndexMap *map_out, bool coarse,
+                                       const std::vector<std::string> &names) {
+    auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data,
+                             PackIndexMap &map, vpack_types::VPackKey_t &key) {
+      return meshblock_data->PackVariables(names, map, key, coarse);
+    };
+    return pack_on_mesh_impl::PackOnMeshByNames<VariablePack<T>, vpack_types::VPackKey_t>
+      (varPackMap_, block_data_, pack_function, map_out, nameVarKeyMap_, names);
+  }  
+
 
  public:
   // DO NOT use variatic templates here. They shadow each other
@@ -426,12 +648,38 @@ class MeshData {
     return PackVariablesImpl(nullptr, coarse);
   }
 
+  //WIP 
+  const auto &PackVariablesAndFluxesByFlags(const std::vector<MetadataFlag> &flags) {
+    return PackVariablesAndFluxesByFlagsImpl(nullptr, flags);
+  }
+  
+  const auto &PackVariablesAndFluxesByNames(const std::vector<std::string> &var_names,
+                                            const std::vector<std::string> &flx_names,
+                                            PackIndexMap &map) {
+    return PackVariablesAndFluxesByNamesImpl(&map, var_names, flx_names);
+  }    
+
+  const auto &PackVariablesByFlags(const std::vector<MetadataFlag> &flags) {
+    return PackVariablesByFlagsImpl(nullptr, false, flags);
+  }
+  
+  const auto &PackVariablesByNames(const std::vector<std::string> &names) {
+    return PackVariablesByNamesImpl(nullptr, false, names);
+  }
+  //END WIP
+
   void ClearCaches() {
     sparse_pack_cache_.clear();
     block_data_.clear();
     varPackMap_.clear();
     varFluxPackMap_.clear();
     bvars_cache_.clear();
+    //WIP
+    flagVarKeyMap_.clear();
+    flagVarFluxKeyMap_.clear();
+    nameVarKeyMap_.clear();
+    nameVarFluxKeyMap_.clear();        
+    //END WIP
   }
 
   int GetNDim() const { return ndim_; }
@@ -491,6 +739,11 @@ class MeshData {
   Mesh *pmy_mesh_;
   BlockDataList_t<T> block_data_;
   std::string stage_name_;
+  FlagVarKeyMap_t flagVarKeyMap_;
+  FlagVarFluxKeyMap_t flagVarFluxKeyMap_;
+  NameVarKeyMap_t nameVarKeyMap_;
+  NameVarFluxKeyMap_t nameVarFluxKeyMap_;
+
 
   // caches for packs
   MapToMeshBlockVarPack<T> varPackMap_;

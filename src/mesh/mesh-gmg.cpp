@@ -52,12 +52,16 @@ void Mesh::SetMeshBlockNeighbors(
   BufferID buffer_id(ndim, multilevel);
 
   for (auto &pmb : block_list) {
-    std::vector<NeighborBlock> all_neighbors;
     const auto &loc = pmb->loc;
     auto neighbors = forest.FindNeighbors(loc, grid_id);
+    std::vector<NeighborBlock> all_neighbors(neighbors.size());
 
     // Build NeighborBlocks for unique neighbors
-    for (const auto &nloc : neighbors) {
+    //WIP
+    #pragma omp parallel for
+    //for (const auto &nloc : neighbors) {
+    for (int i = 0; i < neighbors.size(); i++) {
+      const auto &nloc = neighbors[i];
       auto gid = forest.GetGid(nloc.global_loc);
       auto offsets = loc.GetSameLevelOffsets(nloc.origin_loc);
       auto f =
@@ -71,17 +75,19 @@ void Mesh::SetMeshBlockNeighbors(
                                                        -offsets[2]);
       int tid = buffer_id.GetID(-offsets[0], -offsets[1], -offsets[2], fn[0], fn[1]);
       int lgid = forest.GetLeafGid(nloc.global_loc);
-      all_neighbors.emplace_back(pmb->pmy_mesh, nloc.global_loc, ranklist[lgid], gid,
+      all_neighbors[i] = NeighborBlock(pmb->pmy_mesh, nloc.global_loc, ranklist[lgid], gid,
                                  offsets, bid, tid, f[0], f[1]);
 
       // Set neighbor block ownership
-      auto &nb = all_neighbors.back();
+      auto &nb = all_neighbors[i];
+      
       auto neighbor_neighbors = forest.FindNeighbors(nloc.global_loc, grid_id);
 
       nb.ownership =
           DetermineOwnership(nloc.global_loc, neighbor_neighbors, newly_refined);
       nb.ownership.initialized = true;
     }
+    //END WIP
 
     if (grid_id.type == GridType::leaf) {
       pmb->neighbors = all_neighbors;
