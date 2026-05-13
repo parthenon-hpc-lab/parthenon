@@ -361,7 +361,7 @@ inline void RunKokkosBoviTeamContiguous(const Dataset &dataset, int logical_inne
           double *const out = &data.out(b, v, k, j, i);
           Kokkos::parallel_for(
               Kokkos::TeamThreadRange(member, 0, span.size),
-              KOKKOS_LAMBDA(const int idx) { out[idx] = body(access, idx); });
+              [&](const int idx) { out[idx] = body(access, idx); });
         }
       });
 }
@@ -390,7 +390,7 @@ inline void RunKokkosBoviTeamContiguousDirect(const Dataset &dataset, int logica
         for (int v = 0; v < nvars; ++v) {
           Kokkos::parallel_for(
               Kokkos::TeamThreadRange(member, 0, span.size),
-              KOKKOS_LAMBDA(const int idx) {
+              [&](const int idx) {
                 const auto [k, j, i] = memory_indexer(span.memory_start + idx);
                 data.out(b, v, k, j, i) = body(data, b, v, k, j, i);
               });
@@ -420,7 +420,7 @@ inline void RunKokkosBoviTeamLogical(const Dataset &dataset, int logical_inner_s
         for (int v = 0; v < nvars; ++v) {
           Kokkos::parallel_for(
               Kokkos::TeamThreadRange(member, 0, span.size),
-              KOKKOS_LAMBDA(const int idx) {
+              [&](const int idx) {
                 const auto [k, j, i] = logical_indexer(span.start + idx);
                 data.out(b, v, k, j, i) = body(data, b, v, k, j, i);
               });
