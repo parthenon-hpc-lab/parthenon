@@ -23,6 +23,7 @@ enum class LoopKind {
   LoopAbstractionBoviMemory,
   LoopAbstractionBoviLogical,
   LoopAbstractionBoivLogical,
+  LoopAbstractionBoivLogicalDirect,
   LoopAbstractionBvoiMemory,
   LoopAbstractionBvoiLogical,
 };

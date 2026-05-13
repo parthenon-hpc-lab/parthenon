@@ -57,6 +57,7 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
   const auto alpha = MakeAlpha();
   const auto beta = MakeBeta();
   const int niter = spec.kernel.niter;
+  const auto &problem = dataset.problem;
   const auto dx = [&] {
     std::array<int, SX> offsets{};
     for (int i = 0; i < SX; ++i) {
@@ -142,6 +143,14 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
         RunLoopAbstractionCase<loop_abstraction::loop_tag::boiv,
                                loop_abstraction::inner_tag::logical, SX, SY, SZ>(
             spec, dataset, dx, dy, dz, alpha, beta);
+        break;
+      case LoopKind::LoopAbstractionBoivLogicalDirect:
+        RunUnifiedKernelWithLoopAbstractionDirect<loop_abstraction::loop_tag::boiv,
+                                                  loop_abstraction::inner_tag::logical, SX, SY, SZ>(
+            dataset.data.in, dataset.data.out, dataset.data.active_counts, problem.nblocks,
+            problem.nx_interior, problem.ny_interior, problem.nz_interior, problem.nghost, dx,
+            dy, dz, alpha, beta, spec.kernel.niter,
+            spec.loop.ninner > 0 ? std::optional<int>{spec.loop.ninner} : std::nullopt);
         break;
       case LoopKind::LoopAbstractionBvoiMemory:
         RunLoopAbstractionCase<loop_abstraction::loop_tag::bvoi,

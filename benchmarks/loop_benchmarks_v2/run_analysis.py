@@ -34,6 +34,7 @@ DEVICE_LOOPS = [
     "kokkos_boiv_flat",
     "kokkos_bovi_team_contiguous",
     "kokkos_bovi_team_logical",
+    "loop_abstraction_boiv_logical_direct",
 ]
 
 ABSTRACTION_LOOPS_CPU = [
@@ -48,6 +49,7 @@ ABSTRACTION_LOOPS_DEVICE = [
     "loop_abstraction_bovi_memory",
     "loop_abstraction_bovi_logical",
     "loop_abstraction_boiv_logical",
+    "loop_abstraction_boiv_logical_direct",
 ]
 
 LOOP_ACCESS_MODES = {
@@ -64,6 +66,7 @@ LOOP_ACCESS_MODES = {
     "loop_abstraction_bovi_memory": ["hoisted"],
     "loop_abstraction_bovi_logical": ["hoisted"],
     "loop_abstraction_boiv_logical": ["hoisted"],
+    "loop_abstraction_boiv_logical_direct": ["direct"],
     "loop_abstraction_bvoi_memory": ["hoisted"],
     "loop_abstraction_bvoi_logical": ["hoisted"],
 }
@@ -83,6 +86,7 @@ LOOP_STYLE = {
     "loop_abstraction_bovi_memory": ("#999999", "h"),
     "loop_abstraction_bovi_logical": ("#6A3D9A", "p"),
     "loop_abstraction_boiv_logical": ("#B15928", "8"),
+    "loop_abstraction_boiv_logical_direct": ("#A65628", "8"),
     "loop_abstraction_bvoi_memory": ("#1B9E77", "H"),
     "loop_abstraction_bvoi_logical": ("#D95F02", "d"),
 }
@@ -104,6 +108,7 @@ LOOP_DISPLAY_NAME = {
     "loop_abstraction_bovi_memory": "abstraction bovi_memory",
     "loop_abstraction_bovi_logical": "abstraction bovi_logical",
     "loop_abstraction_boiv_logical": "abstraction boiv_logical",
+    "loop_abstraction_boiv_logical_direct": "abstraction boiv_direct",
     "loop_abstraction_bvoi_memory": "abstraction bvoi_memory",
     "loop_abstraction_bvoi_logical": "abstraction bvoi_logical",
 }
