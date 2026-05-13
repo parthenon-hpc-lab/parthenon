@@ -161,6 +161,12 @@ def default_edge_ninner(edge, target, threshold):
     return min(max(1, chunks), edge) * plane
 
 
+def default_ninner_values(target):
+    if target == "gpu":
+        return "512,1024,2048,4096,8192,16384,32768,65536,131072,262144,524288,1048576,2097152"
+    return "8,16,32,64,128,256,384,512,640,768,896,1024,1536,2048,4096,8192"
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Run the v2 loop benchmark analysis.")
     parser.add_argument(
@@ -670,12 +676,12 @@ def main():
         if args.edge_values == "8,32,128":
             args.edge_values = "8,16,32,64,128"
         if not args.ninner_values:
-            args.ninner_values = "8,16,32,64,128,256,384,512,640,768,896,1024,1536,2048,4096,8192"
+            args.ninner_values = default_ninner_values(args.target)
         if not args.stencil_shapes:
             args.stencil_shapes = "point,x3,y3,z3"
     elif args.analysis_mode == "ninner":
         if not args.ninner_values:
-            args.ninner_values = "8,16,32,64,128,256,384,512,640,768,896,1024,1536,2048,4096,8192"
+            args.ninner_values = default_ninner_values(args.target)
         if args.edge_values == "8,32,128":
             args.edge_values = "32"
     if not args.stencil_shapes:
