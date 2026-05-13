@@ -56,6 +56,9 @@ class inner_index_range_t;
 enum class loop_tag {bvoi, bovi, boiv};
 enum class inner_tag {logical, memory};
 
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+class index_space_t;
+
 // Internal storage policy for the per-iteration range descriptor.
 // The primary template is the span-style contract; boiv fully specializes it
 // so the hot-path inner range stays as small as possible when iteration is
@@ -100,6 +103,24 @@ struct var_view_t {
   KOKKOS_FUNCTION
   parthenon::Real &operator()(Index3 in) const {
     return data[pidx_space->memory_kji.GetFlatIdx(in.k, in.j, in.i) + shift];
+  }
+};
+
+template <>
+struct var_view_t<index_space_t<loop_tag::boiv, inner_tag::logical>> {
+ public:
+  parthenon::Real *data = nullptr;
+
+  KOKKOS_FUNCTION
+  parthenon::Real &operator()(Index3 in) const {
+    (void)in;
+    return *data;
+  }
+
+  KOKKOS_FUNCTION
+  parthenon::Real &operator()(int idx) const {
+    (void)idx;
+    return *data;
   }
 };
 
@@ -162,7 +183,13 @@ class inner_index_range_t {
   template <class view_t>
   KOKKOS_INLINE_FUNCTION
   auto view(view_t& in, int var, std::array<int, 3> offset = {0, 0, 0}) const {
-    if constexpr (IndexSpace::loop_tag_v == loop_tag::bovi && IndexSpace::inner_tag_v == inner_tag::memory) {
+    if constexpr (IndexSpace::loop_tag_v == loop_tag::boiv) {
+      static_assert(IndexSpace::inner_tag_v == inner_tag::logical,
+                    "boiv currently expects logical inner coordinates");
+      return var_view_t<IndexSpace>{&in(block, var, payload_.k + offset[0], payload_.j + offset[1],
+                                        payload_.i + offset[2])};
+    } else if constexpr (IndexSpace::loop_tag_v == loop_tag::bovi &&
+                         IndexSpace::inner_tag_v == inner_tag::memory) {
       return var_view_t<IndexSpace>{&in(block, var, payload_.ks + offset[0], payload_.js + offset[1], payload_.is + offset[2]),
                                      0, pidx_space};
     } else {
@@ -242,7 +269,7 @@ void outer_raw_for(idx_space_t idx_space, F&& f) {
       }
     }    
   } else if constexpr (idx_space.loop_tag_v == loop_tag::boiv) {
-    static_assert(idx_space.inner_tag_v == inner_tag::logical, "Probably don't want to do boiv over interior memory"); 
+    static_assert(idx_space.inner_tag_v == inner_tag::logical, "Probably don't want to do boiv over memory"); 
     const int ks = idx_space.logical_kji.template StartIdx<0>();
     const int ke = idx_space.logical_kji.template EndIdx<0>();
     const int js = idx_space.logical_kji.template StartIdx<1>();
@@ -381,10 +408,10 @@ template <class inner_idx_range_t, class F>
 KOKKOS_FORCEINLINE_FUNCTION
 void inner_kokkos(const inner_idx_range_t &idx_range, F &&f) {
   using idx_space_t = std::remove_cv_t<std::remove_reference_t<decltype(*idx_range.pidx_space)>>;
-  const auto &idx_space = *(idx_range.pidx_space);
   if constexpr (idx_space_t::loop_tag_v == loop_tag::boiv) {
     f(Index3{idx_range.payload_.k, idx_range.payload_.j, idx_range.payload_.i});
   } else if constexpr (idx_space_t::loop_tag_v == loop_tag::bovi) {
+    const auto &idx_space = *(idx_range.pidx_space);
     const auto *team_member = idx_range.payload_.team_member;
     KOKKOS_ASSERT(team_member != nullptr);
     const auto &member = *team_member;
@@ -401,6 +428,7 @@ void inner_kokkos(const inner_idx_range_t &idx_range, F &&f) {
           }
         });
   } else if constexpr (idx_space_t::loop_tag_v == loop_tag::bvoi) {
+    const auto &idx_space = *(idx_range.pidx_space);
     const auto *team_member = idx_range.payload_.team_member;
     KOKKOS_ASSERT(team_member != nullptr);
     const auto &member = *team_member;
