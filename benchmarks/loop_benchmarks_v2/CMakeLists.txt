@@ -55,9 +55,9 @@ if("loop-benchmarks-v2" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
     $<$<CXX_COMPILER_ID:AppleClang,Clang>:-fsave-optimization-record>
     $<$<CXX_COMPILER_ID:AppleClang,Clang>:-fvectorize>
     $<$<CXX_COMPILER_ID:AppleClang,Clang>:-fslp-vectorize>
-    $<$<CXX_COMPILER_ID:AppleClang>:-Xclang -fopenmp-simd>
-    $<$<CXX_COMPILER_ID:Clang>:-fopenmp-simd>
-    $<$<CXX_COMPILER_ID:GNU>:-fopenmp-simd>
+    $<$<AND:$<NOT:$<BOOL:${Kokkos_ENABLE_HIP}>>,$<NOT:$<BOOL:${Kokkos_ENABLE_CUDA}>>,$<CXX_COMPILER_ID:AppleClang>>:-Xclang -fopenmp-simd>
+    $<$<AND:$<NOT:$<BOOL:${Kokkos_ENABLE_HIP}>>,$<NOT:$<BOOL:${Kokkos_ENABLE_CUDA}>>,$<CXX_COMPILER_ID:Clang>>:-fopenmp-simd>
+    $<$<AND:$<NOT:$<BOOL:${Kokkos_ENABLE_HIP}>>,$<NOT:$<BOOL:${Kokkos_ENABLE_CUDA}>>,$<CXX_COMPILER_ID:GNU>>:-fopenmp-simd>
   )
 
   target_include_directories(
