@@ -144,14 +144,6 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
                                loop_abstraction::inner_tag::logical, SX, SY, SZ>(
             spec, dataset, dx, dy, dz, alpha, beta);
         break;
-      case LoopKind::LoopAbstractionBoivLogicalDirect:
-        RunUnifiedKernelWithLoopAbstractionDirect<loop_abstraction::loop_tag::boiv,
-                                                  loop_abstraction::inner_tag::logical, SX, SY, SZ>(
-            dataset.data.in, dataset.data.out, dataset.data.active_counts, problem.nblocks,
-            problem.nx_interior, problem.ny_interior, problem.nz_interior, problem.nghost, dx,
-            dy, dz, alpha, beta, spec.kernel.niter,
-            spec.loop.ninner > 0 ? std::optional<int>{spec.loop.ninner} : std::nullopt);
-        break;
       case LoopKind::LoopAbstractionBvoiMemory:
         RunLoopAbstractionCase<loop_abstraction::loop_tag::bvoi,
                                loop_abstraction::inner_tag::memory, SX, SY, SZ>(

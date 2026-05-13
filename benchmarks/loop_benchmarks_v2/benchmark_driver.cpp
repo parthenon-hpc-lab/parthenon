@@ -76,8 +76,6 @@ std::string ToString(LoopKind kind) {
       return "loop_abstraction_bovi_logical";
     case LoopKind::LoopAbstractionBoivLogical:
       return "loop_abstraction_boiv_logical";
-    case LoopKind::LoopAbstractionBoivLogicalDirect:
-      return "loop_abstraction_boiv_logical_direct";
     case LoopKind::LoopAbstractionBvoiMemory:
       return "loop_abstraction_bvoi_memory";
     case LoopKind::LoopAbstractionBvoiLogical:
@@ -100,8 +98,6 @@ LoopKind ParseLoopKind(const std::string &text) {
   if (text == "loop_abstraction_bovi_memory") return LoopKind::LoopAbstractionBoviMemory;
   if (text == "loop_abstraction_bovi_logical") return LoopKind::LoopAbstractionBoviLogical;
   if (text == "loop_abstraction_boiv_logical") return LoopKind::LoopAbstractionBoivLogical;
-  if (text == "loop_abstraction_boiv_logical_direct")
-    return LoopKind::LoopAbstractionBoivLogicalDirect;
   if (text == "loop_abstraction_bvoi_memory") return LoopKind::LoopAbstractionBvoiMemory;
   if (text == "loop_abstraction_bvoi_logical") return LoopKind::LoopAbstractionBvoiLogical;
   return LoopKind::CpuBoivContiguous;
