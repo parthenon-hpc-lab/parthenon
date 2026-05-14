@@ -45,7 +45,7 @@ inline void RunUnifiedKernelWithLoopAbstraction(
                               }
 
                               loop_abstraction::inner(
-                                  idx_range, [&](auto idx) {
+                                  idx_range, KOKKOS_LAMBDA(auto idx) {
                                     double value = in(idx);
                                     for (int ix = 0; ix < SX; ++ix) {
                                       value += x_views[ix](idx);
