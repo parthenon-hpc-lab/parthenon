@@ -293,6 +293,21 @@ def parse_args():
     parser.add_argument("--warmup", type=int, default=1)
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--backend", default="Serial")
+    parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Skip benchmark execution and render the PDF from existing CSV files.",
+    )
+    parser.add_argument(
+        "--results-csv",
+        default="",
+        help="Existing edge-sweep results CSV to read in summary-only mode.",
+    )
+    parser.add_argument(
+        "--ninner-results-csv",
+        default="",
+        help="Existing ninner-sweep results CSV to read in summary-only mode.",
+    )
     return parser.parse_args()
 
 
@@ -531,6 +546,13 @@ def run_binary(binary, cases_csv, results_csv):
 def read_results_csv(path):
     with open(path, newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
+
+
+def load_results_rows(path):
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"missing results CSV: {path}")
+    return numericize_rows(read_results_csv(path))
 
 
 def run_sweep(binary, cases_csv, results_csv, loops, edge_values, ninner_values, stencil_shapes, args):
@@ -796,39 +818,55 @@ def main():
     ninner_results_csv = output_dir / "results_ninner.csv"
     pdf_path = output_dir / "summary.pdf"
 
+    edge_results_csv = Path(args.results_csv).resolve() if args.results_csv else results_csv
+    ninner_results_csv_in = (
+        Path(args.ninner_results_csv).resolve() if args.ninner_results_csv else ninner_results_csv
+    )
+
     edge_rows = []
     ninner_rows = []
-    passes = []
-    if args.analysis_mode != "ninner":
-        edge_case_count = count_cases(loops, edge_values, [], stencil_shapes, args)
-        passes.append(("edge sweep", edge_case_count))
-    if args.analysis_mode in ("full", "ninner"):
-        ninner_args = with_niter_values(args, args.ninner_niter_values)
-        ninner_case_count = count_cases(loops, [32], ninner_values, ninner_stencil_shapes, ninner_args)
-        passes.append(("ninner sweep", ninner_case_count))
+    if args.summary_only:
+        if args.analysis_mode != "ninner":
+            edge_rows = load_results_rows(edge_results_csv)
+        if args.analysis_mode in ("full", "ninner"):
+            ninner_rows = load_results_rows(ninner_results_csv_in)
+    else:
+        passes = []
+        if args.analysis_mode != "ninner":
+            edge_case_count = count_cases(loops, edge_values, [], stencil_shapes, args)
+            passes.append(("edge sweep", edge_case_count))
+        if args.analysis_mode in ("full", "ninner"):
+            ninner_args = with_niter_values(args, args.ninner_niter_values)
+            ninner_case_count = count_cases(loops, [32], ninner_values, ninner_stencil_shapes, ninner_args)
+            passes.append(("ninner sweep", ninner_case_count))
 
-    if passes:
-        print(f"passes: {len(passes)}")
-        for idx, (label, count) in enumerate(passes, start=1):
-            print(f"  [{idx}] {label}: {count} cases")
+        if passes:
+            print(f"passes: {len(passes)}")
+            for idx, (label, count) in enumerate(passes, start=1):
+                print(f"  [{idx}] {label}: {count} cases")
 
-    if args.analysis_mode != "ninner":
-        edge_rows = run_sweep(binary, cases_csv, results_csv, loops, edge_values, [], stencil_shapes, args)
-    if args.analysis_mode in ("full", "ninner"):
-        ninner_args = with_niter_values(args, args.ninner_niter_values)
-        ninner_rows = run_sweep(
-            binary,
-            ninner_cases_csv,
-            ninner_results_csv,
-            loops,
-            [32],
-            ninner_values,
-            ninner_stencil_shapes,
-            ninner_args,
-        )
+        if args.analysis_mode != "ninner":
+            edge_rows = run_sweep(binary, cases_csv, results_csv, loops, edge_values, [], stencil_shapes, args)
+        if args.analysis_mode in ("full", "ninner"):
+            ninner_args = with_niter_values(args, args.ninner_niter_values)
+            ninner_rows = run_sweep(
+                binary,
+                ninner_cases_csv,
+                ninner_results_csv,
+                loops,
+                [32],
+                ninner_values,
+                ninner_stencil_shapes,
+                ninner_args,
+            )
     rows = edge_rows + ninner_rows
     meta = collect_metadata(binary)
     with PdfPages(pdf_path) as pdf:
+        results_source_lines = [
+            f"- edge results csv: {edge_results_csv}",
+        ]
+        if args.analysis_mode in ("full", "ninner"):
+            results_source_lines.append(f"- ninner results csv: {ninner_results_csv_in}")
         add_text_page(
             pdf,
             args.title,
@@ -863,8 +901,7 @@ def main():
                 "Compiler flags",
                 meta.get("cxx_flags", "unknown"),
                 "",
-                f"cases csv: {cases_csv}",
-                f"results csv: {results_csv}",
+                *results_source_lines,
             ],
         )
 
@@ -948,11 +985,12 @@ def main():
                         "ninner",
                     )
 
-    print(f"Wrote {cases_csv}")
-    print(f"Wrote {results_csv}")
-    if ninner_rows:
-        print(f"Wrote {ninner_cases_csv}")
-        print(f"Wrote {ninner_results_csv}")
+    if not args.summary_only:
+        print(f"Wrote {cases_csv}")
+        print(f"Wrote {results_csv}")
+        if ninner_rows:
+            print(f"Wrote {ninner_cases_csv}")
+            print(f"Wrote {ninner_results_csv}")
     print(f"Wrote {pdf_path}")
 
 
