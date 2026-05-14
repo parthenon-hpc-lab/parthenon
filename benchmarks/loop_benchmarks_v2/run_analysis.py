@@ -828,13 +828,10 @@ def main():
         )
     rows = edge_rows + ninner_rows
     meta = collect_metadata(binary)
-    kernel_labels = sorted({row_kernel(row) for row in rows}, key=kernel_sort_key) or ["unknown"]
-    kernel_summary = ", ".join(kernel_labels)
-
     with PdfPages(pdf_path) as pdf:
         add_text_page(
             pdf,
-            f"{args.title} ({kernel_summary})",
+            args.title,
             [
                 "Sweep",
                 f"- test suite: {args.analysis_mode}",
