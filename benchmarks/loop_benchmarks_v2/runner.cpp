@@ -8,7 +8,7 @@
 #include <utility>
 
 #include "kernels.hpp"
-#include "loop_abstraction_kernel.hpp"
+#include "loop_abstraction_cases.hpp"
 #include "loop_patterns.hpp"
 
 namespace plb2 {
@@ -58,23 +58,6 @@ double ComputeOutputChecksum(const ViewType &out) {
     }
   }
   return checksum;
-}
-
-template <loop_abstraction::loop_tag LOOP_TAG, loop_abstraction::inner_tag INNER_TAG,
-          int SX, int SY, int SZ>
-PLB2_NOINLINE
-void RunLoopAbstractionCase(const CaseSpec &spec, const Dataset &dataset,
-                            const std::array<int, SX> &dx, const std::array<int, SY> &dy,
-                            const std::array<int, SZ> &dz,
-                            const std::array<double, kMaxNiter> &alpha,
-                            const std::array<double, kMaxNiter> &beta) {
-  const std::optional<int> ninner =
-      spec.loop.ninner > 0 ? std::optional<int>{spec.loop.ninner} : std::nullopt;
-  const auto &problem = dataset.problem;
-  RunUnifiedKernelWithLoopAbstraction<LOOP_TAG, INNER_TAG, SX, SY, SZ>(
-      dataset.data.in, dataset.data.out, dataset.data.active_counts, problem.nblocks,
-      problem.nx_interior, problem.ny_interior, problem.nz_interior, problem.nghost, dx, dy, dz,
-      alpha, beta, spec.kernel.niter, ninner);
 }
 
 template <int SX, int SY, int SZ>
