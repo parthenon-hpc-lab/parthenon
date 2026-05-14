@@ -177,8 +177,31 @@ def default_edge_ninner(edge, target, threshold):
 
 def default_ninner_values(target):
     if target == "gpu":
-        return "512,1024,2048,4096,8192,16384,32768,65536,131072,262144,524288,1048576,2097152"
+        return "64,128,256,384,512,768,1024,1536,2048,4096,8192,16384,32768,65536,131072,262144,524288,1048576,2097152"
     return "8,16,32,64,128,256,384,512,640,768,896,1024,1536,2048,4096,8192"
+
+
+DEFAULT_NITER_VALUES = "1,3,9,27,81,243"
+DEFAULT_NINNER_NITER_VALUES = "1,9,81,243"
+DEFAULT_TARGET_TOTAL_CELLS = 1_048_576
+
+
+def default_niter_values(target):
+    if target == "gpu":
+        return "1,3,9,27,81,243"
+    return "1,3,9,27,81"
+
+
+def default_ninner_niter_values(target):
+    if target == "gpu":
+        return "1,9,81,243"
+    return "1,3,9,27,81"
+
+
+def default_target_total_cells(target):
+    if target == "gpu":
+        return 16_777_216
+    return 262_144
 
 
 def derived_nblocks(edge, target_total_cells):
@@ -238,9 +261,9 @@ def parse_args():
         default="",
         help="Comma-separated ninner values. Defaults to edge^2 for each block edge.",
     )
-    parser.add_argument("--niter-values", default="1,3,9,27,81,243")
-    parser.add_argument("--ninner-niter-values", default="1,9,81,243")
-    parser.add_argument("--target-total-cells", type=int, default=1_048_576)
+    parser.add_argument("--niter-values", default=DEFAULT_NITER_VALUES)
+    parser.add_argument("--ninner-niter-values", default=DEFAULT_NINNER_NITER_VALUES)
+    parser.add_argument("--target-total-cells", type=int, default=DEFAULT_TARGET_TOTAL_CELLS)
     parser.add_argument(
         "--min-default-ninner-cells",
         "--ninner-threshold",
@@ -730,6 +753,12 @@ def add_niter_plot_page(pdf, rows, title, y_key, y_label):
 
 def main():
     args = parse_args()
+    if args.niter_values == DEFAULT_NITER_VALUES:
+        args.niter_values = default_niter_values(args.target)
+    if args.ninner_niter_values == DEFAULT_NINNER_NITER_VALUES:
+        args.ninner_niter_values = default_ninner_niter_values(args.target)
+    if args.target_total_cells == DEFAULT_TARGET_TOTAL_CELLS:
+        args.target_total_cells = default_target_total_cells(args.target)
     if args.analysis_mode == "full":
         if args.edge_values == "8,32,128":
             args.edge_values = "8,16,32,64,128"
@@ -810,8 +839,6 @@ def main():
                 "Sweep",
                 f"- test suite: {args.analysis_mode}",
                 f"- target: {args.target}",
-                f"- loops: {args.loops}",
-                f"- access modes: direct, hoisted",
                 f"- edge values: {args.edge_values}",
                 f"- niter edge values: {args.niter_edge_values}",
                 f"- niter stencil shapes: {args.niter_stencil_shapes}",
