@@ -15,6 +15,12 @@ namespace plb2 {
 
 namespace {
 
+#if defined(__GNUC__) || defined(__clang__)
+#define PLB2_NOINLINE __attribute__((noinline))
+#else
+#define PLB2_NOINLINE
+#endif
+
 template <typename RunFn>
 std::pair<double, double> TimeRepeatedRun(int warmup, int repeats, RunFn &&run_once) {
   for (int i = 0; i < warmup; ++i) {
@@ -56,6 +62,7 @@ double ComputeOutputChecksum(const ViewType &out) {
 
 template <loop_abstraction::loop_tag LOOP_TAG, loop_abstraction::inner_tag INNER_TAG,
           int SX, int SY, int SZ>
+PLB2_NOINLINE
 void RunLoopAbstractionCase(const CaseSpec &spec, const Dataset &dataset,
                             const std::array<int, SX> &dx, const std::array<int, SY> &dy,
                             const std::array<int, SZ> &dz,
@@ -71,11 +78,215 @@ void RunLoopAbstractionCase(const CaseSpec &spec, const Dataset &dataset,
 }
 
 template <int SX, int SY, int SZ>
+PLB2_NOINLINE
+void RunCpuFlatGhostsCase(const CaseSpec &spec, const Dataset &dataset,
+                          const std::array<int, SX> &dx, const std::array<int, SY> &dy,
+                          const std::array<int, SZ> &dz,
+                          const std::array<double, kMaxNiter> &alpha,
+                          const std::array<double, kMaxNiter> &beta) {
+  const int niter = spec.kernel.niter;
+  const auto body_direct = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
+                                         int i) {
+    return ComputeUnifiedCellDirect<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz, alpha, beta,
+                                                niter);
+  };
+  const auto build_access = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
+                                          int i) {
+    return BuildUnifiedCellHoistedPointers<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz);
+  };
+  const auto body_hoisted = KOKKOS_LAMBDA(const auto &access, int idx) {
+    return ComputeUnifiedCellHoisted<SX, SY, SZ>(access, idx, alpha, beta, niter);
+  };
+  if (spec.loop.access_mode == "hoisted") {
+    RunCpuFlatGhosts(dataset, build_access, body_hoisted);
+  } else {
+    RunCpuFlatGhosts(dataset, body_direct);
+  }
+}
+
+template <int SX, int SY, int SZ>
+PLB2_NOINLINE
+void RunCpuBoviContiguousCase(const CaseSpec &spec, const Dataset &dataset,
+                              const std::array<int, SX> &dx, const std::array<int, SY> &dy,
+                              const std::array<int, SZ> &dz,
+                              const std::array<double, kMaxNiter> &alpha,
+                              const std::array<double, kMaxNiter> &beta) {
+  const int niter = spec.kernel.niter;
+  const auto body_direct = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
+                                         int i) {
+    return ComputeUnifiedCellDirect<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz, alpha, beta,
+                                                niter);
+  };
+  const auto build_access = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
+                                          int i) {
+    return BuildUnifiedCellHoistedPointers<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz);
+  };
+  const auto body_hoisted = KOKKOS_LAMBDA(const auto &access, int idx) {
+    return ComputeUnifiedCellHoisted<SX, SY, SZ>(access, idx, alpha, beta, niter);
+  };
+  if (spec.loop.access_mode == "hoisted") {
+    RunCpuBoviContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
+  } else {
+    RunCpuBoviContiguousDirect(dataset, spec.loop.ninner, body_direct);
+  }
+}
+
+template <int SX, int SY, int SZ>
+PLB2_NOINLINE
+void RunCpuBoviLogicalCase(const CaseSpec &spec, const Dataset &dataset,
+                           const std::array<int, SX> &dx, const std::array<int, SY> &dy,
+                           const std::array<int, SZ> &dz,
+                           const std::array<double, kMaxNiter> &alpha,
+                           const std::array<double, kMaxNiter> &beta) {
+  const int niter = spec.kernel.niter;
+  const auto body_direct = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
+                                         int i) {
+    return ComputeUnifiedCellDirect<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz, alpha, beta,
+                                                niter);
+  };
+  RunCpuBoviLogical(dataset, spec.loop.ninner, body_direct);
+}
+
+template <int SX, int SY, int SZ>
+PLB2_NOINLINE
+void RunKokkosBoivFlatCase(const CaseSpec &spec, const Dataset &dataset,
+                           const std::array<int, SX> &dx, const std::array<int, SY> &dy,
+                           const std::array<int, SZ> &dz,
+                           const std::array<double, kMaxNiter> &alpha,
+                           const std::array<double, kMaxNiter> &beta) {
+  const int niter = spec.kernel.niter;
+  const auto body_direct = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
+                                         int i) {
+    return ComputeUnifiedCellDirect<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz, alpha, beta,
+                                                niter);
+  };
+  RunKokkosBoivFlat(dataset, body_direct);
+}
+
+template <int SX, int SY, int SZ>
+PLB2_NOINLINE
+void RunKokkosBoviTeamContiguousCase(const CaseSpec &spec, const Dataset &dataset,
+                                     const std::array<int, SX> &dx,
+                                     const std::array<int, SY> &dy,
+                                     const std::array<int, SZ> &dz,
+                                     const std::array<double, kMaxNiter> &alpha,
+                                     const std::array<double, kMaxNiter> &beta) {
+  const int niter = spec.kernel.niter;
+  const auto body_direct = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
+                                         int i) {
+    return ComputeUnifiedCellDirect<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz, alpha, beta,
+                                                niter);
+  };
+  const auto build_access = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
+                                          int i) {
+    return BuildUnifiedCellHoistedPointers<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz);
+  };
+  const auto body_hoisted = KOKKOS_LAMBDA(const auto &access, int idx) {
+    return ComputeUnifiedCellHoisted<SX, SY, SZ>(access, idx, alpha, beta, niter);
+  };
+  if (spec.loop.access_mode == "hoisted") {
+    RunKokkosBoviTeamContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
+  } else {
+    RunKokkosBoviTeamContiguousDirect(dataset, spec.loop.ninner, body_direct);
+  }
+}
+
+template <int SX, int SY, int SZ>
+PLB2_NOINLINE
+void RunKokkosBoviTeamLogicalCase(const CaseSpec &spec, const Dataset &dataset,
+                                  const std::array<int, SX> &dx,
+                                  const std::array<int, SY> &dy,
+                                  const std::array<int, SZ> &dz,
+                                  const std::array<double, kMaxNiter> &alpha,
+                                  const std::array<double, kMaxNiter> &beta) {
+  const int niter = spec.kernel.niter;
+  const auto body_direct = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
+                                         int i) {
+    return ComputeUnifiedCellDirect<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz, alpha, beta,
+                                                niter);
+  };
+  RunKokkosBoviTeamLogical(dataset, spec.loop.ninner, body_direct);
+}
+
+template <int SX, int SY, int SZ>
+PLB2_NOINLINE
+void RunCpuBoivContiguousCase(const CaseSpec &spec, const Dataset &dataset,
+                              const std::array<int, SX> &dx, const std::array<int, SY> &dy,
+                              const std::array<int, SZ> &dz,
+                              const std::array<double, kMaxNiter> &alpha,
+                              const std::array<double, kMaxNiter> &beta) {
+  const int niter = spec.kernel.niter;
+  const auto body_direct = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
+                                         int i) {
+    return ComputeUnifiedCellDirect<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz, alpha, beta,
+                                                niter);
+  };
+  RunCpuBoivContiguous(dataset, spec.loop.ninner, body_direct);
+}
+
+template <int SX, int SY, int SZ>
+PLB2_NOINLINE
+void RunCpuBoivLogicalCase(const CaseSpec &spec, const Dataset &dataset,
+                           const std::array<int, SX> &dx, const std::array<int, SY> &dy,
+                           const std::array<int, SZ> &dz,
+                           const std::array<double, kMaxNiter> &alpha,
+                           const std::array<double, kMaxNiter> &beta) {
+  const int niter = spec.kernel.niter;
+  const auto body_direct = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
+                                         int i) {
+    return ComputeUnifiedCellDirect<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz, alpha, beta,
+                                                niter);
+  };
+  RunCpuBoivLogical(dataset, spec.loop.ninner, body_direct);
+}
+
+template <int SX, int SY, int SZ>
+PLB2_NOINLINE
+void RunCpuBvoiContiguousCase(const CaseSpec &spec, const Dataset &dataset,
+                              const std::array<int, SX> &dx, const std::array<int, SY> &dy,
+                              const std::array<int, SZ> &dz,
+                              const std::array<double, kMaxNiter> &alpha,
+                              const std::array<double, kMaxNiter> &beta) {
+  const int niter = spec.kernel.niter;
+  const auto body_direct = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
+                                         int i) {
+    return ComputeUnifiedCellDirect<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz, alpha, beta,
+                                                niter);
+  };
+  const auto build_access = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
+                                          int i) {
+    return BuildUnifiedCellHoistedPointers<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz);
+  };
+  const auto body_hoisted = KOKKOS_LAMBDA(const auto &access, int idx) {
+    return ComputeUnifiedCellHoisted<SX, SY, SZ>(access, idx, alpha, beta, niter);
+  };
+  if (spec.loop.access_mode == "hoisted") {
+    RunCpuBvoiContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
+  } else {
+    RunCpuBvoiContiguousDirect(dataset, spec.loop.ninner, body_direct);
+  }
+}
+
+template <int SX, int SY, int SZ>
+PLB2_NOINLINE
+void RunCpuBvoiLogicalCase(const CaseSpec &spec, const Dataset &dataset,
+                           const std::array<int, SX> &dx, const std::array<int, SY> &dy,
+                           const std::array<int, SZ> &dz,
+                           const std::array<double, kMaxNiter> &alpha,
+                           const std::array<double, kMaxNiter> &beta) {
+  const int niter = spec.kernel.niter;
+  const auto body_direct = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
+                                         int i) {
+    return ComputeUnifiedCellDirect<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz, alpha, beta,
+                                                niter);
+  };
+  RunCpuBvoiLogical(dataset, spec.loop.ninner, body_direct);
+}
+
+template <int SX, int SY, int SZ>
 BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
   const auto alpha = MakeAlpha();
   const auto beta = MakeBeta();
-  const int niter = spec.kernel.niter;
-  const auto &problem = dataset.problem;
   const auto dx = [&] {
     std::array<int, SX> offsets{};
     for (int i = 0; i < SX; ++i) {
@@ -98,54 +309,25 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
     return offsets;
   }();
 
-  const auto body_direct = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
-                                         int i) {
-    return ComputeUnifiedCellDirect<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz, alpha, beta,
-                                                niter);
-  };
-
-  const auto build_access = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
-                                          int i) {
-    return BuildUnifiedCellHoistedPointers<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz);
-  };
-
-  const auto body_hoisted = KOKKOS_LAMBDA(const auto &access, int idx) {
-    return ComputeUnifiedCellHoisted<SX, SY, SZ>(access, idx, alpha, beta, niter);
-  };
-
-  const bool use_hoisted = spec.loop.access_mode == "hoisted";
-
   const auto run_once = [&] {
     switch (spec.loop.kind) {
       case LoopKind::CpuFlatGhosts:
-        if (use_hoisted) {
-          RunCpuFlatGhosts(dataset, build_access, body_hoisted);
-        } else {
-          RunCpuFlatGhosts(dataset, body_direct);
-        }
+        RunCpuFlatGhostsCase<SX, SY, SZ>(spec, dataset, dx, dy, dz, alpha, beta);
         break;
       case LoopKind::CpuBoviContiguous:
-        if (use_hoisted) {
-          RunCpuBoviContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
-        } else {
-          RunCpuBoviContiguousDirect(dataset, spec.loop.ninner, body_direct);
-        }
+        RunCpuBoviContiguousCase<SX, SY, SZ>(spec, dataset, dx, dy, dz, alpha, beta);
         break;
       case LoopKind::CpuBoviLogical:
-        RunCpuBoviLogical(dataset, spec.loop.ninner, body_direct);
+        RunCpuBoviLogicalCase<SX, SY, SZ>(spec, dataset, dx, dy, dz, alpha, beta);
         break;
       case LoopKind::KokkosBoivFlat:
-        RunKokkosBoivFlat(dataset, body_direct);
+        RunKokkosBoivFlatCase<SX, SY, SZ>(spec, dataset, dx, dy, dz, alpha, beta);
         break;
       case LoopKind::KokkosBoviTeamContiguous:
-        if (use_hoisted) {
-          RunKokkosBoviTeamContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
-        } else {
-          RunKokkosBoviTeamContiguousDirect(dataset, spec.loop.ninner, body_direct);
-        }
+        RunKokkosBoviTeamContiguousCase<SX, SY, SZ>(spec, dataset, dx, dy, dz, alpha, beta);
         break;
       case LoopKind::KokkosBoviTeamLogical:
-        RunKokkosBoviTeamLogical(dataset, spec.loop.ninner, body_direct);
+        RunKokkosBoviTeamLogicalCase<SX, SY, SZ>(spec, dataset, dx, dy, dz, alpha, beta);
         break;
       case LoopKind::LoopAbstractionBoviMemory:
         RunLoopAbstractionCase<loop_abstraction::loop_tag::bovi,
@@ -173,20 +355,16 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
             spec, dataset, dx, dy, dz, alpha, beta);
         break;
       case LoopKind::CpuBoivContiguous:
-        RunCpuBoivContiguous(dataset, spec.loop.ninner, body_direct);
+        RunCpuBoivContiguousCase<SX, SY, SZ>(spec, dataset, dx, dy, dz, alpha, beta);
         break;
       case LoopKind::CpuBoivLogical:
-        RunCpuBoivLogical(dataset, spec.loop.ninner, body_direct);
+        RunCpuBoivLogicalCase<SX, SY, SZ>(spec, dataset, dx, dy, dz, alpha, beta);
         break;
       case LoopKind::CpuBvoiContiguous:
-        if (use_hoisted) {
-          RunCpuBvoiContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
-        } else {
-          RunCpuBvoiContiguousDirect(dataset, spec.loop.ninner, body_direct);
-        }
+        RunCpuBvoiContiguousCase<SX, SY, SZ>(spec, dataset, dx, dy, dz, alpha, beta);
         break;
       case LoopKind::CpuBvoiLogical:
-        RunCpuBvoiLogical(dataset, spec.loop.ninner, body_direct);
+        RunCpuBvoiLogicalCase<SX, SY, SZ>(spec, dataset, dx, dy, dz, alpha, beta);
         break;
     }
   };
@@ -226,6 +404,8 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
   }
   return row;
 }
+
+#undef PLB2_NOINLINE
 
 }  // namespace
 
