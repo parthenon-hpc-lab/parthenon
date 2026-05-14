@@ -6,6 +6,7 @@ import copy
 import math
 import os
 import platform
+import random
 import re
 import subprocess
 import sys
@@ -180,6 +181,35 @@ def default_ninner_values(target):
     return "8,16,32,64,128,256,384,512,640,768,896,1024,1536,2048,4096,8192"
 
 
+def derived_nblocks(edge, target_total_cells):
+    if edge <= 0:
+        return 1
+    cells_per_block = edge * edge * edge
+    if cells_per_block <= 0:
+        return 1
+    return max(1, int(math.floor((target_total_cells / cells_per_block) + 0.5)))
+
+
+def vars_per_block_distribution(nblocks, nvars):
+    if nblocks <= 0 or nvars <= 0:
+        return ""
+    if nblocks == 1:
+        return str(nvars)
+    values = []
+    for b in range(nblocks):
+        frac = b / max(nblocks - 1, 1)
+        # Use a strong nonlinear skew so most blocks are tiny and only a
+        # handful sit near the maximum, which is closer to multimaterial runs.
+        skew = (1.0 - frac) ** 3.0
+        count = max(1, int(math.ceil(nvars * skew)))
+        values.append(str(count))
+    # Randomize the ordering so large blocks are interleaved with small ones
+    # instead of being clustered at one end of the domain.
+    rng = random.Random(nblocks * 1000003 + nvars)
+    rng.shuffle(values)
+    return ";".join(values)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Run the v2 loop benchmark analysis.")
     parser.add_argument(
@@ -223,6 +253,11 @@ def parse_args():
         ),
     )
     parser.add_argument("--nvars", type=int, default=16)
+    parser.add_argument(
+        "--vary-variables-per-block",
+        action="store_true",
+        help="Populate vars_per_block with a deterministic per-block distribution.",
+    )
     parser.add_argument("--nghost", type=int, default=2)
     parser.add_argument("--stencil-x", default="0")
     parser.add_argument("--stencil-y", default="0")
@@ -387,6 +422,7 @@ def write_cases_csv(path, loops, edge_values, ninner_values, stencil_shapes, arg
         )
         writer.writeheader()
         for edge in edge_values:
+            block_count = derived_nblocks(edge, args.target_total_cells)
             edge_ninner_values = ninner_values if ninner_values else [
                 default_edge_ninner(edge, args.target, args.min_default_ninner_cells)
             ]
@@ -421,7 +457,14 @@ def write_cases_csv(path, loops, edge_values, ninner_values, stencil_shapes, arg
                                         "stencil_z": stencil_z,
                                         "warmup": args.warmup,
                                         "repeats": args.repeats,
-                                        "vars_per_block": "",
+                                        "vars_per_block": (
+                                            ""
+                                            if not args.vary_variables_per_block
+                                            else vars_per_block_distribution(
+                                                block_count,
+                                                args.nvars,
+                                            )
+                                        ),
                                     }
                                 )
 
