@@ -387,10 +387,8 @@ void inner_raw_for(const inner_idx_range_t &idx_range, F &&f) {
         const int logical_start = o * idx_space.ninner; 
         const int logical_end = std::min((o + 1) * idx_space.ninner - 1, static_cast<int>(idx_space.logical_kji.size()) - 1);
         const auto inner_range = inner_idx_range_t::flat_range(idx_space, idx_range.block, logical_start, logical_end);
-        const int start = inner_range.payload_.flat_start;
-        const int end_exclusive = inner_range.payload_.flat_end + 1;
 #pragma omp simd  
-        for (int idx = start; idx < end_exclusive; ++idx) {
+        for (int idx = inner_range.payload_.flat_start; idx <= inner_range.payload_.flat_end; ++idx) {
           f(idx);
         }
       }

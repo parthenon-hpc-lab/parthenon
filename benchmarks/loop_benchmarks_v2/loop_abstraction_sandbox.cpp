@@ -42,7 +42,7 @@ void RunKernel(const View5D &input, View5D &output, int nblocks, int nvar, int n
       auto out = idx_range.view(output, v);
 
       // Just to verify vectorization
-      raw_inner_probe(idx_range, out, in);
+      // raw_inner_probe(idx_range, out, in);
       
       loop_abstraction::inner(idx_range, KOKKOS_LAMBDA(auto idx) {
         out(idx) = in(idx) *  2.01 + out(idx);
