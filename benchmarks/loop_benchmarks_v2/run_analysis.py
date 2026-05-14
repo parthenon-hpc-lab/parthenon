@@ -183,9 +183,6 @@ def default_ninner_values(target):
 
 DEFAULT_NITER_VALUES = "1,3,9,27,81,243"
 DEFAULT_NINNER_NITER_VALUES = "1,9,81,243"
-DEFAULT_TARGET_TOTAL_CELLS = 1_048_576
-
-
 def default_niter_values(target):
     if target == "gpu":
         return "1,3,9,27,81,243"
@@ -263,7 +260,7 @@ def parse_args():
     )
     parser.add_argument("--niter-values", default=DEFAULT_NITER_VALUES)
     parser.add_argument("--ninner-niter-values", default=DEFAULT_NINNER_NITER_VALUES)
-    parser.add_argument("--target-total-cells", type=int, default=DEFAULT_TARGET_TOTAL_CELLS)
+    parser.add_argument("--target-total-cells", type=int, default=None)
     parser.add_argument(
         "--min-default-ninner-cells",
         "--ninner-threshold",
@@ -779,7 +776,7 @@ def main():
         args.niter_values = default_niter_values(args.target)
     if args.ninner_niter_values == DEFAULT_NINNER_NITER_VALUES:
         args.ninner_niter_values = default_ninner_niter_values(args.target)
-    if args.target_total_cells == DEFAULT_TARGET_TOTAL_CELLS:
+    if args.target_total_cells is None:
         args.target_total_cells = default_target_total_cells(args.target)
     if args.analysis_mode == "full":
         if args.edge_values == "8,32,128":
