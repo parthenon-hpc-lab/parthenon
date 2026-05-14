@@ -69,7 +69,8 @@ LOOP_ACCESS_MODES = {
 }
 
 LOOP_STYLE = {
-    # Okabe-Ito colorblind-safe palette, with marker shape carrying extra identity.
+    # Okabe-Ito colorblind-safe palette. Semantic distinctions are carried by
+    # line style, marker shape, and opacity instead of the raw color alone.
     "cpu_flat_ghosts": ("#000000", "o"),
     "cpu_boiv_contiguous": ("#0072B2", "s"),
     "cpu_bovi_contiguous": ("#E69F00", "^"),
@@ -108,10 +109,22 @@ LOOP_DISPLAY_NAME = {
     "loop_abstraction_bvoi_logical": "abstraction bvoi_logical",
 }
 
-ACCESS_STYLE = {
-    "direct": "-",
-    "hoisted": ":",
-}
+def loop_line_style(loop):
+    return "--" if loop.startswith("loop_abstraction_") else "-"
+
+
+def loop_marker(loop):
+    if loop.endswith("_logical"):
+        return "o"
+    if loop.endswith("_memory") or "contiguous" in loop:
+        return "s"
+    if loop.endswith("_flat") or loop.endswith("_ghosts"):
+        return "X"
+    return "o"
+
+
+def access_alpha(access_mode):
+    return 1.0 if access_mode == "direct" else 0.7
 
 
 def parse_csv_ints(text):
@@ -195,8 +208,8 @@ def parse_args():
         default="",
         help="Comma-separated ninner values. Defaults to edge^2 for each block edge.",
     )
-    parser.add_argument("--niter-values", default="1,3,9,27,81")
-    parser.add_argument("--ninner-niter-values", default="1,9,81")
+    parser.add_argument("--niter-values", default="1,3,9,27,81,243")
+    parser.add_argument("--ninner-niter-values", default="1,9,81,243")
     parser.add_argument("--target-total-cells", type=int, default=1_048_576)
     parser.add_argument(
         "--min-default-ninner-cells",
@@ -596,16 +609,17 @@ def plot_series(ax, rows, y_key, y_label, title, x_key="edge"):
         xs = [row_x(row, x_key) for row in points]
         ys = [row[y_key] for row in points]
         _kernel, loop, access_mode = key[:3]
-        color, marker = LOOP_STYLE.get(loop, ("#333333", "o"))
-        linestyle = ACCESS_STYLE.get(access_mode, "-")
+        color, _ = LOOP_STYLE.get(loop, ("#333333", "o"))
         ax.plot(
             xs,
             ys,
             color=color,
-            marker=marker,
-            linestyle=linestyle,
+            marker=loop_marker(loop),
+            linestyle=loop_line_style(loop),
+            alpha=access_alpha(access_mode),
             linewidth=2.0,
             markersize=5,
+            markeredgewidth=0.8,
             label=series_label(points[0], include_kernel=False, include_edge=(x_key == "ninner")),
         )
 
@@ -641,16 +655,17 @@ def add_niter_plot_page(pdf, rows, title, y_key, y_label):
         xs = [row["niter"] for row in points]
         ys = [row[y_key] for row in points]
         loop, access_mode = key
-        color, marker = LOOP_STYLE.get(loop, ("#333333", "o"))
-        linestyle = ACCESS_STYLE.get(access_mode, "-")
+        color, _ = LOOP_STYLE.get(loop, ("#333333", "o"))
         ax.plot(
             xs,
             ys,
             color=color,
-            marker=marker,
-            linestyle=linestyle,
+            marker=loop_marker(loop),
+            linestyle=loop_line_style(loop),
+            alpha=access_alpha(access_mode),
             linewidth=2.0,
             markersize=5,
+            markeredgewidth=0.8,
             label=f"{display_loop_name(loop)} [{access_mode}]",
         )
 
