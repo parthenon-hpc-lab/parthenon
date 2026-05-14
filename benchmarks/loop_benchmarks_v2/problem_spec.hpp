@@ -60,6 +60,7 @@ struct CaseSpec {
   std::string backend = "Serial";
   int repeats = 5;
   int warmup = 1;
+  bool validate = false;
 };
 
 struct BenchmarkRow {
@@ -89,6 +90,7 @@ struct BenchmarkRow {
   double min_seconds = 0.0;
   double updates_per_second = 0.0;
   double touched_cells_per_second = 0.0;
+  double validation_checksum = 0.0;
 };
 
 LoopKind ParseLoopKind(const std::string &text);

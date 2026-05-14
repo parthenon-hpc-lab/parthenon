@@ -162,7 +162,8 @@ bool WriteResultsCsv(const std::string &results_csv, const BenchmarkRow &row, bo
     out << "loop,backend,nblocks,target_cells,nvars,nz_interior,ny_interior,nx_interior,nghost,"
            "ninner,access_mode,niter,stencil_x,stencil_y,stencil_z,kernel_label,warmup,repeats,"
            "logical_cells_per_block,memory_cells_per_block,total_updates,touched_cells,"
-           "avg_seconds,min_seconds,updates_per_second,touched_cells_per_second\n";
+           "avg_seconds,min_seconds,updates_per_second,touched_cells_per_second,"
+           "validation_checksum\n";
   }
 
   out << CsvEscape(row.loop_name) << ','
@@ -190,7 +191,8 @@ bool WriteResultsCsv(const std::string &results_csv, const BenchmarkRow &row, bo
       << row.avg_seconds << ','
       << row.min_seconds << ','
       << row.updates_per_second << ','
-      << row.touched_cells_per_second << '\n';
+      << row.touched_cells_per_second << ','
+      << row.validation_checksum << '\n';
 
   return true;
 }

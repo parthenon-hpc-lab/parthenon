@@ -112,6 +112,7 @@ std::string Usage() {
       "  --nblocks N --target-cells N --nvars N --nz N --ny N --nx N --nghost N\n"
       "  --ninner N\n"
       "  --warmup N --repeats N\n"
+      "  --validate\n"
       "  --niter N\n"
       "  --stencil-x OFFSETS --stencil-y OFFSETS --stencil-z OFFSETS\n"
       "    OFFSETS may be a single integer or a comma/semicolon-separated list.\n";
@@ -185,6 +186,8 @@ bool ParseArgs(int argc, char **argv, CaseSpec *spec, std::string *error) {
     } else if (arg == "--repeats") {
       const char *value = require_value(arg);
       if (value == nullptr || !ParseIntArg(value, &spec->repeats)) return false;
+    } else if (arg == "--validate") {
+      spec->validate = true;
     } else if (arg == "--niter") {
       const char *value = require_value(arg);
       if (value == nullptr || !ParseIntArg(value, &spec->kernel.niter)) return false;
@@ -248,7 +251,9 @@ int RunBenchmark(const CaseSpec &spec) {
             << "repeats=" << row.repeats << " "
             << "avg_seconds=" << row.avg_seconds << " "
             << "min_seconds=" << row.min_seconds << " "
-            << "updates_per_second=" << row.updates_per_second << '\n';
+            << "updates_per_second=" << row.updates_per_second << " "
+            << "touched_cells_per_second=" << row.touched_cells_per_second << " "
+            << "validation_checksum=" << row.validation_checksum << '\n';
   return 0;
 }
 

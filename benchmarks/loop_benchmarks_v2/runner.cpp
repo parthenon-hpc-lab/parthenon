@@ -36,6 +36,24 @@ std::pair<double, double> TimeRepeatedRun(int warmup, int repeats, RunFn &&run_o
   return {total_seconds / std::max(repeats, 1), best_seconds};
 }
 
+template <typename ViewType>
+double ComputeOutputChecksum(const ViewType &out) {
+  auto host_out = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), out);
+  double checksum = 0.0;
+  for (std::size_t b = 0; b < host_out.extent(0); ++b) {
+    for (std::size_t v = 0; v < host_out.extent(1); ++v) {
+      for (std::size_t k = 0; k < host_out.extent(2); ++k) {
+        for (std::size_t j = 0; j < host_out.extent(3); ++j) {
+          for (std::size_t i = 0; i < host_out.extent(4); ++i) {
+            checksum += host_out(b, v, k, j, i);
+          }
+        }
+      }
+    }
+  }
+  return checksum;
+}
+
 template <loop_abstraction::loop_tag LOOP_TAG, loop_abstraction::inner_tag INNER_TAG,
           int SX, int SY, int SZ>
 void RunLoopAbstractionCase(const CaseSpec &spec, const Dataset &dataset,
@@ -203,6 +221,9 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
   row.min_seconds = min_seconds;
   row.updates_per_second = static_cast<double>(row.total_updates) / row.avg_seconds;
   row.touched_cells_per_second = static_cast<double>(row.touched_cells) / row.avg_seconds;
+  if (spec.validate) {
+    row.validation_checksum = ComputeOutputChecksum(dataset.data.out);
+  }
   return row;
 }
 
