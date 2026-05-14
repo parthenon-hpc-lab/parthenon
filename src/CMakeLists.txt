@@ -1,5 +1,5 @@
 #=========================================================================================
-# (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,8 @@
 # license in this material to reproduce, prepare derivative works, distribute copies to
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
+
+# This file was made in part with generative AI.
 
 # Configure config.hpp
 set(PROBLEM_GENERATOR "<not-implemented>") # TODO: Figure out what to put here
@@ -90,17 +92,31 @@ set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
 set(COMPILER_COMMAND "<not-implemented>") # TODO: Put something more descriptive here
 set(COMPILER_FLAGS "<not-implemented>") # TODO: Put something more descriptive here
 
-set(COORDINATE_TYPE UniformCartesian) # TODO: Make this an option when more are available
+set(COORDINATES_AVAILABLE UniformCartesian UniformCylindrical UniformSpherical)
+set(PARTHENON_COORDINATES "UniformCartesian" CACHE STRING "Set the coordinate system from \{${COORDINATES_AVAILABLE}\} with UniformCartesian the default")
+if (${PARTHENON_COORDINATES} IN_LIST COORDINATES_AVAILABLE)
+  set(COORDINATE_TYPE ${PARTHENON_COORDINATES})
+else()
+  message(FATAL_ERROR "Invalid setting for PARTHENON_COORDINATES. ${PARTHENON_COORDINATES} is not in \{${COORDINATES_AVAILABLE}\}")
+endif()
+message(STATUS "COORDINATE_TYPE = " ${COORDINATE_TYPE})
 
 configure_file(config.hpp.in generated/config.hpp @ONLY)
 
 add_library(parthenon
+  application_input.cpp
+  application_input.hpp
+
   bvals/comms/bvals_in_one.hpp
   bvals/comms/bvals_utils.hpp
   bvals/comms/build_boundary_buffers.cpp
+  bvals/comms/bnd_id.cpp
+  bvals/comms/bnd_id.hpp
   bvals/comms/bnd_info.cpp
   bvals/comms/bnd_info.hpp
   bvals/comms/boundary_communication.cpp
+  bvals/comms/coalesced_buffers.cpp
+  bvals/comms/coalesced_buffers.hpp
   bvals/comms/tag_map.cpp
   bvals/comms/tag_map.hpp
 
@@ -115,6 +131,9 @@ add_library(parthenon
 
   coordinates/coordinates.hpp
   coordinates/uniform_cartesian.hpp
+  coordinates/uniform_coordinates.hpp
+  coordinates/uniform_cylindrical.hpp
+  coordinates/uniform_spherical.hpp
 
   driver/driver.cpp
   driver/driver.hpp
@@ -123,8 +142,6 @@ add_library(parthenon
 
   interface/data_collection.cpp
   interface/data_collection.hpp
-  interface/make_pack_descriptor.hpp
-  interface/make_swarm_pack_descriptor.hpp
   interface/mesh_data.cpp
   interface/mesh_data.hpp
   interface/meshblock_data.cpp
@@ -132,12 +149,8 @@ add_library(parthenon
   interface/metadata.cpp
   interface/metadata.hpp
   interface/packages.hpp
-  interface/pack_utils.hpp
   interface/params.cpp
   interface/params.hpp
-  interface/sparse_pack.hpp
-  interface/sparse_pack_base.cpp
-  interface/sparse_pack_base.hpp
   interface/sparse_pool.cpp
   interface/sparse_pool.hpp
   interface/state_descriptor.hpp
@@ -146,10 +159,7 @@ add_library(parthenon
   interface/swarm.hpp
   interface/swarm_comms.cpp
   interface/swarm_container.cpp
-  interface/swarm_default_names.hpp
   interface/swarm_device_context.hpp
-  interface/swarm_pack.hpp
-  interface/swarm_pack_base.hpp
   interface/update.cpp
   interface/update.hpp
   interface/var_id.hpp
@@ -162,10 +172,13 @@ add_library(parthenon
   mesh/domain.hpp
   mesh/forest/block_ownership.cpp
   mesh/forest/block_ownership.hpp
+  mesh/forest/forest_node.hpp
+  mesh/forest/forest_topology.cpp
+  mesh/forest/forest_topology.hpp
   mesh/forest/forest.cpp
   mesh/forest/forest.hpp
-  mesh/forest/relative_orientation.hpp
-  mesh/forest/relative_orientation.cpp
+  mesh/forest/logical_coordinate_transformation.hpp
+  mesh/forest/logical_coordinate_transformation.cpp
   mesh/forest/tree.hpp
   mesh/forest/tree.cpp
   mesh/forest/logical_location.cpp
@@ -176,9 +189,12 @@ add_library(parthenon
   mesh/mesh-gmg.cpp
   mesh/mesh.cpp
   mesh/mesh.hpp
+  mesh/mesh_neighbors.hpp
   mesh/meshblock.hpp
   mesh/meshblock_pack.hpp
   mesh/meshblock.cpp
+  mesh/swarm_amr_remesh.cpp
+  mesh/swarm_amr_remesh.hpp
 
   outputs/ascent.cpp
   outputs/histogram.cpp
@@ -189,6 +205,8 @@ add_library(parthenon
   outputs/output_utils.hpp
   outputs/outputs.cpp
   outputs/outputs.hpp
+  outputs/outputs_package.cpp
+  outputs/outputs_package.hpp
   outputs/output_parameters.hpp
   outputs/parthenon_hdf5.cpp
   outputs/parthenon_hdf5_attributes.cpp
@@ -201,7 +219,29 @@ add_library(parthenon
   outputs/restart.hpp
   outputs/restart_hdf5.cpp
   outputs/restart_hdf5.hpp
-  outputs/vtk.cpp
+
+  pack/block_selector.hpp
+  pack/pack_utils.hpp
+  pack/default_names.hpp
+  pack/sparse_pack/make_pack_descriptor.cpp
+  pack/sparse_pack/make_pack_descriptor.hpp
+  pack/sparse_pack/pack_descriptor.cpp
+  pack/sparse_pack/pack_descriptor.hpp
+  pack/sparse_pack/sparse_pack.cpp
+  pack/sparse_pack/sparse_pack.hpp
+  pack/sparse_pack/sparse_pack_base.cpp
+  pack/sparse_pack/sparse_pack_base.hpp
+  pack/sparse_pack/sparse_pack_cache.cpp
+  pack/sparse_pack/sparse_pack_cache.hpp
+  pack/swarm_pack/make_swarm_pack_descriptor.hpp
+  pack/swarm_pack/swarm_pack_descriptor.cpp
+  pack/swarm_pack/swarm_pack_descriptor.hpp
+  pack/swarm_pack/swarm_pack.hpp
+  pack/swarm_pack/swarm_pack_base.cpp
+  pack/swarm_pack/swarm_pack_base.hpp
+  pack/swarm_pack/swarm_pack_cache.cpp
+  pack/swarm_pack/swarm_pack_cache.hpp
+  pack/swarm_pack/swarm_pack_types.hpp
 
   parthenon/driver.hpp
   parthenon/package.hpp
@@ -218,15 +258,25 @@ add_library(parthenon
   reconstruct/dc_inline.hpp
   reconstruct/plm_inline.hpp
 
+  sparse/sparse_management.cpp
+  sparse/sparse_management.hpp
+
   amr_criteria/amr_criteria.cpp
   amr_criteria/amr_criteria.hpp
   amr_criteria/refinement_package.cpp
   amr_criteria/refinement_package.hpp
 
   solvers/bicgstab_solver.hpp
+  solvers/cg_solver.hpp
+  solvers/internal_prolongation.hpp
   solvers/mg_solver.hpp
+  solvers/solver_base.hpp
   solvers/solver_utils.hpp
+  solvers/tridiag_solver.hpp
 
+  tasks/task_timing.cpp
+  tasks/task_timing.hpp
+  tasks/tasks.cpp
   tasks/tasks.hpp
   tasks/thread_pool.hpp
 
@@ -239,8 +289,7 @@ add_library(parthenon
   utils/alias_method.hpp
   utils/array_to_tuple.hpp
   utils/bit_hacks.hpp
-  utils/buffer_utils.cpp
-  utils/buffer_utils.hpp
+  utils/cell_center_offsets.cpp
   utils/cell_center_offsets.hpp
   utils/change_rundir.cpp
   utils/communication_buffer.hpp
@@ -258,7 +307,6 @@ add_library(parthenon
   utils/morton_number.hpp
   utils/mpi_types.hpp
   utils/multi_pointer.hpp
-  utils/nan_payload_tag.hpp
   utils/object_pool.hpp
   utils/partition_stl_containers.hpp
   utils/reductions.hpp
@@ -268,9 +316,11 @@ add_library(parthenon
   utils/sort.hpp
   utils/string_utils.cpp
   utils/string_utils.hpp
+  utils/type_list.hpp
   utils/unique_id.cpp
   utils/unique_id.hpp
   utils/utils.hpp
+  utils/watchdog.cpp
 
   argument_parser.hpp
   basic_types.hpp
@@ -286,12 +336,16 @@ add_library(parthenon
   parthenon_manager.cpp
   parthenon_manager.hpp
   parthenon_mpi.hpp
+
+  # Generated
+  $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated>/provenance.cpp
+  $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated>/provenance.hpp
 )
 add_library(Parthenon::parthenon ALIAS parthenon)
 
 set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
 
-target_compile_features(parthenon PUBLIC cxx_std_17)
+target_compile_features(parthenon PUBLIC cxx_std_20)
 
 # This will automatically link any extra libraries (or no extra libraries)
 # depending on the compiler, so it doesn't require an if() statement
@@ -327,7 +381,7 @@ endif()
 # the flag is not added when compiling with Clang for Cuda.
 if (Kokkos_ENABLE_CUDA AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
    AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "NVHPC" )
-   target_compile_options(parthenon PUBLIC --expt-relaxed-constexpr)
+   target_compile_options(parthenon PUBLIC $<$<COMPILE_LANGUAGE:CXX>:--expt-relaxed-constexpr>)
 endif()
 
 target_link_libraries(parthenon PUBLIC Kokkos::kokkos Threads::Threads)

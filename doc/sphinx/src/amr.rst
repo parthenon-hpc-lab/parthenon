@@ -1,5 +1,40 @@
 .. _amr:
 
+Static Mesh Refinement
+=======================
+
+Static mesh refinement in Parthenon may be controlled via a set of
+input blocks. First you must enable mesh refinement by adding the
+following lines to the ``<parthenon/mesh>`` block of your input file:
+
+.. code::
+
+  refinement = static # Enable static mesh refinement
+
+Then you may add any number of blocks named
+``<parthenon/static_refinement*>``, where ``*`` is a number. Each
+block specifies a region parthenon will refine. You must specify the
+ranges in ``X`` and a refinement level. For example:
+
+.. code::
+
+  <parthenon/static_refinement1>
+  x1min = 0.25
+  x1max = 0.5
+  x2min = -0.1
+  x2max = 0.1
+  level = 3
+
+This specifies the ragion for x1 between 0.25 and 0.5 and x2 between
+-0.1 and 0.1 will be :math:`2^3` more fine than the base
+mesh. Parthenon will refine adjacent blocks to enforce this
+constraint, such that well nesting--that is, adjacent blocks are no
+more than a factor of 2 different in resolution--is
+satisfied. ``x1min`` and ``x1max`` are always required. Bounds for
+``x2`` and ``x3`` are assumed to be the whole domain unless you
+specify them. (Which is the desired behavior for 2D or 1D
+simulations.)
+
 Adaptive Mesh Refinement
 ========================
 
@@ -28,9 +63,8 @@ based on predefined criteria that can be enabled at runtime in the input
 file. Multiple criteria can be enabled simultaneously, in which case the
 most refined criteria wins. If ``refinement=adaptive`` has been
 specified as above, parthenon will initialize your AMR choices by
-looking for blocks with names ``<parthenon/refinement#>`` where ``#`` is
-a zero-based sequential indexing of Refinement criteria. An input file
-might looks like
+looking for blocks with names ``<parthenon/refinement*>`` where ``*`` is
+any unique string per refinement criteria. It might look like this:
 
 .. code::
 
@@ -69,6 +103,11 @@ The predefined refinement criteria are calculated in terms of the user
 selected variable :math:`q` as follows.
 Method:
 
+* ``magnitude``: The magnitude of the field. Note this criterion also
+  supports an additional option, which is
+  ``comparator``. ``comparator`` may be either ``greater_than`` or
+  ``lesss_than`` which determines whether you refine on a large value
+  or a small one.
 * ``derivative_order_1``: :math:`|\partial \ln q / \partial \ln x|`
 * ``derivative_order_2``:
   :math:`\frac{\delta x^2}{4\|q\|} \left\| \frac{\partial^2 q}{\partial x^2} \right\| = \frac{ \| q_{i-1} - 2 q_{i} + q_{i+1} \| }{ 2\| q_{i} \| + \| q_{i-1} + q_{i+1} \| }` 

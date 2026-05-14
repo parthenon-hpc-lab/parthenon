@@ -120,23 +120,15 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
 
     auto fill_deriv = tl.AddTask(update, FillDerived<MeshData<Real>>, mc1.get());
 
+    auto set_bc = tl.AddTask(update, parthenon::ApplyBoundaryConditionsMD, mc1);
+
     // estimate next time step
     if (stage == integrator->nstages) {
       auto new_dt = tl.AddTask(update, EstimateTimestep<MeshData<Real>>, mc1.get());
-    }
-  }
-
-  // Apply boundary conditions and tag for refinement for each partition
-  TaskRegion &single_tasklist_per_pack_region3 = tc.AddRegion(num_partitions);
-  for (int i = 0; i < num_partitions; i++) {
-    auto &tl = single_tasklist_per_pack_region3[i];
-    auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-
-    auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditionsOnCoarseOrFineMD, mc1, false);
-    
-    if (stage == integrator->nstages && pmesh->adaptive) {
-      // auto tag_refine = tl.AddTask(none, parthenon::Refinement::Tag<MeshData<Real>>, mc1.get());
-      auto tag_refine = tl.AddTask(set_bc, parthenon::Refinement::Tag<MeshData<Real>>, mc1.get());
+      if (pmesh->adaptive) {
+        auto tag_refine =
+            tl.AddTask(set_bc, parthenon::Refinement::Tag<MeshData<Real>>, mc1.get());
+      }
     }
   } 
 

@@ -58,6 +58,10 @@ class Swarm:
             return None
 
     @property
+    def id(self):
+        return self.Get("swarm.id")
+
+    @property
     def x(self):
         return self.Get("swarm.x")
 
@@ -346,6 +350,19 @@ class phdf:
             )
 
             idx_i += num_components
+
+    def close(self):
+        try:
+            self.fid.close()
+        except Exception:
+            pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+        return False
 
     def GenAuxData(self):
         """
@@ -648,11 +665,11 @@ class phdf:
         if flatten:
             nblocks = vShape[0]
             if self.varTopology[variable] == "None":
-                remaining_size = np.product(vShape[1:])
+                remaining_size = np.prod(vShape[1:])
                 return self.varData[variable].reshape(nblocks, remaining_size)
             else:
                 preserved_shape = vShape[:-3]
-                remaining_size = np.product(vShape[-3:])
+                remaining_size = np.prod(vShape[-3:])
                 return self.varData[variable].reshape(*preserved_shape, remaining_size)
 
         if self.IncludesGhost and interior:
@@ -848,7 +865,7 @@ class phdf:
         )
 
 
-if __name__ == "__main__":
+def main():
     files = sys.argv[1:]
     for filename in files:
         ba = phdf(filename)
@@ -858,3 +875,7 @@ if __name__ == "__main__":
         l = ba.Get("c.c.bulk.bulk_modulus")
         print("mod=", l.shape)
         print(help(ba))
+
+
+if __name__ == "__main__":
+    main()

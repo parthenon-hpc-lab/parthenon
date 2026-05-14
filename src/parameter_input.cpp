@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -55,8 +55,12 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <map>
+#include <set>
 #include <sstream>
 #include <stdexcept>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "globals.hpp"
@@ -125,12 +129,12 @@ void ParameterInput::LoadFromStream(std::istream &is) {
   while (is.good()) {
     std::getline(is, line);
     line_num++;
-    if (line.find('\t') != std::string::npos) {
-      line.erase(std::remove(line.begin(), line.end(), '\t'), line.end());
-      // msg << "### FATAL ERROR in function [ParameterInput::LoadFromStream]"
-      //     << std::endl << "Tab characters are forbidden in input files";
-      // PARTHENON_FAIL(msg);
-    }
+
+    // remove all \t\f\n\r\v but leave pure spaces
+    line.erase(std::remove_if(line.begin(), line.end(),
+                              [](char c) { return std::isspace(c) && c != ' '; }),
+               line.end());
+
     if (line.empty()) continue;                               // skip blank line
     first_char = line.find_first_not_of(" ");                 // skip white space
     if (first_char == std::string::npos) continue;            // line is all white space
@@ -166,7 +170,7 @@ void ParameterInput::LoadFromStream(std::istream &is) {
       }
       blocks_found++;
       continue; // skip to next line if block name was found
-    }           // end "a new block was found"
+    } // end "a new block was found"
 
     // if line does not contain a block name or skippable information (comments,
     // whitespace), it must contain a parameter value
@@ -275,6 +279,10 @@ InputBlock *ParameterInput::FindOrAddBlock(const std::string &name) {
   pib->block_name.assign(name); // store the new block name
   pib->pline = nullptr;         // Terminate the InputLine list
   pib->pnext = nullptr;         // Terminate the InputBlock list
+
+  // Default max lengths to zero (in case of no parameters in this block)
+  pib->max_len_parname = 0;
+  pib->max_len_parvalue = 0;
 
   // if this is the first block in list, save pointer to it in class
   if (pfirst_block == nullptr) {
@@ -520,7 +528,8 @@ std::string ParameterInput::GetComment(const std::string &block,
 //! name)
 //  \brief returns integer value of string stored in block/name
 
-int ParameterInput::GetInteger(const std::string &block, const std::string &name) {
+int ParameterInput::GetInteger(const std::string &block, const std::string &name,
+                               const std::optional<std::string> &docstring) {
   InputBlock *pb;
   InputLine *pl;
   std::stringstream msg;
@@ -543,6 +552,8 @@ int ParameterInput::GetInteger(const std::string &block, const std::string &name
   }
 
   std::string val = pl->param_value;
+
+  CheckAndUpdateQueries_<int>(block, name, docstring);
 
   // Convert string to integer and return value
   return stoi(val);
@@ -552,7 +563,8 @@ int ParameterInput::GetInteger(const std::string &block, const std::string &name
 //! \fn Real ParameterInput::GetReal(const std::string & block, const std::string & name)
 //  \brief returns real value of string stored in block/name
 
-Real ParameterInput::GetReal(const std::string &block, const std::string &name) {
+Real ParameterInput::GetReal(const std::string &block, const std::string &name,
+                             const std::optional<std::string> &docstring) {
   InputBlock *pb;
   InputLine *pl;
   std::stringstream msg;
@@ -575,6 +587,8 @@ Real ParameterInput::GetReal(const std::string &block, const std::string &name) 
   }
 
   std::string val = pl->param_value;
+
+  CheckAndUpdateQueries_<Real>(block, name, docstring);
 
   // Convert string to real and return value
   return static_cast<Real>(atof(val.c_str()));
@@ -585,7 +599,8 @@ Real ParameterInput::GetReal(const std::string &block, const std::string &name) 
 //! name)
 //  \brief returns boolean value of string stored in block/name
 
-bool ParameterInput::GetBoolean(const std::string &block, const std::string &name) {
+bool ParameterInput::GetBoolean(const std::string &block, const std::string &name,
+                                const std::optional<std::string> &docstring) {
   InputBlock *pb;
   InputLine *pl;
   std::stringstream msg;
@@ -608,6 +623,7 @@ bool ParameterInput::GetBoolean(const std::string &block, const std::string &nam
   }
 
   std::string val = pl->param_value;
+  CheckAndUpdateQueries_<bool>(block, name, docstring);
   return stob(val);
 }
 
@@ -616,7 +632,8 @@ bool ParameterInput::GetBoolean(const std::string &block, const std::string &nam
 //! & name)
 //  \brief returns string stored in block/name
 
-std::string ParameterInput::GetString(const std::string &block, const std::string &name) {
+std::string ParameterInput::GetString(const std::string &block, const std::string &name,
+                                      const std::optional<std::string> &docstring) {
   InputBlock *pb;
   InputLine *pl;
   std::stringstream msg;
@@ -640,14 +657,19 @@ std::string ParameterInput::GetString(const std::string &block, const std::strin
 
   std::string val = pl->param_value;
 
+  CheckAndUpdateQueries_<std::string>(block, name, docstring);
+
   // return value
   return val;
 }
 
 std::string ParameterInput::GetString(const std::string &block, const std::string &name,
-                                      const std::vector<std::string> &allowed_values) {
+                                      const std::vector<std::string> &allowed_values,
+                                      const std::optional<std::string> &docstring) {
   auto val = GetString(block, name);
   CheckAllowedValues_(block, name, val, allowed_values);
+  CheckAndUpdateQueries_<std::string>(block, name, std::optional<std::string>{},
+                                      allowed_values, docstring);
   return val;
 }
 
@@ -659,11 +681,14 @@ std::string ParameterInput::GetString(const std::string &block, const std::strin
 //  value to def_value if it does not exist
 
 int ParameterInput::GetOrAddInteger(const std::string &block, const std::string &name,
-                                    int def_value) {
+                                    int def_value,
+                                    const std::optional<std::string> &docstring) {
   InputBlock *pb;
   InputLine *pl;
   std::stringstream ss_value;
   int ret;
+
+  CheckAndUpdateQueries_<int>(block, name, def_value, std::vector<int>{}, docstring);
 
   if (DoesParameterExist(block, name)) {
     pb = GetPtrToBlock(block);
@@ -675,7 +700,17 @@ int ParameterInput::GetOrAddInteger(const std::string &block, const std::string 
     ss_value << def_value;
     AddParameter(pb, name, ss_value.str(), "# Default value added at run time");
     ret = def_value;
+    UpdateQueryProvenance_(block, name, QueryRecord::OriginType::Default);
   }
+
+  return ret;
+}
+int ParameterInput::GetOrAddInteger(const std::string &block, const std::string &name,
+                                    const ParameterRef &value,
+                                    const std::optional<std::string> &docstring) {
+  auto defval = Get<int>(value);
+  auto ret = GetOrAddInteger(block, name, defval, docstring);
+  SetQueryDependency_(block, name, value);
   return ret;
 }
 
@@ -687,11 +722,14 @@ int ParameterInput::GetOrAddInteger(const std::string &block, const std::string 
 //  value to def_value if it does not exist
 
 Real ParameterInput::GetOrAddReal(const std::string &block, const std::string &name,
-                                  Real def_value) {
+                                  Real def_value,
+                                  const std::optional<std::string> &docstring) {
   InputBlock *pb;
   InputLine *pl;
   std::stringstream ss_value;
   Real ret;
+
+  CheckAndUpdateQueries_<Real>(block, name, def_value, std::vector<Real>{}, docstring);
 
   if (DoesParameterExist(block, name)) {
     pb = GetPtrToBlock(block);
@@ -705,7 +743,16 @@ Real ParameterInput::GetOrAddReal(const std::string &block, const std::string &n
     ss_value << def_value;
     AddParameter(pb, name, ss_value.str(), "# Default value added at run time");
     ret = def_value;
+    UpdateQueryProvenance_(block, name, QueryRecord::OriginType::Default);
   }
+  return ret;
+}
+Real ParameterInput::GetOrAddReal(const std::string &block, const std::string &name,
+                                  const ParameterRef &value,
+                                  const std::optional<std::string> &docstring) {
+  auto defval = Get<Real>(value);
+  auto ret = GetOrAddReal(block, name, defval, docstring);
+  SetQueryDependency_(block, name, value);
   return ret;
 }
 
@@ -717,11 +764,14 @@ Real ParameterInput::GetOrAddReal(const std::string &block, const std::string &n
 //  value to def_value if it does not exist
 
 bool ParameterInput::GetOrAddBoolean(const std::string &block, const std::string &name,
-                                     bool def_value) {
+                                     bool def_value,
+                                     const std::optional<std::string> &docstring) {
   InputBlock *pb;
   InputLine *pl;
   std::stringstream ss_value;
   bool ret;
+
+  CheckAndUpdateQueries_<bool>(block, name, def_value, std::vector<bool>{}, docstring);
 
   if (DoesParameterExist(block, name)) {
     pb = GetPtrToBlock(block);
@@ -739,7 +789,16 @@ bool ParameterInput::GetOrAddBoolean(const std::string &block, const std::string
     ss_value << def_value;
     AddParameter(pb, name, ss_value.str(), "# Default value added at run time");
     ret = def_value;
+    UpdateQueryProvenance_(block, name, QueryRecord::OriginType::Default);
   }
+  return ret;
+}
+bool ParameterInput::GetOrAddBoolean(const std::string &block, const std::string &name,
+                                     const ParameterRef &value,
+                                     const std::optional<std::string> &docstring) {
+  auto defval = Get<bool>(value);
+  auto ret = GetOrAddBoolean(block, name, defval, docstring);
+  SetQueryDependency_(block, name, value);
   return ret;
 }
 
@@ -752,11 +811,15 @@ bool ParameterInput::GetOrAddBoolean(const std::string &block, const std::string
 
 std::string ParameterInput::GetOrAddString(const std::string &block,
                                            const std::string &name,
-                                           const std::string &def_value) {
+                                           const std::string &def_value,
+                                           const std::optional<std::string> &docstring) {
   InputBlock *pb;
   InputLine *pl;
   std::stringstream ss_value;
   std::string ret;
+
+  CheckAndUpdateQueries_<std::string>(block, name, def_value, std::vector<std::string>{},
+                                      docstring);
 
   if (DoesParameterExist(block, name)) {
     pb = GetPtrToBlock(block);
@@ -766,15 +829,19 @@ std::string ParameterInput::GetOrAddString(const std::string &block,
     pb = FindOrAddBlock(block);
     AddParameter(pb, name, def_value, "# Default value added at run time");
     ret = def_value;
+    UpdateQueryProvenance_(block, name, QueryRecord::OriginType::Default);
   }
   return ret;
 }
-std::string
-ParameterInput::GetOrAddString(const std::string &block, const std::string &name,
-                               const std::string &def_value,
-                               const std::vector<std::string> &allowed_values) {
+
+std::string ParameterInput::GetOrAddString(const std::string &block,
+                                           const std::string &name,
+                                           const std::string &def_value,
+                                           const std::vector<std::string> &allowed_values,
+                                           const std::optional<std::string> &docstring) {
   auto val = GetOrAddString(block, name, def_value);
   CheckAllowedValues_(block, name, val, allowed_values);
+  CheckAndUpdateQueries_<std::string>(block, name, def_value, allowed_values, docstring);
   return val;
 }
 
@@ -784,13 +851,18 @@ ParameterInput::GetOrAddString(const std::string &block, const std::string &name
 //  \brief updates an integer parameter; creates it if it does not exist
 
 int ParameterInput::SetInteger(const std::string &block, const std::string &name,
-                               int value) {
+                               int value, const std::optional<std::string> &docstring) {
+  if (queries_.count(std::make_pair(block, name)) == 0) {
+    CheckAndUpdateQueries_<int>(block, name, docstring);
+  }
+
   InputBlock *pb;
   std::stringstream ss_value;
-
   pb = FindOrAddBlock(block);
   ss_value << value;
   AddParameter(pb, name, ss_value.str(), "# Updated during run time");
+  UpdateQueryProvenance_(block, name, QueryRecord::OriginType::SetInCode);
+
   return value;
 }
 
@@ -800,7 +872,11 @@ int ParameterInput::SetInteger(const std::string &block, const std::string &name
 //  \brief updates a real parameter with full precision; creates it if it does not exist
 
 Real ParameterInput::SetReal(const std::string &block, const std::string &name,
-                             Real value) {
+                             Real value, const std::optional<std::string> &docstring) {
+  if (queries_.count(std::make_pair(block, name)) == 0) {
+    CheckAndUpdateQueries_<Real>(block, name, docstring);
+  }
+
   InputBlock *pb;
   std::stringstream ss_value;
 
@@ -809,6 +885,8 @@ Real ParameterInput::SetReal(const std::string &block, const std::string &name,
   ss_value.precision(std::numeric_limits<double>::max_digits10);
   ss_value << value;
   AddParameter(pb, name, ss_value.str(), "# Updated during run time");
+  UpdateQueryProvenance_(block, name, QueryRecord::OriginType::SetInCode);
+
   return value;
 }
 
@@ -818,13 +896,19 @@ Real ParameterInput::SetReal(const std::string &block, const std::string &name,
 //  \brief updates a boolean parameter; creates it if it does not exist
 
 bool ParameterInput::SetBoolean(const std::string &block, const std::string &name,
-                                bool value) {
+                                bool value, const std::optional<std::string> &docstring) {
+  if (queries_.count(std::make_pair(block, name)) == 0) {
+    CheckAndUpdateQueries_<bool>(block, name, docstring);
+  }
+
   InputBlock *pb;
   std::stringstream ss_value;
 
   pb = FindOrAddBlock(block);
   ss_value << value;
   AddParameter(pb, name, ss_value.str(), "# Updated during run time");
+  UpdateQueryProvenance_(block, name, QueryRecord::OriginType::SetInCode);
+
   return value;
 }
 
@@ -835,92 +919,45 @@ bool ParameterInput::SetBoolean(const std::string &block, const std::string &nam
 //  \brief updates a string parameter; creates it if it does not exist
 
 std::string ParameterInput::SetString(const std::string &block, const std::string &name,
-                                      const std::string &value) {
+                                      const std::string &value,
+                                      const std::optional<std::string> &docstring) {
+  if (queries_.count(std::make_pair(block, name)) == 0) {
+    CheckAndUpdateQueries_<std::string>(block, name, docstring);
+  }
+
   InputBlock *pb;
 
   pb = FindOrAddBlock(block);
   AddParameter(pb, name, value, "# Updated during run time");
+  UpdateQueryProvenance_(block, name, QueryRecord::OriginType::SetInCode);
+
   return value;
 }
 
-//----------------------------------------------------------------------------------------
-//! \fn void ParameterInput::RollbackNextTime()
-//  \brief rollback next_time by dt for each output block
-
-void ParameterInput::RollbackNextTime() {
-  InputBlock *pb = pfirst_block;
-  InputLine *pl;
-  std::stringstream msg;
-  Real next_time;
-
-  while (pb != nullptr) {
-    if (pb->block_name.compare(0, 16, "parthenon/output") == 0) {
-      pl = pb->GetPtrToLine("next_time");
-      if (pl == nullptr) {
-        msg << "### FATAL ERROR in function [ParameterInput::RollbackNextTime]"
-            << std::endl
-            << "Parameter name 'next_time' not found in block '" << pb->block_name << "'";
-        PARTHENON_FAIL(msg);
-      }
-      next_time = static_cast<Real>(atof(pl->param_value.c_str()));
-      pl = pb->GetPtrToLine("dt");
-      if (pl == nullptr) {
-        msg << "### FATAL ERROR in function [ParameterInput::RollbackNextTime]"
-            << std::endl
-            << "Parameter name 'dt' not found in block '" << pb->block_name << "'";
-        PARTHENON_FAIL(msg);
-      }
-      next_time -= static_cast<Real>(atof(pl->param_value.c_str()));
-      msg << next_time;
-      // AddParameter(pb, "next_time", msg.str().c_str(), "# Updated during run time");
-      SetReal(pb->block_name, "next_time", next_time);
-    }
-    pb = pb->pnext;
-  }
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void ParameterInput::ForwardNextTime()
-//  \brief add dt to next_time until next_time >  mesh_time - dt for each output block
-
-void ParameterInput::ForwardNextTime(Real mesh_time) {
-  InputBlock *pb = pfirst_block;
-  InputLine *pl;
-  Real next_time;
-  Real dt0, dt;
-  bool fresh = false;
-
-  while (pb != nullptr) {
-    if (pb->block_name.compare(0, 16, "parthenon/output") == 0) {
-      std::stringstream msg;
-      pl = pb->GetPtrToLine("next_time");
-      if (pl == nullptr) {
-        next_time = mesh_time;
-        // This is a freshly added output
-        fresh = true;
+void ParameterInput::RemoveParameter(const std::string &block, const std::string &name) {
+  InputBlock *pb = GetPtrToBlock(block);
+  InputLine *plast = pb->pline;
+  bool deleted = false;
+  for (InputLine *pl = pb->pline; pl != nullptr; pl = pl->pnext) {
+    if (name.compare(pl->param_name) == 0) {
+      // if head of list
+      if (plast == pb->pline) {
+        pb->pline = pl->pnext;
       } else {
-        next_time = static_cast<Real>(atof(pl->param_value.c_str()));
+        plast->pnext = pl->pnext;
       }
-      pl = pb->GetPtrToLine("dt");
-      if (pl == nullptr) {
-        msg << "### FATAL ERROR in function [ParameterInput::ForwardNextTime]"
-            << std::endl
-            << "Parameter name 'dt' not found in block '" << pb->block_name << "'";
-        PARTHENON_FAIL(msg);
-      }
-      dt0 = static_cast<Real>(atof(pl->param_value.c_str()));
-      dt = dt0 * static_cast<int>((mesh_time - next_time) / dt0) + dt0;
-      if (dt > 0) {
-        next_time += dt;
-        // If the user has added a new/fresh output round to multiple of dt0,
-        // and make sure that mesh_time - dt0 < next_time < mesh_time,
-        // to ensure immediate writing
-        if (fresh) next_time -= std::fmod(next_time, dt0) + dt0;
-      }
-      msg << next_time;
-      AddParameter(pb, "next_time", msg.str(), "# Updated during run time");
+      delete pl;
+      deleted = true;
+      break;
     }
-    pb = pb->pnext;
+    plast = pl;
+  }
+  if (deleted) {
+    auto key = std::make_pair(block, name);
+    auto it = queries_.find(key);
+    if (it != queries_.end()) {
+      queries_.erase(it);
+    }
   }
 }
 
@@ -959,6 +996,25 @@ void ParameterInput::CheckDesired(const std::string &block, const std::string &n
   }
 }
 
+void ParameterInput::CheckOrphans() const {
+  std::set<std::pair<std::string, std::string>> orphans;
+  for (InputBlock *pib = pfirst_block; pib != nullptr; pib = pib->pnext) {
+    for (InputLine *pline = pib->pline; pline != nullptr; pline = pline->pnext) {
+      auto key = std::make_pair(pib->block_name, pline->param_name);
+      if (queries_.count(key) == 0) {
+        orphans.insert(key);
+      }
+    }
+  }
+  std::stringstream msg;
+  msg << "The following input parameters are set but unused:\n";
+  for (const auto &[b, p] : orphans) {
+    msg << b << "/" << p << "\n";
+  }
+  msg << std::endl;
+  PARTHENON_WARN(msg);
+}
+
 //----------------------------------------------------------------------------------------
 //! \fn void ParameterInput::ParameterDump(std::ostream& os)
 //  \brief output entire InputBlock/InputLine hierarchy to specified stream
@@ -988,6 +1044,70 @@ void ParameterInput::ParameterDump(std::ostream &os) {
 
   os << "#------------------------- PAR_DUMP -------------------------" << std::endl;
   os << "<par_end>" << std::endl; // finish with par-end (useful in restart files)
+}
+
+void ParameterInput::OutputParameterTable(std::ostream &os,
+                                          const std::regex &block_regex) const {
+  // Loop through once and store in a map for lexicographic ordering
+  std::map<std::string, std::map<std::string, std::string>> csvblocks;
+  for (InputBlock *pb = pfirst_block; pb != nullptr; pb = pb->pnext) {
+    const std::string &block_name = pb->block_name;
+    if (std::regex_match(block_name, block_regex)) {
+      auto &csvlines = csvblocks[block_name];
+      for (InputLine *pl = pb->pline; pl != nullptr; pl = pl->pnext) {
+        const std::string &param_name = pl->param_name;
+        auto record_key = std::make_pair(block_name, param_name);
+        /* clang-format off */
+        // This ensures the code doesn't crash for orphan parameters
+        if (queries_.count(record_key) > 0) {
+          auto record = queries_.at(record_key);
+          std::stringstream ss;
+          ss << "\"" << block_name << "\""
+             << "," << "\"" << param_name << "\""
+             << "," << "\"" << record.param_type << "\""
+             << "," << "\"" << record.default_value_str << "\""
+             << "," << "\"";
+          std::size_t num_allowed_vals = record.allowed_vals_str.size();
+          if (record.docstring.has_value()) {
+            ss << record.docstring.value();
+            if (num_allowed_vals > 0) {
+              ss << "; ";
+            }
+          }
+          if (num_allowed_vals > 0) {
+            ss << "Allowed values: ";
+            std::size_t ival = 0;
+            for (const auto &v : record.allowed_vals_str) {
+              ss << v;
+              if (ival < num_allowed_vals - 1) {
+                ss << ", ";
+              }
+              ival++;
+            }
+          }
+          ss << "\"";
+          /* clang-format on */
+          csvlines[param_name] = ss.str();
+        }
+      }
+    }
+  }
+
+  os << "block,parameters,type,default,description" << std::endl;
+  int i = 0;
+  for (const auto &[bname, b] : csvblocks) {
+    if (b.size() > 0) { // special case for empty block
+      // An empty row to demark blocks. Can be filtered on by a parser
+      // or grep
+      if (i != 0) {
+        os << "\"\",\"\",\"\",\"\",\"\"" << std::endl;
+      }
+      for (const auto &[p, l] : b) {
+        os << l << std::endl;
+      }
+      i++;
+    }
+  }
 }
 
 //----------------------------------------------------------------------------------------

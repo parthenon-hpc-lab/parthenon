@@ -33,6 +33,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
+#include "defs.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/morton_number.hpp"
 
@@ -62,6 +63,8 @@ class LogicalLocation { // aggregate and POD type
         morton_(std::max(lev, 0), l1, l2, l3) {}
   LogicalLocation() : LogicalLocation(0, 0, 0, 0) {}
 
+  static Real IndexToSymmetrizedCoordinate(int index, BlockLocation bloc, int range);
+
   std::string label() const;
   const auto &l(int i) const { return l_[i]; }
   const auto &lx1() const { return l_[0]; }
@@ -88,7 +91,7 @@ class LogicalLocation { // aggregate and POD type
 
   bool Contains(const LogicalLocation &containee) const;
 
-  std::array<int, 3> GetSameLevelOffsets(const LogicalLocation &neighbor) const;
+  Kokkos::Array<int, 3> GetSameLevelOffsets(const LogicalLocation &neighbor) const;
 
   // Being a neighbor implies that you share a face, edge, or node and don't share a
   // volume
@@ -108,6 +111,39 @@ class LogicalLocation { // aggregate and POD type
     if (level() < 0) return LogicalLocation(tree(), level() + 1, lx1(), lx2(), lx3());
     return LogicalLocation(tree(), level() + 1, (lx1() << 1) + ox1, (lx2() << 1) + ox2,
                            (lx3() << 1) + ox3);
+  }
+
+  bool IsLowerLeftCornerOfParent() const {
+    return ((lx1() & 1LL) == 0LL) && ((lx2() & 1LL) == 0LL) && ((lx3() & 1LL) == 0LL);
+  }
+
+  bool IsLowerLeftRepresentativeOf(const LogicalLocation &loc) {
+    if (loc.tree() == tree()) {
+      return loc.morton() == morton();
+    }
+    return false;
+  }
+
+  // Get the location in the parent, i.e. the lower left corner of the block
+  // is (0, 0, 0) and the upper right corner of the block is (1, 1, 1)
+  std::array<int, 3> GetLocationInParent() const {
+    return {(lx1() & 1LL) == 1LL, (lx2() & 1LL) == 1LL, (lx3() & 1LL) == 1LL};
+  }
+
+  bool IsOnTreeBoundary(int ox1, int ox2, int ox3) const {
+    const int nup = (1 << std::max(level(), 0)) - 1;
+    const bool bound1 =
+        (ox1 == 0) || ((ox1 == -1) && (lx1() == 0)) || ((ox1 == 1) && (lx1() == nup));
+    const bool bound2 =
+        (ox2 == 0) || ((ox2 == -1) && (lx2() == 0)) || ((ox2 == 1) && (lx2() == nup));
+    const bool bound3 =
+        (ox3 == 0) || ((ox3 == -1) && (lx3() == 0)) || ((ox3 == 1) && (lx3() == nup));
+    return bound1 && bound2 && bound3;
+  }
+
+  bool IsOnTreeBoundary(BoundaryFace face) const {
+    const auto [ox1, ox2, ox3] = GetOffsetsFromBoundaryFace(face);
+    return IsOnTreeBoundary(ox1, ox2, ox3);
   }
 
   // LFR: This returns the face offsets of fine-coarse neighbor blocks as defined in
@@ -139,15 +175,6 @@ inline bool operator==(const LogicalLocation &lhs, const LogicalLocation &rhs) {
 inline bool operator!=(const LogicalLocation &lhs, const LogicalLocation &rhs) {
   return !(lhs == rhs);
 }
-
-struct NeighborLocation {
-  NeighborLocation(const LogicalLocation &g, const LogicalLocation &o)
-      : global_loc(g), origin_loc(o) {}
-  LogicalLocation global_loc; // Global location of neighboring block
-  LogicalLocation
-      origin_loc; // Logical location of neighboring block in index space of origin block
-};
-
 } // namespace parthenon
 
 // Inject hash function for LogicalLocation into the std namespace

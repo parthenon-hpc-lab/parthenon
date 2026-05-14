@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,6 +16,8 @@
 //========================================================================================
 //! \file mesh.cpp
 //  \brief implementation of functions in MeshBlock class
+
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <cstdlib>
@@ -42,7 +44,6 @@
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
-#include "utils/buffer_utils.hpp"
 
 namespace parthenon {
 
@@ -91,6 +92,8 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   this->resolved_packages = resolved_packages;
   cost_ = icost;
 
+  if (pm) is_leaf_ll_ = pm->forest.IsLeaf(iloc);
+
   // initialize grid indices
   if (pmy_mesh->ndim >= 3) {
     InitializeIndexShapes(block_size.nx(X1DIR), block_size.nx(X2DIR),
@@ -113,6 +116,9 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   }
   if (app_in->PostInitialization != nullptr) {
     PostInitialization = app_in->PostInitialization;
+  }
+  if (app_in->PostProblemGenerator != nullptr) {
+    PostProblemGenerator = app_in->PostProblemGenerator;
   }
   if (app_in->MeshBlockUserWorkBeforeOutput != nullptr) {
     UserWorkBeforeOutput = app_in->MeshBlockUserWorkBeforeOutput;
@@ -142,10 +148,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // Resolve issues.
 
   auto &real_container = meshblock_data.Get();
-  real_container->Initialize(resolved_packages, shared_from_this());
-
-  // Initialize swarm boundary condition flags
-  real_container->GetSwarmData()->InitializeBoundaries(shared_from_this());
+  real_container->Initialize(shared_from_this());
 
   // TODO(jdolence): Should these loops be moved to Variable creation
   // TODO(JMM): What variables should be in vars_cc_? They are used
@@ -173,7 +176,9 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   FC_t flags({Metadata::Independent, Metadata::FillGhost}, true);
   // Toss in RemeshComm for this one
   const auto vars =
-      real_container->GetVariablesByFlag(flags + FC_t({Metadata::ForceRemeshComm}, true))
+      real_container
+          ->GetVariablesByFlag(flags + FC_t({Metadata::ForceRemeshComm}, true), {},
+                               FluxRequest::Any)
           .vars();
   for (const auto &v : vars)
     vars_cc_.push_back(v);
@@ -201,26 +206,34 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
 MeshBlock::~MeshBlock() = default;
 
+std::array<IndexShape, 3> GetIndexShapes(const int nx1, const int nx2, const int nx3,
+                                         bool multilevel, const Mesh *pmesh) {
+  IndexShape cellbounds(nx3, nx2, nx1, Globals::nghost);
+  IndexShape f_cellbounds(2 * nx3, 2 * nx2, 2 * nx1, Globals::nghost);
+  IndexShape c_cellbounds(nx3 / 2, nx2 / 2, nx1 / 2, 0);
+  if (multilevel) {
+    // Prevent the coarse bounds from going to zero
+    int cnx1 = nx1 / 2;
+    int cnx2 = nx2 / 2;
+    int cnx3 = nx3 / 2;
+    if (pmesh != nullptr) {
+      cnx1 = pmesh->mesh_size.symmetry(X1DIR) ? 0 : std::max(1, nx1 / 2);
+      cnx2 = pmesh->mesh_size.symmetry(X2DIR) ? 0 : std::max(1, nx2 / 2);
+      cnx3 = pmesh->mesh_size.symmetry(X3DIR) ? 0 : std::max(1, nx3 / 2);
+    }
+    c_cellbounds = IndexShape(cnx3, cnx2, cnx1, Globals::nghost);
+  }
+  return {cellbounds, f_cellbounds, c_cellbounds};
+}
+
 void MeshBlock::InitializeIndexShapesImpl(const int nx1, const int nx2, const int nx3,
                                           bool init_coarse, bool multilevel) {
-  cellbounds = IndexShape(nx3, nx2, nx1, Globals::nghost);
-
+  auto [cb, fcb, ccb] = GetIndexShapes(nx1, nx2, nx3, multilevel, pmy_mesh);
+  cellbounds = cb;
+  f_cellbounds = fcb;
   if (init_coarse) {
-    if (multilevel) {
-      // Prevent the coarse bounds from going to zero
-      int cnx1 = nx1 / 2;
-      int cnx2 = nx2 / 2;
-      int cnx3 = nx3 / 2;
-      if (pmy_mesh != nullptr) {
-        cnx1 = pmy_mesh->mesh_size.symmetry(X1DIR) ? 0 : std::max(1, nx1 / 2);
-        cnx2 = pmy_mesh->mesh_size.symmetry(X2DIR) ? 0 : std::max(1, nx2 / 2);
-        cnx3 = pmy_mesh->mesh_size.symmetry(X3DIR) ? 0 : std::max(1, nx3 / 2);
-      }
-      cnghost = (Globals::nghost + 1) / 2 + 1;
-      c_cellbounds = IndexShape(cnx3, cnx2, cnx1, Globals::nghost);
-    } else {
-      c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, 0);
-    }
+    cnghost = (Globals::nghost + 1) / 2 + 1;
+    c_cellbounds = ccb;
   }
 }
 
@@ -298,7 +311,7 @@ void MeshBlock::AllocateSparse(std::string const &label, bool only_control,
         v->AllocateData(this, flag_uninitialized);
 
         // copy fluxes and boundary variable from variable on base stage
-        v->CopyFluxesAndBdryVar(base_var.get());
+        v->CopyCoarseBuffer(base_var.get());
       }
     }
   };

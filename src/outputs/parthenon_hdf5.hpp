@@ -18,6 +18,7 @@
 #define OUTPUTS_PARTHENON_HDF5_HPP_
 
 #include "config.hpp"
+#include "defs.hpp"
 
 #include "kokkos_abstraction.hpp"
 #include "parthenon_arrays.hpp"
@@ -66,13 +67,14 @@
 namespace parthenon {
 namespace HDF5 {
 
-//  Implemented in CPP file as it's complex
-hid_t GenerateFileAccessProps();
-
-inline H5G MakeGroup(hid_t file, const std::string &name) {
-  return H5G::FromHIDCheck(
-      H5Gcreate(file, name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+inline herr_t aborting_error_handler(hid_t stack, void *client_data) {
+  H5Eprint2(stack, stderr);
+  PARTHENON_THROW("HDF5 error detected! Erroring out\n");
+  return -1;
 }
+
+hid_t GenerateFileAccessProps();
+H5G MakeGroup(hid_t file, const std::string &name);
 
 template <typename T>
 void HDF5WriteND(hid_t location, const std::string &name, const T *data, int rank,
@@ -108,7 +110,7 @@ void HDF5Write2D(hid_t location, const std::string &name, const T *data,
 }
 
 template <typename T>
-void HDF5WriteAttribute(const std::string &name, size_t num_values, const T *data,
+void HDF5WriteAttribute(const std::string &name, std::size_t num_values, const T *data,
                         hid_t location) {
   // can't write 0-size attributes
   if (num_values == 0) return;
@@ -127,6 +129,9 @@ void HDF5WriteAttribute(const std::string &name, size_t num_values, const T *dat
 // In CPP file
 void HDF5WriteAttribute(const std::string &name, const std::string &value,
                         hid_t location);
+void HDF5WriteAttribute(const std::string &name,
+                        const std::array<std::string, BOUNDARY_NFACES> &values,
+                        hid_t location);
 
 template <typename T>
 void HDF5WriteAttribute(const std::string &name, const std::vector<T> &values,
@@ -144,14 +149,15 @@ template <>
 void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values,
                         hid_t location);
 
-template <typename T, REQUIRES(implements<kokkos_view(T)>::value)>
+template <typename T>
+  requires(KokkosView<T>)
 void HDF5WriteAttribute(const std::string &name, const T &view, hid_t location) {
   PARTHENON_REQUIRE(view.span_is_contiguous(), "Only works for contiguous views");
 
   // cpplint demands compile constants be all caps
-  constexpr size_t RANK = static_cast<size_t>(T::rank);
+  constexpr std::size_t RANK = static_cast<std::size_t>(T::rank);
   hsize_t dim[RANK];
-  for (size_t d = 0; d < RANK; ++d) {
+  for (std::size_t d = 0; d < RANK; ++d) {
     dim[d] = view.extent_int(d);
   }
   const H5S data_space = H5S::FromHIDCheck(H5Screate_simple(RANK, dim, dim));
@@ -168,7 +174,8 @@ void HDF5WriteAttribute(const std::string &name, const T &view, hid_t location) 
   PARTHENON_HDF5_CHECK(H5Awrite(attribute, type, pdata));
 }
 
-template <typename T, REQUIRES(implements<scalar(T)>::value)>
+template <typename T>
+  requires(Scalar<T>)
 void HDF5WriteAttribute(const std::string &name, const T &value, hid_t location) {
   std::vector<T> vec(1);
   vec[0] = value;
@@ -181,13 +188,15 @@ void HDF5WriteAttribute(const std::string &name, const ParArrayGeneric<D, S> &vi
   return HDF5WriteAttribute(name, view.KokkosView(), location);
 }
 
-template <typename T, REQUIRES(implements<scalar(T)>::value)>
+template <typename T>
+  requires(Scalar<T>)
 void HDF5ReadAttribute(hid_t location, const std::string &name, T &val) {
   auto vec = HDF5ReadAttributeVec<T>(location, name);
   val = vec[0];
 }
 
-template <typename T, REQUIRES(implements<kokkos_view(T)>::value)>
+template <typename T>
+  requires(KokkosView<T>)
 void HDF5ReadAttribute(hid_t location, const std::string &name, T &view) {
   static_assert(std::is_same<typename T::array_layout, Kokkos::LayoutLeft>::value ||
                     std::is_same<typename T::array_layout, Kokkos::LayoutRight>::value,
@@ -197,7 +206,7 @@ void HDF5ReadAttribute(hid_t location, const std::string &name, T &view) {
   auto [rank, dim, size] = HDF5GetAttributeInfo(location, name, attr);
 
   // check rank
-  int view_rank = static_cast<size_t>(T::rank);
+  int view_rank = static_cast<std::size_t>(T::rank);
   PARTHENON_REQUIRE(rank == view_rank, "input and output view are same rank");
 
   // Resize view.

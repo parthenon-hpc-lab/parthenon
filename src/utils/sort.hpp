@@ -28,8 +28,20 @@
 #endif
 
 #include <algorithm>
+#include <iterator>
 
 namespace parthenon {
+
+template <typename T, typename = void>
+struct is_sortable : std::false_type {};
+
+template <typename T>
+struct is_sortable<T, std::void_t<decltype(std::sort(std::begin(std::declval<T &>()),
+                                                     std::end(std::declval<T &>())))>>
+    : std::true_type {};
+
+template <typename T>
+constexpr bool is_sortable_v = is_sortable<T>::value;
 
 // Returns the upper bound (or the array size if value has not been found)
 // Could/Should be replaced with a Kokkos std version once available (currently schedule
@@ -57,11 +69,11 @@ KOKKOS_INLINE_FUNCTION int upper_bound(const T &arr, Real val) {
 }
 
 template <class Key, class KeyComparator>
-void sort(ParArray1D<Key> data, KeyComparator comparator, size_t min_idx,
-          size_t max_idx) {
+void sort(ParArray1D<Key> data, KeyComparator comparator, std::size_t min_idx,
+          std::size_t max_idx) {
   PARTHENON_DEBUG_REQUIRE(min_idx < data.extent(0), "Invalid minimum sort index!");
   PARTHENON_DEBUG_REQUIRE(max_idx < data.extent(0), "Invalid maximum sort index!");
-#ifdef KOKKOS_ENABLE_CUDA
+#if defined(KOKKOS_ENABLE_CUDA)
 #ifdef __clang__
   PARTHENON_FAIL("sort is using thrust and there exists an incompatibility with clang, "
                  "see https://github.com/lanl/parthenon/issues/647 for more details. We "
@@ -74,6 +86,13 @@ void sort(ParArray1D<Key> data, KeyComparator comparator, size_t min_idx,
   thrust::device_ptr<Key> last_d = thrust::device_pointer_cast(data.data()) + max_idx + 1;
   thrust::sort(first_d, last_d, comparator);
 #endif
+#elif defined(KOKKOS_ENABLE_HIP)
+  auto data_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), data);
+  std::sort(data_h.data() + min_idx, data_h.data() + max_idx + 1, comparator);
+  Kokkos::deep_copy(data, data_h);
+  // TODO(BRR) With Kokkos 4.4, switch to Kokkos::sort
+  // auto sub_data = Kokkos::subview(data, std::make_pair(min_idx, max_idx + 1));
+  // Kokkos::sort(sub_data, comparator);
 #else
   if (std::is_same<DevExecSpace, HostExecSpace>::value) {
     std::sort(data.data() + min_idx, data.data() + max_idx + 1, comparator);
@@ -86,10 +105,10 @@ void sort(ParArray1D<Key> data, KeyComparator comparator, size_t min_idx,
 }
 
 template <class Key>
-void sort(ParArray1D<Key> data, size_t min_idx, size_t max_idx) {
+void sort(ParArray1D<Key> data, std::size_t min_idx, std::size_t max_idx) {
   PARTHENON_DEBUG_REQUIRE(min_idx < data.extent(0), "Invalid minimum sort index!");
   PARTHENON_DEBUG_REQUIRE(max_idx < data.extent(0), "Invalid maximum sort index!");
-#ifdef KOKKOS_ENABLE_CUDA
+#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
 #ifdef __clang__
   PARTHENON_FAIL("sort is using thrust and there exists an incompatibility with clang, "
                  "see https://github.com/lanl/parthenon/issues/647 for more details. We "
@@ -102,6 +121,12 @@ void sort(ParArray1D<Key> data, size_t min_idx, size_t max_idx) {
   thrust::device_ptr<Key> last_d = thrust::device_pointer_cast(data.data()) + max_idx + 1;
   thrust::sort(first_d, last_d);
 #endif
+  auto data_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), data);
+  std::sort(data_h.data() + min_idx, data_h.data() + max_idx + 1);
+  Kokkos::deep_copy(data, data_h);
+  // TODO(BRR) With Kokkos 4.4, switch to Kokkos::sort
+  // auto sub_data = Kokkos::subview(data, std::make_pair(min_idx, max_idx + 1));
+  // Kokkos::sort(sub_data);
 #else
   if (std::is_same<DevExecSpace, HostExecSpace>::value) {
     std::sort(data.data() + min_idx, data.data() + max_idx + 1);

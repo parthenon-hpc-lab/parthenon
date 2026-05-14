@@ -18,6 +18,7 @@
 
 #include <numeric>
 #include <queue>
+#include <vector>
 
 namespace parthenon {
 namespace AliasMethod {
@@ -36,7 +37,7 @@ AliasMethod::AliasMethod(const std::vector<Real> &probabilities)
                                   static_cast<double>(0.0));
 
   std::queue<int> under_full, over_full;
-  for (size_t i = 0; i < probabilities.size(); ++i) {
+  for (std::size_t i = 0; i < probabilities.size(); ++i) {
     host_alias_table(i) = -1;
 
     host_prob_table(i) = Real(probabilities.size()) * probabilities[i] / prob_sum;

@@ -28,6 +28,7 @@
 #include <hdf5.h>
 
 #include "interface/metadata.hpp"
+#include "outputs/parthenon_hdf5.hpp"
 #include "outputs/parthenon_hdf5_types.hpp"
 
 using namespace parthenon::HDF5;
@@ -57,6 +58,8 @@ class RestartReaderHDF5 : public RestartReader {
 
   // Return output format version number. Return -1 if not existent.
   [[nodiscard]] int GetOutputFormatVersion() const override;
+
+  [[nodiscard]] int HasGhost() const override { return has_ghost; };
 
  private:
 #ifdef ENABLE_HDF5
@@ -131,13 +134,13 @@ class RestartReaderHDF5 : public RestartReader {
     hsize_t h5_offset[CHUNK_MAX_DIM];
     hsize_t h5_count[CHUNK_MAX_DIM];
     const auto &shape = m.Shape();
-    const int rank = shape.size();
+    const auto rank = shape.size();
     const bool is_vector = m.IsSet(Metadata::Vector);
     std::size_t total_count = count;
     for (int i = 0; i < CHUNK_MAX_DIM; ++i) {
       h5_offset[i] = h5_count[i] = 0;
     }
-    for (int i = 0; i < rank; ++i) {
+    for (std::size_t i = 0; i < rank; ++i) {
       h5_count[i] = shape[rank - 1 - i];
       total_count *= shape[rank - 1 - i];
     }
@@ -208,6 +211,11 @@ class RestartReaderHDF5 : public RestartReader {
   };
   void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
                     const std::size_t count, const std::size_t offset, const Metadata &m,
+                    std::vector<std::uint64_t> &dataVec) override {
+    ReadSwarmVar<>(swarmname, varname, count, offset, m, dataVec);
+  };
+  void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
+                    const std::size_t count, const std::size_t offset, const Metadata &m,
                     std::vector<int> &dataVec) override {
     ReadSwarmVar<>(swarmname, varname, count, offset, m, dataVec);
   };
@@ -221,15 +229,29 @@ class RestartReaderHDF5 : public RestartReader {
 
   void ReadParams(const std::string &name, Params &p) override;
 
+  [[nodiscard]] bool VariableExists(const std::string &name) const override {
+#ifdef ENABLE_HDF5
+    // make sure dataset exists
+    // disabling error handling/printing as we take care of it
+    H5Eset_auto(H5E_DEFAULT, NULL, NULL);
+    auto status = H5Oexists_by_name(fh_, name.c_str(), H5P_DEFAULT);
+    // reenable HDF5 error handling to throw an error
+    H5Eset_auto(H5E_DEFAULT, aborting_error_handler, NULL);
+    return status > 0;
+#else
+    PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
+    return false;
+#endif // ENABLE_HDF5
+  }
   // closes out the restart file
   // perhaps belongs in a destructor?
   void Close();
 
-  // Does file have ghost cells?
-  int hasGhost;
-
  private:
   const std::string filename_;
+
+  // Does file have ghost cells?
+  int has_ghost;
 
 #ifdef ENABLE_HDF5
   // Currently all restarts are HDF5 files

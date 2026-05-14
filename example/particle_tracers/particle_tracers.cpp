@@ -3,7 +3,7 @@
 // Copyright(C) 2021-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -15,8 +15,9 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include "particle_tracers.hpp"
+// This file was made in part with generative AI.
 
+// C++ includes
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -26,13 +27,19 @@
 #include <utility>
 #include <vector>
 
+// Parthenon includes
+#include "amr_criteria/refinement_package.hpp"
 #include "basic_types.hpp"
 #include "bvals/comms/bvals_in_one.hpp"
 #include "config.hpp"
 #include "globals.hpp"
+#include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "kokkos_abstraction.hpp"
+#include "pack/default_names.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
+
+#include "particle_tracers.hpp"
 
 using namespace parthenon::driver::prelude;
 using namespace parthenon::Update;
@@ -41,8 +48,22 @@ typedef Kokkos::Random_XorShift64_Pool<> RNGPool;
 
 namespace tracers_example {
 
-// Add multiple packages, one for the advected background and one for the tracer
-// particles.
+// ****************************************************//
+// Define variables/names to be used by this example. *//
+// ****************************************************//
+
+static const char swarm_name[] = "tracers";
+
+namespace field {
+PAR_VAR(field, advected);
+PAR_VAR(field, deposition);
+} // namespace field
+
+// ****************************************************//
+// Add multiple packages, one for the advected        *//
+// background and one for the tracer particles.       *//
+// ****************************************************//
+
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   packages.Add(advection_package::Initialize(pin.get()));
@@ -50,62 +71,102 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   return packages;
 }
 
-// Create separate packages for background field and tracer particles
-
 namespace advection_package {
 
-// *************************************************//
-// define the advection package, including         *//
-// initialization and update functions.            *//
-// *************************************************//
+// ****************************************************//
+// Define the advection package, including            *//
+// timestep and package initialization functions.     *//
+// ****************************************************//
 
-Real EstimateTimestepBlock(MeshBlockData<Real> *mbd) {
-  auto pmb = mbd->GetBlockPointer();
-  auto pkg = pmb->packages.Get("advection_package");
-  const auto &cfl = pkg->Param<Real>("cfl");
+Real EstimateTimestepMesh(MeshData<Real> *md) {
+  auto pm = md->GetParentPointer();
+  auto adv_pkg = pm->packages.Get("advection_package");
 
-  const auto &vx = pkg->Param<Real>("vx");
-  const auto &vy = pkg->Param<Real>("vy");
-  const auto &vz = pkg->Param<Real>("vz");
+  const auto &cfl = adv_pkg->Param<Real>("cfl");
+  const auto &vx = adv_pkg->Param<Real>("vx");
+  const auto &vy = adv_pkg->Param<Real>("vy");
+  const auto &vz = adv_pkg->Param<Real>("vz");
 
   // Assumes a grid with constant dx, dy, dz within a block
-  const Real &dx_i = pmb->coords.Dxc<1>(0);
-  const Real &dx_j = pmb->coords.Dxc<2>(0);
-  const Real &dx_k = pmb->coords.Dxc<3>(0);
+  std::array<Real, 3> dx;
+  dx.fill(std::numeric_limits<Real>::max());
+  for (auto &pmb : pm->block_list) {
+    const auto &reg = pmb->block_size;
+    dx[0] = std::min(dx[0], pmb->coords.Dxc<X1DIR>(0));
+    dx[1] = std::min(dx[1], pmb->coords.Dxc<X2DIR>(0));
+    dx[2] = std::min(dx[2], pmb->coords.Dxc<X3DIR>(0));
+  }
 
-  Real min_dt = dx_i / std::abs(vx + TINY_NUMBER);
-  min_dt = std::min(min_dt, dx_j / std::abs(vy + TINY_NUMBER));
-  min_dt = std::min(min_dt, dx_k / std::abs(vz + TINY_NUMBER));
+  Real min_dt = dx[0] / std::abs(vx + TINY_NUMBER);
+  min_dt = std::min(min_dt, dx[1] / std::abs(vy + TINY_NUMBER));
+  min_dt = std::min(min_dt, dx[2] / std::abs(vz + TINY_NUMBER));
 
   return cfl * min_dt;
 }
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
-  auto pkg = std::make_shared<StateDescriptor>("advection_package");
+  auto adv_pkg = std::make_shared<StateDescriptor>("advection_package");
 
-  Real vx = pin->GetOrAddReal("Background", "vx", 1.0);
-  pkg->AddParam<>("vx", vx);
-  Real vy = pin->GetOrAddReal("Background", "vy", 0.0);
-  pkg->AddParam<>("vy", vy);
-  Real vz = pin->GetOrAddReal("Background", "vz", 0.0);
-  pkg->AddParam<>("vz", vz);
+  adv_pkg->AddParam("vx", pin->GetOrAddReal("Background", "vx", 1.0));
+  adv_pkg->AddParam("vy", pin->GetOrAddReal("Background", "vy", 0.0));
+  adv_pkg->AddParam("vz", pin->GetOrAddReal("Background", "vz", 0.0));
+  adv_pkg->AddParam("cfl", pin->GetOrAddReal("Background", "cfl", 0.3));
 
-  Real cfl = pin->GetOrAddReal("Background", "cfl", 0.3);
-  pkg->AddParam<>("cfl", cfl);
+  const Real advected_mean = 1.0;
+  const Real advected_amp = 0.5;
+  adv_pkg->AddParam("advected_mean", advected_mean);
+  adv_pkg->AddParam("advected_amp", advected_amp);
+  adv_pkg->AddParam("refine_tol", pin->GetOrAddReal("Background", "refine_tol", 1.25));
+  adv_pkg->AddParam("derefine_tol",
+                    pin->GetOrAddReal("Background", "derefine_tol", 1.05));
+  PARTHENON_REQUIRE(advected_mean > advected_amp,
+                    "Advected field must be everywere positive!");
 
   // Add advected field
-  std::string field_name = "advected";
-  Metadata mfield(
+  Metadata madv(
       {Metadata::Cell, Metadata::Independent, Metadata::FillGhost, Metadata::WithFluxes});
-  pkg->AddField(field_name, mfield);
+  adv_pkg->AddField<field::advected>(madv);
 
-  // Add field in which to deposit tracer densities
-  field_name = "tracer_deposition";
-  pkg->AddField(field_name, mfield);
+  // Add deposition field
+  Metadata mdep({Metadata::Cell, Metadata::Derived});
+  adv_pkg->AddField<field::deposition>(mdep);
 
-  pkg->EstimateTimestepBlock = EstimateTimestepBlock;
+  // Assign package timestep hook
+  adv_pkg->EstimateTimestepMesh = EstimateTimestepMesh;
 
-  return pkg;
+  adv_pkg->CheckRefinementBlock = CheckRefinementBlock;
+
+  return adv_pkg;
+}
+
+AmrTag CheckRefinementBlock(MeshBlockData<Real> *rc) {
+  auto pmb = rc->GetBlockPointer();
+  auto pkg = pmb->packages.Get("advection_package");
+  static auto desc =
+      parthenon::MakePackDescriptor<field::advected>(pmb->resolved_packages.get());
+  auto pack = desc.GetPack(rc);
+
+  const IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
+  const IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
+  const IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
+
+  typename Kokkos::MinMax<Real>::value_type minmax;
+  pmb->par_reduce(
+      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int k, const int j, const int i,
+                    typename Kokkos::MinMax<Real>::value_type &lminmax) {
+        const Real val = pack(0, field::advected(), k, j, i);
+        lminmax.min_val = val < lminmax.min_val ? val : lminmax.min_val;
+        lminmax.max_val = val > lminmax.max_val ? val : lminmax.max_val;
+      },
+      Kokkos::MinMax<Real>(minmax));
+
+  const auto &refine_tol = pkg->Param<Real>("refine_tol");
+  const auto &derefine_tol = pkg->Param<Real>("derefine_tol");
+
+  if (minmax.max_val > refine_tol) return AmrTag::refine;
+  if (minmax.max_val < derefine_tol) return AmrTag::derefine;
+  return AmrTag::same;
 }
 
 } // namespace advection_package
@@ -113,229 +174,90 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 namespace particles_package {
 
 // *************************************************//
-// define the tracer particles package, including  *//
-// initialization and update functions.            *//
+// Define the tracer particles package, including  *//
+// timestep and initialization functions.          *//
 // *************************************************//
 
-Real EstimateTimestepBlock(MeshBlockData<Real> *mbd) {
-  auto pmb = mbd->GetBlockPointer();
-  auto pkg = pmb->packages.Get("advection_package");
+// NOTE(@pdmullen): The below tracers timestep function is currently redundant with the
+// advection timestep, however, its inclusion demonstrates having two packages with votes
+// towards the global timestep.
+Real EstimateTimestepMesh(MeshData<Real> *md) {
+  auto pm = md->GetParentPointer();
+  auto adv_pkg = pm->packages.Get("advection_package");
 
-  const auto &vx = pkg->Param<Real>("vx");
-  const auto &vy = pkg->Param<Real>("vy");
-  const auto &vz = pkg->Param<Real>("vz");
+  const auto &cfl = adv_pkg->Param<Real>("cfl");
+  const auto &vx = adv_pkg->Param<Real>("vx");
+  const auto &vy = adv_pkg->Param<Real>("vy");
+  const auto &vz = adv_pkg->Param<Real>("vz");
 
   // Assumes a grid with constant dx, dy, dz within a block
-  const Real &dx_i = pmb->coords.Dxc<1>(0);
-  const Real &dx_j = pmb->coords.Dxc<2>(0);
-  const Real &dx_k = pmb->coords.Dxc<3>(0);
+  std::array<Real, 3> dx;
+  dx.fill(std::numeric_limits<Real>::max());
+  for (auto &pmb : pm->block_list) {
+    const auto &reg = pmb->block_size;
+    dx[0] = std::min(dx[0], pmb->coords.Dxc<X1DIR>(0));
+    dx[1] = std::min(dx[1], pmb->coords.Dxc<X2DIR>(0));
+    dx[2] = std::min(dx[2], pmb->coords.Dxc<X3DIR>(0));
+  }
 
-  Real min_dt = dx_i / std::abs(vx + TINY_NUMBER);
-  min_dt = std::min(min_dt, dx_j / std::abs(vy + TINY_NUMBER));
-  min_dt = std::min(min_dt, dx_k / std::abs(vz + TINY_NUMBER));
+  Real min_dt = dx[0] / std::abs(vx + TINY_NUMBER);
+  min_dt = std::min(min_dt, dx[1] / std::abs(vy + TINY_NUMBER));
+  min_dt = std::min(min_dt, dx[2] / std::abs(vz + TINY_NUMBER));
 
   // No CFL number for particles
   return min_dt;
 }
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
-  auto pkg = std::make_shared<StateDescriptor>("particles_package");
+  auto tr_pkg = std::make_shared<StateDescriptor>("particles_package");
 
-  int num_tracers = pin->GetOrAddReal("Tracers", "num_tracers", 100);
-  pkg->AddParam<>("num_tracers", num_tracers);
+  tr_pkg->AddParam("num_tracers", pin->GetOrAddInteger("Tracers", "num_tracers", 100));
 
-  // Add swarm of tracer particles
-  std::string swarm_name = "tracers";
-  Metadata swarm_metadata({Metadata::Provides, Metadata::None});
-  pkg->AddSwarm(swarm_name, swarm_metadata);
-  Metadata real_swarmvalue_metadata({Metadata::Real});
-  pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
+  // `NoPersistentParticleIds` is just passed to test this aspect in the regression tests.
+  // For typical tracers, persistent ids might be important.
+  Metadata m({Metadata::Provides, Metadata::None, Metadata::NoPersistentParticleIds});
+  tr_pkg->AddSwarm(swarm_name, m);
 
-  pkg->EstimateTimestepBlock = EstimateTimestepBlock;
+  // Assign package timestep hook
+  tr_pkg->EstimateTimestepMesh = EstimateTimestepMesh;
 
-  return pkg;
+  // Assign package final initialization hook
+  tr_pkg->PostInitializationBlock = SourceTracers;
+
+  return tr_pkg;
 }
 
-} // namespace particles_package
-
-TaskStatus AdvectTracers(MeshBlock *pmb, const StagedIntegrator *integrator) {
-  auto swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("tracers");
-  auto adv_pkg = pmb->packages.Get("advection_package");
-
-  int max_active_index = swarm->GetMaxActiveIndex();
-
-  Real dt = integrator->dt;
-
-  auto &x = swarm->Get<Real>(swarm_position::x::name()).Get();
-  auto &y = swarm->Get<Real>(swarm_position::y::name()).Get();
-  auto &z = swarm->Get<Real>(swarm_position::z::name()).Get();
-
-  const auto &vx = adv_pkg->Param<Real>("vx");
-  const auto &vy = adv_pkg->Param<Real>("vy");
-  const auto &vz = adv_pkg->Param<Real>("vz");
-
-  auto swarm_d = swarm->GetDeviceContext();
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, max_active_index, KOKKOS_LAMBDA(const int n) {
-        if (swarm_d.IsActive(n)) {
-          x(n) += vx * dt;
-          y(n) += vy * dt;
-          z(n) += vz * dt;
-        }
-      });
-
-  return TaskStatus::complete;
-}
-
-TaskStatus DepositTracers(MeshBlock *pmb) {
-  auto swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("tracers");
-
-  // Meshblock geometry
-  const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  // again using scalar dx_D for assuming a uniform grid in this example
-  const Real &dx_i = pmb->coords.Dxc<1>(0);
-  const Real &dx_j = pmb->coords.Dxf<2>(0);
-  const Real &dx_k = pmb->coords.Dxf<3>(0);
-  const Real &minx_i = pmb->coords.Xf<1>(ib.s);
-  const Real &minx_j = pmb->coords.Xf<2>(jb.s);
-  const Real &minx_k = pmb->coords.Xf<3>(kb.s);
-
-  const auto &x = swarm->Get<Real>(swarm_position::x::name()).Get();
-  const auto &y = swarm->Get<Real>(swarm_position::y::name()).Get();
-  const auto &z = swarm->Get<Real>(swarm_position::z::name()).Get();
-  auto swarm_d = swarm->GetDeviceContext();
-
-  auto &tracer_dep = pmb->meshblock_data.Get()->Get("tracer_deposition").data;
-  // Reset particle count
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) { tracer_dep(k, j, i) = 0.; });
-
-  const int ndim = pmb->pmy_mesh->ndim;
-
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
-        if (swarm_d.IsActive(n)) {
-          int i = static_cast<int>(std::floor((x(n) - minx_i) / dx_i) + ib.s);
-          int j = 0;
-          if (ndim > 1) {
-            j = static_cast<int>(std::floor((y(n) - minx_j) / dx_j) + jb.s);
-          }
-          int k = 0;
-          if (ndim > 2) {
-            k = static_cast<int>(std::floor((z(n) - minx_k) / dx_k) + kb.s);
-          }
-
-          // For testing in this example we make sure the indices are correct; these could
-          // be demoted to Debug-only calls
-          if (i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s &&
-              k <= kb.e) {
-            Kokkos::atomic_add(&tracer_dep(k, j, i), 1.0);
-          } else {
-            PARTHENON_FAIL("Particle outside of active region during deposition.");
-          }
-        }
-      });
-
-  return TaskStatus::complete;
-}
-
-TaskStatus CalculateFluxes(MeshBlockData<Real> *mbd) {
-  auto pmb = mbd->GetBlockPointer();
-  auto adv_pkg = pmb->packages.Get("advection_package");
-  const auto &vx = adv_pkg->Param<Real>("vx");
-  const auto &vy = adv_pkg->Param<Real>("vy");
-  const auto &vz = adv_pkg->Param<Real>("vz");
-
-  const auto ndim = pmb->pmy_mesh->ndim;
-
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-
-  auto advected = mbd->Get("advected").data;
-
-  parthenon::ParArray4D<Real> x1flux = mbd->Get("bnd_flux::advected").data.Get(0, 0, 0);
-  // Spatially first order upwind method
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e + 1,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        // X1
-        if (vx > 0.) {
-          x1flux(0, k, j, i) = advected(k, j, i - 1) * vx;
-        } else {
-          x1flux(0, k, j, i) = advected(k, j, i) * vx;
-        }
-      });
-
-  if (ndim > 1) {
-    parthenon::ParArray4D<Real> x2flux = mbd->Get("bnd_flux::advected").data.Get(1, 0, 0);
-    pmb->par_for(
-        PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e + 1, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int k, const int j, const int i) {
-          // X2
-          if (vy > 0.) {
-            x2flux(0, k, j, i) = advected(k, j - 1, i) * vy;
-          } else {
-            x2flux(0, k, j, i) = advected(k, j, i) * vy;
-          }
-        });
-  }
-
-  if (ndim > 2) {
-    parthenon::ParArray4D<Real> x3flux = mbd->Get("bnd_flux::advected").data.Get(2, 0, 0);
-    pmb->par_for(
-        PARTHENON_AUTO_LABEL, kb.s, kb.e + 1, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int k, const int j, const int i) {
-          // X3
-          if (vz > 0.) {
-            x3flux(0, k, j, i) = advected(k - 1, j, i) * vz;
-          } else {
-            x3flux(0, k, j, i) = advected(k, j, i) * vz;
-          }
-        });
-  }
-
-  return TaskStatus::complete;
-}
-
-// *************************************************//
-// define the application driver. in this case,    *//
-// that just means defining the MakeTaskList       *//
-// function.                                       *//
-// *************************************************//
-
-void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
+void SourceTracers(MeshBlock *pmb, ParameterInput *pin) {
+  auto &mbd = pmb->meshblock_data.Get();
   auto &adv_pkg = pmb->packages.Get("advection_package");
   auto &tr_pkg = pmb->packages.Get("particles_package");
-  auto &mbd = pmb->meshblock_data.Get();
-  auto &advected = mbd->Get("advected").data;
-  auto &swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("tracers");
+
+  // Advection package params
+  const Real &advected_mean = adv_pkg->Param<Real>("advected_mean");
+  const Real &advected_amp = adv_pkg->Param<Real>("advected_amp");
+
+  // Tracer package params and swarm
+  auto &swarm = mbd->GetSwarmData()->Get(swarm_name);
   const auto num_tracers = tr_pkg->Param<int>("num_tracers");
-  auto rng_pool =
-      RNGPool(pmb->gid); // Seed is meshblock gid for consistency across MPI decomposition
 
-  const int ndim = pmb->pmy_mesh->ndim;
-  PARTHENON_REQUIRE(ndim <= 2, "Tracer particles example only supports <= 2D!");
+  // RNG seed is meshblock gid for consistency across MPI decomposition
+  auto rng_pool = RNGPool(pmb->gid);
 
+  // Indexing
   const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
   const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
+  // Block physical size
   auto coords = pmb->coords;
+  const Real &x_min = coords.Xf<1>(ib.s);
+  const Real &y_min = coords.Xf<2>(jb.s);
+  const Real &z_min = coords.Xf<3>(kb.s);
+  const Real &x_max = coords.Xf<1>(ib.e + 1);
+  const Real &y_max = coords.Xf<2>(jb.e + 1);
+  const Real &z_max = coords.Xf<3>(kb.e + 1);
 
-  const Real advected_mean = 1.0;
-  const Real advected_amp = 0.5;
-  PARTHENON_REQUIRE(advected_mean > advected_amp, "Cannot have negative densities!");
-
-  const Real &x_min = pmb->coords.Xf<1>(ib.s);
-  const Real &y_min = pmb->coords.Xf<2>(jb.s);
-  const Real &z_min = pmb->coords.Xf<3>(kb.s);
-  const Real &x_max = pmb->coords.Xf<1>(ib.e + 1);
-  const Real &y_max = pmb->coords.Xf<2>(jb.e + 1);
-  const Real &z_max = pmb->coords.Xf<3>(kb.e + 1);
-
+  // Mesh physical size
   const auto mesh_size = pmb->pmy_mesh->mesh_size;
   const Real x_min_mesh = mesh_size.xmin(X1DIR);
   const Real y_min_mesh = mesh_size.xmin(X2DIR);
@@ -343,176 +265,335 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const Real x_max_mesh = mesh_size.xmax(X1DIR);
   const Real y_max_mesh = mesh_size.xmax(X2DIR);
   const Real z_max_mesh = mesh_size.xmax(X3DIR);
-
   const Real kwave = 2. * M_PI / (x_max_mesh - x_min_mesh);
 
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        advected(k, j, i) = advected_mean + advected_amp * sin(kwave * coords.Xc<1>(i));
-      });
+  // Calculate frac of total tracers on this MeshBlock by integrating the advected profile
+  // over the Mesh and this MeshBlock. Tracer number follows number = advected*volume.
+  const Real nmesh = (advected_mean * (x_max_mesh - x_min_mesh) -
+                      advected_amp / kwave *
+                          (std::cos(kwave * x_max_mesh) - std::cos(kwave * x_min_mesh))) *
+                     (y_max_mesh - y_min_mesh) * (z_max_mesh - z_min_mesh);
+  const Real nmeshblock =
+      (advected_mean * (x_max - x_min) -
+       advected_amp / kwave * (std::cos(kwave * x_max) - std::cos(kwave * x_min))) *
+      (y_max - y_min) * (z_max - z_min);
 
-  // Calculate fraction of total tracer particles on this meshblock by integrating the
-  // advected profile over both the mesh and this meshblock. Tracer number follows number
-  // = advected*volume.
-  Real number_meshblock =
-      advected_mean * (x_max - x_min) -
-      advected_amp / kwave * (cos(kwave * x_max) - cos(kwave * x_min));
-  number_meshblock *= (y_max - y_min) * (z_max - z_min);
-  Real number_mesh = advected_mean * (x_max_mesh - x_min_mesh);
-  number_mesh -=
-      advected_amp / kwave * (cos(kwave * x_max_mesh) - cos(kwave * x_min_mesh));
-  number_mesh *= (y_max_mesh - y_min_mesh) * (z_max_mesh - z_min_mesh);
-
-  int num_tracers_meshblock = std::round(num_tracers * number_meshblock / number_mesh);
-  int gid = pmb->gid;
-
+  // Add these particles
+  int num_tracers_meshblock = std::round(num_tracers * nmeshblock / nmesh);
   auto new_particles_context = swarm->AddEmptyParticles(num_tracers_meshblock);
 
-  auto &x = swarm->Get<Real>(swarm_position::x::name()).Get();
-  auto &y = swarm->Get<Real>(swarm_position::y::name()).Get();
-  auto &z = swarm->Get<Real>(swarm_position::z::name()).Get();
-  auto &id = swarm->Get<int>("id").Get();
+  // Create pack
+  static auto desc =
+      MakeSwarmPackDescriptor<swarm_position::x, swarm_position::y, swarm_position::z>(
+          swarm_name);
+  auto pack = desc.GetPack(mbd.get());
 
-  auto swarm_d = swarm->GetDeviceContext();
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, new_particles_context.GetNewParticlesMaxIndex(),
-      KOKKOS_LAMBDA(const int new_n) {
+  // Initialize tracers on this block
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "InitializeTracers", DevExecSpace(), 0,
+      new_particles_context.GetNewParticlesMaxIndex(), KOKKOS_LAMBDA(const int new_n) {
         const int n = new_particles_context.GetNewParticleIndex(new_n);
         auto rng_gen = rng_pool.get_state();
+
+        // Extract particle position
+        Real &xx = pack(0, swarm_position::x(), n);
+        Real &yy = pack(0, swarm_position::y(), n);
+        Real &zz = pack(0, swarm_position::z(), n);
 
         // Rejection sample the x position
         Real val;
         do {
-          x(n) = x_min + rng_gen.drand() * (x_max - x_min);
-          val = advected_mean + advected_amp * sin(2. * M_PI * x(n));
+          xx = x_min + rng_gen.drand() * (x_max - x_min);
+          val = advected_mean + advected_amp * std::sin(2. * M_PI * xx);
         } while (val < rng_gen.drand() * (advected_mean + advected_amp));
 
-        y(n) = y_min + rng_gen.drand() * (y_max - y_min);
-        z(n) = z_min + rng_gen.drand() * (z_max - z_min);
-        id(n) = num_tracers * gid + n;
+        yy = y_min + rng_gen.drand() * (y_max - y_min);
+        zz = z_min + rng_gen.drand() * (z_max - z_min);
 
         rng_pool.free_state(rng_gen);
       });
 }
 
-TaskCollection ParticleDriver::MakeTaskCollection(BlockList_t &blocks, int stage) {
+} // namespace particles_package
+
+// *************************************************//
+// Now we define the tasks.  We here exmplify      *//
+// tasks operating on MeshData<Real> registers,    *//
+// such that all blocks within the MeshData        *//
+// partition are updated.                          *//
+// *************************************************//
+
+TaskStatus AdvectTracers(MeshData<Real> *md, const Real dt) {
+  auto pm = md->GetParentPointer();
+
+  // Advection params
+  auto adv_pkg = pm->packages.Get("advection_package");
+  const auto &vx = adv_pkg->Param<Real>("vx");
+  const auto &vy = adv_pkg->Param<Real>("vy");
+  const auto &vz = adv_pkg->Param<Real>("vz");
+
+  // Create pack
+  static auto desc =
+      MakeSwarmPackDescriptor<swarm_position::x, swarm_position::y, swarm_position::z>(
+          swarm_name);
+  auto pack = desc.GetPack(md);
+
+  // Advect tracers
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "AdvectTracers", DevExecSpace(), 0, pack.GetMaxFlatIndex(),
+      KOKKOS_LAMBDA(const int idx) {
+        auto [b, n] = pack.GetBlockParticleIndices(idx);
+        const auto &swarm_d = pack.GetContext(b);
+        if (swarm_d.IsActive(n)) {
+          pack(b, swarm_position::x(), n) += vx * dt;
+          pack(b, swarm_position::y(), n) += vy * dt;
+          pack(b, swarm_position::z(), n) += vz * dt;
+        }
+      });
+
+  return TaskStatus::complete;
+}
+
+TaskStatus DepositTracers(MeshData<Real> *md) {
+  auto pm = md->GetParentPointer();
+  auto &resolved_pkgs = pm->resolved_packages;
+
+  // Indexing
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior);
+
+  // Create packs
+  static auto desc = MakePackDescriptor<field::deposition>(resolved_pkgs.get());
+  static auto pdesc =
+      MakeSwarmPackDescriptor<swarm_position::x, swarm_position::y, swarm_position::z>(
+          swarm_name);
+  auto vmesh = desc.GetPack(md);
+  auto vpart = pdesc.GetPack(md);
+
+  // First zero the deposition field
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "Zero", parthenon::DevExecSpace(), 0, md->NumBlocks() - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int &b, const int &k, const int &j, const int &i) {
+        vmesh(b, field::deposition(), k, j, i) = 0.0;
+      });
+
+  // Now atomically add to depositon field
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "DepositTracers", DevExecSpace(), 0, vpart.GetMaxFlatIndex(),
+      KOKKOS_LAMBDA(const int idx) {
+        auto [b, n] = vpart.GetBlockParticleIndices(idx);
+        const auto &swarm_d = vpart.GetContext(b);
+        if (swarm_d.IsActive(n)) {
+          int ip, jp, kp;
+          const Real &xx = vpart(b, swarm_position::x(), n);
+          const Real &yy = vpart(b, swarm_position::y(), n);
+          const Real &zz = vpart(b, swarm_position::z(), n);
+          swarm_d.Xtoijk(xx, yy, zz, ip, jp, kp);
+
+          // For testing in this example we make sure the indices are correct; these
+          // could be demoted to Debug-only calls
+          const bool inside_x = ip >= ib.s && ip <= ib.e;
+          const bool inside_y = jp >= jb.s && jp <= jb.e;
+          const bool inside_z = kp >= kb.s && kp <= kb.e;
+          if (inside_x && inside_y && inside_z) {
+            Kokkos::atomic_add(&vmesh(b, field::deposition(), kp, jp, ip), 1.0);
+          } else {
+            PARTHENON_FAIL("Tracer outside of active domain during deposition.");
+          }
+        }
+      });
+
+  return TaskStatus::complete;
+}
+
+TaskStatus CalculateFluxes(MeshData<Real> *md) {
+  auto pm = md->GetParentPointer();
+  auto &resolved_pkgs = pm->resolved_packages;
+
+  // Advection package params
+  auto adv_pkg = pm->packages.Get("advection_package");
+  const Real &vx = adv_pkg->Param<Real>("vx");
+  const Real &vy = adv_pkg->Param<Real>("vy");
+  const Real &vz = adv_pkg->Param<Real>("vz");
+
+  // Indexing and dimensionality
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior);
+  const auto ndim = pm->ndim;
+
+  // Create pack
+  static auto desc = parthenon::MakePackDescriptor<field::advected>(
+      resolved_pkgs.get(), {}, {parthenon::PDOpt::WithFluxes});
+  auto pack = desc.GetPack(md);
+
+  // X1-Flux
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "X1-Flux", parthenon::DevExecSpace(), 0, md->NumBlocks() - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e + 1,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        pack.flux(b, X1DIR, field::advected(), k, j, i) =
+            vx * ((vx > 0) ? pack(b, field::advected(), k, j, i - 1)
+                           : pack(b, field::advected(), k, j, i));
+      });
+
+  if (ndim > 1) {
+    parthenon::par_for(
+        DEFAULT_LOOP_PATTERN, "X2-Flux", parthenon::DevExecSpace(), 0,
+        md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e + 1, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+          pack.flux(b, X2DIR, field::advected(), k, j, i) =
+              vy * ((vy > 0) ? pack(b, field::advected(), k, j - 1, i)
+                             : pack(b, field::advected(), k, j, i));
+        });
+  }
+
+  if (ndim > 2) {
+    parthenon::par_for(
+        DEFAULT_LOOP_PATTERN, "X3-Flux", parthenon::DevExecSpace(), 0,
+        md->NumBlocks() - 1, kb.s, kb.e + 1, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+          pack.flux(b, X3DIR, field::advected(), k, j, i) =
+              vz * ((vz > 0) ? pack(b, field::advected(), k - 1, j, i)
+                             : pack(b, field::advected(), k, j, i));
+        });
+  }
+
+  return TaskStatus::complete;
+}
+
+// ********************************************************//
+// Define the application driver. in this case, that just *//
+// that just means defining the Step and StepTasks.       *//
+// ********************************************************//
+
+TaskListStatus ParticleDriver::Step() { return StepTasks().Execute(); }
+
+TaskCollection ParticleDriver::StepTasks() {
+  using namespace parthenon::Update;
   TaskCollection tc;
+
+  // MeshData Registers
+  auto &base = pmesh->mesh_data.Get();
+  auto &u0 = pmesh->mesh_data.AddShallow("u0", base);
+  auto &u1 = pmesh->mesh_data.Add("u1", u0);
+
   TaskID none(0);
-
-  const Real beta = integrator->beta[stage - 1];
-  const Real dt = integrator->dt;
-  const auto &stage_name = integrator->stage_name;
-  const int nstages = integrator->nstages;
-
-  const auto nblocks = blocks.size();
-  TaskRegion &async_region0 = tc.AddRegion(nblocks);
-
-  // Staged advection update of advected field
-
-  for (int n = 0; n < nblocks; n++) {
-    auto &pmb = blocks[n];
-    auto &tl = async_region0[n];
-
-    auto &base = pmb->meshblock_data.Get();
-    if (stage == 1) {
-      pmb->meshblock_data.Add("dUdt", base);
-      for (int m = 1; m < nstages; m++) {
-        pmb->meshblock_data.Add(stage_name[m], base);
-      }
-    }
-
-    auto &sc0 = pmb->meshblock_data.Get(stage_name[stage - 1]);
-    auto &dudt = pmb->meshblock_data.Get("dUdt");
-    auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
-
-    auto advect_flux = tl.AddTask(none, tracers_example::CalculateFluxes, sc0.get());
-  }
-
+  const auto any = parthenon::BoundaryType::any;
   const int num_partitions = pmesh->DefaultNumPartitions();
-  // note that task within this region that contains one tasklist per pack
-  // could still be executed in parallel
-  TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(num_partitions);
+
+  // For multi-stage integrator logic, deep copy u0 --> u1
+  auto &init_region = tc.AddRegion(num_partitions);
   for (int i = 0; i < num_partitions; i++) {
-    auto &tl = single_tasklist_per_pack_region[i];
-    auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
-    auto &mc0 = pmesh->mesh_data.GetOrAdd(stage_name[stage - 1], i);
-    auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-    auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
-
-    const auto any = parthenon::BoundaryType::any;
-
-    tl.AddTask(none, parthenon::StartReceiveBoundBufs<any>, mc1);
-    tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
-
-    auto send_flx = tl.AddTask(none, parthenon::LoadAndSendFluxCorrections, mc0);
-    auto recv_flx = tl.AddTask(none, parthenon::ReceiveFluxCorrections, mc0);
-    auto set_flx = tl.AddTask(recv_flx, parthenon::SetFluxCorrections, mc0);
-
-    // compute the divergence of fluxes of conserved variables
-    auto flux_div =
-        tl.AddTask(set_flx, FluxDivergence<MeshData<Real>>, mc0.get(), mdudt.get());
-
-    auto avg_data = tl.AddTask(flux_div, AverageIndependentData<MeshData<Real>>,
-                               mc0.get(), mbase.get(), beta);
-    // apply du/dt to all independent fields in the container
-    auto update = tl.AddTask(avg_data, UpdateIndependentData<MeshData<Real>>, mc0.get(),
-                             mdudt.get(), beta * dt, mc1.get());
-
-    // do boundary exchange
-    parthenon::AddBoundaryExchangeTasks(update, tl, mc1, pmesh->multilevel);
+    auto &tl = init_region[i];
+    auto &u0 = pmesh->mesh_data.GetOrAdd("u0", i);
+    auto &u1 = pmesh->mesh_data.GetOrAdd("u1", i);
+    tl.AddTask(none, CopyData<std::vector<MetadataFlag>, MeshData<Real>>,
+               std::vector<MetadataFlag>({Metadata::Independent}), u0.get(), u1.get());
   }
 
-  TaskRegion &async_region1 = tc.AddRegion(nblocks);
-  for (int n = 0; n < nblocks; n++) {
-    auto &pmb = blocks[n];
-    auto &tl = async_region1[n];
-    auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
+  // Execute multi-stage integrator logic for advection
+  integrator->dt = tm.dt;
+  for (int stage = 1; stage <= integrator->nstages; stage++) {
+    const Real g0 = integrator->gam0[stage - 1];
+    const Real g1 = integrator->gam1[stage - 1];
+    const Real bdt = integrator->beta[stage - 1] * integrator->dt;
 
-    auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditions, sc1);
-
-    if (stage == integrator->nstages) {
-      auto new_dt = tl.AddTask(
-          set_bc, parthenon::Update::EstimateTimestep<MeshBlockData<Real>>, sc1.get());
+    TaskRegion &tr = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; i++) {
+      auto &tl = tr[i];
+      auto &u0 = pmesh->mesh_data.GetOrAdd("u0", i);
+      auto &u1 = pmesh->mesh_data.GetOrAdd("u1", i);
+      auto start_recv = tl.AddTask(none, parthenon::StartReceiveBoundBufs<any>, u0);
+      auto start_flx_recv = tl.AddTask(none, parthenon::StartReceiveFluxCorrections, u0);
+      auto calc_flx = tl.AddTask(none, CalculateFluxes, u0.get());
+      auto send_flx = tl.AddTask(calc_flx, parthenon::LoadAndSendFluxCorrections, u0);
+      auto recv_flx = tl.AddTask(none, parthenon::ReceiveFluxCorrections, u0);
+      auto set_flx = tl.AddTask(calc_flx | recv_flx, parthenon::SetFluxCorrections, u0);
+      auto update =
+          tl.AddTask(calc_flx | set_flx, UpdateWithFluxDivergence<MeshData<Real>>,
+                     u0.get(), u1.get(), g0, g1, bdt);
+      auto bcs = parthenon::AddBoundaryExchangeTasks(update, tl, u0, pmesh->multilevel);
     }
   }
 
-  // First-order operator split tracer particle update
+  // Compute post-advection timestep
+  auto &dt_region = tc.AddRegion(num_partitions);
+  for (int i = 0; i < num_partitions; i++) {
+    auto &tl = dt_region[i];
+    auto &base = pmesh->mesh_data.GetOrAdd("base", i);
+    auto new_dt = tl.AddTask(none, EstimateTimestep<MeshData<Real>>, base.get());
+  }
 
-  if (stage == integrator->nstages) {
-    TaskRegion &sync_region0 = tc.AddRegion(1);
-    {
-      for (int i = 0; i < blocks.size(); i++) {
-        auto &tl = sync_region0[0];
-        auto &pmb = blocks[i];
-        auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
-        auto reset_comms =
-            tl.AddTask(none, &SwarmContainer::ResetCommunication, sc.get());
-      }
-    }
+  // Operator split tracer push
+  integrator->dt = tm.dt;
+  TaskRegion &tracer_region = tc.AddRegion(num_partitions);
+  for (int i = 0; i < num_partitions; i++) {
+    auto &tl = tracer_region[i];
+    auto &base = pmesh->mesh_data.GetOrAdd("base", i);
+    auto reset = tl.AddTask(none, parthenon::ResetSwarmsCommunicationMesh, base);
+    auto advect = tl.AddTask(reset, AdvectTracers, base.get(), integrator->dt);
+    auto send = tl.AddTask(advect, parthenon::SendSwarmsMesh, base);
+    auto receive = tl.AddTask(advect | send, parthenon::ReceiveSwarmsMesh, base);
+    auto deposit = tl.AddTask(receive, DepositTracers, base.get());
+    auto defrag = tl.AddTask(deposit, parthenon::DefragSwarmsMesh, base, 0.9);
+  }
 
-    TaskRegion &async_region1 = tc.AddRegion(nblocks);
-    for (int n = 0; n < nblocks; n++) {
-      auto &tl = async_region1[n];
-      auto &pmb = blocks[n];
-      auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
-      auto tracerAdvect =
-          tl.AddTask(none, tracers_example::AdvectTracers, pmb.get(), integrator.get());
-
-      auto send = tl.AddTask(tracerAdvect, &SwarmContainer::Send, sc.get(),
-                             BoundaryCommSubset::all);
-
-      auto receive =
-          tl.AddTask(send, &SwarmContainer::Receive, sc.get(), BoundaryCommSubset::all);
-
-      auto deposit = tl.AddTask(receive, tracers_example::DepositTracers, pmb.get());
-
-      // Defragment if swarm memory pool occupancy is 90%
-      auto defrag = tl.AddTask(deposit, &SwarmContainer::Defrag, sc.get(), 0.9);
+  if (pmesh->adaptive) {
+    auto &amr_region = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; ++i) {
+      auto &tl = amr_region[i];
+      auto &base = pmesh->mesh_data.GetOrAdd("base", i);
+      tl.AddTask(none, parthenon::Refinement::Tag<MeshData<Real>>, base.get());
     }
   }
 
   return tc;
+}
+
+// *************************************************//
+// Define the ProblemGenerator. Initializing the,  *//
+// advected field.  Recall that initial particle   *//
+// sourcing is handled in FinalInitialization      *//
+// owned by the particles package.                 */
+// *************************************************//
+
+void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
+  auto &mbd = pmb->meshblock_data.Get();
+  auto &resolved_pkgs = pmb->resolved_packages;
+  PARTHENON_REQUIRE(pmb->pmy_mesh->ndim <= 2,
+                    "Tracer particles example only supports <= 2D!");
+
+  // Advection package params
+  auto &adv_pkg = pmb->packages.Get("advection_package");
+  const Real &advected_mean = adv_pkg->Param<Real>("advected_mean");
+  const Real &advected_amp = adv_pkg->Param<Real>("advected_amp");
+
+  // Indexing
+  const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
+  // Mesh physical size
+  const auto mesh_size = pmb->pmy_mesh->mesh_size;
+  const Real x_min_mesh = mesh_size.xmin(X1DIR);
+  const Real x_max_mesh = mesh_size.xmax(X1DIR);
+  const Real kwave = 2.0 * M_PI / (x_max_mesh - x_min_mesh);
+
+  // Create pack
+  static auto desc = parthenon::MakePackDescriptor<field::advected>(resolved_pkgs.get());
+  auto pack = desc.GetPack(mbd.get());
+  auto coords = pmb->coords;
+
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, "ProblemGenerator", parthenon::DevExecSpace(), kb.s, kb.e,
+      jb.s, jb.e, ib.s, ib.e, KOKKOS_LAMBDA(const int k, const int j, const int i) {
+        const Real x1v = coords.Xc<1>(i);
+        pack(0, field::advected(), k, j, i) =
+            advected_mean + advected_amp * std::sin(kwave * x1v);
+      });
 }
 
 } // namespace tracers_example

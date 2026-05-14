@@ -1,5 +1,10 @@
+#!/usr/bin/env python
+# ========================================================================================
+# Parthenon performance portable AMR framework
+# Copyright(C) 2020-2025 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for details
 # =========================================================================================
-# (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -17,7 +22,11 @@ import re
 import os
 import logging
 import numpy as np
-from phdf import phdf
+
+try:
+    from phdf import phdf
+except ModuleNotFoundError:
+    from parthenon_tools.phdf import phdf
 
 from argparse import ArgumentParser
 from pathlib import Path
@@ -32,6 +41,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.colors import is_color_like
+from matplotlib.colors import LogNorm
 
 
 def maybe_float(string):
@@ -64,6 +74,19 @@ parser.add_argument(
     nargs=2,
     default=None,
     help="Tensor components of field to plot. Mutally exclusive with --vector-component.",
+)
+parser.add_argument(
+    "--colorbar", type=str, default=None, help="Add a colorbar with the specified label"
+)
+parser.add_argument(
+    "--logcolor", action="store_true", help="Colorbar is on a log scale"
+)
+parser.add_argument("--colormap", type=str, default="plasma", help="Colormap to use")
+parser.add_argument(
+    "--colorbounds", type=float, nargs=2, default=None, help="Bounds of colorbar"
+)
+parser.add_argument(
+    "--symmetrizecolors", action="store_true", help="Force colorbar to be symmetric"
 )
 parser.add_argument(
     "--swarm",
@@ -161,6 +184,37 @@ parser.add_argument(
     default=False,
     action="store_true",
 )
+parser.add_argument(
+    "--xlim",
+    type=float,
+    help="x bounds. Defaults to whole domain.",
+    nargs=2,
+    default=None,
+)
+parser.add_argument("--xlabel", type=str, help="Label for x axis", default=None)
+parser.add_argument(
+    "--ylim",
+    type=float,
+    help="y bounds. Defaults to whole domain.",
+    nargs=2,
+    default=None,
+)
+parser.add_argument("--ylabel", type=str, help="Label for y axis", default=None)
+
+parser.add_argument(
+    "--no-blocks",
+    dest="blocks",
+    action="store_false",
+    help="Disables the plotting of block boundaries. They are plotted by default.",
+)
+
+parser.add_argument(
+    "--fontsize",
+    type=float,
+    default=12,
+    help="Font size for title, colorbar label, axis labels",
+)
+
 parser.add_argument("field", type=str, help="field to plot")
 parser.add_argument("files", type=str, nargs="+", help="files to plot")
 
@@ -195,6 +249,11 @@ def plot_dump(
     q,
     time_title,
     output_file: Path,
+    colormap="viridis",
+    logcolor=False,
+    colorbar=None,
+    colorbounds=None,
+    symmetrize_colors=False,
     with_mesh=False,
     block_ids=[],
     xi=None,
@@ -206,7 +265,16 @@ def plot_dump(
     swarmy=None,
     swarmcolor=None,
     particlesize=None,
+    xlim=None,
+    xlabel=None,
+    ylim=None,
+    ylabel=None,
+    fontsize=12,
 ):
+    from matplotlib.pyplot import rc
+
+    rc("font", size=fontsize)
+
     if xe is None:
         xe = xf
     if ye is None:
@@ -234,20 +302,51 @@ def plot_dump(
     # move to 2d
     q = q[..., 0, :, :]
 
-    fig = plt.figure()
-    p = fig.add_subplot(111, aspect=1)
+    fig, p = plt.subplots()
+    p.set_aspect(1)
     if time_title is not None:
-        p.set_title(f"t = {time_title}")
+        p.set_title(f"t = {time_title}", fontsize=fontsize)
+
+    if logcolor:
+        q = np.abs(q)
 
     qm = np.ma.masked_where(np.isnan(q), q)
     qmin = qm.min()
     qmax = qm.max()
 
+    # Removes a visual quirk where matplotlib plots things at totally
+    # random colors if a field is exactly zero
+    if qmin == qmax == 0:
+        qmin = -1e-14
+        qmax = 1e-14
+
+    if colorbounds is not None:
+        qmin, qmax = colorbounds
+
+    if symmetrize_colors:
+        qmin = min(qmin, -qmax)
+        qmax = max(qmax, -qmin)
+
+    if logcolor:
+        if qmin <= 0 or qmax <= 0 or qmax < qmin:
+            raise ValueError("Log plot must have strictly positive bounds")
+
     n_blocks = q.shape[0]
     for i in range(n_blocks):
         # Plot the actual data, should work if parthenon/output*/ghost_zones = true/false
         # but obviously no ghost data will be shown if ghost_zones = false
-        p.pcolormesh(xf[i, :], yf[i, :], q[i, :, :], vmin=qmin, vmax=qmax)
+        if logcolor:
+            pm = p.pcolormesh(
+                xf[i, :],
+                yf[i, :],
+                q[i, :, :],
+                cmap=colormap,
+                norm=LogNorm(vmin=qmin, vmax=qmax),
+            )
+        else:
+            pm = p.pcolormesh(
+                xf[i, :], yf[i, :], q[i, :, :], cmap=colormap, vmin=qmin, vmax=qmax
+            )
 
         # Print the block gid in the center of the block
         if len(block_ids) > 0:
@@ -255,7 +354,7 @@ def plot_dump(
                 0.5 * (xf[i, 0] + xf[i, -1]),
                 0.5 * (yf[i, 0] + yf[i, -1]),
                 str(block_ids[i]),
-                fontsize=8,
+                fontsize=int((2.0 / 3.0) * fontsize),
                 color="w",
                 ha="center",
                 va="center",
@@ -284,15 +383,29 @@ def plot_dump(
                     linestyle="dashed",
                 )
                 p.add_patch(rect)
+
+    if xlim is not None:
+        plt.xlim(xlim[0], xlim[1])
+    if ylim is not None:
+        plt.ylim(ylim[0], ylim[1])
+
     if swarmx is not None and swarmy is not None:
         p.scatter(swarmx, swarmy, s=particlesize, c=swarmcolor)
+    if colorbar is not None:
+        plt.colorbar(
+            pm, label=colorbar, fontsize=fontsize, fraction=0.02, pad=0.04, ax=p
+        )
+    if xlabel is not None:
+        p.set_xlabel(xlabel, fontsize=fontsize)
+    if ylabel is not None:
+        p.set_ylabel(ylabel, fontsize=fontsize)
 
-    fig.savefig(output_file, dpi=300)
+    fig.savefig(output_file, dpi=300, bbox_inches="tight")
     plt.close(fig=fig)
     logger.debug(f"Saved {time_title}s time-step to {output_file}")
 
 
-if __name__ == "__main__":
+def main():
     ERROR_FLAG = False
     args = parser.parse_args()
     logger.setLevel(args.log_level)
@@ -331,7 +444,6 @@ if __name__ == "__main__":
                 ERROR_FLAG = True
                 break
             q = data.Get(args.field, False, not args.debug_plot)
-
             if do_swarm:
                 if args.swarm not in data.Variables:
                     report_find_fail(args.swarm, file_name, data.Variables, logger)
@@ -389,7 +501,7 @@ if __name__ == "__main__":
             output_file = args.output_directory / name
 
             # NOTE: After doing 5 test on different precision, keeping 2 looks more promising
-            current_time = format(round(data.Time, 2), ".2f")
+            current_time = format(data.Time, ".2e")
             if args.debug_plot:
                 futures.append(
                     pool.submit(
@@ -399,7 +511,12 @@ if __name__ == "__main__":
                         q,
                         current_time,
                         output_file,
-                        True,
+                        args.colormap,
+                        args.logcolor,
+                        args.colorbar,
+                        args.colorbounds,
+                        args.symmetrizecolors,
+                        args.blocks,
                         data.gid,
                         data.xig,
                         data.yig,
@@ -410,6 +527,11 @@ if __name__ == "__main__":
                         swarmy,
                         swarmcolor,
                         particlesize,
+                        args.xlim,
+                        args.xlabel,
+                        args.ylim,
+                        args.ylabel,
+                        args.fontsize,
                     )
                 )
             else:
@@ -421,12 +543,22 @@ if __name__ == "__main__":
                         q,
                         current_time,
                         output_file,
-                        True,
+                        args.colormap,
+                        args.logcolor,
+                        args.colorbar,
+                        args.colorbounds,
+                        args.symmetrizecolors,
+                        args.blocks,
                         components=components,
                         swarmx=swarmx,
                         swarmy=swarmy,
                         swarmcolor=swarmcolor,
                         particlesize=particlesize,
+                        xlim=args.xlim,
+                        xlabel=args.xlabel,
+                        ylim=args.ylim,
+                        ylabel=args.ylabel,
+                        fontsize=args.fontsize,
                     )
                 )
         wait(futures, return_when=ALL_COMPLETED)
@@ -455,3 +587,7 @@ if __name__ == "__main__":
             logger.debug(f"Executing ffmpeg command: {ffmpeg_cmd}")
             os.system(ffmpeg_cmd)
             logger.info(f"Movie saved to {output_filename}")
+
+
+if __name__ == "__main__":
+    main()

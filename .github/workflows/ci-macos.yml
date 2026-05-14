@@ -32,6 +32,10 @@ jobs:
       run: |
         brew install openmpi hdf5-mpi adios2 || true
 
+    - name: Install parthenon_tools
+      run: |
+        pip install scripts/python/packages/parthenon_tools
+
     - name: Configure
       run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
@@ -43,7 +47,7 @@ jobs:
         cd build
         ctest -LE mpi
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: configure-log-unit-macos
         path: build/CMakeFiles/CMakeOutput.log

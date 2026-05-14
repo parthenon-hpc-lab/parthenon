@@ -17,6 +17,7 @@
 #include <string>
 #include <tuple>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <Kokkos_Core.hpp>
@@ -41,6 +42,8 @@ using Real = double;
 struct IndexRange {
   int s = 0; /// Starting Index (inclusive)
   int e = 0; /// Ending Index (inclusive)
+  int size() const { return e - s + 1; }
+  operator std::pair<int, int>() const { return {s, e}; }
 };
 
 // Enum speficying whether or not you requested a flux variable in
@@ -77,29 +80,99 @@ enum class BoundaryType : int {
   gmg_prolongate_recv
 };
 
-enum class GridType { none, leaf, two_level_composite, single_level_with_internal };
-struct GridIdentifier {
-  GridType type = GridType::none;
-  int logical_level = 0;
-
-  static GridIdentifier leaf() { return GridIdentifier{GridType::leaf, 0}; }
-  static GridIdentifier two_level_composite(int level) {
-    return GridIdentifier{GridType::two_level_composite, level};
-  }
-};
-
-constexpr bool IsSender(BoundaryType btype) {
+inline constexpr bool IsSender(BoundaryType btype) {
   if (btype == BoundaryType::flxcor_recv) return false;
   if (btype == BoundaryType::gmg_restrict_recv) return false;
   if (btype == BoundaryType::gmg_prolongate_recv) return false;
   return true;
 }
 
-constexpr bool IsReceiver(BoundaryType btype) {
+inline constexpr bool IsReceiver(BoundaryType btype) {
   if (btype == BoundaryType::flxcor_send) return false;
   if (btype == BoundaryType::gmg_restrict_send) return false;
   if (btype == BoundaryType::gmg_prolongate_send) return false;
   return true;
+}
+
+inline constexpr BoundaryType GetAssociatedReceiver(BoundaryType btype) {
+  if (btype == BoundaryType::flxcor_send) return BoundaryType::flxcor_recv;
+  if (btype == BoundaryType::gmg_restrict_send) return BoundaryType::gmg_restrict_recv;
+  if (btype == BoundaryType::gmg_prolongate_send)
+    return BoundaryType::gmg_prolongate_recv;
+  return btype;
+}
+
+inline constexpr BoundaryType GetAssociatedSender(BoundaryType btype) {
+  if (btype == BoundaryType::flxcor_recv) return BoundaryType::flxcor_send;
+  if (btype == BoundaryType::gmg_restrict_recv) return BoundaryType::gmg_restrict_send;
+  if (btype == BoundaryType::gmg_prolongate_recv)
+    return BoundaryType::gmg_prolongate_send;
+  return btype;
+}
+
+enum class GridType : int { none, leaf, two_level_composite };
+class GridIdentifier {
+  GridType type_ = GridType::none;
+  int logical_level_ = 0; // Only meaningful for two_level_composite
+  bool is_multigrid_ = false;
+  int multigrid_level_ = 0; // Not always meaningful
+  std::size_t block_coarsenings_ = 0;
+
+ public:
+  auto type() const { return type_; }
+  auto logical_level() const { return logical_level_; }
+  auto multigrid_level() const { return multigrid_level_; }
+  auto block_coarsenings() const { return block_coarsenings_; }
+  auto IsMultigrid() const { return is_multigrid_; }
+
+  static GridIdentifier leaf() {
+    auto out = GridIdentifier::leaf(-1, 0);
+    out.is_multigrid_ = false;
+    return out;
+  }
+
+  static GridIdentifier leaf(int multigrid_level, std::size_t block_coarsenings) {
+    GridIdentifier out;
+    out.type_ = GridType::leaf;
+    out.logical_level_ = -1111;
+    out.multigrid_level_ = multigrid_level;
+    out.block_coarsenings_ = block_coarsenings;
+    out.is_multigrid_ = true;
+    return out;
+  }
+
+  static GridIdentifier none() {
+    GridIdentifier out;
+    return out;
+  }
+
+  static GridIdentifier two_level_composite(int multigrid_level, int logical_level,
+                                            std::size_t block_coarsenings) {
+    GridIdentifier out;
+    out.type_ = GridType::two_level_composite;
+    out.logical_level_ = logical_level;
+    out.multigrid_level_ = multigrid_level;
+    out.is_multigrid_ = true;
+    out.block_coarsenings_ = block_coarsenings;
+    return out;
+  }
+
+  std::string label() const {
+    if (type_ == GridType::leaf) {
+      return "GridType::leaf[" + std::to_string(block_coarsenings_) + "]";
+    } else if (type_ == GridType::two_level_composite) {
+      return "GridType::two_level_composite[" + std::to_string(logical_level_) + ", " +
+             std::to_string(block_coarsenings_) + "]";
+    }
+    return "GridType::none";
+  }
+};
+// Add a comparator so we can store in std::map
+inline bool operator<(const GridIdentifier &lhs, const GridIdentifier &rhs) {
+  if (lhs.type() != rhs.type()) return lhs.type() < rhs.type();
+  if (lhs.block_coarsenings() != rhs.block_coarsenings())
+    return lhs.block_coarsenings() < rhs.block_coarsenings();
+  return lhs.logical_level() < rhs.logical_level();
 }
 
 // Enumeration for accessing a field on different locations of the grid:
@@ -152,7 +225,7 @@ enum class TopologicalElement : std::size_t {
 enum class TopologicalType { Cell, Face, Edge, Node };
 
 KOKKOS_FORCEINLINE_FUNCTION
-TopologicalType GetTopologicalType(TopologicalElement el) {
+constexpr TopologicalType GetTopologicalType(TopologicalElement el) {
   using TE = TopologicalElement;
   using TT = TopologicalType;
   if (el == TE::CC) {
@@ -166,6 +239,18 @@ TopologicalType GetTopologicalType(TopologicalElement el) {
   }
 }
 
+inline std::string TopologicalTypeToString(TopologicalType tt) {
+  using TT = TopologicalType;
+  if (tt == TT::Face) {
+    return "face";
+  } else if (tt == TT::Edge) {
+    return "edge";
+  } else if (tt == TT::Node) {
+    return "node";
+  }
+  return "cell";
+}
+
 inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt) {
   using TE = TopologicalElement;
   using TT = TopologicalType;
@@ -173,6 +258,23 @@ inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt
   if (tt == TT::Edge) return {TE::E1, TE::E2, TE::E3};
   if (tt == TT::Face) return {TE::F1, TE::F2, TE::F3};
   return {TE::CC};
+}
+
+KOKKOS_FORCEINLINE_FUNCTION
+TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
+                                              const std::size_t d) {
+  using TE = TopologicalElement;
+  using TT = TopologicalType;
+  if (tt == TT::Cell) return TE::CC;
+  if (tt == TT::Node) return TE::NN;
+  const std::size_t start = static_cast<std::size_t>((tt == TT::Face) ? TE::F1 : TE::E1);
+  return static_cast<TE>(start + d);
+}
+KOKKOS_FORCEINLINE_FUNCTION
+TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
+
+                                              const CoordinateDirection DIR) {
+  return GetTopologicalElementInDir(tt, static_cast<std::size_t>(DIR - 1));
 }
 
 using TE = TopologicalElement;
@@ -233,5 +335,16 @@ using Dictionary = std::unordered_map<std::string, T>;
 template <typename T>
 using Triple_t = std::tuple<T, T, T>;
 } // namespace parthenon
+
+namespace Kokkos {
+// this specialization is needed for AmrTags to be used as the type in a
+// Kokkos::ScatterView
+template <>
+struct reduction_identity<parthenon::AmrTag> {
+  using AmrTag = parthenon::AmrTag;
+  KOKKOS_FORCEINLINE_FUNCTION constexpr static AmrTag max() { return AmrTag::derefine; }
+  KOKKOS_FORCEINLINE_FUNCTION constexpr static AmrTag min() { return AmrTag::refine; }
+};
+} // namespace Kokkos
 
 #endif // BASIC_TYPES_HPP_

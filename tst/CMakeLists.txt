@@ -1,6 +1,10 @@
 
 add_library(catch2_define catch2_define.cpp)
-target_link_libraries(catch2_define PUBLIC Catch2::Catch2 Kokkos::kokkos)
+target_link_libraries(catch2_define PUBLIC Catch2::Catch2 Kokkos::kokkos parthenon)
+if (ENABLE_MPI)
+  target_link_libraries(catch2_define PUBLIC MPI::MPI_CXX)
+  target_compile_definitions(catch2_define PUBLIC CATCH2_MPI_PARALLEL)
+endif()
 
 if(${PARTHENON_ENABLE_UNIT_TESTS})
   message(STATUS "Building unit tests.")

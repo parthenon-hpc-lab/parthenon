@@ -19,6 +19,9 @@ message(STATUS "Loading machine configuration for GitHub Actions CI. ")
 
 # common options
 set(NUM_MPI_PROC_TESTING "2" CACHE STRING "CI runs tests with 2 MPI ranks")
+set(Kokkos_ENABLE_ROCTHRUST OFF CACHE BOOL "Temporarily disabled as the container needs to be updated to the `-complete` base image.")
+
+set(CMAKE_CXX_FLAGS_DBGNOSYM "-O0" CACHE STRING "Debug build without symbols")
 
 set(MACHINE_CXX_FLAGS "")
 if (${MACHINE_VARIANT} MATCHES "cuda")
@@ -29,9 +32,10 @@ if (${MACHINE_VARIANT} MATCHES "cuda")
     set(MACHINE_CXX_FLAGS "${MACHINE_CXX_FLAGS} -Wno-unknown-cuda-version")
   endif()
 elseif (${MACHINE_VARIANT} MATCHES "hip")
-  # using an arbitrary arch as GitHub Action runners don't have GPUs
-  set(Kokkos_ARCH_VEGA908 ON CACHE BOOL "GPU architecture")
+  # using an arch that matches Hamilton at Hamburg Obs
+  set(Kokkos_ARCH_NAVI1030 ON CACHE BOOL "GPU architecture")
   set(Kokkos_ENABLE_HIP ON CACHE BOOL "Enable HIP")
+  set(Kokkos_ENABLE_ZEN3 ON CACHE BOOL "Enable Zen3")
 else()
   set(MACHINE_CXX_FLAGS "${MACHINE_CXX_FLAGS} -fopenmp-simd")
 endif()

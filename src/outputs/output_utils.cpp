@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2023-2024 The Parthenon collaboration
+// Copyright(C) 2023-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -15,12 +15,15 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <algorithm>
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
 #include <type_traits>
 #include <vector>
 
+#include "defs.hpp"
 #include "globals.hpp"
 #include "interface/metadata.hpp"
 #include "interface/swarm.hpp"
@@ -30,6 +33,7 @@
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
+#include "parameter_input.hpp"
 
 namespace parthenon {
 namespace OutputUtils {
@@ -42,6 +46,11 @@ Triple_t<int> VarInfo::GetNumKJI(const IndexDomain domain) const {
     nx3 = std::max(nx3, cellbounds.ncellsk(domain, el));
     nx2 = std::max(nx2, cellbounds.ncellsj(domain, el));
     nx1 = std::max(nx1, cellbounds.ncellsi(domain, el));
+  }
+  if (is_mem_aligned && DomainTouchesOuterGhosts(domain)) {
+    nx1 -= 1;
+    if (nx2 > 1) nx2 -= 1;
+    if (nx3 > 1) nx3 -= 1;
   }
   return std::make_tuple(nx3, nx2, nx1);
 }
@@ -61,24 +70,31 @@ Triple_t<IndexRange> VarInfo::GetPaddedBoundsKJI(const IndexDomain domain) const
     je = std::max(je, jb.e);
     ie = std::max(ie, ib.e);
   }
+  if (is_mem_aligned && DomainTouchesOuterGhosts(domain)) {
+    ie -= 1;
+    if (je > 0) je -= 1;
+    if (ke > 0) ke -= 1;
+  }
   IndexRange kb{ks, ke}, jb{js, je}, ib{is, ie};
   return std::make_tuple(kb, jb, ib);
 }
 
-int VarInfo::Size() const {
-  return std::accumulate(nx_.begin(), nx_.end(), 1, std::multiplies<int>());
+std::size_t VarInfo::Size() const {
+  return std::accumulate(nx_.begin(), nx_.end(), std::size_t{1},
+                         std::multiplies<std::size_t>());
 }
 
 // Includes topological element shape
-int VarInfo::TensorSize() const {
+std::size_t VarInfo::TensorSize() const {
   if (where == MetadataFlag({Metadata::None})) {
     return Size();
   } else {
-    return std::accumulate(rnx_.begin() + 1, rnx_.end() - 3, 1, std::multiplies<int>());
+    return std::accumulate(rnx_.begin() + 1, rnx_.end() - 3, std::size_t{1},
+                           std::multiplies<std::size_t>());
   }
 }
 
-int VarInfo::FillSize(const IndexDomain domain) const {
+std::size_t VarInfo::FillSize(const IndexDomain domain) const {
   if (where == MetadataFlag({Metadata::None})) {
     return Size();
   } else {
@@ -126,10 +142,11 @@ int VarInfo::GetDim(int i) const {
 }
 
 std::vector<VarInfo> VarInfo::GetAll(const VariableVector<Real> &vars,
-                                     const IndexShape &cellbounds) {
+                                     const IndexShape &cellbounds,
+                                     const IndexShape &f_cellbounds) {
   std::vector<VarInfo> out;
   for (const auto &v : vars) {
-    out.emplace_back(v, cellbounds);
+    out.emplace_back(v, v->IsSet(Metadata::Fine) ? f_cellbounds : cellbounds);
   }
   std::sort(out.begin(), out.end(),
             [](const VarInfo &a, const VarInfo &b) { return a.label < b.label; });
@@ -151,11 +168,15 @@ void SwarmInfo::AddOffsets(const SP_Swarm &swarm) {
 
 AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
                            const std::map<std::string, std::set<std::string>> &swarmnames,
-                           bool is_restart) {
+                           DumpOutputMode mode, const std::string &meshdata_name) {
   for (auto &pmb : block_list) {
-    const auto &swarm_container = pmb->meshblock_data.Get()->GetSwarmData();
+    // TODO(JMM): Swap these out when swarms are allowed to exist in
+    // multiple meshdata registers
+    // const auto &swarm_container =
+    // pmb->meshblock_data.Get(meshdata_name)->GetSwarmData();
+    const auto &swarm_container = pmb->meshblock_data.Get("base")->GetSwarmData();
     swarm_container->DefragAll(); // JMM: If we defrag, we don't need to mask?
-    if (is_restart) {
+    if (mode == DumpOutputMode::RESTART) {
       using FC = parthenon::Metadata::FlagCollection;
       auto flags =
           FC({parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
@@ -168,12 +189,16 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
           const auto &varname = var->label();
           info.Add(varname, var);
         }
+        for (const auto &var : swarm->GetVariableVector<std::uint64_t>()) {
+          const auto &varname = var->label();
+          info.Add(varname, var);
+        }
         for (const auto &var : swarm->GetVariableVector<Real>()) {
           const auto &varname = var->label();
           info.Add(varname, var);
         }
       }
-    } else {
+    } else if (mode == DumpOutputMode::DUMP) {
       for (const auto &[swarmname, varnames] : swarmnames) {
         if (swarm_container->Contains(swarmname)) {
           auto &swarm = swarm_container->Get(swarmname);
@@ -183,11 +208,29 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
             if (swarm->Contains<int>(varname)) {
               auto var = swarm->GetP<int>(varname);
               info.Add(varname, var);
+            } else if (swarm->Contains<std::uint64_t>(varname)) {
+              auto var = swarm->GetP<std::uint64_t>(varname);
+              info.Add(varname, var);
             } else if (swarm->Contains<Real>(varname)) {
               auto var = swarm->GetP<Real>(varname);
               info.Add(varname, var);
             } // else nothing
           }
+        }
+      }
+    } else { // if (mode == DumpOutputMode::CORE) {
+      const auto &swarm_map = swarm_container->GetSwarmMap();
+      for (const auto &[swarmname, swarm] : swarm_map) {
+        auto &info = all_info[swarmname];
+        info.AddOffsets(swarm);
+        for (const auto &var : swarm->GetVariableVector<int>()) {
+          info.Add(var->label(), var);
+        }
+        for (const auto &var : swarm->GetVariableVector<std::uint64_t>()) {
+          info.Add(var->label(), var);
+        }
+        for (const auto &var : swarm->GetVariableVector<Real>()) {
+          info.Add(var->label(), var);
         }
       }
     }
@@ -197,7 +240,7 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
     // we're just doing I/O right now, so probably ok?
     std::size_t tot_count;
     info.global_offset = MPIPrefixSum(info.count_on_rank, tot_count);
-    for (int i = 0; i < info.offsets.size(); ++i) {
+    for (std::size_t i = 0; i < info.offsets.size(); ++i) {
       info.offsets[i] += info.global_offset;
     }
     info.global_count = tot_count;
@@ -278,6 +321,16 @@ void ComputeCoords(Mesh *pm, bool face, const IndexRange &ib, const IndexRange &
   }
 }
 
+constexpr void CheckMPISizeT() {
+#ifdef MPI_PARALLEL
+  static_assert(std::is_integral<std::size_t>::value &&
+                    !std::is_signed<std::size_t>::value,
+                "size_t is unsigned and integral");
+  static_assert((sizeof(void *) == 4) || (sizeof(void *) == 8),
+                "We're on a 32 or 64 bit system.");
+#endif
+}
+
 // TODO(JMM): may need to generalize this
 std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count) {
   std::size_t out = 0;
@@ -286,14 +339,9 @@ std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count) {
   // Need to use sizeof here because unsigned long long and unsigned
   // long are identical under the hood but registered as different
   // types
-  static_assert(std::is_integral<std::size_t>::value &&
-                    !std::is_signed<std::size_t>::value,
-                "size_t is unsigned and integral");
-  static_assert(sizeof(std::size_t) == sizeof(unsigned long long int),
-                "MPI_UNSIGNED_LONG_LONG same as size_t");
+  CheckMPISizeT();
   std::vector<std::size_t> buffer(Globals::nranks);
-  MPI_Allgather(&local, 1, MPI_UNSIGNED_LONG_LONG, buffer.data(), 1,
-                MPI_UNSIGNED_LONG_LONG, MPI_COMM_WORLD);
+  MPI_Allgather(&local, 1, MPI_SIZE_T, buffer.data(), 1, MPI_SIZE_T, MPI_COMM_WORLD);
   for (int i = 0; i < Globals::my_rank; ++i) {
     out += buffer[i];
   }
@@ -305,21 +353,32 @@ std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count) {
 #endif // MPI_PARALLEL
   return out;
 }
+
 std::size_t MPISum(std::size_t val) {
 #ifdef MPI_PARALLEL
-  // Need to use sizeof here because unsigned long long and unsigned
-  // long are identical under the hood but registered as different
-  // types
-  static_assert(std::is_integral<std::size_t>::value &&
-                    !std::is_signed<std::size_t>::value,
-                "size_t is unsigned and integral");
-  static_assert(sizeof(std::size_t) == sizeof(unsigned long long int),
-                "MPI_UNSIGNED_LONG_LONG same as size_t");
-  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, &val, 1, MPI_UNSIGNED_LONG_LONG,
-                                    MPI_SUM, MPI_COMM_WORLD));
+  CheckMPISizeT();
+  PARTHENON_MPI_CHECK(
+      MPI_Allreduce(MPI_IN_PLACE, &val, 1, MPI_SIZE_T, MPI_SUM, MPI_COMM_WORLD));
 #endif
   return val;
 }
 
+void CheckParameterInputConsistent(ParameterInput *pin) {
+#ifdef MPI_PARALLEL
+  CheckMPISizeT();
+
+  std::size_t pin_hash = std::hash<ParameterInput>()(*pin);
+  std::size_t pin_hash_root = pin_hash;
+  PARTHENON_MPI_CHECK(MPI_Bcast(&pin_hash_root, 1, MPI_SIZE_T, 0, MPI_COMM_WORLD));
+  PARTHENON_REQUIRE_THROWS(
+      pin_hash == pin_hash_root,
+      "Parameter input object must be the same on every rank, otherwise I/O may "
+      "be\n\t\t"
+      "unable to write it safely. If you reached this error message, look to make "
+      "sure\n\t\t"
+      "that your calls to functions that look like pin->GetOrAdd are all called\n\t\t"
+      "exactly the same way on every MPI rank.");
+#endif // MPI_PARALLEL
+}
 } // namespace OutputUtils
 } // namespace parthenon

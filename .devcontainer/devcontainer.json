@@ -1,0 +1,43 @@
+// devcontainer.json
+    {
+      "name": "parthenon-dev",
+      "image": "ghcr.io/parthenon-hpc-lab/cuda12.8-mpi-hdf5-opmd",
+      // Somehow required to make GPUs work inside docker on the CI machine.
+      // Just passing the runtime and/or --gpus=all works initially but then
+      // the GPU disappears in the active container.
+      "runArgs": ["--privileged"],
+      "hostRequirements": {
+        "cpus": 4
+      },
+      "customizations": {
+        "vscode": {
+          "settings": {},
+          "extensions": [
+            "-ms-vscode.cpptools",
+            "llvm-vs-code-extensions.vscode-clangd",
+            "github.vscode-pull-request-github",
+            "ms-python.python",
+            "ms-toolsai.jupyter",
+            "ms-vscode.live-server",
+            "ms-azuretools.vscode-docker",
+            "swyddfa.esbonio",
+            "tomoki1207.pdf",
+            "ms-vscode.cmake-tools",
+            "ms-vsliveshare.vsliveshare",
+            "xaver.clang-format",
+            "ms-python.black-formatter"
+        ]
+        }
+      },
+      "remoteEnv": {
+        "PATH": "${containerEnv:PATH}:/home/ci/.local/bin:/usr/local/hdf5/parallel/bin",
+        "OMPI_MCA_opal_warn_on_missing_libcuda": "0"
+      },
+      //"remoteUser": "ubuntu",
+      // we need to manually checkout the submodules,
+      // but VSCode may try to configure CMake before they are fully checked-out.
+      // workaround TBD
+      "postCreateCommand": {
+        "git" : "git submodule update --init"
+      }
+    }

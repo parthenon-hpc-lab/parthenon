@@ -17,28 +17,40 @@
 namespace parthenon {
 
 template <typename T>
-void MeshData<T>::Set(BlockList_t blocks, Mesh *pmesh, int ndim) {
+void MeshData<T>::Initialize(BlockList_t blocks, Mesh *pmesh,
+                             std::optional<int> gmg_level) {
   const int nblocks = blocks.size();
-  ndim_ = ndim;
   block_data_.resize(nblocks);
-  SetMeshPointer(pmesh);
+  SetMeshProperties(pmesh);
   for (int i = 0; i < nblocks; i++) {
-    block_data_[i] = blocks[i]->meshblock_data.Get(stage_name_);
+    block_data_[i] = blocks[i]->meshblock_data.Add(stage_name_, blocks[i]);
+  }
+  if (gmg_level) {
+    if (pmesh) {
+      grid = pmesh->GetGMGGrid(*gmg_level);
+    } else {
+      PARTHENON_FAIL("Cannot initialize MeshData without Mesh.");
+    }
+  } else {
+    grid = GridIdentifier::leaf();
   }
 }
 
+// This method is basically here to get around the forward
+// declaration of Mesh in the mesh_data.hpp
 template <typename T>
-void MeshData<T>::Set(BlockList_t blocks, Mesh *pmesh) {
-  int ndim;
-  if (pmesh != nullptr) {
-    ndim = pmesh->ndim;
-  }
-  Set(blocks, pmesh, ndim);
+void MeshData<T>::SetMeshProperties(Mesh *pmesh) {
+  pmy_mesh_ = pmesh;
+  ndim_ = pmesh == nullptr ? 0 : pmesh->ndim;
 }
 
 template <typename T>
-bool MeshData<T>::BlockDataIsWholeRank_() const {
-  return block_data_.size() == (pmy_mesh_->block_list).size();
+void MeshData<T>::SetBoundBufferId(BoundaryType btype, int id) {
+  PARTHENON_REQUIRE(id < pmy_mesh_->GetNumberOfCommChannels(btype),
+                    "Trying to set MeshData to communicate on a non-existent channel.");
+  // We do not enforce symmetry here between associated senders and
+  // receivers for maximum flexibility.
+  bound_buffer_ids_[btype] = id;
 }
 
 template class MeshData<Real>;

@@ -4,6 +4,7 @@
 [![Extended CI](https://github.com/parthenon-hpc-lab/parthenon/actions/workflows/ci-extended.yml/badge.svg?branch=develop)](https://github.com/parthenon-hpc-lab/parthenon/actions/workflows/ci-extended.yml)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Matrix chat](https://img.shields.io/matrix/parthenon-general:matrix.org)](https://app.element.io/#/room/#parthenon-general:matrix.org)
+[![Static Badge](https://img.shields.io/badge/Mailing%20list-subscribe-blue)](mailto:parthenon-hpc-lab+subscribe@googlegroups.com)
 [![Documentation](https://github.com/parthenon-hpc-lab/parthenon/actions/workflows/docs.yml/badge.svg?branch=develop)](https://parthenon-hpc-lab.github.io/parthenon/develop/index.html)
 
 Parthenon -- a performance portable block-structured adaptive mesh refinement framework
@@ -23,14 +24,16 @@ Parthenon -- a performance portable block-structured adaptive mesh refinement fr
 
 # Community
 * [Chat room on matrix.org](https://app.element.io/#/room/#parthenon-general:matrix.org)
+* [Mailing list (mostly announcements)](mailto:parthenon-hpc-lab+subscribe@googlegroups.com)
+
 
 # Dependencies
 
 ## Required
 
 * CMake 3.16 or greater
-* C++17 compatible compiler
-* Kokkos 4.0.1 or greater
+* C++20 compatible compiler
+* Kokkos 5.0.0 or greater
 
 ## Optional (enabling features)
 
@@ -140,4 +143,4 @@ how to use them.
 | Ben Ryan | @brryan | LANL Physics |
 | Clell J. (CJ) Solomon | @clellsolomon | LANL Physics |
 | Luke Roberts | @lroberts36 | LANL Physics |
-| Ben Prather | @bprather | LANL Physics |
+| Cora Prather | @c-prather | Harvard BHI |

@@ -3,7 +3,7 @@
 // Copyright(C) 2021-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
 
 #include "particle_leapfrog.hpp"
 
@@ -65,7 +67,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   std::string swarm_name = "my_particles";
   Metadata swarm_metadata({Metadata::Provides, Metadata::None, Metadata::Independent});
   pkg->AddSwarm(swarm_name, swarm_metadata);
-  pkg->AddSwarmValue("id", swarm_name, Metadata({Metadata::Integer}));
   Metadata vreal_swarmvalue_metadata({Metadata::Real, Metadata::Vector},
                                      std::vector<int>{3});
   pkg->AddSwarmValue("v", swarm_name, vreal_swarmvalue_metadata);
@@ -133,7 +134,11 @@ const Kokkos::Array<Kokkos::Array<Real, 6>, num_test_particles> particles_ic = {
     {0.0, 0.0, 0.0, -1.0, -1.0, -1.0}, // along -x-y-z diagonal
 }};
 
-void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
+// We source particles via the final PostInitialization hook after the initialization
+// hierarchy has resolved. Therefore ProblemGenerator is simply a no-op.
+void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) { return; }
+
+void PostInitialization(MeshBlock *pmb, ParameterInput *pin) {
   auto pkg = pmb->packages.Get("particles_package");
   auto swarm = pmb->meshblock_data.Get()->GetSwarmData()->Get("my_particles");
 
@@ -148,13 +153,13 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   const Real &y_max = pmb->coords.Xf<2>(jb.e + 1);
   const Real &z_max = pmb->coords.Xf<3>(kb.e + 1);
 
-  const auto &ic = particles_ic;
+  const auto ic = particles_ic;
 
   const bool no_particles = pin->GetOrAddBoolean("Particles", "disable", false);
   if (no_particles) return;
 
   // determine which particles belong to this block
-  size_t num_particles_this_block = 0;
+  std::size_t num_particles_this_block = 0;
   auto ids_this_block =
       ParArray1D<int>("indices of particles in test", num_test_particles);
 
@@ -177,7 +182,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   auto new_particles_context = swarm->AddEmptyParticles(num_particles_this_block);
 
-  auto &id = swarm->Get<int>("id").Get();
+  auto &id = swarm->Get<std::uint64_t>(swarm_position::id::name()).Get();
   auto &x = swarm->Get<Real>(swarm_position::x::name()).Get();
   auto &y = swarm->Get<Real>(swarm_position::y::name()).Get();
   auto &z = swarm->Get<Real>(swarm_position::z::name()).Get();
@@ -224,27 +229,23 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
           swarm_name);
   auto pack_pos = desc_pos.GetPack(md);
 
-  // Make a SwarmPack via strings to get ids
-  // NOTE(@pdmullen): since we are constructing the pack via strings, we must specify
-  // the datatype associated with ids (i.e., int).  We also extract an indexing map.
-  std::vector<std::string> vars_id{"id"};
-  static auto desc_id = MakeSwarmPackDescriptor<int>(swarm_name, vars_id);
-  auto pack_id = desc_id.GetPack(md);
-  auto pack_id_map = desc_id.GetMap();
-  parthenon::PackIdx spi_id(pack_id_map["id"]);
-
   // Make a SwarmPack via strings to get v (note that v is a vector!)
+  // NOTE(@pdmullen): since we are constructing the pack via strings, we must specify
+  // the datatype associated with ids (i.e., Real).  We also extract an indexing map.
   std::vector<std::string> vars_v{"v"};
   static auto desc_v = MakeSwarmPackDescriptor<Real>(swarm_name, vars_v);
   auto pack_v = desc_v.GetPack(md);
   auto pack_v_map = desc_v.GetMap();
   parthenon::PackIdx spi_v(pack_v_map["v"]);
 
+  // Make a SwarmPack containing ids (of type uint64_t)
+  static auto desc_id = MakeSwarmPackDescriptor<swarm_position::id>(swarm_name);
+  auto pack_id = desc_id.GetPack(md);
+
   parthenon::par_for(
       DEFAULT_LOOP_PATTERN, "TestSwarmPack", DevExecSpace(), 0,
       pack_pos.GetMaxFlatIndex(), KOKKOS_LAMBDA(const int idx) {
         auto [b, n] = pack_pos.GetBlockParticleIndices(idx);
-        const int iid = pack_id.GetLowerBound(b, spi_id);
         const int iv = pack_v.GetLowerBound(b, spi_v);
         const auto swarm_d = pack_pos.GetContext(b);
         if (swarm_d.IsActive(n)) {
@@ -262,6 +263,10 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
           pack_pos(b, swarm_position::x(), n) += pack_v(b, iv + 0, n) * 0.5 * dt;
           pack_pos(b, swarm_position::y(), n) += pack_v(b, iv + 1, n) * 0.5 * dt;
           pack_pos(b, swarm_position::z(), n) += pack_v(b, iv + 2, n) * 0.5 * dt;
+
+          // id
+          PARTHENON_REQUIRE(pack_id(b, swarm_position::id(), n) >= 0,
+                            "Issue with SwarmPack containing uint64 IDs!");
         }
       });
 
@@ -288,7 +293,8 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   TaskID none(0);
   const BlockList_t &blocks = pmesh->block_list;
 
-  const int num_partitions = pmesh->DefaultNumPartitions();
+  auto partitions = pmesh->GetDefaultBlockPartitions();
+  const int num_partitions = partitions.size();
   const int num_task_lists_executed_independently = blocks.size();
 
   TaskRegion &sync_region0 = tc.AddRegion(1);
@@ -304,7 +310,7 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   TaskRegion &tr = tc.AddRegion(num_partitions);
   for (int i = 0; i < num_partitions; i++) {
     auto &tl = tr[i];
-    auto &base = pmesh->mesh_data.GetOrAdd("base", i);
+    auto &base = pmesh->mesh_data.Add("base", partitions[i]);
     auto transport = tl.AddTask(none, TransportParticles, base.get(), &integrator);
   }
 

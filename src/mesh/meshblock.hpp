@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -17,11 +17,14 @@
 #ifndef MESH_MESHBLOCK_HPP_
 #define MESH_MESHBLOCK_HPP_
 
+// This file was made in part with generative AI.
+
 #include <cstdint>
 #include <functional>
 #include <map>
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -38,6 +41,8 @@
 #include "interface/swarm_container.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/forest/forest.hpp"
+#include "mesh/forest/forest_topology.hpp"
+#include "mesh/mesh_neighbors.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
@@ -63,12 +68,18 @@ KOKKOS_FORCEINLINE_FUNCTION void par_for_inner(const team_mbr_t &team_member,
   parthenon::par_for_inner(DEFAULT_INNER_LOOP_PATTERN, team_member, il, iu, function);
 }
 
+std::array<IndexShape, 3> GetIndexShapes(const int nx1, const int nx2, const int nx3,
+                                         bool multilevel, const Mesh *pmesh);
+
 //----------------------------------------------------------------------------------------
 //! \class MeshBlock
 //! \brief data/functions associated with a single block
 class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   friend class RestartOutput;
   friend class Mesh;
+  friend void SetMeshBlockNeighbors(Mesh *, GridIdentifier, BlockList_t &,
+                                    const std::vector<int> &,
+                                    const std::unordered_set<LogicalLocation> &);
 
  public:
   MeshBlock() = default;
@@ -89,6 +100,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // data
   Mesh *pmy_mesh = nullptr; // ptr to Mesh containing this MeshBlock
   LogicalLocation loc;
+  std::size_t block_coarsenings{0};
   RegionSize block_size;
   // for convenience: "max" # of real+ghost cells along each dir for allocating "standard"
   // sized MeshBlock arrays, depending on ndim i.e.
@@ -140,10 +152,24 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   //  - - - - - - - - - -   v              - - - - - - - - - -     v
   //
   IndexShape c_cellbounds;
-  int gid, lid;
-  int cnghost;
-  int gflag;
+  IndexShape f_cellbounds;
+  int gid = -1;
+  int lid = -1;
+  int cnghost = 0;
+  int gflag = 0;
 
+  const IndexShape &GetCellBounds(CellLevel cl) const {
+    if (cl == CellLevel::same) {
+      return cellbounds;
+    } else if (cl == CellLevel::fine) {
+      return f_cellbounds;
+    } else if (cl == CellLevel::coarse) {
+      return c_cellbounds;
+    } else {
+      PARTHENON_FAIL("This should not be accessible.");
+      return cellbounds;
+    }
+  }
   // The User defined containers
   DataCollection<MeshBlockData<Real>> meshblock_data;
 
@@ -160,14 +186,39 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   std::unique_ptr<BoundarySwarms> pbswarm;
   std::unique_ptr<MeshRefinement> pmr;
 
-  // Block connectivity information
-  std::vector<NeighborBlock> neighbors;
-  std::vector<NeighborBlock> gmg_coarser_neighbors;
-  std::vector<NeighborBlock> gmg_composite_finer_neighbors;
-  std::vector<NeighborBlock> gmg_same_neighbors;
-  std::vector<NeighborBlock> gmg_finer_neighbors;
+  // Public accessors for neighbor information
+  const std::vector<NeighborBlock> &GetNeighbors() const { return neighbors; }
+  const std::vector<NeighborBlock> &GetGMGCoarserNeighbors() const {
+    return gmg_coarser_neighbors;
+  }
+  const std::vector<NeighborBlock> &GetGMGCompositeFinerNeighbors() const {
+    return gmg_composite_finer_neighbors;
+  }
+  const std::vector<NeighborBlock> &GetGMGSameNeighbors() const {
+    return gmg_same_neighbors;
+  }
+  const std::vector<NeighborBlock> &GetGMGFinerNeighbors() const {
+    return gmg_finer_neighbors;
+  }
+  const std::vector<NeighborBlock> &GetGMGSelfNeighbors() const {
+    return gmg_self_neighbors;
+  }
+
+  bool HasCoarserNeighbors() const { return has_coarser_neighbors_; }
 
   BoundaryFlag boundary_flag[6];
+
+  bool IsPhysicalBoundary(BoundaryFace bf) const {
+    // TODO(LFR): Should we only return true if this is set to user?
+    return boundary_flag[bf] != BoundaryFlag::block;
+  }
+
+  bool IsPhysicalBoundary() const {
+    bool is_bound = IsPhysicalBoundary(static_cast<BoundaryFace>(0));
+    for (int bf = 1; bf < 6; ++bf)
+      is_bound = is_bound || IsPhysicalBoundary(static_cast<BoundaryFace>(bf));
+    return is_bound;
+  }
 
   // functions
   // Load balancing
@@ -239,8 +290,10 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   template <typename Function>
   inline void par_for_bndry(const std::string &name, const IndexRange &nb,
                             const IndexDomain &domain, TopologicalElement el,
-                            const bool coarse, const Function &function) {
-    auto bounds = coarse ? c_cellbounds : cellbounds;
+                            const bool coarse, const bool fine,
+                            const Function &function) {
+    auto &bounds = fine ? (coarse ? cellbounds : f_cellbounds)
+                        : (coarse ? c_cellbounds : cellbounds);
     auto ib = bounds.GetBoundsI(domain, el);
     auto jb = bounds.GetBoundsJ(domain, el);
     auto kb = bounds.GetBoundsK(domain, el);
@@ -249,7 +302,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // 1D Outer default loop pattern
   template <typename Function>
-  inline void par_for_outer(const std::string &name, const size_t &scratch_size_in_bytes,
+  inline void par_for_outer(const std::string &name,
+                            const std::size_t &scratch_size_in_bytes,
                             const int &scratch_level, const int &kl, const int &ku,
                             const Function &function) {
     parthenon::par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space,
@@ -257,7 +311,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   }
   // 2D Outer default loop pattern
   template <typename Function>
-  inline void par_for_outer(const std::string &name, const size_t &scratch_size_in_bytes,
+  inline void par_for_outer(const std::string &name,
+                            const std::size_t &scratch_size_in_bytes,
                             const int &scratch_level, const int &kl, const int &ku,
                             const int &jl, const int &ju, const Function &function) {
     parthenon::par_for_outer(DEFAULT_OUTER_LOOP_PATTERN, name, exec_space,
@@ -267,7 +322,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // 3D Outer default loop pattern
   template <typename Function>
-  inline void par_for(const std::string &name, size_t &scratch_size_in_bytes,
+  inline void par_for(const std::string &name, std::size_t &scratch_size_in_bytes,
                       const int &scratch_level, const int &nl, const int &nu,
                       const int &kl, const int &ku, const int &jl, const int &ju,
                       const Function &function) {
@@ -402,11 +457,17 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
                                  std::forward<Args>(args)...);
   }
 
+  // Checks if the LogicalLocation of this block is a leaf logical location
+  bool IsLeafLL() const { return is_leaf_ll_; }
+
  private:
   // data
-  Real new_block_dt_, new_block_dt_hyperbolic_, new_block_dt_parabolic_,
-      new_block_dt_user_;
+  Real new_block_dt_ = 0.0;
+  Real new_block_dt_hyperbolic_ = 0.0;
+  Real new_block_dt_parabolic_ = 0.0;
   std::vector<std::shared_ptr<Variable<Real>>> vars_cc_;
+
+  bool is_leaf_ll_{true};
 
   // Initializer to set up a meshblock called with the default constructor
   // This is necessary because the back pointers can't be set up until
@@ -423,6 +484,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // Optionally defined in the prob file or provided by ApplicationInput
   std::function<void(MeshBlock *, ParameterInput *)> ProblemGenerator = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> PostProblemGenerator = nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> PostInitialization = nullptr;
   std::function<pMeshBlockApplicationData_t(MeshBlock *, ParameterInput *)>
       InitApplicationMeshBlockData = nullptr;
@@ -432,7 +494,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   // functions and variables for automatic load balancing based on timing
   Kokkos::Timer lb_timer;
-  double cost_;
+  double cost_ = 1.0;
   // JMM: these are private since the timing machinery only works
   // per-meshblock nopt per-meshdata.
   void ResetTimeMeasurement();
@@ -440,10 +502,30 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   void StopTimeMeasurement();
 
   // memory usage on a block
-  std::uint64_t mem_usage_;
+  std::uint64_t mem_usage_ = 0;
+
+  // Block connectivity information - private to enforce modification only through
+  // SetMeshBlockNeighbors
+  std::vector<NeighborBlock> neighbors;
+  std::vector<NeighborBlock> gmg_coarser_neighbors;
+  std::vector<NeighborBlock> gmg_composite_finer_neighbors;
+  std::vector<NeighborBlock> gmg_same_neighbors;
+  std::vector<NeighborBlock> gmg_finer_neighbors;
+  std::vector<NeighborBlock> gmg_self_neighbors;
+
+  bool has_coarser_neighbors_ = false;
 };
 
 using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;
+
+struct BlockListPartition {
+  BlockListPartition(int p, GridIdentifier g, const BlockList_t &bl, Mesh *pm)
+      : partition{p}, grid{g}, block_list{bl}, pmesh{pm} {}
+  const int partition;
+  const GridIdentifier grid;
+  const BlockList_t block_list;
+  Mesh *pmesh;
+};
 
 } // namespace parthenon
 

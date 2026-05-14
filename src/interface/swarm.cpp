@@ -11,15 +11,18 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 #include <algorithm>
+#include <cstdint>
 #include <cstdlib>
 #include <limits>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
+#include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
+#include "pack/default_names.hpp"
 #include "swarm.hpp"
-#include "swarm_default_names.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/sort.hpp"
 
@@ -32,6 +35,7 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   context.block_index_ = block_index_;
   context.neighbor_indices_ = neighbor_indices_;
   context.cell_sorted_ = cell_sorted_;
+  context.buffer_sorted_ = buffer_sorted_;
   context.cell_sorted_begin_ = cell_sorted_begin_;
   context.cell_sorted_number_ = cell_sorted_number_;
 
@@ -63,40 +67,37 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   return context;
 }
 
-Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in)
+Swarm::Swarm(const std::string &label, const Metadata &metadata,
+             const std::size_t nmax_pool_in)
     : label_(label), m_(metadata), nmax_pool_(nmax_pool_in), mask_("mask", nmax_pool_),
-      marked_for_removal_("mfr", nmax_pool_), block_index_("block_index_", nmax_pool_),
+      marked_for_removal_("mfr", nmax_pool_),
+      empty_indices_("empty_indices_", nmax_pool_),
+      block_index_("block_index_", nmax_pool_),
       neighbor_indices_("neighbor_indices_", 4, 4, 4),
-      new_indices_("new_indices_", nmax_pool_),
-      from_to_indices_("from_to_indices_", nmax_pool_ + 1),
-      recv_neighbor_index_("recv_neighbor_index_", nmax_pool_),
-      recv_buffer_index_("recv_buffer_index_", nmax_pool_),
+      new_indices_("new_indices_", nmax_pool_), scratch_a_("scratch_a_", nmax_pool_),
+      scratch_b_("scratch_b_", nmax_pool_),
       num_particles_to_send_("num_particles_to_send_", NMAX_NEIGHBORS),
-      cell_sorted_("cell_sorted_", nmax_pool_), mpiStatus(true) {
+      buffer_start_("buffer_start_", NMAX_NEIGHBORS),
+      neighbor_received_particles_("neighbor_received_particles_", NMAX_NEIGHBORS),
+      cell_sorted_("cell_sorted_", nmax_pool_),
+      buffer_sorted_("buffer_sorted_", nmax_pool_), mpiStatus(true) {
   PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
                            "SwarmDeviceContext only supports a uniform Cartesian mesh!");
 
   uid_ = get_uid_(label_);
 
+  // Add default swarm fields
+  if (!metadata.IsSet(Metadata::NoPersistentParticleIds)) {
+    Add(swarm_position::id::name(), Metadata({Metadata::UInt64}));
+  }
   Add(swarm_position::x::name(), Metadata({Metadata::Real}));
   Add(swarm_position::y::name(), Metadata({Metadata::Real}));
   Add(swarm_position::z::name(), Metadata({Metadata::Real}));
+
+  // Initialize index metadata
   num_active_ = 0;
   max_active_index_ = inactive_max_active_index;
-
-  // TODO(BRR) Do this in a device kernel?
-  auto mask_h = Kokkos::create_mirror_view(HostMemSpace(), mask_);
-  auto marked_for_removal_h =
-      Kokkos::create_mirror_view(HostMemSpace(), marked_for_removal_);
-
-  for (int n = 0; n < nmax_pool_; n++) {
-    mask_h(n) = false;
-    marked_for_removal_h(n) = false;
-    free_indices_.push_back(n);
-  }
-
-  Kokkos::deep_copy(mask_, mask_h);
-  Kokkos::deep_copy(marked_for_removal_, marked_for_removal_h);
+  UpdateEmptyIndices();
 }
 
 void Swarm::Add(const std::vector<std::string> &label_array, const Metadata &metadata) {
@@ -115,7 +116,8 @@ std::shared_ptr<Swarm> Swarm::AllocateCopy(MeshBlock * /*pmb*/) {
 }
 
 ///
-/// The routine for allocating a particle variable in the current swarm.
+/// The routine for allocating a particle variable in the current swarm, with a type
+/// limited to those types contained in SwarmPackTypes type list
 ///
 /// @param label the name of the variable
 /// @param metadata the metadata associated with the particle
@@ -123,7 +125,8 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
   // labels must be unique, even between different types of data
   //  if (intMap_.count(label) > 0 || realMap_.count(label) > 0) {
   if (std::get<getType<int>()>(maps_).count(label) > 0 ||
-      std::get<getType<Real>()>(maps_).count(label) > 0) {
+      std::get<getType<Real>()>(maps_).count(label) > 0 ||
+      std::get<getType<std::uint64_t>()>(maps_).count(label) > 0) {
     throw std::invalid_argument("swarm variable " + label +
                                 " already enrolled during Add()!");
   }
@@ -133,11 +136,13 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
 
   if (newm.Type() == Metadata::Integer) {
     Add_<int>(label, newm);
+  } else if (newm.Type() == Metadata::UInt64) {
+    Add_<std::uint64_t>(label, newm);
   } else if (newm.Type() == Metadata::Real) {
     Add_<Real>(label, newm);
   } else {
-    throw std::invalid_argument("swarm variable " + label +
-                                " does not have a valid type during Add()");
+    PARTHENON_FAIL("swarm variable " + label +
+                   " does not have a valid type during Add()");
   }
 }
 
@@ -150,6 +155,8 @@ void Swarm::Remove(const std::string &label) {
 
   auto &int_map = std::get<getType<int>()>(maps_);
   auto &int_vector = std::get<getType<int>()>(vectors_);
+  auto &uint64_map = std::get<getType<std::uint64_t>()>(maps_);
+  auto &uint64_vector = std::get<getType<std::uint64_t>()>(vectors_);
   auto &real_map = std::get<getType<Real>()>(maps_);
   auto &real_vector = std::get<getType<Real>()>(vectors_);
 
@@ -162,7 +169,7 @@ void Swarm::Remove(const std::string &label) {
     }
     idx++;
   }
-  if (found == true) {
+  if (found) {
     // first delete the variable
     int_vector[idx].reset();
 
@@ -172,64 +179,86 @@ void Swarm::Remove(const std::string &label) {
 
     // Also remove variable from map
     int_map.erase(label);
+    return;
   }
 
-  if (found == false) {
-    idx = 0;
-    for (const auto &v : real_vector) {
-      if (label == v->label()) {
-        found = true;
-        break;
-      }
-      idx++;
+  // search next variable type (real)
+  idx = 0;
+  for (const auto &v : real_vector) {
+    if (label == v->label()) {
+      found = true;
+      break;
     }
+    idx++;
   }
-  if (found == true) {
+  if (found) {
     real_vector[idx].reset();
     if (real_vector.size() > 1) real_vector[idx] = std::move(real_vector.back());
     real_vector.pop_back();
     real_map.erase(label);
+    return;
   }
 
-  if (found == false) {
-    throw std::invalid_argument("swarm variable not found in Remove()");
+  // search next variable type (uint64_t)
+  idx = 0;
+  for (const auto &v : uint64_vector) {
+    if (label == v->label()) {
+      found = true;
+      break;
+    }
+    idx++;
   }
+  if (found) {
+    uint64_vector[idx].reset();
+    if (uint64_vector.size() > 1) uint64_vector[idx] = std::move(uint64_vector.back());
+    uint64_vector.pop_back();
+    uint64_map.erase(label);
+    return;
+  }
+
+  throw std::invalid_argument("swarm variable not found in Remove()");
 }
 
-void Swarm::setPoolMax(const std::int64_t nmax_pool) {
+void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
   PARTHENON_REQUIRE(nmax_pool > nmax_pool_, "Must request larger pool size!");
-  std::int64_t n_new_begin = nmax_pool_;
   std::int64_t n_new = nmax_pool - nmax_pool_;
 
   auto pmb = GetBlockPointer();
   auto pm = pmb->pmy_mesh;
 
-  for (std::int64_t n = 0; n < n_new; n++) {
-    free_indices_.push_back(n + n_new_begin);
-  }
-
   // Rely on Kokkos setting the newly added values to false for these arrays
   Kokkos::resize(mask_, nmax_pool);
   Kokkos::resize(marked_for_removal_, nmax_pool);
+  Kokkos::resize(empty_indices_, nmax_pool);
   Kokkos::resize(new_indices_, nmax_pool);
-  Kokkos::resize(from_to_indices_, nmax_pool + 1);
-  Kokkos::resize(recv_neighbor_index_, nmax_pool);
-  Kokkos::resize(recv_buffer_index_, nmax_pool);
+  Kokkos::resize(scratch_a_, nmax_pool);
+  Kokkos::resize(scratch_b_, nmax_pool);
+
   pmb->LogMemUsage(2 * n_new * sizeof(bool));
 
   Kokkos::resize(cell_sorted_, nmax_pool);
+  pmb->LogMemUsage(n_new * sizeof(SwarmKey));
+
+  Kokkos::resize(buffer_sorted_, nmax_pool);
   pmb->LogMemUsage(n_new * sizeof(SwarmKey));
 
   block_index_.Resize(nmax_pool);
   pmb->LogMemUsage(n_new * sizeof(int));
 
   auto &int_vector = std::get<getType<int>()>(vectors_);
+  auto &uint64_vector = std::get<getType<std::uint64_t>()>(vectors_);
   auto &real_vector = std::get<getType<Real>()>(vectors_);
 
   for (auto &d : int_vector) {
     d->data.Resize(d->data.GetDim(6), d->data.GetDim(5), d->data.GetDim(4),
                    d->data.GetDim(3), d->data.GetDim(2), nmax_pool);
     pmb->LogMemUsage(n_new * sizeof(int));
+  }
+
+  for (auto &d : uint64_vector) {
+    d->data.Resize(d->data.GetDim(6), d->data.GetDim(5), d->data.GetDim(4),
+                   d->data.GetDim(3), d->data.GetDim(2), nmax_pool);
+    pmb->LogMemUsage(n_new * sizeof(std::uint64_t));
   }
 
   for (auto &d : real_vector) {
@@ -240,162 +269,205 @@ void Swarm::setPoolMax(const std::int64_t nmax_pool) {
 
   nmax_pool_ = nmax_pool;
 
-  // Eliminate any cached SwarmPacks, as they will need to be rebuilt following setPoolMax
+  // Populate new empty indices
+  UpdateEmptyIndices();
+
+  // Eliminate any cached SwarmPacks, as they will need to be rebuilt following SetPoolMax
   pmb->meshblock_data.Get()->ClearSwarmCaches();
-  pm->mesh_data.Get("base")->ClearSwarmCaches();
-  for (int i = 0; i < pm->DefaultNumPartitions(); i++) {
-    pm->mesh_data.GetOrAdd("base", i)->ClearSwarmCaches();
+  pm->mesh_data.Add("base", pm->GetBasePartition())->ClearSwarmCaches();
+  for (auto &partition : pm->GetDefaultBlockPartitions()) {
+    pm->mesh_data.Add("base", partition)->ClearSwarmCaches();
   }
 }
 
 NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
   PARTHENON_DEBUG_REQUIRE(num_to_add >= 0, "Cannot add negative numbers of particles!");
 
+  auto pmb = GetBlockPointer();
+
   if (num_to_add > 0) {
-    while (free_indices_.size() < num_to_add) {
-      increasePoolMax();
+    while (nmax_pool_ - num_active_ < num_to_add) {
+      IncreasePoolMax();
     }
 
-    // TODO(BRR) Use par_scan on device rather than do this on host
-    auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
+    auto &new_indices = new_indices_;
+    auto &empty_indices = empty_indices_;
+    auto &mask = mask_;
 
-    auto block_index_h = block_index_.GetHostMirrorAndCopy();
+    int max_new_active_index = 0;
+    parthenon::par_reduce(
+        PARTHENON_AUTO_LABEL, 0, num_to_add - 1,
+        KOKKOS_LAMBDA(const int n, int &max_ind) {
+          new_indices(n) = empty_indices(n);
+          mask(new_indices(n)) = true;
 
-    auto free_index = free_indices_.begin();
+          // Record vote for max active index
+          max_ind = new_indices(n);
+        },
+        Kokkos::Max<int>(max_new_active_index));
 
-    auto new_indices_h = new_indices_.GetHostMirror();
+    // Update max active index if necessary
+    max_active_index_ = std::max(max_active_index_, max_new_active_index);
 
-    // Don't bother sanitizing the memory
-    for (int n = 0; n < num_to_add; n++) {
-      mask_h(*free_index) = true;
-      block_index_h(*free_index) = this_block_;
-      max_active_index_ = std::max<int>(max_active_index_, *free_index);
-      new_indices_h(n) = *free_index;
-
-      free_index = free_indices_.erase(free_index);
-    }
-
-    new_indices_.DeepCopy(new_indices_h);
-
+    new_indices_max_idx_ = num_to_add - 1;
     num_active_ += num_to_add;
 
-    Kokkos::deep_copy(mask_, mask_h);
-    block_index_.DeepCopy(block_index_h);
-    new_indices_max_idx_ = num_to_add - 1;
+    UpdateEmptyIndices();
   } else {
     new_indices_max_idx_ = -1;
   }
 
+  // Create and return NewParticlesContext
   return NewParticlesContext(new_indices_max_idx_, new_indices_);
+}
+
+// Updates the empty_indices_ array so the first N elements contain an ascending list of
+// indices into empty elements of the swarm pool, where N is the number of empty indices
+void Swarm::UpdateEmptyIndices() {
+  auto &mask = mask_;
+  auto &empty_indices = empty_indices_;
+
+  // Associate scratch memory
+  auto &empty_indices_scan = scratch_a_;
+
+  // Calculate prefix sum of empty indices
+  parthenon::par_scan(
+      "Set empty indices prefix sum", 0, nmax_pool_ - 1,
+      KOKKOS_LAMBDA(const int n, int &update, const bool &final) {
+        const int val = !mask(n);
+        if (val) {
+          update += 1;
+        }
+
+        if (final) {
+          empty_indices_scan(n) = update;
+        }
+      });
+
+  // Update list of empty indices such that it is contiguous and in ascending order
+  parthenon::par_for(
+      PARTHENON_AUTO_LABEL, 0, nmax_pool_ - 1, KOKKOS_LAMBDA(const int n) {
+        if (!mask(n)) {
+          empty_indices(empty_indices_scan(n) - 1) = n;
+        }
+      });
 }
 
 // No active particles: nmax_active_index = inactive_max_active_index (= -1)
 // No particles removed: nmax_active_index unchanged
 // Particles removed: nmax_active_index is new max active index
 void Swarm::RemoveMarkedParticles() {
-  // TODO(BRR) Use par_scan to do this on device rather than host
-  auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
-  auto marked_for_removal_h =
-      Kokkos::create_mirror_view_and_copy(HostMemSpace(), marked_for_removal_);
+  int &max_active_index = max_active_index_;
 
-  // loop backwards to keep free_indices_ updated correctly
-  for (int n = max_active_index_; n >= 0; n--) {
-    if (mask_h(n)) {
-      if (marked_for_removal_h(n)) {
-        mask_h(n) = false;
-        free_indices_.push_front(n);
-        num_active_ -= 1;
-        if (n == max_active_index_) {
-          max_active_index_ -= 1;
+  auto &mask = mask_;
+  auto &marked_for_removal = marked_for_removal_;
+
+  // Update mask, count number of removed particles
+  int num_removed = 0;
+  parthenon::par_reduce(
+      PARTHENON_AUTO_LABEL, 0, max_active_index,
+      KOKKOS_LAMBDA(const int n, int &removed) {
+        if (mask(n)) {
+          if (marked_for_removal(n)) {
+            mask(n) = false;
+            marked_for_removal(n) = false;
+            removed += 1;
+          }
         }
-        marked_for_removal_h(n) = false;
-      }
-    }
-  }
+      },
+      Kokkos::Sum<int>(num_removed));
 
-  Kokkos::deep_copy(mask_, mask_h);
-  Kokkos::deep_copy(marked_for_removal_, marked_for_removal_h);
+  num_active_ -= num_removed;
+
+  UpdateEmptyIndices();
 }
 
 void Swarm::Defrag() {
   if (GetNumActive() == 0) {
     return;
   }
-  // TODO(BRR) Could this algorithm be more efficient? Does it matter?
-  // Add 1 to convert max index to max number
-  std::int64_t num_free = (max_active_index_ + 1) - num_active_;
-  auto pmb = GetBlockPointer();
 
-  auto from_to_indices_h = from_to_indices_.GetHostMirror();
-
-  auto mask_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), mask_);
-
-  for (int n = 0; n <= max_active_index_; n++) {
-    from_to_indices_h(n) = unset_index_;
-  }
-
-  std::list<int> new_free_indices;
-
-  free_indices_.sort();
-
-  int index = max_active_index_;
-  int num_to_move = std::min<int>(num_free, num_active_);
-  for (int n = 0; n < num_to_move; n++) {
-    while (mask_h(index) == false) {
-      index--;
-    }
-    int index_to_move_from = index;
-    index--;
-
-    // Below this number "moved" particles should actually stay in place
-    if (index_to_move_from < num_active_) {
-      break;
-    }
-    int index_to_move_to = free_indices_.front();
-    free_indices_.pop_front();
-    new_free_indices.push_back(index_to_move_from);
-    from_to_indices_h(index_to_move_from) = index_to_move_to;
-  }
-
-  // TODO(BRR) Not all these sorts may be necessary
-  new_free_indices.sort();
-  free_indices_.merge(new_free_indices);
-
-  from_to_indices_.DeepCopy(from_to_indices_h);
-
-  auto from_to_indices = from_to_indices_;
+  // Associate scratch memory
+  auto &scan_scratch_toread = scratch_a_;
+  auto &map = scratch_b_;
 
   auto &mask = mask_;
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
-        if (from_to_indices(n) >= 0) {
-          mask(from_to_indices(n)) = mask(n);
+
+  const int &num_active = num_active_;
+  auto empty_indices = empty_indices_;
+  parthenon::par_scan(
+      "Set empty indices prefix sum", num_active, nmax_pool_ - 1,
+      KOKKOS_LAMBDA(const int n, int &update, const bool &final) {
+        const int val = mask(n);
+        if (val) {
+          update += 1;
+        }
+        if (final) {
+          scan_scratch_toread(n) = update;
+          empty_indices(n - num_active) = n;
+        }
+      });
+
+  parthenon::par_for(
+      PARTHENON_AUTO_LABEL, 0, nmax_pool_ - 1, KOKKOS_LAMBDA(const int n) {
+        if (n >= num_active) {
+          if (mask(n)) {
+            map(scan_scratch_toread(n) - 1) = n;
+          }
           mask(n) = false;
         }
       });
 
+  // Reuse scratch memory
+  auto &scan_scratch_towrite = scan_scratch_toread;
+
+  // Update list of empty indices
+  parthenon::par_scan(
+      "Set empty indices prefix sum", 0, num_active_ - 1,
+      KOKKOS_LAMBDA(const int n, int &update, const bool &final) {
+        const int val = !mask(n);
+        if (val) {
+          update += 1;
+        }
+        if (final) scan_scratch_towrite(n) = update;
+      });
+
+  // Get all dynamical variables in swarm
   auto &int_vector = std::get<getType<int>()>(vectors_);
+  auto &uint64_vector = std::get<getType<std::uint64_t>()>(vectors_);
   auto &real_vector = std::get<getType<Real>()>(vectors_);
   PackIndexMap real_imap;
   PackIndexMap int_imap;
+  PackIndexMap uint64_imap;
   auto vreal = PackAllVariables_<Real>(real_imap);
   auto vint = PackAllVariables_<int>(int_imap);
-  int real_vars_size = real_vector.size();
-  int int_vars_size = int_vector.size();
+  auto vuint64 = PackAllVariables_<std::uint64_t>(uint64_imap);
+  std::size_t real_vars_size = real_vector.size();
+  std::size_t int_vars_size = int_vector.size();
+  std::size_t uint64_vars_size = uint64_vector.size();
   auto real_map = real_imap.Map();
   auto int_map = int_imap.Map();
+  auto uint64_map = uint64_imap.Map();
   const int realPackDim = vreal.GetDim(2);
   const int intPackDim = vint.GetDim(2);
+  const int uint64PackDim = vuint64.GetDim(2);
 
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
-        if (from_to_indices(n) >= 0) {
+  // Loop over only the active number of particles, and if mask is empty, copy in particle
+  // using address from prefix sum
+  parthenon::par_for(
+      PARTHENON_AUTO_LABEL, 0, num_active_ - 1, KOKKOS_LAMBDA(const int n) {
+        if (!mask(n)) {
+          const int nread = map(scan_scratch_towrite(n) - 1);
           for (int vidx = 0; vidx < realPackDim; vidx++) {
-            vreal(vidx, from_to_indices(n)) = vreal(vidx, n);
+            vreal(vidx, n) = vreal(vidx, nread);
           }
           for (int vidx = 0; vidx < intPackDim; vidx++) {
-            vint(vidx, from_to_indices(n)) = vint(vidx, n);
+            vint(vidx, n) = vint(vidx, nread);
           }
+          for (int vidx = 0; vidx < uint64PackDim; vidx++) {
+            vuint64(vidx, n) = vuint64(vidx, nread);
+          }
+          mask(n) = true;
         }
       });
 
@@ -467,35 +539,35 @@ void Swarm::SortParticlesByCell() {
             break;
           }
 
-          if (cell_sorted(start_index).cell_idx_1d_ == cell_idx_1d) {
+          if (cell_sorted(start_index).sort_idx_ == cell_idx_1d) {
             if (start_index == 0) {
               break;
-            } else if (cell_sorted(start_index - 1).cell_idx_1d_ != cell_idx_1d) {
+            } else if (cell_sorted(start_index - 1).sort_idx_ != cell_idx_1d) {
               break;
             } else {
               start_index--;
               continue;
             }
           }
-          if (cell_sorted(start_index).cell_idx_1d_ >= cell_idx_1d) {
+          if (cell_sorted(start_index).sort_idx_ >= cell_idx_1d) {
             start_index--;
             if (start_index < 0) {
               start_index = -1;
               break;
             }
-            if (cell_sorted(start_index).cell_idx_1d_ < cell_idx_1d) {
+            if (cell_sorted(start_index).sort_idx_ < cell_idx_1d) {
               start_index = -1;
               break;
             }
             continue;
           }
-          if (cell_sorted(start_index).cell_idx_1d_ < cell_idx_1d) {
+          if (cell_sorted(start_index).sort_idx_ < cell_idx_1d) {
             start_index++;
             if (start_index > max_active_index) {
               start_index = -1;
               break;
             }
-            if (cell_sorted(start_index).cell_idx_1d_ > cell_idx_1d) {
+            if (cell_sorted(start_index).sort_idx_ > cell_idx_1d) {
               start_index = -1;
               break;
             }
@@ -509,13 +581,61 @@ void Swarm::SortParticlesByCell() {
           int number = 0;
           int current_index = start_index;
           while (current_index <= max_active_index &&
-                 cell_sorted(current_index).cell_idx_1d_ == cell_idx_1d) {
+                 cell_sorted(current_index).sort_idx_ == cell_idx_1d) {
             current_index++;
             number++;
             cell_sorted_number(k, j, i) = number;
           }
         }
       });
+}
+
+void Swarm::Validate(bool test_comms) const {
+  auto mask = mask_;
+  auto neighbor_indices = neighbor_indices_;
+  auto empty_indices = empty_indices_;
+
+  // Check that number of unmasked particles is number of active particles
+  int nactive = 0;
+  parthenon::par_reduce(
+      PARTHENON_AUTO_LABEL, 0, nmax_pool_ - 1,
+      KOKKOS_LAMBDA(const int n, int &nact) {
+        if (mask(n)) {
+          nact += 1;
+        }
+      },
+      Kokkos::Sum<int>(nactive));
+  PARTHENON_REQUIRE(nactive == num_active_, "Mask and num_active counter do not agree!");
+
+  // Check that region of neighbor indices corresponding to this block is correct
+  // This is optional because the relevant infrastructure for comms isn't always allocated
+  // in testing.
+  int num_err = 0;
+  if (test_comms) {
+    parthenon::par_reduce(
+        parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 1, 2,
+        1, 2, 1, 2,
+        KOKKOS_LAMBDA(const int k, const int j, const int i, int &nerr) {
+          if (neighbor_indices(k, j, i) != this_block_) {
+            nerr += 1;
+          }
+        },
+        Kokkos::Sum<int>(num_err));
+    PARTHENON_REQUIRE(num_err == 0,
+                      "This block region of neighbor indices is incorrect!");
+  }
+
+  num_err = 0;
+  parthenon::par_reduce(
+      PARTHENON_AUTO_LABEL, 0, nmax_pool_ - num_active_ - 1,
+      KOKKOS_LAMBDA(const int n, int &nerr) {
+        if (mask(empty_indices(n)) == true) {
+          nerr += 1;
+        }
+      },
+      Kokkos::Sum<int>(num_err));
+  PARTHENON_REQUIRE(num_err == 0,
+                    "empty_indices_ array pointing to unmasked particle indices!");
 }
 
 } // namespace parthenon

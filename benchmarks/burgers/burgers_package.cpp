@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -132,7 +132,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     hst_vars.emplace_back(HstSum, ReduceMass, "MS Mass " + std::to_string(i_octant));
     i_octant++;
   }
-  hst_vars.emplace_back(HstSum, MeshCountHistory, "Meshblock count");
   pkg->AddParam(parthenon::hist_param_key, hst_vars);
 
   pkg->EstimateTimestepMesh = EstimateTimestepMesh;
@@ -149,7 +148,7 @@ void CalculateDerived(MeshData<Real> *md) {
   std::vector<std::string> vars({"derived", "U"});
   auto &v = md->PackVariablesByNames(vars);  
   const int nblocks = md->NumBlocks();
-  size_t scratch_size = 0;
+  std::size_t scratch_size = 0;
   constexpr int scratch_level = 0;
   parthenon::par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), scratch_size,
@@ -232,12 +231,12 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   const int dj = (ndim > 1 ? 1 : 0);
 
   // first we'll reconstruct the state to faces
-  size_t scratch_size = 0;
+  std::size_t scratch_size = 0;
   constexpr int scratch_level = 0;
   const int teamSize = ib.e - ib.s + 1;
   parthenon::par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), scratch_size,
-      scratch_level, 0, nblocks - 1, kb.s - dk, kb.e + dk, jb.s - dj, jb.e + dj, teamSize,
+      scratch_level, 0, nblocks - 1, kb.s - dk, kb.e + dk, jb.s - dj, jb.e + dj, //teamSize, FIXME
       KOKKOS_LAMBDA(team_mbr_t member, const int b, const int k, const int j) {
         bool xrec = (k >= kb.s && k <= kb.e) && (j >= jb.s && j <= jb.e);
         bool yrec = (k >= kb.s && k <= kb.e) && (ndim > 1);
@@ -308,7 +307,7 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   scratch_size = 2 * ScratchPad1D<Real>::shmem_size(ib.e + 1);
   parthenon::par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), scratch_size,
-      scratch_level, 0, nblocks - 1, kb.s, kb.e + dk, jb.s, jb.e + dj, teamSize,
+      scratch_level, 0, nblocks - 1, kb.s, kb.e + dk, jb.s, jb.e + dj, //teamSize, FIXME
       KOKKOS_LAMBDA(team_mbr_t member, const int b, const int k, const int j) {
         bool xflux = (k <= kb.e && j <= jb.e);
         bool yflux = (ndim > 1 && k <= kb.e);
@@ -439,7 +438,5 @@ Real MassHistory(MeshData<Real> *md, const Real x1min, const Real x1max, const R
       Kokkos::Sum<Real>(result));
   return result;
 }
-
-Real MeshCountHistory(MeshData<Real> *md) { return md->NumBlocks(); }
 
 } // namespace burgers_package

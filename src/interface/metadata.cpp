@@ -13,8 +13,11 @@
 
 #include "interface/metadata.hpp"
 
+#include <algorithm>
 #include <exception>
 #include <iostream>
+#include <memory>
+#include <set>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -101,10 +104,13 @@ MetadataFlag Metadata::GetUserFlag(const std::string &flagname) {
 }
 
 namespace parthenon {
-Metadata::Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
+Metadata::Metadata(const std::vector<MetadataFlag> &bits,
+                   const std::vector<MetadataFlag> &flux_bits,
+                   const std::vector<int> &shape,
                    const std::vector<std::string> &component_labels,
                    const std::string &associated,
-                   const refinement::RefinementFunctions_t ref_funcs_)
+                   const refinement::RefinementFunctions_t ref_funcs_,
+                   const refinement::RefinementFunctions_t flux_ref_funcs_)
     : shape_(shape), component_labels_(component_labels), associated_(associated) {
   // set flags
   for (const auto f : bits) {
@@ -126,7 +132,7 @@ Metadata::Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int>
   }
   // If variable is refined, set a default prolongation/restriction op
   // TODO(JMM): This is dangerous. See Issue #844.
-  if (IsRefined()) {
+  if (HasRefinementOps()) {
     refinement_funcs_ = ref_funcs_;
   }
 
@@ -164,12 +170,45 @@ Metadata::Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int>
     deallocation_threshold_ = 0.0;
     default_value_ = 0.0;
   }
+
+  // Now create the flux metadata if required
+  if (IsSet(WithFluxes)) {
+    std::set<MetadataFlag> flux_flags;
+    for (const auto f : flux_bits)
+      flux_flags.insert(f);
+
+    // Set some standard defaults for the flux metadata if no
+    // flags were provided
+    if (flux_flags.size() == 0) {
+      flux_flags.insert(OneCopy);
+      if (IsSet(Fine)) flux_flags.insert(Fine);
+      if (IsSet(Cell)) flux_flags.insert(CellMemAligned);
+      if (IsSet(Sparse)) flux_flags.insert(Sparse);
+    }
+
+    // These flags are automatically propagated for fluxes
+    flux_flags.insert(Flux);
+    if (IsSet(Cell)) {
+      flux_flags.insert(Face);
+    } else if (IsSet(Face)) {
+      flux_flags.insert(Edge);
+    } else if (IsSet(Edge)) {
+      flux_flags.insert(Node);
+    }
+
+    if (IsSet(Tensor)) flux_flags.insert(Tensor);
+    if (IsSet(Vector)) flux_flags.insert(Vector);
+
+    std::vector<MetadataFlag> flux_flags_vec(flux_flags.begin(), flux_flags.end());
+    flux_metadata = std::make_shared<Metadata>(flux_flags_vec, shape, component_labels,
+                                               std::string(), flux_ref_funcs_);
+  }
 }
 
 std::ostream &operator<<(std::ostream &os, const parthenon::Metadata &m) {
   bool first = true;
   auto &flags = metadata_state.AllFlags();
-  for (int i = 0; i < flags.size(); ++i) {
+  for (std::size_t i = 0; i < flags.size(); ++i) {
     auto flag = MetadataFlag(i);
     if (m.IsSet(flag)) {
       if (!first) {
@@ -252,8 +291,16 @@ bool Metadata::IsValid(bool throw_on_fail) const {
     }
   }
 
+  if (IsSet(FillGhost) && IsSet(CellMemAligned) && (!IsSet(Cell))) {
+    valid = false;
+    if (throw_on_fail) {
+      PARTHENON_THROW(
+          "Cannot communicate ghosts of non-cell fields that have cell aligned memory.");
+    }
+  }
+
   // Prolongation/restriction
-  if (IsRefined()) {
+  if (HasRefinementOps()) {
     if (refinement_funcs_.label().size() == 0) {
       valid = false;
       if (throw_on_fail) {
@@ -269,7 +316,7 @@ bool Metadata::IsValid(bool throw_on_fail) const {
 std::vector<MetadataFlag> Metadata::Flags() const {
   std::vector<MetadataFlag> set_flags;
   const auto &flags = metadata_state.AllFlags();
-  for (int i = 0; i < flags.size(); ++i) {
+  for (std::size_t i = 0; i < flags.size(); ++i) {
     const auto flag = MetadataFlag(i);
     if (IsSet(flag)) {
       set_flags.push_back(flag);
@@ -279,11 +326,33 @@ std::vector<MetadataFlag> Metadata::Flags() const {
   return set_flags;
 }
 
+bool Metadata::HasSameFlags(const Metadata &b) const {
+  auto const &a = *this;
+
+  // Check extra bits are unset
+  auto const min_bits = std::min(a.bits_.size(), b.bits_.size());
+  auto const &longer = a.bits_.size() > b.bits_.size() ? a.bits_ : b.bits_;
+  for (auto i = min_bits; i < longer.size(); i++) {
+    if (longer[i]) {
+      // Bits are default false, so if any bit in the extraneous portion of the longer
+      // bit list is set, then it cannot be equal to a.
+      return false;
+    }
+  }
+
+  for (std::size_t i = 0; i < min_bits; i++) {
+    if (a.bits_[i] != b.bits_[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 std::array<int, MAX_VARIABLE_DIMENSION>
 Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
   std::array<int, MAX_VARIABLE_DIMENSION> arrDims;
   const auto &shape = shape_;
-  const int N = shape.size();
+  const std::size_t N = shape.size();
 
   if (IsMeshTied()) {
     // Let the FaceVariable, EdgeVariable, and NodeVariable
@@ -295,26 +364,23 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
                              "Cannot determine array dimensions for mesh-tied entity "
                              "without a valid meshblock");
     auto pmb = wpmb.lock();
-    const auto bnds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+    auto bnds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+    if (IsSet(Fine)) bnds = coarse ? pmb->cellbounds : pmb->f_cellbounds;
     arrDims[0] = bnds.ncellsi(IndexDomain::entire);
     arrDims[1] = bnds.ncellsj(IndexDomain::entire);
     arrDims[2] = bnds.ncellsk(IndexDomain::entire);
-    for (int i = 0; i < N; i++)
+    for (std::size_t i = 0; i < N; i++)
       arrDims[i + 3] = shape[i];
     for (int i = N; i < 3; i++)
       arrDims[i + 3] = 1;
     if (IsSet(Cell)) {
       arrDims[MAX_VARIABLE_DIMENSION - 1] = 1; // Only one cell center per cell
-    } else if (IsSet(Face) && IsSet(Flux)) {
-      // 3 directions but keep the same ijk shape as cell var for performance
-      arrDims[MAX_VARIABLE_DIMENSION - 1] = 3;
     } else if (IsSet(Face) || IsSet(Edge)) {
       arrDims[MAX_VARIABLE_DIMENSION - 1] = 3; // Three faces and edges per cell
-      arrDims[0]++;
-      if (arrDims[1] > 1) arrDims[1]++;
-      if (arrDims[2] > 1) arrDims[2]++;
     } else if (IsSet(Node)) {
       arrDims[MAX_VARIABLE_DIMENSION - 1] = 1; // Only one lower left node per cell
+    }
+    if (!IsSet(CellMemAligned) && !IsSet(Cell)) {
       arrDims[0]++;
       if (arrDims[1] > 1) arrDims[1]++;
       if (arrDims[2] > 1) arrDims[2]++;
@@ -335,9 +401,9 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
     // mesh element, so dims will be used as the actual array
     // size in each dimension
     assert(N >= 1 && N < MAX_VARIABLE_DIMENSION);
-    for (int i = 0; i < N; i++)
+    for (std::size_t i = 0; i < N; i++)
       arrDims[i] = shape[i];
-    for (int i = N; i < MAX_VARIABLE_DIMENSION; i++)
+    for (std::size_t i = N; i < MAX_VARIABLE_DIMENSION; i++)
       arrDims[i] = 1;
     if (IsSet(Flux)) arrDims[MAX_VARIABLE_DIMENSION - 1] = 3;
   }

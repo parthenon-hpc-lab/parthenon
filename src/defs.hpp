@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -19,14 +19,15 @@
 //! \file defs.hpp
 //  \brief contains Athena++ general purpose types, structures, enums, etc.
 
+#include <array>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 
 #include "basic_types.hpp"
 #include "config.hpp"
-#include "mesh/forest/logical_location.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
@@ -45,6 +46,14 @@ namespace parthenon {
 #define CACHELINE_BYTES 64
 
 #define NMAX_NEIGHBORS 56
+
+// TODO(JMM): Note this is NOT compile-time. And for whatever reason,
+// the boolean condition can be static_assert checked but cannot be
+// used to set a constexpr var.
+#ifdef MPI_PARALLEL
+const MPI_Datatype MPI_SIZE_T =
+    (sizeof(std::size_t) == sizeof(std::uint64_t)) ? MPI_UINT64_T : MPI_UINT32_T;
+#endif
 
 // forward declarations needed for function pointer type aliases
 class MeshBlock;
@@ -70,8 +79,8 @@ struct RegionSize {
   RegionSize() = default;
   RegionSize(std::array<Real, 3> xmin, std::array<Real, 3> xmax, std::array<Real, 3> xrat,
              std::array<int, 3> nx)
-      : xmin_(xmin), xmax_(xmax), xrat_(xrat),
-        nx_(nx), symmetry_{nx[0] == 1, nx[1] == 1, nx[2] == 1} {}
+      : xmin_(xmin), xmax_(xmax), xrat_(xrat), nx_(nx),
+        symmetry_{nx[0] == 1, nx[1] == 1, nx[2] == 1} {}
   RegionSize(std::array<Real, 3> xmin, std::array<Real, 3> xmax, std::array<Real, 3> xrat,
              std::array<int, 3> nx, std::array<bool, 3> symmetry)
       : xmin_(xmin), xmax_(xmax), xrat_(xrat), nx_(nx), symmetry_(symmetry) {}
@@ -94,8 +103,9 @@ struct RegionSize {
 
   // Returns global coordinate position within a block based on block local
   // coordinate u running from zero to one
-  Real LogicalToActualPosition(Real u, CoordinateDirection dir) const {
-    return u * (xmax_[dir - 1] - xmin_[dir - 1]) + xmin_[dir - 1];
+  Real SymmetrizedLogicalToActualPosition(Real u, CoordinateDirection dir) const {
+    return static_cast<Real>(0.5) * (xmin_[dir - 1] + xmax_[dir - 1]) +
+           (u * xmax_[dir - 1] - u * xmin_[dir - 1]);
   }
   // A "symmetry" direction is a a direction that posesses a translational symmetry
   // (or rotational symmetry, etc. for non-cartesian coordinate systems) in the given
@@ -120,7 +130,7 @@ struct RegionSize {
 // tasks.hpp, ???
 
 // identifiers for boundary conditions
-enum class BoundaryFlag { block = -1, undef, reflect, outflow, periodic, user };
+enum class BoundaryFlag { block = -1, undef, periodic, user };
 
 // identifiers for all 6 faces of a MeshBlock
 constexpr int BOUNDARY_NFACES = 6;
@@ -133,6 +143,7 @@ enum BoundaryFace {
   inner_x3 = 4,
   outer_x3 = 5
 };
+using BValNames_t = std::array<std::string, BOUNDARY_NFACES>;
 
 inline BoundaryFace GetInnerBoundaryFace(CoordinateDirection dir) {
   if (dir == X1DIR) {
@@ -154,6 +165,26 @@ inline BoundaryFace GetOuterBoundaryFace(CoordinateDirection dir) {
     return BoundaryFace::outer_x3;
   }
   return BoundaryFace::undef;
+}
+
+inline std::array<int, 3> GetOffsetsFromBoundaryFace(BoundaryFace face) {
+  switch (face) {
+  case BoundaryFace::inner_x1:
+    return {-1, 0, 0};
+  case BoundaryFace::outer_x1:
+    return {1, 0, 0};
+  case BoundaryFace::inner_x2:
+    return {0, -1, 0};
+  case BoundaryFace::outer_x2:
+    return {0, 1, 0};
+  case BoundaryFace::inner_x3:
+    return {0, 0, -1};
+  case BoundaryFace::outer_x3:
+    return {0, 0, 1};
+  default:
+    PARTHENON_FAIL("Asking for offsets for an invalid BoundaryFace.");
+  }
+  return {0, 0, 0};
 }
 
 //------------------

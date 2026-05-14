@@ -12,6 +12,7 @@
 //========================================================================================
 
 #include <algorithm>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -55,7 +56,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   auto fail_flag = pkg->Param<bool>("fail_without_convergence");
   auto warn_flag = pkg->Param<bool>("warn_without_convergence");
 
-  const int num_partitions = pmesh->DefaultNumPartitions();
+  auto partitions = pmesh->GetDefaultBlockPartitions();
+  const int num_partitions = partitions.size();
   TaskRegion &solver_region = tc.AddRegion(num_partitions);
 
   // setup some reductions
@@ -72,8 +74,8 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
       pkg->MutableParam<AllReduce<HostArray1D<Real>>>("view_reduce");
   for (int i = 0; i < num_partitions; i++) {
     // make/get a mesh_data container for the state
-    auto &md = pmesh->mesh_data.GetOrAdd("base", i);
-    auto &mdelta = pmesh->mesh_data.GetOrAdd("delta", i);
+    auto &md = pmesh->mesh_data.Add("base", partitions[i]);
+    auto &mdelta = pmesh->mesh_data.Add("delta", md);
 
     TaskList &tl = solver_region[i];
 
@@ -177,7 +179,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
         TaskQualifier::local_sync, none,
         [](std::vector<int> *vec) {
           auto &v = *vec;
-          for (int n = 0; n < v.size(); n++)
+          for (std::size_t n = 0; n < v.size(); n++)
             v[n] += n;
           return TaskStatus::complete;
         },
@@ -197,12 +199,12 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
           if (Globals::my_rank == 0) {
             auto &v = *vec;
             std::cout << "Vec reduction: ";
-            for (int n = 0; n < v.size(); n++) {
+            for (std::size_t n = 0; n < v.size(); n++) {
               std::cout << v[n] << " ";
             }
             std::cout << std::endl;
             std::cout << "Should be:     ";
-            for (int n = 0; n < v.size(); n++) {
+            for (std::size_t n = 0; n < v.size(); n++) {
               std::cout << n * num_partitions * Globals::nranks << " ";
             }
             std::cout << std::endl;
@@ -227,12 +229,12 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
           if (Globals::my_rank == 0) {
             auto &v = *view;
             std::cout << "View reduction: ";
-            for (int n = 0; n < v.size(); n++) {
+            for (std::size_t n = 0; n < v.size(); n++) {
               std::cout << v(n) << " ";
             }
             std::cout << std::endl;
             std::cout << "Should be:     ";
-            for (int n = 0; n < v.size(); n++) {
+            for (std::size_t n = 0; n < v.size(); n++) {
               std::cout << n * num_partitions * Globals::nranks << " ";
             }
             std::cout << std::endl;

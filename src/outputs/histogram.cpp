@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2023 The Parthenon collaboration
+// Copyright(C) 2023-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2023-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -35,6 +35,7 @@
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -151,7 +152,7 @@ auto GetEdges(ParameterInput *pin, const std::string &block_name,
   }
   auto edges = ParArray1D<Real>(prefix, edges_in.size());
   auto edges_h = edges.GetHostMirror();
-  for (int i = 0; i < edges_in.size(); i++) {
+  for (std::size_t i = 0; i < edges_in.size(); i++) {
     edges_h(i) = edges_in[i];
   }
   Kokkos::deep_copy(edges, edges_h);
@@ -257,10 +258,8 @@ void Histogram::CalcHist(Mesh *pm) {
   // https://github.com/kokkos/kokkos/issues/6363
   Kokkos::deep_copy(result, 0);
 
-  const int num_partitions = pm->DefaultNumPartitions();
-
-  for (int p = 0; p < num_partitions; p++) {
-    auto &md = pm->mesh_data.GetOrAdd("base", p);
+  for (auto partition : pm->GetDefaultBlockPartitions()) {
+    auto &md = pm->mesh_data.Add("base", partition);
 
     const auto x_var_pack_string = x_var_type == VarType::Var
                                        ? std::vector<std::string>{x_var_name_}
@@ -559,10 +558,7 @@ void HistogramOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm
     // parameters so that for restarts the file is not immediatly overwritten again.
     // Only applies to default time-based data dumps, so that writing "now" and "final"
     // outputs does not change the desired output numbering.
-    output_params.file_number++;
-    output_params.next_time += output_params.dt;
-    pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-    pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+    UpdateNextOutput_(pm, tm);
   }
 }
 

@@ -24,6 +24,8 @@
 #include "variable.hpp"
 
 namespace parthenon {
+class Metadata;
+class MetadataFlag;
 
 class SparsePool {
  public:

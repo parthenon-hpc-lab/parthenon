@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "prolong_restrict/pr_ops.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
@@ -80,6 +81,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(Boolean)                                                   \
   /** Integer-valued quantity */                                                         \
   PARTHENON_INTERNAL_FOR_FLAG(Integer)                                                   \
+  /** uint64-t-valued quantity */                                                        \
+  PARTHENON_INTERNAL_FOR_FLAG(UInt64)                                                    \
   /** Real-valued quantity */                                                            \
   PARTHENON_INTERNAL_FOR_FLAG(Real)                                                      \
   /************************************************/                                     \
@@ -116,8 +119,17 @@
   PARTHENON_INTERNAL_FOR_FLAG(GMGRestrict)                                               \
   /** the variable must always be allocated for new blocks **/                           \
   PARTHENON_INTERNAL_FOR_FLAG(ForceAllocOnNewBlocks)                                     \
+  /** the variable will have twice as many active zones in each direction **/            \
+  PARTHENON_INTERNAL_FOR_FLAG(Fine)                                                      \
   /** this variable is the flux for another variable **/                                 \
   PARTHENON_INTERNAL_FOR_FLAG(Flux)                                                      \
+  /** Align memory of fields to cell centered memory                                     \
+      (Field will be missing one layer of ghosts if it is not cell centered) **/         \
+  PARTHENON_INTERNAL_FOR_FLAG(CellMemAligned)                                            \
+  /** Particles in a Swarm will not contain a persistent, unique id field **/            \
+  PARTHENON_INTERNAL_FOR_FLAG(NoPersistentParticleIds)                                   \
+  /** Only communicate one layer of ghosts at same-to-same boundaries **/                \
+  PARTHENON_INTERNAL_FOR_FLAG(CommunicateOne)                                            \
   /************************************************/                                     \
   /** Vars specifying coordinates for visualization purposes **/                         \
   /** You can specify a single 3D var **/                                                \
@@ -168,6 +180,7 @@ class MetadataFlag {
 
   std::string const &Name() const;
 
+  int Flag() const { return flag_; }
 #ifdef CATCH_VERSION_MAJOR
   // Should never be used for application code - only exposed for testing.
   constexpr int InternalFlagValue() const { return flag_; }
@@ -219,8 +232,8 @@ class Metadata {
   class FlagCollection {
    public:
     FlagCollection() = default;
-    template <typename T,
-              REQUIRES(std::is_same<typename T::value_type, MetadataFlag>::value)>
+    template <typename T>
+      requires(std::is_same<typename T::value_type, MetadataFlag>::value)
     explicit FlagCollection(const T &flags, bool take_union = false) {
       if (take_union) {
         unions_.insert(flags.begin(), flags.end());
@@ -323,27 +336,50 @@ class Metadata {
   // 4 constructors, this is the general constructor called by all other constructors, so
   // we do some sanity checks here
   Metadata(
+      const std::vector<MetadataFlag> &bits, const std::vector<MetadataFlag> &flux_bits,
+      const std::vector<int> &shape = {},
+      const std::vector<std::string> &component_labels = {},
+      const std::string &associated = "",
+      const refinement::RefinementFunctions_t ref_funcs_ =
+          refinement::RefinementFunctions_t::RegisterOps<
+              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>(),
+      const refinement::RefinementFunctions_t flux_ref_funcs_ =
+          refinement::RefinementFunctions_t::RegisterOps<
+              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>());
+
+  Metadata(
       const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
       const std::vector<std::string> &component_labels = {},
       const std::string &associated = "",
       const refinement::RefinementFunctions_t ref_funcs_ =
           refinement::RefinementFunctions_t::RegisterOps<
-              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>());
+              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>())
+      : Metadata(bits, {}, shape, component_labels, associated, ref_funcs_, ref_funcs_) {}
 
-  // 1 constructor
   Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
            const std::string &associated)
       : Metadata(bits, shape, {}, associated) {}
 
-  // 2 constructors
   Metadata(const std::vector<MetadataFlag> &bits,
            const std::vector<std::string> component_labels,
            const std::string &associated = "")
       : Metadata(bits, {1}, component_labels, associated) {}
 
-  // 1 constructor
   Metadata(const std::vector<MetadataFlag> &bits, const std::string &associated)
       : Metadata(bits, {1}, {}, associated) {}
+
+  std::shared_ptr<Metadata> GetSPtrFluxMetadata() {
+    PARTHENON_REQUIRE(IsSet(WithFluxes),
+                      "Asking for flux metadata from metadata that doesn't have it.");
+    return flux_metadata;
+  }
+
+ private:
+  std::shared_ptr<Metadata> flux_metadata;
+
+ public:
+  // TODO(JMM): I'm not sure where this should go...
+  static constexpr const std::size_t SWARM_DEFAULT_NMAX_POOL = 3;
 
   // Static routines
   static MetadataFlag AddUserFlag(const std::string &name);
@@ -423,6 +459,8 @@ class Metadata {
       return Boolean;
     } else if (IsSet(Integer)) {
       return Integer;
+    } else if (IsSet(UInt64)) {
+      return UInt64;
     } else if (IsSet(Real)) {
       return Real;
     }
@@ -446,9 +484,10 @@ class Metadata {
 
   // Returns true if this variable should do prolongation/restriction
   // and false otherwise.
-  bool IsRefined() const {
+  bool HasRefinementOps() const {
     return (IsSet(Independent) || IsSet(FillGhost) || IsSet(ForceRemeshComm) ||
-            IsSet(GMGProlongate) || IsSet(GMGRestrict) || IsSet(Flux));
+            IsSet(GMGProlongate) || IsSet(GMGRestrict) || IsSet(Flux) ||
+            IsSet(WithFluxes));
   }
 
   // Returns true if this variable is a coords var
@@ -477,8 +516,8 @@ class Metadata {
   /**
    * @brief Returns true if any flag is set
    */
-  template <class Container_t,
-            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  template <class Container_t>
+    requires(std::is_same<typename Container_t::value_type, MetadataFlag>::value)
   bool AnyFlagsSet(const Container_t &flags) const {
     return std::any_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
@@ -488,8 +527,8 @@ class Metadata {
     return AnyFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
   }
 
-  template <class Container_t,
-            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  template <class Container_t>
+    requires(std::is_same<typename Container_t::value_type, MetadataFlag>::value)
   bool AllFlagsSet(const Container_t &flags) const {
     return std::all_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
@@ -498,8 +537,8 @@ class Metadata {
   bool AllFlagsSet(const MetadataFlag &flag, Args... args) const {
     return AllFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
   }
-  template <class Container_t,
-            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  template <class Container_t>
+    requires(std::is_same<typename Container_t::value_type, MetadataFlag>::value)
   bool NoFlagsSet(const Container_t &flags) const {
     return std::none_of(flags.begin(), flags.end(),
                         [this](MetadataFlag const &f) { return IsSet(f); });
@@ -528,35 +567,21 @@ class Metadata {
             class InternalProlongationOp = refinement_ops::ProlongateInternalAverage>
   void RegisterRefinementOps() {
     PARTHENON_REQUIRE_THROWS(
-        IsRefined(),
+        HasRefinementOps(),
         "Variable must be registered for refinement to accept custom refinement ops");
     refinement_funcs_ =
         refinement::RefinementFunctions_t::RegisterOps<ProlongationOp, RestrictionOp,
                                                        InternalProlongationOp>();
+    // Propagate refinement operations to flux metadata for backward compatibility
+    if (IsSet(WithFluxes)) {
+      flux_metadata->refinement_funcs_ =
+          refinement::RefinementFunctions_t::RegisterOps<ProlongationOp, RestrictionOp,
+                                                         InternalProlongationOp>();
+    }
   }
 
   // Operators
-  bool HasSameFlags(const Metadata &b) const {
-    auto const &a = *this;
-
-    // Check extra bits are unset
-    auto const min_bits = std::min(a.bits_.size(), b.bits_.size());
-    auto const &longer = a.bits_.size() > b.bits_.size() ? a.bits_ : b.bits_;
-    for (auto i = min_bits; i < longer.size(); i++) {
-      if (longer[i]) {
-        // Bits are default false, so if any bit in the extraneous portion of the longer
-        // bit list is set, then it cannot be equal to a.
-        return false;
-      }
-    }
-
-    for (size_t i = 0; i < min_bits; i++) {
-      if (a.bits_[i] != b.bits_[i]) {
-        return false;
-      }
-    }
-    return true;
-  }
+  bool HasSameFlags(const Metadata &b) const;
 
   bool operator==(const Metadata &b) const {
     return HasSameFlags(b) && (shape_ == b.shape_);
@@ -582,6 +607,9 @@ class Metadata {
     return component_labels_;
   }
 
+  void SetInitialSwarmPoolReservation(const std::size_t s) { swarm_nmax_pool_ = s; }
+  std::size_t InitialSwarmPoolReservation() const noexcept { return swarm_nmax_pool_; }
+
  private:
   /// the attribute flags that are set for the class
   refinement::RefinementFunctions_t refinement_funcs_;
@@ -594,6 +622,7 @@ class Metadata {
   parthenon::Real allocation_threshold_;
   parthenon::Real deallocation_threshold_;
   parthenon::Real default_value_;
+  std::size_t swarm_nmax_pool_ = SWARM_DEFAULT_NMAX_POOL;
 
   /// if flag is true set bit, clears otherwise
   void DoBit(MetadataFlag bit, bool flag) {
@@ -686,6 +715,24 @@ Set_t GetByFlag(const Metadata::FlagCollection &flags, NameMap_t &nameMap,
 }
 } // namespace MetadataUtils
 
+KOKKOS_INLINE_FUNCTION constexpr auto TopologicalTypeToMetaData(TopologicalType tt) {
+  using TT = TopologicalType;
+  if (tt == TT::Face) {
+    return Metadata::Face;
+  } else if (tt == TT::Edge) {
+    return Metadata::Edge;
+  } else if (tt == TT::Node) {
+    return Metadata::Node;
+  }
+  return Metadata::Cell;
+}
 } // namespace parthenon
+
+template <>
+struct std::hash<parthenon::MetadataFlag> {
+  std::size_t operator()(const parthenon::MetadataFlag &flag) const {
+    return flag.Flag();
+  }
+};
 
 #endif // INTERFACE_METADATA_HPP_

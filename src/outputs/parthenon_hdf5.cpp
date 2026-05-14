@@ -1,9 +1,13 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2024 The Parthenon collaboration
+// Copyright(C) 2020-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2025 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -28,20 +32,24 @@
 #include <memory>
 #include <numeric>
 #include <set>
+#include <string>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
+#include <vector>
 
 #include "driver/driver.hpp"
 #include "interface/metadata.hpp"
-#include "interface/swarm_default_names.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "outputs/output_parameters.hpp"
 #include "outputs/output_utils.hpp"
 #include "outputs/outputs.hpp"
 #include "outputs/parthenon_hdf5.hpp"
 #include "outputs/parthenon_xdmf.hpp"
 #include "outputs/restart.hpp"
+#include "pack/default_names.hpp"
+#include "provenance.hpp"
 #include "utils/string_utils.hpp"
 
 namespace parthenon {
@@ -65,6 +73,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                                       const SignalHandler::OutputSignal signal) {
   using namespace HDF5;
   using namespace OutputUtils;
+  // modify HDF5 error handling to throw an error
+  H5Eset_auto(H5E_DEFAULT, aborting_error_handler, NULL);
 
   if constexpr (WRITE_SINGLE_PRECISION) {
     Kokkos::Profiling::pushRegion("PHDF5::WriteOutputFileSinglePrec");
@@ -72,12 +82,15 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     Kokkos::Profiling::pushRegion("PHDF5::WriteOutputFileRealPrec");
   }
 
+  // Check that the parameter input is safe to write to HDF5
+  OutputUtils::CheckParameterInputConsistent(pin);
+
   // writes all graphics variables to hdf file
   // HDF5 structures
   // Also writes companion xdmf file
 
-  const int max_blocks_global = pm->nbtotal;
-  const int num_blocks_local = static_cast<int>(pm->block_list.size());
+  const std::size_t max_blocks_global = pm->nbtotal;
+  const std::size_t num_blocks_local = pm->block_list.size();
 
   const IndexDomain theDomain =
       (output_params.include_ghost_zones ? IndexDomain::entire : IndexDomain::interior);
@@ -85,13 +98,11 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   auto const &first_block = *(pm->block_list.front());
 
   const auto &cellbounds = first_block.cellbounds;
-  const IndexRange out_ib = cellbounds.GetBoundsI(theDomain);
-  const IndexRange out_jb = cellbounds.GetBoundsJ(theDomain);
-  const IndexRange out_kb = cellbounds.GetBoundsK(theDomain);
+  const auto &f_cellbounds = first_block.f_cellbounds;
 
-  auto const nx1 = out_ib.e - out_ib.s + 1;
-  auto const nx2 = out_jb.e - out_jb.s + 1;
-  auto const nx3 = out_kb.e - out_kb.s + 1;
+  auto const nx1 = cellbounds.ncellsi(theDomain);
+  auto const nx2 = cellbounds.ncellsj(theDomain);
+  auto const nx3 = cellbounds.ncellsk(theDomain);
 
   const int rootLevel = pm->GetLegacyTreeRootLevel();
   const int max_level = pm->GetCurrentLevel() - pm->GetRootLevel();
@@ -100,6 +111,13 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // open HDF5 file
   // Define output filename
   auto filename = GenerateFilename_(pin, tm, signal);
+  if (signal == SignalHandler::OutputSignal::none) {
+    // After file has been opened with the current number, already advance output
+    // parameters so that for restarts the file is not immediatly overwritten again.
+    // Only applies to default time-based data dumps, so that writing "now" and "final"
+    // outputs does not change the desired output numbering.
+    UpdateNextOutput_(pm, tm);
+  }
 
   // set file access property list
   H5P const acc_file = H5P::FromHIDCheck(HDF5::GenerateFileAccessProps());
@@ -132,7 +150,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     HDF5WriteAttribute("File", oss.str().c_str(), input_group);
     Kokkos::Profiling::popRegion(); // write input
-  }                                 // Input section
+  } // Input section
 
   // we'll need this again at the end
   const H5G info_group = MakeGroup(file, "/Info");
@@ -145,6 +163,22 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       HDF5WriteAttribute("Time", tm->time, info_group);
       HDF5WriteAttribute("dt", tm->dt, info_group);
     }
+
+    // Writing build and provenance information
+    HDF5WriteAttribute("ParthenonGitHash", provenance::PARTHENON_GIT_HASH, info_group);
+    HDF5WriteAttribute("ParthenonGitBranch", provenance::PARTHENON_GIT_BRANCH,
+                       info_group);
+    HDF5WriteAttribute("ParthenonCompiler", provenance::PARTHENON_COMPILER, info_group);
+    HDF5WriteAttribute("ParthenonBuildTimestamp", provenance::PARTHENON_BUILD_TIMESTAMP,
+                       info_group);
+    HDF5WriteAttribute("ParthenonBuildArch", provenance::PARTHENON_ARCH, info_group);
+    HDF5WriteAttribute("ParthenonBuildOptLevel", provenance::PARTHENON_OPTIMIZATION,
+                       info_group);
+
+    // Pull out Kokkos config which can contain GPU information
+    std::ostringstream kokkos_config;
+    Kokkos::print_configuration(kokkos_config);
+    HDF5WriteAttribute("KokkosConfig", kokkos_config.str(), info_group);
 
     HDF5WriteAttribute("WallTime", Driver::elapsed_main(), info_group);
     HDF5WriteAttribute("NumDims", pm->ndim, info_group);
@@ -187,14 +221,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                        info_group);
 
     // Boundary conditions
-    std::vector<std::string> boundary_condition_str(BOUNDARY_NFACES);
-    for (size_t i = 0; i < boundary_condition_str.size(); i++) {
-      boundary_condition_str[i] = GetBoundaryString(pm->mesh_bcs[i]);
-    }
-
-    HDF5WriteAttribute("BoundaryConditions", boundary_condition_str, info_group);
+    HDF5WriteAttribute("BoundaryConditions", pm->mesh_bc_names, info_group);
+    HDF5WriteAttribute("SwarmBoundaryConditions", pm->mesh_swarm_bc_names, info_group);
     Kokkos::Profiling::popRegion(); // write Info
-  }                                 // Info section
+  } // Info section
 
   // write Params
   {
@@ -207,8 +237,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       state->AllParams().WriteAllToHDF5(state->label(), params_group);
     }
     Kokkos::Profiling::popRegion(); // behold: write Params
-  }                                 // Params section
-  Kokkos::Profiling::popRegion();   // write Attributes
+  } // Params section
+  Kokkos::Profiling::popRegion(); // write Attributes
 
   // -------------------------------------------------------------------------------- //
   //   WRITING MESHBLOCK METADATA                                                     //
@@ -242,19 +272,25 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // All blocks have the same list of variable metadata that exist in the entire
   // simulation, but not all variables may be allocated on all blocks
 
-  auto get_vars = [=](const std::shared_ptr<MeshBlock> pmb) {
-    const VariableVector<Real> &var_vec = pmb->meshblock_data.Get()->GetVariableVector();
+  auto get_vars = [=, this](const std::shared_ptr<MeshBlock> pmb) {
+    const auto &data = pmb->meshblock_data.Get(output_params.meshdata_name);
+    const VariableVector<Real> &var_vec = data->GetVariableVector();
     VariableVector<Real> coords_vars =
         GetAnyVariables(var_vec, {parthenon::Metadata::CoordinatesVec});
     PARTHENON_DEBUG_REQUIRE(coords_vars.size() <= 1,
                             "There can be at most one coordinates vector");
 
     VariableVector<Real> out;
-    if (restart_) {
+    if (mode_ == DumpOutputMode::RESTART) {
       // get all vars with flag Independent OR restart
       out = GetAnyVariables(
           var_vec, {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
-    } else {
+    } else if (mode_ == DumpOutputMode::CORE) {
+      // JMM: The VariableVector does not include flux vars. To
+      // include these, we must instead call `GetAllVariables` with
+      // `FluxRequest::Any`.
+      out = data->GetAllVariables({}, FluxRequest::Any).vars();
+    } else { // (mode_ == DUMP)
       out = GetAnyVariables(var_vec, output_params.variables);
     }
     auto coords_loc = std::find_if(out.begin(), out.end(), [](const auto &v) {
@@ -269,7 +305,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
   // get list of all vars, just use the first block since the list is
   // the same for all blocks
-  auto all_vars_info = VarInfo::GetAll(get_vars(pm->block_list.front()), cellbounds);
+  auto all_vars_info =
+      VarInfo::GetAll(get_vars(pm->block_list.front()), cellbounds, f_cellbounds);
 
   // We need to add information about the sparse variables to the HDF5 file, namely:
   // 1) Which variables are sparse
@@ -287,7 +324,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // v is allocated on the block with index b, otherwise the value is false
 
   std::vector<std::string> sparse_names;
-  std::unordered_map<std::string, size_t> sparse_field_idx;
+  std::unordered_map<std::string, std::size_t> sparse_field_idx;
   for (auto &vinfo : all_vars_info) {
     if (vinfo.is_sparse) {
       sparse_field_idx.insert({vinfo.label, sparse_names.size()});
@@ -302,9 +339,9 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   std::vector<int> sparse_dealloc_count(num_blocks_local * num_sparse);
 
   // allocate space for largest size variable
-  int varSize_max = 0;
+  std::size_t varSize_max = 0;
   for (auto &vinfo : all_vars_info) {
-    const int varSize = vinfo.Size();
+    const std::size_t varSize = vinfo.Size();
     varSize_max = std::max(varSize_max, varSize);
   }
 
@@ -356,7 +393,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
 
     Kokkos::Profiling::pushRegion("fill host output buffer");
     // for each local mesh block
-    for (size_t b_idx = 0; b_idx < num_blocks_local; ++b_idx) {
+    for (std::size_t b_idx = 0; b_idx < num_blocks_local; ++b_idx) {
       const auto &pmb = pm->block_list[b_idx];
       bool is_allocated = false;
       int dealloc_count = 0;
@@ -379,7 +416,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       }
 
       if (vinfo.is_sparse) {
-        size_t sparse_idx = sparse_field_idx.at(vinfo.label);
+        std::size_t sparse_idx = sparse_field_idx.at(vinfo.label);
         sparse_allocated[b_idx * num_sparse + sparse_idx] = is_allocated;
         sparse_dealloc_count[b_idx * num_sparse + sparse_idx] = dealloc_count;
       }
@@ -419,7 +456,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   var_names.reserve(all_vars_info.size());
 
   // number of components within each dataset
-  std::vector<size_t> num_components;
+  std::vector<std::size_t> num_components;
   num_components.reserve(all_vars_info.size());
 
   // names of components within each dataset
@@ -454,7 +491,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   // -------------------------------------------------------------------------------- //
 
   Kokkos::Profiling::pushRegion("write particle data");
-  AllSwarmInfo swarm_info(pm->block_list, output_params.swarms, restart_);
+  AllSwarmInfo swarm_info(pm->block_list, output_params.swarms, mode_,
+                          output_params.meshdata_name);
   for (auto &[swname, swinfo] : swarm_info.all_info) {
     const H5G g_swm = MakeGroup(file, swname);
     // offsets/counts are NOT the same here vs the grid data
@@ -505,6 +543,14 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       HDF5WriteND(g_var, vname, host_data.data(), vinfo.tensor_rank + 1, local_offset,
                   local_count, global_count, pl_xfer, H5P_DEFAULT);
     }
+    auto &uint64_vars = std::get<SwarmInfo::MapToVarVec<std::uint64_t>>(swinfo.vars);
+    for (auto &[vname, swmvarvec] : uint64_vars) {
+      const auto &vinfo = swinfo.var_info.at(vname);
+      auto host_data = swinfo.FillHostBuffer(vname, swmvarvec);
+      SetCounts(swinfo, vinfo);
+      HDF5WriteND(g_var, vname, host_data.data(), vinfo.tensor_rank + 1, local_offset,
+                  local_count, global_count, pl_xfer, H5P_DEFAULT);
+    }
     std::vector<Real> pos_tmp; // tmp vector to (potentially) hold particle positions
     auto &rvars = std::get<SwarmInfo::MapToVarVec<Real>>(swinfo.vars);
     for (auto &[vname, swmvarvec] : rvars) {
@@ -526,7 +572,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       // eliminate the extra geometry dump and/or (2) directly write the auxillary
       // positions via low-level HDF writes, such that the vector manipulation below is
       // unnecessary.
-      const int npart = pos_tmp.size() / 3;
+      const std::size_t npart = pos_tmp.size() / 3;
       std::vector<Real> swarm_positions(pos_tmp.size());
       int spcnt = 0;
       for (int i = 0; i < npart; ++i) {
@@ -539,9 +585,11 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
                   local_count, global_count, pl_xfer, H5P_DEFAULT);
     }
 
-    // If swarm does not contain an "id" object, generate a sequential
-    // one for vis.
-    if (swinfo.var_info.count("id") == 0) {
+    // If swarm does not contain the default id object nor a custom one called "id",
+    // generate a sequential one for vis called "id" (to differentiate between the default
+    // one)
+    if (swinfo.var_info.count(swarm_position::id::name()) == 0 &&
+        swinfo.var_info.count("id") == 0) {
       std::vector<int> ids(swinfo.global_count);
       std::iota(std::begin(ids), std::end(ids), swinfo.global_offset);
       local_offset[0] = swinfo.global_offset;
@@ -589,18 +637,7 @@ std::string PHDF5Output::GenerateFilename_(ParameterInput *pin, SimTime *tm,
                 << output_params.file_number;
     filename.append(file_number.str());
   }
-  filename.append(restart_ ? ".rhdf" : ".phdf");
-
-  if (signal == SignalHandler::OutputSignal::none) {
-    // After file has been opened with the current number, already advance output
-    // parameters so that for restarts the file is not immediatly overwritten again.
-    // Only applies to default time-based data dumps, so that writing "now" and "final"
-    // outputs does not change the desired output numbering.
-    output_params.file_number++;
-    output_params.next_time += output_params.dt;
-    pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-    pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
-  }
+  filename.append(FilePostfix_());
   return filename;
 }
 
@@ -715,7 +752,7 @@ void PHDF5Output::WriteSparseInfo_(Mesh *pm, hbool_t *sparse_allocated,
                                    const std::vector<int> &dealloc_count,
                                    const std::vector<std::string> &sparse_names,
                                    hsize_t num_sparse, hid_t file, const HDF5::H5P &pl,
-                                   size_t offset, hsize_t max_blocks_global) const {
+                                   std::size_t offset, hsize_t max_blocks_global) const {
   using namespace HDF5;
   Kokkos::Profiling::pushRegion("write sparse info");
 
@@ -732,7 +769,7 @@ void PHDF5Output::WriteSparseInfo_(Mesh *pm, hbool_t *sparse_allocated,
 
   // write names of sparse fields as attribute, first convert to vector of const char*
   std::vector<const char *> names(num_sparse);
-  for (size_t i = 0; i < num_sparse; ++i)
+  for (std::size_t i = 0; i < num_sparse; ++i)
     names[i] = sparse_names[i].c_str();
 
   const H5D dset = H5D::FromHIDCheck(H5Dopen2(file, "SparseInfo", H5P_DEFAULT));
@@ -742,6 +779,11 @@ void PHDF5Output::WriteSparseInfo_(Mesh *pm, hbool_t *sparse_allocated,
 
 // Utility functions implemented
 namespace HDF5 {
+H5G MakeGroup(hid_t file, const std::string &name) {
+  return H5G::FromHIDCheck(
+      H5Gcreate(file, name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+}
+
 hid_t GenerateFileAccessProps() {
 #ifdef MPI_PARALLEL
   /* set the file access template for parallel IO access */
@@ -772,7 +814,8 @@ hid_t GenerateFileAccessProps() {
   // Sets the maximum size of the data sieve buffer, in bytes.
   // The sieve_buf_size should be equal to a multiple of the disk block size
   // Default: Disabled
-  size_t sieve_buf_size = Env::get<size_t>("H5_sieve_buf_size", 256 * KiB, exists);
+  std::size_t sieve_buf_size =
+      Env::get<std::size_t>("H5_sieve_buf_size", 256 * KiB, exists);
   if (exists) {
     PARTHENON_HDF5_CHECK(H5Pset_sieve_buf_size(acc_file, sieve_buf_size));
   }

@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -19,8 +19,10 @@
 
 #include <cmath>
 #include <iostream>
+#include <memory>
 #include <random>
 #include <string>
+#include <vector>
 
 #include <catch2/catch.hpp>
 
@@ -28,9 +30,9 @@
 #include "bvals/boundary_conditions_generic.hpp"
 #include "bvals/neighbor_block.hpp"
 #include "interface/swarm.hpp"
-#include "interface/swarm_default_names.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
+#include "pack/default_names.hpp"
 
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
@@ -57,7 +59,7 @@ void SwarmUserInnerX1(std::shared_ptr<Swarm> &swarm) {
   GenericSwarmBC<X1DIR, BCSide::Inner, BCType::Outflow>(swarm);
 }
 
-TEST_CASE("Swarm memory management", "[Swarm]") {
+TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
   std::stringstream is;
   is << "<parthenon/mesh>" << endl;
   is << "x1min = -0.5" << endl;
@@ -80,26 +82,33 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   pin->LoadFromStream(is);
   auto app_in = std::make_shared<ApplicationInput>();
   Packages_t packages;
+  auto descrip = std::make_shared<parthenon::StateDescriptor>("test");
+  descrip->UserBoundaryFunctions[0].push_back(OutflowInnerX1);
+  descrip->UserSwarmBoundaryFunctions[0].push_back(SwarmUserInnerX1);
+  packages.Add(descrip);
   auto meshblock = std::make_shared<MeshBlock>(1, 1);
   auto mesh = std::make_shared<Mesh>(pin.get(), app_in.get(), packages, 1);
-  mesh->UserSwarmBoundaryFunctions[0].push_back(SwarmUserInnerX1);
-  mesh->UserBoundaryFunctions[0].push_back(OutflowInnerX1);
+
+  // loc needs to be set to call bndry condition routines below
+  meshblock->loc = mesh->GetLocList()[0];
   mesh->mesh_bcs[0] = BoundaryFlag::user;
   meshblock->boundary_flag[0] = BoundaryFlag::user;
   for (int i = 1; i < 6; i++) {
-    mesh->mesh_bcs[i] = BoundaryFlag::outflow;
+    mesh->mesh_bcs[i] = BoundaryFlag::user;
     meshblock->boundary_flag[i] = BoundaryFlag::user;
   }
   meshblock->pmy_mesh = mesh.get();
   Metadata m;
-  auto swarm = std::make_shared<Swarm>("test swarm", m, NUMINIT);
+  m.SetInitialSwarmPoolReservation(NUMINIT);
+  auto swarm = std::make_shared<Swarm>("test swarm", m);
   swarm->SetBlockPointer(meshblock);
   auto swarm_d = swarm->GetDeviceContext();
   REQUIRE(swarm->GetNumActive() == 0);
   REQUIRE(swarm->GetMaxActiveIndex() == Swarm::inactive_max_active_index);
+  auto mask = swarm->GetMask();
+  REQUIRE(mask.size() == NUMINIT);
   ParArrayND<int> failures_d("Number of failures", 1);
-  meshblock->par_for(
-      "Reset", 0, 0, KOKKOS_LAMBDA(const int n) { failures_d(n) = 0; });
+  meshblock->par_for("Reset", 0, 0, KOKKOS_LAMBDA(const int n) { failures_d(n) = 0; });
   meshblock->par_for(
       "Check mask", 0, NUMINIT - 1, KOKKOS_LAMBDA(const int n) {
         if (swarm_d.IsActive(n) == true) {
@@ -205,10 +214,13 @@ TEST_CASE("Swarm memory management", "[Swarm]") {
   failures_h = failures_d.GetHostMirrorAndCopy();
   REQUIRE(failures_h(0) == 0);
 
+  // Check for internal index consistency after defragmentation operation
+  swarm->Validate();
+
   // Check that data was moved during defrag
   x_h = swarm->Get<Real>(swarm_position::x::name()).Get().GetHostMirrorAndCopy();
-  REQUIRE(x_h(2) == 1.2);
-  REQUIRE(x_h(4) == 1.1);
+  REQUIRE(x_h(2) == 1.1);
+  REQUIRE(x_h(4) == 1.2);
   i_h = swarm->Get<int>("i").Get().GetHostMirrorAndCopy();
   REQUIRE(i_h(1) == 2);
 

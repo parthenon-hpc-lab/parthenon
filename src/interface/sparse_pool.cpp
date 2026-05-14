@@ -11,6 +11,10 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "interface/sparse_pool.hpp"
 
 #include "interface/metadata.hpp"
@@ -37,15 +41,55 @@ SparsePool::SparsePool(const std::string &base_name, const Metadata &metadata,
   if (!vector_tensor_flags.empty()) {
     PARTHENON_REQUIRE_THROWS(vector_tensor_flags.size() == N,
                              "Got wrong number of Vector/Tensor flags");
-    for (size_t i = 0; i < N; ++i) {
+    for (std::size_t i = 0; i < N; ++i) {
       internal_vector_tensor_flags[i] = &vector_tensor_flags[i];
     }
   }
 
-  for (size_t i = 0; i < N; ++i) {
+  for (std::size_t i = 0; i < N; ++i) {
     AddImpl(sparse_ids[i], internal_shapes[i], internal_vector_tensor_flags[i],
             component_labels.empty() ? std::vector<std::string>{} : component_labels[i]);
   }
+}
+
+std::shared_ptr<Metadata>
+MakeSparseVarMetadataImpl(Metadata *in, const std::vector<int> &shape,
+                          const MetadataFlag *vector_tensor,
+                          const std::vector<std::string> &component_labels) {
+  // copy shared metadata
+  auto flx_metadata = in->IsSet(Metadata::WithFluxes) ? in->GetSPtrFluxMetadata()
+                                                      : std::make_shared<Metadata>();
+  auto this_metadata = std::make_shared<Metadata>(
+      in->Flags(), flx_metadata->Flags(), shape.size() > 0 ? shape : in->Shape(),
+      component_labels.size() > 0 ? component_labels : in->getComponentLabels(),
+      in->getAssociated(), in->GetRefinementFunctions(),
+      flx_metadata->GetRefinementFunctions());
+
+  this_metadata->SetSparseThresholds(in->GetAllocationThreshold(),
+                                     in->GetDeallocationThreshold(),
+                                     in->GetDefaultValue());
+
+  // if vector_tensor is set, apply it
+  if (vector_tensor != nullptr) {
+    if (*vector_tensor == Metadata::Vector) {
+      this_metadata->Unset(Metadata::Tensor);
+      this_metadata->Set(Metadata::Vector);
+    } else if (*vector_tensor == Metadata::Tensor) {
+      this_metadata->Unset(Metadata::Vector);
+      this_metadata->Set(Metadata::Tensor);
+    } else if (*vector_tensor == Metadata::None) {
+      this_metadata->Unset(Metadata::Vector);
+      this_metadata->Unset(Metadata::Tensor);
+    } else {
+      PARTHENON_THROW("Expected MetadataFlag Vector, Tensor, or None, but got " +
+                      vector_tensor->Name());
+    }
+  }
+
+  // just in case
+  this_metadata->IsValid(true);
+
+  return this_metadata;
 }
 
 const Metadata &SparsePool::AddImpl(int sparse_id, const std::vector<int> &shape,
@@ -54,38 +98,15 @@ const Metadata &SparsePool::AddImpl(int sparse_id, const std::vector<int> &shape
   PARTHENON_REQUIRE_THROWS(sparse_id != InvalidSparseID,
                            "Tried to add InvalidSparseID to sparse pool " + base_name_);
 
-  // copy shared metadata
-  Metadata this_metadata(
-      shared_metadata_.Flags(), shape.size() > 0 ? shape : shared_metadata_.Shape(),
-      component_labels.size() > 0 ? component_labels
-                                  : shared_metadata_.getComponentLabels(),
-      shared_metadata_.getAssociated(), shared_metadata_.GetRefinementFunctions());
-
-  this_metadata.SetSparseThresholds(shared_metadata_.GetAllocationThreshold(),
-                                    shared_metadata_.GetDeallocationThreshold(),
-                                    shared_metadata_.GetDefaultValue());
-
-  // if vector_tensor is set, apply it
-  if (vector_tensor != nullptr) {
-    if (*vector_tensor == Metadata::Vector) {
-      this_metadata.Unset(Metadata::Tensor);
-      this_metadata.Set(Metadata::Vector);
-    } else if (*vector_tensor == Metadata::Tensor) {
-      this_metadata.Unset(Metadata::Vector);
-      this_metadata.Set(Metadata::Tensor);
-    } else if (*vector_tensor == Metadata::None) {
-      this_metadata.Unset(Metadata::Vector);
-      this_metadata.Unset(Metadata::Tensor);
-    } else {
-      PARTHENON_THROW("Expected MetadataFlag Vector, Tensor, or None, but got " +
-                      vector_tensor->Name());
-    }
+  auto this_metadata = MakeSparseVarMetadataImpl(&shared_metadata_, shape, vector_tensor,
+                                                 component_labels);
+  if (this_metadata->IsSet(Metadata::WithFluxes)) {
+    this_metadata->GetSPtrFluxMetadata() =
+        MakeSparseVarMetadataImpl(shared_metadata_.GetSPtrFluxMetadata().get(), shape,
+                                  vector_tensor, component_labels);
   }
 
-  // just in case
-  this_metadata.IsValid(true);
-
-  const auto ins = pool_.insert({sparse_id, this_metadata});
+  const auto ins = pool_.insert({sparse_id, *this_metadata});
   PARTHENON_REQUIRE_THROWS(ins.second, "Tried to add sparse ID " +
                                            std::to_string(sparse_id) +
                                            " to sparse pool '" + base_name_ +

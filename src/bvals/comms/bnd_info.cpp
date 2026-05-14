@@ -16,6 +16,7 @@
 //========================================================================================
 
 #include <algorithm>
+#include <cstdio>
 #include <iostream> // debug
 #include <memory>
 #include <string>
@@ -23,6 +24,7 @@
 
 #include "basic_types.hpp"
 #include "bvals/comms/bnd_info.hpp"
+#include "bvals/comms/bvals_utils.hpp"
 #include "bvals/neighbor_block.hpp"
 #include "config.hpp"
 #include "globals.hpp"
@@ -38,9 +40,13 @@
 
 namespace parthenon {
 
+bool BvarsSubCache_t::RequiresReinitialize(Mesh *pmesh) const {
+  return buf_vec.size() == 0 || epoch != pmesh->boundary_comm_map.GetCurrentEpoch();
+}
+
 void ProResCache_t::Initialize(int n_regions, StateDescriptor *pkg) {
-  prores_info = ParArray1D<ProResInfo>("prores_info", n_regions);
-  prores_info_h = Kokkos::create_mirror_view(prores_info);
+  prores_info = ProResInfoArr_t(ViewOfViewAlloc("prores_info"), n_regions);
+  prores_info_h = create_view_of_view_mirror(prores_info);
   int nref_funcs = pkg->NumRefinementFuncs();
   // Note that assignment of Kokkos views resets them, but
   // buffer_subset_sizes is a std::vector. It must be cleared, then
@@ -54,7 +60,7 @@ void ProResCache_t::Initialize(int n_regions, StateDescriptor *pkg) {
 void ProResCache_t::RegisterRegionHost(int region, ProResInfo pri, Variable<Real> *v,
                                        StateDescriptor *pkg) {
   prores_info_h(region) = pri;
-  if (v->IsRefined()) {
+  if (v->HasRefinementOps()) {
     // var must be registered for refinement
     // note this condition means that each subset contains
     // both prolongation and restriction conditions. The
@@ -101,28 +107,54 @@ GetFluxCorrectionElements(const std::shared_ptr<Variable<Real>> &v,
   return elements;
 }
 
-SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
-                                     const std::shared_ptr<Variable<Real>> &v,
-                                     TopologicalElement el, IndexRangeType ir_type,
-                                     bool prores) {
+bool NeighborIsCoarser(MeshBlock *pmb, const NeighborBlock &nb) {
+  return nb.loc.level() < pmb->loc.level() ||
+         nb.block_coarsenings > pmb->block_coarsenings;
+}
+
+bool NeighborIsFiner(MeshBlock *pmb, const NeighborBlock &nb) {
+  return nb.loc.level() > pmb->loc.level() ||
+         nb.block_coarsenings < pmb->block_coarsenings;
+}
+
+bool NeighborIsSame(MeshBlock *pmb, const NeighborBlock &nb) {
+  return nb.loc.level() == pmb->loc.level() &&
+         nb.block_coarsenings == pmb->block_coarsenings;
+}
+
+SpatiallyMaskedIndexer6D
+CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
+            const std::shared_ptr<Variable<Real>> &v, TopologicalElement el,
+            IndexRangeType ir_type, bool prores,
+            const forest::LogicalCoordinateTransformation &lcoord_trans =
+                forest::LogicalCoordinateTransformation()) {
   std::array<int, 3> tensor_shape{v->GetDim(6), v->GetDim(5), v->GetDim(4)};
   const bool flux = v->IsSet(Metadata::Flux);
 
   const auto &loc = pmb->loc;
-  auto shape = pmb->cellbounds;
+  bool is_fine_field = v->IsSet(Metadata::Fine);
+  auto shape = is_fine_field ? pmb->f_cellbounds : pmb->cellbounds;
+
+  const bool nb_is_coarser = NeighborIsCoarser(pmb, nb);
+  const bool nb_is_finer = NeighborIsFiner(pmb, nb);
+  const bool nb_is_same = NeighborIsSame(pmb, nb);
+  PARTHENON_REQUIRE(nb_is_coarser + nb_is_finer + nb_is_same == 1,
+                    "Only one should be set.");
   // Both prolongation and restriction always operate in the coarse
   // index space. Also need to use the coarse index space if the
   // neighbor is coarser than you, wether or not you are setting
   // interior or exterior cells
-  if (prores || nb.loc.level() < loc.level()) shape = pmb->c_cellbounds;
+  if (prores || nb_is_coarser)
+    shape = is_fine_field ? pmb->cellbounds : pmb->c_cellbounds;
 
   // Re-create the index space for the neighbor block (either the main block or
   // the coarse buffer as required)
-  int coarse_fac = 1;
-  if (nb.loc.level() > loc.level()) coarse_fac = 2;
-  auto neighbor_shape = IndexShape(nb.block_size.nx(X3DIR) / coarse_fac,
-                                   nb.block_size.nx(X2DIR) / coarse_fac,
-                                   nb.block_size.nx(X1DIR) / coarse_fac, Globals::nghost);
+  int fine_field_fac = is_fine_field ? 2 : 1;
+  int coarse_fac = nb_is_finer ? 2 : 1;
+  auto neighbor_shape =
+      IndexShape(nb.block_size.nx(X3DIR) * fine_field_fac / coarse_fac,
+                 nb.block_size.nx(X2DIR) * fine_field_fac / coarse_fac,
+                 nb.block_size.nx(X1DIR) * fine_field_fac / coarse_fac, Globals::nghost);
 
   IndexDomain interior = IndexDomain::interior;
   std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
@@ -143,10 +175,13 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
                                 TopologicalOffsetK(el)};
   std::array<int, 3> block_offset = nb.offsets;
 
+  int communicated_ghosts = Globals::nghost;
+  if (!prores && nb_is_same && v->IsSet(Metadata::CommunicateOne))
+    communicated_ghosts = 1;
   int interior_offset =
-      ir_type == IndexRangeType::BoundaryInteriorSend ? Globals::nghost : 0;
+      ir_type == IndexRangeType::BoundaryInteriorSend ? communicated_ghosts : 0;
   int exterior_offset =
-      ir_type == IndexRangeType::BoundaryExteriorRecv ? Globals::nghost : 0;
+      ir_type == IndexRangeType::BoundaryExteriorRecv ? communicated_ghosts : 0;
   if (prores) {
     // The coarse ghosts cover twice as much volume as the fine ghosts, so when working in
     // the exterior (i.e. ghosts) we must only go over the coarse ghosts that have
@@ -159,8 +194,8 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
     if (block_offset[dir] == 0) {
       s[dir] = bounds[dir].s;
       e[dir] = bounds[dir].e;
-      if ((loc.level() < nb.loc.level()) &&
-          not_symmetry[dir]) { // Check that this dimension has ghost zones
+      // Check that this dimension has ghost zones
+      if (nb_is_finer && not_symmetry[dir]) {
         // The requested neighbor block is at a finer level, so it only abuts
         // approximately half of the zones in any given direction with offset zero. If we
         // are asking for an interior index range, we also send nghost "extra" zones in
@@ -170,21 +205,21 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
         // keep in mind if there are issues.
         const int extra_zones = (bounds[dir].e - bounds[dir].s + 1) -
                                 (neighbor_bounds[dir].e - neighbor_bounds[dir].s + 1);
-        s[dir] += nb.loc.l(dir) % 2 == 1 ? extra_zones - interior_offset : 0;
-        e[dir] -= nb.loc.l(dir) % 2 == 0 ? extra_zones - interior_offset : 0;
-        if (ir_type == IndexRangeType::InteriorSend) {
+        s[dir] += nb.origin_loc.l(dir) % 2 == 1 ? extra_zones - interior_offset : 0;
+        e[dir] -= nb.origin_loc.l(dir) % 2 == 0 ? extra_zones - interior_offset : 0;
+        if (ir_type == IndexRangeType::InteriorSend && !prores) {
           // Include ghosts of finer block coarse array in message
           s[dir] -= Globals::nghost;
           e[dir] += Globals::nghost;
         }
       }
-      if (loc.level() > nb.loc.level() && not_symmetry[dir]) {
+      if (nb_is_coarser && not_symmetry[dir]) {
         // If we are setting (i.e. have non-zero exterior_offset) from a neighbor block
         // that is coarser, we got extra ghost zones from the neighbor (see inclusion of
         // interior_offset in the above if block)
         s[dir] -= loc.l(dir) % 2 == 1 ? exterior_offset : 0;
         e[dir] += loc.l(dir) % 2 == 0 ? exterior_offset : 0;
-        if (ir_type == IndexRangeType::InteriorRecv) {
+        if (ir_type == IndexRangeType::InteriorRecv && !prores) {
           // Include ghosts of finer block coarse array in message
           s[dir] -= Globals::nghost;
           e[dir] += Globals::nghost;
@@ -206,6 +241,21 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
     }
   }
 
+  // Transform to logical coordinates of neighbor block if this
+  // is a receiving block
+  if (ir_type == IndexRangeType::BoundaryExteriorRecv) {
+    s = lcoord_trans.Transform(s);
+    e = lcoord_trans.Transform(e);
+    // Transformation can flip the order of the upper and
+    // lower index, so make sure they are increasing
+    for (int dir = 0; dir < 3; ++dir) {
+      if (s[dir] > e[dir]) {
+        int temp = s[dir];
+        s[dir] = e[dir];
+        e[dir] = temp;
+      }
+    }
+  }
   block_ownership_t owns(true);
   // Although it wouldn't hurt to include ownership when producing an interior
   // index range, it is unecessary. This is probably not immediately obvious,
@@ -215,7 +265,7 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
     int sox1 = -block_offset[0];
     int sox2 = -block_offset[1];
     int sox3 = -block_offset[2];
-    if (nb.loc.level() < loc.level()) {
+    if (nb_is_coarser) {
       // For coarse to fine interfaces, we are passing zones from only an
       // interior corner of the cell, never an entire face or edge
       if (sox1 == 0) sox1 = loc.l(0) % 2 == 1 ? 1 : -1;
@@ -223,18 +273,22 @@ SpatiallyMaskedIndexer6D CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
       if (sox3 == 0) sox3 = loc.l(2) % 2 == 1 ? 1 : -1;
     }
     owns = GetIndexRangeMaskFromOwnership(el, nb.ownership, sox1, sox2, sox3);
+  } else if (ir_type == IndexRangeType::InteriorRecv) {
+    // Also need to set ownership when a parent block receives from a daughter
+    // block during multigrid operations
+    owns = GetIndexRangeMaskFromOwnership(el, nb.ownership, 0, 0, 0);
   }
   return SpatiallyMaskedIndexer6D(owns, {0, tensor_shape[0] - 1},
                                   {0, tensor_shape[1] - 1}, {0, tensor_shape[2] - 1},
                                   {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
-int GetBufferSize(MeshBlock *pmb, const NeighborBlock &nb,
+int GetBufferSize(const MeshBlock *const pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v) {
   // This does not do a careful job of calculating the buffer size, in many
   // cases there will be some extra storage that is not required, but there
   // will always be enough storage
-  auto &cb = pmb->cellbounds;
+  auto &cb = v->IsSet(Metadata::Fine) ? pmb->f_cellbounds : pmb->cellbounds;
   int topo_comp = (v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge)) ? 3 : 1;
   const IndexDomain in = IndexDomain::entire;
   // The plus 2 instead of 1 is to account for the possible size of face, edge, and nodal
@@ -255,23 +309,33 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   allocated = v->IsAllocated();
   alloc_status = v->GetAllocationStatus();
 
-  buf = combuf->buffer();
-  if (!allocated) return;
+  // Sometimes we may build a BndInfo object just to get the
+  // size of the index space associated with the boundary. In
+  // that case an associated communication buffer may not exist
+  // and a nullptr will be passed instead.
+  if (combuf != nullptr) buf = combuf->buffer();
+  same_to_same = pmb->gid == nb.gid && nb.offsets.IsCell();
+  lcoord_trans = nb.lcoord_trans;
 
-  if (nb.loc.level() < pmb->loc.level()) {
+  if (NeighborIsCoarser(pmb, nb)) {
     var = v->coarse_s.Get();
   } else {
     var = v->data.Get();
   }
 
+  coords = pmb->coords;
+
   auto elements = v->GetTopologicalElements();
   if (v->IsSet(Metadata::Flux)) elements = GetFluxCorrectionElements(v, nb.offsets);
   ntopological_elements = elements.size();
 
+  lcoord_trans.ncell = var.GetDim(1);
   int idx{0};
   for (auto el : elements) {
-    topo_idx[idx] = static_cast<int>(el) % 3;
-    idxer[idx] = CalcIndices(nb, pmb, v, el, idx_range_type, false);
+    topo_idx[idx] = el;
+    if (idx_range_type == IndexRangeType::BoundaryExteriorRecv)
+      el = std::get<0>(lcoord_trans.InverseTransform(el));
+    idxer[idx] = CalcIndices(nb, pmb, v, el, idx_range_type, false, lcoord_trans);
     idx++;
   }
 }
@@ -297,12 +361,14 @@ BndInfo BndInfo::GetSetBndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   if (nb.offsets.IsCell()) idx_range_type = IndexRangeType::InteriorRecv;
   BndInfo out(pmb, nb, v, buf, idx_range_type);
 
-  auto buf_state = buf->GetState();
+  auto buf_state = buf != nullptr ? buf->GetState() : BufferState::received;
   if (buf_state == BufferState::received) {
     out.buf_allocated = true;
   } else if (buf_state == BufferState::received_null) {
     out.buf_allocated = false;
   } else {
+    printf("%i [rank: %i] -> %i [rank: %i] (Set %s) is in state %i.\n", nb.gid, nb.rank,
+           pmb->gid, Globals::my_rank, v->label().c_str(), static_cast<int>(buf_state));
     PARTHENON_FAIL("Buffer should be in a received state.");
   }
   return out;
@@ -321,33 +387,35 @@ ProResInfo::ProResInfo(MeshBlock *pmb, const NeighborBlock &nb,
   coarse = v->coarse_s.Get();
 }
 
-ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock & /*nb*/,
+ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &nb,
                                            std::shared_ptr<Variable<Real>> v) {
-  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
-  for (auto el : v->GetTopologicalElements()) {
-    out.IncludeTopoEl(el) = true;
-    out.idxer[static_cast<int>(el)] =
-        CalcIndices(nb, pmb, v, el, IndexRangeType::InteriorSend, true);
+  if (NeighborIsCoarser(pmb, nb)) {
+    for (auto el : v->GetTopologicalElements()) {
+      out.IncludeTopoEl(el) = true;
+      out.idxer[static_cast<int>(el)] =
+          CalcIndices(nb, pmb, v, el, IndexRangeType::InteriorSend, true);
+    }
+    out.refinement_op = RefinementOp_t::Restriction;
   }
-  out.refinement_op = RefinementOp_t::Restriction;
   return out;
 }
 
-ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock & /*nb*/,
+ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock &nb,
                                              std::shared_ptr<Variable<Real>> v) {
-  NeighborBlock nb(pmb->pmy_mesh, pmb->loc, Globals::my_rank, 0, {0, 0, 0}, 0, 0, 0, 0);
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
-  for (auto el : v->GetTopologicalElements())
-    out.IncludeTopoEl(el) = true;
-  for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
-    out.idxer[static_cast<int>(el)] =
-        CalcIndices(nb, pmb, v, el, IndexRangeType::InteriorRecv, true);
-  out.refinement_op = RefinementOp_t::Prolongation;
+  if (NeighborIsCoarser(pmb, nb)) {
+    for (auto el : v->GetTopologicalElements())
+      out.IncludeTopoEl(el) = true;
+    for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
+      out.idxer[static_cast<int>(el)] =
+          CalcIndices(nb, pmb, v, el, IndexRangeType::InteriorRecv, true);
+    out.refinement_op = RefinementOp_t::Prolongation;
+  }
   return out;
 }
 
@@ -356,7 +424,7 @@ ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
   ProResInfo out(pmb, nb, v);
   if (!out.allocated) return out;
 
-  if (nb.loc.level() < pmb->loc.level()) {
+  if (NeighborIsCoarser(pmb, nb)) {
     auto elements = v->GetTopologicalElements();
     if (v->IsSet(Metadata::Flux)) elements = GetFluxCorrectionElements(v, nb.offsets);
     for (auto el : elements) {
@@ -376,17 +444,11 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
   // This will select a superset of the boundaries that actually need to be restricted,
   // more logic could be added to only restrict boundary regions that abut boundary
   // regions that were filled by coarser neighbors
-  bool restricted = false;
-  int mylevel = pmb->loc.level();
-  if (mylevel > 0) {
-    for (const auto &nb : pmb->neighbors) {
-      restricted = restricted || (nb.loc.level() == (mylevel - 1));
-    }
-  }
+  bool restricted = pmb->HasCoarserNeighbors();
 
   for (auto el : v->GetTopologicalElements()) {
     out.IncludeTopoEl(el) = true;
-    if (nb.loc.level() < mylevel) {
+    if (NeighborIsCoarser(pmb, nb)) {
       out.refinement_op = RefinementOp_t::Prolongation;
     } else {
       if (restricted) {
@@ -406,7 +468,7 @@ ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
   //      I doubt that the extra calculations matter, but the storage overhead could
   //      matter since each 6D indexer contains 18 ints and we are always carrying around
   //      10 indexers per bound info even if the field isn't allocated
-  if (nb.loc.level() < mylevel) {
+  if (NeighborIsCoarser(pmb, nb)) {
     for (auto el : {TE::CC, TE::F1, TE::F2, TE::F3, TE::E1, TE::E2, TE::E3, TE::NN})
       out.idxer[static_cast<int>(el)] =
           CalcIndices(nb, pmb, v, el, IndexRangeType::BoundaryExteriorRecv, true);

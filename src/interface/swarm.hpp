@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,8 +10,11 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
 #ifndef INTERFACE_SWARM_HPP_
 #define INTERFACE_SWARM_HPP_
+
+// This file was made in part with generative AI.
 
 ///
 /// A swarm contains all particles of a particular species
@@ -34,6 +37,7 @@
 #include "bvals/bvals.hpp"
 #include "globals.hpp" // my_rank
 #include "metadata.hpp"
+#include "pack/swarm_pack/swarm_pack_types.hpp"
 #include "parthenon_arrays.hpp"
 #include "parthenon_mpi.hpp"
 #include "swarm_device_context.hpp"
@@ -79,17 +83,23 @@ class Swarm {
  private:
   static const int IntVec = 0;
   static const int RealVec = 1;
+  static const int UInt64Vec = 2;
 
   template <class T>
   static constexpr int getType() {
     if (std::is_same<T, int>::value) {
       return IntVec;
+    } else if (std::is_same<T, std::uint64_t>::value) {
+      return UInt64Vec;
     }
     return RealVec;
   }
 
  public:
-  Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in = 3);
+  Swarm(const std::string &label, const Metadata &metadata,
+        const std::size_t nmax_pool_in);
+  Swarm(const std::string &label, const Metadata &metadata)
+      : Swarm(label, metadata, metadata.InitialSwarmPoolReservation()) {}
 
   ~Swarm() = default;
 
@@ -161,10 +171,10 @@ class Swarm {
   std::string info() const { return info_; }
 
   /// Expand pool size geometrically as necessary
-  void increasePoolMax() { setPoolMax(2 * nmax_pool_); }
+  void IncreasePoolMax() { SetPoolMax(2 * nmax_pool_); }
 
   /// Set max pool size
-  void setPoolMax(const std::int64_t nmax_pool);
+  void SetPoolMax(const std::int64_t nmax_pool);
 
   /// Check whether metadata bit is set
   bool IsSet(const MetadataFlag bit) const { return m_.IsSet(bit); }
@@ -181,6 +191,9 @@ class Swarm {
   /// Get the quality of the data layout. 1 is perfectly organized, < 1
   /// indicates gaps in the list.
   Real GetPackingEfficiency() const { return num_active_ / (max_active_index_ + 1); }
+
+  // Update sorted array of empty indices in the current memory pool
+  void UpdateEmptyIndices();
 
   /// Remove particles marked for removal and update internal indexing
   void RemoveMarkedParticles();
@@ -203,12 +216,15 @@ class Swarm {
 
   // This is the particle data size for indexing boundary data buffers, for which
   // integers are cast as Reals.
-  int GetParticleDataSize() {
-    int size = 0;
+  std::size_t GetParticleDataSize() {
+    std::size_t size = 0;
     for (auto &v : std::get<0>(vectors_)) {
       size += v->NumComponents();
     }
     for (auto &v : std::get<1>(vectors_)) {
+      size += v->NumComponents();
+    }
+    for (auto &v : std::get<2>(vectors_)) {
       size += v->NumComponents();
     }
 
@@ -227,33 +243,56 @@ class Swarm {
   SwarmVariablePack<T> PackVariables(const std::vector<std::string> &name,
                                      PackIndexMap &vmap);
 
-  // Temporarily public
-  int num_particles_sent_;
-  bool finished_transport;
-
-  void LoadBuffers_(const int max_indices_size);
+  void LoadBuffers_();
   void UnloadBuffers_();
 
-  int CountParticlesToSend_(); // Must be public for launching kernel
+  void CountParticlesToSend_(); // Must be public for launching kernel
+
+  template <typename T>
+  std::vector<std::string> GetVariableNames() const {
+    std::vector<std::string> names;
+    const auto &vars = GetVariableVector<T>();
+    names.reserve(vars.size());
+    for (const auto &var : vars) {
+      names.push_back(var->label());
+    }
+    return names;
+  }
+
+  template <typename T>
+  int GetComponentCount() const {
+    int count = 0;
+    for (const auto &var : GetVariableVector<T>()) {
+      count += var->NumComponents();
+    }
+    return count;
+  }
+
+  int GetRecordSize() const { return GetRecordSizeImpl<Real, int, std::uint64_t>(); }
 
   template <typename T>
   const auto &GetVariableVector() const {
     return std::get<getType<T>()>(vectors_);
   }
 
+  // Check for internal consistency among member variables and arrays, mainly for
+  // debugging
+  void Validate(bool test_comms = false) const;
+
   static constexpr int inactive_max_active_index = -1;
 
  private:
+  template <typename... Ts>
+  int GetRecordSizeImpl() const {
+    return (0 + ... + (GetComponentCount<Ts>() * sizeof(Ts)));
+  }
+
   template <class T>
   vpack_types::SwarmVarList<T> MakeVarListAll_();
   template <class T>
   vpack_types::SwarmVarList<T> MakeVarList_(const std::vector<std::string> &names);
 
   void SetNeighborIndices_();
-
-  void CountReceivedParticles_();
-  void UpdateNeighborBufferReceiveIndices_(ParArray1D<int> &neighbor_index,
-                                           ParArray1D<int> &buffer_index);
 
   template <class T>
   SwarmVariablePack<T> PackAllVariables_(PackIndexMap &vmap);
@@ -267,40 +306,42 @@ class Swarm {
   int num_active_ = 0;
   std::string label_;
   Metadata m_;
-  int nmax_pool_;
+  std::size_t nmax_pool_;
   std::string info_;
-  std::tuple<ParticleVariableVector<int>, ParticleVariableVector<Real>> vectors_;
+  std::tuple<ParticleVariableVector<int>, ParticleVariableVector<Real>,
+             ParticleVariableVector<std::uint64_t>>
+      vectors_;
 
-  std::tuple<MapToParticle<int>, MapToParticle<Real>> maps_;
+  std::tuple<MapToParticle<int>, MapToParticle<Real>, MapToParticle<uint64_t>> maps_;
 
-  std::list<int> free_indices_;
   ParArray1D<bool> mask_;
   ParArray1D<bool> marked_for_removal_;
+  ParArray1D<int> empty_indices_; // Indices of empty slots in particle pool
   ParArrayND<int> block_index_; // Neighbor index for each particle. -1 for current block.
   ParArrayND<int> neighbor_indices_; // Indexing of vbvar's neighbor array. -1 for same.
                                      // k,j indices unused in 3D&2D, 2D, respectively
-  ParArray1D<int> new_indices_;     // Persistent array that provides the new indices when
-                                    // AddEmptyParticles is called. Always defragmented.
-  int new_indices_max_idx_;         // Maximum valid index of new_indices_ array.
-  ParArray1D<int> from_to_indices_; // Array used for sorting particles during defragment
-                                    // step (size nmax_pool + 1).
-  ParArray1D<int> recv_neighbor_index_; // Neighbor indices for received particles
-  ParArray1D<int> recv_buffer_index_;   // Buffer indices for received particles
+  ParArray1D<int> new_indices_; // Persistent array that provides the new indices when
+                                // AddEmptyParticles is called. Always defragmented.
+  int new_indices_max_idx_;     // Maximum valid index of new_indices_ array.
+  ParArray1D<int> scratch_a_;   // Scratch memory for index sorting
+  ParArray1D<int> scratch_b_;   // Scratch memory for index sorting
 
   constexpr static int no_block_ = -2;
   constexpr static int this_block_ = -1;
   constexpr static int unset_index_ = -1;
 
   ParArray1D<int> num_particles_to_send_;
-  ParArrayND<int> particle_indices_to_send_;
-
-  std::vector<int> neighbor_received_particles_;
+  ParArray1D<int> buffer_start_;
+  ParArray1D<int> neighbor_received_particles_;
   int total_received_particles_;
 
   ParArrayND<int> neighbor_buffer_index_; // Map from neighbor index to neighbor bufid
 
   ParArray1D<SwarmKey>
       cell_sorted_; // 1D per-cell sorted array of key-value swarm memory indices
+
+  ParArray1D<SwarmKey>
+      buffer_sorted_; // 1D per-buffer sorted array of key-value swarm memory indices
 
   ParArrayND<int>
       cell_sorted_begin_; // Per-cell array of starting indices in cell_sorted_
@@ -360,8 +401,18 @@ inline SwarmVariablePack<T> Swarm::PackAllVariables_(PackIndexMap &vmap) {
   return ret;
 }
 
+template <typename T, typename TypeListT>
+struct type_list_contains;
+
+template <typename T, typename... Ts>
+struct type_list_contains<T, TypeList<Ts...>>
+    : std::bool_constant<(std::is_same_v<T, Ts> || ...)> {};
+
 template <class T>
 inline void Swarm::Add_(const std::string &label, const Metadata &m) {
+  PARTHENON_REQUIRE((type_list_contains<T, SwarmPackTypes>::value),
+                    "Requested Swarm type is not contained in SwarmPackTypes");
+
   ParticleVariable<T> pvar(label, nmax_pool_, m);
   auto var = std::make_shared<ParticleVariable<T>>(pvar);
 

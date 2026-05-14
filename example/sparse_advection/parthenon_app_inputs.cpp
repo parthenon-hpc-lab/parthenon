@@ -10,9 +10,13 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <algorithm>
+#include <cstdio>
 #include <limits>
+#include <memory>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include <parthenon/package.hpp>
 
@@ -141,7 +145,7 @@ void PostStepDiagnosticsInLoop(Mesh *mesh, ParameterInput *pin, const SimTime &t
   }
 
 #ifdef MPI_PARALLEL
-  static_assert(sizeof(std::uint64_t) == sizeof(unsigned long long int),
+  static_assert(sizeof(std::uint64_t) == sizeof(unsigned long long int), // NOLINT
                 "MPI_UNSIGNED_LONG_LONG same as uint64_t");
   if (Globals::my_rank == 0) {
     PARTHENON_MPI_CHECK(MPI_Reduce(MPI_IN_PLACE, num_allocated.data(), n, MPI_INT,
@@ -176,7 +180,7 @@ void PostStepDiagnosticsInLoop(Mesh *mesh, ParameterInput *pin, const SimTime &t
     }
     std::printf("\n");
     Real mem_avg = static_cast<Real>(mem_tot) / static_cast<Real>(blocks_tot);
-    std::printf("\tMem used/block in bytes [min, max, avg] = [%lu, %lu, %.14e]\n",
+    std::printf("\tMem used/block in bytes [min, max, avg] = [%llu, %llu, %.14e]\n",
                 mem_min, mem_max, mem_avg);
   }
 }

@@ -14,6 +14,7 @@
 #ifndef PARTHENON_MANAGER_HPP_
 #define PARTHENON_MANAGER_HPP_
 
+#include <iostream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -25,9 +26,11 @@
 #include "interface/state_descriptor.hpp"
 #include "interface/swarm.hpp"
 #include "mesh/domain.hpp"
+#include "mesh/forest/forest_topology.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/restart.hpp"
 #include "parameter_input.hpp"
+#include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
@@ -38,10 +41,10 @@ class ParthenonManager {
  public:
   ParthenonManager() { app_input.reset(new ApplicationInput()); }
   ParthenonStatus ParthenonInitEnv(int argc, char *argv[]);
-  void ParthenonInitPackagesAndMesh();
+  void
+  ParthenonInitPackagesAndMesh(std::optional<forest::ForestDefinition> forest_def = {});
   ParthenonStatus ParthenonFinalize();
 
-  bool IsRestart() { return (arg.restart_filename == nullptr ? false : true); }
   static Packages_t ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin);
   void RestartPackages(Mesh &rm, RestartReader &resfile);
 
@@ -66,20 +69,29 @@ class ParthenonManager {
     std::vector<T> dataVec;
     for (const auto &var : pswarm->GetVariableVector<T>()) {
       const std::string &varname = var->label();
-      std::cout << "SwarmVar: " << varname << std::endl;
       const auto &m = var->metadata();
       auto arrdims = m.GetArrayDims(pswarm->GetBlockPointer(), false);
+
+      auto var_missing_on_disk =
+          !restartReader->VariableExists(swarmname + "/SwarmVars/" + varname);
+      if (Globals::my_rank == 0) {
+        std::cout << "SwarmVar: " << varname
+                  << (var_missing_on_disk ? " missing on disk\n" : "\n");
+      }
+      if (var_missing_on_disk) {
+        // TODO(JMM/PG) Add failed load list of "fail/needs fix" list
+        continue;
+      }
 
       try {
         restartReader->ReadSwarmVar(swarmname, varname, count_on_rank, offset, m,
                                     dataVec);
       } catch (std::exception &ex) {
-        std::cout << StringPrintf("[%d] WARNING: Failed to read Swarm %s Variable %s "
-                                  "from restart file:\n%s",
-                                  Globals::my_rank, swarmname.c_str(), varname.c_str(),
-                                  ex.what())
-                  << std::endl;
-        continue;
+        // Variable does exist but could not be read. So we definitely want to fail here.
+        PARTHENON_THROW(StringPrintf("[%d] WARNING: Failed to read Swarm %s Variable %s "
+                                     "from restart file:\n%s",
+                                     Globals::my_rank, swarmname.c_str(), varname.c_str(),
+                                     ex.what()));
       }
 
       // Only safe because swarm starts completely defragged.

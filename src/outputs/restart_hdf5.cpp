@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -21,6 +21,7 @@
 #include <numeric>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "basic_types.hpp"
 #include "globals.hpp"
@@ -49,11 +50,13 @@ RestartReaderHDF5::RestartReaderHDF5(const char *filename) : filename_(filename)
       << "is required for restarts" << std::endl;
   PARTHENON_FAIL(msg);
 #else  // HDF5 enabled
+  // modify HDF5 error handling to throw an error
+  H5Eset_auto(H5E_DEFAULT, HDF5::aborting_error_handler, NULL);
   // Open the HDF file in read only mode
   fh_ = H5F::FromHIDCheck(H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT));
   params_group_ = H5G::FromHIDCheck(H5Oopen(fh_, "Params", H5P_DEFAULT));
 
-  hasGhost = GetAttr<int>("Info", "IncludesGhost");
+  has_ghost = GetAttr<int>("Info", "IncludesGhost");
 #endif // ENABLE_HDF5
 }
 
@@ -116,13 +119,14 @@ RestartReaderHDF5::SparseInfo RestartReaderHDF5::GetSparseInfo() const {
 }
 
 RestartReaderHDF5::MeshInfo RestartReaderHDF5::GetMeshInfo() const {
+#ifndef ENABLE_HDF5
+  PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
+#else
   RestartReaderHDF5::MeshInfo mesh_info;
   mesh_info.nbnew = GetAttr<int>("Info", "NBNew");
   mesh_info.nbdel = GetAttr<int>("Info", "NBDel");
   mesh_info.nbtotal = GetAttr<int>("Info", "NumMeshBlocks");
   mesh_info.root_level = GetAttr<int>("Info", "RootLevel");
-
-  mesh_info.bound_cond = GetAttrVec<std::string>("Info", "BoundaryConditions");
 
   mesh_info.block_size = GetAttrVec<int>("Info", "MeshBlockSize");
   mesh_info.includes_ghost = GetAttr<int>("Info", "IncludesGhost");
@@ -149,6 +153,7 @@ RestartReaderHDF5::MeshInfo RestartReaderHDF5::GetMeshInfo() const {
     mesh_info.derefinement_count = std::vector<int>(mesh_info.nbtotal, 0);
   }
   return mesh_info;
+#endif
 }
 
 SimTime RestartReaderHDF5::GetTimeInfo() const {
@@ -210,7 +215,7 @@ void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
 #else  // HDF5 enabled
   auto hdl = OpenDataset<Real>(name);
 
-  const int VNDIM = info.VNDIM;
+  constexpr int VNDIM = OutputUtils::VarInfo::VNDIM;
 
   /** Select hyperslab in dataset **/
   int total_dim = 0;
@@ -220,7 +225,7 @@ void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
 
   offset[0] = static_cast<hsize_t>(range.s);
   count[0] = static_cast<hsize_t>(range.e - range.s + 1);
-  const IndexDomain domain = hasGhost ? IndexDomain::entire : IndexDomain::interior;
+  const IndexDomain domain = has_ghost != 0 ? IndexDomain::entire : IndexDomain::interior;
 
   // Currently supports versions 3 and 4.
   if (file_output_format_version >= HDF5::OUTPUT_VERSION_FORMAT - 1) {
@@ -241,8 +246,6 @@ void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
                            "Buffer (size " + std::to_string(dataVec.size()) +
                                ") is too small for dataset " + name + " (size " +
                                std::to_string(total_count) + ")");
-  PARTHENON_HDF5_CHECK(
-      H5Sselect_hyperslab(hdl.dataspace, H5S_SELECT_SET, offset, NULL, count, NULL));
 
   const H5S memspace = H5S::FromHIDCheck(H5Screate_simple(total_dim, count, NULL));
   PARTHENON_HDF5_CHECK(

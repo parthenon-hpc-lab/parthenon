@@ -18,9 +18,11 @@
 #ifndef UTILS_COMMUNICATION_BUFFER_HPP_
 #define UTILS_COMMUNICATION_BUFFER_HPP_
 
+#include <cstdio>
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <string>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -52,6 +54,8 @@ class CommBuffer {
   std::shared_ptr<int> nrecv_tries_;
   std::shared_ptr<mpi_request_t> my_request_;
 
+  using get_resource_func_t = std::function<T(int)>;
+
   int my_rank;
   int tag_;
   int send_rank_;
@@ -62,7 +66,7 @@ class CommBuffer {
   buf_base_t null_buf_ = std::numeric_limits<buf_base_t>::signaling_NaN();
   bool active_ = false;
 
-  std::function<T()> get_resource_;
+  get_resource_func_t get_resource_;
 
   T buf_;
 
@@ -76,8 +80,23 @@ class CommBuffer {
   {
   }
 
+  void Print() const {
+    std::string label = "sender";
+    if (*comm_type_ == BuffCommType::receiver) label = "receiver";
+    if (*comm_type_ == BuffCommType::both) label = "both";
+    if (*comm_type_ == BuffCommType::sparse_receiver) label = "sparse_receiver";
+
+    std::string status = "stale";
+    if (*state_ == BufferState::sending) status = "sending";
+    if (*state_ == BufferState::sending_null) status = "sending_null";
+    if (*state_ == BufferState::received) status = "received";
+    if (*state_ == BufferState::received_null) status = "received_null";
+    printf("[%s buffer] state: %s rank: %i -> %i tag: %i comm: %i\n", label.c_str(),
+           status.c_str(), send_rank_, recv_rank_, tag_, comm_);
+  }
+
   CommBuffer(int tag, int send_rank, int recv_rank, mpi_comm_t comm_,
-             std::function<T()> get_resource, bool do_sparse_allocation = false);
+             get_resource_func_t get_resource, bool do_sparse_allocation = false);
 
   ~CommBuffer();
 
@@ -93,9 +112,9 @@ class CommBuffer {
   T &buffer() { return buf_; }
   const T &buffer() const { return buf_; }
 
-  void Allocate() {
-    if (!active_) {
-      buf_ = get_resource_();
+  void Allocate(int size = -1) {
+    if (!active_ || (size > 0 && buf_.size() != size)) {
+      buf_ = get_resource_(size);
       active_ = true;
     }
   }
@@ -109,13 +128,26 @@ class CommBuffer {
 
   BufferState GetState() { return *state_; }
 
-  void Send() noexcept;
-  void SendNull() noexcept;
+  void Send(bool local = false, int size = -1) noexcept;
+  void SendNull(bool local = false) noexcept;
 
   bool IsAvailableForWrite();
 
   void TryStartReceive() noexcept;
-  bool TryReceive() noexcept;
+  bool TryReceive(bool local = false) noexcept;
+  void SetReceived() noexcept {
+    PARTHENON_REQUIRE(*comm_type_ == BuffCommType::receiver ||
+                          *comm_type_ == BuffCommType::sparse_receiver,
+                      "This doesn't make sense for a non-receiver.");
+    *state_ = BufferState::received;
+  }
+
+  void SetReceivedNull() noexcept {
+    PARTHENON_REQUIRE(*comm_type_ == BuffCommType::sparse_receiver,
+                      "This doesn't make sense for a non-sparse_receiver.");
+    *state_ = BufferState::received_null;
+  }
+
   bool IsSafeToDelete() {
     if (*comm_type_ == BuffCommType::sparse_receiver ||
         *comm_type_ == BuffCommType::receiver) {
@@ -131,7 +163,7 @@ class CommBuffer {
 
 template <class T>
 CommBuffer<T>::CommBuffer(int tag, int send_rank, int recv_rank, mpi_comm_t comm,
-                          std::function<T()> get_resource, bool do_sparse_allocation)
+                          get_resource_func_t get_resource, bool do_sparse_allocation)
     : state_(std::make_shared<BufferState>(BufferState::stale)),
       comm_type_(std::make_shared<BuffCommType>(BuffCommType::both)),
       started_irecv_(std::make_shared<bool>(false)),
@@ -162,7 +194,8 @@ CommBuffer<T>::CommBuffer(const CommBuffer<U> &in)
     : buf_(in.buf_), state_(in.state_), comm_type_(in.comm_type_),
       started_irecv_(in.started_irecv_), nrecv_tries_(in.nrecv_tries_),
       my_request_(in.my_request_), tag_(in.tag_), send_rank_(in.send_rank_),
-      recv_rank_(in.recv_rank_), comm_(in.comm_), active_(in.active_) {
+      recv_rank_(in.recv_rank_), comm_(in.comm_), active_(in.active_),
+      get_resource_(in.get_resource_) {
   my_rank = Globals::my_rank;
 }
 
@@ -202,30 +235,32 @@ CommBuffer<T> &CommBuffer<T>::operator=(const CommBuffer<U> &in) {
   comm_ = in.comm_;
   active_ = in.active_;
   my_rank = Globals::my_rank;
+  get_resource_ = in.get_resource_;
   return *this;
 }
 
 template <class T>
-void CommBuffer<T>::Send() noexcept {
+void CommBuffer<T>::Send(bool local, int size) noexcept {
   if (!active_) {
-    SendNull();
+    SendNull(local);
     return;
   }
 
   PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::stale,
                           "Trying to send from buffer that hasn't been staled.");
   *state_ = BufferState::sending;
-  if (*comm_type_ == BuffCommType::sender) {
+  if (*comm_type_ == BuffCommType::sender && !local) {
 // Make sure that this request isn't still out,
 // this could be blocking
 #ifdef MPI_PARALLEL
     PARTHENON_REQUIRE(
         buf_.size() > 0,
         "Trying to send zero size buffer, which will be interpreted as sending_null.");
+    if (size < 0) size = buf_.size();
+    PARTHENON_REQUIRE(size <= buf_.size(), "Asking to send too much");
     PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
-    PARTHENON_MPI_CHECK(MPI_Isend(buf_.data(), buf_.size(),
-                                  MPITypeMap<buf_base_t>::type(), recv_rank_, tag_, comm_,
-                                  my_request_.get()));
+    PARTHENON_MPI_CHECK(MPI_Isend(buf_.data(), size, MPITypeMap<buf_base_t>::type(),
+                                  recv_rank_, tag_, comm_, my_request_.get()));
 #endif
   }
   if (*comm_type_ == BuffCommType::receiver) {
@@ -235,11 +270,11 @@ void CommBuffer<T>::Send() noexcept {
 }
 
 template <class T>
-void CommBuffer<T>::SendNull() noexcept {
+void CommBuffer<T>::SendNull(bool local) noexcept {
   PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::stale,
                           "Trying to send_null from buffer that hasn't been staled.");
   *state_ = BufferState::sending_null;
-  if (*comm_type_ == BuffCommType::sender) {
+  if (*comm_type_ == BuffCommType::sender && !local) {
 // Make sure that this request isn't still out,
 // this could be blocking
 #ifdef MPI_PARALLEL
@@ -286,8 +321,8 @@ void CommBuffer<T>::TryStartReceive() noexcept {
     PARTHENON_REQUIRE(
         *my_request_ == MPI_REQUEST_NULL,
         "Cannot have another pending request in a buffer that is starting to receive.");
-    if (!IsActive())
-      Allocate(); // For early start of Irecv, always need storage space even if not used
+    // For early start of Irecv, always need storage space even if not used
+    if (!IsActive()) Allocate(-1);
     PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
                                   MPITypeMap<buf_base_t>::type(), send_rank_, tag_, comm_,
                                   my_request_.get()));
@@ -303,7 +338,7 @@ void CommBuffer<T>::TryStartReceive() noexcept {
       int size;
       PARTHENON_MPI_CHECK(MPI_Get_count(&status, MPITypeMap<buf_base_t>::type(), &size));
       if (size > 0) {
-        if (!active_) Allocate();
+        if (!active_ || buf_.size() < size) Allocate(size);
         PARTHENON_MPI_CHECK(MPI_Irecv(buf_.data(), buf_.size(),
                                       MPITypeMap<buf_base_t>::type(), send_rank_, tag_,
                                       comm_, my_request_.get()));
@@ -319,16 +354,17 @@ void CommBuffer<T>::TryStartReceive() noexcept {
 }
 
 template <class T>
-bool CommBuffer<T>::TryReceive() noexcept {
+bool CommBuffer<T>::TryReceive(bool local) noexcept {
   if (*state_ == BufferState::received || *state_ == BufferState::received_null)
     return true;
 
-  if (*comm_type_ == BuffCommType::receiver ||
-      *comm_type_ == BuffCommType::sparse_receiver) {
+  if ((*comm_type_ == BuffCommType::receiver ||
+       *comm_type_ == BuffCommType::sparse_receiver) &&
+      !local) {
 #ifdef MPI_PARALLEL
     (*nrecv_tries_)++;
-    PARTHENON_REQUIRE(*nrecv_tries_ < 1e8,
-                      "MPI probably hanging after 1e8 receive tries.");
+    PARTHENON_REQUIRE(*nrecv_tries_ < 1e9,
+                      "MPI probably hanging after 1e9 receive tries.");
 
     TryStartReceive();
 
@@ -398,7 +434,7 @@ bool CommBuffer<T>::TryReceive() noexcept {
       return true;
     }
     return false;
-  } else {
+  } else if (*comm_type_ == BuffCommType::sender) {
     // This is an error since this is a purely send buffer
     PARTHENON_FAIL("Trying to receive on a sender");
   }
@@ -407,10 +443,6 @@ bool CommBuffer<T>::TryReceive() noexcept {
 
 template <class T>
 void CommBuffer<T>::Stale() {
-  PARTHENON_REQUIRE(*comm_type_ != BuffCommType::sender, "Should never get here.");
-
-  if (!(*state_ == BufferState::received || *state_ == BufferState::received_null))
-    PARTHENON_DEBUG_WARN("Staling buffer not in the received state.");
 #ifdef MPI_PARALLEL
   if (MPI_REQUEST_NULL != *my_request_)
     PARTHENON_WARN("Staling buffer with pending request.");

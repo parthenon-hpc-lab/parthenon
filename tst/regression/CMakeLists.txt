@@ -1,5 +1,5 @@
 #=========================================================================================
-# (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,8 @@
 # license in this material to reproduce, prepare derivative works, distribute copies to
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
+
+# This file was made in part with generative AI.
 
 # Adding regression tests
 #
@@ -75,11 +77,26 @@ if (ENABLE_HDF5)
     --num_steps 4")
   list(APPEND EXTRA_TEST_LABELS "")
 
+  # Restart fine
+  list(APPEND TEST_DIRS restart_fine)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/fine_advection/fine_advection-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart_fine/parthinput.restart_fine \
+    --num_steps 4")
+  list(APPEND EXTRA_TEST_LABELS "")
+
   # Calculate pi example
   list(APPEND TEST_DIRS calculate_pi)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/calculate_pi/pi-example \
   --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
+  list(APPEND EXTRA_TEST_LABELS "")
+  
+  # Boundary exchange example
+  list(APPEND TEST_DIRS boundary_exchange)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/boundary_exchange/boundary-exchange-example \
+  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/boundary_exchange/parthinput.boundary_exchange")
   list(APPEND EXTRA_TEST_LABELS "")
 
   # Advection test
@@ -103,6 +120,12 @@ if (ENABLE_HDF5)
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_outflow/parthinput.advection_outflow")
   list(APPEND EXTRA_TEST_LABELS "")
 
+  list(APPEND TEST_DIRS advection_undersubscribed)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_undersubscribed/parthinput.advection_undersubscribed")
+  list(APPEND EXTRA_TEST_LABELS "")
+
   list(APPEND TEST_DIRS bvals)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
@@ -119,7 +142,8 @@ if (ENABLE_HDF5)
   list(APPEND TEST_DIRS poisson_gmg)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/poisson_gmg/poisson-gmg-example \
-    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/poisson_gmg/parthinput.poisson")
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/poisson_gmg/parthinput.poisson \
+    --num_steps 4")
   list(APPEND EXTRA_TEST_LABELS "poisson_gmg")
 
   list(APPEND TEST_DIRS sparse_advection)
@@ -134,6 +158,19 @@ if (ENABLE_HDF5)
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/particle_tracers/particle-tracers \
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/particle_tracers/parthinput.particle_tracers")
   list(APPEND EXTRA_TEST_LABELS "")
+
+  list(APPEND TEST_DIRS particle_tracers_amr)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/particle_tracers/particle-tracers \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/particle_tracers_amr/parthinput.particle_tracers_amr \
+    --num_steps 2")
+  list(APPEND EXTRA_TEST_LABELS "")
+
+  list(APPEND TEST_DIRS diffusion)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/diffusion/diffusion-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/diffusion/parthinput.diffusion")
+  list(APPEND EXTRA_TEST_LABELS "diffusion")
 
 endif()
 
@@ -167,4 +204,3 @@ foreach( index RANGE ${end_index})
   setup_test_parallel(${TEST_PROC} ${TEST_DIR} ${TEST_ARG} "${TEST_LABELS}")
   setup_test_mpi_coverage(${TEST_PROC} ${TEST_DIR} ${TEST_ARG} "${TEST_LABELS}")
 endforeach()
-

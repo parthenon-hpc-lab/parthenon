@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -13,6 +13,8 @@
 #ifndef INTERFACE_MESH_DATA_HPP_
 #define INTERFACE_MESH_DATA_HPP_
 
+// This file was made in part with generative AI
+
 #include <algorithm>
 #include <limits>
 #include <map>
@@ -23,12 +25,16 @@
 #include <vector>
 
 #include "bvals/comms/bnd_info.hpp"
-#include "interface/sparse_pack_base.hpp"
-#include "interface/swarm_pack_base.hpp"
 #include "interface/variable_pack.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
+#include "pack/sparse_pack/sparse_pack_base.hpp"
+#include "pack/sparse_pack/sparse_pack_cache.hpp"
+#include "pack/swarm_pack/swarm_pack_base.hpp"
+#include "pack/swarm_pack/swarm_pack_cache.hpp"
+#include "pack/swarm_pack/swarm_pack_types.hpp"
 #include "utils/communication_buffer.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/object_pool.hpp"
@@ -128,7 +134,7 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
 
   std::vector<int> alloc_status_collection;
 
-  for (size_t i = 0; i < nblocks; i++) {
+  for (std::size_t i = 0; i < nblocks; i++) {
     const auto &pack = packing_function(block_data_[i], this_map, this_key);
     AppendKey(&total_key, &this_key);
     AllocationStatusCollector<P>::Append(&alloc_status_collection, pack);
@@ -242,10 +248,10 @@ const MeshBlockPack<P> &PackOnMeshByFlags(M &map, BlockDataList_t<Real> &block_d
   }
 
   if (make_new_pack) {
-    ParArray1D<P> packs("MeshData::PackVariables::packs", nblocks);
-    auto packs_host = Kokkos::create_mirror_view(packs);
+    ParArray1DRaw<P> packs(ViewOfViewAlloc("MeshData::PackVariables::packs"), nblocks);
+    auto packs_host = create_view_of_view_mirror(packs);
 
-    for (size_t i = 0; i < nblocks; i++) {
+    for (std::size_t i = 0; i < nblocks; i++) {
       const auto &pack = packing_function(block_data_[i], this_map, this_key);
       packs_host(i) = pack;
     }
@@ -369,10 +375,21 @@ const MeshBlockPack<P> &PackOnMeshByNames(M &map, BlockDataList_t<Real> &block_d
 template <typename T>
 class MeshData {
  public:
+  using parent_t = Mesh;
   MeshData() = default;
   explicit MeshData(const std::string &name) : stage_name_(name) {}
 
   GridIdentifier grid;
+  int partition{-1};
+
+  void SetBoundBufferId(BoundaryType btype, int id);
+
+  int GetBoundBufferId(BoundaryType btype) const {
+    if (bound_buffer_ids_.count(btype)) return bound_buffer_ids_.at(btype);
+    return 0;
+  }
+
+  std::map<BoundaryType, int> bound_buffer_ids_{};
 
   const auto &StageName() const { return stage_name_; }
 
@@ -413,6 +430,8 @@ class MeshData {
     return IndexRange{-1, -2};
   }
 
+  const auto &GetUids() const { return block_data_[0]->GetUids(); }
+
   template <class... Args>
   void Add(Args &&...args) {
     for (const auto &pbd : block_data_) {
@@ -420,36 +439,44 @@ class MeshData {
     }
   }
 
-  void Set(BlockList_t blocks, Mesh *pmesh, int ndim);
-  void Set(BlockList_t blocks, Mesh *pmesh);
+  template <typename ID_t>
+  void Initialize(const std::shared_ptr<BlockListPartition> &part,
+                  const std::vector<ID_t> &vars, const bool shallow) {
+    PARTHENON_REQUIRE(
+        shallow == false,
+        "Can't shallow copy when the source is not another MeshData object.");
+    SetMeshProperties(part->pmesh);
+    auto &bl = part->block_list;
+    block_data_.resize(bl.size());
+    for (int i = 0; i < bl.size(); ++i)
+      block_data_[i] = bl[i]->meshblock_data.Add(stage_name_, bl[i], vars);
+    grid = part->grid;
+    partition = part->partition;
+  }
 
   template <typename ID_t>
-  void Initialize(const MeshData<T> *src, const std::vector<ID_t> &vars,
+  void Initialize(std::shared_ptr<MeshData<T>> src, const std::vector<ID_t> &vars,
                   const bool shallow) {
     if (src == nullptr) {
       PARTHENON_THROW("src points at null");
     }
-    pmy_mesh_ = src->GetParentPointer();
+    SetMeshProperties(src->GetParentPointer());
     const int nblocks = src->NumBlocks();
     block_data_.resize(nblocks);
-
-    // TODO(JMM/LFR): There is an edge case where if you call
-    // Initialize() on a set of meshblocks where some blocks contain
-    // the desired MeshBlockData object and some don't, this call will
-    // fail. (It will raise a runtime error due to a dictionary not
-    // being found.) This was present in the previous iteration of
-    // this code, as well as this iteration. Fixing this requires
-    // modifying DataCollection::GetOrAdd. In the future we should
-    // make that "just work (tm)."
-    grid = src->grid;
-    PARTHENON_REQUIRE((grid.type == GridType::two_level_composite) ||
-                          src->BlockDataIsWholeRank_(),
-                      "Add may only be called on all blocks on a rank");
     for (int i = 0; i < nblocks; ++i) {
       auto pmbd = src->GetBlockData(i);
       block_data_[i] = pmbd->GetBlockSharedPointer()->meshblock_data.Add(
           stage_name_, pmbd, vars, shallow);
     }
+    grid = src->grid;
+    partition = src->partition;
+  }
+
+  void Initialize(BlockList_t blocks, Mesh *pmesh, std::optional<int> gmg_level = {});
+
+  MeshBlockData<T> *GetBlockDataRawPointer(int n) {
+    assert(n >= 0 && n < block_data_.size());
+    return block_data_[n].get();
   }
 
   const std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) const {
@@ -460,6 +487,16 @@ class MeshData {
   std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) {
     assert(n >= 0 && n < block_data_.size());
     return block_data_[n];
+  }
+
+  const auto &GetAllBlockData() const { return block_data_; }
+
+  bool ContainsGid(int gid) const {
+    bool contains = false;
+    for (auto &b : block_data_) {
+      if (b->GetBlockPointer()->gid == gid) contains = true;
+    }
+    return contains;
   }
 
   void SetAllVariablesToInitialized() {
@@ -709,6 +746,14 @@ class MeshData {
                        [this, vars](const auto &b) { return b->ContainsExactly(vars); });
   }
 
+  // Checks that the same set of variables was requested to create this container
+  // (which may be different than the set of variables in the container because of fluxes)
+  template <typename Vars_t>
+  bool CreatedFrom(const Vars_t &vars) const noexcept {
+    return std::all_of(block_data_.begin(), block_data_.end(),
+                       [this, vars](const auto &b) { return b->CreatedFrom(vars); });
+  }
+
   std::shared_ptr<SwarmContainer> GetSwarmData(int n) {
     PARTHENON_REQUIRE(n >= 0 && n < block_data_.size(),
                       "MeshData::GetSwarmData requires n within [0, block_data_.size()]");
@@ -719,21 +764,17 @@ class MeshData {
 
   template <typename TYPE>
   SwarmPackCache<TYPE> &GetSwarmPackCache() {
-    if constexpr (std::is_same<TYPE, int>::value) {
-      return swarm_pack_int_cache_;
-    } else if constexpr (std::is_same<TYPE, Real>::value) {
-      return swarm_pack_real_cache_;
-    }
-    PARTHENON_THROW("SwarmPacks only compatible with int and Real types");
+    static_assert(SwarmPackTypes::template IsIn<TYPE>(),
+                  "Unsupported type encountered in SwarmPack");
+    return std::get<SwarmPackTypes::template GetIdx<TYPE>()>(swarm_pack_caches_);
   }
 
   void ClearSwarmCaches() {
-    if (swarm_pack_real_cache_.size() > 0) swarm_pack_real_cache_.clear();
-    if (swarm_pack_int_cache_.size() > 0) swarm_pack_int_cache_.clear();
+    std::apply([](auto &...caches) { (caches.clear(), ...); }, swarm_pack_caches_);
   }
 
  private:
-  bool BlockDataIsWholeRank_() const;
+  void SetMeshProperties(Mesh *pmesh);
 
   int ndim_;
   Mesh *pmy_mesh_;
@@ -749,18 +790,17 @@ class MeshData {
   MapToMeshBlockVarPack<T> varPackMap_;
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
-  SwarmPackCache<int> swarm_pack_int_cache_;
-  SwarmPackCache<Real> swarm_pack_real_cache_;
+  SwarmPackCaches swarm_pack_caches_;
   // caches for boundary information
   BvarsCache_t bvars_cache_;
 };
 
 template <typename T, typename... Args>
 std::vector<Uid_t> UidIntersection(MeshData<T> *md1, MeshData<T> *md2, Args &&...args) {
+  if (md1->NumBlocks() == 0 || md2->NumBlocks() == 0) return std::vector<Uid_t>();
   return UidIntersection(md1->GetBlockData(0).get(), md2->GetBlockData(0).get(),
                          std::forward<Args>(args)...);
 }
-
 } // namespace parthenon
 
 #endif // INTERFACE_MESH_DATA_HPP_

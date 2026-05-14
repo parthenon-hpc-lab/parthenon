@@ -110,3 +110,10 @@ You must register both prolongation and restriction together. You may,
 however, use the default Parthenon structs if desired. Then any variable
 registered with this metadata object will use your custom prolongation
 and restriction operations.
+
+When a variable with custom operations is enrolled and marked
+``Metadata::WithFluxes``, the resulting flux variables that are created will
+also have the same custom operations enrolled. In general the custom operations
+will need to be different for the variable and for its fluxes; these can be
+distinguished inside the custom operations by referring to the
+``TopologicalElement`` template parameter.

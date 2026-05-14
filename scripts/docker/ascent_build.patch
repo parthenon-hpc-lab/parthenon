@@ -1,0 +1,31 @@
+diff --git a/scripts/build_ascent/build_ascent.sh b/scripts/build_ascent/build_ascent.sh
+index 57efbf8d..b4500f1f 100755
+--- a/scripts/build_ascent/build_ascent.sh
++++ b/scripts/build_ascent/build_ascent.sh
+@@ -33,7 +35,7 @@ enable_mpicc="${enable_mpicc:=OFF}"
+ enable_find_mpi="${enable_find_mpi:=ON}"
+ enable_tests="${enable_tests:=OFF}"
+ enable_verbose="${enable_verbose:=ON}"
+-build_jobs="${build_jobs:=6}"
++build_jobs="${build_jobs:=16}"
+ build_config="${build_config:=Release}"
+ build_shared_libs="${build_shared_libs:=ON}"
+ 
+@@ -145,7 +147,7 @@ cd ${root_dir}
+ 
+ # install_dir is where we will install
+ # override with `prefix` env var
+-install_dir="${install_dir:=$root_dir/install}"
++install_dir=/usr/local
+ 
+ echo "*** prefix:       ${root_dir}"
+ echo "*** build root:   ${build_dir}"
+@@ -245,7 +247,7 @@ hdf5_middle_version=1.14.1
+ hdf5_short_version=1.14
+ hdf5_src_dir=$(ospath ${source_dir}/hdf5-${hdf5_version})
+ hdf5_build_dir=$(ospath ${build_dir}/hdf5-${hdf5_version}/)
+-hdf5_install_dir=$(ospath ${install_dir}/hdf5-${hdf5_version}/)
++hdf5_install_dir=/usr/local/hdf5/parallel
+ hdf5_tarball=$(ospath ${source_dir}/hdf5-${hdf5_version}.tar.gz)
+ 
+ # build only if install doesn't exist

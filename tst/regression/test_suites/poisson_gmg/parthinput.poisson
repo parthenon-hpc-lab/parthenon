@@ -17,6 +17,7 @@ problem_id = poisson
 <parthenon/mesh>
 refinement = static
 multigrid = true 
+pack_size = 1
 
 nx1 = 64
 x1min = -1.0
@@ -56,10 +57,6 @@ level = 3
 
 <poisson>
 solver = MG
-smoother = SRJ2
-do_FAS = true
-residual_tolerance = 1.e-12
-max_iterations = 15
 flux_correct = false
 use_exact_rhs = true
 
@@ -70,3 +67,13 @@ radius = 0.5
 diagonal_alpha = 0.0
 interior_D = 1.0
 exterior_D = 1.0
+
+<poisson/solver_params>
+precondition = true
+max_iterations = 50
+absolute_residual_tolerance = 1.e-12
+print_per_step = true
+presmoother = SRJ1
+postsmoother = SRJ2
+do_FAS = true
+volume_weight = true

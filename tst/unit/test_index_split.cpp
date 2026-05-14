@@ -12,6 +12,7 @@
 //========================================================================================
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <catch2/catch.hpp>
@@ -24,9 +25,9 @@
 #include "interface/mesh_data.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
-#include "interface/sparse_pack.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/meshblock.hpp"
+#include "pack/sparse_pack/sparse_pack.hpp"
 #include "parthenon/package.hpp"
 #include "utils/index_split.hpp"
 
@@ -99,7 +100,7 @@ TEST_CASE("IndexSplit", "[IndexSplit]") {
     BlockList_t block_list = MakeBlockList(pkg, NBLOCKS, N, NDIM);
 
     MeshData<Real> mesh_data("base");
-    mesh_data.Set(block_list, nullptr, NDIM);
+    mesh_data.Initialize(block_list, nullptr);
 
     WHEN("We initialize an IndexSplit with all outer k and no outer j") {
       IndexSplit sp(&mesh_data, IndexDomain::interior, IndexSplit::all_outer,

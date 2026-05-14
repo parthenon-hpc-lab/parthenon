@@ -32,7 +32,9 @@ The ``EvolutionDriver`` class derives from ``Driver``, defining the
 
 loop, including periodic outputs. It has a single pure virtual member
 function called ``Step`` which a derived class must define and which
-will be called during each pass of the loop above.
+will be called during each pass of the loop above. The
+``SetGlobalTimeStep`` and ``OutputCycleDiagnostics`` functions have
+default implementations, but can be overridden for flexibility.
 
 MultiStageDriver
 ----------------
@@ -45,7 +47,9 @@ More details on integrators can be found on the :ref:`integrators` page.
 Second, it defines a ``Step()`` function, which is reponsible for taking
 a timestep by looping over stages and calling the
 ``ConstructAndExecuteTaskLists`` function which builds and executes the
-tasks for each stage. Applications that derive from ``MultiStageDriver``
+tasks for each stage. The task list called here has a timeout set by the
+parameter ``parthenon/mesh/task_collection_timeout_in_seconds``, which
+defaults to five minutes. Applications that derive from ``MultiStageDriver``
 are responsible for defining a ``MakeTaskCollection`` function that
 makes a ``TaskCollection`` given a ``BlockList_t &`` and an integer
 stage. The advection example

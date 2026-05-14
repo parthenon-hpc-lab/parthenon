@@ -55,6 +55,13 @@ mutually exclusive:
    cell-corners. The variable might be volume-averaged, or defined
    pointwise.
 
+For any type of topology, the flag ``Metadata::Fine`` can be set which 
+causes the field to have twice the resolution of normal fields. These 
+fields should be able to be specified for output, undergo ghost exchange,
+etc. but much of this has not been carefully tested. **As a result, ``Fine`` 
+fields should be handled with care in downstream codes and carefully checked 
+to make sure they are behaving as expected.**
+
 Variable Behaviors
 ------------------
 
@@ -146,14 +153,27 @@ classes may be allocated. The behaviours are the following:
    shared between all instances of a variable in all ``Containers`` in a
    ``DataCollection``.
 
--  If ``Metadata::WithFluxes`` is set, a new one-copy variable with the 
+- If ``Metadata::WithFluxes`` is set, a new one-copy variable with the 
   correct topological type for a flux in the generalized Stokes theorem 
   sense (e.g. if the ``WithFluxes`` variable has ``Metadata::Cell`` 
   set the new variable will have ``Metadata::Face``) will be created in
   the package with the name ``bnd_flux::name_of_original_variable`` and 
-  ``Metadata::Flux`` and ``Metadata::OneCopy``. When creating packs that 
-  include fluxes, the new flux field will be included in the flux portion 
-  of the pack if the parent field is in the pack. 
+  ``Metadata::Flux`` and ``Metadata::OneCopy``. Additionally, the flags 
+  ``Metadata::Sparse``, ``Metadata::Vector``, and ``Metadata::Tensor`` 
+  will propagate to the flux ``Metadata`` if they are set in the base field
+  ``Metadata``. By default, a flux field for a cell-centered field is 
+  built with ``Metadata::CellMemAligned`` flag set for backwards 
+  compatability. A shared pointer to the ``Metadata`` object for the flux
+  field can be accessed from the base ``Metadata`` with the method 
+  ``Metadata::GetSPtrFluxMetadata()``. This can be used to set flags other
+  than the defaults or set custom prolongation/restriction operations for
+  the fluxes. Note that calling `Metadata::RegisterRefinementOps<...>()`
+  on the base field propagates the registered refinement operations through
+  to the flux `Metadata` for backward compatibility. If separate operations 
+  are desired for the fluxes, the ordering of calls to `RegisterRefinementOps` 
+  on the base field and the flux field matters. When creating packs that 
+  include fluxes, the new flux field will be included in the flux portion of
+  the pack if the parent field is in the pack. 
 
 - If ``Metadata::Flux`` is set, this field is exchanged on shared elements 
   across fine-coarse boundaries when the flux correction tasks are called. 
@@ -197,6 +217,14 @@ the flux variable **associated** with the variable
 requested. ``FluxRequest::Any`` does not modify search parameters. You
 will get flux or non-flux variables, and variable associations will be
 ignored.
+
+``Swarm``
+---------
+By default all partices in a ``Swarm`` contain a persistent, unique identifier
+field. If this behavior is not desired (e.g., because anonymous particles are
+constantly created and destroyed in a given numerical method),
+the ``Metadata::NoPersistentParticleIds`` flag prevent the standard allocation
+(and communication of a ``swarm.id`` field).
 
 Application Metadata Flags
 ---------------------------

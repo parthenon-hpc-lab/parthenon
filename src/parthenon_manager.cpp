@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2024 The Parthenon collaboration
+// Copyright(C) 2020-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -18,7 +18,11 @@
 #include "parthenon_manager.hpp"
 
 #include <algorithm>
+#include <cstdio>
 #include <exception>
+#include <iostream>
+#include <memory>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -26,6 +30,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "amr_criteria/amr_criteria.hpp"
 #include "amr_criteria/refinement_package.hpp"
 #include "config.hpp"
 #include FS_HEADER
@@ -33,6 +38,7 @@
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
+#include "outputs/outputs_package.hpp"
 #include "outputs/restart.hpp"
 #include "outputs/restart_hdf5.hpp"
 #include "utils/error_checking.hpp"
@@ -50,26 +56,18 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // initialize MPI
 #ifdef MPI_PARALLEL
-  if (MPI_SUCCESS != MPI_Init(&argc, &argv)) {
-    std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
+  int mpi_initialized;
+  PARTHENON_MPI_CHECK(MPI_Initialized(&mpi_initialized));
+  if (!mpi_initialized && (MPI_SUCCESS != MPI_Init(&argc, &argv))) {
+    std::cerr << "### FATAL ERROR in ParthenonInit" << std::endl
               << "MPI Initialization failed." << std::endl;
     return ParthenonStatus::error;
   }
   // Get process id (rank) in MPI_COMM_WORLD
-  if (MPI_SUCCESS != MPI_Comm_rank(MPI_COMM_WORLD, &(Globals::my_rank))) {
-    std::cout << "### FATAL ERROR in ParthenonInit" << std::endl
-              << "MPI_Comm_rank failed." << std::endl;
-    // MPI_Finalize();
-    return ParthenonStatus::error;
-  }
+  PARTHENON_MPI_CHECK(MPI_Comm_rank(MPI_COMM_WORLD, &(Globals::my_rank)));
 
   // Get total number of MPI processes (ranks)
-  if (MPI_SUCCESS != MPI_Comm_size(MPI_COMM_WORLD, &Globals::nranks)) {
-    std::cout << "### FATAL ERROR in main" << std::endl
-              << "MPI_Comm_size failed." << std::endl;
-    // MPI_Finalize();
-    return ParthenonStatus::error;
-  }
+  PARTHENON_MPI_CHECK(MPI_Comm_size(MPI_COMM_WORLD, &Globals::nranks));
 #else  // no MPI
   Globals::my_rank = 0;
   Globals::nranks = 1;
@@ -93,13 +91,20 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     return ParthenonStatus::complete;
   }
 
+  Globals::watchdog_enabled = arg.watchdog_enabled;
+  if (Globals::watchdog_enabled) {
+    parthenon::WatchDog::WatchDog(arg.watchdog_timeout);
+  }
+  // Now that the input is parsed we can pass the info to globals
+  Globals::is_restart = arg.is_restart;
+
   // Set up the signal handler
   SignalHandler::SignalHandlerInit();
   if (Globals::my_rank == 0 && arg.wtlim > 0) SignalHandler::SetWallTimeAlarm(arg.wtlim);
 
   // Populate the ParameterInput object.
   // If restart, then ParameterInput in the restart file takes precedence.
-  if (arg.res_flag != 0) {
+  if (arg.is_restart) {
     // Read input from restart file
     if (fs::path(arg.restart_filename).extension() == ".rhdf") {
       restartReader = std::make_unique<RestartReaderHDF5>(arg.restart_filename);
@@ -116,7 +121,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   // If an input file was provided
   if (arg.input_filename != nullptr) {
     // Modify info read from restart file
-    if (arg.res_flag != 0) {
+    if (arg.is_restart) {
       IOWrapper infile;
       infile.Open(arg.input_filename, IOWrapper::FileMode::read);
       pinput->LoadFromFile(infile);
@@ -141,7 +146,8 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   pinput->SetBoolean("parthenon/job", "run_only_analysis", arg.analysis_flag);
 
   // Set the global number of ghost zones
-  Globals::nghost = pinput->GetOrAddInteger("parthenon/mesh", "nghost", 2);
+  Globals::nghost = pinput->GetOrAddInteger("parthenon/mesh", "nghost", 2,
+                                            "number of ghost zones on a block");
 
   // set sparse config
   Globals::sparse_config.enabled = pinput->GetOrAddBoolean(
@@ -165,12 +171,13 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // set boundary comms buffer switch trigger
   Globals::refinement::min_num_bufs =
-      pinput->GetOrAddReal("parthenon/mesh", "refinement_in_one_min_nbufs", 64);
+      pinput->GetOrAddInteger("parthenon/mesh", "refinement_in_one_min_nbufs", 64);
 
   return ParthenonStatus::ok;
 }
 
-void ParthenonManager::ParthenonInitPackagesAndMesh() {
+void ParthenonManager::ParthenonInitPackagesAndMesh(
+    std::optional<forest::ForestDefinition> forest_def) {
   if (called_init_packages_and_mesh_) {
     PARTHENON_THROW("Called ParthenonInitPackagesAndMesh twice!");
   }
@@ -185,8 +192,10 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
   auto packages = ProcessPackages(pinput);
   // always add the Refinement package
   packages.Add(Refinement::Initialize(pinput.get()));
-
-  if (arg.res_flag == 0) {
+  packages.Add(OutputsPackage::Initialize(pinput.get()));
+  if (forest_def) {
+    pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, *forest_def);
+  } else if (!arg.is_restart) {
     pmesh =
         std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, arg.mesh_flag);
   } else {
@@ -221,7 +230,17 @@ void ParthenonManager::ParthenonInitPackagesAndMesh() {
     }
   }
 
-  pmesh->Initialize(!IsRestart(), pinput.get(), app_input.get());
+  if (arg.mesh_flag) {
+    ParthenonFinalize();
+    exit(0);
+  }
+
+  if (arg.param_flag) {
+    pinput->SetBoolean("parthenon/job", "output_params_and_exit", true);
+    pinput->SetString("parthenon/job", "output_params_block_regex", arg.params_regex);
+  }
+
+  pmesh->Initialize(!arg.is_restart, pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);
 }
@@ -230,7 +249,9 @@ ParthenonStatus ParthenonManager::ParthenonFinalize() {
   pmesh.reset();
   Kokkos::finalize();
 #ifdef MPI_PARALLEL
-  MPI_Finalize();
+  int mpi_finalized;
+  PARTHENON_MPI_CHECK(MPI_Finalized(&mpi_finalized));
+  if (!mpi_finalized) PARTHENON_MPI_CHECK(MPI_Finalize());
 #endif
   return ParthenonStatus::complete;
 }
@@ -250,7 +271,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   // Restart packages with information for blocks in ids from the restart file
   // Assumption: blocks are contiguous in restart file, may have to revisit this.
   const IndexDomain theDomain =
-      (resfile.hasGhost ? IndexDomain::entire : IndexDomain::interior);
+      (resfile.HasGhost() != 0 ? IndexDomain::entire : IndexDomain::interior);
   // Get block list and temp array size
   auto &mb = *(rm.block_list.front());
   int nb = rm.GetNumMeshBlocksThisRank(Globals::my_rank);
@@ -271,25 +292,13 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     PARTHENON_THROW(msg)
   }
 
-  // Get an iterator on block 0 for variable listing
-  IndexRange out_ib = mb.cellbounds.GetBoundsI(theDomain);
-  IndexRange out_jb = mb.cellbounds.GetBoundsJ(theDomain);
-  IndexRange out_kb = mb.cellbounds.GetBoundsK(theDomain);
-
-  std::vector<size_t> bsize;
-  bsize.push_back(out_ib.e - out_ib.s + 1);
-  bsize.push_back(out_jb.e - out_jb.s + 1);
-  bsize.push_back(out_kb.e - out_kb.s + 1);
-
-  size_t nCells = bsize[0] * bsize[1] * bsize[2];
-
   // Get list of variables, they are the same for all blocks (since all blocks have the
   // same variable metadata)
   const auto indep_restart_vars =
       GetAnyVariables(mb.meshblock_data.Get()->GetVariableVector(),
                       {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
   const auto all_vars_info =
-      OutputUtils::VarInfo::GetAll(indep_restart_vars, mb.cellbounds);
+      OutputUtils::VarInfo::GetAll(indep_restart_vars, mb.cellbounds, mb.f_cellbounds);
 
   const auto sparse_info = resfile.GetSparseInfo();
   // create map of sparse field labels to index in the SparseInfo table
@@ -299,8 +308,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   }
 
   // Allocate space based on largest vector
-  int max_vlen = 1;
   int num_sparse = 0;
+  std::size_t max_fillsize = 1;
   for (const auto &v_info : all_vars_info) {
     const auto &label = v_info.label;
 
@@ -315,33 +324,48 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
                                "Dense field " + label +
                                    " is marked as sparse in restart file");
     }
-    max_vlen = std::max(max_vlen, v_info.num_components);
+
+    max_fillsize = std::max(max_fillsize, v_info.FillSize(theDomain));
   }
 
   // make sure we have all sparse variables that are in the restart file
-  PARTHENON_REQUIRE_THROWS(
-      num_sparse == sparse_info.num_sparse,
-      "Mismatch between sparse fields in simulation and restart file");
 
-  std::vector<Real> tmp(static_cast<size_t>(nb) * nCells * max_vlen);
+  // JMM: It is possible to output with more sparse variables than you
+  // need, for example if you're outputting a core dump, so we
+  // complain only if the number of sparse varaibles required is
+  // greater than the number in the file, not if it is less.
+  PARTHENON_REQUIRE_THROWS(
+      num_sparse <= sparse_info.num_sparse,
+      "Mismatch between sparse fields in simulation and restart file");
+  std::vector<Real> tmp(static_cast<std::size_t>(nb) * max_fillsize);
   for (const auto &v_info : all_vars_info) {
-    const auto vlen = v_info.num_components;
+    const auto vlen = v_info.num_components * v_info.ntop_elems;
+    const auto fill_size = v_info.FillSize(theDomain);
     const auto &label = v_info.label;
 
+    auto var_missing_on_disk = !resfile.VariableExists(label);
     if (Globals::my_rank == 0) {
-      std::cout << "Var: " << label << ":" << vlen << std::endl;
+      std::cout << "Var: " << label << ":" << vlen
+                << (var_missing_on_disk ? " missing on disk\n" : "\n");
     }
-    // Read relevant data from the hdf file, this works for dense and sparse variables
-    try {
-      resfile.ReadBlocks(label, myBlocks, v_info, tmp, file_output_format_ver);
-    } catch (std::exception &ex) {
-      std::cout << "[" << Globals::my_rank << "] WARNING: Failed to read variable "
-                << label << " from restart file:" << std::endl
-                << ex.what() << std::endl;
+    if (var_missing_on_disk) {
+      // TODO(JMM/PG) Add failed load list of "fail/needs fix" list
       continue;
     }
+    // Read relevant data from the hdf file, this works for dense and sparse variables
+    // because sparse variables are currently densely written for HDF5.
+    try {
+      resfile.ReadBlocks(label, myBlocks, v_info, tmp, file_output_format_ver);
+      // Variable does exist but could not be read. So we definitely want to fail here.
+    } catch (std::exception &ex) {
+      std::stringstream msg;
+      msg << "[" << Globals::my_rank << "] WARNING: Failed to read variable " << label
+          << " from restart file:" << std::endl
+          << ex.what() << std::endl;
+      PARTHENON_THROW(msg);
+    }
 
-    size_t index = 0;
+    std::size_t index = 0;
     for (auto &pmb : rm.block_list) {
       if (v_info.is_sparse) {
         // check if the sparse variable is allocated on this block
@@ -353,7 +377,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
           pmb->meshblock_data.Get()->GetVarPtr(label)->dealloc_count = dealloc_count;
         } else {
           // nothing to read for this block, advance reading index
-          index += nCells * vlen;
+          index += fill_size;
           continue;
         }
       }
@@ -365,7 +389,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       // we update the HDF5 infrastructure!
       if (file_output_format_ver >= HDF5::OUTPUT_VERSION_FORMAT - 1) {
         OutputUtils::PackOrUnpackVar(
-            v_info, resfile.hasGhost, index,
+            v_info, resfile.HasGhost() != 0, index,
             [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
               v_h(topo, t, u, v, k, j, i) = tmp[index];
             });
@@ -386,8 +410,14 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   auto swarms = (mb.meshblock_data.Get()->GetSwarmData())->GetSwarmsByFlag(flags);
   for (auto &swarm : swarms) {
     auto swarmname = swarm->label();
+    auto var_missing_on_disk = !resfile.VariableExists(swarmname);
     if (Globals::my_rank == 0) {
-      std::cout << "Swarm: " << swarmname << std::endl;
+      std::cout << "Swarm: " << swarmname
+                << (var_missing_on_disk ? " missing on disk\n" : "\n");
+    }
+    if (var_missing_on_disk) {
+      // TODO(JMM/PG) Add failed load list of "fail/needs fix" list
+      continue;
     }
     std::vector<std::size_t> counts, offsets;
     std::size_t count_on_rank =
@@ -405,6 +435,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       block_index++;
     }
     ReadSwarmVars_<int>(swarm, rm.block_list, count_on_rank, offsets[0]);
+    ReadSwarmVars_<std::uint64_t>(swarm, rm.block_list, count_on_rank, offsets[0]);
     ReadSwarmVars_<Real>(swarm, rm.block_list, count_on_rank, offsets[0]);
   }
 

@@ -25,4 +25,21 @@ if( "burgers-benchmark" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
   )
   target_link_libraries(burgers-benchmark PRIVATE Parthenon::parthenon)
   lint_target(burgers-benchmark)
+
+  # JMM: Only run burgers in 2D so startup time is reasonable because
+  # -p flag goes through pgen
+  add_custom_command(
+    OUTPUT ${DOC_GEN_PATH}/burgers-table.csv
+    COMMAND ${CMAKE_COMMAND} -E env
+    bash -c
+    "${CMAKE_CURRENT_BINARY_DIR}/burgers-benchmark -i ${CMAKE_CURRENT_LIST_DIR}/burgers.pin parthenon/mesh/nx3=1 parthenon/meshblock/nx3=1 -p '^(?!.*parthenon/).*' > ${DOC_GEN_PATH}/burgers-table.csv"
+    DEPENDS burgers-benchmark burgers.pin
+    VERBATIM
+    )
+
+  add_custom_target(burgers-csv
+    DEPENDS
+    ${DOC_GEN_PATH}/burgers-table.csv
+    )
+
 endif()

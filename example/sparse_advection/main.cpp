@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2021-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -27,6 +27,7 @@ int main(int argc, char *argv[]) {
   pman.app_input->ProblemGenerator = sparse_advection_example::ProblemGenerator;
   pman.app_input->PostStepDiagnosticsInLoop =
       sparse_advection_example::PostStepDiagnosticsInLoop;
+  pman.app_input->RegisterDefaultReflectingBoundaryConditions();
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInitEnv(argc, argv);
@@ -59,9 +60,9 @@ int main(int argc, char *argv[]) {
 
   if (driver_status == DriverStatus::complete) {
     return 0;
-  } else if (driver_status == DriverStatus::timeout) {
-    return 1;
   } else if (driver_status == DriverStatus::failed) {
+    return 1;
+  } else if (driver_status == DriverStatus::timeout) {
     return 2;
   } else {
     return 3;

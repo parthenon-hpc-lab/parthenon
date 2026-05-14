@@ -1,0 +1,84 @@
+//========================================================================================
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
+//
+// This program was produced under U.S. Government contract 89233218CNA000001 for Los
+// Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+// for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+// in the program are reserved by Triad National Security, LLC, and the U.S. Department
+// of Energy/National Nuclear Security Administration. The Government is granted for
+// itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+// license in this material to reproduce, prepare derivative works, distribute copies to
+// the public, perform publicly and display publicly, and to permit others to do so.
+//========================================================================================
+#ifndef PACK_SWARM_PACK_SWARM_PACK_BASE_HPP_
+#define PACK_SWARM_PACK_SWARM_PACK_BASE_HPP_
+
+// This file was made in part with generative AI
+
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include "interface/swarm_device_context.hpp"
+#include "kokkos_abstraction.hpp"
+#include "pack/pack_utils.hpp"
+#include "pack/swarm_pack/swarm_pack_descriptor.hpp"
+#include "utils/utils.hpp"
+
+namespace parthenon {
+
+template <typename TYPE>
+class SwarmPackBase;
+
+template <typename TYPE>
+class SwarmPackCache;
+
+template <typename TYPE>
+class SwarmPackBase {
+ public:
+  SwarmPackBase() = default;
+  virtual ~SwarmPackBase() = default;
+
+ protected:
+  friend class SwarmPackCache<TYPE>;
+
+  using pack_t = ParArray3DRaw<ParArray1D<TYPE>>;
+  using bounds_t = ParArray3D<int>;
+  using contexts_t = ParArray1DRaw<SwarmDeviceContext>;
+  using contexts_h_t = typename contexts_t::host_mirror_type;
+  using max_active_indices_t = ParArray1D<int>;
+  using desc_t = impl::SwarmPackDescriptor<TYPE>;
+
+  // Return a map from variable names to pack variable indices
+  static PackIdxMap GetIdxMap(const impl::SwarmPackDescriptor<TYPE> &desc);
+
+  // Actually build a `SwarmPackBase` (i.e. create a view of views, fill on host, and
+  // deep copy the view of views to device) from the variables specified in desc contained
+  // from the blocks contained in pmd (which can either be MeshBlockData/MeshData).
+  template <class T>
+  static SwarmPackBase<TYPE> Build(T *pmd, const impl::SwarmPackDescriptor<TYPE> &desc);
+
+  // Build supplemental entries to SwarmPack that change on a cadence faster than the
+  // other pack cache
+  template <class T>
+  static void BuildSupplemental(T *pmd, const impl::SwarmPackDescriptor<TYPE> &desc,
+                                SwarmPackBase<TYPE> &pack);
+
+  template <class T>
+  static SwarmPackBase<TYPE> GetPack(T *pmd, const impl::SwarmPackDescriptor<TYPE> &desc);
+
+  pack_t pack_;
+  bounds_t bounds_;
+  contexts_t contexts_;
+  contexts_h_t contexts_h_;
+  max_active_indices_t max_active_indices_;
+  max_active_indices_t flat_index_map_;
+
+  int nblocks_;
+  int nvar_;
+  int max_flat_index_;
+};
+
+} // namespace parthenon
+
+#endif // PACK_SWARM_PACK_SWARM_PACK_BASE_HPP_

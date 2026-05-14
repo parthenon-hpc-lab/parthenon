@@ -15,9 +15,11 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <iostream>
 #include <memory>
 #include <set>
 #include <sstream>
+#include <string>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -33,37 +35,6 @@
 #include "utils/utils.hpp"
 
 namespace parthenon {
-
-template <typename T>
-void MeshBlockData<T>::Initialize(
-    const std::shared_ptr<StateDescriptor> resolved_packages,
-    const std::shared_ptr<MeshBlock> pmb) {
-  SetBlockPointer(pmb);
-  resolved_packages_ = resolved_packages;
-
-  // clear all variables, maps, and pack caches
-  varVector_.clear();
-  varMap_.clear();
-  varUidMap_.clear();
-  flagsToVars_.clear();
-  varPackMap_.clear();
-  coarseVarPackMap_.clear();
-  varFluxPackMap_.clear();
-
-  for (auto const &q : resolved_packages->AllFields()) {
-    AddField(q.first.base_name, q.second, q.first.sparse_id);
-  }
-
-  const auto &swarm_container = GetSwarmData();
-  swarm_container->Initialize(resolved_packages, pmb);
-
-  Metadata::FlagCollection flags({Metadata::Sparse, Metadata::ForceAllocOnNewBlocks});
-  auto vars = GetVariablesByFlag(flags);
-  for (auto &v : vars.vars()) {
-    AllocateSparse(v->label());
-  }
-}
-
 ///
 /// The internal routine for adding a new field.  This subroutine
 /// is topology aware and will allocate accordingly.
@@ -79,6 +50,69 @@ void MeshBlockData<T>::AddField(const std::string &base_name, const Metadata &me
 
   if (!Globals::sparse_config.enabled || !pvar->IsSparse()) {
     pvar->Allocate(pmy_block);
+  }
+}
+
+template <typename T>
+void MeshBlockData<T>::Add(std::shared_ptr<Variable<T>> var) noexcept {
+  if (varUidMap_.count(var->GetUniqueID())) {
+    PARTHENON_THROW("Tried to add variable " + var->label() + " twice!");
+  }
+  varVector_.push_back(var);
+  varMap_[var->label()] = var;
+  varUidMap_[var->GetUniqueID()] = var;
+  varUidSet_.insert(var->GetUniqueID());
+  for (const auto &flag : var->metadata().Flags()) {
+    flagsToVars_[flag].insert(var);
+  }
+}
+
+template <typename T>
+bool MeshBlockData<T>::operator==(const MeshBlockData<T> &cmp) const {
+  // do some kind of check of equality
+  // do the two containers contain the same named fields?
+  std::vector<std::string> my_keys;
+  std::vector<std::string> cmp_keys;
+  for (auto &v : varMap_) {
+    my_keys.push_back(v.first);
+  }
+  for (auto &v : cmp.GetVariableMap()) {
+    cmp_keys.push_back(v.first);
+  }
+  return (my_keys == cmp_keys);
+}
+
+template <typename T>
+std::shared_ptr<Variable<T>> MeshBlockData<T>::AllocateSparse(std::string const &label,
+                                                              bool flag_uninitialized) {
+  if (!HasVariable(label)) {
+    PARTHENON_THROW("Tried to allocate sparse variable '" + label +
+                    "', but no such sparse variable exists");
+  }
+
+  auto var = GetVarPtr(label);
+  PARTHENON_REQUIRE_THROWS(var->IsSparse(),
+                           "Tried to allocate non-sparse variable " + label);
+
+  var->Allocate(pmy_block, flag_uninitialized);
+
+  return var;
+}
+
+template <typename T>
+void MeshBlockData<T>::DeallocateSparse(std::string const &label) {
+  PARTHENON_REQUIRE_THROWS(HasVariable(label),
+                           "Tried to deallocate sparse variable '" + label +
+                               "', but no such sparse variable exists");
+
+  auto var = GetVarPtr(label);
+  // PARTHENON_REQUIRE_THROWS(var->IsSparse(),
+  //                         "Tried to deallocate non-sparse variable " + label);
+
+  if (var->IsAllocated()) {
+    std::int64_t bytes = var->Deallocate();
+    auto pmb = GetBlockPointer();
+    pmb->LogMemUsage(-bytes);
   }
 }
 
@@ -270,9 +304,9 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
       } else {
         var_list.Add(v, sparse_ids_set);
       }
-    } else if ((resolved_packages_ != nullptr) &&
-               (resolved_packages_->SparseBaseNamePresent(name))) {
-      const auto &sparse_pool = resolved_packages_->GetSparsePool(name);
+    } else if ((resolved_packages != nullptr) &&
+               (resolved_packages->SparseBaseNamePresent(name))) {
+      const auto &sparse_pool = resolved_packages->GetSparsePool(name);
 
       // add all sparse ids of the pool
       for (const auto iter : sparse_pool.pool()) {

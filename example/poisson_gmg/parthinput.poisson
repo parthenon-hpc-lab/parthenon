@@ -65,18 +65,9 @@ x2max = -0.75
 level = 3
 
 <poisson>
-solver = BiCGSTAB
-precondition = true
-precondition_vcycles = 1
-restart_threshold = 0.0
+solver = BiCGSTAB # or MG
 flux_correct = true
-smoother = SRJ2
-do_FAS = true
 diagonal_alpha = 0.0
-max_iterations = 15
-pre_smooth_iterations = 2
-post_smooth_iterations = 2
-jacobi_damping = 0.0
 
 x0 = 0.0
 y0 = 0.0
@@ -84,3 +75,11 @@ z0 = 0.0
 radius = 0.5
 interior_D = 100.0
 exterior_D = 1.0
+
+<poisson/solver_params>
+precondition = true
+max_iterations = 15
+residual_tolerance = 1.e-8
+print_per_step = true
+smoother = SRJ2
+do_FAS = true

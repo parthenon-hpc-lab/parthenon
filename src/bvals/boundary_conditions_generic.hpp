@@ -24,13 +24,13 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "interface/make_pack_descriptor.hpp"
 #include "interface/meshblock_data.hpp"
-#include "interface/sparse_pack.hpp"
-#include "interface/swarm_default_names.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "pack/default_names.hpp"
+#include "pack/sparse_pack/make_pack_descriptor.hpp"
+#include "pack/sparse_pack/sparse_pack.hpp"
 
 namespace parthenon {
 namespace BoundaryFunction {
@@ -137,35 +137,6 @@ void GenericSwarmBC(std::shared_ptr<Swarm> &swarm) {
       });
 }
 
-namespace impl {
-using desc_key_t = std::tuple<bool, TopologicalType>;
-template <class... var_ts>
-using map_bc_pack_descriptor_t =
-    std::unordered_map<desc_key_t, typename SparsePack<var_ts...>::Descriptor,
-                       tuple_hash<desc_key_t>>;
-
-template <class... var_ts>
-map_bc_pack_descriptor_t<var_ts...>
-GetPackDescriptorMap(std::shared_ptr<MeshBlockData<Real>> &rc) {
-  std::vector<std::pair<TopologicalType, MetadataFlag>> elements{
-      {TopologicalType::Cell, Metadata::Cell},
-      {TopologicalType::Face, Metadata::Face},
-      {TopologicalType::Edge, Metadata::Edge},
-      {TopologicalType::Node, Metadata::Node}};
-  map_bc_pack_descriptor_t<var_ts...> my_map;
-  for (auto [tt, md] : elements) {
-    std::vector<MetadataFlag> flags{Metadata::FillGhost};
-    flags.push_back(md);
-    std::set<PDOpt> opts{PDOpt::Coarse};
-    my_map.emplace(std::make_pair(desc_key_t{true, tt},
-                                  MakePackDescriptor<var_ts...>(rc.get(), flags, opts)));
-    my_map.emplace(std::make_pair(desc_key_t{false, tt},
-                                  MakePackDescriptor<var_ts...>(rc.get(), flags)));
-  }
-  return my_map;
-}
-} // namespace impl
-
 template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE, class... var_ts>
 void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
                TopologicalElement el, Real val) {
@@ -178,71 +149,94 @@ void GenericBC(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse,
   constexpr bool X3 = (DIR == X3DIR);
   constexpr bool INNER = (SIDE == BCSide::Inner);
 
-  static auto descriptors = impl::GetPackDescriptorMap<var_ts...>(rc);
-  auto q =
-      descriptors[impl::desc_key_t{coarse, GetTopologicalType(el)}].GetPack(rc.get());
-  const int b = 0;
-  const int lstart = q.GetLowerBoundHost(b);
-  const int lend = q.GetUpperBoundHost(b);
-  if (lend < lstart) return;
-  auto nb = IndexRange{lstart, lend};
+  const auto ttFlag = [el] {
+    const auto tt = GetTopologicalType(el);
+    switch (tt) {
+    case (TopologicalType::Cell):
+      return Metadata::Cell;
+    case (TopologicalType::Face):
+      return Metadata::Face;
+    case (TopologicalType::Edge):
+      return Metadata::Edge;
+    case (TopologicalType::Node):
+      return Metadata::Node;
+    default:
+      PARTHENON_FAIL("Unknown topological type")
+    }
+  }();
 
-  MeshBlock *pmb = rc->GetBlockPointer();
-  const auto &bounds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
+  // static auto descriptors = impl::GetPackDescriptorMap<var_ts...>(rc);
+  for (auto fine : {false, true}) {
+    std::vector<MetadataFlag> flags{Metadata::FillGhost, ttFlag};
+    if (fine) flags.push_back(Metadata::Fine);
+    std::set<PDOpt> opts = coarse ? std::set<PDOpt>{PDOpt::Coarse} : std::set<PDOpt>{};
+    const auto desc = MakePackDescriptor<var_ts...>(rc.get(), flags, opts);
+    auto q = desc.GetPack(rc.get());
+    const int b = 0;
+    const int lstart = q.GetLowerBoundHost(b);
+    const int lend = q.GetUpperBoundHost(b);
+    if (lend < lstart) return;
+    auto nb = IndexRange{lstart, lend};
 
-  const auto &range = X1 ? bounds.GetBoundsI(IndexDomain::interior, el)
-                         : (X2 ? bounds.GetBoundsJ(IndexDomain::interior, el)
-                               : bounds.GetBoundsK(IndexDomain::interior, el));
-  const int ref = INNER ? range.s : range.e;
+    MeshBlock *pmb = rc->GetBlockPointer();
+    const auto &bounds = fine ? (coarse ? pmb->cellbounds : pmb->f_cellbounds)
+                              : (coarse ? pmb->c_cellbounds : pmb->cellbounds);
 
-  std::string label = (TYPE == BCType::Reflect ? "Reflect" : "Outflow");
-  label += (INNER ? "Inner" : "Outer");
-  label += "X" + std::to_string(DIR);
+    const auto &range = X1 ? bounds.GetBoundsI(IndexDomain::interior, el)
+                           : (X2 ? bounds.GetBoundsJ(IndexDomain::interior, el)
+                                 : bounds.GetBoundsK(IndexDomain::interior, el));
+    const int ref = INNER ? range.s : range.e;
 
-  constexpr IndexDomain domain =
-      INNER ? (X1 ? IndexDomain::inner_x1
-                  : (X2 ? IndexDomain::inner_x2 : IndexDomain::inner_x3))
-            : (X1 ? IndexDomain::outer_x1
-                  : (X2 ? IndexDomain::outer_x2 : IndexDomain::outer_x3));
+    std::string label = (TYPE == BCType::Reflect ? "Reflect" : "Outflow");
+    label += (INNER ? "Inner" : "Outer");
+    label += "X" + std::to_string(DIR);
 
-  // used for reflections
-  const int offset = 2 * ref + (INNER ? -1 : 1);
+    constexpr IndexDomain domain =
+        INNER ? (X1 ? IndexDomain::inner_x1
+                    : (X2 ? IndexDomain::inner_x2 : IndexDomain::inner_x3))
+              : (X1 ? IndexDomain::outer_x1
+                    : (X2 ? IndexDomain::outer_x2 : IndexDomain::outer_x3));
 
-  // used for derivatives
-  const int offsetin = INNER;
-  const int offsetout = !INNER;
-  pmb->par_for_bndry(
-      PARTHENON_AUTO_LABEL, nb, domain, el, coarse,
-      KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
-        if (TYPE == BCType::Reflect) {
-          const bool reflect = (q(b, el, l).vector_component == DIR);
-          q(b, el, l, k, j, i) =
-              (reflect ? -1.0 : 1.0) *
-              q(b, el, l, X3 ? offset - k : k, X2 ? offset - j : j, X1 ? offset - i : i);
-        } else if (TYPE == BCType::FixedFace) {
-          q(b, el, l, k, j, i) = 2.0 * val - q(b, el, l, X3 ? offset - k : k,
-                                               X2 ? offset - j : j, X1 ? offset - i : i);
-        } else if (TYPE == BCType::ConstantDeriv) {
-          Real dq = q(b, el, l, X3 ? ref + offsetin : k, X2 ? ref + offsetin : j,
-                      X1 ? ref + offsetin : i) -
-                    q(b, el, l, X3 ? ref - offsetout : k, X2 ? ref - offsetout : j,
-                      X1 ? ref - offsetout : i);
-          Real delta = 0.0;
-          if (X1) {
-            delta = i - ref;
-          } else if (X2) {
-            delta = j - ref;
+    // used for reflections
+    const int offset = 2 * ref + (INNER ? -1 : 1);
+
+    // used for derivatives
+    const int offsetin = INNER;
+    const int offsetout = !INNER;
+    pmb->par_for_bndry(
+        PARTHENON_AUTO_LABEL, nb, domain, el, coarse, fine,
+        KOKKOS_LAMBDA(const int &l, const int &k, const int &j, const int &i) {
+          if (TYPE == BCType::Reflect) {
+            const bool reflect = (q(b, el, l).vector_component == DIR);
+            q(b, el, l, k, j, i) =
+                (reflect ? -1.0 : 1.0) * q(b, el, l, X3 ? offset - k : k,
+                                           X2 ? offset - j : j, X1 ? offset - i : i);
+          } else if (TYPE == BCType::FixedFace) {
+            q(b, el, l, k, j, i) =
+                2.0 * val - q(b, el, l, X3 ? offset - k : k, X2 ? offset - j : j,
+                              X1 ? offset - i : i);
+          } else if (TYPE == BCType::ConstantDeriv) {
+            Real dq = q(b, el, l, X3 ? ref + offsetin : k, X2 ? ref + offsetin : j,
+                        X1 ? ref + offsetin : i) -
+                      q(b, el, l, X3 ? ref - offsetout : k, X2 ? ref - offsetout : j,
+                        X1 ? ref - offsetout : i);
+            Real delta = 0.0;
+            if (X1) {
+              delta = i - ref;
+            } else if (X2) {
+              delta = j - ref;
+            } else {
+              delta = k - ref;
+            }
+            q(b, el, l, k, j, i) =
+                q(b, el, l, X3 ? ref : k, X2 ? ref : j, X1 ? ref : i) + delta * dq;
+          } else if (TYPE == BCType::Fixed) {
+            q(b, el, l, k, j, i) = val;
           } else {
-            delta = k - ref;
+            q(b, el, l, k, j, i) = q(b, el, l, X3 ? ref : k, X2 ? ref : j, X1 ? ref : i);
           }
-          q(b, el, l, k, j, i) =
-              q(b, el, l, X3 ? ref : k, X2 ? ref : j, X1 ? ref : i) + delta * dq;
-        } else if (TYPE == BCType::Fixed) {
-          q(b, el, l, k, j, i) = val;
-        } else {
-          q(b, el, l, k, j, i) = q(b, el, l, X3 ? ref : k, X2 ? ref : j, X1 ? ref : i);
-        }
-      });
+        });
+  }
 }
 
 template <CoordinateDirection DIR, BCSide SIDE, BCType TYPE, class... var_ts>

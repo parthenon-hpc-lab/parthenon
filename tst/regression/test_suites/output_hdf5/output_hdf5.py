@@ -1,9 +1,9 @@
 # ========================================================================================
 # Parthenon performance portable AMR framework
-# Copyright(C) 2020-2023 The Parthenon collaboration
+# Copyright(C) 2020-2024 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
-# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -124,6 +124,8 @@ class TestCase(utils.test_case.TestCaseAbs):
         ref_results = [
             ["time", 1.0, 1.0],
             ["dt", 1.75781e-03, 3.12500e-03],
+            ["cycle", 5.69000e02, 2.14000e02],
+            ["nbtotal", 1.30000e02, 2.04000e02],
             ["total_advected", 7.06177e-02, 1.39160e-02],
             ["advected_powers_0", 7.06177e-02, 1.39160e-02],
             ["advected_powers_1", 3.88112e-02, 2.59597e-03],
@@ -141,7 +143,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 f.readline()
                 header = f.readline()[1:].split()
                 for i, val in enumerate(ref_results):
-                    col_label = header[i].strip()[4:]
+                    col_label = (header[i].strip()).split("=", 1)[1]
                     if col_label != val[0]:
                         print(
                             "Wrong",
@@ -187,6 +189,18 @@ class TestCase(utils.test_case.TestCaseAbs):
                     f"Something is really wrong. Please open an issue on GitHub"
                 )
                 analyze_status = False
+
+        # check contents of matadata_none_var
+        for dim in [2, 3]:
+            data = phdf.phdf(f"advection_{dim}d.out0.final.phdf")
+            profile = data.Get("metadata_none_var", flatten=False)
+            for index in np.ndindex(profile.shape):
+                ib, j, k, l, m = index
+                expected_value = l + k + j + m
+                actual_value = profile[ib, j, k, l, m]
+                if expected_value != actual_value:
+                    print("metadata_none_var is incorrect")
+                    analyze_status = False
 
         # Checking Parthenon histograms versus numpy ones
         for dim in [2, 3]:

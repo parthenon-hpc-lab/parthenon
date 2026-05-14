@@ -1,9 +1,9 @@
 //========================================================================================
-// Athena++ astrophysical MHD code
-// Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+// Parthenon performance portable AMR framework
+// Copyright(C) 2023-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,19 +14,23 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-//! \file history.cpp
-//  \brief writes history output data, volume-averaged quantities that are output
-//         frequently in time to trace their history.
+// Athena++ astrophysical MHD code
+// Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "coordinates/coordinates.hpp"
@@ -83,18 +87,25 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   auto &md_base = pm->mesh_data.Get();
   // Populated with all blocks
   if (md_base->NumBlocks() == 0) {
-    md_base->Set(pm->block_list, pm);
+    md_base->Initialize(pm->block_list, pm);
   } else if (md_base->NumBlocks() != pm->block_list.size()) {
     PARTHENON_WARN(
         "Resetting \"base\" MeshData to contain all blocks. This indicates that "
         "the \"base\" MeshData container has been modified elsewhere. Double check "
         "that the modification was intentional and is compatible with this reset.")
-    md_base->Set(pm->block_list, pm);
+    md_base->Initialize(pm->block_list, pm);
   }
 
-  // Loop over all packages of the application
-  for (const auto &pkg : packages) {
-    const auto &params = pkg.second->AllParams();
+  // Loop over all packages of the application in alphabetical order to ensure consistency
+  // of ordering of data in columns.
+  std::vector<std::string> keys;
+  for (const auto &pair : packages) {
+    keys.push_back(pair.first);
+  }
+  std::sort(keys.begin(), keys.end());
+  for (const auto &key : keys) {
+    const auto &pkg = packages[key];
+    const auto &params = pkg->AllParams();
 
     // Check if the package has enrolled scalar history functions which are stored in the
     // Params under the `hist_param_key` name.
@@ -113,7 +124,7 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       const auto &hist_vecs = params.Get<HstVec_list>(hist_vec_param_key);
       for (const auto &hist_vec : hist_vecs) {
         auto result = hist_vec.hst_vec_fun(md_base.get());
-        for (int n = 0; n < result.size(); n++) {
+        for (std::size_t n = 0; n < result.size(); n++) {
           std::string label = hist_vec.label + "_" + std::to_string(n);
           results[hist_vec.hst_op].push_back(result[n]);
           labels[hist_vec.hst_op].push_back(label);
@@ -170,23 +181,31 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       PARTHENON_FAIL(msg);
     }
 
-    // If this is the first output, write header
-    if (output_params.file_number == 0) {
+    // Write the header lines once per distinct history file, each once
+    // per invocation of parthenon -- once a header has been output for
+    // the given file_id, ignore it.
+    static std::unordered_set<std::string> ids_output;
+    if (!ids_output.count(output_params.file_id)) {
       int iout = 1;
       std::fprintf(pfile, "#  History data\n"); // descriptor is first line
-      std::fprintf(pfile, "# [%d]=time     ", iout++);
-      std::fprintf(pfile, "[%d]=dt       ", iout++);
+      std::fprintf(pfile, "# [%d]=time    ", iout++);
+      std::fprintf(pfile, " [%d]=dt      ", iout++);
+      std::fprintf(pfile, " [%d]=cycle   ", iout++);
+      std::fprintf(pfile, " [%d]=nbtotal ", iout++);
       for (auto &op : ops) {
         for (auto &label : labels[op]) {
-          std::fprintf(pfile, "[%d]=%-8s ", iout++, label.c_str());
+          std::fprintf(pfile, " [%d]=%-8s", iout++, label.c_str());
         }
       }
       std::fprintf(pfile, "\n"); // terminate line
+      ids_output.insert(output_params.file_id);
     }
 
     // write history variables
     std::fprintf(pfile, output_params.data_format.c_str(), tm->time);
     std::fprintf(pfile, output_params.data_format.c_str(), tm->dt);
+    std::fprintf(pfile, " %12d", tm->ncycle);
+    std::fprintf(pfile, " %12d", pm->nbtotal);
     for (auto &op : ops) {
       for (auto &result : results[op]) {
         std::fprintf(pfile, output_params.data_format.c_str(), result);
@@ -197,10 +216,7 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   }
 
   // advance output parameters
-  output_params.file_number++;
-  output_params.next_time += output_params.dt;
-  pin->SetInteger(output_params.block_name, "file_number", output_params.file_number);
-  pin->SetReal(output_params.block_name, "next_time", output_params.next_time);
+  UpdateNextOutput_(pm, tm);
 }
 
 } // namespace parthenon

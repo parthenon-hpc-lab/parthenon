@@ -27,11 +27,13 @@
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <tuple>
 #include <vector>
 
+#include "defs.hpp"
 #include "kokkos_abstraction.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
@@ -87,7 +89,17 @@ template <>
 void HDF5WriteAttribute(const std::string &name, const std::vector<std::string> &values,
                         hid_t location) {
   std::vector<const char *> char_ptrs(values.size());
-  for (size_t i = 0; i < values.size(); ++i) {
+  for (std::size_t i = 0; i < values.size(); ++i) {
+    char_ptrs[i] = values[i].c_str();
+  }
+  HDF5WriteAttribute(name, char_ptrs, location);
+}
+
+void HDF5WriteAttribute(const std::string &name,
+                        const std::array<std::string, BOUNDARY_NFACES> &values,
+                        hid_t location) {
+  std::vector<const char *> char_ptrs(values.size());
+  for (std::size_t i = 0; i < values.size(); ++i) {
     char_ptrs[i] = values[i].c_str();
   }
   HDF5WriteAttribute(name, char_ptrs, location);
@@ -100,7 +112,7 @@ std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string 
 
   // make strings out of char pointers, which copies the memory and then free the memeory
   std::vector<std::string> res(char_ptrs.size());
-  for (size_t i = 0; i < res.size(); ++i) {
+  for (std::size_t i = 0; i < res.size(); ++i) {
     res[i] = std::string(char_ptrs[i]);
     free(char_ptrs[i]);
   }
@@ -126,7 +138,7 @@ std::vector<bool> HDF5ReadAttributeVec(hid_t location, const std::string &name) 
   PARTHENON_HDF5_CHECK(H5Aread(attr, type, data.get()));
 
   std::vector<bool> res(size);
-  for (size_t i = 0; i < res.size(); ++i) {
+  for (std::size_t i = 0; i < res.size(); ++i) {
     res[i] = data[i];
   }
 
@@ -138,7 +150,7 @@ void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values
                         hid_t location) {
   // can't use std::vector here because std::vector<bool>  doesn't have .data() member
   std::unique_ptr<hbool_t[]> data(new hbool_t[values.size()]);
-  for (size_t i = 0; i < values.size(); ++i) {
+  for (std::size_t i = 0; i < values.size(); ++i) {
     data[i] = values[i];
   }
   HDF5WriteAttribute(name, values.size(), data.get(), location);

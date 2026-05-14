@@ -62,7 +62,7 @@ Multi-grid Grids Stored in ``Mesh``
 If the parameter ``parthenon/mesh/multigrid`` is set to ``true``, the ``Mesh``
 constructor and AMR routines populate both 
 ``std::vector<LogicalLocMap_t> Mesh::gmg_grid_locs`` and 
-``std::vector<BlockList_t> gmg_block_lists``, where each entry into the vectors 
+``std::vector<BlockList_t> gmg_block_lists_``, where each entry into the vectors 
 describes one level of the of the geometric multi-grid (GMG) mesh. For refined 
 meshes, each GMG level only includes blocks that are at a given logical level 
 (starting from the finest logical level on the grid and including both internal 
@@ -121,3 +121,20 @@ boundary communication routines with the boundary tags ``gmg_same``,
 ``gmg_restrict_send``, ``gmg_restrict_recv``, ``gmg_prolongate_send``, 
 ``gmg_prolongate_recv`` (see :ref:`boundary_comm_tasks`). 
 
+Parthenon Forest Implementation Details
+========================================
+
+Parthenon implements AMR via a forest of octrees type approach. 
+
+- A ``LogicalLocation`` is defined by the index of the octree location is contained in 
+  combined with the refinement level and location of the block within the octree. The 
+  location within the tree can be converted to a unique Morton number, and the combined 
+  Morton number and tree index can provide a unique index for the location. We use this 
+  fact to make ``LogicalLocation`` hashable so that it can be used with ``std::map`` 
+  and other hashed containers. 
+- Unlike in the Athena++ ``MeshBlockTree`` implementation that was historically used by 
+  Parthenon, the entire logical index space of each tree is within the domain of the problem. 
+  Even for some hyper-rectangular base meshes, this can result in forests that contain 
+  multiple trees. 
+
+  Some implementation notes about our forest can be found in `these notes <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/doc/latex/main.pdf>`_.

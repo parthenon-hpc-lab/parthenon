@@ -1,5 +1,9 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2025 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -308,7 +312,7 @@ void DoLotsOfWork(MeshBlockData<Real> *rc) {
 
         // surprisingly, this seems to be almost free
         if (num_iter > 0) {
-          Kokkos::atomic_increment(&hist(num_iter - N_min));
+          Kokkos::atomic_inc(&hist(num_iter - N_min));
         }
 
         for (int r = 0; r < num_iter; ++r) {
@@ -376,7 +380,8 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
   const int nvar = advected.GetDim(4);
-  size_t scratch_size_in_bytes = parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
+  std::size_t scratch_size_in_bytes =
+      parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
   parthenon::ParArray4D<Real> x1flux = rc->Get("bnd_flux::advected").data.Get(0, 0, 0);
   // get x-fluxes
   pmb->par_for_outer(

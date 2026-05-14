@@ -11,6 +11,9 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <algorithm>
+#include <cstdio>
+#include <memory>
 #include <sstream>
 #include <string>
 
@@ -235,8 +238,8 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
     if (Globals::my_rank == 0) {
       // print histogram
       printf("\nNum Iter Histogram:\n");
-      for (size_t i = 0; i < hist.extent(0); ++i) {
-        printf("%8lu  %10i\n", i + size_t(N_min), hist(i));
+      for (std::size_t i = 0; i < hist.extent(0); ++i) {
+        printf("%8lu  %10i\n", i + std::size_t(N_min), hist(i));
       }
     }
   }
