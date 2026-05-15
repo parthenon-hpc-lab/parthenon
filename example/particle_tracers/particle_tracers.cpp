@@ -28,6 +28,7 @@
 #include <vector>
 
 // Parthenon includes
+#include "amr_criteria/refinement_package.hpp"
 #include "basic_types.hpp"
 #include "bvals/comms/bvals_in_one.hpp"
 #include "config.hpp"
@@ -115,6 +116,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   const Real advected_amp = 0.5;
   adv_pkg->AddParam("advected_mean", advected_mean);
   adv_pkg->AddParam("advected_amp", advected_amp);
+  adv_pkg->AddParam("refine_tol", pin->GetOrAddReal("Background", "refine_tol", 1.25));
+  adv_pkg->AddParam("derefine_tol",
+                    pin->GetOrAddReal("Background", "derefine_tol", 1.05));
   PARTHENON_REQUIRE(advected_mean > advected_amp,
                     "Advected field must be everywere positive!");
 
@@ -130,7 +134,39 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // Assign package timestep hook
   adv_pkg->EstimateTimestepMesh = EstimateTimestepMesh;
 
+  adv_pkg->CheckRefinementBlock = CheckRefinementBlock;
+
   return adv_pkg;
+}
+
+AmrTag CheckRefinementBlock(MeshBlockData<Real> *rc) {
+  auto pmb = rc->GetBlockPointer();
+  auto pkg = pmb->packages.Get("advection_package");
+  static auto desc =
+      parthenon::MakePackDescriptor<field::advected>(pmb->resolved_packages.get());
+  auto pack = desc.GetPack(rc);
+
+  const IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
+  const IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);
+  const IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::entire);
+
+  typename Kokkos::MinMax<Real>::value_type minmax;
+  pmb->par_reduce(
+      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int k, const int j, const int i,
+                    typename Kokkos::MinMax<Real>::value_type &lminmax) {
+        const Real val = pack(0, field::advected(), k, j, i);
+        lminmax.min_val = val < lminmax.min_val ? val : lminmax.min_val;
+        lminmax.max_val = val > lminmax.max_val ? val : lminmax.max_val;
+      },
+      Kokkos::MinMax<Real>(minmax));
+
+  const auto &refine_tol = pkg->Param<Real>("refine_tol");
+  const auto &derefine_tol = pkg->Param<Real>("derefine_tol");
+
+  if (minmax.max_val > refine_tol) return AmrTag::refine;
+  if (minmax.max_val < derefine_tol) return AmrTag::derefine;
+  return AmrTag::same;
 }
 
 } // namespace advection_package
@@ -505,6 +541,15 @@ TaskCollection ParticleDriver::StepTasks() {
     auto defrag = tl.AddTask(deposit, parthenon::DefragSwarmsMesh, base, 0.9);
   }
 
+  if (pmesh->adaptive) {
+    auto &amr_region = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; ++i) {
+      auto &tl = amr_region[i];
+      auto &base = pmesh->mesh_data.GetOrAdd("base", i);
+      tl.AddTask(none, parthenon::Refinement::Tag<MeshData<Real>>, base.get());
+    }
+  }
+
   return tc;
 }
 
@@ -533,8 +578,9 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   // Mesh physical size
   const auto mesh_size = pmb->pmy_mesh->mesh_size;
-  const Real mesh_lx1 = mesh_size.xmax(X1DIR) - mesh_size.xmin(X1DIR);
-  const Real kwave = 2.0 * M_PI / mesh_lx1;
+  const Real x_min_mesh = mesh_size.xmin(X1DIR);
+  const Real x_max_mesh = mesh_size.xmax(X1DIR);
+  const Real kwave = 2.0 * M_PI / (x_max_mesh - x_min_mesh);
 
   // Create pack
   static auto desc = parthenon::MakePackDescriptor<field::advected>(resolved_pkgs.get());
