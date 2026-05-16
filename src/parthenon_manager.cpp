@@ -42,6 +42,7 @@
 #include "outputs/outputs_package.hpp"
 #include "outputs/restart.hpp"
 #include "outputs/restart_hdf5.hpp"
+#include "parameter_parsers/rummy_parser.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
 
@@ -119,24 +120,37 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     std::istringstream is(inputString);
     pinput->LoadFromStream(is);
   }
-  // If an input file was provided
-  if (!arg.input_filenames.empty()) {
-    // Modify info read from restart file
-    if (arg.is_restart) {
-      for (const auto &input_filename : arg.input_filenames) {
-        pinput->ReadFile(input_filename, arg.is_restart);
-      }
-      // Populate new object for fresh simulation
-    } else {
-      pinput = std::make_unique<ParameterInput>();
-      for (const auto &input_filename : arg.input_filenames) {
-        pinput->ReadFile(input_filename, arg.is_restart);
+  // Determine what parser to use
+  bool is_rummy = false;
+  for (const auto &input_filename : arg.input_filenames) {
+    if (IsRummyFormat(input_filename)) {
+      is_rummy = true;
+      break;
+    }
+  }
+  if (!is_rummy) {
+    for (const auto &mod : arg.modifiers) {
+      std::stringstream ss(mod);
+      if (IsRummyFormat(ss, true)) {
+        is_rummy = true;
+        break;
       }
     }
   }
 
-  // Modify based on command line inputs
-  pinput->ModifyFromCmdline(arg.modifiers);
+  // read the parameters
+  if (!arg.is_restart) {
+    pinput = std::make_unique<ParameterInput>();
+  }
+  if (is_rummy) {
+    LoadParameterFromRummy(*pinput, arg.input_filenames, arg.modifiers, arg.is_restart);
+  } else {
+    for (const auto &input_filename : arg.input_filenames) {
+      pinput->ReadFile(input_filename);
+    }
+    // Modify based on command line inputs
+    pinput->ModifyFromCmdline(arg.modifiers);
+  }
 
   // Finalize parsing phase - parsers can no longer add parameters
   pinput->FinalizeParsing();

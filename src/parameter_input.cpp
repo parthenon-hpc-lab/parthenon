@@ -68,40 +68,36 @@
 #include <vector>
 
 #include "globals.hpp"
-#include "parthenon_mpi.hpp"
-#include "rummy/deck.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
 
+//! \fn std::string SanitizeString(const std::string &input)
+//  \brief Strip leading/trailing whitespace and inline comments.
+std::string SanitizeString(const std::string &input) {
+  std::string output = input.substr(0, input.find('#')); // remove trailing comment
+  output.erase(output.begin(), std::find_if(output.begin(), output.end(),
+                                            [](char c) { return !std::isspace(c); }));
+  output.erase(std::find_if(output.rbegin(), output.rend(),
+                            [](char c) { return !std::isspace(c); })
+                   .base(),
+               output.end());
+  return output;
+}
 //----------------------------------------------------------------------------------------
 // ParameterInput constructor
 
-ParameterInput::ParameterInput()
-    : last_filename_{}, deck_(std::make_unique<Rummy::Deck>()) {}
+ParameterInput::ParameterInput() : last_filename_{} {}
 
-ParameterInput::ParameterInput(std::string input_filename)
-    : last_filename_{}, deck_(std::make_unique<Rummy::Deck>()) {
-  ReadFile(input_filename, false);
+ParameterInput::ParameterInput(std::string input_filename) : last_filename_{} {
+  ReadFile(input_filename);
 }
 
-void ParameterInput::ReadFile(const std::string &input_filename, const bool is_restart) {
-  if (IsRummyFormat(input_filename)) {
-    if (is_restart && !deck_initialized_) {
-      SyncDeckFromStorage();
-    }
-    LoadFromRummyFile(input_filename);
-    deck_initialized_ = true;
-    format = InputFormat::Rummy;
-  } else {
-    IOWrapper infile;
-    infile.Open(input_filename.c_str(), IOWrapper::FileMode::read);
-    LoadFromFile(infile);
-    infile.Close();
-    if (format != InputFormat::Rummy) {
-      format = InputFormat::Native;
-    }
-  }
+void ParameterInput::ReadFile(const std::string &input_filename) {
+  IOWrapper infile;
+  infile.Open(input_filename.c_str(), IOWrapper::FileMode::read);
+  LoadFromFile(infile);
+  infile.Close();
 }
 
 ParameterInput::~ParameterInput() = default;
@@ -253,320 +249,6 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
 }
 
 //----------------------------------------------------------------------------------------
-// Helper functions local to this translation unit for Rummy card conversion
-
-namespace {
-
-//! \fn std::string SanitizeString(const std::string &input)
-//  \brief Strip leading/trailing whitespace and inline comments.
-std::string SanitizeString(const std::string &input) {
-  std::string output = input.substr(0, input.find('#')); // remove trailing comment
-  output.erase(output.begin(), std::find_if(output.begin(), output.end(),
-                                            [](char c) { return !std::isspace(c); }));
-  output.erase(std::find_if(output.rbegin(), output.rend(),
-                            [](char c) { return !std::isspace(c); })
-                   .base(),
-               output.end());
-  return output;
-}
-//! \fn ParameterInput::ParamValue RummyCardToParamValue(const Rummy::Card &card)
-//   \brief Convert a Rummy Card to a ParameterInput::ParamValue for storage in
-//   ParameterInput.
-ParameterInput::ParamValue RummyCardToParamValue(const Rummy::Card &card) {
-  if (card.isBool()) {
-    return card.Get<bool>();
-  } else if (card.isString()) {
-    return card.Get<std::string>();
-  } else {
-    // Otherwise store as UnresolvedString to preserve full precision
-    return ParameterInput::UnresolvedString(
-        card.GetString(std::numeric_limits<double>::max_digits10));
-  }
-}
-
-//! \fn Rummy::Card ParamValueToRummyCard(suit, name, v)
-//   \brief Convert a scalar ParamValue to a Rummy::Card.
-Rummy::Card ParamValueToRummyCard(const std::string &suit, const std::string &name,
-                                  const ParameterInput::ParamValue &v) {
-  if (std::holds_alternative<bool>(v))
-    return Rummy::Card(suit, name, std::get<bool>(v), "");
-  if (std::holds_alternative<int>(v))
-    return Rummy::Card(suit, name, static_cast<double>(std::get<int>(v)), "");
-  if (std::holds_alternative<Real>(v))
-    return Rummy::Card(suit, name, static_cast<double>(std::get<Real>(v)), "");
-  if (std::holds_alternative<std::string>(v))
-    return Rummy::Card(suit, name, std::get<std::string>(v), "");
-  // UnresolvedString
-  const std::string &raw = std::get<UnresolvedString>(v).value;
-  std::string trimmed = SanitizeString(raw);
-
-  std::string lower = trimmed;
-  std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
-
-  if (lower == "true") return Rummy::Card(suit, name, true, "");
-  if (lower == "false") return Rummy::Card(suit, name, false, "");
-  try {
-    std::size_t pos;
-    double d = std::stod(trimmed, &pos);
-    return Rummy::Card(suit, name, d, "");
-  } catch (...) {
-  }
-  return Rummy::Card(suit, name, trimmed, "");
-}
-
-} // anonymous namespace
-
-//----------------------------------------------------------------------------------------
-//! \fn bool ParameterInput::IsRummyFormat(std::istream &is)
-//  \brief Detect whether a stream uses Rummy input format by scanning for markers:
-//           - First line is "# use rummy" (case-insensitive)
-//           - Non-comment, non-blank content before the first <block> line
-//           - Relative suit paths starting with <..
-//           - Rummy-specific value syntax: ** power operator, quoted strings,
-//             bracket syntax [ ] (vectors/slices), or slice colon inside brackets
-bool ParameterInput::IsRummyFormat(std::istream &is, const bool command_line) {
-  const auto start_pos = is.tellg();
-  auto restore_and_return = [&](bool result) {
-    is.clear();
-    is.seekg(start_pos);
-    return result;
-  };
-
-  bool first_line = true;
-  bool found_block = false;
-  std::string line;
-  while (std::getline(is, line)) {
-    line.erase(std::remove_if(line.begin(), line.end(),
-                              [](char c) { return std::isspace(c) && c != ' '; }),
-               line.end());
-    if (line.empty()) continue;
-    auto first_char = line.find_first_not_of(" ");
-    if (first_char == std::string::npos) continue;
-
-    // Check first non-blank line for "# use rummy" (case-insensitive)
-    if (first_line) {
-      first_line = false;
-      if (line.compare(first_char, 1, "#") == 0) {
-        std::string after_hash = line.substr(first_char + 1);
-        auto text_start = after_hash.find_first_not_of(" ");
-        if (text_start != std::string::npos) {
-          std::string token = after_hash.substr(text_start);
-          std::transform(token.begin(), token.end(), token.begin(), ::tolower);
-          if (token.compare(0, 10, "use native") == 0) return restore_and_return(false);
-          if (token.compare(0, 9, "use rummy") == 0) return restore_and_return(true);
-        }
-        continue;
-      }
-    } else {
-      if (line.compare(first_char, 1, "#") == 0) continue;
-    }
-
-    if (line.compare(first_char, 1, "<") == 0) {
-      if (line.size() > first_char + 2 && line.compare(first_char + 1, 2, "..") == 0) {
-        return restore_and_return(true);
-      }
-      found_block = true;
-      continue;
-    }
-
-    // Non-comment, non-blank content before the first block = Rummy global variable
-    // Disable for command line modifications
-    if (!command_line && !found_block) {
-      return restore_and_return(true);
-    }
-
-    // Rummy-specific syntax in the value part
-    auto eq_pos = line.find('=');
-    if (eq_pos != std::string::npos) {
-      std::string name_part = line.substr(first_char, eq_pos - first_char);
-      if (name_part.find_first_of(".[") != std::string::npos) {
-        return restore_and_return(true);
-      }
-
-      std::string value_part = SanitizeString(line.substr(eq_pos + 1));
-      // do not include +- because they can be used in exponential notation.
-      // / can be used in command line arguments
-      if (value_part.find_first_of("*\"[%^|") != std::string::npos) {
-        return restore_and_return(true);
-      }
-    }
-    // Slice syntax on the LHS: name[:2] or name[0:2]
-    std::string lhs =
-        line.substr(first_char, eq_pos == std::string::npos ? std::string::npos
-                                                            : eq_pos - first_char);
-    if (lhs.find('[') != std::string::npos) {
-      return restore_and_return(true);
-    }
-  }
-  return restore_and_return(false);
-}
-
-//! \fn bool ParameterInput::IsRummyFormat(const std::string &filename)
-//  \brief Detect whether a file uses Rummy input format. Delegates to the stream
-//  overload.
-bool ParameterInput::IsRummyFormat(const std::string &filename) {
-  std::ifstream file(filename);
-  if (!file.is_open()) return false;
-  return IsRummyFormat(file, false);
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void ParameterInput::LoadFromRummyStream(std::istream &is)
-//  \brief Load parameters from a Rummy-format stream into ParameterInput storage.
-void ParameterInput::LoadFromRummyStream(std::istream &is) {
-  PARTHENON_REQUIRE_THROWS(!parsing_finalized_,
-                           "Can't add new parameters after parsing is resolved.");
-
-  deck_->Build(is);
-
-  static const std::regex kVectorCardPattern(R"(^(.+)\[(\d+)\]$)");
-
-  for (const auto &suit_name : deck_->GetSuitsInOrder()) {
-    const std::string &block_name = suit_name;
-    const auto &suit_cards = deck_->GetCardsInOrder(suit_name);
-    for (const auto &card_name : suit_cards) {
-      // match for vector
-      if (deck_->IsCardVector(suit_name, card_name)) {
-        std::vector<std::string> comments;
-        auto elements = deck_->GetVector<std::string>(suit_name, card_name, comments);
-        std::string joined;
-        std::string joined_comments;
-        for (std::size_t i = 0; i < elements.size(); ++i) {
-          if (comments[i] != "") {
-            if (i > 0) {
-              joined_comments += " ";
-            }
-            joined_comments += comments[i];
-          }
-          if (i > 0) {
-            joined += ",";
-          }
-          joined += elements[i];
-        }
-        // Rummy stores comments without '#'
-        std::string comment;
-        if (!joined_comments.empty()) comment = "# " + joined_comments;
-        AddParsedParameter(block_name, card_name, UnresolvedString(joined), comment);
-      } else {
-        auto &card = deck_->GetCard(suit_name, card_name);
-        std::string comment;
-        if (!card.GetComment().empty()) comment = "# " + card.GetComment();
-        AddParsedParameter(block_name, card_name, RummyCardToParamValue(card), comment);
-      }
-    }
-  }
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void ParameterInput::SyncDeckFromStorage()
-//  \brief Seed the Rummy Deck from the current param_storage_ contents.
-void ParameterInput::SyncDeckFromStorage() {
-  std::map<std::string, std::map<std::string, Rummy::Card>> new_cards;
-  std::vector<std::string> new_suits;
-  std::map<std::string, std::vector<std::string>> new_card_map;
-
-  // Register a single card into the three structures, adding the suit on first use.
-  auto register_card = [&](const std::string &suit, const std::string &card_name,
-                           Rummy::Card card) {
-    if (new_cards.find(suit) == new_cards.end()) {
-      new_suits.push_back(suit);
-      new_card_map[suit] = {};
-    }
-    new_card_map[suit].push_back(card_name);
-    new_cards[suit][card_name] = std::move(card);
-  };
-
-  for (const auto &block : param_storage_) {
-    // Collapse the block name into a Rummy suit: non-empty '/' segments joined by '/'.
-    // A block that is only "/" (global scope) maps to suit "/".
-    std::string suit = "/";
-    {
-      std::string assembled;
-      std::istringstream bss(block.name);
-      std::string part;
-      while (std::getline(bss, part, '/')) {
-        if (!part.empty()) {
-          if (!assembled.empty()) assembled += '/';
-          assembled += part;
-        }
-      }
-      if (!assembled.empty()) suit = assembled;
-    }
-
-    for (const auto &param : block.params) {
-      // Vector variants expand to one card per element: name[0], name[1], ...
-      if (std::holds_alternative<std::vector<bool>>(param.value)) {
-        const auto &vec = std::get<std::vector<bool>>(param.value);
-        for (size_t i = 0; i < vec.size(); ++i) {
-          std::string cn = param.name + "[" + std::to_string(i) + "]";
-          register_card(suit, cn, Rummy::Card(suit, cn, static_cast<bool>(vec[i]), ""));
-        }
-      } else if (std::holds_alternative<std::vector<int>>(param.value)) {
-        const auto &vec = std::get<std::vector<int>>(param.value);
-        for (size_t i = 0; i < vec.size(); ++i) {
-          std::string cn = param.name + "[" + std::to_string(i) + "]";
-          register_card(suit, cn, Rummy::Card(suit, cn, static_cast<double>(vec[i]), ""));
-        }
-      } else if (std::holds_alternative<std::vector<Real>>(param.value)) {
-        const auto &vec = std::get<std::vector<Real>>(param.value);
-        for (size_t i = 0; i < vec.size(); ++i) {
-          std::string cn = param.name + "[" + std::to_string(i) + "]";
-          register_card(suit, cn, Rummy::Card(suit, cn, static_cast<double>(vec[i]), ""));
-        }
-      } else if (std::holds_alternative<std::vector<std::string>>(param.value)) {
-        const auto &vec = std::get<std::vector<std::string>>(param.value);
-        for (size_t i = 0; i < vec.size(); ++i) {
-          std::string cn = param.name + "[" + std::to_string(i) + "]";
-          register_card(suit, cn, Rummy::Card(suit, cn, vec[i], ""));
-        }
-      } else {
-        register_card(suit, param.name,
-                      ParamValueToRummyCard(suit, param.name, param.value));
-      }
-    }
-  }
-
-  deck_->SeedGlobals(new_cards, new_suits, new_card_map);
-}
-
-//! \fn void ParameterInput::LoadFromRummyFile(const std::string &filename)
-//  \brief MPI-safe loader for Rummy-format input files.
-void ParameterInput::LoadFromRummyFile(const std::string &filename) {
-  PARTHENON_REQUIRE_THROWS(!parsing_finalized_,
-                           "Can't add new parameters after parsing is resolved.");
-
-  std::string content;
-
-#ifdef MPI_PARALLEL
-  std::size_t content_size = 0;
-  if (Globals::my_rank == 0) {
-    std::ifstream file(filename);
-    PARTHENON_REQUIRE_THROWS(file.is_open(),
-                             "Could not open Rummy input file: " + filename);
-    std::ostringstream oss;
-    oss << file.rdbuf();
-    content = oss.str();
-    content_size = content.size();
-  }
-  PARTHENON_MPI_CHECK(
-      MPI_Bcast(&content_size, sizeof(std::size_t), MPI_BYTE, 0, MPI_COMM_WORLD));
-  content.resize(content_size);
-  PARTHENON_MPI_CHECK(MPI_Bcast(content.data(), static_cast<int>(content_size), MPI_BYTE,
-                                0, MPI_COMM_WORLD));
-#else
-  std::ifstream file(filename);
-  PARTHENON_REQUIRE_THROWS(file.is_open(),
-                           "Could not open Rummy input file: " + filename);
-  std::ostringstream oss;
-  oss << file.rdbuf();
-  content = oss.str();
-#endif
-
-  std::istringstream is(content);
-  LoadFromRummyStream(is);
-}
-
-//----------------------------------------------------------------------------------------
 //! \fn Block* ParameterInput::FindBlock_(const std::string & name)
 //  \brief find specified Block.  Returns pointer to block or nullptr.
 
@@ -672,16 +354,6 @@ void ParameterInput::ModifyFromCmdline(std::vector<std::string> mods) {
   std::stringstream ss;
   for (const auto &mod : mods) {
     ss << mod << " # From command line\n";
-  }
-
-  if (format == InputFormat::Rummy || IsRummyFormat(ss, true)) {
-    if (!deck_initialized_) {
-      SyncDeckFromStorage();
-      deck_initialized_ = true;
-    }
-    LoadFromRummyStream(ss);
-    format = InputFormat::Rummy;
-    return;
   }
 
   // Native parsing

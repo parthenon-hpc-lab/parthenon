@@ -239,6 +239,9 @@ add_library(parthenon
   pack/swarm_pack/swarm_pack_cache.hpp
   pack/swarm_pack/swarm_pack_types.hpp
 
+  parameter_parsers/rummy_parser.cpp
+  parameter_parsers/rummy_parser.hpp
+
   parthenon/driver.hpp
   parthenon/package.hpp
   parthenon/parthenon.hpp

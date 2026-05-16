@@ -28,7 +28,6 @@
 #include <any>
 #include <cstddef>
 #include <map>
-#include <memory>
 #include <optional>
 #include <ostream>
 #include <regex>
@@ -49,14 +48,9 @@
 #include "utils/type_list.hpp"
 #include "utils/utils.hpp"
 
-// Forward-declare Rummy::Deck
-namespace Rummy {
-class Deck;
-}
-
 namespace parthenon {
 
-enum class InputFormat { Native, Rummy, Unknown };
+std::string SanitizeString(const std::string &input);
 
 //----------------------------------------------------------------------------------------
 // Supported parameter types - single source of truth
@@ -223,16 +217,11 @@ class ParameterInput {
   ParameterInput();
   explicit ParameterInput(std::string input_filename);
   ~ParameterInput();
-  void ReadFile(const std::string &input_filename, const bool is_restart);
+  void ReadFile(const std::string &input_filename);
 
   // === PARSING INTERFACE ===
   void LoadFromStream(std::istream &is);
   void LoadFromFile(IOWrapper &input);
-  void LoadFromRummyFile(const std::string &filename);
-  void LoadFromRummyStream(std::istream &is);
-  void SyncDeckFromStorage();
-  static bool IsRummyFormat(std::istream &is, const bool command_line);
-  static bool IsRummyFormat(const std::string &filename);
   void ModifyFromCmdline(std::vector<std::string> mods);
 
   // === PARSER INTERFACE (for input sources like text files, Python, TOML, etc.) ===
@@ -446,13 +435,9 @@ class ParameterInput {
     return ret;
   }
 
-  void SetFormat(InputFormat fmt) { format = fmt; }
-  InputFormat GetFormat() const { return format; }
+  const std::vector<Block> &GetBlocks() const { return param_storage_; }
 
  private:
-  InputFormat format = InputFormat::Native;
-  bool deck_initialized_ = false;
-  std::unique_ptr<Rummy::Deck> deck_;
   // === PARAMETER STORAGE (vector-of-vectors, preserves insertion order) ===
   std::vector<Block> param_storage_; // Ordered storage (for iteration)
   std::unordered_map<std::string, size_t>
