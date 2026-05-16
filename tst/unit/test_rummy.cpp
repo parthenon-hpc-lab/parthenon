@@ -11,7 +11,10 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <unistd.h>
+
 #include <cstdio>
+#include <functional>
 #include <istream>
 #include <sstream>
 #include <string>
