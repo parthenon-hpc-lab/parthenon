@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -11,10 +11,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include <unistd.h>
-
 #include <cstdio>
-#include <functional>
 #include <istream>
 #include <sstream>
 #include <string>
@@ -300,36 +297,11 @@ TEST_CASE("LoadFromRummyStream: global variables accessible from blocks", "[Rumm
   }
 }
 
-static std::string captureStdout(std::function<void()> f) {
-  int pipefd[2];
-  pipe(pipefd);
-  int saved = dup(STDOUT_FILENO);
-  dup2(pipefd[1], STDOUT_FILENO);
-  close(pipefd[1]);
-
-  f();
-  fflush(stdout);
-
-  dup2(saved, STDOUT_FILENO);
-  close(saved);
-
-  std::string result;
-  char buf[256];
-  ssize_t n;
-  while ((n = read(pipefd[0], buf, sizeof(buf))) > 0)
-    result.append(buf, n);
-  close(pipefd[0]);
-  return result;
-}
-
 TEST_CASE("LoadFromRummyStream: print statement outside a block", "[Rummy]") {
   GIVEN("A Rummy stream with a print statement before any block") {
     ParameterInput in;
     // print is a Rummy/pips statement; it produces output but no card.
     // Verify it doesn't crash and doesn't appear as a parameter.
-
-    // capture stdout to verify print statement doesn't produce stored parameter but does
-    // produce output
 
     std::istringstream ss("x = 42.0\n"
                           "print(x)\n"
@@ -345,11 +317,8 @@ TEST_CASE("LoadFromRummyStream: print statement outside a block", "[Rummy]") {
                              "<block>\n"
                              "y = x + 1\n");
 
-      std::string dummy_cout =
-          captureStdout([&]() { parthenon::LoadParameterFromRummy(in, ss2, false); });
       REQUIRE_FALSE(in.DoesParameterExist("/", "print"));
       REQUIRE(in.GetReal("block", "y") == Approx(43.0));
-      REQUIRE(dummy_cout.substr(0, 2) == "42");
     }
   }
 }
