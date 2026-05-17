@@ -11,7 +11,6 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include <cstdio>
 #include <istream>
 #include <sstream>
 #include <string>
@@ -316,7 +315,7 @@ TEST_CASE("LoadFromRummyStream: print statement outside a block", "[Rummy]") {
                              "print(x)\n"
                              "<block>\n"
                              "y = x + 1\n");
-
+      parthenon::LoadParameterFromRummy(in, ss2, true);
       REQUIRE_FALSE(in.DoesParameterExist("/", "print"));
       REQUIRE(in.GetReal("block", "y") == Approx(43.0));
     }
