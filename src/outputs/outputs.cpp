@@ -360,8 +360,10 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       pnew_type = std::make_shared<HistoryOutput>(op);
     } else if (op.file_type == "ascent") {
       pnew_type = std::make_shared<AscentOutput>(op);
-    }  else if (op.file_type == "spectrum") {
-    pnew_type = std::make_shared<SpectralOutput>(op);
+    } else if (op.file_type == "spectrum") {
+      pnew_type = std::make_shared<SpectralOutput>(op);
+    } else if (op.file_type == "helicity_slice") {
+      pnew_type = std::make_shared<HelicitySliceOutput>(op);
     } else if (op.file_type == "openpmd") {
 #ifdef PARTHENON_ENABLE_OPENPMD
       const auto backend_config =
