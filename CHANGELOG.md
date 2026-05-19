@@ -25,6 +25,7 @@
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1339]](https://github.com/parthenon-hpc-lab/parthenon/pull/1339) Fixes doc for `numlevel` usage in non-AMR sims
 - [[PR 1393]](https://github.com/parthenon-hpc-lab/parthenon/pull/1393) Fixes a bug where CMake does not detect HDF5 parallel IO for HDF5 2.0.0 and later.
 - [[PR 1390]](https://github.com/parthenon-hpc-lab/parthenon/pull/1390) Fix bug where trailing comma in list in input deck treated as wildcard in some cases.
 - [[PR 1365]](https://github.com/parthenon-hpc-lab/parthenon/pull/1365) Fix boundary condition being called with coarse=true but no coarse neighbors.
