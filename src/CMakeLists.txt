@@ -11,6 +11,8 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
+# This file was made in part with generative AI.
+
 # Configure config.hpp
 set(PROBLEM_GENERATOR "<not-implemented>") # TODO: Figure out what to put here
 if (ENABLE_MPI)
@@ -191,6 +193,8 @@ add_library(parthenon
   mesh/meshblock.hpp
   mesh/meshblock_pack.hpp
   mesh/meshblock.cpp
+  mesh/swarm_amr_remesh.cpp
+  mesh/swarm_amr_remesh.hpp
 
   outputs/ascent.cpp
   outputs/histogram.cpp

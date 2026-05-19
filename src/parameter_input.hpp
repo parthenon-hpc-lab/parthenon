@@ -16,6 +16,8 @@
 //========================================================================================
 // This file was made in part with generative AI.
 
+// This file was created in part with the generative AI
+
 #ifndef PARAMETER_INPUT_HPP_
 #define PARAMETER_INPUT_HPP_
 //! \file parameter_input.hpp
@@ -515,11 +517,11 @@ class ParameterInput {
   template <typename T>
   std::string ConcatVector_(std::vector<T> &vec) {
     std::stringstream ss;
-    const int n = vec.size();
+    const std::size_t n = vec.size();
     if (n == 0) return "";
 
     ss << vec[0];
-    for (int i = 1; i < n; i++) {
+    for (std::size_t i = 1; i < n; i++) {
       ss << "," << vec[i];
     }
     return ss.str();
