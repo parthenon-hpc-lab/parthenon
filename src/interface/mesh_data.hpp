@@ -121,6 +121,7 @@ struct AllocationStatusCollector<VariableFluxPack<T>> {
 template <typename P, typename K, typename M, typename F>
 const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
                                    F &packing_function, PackIndexMap *map_out) {
+  PARTHENON_INSTRUMENT
   const auto nblocks = block_data_.size();
 
   // since the pack keys used by MeshBlockData includes the allocation status of each
@@ -200,6 +201,7 @@ const MeshBlockPack<P> &PackOnMeshByFlags(M &map, BlockDataList_t<Real> &block_d
                                           F &packing_function, PackIndexMap *map_out,
                                           FlagKeyMap &flagKeyMap,
                                           const std::vector<MetadataFlag> &flags) {
+  PARTHENON_INSTRUMENT
   const auto nblocks = block_data_.size();
 
   // since the pack keys used by MeshBlockData includes the allocation status of each
@@ -285,6 +287,7 @@ const MeshBlockPack<P> &PackOnMeshByNames(M &map, BlockDataList_t<Real> &block_d
                                           F &packing_function, PackIndexMap *map_out,
                                           NameKeyMap &nameKeyMap,
                                           const std::vector<std::string> &names) {
+  PARTHENON_INSTRUMENT
   const auto nblocks = block_data_.size();
 
   // since the pack keys used by MeshBlockData includes the allocation status of each
@@ -605,6 +608,7 @@ class MeshData {
   const auto &PackVariablesAndFluxes(const std::vector<std::string> &var_names,
                                      const std::vector<std::string> &flx_names,
                                      PackIndexMap &map) {
+    PARTHENON_INSTRUMENT
     return PackVariablesAndFluxesImpl(&map, var_names, flx_names);
   }
   const auto &PackVariablesAndFluxes(const std::vector<std::string> &var_names,

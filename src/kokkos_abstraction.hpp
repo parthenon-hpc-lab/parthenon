@@ -96,6 +96,11 @@ static struct LoopPatternUndefined {
 static struct OuterLoopPatternTeams {
 } outer_loop_pattern_teams_tag;
 
+struct OuterLoopPerfOpts {
+  std::optional<int> team_size;
+  std::optional<std::array<int, 2>> launch_bounds;
+};
+
 // collapses Nvector inner loops over a VectorRange policy and remaining over a
 // ThreadRange
 template <std::size_t Nvector>
@@ -421,7 +426,7 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
   template <typename ExecSpace>
   inline void dispatch(std::string name, ExecSpace exec_space, Bounds &&...bounds,
                        Function function, Args &&...args, const int scratch_level = 0,
-                       const std::size_t scratch_size_in_bytes = 0) {
+                       const std::size_t scratch_size_in_bytes = 0, OuterLoopPerfOpts perf_opts = OuterLoopPerfOpts()) {
     constexpr std::size_t Ninner =
         dispatch_type::HierarchicalPar::Nvector + dispatch_type::HierarchicalPar::Nthread;
 
@@ -440,7 +445,7 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
     dispatch_impl(pattern_tag, std::make_index_sequence<Rank - Ninner - isSimdFor>(),
                   std::make_index_sequence<Ninner>(), name, exec_space, bound_arr,
                   function, std::forward<Args>(args)..., scratch_level,
-                  scratch_size_in_bytes);
+                  scratch_size_in_bytes, perf_opts);
   }
 
   template <std::size_t... Is>
@@ -453,9 +458,12 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
                             sequence<InnerIs...>, std::string name, ExecSpace exec_space,
                             Kokkos::Array<IndexRange, Rank> bound_arr, Function function,
                             Args &&...args, const int scratch_level,
-                            const std::size_t scratch_size_in_bytes) {
+                            const std::size_t scratch_size_in_bytes, OuterLoopPerfOpts perf_opts = OuterLoopPerfOpts()) {
     static_assert(sizeof...(InnerIs) == 0);
     static_assert(sizeof...(OuterIs) == Rank - 1);
+    (void)perf_opts;
+    (void)scratch_level;
+    (void)scratch_size_in_bytes;
     if constexpr (Rank == 1) {
 #pragma omp simd
       for (int i = bound_arr[0].s; i <= bound_arr[0].e; i++) {
@@ -480,8 +488,11 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
                             sequence<InnerIs...>, std::string name, ExecSpace exec_space,
                             Kokkos::Array<IndexRange, Rank> bound_arr, Function function,
                             Args &&...args, const int scratch_level,
-                            const std::size_t scratch_size_in_bytes) {
+                            const std::size_t scratch_size_in_bytes, OuterLoopPerfOpts perf_opts = OuterLoopPerfOpts()) {
     static_assert(sizeof...(InnerIs) == 0);
+    (void)perf_opts;
+    (void)scratch_level;
+    (void)scratch_size_in_bytes;
     const auto idxer = MakeIndexer(bound_arr);
     kokkos_dispatch(
         Tag(), name, Kokkos::RangePolicy<>(exec_space, 0, idxer.size()),
@@ -498,8 +509,11 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
                             sequence<InnerIs...>, std::string name, ExecSpace exec_space,
                             Kokkos::Array<IndexRange, Rank> bound_arr, Function function,
                             Args &&...args, const int scratch_level,
-                            const std::size_t scratch_size_in_bytes) {
+                            const std::size_t scratch_size_in_bytes, OuterLoopPerfOpts perf_opts = OuterLoopPerfOpts()) {
     static_assert(sizeof...(InnerIs) == 0);
+    (void)perf_opts;
+    (void)scratch_level;
+    (void)scratch_size_in_bytes;
     constexpr std::size_t Nouter = sizeof...(OuterIs);
     Kokkos::Array<int, Nouter> tiling;
     for (int i = 0; i < Nouter - 1; i++)
@@ -520,20 +534,35 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
                             sequence<InnerIs...>, std::string name, ExecSpace exec_space,
                             Kokkos::Array<IndexRange, Rank> bound_arr, Function function,
                             Args &&...args, const int scratch_level,
-                            const std::size_t scratch_size_in_bytes) {
+                            const std::size_t scratch_size_in_bytes, OuterLoopPerfOpts perf_opts = OuterLoopPerfOpts()) {
     const std::size_t size = ((bound_arr[OuterIs].e - bound_arr[OuterIs].s + 1) * ...);
-    kokkos_dispatch(
-        Tag(), name,
-        team_policy(exec_space, size, Kokkos::AUTO)
-            .set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
-        KOKKOS_LAMBDA(team_mbr_t team_member, ExtraFuncArgs... fargs) {
-          const auto idxer = MakeIndexer(
-              Kokkos::Array<IndexRange, sizeof...(OuterIs)>{bound_arr[OuterIs]...});
-          const auto idx_arr = idxer.GetIdxArray(team_member.league_rank());
-          function(team_member, idx_arr[OuterIs]...,
-                   std::forward<ExtraFuncArgs>(fargs)...);
-        },
-        std::forward<Args>(args)...);
+    if (perf_opts.team_size.has_value()) {
+      kokkos_dispatch(
+          Tag(), name,
+          team_policy(exec_space, size, perf_opts.team_size.value())
+              .set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
+          KOKKOS_LAMBDA(team_mbr_t team_member, ExtraFuncArgs... fargs) {
+            const auto idxer = MakeIndexer(
+                Kokkos::Array<IndexRange, sizeof...(OuterIs)>{bound_arr[OuterIs]...});
+            const auto idx_arr = idxer.GetIdxArray(team_member.league_rank());
+            function(team_member, idx_arr[OuterIs]...,
+                     std::forward<ExtraFuncArgs>(fargs)...);
+          },
+          std::forward<Args>(args)...);
+    } else {
+      kokkos_dispatch(
+          Tag(), name,
+          team_policy(exec_space, size, Kokkos::AUTO)
+              .set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
+          KOKKOS_LAMBDA(team_mbr_t team_member, ExtraFuncArgs... fargs) {
+            const auto idxer = MakeIndexer(
+                Kokkos::Array<IndexRange, sizeof...(OuterIs)>{bound_arr[OuterIs]...});
+            const auto idx_arr = idxer.GetIdxArray(team_member.league_rank());
+            function(team_member, idx_arr[OuterIs]...,
+                     std::forward<ExtraFuncArgs>(fargs)...);
+          },
+          std::forward<Args>(args)...);
+    }
   }
 
   // Collapse inner Nvector + Nthread loops to thread/vector range policies and remaining
@@ -543,7 +572,9 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
                             sequence<InnerIs...>, std::string name, ExecSpace exec_space,
                             Kokkos::Array<IndexRange, Rank> bound_arr, Function function,
                             Args &&...args, const int scratch_level,
-                            const std::size_t scratch_size_in_bytes) {
+                            const std::size_t scratch_size_in_bytes, OuterLoopPerfOpts perf_opts = OuterLoopPerfOpts()) {
+    (void)scratch_level;
+    (void)scratch_size_in_bytes;
     const auto idxer =
         MakeIndexer(Kokkos::Array<IndexRange, sizeof...(OuterIs)>{bound_arr[OuterIs]...});
     using HierarchicalPar = typename dispatch_type::HierarchicalPar;
@@ -552,7 +583,7 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
     constexpr std::size_t Nouter = Rank - Nvector - Nthread;
     kokkos_dispatch(
         Tag(), name,
-        team_policy(exec_space, idxer.size(), Kokkos::AUTO)
+        team_policy(exec_space, idxer.size(), perf_opts.team_size.value_or(Kokkos::AUTO))
             .set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
 
         MakeCollapse<Rank, Nouter, Nthread, Nvector, ExtraFuncArgs...>(idxer, bound_arr,
@@ -638,6 +669,7 @@ template <typename Pattern, typename... AllArgs>
 inline std::enable_if_t<std::is_same<Pattern, OuterLoopPatternTeams>::value, void>
 par_for_outer(Pattern, const std::string &name, DevExecSpace exec_space,
               std::size_t scratch_size_in_bytes, const int scratch_level,
+              OuterLoopPerfOpts perf_opts,
               AllArgs &&...args) {
   using dispatchsig = DispatchSignature<TypeList<AllArgs...>>;
   static constexpr std::size_t Rank = dispatchsig::Rank;
@@ -649,7 +681,25 @@ par_for_outer(Pattern, const std::string &name, DevExecSpace exec_space,
 
   par_dispatch_impl<Tag, Pattern, Function, LoopBounds, Args, ExtraFuncArgs>().dispatch(
       name, exec_space, std::forward<AllArgs>(args)..., scratch_level,
-      scratch_size_in_bytes);
+      scratch_size_in_bytes, perf_opts);
+}
+
+template <typename Pattern, typename... AllArgs>
+inline std::enable_if_t<std::is_same<Pattern, OuterLoopPatternTeams>::value, void>
+par_for_outer(Pattern, const std::string &name, DevExecSpace exec_space,
+              std::size_t scratch_size_in_bytes, const int scratch_level,
+              AllArgs &&...args) {
+  using dispatchsig = DispatchSignature<TypeList<AllArgs...>>;
+  static constexpr std::size_t Rank = dispatchsig::Rank;
+  using Function = typename dispatchsig::Function;
+  using LoopBounds = typename dispatchsig::LoopBounds;
+  using Args = typename dispatchsig::Args;
+  using Tag = dispatch_impl::ParallelForDispatch;
+  using ExtraFuncArgs = typename function_signature<Rank, Function>::FArgs;
+
+  par_dispatch_impl<Tag, Pattern, Function, LoopBounds, Args, ExtraFuncArgs>().dispatch(
+      name, exec_space, std::forward<AllArgs>(args)..., scratch_level,
+      scratch_size_in_bytes, OuterLoopPerfOpts());
 }
 
 template <typename... Args>
