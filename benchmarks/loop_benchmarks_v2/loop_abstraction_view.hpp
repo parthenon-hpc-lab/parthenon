@@ -22,8 +22,8 @@ struct var_view_t {
   }
 };
 
-template <>
-struct var_view_t<IndexSpace<loop_tag::boiv, inner_tag::logical>> {
+template <inner_tag INNER_TAG>
+struct var_view_t<IndexSpace<loop_tag::boiv, INNER_TAG>> {
  public:
   parthenon::Real *data = nullptr;
 
@@ -58,16 +58,17 @@ KOKKOS_INLINE_FUNCTION auto GetView(const InnerIndexRange<IndexSpaceType> &idx_r
                                     ViewType &in, int var,
                                     std::array<int, 3> offset = {0, 0, 0}) {
   if constexpr (IndexSpaceType::loop_tag_v == loop_tag::boiv) {
-    static_assert(IndexSpaceType::inner_tag_v == inner_tag::logical,
+    static_assert(IndexSpaceType::inner_tag_v == inner_tag::logical_flat ||
+                  IndexSpaceType::inner_tag_v == inner_tag::logical_coords,
                   "boiv currently expects logical inner coordinates");
     return var_view_t<IndexSpaceType>{
-        &in(idx_range.block, var, idx_range.payload_.k + offset[0], idx_range.payload_.j + offset[1],
-            idx_range.payload_.i + offset[2])};
+        &in(idx_range.block, var, idx_range.k + offset[0], idx_range.j + offset[1],
+            idx_range.i + offset[2])};
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bovi &&
                        IndexSpaceType::inner_tag_v == inner_tag::memory) {
     return var_view_t<IndexSpaceType>{
-        &in(idx_range.block, var, idx_range.payload_.ks + offset[0], idx_range.payload_.js + offset[1],
-            idx_range.payload_.is + offset[2]),
+        &in(idx_range.block, var, idx_range.ks + offset[0], idx_range.js + offset[1],
+            idx_range.is + offset[2]),
         0, idx_range.pidx_space};
   } else {
     return GetInnerView(*idx_range.pidx_space, in, idx_range.block, var, offset);

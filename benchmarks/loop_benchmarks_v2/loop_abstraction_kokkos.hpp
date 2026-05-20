@@ -11,8 +11,6 @@ template <class IndexSpaceType, class F>
 void outer_kokkos(IndexSpaceType idx_space, F &&f) {
   using InnerIndexRangeType = InnerIndexRange<IndexSpaceType>;
   if constexpr (IndexSpaceType::loop_tag_v == loop_tag::boiv) {
-    static_assert(IndexSpaceType::inner_tag_v == inner_tag::logical,
-                  "boiv currently expects logical inner coordinates");
     const int cells_per_block = static_cast<int>(idx_space.GetLogicalIndexer().size());
     const int total = idx_space.GetNBlocks() * cells_per_block;
     Kokkos::parallel_for(
@@ -25,9 +23,9 @@ void outer_kokkos(IndexSpaceType idx_space, F &&f) {
           InnerIndexRangeType idx_range;
           idx_range.pidx_space = &idx_space;
           idx_range.block = b;
-          idx_range.payload_.k = k;
-          idx_range.payload_.j = j;
-          idx_range.payload_.i = i;
+          idx_range.k = k;
+          idx_range.j = j;
+          idx_range.i = i;
           f(idx_range, b);
         });
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bovi) {
@@ -56,7 +54,7 @@ void outer_kokkos(IndexSpaceType idx_space, F &&f) {
           InnerIndexRangeType idx_range;
           idx_range.pidx_space = &idx_space;
           idx_range.block = b;
-          idx_range.payload_.team_member = &member;
+          idx_range.team_member = &member;
           f(idx_range, b);
         });
   }
@@ -66,18 +64,24 @@ template <class InnerIndexRangeType, class F>
 KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_range, F &&f) {
   using IndexSpaceType =
       std::remove_cv_t<std::remove_reference_t<decltype(*idx_range.pidx_space)>>;
+  const auto &idx_space = *(idx_range.pidx_space);
   if constexpr (IndexSpaceType::loop_tag_v == loop_tag::boiv) {
-    f(Index3{idx_range.payload_.k, idx_range.payload_.j, idx_range.payload_.i});
+    if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
+      f(idx_space.GetLogicalIndexer().GetFlatIdx(idx_range.k, idx_range.j, idx_range.i));
+    } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
+      f(Index3{idx_range.k, idx_range.j, idx_range.i});
+    }
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bovi) {
     const auto &idx_space = *(idx_range.pidx_space);
-    const auto *team_member = idx_range.payload_.team_member;
+    const auto *team_member = idx_range.team_member;
     KOKKOS_ASSERT(team_member != nullptr);
     const auto &member = *team_member;
-    const int start = idx_range.payload_.flat_start;
-    const int end_exclusive = idx_range.payload_.flat_end + 1 - start;
+    const int start = idx_range.flat_start;
+    const int end_exclusive = idx_range.flat_end + 1 - start;
     Kokkos::parallel_for(Kokkos::TeamThreadRange(member, 0, end_exclusive),
                          KOKKOS_LAMBDA(const int idx) {
-                          if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
+                          if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory ||
+                                        IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
                             f(idx);
                           } else {
                              const auto [k, j, i] = idx_space.GetLogicalIndexer()(idx + start);
@@ -86,7 +90,7 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
                          });
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
     const auto &idx_space = *(idx_range.pidx_space);
-    const auto *team_member = idx_range.payload_.team_member;
+    const auto *team_member = idx_range.team_member;
     KOKKOS_ASSERT(team_member != nullptr);
     const auto &member = *team_member;
     const int nouter = GetNOuter(idx_space);
@@ -96,7 +100,8 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
                            const int logical_end =
                                std::min((o + 1) * idx_space.GetNInner() - 1,
                                         static_cast<int>(idx_space.GetLogicalIndexer().size()) - 1);
-                           if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
+                           if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory ||
+                                         IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
                              const auto [ks, js, is] = idx_space.GetLogicalIndexer()(logical_start);
                              const auto [ke, je, ie] = idx_space.GetLogicalIndexer()(logical_end);
                              const int flat_start = idx_space.GetMemoryIndexer().GetFlatIdx(ks, js, is);
@@ -109,7 +114,11 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
                                  Kokkos::TeamThreadRange(member, logical_start, logical_end + 1),
                                  KOKKOS_LAMBDA(const int idx) {
                                    const auto [k, j, i] = idx_space.GetLogicalIndexer()(idx);
-                                   f(idx_space.GetMemoryIndexer().GetFlatIdx(k, j, i));
+                                   if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
+                                     f(idx_space.GetLogicalIndexer().GetFlatIdx(k, j, i));
+                                   } else {
+                                     f(Index3{k, j, i});
+                                   }
                                  });
                            }
                          });

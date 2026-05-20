@@ -63,8 +63,11 @@ std::string PatternName() {
   }
   name += "_";
   switch (Pattern::inner_tag) {
-  case InnerTag::logical:
-    name += "logical";
+  case InnerTag::logical_flat:
+    name += "logical_flat";
+    break;
+  case InnerTag::logical_coords:
+    name += "logical_coords";
     break;
   case InnerTag::memory:
     name += "memory";
@@ -252,7 +255,8 @@ void CheckLogicalTouchesExactlyOnce(const TestSpec &spec, int ninner) {
 
 template <class Pattern>
 void CheckLogicalPatternDoesNotTouchHalo(const TestSpec &spec, int ninner) {
-  static_assert(Pattern::inner_tag == InnerTag::logical);
+  static_assert(Pattern::inner_tag == InnerTag::logical_flat ||
+                Pattern::inner_tag == InnerTag::logical_coords);
   const auto host = RunTouchCountCase<Pattern>(spec, ninner);
 
   for (int b = 0; b < spec.nblocks; ++b) {
@@ -379,36 +383,55 @@ void CheckPatternsAgree(const TestSpec &spec, int ninner, const std::array<int, 
 }
 
 void CheckAllPatternsLogicalTouchesExactlyOnce(const TestSpec &spec, int ninner) {
-  CheckLogicalTouchesExactlyOnce<Pattern<LoopTag::bvoi, InnerTag::logical>>(spec, ninner);
+  CheckLogicalTouchesExactlyOnce<Pattern<LoopTag::bvoi, InnerTag::logical_flat>>(spec, ninner);
+  CheckLogicalTouchesExactlyOnce<Pattern<LoopTag::bvoi, InnerTag::logical_coords>>(spec, ninner);
   CheckLogicalTouchesExactlyOnce<Pattern<LoopTag::bvoi, InnerTag::memory>>(spec, ninner);
-  CheckLogicalTouchesExactlyOnce<Pattern<LoopTag::bovi, InnerTag::logical>>(spec, ninner);
+  CheckLogicalTouchesExactlyOnce<Pattern<LoopTag::bovi, InnerTag::logical_flat>>(spec, ninner);
+  CheckLogicalTouchesExactlyOnce<Pattern<LoopTag::bovi, InnerTag::logical_coords>>(spec, ninner);
   CheckLogicalTouchesExactlyOnce<Pattern<LoopTag::bovi, InnerTag::memory>>(spec, ninner);
-  CheckLogicalTouchesExactlyOnce<Pattern<LoopTag::boiv, InnerTag::logical>>(spec, ninner);
+  CheckLogicalTouchesExactlyOnce<Pattern<LoopTag::boiv, InnerTag::logical_flat>>(spec, ninner);
+  CheckLogicalTouchesExactlyOnce<Pattern<LoopTag::boiv, InnerTag::logical_coords>>(spec,
+                                                                                   ninner);
 }
 
 void CheckAllPatternsNinnerIndependenceCenterOnly(const TestSpec &spec) {
   constexpr std::array<int, 0> none{};
-  CheckNinnerIndependence<Pattern<LoopTag::bvoi, InnerTag::logical>>(spec, none, none, none);
+  CheckNinnerIndependence<Pattern<LoopTag::bvoi, InnerTag::logical_flat>>(spec, none, none,
+                                                                          none);
+  CheckNinnerIndependence<Pattern<LoopTag::bvoi, InnerTag::logical_coords>>(spec, none, none,
+                                                                             none);
   CheckNinnerIndependence<Pattern<LoopTag::bvoi, InnerTag::memory>>(spec, none, none, none);
-  CheckNinnerIndependence<Pattern<LoopTag::bovi, InnerTag::logical>>(spec, none, none, none);
+  CheckNinnerIndependence<Pattern<LoopTag::bovi, InnerTag::logical_flat>>(spec, none, none,
+                                                                          none);
+  CheckNinnerIndependence<Pattern<LoopTag::bovi, InnerTag::logical_coords>>(spec, none, none,
+                                                                            none);
   CheckNinnerIndependence<Pattern<LoopTag::bovi, InnerTag::memory>>(spec, none, none, none);
-  CheckNinnerIndependence<Pattern<LoopTag::boiv, InnerTag::logical>>(spec, none, none, none);
+  CheckNinnerIndependence<Pattern<LoopTag::boiv, InnerTag::logical_flat>>(spec, none, none,
+                                                                          none);
+  CheckNinnerIndependence<Pattern<LoopTag::boiv, InnerTag::logical_coords>>(spec, none, none,
+                                                                            none);
 }
 
 void CheckAllPatternsNinnerIndependenceMixedStencil(const TestSpec &spec,
                                                     const std::array<int, 3> &x_offsets,
                                                     const std::array<int, 2> &y_offsets,
                                                     const std::array<int, 2> &z_offsets) {
-  CheckNinnerIndependence<Pattern<LoopTag::bvoi, InnerTag::logical>>(spec, x_offsets, y_offsets,
-                                                                      z_offsets);
+  CheckNinnerIndependence<Pattern<LoopTag::bvoi, InnerTag::logical_flat>>(spec, x_offsets,
+                                                                          y_offsets, z_offsets);
+  CheckNinnerIndependence<Pattern<LoopTag::bvoi, InnerTag::logical_coords>>(spec, x_offsets,
+                                                                            y_offsets, z_offsets);
   CheckNinnerIndependence<Pattern<LoopTag::bvoi, InnerTag::memory>>(spec, x_offsets, y_offsets,
                                                                      z_offsets);
-  CheckNinnerIndependence<Pattern<LoopTag::bovi, InnerTag::logical>>(spec, x_offsets, y_offsets,
-                                                                      z_offsets);
+  CheckNinnerIndependence<Pattern<LoopTag::bovi, InnerTag::logical_flat>>(spec, x_offsets,
+                                                                          y_offsets, z_offsets);
+  CheckNinnerIndependence<Pattern<LoopTag::bovi, InnerTag::logical_coords>>(spec, x_offsets,
+                                                                            y_offsets, z_offsets);
   CheckNinnerIndependence<Pattern<LoopTag::bovi, InnerTag::memory>>(spec, x_offsets, y_offsets,
                                                                      z_offsets);
-  CheckNinnerIndependence<Pattern<LoopTag::boiv, InnerTag::logical>>(spec, x_offsets, y_offsets,
-                                                                      z_offsets);
+  CheckNinnerIndependence<Pattern<LoopTag::boiv, InnerTag::logical_flat>>(spec, x_offsets,
+                                                                          y_offsets, z_offsets);
+  CheckNinnerIndependence<Pattern<LoopTag::boiv, InnerTag::logical_coords>>(spec, x_offsets,
+                                                                            y_offsets, z_offsets);
 }
 
 std::vector<TestSpec> CoverageSpecs() {
@@ -445,12 +468,18 @@ TEST_CASE("benchmark logical-tag patterns do not touch halos", "[unit]") {
 
   for (const auto &spec : CoverageSpecs()) {
     for (const int ninner : NinnerCases(spec)) {
-      CheckLogicalPatternDoesNotTouchHalo<Pattern<LoopTag::bvoi, InnerTag::logical>>(spec,
-                                                                                       ninner);
-      CheckLogicalPatternDoesNotTouchHalo<Pattern<LoopTag::bovi, InnerTag::logical>>(spec,
-                                                                                       ninner);
-      CheckLogicalPatternDoesNotTouchHalo<Pattern<LoopTag::boiv, InnerTag::logical>>(spec,
-                                                                                       ninner);
+      CheckLogicalPatternDoesNotTouchHalo<Pattern<LoopTag::bvoi, InnerTag::logical_flat>>(spec,
+                                                                                          ninner);
+      CheckLogicalPatternDoesNotTouchHalo<Pattern<LoopTag::bvoi, InnerTag::logical_coords>>(spec,
+                                                                                             ninner);
+      CheckLogicalPatternDoesNotTouchHalo<Pattern<LoopTag::bovi, InnerTag::logical_flat>>(spec,
+                                                                                          ninner);
+      CheckLogicalPatternDoesNotTouchHalo<Pattern<LoopTag::bovi, InnerTag::logical_coords>>(spec,
+                                                                                            ninner);
+      CheckLogicalPatternDoesNotTouchHalo<Pattern<LoopTag::boiv, InnerTag::logical_flat>>(spec,
+                                                                                          ninner);
+      CheckLogicalPatternDoesNotTouchHalo<Pattern<LoopTag::boiv, InnerTag::logical_coords>>(spec,
+                                                                                            ninner);
     }
   }
 }
@@ -476,7 +505,7 @@ TEST_CASE("benchmark loop abstraction patterns agree on logical interiors for mu
     return;
   }
 
-  using Reference = Pattern<LoopTag::boiv, InnerTag::logical>;
+  using Reference = Pattern<LoopTag::boiv, InnerTag::logical_coords>;
   constexpr std::array<int, 0> none{};
   constexpr std::array<int, 3> x_offsets{-1, 0, 1};
   constexpr std::array<int, 2> y_offsets{-1, 1};
@@ -484,41 +513,65 @@ TEST_CASE("benchmark loop abstraction patterns agree on logical interiors for mu
 
   for (const auto &spec : CoverageSpecs()) {
     const int ninner = NinnerCases(spec).front();
-    CheckPatternsAgree<0, 0, 0, Reference, Pattern<LoopTag::bvoi, InnerTag::logical>>(
+    CheckPatternsAgree<0, 0, 0, Reference, Pattern<LoopTag::bvoi, InnerTag::logical_flat>>(
+        spec, ninner, none, none, none);
+    CheckPatternsAgree<0, 0, 0, Reference, Pattern<LoopTag::bvoi, InnerTag::logical_coords>>(
         spec, ninner, none, none, none);
     CheckPatternsAgree<0, 0, 0, Reference, Pattern<LoopTag::bvoi, InnerTag::memory>>(
         spec, ninner, none, none, none);
-    CheckPatternsAgree<0, 0, 0, Reference, Pattern<LoopTag::bovi, InnerTag::logical>>(
+    CheckPatternsAgree<0, 0, 0, Reference, Pattern<LoopTag::bovi, InnerTag::logical_flat>>(
+        spec, ninner, none, none, none);
+    CheckPatternsAgree<0, 0, 0, Reference, Pattern<LoopTag::bovi, InnerTag::logical_coords>>(
         spec, ninner, none, none, none);
     CheckPatternsAgree<0, 0, 0, Reference, Pattern<LoopTag::bovi, InnerTag::memory>>(
         spec, ninner, none, none, none);
+    CheckPatternsAgree<0, 0, 0, Reference, Pattern<LoopTag::boiv, InnerTag::logical_flat>>(
+        spec, ninner, none, none, none);
 
     if (spec.nghost > 0) {
-      CheckPatternsAgree<3, 0, 0, Reference, Pattern<LoopTag::bvoi, InnerTag::logical>>(
+      CheckPatternsAgree<3, 0, 0, Reference, Pattern<LoopTag::bvoi, InnerTag::logical_flat>>(
+          spec, ninner, x_offsets, none, none);
+      CheckPatternsAgree<3, 0, 0, Reference, Pattern<LoopTag::bvoi, InnerTag::logical_coords>>(
           spec, ninner, x_offsets, none, none);
       CheckPatternsAgree<3, 0, 0, Reference, Pattern<LoopTag::bvoi, InnerTag::memory>>(
           spec, ninner, x_offsets, none, none);
-      CheckPatternsAgree<3, 0, 0, Reference, Pattern<LoopTag::bovi, InnerTag::logical>>(
+      CheckPatternsAgree<3, 0, 0, Reference, Pattern<LoopTag::bovi, InnerTag::logical_flat>>(
+          spec, ninner, x_offsets, none, none);
+      CheckPatternsAgree<3, 0, 0, Reference, Pattern<LoopTag::bovi, InnerTag::logical_coords>>(
           spec, ninner, x_offsets, none, none);
       CheckPatternsAgree<3, 0, 0, Reference, Pattern<LoopTag::bovi, InnerTag::memory>>(
           spec, ninner, x_offsets, none, none);
+      CheckPatternsAgree<3, 0, 0, Reference, Pattern<LoopTag::boiv, InnerTag::logical_flat>>(
+          spec, ninner, x_offsets, none, none);
 
-      CheckPatternsAgree<0, 2, 2, Reference, Pattern<LoopTag::bvoi, InnerTag::logical>>(
+      CheckPatternsAgree<0, 2, 2, Reference, Pattern<LoopTag::bvoi, InnerTag::logical_flat>>(
+          spec, ninner, none, y_offsets, z_offsets);
+      CheckPatternsAgree<0, 2, 2, Reference, Pattern<LoopTag::bvoi, InnerTag::logical_coords>>(
           spec, ninner, none, y_offsets, z_offsets);
       CheckPatternsAgree<0, 2, 2, Reference, Pattern<LoopTag::bvoi, InnerTag::memory>>(
           spec, ninner, none, y_offsets, z_offsets);
-      CheckPatternsAgree<0, 2, 2, Reference, Pattern<LoopTag::bovi, InnerTag::logical>>(
+      CheckPatternsAgree<0, 2, 2, Reference, Pattern<LoopTag::bovi, InnerTag::logical_flat>>(
+          spec, ninner, none, y_offsets, z_offsets);
+      CheckPatternsAgree<0, 2, 2, Reference, Pattern<LoopTag::bovi, InnerTag::logical_coords>>(
           spec, ninner, none, y_offsets, z_offsets);
       CheckPatternsAgree<0, 2, 2, Reference, Pattern<LoopTag::bovi, InnerTag::memory>>(
           spec, ninner, none, y_offsets, z_offsets);
+      CheckPatternsAgree<0, 2, 2, Reference, Pattern<LoopTag::boiv, InnerTag::logical_flat>>(
+          spec, ninner, none, y_offsets, z_offsets);
 
-      CheckPatternsAgree<3, 2, 2, Reference, Pattern<LoopTag::bvoi, InnerTag::logical>>(
+      CheckPatternsAgree<3, 2, 2, Reference, Pattern<LoopTag::bvoi, InnerTag::logical_flat>>(
+          spec, ninner, x_offsets, y_offsets, z_offsets);
+      CheckPatternsAgree<3, 2, 2, Reference, Pattern<LoopTag::bvoi, InnerTag::logical_coords>>(
           spec, ninner, x_offsets, y_offsets, z_offsets);
       CheckPatternsAgree<3, 2, 2, Reference, Pattern<LoopTag::bvoi, InnerTag::memory>>(
           spec, ninner, x_offsets, y_offsets, z_offsets);
-      CheckPatternsAgree<3, 2, 2, Reference, Pattern<LoopTag::bovi, InnerTag::logical>>(
+      CheckPatternsAgree<3, 2, 2, Reference, Pattern<LoopTag::bovi, InnerTag::logical_flat>>(
+          spec, ninner, x_offsets, y_offsets, z_offsets);
+      CheckPatternsAgree<3, 2, 2, Reference, Pattern<LoopTag::bovi, InnerTag::logical_coords>>(
           spec, ninner, x_offsets, y_offsets, z_offsets);
       CheckPatternsAgree<3, 2, 2, Reference, Pattern<LoopTag::bovi, InnerTag::memory>>(
+          spec, ninner, x_offsets, y_offsets, z_offsets);
+      CheckPatternsAgree<3, 2, 2, Reference, Pattern<LoopTag::boiv, InnerTag::logical_flat>>(
           spec, ninner, x_offsets, y_offsets, z_offsets);
     }
   }

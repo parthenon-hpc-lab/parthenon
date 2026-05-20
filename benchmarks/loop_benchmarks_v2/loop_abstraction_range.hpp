@@ -16,17 +16,22 @@ KOKKOS_FUNCTION InnerIndexRange<IndexSpaceType> FlatRange(
   out.block = b;
   const auto [ke, je, ie] = idx_space.GetLogicalIndexer()(logical_end);
   if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
-    out.payload_.flat_start = idx_space.GetMemoryIndexer().GetFlatIdx(ks, js, is);
-    out.payload_.flat_end = idx_space.GetMemoryIndexer().GetFlatIdx(ke, je, ie);
-  } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical) {
-    out.payload_.flat_start = logical_start;
-    out.payload_.flat_end = logical_end;
+    out.flat_start = idx_space.GetMemoryIndexer().GetFlatIdx(ks, js, is);
+    out.flat_end = idx_space.GetMemoryIndexer().GetFlatIdx(ke, je, ie);
+  } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_flat ||
+                       IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
+    out.flat_start = logical_start;
+    out.flat_end = logical_end;
   }
   if constexpr (IndexSpaceType::loop_tag_v != loop_tag::boiv) {
-    out.payload_.team_member = team_member;
-    out.payload_.ks = ks;
-    out.payload_.js = js;
-    out.payload_.is = is;
+    out.team_member = team_member;
+    out.ks = ks;
+    out.js = js;
+    out.is = is;
+  } else {
+    out.k = ks;
+    out.j = js;
+    out.i = is;
   }
   return out;
 }

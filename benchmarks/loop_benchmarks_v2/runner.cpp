@@ -137,12 +137,12 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
         break;
       case LoopKind::LoopAbstractionBoviLogical:
         RunLoopAbstractionCase<loop_abstraction::loop_tag::bovi,
-                               loop_abstraction::inner_tag::logical, SX, SY, SZ>(
+                               loop_abstraction::inner_tag::logical_coords, SX, SY, SZ>(
             spec, dataset, dx, dy, dz, alpha, beta);
         break;
       case LoopKind::LoopAbstractionBoivLogical:
         RunLoopAbstractionCase<loop_abstraction::loop_tag::boiv,
-                               loop_abstraction::inner_tag::logical, SX, SY, SZ>(
+                               loop_abstraction::inner_tag::logical_coords, SX, SY, SZ>(
             spec, dataset, dx, dy, dz, alpha, beta);
         break;
       case LoopKind::LoopAbstractionBvoiMemory:
@@ -152,7 +152,7 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
         break;
       case LoopKind::LoopAbstractionBvoiLogical:
         RunLoopAbstractionCase<loop_abstraction::loop_tag::bvoi,
-                               loop_abstraction::inner_tag::logical, SX, SY, SZ>(
+                               loop_abstraction::inner_tag::logical_flat, SX, SY, SZ>(
             spec, dataset, dx, dy, dz, alpha, beta);
         break;
       case LoopKind::CpuBoivContiguous:
