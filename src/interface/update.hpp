@@ -72,9 +72,9 @@ template <typename F, typename T>
 TaskStatus WeightedSumData(const F &flags, T *in1, T *in2, const Real w1, const Real w2,
                            T *out) {
   PARTHENON_INSTRUMENT
-  const auto &x = in1->PackVariables(flags);
-  const auto &y = in2->PackVariables(flags);
-  const auto &z = out->PackVariables(flags);
+  const auto &x = in1->PackVariablesByFlags(flags);
+  const auto &y = in2->PackVariablesByFlags(flags);
+  const auto &z = out->PackVariablesByFlags(flags);
   parthenon::par_for(
       PARTHENON_AUTO_LABEL, 0, x.GetDim(5) - 1, 0, x.GetDim(4) - 1, 0, x.GetDim(3) - 1, 0,
       x.GetDim(2) - 1, 0, x.GetDim(1) - 1,

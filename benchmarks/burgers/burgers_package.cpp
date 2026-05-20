@@ -178,7 +178,7 @@ Real EstimateTimestepMesh(MeshData<Real> *md) {
   const auto &cfl = params.Get<Real>("cfl");
 
   std::vector<std::string> vars({"U"});
-  auto &v = md->PackVariables(vars);
+  auto &v = md->PackVariablesByNames(vars);
   const int ndim = pm->ndim;
 
   Real min_dt;
@@ -213,7 +213,7 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   std::vector<std::string> vars({"U", "Ulx", "Urx", "Uly", "Ury", "Ulz", "Urz"});
   std::vector<std::string> flxs({"U"});
   PackIndexMap imap;
-  auto v = md->PackVariablesAndFluxes(vars, flxs, imap);
+  auto v = md->PackVariablesAndFluxesByNames(vars, flxs, imap); 
   const int iu_lo = imap["U"].first;
   const int iu_hi = imap["U"].second;
   const int iulx_lo = imap["Ulx"].first;
@@ -417,7 +417,7 @@ Real MassHistory(MeshData<Real> *md, const Real x1min, const Real x1max, const R
   const auto &mesh_vol = params.Get<Real>("mesh_volume");
 
   std::vector<std::string> vars = {"U"};
-  const auto pack = md->PackVariables(vars);
+  const auto pack = md->PackVariablesByNames(vars);
 
   Real result = 0.0;
   parthenon::par_reduce(
