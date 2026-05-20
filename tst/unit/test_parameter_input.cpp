@@ -555,6 +555,8 @@ TEST_CASE("Parser interface works without FinalizeParsing for backward compatibi
       }
     }
   }
+}
+
 TEST_CASE("Empty vector defaults round-trip through the parameter store",
           "[ParameterInput]") {
   ParameterInput in;
