@@ -1,6 +1,8 @@
 #pragma once
 
 #include "loop_abstraction_base.hpp"
+#include "loop_abstraction_range.hpp"
+#include "loop_abstraction_view.hpp"
 #include "loop_abstraction_kokkos.hpp"
 #include "loop_abstraction_raw.hpp"
 

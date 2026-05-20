@@ -38,8 +38,8 @@ void RunKernel(const View5D &input, View5D &output, int nblocks, int nvar, int n
   loop_abstraction::IndexSpace<LOOP_TAG, INNER_TAG> idx_space(nblocks, n, n, n, nghost);
   loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int /*b*/) {
     for (int v = 0; v < nvar; ++v) {
-      auto in = idx_range.view(input, v);
-      auto out = idx_range.view(output, v);
+      auto in = loop_abstraction::GetView(idx_range, input, v);
+      auto out = loop_abstraction::GetView(idx_range, output, v);
 
       // Just to verify vectorization
       // raw_inner_probe(idx_range, out, in);
@@ -49,9 +49,9 @@ void RunKernel(const View5D &input, View5D &output, int nblocks, int nvar, int n
       });
     }
     
-    auto in0 = idx_range.view(input, 0);
-    auto in1 = idx_range.view(input, 1, {1, 0, 1});
-    auto out = idx_range.view(output, 0);
+    auto in0 = loop_abstraction::GetView(idx_range, input, 0);
+    auto in1 = loop_abstraction::GetView(idx_range, input, 1, {1, 0, 1});
+    auto out = loop_abstraction::GetView(idx_range, output, 0);
     loop_abstraction::inner(idx_range, KOKKOS_LAMBDA(auto idx) {
       out(idx) = in0(idx) *  2.01 + in1(idx) * 3.12341 + out(idx);
     });

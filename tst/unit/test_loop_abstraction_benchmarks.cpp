@@ -169,7 +169,7 @@ auto RunTouchCountCase(const TestSpec &spec, int ninner) {
 
   plb2::loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
     for (int v = 0; v < active_counts(b); ++v) {
-      auto out = idx_range.view(counts, v);
+      auto out = plb2::loop_abstraction::GetView(idx_range, counts, v);
       plb2::loop_abstraction::inner(idx_range, [&](const auto idx) { out(idx) += 1.0; });
     }
   });
@@ -191,21 +191,21 @@ auto RunStencilCase(const TestSpec &spec, int ninner, const std::array<int, SX> 
 
   plb2::loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
     for (int v = 0; v < active_counts(b); ++v) {
-      auto center = idx_range.view(input, v);
-      auto out = idx_range.view(output, v);
+      auto center = plb2::loop_abstraction::GetView(idx_range, input, v);
+      auto out = plb2::loop_abstraction::GetView(idx_range, output, v);
 
       std::array<decltype(center), SX> x_views{};
       std::array<decltype(center), SY> y_views{};
       std::array<decltype(center), SZ> z_views{};
 
       for (int ix = 0; ix < SX; ++ix) {
-        x_views[ix] = idx_range.view(input, v, {0, 0, dx[ix]});
+        x_views[ix] = plb2::loop_abstraction::GetView(idx_range, input, v, {0, 0, dx[ix]});
       }
       for (int iy = 0; iy < SY; ++iy) {
-        y_views[iy] = idx_range.view(input, v, {0, dy[iy], 0});
+        y_views[iy] = plb2::loop_abstraction::GetView(idx_range, input, v, {0, dy[iy], 0});
       }
       for (int iz = 0; iz < SZ; ++iz) {
-        z_views[iz] = idx_range.view(input, v, {dz[iz], 0, 0});
+        z_views[iz] = plb2::loop_abstraction::GetView(idx_range, input, v, {dz[iz], 0, 0});
       }
 
       plb2::loop_abstraction::inner(idx_range, [&](const auto idx) {

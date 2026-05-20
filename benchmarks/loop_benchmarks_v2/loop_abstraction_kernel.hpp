@@ -27,21 +27,21 @@ inline void RunUnifiedKernelWithLoopAbstraction(
                           KOKKOS_LAMBDA(const auto &idx_range, int b) {
                             const int nvars = active_counts(b);
                             for (int v = 0; v < nvars; ++v) {
-                              auto in = idx_range.view(input, v);
-                              auto out = idx_range.view(output, v);
+                              auto in = loop_abstraction::GetView(idx_range, input, v);
+                              auto out = loop_abstraction::GetView(idx_range, output, v);
 
                               std::array<decltype(in), SX> x_views{};
                               std::array<decltype(in), SY> y_views{};
                               std::array<decltype(in), SZ> z_views{};
 
                               for (int ix = 0; ix < SX; ++ix) {
-                                x_views[ix] = idx_range.view(input, v, {0, 0, dx[ix]});
+                                x_views[ix] = loop_abstraction::GetView(idx_range, input, v, {0, 0, dx[ix]});
                               }
                               for (int iy = 0; iy < SY; ++iy) {
-                                y_views[iy] = idx_range.view(input, v, {0, dy[iy], 0});
+                                y_views[iy] = loop_abstraction::GetView(idx_range, input, v, {0, dy[iy], 0});
                               }
                               for (int iz = 0; iz < SZ; ++iz) {
-                                z_views[iz] = idx_range.view(input, v, {dz[iz], 0, 0});
+                                z_views[iz] = loop_abstraction::GetView(idx_range, input, v, {dz[iz], 0, 0});
                               }
 
                               loop_abstraction::inner(
