@@ -164,7 +164,7 @@ auto RunTouchCountCase(const TestSpec &spec, int ninner) {
   auto counts = MakeView("touch_counts", spec);
   Kokkos::deep_copy(counts, 0.0);
 
-  plb2::loop_abstraction::index_space_t<Pattern::loop_tag, Pattern::inner_tag> idx_space(
+  plb2::loop_abstraction::IndexSpace<Pattern::loop_tag, Pattern::inner_tag> idx_space(
       spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
 
   plb2::loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
@@ -186,7 +186,7 @@ auto RunStencilCase(const TestSpec &spec, int ninner, const std::array<int, SX> 
   InitializeInput(spec, input);
   Kokkos::deep_copy(output, 0.0);
 
-  plb2::loop_abstraction::index_space_t<Pattern::loop_tag, Pattern::inner_tag> idx_space(
+  plb2::loop_abstraction::IndexSpace<Pattern::loop_tag, Pattern::inner_tag> idx_space(
       spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
 
   plb2::loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {

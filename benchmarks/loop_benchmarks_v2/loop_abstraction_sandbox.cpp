@@ -8,11 +8,11 @@
 
 #include "loop_abstraction.hpp"
 
-using IS = plb2::loop_abstraction::index_space_t<
+using IS = plb2::loop_abstraction::IndexSpace<
     plb2::loop_abstraction::loop_tag::bovi,
     plb2::loop_abstraction::inner_tag::memory>;
 
-using IR = plb2::loop_abstraction::inner_index_range_t<IS>;
+using IR = plb2::loop_abstraction::InnerIndexRange<IS>;
 
 using VW = plb2::loop_abstraction::var_view_t<IS>;
 
@@ -35,7 +35,7 @@ void RunKernel(const View5D &input, View5D &output, int nblocks, int nvar, int n
                int nghost) {
   using namespace plb2;
 
-  loop_abstraction::index_space_t<LOOP_TAG, INNER_TAG> idx_space(nblocks, n, n, n, nghost);
+  loop_abstraction::IndexSpace<LOOP_TAG, INNER_TAG> idx_space(nblocks, n, n, n, nghost);
   loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int /*b*/) {
     for (int v = 0; v < nvar; ++v) {
       auto in = idx_range.view(input, v);

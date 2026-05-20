@@ -20,8 +20,8 @@ inline void RunUnifiedKernelWithLoopAbstraction(
     const std::array<int, SY> &dy, const std::array<int, SZ> &dz,
     const std::array<double, kMaxNiter> &alpha, const std::array<double, kMaxNiter> &beta,
     int niter, std::optional<int> ninner = std::nullopt) {
-  loop_abstraction::index_space_t<LOOP_TAG, INNER_TAG> idx_space(nblocks, nx, ny, nz, nghost,
-                                                                  ninner);
+  loop_abstraction::IndexSpace<LOOP_TAG, INNER_TAG> idx_space(nblocks, nx, ny, nz, nghost,
+                                                              ninner);
 
   loop_abstraction::outer(idx_space,
                           KOKKOS_LAMBDA(const auto &idx_range, int b) {
