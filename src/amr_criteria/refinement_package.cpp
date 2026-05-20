@@ -144,6 +144,7 @@ void FirstDerivative(const AMRBounds &bnds, MeshData<Real> *md, const std::strin
                      const int &idx, ParArray1D<AmrTag> &amr_tags,
                      const Real refine_criteria_, const Real derefine_criteria_,
                      const int max_level_) {
+  PARTHENON_INSTRUMENT
   CheckRefinementLoop(
       bnds, md, field, idx, amr_tags, refine_criteria_, derefine_criteria_, max_level_,
       KOKKOS_LAMBDA(SparsePack<> pack, const int ndim, const int b, const int var,
@@ -169,6 +170,7 @@ void SecondDerivative(const AMRBounds &bnds, MeshData<Real> *md, const std::stri
                       const int &idx, ParArray1D<AmrTag> &amr_tags,
                       const Real refine_criteria_, const Real derefine_criteria_,
                       const int max_level_) {
+  PARTHENON_INSTRUMENT
   CheckRefinementLoop(
       bnds, md, field, idx, amr_tags, refine_criteria_, derefine_criteria_, max_level_,
       KOKKOS_LAMBDA(SparsePack<> pack, const int ndim, const int b, const int var,
@@ -220,16 +222,23 @@ TaskStatus Tag(MeshBlockData<Real> *rc) {
 template <>
 TaskStatus Tag(MeshData<Real> *md) {
   PARTHENON_INSTRUMENT
+  Kokkos::Profiling::pushRegion("CheckAllRefinement");
   ParArray1D<AmrTag> amr_tags = CheckAllRefinement(md);
   auto amr_tags_h = amr_tags.GetHostMirrorAndCopy();
+  Kokkos::Profiling::popRegion();
 
+  Kokkos::Profiling::pushRegion("SetRefinement1");
   for (int i = 0; i < md->NumBlocks(); i++) {
     SetRefinement_(md->GetBlockData(i).get(), amr_tags_h(i));
   }
+  Kokkos::Profiling::popRegion();
+
+  Kokkos::Profiling::pushRegion("SetRefinement2");
   for (int i = 0; i < md->NumBlocks(); i++) {
     auto pmb = md->GetBlockData(i).get()->GetBlockPointer();
     pmb->pmr->SetRefinement(amr_tags_h(i));
   }
+  Kokkos::Profiling::popRegion();
   return TaskStatus::complete;
 }
 
