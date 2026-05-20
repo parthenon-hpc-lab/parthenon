@@ -10,7 +10,6 @@ following lines to the ``<parthenon/mesh>`` block of your input file:
 .. code::
 
   refinement = static # Enable static mesh refinement
-  numlevel = 5 # maximum number of refined levels allowed
 
 Then you may add any number of blocks named
 ``<parthenon/static_refinement*>``, where ``*`` is a number. Each
