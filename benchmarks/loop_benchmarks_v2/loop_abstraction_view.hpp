@@ -10,15 +10,31 @@ template <class IndexSpaceType>
 struct var_view_t {
  public:
   parthenon::Real *data = nullptr;
-  int shift;
+  int flattened_offset = 0;
   const IndexSpaceType *pidx_space = nullptr;
 
   KOKKOS_FUNCTION
-  parthenon::Real &operator()(int idx) const { return data[idx + shift]; }
+  parthenon::Real &operator()(int idx) const { return data[idx + flattened_offset]; }
 
   KOKKOS_FUNCTION
   parthenon::Real &operator()(Index3 in) const {
-    return data[pidx_space->GetMemoryIndexer().GetFlatIdx(in.k, in.j, in.i) + shift];
+    return data[pidx_space->GetMemoryIndexer().GetFlatIdx(in.k, in.j, in.i) + flattened_offset];
+  }
+};
+
+template <inner_tag INNER_TAG>
+struct var_view_t<IndexSpace<loop_tag::bovi, INNER_TAG>> {
+ public:
+  parthenon::Real *data = nullptr;
+  int shift = 0;
+  const IndexSpace<loop_tag::bovi, INNER_TAG> *pidx_space = nullptr;
+
+  KOKKOS_FUNCTION
+  parthenon::Real &operator()(int idx) const { return data[idx]; }
+
+  KOKKOS_FUNCTION
+  parthenon::Real &operator()(Index3 in) const {
+    return data[pidx_space->GetMemoryIndexer().GetFlatIdx(in.k, in.j, in.i) - shift];
   }
 };
 
@@ -53,10 +69,12 @@ KOKKOS_INLINE_FUNCTION auto GetView(const InnerIndexRange<IndexSpaceType> &idx_r
             idx_range.i + offset[2])};
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bovi &&
                        IndexSpaceType::inner_tag_v == inner_tag::memory) {
+    const int shift = idx_range.pidx_space->GetMemoryIndexer().GetFlatIdx(
+        idx_range.ks + offset[0], idx_range.js + offset[1], idx_range.is + offset[2]);
     return var_view_t<IndexSpaceType>{
         &in(idx_range.block, var, idx_range.ks + offset[0], idx_range.js + offset[1],
             idx_range.is + offset[2]),
-        0, idx_range.pidx_space};
+        shift, idx_range.pidx_space};
   } else {
     const auto &idx_space = *idx_range.pidx_space;
     return var_view_t<IndexSpaceType>{&in(idx_range.block, var, 0, 0, 0),

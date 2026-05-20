@@ -64,18 +64,26 @@ constexpr std::string_view PatternName() {
   }
 }
 
-template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+template <inner_tag INNER_TAG>
 constexpr bool UsesMemorySpan() {
   return INNER_TAG == inner_tag::memory;
 }
 
-template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG, class IndexRangeType>
 KOKKOS_INLINE_FUNCTION Index3 FlatToKji(const PatternIndexSpace<LOOP_TAG, INNER_TAG> &idx_space,
+                                        const IndexRangeType &idx_range,
                                         int idx) {
   if constexpr (LOOP_TAG == loop_tag::boiv && INNER_TAG == inner_tag::logical_flat) {
     const auto [k, j, i] = idx_space.GetLogicalIndexer()(idx);
     return {k, j, i};
+  } else if constexpr (LOOP_TAG == loop_tag::bovi) {
+    // bovi bodies are chunk-relative in the memory index space, regardless of inner tag.
+    const int shift =
+        idx_space.GetMemoryIndexer().GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
+    const auto [k, j, i] = idx_space.GetMemoryIndexer()(idx + shift);
+    return {k, j, i};
   } else {
+    // bvoi bodies also use absolute memory-flat indexing here.
     const auto [k, j, i] = idx_space.GetMemoryIndexer()(idx);
     return {k, j, i};
   }
@@ -130,7 +138,7 @@ void CheckLogicalContract(const IndexSpaceType &idx_space,
         const auto [k, j, i] = logical(flat);
         REQUIRE(host(b, v, k, j, i) == Approx(EncodeValue(b, v, k, j, i)));
       }
-      if constexpr (!UsesMemorySpan<IndexSpaceType::loop_tag_v, IndexSpaceType::inner_tag_v>()) {
+      if constexpr (!UsesMemorySpan<IndexSpaceType::inner_tag_v>()) {
         for (int k = memory.template StartIdx<0>(); k <= memory.template EndIdx<0>(); ++k) {
           for (int j = memory.template StartIdx<1>(); j <= memory.template EndIdx<1>(); ++j) {
             for (int i = memory.template StartIdx<2>(); i <= memory.template EndIdx<2>(); ++i) {
@@ -188,7 +196,7 @@ parthenon::HostArray5D<Real> RunAutoIndexBody(const ProblemSpec &spec, const int
             plb2::loop_abstraction::impl::inner_kokkos(
                 idx_range, KOKKOS_LAMBDA(auto idx) {
                   if constexpr (std::is_same_v<std::decay_t<decltype(idx)>, int>) {
-                    const auto kji = FlatToKji<LOOP_TAG, INNER_TAG>(idx_space, idx);
+                    const auto kji = FlatToKji<LOOP_TAG, INNER_TAG>(idx_space, idx_range, idx);
                     out(b, v, kji.k, kji.j, kji.i) +=
                         EncodeValue(b, v, kji.k, kji.j, kji.i);
                   } else {
@@ -202,7 +210,7 @@ parthenon::HostArray5D<Real> RunAutoIndexBody(const ProblemSpec &spec, const int
       for (int v = 0; v < kNVars; ++v) {
         plb2::loop_abstraction::inner(idx_range, [&](auto idx) {
           if constexpr (std::is_same_v<std::decay_t<decltype(idx)>, int>) {
-            const auto kji = FlatToKji<LOOP_TAG, INNER_TAG>(idx_space, idx);
+            const auto kji = FlatToKji<LOOP_TAG, INNER_TAG>(idx_space, idx_range, idx);
             out(b, v, kji.k, kji.j, kji.i) += EncodeValue(b, v, kji.k, kji.j, kji.i);
           } else {
             out(b, v, idx.k, idx.j, idx.i) += EncodeValue(b, v, idx.k, idx.j, idx.i);

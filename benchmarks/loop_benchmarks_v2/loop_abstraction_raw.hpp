@@ -106,6 +106,7 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bovi) {
     const int start = idx_range.flat_start;
     const int end_exclusive = idx_range.flat_end + 1 - start;
+    const int mem_start = idx_space.GetMemoryIndexer().GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is); 
 #pragma omp simd
     for (int idx = 0; idx < end_exclusive; ++idx) {
       if constexpr (std::is_invocable_v<F, int, int, int>) {
@@ -120,7 +121,7 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
         f(idx);
       } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
         const auto [k, j, i] = idx_space.GetLogicalIndexer()(idx + start);
-        f(idx_space.GetMemoryIndexer().GetFlatIdx(k, j, i));
+        f(idx_space.GetMemoryIndexer().GetFlatIdx(k, j, i) - mem_start);
       } else {
         const auto [k, j, i] = idx_space.GetLogicalIndexer()(idx + start);
         f(Index3{k, j, i});
