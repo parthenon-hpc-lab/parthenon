@@ -40,19 +40,6 @@ struct var_view_t<IndexSpace<loop_tag::boiv, INNER_TAG>> {
   }
 };
 
-template <loop_tag LOOP_TAG, inner_tag INNER_TAG, class ViewType>
-KOKKOS_INLINE_FUNCTION auto GetInnerView(const IndexSpace<LOOP_TAG, INNER_TAG> &idx_space,
-                                         ViewType &in, int block, int var,
-                                         std::array<int, 3> offset = {0, 0, 0}) {
-  return var_view_t<IndexSpace<LOOP_TAG, INNER_TAG>>{&in(block, var, 0, 0, 0),
-                                                     static_cast<int>(idx_space.GetMemoryIndexer()
-                                                                          .GetFlatIdx(
-                                                                              offset[0],
-                                                                              offset[1],
-                                                                              offset[2])),
-                                                     &idx_space};
-}
-
 template <class IndexSpaceType, class ViewType>
 KOKKOS_INLINE_FUNCTION auto GetView(const InnerIndexRange<IndexSpaceType> &idx_range,
                                     ViewType &in, int var,
@@ -71,7 +58,11 @@ KOKKOS_INLINE_FUNCTION auto GetView(const InnerIndexRange<IndexSpaceType> &idx_r
             idx_range.is + offset[2]),
         0, idx_range.pidx_space};
   } else {
-    return GetInnerView(*idx_range.pidx_space, in, idx_range.block, var, offset);
+    const auto &idx_space = *idx_range.pidx_space;
+    return var_view_t<IndexSpaceType>{&in(idx_range.block, var, 0, 0, 0),
+                                       static_cast<int>(idx_space.GetMemoryIndexer().GetFlatIdx(
+                                           offset[0], offset[1], offset[2])),
+                                       &idx_space};
   }
 }
 
