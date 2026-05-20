@@ -40,8 +40,8 @@ KOKKOS_INLINE_FUNCTION void outer_raw_for(IndexSpaceType idx_space, F &&f) {
     InnerIndexRangeType idx_range;
     idx_range.pidx_space = &idx_space;
     for (idx_range.block = 0; idx_range.block < idx_space.GetNBlocks(); ++idx_range.block) {
-    for (int k = ks; k <= ke; ++k) {
-      for (int j = js; j <= je; ++j) {
+      for (int k = ks; k <= ke; ++k) {
+        for (int j = js; j <= je; ++j) {
 #pragma omp simd
           for (int i = is; i <= ie; ++i) {
             idx_range.k = k;
@@ -74,7 +74,9 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
         for (int j = js; j <= je; ++j) {
 #pragma omp simd
           for (int i = is; i <= ie; ++i) {
-            if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
+            if constexpr (std::is_invocable_v<F, int, int, int>) {
+              f(k, j, i);
+            } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
               f(idx_space.GetMemoryIndexer().GetFlatIdx(k, j, i));
             } else {
               f(Index3{k, j, i});
@@ -92,7 +94,12 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
         const auto inner_range = FlatRange(idx_space, idx_range.block, logical_start, logical_end);
 #pragma omp simd
         for (int idx = inner_range.flat_start; idx <= inner_range.flat_end; ++idx) {
-          f(idx);
+          if constexpr (std::is_invocable_v<F, int, int, int>) {
+            const auto [k, j, i] = idx_space.GetMemoryIndexer()(idx);
+            f(k, j, i);
+          } else {
+            f(idx);
+          }
         }
       }
     }
@@ -101,7 +108,15 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
     const int end_exclusive = idx_range.flat_end + 1 - start;
 #pragma omp simd
     for (int idx = 0; idx < end_exclusive; ++idx) {
-      if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
+      if constexpr (std::is_invocable_v<F, int, int, int>) {
+        if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
+          const auto [k, j, i] = idx_space.GetMemoryIndexer()(idx + start);
+          f(k, j, i);
+        } else {
+          const auto [k, j, i] = idx_space.GetLogicalIndexer()(idx + start);
+          f(k, j, i);
+        }
+      } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
         f(idx);
       } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
         const auto [k, j, i] = idx_space.GetLogicalIndexer()(idx + start);
@@ -113,9 +128,17 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
     }
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::boiv) {
     if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
-      f(idx_space.GetLogicalIndexer().GetFlatIdx(idx_range.k, idx_range.j, idx_range.i));
+      if constexpr (std::is_invocable_v<F, int, int, int>) {
+        f(idx_range.k, idx_range.j, idx_range.i);
+      } else {
+        f(idx_space.GetLogicalIndexer().GetFlatIdx(idx_range.k, idx_range.j, idx_range.i));
+      }
     } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
-      f(Index3{idx_range.k, idx_range.j, idx_range.i});
+      if constexpr (std::is_invocable_v<F, int, int, int>) {
+        f(idx_range.k, idx_range.j, idx_range.i);
+      } else {
+        f(Index3{idx_range.k, idx_range.j, idx_range.i});
+      }
     }
   }
 }

@@ -67,12 +67,19 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
   const auto &idx_space = *(idx_range.pidx_space);
   if constexpr (IndexSpaceType::loop_tag_v == loop_tag::boiv) {
     if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
-      f(idx_space.GetLogicalIndexer().GetFlatIdx(idx_range.k, idx_range.j, idx_range.i));
+      if constexpr (std::is_invocable_v<F, int, int, int>) {
+        f(idx_range.k, idx_range.j, idx_range.i);
+      } else {
+        f(idx_space.GetLogicalIndexer().GetFlatIdx(idx_range.k, idx_range.j, idx_range.i));
+      }
     } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
-      f(Index3{idx_range.k, idx_range.j, idx_range.i});
+      if constexpr (std::is_invocable_v<F, int, int, int>) {
+        f(idx_range.k, idx_range.j, idx_range.i);
+      } else {
+        f(Index3{idx_range.k, idx_range.j, idx_range.i});
+      }
     }
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bovi) {
-    const auto &idx_space = *(idx_range.pidx_space);
     const auto *team_member = idx_range.team_member;
     KOKKOS_ASSERT(team_member != nullptr);
     const auto &member = *team_member;
@@ -80,10 +87,22 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
     const int end_exclusive = idx_range.flat_end + 1 - start;
     Kokkos::parallel_for(Kokkos::TeamThreadRange(member, 0, end_exclusive),
                          KOKKOS_LAMBDA(const int idx) {
-                          if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory ||
-                                        IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
-                            f(idx);
-                          } else {
+                           if constexpr (std::is_invocable_v<F, int, int, int>) {
+                             if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
+                               const auto [k, j, i] = idx_space.GetMemoryIndexer()(idx + start);
+                               f(k, j, i);
+                             } else {
+                               const auto [k, j, i] = idx_space.GetLogicalIndexer()(idx + start);
+                               f(k, j, i);
+                             }
+                           } else if constexpr (IndexSpaceType::inner_tag_v ==
+                                                inner_tag::memory) {
+                             f(idx + start);
+                           } else if constexpr (IndexSpaceType::inner_tag_v ==
+                                                inner_tag::logical_flat) {
+                             const auto [k, j, i] = idx_space.GetLogicalIndexer()(idx + start);
+                             f(idx_space.GetMemoryIndexer().GetFlatIdx(k, j, i));
+                           } else {
                              const auto [k, j, i] = idx_space.GetLogicalIndexer()(idx + start);
                              f(Index3{k, j, i});
                            }
@@ -100,8 +119,14 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
                            const int logical_end =
                                std::min((o + 1) * idx_space.GetNInner() - 1,
                                         static_cast<int>(idx_space.GetLogicalIndexer().size()) - 1);
-                           if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory ||
-                                         IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
+                           if constexpr (std::is_invocable_v<F, int, int, int>) {
+                             Kokkos::parallel_for(
+                                 Kokkos::TeamThreadRange(member, logical_start, logical_end + 1),
+                                 KOKKOS_LAMBDA(const int idx) {
+                                   const auto [k, j, i] = idx_space.GetLogicalIndexer()(idx);
+                                   f(k, j, i);
+                                 });
+                           } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
                              const auto [ks, js, is] = idx_space.GetLogicalIndexer()(logical_start);
                              const auto [ke, je, ie] = idx_space.GetLogicalIndexer()(logical_end);
                              const int flat_start = idx_space.GetMemoryIndexer().GetFlatIdx(ks, js, is);
@@ -109,16 +134,19 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
                              Kokkos::parallel_for(Kokkos::TeamThreadRange(member, flat_start,
                                                                           flat_end + 1),
                                                   KOKKOS_LAMBDA(const int idx) { f(idx); });
+                           } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
+                             Kokkos::parallel_for(
+                                 Kokkos::TeamThreadRange(member, logical_start, logical_end + 1),
+                                 KOKKOS_LAMBDA(const int idx) {
+                                   const auto [k, j, i] = idx_space.GetLogicalIndexer()(idx);
+                                   f(idx_space.GetMemoryIndexer().GetFlatIdx(k, j, i));
+                                 });
                            } else {
                              Kokkos::parallel_for(
                                  Kokkos::TeamThreadRange(member, logical_start, logical_end + 1),
                                  KOKKOS_LAMBDA(const int idx) {
                                    const auto [k, j, i] = idx_space.GetLogicalIndexer()(idx);
-                                   if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
-                                     f(idx_space.GetLogicalIndexer().GetFlatIdx(k, j, i));
-                                   } else {
-                                     f(Index3{k, j, i});
-                                   }
+                                   f(Index3{k, j, i});
                                  });
                            }
                          });
