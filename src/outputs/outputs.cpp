@@ -109,16 +109,14 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   // the outpus packages (as before), but I don't think it's bad practice to work on
   // `pinput` again here as we're actually processing (potentially even modifying)
   // `pinput`.
-  for (InputBlock *pib = pin->pfirst_block; pib != nullptr; pib = pib->pnext) {
-    if (pib->block_name.compare(0, 16, "parthenon/output") != 0) {
-      continue;
-    }
+  auto output_blocks = pin->GetBlockNamesWithPrefix("parthenon/output");
+  for (const auto &block_name : output_blocks) {
     std::shared_ptr<OutputType> pnew_type; // the new output we will create
     bool restart = false;                  // we track restart outputs separately so we
                                            // need this temp variable to check
     OutputParameters op;                   // define temporary OutputParameters struct
-    op.block_name = pib->block_name;
-    const auto outn_str = pib->block_name.substr(16); // 16 because counting starts at 0!
+    op.block_name = block_name;
+    const auto outn_str = block_name.substr(16); // 16 because counting starts at 0!
     op.block_number = atoi(outn_str.c_str());
     auto *pfile_number = pkg->MutableParam<int>(outn_str + "/file_number");
     auto *plast_time = pkg->MutableParam<Real>(outn_str + "/last_time");
