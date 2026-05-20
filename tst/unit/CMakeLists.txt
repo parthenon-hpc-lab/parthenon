@@ -18,6 +18,7 @@
 
 list(APPEND unit_tests_SOURCES
     test_ascii_table_parsing.cpp
+    test_loop_abstraction_benchmarks.cpp
     test_concepts_lite.cpp
     test_coordinates.cpp
     test_data_collection.cpp
@@ -52,6 +53,7 @@ list(APPEND unit_tests_SOURCES
 add_executable(unit_tests "${unit_tests_SOURCES}")
 
 target_link_libraries(unit_tests PRIVATE Parthenon::parthenon catch2_define Kokkos::kokkos)
+target_include_directories(unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/benchmarks/loop_benchmarks_v2")
 
 if (TEST_ERROR_CHECKING)
    message(WARNING "\tTesting error checking. This test will FAIL.")
