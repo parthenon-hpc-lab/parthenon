@@ -983,7 +983,10 @@ std::vector<std::string> ParameterInput::SplitCommaSeparated(const std::string &
     variables.push_back(string_utils::trim(token));
     str.erase(0, pos + delimiter.length());
   }
-  variables.push_back(string_utils::trim(str));
+  token = string_utils::trim(str);
+  if (!token.empty()) {
+    variables.push_back(token);
+  }
 
   return variables;
 }

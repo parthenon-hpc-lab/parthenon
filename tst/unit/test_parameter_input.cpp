@@ -15,6 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was created in part with the generative AI
+
 #include <iostream>
 #include <istream>
 #include <memory>
@@ -123,6 +125,22 @@ TEST_CASE("Test required/desired checking from inputs", "[ParameterInput]") {
           REQUIRE(((var2[0] == 1) && (var2[1] == 2)));
         }
         REQUIRE(in.GetString("block2", "var3") == "myval");
+      }
+    }
+  }
+
+  GIVEN("An input deck with a trailing comma in a vector-valued parameter") {
+    ParameterInput in;
+    std::stringstream ss;
+    ss << "<block1>" << std::endl << "var1 = 1, 2, 3," << std::endl;
+
+    std::istringstream s(ss.str());
+    in.LoadFromStream(s);
+
+    WHEN("The vector is read back") {
+      THEN("The trailing comma does not introduce an empty final element") {
+        auto var1 = in.GetVector<int>("block1", "var1");
+        REQUIRE(var1 == std::vector<int>{1, 2, 3});
       }
     }
   }
@@ -537,4 +555,12 @@ TEST_CASE("Parser interface works without FinalizeParsing for backward compatibi
       }
     }
   }
+}
+
+TEST_CASE("Empty vector defaults round-trip through the parameter store",
+          "[ParameterInput]") {
+  ParameterInput in;
+  auto values = in.GetOrAddVector<std::string>("block1", "var1", {});
+  REQUIRE(values.empty());
+  REQUIRE(in.GetVector<std::string>("block1", "var1").empty());
 }

@@ -281,7 +281,7 @@ class StateDescriptor {
   }
 
   // retrieve number of fields
-  int size() const noexcept { return metadataMap_.size(); }
+  std::size_t size() const noexcept { return metadataMap_.size(); }
 
   // retrieve all field names
   std::vector<std::string> Fields() noexcept;
