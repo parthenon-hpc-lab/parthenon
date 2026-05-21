@@ -24,7 +24,7 @@
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
 #include "kokkos_abstraction.hpp"
-#include "loop_abstraction.hpp"
+#include "loop_abstraction/loop_abstraction.hpp"
 #include "mesh/meshblock.hpp"
 #include "pack/sparse_pack/make_pack_descriptor.hpp"
 #include "pack/sparse_pack/pack_view.hpp"
@@ -103,7 +103,7 @@ struct v7 : public parthenon::variable_names::base_t<false, ANYDIM, 3> {
   static constexpr bool is_sparse() { return false; }
 };
 
-using namespace plb2::loop_abstraction;
+using namespace loop_abstraction;
 struct PackViewSpec {
   int nblocks;
   int ncell;
@@ -520,7 +520,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
       }
 
       THEN("A bovi sparse pack view works through the loop abstraction on memory spans") {
-        using namespace plb2::loop_abstraction;
+        using namespace loop_abstraction;
         using IS = IndexSpace<loop_tag::bovi, inner_tag::memory>;
         auto desc = parthenon::MakePackDescriptor<v1, v3, v5>(pkg.get());
         auto sparse_pack = desc.GetPack(&mesh_data);
@@ -538,7 +538,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
       }
 
       THEN("A boiv sparse pack view works through the loop abstraction on coordinates") {
-        using namespace plb2::loop_abstraction;
+        using namespace loop_abstraction;
         using IS = IndexSpace<loop_tag::boiv, inner_tag::logical_coords>;
         auto desc = parthenon::MakePackDescriptor<v1, v3, v5>(pkg.get());
         auto sparse_pack = desc.GetPack(&mesh_data);

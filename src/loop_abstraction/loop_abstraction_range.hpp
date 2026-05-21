@@ -2,8 +2,6 @@
 
 #include "loop_abstraction_base.hpp"
 
-namespace plb2 {
-
 namespace loop_abstraction {
 
 template <class IndexSpaceType>
@@ -32,5 +30,3 @@ FlatRange(const IndexSpaceType &idx_space, int b, int logical_start, int logical
 }
 
 } // namespace loop_abstraction
-
-} // namespace plb2

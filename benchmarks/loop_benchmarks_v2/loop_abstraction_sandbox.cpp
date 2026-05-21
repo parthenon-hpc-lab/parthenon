@@ -2,31 +2,31 @@
 // (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
 //=========================================================================================
 
-#include <Kokkos_Core.hpp>
 #include <cmath>
 #include <cstdio>
 
-#include "loop_abstraction.hpp"
+#include <Kokkos_Core.hpp>
 
-using IS = plb2::loop_abstraction::IndexSpace<plb2::loop_abstraction::loop_tag::bovi,
-                                              plb2::loop_abstraction::inner_tag::memory>;
+#include "loop_abstraction/loop_abstraction.hpp"
 
-using IR = plb2::loop_abstraction::InnerIndexRange<IS>;
+using IS = loop_abstraction::IndexSpace<loop_abstraction::loop_tag::bovi,
+                                        loop_abstraction::inner_tag::memory>;
 
-using VW = plb2::loop_abstraction::var_view_t<IS>;
+using IR = loop_abstraction::InnerIndexRange<IS>;
+
+using VW = loop_abstraction::var_view_t<IS>;
 
 extern "C" __attribute__((noinline)) void raw_inner_probe(const IR &idx_range, VW &outp,
                                                           VW &inp) {
-  plb2::loop_abstraction::inner(
+  loop_abstraction::inner(
       idx_range, [&](auto idx) { outp(idx) = inp(idx) * 2.01 + outp(idx); });
 }
 namespace {
 
-template <plb2::loop_abstraction::loop_tag LOOP_TAG,
-          plb2::loop_abstraction::inner_tag INNER_TAG, class View5D>
+template <loop_abstraction::loop_tag LOOP_TAG,
+          loop_abstraction::inner_tag INNER_TAG, class View5D>
 void RunKernel(const View5D &input, View5D &output, int nblocks, int nvar, int n,
                int nghost) {
-  using namespace plb2;
 
   loop_abstraction::IndexSpace<LOOP_TAG, INNER_TAG> idx_space(nblocks, n, n, n, nghost);
   loop_abstraction::outer(
@@ -58,7 +58,6 @@ void RunKernel(const View5D &input, View5D &output, int nblocks, int nvar, int n
 int main(int argc, char **argv) {
   Kokkos::initialize(argc, argv);
   {
-    using namespace plb2;
     using View5D = Kokkos::View<double *****, Kokkos::LayoutRight>;
 
     const int n = 32;

@@ -18,15 +18,15 @@
 
 #include "basic_types.hpp"
 #include "kokkos_types.hpp"
-#include "loop_abstraction.hpp"
+#include "loop_abstraction/loop_abstraction.hpp"
 
 namespace {
 
 using Real = double;
-using plb2::loop_abstraction::Index3;
-using plb2::loop_abstraction::IndexSpace;
-using plb2::loop_abstraction::inner_tag;
-using plb2::loop_abstraction::loop_tag;
+using loop_abstraction::Index3;
+using loop_abstraction::IndexSpace;
+using loop_abstraction::inner_tag;
+using loop_abstraction::loop_tag;
 
 constexpr int kNVars = 3;
 
@@ -183,10 +183,10 @@ parthenon::HostArray5D<Real> RunAutoIndexBody(const ProblemSpec &spec, const int
   ZeroView(out);
 
   if (use_kokkos) {
-    plb2::loop_abstraction::impl::outer_kokkos(
+    loop_abstraction::impl::outer_kokkos(
         idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
           for (int v = 0; v < kNVars; ++v) {
-            plb2::loop_abstraction::impl::inner_kokkos(
+            loop_abstraction::impl::inner_kokkos(
                 idx_range, KOKKOS_LAMBDA(auto idx) {
                   if constexpr (std::is_same_v<std::decay_t<decltype(idx)>, int>) {
                     const auto [k, j, i] = idx_range.GetKJI(idx);
@@ -199,9 +199,9 @@ parthenon::HostArray5D<Real> RunAutoIndexBody(const ProblemSpec &spec, const int
           }
         });
   } else {
-    plb2::loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
+    loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
       for (int v = 0; v < kNVars; ++v) {
-        plb2::loop_abstraction::inner(idx_range, [&](auto idx) {
+        loop_abstraction::inner(idx_range, [&](auto idx) {
           if constexpr (std::is_same_v<std::decay_t<decltype(idx)>, int>) {
             const auto [k, j, i] = idx_range.GetKJI(idx);
             out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
@@ -226,19 +226,19 @@ parthenon::HostArray5D<Real> RunKjiBody(const ProblemSpec &spec, const int ninne
   ZeroView(out);
 
   if (use_kokkos) {
-    plb2::loop_abstraction::impl::outer_kokkos(
+    loop_abstraction::impl::outer_kokkos(
         idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
           for (int v = 0; v < kNVars; ++v) {
-            plb2::loop_abstraction::impl::inner_kokkos(
+            loop_abstraction::impl::inner_kokkos(
                 idx_range, KOKKOS_LAMBDA(const int k, const int j, const int i) {
                   out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
                 });
           }
         });
   } else {
-    plb2::loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
+    loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
       for (int v = 0; v < kNVars; ++v) {
-        plb2::loop_abstraction::inner(idx_range,
+        loop_abstraction::inner(idx_range,
                                       [&](const int k, const int j, const int i) {
                                         out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
                                       });

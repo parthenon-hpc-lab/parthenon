@@ -7,7 +7,7 @@
 #include <Kokkos_Core.hpp>
 
 #include "kernels.hpp"
-#include "loop_abstraction.hpp"
+#include "loop_abstraction/loop_abstraction.hpp"
 
 namespace plb2 {
 

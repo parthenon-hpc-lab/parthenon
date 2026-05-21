@@ -16,8 +16,6 @@
 #include "mesh/mesh.hpp"
 #include "utils/indexer.hpp"
 
-namespace plb2 {
-
 namespace loop_abstraction {
 
 using device_team_member_t =
@@ -193,5 +191,3 @@ class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG>> {
 };
 
 } // namespace loop_abstraction
-
-} // namespace plb2

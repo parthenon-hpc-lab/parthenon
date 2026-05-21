@@ -3,8 +3,6 @@
 #include "loop_abstraction_base.hpp"
 #include "loop_abstraction_range.hpp"
 
-namespace plb2 {
-
 namespace loop_abstraction::impl {
 
 template <class IndexSpaceType, class F>
@@ -157,5 +155,3 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
 }
 
 } // namespace loop_abstraction::impl
-
-} // namespace plb2

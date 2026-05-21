@@ -5,8 +5,7 @@
 #include "loop_abstraction_range.hpp"
 #include "loop_abstraction_raw.hpp"
 #include "loop_abstraction_view.hpp"
-
-namespace plb2 {
+#include "loop_abstraction_pack_view.hpp"
 
 namespace loop_abstraction {
 
@@ -29,5 +28,3 @@ KOKKOS_FORCEINLINE_FUNCTION void inner(const InnerIndexRangeType &idx_range, F &
 }
 
 } // namespace loop_abstraction
-
-} // namespace plb2
