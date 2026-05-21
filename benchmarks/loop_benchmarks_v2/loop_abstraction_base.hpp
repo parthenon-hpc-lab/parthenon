@@ -12,6 +12,8 @@
 
 #include "basic_types.hpp"
 #include "kokkos_types.hpp"
+#include "interface/mesh_data.hpp"
+#include "mesh/mesh.hpp"
 #include "utils/indexer.hpp"
 
 namespace plb2 {
@@ -52,6 +54,40 @@ class IndexSpace {
     memory_kji = parthenon::Indexer3D({0, 2 * nghost + nz - 1},
                                       {0, 2 * nghost + ny - 1},
                                       {0, 2 * nghost + nx - 1});
+  }
+  
+  using ID = parthenon::IndexDomain;
+  using TE = parthenon::TopologicalElement;
+  IndexSpace(int ninner, ID domain, int halo, int nblocks,
+             const parthenon::MeshData<parthenon::Real> *md, TE domain_te,
+             TE memory_te = TE::CC)
+      : nblocks(nblocks), ninner(ninner), 
+        memory_kji(md->GetBoundsK(ID::entire, memory_te),
+                   md->GetBoundsJ(ID::entire, memory_te),
+                   md->GetBoundsI(ID::entire, memory_te)) {
+    auto ib = md->GetBoundsI(domain, domain_te);
+    auto jb = md->GetBoundsJ(domain, domain_te);
+    auto kb = md->GetBoundsK(domain, domain_te);
+    if (md->GetMeshPointer()) { 
+      const int ndim = md->GetMeshPointer()->ndim;
+      if (ndim > 0) {
+        ib.s -= halo;
+        ib.e += halo;
+      }
+      if (ndim > 1) {
+        jb.s -= halo;
+        jb.e += halo;
+      }
+      if (ndim > 2) {
+        kb.s -= halo;
+        kb.e += halo;
+      }
+    } else if (halo != 0) { 
+      PARTHENON_FAIL("Asking for a halo with no mesh object. No way to determine dimension.");
+    }
+    logical_kji = parthenon::Indexer3D({kb.s, kb.e}, {jb.s, jb.e}, {ib.s, ib.e});
+    PARTHENON_REQUIRE(memory_te == TE::CC || memory_te == TE::NN,
+                      "Only two kinds of memory layouts for topological elements.");
   }
 
   KOKKOS_INLINE_FUNCTION int GetNOuter() const {
