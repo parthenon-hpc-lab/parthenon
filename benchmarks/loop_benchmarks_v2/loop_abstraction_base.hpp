@@ -89,14 +89,11 @@ class InnerIndexRange {
   const device_team_member_t *team_member = nullptr;
 
   KOKKOS_INLINE_FUNCTION std::tuple<int, int, int> GetKJI(int idx) const {
-    if constexpr (IndexSpaceType::loop_tag_v == loop_tag::boiv) {
-      (void)idx;
-      return std::make_tuple(0, 0, 0);
-    } else {
-      const int shift =
-          pidx_space->GetMemoryIndexer().GetFlatIdx(ks, js, is);
-      return pidx_space->GetMemoryIndexer()(idx + shift);
-    }
+    const int shift = pidx_space->GetMemoryIndexer().GetFlatIdx(ks, js, is);
+    return pidx_space->GetMemoryIndexer()(idx + shift);
+  }
+  KOKKOS_INLINE_FUNCTION std::tuple<int, int, int> GetKJI(Index3 idx) const {
+    return {idx.k, idx.j, idx.i}; 
   }
 };
 
@@ -110,8 +107,12 @@ class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG>> {
   int i = 0;
 
   KOKKOS_INLINE_FUNCTION std::tuple<int, int, int> GetKJI(int idx) const {
-    (void)idx;
-    return std::make_tuple(k, j, i);
+    const int shift = pidx_space->GetMemoryIndexer().GetFlatIdx(k, j, i);
+    return pidx_space->GetMemoryIndexer()(idx + shift);
+  }
+
+  KOKKOS_INLINE_FUNCTION std::tuple<int, int, int> GetKJI(Index3 idx) const {
+    return {idx.k, idx.j, idx.i}; 
   }
 };
 
