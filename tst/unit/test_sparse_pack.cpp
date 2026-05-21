@@ -26,7 +26,7 @@
 #include "mesh/meshblock.hpp"
 #include "pack/sparse_pack/make_pack_descriptor.hpp"
 #include "pack/sparse_pack/sparse_pack.hpp"
-#include "pack/sparse_pack/view_pack.hpp"
+#include "pack/sparse_pack/pack_view.hpp"
 
 // TODO(jcd): can't call the MeshBlock constructor without mesh_refinement.hpp???
 #include "mesh/mesh_refinement.hpp"
@@ -254,7 +254,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
               int lo = sparse_pack.GetLowerBound(b, v3());
               int hi = sparse_pack.GetUpperBound(b, v3());
-              auto sparse_pack_view = parthenon::make_sparse_view_pack(sparse_pack, b, 0);
+              auto sparse_pack_view = parthenon::make_sparse_pack_view(sparse_pack, b, 0);
               for (int c = 0; c <= hi - lo; ++c) {
                 Real n = i + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
                 if (n != sparse_pack(b, lo + c, k, j, i)) ltot += 1;
@@ -268,6 +268,39 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
                 if (n != sparse_pack_notype(b, lo + c, k, j, i)) ltot += 1;
                 if (n != sparse_pack_notype(b, iv3 + c, k, j, i)) ltot += 1;
               }
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
+      }
+
+      THEN("A sparse pack can be wrapped in a compile-time indexed view pack") {
+        auto desc = parthenon::MakePackDescriptor<v1, v3, v5>(pkg.get());
+        auto sparse_pack = desc.GetPack(&mesh_data);
+
+        int nwrong = 0;
+        par_reduce(
+            loop_pattern_mdrange_tag, "check view pack", DevExecSpace(), 0,
+            sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+              auto pack_view = parthenon::make_pack_view(sparse_pack, b);
+
+              const auto ref_v1 = sparse_pack(b, v1(), k, j, i);
+              const auto ref_v5 = sparse_pack(b, v5(), k, j, i);
+
+              if (pack_view(v1(), k, j, i) != ref_v1) {
+                ltot += 1;
+              }
+              if (pack_view(v5(), k, j, i) != ref_v5) {
+                ltot += 1;
+              }
+
+              // The wrapper should remain a live view into the pack data.
+              const Real saved = pack_view(v1(), k, j, i);
+              pack_view(v1(), k, j, i) = saved + 7.0;
+              if (sparse_pack(b, v1(), k, j, i) != saved + 7.0) {
+                ltot += 1;
+              }
+              pack_view(v1(), k, j, i) = saved;
             },
             nwrong);
         REQUIRE(nwrong == 0);
