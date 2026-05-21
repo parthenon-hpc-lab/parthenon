@@ -69,26 +69,6 @@ constexpr bool UsesMemorySpan() {
   return INNER_TAG == inner_tag::memory;
 }
 
-template <loop_tag LOOP_TAG, inner_tag INNER_TAG, class IndexRangeType>
-KOKKOS_INLINE_FUNCTION Index3 FlatToKji(const PatternIndexSpace<LOOP_TAG, INNER_TAG> &idx_space,
-                                        const IndexRangeType &idx_range,
-                                        int idx) {
-  if constexpr (LOOP_TAG == loop_tag::boiv && INNER_TAG == inner_tag::logical_flat) {
-    const auto [k, j, i] = idx_space.GetLogicalIndexer()(idx);
-    return {k, j, i};
-  } else if constexpr (LOOP_TAG == loop_tag::bovi) {
-    // bovi bodies are chunk-relative in the memory index space, regardless of inner tag.
-    const int shift =
-        idx_space.GetMemoryIndexer().GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
-    const auto [k, j, i] = idx_space.GetMemoryIndexer()(idx + shift);
-    return {k, j, i};
-  } else {
-    // bvoi bodies also use absolute memory-flat indexing here.
-    const auto [k, j, i] = idx_space.GetMemoryIndexer()(idx);
-    return {k, j, i};
-  }
-}
-
 template <class ViewType>
 void ZeroView(ViewType &view) {
   Kokkos::deep_copy(view, Real{0});
@@ -196,9 +176,8 @@ parthenon::HostArray5D<Real> RunAutoIndexBody(const ProblemSpec &spec, const int
             plb2::loop_abstraction::impl::inner_kokkos(
                 idx_range, KOKKOS_LAMBDA(auto idx) {
                   if constexpr (std::is_same_v<std::decay_t<decltype(idx)>, int>) {
-                    const auto kji = FlatToKji<LOOP_TAG, INNER_TAG>(idx_space, idx_range, idx);
-                    out(b, v, kji.k, kji.j, kji.i) +=
-                        EncodeValue(b, v, kji.k, kji.j, kji.i);
+                    const auto [k, j, i] = idx_range.GetKJI(idx);
+                    out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
                   } else {
                     out(b, v, idx.k, idx.j, idx.i) += EncodeValue(b, v, idx.k, idx.j, idx.i);
                   }
@@ -210,8 +189,8 @@ parthenon::HostArray5D<Real> RunAutoIndexBody(const ProblemSpec &spec, const int
       for (int v = 0; v < kNVars; ++v) {
         plb2::loop_abstraction::inner(idx_range, [&](auto idx) {
           if constexpr (std::is_same_v<std::decay_t<decltype(idx)>, int>) {
-            const auto kji = FlatToKji<LOOP_TAG, INNER_TAG>(idx_space, idx_range, idx);
-            out(b, v, kji.k, kji.j, kji.i) += EncodeValue(b, v, kji.k, kji.j, kji.i);
+            const auto [k, j, i] = idx_range.GetKJI(idx);
+            out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
           } else {
             out(b, v, idx.k, idx.j, idx.i) += EncodeValue(b, v, idx.k, idx.j, idx.i);
           }

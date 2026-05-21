@@ -4,6 +4,7 @@
 #include <array>
 #include <concepts>
 #include <optional>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 
@@ -86,6 +87,23 @@ class InnerIndexRange {
   int js = 0;
   int is = 0;
   const device_team_member_t *team_member = nullptr;
+
+  KOKKOS_INLINE_FUNCTION std::tuple<int, int, int> GetKJI(int idx) const {
+    if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
+      if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory ||
+                    IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
+        return pidx_space->GetMemoryIndexer()(idx);
+      } else {
+        return pidx_space->GetLogicalIndexer()(idx);
+      }
+    } else {
+      if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
+        return pidx_space->GetMemoryIndexer()(idx);
+      } else {
+        return pidx_space->GetLogicalIndexer()(idx + flat_start);
+      }
+    }
+  }
 };
 
 template <inner_tag INNER_TAG>
@@ -96,6 +114,11 @@ class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG>> {
   int k = 0;
   int j = 0;
   int i = 0;
+
+  KOKKOS_INLINE_FUNCTION std::tuple<int, int, int> GetKJI(int idx) const {
+    (void)idx;
+    return std::make_tuple(k, j, i);
+  }
 };
 
 } // namespace loop_abstraction

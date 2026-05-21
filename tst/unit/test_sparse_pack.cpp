@@ -335,6 +335,23 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         REQUIRE(nwrong == 0);
       }
 
+      THEN("A boiv sparse pack view can translate flat indices back to coordinates") {
+        using namespace plb2::loop_abstraction;
+        using IS = IndexSpace<loop_tag::boiv, inner_tag::logical_flat>;
+        auto desc = parthenon::MakePackDescriptor<v1, v3, v5>(pkg.get());
+        auto sparse_pack = desc.GetPack(&mesh_data);
+        IS idx_space(1, N, N, N, 0);
+
+        outer(idx_space, KOKKOS_LAMBDA(const auto &current_range, int b) {
+              auto pack_view = make_pack_view(current_range, sparse_pack, b);
+              inner(current_range, [&](const int idx) {
+                    const auto [k, j, i] = current_range.GetKJI(idx);
+                    REQUIRE(pack_view(v1(), idx) == sparse_pack(b, v1(), k, j, i));
+                    REQUIRE(pack_view(v5(), idx) == sparse_pack(b, v5(), k, j, i));
+                  });
+            });
+      }
+
       THEN("A flattened sparse pack can correctly load this data in a unified outer "
            "index space") {
         using parthenon::PDOpt;
