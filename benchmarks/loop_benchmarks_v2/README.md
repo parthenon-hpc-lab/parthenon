@@ -27,3 +27,5 @@ The loop set now also includes abstraction-backed variants:
 - `loop_abstraction_boiv_logical`
 - `loop_abstraction_bvoi_memory`
 - `loop_abstraction_bvoi_logical`
+
+See `LOOP_ABSTRACTION_CONTRACTS.md` for the current contract matrix and helper semantics.
