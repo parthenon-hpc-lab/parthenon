@@ -16,12 +16,8 @@ struct RawMemoryIndexer {
                    parthenon::IndexRange domain_j_in, parthenon::IndexRange domain_i_in,
                    parthenon::IndexRange memory_k_in, parthenon::IndexRange memory_j_in,
                    parthenon::IndexRange memory_i_in, int halo = 0)
-      : inner_length(inner_length_in),
-        ndim(ndim_in),
-        ib(domain_i_in),
-        jb(domain_j_in),
-        kb(domain_k_in),
-        idxer_entire(memory_k_in, memory_j_in, memory_i_in) {
+      : inner_length(inner_length_in), ndim(ndim_in), ib(domain_i_in), jb(domain_j_in),
+        kb(domain_k_in), idxer_entire(memory_k_in, memory_j_in, memory_i_in) {
     if (ndim > 0) {
       ib.s -= halo;
       ib.e += halo;
@@ -37,12 +33,10 @@ struct RawMemoryIndexer {
     idxer = parthenon::Indexer3D({kb.s, kb.e}, {jb.s, jb.e}, {ib.s, ib.e});
   }
 
-  static RawMemoryIndexer IJ(int ndim, parthenon::IndexRange domain_k,
-                             parthenon::IndexRange domain_j,
-                             parthenon::IndexRange domain_i,
-                             parthenon::IndexRange memory_k,
-                             parthenon::IndexRange memory_j,
-                             parthenon::IndexRange memory_i, int halo = 0) {
+  static RawMemoryIndexer
+  IJ(int ndim, parthenon::IndexRange domain_k, parthenon::IndexRange domain_j,
+     parthenon::IndexRange domain_i, parthenon::IndexRange memory_k,
+     parthenon::IndexRange memory_j, parthenon::IndexRange memory_i, int halo = 0) {
     RawMemoryIndexer idxer(0, ndim, domain_k, domain_j, domain_i, memory_k, memory_j,
                            memory_i, halo);
     const int ni = idxer.ib.e - idxer.ib.s + 1;
@@ -93,4 +87,4 @@ struct RawMemoryIndexer {
   parthenon::Indexer3D idxer;
 };
 
-}  // namespace plb
+} // namespace plb

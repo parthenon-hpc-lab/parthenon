@@ -28,8 +28,8 @@ double Median(std::vector<double> samples) {
 
 BenchmarkRow Execute(const BenchmarkConfig &config) {
   Dataset dataset = BuildDataset(config);
-  RaggedMetadata metadata =
-      BuildRaggedMetadata(config.blocks, config.variables, config.active_min, config.active_max);
+  RaggedMetadata metadata = BuildRaggedMetadata(config.blocks, config.variables,
+                                                config.active_min, config.active_max);
   PrepareDataset(config, metadata, &dataset);
   auto run_once = [&]() { ExecuteLoopPattern(config, metadata, &dataset); };
 
@@ -48,19 +48,22 @@ BenchmarkRow Execute(const BenchmarkConfig &config) {
   }
 
   const std::uint64_t total_updates = CountUpdates(config, metadata);
-  const int effective_active_min =
-      config.ragged ? *std::min_element(metadata.active_counts.begin(), metadata.active_counts.end())
-                    : config.variables;
-  const int effective_active_max =
-      config.ragged ? *std::max_element(metadata.active_counts.begin(), metadata.active_counts.end())
-                    : config.variables;
+  const int effective_active_min = config.ragged
+                                       ? *std::min_element(metadata.active_counts.begin(),
+                                                           metadata.active_counts.end())
+                                       : config.variables;
+  const int effective_active_max = config.ragged
+                                       ? *std::max_element(metadata.active_counts.begin(),
+                                                           metadata.active_counts.end())
+                                       : config.variables;
   const double min_seconds = *std::min_element(samples.begin(), samples.end());
   const double mean_seconds = std::accumulate(samples.begin(), samples.end(), 0.0) /
                               static_cast<double>(samples.size());
   const double median_seconds = Median(samples);
   const double updates_per_second = static_cast<double>(total_updates) / min_seconds;
   const double bytes_per_update = EstimatedBytesPerUpdate(config.kernel);
-  const double flops_per_update = EstimatedFlopsPerUpdate(config.kernel, config.heavy_iterations);
+  const double flops_per_update =
+      EstimatedFlopsPerUpdate(config.kernel, config.heavy_iterations);
   const double bandwidth = (updates_per_second * bytes_per_update) / 1.0e9;
   const double arithmetic_intensity = flops_per_update / bytes_per_update;
 
@@ -107,46 +110,46 @@ bool ParseIntArg(const std::string &value, int *output) {
   }
 }
 
-}  // namespace
+} // namespace
 
 std::string ToString(KernelKind kind) {
   switch (kind) {
-    case KernelKind::Light:
-      return "light";
-    case KernelKind::Flux:
-      return "flux";
-    case KernelKind::Stencil:
-      return "stencil";
-    case KernelKind::Heavy:
-      return "heavy";
+  case KernelKind::Light:
+    return "light";
+  case KernelKind::Flux:
+    return "flux";
+  case KernelKind::Stencil:
+    return "stencil";
+  case KernelKind::Heavy:
+    return "heavy";
   }
   return "unknown";
 }
 
 std::string ToString(VariantKind kind) {
   switch (kind) {
-    case VariantKind::KokkosFlatKJI:
-      return "kokkos_flat_kji";
-    case VariantKind::KokkosMDRangeKJI:
-      return "kokkos_mdrange_kji";
-    case VariantKind::KokkosDenseFlatBVKJI:
-      return "kokkos_dense_flat_bvkji";
-    case VariantKind::KokkosRawspanOVI:
-      return "kokkos_rawspan_ovi";
-    case VariantKind::KokkosRawspanViewOVI:
-      return "kokkos_rawspan_view_ovi";
-    case VariantKind::KokkosLogicalOVI:
-      return "kokkos_logical_ovi";
-    case VariantKind::CpuDenseFlatBVKJI:
-      return "cpu_dense_flat_bvkji";
-    case VariantKind::CpuLogicalKJI:
-      return "cpu_logical_kji";
-    case VariantKind::CpuRawspanOVI:
-      return "cpu_rawspan_ovi";
-    case VariantKind::CpuRawspanVOI:
-      return "cpu_rawspan_voi";
-    case VariantKind::CpuLogicalOVI:
-      return "cpu_logical_ovi";
+  case VariantKind::KokkosFlatKJI:
+    return "kokkos_flat_kji";
+  case VariantKind::KokkosMDRangeKJI:
+    return "kokkos_mdrange_kji";
+  case VariantKind::KokkosDenseFlatBVKJI:
+    return "kokkos_dense_flat_bvkji";
+  case VariantKind::KokkosRawspanOVI:
+    return "kokkos_rawspan_ovi";
+  case VariantKind::KokkosRawspanViewOVI:
+    return "kokkos_rawspan_view_ovi";
+  case VariantKind::KokkosLogicalOVI:
+    return "kokkos_logical_ovi";
+  case VariantKind::CpuDenseFlatBVKJI:
+    return "cpu_dense_flat_bvkji";
+  case VariantKind::CpuLogicalKJI:
+    return "cpu_logical_kji";
+  case VariantKind::CpuRawspanOVI:
+    return "cpu_rawspan_ovi";
+  case VariantKind::CpuRawspanVOI:
+    return "cpu_rawspan_voi";
+  case VariantKind::CpuLogicalOVI:
+    return "cpu_logical_ovi";
   }
   return "unknown";
 }
@@ -180,7 +183,8 @@ bool ParseVariantKind(const std::string &text, VariantKind *kind) {
     *kind = VariantKind::KokkosMDRangeKJI;
     return true;
   }
-  if (text == "kokkos_dense_flat_bvkji" || text == "dense_flat" || text == "dense_kokkos") {
+  if (text == "kokkos_dense_flat_bvkji" || text == "dense_flat" ||
+      text == "dense_kokkos") {
     *kind = VariantKind::KokkosDenseFlatBVKJI;
     return true;
   }
@@ -224,20 +228,22 @@ bool ParseVariantKind(const std::string &text, VariantKind *kind) {
 }
 
 std::string Usage() {
-  return
-      "Usage: parthenon_loop_bench [options]\n"
-      "  --kernel {light|flux|stencil|heavy}\n"
-      "  --variant {kokkos_flat_kji|kokkos_mdrange_kji|kokkos_dense_flat_bvkji|kokkos_rawspan_ovi|kokkos_rawspan_view_ovi|kokkos_logical_ovi|cpu_dense_flat_bvkji|cpu_logical_kji|cpu_rawspan_ovi|cpu_rawspan_voi|cpu_logical_ovi}\n"
-      "  --backend NAME\n"
-      "  --blocks N --vars N --nk N --nj N --ni N\n"
-      "  --ghosts N\n"
-      "  --repeats N --warmup N\n"
-      "  --ragged {on|off} --active-min N --active-max N\n"
-      "  --inner-chunk-length N\n"
-      "  --team-size {auto|explicit}\n"
-      "  --explicit-team-size N\n"
-      "  --heavy-iterations N\n"
-      "  --csv PATH\n";
+  return "Usage: parthenon_loop_bench [options]\n"
+         "  --kernel {light|flux|stencil|heavy}\n"
+         "  --variant "
+         "{kokkos_flat_kji|kokkos_mdrange_kji|kokkos_dense_flat_bvkji|kokkos_rawspan_ovi|"
+         "kokkos_rawspan_view_ovi|kokkos_logical_ovi|cpu_dense_flat_bvkji|cpu_logical_"
+         "kji|cpu_rawspan_ovi|cpu_rawspan_voi|cpu_logical_ovi}\n"
+         "  --backend NAME\n"
+         "  --blocks N --vars N --nk N --nj N --ni N\n"
+         "  --ghosts N\n"
+         "  --repeats N --warmup N\n"
+         "  --ragged {on|off} --active-min N --active-max N\n"
+         "  --inner-chunk-length N\n"
+         "  --team-size {auto|explicit}\n"
+         "  --explicit-team-size N\n"
+         "  --heavy-iterations N\n"
+         "  --csv PATH\n";
 }
 
 bool ParseArgs(int argc, char **argv, BenchmarkConfig *config, std::string *error) {
@@ -420,15 +426,17 @@ bool ParseArgs(int argc, char **argv, BenchmarkConfig *config, std::string *erro
     }
   }
 
-  if (config->blocks <= 0 || config->variables <= 0 || config->nk <= 0 || config->nj <= 0 ||
-      config->ni <= 0 || config->ghost_zones < 0 || config->repeats <= 0 ||
-      config->warmup < 0) {
+  if (config->blocks <= 0 || config->variables <= 0 || config->nk <= 0 ||
+      config->nj <= 0 || config->ni <= 0 || config->ghost_zones < 0 ||
+      config->repeats <= 0 || config->warmup < 0) {
     if (error != nullptr) {
-      *error = "all sizes must be positive, ghosts must be non-negative, and warmup must be non-negative";
+      *error = "all sizes must be positive, ghosts must be non-negative, and warmup must "
+               "be non-negative";
     }
     return false;
   }
-  if (config->active_min <= 0 || config->active_max <= 0 || config->active_min > config->active_max) {
+  if (config->active_min <= 0 || config->active_max <= 0 ||
+      config->active_min > config->active_max) {
     if (error != nullptr) {
       *error = "ragged active-min/active-max values are invalid";
     }
@@ -480,4 +488,4 @@ int RunBenchmark(const BenchmarkConfig &config) {
   }
 }
 
-}  // namespace plb
+} // namespace plb

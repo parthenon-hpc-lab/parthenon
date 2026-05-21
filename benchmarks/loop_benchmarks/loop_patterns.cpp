@@ -26,9 +26,10 @@ RawMemoryIndexer BuildRawMemoryIndexer(const ProblemShape &shape, int inner_leng
                           shape.domain_i, shape.memory_k, shape.memory_j, shape.memory_i);
 }
 
-RawMemoryIndexer BuildTunedIndexer(const ProblemShape &shape, const BenchmarkConfig &config) {
-  return BuildRawMemoryIndexer(
-      shape, static_cast<int>(DefaultTunedChunkLength(config.ni, config.inner_chunk_length)));
+RawMemoryIndexer BuildTunedIndexer(const ProblemShape &shape,
+                                   const BenchmarkConfig &config) {
+  return BuildRawMemoryIndexer(shape, static_cast<int>(DefaultTunedChunkLength(
+                                          config.ni, config.inner_chunk_length)));
 }
 
 ProblemShape BuildProblemShape(const BenchmarkConfig &config) {
@@ -87,11 +88,11 @@ void InitializeLoopData(const ProblemShape &shape, LoopData *data) {
 
   Kokkos::parallel_for(
       "InitializeData",
-      Kokkos::MDRangePolicy<Kokkos::Rank<5>>({0, 0, 0, 0, 0},
-                                             {shape.blocks, shape.variables, nk_mem, nj_mem,
-                                              ni_mem}),
+      Kokkos::MDRangePolicy<Kokkos::Rank<5>>(
+          {0, 0, 0, 0, 0}, {shape.blocks, shape.variables, nk_mem, nj_mem, ni_mem}),
       KOKKOS_LAMBDA(const int b, const int v, const int k, const int j, const int i) {
-        const double seed = static_cast<double>(1 + i + 17 * j + 31 * k + 101 * v + 1009 * b);
+        const double seed =
+            static_cast<double>(1 + i + 17 * j + 31 * k + 101 * v + 1009 * b);
         in(b, v, k, j, i) = 0.25 + 0.001 * seed;
         aux(b, v, k, j, i) = 0.75 + 0.002 * seed;
         out(b, v, k, j, i) = 0.0;
@@ -109,9 +110,10 @@ void SetActiveCounts(const BenchmarkConfig &config, const RaggedMetadata &metada
                      LoopData *data) {
   auto host = Kokkos::create_mirror_view(data->active_counts);
   for (int block = 0; block < config.blocks; ++block) {
-    host(block) = UsesDenseBaselineLayout(config)
-                      ? config.variables
-                      : ActiveVariablesForBlock(metadata, config.ragged, block, config.variables);
+    host(block) =
+        UsesDenseBaselineLayout(config)
+            ? config.variables
+            : ActiveVariablesForBlock(metadata, config.ragged, block, config.variables);
   }
   Kokkos::deep_copy(data->active_counts, host);
 }
@@ -120,11 +122,14 @@ KOKKOS_INLINE_FUNCTION
 int MemoryJStride(const ProblemShape &shape) { return shape.memory_i.size(); }
 
 KOKKOS_INLINE_FUNCTION
-int MemoryKStride(const ProblemShape &shape) { return shape.memory_i.size() * shape.memory_j.size(); }
+int MemoryKStride(const ProblemShape &shape) {
+  return shape.memory_i.size() * shape.memory_j.size();
+}
 
 int SelectedInnerChunkLength(const BenchmarkConfig &config) {
   if (config.inner_chunk_length > 0) {
-    return static_cast<int>(DefaultTunedChunkLength(config.ni, config.inner_chunk_length));
+    return static_cast<int>(
+        DefaultTunedChunkLength(config.ni, config.inner_chunk_length));
   }
   return static_cast<int>(
       DefaultHierarchicalChunkLength(config.ni, config.nj, config.inner_chunk_length));
@@ -209,11 +214,12 @@ void RunCpuSIMDFlux(const Dataset &dataset) {
 }
 
 void RunCpuSIMDHeavy(const Dataset &dataset, const int heavy_iterations) {
-  RunCpuSIMDLoop(dataset, [heavy_iterations](const LoopData &data, const int b, const int v,
-                                             const int km, const int jm, const int im) {
-    return ComputeHeavyCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im),
-                            heavy_iterations);
-  });
+  RunCpuSIMDLoop(dataset,
+                 [heavy_iterations](const LoopData &data, const int b, const int v,
+                                    const int km, const int jm, const int im) {
+                   return ComputeHeavyCell(data.in(b, v, km, jm, im),
+                                           data.aux(b, v, km, jm, im), heavy_iterations);
+                 });
 }
 
 void RunCpuSIMDStencil(const Dataset &dataset) {
@@ -230,14 +236,12 @@ void RunCpuSIMDStencil(const Dataset &dataset) {
           const int jm_p1 = shape.ndim > 1 ? jm + 1 : jm;
 #pragma omp simd
           for (int im = shape.domain_i.s; im <= shape.domain_i.e; ++im) {
-            data.out(b, v, km, jm, im) =
-                ComputeStencilCell(data.in(b, v, km, jm, im), data.in(b, v, km, jm, im - 1),
-                                   data.in(b, v, km, jm, im + 1),
-                                   data.in(b, v, km, jm_m1, im),
-                                   data.in(b, v, km, jm_p1, im),
-                                   data.in(b, v, km_m1, jm, im),
-                                   data.in(b, v, km_p1, jm, im), data.aux(b, v, km, jm, im),
-                                   data.fx_up(b, v, km, jm, im), data.fx_lo(b, v, km, jm, im));
+            data.out(b, v, km, jm, im) = ComputeStencilCell(
+                data.in(b, v, km, jm, im), data.in(b, v, km, jm, im - 1),
+                data.in(b, v, km, jm, im + 1), data.in(b, v, km, jm_m1, im),
+                data.in(b, v, km, jm_p1, im), data.in(b, v, km_m1, jm, im),
+                data.in(b, v, km_p1, jm, im), data.aux(b, v, km, jm, im),
+                data.fx_up(b, v, km, jm, im), data.fx_lo(b, v, km, jm, im));
           }
         }
       }
@@ -249,7 +253,8 @@ template <typename Body>
 void RunCpuLogicalOVILoop(const Dataset &dataset, int inner_chunk_length, Body body) {
   const auto &shape = dataset.problem;
   const auto &data = dataset.data;
-  const parthenon::Indexer3D logical_idxer(shape.domain_k, shape.domain_j, shape.domain_i);
+  const parthenon::Indexer3D logical_idxer(shape.domain_k, shape.domain_j,
+                                           shape.domain_i);
   const int cells_per_block = static_cast<int>(logical_idxer.size());
   const int nouter = (cells_per_block + inner_chunk_length - 1) / inner_chunk_length;
 
@@ -296,15 +301,16 @@ void RunCpuLogicalOVIHeavy(const Dataset &dataset, int inner_chunk_length,
                        [heavy_iterations](const LoopData &data, const int b, const int v,
                                           const int km, const int jm, const int im) {
                          return ComputeHeavyCell(data.in(b, v, km, jm, im),
-                                                 data.aux(b, v, km, jm, im), heavy_iterations);
+                                                 data.aux(b, v, km, jm, im),
+                                                 heavy_iterations);
                        });
 }
 
 void RunCpuLogicalOVIStencil(const Dataset &dataset, int inner_chunk_length) {
   const auto &shape = dataset.problem;
   RunCpuLogicalOVILoop(dataset, inner_chunk_length,
-                       [&shape](const LoopData &data, const int b, const int v, const int km,
-                                const int jm, const int im) {
+                       [&shape](const LoopData &data, const int b, const int v,
+                                const int km, const int jm, const int im) {
                          const int km_m1 = shape.ndim > 2 ? km - 1 : km;
                          const int km_p1 = shape.ndim > 2 ? km + 1 : km;
                          const int jm_m1 = shape.ndim > 1 ? jm - 1 : jm;
@@ -319,7 +325,8 @@ void RunCpuLogicalOVIStencil(const Dataset &dataset, int inner_chunk_length) {
 }
 
 template <typename Body>
-void RunCpuHierarchicalLoop(const Dataset &dataset, const RawMemoryIndexer &idxer, Body body) {
+void RunCpuHierarchicalLoop(const Dataset &dataset, const RawMemoryIndexer &idxer,
+                            Body body) {
   const auto &shape = dataset.problem;
   auto data = dataset.data;
   for (int b = 0; b < shape.blocks; ++b) {
@@ -348,35 +355,34 @@ void RunCpuHierarchicalLoop(const Dataset &dataset, const RawMemoryIndexer &idxe
 }
 
 void RunCpuHierarchicalLight(const Dataset &dataset, const RawMemoryIndexer &idxer) {
-  RunCpuHierarchicalLoop(dataset, idxer,
-                         [](const double *in_ptr, const double *aux_ptr, const double *,
-                            const double *, const double *, const double *, const double *,
-                            const double *, const int idx) {
-                           return ComputeLightCell(in_ptr[idx], aux_ptr[idx]);
-                         });
+  RunCpuHierarchicalLoop(
+      dataset, idxer,
+      [](const double *in_ptr, const double *aux_ptr, const double *, const double *,
+         const double *, const double *, const double *, const double *,
+         const int idx) { return ComputeLightCell(in_ptr[idx], aux_ptr[idx]); });
 }
 
 void RunCpuHierarchicalFlux(const Dataset &dataset, const RawMemoryIndexer &idxer) {
-  RunCpuHierarchicalLoop(dataset, idxer,
-                         [](const double *in_ptr, const double *, const double *fx_up_ptr,
-                            const double *fx_lo_ptr, const double *fy_up_ptr,
-                            const double *fy_lo_ptr, const double *fz_up_ptr,
-                            const double *fz_lo_ptr, const int idx) {
-                           return ComputeFluxCell(in_ptr[idx], fx_up_ptr[idx], fx_lo_ptr[idx],
-                                                  fy_up_ptr[idx], fy_lo_ptr[idx],
-                                                  fz_up_ptr[idx], fz_lo_ptr[idx]);
-                         });
+  RunCpuHierarchicalLoop(
+      dataset, idxer,
+      [](const double *in_ptr, const double *, const double *fx_up_ptr,
+         const double *fx_lo_ptr, const double *fy_up_ptr, const double *fy_lo_ptr,
+         const double *fz_up_ptr, const double *fz_lo_ptr, const int idx) {
+        return ComputeFluxCell(in_ptr[idx], fx_up_ptr[idx], fx_lo_ptr[idx],
+                               fy_up_ptr[idx], fy_lo_ptr[idx], fz_up_ptr[idx],
+                               fz_lo_ptr[idx]);
+      });
 }
 
 void RunCpuHierarchicalHeavy(const Dataset &dataset, const RawMemoryIndexer &idxer,
                              const int heavy_iterations) {
-  RunCpuHierarchicalLoop(dataset, idxer,
-                         [heavy_iterations](const double *in_ptr, const double *aux_ptr,
-                                            const double *, const double *, const double *,
-                                            const double *, const double *, const double *,
-                                            const int idx) {
-                           return ComputeHeavyCell(in_ptr[idx], aux_ptr[idx], heavy_iterations);
-                         });
+  RunCpuHierarchicalLoop(
+      dataset, idxer,
+      [heavy_iterations](const double *in_ptr, const double *aux_ptr, const double *,
+                         const double *, const double *, const double *, const double *,
+                         const double *, const int idx) {
+        return ComputeHeavyCell(in_ptr[idx], aux_ptr[idx], heavy_iterations);
+      });
 }
 
 void RunCpuHierarchicalStencil(const Dataset &dataset, const RawMemoryIndexer &idxer) {
@@ -397,11 +403,10 @@ void RunCpuHierarchicalStencil(const Dataset &dataset, const RawMemoryIndexer &i
         double *const out_ptr = &data.out(b, v, ks, js, is);
 #pragma omp simd
         for (int idx = 0; idx < ninner; ++idx) {
-          out_ptr[idx] =
-              ComputeStencilCell(in_ptr[idx], in_ptr[idx - 1], in_ptr[idx + 1],
-                                 in_ptr[idx - j_stride], in_ptr[idx + j_stride],
-                                 in_ptr[idx - k_stride], in_ptr[idx + k_stride], aux_ptr[idx],
-                                 fx_up_ptr[idx], fx_lo_ptr[idx]);
+          out_ptr[idx] = ComputeStencilCell(
+              in_ptr[idx], in_ptr[idx - 1], in_ptr[idx + 1], in_ptr[idx - j_stride],
+              in_ptr[idx + j_stride], in_ptr[idx - k_stride], in_ptr[idx + k_stride],
+              aux_ptr[idx], fx_up_ptr[idx], fx_lo_ptr[idx]);
         }
       }
     }
@@ -409,7 +414,8 @@ void RunCpuHierarchicalStencil(const Dataset &dataset, const RawMemoryIndexer &i
 }
 
 template <typename Body>
-void RunCpuCoalescedOuterVarLoop(const Dataset &dataset, const RawMemoryIndexer &idxer, Body body) {
+void RunCpuCoalescedOuterVarLoop(const Dataset &dataset, const RawMemoryIndexer &idxer,
+                                 Body body) {
   const auto &shape = dataset.problem;
   auto data = dataset.data;
   for (int b = 0; b < shape.blocks; ++b) {
@@ -438,40 +444,38 @@ void RunCpuCoalescedOuterVarLoop(const Dataset &dataset, const RawMemoryIndexer 
 }
 
 void RunCpuCoalescedOuterVarLight(const Dataset &dataset, const RawMemoryIndexer &idxer) {
-  RunCpuCoalescedOuterVarLoop(dataset, idxer,
-                              [](const double *in_ptr, const double *aux_ptr, const double *,
-                                 const double *, const double *, const double *, const double *,
-                                 const double *, const int idx) {
-                                return ComputeLightCell(in_ptr[idx], aux_ptr[idx]);
-                              });
+  RunCpuCoalescedOuterVarLoop(
+      dataset, idxer,
+      [](const double *in_ptr, const double *aux_ptr, const double *, const double *,
+         const double *, const double *, const double *, const double *,
+         const int idx) { return ComputeLightCell(in_ptr[idx], aux_ptr[idx]); });
 }
 
 void RunCpuCoalescedOuterVarFlux(const Dataset &dataset, const RawMemoryIndexer &idxer) {
-  RunCpuCoalescedOuterVarLoop(dataset, idxer,
-                              [](const double *in_ptr, const double *, const double *fx_up_ptr,
-                                 const double *fx_lo_ptr, const double *fy_up_ptr,
-                                 const double *fy_lo_ptr, const double *fz_up_ptr,
-                                 const double *fz_lo_ptr, const int idx) {
-                                return ComputeFluxCell(in_ptr[idx], fx_up_ptr[idx],
-                                                       fx_lo_ptr[idx], fy_up_ptr[idx],
-                                                       fy_lo_ptr[idx], fz_up_ptr[idx],
-                                                       fz_lo_ptr[idx]);
-                              });
+  RunCpuCoalescedOuterVarLoop(
+      dataset, idxer,
+      [](const double *in_ptr, const double *, const double *fx_up_ptr,
+         const double *fx_lo_ptr, const double *fy_up_ptr, const double *fy_lo_ptr,
+         const double *fz_up_ptr, const double *fz_lo_ptr, const int idx) {
+        return ComputeFluxCell(in_ptr[idx], fx_up_ptr[idx], fx_lo_ptr[idx],
+                               fy_up_ptr[idx], fy_lo_ptr[idx], fz_up_ptr[idx],
+                               fz_lo_ptr[idx]);
+      });
 }
 
 void RunCpuCoalescedOuterVarHeavy(const Dataset &dataset, const RawMemoryIndexer &idxer,
                                   const int heavy_iterations) {
-  RunCpuCoalescedOuterVarLoop(dataset, idxer,
-                              [heavy_iterations](const double *in_ptr, const double *aux_ptr,
-                                                 const double *, const double *, const double *,
-                                                 const double *, const double *, const double *,
-                                                 const int idx) {
-                                return ComputeHeavyCell(in_ptr[idx], aux_ptr[idx],
-                                                        heavy_iterations);
-                              });
+  RunCpuCoalescedOuterVarLoop(
+      dataset, idxer,
+      [heavy_iterations](const double *in_ptr, const double *aux_ptr, const double *,
+                         const double *, const double *, const double *, const double *,
+                         const double *, const int idx) {
+        return ComputeHeavyCell(in_ptr[idx], aux_ptr[idx], heavy_iterations);
+      });
 }
 
-void RunCpuCoalescedOuterVarStencil(const Dataset &dataset, const RawMemoryIndexer &idxer) {
+void RunCpuCoalescedOuterVarStencil(const Dataset &dataset,
+                                    const RawMemoryIndexer &idxer) {
   const auto &shape = dataset.problem;
   auto data = dataset.data;
   const int j_stride = shape.ndim > 1 ? MemoryJStride(shape) : 0;
@@ -489,11 +493,10 @@ void RunCpuCoalescedOuterVarStencil(const Dataset &dataset, const RawMemoryIndex
         double *const out_ptr = &data.out(b, v, ks, js, is);
 #pragma omp simd
         for (int idx = 0; idx < ninner; ++idx) {
-          out_ptr[idx] =
-              ComputeStencilCell(in_ptr[idx], in_ptr[idx - 1], in_ptr[idx + 1],
-                                 in_ptr[idx - j_stride], in_ptr[idx + j_stride],
-                                 in_ptr[idx - k_stride], in_ptr[idx + k_stride], aux_ptr[idx],
-                                 fx_up_ptr[idx], fx_lo_ptr[idx]);
+          out_ptr[idx] = ComputeStencilCell(
+              in_ptr[idx], in_ptr[idx - 1], in_ptr[idx + 1], in_ptr[idx - j_stride],
+              in_ptr[idx + j_stride], in_ptr[idx - k_stride], in_ptr[idx + k_stride],
+              aux_ptr[idx], fx_up_ptr[idx], fx_lo_ptr[idx]);
         }
       }
     }
@@ -501,15 +504,15 @@ void RunCpuCoalescedOuterVarStencil(const Dataset &dataset, const RawMemoryIndex
 }
 
 void RunCpuDenseFlatLight(const Dataset &dataset) {
-  RunCpuDenseFlatLoop(dataset, [](const LoopData &data, const int b, const int v, const int km,
-                                  const int jm, const int im) {
+  RunCpuDenseFlatLoop(dataset, [](const LoopData &data, const int b, const int v,
+                                  const int km, const int jm, const int im) {
     return ComputeLightCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im));
   });
 }
 
 void RunCpuDenseFlatFlux(const Dataset &dataset) {
-  RunCpuDenseFlatLoop(dataset, [](const LoopData &data, const int b, const int v, const int km,
-                                  const int jm, const int im) {
+  RunCpuDenseFlatLoop(dataset, [](const LoopData &data, const int b, const int v,
+                                  const int km, const int jm, const int im) {
     return ComputeFluxCell(data.in(b, v, km, jm, im), data.fx_up(b, v, km, jm, im),
                            data.fx_lo(b, v, km, jm, im), data.fy_up(b, v, km, jm, im),
                            data.fy_lo(b, v, km, jm, im), data.fz_up(b, v, km, jm, im),
@@ -573,26 +576,26 @@ template <typename LightFn, typename FluxFn, typename StencilFn, typename HeavyF
 void DispatchKernel(const BenchmarkConfig &config, LightFn light, FluxFn flux,
                     StencilFn stencil, HeavyFn heavy) {
   switch (config.kernel) {
-    case KernelKind::Light:
-      light();
-      break;
-    case KernelKind::Flux:
-      flux();
-      break;
-    case KernelKind::Stencil:
-      stencil();
-      break;
-    case KernelKind::Heavy:
-      heavy();
-      break;
+  case KernelKind::Light:
+    light();
+    break;
+  case KernelKind::Flux:
+    flux();
+    break;
+  case KernelKind::Stencil:
+    stencil();
+    break;
+  case KernelKind::Heavy:
+    heavy();
+    break;
   }
 }
 
 void RunKokkosDenseFlatLight(const Dataset &dataset) {
   RunKokkosDenseFlatLoop(
       dataset, "KokkosDenseFlatLight",
-      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km, const int jm,
-                    const int im) {
+      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km,
+                    const int jm, const int im) {
         return ComputeLightCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im));
       });
 }
@@ -600,8 +603,8 @@ void RunKokkosDenseFlatLight(const Dataset &dataset) {
 void RunKokkosDenseFlatFlux(const Dataset &dataset) {
   RunKokkosDenseFlatLoop(
       dataset, "KokkosDenseFlatFlux",
-      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km, const int jm,
-                    const int im) {
+      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km,
+                    const int jm, const int im) {
         return ComputeFluxCell(data.in(b, v, km, jm, im), data.fx_up(b, v, km, jm, im),
                                data.fx_lo(b, v, km, jm, im), data.fy_up(b, v, km, jm, im),
                                data.fy_lo(b, v, km, jm, im), data.fz_up(b, v, km, jm, im),
@@ -612,8 +615,8 @@ void RunKokkosDenseFlatFlux(const Dataset &dataset) {
 void RunKokkosDenseFlatHeavy(const Dataset &dataset, int heavy_iterations) {
   RunKokkosDenseFlatLoop(
       dataset, "KokkosDenseFlatHeavy",
-      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km, const int jm,
-                    const int im) {
+      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km,
+                    const int jm, const int im) {
         return ComputeHeavyCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im),
                                 heavy_iterations);
       });
@@ -648,7 +651,8 @@ void RunFlatRangeLight(const Dataset &dataset) {
   const auto shape = dataset.problem;
   const auto data = dataset.data;
   Kokkos::parallel_for(
-      "FlatRangeLight", Kokkos::RangePolicy<>(0, static_cast<int>(shape.cell_indexer.size())),
+      "FlatRangeLight",
+      Kokkos::RangePolicy<>(0, static_cast<int>(shape.cell_indexer.size())),
       KOKKOS_LAMBDA(const int outer_idx) {
         const auto [b, km, jm, im] = shape.cell_indexer(outer_idx);
         for (int v = 0; v < data.active_counts(b); ++v) {
@@ -662,7 +666,8 @@ void RunFlatRangeFlux(const Dataset &dataset) {
   const auto shape = dataset.problem;
   const auto data = dataset.data;
   Kokkos::parallel_for(
-      "FlatRangeFlux", Kokkos::RangePolicy<>(0, static_cast<int>(shape.cell_indexer.size())),
+      "FlatRangeFlux",
+      Kokkos::RangePolicy<>(0, static_cast<int>(shape.cell_indexer.size())),
       KOKKOS_LAMBDA(const int outer_idx) {
         const auto [b, km, jm, im] = shape.cell_indexer(outer_idx);
         for (int v = 0; v < data.active_counts(b); ++v) {
@@ -679,13 +684,13 @@ void RunFlatRangeHeavy(const Dataset &dataset, int heavy_iterations) {
   const auto shape = dataset.problem;
   const auto data = dataset.data;
   Kokkos::parallel_for(
-      "FlatRangeHeavy", Kokkos::RangePolicy<>(0, static_cast<int>(shape.cell_indexer.size())),
+      "FlatRangeHeavy",
+      Kokkos::RangePolicy<>(0, static_cast<int>(shape.cell_indexer.size())),
       KOKKOS_LAMBDA(const int outer_idx) {
         const auto [b, km, jm, im] = shape.cell_indexer(outer_idx);
         for (int v = 0; v < data.active_counts(b); ++v) {
-          data.out(b, v, km, jm, im) =
-              ComputeHeavyCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im),
-                               heavy_iterations);
+          data.out(b, v, km, jm, im) = ComputeHeavyCell(
+              data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im), heavy_iterations);
         }
       });
 }
@@ -694,7 +699,8 @@ void RunFlatRangeStencil(const Dataset &dataset) {
   const auto shape = dataset.problem;
   const auto data = dataset.data;
   Kokkos::parallel_for(
-      "FlatRangeStencil", Kokkos::RangePolicy<>(0, static_cast<int>(shape.cell_indexer.size())),
+      "FlatRangeStencil",
+      Kokkos::RangePolicy<>(0, static_cast<int>(shape.cell_indexer.size())),
       KOKKOS_LAMBDA(const int outer_idx) {
         const auto [b, km, jm, im] = shape.cell_indexer(outer_idx);
         const int km_m1 = shape.ndim > 2 ? km - 1 : km;
@@ -702,12 +708,12 @@ void RunFlatRangeStencil(const Dataset &dataset) {
         const int jm_m1 = shape.ndim > 1 ? jm - 1 : jm;
         const int jm_p1 = shape.ndim > 1 ? jm + 1 : jm;
         for (int v = 0; v < data.active_counts(b); ++v) {
-          data.out(b, v, km, jm, im) =
-              ComputeStencilCell(data.in(b, v, km, jm, im), data.in(b, v, km, jm, im - 1),
-                                 data.in(b, v, km, jm, im + 1), data.in(b, v, km, jm_m1, im),
-                                 data.in(b, v, km, jm_p1, im), data.in(b, v, km_m1, jm, im),
-                                 data.in(b, v, km_p1, jm, im), data.aux(b, v, km, jm, im),
-                                 data.fx_up(b, v, km, jm, im), data.fx_lo(b, v, km, jm, im));
+          data.out(b, v, km, jm, im) = ComputeStencilCell(
+              data.in(b, v, km, jm, im), data.in(b, v, km, jm, im - 1),
+              data.in(b, v, km, jm, im + 1), data.in(b, v, km, jm_m1, im),
+              data.in(b, v, km, jm_p1, im), data.in(b, v, km_m1, jm, im),
+              data.in(b, v, km_p1, jm, im), data.aux(b, v, km, jm, im),
+              data.fx_up(b, v, km, jm, im), data.fx_lo(b, v, km, jm, im));
         }
       });
 }
@@ -757,9 +763,8 @@ void RunMDRangeHeavy(const Dataset &dataset, int heavy_iterations) {
                 shape.domain_i.e + 1}),
       KOKKOS_LAMBDA(const int b, const int km, const int jm, const int im) {
         for (int v = 0; v < data.active_counts(b); ++v) {
-          data.out(b, v, km, jm, im) =
-              ComputeHeavyCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im),
-                               heavy_iterations);
+          data.out(b, v, km, jm, im) = ComputeHeavyCell(
+              data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im), heavy_iterations);
         }
       });
 }
@@ -778,27 +783,28 @@ void RunMDRangeStencil(const Dataset &dataset) {
         const int jm_m1 = shape.ndim > 1 ? jm - 1 : jm;
         const int jm_p1 = shape.ndim > 1 ? jm + 1 : jm;
         for (int v = 0; v < data.active_counts(b); ++v) {
-          data.out(b, v, km, jm, im) =
-              ComputeStencilCell(data.in(b, v, km, jm, im), data.in(b, v, km, jm, im - 1),
-                                 data.in(b, v, km, jm, im + 1), data.in(b, v, km, jm_m1, im),
-                                 data.in(b, v, km, jm_p1, im), data.in(b, v, km_m1, jm, im),
-                                 data.in(b, v, km_p1, jm, im), data.aux(b, v, km, jm, im),
-                                 data.fx_up(b, v, km, jm, im), data.fx_lo(b, v, km, jm, im));
+          data.out(b, v, km, jm, im) = ComputeStencilCell(
+              data.in(b, v, km, jm, im), data.in(b, v, km, jm, im - 1),
+              data.in(b, v, km, jm, im + 1), data.in(b, v, km, jm_m1, im),
+              data.in(b, v, km, jm_p1, im), data.in(b, v, km_m1, jm, im),
+              data.in(b, v, km_p1, jm, im), data.aux(b, v, km, jm, im),
+              data.fx_up(b, v, km, jm, im), data.fx_lo(b, v, km, jm, im));
         }
       });
 }
 
 template <typename Body>
-void RunKokkosLogicalOVILoop(const Dataset &dataset, int inner_chunk_length, int team_size,
-                             const char *label, Body body) {
+void RunKokkosLogicalOVILoop(const Dataset &dataset, int inner_chunk_length,
+                             int team_size, const char *label, Body body) {
   const auto shape = dataset.problem;
   const auto data = dataset.data;
-  const parthenon::Indexer3D logical_idxer(shape.domain_k, shape.domain_j, shape.domain_i);
+  const parthenon::Indexer3D logical_idxer(shape.domain_k, shape.domain_j,
+                                           shape.domain_i);
   const int cells_per_block = static_cast<int>(logical_idxer.size());
   const int nouter = (cells_per_block + inner_chunk_length - 1) / inner_chunk_length;
   const int league_size = shape.blocks * nouter;
-  const TeamPolicy policy =
-      team_size > 0 ? TeamPolicy(league_size, team_size) : TeamPolicy(league_size, Kokkos::AUTO);
+  const TeamPolicy policy = team_size > 0 ? TeamPolicy(league_size, team_size)
+                                          : TeamPolicy(league_size, Kokkos::AUTO);
 
   Kokkos::parallel_for(
       label, policy, KOKKOS_LAMBDA(const TeamMember &member) {
@@ -806,32 +812,36 @@ void RunKokkosLogicalOVILoop(const Dataset &dataset, int inner_chunk_length, int
         const int b = league / nouter;
         const int idx_out = league % nouter;
         const int logical_start = idx_out * inner_chunk_length;
-        const int ninner = Kokkos::min(inner_chunk_length, cells_per_block - logical_start);
+        const int ninner =
+            Kokkos::min(inner_chunk_length, cells_per_block - logical_start);
 
         for (int v = 0; v < data.active_counts(b); ++v) {
-          Kokkos::parallel_for(Kokkos::TeamThreadRange(member, 0, ninner), [&](const int idx) {
-            const auto [km, jm, im] = logical_idxer(logical_start + idx);
-            data.out(b, v, km, jm, im) = body(data, b, v, km, jm, im);
-          });
+          Kokkos::parallel_for(
+              Kokkos::TeamThreadRange(member, 0, ninner), [&](const int idx) {
+                const auto [km, jm, im] = logical_idxer(logical_start + idx);
+                data.out(b, v, km, jm, im) = body(data, b, v, km, jm, im);
+              });
           member.team_barrier();
         }
       });
 }
 
-void RunKokkosLogicalOVILight(const Dataset &dataset, int inner_chunk_length, int team_size) {
+void RunKokkosLogicalOVILight(const Dataset &dataset, int inner_chunk_length,
+                              int team_size) {
   RunKokkosLogicalOVILoop(
       dataset, inner_chunk_length, team_size, "KokkosLogicalOVILight",
-      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km, const int jm,
-                    const int im) {
+      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km,
+                    const int jm, const int im) {
         return ComputeLightCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im));
       });
 }
 
-void RunKokkosLogicalOVIFlux(const Dataset &dataset, int inner_chunk_length, int team_size) {
+void RunKokkosLogicalOVIFlux(const Dataset &dataset, int inner_chunk_length,
+                             int team_size) {
   RunKokkosLogicalOVILoop(
       dataset, inner_chunk_length, team_size, "KokkosLogicalOVIFlux",
-      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km, const int jm,
-                    const int im) {
+      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km,
+                    const int jm, const int im) {
         return ComputeFluxCell(data.in(b, v, km, jm, im), data.fx_up(b, v, km, jm, im),
                                data.fx_lo(b, v, km, jm, im), data.fy_up(b, v, km, jm, im),
                                data.fy_lo(b, v, km, jm, im), data.fz_up(b, v, km, jm, im),
@@ -839,23 +849,24 @@ void RunKokkosLogicalOVIFlux(const Dataset &dataset, int inner_chunk_length, int
       });
 }
 
-void RunKokkosLogicalOVIHeavy(const Dataset &dataset, int inner_chunk_length, int team_size,
-                              int heavy_iterations) {
+void RunKokkosLogicalOVIHeavy(const Dataset &dataset, int inner_chunk_length,
+                              int team_size, int heavy_iterations) {
   RunKokkosLogicalOVILoop(
       dataset, inner_chunk_length, team_size, "KokkosLogicalOVIHeavy",
-      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km, const int jm,
-                    const int im) {
+      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km,
+                    const int jm, const int im) {
         return ComputeHeavyCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im),
                                 heavy_iterations);
       });
 }
 
-void RunKokkosLogicalOVIStencil(const Dataset &dataset, int inner_chunk_length, int team_size) {
+void RunKokkosLogicalOVIStencil(const Dataset &dataset, int inner_chunk_length,
+                                int team_size) {
   const auto shape = dataset.problem;
   RunKokkosLogicalOVILoop(
       dataset, inner_chunk_length, team_size, "KokkosLogicalOVIStencil",
-      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km, const int jm,
-                    const int im) {
+      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km,
+                    const int jm, const int im) {
         const int km_m1 = shape.ndim > 2 ? km - 1 : km;
         const int km_p1 = shape.ndim > 2 ? km + 1 : km;
         const int jm_m1 = shape.ndim > 1 ? jm - 1 : jm;
@@ -870,13 +881,13 @@ void RunKokkosLogicalOVIStencil(const Dataset &dataset, int inner_chunk_length, 
 }
 
 template <typename Body>
-void RunHierarchicalLoop(const Dataset &dataset, const RawMemoryIndexer &idxer, int team_size,
-                         const char *label, Body body) {
+void RunHierarchicalLoop(const Dataset &dataset, const RawMemoryIndexer &idxer,
+                         int team_size, const char *label, Body body) {
   const auto shape = dataset.problem;
   const auto data = dataset.data;
   const int league_size = shape.blocks * idxer.GetNouter();
-  const TeamPolicy policy =
-      team_size > 0 ? TeamPolicy(league_size, team_size) : TeamPolicy(league_size, Kokkos::AUTO);
+  const TeamPolicy policy = team_size > 0 ? TeamPolicy(league_size, team_size)
+                                          : TeamPolicy(league_size, Kokkos::AUTO);
 
   Kokkos::parallel_for(
       label, policy, KOKKOS_LAMBDA(const TeamMember &member) {
@@ -896,23 +907,24 @@ void RunHierarchicalLoop(const Dataset &dataset, const RawMemoryIndexer &idxer, 
           const double *const fz_lo_ptr = &data.fz_lo(b, v, ks, js, is);
           double *const out_ptr = &data.out(b, v, ks, js, is);
 
-          Kokkos::parallel_for(Kokkos::TeamThreadRange(member, 0, ninner), [&](const int idx) {
-            out_ptr[idx] = body(in_ptr, aux_ptr, fx_up_ptr, fx_lo_ptr, fy_up_ptr, fy_lo_ptr,
-                                fz_up_ptr, fz_lo_ptr, idx);
-          });
+          Kokkos::parallel_for(
+              Kokkos::TeamThreadRange(member, 0, ninner), [&](const int idx) {
+                out_ptr[idx] = body(in_ptr, aux_ptr, fx_up_ptr, fx_lo_ptr, fy_up_ptr,
+                                    fy_lo_ptr, fz_up_ptr, fz_lo_ptr, idx);
+              });
           member.team_barrier();
         }
       });
 }
 
 template <typename Body>
-void RunHierarchicalViewLoop(const Dataset &dataset, const RawMemoryIndexer &idxer, int team_size,
-                             const char *label, Body body) {
+void RunHierarchicalViewLoop(const Dataset &dataset, const RawMemoryIndexer &idxer,
+                             int team_size, const char *label, Body body) {
   const auto shape = dataset.problem;
   const auto data = dataset.data;
   const int league_size = shape.blocks * idxer.GetNouter();
-  const TeamPolicy policy =
-      team_size > 0 ? TeamPolicy(league_size, team_size) : TeamPolicy(league_size, Kokkos::AUTO);
+  const TeamPolicy policy = team_size > 0 ? TeamPolicy(league_size, team_size)
+                                          : TeamPolicy(league_size, Kokkos::AUTO);
 
   Kokkos::parallel_for(
       label, policy, KOKKOS_LAMBDA(const TeamMember &member) {
@@ -923,16 +935,19 @@ void RunHierarchicalViewLoop(const Dataset &dataset, const RawMemoryIndexer &idx
         const int ninner = idxer.GetNinnerRaw(idx_out);
 
         for (int v = 0; v < data.active_counts(b); ++v) {
-          Kokkos::parallel_for(Kokkos::TeamThreadRange(member, 0, ninner), [&](const int idx) {
-            const auto [km, jm, im] = idxer.GetCurrentIndices(starting_raw_flat_idx, idx);
-            body(data, b, v, km, jm, im);
-          });
+          Kokkos::parallel_for(Kokkos::TeamThreadRange(member, 0, ninner),
+                               [&](const int idx) {
+                                 const auto [km, jm, im] =
+                                     idxer.GetCurrentIndices(starting_raw_flat_idx, idx);
+                                 body(data, b, v, km, jm, im);
+                               });
           member.team_barrier();
         }
       });
 }
 
-void RunHierarchicalLight(const Dataset &dataset, const RawMemoryIndexer &idxer, int team_size) {
+void RunHierarchicalLight(const Dataset &dataset, const RawMemoryIndexer &idxer,
+                          int team_size) {
   RunHierarchicalLoop(
       dataset, idxer, team_size, "HierarchicalLight",
       KOKKOS_LAMBDA(const double *in_ptr, const double *aux_ptr, const double *,
@@ -942,20 +957,22 @@ void RunHierarchicalLight(const Dataset &dataset, const RawMemoryIndexer &idxer,
       });
 }
 
-void RunHierarchicalFlux(const Dataset &dataset, const RawMemoryIndexer &idxer, int team_size) {
+void RunHierarchicalFlux(const Dataset &dataset, const RawMemoryIndexer &idxer,
+                         int team_size) {
   RunHierarchicalLoop(
       dataset, idxer, team_size, "HierarchicalFlux",
       KOKKOS_LAMBDA(const double *in_ptr, const double *, const double *fx_up_ptr,
                     const double *fx_lo_ptr, const double *fy_up_ptr,
                     const double *fy_lo_ptr, const double *fz_up_ptr,
                     const double *fz_lo_ptr, const int idx) {
-        return ComputeFluxCell(in_ptr[idx], fx_up_ptr[idx], fx_lo_ptr[idx], fy_up_ptr[idx],
-                               fy_lo_ptr[idx], fz_up_ptr[idx], fz_lo_ptr[idx]);
+        return ComputeFluxCell(in_ptr[idx], fx_up_ptr[idx], fx_lo_ptr[idx],
+                               fy_up_ptr[idx], fy_lo_ptr[idx], fz_up_ptr[idx],
+                               fz_lo_ptr[idx]);
       });
 }
 
-void RunHierarchicalHeavy(const Dataset &dataset, const RawMemoryIndexer &idxer, int team_size,
-                          int heavy_iterations) {
+void RunHierarchicalHeavy(const Dataset &dataset, const RawMemoryIndexer &idxer,
+                          int team_size, int heavy_iterations) {
   RunHierarchicalLoop(
       dataset, idxer, team_size, "HierarchicalHeavy",
       KOKKOS_LAMBDA(const double *in_ptr, const double *aux_ptr, const double *,
@@ -965,37 +982,40 @@ void RunHierarchicalHeavy(const Dataset &dataset, const RawMemoryIndexer &idxer,
       });
 }
 
-void RunHierarchicalStencil(const Dataset &dataset, const RawMemoryIndexer &idxer, int team_size) {
+void RunHierarchicalStencil(const Dataset &dataset, const RawMemoryIndexer &idxer,
+                            int team_size) {
   const auto shape = dataset.problem;
   const int j_stride = shape.ndim > 1 ? MemoryJStride(shape) : 0;
   const int k_stride = shape.ndim > 2 ? MemoryKStride(shape) : 0;
   RunHierarchicalLoop(
       dataset, idxer, team_size, "HierarchicalStencil",
       KOKKOS_LAMBDA(const double *in_ptr, const double *aux_ptr, const double *fx_up_ptr,
-                    const double *fx_lo_ptr, const double *, const double *, const double *,
-                    const double *, const int idx) {
+                    const double *fx_lo_ptr, const double *, const double *,
+                    const double *, const double *, const int idx) {
         return ComputeStencilCell(in_ptr[idx], in_ptr[idx - 1], in_ptr[idx + 1],
                                   in_ptr[idx - j_stride], in_ptr[idx + j_stride],
-                                  in_ptr[idx - k_stride], in_ptr[idx + k_stride], aux_ptr[idx],
-                                  fx_up_ptr[idx], fx_lo_ptr[idx]);
+                                  in_ptr[idx - k_stride], in_ptr[idx + k_stride],
+                                  aux_ptr[idx], fx_up_ptr[idx], fx_lo_ptr[idx]);
       });
 }
 
-void RunHierarchicalViewLight(const Dataset &dataset, const RawMemoryIndexer &idxer, int team_size) {
+void RunHierarchicalViewLight(const Dataset &dataset, const RawMemoryIndexer &idxer,
+                              int team_size) {
   RunHierarchicalViewLoop(
       dataset, idxer, team_size, "HierarchicalViewLight",
-      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km, const int jm,
-                    const int im) {
+      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km,
+                    const int jm, const int im) {
         data.out(b, v, km, jm, im) =
             ComputeLightCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im));
       });
 }
 
-void RunHierarchicalViewFlux(const Dataset &dataset, const RawMemoryIndexer &idxer, int team_size) {
+void RunHierarchicalViewFlux(const Dataset &dataset, const RawMemoryIndexer &idxer,
+                             int team_size) {
   RunHierarchicalViewLoop(
       dataset, idxer, team_size, "HierarchicalViewFlux",
-      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km, const int jm,
-                    const int im) {
+      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km,
+                    const int jm, const int im) {
         data.out(b, v, km, jm, im) =
             ComputeFluxCell(data.in(b, v, km, jm, im), data.fx_up(b, v, km, jm, im),
                             data.fx_lo(b, v, km, jm, im), data.fy_up(b, v, km, jm, im),
@@ -1004,15 +1024,14 @@ void RunHierarchicalViewFlux(const Dataset &dataset, const RawMemoryIndexer &idx
       });
 }
 
-void RunHierarchicalViewHeavy(const Dataset &dataset, const RawMemoryIndexer &idxer, int team_size,
-                              int heavy_iterations) {
+void RunHierarchicalViewHeavy(const Dataset &dataset, const RawMemoryIndexer &idxer,
+                              int team_size, int heavy_iterations) {
   RunHierarchicalViewLoop(
       dataset, idxer, team_size, "HierarchicalViewHeavy",
-      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km, const int jm,
-                    const int im) {
-        data.out(b, v, km, jm, im) =
-            ComputeHeavyCell(data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im),
-                             heavy_iterations);
+      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km,
+                    const int jm, const int im) {
+        data.out(b, v, km, jm, im) = ComputeHeavyCell(
+            data.in(b, v, km, jm, im), data.aux(b, v, km, jm, im), heavy_iterations);
       });
 }
 
@@ -1021,8 +1040,8 @@ void RunHierarchicalViewStencil(const Dataset &dataset, const RawMemoryIndexer &
   const auto shape = dataset.problem;
   RunHierarchicalViewLoop(
       dataset, idxer, team_size, "HierarchicalViewStencil",
-      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km, const int jm,
-                    const int im) {
+      KOKKOS_LAMBDA(const LoopData &data, const int b, const int v, const int km,
+                    const int jm, const int im) {
         const int km_m1 = shape.ndim > 2 ? km - 1 : km;
         const int km_p1 = shape.ndim > 2 ? km + 1 : km;
         const int jm_m1 = shape.ndim > 1 ? jm - 1 : jm;
@@ -1059,7 +1078,7 @@ RawMemoryIndexer SelectedKokkosRawspanIndexer(const Dataset &dataset,
   return BuildRawMemoryIndexer(dataset.problem, dataset.problem.ni * dataset.problem.nj);
 }
 
-}  // namespace
+} // namespace
 
 Dataset BuildDataset(const BenchmarkConfig &config) {
   Dataset dataset;
@@ -1068,7 +1087,8 @@ Dataset BuildDataset(const BenchmarkConfig &config) {
   return dataset;
 }
 
-void PrepareDataset(const BenchmarkConfig &config, const RaggedMetadata &metadata, Dataset *dataset) {
+void PrepareDataset(const BenchmarkConfig &config, const RaggedMetadata &metadata,
+                    Dataset *dataset) {
   SetActiveCounts(config, metadata, &dataset->data);
 }
 
@@ -1076,118 +1096,128 @@ void ExecuteLoopPattern(const BenchmarkConfig &config, const RaggedMetadata &met
                         Dataset *dataset) {
   (void)metadata;
   switch (config.variant) {
-    case VariantKind::KokkosDenseFlatBVKJI:
-      DispatchKernel(
-          config, [&] { RunKokkosDenseFlatLight(*dataset); },
-          [&] { RunKokkosDenseFlatFlux(*dataset); },
-          [&] { RunKokkosDenseFlatStencil(*dataset); },
-          [&] { RunKokkosDenseFlatHeavy(*dataset, config.heavy_iterations); });
-      break;
-    case VariantKind::KokkosFlatKJI:
-      DispatchKernel(config, [&] { RunFlatRangeLight(*dataset); },
-                     [&] { RunFlatRangeFlux(*dataset); },
-                     [&] { RunFlatRangeStencil(*dataset); },
-                     [&] { RunFlatRangeHeavy(*dataset, config.heavy_iterations); });
-      break;
-    case VariantKind::KokkosMDRangeKJI:
-      DispatchKernel(config, [&] { RunMDRangeLight(*dataset); },
-                     [&] { RunMDRangeFlux(*dataset); },
-                     [&] { RunMDRangeStencil(*dataset); },
-                     [&] { RunMDRangeHeavy(*dataset, config.heavy_iterations); });
-      break;
-    case VariantKind::KokkosRawspanOVI: {
-      const auto idxer = SelectedKokkosRawspanIndexer(*dataset, config);
-      const int team_size = RequestedTeamSize(config);
-      DispatchKernel(
-          config, [&] { RunHierarchicalLight(*dataset, idxer, team_size); },
-          [&] { RunHierarchicalFlux(*dataset, idxer, team_size); },
-          [&] { RunHierarchicalStencil(*dataset, idxer, team_size); },
-          [&] { RunHierarchicalHeavy(*dataset, idxer, team_size, config.heavy_iterations); });
-      break;
-    }
-    case VariantKind::KokkosRawspanViewOVI: {
-      const auto idxer = SelectedKokkosRawspanIndexer(*dataset, config);
-      const int team_size = RequestedTeamSize(config);
-      DispatchKernel(
-          config, [&] { RunHierarchicalViewLight(*dataset, idxer, team_size); },
-          [&] { RunHierarchicalViewFlux(*dataset, idxer, team_size); },
-          [&] { RunHierarchicalViewStencil(*dataset, idxer, team_size); },
-          [&] { RunHierarchicalViewHeavy(*dataset, idxer, team_size, config.heavy_iterations); });
-      break;
-    }
-    case VariantKind::KokkosLogicalOVI: {
-      const int inner_chunk_length = SelectedInnerChunkLength(config);
-      const int team_size = RequestedTeamSize(config);
-      DispatchKernel(
-          config, [&] { RunKokkosLogicalOVILight(*dataset, inner_chunk_length, team_size); },
-          [&] { RunKokkosLogicalOVIFlux(*dataset, inner_chunk_length, team_size); },
-          [&] { RunKokkosLogicalOVIStencil(*dataset, inner_chunk_length, team_size); },
-          [&] {
-            RunKokkosLogicalOVIHeavy(*dataset, inner_chunk_length, team_size,
-                                     config.heavy_iterations);
-          });
-      break;
-    }
-    case VariantKind::CpuDenseFlatBVKJI:
-      DispatchKernel(config, [&] { RunCpuDenseFlatLight(*dataset); },
-                     [&] { RunCpuDenseFlatFlux(*dataset); },
-                     [&] { RunCpuDenseFlatStencil(*dataset); },
-                     [&] { RunCpuDenseFlatHeavy(*dataset, config.heavy_iterations); });
-      break;
-    case VariantKind::CpuLogicalKJI:
-      DispatchKernel(config, [&] { RunCpuSIMDLight(*dataset); },
-                     [&] { RunCpuSIMDFlux(*dataset); },
-                     [&] { RunCpuSIMDStencil(*dataset); },
-                     [&] { RunCpuSIMDHeavy(*dataset, config.heavy_iterations); });
-      break;
-    case VariantKind::CpuLogicalOVI: {
-      const int inner_chunk_length = SelectedInnerChunkLength(config);
-      DispatchKernel(
-          config, [&] { RunCpuLogicalOVILight(*dataset, inner_chunk_length); },
-          [&] { RunCpuLogicalOVIFlux(*dataset, inner_chunk_length); },
-          [&] { RunCpuLogicalOVIStencil(*dataset, inner_chunk_length); },
-          [&] { RunCpuLogicalOVIHeavy(*dataset, inner_chunk_length, config.heavy_iterations); });
-      break;
-    }
-    case VariantKind::CpuRawspanOVI: {
-      const auto &idxer = SelectedCpuHierarchicalIndexer(*dataset, config);
-      DispatchKernel(config, [&] { RunCpuHierarchicalLight(*dataset, idxer); },
-                     [&] { RunCpuHierarchicalFlux(*dataset, idxer); },
-                     [&] { RunCpuHierarchicalStencil(*dataset, idxer); },
-                     [&] { RunCpuHierarchicalHeavy(*dataset, idxer, config.heavy_iterations); });
-      break;
-    }
-    case VariantKind::CpuRawspanVOI: {
-      const auto &idxer = SelectedCpuHierarchicalIndexer(*dataset, config);
-      DispatchKernel(
-          config, [&] { RunCpuCoalescedOuterVarLight(*dataset, idxer); },
-          [&] { RunCpuCoalescedOuterVarFlux(*dataset, idxer); },
-          [&] { RunCpuCoalescedOuterVarStencil(*dataset, idxer); },
-          [&] { RunCpuCoalescedOuterVarHeavy(*dataset, idxer, config.heavy_iterations); });
-      break;
-    }
+  case VariantKind::KokkosDenseFlatBVKJI:
+    DispatchKernel(
+        config, [&] { RunKokkosDenseFlatLight(*dataset); },
+        [&] { RunKokkosDenseFlatFlux(*dataset); },
+        [&] { RunKokkosDenseFlatStencil(*dataset); },
+        [&] { RunKokkosDenseFlatHeavy(*dataset, config.heavy_iterations); });
+    break;
+  case VariantKind::KokkosFlatKJI:
+    DispatchKernel(
+        config, [&] { RunFlatRangeLight(*dataset); }, [&] { RunFlatRangeFlux(*dataset); },
+        [&] { RunFlatRangeStencil(*dataset); },
+        [&] { RunFlatRangeHeavy(*dataset, config.heavy_iterations); });
+    break;
+  case VariantKind::KokkosMDRangeKJI:
+    DispatchKernel(
+        config, [&] { RunMDRangeLight(*dataset); }, [&] { RunMDRangeFlux(*dataset); },
+        [&] { RunMDRangeStencil(*dataset); },
+        [&] { RunMDRangeHeavy(*dataset, config.heavy_iterations); });
+    break;
+  case VariantKind::KokkosRawspanOVI: {
+    const auto idxer = SelectedKokkosRawspanIndexer(*dataset, config);
+    const int team_size = RequestedTeamSize(config);
+    DispatchKernel(
+        config, [&] { RunHierarchicalLight(*dataset, idxer, team_size); },
+        [&] { RunHierarchicalFlux(*dataset, idxer, team_size); },
+        [&] { RunHierarchicalStencil(*dataset, idxer, team_size); },
+        [&] {
+          RunHierarchicalHeavy(*dataset, idxer, team_size, config.heavy_iterations);
+        });
+    break;
+  }
+  case VariantKind::KokkosRawspanViewOVI: {
+    const auto idxer = SelectedKokkosRawspanIndexer(*dataset, config);
+    const int team_size = RequestedTeamSize(config);
+    DispatchKernel(
+        config, [&] { RunHierarchicalViewLight(*dataset, idxer, team_size); },
+        [&] { RunHierarchicalViewFlux(*dataset, idxer, team_size); },
+        [&] { RunHierarchicalViewStencil(*dataset, idxer, team_size); },
+        [&] {
+          RunHierarchicalViewHeavy(*dataset, idxer, team_size, config.heavy_iterations);
+        });
+    break;
+  }
+  case VariantKind::KokkosLogicalOVI: {
+    const int inner_chunk_length = SelectedInnerChunkLength(config);
+    const int team_size = RequestedTeamSize(config);
+    DispatchKernel(
+        config,
+        [&] { RunKokkosLogicalOVILight(*dataset, inner_chunk_length, team_size); },
+        [&] { RunKokkosLogicalOVIFlux(*dataset, inner_chunk_length, team_size); },
+        [&] { RunKokkosLogicalOVIStencil(*dataset, inner_chunk_length, team_size); },
+        [&] {
+          RunKokkosLogicalOVIHeavy(*dataset, inner_chunk_length, team_size,
+                                   config.heavy_iterations);
+        });
+    break;
+  }
+  case VariantKind::CpuDenseFlatBVKJI:
+    DispatchKernel(
+        config, [&] { RunCpuDenseFlatLight(*dataset); },
+        [&] { RunCpuDenseFlatFlux(*dataset); }, [&] { RunCpuDenseFlatStencil(*dataset); },
+        [&] { RunCpuDenseFlatHeavy(*dataset, config.heavy_iterations); });
+    break;
+  case VariantKind::CpuLogicalKJI:
+    DispatchKernel(
+        config, [&] { RunCpuSIMDLight(*dataset); }, [&] { RunCpuSIMDFlux(*dataset); },
+        [&] { RunCpuSIMDStencil(*dataset); },
+        [&] { RunCpuSIMDHeavy(*dataset, config.heavy_iterations); });
+    break;
+  case VariantKind::CpuLogicalOVI: {
+    const int inner_chunk_length = SelectedInnerChunkLength(config);
+    DispatchKernel(
+        config, [&] { RunCpuLogicalOVILight(*dataset, inner_chunk_length); },
+        [&] { RunCpuLogicalOVIFlux(*dataset, inner_chunk_length); },
+        [&] { RunCpuLogicalOVIStencil(*dataset, inner_chunk_length); },
+        [&] {
+          RunCpuLogicalOVIHeavy(*dataset, inner_chunk_length, config.heavy_iterations);
+        });
+    break;
+  }
+  case VariantKind::CpuRawspanOVI: {
+    const auto &idxer = SelectedCpuHierarchicalIndexer(*dataset, config);
+    DispatchKernel(
+        config, [&] { RunCpuHierarchicalLight(*dataset, idxer); },
+        [&] { RunCpuHierarchicalFlux(*dataset, idxer); },
+        [&] { RunCpuHierarchicalStencil(*dataset, idxer); },
+        [&] { RunCpuHierarchicalHeavy(*dataset, idxer, config.heavy_iterations); });
+    break;
+  }
+  case VariantKind::CpuRawspanVOI: {
+    const auto &idxer = SelectedCpuHierarchicalIndexer(*dataset, config);
+    DispatchKernel(
+        config, [&] { RunCpuCoalescedOuterVarLight(*dataset, idxer); },
+        [&] { RunCpuCoalescedOuterVarFlux(*dataset, idxer); },
+        [&] { RunCpuCoalescedOuterVarStencil(*dataset, idxer); },
+        [&] { RunCpuCoalescedOuterVarHeavy(*dataset, idxer, config.heavy_iterations); });
+    break;
+  }
   }
   Kokkos::fence();
 }
 
-std::uint64_t CountUpdates(const BenchmarkConfig &config, const RaggedMetadata &metadata) {
+std::uint64_t CountUpdates(const BenchmarkConfig &config,
+                           const RaggedMetadata &metadata) {
   if (UsesDenseBaselineLayout(config)) {
     const int ndim = config.nk > 1 ? 3 : (config.nj > 1 ? 2 : 1);
     const std::uint64_t nk_mem =
         static_cast<std::uint64_t>(config.nk + (ndim > 2 ? 2 * config.ghost_zones : 0));
     const std::uint64_t nj_mem =
         static_cast<std::uint64_t>(config.nj + (ndim > 1 ? 2 * config.ghost_zones : 0));
-    const std::uint64_t ni_mem = static_cast<std::uint64_t>(config.ni + 2 * config.ghost_zones);
+    const std::uint64_t ni_mem =
+        static_cast<std::uint64_t>(config.ni + 2 * config.ghost_zones);
     return static_cast<std::uint64_t>(config.blocks) *
            static_cast<std::uint64_t>(config.variables) * nk_mem * nj_mem * ni_mem;
   }
-  const std::uint64_t cells =
-      static_cast<std::uint64_t>(config.nk) * static_cast<std::uint64_t>(config.nj) *
-      static_cast<std::uint64_t>(config.ni);
+  const std::uint64_t cells = static_cast<std::uint64_t>(config.nk) *
+                              static_cast<std::uint64_t>(config.nj) *
+                              static_cast<std::uint64_t>(config.ni);
   std::uint64_t total = 0;
   for (int block = 0; block < config.blocks; ++block) {
-    total += static_cast<std::uint64_t>(
-                 ActiveVariablesForBlock(metadata, config.ragged, block, config.variables)) *
+    total += static_cast<std::uint64_t>(ActiveVariablesForBlock(
+                 metadata, config.ragged, block, config.variables)) *
              cells;
   }
   return total;
@@ -1208,10 +1238,11 @@ int EffectiveInnerChunkLength(const BenchmarkConfig &config) {
        config.variant == VariantKind::CpuRawspanOVI ||
        config.variant == VariantKind::CpuRawspanVOI) &&
       config.inner_chunk_length > 0) {
-    return static_cast<int>(DefaultTunedChunkLength(config.ni, config.inner_chunk_length));
+    return static_cast<int>(
+        DefaultTunedChunkLength(config.ni, config.inner_chunk_length));
   }
-  return static_cast<int>(DefaultHierarchicalChunkLength(config.ni, config.nj,
-                                                         config.inner_chunk_length));
+  return static_cast<int>(
+      DefaultHierarchicalChunkLength(config.ni, config.nj, config.inner_chunk_length));
 }
 
 double EstimatedBytesPerUpdate(KernelKind kind) {
@@ -1226,16 +1257,16 @@ double EstimatedBytesPerUpdate(KernelKind kind) {
 
 double EstimatedFlopsPerUpdate(KernelKind kind, int heavy_iterations) {
   switch (kind) {
-    case KernelKind::Light:
-      return 3.0;
-    case KernelKind::Flux:
-      return 8.0;
-    case KernelKind::Stencil:
-      return 13.0;
-    case KernelKind::Heavy:
-      return static_cast<double>(14 * heavy_iterations + 3);
+  case KernelKind::Light:
+    return 3.0;
+  case KernelKind::Flux:
+    return 8.0;
+  case KernelKind::Stencil:
+    return 13.0;
+  case KernelKind::Heavy:
+    return static_cast<double>(14 * heavy_iterations + 3);
   }
   return 0.0;
 }
 
-}  // namespace plb
+} // namespace plb

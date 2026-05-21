@@ -6,4 +6,4 @@ namespace plb2 {
 
 BenchmarkRow RunCase(const CaseSpec &spec);
 
-}  // namespace plb2
+} // namespace plb2

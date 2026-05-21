@@ -15,21 +15,21 @@ __attribute__((used, noinline))
 void RunCpuHierarchicalLoop2(const Dataset &dataset, const RawMemoryIndexer &idxer) {
   const auto &shape = dataset.problem;
   auto data = dataset.data;
-  
+
   constexpr int NITER{10};
   constexpr std::array<double, NITER> alpha = [] {
     std::array<double, NITER> a{};
     for (int k = 0; k < NITER; ++k) {
-        a[k] = 1.000000000000001 + 1.0e-15 * k;
+      a[k] = 1.000000000000001 + 1.0e-15 * k;
     }
     return a;
   }();
   constexpr std::array<double, NITER> beta = [] {
-      std::array<double, NITER> b{};
-      for (int k = 0; k < NITER; ++k) {
-          b[k] = 3.0e-15 + 2.0e-15 * k;
-      }
-      return b;
+    std::array<double, NITER> b{};
+    for (int k = 0; k < NITER; ++k) {
+      b[k] = 3.0e-15 + 2.0e-15 * k;
+    }
+    return b;
   }();
 
   for (int b = 0; b < shape.blocks; ++b) {
@@ -49,18 +49,17 @@ void RunCpuHierarchicalLoop2(const Dataset &dataset, const RawMemoryIndexer &idx
 #pragma omp simd
         for (int idx = 0; idx < ninner; ++idx) {
           double a = in[idx];
-          a += in_ip1[idx] + in_im1[idx] 
-             + in_jp1[idx] + in_jm1[idx]
-             + in_kp1[idx] + in_km1[idx]; 
+          a += in_ip1[idx] + in_im1[idx] + in_jp1[idx] + in_jm1[idx] + in_kp1[idx] +
+               in_km1[idx];
 #pragma unroll
           for (int r = 0; r < NITER; ++r) {
-            a = std::fma(a, alpha[r], beta[r]);  
+            a = std::fma(a, alpha[r], beta[r]);
           }
-          out[idx] = a; 
+          out[idx] = a;
         }
       }
     }
   }
 }
 
-}  // namespace plb
+} // namespace plb

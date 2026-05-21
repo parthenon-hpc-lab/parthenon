@@ -7,9 +7,9 @@ namespace plb2 {
 namespace loop_abstraction {
 
 template <class IndexSpaceType>
-KOKKOS_FUNCTION InnerIndexRange<IndexSpaceType> FlatRange(
-    const IndexSpaceType &idx_space, int b, int logical_start, int logical_end,
-    const device_team_member_t *team_member = nullptr) {
+KOKKOS_FUNCTION InnerIndexRange<IndexSpaceType>
+FlatRange(const IndexSpaceType &idx_space, int b, int logical_start, int logical_end,
+          const device_team_member_t *team_member = nullptr) {
   InnerIndexRange<IndexSpaceType> out;
   out.pidx_space = &idx_space;
   const auto [ks, js, is] = idx_space.GetLogicalIndexer()(logical_start);
@@ -24,7 +24,7 @@ KOKKOS_FUNCTION InnerIndexRange<IndexSpaceType> FlatRange(
     out.flat_end = logical_end;
   }
   if constexpr (IndexSpaceType::loop_tag_v != loop_tag::boiv)
-      out.team_member = team_member;
+    out.team_member = team_member;
   out.ks = ks;
   out.js = js;
   out.is = is;

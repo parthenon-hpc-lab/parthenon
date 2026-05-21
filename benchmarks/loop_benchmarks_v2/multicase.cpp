@@ -159,46 +159,33 @@ bool WriteResultsCsv(const std::string &results_csv, const BenchmarkRow &row, bo
   }
 
   if (!exists || !append) {
-    out << "loop,backend,nblocks,target_cells,nvars,nz_interior,ny_interior,nx_interior,nghost,"
-           "ninner,access_mode,niter,stencil_x,stencil_y,stencil_z,kernel_label,warmup,repeats,"
+    out << "loop,backend,nblocks,target_cells,nvars,nz_interior,ny_interior,nx_interior,"
+           "nghost,"
+           "ninner,access_mode,niter,stencil_x,stencil_y,stencil_z,kernel_label,warmup,"
+           "repeats,"
            "logical_cells_per_block,memory_cells_per_block,total_updates,touched_cells,"
            "avg_seconds,min_seconds,updates_per_second,touched_cells_per_second,"
            "validation_checksum\n";
   }
 
-  out << CsvEscape(row.loop_name) << ','
-      << CsvEscape(row.backend) << ','
-      << row.nblocks << ','
-      << row.target_cells << ','
-      << row.nvars << ','
-      << row.nz_interior << ','
-      << row.ny_interior << ','
-      << row.nx_interior << ','
-      << row.nghost << ','
-      << row.ninner << ','
-      << CsvEscape(row.access_mode) << ','
-      << row.niter << ','
-      << CsvEscape(row.stencil_x) << ','
-      << CsvEscape(row.stencil_y) << ','
-      << CsvEscape(row.stencil_z) << ','
-      << CsvEscape(row.kernel_label) << ','
-      << row.warmup << ','
-      << row.repeats << ','
-      << row.logical_cells_per_block << ','
-      << row.memory_cells_per_block << ','
-      << row.total_updates << ','
-      << row.touched_cells << ','
-      << row.avg_seconds << ','
-      << row.min_seconds << ','
-      << row.updates_per_second << ','
-      << row.touched_cells_per_second << ','
+  out << CsvEscape(row.loop_name) << ',' << CsvEscape(row.backend) << ',' << row.nblocks
+      << ',' << row.target_cells << ',' << row.nvars << ',' << row.nz_interior << ','
+      << row.ny_interior << ',' << row.nx_interior << ',' << row.nghost << ','
+      << row.ninner << ',' << CsvEscape(row.access_mode) << ',' << row.niter << ','
+      << CsvEscape(row.stencil_x) << ',' << CsvEscape(row.stencil_y) << ','
+      << CsvEscape(row.stencil_z) << ',' << CsvEscape(row.kernel_label) << ','
+      << row.warmup << ',' << row.repeats << ',' << row.logical_cells_per_block << ','
+      << row.memory_cells_per_block << ',' << row.total_updates << ','
+      << row.touched_cells << ',' << row.avg_seconds << ',' << row.min_seconds << ','
+      << row.updates_per_second << ',' << row.touched_cells_per_second << ','
       << row.validation_checksum << '\n';
 
   return true;
 }
 
 bool ParseCaseRow(const std::unordered_map<std::string, std::size_t> &columns,
-                  const std::vector<std::string> &fields, CaseSpec *spec, std::string *error) {
+                  const std::vector<std::string> &fields, CaseSpec *spec,
+                  std::string *error) {
   auto get = [&](const char *name) -> const std::string & {
     static const std::string empty;
     const auto it = columns.find(name);
@@ -217,7 +204,8 @@ bool ParseCaseRow(const std::unordered_map<std::string, std::size_t> &columns,
     spec->backend = backend;
   }
 
-  if (!Trim(get("nblocks")).empty() && !ParseInt(get("nblocks"), &spec->problem.nblocks)) {
+  if (!Trim(get("nblocks")).empty() &&
+      !ParseInt(get("nblocks"), &spec->problem.nblocks)) {
     if (error != nullptr) *error = "bad nblocks value";
     return false;
   }
@@ -297,7 +285,7 @@ bool ParseCaseRow(const std::unordered_map<std::string, std::size_t> &columns,
   return true;
 }
 
-}  // namespace
+} // namespace
 
 bool RunCaseMatrix(const std::string &cases_csv, const std::string &results_csv,
                    std::string *error) {
@@ -379,4 +367,4 @@ bool RunCaseMatrix(const std::string &cases_csv, const std::string &results_csv,
   return true;
 }
 
-}  // namespace plb2
+} // namespace plb2

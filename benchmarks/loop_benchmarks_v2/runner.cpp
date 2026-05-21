@@ -1,7 +1,7 @@
 #include "runner.hpp"
 
-#include <chrono>
 #include <array>
+#include <chrono>
 #include <limits>
 #include <optional>
 #include <stdexcept>
@@ -81,15 +81,16 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
   }();
 
   const int niter = spec.kernel.niter;
-  const auto body_direct = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
-                                         int i) {
-    return ComputeUnifiedCellDirect<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz, alpha, beta,
-                                                niter);
+  const auto body_direct =
+      KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j, int i) {
+    return ComputeUnifiedCellDirect<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz, alpha,
+                                                beta, niter);
   };
 
-  const auto build_access = KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j,
-                                          int i) {
-    return BuildUnifiedCellHoistedPointers<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy, dz);
+  const auto build_access =
+      KOKKOS_LAMBDA(const LoopData &data, int b, int v, int k, int j, int i) {
+    return BuildUnifiedCellHoistedPointers<SX, SY, SZ>(data.in, b, v, k, j, i, dx, dy,
+                                                       dz);
   };
 
   const auto body_hoisted = KOKKOS_LAMBDA(const auto &access, int idx) {
@@ -100,77 +101,78 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
 
   const auto run_once = [&] {
     switch (spec.loop.kind) {
-      case LoopKind::CpuFlatGhosts:
-        if (use_hoisted) {
-          RunCpuFlatGhosts(dataset, build_access, body_hoisted);
-        } else {
-          RunCpuFlatGhosts(dataset, body_direct);
-        }
-        break;
-      case LoopKind::CpuBoviContiguous:
-        if (use_hoisted) {
-          RunCpuBoviContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
-        } else {
-          RunCpuBoviContiguousDirect(dataset, spec.loop.ninner, body_direct);
-        }
-        break;
-      case LoopKind::CpuBoviLogical:
-        RunCpuBoviLogical(dataset, spec.loop.ninner, body_direct);
-        break;
-      case LoopKind::KokkosBoivFlat:
-        RunKokkosBoivFlat(dataset, body_direct);
-        break;
-      case LoopKind::KokkosBoviTeamContiguous:
-        if (use_hoisted) {
-          RunKokkosBoviTeamContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
-        } else {
-          RunKokkosBoviTeamContiguousDirect(dataset, spec.loop.ninner, body_direct);
-        }
-        break;
-      case LoopKind::KokkosBoviTeamLogical:
-        RunKokkosBoviTeamLogical(dataset, spec.loop.ninner, body_direct);
-        break;
-      case LoopKind::LoopAbstractionBoviMemory:
-        RunLoopAbstractionCase<loop_abstraction::loop_tag::bovi,
-                               loop_abstraction::inner_tag::memory, SX, SY, SZ>(
-            spec, dataset, dx, dy, dz, alpha, beta);
-        break;
-      case LoopKind::LoopAbstractionBoviLogical:
-        RunLoopAbstractionCase<loop_abstraction::loop_tag::bovi,
-                               loop_abstraction::inner_tag::logical_coords, SX, SY, SZ>(
-            spec, dataset, dx, dy, dz, alpha, beta);
-        break;
-      case LoopKind::LoopAbstractionBoivLogical:
-        RunLoopAbstractionCase<loop_abstraction::loop_tag::boiv,
-                               loop_abstraction::inner_tag::logical_coords, SX, SY, SZ>(
-            spec, dataset, dx, dy, dz, alpha, beta);
-        break;
-      case LoopKind::LoopAbstractionBvoiMemory:
-        RunLoopAbstractionCase<loop_abstraction::loop_tag::bvoi,
-                               loop_abstraction::inner_tag::memory, SX, SY, SZ>(
-            spec, dataset, dx, dy, dz, alpha, beta);
-        break;
-      case LoopKind::LoopAbstractionBvoiLogical:
-        RunLoopAbstractionCase<loop_abstraction::loop_tag::bvoi,
-                               loop_abstraction::inner_tag::logical_flat, SX, SY, SZ>(
-            spec, dataset, dx, dy, dz, alpha, beta);
-        break;
-      case LoopKind::CpuBoivContiguous:
-        RunCpuBoivContiguous(dataset, spec.loop.ninner, body_direct);
-        break;
-      case LoopKind::CpuBoivLogical:
-        RunCpuBoivLogical(dataset, spec.loop.ninner, body_direct);
-        break;
-      case LoopKind::CpuBvoiContiguous:
-        if (use_hoisted) {
-          RunCpuBvoiContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
-        } else {
-          RunCpuBvoiContiguousDirect(dataset, spec.loop.ninner, body_direct);
-        }
-        break;
-      case LoopKind::CpuBvoiLogical:
-        RunCpuBvoiLogical(dataset, spec.loop.ninner, body_direct);
-        break;
+    case LoopKind::CpuFlatGhosts:
+      if (use_hoisted) {
+        RunCpuFlatGhosts(dataset, build_access, body_hoisted);
+      } else {
+        RunCpuFlatGhosts(dataset, body_direct);
+      }
+      break;
+    case LoopKind::CpuBoviContiguous:
+      if (use_hoisted) {
+        RunCpuBoviContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
+      } else {
+        RunCpuBoviContiguousDirect(dataset, spec.loop.ninner, body_direct);
+      }
+      break;
+    case LoopKind::CpuBoviLogical:
+      RunCpuBoviLogical(dataset, spec.loop.ninner, body_direct);
+      break;
+    case LoopKind::KokkosBoivFlat:
+      RunKokkosBoivFlat(dataset, body_direct);
+      break;
+    case LoopKind::KokkosBoviTeamContiguous:
+      if (use_hoisted) {
+        RunKokkosBoviTeamContiguous(dataset, spec.loop.ninner, build_access,
+                                    body_hoisted);
+      } else {
+        RunKokkosBoviTeamContiguousDirect(dataset, spec.loop.ninner, body_direct);
+      }
+      break;
+    case LoopKind::KokkosBoviTeamLogical:
+      RunKokkosBoviTeamLogical(dataset, spec.loop.ninner, body_direct);
+      break;
+    case LoopKind::LoopAbstractionBoviMemory:
+      RunLoopAbstractionCase<loop_abstraction::loop_tag::bovi,
+                             loop_abstraction::inner_tag::memory, SX, SY, SZ>(
+          spec, dataset, dx, dy, dz, alpha, beta);
+      break;
+    case LoopKind::LoopAbstractionBoviLogical:
+      RunLoopAbstractionCase<loop_abstraction::loop_tag::bovi,
+                             loop_abstraction::inner_tag::logical_coords, SX, SY, SZ>(
+          spec, dataset, dx, dy, dz, alpha, beta);
+      break;
+    case LoopKind::LoopAbstractionBoivLogical:
+      RunLoopAbstractionCase<loop_abstraction::loop_tag::boiv,
+                             loop_abstraction::inner_tag::logical_coords, SX, SY, SZ>(
+          spec, dataset, dx, dy, dz, alpha, beta);
+      break;
+    case LoopKind::LoopAbstractionBvoiMemory:
+      RunLoopAbstractionCase<loop_abstraction::loop_tag::bvoi,
+                             loop_abstraction::inner_tag::memory, SX, SY, SZ>(
+          spec, dataset, dx, dy, dz, alpha, beta);
+      break;
+    case LoopKind::LoopAbstractionBvoiLogical:
+      RunLoopAbstractionCase<loop_abstraction::loop_tag::bvoi,
+                             loop_abstraction::inner_tag::logical_flat, SX, SY, SZ>(
+          spec, dataset, dx, dy, dz, alpha, beta);
+      break;
+    case LoopKind::CpuBoivContiguous:
+      RunCpuBoivContiguous(dataset, spec.loop.ninner, body_direct);
+      break;
+    case LoopKind::CpuBoivLogical:
+      RunCpuBoivLogical(dataset, spec.loop.ninner, body_direct);
+      break;
+    case LoopKind::CpuBvoiContiguous:
+      if (use_hoisted) {
+        RunCpuBvoiContiguous(dataset, spec.loop.ninner, build_access, body_hoisted);
+      } else {
+        RunCpuBvoiContiguousDirect(dataset, spec.loop.ninner, body_direct);
+      }
+      break;
+    case LoopKind::CpuBvoiLogical:
+      RunCpuBvoiLogical(dataset, spec.loop.ninner, body_direct);
+      break;
     }
   };
 
@@ -196,8 +198,10 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
   row.kernel_label = KernelLabel(spec);
   row.warmup = spec.warmup;
   row.repeats = spec.repeats;
-  row.logical_cells_per_block = static_cast<std::uint64_t>(dataset.problem.logical_indexer.size());
-  row.memory_cells_per_block = static_cast<std::uint64_t>(dataset.problem.memory_indexer.size());
+  row.logical_cells_per_block =
+      static_cast<std::uint64_t>(dataset.problem.logical_indexer.size());
+  row.memory_cells_per_block =
+      static_cast<std::uint64_t>(dataset.problem.memory_indexer.size());
   row.total_updates = CountUpdates(spec, dataset);
   row.touched_cells = CountTouchedCells(spec, dataset);
   row.avg_seconds = avg_seconds;
@@ -210,7 +214,7 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
   return row;
 }
 
-}  // namespace
+} // namespace
 
 BenchmarkRow RunCase(const CaseSpec &spec) {
   Dataset dataset = BuildDataset(spec);
@@ -230,9 +234,10 @@ BenchmarkRow RunCase(const CaseSpec &spec) {
   if (sx == 1 && sy == 1 && sz == 1) {
     return RunTypedCase<1, 1, 1>(spec, dataset);
   }
-  throw std::runtime_error("unsupported stencil shape: x{" + FormatOffsetSet(spec.kernel.stencil_x) +
-                           "}y{" + FormatOffsetSet(spec.kernel.stencil_y) + "}z{" +
+  throw std::runtime_error("unsupported stencil shape: x{" +
+                           FormatOffsetSet(spec.kernel.stencil_x) + "}y{" +
+                           FormatOffsetSet(spec.kernel.stencil_y) + "}z{" +
                            FormatOffsetSet(spec.kernel.stencil_z) + "}");
 }
 
-}  // namespace plb2
+} // namespace plb2

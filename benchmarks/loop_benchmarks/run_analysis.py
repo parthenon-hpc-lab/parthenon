@@ -12,7 +12,9 @@ import textwrap
 from collections import defaultdict
 from pathlib import Path
 
-os.environ.setdefault("MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "parthenon-loop-mpl"))
+os.environ.setdefault(
+    "MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "parthenon-loop-mpl")
+)
 os.environ.setdefault("XDG_CACHE_HOME", tempfile.gettempdir())
 
 import matplotlib
@@ -20,7 +22,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-
 
 VARIANT_STYLE = {
     "kokkos_dense_flat_bvkji": ("#1d3557", "s"),
@@ -105,7 +106,8 @@ class ProgressReporter:
         details.append(f"min_seconds={row['min_seconds']:.6f}")
         details.append(f"updates_per_second={row['updates_per_second']:.3e}")
         print(
-            f"[{self.completed_runs}/{self.total_runs}] {experiment}: " + ", ".join(details),
+            f"[{self.completed_runs}/{self.total_runs}] {experiment}: "
+            + ", ".join(details),
             flush=True,
         )
 
@@ -189,9 +191,21 @@ def chunk_flag_text(variant, analysis_mode):
     if variant in {"cpu_dense_flat_bvkji", "kokkos_dense_flat_bvkji"}:
         return "(dense full-memory baseline)"
     if variant in {"cpu_rawspan_voi", "cpu_rawspan_ovi", "cpu_logical_ovi"}:
-        return "--inner-chunk-length <ni>" if analysis_mode == "verify" else "(default ninner=ni*nj)"
-    if variant in {"kokkos_rawspan_ovi", "kokkos_rawspan_view_ovi", "kokkos_logical_ovi"}:
-        return "--inner-chunk-length <ni>" if analysis_mode == "verify" else "(default ninner=ni*nj)"
+        return (
+            "--inner-chunk-length <ni>"
+            if analysis_mode == "verify"
+            else "(default ninner=ni*nj)"
+        )
+    if variant in {
+        "kokkos_rawspan_ovi",
+        "kokkos_rawspan_view_ovi",
+        "kokkos_logical_ovi",
+    }:
+        return (
+            "--inner-chunk-length <ni>"
+            if analysis_mode == "verify"
+            else "(default ninner=ni*nj)"
+        )
     if variant == "gpu_rawspan_chunk_ninj":
         return "--inner-chunk-length <ni*nj>"
     if variant == "gpu_rawspan_chunk_ni":
@@ -435,7 +449,9 @@ def detect_cpu_description():
                     candidates.append(value.strip())
         cpuinfo = Path("/proc/cpuinfo")
         if cpuinfo.exists():
-            for line in cpuinfo.read_text(encoding="utf-8", errors="ignore").splitlines():
+            for line in cpuinfo.read_text(
+                encoding="utf-8", errors="ignore"
+            ).splitlines():
                 if ":" not in line:
                     continue
                 key, value = line.split(":", 1)
@@ -470,7 +486,12 @@ def parse_cmake_cache(cache_path):
     if not cache_path.exists():
         return cache
     for line in cache_path.read_text(encoding="utf-8", errors="ignore").splitlines():
-        if not line or line.startswith(("#", "//")) or "=" not in line or ":" not in line:
+        if (
+            not line
+            or line.startswith(("#", "//"))
+            or "=" not in line
+            or ":" not in line
+        ):
             continue
         key_type, value = line.split("=", 1)
         key, _sep, _value_type = key_type.partition(":")
@@ -496,7 +517,9 @@ def parse_flags_make(flags_make_path):
     info = {}
     if not flags_make_path.exists():
         return info
-    for line in flags_make_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+    for line in flags_make_path.read_text(
+        encoding="utf-8", errors="ignore"
+    ).splitlines():
         if " = " not in line:
             continue
         key, value = line.split(" = ", 1)
@@ -531,9 +554,14 @@ def collect_system_info(binary):
     build_type = info["build_type"]
     common_flags = cache.get("CMAKE_CXX_FLAGS", "").strip()
     build_flags = cache.get(f"CMAKE_CXX_FLAGS_{build_type.upper()}", "").strip()
-    info["cmake_cxx_flags"] = " ".join(part for part in [common_flags, build_flags] if part)
+    info["cmake_cxx_flags"] = " ".join(
+        part for part in [common_flags, build_flags] if part
+    )
 
-    flags_make = build_dir / "benchmarks/loop_benchmarks/CMakeFiles/loop-benchmarks.dir/flags.make"
+    flags_make = (
+        build_dir
+        / "benchmarks/loop_benchmarks/CMakeFiles/loop-benchmarks.dir/flags.make"
+    )
     target_flags = parse_flags_make(flags_make)
     info["target_compile_flags"] = target_flags.get("CXX_FLAGS", "")
     info["target_defines"] = target_flags.get("CXX_DEFINES", "")
@@ -569,7 +597,9 @@ def blocks_for_shape(edge, args):
     return max(1, int(round(args.target_total_cells / cells_per_block)))
 
 
-def build_benchmark_command(binary, csv_path, kernel, variant, edge, args, chunk_length=None):
+def build_benchmark_command(
+    binary, csv_path, kernel, variant, edge, args, chunk_length=None
+):
     cmd = [
         binary,
         "--kernel",
@@ -624,24 +654,32 @@ def gpu_variant_command_settings(variant, edge, args, chunk_length=None):
     return variant, chunk_length
 
 
-def run_sweep(binary, csv_path, kernel, variants, edge_values, args, analysis_mode, progress):
+def run_sweep(
+    binary, csv_path, kernel, variants, edge_values, args, analysis_mode, progress
+):
     rows = []
     chunk_mode = verify_chunk_mode(analysis_mode)
     for edge in edge_values:
         for variant in variants:
             chunk_length = None
-            if variant in {
-                "cpu_rawspan_voi",
-                "cpu_rawspan_ovi",
-                "cpu_logical_ovi",
-                "kokkos_rawspan_ovi",
-                "kokkos_rawspan_view_ovi",
-                "kokkos_logical_ovi",
-            } and chunk_mode == "row":
+            if (
+                variant
+                in {
+                    "cpu_rawspan_voi",
+                    "cpu_rawspan_ovi",
+                    "cpu_logical_ovi",
+                    "kokkos_rawspan_ovi",
+                    "kokkos_rawspan_view_ovi",
+                    "kokkos_logical_ovi",
+                }
+                and chunk_mode == "row"
+            ):
                 chunk_length = edge
             cmd_variant = variant
             if args.gpu:
-                cmd_variant, chunk_length = gpu_variant_command_settings(variant, edge, args, chunk_length)
+                cmd_variant, chunk_length = gpu_variant_command_settings(
+                    variant, edge, args, chunk_length
+                )
             cmd = build_benchmark_command(
                 binary, csv_path, kernel, cmd_variant, edge, args, chunk_length
             )
@@ -664,7 +702,9 @@ def run_chunk_sweep(
         for variant in variants:
             cmd_variant = variant
             if args.gpu:
-                cmd_variant, chunk_length = gpu_variant_command_settings(variant, ni, args, chunk_length)
+                cmd_variant, chunk_length = gpu_variant_command_settings(
+                    variant, ni, args, chunk_length
+                )
             cmd = build_benchmark_command(
                 binary, csv_path, kernel, cmd_variant, ni, args, chunk_length
             )
@@ -687,25 +727,35 @@ def run_chunk_sweep(
     return rows
 
 
-def run_heavy_intensity_sweep(binary, csv_path, variants, edge, heavy_iteration_values, args, progress):
+def run_heavy_intensity_sweep(
+    binary, csv_path, variants, edge, heavy_iteration_values, args, progress
+):
     rows = []
     chunk_mode = verify_chunk_mode(args.analysis_mode)
     for heavy_iterations in heavy_iteration_values:
         for variant in variants:
             chunk_length = None
-            if variant in {
-                "cpu_rawspan_voi",
-                "cpu_rawspan_ovi",
-                "cpu_logical_ovi",
-                "kokkos_rawspan_ovi",
-                "kokkos_rawspan_view_ovi",
-                "kokkos_logical_ovi",
-            } and chunk_mode == "row":
+            if (
+                variant
+                in {
+                    "cpu_rawspan_voi",
+                    "cpu_rawspan_ovi",
+                    "cpu_logical_ovi",
+                    "kokkos_rawspan_ovi",
+                    "kokkos_rawspan_view_ovi",
+                    "kokkos_logical_ovi",
+                }
+                and chunk_mode == "row"
+            ):
                 chunk_length = edge
             cmd_variant = variant
             if args.gpu:
-                cmd_variant, chunk_length = gpu_variant_command_settings(variant, edge, args, chunk_length)
-            cmd = build_benchmark_command(binary, csv_path, "heavy", cmd_variant, edge, args, chunk_length)
+                cmd_variant, chunk_length = gpu_variant_command_settings(
+                    variant, edge, args, chunk_length
+                )
+            cmd = build_benchmark_command(
+                binary, csv_path, "heavy", cmd_variant, edge, args, chunk_length
+            )
             cmd.extend(["--heavy-iterations", str(heavy_iterations)])
             summary = parse_summary(run_command(cmd))
             summary["variant"] = variant
@@ -775,7 +825,9 @@ def write_combined_csv(path, rows):
             writer.writerow(row)
 
 
-def add_title_page(pdf, title, args, system_info, rows, labels, chunk_values, heavy_iteration_values):
+def add_title_page(
+    pdf, title, args, system_info, rows, labels, chunk_values, heavy_iteration_values
+):
     fig, ax = plt.subplots(figsize=(8.5, 11))
     ax.axis("off")
     ni_values = sorted({row["ni"] for row in rows})
@@ -804,45 +856,81 @@ def add_title_page(pdf, title, args, system_info, rows, labels, chunk_values, he
     append_wrapped_line(lines, "Build dir: ", system_info.get("build_dir", ""))
     append_wrapped_line(lines, "Build type: ", system_info.get("build_type", ""))
     append_wrapped_line(lines, "Compiler: ", system_info.get("compiler", ""))
-    append_wrapped_line(lines, "Compiler version: ", system_info.get("compiler_version", ""))
-    append_wrapped_line(lines, "Target compile flags: ", system_info.get("target_compile_flags", ""))
-    append_wrapped_line(lines, "Target defines: ", system_info.get("target_defines", ""))
-    append_wrapped_line(lines, "CMake CXX flags: ", system_info.get("cmake_cxx_flags", ""))
+    append_wrapped_line(
+        lines, "Compiler version: ", system_info.get("compiler_version", "")
+    )
+    append_wrapped_line(
+        lines, "Target compile flags: ", system_info.get("target_compile_flags", "")
+    )
+    append_wrapped_line(
+        lines, "Target defines: ", system_info.get("target_defines", "")
+    )
+    append_wrapped_line(
+        lines, "CMake CXX flags: ", system_info.get("cmake_cxx_flags", "")
+    )
     lines.extend(
         [
             "",
             "Experiments:",
-            ("- stencil edge sweep: " + " vs ".join(
-                ordered_experiment_labels(
-                    rows,
-                    "stencil_ni_sweep",
-                    experiment_labels("stencil_ni_sweep", args.analysis_mode, "gpu" if args.gpu else "cpu"),
+            (
+                (
+                    "- stencil edge sweep: "
+                    + " vs ".join(
+                        ordered_experiment_labels(
+                            rows,
+                            "stencil_ni_sweep",
+                            experiment_labels(
+                                "stencil_ni_sweep",
+                                args.analysis_mode,
+                                "gpu" if args.gpu else "cpu",
+                            ),
+                        )
+                    )
                 )
-            ))
-            if ni_values
-            else "",
-            ("- heavy edge sweep: " + " vs ".join(
-                ordered_experiment_labels(
-                    rows,
-                    "heavy_ni_sweep",
-                    experiment_labels("heavy_ni_sweep", args.analysis_mode, "gpu" if args.gpu else "cpu"),
+                if ni_values
+                else ""
+            ),
+            (
+                (
+                    "- heavy edge sweep: "
+                    + " vs ".join(
+                        ordered_experiment_labels(
+                            rows,
+                            "heavy_ni_sweep",
+                            experiment_labels(
+                                "heavy_ni_sweep",
+                                args.analysis_mode,
+                                "gpu" if args.gpu else "cpu",
+                            ),
+                        )
+                    )
                 )
-            ))
-            if ni_values
-            else "",
+                if ni_values
+                else ""
+            ),
             (
                 f"- chunk sweeps at ni=nj=nk={args.chunk_sweep_ni}: raw-span variants and "
                 "selected baselines across explicit inner chunk lengths"
             ),
             (
-                f"- heavy intensity sweep at ni=nj=nk={args.chunk_sweep_ni}: "
-                "same variants with varying heavy-iteration count"
-            )
-            if not args.skip_heavy_intensity_sweep
-            else "- heavy intensity sweep skipped",
+                (
+                    f"- heavy intensity sweep at ni=nj=nk={args.chunk_sweep_ni}: "
+                    "same variants with varying heavy-iteration count"
+                )
+                if not args.skip_heavy_intensity_sweep
+                else "- heavy intensity sweep skipped"
+            ),
         ]
     )
-    ax.text(0.05, 0.97, "\n".join(lines), va="top", ha="left", family="monospace", fontsize=11)
+    ax.text(
+        0.05,
+        0.97,
+        "\n".join(lines),
+        va="top",
+        ha="left",
+        family="monospace",
+        fontsize=11,
+    )
     pdf.savefig(fig, bbox_inches="tight")
     plt.close(fig)
 
@@ -943,7 +1031,9 @@ def add_heavy_intensity_page(pdf, rows, analysis_mode, run_set, chunk_sweep_ni):
         xs = [x for x, _ in samples]
         ys = [y for _, y in samples]
         color, marker = VARIANT_STYLE.get(variant, ("#333333", "o"))
-        axes[1].plot(xs, ys, marker=marker, color=color, label=labels.get(variant, variant))
+        axes[1].plot(
+            xs, ys, marker=marker, color=color, label=labels.get(variant, variant)
+        )
 
     axes[1].set_xscale("log", base=2)
     axes[1].set_xlabel("estimated arithmetic intensity [flop/byte]")
@@ -1001,7 +1091,9 @@ def add_ratio_page(pdf, rows, analysis_mode, run_set):
     for ax, (experiment, title) in zip(axes, experiments):
         labels = experiment_labels(experiment, analysis_mode, run_set)
         exp_rows = [row for row in rows if row["experiment"] == experiment]
-        by_key = {(row["variant"], row["ni"]): row["updates_per_second"] for row in exp_rows}
+        by_key = {
+            (row["variant"], row["ni"]): row["updates_per_second"] for row in exp_rows
+        }
         nis = sorted({row["ni"] for row in exp_rows})
         for variant, baseline_variant in ratio_pairs(run_set):
             ratios = []
@@ -1043,7 +1135,9 @@ def add_chunk_ratio_page(pdf, rows, analysis_mode, run_set):
         exp_rows = [row for row in rows if row["experiment"] == experiment]
         by_variant = defaultdict(list)
         for row in exp_rows:
-            by_variant[row["variant"]].append((row["inner_chunk_length"], row["updates_per_second"]))
+            by_variant[row["variant"]].append(
+                (row["inner_chunk_length"], row["updates_per_second"])
+            )
 
         baseline_values = {
             row["variant"]: row["updates_per_second"]
@@ -1081,7 +1175,9 @@ def add_chunk_ratio_page(pdf, rows, analysis_mode, run_set):
 def add_variant_map_page(pdf, args, labels):
     fig, ax = plt.subplots(figsize=(8.5, 11))
     ax.axis("off")
-    base_variants, chunk_variants, baseline_variants = analysis_variants("gpu" if args.gpu else "cpu")
+    base_variants, chunk_variants, baseline_variants = analysis_variants(
+        "gpu" if args.gpu else "cpu"
+    )
     lines = ["Variant Map", "", "PDF label -> benchmark flag", ""]
     for variant in base_variants:
         suffix = ""
@@ -1114,7 +1210,15 @@ def add_variant_map_page(pdf, args, labels):
             ),
         ]
     )
-    ax.text(0.05, 0.97, "\n".join(lines), va="top", ha="left", family="monospace", fontsize=11)
+    ax.text(
+        0.05,
+        0.97,
+        "\n".join(lines),
+        va="top",
+        ha="left",
+        family="monospace",
+        fontsize=11,
+    )
     pdf.savefig(fig, bbox_inches="tight")
     plt.close(fig)
 
@@ -1130,7 +1234,9 @@ def main():
     chunk_values = parse_csv_ints(args.chunk_values)
     heavy_iteration_values = parse_csv_ints(args.heavy_iteration_values)
     run_set = "gpu" if args.gpu else "cpu"
-    base_variants, chunk_sweep_variants, chunk_sweep_baselines = analysis_variants(run_set)
+    base_variants, chunk_sweep_variants, chunk_sweep_baselines = analysis_variants(
+        run_set
+    )
     labels = variant_labels(args.analysis_mode, run_set)
     progress = ProgressReporter(
         count_total_runs(
@@ -1214,15 +1320,26 @@ def main():
     system_info = collect_system_info(binary)
     with PdfPages(output_pdf) as pdf:
         add_title_page(
-            pdf, args.title, args, system_info, rows, labels, chunk_values, heavy_iteration_values
+            pdf,
+            args.title,
+            args,
+            system_info,
+            rows,
+            labels,
+            chunk_values,
+            heavy_iteration_values,
         )
         add_variant_map_page(pdf, args, labels)
         add_sweep_pages(pdf, rows, args.analysis_mode, run_set)
         add_ratio_page(pdf, rows, args.analysis_mode, run_set)
-        add_chunk_sweep_pages(pdf, rows, args.analysis_mode, run_set, args.chunk_sweep_ni)
+        add_chunk_sweep_pages(
+            pdf, rows, args.analysis_mode, run_set, args.chunk_sweep_ni
+        )
         add_chunk_ratio_page(pdf, rows, args.analysis_mode, run_set)
         if not args.skip_heavy_intensity_sweep:
-            add_heavy_intensity_page(pdf, rows, args.analysis_mode, run_set, args.chunk_sweep_ni)
+            add_heavy_intensity_page(
+                pdf, rows, args.analysis_mode, run_set, args.chunk_sweep_ni
+            )
 
     print(f"Wrote {combined_csv}")
     print(f"Wrote {output_pdf}")

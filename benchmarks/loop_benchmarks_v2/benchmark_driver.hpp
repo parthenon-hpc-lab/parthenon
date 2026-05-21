@@ -10,4 +10,4 @@ bool ParseArgs(int argc, char **argv, CaseSpec *spec, std::string *error);
 std::string Usage();
 int RunBenchmark(const CaseSpec &spec);
 
-}  // namespace plb2
+} // namespace plb2

@@ -38,4 +38,4 @@ inline std::size_t DefaultTunedChunkLength(int ni, int requested) {
   return static_cast<std::size_t>(std::max(1, ni));
 }
 
-}  // namespace plb
+} // namespace plb

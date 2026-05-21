@@ -9,17 +9,18 @@ namespace plb {
 
 enum class KernelKind { Light, Flux, Stencil, Heavy };
 enum class VariantKind {
-  KokkosFlatKJI,    // Kokkos flat 1D policy over logical active cells
-  KokkosMDRangeKJI, // Kokkos MDRange policy over logical active cells
+  KokkosFlatKJI,        // Kokkos flat 1D policy over logical active cells
+  KokkosMDRangeKJI,     // Kokkos MDRange policy over logical active cells
   KokkosDenseFlatBVKJI, // Dense traversal over full allocated memory (b, v, k, j, i)
-  KokkosRawspanOVI, // Kokkos chunked raw-memory traversal: (outer, v, inner)
-  KokkosRawspanViewOVI, // Raw-memory chunking with View indexing over reconstructed (k,j,i)
-  KokkosLogicalOVI, // Kokkos chunked logical traversal: (outer, v, inner)
-  CpuDenseFlatBVKJI, // Dense CPU traversal over full allocated memory (b, v, k, j, i)
-  CpuLogicalKJI,    // CPU logical traversal: (v, kji)
-  CpuRawspanOVI,    // CPU chunked raw-memory traversal: (outer, v, inner)
-  CpuRawspanVOI,    // CPU chunked raw-memory traversal: (v, outer, inner)
-  CpuLogicalOVI     // CPU chunked logical traversal: (outer, v, inner)
+  KokkosRawspanOVI,     // Kokkos chunked raw-memory traversal: (outer, v, inner)
+  KokkosRawspanViewOVI, // Raw-memory chunking with View indexing over reconstructed
+                        // (k,j,i)
+  KokkosLogicalOVI,     // Kokkos chunked logical traversal: (outer, v, inner)
+  CpuDenseFlatBVKJI,    // Dense CPU traversal over full allocated memory (b, v, k, j, i)
+  CpuLogicalKJI,        // CPU logical traversal: (v, kji)
+  CpuRawspanOVI,        // CPU chunked raw-memory traversal: (outer, v, inner)
+  CpuRawspanVOI,        // CPU chunked raw-memory traversal: (v, outer, inner)
+  CpuLogicalOVI         // CPU chunked logical traversal: (outer, v, inner)
 };
 
 struct BenchmarkConfig {
@@ -81,4 +82,4 @@ std::string Usage();
 bool ParseArgs(int argc, char **argv, BenchmarkConfig *config, std::string *error);
 std::string FormatStdoutSummary(const BenchmarkRow &row);
 
-}  // namespace plb
+} // namespace plb

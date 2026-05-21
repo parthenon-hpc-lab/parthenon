@@ -20,7 +20,7 @@ const char *FindArgValue(int argc, char **argv, const char *name) {
   return nullptr;
 }
 
-}  // namespace
+} // namespace
 
 int main(int argc, char **argv) {
   Kokkos::initialize(argc, argv);

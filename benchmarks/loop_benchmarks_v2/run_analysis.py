@@ -15,7 +15,9 @@ import textwrap
 from collections import defaultdict
 from pathlib import Path
 
-os.environ.setdefault("MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "parthenon-loop-mpl"))
+os.environ.setdefault(
+    "MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "parthenon-loop-mpl")
+)
 os.environ.setdefault("XDG_CACHE_HOME", tempfile.gettempdir())
 
 import matplotlib
@@ -23,7 +25,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-
 
 CPU_LOOPS = [
     "cpu_flat_ghosts",
@@ -110,6 +111,7 @@ LOOP_DISPLAY_NAME = {
     "loop_abstraction_bvoi_logical": "abstraction bvoi_logical",
 }
 
+
 def loop_line_style(loop):
     return "--" if loop.startswith("loop_abstraction_") else "-"
 
@@ -183,6 +185,8 @@ def default_ninner_values(target):
 
 DEFAULT_NITER_VALUES = "1,3,9,27,81,243"
 DEFAULT_NINNER_NITER_VALUES = "1,9,81,243"
+
+
 def default_niter_values(target):
     if target == "gpu":
         return "1,3,9,27,81,243"
@@ -241,7 +245,10 @@ def parse_args():
         help="Select the sweep shape: standard, ninner, or full.",
     )
     parser.add_argument("--target", choices=["cpu", "gpu"], default="cpu")
-    parser.add_argument("--binary", default="build-make/benchmarks/loop_benchmarks_v2/loop-benchmarks-v2")
+    parser.add_argument(
+        "--binary",
+        default="build-make/benchmarks/loop_benchmarks_v2/loop-benchmarks-v2",
+    )
     parser.add_argument("--output-dir", default="reports/loop_benchmarks_v2")
     parser.add_argument("--title", default="Parthenon Loop Benchmark v2")
     parser.add_argument(
@@ -321,7 +328,12 @@ def parse_cmake_cache(cache_path):
     if not cache_path.exists():
         return cache
     for line in cache_path.read_text(encoding="utf-8", errors="ignore").splitlines():
-        if not line or line.startswith(("#", "//")) or "=" not in line or ":" not in line:
+        if (
+            not line
+            or line.startswith(("#", "//"))
+            or "=" not in line
+            or ":" not in line
+        ):
             continue
         key_type, value = line.split("=", 1)
         key, _sep, _value_type = key_type.partition(":")
@@ -333,7 +345,9 @@ def parse_flags_make(flags_make_path):
     info = {}
     if not flags_make_path.exists():
         return info
-    for line in flags_make_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+    for line in flags_make_path.read_text(
+        encoding="utf-8", errors="ignore"
+    ).splitlines():
         if " = " not in line:
             continue
         key, value = line.split(" = ", 1)
@@ -343,7 +357,9 @@ def parse_flags_make(flags_make_path):
 
 def try_run_command(cmd):
     try:
-        return subprocess.run(cmd, capture_output=True, text=True, check=True).stdout.strip()
+        return subprocess.run(
+            cmd, capture_output=True, text=True, check=True
+        ).stdout.strip()
     except Exception:
         return ""
 
@@ -402,19 +418,31 @@ def collect_metadata(binary):
 
     cache = parse_cmake_cache(build_dir / "CMakeCache.txt")
     flags = parse_flags_make(
-        build_dir / "benchmarks/loop_benchmarks_v2/CMakeFiles/loop-benchmarks-v2.dir/flags.make"
+        build_dir
+        / "benchmarks/loop_benchmarks_v2/CMakeFiles/loop-benchmarks-v2.dir/flags.make"
     )
     compiler = cache.get("CMAKE_CXX_COMPILER", "unknown")
     meta["compiler"] = compiler
     meta["compiler_id"] = cache.get("CMAKE_CXX_COMPILER_ID", "unknown")
     meta["compiler_version"] = cache.get("CMAKE_CXX_COMPILER_VERSION", "unknown")
-    meta["kokkos_backends"] = ", ".join(
-        key.replace("Kokkos_ENABLE_", "")
-        for key in ("Kokkos_ENABLE_SERIAL", "Kokkos_ENABLE_CUDA", "Kokkos_ENABLE_HIP")
-        if cache.get(key, "").upper() == "ON"
-    ) or "unknown"
-    meta["cxx_flags"] = " ".join(value for key, value in flags.items() if key.startswith("CXX_")).strip()
-    compiler_version = try_run_command([compiler, "--version"]) if compiler != "unknown" else ""
+    meta["kokkos_backends"] = (
+        ", ".join(
+            key.replace("Kokkos_ENABLE_", "")
+            for key in (
+                "Kokkos_ENABLE_SERIAL",
+                "Kokkos_ENABLE_CUDA",
+                "Kokkos_ENABLE_HIP",
+            )
+            if cache.get(key, "").upper() == "ON"
+        )
+        or "unknown"
+    )
+    meta["cxx_flags"] = " ".join(
+        value for key, value in flags.items() if key.startswith("CXX_")
+    ).strip()
+    compiler_version = (
+        try_run_command([compiler, "--version"]) if compiler != "unknown" else ""
+    )
     if compiler_version:
         meta["compiler_version_text"] = compiler_version.splitlines()[0]
     return meta
@@ -458,12 +486,19 @@ def write_cases_csv(path, loops, edge_values, ninner_values, stencil_shapes, arg
         writer.writeheader()
         for edge in edge_values:
             block_count = derived_nblocks(edge, args.target_total_cells)
-            edge_ninner_values = ninner_values if ninner_values else [
-                default_edge_ninner(edge, args.target, args.min_default_ninner_cells)
-            ]
+            edge_ninner_values = (
+                ninner_values
+                if ninner_values
+                else [
+                    default_edge_ninner(
+                        edge, args.target, args.min_default_ninner_cells
+                    )
+                ]
+            )
             for loop in loops:
                 loop_stencil_shapes = [
-                    stencil for stencil in stencil_shapes
+                    stencil
+                    for stencil in stencil_shapes
                     if loop != "cpu_flat_ghosts" or is_pointwise(stencil)
                 ]
                 for access_mode in LOOP_ACCESS_MODES.get(loop, ["direct"]):
@@ -508,9 +543,11 @@ def count_cases(loops, edge_values, ninner_values, stencil_shapes, args):
     niter_values = parse_csv_ints(args.niter_values)
     total = 0
     for edge in edge_values:
-        edge_ninner_values = ninner_values if ninner_values else [
-            default_edge_ninner(edge, args.target, args.min_default_ninner_cells)
-        ]
+        edge_ninner_values = (
+            ninner_values
+            if ninner_values
+            else [default_edge_ninner(edge, args.target, args.min_default_ninner_cells)]
+        )
         for loop in loops:
             loop_stencil_shapes = [
                 stencil
@@ -552,7 +589,16 @@ def load_results_rows(path):
     return numericize_rows(read_results_csv(path))
 
 
-def run_sweep(binary, cases_csv, results_csv, loops, edge_values, ninner_values, stencil_shapes, args):
+def run_sweep(
+    binary,
+    cases_csv,
+    results_csv,
+    loops,
+    edge_values,
+    ninner_values,
+    stencil_shapes,
+    args,
+):
     write_cases_csv(cases_csv, loops, edge_values, ninner_values, stencil_shapes, args)
     run_binary(binary, str(cases_csv), str(results_csv))
     return numericize_rows(read_results_csv(results_csv))
@@ -594,7 +640,11 @@ def parse_offset_token(token):
 
 
 def row_stencil_shape(row):
-    return (str(row.get("stencil_x", "")), str(row.get("stencil_y", "")), str(row.get("stencil_z", "")))
+    return (
+        str(row.get("stencil_x", "")),
+        str(row.get("stencil_y", "")),
+        str(row.get("stencil_z", "")),
+    )
 
 
 def stencil_sort_key(stencil):
@@ -656,7 +706,9 @@ def wrap_lines(items, width=94):
             lines.append("")
         else:
             lines.extend(
-                textwrap.wrap(item, width=width, break_long_words=False, break_on_hyphens=False)
+                textwrap.wrap(
+                    item, width=width, break_long_words=False, break_on_hyphens=False
+                )
             )
     return lines
 
@@ -705,7 +757,9 @@ def plot_series(ax, rows, y_key, y_label, title, x_key="edge"):
             linewidth=2.0,
             markersize=5,
             markeredgewidth=0.8,
-            label=series_label(points[0], include_kernel=False, include_edge=(x_key == "ninner")),
+            label=series_label(
+                points[0], include_kernel=False, include_edge=(x_key == "ninner")
+            ),
         )
 
     ax.set_xlabel("ninner" if x_key == "ninner" else "block edge length")
@@ -815,9 +869,13 @@ def main():
     ninner_results_csv = output_dir / "results_ninner.csv"
     pdf_path = output_dir / "summary.pdf"
 
-    edge_results_csv = Path(args.results_csv).resolve() if args.results_csv else results_csv
+    edge_results_csv = (
+        Path(args.results_csv).resolve() if args.results_csv else results_csv
+    )
     ninner_results_csv_in = (
-        Path(args.ninner_results_csv).resolve() if args.ninner_results_csv else ninner_results_csv
+        Path(args.ninner_results_csv).resolve()
+        if args.ninner_results_csv
+        else ninner_results_csv
     )
 
     edge_rows = []
@@ -834,7 +892,9 @@ def main():
             passes.append(("edge sweep", edge_case_count))
         if args.analysis_mode in ("full", "ninner"):
             ninner_args = with_niter_values(args, args.ninner_niter_values)
-            ninner_case_count = count_cases(loops, [32], ninner_values, ninner_stencil_shapes, ninner_args)
+            ninner_case_count = count_cases(
+                loops, [32], ninner_values, ninner_stencil_shapes, ninner_args
+            )
             passes.append(("ninner sweep", ninner_case_count))
 
         if passes:
@@ -843,7 +903,16 @@ def main():
                 print(f"  [{idx}] {label}: {count} cases")
 
         if args.analysis_mode != "ninner":
-            edge_rows = run_sweep(binary, cases_csv, results_csv, loops, edge_values, [], stencil_shapes, args)
+            edge_rows = run_sweep(
+                binary,
+                cases_csv,
+                results_csv,
+                loops,
+                edge_values,
+                [],
+                stencil_shapes,
+                args,
+            )
         if args.analysis_mode in ("full", "ninner"):
             ninner_args = with_niter_values(args, args.ninner_niter_values)
             ninner_rows = run_sweep(
@@ -863,7 +932,9 @@ def main():
             f"- edge results csv: {edge_results_csv}",
         ]
         if args.analysis_mode in ("full", "ninner"):
-            results_source_lines.append(f"- ninner results csv: {ninner_results_csv_in}")
+            results_source_lines.append(
+                f"- ninner results csv: {ninner_results_csv_in}"
+            )
         add_text_page(
             pdf,
             args.title,
@@ -878,9 +949,17 @@ def main():
                 f"- ninner niter values: {args.ninner_niter_values}",
                 f"- stencil shapes: {args.stencil_shapes}",
                 f"- target total cells: {args.target_total_cells}",
-                f"- ninner values: {args.ninner_values}" if ninner_values else "- ninner = edge^2",
+                (
+                    f"- ninner values: {args.ninner_values}"
+                    if ninner_values
+                    else "- ninner = edge^2"
+                ),
                 f"- ninner stencil shapes: {args.ninner_stencil_shapes}",
-                "- ninner sweep: edge=32" if args.analysis_mode in ("full", "ninner") else "",
+                (
+                    "- ninner sweep: edge=32"
+                    if args.analysis_mode in ("full", "ninner")
+                    else ""
+                ),
                 f"- warmup: {args.warmup}",
                 f"- repeats: {args.repeats}",
                 "",

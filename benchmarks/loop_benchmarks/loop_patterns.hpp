@@ -52,11 +52,13 @@ struct Dataset {
 };
 
 Dataset BuildDataset(const BenchmarkConfig &config);
-void PrepareDataset(const BenchmarkConfig &config, const RaggedMetadata &metadata, Dataset *dataset);
-void ExecuteLoopPattern(const BenchmarkConfig &config, const RaggedMetadata &metadata, Dataset *dataset);
+void PrepareDataset(const BenchmarkConfig &config, const RaggedMetadata &metadata,
+                    Dataset *dataset);
+void ExecuteLoopPattern(const BenchmarkConfig &config, const RaggedMetadata &metadata,
+                        Dataset *dataset);
 std::uint64_t CountUpdates(const BenchmarkConfig &config, const RaggedMetadata &metadata);
 int EffectiveInnerChunkLength(const BenchmarkConfig &config);
 double EstimatedBytesPerUpdate(KernelKind kind);
 double EstimatedFlopsPerUpdate(KernelKind kind, int heavy_iterations);
 
-}  // namespace plb
+} // namespace plb

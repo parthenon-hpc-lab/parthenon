@@ -8,7 +8,9 @@ import tempfile
 import textwrap
 from pathlib import Path
 
-os.environ.setdefault("MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "parthenon-loop-mpl"))
+os.environ.setdefault(
+    "MPLCONFIGDIR", str(Path(tempfile.gettempdir()) / "parthenon-loop-mpl")
+)
 os.environ.setdefault("XDG_CACHE_HOME", tempfile.gettempdir())
 
 import matplotlib
@@ -39,7 +41,10 @@ def lookup_updates(rows, experiment, variant, ni=None, inner_chunk_length=None):
             continue
         if ni is not None and int(row["ni"]) != ni:
             continue
-        if inner_chunk_length is not None and int(row["inner_chunk_length"]) != inner_chunk_length:
+        if (
+            inner_chunk_length is not None
+            and int(row["inner_chunk_length"]) != inner_chunk_length
+        ):
             continue
         return float(row["updates_per_second"])
     raise KeyError((experiment, variant, ni, inner_chunk_length))
@@ -54,17 +59,29 @@ def build_summary(intel_rows, m4_rows, verify_rows):
     ) / lookup_updates(intel_rows, "stencil_ni_sweep", "cpu_rowvar_simd", ni=32)
 
     intel_chunk_small = lookup_updates(
-        intel_rows, "stencil_chunk_sweep", "cpu_hierarchical", ni=32, inner_chunk_length=8
+        intel_rows,
+        "stencil_chunk_sweep",
+        "cpu_hierarchical",
+        ni=32,
+        inner_chunk_length=8,
     )
     intel_chunk_large = lookup_updates(
-        intel_rows, "stencil_chunk_sweep", "cpu_hierarchical", ni=32, inner_chunk_length=256
+        intel_rows,
+        "stencil_chunk_sweep",
+        "cpu_hierarchical",
+        ni=32,
+        inner_chunk_length=256,
     )
 
     m4_chunk_small = lookup_updates(
         m4_rows, "stencil_chunk_sweep", "cpu_hierarchical", ni=32, inner_chunk_length=8
     )
     m4_chunk_large = lookup_updates(
-        m4_rows, "stencil_chunk_sweep", "cpu_hierarchical", ni=32, inner_chunk_length=1024
+        m4_rows,
+        "stencil_chunk_sweep",
+        "cpu_hierarchical",
+        ni=32,
+        inner_chunk_length=1024,
     )
 
     verify_heavy_ratio_32 = lookup_updates(
@@ -161,7 +178,9 @@ def merge_pdfs(output_path, *inputs):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Build a combined CPU interpretation PDF.")
+    parser = argparse.ArgumentParser(
+        description="Build a combined CPU interpretation PDF."
+    )
     parser.add_argument("--intel-csv", required=True)
     parser.add_argument("--intel-pdf", required=True)
     parser.add_argument("--m4-csv", required=True)

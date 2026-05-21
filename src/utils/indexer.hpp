@@ -21,10 +21,10 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "basic_types.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/type_list.hpp"
 #include "utils/utils.hpp"
-#include "basic_types.hpp"
 
 namespace parthenon {
 
@@ -86,14 +86,14 @@ struct Indexer {
 
   KOKKOS_INLINE_FUNCTION
   explicit Indexer(std::pair<Ts, Ts>... Ns)
-      : start{Ns.first...},
-        N{GetFactors({(Ns.second - Ns.first + 1)...},
-                     std::make_index_sequence<sizeof...(Ts)>())} {}
+      : start{Ns.first...}, N{GetFactors({(Ns.second - Ns.first + 1)...},
+                                         std::make_index_sequence<sizeof...(Ts)>())} {}
 
   template <class... IndRngs>
   KOKKOS_INLINE_FUNCTION explicit Indexer(IndRngs... Ns)
       : start{Ns.s...},
-        N{GetFactors({(Ns.e - Ns.s + 1)...}, std::make_index_sequence<sizeof...(Ts)>())} {}
+        N{GetFactors({(Ns.e - Ns.s + 1)...}, std::make_index_sequence<sizeof...(Ts)>())} {
+  }
 
   KOKKOS_FORCEINLINE_FUNCTION std::size_t size() const { return N[0]; }
 
@@ -160,8 +160,8 @@ struct Indexer {
   }
 
   template <std::size_t... Is>
-  KOKKOS_FORCEINLINE_FUNCTION int
-  GetFlatIndexImpl(Ts... idxs, std::index_sequence<Is...>) const {
+  KOKKOS_FORCEINLINE_FUNCTION int GetFlatIndexImpl(Ts... idxs,
+                                                   std::index_sequence<Is...>) const {
     int out{0};
     (
         [&] {

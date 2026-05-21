@@ -99,4 +99,4 @@ void NormalizeCaseSpec(CaseSpec *spec);
 std::string KernelLabel(const CaseSpec &spec);
 std::string FormatOffsetSet(const std::vector<int> &offsets);
 
-}  // namespace plb2
+} // namespace plb2

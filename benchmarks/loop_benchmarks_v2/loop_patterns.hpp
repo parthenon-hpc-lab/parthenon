@@ -38,8 +38,8 @@ struct ChunkSpan {
 
 template <typename LogicalIndexer, typename MemoryIndexer>
 KOKKOS_INLINE_FUNCTION ChunkSpan MakeChunkSpan(const LogicalIndexer &logical_indexer,
-                                               const MemoryIndexer &memory_indexer, int outer,
-                                               int logical_inner_size) {
+                                               const MemoryIndexer &memory_indexer,
+                                               int outer, int logical_inner_size) {
   const int logical_start = outer * logical_inner_size;
   const int logical_end = std::min(static_cast<int>(logical_indexer.size()) - 1,
                                    logical_start + logical_inner_size - 1);
@@ -47,7 +47,8 @@ KOKKOS_INLINE_FUNCTION ChunkSpan MakeChunkSpan(const LogicalIndexer &logical_ind
   const auto [ke, je, ie] = logical_indexer(logical_end);
   const int memory_start = static_cast<int>(memory_indexer.GetFlatIdx(ks, js, is));
   const int memory_end = static_cast<int>(memory_indexer.GetFlatIdx(ke, je, ie));
-  return {logical_start, logical_end, memory_start, memory_end, memory_end - memory_start + 1};
+  return {logical_start, logical_end, memory_start, memory_end,
+          memory_end - memory_start + 1};
 }
 
 KOKKOS_INLINE_FUNCTION int CeilDiv(int numer, int denom) {
@@ -83,7 +84,8 @@ inline void RunCpuFlatGhosts(const Dataset &dataset, Body body) {
 
 // cpu_flat_ghosts: hoisted-pointer form for the full memory-order span.
 template <typename AccessBuilder, typename Body>
-inline void RunCpuFlatGhosts(const Dataset &dataset, AccessBuilder build_access, Body body) {
+inline void RunCpuFlatGhosts(const Dataset &dataset, AccessBuilder build_access,
+                             Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
   const auto memory_indexer = spec.memory_indexer;
@@ -103,20 +105,23 @@ inline void RunCpuFlatGhosts(const Dataset &dataset, AccessBuilder build_access,
   }
 }
 
-// cpu_boiv_contiguous: direct-view form for block/outer/inner/var over memory-order spans.
+// cpu_boiv_contiguous: direct-view form for block/outer/inner/var over memory-order
+// spans.
 template <typename Body>
-inline void RunCpuBoivContiguous(const Dataset &dataset, int logical_inner_size, Body body) {
+inline void RunCpuBoivContiguous(const Dataset &dataset, int logical_inner_size,
+                                 Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
   const auto logical_indexer = spec.logical_indexer;
   const auto memory_indexer = spec.memory_indexer;
-  const int outer_points = CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
+  const int outer_points =
+      CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
 
   for (int b = 0; b < spec.nblocks; ++b) {
     const int nvars = SelectNvarsForBlock(dataset, b);
     for (int outer = 0; outer < outer_points; ++outer) {
-      const ChunkSpan span = MakeChunkSpan(logical_indexer, memory_indexer, outer,
-                                           logical_inner_size);
+      const ChunkSpan span =
+          MakeChunkSpan(logical_indexer, memory_indexer, outer, logical_inner_size);
       for (int idx = 0; idx < span.size; ++idx) {
         const auto [k, j, i] = memory_indexer(span.memory_start + idx);
         for (int v = 0; v < nvars; ++v) {
@@ -127,7 +132,8 @@ inline void RunCpuBoivContiguous(const Dataset &dataset, int logical_inner_size,
   }
 }
 
-// cpu_bovi_contiguous: hoisted-pointer form for block/outer/var/inner over memory-order spans.
+// cpu_bovi_contiguous: hoisted-pointer form for block/outer/var/inner over memory-order
+// spans.
 template <typename AccessBuilder, typename Body>
 inline void RunCpuBoviContiguous(const Dataset &dataset, int logical_inner_size,
                                  AccessBuilder build_access, Body body) {
@@ -135,13 +141,14 @@ inline void RunCpuBoviContiguous(const Dataset &dataset, int logical_inner_size,
   const auto &data = dataset.data;
   const auto logical_indexer = spec.logical_indexer;
   const auto memory_indexer = spec.memory_indexer;
-  const int outer_points = CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
+  const int outer_points =
+      CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
 
   for (int b = 0; b < spec.nblocks; ++b) {
     const int nvars = SelectNvarsForBlock(dataset, b);
     for (int outer = 0; outer < outer_points; ++outer) {
-      const ChunkSpan span = MakeChunkSpan(logical_indexer, memory_indexer, outer,
-                                           logical_inner_size);
+      const ChunkSpan span =
+          MakeChunkSpan(logical_indexer, memory_indexer, outer, logical_inner_size);
       const auto [k, j, i] = logical_indexer(span.logical_start);
 
       for (int v = 0; v < nvars; ++v) {
@@ -156,7 +163,8 @@ inline void RunCpuBoviContiguous(const Dataset &dataset, int logical_inner_size,
   }
 }
 
-// cpu_bovi_contiguous: direct-view form for block/outer/var/inner over memory-order spans.
+// cpu_bovi_contiguous: direct-view form for block/outer/var/inner over memory-order
+// spans.
 template <typename Body>
 inline void RunCpuBoviContiguousDirect(const Dataset &dataset, int logical_inner_size,
                                        Body body) {
@@ -164,13 +172,14 @@ inline void RunCpuBoviContiguousDirect(const Dataset &dataset, int logical_inner
   const auto &data = dataset.data;
   const auto logical_indexer = spec.logical_indexer;
   const auto memory_indexer = spec.memory_indexer;
-  const int outer_points = CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
+  const int outer_points =
+      CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
 
   for (int b = 0; b < spec.nblocks; ++b) {
     const int nvars = SelectNvarsForBlock(dataset, b);
     for (int outer = 0; outer < outer_points; ++outer) {
-      const ChunkSpan span = MakeChunkSpan(logical_indexer, memory_indexer, outer,
-                                           logical_inner_size);
+      const ChunkSpan span =
+          MakeChunkSpan(logical_indexer, memory_indexer, outer, logical_inner_size);
       for (int v = 0; v < nvars; ++v) {
 #pragma omp simd
         for (int idx = 0; idx < span.size; ++idx) {
@@ -188,7 +197,8 @@ inline void RunCpuBoivLogical(const Dataset &dataset, int logical_inner_size, Bo
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
   const auto logical_indexer = spec.logical_indexer;
-  const int outer_points = CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
+  const int outer_points =
+      CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
 
   for (int b = 0; b < spec.nblocks; ++b) {
     const int nvars = SelectNvarsForBlock(dataset, b);
@@ -210,7 +220,8 @@ inline void RunCpuBoviLogical(const Dataset &dataset, int logical_inner_size, Bo
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
   const auto logical_indexer = spec.logical_indexer;
-  const int outer_points = CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
+  const int outer_points =
+      CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
 
   for (int b = 0; b < spec.nblocks; ++b) {
     const int nvars = SelectNvarsForBlock(dataset, b);
@@ -228,7 +239,8 @@ inline void RunCpuBoviLogical(const Dataset &dataset, int logical_inner_size, Bo
   }
 }
 
-// cpu_bvoi_contiguous: hoisted-pointer form for block/var/outer/inner over memory-order spans.
+// cpu_bvoi_contiguous: hoisted-pointer form for block/var/outer/inner over memory-order
+// spans.
 template <typename AccessBuilder, typename Body>
 inline void RunCpuBvoiContiguous(const Dataset &dataset, int logical_inner_size,
                                  AccessBuilder build_access, Body body) {
@@ -236,14 +248,15 @@ inline void RunCpuBvoiContiguous(const Dataset &dataset, int logical_inner_size,
   const auto &data = dataset.data;
   const auto logical_indexer = spec.logical_indexer;
   const auto memory_indexer = spec.memory_indexer;
-  const int outer_points = CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
+  const int outer_points =
+      CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
 
   for (int b = 0; b < spec.nblocks; ++b) {
     const int nvars = SelectNvarsForBlock(dataset, b);
     for (int v = 0; v < nvars; ++v) {
       for (int outer = 0; outer < outer_points; ++outer) {
-        const ChunkSpan span = MakeChunkSpan(logical_indexer, memory_indexer, outer,
-                                             logical_inner_size);
+        const ChunkSpan span =
+            MakeChunkSpan(logical_indexer, memory_indexer, outer, logical_inner_size);
         const auto [k, j, i] = logical_indexer(span.logical_start);
         const auto access = build_access(data, b, v, k, j, i);
         double *const out = &data.out(b, v, k, j, i);
@@ -257,7 +270,8 @@ inline void RunCpuBvoiContiguous(const Dataset &dataset, int logical_inner_size,
   }
 }
 
-// cpu_bvoi_contiguous: direct-view form for block/var/outer/inner over memory-order spans.
+// cpu_bvoi_contiguous: direct-view form for block/var/outer/inner over memory-order
+// spans.
 template <typename Body>
 inline void RunCpuBvoiContiguousDirect(const Dataset &dataset, int logical_inner_size,
                                        Body body) {
@@ -265,14 +279,15 @@ inline void RunCpuBvoiContiguousDirect(const Dataset &dataset, int logical_inner
   const auto &data = dataset.data;
   const auto logical_indexer = spec.logical_indexer;
   const auto memory_indexer = spec.memory_indexer;
-  const int outer_points = CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
+  const int outer_points =
+      CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
 
   for (int b = 0; b < spec.nblocks; ++b) {
     const int nvars = SelectNvarsForBlock(dataset, b);
     for (int v = 0; v < nvars; ++v) {
       for (int outer = 0; outer < outer_points; ++outer) {
-        const ChunkSpan span = MakeChunkSpan(logical_indexer, memory_indexer, outer,
-                                             logical_inner_size);
+        const ChunkSpan span =
+            MakeChunkSpan(logical_indexer, memory_indexer, outer, logical_inner_size);
 
 #pragma omp simd
         for (int idx = 0; idx < span.size; ++idx) {
@@ -334,7 +349,8 @@ inline void RunKokkosBoivFlat(const Dataset &dataset, Body body) {
       });
 }
 
-// kokkos_bovi_team_contiguous: TeamPolicy launch with a hoisted contiguous span per outer chunk.
+// kokkos_bovi_team_contiguous: TeamPolicy launch with a hoisted contiguous span per outer
+// chunk.
 template <typename AccessBuilder, typename Body>
 inline void RunKokkosBoviTeamContiguous(const Dataset &dataset, int logical_inner_size,
                                         AccessBuilder build_access, Body body) {
@@ -342,7 +358,8 @@ inline void RunKokkosBoviTeamContiguous(const Dataset &dataset, int logical_inne
   const auto &data = dataset.data;
   const auto logical_indexer = spec.logical_indexer;
   const auto memory_indexer = spec.memory_indexer;
-  const int outer_points = CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
+  const int outer_points =
+      CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
   const int league_size = spec.nblocks * outer_points;
   const TeamPolicy policy(league_size, Kokkos::AUTO);
 
@@ -359,22 +376,22 @@ inline void RunKokkosBoviTeamContiguous(const Dataset &dataset, int logical_inne
         for (int v = 0; v < nvars; ++v) {
           const auto access = build_access(data, b, v, k, j, i);
           double *const out = &data.out(b, v, k, j, i);
-          Kokkos::parallel_for(
-              Kokkos::TeamThreadRange(member, 0, span.size),
-              [&](const int idx) { out[idx] = body(access, idx); });
+          Kokkos::parallel_for(Kokkos::TeamThreadRange(member, 0, span.size),
+                               [&](const int idx) { out[idx] = body(access, idx); });
         }
       });
 }
 
 // kokkos_bovi_team_contiguous: direct-view TeamPolicy launch over contiguous spans.
 template <typename Body>
-inline void RunKokkosBoviTeamContiguousDirect(const Dataset &dataset, int logical_inner_size,
-                                              Body body) {
+inline void RunKokkosBoviTeamContiguousDirect(const Dataset &dataset,
+                                              int logical_inner_size, Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
   const auto logical_indexer = spec.logical_indexer;
   const auto memory_indexer = spec.memory_indexer;
-  const int outer_points = CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
+  const int outer_points =
+      CeilDiv(static_cast<int>(logical_indexer.size()), logical_inner_size);
   const int league_size = spec.nblocks * outer_points;
   const TeamPolicy policy(league_size, Kokkos::AUTO);
 
@@ -389,8 +406,7 @@ inline void RunKokkosBoviTeamContiguousDirect(const Dataset &dataset, int logica
 
         for (int v = 0; v < nvars; ++v) {
           Kokkos::parallel_for(
-              Kokkos::TeamThreadRange(member, 0, span.size),
-              [&](const int idx) {
+              Kokkos::TeamThreadRange(member, 0, span.size), [&](const int idx) {
                 const auto [k, j, i] = memory_indexer(span.memory_start + idx);
                 data.out(b, v, k, j, i) = body(data, b, v, k, j, i);
               });
@@ -398,9 +414,11 @@ inline void RunKokkosBoviTeamContiguousDirect(const Dataset &dataset, int logica
       });
 }
 
-// kokkos_bovi_team_logical: TeamPolicy launch over logical active spans, direct-view inside.
+// kokkos_bovi_team_logical: TeamPolicy launch over logical active spans, direct-view
+// inside.
 template <typename Body>
-inline void RunKokkosBoviTeamLogical(const Dataset &dataset, int logical_inner_size, Body body) {
+inline void RunKokkosBoviTeamLogical(const Dataset &dataset, int logical_inner_size,
+                                     Body body) {
   const auto &spec = dataset.problem;
   const auto &data = dataset.data;
   const auto logical_indexer = spec.logical_indexer;
@@ -418,16 +436,15 @@ inline void RunKokkosBoviTeamLogical(const Dataset &dataset, int logical_inner_s
         const int nvars = data.active_counts(b);
 
         for (int v = 0; v < nvars; ++v) {
-          Kokkos::parallel_for(
-              Kokkos::TeamThreadRange(member, 0, span.size),
-              [&](const int idx) {
-                const auto [k, j, i] = logical_indexer(span.start + idx);
-                data.out(b, v, k, j, i) = body(data, b, v, k, j, i);
-              });
+          Kokkos::parallel_for(Kokkos::TeamThreadRange(member, 0, span.size),
+                               [&](const int idx) {
+                                 const auto [k, j, i] = logical_indexer(span.start + idx);
+                                 data.out(b, v, k, j, i) = body(data, b, v, k, j, i);
+                               });
         }
       });
 }
 
-}  // namespace
+} // namespace
 
-}  // namespace plb2
+} // namespace plb2

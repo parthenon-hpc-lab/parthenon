@@ -18,21 +18,22 @@ void RunLoopAbstractionCase(const CaseSpec &spec, const Dataset &dataset,
   const auto &problem = dataset.problem;
   RunUnifiedKernelWithLoopAbstraction<LOOP_TAG, INNER_TAG, SX, SY, SZ>(
       dataset.data.in, dataset.data.out, dataset.data.active_counts, problem.nblocks,
-      problem.nx_interior, problem.ny_interior, problem.nz_interior, problem.nghost, dx, dy, dz,
-      alpha, beta, spec.kernel.niter, ninner);
+      problem.nx_interior, problem.ny_interior, problem.nz_interior, problem.nghost, dx,
+      dy, dz, alpha, beta, spec.kernel.niter, ninner);
 }
 
-#define PLB2_INSTANTIATE_ABSTRACTION_CASE(LOOP_TAG, INNER_TAG, SX, SY, SZ) \
-  template void RunLoopAbstractionCase<loop_abstraction::loop_tag::LOOP_TAG, \
-                                       loop_abstraction::inner_tag::INNER_TAG, SX, SY, SZ>( \
-      const CaseSpec &, const Dataset &, const std::array<int, SX> &, \
-      const std::array<int, SY> &, const std::array<int, SZ> &, \
+#define PLB2_INSTANTIATE_ABSTRACTION_CASE(LOOP_TAG, INNER_TAG, SX, SY, SZ)               \
+  template void                                                                          \
+  RunLoopAbstractionCase<loop_abstraction::loop_tag::LOOP_TAG,                           \
+                         loop_abstraction::inner_tag::INNER_TAG, SX, SY, SZ>(            \
+      const CaseSpec &, const Dataset &, const std::array<int, SX> &,                    \
+      const std::array<int, SY> &, const std::array<int, SZ> &,                          \
       const std::array<double, kMaxNiter> &, const std::array<double, kMaxNiter> &)
 
-#define PLB2_INSTANTIATE_ABSTRACTION_STENCILS(LOOP_TAG, INNER_TAG) \
-  PLB2_INSTANTIATE_ABSTRACTION_CASE(LOOP_TAG, INNER_TAG, 3, 1, 1); \
-  PLB2_INSTANTIATE_ABSTRACTION_CASE(LOOP_TAG, INNER_TAG, 1, 3, 1); \
-  PLB2_INSTANTIATE_ABSTRACTION_CASE(LOOP_TAG, INNER_TAG, 1, 1, 3); \
+#define PLB2_INSTANTIATE_ABSTRACTION_STENCILS(LOOP_TAG, INNER_TAG)                       \
+  PLB2_INSTANTIATE_ABSTRACTION_CASE(LOOP_TAG, INNER_TAG, 3, 1, 1);                       \
+  PLB2_INSTANTIATE_ABSTRACTION_CASE(LOOP_TAG, INNER_TAG, 1, 3, 1);                       \
+  PLB2_INSTANTIATE_ABSTRACTION_CASE(LOOP_TAG, INNER_TAG, 1, 1, 3);                       \
   PLB2_INSTANTIATE_ABSTRACTION_CASE(LOOP_TAG, INNER_TAG, 1, 1, 1)
 
 PLB2_INSTANTIATE_ABSTRACTION_STENCILS(bovi, memory);
@@ -44,4 +45,4 @@ PLB2_INSTANTIATE_ABSTRACTION_STENCILS(bvoi, logical_flat);
 #undef PLB2_INSTANTIATE_ABSTRACTION_STENCILS
 #undef PLB2_INSTANTIATE_ABSTRACTION_CASE
 
-}  // namespace plb2
+} // namespace plb2

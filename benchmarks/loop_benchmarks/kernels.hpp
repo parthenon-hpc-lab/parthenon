@@ -7,9 +7,7 @@
 namespace plb {
 
 KOKKOS_INLINE_FUNCTION
-double ComputeLightCell(double in, double aux) {
-  return 1.125 * in - 0.375 * aux;
-}
+double ComputeLightCell(double in, double aux) { return 1.125 * in - 0.375 * aux; }
 
 KOKKOS_INLINE_FUNCTION
 double ComputeFluxCell(double in, double fx_up, double fx_lo, double fy_up, double fy_lo,
@@ -19,9 +17,9 @@ double ComputeFluxCell(double in, double fx_up, double fx_lo, double fy_up, doub
 
 KOKKOS_INLINE_FUNCTION
 double ComputeStencilCell(double center, double im1, double ip1, double jm1, double jp1,
-                          double km1, double kp1, double aux, double fx_up, double fx_lo) {
-  const double lap =
-      -6.0 * center + im1 + ip1 + jm1 + jp1 + km1 + kp1;
+                          double km1, double kp1, double aux, double fx_up,
+                          double fx_lo) {
+  const double lap = -6.0 * center + im1 + ip1 + jm1 + jp1 + km1 + kp1;
   return 0.625 * center + 0.125 * lap + 0.25 * aux + 0.5 * (fx_up - fx_lo);
 }
 
@@ -40,4 +38,4 @@ double ComputeHeavyCell(double in, double aux, int heavy_iterations) {
   return acc + x - y;
 }
 
-}  // namespace plb
+} // namespace plb

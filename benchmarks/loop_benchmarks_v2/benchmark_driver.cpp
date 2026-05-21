@@ -46,40 +46,40 @@ std::vector<int> ParseOffsetArg(std::string value) {
   return offsets;
 }
 
-}  // namespace
+} // namespace
 
 std::string ToString(LoopKind kind) {
   switch (kind) {
-    case LoopKind::CpuFlatGhosts:
-      return "cpu_flat_ghosts";
-    case LoopKind::CpuBoivContiguous:
-      return "cpu_boiv_contiguous";
-    case LoopKind::CpuBoivLogical:
-      return "cpu_boiv_logical";
-    case LoopKind::CpuBoviContiguous:
-      return "cpu_bovi_contiguous";
-    case LoopKind::CpuBoviLogical:
-      return "cpu_bovi_logical";
-    case LoopKind::CpuBvoiContiguous:
-      return "cpu_bvoi_contiguous";
-    case LoopKind::CpuBvoiLogical:
-      return "cpu_bvoi_logical";
-    case LoopKind::KokkosBoivFlat:
-      return "kokkos_boiv_flat";
-    case LoopKind::KokkosBoviTeamContiguous:
-      return "kokkos_bovi_team_contiguous";
-    case LoopKind::KokkosBoviTeamLogical:
-      return "kokkos_bovi_team_logical";
-    case LoopKind::LoopAbstractionBoviMemory:
-      return "loop_abstraction_bovi_memory";
-    case LoopKind::LoopAbstractionBoviLogical:
-      return "loop_abstraction_bovi_logical";
-    case LoopKind::LoopAbstractionBoivLogical:
-      return "loop_abstraction_boiv_logical";
-    case LoopKind::LoopAbstractionBvoiMemory:
-      return "loop_abstraction_bvoi_memory";
-    case LoopKind::LoopAbstractionBvoiLogical:
-      return "loop_abstraction_bvoi_logical";
+  case LoopKind::CpuFlatGhosts:
+    return "cpu_flat_ghosts";
+  case LoopKind::CpuBoivContiguous:
+    return "cpu_boiv_contiguous";
+  case LoopKind::CpuBoivLogical:
+    return "cpu_boiv_logical";
+  case LoopKind::CpuBoviContiguous:
+    return "cpu_bovi_contiguous";
+  case LoopKind::CpuBoviLogical:
+    return "cpu_bovi_logical";
+  case LoopKind::CpuBvoiContiguous:
+    return "cpu_bvoi_contiguous";
+  case LoopKind::CpuBvoiLogical:
+    return "cpu_bvoi_logical";
+  case LoopKind::KokkosBoivFlat:
+    return "kokkos_boiv_flat";
+  case LoopKind::KokkosBoviTeamContiguous:
+    return "kokkos_bovi_team_contiguous";
+  case LoopKind::KokkosBoviTeamLogical:
+    return "kokkos_bovi_team_logical";
+  case LoopKind::LoopAbstractionBoviMemory:
+    return "loop_abstraction_bovi_memory";
+  case LoopKind::LoopAbstractionBoviLogical:
+    return "loop_abstraction_bovi_logical";
+  case LoopKind::LoopAbstractionBoivLogical:
+    return "loop_abstraction_boiv_logical";
+  case LoopKind::LoopAbstractionBvoiMemory:
+    return "loop_abstraction_bvoi_memory";
+  case LoopKind::LoopAbstractionBvoiLogical:
+    return "loop_abstraction_bvoi_logical";
   }
   return "unknown";
 }
@@ -96,26 +96,28 @@ LoopKind ParseLoopKind(const std::string &text) {
   if (text == "kokkos_bovi_team_contiguous") return LoopKind::KokkosBoviTeamContiguous;
   if (text == "kokkos_bovi_team_logical") return LoopKind::KokkosBoviTeamLogical;
   if (text == "loop_abstraction_bovi_memory") return LoopKind::LoopAbstractionBoviMemory;
-  if (text == "loop_abstraction_bovi_logical") return LoopKind::LoopAbstractionBoviLogical;
-  if (text == "loop_abstraction_boiv_logical") return LoopKind::LoopAbstractionBoivLogical;
+  if (text == "loop_abstraction_bovi_logical")
+    return LoopKind::LoopAbstractionBoviLogical;
+  if (text == "loop_abstraction_boiv_logical")
+    return LoopKind::LoopAbstractionBoivLogical;
   if (text == "loop_abstraction_bvoi_memory") return LoopKind::LoopAbstractionBvoiMemory;
-  if (text == "loop_abstraction_bvoi_logical") return LoopKind::LoopAbstractionBvoiLogical;
+  if (text == "loop_abstraction_bvoi_logical")
+    return LoopKind::LoopAbstractionBvoiLogical;
   return LoopKind::CpuBoivContiguous;
 }
 
 std::string Usage() {
-  return
-      "Usage: loop-benchmarks-v2 [options]\n"
-      "  --loop NAME\n"
-      "  --backend NAME\n"
-      "  --access-mode direct|hoisted\n"
-      "  --nblocks N --target-cells N --nvars N --nz N --ny N --nx N --nghost N\n"
-      "  --ninner N\n"
-      "  --warmup N --repeats N\n"
-      "  --validate\n"
-      "  --niter N\n"
-      "  --stencil-x OFFSETS --stencil-y OFFSETS --stencil-z OFFSETS\n"
-      "    OFFSETS may be a single integer or a comma/semicolon-separated list.\n";
+  return "Usage: loop-benchmarks-v2 [options]\n"
+         "  --loop NAME\n"
+         "  --backend NAME\n"
+         "  --access-mode direct|hoisted\n"
+         "  --nblocks N --target-cells N --nvars N --nz N --ny N --nx N --nghost N\n"
+         "  --ninner N\n"
+         "  --warmup N --repeats N\n"
+         "  --validate\n"
+         "  --niter N\n"
+         "  --stencil-x OFFSETS --stencil-y OFFSETS --stencil-z OFFSETS\n"
+         "    OFFSETS may be a single integer or a comma/semicolon-separated list.\n";
 }
 
 bool ParseArgs(int argc, char **argv, CaseSpec *spec, std::string *error) {
@@ -156,13 +158,16 @@ bool ParseArgs(int argc, char **argv, CaseSpec *spec, std::string *error) {
       if (value == nullptr || !ParseIntArg(value, &spec->problem.nvars)) return false;
     } else if (arg == "--nz") {
       const char *value = require_value(arg);
-      if (value == nullptr || !ParseIntArg(value, &spec->problem.nz_interior)) return false;
+      if (value == nullptr || !ParseIntArg(value, &spec->problem.nz_interior))
+        return false;
     } else if (arg == "--ny") {
       const char *value = require_value(arg);
-      if (value == nullptr || !ParseIntArg(value, &spec->problem.ny_interior)) return false;
+      if (value == nullptr || !ParseIntArg(value, &spec->problem.ny_interior))
+        return false;
     } else if (arg == "--nx") {
       const char *value = require_value(arg);
-      if (value == nullptr || !ParseIntArg(value, &spec->problem.nx_interior)) return false;
+      if (value == nullptr || !ParseIntArg(value, &spec->problem.nx_interior))
+        return false;
     } else if (arg == "--nghost") {
       const char *value = require_value(arg);
       if (value == nullptr || !ParseIntArg(value, &spec->problem.nghost)) return false;
@@ -221,17 +226,16 @@ bool ParseArgs(int argc, char **argv, CaseSpec *spec, std::string *error) {
     return false;
   }
   if (spec->loop.access_mode.empty()) {
-    spec->loop.access_mode =
-        (spec->loop.kind == LoopKind::CpuBoviContiguous ||
-         spec->loop.kind == LoopKind::CpuBvoiContiguous ||
-         spec->loop.kind == LoopKind::KokkosBoviTeamContiguous ||
-         spec->loop.kind == LoopKind::LoopAbstractionBoviMemory ||
-         spec->loop.kind == LoopKind::LoopAbstractionBoviLogical ||
-         spec->loop.kind == LoopKind::LoopAbstractionBoivLogical ||
-         spec->loop.kind == LoopKind::LoopAbstractionBvoiMemory ||
-         spec->loop.kind == LoopKind::LoopAbstractionBvoiLogical)
-            ? "hoisted"
-            : "direct";
+    spec->loop.access_mode = (spec->loop.kind == LoopKind::CpuBoviContiguous ||
+                              spec->loop.kind == LoopKind::CpuBvoiContiguous ||
+                              spec->loop.kind == LoopKind::KokkosBoviTeamContiguous ||
+                              spec->loop.kind == LoopKind::LoopAbstractionBoviMemory ||
+                              spec->loop.kind == LoopKind::LoopAbstractionBoviLogical ||
+                              spec->loop.kind == LoopKind::LoopAbstractionBoivLogical ||
+                              spec->loop.kind == LoopKind::LoopAbstractionBvoiMemory ||
+                              spec->loop.kind == LoopKind::LoopAbstractionBvoiLogical)
+                                 ? "hoisted"
+                                 : "direct";
   }
   NormalizeCaseSpec(spec);
   return true;
@@ -257,4 +261,4 @@ int RunBenchmark(const CaseSpec &spec) {
   return 0;
 }
 
-}  // namespace plb2
+} // namespace plb2

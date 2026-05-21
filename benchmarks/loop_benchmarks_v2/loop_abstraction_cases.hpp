@@ -16,4 +16,4 @@ void RunLoopAbstractionCase(const CaseSpec &spec, const Dataset &dataset,
                             const std::array<double, kMaxNiter> &alpha,
                             const std::array<double, kMaxNiter> &beta);
 
-}  // namespace plb2
+} // namespace plb2

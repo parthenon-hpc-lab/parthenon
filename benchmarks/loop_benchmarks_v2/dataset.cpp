@@ -27,9 +27,9 @@ void NormalizeProblemSpec(ProblemSpec *problem) {
         static_cast<std::uint64_t>(problem->ny_interior) *
         static_cast<std::uint64_t>(problem->nx_interior);
     if (cells_per_block > 0) {
-      const auto derived =
-          static_cast<std::uint64_t>(std::llround(static_cast<double>(problem->target_cells) /
-                                                  static_cast<double>(cells_per_block)));
+      const auto derived = static_cast<std::uint64_t>(
+          std::llround(static_cast<double>(problem->target_cells) /
+                       static_cast<double>(cells_per_block)));
       problem->nblocks = static_cast<int>(std::max<std::uint64_t>(1, derived));
     }
   }
@@ -60,7 +60,8 @@ void InitializeDataViews(const CaseSpec &spec, const LoopData &data) {
 #pragma omp simd
       for (int flat = 0; flat < nmem; ++flat) {
         const auto [k, j, i] = memory_indexer(flat);
-        const double seed = static_cast<double>(1 + i + 17 * j + 31 * k + 101 * v + 1009 * b);
+        const double seed =
+            static_cast<double>(1 + i + 17 * j + 31 * k + 101 * v + 1009 * b);
         data.in(b, v, k, j, i) = 0.25 + 0.001 * seed;
         data.aux(b, v, k, j, i) = 0.75 + 0.002 * seed;
         data.out(b, v, k, j, i) = 0.0;
@@ -69,7 +70,7 @@ void InitializeDataViews(const CaseSpec &spec, const LoopData &data) {
   }
 }
 
-}  // namespace
+} // namespace
 
 void NormalizeCaseSpec(CaseSpec *spec) {
   if (spec == nullptr) {
@@ -114,27 +115,31 @@ Dataset BuildDataset(const CaseSpec &spec) {
   dataset.problem = spec.problem;
   NormalizeProblemSpec(&dataset.problem);
 
-  const auto logical_k = parthenon::IndexRange{spec.problem.nghost,
-                                                spec.problem.nghost + spec.problem.nz_interior - 1};
-  const auto logical_j = parthenon::IndexRange{spec.problem.nghost,
-                                                spec.problem.nghost + spec.problem.ny_interior - 1};
-  const auto logical_i = parthenon::IndexRange{spec.problem.nghost,
-                                                spec.problem.nghost + spec.problem.nx_interior - 1};
-  const auto memory_k = parthenon::IndexRange{0, spec.problem.nz_interior + 2 * spec.problem.nghost - 1};
-  const auto memory_j = parthenon::IndexRange{0, spec.problem.ny_interior + 2 * spec.problem.nghost - 1};
-  const auto memory_i = parthenon::IndexRange{0, spec.problem.nx_interior + 2 * spec.problem.nghost - 1};
+  const auto logical_k = parthenon::IndexRange{
+      spec.problem.nghost, spec.problem.nghost + spec.problem.nz_interior - 1};
+  const auto logical_j = parthenon::IndexRange{
+      spec.problem.nghost, spec.problem.nghost + spec.problem.ny_interior - 1};
+  const auto logical_i = parthenon::IndexRange{
+      spec.problem.nghost, spec.problem.nghost + spec.problem.nx_interior - 1};
+  const auto memory_k =
+      parthenon::IndexRange{0, spec.problem.nz_interior + 2 * spec.problem.nghost - 1};
+  const auto memory_j =
+      parthenon::IndexRange{0, spec.problem.ny_interior + 2 * spec.problem.nghost - 1};
+  const auto memory_i =
+      parthenon::IndexRange{0, spec.problem.nx_interior + 2 * spec.problem.nghost - 1};
 
-  dataset.problem.logical_indexer =
-      parthenon::Indexer3D(logical_k, logical_j, logical_i);
-  dataset.problem.memory_indexer =
-      parthenon::Indexer3D(memory_k, memory_j, memory_i);
+  dataset.problem.logical_indexer = parthenon::Indexer3D(logical_k, logical_j, logical_i);
+  dataset.problem.memory_indexer = parthenon::Indexer3D(memory_k, memory_j, memory_i);
 
   const int nk_mem = memory_k.size();
   const int nj_mem = memory_j.size();
   const int ni_mem = memory_i.size();
-  dataset.data.in = View5D("in", spec.problem.nblocks, spec.problem.nvars, nk_mem, nj_mem, ni_mem);
-  dataset.data.aux = View5D("aux", spec.problem.nblocks, spec.problem.nvars, nk_mem, nj_mem, ni_mem);
-  dataset.data.out = View5D("out", spec.problem.nblocks, spec.problem.nvars, nk_mem, nj_mem, ni_mem);
+  dataset.data.in =
+      View5D("in", spec.problem.nblocks, spec.problem.nvars, nk_mem, nj_mem, ni_mem);
+  dataset.data.aux =
+      View5D("aux", spec.problem.nblocks, spec.problem.nvars, nk_mem, nj_mem, ni_mem);
+  dataset.data.out =
+      View5D("out", spec.problem.nblocks, spec.problem.nvars, nk_mem, nj_mem, ni_mem);
   dataset.data.active_counts = Kokkos::View<int *>("active_counts", spec.problem.nblocks);
   return dataset;
 }
@@ -189,16 +194,16 @@ std::uint64_t CountTouchedCells(const CaseSpec &spec, const Dataset &dataset) {
              spec.loop.kind == LoopKind::KokkosBoviTeamContiguous ||
              spec.loop.kind == LoopKind::LoopAbstractionBoviMemory ||
              spec.loop.kind == LoopKind::LoopAbstractionBvoiMemory) {
-    const int ninner =
-        spec.loop.ninner > 0 ? spec.loop.ninner : problem.nx_interior * problem.ny_interior;
+    const int ninner = spec.loop.ninner > 0 ? spec.loop.ninner
+                                            : problem.nx_interior * problem.ny_interior;
     const int outer_points =
         static_cast<int>((logical_indexer.size() + static_cast<std::size_t>(ninner) - 1) /
                          static_cast<std::size_t>(ninner));
     cells_per_variable = 0;
     for (int outer = 0; outer < outer_points; ++outer) {
       const int logical_start = outer * ninner;
-      const int logical_end =
-          std::min(static_cast<int>(logical_indexer.size()) - 1, logical_start + ninner - 1);
+      const int logical_end = std::min(static_cast<int>(logical_indexer.size()) - 1,
+                                       logical_start + ninner - 1);
       const auto [ks, js, is] = logical_indexer(logical_start);
       const auto [ke, je, ie] = logical_indexer(logical_end);
       const auto memory_start = memory_indexer.GetFlatIdx(ks, js, is);
@@ -217,4 +222,4 @@ std::uint64_t CountTouchedCells(const CaseSpec &spec, const Dataset &dataset) {
   return touched;
 }
 
-}  // namespace plb2
+} // namespace plb2
