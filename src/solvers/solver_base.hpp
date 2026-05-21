@@ -81,6 +81,27 @@ class SolverBase {
 
   const std::vector<std::string> &GetFieldLabels() const { return sol_fields; }
 
+  // We do not include a helper function for getting MeshData on the base container
+  // since it may contain an arbitrary set of fields
+
+  template <class T>
+  auto &AddRHSMeshData(Mesh *pmesh, T &&other, bool shallow = false) {
+    if (shallow)
+      return pmesh->mesh_data.AddShallow(GetRHSContainerLabel(), std::forward<T>(other),
+                                         GetFieldLabels());
+    return pmesh->mesh_data.Add(GetRHSContainerLabel(), std::forward<T>(other),
+                                GetFieldLabels());
+  }
+
+  template <class T>
+  auto &AddSolutionMeshData(Mesh *pmesh, T &&other, bool shallow = false) {
+    if (shallow)
+      return pmesh->mesh_data.AddShallow(GetSolutionContainerLabel(),
+                                         std::forward<T>(other), GetFieldLabels());
+    return pmesh->mesh_data.Add(GetSolutionContainerLabel(), std::forward<T>(other),
+                                GetFieldLabels());
+  }
+
   bool initial_guess_is_zero{false};
 
   static inline TimingAccumulatorDictionary solver_timings;
@@ -99,8 +120,8 @@ class SolverBase {
   std::string container_rhs;
 
   Real initial_residual{-1.0};
-  Real final_residual;
-  int final_iteration;
+  Real final_residual{-1.0};
+  int final_iteration{-1};
 };
 
 } // namespace solvers

@@ -209,8 +209,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   BoundaryFlag boundary_flag[6];
 
   bool IsPhysicalBoundary(BoundaryFace bf) const {
-    // TODO(LFR): Should we only return true if this is set to user?
-    return boundary_flag[bf] != BoundaryFlag::block;
+    return boundary_flag[bf] == BoundaryFlag::user;
   }
 
   bool IsPhysicalBoundary() const {

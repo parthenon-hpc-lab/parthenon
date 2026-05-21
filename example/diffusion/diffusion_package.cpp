@@ -76,25 +76,35 @@ struct any_diffusion : public parthenon::variable_names::base_t<true> {
 };
 
 template <CoordinateDirection DIR, BCSide SIDE>
-auto GetBC() {
-  return [](std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) -> void {
+auto GetBC(Real val = 0.0) {
+  return [val](std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse) -> void {
     using namespace parthenon;
     using namespace parthenon::BoundaryFunction;
-    GenericBC<DIR, SIDE, BCType::FixedFace, any_diffusion>(rc, coarse, 0.0);
+    GenericBC<DIR, SIDE, BCType::FixedFace, any_diffusion>(rc, coarse, val);
   };
 }
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto pkg = std::make_shared<StateDescriptor>("diffusion_package");
 
+  auto u_bounds =
+      pin->GetOrAddVector<Real>("diffusion", "boundary_u", {0.0}, "Boundary us.");
+  if (u_bounds.size() == 1) u_bounds = std::vector<Real>(6, u_bounds[0]);
+
   // Set boundary conditions for Diffusion variables
   using BF = parthenon::BoundaryFace;
-  pkg->UserBoundaryFunctions[BF::inner_x1].push_back(GetBC<X1DIR, BCSide::Inner>());
-  pkg->UserBoundaryFunctions[BF::inner_x2].push_back(GetBC<X2DIR, BCSide::Inner>());
-  pkg->UserBoundaryFunctions[BF::inner_x3].push_back(GetBC<X3DIR, BCSide::Inner>());
-  pkg->UserBoundaryFunctions[BF::outer_x1].push_back(GetBC<X1DIR, BCSide::Outer>());
-  pkg->UserBoundaryFunctions[BF::outer_x2].push_back(GetBC<X2DIR, BCSide::Outer>());
-  pkg->UserBoundaryFunctions[BF::outer_x3].push_back(GetBC<X3DIR, BCSide::Outer>());
+  pkg->UserBoundaryFunctions[BF::inner_x1].push_back(
+      GetBC<X1DIR, BCSide::Inner>(u_bounds[0]));
+  pkg->UserBoundaryFunctions[BF::inner_x2].push_back(
+      GetBC<X2DIR, BCSide::Inner>(u_bounds[2]));
+  pkg->UserBoundaryFunctions[BF::inner_x3].push_back(
+      GetBC<X3DIR, BCSide::Inner>(u_bounds[4]));
+  pkg->UserBoundaryFunctions[BF::outer_x1].push_back(
+      GetBC<X1DIR, BCSide::Outer>(u_bounds[1]));
+  pkg->UserBoundaryFunctions[BF::outer_x2].push_back(
+      GetBC<X2DIR, BCSide::Outer>(u_bounds[3]));
+  pkg->UserBoundaryFunctions[BF::outer_x3].push_back(
+      GetBC<X3DIR, BCSide::Outer>(u_bounds[5]));
 
   // probably should stay 1.0
   Real diagonal_alpha = pin->GetOrAddReal("diffusion", "diagonal_alpha", 1.0);
@@ -102,8 +112,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   Real cfl = pin->GetOrAddReal("diffusion", "cfl", 1.0);
   pkg->AddParam<>("cfl", cfl);
-  pkg->AddParam<>("dt", 1.0,
-                  parthenon::Params::Mutability::Mutable); // hold timestep for controls
 
   Real t0 = pin->GetOrAddReal("diffusion", "t0", 0.001);
   pkg->AddParam<>("t0", t0);
@@ -117,13 +125,29 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   std::string prolong =
       pin->GetOrAddString("diffusion", "boundary_prolongation", "Linear");
 
+  pkg->AddParam<>("diffusion_coefficient", DiffusionCoefficient(pin));
+
   using PoissEq = diffusion_package::DiffusionEquation<u, D>;
-  PoissEq eq(pin, "diffusion");
-  pkg->AddParam<>("diffusion_equation", eq, parthenon::Params::Mutability::Mutable);
+  pkg->AddParam<>("diffusion_equation", std::make_shared<PoissEq>(pin, "diffusion"));
+  
+  bool report_timings =
+      pin->GetOrAddBoolean("diffusion", "report_timings", false,
+                           "Report different timings of the diffusion solver "
+                           "at the end of the calculation.");
+  pkg->AddParam<>("report_timings", report_timings);
+  if (parthenon::Globals::my_rank == 0 && report_timings) {
+    parthenon::Task::enable_timing = true;
+    parthenon::Task::enable_timing_chunks = false;
+  }
 
   std::shared_ptr<parthenon::solvers::SolverBase> psolver;
-  using prolongator_t = parthenon::solvers::ProlongationBlockInteriorDefault;
-  using preconditioner_t = parthenon::solvers::MGSolver<PoissEq, prolongator_t>;
+
+  using prolongator_t = parthenon::solvers::ProlongationBlockInteriorZeroDirichlet;
+  using restrictor_t = parthenon::solvers::RestrictionCombined;
+
+  using preconditioner_t =
+      parthenon::solvers::MGSolver<PoissEq, prolongator_t, restrictor_t>;
+
   if (solver == "MG") {
     psolver = std::make_shared<parthenon::solvers::MGSolver<PoissEq, prolongator_t>>(
         "base", "u", "rhs", pin, "diffusion/solver_params", PoissEq(pin, "diffusion"));
@@ -142,7 +166,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   using namespace parthenon::refinement_ops;
   auto mD = Metadata({Metadata::Independent, Metadata::OneCopy, Metadata::Face,
-                      Metadata::GMGRestrict, Metadata::FillGhost});
+                      Metadata::GMGRestrict, Metadata::CellMemAligned});
   mD.RegisterRefinementOps<ProlongateSharedLinear, RestrictAverage>();
 
   // Holds the discretized version of D in \nabla \cdot D(\vec{x}) \nabla u = rhs. D = 1
@@ -176,7 +200,7 @@ Real EstimateTimestep(MeshData<Real> *md) {
   std::shared_ptr<StateDescriptor> pkg =
       md->GetMeshPointer()->packages.Get("diffusion_package");
   const auto &cfl = pkg->Param<Real>("cfl");
-  const auto &old_dt = pkg->Param<Real>("dt");
+  const auto profile_D = pkg->Param<DiffusionCoefficient>("diffusion_coefficient");
 
   auto desc = parthenon::MakePackDescriptor<diffusion_package::D>(md);
   auto pack = desc.GetPack(md);
@@ -186,8 +210,6 @@ Real EstimateTimestep(MeshData<Real> *md) {
   IndexRange kb = md->GetBoundsK(IndexDomain::interior);
 
   const int ndim = md->GetMeshPointer()->ndim;
-
-  constexpr static Real ONE_FOURTH = 0.25;
 
   Real min_dt;
   parthenon::par_reduce(
@@ -199,29 +221,18 @@ Real EstimateTimestep(MeshData<Real> *md) {
         const Real dx2 = coords.Dxc<X2DIR>(k, j, i);
         const Real dx3 = coords.Dxc<X3DIR>(k, j, i);
 
-        // average face coefficients and divide by 2
-        const Real d1 = (pack(b, TE::F1, diffusion_package::D(), k, j, i + 1) +
-                         pack(b, TE::F1, diffusion_package::D(), k, j, i)) *
-                        ONE_FOURTH;
-        lmin_dt = std::min(lmin_dt, dx1 * dx1 / d1);
-        if (ndim > 1) {
-          const Real d2 = (pack(b, TE::F2, diffusion_package::D(), k, j + 1, i) +
-                           pack(b, TE::F2, diffusion_package::D(), k, j, i)) *
-                          ONE_FOURTH;
-          lmin_dt = std::min(lmin_dt, dx2 * dx2 / d2);
-        }
-        if (ndim > 2) {
-          const Real d3 = (pack(b, TE::F3, diffusion_package::D(), k + 1, j, i) +
-                           pack(b, TE::F3, diffusion_package::D(), k, j, i)) *
-                          ONE_FOURTH;
-          lmin_dt = std::min(lmin_dt, dx3 * dx3 / d3);
-        }
+        const Real x1 = coords.Xc<X1DIR>(k, j, i);
+        const Real x2 = coords.Xc<X2DIR>(k, j, i);
+        const Real x3 = coords.Xc<X3DIR>(k, j, i);
+
+        const Real D = profile_D(x1, x2, x3);
+        Real dtc = dx1 * dx1 / D;
+        if (ndim > 1) dtc = std::min(dtc, dx2 * dx2 / D);
+        if (ndim > 2) dtc = std::min(dtc, dx3 * dx3 / D);
+        lmin_dt = std::min(lmin_dt, dtc);
       },
       Kokkos::Min<Real>(min_dt));
-
-  const Real new_dt = cfl * min_dt * old_dt; // need to scale by dt as D := D * dt
-  pkg->UpdateParam<Real>("dt", new_dt);
-  return new_dt;
+  return cfl * min_dt;
 } // EstimateTimestep
 
 parthenon::TaskStatus SetRHS(std::shared_ptr<MeshData<Real>> md,
@@ -230,10 +241,7 @@ parthenon::TaskStatus SetRHS(std::shared_ptr<MeshData<Real>> md,
   const auto alpha = pkg->Param<Real>("diagonal_alpha");
   auto desc = parthenon::MakePackDescriptor<diffusion_package::u>(md.get());
   auto pack = desc.GetPack(md.get());
-
-  // holds rhs
-  auto desc_rhs = parthenon::MakePackDescriptor<diffusion_package::u>(md_rhs.get());
-  auto pack_rhs = desc_rhs.GetPack(md_rhs.get());
+  auto pack_rhs = desc.GetPack(md_rhs.get());
 
   IndexRange ib = md->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
@@ -243,7 +251,7 @@ parthenon::TaskStatus SetRHS(std::shared_ptr<MeshData<Real>> md,
       "SetRHS", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         pack_rhs(b, diffusion_package::u(), k, j, i) = // rhs
-            -alpha * pack(b, diffusion_package::u(), k, j, i);
+            alpha * pack(b, diffusion_package::u(), k, j, i);
       });
   return TaskStatus::complete;
 } // SetRHS
@@ -257,7 +265,7 @@ parthenon::TaskStatus SetDiffusionCoefficient(std::shared_ptr<MeshData<Real>> md
       parthenon::MakePackDescriptor<diffusion_package::u, diffusion_package::D>(md.get());
   auto pack = desc.GetPack(md.get());
 
-  const bool constant_coeff = pkg->Param<bool>("constant_coefficient");
+  const auto profile_D = pkg->Param<DiffusionCoefficient>("diffusion_coefficient");
 
   for (auto te : {TE::F1, TE::F2, TE::F3}) {
     IndexRange ib = md->GetBoundsI(IndexDomain::interior, te);
@@ -274,12 +282,15 @@ parthenon::TaskStatus SetDiffusionCoefficient(std::shared_ptr<MeshData<Real>> md
           const Real u = 0.5 * (pack(b, TE::CC, diffusion_package::u(), k - offset_x3,
                                      j - offset_x2, i - offset_x1) +
                                 pack(b, TE::CC, diffusion_package::u(), k, j, i));
-          if (constant_coeff) {
-            pack(b, te, diffusion_package::D(), k, j, i) = 1.0 * dt;
-          } else {
-            pack(b, te, diffusion_package::D(), k, j, i) =
-                10.0 * std::sqrt(std::fabs(u)) * dt;
-          }
+
+          const auto &coords = pack.GetCoordinates(b);
+          const Real x1 =
+              offset_x1 ? coords.Xc<1>(k, j, i) : coords.X<1, TE::F1>(k, j, i);
+          const Real x2 =
+              offset_x2 ? coords.Xc<2>(k, j, i) : coords.X<2, TE::F2>(k, j, i);
+          const Real x3 =
+              offset_x3 ? coords.Xc<3>(k, j, i) : coords.X<3, TE::F3>(k, j, i);
+          pack(b, te, diffusion_package::D(), k, j, i) = dt * profile_D(x1, x2, x3);
         });
   }
   return TaskStatus::complete;

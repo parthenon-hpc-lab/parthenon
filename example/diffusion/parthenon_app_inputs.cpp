@@ -34,6 +34,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   auto pmb = md->GetBlockData(0)->GetBlockPointer();
   const int ndim = md->GetMeshPointer()->ndim;
 
+  Real scale = pin->GetOrAddReal("diffusion", "scale", 1.0);
   Real x0 = pin->GetOrAddReal("diffusion", "x0", 0.0);
   Real y0 = pin->GetOrAddReal("diffusion", "y0", 0.0);
   Real z0 = pin->GetOrAddReal("diffusion", "z0", 0.0);
@@ -42,8 +43,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   const bool constant_coeff =
       pin->GetOrAddBoolean("diffusion", "constant_coefficient", true);
 
-  auto desc =
-      parthenon::MakePackDescriptor<diffusion_package::u, diffusion_package::D>(md);
+  auto desc = parthenon::MakePackDescriptor<diffusion_package::u>(md);
   auto pack = desc.GetPack(md);
 
   using TE = parthenon::TopologicalElement;
@@ -51,16 +51,17 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   auto ib = cellbounds.GetBoundsI(IndexDomain::entire);
   auto jb = cellbounds.GetBoundsJ(IndexDomain::entire);
   auto kb = cellbounds.GetBoundsK(IndexDomain::entire);
+
   pmb->par_for(
       "Diffusion::ProblemGenerator", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
       ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const auto &coords = pack.GetCoordinates(b);
         Real x1 = coords.Xc<1>(i);
         Real x2 = coords.Xc<2>(j);
-        Real x3 = coords.Xc<2>(k);
+        Real x3 = coords.Xc<3>(k);
         Real x1f = coords.X<1, TE::F1>(k, j, i);
         Real x2f = coords.X<2, TE::F2>(k, j, i);
-        Real x3f = coords.X<2, TE::F3>(k, j, i);
+        Real x3f = coords.X<3, TE::F3>(k, j, i);
         Real dx1 = coords.Dxc<1>(k, j, i);
         Real dx2 = coords.Dxc<2>(k, j, i);
         Real dx3 = coords.Dxc<3>(k, j, i);
@@ -75,17 +76,7 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
           return std::exp(exponent);
         };
         const Real val = profile(x1, x2, x3);
-        pack(b, diffusion_package::u(), k, j, i) = val;
-
-        if (constant_coeff) {
-          pack(b, TE::F1, diffusion_package::D(), k, j, i) = 1.0 * dt;
-          pack(b, TE::F2, diffusion_package::D(), k, j, i) = 1.0 * dt;
-          pack(b, TE::F3, diffusion_package::D(), k, j, i) = 1.0 * dt;
-        } else {
-          pack(b, TE::F1, diffusion_package::D(), k, j, i) = profile(x1f, x2, x3) * dt;
-          pack(b, TE::F2, diffusion_package::D(), k, j, i) = profile(x1, x2f, x3) * dt;
-          pack(b, TE::F3, diffusion_package::D(), k, j, i) = profile(x1, x2, x3f) * dt;
-        }
+        pack(b, diffusion_package::u(), k, j, i) = scale * val;
       });
 }
 

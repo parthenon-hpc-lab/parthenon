@@ -58,6 +58,9 @@ TaskCollection DiffusionDriver::MakeTaskCollection() {
   auto pkg = pmesh->packages.Get("diffusion_package");
   auto psolver =
       pkg->Param<std::shared_ptr<parthenon::solvers::SolverBase>>("solver_pointer");
+  const auto alpha = pkg->Param<Real>("diagonal_alpha");
+  auto peqs = pkg->Param<std::shared_ptr<diffusion_package::DiffusionEquation<u, D>>>(
+      "diffusion_equation");
 
   auto partitions = pmesh->GetDefaultBlockPartitions();
   const int num_partitions = partitions.size();
@@ -69,21 +72,33 @@ TaskCollection DiffusionDriver::MakeTaskCollection() {
     // SetDiffusionCoefficient
     auto set_d = tl.AddTask(none, TF(SetDiffusionCoefficient), md, tm.dt);
 
-    auto &md_u = pmesh->mesh_data.Add("u", md, {u::name()});
-    auto &md_rhs = pmesh->mesh_data.Add("rhs", md, {u::name()});
+    auto &md_deltau = psolver->AddSolutionMeshData(pmesh, md, /*shallow=*/false);
+    auto &md_rhs = psolver->AddRHSMeshData(pmesh, md);
 
-    // SetRHS
-    auto set_rhs = tl.AddTask(set_d, (SetRHS), md, md_rhs);
+    // Set the rhs
+    // We are solving for Δu using  (alpha - dt ∇ D ∇) Δu = (dt ∇ D ∇) u_old. The
+    // diffusion_equation class defines the operator A = alpha - dt ∇ D ∇, so that
+    // we have A Δu = rhs with rhs = (alpha - A) u_old.
+    auto comm =
+        AddBoundaryExchangeTasks<BoundaryType::any>(none, tl, md, pmesh->multilevel);
+    auto Au = peqs->Ax(tl, comm | set_d, md, md, md_rhs);
+    auto set_rhs =
+        tl.AddTask(Au, solvers::utils::AddFieldsAndStore<parthenon::TypeList<u>>, md,
+                   md_rhs, md_rhs, alpha, -1.0);
 
     // Set initial solution guess to zero
-    auto zero_u = tl.AddTask(set_rhs, TF(solvers::utils::SetToZero<u>), md_u);
+    auto zero_u = tl.AddTask(set_rhs, TF(solvers::utils::SetToZero<u>), md_deltau);
+    psolver->initial_guess_is_zero = true;
     auto setup = psolver->AddSetupTasks(tl, zero_u, i, pmesh);
     auto solve = psolver->AddTasks(tl, setup, i, pmesh);
-    auto copy_back =
-        tl.AddTask(solve, TF(solvers::utils::CopyData<parthenon::TypeList<u>>), md_u, md);
 
-    auto new_dt = tl.AddTask(
-        copy_back, parthenon::Update::EstimateTimestep<MeshData<Real>>, md.get());
+    // Update to u = u_0 + Δu
+    auto update_u =
+        tl.AddTask(solve, solvers::utils::AddFieldsAndStore<parthenon::TypeList<u>>, md,
+                   md_deltau, md, 1.0, 1.0);
+
+    // Update the timestep
+    tl.AddTask(update_u, parthenon::Update::EstimateTimestep<MeshData<Real>>, md.get());
   }
   return tc;
 }

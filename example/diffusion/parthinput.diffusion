@@ -21,66 +21,86 @@ problem_id = diffusion
 <parthenon/mesh>
 refinement = static
 multigrid = true 
+base_block_coarsenings = 3
 
 nx1 = 64
-x1min = -1.0
-x1max = 1.0
+x1min = -0.5
+x1max = 0.5
 ix1_bc = outflow 
 ox1_bc = outflow
 
 nx2 = 64
-x2min = -1.0
-x2max = 1.0
-ix2_bc = outflow
-ox2_bc = outflow
+x2min = -0.5
+x2max = 0.5
+ix2_bc = periodic
+ox2_bc = periodic
 
 nx3 = 1
-x3min = 0.0
-x3max = 1.0
+x3min = -0.5
+x3max = 0.5
 ix3_bc = periodic
 ox3_bc = periodic
 
 <parthenon/meshblock>
-nx1 = 32
-nx2 = 32
+nx1 = 64
+nx2 = 64
 nx3 = 1
 
 <parthenon/time>
-nlim = -1
+nlim = 50
 tlim = 0.02
 integrator = rk1
 #ncycle_out_mesh = -10000
 
 <parthenon/output0>
 file_type = hdf5
-dt = 0.0001
+dt = 0.1
 variables = diffusion.u
 ghost_zones = false
 
 <parthenon/static_refinement0> 
-x1min = -0.15
-x1max = +0.15
-x2min = -0.15
-x2max = +0.15
-level = 3
+x1min = -0.07
+x1max = +0.07
+x2min = -0.07
+x2max = +0.07
+x3min = -0.07
+x3max = +0.07
+level = 7
 
 <diffusion>
-#solver = BiCGSTAB # or MG
-solver = MG
+solver = BiCGSTAB
 flux_correct = true
-diagonal_alpha = 1.0
-cfl = 10.0
-set_flux_boundary = true
+cfl = 1e12
+set_flux_boundary = false
+constant_coefficient = false
+boundary_prolongation = Constant
 
+# Set up the operator
+diagonal_alpha = 1e6
+wavelength = 1.0
+amplitude = 0.15
+Dleft = 1.e3
+Dright = 1.e8
+
+# Set up boundary conditions
+boundary_u = 1.e-5, 1.0, 1.e-5, 1.e-5, 1.e-5, 1.e-5
+
+# Set up constant initial conditions
+scale = 1.e-5
 x0 = 0.0
 y0 = 0.0
 z0 = 0.0
-t0 = 0.001
+t0 = 1e200
 
 <diffusion/solver_params>
 precondition = true
-max_iterations = 20
-residual_tolerance = 1.e-9
-print_per_step = true
-smoother = SRJ2
+max_iterations = 200
+max_coarsenings = 10000000
+absolute_residual_tolerance = 1.e-16
+relative_residual_tolerance = 1.e-8
+print_per_step = false
+presmoother = SRJ1
+postsmoother = SRJ3
 do_FAS = true
+block_interior_prolongation = Kwak
+volume_weight = true

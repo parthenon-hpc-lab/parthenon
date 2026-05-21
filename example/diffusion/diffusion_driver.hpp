@@ -20,6 +20,7 @@
 #include <kokkos_abstraction.hpp>
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
+#include <solvers/solver_base.hpp>
 
 namespace diffusion_example {
 using namespace parthenon::driver::prelude;
@@ -33,9 +34,33 @@ class DiffusionDriver : public EvolutionDriver {
   }
   // This next function essentially defines the driver.
   TaskCollection MakeTaskCollection();
-  TaskListStatus Step();
+  TaskListStatus Step() override;
 
   // DriverStatus Execute() override;
+  void OutputDownstreamCycleDiagnostics() override {
+    auto pkg = pmesh->packages.Get("diffusion_package");
+    auto solver_type = pkg->Param<std::string>("solver");
+    auto psolver =
+        pkg->Param<std::shared_ptr<parthenon::solvers::SolverBase>>("solver_pointer");
+    int v_cycles = psolver->GetFinalIterations();
+    if (solver_type == "BiCGSTAB") v_cycles *= 2;
+    std::cout << " v-cycles=" << v_cycles;
+  }
+  
+  void PostExecute(DriverStatus status) override {
+    EvolutionDriver::PostExecute(status);
+    if (parthenon::Globals::my_rank == 0) {
+      auto pkg = pmesh->packages.Get("diffusion_package");
+      if (pkg->Param<bool>("report_timings")) {
+        printf("\nTiming data\n-----------\n");
+        auto psolver =
+            pkg->Param<std::shared_ptr<parthenon::solvers::SolverBase>>("solver_pointer");
+        std::cout << "Solver breakdown: \n" << psolver->solver_timings;
+        psolver->solver_timings.clear();
+      }
+      
+    }
+  }
 
  private:
   LowStorageIntegrator integrator;

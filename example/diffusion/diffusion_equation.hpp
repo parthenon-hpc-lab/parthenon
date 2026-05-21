@@ -23,6 +23,7 @@
 #include <parthenon/package.hpp>
 
 #include "diffusion_package.hpp"
+#include "raw_memory_indexer.hpp"
 
 namespace diffusion_package {
 // Calculate A in_t = out_t (in the region covered by md) for a given set of fluxes
@@ -49,29 +50,45 @@ FluxMultiplyMatrix(std::shared_ptr<parthenon::MeshData<Real>> &md,
   static auto desc_out = parthenon::MakePackDescriptor<var_t>(md_out.get());
   auto pack = desc.GetPack(md.get(), include_block);
   auto pack_out = desc_out.GetPack(md_out.get(), include_block);
-  parthenon::par_for(
-      "FluxMultiplyMatrix", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+
+  const auto idxer =
+      RawMemoryIndexer::IJ(IndexDomain::interior, 0, md.get(), TE::CC, TE::CC);
+  const int max_inner_raw = idxer.GetMaxNinnerRaw();
+  auto scratch_size_in_bytes =
+      0 * parthenon::ScratchPad1D<Real>::shmem_size(max_inner_raw);
+  const std::size_t scratch_level = 1;
+  const int ioff = (ndim > 0);
+  const int joff = (ndim > 1);
+  const int koff = (ndim > 2);
+  parthenon::par_for_outer(
+      DEFAULT_OUTER_LOOP_PATTERN, "FluxMultiplyMatrix", DevExecSpace(),
+      scratch_size_in_bytes, scratch_level, 0, pack.GetNBlocks() - 1, 0,
+      idxer.GetNouter() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int idx_out) {
+        const auto [ks, js, is] = idxer.GetStartIndices(idx_out);
+        const auto ninner = idxer.GetNinnerRaw(idx_out);
+        const auto raw_idx_start = idxer.GetStartingRawFlatIdx(idx_out);
+
         const auto &coords = pack.GetCoordinates(b);
-        Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
-        pack_out(b, var_t(), k, j, i) = -alpha * pack(b, var_t(), k, j, i);
-        pack_out(b, var_t(), k, j, i) += (pack.flux(b, X1DIR, var_t(), k, j, i) -
-                                          pack.flux(b, X1DIR, var_t(), k, j, i + 1)) /
-                                         dx1;
+        const Real invdx1 = ioff / coords.template Dxc<X1DIR>(ks, js, is);
+        const Real invdx2 = joff / coords.template Dxc<X2DIR>(ks, js, is);
+        const Real invdx3 = koff / coords.template Dxc<X3DIR>(ks, js, is);
 
-        if (ndim > 1) {
-          Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
-          pack_out(b, var_t(), k, j, i) += (pack.flux(b, X2DIR, var_t(), k, j, i) -
-                                            pack.flux(b, X2DIR, var_t(), k, j + 1, i)) /
-                                           dx2;
-        }
-
-        if (ndim > 2) {
-          Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
-          pack_out(b, var_t(), k, j, i) += (pack.flux(b, X3DIR, var_t(), k, j, i) -
-                                            pack.flux(b, X3DIR, var_t(), k + 1, j, i)) /
-                                           dx3;
-        }
+        const Real *const flx1_up = &pack.flux(b, X1DIR, var_t(), ks, js, is + 1);
+        const Real *const flx1_lo = &pack.flux(b, X1DIR, var_t(), ks, js, is);
+        const Real *const flx2_up = &pack.flux(b, X2DIR, var_t(), ks, js + joff, is);
+        const Real *const flx2_lo = &pack.flux(b, X2DIR, var_t(), ks, js, is);
+        const Real *const flx3_up = &pack.flux(b, X3DIR, var_t(), ks + koff, js, is);
+        const Real *const flx3_lo = &pack.flux(b, X3DIR, var_t(), ks, js, is);
+        const Real *const in = &pack(b, var_t(), ks, js, is);
+        Real *out = &pack_out(b, var_t(), ks, js, is);
+        parthenon::par_for_inner(
+            DEFAULT_INNER_LOOP_PATTERN, member, 0, ninner - 1, [&](const int idx) {
+              const Real dfx = (flx1_up[idx] - flx1_lo[idx]) * invdx1;
+              const Real dfy = (flx2_up[idx] - flx2_lo[idx]) * invdx2;
+              const Real dfz = (flx3_up[idx] - flx3_lo[idx]) * invdx3;
+              out[idx] = alpha * in[idx] + dfx + dfy + dfz;
+            });
       });
   return TaskStatus::complete;
 }
@@ -151,19 +168,19 @@ class DiffusionEquation {
           const auto &coords = pack_mat.GetCoordinates(b);
           // Build the unigrid diagonal of the matrix
           Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
-          Real diag_elem = -(pack_mat(b, TE::F1, D_t(), k, j, i) +
-                             pack_mat(b, TE::F1, D_t(), k, j, i + 1)) /
-                               (dx1 * dx1) -
+          Real diag_elem = (pack_mat(b, TE::F1, D_t(), k, j, i) +
+                            pack_mat(b, TE::F1, D_t(), k, j, i + 1)) /
+                               (dx1 * dx1) +
                            alpha;
           if (ndim > 1) {
             Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
-            diag_elem -= (pack_mat(b, TE::F2, D_t(), k, j, i) +
+            diag_elem += (pack_mat(b, TE::F2, D_t(), k, j, i) +
                           pack_mat(b, TE::F2, D_t(), k, j + 1, i)) /
                          (dx2 * dx2);
           }
           if (ndim > 2) {
             Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
-            diag_elem -= (pack_mat(b, TE::F3, D_t(), k, j, i) +
+            diag_elem += (pack_mat(b, TE::F3, D_t(), k, j, i) +
                           pack_mat(b, TE::F3, D_t(), k + 1, j, i)) /
                          (dx3 * dx3);
           }
@@ -183,48 +200,48 @@ class DiffusionEquation {
 
     using TE = parthenon::TopologicalElement;
 
-    int nblocks = md->NumBlocks();
-    std::vector<bool> include_block(nblocks, true);
-
     auto desc = parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
-    auto pack = desc.GetPack(md.get(), include_block);
+    auto pack = desc.GetPack(md.get());
     auto desc_mat = parthenon::MakePackDescriptor<D_t>(md_mat.get(), {});
-    auto pack_mat = desc_mat.GetPack(md_mat.get(), include_block);
-    parthenon::par_for(
-        "CaclulateFluxes", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          const auto &coords = pack.GetCoordinates(b);
-          Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
-          pack.flux(b, X1DIR, var_t(), k, j, i) =
-              pack_mat(b, TE::F1, D_t(), k, j, i) / dx1 *
-              (pack(b, var_t(), k, j, i - 1) - pack(b, var_t(), k, j, i));
-          if (i == ib.e)
-            pack.flux(b, X1DIR, var_t(), k, j, i + 1) =
-                pack_mat(b, TE::F1, D_t(), k, j, i + 1) / dx1 *
-                (pack(b, var_t(), k, j, i) - pack(b, var_t(), k, j, i + 1));
+    auto pack_mat = desc_mat.GetPack(md_mat.get());
 
-          if (ndim > 1) {
-            Real dx2 = coords.template Dxc<X2DIR>(k, j, i);
-            pack.flux(b, X2DIR, var_t(), k, j, i) =
-                pack_mat(b, TE::F2, D_t(), k, j, i) *
-                (pack(b, var_t(), k, j - 1, i) - pack(b, var_t(), k, j, i)) / dx2;
-            if (j == jb.e)
-              pack.flux(b, X2DIR, var_t(), k, j + 1, i) =
-                  pack_mat(b, TE::F2, D_t(), k, j + 1, i) *
-                  (pack(b, var_t(), k, j, i) - pack(b, var_t(), k, j + 1, i)) / dx2;
-          }
+    for (int dim = 0; dim < ndim; ++dim) {
+      const auto te = dim == 0 ? TE::F1 : (dim == 1 ? TE::F2 : TE::F3);
+      const int ioff = dim == 0;
+      const int joff = dim == 1;
+      const int koff = dim == 2;
+      const int dir = dim + 1;
+      // The diffusion coefficient arrays are cell mem aligned
+      const auto idxer =
+          RawMemoryIndexer::IJ(IndexDomain::interior, 0, md.get(), te, TE::CC);
+      const std::size_t scratch_level = 1;
+      auto scratch_size_in_bytes =
+          0 * parthenon::ScratchPad1D<Real>::shmem_size(idxer.GetMaxNinnerRaw());
+      parthenon::par_for_outer(
+          DEFAULT_OUTER_LOOP_PATTERN, "CalculateFluxes", DevExecSpace(),
+          scratch_size_in_bytes, scratch_level, 0, pack.GetNBlocks() - 1, 0,
+          idxer.GetNouter() - 1,
+          KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int idx_out) {
+            const auto [ks, js, is] = idxer.GetStartIndices(idx_out);
+            const auto ninner = idxer.GetNinnerRaw(idx_out);
+            const auto raw_idx_start = idxer.GetStartingRawFlatIdx(idx_out);
 
-          if (ndim > 2) {
-            Real dx3 = coords.template Dxc<X3DIR>(k, j, i);
-            pack.flux(b, X3DIR, var_t(), k, j, i) =
-                pack_mat(b, TE::F3, D_t(), k, j, i) *
-                (pack(b, var_t(), k - 1, j, i) - pack(b, var_t(), k, j, i)) / dx3;
-            if (k == kb.e)
-              pack.flux(b, X2DIR, var_t(), k + 1, j, i) =
-                  pack_mat(b, TE::F3, D_t(), k + 1, j, i) *
-                  (pack(b, var_t(), k, j, i) - pack(b, var_t(), k + 1, j, i)) / dx3;
-          }
-        });
+            const auto &coords = pack.GetCoordinates(b);
+            const Real inv_dx = ioff / coords.template Dxc<X1DIR>(ks, js, is) +
+                                joff / coords.template Dxc<X2DIR>(ks, js, is) +
+                                koff / coords.template Dxc<X3DIR>(ks, js, is);
+
+            Real *flx = &(pack.flux(b, dir, var_t(), ks, js, is));
+            const Real *const D = &pack_mat(b, te, D_t(), ks, js, is);
+            const Real *const vup = &pack(b, var_t(), ks, js, is);
+            const Real *const vlo = &pack(b, var_t(), ks - koff, js - joff, is - ioff);
+            parthenon::par_for_inner(
+                DEFAULT_INNER_LOOP_PATTERN, member, 0, ninner - 1, [&](const int idx) {
+                  flx[idx] = -D[idx] * (vup[idx] - vlo[idx]) * inv_dx;
+                });
+          });
+    }
+
     return TaskStatus::complete;
   }
 
@@ -303,6 +320,60 @@ class DiffusionEquation {
             }
           }
         });
+    return TaskStatus::complete;
+  }
+
+  static parthenon::TaskStatus SetBoundary(std::shared_ptr<parthenon::MeshData<Real>> &md,
+                                           bool coarse) {
+    using namespace parthenon;
+    const int ndim = md->GetMeshPointer()->ndim;
+
+    std::set<PDOpt> opts{};
+    if (coarse) opts.emplace(PDOpt::Coarse);
+    auto desc = parthenon::MakePackDescriptor<var_t>(md.get(), {}, opts);
+    auto pack = desc.GetPack(md.get(), GetBlockSelector::OnPhysicalBoundary());
+    if (pack.GetNBlocks() > 0) {
+      CellLevel cl = coarse ? CellLevel::coarse : CellLevel::same;
+      IndexRange ib = md->GetBoundsI(cl, IndexDomain::interior);
+      IndexRange jb = md->GetBoundsJ(cl, IndexDomain::interior);
+      IndexRange kb = md->GetBoundsK(cl, IndexDomain::interior);
+
+      const int scratch_size_in_bytes = 0;
+      const std::size_t scratch_level = 1;
+      parthenon::par_for_outer(
+          DEFAULT_OUTER_LOOP_PATTERN, "SetBoundaries", DevExecSpace(),
+          scratch_size_in_bytes, scratch_level, 0, pack.GetNBlocks() - 1, -(ndim > 2),
+          (ndim > 2), -(ndim > 1), (ndim > 1), -1, 1,
+          KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, int ok, int oj,
+                        int oi) {
+            const int tot_offset = std::abs(ok) + std::abs(oj) + std::abs(oi);
+
+            auto get_lower = [](int offset, auto bound) {
+              if (offset != 0) {
+                return offset > 0 ? bound.e : bound.s;
+              } else {
+                return bound.s;
+              }
+            };
+            auto get_upper = [](int offset, auto bound) {
+              if (offset != 0) {
+                return offset > 0 ? bound.e : bound.s;
+              } else {
+                return bound.e;
+              }
+            };
+
+            if (tot_offset == 1 && pack.IsPhysicalBoundary(b, ok, oj, oi)) {
+              parthenon::par_for_inner(
+                  DEFAULT_INNER_LOOP_PATTERN, member, get_lower(ok, kb),
+                  get_upper(ok, kb), get_lower(oj, jb), get_upper(oj, jb),
+                  get_lower(oi, ib), get_upper(oi, ib),
+                  [&](const int k, const int j, const int i) {
+                    pack(b, var_t(), k + ok, j + oj, i + oi) = -pack(b, var_t(), k, j, i);
+                  });
+            }
+          });
+    }
     return TaskStatus::complete;
   }
 };
