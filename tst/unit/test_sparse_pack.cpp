@@ -24,6 +24,7 @@
 #include "interface/metadata.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/meshblock.hpp"
+#include "loop_abstraction.hpp"
 #include "pack/sparse_pack/make_pack_descriptor.hpp"
 #include "pack/sparse_pack/sparse_pack.hpp"
 #include "pack/sparse_pack/pack_view.hpp"
@@ -301,6 +302,34 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
                 ltot += 1;
               }
               pack_view(v1(), k, j, i) = saved;
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
+      }
+
+      THEN("A sparse pack can be wrapped by the loop abstraction pack view") {
+        using IS = plb2::loop_abstraction::IndexSpace<
+            plb2::loop_abstraction::loop_tag::bovi,
+            plb2::loop_abstraction::inner_tag::memory>;
+        auto desc = parthenon::MakePackDescriptor<v1, v3, v5>(pkg.get());
+        auto sparse_pack = desc.GetPack(&mesh_data);
+        IS idx_space(1, N, N, N, 0);
+        auto idx_range = plb2::loop_abstraction::FlatRange(
+            idx_space, 0, 0, idx_space.GetLogicalIndexer().size() - 1);
+        auto pack_view =
+            plb2::loop_abstraction::make_pack_view(idx_range, sparse_pack, 0);
+
+        int nwrong = 0;
+        par_reduce(
+            loop_pattern_mdrange_tag, "check loop pack view", DevExecSpace(), kb.s, kb.e,
+            jb.s, jb.e, ib.s, ib.e,
+            KOKKOS_LAMBDA(int k, int j, int i, int &ltot) {
+              if (pack_view(v1(), k, j, i) != sparse_pack(0, v1(), k, j, i)) {
+                ltot += 1;
+              }
+              if (pack_view(v5(), k, j, i) != sparse_pack(0, v5(), k, j, i)) {
+                ltot += 1;
+              }
             },
             nwrong);
         REQUIRE(nwrong == 0);

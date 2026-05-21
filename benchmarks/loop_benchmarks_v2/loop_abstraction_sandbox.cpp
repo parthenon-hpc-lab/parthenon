@@ -14,7 +14,7 @@ using IS = plb2::loop_abstraction::IndexSpace<
 
 using IR = plb2::loop_abstraction::InnerIndexRange<IS>;
 
-using VW = plb2::loop_abstraction::var_view_t<IS>;
+using VW = plb2::loop_abstraction::field_view_t<IS>;
 
 extern "C"
 __attribute__((noinline))
