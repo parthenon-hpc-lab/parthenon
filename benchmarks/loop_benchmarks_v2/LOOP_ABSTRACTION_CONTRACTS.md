@@ -56,7 +56,7 @@ Shape: block -> outer -> inner -> var
 - The inner loop walks one logical cell at a time. So it is really not a loop at all. Logically, it is the limit of bovi for inner chunk 
   size one, but it requires its own code path for performance reasons.
 - This is the hot-path shape for coordinate-based access.
-- The range object carries the current `(k, j, i)` point directly.
+- The range object carries the current `(k, j, i)` point directly.so
 - Direct memory access is relative to the current `(k, j, i)` index. 
 
 ## Inner Tags
@@ -73,6 +73,14 @@ These define how to traverse the one inner chunk of the index range.
   - This requires all fields being accessed within a given kernel to have the same memory layout so that they can share the same flat index
   - This logical form will be most likely to vectorize since calls should inline to look like `var[idx]` within the innermost loop.
 
+The intended `logical_flat` integer contract is:
+
+| Loop tag | `logical_flat` integer passed to the functor |
+| --- | --- |
+| `bvoi` | Flat index into the current memory-space view of the visited points. The origin is the memory start implied by the current `IndexSpace` and outer slice. |
+| `bovi` | Flat index into the current memory-space view of the visited points. The origin is the memory start implied by the current `InnerIndexRange`. |
+| `boiv` | Flat index into the current logical point. This is the one-cell contract used by the hot coordinate path, so the integer form is only meaningful if the caller wants a flat logical index. |
+
 ### `logical_coords`
 
 - A logical variant just iterates over the cell indices contained in the inner chunk.
@@ -82,9 +90,11 @@ These define how to traverse the one inner chunk of the index range.
   - This contract is required when fields accessed within a kernel have a different memory layout (say a face centered field and a cell centered field). 
   - Different memory layouts are probably the only time when this layout is preferred. 
 
+The intended `logical_coords` contract is the same logical-cell coverage contract as `logical_flat`, but the body receives coordinates instead of a flat integer.
+
 ### `memory`
 
-- The memory variant iterates over all points in memory between the the start and end of the inner logical iteration space.
+- The memory variant iterates over the contiguous memory span for the current inner range, which may include non-logical cells.
 - This will touch inactive zones, but for most use cases their values are safe to mutate. It is just unecessary work.
 - Nevertheless, this pattern can be more performant since it can consume long runs of memory uniformly.
 - The auto functor receives an integer index for directly indexing a pointer. The indexing must
@@ -93,6 +103,14 @@ These define how to traverse the one inner chunk of the index range.
 - Ghost (i.e. non-logical) cells may also be touched if they lie inside the contiguous span.
 - The exact span is an implementation detail, but raw and Kokkos must agree.
 
+The intended `memory` integer contract is:
+
+| Loop tag | `memory` integer passed to the functor |
+| --- | --- |
+| `bvoi` | Flat index into the current memory-space view of the visited points. The origin is the memory start implied by the current `IndexSpace` and outer slice. |
+| `bovi` | Flat index into the current memory-space view of the visited points. The origin is the memory start implied by the current `InnerIndexRange`. |
+| `boiv` | Not a `memory` contract. `boiv` uses logical coordinates or flat logical indexing, not a memory-span inner contract. |
+
 ## Body Signatures
 
 The inner body may be written in two common forms:
@@ -100,7 +118,7 @@ The inner body may be written in two common forms:
 - `f(auto idx)`
 - `f(int k, int j, int i)`
 
-When both forms are viable, the `f(int k, int j, int i)` form must be selected explicitly and the dispatch order must be stable. When the `f(int k, int j, int i)`
+If both f(auto idx) and f(int, int, int) are viable, the three-argument form wins. When the `f(int k, int j, int i)`
 form is selected for a given [loop_tag, inner_tag] pair, the loop structure is as described above but before calling the functor the internal index 
 is transformed back to (k,j,i) space and then passed to the functor. This form may hurt performance, but is likely clearer to many users.  
 
@@ -115,7 +133,16 @@ For tests, the safest reference is:
 
 The tests should not reimplement the abstraction logic as a second source of truth.
 
-## Pack View Contract
+## Contract Summary
+
+The invariant that matters most is:
+
+1. Every loop pattern must touch every logical cell exactly once.
+2. `logical_flat` and `logical_coords` must not touch halo cells.
+3. `memory` may touch halo cells, but must still satisfy the logical-cell contract.
+4. Raw and Kokkos must agree on the contract for the same loop pattern and body signature.
+
+## Pack View Information
 
 `make_pack_view(inner_range, pack, b)` is the helper that adapts a `SparsePack` to the current loop contract.
 
@@ -127,15 +154,6 @@ The current intent is:
 
 The pack-view implementation is still under development, but this will be the first class way to access variabless in kernels written using the loop abstraction.
 
-## Contract Summary
-
-The invariant that matters most is:
-
-1. Every loop pattern must touch every logical cell exactly once.
-2. `logical_flat` and `logical_coords` must not touch halo cells.
-3. `memory` may touch halo cells, but must still satisfy the logical-cell contract.
-4. Raw and Kokkos must agree on the contract for the same loop pattern and body signature.
-
 ## Open Questions
 
 The current code is still being shaped around these contracts, so the following should be treated as intentional design questions until the implementation is stabilized:
@@ -143,4 +161,3 @@ The current code is still being shaped around these contracts, so the following 
 - Whether a flat integer in `logical_flat` should be interpreted as logical-span-relative or memory-span-relative in every loop tag.
 - Whether `boiv` should always carry coordinate state only, or whether some flat-index forms should remain range-aware.
 - Whether a pack-view specialization should store raw pointers, a pack pointer, or both depending on the loop contract.
-
