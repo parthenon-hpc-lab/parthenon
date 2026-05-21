@@ -169,11 +169,11 @@ struct pack_view_t<IndexSpace<LOOP_TAG, inner_tag::logical_coords>, PackType, Ts
 
 template <class IndexSpaceType, class sparse_pack_t, class... Ts>
 KOKKOS_INLINE_FUNCTION auto make_pack_view_impl(const InnerIndexRange<IndexSpaceType> &idx_range,
-                                                const sparse_pack_t &pack_in, const int b,
-                                                const int s, parthenon::TypeList<Ts...>) {
+                                                const sparse_pack_t &pack_in, const int s,
+                                                parthenon::TypeList<Ts...>) {
   using TL = parthenon::TypeList<Ts...>;
   if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
-    return pack_view_t<IndexSpaceType, sparse_pack_t, Ts...>{&pack_in, b, s};
+    return pack_view_t<IndexSpaceType, sparse_pack_t, Ts...>{&pack_in, idx_range.block, s};
   } else {
     pack_view_t<IndexSpaceType, sparse_pack_t, Ts...> out;
     out.pidx_space = idx_range.pidx_space;
@@ -182,7 +182,7 @@ KOKKOS_INLINE_FUNCTION auto make_pack_view_impl(const InnerIndexRange<IndexSpace
       constexpr std::size_t vstart = SumSizesBefore<TL, Ts>();
       const std::size_t sparse_offset = s * Ts::size();
       for (std::size_t v = 0; v < Ts::size(); ++v) {
-        auto var = pack_in(b, Ts(v + sparse_offset));
+        auto var = pack_in(idx_range.block, Ts(v + sparse_offset));
         out.data_[vstart + v] = var.data() + out.shift_;
       }
     }(), ...);
@@ -201,22 +201,21 @@ using check_fixed_size = std::bool_constant<(T::size() > 0)>;
 
 template <class IndexSpaceType, class... Ts>
 KOKKOS_INLINE_FUNCTION auto make_pack_view(const InnerIndexRange<IndexSpaceType> &idx_range,
-                                           const parthenon::SparsePack<Ts...> &pack_in,
-                                           const int b) {
+                                           const parthenon::SparsePack<Ts...> &pack_in) {
   using full_tl = parthenon::TypeList<Ts...>;
   using no_sparse_tl = parthenon::filter_type_list_t<full_tl, check_not_sparse_type>;
   using filtered_tl = parthenon::filter_type_list_t<no_sparse_tl, check_fixed_size>;
-  return make_pack_view_impl(idx_range, pack_in, b, 0, filtered_tl{});
+  return make_pack_view_impl(idx_range, pack_in, 0, filtered_tl{});
 }
 
 template <class IndexSpaceType, class... Ts>
 KOKKOS_INLINE_FUNCTION auto make_sparse_pack_view(const InnerIndexRange<IndexSpaceType> &idx_range,
                                                   const parthenon::SparsePack<Ts...> &pack_in,
-                                                  const int b, const int s) {
+                                                  const int s) {
   using full_tl = parthenon::TypeList<Ts...>;
   using no_sparse_tl = parthenon::filter_type_list_t<full_tl, check_sparse_type>;
   using filtered_tl = parthenon::filter_type_list_t<no_sparse_tl, check_fixed_size>;
-  return make_pack_view_impl(idx_range, pack_in, b, s, filtered_tl{});
+  return make_pack_view_impl(idx_range, pack_in, s, filtered_tl{});
 }
 
 } // namespace loop_abstraction
