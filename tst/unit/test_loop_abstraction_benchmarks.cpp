@@ -238,10 +238,9 @@ parthenon::HostArray5D<Real> RunKjiBody(const ProblemSpec &spec, const int ninne
   } else {
     loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
       for (int v = 0; v < kNVars; ++v) {
-        loop_abstraction::inner(idx_range,
-                                      [&](const int k, const int j, const int i) {
-                                        out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
-                                      });
+        loop_abstraction::inner(idx_range, [&](const int k, const int j, const int i) {
+          out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
+        });
       }
     });
   }

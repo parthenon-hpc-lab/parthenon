@@ -18,13 +18,13 @@ using VW = loop_abstraction::var_view_t<IS>;
 
 extern "C" __attribute__((noinline)) void raw_inner_probe(const IR &idx_range, VW &outp,
                                                           VW &inp) {
-  loop_abstraction::inner(
-      idx_range, [&](auto idx) { outp(idx) = inp(idx) * 2.01 + outp(idx); });
+  loop_abstraction::inner(idx_range,
+                          [&](auto idx) { outp(idx) = inp(idx) * 2.01 + outp(idx); });
 }
 namespace {
 
-template <loop_abstraction::loop_tag LOOP_TAG,
-          loop_abstraction::inner_tag INNER_TAG, class View5D>
+template <loop_abstraction::loop_tag LOOP_TAG, loop_abstraction::inner_tag INNER_TAG,
+          class View5D>
 void RunKernel(const View5D &input, View5D &output, int nblocks, int nvar, int n,
                int nghost) {
 
