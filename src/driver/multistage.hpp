@@ -42,6 +42,9 @@ class MultiStageDriverGeneric : public EvolutionDriver {
     TaskListStatus status;
     integrator->dt = tm.dt;
     for (int stage = 1; stage <= integrator->nstages; stage++) {
+      Kokkos::Profiling::ScopedRegion region(
+          std::string("MultiStage::cycle_") + std::to_string(tm.ncycle) + "::stage_" +
+          std::to_string(stage));
       // Clear any initialization info. We should be relying
       // on only the immediately preceding stage to contain
       // reasonable data
@@ -72,6 +75,9 @@ class MultiStageBlockTaskDriverGeneric : public MultiStageDriverGeneric<Integrat
     SimTime tm = this->tm;
     integrator->dt = tm.dt;
     for (int stage = 1; stage <= integrator->nstages; stage++) {
+      Kokkos::Profiling::ScopedRegion region(
+          std::string("MultiStage::cycle_") + std::to_string(tm.ncycle) + "::stage_" +
+          std::to_string(stage));
       status = ConstructAndExecuteBlockTasks<>(this, stage);
       if (status != TaskListStatus::complete) break;
     }

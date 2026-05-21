@@ -101,10 +101,12 @@ inline Mesh::channel_key_t GetChannelKey(BndId &in) {
 template <BoundaryType bound_type, class COMM_MAP, class F>
 void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_map,
                            BvarsSubCache_t *pcache, F KeyFunc, bool initialize_flags) {
+  Kokkos::Profiling::pushRegion("InitializeBufferCache");
   using namespace loops;
   using namespace loops::shorthands;
   Mesh *pmesh = md->GetMeshPointer();
 
+  Kokkos::Profiling::pushRegion("InitializeBufferCache::Make key_order");
   pcache->clear();
 
   std::vector<std::tuple<int, int, Mesh::channel_key_t>> key_order;
@@ -122,6 +124,9 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
         ++boundary_idx;
       });
 
+  Kokkos::Profiling::popRegion();
+
+  Kokkos::Profiling::pushRegion("InitializeBufferCache::Make pcache");
   // If desired, sort the keys and boundary indices by receiver_idx
   // std::sort(key_order.begin(), key_order.end(),
   //          [](auto a, auto b) { return std::get<0>(a) < std::get<0>(b); });
@@ -132,19 +137,37 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   std::mt19937 g(rd());
   std::shuffle(key_order.begin(), key_order.end(), g);
 
-  int buff_idx = 0;
   pcache->buf_vec.clear();
+  pcache->buf_vec.resize(key_order.size());
   pcache->idx_vec = std::vector<std::size_t>(key_order.size());
-  std::for_each(std::begin(key_order), std::end(key_order), [&](auto &t) {
+
+  #pragma omp parallel for
+  for (int i = 0; i < key_order.size(); i++) {
+    auto &t = key_order[i];
     if (comm_map->count(std::get<2>(t)) == 0) {
       auto key = std::get<2>(t);
       PARTHENON_FAIL(std::string("Asking for buffer that doesn't exist") + " (" +
                      GetLabel(key) + ")");
     }
-    pcache->buf_vec.push_back(&((*comm_map)[std::get<2>(t)]));
-    (pcache->idx_vec)[std::get<1>(t)] = buff_idx++;
-  });
+    pcache->buf_vec[i] = &((*comm_map)[std::get<2>(t)]);
+    (pcache->idx_vec)[std::get<1>(t)] = i;    
+  }  
 
+  //int buff_idx = 0;
+  //pcache->buf_vec.clear();
+  //pcache->idx_vec = std::vector<std::size_t>(key_order.size());
+  //std::for_each(std::begin(key_order), std::end(key_order), [&](auto &t) {
+  //  if (comm_map->count(std::get<2>(t)) == 0) {
+  //    auto key = std::get<2>(t);
+  //    PARTHENON_FAIL(std::string("Asking for buffer that doesn't exist") + " (" +
+  //                  GetLabel(key) + ")");
+  //  }
+  //  pcache->buf_vec.push_back(&((*comm_map)[std::get<2>(t)]));
+  //  (pcache->idx_vec)[std::get<1>(t)] = buff_idx++;
+  //});
+  Kokkos::Profiling::popRegion();
+
+  Kokkos::Profiling::pushRegion("InitializeBufferCache::set flags");
   const int nbound = pcache->buf_vec.size();
   if (initialize_flags && nbound > 0) {
     if (nbound != pcache->sending_non_zero_flags.size()) {
@@ -154,6 +177,8 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
     }
   }
   pcache->epoch = comm_map->GetCurrentEpoch();
+  Kokkos::Profiling::popRegion();
+  Kokkos::Profiling::popRegion(); // InitializeBufferCache
 }
 
 template <BoundaryType BOUND_TYPE, bool SENDER>
@@ -234,6 +259,8 @@ template <BoundaryType BOUND_TYPE, bool SENDER>
 inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
                                F_BND_INFO BndInfoCreator,
                                F_PRORES_INFO ProResInfoCreator) {
+  Kokkos::Profiling::pushRegion("RebuildBufferCache");
+  Kokkos::Profiling::pushRegion("RebuildBufferCache::Initialize");
   using namespace loops;
   using namespace loops::shorthands;
   BvarsSubCache_t &cache = md->GetBvarsCache().GetSubCache(BOUND_TYPE, SENDER);
@@ -247,7 +274,9 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   Mesh *pmesh = md->GetParentPointer();
   StateDescriptor *pkg = (pmesh->resolved_packages).get();
   cache.prores_cache.Initialize(nbound, pkg);
+  Kokkos::Profiling::popRegion(); // RebuildBufferCache::Initialize
 
+  Kokkos::Profiling::pushRegion("RebuildBufferCache::Create info and register region host");
   int ibound = 0;
   ForEachBoundary<BOUND_TYPE>(
       md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v) {
@@ -265,6 +294,8 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
       });
   Kokkos::deep_copy(cache.bnd_info, cache.bnd_info_h);
   cache.prores_cache.CopyToDevice();
+  Kokkos::Profiling::popRegion(); // RebuildBufferCache::Create info and RegisterRegionHost
+  Kokkos::Profiling::popRegion(); // RebuildBufferCache
 }
 
 } // namespace parthenon

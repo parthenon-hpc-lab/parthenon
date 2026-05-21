@@ -101,6 +101,7 @@ inline auto &GetNeighborsOnFinerGMGGrid(MeshBlock *pmb, const GridIdentifier &gr
 // need to be a template parameter, it could just be a function argument]
 template <BoundaryType bound = BoundaryType::any, class F>
 inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
+  PARTHENON_INSTRUMENT
   int fine_level = md->grid.logical_level();
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);
