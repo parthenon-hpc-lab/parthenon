@@ -4,18 +4,18 @@ This document describes the current loop-abstraction paths in `benchmarks/loop_b
 
 The goal is to keep the semantic choices explicit before changing the implementation again.
 
-One need to be careful about making changes to the loop abstraction headers without thinking carefully. When in doubt, ask someone else.
+One needs to be careful about making changes to the loop abstraction headers without thinking carefully. When in doubt, ask someone else.
 
 ## Core Types
 
 `IndexSpace<loop_tag, inner_tag>`
-- Defines an space of (block, k, j, i) points to iterate over.
-  - What we call the v index is an intermediate level that a user of the loop hierarchy can write for loops in, do block level work, etc. 
+- Defines a space of (block, k, j, i) points to iterate over.
+  - What we call the `v` index is an intermediate level that a user of the loop hierarchy can write loops in, do block-level work, etc.
   - The level of the v loops in the hierarchy of the (b, k, j, i) space is determined by the loop tags.
 - Describes the logical iteration space and the memory space for a block.
 - Carries `nblocks`, `ninner`, and the logical/memory indexers.
 - Selects the outer-loop shape at compile time.
-- Is the object that is passed into `outer(...)`. 
+- Is the object that is passed into `outer(...)`.
 
 `InnerIndexRange<IndexSpaceType>`
 
@@ -33,7 +33,7 @@ Shape: block -> var -> outer -> inner
 - The loop that occurs in `outer(...)` only goes over blocks
 - The call to `inner(...)` goes over the whole kji space defined in the IndexSpace, but internally this may be split into two levels of loops.
   - The split into an outer and inner is really only relevant when the inner range goes over memory space.
-- The outer work (that actually goes on inside the function `inner(...)` is chunked over the logical index space.
+- The outer work that actually goes on inside the function `inner(...)` is chunked over the logical index space.
 - The inner loop contract depends on `inner_tag`.
 - This is a mixed logical/memory path and needs the current slice state to translate indices correctly.
 - When we directly index into memory from this loop type, it is relative to the starting index of the index space.
@@ -44,10 +44,10 @@ Shape: block -> outer -> var -> inner
  
 - The `outer(...)` loop now runs over blocks and chunks of the kji space. 
 - The `inner(...)` loop now runs over a single chunk of kji space.
-- The variable loop(s) now sit between the {block, kji chunk} and {chunk members} spaces
+- The variable loop(s) now sit between the {block, kji chunk} and {chunk members} spaces.
 - This is the main contiguous-span path.
 - The inner loop contract depends on `inner_tag`.
-- When we directly index into memory from this loop type, it is relative to the starting index of the current inner chunk. 
+- When we directly index into memory from this loop type, it is relative to the starting index of the current inner chunk.
 
 ### `boiv`
 
@@ -57,7 +57,7 @@ Shape: block -> outer -> inner -> var
   size one, but it requires its own code path for performance reasons.
 - This is the hot-path shape for coordinate-based access.
 - The range object carries the current `(k, j, i)` point directly.so
-- Direct memory access is relative to the current `(k, j, i)` index. 
+- Direct memory access is relative to the current `(k, j, i)` index.
 
 ## Inner Tags
 
@@ -87,18 +87,18 @@ The intended `logical_flat` integer contract is:
 - The logical region must be touched exactly once.
 - Non-logical cells (i.e. ghost cells) must not be touched.
 - The auto functor receives an `Index3` object that contains the k, j, i indices of the current iteration point. 
-  - This contract is required when fields accessed within a kernel have a different memory layout (say a face centered field and a cell centered field). 
-  - Different memory layouts are probably the only time when this layout is preferred. 
+  - This contract is required when fields accessed within a kernel have a different memory layout (say a face centered field and a cell centered field).
+  - Different memory layouts are probably the only time when this layout is preferred.
 
 The intended `logical_coords` contract is the same logical-cell coverage contract as `logical_flat`, but the body receives coordinates instead of a flat integer.
 
 ### `memory`
 
 - The memory variant iterates over the contiguous memory span for the current inner range, which may include non-logical cells.
-- This will touch inactive zones, but for most use cases their values are safe to mutate. It is just unecessary work.
+- This will touch inactive zones, but for most use cases their values are safe to mutate. It is just unnecessary work.
 - Nevertheless, this pattern can be more performant since it can consume long runs of memory uniformly.
 - The auto functor receives an integer index for directly indexing a pointer. The indexing must
-  agree with the Loop tag memory indexing conventions above. 
+  agree with the Loop tag memory indexing conventions above.
 - The logical region must still be touched exactly once.
 - Ghost (i.e. non-logical) cells may also be touched if they lie inside the contiguous span.
 - The exact span is an implementation detail, but raw and Kokkos must agree.
@@ -118,9 +118,9 @@ The inner body may be written in two common forms:
 - `f(auto idx)`
 - `f(int k, int j, int i)`
 
-If both f(auto idx) and f(int, int, int) are viable, the three-argument form wins. When the `f(int k, int j, int i)`
-form is selected for a given [loop_tag, inner_tag] pair, the loop structure is as described above but before calling the functor the internal index 
-is transformed back to (k,j,i) space and then passed to the functor. This form may hurt performance, but is likely clearer to many users.  
+If both `f(auto idx)` and `f(int, int, int)` are viable, the three-argument form wins. When the `f(int k, int j, int i)`
+form is selected for a given `[loop_tag, inner_tag]` pair, the loop structure is as described above, but before calling the functor the internal index
+is transformed back to `(k, j, i)` space and then passed to the functor. This form may hurt performance, but is likely clearer to many users.
 
 ## Current Backend Requirement
 
@@ -152,7 +152,7 @@ The current intent is:
 - `logical_flat` and `memory` should support flat-index access.
 - `boiv` should remain a very thin adapter around the pack and current range.
 
-The pack-view implementation is still under development, but this will be the first class way to access variabless in kernels written using the loop abstraction.
+The pack-view implementation is still under development, but this will be the first-class way to access variables in kernels written using the loop abstraction.
 
 ## Open Questions
 
