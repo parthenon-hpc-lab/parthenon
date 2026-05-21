@@ -237,7 +237,6 @@ add_library(parthenon
   pack/sparse_pack/sparse_pack_base.hpp
   pack/sparse_pack/sparse_pack_cache.cpp
   pack/sparse_pack/sparse_pack_cache.hpp
-  pack/sparse_pack/pack_view.hpp
   pack/swarm_pack/make_swarm_pack_descriptor.hpp
   pack/swarm_pack/swarm_pack_descriptor.cpp
   pack/swarm_pack/swarm_pack_descriptor.hpp
