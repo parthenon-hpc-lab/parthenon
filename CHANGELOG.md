@@ -40,6 +40,7 @@
 - [[PR 1361]](https://github.com/parthenon-hpc-lab/parthenon/pull/1361) Bump formatters to clang-format-20 and black 25.12
 
 ### Removed (removing behavior/API/variables/...)
+- [[PR 1399]](https://github.com/parthenon-hpc-lab/parthenon/pull/1399) Remove unused `SwarmContainer::Remove`
 
 
 ### Incompatibilities (i.e. breaking changes)
