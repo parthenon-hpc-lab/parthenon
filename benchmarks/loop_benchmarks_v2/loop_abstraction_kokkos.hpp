@@ -47,6 +47,10 @@ void outer_kokkos(IndexSpaceType idx_space, F &&f) {
         });
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
     const Kokkos::TeamPolicy<parthenon::DevExecSpace> policy(idx_space.GetNBlocks(), Kokkos::AUTO);
+    const auto &logical_kji = idx_space.GetLogicalIndexer();
+    const int ks = logical_kji.template StartIdx<0>();
+    const int js = logical_kji.template StartIdx<1>();
+    const int is = logical_kji.template StartIdx<2>();
     Kokkos::parallel_for(
         "loop_abstraction::outer_kokkos_bvoi", policy,
         KOKKOS_LAMBDA(const device_team_member_t &member) {
@@ -54,6 +58,9 @@ void outer_kokkos(IndexSpaceType idx_space, F &&f) {
           InnerIndexRangeType idx_range;
           idx_range.pidx_space = &idx_space;
           idx_range.block = b;
+          idx_range.ks = ks;
+          idx_range.js = js;
+          idx_range.is = is;
           idx_range.team_member = &member;
           f(idx_range, b);
         });

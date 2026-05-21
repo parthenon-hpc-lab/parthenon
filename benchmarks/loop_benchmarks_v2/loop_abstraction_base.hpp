@@ -89,19 +89,13 @@ class InnerIndexRange {
   const device_team_member_t *team_member = nullptr;
 
   KOKKOS_INLINE_FUNCTION std::tuple<int, int, int> GetKJI(int idx) const {
-    if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
-      if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory ||
-                    IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
-        return pidx_space->GetMemoryIndexer()(idx);
-      } else {
-        return pidx_space->GetLogicalIndexer()(idx);
-      }
+    if constexpr (IndexSpaceType::loop_tag_v == loop_tag::boiv) {
+      (void)idx;
+      return std::make_tuple(0, 0, 0);
     } else {
-      if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
-        return pidx_space->GetMemoryIndexer()(idx);
-      } else {
-        return pidx_space->GetLogicalIndexer()(idx + flat_start);
-      }
+      const int shift =
+          pidx_space->GetMemoryIndexer().GetFlatIdx(ks, js, is);
+      return pidx_space->GetMemoryIndexer()(idx + shift);
     }
   }
 };

@@ -149,13 +149,55 @@ struct pack_view_t {
   KOKKOS_DEFAULTED_FUNCTION
   pack_view_t() = default;
 
-  template <class var_t, class... Idxs>
-  KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(var_t v, Idxs &&...idxs) const {
+  template <class var_t>
+  KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(var_t v, int idx) const {
     static_assert(TL::template IsIn<var_t>(), "Type must be in pack view type list.");
-    return data_[SumSizesBefore<TL, var_t>() + v.idx](std::forward<Idxs>(idxs)...);
+    return data_[SumSizesBefore<TL, var_t>() + v.idx][idx];
   }
 
-  std::array<var_view_t<IndexSpaceType>, SumSizesBefore<TL>()> data_;
+  template <class var_t>
+  KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(var_t v, Index3 in) const {
+    static_assert(TL::template IsIn<var_t>(), "Type must be in pack view type list.");
+    return data_[SumSizesBefore<TL, var_t>() + v.idx]
+        [pidx_space->GetMemoryIndexer().GetFlatIdx(in.k, in.j, in.i) - shift_];
+  }
+
+  template <class var_t>
+  KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(var_t v, int k, int j, int i) const {
+    return (*this)(v, Index3{k, j, i});
+  }
+
+  std::array<parthenon::Real *, SumSizesBefore<TL>()> data_{};
+  int shift_ = 0;
+  const IndexSpaceType *pidx_space = nullptr;
+};
+
+template <loop_tag LOOP_TAG, class PackType, class... Ts>
+struct pack_view_t<IndexSpace<LOOP_TAG, inner_tag::logical_coords>, PackType, Ts...> {
+  using IndexSpaceType = IndexSpace<LOOP_TAG, inner_tag::logical_coords>;
+
+  const PackType *pack = nullptr;
+  int b = 0;
+
+  KOKKOS_DEFAULTED_FUNCTION
+  pack_view_t() = default;
+
+  KOKKOS_INLINE_FUNCTION
+  pack_view_t(const PackType *pack_in, int block) : pack(pack_in), b(block) {}
+
+  template <class var_t>
+  KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(var_t v, Index3 in) const {
+    static_assert(parthenon::TypeList<Ts...>::template IsIn<var_t>(),
+                  "Type must be in pack view type list.");
+    return (*pack)(b, v, in.k, in.j, in.i);
+  }
+
+  template <class var_t>
+  KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(var_t v, int k, int j, int i) const {
+    static_assert(parthenon::TypeList<Ts...>::template IsIn<var_t>(),
+                  "Type must be in pack view type list.");
+    return (*pack)(b, v, k, j, i);
+  }
 };
 
 template <class PackType, inner_tag INNER_TAG, class... Ts>
@@ -203,14 +245,28 @@ KOKKOS_INLINE_FUNCTION auto make_pack_view_impl(const InnerIndexRange<IndexSpace
   if constexpr (IndexSpaceType::loop_tag_v == loop_tag::boiv) {
     (void)s;
     return pack_view_t<IndexSpaceType, sparse_pack_t, Ts...>{&pack_in, &idx_range, b};
+  } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
+    (void)s;
+    return pack_view_t<IndexSpaceType, sparse_pack_t, Ts...>{&pack_in, b};
   } else {
     pack_view_t<IndexSpaceType, sparse_pack_t, Ts...> out;
+    out.pidx_space = idx_range.pidx_space;
+    if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bovi) {
+      out.shift_ = idx_range.pidx_space->GetMemoryIndexer().GetFlatIdx(
+          idx_range.ks, idx_range.js, idx_range.is);
+    } else {
+      out.shift_ = 0;
+    }
     ([&] {
       constexpr std::size_t vstart = SumSizesBefore<TL, Ts>();
       const std::size_t sparse_offset = s * Ts::size();
       for (std::size_t v = 0; v < Ts::size(); ++v) {
         auto var = pack_in(b, Ts(v + sparse_offset));
-        out.data_[vstart + v] = make_var_view(idx_range, var);
+        if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
+          out.data_[vstart + v] = make_var_view(idx_range, var);
+        } else {
+          out.data_[vstart + v] = var.data() + out.shift_;
+        }
       }
     }(), ...);
     return out;

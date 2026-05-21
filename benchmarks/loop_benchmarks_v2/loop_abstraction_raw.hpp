@@ -11,10 +11,17 @@ template <class IndexSpaceType, class F>
 KOKKOS_INLINE_FUNCTION void outer_raw_for(IndexSpaceType idx_space, F &&f) {
   using InnerIndexRangeType = InnerIndexRange<IndexSpaceType>;
   if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
+    const auto &logical_kji = idx_space.GetLogicalIndexer();
+    const int ks = logical_kji.template StartIdx<0>();
+    const int js = logical_kji.template StartIdx<1>();
+    const int is = logical_kji.template StartIdx<2>();
     for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
       InnerIndexRangeType idx_range;
       idx_range.pidx_space = &idx_space;
       idx_range.block = b;
+      idx_range.ks = ks;
+      idx_range.js = js;
+      idx_range.is = is;
       f(idx_range, b);
     }
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bovi) {
