@@ -152,11 +152,33 @@ KOKKOS_INLINE_FUNCTION Real PackViewExpectedValue(const int b, const int v, cons
 }
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
-void RunPackViewCase(const PackViewSpec &spec, const int ninner, const bool kji_body) {
+void RunAbstractionLoop(auto pkg, MeshData<Real> &md, int ninner, bool kji_body) {
+  auto desc = parthenon::MakePackDescriptor<v1, v5>(pkg.get());
+  auto sparse_pack = desc.GetPack(&md);
   using IndexSpaceType = IndexSpace<LOOP_TAG, INNER_TAG>;
-  
+  IndexSpaceType idx_space(ninner, IndexDomain::interior, 0, sparse_pack.GetNBlocks(), &md, parthenon::TopologicalElement::CC);
+  outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
+    auto pack_view = make_pack_view(idx_range, sparse_pack);
+    if (kji_body) {
+      inner(idx_range, [&](const int k, const int j, const int i) {
+        pack_view(v1(), k, j, i) = PackViewExpectedValue(b, 0, k, j, i);
+        pack_view(v5(), k, j, i) = PackViewExpectedValue(b, 1, k, j, i);
+      });
+    } else {
+      inner(idx_range, [&](auto idx) {
+        const auto [k, j, i] = idx_range.GetKJI(idx);
+        pack_view(v1(), idx) = PackViewExpectedValue(b, 0, k, j, i);
+        pack_view(v5(), idx) = PackViewExpectedValue(b, 1, k, j, i);
+      });
+    }
+  });
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunPackViewCase(const PackViewSpec &spec, const int ninner, const bool kji_body) {
   // We have to do some a little gross stuff here to make blocks that have the expected number of ghost zones
   // without producing a mesh object
+  const int nghost_orig = parthenon::Globals::nghost;
   parthenon::Globals::nghost = spec.nghost;
   const std::vector<int> scalar_shape{spec.ncell + 2 * spec.nghost,
                                       spec.ncell + 2 * spec.nghost,
@@ -193,27 +215,12 @@ void RunPackViewCase(const PackViewSpec &spec, const int ninner, const bool kji_
     }
   }
   
-  auto desc = parthenon::MakePackDescriptor<v1, v5>(pkg.get());
-  auto sparse_pack = desc.GetPack(&mesh_data);
-  IndexSpaceType idx_space(ninner, IndexDomain::interior, 0, spec.nblocks, &mesh_data, parthenon::TopologicalElement::CC);
-  outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
-    auto pack_view = make_pack_view(idx_range, sparse_pack);
-    if (kji_body) {
-      inner(idx_range, [&](const int k, const int j, const int i) {
-        pack_view(v1(), k, j, i) = PackViewExpectedValue(b, 0, k, j, i);
-        pack_view(v5(), k, j, i) = PackViewExpectedValue(b, 1, k, j, i);
-      });
-    } else {
-      inner(idx_range, [&](auto idx) {
-        const auto [k, j, i] = idx_range.GetKJI(idx);
-        pack_view(v1(), idx) = PackViewExpectedValue(b, 0, k, j, i);
-        pack_view(v5(), idx) = PackViewExpectedValue(b, 1, k, j, i);
-      });
-    }
-  });
+  RunAbstractionLoop<LOOP_TAG, INNER_TAG>(pkg, mesh_data, ninner, kji_body);
 
   // Check that results were stored in the variables correctly
   { 
+    auto desc = parthenon::MakePackDescriptor<v1, v5>(pkg.get());
+    auto sparse_pack = desc.GetPack(&mesh_data); 
     auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::interior);
     auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::interior);
     auto kb = block_list[0]->cellbounds.GetBoundsK(IndexDomain::interior);
@@ -232,6 +239,8 @@ void RunPackViewCase(const PackViewSpec &spec, const int ninner, const bool kji_
         nwrong);
     REQUIRE(nwrong == 0);
   }
+  // Restore original gobal
+  parthenon::Globals::nghost = nghost_orig;
 }
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
