@@ -68,6 +68,15 @@ struct v1 : public parthenon::variable_names::base_t<false> {
   static constexpr bool is_sparse() {return false;}
 };
 
+struct v2 : public parthenon::variable_names::base_t<false> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION v2(Ts &&...args)
+      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "v2"; }
+  // This isn't made from a sparse pool, be we allocate and deallocate by hand below
+  static constexpr bool is_sparse() {return false;}
+};
+
 struct v3 : public parthenon::variable_names::base_t<false, 3> {
   template <class... Ts>
   KOKKOS_INLINE_FUNCTION v3(Ts &&...args)
@@ -153,25 +162,53 @@ KOKKOS_INLINE_FUNCTION Real PackViewExpectedValue(const int b, const int v, cons
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 void RunAbstractionLoop(auto pkg, MeshData<Real> &md, int ninner, bool kji_body) {
-  auto desc = parthenon::MakePackDescriptor<v1, v5>(pkg.get());
+  auto desc = parthenon::MakePackDescriptor<v1, v2, v5>(pkg.get());
   auto sparse_pack = desc.GetPack(&md);
   using IndexSpaceType = IndexSpace<LOOP_TAG, INNER_TAG>;
   IndexSpaceType idx_space(ninner, IndexDomain::interior, 0, sparse_pack.GetNBlocks(), &md, parthenon::TopologicalElement::CC);
-  outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
-    auto pack_view = make_pack_view(idx_range, sparse_pack);
-    if (kji_body) {
+ 
+  if (kji_body) {
+    outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
+      auto pack_view = make_pack_view(idx_range, sparse_pack);
       inner(idx_range, [&](const int k, const int j, const int i) {
         pack_view(v1(), k, j, i) = PackViewExpectedValue(b, 0, k, j, i);
-        pack_view(v5(), k, j, i) = PackViewExpectedValue(b, 1, k, j, i);
+        pack_view(v2(), k, j, i) = PackViewExpectedValue(b, 1, k, j, i);
+        pack_view(v5(), k, j, i) = PackViewExpectedValue(b, 2, k, j, i);
       });
-    } else {
-      inner(idx_range, [&](auto idx) {
-        const auto [k, j, i] = idx_range.GetKJI(idx);
-        pack_view(v1(), idx) = PackViewExpectedValue(b, 0, k, j, i);
-        pack_view(v5(), idx) = PackViewExpectedValue(b, 1, k, j, i);
+    });
+  } else { 
+    const auto di = idx_space.GetDelta(parthenon::X1DIR);
+    const auto dj = idx_space.GetDelta(parthenon::X2DIR);
+    const auto dk = idx_space.GetDelta(parthenon::X3DIR);
+    // Fill everything 
+    outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
+      auto pack_view = make_pack_view(idx_range, sparse_pack);
+      inner(idx_range, [&](auto kji) {
+        const auto [k, j, i] = idx_range.GetKJI(kji);
+        pack_view(v1(), kji) = PackViewExpectedValue(b, 0, k, j, i);
+        pack_view(v2(), kji) = PackViewExpectedValue(b, 1, k, j, i);
+        pack_view(v5(), kji) = PackViewExpectedValue(b, 2, k, j, i);
       });
-    }
-  });
+    });
+
+    // Refill offset by one in the j-direction
+    outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
+      auto pack_view = make_pack_view(idx_range, sparse_pack);
+      inner(idx_range, [&](auto kji) {
+        const auto [k, j, i] = idx_range.GetKJI(kji);
+        pack_view(v2(), kji - dj) = PackViewExpectedValue(b, 1, k, j - 1, i);
+      });
+    });
+    
+    // Refill with some random offsets in the i- and k-directions
+    outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
+      auto pack_view = make_pack_view(idx_range, sparse_pack);
+      inner(idx_range, [&](auto kji) {
+        const auto [k, j, i] = idx_range.GetKJI(kji);
+        pack_view(v5(), kji + 2 * di - dk) = PackViewExpectedValue(b, 2, k - 1, j, i + 2);
+      });
+    });
+  }
 }
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
@@ -187,22 +224,25 @@ void RunPackViewCase(const PackViewSpec &spec, const int ninner, const bool kji_
   // Describe the fields we want to access
   Metadata m({Metadata::Independent, Metadata::WithFluxes}, scalar_shape);
   auto pkg = std::make_shared<StateDescriptor>("PackView package");
-  pkg->AddField(v1::name(), m);
-  pkg->AddField(v5::name(), m);
+  pkg->AddField<v1>(m);
+  pkg->AddField<v2>(m);
+  pkg->AddField<v5>(m);
 
   // Build the relevant block list  
   BlockList_t block_list = MakeBlockList(pkg, spec.nblocks, spec.ncell, 3);
   MeshData<Real> mesh_data("base");
   mesh_data.Initialize(block_list, nullptr);
-
+  
+  std::vector<std::string> var_names{v1::name(), v2::name(), v5::name()};
+  // Initialize the fields
   auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
   auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::entire);
   auto kb = block_list[0]->cellbounds.GetBoundsK(IndexDomain::entire);
   for (int b = 0; b < spec.nblocks; ++b) {
     auto &pmb = block_list[b];
     auto &pmbd = pmb->meshblock_data.Get();
-    for (int v = 0; v < 2; ++v) {
-      const auto &vnam = (v == 0 ? v1::name() : v5::name());
+    for (int v = 0; v < var_names.size(); ++v) {
+      const auto &vnam = var_names[v];
       auto var = pmbd->Get(vnam);
       auto var4 = var.data.template Get<4>();
       const int num_components = var.GetDim(4);
@@ -215,11 +255,12 @@ void RunPackViewCase(const PackViewSpec &spec, const int ninner, const bool kji_
     }
   }
   
+  // Fill the fields using the loop abstraction and pack_views
   RunAbstractionLoop<LOOP_TAG, INNER_TAG>(pkg, mesh_data, ninner, kji_body);
 
   // Check that results were stored in the variables correctly
   { 
-    auto desc = parthenon::MakePackDescriptor<v1, v5>(pkg.get());
+    auto desc = parthenon::MakePackDescriptor<v1, v2, v5>(pkg.get());
     auto sparse_pack = desc.GetPack(&mesh_data); 
     auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::interior);
     auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -230,10 +271,13 @@ void RunPackViewCase(const PackViewSpec &spec, const int ninner, const bool kji_
         sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
           const auto v1_value = sparse_pack(b, v1(), k, j, i);
+          const auto v2_value = sparse_pack(b, v2(), k, j, i);
           const auto v5_value = sparse_pack(b, v5(), k, j, i);
           const auto v1_expected = PackViewExpectedValue(b, 0, k, j, i);
-          const auto v5_expected = PackViewExpectedValue(b, 1, k, j, i);
+          const auto v2_expected = PackViewExpectedValue(b, 1, k, j, i);
+          const auto v5_expected = PackViewExpectedValue(b, 2, k, j, i);
           if (std::abs(v1_value - v1_expected) > 1.e-12) ++ltot;
+          if (std::abs(v2_value - v2_expected) > 1.e-12) ++ltot;
           if (std::abs(v5_value - v5_expected) > 1.e-12) ++ltot;
         },
         nwrong);

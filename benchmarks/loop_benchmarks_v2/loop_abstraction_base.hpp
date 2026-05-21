@@ -40,11 +40,53 @@ struct Index3 {
   int k, j, i;
 };
 
+KOKKOS_INLINE_FUNCTION
+constexpr Index3 operator+(Index3 a, Index3 b) {
+    return {a.k + b.k, a.j + b.j, a.i + b.i};
+}
+
+KOKKOS_INLINE_FUNCTION
+constexpr Index3 operator-(Index3 a, Index3 b) {
+    return {a.k - b.k, a.j - b.j, a.i - b.i};
+}
+
+KOKKOS_INLINE_FUNCTION
+constexpr Index3 operator-(Index3 a) {
+    return {-a.k, -a.j, -a.i};
+}
+
+KOKKOS_INLINE_FUNCTION
+constexpr Index3 operator*(int n, Index3 a) {
+    return {n * a.k, n * a.j, n * a.i};
+}
+
+KOKKOS_INLINE_FUNCTION
+constexpr Index3 operator*(Index3 a, int n) {
+    return n * a;
+}
+
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 class IndexSpace {
  public:
   static constexpr loop_tag loop_tag_v = LOOP_TAG;
   static constexpr inner_tag inner_tag_v = INNER_TAG;
+  
+  auto GetDelta(parthenon::CoordinateDirection dir) {
+    const int nk = memory_kji.template EndIdx<0>() - memory_kji.template StartIdx<0>() + 1;
+    const int nj = memory_kji.template EndIdx<1>() - memory_kji.template StartIdx<1>() + 1;
+    const int ni = memory_kji.template EndIdx<2>() - memory_kji.template StartIdx<2>() + 1; 
+    if constexpr (inner_tag_v == inner_tag::logical_coords) {
+      if (dir == parthenon::X1DIR) return Index3{0, 0, 1};
+      if (dir == parthenon::X2DIR) return Index3{0, nj > 1, 0};
+      if (dir == parthenon::X3DIR) return Index3{nk > 1, 0, 0};
+      return Index3{0, 0, 0};
+    } else {
+      if (dir == parthenon::X1DIR) return 1;
+      if (dir == parthenon::X2DIR) return nj > 1 ? ni : 0;
+      if (dir == parthenon::X3DIR) return nk > 1 ? ni * nj : 0;
+      return 0;
+    }
+  }
 
   IndexSpace(int nblocks, int nx, int ny, int nz, int nghost,
              std::optional<int> ninner = std::nullopt)
