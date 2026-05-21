@@ -242,6 +242,87 @@ TaskStatus Tag(MeshData<Real> *md) {
   return TaskStatus::complete;
 }
 
+template <>
+TaskStatus TagFused(MeshData<Real> *md) {
+  PARTHENON_INSTRUMENT
+
+  Kokkos::Profiling::pushRegion("FusedFirstDerivative");
+  std::vector<std::string> vars = {"U"};
+  auto &v = md->PackVariables(vars);
+  IndexRange ib = md->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = md->GetBoundsK(IndexDomain::interior);
+  // printf("Tag: %d,%d,%d,%d,%d,%d\n", ib.s, ib.e, jb.s, jb.e, kb.s, kb.e);
+  // printf("v ndim = %d\n", v.GetNdim());
+  // printf("v dim: %d, %d, %d, %d, %d\n", v.GetDim(1), v.GetDim(2), v.GetDim(3), v.GetDim(4), v.GetDim(5));
+  const int nblocks = md->NumBlocks();
+  Kokkos::View<double*> d_maxd("d_maxd", nblocks);
+  AMRBounds bnds(ib,jb,kb);
+  const int ndim = 1 + (bnds.je > bnds.js) + (bnds.ke > bnds.ks);  
+  parthenon::par_for_outer
+    (DEFAULT_OUTER_LOOP_PATTERN, "FusedFirstDerivative", DevExecSpace(), 0, 0,
+     0, nblocks - 1, 
+     KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
+      Real t_maxd = 0;
+      const int ksize = bnds.ke - bnds.ks + 1;
+      const int jsize = bnds.je - bnds.js + 1;
+      const int isize = bnds.ie - bnds.is + 1;
+      const int nsize = isize*jsize*ksize;
+      Kokkos::parallel_reduce
+        (Kokkos::TeamThreadRange(member, nsize),
+          [=](const int ii, Real &maxd) {
+          int k = ii / (isize*jsize);
+          int j = (ii - k*isize*jsize)/isize;
+          int i = ii - j*isize - k*isize*jsize;
+          k += bnds.ks;
+          j += bnds.js;
+          i += bnds.is;
+          Real scale = std::abs(v(b, 3, k, j, i));
+          Real d =
+            0.5 * std::abs((v(b, 3, k, j, i + 1) - v(b, 3, k, j, i - 1))) / (scale + TINY_NUMBER);
+          maxd = (d > maxd ? d : maxd);
+          if (ndim > 1) {
+            d = 0.5 * std::abs((v(b, 3, k, j + 1, i) - v(b, 3, k, j - 1, i))) / (scale + TINY_NUMBER);
+            maxd = (d > maxd ? d : maxd);
+          }
+          if (ndim > 2) {
+            d = 0.5 * std::abs((v(b, 3, k + 1, j, i) - v(b, 3, k - 1, j, i))) / (scale + TINY_NUMBER);
+            maxd = (d > maxd ? d : maxd);
+          }
+        }, Kokkos::Max<Real>(t_maxd));
+      if (member.team_rank() == 0) d_maxd(b) = t_maxd;
+    });
+  auto h_maxd = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), d_maxd);
+  Kokkos::Profiling::popRegion();
+
+  Kokkos::Profiling::pushRegion("SetRefinement1");
+  std::vector<AmrTag> flags(nblocks);
+  for (int i = 0; i < nblocks; i++) {
+    AmrTag t;    
+    for (auto &pkg : md->GetBlockData(i).get()->GetBlockPointer()->packages.AllPackages()) {
+      for (auto &amr: pkg.second->amr_criteria) {
+        if (h_maxd(i) > amr->refine_criteria) {
+          t = AmrTag::refine;
+        } else if (h_maxd(i) < amr->derefine_criteria) {
+          t = AmrTag::derefine;
+        } else {
+          t = AmrTag::same;
+        }      
+      }
+    }
+    flags[i] = t;
+  }
+  Kokkos::Profiling::popRegion();
+
+  Kokkos::Profiling::pushRegion("SetRefinement2");
+  for (int i = 0; i < md->NumBlocks(); i++) {
+    auto pmb = md->GetBlockData(i).get()->GetBlockPointer();
+    pmb->pmr->SetRefinement(flags[i]);
+  }
+  Kokkos::Profiling::popRegion();
+  return TaskStatus::complete;
+}
+
 
 } // namespace Refinement
 } // namespace parthenon

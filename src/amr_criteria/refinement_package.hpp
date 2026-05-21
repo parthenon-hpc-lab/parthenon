@@ -36,6 +36,8 @@ namespace Refinement {
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 template <typename T>
 TaskStatus Tag(T *rc);
+template <typename T>
+TaskStatus TagFused(T *rc);
 
 AmrTag CheckAllRefinement(MeshBlockData<Real> *rc, const AmrTag &level);
 ParArray1D<AmrTag> CheckAllRefinement(MeshData<Real> *md);

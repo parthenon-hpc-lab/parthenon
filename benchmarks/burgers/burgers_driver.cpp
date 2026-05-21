@@ -136,7 +136,7 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
     auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditionsOnCoarseOrFineMD, mc1, false);
     
     if (stage == integrator->nstages && pmesh->adaptive) {
-      auto tag_refine = tl.AddTask(set_bc, parthenon::Refinement::Tag<MeshData<Real>>, mc1.get());
+      auto tag_refine = tl.AddTask(set_bc, parthenon::Refinement::TagFused<MeshData<Real>>, mc1.get());
     }
   } 
 
