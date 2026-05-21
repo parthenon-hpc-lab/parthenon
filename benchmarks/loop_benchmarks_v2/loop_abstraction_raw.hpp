@@ -48,9 +48,9 @@ KOKKOS_INLINE_FUNCTION void outer_raw_for(IndexSpaceType idx_space, F &&f) {
         for (int j = js; j <= je; ++j) {
 #pragma omp simd
           for (int i = is; i <= ie; ++i) {
-            idx_range.k = k;
-            idx_range.j = j;
-            idx_range.i = i;
+            idx_range.ks = k;
+            idx_range.js = j;
+            idx_range.is = i;
             f(idx_range, idx_range.block);
           }
         }
@@ -136,15 +136,15 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::boiv) {
     if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
       if constexpr (std::is_invocable_v<F, int, int, int>) {
-        f(idx_range.k, idx_range.j, idx_range.i);
+        f(idx_range.ks, idx_range.js, idx_range.is);
       } else {
         f(0);
       }
     } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
       if constexpr (std::is_invocable_v<F, int, int, int>) {
-        f(idx_range.k, idx_range.j, idx_range.i);
+        f(idx_range.ks, idx_range.js, idx_range.is);
       } else {
-        f(Index3{idx_range.k, idx_range.j, idx_range.i});
+        f(Index3{idx_range.ks, idx_range.js, idx_range.is});
       }
     }
   }

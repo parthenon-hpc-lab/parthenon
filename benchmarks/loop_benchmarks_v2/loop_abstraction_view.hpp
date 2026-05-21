@@ -89,32 +89,6 @@ struct var_view_t<IndexSpace<loop_tag::boiv, INNER_TAG>> {
 };
 
 template <class IndexSpaceType, class ViewType>
-KOKKOS_INLINE_FUNCTION auto make_var_view(const InnerIndexRange<IndexSpaceType> &idx_range,
-                                          ViewType &in,
-                                          std::array<int, 3> offset = {0, 0, 0}) {
-  if constexpr (IndexSpaceType::loop_tag_v == loop_tag::boiv) {
-    static_assert(IndexSpaceType::inner_tag_v == inner_tag::logical_flat ||
-                  IndexSpaceType::inner_tag_v == inner_tag::logical_coords,
-                  "boiv currently expects logical inner coordinates");
-    return var_view_t<IndexSpaceType>{
-        &in(idx_range.k + offset[0], idx_range.j + offset[1], idx_range.i + offset[2])};
-  } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bovi &&
-                       IndexSpaceType::inner_tag_v == inner_tag::memory) {
-    const int shift = idx_range.pidx_space->GetMemoryIndexer().GetFlatIdx(
-        idx_range.ks + offset[0], idx_range.js + offset[1], idx_range.is + offset[2]);
-    return var_view_t<IndexSpaceType>{
-        &in(idx_range.ks + offset[0], idx_range.js + offset[1], idx_range.is + offset[2]),
-        shift, idx_range.pidx_space};
-  } else {
-    const auto &idx_space = *idx_range.pidx_space;
-    return var_view_t<IndexSpaceType>{
-        &in(0, 0, 0),
-        static_cast<int>(idx_space.GetMemoryIndexer().GetFlatIdx(offset[0], offset[1], offset[2])),
-        &idx_space};
-  }
-}
-
-template <class IndexSpaceType, class ViewType>
 KOKKOS_INLINE_FUNCTION auto GetView(const InnerIndexRange<IndexSpaceType> &idx_range,
                                     ViewType &in, int var,
                                     std::array<int, 3> offset = {0, 0, 0}) {
@@ -178,62 +152,26 @@ struct pack_view_t<IndexSpace<LOOP_TAG, inner_tag::logical_coords>, PackType, Ts
 
   const PackType *pack = nullptr;
   int b = 0;
+  int s = 0;
 
   KOKKOS_DEFAULTED_FUNCTION
   pack_view_t() = default;
 
   KOKKOS_INLINE_FUNCTION
-  pack_view_t(const PackType *pack_in, int block) : pack(pack_in), b(block) {}
+  pack_view_t(const PackType *pack_in, int block, int sparse) : pack(pack_in), b(block), s(sparse) {}
 
   template <class var_t>
-  KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(var_t v, Index3 in) const {
+  KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(var_t v, Index3 in) const {
     static_assert(parthenon::TypeList<Ts...>::template IsIn<var_t>(),
                   "Type must be in pack view type list.");
-    return (*pack)(b, v, in.k, in.j, in.i);
+    return (*pack)(b, var_t(v.idx + s * var_t::size()), in.k, in.j, in.i);
   }
 
   template <class var_t>
-  KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(var_t v, int k, int j, int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(var_t v, int k, int j, int i) const {
     static_assert(parthenon::TypeList<Ts...>::template IsIn<var_t>(),
                   "Type must be in pack view type list.");
-    return (*pack)(b, v, k, j, i);
-  }
-};
-
-template <class PackType, inner_tag INNER_TAG, class... Ts>
-struct pack_view_t<IndexSpace<loop_tag::boiv, INNER_TAG>, PackType, Ts...> {
-  using IndexSpaceType = IndexSpace<loop_tag::boiv, INNER_TAG>;
-
-  const PackType *pack = nullptr;
-  const InnerIndexRange<IndexSpaceType> *idx_range = nullptr;
-  int b = 0;
-
-  KOKKOS_DEFAULTED_FUNCTION
-  pack_view_t() = default;
-
-  KOKKOS_INLINE_FUNCTION
-  pack_view_t(const PackType *pack_in, const InnerIndexRange<IndexSpaceType> *range_in, int block)
-      : pack(pack_in), idx_range(range_in), b(block) {}
-
-  template <class var_t>
-  KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(var_t v, int idx) const {
-    static_assert(parthenon::TypeList<Ts...>::template IsIn<var_t>(),
-                  "Type must be in pack view type list.");
-    return (*pack)(b, v, idx_range->k, idx_range->j, idx_range->i);
-  }
-
-  template <class var_t>
-  KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(var_t v, Index3 in) const {
-    static_assert(parthenon::TypeList<Ts...>::template IsIn<var_t>(),
-                  "Type must be in pack view type list.");
-    return (*pack)(b, v, in.k, in.j, in.i);
-  }
-
-  template <class var_t>
-  KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(var_t v, int k, int j, int i) const {
-    static_assert(parthenon::TypeList<Ts...>::template IsIn<var_t>(),
-                  "Type must be in pack view type list.");
-    return (*pack)(b, v, k, j, i);
+    return (*pack)(b, var_t(v.idx + s * var_t::size()), k, j, i);
   }
 };
 
@@ -242,31 +180,18 @@ KOKKOS_INLINE_FUNCTION auto make_pack_view_impl(const InnerIndexRange<IndexSpace
                                                 const sparse_pack_t &pack_in, const int b,
                                                 const int s, parthenon::TypeList<Ts...>) {
   using TL = parthenon::TypeList<Ts...>;
-  if constexpr (IndexSpaceType::loop_tag_v == loop_tag::boiv) {
-    (void)s;
-    return pack_view_t<IndexSpaceType, sparse_pack_t, Ts...>{&pack_in, &idx_range, b};
-  } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
-    (void)s;
-    return pack_view_t<IndexSpaceType, sparse_pack_t, Ts...>{&pack_in, b};
+  if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
+    return pack_view_t<IndexSpaceType, sparse_pack_t, Ts...>{&pack_in, b, s};
   } else {
     pack_view_t<IndexSpaceType, sparse_pack_t, Ts...> out;
     out.pidx_space = idx_range.pidx_space;
-    if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bovi) {
-      out.shift_ = idx_range.pidx_space->GetMemoryIndexer().GetFlatIdx(
-          idx_range.ks, idx_range.js, idx_range.is);
-    } else {
-      out.shift_ = 0;
-    }
+    out.shift_ = idx_range.pidx_space->GetMemoryIndexer().GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
     ([&] {
       constexpr std::size_t vstart = SumSizesBefore<TL, Ts>();
       const std::size_t sparse_offset = s * Ts::size();
       for (std::size_t v = 0; v < Ts::size(); ++v) {
         auto var = pack_in(b, Ts(v + sparse_offset));
-        if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
-          out.data_[vstart + v] = make_var_view(idx_range, var);
-        } else {
-          out.data_[vstart + v] = var.data() + out.shift_;
-        }
+        out.data_[vstart + v] = var.data() + out.shift_;
       }
     }(), ...);
     return out;

@@ -102,12 +102,12 @@ class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG>> {
  public:
   const IndexSpace<loop_tag::boiv, INNER_TAG> *pidx_space = nullptr;
   int block = 0;
-  int k = 0;
-  int j = 0;
-  int i = 0;
+  int ks = 0;
+  int js = 0;
+  int is = 0;
 
   KOKKOS_INLINE_FUNCTION std::tuple<int, int, int> GetKJI(int idx) const {
-    const int shift = pidx_space->GetMemoryIndexer().GetFlatIdx(k, j, i);
+    const int shift = pidx_space->GetMemoryIndexer().GetFlatIdx(ks, js, is);
     return pidx_space->GetMemoryIndexer()(idx + shift);
   }
 

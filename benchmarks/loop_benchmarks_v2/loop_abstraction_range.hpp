@@ -23,16 +23,11 @@ KOKKOS_FUNCTION InnerIndexRange<IndexSpaceType> FlatRange(
     out.flat_start = logical_start;
     out.flat_end = logical_end;
   }
-  if constexpr (IndexSpaceType::loop_tag_v != loop_tag::boiv) {
-    out.team_member = team_member;
-    out.ks = ks;
-    out.js = js;
-    out.is = is;
-  } else {
-    out.k = ks;
-    out.j = js;
-    out.i = is;
-  }
+  if constexpr (IndexSpaceType::loop_tag_v != loop_tag::boiv)
+      out.team_member = team_member;
+  out.ks = ks;
+  out.js = js;
+  out.is = is;
   return out;
 }
 
