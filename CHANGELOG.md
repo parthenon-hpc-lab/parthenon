@@ -32,6 +32,7 @@
 - [[PR 1360]](https://github.com/parthenon-hpc-lab/parthenon/pull/1360) Fix boundary cache clearing in different MeshData partitions
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1385]](https://github.com/parthenon-hpc-lab/parthenon/pull/1385) Refactor ParameterInput: Separate parsing from storage to enable multiple input formats
 - [[PR 1383]](https://github.com/parthenon-hpc-lab/parthenon/pull/1382) Document agentic coding guidelines
 - [[PR 1376]](https://github.com/parthenon-hpc-lab/parthenon/pull/1376) Refactor SwarmPacks
 - [[PR 1352]](https://github.com/parthenon-hpc-lab/parthenon/pull/1352) Move to C++20 concepts
@@ -43,6 +44,7 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1385]](https://github.com/parthenon-hpc-lab/parthenon/pull/1385) ParameterInput internal storage refactor removes direct access to linked list (`pfirst_block`). Use `GetBlocksWithPrefix()` or `GetBlockNames()` instead.
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 - [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy
 - [[PR 1376]](https://github.com/parthenon-hpc-lab/parthenon/pull/1376) Refactor SwarmPacks
