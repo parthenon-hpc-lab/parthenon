@@ -161,3 +161,310 @@ The current code is still being shaped around these contracts, so the following 
 - Whether a flat integer in `logical_flat` should be interpreted as logical-span-relative or memory-span-relative in every loop tag.
 - Whether `boiv` should always carry coordinate state only, or whether some flat-index forms should remain range-aware.
 - Whether a pack-view specialization should store raw pointers, a pack pointer, or both depending on the loop contract.
+
+
+# Halo ranges for inner loops Implementation Ideas
+
+## Concept
+
+A halo extends the **logical point set** visited by an `inner` loop.
+
+If the original inner range visits a set of logical points `S`, then a halo is a set of additional logical offsets applied to every point in `S`.
+
+The base range `S` is always included implicitly.
+
+For a halo containing offsets `{h1, h2, ...}`, the extended set is
+
+```text
+S_halo = S
+       ∪ {p + h1 : p ∈ S}
+       ∪ {p + h2 : p ∈ S}
+       ∪ ...
+````
+
+For example, a `-i` halo means
+
+```text
+S_halo = S ∪ {p - i_hat : p ∈ S}
+```
+
+This is a statement about the **logical index space**, not the memory layout.
+
+## Why this exists
+
+The intended use case is a producer/consumer pattern inside an `outer` loop.
+
+For example, one inner loop computes reconstructed states into scratch, and a later inner loop computes fluxes from those reconstructed states:
+
+```cpp
+constexpr auto recon_halo = halo::minus_i;
+
+auto scratch_p = idx_range.GetScratch<Real, recon_halo>();
+auto scratch_m = idx_range.GetScratch<Real, recon_halo>();
+
+inner(idx_range.AddHalo<recon_halo>(), KOKKOS_LAMBDA(auto kji) {
+  scratch_p(kji) = reconstruct_plus(kji);
+  scratch_m(kji) = reconstruct_minus(kji);
+});
+
+inner(idx_range, KOKKOS_LAMBDA(auto kji) {
+  auto dx1 = idx_range.GetOffset<X1DIR>();
+
+  flux(kji) = riemann(scratch_p(kji - dx1),
+                      scratch_m(kji));
+});
+```
+
+The flux loop runs over `idx_range`, but it consumes a reconstructed value at `kji - dx1`. Therefore, the reconstruction loop must produce values over `idx_range` plus that neighboring logical point set. The halo expresses this dependency.
+
+## Halo is not reconstruction stencil width
+
+A halo is **not** the same thing as the stencil width used by the reconstruction operator.
+
+A reconstruction routine may read a wide input stencil:
+
+```cpp
+q(kji - 2*dx1)
+q(kji - dx1)
+q(kji)
+q(kji + dx1)
+q(kji + 2*dx1)
+```
+
+That is internal to computing one reconstructed value.
+
+The halo instead describes which neighboring **produced scratch values** must exist for a later consumer loop.
+
+In common reconstruction-to-flux patterns, the reconstruction stencil may be wide, but the producer halo is often only one cell.
+
+## Offset-set representation
+
+A halo can be represented as a small compile-time set of `Index3` offsets.
+
+Conceptually:
+
+```cpp
+template <Index3... Offsets>
+struct halo_t;
+```
+
+or equivalently:
+
+```cpp
+halo = set of logical offsets
+```
+
+The base point is implicit. Users specify only the additional shifted copies of `S`.
+
+For example:
+
+```cpp
+using minus_i_halo = halo_t<Index3{0, 0, -1}>;
+```
+
+means
+
+```text
+S_halo = S ∪ {p + (0,0,-1) : p ∈ S}
+```
+
+not just the shifted set.
+
+Common aliases can make this readable:
+
+```cpp
+constexpr auto recon_halo = halo::minus_i;
+constexpr auto transverse_halo = halo::plus_j;
+```
+
+For the expected use cases, the number of offsets is small: usually one, sometimes two or six, and perhaps up to around twelve in more general cases.
+
+## Important implementation rule
+
+Do not define halos by manipulating the original flat index space directly.
+
+A geometric offset such as `+i` means
+
+```text
+(k, j, i) -> (k, j, i + 1)
+```
+
+It should not be treated as `flat + 1` in the original interior indexer, because that can accidentally wrap across row boundaries.
+
+Instead, the implementation should:
+
+```text
+1. Start with the original logical domain D.
+2. Given halo offsets, construct an extended logical domain D_h
+   that contains both S and all shifted copies of S.
+3. Flatten S in D_h.
+4. Flatten each shifted copy of S in D_h.
+5. Merge the resulting flat spans if they overlap or touch.
+```
+
+This keeps the halo operation geometric and avoids conflating logical coordinates, memory coordinates, and flat indexing.
+
+## Range construction
+
+For a one-offset halo, the halo range is the union of at most two flat spans in the halo-aware indexer:
+
+```text
+span 0: S flattened in D_h
+span 1: shift(S, h) flattened in D_h
+```
+
+If the spans overlap or touch, they can be merged into one span. If they are disjoint, the range is represented as two spans.
+
+For a multi-offset halo, the same idea generalizes:
+
+```text
+span 0: S
+span 1: shift(S, h1)
+span 2: shift(S, h2)
+...
+```
+
+After flattening these spans in the halo-aware logical domain, sort and merge them into a compact span union.
+
+Since the number of halo offsets is expected to be small, this can be represented with a small fixed-capacity span list.
+
+```cpp
+struct flat_span {
+  int start;
+  int stop; // inclusive
+};
+
+template <int MaxSpans>
+struct span_union {
+  int nspans;
+  flat_span spans[MaxSpans];
+};
+```
+
+## Scratch indexing
+
+Scratch should use the same halo-aware flat index space as the halo range.
+
+For a two-span case, compact scratch storage can map
+
+```text
+[start_idx_one, start_idx_one + n) -> [0, n)
+[start_idx_two, start_idx_two + n) -> [n, 2n)
+```
+
+An efficient compact-index helper is:
+
+```cpp
+KOKKOS_INLINE_FUNCTION
+int compact_index(int cf_idx) const {
+  const int in_second = static_cast<int>(cf_idx >= start_idx_two);
+  const int gap = start_idx_two - start_idx_one - contig_size;
+  return cf_idx - start_idx_one - in_second * gap;
+}
+```
+
+This is equivalent to the more intuitive piecewise mapping:
+
+```text
+if cf_idx is in the first span:
+    local = cf_idx - start_idx_one
+
+if cf_idx is in the second span:
+    local = contig_size + (cf_idx - start_idx_two)
+```
+
+For multiple spans, the general version is a short loop over the merged span list:
+
+```cpp
+KOKKOS_INLINE_FUNCTION
+int compact_index(int cf_idx) const {
+  int base = 0;
+
+  for (int s = 0; s < nspans; ++s) {
+    const auto span = spans[s];
+    const int len = span.stop - span.start + 1;
+
+    if (cf_idx >= span.start && cf_idx <= span.stop) {
+      return base + (cf_idx - span.start);
+    }
+
+    base += len;
+  }
+
+  KOKKOS_ASSERT(false);
+  return -1;
+}
+```
+
+Specialized one-span or two-span versions can be added later if needed.
+
+## Backend interpretation
+
+The user-facing semantics stay the same:
+
+```cpp
+constexpr auto recon_halo = halo::minus_i;
+
+auto scratch = idx_range.GetScratch<Real, recon_halo>();
+
+inner(idx_range.AddHalo<recon_halo>(), KOKKOS_LAMBDA(auto kji) {
+  scratch(kji) = reconstruct(kji);
+});
+
+inner(idx_range, KOKKOS_LAMBDA(auto kji) {
+  auto dx1 = idx_range.GetOffset<X1DIR>();
+  flux(kji) = riemann(scratch(kji - dx1), scratch(kji));
+});
+```
+
+But different backends can implement the same logical operation differently.
+
+### Point-wise / GPU-style backend
+
+For a `boiv`-style point-wise loop, the base range `S` is a single logical point.
+
+A one-offset halo gives a tiny local point set:
+
+```text
+S_halo = {p, p + h}
+```
+
+The scratch object can specialize to compact per-cell local storage, for example:
+
+```cpp
+Real scratch[2];
+```
+
+This backend may recompute neighboring reconstructions in adjacent point-wise iterations. That is intentional: it exposes more parallelism and avoids shared-memory coordination.
+
+### Hierarchical / CPU-style backend
+
+For a hierarchical loop, the base range `S` may contain many logical points.
+
+The halo range covers
+
+```text
+S ∪ shift(S, h1) ∪ shift(S, h2) ∪ ...
+```
+
+and scratch can be allocated over the compact union of the corresponding flat spans. This allows reconstructed values to be reused across multiple flux calculations.
+
+## Summary
+
+A halo is a compile-time logical dependency annotation for an inner loop.
+
+It answers the question:
+
+> If the consumer loop runs over `S`, which neighboring produced values must also exist?
+
+The core semantic rule is:
+
+```text
+AddHalo<halo_t<h1, h2, ...>>(S)
+=
+S ∪ shift(S, h1) ∪ shift(S, h2) ∪ ...
+```
+
+The implementation should first extend the logical domain, then flatten the base and shifted sets in that extended domain, then merge the resulting spans.
+
+This keeps the API simple while giving the backend enough information to choose either compact per-cell scratch or reusable team scratch.
