@@ -122,13 +122,6 @@ class SwarmContainer {
   const SwarmVector &GetSwarmVector() const { return swarmVector_; }
   const SwarmMap &GetSwarmMap() const { return swarmMap_; }
 
-  ///
-  /// Remove a variable from the container or throw exception if not
-  /// found.
-  /// @param label the name of the variable to be deleted
-  /// TODO(JMM): Should we support this operation?
-  void Remove(const std::string &label);
-
   // Temporary functions till we implement a *real* iterator
 
   /// Print list of labels in container

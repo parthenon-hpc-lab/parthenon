@@ -18,6 +18,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace parthenon {
@@ -155,6 +156,23 @@ template <class... Ts>
 struct isTypeList<TypeList<Ts...>> : public std::true_type {};
 
 //>>>>>>> develop
+
+//----------------------------------------------------------------------------------------
+// Utility to convert TypeList to std::variant
+//----------------------------------------------------------------------------------------
+namespace impl {
+template <typename TL>
+struct TypeListToVariant;
+
+template <typename... Ts>
+struct TypeListToVariant<TypeList<Ts...>> {
+  using type = std::variant<Ts...>;
+};
+} // namespace impl
+
+template <typename TL>
+using type_list_to_variant_t = typename impl::TypeListToVariant<TL>::type;
+
 } // namespace parthenon
 
 #endif // UTILS_TYPE_LIST_HPP_
