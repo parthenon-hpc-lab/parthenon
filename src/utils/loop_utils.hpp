@@ -187,7 +187,279 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
     }
   }
 }
+template <BoundaryType bound = BoundaryType::any, class F>
+inline void ForEachBoundary2(std::shared_ptr<MeshData<Real>> &md, F func) {
+  PARTHENON_INSTRUMENT
+  for (int block = 0; block < md->NumBlocks(); ++block) {
+    auto &rc = md->GetBlockData(block);
+    auto pmb = rc->GetBlockPointer();
+    auto *gmg_same = pmb->loc.level() == md->grid.logical_level
+                         ? &(pmb->gmg_same_neighbors)
+                         : &(pmb->gmg_composite_finer_neighbors);
+    auto &varVector = rc->GetVariableVector();
+    for (int iv = 0; iv < varVector.size(); iv++) {
+      auto &v = varVector[iv];
+      if constexpr (bound == BoundaryType::gmg_restrict_send) {
+        if (pmb->loc.level() != md->grid.logical_level) continue;
+        if (v->IsSet(Metadata::GMGRestrict)) {
+          // for (auto &nb : pmb->gmg_coarser_neighbors) {
+          for (int n = 0; n < pmb->gmg_coarser_neighbors.size(); n++) {
+            auto &nb = pmb->gmg_coarser_neighbors[n];
+            if (func_caller(func, block, iv, n) == LoopControl::break_out) return;
+          }
+        }
+      } else if constexpr (bound == BoundaryType::gmg_restrict_recv) {
+        if (pmb->loc.level() != md->grid.logical_level) continue;
+        if (v->IsSet(Metadata::GMGRestrict)) {
+          // for (auto &nb : pmb->gmg_finer_neighbors) {
+          for (int n = 0; n < pmb->gmg_finer_neighbors.size(); n++) {
+            auto &nb = pmb->gmg_finer_neighbors[n];
+            if (func_caller(func, block, iv, n) == LoopControl::break_out) {
+              return;
+            }
+          }
+        }
+      } else if constexpr (bound == BoundaryType::gmg_prolongate_send) {
+        if (pmb->loc.level() != md->grid.logical_level) continue;
+        if (v->IsSet(Metadata::GMGProlongate)) {
+          // for (auto &nb : pmb->gmg_finer_neighbors) {
+          for (int n = 0; n < pmb->gmg_finer_neighbors.size(); n++) {
+            auto &nb = pmb->gmg_finer_neighbors[n];
+            if (func_caller(func, block, iv, n) == LoopControl::break_out) {
+              return;
+            }
+          }
+        }
+      } else if constexpr (bound == BoundaryType::gmg_prolongate_recv) {
+        if (pmb->loc.level() != md->grid.logical_level) continue;
+        if (v->IsSet(Metadata::GMGProlongate)) {
+          // for (auto &nb : pmb->gmg_coarser_neighbors) {
+          for (int n = 0; n < pmb->gmg_coarser_neighbors.size(); n++) {
+            auto &nb = pmb->gmg_coarser_neighbors[n];
+            if (func_caller(func, block, iv, n) == LoopControl::break_out) {
+              return;
+            }
+          }
+        }
+      } else if constexpr (bound == BoundaryType::gmg_same) {
+        if (v->IsSet(Metadata::FillGhost)) {
+          // for (auto &nb : *gmg_same) {
+          for (int n = 0; n < gmg_same->size(); n++) {
+            auto &nb = (*gmg_same)[n];
+            if (func_caller(func, block, iv, n) == LoopControl::break_out) {
+              return;
+            }
+          }
+        }
+      } else {
+        if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::WithFluxes)) {
+          // for (auto &nb : pmb->neighbors) {
+          for (int n = 0; n < pmb->neighbors.size(); n++) {
+            auto &nb = pmb->neighbors[n];
+            if constexpr (bound == BoundaryType::local) {
+              if (!v->IsSet(Metadata::FillGhost)) continue;
+              if (nb.snb.rank != Globals::my_rank) continue;
+            } else if constexpr (bound == BoundaryType::nonlocal) {
+              if (!v->IsSet(Metadata::FillGhost)) {
+                continue;
+              }
+              if (nb.snb.rank == Globals::my_rank) continue;
+            } else if constexpr (bound == BoundaryType::any) {
+              if (!v->IsSet(Metadata::FillGhost)) continue;
+            } else if constexpr (bound == BoundaryType::flxcor_send) {
+              if (!v->IsSet(Metadata::WithFluxes)) continue;
+              // Check if this boundary requires flux correction
+              if (nb.snb.level != pmb->loc.level() - 1) continue;
+              // No flux correction required unless boundaries share a face
+              if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
+                continue;
+            } else if constexpr (bound == BoundaryType::flxcor_recv) {
+              if (!v->IsSet(Metadata::WithFluxes)) continue;
+              // Check if this boundary requires flux correction
+              if (nb.snb.level - 1 != pmb->loc.level()) continue;
+              // No flux correction required unless boundaries share a face
+              if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
+                continue;
+            }
+            if (func_caller(func, block, iv, n) == LoopControl::break_out) return;
+          }
+        }
+      }
+    }
+  }
+}
 
+template <BoundaryType bound = BoundaryType::any, class F>
+inline void ForEachBoundaryOMP1(std::shared_ptr<MeshData<Real>> &md, int ibound, boundIdx_t *boundIdx, F func) {
+  PARTHENON_INSTRUMENT
+#pragma omp parallel for  
+  for (int i = 0; i < ibound; i++) {
+    auto &rc = md->GetBlockData(boundIdx[i].ib);
+    auto pmb = rc->GetBlockPointer();
+    auto &varVector = rc->GetVariableVector();
+    auto &v = varVector[boundIdx[i].iv];    
+    auto *gmg_same = pmb->loc.level() == md->grid.logical_level
+      ? &(pmb->gmg_same_neighbors)
+      : &(pmb->gmg_composite_finer_neighbors);
+    if constexpr (bound == BoundaryType::gmg_restrict_send) {
+      if (pmb->loc.level() != md->grid.logical_level) continue;
+      if (v->IsSet(Metadata::GMGRestrict)) {
+        auto &nb = pmb->gmg_coarser_neighbors[boundIdx[i].in];
+        func_caller(func, pmb, rc, nb, v, i);
+      }
+    } else if constexpr (bound == BoundaryType::gmg_restrict_recv) {
+      if (pmb->loc.level() != md->grid.logical_level) continue;
+      if (v->IsSet(Metadata::GMGRestrict)) {
+        auto &nb = pmb->gmg_finer_neighbors[boundIdx[i].in];
+        func_caller(func, pmb, rc, nb, v, i);       
+      }
+    } else if constexpr (bound == BoundaryType::gmg_prolongate_send) {
+      if (pmb->loc.level() != md->grid.logical_level) continue;
+      if (v->IsSet(Metadata::GMGProlongate)) {
+        auto &nb = pmb->gmg_finer_neighbors[boundIdx[i].in];
+        func_caller(func, pmb, rc, nb, v, i);
+      }
+    } else if constexpr (bound == BoundaryType::gmg_prolongate_recv) {
+      if (pmb->loc.level() != md->grid.logical_level) continue;
+      if (v->IsSet(Metadata::GMGProlongate)) {
+        auto &nb = pmb->gmg_coarser_neighbors[boundIdx[i].in];
+        func_caller(func, pmb, rc, nb, v, i);
+      }
+    } else if constexpr (bound == BoundaryType::gmg_same) {
+      if (v->IsSet(Metadata::FillGhost)) {
+        auto &nb = (*gmg_same)[boundIdx[i].in];
+        func_caller(func, pmb, rc, nb, v, i);
+      }
+    } else {
+      if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::WithFluxes)) {
+        auto &nb = pmb->neighbors[boundIdx[i].in];
+        if constexpr (bound == BoundaryType::local) {
+          if (!v->IsSet(Metadata::FillGhost)) continue;
+          if (nb.snb.rank != Globals::my_rank) continue;
+        } else if constexpr (bound == BoundaryType::nonlocal) {
+          if (!v->IsSet(Metadata::FillGhost)) {
+            continue;
+          }
+          if (nb.snb.rank == Globals::my_rank) continue;
+        } else if constexpr (bound == BoundaryType::any) {
+          if (!v->IsSet(Metadata::FillGhost)) continue;
+        } else if constexpr (bound == BoundaryType::flxcor_send) {
+          if (!v->IsSet(Metadata::WithFluxes)) continue;
+          // Check if this boundary requires flux correction
+          if (nb.snb.level != pmb->loc.level() - 1) continue;
+          // No flux correction required unless boundaries share a face
+          if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
+            continue;
+        } else if constexpr (bound == BoundaryType::flxcor_recv) {
+          if (!v->IsSet(Metadata::WithFluxes)) continue;
+          // Check if this boundary requires flux correction
+          if (nb.snb.level - 1 != pmb->loc.level()) continue;
+          // No flux correction required unless boundaries share a face
+          if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
+            continue;
+        }
+        func_caller(func, pmb, rc, nb, v, i);
+      }
+    }
+  }
+}
+
+template <BoundaryType bound = BoundaryType::any, class F>
+inline void ForEachBoundaryOMP2(std::shared_ptr<MeshData<Real>> &md, F func) {
+  PARTHENON_INSTRUMENT
+#pragma omp parallel for
+  for (int block = 0; block < md->NumBlocks(); ++block) {
+    auto &rc = md->GetBlockData(block);
+    auto pmb = rc->GetBlockPointer();
+    auto *gmg_same = pmb->loc.level() == md->grid.logical_level
+                         ? &(pmb->gmg_same_neighbors)
+                         : &(pmb->gmg_composite_finer_neighbors);
+    auto &varVector = rc->GetVariableVector();
+    for (int iv = 0; iv < varVector.size(); iv++) {
+      auto &v = varVector[iv];
+      if constexpr (bound == BoundaryType::gmg_restrict_send) {
+        if (pmb->loc.level() != md->grid.logical_level) continue;
+        if (v->IsSet(Metadata::GMGRestrict)) {
+          // for (auto &nb : pmb->gmg_coarser_neighbors) {
+          for (int n = 0; n < pmb->gmg_coarser_neighbors.size(); n++) {
+            auto &nb = pmb->gmg_coarser_neighbors[n];
+            func_caller(func, pmb, rc, nb, v, block, iv, n);
+          }
+        }
+      } else if constexpr (bound == BoundaryType::gmg_restrict_recv) {
+        if (pmb->loc.level() != md->grid.logical_level) continue;
+        if (v->IsSet(Metadata::GMGRestrict)) {
+          // for (auto &nb : pmb->gmg_finer_neighbors) {
+          for (int n = 0; n < pmb->gmg_finer_neighbors.size(); n++) {
+            auto &nb = pmb->gmg_finer_neighbors[n];
+            func_caller(func, pmb, rc, nb, v, block, iv, n);
+          }
+        }
+      } else if constexpr (bound == BoundaryType::gmg_prolongate_send) {
+        if (pmb->loc.level() != md->grid.logical_level) continue;
+        if (v->IsSet(Metadata::GMGProlongate)) {
+          // for (auto &nb : pmb->gmg_finer_neighbors) {
+          for (int n = 0; n < pmb->gmg_finer_neighbors.size(); n++) {
+            auto &nb = pmb->gmg_finer_neighbors[n];
+            func_caller(func, pmb, rc, nb, v, block, iv, n);
+          }
+        }
+      } else if constexpr (bound == BoundaryType::gmg_prolongate_recv) {
+        if (pmb->loc.level() != md->grid.logical_level) continue;
+        if (v->IsSet(Metadata::GMGProlongate)) {
+          // for (auto &nb : pmb->gmg_coarser_neighbors) {
+          for (int n = 0; n < pmb->gmg_coarser_neighbors.size(); n++) {
+            auto &nb = pmb->gmg_coarser_neighbors[n];
+            func_caller(func, pmb, rc, nb, v, block, iv, n);
+          }
+        }
+      } else if constexpr (bound == BoundaryType::gmg_same) {
+        if (v->IsSet(Metadata::FillGhost)) {
+          // for (auto &nb : *gmg_same) {
+          for (int n = 0; n < gmg_same->size(); n++) {
+            auto &nb = (*gmg_same)[n];
+            func_caller(func, pmb, rc, nb, v, block, iv, n);
+          }
+        }
+      } else {
+        if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::WithFluxes)) {
+          // for (auto &nb : pmb->neighbors) {
+          for (int n = 0; n < pmb->neighbors.size(); n++) {
+            auto &nb = pmb->neighbors[n];
+            if constexpr (bound == BoundaryType::local) {
+              if (!v->IsSet(Metadata::FillGhost)) continue;
+              if (nb.snb.rank != Globals::my_rank) continue;
+            } else if constexpr (bound == BoundaryType::nonlocal) {
+              if (!v->IsSet(Metadata::FillGhost)) {
+                continue;
+              }
+              if (nb.snb.rank == Globals::my_rank) continue;
+            } else if constexpr (bound == BoundaryType::any) {
+              if (!v->IsSet(Metadata::FillGhost)) continue;
+            } else if constexpr (bound == BoundaryType::flxcor_send) {
+              if (!v->IsSet(Metadata::WithFluxes)) continue;
+              // Check if this boundary requires flux correction
+              if (nb.snb.level != pmb->loc.level() - 1) continue;
+              // No flux correction required unless boundaries share a face
+              if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
+                continue;
+            } else if constexpr (bound == BoundaryType::flxcor_recv) {
+              if (!v->IsSet(Metadata::WithFluxes)) continue;
+              // Check if this boundary requires flux correction
+              if (nb.snb.level - 1 != pmb->loc.level()) continue;
+              // No flux correction required unless boundaries share a face
+              if (std::abs(nb.ni.ox1) + std::abs(nb.ni.ox2) + std::abs(nb.ni.ox3) != 1)
+                continue;
+            }
+            func_caller(func, pmb, rc, nb, v, block, iv, n);           
+          }
+        }
+      }
+    }
+  }
+}
+
+  
 } // namespace loops
 } // namespace parthenon
 
