@@ -151,6 +151,15 @@ std::vector<VarInfo> VarInfo::GetAll(const VariableVector<Real> &vars,
   std::sort(out.begin(), out.end(),
             [](const VarInfo &a, const VarInfo &b) { return a.label < b.label; });
 
+  std::set<std::string> output_component_names;
+  for (const auto &info : out) {
+    for (const auto &component_name : info.component_labels) {
+      PARTHENON_REQUIRE_THROWS(output_component_names.insert(component_name).second,
+                               "Duplicate output component name '" + component_name +
+                                   "' detected for `" + info.base_name + "'");
+    }
+  }
+
   return out;
 }
 
