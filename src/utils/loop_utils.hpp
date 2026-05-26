@@ -16,6 +16,9 @@
 //========================================================================================
 // Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //========================================================================================
+
+// This file was made in part with generative AI
+
 #ifndef UTILS_LOOP_UTILS_HPP_
 #define UTILS_LOOP_UTILS_HPP_
 
