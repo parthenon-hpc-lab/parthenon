@@ -14,8 +14,6 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-//========================================================================================
 //! \file mesh.cpp
 //  \brief implementation of functions in Mesh class
 
@@ -824,16 +822,7 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     BuildTagMapAndBoundaryBuffers();
 
     CommunicateBoundaries();
-    
-    //FIXME: fglines-nv
-    //// Pre-post the receives
-    //if(pin->GetBoolean("parthenon/comm","prepost_recvs")){
-    //  for (int i = 0; i < num_partitions; i++) {
-    //    auto &md = mesh_data.GetOrAdd("base", i);
-    //    StartReceiveBoundaryBuffers(md);  
-    //  }
-    //}
-    
+
     FillDerived();
 
     if (init_problem && adaptive) {
