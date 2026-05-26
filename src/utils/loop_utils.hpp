@@ -332,6 +332,8 @@ inline void ForEachBoundary2(std::shared_ptr<MeshData<Real>> &md, F func) {
 
 template <BoundaryType bound = BoundaryType::any>
 inline std::vector<boundIdx_t> BuildBoundIndex(std::shared_ptr<MeshData<Real>> &md) {
+  PARTHENON_INSTRUMENT
+  //WIP: This was previously done in two passes -- first to count malloc indices all at once, second to fill
   std::vector<boundIdx_t> indices;
   ForEachBoundary2<bound>(md, [&](int ib, int iv, int in) {
     indices.push_back({ib, iv, in});
