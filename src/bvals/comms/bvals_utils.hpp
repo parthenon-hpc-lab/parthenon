@@ -109,31 +109,17 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   Kokkos::Profiling::pushRegion("InitializeBufferCache::Make key_order");
   pcache->clear();
 
-  std::vector<std::tuple<int, int, Mesh::channel_key_t>> key_order;
+  const auto bound_indices = BuildBoundIndex<bound_type>(md);
+  std::vector<std::tuple<int, int, Mesh::channel_key_t>> key_order(bound_indices.size());
 
-  int boundary_idx = 0;
-  ForEachBoundary2<bound_type>(md, [&](int ib, int iv, int in) {
-        ++boundary_idx;
+  ForEachBoundaryOMP1<bound_type>(
+      md, bound_indices, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v, int i) {
+        auto key = KeyFunc(pmb, nb, v, bound_type, md->GetBoundBufferId(bound_type));
+        PARTHENON_DEBUG_REQUIRE(comm_map->count(key) > 0,
+                                "Boundary communicator does not exist");
+        int recvr_idx = 27 * GetReceiverGid(key) + GetLocIdx(key);
+        key_order[i] = std::make_tuple(recvr_idx, i, key);
       });
-
-  boundIdx_t *boundIdx = (boundIdx_t*)malloc(boundary_idx*sizeof(boundIdx_t));
-  boundary_idx = 0;
-  ForEachBoundary2<bound_type>(md, [&](int ib, int iv, int in) {
-     boundIdx[boundary_idx].ib = ib;
-     boundIdx[boundary_idx].iv = iv;
-     boundIdx[boundary_idx].in = in;
-     boundary_idx++;
-  });
-
-  std::vector<std::tuple<int, int, key_t>> key_order(boundary_idx);
-
-  ForEachBoundaryOMP1<bound_type>
-    (md, boundary_idx, boundIdx, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v, int i) {
-    auto key = KeyFunc(pmb, nb, v);
-    int recvr_idx = 27 * std::get<1>(key) + std::get<3>(key);
-    key_order[i] = std::make_tuple(recvr_idx, i, key);
-    });
-  free(boundIdx);      
   Kokkos::Profiling::popRegion();
 
   Kokkos::Profiling::pushRegion("InitializeBufferCache::Make pcache");
@@ -148,7 +134,6 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   std::shuffle(key_order.begin(), key_order.end(), g);
 
   pcache->buf_vec.clear();
-  int buff_idx = 0;
   pcache->buf_vec.resize(key_order.size());
   pcache->idx_vec = std::vector<std::size_t>(key_order.size());
 
@@ -164,18 +149,6 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
     (pcache->idx_vec)[std::get<1>(t)] = i;    
   }  
 
-  //int buff_idx = 0;
-  //pcache->buf_vec.clear();
-  //pcache->idx_vec = std::vector<std::size_t>(key_order.size());
-  //std::for_each(std::begin(key_order), std::end(key_order), [&](auto &t) {
-  //  if (comm_map->count(std::get<2>(t)) == 0) {
-  //    auto key = std::get<2>(t);
-  //    PARTHENON_FAIL(std::string("Asking for buffer that doesn't exist") + " (" +
-  //                  GetLabel(key) + ")");
-  //  }
-  //  pcache->buf_vec.push_back(&((*comm_map)[std::get<2>(t)]));
-  //  (pcache->idx_vec)[std::get<1>(t)] = buff_idx++;
-  //});
   Kokkos::Profiling::popRegion();
 
   Kokkos::Profiling::pushRegion("InitializeBufferCache::set flags");
@@ -290,30 +263,17 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   Kokkos::Profiling::pushRegion("RebuildBufferCache::Create info and register region host");
   
   Kokkos::Profiling::pushRegion("RebuildBufferCache::Create bnd_info");
-  Kokkos::Profiling::pushRegion("RebuildBufferCache::Create boundIdx");
-  ibound = 0;
-  ForEachBoundary2<BOUND_TYPE>(md, [&](int ib, int iv, int in) {
-    ibound++;
-  });  
-  boundIdx_t *boundIdx = (boundIdx_t*)malloc(ibound*sizeof(boundIdx_t));
-  ibound = 0;
-  ForEachBoundary2<BOUND_TYPE>(md, [&](int ib, int iv, int in) {
-     boundIdx[ibound].ib = ib;
-     boundIdx[ibound].iv = iv;
-     boundIdx[ibound].in = in;
-     ibound++;
-  });
-  Kokkos::Profiling::popRegion(); // RebuildBufferCache::Create boundIdx
-  ForEachBoundaryOMP1<BOUND_TYPE>
-    (md, ibound, boundIdx, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v, int i) {
-      const std::size_t ibuf = cache.idx_vec[i];
-      cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf]);
-    });
-  free(boundIdx);
+  const auto bound_indices = BuildBoundIndex<BOUND_TYPE>(md);
+  ForEachBoundaryOMP1<BOUND_TYPE>(
+      md, bound_indices, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v, int i) {
+        const std::size_t ibuf = cache.idx_vec[i];
+        cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf]);
+      });
   Kokkos::Profiling::popRegion(); // RebuildBufferCache::Create bnd_info
   Kokkos::Profiling::pushRegion("RebuildBufferCache::RegisterRegionHost");
-  ibound = 0;
-  ForEachBoundary<BOUND_TYPE>(md, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+
+  int ibound = 0;
+  ForEachBoundary<BOUND_TYPE>(md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v) {
     // bnd_info
     const std::size_t ibuf = cache.idx_vec[ibound];
     // cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf]);
@@ -321,11 +281,8 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
     // subsets ordering is same as in cache.bnd_info
     // RefinementFunctions_t owns all relevant functionality, so
     // only one ParArray2D needed.
-    if constexpr (!((BOUND_TYPE == BoundaryType::flxcor_send) ||
-                    (BOUND_TYPE == BoundaryType::flxcor_recv))) {
-      cache.prores_cache.RegisterRegionHost(ibuf, ProResInfoCreator(pmb, nb, v), v.get(),
-                                            pkg);
-    }
+    cache.prores_cache.RegisterRegionHost(ibuf, ProResInfoCreator(pmb, nb, v), v.get(),
+                                          pkg);
 
     ++ibound;
   });
