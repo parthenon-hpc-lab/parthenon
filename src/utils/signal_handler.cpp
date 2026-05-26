@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+//========================================================================================
 //! \file signal_handler.cpp
 //  \brief contains functions that implement a simple SignalHandler
 //  These functions are based on TAG's signal handler written for Athena 8/19/2004
