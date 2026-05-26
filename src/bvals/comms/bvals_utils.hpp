@@ -109,21 +109,17 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   Kokkos::Profiling::pushRegion("InitializeBufferCache::Make key_order");
   pcache->clear();
 
-  std::vector<std::tuple<int, int, Mesh::channel_key_t>> key_order;
+  const auto bound_indices = BuildBoundIndex<bound_type>(md);
+  std::vector<std::tuple<int, int, Mesh::channel_key_t>> key_order(bound_indices.size());
 
-  int boundary_idx = 0;
-  ForEachBoundary<bound_type>(
-      md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v) {
+  ForEachBoundaryOMP1<bound_type>(
+      md, bound_indices, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v, int i) {
         auto key = KeyFunc(pmb, nb, v, bound_type, md->GetBoundBufferId(bound_type));
         PARTHENON_DEBUG_REQUIRE(comm_map->count(key) > 0,
                                 "Boundary communicator does not exist");
-        // Create a unique index by combining receiver gid (second element of the key
-        // tuple) and geometric element index (fourth element of the key tuple)
         int recvr_idx = 27 * GetReceiverGid(key) + GetLocIdx(key);
-        key_order.push_back({recvr_idx, boundary_idx, key});
-        ++boundary_idx;
+        key_order[i] = std::make_tuple(recvr_idx, i, key);
       });
-
   Kokkos::Profiling::popRegion();
 
   Kokkos::Profiling::pushRegion("InitializeBufferCache::Make pcache");
@@ -153,18 +149,6 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
     (pcache->idx_vec)[std::get<1>(t)] = i;    
   }  
 
-  //int buff_idx = 0;
-  //pcache->buf_vec.clear();
-  //pcache->idx_vec = std::vector<std::size_t>(key_order.size());
-  //std::for_each(std::begin(key_order), std::end(key_order), [&](auto &t) {
-  //  if (comm_map->count(std::get<2>(t)) == 0) {
-  //    auto key = std::get<2>(t);
-  //    PARTHENON_FAIL(std::string("Asking for buffer that doesn't exist") + " (" +
-  //                  GetLabel(key) + ")");
-  //  }
-  //  pcache->buf_vec.push_back(&((*comm_map)[std::get<2>(t)]));
-  //  (pcache->idx_vec)[std::get<1>(t)] = buff_idx++;
-  //});
   Kokkos::Profiling::popRegion();
 
   Kokkos::Profiling::pushRegion("InitializeBufferCache::set flags");
@@ -277,21 +261,32 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   Kokkos::Profiling::popRegion(); // RebuildBufferCache::Initialize
 
   Kokkos::Profiling::pushRegion("RebuildBufferCache::Create info and register region host");
-  int ibound = 0;
-  ForEachBoundary<BOUND_TYPE>(
-      md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v) {
-        // bnd_info
-        const std::size_t ibuf = cache.idx_vec[ibound];
+  
+  Kokkos::Profiling::pushRegion("RebuildBufferCache::Create bnd_info");
+  const auto bound_indices = BuildBoundIndex<BOUND_TYPE>(md);
+  ForEachBoundaryOMP1<BOUND_TYPE>(
+      md, bound_indices, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v, int i) {
+        const std::size_t ibuf = cache.idx_vec[i];
         cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf]);
-
-        // subsets ordering is same as in cache.bnd_info
-        // RefinementFunctions_t owns all relevant functionality, so
-        // only one ParArray2D needed.
-        cache.prores_cache.RegisterRegionHost(ibuf, ProResInfoCreator(pmb, nb, v),
-                                              v.get(), pkg);
-
-        ++ibound;
       });
+  Kokkos::Profiling::popRegion(); // RebuildBufferCache::Create bnd_info
+  Kokkos::Profiling::pushRegion("RebuildBufferCache::RegisterRegionHost");
+
+  int ibound = 0;
+  ForEachBoundary<BOUND_TYPE>(md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v) {
+    // bnd_info
+    const std::size_t ibuf = cache.idx_vec[ibound];
+    // cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf]);
+
+    // subsets ordering is same as in cache.bnd_info
+    // RefinementFunctions_t owns all relevant functionality, so
+    // only one ParArray2D needed.
+    cache.prores_cache.RegisterRegionHost(ibuf, ProResInfoCreator(pmb, nb, v), v.get(),
+                                          pkg);
+
+    ++ibound;
+  });
+  Kokkos::Profiling::popRegion(); // RebuildBufferCache::Create bnd_info
   Kokkos::deep_copy(cache.bnd_info, cache.bnd_info_h);
   cache.prores_cache.CopyToDevice();
   Kokkos::Profiling::popRegion(); // RebuildBufferCache::Create info and RegisterRegionHost
