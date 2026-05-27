@@ -75,6 +75,15 @@ void HelicitySliceOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime
   const auto Ny = UniformGridHelper->global_mesh_size[1];
   const auto Nz = UniformGridHelper->global_mesh_size[2];
 
+  // Read output mode from input file:
+  // output_mode = "slice" (default): write midplane z-slice
+  // output_mode = "full": write full 3D helicity field
+  const auto output_mode = pin->GetOrAddString(output_params.block_name,
+                                               "output_mode", "slice");
+  const bool full_output = (output_mode == "full");
+  PARTHENON_REQUIRE_THROWS(output_mode == "slice" || output_mode == "full",
+                           "helicity output_mode must be 'slice' or 'full'.");
+
   PARTHENON_REQUIRE_THROWS(pm->DefaultNumPartitions() == 1,
                            "Only pack_size=-1 currently supported for helicity slice.");
 
@@ -82,12 +91,9 @@ void HelicitySliceOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime
   const auto fft_size_inbox  = FFTManager->size_real_space_box();
   const auto fft_size_outbox = FFTManager->size_fourier_space_box();
 
-  // Sanity check: local mesh size matches FFT inbox
   PARTHENON_REQUIRE_THROWS(
       (std::int64_t)nx1l * nx2l * nx3l == (std::int64_t)fft_size_inbox,
       "Local mesh size does not match FFT inbox size.");
-
-  // Sanity check: 3 * fft_size_inbox fits in size_t
   PARTHENON_REQUIRE_THROWS(
       fft_size_inbox <= std::numeric_limits<std::size_t>::max() / 3,
       "3 * fft_size_inbox would overflow size_t.");
@@ -109,7 +115,6 @@ void HelicitySliceOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime
         const auto ii = i - ib.s + loc_view(b, 0) * nx1b;
         const std::int64_t idx = (std::int64_t)kk * nx2l * nx1l
                                + (std::int64_t)jj * nx1l + ii;
-        // bounds check
         PARTHENON_DEBUG_REQUIRE(idx >= 0 && idx < (std::int64_t)fft_size_inbox,
                                 "Pack B: idx out of bounds");
         input(idx)                    = cons(b, 5, k, j, i); // Bx
@@ -139,12 +144,10 @@ void HelicitySliceOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime
 
   auto outbox = FFTManager->fourier_space_box();
 
-  // reuse ib/jb/kb for fourier space bounds
   ib.s = outbox.low[0];  ib.e = outbox.high[0];
   jb.s = outbox.low[1];  jb.e = outbox.high[1];
   kb.s = outbox.low[2];  kb.e = outbox.high[2];
 
-  // Sanity check: fourier space box size matches fft_size_outbox
   PARTHENON_REQUIRE_THROWS(
       (std::int64_t)(ib.e - ib.s + 1) * (jb.e - jb.s + 1) * (kb.e - kb.s + 1)
           == (std::int64_t)fft_size_outbox,
@@ -206,60 +209,25 @@ void HelicitySliceOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime
   Kokkos::fence();
 
   // ------------------------------------------------------------------
-  // 5. Compute h = A.B and extract midplane slice
+  // 5. Compute h = A.B
   // ------------------------------------------------------------------
   auto realbox = FFTManager->real_space_box();
   const int kz_mid_global = Nz / 2;
 
-  // Sanity check: realbox dimensions match local mesh size
   PARTHENON_REQUIRE_THROWS(realbox.size[0] == nx1l &&
                            realbox.size[1] == nx2l &&
                            realbox.size[2] == nx3l,
                            "Real space box size does not match local mesh size.");
 
-  const bool rank_owns_midplane = (kz_mid_global >= realbox.low[2] &&
-                                   kz_mid_global <= realbox.high[2]);
-
   const int local_nx = realbox.size[0];
   const int local_ny = realbox.size[1];
+  const int local_nz = realbox.size[2];
 
-  // Sanity check: local_slice size fits in size_t
-  PARTHENON_REQUIRE_THROWS(
-      (std::int64_t)local_nx * local_ny <= std::numeric_limits<int>::max(),
-      "local_nx * local_ny overflows int.");
-
-  std::vector<Real> local_slice((std::size_t)local_nx * local_ny, 0.0);
-
-  if (rank_owns_midplane) {
-    auto A_real_h = A_real.GetHostMirrorAndCopy();
-    auto input_h  = input.GetHostMirrorAndCopy();
-
-    const int kz_local = kz_mid_global - realbox.low[2];
-
-    PARTHENON_REQUIRE_THROWS(kz_local >= 0 && kz_local < nx3l,
-                             "kz_local out of range for this rank.");
-
-    for (int jj = 0; jj < local_ny; jj++) {
-      for (int ii = 0; ii < local_nx; ii++) {
-        const std::int64_t idx = (std::int64_t)kz_local * local_ny * local_nx
-                               + (std::int64_t)jj * local_nx + ii;
-
-        PARTHENON_REQUIRE_THROWS(idx >= 0 && idx < (std::int64_t)fft_size_inbox,
-                                 "Helicity slice: idx out of bounds");
-
-        const Real Ax = A_real_h[idx];
-        const Real Ay = A_real_h[idx + fft_size_inbox];
-        const Real Az = A_real_h[idx + 2*fft_size_inbox];
-        const Real Bx = input_h[idx];
-        const Real By = input_h[idx + fft_size_inbox];
-        const Real Bz = input_h[idx + 2*fft_size_inbox];
-        local_slice[(std::size_t)jj * local_nx + ii] = Ax*Bx + Ay*By + Az*Bz;
-      }
-    }
-  }
+  auto A_real_h = A_real.GetHostMirrorAndCopy();
+  auto input_h  = input.GetHostMirrorAndCopy();
 
   // ------------------------------------------------------------------
-  // 6. Write via OpenPMD — each rank writes its own chunk directly
+  // 6. Write via OpenPMD
   // ------------------------------------------------------------------
   using openPMD::Access;
   using openPMD::Series;
@@ -302,32 +270,123 @@ void HelicitySliceOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime
   mesh_record.setDataOrder(openPMD::Mesh::DataOrder::C);
 
   const Real dx = Lx / Nx;
-  mesh_record.setGridSpacing(std::vector<Real>{dx, dx});
-  mesh_record.setAxisLabels({"y", "x"});
-  mesh_record.setGridGlobalOffset({x1min, x1min});
-
   auto comp = mesh_record[openPMD::MeshRecordComponent::SCALAR];
   comp.setPosition(std::vector<Real>{0.5, 0.5});
 
-  openPMD::Extent global_extent = {static_cast<uint64_t>(Ny),
-                                   static_cast<uint64_t>(Nx)};
-  auto dataset = openPMD::Dataset(openPMD::determineDatatype<Real>(), global_extent);
-  comp.resetDataset(dataset);
+  if (full_output) {
+    // ------------------------------------------------------------------
+    // Full 3D output
+    // ------------------------------------------------------------------
+    mesh_record.setGridSpacing(std::vector<Real>{dx, dx, dx});
+    mesh_record.setAxisLabels({"z", "y", "x"});
+    mesh_record.setGridGlobalOffset({x1min, x1min, x1min});
 
-  if (rank_owns_midplane) {
-    PARTHENON_REQUIRE_THROWS(realbox.low[0] >= 0 && realbox.low[1] >= 0,
+    openPMD::Extent global_extent = {static_cast<uint64_t>(Nz),
+                                     static_cast<uint64_t>(Ny),
+                                     static_cast<uint64_t>(Nx)};
+    auto dataset = openPMD::Dataset(openPMD::determineDatatype<Real>(), global_extent);
+    comp.resetDataset(dataset);
+
+    // compute full local helicity volume
+    std::vector<Real> local_volume((std::size_t)local_nx * local_ny * local_nz, 0.0);
+
+    for (int kk = 0; kk < local_nz; kk++) {
+      for (int jj = 0; jj < local_ny; jj++) {
+        for (int ii = 0; ii < local_nx; ii++) {
+          const std::int64_t idx = (std::int64_t)kk * local_ny * local_nx
+                                 + (std::int64_t)jj * local_nx + ii;
+          PARTHENON_REQUIRE_THROWS(idx >= 0 && idx < (std::int64_t)fft_size_inbox,
+                                   "Full helicity: idx out of bounds");
+          const Real Ax = A_real_h[idx];
+          const Real Ay = A_real_h[idx + fft_size_inbox];
+          const Real Az = A_real_h[idx + 2*fft_size_inbox];
+          const Real Bx = input_h[idx];
+          const Real By = input_h[idx + fft_size_inbox];
+          const Real Bz = input_h[idx + 2*fft_size_inbox];
+          local_volume[(std::size_t)kk * local_ny * local_nx
+                     + (std::size_t)jj * local_nx + ii] = Ax*Bx + Ay*By + Az*Bz;
+        }
+      }
+    }
+
+    // each rank writes its local chunk
+    PARTHENON_REQUIRE_THROWS(realbox.low[0] >= 0 && realbox.low[1] >= 0 && realbox.low[2] >= 0,
                              "realbox offsets are negative.");
-    openPMD::Offset chunk_offset = {static_cast<uint64_t>(realbox.low[1]),
+    openPMD::Offset chunk_offset = {static_cast<uint64_t>(realbox.low[2]),
+                                    static_cast<uint64_t>(realbox.low[1]),
                                     static_cast<uint64_t>(realbox.low[0])};
-    openPMD::Extent chunk_extent = {static_cast<uint64_t>(local_ny),
+    openPMD::Extent chunk_extent = {static_cast<uint64_t>(local_nz),
+                                    static_cast<uint64_t>(local_ny),
                                     static_cast<uint64_t>(local_nx)};
 
     PARTHENON_REQUIRE_THROWS(
         chunk_offset[0] + chunk_extent[0] <= global_extent[0] &&
-        chunk_offset[1] + chunk_extent[1] <= global_extent[1],
-        "Chunk offset + extent exceeds global extent.");
+        chunk_offset[1] + chunk_extent[1] <= global_extent[1] &&
+        chunk_offset[2] + chunk_extent[2] <= global_extent[2],
+        "3D chunk offset + extent exceeds global extent.");
 
-    comp.storeChunkRaw(local_slice.data(), chunk_offset, chunk_extent);
+    comp.storeChunkRaw(local_volume.data(), chunk_offset, chunk_extent);
+
+  } else {
+    // ------------------------------------------------------------------
+    // 2D midplane slice output
+    // ------------------------------------------------------------------
+    mesh_record.setGridSpacing(std::vector<Real>{dx, dx});
+    mesh_record.setAxisLabels({"y", "x"});
+    mesh_record.setGridGlobalOffset({x1min, x1min});
+    comp.setPosition(std::vector<Real>{0.5, 0.5});
+
+    openPMD::Extent global_extent = {static_cast<uint64_t>(Ny),
+                                     static_cast<uint64_t>(Nx)};
+    auto dataset = openPMD::Dataset(openPMD::determineDatatype<Real>(), global_extent);
+    comp.resetDataset(dataset);
+
+    const bool rank_owns_midplane = (kz_mid_global >= realbox.low[2] &&
+                                     kz_mid_global <= realbox.high[2]);
+
+    PARTHENON_REQUIRE_THROWS(
+        (std::int64_t)local_nx * local_ny <= std::numeric_limits<int>::max(),
+        "local_nx * local_ny overflows int.");
+
+    std::vector<Real> local_slice((std::size_t)local_nx * local_ny, 0.0);
+
+    if (rank_owns_midplane) {
+      const int kz_local = kz_mid_global - realbox.low[2];
+      PARTHENON_REQUIRE_THROWS(kz_local >= 0 && kz_local < nx3l,
+                               "kz_local out of range for this rank.");
+
+      for (int jj = 0; jj < local_ny; jj++) {
+        for (int ii = 0; ii < local_nx; ii++) {
+          const std::int64_t idx = (std::int64_t)kz_local * local_ny * local_nx
+                                 + (std::int64_t)jj * local_nx + ii;
+          PARTHENON_REQUIRE_THROWS(idx >= 0 && idx < (std::int64_t)fft_size_inbox,
+                                   "Helicity slice: idx out of bounds");
+          const Real Ax = A_real_h[idx];
+          const Real Ay = A_real_h[idx + fft_size_inbox];
+          const Real Az = A_real_h[idx + 2*fft_size_inbox];
+          const Real Bx = input_h[idx];
+          const Real By = input_h[idx + fft_size_inbox];
+          const Real Bz = input_h[idx + 2*fft_size_inbox];
+          local_slice[(std::size_t)jj * local_nx + ii] = Ax*Bx + Ay*By + Az*Bz;
+        }
+      }
+    }
+
+    if (rank_owns_midplane) {
+      PARTHENON_REQUIRE_THROWS(realbox.low[0] >= 0 && realbox.low[1] >= 0,
+                               "realbox offsets are negative.");
+      openPMD::Offset chunk_offset = {static_cast<uint64_t>(realbox.low[1]),
+                                      static_cast<uint64_t>(realbox.low[0])};
+      openPMD::Extent chunk_extent = {static_cast<uint64_t>(local_ny),
+                                      static_cast<uint64_t>(local_nx)};
+
+      PARTHENON_REQUIRE_THROWS(
+          chunk_offset[0] + chunk_extent[0] <= global_extent[0] &&
+          chunk_offset[1] + chunk_extent[1] <= global_extent[1],
+          "Chunk offset + extent exceeds global extent.");
+
+      comp.storeChunkRaw(local_slice.data(), chunk_offset, chunk_extent);
+    }
   }
 
   it.seriesFlush();

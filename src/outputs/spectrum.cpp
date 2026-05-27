@@ -88,10 +88,7 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   par_for(
       "Init FFT fields", 0, pm->GetNumMeshBlocksThisRank() - 1, kb.s, kb.e, jb.s, jb.e,
       ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        const auto kk = k - kb.s + loc_view(b, 2) * nx3b;
-        const auto jj = j - jb.s + loc_view(b, 1) * nx2b;
-        const auto ii = i - ib.s + loc_view(b, 0) * nx1b;
-        const std::int64_t idx = (kk * nx2l + jj) * nx1l + ii;
+        const auto idx = UniformGridHelper->FlatIndex(b, k, j, i);
         if (spec_type == 0) { // velocity field
           const auto rho = cons(b, 0, k, j, i);
           input(idx) = cons(b, 1, k, j, i) / rho;

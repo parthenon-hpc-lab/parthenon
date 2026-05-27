@@ -56,7 +56,7 @@ void UniformGridHelper::Initialize() {
     PARTHENON_REQUIRE_THROWS(loc_max_vol == mesh_->GetNumMeshBlocksThisRank(),
                             "Block coverage on rank cannot be matched to a contiguous "
                             "array, which is required for FFTs. Try a different amount of "
-                            "ranks (one block per rank will always work).");
+                            "ranks (one block per rank, i.e. pack_size=-1, will always work).");
 
     const auto block_size_ = mesh_->GetDefaultBlockSize();
     block_size[0] = block_size_.nx(parthenon::X1DIR);
@@ -67,6 +67,12 @@ void UniformGridHelper::Initialize() {
         mesh_start_idx[i] = local_loc_min[i] * block_size[i];
         mesh_end_idx[i] = mesh_start_idx[i] + local_mesh_size[i] - 1;
     }
+
+    // Cache bounds for interior cells, which are needed to compute local indices for FFT packing
+    auto &md = mesh_->mesh_data.Get();
+    ib_ = md->GetBoundsI(IndexDomain::interior);
+    jb_ = md->GetBoundsJ(IndexDomain::interior);
+    kb_ = md->GetBoundsK(IndexDomain::interior);
 
     initialized_ = true;
 }
