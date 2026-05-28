@@ -51,32 +51,27 @@ namespace parthenon {
 void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                      const SignalHandler::OutputSignal signal) {
                                         
-  const auto spec_type =
-    pin->GetInteger(output_params.block_name, "spec_type");
-  
+  const auto var_name = pin->GetString(output_params.block_name, "variable");
+  const auto components = pin->GetVector<int>(output_params.block_name, "components");
+  const auto output_label = pin->GetOrAddString(output_params.block_name, "output_label", var_name);
+
+
   auto &md = pm->mesh_data.Get();
 
   IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBlockData(0)->GetBoundsJ(IndexDomain::interior);
   IndexRange kb = md->GetBlockData(0)->GetBoundsK(IndexDomain::interior);
-  auto cons = md->PackVariables(std::vector<std::string>{"cons"});
+
+  auto vars = md->PackVariables(std::vector<std::string>{var_name});
 
   // Get Mesh geometry information: 
   auto UniformGridHelper = pm->GetUniformGridHelper();
-  auto &loc_view = UniformGridHelper->loc_view;
-  const auto &block_size = UniformGridHelper->block_size;
-  const auto &local_mesh_size = UniformGridHelper->local_mesh_size;
-  const auto nx1b = block_size[0];
-  const auto nx2b = block_size[1];
-  const auto nx3b = block_size[2];
-  const auto nx1l = local_mesh_size[0];
-  const auto nx2l = local_mesh_size[1];
-  const auto nx3l = local_mesh_size[2];
   const auto Nx = UniformGridHelper->global_mesh_size[0];
   const auto Ny = UniformGridHelper->global_mesh_size[1];
   const auto Nz = UniformGridHelper->global_mesh_size[2];
 
-  int n_comp = 3; // number of field components to transform 
+  // Initialize FFTManager and I/O arrays:
+  int n_comp = components.size(); // number of field components to transform 
   auto FFTManager = pm->GetFFTManager(); 
   const auto fft_size_inbox = FFTManager->size_real_space_box();
   parthenon::ParArray1D<Real> input("fft input", n_comp * fft_size_inbox);
@@ -84,27 +79,20 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                                    n_comp * FFTManager->size_fourier_space_box());
   PARTHENON_REQUIRE_THROWS(pm->DefaultNumPartitions() == 1, 
                            "Only pack_size=-1 currently supported for heffte.") // pack size -1 means 1 pack per rank
-  // for (int spec_type = 0; spec_type < 3; spec_type++) {
+
+  // copy components to device
+  parthenon::ParArray1D<int> components_d("components", components.size());
+  auto components_h = components_d.GetHostMirror();
+  for (int n = 0; n < n_comp; n++) components_h(n) = components[n];
+  components_d.DeepCopy(components_h);
+
+  // Gather block data into flat arrays for FFT input: 
   par_for(
       "Init FFT fields", 0, pm->GetNumMeshBlocksThisRank() - 1, kb.s, kb.e, jb.s, jb.e,
       ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const auto idx = UniformGridHelper->FlatIndex(b, k, j, i);
-        if (spec_type == 0) { // velocity field
-          const auto rho = cons(b, 0, k, j, i);
-          input(idx) = cons(b, 1, k, j, i) / rho;
-          input(idx + fft_size_inbox) = cons(b, 2, k, j, i) / rho;
-          input(idx + 2 * fft_size_inbox) = cons(b, 3, k, j, i) / rho;
-        } else if (spec_type == 1) {
-          const auto sqrtrho_inv = 1.0 / Kokkos::sqrt(cons(b, 0, k, j, i));
-          input(idx) = sqrtrho_inv * cons(b, 1, k, j, i);
-          input(idx + fft_size_inbox) = sqrtrho_inv * cons(b, 2, k, j, i);
-          input(idx + 2 * fft_size_inbox) = sqrtrho_inv * cons(b, 3, k, j, i);
-        } else if (spec_type == 2) { // magnetic field
-          input(idx) = cons(b, 5, k, j, i);
-          input(idx + fft_size_inbox) = cons(b, 6, k, j, i);
-          input(idx + 2 * fft_size_inbox) = cons(b, 7, k, j, i);
-        } else {
-          PARTHENON_FAIL("Unknown spec type");
+        for (int n = 0; n < n_comp; n++) {
+          input(n * fft_size_inbox + idx) = vars(b, components[n], k, j, i);
         }
       });
 
@@ -132,6 +120,7 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   kb.s = FFTManager->fourier_space_box().low[2];
   kb.e = FFTManager->fourier_space_box().high[2];
 
+  // Calculate spectrum: 
   const auto fft_size_outbox = FFTManager->size_fourier_space_box();
   parthenon::par_for(
       "CalcSpec", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -147,11 +136,11 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
         const auto outidx =
             ((k - kb.s) * (jb.e - jb.s + 1) + (j - jb.s)) * (ib.e - ib.s + 1) + i - ib.s;
 
-        auto val = SQR(output[outidx].real()) + SQR(output[outidx].imag()) +
-                   SQR(output[outidx + fft_size_outbox].real()) +
-                   SQR(output[outidx + fft_size_outbox].imag()) +
-                   SQR(output[outidx + 2 * fft_size_outbox].real()) +
-                   SQR(output[outidx + 2 * fft_size_outbox].imag());
+        auto val = 0.0;
+        for (int n = 0; n < n_comp; n++) {
+          val += SQR(output[outidx + n * fft_size_outbox].real()) +
+                 SQR(output[outidx + n * fft_size_outbox].imag());
+        }
 
         // account for Hermitian symmetry of r2c transform
         const auto fac = ((k_x > 0) && (2 * k_x != Nx)) ? 2.0 : 1.0;
@@ -178,14 +167,12 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
   auto spectra_h = spectra.GetHostMirrorAndCopy(); // spectra_h is the Spectral data (Parthenon array) on host
 
-  // Write spectrum to ordinary text file
+  // Write spectrum to ordinary text file:
   if (parthenon::Globals::my_rank == 0) {
     
     std::string fname;
     fname.assign(output_params.file_basename);
-    fname.append(".spec_type_");
-    fname.append(std::to_string(spec_type));
-    fname.append(".");
+    fname.append("."+output_label+".");
     fname.append(output_params.file_id);
     fname.append(".");
     if (signal == SignalHandler::OutputSignal::now) {
@@ -207,15 +194,8 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
         PARTHENON_FAIL("Could not open " + fname + " for writing");
     }
 
-    // Decide prefix based on spec_type (optional)
-    std::string spec_prefix;
-    if (spec_type == 0) spec_prefix = "u";
-    else if (spec_type == 1) spec_prefix = "rhoU";
-    else if (spec_type == 2) spec_prefix = "B";
-    else PARTHENON_FAIL("Unknown spec_type");
-
-    // Write each bin's results to the file: en_sum, k_sum, count_sum
-    fout << "# Bin    En_sum    K_sum    Count\n";
+    // Write each bin's results to the file: val_sum, k_sum, count_sum
+    fout << "# Bin    val_sum    K_sum    Count\n";
     for (int i = 0; i < num_bins; ++i) {
         fout << i << " "
              << spectra_h(i, 0) << " "

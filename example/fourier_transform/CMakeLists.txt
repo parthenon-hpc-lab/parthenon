@@ -11,17 +11,12 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
-add_subdirectory(stochastic_subgrid)
-add_subdirectory(advection)
-add_subdirectory(boundary_exchange)
-add_subdirectory(fine_advection)
-add_subdirectory(calculate_pi)
-add_subdirectory(kokkos_pi)
-add_subdirectory(particles)
-add_subdirectory(particle_leapfrog)
-add_subdirectory(particle_tracers)
-add_subdirectory(poisson)
-add_subdirectory(poisson_gmg)
-add_subdirectory(diffusion)
-add_subdirectory(sparse_advection)
-add_subdirectory(fourier_transform)
+get_property(DRIVER_LIST GLOBAL PROPERTY DRIVERS_USED_IN_TESTS)
+if(NOT PARTHENON_DISABLE_EXAMPLES)
+  add_executable(
+      fourier-transform
+          fourier_driver.cpp
+          fourier_driver.hpp
+  )
+  target_link_libraries(fourier-transform PRIVATE Parthenon::parthenon)
+endif()

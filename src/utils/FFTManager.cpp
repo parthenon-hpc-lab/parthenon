@@ -5,6 +5,7 @@
 namespace parthenon {
 
 struct FFTManager::Impl {
+// @pgrete: Can the backend selection be made nicer? 
 #if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
     using BackendTag = heffte::backend::default_backend<heffte::tag::gpu>::type;
 #else
@@ -37,7 +38,7 @@ void FFTManager::Initialize() {
     std::int64_t r2c_direction = 0;
 
     heffte::box3d<> real_indexes({0,0,0}, {Nx-1, Ny-1, Nz-1});
-    heffte::box3d<> complex_indexes({0,0,0}, {Nx/2, Ny-1, Nz-1});
+    heffte::box3d<> complex_indexes({0,0,0}, {Nx/2, Ny-1, Nz-1}); 
 
     assert(real_indexes.r2c(r2c_direction) == complex_indexes);
 
@@ -71,13 +72,13 @@ void FFTManager::Initialize() {
 void FFTManager::Forward(const double* input,
                          std::complex<double>* output) {
     Initialize();
-    impl_->fft_plan.forward(input, output, impl_->workspace_.data(), heffte::scale::full); // r2c needs a workspace, c2r does not
+    impl_->fft_plan.forward(input, output, impl_->workspace_.data(), heffte::scale::full); // 1/N^3 normalization for forward transform
 }
 
 void FFTManager::Backward(const std::complex<double>* input,
                           double* output) {
     Initialize();
-    impl_->fft_plan.backward(input, output, heffte::scale::full); // r2c needs a workspace, c2r does not
+    impl_->fft_plan.backward(input, output, heffte::scale::none); // no normalization for backward transform, so that forward followed by backward gives back the original field
 }
 
 // -----------------------------
