@@ -53,7 +53,7 @@ if("loop-benchmarks-v2" IN_LIST DRIVER_LIST OR NOT PARTHENON_DISABLE_EXAMPLES)
     #$<$<CXX_COMPILER_ID:AppleClang,Clang>:-Rpass=loop-vectorize>
     #$<$<CXX_COMPILER_ID:AppleClang,Clang>:-Rpass-missed=loop-vectorize>
     #$<$<CXX_COMPILER_ID:AppleClang,Clang>:-Rpass-analysis=loop-vectorize>
-    $<$<CXX_COMPILER_ID:AppleClang,Clang>:-fsave-optimization-record>
+    #$<$<CXX_COMPILER_ID:AppleClang,Clang>:-fsave-optimization-record>
     $<$<CXX_COMPILER_ID:AppleClang,Clang>:-fvectorize>
     $<$<CXX_COMPILER_ID:AppleClang,Clang>:-fslp-vectorize>
     $<$<AND:$<NOT:$<BOOL:${Kokkos_ENABLE_HIP}>>,$<NOT:$<BOOL:${Kokkos_ENABLE_CUDA}>>,$<CXX_COMPILER_ID:AppleClang>>:-Xclang -fopenmp-simd>

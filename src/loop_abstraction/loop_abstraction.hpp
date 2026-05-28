@@ -3,7 +3,6 @@
 #include "loop_abstraction_base.hpp"
 #include "loop_abstraction_kokkos.hpp"
 #include "loop_abstraction_pack_view.hpp"
-#include "loop_abstraction_range.hpp"
 #include "loop_abstraction_raw.hpp"
 #include "loop_abstraction_view.hpp"
 
@@ -25,6 +24,11 @@ KOKKOS_FORCEINLINE_FUNCTION void inner(const InnerIndexRangeType &idx_range, F &
   } else {
     impl::inner_kokkos(idx_range, std::forward<F>(f));
   }
+}
+
+template <class Halo, class InnerIndexRangeType>
+KOKKOS_INLINE_FUNCTION auto AddHalo(const InnerIndexRangeType &idx_range) {
+  return idx_range.template AddHalo<Halo>();
 }
 
 } // namespace loop_abstraction
