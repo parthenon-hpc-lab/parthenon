@@ -457,8 +457,8 @@ inline void RunKokkosBoviTeamLogicalScratch(const Dataset &dataset,
   const int outer_points = CeilDiv(cells_per_block, logical_inner_size);
   const int league_size = spec.nblocks * outer_points;
   TeamPolicy policy(league_size, Kokkos::AUTO);
-  policy.set_scratch_size(
-      0, Kokkos::PerTeam(sizeof(double) * static_cast<std::size_t>(logical_inner_size)));
+  constexpr std::size_t kScratchBytes = 1024;
+  policy.set_scratch_size(0, Kokkos::PerTeam(kScratchBytes));
 
   Kokkos::parallel_for(
       "KokkosBoviTeamLogicalScratch", policy,
