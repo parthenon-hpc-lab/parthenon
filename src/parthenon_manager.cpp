@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
 
 #include "parthenon_manager.hpp"
 
@@ -216,7 +218,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     pinput->SetInteger("parthenon/time", "ncycle", ncycle);
 
     // Read package data from restart file
-    RestartPackages(*pmesh, *restartReader);
+    RestartPackages(*pmesh, dynamic_cast<RestartReaderHDF5 &>(*restartReader));
 
     // close hdf5 file to prevent HDF5 hangs and corrupted files
     // if code dies after restart
@@ -264,7 +266,7 @@ ParthenonManager::ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin) {
   return packages;
 }
 
-void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
+void ParthenonManager::RestartPackages(Mesh &rm, RestartReaderHDF5 &resfile) {
 #ifndef ENABLE_HDF5
   PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #else  // HDF5 enabled
@@ -434,9 +436,9 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       pswarm_blk->AddEmptyParticles(counts[block_index]);
       block_index++;
     }
-    ReadSwarmVars_<int>(swarm, rm.block_list, count_on_rank, offsets[0]);
-    ReadSwarmVars_<std::uint64_t>(swarm, rm.block_list, count_on_rank, offsets[0]);
-    ReadSwarmVars_<Real>(swarm, rm.block_list, count_on_rank, offsets[0]);
+    resfile.ReadSwarmVars<int>(swarm, rm.block_list, count_on_rank, offsets[0]);
+    resfile.ReadSwarmVars<std::uint64_t>(swarm, rm.block_list, count_on_rank, offsets[0]);
+    resfile.ReadSwarmVars<Real>(swarm, rm.block_list, count_on_rank, offsets[0]);
   }
 
   // Params
