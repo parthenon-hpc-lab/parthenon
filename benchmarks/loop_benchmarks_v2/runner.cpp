@@ -130,7 +130,11 @@ BenchmarkRow RunTypedCase(const CaseSpec &spec, const Dataset &dataset) {
       }
       break;
     case LoopKind::KokkosBoviTeamLogical:
-      RunKokkosBoviTeamLogical(dataset, spec.loop.ninner, body_direct);
+      if (spec.loop.access_mode == "scratch") {
+        RunKokkosBoviTeamLogicalScratch(dataset, spec.loop.ninner, body_direct);
+      } else {
+        RunKokkosBoviTeamLogical(dataset, spec.loop.ninner, body_direct);
+      }
       break;
     case LoopKind::LoopAbstractionBoviMemory:
       RunLoopAbstractionCase<loop_abstraction::loop_tag::bovi,

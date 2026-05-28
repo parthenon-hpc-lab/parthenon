@@ -13,6 +13,7 @@ See:
 Basic usage:
 
 - single case: `./build-make/benchmarks/loop_benchmarks_v2/loop-benchmarks-v2 --loop cpu_bovi_contiguous --nblocks 2 --nvars 3 --nz 8 --ny 8 --nx 8 --nghost 1 --ninner 64 --niter 4`
+- scratch comparison: `./build-make/benchmarks/loop_benchmarks_v2/loop-benchmarks-v2 --loop kokkos_bovi_team_logical --access-mode scratch --nblocks 2 --nvars 3 --nz 8 --ny 8 --nx 8 --nghost 1 --ninner 64 --niter 4`
 - batch analysis: `python3 benchmarks/loop_benchmarks_v2/run_analysis.py --binary build-make/benchmarks/loop_benchmarks_v2/loop-benchmarks-v2`
 
 The analysis script performs a standard reduced sweep over block edges
@@ -27,5 +28,9 @@ The loop set now also includes abstraction-backed variants:
 - `loop_abstraction_boiv_logical`
 - `loop_abstraction_bvoi_memory`
 - `loop_abstraction_bvoi_logical`
+
+The Kokkos `kokkos_bovi_team_logical` benchmark also accepts `--access-mode scratch`
+to reserve team scratch without using it, which isolates the overhead of enabling
+scratch-backed storage and any occupancy impact from the extra shared memory.
 
 See `LOOP_ABSTRACTION_CONTRACTS.md` for the current contract matrix and helper semantics.

@@ -110,7 +110,7 @@ std::string Usage() {
   return "Usage: loop-benchmarks-v2 [options]\n"
          "  --loop NAME\n"
          "  --backend NAME\n"
-         "  --access-mode direct|hoisted\n"
+         "  --access-mode direct|hoisted|scratch\n"
          "  --nblocks N --target-cells N --nvars N --nz N --ny N --nx N --nghost N\n"
          "  --ninner N\n"
          "  --warmup N --repeats N\n"

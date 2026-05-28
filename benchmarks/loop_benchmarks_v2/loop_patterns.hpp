@@ -445,6 +445,41 @@ inline void RunKokkosBoviTeamLogical(const Dataset &dataset, int logical_inner_s
       });
 }
 
+// kokkos_bovi_team_logical: same logical TeamPolicy shape, but reserve team scratch to
+// measure the overhead of enabling scratch-backed storage.
+template <typename Body>
+inline void RunKokkosBoviTeamLogicalScratch(const Dataset &dataset,
+                                            int logical_inner_size, Body body) {
+  const auto &spec = dataset.problem;
+  const auto &data = dataset.data;
+  const auto logical_indexer = spec.logical_indexer;
+  const int cells_per_block = static_cast<int>(logical_indexer.size());
+  const int outer_points = CeilDiv(cells_per_block, logical_inner_size);
+  const int league_size = spec.nblocks * outer_points;
+  TeamPolicy policy(league_size, Kokkos::AUTO);
+  policy.set_scratch_size(
+      0, Kokkos::PerTeam(sizeof(double) * static_cast<std::size_t>(logical_inner_size)));
+
+  Kokkos::parallel_for(
+      "KokkosBoviTeamLogicalScratch", policy,
+      KOKKOS_LAMBDA(const TeamMember &member) {
+        const int league = member.league_rank();
+        const int b = league / outer_points;
+        const int outer = league % outer_points;
+        const FlatSpan span = MakeFlatSpan(logical_indexer, outer, logical_inner_size);
+        const int nvars = data.active_counts(b);
+
+        for (int v = 0; v < nvars; ++v) {
+          Kokkos::parallel_for(Kokkos::TeamThreadRange(member, 0, span.size),
+                               [&](const int idx) {
+                                 const auto [k, j, i] =
+                                     logical_indexer(span.start + idx);
+                                 data.out(b, v, k, j, i) = body(data, b, v, k, j, i);
+                               });
+        }
+      });
+}
+
 } // namespace
 
 } // namespace plb2

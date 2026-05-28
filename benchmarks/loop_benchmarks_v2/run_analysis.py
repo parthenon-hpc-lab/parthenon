@@ -62,7 +62,7 @@ LOOP_ACCESS_MODES = {
     "cpu_bvoi_logical": ["direct"],
     "kokkos_boiv_flat": ["direct"],
     "kokkos_bovi_team_contiguous": ["direct", "hoisted"],
-    "kokkos_bovi_team_logical": ["direct"],
+    "kokkos_bovi_team_logical": ["direct", "scratch"],
     "loop_abstraction_bovi_memory": ["hoisted"],
     "loop_abstraction_bovi_logical": ["hoisted"],
     "loop_abstraction_boiv_logical": ["hoisted"],
@@ -127,7 +127,11 @@ def loop_marker(loop):
 
 
 def access_alpha(access_mode):
-    return 1.0 if access_mode == "direct" else 0.7
+    if access_mode == "direct":
+        return 1.0
+    if access_mode == "scratch":
+        return 0.6
+    return 0.7
 
 
 def parse_csv_ints(text):
