@@ -37,6 +37,16 @@ enum class inner_tag { logical_flat, logical_coords, memory };
 
 struct Index3 {
   int k, j, i;
+  KOKKOS_INLINE_FUNCTION
+  constexpr Index3() = default;
+
+  KOKKOS_INLINE_FUNCTION
+  constexpr Index3(int k_, int j_, int i_)
+      : k(k_), j(j_), i(i_) {}
+
+  KOKKOS_INLINE_FUNCTION
+  constexpr Index3(const std::tuple<int, int, int> &t)
+      : k(std::get<0>(t)), j(std::get<1>(t)), i(std::get<2>(t)) {}
 };
 
 KOKKOS_INLINE_FUNCTION
@@ -57,6 +67,24 @@ constexpr Index3 operator*(int n, Index3 a) { return {n * a.k, n * a.j, n * a.i}
 
 KOKKOS_INLINE_FUNCTION
 constexpr Index3 operator*(Index3 a, int n) { return n * a; }
+
+template <class Halo>
+inline auto AddHaloToIndexer(const parthenon::Indexer3D &idxer) { 
+  std::array<int, 3> extend_low{0, 0, 0}, extend_up{0, 0, 0};
+  for (int p = 0; p < Halo::npoints; ++p) { 
+    extend_low[0] = std::max(extend_low[0], -Halo::dk(p)); 
+    extend_low[1] = std::max(extend_low[1], -Halo::dj(p)); 
+    extend_low[2] = std::max(extend_low[2], -Halo::di(p)); 
+
+    extend_up[0] = std::max(extend_up[0], Halo::dk(p)); 
+    extend_up[1] = std::max(extend_up[1], Halo::dj(p)); 
+    extend_up[2] = std::max(extend_up[2], Halo::di(p)); 
+  }
+
+  return parthenon::Indexer3D({idxer.template StartIdx<0>() - extend_low[0], idxer.template EndIdx<0>() + extend_up[0]},
+                   {idxer.template StartIdx<1>() - extend_low[1], idxer.template EndIdx<1>() + extend_up[1]},
+                   {idxer.template StartIdx<2>() - extend_low[2], idxer.template EndIdx<2>() + extend_up[2]});
+} 
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 class IndexSpace {
@@ -151,17 +179,26 @@ class IndexSpace {
 };
 
 namespace halo {
+// Halo types enumerate the shifted copies of an inner range that should be
+// visited, including the identity offset {0,0,0}. Offsets must be ordered by
+// increasing flat index in the halo-extended logical indexer.
+//
+// This ordering lets the bovi implementation build the halo range with a
+// single linear merge pass: each candidate span only needs to be compared with
+// the last emitted span. In other words, halo construction stays device-friendly
+// and avoids sorting or dynamic storage before every inner loop.
 struct none_t {
-  static constexpr int npoints = 0;
+  static constexpr int npoints = 1;
   KOKKOS_INLINE_FUNCTION static constexpr int dk(int) { return 0; }
   KOKKOS_INLINE_FUNCTION static constexpr int dj(int) { return 0; }
   KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
 };
 
 struct plus_j_t {
-  static constexpr int npoints = 1;
+  static constexpr int npoints = 2;
+  // Sorted by flat offset: identity, then +j.
   KOKKOS_INLINE_FUNCTION static constexpr int dk(int) { return 0; }
-  KOKKOS_INLINE_FUNCTION static constexpr int dj(int) { return 1; }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) { return n==0 ? 0 : 1; }
   KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
 };
 }
@@ -169,33 +206,115 @@ struct plus_j_t {
 template <class IndexSpaceType, class Halo = halo::none_t>
 class InnerIndexRange {
  public:
+  using halo_t = Halo; 
+  
   const IndexSpaceType *pidx_space = nullptr;
   parthenon::Indexer3D logical_kji;
   int block = 0;
-  std::array<int, Halo::npoints + 1> flat_start{};
-  std::array<int, Halo::npoints + 1> flat_end{};
+  std::array<int, Halo::npoints> flat_start{};
+  std::array<int, Halo::npoints> flat_end{};
   int nregions = 1;
   int ks = 0;
   int js = 0;
   int is = 0;
   const device_team_member_t *team_member = nullptr;
   
+  // Constructor relevant for bvoi 
+  KOKKOS_INLINE_FUNCTION
+  InnerIndexRange(const IndexSpaceType &idx_space,
+                  const parthenon::Indexer3D &logical_kji_in,
+                  int b,
+                  const device_team_member_t *team_member_in = nullptr)
+    : pidx_space(&idx_space),
+      logical_kji(logical_kji_in),
+      block(b),
+      ks(logical_kji.template StartIdx<0>()),
+      js(logical_kji.template StartIdx<1>()),
+      is(logical_kji.template StartIdx<2>()),
+      team_member(team_member_in) {
+  }
+  
+  // Constructor relevant for bovi
+  KOKKOS_INLINE_FUNCTION
+  InnerIndexRange(const IndexSpaceType &idx_space,
+                  const parthenon::Indexer3D &logical_kji_in,
+                  int b, Index3 start, Index3 end,
+                  const device_team_member_t *team_member_in = nullptr)
+    : pidx_space(&idx_space),
+      logical_kji(logical_kji_in),
+      block(b),
+      ks(start.k),
+      js(start.j),
+      is(start.i),
+      team_member(team_member_in) {
+    BuildRegionsFromEndpoints(start, end);
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  InnerIndexRange(const IndexSpaceType &idx_space,
+                  const parthenon::Indexer3D &logical_kji_in,
+                  int b, int flat_start, int flat_end,
+                  const device_team_member_t *team_member_in = nullptr)
+    : pidx_space(&idx_space),
+      logical_kji(logical_kji_in),
+      block(b),
+      team_member(team_member_in) {
+    const auto [ks_, js_, is_] = logical_kji(flat_start);
+    ks = ks_;
+    js = js_;
+    is = is_;
+    BuildRegionsFromEndpoints({ks, js, is}, logical_kji(flat_end));
+  }
+
+
   template <class Halo_in>
   KOKKOS_INLINE_FUNCTION
-  InnerIndexRange AddHalo() const {
-    static_assert(std::is_same_v<Halo, halo::none_t>, "Halo composition is currently unsupported.");
+  InnerIndexRange<IndexSpaceType, Halo_in> AddHalo() const {
+    static_assert(std::is_same_v<Halo, halo::none_t>, "Halo composition is currently not supported.");
 
     // Build the global halo logical space
-    parthenon::Indexer3D halo_kji = AddHaloToIndexer<Halo_in>(pidx_space->GetMemoryIndexer());
+    parthenon::Indexer3D halo_kji = AddHaloToIndexer<Halo_in>(logical_kji);
     
-    auto &orig_idxer = IndexSpaceType::inner_tag_v == inner_tag::memory ? pidx_space->GetMemoryIndexer()
-                                                                        : pidx_space->GetLogicalIndexer(); 
-    const auto [ke, je, ie] = orig_idxer(flat_end[0]);
+    const auto [ke, je, ie] = GetKJIFromFlatIdx(flat_end[0]);
 
-    // Now build the relevant inner ranges and merge them 
-    // 1. First the base range
-    InnerIndexRange<IndexSpaceType, Halo_in> out = FlatRange(*pidx_space, halo_kji, block, ks, js, is, ke, je, ie, team_member);
-    return out;
+    return InnerIndexRange<IndexSpaceType, Halo_in>(*pidx_space, halo_kji, block, {ks, js, is}, {ke, je, ie}, team_member); 
+  }
+
+  KOKKOS_INLINE_FUNCTION void BuildRegionsFromEndpoints(const Index3 start, const Index3 end) {
+    static_assert(Halo::npoints > 0, "Halo types must include the identity offset {0,0,0}.");
+    flat_start[0] = GetFlatIdxFromKJI(start.k + Halo::dk(0), start.j + Halo::dj(0), start.i + Halo::di(0));
+    flat_end[0]   = GetFlatIdxFromKJI(end.k + Halo::dk(0), end.j + Halo::dj(0), end.i + Halo::di(0));
+    nregions = 1;
+    // Create possibly disjoint ranges, this algorithm relies on the start and end points of the ranges 
+    // being sorted by flat start
+    for (int n = 1; n < Halo::npoints; ++n) {
+      const int fstart = GetFlatIdxFromKJI(start.k + Halo::dk(n), start.j + Halo::dj(n), start.i + Halo::di(n));
+      const int fend   = GetFlatIdxFromKJI(end.k + Halo::dk(n), end.j + Halo::dj(n), end.i + Halo::di(n));
+      if (fstart <= flat_end[nregions - 1] + 1) {
+        if (fend > flat_end[nregions - 1])
+          flat_end[nregions - 1] = fend;  
+      } else { 
+        flat_start[nregions] = fstart;
+        flat_end[nregions] = fend;
+        ++nregions;
+      }
+    }
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION auto GetKJIFromFlatIdx(int flat_idx) const { 
+    if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) { 
+      return pidx_space->GetMemoryIndexer()(flat_idx);
+    } else { 
+      return logical_kji(flat_idx);
+    }
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION auto GetFlatIdxFromKJI(int k, int j, int i) const { 
+    if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) { 
+      return pidx_space->GetMemoryIndexer().GetFlatIdx(k, j, i);
+    } else { 
+      return logical_kji.GetFlatIdx(k, j, i);
+    }
   }
 
   KOKKOS_INLINE_FUNCTION std::tuple<int, int, int> GetKJI(int mem_idx) const {
@@ -211,6 +330,7 @@ class InnerIndexRange {
 template <inner_tag INNER_TAG, class Halo>
 class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG>, Halo> {
  public:
+  using halo_t = Halo; 
   const IndexSpace<loop_tag::boiv, INNER_TAG> *pidx_space = nullptr;
   int block = 0;
   int ks = 0;

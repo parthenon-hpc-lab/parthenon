@@ -1,7 +1,6 @@
 #pragma once
 
 #include "loop_abstraction_base.hpp"
-#include "loop_abstraction_range.hpp"
 
 namespace loop_abstraction::impl {
 
@@ -40,8 +39,7 @@ void outer_kokkos(IndexSpaceType idx_space, F &&f) {
           const int logical_end =
               std::min((o + 1) * idx_space.GetNInner() - 1,
                        static_cast<int>(idx_space.GetLogicalIndexer().size()) - 1);
-          const auto idx_range =
-              FlatRange(idx_space, b, logical_start, logical_end, &member);
+          InnerIndexRangeType idx_range(idx_space, idx_space.GetLogicalIndexer(), b, logical_start, logical_end, &member);
           f(idx_range, b);
         });
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
@@ -52,10 +50,7 @@ void outer_kokkos(IndexSpaceType idx_space, F &&f) {
         "loop_abstraction::outer_kokkos_bvoi", policy,
         KOKKOS_LAMBDA(const device_team_member_t &member) {
           const int b = member.league_rank();
-          InnerIndexRangeType idx_range;
-          idx_range.pidx_space = &idx_space;
-          idx_range.block = b;
-          idx_range.team_member = &member;
+          InnerIndexRangeType idx_range(idx_space, idx_space.GetLogicalIndexer(), b, &member);
           f(idx_range, b);
         });
   }
@@ -128,8 +123,7 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
               std::min((o + 1) * idx_space.GetNInner() - 1,
                        static_cast<int>(idx_space.GetLogicalIndexer().size()) - 1);
           if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
-            const auto inner_range =
-                FlatRange(idx_space, idx_range.block, logical_start, logical_end);
+            const InnerIndexRangeType inner_range(idx_space, idx_range.logical_kji, idx_range.block, logical_start, logical_end);
             Kokkos::parallel_for(
                 Kokkos::TeamThreadRange(member, inner_range.flat_start[0],
                                         inner_range.flat_end[0] + 1),
