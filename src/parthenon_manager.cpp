@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2025 The Parthenon collaboration
+// Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
@@ -14,6 +14,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI.
 
 // This file was made in part with generative AI.
 
@@ -137,6 +138,9 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // Modify based on command line inputs
   pinput->ModifyFromCmdline(argc, argv);
+
+  // Finalize parsing phase - parsers can no longer add parameters
+  pinput->FinalizeParsing();
 
   PARTHENON_REQUIRE_THROWS(
       !pinput->DoesParameterExist("parthenon/job", "run_only_analysis") ||

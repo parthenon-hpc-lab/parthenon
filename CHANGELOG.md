@@ -25,6 +25,7 @@
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1339]](https://github.com/parthenon-hpc-lab/parthenon/pull/1339) Fixes doc for `numlevel` usage in non-AMR sims
 - [[PR 1393]](https://github.com/parthenon-hpc-lab/parthenon/pull/1393) Fixes a bug where CMake does not detect HDF5 parallel IO for HDF5 2.0.0 and later.
 - [[PR 1390]](https://github.com/parthenon-hpc-lab/parthenon/pull/1390) Fix bug where trailing comma in list in input deck treated as wildcard in some cases.
 - [[PR 1365]](https://github.com/parthenon-hpc-lab/parthenon/pull/1365) Fix boundary condition being called with coarse=true but no coarse neighbors.
@@ -32,6 +33,7 @@
 - [[PR 1360]](https://github.com/parthenon-hpc-lab/parthenon/pull/1360) Fix boundary cache clearing in different MeshData partitions
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1385]](https://github.com/parthenon-hpc-lab/parthenon/pull/1385) Refactor ParameterInput: Separate parsing from storage to enable multiple input formats
 - [[PR 1383]](https://github.com/parthenon-hpc-lab/parthenon/pull/1382) Document agentic coding guidelines
 - [[PR 1376]](https://github.com/parthenon-hpc-lab/parthenon/pull/1376) Refactor SwarmPacks
 - [[PR 1352]](https://github.com/parthenon-hpc-lab/parthenon/pull/1352) Move to C++20 concepts
@@ -39,10 +41,12 @@
 - [[PR 1361]](https://github.com/parthenon-hpc-lab/parthenon/pull/1361) Bump formatters to clang-format-20 and black 25.12
 
 ### Removed (removing behavior/API/variables/...)
+- [[PR 1399]](https://github.com/parthenon-hpc-lab/parthenon/pull/1399) Remove unused `SwarmContainer::Remove`
 
 
 ### Incompatibilities (i.e. breaking changes)
 - [[PR 1391]](https://github.com/parthenon-hpc-lab/parthenon/pull/1391) Towards Curvilinear Swarms
+- [[PR 1385]](https://github.com/parthenon-hpc-lab/parthenon/pull/1385) ParameterInput internal storage refactor removes direct access to linked list (`pfirst_block`). Use `GetBlocksWithPrefix()` or `GetBlockNames()` instead.
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 - [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy
 - [[PR 1376]](https://github.com/parthenon-hpc-lab/parthenon/pull/1376) Refactor SwarmPacks
