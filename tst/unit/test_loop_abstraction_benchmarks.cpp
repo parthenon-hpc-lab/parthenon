@@ -174,6 +174,22 @@ constexpr std::array<ProblemSpec, 3> CoverageSpecs() {
           ProblemSpec{2, 4, 3, 2, 2}};
 }
 
+struct plus_j_halo_t {
+  static constexpr int npoints = 2;
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) { return n == 0 ? 0 : 1; }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
+};
+
+struct k_triplet_halo_t {
+  static constexpr int npoints = 3;
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) {
+    return n == 0 ? -1 : (n == 1 ? 0 : 1);
+  }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
+};
+
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 parthenon::HostArray5D<Real> RunAutoIndexBody(const ProblemSpec &spec, const int ninner,
                                               const bool use_kokkos) {
@@ -281,19 +297,44 @@ void RunPatternMatrix(const char *body_name, const bool kji_body) {
   }
 }
 
-template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG>
 void RunHaloContractCase(const ProblemSpec &spec, const int ninner) {
   const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
-  INFO("pattern=" << pattern_name << ", ninner=" << ninner << ", halo=+j");
+  INFO("pattern=" << pattern_name << ", ninner=" << ninner << ", halo="
+                 << typeid(HaloType).name());
 
   using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG>;
   IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
   auto out = MakeOutput(idx_space);
   ZeroView(out);
 
+  // Validate the halo span structure for the k-directed case
+  // when the current base chunk is less than ni * nj.
   loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
-    const auto halo_range =
-        loop_abstraction::AddHalo<loop_abstraction::halo::plus_j_t>(idx_range);
+    const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
+
+    if constexpr (std::is_same_v<HaloType, k_triplet_halo_t> &&
+                  LOOP_TAG == loop_tag::bovi) {
+      const auto &logical = idx_space.GetLogicalIndexer();
+      const int ni = logical.template EndIdx<2>() - logical.template StartIdx<2>() + 1;
+      const int nj = logical.template EndIdx<1>() - logical.template StartIdx<1>() + 1;
+      int base_ninner = 0;
+      for (int r = 0; r < idx_range.nregions; ++r) {
+        base_ninner += idx_range.flat_end[r] - idx_range.flat_start[r] + 1;
+      }
+      if (base_ninner < ni * nj) {
+        REQUIRE(halo_range.nregions == HaloType::npoints);
+        int total_flat = 0;
+        for (int r = 0; r < halo_range.nregions; ++r) {
+          REQUIRE(halo_range.flat_start[r] <= halo_range.flat_end[r]);
+          if (r > 0) {
+            REQUIRE(halo_range.flat_start[r] > halo_range.flat_end[r - 1]);
+          }
+          total_flat += halo_range.flat_end[r] - halo_range.flat_start[r] + 1;
+        }
+        REQUIRE(total_flat == HaloType::npoints * base_ninner);
+      }
+    }
 
     for (int v = 0; v < kNVars; ++v) {
       loop_abstraction::inner(halo_range, [&](auto idx) {
@@ -306,8 +347,12 @@ void RunHaloContractCase(const ProblemSpec &spec, const int ninner) {
       loop_abstraction::inner(idx_range, [&](auto idx) {
         const auto [k, j, i] = idx_range.GetKJI(idx);
         INFO("b=" << b << ", v=" << v << ", k=" << k << ", j=" << j << ", i=" << i);
-        REQUIRE(out(b, v, k, j, i) == Approx(EncodeValue(b, v, k, j, i)));
-        REQUIRE(out(b, v, k, j + 1, i) == Approx(EncodeValue(b, v, k, j + 1, i)));
+        for (int n = 0; n < HaloType::npoints; ++n) {
+          const int kk = k + HaloType::dk(n);
+          const int jj = j + HaloType::dj(n);
+          const int ii = i + HaloType::di(n);
+          REQUIRE(out(b, v, kk, jj, ii) == Approx(EncodeValue(b, v, kk, jj, ii)));
+        }
       });
     }
 
@@ -344,8 +389,16 @@ void RunHaloPatternMatrix() {
   for (const auto &spec : CoverageSpecs()) {
     const auto cases = NinnerCases(spec.nx * spec.ny * spec.nz);
     for (const int ninner : cases) {
-      RunHaloContractCase<LOOP_TAG, INNER_TAG>(spec, ninner);
+      RunHaloContractCase<plus_j_halo_t, LOOP_TAG, INNER_TAG>(spec, ninner);
     }
+  }
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunKTripletHaloPatternMatrix() {
+  constexpr ProblemSpec spec{2, 3, 2, 2, 1};
+  for (const int ninner : {1, 5}) {
+    RunHaloContractCase<k_triplet_halo_t, LOOP_TAG, INNER_TAG>(spec, ninner);
   }
 }
 
@@ -383,5 +436,14 @@ TEST_CASE("loop abstraction halo producer-consumer contracts",
   RunHaloPatternMatrix<loop_tag::bovi, inner_tag::logical_coords>();
   RunHaloPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
   RunHaloPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
-  // The raw memory inner paths still need a dedicated halo-span fix.
+}
+
+TEST_CASE("loop abstraction k halo disjoint span contracts",
+          "[loop_abstraction][contract][halo]") {
+  RunKTripletHaloPatternMatrix<loop_tag::bvoi, inner_tag::logical_flat>();
+  RunKTripletHaloPatternMatrix<loop_tag::bvoi, inner_tag::logical_coords>();
+  RunKTripletHaloPatternMatrix<loop_tag::bovi, inner_tag::logical_flat>();
+  RunKTripletHaloPatternMatrix<loop_tag::bovi, inner_tag::logical_coords>();
+  RunKTripletHaloPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
+  RunKTripletHaloPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
 }
