@@ -14,6 +14,7 @@ KOKKOS_INLINE_FUNCTION void outer_raw_for(IndexSpaceType idx_space, F &&f) {
       InnerIndexRangeType idx_range;
       idx_range.pidx_space = &idx_space;
       idx_range.block = b;
+      idx_range.logical_kji = idx_space.GetLogicalIndexer();
       idx_range.ks = logical_kji.template StartIdx<0>();
       idx_range.js = logical_kji.template StartIdx<1>();
       idx_range.is = logical_kji.template StartIdx<2>();
@@ -64,18 +65,18 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
   using IndexSpaceType =
       std::remove_cv_t<std::remove_reference_t<decltype(*idx_range.pidx_space)>>;
   const auto &idx_space = *(idx_range.pidx_space);
+  const auto &memory_kji = idx_space.GetMemoryIndexer(); 
   if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
+    const auto &logical_kji = idx_range.logical_kji; 
     if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_flat ||
                   IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
-      const auto &logical_kji = idx_space.GetLogicalIndexer();
       const int ks = logical_kji.template StartIdx<0>();
       const int ke = logical_kji.template EndIdx<0>();
       const int js = logical_kji.template StartIdx<1>();
       const int je = logical_kji.template EndIdx<1>();
       const int is = logical_kji.template StartIdx<2>();
       const int ie = logical_kji.template EndIdx<2>();
-      const int mem_start = idx_space.GetMemoryIndexer().GetFlatIdx(
-          idx_range.ks, idx_range.js, idx_range.is);
+      const int mem_start = memory_kji.GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
       for (int k = ks; k <= ke; ++k) {
         for (int j = js; j <= je; ++j) {
 #pragma omp simd
@@ -83,7 +84,7 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
             if constexpr (std::is_invocable_v<F, int, int, int>) {
               f(k, j, i);
             } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
-              f(idx_space.GetMemoryIndexer().GetFlatIdx(k, j, i) - mem_start);
+              f(memory_kji.GetFlatIdx(k, j, i) - mem_start);
             } else {
               f(Index3{k, j, i});
             }
@@ -92,8 +93,7 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
       }
     } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
       const int nouter = GetNOuter(idx_space);
-      const int mem_start = idx_space.GetMemoryIndexer().GetFlatIdx(
-          idx_range.ks, idx_range.js, idx_range.is);
+      const int mem_start = memory_kji.GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
       for (int o = 0; o < nouter; ++o) {
         const int logical_start = o * idx_space.GetNInner();
         const int logical_end =
@@ -102,9 +102,9 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
         const auto inner_range =
             FlatRange(idx_space, idx_range.block, logical_start, logical_end);
 #pragma omp simd
-        for (int idx = inner_range.flat_start; idx <= inner_range.flat_end; ++idx) {
+        for (int idx = inner_range.flat_start[0]; idx <= inner_range.flat_end[0]; ++idx) {
           if constexpr (std::is_invocable_v<F, int, int, int>) {
-            const auto [k, j, i] = idx_space.GetMemoryIndexer()(idx);
+            const auto [k, j, i] = memory_kji(idx);
             f(k, j, i);
           } else {
             f(idx - mem_start);
@@ -113,28 +113,30 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
       }
     }
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bovi) {
-    const int start = idx_range.flat_start;
-    const int end_exclusive = idx_range.flat_end + 1 - start;
-    const int mem_start =
-        idx_space.GetMemoryIndexer().GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
+    const auto &logical_kji = idx_range.logical_kji; 
+    for (int r = 0; r < idx_range.nregions; ++ r) {
+      const int start = idx_range.flat_start[r];
+      const int end_exclusive = idx_range.flat_end[r] + 1 - start;
+      const int mem_start = memory_kji.GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
 #pragma omp simd
-    for (int idx = 0; idx < end_exclusive; ++idx) {
-      if constexpr (std::is_invocable_v<F, int, int, int>) {
-        if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
-          const auto [k, j, i] = idx_space.GetMemoryIndexer()(idx + start);
-          f(k, j, i);
+      for (int idx = 0; idx < end_exclusive; ++idx) {
+        if constexpr (std::is_invocable_v<F, int, int, int>) {
+          if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
+            const auto [k, j, i] = memory_kji(idx + start);
+            f(k, j, i);
+          } else {
+            const auto [k, j, i] = logical_kji(idx + start);
+            f(k, j, i);
+          }
+        } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
+          f(idx);
+        } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
+          const auto [k, j, i] = logical_kji(idx + start);
+          f(memory_kji.GetFlatIdx(k, j, i) - mem_start);
         } else {
-          const auto [k, j, i] = idx_space.GetLogicalIndexer()(idx + start);
-          f(k, j, i);
+          const auto [k, j, i] = logical_kji(idx + start);
+          f(Index3{k, j, i});
         }
-      } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
-        f(idx);
-      } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
-        const auto [k, j, i] = idx_space.GetLogicalIndexer()(idx + start);
-        f(idx_space.GetMemoryIndexer().GetFlatIdx(k, j, i) - mem_start);
-      } else {
-        const auto [k, j, i] = idx_space.GetLogicalIndexer()(idx + start);
-        f(Index3{k, j, i});
       }
     }
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::boiv) {

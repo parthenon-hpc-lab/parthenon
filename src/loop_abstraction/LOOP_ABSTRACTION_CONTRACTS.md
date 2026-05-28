@@ -468,3 +468,4 @@ S ∪ shift(S, h1) ∪ shift(S, h2) ∪ ...
 The implementation should first extend the logical domain, then flatten the base and shifted sets in that extended domain, then merge the resulting spans.
 
 This keeps the API simple while giving the backend enough information to choose either compact per-cell scratch or reusable team scratch.
+

@@ -48,9 +48,6 @@ void outer_kokkos(IndexSpaceType idx_space, F &&f) {
     const Kokkos::TeamPolicy<parthenon::DevExecSpace> policy(idx_space.GetNBlocks(),
                                                              Kokkos::AUTO);
     const auto &logical_kji = idx_space.GetLogicalIndexer();
-    const int ks = logical_kji.template StartIdx<0>();
-    const int js = logical_kji.template StartIdx<1>();
-    const int is = logical_kji.template StartIdx<2>();
     Kokkos::parallel_for(
         "loop_abstraction::outer_kokkos_bvoi", policy,
         KOKKOS_LAMBDA(const device_team_member_t &member) {
@@ -58,9 +55,6 @@ void outer_kokkos(IndexSpaceType idx_space, F &&f) {
           InnerIndexRangeType idx_range;
           idx_range.pidx_space = &idx_space;
           idx_range.block = b;
-          idx_range.ks = ks;
-          idx_range.js = js;
-          idx_range.is = is;
           idx_range.team_member = &member;
           f(idx_range, b);
         });
@@ -91,8 +85,8 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
     const auto *team_member = idx_range.team_member;
     KOKKOS_ASSERT(team_member != nullptr);
     const auto &member = *team_member;
-    const int start = idx_range.flat_start;
-    const int end_exclusive = idx_range.flat_end + 1 - start;
+    const int start = idx_range.flat_start[0];
+    const int end_exclusive = idx_range.flat_end[0] + 1 - start;
     const int mem_start =
         idx_space.GetMemoryIndexer().GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
     Kokkos::parallel_for(
@@ -116,13 +110,17 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
           }
         });
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
+    const auto &logical_kji = idx_range.logical_kji; 
+    const int ks = logical_kji.template StartIdx<0>();
+    const int js = logical_kji.template StartIdx<1>();
+    const int is = logical_kji.template StartIdx<2>();
+
     const auto &idx_space = *(idx_range.pidx_space);
     const auto *team_member = idx_range.team_member;
     KOKKOS_ASSERT(team_member != nullptr);
     const auto &member = *team_member;
     const int nouter = GetNOuter(idx_space);
-    const int mem_start =
-        idx_space.GetMemoryIndexer().GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
+    const int mem_start = idx_space.GetMemoryIndexer().GetFlatIdx(ks, js, is);
     Kokkos::parallel_for(
         Kokkos::TeamThreadRange(member, 0, nouter), KOKKOS_LAMBDA(const int o) {
           const int logical_start = o * idx_space.GetNInner();
@@ -133,8 +131,8 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
             const auto inner_range =
                 FlatRange(idx_space, idx_range.block, logical_start, logical_end);
             Kokkos::parallel_for(
-                Kokkos::TeamThreadRange(member, inner_range.flat_start,
-                                        inner_range.flat_end + 1),
+                Kokkos::TeamThreadRange(member, inner_range.flat_start[0],
+                                        inner_range.flat_end[0] + 1),
                 KOKKOS_LAMBDA(const int idx) {
                   if constexpr (std::is_invocable_v<F, int, int, int>) {
                     const auto [k, j, i] = idx_space.GetMemoryIndexer()(idx);
