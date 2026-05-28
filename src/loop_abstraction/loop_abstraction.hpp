@@ -26,4 +26,9 @@ KOKKOS_FORCEINLINE_FUNCTION void inner(const InnerIndexRangeType &idx_range, F &
   }
 }
 
+template <class Halo, class InnerIndexRangeType>
+KOKKOS_INLINE_FUNCTION auto AddHalo(const InnerIndexRangeType &idx_range) {
+  return idx_range.template AddHalo<Halo>();
+}
+
 } // namespace loop_abstraction

@@ -337,6 +337,20 @@ class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG>, Halo> {
   int js = 0;
   int is = 0;
 
+  template <class Halo_in>
+  KOKKOS_INLINE_FUNCTION InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG>, Halo_in>
+  AddHalo() const {
+    static_assert(std::is_same_v<Halo, halo::none_t>,
+                  "Halo composition is currently not supported.");
+    InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG>, Halo_in> out;
+    out.pidx_space = pidx_space;
+    out.block = block;
+    out.ks = ks;
+    out.js = js;
+    out.is = is;
+    return out;
+  }
+
   KOKKOS_INLINE_FUNCTION std::tuple<int, int, int> GetKJI(int idx) const {
     const int shift = pidx_space->GetMemoryIndexer().GetFlatIdx(ks, js, is);
     return pidx_space->GetMemoryIndexer()(idx + shift);

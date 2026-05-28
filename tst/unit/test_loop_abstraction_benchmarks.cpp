@@ -281,6 +281,74 @@ void RunPatternMatrix(const char *body_name, const bool kji_body) {
   }
 }
 
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunHaloContractCase(const ProblemSpec &spec, const int ninner) {
+  const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
+  INFO("pattern=" << pattern_name << ", ninner=" << ninner << ", halo=+j");
+
+  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG>;
+  IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
+  auto out = MakeOutput(idx_space);
+  ZeroView(out);
+
+  loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
+    const auto halo_range =
+        loop_abstraction::AddHalo<loop_abstraction::halo::plus_j_t>(idx_range);
+
+    for (int v = 0; v < kNVars; ++v) {
+      loop_abstraction::inner(halo_range, [&](auto idx) {
+        const auto [k, j, i] = halo_range.GetKJI(idx);
+        out(b, v, k, j, i) = EncodeValue(b, v, k, j, i);
+      });
+    }
+
+    for (int v = 0; v < kNVars; ++v) {
+      loop_abstraction::inner(idx_range, [&](auto idx) {
+        const auto [k, j, i] = idx_range.GetKJI(idx);
+        INFO("b=" << b << ", v=" << v << ", k=" << k << ", j=" << j << ", i=" << i);
+        REQUIRE(out(b, v, k, j, i) == Approx(EncodeValue(b, v, k, j, i)));
+        REQUIRE(out(b, v, k, j + 1, i) == Approx(EncodeValue(b, v, k, j + 1, i)));
+      });
+    }
+
+    for (int v = 0; v < kNVars; ++v) {
+      loop_abstraction::inner(halo_range, [&](auto idx) {
+        const auto [k, j, i] = halo_range.GetKJI(idx);
+        out(b, v, k, j, i) = 0.0;
+      });
+    }
+  });
+
+  Kokkos::fence();
+
+  const auto host = MirrorToHost(out);
+  for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
+    for (int v = 0; v < kNVars; ++v) {
+      const auto &memory = idx_space.GetMemoryIndexer();
+      for (int k = memory.template StartIdx<0>(); k <= memory.template EndIdx<0>();
+           ++k) {
+        for (int j = memory.template StartIdx<1>(); j <= memory.template EndIdx<1>();
+             ++j) {
+          for (int i = memory.template StartIdx<2>(); i <= memory.template EndIdx<2>();
+               ++i) {
+            REQUIRE(host(b, v, k, j, i) == Approx(0.0));
+          }
+        }
+      }
+    }
+  }
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunHaloPatternMatrix() {
+  for (const auto &spec : CoverageSpecs()) {
+    const auto cases = NinnerCases(spec.nx * spec.ny * spec.nz);
+    for (const int ninner : cases) {
+      RunHaloContractCase<LOOP_TAG, INNER_TAG>(spec, ninner);
+    }
+  }
+}
+
 } // namespace
 
 TEST_CASE("loop abstraction logical contracts with auto index bodies",
@@ -305,4 +373,15 @@ TEST_CASE("loop abstraction logical contracts with kji bodies",
   RunPatternMatrix<loop_tag::bovi, inner_tag::memory>("kji", true);
   RunPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>("kji", true);
   RunPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>("kji", true);
+}
+
+TEST_CASE("loop abstraction halo producer-consumer contracts",
+          "[loop_abstraction][contract][halo]") {
+  RunHaloPatternMatrix<loop_tag::bvoi, inner_tag::logical_flat>();
+  RunHaloPatternMatrix<loop_tag::bvoi, inner_tag::logical_coords>();
+  RunHaloPatternMatrix<loop_tag::bovi, inner_tag::logical_flat>();
+  RunHaloPatternMatrix<loop_tag::bovi, inner_tag::logical_coords>();
+  RunHaloPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
+  RunHaloPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
+  // The raw memory inner paths still need a dedicated halo-span fix.
 }
