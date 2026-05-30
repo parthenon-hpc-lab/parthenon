@@ -50,7 +50,8 @@ namespace fs = FS_NAMESPACE;
 
 namespace parthenon {
 
-ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
+ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[],
+                                                   RummyDeckType deck_type) {
   if (called_init_env_) {
     PARTHENON_THROW("ParthenonInitEnv called twice!");
   }
@@ -143,7 +144,8 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     pinput = std::make_unique<ParameterInput>();
   }
   if (is_rummy) {
-    LoadParameterFromRummy(*pinput, arg.input_filenames, arg.modifiers, arg.is_restart);
+    LoadParameterFromRummy(*pinput, arg.input_filenames, arg.modifiers, arg.is_restart,
+                           deck_type);
   } else {
     for (const auto &input_filename : arg.input_filenames) {
       pinput->ReadFile(input_filename);

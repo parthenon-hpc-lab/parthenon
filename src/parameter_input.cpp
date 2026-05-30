@@ -918,6 +918,32 @@ ParameterInput::GetBlockNamesWithPrefix(const std::string &prefix) const {
 }
 
 //----------------------------------------------------------------------------------------
+//! \fn std::vector<std::string> ParameterInput::GetBlocksOfClass()
+//  \brief Return all block names whose rummy class metadata equals `class_name`.
+
+std::vector<std::string>
+ParameterInput::GetBlocksOfClass(const std::string &class_name) const {
+  std::vector<std::string> matching_blocks;
+  for (const auto &block : param_storage_) {
+    if (block.class_name == class_name) matching_blocks.push_back(block.name);
+  }
+  return matching_blocks;
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn void ParameterInput::SetBlockClassMetadata()
+//  \brief Record the rummy class/instance metadata for an existing block.
+
+void ParameterInput::SetBlockClassMetadata(const std::string &block,
+                                           const std::string &class_name,
+                                           const std::string &instance_name) {
+  auto it = block_index_.find(block);
+  if (it == block_index_.end()) return;
+  param_storage_[it->second].class_name = class_name;
+  param_storage_[it->second].instance_name = instance_name;
+}
+
+//----------------------------------------------------------------------------------------
 //! \fn std::vector<std::string> ParameterInput::GetParameterNames()
 //  \brief Return all parameter names in the given block
 

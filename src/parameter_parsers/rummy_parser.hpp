@@ -21,16 +21,26 @@
 
 #include "parameter_input.hpp"
 
-// Foward declare Rummy::Deck to avoid including the full header in this file
+// Forward declare Rummy deck classes to avoid including full headers here.
 namespace Rummy {
-class Deck;
-}
+class DeckBase;
+class SimpleDeck;
+class FullDeck;
+} // namespace Rummy
 namespace parthenon {
+
+// Selects the rummy deck flavor used to parse input files at runtime. Simple
+// is the legacy flat key=value parser; Full enables the pips-backed parser
+// (control flow, user classes, <Class(name)> instantiation headers, etc.).
+enum class RummyDeckType { Simple, Full };
+
 void LoadParameterFromRummy(ParameterInput &input, const std::vector<std::string> &files,
-                            const std::vector<std::string> &mods, const bool is_restart);
-void LoadParameterFromRummy(ParameterInput &pin, std::istream &ss, const bool sync);
-void AddRummyParameters(ParameterInput &pin, Rummy::Deck &deck);
-void SyncDeckFromStorage(ParameterInput &pin, Rummy::Deck &deck);
+                            const std::vector<std::string> &mods, const bool is_restart,
+                            RummyDeckType deck_type = RummyDeckType::Simple);
+void LoadParameterFromRummy(ParameterInput &pin, std::istream &ss, const bool sync,
+                            RummyDeckType deck_type = RummyDeckType::Simple);
+void AddRummyParameters(ParameterInput &pin, Rummy::DeckBase &deck);
+void SyncDeckFromStorage(ParameterInput &pin, Rummy::DeckBase &deck);
 bool IsRummyFormat(const std::string &filename);
 bool IsRummyFormat(std::istream &is, const bool command_line);
 } // namespace parthenon

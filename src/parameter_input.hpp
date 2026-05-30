@@ -194,6 +194,12 @@ struct Parameter {
 
 struct Block {
   std::string name;
+  // Optional metadata describing the rummy class backing this block. Only
+  // populated by the FullDeck parser (e.g. a `<parthenon/output(output1)>`
+  // header records class_name="output", instance_name="output1"). Empty
+  // for the SimpleDeck parser and the legacy text parser.
+  std::string class_name;
+  std::string instance_name;
   std::vector<Parameter> params; // Ordered storage (for iteration)
   std::unordered_map<std::string, size_t>
       param_index; // Fast lookup within block (stores indices)
@@ -238,7 +244,17 @@ class ParameterInput {
   // === QUERY INTERFACE (parser-agnostic) ===
   std::vector<std::string> GetBlockNames() const;
   std::vector<std::string> GetBlockNamesWithPrefix(const std::string &prefix) const;
+  // Return the names of all blocks whose rummy class metadata matches
+  // `class_name`. Only meaningful for inputs parsed by the FullDeck parser;
+  // returns an empty vector for SimpleDeck/legacy inputs.
+  std::vector<std::string> GetBlocksOfClass(const std::string &class_name) const;
   std::vector<std::string> GetParameterNames(const std::string &block) const;
+
+  // Set the rummy class/instance metadata for a parsed block. Used by the
+  // rummy parser when populating from a FullDeck; ignored for callers that
+  // do not need class introspection.
+  void SetBlockClassMetadata(const std::string &block, const std::string &class_name,
+                             const std::string &instance_name);
 
   void ParameterDump(std::ostream &os);
   // TODO(JMM): Make this more general?

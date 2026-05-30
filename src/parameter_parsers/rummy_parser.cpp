@@ -21,7 +21,8 @@
 #include <utility>
 #include <vector>
 
-#include <rummy/deck.hpp>
+#include <rummy/full_deck.hpp>
+#include <rummy/simple_deck.hpp>
 
 #include "parameter_input.hpp"
 #include "rummy_parser.hpp"
@@ -72,18 +73,34 @@ Rummy::Card ParamValueToRummyCard(const std::string &suit, const std::string &na
   return Rummy::Card(suit, name, trimmed, "");
 }
 
-void LoadParameterFromRummy(ParameterInput &pin, std::istream &ss, const bool sync) {
-  Rummy::Deck deck;
-  if (sync) {
-    SyncDeckFromStorage(pin, deck);
+namespace {
+// Construct a deck of the requested flavor. Returned via unique_ptr to the
+// shared DeckBase API so the rest of the parser stays flavor-agnostic.
+std::unique_ptr<Rummy::DeckBase> MakeDeck(RummyDeckType deck_type) {
+  switch (deck_type) {
+  case RummyDeckType::Full:
+    return std::make_unique<Rummy::FullDeck>();
+  case RummyDeckType::Simple:
+  default:
+    return std::make_unique<Rummy::SimpleDeck>();
   }
-  deck.Build(ss);
-  AddRummyParameters(pin, deck);
+}
+} // namespace
+
+void LoadParameterFromRummy(ParameterInput &pin, std::istream &ss, const bool sync,
+                            RummyDeckType deck_type) {
+  auto deck = MakeDeck(deck_type);
+  if (sync) {
+    SyncDeckFromStorage(pin, *deck);
+  }
+  deck->Build(ss);
+  AddRummyParameters(pin, *deck);
 }
 
 void LoadParameterFromRummy(ParameterInput &pin, const std::vector<std::string> &files,
-                            const std::vector<std::string> &mods, const bool is_restart) {
-  Rummy::Deck deck;
+                            const std::vector<std::string> &mods, const bool is_restart,
+                            RummyDeckType deck_type) {
+  auto deck = MakeDeck(deck_type);
 
   const bool no_inputs = files.empty() && mods.empty();
   if (no_inputs) {
@@ -92,7 +109,7 @@ void LoadParameterFromRummy(ParameterInput &pin, const std::vector<std::string> 
 
   if (is_restart) {
     // If this is a restart, we need to sync the deck with the existing parameters
-    SyncDeckFromStorage(pin, deck);
+    SyncDeckFromStorage(pin, *deck);
   }
 
   // concatenate all input files and mods into a single stream for parsing
@@ -111,13 +128,17 @@ void LoadParameterFromRummy(ParameterInput &pin, const std::vector<std::string> 
     contents << mod << " # From command line\n";
   }
 
-  deck.Build(contents);
+  deck->Build(contents);
 
-  AddRummyParameters(pin, deck);
+  AddRummyParameters(pin, *deck);
 }
 
-void AddRummyParameters(ParameterInput &pin, Rummy::Deck &deck) {
+void AddRummyParameters(ParameterInput &pin, Rummy::DeckBase &deck) {
   static const std::regex kVectorCardPattern(R"(^(.+)\[(\d+)\]$)");
+
+  // If the deck is a FullDeck, capture per-suit class metadata so callers can
+  // query blocks by their pips class via ParameterInput::GetBlocksOfClass.
+  auto *full_deck = dynamic_cast<Rummy::FullDeck *>(&deck);
 
   for (const auto &suit_name : deck.GetSuitsInOrder()) {
     const std::string &block_name = suit_name;
@@ -151,6 +172,18 @@ void AddRummyParameters(ParameterInput &pin, Rummy::Deck &deck) {
         if (!card.GetComment().empty()) comment = "# " + card.GetComment();
         pin.AddParsedParameter(block_name, card_name, RummyCardToParamValue(card),
                                comment);
+      }
+    }
+    if (full_deck != nullptr) {
+      const std::string class_name = full_deck->GetClassName(suit_name);
+      if (!class_name.empty()) {
+        // Instance name is the last '/'-separated segment of the suit path.
+        std::string instance_name = suit_name;
+        const auto last_slash = suit_name.find_last_of('/');
+        if (last_slash != std::string::npos) {
+          instance_name = suit_name.substr(last_slash + 1);
+        }
+        pin.SetBlockClassMetadata(block_name, class_name, instance_name);
       }
     }
   }
@@ -253,7 +286,7 @@ bool IsRummyFormat(const std::string &filename) {
 //----------------------------------------------------------------------------------------
 //! \fn void ParameterInput::SyncDeckFromStorage()
 //  \brief Seed the Rummy Deck from the current param_storage_ contents.
-void SyncDeckFromStorage(ParameterInput &pin, Rummy::Deck &deck) {
+void SyncDeckFromStorage(ParameterInput &pin, Rummy::DeckBase &deck) {
   std::map<std::string, std::map<std::string, Rummy::Card>> new_cards;
   std::vector<std::string> new_suits;
   std::map<std::string, std::vector<std::string>> new_card_map;

@@ -30,6 +30,7 @@
 #include "mesh/mesh.hpp"
 #include "outputs/restart.hpp"
 #include "parameter_input.hpp"
+#include "parameter_parsers/rummy_parser.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
 
@@ -40,7 +41,8 @@ enum class ParthenonStatus { ok, complete, error };
 class ParthenonManager {
  public:
   ParthenonManager() { app_input.reset(new ApplicationInput()); }
-  ParthenonStatus ParthenonInitEnv(int argc, char *argv[]);
+  ParthenonStatus ParthenonInitEnv(int argc, char *argv[],
+                                   RummyDeckType deck_type = RummyDeckType::Simple);
   void
   ParthenonInitPackagesAndMesh(std::optional<forest::ForestDefinition> forest_def = {});
   ParthenonStatus ParthenonFinalize();
