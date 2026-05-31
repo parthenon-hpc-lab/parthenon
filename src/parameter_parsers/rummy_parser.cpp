@@ -13,6 +13,8 @@
 // This file was made in part with generative AI.
 
 #include <algorithm>
+#include <fstream>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <memory>
@@ -74,22 +76,45 @@ Rummy::Card ParamValueToRummyCard(const std::string &suit, const std::string &na
 }
 
 namespace {
-// Construct a deck of the requested flavor. Returned via unique_ptr to the
-// shared DeckBase API so the rest of the parser stays flavor-agnostic.
-std::unique_ptr<Rummy::DeckBase> MakeDeck(RummyDeckType deck_type) {
+
+std::unique_ptr<Rummy::DeckBase> MakeDeck(InputDeckType /*deck_type*/,
+                                          std::istream &schema_stream) {
+  std::string schema_text((std::istreambuf_iterator<char>(schema_stream)),
+                          std::istreambuf_iterator<char>());
+  auto schema = Rummy::Schema::FromString(schema_text);
+  return std::make_unique<Rummy::FullDeck>(Rummy::FullDeck::Mode::Strict,
+                                           std::move(schema));
+}
+
+// Construct a deck of the requested type
+std::unique_ptr<Rummy::DeckBase> MakeDeck(InputDeckType deck_type,
+                                          const std::string &schema_path = "") {
   switch (deck_type) {
-  case RummyDeckType::Full:
-    return std::make_unique<Rummy::FullDeck>();
-  case RummyDeckType::Simple:
+  case InputDeckType::RummyFullLoose:
+    return std::make_unique<Rummy::FullDeck>(Rummy::FullDeck::Mode::Loose);
+  case InputDeckType::RummyFullStrict: {
+    if (schema_path.empty()) {
+      PARTHENON_FAIL("InputDeckType::RummyFullStrict requires a non-empty schema_path");
+    }
+    std::ifstream f(schema_path);
+    if (!f.is_open()) {
+      std::stringstream msg;
+      msg << "Could not open schema file '" << schema_path << "'";
+      PARTHENON_FAIL(msg);
+    }
+    return MakeDeck(deck_type, static_cast<std::istream &>(f));
+  }
+  case InputDeckType::RummySimple:
   default:
     return std::make_unique<Rummy::SimpleDeck>();
   }
 }
+
 } // namespace
 
 void LoadParameterFromRummy(ParameterInput &pin, std::istream &ss, const bool sync,
-                            RummyDeckType deck_type) {
-  auto deck = MakeDeck(deck_type);
+                            InputDeckType deck_type, const std::string &schema_path) {
+  auto deck = MakeDeck(deck_type, schema_path);
   if (sync) {
     SyncDeckFromStorage(pin, *deck);
   }
@@ -99,8 +124,8 @@ void LoadParameterFromRummy(ParameterInput &pin, std::istream &ss, const bool sy
 
 void LoadParameterFromRummy(ParameterInput &pin, const std::vector<std::string> &files,
                             const std::vector<std::string> &mods, const bool is_restart,
-                            RummyDeckType deck_type) {
-  auto deck = MakeDeck(deck_type);
+                            InputDeckType deck_type, const std::string &schema_path) {
+  auto deck = MakeDeck(deck_type, schema_path);
 
   const bool no_inputs = files.empty() && mods.empty();
   if (no_inputs) {
@@ -130,6 +155,49 @@ void LoadParameterFromRummy(ParameterInput &pin, const std::vector<std::string> 
 
   deck->Build(contents);
 
+  AddRummyParameters(pin, *deck);
+}
+
+void LoadParameterFromRummy(ParameterInput &pin, std::istream &ss, const bool sync,
+                            InputDeckType deck_type, std::istream &schema_stream) {
+  auto deck = MakeDeck(deck_type, schema_stream);
+  if (sync) {
+    SyncDeckFromStorage(pin, *deck);
+  }
+  deck->Build(ss);
+  AddRummyParameters(pin, *deck);
+}
+
+void LoadParameterFromRummy(ParameterInput &pin, const std::vector<std::string> &files,
+                            const std::vector<std::string> &mods, const bool is_restart,
+                            InputDeckType deck_type, std::istream &schema_stream) {
+  auto deck = MakeDeck(deck_type, schema_stream);
+
+  const bool no_inputs = files.empty() && mods.empty();
+  if (no_inputs) {
+    return;
+  }
+
+  if (is_restart) {
+    SyncDeckFromStorage(pin, *deck);
+  }
+
+  std::stringstream contents;
+  for (const auto &file : files) {
+    std::ifstream input_file(file);
+    if (input_file.is_open()) {
+      contents << input_file.rdbuf() << "\n";
+    } else {
+      std::stringstream msg;
+      msg << "Could not open file '" << file << "'";
+      PARTHENON_FAIL(msg);
+    }
+  }
+  for (const auto &mod : mods) {
+    contents << mod << " # From command line\n";
+  }
+
+  deck->Build(contents);
   AddRummyParameters(pin, *deck);
 }
 

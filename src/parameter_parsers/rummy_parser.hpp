@@ -15,6 +15,7 @@
 #ifndef PARAMETER_PARSERS_RUMMY_PARSER_HPP_
 #define PARAMETER_PARSERS_RUMMY_PARSER_HPP_
 
+#include <istream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -28,17 +29,26 @@ class SimpleDeck;
 class FullDeck;
 } // namespace Rummy
 namespace parthenon {
-
-// Selects the rummy deck flavor used to parse input files at runtime. Simple
-// is the legacy flat key=value parser; Full enables the pips-backed parser
-// (control flow, user classes, <Class(name)> instantiation headers, etc.).
-enum class RummyDeckType { Simple, Full };
+enum class InputDeckType {
+  Native = 0,
+  RummySimple = 1,
+  RummyFullLoose = 2,
+  RummyFullStrict = 3,
+  RummyFullSchema = 4,
+};
 
 void LoadParameterFromRummy(ParameterInput &input, const std::vector<std::string> &files,
                             const std::vector<std::string> &mods, const bool is_restart,
-                            RummyDeckType deck_type = RummyDeckType::Simple);
+                            InputDeckType deck_type = InputDeckType::RummySimple,
+                            const std::string &schema_path = "");
+void LoadParameterFromRummy(ParameterInput &input, const std::vector<std::string> &files,
+                            const std::vector<std::string> &mods, const bool is_restart,
+                            InputDeckType deck_type, std::istream &schema_stream);
 void LoadParameterFromRummy(ParameterInput &pin, std::istream &ss, const bool sync,
-                            RummyDeckType deck_type = RummyDeckType::Simple);
+                            InputDeckType deck_type = InputDeckType::RummySimple,
+                            const std::string &schema_path = "");
+void LoadParameterFromRummy(ParameterInput &pin, std::istream &ss, const bool sync,
+                            InputDeckType deck_type, std::istream &schema_stream);
 void AddRummyParameters(ParameterInput &pin, Rummy::DeckBase &deck);
 void SyncDeckFromStorage(ParameterInput &pin, Rummy::DeckBase &deck);
 bool IsRummyFormat(const std::string &filename);

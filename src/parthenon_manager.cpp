@@ -51,7 +51,21 @@ namespace fs = FS_NAMESPACE;
 namespace parthenon {
 
 ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[],
-                                                   RummyDeckType deck_type) {
+                                                   InputDeckType deck_type,
+                                                   const std::string &schema_path) {
+  return ParthenonInitEnvCore_(argc, argv, deck_type, schema_path, nullptr);
+}
+
+ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[],
+                                                   InputDeckType deck_type,
+                                                   std::istream &schema_stream) {
+  return ParthenonInitEnvCore_(argc, argv, deck_type, "", &schema_stream);
+}
+
+ParthenonStatus ParthenonManager::ParthenonInitEnvCore_(int argc, char *argv[],
+                                                        InputDeckType deck_type,
+                                                        const std::string &schema_path,
+                                                        std::istream *schema_stream) {
   if (called_init_env_) {
     PARTHENON_THROW("ParthenonInitEnv called twice!");
   }
@@ -144,8 +158,13 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[],
     pinput = std::make_unique<ParameterInput>();
   }
   if (is_rummy) {
-    LoadParameterFromRummy(*pinput, arg.input_filenames, arg.modifiers, arg.is_restart,
-                           deck_type);
+    if (schema_stream != nullptr) {
+      LoadParameterFromRummy(*pinput, arg.input_filenames, arg.modifiers, arg.is_restart,
+                             deck_type, *schema_stream);
+    } else {
+      LoadParameterFromRummy(*pinput, arg.input_filenames, arg.modifiers, arg.is_restart,
+                             deck_type, schema_path);
+    }
   } else {
     for (const auto &input_filename : arg.input_filenames) {
       pinput->ReadFile(input_filename);

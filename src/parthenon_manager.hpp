@@ -42,7 +42,10 @@ class ParthenonManager {
  public:
   ParthenonManager() { app_input.reset(new ApplicationInput()); }
   ParthenonStatus ParthenonInitEnv(int argc, char *argv[],
-                                   RummyDeckType deck_type = RummyDeckType::Simple);
+                                   InputDeckType deck_type = InputDeckType::Native,
+                                   const std::string &schema_path = "");
+  ParthenonStatus ParthenonInitEnv(int argc, char *argv[], InputDeckType deck_type,
+                                   std::istream &schema_stream);
   void
   ParthenonInitPackagesAndMesh(std::optional<forest::ForestDefinition> forest_def = {});
   ParthenonStatus ParthenonFinalize();
@@ -63,6 +66,11 @@ class ParthenonManager {
   ArgParse arg;
   bool called_init_env_ = false;
   bool called_init_packages_and_mesh_ = false;
+
+  // Shared implementation for both ParthenonInitEnv overloads.
+  ParthenonStatus ParthenonInitEnvCore_(int argc, char *argv[], InputDeckType deck_type,
+                                        const std::string &schema_path,
+                                        std::istream *schema_stream);
 
   template <typename T>
   void ReadSwarmVars_(const SP_Swarm &pswarm, const BlockList_t &block_list,
