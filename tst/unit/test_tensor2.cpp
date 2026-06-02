@@ -15,8 +15,9 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#include <vector>
 #include <array>
+#include <utility>
+#include <vector>
 
 #include <catch2/catch.hpp>
 
@@ -124,6 +125,73 @@ SCENARIO("tensor2 train construction and pack metadata", "[tensor2]") {
   TensorPack pack(trains);
   REQUIRE(pack.GetNBlocks() == 1);
   REQUIRE(pack.GetNCores() == 3);
+}
+
+SCENARIO("tensor2 train copy and move preserve packable storage", "[tensor2]") {
+  TensorTrain original({2, 3, 2}, {2, 2});
+  std::vector<TensorTrain> originals{original};
+  TensorPack original_pack(originals);
+  SetTTPackToValue(original_pack, 1.5);
+  Kokkos::fence();
+
+  TensorTrain copy_constructed = original;
+  TensorTrain move_constructed = std::move(copy_constructed);
+
+  TensorTrain copy_assigned({2, 3, 2}, {1, 1});
+  copy_assigned = original;
+
+  TensorTrain move_assigned({2, 3, 2}, {1, 1});
+  move_assigned = std::move(copy_assigned);
+
+  std::vector<TensorTrain> trains;
+  trains.emplace_back(original);
+  trains.emplace_back(move_constructed);
+  trains.emplace_back(move_assigned);
+
+  TensorPack pack(trains);
+  REQUIRE(pack.GetNBlocks() == 3);
+  REQUIRE(pack.GetNCores() == 3);
+
+  for (int b = 0; b < pack.GetNBlocks(); ++b) {
+    REQUIRE(CountRegionMismatches(pack, b, 0, 0, 1, 0, 2, 1.5) == 0);
+    REQUIRE(CountRegionMismatches(pack, b, 1, 0, 2, 0, 2, 1.5) == 0);
+    REQUIRE(CountRegionMismatches(pack, b, 2, 0, 2, 0, 1, 1.5) == 0);
+  }
+}
+
+SCENARIO("tensor2 train vector push_back preserves packable storage", "[tensor2]") {
+  TensorTrain train_a({2, 3, 2}, {2, 2});
+  TensorTrain train_b({2, 3, 2}, {2, 2});
+
+  std::vector<TensorTrain> one_train{train_a};
+  TensorPack pack_a(one_train);
+  SetTTPackToValue(pack_a, 2.5);
+
+  one_train[0] = train_b;
+  TensorPack pack_b(one_train);
+  SetTTPackToValue(pack_b, 4.5);
+  Kokkos::fence();
+
+  std::vector<TensorTrain> trains;
+  trains.push_back(train_a);
+  trains.push_back(train_b);
+  trains.push_back(train_a);
+
+  TensorPack pack(trains);
+  REQUIRE(pack.GetNBlocks() == 3);
+  REQUIRE(pack.GetNCores() == 3);
+
+  REQUIRE(CountRegionMismatches(pack, 0, 0, 0, 1, 0, 2, 2.5) == 0);
+  REQUIRE(CountRegionMismatches(pack, 0, 1, 0, 2, 0, 2, 2.5) == 0);
+  REQUIRE(CountRegionMismatches(pack, 0, 2, 0, 2, 0, 1, 2.5) == 0);
+
+  REQUIRE(CountRegionMismatches(pack, 1, 0, 0, 1, 0, 2, 4.5) == 0);
+  REQUIRE(CountRegionMismatches(pack, 1, 1, 0, 2, 0, 2, 4.5) == 0);
+  REQUIRE(CountRegionMismatches(pack, 1, 2, 0, 2, 0, 1, 4.5) == 0);
+
+  REQUIRE(CountRegionMismatches(pack, 2, 0, 0, 1, 0, 2, 2.5) == 0);
+  REQUIRE(CountRegionMismatches(pack, 2, 1, 0, 2, 0, 2, 2.5) == 0);
+  REQUIRE(CountRegionMismatches(pack, 2, 2, 0, 2, 0, 1, 2.5) == 0);
 }
 
 SCENARIO("tensor2 pack fill sets every entry", "[tensor2]") {

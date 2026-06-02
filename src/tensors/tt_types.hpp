@@ -87,12 +87,27 @@ class TensorCoreHostT {
   TensorCoreHostT() = default;
 
   TensorCoreHostT(int lr_in, int dd_in, int rr_in) : dd(dd_in) {
-    printf("Building core of size (%i, %i, %i)\n", lr_in, dd, rr_in);
     RebuildOuterViews(lr_in, rr_in, [dd_in](int, int) {
       // TODO(LFR): Switch to memory pools
       return fiber_managed_t("fiber_m", dd_in);
     });
   }
+
+  TensorCoreHostT(const TensorCoreHostT &other) { CopyFrom(other); }
+
+  TensorCoreHostT &operator=(const TensorCoreHostT &other) {
+    CopyFrom(other);
+    return *this;
+  }
+
+  TensorCoreHostT(TensorCoreHostT &&other) { CopyFrom(other); }
+
+  TensorCoreHostT &operator=(TensorCoreHostT &&other) {
+    CopyFrom(other);
+    return *this;
+  }
+
+  ~TensorCoreHostT() = default;
 
   // Reduce the active rank-space extent of the core while assuming the fibers
   // in the retained range already contain the correct data.
@@ -128,6 +143,21 @@ class TensorCoreHostT {
   // descriptor alive.
   device_managed_fibers_view_t device_managed_fibers;
   
+  void CopyFrom(const TensorCoreHostT &other) {
+    dd = other.dd;
+    if (other.lr == 0 || other.rr == 0) {
+      lr = other.lr;
+      rr = other.rr;
+      host_fibers = host_fibers_view_t();
+      device_managed_fibers = device_managed_fibers_view_t();
+      return;
+    }
+
+    RebuildOuterViews(other.lr, other.rr, [&](int l, int r) {
+      return other.host_fibers(l, r);
+    });
+  }
+
   // The only routine that should change the structural state of a TensorCoreHostT.
   // It preserves the invariant that host_fibers, device_managed_fibers, and
   // device_unmanaged_fibers all describe the same (lr, rr) outer hierarchy.
@@ -177,7 +207,7 @@ class TensorTrainT {
   TensorTrainT(const std::vector<int> &phys_dims, const std::vector<int> &ranks) {
     PARTHENON_REQUIRE(phys_dims.size() - 1 == ranks.size(),
                       "Incompatible number of ranks and dimensions.");
-    // cores.reserve(phys_dims.size());
+    cores.reserve(phys_dims.size());
     if (ranks.size() == 0) {
       cores.emplace_back(1, phys_dims[0], 1);
     } else {
