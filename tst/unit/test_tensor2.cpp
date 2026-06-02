@@ -31,6 +31,84 @@ using namespace parthenon::tensor2;
 namespace {
 
 template <class TTraits>
+TensorTrainT<TTraits>
+MakeSparseDeltaTrain3D(const std::array<int, 3> &dims,
+                       const std::vector<std::array<int, 3>> &entries,
+                       const std::vector<typename TTraits::real_t> &values) {
+  using real_t = typename TTraits::real_t;
+
+  PARTHENON_REQUIRE(entries.size() == values.size(),
+                    "MakeSparseDeltaTrain3D: entries and values must have the same size.");
+  PARTHENON_REQUIRE(dims[0] > 0 && dims[1] > 0 && dims[2] > 0,
+                    "MakeSparseDeltaTrain3D: physical dimensions must be positive.");
+
+  const int nterms = static_cast<int>(entries.size());
+
+  if (nterms == 0) {
+    TensorTrainT<TTraits> train({dims[0], dims[1], dims[2]}, {1, 1});
+    std::vector<TensorTrainT<TTraits>> trains{train};
+    TensorPackT<TTraits> pack(trains);
+    SetTTPackToValue(pack, real_t(0));
+    return train;
+  }
+
+  for (int m = 0; m < nterms; ++m) {
+    const auto &e = entries[m];
+    PARTHENON_REQUIRE(0 <= e[0] && e[0] < dims[0],
+                      "MakeSparseDeltaTrain3D: first index out of bounds.");
+    PARTHENON_REQUIRE(0 <= e[1] && e[1] < dims[1],
+                      "MakeSparseDeltaTrain3D: second index out of bounds.");
+    PARTHENON_REQUIRE(0 <= e[2] && e[2] < dims[2],
+                      "MakeSparseDeltaTrain3D: third index out of bounds.");
+  }
+
+  TensorTrainT<TTraits> train({dims[0], dims[1], dims[2]}, {nterms, nterms});
+  std::vector<TensorTrainT<TTraits>> trains{train};
+  TensorPackT<TTraits> pack(trains);
+
+  SetTTPackToValue(pack, real_t(0));
+
+  using entries_view_t = typename TTraits::template view_t<int*[3], ManagedTag>;
+  using values_view_t = typename TTraits::template view_t<real_t*, ManagedTag>;
+
+  entries_view_t entries_d("delta_entries", nterms);
+  values_view_t values_d("delta_values", nterms);
+
+  auto entries_h = Kokkos::create_mirror_view(entries_d);
+  auto values_h = Kokkos::create_mirror_view(values_d);
+
+  for (int m = 0; m < nterms; ++m) {
+    entries_h(m, 0) = entries[m][0];
+    entries_h(m, 1) = entries[m][1];
+    entries_h(m, 2) = entries[m][2];
+    values_h(m) = values[m];
+  }
+
+  Kokkos::deep_copy(entries_d, entries_h);
+  Kokkos::deep_copy(values_d, values_h);
+
+  parthenon::par_for(
+      "MakeSparseDeltaTrain3D",
+      0, nterms - 1,
+      KOKKOS_LAMBDA(const int m) {
+        auto &core0 = pack(0, 0, 0);
+        auto &core1 = pack(0, 0, 1);
+        auto &core2 = pack(0, 0, 2);
+
+        const int i0 = entries_d(m, 0);
+        const int i1 = entries_d(m, 1);
+        const int i2 = entries_d(m, 2);
+        const real_t a = values_d(m);
+
+        core0(0, i0, m) = real_t(1);
+        core1(m, i1, m) = real_t(1);
+        core2(m, i2, 0) = a;
+      });
+
+  return train;
+}
+
+template <class TTraits>
 KOKKOS_INLINE_FUNCTION
 typename TTraits::real_t ReconstructDenseValue3D(const TensorPackT<TTraits> &pack,
                                                  int b, int i1, int i2, int i3) {
@@ -244,5 +322,60 @@ SCENARIO("tensor2 train vector push_back preserves packable storage", "[tensor2]
               KOKKOS_LAMBDA(int b, int, int, int, Real value) {
                 if (b == 1) return value != expected_b_dense_value;  
                 return value != expected_a_dense_value;  
+              }) == 0);
+}
+
+SCENARIO("tensor2 sparse delta train reconstructs to the correct dense values", "[tensor2]") {
+  using real_t = typename DefaultTTraits::real_t;
+  using entry_view_t = DefaultTTraits::template view_t<int*[3], ManagedTag>;
+  using value_view_t = DefaultTTraits::template view_t<real_t*, ManagedTag>;
+
+  const std::array<int, 3> dims{3, 4, 5};
+  const std::vector<std::array<int, 3>> entries_h{
+      {1, 2, 3},
+      {0, 1, 4},
+      {2, 0, 1}
+  };
+  const std::vector<real_t> values_h{7.5, -2.0, 3.25};
+
+  TensorTrain train = MakeSparseDeltaTrain3D<DefaultTTraits>(dims, entries_h, values_h);
+  std::vector<TensorTrain> trains{train};
+  TensorPack pack(trains);
+
+  REQUIRE(pack.GetNBlocks() == 1);
+  REQUIRE(pack.GetNCores() == 3);
+  REQUIRE(pack.GetPhysicalDimension(0) == dims[0]);
+  REQUIRE(pack.GetPhysicalDimension(1) == dims[1]);
+  REQUIRE(pack.GetPhysicalDimension(2) == dims[2]);
+
+  const int nentries = static_cast<int>(entries_h.size());
+  entry_view_t entries_d("entries_d", nentries);
+  value_view_t values_d("values_d", nentries);
+
+  auto entries_m = Kokkos::create_mirror_view(entries_d);
+  auto values_m = Kokkos::create_mirror_view(values_d);
+
+  for (int n = 0; n < nentries; ++n) {
+    entries_m(n, 0) = entries_h[n][0];
+    entries_m(n, 1) = entries_h[n][1];
+    entries_m(n, 2) = entries_h[n][2];
+    values_m(n) = values_h[n];
+  }
+
+  Kokkos::deep_copy(entries_d, entries_m);
+  Kokkos::deep_copy(values_d, values_m);
+
+  REQUIRE(CountDenseMismatches3D(
+              pack,
+              KOKKOS_LAMBDA(int, int i1, int i2, int i3, real_t dense_val) {
+                real_t expected = real_t(0);
+                for (int n = 0; n < nentries; ++n) {
+                  if (i1 == entries_d(n, 0) &&
+                      i2 == entries_d(n, 1) &&
+                      i3 == entries_d(n, 2)) {
+                    expected += values_d(n);
+                  }
+                }
+                return dense_val != expected;
               }) == 0);
 }
