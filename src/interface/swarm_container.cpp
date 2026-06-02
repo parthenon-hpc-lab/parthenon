@@ -63,40 +63,6 @@ void SwarmContainer::Add(const std::string &label, const Metadata &metadata) {
   Add(swarm);
 }
 
-// TODO(JMM): Should we support this operation
-void SwarmContainer::Remove(const std::string &label) {
-  // Find index of swarm
-  std::size_t isize = swarmVector_.size();
-  std::size_t idx = 0;
-  for (const auto &s : swarmVector_) {
-    if (!label.compare(s->label())) {
-      break;
-    }
-    idx++;
-  }
-  if (idx >= isize) {
-    PARTHENON_FAIL("swarm not found in Remove()");
-  }
-
-  // Pull out metadata
-  const SP_Swarm pswarm = swarmVector_[idx];
-  const Metadata &m = pswarm->metadata();
-
-  // Delete the variable
-  swarmVector_[idx].reset();
-
-  // Next move the last element into idx and pop last entry
-  isize--;
-  if (isize >= 0) swarmVector_[idx] = std::move(swarmVector_.back());
-  swarmVector_.pop_back();
-
-  // Also remove swarm from map
-  swarmMap_.erase(label);
-  for (const auto &flag : m.Flags()) {
-    swarmMetadataMap_[flag].erase(pswarm);
-  }
-}
-
 // Return swarms meeting some conditions
 SwarmSet SwarmContainer::GetSwarmsByFlag(const Metadata::FlagCollection &flags) {
   PARTHENON_INSTRUMENT
