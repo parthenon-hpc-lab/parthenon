@@ -1,7 +1,7 @@
 .. _development:
 
-Parthenon developer guide
-=========================
+Coding concepts
+===============
 
 (Kokkos) programming model
 --------------------------

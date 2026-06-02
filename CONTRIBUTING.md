@@ -128,7 +128,7 @@ branch.
 
 **WARNING:** Due to a limitation in GitHub Actions, the "Check Formatting" CI will not
 run, which will block merging. If you don't plan on making any further commits, you or a
-reviewer can run ["./scripts/retrigger-ci.sh"](scripts/retrigger-ci.sh) with your branch
+reviewer can run ["./scripts/retrigger-ci.sh"](https://github.com/parthenon-hpc-lab/parthenon/blob/develop/scripts/retrigger-ci.sh) with your branch
 checked out to re-run the CI.
 
 If you'd like Hermes to amend the formatting to the latest commit, you can use the
@@ -177,44 +177,16 @@ In addition, the following recommendations should be followed
 ### Continuous Testing/Integration Environment
 
 Commits pushed to any branch of this repository is automatically tested by
-two CI pipelines.
+multiple CI pipelines all configured via GitHub Actions within the `.github/workflows` folder.
 
-The first pipeline focuses on correctness targeting code style, formatting, as well
-as unit and regression tests.
-It is executed through a repository [mirror](https://gitlab.com/pgrete/parthenon) on GitLab
-on a machine with an Intel Xeon E5540 (Broadwell) processor and Nvidia GeForce GTX 1060 (Pascal) GPU.
-The Dockerfile for the CI runner can be found [here](scripts/docker/Dockerfile.nvcc) and the
-pipeline is configured through [.gitlab-ci.yml](.gitlab-ci.yml).
-The current tests span MPI and non-MPI configurations on CPUs (using GCC) and GPUs (using Cuda/nvcc).
+The first (short) pipeline focuses on correctness targeting code style, formatting, as well
+as unit and simple regression tests.
+The current tests span MPI and non-MPI configurations on CPUs (using GCC) and GPUs (using Cuda/nvcc and ROCM/hip).
 
-The second pipeline focuses on performance regression.
-It is executed through a (different) repository [mirror](https://gitlab.com/theias/hpc/jmstone/athena-parthenon/parthenon-ci-mirror)
-using runners provided by the IAS.
-The runners have Intel Xeon Gold 6148 (Skylake) processors and Nvidia V100 (Volta) GPUs.
-Both the environment and the pipeline are configured through [.gitlab-ci-ias.yml](.gitlab-ci-ias.yml).
-The current tests span uniform grids on GPUs (using Cuda/nvcc).
-Note, in order to integrate this kind of performance regression test with CMake
-follow the instructions [below](#integrating-the-regression-test-with-cmake) *and* add the
-`perf-reg` label to the test (see bottom of the regression
-[CMakeLists.txt](tst/regression/CMakeLists.txt)).
+The second (extended) pipeline tests more features.
 
-A third pipeline is run using LANL internal systems and is run manually when
-approved, it is also scheduled to run on a daily basis on the development
-branch. The internal machines use the newest IBM powerPC processors and the
-NVIDIA V100 (Volta) GPUs (power9 architecture). Tests run on these systems are
-primarily aimed at measuring the performance of this specific architecture.
-Compilation and testing details can be found by looking in the
-[.gitlab-ci-darwin.yml](.gitlab-ci-darwin.yml) file *and* the /scripts/darwin
-folder. In summary, the CI is built in release mode, with OpenMP, MPI, HDF5 and
-Cuda enabled. All tests are run on a single node with access to two Volta
-GPUs. In addition, the regression tests are run in parallel with two mpi
-processors each of which have access to their own Volta gpu. The following
-tests are run with this CI: unit, regression, performance. A final note,
-this CI has been chosen to also check for performance regressions. The CI
-uses a GitHub application located in /scripts/python. After a successful run
-of the CI a link to the performance metrics will appear as part of the parthenon
-metrics status check in the pr next to the commit the metrics were recorded for.
-All data from the regression tests are recorded in the parthenon wiki in a JSON file.
+Finally, compilation is tested across various compilers and architectures (including MacOS).
+
 
 ### Adding Tests
 
