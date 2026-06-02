@@ -128,6 +128,8 @@ SCENARIO("tensor2 train construction and pack metadata", "[tensor2]") {
 }
 
 SCENARIO("tensor2 train copy and move preserve packable storage", "[tensor2]") {
+  // TEMP(LFR): This storage-regression test is considered solidified. Some later
+  // tensor2 tests are still scaffolding around temporary test utilities.
   TensorTrain original({2, 3, 2}, {2, 2});
   std::vector<TensorTrain> originals{original};
   TensorPack original_pack(originals);
@@ -135,11 +137,25 @@ SCENARIO("tensor2 train copy and move preserve packable storage", "[tensor2]") {
   Kokkos::fence();
 
   TensorTrain copy_constructed = original;
-  TensorTrain move_constructed = std::move(copy_constructed);
-
   TensorTrain copy_assigned({2, 3, 2}, {1, 1});
   copy_assigned = original;
 
+  std::vector<TensorTrain> copied_trains;
+  copied_trains.emplace_back(original);
+  copied_trains.emplace_back(copy_constructed);
+  copied_trains.emplace_back(copy_assigned);
+
+  TensorPack copied_pack(copied_trains);
+  REQUIRE(copied_pack.GetNBlocks() == 3);
+  REQUIRE(copied_pack.GetNCores() == 3);
+
+  for (int b = 0; b < copied_pack.GetNBlocks(); ++b) {
+    REQUIRE(CountRegionMismatches(copied_pack, b, 0, 0, 1, 0, 2, 1.5) == 0);
+    REQUIRE(CountRegionMismatches(copied_pack, b, 1, 0, 2, 0, 2, 1.5) == 0);
+    REQUIRE(CountRegionMismatches(copied_pack, b, 2, 0, 2, 0, 1, 1.5) == 0);
+  }
+
+  TensorTrain move_constructed = std::move(copy_constructed);
   TensorTrain move_assigned({2, 3, 2}, {1, 1});
   move_assigned = std::move(copy_assigned);
 
@@ -160,6 +176,8 @@ SCENARIO("tensor2 train copy and move preserve packable storage", "[tensor2]") {
 }
 
 SCENARIO("tensor2 train vector push_back preserves packable storage", "[tensor2]") {
+  // TEMP(LFR): This storage-regression test is considered solidified. Some later
+  // tensor2 tests are still scaffolding around temporary test utilities.
   TensorTrain train_a({2, 3, 2}, {2, 2});
   TensorTrain train_b({2, 3, 2}, {2, 2});
 
