@@ -379,3 +379,71 @@ SCENARIO("tensor2 sparse delta train reconstructs to the correct dense values", 
                 return dense_val != expected;
               }) == 0);
 }
+
+SCENARIO("tensor2 ReduceSize preserves retained core data", "[tensor2]") {
+  using real_t = typename DefaultTTraits::real_t;
+
+  TensorTrain train({3, 4, 2}, {3, 4});
+
+  std::vector<TensorTrain> trains{train};
+  TensorPack pack(trains);
+
+  // Fill every entry with a value that uniquely identifies its location.
+  parthenon::par_for(
+      "FillTensorTrainForReduceSizeTest",
+      0, pack.GetNBlocks() - 1,
+      0, pack.GetNCores() - 1,
+      KOKKOS_LAMBDA(const int b, const int c) {
+        auto &core = pack(b, 0, c);
+        for (int l = 0; l < core.LR(); ++l) {
+          for (int r = 0; r < core.RR(); ++r) {
+            auto *f = &core(l, 0, r);
+            for (int j = 0; j < core.DD(); ++j) {
+              f[j] = 1000 * c + 100 * l + 10 * r + j;
+            }
+          }
+        }
+      });
+  Kokkos::fence();
+
+  // Shrink the first core's right rank and the second core's left/right ranks
+  // consistently with the train structure:
+  //   core 0: (1,3,3) -> (1,3,2)
+  //   core 1: (3,4,4) -> (2,4,2)
+  //   core 2: (4,2,1) -> (2,2,1)
+  train(0).ReduceSize(1, 2);
+  train(1).ReduceSize(2, 2);
+  train(2).ReduceSize(2, 1);
+
+  TensorPack shrunk_pack(trains);
+
+  REQUIRE(shrunk_pack.GetNBlocks() == 1);
+  REQUIRE(shrunk_pack.GetNCores() == 3);
+
+  REQUIRE(train(0).LR() == 1);
+  REQUIRE(train(0).RR() == 2);
+  REQUIRE(train(1).LR() == 2);
+  REQUIRE(train(1).RR() == 2);
+  REQUIRE(train(2).LR() == 2);
+  REQUIRE(train(2).RR() == 1);
+
+  int nwrong{0};
+  par_reduce(
+      loop_pattern_mdrange_tag, "CheckReduceSizeRetainedEntries", DevExecSpace(),
+      0, shrunk_pack.GetNCores() - 1,
+      0, 1,           // block index always 0
+      0, 2,           // maximum retained left rank range we need to inspect
+      0, 4,           // maximum physical dimension in this test
+      0, 2,           // maximum retained right rank range we need to inspect
+      KOKKOS_LAMBDA(int c, int b_dummy, int l, int j, int r, int &lnwrong) {
+        auto &core = shrunk_pack(0, 0, c);
+
+        if (l < core.LR() && j < core.DD() && r < core.RR()) {
+          const real_t expected = 1000 * c + 100 * l + 10 * r + j;
+          lnwrong += (core(l, j, r) != expected);
+        }
+      },
+      nwrong);
+
+  REQUIRE(nwrong == 0);
+}
