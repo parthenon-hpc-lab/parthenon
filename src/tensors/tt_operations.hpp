@@ -16,8 +16,11 @@
 
 #include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
+#include "linear_algebra/symmetric_evd.hpp"
+#include "linear_algebra/square_svd.hpp"
 #include "tt_traits.hpp"
 #include "tt_types.hpp"
+
 
 namespace parthenon {
 namespace tensor2 {
@@ -218,7 +221,7 @@ HadamardProduct(std::vector<TensorTrainT<TTraits>> &TrainsA,
 
   return TrainsC;
 }
-/*
+
 template <class TTraits>
 std::vector<TensorTrainT<TTraits>>
 RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
@@ -231,9 +234,9 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
   int n_cores{0};
   for (const auto &train : trains) {
     n_cores = train.Ncores();
-    for (int c = 0; c < Ncores(); ++c)
+    for (int c = 0; c < train.Ncores(); ++c)
       std::max(max_rank, train(c).RR());
-    for (int c = 1; c < Ncores(); ++c)
+    for (int c = 1; c < train.Ncores(); ++c)
       std::max(max_phys_dim, train(c).DD());
   }
   
@@ -251,18 +254,18 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
   // Calculate storage for eigen and singular value results
   scratch_size += 4 * ScratchPad1D<real_t>::shmen_size(max_rank * max_rank);
   scratch_size += 3 * ScratchPad1D<real_t>::shmen_size(max_rank);
+   
+  TensorPackT<TTraits> pack(trains);
   
   // Allocate array for storing final ranks to eventually copy back to host to
   // round
   using final_rank_arr_t = typename TTraits::template view_t<int**, ManagedTag>;
   final_rank_arr_t final_rank_arr("Final ranks", pack.GetNBlocks(), n_cores - 1);
   
-  TensorPackT<TTraits> pack(trains);
-
   constexpr int scratch_level = 1;
   parthenon::par_for_outer(
       PARTHENON_AUTO_LABEL, scratch_size, scratch_level,
-      0, pack_a.GetNBlocks() - 1,
+      0, pack.GetNBlocks() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int b) {
         // Allocate scratch, we allocate flat in the rank dimensions to make 
         // it easier to reuse between cores of different rank size
@@ -278,7 +281,7 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           int c = n_cores - 1;
           auto &core = pack(b, 0, c);
           int rank = core.LR();
-          matrix_wrap_t<real_t> GR_mat(&GR(c, 0), rank, rank);
+          matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), rank, rank);
           for (int alpha = 0; alpha < rank; ++alpha) {
             for (int beta = alpha; beta < rank; ++beta) {
               real_t const * const dat = &core(alpha, 0, beta);
@@ -309,7 +312,7 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
               });
           tm.team_barrier();
 
-          matrix_wrap_t<real_t> GR_prev_mat(&GR(c + 1, 0), rr, rr);
+          matrix_wrapper_t<real_t> GR_prev_mat(&GR(c + 1, 0), rr, rr);
           for (int rp = 0; rp < rr; ++rp) {
             parthenon::par_for_inner(tm, 0, lr - 1, 0, rr - 1, 0, dd - 1, 
                 [&](int l, int r, int j){
@@ -319,13 +322,13 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           }
 
           // Compute and store right Gram matrix
-          matrix_wrap_t<real_t> GR_mat(&GR(c, 0), lr, lr);
+          matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), lr, lr);
           for (int alpha = 0; alpha < lr; ++alpha) {
             for (int beta = alpha; beta < lr; ++beta) {
               real_t sum{0.0};
               parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag,
                   tm, 0, rr - 1, 0, core.DD() - 1,
-                  [&](int lambda, int d, real_t &lsum){
+                  [&](int lambda, int j, real_t &lsum){
                     lsum += core(alpha, j, lambda) * gram_temp(beta, j, lambda);
                 }, Kokkos::Sum<real_t>(sum));
               Kokkos::single(Kokkos::PerTeam(tm), [&](){
@@ -349,8 +352,8 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
         ScratchPad1D<real_t> sig(tm_scratch, max_rank);
 
         // Scratch that can be re-used amongst solves
-        ScratchPad1D<real_t> real_scratch(tm_scratch, real_scratch_size_max);
-        ScratchPad1D<std::size_t> szt_scratch(tm_scratch, szt_scratch_size_max);
+        ScratchPad1D<real_t> real_scratch(tm_scratch, SymmetricEVD::double_scratch_size(max_rank));
+        ScratchPad1D<std::size_t> szt_scratch(tm_scratch, SymmetricEVD::sizet_scratch_size(max_rank));
         
         // L-to-R sweep over bonds 
         for (int c = 0; c < n_cores - 1; ++c) {
@@ -360,13 +363,13 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           const auto dd = core.DD();
 
           // Compute left Gram matrix
-          matrix_wrap_t<real_t> GL_mat(GL.data(), rank, rank);
+          matrix_wrapper_t<real_t> GL_mat(GL.data(), rank, rank);
           for (int alpha = 0; alpha < lr; ++alpha) {
             for (int beta = alpha; beta < lr; ++beta) {
               real_t sum{0.0};
               parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag,
                   tm, 0, lr - 1, 0, core.DD() - 1,
-                  [&](int lambda, int d, real_t &lsum){
+                  [&](int lambda, int j, real_t &lsum){
                     lsum += core(lambda, j, alpha) * core(lambda, j, beta);
                 }, Kokkos::Sum<real_t>(sum));
               Kokkos::single(Kokkos::PerTeam(tm), [&](){
@@ -378,13 +381,13 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           tm.team_barrier();
 
           // Compute eigen decomposition of L and R Gram matrices
-          matrix_wrap_t<real_t> QL_mat(QL.data(), rank, rank);
+          matrix_wrapper_t<real_t> QL_mat(QL.data(), rank, rank);
           SymmetricEVD::execute(tm, &GL_mat, &QL_mat, eigL.data(),
                                 real_scratch.data(), szt_scratch.data());
           tm.team_barrier();
 
-          matrix_wrap_t<real_t> GR_mat(&GR(c, 0), rank, rank);
-          matrix_wrap_t<real_t> QR_mat(QR.data(), rank, rank);
+          matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), rank, rank);
+          matrix_wrapper_t<real_t> QR_mat(QR.data(), rank, rank);
           SymmetricEVD::execute(tm, &GR_mat, &QR_mat, eigR.data(),
                                 real_scratch.data(), szt_scratch.data());
           tm.team_barrier();
@@ -401,9 +404,9 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
         }
       });
 
-  return TrainsC;
+  return trains;
 }
-*/
+
 } // namespace tensor2
 } // namespace parthenon
 
