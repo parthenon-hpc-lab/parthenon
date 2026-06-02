@@ -102,6 +102,38 @@ int CountDenseMismatches3D(const TensorPackT<TTraits> &pack0,
 }
 } // namespace
 
+SCENARIO("tensor2 single-core train packs and reconstructs correctly", "[tensor2]") {
+  TensorTrain train({4}, {});
+  std::vector<TensorTrain> trains{train};
+
+  REQUIRE(train.NCores() == 1);
+  REQUIRE(train(0).LR() == 1);
+  REQUIRE(train(0).DD() == 4);
+  REQUIRE(train(0).RR() == 1);
+
+  TensorPack pack(trains);
+  REQUIRE(pack.GetNBlocks() == 1);
+  REQUIRE(pack.GetNCores() == 1);
+  REQUIRE(pack.GetPhysicalDimension(0) == 4);
+  REQUIRE(pack.GetPhysicalDimensions() == std::vector<int>{4});
+
+  SetTTPackToValue(pack, 2.0);
+  Kokkos::fence();
+
+  int nwrong{0};
+  par_reduce(loop_pattern_mdrange_tag, "Check single-core TT", DevExecSpace(),
+             0, pack.GetNBlocks() - 1,
+             0, pack.GetPhysicalDimension(0) - 1,
+             KOKKOS_LAMBDA(int b, int i, int &lnwrong) {
+               auto &core = pack(b, 0, 0);
+               const Real value = core(0, i, 0);
+               lnwrong += (value != 2.0);
+             },
+             nwrong);
+
+  REQUIRE(nwrong == 0);
+}
+
 SCENARIO("tensor2 train construction and pack metadata", "[tensor2]") {
   TensorTrain train({2, 3, 4}, {5, 6});
   std::vector<TensorTrain> trains{train};
@@ -132,8 +164,6 @@ SCENARIO("tensor2 train construction and pack metadata", "[tensor2]") {
 }
 
 SCENARIO("tensor2 train copy and move preserve packable storage", "[tensor2]") {
-  // TEMP(LFR): This storage-regression test is considered solidified. Some later
-  // tensor2 tests are still scaffolding around temporary test utilities.
   TensorTrain original({2, 3, 2}, {2, 2});
   std::vector<TensorTrain> originals{original};
   TensorPack original_pack(originals);
@@ -180,8 +210,6 @@ SCENARIO("tensor2 train copy and move preserve packable storage", "[tensor2]") {
 }
 
 SCENARIO("tensor2 train vector push_back preserves packable storage", "[tensor2]") {
-  // TEMP(LFR): This storage-regression test is considered solidified. Some later
-  // tensor2 tests are still scaffolding around temporary test utilities.
   TensorTrain train_a({2, 3, 2}, {2, 2});
   TensorTrain train_b({2, 3, 2}, {2, 2});
 

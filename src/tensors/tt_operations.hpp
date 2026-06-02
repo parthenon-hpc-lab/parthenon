@@ -227,18 +227,23 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
 
   // Find the number of cores and maximum rank 
   int max_rank{0};
+  int max_phys_dim{0};
   int n_cores{0};
   for (const auto &train : trains) {
     n_cores = train.Ncores();
-    for (int c = 0; c < Ncores(); ++c) {
+    for (int c = 0; c < Ncores(); ++c)
       std::max(max_rank, train(c).RR());
-    }
+    for (int c = 1; c < Ncores(); ++c)
+      std::max(max_phys_dim, train(c).DD());
   }
   
   int scratch_size{0};
   // Calculate the max storage for Gram matrices
-  scratch_size += ScratchPad2D<real_t>::shmen_size(n_cores - 1, max_rank * max_rank);
+  scratch_size += ScratchPad2D<real_t>::shmen_size(n_cores, max_rank * max_rank);
   scratch_size += ScratchPad1D<real_t>::shmen_size(max_rank * max_rank);
+
+  // Storage for temporary when calculating right Gram matrices
+  scratch_size += ScratchPad3D<real_t>::shmen_size(max_rank, max_phys_dim, max_rank);
 
   // Calculate the total storage for linear algebra scratch
   scratch_size += SymmetricEVD::total_shmem_scratch_size(max_rank); 
@@ -265,13 +270,79 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
         // Gram matrices, need to store all right Gram matrices
         ScratchPad2D<real_t> GR(tm_scratch, n_cores - 1, max_rank * max_rank);
         ScratchPad1D<real_t> GL(tm_scratch, max_rank * max_rank);
+        ScratchPad3D<real_t> gram_temp(tm_scratch, max_rank, max_phys_dim, max_rank);
+        
+        // R-to-L sweep over cores
+        // Last Gram matrix requires a single reduction
+        {
+          int c = n_cores - 1;
+          auto &core = pack(b, 0, c);
+          int rank = core.LR();
+          matrix_wrap_t<real_t> GR_mat(&GR(c, 0), rank, rank);
+          for (int alpha = 0; alpha < rank; ++alpha) {
+            for (int beta = alpha; beta < rank; ++beta) {
+              real_t const * const dat = &core(alpha, 0, beta);
+              real_t sum{0.0};
+              parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag, tm, 0, core.DD() - 1, [&](int d, real_t &lsum){
+                lsum += dat * dat;
+              }, Kokkos::Sum<real_t>(sum));
+              Kokkos::single(Kokkos::PerTeam(tm), [&](){
+                  GR_mat(alpha, beta) = sum;
+                  GR_mat(beta, alpha) = sum;
+                });
+            }
+          }
+        }
+        tm.team_barrier();
+
+        for (int c = n_cores - 2; c > 0; --c) {
+          const auto &core = pack(b, 0, c);
+          const auto lr = core.LR();
+          const auto rr = core.RR();
+          const auto dd = core.RR();
+
+          // Zero the temporary storage for the core contracted with 
+          // neighboring gram matrix
+          parthenon::par_for_inner(tm, 0, lr - 1, 0, rr - 1, 0, dd - 1, 
+                [&](int l, int r, int j){
+                  gram_temp(l, j, r) = 0.0;
+              });
+          tm.team_barrier();
+
+          matrix_wrap_t<real_t> GR_prev_mat(&GR(c + 1, 0), rr, rr);
+          for (int rp = 0; rp < rr; ++rp) {
+            parthenon::par_for_inner(tm, 0, lr - 1, 0, rr - 1, 0, dd - 1, 
+                [&](int l, int r, int j){
+                  gram_temp(l, j, r) += core(l, j, rp) * GR_prev_mat(rp, r);
+              }); 
+            tm.team_barrier();
+          }
+
+          // Compute and store right Gram matrix
+          matrix_wrap_t<real_t> GR_mat(&GR(c, 0), lr, lr);
+          for (int alpha = 0; alpha < lr; ++alpha) {
+            for (int beta = alpha; beta < lr; ++beta) {
+              real_t sum{0.0};
+              parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag,
+                  tm, 0, rr - 1, 0, core.DD() - 1,
+                  [&](int lambda, int d, real_t &lsum){
+                    lsum += core(alpha, j, lambda) * gram_temp(beta, j, lambda);
+                }, Kokkos::Sum<real_t>(sum));
+              Kokkos::single(Kokkos::PerTeam(tm), [&](){
+                    GR_mat(alpha, beta) = sum;
+                    GR_mat(beta, alpha) = sum;
+                });
+            }
+          }
+          tm.team_barrier();
+        }
         
         // Eigen systems
         ScratchPad1D<real_t> QL(tm_scratch, max_rank * max_rank);
         ScratchPad1D<real_t> eigL(tm_scratch, max_rank);
         ScratchPad1D<real_t> QR(tm_scratch, max_rank * max_rank);
         ScratchPad1D<real_t> eigR(tm_scratch, max_rank);
-        
+
         // SVD
         ScratchPad1D<real_t> U(tm_scratch, max_rank * max_rank); 
         ScratchPad1D<real_t> V(tm_scratch, max_rank * max_rank); 
@@ -281,33 +352,47 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
         ScratchPad1D<real_t> real_scratch(tm_scratch, real_scratch_size_max);
         ScratchPad1D<std::size_t> szt_scratch(tm_scratch, szt_scratch_size_max);
         
-        // R-to-L sweep over cores
-        for (int b = n_cores - 1; c > 0; --c) {
-          // Compute and store right Gram matrix
-        }
-
         // L-to-R sweep over bonds 
-        for (int b = 0; b < n_cores - 1; ++b) {
+        for (int c = 0; c < n_cores - 1; ++c) {
+          const auto &core = pack(b, 0, c);
+          const auto lr = core.LR();
+          const auto rr = core.RR();
+          const auto dd = core.DD();
+
           // Compute left Gram matrix
-          
-          // Compute eigen decomposition of L and R Gram matrices
           matrix_wrap_t<real_t> GL_mat(GL.data(), rank, rank);
+          for (int alpha = 0; alpha < lr; ++alpha) {
+            for (int beta = alpha; beta < lr; ++beta) {
+              real_t sum{0.0};
+              parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag,
+                  tm, 0, lr - 1, 0, core.DD() - 1,
+                  [&](int lambda, int d, real_t &lsum){
+                    lsum += core(lambda, j, alpha) * core(lambda, j, beta);
+                }, Kokkos::Sum<real_t>(sum));
+              Kokkos::single(Kokkos::PerTeam(tm), [&](){
+                    GL_mat(alpha, beta) = sum;
+                    GL_mat(beta, alpha) = sum;
+                });
+            }
+          } 
+          tm.team_barrier();
+
+          // Compute eigen decomposition of L and R Gram matrices
           matrix_wrap_t<real_t> QL_mat(QL.data(), rank, rank);
           SymmetricEVD::execute(tm, &GL_mat, &QL_mat, eigL.data(),
                                 real_scratch.data(), szt_scratch.data());
           tm.team_barrier();
 
-          matrix_wrap_t<real_t> GR_mat(&GR(b, 0), rank, rank);
+          matrix_wrap_t<real_t> GR_mat(&GR(c, 0), rank, rank);
           matrix_wrap_t<real_t> QR_mat(QR.data(), rank, rank);
-          tm.team_barrier();
           SymmetricEVD::execute(tm, &GR_mat, &QR_mat, eigR.data(),
                                 real_scratch.data(), szt_scratch.data());
           tm.team_barrier();
 
-          // Compute combined thing
-
-          // Compute truncated SVD of combined thing
-          
+          // Compute M = Σ_L Q_L^T Q_R Σ_R 
+   
+          // Compute truncated SVD of M
+                    
           // Store rank 
 
           // Push SVD U left
