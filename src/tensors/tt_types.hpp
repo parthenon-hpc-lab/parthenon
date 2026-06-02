@@ -226,6 +226,8 @@ class TensorTrainT {
   auto &operator()(int c) { return cores[c]; }
   const auto &operator()(int c) const { return cores[c]; }
 
+  int GetPhysicalDimension(int dim) const { return cores[dim].DD(); }
+
  private:
   std::vector<TensorCoreHostT<TTraits>> cores;
 };
@@ -238,10 +240,12 @@ template <class TTraits>
 struct TensorPackT {
   using view_t =
       typename TTraits::template view_t<TensorCoreDeviceT<TTraits>***, ManagedTag>;
+  using dims_host_view_t = typename TTraits::template host_view_t<int*, ManagedTag>;
 
   // View of size (nblocks, nvars, ncores). At the moment nvars is a placeholder
   // and the pack stores tensor cores directly rather than explicit trains.
   view_t cores;
+  dims_host_view_t physical_dims_h;
   int ncores_per_train;
 
   KOKKOS_INLINE_FUNCTION
@@ -250,17 +254,37 @@ struct TensorPackT {
   KOKKOS_INLINE_FUNCTION
   int GetNCores() const { return cores.extent_int(2); }
 
+  int GetPhysicalDimension(int dim) const {
+    return physical_dims_h(dim);
+  }
+
+  std::vector<int> GetPhysicalDimensions() const {
+    std::vector<int> dims(GetNCores());
+    for (int c = 0; c < GetNCores(); ++c) {
+      dims[c] = physical_dims_h(c);
+    }
+    return dims;
+  }
+
   TensorPackT(const std::vector<TensorTrainT<TTraits>> &trains) {
+    PARTHENON_REQUIRE(!trains.empty(),
+                      "Cannot construct a TensorPackT from an empty train vector.");
     int nvars{1}; // Placeholder
     ncores_per_train = trains[0].NCores();
     cores = view_t("TensorPackT", trains.size(), nvars, ncores_per_train);
     auto cores_h = Kokkos::create_mirror_view(cores);
+    physical_dims_h = dims_host_view_t("TensorPackT physical dims", ncores_per_train);
+    for (int c = 0; c < ncores_per_train; ++c) {
+      physical_dims_h(c) = trains[0].GetPhysicalDimension(c);
+    }
 
     for (int v = 0; v < nvars; ++v) {
       for (int t = 0; t < trains.size(); ++t) {
         PARTHENON_REQUIRE(trains[t].NCores() == ncores_per_train,
-                          "All trains must be the same dimension.");
+                          "All trains must have the same number of cores.");
         for (int c = 0; c < ncores_per_train; ++c) {
+          PARTHENON_REQUIRE(trains[t].GetPhysicalDimension(c) == physical_dims_h(c),
+                            "All trains in a pack must have the same physical dimensions.");
           cores_h(t, v, c) = trains[t].GetCoreHost(c).GetTensorCoreDevice();
         }
       }
