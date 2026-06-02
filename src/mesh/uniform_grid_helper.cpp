@@ -1,7 +1,7 @@
 #include "uniform_grid_helper.hpp"
 #include "mesh/mesh.hpp"
 
-namespace parthenon {
+namespace parthenon { // Should this be in parthenon namespace? 
 
 UniformGridHelper::UniformGridHelper(Mesh *mesh) : mesh_(mesh) {}
 
@@ -21,6 +21,17 @@ void UniformGridHelper::Initialize() {
     const auto level =
       mesh_->Forest().GetLegacyTreeLocation(mesh_->block_list[0]->loc).level();
   
+    std::array<std::int64_t, 3> local_loc_min{
+        std::numeric_limits<std::int64_t>::max(),
+        std::numeric_limits<std::int64_t>::max(),
+        std::numeric_limits<std::int64_t>::max(),
+    };
+    std::array<std::int64_t, 3> local_loc_max{
+        std::numeric_limits<std::int64_t>::min(),
+        std::numeric_limits<std::int64_t>::min(),
+        std::numeric_limits<std::int64_t>::min(),
+    };
+
     // Set rank local min and max logical locations.
     // Also check if all blocks are on the same level (we use this check instead of
     // checking for refinement=none because AMR could have been used to dynamically refine
@@ -75,6 +86,72 @@ void UniformGridHelper::Initialize() {
     kb_ = md->GetBoundsK(IndexDomain::interior);
 
     initialized_ = true;
+} // UniformGridHelper::Initialize()
+
+void UniformGridHelper::GatherField(const std::string &var_name,
+                                     int var_index,
+                                     parthenon::ParArray1D<Real> &output) {
+
+  // Check that var_name and var_index correspond to a valid variable in the mesh data and that output array is large enough to hold the gathered data.
+  auto &md = mesh_->mesh_data.Get();
+  auto vars = md->PackVariables(std::vector<std::string>{var_name});
+  PARTHENON_REQUIRE_THROWS(vars.GetDim(5) > 0,
+      "GatherField: variable '" + var_name + "' not found in mesh data");
+  PARTHENON_REQUIRE_THROWS(var_index < vars.GetDim(4),
+      "GatherField: var_index " + std::to_string(var_index) + " out of range");
+  PARTHENON_REQUIRE_THROWS(output.size() >= local_mesh_size[0] * local_mesh_size[1] * local_mesh_size[2],
+      "GatherField: output array too small");
+
+  Initialize();
+
+  IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = md->GetBlockData(0)->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = md->GetBlockData(0)->GetBoundsK(IndexDomain::interior);
+
+  const auto vi = var_index;
+  auto helper = GetKernelHelper();
+
+  parthenon::par_for(
+      "UniformGridHelper::GatherField",
+      0, mesh_->GetNumMeshBlocksThisRank() - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        const auto idx = helper.FlatIndex(b, k, j, i);
+        output(idx) = vars(b, vi, k, j, i);
+      });
 }
 
+void UniformGridHelper::ScatterField(const parthenon::ParArray1D<Real> &input,
+                                      const std::string &var_name,
+                                      int var_index) {
+
+  auto &md = mesh_->mesh_data.Get();
+  auto vars = md->PackVariables(std::vector<std::string>{var_name});
+  PARTHENON_REQUIRE_THROWS(vars.GetDim(5) > 0,
+      "ScatterField: variable '" + var_name + "' not found in mesh data");
+  PARTHENON_REQUIRE_THROWS(var_index < vars.GetDim(4),
+      "ScatterField: var_index " + std::to_string(var_index) + " out of range");
+  PARTHENON_REQUIRE_THROWS(input.size() >= local_mesh_size[0] * local_mesh_size[1] * local_mesh_size[2],
+      "ScatterField: input array too small");
+
+  Initialize();
+
+  IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
+  IndexRange jb = md->GetBlockData(0)->GetBoundsJ(IndexDomain::interior);
+  IndexRange kb = md->GetBlockData(0)->GetBoundsK(IndexDomain::interior);
+
+  const auto vi = var_index;
+
+  auto helper = GetKernelHelper();
+
+  parthenon::par_for(
+      "UniformGridHelper::ScatterField",
+      0, mesh_->GetNumMeshBlocksThisRank() - 1,
+      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        const auto idx = helper.FlatIndex(b, k, j, i);
+        vars(b, vi, k, j, i) = input(idx);
+      });
 }
+
+} // namespace parthenon

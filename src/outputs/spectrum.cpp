@@ -55,7 +55,6 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   const auto components = pin->GetVector<int>(output_params.block_name, "components");
   const auto output_label = pin->GetOrAddString(output_params.block_name, "output_label", var_name);
 
-
   auto &md = pm->mesh_data.Get();
 
   IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
@@ -86,13 +85,15 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   for (int n = 0; n < n_comp; n++) components_h(n) = components[n];
   components_d.DeepCopy(components_h);
 
+  auto helper = UniformGridHelper->GetKernelHelper();
+
   // Gather block data into flat arrays for FFT input: 
   par_for(
       "Init FFT fields", 0, pm->GetNumMeshBlocksThisRank() - 1, kb.s, kb.e, jb.s, jb.e,
       ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        const auto idx = UniformGridHelper->FlatIndex(b, k, j, i);
+        const auto idx = helper.FlatIndex(b, k, j, i);
         for (int n = 0; n < n_comp; n++) {
-          input(n * fft_size_inbox + idx) = vars(b, components[n], k, j, i);
+          input(n * fft_size_inbox + idx) = vars(b, components_d(n), k, j, i);
         }
       });
 
@@ -113,28 +114,21 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       Kokkos::Experimental::ScatterView<Real **, parthenon::LayoutWrapper>(
           spectra.KokkosView());
 
-  ib.s = FFTManager->fourier_space_box().low[0];
-  ib.e = FFTManager->fourier_space_box().high[0];
-  jb.s = FFTManager->fourier_space_box().low[1];
-  jb.e = FFTManager->fourier_space_box().high[1];
-  kb.s = FFTManager->fourier_space_box().low[2];
-  kb.e = FFTManager->fourier_space_box().high[2];
+  auto fb = FFTManager->fourier_space_box();
 
   // Calculate spectrum: 
   const auto fft_size_outbox = FFTManager->size_fourier_space_box();
+  auto kernel_helper = FFTManager->GetKernelHelper();
   parthenon::par_for(
-      "CalcSpec", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      "CalcSpec", fb.low[2], fb.high[2], fb.low[1], fb.high[1], fb.low[0], fb.high[0],
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        auto k_z = k <= Nz / 2 ? k : -Nz + k;
-        auto k_y = j <= Ny / 2 ? j : -Ny + j;
-        auto k_x = i; // because we're using r2c transforms
+        auto k_vec = kernel_helper.Wavevector(k, j, i);
 
         // for simple binning/indexing
-        auto k_mag = std::sqrt(SQR(k_x) + SQR(k_y) + SQR(k_z));
+        auto k_mag = std::sqrt(SQR(k_vec[0]) + SQR(k_vec[1]) + SQR(k_vec[2]));
         auto k_mag_int = static_cast<int>(std::floor(k_mag));
 
-        const auto outidx =
-            ((k - kb.s) * (jb.e - jb.s + 1) + (j - jb.s)) * (ib.e - ib.s + 1) + i - ib.s;
+        const auto outidx = kernel_helper.FourierFlatIndex(k, j, i);
 
         auto val = 0.0;
         for (int n = 0; n < n_comp; n++) {
@@ -143,7 +137,7 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
         }
 
         // account for Hermitian symmetry of r2c transform
-        const auto fac = ((k_x > 0) && (2 * k_x != Nx)) ? 2.0 : 1.0;
+        const auto fac = ((k_vec[0] > 0) && (2 * k_vec[0] != Nx)) ? 2.0 : 1.0;
 
         auto spec = scatter_spectra.access();
         // 0: histsum - 1: ksum - 2: histcount
@@ -151,6 +145,7 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
         spec(k_mag_int, 1) += fac * k_mag;
         spec(k_mag_int, 2) += fac * 1.0;
       });
+      
   Kokkos::Experimental::contribute(spectra.KokkosView(), scatter_spectra);
 
   Kokkos::fence(); // May not be required.

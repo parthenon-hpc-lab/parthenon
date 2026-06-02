@@ -25,17 +25,58 @@ public:
   // -----------------------------
   // Box info 
   // -----------------------------
+  
   struct Box3D {
       int low[3];
       int high[3];
       int size[3];   // size in each dimension: high - low + 1
   };
 
-  Box3D fourier_space_box() const;   
+  Box3D fourier_space_box() const; // struct inhereted from UniformGridHelper   
   Box3D real_space_box() const;      
 
   std::size_t size_fourier_space_box() const;  // total number of points
   std::size_t size_real_space_box() const;
+
+  // -----------------------------
+  // Device-copyable kernel helper
+  // -----------------------------
+  struct KernelHelper {
+      Box3D fourier_box;
+      Box3D real_box;
+      int Nx, Ny, Nz;
+
+      // Flat index into the local Fourier-space array
+      KOKKOS_INLINE_FUNCTION
+      std::int64_t FourierFlatIndex(const int k, const int j, const int i) const {
+          return ((std::int64_t)(k - fourier_box.low[2]) * fourier_box.size[1]
+                  + (j - fourier_box.low[1])) * fourier_box.size[0] + i - fourier_box.low[0];
+      }
+
+      // Flat index into the local real-space array
+      KOKKOS_INLINE_FUNCTION
+      std::int64_t RealFlatIndex(const int k, const int j, const int i) const {
+          return ((std::int64_t)(k - real_box.low[2]) * real_box.size[1]
+                  + (j - real_box.low[1])) * real_box.size[0] + i - real_box.low[0];
+      }
+
+      // Integer wavevector components (handles negative frequencies)
+      // For r2c transforms, kx >= 0 always
+      KOKKOS_INLINE_FUNCTION
+      std::array<int, 3> Wavevector(const int k, const int j, const int i) const {
+          return {i,
+                  j <= Ny / 2 ? j : j - Ny,
+                  k <= Nz / 2 ? k : k - Nz};
+}
+  };
+
+  // Returns a device-copyable helper for use inside Kokkos kernels.
+  // Capture by value in KOKKOS_LAMBDA:
+  //   auto helper = fftManager->GetKernelHelper();
+  //   par_for(..., KOKKOS_LAMBDA(...) { helper.FourierFlatIndex(...); });
+  KernelHelper GetKernelHelper() const {
+      return {fourier_space_box(), real_space_box(), Nx_, Ny_, Nz_};
+  }
 
 private:
   struct Impl;                 // opaque implementation
@@ -43,6 +84,9 @@ private:
 
   Mesh *mesh_;
   bool initialized_ = false;
+
+  // Global mesh dimensions, stored during Initialize()
+  int Nx_ = 0, Ny_ = 0, Nz_ = 0;
 };
 
 } // namespace parthenon

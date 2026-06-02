@@ -127,17 +127,6 @@ class SpectralOutput : public OutputType {
 };
 
 //----------------------------------------------------------------------------------------
-//! \class HelicitySliceOutput
-//  \brief derived OutputType class for helicity slice dumps
-
-class HelicitySliceOutput : public OutputType {
- public:
-  explicit HelicitySliceOutput(const OutputParameters &oparams) : OutputType(oparams) {}
-  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
-                       const SignalHandler::OutputSignal signal) override;
-};
-
-//----------------------------------------------------------------------------------------
 //! \class HistoryFile
 //  \brief derived OutputType class for history dumps
 

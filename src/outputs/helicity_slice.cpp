@@ -65,12 +65,6 @@ void HelicitySliceOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime
   auto &loc_view = UniformGridHelper->loc_view;
   const auto &block_size = UniformGridHelper->block_size;
   const auto &local_mesh_size = UniformGridHelper->local_mesh_size;
-  const auto nx1b = block_size[0];
-  const auto nx2b = block_size[1];
-  const auto nx3b = block_size[2];
-  const auto nx1l = local_mesh_size[0];
-  const auto nx2l = local_mesh_size[1];
-  const auto nx3l = local_mesh_size[2];
   const auto Nx = UniformGridHelper->global_mesh_size[0];
   const auto Ny = UniformGridHelper->global_mesh_size[1];
   const auto Nz = UniformGridHelper->global_mesh_size[2];
@@ -91,16 +85,6 @@ void HelicitySliceOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime
   const auto fft_size_inbox  = FFTManager->size_real_space_box();
   const auto fft_size_outbox = FFTManager->size_fourier_space_box();
 
-  PARTHENON_REQUIRE_THROWS(
-      (std::int64_t)nx1l * nx2l * nx3l == (std::int64_t)fft_size_inbox,
-      "Local mesh size does not match FFT inbox size.");
-  PARTHENON_REQUIRE_THROWS(
-      fft_size_inbox <= std::numeric_limits<std::size_t>::max() / 3,
-      "3 * fft_size_inbox would overflow size_t.");
-  PARTHENON_REQUIRE_THROWS(
-      fft_size_outbox <= std::numeric_limits<std::size_t>::max() / 3,
-      "3 * fft_size_outbox would overflow size_t.");
-
   // ------------------------------------------------------------------
   // 1. Pack B into real-space FFT arrays
   // ------------------------------------------------------------------
@@ -110,13 +94,7 @@ void HelicitySliceOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime
       "HelSlice_PackB", 0, pm->GetNumMeshBlocksThisRank() - 1,
       kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        const auto kk = k - kb.s + loc_view(b, 2) * nx3b;
-        const auto jj = j - jb.s + loc_view(b, 1) * nx2b;
-        const auto ii = i - ib.s + loc_view(b, 0) * nx1b;
-        const std::int64_t idx = (std::int64_t)kk * nx2l * nx1l
-                               + (std::int64_t)jj * nx1l + ii;
-        PARTHENON_DEBUG_REQUIRE(idx >= 0 && idx < (std::int64_t)fft_size_inbox,
-                                "Pack B: idx out of bounds");
+        const auto idx = UniformGridHelper->FlatIndex(b, k, j, i);
         input(idx)                    = cons(b, 5, k, j, i); // Bx
         input(idx + fft_size_inbox)   = cons(b, 6, k, j, i); // By
         input(idx + 2*fft_size_inbox) = cons(b, 7, k, j, i); // Bz
@@ -213,11 +191,6 @@ void HelicitySliceOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime
   // ------------------------------------------------------------------
   auto realbox = FFTManager->real_space_box();
   const int kz_mid_global = Nz / 2;
-
-  PARTHENON_REQUIRE_THROWS(realbox.size[0] == nx1l &&
-                           realbox.size[1] == nx2l &&
-                           realbox.size[2] == nx3l,
-                           "Real space box size does not match local mesh size.");
 
   const int local_nx = realbox.size[0];
   const int local_ny = realbox.size[1];

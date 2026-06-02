@@ -31,14 +31,14 @@ void FFTManager::Initialize() {
     auto UniformGridHelper = mesh_->GetUniformGridHelper();
 
     auto mesh_size = mesh_->mesh_size;
-    auto Nx = mesh_size.nx(X1DIR);
-    auto Ny = mesh_size.nx(X2DIR);
-    auto Nz = mesh_size.nx(X3DIR);
+    Nx_ = mesh_size.nx(X1DIR);
+    Ny_ = mesh_size.nx(X2DIR);
+    Nz_ = mesh_size.nx(X3DIR);
 
     std::int64_t r2c_direction = 0;
 
-    heffte::box3d<> real_indexes({0,0,0}, {Nx-1, Ny-1, Nz-1});
-    heffte::box3d<> complex_indexes({0,0,0}, {Nx/2, Ny-1, Nz-1}); 
+    heffte::box3d<> real_indexes({0,0,0}, {Nx_-1, Ny_-1, Nz_-1});
+    heffte::box3d<> complex_indexes({0,0,0}, {Nx_/2, Ny_-1, Nz_-1}); 
 
     assert(real_indexes.r2c(r2c_direction) == complex_indexes);
 
@@ -123,6 +123,3 @@ std::size_t FFTManager::size_real_space_box() const {
 FFTManager::~FFTManager() = default;
 
 } // namespace parthenon
-
-
-
