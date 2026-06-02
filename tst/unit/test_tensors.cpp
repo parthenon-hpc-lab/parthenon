@@ -25,25 +25,11 @@
 #include "kokkos_abstraction.hpp"
 #include "tensors/tensors.hpp"
 
-#include "tensors/tt_types.hpp"
-#include "tensors/tt_operations.hpp"
-
 using namespace parthenon;
 using namespace parthenon::tensors;
 
 SCENARIO("Parthenon Tensor Cores", "[TensorCores]") {
   GIVEN("An object pool for a tensor core") {
-    
-    tensor2::TensorTrain my_train1({10, 10, 10}, {2, 3});
-    tensor2::TensorTrain my_train2({10, 10, 10}, {1, 5});
-    tensor2::TensorPack pack({my_train1, my_train2});
-    tensor2::SetTTPackToValue(pack, 3.0);
-
-    auto trains = tensor2::NonDestructiveSum(std::vector<tensor2::TensorTrain>{my_train1}, std::vector<tensor2::TensorTrain>{my_train2});
-
-
-
-
     const std::size_t nc = 5;
     const std::size_t chunk_size = 30;
     pool_map_t pool_map;
