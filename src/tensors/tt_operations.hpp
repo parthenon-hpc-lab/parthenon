@@ -235,14 +235,14 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
   for (const auto &train : trains) {
     n_cores = train.Ncores();
     for (int c = 0; c < train.Ncores(); ++c)
-      std::max(max_rank, train(c).RR());
+      max_rank = std::max(max_rank, train(c).RR());
     for (int c = 1; c < train.Ncores(); ++c)
-      std::max(max_phys_dim, train(c).DD());
+      max_phys_dim = std::max(max_phys_dim, train(c).DD());
   }
   
   int scratch_size{0};
   // Calculate the max storage for Gram matrices
-  scratch_size += ScratchPad2D<real_t>::shmen_size(n_cores, max_rank * max_rank);
+  scratch_size += ScratchPad2D<real_t>::shmen_size(n_cores - 1, max_rank * max_rank);
   scratch_size += ScratchPad1D<real_t>::shmen_size(max_rank * max_rank);
 
   // Storage for temporary when calculating right Gram matrices
@@ -284,10 +284,11 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), rank, rank);
           for (int alpha = 0; alpha < rank; ++alpha) {
             for (int beta = alpha; beta < rank; ++beta) {
-              real_t const * const dat = &core(alpha, 0, beta);
+              real_t const * const dat_alpha = &core(alpha, 0, 0);
+              real_t const * const dat_beta = &core(beta, 0, 0);
               real_t sum{0.0};
               parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag, tm, 0, core.DD() - 1, [&](int d, real_t &lsum){
-                lsum += dat * dat;
+                lsum += dat_alpha[d] * dat_beta[d];
               }, Kokkos::Sum<real_t>(sum));
               Kokkos::single(Kokkos::PerTeam(tm), [&](){
                   GR_mat(alpha, beta) = sum;
@@ -302,7 +303,7 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           const auto &core = pack(b, 0, c);
           const auto lr = core.LR();
           const auto rr = core.RR();
-          const auto dd = core.RR();
+          const auto dd = core.DD();
 
           // Zero the temporary storage for the core contracted with 
           // neighboring gram matrix
@@ -363,7 +364,7 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           const auto dd = core.DD();
 
           // Compute left Gram matrix
-          matrix_wrapper_t<real_t> GL_mat(GL.data(), rank, rank);
+          matrix_wrapper_t<real_t> GL_mat(GL.data(), rr, rr);
           for (int alpha = 0; alpha < lr; ++alpha) {
             for (int beta = alpha; beta < lr; ++beta) {
               real_t sum{0.0};
