@@ -477,3 +477,38 @@ SCENARIO("tensor2 non-destructive sum of constant trains reconstructs correctly"
                 return vc != va + vb;
               }, pack_a, pack_b, pack_c) == 0);
 }
+
+SCENARIO("tensor2 non-destructive sum of sparse delta trains reconstructs correctly",
+         "[tensor2]") {
+  using real_t = typename DefaultTTraits::real_t;
+
+  const std::array<int, 3> dims{3, 4, 5};
+
+  TensorTrain train_a =
+      MakeSparseDeltaTrain3D<DefaultTTraits>(dims,
+                                             {{1, 2, 3}, {0, 1, 4}},
+                                             {real_t(2.0), real_t(-1.5)});
+  TensorTrain train_b =
+      MakeSparseDeltaTrain3D<DefaultTTraits>(dims,
+                                             {{1, 2, 3}, {2, 0, 1}},
+                                             {real_t(4.5), real_t(3.0)});
+
+  std::vector<TensorTrain> trains_a{train_a};
+  std::vector<TensorTrain> trains_b{train_b};
+
+  TensorPack pack_a(trains_a);
+  TensorPack pack_b(trains_b);
+
+  auto trains_c = NonDestructiveSum(trains_a, trains_b);
+  TensorPack pack_c(trains_c);
+
+  REQUIRE(pack_c.GetNBlocks() == 1);
+  REQUIRE(pack_c.GetNCores() == 3);
+  REQUIRE(pack_c.GetPhysicalDimensions() == std::vector<int>{dims[0], dims[1], dims[2]});
+
+  REQUIRE(CountDenseMismatches3D(
+              KOKKOS_LAMBDA(int, int, int, int, real_t va, real_t vb, real_t vc) {
+                return vc != va + vb;
+              },
+              pack_a, pack_b, pack_c) == 0);
+}
