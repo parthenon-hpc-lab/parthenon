@@ -150,9 +150,8 @@ void CheckCompatibleDense3D(const TensorPackT<TTraits> &pack0, const Packs &...p
 }
 
 template <class TTraits, class CheckFunctor, class... Packs>
-int CountDenseMismatches3D(const TensorPackT<TTraits> &pack0,
-                           const Packs &...packs,
-                           CheckFunctor check) {
+int CountDenseMismatches3D(CheckFunctor check, const TensorPackT<TTraits> &pack0,
+                           const Packs &...packs) {
   static_assert(sizeof...(packs) >= 0,
                 "CountDenseMismatches3D requires at least one pack.");
 
@@ -241,10 +240,10 @@ SCENARIO("tensor2 train construction and pack metadata", "[tensor2]") {
   REQUIRE(pack.GetPhysicalDimension(2) == 4);
   REQUIRE(pack.GetPhysicalDimensions() == std::vector<int>{2, 3, 4});
   // Check zero initialized
-  REQUIRE(CountDenseMismatches3D(pack,
+  REQUIRE(CountDenseMismatches3D(
               KOKKOS_LAMBDA(int, int, int, int, Real value) {
                 return value != 0.0;
-              }) == 0);
+              }, pack) == 0);
 }
 
 SCENARIO("tensor2 train copy and move preserve packable storage", "[tensor2]") {
@@ -270,9 +269,9 @@ SCENARIO("tensor2 train copy and move preserve packable storage", "[tensor2]") {
   constexpr Real core_value = 1.5;
   constexpr Real expected_dense_value = 4.0 * core_value * core_value * core_value;
   REQUIRE(CountDenseMismatches3D(
-              copied_pack, KOKKOS_LAMBDA(int, int, int, int, Real value) {
+              KOKKOS_LAMBDA(int, int, int, int, Real value) {
                 return value != expected_dense_value;
-              }) == 0);
+              }, copied_pack) == 0);
 
   TensorTrain move_constructed = std::move(copy_constructed);
   TensorTrain move_assigned({2, 3, 2}, {1, 1});
@@ -288,9 +287,9 @@ SCENARIO("tensor2 train copy and move preserve packable storage", "[tensor2]") {
   REQUIRE(pack.GetNCores() == 3);
 
   REQUIRE(CountDenseMismatches3D(
-              pack, KOKKOS_LAMBDA(int, int, int, int, Real value) {
+              KOKKOS_LAMBDA(int, int, int, int, Real value) {
                 return value != expected_dense_value;
-              }) == 0);
+              }, pack) == 0);
 }
 
 SCENARIO("tensor2 train vector push_back preserves packable storage", "[tensor2]") {
@@ -318,11 +317,11 @@ SCENARIO("tensor2 train vector push_back preserves packable storage", "[tensor2]
   constexpr Real expected_a_dense_value = 4.0 * 2.5 * 2.5 * 2.5;
   constexpr Real expected_b_dense_value = 4.0 * 4.5 * 4.5 * 4.5;
 
-  REQUIRE(CountDenseMismatches3D(pack, 
+  REQUIRE(CountDenseMismatches3D(
               KOKKOS_LAMBDA(int b, int, int, int, Real value) {
                 if (b == 1) return value != expected_b_dense_value;  
                 return value != expected_a_dense_value;  
-              }) == 0);
+              }, pack) == 0);
 }
 
 SCENARIO("tensor2 sparse delta train reconstructs to the correct dense values", "[tensor2]") {
@@ -366,7 +365,6 @@ SCENARIO("tensor2 sparse delta train reconstructs to the correct dense values", 
   Kokkos::deep_copy(values_d, values_m);
 
   REQUIRE(CountDenseMismatches3D(
-              pack,
               KOKKOS_LAMBDA(int, int i1, int i2, int i3, real_t dense_val) {
                 real_t expected = real_t(0);
                 for (int n = 0; n < nentries; ++n) {
@@ -377,7 +375,7 @@ SCENARIO("tensor2 sparse delta train reconstructs to the correct dense values", 
                   }
                 }
                 return dense_val != expected;
-              }) == 0);
+              }, pack) == 0);
 }
 
 SCENARIO("tensor2 ReduceSize preserves retained core data", "[tensor2]") {
@@ -446,4 +444,36 @@ SCENARIO("tensor2 ReduceSize preserves retained core data", "[tensor2]") {
       nwrong);
 
   REQUIRE(nwrong == 0);
+}
+
+SCENARIO("tensor2 non-destructive sum of constant trains reconstructs correctly", "[tensor2]") {
+  using real_t = typename DefaultTTraits::real_t;
+
+  TensorTrain train_a({2, 5, 4}, {2, 1});
+  TensorTrain train_b({2, 5, 4}, {2, 3});
+
+  std::vector<TensorTrain> trains_a{train_a};
+  std::vector<TensorTrain> trains_b{train_b};
+
+  TensorPack pack_a(trains_a);
+  TensorPack pack_b(trains_b);
+
+  constexpr real_t a = 1.5;
+  constexpr real_t b = -0.25;
+
+  SetTTPackToValue(pack_a, a);
+  SetTTPackToValue(pack_b, b);
+  Kokkos::fence();
+
+  auto trains_c = NonDestructiveSum(trains_a, trains_b);
+  TensorPack pack_c(trains_c);
+
+  REQUIRE(pack_c.GetNBlocks() == 1);
+  REQUIRE(pack_c.GetNCores() == 3);
+  REQUIRE(pack_c.GetPhysicalDimensions() == std::vector<int>{2, 5, 4});
+
+  REQUIRE(CountDenseMismatches3D(
+              KOKKOS_LAMBDA(int, int, int, int, real_t va, real_t vb, real_t vc) {
+                return vc != va + vb;
+              }, pack_a, pack_b, pack_c) == 0);
 }
