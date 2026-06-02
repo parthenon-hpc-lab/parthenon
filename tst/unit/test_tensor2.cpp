@@ -102,17 +102,24 @@ int CountDenseMismatches3D(const TensorPackT<TTraits> &pack0,
 }
 } // namespace
 
-SCENARIO("tensor2 single-core train packs and reconstructs correctly", "[tensor2]") {
+SCENARIO("tensor2 single-core train basic structure", "[tensor2]") {
   TensorTrain train({4}, {});
-  std::vector<TensorTrain> trains{train};
+  TensorTrain train_copy = train;
 
   REQUIRE(train.NCores() == 1);
   REQUIRE(train(0).LR() == 1);
   REQUIRE(train(0).DD() == 4);
   REQUIRE(train(0).RR() == 1);
 
+  REQUIRE(train_copy.NCores() == 1);
+  REQUIRE(train_copy(0).LR() == 1);
+  REQUIRE(train_copy(0).DD() == 4);
+  REQUIRE(train_copy(0).RR() == 1);
+
+  std::vector<TensorTrain> trains{train, train_copy};
   TensorPack pack(trains);
-  REQUIRE(pack.GetNBlocks() == 1);
+
+  REQUIRE(pack.GetNBlocks() == 2);
   REQUIRE(pack.GetNCores() == 1);
   REQUIRE(pack.GetPhysicalDimension(0) == 4);
   REQUIRE(pack.GetPhysicalDimensions() == std::vector<int>{4});
@@ -126,8 +133,7 @@ SCENARIO("tensor2 single-core train packs and reconstructs correctly", "[tensor2
              0, pack.GetPhysicalDimension(0) - 1,
              KOKKOS_LAMBDA(int b, int i, int &lnwrong) {
                auto &core = pack(b, 0, 0);
-               const Real value = core(0, i, 0);
-               lnwrong += (value != 2.0);
+               lnwrong += (core(0, i, 0) != 2.0);
              },
              nwrong);
 
