@@ -109,6 +109,16 @@ class TensorCoreHostT {
 
   ~TensorCoreHostT() = default;
 
+  TensorCoreHostT DeepCopy() const {
+    TensorCoreHostT out(lr, dd, rr);
+    for (int l = 0; l < lr; ++l) {
+      for (int r = 0; r < rr; ++r) {
+        Kokkos::deep_copy(out.host_fibers(l, r), host_fibers(l, r));
+      }
+    }
+    return out;
+  }
+
   // Reduce the active rank-space extent of the core while assuming the fibers
   // in the retained range already contain the correct data.
   void ReduceSize(int lr_in, int rr_in) {
@@ -228,9 +238,29 @@ class TensorTrainT {
 
   int GetPhysicalDimension(int dim) const { return cores[dim].DD(); }
 
+  TensorTrainT DeepCopy() const {
+    std::vector<TensorCoreHostT<TTraits>> new_cores;
+    new_cores.reserve(cores.size());
+    for (const auto &core : cores) {
+      new_cores.push_back(core.DeepCopy());
+    }
+    return TensorTrainT(new_cores);
+  }
+
  private:
   std::vector<TensorCoreHostT<TTraits>> cores;
 };
+
+template <class TTraits>
+std::vector<TensorTrainT<TTraits>>
+DeepCopyTrains(const std::vector<TensorTrainT<TTraits>> &trains) {
+  std::vector<TensorTrainT<TTraits>> out;
+  out.reserve(trains.size());
+  for (const auto &train : trains) {
+    out.push_back(train.DeepCopy());
+  }
+  return out;
+}
 
 // Packed device-facing view of tensor cores. For now this stores cores directly
 // with indices (block, variable, core) rather than introducing a separate

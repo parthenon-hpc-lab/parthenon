@@ -593,13 +593,9 @@ SCENARIO("tensor2 Gram-SVD rounding scaffold on a two-delta train", "[tensor2]")
       MakeSparseDeltaTrain3D<DefaultTTraits>(dims,
                                              {{0, 1, 2}, {3, 2, 1}},
                                              {real_t(2.0), real_t(-1.5)});
-  TensorTrain train_orig =
-      MakeSparseDeltaTrain3D<DefaultTTraits>(dims,
-                                             {{0, 1, 2}, {3, 2, 1}},
-                                             {real_t(2.0), real_t(-1.5)});
 
   std::vector<TensorTrain> trains{train};
-  std::vector<TensorTrain> trains_orig{train_orig};
+  std::vector<TensorTrain> trains_orig = DeepCopyTrains(trains);
 
   // Sanity-check the construction before entering rounding.
   TensorPack pack(trains);
