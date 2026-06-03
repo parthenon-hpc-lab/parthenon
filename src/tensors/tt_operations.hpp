@@ -254,7 +254,7 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
   // Calculate storage for eigen and singular value results
   scratch_size += 4 * ScratchPad1D<real_t>::shmem_size(max_rank * max_rank);
   scratch_size += 3 * ScratchPad1D<real_t>::shmem_size(max_rank);
-   
+
   TensorPackT<TTraits> pack(trains);
   
   // Allocate array for storing final ranks to eventually copy back to host to
@@ -431,7 +431,32 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           tm.team_barrier();
 
           // Compute M = Σ_L Q_L^T Q_R Σ_R 
-   
+          auto &M_mat = GL_mat; // Just reuse GL, since we are done with it
+          for (int alpha = 0; alpha < rank; ++alpha) {
+            for (int beta = 0; beta < rank; ++beta) {
+              real_t sum{0.0};
+              parthenon::par_reduce_inner(
+                  parthenon::inner_loop_pattern_ttr_tag,
+                  tm, 0, rank - 1,
+                  [&](int k, real_t &lsum) {
+                    lsum += QL_mat(k, alpha) * QR_mat(k, beta);
+                  },
+                  Kokkos::Sum<real_t>(sum));
+              Kokkos::single(Kokkos::PerTeam(tm), [&]() {
+                M_mat(alpha, beta) = safe_sqrt(eigL[alpha]) * sum * safe_sqrt(eigR[beta]);
+              });
+            }
+          }
+          printf("M^(%i)\n", c);
+          for (int alpha = 0; alpha < rank; ++alpha) {
+            for (int beta = 0; beta < rank; ++beta) {
+              printf(" %e", M_mat(alpha, beta));
+            }
+            printf("\n");
+          }
+          printf("\n");
+          tm.team_barrier();
+
           // Compute truncated SVD of M
                     
           // Store rank 

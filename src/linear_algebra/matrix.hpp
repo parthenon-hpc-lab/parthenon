@@ -91,6 +91,11 @@ struct matrix_wrapper_t {
     return data[r * ncols + c];
   }
 
+  KOKKOS_INLINE_FUNCTION
+  T &operator()(int r, int c) const {
+    return data[r * ncols + c];
+  }
+
   int nrows, ncols;
   T *data;
 };
@@ -100,7 +105,7 @@ KOKKOS_FORCEINLINE_FUNCTION
 int GetNrows(const matrix_wrapper_t<T> &m) { return m.nrows; }
 template <class T>
 KOKKOS_FORCEINLINE_FUNCTION
-int GetNCols(const matrix_wrapper_t<T> &m) { return m.ncols; }
+int GetNcols(const matrix_wrapper_t<T> &m) { return m.ncols; }
 
 KOKKOS_FORCEINLINE_FUNCTION
 int GetNrows(const Matrix &m) { return m.nrows(); }
