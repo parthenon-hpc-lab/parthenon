@@ -81,6 +81,33 @@ class Matrix {
 };
 
 template <class T>
+struct matrix_transpose_wrapper_t {
+  KOKKOS_INLINE_FUNCTION
+  matrix_transpose_wrapper_t(T *data, int orig_nrows, int orig_ncols)
+      : data(data), orig_nrows(orig_nrows), orig_ncols(orig_ncols) {}
+
+  KOKKOS_INLINE_FUNCTION
+  T &operator()(int r, int c) {
+    return data[c * orig_ncols + r];
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  T &operator()(int r, int c) const {
+    return data[c * orig_ncols + r];
+  }
+
+  int orig_nrows, orig_ncols;
+  T *data;
+};
+
+
+struct unity_vector_t {
+  KOKKOS_INLINE_FUNCTION
+  constexpr double operator()(int) const { return 1.0; }
+  constexpr double operator[](int) const { return 1.0; }
+};
+
+template <class T>
 struct matrix_wrapper_t { 
   KOKKOS_INLINE_FUNCTION
   matrix_wrapper_t(T *data, int nrows, int ncols) 
@@ -96,9 +123,21 @@ struct matrix_wrapper_t {
     return data[r * ncols + c];
   }
 
+  KOKKOS_INLINE_FUNCTION
+  auto GetTranspose() const {
+    return matrix_transpose_wrapper_t<T>(data, nrows, ncols);
+  }
+
   int nrows, ncols;
   T *data;
 };
+
+template <class T>
+KOKKOS_FORCEINLINE_FUNCTION
+int GetNrows(const matrix_transpose_wrapper_t<T> &m) { return m.orig_ncols; }
+template <class T>
+KOKKOS_FORCEINLINE_FUNCTION
+int GetNcols(const matrix_transpose_wrapper_t<T> &m) { return m.orig_nrows; }
 
 template <class T>
 KOKKOS_FORCEINLINE_FUNCTION
@@ -106,6 +145,7 @@ int GetNrows(const matrix_wrapper_t<T> &m) { return m.nrows; }
 template <class T>
 KOKKOS_FORCEINLINE_FUNCTION
 int GetNcols(const matrix_wrapper_t<T> &m) { return m.ncols; }
+
 
 KOKKOS_FORCEINLINE_FUNCTION
 int GetNrows(const Matrix &m) { return m.nrows(); }

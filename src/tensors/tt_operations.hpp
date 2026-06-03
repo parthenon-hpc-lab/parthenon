@@ -222,6 +222,44 @@ HadamardProduct(std::vector<TensorTrainT<TTraits>> &TrainsA,
   return TrainsC;
 }
 
+template <class Real, class MatA, class MatB, class MatC,
+          class Diag1, class Diag2, class Diag3>
+KOKKOS_INLINE_FUNCTION
+void MatMulDiag3(parthenon::team_mbr_t tm,
+                 const Diag1 &D1,
+                 const MatA &A,
+                 const Diag2 &D2,
+                 const MatB &B,
+                 const Diag3 &D3,
+                 MatC &C) {
+  const int m = GetNrows(A);
+  const int k = GetNcols(A);
+  const int n = GetNcols(B);
+
+  PARTHENON_REQUIRE(GetNrows(B) == k, "MatMulDiag3: incompatible inner dimensions.");
+  PARTHENON_REQUIRE(GetNrows(C) == m, "MatMulDiag3: output row dimension mismatch.");
+  PARTHENON_REQUIRE(GetNcols(C) == n, "MatMulDiag3: output column dimension mismatch.");
+
+  for (int i = 0; i < m; ++i) {
+    for (int j = 0; j < n; ++j) {
+      Real sum{0};
+
+      parthenon::par_reduce_inner(
+          parthenon::inner_loop_pattern_ttr_tag,
+          tm, 0, k - 1,
+          [&](int p, Real &lsum) {
+            lsum += A(i, p) * D2(p) * B(p, j);
+          },
+          Kokkos::Sum<Real>(sum));
+
+      Kokkos::single(Kokkos::PerTeam(tm), [&]() {
+        C(i, j) = D1(i) * sum * D3(j);
+      });
+    }
+  }
+  tm.team_barrier();
+}
+
 template <class TTraits>
 std::vector<TensorTrainT<TTraits>>
 RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
@@ -246,6 +284,7 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
   scratch_size += ScratchPad1D<real_t>::shmem_size(max_rank * max_rank);
 
   // Storage for temporary when calculating right Gram matrices
+  // TODO(LFR): Make this storage more efficient
   scratch_size += ScratchPad3D<real_t>::shmem_size(max_rank, max_phys_dim, max_rank);
 
   // Calculate the total storage for linear algebra scratch
@@ -355,7 +394,24 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
         // Scratch that can be re-used amongst solves
         ScratchPad1D<real_t> real_scratch(tm_scratch, SymmetricEVD::double_scratch_size(max_rank));
         ScratchPad1D<std::size_t> szt_scratch(tm_scratch, SymmetricEVD::sizet_scratch_size(max_rank));
-        
+        auto print_mat = [](const std::string label, auto &mat, int r) {
+          printf("%s\n", label.c_str());
+          for (int alpha = 0; alpha < r; ++alpha) {
+            for (int beta = 0; beta < r; ++beta) {
+              printf(" %e", mat(alpha, beta));
+            }
+            printf("\n");
+          }
+          printf("\n");
+        };
+        auto print_vec = [](const std::string label, auto &vec, int r) {
+          printf("%s\n", label.c_str());
+          for (int alpha = 0; alpha < r; ++alpha) {
+              printf(" %e\n", vec[alpha]);
+          }
+          printf("\n");
+        };
+
         // L-to-R sweep over bonds 
         for (int c = 0; c < n_cores - 1; ++c) {
           const auto &core = pack(b, 0, c);
@@ -379,91 +435,109 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
                 });
             }
           }
-          printf("G_L^(%i)\n", c);
-          for (int alpha = 0; alpha < rank; ++alpha) {
-            for (int beta = 0; beta < rank; ++beta) {
-              printf(" %e", GL_mat(alpha, beta));
-            }
-            printf("\n");
-          }
-          printf("\n");
-          matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), rank, rank);
-          printf("G_R^(%i)\n", c + 1);
-          for (int alpha = 0; alpha < rank; ++alpha) {
-            for (int beta = 0; beta < rank; ++beta) {
-              printf(" %e", GR_mat(alpha, beta));
-            }
-            printf("\n");
-          }
-          printf("\n");  
           tm.team_barrier();
 
           // Compute eigen decomposition of L and R Gram matrices
           matrix_wrapper_t<real_t> QL_mat(QL.data(), rank, rank);
+          print_mat("G_L^(" + std::to_string(c) + ")", GL_mat, rank);
           SymmetricEVD::execute(tm, &GL_mat, &QL_mat, eigL.data(),
                                 real_scratch.data(), szt_scratch.data());
-          printf("QL^(%i)\n", c);
-          for (int alpha = 0; alpha < rank; ++alpha)
-            printf("eig = %e\n", eigL[alpha]);
-          for (int alpha = 0; alpha < rank; ++alpha) {
-            for (int beta = 0; beta < rank; ++beta) {
-              printf(" %e", QL_mat(alpha, beta));
-            }
-            printf("\n");
-          }
-          printf("\n");  
+          print_vec("Sigma^2_L^(" + std::to_string(c) + ")", eigL, rank);
+          print_mat("Q_L^(" + std::to_string(c) + ")", QL_mat, rank);
           tm.team_barrier();
 
-          // matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), rank, rank);
+          matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), rank, rank);
           matrix_wrapper_t<real_t> QR_mat(QR.data(), rank, rank);
+          print_mat("G_R^(" + std::to_string(c) + ")", GR_mat, rank);
           SymmetricEVD::execute(tm, &GR_mat, &QR_mat, eigR.data(),
                                 real_scratch.data(), szt_scratch.data());
-          printf("QR^(%i)\n", c);
-          for (int alpha = 0; alpha < rank; ++alpha)
-            printf("eig = %e\n", eigR[alpha]);
-          for (int alpha = 0; alpha < rank; ++alpha) {
-            for (int beta = 0; beta < rank; ++beta) {
-              printf(" %e", QR_mat(alpha, beta));
-            }
-            printf("\n");
-          }
-          printf("\n");
+          print_vec("Sigma^2_R^(" + std::to_string(c) + ")", eigR, rank);
+          print_mat("Q_R^(" + std::to_string(c) + ")", QR_mat, rank);
           tm.team_barrier();
 
-          // Compute M = Σ_L Q_L^T Q_R Σ_R 
+          // Compute M = eig_L^{1/2} Q_L^T Q_R eig_R^{1/2} 
           auto &M_mat = GL_mat; // Just reuse GL, since we are done with it
-          for (int alpha = 0; alpha < rank; ++alpha) {
-            for (int beta = 0; beta < rank; ++beta) {
-              real_t sum{0.0};
-              parthenon::par_reduce_inner(
-                  parthenon::inner_loop_pattern_ttr_tag,
-                  tm, 0, rank - 1,
-                  [&](int k, real_t &lsum) {
-                    lsum += QL_mat(k, alpha) * QR_mat(k, beta);
-                  },
-                  Kokkos::Sum<real_t>(sum));
-              Kokkos::single(Kokkos::PerTeam(tm), [&]() {
-                M_mat(alpha, beta) = safe_sqrt(eigL[alpha]) * sum * safe_sqrt(eigR[beta]);
+          parthenon::par_for_inner(tm, 0, rank - 1, 
+                [&](int r){
+                  eigL[r] = safe_sqrt(eigL[r]);
+                  eigR[r] = safe_sqrt(eigR[r]);
+              });
+          tm.team_barrier();
+          MatMulDiag3<real_t>(tm, eigL, QL_mat.GetTranspose(), unity_vector_t(), QR_mat, eigR, M_mat);  
+          print_mat("M^(" + std::to_string(c) + ")", M_mat, rank);
+          tm.team_barrier();
+
+          // Compute SVD of M
+          matrix_wrapper_t<real_t> U_mat(U.data(), rank, rank);
+          matrix_wrapper_t<real_t> V_mat(V.data(), rank, rank);
+          SquareSVD::execute(tm, &M_mat, &U_mat, &V_mat, sig.data(), real_scratch.data(), szt_scratch.data());
+          tm.team_barrier();
+
+          print_vec("sigma^(" + std::to_string(c) + ")", sig, rank);
+          print_mat("U^(" + std::to_string(c) + ")", U_mat, rank);
+          print_mat("V^(" + std::to_string(c) + ")", V_mat, rank);
+
+          // Truncate SVD to find new rank and store rank 
+          const int rank_new = rank;
+          Kokkos::single(Kokkos::PerTeam(tm), [&](){
+                    final_rank_arr(b, c) = rank_new;
+                }); 
+          parthenon::par_for_inner(tm, 0, rank - 1, 
+                [&](int r){
+                  eigL[r] = 1.0 / (eigL[r] + 1.e-20);
+                  eigR[r] = 1.0 / (eigR[r] + 1.e-20);
+              });
+          tm.team_barrier();
+
+          // Push SVD U left [V(core_L) = V(core_L) Q_A eig_L^{-1/2} U]
+          matrix_wrapper_t<real_t> T_Lmat(GL.data(), rank, rank_new);
+          MatMulDiag3<real_t>(tm, unity_vector_t(), QL_mat, eigL, U_mat, unity_vector_t(), T_Lmat); 
+          print_mat("T_L^(" + std::to_string(c) + ")", T_Lmat, rank);
+          
+          for (int l = 0; l < lr; ++l) {
+            for (int anew = 0; anew < rank_new; ++anew) {
+              parthenon::par_for_inner(tm, 0, dd - 1, [&](const int j) {
+                real_t sum{0.0};
+                for (int aold = 0; aold < rank; ++aold) {
+                  sum += core(l, j, aold) * T_Lmat(aold, anew);
+                }
+                gram_temp(l, j, anew) = sum;
               });
             }
           }
-          printf("M^(%i)\n", c);
-          for (int alpha = 0; alpha < rank; ++alpha) {
-            for (int beta = 0; beta < rank; ++beta) {
-              printf(" %e", M_mat(alpha, beta));
-            }
-            printf("\n");
-          }
-          printf("\n");
+          tm.team_barrier();
+          
+          parthenon::par_for_inner(tm, 0, lr - 1, 0, rank_new - 1, 0, dd - 1, 
+                [&](int l, int r, int j){
+                  core(l, j, r) = gram_temp(l, j, r);
+              });
           tm.team_barrier();
 
-          // Compute truncated SVD of M
-                    
-          // Store rank 
-
-          // Push SVD U left
-
           // Push SVD Sigma V right
+          auto &coreR = pack(b, 0, c + 1);
+          const int ddR = coreR.DD();
+          const int rrR = coreR.RR();
+          matrix_wrapper_t<real_t> T_Rmat(GL.data(), rank_new, rank);
+          MatMulDiag3<real_t>(tm, sig, V_mat.GetTranspose(), eigR, QR_mat.GetTranspose(), unity_vector_t(), T_Rmat); 
+          print_mat("T_R^(" + std::to_string(c) + ")", T_Rmat, rank);
+          for (int anew = 0; anew < rank_new; ++anew) {
+            for (int r = 0; r < rrR; ++r) {
+              parthenon::par_for_inner(tm, 0, ddR - 1, [&](const int j) {
+                real_t sum{0.0};
+                for (int aold = 0; aold < rank; ++aold) {
+                  sum += T_Rmat(anew, aold) * coreR(aold, j, r);
+                }
+                gram_temp(anew, j, r) = sum;
+              });
+            }
+          }
+          tm.team_barrier();
+          
+          parthenon::par_for_inner(tm, 0, rank_new - 1, 0, rrR - 1, 0, ddR - 1,
+              [&](int l, int r, int j) {
+                coreR(l, j, r) = gram_temp(l, j, r);
+              });
+          tm.team_barrier(); 
         }
       });
 

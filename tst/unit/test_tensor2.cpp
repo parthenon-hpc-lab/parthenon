@@ -99,10 +99,11 @@ MakeSparseDeltaTrain3D(const std::array<int, 3> &dims,
         const int i1 = entries_d(m, 1);
         const int i2 = entries_d(m, 2);
         const real_t a = values_d(m);
-
-        core0(0, i0, m) = real_t(1);
+        // Choose non-unity value in the first core so we aren't 
+        // in the canonical gauge to start. 
+        core0(0, i0, m) = a;
         core1(m, i1, m) = real_t(1);
-        core2(m, i2, 0) = a;
+        core2(m, i2, 0) = real_t(1);
       });
 
   return train;
@@ -612,9 +613,32 @@ SCENARIO("tensor2 Gram-SVD rounding scaffold on a two-delta train", "[tensor2]")
 
   // For now this is just a scaffold test: RoundGramSVD is expected to print
   // intermediate Gram matrices while the implementation is being debugged.
-  auto rounded_trains = RoundGramSVD(trains, real_t(1.0e-12));
+  auto rounded_trains = RoundGramSVD(trains, real_t(0.0e-12));
 
   // Keep one very weak postcondition so the test at least exercises the whole call.
   REQUIRE(rounded_trains.size() == 1);
   REQUIRE(rounded_trains[0].NCores() == 3);
+
+  TensorPack rounded_pack(rounded_trains);
+
+  REQUIRE(rounded_trains.size() == 1);
+  REQUIRE(rounded_trains[0].NCores() == 3);
+  REQUIRE(rounded_pack.GetNBlocks() == 1);
+  REQUIRE(rounded_pack.GetNCores() == 3);
+  REQUIRE(rounded_pack.GetPhysicalDimensions() == std::vector<int>{dims[0], dims[1], dims[2]});
+
+  // No-truncation round should preserve the represented dense tensor exactly.
+  REQUIRE(CountDenseMismatches3D(
+              KOKKOS_LAMBDA(int, int, int, int, real_t original_val, real_t rounded_val) {
+                return original_val != rounded_val;
+              },
+              pack, rounded_pack) == 0);
+
+  // In the current scaffold, no singular values are dropped, so ranks should stay unchanged.
+  REQUIRE(rounded_trains[0](0).LR() == 1);
+  REQUIRE(rounded_trains[0](0).RR() == 2);
+  REQUIRE(rounded_trains[0](1).LR() == 2);
+  REQUIRE(rounded_trains[0](1).RR() == 2);
+  REQUIRE(rounded_trains[0](2).LR() == 2);
+  REQUIRE(rounded_trains[0](2).RR() == 1);
 }
