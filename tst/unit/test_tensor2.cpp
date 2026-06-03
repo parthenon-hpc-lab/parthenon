@@ -593,8 +593,13 @@ SCENARIO("tensor2 Gram-SVD rounding scaffold on a two-delta train", "[tensor2]")
       MakeSparseDeltaTrain3D<DefaultTTraits>(dims,
                                              {{0, 1, 2}, {3, 2, 1}},
                                              {real_t(2.0), real_t(-1.5)});
+  TensorTrain train_orig =
+      MakeSparseDeltaTrain3D<DefaultTTraits>(dims,
+                                             {{0, 1, 2}, {3, 2, 1}},
+                                             {real_t(2.0), real_t(-1.5)});
 
   std::vector<TensorTrain> trains{train};
+  std::vector<TensorTrain> trains_orig{train_orig};
 
   // Sanity-check the construction before entering rounding.
   TensorPack pack(trains);
@@ -620,6 +625,7 @@ SCENARIO("tensor2 Gram-SVD rounding scaffold on a two-delta train", "[tensor2]")
   REQUIRE(rounded_trains[0].NCores() == 3);
 
   TensorPack rounded_pack(rounded_trains);
+  TensorPack orig_pack(trains_orig);
 
   REQUIRE(rounded_trains.size() == 1);
   REQUIRE(rounded_trains[0].NCores() == 3);
@@ -629,10 +635,11 @@ SCENARIO("tensor2 Gram-SVD rounding scaffold on a two-delta train", "[tensor2]")
 
   // No-truncation round should preserve the represented dense tensor exactly.
   REQUIRE(CountDenseMismatches3D(
-              KOKKOS_LAMBDA(int, int, int, int, real_t original_val, real_t rounded_val) {
+              KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val, real_t rounded_val) {
+                printf("[%i](%i, %i, %i) orig = %e new = %e\n", b, i1, i2, i3, original_val, rounded_val);
                 return original_val != rounded_val;
               },
-              pack, rounded_pack) == 0);
+              orig_pack, rounded_pack) == 0);
 
   // In the current scaffold, no singular values are dropped, so ranks should stay unchanged.
   REQUIRE(rounded_trains[0](0).LR() == 1);
