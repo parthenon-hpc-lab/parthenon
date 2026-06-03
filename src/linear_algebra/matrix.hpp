@@ -80,6 +80,65 @@ class Matrix {
   int ncols_, nrows_;
 };
 
+struct unity_vector_t {
+  KOKKOS_INLINE_FUNCTION
+  constexpr double operator()(int) const { return 1.0; }
+  constexpr double operator[](int) const { return 1.0; }
+};
+
+template <class Vec, class PermVec>
+struct vector_permuted_wrapper_t {
+  KOKKOS_INLINE_FUNCTION
+  vector_permuted_wrapper_t(const Vec &vec_in, const PermVec &perm_in)
+      : vec(vec_in), perm(perm_in){}
+
+  KOKKOS_INLINE_FUNCTION
+  decltype(auto) operator()(int i) const {
+    return vec(perm(i));
+  }
+
+  Vec vec;
+  PermVec perm;
+};
+
+template <class Vec, class PermVec>
+KOKKOS_INLINE_FUNCTION
+auto GetPermuted(const Vec &vec, const PermVec &perm, int n_active) {
+  return vector_permuted_wrapper_t<Vec, PermVec>(vec, perm);
+}
+
+template <class Mat, class PermVec>
+struct matrix_permuted_cols_wrapper_t {
+  Mat mat;
+  PermVec perm;
+  int ncols_active;
+
+  KOKKOS_INLINE_FUNCTION
+  matrix_permuted_cols_wrapper_t(const Mat &mat_in, const PermVec &perm_in, int ncols_active_in)
+      : mat(mat_in), perm(perm_in), ncols_active(ncols_active_in) {}
+
+  KOKKOS_INLINE_FUNCTION
+  decltype(auto) operator()(int r, int c) const {
+    return mat(r, perm(c));
+  }
+};
+
+template <class Mat, class PermVec>
+struct matrix_permuted_rows_wrapper_t {
+  Mat mat;
+  PermVec perm;
+  int nrows_active;
+
+  KOKKOS_INLINE_FUNCTION
+  matrix_permuted_rows_wrapper_t(const Mat &mat_in, const PermVec &perm_in, int nrows_active_in)
+      : mat(mat_in), perm(perm_in), nrows_active(nrows_active_in) {}
+
+  KOKKOS_INLINE_FUNCTION
+  decltype(auto) operator()(int r, int c) const {
+    return mat(perm(r), c);
+  }
+};
+
 template <class T>
 struct matrix_transpose_wrapper_t {
   KOKKOS_INLINE_FUNCTION
@@ -96,15 +155,15 @@ struct matrix_transpose_wrapper_t {
     return data[c * orig_ncols + r];
   }
 
+  template <class PermVec>
+  KOKKOS_INLINE_FUNCTION
+  auto GetPermutedRows(const PermVec &perm, int nrows_active) const {
+    return matrix_permuted_rows_wrapper_t<matrix_transpose_wrapper_t<T>, PermVec>(
+        *this, perm, nrows_active);
+  }
+
   int orig_nrows, orig_ncols;
   T *data;
-};
-
-
-struct unity_vector_t {
-  KOKKOS_INLINE_FUNCTION
-  constexpr double operator()(int) const { return 1.0; }
-  constexpr double operator[](int) const { return 1.0; }
 };
 
 template <class T>
@@ -126,6 +185,13 @@ struct matrix_wrapper_t {
   KOKKOS_INLINE_FUNCTION
   auto GetTranspose() const {
     return matrix_transpose_wrapper_t<T>(data, nrows, ncols);
+  }
+  
+  template <class PermVec>
+  KOKKOS_INLINE_FUNCTION
+  auto GetPermutedCols(const PermVec &perm, int ncols_active) const {
+    return matrix_permuted_cols_wrapper_t<matrix_wrapper_t<T>, PermVec>(
+        *this, perm, ncols_active);
   }
 
   int nrows, ncols;
@@ -160,6 +226,31 @@ template <class par_array_t>
 KOKKOS_FORCEINLINE_FUNCTION int GetNcols(const par_array_t &m) {
   return m.extent_int(1);
 }
+
+template <class Mat, class PermVec>
+KOKKOS_FORCEINLINE_FUNCTION
+int GetNrows(const matrix_permuted_cols_wrapper_t<Mat, PermVec> &m) {
+  return GetNrows(m.mat);
+}
+
+template <class Mat, class PermVec>
+KOKKOS_FORCEINLINE_FUNCTION
+int GetNcols(const matrix_permuted_cols_wrapper_t<Mat, PermVec> &m) {
+  return m.ncols_active;
+}
+
+template <class Mat, class PermVec>
+KOKKOS_FORCEINLINE_FUNCTION
+int GetNrows(const matrix_permuted_rows_wrapper_t<Mat, PermVec> &m) {
+  return m.nrows_active;
+}
+
+template <class Mat, class PermVec>
+KOKKOS_FORCEINLINE_FUNCTION
+int GetNcols(const matrix_permuted_rows_wrapper_t<Mat, PermVec> &m) {
+  return GetNcols(m.mat);
+}
+
 
 // Stream output
 std::ostream &operator<<(std::ostream &os, const Matrix &m);
