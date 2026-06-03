@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+//========================================================================================
 
 #include <algorithm>
 #include <cstdio>
@@ -163,6 +165,11 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
     else
       buf.SendNull(coal_comm);
   }
+#ifdef MPI_PARALLEL
+  //WIP: This optional MPI_Barrier forces many MPI libraries to start the MPI_Isend before continuing. Can improve performance
+  MPI_Barrier(MPI_COMM_WORLD);
+  //END OF WIP
+#endif
   if (pmesh->do_coalesced_comms)
     pmesh->pcoalesced_comms->PackAndSend(md.get(), bound_type);
 

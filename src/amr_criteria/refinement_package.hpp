@@ -10,6 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+//========================================================================================
 
 #ifndef AMR_CRITERIA_REFINEMENT_PACKAGE_HPP_
 #define AMR_CRITERIA_REFINEMENT_PACKAGE_HPP_
@@ -36,6 +38,8 @@ namespace Refinement {
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 template <typename T>
 TaskStatus Tag(T *rc);
+template <typename T>
+TaskStatus TagFused(T *rc);
 
 AmrTag CheckAllRefinement(MeshBlockData<Real> *rc, const AmrTag &level);
 ParArray1D<AmrTag> CheckAllRefinement(MeshData<Real> *md);

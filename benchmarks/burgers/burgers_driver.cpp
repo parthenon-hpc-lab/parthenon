@@ -10,6 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+//========================================================================================
 
 #include <memory>
 #include <string>
@@ -120,17 +122,26 @@ TaskCollection BurgersDriver::MakeTaskCollection(BlockList_t &blocks, const int 
 
     auto fill_deriv = tl.AddTask(update, FillDerived<MeshData<Real>>, mc1.get());
 
-    auto set_bc = tl.AddTask(update, parthenon::ApplyBoundaryConditionsMD, mc1);
+    //auto set_bc = tl.AddTask(update, parthenon::ApplyBoundaryConditionsMD, mc1);
 
     // estimate next time step
     if (stage == integrator->nstages) {
       auto new_dt = tl.AddTask(update, EstimateTimestep<MeshData<Real>>, mc1.get());
-      if (pmesh->adaptive) {
-        auto tag_refine =
-            tl.AddTask(set_bc, parthenon::Refinement::Tag<MeshData<Real>>, mc1.get());
-      }
     }
-  }
+  } 
+
+  TaskRegion &single_tasklist_per_pack_region3 = tc.AddRegion(num_partitions);
+  for (int i = 0; i < num_partitions; i++) {
+    auto &tl = single_tasklist_per_pack_region3[i];
+    auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
+
+    auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditionsOnCoarseOrFineMD, mc1, false);
+    
+    if (stage == integrator->nstages && pmesh->adaptive) {
+      auto tag_refine = tl.AddTask(set_bc, parthenon::Refinement::TagFused<MeshData<Real>>, mc1.get());
+    }
+  } 
+
   return tc;
 }
 

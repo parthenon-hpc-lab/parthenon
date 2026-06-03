@@ -10,6 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+//========================================================================================
 
 #ifndef DRIVER_MULTISTAGE_HPP_
 #define DRIVER_MULTISTAGE_HPP_
@@ -42,11 +44,15 @@ class MultiStageDriverGeneric : public EvolutionDriver {
     TaskListStatus status;
     integrator->dt = tm.dt;
     for (int stage = 1; stage <= integrator->nstages; stage++) {
+      Kokkos::Profiling::pushRegion(
+          std::string("MultiStage::cycle_") + std::to_string(tm.ncycle) + "::stage_" +
+          std::to_string(stage));
       // Clear any initialization info. We should be relying
       // on only the immediately preceding stage to contain
       // reasonable data
       pmesh->SetAllVariablesToInitialized();
       status = ConstructAndExecuteTaskLists<>(this, stage);
+      Kokkos::Profiling::popRegion();
       if (status != TaskListStatus::complete) break;
     }
     return status;
@@ -72,7 +78,11 @@ class MultiStageBlockTaskDriverGeneric : public MultiStageDriverGeneric<Integrat
     SimTime tm = this->tm;
     integrator->dt = tm.dt;
     for (int stage = 1; stage <= integrator->nstages; stage++) {
+      Kokkos::Profiling::pushRegion(
+          std::string("MultiStage::cycle_") + std::to_string(tm.ncycle) + "::stage_" +
+          std::to_string(stage));
       status = ConstructAndExecuteBlockTasks<>(this, stage);
+      Kokkos::Profiling::popRegion();
       if (status != TaskListStatus::complete) break;
     }
     return status;

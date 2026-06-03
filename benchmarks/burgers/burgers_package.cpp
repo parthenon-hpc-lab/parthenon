@@ -10,6 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+//========================================================================================
 
 #include <algorithm>
 #include <cmath>
@@ -146,7 +148,7 @@ void CalculateDerived(MeshData<Real> *md) {
   IndexRange kb = md->GetBoundsK(IndexDomain::interior);
 
   std::vector<std::string> vars({"derived", "U"});
-  auto &v = md->PackVariables(vars);
+  auto &v = md->PackVariablesByNames(vars);  
   const int nblocks = md->NumBlocks();
   std::size_t scratch_size = 0;
   constexpr int scratch_level = 0;
@@ -178,7 +180,7 @@ Real EstimateTimestepMesh(MeshData<Real> *md) {
   const auto &cfl = params.Get<Real>("cfl");
 
   std::vector<std::string> vars({"U"});
-  auto &v = md->PackVariables(vars);
+  auto &v = md->PackVariablesByNames(vars);
   const int ndim = pm->ndim;
 
   Real min_dt;
@@ -213,7 +215,7 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   std::vector<std::string> vars({"U", "Ulx", "Urx", "Uly", "Ury", "Ulz", "Urz"});
   std::vector<std::string> flxs({"U"});
   PackIndexMap imap;
-  auto v = md->PackVariablesAndFluxes(vars, flxs, imap);
+  auto v = md->PackVariablesAndFluxesByNames(vars, flxs, imap); 
   const int iu_lo = imap["U"].first;
   const int iu_hi = imap["U"].second;
   const int iulx_lo = imap["Ulx"].first;
@@ -233,9 +235,11 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   // first we'll reconstruct the state to faces
   std::size_t scratch_size = 0;
   constexpr int scratch_level = 0;
+  const int team_size = ib.e - ib.s + 1;
   parthenon::par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), scratch_size,
-      scratch_level, 0, nblocks - 1, kb.s - dk, kb.e + dk, jb.s - dj, jb.e + dj,
+      DEFAULT_OUTER_LOOP_PATTERN, "burgers::Reconstruction", DevExecSpace(), scratch_size,
+      scratch_level, parthenon::OuterLoopPerfOpts{team_size},
+      0, nblocks - 1, kb.s - dk, kb.e + dk, jb.s - dj, jb.e + dj,
       KOKKOS_LAMBDA(team_mbr_t member, const int b, const int k, const int j) {
         bool xrec = (k >= kb.s && k <= kb.e) && (j >= jb.s && j <= jb.e);
         bool yrec = (k >= kb.s && k <= kb.e) && (ndim > 1);
@@ -305,8 +309,9 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   // now we'll solve the Riemann problems to get fluxes
   scratch_size = 2 * ScratchPad1D<Real>::shmem_size(ib.e + 1);
   parthenon::par_for_outer(
-      DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), scratch_size,
-      scratch_level, 0, nblocks - 1, kb.s, kb.e + dk, jb.s, jb.e + dj,
+      DEFAULT_OUTER_LOOP_PATTERN, "burgers::RiemannSolve", DevExecSpace(), scratch_size,
+      scratch_level, parthenon::OuterLoopPerfOpts{team_size},
+      0, nblocks - 1, kb.s, kb.e + dk, jb.s, jb.e + dj,
       KOKKOS_LAMBDA(team_mbr_t member, const int b, const int k, const int j) {
         bool xflux = (k <= kb.e && j <= jb.e);
         bool yflux = (ndim > 1 && k <= kb.e);
@@ -414,7 +419,7 @@ Real MassHistory(MeshData<Real> *md, const Real x1min, const Real x1max, const R
   const auto &mesh_vol = params.Get<Real>("mesh_volume");
 
   std::vector<std::string> vars = {"U"};
-  const auto pack = md->PackVariables(vars);
+  const auto pack = md->PackVariablesByNames(vars);
 
   Real result = 0.0;
   parthenon::par_reduce(

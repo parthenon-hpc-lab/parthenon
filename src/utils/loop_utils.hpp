@@ -14,12 +14,18 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+//========================================================================================
+
+// This file was made in part with generative AI
+
 #ifndef UTILS_LOOP_UTILS_HPP_
 #define UTILS_LOOP_UTILS_HPP_
 
 #include <memory>      // smart pointers
 #include <type_traits> // std::enable_if
 #include <utility>     // std::forward
+#include <vector>      // std::vector
 
 #include "bvals/comms/bnd_info.hpp" // TODO(JMM): Remove me when possible
 #include "interface/metadata.hpp"
@@ -27,6 +33,12 @@
 #include "mesh/mesh.hpp"
 
 namespace parthenon {
+
+typedef struct boundIdx {
+  int ib;
+  int iv;
+  int in;
+} boundIdx_t;
 
 // forward declarations
 class MeshBlock;
@@ -93,59 +105,169 @@ inline auto &GetNeighborsOnFinerGMGGrid(MeshBlock *pmb, const GridIdentifier &gr
   return pmb->GetGMGFinerNeighbors();
 }
 
-// Loop over boundaries (or shared geometric elements) for blocks contained
-// in MeshData, calling the passed function func for every boundary. Unifies
-// boundary looping that occurs in many places in the boundary communication
-// routines and allows for easy selection of a subset of the boundaries based
-// on the template parameter BoundaryType. [Really, this probably does not
-// need to be a template parameter, it could just be a function argument]
-template <BoundaryType bound = BoundaryType::any, class F>
-inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
-  int fine_level = md->grid.logical_level();
+namespace detail {
+
+template <BoundaryType bound>
+inline bool PassesFluxCorrectionFilter(const NeighborBlock &nb, MeshBlock *pmb,
+                                       const std::shared_ptr<Variable<Real>> &v) {
+  if (nb.loc.level() - (bound == BoundaryType::flxcor_recv) !=
+      pmb->loc.level() - (bound == BoundaryType::flxcor_send))
+    return false;
+  if (nb.offsets.IsFace() && v->IsSet(Metadata::Face)) return true;
+  if ((nb.offsets.IsFace() || nb.offsets.IsEdge()) && v->IsSet(Metadata::Edge)) return true;
+  if ((nb.offsets.IsFace() || nb.offsets.IsEdge() || nb.offsets.IsNode()) &&
+      v->IsSet(Metadata::Node))
+    return true;
+  return false;
+}
+
+// Resolve (ib, iv, in) from a prior ForEachBoundary2 / BuildBoundIndex traversal.
+template <BoundaryType bound>
+inline bool GetBoundaryAtIndex(const std::shared_ptr<MeshData<Real>> &md,
+                               const boundIdx_t &idx, MeshBlock *&pmb, shorthands::sp_mbd_t &rc,
+                               const NeighborBlock *&nb, shorthands::sp_cv_t &v) {
+  rc = md->GetBlockData(idx.ib);
+  pmb = rc->GetBlockPointer();
+  auto &varVector = rc->GetVariableVector();
+  if (idx.iv < 0 || idx.iv >= static_cast<int>(varVector.size())) return false;
+  v = varVector[idx.iv];
+
+  const int fine_level = md->grid.logical_level();
+
+  if constexpr (bound == BoundaryType::gmg_restrict_send) {
+    if (!v->IsSet(Metadata::GMGRestrict)) return false;
+    auto &neighbors = GetNeighborsOnCoarserGMGGrid(pmb, md->grid);
+    if (idx.in < 0 || idx.in >= static_cast<int>(neighbors.size())) return false;
+    nb = &neighbors[idx.in];
+    return true;
+  } else if constexpr (bound == BoundaryType::gmg_restrict_recv) {
+    if (!v->IsSet(Metadata::GMGRestrict)) return false;
+    auto &neighbors = GetNeighborsOnFinerGMGGrid(pmb, md->grid);
+    if (idx.in < 0 || idx.in >= static_cast<int>(neighbors.size())) return false;
+    nb = &neighbors[idx.in];
+    return true;
+  } else if constexpr (bound == BoundaryType::gmg_prolongate_send) {
+    if (!v->IsSet(Metadata::GMGProlongate)) return false;
+    auto &neighbors = GetNeighborsOnFinerGMGGrid(pmb, md->grid);
+    if (idx.in < 0 || idx.in >= static_cast<int>(neighbors.size())) return false;
+    nb = &neighbors[idx.in];
+    return true;
+  } else if constexpr (bound == BoundaryType::gmg_prolongate_recv) {
+    if (!v->IsSet(Metadata::GMGProlongate)) return false;
+    auto &neighbors = GetNeighborsOnCoarserGMGGrid(pmb, md->grid);
+    if (idx.in < 0 || idx.in >= static_cast<int>(neighbors.size())) return false;
+    nb = &neighbors[idx.in];
+    return true;
+  } else if constexpr (bound == BoundaryType::gmg_same) {
+    if (!v->IsSet(Metadata::FillGhost)) return false;
+    if (md->grid.type() == GridType::two_level_composite) {
+      const auto &gmg_same = pmb->loc.level() == md->grid.logical_level()
+                                 ? pmb->GetGMGSameNeighbors()
+                                 : pmb->GetGMGCompositeFinerNeighbors();
+      if (idx.in < 0 || idx.in >= static_cast<int>(gmg_same.size())) return false;
+      nb = &gmg_same[idx.in];
+      return (pmb->loc.level() == fine_level || nb->loc.level() == fine_level);
+    }
+    auto &neighbors = pmb->GetNeighbors();
+    if (idx.in < 0 || idx.in >= static_cast<int>(neighbors.size())) return false;
+    nb = &neighbors[idx.in];
+    return true;
+  } else {
+    [[maybe_unused]] constexpr bool flx_bound =
+        bound == BoundaryType::flxcor_send || bound == BoundaryType::flxcor_recv;
+    if (!v->IsSet(Metadata::FillGhost) && !v->IsSet(Metadata::Flux)) return false;
+    auto &neighbors = pmb->GetNeighbors();
+    if (idx.in < 0 || idx.in >= static_cast<int>(neighbors.size())) return false;
+    nb = &neighbors[idx.in];
+    if constexpr (bound == BoundaryType::local) {
+      if (!v->IsSet(Metadata::FillGhost)) return false;
+      if (nb->rank != Globals::my_rank) return false;
+    } else if constexpr (bound == BoundaryType::nonlocal) {
+      if (!v->IsSet(Metadata::FillGhost)) return false;
+      if (nb->rank == Globals::my_rank) return false;
+    } else if constexpr (bound == BoundaryType::any) {
+      if (!v->IsSet(Metadata::FillGhost)) return false;
+    } else if constexpr (flx_bound) {
+      if (!v->IsSet(Metadata::Flux)) return false;
+      if (!PassesFluxCorrectionFilter<bound>(*nb, pmb, v)) return false;
+    }
+    return true;
+  }
+}
+
+// Canonical boundary enumeration. Visitor is invoked for each selected boundary as
+// (block, iv, neighbor_index, pmb, rc, nb, v) and may return LoopControl::break_out.
+template <BoundaryType bound, class Visitor>
+inline LoopControl ForEachBoundaryIndexed(std::shared_ptr<MeshData<Real>> &md,
+                                          Visitor &&visit) {
+  const int fine_level = md->grid.logical_level();
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
     const auto &gmg_same = pmb->loc.level() == md->grid.logical_level()
-                               ? pmb->GetGMGSameNeighbors()
-                               : pmb->GetGMGCompositeFinerNeighbors();
-    for (auto &v : rc->GetVariableVector()) {
+                                 ? pmb->GetGMGSameNeighbors()
+                                 : pmb->GetGMGCompositeFinerNeighbors();
+    const auto &varVector = rc->GetVariableVector();
+    for (int iv = 0; iv < static_cast<int>(varVector.size()); ++iv) {
+      const auto &v = varVector[iv];
       if constexpr (bound == BoundaryType::gmg_restrict_send) {
         if (v->IsSet(Metadata::GMGRestrict)) {
-          for (auto &nb : GetNeighborsOnCoarserGMGGrid(pmb, md->grid)) {
-            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
+          auto &neighbors = GetNeighborsOnCoarserGMGGrid(pmb, md->grid);
+          for (int n = 0; n < static_cast<int>(neighbors.size()); ++n) {
+            auto &nb = neighbors[n];
+            if (visit(block, iv, n, pmb, rc, nb, v) == LoopControl::break_out) {
+              return LoopControl::break_out;
+            }
           }
         }
       } else if constexpr (bound == BoundaryType::gmg_restrict_recv) {
         if (v->IsSet(Metadata::GMGRestrict)) {
-          for (auto &nb : GetNeighborsOnFinerGMGGrid(pmb, md->grid)) {
-            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
+          auto &neighbors = GetNeighborsOnFinerGMGGrid(pmb, md->grid);
+          for (int n = 0; n < static_cast<int>(neighbors.size()); ++n) {
+            auto &nb = neighbors[n];
+            if (visit(block, iv, n, pmb, rc, nb, v) == LoopControl::break_out) {
+              return LoopControl::break_out;
+            }
           }
         }
       } else if constexpr (bound == BoundaryType::gmg_prolongate_send) {
         if (v->IsSet(Metadata::GMGProlongate)) {
-          for (auto &nb : GetNeighborsOnFinerGMGGrid(pmb, md->grid)) {
-            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
+          auto &neighbors = GetNeighborsOnFinerGMGGrid(pmb, md->grid);
+          for (int n = 0; n < static_cast<int>(neighbors.size()); ++n) {
+            auto &nb = neighbors[n];
+            if (visit(block, iv, n, pmb, rc, nb, v) == LoopControl::break_out) {
+              return LoopControl::break_out;
+            }
           }
         }
       } else if constexpr (bound == BoundaryType::gmg_prolongate_recv) {
         if (v->IsSet(Metadata::GMGProlongate)) {
-          for (auto &nb : GetNeighborsOnCoarserGMGGrid(pmb, md->grid)) {
-            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
+          auto &neighbors = GetNeighborsOnCoarserGMGGrid(pmb, md->grid);
+          for (int n = 0; n < static_cast<int>(neighbors.size()); ++n) {
+            auto &nb = neighbors[n];
+            if (visit(block, iv, n, pmb, rc, nb, v) == LoopControl::break_out) {
+              return LoopControl::break_out;
+            }
           }
         }
       } else if constexpr (bound == BoundaryType::gmg_same) {
         if (v->IsSet(Metadata::FillGhost)) {
           if (md->grid.type() == GridType::two_level_composite) {
-            for (auto &nb : gmg_same) {
+            for (int n = 0; n < static_cast<int>(gmg_same.size()); ++n) {
+              auto &nb = gmg_same[n];
               if (pmb->loc.level() == fine_level || nb.loc.level() == fine_level) {
-                if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
-                  return;
+                if (visit(block, iv, n, pmb, rc, nb, v) == LoopControl::break_out) {
+                  return LoopControl::break_out;
                 }
               }
             }
           } else {
-            for (auto &nb : pmb->GetNeighbors()) {
-              if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
+            auto &neighbors = pmb->GetNeighbors();
+            for (int n = 0; n < static_cast<int>(neighbors.size()); ++n) {
+              auto &nb = neighbors[n];
+              if (visit(block, iv, n, pmb, rc, nb, v) == LoopControl::break_out) {
+                return LoopControl::break_out;
+              }
             }
           }
         }
@@ -153,8 +275,9 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
         if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::Flux)) {
           [[maybe_unused]] constexpr bool flx_bound =
               bound == BoundaryType::flxcor_send || bound == BoundaryType::flxcor_recv;
-          const auto &neighbors = pmb->GetNeighbors();
-          for (const auto &nb : neighbors) {
+          auto &neighbors = pmb->GetNeighbors();
+          for (int n = 0; n < static_cast<int>(neighbors.size()); ++n) {
+            auto &nb = neighbors[n];
             if constexpr (bound == BoundaryType::local) {
               if (!v->IsSet(Metadata::FillGhost)) continue;
               if (nb.rank != Globals::my_rank) continue;
@@ -165,25 +288,80 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
               if (!v->IsSet(Metadata::FillGhost)) continue;
             } else if constexpr (flx_bound) {
               if (!v->IsSet(Metadata::Flux)) continue;
-              // Check if this boundary requires flux correction
-              if (nb.loc.level() - (bound == BoundaryType::flxcor_recv) !=
-                  pmb->loc.level() - (bound == BoundaryType::flxcor_send))
-                continue;
-              bool correct = false;
-              if (nb.offsets.IsFace() && v->IsSet(Metadata::Face)) correct = true;
-              if ((nb.offsets.IsFace() || nb.offsets.IsEdge()) &&
-                  v->IsSet(Metadata::Edge))
-                correct = true;
-              if ((nb.offsets.IsFace() || nb.offsets.IsEdge() || nb.offsets.IsNode()) &&
-                  v->IsSet(Metadata::Node))
-                correct = true;
-              if (!correct) continue;
+              if (!PassesFluxCorrectionFilter<bound>(nb, pmb, v)) continue;
             }
-            if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
+            if (visit(block, iv, n, pmb, rc, nb, v) == LoopControl::break_out) {
+              return LoopControl::break_out;
+            }
           }
         }
       }
     }
+  }
+  return LoopControl::cont;
+}
+
+} // namespace detail
+
+// Loop over boundaries (or shared geometric elements) for blocks contained
+// in MeshData, calling the passed function func for every boundary. Unifies
+// boundary looping that occurs in many places in the boundary communication
+// routines and allows for easy selection of a subset of the boundaries based
+// on the template parameter BoundaryType.
+template <BoundaryType bound = BoundaryType::any, class F>
+inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
+  PARTHENON_INSTRUMENT
+  detail::ForEachBoundaryIndexed<bound>(
+      md, [&](int /*block*/, int /*iv*/, int /*n*/, MeshBlock *pmb, shorthands::sp_mbd_t &rc,
+              const NeighborBlock &nb, const shorthands::sp_cv_t &v) {
+        if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) {
+          return LoopControl::break_out;
+        }
+        return LoopControl::cont;
+      });
+}
+
+// Same traversal order as ForEachBoundary, but passes mesh indices (ib, iv, in).
+template <BoundaryType bound = BoundaryType::any, class F>
+inline void ForEachBoundary2(std::shared_ptr<MeshData<Real>> &md, F func) {
+  PARTHENON_INSTRUMENT
+  detail::ForEachBoundaryIndexed<bound>(
+      md, [&](int block, int iv, int n, MeshBlock * /*pmb*/, shorthands::sp_mbd_t & /*rc*/,
+              const NeighborBlock & /*nb*/, const shorthands::sp_cv_t & /*v*/) {
+        if (func_caller(func, block, iv, n) == LoopControl::break_out) {
+          return LoopControl::break_out;
+        }
+        return LoopControl::cont;
+      });
+}
+
+template <BoundaryType bound = BoundaryType::any>
+inline std::vector<boundIdx_t> BuildBoundIndex(std::shared_ptr<MeshData<Real>> &md) {
+  PARTHENON_INSTRUMENT
+  //WIP: This was previously done in two passes -- first to count malloc indices all at once, second to fill
+  std::vector<boundIdx_t> indices;
+  ForEachBoundary2<bound>(md, [&](int ib, int iv, int in) {
+    indices.push_back({ib, iv, in});
+  });
+  return indices;
+}
+
+// OpenMP over a flat boundary list built by BuildBoundIndex / ForEachBoundary2.
+template <BoundaryType bound = BoundaryType::any, class F>
+inline void ForEachBoundaryOMP1(std::shared_ptr<MeshData<Real>> &md,
+                                const std::vector<boundIdx_t> &bound_indices, F func) {
+  PARTHENON_INSTRUMENT
+  const int ibound = static_cast<int>(bound_indices.size());
+#pragma omp parallel for
+  for (int i = 0; i < ibound; i++) {
+    MeshBlock *pmb = nullptr;
+    shorthands::sp_mbd_t rc;
+    const NeighborBlock *nb = nullptr;
+    shorthands::sp_cv_t v;
+    if (!detail::GetBoundaryAtIndex<bound>(md, bound_indices[i], pmb, rc, nb, v)) {
+      continue;
+    }
+    func_caller(func, pmb, rc, *nb, v, i);
   }
 }
 

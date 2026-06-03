@@ -10,6 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+//========================================================================================
 
 #include "interface/update.hpp"
 
@@ -64,8 +66,10 @@ TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
   const IndexDomain interior = IndexDomain::interior;
 
   std::vector<MetadataFlag> flags({Metadata::WithFluxes, Metadata::Cell});
-  const auto &vin = in_obj->PackVariablesAndFluxes(flags);
-  auto dudt = dudt_obj->PackVariables(flags);
+  //const auto &vin = in_obj->PackVariablesAndFluxes(flags);
+  //auto dudt = dudt_obj->PackVariables(flags);
+  const auto &vin = in_obj->PackVariablesAndFluxesByFlags(flags);  
+  auto dudt = dudt_obj->PackVariablesByFlags(flags);  
   const IndexRange ib = in_obj->GetBoundsI(interior);
   const IndexRange jb = in_obj->GetBoundsJ(interior);
   const IndexRange kb = in_obj->GetBoundsK(interior);
@@ -75,11 +79,10 @@ TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
       DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, vin.GetDim(5) - 1, 0,
       vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int m, const int l, const int k, const int j, const int i) {
-        if (dudt.IsAllocated(m, l) && vin.IsAllocated(m, l)) {
+        //if (dudt.IsAllocated(m, l) && vin.IsAllocated(m, l)) { //WIP: This accelerates burgers by ~5% for GPU/CPU. Probably breaks sparse variables
           const auto &coords = vin.GetCoords(m);
           const auto &v = vin(m);
           dudt(m, l, k, j, i) = FluxDivHelper(l, k, j, i, ndim, coords, v);
-        }
       });
   return TaskStatus::complete;
 }

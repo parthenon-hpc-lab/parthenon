@@ -10,6 +10,8 @@
 # license in this material to reproduce, prepare derivative works, distribute copies to
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
+# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+#=========================================================================================
 
 # This file was made in part with generative AI.
 
@@ -379,7 +381,8 @@ endif()
 # Therefore, we don't use the Kokkos_ENABLE_CUDA_CONSTEXPR option add the flag manually.
 # Also, not checking for NVIDIA as nvcc_wrapper is identified as GNU so we just make sure
 # the flag is not added when compiling with Clang for Cuda.
-if (Kokkos_ENABLE_CUDA AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if (Kokkos_ENABLE_CUDA AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
+   AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "NVHPC" )
    target_compile_options(parthenon PUBLIC $<$<COMPILE_LANGUAGE:CXX>:--expt-relaxed-constexpr>)
 endif()
 

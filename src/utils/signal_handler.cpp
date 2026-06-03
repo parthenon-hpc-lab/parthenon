@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+//========================================================================================
 //! \file signal_handler.cpp
 //  \brief contains functions that implement a simple SignalHandler
 //  These functions are based on TAG's signal handler written for Athena 8/19/2004
@@ -74,6 +76,9 @@ OutputSignal CheckSignalFlags() {
   // signals will never be handled by that process / the solver may hang
   sigprocmask(SIG_BLOCK, &mask, nullptr);
 #ifdef MPI_PARALLEL
+  //WIP There was a MPI_Barrier here in the optimized version with no documentation/explanation
+  //PARTHENON_MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
+  //END WIP
   PARTHENON_MPI_CHECK(MPI_Allreduce(
       MPI_IN_PLACE, const_cast<void *>(reinterpret_cast<volatile void *>(signalflag)),
       nsignal + 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD));
