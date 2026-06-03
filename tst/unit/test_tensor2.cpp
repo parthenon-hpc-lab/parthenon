@@ -580,3 +580,41 @@ SCENARIO("tensor2 Hadamard product of sparse delta trains reconstructs correctly
               },
               pack_a, pack_b, pack_c) == 0);
 }
+
+SCENARIO("tensor2 Gram-SVD rounding scaffold on a two-delta train", "[tensor2]") {
+  using real_t = typename DefaultTTraits::real_t;
+
+  const std::array<int, 3> dims{4, 4, 4};
+
+  // Choose two distinct delta terms so the induced Gram matrices should be
+  // easy to reason about and mostly diagonal.
+  TensorTrain train =
+      MakeSparseDeltaTrain3D<DefaultTTraits>(dims,
+                                             {{0, 1, 2}, {3, 2, 1}},
+                                             {real_t(2.0), real_t(-1.5)});
+
+  std::vector<TensorTrain> trains{train};
+
+  // Sanity-check the construction before entering rounding.
+  TensorPack pack(trains);
+  REQUIRE(pack.GetNBlocks() == 1);
+  REQUIRE(pack.GetNCores() == 3);
+  REQUIRE(pack.GetPhysicalDimensions() == std::vector<int>{dims[0], dims[1], dims[2]});
+
+  REQUIRE(CountDenseMismatches3D(
+              KOKKOS_LAMBDA(int, int i1, int i2, int i3, real_t value) {
+                real_t expected = real_t(0);
+                if (i1 == 0 && i2 == 1 && i3 == 2) expected += real_t(2.0);
+                if (i1 == 3 && i2 == 2 && i3 == 1) expected += real_t(-1.5);
+                return value != expected;
+              },
+              pack) == 0);
+
+  // For now this is just a scaffold test: RoundGramSVD is expected to print
+  // intermediate Gram matrices while the implementation is being debugged.
+  auto rounded_trains = RoundGramSVD(trains, real_t(1.0e-12));
+
+  // Keep one very weak postcondition so the test at least exercises the whole call.
+  REQUIRE(rounded_trains.size() == 1);
+  REQUIRE(rounded_trains[0].NCores() == 3);
+}

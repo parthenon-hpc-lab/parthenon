@@ -233,27 +233,27 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
   int max_phys_dim{0};
   int n_cores{0};
   for (const auto &train : trains) {
-    n_cores = train.Ncores();
-    for (int c = 0; c < train.Ncores(); ++c)
+    n_cores = train.NCores();
+    for (int c = 0; c < train.NCores(); ++c)
       max_rank = std::max(max_rank, train(c).RR());
-    for (int c = 1; c < train.Ncores(); ++c)
+    for (int c = 1; c < train.NCores(); ++c)
       max_phys_dim = std::max(max_phys_dim, train(c).DD());
   }
   
   int scratch_size{0};
   // Calculate the max storage for Gram matrices
-  scratch_size += ScratchPad2D<real_t>::shmen_size(n_cores - 1, max_rank * max_rank);
-  scratch_size += ScratchPad1D<real_t>::shmen_size(max_rank * max_rank);
+  scratch_size += ScratchPad2D<real_t>::shmem_size(n_cores - 1, max_rank * max_rank);
+  scratch_size += ScratchPad1D<real_t>::shmem_size(max_rank * max_rank);
 
   // Storage for temporary when calculating right Gram matrices
-  scratch_size += ScratchPad3D<real_t>::shmen_size(max_rank, max_phys_dim, max_rank);
+  scratch_size += ScratchPad3D<real_t>::shmem_size(max_rank, max_phys_dim, max_rank);
 
   // Calculate the total storage for linear algebra scratch
   scratch_size += SymmetricEVD::total_shmem_scratch_size(max_rank); 
 
   // Calculate storage for eigen and singular value results
-  scratch_size += 4 * ScratchPad1D<real_t>::shmen_size(max_rank * max_rank);
-  scratch_size += 3 * ScratchPad1D<real_t>::shmen_size(max_rank);
+  scratch_size += 4 * ScratchPad1D<real_t>::shmem_size(max_rank * max_rank);
+  scratch_size += 3 * ScratchPad1D<real_t>::shmem_size(max_rank);
    
   TensorPackT<TTraits> pack(trains);
   
@@ -280,8 +280,8 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
         {
           int c = n_cores - 1;
           auto &core = pack(b, 0, c);
-          int rank = core.LR();
-          matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), rank, rank);
+          const int rank = core.LR();
+          matrix_wrapper_t<real_t> GR_mat(&GR(c - 1, 0), rank, rank);
           for (int alpha = 0; alpha < rank; ++alpha) {
             for (int beta = alpha; beta < rank; ++beta) {
               real_t const * const dat_alpha = &core(alpha, 0, 0);
@@ -313,7 +313,7 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
               });
           tm.team_barrier();
 
-          matrix_wrapper_t<real_t> GR_prev_mat(&GR(c + 1, 0), rr, rr);
+          matrix_wrapper_t<real_t> GR_prev_mat(&GR(c, 0), rr, rr);
           for (int rp = 0; rp < rr; ++rp) {
             parthenon::par_for_inner(tm, 0, lr - 1, 0, rr - 1, 0, dd - 1, 
                 [&](int l, int r, int j){
@@ -323,7 +323,7 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           }
 
           // Compute and store right Gram matrix
-          matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), lr, lr);
+          matrix_wrapper_t<real_t> GR_mat(&GR(c - 1, 0), lr, lr);
           for (int alpha = 0; alpha < lr; ++alpha) {
             for (int beta = alpha; beta < lr; ++beta) {
               real_t sum{0.0};
@@ -362,11 +362,11 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           const auto lr = core.LR();
           const auto rr = core.RR();
           const auto dd = core.DD();
-
+          const int rank = rr;
           // Compute left Gram matrix
-          matrix_wrapper_t<real_t> GL_mat(GL.data(), rr, rr);
-          for (int alpha = 0; alpha < lr; ++alpha) {
-            for (int beta = alpha; beta < lr; ++beta) {
+          matrix_wrapper_t<real_t> GL_mat(GL.data(), rank, rank);
+          for (int alpha = 0; alpha < rank; ++alpha) {
+            for (int beta = alpha; beta < rank; ++beta) {
               real_t sum{0.0};
               parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag,
                   tm, 0, lr - 1, 0, core.DD() - 1,
@@ -378,19 +378,56 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
                     GL_mat(beta, alpha) = sum;
                 });
             }
-          } 
+          }
+          printf("G_L^(%i)\n", c);
+          for (int alpha = 0; alpha < rank; ++alpha) {
+            for (int beta = 0; beta < rank; ++beta) {
+              printf(" %e", GL_mat(alpha, beta));
+            }
+            printf("\n");
+          }
+          printf("\n");
+          matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), rank, rank);
+          printf("G_R^(%i)\n", c + 1);
+          for (int alpha = 0; alpha < rank; ++alpha) {
+            for (int beta = 0; beta < rank; ++beta) {
+              printf(" %e", GR_mat(alpha, beta));
+            }
+            printf("\n");
+          }
+          printf("\n");  
           tm.team_barrier();
 
           // Compute eigen decomposition of L and R Gram matrices
           matrix_wrapper_t<real_t> QL_mat(QL.data(), rank, rank);
           SymmetricEVD::execute(tm, &GL_mat, &QL_mat, eigL.data(),
                                 real_scratch.data(), szt_scratch.data());
+          printf("QL^(%i)\n", c);
+          for (int alpha = 0; alpha < rank; ++alpha)
+            printf("eig = %e\n", eigL[alpha]);
+          for (int alpha = 0; alpha < rank; ++alpha) {
+            for (int beta = 0; beta < rank; ++beta) {
+              printf(" %e", QL_mat(alpha, beta));
+            }
+            printf("\n");
+          }
+          printf("\n");  
           tm.team_barrier();
 
-          matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), rank, rank);
+          // matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), rank, rank);
           matrix_wrapper_t<real_t> QR_mat(QR.data(), rank, rank);
           SymmetricEVD::execute(tm, &GR_mat, &QR_mat, eigR.data(),
                                 real_scratch.data(), szt_scratch.data());
+          printf("QR^(%i)\n", c);
+          for (int alpha = 0; alpha < rank; ++alpha)
+            printf("eig = %e\n", eigR[alpha]);
+          for (int alpha = 0; alpha < rank; ++alpha) {
+            for (int beta = 0; beta < rank; ++beta) {
+              printf(" %e", QR_mat(alpha, beta));
+            }
+            printf("\n");
+          }
+          printf("\n");
           tm.team_barrier();
 
           // Compute M = Σ_L Q_L^T Q_R Σ_R 
