@@ -645,3 +645,66 @@ SCENARIO("tensor2 Gram-SVD rounding scaffold on a two-delta train", "[tensor2]")
   REQUIRE(rounded_trains[0](2).LR() == 2);
   REQUIRE(rounded_trains[0](2).RR() == 1);
 }
+
+SCENARIO("tensor2 Gram-SVD rounding scaffold on a mixed two-channel train", "[tensor2]") {
+  using real_t = typename DefaultTTraits::real_t;
+
+  TensorTrain train({2, 2, 2}, {2, 2});
+
+  std::vector<TensorTrain> trains{train};
+  TensorPack pack(trains);
+
+  SetTTPackToValue(pack, real_t(0.0));
+
+  // Core 0: mix the two rank channels.
+  // Interpreted as a 2x2 matrix in (physical, right-rank):
+  // [ 1  1 ]
+  // [ 0  1 ]
+  //
+  // So G_L^(0) should be:
+  // [1 1]
+  // [1 2]
+  {
+    auto &core0 = pack(0, 0, 0);
+    core0(0, 0, 0) = real_t(1.0);
+    core0(0, 0, 1) = real_t(1.0);
+    core0(0, 1, 0) = real_t(0.0);
+    core0(0, 1, 1) = real_t(1.0);
+  }
+
+  // Core 1: diagonal selector in rank space.
+  {
+    auto &core1 = pack(0, 0, 1);
+    core1(0, 0, 0) = real_t(1.0);
+    core1(1, 1, 1) = real_t(1.0);
+  }
+
+  // Core 2: simple amplitudes on the two channels.
+  {
+    auto &core2 = pack(0, 0, 2);
+    core2(0, 0, 0) = real_t(2.0);
+    core2(1, 1, 0) = real_t(1.5);
+  }
+
+  Kokkos::fence();
+
+  std::vector<TensorTrain> trains_orig = DeepCopyTrains(trains);
+
+  // Run the no-truncation scaffold.
+  RoundGramSVD(trains, real_t(0.0e-12));
+
+  TensorPack rounded_pack(trains);
+  TensorPack orig_pack(trains_orig);
+
+  // No-truncation round should preserve the represented dense tensor to around machine precision.
+  constexpr real_t atol = 1.0e-12;
+  constexpr real_t rtol = 1.0e-10;
+  REQUIRE(CountDenseMismatches3D(
+              KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val, real_t rounded_val) {
+                printf("[%i](%i, %i, %i) orig = %e new = %e\n", b, i1, i2, i3, original_val, rounded_val);
+                const real_t err = std::abs(original_val - rounded_val);
+                const real_t scale = std::max(std::abs(original_val), std::abs(rounded_val));
+                return err > atol + rtol * scale;
+              },
+              orig_pack, rounded_pack) == 0);
+}
