@@ -309,9 +309,8 @@ void BuildDescendingPermutation(parthenon::team_mbr_t tm,
 }
 
 template <class TTraits>
-std::vector<TensorTrainT<TTraits>>
-RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
-             typename TTraits::real_t eps) {
+void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
+                  typename TTraits::real_t eps) {
   using real_t = typename TTraits::real_t;
 
   // Find the number of cores and maximum rank 
@@ -612,8 +611,29 @@ RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           tm.team_barrier(); 
         }
       });
+  
+  auto final_rank_arr_h = Kokkos::create_mirror_view(final_rank_arr);
+  Kokkos::deep_copy(final_rank_arr_h, final_rank_arr);
 
-  return trains;
+  for (int b = 0; b < trains.size(); ++b) {
+    auto &train = trains[b];
+    const int ncores = train.NCores();
+
+    // Bond c stores the rank between core c and core c+1, so:
+    //   core 0:    (1,                r_0)
+    //   core c:    (r_{c-1},          r_c)    for 1 <= c <= ncores-2
+    //   core last: (r_{ncores-2},     1)
+    if (ncores == 1) continue;
+
+    train(0).ReduceSize(1, final_rank_arr_h(b, 0));
+
+    for (int c = 1; c < ncores - 1; ++c) {
+      train(c).ReduceSize(final_rank_arr_h(b, c - 1),
+                          final_rank_arr_h(b, c));
+    }
+
+    train(ncores - 1).ReduceSize(final_rank_arr_h(b, ncores - 2), 1);
+  }
 }
 
 } // namespace tensor2

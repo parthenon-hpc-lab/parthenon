@@ -614,17 +614,17 @@ SCENARIO("tensor2 Gram-SVD rounding scaffold on a two-delta train", "[tensor2]")
 
   // For now this is just a scaffold test: RoundGramSVD is expected to print
   // intermediate Gram matrices while the implementation is being debugged.
-  auto rounded_trains = RoundGramSVD(trains, real_t(0.0e-12));
+  RoundGramSVD(trains, real_t(0.0e-12));
 
   // Keep one very weak postcondition so the test at least exercises the whole call.
-  REQUIRE(rounded_trains.size() == 1);
-  REQUIRE(rounded_trains[0].NCores() == 3);
+  REQUIRE(trains.size() == 1);
+  REQUIRE(trains[0].NCores() == 3);
 
-  TensorPack rounded_pack(rounded_trains);
+  TensorPack rounded_pack(trains);
   TensorPack orig_pack(trains_orig);
 
-  REQUIRE(rounded_trains.size() == 1);
-  REQUIRE(rounded_trains[0].NCores() == 3);
+  REQUIRE(trains.size() == 1);
+  REQUIRE(trains[0].NCores() == 3);
   REQUIRE(rounded_pack.GetNBlocks() == 1);
   REQUIRE(rounded_pack.GetNCores() == 3);
   REQUIRE(rounded_pack.GetPhysicalDimensions() == std::vector<int>{dims[0], dims[1], dims[2]});
@@ -638,12 +638,12 @@ SCENARIO("tensor2 Gram-SVD rounding scaffold on a two-delta train", "[tensor2]")
               orig_pack, rounded_pack) == 0);
 
   // In the current scaffold, no singular values are dropped, so ranks should stay unchanged.
-  REQUIRE(rounded_trains[0](0).LR() == 1);
-  REQUIRE(rounded_trains[0](0).RR() == 2);
-  REQUIRE(rounded_trains[0](1).LR() == 2);
-  REQUIRE(rounded_trains[0](1).RR() == 2);
-  REQUIRE(rounded_trains[0](2).LR() == 2);
-  REQUIRE(rounded_trains[0](2).RR() == 1);
+  REQUIRE(trains[0](0).LR() == 1);
+  REQUIRE(trains[0](0).RR() == 2);
+  REQUIRE(trains[0](1).LR() == 2);
+  REQUIRE(trains[0](1).RR() == 2);
+  REQUIRE(trains[0](2).LR() == 2);
+  REQUIRE(trains[0](2).RR() == 1);
 }
 
 SCENARIO("tensor2 Gram-SVD rounding scaffold on a mixed two-channel train", "[tensor2]") {
