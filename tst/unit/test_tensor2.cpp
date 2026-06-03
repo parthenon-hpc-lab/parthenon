@@ -708,3 +708,54 @@ SCENARIO("tensor2 Gram-SVD rounding scaffold on a mixed two-channel train", "[te
               },
               orig_pack, rounded_pack) == 0);
 }
+
+SCENARIO("tensor2 Gram-SVD no-truncation preserves randomized trains", "[tensor2]") {
+  using real_t = typename DefaultTTraits::real_t;
+
+  constexpr int nblocks = 8;
+  const std::vector<int> dims{2, 2, 2};
+  const std::vector<int> ranks{2, 2};
+
+  std::vector<TensorTrain> trains;
+  trains.reserve(nblocks);
+  for (int b = 0; b < nblocks; ++b) {
+    trains.emplace_back(dims, ranks);
+  }
+
+  TensorPack pack(trains);
+
+  // Fill with deterministic pseudo-random values.
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, 0, 1,
+      0, pack.GetNBlocks() - 1, 0, pack.GetNCores() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int b, const int c) {
+        auto &core = pack(b, 0, c);
+        for (int l = 0; l < core.LR(); ++l) {
+          for (int r = 0; r < core.RR(); ++r) {
+            parthenon::par_for_inner(tm, 0, core.DD() - 1, [&](const int j) {
+              const int key = 97 * (b + 1) + 31 * (c + 1) + 11 * (l + 1) + 7 * (r + 1) + 3 * (j + 1);
+              core(l, j, r) = real_t((key % 17) - 8) / real_t(8);
+            });
+          }
+        }
+      });
+  Kokkos::fence();
+
+  auto trains_orig = DeepCopyTrains(trains);
+
+  RoundGramSVD(trains, real_t(0.0));
+  TensorPack rounded_pack(trains);
+  TensorPack orig_pack(trains_orig);
+
+  constexpr real_t atol = real_t(1.0e-11);
+  constexpr real_t rtol = real_t(1.0e-10);
+
+  REQUIRE(CountDenseMismatches3D(
+              KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val, real_t rounded_val) {
+                printf("[%i](%i, %i, %i) orig = %e new = %e\n", b, i1, i2, i3, original_val, rounded_val);
+                const real_t err = std::abs(original_val - rounded_val);
+                const real_t scale = std::max(std::abs(original_val), std::abs(rounded_val));
+                return err > atol + rtol * scale;
+              },
+              orig_pack, rounded_pack) == 0);
+}
