@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2023-2025 The Parthenon collaboration
+// Copyright(C) 2023-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
@@ -84,20 +84,22 @@ Triple_t<IndexRange> VarInfo::GetPaddedBoundsKJI(const IndexDomain domain) const
   return std::make_tuple(kb, jb, ib);
 }
 
-int VarInfo::Size() const {
-  return std::accumulate(nx_.begin(), nx_.end(), 1, std::multiplies<int>());
+std::size_t VarInfo::Size() const {
+  return std::accumulate(nx_.begin(), nx_.end(), std::size_t{1},
+                         std::multiplies<std::size_t>());
 }
 
 // Includes topological element shape
-int VarInfo::TensorSize() const {
+std::size_t VarInfo::TensorSize() const {
   if (where == MetadataFlag({Metadata::None})) {
     return Size();
   } else {
-    return std::accumulate(rnx_.begin() + 1, rnx_.end() - 3, 1, std::multiplies<int>());
+    return std::accumulate(rnx_.begin() + 1, rnx_.end() - 3, std::size_t{1},
+                           std::multiplies<std::size_t>());
   }
 }
 
-int VarInfo::FillSize(const IndexDomain domain, const bool is_padded) const {
+std::size_t VarInfo::FillSize(const IndexDomain domain, const bool is_padded) const {
   if (where == MetadataFlag({Metadata::None})) {
     return Size();
   }
@@ -105,15 +107,12 @@ int VarInfo::FillSize(const IndexDomain domain, const bool is_padded) const {
     auto [n3, n2, n1] = GetPaddedNumKJI(domain);
     return ntop_elems * TensorSize() * n3 * n2 * n1;
   }
-  // Use raw info from topological elements (including some safety checks)
+  // Use raw info from topological elements
   auto ncells = cellbounds.GetTotal(domain, topological_elements.at(0));
   for (auto el_idx = 1; el_idx < ntop_elems; el_idx++) {
-    PARTHENON_REQUIRE_THROWS(
-        ncells == cellbounds.GetTotal(domain, topological_elements.at(el_idx)),
-        "All topological elements in a given output variable should have the same total "
-        "number of cells.");
+    ncells += cellbounds.GetTotal(domain, topological_elements.at(el_idx));
   }
-  return ntop_elems * TensorSize() * ncells;
+  return TensorSize() * ncells;
 }
 
 // number of elements of data that describe variable shape
@@ -189,7 +188,7 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
     // pmb->meshblock_data.Get(meshdata_name)->GetSwarmData();
     const auto &swarm_container = pmb->meshblock_data.Get("base")->GetSwarmData();
     swarm_container->DefragAll(); // JMM: If we defrag, we don't need to mask?
-    if (mode == DumpOutputMode::RESTART) {
+    if (mode == DumpOutputMode::Restart) {
       using FC = parthenon::Metadata::FlagCollection;
       auto flags =
           FC({parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
@@ -211,7 +210,7 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
           info.Add(varname, var);
         }
       }
-    } else if (mode == DumpOutputMode::DUMP) {
+    } else if (mode == DumpOutputMode::Data) {
       for (const auto &[swarmname, varnames] : swarmnames) {
         if (swarm_container->Contains(swarmname)) {
           auto &swarm = swarm_container->Get(swarmname);
@@ -231,7 +230,7 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
           }
         }
       }
-    } else { // if (mode == DumpOutputMode::CORE) {
+    } else if (mode == DumpOutputMode::Core) {
       const auto &swarm_map = swarm_container->GetSwarmMap();
       for (const auto &[swarmname, swarm] : swarm_map) {
         auto &info = all_info[swarmname];
@@ -246,6 +245,8 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
           info.Add(var->label(), var);
         }
       }
+    } else {
+      PARTHENON_FAIL("Not sure how to handle/create swarm info for given output type");
     }
   }
   for (auto &[name, info] : all_info) {
@@ -253,7 +254,7 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
     // we're just doing I/O right now, so probably ok?
     std::size_t tot_count;
     info.global_offset = MPIPrefixSum(info.count_on_rank, tot_count);
-    for (int i = 0; i < info.offsets.size(); ++i) {
+    for (std::size_t i = 0; i < info.offsets.size(); ++i) {
       info.offsets[i] += info.global_offset;
     }
     info.global_count = tot_count;
@@ -306,11 +307,11 @@ std::vector<int> ComputeDerefinementCount(Mesh *pm) {
 }
 
 template <typename T>
-std::vector<T> FlattendedLocalToGlobal(Mesh *pm, const std::vector<T> &data_local) {
+std::vector<T> FlattenedLocalToGlobal(Mesh *pm, const std::vector<T> &data_local) {
   const int n_blocks_global = pm->nbtotal;
   const int n_blocks_local = static_cast<int>(pm->block_list.size());
 
-  const int n_elem = data_local.size() / n_blocks_local;
+  const std::size_t n_elem = data_local.size() / n_blocks_local;
   PARTHENON_REQUIRE_THROWS(data_local.size() % n_blocks_local == 0,
                            "Results from flattened input vector does not evenly divide "
                            "into number of local blocks.");
@@ -340,13 +341,13 @@ std::vector<T> FlattendedLocalToGlobal(Mesh *pm, const std::vector<T> &data_loca
 
 // explicit template instantiation
 template std::vector<std::size_t>
-FlattendedLocalToGlobal(Mesh *pm, const std::vector<std::size_t> &data_local);
+FlattenedLocalToGlobal(Mesh *pm, const std::vector<std::size_t> &data_local);
 template std::vector<int8_t>
-FlattendedLocalToGlobal(Mesh *pm, const std::vector<int8_t> &data_local);
+FlattenedLocalToGlobal(Mesh *pm, const std::vector<int8_t> &data_local);
 template std::vector<int64_t>
-FlattendedLocalToGlobal(Mesh *pm, const std::vector<int64_t> &data_local);
-template std::vector<int> FlattendedLocalToGlobal(Mesh *pm,
-                                                  const std::vector<int> &data_local);
+FlattenedLocalToGlobal(Mesh *pm, const std::vector<int64_t> &data_local);
+template std::vector<int> FlattenedLocalToGlobal(Mesh *pm,
+                                                 const std::vector<int> &data_local);
 
 // TODO(JMM): I could make this use the other loop
 // functionality/high-order functions.  but it was more code than this
@@ -417,35 +418,6 @@ std::size_t MPISum(std::size_t val) {
       MPI_Allreduce(MPI_IN_PLACE, &val, 1, MPI_SIZE_T, MPI_SUM, MPI_COMM_WORLD));
 #endif
   return val;
-}
-
-VariableVector<Real> GetVarsToWrite(const std::shared_ptr<MeshBlock> pmb,
-                                    const bool restart,
-                                    const std::vector<std::string> &variables) {
-  const auto &var_vec = pmb->meshblock_data.Get()->GetVariableVector();
-  auto vars_to_write = GetAnyVariables(var_vec, variables);
-  if (restart) {
-    // get all vars with flag Independent OR restart
-    auto restart_vars = GetAnyVariables(
-        var_vec, {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
-    for (auto restart_var : restart_vars) {
-      vars_to_write.emplace_back(restart_var);
-    }
-  }
-  return vars_to_write;
-}
-
-std::vector<VarInfo> GetAllVarsInfo(const VariableVector<Real> &vars,
-                                    const IndexShape &cellbounds) {
-  std::vector<VarInfo> all_vars_info;
-  for (auto &v : vars) {
-    all_vars_info.emplace_back(v, cellbounds);
-  }
-
-  // sort alphabetically
-  std::sort(all_vars_info.begin(), all_vars_info.end(),
-            [](const VarInfo &a, const VarInfo &b) { return a.label < b.label; });
-  return all_vars_info;
 }
 
 void CheckParameterInputConsistent(ParameterInput *pin) {

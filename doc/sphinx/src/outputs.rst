@@ -63,8 +63,9 @@ The most simple output block for openPMD output is
 ::
 
    <parthenon/output6>
-   file_type  = openpmd    # write data in openPMD format
-   dt         = 0.125      # time increment between outputs
+   file_type   = openpmd    # write data in openPMD format
+   output_type = restart
+   dt          = 0.125      # time increment between outputs
 
 and will produce outputs in directories named ``parthenon.out6.#####.bp``
 where the ``6`` (in the output block header is arbitrary and used
@@ -73,20 +74,34 @@ zero-padded integer that is increased for each output written.
 
 Restarting from outputs using these minimal, simple block is supported by
 default (i.e., it contains all the information for restarting a simulation,
-such as independent field, mesh structure, input file, and other parameters).
+such as independent fields including particles, mesh structure, input file,
+and other parameters).
 
 More complex configurations are possible, e.g.,
 
 ::
 
    <parthenon/output5>
-   file_type  = openpmd           # write data in openPMD format
-   dt         = 0.125             # time increment between outputs
-   id         = compressed        # arb. string used in resulting directory name
-   backend_config  = openpmd.toml # path to external config file controlling IO behavior
+   file_type   = openpmd           # write data in openPMD format
+   dt          = 0.125             # time increment between outputs
+   id          = compressed        # arb. string used in resulting directory name
+   backend_config = openpmd.toml   # path to external config file controlling IO behavior
+   output_type = data              # only write subset of fields
+
+   variables   = density, pressure # list of fields to be written in output
+
+   swarms = tracers, photons       # Particle swarms
+   swarm_variables = x, y, z       # swarm variables output for every swarm
+
+   # Each swarm can sepcify in a separate list which additional
+   # variables it would like to output.
+   tracers_variables = x, y, z, rho, id
+   photons_variables = x, y, z, frequency
 
 Here, the resulting outputs will be written to ``parthenon.compressed.#####.bp``
-directories and an external config file (arbitrarily named ``openpmd.toml``)
+directories and only include the mesh fields named ``density`` and ``pressure``
+and particle species ``tracers`` and ``photons`` with their respective fields.
+Moreover, an external config file (arbitrarily named ``openpmd.toml``)
 is parsed to tune IO behavior (like performance or compression).
 This might be particuarly relevant at scale or for reduced outputs.
 For example, it could be useful to tune the total number of files being written
@@ -309,7 +324,8 @@ the restart file.
 Restart files can either be written in openPMD format or in HDF5 format.
 
 In the input file, include a ``<parthenon/output*>`` block and specify
-``file_type = rst`` (for HDF5) or ``file_type = openpmd`` (for openPMD).
+``file_type = rst`` (for HDF5) or ``file_type = openpmd`` and
+``output_type = restart`` (for openPMD).
 A ``dt`` parameter controls the frequency of
 outputs for simulations involving evolution. A ``<parthenon/output*>``
 block might look like

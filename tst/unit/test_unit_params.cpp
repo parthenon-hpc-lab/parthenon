@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2025 The Parthenon collaboration
+// Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
@@ -26,13 +26,15 @@
 #include "config.hpp"
 #include "interface/params.hpp"
 #include "kokkos_abstraction.hpp"
-#include "openPMD/Series.hpp"
 #include "outputs/parthenon_hdf5.hpp"
-#include "outputs/parthenon_opmd.hpp"
 #include "outputs/restart_hdf5.hpp"
-#include "outputs/restart_opmd.hpp"
-#include "parameter_input.hpp"
 #include "parthenon_array_generic.hpp"
+
+#ifdef PARTHENON_ENABLE_OPENPMD
+#include "openPMD/Series.hpp"
+#include "outputs/parthenon_opmd.hpp"
+#include "outputs/restart_opmd.hpp"
+#endif
 
 using parthenon::Params;
 using parthenon::Real;
@@ -206,6 +208,7 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
       std::string filename;
       const std::string groupname = "Params";
       const std::string prefix = "test_pkg";
+#ifdef ENABLE_HDF5
       if constexpr (std::is_same_v<RestartReaderHDF5, TestType>) {
         using namespace parthenon::HDF5;
         filename = "params_test.h5";
@@ -214,15 +217,18 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
             H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT));
         auto group = MakeGroup(file, groupname);
         params.WriteAllToHDF5(prefix, group);
-      } else if constexpr (std::is_same_v<RestartReaderOPMD, TestType>) {
+      }
+#endif // ENABLE_HDF5
+#ifdef PARTHENON_ENABLE_OPENPMD
+      if constexpr (std::is_same_v<RestartReaderOPMD, TestType>) {
         filename = ("params_test.%05T.bp");
         auto series = openPMD::Series(filename, openPMD::Access::CREATE);
         series.setIterationEncoding(openPMD::IterationEncoding::fileBased);
         auto it = series.iterations[0];
         parthenon::OpenPMDUtils::WriteAllParams(params, prefix, &it);
-      } else {
-        FAIL("This logic is flawed. I should not be here.");
       }
+#endif // PARTHENON_ENABLE_OPENPMD
+
       AND_THEN("We can directly read the relevant data from the file") {
         Real in_scalar;
         std::vector<int> in_vector;
@@ -231,6 +237,7 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
         parthenon::HostArray2D<Real> in_hostarr2d("hostarr2d", 2, 3);
         Kokkos::View<bool *> in_bool1d("in_bool1d", 5);
 
+#ifdef ENABLE_HDF5
         if constexpr (std::is_same_v<RestartReaderHDF5, TestType>) {
           H5F file =
               H5F::FromHIDCheck(H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT));
@@ -242,7 +249,10 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
           HDF5ReadAttribute(obj, prefix + "/arr2d", in_arr2d);
           HDF5ReadAttribute(obj, prefix + "/hostarr2d", in_hostarr2d);
           HDF5ReadAttribute(obj, prefix + "/bool1d", in_bool1d);
-        } else if constexpr (std::is_same_v<RestartReaderOPMD, TestType>) {
+        }
+#endif // ENABLE_HDF5
+#ifdef PARTHENON_ENABLE_OPENPMD
+        if constexpr (std::is_same_v<RestartReaderOPMD, TestType>) {
           auto series = openPMD::Series(filename, openPMD::Access::READ_ONLY);
           auto it = series.iterations[0];
           // Note that we're explicitly using `delim` here which tests the character
@@ -269,6 +279,7 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
           // resfile.RestoreViewAttribute(groupname + delim + prefix + delim + "bool1d",
           // in_bool1d);
         }
+#endif // PARTHENON_ENABLE_OPENPMD
         REQUIRE(scalar == in_scalar);
 
         for (int i = 0; i < vector.size(); ++i) {
@@ -315,16 +326,21 @@ TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][outpu
         parthenon::HostArray2D<Real> test_hostarr("hostarr2d", 1, 1);
         rparams.Add("hostarr2d", test_hostarr, restart);
 
+#ifdef ENABLE_HDF5
         if constexpr (std::is_same_v<RestartReaderHDF5, TestType>) {
           H5F file =
               H5F::FromHIDCheck(H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT));
           const H5G obj =
               H5G::FromHIDCheck(H5Oopen(file, groupname.c_str(), H5P_DEFAULT));
           rparams.ReadFromRestart(prefix, obj);
-        } else if constexpr (std::is_same_v<RestartReaderOPMD, TestType>) {
+        }
+#endif // ENABLE_HDF5
+#ifdef PARTHENON_ENABLE_OPENPMD
+        if constexpr (std::is_same_v<RestartReaderOPMD, TestType>) {
           auto resfile = RestartReaderOPMD(filename.c_str());
           resfile.ReadParams(prefix, rparams);
         }
+#endif // PARTHENON_ENABLE_OPENPMD
 
         AND_THEN("The values for the restartable params are updated to match the file") {
           auto test_scalar = rparams.Get<Real>("scalar");

@@ -183,8 +183,7 @@ class OpenPMDOutput : public OutputType {
 class PHDF5Output : public OutputType {
  public:
   // Function declarations
-  PHDF5Output(const OutputParameters &oparams, DumpOutputMode mode)
-      : OutputType(oparams), mode_(mode) {}
+  explicit PHDF5Output(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                        const SignalHandler::OutputSignal signal) override;
   template <bool WRITE_SINGLE_PRECISION>
@@ -204,21 +203,20 @@ class PHDF5Output : public OutputType {
   void WriteSparseInfo_(Mesh *pm, hbool_t *sparse_allocated,
                         const std::vector<int> &dealloc_count,
                         const std::vector<std::string> &sparse_names, hsize_t num_sparse,
-                        hid_t file, const HDF5::H5P &pl, size_t offset,
+                        hid_t file, const HDF5::H5P &pl, std::size_t offset,
                         hsize_t max_blocks_global) const;
   std::string FilePostfix_() const {
-    if (mode_ == DumpOutputMode::DUMP) {
+    if (output_params.mode == DumpOutputMode::Data) {
       return ".phdf";
-    } else if (mode_ == DumpOutputMode::RESTART) {
+    } else if (output_params.mode == DumpOutputMode::Restart) {
       return ".rhdf";
-    } else if (mode_ == DumpOutputMode::CORE) {
+    } else if (output_params.mode == DumpOutputMode::Core) {
       return ".chdf";
     } else {
       PARTHENON_FAIL("Unknown dump output mode");
       return "";
     }
   }
-  const DumpOutputMode mode_;
 };
 
 //----------------------------------------------------------------------------------------

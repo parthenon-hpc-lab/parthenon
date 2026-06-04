@@ -18,13 +18,12 @@
 
 #include "basic_types.hpp"
 #include "mesh/meshblock.hpp"
+#include "outputs/output_parameters.hpp"
 #include "outputs/output_utils.hpp"
 
 namespace parthenon {
 
 namespace OpenPMDUtils {
-
-enum class SubOutputType { Restart, X1Slice, X2Slice, X3Slice };
 
 template <typename T>
 void RestoreViewAttribute(const std::string &full_path, T &view, openPMD::Iteration *it);
@@ -37,9 +36,13 @@ void WriteAllParams(const Params &params, const std::string &prefix,
 // access to non-standard groups (such as "Params" versus the standard "meshes").
 inline static const std::string delim = "~";
 
+// OpenPMD standard: names of records and their components are only allowed to contain
+// the characters a-Z, the numbers 0-9 and the underscore _
+void CheckValidName(const std::string &name);
+
 // Construct OpenPMD Mesh "record" name and comonnent identifier.
 // - te is the TopologicalElement (which is used as part of the variable name record)
-// - comp_idx is a flattended index over all components of the vectors and tensors, i.e.,
+// - comp_idx is a flattened index over all components of the vectors and tensors, i.e.,
 // the typical v,u,t indices.
 // - level is the current effective level of the Mesh record
 std::tuple<std::string, std::string>
@@ -53,12 +56,12 @@ GetMeshRecordAndComponentNames(const OutputUtils::VarInfo &vinfo,
 std::tuple<openPMD::Offset, openPMD::Extent>
 GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
                         const TopologicalElement te, const int coarsening_factor,
-                        const SubOutputType outupt_type);
+                        const DumpOutputMode outupt_type);
 
 // Construct OpenPMD Particle "record" name and comonnent identifier.
 // - vname is the variable name
 // - rank is the variable rank (i.e., 0 is scalar etc)
-// - comp_idx is a flattended index over all components of the vectors and tensors, i.e.,
+// - comp_idx is a flattened index over all components of the vectors and tensors, i.e.,
 // the typical v,u,t indices.
 std::tuple<std::string, std::string>
 GetParticleRecordAndComponentNames(const std::string &vname, const int rank,

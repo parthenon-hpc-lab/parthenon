@@ -163,10 +163,14 @@ jobs:
       - name: Configure
         run: |
           git config --global --add safe.directory $(pwd)
+          # The extra CMAKE_PREFIX_PATH seems to be required for current rocm6.2, see
+          # https://github.com/kokkos/kokkos/pull/8747/changes#r2621509391
+          # Try to remove in next rocm bump.
           cmake -B build \
             -DMACHINE_CFG=${PWD}/cmake/machinecfg/GitHubActions.cmake \
             -DCMAKE_BUILD_TYPE=Release \
             -DMACHINE_VARIANT=hip-mpi \
+            -DCMAKE_PREFIX_PATH=/opt/rocm-6.2.0 \
             -DCMAKE_CXX_COMPILER=hipcc
       # Test example with "variables" and output
       - name: advection

@@ -45,11 +45,13 @@ if (${MACHINE_VARIANT} MATCHES "mpi")
   #set(TEST_MPIEXEC mpiexec CACHE STRING "Command to launch MPI applications")
   list(APPEND TEST_MPIOPTS "--allow-run-as-root")
   set(HDF5_ROOT /usr/local/hdf5/parallel CACHE STRING "HDF5 path")
+  set(PARTHENON_USE_SYSTEM_OPENPMD ON CACHE BOOL "Use API in container")
+
 else()
   set(HDF5_ROOT /usr/local/hdf5/serial CACHE STRING "HDF5 path")
   set(PARTHENON_DISABLE_MPI ON CACHE BOOL "Disable MPI")
+  # testing auto fetch and compile
+  set(PARTHENON_USE_SYSTEM_OPENPMD OFF CACHE BOOL "Use API in container")
 endif()
-
-set(PARTHENON_USE_SYSTEM_OPENPMD ON CACHE BOOL "Use API in container")
 
 set(CMAKE_CXX_FLAGS "${MACHINE_CXX_FLAGS}" CACHE STRING "Default flags for this config")

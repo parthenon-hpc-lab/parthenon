@@ -41,12 +41,12 @@ SparsePool::SparsePool(const std::string &base_name, const Metadata &metadata,
   if (!vector_tensor_flags.empty()) {
     PARTHENON_REQUIRE_THROWS(vector_tensor_flags.size() == N,
                              "Got wrong number of Vector/Tensor flags");
-    for (size_t i = 0; i < N; ++i) {
+    for (std::size_t i = 0; i < N; ++i) {
       internal_vector_tensor_flags[i] = &vector_tensor_flags[i];
     }
   }
 
-  for (size_t i = 0; i < N; ++i) {
+  for (std::size_t i = 0; i < N; ++i) {
     AddImpl(sparse_ids[i], internal_shapes[i], internal_vector_tensor_flags[i],
             component_labels.empty() ? std::vector<std::string>{} : component_labels[i]);
   }

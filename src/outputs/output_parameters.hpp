@@ -29,10 +29,8 @@
 
 namespace parthenon {
 
-// JMM: I designed this for HDF5 but in pinciple this switching could
-// also work for other output types... Any output type that is capable
-// of outputting a full dump can do this.
-enum class DumpOutputMode { DUMP, RESTART, CORE };
+// Controlling additional logic in HDF5 and OpenPMD outputs
+enum class DumpOutputMode { Data, Restart, Core, X1Slice, X2Slice, X3Slice, Unspecified };
 
 //----------------------------------------------------------------------------------------
 //! \struct OutputParameters
@@ -65,6 +63,7 @@ struct OutputParameters {
   int hdf5_compression_level = 5;
   bool write_xdmf = false;
   bool write_swarm_xdmf = false;
+  DumpOutputMode mode = DumpOutputMode::Unspecified;
 
   // These change after initialization, the other parameters do not.
   Real last_time;

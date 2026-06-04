@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2024-2025 The Parthenon collaboration
+// Copyright(C) 2024-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
@@ -18,11 +18,14 @@
 //  \brief Output for OpenPMD https://www.openpmd.org/ (supporting various backends)
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <format>
 #include <limits>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -40,25 +43,41 @@
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "driver/driver.hpp"
+#include FS_HEADER
 #include "globals.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable_state.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_attr.hpp"
+#include "outputs/output_parameters.hpp"
 #include "outputs/output_utils.hpp"
 #include "outputs/outputs.hpp"
 #include "outputs/parthenon_opmd.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/default_names.hpp"
 #include "parthenon_array_generic.hpp"
+#include "provenance.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/instrument.hpp"
+
+namespace fs = FS_NAMESPACE;
 
 namespace parthenon {
 
 using namespace OutputUtils;
 
 namespace OpenPMDUtils {
+
+void CheckValidName(const std::string &name) {
+  // also including \v as special char used for scalar records
+  auto is_alnum_underscore = [](char c) {
+    return (isalnum(c) || (c == '_') || c == '\v');
+  };
+  PARTHENON_REQUIRE_THROWS(
+      find_if_not(name.begin(), name.end(), is_alnum_underscore) == name.end(),
+      "Generated OpenPMD mesh or particle record'" + name +
+          "' is not standard compliant. Please contact Parthenon developers for a fix.");
+}
 
 template <typename T>
 auto GetFlatHostVecFromView(T view) {
@@ -98,7 +117,7 @@ void WriteAllParamsOfType(const Params &params, const std::string &prefix,
       // Thus we replace it.
       std::replace(full_path.begin(), full_path.end(), '/', delim[0]);
 
-      if constexpr (implements<kokkos_view(T)>::value) {
+      if constexpr (::KokkosView<T>) {
         const auto &view = params.Get<T>(key);
         auto [rank_and_dims, host_vec] = GetFlatHostVecFromView(view);
         it->setAttribute(full_path + ".rankdims", rank_and_dims);
@@ -157,7 +176,7 @@ void WriteSwarmVar(const SwarmInfo &swinfo, openPMD::ParticleSpecies swm,
     auto const dataset = openPMD::Dataset(openPMD::determineDatatype(host_data.data()),
                                           {swinfo.global_count});
     // TODO(pgrete) ask OpenPMD group if this is the right approach (flatten vector and
-    // tensors with flattended indices as string component names) or if our non-scalar
+    // tensors with flattened indices as string component names) or if our non-scalar
     // particle variables should be a multi-D `dataset` (if possible)
     for (auto n = 0; n < vinfo.nvar; n++) {
       auto [particle_record, particle_record_component] =
@@ -207,6 +226,8 @@ GetParticleRecordAndComponentNames(const std::string &vname, const int rank,
     particle_record_component =
         rank == 0 ? openPMD::MeshRecordComponent::SCALAR : std::to_string(flat_comp_idx);
   }
+  CheckValidName(particle_record);
+  CheckValidName(particle_record_component);
   return {particle_record, particle_record_component};
 }
 
@@ -252,17 +273,18 @@ GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te
     PARTHENON_REQUIRE_THROWS(te == TopologicalElement::CC,
                              "Outputs for this type of TE not implemented.")
   }
-  // TODO(pgrete) need to make sure that var names are allowed within standard
   const std::string &mesh_record_name = vinfo.label + "_" + te_str +
                                         vinfo.component_labels[comp_idx] + "_lvl" +
                                         std::to_string(level);
+  CheckValidName(mesh_record_name);
+  CheckValidName(comp_name);
   return {mesh_record_name, comp_name};
 }
 
 std::tuple<openPMD::Offset, openPMD::Extent>
 GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
                         const TopologicalElement te, const int coarsening_factor,
-                        const SubOutputType output_type) {
+                        const DumpOutputMode mode) {
   openPMD::Offset chunk_offset;
   openPMD::Extent chunk_extent;
   const auto loc = pm->Forest().GetLegacyTreeLocation(pmb->loc);
@@ -281,11 +303,11 @@ GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
     PARTHENON_THROW("1D output for openpmd not yet supported.");
   }
   int remove_comp = -1;
-  if (output_type == SubOutputType::X1Slice) {
+  if (mode == DumpOutputMode::X1Slice) {
     remove_comp = 2;
-  } else if (output_type == SubOutputType::X2Slice) {
+  } else if (mode == DumpOutputMode::X2Slice) {
     remove_comp = 1;
-  } else if (output_type == SubOutputType::X3Slice) {
+  } else if (mode == DumpOutputMode::X3Slice) {
     remove_comp = 0;
   }
   if (remove_comp >= 0) {
@@ -325,17 +347,25 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   using openPMD::Access;
   using openPMD::Series;
 
-  // TODO(pgrete) .h5 for hd5 and .bp for ADIOS2 or .json for JSON
   // TODO(pgrete) check if CREATE is the correct pattern (for not overwriting the series
   // but an interation) This just describes the pattern of the filename. The correct file
   // will be accessed through the iteration idx below. The file suffix maps to the chosen
   // backend.
-  // TODO(pgrete) add final and now logic
   // Prepending @ indicates that the config is a file to be read and parsed.
   std::string backend_config =
       backend_config_ == "default" ? "{}" : "@" + backend_config_;
 
   auto filename = output_params.file_basename + "." + output_params.file_id;
+
+  // Write meta file (to be used by ParaView and Visit to recognize time series)
+  if (Globals::my_rank == 0) {
+    const auto meta_filename = filename + ".pmd";
+    if (!fs::is_regular_file(meta_filename)) {
+      std::ofstream outfile(meta_filename);
+      outfile << filename << ".%05T.bp\n";
+      outfile.close();
+    }
+  }
   if (signal == SignalHandler::OutputSignal::now) {
     filename.append(".now");
   } else if (signal == SignalHandler::OutputSignal::final &&
@@ -353,20 +383,22 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // TODO(pgrete) How to handle downstream info, e.g.,  on how/what defines a vector?
   // TODO(pgrete) Should we update for restart or only set this once? Or make it per
   // iteration?
-  // ... = pin->GetString(output_params.block_name, "actions_file");
-  series.setAuthor("My Name <mail@addre.es");
-  series.setComment("Hello world!");
-  series.setMachine("bla");
-  series.setSoftware("Parthenon + Downstream info");
-  series.setDate("2024-02-29 17:48:42 +0100");
 
-  // TODO(pgrete) Units?
+  // TODO(someone) discuss whether or not we want to use these "standard" infos
+  // on top of default provenance infos added as attributes below.
+  // series.setAuthor("My Name <mail@addre.es");
+  // series.setComment("Hello world!");
+  // series.setMachine("bla");
+  series.setSoftware("Parthenon + X");
+  const auto now = std::chrono::system_clock::now();
+  series.setDate(std::format("{:%F %T}", now));
+
+  // TODO(someone) Handle units
 
   // In line with existing outputs, we write one file per iteration/snapshot
   series.setIterationEncoding(openPMD::IterationEncoding::fileBased);
 
   // open iteration (corresponding to a timestep in OpenPMD naming)
-  // TODO(pgrete) fix iteration name <-> file naming
   auto it = series.iterations[output_params.file_number];
   it.open(); // explicit open() is important when run in parallel
 
@@ -399,28 +431,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     it.setDt(-1.0);
   }
 
-  // TODO(reviewers): PG: I didn't want to pollute OutputParams with sth specific to this
-  // output type. It's not super nice to process `pin` info here but it did the job. Any
-  // suggestions?
-
-  const auto output_type_str = pin->GetOrAddString(
-      output_params.block_name, "output_type", "restart",
-      std::vector<std::string>{"restart", "x1slice", "x2slice", "x3slice"},
-      "Type of output in the file.");
-  // C++20 please
-  // using enum OpenPMDUtils::SubOutputType;
-  using OpenPMDUtils::SubOutputType;
-  auto output_type = SubOutputType::Restart;
-  if (output_type_str == "x1slice") {
-    output_type = SubOutputType::X1Slice;
-  } else if (output_type_str == "x2slice") {
-    output_type = SubOutputType::X2Slice;
-  } else if (output_type_str == "x3slice") {
-    output_type = SubOutputType::X3Slice;
-  }
-  const auto is_slice = output_type == SubOutputType::X1Slice ||
-                        output_type == SubOutputType::X2Slice ||
-                        output_type == SubOutputType::X3Slice;
+  using enum DumpOutputMode;
+  const auto is_slice = output_params.mode == X1Slice || output_params.mode == X2Slice ||
+                        output_params.mode == X3Slice;
   auto slice_loc = std::numeric_limits<Real>::signaling_NaN();
   if (is_slice) {
     PARTHENON_REQUIRE_THROWS(pm->ndim == 3, "Slices are only implemented in 3D");
@@ -447,6 +460,20 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   if (!is_slice) {
     // It's not clear we need all these attributes, but they mirror what's done in the
     // hdf5 output.
+
+    // Writing build and provenance information
+    it.setAttribute("ParthenonGitHash", provenance::PARTHENON_GIT_HASH);
+    it.setAttribute("ParthenonGitBranch", provenance::PARTHENON_GIT_BRANCH);
+    it.setAttribute("ParthenonCompiler", provenance::PARTHENON_COMPILER);
+    it.setAttribute("ParthenonBuildTimestamp", provenance::PARTHENON_BUILD_TIMESTAMP);
+    it.setAttribute("ParthenonBuildArch", provenance::PARTHENON_ARCH);
+    it.setAttribute("ParthenonBuildOptLevel", provenance::PARTHENON_OPTIMIZATION);
+
+    // Pull out Kokkos config which can contain GPU information
+    std::ostringstream kokkos_config;
+    Kokkos::print_configuration(kokkos_config);
+    it.setAttribute("KokkosConfig", kokkos_config.str());
+
     it.setAttribute("WallTime", Driver::elapsed_main());
     it.setAttribute("NumDims", pm->ndim);
     it.setAttribute("NumMeshBlocks", pm->nbtotal);
@@ -465,8 +492,6 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     it.setAttribute("Multilevel", pm->multilevel ? 1 : 0);
 
     it.setAttribute("BlocksPerPE", pm->GetNbList());
-    // TODO(pgrete) Add safety check for supported coarsening factors
-    // probably already in or before ctor
     it.setAttribute("CoarseningFactor", coarsening_factor_);
 
     // Mesh block size
@@ -510,22 +535,18 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     // Attribute interface rather than writing a distributed dataset -- especially as all
     // data is being read on restart by every rank anyway.
     std::vector<int64_t> loc_local = OutputUtils::ComputeLocs(pm);
-    auto loc_global = FlattendedLocalToGlobal<int64_t>(pm, loc_local);
+    auto loc_global = FlattenedLocalToGlobal<int64_t>(pm, loc_local);
     it.setAttribute("loc.lx123", loc_global);
 
     std::vector<int> id_local = OutputUtils::ComputeIDsAndFlags(pm);
-    auto id_global = FlattendedLocalToGlobal<int>(pm, id_local);
+    auto id_global = FlattenedLocalToGlobal<int>(pm, id_local);
     it.setAttribute("loc.level-gid-lid-cnghost-gflag", id_global);
 
     // derefinement count
     std::vector<int> derefcnt_local = OutputUtils::ComputeDerefinementCount(pm);
-    auto derefcnt_global = FlattendedLocalToGlobal<int>(pm, derefcnt_local);
+    auto derefcnt_global = FlattenedLocalToGlobal<int>(pm, derefcnt_local);
     it.setAttribute("derefinement_count", derefcnt_global);
   }
-
-  // TODO(pgrete) check var name standard compatiblity
-  // e.g., description: names of records and their components are only allowed to contain
-  // the characters a-Z, the numbers 0-9 and the underscore _
 
   const int num_blocks_local = static_cast<int>(pm->block_list.size());
 
@@ -534,13 +555,53 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // -------------------------------------------------------------------------------- //
   Kokkos::Profiling::pushRegion("write all variable data");
 
-  auto &bounds = pm->block_list.front()->cellbounds;
-  // get list of all vars, just use the first block since the list is the same for all
-  // blocks
-  // TODO(pgrete) add restart_ var to output
-  // TODO(pgrete) check if this needs to be updated/unifed with get_var logic in hdf5
-  auto all_vars_info = GetAllVarsInfo(
-      GetVarsToWrite(pm->block_list.front(), true, output_params.variables), bounds);
+  const auto &bounds = pm->block_list.front()->cellbounds;
+  const auto &f_bounds = pm->block_list.front()->f_cellbounds;
+
+  // All blocks have the same list of variable metadata that exist in the entire
+  // simulation, but not all variables may be allocated on all blocks
+
+  auto get_vars = [=, this](const std::shared_ptr<MeshBlock> pmb) {
+    const auto &data = pmb->meshblock_data.Get("base");
+    const VariableVector<Real> &var_vec = data->GetVariableVector();
+    VariableVector<Real> coords_vars =
+        GetAnyVariables(var_vec, {parthenon::Metadata::CoordinatesVec});
+    PARTHENON_DEBUG_REQUIRE(
+        coords_vars.size() == 0,
+        "Writing/handling explicit coordinate is currently not handled in OpenPMD "
+        "output. Please get in touch on GitHub if there's a use case.");
+    VariableVector<Real> fine_vars =
+        GetAnyVariables(var_vec, {parthenon::Metadata::Fine});
+    PARTHENON_DEBUG_REQUIRE(
+        fine_vars.size() == 0,
+        "Writing/handling explicit Fine fields is currently not handled in OpenPMD "
+        "output. Please get in touch on GitHub if there's a use case.");
+
+    VariableVector<Real> out;
+    // Dump required vars for restarts or use those vars as default if none are given
+    // (e.g, for slices or data dumps)
+    if (output_params.mode == Restart || output_params.variables.empty()) {
+      // get all vars with flag Independent OR restart
+      out = GetAnyVariables(
+          var_vec, {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
+    }
+
+    // Always add any (additional) variables specified manually
+    auto extra_vars = GetAnyVariables(var_vec, output_params.variables);
+    for (auto &pextra_var : extra_vars) {
+      if (std::none_of(out.begin(), out.end(), [&](const auto &pout_var) {
+            return pextra_var->label() == pout_var->label();
+          })) {
+        out.push_back(pextra_var);
+      }
+    }
+
+    return out;
+  };
+
+  // get list of all vars, just use first block as the list is the same for all blocks
+  auto all_vars_info =
+      VarInfo::GetAll(get_vars(pm->block_list.front()), bounds, f_bounds);
 
   // Mirroring the SparseInfo handling in HDF5 here.
   // Could probably made easier by just sequentially filling vectors, but better be safe
@@ -580,14 +641,14 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // Allocate space for largest size variable
   // Could in principle be reduced for coarsended outputs, but lets better be safe than
   // sorry given the edge cases with non cell centered vars.
-  int var_size_max = 0;
+  std::size_t var_size_max = 0;
   for (auto &vinfo : all_vars_info) {
     const auto var_size = vinfo.Size();
     var_size_max = std::max(var_size_max, var_size);
   }
 
   using OutT = typename std::conditional<WRITE_SINGLE_PRECISION, float, Real>::type;
-  std::vector<OutT> tmp_data(var_size_max * num_blocks_local);
+  std::vector<OutT> tmp_data(var_size_max * static_cast<std::size_t>(num_blocks_local));
 
   // for each variable we write
   for (auto &vinfo : all_vars_info) {
@@ -600,9 +661,8 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     if (vinfo.is_vector) {
       // sanity check
       PARTHENON_REQUIRE_THROWS(
-          vinfo.GetDim(4) == pm->ndim && vinfo.GetDim(5) == 1 && vinfo.GetDim(6) == 1,
-          "A 'standard' vector is expected to only have components matching the "
-          "dimensionality of the simulation.")
+          vinfo.GetDim(5) == 1 && vinfo.GetDim(6) == 1,
+          "A 'standard' vector is expected to not have higher dimensional indices.")
     }
 
     // for each local mesh block
@@ -637,7 +697,6 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
             mesh_record.setDataOrder(openPMD::Mesh::DataOrder::C);
 
             auto mesh_comp = mesh_record[comp_name];
-            // TODO(pgrete) This feels wrong for deep hierachies... Check with OPMD people
             auto effective_nx = static_cast<std::uint64_t>(std::pow(2, level));
             openPMD::Extent global_extent;
             if (pm->ndim == 3) {
@@ -666,11 +725,11 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                       TopologicalOffsetI(te),
               };
               int remove_comp = -1;
-              if (output_type == SubOutputType::X1Slice) {
+              if (output_params.mode == X1Slice) {
                 remove_comp = 2;
-              } else if (output_type == SubOutputType::X2Slice) {
+              } else if (output_params.mode == X2Slice) {
                 remove_comp = 1;
-              } else if (output_type == SubOutputType::X3Slice) {
+              } else if (output_params.mode == X3Slice) {
                 remove_comp = 0;
               }
               if (remove_comp >= 0) {
@@ -727,20 +786,6 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
       auto out_var = pmb->meshblock_data.Get()->GetVarPtr(vinfo.label);
 
       if (out_var->IsAllocated()) {
-        // TODO(pgrete) check if we can work with a direct copy from a subview to not
-        // duplicate the memory footprint here
-#if 0
-        // Pick a subview of the active cells of this component
-        auto const data = Kokkos::subview(
-            var->data, 0, 0, icomp, std::make_pair(kb.s, kb.e + 1),
-            std::make_pair(jb.s, jb.e + 1), std::make_pair(ib.s, ib.e + 1));
-
-        // Map a view onto a host allocation (so that we can call deep_copy)
-        auto component_buffer = buffer_list.emplace_back(ncells);
-        Kokkos::View<Real ***, Kokkos::HostSpace, Kokkos::MemoryTraits<Kokkos::Unmanaged>>
-            component_buffer_view(component_buffer.data(), nk, nj, ni);
-        Kokkos::deep_copy(component_buffer_view, data);
-#endif
         auto &coords = pmb->coords;
         auto out_var_h = out_var->data.GetHostMirrorAndCopy();
         for (const auto &te : vinfo.topological_elements) {
@@ -772,15 +817,15 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                       }
                       // Skip cells outside slices
                       if (is_slice) {
-                        if (output_type == SubOutputType::X1Slice) {
+                        if (output_params.mode == X1Slice) {
                           if (slice_loc < coords.Xf<X1DIR>(k, j, i)) continue;
                           if (slice_loc >= coords.Xf<X1DIR>(k, j, i + coarsening_factor_))
                             continue;
-                        } else if (output_type == SubOutputType::X2Slice) {
+                        } else if (output_params.mode == X2Slice) {
                           if (slice_loc < coords.Xf<X2DIR>(k, j, i)) continue;
                           if (slice_loc >= coords.Xf<X2DIR>(k, j + coarsening_factor_, i))
                             continue;
-                        } else if (output_type == SubOutputType::X3Slice) {
+                        } else if (output_params.mode == X3Slice) {
                           if (slice_loc < coords.Xf<X3DIR>(k, j, i)) continue;
                           if (slice_loc >= coords.Xf<X3DIR>(k + coarsening_factor_, j, i))
                             continue;
@@ -801,7 +846,7 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                 }
                 const auto [chunk_offset, chunk_extent] =
                     OpenPMDUtils::GetChunkOffsetAndExtent(pm, pmb, te, coarsening_factor_,
-                                                          output_type);
+                                                          output_params.mode);
 
                 mesh_comp.storeChunkRaw(&tmp_data[comp_offset], chunk_offset,
                                         chunk_extent);
@@ -809,8 +854,8 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
               }
             }
           } // loop over components
-        }   // loop over topological elements
-      }     // out_var->IsAllocated()
+        } // loop over topological elements
+      } // out_var->IsAllocated()
       if (vinfo.is_sparse) {
         auto sparse_idx = sparse_field_idx.at(vinfo.label);
         sparse_allocated.at(b_idx * num_sparse + sparse_idx) =
@@ -819,18 +864,18 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
       }
     } // loop over blocks
     it.seriesFlush();
-  }                               // loop over vars
+  } // loop over vars
   Kokkos::Profiling::popRegion(); // write all variable data
 
   // -------------------------------------------------------------------------------- //
   //   WRITING Sparse metadata                                                        //
   // -------------------------------------------------------------------------------- //
   if (!is_slice && num_sparse > 0) {
-    auto sparse_allocated_global = FlattendedLocalToGlobal<int8_t>(pm, sparse_allocated);
+    auto sparse_allocated_global = FlattenedLocalToGlobal<int8_t>(pm, sparse_allocated);
     it.setAttribute("SparseInfo", sparse_allocated_global);
     it.setAttribute("SparseFields", sparse_names);
     auto sparse_dealloc_count_global =
-        FlattendedLocalToGlobal<int>(pm, sparse_dealloc_count);
+        FlattenedLocalToGlobal<int>(pm, sparse_dealloc_count);
     it.setAttribute("SparseDeallocCount", sparse_dealloc_count_global);
   }
 
@@ -839,16 +884,37 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // -------------------------------------------------------------------------------- //
   if (!is_slice) {
     Kokkos::Profiling::pushRegion("write particle data");
-    // TODO(pgrete) as above, first wrt differentiating between restart_ (last arg)
-    AllSwarmInfo all_swarm_info(pm->block_list, output_params.swarms,
-                                DumpOutputMode::RESTART);
-    for (auto &[swname, swinfo] : all_swarm_info.all_info) {
+    std::map<std::string, SwarmInfo> swarm_infos;
+
+    // Dump required vars for restarts or use those vars as default if none are given
+    if (output_params.mode == Restart || output_params.swarms.empty()) {
+      AllSwarmInfo all_swarm_info(pm->block_list, output_params.swarms,
+                                  DumpOutputMode::Restart);
+      std::copy_if(
+          std::make_move_iterator(all_swarm_info.all_info.begin()),
+          std::make_move_iterator(all_swarm_info.all_info.end()),
+          std::inserter(swarm_infos, swarm_infos.end()),
+          [&swarm_infos](auto const &kv) { return swarm_infos.count(kv.first) == 0; });
+    }
+
+    // Always add any (additional) variables specified manually
+    {
+      AllSwarmInfo all_swarm_info(pm->block_list, output_params.swarms,
+                                  DumpOutputMode::Data);
+      std::copy_if(
+          std::make_move_iterator(all_swarm_info.all_info.begin()),
+          std::make_move_iterator(all_swarm_info.all_info.end()),
+          std::inserter(swarm_infos, swarm_infos.end()),
+          [&swarm_infos](auto const &kv) { return swarm_infos.count(kv.first) == 0; });
+    }
+
+    for (auto &[swname, swinfo] : swarm_infos) {
       openPMD::ParticleSpecies swm = it.particles[swname];
       // These indicate particles/meshblock and location in global index
       // space where each meshblock starts
-      auto counts_global = FlattendedLocalToGlobal<std::size_t>(pm, swinfo.counts);
+      auto counts_global = FlattenedLocalToGlobal<std::size_t>(pm, swinfo.counts);
       swm.setAttribute("counts", counts_global);
-      auto offsets_global = FlattendedLocalToGlobal<std::size_t>(pm, swinfo.offsets);
+      auto offsets_global = FlattenedLocalToGlobal<std::size_t>(pm, swinfo.offsets);
       swm.setAttribute("offsets", offsets_global);
 
       if (swinfo.global_count == 0) {

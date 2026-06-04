@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -12,6 +12,8 @@
 //========================================================================================
 #ifndef INTERFACE_STATE_DESCRIPTOR_HPP_
 #define INTERFACE_STATE_DESCRIPTOR_HPP_
+
+// This file was made in part with generative AI.
 
 #include <functional>
 #include <iostream>
@@ -279,7 +281,7 @@ class StateDescriptor {
   }
 
   // retrieve number of fields
-  int size() const noexcept { return metadataMap_.size(); }
+  std::size_t size() const noexcept { return metadataMap_.size(); }
 
   // retrieve all field names
   std::vector<std::string> Fields() noexcept;
@@ -473,6 +475,9 @@ class StateDescriptor {
   std::function<void(SimTime const &simtime, MeshData<Real> *rc)>
       PostStepDiagnosticsMesh = nullptr;
 
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)>
+      PostProblemGeneratorMesh = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> PostProblemGeneratorBlock = nullptr;
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostInitializationMesh =
       nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> PostInitializationBlock = nullptr;

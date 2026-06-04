@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2025 The Parthenon collaboration
+// Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI.
 
 #include "parthenon_manager.hpp"
 
@@ -27,6 +28,8 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+#include <Kokkos_Core.hpp>
 
 #include "amr_criteria/amr_criteria.hpp"
 #include "amr_criteria/refinement_package.hpp"
@@ -91,6 +94,11 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   } else if (arg_status == ArgStatus::complete) {
     return ParthenonStatus::complete;
   }
+
+  Globals::watchdog_enabled = arg.watchdog_enabled;
+  if (Globals::watchdog_enabled) {
+    parthenon::WatchDog::WatchDog(arg.watchdog_timeout);
+  }
   // Now that the input is parsed we can pass the info to globals
   Globals::is_restart = arg.is_restart;
 
@@ -108,7 +116,11 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 #else // HDF5 disabled
       PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #endif
-    } else if (fs::path(arg.restart_filename).extension() == ".bp") {
+    } else if (fs::path(arg.restart_filename).extension() == ".bp" ||
+               // allow user input for /path/to/restart.bp/ (with trailing `/`), e.g.,
+               // from autocomplete
+               (fs::is_directory(arg.restart_filename) &&
+                fs::path(arg.restart_filename).parent_path().extension() == ".bp")) {
 #ifdef PARTHENON_ENABLE_OPENPMD
       restartReader = std::make_unique<RestartReaderOPMD>(arg.restart_filename);
 #else
@@ -142,6 +154,9 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // Modify based on command line inputs
   pinput->ModifyFromCmdline(argc, argv);
+
+  // Finalize parsing phase - parsers can no longer add parameters
+  pinput->FinalizeParsing();
 
   PARTHENON_REQUIRE_THROWS(
       !pinput->DoesParameterExist("parthenon/job", "run_only_analysis") ||
@@ -303,7 +318,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
   // Allocate space based on largest vector
   int num_sparse = 0;
-  size_t max_fillsize = 1;
+  std::size_t max_fillsize = 1;
   for (const auto &v_info : all_vars_info) {
     const auto &label = v_info.label;
 
@@ -319,8 +334,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
                                    " is marked as sparse in restart file");
     }
 
-    max_fillsize = std::max(max_fillsize, static_cast<size_t>(v_info.FillSize(
-                                              theDomain, resfile.BlockdataIsPadded())));
+    max_fillsize =
+        std::max(max_fillsize, v_info.FillSize(theDomain, resfile.BlockdataIsPadded()));
   }
 
   // make sure we have all sparse variables that are in the restart file
@@ -332,7 +347,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   PARTHENON_REQUIRE_THROWS(
       num_sparse <= sparse_info.num_sparse,
       "Mismatch between sparse fields in simulation and restart file");
-  std::vector<Real> tmp(static_cast<size_t>(nb) * max_fillsize);
+  std::vector<Real> tmp(static_cast<std::size_t>(nb) * max_fillsize);
   for (const auto &v_info : all_vars_info) {
     const auto vlen = v_info.num_components * v_info.ntop_elems;
     const auto fill_size = v_info.FillSize(theDomain, resfile.BlockdataIsPadded());
@@ -361,7 +376,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       PARTHENON_THROW(msg);
     }
 
-    size_t index = 0;
+    std::size_t index = 0;
     for (auto &pmb : rm.block_list) {
       if (v_info.is_sparse) {
         // check if the sparse variable is allocated on this block

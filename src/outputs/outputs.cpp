@@ -69,13 +69,14 @@
 #include <string>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_parameters.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/default_names.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
@@ -109,16 +110,14 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   // the outpus packages (as before), but I don't think it's bad practice to work on
   // `pinput` again here as we're actually processing (potentially even modifying)
   // `pinput`.
-  for (InputBlock *pib = pin->pfirst_block; pib != nullptr; pib = pib->pnext) {
-    if (pib->block_name.compare(0, 16, "parthenon/output") != 0) {
-      continue;
-    }
+  auto output_blocks = pin->GetBlockNamesWithPrefix("parthenon/output");
+  for (const auto &block_name : output_blocks) {
     std::shared_ptr<OutputType> pnew_type; // the new output we will create
     bool restart = false;                  // we track restart outputs separately so we
                                            // need this temp variable to check
     OutputParameters op;                   // define temporary OutputParameters struct
-    op.block_name = pib->block_name;
-    const auto outn_str = pib->block_name.substr(16); // 16 because counting starts at 0!
+    op.block_name = block_name;
+    const auto outn_str = block_name.substr(16); // 16 because counting starts at 0!
     op.block_number = atoi(outn_str.c_str());
     auto *pfile_number = pkg->MutableParam<int>(outn_str + "/file_number");
     auto *plast_time = pkg->MutableParam<Real>(outn_str + "/last_time");
@@ -371,6 +370,47 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
                                "Output data coarsened by given factor n. Every n^dim "
                                "data point is used, i.e., the data is not average. "
                                "Requires even number of cells in each block dimension.");
+      PARTHENON_REQUIRE_THROWS(coarsening_factor > 0, "Need positive coarsening factor");
+      const auto base_block_size = pm->GetDefaultBlockSize();
+      PARTHENON_REQUIRE_THROWS(
+          base_block_size.nx(X1DIR) % coarsening_factor == 0,
+          "Cannot coarsen with specified factor given nx1 block size");
+      PARTHENON_REQUIRE_THROWS(
+          base_block_size.nx(X2DIR) % coarsening_factor == 0 || pm->ndim < 2,
+          "Cannot coarsen with specified factor given nx2 block size");
+      PARTHENON_REQUIRE_THROWS(
+          base_block_size.nx(X3DIR) % coarsening_factor == 0 || pm->ndim < 3,
+          "Cannot coarsen with specified factor given nx3 block size");
+      PARTHENON_REQUIRE_THROWS(!op.include_ghost_zones,
+                               "Writing ghost zones not supported for OPMD outputs.");
+
+      const auto output_type_str = pin->GetOrAddString(
+          op.block_name, "output_type", "data",
+          std::vector<std::string>{"restart", "data", "x1slice", "x2slice", "x3slice"},
+          "Type of output in the file.");
+
+      using enum DumpOutputMode;
+      if (output_type_str == "restart") {
+        op.mode = Restart;
+        restart = true;
+        num_rst_outputs++;
+      } else if (output_type_str == "data") {
+        op.mode = Data;
+      } else if (output_type_str == "x1slice") {
+        op.mode = X1Slice;
+      } else if (output_type_str == "x2slice") {
+        op.mode = X2Slice;
+      } else if (output_type_str == "x3slice") {
+        op.mode = X3Slice;
+      } else {
+        PARTHENON_FAIL("Unknown output_type for openpmd output in block " +
+                       op.block_name);
+      }
+
+      if (op.mode == Restart) {
+        PARTHENON_REQUIRE_THROWS(coarsening_factor == 1,
+                                 "Restart outputs cannot be coarsened.");
+      }
 
       pnew_type = std::make_shared<OpenPMDOutput>(op, backend_config, coarsening_factor);
 #else
@@ -393,21 +433,22 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       PARTHENON_FAIL(msg);
 #endif // ifdef ENABLE_HDF5
     } else if (is_hdf5_output) {
+      op.mode = DumpOutputMode::Data;
       restart = (op.file_type == "rst");
       const bool coredump = (op.file_type == "corehdf5");
       if (restart) {
         num_rst_outputs++;
+        op.mode = DumpOutputMode::Restart;
       }
       if (coredump) {
         num_core_outputs++;
+        op.mode = DumpOutputMode::Core;
       }
 #ifdef ENABLE_HDF5
       op.write_xdmf = pin->GetOrAddBoolean(op.block_name, "write_xdmf", true);
       op.write_swarm_xdmf =
           pin->GetOrAddBoolean(op.block_name, "write_swarm_xdmf", false);
-      pnew_type = std::make_shared<PHDF5Output>(
-          op, restart ? DumpOutputMode::RESTART
-                      : (coredump ? DumpOutputMode::CORE : DumpOutputMode::DUMP));
+      pnew_type = std::make_shared<PHDF5Output>(op);
 #else
       msg << "### FATAL ERROR in Outputs constructor" << std::endl
           << "Executable not configured for HDF5 outputs, but HDF5 file format "
@@ -482,7 +523,7 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
         }
         first = false;
       }
-      if (ptype->output_params.file_type == "rst") {
+      if (ptype->output_params.mode == DumpOutputMode::Restart) {
         pm->ApplyUserWorkBeforeRestartOutput(pm, pin, *tm, &(ptype->output_params));
         for (const auto &pkg : pm->packages.AllPackages()) {
           pkg.second->UserWorkBeforeRestartOutput(pm, pin, *tm, &(ptype->output_params));

@@ -21,6 +21,7 @@
 #include "basic_types.hpp"
 #include "interface/params.hpp"
 #include "outputs/output_attr.hpp"
+#include "outputs/output_parameters.hpp"
 #include "outputs/parthenon_opmd.hpp"
 #include "outputs/restart.hpp"
 #include "outputs/restart_opmd.hpp"
@@ -158,7 +159,7 @@ void RestartReaderOPMD::ReadAllParamsOfType(const std::string &prefix, Params &p
 
       try {
         T val;
-        if constexpr (implements<kokkos_view(T)>::value) {
+        if constexpr (::KokkosView<T>) {
           val = params.Get<T>(key);
           RestoreViewAttribute(full_path, val);
         } else if constexpr (is_specialization_of<T, ParArrayGeneric>::value) {
@@ -243,8 +244,8 @@ void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block
             // Restarting from coarsened output not supported at the moment
             const int coarsening_factor = 1;
             const auto [chunk_offset, chunk_extent] =
-                OpenPMDUtils::GetChunkOffsetAndExtent(
-                    pm, pmb, te, coarsening_factor, OpenPMDUtils::SubOutputType::Restart);
+                OpenPMDUtils::GetChunkOffsetAndExtent(pm, pmb, te, coarsening_factor,
+                                                      DumpOutputMode::Restart);
             mesh_comp.loadChunkRaw(&data_vec[comp_offset], chunk_offset, chunk_extent);
             comp_offset += std::accumulate(chunk_extent.cbegin(), chunk_extent.cend(), 1,
                                            std::multiplies<std::uint64_t>{});
@@ -252,8 +253,8 @@ void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block
           }
         }
       } // loop over components
-    }   // loop over topological elements
-  }     // loop over blocks
+    } // loop over topological elements
+  } // loop over blocks
 
   // Now actually read the registered chunks form disk
   it->seriesFlush();

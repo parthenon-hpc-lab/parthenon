@@ -16,6 +16,7 @@
 #include <string>
 #include <tuple>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -54,6 +55,9 @@ struct GetDataType<T> {
 
 namespace parthenon {
 
+// Map for going from variable names to pack variable indices
+using PackIdxMap = std::unordered_map<std::string, std::size_t>;
+
 // Namespace in which to put variable name types that are used for indexing into
 // SparsePack<[type list of variable name types]> on device
 namespace variable_names {
@@ -76,8 +80,8 @@ struct var_base_t {
     idx(l, m, n) = (M*l + m)*N + n
                  = l*M*N + m*N + n
    */
-  template <typename... Args, REQUIRES(all_implement<integral(Args...)>::value),
-            REQUIRES(sizeof...(Args) == sizeof...(NCOMP))>
+  template <typename... Args>
+    requires((Integral<Args> && ...) && (sizeof...(Args) == sizeof...(NCOMP)))
   KOKKOS_INLINE_FUNCTION explicit var_base_t(Args... args)
       : idx(GetIndex_(std::forward<Args>(args)...)) {
     static_assert(CheckArgs_(NCOMP...),
@@ -100,14 +104,15 @@ struct var_base_t {
   KOKKOS_INLINE_FUNCTION
   static bool regex() { return REGEX; }
   KOKKOS_INLINE_FUNCTION
-  static int ndim() { return sizeof...(NCOMP); }
+  static std::size_t ndim() { return sizeof...(NCOMP); }
   KOKKOS_INLINE_FUNCTION
-  static int size() { return multiply<NCOMP...>::value; }
+  static std::size_t size() { return multiply<NCOMP...>::value; }
 
   const int idx;
 
  private:
-  template <typename... Tail, REQUIRES(all_implement<integral(Tail...)>::value)>
+  template <typename... Tail>
+    requires(Integral<Tail> && ...)
   static constexpr bool CheckArgs_(int head, Tail... tail) {
     return (... && (tail > 0));
   }
@@ -183,11 +188,13 @@ class PackIdx {
   int offset;
 };
 // Operator overloads to make calls like `my_pack(b, my_pack_idx + 3, k, j, i)` work
-template <class T, REQUIRES(std::is_integral<T>::value)>
+template <class T>
+  requires(std::is_integral<T>::value)
 KOKKOS_INLINE_FUNCTION PackIdx operator+(PackIdx idx, T offset) {
   return PackIdx(idx.VariableIdx(), idx.Offset() + offset);
 }
-template <class T, REQUIRES(std::is_integral<T>::value)>
+template <class T>
+  requires(std::is_integral<T>::value)
 KOKKOS_INLINE_FUNCTION PackIdx operator+(T offset, PackIdx idx) {
   return idx + offset;
 }

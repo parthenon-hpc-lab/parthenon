@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -122,20 +122,13 @@ class SwarmContainer {
   const SwarmVector &GetSwarmVector() const { return swarmVector_; }
   const SwarmMap &GetSwarmMap() const { return swarmMap_; }
 
-  ///
-  /// Remove a variable from the container or throw exception if not
-  /// found.
-  /// @param label the name of the variable to be deleted
-  /// TODO(JMM): Should we support this operation?
-  void Remove(const std::string &label);
-
   // Temporary functions till we implement a *real* iterator
 
   /// Print list of labels in container
   void Print() const;
 
   // return number of stored arrays
-  int Size() const { return swarmVector_.size(); }
+  std::size_t Size() const { return swarmVector_.size(); }
 
   // Element accessor functions
   std::vector<std::shared_ptr<Swarm>> &allSwarms() { return swarmVector_; }
@@ -152,16 +145,11 @@ class SwarmContainer {
 
   // Communication routines
   void SetupPersistentMPI();
-  [[deprecated("Not yet implemented")]] void SetBoundaries();
-  [[deprecated("Not yet implemented")]] void SendBoundaryBuffers();
-  [[deprecated("Not yet implemented")]] void ReceiveAndSetBoundariesWithWait();
-  [[deprecated("Not yet implemented")]] bool ReceiveBoundaryBuffers();
   TaskStatus StartCommunication(BoundaryCommSubset phase);
   TaskStatus Send(BoundaryCommSubset phase);
   TaskStatus Receive(BoundaryCommSubset phase);
   TaskStatus ResetCommunication();
   TaskStatus FinalizeCommunicationIterative();
-  [[deprecated("Not yet implemented")]] void ClearBoundary(BoundaryCommSubset phase);
 
   bool operator==(const SwarmContainer &cmp);
 
@@ -173,13 +161,22 @@ class SwarmContainer {
   }
 
   std::string swarm_name_;
-  int debug = 0;
   std::weak_ptr<MeshBlock> pmy_block;
 
   SwarmVector swarmVector_ = {};
   SwarmMap swarmMap_ = {};
   SwarmMetadataMap swarmMetadataMap_ = {};
 };
+
+// MeshData Swarm Tasks
+TaskStatus SendSwarmsMesh(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus ReceiveSwarmsMesh(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus ResetSwarmsCommunicationMesh(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus RemoveMarkedParticlesMesh(std::shared_ptr<MeshData<Real>> &md,
+                                     const std::string &swarm_name);
+TaskStatus DefragSwarmsMesh(std::shared_ptr<MeshData<Real>> &md,
+                            const Real &min_occupancy);
+TaskStatus DefragAllSwarmsMesh(std::shared_ptr<MeshData<Real>> &md);
 
 } // namespace parthenon
 #endif // INTERFACE_SWARM_CONTAINER_HPP_
