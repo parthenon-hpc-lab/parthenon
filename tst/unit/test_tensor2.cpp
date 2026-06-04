@@ -632,7 +632,6 @@ SCENARIO("tensor2 Gram-SVD rounding scaffold on a two-delta train", "[tensor2]")
   // No-truncation round should preserve the represented dense tensor exactly.
   REQUIRE(CountDenseMismatches3D(
               KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val, real_t rounded_val) {
-                printf("[%i](%i, %i, %i) orig = %e new = %e\n", b, i1, i2, i3, original_val, rounded_val);
                 return original_val != rounded_val;
               },
               orig_pack, rounded_pack) == 0);
@@ -701,7 +700,6 @@ SCENARIO("tensor2 Gram-SVD rounding scaffold on a mixed two-channel train", "[te
   constexpr real_t rtol = 1.0e-10;
   REQUIRE(CountDenseMismatches3D(
               KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val, real_t rounded_val) {
-                printf("[%i](%i, %i, %i) orig = %e new = %e\n", b, i1, i2, i3, original_val, rounded_val);
                 const real_t err = std::abs(original_val - rounded_val);
                 const real_t scale = std::max(std::abs(original_val), std::abs(rounded_val));
                 return err > atol + rtol * scale;
@@ -752,10 +750,154 @@ SCENARIO("tensor2 Gram-SVD no-truncation preserves randomized trains", "[tensor2
 
   REQUIRE(CountDenseMismatches3D(
               KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val, real_t rounded_val) {
-                printf("[%i](%i, %i, %i) orig = %e new = %e\n", b, i1, i2, i3, original_val, rounded_val);
                 const real_t err = std::abs(original_val - rounded_val);
                 const real_t scale = std::max(std::abs(original_val), std::abs(rounded_val));
                 return err > atol + rtol * scale;
               },
               orig_pack, rounded_pack) == 0);
+}
+
+SCENARIO("tensor2 Gram-SVD rounds duplicate delta terms down to rank one", "[tensor2]") {
+  using real_t = typename DefaultTTraits::real_t;
+
+  const std::array<int, 3> dims{4, 4, 4};
+  const std::array<int, 3> entry{1, 2, 3};
+
+  TensorTrain train =
+      MakeSparseDeltaTrain3D<DefaultTTraits>(dims,
+                                             {entry, entry},
+                                             {real_t(2.0), real_t(-1.5)});
+
+  std::vector<TensorTrain> trains{train};
+
+  // Before rounding, the constructor gives one rank channel per term.
+  REQUIRE(trains[0](0).RR() == 2);
+  REQUIRE(trains[0](1).LR() == 2);
+  REQUIRE(trains[0](1).RR() == 2);
+  REQUIRE(trains[0](2).LR() == 2);
+  
+  // A single left-to-right Gram-SVD sweep is locally optimal at each bond, but it
+  // does not necessarily produce the minimal global TT ranks in one pass. In this
+  // duplicate-delta case the first sweep reduces the left bond to rank one, and a
+  // second sweep then sees the updated representation and collapses the remaining
+  // bond as well. 
+  RoundGramSVD(trains, real_t(1.0e-7));
+  RoundGramSVD(trains, real_t(1.0e-7));
+
+  TensorPack rounded_pack(trains);
+
+  // After rounding, duplicate channels should collapse to rank one.
+  REQUIRE(trains[0](0).LR() == 1);
+  REQUIRE(trains[0](0).RR() == 1);
+  REQUIRE(trains[0](1).LR() == 1);
+  REQUIRE(trains[0](1).RR() == 1);
+  REQUIRE(trains[0](2).LR() == 1);
+  REQUIRE(trains[0](2).RR() == 1);
+
+  // The represented tensor should be a single delta at the shared entry with
+  // amplitude equal to the sum of the two original amplitudes.
+  constexpr real_t atol = real_t(1.0e-11);
+  constexpr real_t rtol = real_t(1.0e-10);
+  REQUIRE(CountDenseMismatches3D(
+              KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t value) {
+                real_t expected = real_t(0.0);
+                if (i1 == entry[0] && i2 == entry[1] && i3 == entry[2]) {
+                  expected = real_t(0.5); // 2.0 + (-1.5)
+                }
+                const real_t err = std::abs(value - expected);
+                const real_t scale = std::max(std::abs(value), std::abs(expected));
+                return err > atol + rtol * scale;
+              },
+              rounded_pack) == 0);
+}
+
+SCENARIO("tensor2 Gram-SVD truncation respects relative Frobenius error on randomized trains",
+         "[tensor2]") {
+  using real_t = typename DefaultTTraits::real_t;
+
+  constexpr int nblocks = 8;
+  const std::vector<int> dims{4, 3, 5};
+  const std::vector<int> ranks{8, 5};
+
+  std::vector<TensorTrain> trains;
+  trains.reserve(nblocks);
+  for (int b = 0; b < nblocks; ++b) {
+    trains.emplace_back(dims, ranks);
+  }
+
+  TensorPack pack(trains);
+
+  // Fill with deterministic pseudo-random values.
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, 0, 1,
+      0, pack.GetNBlocks() - 1, 0, pack.GetNCores() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int b, const int c) {
+        auto &core = pack(b, 0, c);
+        for (int l = 0; l < core.LR(); ++l) {
+          for (int r = 0; r < core.RR(); ++r) {
+            parthenon::par_for_inner(tm, 0, core.DD() - 1, [&](const int j) {
+              const int key =
+                  101 * (b + 1) + 37 * (c + 1) + 13 * (l + 1) + 11 * (r + 1) + 5 * (j + 1);
+              core(l, j, r) = real_t((key % 29) - 14) / real_t(10);
+            });
+          }
+        }
+      });
+  Kokkos::fence();
+
+  auto trains_orig = DeepCopyTrains(trains);
+  TensorPack orig_pack(trains_orig);
+
+  constexpr real_t eps_rel = real_t(1.0e-1);
+
+  RoundGramSVD(trains, eps_rel);
+  TensorPack rounded_pack(trains);
+
+  using err_view_t = DefaultTTraits::template view_t<real_t*, ManagedTag>;
+  err_view_t err2_d("err2_d", nblocks);
+  err_view_t norm2_d("norm2_d", nblocks);
+
+  auto err2_h = Kokkos::create_mirror_view(err2_d);
+  auto norm2_h = Kokkos::create_mirror_view(norm2_d);
+
+  for (int b = 0; b < nblocks; ++b) {
+    err2_h(b) = real_t(0);
+    norm2_h(b) = real_t(0);
+  }
+  Kokkos::deep_copy(err2_d, err2_h);
+  Kokkos::deep_copy(norm2_d, norm2_h);
+
+  parthenon::par_for(
+      "tensor2_relative_frobenius_rounding_error",
+      0, orig_pack.GetNBlocks() - 1,
+      0, orig_pack.GetPhysicalDimension(0) - 1,
+      0, orig_pack.GetPhysicalDimension(1) - 1,
+      0, orig_pack.GetPhysicalDimension(2) - 1,
+      KOKKOS_LAMBDA(const int b, const int i1, const int i2, const int i3) {
+        const real_t orig_val =
+            ReconstructDenseValue3D<DefaultTTraits>(orig_pack, b, i1, i2, i3);
+        const real_t rounded_val =
+            ReconstructDenseValue3D<DefaultTTraits>(rounded_pack, b, i1, i2, i3);
+
+        const real_t diff = orig_val - rounded_val;
+        Kokkos::atomic_add(&err2_d(b), diff * diff);
+        Kokkos::atomic_add(&norm2_d(b), orig_val * orig_val);
+      });
+  Kokkos::fence();
+
+  Kokkos::deep_copy(err2_h, err2_d);
+  Kokkos::deep_copy(norm2_h, norm2_d);
+
+  for (int b = 0; b < nblocks; ++b) {
+    const real_t err_frob = std::sqrt(err2_h(b));
+    const real_t norm_frob = std::sqrt(norm2_h(b));
+    const real_t rhs = eps_rel * norm_frob;
+    
+    INFO("block = " << b
+         << "  ||X - X_round||_F = " << err_frob
+         << "  ||X||_F = " << norm_frob
+         << "  eps_rel * ||X||_F = " << rhs);
+
+    REQUIRE(err_frob <= rhs);
+  }
 }
