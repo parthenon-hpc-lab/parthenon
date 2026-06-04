@@ -492,11 +492,11 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           real_t maxR{0.0};
           parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag,
               tm, 0, rank - 1, [&](int r, real_t &lmax){
-                lmax = std::max(lmax, eigL[r]);
+                lmax = std::max(lmax, std::abs(eigL[r]));
             }, Kokkos::Max<real_t>(maxL));
           parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag,
               tm, 0, rank - 1, [&](int r, real_t &lmax){
-                lmax = std::max(lmax, eigR[r]);
+                lmax = std::max(lmax, std::abs(eigR[r]));
             }, Kokkos::Max<real_t>(maxR));
           tm.team_barrier();
           parthenon::par_for_inner(tm, 0, rank - 1, 
