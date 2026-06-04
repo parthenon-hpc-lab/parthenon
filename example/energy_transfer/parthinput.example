@@ -1,0 +1,48 @@
+# ========================================================================================
+#  Parthenon performance portable AMR framework
+#  Copyright(C) 2023-2025 The Parthenon collaboration
+#  Licensed under the 3-clause BSD License, see LICENSE file for details
+# ========================================================================================
+
+<parthenon/job>
+problem_id = energy_transfer
+
+<parthenon/mesh>
+refinement = none
+nghost = 3
+
+nx1 = 64
+x1min = 0.0
+x1max = 6.283185307179586
+ix1_bc = periodic
+ox1_bc = periodic
+
+nx2 = 64
+x2min = 0.0
+x2max = 6.283185307179586
+ix2_bc = periodic
+ox2_bc = periodic
+
+nx3 = 64
+x3min = 0.0
+x3max = 6.283185307179586
+ix3_bc = periodic
+ox3_bc = periodic
+
+pack_size = -1
+
+<parthenon/meshblock>
+nx1 = 32
+nx2 = 32
+nx3 = 32
+
+<energy_transfer>
+binning = lin
+num_shells = 20
+compute_UU = true
+compute_BB = false
+compute_BUT = false
+compute_PU = false
+compute_FU = false
+gamma = 1.666667
+output_file = transfer
