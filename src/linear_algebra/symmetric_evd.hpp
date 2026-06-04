@@ -66,6 +66,14 @@ class SymmetricEVD {
     PARTHENON_REQUIRE(pA, "A must not be null.");
     auto &A = *pA;
     const int ncols = GetNcols(A);
+    if (ncols == 1) {
+      if (pQ)
+        once_per_team(tm, KOKKOS_LAMBDA() { (*pQ)(0, 0) = 1.0; });
+      once_per_team(tm, KOKKOS_LAMBDA() { eigs[0] = A(0, 0); });
+      barrier(tm);
+      return 0;
+    }
+
     // Tridiagonalize the symmetric matrix via Householder transformations
     double *v = &(scratch[0]);
     double *s = &(scratch[ncols]);
