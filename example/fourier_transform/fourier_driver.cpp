@@ -85,19 +85,6 @@ parthenon::DriverStatus FourierDriver::Execute() {
   auto test_field = md->PackVariables(std::vector<std::string>{"test_field"});
 
   // Gather block data into flat array for FFT input:
-  // Can be done manually like this:
-  /*
-  IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
-  IndexRange jb = md->GetBlockData(0)->GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = md->GetBlockData(0)->GetBoundsK(IndexDomain::interior);
-  parthenon::par_for(
-      "Init FFT field", 0, pmesh->GetNumMeshBlocksThisRank() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        const auto idx = UniformGridHelper->FlatIndex(b, k, j, i);
-        input(idx) = test_field(b, 0, k, j, i);
-      });
-  */
-  // Or more conveniently using the helper function that does the packing for us:
   UniformGridHelper->GatherField("test_field", 0, input);
 
   // Perform forward FFT - applies 1/N^3 normalization:
