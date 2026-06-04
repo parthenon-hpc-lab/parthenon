@@ -39,8 +39,8 @@
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
 #include "parthenon_arrays.hpp"
-#include "utils/error_checking.hpp"
 #include "utils/FFTManager.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 
@@ -50,10 +50,11 @@ namespace parthenon {
 
 void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                      const SignalHandler::OutputSignal signal) {
-                                        
+
   const auto var_name = pin->GetString(output_params.block_name, "variable");
   const auto components = pin->GetVector<int>(output_params.block_name, "components");
-  const auto output_label = pin->GetOrAddString(output_params.block_name, "output_label", var_name);
+  const auto output_label =
+      pin->GetOrAddString(output_params.block_name, "output_label", var_name);
 
   auto &md = pm->mesh_data.Get();
 
@@ -63,32 +64,35 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
   auto vars = md->PackVariables(std::vector<std::string>{var_name});
 
-  // Get Mesh geometry information: 
+  // Get Mesh geometry information:
   auto mesh_size = pm->mesh_size;
   const auto Nx = mesh_size.nx(X1DIR);
   const auto Ny = mesh_size.nx(X2DIR);
   const auto Nz = mesh_size.nx(X3DIR);
 
   // Initialize FFTManager and I/O arrays:
-  int n_comp = components.size(); // number of field components to transform 
-  auto FFTManager = pm->GetFFTManager(); 
+  int n_comp = components.size(); // number of field components to transform
+  auto FFTManager = pm->GetFFTManager();
   const auto fft_size_inbox = FFTManager->size_real_space_box();
   parthenon::ParArray1D<Real> input("fft input", n_comp * fft_size_inbox);
-  parthenon::ParArray1D<std::complex<Real>> output("fft output",
-                                                   n_comp * FFTManager->size_fourier_space_box());
-  PARTHENON_REQUIRE_THROWS(pm->DefaultNumPartitions() == 1, 
-                           "Only pack_size=-1 currently supported for heffte.") // pack size -1 means 1 pack per rank
+  parthenon::ParArray1D<std::complex<Real>> output(
+      "fft output", n_comp * FFTManager->size_fourier_space_box());
+  PARTHENON_REQUIRE_THROWS(
+      pm->DefaultNumPartitions() == 1,
+      "Only pack_size=-1 currently supported for heffte.") // pack size -1 means 1 pack
+                                                           // per rank
 
   // copy components to device
   parthenon::ParArray1D<int> components_d("components", components.size());
   auto components_h = components_d.GetHostMirror();
-  for (int n = 0; n < n_comp; n++) components_h(n) = components[n];
+  for (int n = 0; n < n_comp; n++)
+    components_h(n) = components[n];
   components_d.DeepCopy(components_h);
 
   auto UniformGridHelper = pm->GetUniformGridHelper();
   auto helper = UniformGridHelper->GetKernelHelper();
 
-  // Gather block data into flat arrays for FFT input: 
+  // Gather block data into flat arrays for FFT input:
   par_for(
       "Init FFT fields", 0, pm->GetNumMeshBlocksThisRank() - 1, kb.s, kb.e, jb.s, jb.e,
       ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
@@ -117,7 +121,7 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
   auto fb = FFTManager->fourier_space_box();
 
-  // Calculate spectrum: 
+  // Calculate spectrum:
   const auto fft_size_outbox = FFTManager->size_fourier_space_box();
   auto kernel_helper = FFTManager->GetKernelHelper();
   parthenon::par_for(
@@ -146,7 +150,7 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
         spec(k_mag_int, 1) += fac * k_mag;
         spec(k_mag_int, 2) += fac * 1.0;
       });
-      
+
   Kokkos::Experimental::contribute(spectra.KokkosView(), scatter_spectra);
 
   Kokkos::fence(); // May not be required.
@@ -161,49 +165,47 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   }
 #endif // MPI_PARALLEL
 
-  auto spectra_h = spectra.GetHostMirrorAndCopy(); // spectra_h is the Spectral data (Parthenon array) on host
+  auto spectra_h = spectra.GetHostMirrorAndCopy(); // spectra_h is the Spectral data
+                                                   // (Parthenon array) on host
 
   // Write spectrum to ordinary text file:
   if (parthenon::Globals::my_rank == 0) {
-    
+
     std::string fname;
     fname.assign(output_params.file_basename);
-    fname.append("."+output_label+".");
+    fname.append("." + output_label + ".");
     fname.append(output_params.file_id);
     fname.append(".");
     if (signal == SignalHandler::OutputSignal::now) {
-    fname.append("now");
-  } else if (signal == SignalHandler::OutputSignal::final &&
-             output_params.file_label_final) {
-    fname.append("final");
-    // default time based data dump
-  } else {
-    std::stringstream file_number;
-    file_number << std::setw(output_params.file_number_width) << std::setfill('0')
-                << output_params.file_number;
-    fname.append(file_number.str());
-  }
+      fname.append("now");
+    } else if (signal == SignalHandler::OutputSignal::final &&
+               output_params.file_label_final) {
+      fname.append("final");
+      // default time based data dump
+    } else {
+      std::stringstream file_number;
+      file_number << std::setw(output_params.file_number_width) << std::setfill('0')
+                  << output_params.file_number;
+      fname.append(file_number.str());
+    }
     fname.append(".spc");
 
     std::ofstream fout(fname);
     if (!fout.is_open()) {
-        PARTHENON_FAIL("Could not open " + fname + " for writing");
+      PARTHENON_FAIL("Could not open " + fname + " for writing");
     }
 
     // Write each bin's results to the file: val_sum, k_sum, count_sum
     fout << "# Bin    val_sum    K_sum    Count\n";
     for (int i = 0; i < num_bins; ++i) {
-        fout << i << " "
-             << spectra_h(i, 0) << " "
-             << spectra_h(i, 1) << " "
-             << spectra_h(i, 2) << "\n";
+      fout << i << " " << spectra_h(i, 0) << " " << spectra_h(i, 1) << " "
+           << spectra_h(i, 2) << "\n";
     }
     fout.close();
-    }
-
+  }
 
   // advance output parameters
-  UpdateNextOutput_(pm, tm);  
+  UpdateNextOutput_(pm, tm);
 
 } // void SpectralOutput::WriteOutputFile
 

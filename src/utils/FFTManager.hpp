@@ -1,69 +1,69 @@
 #pragma once
 
-#include <memory>
-#include <complex>
-#include "parthenon_arrays.hpp"
 #include "mesh/uniform_grid_helper.hpp"
+#include "parthenon_arrays.hpp"
+#include <complex>
+#include <memory>
 
 namespace parthenon {
 
 class Mesh;
 
 class FFTManager {
-friend class Mesh;
+  friend class Mesh;
 
-public:
+ public:
   explicit FFTManager(Mesh *mesh);
   ~FFTManager();
 
   void Initialize();
 
-  void Forward(const double* input,
-               std::complex<double>* output);
+  void Forward(const double *input, std::complex<double> *output);
 
-  void Backward(const std::complex<double>* input,
-                double* output);
+  void Backward(const std::complex<double> *input, double *output);
 
-    // -----------------------------
-    // Box info 
-    // -----------------------------
+  // -----------------------------
+  // Box info
+  // -----------------------------
 
-  parthenon::Box3D fourier_space_box() const;  
-  parthenon::Box3D real_space_box() const;      
+  parthenon::Box3D fourier_space_box() const;
+  parthenon::Box3D real_space_box() const;
 
-  std::size_t size_fourier_space_box() const;  // total number of points
+  std::size_t size_fourier_space_box() const; // total number of points
   std::size_t size_real_space_box() const;
 
   // -----------------------------
   // Device-copyable kernel helper
   // -----------------------------
   struct KernelHelper {
-      parthenon::Box3D fourier_box;
-      parthenon::Box3D real_box;
-      int Nx, Ny, Nz;
+    parthenon::Box3D fourier_box;
+    parthenon::Box3D real_box;
+    int Nx, Ny, Nz;
 
-      // Flat index into the local Fourier-space array
-      KOKKOS_INLINE_FUNCTION
-      std::int64_t FourierFlatIndex(const int k, const int j, const int i) const {
-          return ((std::int64_t)(k - fourier_box.low[2]) * fourier_box.size[1]
-                  + (j - fourier_box.low[1])) * fourier_box.size[0] + i - fourier_box.low[0];
-      }
+    // Flat index into the local Fourier-space array
+    KOKKOS_INLINE_FUNCTION
+    std::int64_t FourierFlatIndex(const int k, const int j, const int i) const {
+      return ((std::int64_t)(k - fourier_box.low[2]) * fourier_box.size[1] +
+              (j - fourier_box.low[1])) *
+                 fourier_box.size[0] +
+             i - fourier_box.low[0];
+    }
 
-      // Flat index into the local real-space array
-      KOKKOS_INLINE_FUNCTION
-      std::int64_t RealFlatIndex(const int k, const int j, const int i) const {
-          return ((std::int64_t)(k - real_box.low[2]) * real_box.size[1]
-                  + (j - real_box.low[1])) * real_box.size[0] + i - real_box.low[0];
-      }
+    // Flat index into the local real-space array
+    KOKKOS_INLINE_FUNCTION
+    std::int64_t RealFlatIndex(const int k, const int j, const int i) const {
+      return ((std::int64_t)(k - real_box.low[2]) * real_box.size[1] +
+              (j - real_box.low[1])) *
+                 real_box.size[0] +
+             i - real_box.low[0];
+    }
 
-      // Integer wavevector components (handles negative frequencies)
-      // For r2c transforms, kx >= 0 always
-      KOKKOS_INLINE_FUNCTION
-      std::array<int, 3> Wavevector(const int k, const int j, const int i) const {
-          return {i,
-                  j <= Ny / 2 ? j : j - Ny,
-                  k <= Nz / 2 ? k : k - Nz};
-}
+    // Integer wavevector components (handles negative frequencies)
+    // For r2c transforms, kx >= 0 always
+    KOKKOS_INLINE_FUNCTION
+    std::array<int, 3> Wavevector(const int k, const int j, const int i) const {
+      return {i, j <= Ny / 2 ? j : j - Ny, k <= Nz / 2 ? k : k - Nz};
+    }
   };
 
   // Returns a device-copyable helper for use inside Kokkos kernels.
@@ -71,10 +71,10 @@ public:
   //   auto helper = fftManager->GetKernelHelper();
   //   par_for(..., KOKKOS_LAMBDA(...) { helper.FourierFlatIndex(...); });
   KernelHelper GetKernelHelper() const {
-      return {fourier_space_box(), real_space_box(), Nx_, Ny_, Nz_};
+    return {fourier_space_box(), real_space_box(), Nx_, Ny_, Nz_};
   }
 
-private:
+ private:
   struct Impl;                 // opaque implementation
   std::unique_ptr<Impl> impl_; // owns backend-specific data
 

@@ -23,13 +23,15 @@ namespace fourier_transform {
 using namespace parthenon::driver::prelude;
 
 /**
- * @brief Constructs a driver to demonstrate the use of Fourier transforms in Parthenon. 
- * The driver will compute the Fourier transform of a 3D array, compute the inverse Fourier transform to recover the original array, 
- * and compute the maximum error between the original and recovered arrays.
+ * @brief Constructs a driver to demonstrate the use of Fourier transforms in Parthenon.
+ * The driver will compute the Fourier transform of a 3D array, compute the inverse
+ * Fourier transform to recover the original array, and compute the maximum error between
+ * the original and recovered arrays.
  */
 class FourierDriver : public Driver {
  public:
-  FourierDriver(ParameterInput *pin, ApplicationInput *fin, Mesh *pm) : Driver(pin, fin, pm) {
+  FourierDriver(ParameterInput *pin, ApplicationInput *fin, Mesh *pm)
+      : Driver(pin, fin, pm) {
     InitializeOutputs();
   }
 
