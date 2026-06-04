@@ -264,7 +264,8 @@ void Multiply(const Matrix &A, const Matrix &B, Matrix &C);
 template <typename T>
 KOKKOS_INLINE_FUNCTION int sign_of(T val) {
   constexpr T zero{0};
-  return (zero < val) - (val < zero);
+  // Zero is counted as positive for Householder reflector stability
+  return (zero <= val) - (val < zero);
 }
 
 template <class tm_t>
