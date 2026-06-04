@@ -327,7 +327,7 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
   
   int scratch_size{0};
   // Calculate the max storage for Gram matrices
-  scratch_size += ScratchPad2D<real_t>::shmem_size(n_cores - 1, max_rank * max_rank);
+  scratch_size += ScratchPad2D<real_t>::shmem_size(n_cores, max_rank * max_rank);
   scratch_size += ScratchPad1D<real_t>::shmem_size(max_rank * max_rank);
 
   // Storage for temporary when calculating right Gram matrices
@@ -360,7 +360,7 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
         // it easier to reuse between cores of different rank size
         auto &tm_scratch = tm.team_scratch(scratch_level);
         // Gram matrices, need to store all right Gram matrices
-        ScratchPad2D<real_t> GR(tm_scratch, n_cores - 1, max_rank * max_rank);
+        ScratchPad2D<real_t> GR(tm_scratch, n_cores, max_rank * max_rank);
         ScratchPad1D<real_t> GL(tm_scratch, max_rank * max_rank);
         ScratchPad3D<real_t> gram_temp(tm_scratch, max_rank, max_phys_dim, max_rank);
         
@@ -370,7 +370,7 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           int c = n_cores - 1;
           auto &core = pack(b, 0, c);
           const int rank = core.LR();
-          matrix_wrapper_t<real_t> GR_mat(&GR(c - 1, 0), rank, rank);
+          matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), rank, rank);
           for (int alpha = 0; alpha < rank; ++alpha) {
             for (int beta = alpha; beta < rank; ++beta) {
               real_t const * const dat_alpha = &core(alpha, 0, 0);
@@ -388,7 +388,7 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
         }
         tm.team_barrier();
 
-        for (int c = n_cores - 2; c > 0; --c) {
+        for (int c = n_cores - 2; c >= 0; --c) {
           const auto &core = pack(b, 0, c);
           const auto lr = core.LR();
           const auto rr = core.RR();
@@ -402,7 +402,7 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
               });
           tm.team_barrier();
 
-          matrix_wrapper_t<real_t> GR_prev_mat(&GR(c, 0), rr, rr);
+          matrix_wrapper_t<real_t> GR_prev_mat(&GR(c + 1, 0), rr, rr);
           for (int rp = 0; rp < rr; ++rp) {
             parthenon::par_for_inner(tm, 0, lr - 1, 0, rr - 1, 0, dd - 1, 
                 [&](int l, int r, int j){
@@ -412,7 +412,7 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           }
 
           // Compute and store right Gram matrix
-          matrix_wrapper_t<real_t> GR_mat(&GR(c - 1, 0), lr, lr);
+          matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), lr, lr);
           for (int alpha = 0; alpha < lr; ++alpha) {
             for (int beta = alpha; beta < lr; ++beta) {
               real_t sum{0.0};
@@ -431,18 +431,7 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
         }
         
         // Calculate the absolute tolerance
-        real_t eps0;
-        {
-          const auto &core = pack(b, 0, 0);
-          const auto lr = core.LR();
-          matrix_wrapper_t<real_t> GR_mat(&GR(0, 0), lr, lr);
-          for (int alpha = 0; alpha < lr; ++alpha) {
-            for (int beta = alpha; beta < lr; ++beta) {
-              eps0 += GR_mat(alpha, beta) * GR_mat(alpha, beta);
-            }
-          }
-        }
-        eps0 = safe_sqrt(eps0) * eps / (std::max(n_cores, 2) - 1);
+        const real_t eps0 = safe_sqrt(GR(0, 0)) * eps / sqrt(std::max(n_cores, 2) - 1);
 
         // Eigen systems
         ScratchPad1D<real_t> QL(tm_scratch, max_rank * max_rank);
@@ -459,23 +448,6 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
         // Scratch that can be re-used amongst solves
         ScratchPad1D<real_t> real_scratch(tm_scratch, SymmetricEVD::double_scratch_size(max_rank));
         ScratchPad1D<std::size_t> szt_scratch(tm_scratch, SymmetricEVD::sizet_scratch_size(max_rank));
-        auto print_mat = [](const std::string label, auto &mat, int r) {
-          printf("%s\n", label.c_str());
-          for (int alpha = 0; alpha < r; ++alpha) {
-            for (int beta = 0; beta < r; ++beta) {
-              printf(" %e", mat(alpha, beta));
-            }
-            printf("\n");
-          }
-          printf("\n");
-        };
-        auto print_vec = [](const std::string label, auto &vec, int r) {
-          printf("%s\n", label.c_str());
-          for (int alpha = 0; alpha < r; ++alpha) {
-              printf(" %e\n", vec[alpha]);
-          }
-          printf("\n");
-        };
 
         // L-to-R sweep over bonds 
         for (int c = 0; c < n_cores - 1; ++c) {
@@ -504,32 +476,25 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
 
           // Compute eigen decomposition of L and R Gram matrices
           matrix_wrapper_t<real_t> QL_mat(QL.data(), rank, rank);
-          print_mat("G_L^(" + std::to_string(c) + ")", GL_mat, rank);
           SymmetricEVD::execute(tm, &GL_mat, &QL_mat, eigL.data(),
                                 real_scratch.data(), szt_scratch.data());
-          print_vec("Sigma^2_L^(" + std::to_string(c) + ")", eigL, rank);
-          print_mat("Q_L^(" + std::to_string(c) + ")", QL_mat, rank);
           tm.team_barrier();
 
-          matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), rank, rank);
+          matrix_wrapper_t<real_t> GR_mat(&GR(c + 1, 0), rank, rank);
           matrix_wrapper_t<real_t> QR_mat(QR.data(), rank, rank);
-          print_mat("G_R^(" + std::to_string(c) + ")", GR_mat, rank);
           SymmetricEVD::execute(tm, &GR_mat, &QR_mat, eigR.data(),
                                 real_scratch.data(), szt_scratch.data());
-          print_vec("Sigma^2_R^(" + std::to_string(c) + ")", eigR, rank);
-          print_mat("Q_R^(" + std::to_string(c) + ")", QR_mat, rank);
           tm.team_barrier();
 
           // Compute M = eig_L^{1/2} Q_L^T Q_R eig_R^{1/2} 
           auto &M_mat = GL_mat; // Just reuse GL, since we are done with it
           parthenon::par_for_inner(tm, 0, rank - 1, 
                 [&](int r){
-                  eigL[r] = safe_sqrt(eigL[r]);
-                  eigR[r] = safe_sqrt(eigR[r]);
+                  eigL[r] = abs(eigL[r]) > 1.e-12 ? safe_sqrt(eigL[r]) : 0.0;
+                  eigR[r] = abs(eigR[r]) > 1.e-12 ? safe_sqrt(eigR[r]) : 0.0;
               });
           tm.team_barrier();
           MatMulDiag3<real_t>(tm, eigL, QL_mat.GetTranspose(), unity_vector_t(), QR_mat, eigR, M_mat);  
-          print_mat("M^(" + std::to_string(c) + ")", M_mat, rank);
           tm.team_barrier();
 
           // Compute SVD of M
@@ -538,32 +503,25 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           SquareSVD::execute(tm, &M_mat, &U_mat, &V_mat, sig.data(), real_scratch.data(), szt_scratch.data());
           tm.team_barrier();
 
-          print_vec("sigma^(" + std::to_string(c) + ")", sig, rank);
-          print_mat("U^(" + std::to_string(c) + ")", U_mat, rank);
-          print_mat("V^(" + std::to_string(c) + ")", V_mat, rank);
-
           // Truncate SVD to find new rank and store rank 
           int rank_new;
           BuildDescendingPermutation(tm, sig, rank, eps0, perm, rank_new);
-
           auto Ukeep_mat = U_mat.GetPermutedCols(perm, rank_new);
           auto VTkeep_mat = V_mat.GetTranspose().GetPermutedRows(perm, rank_new);
           auto sigkeep = GetPermuted(sig, perm, rank_new);
-
           Kokkos::single(Kokkos::PerTeam(tm), [&](){
                     final_rank_arr(b, c) = rank_new;
-                }); 
+                });
           parthenon::par_for_inner(tm, 0, rank - 1, 
                 [&](int r){
-                  eigL[r] = 1.0 / (eigL[r] + 1.e-20);
-                  eigR[r] = 1.0 / (eigR[r] + 1.e-20);
+                  eigL[r] = abs(eigL[r]) > 1.e-12 ? 1.0 / eigL[r] : 0.0;
+                  eigR[r] = abs(eigR[r]) > 1.e-12 ? 1.0 / eigR[r] : 0.0;
               });
           tm.team_barrier();
 
-          // Push SVD U left [V(core_L) = V(core_L) Q_A eig_L^{-1/2} U]
+          // Push SVD U left [V(core_L) = V(core_L) Q_L eig_L^{-1/2} U]
           matrix_wrapper_t<real_t> T_Lmat(GL.data(), rank, rank_new);
           MatMulDiag3<real_t>(tm, unity_vector_t(), QL_mat, eigL, Ukeep_mat, unity_vector_t(), T_Lmat); 
-          print_mat("T_L^(" + std::to_string(c) + ")", T_Lmat, rank);
           
           for (int l = 0; l < lr; ++l) {
             for (int anew = 0; anew < rank_new; ++anew) {
@@ -590,7 +548,6 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           const int rrR = coreR.RR();
           matrix_wrapper_t<real_t> T_Rmat(GL.data(), rank_new, rank);
           MatMulDiag3<real_t>(tm, sigkeep, VTkeep_mat, eigR, QR_mat.GetTranspose(), unity_vector_t(), T_Rmat); 
-          print_mat("T_R^(" + std::to_string(c) + ")", T_Rmat, rank);
           for (int anew = 0; anew < rank_new; ++anew) {
             for (int r = 0; r < rrR; ++r) {
               parthenon::par_for_inner(tm, 0, ddR - 1, [&](const int j) {
