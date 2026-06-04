@@ -69,6 +69,22 @@ static void CheckSingularValueSanity(
     REQUIRE(x >= -tol);
 }
 
+static double SingularValueEnergy(const std::vector<double> &sings) {
+  double sum = 0.0;
+  for (double x : sings) sum += x * x;
+  return sum;
+}
+
+static void CheckSingularValueEnergyIdentity(const Matrix &A,
+                                             const std::vector<double> &sings,
+                                             double rtol = 1e-12,
+                                             double atol = 1e-12) {
+  const double sigma2 = SingularValueEnergy(sings);
+  const double frob2 = A.FrobeniusNorm() * A.FrobeniusNorm();
+  const double denom = std::max(frob2, atol);
+  REQUIRE(std::abs(sigma2 - frob2) / denom < rtol);
+}
+
 static void SortAbs(std::vector<double> &v) {
   for (double &x : v)
     x = std::abs(x);
@@ -271,6 +287,69 @@ TEST_CASE("SVD handles single row/column non-zero matrices", "[svd][edge_case]")
       }
     }
   }
+}
+
+TEST_CASE("SVD handles 1x1 matrices exactly", "[svd][edge_case]") {
+  SECTION("Positive scalar") {
+    Matrix A(1, 1);
+    A(0, 0) = 0.5;
+    Matrix A0 = A.GetDeepCopy();
+
+    Matrix U(1, 1), V(1, 1);
+    std::vector<double> s(1);
+
+    int iters = SquareSVD::execute(&A, &U, &V, s.data());
+    REQUIRE(iters == 0);
+
+    REQUIRE(std::abs(s[0] - 0.5) < 1e-14);
+    CheckSingularValueSanity(s);
+    CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/1e-14, /*atol=*/1e-14);
+    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/1e-14, /*atol=*/1e-14);
+    REQUIRE(OrthoError(U) < 1e-14);
+    REQUIRE(OrthoError(V) < 1e-14);
+  }
+
+  SECTION("Negative scalar") {
+    Matrix A(1, 1);
+    A(0, 0) = -0.5;
+    Matrix A0 = A.GetDeepCopy();
+
+    Matrix U(1, 1), V(1, 1);
+    std::vector<double> s(1);
+
+    int iters = SquareSVD::execute(&A, &U, &V, s.data());
+    REQUIRE(iters == 0);
+
+    REQUIRE(std::abs(s[0] - 0.5) < 1e-14);
+    CheckSingularValueSanity(s);
+    CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/1e-14, /*atol=*/1e-14);
+    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/1e-14, /*atol=*/1e-14);
+    REQUIRE(OrthoError(U) < 1e-14);
+    REQUIRE(OrthoError(V) < 1e-14);
+  }
+}
+
+TEST_CASE("SVD handles structured rank-deficient matrices with zero leading entries",
+          "[svd][edge_case]") {
+  Matrix A(4, 4);
+  A(0, 0) = 0.0; A(0, 1) = 1.0; A(0, 2) = 2.0; A(0, 3) = 0.0;
+  A(1, 0) = 0.0; A(1, 1) = 0.0; A(1, 2) = 0.0; A(1, 3) = 0.0;
+  A(2, 0) = 3.0; A(2, 1) = 0.0; A(2, 2) = 1.0; A(2, 3) = 4.0;
+  A(3, 0) = 0.0; A(3, 1) = 2.0; A(3, 2) = 0.0; A(3, 3) = 1.0;
+
+  Matrix A0 = A.GetDeepCopy();
+  Matrix U(4, 4), V(4, 4);
+  std::vector<double> s(4);
+
+  int iters = SquareSVD::execute(&A, &U, &V, s.data());
+  REQUIRE(iters > 0);
+  REQUIRE(iters < 15 * 4);
+
+  CheckSingularValueSanity(s);
+  CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/1e-12, /*atol=*/1e-12);
+  CheckSVDReconstruction(A0, U, V, s, /*rtol=*/1e-12, /*atol=*/1e-12);
+  REQUIRE(OrthoError(U) < 1e-12);
+  REQUIRE(OrthoError(V) < 1e-12);
 }
 
 TEST_CASE("SVD vs Gram eigenvalues: singular values match sqrt(eigs(A^T A))",
