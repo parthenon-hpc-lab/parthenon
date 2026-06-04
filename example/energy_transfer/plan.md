@@ -12,9 +12,12 @@ CPU-only Python implementation in `external/energy-transfer-analysis/`.
 example/energy_transfer/
 ├── energy_transfer_driver.hpp   -- EnergyTransferDriver class (inherits Driver)
 ├── energy_transfer_driver.cpp   -- main(), ProcessPackages(), ProblemGenerator(), Execute()
-├── CMakeLists.txt               -- builds "energy-transfer" target
+├── CMakeLists.txt               -- builds "energy-transfer" target, links ADIOS2
 ├── parthinput.example           -- sample input deck (64^3, periodic, linear bins)
 └── plan.md                      -- this file
+
+external/energy-transfer-analysis/testing/
+└── enzo_to_bp5.py              -- Python script: Enzo data (via yt) → ADIOS2/bp5
 ```
 
 Registered in `example/CMakeLists.txt` via `add_subdirectory(energy_transfer)`.
@@ -24,10 +27,33 @@ Registered in `example/CMakeLists.txt` via `add_subdirectory(energy_transfer)`.
 Follows the standard Parthenon driver pattern:
 
 1. `main()` — ParthenonManager setup, register callbacks, init, execute, finalize
-2. `ProcessPackages()` — registers mesh fields: `rho` (scalar), `vel` (vector-3),
-   `mag` (vector-3), `acc` (vector-3), `pres` (scalar)
-3. `ProblemGenerator()` — placeholder filling test data (data I/O to be added)
+2. `ProcessPackages()` — conditionally registers mesh fields (only when not reading
+   from file). Uses `DoesParameterExist("energy_transfer", "input_file")` to decide.
+3. `ProblemGenerator()` — no-op (data loading handled in Execute)
 4. `EnergyTransferDriver::Execute()` — full analysis workflow
+
+## Data Input
+
+Two mutually exclusive modes, selected by presence of `input_file` in the
+`<energy_transfer>` input block:
+
+### Mode 1: ADIOS2/bp5 file (`input_file = path/to/data.bp`)
+
+- Reads directly into flat device arrays, bypassing meshblock fields entirely
+- File must end in `.bp`; validated at runtime
+- File dimensions validated against mesh configuration (`[Nz, Ny, Nx]`)
+- Always reads as `double` from file; converts to `Real` if built with single precision
+- Uses ADIOS2 deferred mode: all variables queued, single `PerformGets()` flush
+- Each rank reads its local chunk via `SetSelection` based on `UniformGridHelper::LocalMeshBox`
+- Python conversion script: `external/energy-transfer-analysis/testing/enzo_to_bp5.py`
+
+### Mode 2: Meshblock fields (no `input_file` parameter)
+
+- Registers `rho`, `vel`, `mag`, `acc`, `pres` fields in `ProcessPackages`
+- Gathers from meshblocks into flat arrays via `UniformGridHelper::FlatIndex`
+- Intended for use when coupled to a running simulation or custom `ProblemGenerator`
+
+Both paths feed into a shared `ComputeW` kernel: `W = sqrt(rho) * U`.
 
 ## Algorithm
 
@@ -35,7 +61,7 @@ Follows the standard Parthenon driver pattern:
 
 - Read configuration from `<energy_transfer>` input block
 - Build shell edge array (linear or logarithmic binning)
-- Gather fields from meshblocks into flat device arrays via `UniformGridHelper`
+- Load fields (ADIOS2 or meshblock gather, see above)
 - Compute derived fields: `W = sqrt(rho) * U`, `b = B / sqrt(rho)`
 - Forward FFT: `FT_W`, `FT_U`, `FT_B`, `FT_b`, `FT_P`, `FT_Acc` (conditionally)
 - Precompute `div(U)` spectrally (single IFFT)
@@ -95,10 +121,16 @@ Single ADIOS2/bp5 file via openPMD. Each transfer term stored as a named
 - **Kokkos::fence()** after every Backward FFT (HeFFTe is async on GPU)
 - **HostArray2D** for transfer matrices (dynamically sized, no arbitrary cap)
 - **openPMD/ADIOS2** output for self-describing, Python-friendly I/O
+- **Dual input modes**: direct ADIOS2 file read OR meshblock gather, selected by
+  presence of `input_file` parameter (not a sentinel value)
+- **Type-safe I/O**: always reads doubles from ADIOS2, converts to Real if needed
+- **Dimension validation**: file shape checked against mesh at startup
+- **Batched I/O**: ADIOS2 deferred mode with single PerformGets for all variables
 
 ## Configuration (`<energy_transfer>` block)
 
 ```
+input_file = data.bp    # ADIOS2/bp5 input (must end in .bp); omit for meshblock mode
 binning = lin|log       # shell edge distribution
 num_shells = 20         # number of shells
 compute_UU = true       # kinetic transfer
@@ -108,6 +140,23 @@ compute_PU = false      # pressure
 compute_FU = false      # forcing
 output_file = transfer  # output filename base (produces transfer.bp)
 ```
+
+## Python Conversion Script
+
+`external/energy-transfer-analysis/testing/enzo_to_bp5.py`
+
+Converts Enzo simulation data to the expected ADIOS2/bp5 format:
+
+```bash
+python enzo_to_bp5.py DD0024/data0024 --output enzo_data.bp --gamma 1.001
+python enzo_to_bp5.py DD0024/data0024 --output enzo_data_64.bp --res 64 --gamma 1.001
+```
+
+- Reads via yt (`covering_grid`), transposes to `[k, j, i]` order
+- Stores all fields as float64 in shape `[Nz, Ny, Nx]`
+- Fields: `rho`, `vel_{x,y,z}`, `mag_{x,y,z}`, `acc_{x,y,z}` (optional), `pres` (optional)
+- Supports downsampling via `--res` (volume averaging)
+- Attributes: `resolution`, `domain_left`, `domain_right`, `gamma`
 
 ## Output Format
 
@@ -127,13 +176,14 @@ s.flush()
 ## Dependencies
 
 - Parthenon with HeFFTe enabled (`PARTHENON_ENABLE_HEFFTE`)
-- openPMD with ADIOS2 backend (default in this branch)
+- ADIOS2 with CXX and MPI components (linked explicitly in CMakeLists.txt)
+- openPMD with ADIOS2 backend (for output)
 - Uniform grid only (`refinement = none`, `pack_size = -1`)
 - Periodic boundary conditions in all directions
 
 ## Known Limitations / TODO
 
-- Data reading not implemented (ProblemGenerator is a placeholder)
 - Assumes isotropic (cubic) domain: spectral derivatives use `2*pi/Lx` for all directions
 - Missing terms: SS (internal energy), UBT, nuU, etaB (dissipation)
 - No runtime check that domain is actually cubic when non-cubic would give wrong results
+- Python script requires `yt` and `adios2` Python packages

@@ -37,6 +37,7 @@ nx2 = 32
 nx3 = 32
 
 <energy_transfer>
+# input_file = enzo_data.bp  # read from ADIOS2/bp5 file (must end in .bp); omit to use meshblock fields
 binning = lin
 num_shells = 20
 compute_UU = true

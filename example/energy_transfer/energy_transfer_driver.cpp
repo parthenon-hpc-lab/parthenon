@@ -3,11 +3,13 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "energy_transfer_driver.hpp"
 #include <parthenon/driver.hpp>
 
+#include <adios2.h>
 #include <openPMD/openPMD.hpp>
 
 using namespace parthenon::driver::prelude;
@@ -45,58 +47,28 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
 
   auto package = std::make_shared<parthenon::StateDescriptor>("energy_transfer");
 
-  parthenon::Metadata m_scalar({parthenon::Metadata::Cell, parthenon::Metadata::Derived,
-                                parthenon::Metadata::OneCopy});
-  parthenon::Metadata m_vector({parthenon::Metadata::Cell, parthenon::Metadata::Derived,
-                                parthenon::Metadata::OneCopy, parthenon::Metadata::Vector},
-                               std::vector<int>{3});
+  // Only register mesh fields when not reading from an ADIOS2/bp5 file
+  const bool read_from_file =
+      pin->DoesParameterExist("energy_transfer", "input_file");
+  if (!read_from_file) {
+    parthenon::Metadata m_scalar({parthenon::Metadata::Cell, parthenon::Metadata::Derived,
+                                  parthenon::Metadata::OneCopy});
+    parthenon::Metadata m_vector({parthenon::Metadata::Cell, parthenon::Metadata::Derived,
+                                  parthenon::Metadata::OneCopy, parthenon::Metadata::Vector},
+                                 std::vector<int>{3});
 
-  package->AddField("rho", m_scalar);
-  package->AddField("vel", m_vector);
-  package->AddField("mag", m_vector);
-  package->AddField("acc", m_vector);
-  package->AddField("pres", m_scalar);
+    package->AddField("rho", m_scalar);
+    package->AddField("vel", m_vector);
+    package->AddField("mag", m_vector);
+    package->AddField("acc", m_vector);
+    package->AddField("pres", m_scalar);
+  }
 
   packages.Add(package);
   return packages;
 }
 
-// Placeholder ProblemGenerator — fills fields with simple test data.
-// In production, this would be replaced by reading simulation output.
-void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
-  auto &rc = pmb->meshblock_data.Get();
-  auto rho = rc->Get("rho").data;
-  auto vel = rc->Get("vel").data;
-  auto mag = rc->Get("mag").data;
-  auto acc = rc->Get("acc").data;
-  auto pres = rc->Get("pres").data;
-
-  IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-  auto &coords = pmb->coords;
-
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        const Real x = coords.Xc<1>(i);
-        const Real y = coords.Xc<2>(j);
-        const Real z = coords.Xc<3>(k);
-
-        rho(k, j, i) = 1.0;
-        // Two modes in different shells for testing
-        vel(0, k, j, i) = Kokkos::sin(2.0 * M_PI * x / (2.0 * M_PI));
-        vel(1, k, j, i) = Kokkos::sin(2.0 * M_PI * 3.0 * y / (2.0 * M_PI));
-        vel(2, k, j, i) = 0.0;
-        mag(0, k, j, i) = 0.0;
-        mag(1, k, j, i) = 0.0;
-        mag(2, k, j, i) = 0.0;
-        acc(0, k, j, i) = 0.0;
-        acc(1, k, j, i) = 0.0;
-        acc(2, k, j, i) = 0.0;
-        pres(k, j, i) = 1.0;
-      });
-}
+void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {}
 
 // ============================================================================
 // Helper: Shell-filter a field in Fourier space and IFFT to real space.
@@ -288,11 +260,6 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   const auto fft_size_inbox = FFTMgr->size_real_space_box();
   const auto fft_size_outbox = FFTMgr->size_fourier_space_box();
 
-  auto &md = pmesh->mesh_data.Get();
-  IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
-  IndexRange jb = md->GetBlockData(0)->GetBoundsJ(IndexDomain::interior);
-  IndexRange kb = md->GetBlockData(0)->GetBoundsK(IndexDomain::interior);
-
   // --- Allocate real-space working arrays (only what's needed) ---
   const bool need_mag = compute_BB || compute_BUT;
 
@@ -300,62 +267,186 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   parthenon::ParArray1D<Real> vel_flat("vel_flat", 3 * fft_size_inbox);
   parthenon::ParArray1D<Real> mag_flat("mag_flat", need_mag ? 3 * fft_size_inbox : 0);
   parthenon::ParArray1D<Real> W_flat("W_flat", 3 * fft_size_inbox);
+  parthenon::ParArray1D<Real> pres_flat("pres_flat", compute_PU ? fft_size_inbox : 0);
+  parthenon::ParArray1D<Real> acc_flat("acc_flat", compute_FU ? 3 * fft_size_inbox : 0);
 
-  // --- Gather fields from meshblocks ---
-  auto rho_var = md->PackVariables(std::vector<std::string>{"rho"});
-  auto vel_var = md->PackVariables(std::vector<std::string>{"vel"});
+  // --- Load fields: either from ADIOS2/bp5 file or from existing meshblock data ---
+  const bool read_from_file =
+      pinput->DoesParameterExist("energy_transfer", "input_file");
 
-  auto helper = UniformGridHelper->GetKernelHelper();
-  const int num_blocks = pmesh->GetNumMeshBlocksThisRank();
+  if (read_from_file) {
+    const auto input_file =
+        pinput->GetString("energy_transfer", "input_file");
+    PARTHENON_REQUIRE_THROWS(
+        input_file.size() >= 3 &&
+            input_file.substr(input_file.size() - 3) == ".bp",
+        "input_file must be an ADIOS2/bp5 file (ending in .bp), got: " + input_file);
 
+    // Read directly from ADIOS2/bp5 file into flat arrays
+    const auto &local_box = UniformGridHelper->LocalMeshBox;
+    const adios2::Dims start = {static_cast<std::size_t>(local_box.low[2]),
+                                static_cast<std::size_t>(local_box.low[1]),
+                                static_cast<std::size_t>(local_box.low[0])};
+    const adios2::Dims count = {static_cast<std::size_t>(local_box.size[2]),
+                                static_cast<std::size_t>(local_box.size[1]),
+                                static_cast<std::size_t>(local_box.size[0])};
+
+    adios2::ADIOS adios(MPI_COMM_WORLD);
+    adios2::IO io = adios.DeclareIO("InputReader");
+    adios2::Engine reader = io.Open(input_file, adios2::Mode::Read);
+    reader.BeginStep();
+
+    // Validate that file dimensions match the mesh
+    {
+      auto var = io.InquireVariable<double>("rho");
+      PARTHENON_REQUIRE_THROWS(var,
+                               "Variable 'rho' not found in " + input_file);
+      const auto shape = var.Shape();
+      PARTHENON_REQUIRE_THROWS(
+          shape.size() == 3 &&
+              static_cast<int>(shape[0]) == Nz &&
+              static_cast<int>(shape[1]) == Ny &&
+              static_cast<int>(shape[2]) == Nx,
+          "ADIOS2 file dimensions [" + std::to_string(shape[0]) + ", " +
+              std::to_string(shape[1]) + ", " + std::to_string(shape[2]) +
+              "] do not match mesh dimensions [" + std::to_string(Nz) + ", " +
+              std::to_string(Ny) + ", " + std::to_string(Nx) + "]");
+    }
+
+    // Collect variable names to read, each gets its own host buffer slot
+    struct ReadRequest {
+      std::string name;
+      parthenon::ParArray1D<Real> *dest;
+      std::size_t offset;
+    };
+    std::vector<ReadRequest> requests;
+    requests.push_back({"rho", &rho_flat, 0});
+    requests.push_back({"vel_x", &vel_flat, 0});
+    requests.push_back({"vel_y", &vel_flat, fft_size_inbox});
+    requests.push_back({"vel_z", &vel_flat, 2 * fft_size_inbox});
+    if (need_mag) {
+      requests.push_back({"mag_x", &mag_flat, 0});
+      requests.push_back({"mag_y", &mag_flat, fft_size_inbox});
+      requests.push_back({"mag_z", &mag_flat, 2 * fft_size_inbox});
+    }
+    if (compute_PU) {
+      requests.push_back({"pres", &pres_flat, 0});
+    }
+    if (compute_FU) {
+      requests.push_back({"acc_x", &acc_flat, 0});
+      requests.push_back({"acc_y", &acc_flat, fft_size_inbox});
+      requests.push_back({"acc_z", &acc_flat, 2 * fft_size_inbox});
+    }
+
+    // Allocate one host buffer per variable for deferred reads
+    const auto n_vars = requests.size();
+    std::vector<std::vector<double>> host_bufs(n_vars,
+                                               std::vector<double>(fft_size_inbox));
+
+    // Issue all deferred Gets
+    for (std::size_t v = 0; v < n_vars; v++) {
+      auto var = io.InquireVariable<double>(requests[v].name);
+      PARTHENON_REQUIRE_THROWS(
+          var, "Variable '" + requests[v].name + "' not found in " + input_file);
+      var.SetSelection({start, count});
+      reader.Get(var, host_bufs[v].data(), adios2::Mode::Deferred);
+    }
+
+    // Single I/O flush for all variables
+    reader.PerformGets();
+
+    // Copy from host buffers to device arrays
+    for (std::size_t v = 0; v < n_vars; v++) {
+      auto dest_sub = Kokkos::subview(
+          *requests[v].dest,
+          Kokkos::make_pair(requests[v].offset, requests[v].offset + fft_size_inbox));
+      if constexpr (std::is_same_v<Real, double>) {
+        auto host_view =
+            Kokkos::View<Real *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
+                host_bufs[v].data(), fft_size_inbox);
+        Kokkos::deep_copy(dest_sub, host_view);
+      } else {
+        std::vector<Real> conv_buf(fft_size_inbox);
+        for (std::size_t i = 0; i < fft_size_inbox; i++) {
+          conv_buf[i] = static_cast<Real>(host_bufs[v][i]);
+        }
+        auto host_view =
+            Kokkos::View<Real *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
+                conv_buf.data(), fft_size_inbox);
+        Kokkos::deep_copy(dest_sub, host_view);
+      }
+    }
+
+    reader.EndStep();
+    reader.Close();
+
+  } else {
+    // Gather from existing Parthenon meshblock fields
+    auto &md = pmesh->mesh_data.Get();
+    IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
+    IndexRange jb = md->GetBlockData(0)->GetBoundsJ(IndexDomain::interior);
+    IndexRange kb = md->GetBlockData(0)->GetBoundsK(IndexDomain::interior);
+
+    auto rho_var = md->PackVariables(std::vector<std::string>{"rho"});
+    auto vel_var = md->PackVariables(std::vector<std::string>{"vel"});
+
+    auto helper = UniformGridHelper->GetKernelHelper();
+    const int num_blocks = pmesh->GetNumMeshBlocksThisRank();
+
+    parthenon::par_for(
+        "GatherFields", 0, num_blocks - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+          const auto idx = helper.FlatIndex(b, k, j, i);
+          rho_flat(idx) = rho_var(b, 0, k, j, i);
+          for (int n = 0; n < 3; n++) {
+            vel_flat(n * fft_size_inbox + idx) = vel_var(b, n, k, j, i);
+          }
+        });
+
+    if (need_mag) {
+      auto mag_var = md->PackVariables(std::vector<std::string>{"mag"});
+      parthenon::par_for(
+          "GatherMag", 0, num_blocks - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+            const auto idx = helper.FlatIndex(b, k, j, i);
+            for (int n = 0; n < 3; n++) {
+              mag_flat(n * fft_size_inbox + idx) = mag_var(b, n, k, j, i);
+            }
+          });
+    }
+
+    if (compute_PU) {
+      auto pres_var = md->PackVariables(std::vector<std::string>{"pres"});
+      parthenon::par_for(
+          "GatherPres", 0, num_blocks - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+            const auto idx = helper.FlatIndex(b, k, j, i);
+            pres_flat(idx) = pres_var(b, 0, k, j, i);
+          });
+    }
+
+    if (compute_FU) {
+      auto acc_var = md->PackVariables(std::vector<std::string>{"acc"});
+      parthenon::par_for(
+          "GatherAcc", 0, num_blocks - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+          KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+            const auto idx = helper.FlatIndex(b, k, j, i);
+            for (int n = 0; n < 3; n++) {
+              acc_flat(n * fft_size_inbox + idx) = acc_var(b, n, k, j, i);
+            }
+          });
+    }
+  }
+
+  // Compute W = sqrt(rho) * U
   parthenon::par_for(
-      "GatherFields", 0, num_blocks - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-        const auto idx = helper.FlatIndex(b, k, j, i);
-        const Real rho_val = rho_var(b, 0, k, j, i);
-        rho_flat(idx) = rho_val;
-        const Real sqrt_rho = Kokkos::sqrt(rho_val);
+      "ComputeW", std::size_t(0), fft_size_inbox - 1,
+      KOKKOS_LAMBDA(const std::size_t idx) {
+        const Real sqrt_rho = Kokkos::sqrt(rho_flat(idx));
         for (int n = 0; n < 3; n++) {
-          vel_flat(n * fft_size_inbox + idx) = vel_var(b, n, k, j, i);
-          W_flat(n * fft_size_inbox + idx) = sqrt_rho * vel_var(b, n, k, j, i);
+          W_flat(n * fft_size_inbox + idx) = sqrt_rho * vel_flat(n * fft_size_inbox + idx);
         }
       });
-
-  if (need_mag) {
-    auto mag_var = md->PackVariables(std::vector<std::string>{"mag"});
-    parthenon::par_for(
-        "GatherMag", 0, num_blocks - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          const auto idx = helper.FlatIndex(b, k, j, i);
-          for (int n = 0; n < 3; n++) {
-            mag_flat(n * fft_size_inbox + idx) = mag_var(b, n, k, j, i);
-          }
-        });
-  }
-
-  parthenon::ParArray1D<Real> pres_flat("pres_flat", compute_PU ? fft_size_inbox : 0);
-  if (compute_PU) {
-    auto pres_var = md->PackVariables(std::vector<std::string>{"pres"});
-    parthenon::par_for(
-        "GatherPres", 0, num_blocks - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          const auto idx = helper.FlatIndex(b, k, j, i);
-          pres_flat(idx) = pres_var(b, 0, k, j, i);
-        });
-  }
-
-  parthenon::ParArray1D<Real> acc_flat("acc_flat", compute_FU ? 3 * fft_size_inbox : 0);
-  if (compute_FU) {
-    auto acc_var = md->PackVariables(std::vector<std::string>{"acc"});
-    parthenon::par_for(
-        "GatherAcc", 0, num_blocks - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
-          const auto idx = helper.FlatIndex(b, k, j, i);
-          for (int n = 0; n < 3; n++) {
-            acc_flat(n * fft_size_inbox + idx) = acc_var(b, n, k, j, i);
-          }
-        });
-  }
 
   // --- Forward FFT fields that are needed ---
   parthenon::ParArray1D<std::complex<Real>> FT_W("FT_W", 3 * fft_size_outbox);
