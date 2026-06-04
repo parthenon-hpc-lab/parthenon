@@ -69,6 +69,18 @@ class SquareSVD {
     PARTHENON_REQUIRE(pA, "A must not be null.");
     auto &A = *pA;
     const int ncols = GetNcols(A);
+
+    if (ncols == 1) {
+      const double a00 = A(0, 0);
+      if (pU)
+        once_per_team(tm, KOKKOS_LAMBDA() { (*pU)(0, 0) = 1.0; });
+      if (pV)
+        once_per_team(tm, KOKKOS_LAMBDA() { (*pV)(0, 0) = (a00 < 0.0 ? -1.0 : 1.0); });
+      once_per_team(tm, KOKKOS_LAMBDA() { sings[0] = std::abs(a00); });
+      barrier(tm);
+      return 0;
+    }
+
     // Tridiagonalize the symmetric matrix via Householder transformations
     double *v = &(scratch[0]);
     double *s = &(scratch[ncols]);
