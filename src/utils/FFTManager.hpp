@@ -3,6 +3,7 @@
 #include <memory>
 #include <complex>
 #include "parthenon_arrays.hpp"
+#include "mesh/uniform_grid_helper.hpp"
 
 namespace parthenon {
 
@@ -22,18 +23,13 @@ public:
 
   void Backward(const std::complex<double>* input,
                 double* output);
-  // -----------------------------
-  // Box info 
-  // -----------------------------
-  
-  struct Box3D {
-      int low[3];
-      int high[3];
-      int size[3];   // size in each dimension: high - low + 1
-  };
 
-  Box3D fourier_space_box() const; // struct inhereted from UniformGridHelper   
-  Box3D real_space_box() const;      
+    // -----------------------------
+    // Box info 
+    // -----------------------------
+
+  parthenon::Box3D fourier_space_box() const;  
+  parthenon::Box3D real_space_box() const;      
 
   std::size_t size_fourier_space_box() const;  // total number of points
   std::size_t size_real_space_box() const;
@@ -42,8 +38,8 @@ public:
   // Device-copyable kernel helper
   // -----------------------------
   struct KernelHelper {
-      Box3D fourier_box;
-      Box3D real_box;
+      parthenon::Box3D fourier_box;
+      parthenon::Box3D real_box;
       int Nx, Ny, Nz;
 
       // Flat index into the local Fourier-space array

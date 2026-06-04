@@ -8,12 +8,6 @@ UniformGridHelper::UniformGridHelper(Mesh *mesh) : mesh_(mesh) {}
 void UniformGridHelper::Initialize() {
     if (initialized_) return;
     
-    // Determine global box sizes
-    auto mesh_size = mesh_->mesh_size;
-    global_mesh_size[0] = mesh_size.nx(X1DIR);
-    global_mesh_size[1] = mesh_size.nx(X2DIR);
-    global_mesh_size[2] = mesh_size.nx(X3DIR);
-    
     loc_view = parthenon::ParArray2D<std::int64_t>("logical location of local blocks",
                                                 mesh_->GetNumMeshBlocksThisRank(), 3); 
     auto loc_view_h = loc_view.GetHostMirror();
@@ -46,7 +40,7 @@ void UniformGridHelper::Initialize() {
         loc_view_h(b, i) = loc.l(i);
         }
         PARTHENON_REQUIRE_THROWS(loc.level() == level,
-                                "Not all blocks are on the same level.");
+                                "uniform_grid_helper was initialized but not all blocks are on the same level.");
     }
 
     // convert global logical locations to rank-local logical locs
@@ -70,22 +64,38 @@ void UniformGridHelper::Initialize() {
                             "ranks (one block per rank, i.e. pack_size=-1, will always work).");
 
     const auto block_size_ = mesh_->GetDefaultBlockSize();
-    block_size[0] = block_size_.nx(parthenon::X1DIR);
-    block_size[1] = block_size_.nx(parthenon::X2DIR);
-    block_size[2] = block_size_.nx(parthenon::X3DIR);
+    MeshBlockBox.size[0] = block_size_.nx(parthenon::X1DIR);
+    MeshBlockBox.size[1] = block_size_.nx(parthenon::X2DIR);
+    MeshBlockBox.size[2] = block_size_.nx(parthenon::X3DIR);
     for (int i = 0; i < 3; i++) {
-        local_mesh_size[i] = local_nlocs[i] * block_size[i];
-        mesh_start_idx[i] = local_loc_min[i] * block_size[i];
-        mesh_end_idx[i] = mesh_start_idx[i] + local_mesh_size[i] - 1;
+        LocalMeshBox.size[i] = local_nlocs[i] * MeshBlockBox.size[i];
+        LocalMeshBox.low[i] = local_loc_min[i] * MeshBlockBox.size[i];
+        LocalMeshBox.high[i] = LocalMeshBox.low[i] + LocalMeshBox.size[i] - 1;
     }
 
-    // Cache bounds for interior cells, which are needed to compute local indices for FFT packing
     auto &md = mesh_->mesh_data.Get();
-    ib_ = md->GetBoundsI(IndexDomain::interior);
-    jb_ = md->GetBoundsJ(IndexDomain::interior);
-    kb_ = md->GetBoundsK(IndexDomain::interior);
+    IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
+    IndexRange jb = md->GetBlockData(0)->GetBoundsJ(IndexDomain::interior);
+    IndexRange kb = md->GetBlockData(0)->GetBoundsK(IndexDomain::interior);
+
+    MeshBlockBox.low[0] = ib.s;
+    MeshBlockBox.high[0] = ib.e;
+    MeshBlockBox.low[1] = jb.s;
+    MeshBlockBox.high[1] = jb.e;
+    MeshBlockBox.low[2] = kb.s;
+    MeshBlockBox.high[2] = kb.e;
 
     initialized_ = true;
+
+    // debug: print local mesh box info
+    std::cout << "Rank " << parthenon::Globals::my_rank << " local mesh box: low = ("
+              << LocalMeshBox.low[0] << ", " << LocalMeshBox.low[1] << ", "
+              << LocalMeshBox.low[2] << "), high = ("
+              << LocalMeshBox.high[0] << ", " << LocalMeshBox.high[1] << ", "
+              << LocalMeshBox.high[2] << "), size = ("
+              << LocalMeshBox.size[0] << ", " << LocalMeshBox.size[1] << ", "
+              << LocalMeshBox.size[2] << ")\n";
+
 } // UniformGridHelper::Initialize()
 
 void UniformGridHelper::GatherField(const std::string &var_name,
@@ -99,7 +109,7 @@ void UniformGridHelper::GatherField(const std::string &var_name,
       "GatherField: variable '" + var_name + "' not found in mesh data");
   PARTHENON_REQUIRE_THROWS(var_index < vars.GetDim(4),
       "GatherField: var_index " + std::to_string(var_index) + " out of range");
-  PARTHENON_REQUIRE_THROWS(output.size() >= local_mesh_size[0] * local_mesh_size[1] * local_mesh_size[2],
+  PARTHENON_REQUIRE_THROWS(output.size() >= LocalMeshBox.size[0] * LocalMeshBox.size[1] * LocalMeshBox.size[2],
       "GatherField: output array too small");
 
   Initialize();
@@ -119,7 +129,7 @@ void UniformGridHelper::GatherField(const std::string &var_name,
         const auto idx = helper.FlatIndex(b, k, j, i);
         output(idx) = vars(b, vi, k, j, i);
       });
-}
+    }
 
 void UniformGridHelper::ScatterField(const parthenon::ParArray1D<Real> &input,
                                       const std::string &var_name,
@@ -131,7 +141,7 @@ void UniformGridHelper::ScatterField(const parthenon::ParArray1D<Real> &input,
       "ScatterField: variable '" + var_name + "' not found in mesh data");
   PARTHENON_REQUIRE_THROWS(var_index < vars.GetDim(4),
       "ScatterField: var_index " + std::to_string(var_index) + " out of range");
-  PARTHENON_REQUIRE_THROWS(input.size() >= local_mesh_size[0] * local_mesh_size[1] * local_mesh_size[2],
+  PARTHENON_REQUIRE_THROWS(input.size() >= LocalMeshBox.size[0] * LocalMeshBox.size[1] * LocalMeshBox.size[2],
       "ScatterField: input array too small");
 
   Initialize();

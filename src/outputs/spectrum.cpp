@@ -64,10 +64,10 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   auto vars = md->PackVariables(std::vector<std::string>{var_name});
 
   // Get Mesh geometry information: 
-  auto UniformGridHelper = pm->GetUniformGridHelper();
-  const auto Nx = UniformGridHelper->global_mesh_size[0];
-  const auto Ny = UniformGridHelper->global_mesh_size[1];
-  const auto Nz = UniformGridHelper->global_mesh_size[2];
+  auto mesh_size = pm->mesh_size;
+  const auto Nx = mesh_size.nx(X1DIR);
+  const auto Ny = mesh_size.nx(X2DIR);
+  const auto Nz = mesh_size.nx(X3DIR);
 
   // Initialize FFTManager and I/O arrays:
   int n_comp = components.size(); // number of field components to transform 
@@ -85,6 +85,7 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   for (int n = 0; n < n_comp; n++) components_h(n) = components[n];
   components_d.DeepCopy(components_h);
 
+  auto UniformGridHelper = pm->GetUniformGridHelper();
   auto helper = UniformGridHelper->GetKernelHelper();
 
   // Gather block data into flat arrays for FFT input: 

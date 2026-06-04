@@ -42,8 +42,8 @@ void FFTManager::Initialize() {
 
     assert(real_indexes.r2c(r2c_direction) == complex_indexes);
 
-    auto &mesh_start_idx = UniformGridHelper->mesh_start_idx;
-    auto &mesh_end_idx   = UniformGridHelper->mesh_end_idx;
+    auto &mesh_start_idx = UniformGridHelper->LocalMeshBox.low;
+    auto &mesh_end_idx   = UniformGridHelper->LocalMeshBox.high;
 
     const heffte::box3d<> real_space_box(
         {mesh_start_idx[0], mesh_start_idx[1], mesh_start_idx[2]},
@@ -84,8 +84,8 @@ void FFTManager::Backward(const std::complex<double>* input,
 // -----------------------------
 // Boxes and sizes
 // -----------------------------
-FFTManager::Box3D FFTManager::fourier_space_box() const {
-    Box3D box;
+parthenon::Box3D FFTManager::fourier_space_box() const {
+    parthenon::Box3D box;
     const auto &b = impl_->fft_plan.outbox();
     for (int i=0;i<3;i++) {
         box.low[i]  = b.low[i];
@@ -95,8 +95,8 @@ FFTManager::Box3D FFTManager::fourier_space_box() const {
     return box;
 }
 
-FFTManager::Box3D FFTManager::real_space_box() const {
-    Box3D box;
+parthenon::Box3D FFTManager::real_space_box() const {
+    parthenon::Box3D box;
     const auto &b = impl_->fft_plan.inbox();
     for (int i=0;i<3;i++) {
         box.low[i]  = b.low[i];
