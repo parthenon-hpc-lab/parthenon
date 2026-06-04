@@ -488,10 +488,21 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
 
           // Compute M = eig_L^{1/2} Q_L^T Q_R eig_R^{1/2} 
           auto &M_mat = GL_mat; // Just reuse GL, since we are done with it
+          real_t maxL{0.0};
+          real_t maxR{0.0};
+          parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag,
+              tm, 0, rank - 1, [&](int r, real_t &lmax){
+                lmax = std::max(lmax, eigL[r]);
+            }, Kokkos::Max<real_t>(maxL));
+          parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag,
+              tm, 0, rank - 1, [&](int r, real_t &lmax){
+                lmax = std::max(lmax, eigR[r]);
+            }, Kokkos::Max<real_t>(maxR));
+          tm.team_barrier();
           parthenon::par_for_inner(tm, 0, rank - 1, 
                 [&](int r){
-                  eigL[r] = abs(eigL[r]) > 1.e-12 ? safe_sqrt(eigL[r]) : 0.0;
-                  eigR[r] = abs(eigR[r]) > 1.e-12 ? safe_sqrt(eigR[r]) : 0.0;
+                  eigL[r] = abs(eigL[r]) > 1.e-12 * maxL ? safe_sqrt(eigL[r]) : 0.0;
+                  eigR[r] = abs(eigR[r]) > 1.e-12 * maxR ? safe_sqrt(eigR[r]) : 0.0;
               });
           tm.team_barrier();
           MatMulDiag3<real_t>(tm, eigL, QL_mat.GetTranspose(), unity_vector_t(), QR_mat, eigR, M_mat);  
@@ -512,10 +523,11 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           Kokkos::single(Kokkos::PerTeam(tm), [&](){
                     final_rank_arr(b, c) = rank_new;
                 });
+          // Take the inverse, but filter out zero eigenmodes
           parthenon::par_for_inner(tm, 0, rank - 1, 
                 [&](int r){
-                  eigL[r] = abs(eigL[r]) > 1.e-12 ? 1.0 / eigL[r] : 0.0;
-                  eigR[r] = abs(eigR[r]) > 1.e-12 ? 1.0 / eigR[r] : 0.0;
+                  eigL[r] = abs(eigL[r]) > 1.e-12 * maxL ? 1.0 / eigL[r] : 0.0;
+                  eigR[r] = abs(eigR[r]) > 1.e-12 * maxR ? 1.0 / eigR[r] : 0.0;
               });
           tm.team_barrier();
 
