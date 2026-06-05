@@ -34,6 +34,7 @@ using FiberView =
 template <class TTraits>
 class TensorCoreDeviceT {
  public:
+  using traits = TTraits;
   using real_t = typename TTraits::real_t;
   using fiber_unmanaged_t = FiberView<TTraits, UnmanagedTag>;
   using device_fibers_view_t =
@@ -74,6 +75,7 @@ class TensorCoreDeviceT {
 template <class TTraits>
 class TensorCoreHostT {
  public:
+  using traits = TTraits;
   using real_t = typename TTraits::real_t;
   using fiber_unmanaged_t = FiberView<TTraits, UnmanagedTag>;
   using fiber_managed_t = FiberView<TTraits, ManagedTag>;
@@ -201,6 +203,7 @@ class TensorCoreHostT {
 template <class TTraits>
 class TensorTrainT {
  public:
+  using traits = TTraits;
   TensorTrainT(const std::vector<TensorCoreHostT<TTraits>> &cores_in) : cores(cores_in) {
     PARTHENON_REQUIRE(cores.front().LR() == 1,
                       "First core must have left side size one.");

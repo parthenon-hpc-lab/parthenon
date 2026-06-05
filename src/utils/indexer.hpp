@@ -206,6 +206,16 @@ struct Indexer {
   Kokkos::Array<int, sizeof...(Ts)> N;
 };
 
+template <std::size_t I, class INDEXER>
+KOKKOS_FORCEINLINE_FUNCTION auto StartIdx(const INDEXER &idxer) {
+  return idxer.template StartIdx<I>();
+}
+
+template <std::size_t I, class INDEXER>
+KOKKOS_FORCEINLINE_FUNCTION auto EndIdx(const INDEXER &idxer) {
+  return idxer.template EndIdx<I>();
+}
+
 template <class... Ts>
 struct IndexRanger {
   KOKKOS_INLINE_FUNCTION
