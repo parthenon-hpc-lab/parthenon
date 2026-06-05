@@ -308,9 +308,15 @@ void BuildDescendingPermutation(parthenon::team_mbr_t tm,
   }
 }
 
-template <class TTraits>
+struct no_core_mask {
+  KOKKOS_FORCEINLINE_FUNCTION
+  static constexpr bool active(int c, int j) {return true;}
+};
+
+template <class TTraits, class F = no_core_mask>
 void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
-                  typename TTraits::real_t eps) {
+                  typename TTraits::real_t eps, 
+                  F core_mask = no_core_mask{}) {
   using real_t = typename TTraits::real_t;
 
   // Find the number of cores and maximum rank 
@@ -319,10 +325,10 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
   int n_cores{0};
   for (const auto &train : trains) {
     n_cores = train.NCores();
-    for (int c = 0; c < train.NCores(); ++c)
+    for (int c = 0; c < train.NCores(); ++c) {
       max_rank = std::max(max_rank, train(c).RR());
-    for (int c = 1; c < train.NCores(); ++c)
       max_phys_dim = std::max(max_phys_dim, train(c).DD());
+    }
   }
   
   int scratch_size{0};
@@ -377,7 +383,8 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
               real_t const * const dat_beta = &core(beta, 0, 0);
               real_t sum{0.0};
               parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag, tm, 0, core.DD() - 1, [&](int d, real_t &lsum){
-                lsum += dat_alpha[d] * dat_beta[d];
+                if (core_mask.active(c, d))
+                  lsum += dat_alpha[d] * dat_beta[d];
               }, Kokkos::Sum<real_t>(sum));
               Kokkos::single(Kokkos::PerTeam(tm), [&](){
                   GR_mat(alpha, beta) = sum;
@@ -406,6 +413,7 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           for (int rp = 0; rp < rr; ++rp) {
             parthenon::par_for_inner(tm, 0, lr - 1, 0, rr - 1, 0, dd - 1, 
                 [&](int l, int r, int j){
+                if (core_mask.active(c, j))
                   gram_temp(l, j, r) += core(l, j, rp) * GR_prev_mat(rp, r);
               }); 
             tm.team_barrier();
@@ -419,6 +427,7 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
               parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag,
                   tm, 0, rr - 1, 0, core.DD() - 1,
                   [&](int lambda, int j, real_t &lsum){
+                    if (core_mask.active(c, j))
                     lsum += core(alpha, j, lambda) * gram_temp(beta, j, lambda);
                 }, Kokkos::Sum<real_t>(sum));
               Kokkos::single(Kokkos::PerTeam(tm), [&](){
@@ -464,6 +473,7 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
               parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag,
                   tm, 0, lr - 1, 0, core.DD() - 1,
                   [&](int lambda, int j, real_t &lsum){
+                    if (core_mask.active(c, j))
                     lsum += core(lambda, j, alpha) * core(lambda, j, beta);
                 }, Kokkos::Sum<real_t>(sum));
               Kokkos::single(Kokkos::PerTeam(tm), [&](){
