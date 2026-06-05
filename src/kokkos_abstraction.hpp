@@ -538,33 +538,25 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
                             Args &&...args, const int scratch_level,
                             const std::size_t scratch_size_in_bytes, OuterLoopPerfOpts perf_opts = OuterLoopPerfOpts()) {
     const std::size_t size = ((bound_arr[OuterIs].e - bound_arr[OuterIs].s + 1) * ...);
+
+    team_policy policy;
     if (perf_opts.team_size.has_value()) {
-      kokkos_dispatch(
-          Tag(), name,
-          team_policy(exec_space, size, perf_opts.team_size.value())
-              .set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
-          KOKKOS_LAMBDA(team_mbr_t team_member, ExtraFuncArgs... fargs) {
-            const auto idxer = MakeIndexer(
-                Kokkos::Array<IndexRange, sizeof...(OuterIs)>{bound_arr[OuterIs]...});
-            const auto idx_arr = idxer.GetIdxArray(team_member.league_rank());
-            function(team_member, idx_arr[OuterIs]...,
-                     std::forward<ExtraFuncArgs>(fargs)...);
-          },
-          std::forward<Args>(args)...);
+      policy = team_policy(exec_space, size, perf_opts.team_size.value());
     } else {
-      kokkos_dispatch(
-          Tag(), name,
-          team_policy(exec_space, size, Kokkos::AUTO)
-              .set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
-          KOKKOS_LAMBDA(team_mbr_t team_member, ExtraFuncArgs... fargs) {
-            const auto idxer = MakeIndexer(
-                Kokkos::Array<IndexRange, sizeof...(OuterIs)>{bound_arr[OuterIs]...});
-            const auto idx_arr = idxer.GetIdxArray(team_member.league_rank());
-            function(team_member, idx_arr[OuterIs]...,
-                     std::forward<ExtraFuncArgs>(fargs)...);
-          },
-          std::forward<Args>(args)...);
+      policy = team_policy(exec_space, size, Kokkos::AUTO);
     }
+    policy.set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes));
+    kokkos_dispatch(
+        Tag(), name,
+        policy,
+        KOKKOS_LAMBDA(team_mbr_t team_member, ExtraFuncArgs... fargs) {
+          const auto idxer = MakeIndexer(
+              Kokkos::Array<IndexRange, sizeof...(OuterIs)>{bound_arr[OuterIs]...});
+          const auto idx_arr = idxer.GetIdxArray(team_member.league_rank());
+          function(team_member, idx_arr[OuterIs]...,
+                    std::forward<ExtraFuncArgs>(fargs)...);
+        },
+        std::forward<Args>(args)...);
   }
 
   // Collapse inner Nvector + Nthread loops to thread/vector range policies and remaining
@@ -583,11 +575,17 @@ struct par_dispatch_impl<Tag, Pattern, Function, TypeList<Bounds...>, TypeList<A
     constexpr std::size_t Nvector = HierarchicalPar::Nvector;
     constexpr std::size_t Nthread = HierarchicalPar::Nthread;
     constexpr std::size_t Nouter = Rank - Nvector - Nthread;
+    team_policy policy;
+    if (perf_opts.team_size.has_value()) {
+      policy = team_policy(exec_space, idxer.size(), perf_opts.team_size.value());
+    } else {
+      policy = team_policy(exec_space, idxer.size(), Kokkos::AUTO);
+    }
+    policy.set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes));
+
     kokkos_dispatch(
         Tag(), name,
-        team_policy(exec_space, idxer.size(), perf_opts.team_size.value_or(Kokkos::AUTO))
-            .set_scratch_size(scratch_level, Kokkos::PerTeam(scratch_size_in_bytes)),
-
+        policy,
         MakeCollapse<Rank, Nouter, Nthread, Nvector, ExtraFuncArgs...>(idxer, bound_arr,
                                                                        function),
         std::forward<Args>(args)...);
