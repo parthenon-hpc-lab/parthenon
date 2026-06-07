@@ -1,3 +1,9 @@
+//========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2026 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
+
 #pragma once
 
 #include "mesh/uniform_grid_helper.hpp"

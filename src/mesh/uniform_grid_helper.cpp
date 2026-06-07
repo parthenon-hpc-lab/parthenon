@@ -1,3 +1,9 @@
+//========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2026 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
+
 #include "uniform_grid_helper.hpp"
 #include "mesh/mesh.hpp"
 
@@ -31,6 +37,11 @@ void UniformGridHelper::Initialize() {
   // checking for refinement=none because AMR could have been used to dynamically refine
   // a simulation. We just need to ensure that all blocks are on the same level to
   // create an effective uniform grid.)
+
+  // lkasselm: This is currently only checked once during initialization,
+  // but if the mesh is dynamically refined, this could be violated at later times.
+  // Needs to be checked at each call to Gather/Scatter. 
+
   for (int b = 0; b < mesh_->GetNumMeshBlocksThisRank(); b++) {
     auto pmb = mesh_->block_list[b];
     const auto loc = mesh_->Forest().GetLegacyTreeLocation(pmb->loc);
