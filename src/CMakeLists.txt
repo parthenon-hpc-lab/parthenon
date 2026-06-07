@@ -366,13 +366,6 @@ target_compile_definitions(parthenon PRIVATE
     FS_NAMESPACE=${CXX_FILESYSTEM_NAMESPACE}
     )
 
-find_package(CUDAToolkit REQUIRED)
-
-target_link_libraries(parthenon
-  PRIVATE
-    CUDA::cufft
-)
-
 if (PARTHENON_ENABLE_HEFFTE)
   target_link_libraries(parthenon PRIVATE Heffte)
 endif()
