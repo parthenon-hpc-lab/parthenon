@@ -36,9 +36,6 @@ class FourierDriver : public Driver {
 
   /// `Execute` cycles until simulation completion.
   DriverStatus Execute() override;
-
- protected:
-  void FourierPostExecute(Real max_error);
 };
 
 } // namespace fourier_transform
