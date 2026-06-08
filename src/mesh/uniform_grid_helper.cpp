@@ -100,7 +100,8 @@ void UniformGridHelper::Initialize() {
 
   initialized_ = true;
 
-  // debug: print local mesh box info
+  std::cout << "Initialized UniformGridHelper" << "\n";
+  std::cout << "Mesh layout:" << "\n";
   std::cout << "Rank " << parthenon::Globals::my_rank << " local mesh box: low = ("
             << LocalMeshBox.low[0] << ", " << LocalMeshBox.low[1] << ", "
             << LocalMeshBox.low[2] << "), high = (" << LocalMeshBox.high[0] << ", "
