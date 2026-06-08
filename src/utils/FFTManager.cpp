@@ -27,11 +27,7 @@ struct FFTManager::Impl {
         workspace_("fft workspace", fft_plan.size_workspace()) {}
 };
 
-FFTManager::FFTManager(Mesh *mesh) : mesh_(mesh) {}
-
-void FFTManager::Initialize() {
-  if (initialized_) return;
-
+FFTManager::FFTManager(Mesh *mesh) : mesh_(mesh) {
   auto UniformGridHelper = mesh_->GetUniformGridHelper();
 
   auto mesh_size = mesh_->mesh_size;
@@ -64,22 +60,18 @@ void FFTManager::Initialize() {
 
   impl_ = std::make_unique<Impl>(real_space_box, fourier_space_box, r2c_direction,
                                  MPI_COMM_WORLD);
-
-  initialized_ = true;
-}
+} // FFTManager::FFTManager
 
 // -----------------------------
 // Forward / Backward
 // -----------------------------
 void FFTManager::Forward(const double *input, std::complex<double> *output) {
-  Initialize();
   impl_->fft_plan.forward(
       input, output, impl_->workspace_.data(),
       heffte::scale::full); // 1/N^3 normalization for forward transform
 }
 
 void FFTManager::Backward(const std::complex<double> *input, double *output) {
-  Initialize();
   impl_->fft_plan.backward(
       input, output,
       heffte::scale::none); // no normalization for backward transform, so that forward

@@ -7,13 +7,9 @@
 #include "uniform_grid_helper.hpp"
 #include "mesh/mesh.hpp"
 
-namespace parthenon { // Should this be in parthenon namespace?
+namespace parthenon {
 
-UniformGridHelper::UniformGridHelper(Mesh *mesh) : mesh_(mesh) {}
-
-void UniformGridHelper::Initialize() {
-  if (initialized_) return;
-
+UniformGridHelper::UniformGridHelper(Mesh *mesh) : mesh_(mesh) {
   loc_view = parthenon::ParArray2D<std::int64_t>("logical location of local blocks",
                                                  mesh_->GetNumMeshBlocksThisRank(), 3);
   auto loc_view_h = loc_view.GetHostMirror();
@@ -98,8 +94,6 @@ void UniformGridHelper::Initialize() {
   MeshBlockBox.low[2] = kb.s;
   MeshBlockBox.high[2] = kb.e;
 
-  initialized_ = true;
-
   std::cout << "Initialized UniformGridHelper" << "\n";
   std::cout << "Mesh layout:" << "\n";
   std::cout << "Rank " << parthenon::Globals::my_rank << " local mesh box: low = ("
@@ -109,7 +103,7 @@ void UniformGridHelper::Initialize() {
             << LocalMeshBox.size[0] << ", " << LocalMeshBox.size[1] << ", "
             << LocalMeshBox.size[2] << ")\n";
 
-} // UniformGridHelper::Initialize()
+} // UniformGridHelper::UniformGridHelper
 
 void UniformGridHelper::GatherField(const std::string &var_name, int var_index,
                                     parthenon::ParArray1D<Real> &output) {
@@ -126,8 +120,6 @@ void UniformGridHelper::GatherField(const std::string &var_name, int var_index,
   PARTHENON_REQUIRE_THROWS(output.size() >= LocalMeshBox.size[0] * LocalMeshBox.size[1] *
                                                 LocalMeshBox.size[2],
                            "GatherField: output array too small");
-
-  Initialize();
 
   IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBlockData(0)->GetBoundsJ(IndexDomain::interior);
@@ -158,8 +150,6 @@ void UniformGridHelper::ScatterField(const parthenon::ParArray1D<Real> &input,
   PARTHENON_REQUIRE_THROWS(input.size() >= LocalMeshBox.size[0] * LocalMeshBox.size[1] *
                                                LocalMeshBox.size[2],
                            "ScatterField: input array too small");
-
-  Initialize();
 
   IndexRange ib = md->GetBlockData(0)->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md->GetBlockData(0)->GetBoundsJ(IndexDomain::interior);

@@ -105,7 +105,6 @@ class Mesh {
   FFTManager *GetFFTManager() {
     if (!fft_manager) {
       fft_manager = std::make_unique<FFTManager>(this);
-      fft_manager->Initialize(); // only runs once
     }
     return fft_manager.get();
   }
@@ -115,7 +114,6 @@ class Mesh {
   UniformGridHelper *GetUniformGridHelper() {
     if (!uniform_grid_helper) {
       uniform_grid_helper = std::make_unique<UniformGridHelper>(this);
-      uniform_grid_helper->Initialize();
     }
     return uniform_grid_helper.get();
   }

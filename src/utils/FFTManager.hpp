@@ -22,8 +22,6 @@ class FFTManager {
   explicit FFTManager(Mesh *mesh);
   ~FFTManager();
 
-  void Initialize();
-
   void Forward(const double *input, std::complex<double> *output);
 
   void Backward(const std::complex<double> *input, double *output);
@@ -85,7 +83,6 @@ class FFTManager {
   std::unique_ptr<Impl> impl_; // owns backend-specific data
 
   Mesh *mesh_;
-  bool initialized_ = false;
 
   // Global mesh dimensions, stored during Initialize()
   int Nx_ = 0, Ny_ = 0, Nz_ = 0;

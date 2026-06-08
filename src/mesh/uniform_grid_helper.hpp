@@ -26,7 +26,6 @@ class UniformGridHelper {
 
  public:
   explicit UniformGridHelper(Mesh *mesh);
-  void Initialize();
 
   Box3D MeshBlockBox;
   Box3D LocalMeshBox;
@@ -61,7 +60,6 @@ class UniformGridHelper {
 
  private:
   Mesh *mesh_;
-  bool initialized_ = false;
   parthenon::ParArray2D<std::int64_t>
       loc_view; // logical location of local blocks; stored on device for use in kernels
 };
