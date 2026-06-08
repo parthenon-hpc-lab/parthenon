@@ -156,35 +156,32 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   // Write spectrum to ordinary text file:
   if (parthenon::Globals::my_rank == 0) {
 
-    std::string fname;
-    fname.assign(output_params.file_basename);
-    fname.append("." + output_label + ".");
-    fname.append(output_params.file_id);
-    fname.append(".");
+    std::string suffix;
     if (signal == SignalHandler::OutputSignal::now) {
-      fname.append("now");
+      suffix = "now";
     } else if (signal == SignalHandler::OutputSignal::final &&
-               output_params.file_label_final) {
-      fname.append("final");
-      // default time based data dump
+              output_params.file_label_final) {
+      suffix = "final";
     } else {
-      std::stringstream file_number;
-      file_number << std::setw(output_params.file_number_width) << std::setfill('0')
-                  << output_params.file_number;
-      fname.append(file_number.str());
+      suffix = std::format("{:0{}d}", output_params.file_number,
+                          output_params.file_number_width);
     }
-    fname.append(".spc");
+
+    const std::string fname = std::format("{}.{}.{}.{}.spc",
+        output_params.file_basename,
+        output_label,
+        output_params.file_id,
+        suffix);
 
     std::ofstream fout(fname);
     if (!fout.is_open()) {
       PARTHENON_FAIL("Could not open " + fname + " for writing");
     }
 
-    // Write each bin's results to the file: val_sum, k_sum, count_sum
     fout << "# Bin    val_sum    K_sum    Count\n";
     for (int i = 0; i < num_bins; ++i) {
-      fout << i << " " << spectra_h(i, 0) << " " << spectra_h(i, 1) << " "
-           << spectra_h(i, 2) << "\n";
+      fout << std::format("{:d} {:.15e} {:.15e} {:.15e}\n",
+          i, spectra_h(i, 0), spectra_h(i, 1), spectra_h(i, 2));
     }
     fout.close();
   }
