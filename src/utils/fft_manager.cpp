@@ -4,7 +4,7 @@
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 
-#include "FFTManager.hpp"
+#include "fft_manager.hpp"
 #include "heffte.h"
 #include "mesh/mesh.hpp"
 

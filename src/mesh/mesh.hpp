@@ -61,7 +61,7 @@
 
 #ifdef PARTHENON_ENABLE_FFT
 #include "mesh/uniform_grid_helper.hpp"
-#include "utils/FFTManager.hpp"
+#include "utils/fft_manager.hpp"
 #endif
 
 namespace parthenon {

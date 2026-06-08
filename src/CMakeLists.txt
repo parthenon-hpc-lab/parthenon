@@ -350,8 +350,8 @@ add_library(Parthenon::parthenon ALIAS parthenon)
 
 if(PARTHENON_ENABLE_FFT)
   target_sources(parthenon PRIVATE
-    utils/FFTManager.cpp
-    utils/FFTManager.hpp
+    utils/fft_manager.cpp
+    utils/fft_manager.hpp
     mesh/uniform_grid_helper.cpp
     mesh/uniform_grid_helper.hpp
     outputs/spectrum.cpp

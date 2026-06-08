@@ -24,7 +24,7 @@
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
 #include "parthenon_arrays.hpp"
-#include "utils/FFTManager.hpp"
+#include "utils/fft_manager.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
