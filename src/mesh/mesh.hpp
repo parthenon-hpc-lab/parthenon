@@ -50,16 +50,19 @@
 #include "mesh/forest/forest.hpp"
 #include "mesh/forest/forest_topology.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "mesh/uniform_grid_helper.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "pack/sparse_pack/pack_descriptor.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
-#include "utils/FFTManager.hpp"
 #include "utils/communication_buffer.hpp"
 #include "utils/hash.hpp"
 #include "utils/object_pool.hpp"
 #include "utils/partition_stl_containers.hpp"
+
+#ifdef PARTHENON_ENABLE_FFT
+#include "mesh/uniform_grid_helper.hpp"
+#include "utils/FFTManager.hpp"
+#endif
 
 namespace parthenon {
 
@@ -96,6 +99,7 @@ class Mesh {
        hyper_rectangular_constructor_selector_t);
 
  public:
+#ifdef PARTHENON_ENABLE_FFT
   std::unique_ptr<parthenon::FFTManager> fft_manager;
 
   FFTManager *GetFFTManager() {
@@ -115,7 +119,7 @@ class Mesh {
     }
     return uniform_grid_helper.get();
   }
-
+#endif
   // 2x function overloads of ctor: normal and restarted simulation
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        int test_flag = 0);
