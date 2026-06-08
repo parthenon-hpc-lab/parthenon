@@ -495,20 +495,18 @@ set(DOC_GEN_PATH "${CMAKE_SOURCE_DIR}/doc/sphinx/src/generated" CACHE STRING
 
 # Add HeFFTe first if enabled
 if (PARTHENON_ENABLE_FFT)
-  set(Heffte_ENABLE_CUDA ${Kokkos_ENABLE_CUDA} CACHE BOOL "Enable CUDA for HeFFTe" FORCE)
-  set(Heffte_ENABLE_ROCM ${Kokkos_ENABLE_HIP}  CACHE BOOL "Enable ROCm for HeFFTe" FORCE)
-  add_subdirectory(external/heffte)
+  if (NOT TARGET Heffte)
+    set(Heffte_ENABLE_CUDA ${Kokkos_ENABLE_CUDA} CACHE BOOL "Enable CUDA for HeFFTe" FORCE)
+    set(Heffte_ENABLE_ROCM ${Kokkos_ENABLE_HIP}  CACHE BOOL "Enable ROCm for HeFFTe" FORCE)
+    add_subdirectory(external/heffte)
+  endif()
 endif()
 
 add_subdirectory(src)
 
 # Now parthenon target exists — safe to link
 if (PARTHENON_ENABLE_FFT)
-  if (TARGET Heffte)
     target_link_libraries(parthenon PRIVATE Heffte)
-  else()
-    message(FATAL_ERROR "HeFFTe target not found after add_subdirectory")
-  endif()
 endif()
 
 add_subdirectory(example)
