@@ -360,7 +360,16 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     } else if (op.file_type == "ascent") {
       pnew_type = std::make_shared<AscentOutput>(op);
     } else if (op.file_type == "spectrum") {
+#ifdef PARTHENON_ENABLE_FFT
       pnew_type = std::make_shared<SpectralOutput>(op);
+#else
+      msg << "### FATAL ERROR in Outputs constructor" << std::endl
+          << "Executable not configured for Fourier transforms, but file format "
+          << "spectrum is requested in output block '" << op.block_name << "'. "
+          << "You can disable this block without deleting it by setting a dt < 0."
+          << std::endl;
+      PARTHENON_FAIL(msg);
+#endif // ifdef PARTHENON_ENABLE_FFT
     } else if (op.file_type == "openpmd") {
 #ifdef PARTHENON_ENABLE_OPENPMD
       const auto backend_config =
