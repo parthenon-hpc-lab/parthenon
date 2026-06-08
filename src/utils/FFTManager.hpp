@@ -4,10 +4,11 @@
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 
-#pragma once
+#ifndef UTILS_FFT_MANAGER_HPP_
+#define UTILS_FFT_MANAGER_HPP_
 
-#include "mesh/uniform_grid_helper.hpp"
 #include "parthenon_arrays.hpp"
+#include "mesh/uniform_grid_helper.hpp"
 #include <complex>
 #include <memory>
 
@@ -89,3 +90,5 @@ class FFTManager {
 };
 
 } // namespace parthenon
+
+#endif // UTILS_FFT_MANAGER_HPP_
