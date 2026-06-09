@@ -168,24 +168,24 @@ provides ``FourierFlatIndex`` and ``Wavevector``:
        outbox.low[2], outbox.high[2],
        outbox.low[1], outbox.high[1],
        outbox.low[0], outbox.high[0],
-       KOKKOS_LAMBDA(const int kz_idx, const int ky_idx, const int kx_idx) {
+       KOKKOS_LAMBDA(const int kx3_idx, const int kx2_idx, const int kx1_idx) {
 
-           const auto idx = fft_helper.FourierFlatIndex(kz_idx, ky_idx, kx_idx);
+           const auto idx = fft_helper.FourierFlatIndex(kx3_idx, kx2_idx, kx1_idx);
 
            // integer wavevector components (negative frequencies unwrapped)
-           auto [kx, ky, kz] = fft_helper.Wavevector(kz_idx, ky_idx, kx_idx);
+           auto [kx3, kx2, kx1] = fft_helper.Wavevector(kx3_idx, kx2_idx, kx1_idx);
 
            // ... process output_kk[idx] ...
        });
 
 .. note::
-   The r2c transform only stores modes with :math:`k_x \geq 0`. When computing
-   quantities like the power spectrum, modes with :math:`0 < k_x < N_x/2` must be
+   The r2c transform only stores modes with :math:`k_{x1} \geq 0`. When computing
+   quantities like the power spectrum, modes with :math:`0 < k_{x1} < n_{x1}/2` must be
    counted twice to account for Hermitian symmetry:
 
    .. code-block:: cpp
 
-      const auto fac = ((kx > 0) && (2 * kx != Nx)) ? 2.0 : 1.0;
+      const auto fac = ((kx1 > 0) && (2 * kx1 != nx1)) ? 2.0 : 1.0;
 
 Scattering a field back to the mesh
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
