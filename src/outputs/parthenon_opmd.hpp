@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2024-2025 The Parthenon collaboration
+// Copyright(C) 2024-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 #ifndef OUTPUTS_PARTHENON_OPMD_HPP_

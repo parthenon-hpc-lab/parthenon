@@ -58,6 +58,9 @@ While openPMD supports various backends only the
 `ADIOS2 <https://adios2.readthedocs.io/en/v2.11.0/>`__ IO framework is currently
 supported/tested with files being writen in BP5 format.
 To enable openPMD support configure Parthenon with ``PARTHENON_DISABLE_OPENPMD=OFF``.
+Simulation metadata provided by the optional ``author``, ``machine``, and ``comment``
+parameter in the ``<parthenon/job>`` input block are automatically forwarded to the
+respective openPMD standard fields.
 
 The most simple output block for openPMD output is
 

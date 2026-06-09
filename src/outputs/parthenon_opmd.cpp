@@ -384,11 +384,19 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // TODO(pgrete) Should we update for restart or only set this once? Or make it per
   // iteration?
 
-  // TODO(someone) discuss whether or not we want to use these "standard" infos
-  // on top of default provenance infos added as attributes below.
-  // series.setAuthor("My Name <mail@addre.es");
-  // series.setComment("Hello world!");
-  // series.setMachine("bla");
+  // Set default info when present
+  if (pin->DoesParameterExist("parthenon/job", "author")) {
+    const auto author = pin->Get<std::string>("parthenon/job", "author");
+    series.setAuthor(author);
+  }
+  if (pin->DoesParameterExist("parthenon/job", "comment")) {
+    const auto comment = pin->Get<std::string>("parthenon/job", "comment");
+    series.setComment(comment);
+  }
+  if (pin->DoesParameterExist("parthenon/job", "machine")) {
+    const auto machine = pin->Get<std::string>("parthenon/job", "machine");
+    series.setMachine(machine);
+  }
   series.setSoftware("Parthenon + X");
   const auto now = std::chrono::system_clock::now();
   series.setDate(std::format("{:%F %T}", now));

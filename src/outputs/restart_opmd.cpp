@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2024-2025 The Parthenon collaboration
+// Copyright(C) 2024-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 //! \file restart_opmd.cpp
@@ -45,7 +45,6 @@ RestartReaderOPMD::RestartReaderOPMD(const char *filename) : filename_(filename)
   }
 #else
   series = openPMD::Series(filename, openPMD::Access::READ_ONLY);
-
 #endif
   PARTHENON_REQUIRE_THROWS(
       series.iterations.size() == 1,
