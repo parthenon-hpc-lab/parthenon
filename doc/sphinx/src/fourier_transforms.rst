@@ -107,7 +107,7 @@ use a custom gather loop with :cpp:func:`UniformGridHelper::GetKernelHelper`:
    auto helper = uniformGridHelper->GetKernelHelper();
 
    parthenon::par_for(
-       "GatherVelocity", 0, pmesh->GetNumMeshBlocksThisRank() - 1,
+       "GatherVelocity", 0, md->NumBlocks() - 1,
        mbb.low[2], mbb.high[2],
        mbb.low[1], mbb.high[1],
        mbb.low[0], mbb.high[0],

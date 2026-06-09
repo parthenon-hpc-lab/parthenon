@@ -51,9 +51,9 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
   // Get Mesh geometry information:
   auto mesh_size = pm->mesh_size;
-  const auto Nx = mesh_size.nx(X1DIR);
-  const auto Ny = mesh_size.nx(X2DIR);
-  const auto Nz = mesh_size.nx(X3DIR);
+  const auto nx = mesh_size.nx(X1DIR);
+  const auto ny = mesh_size.nx(X2DIR);
+  const auto nz = mesh_size.nx(X3DIR);
 
   // Initialize FFTManager and I/O arrays:
   int n_comp = components.size(); // number of field components to transform
@@ -79,7 +79,7 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
   // Gather block data into flat arrays for FFT input:
   par_for(
-      "Init FFT fields", 0, pm->GetNumMeshBlocksThisRank() - 1, kb.s, kb.e, jb.s, jb.e,
+      "Init FFT fields", 0, md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
       ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const auto idx = helper.FlatIndex(b, k, j, i);
         for (int n = 0; n < n_comp; n++) {
@@ -92,7 +92,7 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                         output.data() + i * FFTManager->size_fourier_space_box());
   }
 
-  const auto k_max = std::sqrt(SQR(Nx / 2) + SQR(Ny / 2) + SQR(Nz / 2));
+  const auto k_max = std::sqrt(SQR(nx / 2) + SQR(ny / 2) + SQR(nz / 2));
 
   const auto num_bins = static_cast<int>(std::ceil(k_max)) + 1;
   // TODO(pgrete) if these are being reused, then ensure to reset (i.e., init 0 to and
@@ -127,7 +127,7 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
         }
 
         // account for Hermitian symmetry of r2c transform
-        const auto fac = ((k_vec[0] > 0) && (2 * k_vec[0] != Nx)) ? 2.0 : 1.0;
+        const auto fac = ((k_vec[0] > 0) && (2 * k_vec[0] != nx)) ? 2.0 : 1.0;
 
         auto spec = scatter_spectra.access();
         // 0: histsum - 1: ksum - 2: histcount
