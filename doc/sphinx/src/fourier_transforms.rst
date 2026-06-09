@@ -7,7 +7,7 @@ These are built on top of `heFFTe <https://github.com/icl-utk-edu/heffte>`_ and 
 both CPU and GPU backends transparently.
 
 .. note::
-   FFT functionality requires ``pack_size = -1`` in the input file, meaning all meshblocks
+   FFT functionality requires ``num_packs = 1`` in the input file, meaning all meshblocks
    on a rank are packed into a single partition. This is required for the flat array indexing
    used by heFFTe.
 
@@ -299,7 +299,7 @@ Limitations
 -----------
 
 * Only uniform grids are supported. AMR is not compatible with the current FFT infrastructure.
-* ``pack_size = -1`` is required (one partition per rank).
+* ``num_packs = 1`` is required (one partition per rank).
 * Only cubic domains are fully supported for physical wavenumber calculations.
   Non-cubic domains work for the FFT itself but wavenumber scaling must be handled manually.
 * The r2c transform stores only modes with :math:`k_x \geq 0`, consistent with heFFTe's

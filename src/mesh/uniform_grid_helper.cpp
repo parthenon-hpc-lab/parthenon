@@ -70,7 +70,7 @@ UniformGridHelper::UniformGridHelper(Mesh *mesh) : mesh_(mesh) {
       loc_max_vol == mesh_->GetNumMeshBlocksThisRank(),
       "Block coverage on rank cannot be matched to a contiguous "
       "array, which is required for FFTs. Try a different amount of "
-      "ranks (one block per rank, i.e. pack_size=-1, will always work).");
+      "ranks (one pack per rank, i.e. num_packs=1, will always work).");
 
   const auto block_size_ = mesh_->GetDefaultBlockSize();
   mesh_block_box.size[0] = block_size_.nx(parthenon::X1DIR);

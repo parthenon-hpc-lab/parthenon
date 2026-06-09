@@ -1,8 +1,8 @@
-//========================================================================================
-// Parthenon performance portable AMR framework
-// Copyright(C) 2026 The Parthenon collaboration
-// Licensed under the 3-clause BSD License, see LICENSE file for details
-//========================================================================================
+# ========================================================================================
+# Parthenon performance portable AMR framework
+# Copyright(C) 2026 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for details
+# ========================================================================================
 
 <parthenon/job>
 problem_id = fourier_transform_example
@@ -31,7 +31,7 @@ ox3_bc = periodic
 
 # How many meshblocks to use in a premade default kernel.
 # A value of <1 means use the whole mesh.
-pack_size = -1
+num_packs = 1
 
 <parthenon/meshblock>
 nx1 = 8
