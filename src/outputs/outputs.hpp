@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2025 The Parthenon collaboration
+// Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // Athena++ astrophysical MHD code
@@ -149,19 +149,26 @@ class AscentOutput : public OutputType {
 class OpenPMDOutput : public OutputType {
  public:
   explicit OpenPMDOutput(const OutputParameters &oparams, std::string backend_config,
-                         int coarsening_factor)
+                         int coarsening_factor, int format_version)
       : OutputType(oparams), backend_config_(std::move(backend_config)),
-        coarsening_factor_(coarsening_factor) {}
+        coarsening_factor_(coarsening_factor), format_version_(format_version) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                        const SignalHandler::OutputSignal signal) override;
   template <bool WRITE_SINGLE_PRECISION>
   void WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm,
                            const SignalHandler::OutputSignal signal);
 
+  // Version 1: Original format — each component creates a separate record with the
+  //            component label embedded in the record name (e.g., "v_v_vx_lvl0/x").
+  // Version 2: Standard-compliant — all components share one record, distinguished only
+  //            by their component name within the sub-group (e.g., "v_lvl0/x").
+  static constexpr int OUTPUT_VERSION_FORMAT = 2;
+
  private:
   //  path to file containing config passed to backend
   std::string backend_config_;
   int coarsening_factor_;
+  int format_version_;
 };
 
 #ifdef ENABLE_HDF5

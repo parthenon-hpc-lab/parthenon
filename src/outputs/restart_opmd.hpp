@@ -171,6 +171,7 @@ class RestartReaderOPMD : public RestartReader {
 
  private:
   const std::string filename_;
+  int format_version_;
 
   openPMD::Series series;
   // Iteration is a pointer because it cannot be default constructed (it depends on the

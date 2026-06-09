@@ -412,7 +412,12 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
                                  "Restart outputs cannot be coarsened.");
       }
 
-      pnew_type = std::make_shared<OpenPMDOutput>(op, backend_config, coarsening_factor);
+      const auto format_version = pin->GetOrAddInteger(
+          op.block_name, "openpmd_format_version", OpenPMDOutput::OUTPUT_VERSION_FORMAT,
+          "OpenPMD output format version (1 = legacy, 2 = standard-compliant vectors)");
+
+      pnew_type = std::make_shared<OpenPMDOutput>(op, backend_config, coarsening_factor,
+                                                  format_version);
 #else
       msg << "### FATAL ERROR in Outputs constructor" << std::endl
           << "Executable not configured for OpenPMD outputs, but OpenPMD file format "

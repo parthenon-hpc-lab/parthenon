@@ -20,6 +20,7 @@
 #include "mesh/meshblock.hpp"
 #include "outputs/output_parameters.hpp"
 #include "outputs/output_utils.hpp"
+#include "outputs/outputs.hpp"
 
 namespace parthenon {
 
@@ -45,10 +46,10 @@ void CheckValidName(const std::string &name);
 // - comp_idx is a flattened index over all components of the vectors and tensors, i.e.,
 // the typical v,u,t indices.
 // - level is the current effective level of the Mesh record
-std::tuple<std::string, std::string>
-GetMeshRecordAndComponentNames(const OutputUtils::VarInfo &vinfo,
-                               const TopologicalElement te, const int comp_idx,
-                               const int level);
+// - format_version controls the naming strategy
+std::tuple<std::string, std::string> GetMeshRecordAndComponentNames(
+    const OutputUtils::VarInfo &vinfo, const TopologicalElement te, const int comp_idx,
+    const int level, const int format_version = OpenPMDOutput::OUTPUT_VERSION_FORMAT);
 
 // Calculate logical location on effective mesh (i.e., a mesh with size that matches full
 // coverage at given resolution on a particular level)
