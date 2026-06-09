@@ -83,18 +83,14 @@ template <typename T>
 auto GetFlatHostVecFromView(T view) {
   // Take a view and return a vector containing rank and dims and a flattened (1D)
   // std::vector that can then easily be passed to OpenPMD.
-  // Note, this function is not
-  // optimial as multiple (unnecessary) copies may be done. PG didn't come up with a
-  // smarter way but thinks that it's not a performance issue as this is only called for
-  // outputs (thus not that often) and for mostly small amounts of data. With a C++20 span
-  // we could probably direct reuse the host mirror data pointer.
-  auto view_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), view);
+  using base_t = T::non_const_value_type;
+  using Unmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
+  const std::size_t n = view.size();
+  std::vector<base_t> host_vec(n);
+  Kokkos::View<base_t *, HostMemSpace, Unmanaged> view_h(host_vec.data(), n);
+  Kokkos::View<base_t *, Unmanaged> dev_flat(view.data(), n);
+  Kokkos::deep_copy(view_h, dev_flat);
 
-  using base_t = typename std::remove_pointer<decltype(view_h.data())>::type;
-  auto host_vec = std::vector<base_t>(view_h.size());
-  for (auto i = 0; i < view_h.size(); i++) {
-    host_vec[i] = view_h.data()[i];
-  }
   // cpplint demands compile constants be all caps
   constexpr auto RANK = static_cast<size_t>(T::rank);
   std::vector<size_t> rank_and_dims(RANK + 1);

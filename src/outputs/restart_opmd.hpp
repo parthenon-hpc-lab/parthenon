@@ -129,14 +129,16 @@ class RestartReaderOPMD : public RestartReader {
     // Cannot use Kokkos::resize here as it's ambiguous at this point.
     // Also, resize() interally also just create a new view.
     view = T(Kokkos::view_alloc(Kokkos::WithoutInitializing, view.label()), layout);
-    auto view_h = Kokkos::create_mirror_view(HostMemSpace(), view);
 
-    using base_t = typename std::remove_pointer<decltype(view_h.data())>::type;
+    using base_t = T::non_const_value_type;
+    using Unmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
+    const std::size_t n = view.size();
+
     auto flat_data = it->getAttribute(full_path).get<std::vector<base_t>>();
-    for (auto i = 0; i < view_h.size(); i++) {
-      view_h.data()[i] = flat_data[i];
-    }
-    Kokkos::deep_copy(view, view_h);
+
+    Kokkos::View<base_t *, HostMemSpace, Unmanaged> view_h(flat_data.data(), n);
+    Kokkos::View<base_t *, Unmanaged> dev_flat(view.data(), n);
+    Kokkos::deep_copy(dev_flat, view_h);
   }
   [[nodiscard]] bool VariableExists(const std::string &name, const DataType data_type,
                                     const std::string swarmvarname = "") const override {
