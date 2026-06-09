@@ -44,7 +44,7 @@ class FFTManager {
   struct KernelHelper {
     parthenon::Box3D fourier_box;
     parthenon::Box3D real_box;
-    int nx, ny, nz;
+    int nx1, nx2, nx3;
 
     // Flat index into the local Fourier-space array
     KOKKOS_INLINE_FUNCTION
@@ -68,7 +68,7 @@ class FFTManager {
     // For r2c transforms, kx >= 0 always
     KOKKOS_INLINE_FUNCTION
     std::array<int, 3> Wavevector(const int k, const int j, const int i) const {
-      return {i, j <= ny / 2 ? j : j - ny, k <= nz / 2 ? k : k - nz};
+      return {k <= nx3 / 2 ? k : k - nx3, j <= nx2 / 2 ? j : j - nx2, i};
     }
   };
 
@@ -77,7 +77,7 @@ class FFTManager {
   //   auto helper = fftManager->GetKernelHelper();
   //   par_for(..., KOKKOS_LAMBDA(...) { helper.FourierFlatIndex(...); });
   KernelHelper GetKernelHelper() const {
-    return {fourier_space_box(), real_space_box(), nx_, ny_, nz_};
+    return {fourier_space_box(), real_space_box(), nx1_, nx2_, nx3_};
   }
 
  private:
@@ -87,7 +87,7 @@ class FFTManager {
   Mesh *mesh_;
 
   // Global mesh dimensions, stored during Initialize()
-  int nx_ = 0, ny_ = 0, nz_ = 0;
+  int nx1_ = 0, nx2_ = 0, nx3_ = 0;
 };
 
 } // namespace parthenon

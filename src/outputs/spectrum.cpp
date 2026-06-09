@@ -64,8 +64,7 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
       "fft output", n_comp * FFTManager->size_fourier_space_box());
   PARTHENON_REQUIRE_THROWS(
       pm->DefaultNumPartitions() == 1,
-      "Only pack_size=-1 currently supported for heffte.") // pack size -1 means 1 pack
-                                                           // per rank
+      "Only num_packs=1 currently supported for heffte.")
 
   // copy components to device
   parthenon::ParArray1D<int> components_d("components", components.size());

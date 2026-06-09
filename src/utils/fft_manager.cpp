@@ -31,14 +31,14 @@ FFTManager::FFTManager(Mesh *mesh) : mesh_(mesh) {
   auto UniformGridHelper = mesh_->GetUniformGridHelper();
 
   auto mesh_size = mesh_->mesh_size;
-  nx_ = mesh_size.nx(X1DIR);
-  ny_ = mesh_size.nx(X2DIR);
-  nz_ = mesh_size.nx(X3DIR);
+  nx1_ = mesh_size.nx(X1DIR);
+  nx2_ = mesh_size.nx(X2DIR);
+  nx3_ = mesh_size.nx(X3DIR);
 
   std::int64_t r2c_direction = 0;
 
-  heffte::box3d<> real_indexes({0, 0, 0}, {nx_ - 1, ny_ - 1, nz_ - 1});
-  heffte::box3d<> complex_indexes({0, 0, 0}, {nx_ / 2, ny_ - 1, nz_ - 1});
+  heffte::box3d<> real_indexes({0, 0, 0}, {nx1_ - 1, nx2_ - 1, nx3_ - 1});
+  heffte::box3d<> complex_indexes({0, 0, 0}, {nx1_ / 2, nx2_ - 1, nx3_ - 1});
 
   assert(real_indexes.r2c(r2c_direction) == complex_indexes);
 

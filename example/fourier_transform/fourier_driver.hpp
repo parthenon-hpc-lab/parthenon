@@ -23,8 +23,8 @@ using namespace parthenon::driver::prelude;
  */
 class FourierDriver : public Driver {
  public:
-  FourierDriver(ParameterInput *pin, ApplicationInput *fin, Mesh *pm)
-      : Driver(pin, fin, pm) {
+  FourierDriver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
+      : Driver(pin, app_in, pm) {
     InitializeOutputs();
   }
 
