@@ -40,7 +40,7 @@ inline static const std::string delim = "~";
 // the characters a-Z, the numbers 0-9 and the underscore _
 void CheckValidName(const std::string &name);
 
-// Construct OpenPMD Mesh "record" name and comonnent identifier.
+// Construct OpenPMD Mesh "record" name and component identifier.
 // - te is the TopologicalElement (which is used as part of the variable name record)
 // - comp_idx is a flattened index over all components of the vectors and tensors, i.e.,
 // the typical v,u,t indices.
@@ -58,7 +58,7 @@ GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
                         const TopologicalElement te, const int coarsening_factor,
                         const DumpOutputMode outupt_type);
 
-// Construct OpenPMD Particle "record" name and comonnent identifier.
+// Construct OpenPMD Particle "record" name and component identifier.
 // - vname is the variable name
 // - rank is the variable rank (i.e., 0 is scalar etc)
 // - comp_idx is a flattened index over all components of the vectors and tensors, i.e.,

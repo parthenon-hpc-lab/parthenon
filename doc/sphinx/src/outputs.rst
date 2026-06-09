@@ -7,10 +7,10 @@ Outputs from Parthenon are controlled via ``<parthenon/output*>`` blocks,
 where ``*`` should be replaced by a unique integer for each block.
 
 Various output types are supported for writing both raw data (e.g., in
-openPMD/ADIOS2/BP5 or HDF5 format) andprocessed data (like high level aggregated
-history files or histograms), see following subsections for more details.
+openPMD/ADIOS2/BP5 or HDF5 format) and processed data (like high level aggregated
+history files or histograms), see the following subsections for more details.
 While HDF5 has been the default in the past, openPMD/ADIOS2/BP5 is expected to
-become the default in the near term future given its features, flexiblity,
+become the default in the near-term future given its features, flexiblity,
 and significantly improved perforance (especially at scale).
 Advanced features like slices or coarse graining are only supported in openPMD
 outputs.
@@ -76,7 +76,7 @@ where the ``6`` (in the output block header is arbitrary and used
 as default value in the resulting directory name) and ``#####`` an increasing
 zero-padded integer that is increased for each output written.
 
-Restarting from outputs using these minimal, simple block is supported by
+Restarting from outputs using this minimal, simple block is supported by
 default (i.e., it contains all the information for restarting a simulation,
 such as independent fields including particles, mesh structure, input file,
 and other parameters).
@@ -97,7 +97,7 @@ More complex configurations are possible, e.g.,
    swarms = tracers, photons       # Particle swarms
    swarm_variables = x, y, z       # swarm variables output for every swarm
 
-   # Each swarm can sepcify in a separate list which additional
+   # Each swarm can specify in a separate list which additional
    # variables it would like to output.
    tracers_variables = x, y, z, rho, id
    photons_variables = x, y, z, frequency
@@ -634,7 +634,7 @@ Python scripts
 openPMD outputs
 ^^^^^^^^^^^^^^^
 
-Outputs written following the openPMD standard can be processed by any tool implemting
+Outputs written following the openPMD standard can be processed by any tool implementing
 the standard.
 For Python based analysis the most straightforward way is via the
 `openPMD-api <https://github.com/openPMD/openPMD-api>`__

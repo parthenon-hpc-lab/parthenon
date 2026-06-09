@@ -80,6 +80,7 @@ void CheckValidName(const std::string &name) {
 }
 
 template <typename T>
+  requires(KokkosView<T>)
 auto GetFlatHostVecFromView(T view) {
   // Take a view and return a vector containing rank and dims and a flattened (1D)
   // std::vector that can then easily be passed to OpenPMD.
