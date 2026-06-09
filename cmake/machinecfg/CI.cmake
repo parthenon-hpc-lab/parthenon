@@ -1,6 +1,6 @@
 #========================================================================================
 # Parthenon performance portable AMR framework
-# Copyright(C) 2020-2025 The Parthenon collaboration
+# Copyright(C) 2020-2026 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 #========================================================================================
 # (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
@@ -41,4 +41,6 @@ else()
   # testing auto fetch and compile
   set(PARTHENON_USE_SYSTEM_OPENPMD OFF CACHE BOOL "Use API in container")
 endif()
+
+set(PARTHENON_DISABLE_OPENPMD OFF CACHE BOOL "Always use OpenPMD build in CI env")
 
