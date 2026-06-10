@@ -66,6 +66,70 @@ class TensorCoreDeviceT {
   device_fibers_view_t fibers;
 };
 
+template <class CoreLike>
+struct vertical_unfolding {
+  const CoreLike &core; 
+  int nd;
+  vertical_unfolding(const CoreLike &core_in) : core(core_in), nd(core_in.DD()) {}
+  KOKKOS_FORCEINLINE_FUNCTION
+  decltype(auto) operator()(int j, int i) const {
+    const int rl = j / nd;
+    const int d = j % nd;
+    return core(rl, d, i);
+  }
+};
+
+template<class CoreLike>
+KOKKOS_FORCEINLINE_FUNCTION
+auto GetVerticalUnfolding(const CoreLike &core_in) {
+  return vertical_unfolding<CoreLike>(core_in);
+}
+
+template <class T>
+KOKKOS_FORCEINLINE_FUNCTION
+int GetNrows(const vertical_unfolding<T> &m) { return m.core.DD() * m.core.LR(); }
+template <class T>
+KOKKOS_FORCEINLINE_FUNCTION
+int GetNcols(const vertical_unfolding<T> &m) { return m.core.RR(); }
+
+template <class CoreLike, bool transpose>
+struct horizontal_unfolding { 
+  const CoreLike &core; 
+  int nd;
+  horizontal_unfolding(const CoreLike &core_in) : core(core_in), nd(core_in.DD()) {}
+  KOKKOS_FORCEINLINE_FUNCTION
+  decltype(auto) operator()(int row, int col) const {
+    if constexpr (transpose) {
+      const int rr = row / nd;
+      const int d = row % nd;
+      return core(col, d, rr);
+    } else {
+      const int rr = col / nd;
+      const int d = col % nd;
+      return core(row, d, rr);
+    }
+  }
+};
+
+template<class CoreLike>
+KOKKOS_FORCEINLINE_FUNCTION
+auto GetHorizontalUnfolding(const CoreLike &core_in) {
+  return horizontal_unfolding<CoreLike, false>(core_in);
+}
+
+template<class CoreLike>
+KOKKOS_FORCEINLINE_FUNCTION
+auto GetHorizontalUnfoldingTranspose(const CoreLike &core_in) {
+  return horizontal_unfolding<CoreLike, true>(core_in);
+}
+
+template <class T, bool transpose>
+KOKKOS_FORCEINLINE_FUNCTION
+int GetNrows(const horizontal_unfolding<T, transpose> &m) { return transpose ?  m.core.DD() * m.core.RR() : m.core.LR(); }
+template <class T, bool transpose>
+KOKKOS_FORCEINLINE_FUNCTION
+int GetNcols(const horizontal_unfolding<T, transpose> &m) { return transpose ? m.core.LR() : m.core.DD() * m.core.RR(); }
+
 // Host-side owning representation of one tensor core. This is the persistent
 // object that keeps fiber storage alive. It owns:
 //   1. a host-side managed outer view of managed fibers, and
