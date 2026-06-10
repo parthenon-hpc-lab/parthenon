@@ -4,6 +4,8 @@
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #include "utils/uniform_grid_helper.hpp"
 #include "mesh/mesh.hpp"
 

@@ -354,6 +354,8 @@ if(PARTHENON_ENABLE_FFT)
     utils/fft_manager.hpp
     utils/uniform_grid_helper.cpp
     utils/uniform_grid_helper.hpp
+    utils/calc_spectrum.cpp
+    utils/calc_spectrum.hpp
     outputs/spectrum.cpp
   )
   target_link_libraries(parthenon PRIVATE Heffte)

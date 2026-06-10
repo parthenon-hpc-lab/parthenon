@@ -4,6 +4,8 @@
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #ifndef UTILS_UNIFORM_GRID_HELPER_HPP_
 #define UTILS_UNIFORM_GRID_HELPER_HPP_
 

@@ -4,6 +4,8 @@
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #ifndef EXAMPLE_FOURIER_TRANSFORM_FOURIER_DRIVER_HPP_
 #define EXAMPLE_FOURIER_TRANSFORM_FOURIER_DRIVER_HPP_
 

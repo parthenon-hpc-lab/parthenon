@@ -4,6 +4,8 @@
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #ifndef UTILS_FFT_MANAGER_HPP_
 #define UTILS_FFT_MANAGER_HPP_
 
