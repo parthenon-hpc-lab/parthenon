@@ -207,6 +207,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   PARTHENON_REQUIRE(minimum_number_of_teams_for_boundary_kernel > 0,
                     "parthenon/mesh/minimum_number_of_teams_for_boundary_kernel "
                     "must be positive.");
+  PARTHENON_REQUIRE(boundary_buffer_work_chunk_size > 0,
+                    "parthenon/mesh/boundary_buffer_work_chunk_size must be positive.");
 
   RegisterLoadBalancing_(pin);
 

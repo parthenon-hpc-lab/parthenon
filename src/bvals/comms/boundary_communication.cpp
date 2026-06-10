@@ -50,8 +50,8 @@ using namespace loops::shorthands;
 namespace {
 int GetNteamsPerBoundaryBuffer(const Mesh *pmesh, const int nbound) {
   PARTHENON_REQUIRE_THROWS(
-      nbound >= 0,
-      "Sth. went wrong before when calling this function with negative nbound.");
+      nbound > 0,
+      "Cannot calculate the number of teams per boundary buffer without boundaries.");
   return std::max(1, (pmesh->minimum_number_of_teams_for_boundary_kernel + nbound - 1) /
                          nbound);
 }
@@ -138,7 +138,9 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
           auto &idxer = bnd_info(b).idxer[it];
           const int iel = static_cast<int>(bnd_info(b).topo_idx[it]) % 3;
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
-          const int n_units = idxer.size() / Ni;
+          const auto idxer_size = idxer.size();
+          if (Ni <= 0 || idxer_size == 0) continue;
+          const int n_units = static_cast<int>(idxer_size / Ni);
           const SplitFlatIndexRangeAmongTeams split(nteams_per_buffer, work_chunk_size,
                                                     n_units);
           // TODO(LFR): Finish threading index splitting through reductions
@@ -311,6 +313,10 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
 
   auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);
 
+  if (nbound == 0) {
+    return TaskStatus::complete;
+  }
+
   if (rebuild) {
     if constexpr (bound_type == BoundaryType::gmg_prolongate_recv) {
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
@@ -347,7 +353,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
           const int iel = static_cast<int>(tel) % 3;
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
           if (bnd_info(b).allocated) {
-            const int n_units = idxer.size() / Ni;
+            const auto idxer_size = idxer.size();
+            if (Ni <= 0 || idxer_size == 0) continue;
+            const int n_units = static_cast<int>(idxer_size / Ni);
             const SplitFlatIndexRangeAmongTeams split(nteams_per_buffer, work_chunk_size,
                                                       n_units);
             if (bnd_info(b).buf_allocated) {
