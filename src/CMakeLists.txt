@@ -352,8 +352,8 @@ if(PARTHENON_ENABLE_FFT)
   target_sources(parthenon PRIVATE
     utils/fft_manager.cpp
     utils/fft_manager.hpp
-    mesh/uniform_grid_helper.cpp
-    mesh/uniform_grid_helper.hpp
+    utils/uniform_grid_helper.cpp
+    utils/uniform_grid_helper.hpp
     outputs/spectrum.cpp
   )
   target_link_libraries(parthenon PRIVATE Heffte)

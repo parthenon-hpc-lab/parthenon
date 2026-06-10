@@ -4,8 +4,8 @@
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 
-#ifndef MESH_UNIFORM_GRID_HELPER_HPP_
-#define MESH_UNIFORM_GRID_HELPER_HPP_
+#ifndef UTILS_UNIFORM_GRID_HELPER_HPP_
+#define UTILS_UNIFORM_GRID_HELPER_HPP_
 
 #include <array>
 #include <cstdint>
@@ -71,4 +71,4 @@ class UniformGridHelper {
 
 } // namespace parthenon
 
-#endif // MESH_UNIFORM_GRID_HELPER_HPP_
+#endif // UTILS_UNIFORM_GRID_HELPER_HPP_

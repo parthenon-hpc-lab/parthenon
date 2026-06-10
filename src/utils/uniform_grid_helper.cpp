@@ -4,7 +4,7 @@
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 
-#include "uniform_grid_helper.hpp"
+#include "utils/uniform_grid_helper.hpp"
 #include "mesh/mesh.hpp"
 
 namespace parthenon {

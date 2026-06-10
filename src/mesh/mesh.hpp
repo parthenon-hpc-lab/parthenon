@@ -60,7 +60,7 @@
 #include "utils/partition_stl_containers.hpp"
 
 #ifdef PARTHENON_ENABLE_FFT
-#include "mesh/uniform_grid_helper.hpp"
+#include "utils/uniform_grid_helper.hpp"
 #include "utils/fft_manager.hpp"
 #endif
 
