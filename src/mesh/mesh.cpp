@@ -83,6 +83,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       resolved_packages(ResolvePackages(packages)),
       task_collection_timeout_in_seconds(pin->GetOrAddInteger(
           "parthenon/mesh", "task_collection_timeout_in_seconds", 60 * 5)),
+      nteams_per_boundary_buffer(
+          pin->GetOrAddInteger("parthenon/mesh", "nteams_per_boundary_buffer", 1)),
+      boundary_buffer_work_chunk_size(
+          pin->GetOrAddInteger("parthenon/mesh", "boundary_buffer_work_chunk_size", 1)),
       // private members:
       num_mesh_threads_(
           pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1,
