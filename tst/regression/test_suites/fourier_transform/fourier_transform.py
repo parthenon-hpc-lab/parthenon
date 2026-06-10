@@ -32,20 +32,26 @@ class TestCase(utils.test_case.TestCaseAbs):
             r"Max relative error after FFT round-trip:\s+([\d.eE+\-]+)", output
         )
         if match is None:
-            print("ERROR: could not find 'Max relative error after FFT round-trip' in output")
+            print(
+                "ERROR: could not find 'Max relative error after FFT round-trip' in output"
+            )
             print("Driver output was:")
             print(output)
             return False
 
         max_error = float(match.group(1))
-        print("Max FFT round-trip error: {:.3e}  (tolerance: {:.3e})".format(
-            max_error, ERROR_TOLERANCE
-        ))
+        print(
+            "Max FFT round-trip error: {:.3e}  (tolerance: {:.3e})".format(
+                max_error, ERROR_TOLERANCE
+            )
+        )
 
         if max_error > ERROR_TOLERANCE:
-            print("ERROR: FFT round-trip error {:.3e} exceeds tolerance {:.3e}".format(
-                max_error, ERROR_TOLERANCE
-            ))
+            print(
+                "ERROR: FFT round-trip error {:.3e} exceeds tolerance {:.3e}".format(
+                    max_error, ERROR_TOLERANCE
+                )
+            )
             return False
 
         return True
