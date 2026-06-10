@@ -124,23 +124,14 @@ Please see the [developer guidelines](CONTRIBUTING.md) for additional informatio
 Please see the [docs](https://parthenon-hpc-lab.github.io/parthenon) for additional documentation on features and
 how to use them.
 
-# Contributors
+# Leadership team
 
-| Name     | Handle       | Team       |
-|----------|--------------|------------|
-| Jonah Miller | @Yurlungur  | LANL Physics  |
-| Josh Dolence | @jdolence | LANL Physics |
-| Andrew Gaspar | @AndrewGaspar | LANL Computer Science |
-| Philipp Grete | @pgrete | Athena Physics |
-| Forrest Glines | @forrestglines | Athena Physics |
-| Jim Stone | @jmstone | Athena Physics |
-| Jonas Lippuner | @jlippuner | LANL Computer Science |
-| Joshua Brown | @JoshuaSBrown | LANL Computer Science |
-| Christoph Junghans | @junghans | LANL Computer Science |
-| Sriram Swaminarayan | @nmsriram | LANL Computer Science |
-| Daniel Holladay | @dholladay00 | LANL Computer Science |
-| Galen Shipman | @gshipman | LANL Computer Science |
-| Ben Ryan | @brryan | LANL Physics |
-| Clell J. (CJ) Solomon | @clellsolomon | LANL Physics |
-| Luke Roberts | @lroberts36 | LANL Physics |
+| Name     | Handle       | Institution |
+|----------|--------------|-------------|
+| Josh Dolence | @jdolence | LANL |
+| Jonah Miller | @Yurlungur  | LANL  |
+| Philipp Grete | @pgrete | University of Hamburg |
+| Patrick Mullen | @pdmullen | LANL |
 | Cora Prather | @c-prather | Harvard BHI |
+| Adam Reyes | @acreyes | Pacific Fusion |
+| Luke Roberts | @lroberts36 | LANL |
