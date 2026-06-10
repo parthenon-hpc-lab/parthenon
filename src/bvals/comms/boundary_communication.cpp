@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2022 The Parthenon collaboration
+// Copyright(C) 2022-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2022-2024. Triad National Security, LLC. All rights reserved.
@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <cstdio>
@@ -151,14 +153,13 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
   // Send buffers
   if (Globals::sparse_config.enabled)
     Kokkos::deep_copy(sending_nonzero_flags_h, sending_nonzero_flags);
-#ifdef MPI_PARALLEL
-  if (bound_type == BoundaryType::any || bound_type == BoundaryType::nonlocal)
-    Kokkos::fence();
-#endif
   const bool coal_comm = pmesh->do_coalesced_comms;
+#ifdef MPI_PARALLEL
+  if (!coal_comm && IsSender(bound_type)) Kokkos::fence();
+#endif
   for (std::size_t ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
     auto &buf = *cache.buf_vec[ibuf];
-    if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
+    if (!Globals::sparse_config.enabled || sending_nonzero_flags_h(ibuf))
       buf.Send(coal_comm);
     else
       buf.SendNull(coal_comm);
