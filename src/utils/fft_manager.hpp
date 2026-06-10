@@ -12,8 +12,8 @@
 #include <complex>
 #include <memory>
 
-#include "utils/uniform_grid_helper.hpp"
 #include "parthenon_arrays.hpp"
+#include "utils/uniform_grid_helper.hpp"
 
 namespace parthenon {
 

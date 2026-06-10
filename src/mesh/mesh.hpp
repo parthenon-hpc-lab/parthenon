@@ -60,8 +60,8 @@
 #include "utils/partition_stl_containers.hpp"
 
 #ifdef PARTHENON_ENABLE_FFT
-#include "utils/uniform_grid_helper.hpp"
 #include "utils/fft_manager.hpp"
+#include "utils/uniform_grid_helper.hpp"
 #endif
 
 namespace parthenon {
