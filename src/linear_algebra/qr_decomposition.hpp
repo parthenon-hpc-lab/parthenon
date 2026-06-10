@@ -25,8 +25,8 @@ KOKKOS_FORCEINLINE_FUNCTION void QRDecomposition(matrix_t &A, matrix_t &Q) {
   serial_tm_t tm{};
   for (int i = 0; i < A.nrows() - 1; ++i) {
     build_householder_vector_col(tm, i, i, A, v.data());
-    apply_left_householder_transformation(tm, v.data(), scratch.data(), A);
-    apply_right_householder_transformation(tm, v.data(), scratch.data(), Q);
+    apply_left_householder_transformation(tm, v.data(), scratch.data(), A, i);
+    apply_right_householder_transformation(tm, v.data(), scratch.data(), Q, i);
   }
 }
 

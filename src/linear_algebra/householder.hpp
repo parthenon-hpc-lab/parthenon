@@ -121,45 +121,47 @@ build_householder_vector_row(tm_t tm, int row, int col, const matrix_t &A, doubl
 
 // Apply the Householder transformation H = I - 2 v^T v to A in place,
 // i.e. A <- H A. Here v is assumed to be normalized.
+// The parameter start_idx specifies the first non-zero entry in v.
 template <class tm_t, class matrix_t>
 KOKKOS_FORCEINLINE_FUNCTION void
 apply_left_householder_transformation(tm_t tm, const double *const v, double *scratch,
-                                      matrix_t &A) {
+                                      matrix_t &A, int start_idx = 0) {
   const int nrows = GetNrows(A);
   const int ncols = GetNcols(A);
   for (int c = 0; c < ncols; ++c) {
     double w{0.0};
     summation(
-        tm, 0, nrows - 1,
+        tm, start_idx, nrows - 1,
         KOKKOS_LAMBDA(int r, double &ww) { ww += 2.0 * v[r] * A(r, c); }, w);
     once_per_team(
         tm, KOKKOS_LAMBDA() { scratch[c] = w; });
   }
   barrier(tm);
   parallel_loop(
-      tm, 0, ncols - 1, 0, nrows - 1,
+      tm, 0, ncols - 1, start_idx, nrows - 1,
       KOKKOS_LAMBDA(int c, int r) { A(r, c) -= scratch[c] * v[r]; });
 }
 
 // Apply the Householder transformation H = I - 2 v^T v to A from the left in
 // place, i.e. A <- A H. Here v is assumed to be normalized.
+// The parameter start_idx specifies the first non-zero entry in v.
 template <class tm_t, class matrix_t>
 KOKKOS_FORCEINLINE_FUNCTION void
 apply_right_householder_transformation(tm_t tm, const double *const v, double *scratch,
-                                       matrix_t &A) {
+                                       matrix_t &A, int start_idx = 0) {
   const int nrows = GetNrows(A);
   const int ncols = GetNcols(A);
   for (int r = 0; r < nrows; ++r) {
     double w{0.0};
     summation(
-        tm, 0, ncols - 1,
+        tm, start_idx, ncols - 1,
         KOKKOS_LAMBDA(int c, double &ww) { ww += 2.0 * v[c] * A(r, c); }, w);
     once_per_team(
         tm, KOKKOS_LAMBDA() { scratch[r] = w; });
   }
   barrier(tm);
   parallel_loop(
-      tm, 0, ncols - 1, 0, nrows - 1,
+      tm, start_idx, ncols - 1, 0, nrows - 1,
       KOKKOS_LAMBDA(int c, int r) { A(r, c) -= scratch[r] * v[c]; });
 }
 

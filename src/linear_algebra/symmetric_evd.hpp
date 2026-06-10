@@ -88,11 +88,11 @@ class SymmetricEVD {
       int row = col + 1;
       build_householder_vector_col(tm, row, col, A, v);
       barrier(tm);
-      apply_left_householder_transformation(tm, v, s, A);
+      apply_left_householder_transformation(tm, v, s, A, row);
       barrier(tm);
-      apply_right_householder_transformation(tm, v, s, A);
+      apply_right_householder_transformation(tm, v, s, A, row);
       barrier(tm);
-      if (pQ) apply_right_householder_transformation(tm, v, s, *pQ);
+      if (pQ) apply_right_householder_transformation(tm, v, s, *pQ, row);
     });
 
     // Move to tridiagonal storage

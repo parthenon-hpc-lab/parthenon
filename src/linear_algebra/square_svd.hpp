@@ -98,20 +98,20 @@ class SquareSVD {
     sequential_loop(0, ncols - 3, [&](const int col) {
       build_householder_vector_col(tm, col, col, A, v);
       barrier(tm);
-      apply_left_householder_transformation(tm, v, s, A);
-      if (pU) apply_right_householder_transformation(tm, v, s, *pU);
+      apply_left_householder_transformation(tm, v, s, A, col);
+      if (pU) apply_right_householder_transformation(tm, v, s, *pU, col);
 
       barrier(tm);
       build_householder_vector_row(tm, col, col + 1, A, v);
       barrier(tm);
-      apply_right_householder_transformation(tm, v, s, A);
-      if (pV) apply_right_householder_transformation(tm, v, s, *pV);
+      apply_right_householder_transformation(tm, v, s, A, col + 1);
+      if (pV) apply_right_householder_transformation(tm, v, s, *pV, col + 1);
     });
     barrier(tm);
     build_householder_vector_col(tm, ncols - 2, ncols - 2, A, v);
     barrier(tm);
-    apply_left_householder_transformation(tm, v, s, A);
-    if (pU) apply_right_householder_transformation(tm, v, s, *pU);
+    apply_left_householder_transformation(tm, v, s, A, ncols - 2);
+    if (pU) apply_right_householder_transformation(tm, v, s, *pU, ncols - 2);
 
     // Move to tridiagonal storage
     barrier(tm);
