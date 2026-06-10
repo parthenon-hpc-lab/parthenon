@@ -24,9 +24,9 @@ class FFTManager {
   explicit FFTManager(Mesh *mesh);
   ~FFTManager();
 
-  void Forward(const double *input, std::complex<double> *output);
+  void Forward(const Real *input, Kokkos::complex<Real> *output);
 
-  void Backward(const std::complex<double> *input, double *output);
+  void Backward(const Kokkos::complex<Real> *input, Real *output);
 
   // -----------------------------
   // Box info

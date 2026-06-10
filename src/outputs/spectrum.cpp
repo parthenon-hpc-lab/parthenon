@@ -60,7 +60,7 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   auto FFTManager = pm->GetFFTManager();
   const auto fft_size_inbox = FFTManager->size_real_space_box();
   parthenon::ParArray1D<Real> input("fft input", n_comp * fft_size_inbox);
-  parthenon::ParArray1D<std::complex<Real>> output(
+  parthenon::ParArray1D<Kokkos::complex<Real>> output(
       "fft output", n_comp * FFTManager->size_fourier_space_box());
   PARTHENON_REQUIRE_THROWS(
       pm->DefaultNumPartitions() == 1,

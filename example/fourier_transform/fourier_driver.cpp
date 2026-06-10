@@ -86,7 +86,7 @@ parthenon::DriverStatus FourierDriver::Execute() {
 
   // define input and output arrays for FFT:
   parthenon::ParArray1D<Real> input("fft input", FFTManager->size_real_space_box());
-  parthenon::ParArray1D<std::complex<Real>> output("fft output",
+  parthenon::ParArray1D<Kokkos::complex<Real>> output("fft output",
                                                    FFTManager->size_fourier_space_box());
   // also pre-allocate array for the recovered field after inverse FFT, to check
   // round-trip accuracy:

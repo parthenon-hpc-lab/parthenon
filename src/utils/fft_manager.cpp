@@ -65,17 +65,18 @@ FFTManager::FFTManager(Mesh *mesh) : mesh_(mesh) {
 // -----------------------------
 // Forward / Backward
 // -----------------------------
-void FFTManager::Forward(const double *input, std::complex<double> *output) {
+void FFTManager::Forward(const Real *input, Kokkos::complex<Real> *output) {
   impl_->fft_plan.forward(
-      input, output, impl_->workspace_.data(),
-      heffte::scale::full); // 1/N^3 normalization for forward transform
+      input, reinterpret_cast<std::complex<Real>*>(output),
+      impl_->workspace_.data(),
+      heffte::scale::full);
 }
 
-void FFTManager::Backward(const std::complex<double> *input, double *output) {
+void FFTManager::Backward(const Kokkos::complex<Real> *input, Real *output) {
   impl_->fft_plan.backward(
-      input, output,
-      heffte::scale::none); // no normalization for backward transform, so that forward
-                            // followed by backward gives back the original field
+      reinterpret_cast<const std::complex<Real>*>(input),
+      output,
+      heffte::scale::none);
 }
 
 // -----------------------------

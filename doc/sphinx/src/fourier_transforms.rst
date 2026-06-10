@@ -80,8 +80,10 @@ by :cpp:class:`FFTManager`:
    const auto fft_size_outbox = fftManager->size_fourier_space_box();
 
    parthenon::ParArray1D<Real>                input("input",  fft_size_inbox);
-   parthenon::ParArray1D<std::complex<Real>>  output("output", fft_size_outbox);
+   parthenon::ParArray1D<Kokkos::complex<Real>>  output("output", fft_size_outbox);
    parthenon::ParArray1D<Real>                result("result", fft_size_inbox);
+
+Note that complex arrays must use Kokkos::complex, not std::complex, so that complex arithmetic is possible in Kokkos kernels.
 
 Gathering a field from the mesh
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -135,25 +137,6 @@ device pointers:
 Processing in Fourier space
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. note::
-   ``std::complex<Real>`` arithmetic is not supported inside GPU kernels. When accessing
-   complex arrays inside a ``par_for`` kernel, cast to ``Kokkos::complex<Real>`` first:
-
-   .. code-block:: cpp
-
-      auto output_kk = reinterpret_cast<Kokkos::complex<Real>*>(output.data());
-
-      parthenon::par_for(...,
-          KOKKOS_LAMBDA(...) {
-              // use output_kk[idx], not output(idx)
-              auto val = output_kk[idx] * some_kokkos_complex;
-          });
-
-   ``Kokkos::complex`` and ``std::complex`` have identical memory layouts, so the
-   reinterpret cast is safe. The cast must be done **before** the lambda — capturing
-   a ``ParArray1D<std::complex<Real>>`` and calling ``.data()`` inside the kernel
-   will not work on GPU.
-
 The local Fourier space box is accessible via :cpp:func:`FFTManager::fourier_space_box`.
 Use :cpp:func:`FFTManager::GetKernelHelper` to obtain a device-copyable helper that
 provides ``FourierFlatIndex`` and ``Wavevector``:
@@ -175,7 +158,7 @@ provides ``FourierFlatIndex`` and ``Wavevector``:
            // integer wavevector components (negative frequencies unwrapped)
            auto [kx3, kx2, kx1] = fft_helper.Wavevector(kx3_idx, kx2_idx, kx1_idx);
 
-           // ... process output_kk[idx] ...
+           // ... process output[idx] ...
        });
 
 .. note::
@@ -221,10 +204,10 @@ FFTManager
 .. code-block:: cpp
 
    // Forward r2c FFT. Applies 1/N^3 normalization.
-   void Forward(const double* input, std::complex<double>* output);
+   void Forward(const double* input, Kokkos::complex<double>* output);
 
    // Backward c2r FFT. Applies no normalization.
-   void Backward(const std::complex<double>* input, double* output);
+   void Backward(const Kokkos::complex<double>* input, double* output);
 
    // Returns the local Fourier-space box (global Fourier indices)
    Box3D fourier_space_box() const;
