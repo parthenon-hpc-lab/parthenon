@@ -477,6 +477,23 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     slice_loc = pin->GetReal(output_params.block_name, "slice_loc");
   }
 
+  auto in_output = [&](auto &coords, const int k, const int j, const int i,
+                       const int width) {
+    if (!is_slice) return true;
+
+    if (output_params.mode == X1Slice) {
+      return slice_loc >= coords.Xf<X1DIR>(k, j, i) &&
+             slice_loc < coords.Xf<X1DIR>(k, j, i + width);
+    } else if (output_params.mode == X2Slice) {
+      return slice_loc >= coords.Xf<X2DIR>(k, j, i) &&
+             slice_loc < coords.Xf<X2DIR>(k, j + width, i);
+    } else if (output_params.mode == X3Slice) {
+      return slice_loc >= coords.Xf<X3DIR>(k, j, i) &&
+             slice_loc < coords.Xf<X3DIR>(k + width, j, i);
+    }
+    PARTHENON_FAIL("Unclear how I got here.");
+  };
+
   if (!is_slice) {
     PARTHENON_INSTRUMENT_REGION("Dump Params");
 
@@ -705,6 +722,16 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     // for each local mesh block
     for (size_t b_idx = 0; b_idx < num_blocks_local; ++b_idx) {
       const auto &pmb = pm->block_list[b_idx];
+      auto pmb_ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+      auto pmb_jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+      auto pmb_kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+      const int pmb_width = output_params.mode == X1Slice   ? pmb_ib.e - pmb_ib.s + 1
+                            : output_params.mode == X2Slice ? pmb_jb.e - pmb_jb.s + 1
+                                                            : pmb_kb.e - pmb_kb.s + 1;
+      if (!in_output(pmb->coords, pmb_kb.s, pmb_jb.s, pmb_ib.s, pmb_width)) {
+        continue;
+      }
+
       // TODO(pgrete) check if we should skip the suffix for level 0
       const auto level = pmb->loc.level() - pm->GetRootLevel();
       for (const auto &te : vinfo.topological_elements) {
@@ -862,30 +889,13 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                 for (int k = kb.s; k <= kb.e; ++k) {
                   for (int j = jb.s; j <= jb.e; ++j) {
                     for (int i = ib.s; i <= ib.e; ++i) {
-                      // Skip cells for coarse grained outputs
                       if (((i - ib.s) % coarsening_factor_ != 0) ||
                           ((j - jb.s) % coarsening_factor_ != 0) ||
-                          ((k - kb.s) % coarsening_factor_ != 0)) {
+                          ((k - kb.s) % coarsening_factor_ != 0) ||
+                          !in_output(coords, k, j, i, coarsening_factor_)) {
                         continue;
                       }
-                      // Skip cells outside slices
-                      if (is_slice) {
-                        if (output_params.mode == X1Slice) {
-                          if (slice_loc < coords.Xf<X1DIR>(k, j, i)) continue;
-                          if (slice_loc >= coords.Xf<X1DIR>(k, j, i + coarsening_factor_))
-                            continue;
-                        } else if (output_params.mode == X2Slice) {
-                          if (slice_loc < coords.Xf<X2DIR>(k, j, i)) continue;
-                          if (slice_loc >= coords.Xf<X2DIR>(k, j + coarsening_factor_, i))
-                            continue;
-                        } else if (output_params.mode == X3Slice) {
-                          if (slice_loc < coords.Xf<X3DIR>(k, j, i)) continue;
-                          if (slice_loc >= coords.Xf<X3DIR>(k + coarsening_factor_, j, i))
-                            continue;
-                        } else {
-                          PARTHENON_FAIL("Unclear how I got here.");
-                        }
-                      }
+
                       tmp_data[tmp_offset] = static_cast<OutT>(
                           out_var_h(static_cast<int>(te) % 3, t, u, v, k, j, i));
 
