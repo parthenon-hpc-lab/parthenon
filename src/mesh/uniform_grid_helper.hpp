@@ -7,9 +7,9 @@
 #ifndef MESH_UNIFORM_GRID_HELPER_HPP_
 #define MESH_UNIFORM_GRID_HELPER_HPP_
 
+#include <array>
 #include <cstdint>
 #include <limits>
-#include <array>
 
 #include "parthenon_arrays.hpp"
 
@@ -48,7 +48,9 @@ class UniformGridHelper {
     }
   };
 
-  KernelHelper GetKernelHelper() const { return {loc_view, mesh_block_box, local_mesh_box}; }
+  KernelHelper GetKernelHelper() const {
+    return {loc_view, mesh_block_box, local_mesh_box};
+  }
 
   // Gathers a single component of a named variable from meshblocks
   // into a contiguous 1D array suitable for FFT input.

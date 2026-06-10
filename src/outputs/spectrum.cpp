@@ -24,8 +24,8 @@
 #include "mesh/mesh.hpp"
 #include "outputs/outputs.hpp"
 #include "parthenon_arrays.hpp"
-#include "utils/fft_manager.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/fft_manager.hpp"
 
 namespace parthenon {
 
@@ -62,9 +62,8 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   parthenon::ParArray1D<Real> input("fft input", n_comp * fft_size_inbox);
   parthenon::ParArray1D<Kokkos::complex<Real>> output(
       "fft output", n_comp * FFTManager->size_fourier_space_box());
-  PARTHENON_REQUIRE_THROWS(
-      pm->DefaultNumPartitions() == 1,
-      "Only num_packs=1 currently supported for heffte.")
+  PARTHENON_REQUIRE_THROWS(pm->DefaultNumPartitions() == 1,
+                           "Only num_packs=1 currently supported for heffte.")
 
   // copy components to device
   parthenon::ParArray1D<int> components_d("components", components.size());
@@ -78,8 +77,8 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
   // Gather block data into flat arrays for FFT input:
   par_for(
-      "Init FFT fields", 0, md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
-      ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+      "Init FFT fields", 0, md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const auto idx = helper.FlatIndex(b, k, j, i);
         for (int n = 0; n < n_comp; n++) {
           input(n * fft_size_inbox + idx) = vars(b, components_d(n), k, j, i);
@@ -159,18 +158,15 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     if (signal == SignalHandler::OutputSignal::now) {
       suffix = "now";
     } else if (signal == SignalHandler::OutputSignal::final &&
-              output_params.file_label_final) {
+               output_params.file_label_final) {
       suffix = "final";
     } else {
       suffix = std::format("{:0{}d}", output_params.file_number,
-                          output_params.file_number_width);
+                           output_params.file_number_width);
     }
 
-    const std::string fname = std::format("{}.{}.{}.{}.spc",
-        output_params.file_basename,
-        output_label,
-        output_params.file_id,
-        suffix);
+    const std::string fname = std::format("{}.{}.{}.{}.spc", output_params.file_basename,
+                                          output_label, output_params.file_id, suffix);
 
     std::ofstream fout(fname);
     if (!fout.is_open()) {
@@ -179,8 +175,8 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
     fout << "# Bin    val_sum    K_sum    Count\n";
     for (int i = 0; i < num_bins; ++i) {
-      fout << std::format("{:d} {:.15e} {:.15e} {:.15e}\n",
-          i, spectra_h(i, 0), spectra_h(i, 1), spectra_h(i, 2));
+      fout << std::format("{:d} {:.15e} {:.15e} {:.15e}\n", i, spectra_h(i, 0),
+                          spectra_h(i, 1), spectra_h(i, 2));
     }
     fout.close();
   }

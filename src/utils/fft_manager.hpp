@@ -10,8 +10,8 @@
 #include <complex>
 #include <memory>
 
-#include "parthenon_arrays.hpp"
 #include "mesh/uniform_grid_helper.hpp"
+#include "parthenon_arrays.hpp"
 
 namespace parthenon {
 

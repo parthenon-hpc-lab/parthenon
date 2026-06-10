@@ -36,7 +36,7 @@ UniformGridHelper::UniformGridHelper(Mesh *mesh) : mesh_(mesh) {
 
   // lkasselm: This is currently only checked once during initialization,
   // but if the mesh is dynamically refined, this could be violated at later times.
-  // Needs to be checked at each call to Gather/Scatter. 
+  // Needs to be checked at each call to Gather/Scatter.
 
   for (int b = 0; b < mesh_->GetNumMeshBlocksThisRank(); b++) {
     auto pmb = mesh_->block_list[b];
@@ -117,7 +117,8 @@ void UniformGridHelper::GatherField(const std::string &var_name, int var_index,
   PARTHENON_REQUIRE_THROWS(var_index < vars.GetDim(4), "GatherField: var_index " +
                                                            std::to_string(var_index) +
                                                            " out of range");
-  PARTHENON_REQUIRE_THROWS(output.size() >= local_mesh_box.size[0] * local_mesh_box.size[1] *
+  PARTHENON_REQUIRE_THROWS(output.size() >= local_mesh_box.size[0] *
+                                                local_mesh_box.size[1] *
                                                 local_mesh_box.size[2],
                            "GatherField: output array too small");
 
@@ -129,9 +130,8 @@ void UniformGridHelper::GatherField(const std::string &var_name, int var_index,
   auto helper = GetKernelHelper();
 
   parthenon::par_for(
-      "UniformGridHelper::GatherField", 0, md->NumBlocks() - 1, kb.s,
-      kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+      "UniformGridHelper::GatherField", 0, md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
+      ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const auto idx = helper.FlatIndex(b, k, j, i);
         output(idx) = vars(b, vi, k, j, i);
       });
@@ -147,7 +147,8 @@ void UniformGridHelper::ScatterField(const parthenon::ParArray1D<Real> &input,
   PARTHENON_REQUIRE_THROWS(var_index < vars.GetDim(4), "ScatterField: var_index " +
                                                            std::to_string(var_index) +
                                                            " out of range");
-  PARTHENON_REQUIRE_THROWS(input.size() >= local_mesh_box.size[0] * local_mesh_box.size[1] *
+  PARTHENON_REQUIRE_THROWS(input.size() >= local_mesh_box.size[0] *
+                                               local_mesh_box.size[1] *
                                                local_mesh_box.size[2],
                            "ScatterField: input array too small");
 
@@ -160,9 +161,8 @@ void UniformGridHelper::ScatterField(const parthenon::ParArray1D<Real> &input,
   auto helper = GetKernelHelper();
 
   parthenon::par_for(
-      "UniformGridHelper::ScatterField", 0, md->NumBlocks() - 1, kb.s,
-      kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+      "UniformGridHelper::ScatterField", 0, md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
+      ib.s, ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const auto idx = helper.FlatIndex(b, k, j, i);
         vars(b, vi, k, j, i) = input(idx);
       });
