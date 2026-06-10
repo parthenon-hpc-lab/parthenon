@@ -67,6 +67,8 @@ FFTManager::FFTManager(Mesh *mesh) : mesh_(mesh) {
 // -----------------------------
 void FFTManager::Forward(const Real *input, Kokkos::complex<Real> *output) {
   impl_->fft_plan.forward(
+      // We have the interface use Kokkos:complex so that complex arithmetic in Kokkos kernels is possible, 
+      //but heFFTe's interface uses std::complex, so we need to reinterpret_cast here.
       input, reinterpret_cast<std::complex<Real>*>(output),
       impl_->workspace_.data(),
       heffte::scale::full);
