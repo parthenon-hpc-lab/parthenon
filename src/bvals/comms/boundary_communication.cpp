@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2022 The Parthenon collaboration
+// Copyright(C) 2022-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2022-2024. Triad National Security, LLC. All rights reserved.
@@ -47,6 +47,16 @@ namespace parthenon {
 using namespace loops;
 using namespace loops::shorthands;
 
+namespace {
+int GetNteamsPerBoundaryBuffer(const Mesh *pmesh, const int nbound) {
+  PARTHENON_REQUIRE_THROWS(
+      nbound > 0,
+      "Cannot calculate the number of teams per boundary buffer without boundaries.");
+  return std::max(1, (pmesh->minimum_number_of_teams_for_boundary_kernel + nbound - 1) /
+                         nbound);
+}
+} // namespace
+
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
                                            bool do_restriction) {
@@ -56,8 +66,7 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, true);
 
   if (cache.RequiresReinitialize(pmesh))
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, SendKey,
-                                      true);
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, SendKey);
 
   auto [rebuild, nbound, other_communication_unfinished] =
       CheckSendBufferCacheForRebuild<bound_type, true>(md);
@@ -98,18 +107,28 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
   // Load buffer data
   auto &bnd_info = cache.bnd_info;
   PARTHENON_DEBUG_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
+  const int nteams_per_buffer = GetNteamsPerBoundaryBuffer(pmesh, nbound);
+  const int work_chunk_size = pmesh->boundary_buffer_work_chunk_size;
   auto &sending_nonzero_flags = cache.sending_non_zero_flags;
   auto &sending_nonzero_flags_h = cache.sending_non_zero_flags_h;
+  if (sending_nonzero_flags.size() != (nbound * nteams_per_buffer)) {
+    sending_nonzero_flags =
+        ParArray1D<bool>("sending_nonzero_flags", nbound * nteams_per_buffer);
+    sending_nonzero_flags_h = Kokkos::create_mirror_view(sending_nonzero_flags);
+  }
 
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound * nteams_per_buffer,
+                           Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        const int b = team_member.league_rank();
+        const int b = team_member.league_rank() / nteams_per_buffer;
+        const int bteam = team_member.league_rank() % nteams_per_buffer;
+        const int iflag = team_member.league_rank();
 
         if (!bnd_info(b).allocated || bnd_info(b).same_to_same) {
           Kokkos::single(Kokkos::PerTeam(team_member),
-                         [&]() { sending_nonzero_flags(b) = false; });
+                         [&]() { sending_nonzero_flags(iflag) = false; });
           return;
         }
         Real threshold = bnd_info(b).var.allocation_threshold;
@@ -119,8 +138,15 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
           auto &idxer = bnd_info(b).idxer[it];
           const int iel = static_cast<int>(bnd_info(b).topo_idx[it]) % 3;
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
+          const auto idxer_size = idxer.size();
+          if (Ni <= 0 || idxer_size == 0) continue;
+          const int n_units = static_cast<int>(idxer_size / Ni);
+          const SplitFlatIndexRangeAmongTeams split(nteams_per_buffer, work_chunk_size,
+                                                    n_units);
+          // TODO(LFR): Finish threading index splitting through reductions
           Kokkos::parallel_reduce(
-              Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),
+              Kokkos::TeamThreadRange<>(team_member, split.GetStart(bteam),
+                                        split.GetEnd(bteam)),
               [&](const int idx, bool &lnon_zero) {
                 const auto [t, u, v, k, j, i] = idxer(idx * Ni);
                 Real *var = &bnd_info(b).var(iel, t, u, v, k, j, i);
@@ -144,7 +170,7 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
           idx_offset += idxer.size();
         }
         Kokkos::single(Kokkos::PerTeam(team_member), [&]() {
-          sending_nonzero_flags(b) = non_zero[0] || non_zero[1] || non_zero[2];
+          sending_nonzero_flags(iflag) = non_zero[0] || non_zero[1] || non_zero[2];
         });
       });
 
@@ -158,10 +184,20 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
   const bool coal_comm = pmesh->do_coalesced_comms;
   for (std::size_t ibuf = 0; ibuf < cache.buf_vec.size(); ++ibuf) {
     auto &buf = *cache.buf_vec[ibuf];
-    if (sending_nonzero_flags_h(ibuf) || !Globals::sparse_config.enabled)
+    if (!Globals::sparse_config.enabled) {
       buf.Send(coal_comm);
-    else
-      buf.SendNull(coal_comm);
+    } else {
+      // Reduce flags over all of the teams that contributed to filling a given buffer
+      bool sending_nonz{false};
+      for (int i = ibuf * nteams_per_buffer; i < (ibuf + 1) * nteams_per_buffer; ++i)
+        sending_nonz = sending_nonz || sending_nonzero_flags_h(i);
+
+      if (sending_nonz) {
+        buf.Send(coal_comm);
+      } else {
+        buf.SendNull(coal_comm);
+      }
+    }
   }
   if (pmesh->do_coalesced_comms)
     pmesh->pcoalesced_comms->PackAndSend(md.get(), bound_type);
@@ -188,8 +224,8 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.RequiresReinitialize(pmesh))
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
-                                      false);
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache,
+                                      ReceiveKey);
   if (!pmesh->do_coalesced_comms) {
     std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                   [](auto pbuf) { pbuf->TryStartReceive(); });
@@ -220,8 +256,8 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.RequiresReinitialize(pmesh))
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey,
-                                      false);
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache,
+                                      ReceiveKey);
 
   const bool coal_comm = pmesh->do_coalesced_comms;
   if (coal_comm) pmesh->pcoalesced_comms->TryReceiveAny(md.get(), bound_type);
@@ -277,6 +313,10 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
 
   auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);
 
+  if (nbound == 0) {
+    return TaskStatus::complete;
+  }
+
   if (rebuild) {
     if constexpr (bound_type == BoundaryType::gmg_prolongate_recv) {
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
@@ -291,11 +331,16 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   }
   // const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = cache.bnd_info;
+  const int nteams_per_buffer = GetNteamsPerBoundaryBuffer(pmesh, nbound);
+  const int work_chunk_size = pmesh->boundary_buffer_work_chunk_size;
+
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound, Kokkos::AUTO),
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound * nteams_per_buffer,
+                           Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        const int b = team_member.league_rank();
+        const int b = team_member.league_rank() / nteams_per_buffer;
+        const int bteam = team_member.league_rank() % nteams_per_buffer;
         if (bnd_info(b).same_to_same) return;
         int idx_offset = 0;
         for (int it = 0; it < bnd_info(b).ntopological_elements; ++it) {
@@ -307,48 +352,57 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
           Real fac = ftemp; // Can't capture structured bindings
           const int iel = static_cast<int>(tel) % 3;
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
-          if (bnd_info(b).buf_allocated && bnd_info(b).allocated) {
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),
-                [&](const int idx) {
-                  Real *buf = &bnd_info(b).buf(idx * Ni + idx_offset);
-                  const auto [t, u, v, k, j, i] = idxer(idx * Ni);
-                  // Have to do this because of some weird issue about structure bindings
-                  // being captured
-                  const int tt = t;
-                  const int uu = u;
-                  const int vv = v;
-                  const int kk = k;
-                  const int jj = j;
-                  const int ii = i;
-                  Kokkos::parallel_for(
-                      Kokkos::ThreadVectorRange<>(team_member, Ni), [&](int m) {
-                        const auto [il, jl, kl] =
-                            lcoord_trans.InverseTransform({ii + m, jj, kk});
-                        if (idxer.IsActive(kl, jl, il))
-                          var(iel, tt, uu, vv, kl, jl, il) = fac * buf[m];
-                      });
-                });
-          } else if (bnd_info(b).allocated && bound_type != BoundaryType::flxcor_recv) {
-            const Real default_val = bnd_info(b).var.sparse_default_val;
-            Kokkos::parallel_for(
-                Kokkos::TeamThreadRange<>(team_member, idxer.size() / Ni),
-                [&](const int idx) {
-                  const auto [t, u, v, k, j, i] = idxer(idx * Ni);
-                  const int tt = t;
-                  const int uu = u;
-                  const int vv = v;
-                  const int kk = k;
-                  const int jj = j;
-                  const int ii = i;
-                  Kokkos::parallel_for(
-                      Kokkos::ThreadVectorRange<>(team_member, Ni), [&](int m) {
-                        const auto [il, jl, kl] =
-                            lcoord_trans.InverseTransform({ii + m, jj, kk});
-                        if (idxer.IsActive(kl, jl, il))
-                          var(iel, tt, uu, vv, kl, jl, il) = default_val;
-                      });
-                });
+          if (bnd_info(b).allocated) {
+            const auto idxer_size = idxer.size();
+            if (Ni <= 0 || idxer_size == 0) continue;
+            const int n_units = static_cast<int>(idxer_size / Ni);
+            const SplitFlatIndexRangeAmongTeams split(nteams_per_buffer, work_chunk_size,
+                                                      n_units);
+            if (bnd_info(b).buf_allocated) {
+              Kokkos::parallel_for(
+                  Kokkos::TeamThreadRange<>(team_member, split.GetStart(bteam),
+                                            split.GetEnd(bteam)),
+                  [&](const int idx) {
+                    Real *buf = &bnd_info(b).buf(idx * Ni + idx_offset);
+                    const auto [t, u, v, k, j, i] = idxer(idx * Ni);
+                    // Have to do this because of some weird issue about structure
+                    // bindings being captured
+                    const int tt = t;
+                    const int uu = u;
+                    const int vv = v;
+                    const int kk = k;
+                    const int jj = j;
+                    const int ii = i;
+                    Kokkos::parallel_for(
+                        Kokkos::ThreadVectorRange<>(team_member, Ni), [&](int m) {
+                          const auto [il, jl, kl] =
+                              lcoord_trans.InverseTransform({ii + m, jj, kk});
+                          if (idxer.IsActive(kl, jl, il))
+                            var(iel, tt, uu, vv, kl, jl, il) = fac * buf[m];
+                        });
+                  });
+            } else if (bound_type != BoundaryType::flxcor_recv) {
+              const Real default_val = bnd_info(b).var.sparse_default_val;
+              Kokkos::parallel_for(
+                  Kokkos::TeamThreadRange<>(team_member, split.GetStart(bteam),
+                                            split.GetEnd(bteam)),
+                  [&](const int idx) {
+                    const auto [t, u, v, k, j, i] = idxer(idx * Ni);
+                    const int tt = t;
+                    const int uu = u;
+                    const int vv = v;
+                    const int kk = k;
+                    const int jj = j;
+                    const int ii = i;
+                    Kokkos::parallel_for(
+                        Kokkos::ThreadVectorRange<>(team_member, Ni), [&](int m) {
+                          const auto [il, jl, kl] =
+                              lcoord_trans.InverseTransform({ii + m, jj, kk});
+                          if (idxer.IsActive(kl, jl, il))
+                            var(iel, tt, uu, vv, kl, jl, il) = default_val;
+                        });
+                  });
+            }
           }
           idx_offset += idxer.size();
         }
