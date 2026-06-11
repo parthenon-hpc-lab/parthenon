@@ -69,8 +69,16 @@ class TensorCoreDeviceT {
 template <class CoreLike>
 struct vertical_unfolding {
   const CoreLike &core; 
-  int nd;
-  vertical_unfolding(const CoreLike &core_in) : core(core_in), nd(core_in.DD()) {}
+  int nl, nd, nr;
+  vertical_unfolding(const CoreLike &core_in) : core(core_in),
+                                                nl(core_in.LR()),
+                                                nd(core_in.DD()),
+                                                nr(core_in.RR()) {}
+  vertical_unfolding(const CoreLike &core_in, int nl, int nd, int nr) 
+      : core(core_in),
+        nl(nl),
+        nd(nd),
+        nr(nr) {}
   KOKKOS_FORCEINLINE_FUNCTION
   decltype(auto) operator()(int j, int i) const {
     const int rl = j / nd;
@@ -85,12 +93,18 @@ auto GetVerticalUnfolding(const CoreLike &core_in) {
   return vertical_unfolding<CoreLike>(core_in);
 }
 
+template<class CoreLike>
+KOKKOS_FORCEINLINE_FUNCTION
+auto GetVerticalUnfolding(const CoreLike &core_in, int nl, int nd, int nr) {
+  return vertical_unfolding<CoreLike>(core_in, nl, nd, nr);
+}
+
 template <class T>
 KOKKOS_FORCEINLINE_FUNCTION
-int GetNrows(const vertical_unfolding<T> &m) { return m.core.DD() * m.core.LR(); }
+int GetNrows(const vertical_unfolding<T> &m) { return m.nd * m.nl; }
 template <class T>
 KOKKOS_FORCEINLINE_FUNCTION
-int GetNcols(const vertical_unfolding<T> &m) { return m.core.RR(); }
+int GetNcols(const vertical_unfolding<T> &m) { return m.nr; }
 
 template <class CoreLike, bool transpose>
 struct horizontal_unfolding { 

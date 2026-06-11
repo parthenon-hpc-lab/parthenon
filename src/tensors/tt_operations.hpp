@@ -296,7 +296,7 @@ void BuildDescendingPermutation(parthenon::team_mbr_t tm,
   Real tail2{0};
   rank_new = rank;
 
-  for (int i = rank - 1; i >= 0; --i) {
+  for (int i = rank - 1; i >= 1; --i) {
     const Real s = sig(perm(i));
     const Real next_tail2 = tail2 + s * s;
     if (next_tail2 <= eps02) {
@@ -400,21 +400,10 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           auto &core = pack(b, 0, c);
           const int rank = core.LR();
           matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), rank, rank);
-          for (int alpha = 0; alpha < rank; ++alpha) {
-            for (int beta = alpha; beta < rank; ++beta) {
-              real_t const * const dat_alpha = &core(alpha, 0, 0);
-              real_t const * const dat_beta = &core(beta, 0, 0);
-              real_t sum{0.0};
-              parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag, tm, 0, core.DD() - 1, [&](int d, real_t &lsum){
-                //if (core_mask.active(c, d))
-                  lsum += dat_alpha[d] * dat_beta[d];
-              }, Kokkos::Sum<real_t>(sum));
-              Kokkos::single(Kokkos::PerTeam(tm), [&](){
-                  GR_mat(alpha, beta) = sum;
-                  GR_mat(beta, alpha) = sum;
-                });
-            }
-          }
+          auto Hc = GetHorizontalUnfolding(core);
+          auto HcT = GetHorizontalUnfoldingTranspose(core);
+          MatMulPacked<32, 32, 16, true>(tm, Hc, HcT, GR_mat,
+                                       a_scratch, b_scratch, c_scratch); 
         }
         tm.team_barrier();
 
@@ -428,15 +417,15 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           matrix_wrapper_t<real_t> GR_prev_mat(&GR(c + 1, 0), rr, rr);
           auto gram_temp_vert = GetVerticalUnfolding(gram_temp);
           auto Vc = GetVerticalUnfolding(core);
-          MatMulPacked<16, -1, -1>(tm, Vc, GR_prev_mat, gram_temp_vert,
+          MatMulPacked<16, 16, 16>(tm, Vc, GR_prev_mat, gram_temp_vert,
                                 a_scratch, b_scratch, c_scratch);
           
       
           matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), lr, lr);
           auto gram_temp_horizT = GetHorizontalUnfoldingTranspose(gram_temp);
           auto Hc = GetHorizontalUnfolding(core);
-          MatMulPacked<-1, -1, 8>(tm, Hc, gram_temp_horizT, GR_mat,
-                                a_scratch, b_scratch, c_scratch);
+          MatMulPacked<8, 8, 16, true>(tm, Hc, gram_temp_horizT, GR_mat,
+                                       a_scratch, b_scratch, c_scratch);
         }
         
         // Calculate the absolute tolerance
@@ -461,7 +450,8 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
         // L-to-R sweep over bonds 
         for (int c = 0; c < n_cores - 1; ++c) {
           const auto &core = pack(b, 0, c);
-          const auto lr = core.LR();
+          // Make sure we use the left rank that was updated in the previous iteration
+          const auto lr = c == 0 ? core.LR() : final_rank_arr(b, c - 1);
           const auto rr = core.RR();
           const auto dd = core.DD();
           const int rank = rr;
@@ -531,12 +521,12 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           // Truncate SVD to find new rank and store rank 
           int rank_new;
           BuildDescendingPermutation(tm, sig, rank, eps0, perm, rank_new);
-          // printf("[%i] bond %i with rank_old %i and rank_new %i, eps0 = %e\n  ", b, c, rank, rank_new, eps0);
+          // printf("\n[%i] bond %i with rank_old %i and rank_new %i, eps0 = %e\n  ", b, c, rank, rank_new, eps0);
           // for (int i = 0; i < rank; ++i) {
           //   printf("%e, ", sig[perm[i]]);
           //   if (i % 12 == 11) printf("\n");
           // }
-          // printf("\n");
+          // printf("\n\n");
           auto Ukeep_mat = U_mat.GetPermutedCols(perm, rank_new);
           auto VTkeep_mat = V_mat.GetTranspose().GetPermutedRows(perm, rank_new);
           auto sigkeep = GetPermuted(sig, perm, rank_new);
@@ -555,7 +545,7 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           matrix_wrapper_t<real_t> T_Lmat(GL.data(), rank, rank_new);
           MatMulDiag3<real_t>(tm, unity_vector_t(), QL_mat, eigL, Ukeep_mat, unity_vector_t(), T_Lmat); 
           wrap_3D<real_t> corelp{gram_temp_flat.data(), lr, dd, rank_new};
-          auto Vc = GetVerticalUnfolding(core);
+          auto Vc = GetVerticalUnfolding(core, lr, dd, rr);
           auto Vcorelp = GetVerticalUnfolding(corelp);
           MatMulPacked<16, -1, -1>(tm, Vc, T_Lmat, Vcorelp,
                                 a_scratch, b_scratch, c_scratch);
