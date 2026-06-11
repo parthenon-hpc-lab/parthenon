@@ -20,8 +20,8 @@ struct FFTManager::Impl {
 #if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
   using BackendTag = heffte::backend::default_backend<heffte::tag::gpu>::type;
 #elif defined(KOKKOS_ENABLE_SYCL)
-  // Not tested, so hard fail for now. 
-  static_assert(false, "heFFTe's SYCL backend is not yet tested with Parthenon. Please test and enable this code.");
+  static_assert(false, "heFFTe's SYCL backend is not yet tested with Parthenon. Please "
+                       "test and enable this code.");
 #else
   using BackendTag = heffte::backend::default_backend<heffte::tag::cpu>::type;
 #endif
