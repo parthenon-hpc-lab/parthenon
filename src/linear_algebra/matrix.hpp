@@ -365,7 +365,7 @@ KOKKOS_FORCEINLINE_FUNCTION void summation(tm_t tm, const int jl, const int ju,
   }
 }
 
-template <int MB = 8, int NB = 8, int KB = 8, class tm_t, class A_t, class B_t, class C_t>
+template <int MB = 8, int NB = 8, int KB = 8, bool SymmetricOutput = false, class tm_t, class A_t, class B_t, class C_t>
 KOKKOS_FORCEINLINE_FUNCTION void
 MatMulPacked(tm_t tm, const A_t &A, const B_t &B, C_t &C,
              parthenon::ScratchPad1D<double> &a_scratch,
@@ -378,6 +378,9 @@ MatMulPacked(tm_t tm, const A_t &A, const B_t &B, C_t &C,
   PARTHENON_REQUIRE(GetNrows(B) == k, "Inner dimensions must match.");
   PARTHENON_REQUIRE(GetNrows(C) == m, "C row dimension mismatch.");
   PARTHENON_REQUIRE(GetNcols(C) == n, "C col dimension mismatch.");
+  if constexpr (SymmetricOutput) {
+    PARTHENON_REQUIRE(m == n, "Output matrix must be square for symmetric result.");
+  }
   
   const int mb_size = MB > 0 ? MB : m;
   const int kb_size = KB > 0 ? KB : k;
@@ -395,9 +398,10 @@ MatMulPacked(tm_t tm, const A_t &A, const B_t &B, C_t &C,
   //printf("AT(%i, %i) BT(%i, %i) CT(%i, %i)\n", mb_size, kb_size, kb_size, nb_size, GetNrows(CT), GetNcols(CT));
   for (int i0 = 0; i0 < m; i0 += mb_size) {
     const int mb = (i0 + mb_size <= m) ? mb_size : (m - i0);
-
-    for (int j0 = 0; j0 < n; j0 += nb_size) {
+    const int jstart = SymmetricOutput ? i0 : 0;
+    for (int j0 = jstart; j0 < n; j0 += nb_size) {
       const int nb = (j0 + nb_size <= n) ? nb_size : (n - j0);
+      const bool diagonal_tile = i0 == j0;
 
       // Zero local C tile
       parallel_loop(
@@ -434,6 +438,7 @@ MatMulPacked(tm_t tm, const A_t &A, const B_t &B, C_t &C,
         parallel_loop(
             tm, 0, mb - 1, 0, nb - 1,
             KOKKOS_LAMBDA(const int ii, const int jj) {
+              if (SymmetricOutput && diagonal_tile && jj < ii) return; 
               double sum = 0.0;
               for (int kk = 0; kk < kb; ++kk) {
                 sum += AT(ii, kk) * BT(kk, jj);
@@ -457,6 +462,14 @@ MatMulPacked(tm_t tm, const A_t &A, const B_t &B, C_t &C,
         barrier(tm);
       }
     }
+  }
+  if constexpr (SymmetricOutput) {
+    parallel_loop(
+        tm, 0, m - 1, 0, m - 1,
+        KOKKOS_LAMBDA(const int i, const int j) {
+          if (j > i) C(j, i) = C(i, j);
+        });
+    barrier(tm);
   }
 }
 
