@@ -457,26 +457,12 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           const int rank = rr;
           // Compute left Gram matrix
           matrix_wrapper_t<real_t> GL_mat(GL.data(), rank, rank);
-          parthenon::par_for_inner(tm, 0, rank - 1, 0, rank - 1, 
-                [&](int alpha, int beta){
-                  GL_mat(alpha, beta) = 0.0;
-              });
-          tm.team_barrier();
-
-          auto &temp = sig;
-          for (int lambda = 0; lambda < lr; ++lambda) {
-            for (int j = 0; j < core.DD() - 1; ++j) {
-              parthenon::par_for_inner(tm, 0, rank - 1, [&](int alpha) {
-                temp(alpha) = core(lambda, j, alpha);
-              });
-              tm.team_barrier();
-              parthenon::par_for_inner(tm, 0, rank - 1, 0, rank - 1, [&](int alpha, int beta) {
-                GL_mat(alpha, beta) += temp(alpha) * temp(beta);
-              });
-              tm.team_barrier();
-            }
+          {
+            auto Vc = GetVerticalUnfolding(core, lr, dd, rr);
+            auto VcT = GetVerticalUnfoldingTranspose(core, lr, dd, rr);
+            MatMulPacked<32, 32, 1, true>(tm, VcT, Vc, GL_mat,
+                                           a_scratch, b_scratch, c_scratch);
           }
-          tm.team_barrier();
 
           // Compute eigen decomposition of L and R Gram matrices
           matrix_wrapper_t<real_t> QL_mat(QL.data(), rank, rank);

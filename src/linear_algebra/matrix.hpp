@@ -438,7 +438,9 @@ MatMulPacked(tm_t tm, const A_t &A, const B_t &B, C_t &C,
         parallel_loop(
             tm, 0, mb - 1, 0, nb - 1,
             KOKKOS_LAMBDA(const int ii, const int jj) {
-              if (SymmetricOutput && diagonal_tile && jj < ii) return; 
+              if constexpr (SymmetricOutput) {
+                if (diagonal_tile && jj < ii) return; 
+              }
               double sum = 0.0;
               for (int kk = 0; kk < kb; ++kk) {
                 sum += AT(ii, kk) * BT(kk, jj);
