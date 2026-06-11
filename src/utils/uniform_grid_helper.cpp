@@ -6,8 +6,13 @@
 
 // This file was made in part with generative AI.
 
-#include "utils/uniform_grid_helper.hpp"
+#include <algorithm>
+#include <iostream>
+#include <limits>
+#include <string>
+
 #include "mesh/mesh.hpp"
+#include "utils/uniform_grid_helper.hpp"
 
 namespace parthenon {
 
@@ -104,12 +109,10 @@ UniformGridHelper::UniformGridHelper(Mesh *mesh) : mesh_(mesh) {
             << local_mesh_box.high[1] << ", " << local_mesh_box.high[2] << "), size = ("
             << local_mesh_box.size[0] << ", " << local_mesh_box.size[1] << ", "
             << local_mesh_box.size[2] << ")\n";
-
 } // UniformGridHelper::UniformGridHelper
 
 void UniformGridHelper::GatherField(const std::string &var_name, int var_index,
                                     parthenon::ParArray1D<Real> &output) {
-
   // Check that var_name and var_index correspond to a valid variable in the mesh data and
   // that output array is large enough to hold the gathered data.
   auto &md = mesh_->mesh_data.Get();
@@ -141,7 +144,6 @@ void UniformGridHelper::GatherField(const std::string &var_name, int var_index,
 
 void UniformGridHelper::ScatterField(const parthenon::ParArray1D<Real> &input,
                                      const std::string &var_name, int var_index) {
-
   auto &md = mesh_->mesh_data.Get();
   auto vars = md->PackVariables(std::vector<std::string>{var_name});
   PARTHENON_REQUIRE_THROWS(vars.GetDim(5) > 0, "ScatterField: variable '" + var_name +

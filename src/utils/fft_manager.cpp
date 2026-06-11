@@ -6,6 +6,9 @@
 
 // This file was made in part with generative AI.
 
+#include <memory>
+#include <vector>
+
 #include "fft_manager.hpp"
 #include "heffte.h"
 #include "mesh/mesh.hpp"

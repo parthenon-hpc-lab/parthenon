@@ -12,6 +12,7 @@
 #include <array>
 #include <cstdint>
 #include <limits>
+#include <string>
 
 #include "parthenon_arrays.hpp"
 
@@ -28,7 +29,6 @@ struct Box3D {
 // Assuming a uniform grid, this class helps gather information about the grid layout
 // across all meshblocks on a rank.
 class UniformGridHelper {
-
  public:
   explicit UniformGridHelper(Mesh *mesh);
 
