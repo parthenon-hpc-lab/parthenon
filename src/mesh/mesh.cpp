@@ -83,8 +83,10 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       resolved_packages(ResolvePackages(packages)),
       task_collection_timeout_in_seconds(pin->GetOrAddInteger(
           "parthenon/mesh", "task_collection_timeout_in_seconds", 60 * 5)),
-      nteams_per_boundary_buffer(
-          pin->GetOrAddInteger("parthenon/mesh", "nteams_per_boundary_buffer", 1)),
+      minimum_number_of_teams_for_boundary_kernel(pin->GetOrAddInteger(
+          "parthenon/mesh", "minimum_number_of_teams_for_boundary_kernel", 1,
+          "Minimum number of teams to launch when filling or applying boundary "
+          "buffers. Additional teams are distributed evenly across buffers.")),
       boundary_buffer_work_chunk_size(
           pin->GetOrAddInteger("parthenon/mesh", "boundary_buffer_work_chunk_size", 1)),
       // private members:
@@ -201,6 +203,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   if (multigrid) SetNumberOfCommChannels(BoundaryType::gmg_restrict_send, 2);
 
   SetupMPIComms();
+
+  PARTHENON_REQUIRE(minimum_number_of_teams_for_boundary_kernel > 0,
+                    "parthenon/mesh/minimum_number_of_teams_for_boundary_kernel "
+                    "must be positive.");
+  PARTHENON_REQUIRE(boundary_buffer_work_chunk_size > 0,
+                    "parthenon/mesh/boundary_buffer_work_chunk_size must be positive.");
 
   RegisterLoadBalancing_(pin);
 

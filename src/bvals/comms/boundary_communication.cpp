@@ -49,6 +49,16 @@ namespace parthenon {
 using namespace loops;
 using namespace loops::shorthands;
 
+namespace {
+int GetNteamsPerBoundaryBuffer(const Mesh *pmesh, const int nbound) {
+  PARTHENON_REQUIRE_THROWS(
+      nbound > 0,
+      "Cannot calculate the number of teams per boundary buffer without boundaries.");
+  return std::max(1, (pmesh->minimum_number_of_teams_for_boundary_kernel + nbound - 1) /
+                         nbound);
+}
+} // namespace
+
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
                                            bool do_restriction) {
@@ -99,7 +109,7 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
   // Load buffer data
   auto &bnd_info = cache.bnd_info;
   PARTHENON_DEBUG_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
-  const int nteams_per_buffer = pmesh->nteams_per_boundary_buffer;
+  const int nteams_per_buffer = GetNteamsPerBoundaryBuffer(pmesh, nbound);
   const int work_chunk_size = pmesh->boundary_buffer_work_chunk_size;
   auto &sending_nonzero_flags = cache.sending_non_zero_flags;
   auto &sending_nonzero_flags_h = cache.sending_non_zero_flags_h;
@@ -130,7 +140,9 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
           auto &idxer = bnd_info(b).idxer[it];
           const int iel = static_cast<int>(bnd_info(b).topo_idx[it]) % 3;
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
-          const int n_units = idxer.size() / Ni;
+          const auto idxer_size = idxer.size();
+          if (Ni <= 0 || idxer_size == 0) continue;
+          const int n_units = static_cast<int>(idxer_size / Ni);
           const SplitFlatIndexRangeAmongTeams split(nteams_per_buffer, work_chunk_size,
                                                     n_units);
           // TODO(LFR): Finish threading index splitting through reductions
@@ -213,7 +225,8 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.RequiresReinitialize(pmesh))
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey);
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache,
+                                      ReceiveKey);
   if (!pmesh->do_coalesced_comms) {
     std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                   [](auto pbuf) { pbuf->TryStartReceive(); });
@@ -244,7 +257,8 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.RequiresReinitialize(pmesh))
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, ReceiveKey);
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache,
+                                      ReceiveKey);
 
   const bool coal_comm = pmesh->do_coalesced_comms;
   if (coal_comm) pmesh->pcoalesced_comms->TryReceiveAny(md.get(), bound_type);
@@ -300,6 +314,10 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
 
   auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bound_type, false>(md);
 
+  if (nbound == 0) {
+    return TaskStatus::complete;
+  }
+
   if (rebuild) {
     if constexpr (bound_type == BoundaryType::gmg_prolongate_recv) {
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
@@ -314,7 +332,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   }
   // const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = cache.bnd_info;
-  const int nteams_per_buffer = pmesh->nteams_per_boundary_buffer;
+  const int nteams_per_buffer = GetNteamsPerBoundaryBuffer(pmesh, nbound);
   const int work_chunk_size = pmesh->boundary_buffer_work_chunk_size;
 
   Kokkos::parallel_for(
@@ -336,7 +354,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
           const int iel = static_cast<int>(tel) % 3;
           const int Ni = idxer.template EndIdx<5>() - idxer.template StartIdx<5>() + 1;
           if (bnd_info(b).allocated) {
-            const int n_units = idxer.size() / Ni;
+            const auto idxer_size = idxer.size();
+            if (Ni <= 0 || idxer_size == 0) continue;
+            const int n_units = static_cast<int>(idxer_size / Ni);
             const SplitFlatIndexRangeAmongTeams split(nteams_per_buffer, work_chunk_size,
                                                       n_units);
             if (bnd_info(b).buf_allocated) {
