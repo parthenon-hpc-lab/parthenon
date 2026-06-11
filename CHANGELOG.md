@@ -5,6 +5,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1403]](https://github.com/parthenon-hpc-lab/parthenon/pull/1403) Add interface for Fourier transforms on uniform meshes via heFFTe
 - [[PR 1050]](https://github.com/parthenon-hpc-lab/parthenon/pull/1050) Add support for OpenPMD/ADIOS2 output (incl slices and coarsened dumps)
 - [[PR 1382]](https://github.com/parthenon-hpc-lab/parthenon/pull/1382) Support Particle AMR
 - [[PR 1378]](https://github.com/parthenon-hpc-lab/parthenon/pull/1378) MeshData Swarm Tasks
