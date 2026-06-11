@@ -483,7 +483,7 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     slice_loc = pin->GetReal(output_params.block_name, "slice_loc");
   }
 
-  auto in_output = [&](auto &coords, const int k, const int j, const int i,
+  auto in_output = [&](const Coordinates_t &coords, const int k, const int j, const int i,
                        const int width) {
     if (!is_slice) return true;
 
