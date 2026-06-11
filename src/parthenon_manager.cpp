@@ -42,6 +42,7 @@
 #include "outputs/outputs_package.hpp"
 #include "outputs/restart.hpp"
 #include "outputs/restart_hdf5.hpp"
+#include "parameter_parsers/python_parser.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
 
@@ -121,16 +122,38 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   }
   // If an input file was provided
   if (arg.input_filename != nullptr) {
-    // Modify info read from restart file
-    if (arg.is_restart) {
-      IOWrapper infile;
-      infile.Open(arg.input_filename, IOWrapper::FileMode::read);
-      pinput->LoadFromFile(infile);
-      infile.Close();
+    // Check if it's a Python input file
+    bool is_python_input = (fs::path(arg.input_filename).extension() == ".py");
 
-      // Populate new object for fresh simulation
+#ifdef PARTHENON_ENABLE_PYTHON_BINDINGS
+    if (is_python_input) {
+      if (arg.is_restart) {
+        PARTHENON_FAIL("Python input files cannot be used with restart");
+      }
+      pinput = LoadParameterInputFromPython(arg.input_filename, argc, argv);
+      // nullptr signals clean exit requested (e.g., --help)
+      if (!pinput) {
+        return ParthenonStatus::complete;
+      }
     } else {
-      pinput = std::make_unique<ParameterInput>(arg.input_filename);
+#else
+    if (is_python_input) {
+      PARTHENON_FAIL("Python input file detected but Parthenon was not built with "
+                     "-DPARTHENON_ENABLE_PYTHON_BINDINGS=ON");
+    } else {
+#endif
+      // Standard .pin file handling
+      // Modify info read from restart file
+      if (arg.is_restart) {
+        IOWrapper infile;
+        infile.Open(arg.input_filename, IOWrapper::FileMode::read);
+        pinput->LoadFromFile(infile);
+        infile.Close();
+
+        // Populate new object for fresh simulation
+      } else {
+        pinput = std::make_unique<ParameterInput>(arg.input_filename);
+      }
     }
   }
 
