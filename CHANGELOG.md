@@ -6,6 +6,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 1050]](https://github.com/parthenon-hpc-lab/parthenon/pull/1050) Add support for OpenPMD/ADIOS2 output (incl slices and coarsened dumps)
+- [[PR 1271]](https://github.com/parthenon-hpc-lab/parthenon/pull/1271) Add option to set a minimum number of teams for boundary communication kernels
 - [[PR 1382]](https://github.com/parthenon-hpc-lab/parthenon/pull/1382) Support Particle AMR
 - [[PR 1378]](https://github.com/parthenon-hpc-lab/parthenon/pull/1378) MeshData Swarm Tasks
 - [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy
@@ -25,6 +26,7 @@
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1405]](https://github.com/parthenon-hpc-lab/parthenon/pull/1405) Fixes race condition in flux correction communication when sparse variables are disabled
 - [[PR 1339]](https://github.com/parthenon-hpc-lab/parthenon/pull/1339) Fixes doc for `numlevel` usage in non-AMR sims
 - [[PR 1393]](https://github.com/parthenon-hpc-lab/parthenon/pull/1393) Fixes a bug where CMake does not detect HDF5 parallel IO for HDF5 2.0.0 and later.
 - [[PR 1390]](https://github.com/parthenon-hpc-lab/parthenon/pull/1390) Fix bug where trailing comma in list in input deck treated as wildcard in some cases.
