@@ -64,7 +64,6 @@ RestartReaderOPMD::RestartReaderOPMD(const char *filename) : filename_(filename)
 }
 
 int RestartReaderOPMD::GetOutputFormatVersion() const {
-  // TODO(pgrete) move info to shared header and introduce constexpr var
   if (it->containsAttribute("OutputFormatVersion")) {
     return it->getAttribute("OutputFormatVersion").get<int>();
   } else {
