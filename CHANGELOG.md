@@ -5,6 +5,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1050]](https://github.com/parthenon-hpc-lab/parthenon/pull/1050) Add support for OpenPMD/ADIOS2 output (incl slices and coarsened dumps)
 - [[PR 1271]](https://github.com/parthenon-hpc-lab/parthenon/pull/1271) Add option to set a minimum number of teams for boundary communication kernels
 - [[PR 1382]](https://github.com/parthenon-hpc-lab/parthenon/pull/1382) Support Particle AMR
 - [[PR 1378]](https://github.com/parthenon-hpc-lab/parthenon/pull/1378) MeshData Swarm Tasks

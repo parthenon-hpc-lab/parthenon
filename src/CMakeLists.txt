@@ -201,6 +201,7 @@ add_library(parthenon
   outputs/history.cpp
   outputs/io_wrapper.cpp
   outputs/io_wrapper.hpp
+  outputs/output_attr.hpp
   outputs/output_utils.cpp
   outputs/output_utils.hpp
   outputs/outputs.cpp
@@ -370,6 +371,16 @@ endif()
 
 if (ENABLE_HDF5)
   target_link_libraries(parthenon PUBLIC HDF5_C)
+endif()
+
+if (PARTHENON_ENABLE_OPENPMD)
+  target_sources(parthenon PRIVATE
+    outputs/parthenon_opmd.cpp
+    outputs/parthenon_opmd.hpp
+    outputs/restart_opmd.cpp
+    outputs/restart_opmd.hpp
+  )
+  target_link_libraries(parthenon PUBLIC openPMD::openPMD)
 endif()
 
 # For Cuda with NVCC (<11.2) and C++17 Kokkos currently does not work/compile with

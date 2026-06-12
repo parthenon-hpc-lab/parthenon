@@ -116,7 +116,12 @@ class RestartReaderHDF5 : public RestartReader {
   // fills internal data for given pointer
   void ReadBlocks(const std::string &name, IndexRange range,
                   const OutputUtils::VarInfo &info, std::vector<Real> &dataVec,
-                  int file_output_format_version) const override;
+                  Mesh *pmesh) const override;
+
+  //  The PackOrUnpack logic requires knowledge of how data is stored and being read into
+  //  the buffer. For HDF5 data is padded if needed (i.e., a face centered field has tims
+  //  nx#+1 in all dimensions).
+  [[nodiscard]] bool BlockdataIsPadded() const override { return true; };
 
   // Gets the data from a swarm var on current rank. Assumes all
   // blocks are contiguous. Fills dataVec based on shape from swarmvar
@@ -229,13 +234,23 @@ class RestartReaderHDF5 : public RestartReader {
 
   void ReadParams(const std::string &name, Params &p) override;
 
-  [[nodiscard]] bool VariableExists(const std::string &name) const override {
+  [[nodiscard]] bool VariableExists(const std::string &name, const DataType data_type,
+                                    const std::string swarmvarname = ""
+
+  ) const override {
 #ifdef ENABLE_HDF5
-    // make sure dataset exists
-    // disabling error handling/printing as we take care of it
+    // Make sure dataset exists. Our HDF5 output does not differentiate between
+    // fields and swarms, so we can ignore the data_type. Note, we may eventually
+    // want to fix this as swarms and fields with the same name may cause issues.
+    // disable error handling/printing while probing so missing datasets do not
+    // spam the log, then restore the aborting handler.
+    std::string full_name = name;
+    if (data_type == DataType::SwarmVar) {
+      full_name = name + "/SwarmVars/" + swarmvarname;
+    }
     H5Eset_auto(H5E_DEFAULT, NULL, NULL);
-    auto status = H5Oexists_by_name(fh_, name.c_str(), H5P_DEFAULT);
-    // reenable HDF5 error handling to throw an error
+    auto status =
+        PARTHENON_HDF5_CHECK(H5Oexists_by_name(fh_, full_name.c_str(), H5P_DEFAULT));
     H5Eset_auto(H5E_DEFAULT, aborting_error_handler, NULL);
     return status > 0;
 #else
