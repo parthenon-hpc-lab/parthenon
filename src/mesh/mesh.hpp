@@ -335,6 +335,8 @@ class Mesh {
   ObjectPoolMap<BufArray1D<Real>> pool_map;
   comm_buf_map_t boundary_comm_map;
   TagMap tag_map;
+  int minimum_number_of_teams_for_boundary_kernel;
+  int boundary_buffer_work_chunk_size;
 
   // Sets the number of communication buffers that can be in-flight concurrently
   // for a given boundary type. This *must* be called before build boundary buffers

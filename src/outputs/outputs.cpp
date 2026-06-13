@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2025 The Parthenon collaboration
+// Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // Athena++ astrophysical MHD code
@@ -258,6 +258,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       op.meshdata_name = pin->GetOrAddString(op.block_name, "meshdata_name", "base",
                                              "which meshdata object to write from");
     } else {
+      // For OpenPMD/ADIOS2 it is not required to seed sparse nans as BP5 knows
+      // which chunks in a (sparse by default) mesh are written and which are not.
       op.sparse_seed_nans = false;
     }
 
@@ -421,7 +423,12 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
                                  "Restart outputs cannot be coarsened.");
       }
 
-      pnew_type = std::make_shared<OpenPMDOutput>(op, backend_config, coarsening_factor);
+      const auto format_version = pin->GetOrAddInteger(
+          op.block_name, "openpmd_format_version", OpenPMDOutput::OUTPUT_VERSION_FORMAT,
+          "OpenPMD output format version (1 = legacy, 2 = standard-compliant vectors)");
+
+      pnew_type = std::make_shared<OpenPMDOutput>(op, backend_config, coarsening_factor,
+                                                  format_version);
 #else
       msg << "### FATAL ERROR in Outputs constructor" << std::endl
           << "Executable not configured for OpenPMD outputs, but OpenPMD file format "
@@ -537,6 +544,11 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
         for (const auto &pkg : pm->packages.AllPackages()) {
           pkg.second->UserWorkBeforeRestartOutput(pm, pin, *tm, &(ptype->output_params));
         }
+      }
+      // Poke the dog before each output to not trigger an accidental kill for many
+      // simultaneous outputs (e.g., on final)
+      if (Globals::watchdog_enabled) {
+        WatchDog::WatchDog(0);
       }
       ptype->WriteOutputFile(pm, pin, tm, signal);
     }

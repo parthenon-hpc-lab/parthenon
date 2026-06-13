@@ -80,21 +80,18 @@ void CheckValidName(const std::string &name) {
 }
 
 template <typename T>
+  requires(KokkosView<T>)
 auto GetFlatHostVecFromView(T view) {
   // Take a view and return a vector containing rank and dims and a flattened (1D)
   // std::vector that can then easily be passed to OpenPMD.
-  // Note, this function is not
-  // optimial as multiple (unnecessary) copies may be done. PG didn't come up with a
-  // smarter way but thinks that it's not a performance issue as this is only called for
-  // outputs (thus not that often) and for mostly small amounts of data. With a C++20 span
-  // we could probably direct reuse the host mirror data pointer.
-  auto view_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), view);
+  using base_t = T::non_const_value_type;
+  using Unmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
+  const std::size_t n = view.size();
+  std::vector<base_t> host_vec(n);
+  Kokkos::View<base_t *, HostMemSpace, Unmanaged> view_h(host_vec.data(), n);
+  Kokkos::View<base_t *, Unmanaged> dev_flat(view.data(), n);
+  Kokkos::deep_copy(view_h, dev_flat);
 
-  using base_t = typename std::remove_pointer<decltype(view_h.data())>::type;
-  auto host_vec = std::vector<base_t>(view_h.size());
-  for (auto i = 0; i < view_h.size(); i++) {
-    host_vec[i] = view_h.data()[i];
-  }
   // cpplint demands compile constants be all caps
   constexpr auto RANK = static_cast<size_t>(T::rank);
   std::vector<size_t> rank_and_dims(RANK + 1);
@@ -233,24 +230,8 @@ GetParticleRecordAndComponentNames(const std::string &vname, const int rank,
 
 std::tuple<std::string, std::string>
 GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te,
-                               const int comp_idx, const int level) {
-  std::string comp_name;
-  if (vinfo.is_vector) {
-    if (comp_idx == 0) {
-      comp_name = "x";
-    } else if (comp_idx == 1) {
-      comp_name = "y";
-    } else if (comp_idx == 2) {
-      comp_name = "z";
-    } else {
-      PARTHENON_THROW("Expected component index doesn't match vector expectation.");
-    }
-    //  Current unclear how to properly handle other vectors and tensors, so everything
-    //  that not's a proper vector is a a scalar for now.
-  } else {
-    comp_name = openPMD::MeshRecordComponent::SCALAR;
-  }
-
+                               const int comp_idx, const int level,
+                               const int format_version) {
   // Default for cell centered fields is an empty string
   // to maintain backwards compatiblity with first iteration of
   // OpenPMD outputs.
@@ -273,9 +254,55 @@ GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te
     PARTHENON_REQUIRE_THROWS(te == TopologicalElement::CC,
                              "Outputs for this type of TE not implemented.")
   }
-  const std::string &mesh_record_name = vinfo.label + "_" + te_str +
-                                        vinfo.component_labels[comp_idx] + "_lvl" +
-                                        std::to_string(level);
+
+  std::string mesh_record_name;
+  std::string comp_name;
+
+  if (format_version >= 2) {
+    // Standard-compliant: one shared record per variable+te+level, components
+    // distinguished only by sub-group name.
+    mesh_record_name = vinfo.label + "_" + te_str + "lvl" + std::to_string(level);
+
+    if (vinfo.is_vector) {
+      if (comp_idx == 0) {
+        comp_name = "x";
+      } else if (comp_idx == 1) {
+        comp_name = "y";
+      } else if (comp_idx == 2) {
+        comp_name = "z";
+      } else {
+        PARTHENON_THROW("Expected component index doesn't match vector expectation.");
+      }
+    } else if (vinfo.num_components == 1) {
+      comp_name = openPMD::MeshRecordComponent::SCALAR;
+    } else {
+      // Multi-component non-vector (tensor or arbitrary shape): extract the
+      // user-provided suffix from the full component label ("label_suffix" → "suffix").
+      const auto &full = vinfo.component_labels[comp_idx];
+      const auto prefix_len = vinfo.label.length() + 1; // skip "label_"
+      comp_name = full.substr(prefix_len);
+    }
+  } else {
+    // Legacy format (version 1): each component gets its own record with the
+    // component label embedded in the record name.
+    mesh_record_name = vinfo.label + "_" + te_str + vinfo.component_labels[comp_idx] +
+                       "_lvl" + std::to_string(level);
+
+    if (vinfo.is_vector) {
+      if (comp_idx == 0) {
+        comp_name = "x";
+      } else if (comp_idx == 1) {
+        comp_name = "y";
+      } else if (comp_idx == 2) {
+        comp_name = "z";
+      } else {
+        PARTHENON_THROW("Expected component index doesn't match vector expectation.");
+      }
+    } else {
+      comp_name = openPMD::MeshRecordComponent::SCALAR;
+    }
+  }
+
   CheckValidName(mesh_record_name);
   CheckValidName(comp_name);
   return {mesh_record_name, comp_name};
@@ -384,11 +411,19 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // TODO(pgrete) Should we update for restart or only set this once? Or make it per
   // iteration?
 
-  // TODO(someone) discuss whether or not we want to use these "standard" infos
-  // on top of default provenance infos added as attributes below.
-  // series.setAuthor("My Name <mail@addre.es");
-  // series.setComment("Hello world!");
-  // series.setMachine("bla");
+  // Set default info when present
+  if (pin->DoesParameterExist("parthenon/job", "author")) {
+    const auto author = pin->Get<std::string>("parthenon/job", "author");
+    series.setAuthor(author);
+  }
+  if (pin->DoesParameterExist("parthenon/job", "comment")) {
+    const auto comment = pin->Get<std::string>("parthenon/job", "comment");
+    series.setComment(comment);
+  }
+  if (pin->DoesParameterExist("parthenon/job", "machine")) {
+    const auto machine = pin->Get<std::string>("parthenon/job", "machine");
+    series.setMachine(machine);
+  }
   series.setSoftware("Parthenon + X");
   const auto now = std::chrono::system_clock::now();
   series.setDate(std::format("{:%F %T}", now));
@@ -421,6 +456,8 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // Note, that profiling is likely skewed as data is actually written to disk/flushed
   // only later.
   Kokkos::Profiling::pushRegion("write Attributes");
+  it.setAttribute("OutputFormatVersion", format_version_);
+
   // First the ones required by the OpenPMD standard
   if (tm != nullptr) {
     it.setTime(tm->time);
@@ -439,6 +476,23 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     PARTHENON_REQUIRE_THROWS(pm->ndim == 3, "Slices are only implemented in 3D");
     slice_loc = pin->GetReal(output_params.block_name, "slice_loc");
   }
+
+  auto in_output = [&](const Coordinates_t &coords, const int k, const int j, const int i,
+                       const int width) {
+    if (!is_slice) return true;
+
+    if (output_params.mode == X1Slice) {
+      return slice_loc >= coords.Xf<X1DIR>(k, j, i) &&
+             slice_loc < coords.Xf<X1DIR>(k, j, i + width);
+    } else if (output_params.mode == X2Slice) {
+      return slice_loc >= coords.Xf<X2DIR>(k, j, i) &&
+             slice_loc < coords.Xf<X2DIR>(k, j + width, i);
+    } else if (output_params.mode == X3Slice) {
+      return slice_loc >= coords.Xf<X3DIR>(k, j, i) &&
+             slice_loc < coords.Xf<X3DIR>(k + width, j, i);
+    }
+    PARTHENON_FAIL("Unclear how I got here.");
+  };
 
   if (!is_slice) {
     PARTHENON_INSTRUMENT_REGION("Dump Params");
@@ -668,26 +722,35 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     // for each local mesh block
     for (size_t b_idx = 0; b_idx < num_blocks_local; ++b_idx) {
       const auto &pmb = pm->block_list[b_idx];
+      auto pmb_ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+      auto pmb_jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+      auto pmb_kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+      const int pmb_width = output_params.mode == X1Slice   ? pmb_ib.e - pmb_ib.s + 1
+                            : output_params.mode == X2Slice ? pmb_jb.e - pmb_jb.s + 1
+                                                            : pmb_kb.e - pmb_kb.s + 1;
+      if (!in_output(pmb->coords, pmb_kb.s, pmb_jb.s, pmb_ib.s, pmb_width)) {
+        continue;
+      }
+
       // TODO(pgrete) check if we should skip the suffix for level 0
       const auto level = pmb->loc.level() - pm->GetRootLevel();
       for (const auto &te : vinfo.topological_elements) {
         for (int comp_idx = 0; comp_idx < vinfo.component_labels.size(); comp_idx++) {
           const auto [record_name, comp_name] =
-              OpenPMDUtils::GetMeshRecordAndComponentNames(vinfo, te, comp_idx, level);
+              OpenPMDUtils::GetMeshRecordAndComponentNames(vinfo, te, comp_idx, level,
+                                                           format_version_);
 
-          // Create the mesh_record for this variable at the given level (if it doesn't
-          // exist yet)
-          if (!it.meshes.contains(record_name)) {
-            auto mesh_record = it.meshes[record_name];
+          const bool new_record = !it.meshes.contains(record_name);
+          auto mesh_record = it.meshes[record_name];
 
-            // These following attributes are shared across all components of the record.
-
+          // Set record-level attributes once (shared across all components)
+          if (new_record) {
             PARTHENON_REQUIRE_THROWS(
                 typeid(Coordinates_t) == typeid(UniformCartesian),
                 "OpenPMD in Parthenon currently only supports Cartesian coordinates.");
             mesh_record.setGeometry(openPMD::Mesh::Geometry::cartesian);
             auto &coords = pmb->coords;
-            // For uniform Cartesian, all dxN are const across the block so we just pick
+            // For Cartesian geometry, all dxN are const across the block so we just pick
             // the first index.
             Real dx1 = coords.CellWidth<X1DIR>(0, 0, 0) * coarsening_factor_;
             Real dx2 = coords.CellWidth<X2DIR>(0, 0, 0) * coarsening_factor_;
@@ -696,9 +759,6 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
             // TODO(pgrete) check if this should be tied to the MemoryLayout
             mesh_record.setDataOrder(openPMD::Mesh::DataOrder::C);
 
-            auto mesh_comp = mesh_record[comp_name];
-            auto effective_nx = static_cast<std::uint64_t>(std::pow(2, level));
-            openPMD::Extent global_extent;
             if (pm->ndim == 3) {
               auto grid_spacing = std::vector<Real>{dx3, dx2, dx1};
               auto axis_labels = std::vector<std::string>{"z", "y", "x"};
@@ -707,6 +767,42 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                   pm->mesh_size.xmin(X2DIR),
                   pm->mesh_size.xmin(X1DIR),
               };
+              int remove_comp = -1;
+              if (output_params.mode == X1Slice) {
+                remove_comp = 2;
+              } else if (output_params.mode == X2Slice) {
+                remove_comp = 1;
+              } else if (output_params.mode == X3Slice) {
+                remove_comp = 0;
+              }
+              if (remove_comp >= 0) {
+                grid_spacing.erase(grid_spacing.begin() + remove_comp);
+                axis_labels.erase(axis_labels.begin() + remove_comp);
+                global_offset.erase(global_offset.begin() + remove_comp);
+              }
+              mesh_record.setGridSpacing(grid_spacing);
+              mesh_record.setAxisLabels(axis_labels);
+              mesh_record.setGridGlobalOffset(global_offset);
+            } else if (pm->ndim == 2) {
+              mesh_record.setGridSpacing(std::vector<Real>{dx2, dx1});
+              mesh_record.setAxisLabels({"y", "x"});
+              mesh_record.setGridGlobalOffset({
+                  pm->mesh_size.xmin(X2DIR),
+                  pm->mesh_size.xmin(X1DIR),
+              });
+            } else {
+              PARTHENON_THROW("1D output for openpmd not yet supported.");
+            }
+            // TODO(pgrete) need unitDimension and timeOffset for this record?
+          }
+
+          // Per-component setup: position and dataset (each component needs its own)
+          const bool new_comp = !mesh_record.contains(comp_name);
+          if (new_comp) {
+            auto mesh_comp = mesh_record[comp_name];
+            auto effective_nx = static_cast<std::uint64_t>(std::pow(2, level));
+            openPMD::Extent global_extent;
+            if (pm->ndim == 3) {
               auto position = std::vector<Real>{0.5 - 0.5 * TopologicalOffsetK(te),
                                                 0.5 - 0.5 * TopologicalOffsetJ(te),
                                                 0.5 - 0.5 * TopologicalOffsetI(te)};
@@ -733,24 +829,11 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                 remove_comp = 0;
               }
               if (remove_comp >= 0) {
-                grid_spacing.erase(grid_spacing.begin() + remove_comp);
-                axis_labels.erase(axis_labels.begin() + remove_comp);
-                global_offset.erase(global_offset.begin() + remove_comp);
                 position.erase(position.begin() + remove_comp);
                 global_extent.erase(global_extent.begin() + remove_comp);
               }
-              mesh_record.setGridSpacing(grid_spacing);
-              mesh_record.setAxisLabels(axis_labels);
-              mesh_record.setGridGlobalOffset(global_offset);
               mesh_comp.setPosition(position);
             } else if (pm->ndim == 2) {
-              mesh_record.setGridSpacing(std::vector<Real>{dx2, dx1});
-              mesh_record.setAxisLabels({"y", "x"});
-              mesh_record.setGridGlobalOffset({
-                  pm->mesh_size.xmin(X2DIR),
-                  pm->mesh_size.xmin(X1DIR),
-              });
-
               mesh_comp.setPosition(
                   std::vector<Real>{0.5 - 0.5 * TopologicalOffsetJ(te),
                                     0.5 - 0.5 * TopologicalOffsetI(te)});
@@ -764,7 +847,6 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                           effective_nx +
                       TopologicalOffsetI(te),
               };
-
             } else {
               PARTHENON_THROW("1D output for openpmd not yet supported.");
             }
@@ -776,8 +858,6 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
             // mesh generation should be done across all ranks prior to writing data,
             // rather than in-situ for the local blocks only
             mesh_comp.resetDataset(dataset);
-
-            // TODO(pgrete) need unitDimension and timeOffset for this record?
           }
         }
       }
@@ -802,37 +882,20 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
               for (int v = 0; v < Nv; ++v) {
                 const auto [record_name, comp_name] =
                     OpenPMDUtils::GetMeshRecordAndComponentNames(vinfo, te, comp_idx,
-                                                                 level);
+                                                                 level, format_version_);
                 auto mesh_comp = it.meshes[record_name][comp_name];
 
                 const auto comp_offset = tmp_offset;
                 for (int k = kb.s; k <= kb.e; ++k) {
                   for (int j = jb.s; j <= jb.e; ++j) {
                     for (int i = ib.s; i <= ib.e; ++i) {
-                      // Skip cells for coarse grained outputs
                       if (((i - ib.s) % coarsening_factor_ != 0) ||
                           ((j - jb.s) % coarsening_factor_ != 0) ||
-                          ((k - kb.s) % coarsening_factor_ != 0)) {
+                          ((k - kb.s) % coarsening_factor_ != 0) ||
+                          !in_output(coords, k, j, i, coarsening_factor_)) {
                         continue;
                       }
-                      // Skip cells outside slices
-                      if (is_slice) {
-                        if (output_params.mode == X1Slice) {
-                          if (slice_loc < coords.Xf<X1DIR>(k, j, i)) continue;
-                          if (slice_loc >= coords.Xf<X1DIR>(k, j, i + coarsening_factor_))
-                            continue;
-                        } else if (output_params.mode == X2Slice) {
-                          if (slice_loc < coords.Xf<X2DIR>(k, j, i)) continue;
-                          if (slice_loc >= coords.Xf<X2DIR>(k, j + coarsening_factor_, i))
-                            continue;
-                        } else if (output_params.mode == X3Slice) {
-                          if (slice_loc < coords.Xf<X3DIR>(k, j, i)) continue;
-                          if (slice_loc >= coords.Xf<X3DIR>(k + coarsening_factor_, j, i))
-                            continue;
-                        } else {
-                          PARTHENON_FAIL("Unclear how I got here.");
-                        }
-                      }
+
                       tmp_data[tmp_offset] = static_cast<OutT>(
                           out_var_h(static_cast<int>(te) % 3, t, u, v, k, j, i));
 

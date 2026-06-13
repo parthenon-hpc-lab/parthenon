@@ -394,8 +394,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       const auto &pmb = pm->block_list[b_idx];
       bool is_allocated = false;
       int dealloc_count = 0;
-      // TODO(reviewers) Why was the loop originally there? Does the direct Get causes
-      // issue?
       auto v = pmb->meshblock_data.Get(output_params.meshdata_name)->GetVarPtr(var_name);
       // For reference, if we update the logic here, there's also
       // a similar block in parthenon_manager.cpp

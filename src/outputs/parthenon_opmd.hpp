@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2024-2025 The Parthenon collaboration
+// Copyright(C) 2024-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 #ifndef OUTPUTS_PARTHENON_OPMD_HPP_
@@ -20,6 +20,7 @@
 #include "mesh/meshblock.hpp"
 #include "outputs/output_parameters.hpp"
 #include "outputs/output_utils.hpp"
+#include "outputs/outputs.hpp"
 
 namespace parthenon {
 
@@ -40,15 +41,15 @@ inline static const std::string delim = "~";
 // the characters a-Z, the numbers 0-9 and the underscore _
 void CheckValidName(const std::string &name);
 
-// Construct OpenPMD Mesh "record" name and comonnent identifier.
+// Construct OpenPMD Mesh "record" name and component identifier.
 // - te is the TopologicalElement (which is used as part of the variable name record)
 // - comp_idx is a flattened index over all components of the vectors and tensors, i.e.,
 // the typical v,u,t indices.
 // - level is the current effective level of the Mesh record
-std::tuple<std::string, std::string>
-GetMeshRecordAndComponentNames(const OutputUtils::VarInfo &vinfo,
-                               const TopologicalElement te, const int comp_idx,
-                               const int level);
+// - format_version controls the naming strategy
+std::tuple<std::string, std::string> GetMeshRecordAndComponentNames(
+    const OutputUtils::VarInfo &vinfo, const TopologicalElement te, const int comp_idx,
+    const int level, const int format_version = OpenPMDOutput::OUTPUT_VERSION_FORMAT);
 
 // Calculate logical location on effective mesh (i.e., a mesh with size that matches full
 // coverage at given resolution on a particular level)
@@ -58,7 +59,7 @@ GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
                         const TopologicalElement te, const int coarsening_factor,
                         const DumpOutputMode outupt_type);
 
-// Construct OpenPMD Particle "record" name and comonnent identifier.
+// Construct OpenPMD Particle "record" name and component identifier.
 // - vname is the variable name
 // - rank is the variable rank (i.e., 0 is scalar etc)
 // - comp_idx is a flattened index over all components of the vectors and tensors, i.e.,
