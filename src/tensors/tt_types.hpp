@@ -20,50 +20,40 @@
 
 namespace parthenon {
 namespace tensor2 {
-// A FiberView is the fundamental 1D storage unit for tensor-core data.
-// Managed fibers own device memory, while unmanaged fibers are shallow
-// handles used inside device-facing descriptors.
-template <class TTraits, class OwnershipTag>
-using FiberView =
-    typename TTraits::template view_t<typename TTraits::real_t*, OwnershipTag>;
 
 // Lightweight device-side descriptor for one tensor core. This owns no memory;
 // it only wraps an unmanaged device view of fibers together with the logical
 // core dimensions (left rank, physical dimension, right rank). This is the
 // object kernels should use.
-template <class TTraits>
+//
+// Now refactored to use a storage policy pattern for flexibility.
+template <class TTraits, template<class> class StoragePolicy = FiberStorageDevice>
 class TensorCoreDeviceT {
  public:
   using traits = TTraits;
   using real_t = typename TTraits::real_t;
-  using fiber_unmanaged_t = FiberView<TTraits, UnmanagedTag>;
-  using device_fibers_view_t =
-      typename TTraits::template view_t<fiber_unmanaged_t**, UnmanagedTag>;
 
+ private:
+  StoragePolicy<TTraits> storage_;
+
+ public:
   KOKKOS_FUNCTION
   TensorCoreDeviceT() = default;
 
+  // Constructor takes whatever data the policy needs
+  template <typename ViewType>
   KOKKOS_FUNCTION
-  TensorCoreDeviceT(int lr, int dd, int rr, const device_fibers_view_t &fibers)
-      : lr(lr), dd(dd), rr(rr), fibers(fibers) {}
+  TensorCoreDeviceT(int lr, int dd, int rr, const ViewType &view)
+      : storage_(lr, dd, rr, view) {}
 
-  KOKKOS_INLINE_FUNCTION int RR() const { return rr; }
-  KOKKOS_INLINE_FUNCTION int DD() const { return dd; }
-  KOKKOS_INLINE_FUNCTION int LR() const { return lr; }
+  KOKKOS_FORCEINLINE_FUNCTION int RR() const { return storage_.RR(); }
+  KOKKOS_FORCEINLINE_FUNCTION int DD() const { return storage_.DD(); }
+  KOKKOS_FORCEINLINE_FUNCTION int LR() const { return storage_.LR(); }
 
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_FORCEINLINE_FUNCTION
   real_t &operator()(int alpha, int j, int beta) const {
-    return fibers(alpha, beta)(j);
+    return storage_(alpha, j, beta);
   }
-
-  KOKKOS_INLINE_FUNCTION
-  fiber_unmanaged_t fiber(int alpha, int beta) const {
-    return fibers(alpha, beta);
-  }
-
- private:
-  int lr{0}, dd{0}, rr{0};
-  device_fibers_view_t fibers;
 };
 
 template <class CoreLike, bool transpose = false>
@@ -183,133 +173,62 @@ KOKKOS_FORCEINLINE_FUNCTION
 int GetNcols(const horizontal_unfolding<T, transpose> &m) { return transpose ? m.nl : m.nd * m.nr; }
 
 // Host-side owning representation of one tensor core. This is the persistent
-// object that keeps fiber storage alive. It owns:
-//   1. a host-side managed outer view of managed fibers, and
-//   2. a device-side managed outer view of unmanaged fiber handles.
-// The latter is wrapped in an unmanaged view when constructing
-// TensorCoreDeviceT.
-template <class TTraits>
+// object that keeps fiber storage alive.
+//
+// Now refactored to use a storage policy pattern for flexibility.
+template <class TTraits, template<class> class StoragePolicy = FiberStorageHost>
 class TensorCoreHostT {
  public:
   using traits = TTraits;
   using real_t = typename TTraits::real_t;
-  using fiber_unmanaged_t = FiberView<TTraits, UnmanagedTag>;
-  using fiber_managed_t = FiberView<TTraits, ManagedTag>;
-  using host_fibers_view_t =
-      typename TTraits::template host_view_t<fiber_managed_t**, ManagedTag>;
-  using device_managed_fibers_view_t =
-      typename TTraits::template view_t<fiber_unmanaged_t**, ManagedTag>;
-  using device_unmanaged_fibers_view_t =
-      typename TTraits::template view_t<fiber_unmanaged_t**, UnmanagedTag>;
 
+ private:
+  StoragePolicy<TTraits> storage_;
+
+ public:
   TensorCoreHostT() = default;
 
-  TensorCoreHostT(int lr_in, int dd_in, int rr_in) : dd(dd_in) {
-    RebuildOuterViews(lr_in, rr_in, [dd_in](int, int) {
-      // TODO(LFR): Switch to memory pools
-      return fiber_managed_t("fiber_m", dd_in);
-    });
+  TensorCoreHostT(int lr, int dd, int rr) {
+    storage_.Allocate(lr, dd, rr);
   }
 
-  TensorCoreHostT(const TensorCoreHostT &other) { CopyFrom(other); }
+  // Copy constructor delegates to storage policy
+  TensorCoreHostT(const TensorCoreHostT &other) {
+    storage_.CopyFrom(other.storage_);
+  }
 
   TensorCoreHostT &operator=(const TensorCoreHostT &other) {
-    CopyFrom(other);
+    storage_.CopyFrom(other.storage_);
     return *this;
   }
 
-  TensorCoreHostT(TensorCoreHostT &&other) { CopyFrom(other); }
-
-  TensorCoreHostT &operator=(TensorCoreHostT &&other) {
-    CopyFrom(other);
-    return *this;
-  }
+  TensorCoreHostT(TensorCoreHostT &&) = default;
+  TensorCoreHostT &operator=(TensorCoreHostT &&) = default;
 
   ~TensorCoreHostT() = default;
 
   TensorCoreHostT DeepCopy() const {
-    TensorCoreHostT out(lr, dd, rr);
-    for (int l = 0; l < lr; ++l) {
-      for (int r = 0; r < rr; ++r) {
-        Kokkos::deep_copy(out.host_fibers(l, r), host_fibers(l, r));
-      }
-    }
+    TensorCoreHostT out;
+    out.storage_ = storage_.DeepCopy();
     return out;
   }
 
   // Reduce the active rank-space extent of the core while assuming the fibers
   // in the retained range already contain the correct data.
-  void ReduceSize(int lr_in, int rr_in) {
-    PARTHENON_REQUIRE(lr_in <= lr,
-                      "Target sizes must be smaller than original sizes.");
-    PARTHENON_REQUIRE(rr_in <= rr,
-                      "Target sizes must be smaller than original sizes.");
-    auto old_host_fibers = host_fibers;
-    RebuildOuterViews(lr_in, rr_in, [&](int l, int r) {
-      return old_host_fibers(l, r);
-    });
+  void ReduceSize(int lr_new, int rr_new) {
+    storage_.ReduceSize(lr_new, rr_new);
   }
 
-  int RR() const { return rr; }
-  int DD() const { return dd; }
-  int LR() const { return lr; }
+  int RR() const { return storage_.RR(); }
+  int DD() const { return storage_.DD(); }
+  int LR() const { return storage_.LR(); }
 
   // Construct a shallow device descriptor that is safe to place into a device
   // pack. The returned object is valid as long as this TensorCoreHostT remains
   // alive and structurally unchanged.
-  TensorCoreDeviceT<TTraits> GetTensorCoreDevice() const {
-    return TensorCoreDeviceT<TTraits>(lr, dd, rr,
-        device_unmanaged_fibers_view_t(device_managed_fibers.data(), lr, rr));
-  }
-
- private:
-  int lr{0}, dd{0}, rr{0};
-
-  // Stores managed fibers on host to maintain ownership.
-  host_fibers_view_t host_fibers;
-  // Managed device view of unmanaged fibers, used to keep the device-side outer
-  // descriptor alive.
-  device_managed_fibers_view_t device_managed_fibers;
-  
-  void CopyFrom(const TensorCoreHostT &other) {
-    dd = other.dd;
-    if (other.lr == 0 || other.rr == 0) {
-      lr = other.lr;
-      rr = other.rr;
-      host_fibers = host_fibers_view_t();
-      device_managed_fibers = device_managed_fibers_view_t();
-      return;
-    }
-
-    RebuildOuterViews(other.lr, other.rr, [&](int l, int r) {
-      return other.host_fibers(l, r);
-    });
-  }
-
-  // The only routine that should change the structural state of a TensorCoreHostT.
-  // It preserves the invariant that host_fibers, device_managed_fibers, and
-  // device_unmanaged_fibers all describe the same (lr, rr) outer hierarchy.
-  template <class ManagedFiberGetter>
-  void RebuildOuterViews(int lr_new, int rr_new, ManagedFiberGetter &&get_fiber) {
-    lr = lr_new;
-    rr = rr_new;
-
-    host_fibers = host_fibers_view_t(ViewOfViewAlloc<HostMemSpace>("fibers_m"), lr, rr);
-    device_managed_fibers = device_managed_fibers_view_t(ViewOfViewAlloc("fibers_u"), lr, rr);
-
-    auto device_managed_fibers_h = Kokkos::create_mirror_view(device_managed_fibers);
-
-    for (int l = 0; l < lr; ++l) {
-      for (int r = 0; r < rr; ++r) {
-        host_fibers(l, r) = get_fiber(l, r);
-        auto &f = host_fibers(l, r);
-        device_managed_fibers_h(l, r) = fiber_unmanaged_t(f.data(), f.extent(0));
-      }
-    }
-
-    // Only the outer descriptor is copied here. The fiber data already live on
-    // device and are not copied by this deep_copy.
-    Kokkos::deep_copy(device_managed_fibers, device_managed_fibers_h);
+  TensorCoreDeviceT<TTraits, FiberStorageDevice> GetTensorCoreDevice() const {
+    auto device_data = storage_.GetDeviceData();
+    return TensorCoreDeviceT<TTraits, FiberStorageDevice>(LR(), DD(), RR(), device_data);
   }
 };
 
