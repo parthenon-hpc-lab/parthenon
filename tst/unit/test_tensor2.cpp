@@ -30,8 +30,8 @@ using namespace parthenon::tensor2;
 
 namespace {
 
-template <class TTraits>
-TensorTrainT<TTraits>
+template <class TTraits, template<class> class StoragePolicy = FiberStorageHost>
+TensorTrainT<TTraits, StoragePolicy>
 MakeSparseDeltaTrain3D(const std::array<int, 3> &dims,
                        const std::vector<std::array<int, 3>> &entries,
                        const std::vector<typename TTraits::real_t> &values) {
@@ -44,11 +44,25 @@ MakeSparseDeltaTrain3D(const std::array<int, 3> &dims,
 
   const int nterms = static_cast<int>(entries.size());
 
+  TensorTrainT<TTraits, StoragePolicy> train({dims[0], dims[1], dims[2]},
+                                               nterms == 0 ? std::vector<int>{1, 1} : std::vector<int>{nterms, nterms});
+  std::vector<TensorTrainT<TTraits, StoragePolicy>> trains{train};
+
+  // Create pack with appropriate device storage based on host storage
+  auto make_pack_and_init = [&]() {
+    if constexpr (std::is_same_v<StoragePolicy<TTraits>, FiberStorageHost<TTraits>>) {
+      TensorPackT<TTraits, FiberStorageDevice> pack(trains);
+      SetTTPackToValue(pack, real_t(0));
+      return pack;
+    } else {
+      TensorPackT<TTraits, ContiguousStorageDevice> pack(trains);
+      SetTTPackToValue(pack, real_t(0));
+      return pack;
+    }
+  };
+  auto pack = make_pack_and_init();
+
   if (nterms == 0) {
-    TensorTrainT<TTraits> train({dims[0], dims[1], dims[2]}, {1, 1});
-    std::vector<TensorTrainT<TTraits>> trains{train};
-    TensorPackT<TTraits> pack(trains);
-    SetTTPackToValue(pack, real_t(0));
     return train;
   }
 
@@ -61,12 +75,6 @@ MakeSparseDeltaTrain3D(const std::array<int, 3> &dims,
     PARTHENON_REQUIRE(0 <= e[2] && e[2] < dims[2],
                       "MakeSparseDeltaTrain3D: third index out of bounds.");
   }
-
-  TensorTrainT<TTraits> train({dims[0], dims[1], dims[2]}, {nterms, nterms});
-  std::vector<TensorTrainT<TTraits>> trains{train};
-  TensorPackT<TTraits> pack(trains);
-
-  SetTTPackToValue(pack, real_t(0));
 
   using entries_view_t = typename TTraits::template view_t<int*[3], ManagedTag>;
   using values_view_t = typename TTraits::template view_t<real_t*, ManagedTag>;
@@ -99,8 +107,8 @@ MakeSparseDeltaTrain3D(const std::array<int, 3> &dims,
         const int i1 = entries_d(m, 1);
         const int i2 = entries_d(m, 2);
         const real_t a = values_d(m);
-        // Choose non-unity value in the first core so we aren't 
-        // in the canonical gauge to start. 
+        // Choose non-unity value in the first core so we aren't
+        // in the canonical gauge to start.
         core0(0, i0, m) = a;
         core1(m, i1, m) = real_t(1);
         core2(m, i2, 0) = real_t(1);
@@ -109,9 +117,9 @@ MakeSparseDeltaTrain3D(const std::array<int, 3> &dims,
   return train;
 }
 
-template <class TTraits>
+template <class TTraits, template<class> class DeviceStoragePolicy>
 KOKKOS_INLINE_FUNCTION
-typename TTraits::real_t ReconstructDenseValue3D(const TensorPackT<TTraits> &pack,
+typename TTraits::real_t ReconstructDenseValue3D(const TensorPackT<TTraits, DeviceStoragePolicy> &pack,
                                                  int b, int i1, int i2, int i3) {
   auto &core0 = pack(b, 0, 0);
   auto &core1 = pack(b, 0, 1);
@@ -126,8 +134,8 @@ typename TTraits::real_t ReconstructDenseValue3D(const TensorPackT<TTraits> &pac
   return val;
 }
 
-template <class TTraits, class... Packs>
-void CheckCompatibleDense3D(const TensorPackT<TTraits> &pack0, const Packs &...packs) {
+template <class Pack0, class... Packs>
+void CheckCompatibleDense3D(const Pack0 &pack0, const Packs &...packs) {
   PARTHENON_REQUIRE(pack0.GetNCores() == 3, "Only works for three-core tensor trains.");
 
   const int nblocks = pack0.GetNBlocks();
@@ -150,8 +158,8 @@ void CheckCompatibleDense3D(const TensorPackT<TTraits> &pack0, const Packs &...p
   (check_one(packs), ...);
 }
 
-template <class TTraits, class CheckFunctor, class... Packs>
-int CountDenseMismatches3D(CheckFunctor check, const TensorPackT<TTraits> &pack0,
+template <class CheckFunctor, class Pack0, class... Packs>
+int CountDenseMismatches3D(CheckFunctor check, const Pack0 &pack0,
                            const Packs &...packs) {
   static_assert(sizeof...(packs) >= 0,
                 "CountDenseMismatches3D requires at least one pack.");
@@ -900,4 +908,95 @@ SCENARIO("tensor2 Gram-SVD truncation respects relative Frobenius error on rando
 
     REQUIRE(err_frob <= rhs);
   }
+}
+
+// ==============================================================================
+// Tests for contiguous storage (rr stride-1)
+// ==============================================================================
+
+SCENARIO("tensor2 contiguous storage basic structure", "[tensor2]") {
+  TensorTrainContiguous train({4}, {});
+  TensorTrainContiguous train_copy = train;
+
+  REQUIRE(train.NCores() == 1);
+  REQUIRE(train(0).LR() == 1);
+  REQUIRE(train(0).DD() == 4);
+  REQUIRE(train(0).RR() == 1);
+
+  REQUIRE(train_copy.NCores() == 1);
+  REQUIRE(train_copy(0).LR() == 1);
+  REQUIRE(train_copy(0).DD() == 4);
+  REQUIRE(train_copy(0).RR() == 1);
+
+  std::vector<TensorTrainContiguous> trains{train, train_copy};
+  TensorPackContiguous pack(trains);
+
+  REQUIRE(pack.GetNBlocks() == 2);
+  REQUIRE(pack.GetNCores() == 1);
+  REQUIRE(pack.GetPhysicalDimension(0) == 4);
+}
+
+SCENARIO("tensor2 contiguous storage multi-core train structure", "[tensor2]") {
+  TensorTrainContiguous train({4, 8, 16}, {2, 3});
+
+  REQUIRE(train.NCores() == 3);
+  REQUIRE(train(0).LR() == 1);
+  REQUIRE(train(0).DD() == 4);
+  REQUIRE(train(0).RR() == 2);
+  REQUIRE(train(1).LR() == 2);
+  REQUIRE(train(1).DD() == 8);
+  REQUIRE(train(1).RR() == 3);
+  REQUIRE(train(2).LR() == 3);
+  REQUIRE(train(2).DD() == 16);
+  REQUIRE(train(2).RR() == 1);
+}
+
+SCENARIO("tensor2 contiguous storage unfolding dimensions", "[tensor2]") {
+  TensorCoreHostContiguous core(2, 3, 4);  // lr=2, dd=3, rr=4
+  auto device_core = core.GetTensorCoreDevice();
+
+  // Test horizontal unfolding: reshape [lr][dd][rr] as [lr, dd*rr]
+  auto H = ContiguousTTraits::GetHorizontalUnfolding(device_core);
+  REQUIRE(GetNrows(H) == 2);
+  REQUIRE(GetNcols(H) == 12);  // 3 * 4
+
+  // Test horizontal unfolding transpose: reshape [lr][dd][rr] as [dd*rr, lr]
+  auto HT = ContiguousTTraits::GetHorizontalUnfoldingTranspose(device_core);
+  REQUIRE(GetNrows(HT) == 12);
+  REQUIRE(GetNcols(HT) == 2);
+
+  // Test vertical unfolding: reshape [lr][dd][rr] as [lr*dd, rr]
+  auto V = ContiguousTTraits::GetVerticalUnfolding(device_core);
+  REQUIRE(GetNrows(V) == 6);  // 2 * 3
+  REQUIRE(GetNcols(V) == 4);
+
+  // Test vertical unfolding transpose: reshape [lr][dd][rr] as [rr, lr*dd]
+  auto VT = ContiguousTTraits::GetVerticalUnfoldingTranspose(device_core);
+  REQUIRE(GetNrows(VT) == 4);
+  REQUIRE(GetNcols(VT) == 6);
+}
+
+SCENARIO("tensor2 contiguous storage reconstruction agrees with fiber storage", "[tensor2]") {
+  // Create identical trains with both storage layouts
+  const std::array<int, 3> dims{4, 8, 16};
+  const std::vector<std::array<int, 3>> entries = {{0, 0, 0}, {1, 2, 3}, {2, 4, 8}};
+  const std::vector<Real> values = {1.0, 2.0, 3.0};
+
+  auto train_fiber = MakeSparseDeltaTrain3D<DefaultTTraits, FiberStorageHost>(dims, entries, values);
+  auto train_contig = MakeSparseDeltaTrain3D<ContiguousTTraits, ContiguousStorageHost>(dims, entries, values);
+
+  std::vector<TensorTrain> trains_fiber{train_fiber};
+  std::vector<TensorTrainContiguous> trains_contig{train_contig};
+
+  TensorPack pack_fiber(trains_fiber);
+  TensorPackContiguous pack_contig(trains_contig);
+
+  // Verify both reconstruct the same values
+  int nmismatches = CountDenseMismatches3D(
+      KOKKOS_LAMBDA(int, int, int, int, Real fiber_val, Real contig_val) {
+        return (std::abs(fiber_val - contig_val) > Real(1.0e-14)) ? 1 : 0;
+      },
+      pack_fiber, pack_contig);
+
+  REQUIRE(nmismatches == 0);
 }

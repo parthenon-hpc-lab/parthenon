@@ -16,6 +16,7 @@
 
 #include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
+#include "tt_unfoldings.hpp"
 
 namespace parthenon {
 struct ManagedTag {};
@@ -29,7 +30,8 @@ struct UnmanagedTag {};
 // gives the corresponding host-mirror-space view with the same ownership mode.
 template <class Device,
           class RealT = Real,
-          class Layout = Kokkos::LayoutRight>
+          class Layout = Kokkos::LayoutRight,
+          bool DFastestMoving = true>
 struct TensorTraits {
   using device_type = Device;
   using execution_space = typename device_type::execution_space;
@@ -37,6 +39,8 @@ struct TensorTraits {
   using layout = Layout;
   using real_t = RealT;
   using scratch_memory_space = Kokkos::ScratchMemorySpace<execution_space>;
+
+  static constexpr bool d_fastest_moving = DFastestMoving;
 
   using host_mirror_space =
       typename Kokkos::View<real_t*, layout, memory_space>::host_mirror_space;
@@ -56,9 +60,51 @@ struct TensorTraits {
   using host_view_t =
       Kokkos::View<DataType, layout, host_mirror_space,
                    memory_traits<OwnershipTag>>;
+
+  // Unfolding factory methods
+  template <class CoreLike>
+  static KOKKOS_FORCEINLINE_FUNCTION auto GetHorizontalUnfolding(const CoreLike &core) {
+    return tensor2::horizontal_unfolding<CoreLike, false, DFastestMoving>(core);
+  }
+
+  template <class CoreLike>
+  static KOKKOS_FORCEINLINE_FUNCTION auto GetHorizontalUnfolding(const CoreLike &core, int nl, int nd, int nr) {
+    return tensor2::horizontal_unfolding<CoreLike, false, DFastestMoving>(core, nl, nd, nr);
+  }
+
+  template <class CoreLike>
+  static KOKKOS_FORCEINLINE_FUNCTION auto GetHorizontalUnfoldingTranspose(const CoreLike &core) {
+    return tensor2::horizontal_unfolding<CoreLike, true, DFastestMoving>(core);
+  }
+
+  template <class CoreLike>
+  static KOKKOS_FORCEINLINE_FUNCTION auto GetHorizontalUnfoldingTranspose(const CoreLike &core, int nl, int nd, int nr) {
+    return tensor2::horizontal_unfolding<CoreLike, true, DFastestMoving>(core, nl, nd, nr);
+  }
+
+  template <class CoreLike>
+  static KOKKOS_FORCEINLINE_FUNCTION auto GetVerticalUnfolding(const CoreLike &core) {
+    return tensor2::vertical_unfolding<CoreLike, false>(core);
+  }
+
+  template <class CoreLike>
+  static KOKKOS_FORCEINLINE_FUNCTION auto GetVerticalUnfolding(const CoreLike &core, int nl, int nd, int nr) {
+    return tensor2::vertical_unfolding<CoreLike, false>(core, nl, nd, nr);
+  }
+
+  template <class CoreLike>
+  static KOKKOS_FORCEINLINE_FUNCTION auto GetVerticalUnfoldingTranspose(const CoreLike &core) {
+    return tensor2::vertical_unfolding<CoreLike, true>(core);
+  }
+
+  template <class CoreLike>
+  static KOKKOS_FORCEINLINE_FUNCTION auto GetVerticalUnfoldingTranspose(const CoreLike &core, int nl, int nd, int nr) {
+    return tensor2::vertical_unfolding<CoreLike, true>(core, nl, nd, nr);
+  }
 };
 
-using DefaultTTraits = TensorTraits<Kokkos::Device<DevExecSpace, DevMemSpace>>;
+using DefaultTTraits = TensorTraits<Kokkos::Device<DevExecSpace, DevMemSpace>, Real, Kokkos::LayoutRight, true>;
+using ContiguousTTraits = TensorTraits<Kokkos::Device<DevExecSpace, DevMemSpace>, Real, Kokkos::LayoutRight, false>;
 
 // ==============================================================================
 // STORAGE POLICIES FOR TENSOR CORES
@@ -202,7 +248,134 @@ class FiberStorageHost {
   }
 };
 
+// UnmanagedStorageDevice: Wraps raw pointer for scratch arrays
+// This replaces wrap_3D with a proper storage policy
+template <class TTraits>
+class UnmanagedStorageDevice {
+ public:
+  using traits = TTraits;
+  using real_t = typename TTraits::real_t;
+
+ private:
+  real_t *scratch;
+  int lr{0}, dd{0}, rr{0};
+
+ public:
+  KOKKOS_FUNCTION
+  UnmanagedStorageDevice() = default;
+
+  KOKKOS_FUNCTION
+  UnmanagedStorageDevice(int lr_in, int dd_in, int rr_in, real_t *scratch_in)
+      : scratch(scratch_in), lr(lr_in), dd(dd_in), rr(rr_in) {}
+
+  KOKKOS_INLINE_FUNCTION
+  real_t &operator()(int alpha, int j, int beta) const {
+    if constexpr (TTraits::d_fastest_moving) {
+      return scratch[rr * dd * alpha + dd * beta + j];  // [lr][rr][dd]
+    } else {
+      return scratch[rr * dd * alpha + rr * j + beta];  // [lr][dd][rr]
+    }
+  }
+
+  KOKKOS_INLINE_FUNCTION int LR() const { return lr; }
+  KOKKOS_INLINE_FUNCTION int DD() const { return dd; }
+  KOKKOS_INLINE_FUNCTION int RR() const { return rr; }
+};
+
+// ContiguousStorageDevice: 3D array with [lr][dd][rr] layout (rr stride-1)
+template <class TTraits>
+class ContiguousStorageDevice {
+ public:
+  using traits = TTraits;
+  using real_t = typename TTraits::real_t;
+  using data_view_t = typename TTraits::template view_t<real_t***, UnmanagedTag>;
+
+ private:
+  data_view_t data;
+  int lr{0}, dd{0}, rr{0};
+
+ public:
+  KOKKOS_FUNCTION
+  ContiguousStorageDevice() = default;
+
+  KOKKOS_FUNCTION
+  ContiguousStorageDevice(int lr_in, int dd_in, int rr_in, const data_view_t &data_in)
+      : data(data_in), lr(lr_in), dd(dd_in), rr(rr_in) {}
+
+  KOKKOS_INLINE_FUNCTION
+  real_t &operator()(int alpha, int j, int beta) const {
+    return data(alpha, j, beta);  // [lr][dd][rr] with rr stride-1
+  }
+
+  KOKKOS_INLINE_FUNCTION int LR() const { return lr; }
+  KOKKOS_INLINE_FUNCTION int DD() const { return dd; }
+  KOKKOS_INLINE_FUNCTION int RR() const { return rr; }
+};
+
+// ContiguousStorageHost: Host-side 3D array management
+template <class TTraits>
+class ContiguousStorageHost {
+ public:
+  using traits = TTraits;
+  using real_t = typename TTraits::real_t;
+  using data_managed_t = typename TTraits::template view_t<real_t***, ManagedTag>;
+  using data_unmanaged_t = typename TTraits::template view_t<real_t***, UnmanagedTag>;
+
+ private:
+  data_managed_t data;
+  int lr{0}, dd{0}, rr{0};
+
+ public:
+  ContiguousStorageHost() = default;
+
+  void Allocate(int lr_in, int dd_in, int rr_in) {
+    lr = lr_in;
+    dd = dd_in;
+    rr = rr_in;
+    // Kokkos LayoutRight: rightmost index is stride-1
+    data = data_managed_t("tensor_core_contiguous", lr, dd, rr);
+  }
+
+  void CopyFrom(const ContiguousStorageHost &other) {
+    // Kokkos view has reference semantics
+    lr = other.lr;
+    dd = other.dd;
+    rr = other.rr;
+    data = other.data;
+  }
+
+  void ReduceSize(int lr_new, int rr_new) {
+    PARTHENON_REQUIRE(lr_new <= lr && rr_new <= rr,
+                      "Target sizes must be smaller than original sizes.");
+    auto new_data = data_managed_t("tensor_core_contiguous", lr_new, dd, rr_new);
+    auto old_sub = Kokkos::subview(data,
+                                    std::make_pair(0, lr_new),
+                                    Kokkos::ALL,
+                                    std::make_pair(0, rr_new));
+    Kokkos::deep_copy(new_data, old_sub);
+    data = new_data;
+    lr = lr_new;
+    rr = rr_new;
+  }
+
+  ContiguousStorageHost DeepCopy() const {
+    ContiguousStorageHost out;
+    out.Allocate(lr, dd, rr);
+    Kokkos::deep_copy(out.data, data);
+    return out;
+  }
+
+  data_unmanaged_t GetDeviceData() const {
+    return data_unmanaged_t(data.data(), lr, dd, rr);
+  }
+
+  int LR() const { return lr; }
+  int DD() const { return dd; }
+  int RR() const { return rr; }
+};
+
 } // namespace tensor2
 
 } // namespace parthenon
+
 #endif // TENSOR_TT_TRAITS_HPP

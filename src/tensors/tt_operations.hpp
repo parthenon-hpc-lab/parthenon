@@ -29,36 +29,40 @@ namespace impl {
 // Copy all fibers from a source core into a destination core with optional
 // offsets in left-rank and right-rank space. This is mainly used to assemble
 // block-structured TT operations such as non-destructive sum.
-template <class TTraits>
+template <class CoreType>
 KOKKOS_INLINE_FUNCTION
 void CopyCoreBlock(parthenon::team_mbr_t member,
-                   const TensorCoreDeviceT<TTraits> &src,
-                   TensorCoreDeviceT<TTraits> &dst,
+                   const CoreType &src,
+                   CoreType &dst,
                    int loffset = 0, int roffset = 0) {
+  // TODO(performance): Consider using raw pointer arithmetic for FiberStorage where
+  // &src(l,0,r) + j == &src(l,j,r), which may be faster than element-wise access.
+  // Would require detecting storage type or adding a storage policy parameter.
+  // Use element-wise access - works for all storage types
   for (int l = 0; l < src.LR(); ++l) {
     for (int r = 0; r < src.RR(); ++r) {
-      auto const *const fs = &src(l, 0, r);
-      auto *fd = &dst(l + loffset, 0, r + roffset);
       parthenon::par_for_inner(member, 0, src.DD() - 1,
-                               [&](const int j) { fd[j] = fs[j]; });
+                               [&](const int j) { dst(l + loffset, j, r + roffset) = src(l, j, r); });
     }
   }
 }
 
 // Set a rectangular block in rank space to a constant value. This is used
 // primarily to zero off-diagonal blocks created by TT addition.
-template <class TTraits>
+template <class CoreType, class RealType>
 KOKKOS_INLINE_FUNCTION
 void SetCoreBlock(parthenon::team_mbr_t member,
-                  TensorCoreDeviceT<TTraits> &dst,
-                  typename TTraits::real_t value,
+                  CoreType &dst,
+                  RealType value,
                   std::pair<int, int> lrange,
                   std::pair<int, int> rrange) {
+  // TODO(performance): Consider using raw pointer arithmetic for FiberStorage where
+  // &dst(l,0,r) + j == &dst(l,j,r), which may be faster than element-wise access.
+  // Use element-wise access - works for all storage types
   for (int l = lrange.first; l < lrange.second; ++l) {
     for (int r = rrange.first; r < rrange.second; ++r) {
-      auto *fd = &dst(l, 0, r);
       parthenon::par_for_inner(member, 0, dst.DD() - 1,
-                               [&](const int j) { fd[j] = value; });
+                               [&](const int j) { dst(l, j, r) = value; });
     }
   }
 }
@@ -66,12 +70,15 @@ void SetCoreBlock(parthenon::team_mbr_t member,
 // Compute the Hadamard product of two tensor cores and write the result into
 // the destination core. The destination rank space is indexed by the product
 // of the input rank spaces.
-template <class TTraits>
+template <class CoreType>
 KOKKOS_INLINE_FUNCTION
 void HadamardCoreBlocks(parthenon::team_mbr_t member,
-                        const TensorCoreDeviceT<TTraits> &core_a,
-                        const TensorCoreDeviceT<TTraits> &core_b,
-                        TensorCoreDeviceT<TTraits> &core_c) {
+                        const CoreType &core_a,
+                        const CoreType &core_b,
+                        CoreType &core_c) {
+  // TODO(performance): Consider using raw pointer arithmetic for FiberStorage where
+  // &core(l,0,r) + j == &core(l,j,r), which may be faster than element-wise access.
+  // Use element-wise access - works for all storage types
   for (int la = 0; la < core_a.LR(); ++la) {
     for (int lb = 0; lb < core_b.LR(); ++lb) {
       const int lc = la * core_b.LR() + lb;
@@ -80,12 +87,8 @@ void HadamardCoreBlocks(parthenon::team_mbr_t member,
         for (int rb = 0; rb < core_b.RR(); ++rb) {
           const int rc = ra * core_b.RR() + rb;
 
-          auto const *const fa = &core_a(la, 0, ra);
-          auto const *const fb = &core_b(lb, 0, rb);
-          auto *fc = &core_c(lc, 0, rc);
-
           parthenon::par_for_inner(member, 0, core_c.DD() - 1,
-                                   [&](const int j) { fc[j] = fa[j] * fb[j]; });
+                                   [&](const int j) { core_c(lc, j, rc) = core_a(la, j, ra) * core_b(lb, j, rb); });
         }
       }
     }
@@ -95,8 +98,8 @@ void HadamardCoreBlocks(parthenon::team_mbr_t member,
 } // namespace impl
 
 // Set every entry in every core of a tensor-train pack to a single value.
-template <class TTraits>
-void SetTTPackToValue(TensorPackT<TTraits> &pack, typename TTraits::real_t value) {
+template <class TTraits, template<class> class DeviceStoragePolicy = FiberStorageDevice>
+void SetTTPackToValue(TensorPackT<TTraits, DeviceStoragePolicy> &pack, typename TTraits::real_t value) {
   constexpr int unused_scratch_size = 0;
   constexpr int unused_scratch_level = 1;
   parthenon::par_for_outer(
@@ -160,11 +163,11 @@ NonDestructiveSum(const std::vector<TensorTrainT<TTraits>> &TrainsA,
 
         if (loffset && roffset) {
           impl::SetCoreBlock(member, core_c, typename TTraits::real_t(0),
-                             std::pair<int, int>{0, core_a.LR()},
-                             std::pair<int, int>{core_a.RR(), core_a.RR() + core_b.RR()});
+                            std::pair<int, int>{0, core_a.LR()},
+                            std::pair<int, int>{core_a.RR(), core_a.RR() + core_b.RR()});
           impl::SetCoreBlock(member, core_c, typename TTraits::real_t(0),
-                             std::pair<int, int>{core_a.LR(), core_a.LR() + core_b.LR()},
-                             std::pair<int, int>{0, core_a.RR()});
+                            std::pair<int, int>{core_a.LR(), core_a.LR() + core_b.LR()},
+                            std::pair<int, int>{0, core_a.RR()});
         }
       });
   return TrainsC;
@@ -313,23 +316,6 @@ struct no_core_mask {
   static constexpr bool active(int c, int j) {return true;}
 };
 
-template <class T>
-struct wrap_3D {
-  T *scratch;
-  int nl, nd, nr;
-  KOKKOS_FORCEINLINE_FUNCTION
-  int LR() const {return nl;}
-  KOKKOS_FORCEINLINE_FUNCTION
-  int RR() const {return nr;}
-  KOKKOS_FORCEINLINE_FUNCTION
-  int DD() const {return nd;}
-
-  KOKKOS_FORCEINLINE_FUNCTION
-  T &operator()(int l, int j, int r) const {
-    return scratch[nr * nd * l + nd * r + j];
-  }
-};
-
 template <class TTraits, class F = no_core_mask>
 void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
                   typename TTraits::real_t eps, 
@@ -400,10 +386,10 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           auto &core = pack(b, 0, c);
           const int rank = core.LR();
           matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), rank, rank);
-          auto Hc = GetHorizontalUnfolding(core);
-          auto HcT = GetHorizontalUnfoldingTranspose(core);
+          auto Hc = TTraits::GetHorizontalUnfolding(core);
+          auto HcT = TTraits::GetHorizontalUnfoldingTranspose(core);
           MatMulPacked<32, 32, 16, true>(tm, Hc, HcT, GR_mat,
-                                       a_scratch, b_scratch, c_scratch); 
+                                       a_scratch, b_scratch, c_scratch);
         }
         tm.team_barrier();
 
@@ -412,18 +398,18 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           const auto lr = core.LR();
           const auto rr = core.RR();
           const auto dd = core.DD();
-          
-          wrap_3D<real_t> gram_temp{gram_temp_flat.data(), lr, dd, rr};
+
+          ScratchCore<TTraits> gram_temp{lr, dd, rr, gram_temp_flat.data()};
           matrix_wrapper_t<real_t> GR_prev_mat(&GR(c + 1, 0), rr, rr);
-          auto gram_temp_vert = GetVerticalUnfolding(gram_temp);
-          auto Vc = GetVerticalUnfolding(core);
+          auto gram_temp_vert = TTraits::GetVerticalUnfolding(gram_temp);
+          auto Vc = TTraits::GetVerticalUnfolding(core);
           MatMulPacked<16, 16, 16>(tm, Vc, GR_prev_mat, gram_temp_vert,
                                 a_scratch, b_scratch, c_scratch);
-          
-      
+
+
           matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), lr, lr);
-          auto gram_temp_horizT = GetHorizontalUnfoldingTranspose(gram_temp);
-          auto Hc = GetHorizontalUnfolding(core);
+          auto gram_temp_horizT = TTraits::GetHorizontalUnfoldingTranspose(gram_temp);
+          auto Hc = TTraits::GetHorizontalUnfolding(core);
           MatMulPacked<8, 8, 16, true>(tm, Hc, gram_temp_horizT, GR_mat,
                                        a_scratch, b_scratch, c_scratch);
         }
@@ -458,8 +444,8 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           // Compute left Gram matrix
           matrix_wrapper_t<real_t> GL_mat(GL.data(), rank, rank);
           {
-            auto Vc = GetVerticalUnfolding(core, lr, dd, rr);
-            auto VcT = GetVerticalUnfoldingTranspose(core, lr, dd, rr);
+            auto Vc = TTraits::GetVerticalUnfolding(core, lr, dd, rr);
+            auto VcT = TTraits::GetVerticalUnfoldingTranspose(core, lr, dd, rr);
             MatMulPacked<32, 32, 1, true>(tm, VcT, Vc, GL_mat,
                                            a_scratch, b_scratch, c_scratch);
           }
@@ -529,14 +515,14 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
 
           // Push SVD U left [V(core_L) = V(core_L) Q_L eig_L^{-1/2} U]
           matrix_wrapper_t<real_t> T_Lmat(GL.data(), rank, rank_new);
-          MatMulDiag3<real_t>(tm, unity_vector_t(), QL_mat, eigL, Ukeep_mat, unity_vector_t(), T_Lmat); 
-          wrap_3D<real_t> corelp{gram_temp_flat.data(), lr, dd, rank_new};
-          auto Vc = GetVerticalUnfolding(core, lr, dd, rr);
-          auto Vcorelp = GetVerticalUnfolding(corelp);
+          MatMulDiag3<real_t>(tm, unity_vector_t(), QL_mat, eigL, Ukeep_mat, unity_vector_t(), T_Lmat);
+          ScratchCore<TTraits> corelp{lr, dd, rank_new, gram_temp_flat.data()};
+          auto Vc = TTraits::GetVerticalUnfolding(core, lr, dd, rr);
+          auto Vcorelp = TTraits::GetVerticalUnfolding(corelp);
           MatMulPacked<16, -1, -1>(tm, Vc, T_Lmat, Vcorelp,
                                 a_scratch, b_scratch, c_scratch);
-          
-          parthenon::par_for_inner(tm, 0, lr - 1, 0, rank_new - 1, 0, dd - 1, 
+
+          parthenon::par_for_inner(tm, 0, lr - 1, 0, rank_new - 1, 0, dd - 1,
                 [&](int l, int r, int j){
                   core(l, j, r) = corelp(l, j, r);
               });
@@ -546,12 +532,12 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
           auto &coreR = pack(b, 0, c + 1);
           const int ddR = coreR.DD();
           const int rrR = coreR.RR();
-          wrap_3D<real_t> corerp{gram_temp_flat.data(), rank_new, ddR, rrR};
+          ScratchCore<TTraits> corerp{rank_new, ddR, rrR, gram_temp_flat.data()};
           matrix_wrapper_t<real_t> T_Rmat(GL.data(), rank_new, rank);
-          MatMulDiag3<real_t>(tm, sigkeep, VTkeep_mat, eigR, QR_mat.GetTranspose(), unity_vector_t(), T_Rmat); 
-          
-          auto Hc = GetHorizontalUnfolding(coreR);
-          auto Hcorerp = GetHorizontalUnfolding(corerp);
+          MatMulDiag3<real_t>(tm, sigkeep, VTkeep_mat, eigR, QR_mat.GetTranspose(), unity_vector_t(), T_Rmat);
+
+          auto Hc = TTraits::GetHorizontalUnfolding(coreR);
+          auto Hcorerp = TTraits::GetHorizontalUnfolding(corerp);
           MatMulPacked<-1, 16, -1>(tm, T_Rmat, Hc, Hcorerp,
                                 a_scratch, b_scratch, c_scratch);
           
