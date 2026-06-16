@@ -16,8 +16,6 @@
 //========================================================================================
 // This file was made in part with generative AI.
 
-// This file was created in part with the generative AI
-
 #ifndef PARAMETER_INPUT_HPP_
 #define PARAMETER_INPUT_HPP_
 //! \file parameter_input.hpp
@@ -184,6 +182,12 @@ struct Parameter {
   std::string comment;
   // Value can be unresolved (string from file) or typed (from API or post-resolution)
   ParamValue value;
+  // Original string representation from input file. Preserved to ensure all ranks
+  // produce identical ParameterDump output for parallel HDF5 collective metadata writes,
+  // even when parameters are resolved to typed values on different ranks at different
+  // times. Empty for parameters created programmatically (via Set/GetOrAdd with
+  // defaults).
+  std::optional<UnresolvedString> original_string;
   // TODO(future): Consider merging QueryRecord into Parameter as
   // std::optional<QueryRecord> to eliminate the separate queries_ map
 };
