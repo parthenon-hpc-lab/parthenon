@@ -27,19 +27,18 @@ namespace tensor2 {
 // object kernels should use.
 //
 // Now refactored to use a storage policy pattern for flexibility.
-template <class TTraits, template<class> class StoragePolicy = FiberStorageDevice>
+template <class TTraits, class Storage>
 class TensorCoreDeviceT {
  public:
   using traits = TTraits;
   using real_t = typename TTraits::real_t;
 
-  // Validate storage/layout compatibility
-  static_assert(TTraits::d_fastest_moving ||
-                !std::is_same_v<StoragePolicy<TTraits>, FiberStorageDevice<TTraits>>,
-                "FiberStorageDevice requires d_fastest_moving=true (dd stride-1)");
+  // Verify TTraits match between core and storage
+  static_assert(std::is_same_v<TTraits, typename Storage::traits>,
+                "TTraits mismatch between TensorCoreDeviceT and Storage");
 
  private:
-  StoragePolicy<TTraits> storage_;
+  Storage storage_;
 
  public:
   KOKKOS_FUNCTION
@@ -65,19 +64,18 @@ class TensorCoreDeviceT {
 // object that keeps fiber storage alive.
 //
 // Now refactored to use a storage policy pattern for flexibility.
-template <class TTraits, template<class> class StoragePolicy = FiberStorageHost>
+template <class TTraits, class Storage>
 class TensorCoreHostT {
  public:
   using traits = TTraits;
   using real_t = typename TTraits::real_t;
 
-  // Validate storage/layout compatibility
-  static_assert(TTraits::d_fastest_moving ||
-                !std::is_same_v<StoragePolicy<TTraits>, FiberStorageHost<TTraits>>,
-                "FiberStorageHost requires d_fastest_moving=true (dd stride-1)");
+  // Verify TTraits match between core and storage
+  static_assert(std::is_same_v<TTraits, typename Storage::traits>,
+                "TTraits mismatch between TensorCoreHostT and Storage");
 
  private:
-  StoragePolicy<TTraits> storage_;
+  Storage storage_;
 
  public:
   TensorCoreHostT() = default;
@@ -122,25 +120,27 @@ class TensorCoreHostT {
   // alive and structurally unchanged.
   auto GetTensorCoreDevice() const {
     auto device_data = storage_.GetDeviceData();
-    if constexpr (std::is_same_v<StoragePolicy<TTraits>, FiberStorageHost<TTraits>>) {
-      return TensorCoreDeviceT<TTraits, FiberStorageDevice>(LR(), DD(), RR(), device_data);
-    } else if constexpr (std::is_same_v<StoragePolicy<TTraits>, ContiguousStorageHost<TTraits>>) {
-      return TensorCoreDeviceT<TTraits, ContiguousStorageDevice>(LR(), DD(), RR(), device_data);
-    } else {
-      static_assert(std::is_same_v<StoragePolicy<TTraits>, FiberStorageHost<TTraits>>,
-                    "Unknown storage policy in GetTensorCoreDevice");
-    }
+
+    using DeviceStorage = std::conditional_t<
+      TTraits::d_fastest_moving,
+      FiberStorageDevice<TTraits>,
+      ContiguousStorageDevice<TTraits>>;
+
+    return TensorCoreDeviceT<TTraits, DeviceStorage>(LR(), DD(), RR(), device_data);
   }
 };
 
 // Host-side owning tensor train. This is primarily a lightweight container for
 // a sequence of TensorCoreHostT objects with consistent adjacent ranks. It owns
 // no device pack state directly; device access happens through TensorPackT.
-template <class TTraits, template<class> class CoreStoragePolicy = FiberStorageHost>
+template <class TTraits>
 class TensorTrainT {
  public:
   using traits = TTraits;
-  using core_type = TensorCoreHostT<TTraits, CoreStoragePolicy>;
+  using core_type = std::conditional_t<
+    TTraits::d_fastest_moving,
+    TensorCoreHostT<TTraits, FiberStorageHost<TTraits>>,
+    TensorCoreHostT<TTraits, ContiguousStorageHost<TTraits>>>;
 
   TensorTrainT(const std::vector<core_type> &cores_in) : cores(cores_in) {
     PARTHENON_REQUIRE(cores.front().LR() == 1,
@@ -192,10 +192,10 @@ class TensorTrainT {
   std::vector<core_type> cores;
 };
 
-template <class TTraits, template<class> class CoreStoragePolicy>
-std::vector<TensorTrainT<TTraits, CoreStoragePolicy>>
-DeepCopyTrains(const std::vector<TensorTrainT<TTraits, CoreStoragePolicy>> &trains) {
-  std::vector<TensorTrainT<TTraits, CoreStoragePolicy>> out;
+template <class TTraits>
+std::vector<TensorTrainT<TTraits>>
+DeepCopyTrains(const std::vector<TensorTrainT<TTraits>> &trains) {
+  std::vector<TensorTrainT<TTraits>> out;
   out.reserve(trains.size());
   for (const auto &train : trains) {
     out.push_back(train.DeepCopy());
@@ -207,10 +207,14 @@ DeepCopyTrains(const std::vector<TensorTrainT<TTraits, CoreStoragePolicy>> &trai
 // with indices (block, variable, core) rather than introducing a separate
 // device-side TensorTrainT descriptor. This is the main aggregate object used in
 // kernels.
-template <class TTraits, template<class> class DeviceStoragePolicy = FiberStorageDevice>
+template <class TTraits>
 struct TensorPackT {
-  using view_t =
-      typename TTraits::template view_t<TensorCoreDeviceT<TTraits, DeviceStoragePolicy>***, ManagedTag>;
+  using device_core_t = std::conditional_t<
+    TTraits::d_fastest_moving,
+    TensorCoreDeviceT<TTraits, FiberStorageDevice<TTraits>>,
+    TensorCoreDeviceT<TTraits, ContiguousStorageDevice<TTraits>>>;
+
+  using view_t = typename TTraits::template view_t<device_core_t***, ManagedTag>;
   using dims_host_view_t = typename TTraits::template host_view_t<int*, ManagedTag>;
 
   // View of size (nblocks, nvars, ncores). At the moment nvars is a placeholder
@@ -237,8 +241,7 @@ struct TensorPackT {
     return dims;
   }
 
-  template <template<class> class CoreStoragePolicy>
-  TensorPackT(const std::vector<TensorTrainT<TTraits, CoreStoragePolicy>> &trains) {
+  TensorPackT(const std::vector<TensorTrainT<TTraits>> &trains) {
     PARTHENON_REQUIRE(!trains.empty(),
                       "Cannot construct a TensorPackT from an empty train vector.");
     int nvars{1}; // Placeholder
@@ -270,19 +273,27 @@ struct TensorPackT {
 
 // Type alias to replace wrap_3D - scratch arrays using unmanaged storage
 template <class TTraits>
-using ScratchCore = TensorCoreDeviceT<TTraits, UnmanagedStorageDevice>;
+using ScratchCore = TensorCoreDeviceT<TTraits, UnmanagedStorageDevice<TTraits>>;
 
-// Default type aliases (dd stride-1, fiber storage)
-using TensorCoreDevice = TensorCoreDeviceT<DefaultTTraits>;
-using TensorCoreHost   = TensorCoreHostT<DefaultTTraits>;
-using TensorTrain      = TensorTrainT<DefaultTTraits>;
-using TensorPack       = TensorPackT<DefaultTTraits>;
+// Default type aliases (uses DefaultTTraits - can be swapped by Parthenon)
+using TensorCoreDevice = std::conditional_t<
+  DefaultTTraits::d_fastest_moving,
+  TensorCoreDeviceT<DefaultTTraits, FiberStorageDevice<DefaultTTraits>>,
+  TensorCoreDeviceT<DefaultTTraits, ContiguousStorageDevice<DefaultTTraits>>>;
 
-// Contiguous storage variants (rr stride-1)
-using TensorCoreDeviceContiguous = TensorCoreDeviceT<ContiguousTTraits, ContiguousStorageDevice>;
-using TensorCoreHostContiguous   = TensorCoreHostT<ContiguousTTraits, ContiguousStorageHost>;
-using TensorTrainContiguous      = TensorTrainT<ContiguousTTraits, ContiguousStorageHost>;
-using TensorPackContiguous       = TensorPackT<ContiguousTTraits, ContiguousStorageDevice>;
+using TensorCoreHost = std::conditional_t<
+  DefaultTTraits::d_fastest_moving,
+  TensorCoreHostT<DefaultTTraits, FiberStorageHost<DefaultTTraits>>,
+  TensorCoreHostT<DefaultTTraits, ContiguousStorageHost<DefaultTTraits>>>;
+
+using TensorTrain = TensorTrainT<DefaultTTraits>;
+using TensorPack = TensorPackT<DefaultTTraits>;
+
+// Contiguous storage variants (explicit TTraits for testing)
+using TensorCoreDeviceContiguous = TensorCoreDeviceT<ContiguousTTraits, ContiguousStorageDevice<ContiguousTTraits>>;
+using TensorCoreHostContiguous = TensorCoreHostT<ContiguousTTraits, ContiguousStorageHost<ContiguousTTraits>>;
+using TensorTrainContiguous = TensorTrainT<ContiguousTTraits>;
+using TensorPackContiguous = TensorPackT<ContiguousTTraits>;
 
 } // namespace tensor2
 } // namespace parthenon

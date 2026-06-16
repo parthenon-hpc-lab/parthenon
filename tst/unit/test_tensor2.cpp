@@ -30,8 +30,8 @@ using namespace parthenon::tensor2;
 
 namespace {
 
-template <class TTraits, template<class> class StoragePolicy = FiberStorageHost>
-TensorTrainT<TTraits, StoragePolicy>
+template <class TTraits>
+TensorTrainT<TTraits>
 MakeSparseDeltaTrain3D(const std::array<int, 3> &dims,
                        const std::vector<std::array<int, 3>> &entries,
                        const std::vector<typename TTraits::real_t> &values) {
@@ -44,23 +44,13 @@ MakeSparseDeltaTrain3D(const std::array<int, 3> &dims,
 
   const int nterms = static_cast<int>(entries.size());
 
-  TensorTrainT<TTraits, StoragePolicy> train({dims[0], dims[1], dims[2]},
-                                               nterms == 0 ? std::vector<int>{1, 1} : std::vector<int>{nterms, nterms});
-  std::vector<TensorTrainT<TTraits, StoragePolicy>> trains{train};
+  TensorTrainT<TTraits> train({dims[0], dims[1], dims[2]},
+                                nterms == 0 ? std::vector<int>{1, 1} : std::vector<int>{nterms, nterms});
+  std::vector<TensorTrainT<TTraits>> trains{train};
 
-  // Create pack with appropriate device storage based on host storage
-  auto make_pack_and_init = [&]() {
-    if constexpr (std::is_same_v<StoragePolicy<TTraits>, FiberStorageHost<TTraits>>) {
-      TensorPackT<TTraits, FiberStorageDevice> pack(trains);
-      SetTTPackToValue(pack, real_t(0));
-      return pack;
-    } else {
-      TensorPackT<TTraits, ContiguousStorageDevice> pack(trains);
-      SetTTPackToValue(pack, real_t(0));
-      return pack;
-    }
-  };
-  auto pack = make_pack_and_init();
+  // Create pack - automatically selects correct storage
+  TensorPackT<TTraits> pack(trains);
+  SetTTPackToValue(pack, real_t(0));
 
   if (nterms == 0) {
     return train;
@@ -117,9 +107,9 @@ MakeSparseDeltaTrain3D(const std::array<int, 3> &dims,
   return train;
 }
 
-template <class TTraits, template<class> class DeviceStoragePolicy>
+template <class TTraits>
 KOKKOS_INLINE_FUNCTION
-typename TTraits::real_t ReconstructDenseValue3D(const TensorPackT<TTraits, DeviceStoragePolicy> &pack,
+typename TTraits::real_t ReconstructDenseValue3D(const TensorPackT<TTraits> &pack,
                                                  int b, int i1, int i2, int i3) {
   auto &core0 = pack(b, 0, 0);
   auto &core1 = pack(b, 0, 1);
@@ -188,7 +178,16 @@ int CountDenseMismatches3D(CheckFunctor check, const Pack0 &pack0,
 }
 } // namespace
 
-SCENARIO("tensor2 single-core train basic structure", "[tensor2]") {
+TEMPLATE_TEST_CASE("tensor2 single-core train basic structure", "[tensor2]",
+                   FiberTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                          parthenon::tensor2::TensorTrain,
+                                          parthenon::tensor2::TensorTrainContiguous>;
+  using TensorPack = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                         parthenon::tensor2::TensorPack,
+                                         parthenon::tensor2::TensorPackContiguous>;
+
   TensorTrain train({4}, {});
   TensorTrain train_copy = train;
 
@@ -226,7 +225,16 @@ SCENARIO("tensor2 single-core train basic structure", "[tensor2]") {
   REQUIRE(nwrong == 0);
 }
 
-SCENARIO("tensor2 train construction and pack metadata", "[tensor2]") {
+TEMPLATE_TEST_CASE("tensor2 train construction and pack metadata", "[tensor2]",
+                   FiberTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                          parthenon::tensor2::TensorTrain,
+                                          parthenon::tensor2::TensorTrainContiguous>;
+  using TensorPack = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                         parthenon::tensor2::TensorPack,
+                                         parthenon::tensor2::TensorPackContiguous>;
+
   TensorTrain train({2, 3, 4}, {5, 6});
   std::vector<TensorTrain> trains{train};
 
@@ -255,7 +263,16 @@ SCENARIO("tensor2 train construction and pack metadata", "[tensor2]") {
               }, pack) == 0);
 }
 
-SCENARIO("tensor2 train copy and move preserve packable storage", "[tensor2]") {
+TEMPLATE_TEST_CASE("tensor2 train copy and move preserve packable storage", "[tensor2]",
+                   FiberTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                          parthenon::tensor2::TensorTrain,
+                                          parthenon::tensor2::TensorTrainContiguous>;
+  using TensorPack = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                         parthenon::tensor2::TensorPack,
+                                         parthenon::tensor2::TensorPackContiguous>;
+
   TensorTrain original({2, 3, 2}, {2, 2});
   std::vector<TensorTrain> originals{original};
   TensorPack original_pack(originals);
@@ -301,7 +318,16 @@ SCENARIO("tensor2 train copy and move preserve packable storage", "[tensor2]") {
               }, pack) == 0);
 }
 
-SCENARIO("tensor2 train vector push_back preserves packable storage", "[tensor2]") {
+TEMPLATE_TEST_CASE("tensor2 train vector push_back preserves packable storage", "[tensor2]",
+                   FiberTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                          parthenon::tensor2::TensorTrain,
+                                          parthenon::tensor2::TensorTrainContiguous>;
+  using TensorPack = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                         parthenon::tensor2::TensorPack,
+                                         parthenon::tensor2::TensorPackContiguous>;
+
   TensorTrain train_a({2, 3, 2}, {2, 2});
   TensorTrain train_b({2, 3, 2}, {2, 2});
 
@@ -333,10 +359,19 @@ SCENARIO("tensor2 train vector push_back preserves packable storage", "[tensor2]
               }, pack) == 0);
 }
 
-SCENARIO("tensor2 sparse delta train reconstructs to the correct dense values", "[tensor2]") {
-  using real_t = typename DefaultTTraits::real_t;
-  using entry_view_t = DefaultTTraits::template view_t<int*[3], ManagedTag>;
-  using value_view_t = DefaultTTraits::template view_t<real_t*, ManagedTag>;
+TEMPLATE_TEST_CASE("tensor2 sparse delta train reconstructs to the correct dense values", "[tensor2]",
+                   FiberTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                          parthenon::tensor2::TensorTrain,
+                                          parthenon::tensor2::TensorTrainContiguous>;
+  using TensorPack = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                         parthenon::tensor2::TensorPack,
+                                         parthenon::tensor2::TensorPackContiguous>;
+
+  using real_t = typename TTraits::real_t;
+  using entry_view_t = typename TTraits::template view_t<int*[3], ManagedTag>;
+  using value_view_t = typename TTraits::template view_t<real_t*, ManagedTag>;
 
   const std::array<int, 3> dims{3, 4, 5};
   const std::vector<std::array<int, 3>> entries_h{
@@ -346,7 +381,7 @@ SCENARIO("tensor2 sparse delta train reconstructs to the correct dense values", 
   };
   const std::vector<real_t> values_h{7.5, -2.0, 3.25};
 
-  TensorTrain train = MakeSparseDeltaTrain3D<DefaultTTraits>(dims, entries_h, values_h);
+  TensorTrain train = MakeSparseDeltaTrain3D<TTraits>(dims, entries_h, values_h);
   std::vector<TensorTrain> trains{train};
   TensorPack pack(trains);
 
@@ -387,8 +422,17 @@ SCENARIO("tensor2 sparse delta train reconstructs to the correct dense values", 
               }, pack) == 0);
 }
 
-SCENARIO("tensor2 ReduceSize preserves retained core data", "[tensor2]") {
-  using real_t = typename DefaultTTraits::real_t;
+TEMPLATE_TEST_CASE("tensor2 ReduceSize preserves retained core data", "[tensor2]",
+                   FiberTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                          parthenon::tensor2::TensorTrain,
+                                          parthenon::tensor2::TensorTrainContiguous>;
+  using TensorPack = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                         parthenon::tensor2::TensorPack,
+                                         parthenon::tensor2::TensorPackContiguous>;
+
+  using real_t = typename TTraits::real_t;
 
   TensorTrain train({3, 4, 2}, {3, 4});
 
@@ -404,9 +448,8 @@ SCENARIO("tensor2 ReduceSize preserves retained core data", "[tensor2]") {
         auto &core = pack(b, 0, c);
         for (int l = 0; l < core.LR(); ++l) {
           for (int r = 0; r < core.RR(); ++r) {
-            auto *f = &core(l, 0, r);
             for (int j = 0; j < core.DD(); ++j) {
-              f[j] = 1000 * c + 100 * l + 10 * r + j;
+              core(l, j, r) = 1000 * c + 100 * l + 10 * r + j;
             }
           }
         }
@@ -455,8 +498,17 @@ SCENARIO("tensor2 ReduceSize preserves retained core data", "[tensor2]") {
   REQUIRE(nwrong == 0);
 }
 
-SCENARIO("tensor2 non-destructive sum of constant trains reconstructs correctly", "[tensor2]") {
-  using real_t = typename DefaultTTraits::real_t;
+TEMPLATE_TEST_CASE("tensor2 non-destructive sum of constant trains reconstructs correctly", "[tensor2]",
+                   FiberTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                          parthenon::tensor2::TensorTrain,
+                                          parthenon::tensor2::TensorTrainContiguous>;
+  using TensorPack = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                         parthenon::tensor2::TensorPack,
+                                         parthenon::tensor2::TensorPackContiguous>;
+
+  using real_t = typename TTraits::real_t;
 
   TensorTrain train_a({2, 5, 4}, {2, 1});
   TensorTrain train_b({2, 5, 4}, {2, 3});
@@ -487,20 +539,26 @@ SCENARIO("tensor2 non-destructive sum of constant trains reconstructs correctly"
               }, pack_a, pack_b, pack_c) == 0);
 }
 
-SCENARIO("tensor2 non-destructive sum of sparse delta trains reconstructs correctly",
-         "[tensor2]") {
-  using real_t = typename DefaultTTraits::real_t;
+TEMPLATE_TEST_CASE("tensor2 non-destructive sum of sparse delta trains reconstructs correctly",
+                   "[tensor2]", DefaultTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                          parthenon::tensor2::TensorTrain,
+                                          parthenon::tensor2::TensorTrainContiguous>;
+  using TensorPack = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                         parthenon::tensor2::TensorPack,
+                                         parthenon::tensor2::TensorPackContiguous>;
+
+  using real_t = typename TTraits::real_t;
 
   const std::array<int, 3> dims{3, 4, 5};
 
-  TensorTrain train_a =
-      MakeSparseDeltaTrain3D<DefaultTTraits>(dims,
-                                             {{1, 2, 3}, {0, 1, 4}},
-                                             {real_t(2.0), real_t(-1.5)});
-  TensorTrain train_b =
-      MakeSparseDeltaTrain3D<DefaultTTraits>(dims,
-                                             {{1, 2, 3}, {2, 0, 1}},
-                                             {real_t(4.5), real_t(3.0)});
+  TensorTrain train_a = MakeSparseDeltaTrain3D<TTraits>(dims,
+                                         {{1, 2, 3}, {0, 1, 4}},
+                                         {real_t(2.0), real_t(-1.5)});
+  TensorTrain train_b = MakeSparseDeltaTrain3D<TTraits>(dims,
+                                         {{1, 2, 3}, {2, 0, 1}},
+                                         {real_t(4.5), real_t(3.0)});
 
   std::vector<TensorTrain> trains_a{train_a};
   std::vector<TensorTrain> trains_b{train_b};
@@ -522,8 +580,17 @@ SCENARIO("tensor2 non-destructive sum of sparse delta trains reconstructs correc
               pack_a, pack_b, pack_c) == 0);
 }
 
-SCENARIO("tensor2 Hadamard product of constant trains reconstructs correctly", "[tensor2]") {
-  using real_t = typename DefaultTTraits::real_t;
+TEMPLATE_TEST_CASE("tensor2 Hadamard product of constant trains reconstructs correctly", "[tensor2]",
+                   FiberTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                          parthenon::tensor2::TensorTrain,
+                                          parthenon::tensor2::TensorTrainContiguous>;
+  using TensorPack = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                         parthenon::tensor2::TensorPack,
+                                         parthenon::tensor2::TensorPackContiguous>;
+
+  using real_t = typename TTraits::real_t;
 
   TensorTrain train_a({2, 3, 4}, {2, 2});
   TensorTrain train_b({2, 3, 4}, {2, 2});
@@ -555,20 +622,26 @@ SCENARIO("tensor2 Hadamard product of constant trains reconstructs correctly", "
               pack_a, pack_b, pack_c) == 0);
 }
 
-SCENARIO("tensor2 Hadamard product of sparse delta trains reconstructs correctly",
-         "[tensor2]") {
-  using real_t = typename DefaultTTraits::real_t;
+TEMPLATE_TEST_CASE("tensor2 Hadamard product of sparse delta trains reconstructs correctly",
+                   "[tensor2]", DefaultTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                          parthenon::tensor2::TensorTrain,
+                                          parthenon::tensor2::TensorTrainContiguous>;
+  using TensorPack = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                         parthenon::tensor2::TensorPack,
+                                         parthenon::tensor2::TensorPackContiguous>;
+
+  using real_t = typename TTraits::real_t;
 
   const std::array<int, 3> dims{3, 4, 5};
 
-  TensorTrain train_a =
-      MakeSparseDeltaTrain3D<DefaultTTraits>(dims,
-                                             {{1, 2, 3}, {0, 1, 4}},
-                                             {real_t(2.0), real_t(-1.5)});
-  TensorTrain train_b =
-      MakeSparseDeltaTrain3D<DefaultTTraits>(dims,
-                                             {{1, 2, 3}, {2, 0, 1}},
-                                             {real_t(4.5), real_t(3.0)});
+  TensorTrain train_a = MakeSparseDeltaTrain3D<TTraits>(dims,
+                                         {{1, 2, 3}, {0, 1, 4}},
+                                         {real_t(2.0), real_t(-1.5)});
+  TensorTrain train_b = MakeSparseDeltaTrain3D<TTraits>(dims,
+                                         {{1, 2, 3}, {2, 0, 1}},
+                                         {real_t(4.5), real_t(3.0)});
 
   std::vector<TensorTrain> trains_a{train_a};
   std::vector<TensorTrain> trains_b{train_b};
@@ -590,17 +663,25 @@ SCENARIO("tensor2 Hadamard product of sparse delta trains reconstructs correctly
               pack_a, pack_b, pack_c) == 0);
 }
 
-SCENARIO("tensor2 Gram-SVD rounding scaffold on a two-delta train", "[tensor2]") {
-  using real_t = typename DefaultTTraits::real_t;
+TEMPLATE_TEST_CASE("tensor2 Gram-SVD rounding scaffold on a two-delta train", "[tensor2]",
+                   FiberTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                          parthenon::tensor2::TensorTrain,
+                                          parthenon::tensor2::TensorTrainContiguous>;
+  using TensorPack = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                         parthenon::tensor2::TensorPack,
+                                         parthenon::tensor2::TensorPackContiguous>;
+
+  using real_t = typename TTraits::real_t;
 
   const std::array<int, 3> dims{4, 4, 4};
 
   // Choose two distinct delta terms so the induced Gram matrices should be
   // easy to reason about and mostly diagonal.
-  TensorTrain train =
-      MakeSparseDeltaTrain3D<DefaultTTraits>(dims,
-                                             {{0, 1, 2}, {3, 2, 1}},
-                                             {real_t(2.0), real_t(-1.5)});
+  TensorTrain train = MakeSparseDeltaTrain3D<TTraits>(dims,
+                                       {{0, 1, 2}, {3, 2, 1}},
+                                       {real_t(2.0), real_t(-1.5)});
 
   std::vector<TensorTrain> trains{train};
   std::vector<TensorTrain> trains_orig = DeepCopyTrains(trains);
@@ -653,8 +734,17 @@ SCENARIO("tensor2 Gram-SVD rounding scaffold on a two-delta train", "[tensor2]")
   REQUIRE(trains[0](2).RR() == 1);
 }
 
-SCENARIO("tensor2 Gram-SVD rounding scaffold on a mixed two-channel train", "[tensor2]") {
-  using real_t = typename DefaultTTraits::real_t;
+TEMPLATE_TEST_CASE("tensor2 Gram-SVD rounding scaffold on a mixed two-channel train", "[tensor2]",
+                   FiberTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                          parthenon::tensor2::TensorTrain,
+                                          parthenon::tensor2::TensorTrainContiguous>;
+  using TensorPack = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                         parthenon::tensor2::TensorPack,
+                                         parthenon::tensor2::TensorPackContiguous>;
+
+  using real_t = typename TTraits::real_t;
 
   TensorTrain train({2, 2, 2}, {2, 2});
 
@@ -715,8 +805,17 @@ SCENARIO("tensor2 Gram-SVD rounding scaffold on a mixed two-channel train", "[te
               orig_pack, rounded_pack) == 0);
 }
 
-SCENARIO("tensor2 Gram-SVD no-truncation preserves randomized trains", "[tensor2]") {
-  using real_t = typename DefaultTTraits::real_t;
+TEMPLATE_TEST_CASE("tensor2 Gram-SVD no-truncation preserves randomized trains", "[tensor2]",
+                   FiberTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                          parthenon::tensor2::TensorTrain,
+                                          parthenon::tensor2::TensorTrainContiguous>;
+  using TensorPack = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                         parthenon::tensor2::TensorPack,
+                                         parthenon::tensor2::TensorPackContiguous>;
+
+  using real_t = typename TTraits::real_t;
 
   constexpr int nblocks = 8;
   const std::vector<int> dims{2, 2, 2};
@@ -765,16 +864,24 @@ SCENARIO("tensor2 Gram-SVD no-truncation preserves randomized trains", "[tensor2
               orig_pack, rounded_pack) == 0);
 }
 
-SCENARIO("tensor2 Gram-SVD rounds duplicate delta terms down to rank one", "[tensor2]") {
-  using real_t = typename DefaultTTraits::real_t;
+TEMPLATE_TEST_CASE("tensor2 Gram-SVD rounds duplicate delta terms down to rank one", "[tensor2]",
+                   FiberTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                          parthenon::tensor2::TensorTrain,
+                                          parthenon::tensor2::TensorTrainContiguous>;
+  using TensorPack = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                         parthenon::tensor2::TensorPack,
+                                         parthenon::tensor2::TensorPackContiguous>;
+
+  using real_t = typename TTraits::real_t;
 
   const std::array<int, 3> dims{4, 4, 4};
   const std::array<int, 3> entry{1, 2, 3};
 
-  TensorTrain train =
-      MakeSparseDeltaTrain3D<DefaultTTraits>(dims,
-                                             {entry, entry},
-                                             {real_t(2.0), real_t(-1.5)});
+  TensorTrain train = MakeSparseDeltaTrain3D<TTraits>(dims,
+                                       {entry, entry},
+                                       {real_t(2.0), real_t(-1.5)});
 
   std::vector<TensorTrain> trains{train};
 
@@ -819,9 +926,17 @@ SCENARIO("tensor2 Gram-SVD rounds duplicate delta terms down to rank one", "[ten
               rounded_pack) == 0);
 }
 
-SCENARIO("tensor2 Gram-SVD truncation respects relative Frobenius error on randomized trains",
-         "[tensor2]") {
-  using real_t = typename DefaultTTraits::real_t;
+TEMPLATE_TEST_CASE("tensor2 Gram-SVD truncation respects relative Frobenius error on randomized trains",
+                   "[tensor2]", DefaultTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                          parthenon::tensor2::TensorTrain,
+                                          parthenon::tensor2::TensorTrainContiguous>;
+  using TensorPack = std::conditional_t<std::is_same_v<TTraits, FiberTTraits>,
+                                         parthenon::tensor2::TensorPack,
+                                         parthenon::tensor2::TensorPackContiguous>;
+
+  using real_t = typename TTraits::real_t;
 
   constexpr int nblocks = 8;
   const std::vector<int> dims{4, 3, 5};
@@ -883,9 +998,9 @@ SCENARIO("tensor2 Gram-SVD truncation respects relative Frobenius error on rando
       0, orig_pack.GetPhysicalDimension(2) - 1,
       KOKKOS_LAMBDA(const int b, const int i1, const int i2, const int i3) {
         const real_t orig_val =
-            ReconstructDenseValue3D<DefaultTTraits>(orig_pack, b, i1, i2, i3);
+            ReconstructDenseValue3D<TTraits>(orig_pack, b, i1, i2, i3);
         const real_t rounded_val =
-            ReconstructDenseValue3D<DefaultTTraits>(rounded_pack, b, i1, i2, i3);
+            ReconstructDenseValue3D<TTraits>(rounded_pack, b, i1, i2, i3);
 
         const real_t diff = orig_val - rounded_val;
         Kokkos::atomic_add(&err2_d(b), diff * diff);
@@ -982,8 +1097,8 @@ SCENARIO("tensor2 contiguous storage reconstruction agrees with fiber storage", 
   const std::vector<std::array<int, 3>> entries = {{0, 0, 0}, {1, 2, 3}, {2, 4, 8}};
   const std::vector<Real> values = {1.0, 2.0, 3.0};
 
-  auto train_fiber = MakeSparseDeltaTrain3D<DefaultTTraits, FiberStorageHost>(dims, entries, values);
-  auto train_contig = MakeSparseDeltaTrain3D<ContiguousTTraits, ContiguousStorageHost>(dims, entries, values);
+  auto train_fiber = MakeSparseDeltaTrain3D<FiberTTraits>(dims, entries, values);
+  auto train_contig = MakeSparseDeltaTrain3D<ContiguousTTraits>(dims, entries, values);
 
   std::vector<TensorTrain> trains_fiber{train_fiber};
   std::vector<TensorTrainContiguous> trains_contig{train_contig};

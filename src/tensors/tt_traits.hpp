@@ -103,12 +103,34 @@ struct TensorTraits {
   }
 };
 
-using DefaultTTraits = TensorTraits<Kokkos::Device<DevExecSpace, DevMemSpace>, Real, Kokkos::LayoutRight, true>;
+// Explicit layout traits
+using FiberTTraits = TensorTraits<Kokkos::Device<DevExecSpace, DevMemSpace>, Real, Kokkos::LayoutRight, true>;
 using ContiguousTTraits = TensorTraits<Kokkos::Device<DevExecSpace, DevMemSpace>, Real, Kokkos::LayoutRight, false>;
+
+// Default traits (currently fiber storage, but could be made context-dependent later)
+using DefaultTTraits = FiberTTraits;
 
 // ==============================================================================
 // STORAGE POLICIES FOR TENSOR CORES
 // ==============================================================================
+
+namespace tensor2 {
+
+// Forward declarations for StorageFor
+template <class TTraits> class FiberStorageHost;
+template <class TTraits> class FiberStorageDevice;
+template <class TTraits> class ContiguousStorageHost;
+template <class TTraits> class ContiguousStorageDevice;
+
+} // namespace tensor2
+
+// Helper to select storage policy based on TTraits layout
+// This selects FiberStorage for dd-fastest (d_fastest_moving=true)
+// and ContiguousStorage for rr-fastest (d_fastest_moving=false)
+template <class TTraits>
+using StorageFor = std::conditional_t<TTraits::d_fastest_moving,
+                                      tensor2::FiberStorageHost<TTraits>,
+                                      tensor2::ContiguousStorageHost<TTraits>>;
 
 namespace tensor2 {
 

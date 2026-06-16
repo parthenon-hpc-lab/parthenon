@@ -98,8 +98,8 @@ void HadamardCoreBlocks(parthenon::team_mbr_t member,
 } // namespace impl
 
 // Set every entry in every core of a tensor-train pack to a single value.
-template <class TTraits, template<class> class DeviceStoragePolicy = FiberStorageDevice>
-void SetTTPackToValue(TensorPackT<TTraits, DeviceStoragePolicy> &pack, typename TTraits::real_t value) {
+template <class TTraits>
+void SetTTPackToValue(TensorPackT<TTraits> &pack, typename TTraits::real_t value) {
   constexpr int unused_scratch_size = 0;
   constexpr int unused_scratch_level = 1;
   parthenon::par_for_outer(
@@ -318,7 +318,7 @@ struct no_core_mask {
 
 template <class TTraits, class F = no_core_mask>
 void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
-                  typename TTraits::real_t eps, 
+                  typename TTraits::real_t eps,
                   F core_mask = no_core_mask{}) {
   using real_t = typename TTraits::real_t;
 
@@ -355,9 +355,9 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
   // GEMM storage
   const int storage_size = std::max(max_rank, 32) * std::max(max_rank, 32);
   scratch_size += 3 * ScratchPad1D<real_t>::shmem_size(storage_size);
-  
+
   TensorPackT<TTraits> pack(trains);
-  
+
   // Allocate array for storing final ranks to eventually copy back to host to
   // round
   using final_rank_arr_t = typename TTraits::template view_t<int**, ManagedTag>;
