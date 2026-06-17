@@ -69,25 +69,51 @@ class SquareSVD {
     PARTHENON_REQUIRE(pA, "A must not be null.");
     auto &A = *pA;
     const int ncols = GetNcols(A);
+    const int nrows = GetNrows(A);
+    PARTHENON_REQUIRE(nrows >= ncols,
+                    "Tall-skinny SVD requires nrows >= ncols.");
+    const int max_dim = (nrows > ncols ? nrows : ncols); 
 
     if (ncols == 1) {
-      const double a00 = A(0, 0);
-      if (pU)
-        once_per_team(tm, KOKKOS_LAMBDA() { (*pU)(0, 0) = 1.0; });
-      if (pV)
-        once_per_team(tm, KOKKOS_LAMBDA() { (*pV)(0, 0) = (a00 < 0.0 ? -1.0 : 1.0); });
-      once_per_team(tm, KOKKOS_LAMBDA() { sings[0] = std::abs(a00); });
+      double sigma2{0.0};
+
+      summation(
+          tm, 0, nrows - 1,
+          [&](const int r, double &sum) {
+            sum += A(r, 0) * A(r, 0);
+          },
+          sigma2);
+
+      const double sigma = safe_sqrt(sigma2);
+
+      once_per_team(tm, [&]() { sings[0] = sigma; });
+
+      if (pV) {
+        once_per_team(tm, [&]() { (*pV)(0, 0) = 1.0; });
+      }
+
+      if (pU) {
+        if (sigma > 0.0) {
+          parallel_loop(
+              tm, 0, nrows - 1,
+              [&](const int r) { (*pU)(r, 0) = A(r, 0) / sigma; });
+        } else {
+          parallel_loop(
+              tm, 0, nrows - 1,
+              [&](const int r) { (*pU)(r, 0) = (r == 0 ? 1.0 : 0.0); });
+        }
+      }
       barrier(tm);
       return 0;
     }
 
     // Tridiagonalize the symmetric matrix via Householder transformations
     double *v = &(scratch[0]);
-    double *s = &(scratch[ncols]);
-    double *vhead = &(scratch[2 * ncols]);
+    double *s = &(scratch[max_dim]);
+    double *vhead = &(scratch[2 * max_dim]);
     if (pU) {
       auto &U = *pU;
-      parallel_loop(tm, 0, ncols - 1, 0, ncols - 1,
+      parallel_loop(tm, 0, nrows - 1, 0, ncols - 1,
                     [&](int r, int c) { U(r, c) = (r == c); });
     }
     if (pV) {
@@ -95,20 +121,21 @@ class SquareSVD {
       parallel_loop(tm, 0, ncols - 1, 0, ncols - 1,
                     [&](int r, int c) { V(r, c) = (r == c); });
     }
-
-    sequential_loop(0, ncols - 2, [&](const int col) {
+    
+    const int upper_lim = (nrows == ncols ? ncols - 2 : ncols - 1);
+    sequential_loop(0, upper_lim, [&](const int col) {
       build_householder_vector_col(tm, col, col, A, v);
       barrier(tm);
       apply_left_householder_transformation(tm, v, s, A, col, col);
       
       once_per_team(
           tm, [&]() { vhead[col] = v[col]; });
-      parallel_loop(tm, col + 1, ncols - 1, [&](int r) { 
+      parallel_loop(tm, col + 1, nrows - 1, [&](int r) { 
         A(r, col) = v[r];
       });
       barrier(tm);
 
-      if (col < ncols - 2) {
+      if (col < upper_lim) {
         barrier(tm);
         build_householder_vector_row(tm, col, col + 1, A, v);
         barrier(tm);
@@ -138,15 +165,15 @@ class SquareSVD {
 
     // Apply the Householder vectors to pU 
     if (pU) {
-      sequential_loop(0, ncols - 2, [&](const int inv_col) {
-        int col = ncols - 2 - inv_col;
+      sequential_loop(0, upper_lim, [&](const int inv_col) {
+        int col = upper_lim - inv_col;
         // Reconstruct householder vector
         parallel_loop(tm, 0, col - 1, [&](int r) { 
           v[r] = 0.0;
         });
         once_per_team(
             tm, [&]() { v[col] = vhead[col]; });
-        parallel_loop(tm, col + 1, ncols - 1, [&](int r) { 
+        parallel_loop(tm, col + 1, nrows - 1, [&](int r) { 
           v[r] = A(r, col);
         });
         barrier(tm);
@@ -160,7 +187,7 @@ class SquareSVD {
           if (sings[col] < 0.) {
             sings[col] *= -1.;
             if (pU) {
-              for (int row = 0; row < ncols; row++) {
+              for (int row = 0; row < nrows; row++) {
                 (*pU)(row, col) *= -1.;
               }
             }
