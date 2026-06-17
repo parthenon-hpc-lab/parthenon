@@ -84,6 +84,7 @@ class SquareSVD {
     // Tridiagonalize the symmetric matrix via Householder transformations
     double *v = &(scratch[0]);
     double *s = &(scratch[ncols]);
+    double *vhead = &(scratch[2 * ncols]);
     if (pU) {
       auto &U = *pU;
       parallel_loop(tm, 0, ncols - 1, 0, ncols - 1,
@@ -95,30 +96,35 @@ class SquareSVD {
                     [&](int r, int c) { V(r, c) = (r == c); });
     }
 
-    sequential_loop(0, ncols - 3, [&](const int col) {
+    sequential_loop(0, ncols - 2, [&](const int col) {
       build_householder_vector_col(tm, col, col, A, v);
       barrier(tm);
-      apply_left_householder_transformation(tm, v, s, A, col);
-      if (pU) apply_right_householder_transformation(tm, v, s, *pU, col);
+      apply_left_householder_transformation(tm, v, s, A, col, col);
+      
+      once_per_team(
+          tm, [&]() { vhead[col] = v[col]; });
+      parallel_loop(tm, col + 1, ncols - 1, [&](int r) { 
+        A(r, col) = v[r];
+      });
+      barrier(tm);
 
+      if (col < ncols - 2) {
+        barrier(tm);
+        build_householder_vector_row(tm, col, col + 1, A, v);
+        barrier(tm);
+        apply_right_householder_transformation(tm, v, s, A, col + 1, col);
+        if (pV) apply_right_householder_transformation(tm, v, s, *pV, col + 1);
+      }
       barrier(tm);
-      build_householder_vector_row(tm, col, col + 1, A, v);
-      barrier(tm);
-      apply_right_householder_transformation(tm, v, s, A, col + 1);
-      if (pV) apply_right_householder_transformation(tm, v, s, *pV, col + 1);
+      
     });
-    barrier(tm);
-    build_householder_vector_col(tm, ncols - 2, ncols - 2, A, v);
-    barrier(tm);
-    apply_left_householder_transformation(tm, v, s, A, ncols - 2);
-    if (pU) apply_right_householder_transformation(tm, v, s, *pU, ncols - 2);
-
-    // Move to tridiagonal storage
+    
+    // Move to bidiagonal storage
     barrier(tm);
     once_per_team(
-        tm, KOKKOS_LAMBDA() { sings[0] = A(0, 0); });
+        tm, [&]() { sings[0] = A(0, 0); });
     parallel_loop(
-        tm, 0, ncols - 2, KOKKOS_LAMBDA(int i) {
+        tm, 0, ncols - 2, [&](int i) {
           sings[i + 1] = A(i + 1, i + 1);
           scratch[i] = A(i, i + 1);
         });
@@ -130,13 +136,33 @@ class SquareSVD {
         ImplicitQRBidiag(tm, sings, scratch, pU, pV, start, end, ncols, 10 * ncols);
     if (status == 10 * ncols) return -status;
 
+    // Apply the Householder vectors to pU 
+    if (pU) {
+      sequential_loop(0, ncols - 2, [&](const int inv_col) {
+        int col = ncols - 2 - inv_col;
+        // Reconstruct householder vector
+        parallel_loop(tm, 0, col - 1, [&](int r) { 
+          v[r] = 0.0;
+        });
+        once_per_team(
+            tm, [&]() { v[col] = vhead[col]; });
+        parallel_loop(tm, col + 1, ncols - 1, [&](int r) { 
+          v[r] = A(r, col);
+        });
+        barrier(tm);
+        apply_left_householder_transformation(tm, v, s, *pU, col, 0);
+      });
+    }
+
     // Ensure singular values are positive
     parallel_loop(
-        tm, 0, ncols - 1, KOKKOS_LAMBDA(int col) {
+        tm, 0, ncols - 1, [&](int col) {
           if (sings[col] < 0.) {
             sings[col] *= -1.;
-            for (int row = 0; row < ncols; row++) {
-              (*pU)(row, col) *= -1.;
+            if (pU) {
+              for (int row = 0; row < ncols; row++) {
+                (*pU)(row, col) *= -1.;
+              }
             }
           }
         });
@@ -183,7 +209,7 @@ class SquareSVD {
   }
 
   KOKKOS_INLINE_FUNCTION
-  static std::size_t double_scratch_size(std::size_t ncols) { return 2 * ncols; }
+  static std::size_t double_scratch_size(std::size_t ncols) { return 3 * ncols; }
 
   KOKKOS_INLINE_FUNCTION
   static std::size_t sizet_scratch_size(std::size_t ncols) { return ncols + 2; }
