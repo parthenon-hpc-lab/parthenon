@@ -342,8 +342,15 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
   // Storage for temporary when calculating right Gram matrices
   scratch_size += ScratchPad1D<real_t>::shmem_size(max_core_size);
 
-  // Calculate the total storage for linear algebra scratch
-  scratch_size += SymmetricEVD::total_shmem_scratch_size(max_rank); 
+  // Calculate the total storage for linear algebra scratch.
+  // EVD and SVD share the same buffers here, so size them from the larger
+  // of the two solver requirements.
+  const std::size_t evd_double_scratch = SymmetricEVD::double_scratch_size(max_rank);
+  const std::size_t svd_double_scratch = SquareSVD::double_scratch_size(max_rank);
+  const std::size_t evd_szt_scratch = SymmetricEVD::sizet_scratch_size(max_rank);
+  const std::size_t svd_szt_scratch = SquareSVD::sizet_scratch_size(max_rank);
+  scratch_size += ScratchPad1D<real_t>::shmem_size(std::max(evd_double_scratch, svd_double_scratch));
+  scratch_size += ScratchPad1D<std::size_t>::shmem_size(std::max(evd_szt_scratch, svd_szt_scratch));
 
   // Calculate storage for eigen and singular value results
   scratch_size += 4 * ScratchPad1D<real_t>::shmem_size(max_rank * max_rank);
@@ -430,8 +437,8 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
         ScratchPad1D<int> perm(tm_scratch, max_rank);
 
         // Scratch that can be re-used amongst solves
-        ScratchPad1D<real_t> real_scratch(tm_scratch, SymmetricEVD::double_scratch_size(max_rank));
-        ScratchPad1D<std::size_t> szt_scratch(tm_scratch, SymmetricEVD::sizet_scratch_size(max_rank));
+        ScratchPad1D<real_t> real_scratch(tm_scratch, std::max(evd_double_scratch, svd_double_scratch));
+        ScratchPad1D<std::size_t> szt_scratch(tm_scratch, std::max(evd_szt_scratch, svd_szt_scratch));
 
         // L-to-R sweep over bonds 
         for (int c = 0; c < n_cores - 1; ++c) {
