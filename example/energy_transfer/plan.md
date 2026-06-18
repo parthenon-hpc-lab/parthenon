@@ -131,7 +131,7 @@ Single ADIOS2/bp5 file via openPMD. Each transfer term stored as a named
 
 ```
 input_file = data.bp    # ADIOS2/bp5 input (must end in .bp); omit for meshblock mode
-binning = lin|log       # shell edge distribution
+binning = lin|log|test  # shell edge distribution
 num_shells = 20         # number of shells
 compute_UU = true       # kinetic transfer
 compute_BB = false      # magnetic transfer

@@ -233,6 +233,8 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
     for (int i = 0; i <= n_log_bins; i++) {
       shell_edges.push_back(4.0 * std::pow(2.0, (Real(i) - 1.0) / 4.0));
     }
+  } else if (binning == "test") {
+    shell_edges = {0.5, 1.5, 2.5, 16.0, 26.5, 28.5, 32.0};
   } else {
     PARTHENON_FAIL("Unknown binning type: " + binning);
   }
