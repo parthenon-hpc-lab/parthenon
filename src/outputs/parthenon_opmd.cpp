@@ -3,7 +3,7 @@
 // Copyright(C) 2024-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,6 +16,8 @@
 //========================================================================================
 //! \file parthenon_openpmd.cpp
 //  \brief Output for OpenPMD https://www.openpmd.org/ (supporting various backends)
+
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <chrono>
@@ -218,7 +220,7 @@ GetParticleRecordAndComponentNames(const std::string &vname, const int rank,
   } else if (vname == swarm_position::id::name()) {
     particle_record = "id";
     particle_record_component = openPMD::MeshRecordComponent::SCALAR;
-  // Backwards compatibility: support old position names (swarm.x/y/z -> position/x,y,z)
+    // Backwards compatibility: support old position names (swarm.x/y/z -> position/x,y,z)
   } else if (vname == "swarm.x") {
     particle_record = "position";
     particle_record_component = "x";

@@ -14,6 +14,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
+
 #ifndef OUTPUTS_RESTART_HPP_
 #define OUTPUTS_RESTART_HPP_
 //! \file io_wrapper.hpp
