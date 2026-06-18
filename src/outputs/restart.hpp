@@ -23,6 +23,7 @@
 //  \brief defines a set of small wrapper functions for MPI versus Serial Output.
 
 #include <cinttypes>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <utility>
