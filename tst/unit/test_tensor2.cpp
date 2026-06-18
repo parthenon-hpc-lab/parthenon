@@ -965,6 +965,154 @@ TEMPLATE_TEST_CASE("tensor2 Gram-SVD truncation respects relative Frobenius erro
   }
 }
 
+TEMPLATE_TEST_CASE("tensor2 Oseledets-SVD no-truncation preserves randomized trains", "[tensor2]",
+                   DefaultTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = TensorTrainT<TTraits>;
+  using TensorPack = TensorPackT<TTraits>;
+
+  using real_t = typename TTraits::real_t;
+
+  constexpr int nblocks = 8;
+  const std::vector<int> dims{2, 2, 2};
+  const std::vector<int> ranks{2, 2};
+
+  std::vector<TensorTrain> trains;
+  trains.reserve(nblocks);
+  for (int b = 0; b < nblocks; ++b) {
+    trains.emplace_back(dims, ranks);
+  }
+
+  TensorPack pack(trains);
+
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, 0, 1,
+      0, pack.GetNBlocks() - 1, 0, pack.GetNCores() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int b, const int c) {
+        auto &core = pack(b, 0, c);
+        for (int l = 0; l < core.LR(); ++l) {
+          for (int r = 0; r < core.RR(); ++r) {
+            parthenon::par_for_inner(tm, 0, core.DD() - 1, [&](const int j) {
+              const int key = 97 * (b + 1) + 31 * (c + 1) + 11 * (l + 1) + 7 * (r + 1) + 3 * (j + 1);
+              core(l, j, r) = real_t((key % 17) - 8) / real_t(8);
+            });
+          }
+        }
+      });
+  Kokkos::fence();
+
+  auto trains_orig = DeepCopyTrains(trains);
+
+  RoundOseledetsSVD(trains, real_t(0.0));
+  TensorPack rounded_pack(trains);
+  TensorPack orig_pack(trains_orig);
+
+  constexpr real_t atol = real_t(1.0e-11);
+  constexpr real_t rtol = real_t(1.0e-10);
+
+  REQUIRE(CountDenseMismatches3D(
+              KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val, real_t rounded_val) {
+                const real_t err = std::abs(original_val - rounded_val);
+                const real_t scale = std::max(std::abs(original_val), std::abs(rounded_val));
+                return err > atol + rtol * scale;
+              },
+              orig_pack, rounded_pack) == 0);
+}
+
+TEMPLATE_TEST_CASE("tensor2 Oseledets-SVD truncation respects relative Frobenius error on randomized trains",
+                   "[tensor2]", DefaultTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = TensorTrainT<TTraits>;
+  using TensorPack = TensorPackT<TTraits>;
+
+  using real_t = typename TTraits::real_t;
+
+  constexpr int nblocks = 8;
+  const std::vector<int> dims{4, 3, 5};
+  const std::vector<int> ranks{8, 5};
+
+  std::vector<TensorTrain> trains;
+  trains.reserve(nblocks);
+  for (int b = 0; b < nblocks; ++b) {
+    trains.emplace_back(dims, ranks);
+  }
+
+  TensorPack pack(trains);
+
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, 0, 1,
+      0, pack.GetNBlocks() - 1, 0, pack.GetNCores() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int b, const int c) {
+        auto &core = pack(b, 0, c);
+        for (int l = 0; l < core.LR(); ++l) {
+          for (int r = 0; r < core.RR(); ++r) {
+            parthenon::par_for_inner(tm, 0, core.DD() - 1, [&](const int j) {
+              const int key =
+                  101 * (b + 1) + 37 * (c + 1) + 13 * (l + 1) + 11 * (r + 1) + 5 * (j + 1);
+              core(l, j, r) = real_t((key % 29) - 14) / real_t(10);
+            });
+          }
+        }
+      });
+  Kokkos::fence();
+
+  auto trains_orig = DeepCopyTrains(trains);
+  TensorPack orig_pack(trains_orig);
+
+  constexpr real_t eps_rel = real_t(1.0e-1);
+
+  RoundOseledetsSVD(trains, eps_rel);
+  TensorPack rounded_pack(trains);
+
+  using err_view_t = DefaultTTraits::template view_t<real_t*, ManagedTag>;
+  err_view_t err2_d("err2_d", nblocks);
+  err_view_t norm2_d("norm2_d", nblocks);
+
+  auto err2_h = Kokkos::create_mirror_view(err2_d);
+  auto norm2_h = Kokkos::create_mirror_view(norm2_d);
+
+  for (int b = 0; b < nblocks; ++b) {
+    err2_h(b) = real_t(0);
+    norm2_h(b) = real_t(0);
+  }
+  Kokkos::deep_copy(err2_d, err2_h);
+  Kokkos::deep_copy(norm2_d, norm2_h);
+
+  parthenon::par_for(
+      "tensor2_oseledets_relative_frobenius_rounding_error",
+      0, orig_pack.GetNBlocks() - 1,
+      0, orig_pack.GetPhysicalDimension(0) - 1,
+      0, orig_pack.GetPhysicalDimension(1) - 1,
+      0, orig_pack.GetPhysicalDimension(2) - 1,
+      KOKKOS_LAMBDA(const int b, const int i1, const int i2, const int i3) {
+        const real_t orig_val =
+            ReconstructDenseValue3D<TTraits>(orig_pack, b, i1, i2, i3);
+        const real_t rounded_val =
+            ReconstructDenseValue3D<TTraits>(rounded_pack, b, i1, i2, i3);
+
+        const real_t diff = orig_val - rounded_val;
+        Kokkos::atomic_add(&err2_d(b), diff * diff);
+        Kokkos::atomic_add(&norm2_d(b), orig_val * orig_val);
+      });
+  Kokkos::fence();
+
+  Kokkos::deep_copy(err2_h, err2_d);
+  Kokkos::deep_copy(norm2_h, norm2_d);
+
+  for (int b = 0; b < nblocks; ++b) {
+    const real_t err_frob = std::sqrt(err2_h(b));
+    const real_t norm_frob = std::sqrt(norm2_h(b));
+    const real_t rhs = eps_rel * norm_frob;
+
+    INFO("block = " << b
+         << "  ||X - X_round||_F = " << err_frob
+         << "  ||X||_F = " << norm_frob
+         << "  eps_rel * ||X||_F = " << rhs);
+
+    REQUIRE(err_frob <= rhs);
+  }
+}
+
 // ==============================================================================
 // Tests for contiguous storage (rr stride-1)
 // ==============================================================================

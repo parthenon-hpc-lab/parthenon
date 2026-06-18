@@ -16,6 +16,7 @@
 
 #include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
+#include "linear_algebra/qr_decomposition.hpp"
 #include "linear_algebra/symmetric_evd.hpp"
 #include "linear_algebra/square_svd.hpp"
 #include "tt_traits.hpp"
@@ -578,6 +579,192 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
 
     train(ncores - 1).ReduceSize(final_rank_arr_h(b, ncores - 2), 1);
   }
+}
+
+template <class TTraits>
+void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
+                       typename TTraits::real_t eps) {
+  using real_t = typename TTraits::real_t;
+
+  int max_rank{0};
+  int max_core_size{0};
+  int n_cores{0};
+  for (const auto &train : trains) {
+    n_cores = train.NCores();
+    for (int c = 0; c < train.NCores(); ++c) {
+      max_rank = std::max(max_rank, train(c).RR());
+      max_core_size = std::max(max_core_size, train(c).LR() * train(c).DD() * train(c).RR());
+    }
+  }
+
+  if (n_cores <= 1) return;
+
+  TensorPackT<TTraits> pack(trains);
+
+  using final_rank_arr_t = typename TTraits::template view_t<int**, ManagedTag>;
+  final_rank_arr_t final_rank_arr("Final ranks", pack.GetNBlocks(), n_cores - 1);
+
+  int scratch_size{0};
+  scratch_size += ScratchPad1D<real_t>::shmem_size(max_core_size);
+  scratch_size += ScratchPad1D<real_t>::shmem_size(max_rank * max_rank);
+  scratch_size += ScratchPad1D<real_t>::shmem_size(max_rank);
+
+  const std::size_t lq_double_scratch =
+      LQDecomposition::double_scratch_size(max_rank, max_core_size);
+  const std::size_t svd_double_scratch =
+      SquareSVD::double_scratch_size(max_core_size, max_rank);
+  const std::size_t svd_szt_scratch = SquareSVD::sizet_scratch_size(max_rank);
+  scratch_size += ScratchPad1D<real_t>::shmem_size(std::max(lq_double_scratch, svd_double_scratch));
+  scratch_size += ScratchPad1D<std::size_t>::shmem_size(svd_szt_scratch);
+  
+  // GEMM storage
+  const int storage_size = std::max(max_rank, 32) * std::max(max_rank, 32);
+  scratch_size += 3 * ScratchPad1D<real_t>::shmem_size(storage_size);
+
+  constexpr int scratch_level = 1;
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, scratch_size, scratch_level,
+      0, pack.GetNBlocks() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int b) {
+        auto &tm_scratch = tm.team_scratch(scratch_level);
+
+        ScratchPad1D<real_t> Q_tmp_flat(tm_scratch, max_core_size);
+        ScratchPad1D<real_t> transfer_flat(tm_scratch, max_rank * max_rank);
+        ScratchPad1D<real_t> linalg_real_scratch(
+            tm_scratch, std::max(lq_double_scratch, svd_double_scratch));
+        ScratchPad1D<real_t> a_scratch(tm_scratch, storage_size); 
+        ScratchPad1D<real_t> b_scratch(tm_scratch, storage_size); 
+        ScratchPad1D<real_t> c_scratch(tm_scratch, storage_size); 
+
+        // Right-to-left orthogonalization sweep.
+        for (int c = n_cores - 1; c >= 1; --c) {
+          auto &core = pack(b, 0, c);
+          const int lr = core.LR();
+          const int dd = core.DD();
+          const int rr = core.RR();
+          
+          ScratchCore<TTraits> Q_tmp{lr, dd, rr, Q_tmp_flat.data()};
+          auto HQ = TTraits::GetHorizontalUnfolding(Q_tmp, lr, dd, rr);
+          auto HG = TTraits::GetHorizontalUnfolding(core, lr, dd, rr);
+          LQDecomposition::execute(tm, &HG, &HQ, linalg_real_scratch.data());
+          tm.team_barrier();
+
+          // Store L temporarily  
+          matrix_wrapper_t<real_t> Lmat(transfer_flat.data(), lr, lr);
+          parallel_loop(tm, 0, lr - 1, 0, lr - 1,
+                        [&](int i, int j) { Lmat(i, j) = HG(i, j); });
+          tm.team_barrier();
+          
+          // Overwrite old core with orthogonalized core 
+          parthenon::par_for_inner(tm, 0, lr - 1, 0, rr - 1, 0, dd - 1,
+              [&](int l, int r, int j) {
+                core(l, j, r) = Q_tmp(l, j, r);
+              });
+          tm.team_barrier();
+
+          // Push L into the next core
+          auto &corem1 = pack(b, 0, c - 1);
+          auto VGm1 = TTraits::GetVerticalUnfolding(corem1);
+          ScratchCore<TTraits> G_tmp{corem1.LR(), corem1.DD(), corem1.RR(), Q_tmp_flat.data()};
+          auto VGm1_tmp = TTraits::GetVerticalUnfolding(G_tmp);
+          MatMulPacked<16, 16, 16>(tm, VGm1, Lmat, VGm1_tmp,
+                                   a_scratch, b_scratch, c_scratch);
+          tm.team_barrier(); 
+          parthenon::par_for_inner(tm, 0, corem1.LR() - 1, 0, corem1.RR() - 1, 0, corem1.DD() - 1,
+              [&](int l, int r, int j) {
+                corem1(l, j, r) = G_tmp(l, j, r);
+              });
+          tm.team_barrier(); 
+        }
+
+        // The global Frobenius norm is invariant under the orthogonalization sweep.
+        auto &first = pack(b, 0, 0);
+        real_t norm2{0.0};
+        parthenon::par_reduce_inner(
+            parthenon::inner_loop_pattern_ttr_tag,
+            tm, 0, first.LR() - 1, 0, first.DD() - 1, 0, first.RR() - 1,
+            [&](const int l, const int j, const int r, real_t &accum) {
+              const real_t val = first(l, j, r);
+              accum += val * val;
+            },
+            Kokkos::Sum<real_t>(norm2));
+        tm.team_barrier();
+        real_t eps0 = safe_sqrt(norm2) * eps / sqrt(std::max(n_cores, 2) - 1);
+        if (eps > real_t(0)) {
+          eps0 += real_t(1.e-16);
+        }
+
+        ScratchPad1D<real_t> rank_scratch(tm_scratch, max_rank);
+        ScratchPad1D<std::size_t> linalg_szt_scratch(tm_scratch, svd_szt_scratch);
+
+        // Left-to-right truncation sweep.
+        ScratchPad1D<real_t> sig(tm_scratch, max_rank);
+        ScratchPad1D<int> perm(tm_scratch, max_rank);
+
+        for (int c = 0; c < n_cores - 1; ++c) {
+          // auto &core = pack(b, 0, c);
+          // const int lr = c == 0 ? core.LR() : final_rank_arr(b, c - 1);
+          // const int rr = core.RR();
+          // const int dd = core.DD();
+
+          // ScratchCore<TTraits> core_out{lr, dd, rr, core_out_flat.data()};
+          // auto Vtmp = TTraits::GetVerticalUnfolding(core, lr, dd, rr);
+          // auto Uout = TTraits::GetVerticalUnfolding(core_out, lr, dd, rr);
+          // matrix_wrapper_t<real_t> Vmat(transfer_flat.data(), rr, rr);
+
+          // SquareSVD::execute(tm, &Vtmp, &Uout, &Vmat, sig.data(),
+          //                    linalg_real_scratch.data(), linalg_szt_scratch.data());
+          // tm.team_barrier();
+
+          // int rank_new{0};
+          // BuildDescendingPermutation(tm, sig, rr, eps0, perm, rank_new);
+          // Kokkos::single(Kokkos::PerTeam(tm), [&]() {
+          //   final_rank_arr(b, c) = rank_new;
+          // });
+          // tm.team_barrier();
+
+          // parthenon::par_for_inner(tm, 0, lr - 1, 0, rank_new - 1, 0, dd - 1,
+          //                          [&](int l, int rnew, int j) {
+          //                            core(l, j, rnew) = Uout(l * dd + j, perm(rnew));
+          //                          });
+          // tm.team_barrier();
+          // if (rank_new < rr) {
+          //   impl::SetCoreBlock(tm, core, real_t(0),
+          //                      std::pair<int, int>{0, lr},
+          //                      std::pair<int, int>{rank_new, rr});
+          // }
+          // tm.team_barrier();
+
+          // auto VTkeep = Vmat.GetTranspose().GetPermutedRows(perm, rank_new);
+          // matrix_wrapper_t<real_t> Tmat(transfer_flat.data(), rank_new, rr);
+          // parallel_loop(tm, 0, rank_new - 1, 0, rr - 1,
+          //               [&](int rnew, int rold) {
+          //                 Tmat(rnew, rold) = sig(perm(rnew)) * VTkeep(rnew, rold);
+          //               });
+          // tm.team_barrier();
+
+          // auto &next = pack(b, 0, c + 1);
+          // impl::ApplyLeftTransformInPlace(tm, next, Tmat, rank_new, rank_scratch.data());
+          // tm.team_barrier();
+        }
+      });
+
+  // auto final_rank_arr_h = Kokkos::create_mirror_view(final_rank_arr);
+  // Kokkos::deep_copy(final_rank_arr_h, final_rank_arr);
+
+  // for (int b = 0; b < trains.size(); ++b) {
+  //   auto &train = trains[b];
+  //   const int ncores_local = train.NCores();
+  //   if (ncores_local == 1) continue;
+
+  //   train(0).ReduceSize(1, final_rank_arr_h(b, 0));
+
+  //   for (int c = 1; c < ncores_local - 1; ++c) {
+  //     train(c).ReduceSize(final_rank_arr_h(b, c - 1), final_rank_arr_h(b, c));
+  //   }
+
+  //   train(ncores_local - 1).ReduceSize(final_rank_arr_h(b, ncores_local - 2), 1);
+  // }
 }
 
 } // namespace tensor2
