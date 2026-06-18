@@ -49,7 +49,7 @@ class ParthenonManager {
   ParthenonStatus ParthenonFinalize();
 
   static Packages_t ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin);
-  void RestartPackages(Mesh &rm, RestartReaderHDF5 &resfile);
+  void RestartPackages(Mesh &rm, RestartReader &resfile);
 
   std::function<Packages_t(std::unique_ptr<ParameterInput> &)> ProcessPackages =
       ProcessPackagesDefault;

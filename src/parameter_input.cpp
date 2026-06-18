@@ -680,7 +680,9 @@ void ParameterInput::ParameterDump(std::ostream &os) {
     std::size_t max_len_name = 0;
     std::size_t max_len_value = 0;
     for (const auto &param : block.params) {
-      std::string value_str = ParamValueToString(param.value);
+      std::string value_str = param.original_string.has_value()
+                                  ? param.original_string.value().value
+                                  : ParamValueToString(param.value);
       max_len_name = std::max(max_len_name, param.name.length());
       max_len_value = std::max(max_len_value, value_str.length());
     }
@@ -688,7 +690,9 @@ void ParameterInput::ParameterDump(std::ostream &os) {
     // Output parameters with alignment
     for (const auto &param : block.params) {
       std::string param_name = param.name;
-      std::string param_value = ParamValueToString(param.value);
+      std::string param_value = param.original_string.has_value()
+                                    ? param.original_string.value().value
+                                    : ParamValueToString(param.value);
 
       std::size_t len = max_len_name - param_name.length() + 1;
       param_name.append(len, ' '); // pad name to align vertically
@@ -949,6 +953,9 @@ std::optional<T> ParameterInput::GetFromStorage_(const std::string &block,
 
   // If it's an UnresolvedString, convert and cache
   if (std::holds_alternative<UnresolvedString>(param->value)) {
+    if (!param->original_string.has_value()) {
+      param->original_string = std::get<UnresolvedString>(param->value);
+    }
     T typed_val = ConvertParamValue<T>(param->value, block, name);
     param->value = typed_val; // Cache the typed value in the variant
     return typed_val;
