@@ -628,8 +628,8 @@ void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
       KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int b) {
         auto &tm_scratch = tm.team_scratch(scratch_level);
 
-        ScratchPad1D<real_t> Q_tmp_flat(tm_scratch, max_core_size);
-        ScratchPad1D<real_t> transfer_flat(tm_scratch, max_rank * max_rank);
+        ScratchPad1D<real_t> core_tmp_flat(tm_scratch, max_core_size);
+        ScratchPad1D<real_t> matrix_flat(tm_scratch, max_rank * max_rank);
         ScratchPad1D<real_t> linalg_real_scratch(
             tm_scratch, std::max(lq_double_scratch, svd_double_scratch));
         ScratchPad1D<real_t> a_scratch(tm_scratch, storage_size); 
@@ -643,14 +643,14 @@ void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
           const int dd = core.DD();
           const int rr = core.RR();
           
-          ScratchCore<TTraits> Q_tmp{lr, dd, rr, Q_tmp_flat.data()};
+          ScratchCore<TTraits> Q_tmp{lr, dd, rr, core_tmp_flat.data()};
           auto HQ = TTraits::GetHorizontalUnfolding(Q_tmp, lr, dd, rr);
           auto HG = TTraits::GetHorizontalUnfolding(core, lr, dd, rr);
           LQDecomposition::execute(tm, &HG, &HQ, linalg_real_scratch.data());
           tm.team_barrier();
 
           // Store L temporarily  
-          matrix_wrapper_t<real_t> Lmat(transfer_flat.data(), lr, lr);
+          matrix_wrapper_t<real_t> Lmat(matrix_flat.data(), lr, lr);
           parallel_loop(tm, 0, lr - 1, 0, lr - 1,
                         [&](int i, int j) { Lmat(i, j) = HG(i, j); });
           tm.team_barrier();
@@ -665,7 +665,7 @@ void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
           // Push L into the next core
           auto &corem1 = pack(b, 0, c - 1);
           auto VGm1 = TTraits::GetVerticalUnfolding(corem1);
-          ScratchCore<TTraits> G_tmp{corem1.LR(), corem1.DD(), corem1.RR(), Q_tmp_flat.data()};
+          ScratchCore<TTraits> G_tmp{corem1.LR(), corem1.DD(), corem1.RR(), core_tmp_flat.data()};
           auto VGm1_tmp = TTraits::GetVerticalUnfolding(G_tmp);
           MatMulPacked<16, 16, 16>(tm, VGm1, Lmat, VGm1_tmp,
                                    a_scratch, b_scratch, c_scratch);
@@ -694,7 +694,6 @@ void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
           eps0 += real_t(1.e-16);
         }
 
-        ScratchPad1D<real_t> rank_scratch(tm_scratch, max_rank);
         ScratchPad1D<std::size_t> linalg_szt_scratch(tm_scratch, svd_szt_scratch);
 
         // Left-to-right truncation sweep.
@@ -702,69 +701,77 @@ void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
         ScratchPad1D<int> perm(tm_scratch, max_rank);
 
         for (int c = 0; c < n_cores - 1; ++c) {
-          // auto &core = pack(b, 0, c);
-          // const int lr = c == 0 ? core.LR() : final_rank_arr(b, c - 1);
-          // const int rr = core.RR();
-          // const int dd = core.DD();
+          auto &core = pack(b, 0, c);
+          const int lr = c == 0 ? core.LR() : final_rank_arr(b, c - 1);
+          const int rr = core.RR();
+          const int dd = core.DD();
 
-          // ScratchCore<TTraits> core_out{lr, dd, rr, core_out_flat.data()};
-          // auto Vtmp = TTraits::GetVerticalUnfolding(core, lr, dd, rr);
-          // auto Uout = TTraits::GetVerticalUnfolding(core_out, lr, dd, rr);
-          // matrix_wrapper_t<real_t> Vmat(transfer_flat.data(), rr, rr);
+          ScratchCore<TTraits> core_out{lr, dd, rr, core_tmp_flat.data()};
+          auto U_mat = TTraits::GetVerticalUnfolding(core_out, lr, dd, rr);
+          auto G = TTraits::GetVerticalUnfolding(core, lr, dd, rr);
+          auto V_mat = matrix_wrapper_t<real_t>(matrix_flat.data(), rr, rr);
+          SquareSVD::execute(tm, &G, &U_mat, &V_mat, sig.data(),
+                             linalg_real_scratch.data(),
+                             linalg_szt_scratch.data());
+          
+          // Truncate the SVD
+          int rank_new{0};
+          BuildDescendingPermutation(tm, sig, rr, eps0, perm, rank_new);
+          auto VTkeep_mat = V_mat.GetTranspose().GetPermutedRows(perm, rank_new);
+          auto sigkeep = GetPermuted(sig, perm, rank_new);
+          Kokkos::single(Kokkos::PerTeam(tm), [&]() {
+            final_rank_arr(b, c) = rank_new;
+          });
+          tm.team_barrier();
 
-          // SquareSVD::execute(tm, &Vtmp, &Uout, &Vmat, sig.data(),
-          //                    linalg_real_scratch.data(), linalg_szt_scratch.data());
-          // tm.team_barrier();
+          // Overwrite old core with the orthogonalized core 
+          parthenon::par_for_inner(tm, 0, lr - 1, 0, rank_new - 1, 0, dd - 1,
+              [&](int l, int r, int j) {
+                core(l, j, r) = core_out(l, j, perm(r));
+              });
+          tm.team_barrier(); 
+          
+          // Push the rest of the SVD right
+          auto &coreR = pack(b, 0, c + 1);
+          const int ddR = coreR.DD();
+          const int rrR = coreR.RR();
+          auto Hc = TTraits::GetHorizontalUnfolding(coreR);
+          ScratchCore<TTraits> core_tmp{rank_new, ddR, rrR, core_tmp_flat.data()};
+          auto Hc_new = TTraits::GetHorizontalUnfolding(core_tmp, rank_new, ddR, rrR);
 
-          // int rank_new{0};
-          // BuildDescendingPermutation(tm, sig, rr, eps0, perm, rank_new);
-          // Kokkos::single(Kokkos::PerTeam(tm), [&]() {
-          //   final_rank_arr(b, c) = rank_new;
-          // });
-          // tm.team_barrier();
+          parallel_loop(tm, 0, rank_new - 1, 0, rr - 1,
+                        [&](int rnew, int rold) {
+                          VTkeep_mat(rnew, rold) = sigkeep(rnew) * VTkeep_mat(rnew, rold);
+                        });
+          tm.team_barrier();
 
-          // parthenon::par_for_inner(tm, 0, lr - 1, 0, rank_new - 1, 0, dd - 1,
-          //                          [&](int l, int rnew, int j) {
-          //                            core(l, j, rnew) = Uout(l * dd + j, perm(rnew));
-          //                          });
-          // tm.team_barrier();
-          // if (rank_new < rr) {
-          //   impl::SetCoreBlock(tm, core, real_t(0),
-          //                      std::pair<int, int>{0, lr},
-          //                      std::pair<int, int>{rank_new, rr});
-          // }
-          // tm.team_barrier();
+          MatMulPacked<16, 16, 16>(tm, VTkeep_mat, Hc, Hc_new,
+                                   a_scratch, b_scratch, c_scratch);
+          parthenon::par_for_inner(tm, 0, rank_new - 1, 0, rrR - 1, 0, ddR - 1,
+              [&](int l, int r, int j) {
+                coreR(l, j, r) = core_tmp(l, j, r);
+              });
+          tm.team_barrier();  
 
-          // auto VTkeep = Vmat.GetTranspose().GetPermutedRows(perm, rank_new);
-          // matrix_wrapper_t<real_t> Tmat(transfer_flat.data(), rank_new, rr);
-          // parallel_loop(tm, 0, rank_new - 1, 0, rr - 1,
-          //               [&](int rnew, int rold) {
-          //                 Tmat(rnew, rold) = sig(perm(rnew)) * VTkeep(rnew, rold);
-          //               });
-          // tm.team_barrier();
-
-          // auto &next = pack(b, 0, c + 1);
-          // impl::ApplyLeftTransformInPlace(tm, next, Tmat, rank_new, rank_scratch.data());
-          // tm.team_barrier();
         }
       });
 
-  // auto final_rank_arr_h = Kokkos::create_mirror_view(final_rank_arr);
-  // Kokkos::deep_copy(final_rank_arr_h, final_rank_arr);
+  auto final_rank_arr_h = Kokkos::create_mirror_view(final_rank_arr);
+  Kokkos::deep_copy(final_rank_arr_h, final_rank_arr);
 
-  // for (int b = 0; b < trains.size(); ++b) {
-  //   auto &train = trains[b];
-  //   const int ncores_local = train.NCores();
-  //   if (ncores_local == 1) continue;
+  for (int b = 0; b < trains.size(); ++b) {
+    auto &train = trains[b];
+    const int ncores_local = train.NCores();
+    if (ncores_local == 1) continue;
 
-  //   train(0).ReduceSize(1, final_rank_arr_h(b, 0));
+    train(0).ReduceSize(1, final_rank_arr_h(b, 0));
 
-  //   for (int c = 1; c < ncores_local - 1; ++c) {
-  //     train(c).ReduceSize(final_rank_arr_h(b, c - 1), final_rank_arr_h(b, c));
-  //   }
+    for (int c = 1; c < ncores_local - 1; ++c) {
+      train(c).ReduceSize(final_rank_arr_h(b, c - 1), final_rank_arr_h(b, c));
+    }
 
-  //   train(ncores_local - 1).ReduceSize(final_rank_arr_h(b, ncores_local - 2), 1);
-  // }
+    train(ncores_local - 1).ReduceSize(final_rank_arr_h(b, ncores_local - 2), 1);
+  }
 }
 
 } // namespace tensor2
