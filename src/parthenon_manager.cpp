@@ -16,8 +16,6 @@
 //========================================================================================
 // This file was made in part with generative AI.
 
-// This file was made in part with generative AI.
-
 #include "parthenon_manager.hpp"
 
 #include <algorithm>
@@ -240,7 +238,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     pinput->SetInteger("parthenon/time", "ncycle", ncycle);
 
     // Read package data from restart file
-    RestartPackages(*pmesh, dynamic_cast<RestartReaderHDF5 &>(*restartReader));
+    RestartPackages(*pmesh, *restartReader);
 
     // close hdf5 file to prevent HDF5 hangs and corrupted files
     // if code dies after restart
