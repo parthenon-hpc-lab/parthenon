@@ -189,8 +189,7 @@ void RestartReader::ReadSwarmVars(
     const auto &m = var->metadata();
     auto arrdims = m.GetArrayDims(pswarm->GetBlockPointer(), false);
 
-    auto var_missing_on_disk =
-        !VariableExists(swarmname, DataType::SwarmVar, varname);
+    auto var_missing_on_disk = !VariableExists(swarmname, DataType::SwarmVar, varname);
 
     // Backwards compatibility: try old position names if new ones missing
     std::string varname_to_read = varname;
