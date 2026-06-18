@@ -1,4 +1,15 @@
-#include "FFTManager.hpp"
+//========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2026 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
+
+// This file was made in part with generative AI.
+
+#include <memory>
+#include <vector>
+
+#include "fft_manager.hpp"
 #include "heffte.h"
 #include "mesh/mesh.hpp"
 
@@ -8,6 +19,9 @@ struct FFTManager::Impl {
 // @pgrete: Can the backend selection be made nicer?
 #if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
   using BackendTag = heffte::backend::default_backend<heffte::tag::gpu>::type;
+#elif defined(KOKKOS_ENABLE_SYCL)
+  static_assert(false, "heFFTe's SYCL backend is not yet tested with Parthenon. Please "
+                       "test and enable this code.");
 #else
   using BackendTag = heffte::backend::default_backend<heffte::tag::cpu>::type;
 #endif
@@ -21,27 +35,23 @@ struct FFTManager::Impl {
         workspace_("fft workspace", fft_plan.size_workspace()) {}
 };
 
-FFTManager::FFTManager(Mesh *mesh) : mesh_(mesh) {}
-
-void FFTManager::Initialize() {
-  if (initialized_) return;
-
+FFTManager::FFTManager(Mesh *mesh) : mesh_(mesh) {
   auto UniformGridHelper = mesh_->GetUniformGridHelper();
 
   auto mesh_size = mesh_->mesh_size;
-  Nx_ = mesh_size.nx(X1DIR);
-  Ny_ = mesh_size.nx(X2DIR);
-  Nz_ = mesh_size.nx(X3DIR);
+  nx1_ = mesh_size.nx(X1DIR);
+  nx2_ = mesh_size.nx(X2DIR);
+  nx3_ = mesh_size.nx(X3DIR);
 
   std::int64_t r2c_direction = 0;
 
-  heffte::box3d<> real_indexes({0, 0, 0}, {Nx_ - 1, Ny_ - 1, Nz_ - 1});
-  heffte::box3d<> complex_indexes({0, 0, 0}, {Nx_ / 2, Ny_ - 1, Nz_ - 1});
+  heffte::box3d<> real_indexes({0, 0, 0}, {nx1_ - 1, nx2_ - 1, nx3_ - 1});
+  heffte::box3d<> complex_indexes({0, 0, 0}, {nx1_ / 2, nx2_ - 1, nx3_ - 1});
 
   assert(real_indexes.r2c(r2c_direction) == complex_indexes);
 
-  auto &mesh_start_idx = UniformGridHelper->LocalMeshBox.low;
-  auto &mesh_end_idx = UniformGridHelper->LocalMeshBox.high;
+  auto &mesh_start_idx = UniformGridHelper->local_mesh_box.low;
+  auto &mesh_end_idx = UniformGridHelper->local_mesh_box.high;
 
   const heffte::box3d<> real_space_box(
       {mesh_start_idx[0], mesh_start_idx[1], mesh_start_idx[2]},
@@ -58,26 +68,23 @@ void FFTManager::Initialize() {
 
   impl_ = std::make_unique<Impl>(real_space_box, fourier_space_box, r2c_direction,
                                  MPI_COMM_WORLD);
-
-  initialized_ = true;
-}
+} // FFTManager::FFTManager
 
 // -----------------------------
 // Forward / Backward
 // -----------------------------
-void FFTManager::Forward(const double *input, std::complex<double> *output) {
-  Initialize();
+void FFTManager::Forward(const Real *input, Kokkos::complex<Real> *output) {
   impl_->fft_plan.forward(
-      input, output, impl_->workspace_.data(),
-      heffte::scale::full); // 1/N^3 normalization for forward transform
+      // We have the interface use Kokkos:complex so that complex arithmetic in Kokkos
+      // kernels is possible,
+      // but heFFTe's interface uses std::complex, so we need to reinterpret_cast here.
+      input, reinterpret_cast<std::complex<Real> *>(output), impl_->workspace_.data(),
+      heffte::scale::full);
 }
 
-void FFTManager::Backward(const std::complex<double> *input, double *output) {
-  Initialize();
-  impl_->fft_plan.backward(
-      input, output,
-      heffte::scale::none); // no normalization for backward transform, so that forward
-                            // followed by backward gives back the original field
+void FFTManager::Backward(const Kokkos::complex<Real> *input, Real *output) {
+  impl_->fft_plan.backward(reinterpret_cast<const std::complex<Real> *>(input), output,
+                           heffte::scale::none);
 }
 
 // -----------------------------

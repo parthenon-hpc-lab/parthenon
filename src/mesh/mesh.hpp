@@ -50,16 +50,19 @@
 #include "mesh/forest/forest.hpp"
 #include "mesh/forest/forest_topology.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "mesh/uniform_grid_helper.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "pack/sparse_pack/pack_descriptor.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
-#include "utils/FFTManager.hpp"
 #include "utils/communication_buffer.hpp"
 #include "utils/hash.hpp"
 #include "utils/object_pool.hpp"
 #include "utils/partition_stl_containers.hpp"
+
+#ifdef PARTHENON_ENABLE_FFT
+#include "utils/fft_manager.hpp"
+#include "utils/uniform_grid_helper.hpp"
+#endif
 
 namespace parthenon {
 
@@ -96,12 +99,12 @@ class Mesh {
        hyper_rectangular_constructor_selector_t);
 
  public:
+#ifdef PARTHENON_ENABLE_FFT
   std::unique_ptr<parthenon::FFTManager> fft_manager;
 
   FFTManager *GetFFTManager() {
     if (!fft_manager) {
       fft_manager = std::make_unique<FFTManager>(this);
-      fft_manager->Initialize(); // only runs once
     }
     return fft_manager.get();
   }
@@ -111,11 +114,10 @@ class Mesh {
   UniformGridHelper *GetUniformGridHelper() {
     if (!uniform_grid_helper) {
       uniform_grid_helper = std::make_unique<UniformGridHelper>(this);
-      uniform_grid_helper->Initialize();
     }
     return uniform_grid_helper.get();
   }
-
+#endif
   // 2x function overloads of ctor: normal and restarted simulation
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        int test_flag = 0);
@@ -333,6 +335,8 @@ class Mesh {
   ObjectPoolMap<BufArray1D<Real>> pool_map;
   comm_buf_map_t boundary_comm_map;
   TagMap tag_map;
+  int minimum_number_of_teams_for_boundary_kernel;
+  int boundary_buffer_work_chunk_size;
 
   // Sets the number of communication buffers that can be in-flight concurrently
   // for a given boundary type. This *must* be called before build boundary buffers

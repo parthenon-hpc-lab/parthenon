@@ -1,6 +1,6 @@
 #========================================================================================
 # Parthenon performance portable AMR framework
-# Copyright(C) 2020-2025 The Parthenon collaboration
+# Copyright(C) 2020-2026 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 #========================================================================================
 # (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
@@ -25,7 +25,6 @@ set(NUM_MPI_PROC_TESTING "4" CACHE STRING "CI runs tests with 4 MPI ranks")
 if (${MACHINE_VARIANT} MATCHES "cuda")
   set(Kokkos_ARCH_AMPERE80 ON CACHE BOOL "GPU architecture")
   set(Kokkos_ENABLE_CUDA ON CACHE BOOL "Enable Cuda")
-  set(CMAKE_CXX_COMPILER ${CMAKE_CURRENT_SOURCE_DIR}/external/Kokkos/bin/nvcc_wrapper CACHE STRING "Use nvcc_wrapper")
 else()
   set(CMAKE_CXX_FLAGS "-fopenmp-simd" CACHE STRING "Default opt flags")
 endif()
@@ -41,4 +40,6 @@ else()
   # testing auto fetch and compile
   set(PARTHENON_USE_SYSTEM_OPENPMD OFF CACHE BOOL "Use API in container")
 endif()
+
+set(PARTHENON_DISABLE_OPENPMD OFF CACHE BOOL "Always use OpenPMD build in CI env")
 

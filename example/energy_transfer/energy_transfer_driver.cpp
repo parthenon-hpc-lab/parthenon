@@ -1,5 +1,4 @@
 #include <cmath>
-#include <complex>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -78,16 +77,16 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {}
 // FT_scratch: working array (n_comp * fft_size_outbox)
 // ============================================================================
 static void ShellFilter(parthenon::FFTManager *fft_mgr, int n_comp,
-                        const parthenon::ParArray1D<std::complex<Real>> &FT_field,
-                        parthenon::ParArray1D<std::complex<Real>> &FT_scratch,
+                        const parthenon::ParArray1D<Kokkos::complex<Real>> &FT_field,
+                        parthenon::ParArray1D<Kokkos::complex<Real>> &FT_scratch,
                         parthenon::ParArray1D<Real> &real_out, Real k_low, Real k_high) {
   auto fb = fft_mgr->fourier_space_box();
   auto kernel_helper = fft_mgr->GetKernelHelper();
   const auto fft_size_outbox = fft_mgr->size_fourier_space_box();
   const auto fft_size_inbox = fft_mgr->size_real_space_box();
 
-  auto FT_in = reinterpret_cast<const Kokkos::complex<Real> *>(FT_field.data());
-  auto FT_out = reinterpret_cast<Kokkos::complex<Real> *>(FT_scratch.data());
+  auto FT_in = FT_field.data();
+  auto FT_out = FT_scratch.data();
   const int nc = n_comp;
 
   parthenon::par_for(
@@ -106,9 +105,8 @@ static void ShellFilter(parthenon::FFTManager *fft_mgr, int n_comp,
       });
 
   for (int n = 0; n < n_comp; n++) {
-    fft_mgr->Backward(
-        reinterpret_cast<std::complex<Real> *>(FT_scratch.data()) + n * fft_size_outbox,
-        real_out.data() + n * fft_size_inbox);
+    fft_mgr->Backward(FT_scratch.data() + n * fft_size_outbox,
+                      real_out.data() + n * fft_size_inbox);
   }
   Kokkos::fence();
 }
@@ -121,16 +119,16 @@ static void ShellFilter(parthenon::FFTManager *fft_mgr, int n_comp,
 // ============================================================================
 static void ShellFilterDerivative(
     parthenon::FFTManager *fft_mgr,
-    const parthenon::ParArray1D<std::complex<Real>> &FT_field_full, int comp_offset,
-    parthenon::ParArray1D<std::complex<Real>> &FT_scratch, int scratch_offset,
+    const parthenon::ParArray1D<Kokkos::complex<Real>> &FT_field_full, int comp_offset,
+    parthenon::ParArray1D<Kokkos::complex<Real>> &FT_scratch, int scratch_offset,
     parthenon::ParArray1D<Real> &deriv_out, int out_offset, Real k_low, Real k_high,
     int dir, Real two_pi_over_L) {
   auto fb = fft_mgr->fourier_space_box();
   auto kernel_helper = fft_mgr->GetKernelHelper();
   const auto fft_size_outbox = fft_mgr->size_fourier_space_box();
 
-  auto FT_in = reinterpret_cast<const Kokkos::complex<Real> *>(FT_field_full.data());
-  auto FT_out = reinterpret_cast<Kokkos::complex<Real> *>(FT_scratch.data());
+  auto FT_in = FT_field_full.data();
+  auto FT_out = FT_scratch.data();
   const Kokkos::complex<Real> imag_unit(0.0, 1.0);
   const int d = dir;
   const Real scale = two_pi_over_L;
@@ -151,9 +149,7 @@ static void ShellFilterDerivative(
                      : Kokkos::complex<Real>(0.0, 0.0);
       });
 
-  fft_mgr->Backward(
-      reinterpret_cast<std::complex<Real> *>(FT_scratch.data()) + scratch_offset,
-      deriv_out.data() + out_offset);
+  fft_mgr->Backward(FT_scratch.data() + scratch_offset, deriv_out.data() + out_offset);
   Kokkos::fence();
 }
 
@@ -163,16 +159,16 @@ static void ShellFilterDerivative(
 // div_out: fft_size_inbox real values
 // ============================================================================
 static void SpectralDivergence(parthenon::FFTManager *fft_mgr,
-                               const parthenon::ParArray1D<std::complex<Real>> &FT_vec,
-                               parthenon::ParArray1D<std::complex<Real>> &FT_scratch,
+                               const parthenon::ParArray1D<Kokkos::complex<Real>> &FT_vec,
+                               parthenon::ParArray1D<Kokkos::complex<Real>> &FT_scratch,
                                parthenon::ParArray1D<Real> &div_out,
                                Real two_pi_over_L) {
   auto fb = fft_mgr->fourier_space_box();
   auto kernel_helper = fft_mgr->GetKernelHelper();
   const auto fft_size_outbox = fft_mgr->size_fourier_space_box();
 
-  auto FT_in = reinterpret_cast<const Kokkos::complex<Real> *>(FT_vec.data());
-  auto FT_out = reinterpret_cast<Kokkos::complex<Real> *>(FT_scratch.data());
+  auto FT_in = FT_vec.data();
+  auto FT_out = FT_scratch.data();
   const Kokkos::complex<Real> imag_unit(0.0, 1.0);
   const Real scale = two_pi_over_L;
 
@@ -190,8 +186,7 @@ static void SpectralDivergence(parthenon::FFTManager *fft_mgr,
         FT_out[idx] = imag_unit * sum;
       });
 
-  fft_mgr->Backward(reinterpret_cast<std::complex<Real> *>(FT_scratch.data()),
-                     div_out.data());
+  fft_mgr->Backward(FT_scratch.data(), div_out.data());
   Kokkos::fence();
 }
 
@@ -283,7 +278,7 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
         "input_file must be an ADIOS2/bp5 file (ending in .bp), got: " + input_file);
 
     // Read directly from ADIOS2/bp5 file into flat arrays
-    const auto &local_box = UniformGridHelper->LocalMeshBox;
+    const auto &local_box = UniformGridHelper->local_mesh_box;
     const adios2::Dims start = {static_cast<std::size_t>(local_box.low[2]),
                                 static_cast<std::size_t>(local_box.low[1]),
                                 static_cast<std::size_t>(local_box.low[0])};
@@ -449,10 +444,10 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
       });
 
   // --- Forward FFT fields that are needed ---
-  parthenon::ParArray1D<std::complex<Real>> FT_W("FT_W", 3 * fft_size_outbox);
-  parthenon::ParArray1D<std::complex<Real>> FT_U("FT_U", 3 * fft_size_outbox);
-  parthenon::ParArray1D<std::complex<Real>> FT_B("FT_B",
-                                                  need_mag ? 3 * fft_size_outbox : 0);
+  parthenon::ParArray1D<Kokkos::complex<Real>> FT_W("FT_W", 3 * fft_size_outbox);
+  parthenon::ParArray1D<Kokkos::complex<Real>> FT_U("FT_U", 3 * fft_size_outbox);
+  parthenon::ParArray1D<Kokkos::complex<Real>> FT_B(
+      "FT_B", need_mag ? 3 * fft_size_outbox : 0);
 
   for (int n = 0; n < 3; n++) {
     FFTMgr->Forward(W_flat.data() + n * fft_size_inbox,
@@ -468,14 +463,14 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   }
 
   // Forward FFT pressure and acceleration if needed
-  parthenon::ParArray1D<std::complex<Real>> FT_P("FT_P",
-                                                  compute_PU ? fft_size_outbox : 0);
+  parthenon::ParArray1D<Kokkos::complex<Real>> FT_P(
+      "FT_P", compute_PU ? fft_size_outbox : 0);
   if (compute_PU) {
     FFTMgr->Forward(pres_flat.data(), FT_P.data());
   }
 
-  parthenon::ParArray1D<std::complex<Real>> FT_Acc("FT_Acc",
-                                                    compute_FU ? 3 * fft_size_outbox : 0);
+  parthenon::ParArray1D<Kokkos::complex<Real>> FT_Acc(
+      "FT_Acc", compute_FU ? 3 * fft_size_outbox : 0);
   if (compute_FU) {
     for (int n = 0; n < 3; n++) {
       FFTMgr->Forward(acc_flat.data() + n * fft_size_inbox,
@@ -484,8 +479,8 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   }
 
   // Compute FT of b = B/sqrt(rho) if needed for BUT
-  parthenon::ParArray1D<std::complex<Real>> FT_b("FT_b",
-                                                  compute_BUT ? 3 * fft_size_outbox : 0);
+  parthenon::ParArray1D<Kokkos::complex<Real>> FT_b(
+      "FT_b", compute_BUT ? 3 * fft_size_outbox : 0);
   if (compute_BUT) {
     parthenon::ParArray1D<Real> b_flat("b_flat", 3 * fft_size_inbox);
     parthenon::par_for(
@@ -506,7 +501,8 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   // --- Precompute div(U) (needed for UU and BB compression terms) ---
   parthenon::ParArray1D<Real> DivU("DivU",
                                    (compute_UU || compute_BB) ? fft_size_inbox : 0);
-  parthenon::ParArray1D<std::complex<Real>> FT_scratch("FT_scratch", 3 * fft_size_outbox);
+  parthenon::ParArray1D<Kokkos::complex<Real>> FT_scratch("FT_scratch",
+                                                          3 * fft_size_outbox);
   if (compute_UU || compute_BB) {
     SpectralDivergence(FFTMgr, FT_U, FT_scratch, DivU, two_pi_over_L);
   }

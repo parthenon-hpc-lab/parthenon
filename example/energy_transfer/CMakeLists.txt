@@ -12,5 +12,5 @@ if(NOT PARTHENON_DISABLE_EXAMPLES)
           energy_transfer_driver.hpp
   )
   find_package(ADIOS2 REQUIRED COMPONENTS CXX MPI)
-  target_link_libraries(energy-transfer PRIVATE Parthenon::parthenon adios2::cxx11_mpi MPI::MPI_CXX)
+  target_link_libraries(energy-transfer PRIVATE Parthenon::parthenon adios2::cxx_mpi MPI::MPI_CXX)
 endif()

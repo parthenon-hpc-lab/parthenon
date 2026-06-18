@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2024-2025 The Parthenon collaboration
+// Copyright(C) 2024-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 //! \file restart_opmd.cpp
@@ -45,7 +45,6 @@ RestartReaderOPMD::RestartReaderOPMD(const char *filename) : filename_(filename)
   }
 #else
   series = openPMD::Series(filename, openPMD::Access::READ_ONLY);
-
 #endif
   PARTHENON_REQUIRE_THROWS(
       series.iterations.size() == 1,
@@ -57,10 +56,14 @@ RestartReaderOPMD::RestartReaderOPMD(const char *filename) : filename_(filename)
   it = std::make_unique<openPMD::Iteration>(series.iterations[idx]);
   // Explicitly open (important for parallel execution)
   it->open();
+
+  format_version_ = GetOutputFormatVersion();
+  if (format_version_ < 0) {
+    format_version_ = 1;
+  }
 }
 
 int RestartReaderOPMD::GetOutputFormatVersion() const {
-  // TODO(pgrete) move info to shared header and introduce constexpr var
   if (it->containsAttribute("OutputFormatVersion")) {
     return it->getAttribute("OutputFormatVersion").get<int>();
   } else {
@@ -227,9 +230,10 @@ void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block
       for (int t = 0; t < Nt; ++t) {
         for (int u = 0; u < Nu; ++u) {
           for (int v = 0; v < Nv; ++v) {
-            // Get the correct record
+            // Get the correct record (using format version detected from file)
             const auto [record_name, comp_name] =
-                OpenPMDUtils::GetMeshRecordAndComponentNames(vinfo, te, comp_idx, level);
+                OpenPMDUtils::GetMeshRecordAndComponentNames(vinfo, te, comp_idx, level,
+                                                             format_version_);
 
             PARTHENON_REQUIRE_THROWS(it->meshes.contains(record_name),
                                      "Missing mesh record '" + record_name +

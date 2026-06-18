@@ -5,7 +5,7 @@
 # ========================================================================================
 
 <parthenon/job>
-problem_id = fourier_transform_example
+problem_id = fourier_transform
 
 <parthenon/mesh>
 refinement = none
@@ -29,15 +29,9 @@ x3max = 2.0
 ix3_bc = periodic
 ox3_bc = periodic
 
-# How many meshblocks to use in a premade default kernel.
-# A value of <1 means use the whole mesh.
 num_packs = 1
 
 <parthenon/meshblock>
 nx1 = 8
 nx2 = 8
 nx3 = 8
-
-<parthenon/output0>
-file_type = hdf5
-variables = in_or_out

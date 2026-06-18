@@ -7,7 +7,7 @@ These are built on top of `heFFTe <https://github.com/icl-utk-edu/heffte>`_ and 
 both CPU and GPU backends transparently.
 
 .. note::
-   FFT functionality requires ``pack_size = -1`` in the input file, meaning all meshblocks
+   FFT functionality requires ``num_packs = 1`` in the input file, meaning all meshblocks
    on a rank are packed into a single partition. This is required for the flat array indexing
    used by heFFTe.
 
@@ -80,8 +80,10 @@ by :cpp:class:`FFTManager`:
    const auto fft_size_outbox = fftManager->size_fourier_space_box();
 
    parthenon::ParArray1D<Real>                input("input",  fft_size_inbox);
-   parthenon::ParArray1D<std::complex<Real>>  output("output", fft_size_outbox);
+   parthenon::ParArray1D<Kokkos::complex<Real>>  output("output", fft_size_outbox);
    parthenon::ParArray1D<Real>                result("result", fft_size_inbox);
+
+Note that complex arrays must use Kokkos::complex, not std::complex, so that complex arithmetic is possible in Kokkos kernels.
 
 Gathering a field from the mesh
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -107,7 +109,7 @@ use a custom gather loop with :cpp:func:`UniformGridHelper::GetKernelHelper`:
    auto helper = uniformGridHelper->GetKernelHelper();
 
    parthenon::par_for(
-       "GatherVelocity", 0, pmesh->GetNumMeshBlocksThisRank() - 1,
+       "GatherVelocity", 0, md->NumBlocks() - 1,
        mbb.low[2], mbb.high[2],
        mbb.low[1], mbb.high[1],
        mbb.low[0], mbb.high[0],
@@ -135,25 +137,6 @@ device pointers:
 Processing in Fourier space
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. note::
-   ``std::complex<Real>`` arithmetic is not supported inside GPU kernels. When accessing
-   complex arrays inside a ``par_for`` kernel, cast to ``Kokkos::complex<Real>`` first:
-
-   .. code-block:: cpp
-
-      auto output_kk = reinterpret_cast<Kokkos::complex<Real>*>(output.data());
-
-      parthenon::par_for(...,
-          KOKKOS_LAMBDA(...) {
-              // use output_kk[idx], not output(idx)
-              auto val = output_kk[idx] * some_kokkos_complex;
-          });
-
-   ``Kokkos::complex`` and ``std::complex`` have identical memory layouts, so the
-   reinterpret cast is safe. The cast must be done **before** the lambda — capturing
-   a ``ParArray1D<std::complex<Real>>`` and calling ``.data()`` inside the kernel
-   will not work on GPU.
-
 The local Fourier space box is accessible via :cpp:func:`FFTManager::fourier_space_box`.
 Use :cpp:func:`FFTManager::GetKernelHelper` to obtain a device-copyable helper that
 provides ``FourierFlatIndex`` and ``Wavevector``:
@@ -168,24 +151,24 @@ provides ``FourierFlatIndex`` and ``Wavevector``:
        outbox.low[2], outbox.high[2],
        outbox.low[1], outbox.high[1],
        outbox.low[0], outbox.high[0],
-       KOKKOS_LAMBDA(const int kz_idx, const int ky_idx, const int kx_idx) {
+       KOKKOS_LAMBDA(const int kx3_idx, const int kx2_idx, const int kx1_idx) {
 
-           const auto idx = fft_helper.FourierFlatIndex(kz_idx, ky_idx, kx_idx);
+           const auto idx = fft_helper.FourierFlatIndex(kx3_idx, kx2_idx, kx1_idx);
 
            // integer wavevector components (negative frequencies unwrapped)
-           auto [kx, ky, kz] = fft_helper.Wavevector(kz_idx, ky_idx, kx_idx);
+           auto [kx3, kx2, kx1] = fft_helper.Wavevector(kx3_idx, kx2_idx, kx1_idx);
 
-           // ... process output_kk[idx] ...
+           // ... process output[idx] ...
        });
 
 .. note::
-   The r2c transform only stores modes with :math:`k_x \geq 0`. When computing
-   quantities like the power spectrum, modes with :math:`0 < k_x < N_x/2` must be
+   The r2c transform only stores modes with :math:`k_{x1} \geq 0`. When computing
+   quantities like the power spectrum, modes with :math:`0 < k_{x1} < n_{x1}/2` must be
    counted twice to account for Hermitian symmetry:
 
    .. code-block:: cpp
 
-      const auto fac = ((kx > 0) && (2 * kx != Nx)) ? 2.0 : 1.0;
+      const auto fac = ((kx1 > 0) && (2 * kx1 != nx1)) ? 2.0 : 1.0;
 
 Scattering a field back to the mesh
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -221,10 +204,10 @@ FFTManager
 .. code-block:: cpp
 
    // Forward r2c FFT. Applies 1/N^3 normalization.
-   void Forward(const double* input, std::complex<double>* output);
+   void Forward(const double* input, Kokkos::complex<double>* output);
 
    // Backward c2r FFT. Applies no normalization.
-   void Backward(const std::complex<double>* input, double* output);
+   void Backward(const Kokkos::complex<double>* input, double* output);
 
    // Returns the local Fourier-space box (global Fourier indices)
    Box3D fourier_space_box() const;
@@ -299,7 +282,7 @@ Limitations
 -----------
 
 * Only uniform grids are supported. AMR is not compatible with the current FFT infrastructure.
-* ``pack_size = -1`` is required (one partition per rank).
+* ``num_packs = 1`` is required (one partition per rank).
 * Only cubic domains are fully supported for physical wavenumber calculations.
   Non-cubic domains work for the FFT itself but wavenumber scaling must be handled manually.
 * The r2c transform stores only modes with :math:`k_x \geq 0`, consistent with heFFTe's

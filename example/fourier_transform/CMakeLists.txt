@@ -12,7 +12,7 @@
 #=========================================================================================
 
 get_property(DRIVER_LIST GLOBAL PROPERTY DRIVERS_USED_IN_TESTS)
-if(NOT PARTHENON_DISABLE_EXAMPLES)
+if(NOT PARTHENON_DISABLE_EXAMPLES AND PARTHENON_ENABLE_FFT)
   add_executable(
       fourier-transform
           fourier_driver.cpp

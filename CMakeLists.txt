@@ -36,7 +36,7 @@ option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to Tr
 option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "CUDA/HIP Only: Allocate communication buffers on host (may be slower)" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
-option(PARTHENON_DISABLE_OPENPMD "OpenPMD is enabled by default if found, set this to ON to disable OpenPMD" OFF)
+option(PARTHENON_DISABLE_OPENPMD "OpenPMD is enabled by default if found, set this to ON to disable OpenPMD" ON)
 option(PARTHENON_USE_SYSTEM_OPENPMD "OpenPMD API is downloaded and installed automatically by default. Set this to ON to find and use a version installed on the system." OFF)
 option(PARTHENON_DISABLE_SPARSE "Sparse capability is enabled by default, set this to True to compile-time disable all sparse capability" OFF)
 option(PARTHENON_ENABLE_ASCENT "Enable Ascent for in situ visualization and analysis" OFF)
@@ -75,7 +75,8 @@ else()
     OFF)
 endif()
 
-option(PARTHENON_ENABLE_HEFFTE "Enable HeFFTe FFT backend" ON)
+option(PARTHENON_ENABLE_FFT "Enable Parthenon FFT functionality" OFF)
+option(PARTHENON_USE_SYSTEM_HEFFTE "Use system-installed heFFTe instead of fetching it" OFF)
 
 # Check if we are using Parthenon as a subproject
 set(_parthenon_is_toplevel OFF)
@@ -493,21 +494,32 @@ set(CMAKE_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
 set(DOC_GEN_PATH "${CMAKE_SOURCE_DIR}/doc/sphinx/src/generated" CACHE STRING
   "Path to save generated data for docs.")
 
-# Add HeFFTe first if enabled
-if (PARTHENON_ENABLE_HEFFTE)
-  set(Heffte_ENABLE_CUDA ${Kokkos_ENABLE_CUDA} CACHE BOOL "Enable CUDA for HeFFTe" FORCE)
-  add_subdirectory(external/heffte)
+if (PARTHENON_ENABLE_FFT)
+  if (PARTHENON_USE_SYSTEM_HEFFTE)
+    find_package(Heffte REQUIRED)
+    if (NOT Heffte_FOUND)
+      message(FATAL_ERROR "heFFTe requested to be used from the environment but it was "
+        "not found. Either append the path to the installed heFFTe lib via "
+        "Heffte_DIR or CMAKE_PREFIX_PATH, or use the version fetched by Parthenon by "
+        "keeping PARTHENON_USE_SYSTEM_HEFFTE=OFF")
+    endif()
+  else()
+    include(FetchContent)
+    set(Heffte_ENABLE_CUDA ${Kokkos_ENABLE_CUDA} CACHE BOOL "Enable CUDA for heFFTe" FORCE)
+    set(Heffte_ENABLE_ROCM ${Kokkos_ENABLE_HIP}  CACHE BOOL "Enable ROCm for heFFTe" FORCE)
+    FetchContent_Declare(Heffte
+      GIT_REPOSITORY "https://github.com/icl-utk-edu/heffte.git"
+      GIT_TAG        "v2.4.0")  # or whatever the current stable release is
+    FetchContent_MakeAvailable(Heffte)
+    install(TARGETS Heffte EXPORT parthenonTargets)
+  endif()
 endif()
 
 add_subdirectory(src)
 
-# Now parthenon target exists — safe to link
-if (PARTHENON_ENABLE_HEFFTE)
-  if (TARGET Heffte)
-    target_link_libraries(parthenon PRIVATE Heffte)
-  else()
-    message(FATAL_ERROR "HeFFTe target not found after add_subdirectory")
-  endif()
+if (PARTHENON_ENABLE_FFT)
+  target_link_libraries(parthenon PRIVATE Heffte)
+  target_compile_definitions(parthenon PUBLIC PARTHENON_ENABLE_FFT)
 endif()
 
 add_subdirectory(example)
@@ -531,3 +543,4 @@ endif()
 # If you add tests with other binaries, add them to the DEPENDS line
 add_custom_target(checkit COMMAND ${CMAKE_CTEST_COMMAND}
                   DEPENDS unit_tests)
+                  

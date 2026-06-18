@@ -1,8 +1,20 @@
-#pragma once
-#include "parthenon_arrays.hpp"
+//========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2026 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
+
+// This file was made in part with generative AI.
+
+#ifndef UTILS_UNIFORM_GRID_HELPER_HPP_
+#define UTILS_UNIFORM_GRID_HELPER_HPP_
+
 #include <array>
 #include <cstdint>
 #include <limits>
+#include <string>
+
+#include "parthenon_arrays.hpp"
 
 namespace parthenon {
 
@@ -17,30 +29,30 @@ struct Box3D {
 // Assuming a uniform grid, this class helps gather information about the grid layout
 // across all meshblocks on a rank.
 class UniformGridHelper {
-
  public:
   explicit UniformGridHelper(Mesh *mesh);
-  void Initialize();
 
-  Box3D MeshBlockBox;
-  Box3D LocalMeshBox;
+  Box3D mesh_block_box;
+  Box3D local_mesh_box;
 
   struct KernelHelper {
     parthenon::ParArray2D<std::int64_t> loc_view;
-    Box3D MeshBlockBox;
-    Box3D LocalMeshBox;
+    Box3D mesh_block_box;
+    Box3D local_mesh_box;
 
     KOKKOS_INLINE_FUNCTION
     std::int64_t FlatIndex(int b, int k, int j, int i) const {
-      const auto kk = k - MeshBlockBox.low[2] + loc_view(b, 2) * MeshBlockBox.size[2];
-      const auto jj = j - MeshBlockBox.low[1] + loc_view(b, 1) * MeshBlockBox.size[1];
-      const auto ii = i - MeshBlockBox.low[0] + loc_view(b, 0) * MeshBlockBox.size[0];
-      return (std::int64_t)kk * LocalMeshBox.size[1] * LocalMeshBox.size[0] +
-             (std::int64_t)jj * LocalMeshBox.size[0] + ii;
+      const auto kk = k - mesh_block_box.low[2] + loc_view(b, 2) * mesh_block_box.size[2];
+      const auto jj = j - mesh_block_box.low[1] + loc_view(b, 1) * mesh_block_box.size[1];
+      const auto ii = i - mesh_block_box.low[0] + loc_view(b, 0) * mesh_block_box.size[0];
+      return (std::int64_t)kk * local_mesh_box.size[1] * local_mesh_box.size[0] +
+             (std::int64_t)jj * local_mesh_box.size[0] + ii;
     }
   };
 
-  KernelHelper GetKernelHelper() const { return {loc_view, MeshBlockBox, LocalMeshBox}; }
+  KernelHelper GetKernelHelper() const {
+    return {loc_view, mesh_block_box, local_mesh_box};
+  }
 
   // Gathers a single component of a named variable from meshblocks
   // into a contiguous 1D array suitable for FFT input.
@@ -55,9 +67,10 @@ class UniformGridHelper {
 
  private:
   Mesh *mesh_;
-  bool initialized_ = false;
   parthenon::ParArray2D<std::int64_t>
       loc_view; // logical location of local blocks; stored on device for use in kernels
 };
 
 } // namespace parthenon
+
+#endif // UTILS_UNIFORM_GRID_HELPER_HPP_

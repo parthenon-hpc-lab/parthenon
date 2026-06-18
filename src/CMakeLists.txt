@@ -199,8 +199,6 @@ add_library(parthenon
   mesh/meshblock.cpp
   mesh/swarm_amr_remesh.cpp
   mesh/swarm_amr_remesh.hpp
-  mesh/uniform_grid_helper.cpp 
-  mesh/uniform_grid_helper.hpp
 
   outputs/ascent.cpp
   outputs/histogram.cpp
@@ -226,7 +224,6 @@ add_library(parthenon
   outputs/restart.hpp
   outputs/restart_hdf5.cpp
   outputs/restart_hdf5.hpp
-  outputs/spectrum.cpp
 
   pack/block_selector.hpp
   pack/pack_utils.hpp
@@ -329,9 +326,6 @@ add_library(parthenon
   utils/unique_id.hpp
   utils/utils.hpp
   utils/watchdog.cpp
-  utils/FFTManager.cpp
-  utils/FFTManager.hpp
-
 
   argument_parser.hpp
   basic_types.hpp
@@ -354,6 +348,20 @@ add_library(parthenon
 )
 add_library(Parthenon::parthenon ALIAS parthenon)
 
+if(PARTHENON_ENABLE_FFT)
+  target_sources(parthenon PRIVATE
+    utils/fft_manager.cpp
+    utils/fft_manager.hpp
+    utils/uniform_grid_helper.cpp
+    utils/uniform_grid_helper.hpp
+    utils/calc_spectrum.cpp
+    utils/calc_spectrum.hpp
+    outputs/spectrum.cpp
+  )
+  target_link_libraries(parthenon PRIVATE Heffte)
+  target_compile_definitions(parthenon PUBLIC PARTHENON_ENABLE_FFT)
+endif()
+
 set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
 
 target_compile_features(parthenon PUBLIC cxx_std_20)
@@ -365,17 +373,6 @@ target_compile_definitions(parthenon PRIVATE
     FS_HEADER=<${CXX_FILESYSTEM_HEADER}>
     FS_NAMESPACE=${CXX_FILESYSTEM_NAMESPACE}
     )
-
-find_package(CUDAToolkit REQUIRED)
-
-target_link_libraries(parthenon
-  PRIVATE
-    CUDA::cufft
-)
-
-if (PARTHENON_ENABLE_HEFFTE)
-  target_link_libraries(parthenon PRIVATE Heffte)
-endif()
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
   target_compile_options(parthenon PUBLIC -std=c++1y -qxflag=disable__cplusplusOverride)
