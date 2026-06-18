@@ -1028,8 +1028,8 @@ TEMPLATE_TEST_CASE("tensor2 Oseledets-SVD truncation respects relative Frobenius
   using real_t = typename TTraits::real_t;
 
   constexpr int nblocks = 8;
-  const std::vector<int> dims{6, 5, 4};
-  const std::vector<int> ranks{3, 3};
+  const std::vector<int> dims{8, 8, 8};
+  const std::vector<int> ranks{8, 5};
 
   std::vector<TensorTrain> trains;
   trains.reserve(nblocks);
