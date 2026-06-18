@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2025 The Parthenon collaboration
+// Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // Athena++ astrophysical MHD code
@@ -69,6 +69,7 @@
 #include <string>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
@@ -232,26 +233,34 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     // read single precision output option
     const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5") ||
                                 (op.file_type == "corehdf5");
+    const bool is_openpmd_output = (op.file_type == "openpmd");
 
-    if (is_hdf5_output) {
+    if (is_hdf5_output || is_openpmd_output) {
       op.single_precision_output =
           pin->GetOrAddBoolean(op.block_name, "single_precision_output", false);
+    } else {
+      op.single_precision_output = false;
+      if (pin->DoesParameterExist(op.block_name, "single_precision_output")) {
+        std::stringstream warn;
+        warn << "Output option single_precision_output only applies to "
+                "HDF5 outputs or restarts. Ignoring it for output block '"
+             << op.block_name << "'";
+        if (Globals::my_rank == 0) {
+          PARTHENON_WARN(warn);
+        }
+      }
+    }
+
+    if (is_hdf5_output) {
       op.sparse_seed_nans =
           pin->GetOrAddBoolean(op.block_name, "sparse_seed_nans", false,
                                "write non-allocated sparse data as NaN");
       op.meshdata_name = pin->GetOrAddString(op.block_name, "meshdata_name", "base",
                                              "which meshdata object to write from");
     } else {
-      op.single_precision_output = false;
+      // For OpenPMD/ADIOS2 it is not required to seed sparse nans as BP5 knows
+      // which chunks in a (sparse by default) mesh are written and which are not.
       op.sparse_seed_nans = false;
-
-      if (pin->DoesParameterExist(op.block_name, "single_precision_output")) {
-        std::stringstream warn;
-        warn << "Output option single_precision_output only applies to "
-                "HDF5 outputs or restarts. Ignoring it for output block '"
-             << op.block_name << "'";
-        PARTHENON_WARN(warn);
-      }
     }
 
     if (is_hdf5_output) {
@@ -352,6 +361,71 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       pnew_type = std::make_shared<HistoryOutput>(op);
     } else if (op.file_type == "ascent") {
       pnew_type = std::make_shared<AscentOutput>(op);
+    } else if (op.file_type == "openpmd") {
+#ifdef PARTHENON_ENABLE_OPENPMD
+      const auto backend_config =
+          pin->GetOrAddString(op.block_name, "backend_config", "default");
+      const auto coarsening_factor =
+          pin->GetOrAddInteger(op.block_name, "coarsening_factor", 1,
+                               "Output data coarsened by given factor n. Every n^dim "
+                               "data point is used, i.e., the data is not average. "
+                               "Requires even number of cells in each block dimension.");
+      PARTHENON_REQUIRE_THROWS(coarsening_factor > 0, "Need positive coarsening factor");
+      const auto base_block_size = pm->GetDefaultBlockSize();
+      PARTHENON_REQUIRE_THROWS(
+          base_block_size.nx(X1DIR) % coarsening_factor == 0,
+          "Cannot coarsen with specified factor given nx1 block size");
+      PARTHENON_REQUIRE_THROWS(
+          base_block_size.nx(X2DIR) % coarsening_factor == 0 || pm->ndim < 2,
+          "Cannot coarsen with specified factor given nx2 block size");
+      PARTHENON_REQUIRE_THROWS(
+          base_block_size.nx(X3DIR) % coarsening_factor == 0 || pm->ndim < 3,
+          "Cannot coarsen with specified factor given nx3 block size");
+      PARTHENON_REQUIRE_THROWS(!op.include_ghost_zones,
+                               "Writing ghost zones not supported for OPMD outputs.");
+
+      const auto output_type_str = pin->GetOrAddString(
+          op.block_name, "output_type", "data",
+          std::vector<std::string>{"restart", "data", "x1slice", "x2slice", "x3slice"},
+          "Type of output in the file.");
+
+      using enum DumpOutputMode;
+      if (output_type_str == "restart") {
+        op.mode = Restart;
+        restart = true;
+        num_rst_outputs++;
+      } else if (output_type_str == "data") {
+        op.mode = Data;
+      } else if (output_type_str == "x1slice") {
+        op.mode = X1Slice;
+      } else if (output_type_str == "x2slice") {
+        op.mode = X2Slice;
+      } else if (output_type_str == "x3slice") {
+        op.mode = X3Slice;
+      } else {
+        PARTHENON_FAIL("Unknown output_type for openpmd output in block " +
+                       op.block_name);
+      }
+
+      if (op.mode == Restart) {
+        PARTHENON_REQUIRE_THROWS(coarsening_factor == 1,
+                                 "Restart outputs cannot be coarsened.");
+      }
+
+      const auto format_version = pin->GetOrAddInteger(
+          op.block_name, "openpmd_format_version", OpenPMDOutput::OUTPUT_VERSION_FORMAT,
+          "OpenPMD output format version (1 = legacy, 2 = standard-compliant vectors)");
+
+      pnew_type = std::make_shared<OpenPMDOutput>(op, backend_config, coarsening_factor,
+                                                  format_version);
+#else
+      msg << "### FATAL ERROR in Outputs constructor" << std::endl
+          << "Executable not configured for OpenPMD outputs, but OpenPMD file format "
+          << "is requested in output/restart block '" << op.block_name << "'. "
+          << "You can disable this block without deleting it by setting a dt < 0."
+          << std::endl;
+      PARTHENON_FAIL(msg);
+#endif // ifdef PARTHENON_ENABLE_OPENPMD
     } else if (op.file_type == "histogram") {
 #ifdef ENABLE_HDF5
       pnew_type = std::make_shared<HistogramOutput>(op, pin);
@@ -364,21 +438,22 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       PARTHENON_FAIL(msg);
 #endif // ifdef ENABLE_HDF5
     } else if (is_hdf5_output) {
+      op.mode = DumpOutputMode::Data;
       restart = (op.file_type == "rst");
       const bool coredump = (op.file_type == "corehdf5");
       if (restart) {
         num_rst_outputs++;
+        op.mode = DumpOutputMode::Restart;
       }
       if (coredump) {
         num_core_outputs++;
+        op.mode = DumpOutputMode::Core;
       }
 #ifdef ENABLE_HDF5
       op.write_xdmf = pin->GetOrAddBoolean(op.block_name, "write_xdmf", true);
       op.write_swarm_xdmf =
           pin->GetOrAddBoolean(op.block_name, "write_swarm_xdmf", false);
-      pnew_type = std::make_shared<PHDF5Output>(
-          op, restart ? DumpOutputMode::RESTART
-                      : (coredump ? DumpOutputMode::CORE : DumpOutputMode::DUMP));
+      pnew_type = std::make_shared<PHDF5Output>(op);
 #else
       msg << "### FATAL ERROR in Outputs constructor" << std::endl
           << "Executable not configured for HDF5 outputs, but HDF5 file format "
@@ -453,11 +528,16 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
         }
         first = false;
       }
-      if (ptype->output_params.file_type == "rst") {
+      if (ptype->output_params.mode == DumpOutputMode::Restart) {
         pm->ApplyUserWorkBeforeRestartOutput(pm, pin, *tm, &(ptype->output_params));
         for (const auto &pkg : pm->packages.AllPackages()) {
           pkg.second->UserWorkBeforeRestartOutput(pm, pin, *tm, &(ptype->output_params));
         }
+      }
+      // Poke the dog before each output to not trigger an accidental kill for many
+      // simultaneous outputs (e.g., on final)
+      if (Globals::watchdog_enabled) {
+        WatchDog::WatchDog(0);
       }
       ptype->WriteOutputFile(pm, pin, tm, signal);
     }
