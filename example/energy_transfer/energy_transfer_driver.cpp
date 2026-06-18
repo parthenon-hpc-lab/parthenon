@@ -1,3 +1,4 @@
+#include <array>
 #include <cmath>
 #include <iostream>
 #include <memory>
@@ -68,6 +69,11 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
 }
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {}
+
+KOKKOS_INLINE_FUNCTION
+static int ComponentWavenumber(const std::array<int, 3> &kji_vec, const int dir) {
+  return kji_vec[2 - dir];
+}
 
 // ============================================================================
 // Helper: Shell-filter a field in Fourier space and IFFT to real space.
@@ -143,7 +149,7 @@ static void ShellFilterDerivative(
                                        k_vec[2] * k_vec[2]));
         auto idx = kernel_helper.FourierFlatIndex(k, j, i);
         bool in_shell = (k_mag > k_low) && (k_mag <= k_high);
-        Real k_phys = scale * k_vec[d];
+        Real k_phys = scale * ComponentWavenumber(k_vec, d);
         FT_out[idx + out_off] =
             in_shell ? imag_unit * k_phys * FT_in[idx + in_off]
                      : Kokkos::complex<Real>(0.0, 0.0);
@@ -180,7 +186,7 @@ static void SpectralDivergence(parthenon::FFTManager *fft_mgr,
         // div = i*(kx*Fx + ky*Fy + kz*Fz)
         auto sum = Kokkos::complex<Real>(0.0, 0.0);
         for (int d = 0; d < 3; d++) {
-          Real k_phys = scale * k_vec[d];
+          Real k_phys = scale * ComponentWavenumber(k_vec, d);
           sum += k_phys * FT_in[idx + d * fft_size_outbox];
         }
         FT_out[idx] = imag_unit * sum;
