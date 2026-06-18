@@ -81,9 +81,20 @@ class RestartReaderOPMD : public RestartReader {
       data_vec.resize(total_count);
     }
 
+    // Backwards compatibility: Old files have position/x,y,z while new files have position/x1,x2,x3
+    // Check if the new component names exist, if not try the old ones
+    std::string varname_to_read = varname;
+    auto [particle_record_test, particle_record_component_test] =
+        OpenPMDUtils::GetParticleRecordAndComponentNames(varname, rank, 0);
+    if (!swm.contains(particle_record_test) ||
+        !swm[particle_record_test].contains(particle_record_component_test)) {
+      // Try backwards compatible name (swarm.x1 -> swarm.x, etc.)
+      varname_to_read = GetBackwardsCompatibleSwarmVarName(varname);
+    }
+
     for (auto n = 0; n < ncomp; n++) {
       auto [particle_record, particle_record_component] =
-          OpenPMDUtils::GetParticleRecordAndComponentNames(varname, rank, n);
+          OpenPMDUtils::GetParticleRecordAndComponentNames(varname_to_read, rank, n);
       openPMD::RecordComponent rc = swm[particle_record][particle_record_component];
       rc.loadChunkRaw(&data_vec[n * count], {offset}, {count});
     }

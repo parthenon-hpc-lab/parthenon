@@ -146,6 +146,18 @@ class RestartReader {
   void Close();
 
   [[nodiscard]] virtual int HasGhost() const = 0;
+
+  // Backwards compatibility: map new swarm position names to old names
+  static std::string GetBackwardsCompatibleSwarmVarName(const std::string &varname) {
+    if (varname == "swarm.x1") {
+      return "swarm.x";
+    } else if (varname == "swarm.x2") {
+      return "swarm.y";
+    } else if (varname == "swarm.x3") {
+      return "swarm.z";
+    }
+    return varname;
+  }
 };
 
 } // namespace parthenon

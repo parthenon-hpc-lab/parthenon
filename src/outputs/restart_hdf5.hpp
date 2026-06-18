@@ -312,15 +312,7 @@ void RestartReaderHDF5::ReadSwarmVars(
     // Backwards compatibility: try old position names if new ones missing
     std::string varname_to_read = varname;
     if (var_missing_on_disk) {
-      // Need to include pack/default_names.hpp to access swarm_position
-      // Check for old position variable names
-      if (varname == "swarm.x1") {
-        varname_to_read = "swarm.x";
-      } else if (varname == "swarm.x2") {
-        varname_to_read = "swarm.y";
-      } else if (varname == "swarm.x3") {
-        varname_to_read = "swarm.z";
-      }
+      varname_to_read = GetBackwardsCompatibleSwarmVarName(varname);
       // Check if the old name exists
       if (varname_to_read != varname) {
         var_missing_on_disk =
