@@ -69,8 +69,8 @@ class QRDecomposition {
   /// Returns:
   ///   - 0 on success.
 
-  template <class tm_t, class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int execute(tm_t tm, matrix_t *pA, matrix_t *pQ,
+  template <class tm_t, class matrix_a_t, class matrix_q_t>
+  KOKKOS_INLINE_FUNCTION static int execute(tm_t tm, matrix_a_t *pA, matrix_q_t *pQ,
                                             double *scratch) {
     PARTHENON_REQUIRE(pA, "A must not be null.");
     auto &A = *pA;
@@ -140,8 +140,8 @@ class QRDecomposition {
     return execute(tm, pA, pQ, scratch);
   }
 
-  template <class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int execute(matrix_t *pA, matrix_t *pQ,
+  template <class matrix_a_t, class matrix_q_t>
+  KOKKOS_INLINE_FUNCTION static int execute(matrix_a_t *pA, matrix_q_t *pQ,
                                             double *scratch) {
     return execute(serial_tm_t(), pA, pQ, scratch);
   }
@@ -204,8 +204,8 @@ class LQDecomposition {
   ///   - If pQ != nullptr, *pQ is overwritten with the orthogonal Q factor.
   ///   - The factorization satisfies A_original = L Q.
 
-  template <class tm_t, class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int execute(tm_t tm, matrix_t *pA, matrix_t *pQ,
+  template <class tm_t, class matrix_a_t, class matrix_q_t>
+  KOKKOS_INLINE_FUNCTION static int execute(tm_t tm, matrix_a_t *pA, matrix_q_t *pQ,
                                             double *scratch) {
     PARTHENON_REQUIRE(pA, "A must not be null.");
     auto &A = *pA;
@@ -213,9 +213,9 @@ class LQDecomposition {
     const int ncols = GetNcols(A);
     PARTHENON_REQUIRE(nrows <= ncols, "LQDecomposition requires nrows <= ncols.");
 
-    matrix_transpose_view_t<matrix_t> AT(A);
+    matrix_transpose_view_t<matrix_a_t> AT(A);
     if (pQ) {
-      matrix_transpose_view_t<matrix_t> QT(*pQ);
+      matrix_transpose_view_t<matrix_q_t> QT(*pQ);
       return QRDecomposition::execute(tm, &AT, &QT, scratch);
     }
     return QRDecomposition::execute(tm, &AT, scratch);
@@ -227,8 +227,8 @@ class LQDecomposition {
     return execute(tm, pA, pQ, scratch);
   }
 
-  template <class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int execute(matrix_t *pA, matrix_t *pQ,
+  template <class matrix_a_t, class matrix_q_t>
+  KOKKOS_INLINE_FUNCTION static int execute(matrix_a_t *pA, matrix_q_t *pQ,
                                             double *scratch) {
     return execute(serial_tm_t(), pA, pQ, scratch);
   }
@@ -239,8 +239,8 @@ class LQDecomposition {
     return execute(serial_tm_t(), pA, pQ, scratch);
   }
 
-  template <class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int execute(matrix_t *pA, matrix_t *pQ) {
+  template <class matrix_a_t, class matrix_q_t>
+  KOKKOS_INLINE_FUNCTION static int execute(matrix_a_t *pA, matrix_q_t *pQ) {
     const int nrows = GetNrows(*pA);
     const int ncols = GetNcols(*pA);
     std::vector<double> scratch(QRDecomposition::double_scratch_size(ncols, nrows));
@@ -274,13 +274,13 @@ class LQDecomposition {
   }
 };
 
-template <class matrix_t>
-KOKKOS_FORCEINLINE_FUNCTION int QRDecomposition(matrix_t &A, matrix_t &Q) {
+template <class matrix_a_t, class matrix_q_t>
+KOKKOS_FORCEINLINE_FUNCTION int QRDecomposition(matrix_a_t &A, matrix_q_t &Q) {
   return ::QRDecomposition::execute(&A, &Q);
 }
 
-template <class matrix_t>
-KOKKOS_FORCEINLINE_FUNCTION int LQDecomposition(matrix_t &A, matrix_t &Q) {
+template <class matrix_a_t, class matrix_q_t>
+KOKKOS_FORCEINLINE_FUNCTION int LQDecomposition(matrix_a_t &A, matrix_q_t &Q) {
   return ::LQDecomposition::execute(&A, &Q);
 }
 

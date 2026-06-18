@@ -138,9 +138,9 @@ ImplicitQRTridiag(tm_t tm, double *d, double *b, matrix_t *pQ, std::size_t *star
 // in place. On return, all elements of b should be ~zero and d should
 // contain the singular values of A. The Gram matrix B = A^T A is never explicitly 
 // formed.
-template <class tm_t, class matrix_t>
+template <class tm_t, class matrix_u_t, class matrix_v_t>
 KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRBidiag(tm_t tm, double *d, double *b,
-                                                 matrix_t *pU, matrix_t *pV,
+                                                 matrix_u_t *pU, matrix_v_t *pV,
                                                  std::size_t *start, std::size_t *end,
                                                  const int nrows, const int max_iters) {
   int iter{0};

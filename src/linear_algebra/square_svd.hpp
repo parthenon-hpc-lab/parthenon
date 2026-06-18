@@ -62,9 +62,9 @@ class SquareSVD {
   ///   - The number of implicit QR iterations performed (hitting the internal
   ///     limit indicates non-convergence).
 
-  template <class tm_t, class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int execute(tm_t tm, matrix_t *pA, matrix_t *pU,
-                                            matrix_t *pV, double *sings, double *scratch,
+  template <class tm_t, class matrix_a_t, class matrix_u_t, class matrix_v_t>
+  KOKKOS_INLINE_FUNCTION static int execute(tm_t tm, matrix_a_t *pA, matrix_u_t *pU,
+                                            matrix_v_t *pV, double *sings, double *scratch,
                                             std::size_t *iscratch) {
     PARTHENON_REQUIRE(pA, "A must not be null.");
     auto &A = *pA;
@@ -216,8 +216,8 @@ class SquareSVD {
 
   // Version that is only callable on host and allocates its own
   // scratch space
-  template <class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int execute(matrix_t *pA, matrix_t *pU, matrix_t *pV,
+  template <class matrix_a_t, class matrix_u_t, class matrix_v_t>
+  KOKKOS_INLINE_FUNCTION static int execute(matrix_a_t *pA, matrix_u_t *pU, matrix_v_t *pV,
                                             double *eigs) {
     const int nrows = GetNrows(*pA);
     const int ncols = GetNcols(*pA);
