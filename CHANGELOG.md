@@ -26,6 +26,7 @@
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1406]](https://github.com/parthenon-hpc-lab/parthenon/pull/1406) Fix deadlock in parallel outputs after ParameterInput refactor
 - [[PR 1405]](https://github.com/parthenon-hpc-lab/parthenon/pull/1405) Fixes race condition in flux correction communication when sparse variables are disabled
 - [[PR 1339]](https://github.com/parthenon-hpc-lab/parthenon/pull/1339) Fixes doc for `numlevel` usage in non-AMR sims
 - [[PR 1393]](https://github.com/parthenon-hpc-lab/parthenon/pull/1393) Fixes a bug where CMake does not detect HDF5 parallel IO for HDF5 2.0.0 and later.
