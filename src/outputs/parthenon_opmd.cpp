@@ -261,9 +261,9 @@ GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te
   if (format_version >= 2) {
     // Standard-compliant: one shared record per variable+te+level, components
     // distinguished only by sub-group name.
-    mesh_record_name = vinfo.label + "_" + te_str + "lvl" + std::to_string(level);
+    mesh_record_name = vinfo.GetBaseName() + "_" + te_str + "lvl" + std::to_string(level);
 
-    if (vinfo.is_vector) {
+    if (vinfo.is_vector and vinfo.num_components == 3) {
       if (comp_idx == 0) {
         comp_name = "x";
       } else if (comp_idx == 1) {
@@ -277,9 +277,10 @@ GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te
       comp_name = openPMD::MeshRecordComponent::SCALAR;
     } else {
       // Multi-component non-vector (tensor or arbitrary shape): extract the
-      // user-provided suffix from the full component label ("label_suffix" → "suffix").
+      // user-provided suffix from the full component label
+      // ("<base_name>_suffix" → "suffix").
       const auto &full = vinfo.component_labels[comp_idx];
-      const auto prefix_len = vinfo.label.length() + 1; // skip "label_"
+      const auto prefix_len = vinfo.GetBaseName().length() + 1; // skip "<base_name>_"
       comp_name = full.substr(prefix_len);
     }
   } else {
@@ -288,7 +289,7 @@ GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te
     mesh_record_name = vinfo.label + "_" + te_str + vinfo.component_labels[comp_idx] +
                        "_lvl" + std::to_string(level);
 
-    if (vinfo.is_vector) {
+    if (vinfo.is_vector and vinfo.num_components == 3) {
       if (comp_idx == 0) {
         comp_name = "x";
       } else if (comp_idx == 1) {

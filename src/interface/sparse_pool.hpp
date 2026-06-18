@@ -14,6 +14,7 @@
 #define INTERFACE_SPARSE_POOL_HPP_
 
 #include <map>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -92,8 +93,9 @@ class SparsePool {
   // component_labels: use these component labels if not {}, otherwise use component
   // labels from shared metadata
   const Metadata &Add(int sparse_id, const std::vector<int> &shape = {},
-                      const std::vector<std::string> &component_labels = {}) {
-    return AddImpl(sparse_id, shape, nullptr, component_labels);
+                      const std::vector<std::string> &component_labels = {},
+                      const std::optional<std::string> sparse_label = std::nullopt) {
+    return AddImpl(sparse_id, shape, std::nullopt, component_labels, sparse_label);
   }
 
   // As above, but explicitly set Vector/Tensor metadata flag. Valid values for
@@ -101,25 +103,24 @@ class SparsePool {
   // flag), Tensor (set only Tensor flag)
   const Metadata &Add(int sparse_id, const std::vector<int> &shape,
                       MetadataFlag vector_tensor,
-                      const std::vector<std::string> &component_labels = {}) {
-    return AddImpl(sparse_id, shape, &vector_tensor, component_labels);
+                      const std::vector<std::string> &component_labels = {},
+                      const std::optional<std::string> sparse_label = std::nullopt) {
+    return AddImpl(sparse_id, shape, vector_tensor, component_labels, sparse_label);
   }
 
-  const Metadata &Add(int sparse_id, const std::vector<std::string> &component_labels) {
-    return AddImpl(sparse_id, {}, nullptr, component_labels);
+  const Metadata &Add(int sparse_id, const std::vector<std::string> &component_labels,
+                      const std::optional<std::string> sparse_label = std::nullopt) {
+    return AddImpl(sparse_id, {}, std::nullopt, component_labels, sparse_label);
   }
 
   // Let someone specify arbitrary metadata for this field
   const Metadata &Add(int sparse_id, const Metadata &md);
 
  private:
-  // TODO(JL) Once we have C++17 with std::optional, we can use
-  // std::optional<MetadataFlag> instead of a pointer. We need to differentiate between
-  // the getting a value form the user and not getting a value, but there is no good
-  // default value
   const Metadata &AddImpl(int sparse_id, const std::vector<int> &shape,
-                          const MetadataFlag *vector_tensor,
-                          const std::vector<std::string> &component_labels);
+                          const std::optional<MetadataFlag> vector_tensor,
+                          const std::vector<std::string> &component_labels,
+                          const std::optional<std::string> &sparse_label);
 
   const std::string base_name_;
   const std::string controller_base_name_;

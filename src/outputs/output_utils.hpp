@@ -25,6 +25,7 @@
 #include <map>
 #include <memory>
 #include <numeric>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <string>
@@ -64,6 +65,7 @@ struct VarInfo {
   bool is_vector;
   bool is_coordinate_field;
   IndexShape cellbounds;
+  std::string sparse_label; // only meaningful if is_sparse
   std::vector<std::string> component_labels;
   // list of topological elements in variable... e.g., Face1, Face2, etc
   std::vector<TopologicalElement> topological_elements;
@@ -131,16 +133,23 @@ struct VarInfo {
   std::vector<int> GetRawShape() const;
   int GetDim(int i) const;
 
+  // Returns basename with sparse label
+  std::string GetBaseName() const {
+    return base_name + ((is_sparse) ? "_" + sparse_label : "");
+  }
+
   VarInfo() = delete;
 
   // TODO(JMM): Separate this into an implementation file again?
   VarInfo(const std::string &base_name, const std::string &label,
+          const std::string &sparse_label,
           const std::vector<std::string> &component_labels_, int num_components,
           std::array<int, VNDIM> nx, Metadata metadata,
           const std::vector<TopologicalElement> topological_elements, bool is_sparse,
           bool is_vector, const IndexShape &cellbounds)
-      : base_name(base_name), label(label), num_components(num_components), nx_(nx),
-        tensor_rank(metadata.Shape().size()), where(metadata.Where()),
+      : base_name(base_name), label(label), sparse_label(sparse_label),
+        num_components(num_components), nx_(nx), tensor_rank(metadata.Shape().size()),
+        where(metadata.Where()),
         is_mem_aligned(metadata.IsSet(Metadata::CellMemAligned) &&
                        !metadata.IsSet(Metadata::Cell)),
         topological_elements(topological_elements), is_sparse(is_sparse),
@@ -155,16 +164,11 @@ struct VarInfo {
     }
 
     // prefix full component label with full internal variable label.
-    // sparse fields with explicit component labels use base_name to drop sparse id.
-    const auto component_label_prefix =
-        (is_sparse && !component_labels_.empty()) ? base_name : label;
+    // sparse fields labeled with sparse_id if no sparse_label provided
+    const auto component_label_prefix = GetBaseName();
 
     component_labels = [&]() -> std::vector<std::string> {
       const bool has_labels = component_labels_.size() == num_components;
-      if (num_components == 1) {
-        // scalar, only add suffix if explicit component label provided
-        return {component_label_prefix + (has_labels ? "_" + component_labels_[0] : "")};
-      }
 
       // Vector/Tensor suffix with component index unless labels provided
       std::vector<std::string> full_labels = {};
@@ -178,9 +182,10 @@ struct VarInfo {
 
   explicit VarInfo(const std::shared_ptr<Variable<Real>> &var,
                    const IndexShape &cellbounds)
-      : VarInfo(var->base_name(), var->label(), var->metadata().getComponentLabels(),
-                var->NumComponents(), var->GetDim(), var->metadata(),
-                var->GetTopologicalElements(), var->IsSparse(),
+      : VarInfo(var->base_name(), var->label(),
+                var->metadata().GetSparseLabel(var->GetSparseID()),
+                var->metadata().getComponentLabels(), var->NumComponents(), var->GetDim(),
+                var->metadata(), var->GetTopologicalElements(), var->IsSparse(),
                 var->IsSet(Metadata::Vector), cellbounds) {}
 
   static std::vector<VarInfo> GetAll(const VariableVector<Real> &vars,
