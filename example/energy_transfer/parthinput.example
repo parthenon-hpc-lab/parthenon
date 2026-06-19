@@ -32,7 +32,7 @@ ox3_bc = periodic
 pack_size = -1
 
 <parthenon/meshblock>
-nx1 = 64
+nx1 = 128
 nx2 = 64
 nx3 = 64
 
@@ -50,5 +50,5 @@ compute_UBPbb = true
 compute_PU = true
 compute_FU = true
 gamma = 1.666667
-output_file = transfer
+output_file = transfer_mpi_pencil
 output_number = 0

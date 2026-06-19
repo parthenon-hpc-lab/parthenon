@@ -15,6 +15,10 @@
 using namespace parthenon::driver::prelude;
 using energy_transfer::EnergyTransferDriver;
 
+// Keep shell-transfer accumulations, MPI collectives, and output matrices in double
+// precision even when the application is built with Real=float.
+using TransferReal = double;
+
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);
 
@@ -35,7 +39,8 @@ int main(int argc, char *argv[]) {
 
   pman.ParthenonInitPackagesAndMesh();
   {
-    EnergyTransferDriver driver(pman.pinput.get(), pman.app_input.get(), pman.pmesh.get());
+    EnergyTransferDriver driver(pman.pinput.get(), pman.app_input.get(),
+                                pman.pmesh.get());
     driver.Execute();
   }
   pman.ParthenonFinalize();
@@ -48,13 +53,13 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   auto package = std::make_shared<parthenon::StateDescriptor>("energy_transfer");
 
   // Only register mesh fields when not reading from an ADIOS2/bp5 file
-  const bool read_from_file =
-      pin->DoesParameterExist("energy_transfer", "input_file");
+  const bool read_from_file = pin->DoesParameterExist("energy_transfer", "input_file");
   if (!read_from_file) {
     parthenon::Metadata m_scalar({parthenon::Metadata::Cell, parthenon::Metadata::Derived,
                                   parthenon::Metadata::OneCopy});
     parthenon::Metadata m_vector({parthenon::Metadata::Cell, parthenon::Metadata::Derived,
-                                  parthenon::Metadata::OneCopy, parthenon::Metadata::Vector},
+                                  parthenon::Metadata::OneCopy,
+                                  parthenon::Metadata::Vector},
                                  std::vector<int>{3});
 
     package->AddField("rho", m_scalar);
@@ -99,14 +104,13 @@ static void ShellFilter(parthenon::FFTManager *fft_mgr, int n_comp,
       "ShellFilter", fb.low[2], fb.high[2], fb.low[1], fb.high[1], fb.low[0], fb.high[0],
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         auto k_vec = kernel_helper.Wavevector(k, j, i);
-        auto k_mag = Kokkos::sqrt(Real(k_vec[0] * k_vec[0] + k_vec[1] * k_vec[1] +
-                                       k_vec[2] * k_vec[2]));
+        auto k_mag = Kokkos::sqrt(
+            Real(k_vec[0] * k_vec[0] + k_vec[1] * k_vec[1] + k_vec[2] * k_vec[2]));
         auto idx = kernel_helper.FourierFlatIndex(k, j, i);
         bool in_shell = (k_mag > k_low) && (k_mag <= k_high);
         for (int n = 0; n < nc; n++) {
-          FT_out[idx + n * fft_size_outbox] =
-              in_shell ? FT_in[idx + n * fft_size_outbox]
-                       : Kokkos::complex<Real>(0.0, 0.0);
+          FT_out[idx + n * fft_size_outbox] = in_shell ? FT_in[idx + n * fft_size_outbox]
+                                                       : Kokkos::complex<Real>(0.0, 0.0);
         }
       });
 
@@ -145,14 +149,13 @@ static void ShellFilterDerivative(
       "ShellFilterDeriv", fb.low[2], fb.high[2], fb.low[1], fb.high[1], fb.low[0],
       fb.high[0], KOKKOS_LAMBDA(const int k, const int j, const int i) {
         auto k_vec = kernel_helper.Wavevector(k, j, i);
-        auto k_mag = Kokkos::sqrt(Real(k_vec[0] * k_vec[0] + k_vec[1] * k_vec[1] +
-                                       k_vec[2] * k_vec[2]));
+        auto k_mag = Kokkos::sqrt(
+            Real(k_vec[0] * k_vec[0] + k_vec[1] * k_vec[1] + k_vec[2] * k_vec[2]));
         auto idx = kernel_helper.FourierFlatIndex(k, j, i);
         bool in_shell = (k_mag > k_low) && (k_mag <= k_high);
         Real k_phys = scale * ComponentWavenumber(k_vec, d);
-        FT_out[idx + out_off] =
-            in_shell ? imag_unit * k_phys * FT_in[idx + in_off]
-                     : Kokkos::complex<Real>(0.0, 0.0);
+        FT_out[idx + out_off] = in_shell ? imag_unit * k_phys * FT_in[idx + in_off]
+                                         : Kokkos::complex<Real>(0.0, 0.0);
       });
 
   fft_mgr->Backward(FT_scratch.data() + scratch_offset, deriv_out.data() + out_offset);
@@ -167,8 +170,7 @@ static void ShellFilterDerivative(
 static void SpectralDivergence(parthenon::FFTManager *fft_mgr,
                                const parthenon::ParArray1D<Kokkos::complex<Real>> &FT_vec,
                                parthenon::ParArray1D<Kokkos::complex<Real>> &FT_scratch,
-                               parthenon::ParArray1D<Real> &div_out,
-                               Real two_pi_over_L) {
+                               parthenon::ParArray1D<Real> &div_out, Real two_pi_over_L) {
   auto fb = fft_mgr->fourier_space_box();
   auto kernel_helper = fft_mgr->GetKernelHelper();
   const auto fft_size_outbox = fft_mgr->size_fourier_space_box();
@@ -203,8 +205,7 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   PreExecute();
 
   // --- Configuration ---
-  const auto binning =
-      pinput->GetOrAddString("energy_transfer", "binning", "lin");
+  const auto binning = pinput->GetOrAddString("energy_transfer", "binning", "lin");
   const auto num_shells = pinput->GetOrAddInteger("energy_transfer", "num_shells", 20);
   const auto compute_UU = pinput->GetOrAddBoolean("energy_transfer", "compute_UU", true);
   const auto compute_BB = pinput->GetOrAddBoolean("energy_transfer", "compute_BB", false);
@@ -244,8 +245,7 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
     shell_edges.push_back(Real(Nx) / 2.0 * std::sqrt(3.0));
   } else if (binning == "log") {
     shell_edges.push_back(0.0);
-    const Real resolution_exp =
-        std::log(Real(Nx) / 8.0) / std::log(2.0) * 4.0 + 1.0;
+    const Real resolution_exp = std::log(Real(Nx) / 8.0) / std::log(2.0) * 4.0 + 1.0;
     const int n_log_bins = static_cast<int>(resolution_exp) + 1;
     for (int i = 0; i <= n_log_bins; i++) {
       shell_edges.push_back(4.0 * std::pow(2.0, (Real(i) - 1.0) / 4.0));
@@ -258,8 +258,8 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   const int n_shells = static_cast<int>(shell_edges.size()) - 1;
 
   if (parthenon::Globals::my_rank == 0) {
-    std::cout << "Energy transfer analysis: " << n_shells << " shells, binning=" << binning
-              << std::endl;
+    std::cout << "Energy transfer analysis: " << n_shells
+              << " shells, binning=" << binning << std::endl;
     std::cout << "Shell edges: ";
     for (const auto &e : shell_edges)
       std::cout << e << " ";
@@ -288,15 +288,12 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   parthenon::ParArray1D<Real> acc_flat("acc_flat", compute_FU ? 3 * fft_size_inbox : 0);
 
   // --- Load fields: either from ADIOS2/bp5 file or from existing meshblock data ---
-  const bool read_from_file =
-      pinput->DoesParameterExist("energy_transfer", "input_file");
+  const bool read_from_file = pinput->DoesParameterExist("energy_transfer", "input_file");
 
   if (read_from_file) {
-    const auto input_file =
-        pinput->GetString("energy_transfer", "input_file");
+    const auto input_file = pinput->GetString("energy_transfer", "input_file");
     PARTHENON_REQUIRE_THROWS(
-        input_file.size() >= 3 &&
-            input_file.substr(input_file.size() - 3) == ".bp",
+        input_file.size() >= 3 && input_file.substr(input_file.size() - 3) == ".bp",
         "input_file must be an ADIOS2/bp5 file (ending in .bp), got: " + input_file);
 
     // Read directly from ADIOS2/bp5 file into flat arrays
@@ -313,17 +310,32 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
     adios2::Engine reader = io.Open(input_file, adios2::Mode::Read);
     reader.BeginStep();
 
+    enum class InputRealType { Float, Double };
+
+    auto get_input_type_and_shape = [&](const std::string &name,
+                                        adios2::Dims &shape) -> InputRealType {
+      auto var_double = io.InquireVariable<double>(name);
+      if (var_double) {
+        shape = var_double.Shape();
+        return InputRealType::Double;
+      }
+      auto var_float = io.InquireVariable<float>(name);
+      if (var_float) {
+        shape = var_float.Shape();
+        return InputRealType::Float;
+      }
+      PARTHENON_FAIL("Variable '" + name + "' not found as float or double in " +
+                     input_file);
+      return InputRealType::Double;
+    };
+
     // Validate that file dimensions match the mesh
     {
-      auto var = io.InquireVariable<double>("rho");
-      PARTHENON_REQUIRE_THROWS(var,
-                               "Variable 'rho' not found in " + input_file);
-      const auto shape = var.Shape();
+      adios2::Dims shape;
+      get_input_type_and_shape("rho", shape);
       PARTHENON_REQUIRE_THROWS(
-          shape.size() == 3 &&
-              static_cast<int>(shape[0]) == Nz &&
-              static_cast<int>(shape[1]) == Ny &&
-              static_cast<int>(shape[2]) == Nx,
+          shape.size() == 3 && static_cast<int>(shape[0]) == Nz &&
+              static_cast<int>(shape[1]) == Ny && static_cast<int>(shape[2]) == Nx,
           "ADIOS2 file dimensions [" + std::to_string(shape[0]) + ", " +
               std::to_string(shape[1]) + ", " + std::to_string(shape[2]) +
               "] do not match mesh dimensions [" + std::to_string(Nz) + ", " +
@@ -335,38 +347,63 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
       std::string name;
       parthenon::ParArray1D<Real> *dest;
       std::size_t offset;
+      InputRealType type;
+      std::vector<float> float_buf;
+      std::vector<double> double_buf;
     };
     std::vector<ReadRequest> requests;
-    requests.push_back({"rho", &rho_flat, 0});
-    requests.push_back({"vel_x", &vel_flat, 0});
-    requests.push_back({"vel_y", &vel_flat, fft_size_inbox});
-    requests.push_back({"vel_z", &vel_flat, 2 * fft_size_inbox});
+    auto add_request = [&](const std::string &name, parthenon::ParArray1D<Real> *dest,
+                           const std::size_t offset) {
+      adios2::Dims shape;
+      const auto type = get_input_type_and_shape(name, shape);
+      PARTHENON_REQUIRE_THROWS(
+          shape.size() == 3 && static_cast<int>(shape[0]) == Nz &&
+              static_cast<int>(shape[1]) == Ny && static_cast<int>(shape[2]) == Nx,
+          "ADIOS2 variable '" + name + "' dimensions [" + std::to_string(shape[0]) +
+              ", " + std::to_string(shape[1]) + ", " + std::to_string(shape[2]) +
+              "] do not match mesh dimensions [" + std::to_string(Nz) + ", " +
+              std::to_string(Ny) + ", " + std::to_string(Nx) + "]");
+      requests.push_back({name, dest, offset, type, {}, {}});
+    };
+
+    add_request("rho", &rho_flat, 0);
+    add_request("vel_x", &vel_flat, 0);
+    add_request("vel_y", &vel_flat, fft_size_inbox);
+    add_request("vel_z", &vel_flat, 2 * fft_size_inbox);
     if (need_mag) {
-      requests.push_back({"mag_x", &mag_flat, 0});
-      requests.push_back({"mag_y", &mag_flat, fft_size_inbox});
-      requests.push_back({"mag_z", &mag_flat, 2 * fft_size_inbox});
+      add_request("mag_x", &mag_flat, 0);
+      add_request("mag_y", &mag_flat, fft_size_inbox);
+      add_request("mag_z", &mag_flat, 2 * fft_size_inbox);
     }
     if (compute_PU) {
-      requests.push_back({"pres", &pres_flat, 0});
+      add_request("pres", &pres_flat, 0);
     }
     if (compute_FU) {
-      requests.push_back({"acc_x", &acc_flat, 0});
-      requests.push_back({"acc_y", &acc_flat, fft_size_inbox});
-      requests.push_back({"acc_z", &acc_flat, 2 * fft_size_inbox});
+      add_request("acc_x", &acc_flat, 0);
+      add_request("acc_y", &acc_flat, fft_size_inbox);
+      add_request("acc_z", &acc_flat, 2 * fft_size_inbox);
     }
 
     // Allocate one host buffer per variable for deferred reads
     const auto n_vars = requests.size();
-    std::vector<std::vector<double>> host_bufs(n_vars,
-                                               std::vector<double>(fft_size_inbox));
 
     // Issue all deferred Gets
     for (std::size_t v = 0; v < n_vars; v++) {
-      auto var = io.InquireVariable<double>(requests[v].name);
-      PARTHENON_REQUIRE_THROWS(
-          var, "Variable '" + requests[v].name + "' not found in " + input_file);
-      var.SetSelection({start, count});
-      reader.Get(var, host_bufs[v].data(), adios2::Mode::Deferred);
+      if (requests[v].type == InputRealType::Double) {
+        auto var = io.InquireVariable<double>(requests[v].name);
+        PARTHENON_REQUIRE_THROWS(var, "Variable '" + requests[v].name +
+                                          "' not found in " + input_file);
+        requests[v].double_buf.resize(fft_size_inbox);
+        var.SetSelection({start, count});
+        reader.Get(var, requests[v].double_buf.data(), adios2::Mode::Deferred);
+      } else {
+        auto var = io.InquireVariable<float>(requests[v].name);
+        PARTHENON_REQUIRE_THROWS(var, "Variable '" + requests[v].name +
+                                          "' not found in " + input_file);
+        requests[v].float_buf.resize(fft_size_inbox);
+        var.SetSelection({start, count});
+        reader.Get(var, requests[v].float_buf.data(), adios2::Mode::Deferred);
+      }
     }
 
     // Single I/O flush for all variables
@@ -377,21 +414,53 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
       auto dest_sub = Kokkos::subview(
           *requests[v].dest,
           Kokkos::make_pair(requests[v].offset, requests[v].offset + fft_size_inbox));
-      if constexpr (std::is_same_v<Real, double>) {
-        auto host_view =
-            Kokkos::View<Real *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
-                host_bufs[v].data(), fft_size_inbox);
-        Kokkos::deep_copy(dest_sub, host_view);
-      } else {
-        std::vector<Real> conv_buf(fft_size_inbox);
-        for (std::size_t i = 0; i < fft_size_inbox; i++) {
-          conv_buf[i] = static_cast<Real>(host_bufs[v][i]);
+      if (requests[v].type == InputRealType::Double) {
+        if constexpr (std::is_same_v<Real, double>) {
+          auto host_view =
+              Kokkos::View<Real *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
+                  requests[v].double_buf.data(), fft_size_inbox);
+          Kokkos::deep_copy(dest_sub, host_view);
+        } else {
+          parthenon::ParArray1D<double> input_double("input_double", fft_size_inbox);
+          auto host_view =
+              Kokkos::View<double *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
+                  requests[v].double_buf.data(), fft_size_inbox);
+          Kokkos::deep_copy(input_double, host_view);
+          auto dest = *requests[v].dest;
+          const auto offset = requests[v].offset;
+          parthenon::par_for(
+              "ConvertInputDoubleToReal", std::size_t(0), fft_size_inbox - 1,
+              KOKKOS_LAMBDA(const std::size_t idx) {
+                dest(offset + idx) = static_cast<Real>(input_double(idx));
+              });
+          Kokkos::fence();
         }
-        auto host_view =
-            Kokkos::View<Real *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
-                conv_buf.data(), fft_size_inbox);
-        Kokkos::deep_copy(dest_sub, host_view);
+      } else {
+        if constexpr (std::is_same_v<Real, float>) {
+          auto host_view =
+              Kokkos::View<float *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
+                  requests[v].float_buf.data(), fft_size_inbox);
+          Kokkos::deep_copy(dest_sub, host_view);
+        } else {
+          parthenon::ParArray1D<float> input_float("input_float", fft_size_inbox);
+          auto host_view =
+              Kokkos::View<float *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
+                  requests[v].float_buf.data(), fft_size_inbox);
+          Kokkos::deep_copy(input_float, host_view);
+          auto dest = *requests[v].dest;
+          const auto offset = requests[v].offset;
+          parthenon::par_for(
+              "ConvertInputFloatToReal", std::size_t(0), fft_size_inbox - 1,
+              KOKKOS_LAMBDA(const std::size_t idx) {
+                dest(offset + idx) = static_cast<Real>(input_float(idx));
+              });
+          Kokkos::fence();
+        }
       }
+      requests[v].float_buf.clear();
+      requests[v].float_buf.shrink_to_fit();
+      requests[v].double_buf.clear();
+      requests[v].double_buf.shrink_to_fit();
     }
 
     reader.EndStep();
@@ -461,15 +530,16 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
       KOKKOS_LAMBDA(const std::size_t idx) {
         const Real sqrt_rho = Kokkos::sqrt(rho_flat(idx));
         for (int n = 0; n < 3; n++) {
-          W_flat(n * fft_size_inbox + idx) = sqrt_rho * vel_flat(n * fft_size_inbox + idx);
+          W_flat(n * fft_size_inbox + idx) =
+              sqrt_rho * vel_flat(n * fft_size_inbox + idx);
         }
       });
 
   // --- Forward FFT fields that are needed ---
   parthenon::ParArray1D<Kokkos::complex<Real>> FT_W("FT_W", 3 * fft_size_outbox);
   parthenon::ParArray1D<Kokkos::complex<Real>> FT_U("FT_U", 3 * fft_size_outbox);
-  parthenon::ParArray1D<Kokkos::complex<Real>> FT_B(
-      "FT_B", need_mag ? 3 * fft_size_outbox : 0);
+  parthenon::ParArray1D<Kokkos::complex<Real>> FT_B("FT_B",
+                                                    need_mag ? 3 * fft_size_outbox : 0);
 
   for (int n = 0; n < 3; n++) {
     FFTMgr->Forward(W_flat.data() + n * fft_size_inbox,
@@ -485,8 +555,8 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   }
 
   // Forward FFT pressure and acceleration if needed
-  parthenon::ParArray1D<Kokkos::complex<Real>> FT_P(
-      "FT_P", compute_PU ? fft_size_outbox : 0);
+  parthenon::ParArray1D<Kokkos::complex<Real>> FT_P("FT_P",
+                                                    compute_PU ? fft_size_outbox : 0);
   if (compute_PU) {
     FFTMgr->Forward(pres_flat.data(), FT_P.data());
   }
@@ -502,8 +572,8 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
 
   // Compute b = B/sqrt(rho) and its FT for magnetic tension terms.
   parthenon::ParArray1D<Real> b_flat("b_flat", need_b ? 3 * fft_size_inbox : 0);
-  parthenon::ParArray1D<Kokkos::complex<Real>> FT_b(
-      "FT_b", need_b ? 3 * fft_size_outbox : 0);
+  parthenon::ParArray1D<Kokkos::complex<Real>> FT_b("FT_b",
+                                                    need_b ? 3 * fft_size_outbox : 0);
   if (need_b) {
     parthenon::par_for(
         "ComputeSmallB", std::size_t(0), fft_size_inbox - 1,
@@ -530,41 +600,36 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   }
 
   // --- Allocate transfer matrices (host 2D views) ---
-  parthenon::HostArray2D<Real> UUA_matrix("UUA", n_shells, n_shells);
-  parthenon::HostArray2D<Real> UUC_matrix("UUC", n_shells, n_shells);
-  parthenon::HostArray2D<Real> BBA_matrix("BBA", n_shells, n_shells);
-  parthenon::HostArray2D<Real> BBC_matrix("BBC", n_shells, n_shells);
-  parthenon::HostArray2D<Real> BUT_matrix("BUT", n_shells, n_shells);
-  parthenon::HostArray2D<Real> UBTb_matrix("UBTb", n_shells, n_shells);
-  parthenon::HostArray2D<Real> UBTbA_matrix("UBTbA", n_shells, n_shells);
-  parthenon::HostArray2D<Real> UBTbC_matrix("UBTbC", n_shells, n_shells);
-  parthenon::HostArray2D<Real> BUPbb_matrix("BUPbb", n_shells, n_shells);
-  parthenon::HostArray2D<Real> UBPbb_matrix("UBPbb", n_shells, n_shells);
-  parthenon::HostArray2D<Real> PU_matrix("PU", n_shells, n_shells);
-  parthenon::HostArray2D<Real> FU_matrix("FU", n_shells, n_shells);
+  parthenon::HostArray2D<TransferReal> UUA_matrix("UUA", n_shells, n_shells);
+  parthenon::HostArray2D<TransferReal> UUC_matrix("UUC", n_shells, n_shells);
+  parthenon::HostArray2D<TransferReal> BBA_matrix("BBA", n_shells, n_shells);
+  parthenon::HostArray2D<TransferReal> BBC_matrix("BBC", n_shells, n_shells);
+  parthenon::HostArray2D<TransferReal> BUT_matrix("BUT", n_shells, n_shells);
+  parthenon::HostArray2D<TransferReal> UBTb_matrix("UBTb", n_shells, n_shells);
+  parthenon::HostArray2D<TransferReal> UBTbA_matrix("UBTbA", n_shells, n_shells);
+  parthenon::HostArray2D<TransferReal> UBTbC_matrix("UBTbC", n_shells, n_shells);
+  parthenon::HostArray2D<TransferReal> BUPbb_matrix("BUPbb", n_shells, n_shells);
+  parthenon::HostArray2D<TransferReal> UBPbb_matrix("UBPbb", n_shells, n_shells);
+  parthenon::HostArray2D<TransferReal> PU_matrix("PU", n_shells, n_shells);
+  parthenon::HostArray2D<TransferReal> FU_matrix("FU", n_shells, n_shells);
 
   // --- Working arrays for shell-filtered fields (only allocate what's needed) ---
   parthenon::ParArray1D<Real> W_Q(
       "W_Q", (compute_UU || compute_UBTb || compute_UBPbb) ? 3 * fft_size_inbox : 0);
-  parthenon::ParArray1D<Real> W_K("W_K",
-                                  (compute_UU || compute_BUT || compute_BUPbb ||
-                                   compute_PU || compute_FU)
-                                      ? 3 * fft_size_inbox
-                                      : 0);
-  parthenon::ParArray1D<Real> B_Q("B_Q",
-                                  need_mag ? 3 * fft_size_inbox : 0);
-  parthenon::ParArray1D<Real> B_K("B_K",
-                                  (compute_BB || compute_UBTb || compute_UBPbb)
-                                      ? 3 * fft_size_inbox
-                                      : 0);
+  parthenon::ParArray1D<Real> W_K(
+      "W_K", (compute_UU || compute_BUT || compute_BUPbb || compute_PU || compute_FU)
+                 ? 3 * fft_size_inbox
+                 : 0);
+  parthenon::ParArray1D<Real> B_Q("B_Q", need_mag ? 3 * fft_size_inbox : 0);
+  parthenon::ParArray1D<Real> B_K(
+      "B_K", (compute_BB || compute_UBTb || compute_UBPbb) ? 3 * fft_size_inbox : 0);
   parthenon::ParArray1D<Real> UdotGradW_Q("UdotGradW_Q",
                                           compute_UU ? 3 * fft_size_inbox : 0);
   parthenon::ParArray1D<Real> UdotGradB_Q("UdotGradB_Q",
                                           compute_BB ? 3 * fft_size_inbox : 0);
   parthenon::ParArray1D<Real> bDotGradB_Q("bDotGradB_Q",
                                           compute_BUT ? 3 * fft_size_inbox : 0);
-  parthenon::ParArray1D<Real> DivbW_Q("DivbW_Q",
-                                      compute_UBTb ? 3 * fft_size_inbox : 0);
+  parthenon::ParArray1D<Real> DivbW_Q("DivbW_Q", compute_UBTb ? 3 * fft_size_inbox : 0);
   parthenon::ParArray1D<Real> bDotGradW_Q("bDotGradW_Q",
                                           compute_UBTb ? 3 * fft_size_inbox : 0);
   parthenon::ParArray1D<Real> Divb("Divb", compute_UBTb ? fft_size_inbox : 0);
@@ -574,16 +639,14 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
                                          compute_BUPbb ? 3 * fft_size_inbox : 0);
   parthenon::ParArray1D<Kokkos::complex<Real>> FT_scalar_scratch(
       "FT_scalar_scratch", need_scalar_scratch ? fft_size_outbox : 0);
-  parthenon::ParArray1D<Real> W_Q_over_sqrt_rho(
-      "W_Q_over_sqrt_rho", compute_UBPbb ? 3 * fft_size_inbox : 0);
-  parthenon::ParArray1D<Real> DivWQOverSqrtRho(
-      "DivWQOverSqrtRho", compute_UBPbb ? fft_size_inbox : 0);
+  parthenon::ParArray1D<Real> W_Q_over_sqrt_rho("W_Q_over_sqrt_rho",
+                                                compute_UBPbb ? 3 * fft_size_inbox : 0);
+  parthenon::ParArray1D<Real> DivWQOverSqrtRho("DivWQOverSqrtRho",
+                                               compute_UBPbb ? fft_size_inbox : 0);
   parthenon::ParArray1D<Kokkos::complex<Real>> FT_vector_scratch(
       "FT_vector_scratch", compute_UBPbb ? 3 * fft_size_outbox : 0);
-  parthenon::ParArray1D<Real> gradP_Q("gradP_Q",
-                                      compute_PU ? 3 * fft_size_inbox : 0);
-  parthenon::ParArray1D<Real> Acc_Q("Acc_Q",
-                                    compute_FU ? 3 * fft_size_inbox : 0);
+  parthenon::ParArray1D<Real> gradP_Q("gradP_Q", compute_PU ? 3 * fft_size_inbox : 0);
+  parthenon::ParArray1D<Real> Acc_Q("Acc_Q", compute_FU ? 3 * fft_size_inbox : 0);
   parthenon::ParArray1D<Real> dW_Q_dx("dW_Q_dx", fft_size_inbox);
 
   if (compute_UBTb) {
@@ -609,16 +672,15 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
       // Compute (U dot grad) W_Q spectrally: for each W component i,
       // UdotGradW_Q[i] = sum_j U_j * d(W_Q_i)/dx_j
       // First zero UdotGradW_Q
-      Kokkos::deep_copy(
-          Kokkos::View<Real *, Kokkos::DefaultExecutionSpace::memory_space>(
-              UdotGradW_Q.data(), 3 * fft_size_inbox),
-          0.0);
+      Kokkos::deep_copy(Kokkos::View<Real *, Kokkos::DefaultExecutionSpace::memory_space>(
+                            UdotGradW_Q.data(), 3 * fft_size_inbox),
+                        0.0);
 
       for (int comp_i = 0; comp_i < 3; comp_i++) {
         for (int dir_j = 0; dir_j < 3; dir_j++) {
           // Compute d(W_Q_i)/dx_j via fused shell filter + derivative
-          ShellFilterDerivative(FFTMgr, FT_W, comp_i * fft_size_outbox, FT_scratch,
-                                0, dW_Q_dx, 0, Q_low, Q_high, dir_j, two_pi_over_L);
+          ShellFilterDerivative(FFTMgr, FT_W, comp_i * fft_size_outbox, FT_scratch, 0,
+                                dW_Q_dx, 0, Q_low, Q_high, dir_j, two_pi_over_L);
 
           // UdotGradW_Q[i] += U_j * d(W_Q_i)/dx_j
           const std::size_t vel_offset = dir_j * fft_size_inbox;
@@ -626,7 +688,8 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
           parthenon::par_for(
               "AccumAdvection", std::size_t(0), fft_size_inbox - 1,
               KOKKOS_LAMBDA(const std::size_t idx) {
-                UdotGradW_Q(out_offset + idx) += vel_flat(vel_offset + idx) * dW_Q_dx(idx);
+                UdotGradW_Q(out_offset + idx) +=
+                    vel_flat(vel_offset + idx) * dW_Q_dx(idx);
               });
         }
       }
@@ -638,15 +701,14 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
     }
 
     if (compute_BB) {
-      Kokkos::deep_copy(
-          Kokkos::View<Real *, Kokkos::DefaultExecutionSpace::memory_space>(
-              UdotGradB_Q.data(), 3 * fft_size_inbox),
-          0.0);
+      Kokkos::deep_copy(Kokkos::View<Real *, Kokkos::DefaultExecutionSpace::memory_space>(
+                            UdotGradB_Q.data(), 3 * fft_size_inbox),
+                        0.0);
 
       for (int comp_i = 0; comp_i < 3; comp_i++) {
         for (int dir_j = 0; dir_j < 3; dir_j++) {
-          ShellFilterDerivative(FFTMgr, FT_B, comp_i * fft_size_outbox, FT_scratch,
-                                0, dW_Q_dx, 0, Q_low, Q_high, dir_j, two_pi_over_L);
+          ShellFilterDerivative(FFTMgr, FT_B, comp_i * fft_size_outbox, FT_scratch, 0,
+                                dW_Q_dx, 0, Q_low, Q_high, dir_j, two_pi_over_L);
           const std::size_t vel_offset = dir_j * fft_size_inbox;
           const std::size_t out_offset = comp_i * fft_size_inbox;
           parthenon::par_for(
@@ -661,18 +723,17 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
 
     // Compute (b dot grad) B_Q for BUT term
     if (compute_BUT) {
-      Kokkos::deep_copy(
-          Kokkos::View<Real *, Kokkos::DefaultExecutionSpace::memory_space>(
-              bDotGradB_Q.data(), 3 * fft_size_inbox),
-          0.0);
+      Kokkos::deep_copy(Kokkos::View<Real *, Kokkos::DefaultExecutionSpace::memory_space>(
+                            bDotGradB_Q.data(), 3 * fft_size_inbox),
+                        0.0);
 
       // b dot grad B_Q: use FT_B for the shell-filtered derivative, multiplied by b
       // (b is in real space, stored in b_flat — but we freed it. Recompute from mag/rho.)
       // Actually, we need b in real space. Let's use mag_flat / sqrt(rho_flat).
       for (int comp_i = 0; comp_i < 3; comp_i++) {
         for (int dir_j = 0; dir_j < 3; dir_j++) {
-          ShellFilterDerivative(FFTMgr, FT_B, comp_i * fft_size_outbox, FT_scratch,
-                                0, dW_Q_dx, 0, Q_low, Q_high, dir_j, two_pi_over_L);
+          ShellFilterDerivative(FFTMgr, FT_B, comp_i * fft_size_outbox, FT_scratch, 0,
+                                dW_Q_dx, 0, Q_low, Q_high, dir_j, two_pi_over_L);
           // bDotGradB_Q[i] += b_j * d(B_Q_i)/dx_j
           // b_j = mag_j / sqrt(rho)
           const std::size_t mag_offset = dir_j * fft_size_inbox;
@@ -680,8 +741,7 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
           parthenon::par_for(
               "AccumTension", std::size_t(0), fft_size_inbox - 1,
               KOKKOS_LAMBDA(const std::size_t idx) {
-                const Real b_j =
-                    mag_flat(mag_offset + idx) / Kokkos::sqrt(rho_flat(idx));
+                const Real b_j = mag_flat(mag_offset + idx) / Kokkos::sqrt(rho_flat(idx));
                 bDotGradB_Q(out_offset + idx) += b_j * dW_Q_dx(idx);
               });
         }
@@ -689,14 +749,12 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
     }
 
     if (compute_UBTb) {
-      Kokkos::deep_copy(
-          Kokkos::View<Real *, Kokkos::DefaultExecutionSpace::memory_space>(
-              DivbW_Q.data(), 3 * fft_size_inbox),
-          0.0);
-      Kokkos::deep_copy(
-          Kokkos::View<Real *, Kokkos::DefaultExecutionSpace::memory_space>(
-              bDotGradW_Q.data(), 3 * fft_size_inbox),
-          0.0);
+      Kokkos::deep_copy(Kokkos::View<Real *, Kokkos::DefaultExecutionSpace::memory_space>(
+                            DivbW_Q.data(), 3 * fft_size_inbox),
+                        0.0);
+      Kokkos::deep_copy(Kokkos::View<Real *, Kokkos::DefaultExecutionSpace::memory_space>(
+                            bDotGradW_Q.data(), 3 * fft_size_inbox),
+                        0.0);
 
       for (int comp_i = 0; comp_i < 3; comp_i++) {
         for (int dir_j = 0; dir_j < 3; dir_j++) {
@@ -708,17 +766,16 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
                 scalar_scratch(idx) = b_flat(b_offset + idx) * W_Q(out_offset + idx);
               });
           FFTMgr->Forward(scalar_scratch.data(), FT_scalar_scratch.data());
-          ShellFilterDerivative(FFTMgr, FT_scalar_scratch, 0, FT_scratch, 0,
-                                dW_Q_dx, 0, -1.0, Real(Nx + Ny + Nz), dir_j,
-                                two_pi_over_L);
+          ShellFilterDerivative(FFTMgr, FT_scalar_scratch, 0, FT_scratch, 0, dW_Q_dx, 0,
+                                -1.0, Real(Nx + Ny + Nz), dir_j, two_pi_over_L);
           parthenon::par_for(
               "AccumDivbWQ", std::size_t(0), fft_size_inbox - 1,
               KOKKOS_LAMBDA(const std::size_t idx) {
                 DivbW_Q(out_offset + idx) += dW_Q_dx(idx);
               });
 
-          ShellFilterDerivative(FFTMgr, FT_W, comp_i * fft_size_outbox, FT_scratch,
-                                0, dW_Q_dx, 0, Q_low, Q_high, dir_j, two_pi_over_L);
+          ShellFilterDerivative(FFTMgr, FT_W, comp_i * fft_size_outbox, FT_scratch, 0,
+                                dW_Q_dx, 0, Q_low, Q_high, dir_j, two_pi_over_L);
           parthenon::par_for(
               "AccumbDotGradW", std::size_t(0), fft_size_inbox - 1,
               KOKKOS_LAMBDA(const std::size_t idx) {
@@ -734,16 +791,16 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
           KOKKOS_LAMBDA(const std::size_t idx) {
             Real bdotbq = 0.0;
             for (int n = 0; n < 3; n++) {
-              bdotbq += mag_flat(n * fft_size_inbox + idx) *
-                         B_Q(n * fft_size_inbox + idx);
+              bdotbq +=
+                  mag_flat(n * fft_size_inbox + idx) * B_Q(n * fft_size_inbox + idx);
             }
             scalar_scratch(idx) = bdotbq;
           });
       FFTMgr->Forward(scalar_scratch.data(), FT_scalar_scratch.data());
       for (int dir_j = 0; dir_j < 3; dir_j++) {
         ShellFilterDerivative(FFTMgr, FT_scalar_scratch, 0, FT_scratch, 0, gradBdotBQ,
-                              dir_j * fft_size_inbox, -1.0, Real(Nx + Ny + Nz),
-                              dir_j, two_pi_over_L);
+                              dir_j * fft_size_inbox, -1.0, Real(Nx + Ny + Nz), dir_j,
+                              two_pi_over_L);
       }
       parthenon::par_for(
           "ScaleGradBdotBQ", std::size_t(0), fft_size_inbox - 1,
@@ -813,129 +870,139 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
 
       // --- UU advection: -sum(W_K * UdotGradW_Q) ---
       if (compute_UU) {
-        Real local_sum_adv = 0.0;
+        TransferReal local_sum_adv = 0.0;
         Kokkos::parallel_reduce(
             "UUA_reduce", Kokkos::RangePolicy<>(0, 3 * fft_size_inbox),
-            KOKKOS_LAMBDA(const std::size_t idx, Real &sum) {
-              sum += W_K(idx) * UdotGradW_Q(idx);
+            KOKKOS_LAMBDA(const std::size_t idx, TransferReal &sum) {
+              sum += static_cast<TransferReal>(W_K(idx)) *
+                     static_cast<TransferReal>(UdotGradW_Q(idx));
             },
-            Kokkos::Sum<Real>(local_sum_adv));
+            Kokkos::Sum<TransferReal>(local_sum_adv));
 
-        Real global_sum_adv = local_sum_adv;
+        TransferReal global_sum_adv = local_sum_adv;
 #ifdef MPI_PARALLEL
-        PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum_adv, &global_sum_adv, 1,
-                                          MPI_PARTHENON_REAL, MPI_SUM, MPI_COMM_WORLD));
+        PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum_adv, &global_sum_adv, 1, MPI_DOUBLE,
+                                          MPI_SUM, MPI_COMM_WORLD));
 #endif
         UUA_matrix(kk, q) = -global_sum_adv;
 
         // UU compression: -0.5 * sum(W_K * W_Q * DivU)
-        Real local_sum_comp = 0.0;
+        TransferReal local_sum_comp = 0.0;
         Kokkos::parallel_reduce(
             "UUC_reduce", Kokkos::RangePolicy<>(0, 3 * fft_size_inbox),
-            KOKKOS_LAMBDA(const std::size_t idx, Real &sum) {
-              const auto comp = idx / fft_size_inbox;
+            KOKKOS_LAMBDA(const std::size_t idx, TransferReal &sum) {
               const auto local_idx = idx % fft_size_inbox;
-              sum += W_K(idx) * W_Q(idx) * DivU(local_idx);
+              sum += static_cast<TransferReal>(W_K(idx)) *
+                     static_cast<TransferReal>(W_Q(idx)) *
+                     static_cast<TransferReal>(DivU(local_idx));
             },
-            Kokkos::Sum<Real>(local_sum_comp));
+            Kokkos::Sum<TransferReal>(local_sum_comp));
 
-        Real global_sum_comp = local_sum_comp;
+        TransferReal global_sum_comp = local_sum_comp;
 #ifdef MPI_PARALLEL
         PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum_comp, &global_sum_comp, 1,
-                                          MPI_PARTHENON_REAL, MPI_SUM, MPI_COMM_WORLD));
+                                          MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD));
 #endif
         UUC_matrix(kk, q) = -0.5 * global_sum_comp;
       }
 
       // --- BB advection: -sum(B_K * UdotGradB_Q) ---
       if (compute_BB) {
-        Real local_sum_adv = 0.0;
+        TransferReal local_sum_adv = 0.0;
         Kokkos::parallel_reduce(
             "BBA_reduce", Kokkos::RangePolicy<>(0, 3 * fft_size_inbox),
-            KOKKOS_LAMBDA(const std::size_t idx, Real &sum) {
-              sum += B_K(idx) * UdotGradB_Q(idx);
+            KOKKOS_LAMBDA(const std::size_t idx, TransferReal &sum) {
+              sum += static_cast<TransferReal>(B_K(idx)) *
+                     static_cast<TransferReal>(UdotGradB_Q(idx));
             },
-            Kokkos::Sum<Real>(local_sum_adv));
+            Kokkos::Sum<TransferReal>(local_sum_adv));
 
-        Real global_sum_adv = local_sum_adv;
+        TransferReal global_sum_adv = local_sum_adv;
 #ifdef MPI_PARALLEL
-        PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum_adv, &global_sum_adv, 1,
-                                          MPI_PARTHENON_REAL, MPI_SUM, MPI_COMM_WORLD));
+        PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum_adv, &global_sum_adv, 1, MPI_DOUBLE,
+                                          MPI_SUM, MPI_COMM_WORLD));
 #endif
         BBA_matrix(kk, q) = -global_sum_adv;
 
         // BB compression: -0.5 * sum(B_K * B_Q * DivU)
-        Real local_sum_comp = 0.0;
+        TransferReal local_sum_comp = 0.0;
         Kokkos::parallel_reduce(
             "BBC_reduce", Kokkos::RangePolicy<>(0, 3 * fft_size_inbox),
-            KOKKOS_LAMBDA(const std::size_t idx, Real &sum) {
+            KOKKOS_LAMBDA(const std::size_t idx, TransferReal &sum) {
               const auto local_idx = idx % fft_size_inbox;
-              sum += B_K(idx) * B_Q(idx) * DivU(local_idx);
+              sum += static_cast<TransferReal>(B_K(idx)) *
+                     static_cast<TransferReal>(B_Q(idx)) *
+                     static_cast<TransferReal>(DivU(local_idx));
             },
-            Kokkos::Sum<Real>(local_sum_comp));
+            Kokkos::Sum<TransferReal>(local_sum_comp));
 
-        Real global_sum_comp = local_sum_comp;
+        TransferReal global_sum_comp = local_sum_comp;
 #ifdef MPI_PARALLEL
         PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum_comp, &global_sum_comp, 1,
-                                          MPI_PARTHENON_REAL, MPI_SUM, MPI_COMM_WORLD));
+                                          MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD));
 #endif
         BBC_matrix(kk, q) = -0.5 * global_sum_comp;
       }
 
       // --- BUT: +sum(W_K * bDotGradB_Q) ---
       if (compute_BUT) {
-        Real local_sum = 0.0;
+        TransferReal local_sum = 0.0;
         Kokkos::parallel_reduce(
             "BUT_reduce", Kokkos::RangePolicy<>(0, 3 * fft_size_inbox),
-            KOKKOS_LAMBDA(const std::size_t idx, Real &sum) {
-              sum += W_K(idx) * bDotGradB_Q(idx);
+            KOKKOS_LAMBDA(const std::size_t idx, TransferReal &sum) {
+              sum += static_cast<TransferReal>(W_K(idx)) *
+                     static_cast<TransferReal>(bDotGradB_Q(idx));
             },
-            Kokkos::Sum<Real>(local_sum));
+            Kokkos::Sum<TransferReal>(local_sum));
 
-        Real global_sum = local_sum;
+        TransferReal global_sum = local_sum;
 #ifdef MPI_PARALLEL
-        PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum, &global_sum, 1,
-                                          MPI_PARTHENON_REAL, MPI_SUM, MPI_COMM_WORLD));
+        PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum, &global_sum, 1, MPI_DOUBLE, MPI_SUM,
+                                          MPI_COMM_WORLD));
 #endif
         BUT_matrix(kk, q) = global_sum;
       }
 
       if (compute_UBTb) {
-        Real local_sum = 0.0;
+        TransferReal local_sum = 0.0;
         Kokkos::parallel_reduce(
             "UBTb_reduce", Kokkos::RangePolicy<>(0, 3 * fft_size_inbox),
-            KOKKOS_LAMBDA(const std::size_t idx, Real &sum) {
-              sum += B_K(idx) * DivbW_Q(idx);
+            KOKKOS_LAMBDA(const std::size_t idx, TransferReal &sum) {
+              sum += static_cast<TransferReal>(B_K(idx)) *
+                     static_cast<TransferReal>(DivbW_Q(idx));
             },
-            Kokkos::Sum<Real>(local_sum));
+            Kokkos::Sum<TransferReal>(local_sum));
 
-        Real local_sum_adv = 0.0;
+        TransferReal local_sum_adv = 0.0;
         Kokkos::parallel_reduce(
             "UBTbA_reduce", Kokkos::RangePolicy<>(0, 3 * fft_size_inbox),
-            KOKKOS_LAMBDA(const std::size_t idx, Real &sum) {
-              sum += B_K(idx) * bDotGradW_Q(idx);
+            KOKKOS_LAMBDA(const std::size_t idx, TransferReal &sum) {
+              sum += static_cast<TransferReal>(B_K(idx)) *
+                     static_cast<TransferReal>(bDotGradW_Q(idx));
             },
-            Kokkos::Sum<Real>(local_sum_adv));
+            Kokkos::Sum<TransferReal>(local_sum_adv));
 
-        Real local_sum_comp = 0.0;
+        TransferReal local_sum_comp = 0.0;
         Kokkos::parallel_reduce(
             "UBTbC_reduce", Kokkos::RangePolicy<>(0, 3 * fft_size_inbox),
-            KOKKOS_LAMBDA(const std::size_t idx, Real &sum) {
+            KOKKOS_LAMBDA(const std::size_t idx, TransferReal &sum) {
               const auto local_idx = idx % fft_size_inbox;
-              sum += B_K(idx) * W_Q(idx) * Divb(local_idx);
+              sum += static_cast<TransferReal>(B_K(idx)) *
+                     static_cast<TransferReal>(W_Q(idx)) *
+                     static_cast<TransferReal>(Divb(local_idx));
             },
-            Kokkos::Sum<Real>(local_sum_comp));
+            Kokkos::Sum<TransferReal>(local_sum_comp));
 
-        Real global_sum = local_sum;
-        Real global_sum_adv = local_sum_adv;
-        Real global_sum_comp = local_sum_comp;
+        TransferReal global_sum = local_sum;
+        TransferReal global_sum_adv = local_sum_adv;
+        TransferReal global_sum_comp = local_sum_comp;
 #ifdef MPI_PARALLEL
-        PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum, &global_sum, 1,
-                                          MPI_PARTHENON_REAL, MPI_SUM, MPI_COMM_WORLD));
-        PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum_adv, &global_sum_adv, 1,
-                                          MPI_PARTHENON_REAL, MPI_SUM, MPI_COMM_WORLD));
+        PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum, &global_sum, 1, MPI_DOUBLE, MPI_SUM,
+                                          MPI_COMM_WORLD));
+        PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum_adv, &global_sum_adv, 1, MPI_DOUBLE,
+                                          MPI_SUM, MPI_COMM_WORLD));
         PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum_comp, &global_sum_comp, 1,
-                                          MPI_PARTHENON_REAL, MPI_SUM, MPI_COMM_WORLD));
+                                          MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD));
 #endif
         UBTbA_matrix(kk, q) = global_sum_adv;
         UBTbC_matrix(kk, q) = global_sum_comp;
@@ -943,79 +1010,85 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
       }
 
       if (compute_BUPbb) {
-        Real local_sum = 0.0;
+        TransferReal local_sum = 0.0;
         Kokkos::parallel_reduce(
             "BUPbb_reduce", Kokkos::RangePolicy<>(0, 3 * fft_size_inbox),
-            KOKKOS_LAMBDA(const std::size_t idx, Real &sum) {
-              sum += W_K(idx) * gradBdotBQ(idx);
+            KOKKOS_LAMBDA(const std::size_t idx, TransferReal &sum) {
+              sum += static_cast<TransferReal>(W_K(idx)) *
+                     static_cast<TransferReal>(gradBdotBQ(idx));
             },
-            Kokkos::Sum<Real>(local_sum));
+            Kokkos::Sum<TransferReal>(local_sum));
 
-        Real global_sum = local_sum;
+        TransferReal global_sum = local_sum;
 #ifdef MPI_PARALLEL
-        PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum, &global_sum, 1,
-                                          MPI_PARTHENON_REAL, MPI_SUM, MPI_COMM_WORLD));
+        PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum, &global_sum, 1, MPI_DOUBLE, MPI_SUM,
+                                          MPI_COMM_WORLD));
 #endif
         BUPbb_matrix(kk, q) = -global_sum;
       }
 
       if (compute_UBPbb) {
-        Real local_sum = 0.0;
+        TransferReal local_sum = 0.0;
         Kokkos::parallel_reduce(
             "UBPbb_reduce", Kokkos::RangePolicy<>(0, 3 * fft_size_inbox),
-            KOKKOS_LAMBDA(const std::size_t idx, Real &sum) {
+            KOKKOS_LAMBDA(const std::size_t idx, TransferReal &sum) {
               const auto local_idx = idx % fft_size_inbox;
-              sum += B_K(idx) * mag_flat(idx) * DivWQOverSqrtRho(local_idx);
+              sum += static_cast<TransferReal>(B_K(idx)) *
+                     static_cast<TransferReal>(mag_flat(idx)) *
+                     static_cast<TransferReal>(DivWQOverSqrtRho(local_idx));
             },
-            Kokkos::Sum<Real>(local_sum));
+            Kokkos::Sum<TransferReal>(local_sum));
 
-        Real global_sum = local_sum;
+        TransferReal global_sum = local_sum;
 #ifdef MPI_PARALLEL
-        PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum, &global_sum, 1,
-                                          MPI_PARTHENON_REAL, MPI_SUM, MPI_COMM_WORLD));
+        PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum, &global_sum, 1, MPI_DOUBLE, MPI_SUM,
+                                          MPI_COMM_WORLD));
 #endif
         UBPbb_matrix(kk, q) = -global_sum;
       }
 
       // --- PU: -sum(W_K * (1/sqrt(rho)) * gradP_Q) ---
       if (compute_PU) {
-        Real local_sum = 0.0;
+        TransferReal local_sum = 0.0;
         Kokkos::parallel_reduce(
             "PU_reduce", Kokkos::RangePolicy<>(0, 3 * fft_size_inbox),
-            KOKKOS_LAMBDA(const std::size_t idx, Real &sum) {
-              sum += W_K(idx) * gradP_Q(idx);
+            KOKKOS_LAMBDA(const std::size_t idx, TransferReal &sum) {
+              sum += static_cast<TransferReal>(W_K(idx)) *
+                     static_cast<TransferReal>(gradP_Q(idx));
             },
-            Kokkos::Sum<Real>(local_sum));
+            Kokkos::Sum<TransferReal>(local_sum));
 
-        Real global_sum = local_sum;
+        TransferReal global_sum = local_sum;
 #ifdef MPI_PARALLEL
-        PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum, &global_sum, 1,
-                                          MPI_PARTHENON_REAL, MPI_SUM, MPI_COMM_WORLD));
+        PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum, &global_sum, 1, MPI_DOUBLE, MPI_SUM,
+                                          MPI_COMM_WORLD));
 #endif
         PU_matrix(kk, q) = -global_sum;
       }
 
       // --- FU: +sum(W_K * sqrt(rho) * Acc_Q) ---
       if (compute_FU) {
-        Real local_sum = 0.0;
+        TransferReal local_sum = 0.0;
         Kokkos::parallel_reduce(
             "FU_reduce", Kokkos::RangePolicy<>(0, 3 * fft_size_inbox),
-            KOKKOS_LAMBDA(const std::size_t idx, Real &sum) {
+            KOKKOS_LAMBDA(const std::size_t idx, TransferReal &sum) {
               const auto local_idx = idx % fft_size_inbox;
-              sum += W_K(idx) * Kokkos::sqrt(rho_flat(local_idx)) * Acc_Q(idx);
+              sum += static_cast<TransferReal>(W_K(idx)) *
+                     Kokkos::sqrt(static_cast<TransferReal>(rho_flat(local_idx))) *
+                     static_cast<TransferReal>(Acc_Q(idx));
             },
-            Kokkos::Sum<Real>(local_sum));
+            Kokkos::Sum<TransferReal>(local_sum));
 
-        Real global_sum = local_sum;
+        TransferReal global_sum = local_sum;
 #ifdef MPI_PARALLEL
-        PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum, &global_sum, 1,
-                                          MPI_PARTHENON_REAL, MPI_SUM, MPI_COMM_WORLD));
+        PARTHENON_MPI_CHECK(MPI_Allreduce(&local_sum, &global_sum, 1, MPI_DOUBLE, MPI_SUM,
+                                          MPI_COMM_WORLD));
 #endif
         FU_matrix(kk, q) = global_sum;
       }
 
     } // end K loop
-  }   // end Q loop
+  } // end Q loop
 
   // --- Write output via openPMD/ADIOS2 ---
   // Python reading example:
@@ -1041,7 +1114,8 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
       }
       return false;
     }(fname);
-    const auto has_bp_suffix = fname.size() >= 3 && fname.substr(fname.size() - 3) == ".bp";
+    const auto has_bp_suffix =
+        fname.size() >= 3 && fname.substr(fname.size() - 3) == ".bp";
     if (!has_iteration_pattern) {
       if (has_bp_suffix) {
         fname.insert(fname.size() - 3, ".%05T");
@@ -1067,13 +1141,13 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
     it.setAttribute("binning", binning);
 
     auto write_matrix = [&](const std::string &name,
-                            const parthenon::HostArray2D<Real> &matrix) {
+                            const parthenon::HostArray2D<TransferReal> &matrix) {
       auto mesh = it.meshes[name];
       auto comp = mesh[openPMD::MeshRecordComponent::SCALAR];
       openPMD::Extent extent = {static_cast<uint64_t>(n_shells),
                                 static_cast<uint64_t>(n_shells)};
       comp.resetDataset(
-          openPMD::Dataset(openPMD::determineDatatype<Real>(), extent));
+          openPMD::Dataset(openPMD::determineDatatype<TransferReal>(), extent));
       comp.storeChunkRaw(matrix.data(), {0, 0}, extent);
       it.seriesFlush();
     };
@@ -1081,7 +1155,7 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
     if (compute_UU) {
       write_matrix("UUA", UUA_matrix);
       write_matrix("UUC", UUC_matrix);
-      parthenon::HostArray2D<Real> UU_matrix("UU", n_shells, n_shells);
+      parthenon::HostArray2D<TransferReal> UU_matrix("UU", n_shells, n_shells);
       for (int kk = 0; kk < n_shells; kk++)
         for (int q = 0; q < n_shells; q++)
           UU_matrix(kk, q) = UUA_matrix(kk, q) + UUC_matrix(kk, q);
@@ -1090,7 +1164,7 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
     if (compute_BB) {
       write_matrix("BBA", BBA_matrix);
       write_matrix("BBC", BBC_matrix);
-      parthenon::HostArray2D<Real> BB_matrix("BB", n_shells, n_shells);
+      parthenon::HostArray2D<TransferReal> BB_matrix("BB", n_shells, n_shells);
       for (int kk = 0; kk < n_shells; kk++)
         for (int q = 0; q < n_shells; q++)
           BB_matrix(kk, q) = BBA_matrix(kk, q) + BBC_matrix(kk, q);
@@ -1103,7 +1177,7 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
       write_matrix("UBTb", UBTb_matrix);
       write_matrix("UBTbA", UBTbA_matrix);
       write_matrix("UBTbC", UBTbC_matrix);
-      parthenon::HostArray2D<Real> UBTbTot_matrix("UBTbTot", n_shells, n_shells);
+      parthenon::HostArray2D<TransferReal> UBTbTot_matrix("UBTbTot", n_shells, n_shells);
       for (int kk = 0; kk < n_shells; kk++)
         for (int q = 0; q < n_shells; q++)
           UBTbTot_matrix(kk, q) = UBTbA_matrix(kk, q) + UBTbC_matrix(kk, q);
@@ -1124,8 +1198,7 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
 
     series.close();
     if (parthenon::Globals::my_rank == 0) {
-      std::cout << "Wrote " << fname << " with iteration " << output_number
-                << std::endl;
+      std::cout << "Wrote " << fname << " with iteration " << output_number << std::endl;
     }
   }
 
