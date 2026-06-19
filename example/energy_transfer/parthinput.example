@@ -11,19 +11,19 @@ problem_id = energy_transfer
 refinement = none
 nghost = 3
 
-nx1 = 64
+nx1 = 128
 x1min = 0.0
 x1max = 6.283185307179586
 ix1_bc = periodic
 ox1_bc = periodic
 
-nx2 = 64
+nx2 = 128
 x2min = 0.0
 x2max = 6.283185307179586
 ix2_bc = periodic
 ox2_bc = periodic
 
-nx3 = 64
+nx3 = 128
 x3min = 0.0
 x3max = 6.283185307179586
 ix3_bc = periodic
@@ -32,18 +32,22 @@ ox3_bc = periodic
 pack_size = -1
 
 <parthenon/meshblock>
-nx1 = 32
-nx2 = 32
-nx3 = 32
+nx1 = 64
+nx2 = 64
+nx3 = 64
 
 <energy_transfer>
 # input_file = enzo_data.bp  # read from ADIOS2/bp5 file (must end in .bp); omit to use meshblock fields
+# binning options: lin, log, test
 binning = lin
 num_shells = 20
 compute_UU = true
-compute_BB = false
-compute_BUT = false
-compute_PU = false
-compute_FU = false
+compute_BB = true
+compute_BUT = true
+compute_UBTb = true
+compute_BUPbb = true
+compute_UBPbb = true
+compute_PU = true
+compute_FU = true
 gamma = 1.666667
 output_file = transfer

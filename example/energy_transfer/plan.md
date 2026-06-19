@@ -75,6 +75,9 @@ For each Q shell:
     - UdotGradW_Q = sum_j U_j * d(W_Q_i)/dx_j      (9 IFFTs, if UU)
     - UdotGradB_Q = sum_j U_j * d(B_Q_i)/dx_j      (9 IFFTs, if BB)
     - bDotGradB_Q = sum_j b_j * d(B_Q_i)/dx_j      (9 IFFTs, if BUT)
+    - bDotGradW_Q = sum_j b_j * d(W_Q_i)/dx_j      (9 IFFTs, if UBTb)
+    - grad(B.B_Q)/(2*sqrt(rho))                    (4 FFTs, if BUPbb)
+    - div(W_Q/(2*sqrt(rho)))                       (4 FFTs, if UBPbb)
     - gradP_Q     = grad(P_Q) / sqrt(rho)           (3 IFFTs, if PU)
     - Acc_Q       = shell-filtered acceleration      (3 IFFTs, if FU)
 
@@ -88,6 +91,9 @@ For each Q shell:
       BBA(K,Q) = -sum(B_K * UdotGradB_Q)
       BBC(K,Q) = -0.5 * sum(B_K * B_Q * DivU)
       BUT(K,Q) = +sum(W_K * bDotGradB_Q)
+      UBTb(K,Q) = +sum(B_K * (bDotGradW_Q + W_Q * Divb))
+      BUPbb(K,Q) = -sum(W_K * grad(B.B_Q)/(2*sqrt(rho)))
+      UBPbb(K,Q) = -sum(B_K * B * div(W_Q/(2*sqrt(rho))))
       PU(K,Q)  = -sum(W_K * gradP_Q)
       FU(K,Q)  = +sum(W_K * sqrt(rho) * Acc_Q)
 ```
@@ -108,6 +114,9 @@ Single ADIOS2/bp5 file via openPMD. Each transfer term stored as a named
 | BBC  | `-0.5 * B_K * B_Q * div(U)` | Magnetic compression |
 | BB   | BBA + BBC | Total magnetic |
 | BUT  | `+W_K * (b . grad)B_Q` | Magnetic tension -> KE |
+| UBTb | `+B_K * div(b W_Q)` | KE -> magnetic tension |
+| BUPbb | `-W_K * grad(B.B_Q)/(2*sqrt(rho))` | Magnetic pressure -> KE |
+| UBPbb | `-B_K * B * div(W_Q/(2*sqrt(rho)))` | KE -> magnetic pressure |
 | PU   | `-W_K * (1/sqrt(rho)) * grad(P_Q)` | Pressure -> KE |
 | FU   | `+W_K * sqrt(rho) * Acc_Q` | Forcing -> KE |
 
@@ -136,6 +145,9 @@ num_shells = 20         # number of shells
 compute_UU = true       # kinetic transfer
 compute_BB = false      # magnetic transfer
 compute_BUT = false     # magnetic tension
+compute_UBTb = false    # magnetic tension
+compute_BUPbb = false   # magnetic pressure
+compute_UBPbb = false   # magnetic pressure
 compute_PU = false      # pressure
 compute_FU = false      # forcing
 output_file = transfer  # output filename base (produces transfer.bp)
