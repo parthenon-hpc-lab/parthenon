@@ -417,7 +417,7 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
       if (requests[v].type == InputRealType::Double) {
         if constexpr (std::is_same_v<Real, double>) {
           auto host_view =
-              Kokkos::View<Real *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
+              Kokkos::View<double *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
                   requests[v].double_buf.data(), fft_size_inbox);
           Kokkos::deep_copy(dest_sub, host_view);
         } else {
@@ -438,7 +438,7 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
       } else {
         if constexpr (std::is_same_v<Real, float>) {
           auto host_view =
-              Kokkos::View<float *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
+              Kokkos::View<Real *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
                   requests[v].float_buf.data(), fft_size_inbox);
           Kokkos::deep_copy(dest_sub, host_view);
         } else {

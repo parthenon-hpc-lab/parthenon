@@ -762,7 +762,7 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
             if (pm->ndim == 3) {
               auto grid_spacing = std::vector<Real>{dx3, dx2, dx1};
               auto axis_labels = std::vector<std::string>{"z", "y", "x"};
-              auto global_offset = std::vector<Real>{
+              auto global_offset = std::vector<double>{
                   pm->mesh_size.xmin(X3DIR),
                   pm->mesh_size.xmin(X2DIR),
                   pm->mesh_size.xmin(X1DIR),

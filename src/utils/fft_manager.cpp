@@ -27,7 +27,7 @@ struct FFTManager::Impl {
 #endif
 
   heffte::fft3d_r2c<BackendTag> fft_plan;
-  ParArray1D<std::complex<double>> workspace_;
+  ParArray1D<std::complex<Real>> workspace_;
 
   Impl(const heffte::box3d<> &real_space_box, const heffte::box3d<> &fourier_space_box,
        int r2c_direction, MPI_Comm comm)

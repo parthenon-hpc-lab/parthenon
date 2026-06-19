@@ -268,13 +268,13 @@ void Swarm::LoadBuffers_() {
                 buffer_index++;
               }
               // Making sure we catch/update this, when allowing Real = float again
-              static_assert(sizeof(Real) == 2 * sizeof(int));
+              PARTHENON_REQUIRE(sizeof(Real) == 2 * sizeof(int), "Fix me");
               for (int i = 0; i < intPackDim; i++) {
                 bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, p_index));
                 buffer_index++;
               }
               // Should eventually be a bit_cast once we're on C++20
-              static_assert(sizeof(Real) == sizeof(std::uint64_t));
+              PARTHENON_REQUIRE(sizeof(Real) == sizeof(std::uint64_t), "Fix me");
               for (int i = 0; i < uint64PackDim; i++) {
                 std::memcpy(&bdvar.send[bufid](buffer_index), &vuint64(i, p_index),
                             sizeof(std::uint64_t));
@@ -383,13 +383,13 @@ void Swarm::UnloadBuffers_() {
             bid++;
           }
           // Making sure we catch/update this, when allowing Real = float again
-          static_assert(sizeof(Real) == 2 * sizeof(int));
+          PARTHENON_REQUIRE(sizeof(Real) == 2 * sizeof(int), "Fix me");
           for (int i = 0; i < intPackDim; i++) {
             vint(i, sid) = static_cast<int>(bdvar.recv[nbid](bid));
             bid++;
           }
           // Should eventually be a bit_cast once we're on C++20
-          static_assert(sizeof(Real) == sizeof(std::uint64_t));
+          PARTHENON_REQUIRE(sizeof(Real) == sizeof(std::uint64_t), "Fix me");
           for (int i = 0; i < uint64PackDim; i++) {
             std::memcpy(&vuint64(i, sid), &bdvar.recv[nbid](bid), sizeof(std::uint64_t));
             bid++;
