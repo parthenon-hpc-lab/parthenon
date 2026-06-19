@@ -38,6 +38,27 @@ nx3 = 64
 
 <energy_transfer>
 # input_file = enzo_data.bp  # read from ADIOS2/bp5 file (must end in .bp); omit to use meshblock fields
+# input_quantity_type = primitive  # primitive or conserved
+# input_variable_prefix =          # optional prefix for ADIOS2 variable paths, e.g. data/0/meshes
+# Flat variable defaults for primitive input:
+# input_rho_field = rho
+# input_velocity_x_field = vel_x
+# input_velocity_y_field = vel_y
+# input_velocity_z_field = vel_z
+# input_magnetic_x_field = mag_x
+# input_magnetic_y_field = mag_y
+# input_magnetic_z_field = mag_z
+# input_pressure_field = pres
+# input_acceleration_x_field = acc_x
+# input_acceleration_y_field = acc_y
+# input_acceleration_z_field = acc_z
+# Conserved input defaults use rho, mom_{x,y,z}, mag_{x,y,z}, and total_energy.
+#input_momentum_x_field = mom_x
+#input_momentum_y_field = mom_y
+#input_momentum_z_field = mom_z
+# input_total_energy_field = total_energy
+# For mesh/component style variables, set e.g. input_velocity_mesh = velocity and
+# input_velocity_x_field = x. The resolved path is prefix/mesh/field.
 # binning options: lin, log, test
 binning = lin
 num_shells = 20
@@ -50,5 +71,5 @@ compute_UBPbb = false
 compute_PU = false
 compute_FU = false
 gamma = 1.666667
-output_file = transfer_mpi_pencil_from_float_in_float
+output_file = transfer_mpi_pencil_from_float_in_float_using_cons
 output_number = 0

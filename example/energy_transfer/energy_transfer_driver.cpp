@@ -219,6 +219,21 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
       pinput->GetOrAddBoolean("energy_transfer", "compute_UBPbb", false);
   const auto compute_PU = pinput->GetOrAddBoolean("energy_transfer", "compute_PU", false);
   const auto compute_FU = pinput->GetOrAddBoolean("energy_transfer", "compute_FU", false);
+  const bool read_from_file = pinput->DoesParameterExist("energy_transfer", "input_file");
+  const auto input_quantity_type = read_from_file
+                                       ? pinput->GetOrAddString("energy_transfer",
+                                                                "input_quantity_type",
+                                                                "primitive")
+                                       : std::string("primitive");
+  PARTHENON_REQUIRE_THROWS(input_quantity_type == "primitive" ||
+                               input_quantity_type == "conserved",
+                           "energy_transfer/input_quantity_type must be 'primitive' "
+                           "or 'conserved'");
+  const bool input_conserved = input_quantity_type == "conserved";
+  const Real gamma =
+      input_conserved && compute_PU
+          ? pinput->GetOrAddReal("energy_transfer", "gamma", 5.0 / 3.0)
+          : 0.0;
   const auto output_file =
       pinput->GetOrAddString("energy_transfer", "output_file", "transfer");
   const auto output_number =
@@ -281,17 +296,17 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   const bool need_FT_b = compute_UBTb;
   const bool need_DivU = compute_UU || compute_BB;
   const bool need_scalar_scratch = compute_UBTb || compute_BUPbb;
+  const bool need_mag_loaded = need_mag || (input_conserved && compute_PU);
 
   parthenon::ParArray1D<Real> rho_flat("rho_flat", fft_size_inbox);
   parthenon::ParArray1D<Real> vel_flat("vel_flat", 3 * fft_size_inbox);
-  parthenon::ParArray1D<Real> mag_flat("mag_flat", need_mag ? 3 * fft_size_inbox : 0);
+  parthenon::ParArray1D<Real> mag_flat("mag_flat",
+                                       need_mag_loaded ? 3 * fft_size_inbox : 0);
   parthenon::ParArray1D<Real> W_flat("W_flat", 3 * fft_size_inbox);
   parthenon::ParArray1D<Real> pres_flat("pres_flat", compute_PU ? fft_size_inbox : 0);
   parthenon::ParArray1D<Real> acc_flat("acc_flat", compute_FU ? 3 * fft_size_inbox : 0);
 
   // --- Load fields: either from ADIOS2/bp5 file or from existing meshblock data ---
-  const bool read_from_file = pinput->DoesParameterExist("energy_transfer", "input_file");
-
   if (read_from_file) {
     const auto input_file = pinput->GetString("energy_transfer", "input_file");
     PARTHENON_REQUIRE_THROWS(
@@ -331,33 +346,33 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
       return InputRealType::Double;
     };
 
-    // Validate that file dimensions match the mesh
-    {
-      adios2::Dims shape;
-      get_input_type_and_shape("rho", shape);
-      PARTHENON_REQUIRE_THROWS(
-          shape.size() == 3 && static_cast<int>(shape[0]) == Nz &&
-              static_cast<int>(shape[1]) == Ny && static_cast<int>(shape[2]) == Nx,
-          "ADIOS2 file dimensions [" + std::to_string(shape[0]) + ", " +
-              std::to_string(shape[1]) + ", " + std::to_string(shape[2]) +
-              "] do not match mesh dimensions [" + std::to_string(Nz) + ", " +
-              std::to_string(Ny) + ", " + std::to_string(Nx) + "]");
-    }
-
-    // Collect variable names to read, each gets its own host buffer slot
-    struct ReadRequest {
-      std::string name;
-      parthenon::ParArray1D<Real> *dest;
-      std::size_t offset;
-      InputRealType type;
-      std::vector<float> float_buf;
-      std::vector<double> double_buf;
+    const auto input_variable_prefix =
+        pinput->GetOrAddString("energy_transfer", "input_variable_prefix", "");
+    auto join_input_name = [&](const std::string &mesh,
+                               const std::string &field) -> std::string {
+      std::string name = input_variable_prefix;
+      auto append = [&](const std::string &part) {
+        if (part.empty()) return;
+        if (!name.empty() && name.back() != '/') name += "/";
+        name += part;
+      };
+      append(mesh);
+      append(field);
+      return name;
     };
-    std::vector<ReadRequest> requests;
-    auto add_request = [&](const std::string &name, parthenon::ParArray1D<Real> *dest,
-                           const std::size_t offset) {
-      adios2::Dims shape;
-      const auto type = get_input_type_and_shape(name, shape);
+    auto input_name = [&](const std::string &mesh_param,
+                          const std::string &field_param,
+                          const std::string &flat_default,
+                          const std::string &component_default) -> std::string {
+      const auto mesh =
+          pinput->GetOrAddString("energy_transfer", mesh_param, std::string(""));
+      const auto field_default = mesh.empty() ? flat_default : component_default;
+      const auto field =
+          pinput->GetOrAddString("energy_transfer", field_param, field_default);
+      return join_input_name(mesh, field);
+    };
+
+    auto validate_shape = [&](const std::string &name, const adios2::Dims &shape) {
       PARTHENON_REQUIRE_THROWS(
           shape.size() == 3 && static_cast<int>(shape[0]) == Nz &&
               static_cast<int>(shape[1]) == Ny && static_cast<int>(shape[2]) == Nx,
@@ -365,104 +380,166 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
               ", " + std::to_string(shape[1]) + ", " + std::to_string(shape[2]) +
               "] do not match mesh dimensions [" + std::to_string(Nz) + ", " +
               std::to_string(Ny) + ", " + std::to_string(Nx) + "]");
-      requests.push_back({name, dest, offset, type, {}, {}});
     };
 
-    add_request("rho", &rho_flat, 0);
-    add_request("vel_x", &vel_flat, 0);
-    add_request("vel_y", &vel_flat, fft_size_inbox);
-    add_request("vel_z", &vel_flat, 2 * fft_size_inbox);
-    if (need_mag) {
-      add_request("mag_x", &mag_flat, 0);
-      add_request("mag_y", &mag_flat, fft_size_inbox);
-      add_request("mag_z", &mag_flat, 2 * fft_size_inbox);
-    }
-    if (compute_PU) {
-      add_request("pres", &pres_flat, 0);
-    }
-    if (compute_FU) {
-      add_request("acc_x", &acc_flat, 0);
-      add_request("acc_y", &acc_flat, fft_size_inbox);
-      add_request("acc_z", &acc_flat, 2 * fft_size_inbox);
-    }
-
-    // Allocate one host buffer per variable for deferred reads
-    const auto n_vars = requests.size();
-
-    // Issue all deferred Gets
-    for (std::size_t v = 0; v < n_vars; v++) {
-      if (requests[v].type == InputRealType::Double) {
-        auto var = io.InquireVariable<double>(requests[v].name);
-        PARTHENON_REQUIRE_THROWS(var, "Variable '" + requests[v].name +
-                                          "' not found in " + input_file);
-        requests[v].double_buf.resize(fft_size_inbox);
+    auto read_field = [&](const std::string &name, parthenon::ParArray1D<Real> &dest,
+                          const std::size_t offset) {
+      adios2::Dims shape;
+      const auto type = get_input_type_and_shape(name, shape);
+      validate_shape(name, shape);
+      auto dest_sub =
+          Kokkos::subview(dest, Kokkos::make_pair(offset, offset + fft_size_inbox));
+      auto dest_view = dest;
+      const auto dest_offset = offset;
+      if (type == InputRealType::Double) {
+        auto var = io.InquireVariable<double>(name);
+        PARTHENON_REQUIRE_THROWS(var,
+                                 "Variable '" + name + "' not found in " + input_file);
+        std::vector<double> buffer(fft_size_inbox);
         var.SetSelection({start, count});
-        reader.Get(var, requests[v].double_buf.data(), adios2::Mode::Deferred);
-      } else {
-        auto var = io.InquireVariable<float>(requests[v].name);
-        PARTHENON_REQUIRE_THROWS(var, "Variable '" + requests[v].name +
-                                          "' not found in " + input_file);
-        requests[v].float_buf.resize(fft_size_inbox);
-        var.SetSelection({start, count});
-        reader.Get(var, requests[v].float_buf.data(), adios2::Mode::Deferred);
-      }
-    }
-
-    // Single I/O flush for all variables
-    reader.PerformGets();
-
-    // Copy from host buffers to device arrays
-    for (std::size_t v = 0; v < n_vars; v++) {
-      auto dest_sub = Kokkos::subview(
-          *requests[v].dest,
-          Kokkos::make_pair(requests[v].offset, requests[v].offset + fft_size_inbox));
+        reader.Get(var, buffer.data(), adios2::Mode::Deferred);
+        reader.PerformGets();
 #if SINGLE_PRECISION_ENABLED
-      if (requests[v].type == InputRealType::Double) {
         parthenon::ParArray1D<double> input_double("input_double", fft_size_inbox);
         auto host_view =
             Kokkos::View<double *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
-                requests[v].double_buf.data(), fft_size_inbox);
+                buffer.data(), fft_size_inbox);
         Kokkos::deep_copy(input_double, host_view);
-        auto dest = *requests[v].dest;
-        const auto offset = requests[v].offset;
         parthenon::par_for(
             "ConvertInputDoubleToReal", std::size_t(0), fft_size_inbox - 1,
             KOKKOS_LAMBDA(const std::size_t idx) {
-              dest(offset + idx) = static_cast<Real>(input_double(idx));
+              dest_view(dest_offset + idx) = static_cast<Real>(input_double(idx));
             });
         Kokkos::fence();
-      } else {
-        auto host_view =
-            Kokkos::View<Real *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
-                requests[v].float_buf.data(), fft_size_inbox);
-        Kokkos::deep_copy(dest_sub, host_view);
-      }
 #else
-      if (requests[v].type == InputRealType::Double) {
         auto host_view =
             Kokkos::View<Real *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
-                requests[v].double_buf.data(), fft_size_inbox);
+                buffer.data(), fft_size_inbox);
         Kokkos::deep_copy(dest_sub, host_view);
+#endif
       } else {
+        auto var = io.InquireVariable<float>(name);
+        PARTHENON_REQUIRE_THROWS(var,
+                                 "Variable '" + name + "' not found in " + input_file);
+        std::vector<float> buffer(fft_size_inbox);
+        var.SetSelection({start, count});
+        reader.Get(var, buffer.data(), adios2::Mode::Deferred);
+        reader.PerformGets();
+#if SINGLE_PRECISION_ENABLED
+        auto host_view =
+            Kokkos::View<Real *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
+                buffer.data(), fft_size_inbox);
+        Kokkos::deep_copy(dest_sub, host_view);
+#else
         parthenon::ParArray1D<float> input_float("input_float", fft_size_inbox);
         auto host_view =
             Kokkos::View<float *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
-                requests[v].float_buf.data(), fft_size_inbox);
+                buffer.data(), fft_size_inbox);
         Kokkos::deep_copy(input_float, host_view);
-        auto dest = *requests[v].dest;
-        const auto offset = requests[v].offset;
         parthenon::par_for(
             "ConvertInputFloatToReal", std::size_t(0), fft_size_inbox - 1,
             KOKKOS_LAMBDA(const std::size_t idx) {
-              dest(offset + idx) = static_cast<Real>(input_float(idx));
+              dest_view(dest_offset + idx) = static_cast<Real>(input_float(idx));
             });
         Kokkos::fence();
-      }
 #endif
-      requests[v].float_buf.clear();
-      requests[v].float_buf.shrink_to_fit();
-      requests[v].double_buf.clear();
-      requests[v].double_buf.shrink_to_fit();
+      }
+    };
+
+    const auto rho_name =
+        input_name("input_rho_mesh", "input_rho_field", "rho", "SCALAR");
+    read_field(rho_name, rho_flat, 0);
+
+    if (input_conserved) {
+      read_field(input_name("input_momentum_mesh", "input_momentum_x_field", "mom_x",
+                            "x"),
+                 vel_flat, 0);
+      read_field(input_name("input_momentum_mesh", "input_momentum_y_field", "mom_y",
+                            "y"),
+                 vel_flat, fft_size_inbox);
+      read_field(input_name("input_momentum_mesh", "input_momentum_z_field", "mom_z",
+                            "z"),
+                 vel_flat, 2 * fft_size_inbox);
+    } else {
+      read_field(input_name("input_velocity_mesh", "input_velocity_x_field", "vel_x",
+                            "x"),
+                 vel_flat, 0);
+      read_field(input_name("input_velocity_mesh", "input_velocity_y_field", "vel_y",
+                            "y"),
+                 vel_flat, fft_size_inbox);
+      read_field(input_name("input_velocity_mesh", "input_velocity_z_field", "vel_z",
+                            "z"),
+                 vel_flat, 2 * fft_size_inbox);
+    }
+
+    if (need_mag_loaded) {
+      read_field(input_name("input_magnetic_mesh", "input_magnetic_x_field", "mag_x",
+                            "x"),
+                 mag_flat, 0);
+      read_field(input_name("input_magnetic_mesh", "input_magnetic_y_field", "mag_y",
+                            "y"),
+                 mag_flat, fft_size_inbox);
+      read_field(input_name("input_magnetic_mesh", "input_magnetic_z_field", "mag_z",
+                            "z"),
+                 mag_flat, 2 * fft_size_inbox);
+    }
+
+    if (compute_PU) {
+      if (input_conserved) {
+        read_field(input_name("input_total_energy_mesh", "input_total_energy_field",
+                              "total_energy", "SCALAR"),
+                   pres_flat, 0);
+      } else {
+        read_field(input_name("input_pressure_mesh", "input_pressure_field", "pres",
+                              "SCALAR"),
+                   pres_flat, 0);
+      }
+    }
+
+    if (compute_FU) {
+      read_field(input_name("input_acceleration_mesh", "input_acceleration_x_field",
+                            "acc_x", "x"),
+                 acc_flat, 0);
+      read_field(input_name("input_acceleration_mesh", "input_acceleration_y_field",
+                            "acc_y", "y"),
+                 acc_flat, fft_size_inbox);
+      read_field(input_name("input_acceleration_mesh", "input_acceleration_z_field",
+                            "acc_z", "z"),
+                 acc_flat, 2 * fft_size_inbox);
+    }
+
+    if (input_conserved) {
+      parthenon::par_for(
+          "ConvertMomentumToVelocity", std::size_t(0), fft_size_inbox - 1,
+          KOKKOS_LAMBDA(const std::size_t idx) {
+            const Real inv_rho = 1.0 / rho_flat(idx);
+            for (int n = 0; n < 3; n++) {
+              vel_flat(n * fft_size_inbox + idx) *= inv_rho;
+            }
+          });
+      Kokkos::fence();
+
+      if (compute_PU) {
+        const Real gm1 = gamma - 1.0;
+        parthenon::par_for(
+            "ConvertTotalEnergyToPressure", std::size_t(0), fft_size_inbox - 1,
+            KOKKOS_LAMBDA(const std::size_t idx) {
+              Real v2 = 0.0;
+              Real b2 = 0.0;
+              for (int n = 0; n < 3; n++) {
+                const Real v = vel_flat(n * fft_size_inbox + idx);
+                const Real b = mag_flat(n * fft_size_inbox + idx);
+                v2 += v * v;
+                b2 += b * b;
+              }
+              pres_flat(idx) =
+                  gm1 * (pres_flat(idx) - 0.5 * rho_flat(idx) * v2 - 0.5 * b2);
+            });
+        Kokkos::fence();
+        if (!need_mag) {
+          mag_flat = parthenon::ParArray1D<Real>();
+        }
+      }
     }
 
     reader.EndStep();
