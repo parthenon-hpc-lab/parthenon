@@ -150,7 +150,8 @@ compute_BUPbb = false   # magnetic pressure
 compute_UBPbb = false   # magnetic pressure
 compute_PU = false      # pressure
 compute_FU = false      # forcing
-output_file = transfer  # output filename base (produces transfer.bp)
+output_file = transfer  # output filename base (produces transfer.%05T.bp)
+output_number = 0       # openPMD iteration/file number
 ```
 
 ## Python Conversion Script

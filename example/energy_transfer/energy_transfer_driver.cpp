@@ -220,6 +220,11 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   const auto compute_FU = pinput->GetOrAddBoolean("energy_transfer", "compute_FU", false);
   const auto output_file =
       pinput->GetOrAddString("energy_transfer", "output_file", "transfer");
+  const auto output_number =
+      pinput->GetOrAddInteger("energy_transfer", "output_number", 0);
+  if (output_number < 0) {
+    PARTHENON_FAIL("energy_transfer/output_number must be non-negative");
+  }
 
   auto mesh_size = pmesh->mesh_size;
   const auto Nx = mesh_size.nx(parthenon::X1DIR);
@@ -1015,20 +1020,48 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   // --- Write output via openPMD/ADIOS2 ---
   // Python reading example:
   //   import openpmd_api as io
-  //   s = io.Series("transfer.bp", io.Access.read_only)
-  //   it = s.iterations[0]
+  //   s = io.Series("transfer.%05T.bp", io.Access.read_only)
+  //   it = s.iterations[output_number]
   //   shell_edges = it.get_attribute("shell_edges")
   //   UU = it.meshes["UU"][io.Mesh_Record_Component.SCALAR].load_chunk()
   //   s.flush()
   {
-    std::string fname = output_file + ".bp";
+    std::string fname = output_file;
+    const auto has_iteration_pattern = [](const std::string &name) {
+      for (std::size_t pos = name.find('%'); pos != std::string::npos;
+           pos = name.find('%', pos + 1)) {
+        auto digit_pos = pos + 1;
+        while (digit_pos < name.size() && name[digit_pos] >= '0' &&
+               name[digit_pos] <= '9') {
+          digit_pos++;
+        }
+        if (digit_pos < name.size() && name[digit_pos] == 'T') {
+          return true;
+        }
+      }
+      return false;
+    }(fname);
+    const auto has_bp_suffix = fname.size() >= 3 && fname.substr(fname.size() - 3) == ".bp";
+    if (!has_iteration_pattern) {
+      if (has_bp_suffix) {
+        fname.insert(fname.size() - 3, ".%05T");
+      } else {
+        fname += ".%05T";
+      }
+    }
+    if (fname.size() < 3 || fname.substr(fname.size() - 3) != ".bp") {
+      fname += ".bp";
+    }
     openPMD::Series series(fname, openPMD::Access::CREATE,
 #ifdef MPI_PARALLEL
                            MPI_COMM_WORLD,
 #endif
                            "{}");
 
-    auto it = series.iterations[0];
+    series.setIterationEncoding(openPMD::IterationEncoding::fileBased);
+
+    auto it = series.iterations[static_cast<uint64_t>(output_number)];
+    it.open();
     it.setAttribute("shell_edges", shell_edges);
     it.setAttribute("n_shells", n_shells);
     it.setAttribute("binning", binning);
@@ -1091,7 +1124,8 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
 
     series.close();
     if (parthenon::Globals::my_rank == 0) {
-      std::cout << "Wrote " << fname << std::endl;
+      std::cout << "Wrote " << fname << " with iteration " << output_number
+                << std::endl;
     }
   }
 

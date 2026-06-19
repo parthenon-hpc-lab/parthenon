@@ -51,3 +51,4 @@ compute_PU = true
 compute_FU = true
 gamma = 1.666667
 output_file = transfer
+output_number = 0
