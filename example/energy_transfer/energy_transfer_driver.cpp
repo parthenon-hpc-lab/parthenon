@@ -277,7 +277,9 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   // --- Allocate real-space working arrays (only what's needed) ---
   const bool need_mag =
       compute_BB || compute_BUT || compute_UBTb || compute_BUPbb || compute_UBPbb;
-  const bool need_b = compute_BUT || compute_UBTb;
+  const bool need_b_flat = compute_BUT || compute_UBTb;
+  const bool need_FT_b = compute_UBTb;
+  const bool need_DivU = compute_UU || compute_BB;
   const bool need_scalar_scratch = compute_UBTb || compute_BUPbb;
 
   parthenon::ParArray1D<Real> rho_flat("rho_flat", fft_size_inbox);
@@ -414,49 +416,49 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
       auto dest_sub = Kokkos::subview(
           *requests[v].dest,
           Kokkos::make_pair(requests[v].offset, requests[v].offset + fft_size_inbox));
+#if SINGLE_PRECISION_ENABLED
       if (requests[v].type == InputRealType::Double) {
-        if constexpr (std::is_same_v<Real, double>) {
-          auto host_view =
-              Kokkos::View<double *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
-                  requests[v].double_buf.data(), fft_size_inbox);
-          Kokkos::deep_copy(dest_sub, host_view);
-        } else {
-          parthenon::ParArray1D<double> input_double("input_double", fft_size_inbox);
-          auto host_view =
-              Kokkos::View<double *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
-                  requests[v].double_buf.data(), fft_size_inbox);
-          Kokkos::deep_copy(input_double, host_view);
-          auto dest = *requests[v].dest;
-          const auto offset = requests[v].offset;
-          parthenon::par_for(
-              "ConvertInputDoubleToReal", std::size_t(0), fft_size_inbox - 1,
-              KOKKOS_LAMBDA(const std::size_t idx) {
-                dest(offset + idx) = static_cast<Real>(input_double(idx));
-              });
-          Kokkos::fence();
-        }
+        parthenon::ParArray1D<double> input_double("input_double", fft_size_inbox);
+        auto host_view =
+            Kokkos::View<double *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
+                requests[v].double_buf.data(), fft_size_inbox);
+        Kokkos::deep_copy(input_double, host_view);
+        auto dest = *requests[v].dest;
+        const auto offset = requests[v].offset;
+        parthenon::par_for(
+            "ConvertInputDoubleToReal", std::size_t(0), fft_size_inbox - 1,
+            KOKKOS_LAMBDA(const std::size_t idx) {
+              dest(offset + idx) = static_cast<Real>(input_double(idx));
+            });
+        Kokkos::fence();
       } else {
-        if constexpr (std::is_same_v<Real, float>) {
-          auto host_view =
-              Kokkos::View<Real *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
-                  requests[v].float_buf.data(), fft_size_inbox);
-          Kokkos::deep_copy(dest_sub, host_view);
-        } else {
-          parthenon::ParArray1D<float> input_float("input_float", fft_size_inbox);
-          auto host_view =
-              Kokkos::View<float *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
-                  requests[v].float_buf.data(), fft_size_inbox);
-          Kokkos::deep_copy(input_float, host_view);
-          auto dest = *requests[v].dest;
-          const auto offset = requests[v].offset;
-          parthenon::par_for(
-              "ConvertInputFloatToReal", std::size_t(0), fft_size_inbox - 1,
-              KOKKOS_LAMBDA(const std::size_t idx) {
-                dest(offset + idx) = static_cast<Real>(input_float(idx));
-              });
-          Kokkos::fence();
-        }
+        auto host_view =
+            Kokkos::View<Real *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
+                requests[v].float_buf.data(), fft_size_inbox);
+        Kokkos::deep_copy(dest_sub, host_view);
       }
+#else
+      if (requests[v].type == InputRealType::Double) {
+        auto host_view =
+            Kokkos::View<Real *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
+                requests[v].double_buf.data(), fft_size_inbox);
+        Kokkos::deep_copy(dest_sub, host_view);
+      } else {
+        parthenon::ParArray1D<float> input_float("input_float", fft_size_inbox);
+        auto host_view =
+            Kokkos::View<float *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
+                requests[v].float_buf.data(), fft_size_inbox);
+        Kokkos::deep_copy(input_float, host_view);
+        auto dest = *requests[v].dest;
+        const auto offset = requests[v].offset;
+        parthenon::par_for(
+            "ConvertInputFloatToReal", std::size_t(0), fft_size_inbox - 1,
+            KOKKOS_LAMBDA(const std::size_t idx) {
+              dest(offset + idx) = static_cast<Real>(input_float(idx));
+            });
+        Kokkos::fence();
+      }
+#endif
       requests[v].float_buf.clear();
       requests[v].float_buf.shrink_to_fit();
       requests[v].double_buf.clear();
@@ -534,19 +536,32 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
               sqrt_rho * vel_flat(n * fft_size_inbox + idx);
         }
       });
+  Kokkos::fence();
 
   // --- Forward FFT fields that are needed ---
+  parthenon::ParArray1D<Real> DivU("DivU", need_DivU ? fft_size_inbox : 0);
+  parthenon::ParArray1D<Kokkos::complex<Real>> FT_scratch("FT_scratch",
+                                                          3 * fft_size_outbox);
   parthenon::ParArray1D<Kokkos::complex<Real>> FT_W("FT_W", 3 * fft_size_outbox);
-  parthenon::ParArray1D<Kokkos::complex<Real>> FT_U("FT_U", 3 * fft_size_outbox);
-  parthenon::ParArray1D<Kokkos::complex<Real>> FT_B("FT_B",
-                                                    need_mag ? 3 * fft_size_outbox : 0);
+  parthenon::ParArray1D<Kokkos::complex<Real>> FT_U(
+      "FT_U", need_DivU ? 3 * fft_size_outbox : 0);
 
   for (int n = 0; n < 3; n++) {
     FFTMgr->Forward(W_flat.data() + n * fft_size_inbox,
                     FT_W.data() + n * fft_size_outbox);
-    FFTMgr->Forward(vel_flat.data() + n * fft_size_inbox,
-                    FT_U.data() + n * fft_size_outbox);
+    if (need_DivU) {
+      FFTMgr->Forward(vel_flat.data() + n * fft_size_inbox,
+                      FT_U.data() + n * fft_size_outbox);
+    }
   }
+  W_flat = parthenon::ParArray1D<Real>();
+  if (need_DivU) {
+    SpectralDivergence(FFTMgr, FT_U, FT_scratch, DivU, two_pi_over_L);
+    FT_U = parthenon::ParArray1D<Kokkos::complex<Real>>();
+  }
+
+  parthenon::ParArray1D<Kokkos::complex<Real>> FT_B("FT_B",
+                                                    need_mag ? 3 * fft_size_outbox : 0);
   if (need_mag) {
     for (int n = 0; n < 3; n++) {
       FFTMgr->Forward(mag_flat.data() + n * fft_size_inbox,
@@ -559,6 +574,7 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
                                                     compute_PU ? fft_size_outbox : 0);
   if (compute_PU) {
     FFTMgr->Forward(pres_flat.data(), FT_P.data());
+    pres_flat = parthenon::ParArray1D<Real>();
   }
 
   parthenon::ParArray1D<Kokkos::complex<Real>> FT_Acc(
@@ -568,13 +584,15 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
       FFTMgr->Forward(acc_flat.data() + n * fft_size_inbox,
                       FT_Acc.data() + n * fft_size_outbox);
     }
+    acc_flat = parthenon::ParArray1D<Real>();
   }
 
   // Compute b = B/sqrt(rho) and its FT for magnetic tension terms.
-  parthenon::ParArray1D<Real> b_flat("b_flat", need_b ? 3 * fft_size_inbox : 0);
+  parthenon::ParArray1D<Real> b_flat("b_flat",
+                                     need_b_flat ? 3 * fft_size_inbox : 0);
   parthenon::ParArray1D<Kokkos::complex<Real>> FT_b("FT_b",
-                                                    need_b ? 3 * fft_size_outbox : 0);
-  if (need_b) {
+                                                    need_FT_b ? 3 * fft_size_outbox : 0);
+  if (need_b_flat) {
     parthenon::par_for(
         "ComputeSmallB", std::size_t(0), fft_size_inbox - 1,
         KOKKOS_LAMBDA(const std::size_t idx) {
@@ -584,19 +602,13 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
                 mag_flat(n * fft_size_inbox + idx) * inv_sqrt_rho;
           }
         });
+    Kokkos::fence();
+  }
+  if (need_FT_b) {
     for (int n = 0; n < 3; n++) {
       FFTMgr->Forward(b_flat.data() + n * fft_size_inbox,
                       FT_b.data() + n * fft_size_outbox);
     }
-  }
-
-  // --- Precompute div(U) (needed for UU and BB compression terms) ---
-  parthenon::ParArray1D<Real> DivU("DivU",
-                                   (compute_UU || compute_BB) ? fft_size_inbox : 0);
-  parthenon::ParArray1D<Kokkos::complex<Real>> FT_scratch("FT_scratch",
-                                                          3 * fft_size_outbox);
-  if (compute_UU || compute_BB) {
-    SpectralDivergence(FFTMgr, FT_U, FT_scratch, DivU, two_pi_over_L);
   }
 
   // --- Allocate transfer matrices (host 2D views) ---
@@ -651,6 +663,7 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
 
   if (compute_UBTb) {
     SpectralDivergence(FFTMgr, FT_b, FT_scratch, Divb, two_pi_over_L);
+    FT_b = parthenon::ParArray1D<Kokkos::complex<Real>>();
   }
 
   // --- Main double loop ---
@@ -727,9 +740,6 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
                             bDotGradB_Q.data(), 3 * fft_size_inbox),
                         0.0);
 
-      // b dot grad B_Q: use FT_B for the shell-filtered derivative, multiplied by b
-      // (b is in real space, stored in b_flat — but we freed it. Recompute from mag/rho.)
-      // Actually, we need b in real space. Let's use mag_flat / sqrt(rho_flat).
       for (int comp_i = 0; comp_i < 3; comp_i++) {
         for (int dir_j = 0; dir_j < 3; dir_j++) {
           ShellFilterDerivative(FFTMgr, FT_B, comp_i * fft_size_outbox, FT_scratch, 0,
