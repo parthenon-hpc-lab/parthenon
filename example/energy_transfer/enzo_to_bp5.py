@@ -9,6 +9,7 @@ layout matching Parthenon's UniformGridHelper::FlatIndex convention.
 Usage:
     python enzo_to_bp5.py DD0024/data0024 --output enzo_data.bp --gamma 1.001
     python enzo_to_bp5.py DD0024/data0024 --output enzo_data.bp --res 64 --gamma 1.001
+    python enzo_to_bp5.py DD0024/data0024 --output enzo_data.bp --precision single
 """
 
 import argparse
@@ -39,7 +40,14 @@ def main():
         action="store_true",
         help="Skip acceleration fields",
     )
+    parser.add_argument(
+        "--precision",
+        choices=("double", "single"),
+        default="double",
+        help="Floating-point precision for field data written to ADIOS2 (default: double)",
+    )
     args = parser.parse_args()
+    output_dtype = np.float32 if args.precision == "single" else np.float64
 
     import yt
 
@@ -50,7 +58,10 @@ def main():
 
     native_res = int(ds.domain_dimensions[0])
     res = args.res if args.res is not None else native_res
-    print(f"Native resolution: {native_res}^3, output resolution: {res}^3")
+    print(
+        f"Native resolution: {native_res}^3, output resolution: {res}^3, "
+        f"field precision: {args.precision}"
+    )
 
     domain_left = ds.domain_left_edge.d
     domain_right = ds.domain_right_edge.d
@@ -62,10 +73,10 @@ def main():
 
     def get_field(field_name):
         # yt returns [x, y, z] order (Fortran); transpose to [z, y, x] = [k, j, i]
-        data = np.float64(all_data[field_name].d.T)
+        data = np.asarray(all_data[field_name].d.T, dtype=output_dtype)
         if res != native_res:
             data = downsample(data, native_res, res)
-        return np.ascontiguousarray(data)
+        return np.ascontiguousarray(data, dtype=output_dtype)
 
     def downsample(arr, from_res, to_res):
         factor = from_res // to_res
@@ -154,6 +165,7 @@ def main():
         print(", pres", end="")
     print()
     print(f"  Shape: ({res}, {res}, {res}) [k, j, i order]")
+    print(f"  Field dtype: {np.dtype(output_dtype)}")
     print(f"  Domain: [{domain_left[0]}, {domain_right[0]}]^3, L = {Lx}")
 
 
