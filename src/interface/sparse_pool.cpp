@@ -28,7 +28,8 @@ SparsePool::SparsePool(const std::string &base_name, const Metadata &metadata,
                        const std::vector<std::vector<int>> &shapes,
                        const std::vector<MetadataFlag> &vector_tensor_flags,
                        const std::vector<std::vector<std::string>> &component_labels,
-                       const std::string &controller_base_name)
+                       const std::string &controller_base_name,
+                       const std::optional<std::vector<std::string>> &sparse_labels)
     : SparsePool(base_name, metadata, controller_base_name) {
   const auto N = sparse_ids.size();
 
@@ -37,6 +38,9 @@ SparsePool::SparsePool(const std::string &base_name, const Metadata &metadata,
 
   PARTHENON_REQUIRE_THROWS(component_labels.empty() || (component_labels.size() == N),
                            "Got wrong number of component labels");
+
+  PARTHENON_REQUIRE_THROWS(!sparse_labels || sparse_labels->size() == sparse_ids.size(),
+                           "Got wrong number of sparse labels");
 
   std::vector<std::optional<MetadataFlag>> internal_vector_tensor_flags(N, std::nullopt);
   if (!vector_tensor_flags.empty()) {
@@ -48,9 +52,11 @@ SparsePool::SparsePool(const std::string &base_name, const Metadata &metadata,
   }
 
   for (std::size_t i = 0; i < N; ++i) {
+    std::optional<std::string> sparse_label =
+        (sparse_labels) ? std::optional<std::string>(sparse_labels->at(i)) : std::nullopt;
     AddImpl(sparse_ids[i], internal_shapes[i], internal_vector_tensor_flags[i],
             component_labels.empty() ? std::vector<std::string>{} : component_labels[i],
-            std::nullopt);
+            sparse_label);
   }
 }
 

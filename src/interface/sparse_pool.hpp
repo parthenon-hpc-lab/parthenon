@@ -51,29 +51,41 @@ class SparsePool {
              const std::vector<std::vector<int>> &shapes,
              const std::vector<MetadataFlag> &vector_tensor_flags,
              const std::vector<std::vector<std::string>> &component_labels = {},
-             const std::string &controller_base_name = "");
+             const std::string &controller_base_name = "",
+             const std::optional<std::vector<std::string>> &sparse_labels = std::nullopt);
 
   // Create a sparse pool with given sparse ids and controlling base name and optional
   // shapes and component labels
   SparsePool(const std::string &base_name, const Metadata &metadata,
              const std::string &controller_base_name, const std::vector<int> &sparse_ids,
              const std::vector<std::vector<int>> &shapes = {},
-             const std::vector<std::vector<std::string>> &component_labels = {})
+             const std::vector<std::vector<std::string>> &component_labels = {},
+             const std::optional<std::vector<std::string>> &sparse_labels = std::nullopt)
       : SparsePool(base_name, metadata, sparse_ids, shapes, {}, component_labels,
-                   controller_base_name) {}
+                   controller_base_name, sparse_labels) {}
 
   // Create a sparse pool with given sparse ids and optional shapes and component labels
   SparsePool(const std::string &base_name, const Metadata &metadata,
              const std::vector<int> &sparse_ids,
              const std::vector<std::vector<int>> &shapes = {},
-             const std::vector<std::vector<std::string>> &component_labels = {})
-      : SparsePool(base_name, metadata, sparse_ids, shapes, {}, component_labels, "") {}
+             const std::vector<std::vector<std::string>> &component_labels = {},
+             const std::optional<std::vector<std::string>> &sparse_labels = std::nullopt)
+      : SparsePool(base_name, metadata, sparse_ids, shapes, {}, component_labels, "",
+                   sparse_labels) {}
 
   // Create a sparse pool with given sparse ids and component labels
   SparsePool(const std::string &base_name, const Metadata &metadata,
              const std::vector<int> &sparse_ids,
-             const std::vector<std::vector<std::string>> &component_labels)
-      : SparsePool(base_name, metadata, sparse_ids, {}, {}, component_labels, "") {}
+             const std::vector<std::vector<std::string>> &component_labels,
+             const std::optional<std::vector<std::string>> &sparse_labels = std::nullopt)
+      : SparsePool(base_name, metadata, sparse_ids, {}, {}, component_labels, "",
+                   sparse_labels) {}
+
+  // Create a sparse pool with given sparse ids and sparse labels
+  SparsePool(const std::string &base_name, const Metadata &metadata,
+             const std::vector<int> &sparse_ids,
+             const std::optional<std::vector<std::string>> &sparse_labels)
+      : SparsePool(base_name, metadata, sparse_ids, {}, {}, {}, "", sparse_labels) {}
 
   // template on variable type
   template <typename T, typename... Args>
