@@ -17,16 +17,33 @@
 #include "Kokkos_Core.hpp"
 
 #include "basic_types.hpp"
+#include "interface/data_collection.hpp"
+#include "interface/mesh_data.hpp"
+#include "interface/meshblock_data.hpp"
+#include "interface/metadata.hpp"
 #include "kokkos_types.hpp"
 #include "loop_abstraction/loop_abstraction.hpp"
+#include "mesh/mesh_refinement.hpp"
+#include "pack/sparse_pack/make_pack_descriptor.hpp"
+#include "pack/sparse_pack/sparse_pack.hpp"
 
 namespace {
 
 using Real = double;
+using parthenon::BlockList_t;
+using parthenon::DevExecSpace;
+using parthenon::IndexDomain;
 using loop_abstraction::Index3;
 using loop_abstraction::IndexSpace;
 using loop_abstraction::inner_tag;
 using loop_abstraction::loop_tag;
+using parthenon::MeshBlock;
+using parthenon::MeshData;
+using parthenon::Metadata;
+using parthenon::StateDescriptor;
+using parthenon::loop_pattern_mdrange_tag;
+using parthenon::par_for;
+using parthenon::par_reduce;
 
 constexpr int kNVars = 3;
 
@@ -40,6 +57,19 @@ struct ProblemSpec {
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 using PatternIndexSpace = IndexSpace<LOOP_TAG, INNER_TAG>;
+
+BlockList_t MakeBlockList(const std::shared_ptr<StateDescriptor> pkg, const int NBLOCKS,
+                          const int NSIDE, const int NDIM) {
+  BlockList_t block_list;
+  block_list.reserve(NBLOCKS);
+  for (int i = 0; i < NBLOCKS; ++i) {
+    auto pmb = std::make_shared<MeshBlock>(NSIDE, NDIM);
+    auto &pmbd = pmb->meshblock_data.Get();
+    pmbd->Initialize(pkg, pmb);
+    block_list.push_back(pmb);
+  }
+  return block_list;
+}
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 constexpr std::string_view PatternName() {
@@ -172,6 +202,62 @@ std::vector<int> NinnerCases(const int logical_cells) {
 constexpr std::array<ProblemSpec, 3> CoverageSpecs() {
   return {ProblemSpec{2, 3, 2, 2, 1}, ProblemSpec{1, 1, 1, 1, 1},
           ProblemSpec{2, 4, 3, 2, 2}};
+}
+
+struct PackViewSpec {
+  int nblocks;
+  int ncell;
+  int nghost;
+};
+
+constexpr std::array<PackViewSpec, 3> PackViewCoverageSpecs() {
+  return {PackViewSpec{2, 3, 2}, PackViewSpec{1, 1, 2}, PackViewSpec{2, 4, 2}};
+}
+
+std::vector<int> PackViewNinnerCases(const int logical_cells) {
+  std::vector<int> cases{1, std::max(1, logical_cells - 1), logical_cells,
+                         logical_cells + 1};
+  std::sort(cases.begin(), cases.end());
+  cases.erase(std::unique(cases.begin(), cases.end()), cases.end());
+  return cases;
+}
+
+struct v1 : public parthenon::variable_names::base_t<false> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION v1(Ts &&...args)
+      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "v1"; }
+  static constexpr bool is_sparse() { return false; }
+};
+
+struct v2 : public parthenon::variable_names::base_t<false> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION v2(Ts &&...args)
+      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "v2"; }
+  static constexpr bool is_sparse() { return false; }
+};
+
+struct v5 : public parthenon::variable_names::base_t<false> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION v5(Ts &&...args)
+      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "v5"; }
+  static constexpr bool is_sparse() { return false; }
+};
+
+KOKKOS_INLINE_FUNCTION Real PackViewSourceValue(const int b, const int src_var,
+                                                const int k, const int j, const int i) {
+  return 1.0e6 * static_cast<Real>(b) + 1.0e5 * static_cast<Real>(src_var + 1) +
+         1.0e3 * static_cast<Real>(k) + 10.0 * static_cast<Real>(j) +
+         static_cast<Real>(i);
+}
+
+KOKKOS_INLINE_FUNCTION Real PackViewExpectedValue(const int b, const int v, const int k,
+                                                  const int j, const int i) {
+  return 2.0e6 * static_cast<Real>(b) + 2.0e5 * static_cast<Real>(v + 1) +
+         1.0e3 * static_cast<Real>(k) + 10.0 * static_cast<Real>(j) +
+         static_cast<Real>(i) + 1.0;
 }
 
 struct plus_j_halo_t {
@@ -467,6 +553,135 @@ void RunKTripletHaloPatternMatrix() {
   }
 }
 
+struct ScopedNghost {
+  const int old;
+  ScopedNghost() : old(parthenon::Globals::nghost) {}
+  ~ScopedNghost() { parthenon::Globals::nghost = old; }
+};
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunPackViewCase(const PackViewSpec &spec, const int ninner, const bool kji_body) {
+  const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
+  INFO("pattern=" << pattern_name << ", ninner=" << ninner
+                  << ", body=" << (kji_body ? "kji" : "auto"));
+
+  ScopedNghost guard;
+  parthenon::Globals::nghost = spec.nghost;
+
+  const std::vector<int> scalar_shape{spec.ncell + 2 * spec.nghost,
+                                      spec.ncell + 2 * spec.nghost,
+                                      spec.ncell + 2 * spec.nghost};
+  Metadata m({Metadata::Independent, Metadata::WithFluxes}, scalar_shape);
+  auto pkg = std::make_shared<StateDescriptor>("PackView package");
+  pkg->AddField<v1>(m);
+  pkg->AddField<v2>(m);
+  pkg->AddField<v5>(m);
+
+  BlockList_t block_list = MakeBlockList(pkg, spec.nblocks, spec.ncell, 3);
+  MeshData<Real> mesh_data("base");
+  mesh_data.Initialize(block_list, nullptr);
+
+  std::array<std::string, 3> var_names{v1::name(), v2::name(), v5::name()};
+  const auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
+  const auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::entire);
+  const auto kb = block_list[0]->cellbounds.GetBoundsK(IndexDomain::entire);
+
+  for (int b = 0; b < spec.nblocks; ++b) {
+    auto &pmb = block_list[b];
+    auto &pmbd = pmb->meshblock_data.Get();
+    for (int v = 0; v < static_cast<int>(var_names.size()); ++v) {
+      auto var = pmbd->Get(var_names[v]);
+      auto var4 = var.data.template Get<4>();
+      const int num_components = var.GetDim(4);
+      parthenon::par_for(parthenon::loop_pattern_mdrange_tag,
+                         "initialize pack view data", parthenon::DevExecSpace(), kb.s,
+                         kb.e, jb.s, jb.e, ib.s, ib.e,
+              KOKKOS_LAMBDA(int k, int j, int i) {
+                for (int c = 0; c < num_components; ++c) {
+                  var4(c, k, j, i) = PackViewSourceValue(b, v, k, j, i);
+                }
+              });
+    }
+  }
+
+  Kokkos::fence();
+
+  using IndexSpaceType = IndexSpace<LOOP_TAG, INNER_TAG>;
+  IndexSpaceType idx_space(spec.nblocks, spec.ncell, spec.ncell, spec.ncell,
+                           spec.nghost, ninner);
+  auto desc = parthenon::MakePackDescriptor<v1, v2, v5>(pkg.get());
+  auto sparse_pack = desc.GetPack(&mesh_data);
+
+  loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
+    auto pack_view = loop_abstraction::make_pack_view(idx_range, sparse_pack);
+    if (kji_body) {
+      loop_abstraction::inner(idx_range, [&](const int k, const int j, const int i) {
+        pack_view(v1(), k, j, i) = PackViewExpectedValue(b, 0, k, j, i);
+        pack_view(v2(), k, j, i) = PackViewExpectedValue(b, 1, k, j, i);
+        pack_view(v5(), k, j, i) = PackViewExpectedValue(b, 2, k, j, i);
+      });
+    } else {
+      loop_abstraction::inner(idx_range, [&](auto idx) {
+        if constexpr (std::is_same_v<std::decay_t<decltype(idx)>, int>) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          pack_view(v1(), idx) = PackViewExpectedValue(b, 0, k, j, i);
+          pack_view(v2(), idx) = PackViewExpectedValue(b, 1, k, j, i);
+          pack_view(v5(), idx) = PackViewExpectedValue(b, 2, k, j, i);
+        } else {
+          pack_view(v1(), idx) = PackViewExpectedValue(b, 0, idx.k, idx.j, idx.i);
+          pack_view(v2(), idx) = PackViewExpectedValue(b, 1, idx.k, idx.j, idx.i);
+          pack_view(v5(), idx) = PackViewExpectedValue(b, 2, idx.k, idx.j, idx.i);
+        }
+      });
+    }
+  });
+
+  Kokkos::fence();
+
+  int nwrong = 0;
+  const auto ib_int = block_list[0]->cellbounds.GetBoundsI(IndexDomain::interior);
+  const auto jb_int = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const auto kb_int = block_list[0]->cellbounds.GetBoundsK(IndexDomain::interior);
+  parthenon::par_reduce(parthenon::loop_pattern_mdrange_tag, "check pack view",
+                        parthenon::DevExecSpace(), 0, sparse_pack.GetNBlocks() - 1,
+                        kb_int.s, kb_int.e, jb_int.s, jb_int.e, ib_int.s, ib_int.e,
+             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+               if (sparse_pack(b, v1(), k, j, i) !=
+                   PackViewExpectedValue(b, 0, k, j, i)) {
+                 ++ltot;
+               }
+               if (sparse_pack(b, v2(), k, j, i) !=
+                   PackViewExpectedValue(b, 1, k, j, i)) {
+                 ++ltot;
+               }
+               if (sparse_pack(b, v5(), k, j, i) !=
+                   PackViewExpectedValue(b, 2, k, j, i)) {
+                 ++ltot;
+               }
+             },
+             nwrong);
+  REQUIRE(nwrong == 0);
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunPackViewPatternMatrix(const std::string &body_name, const bool kji_body) {
+  for (const auto &spec : PackViewCoverageSpecs()) {
+    for (const int ninner : PackViewNinnerCases(spec.ncell * spec.ncell * spec.ncell)) {
+      const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
+      INFO("pattern=" << pattern_name << ", spec=" << spec.nblocks << "x" << spec.ncell
+                      << " nghost=" << spec.nghost << ", ninner=" << ninner
+                      << ", body=" << body_name);
+      RunPackViewCase<LOOP_TAG, INNER_TAG>(spec, ninner, kji_body);
+    }
+  }
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunPackViewPatternMatrix() {
+  RunPackViewPatternMatrix<LOOP_TAG, INNER_TAG>("auto", false);
+  RunPackViewPatternMatrix<LOOP_TAG, INNER_TAG>("kji", true);
+}
+
 } // namespace
 
 TEST_CASE("loop abstraction logical contracts with auto index bodies",
@@ -544,4 +759,44 @@ TEST_CASE("loop abstraction halo kokkos parity",
       spec, k_triplet_cases);
   RunHaloParityPatternMatrix<k_triplet_halo_t, loop_tag::boiv, inner_tag::logical_coords>(
       spec, k_triplet_cases);
+}
+
+TEST_CASE("loop abstraction pack view contracts on bvoi logical_flat",
+          "[loop_abstraction][contract][pack_view][bvoi][logical_flat]") {
+  RunPackViewPatternMatrix<loop_tag::bvoi, inner_tag::logical_flat>();
+}
+
+TEST_CASE("loop abstraction pack view contracts on bvoi logical_coords",
+          "[loop_abstraction][contract][pack_view][bvoi][logical_coords]") {
+  RunPackViewPatternMatrix<loop_tag::bvoi, inner_tag::logical_coords>();
+}
+
+TEST_CASE("loop abstraction pack view contracts on bvoi memory",
+          "[loop_abstraction][contract][pack_view][bvoi][memory]") {
+  RunPackViewPatternMatrix<loop_tag::bvoi, inner_tag::memory>();
+}
+
+TEST_CASE("loop abstraction pack view contracts on bovi logical_flat",
+          "[loop_abstraction][contract][pack_view][bovi][logical_flat]") {
+  RunPackViewPatternMatrix<loop_tag::bovi, inner_tag::logical_flat>();
+}
+
+TEST_CASE("loop abstraction pack view contracts on bovi logical_coords",
+          "[loop_abstraction][contract][pack_view][bovi][logical_coords]") {
+  RunPackViewPatternMatrix<loop_tag::bovi, inner_tag::logical_coords>();
+}
+
+TEST_CASE("loop abstraction pack view contracts on bovi memory",
+          "[loop_abstraction][contract][pack_view][bovi][memory]") {
+  RunPackViewPatternMatrix<loop_tag::bovi, inner_tag::memory>();
+}
+
+TEST_CASE("loop abstraction pack view contracts on boiv logical_flat",
+          "[loop_abstraction][contract][pack_view][boiv][logical_flat]") {
+  RunPackViewPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
+}
+
+TEST_CASE("loop abstraction pack view contracts on boiv logical_coords",
+          "[loop_abstraction][contract][pack_view][boiv][logical_coords]") {
+  RunPackViewPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
 }
