@@ -286,15 +286,14 @@ TEST_CASE("Sparse labeled components use base-name output labels",
           "[VarInfo][OutputUtils]") {
   auto pkg = std::make_shared<StateDescriptor>("Test sparse labels");
 
-  Metadata sparse_scalar_md({Metadata::Cell, Metadata::Independent, Metadata::Sparse}, {},
-                            std::vector<std::string>{"scalar"});
+  Metadata sparse_scalar_md({Metadata::Cell, Metadata::Independent, Metadata::Sparse});
   Metadata sparse_vector_md(
       {Metadata::Cell, Metadata::Independent, Metadata::Sparse, Metadata::Vector},
       std::vector<int>{3}, std::vector<std::string>{"x", "y", "z"});
-  Metadata dense_scalar_md({Metadata::Cell, Metadata::Independent}, {},
-                           std::vector<std::string>{"scalar"});
+  Metadata dense_scalar_md({Metadata::Cell, Metadata::Independent});
 
-  pkg->AddSparsePool("shape_shift", sparse_scalar_md, std::vector<int>{1});
+  pkg->AddSparsePool("shape_shift", sparse_scalar_md, std::vector<int>{1},
+                     std::vector<std::string>{"scalar"});
   pkg->AddSparsePool("velocity", sparse_vector_md, std::vector<int>{3});
   pkg->AddField("density", dense_scalar_md);
 
@@ -309,19 +308,19 @@ TEST_CASE("Sparse labeled components use base-name output labels",
 
   auto sparse_vector = VarInfo(pmbd->GetVarPtr("velocity_3"), pmb->cellbounds);
   REQUIRE(sparse_vector.component_labels ==
-          std::vector<std::string>{"velocity_x", "velocity_y", "velocity_z"});
+          std::vector<std::string>{"velocity_3_x", "velocity_3_y", "velocity_3_z"});
 
   auto dense_scalar = VarInfo(pmbd->GetVarPtr("density"), pmb->cellbounds);
-  REQUIRE(dense_scalar.component_labels == std::vector<std::string>{"density_scalar"});
+  REQUIRE(dense_scalar.component_labels == std::vector<std::string>{"density"});
 }
 
 TEST_CASE("Duplicate output component names fail metadata generation",
           "[VarInfo][OutputUtils]") {
   auto pkg = std::make_shared<StateDescriptor>("Duplicate sparse labels");
 
-  Metadata sparse_scalar_md({Metadata::Cell, Metadata::Independent, Metadata::Sparse}, {},
-                            std::vector<std::string>{"shared"});
-  pkg->AddSparsePool("shape_shift", sparse_scalar_md, std::vector<int>{1, 2});
+  Metadata sparse_scalar_md({Metadata::Cell, Metadata::Independent, Metadata::Sparse});
+  pkg->AddSparsePool("shape_shift", sparse_scalar_md, std::vector<int>{1, 2},
+                     std::vector<std::string>{"scalar", "scalar"});
 
   auto pmb = std::make_shared<MeshBlock>(8, 3);
   auto pmbd = pmb->meshblock_data.Get();

@@ -170,11 +170,17 @@ struct VarInfo {
     component_labels = [&]() -> std::vector<std::string> {
       const bool has_labels = component_labels_.size() == num_components;
 
-      // Vector/Tensor suffix with component index unless labels provided
+      const auto suffix = [&](const int i) -> std::string {
+        // Vector/Tensor suffix with component index unless labels provided.
+        // Single-component variables use the prefix directly (no suffix appended).
+        if (num_components == 1) return "";
+        return "_" + (has_labels ? component_labels_[i] : std::to_string(i));
+      };
+
       std::vector<std::string> full_labels = {};
       for (int i = 0; i < num_components; i++) {
-        full_labels.push_back(component_label_prefix + "_" +
-                              (has_labels ? component_labels_[i] : std::to_string(i)));
+        const auto sfx = suffix(i);
+        full_labels.push_back(component_label_prefix + sfx);
       }
       return full_labels;
     }();
