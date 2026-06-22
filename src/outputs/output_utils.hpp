@@ -171,9 +171,8 @@ struct VarInfo {
       const bool has_labels = component_labels_.size() == num_components;
 
       const auto suffix = [&](const int i) -> std::string {
-        // Vector/Tensor suffix with component index unless labels provided.
-        // Single-component variables use the prefix directly (no suffix appended).
-        if (num_components == 1) return "";
+        // suffix only if explicit component labels or multi-component variable
+        if (num_components == 1 && !has_labels) return "";
         return "_" + (has_labels ? component_labels_[i] : std::to_string(i));
       };
 
