@@ -236,9 +236,14 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   std::size_t scratch_size = 0;
   constexpr int scratch_level = 0;
   const int team_size = ib.e - ib.s + 1;
+  #ifdef KOKKOS_ENABLE_CUDA
+  auto perf_opts = parthenon::OuterLoopPerfOpts{team_size};
+  #else 
+  auto perf_opts = parthenon::OuterLoopPerfOpts{};
+  #endif
   parthenon::par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, "burgers::Reconstruction", DevExecSpace(), scratch_size,
-      scratch_level, parthenon::OuterLoopPerfOpts{team_size},
+      scratch_level, perf_opts,
       0, nblocks - 1, kb.s - dk, kb.e + dk, jb.s - dj, jb.e + dj,
       KOKKOS_LAMBDA(team_mbr_t member, const int b, const int k, const int j) {
         bool xrec = (k >= kb.s && k <= kb.e) && (j >= jb.s && j <= jb.e);
@@ -310,7 +315,7 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   scratch_size = 2 * ScratchPad1D<Real>::shmem_size(ib.e + 1);
   parthenon::par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, "burgers::RiemannSolve", DevExecSpace(), scratch_size,
-      scratch_level, parthenon::OuterLoopPerfOpts{team_size},
+      scratch_level, perf_opts,
       0, nblocks - 1, kb.s, kb.e + dk, jb.s, jb.e + dj,
       KOKKOS_LAMBDA(team_mbr_t member, const int b, const int k, const int j) {
         bool xflux = (k <= kb.e && j <= jb.e);
