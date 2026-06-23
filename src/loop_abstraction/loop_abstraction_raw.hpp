@@ -98,7 +98,7 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
         const InnerIndexRangeType inner_range(idx_space, idx_range.logical_kji,
                                               idx_range.block, {ks, js, is},
                                               {ke, je, ie});
-        for (int r = 0; r < idx_range.nregions; ++r) {
+        for (int r = 0; r < inner_range.nregions; ++r) {
 #pragma omp simd
           for (int idx = inner_range.flat_start[r]; idx <= inner_range.flat_end[r]; ++idx) {
             if constexpr (std::is_invocable_v<F, int, int, int>) {

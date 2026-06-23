@@ -96,6 +96,7 @@ The intended `logical_coords` contract is the same logical-cell coverage contrac
 
 - The memory variant iterates over the contiguous memory span for the current inner range, which may include non-logical cells.
 - This will touch inactive zones, but for most use cases their values are safe to mutate. It is just unnecessary work.
+- Memory cells outside the original logical range are not required to retain any meaningful value after the loop.
 - Nevertheless, this pattern can be more performant since it can consume long runs of memory uniformly.
 - The auto functor receives an integer index for directly indexing a pointer. The indexing must
   agree with the Loop tag memory indexing conventions above.
@@ -468,4 +469,3 @@ S ∪ shift(S, h1) ∪ shift(S, h2) ∪ ...
 The implementation should first extend the logical domain, then flatten the base and shifted sets in that extended domain, then merge the resulting spans.
 
 This keeps the API simple while giving the backend enough information to choose either compact per-cell scratch or reusable team scratch.
-

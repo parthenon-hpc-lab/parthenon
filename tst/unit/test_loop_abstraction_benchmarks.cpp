@@ -133,6 +133,15 @@ KOKKOS_INLINE_FUNCTION bool IsLogicalCell(const IndexSpaceType &idx_space, const
 }
 
 template <class IndexSpaceType>
+KOKKOS_INLINE_FUNCTION bool IsMemoryCell(const IndexSpaceType &idx_space, const int k,
+                                         const int j, const int i) {
+  const auto &memory = idx_space.GetMemoryIndexer();
+  return k >= memory.template StartIdx<0>() && k <= memory.template EndIdx<0>() &&
+         j >= memory.template StartIdx<1>() && j <= memory.template EndIdx<1>() &&
+         i >= memory.template StartIdx<2>() && i <= memory.template EndIdx<2>();
+}
+
+template <class IndexSpaceType>
 auto MakeOutput(const IndexSpaceType &idx_space) {
   const auto &memory = idx_space.GetMemoryIndexer();
   const int nk = memory.template EndIdx<0>() - memory.template StartIdx<0>() + 1;
@@ -437,7 +446,13 @@ void RunHaloContractCase(const ProblemSpec &spec, const int ninner) {
           const int kk = k + HaloType::dk(n);
           const int jj = j + HaloType::dj(n);
           const int ii = i + HaloType::di(n);
-          REQUIRE(out(b, v, kk, jj, ii) == Approx(EncodeValue(b, v, kk, jj, ii)));
+          // For memory-tag inner loops, the visited span may include extra ghost
+          // cells. Only verify halo neighbors that are still inside the
+          // allocated memory range; the contract guarantees correctness for the
+          // logical cells, not for halo-of-ghost points.
+          if (IsMemoryCell(idx_space, kk, jj, ii)) {
+            REQUIRE(out(b, v, kk, jj, ii) == Approx(EncodeValue(b, v, kk, jj, ii)));
+          }
         }
       });
     }
@@ -712,8 +727,10 @@ TEST_CASE("loop abstraction halo producer-consumer contracts",
           "[loop_abstraction][contract][halo]") {
   RunHaloPatternMatrix<loop_tag::bvoi, inner_tag::logical_flat>();
   RunHaloPatternMatrix<loop_tag::bvoi, inner_tag::logical_coords>();
+  RunHaloPatternMatrix<loop_tag::bvoi, inner_tag::memory>();
   RunHaloPatternMatrix<loop_tag::bovi, inner_tag::logical_flat>();
   RunHaloPatternMatrix<loop_tag::bovi, inner_tag::logical_coords>();
+  RunHaloPatternMatrix<loop_tag::bovi, inner_tag::memory>();
   RunHaloPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
   RunHaloPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
 }
@@ -722,8 +739,10 @@ TEST_CASE("loop abstraction k halo disjoint span contracts",
           "[loop_abstraction][contract][halo]") {
   RunKTripletHaloPatternMatrix<loop_tag::bvoi, inner_tag::logical_flat>();
   RunKTripletHaloPatternMatrix<loop_tag::bvoi, inner_tag::logical_coords>();
+  RunKTripletHaloPatternMatrix<loop_tag::bvoi, inner_tag::memory>();
   RunKTripletHaloPatternMatrix<loop_tag::bovi, inner_tag::logical_flat>();
   RunKTripletHaloPatternMatrix<loop_tag::bovi, inner_tag::logical_coords>();
+  RunKTripletHaloPatternMatrix<loop_tag::bovi, inner_tag::memory>();
   RunKTripletHaloPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
   RunKTripletHaloPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
 }
@@ -738,10 +757,14 @@ TEST_CASE("loop abstraction halo kokkos parity",
       spec, plus_j_cases);
   RunHaloParityPatternMatrix<plus_j_halo_t, loop_tag::bvoi, inner_tag::logical_coords>(
       spec, plus_j_cases);
+  RunHaloParityPatternMatrix<plus_j_halo_t, loop_tag::bvoi, inner_tag::memory>(spec,
+                                                                               plus_j_cases);
   RunHaloParityPatternMatrix<plus_j_halo_t, loop_tag::bovi, inner_tag::logical_flat>(
       spec, plus_j_cases);
   RunHaloParityPatternMatrix<plus_j_halo_t, loop_tag::bovi, inner_tag::logical_coords>(
       spec, plus_j_cases);
+  RunHaloParityPatternMatrix<plus_j_halo_t, loop_tag::bovi, inner_tag::memory>(spec,
+                                                                               plus_j_cases);
   RunHaloParityPatternMatrix<plus_j_halo_t, loop_tag::boiv, inner_tag::logical_flat>(
       spec, plus_j_cases);
   RunHaloParityPatternMatrix<plus_j_halo_t, loop_tag::boiv, inner_tag::logical_coords>(
@@ -751,52 +774,28 @@ TEST_CASE("loop abstraction halo kokkos parity",
       spec, k_triplet_cases);
   RunHaloParityPatternMatrix<k_triplet_halo_t, loop_tag::bvoi, inner_tag::logical_coords>(
       spec, k_triplet_cases);
+  RunHaloParityPatternMatrix<k_triplet_halo_t, loop_tag::bvoi, inner_tag::memory>(spec,
+                                                                                   k_triplet_cases);
   RunHaloParityPatternMatrix<k_triplet_halo_t, loop_tag::bovi, inner_tag::logical_flat>(
       spec, k_triplet_cases);
   RunHaloParityPatternMatrix<k_triplet_halo_t, loop_tag::bovi, inner_tag::logical_coords>(
       spec, k_triplet_cases);
+  RunHaloParityPatternMatrix<k_triplet_halo_t, loop_tag::bovi, inner_tag::memory>(spec,
+                                                                                   k_triplet_cases);
   RunHaloParityPatternMatrix<k_triplet_halo_t, loop_tag::boiv, inner_tag::logical_flat>(
       spec, k_triplet_cases);
   RunHaloParityPatternMatrix<k_triplet_halo_t, loop_tag::boiv, inner_tag::logical_coords>(
       spec, k_triplet_cases);
 }
 
-TEST_CASE("loop abstraction pack view contracts on bvoi logical_flat",
-          "[loop_abstraction][contract][pack_view][bvoi][logical_flat]") {
+TEST_CASE("loop abstraction pack view contracts",
+          "[loop_abstraction][contract][pack_view]") {
   RunPackViewPatternMatrix<loop_tag::bvoi, inner_tag::logical_flat>();
-}
-
-TEST_CASE("loop abstraction pack view contracts on bvoi logical_coords",
-          "[loop_abstraction][contract][pack_view][bvoi][logical_coords]") {
   RunPackViewPatternMatrix<loop_tag::bvoi, inner_tag::logical_coords>();
-}
-
-TEST_CASE("loop abstraction pack view contracts on bvoi memory",
-          "[loop_abstraction][contract][pack_view][bvoi][memory]") {
   RunPackViewPatternMatrix<loop_tag::bvoi, inner_tag::memory>();
-}
-
-TEST_CASE("loop abstraction pack view contracts on bovi logical_flat",
-          "[loop_abstraction][contract][pack_view][bovi][logical_flat]") {
   RunPackViewPatternMatrix<loop_tag::bovi, inner_tag::logical_flat>();
-}
-
-TEST_CASE("loop abstraction pack view contracts on bovi logical_coords",
-          "[loop_abstraction][contract][pack_view][bovi][logical_coords]") {
   RunPackViewPatternMatrix<loop_tag::bovi, inner_tag::logical_coords>();
-}
-
-TEST_CASE("loop abstraction pack view contracts on bovi memory",
-          "[loop_abstraction][contract][pack_view][bovi][memory]") {
   RunPackViewPatternMatrix<loop_tag::bovi, inner_tag::memory>();
-}
-
-TEST_CASE("loop abstraction pack view contracts on boiv logical_flat",
-          "[loop_abstraction][contract][pack_view][boiv][logical_flat]") {
   RunPackViewPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
-}
-
-TEST_CASE("loop abstraction pack view contracts on boiv logical_coords",
-          "[loop_abstraction][contract][pack_view][boiv][logical_coords]") {
   RunPackViewPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
 }
