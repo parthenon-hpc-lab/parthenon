@@ -105,8 +105,12 @@ make_pack_view_impl(const InnerIndexRange<IndexSpaceType> &idx_range,
           constexpr std::size_t vstart = SumSizesBefore<TL, Ts>();
           const std::size_t sparse_offset = s * Ts::size();
           for (std::size_t v = 0; v < Ts::size(); ++v) {
-            auto var = pack_in(idx_range.block, Ts(v + sparse_offset));
-            out.data_[vstart + v] = var.data() + out.shift_;
+            if (pack_in.GetSize(idx_range.block, Ts()) > 0) {
+              auto var = pack_in(idx_range.block, Ts(v + sparse_offset));
+              out.data_[vstart + v] = var.data() + out.shift_;
+            } else { 
+              out.data_[vstart + v] = nullptr;
+            }
           }
         }(),
         ...);
