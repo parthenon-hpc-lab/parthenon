@@ -4,6 +4,8 @@
 #include <array>
 #include <concepts>
 #include <optional>
+#include <typeindex>
+#include <unordered_map>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -21,6 +23,10 @@ namespace loop_abstraction {
 
 using device_team_member_t =
     typename Kokkos::TeamPolicy<parthenon::DevExecSpace>::member_type;
+
+namespace halo {
+struct none_t;
+}
 
 namespace impl {
 template <class IndexSpaceType>
@@ -173,10 +179,18 @@ class IndexSpace {
 
   KOKKOS_INLINE_FUNCTION int GetNInner() const { return ninner; }
 
+  template <class T, class Halo = halo::none_t>
+  void AddPerPointScratch(std::size_t count = 1);
+
+  std::size_t GetPerTeamScratchSizeInBytes() const {
+    return per_team_scratch_size_in_bytes;
+  }
+
  private:
   parthenon::Indexer3D logical_kji, memory_kji;
   int nblocks;
   int ninner;
+  std::size_t per_team_scratch_size_in_bytes = 0;
 };
 
 namespace halo {
@@ -284,13 +298,11 @@ class InnerIndexRange {
   KOKKOS_INLINE_FUNCTION
   InnerIndexRange<IndexSpaceType, Halo_in> AddHalo() const {
     static_assert(std::is_same_v<Halo, halo::none_t>, "Halo composition is currently not supported.");
-
-    // Build the global halo logical space
     parthenon::Indexer3D halo_kji = AddHaloToIndexer<Halo_in>(logical_kji);
-    
     const auto [ke, je, ie] = GetKJIFromFlatIdx(flat_end[0]);
-
-    return InnerIndexRange<IndexSpaceType, Halo_in>(*pidx_space, halo_kji, block, {ks, js, is}, {ke, je, ie}, team_member); 
+    return InnerIndexRange<IndexSpaceType, Halo_in>(*pidx_space, halo_kji, block,
+                                                    {ks, js, is}, {ke, je, ie},
+                                                    team_member);
   }
 
   KOKKOS_INLINE_FUNCTION void BuildRegionsFromEndpoints(const Index3 start, const Index3 end) {
@@ -438,6 +450,16 @@ struct StackScratch1D {
   T &operator()(IDXT) const {
     return data[0];
   }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  constexpr std::size_t size() const {
+    return N;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  constexpr std::size_t shmem_size() const {
+    return 0;
+  }
 };
 
 template <class IndexRange, class T>
@@ -451,6 +473,16 @@ struct HostScratch1D {
   template <class IDXT>
   KOKKOS_FORCEINLINE_FUNCTION T &operator()(IDXT idx) const {
     return data[idx_range.CompactIndex(idx)];
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  std::size_t size() const {
+    return data.size();
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  constexpr std::size_t shmem_size() const {
+    return 0;
   }
 };
 
@@ -466,6 +498,16 @@ struct TeamScratch1D {
   template<class IDXT>
   KOKKOS_FORCEINLINE_FUNCTION
   T &operator()(IDXT idx_in) const { return data(idx_range.CompactIndex(idx_in)); }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  std::size_t size() const {
+    return idx_range.size();
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  std::size_t shmem_size() const {
+    return parthenon::ScratchPad1D<T>::shmem_size(size());
+  }
 };
 
 template <class T, class IndexRange>
@@ -478,6 +520,71 @@ auto GetPerPointScratch(const IndexRange &idx_range) {
   } else {
     return TeamScratch1D<IndexRange, T>(idx_range);
   }
+}
+
+template <class T, class IndexRange>
+KOKKOS_INLINE_FUNCTION std::size_t GetPerPointScratchSize(const IndexRange &idx_range) {
+  if constexpr (impl::use_raw_for_v || IndexRange::index_space_t::loop_tag_v == loop_tag::boiv) {
+    return 0;
+  } else {
+    return parthenon::ScratchPad1D<T>::shmem_size(idx_range.size());
+  }
+}
+
+template <class T, class Halo, class IndexSpaceType>
+inline std::size_t GetPerTeamScratchSize(const IndexSpaceType &idx_space) {
+  if constexpr (impl::use_raw_for_v || IndexSpaceType::loop_tag_v == loop_tag::boiv) {
+    return 0;
+  } else {
+    const std::size_t key = reinterpret_cast<std::size_t>(&idx_space) ^
+                            (std::type_index(typeid(T)).hash_code() << 1) ^
+                            (std::type_index(typeid(Halo)).hash_code() << 2);
+    static thread_local std::unordered_map<std::size_t, std::size_t> cache;
+    if (const auto it = cache.find(key); it != cache.end()) {
+      return it->second;
+    }
+    std::size_t scratch_size = 0;
+    using BaseRangeType = InnerIndexRange<IndexSpaceType>;
+    const auto &logical_kji = idx_space.GetLogicalIndexer();
+    auto update_scratch_size = [&](const auto &base_range) {
+      const auto halo_range = base_range.template AddHalo<Halo>();
+      scratch_size =
+          std::max(scratch_size,
+                   parthenon::ScratchPad1D<T>::shmem_size(halo_range.size()));
+    };
+    if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
+      for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
+        const BaseRangeType idx_range(idx_space, logical_kji, b);
+        update_scratch_size(idx_range);
+      }
+    } else {
+      const int nouter = GetNOuter(idx_space);
+      for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
+        for (int o = 0; o < nouter; ++o) {
+          const int logical_start = o * idx_space.GetNInner();
+          const int logical_end =
+              std::min((o + 1) * idx_space.GetNInner() - 1,
+                       static_cast<int>(logical_kji.size()) - 1);
+          const BaseRangeType idx_range(idx_space, logical_kji, b, logical_start,
+                                        logical_end);
+          update_scratch_size(idx_range);
+        }
+      }
+    }
+    cache.emplace(key, scratch_size);
+    return scratch_size;
+  }
+}
+
+template <class T, class IndexSpaceType>
+inline std::size_t GetPerTeamScratchSize(const IndexSpaceType &idx_space) {
+  return GetPerTeamScratchSize<T, halo::none_t>(idx_space);
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+template <class T, class Halo>
+void IndexSpace<LOOP_TAG, INNER_TAG>::AddPerPointScratch(std::size_t count) {
+  per_team_scratch_size_in_bytes += count * GetPerTeamScratchSize<T, Halo>(*this);
 }
 
 

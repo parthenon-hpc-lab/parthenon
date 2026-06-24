@@ -7,6 +7,7 @@ namespace loop_abstraction::impl {
 template <class IndexSpaceType, class F>
 void outer_kokkos(IndexSpaceType idx_space, F &&f) {
   using InnerIndexRangeType = InnerIndexRange<IndexSpaceType>;
+  const std::size_t scratch_size_in_bytes = idx_space.GetPerTeamScratchSizeInBytes();
   if constexpr (IndexSpaceType::loop_tag_v == loop_tag::boiv) {
     const int cells_per_block = static_cast<int>(idx_space.GetLogicalIndexer().size());
     const int total = idx_space.GetNBlocks() * cells_per_block;
@@ -28,7 +29,9 @@ void outer_kokkos(IndexSpaceType idx_space, F &&f) {
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bovi) {
     const int nouter = GetNOuter(idx_space);
     const int league_size = idx_space.GetNBlocks() * nouter;
-    const Kokkos::TeamPolicy<parthenon::DevExecSpace> policy(league_size, Kokkos::AUTO);
+    auto policy = Kokkos::TeamPolicy<parthenon::DevExecSpace>(league_size, Kokkos::AUTO);
+    if (scratch_size_in_bytes > 0)
+      policy.set_scratch_size(1, Kokkos::PerTeam(scratch_size_in_bytes), Kokkos::PerThread(0));
     Kokkos::parallel_for(
         "loop_abstraction::outer_kokkos_team", policy,
         KOKKOS_LAMBDA(const device_team_member_t &member) {
@@ -43,9 +46,10 @@ void outer_kokkos(IndexSpaceType idx_space, F &&f) {
           f(idx_range, b);
         });
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
-    const Kokkos::TeamPolicy<parthenon::DevExecSpace> policy(idx_space.GetNBlocks(),
-                                                             Kokkos::AUTO);
-    const auto &logical_kji = idx_space.GetLogicalIndexer();
+    auto policy =
+        Kokkos::TeamPolicy<parthenon::DevExecSpace>(idx_space.GetNBlocks(), Kokkos::AUTO);
+    if (scratch_size_in_bytes > 0)
+      policy.set_scratch_size(1, Kokkos::PerTeam(scratch_size_in_bytes), Kokkos::PerThread(0));
     Kokkos::parallel_for(
         "loop_abstraction::outer_kokkos_bvoi", policy,
         KOKKOS_LAMBDA(const device_team_member_t &member) {
