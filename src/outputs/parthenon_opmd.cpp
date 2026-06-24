@@ -264,7 +264,7 @@ GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te
     // distinguished only by sub-group name.
     mesh_record_name = vinfo.GetBaseName() + "_" + te_str + "lvl" + std::to_string(level);
 
-    if (vinfo.is_vector and vinfo.num_components == 3) {
+    if (vinfo.is_vector && vinfo.num_components == 3) {
       if (comp_idx == 0) {
         comp_name = "x";
       } else if (comp_idx == 1) {
@@ -290,7 +290,7 @@ GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te
     mesh_record_name = vinfo.label + "_" + te_str + vinfo.component_labels[comp_idx] +
                        "_lvl" + std::to_string(level);
 
-    if (vinfo.is_vector and vinfo.num_components == 3) {
+    if (vinfo.is_vector && vinfo.num_components == 3) {
       if (comp_idx == 0) {
         comp_name = "x";
       } else if (comp_idx == 1) {
