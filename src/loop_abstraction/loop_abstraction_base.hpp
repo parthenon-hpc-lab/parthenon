@@ -7,6 +7,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include <Kokkos_Core.hpp>
 
@@ -206,6 +207,7 @@ struct plus_j_t {
 template <class IndexSpaceType, class Halo = halo::none_t>
 class InnerIndexRange {
  public:
+  using index_space_t = IndexSpaceType;
   using halo_t = Halo; 
   
   const IndexSpaceType *pidx_space = nullptr;
@@ -390,6 +392,7 @@ class InnerIndexRange {
 template <inner_tag INNER_TAG, class Halo>
 class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG>, Halo> {
  public:
+  using index_space_t = IndexSpace<loop_tag::boiv, INNER_TAG>;
   using halo_t = Halo; 
   const IndexSpace<loop_tag::boiv, INNER_TAG> *pidx_space = nullptr;
   int block = 0;
@@ -428,10 +431,27 @@ class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG>, Halo> {
 
 template <class T, int N>
 struct StackScratch1D {
-  T data[N];
+  mutable std::array<T, N> data{};
   // TODO: Make this work for Halos
+  template <class IDXT>
   KOKKOS_FORCEINLINE_FUNCTION
-  T &operator()(int n) const { return data[0]; }
+  T &operator()(IDXT) const {
+    return data[0];
+  }
+};
+
+template <class IndexRange, class T>
+struct HostScratch1D {
+  IndexRange idx_range;
+  mutable std::vector<T> data;
+
+  HostScratch1D(const IndexRange &idx_range)
+      : idx_range(idx_range), data(idx_range.size(), T{}) {}
+
+  template <class IDXT>
+  KOKKOS_FORCEINLINE_FUNCTION T &operator()(IDXT idx) const {
+    return data[idx_range.CompactIndex(idx)];
+  }
 };
 
 template <class IndexRange, class T>
@@ -453,6 +473,8 @@ KOKKOS_INLINE_FUNCTION
 auto GetPerPointScratch(const IndexRange &idx_range) {
   if constexpr (IndexRange::index_space_t::loop_tag_v == loop_tag::boiv) {
     return StackScratch1D<T, IndexRange::halo_t::npoints>{};
+  } else if constexpr (impl::use_raw_for_v) {
+    return HostScratch1D<IndexRange, T>(idx_range);
   } else {
     return TeamScratch1D<IndexRange, T>(idx_range);
   }

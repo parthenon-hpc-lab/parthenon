@@ -123,6 +123,15 @@ KOKKOS_INLINE_FUNCTION Real EncodeValue(const int b, const int v, const int k,
          static_cast<Real>(i) + 1.0;
 }
 
+KOKKOS_INLINE_FUNCTION Real ScratchExpectedValue(const int b, const int k,
+                                                 const int j, const int i) {
+  Real out = 0.0;
+  for (int v = 0; v < kNVars; ++v) {
+    out += EncodeValue(b, v, k, j, i);
+  }
+  return out;
+}
+
 template <class IndexSpaceType>
 KOKKOS_INLINE_FUNCTION bool IsLogicalCell(const IndexSpaceType &idx_space, const int k,
                                           const int j, const int i) {
@@ -697,6 +706,47 @@ void RunPackViewPatternMatrix() {
   RunPackViewPatternMatrix<LOOP_TAG, INNER_TAG>("kji", true);
 }
 
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunScratchCase(const ProblemSpec &spec, const int ninner) {
+  const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
+  INFO("pattern=" << pattern_name << ", spec=" << spec.nblocks << "x" << spec.nx
+                  << "x" << spec.ny << "x" << spec.nz << " nghost=" << spec.nghost
+                  << ", ninner=" << ninner);
+
+  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG>;
+  IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
+
+  loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
+    auto my_scratch = loop_abstraction::GetPerPointScratch<Real>(idx_range);
+
+    loop_abstraction::inner(idx_range, [&](auto idx) {
+      const auto [k, j, i] = idx_range.GetKJI(idx);
+      my_scratch(idx) = 0.0;
+    });
+
+    for (int v = 0; v < kNVars; ++v) {
+      loop_abstraction::inner(idx_range, [&](auto idx) {
+        const auto [k, j, i] = idx_range.GetKJI(idx);
+        my_scratch(idx) += EncodeValue(b, v, k, j, i);
+      });
+    }
+
+    loop_abstraction::inner(idx_range, [&](auto idx) {
+      const auto [k, j, i] = idx_range.GetKJI(idx);
+      REQUIRE(my_scratch(idx) == Approx(ScratchExpectedValue(b, k, j, i)));
+    });
+  });
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunScratchPatternMatrix() {
+  for (const auto &spec : CoverageSpecs()) {
+    for (const int ninner : NinnerCases(spec.nx * spec.ny * spec.nz)) {
+      RunScratchCase<LOOP_TAG, INNER_TAG>(spec, ninner);
+    }
+  }
+}
+
 } // namespace
 
 TEST_CASE("loop abstraction logical contracts with auto index bodies",
@@ -721,6 +771,18 @@ TEST_CASE("loop abstraction logical contracts with kji bodies",
   RunPatternMatrix<loop_tag::bovi, inner_tag::memory>("kji", true);
   RunPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>("kji", true);
   RunPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>("kji", true);
+}
+
+TEST_CASE("loop abstraction scratch roundtrip",
+          "[loop_abstraction][contract][scratch]") {
+  RunScratchPatternMatrix<loop_tag::bvoi, inner_tag::logical_flat>();
+  RunScratchPatternMatrix<loop_tag::bvoi, inner_tag::logical_coords>();
+  RunScratchPatternMatrix<loop_tag::bvoi, inner_tag::memory>();
+  RunScratchPatternMatrix<loop_tag::bovi, inner_tag::logical_flat>();
+  RunScratchPatternMatrix<loop_tag::bovi, inner_tag::logical_coords>();
+  RunScratchPatternMatrix<loop_tag::bovi, inner_tag::memory>();
+  RunScratchPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
+  RunScratchPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
 }
 
 TEST_CASE("loop abstraction halo producer-consumer contracts",
