@@ -234,7 +234,12 @@ class InnerIndexRange {
   int js = 0;
   int is = 0;
   const device_team_member_t *team_member = nullptr;
-  
+   
+  KOKKOS_FORCEINLINE_FUNCTION
+  void TeamBarrier() const {
+    if (team_member) team_member->team_barrier();
+  }
+
   // Constructor relevant for bvoi 
   KOKKOS_INLINE_FUNCTION
   InnerIndexRange(const IndexSpaceType &idx_space,
@@ -439,6 +444,9 @@ class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG>, Halo> {
   int size() const {
     return halo_t::npoints;
   }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  void TeamBarrier() const {}
 };
 
 template <class T, int N>
