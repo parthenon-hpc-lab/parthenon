@@ -232,6 +232,17 @@ class InnerIndexRange {
       js(logical_kji.template StartIdx<1>()),
       is(logical_kji.template StartIdx<2>()),
       team_member(team_member_in) {
+    const Index3 start{
+      logical_kji.template StartIdx<0>(),
+      logical_kji.template StartIdx<1>(),
+      logical_kji.template StartIdx<2>()};
+
+    const Index3 end{
+        logical_kji.template EndIdx<0>(),
+        logical_kji.template EndIdx<1>(),
+        logical_kji.template EndIdx<2>()};
+
+    BuildRegionsFromEndpoints(start, end);
   }
   
   // Constructor relevant for bovi
@@ -316,6 +327,16 @@ class InnerIndexRange {
       return logical_kji.GetFlatIdx(k, j, i);
     }
   }
+  
+  KOKKOS_FORCEINLINE_FUNCTION auto GetFlatIdxFromMemoryIdx(int mem_idx) const { 
+    if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) { 
+      const int mem_shift = pidx_space->GetMemoryIndexer().GetFlatIdx(ks, js, is);
+      return mem_idx + mem_shift;
+    } else { 
+      const auto [k, j, i] = GetKJI(mem_idx);
+      return logical_kji.GetFlatIdx(k, j, i);
+    }
+  }
 
   KOKKOS_INLINE_FUNCTION std::tuple<int, int, int> GetKJI(int mem_idx) const {
     const int mem_shift = pidx_space->GetMemoryIndexer().GetFlatIdx(ks, js, is);
@@ -324,6 +345,45 @@ class InnerIndexRange {
 
   KOKKOS_INLINE_FUNCTION std::tuple<int, int, int> GetKJI(Index3 idx) const {
     return {idx.k, idx.j, idx.i};
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  int size() const {
+    int n = 0;
+    for (int r = 0; r < nregions; ++r) {
+      n += flat_end[r] - flat_start[r] + 1;
+    }
+    return n;
+  }
+  
+  KOKKOS_INLINE_FUNCTION
+  int CompactIndexFromFlat(int flat_idx) const {
+    int offset = 0;
+  
+    for (int r = 0; r < nregions; ++r) {
+      if (flat_idx >= flat_start[r] && flat_idx <= flat_end[r]) {
+        return offset + (flat_idx - flat_start[r]);
+      }
+  
+      offset += flat_end[r] - flat_start[r] + 1;
+    }
+  
+    return -1;
+  }
+  
+  KOKKOS_INLINE_FUNCTION
+  int CompactIndex(int mem_idx) const {
+    return CompactIndexFromFlat(GetFlatIdxFromMemoryIdx(mem_idx));
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  int CompactIndex(Index3 idx) const {
+    return CompactIndexFromFlat(GetFlatIdxFromKJI(idx.k, idx.j, idx.i));
+  }
+  
+  KOKKOS_INLINE_FUNCTION
+  int CompactIndex(const int k, const int j, const int i) const {
+    return CompactIndexFromFlat(GetFlatIdxFromKJI(k, j, i));
   }
 };
 
@@ -359,6 +419,44 @@ class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG>, Halo> {
   KOKKOS_INLINE_FUNCTION std::tuple<int, int, int> GetKJI(Index3 idx) const {
     return {idx.k, idx.j, idx.i};
   }
+  
+  KOKKOS_INLINE_FUNCTION
+  int size() const {
+    return halo_t::npoints;
+  }
 };
+
+template <class T, int N>
+struct StackScratch1D {
+  T data[N];
+  // TODO: Make this work for Halos
+  KOKKOS_FORCEINLINE_FUNCTION
+  T &operator()(int n) const { return data[0]; }
+};
+
+template <class IndexRange, class T>
+struct TeamScratch1D {
+  static constexpr int scratch_level = 1;
+  IndexRange idx_range;
+  parthenon::ScratchPad1D<T> data;
+  TeamScratch1D(const IndexRange &idx_range) 
+      : idx_range(idx_range),
+        data(idx_range.team_member->team_scratch(scratch_level), idx_range.size()) {} 
+
+  template<class IDXT>
+  KOKKOS_FORCEINLINE_FUNCTION
+  T &operator()(IDXT idx_in) const { return data(idx_range.CompactIndex(idx_in)); }
+};
+
+template <class T, class IndexRange>
+KOKKOS_INLINE_FUNCTION
+auto GetPerPointScratch(const IndexRange &idx_range) {
+  if constexpr (IndexRange::index_space_t::loop_tag_v == loop_tag::boiv) {
+    return StackScratch1D<T, IndexRange::halo_t::npoints>{};
+  } else {
+    return TeamScratch1D<IndexRange, T>(idx_range);
+  }
+}
+
 
 } // namespace loop_abstraction
