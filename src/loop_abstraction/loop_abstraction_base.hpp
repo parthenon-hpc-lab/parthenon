@@ -450,6 +450,11 @@ struct StackScratch1D {
   T &operator()(IDXT) const {
     return data[0];
   }
+  
+  KOKKOS_FORCEINLINE_FUNCTION
+  T &operator()(int k, int j, int i) const {
+    return data[0];
+  }
 
   KOKKOS_FORCEINLINE_FUNCTION
   constexpr std::size_t size() const {
@@ -475,6 +480,10 @@ struct HostScratch1D {
     return data[idx_range.CompactIndex(idx)];
   }
 
+  KOKKOS_FORCEINLINE_FUNCTION T &operator()(int k, int j, int i) const {
+    return data[idx_range.CompactIndex(k, j, i)];
+  }
+
   KOKKOS_FORCEINLINE_FUNCTION
   std::size_t size() const {
     return data.size();
@@ -498,7 +507,10 @@ struct TeamScratch1D {
   template<class IDXT>
   KOKKOS_FORCEINLINE_FUNCTION
   T &operator()(IDXT idx_in) const { return data(idx_range.CompactIndex(idx_in)); }
-
+  
+  KOKKOS_FORCEINLINE_FUNCTION T &operator()(int k, int j, int i) const {
+    return data(idx_range.CompactIndex(k, j, i));
+  }
   KOKKOS_FORCEINLINE_FUNCTION
   std::size_t size() const {
     return idx_range.size();
