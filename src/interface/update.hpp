@@ -84,9 +84,9 @@ TaskStatus WeightedSumData(const F &flags, T *in1, T *in2, const Real w1, const 
         // TOOD(someone) This is potentially dangerous and/or not intended behavior
         // as we still may want to update (or populate) z if any of those vars are
         // not allocated yet.
-        if (x.IsAllocated(b, l) && y.IsAllocated(b, l) && z.IsAllocated(b, l)) {
+        //if (x.IsAllocated(b, l) && y.IsAllocated(b, l) && z.IsAllocated(b, l)) {
           z(b, l, k, j, i) = w1 * x(b, l, k, j, i) + w2 * y(b, l, k, j, i);
-        }
+        //}
       });
   return TaskStatus::complete;
 }
