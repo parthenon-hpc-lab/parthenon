@@ -91,7 +91,7 @@ class LogicalLocation { // aggregate and POD type
 
   bool Contains(const LogicalLocation &containee) const;
 
-  std::array<int, 3> GetSameLevelOffsets(const LogicalLocation &neighbor) const;
+  Kokkos::Array<int, 3> GetSameLevelOffsets(const LogicalLocation &neighbor) const;
 
   // Being a neighbor implies that you share a face, edge, or node and don't share a
   // volume
@@ -115,6 +115,13 @@ class LogicalLocation { // aggregate and POD type
 
   bool IsLowerLeftCornerOfParent() const {
     return ((lx1() & 1LL) == 0LL) && ((lx2() & 1LL) == 0LL) && ((lx3() & 1LL) == 0LL);
+  }
+
+  bool IsLowerLeftRepresentativeOf(const LogicalLocation &loc) {
+    if (loc.tree() == tree()) {
+      return loc.morton() == morton();
+    }
+    return false;
   }
 
   // Get the location in the parent, i.e. the lower left corner of the block

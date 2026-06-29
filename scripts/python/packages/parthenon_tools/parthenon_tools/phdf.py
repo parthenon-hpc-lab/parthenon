@@ -351,6 +351,19 @@ class phdf:
 
             idx_i += num_components
 
+    def close(self):
+        try:
+            self.fid.close()
+        except Exception:
+            pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+        return False
+
     def GenAuxData(self):
         """
         Additional attributes filled in by function GenAuxData():
@@ -852,7 +865,7 @@ class phdf:
         )
 
 
-if __name__ == "__main__":
+def main():
     files = sys.argv[1:]
     for filename in files:
         ba = phdf(filename)
@@ -862,3 +875,7 @@ if __name__ == "__main__":
         l = ba.Get("c.c.bulk.bulk_modulus")
         print("mod=", l.shape)
         print(help(ba))
+
+
+if __name__ == "__main__":
+    main()

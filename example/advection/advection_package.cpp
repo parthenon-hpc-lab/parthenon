@@ -249,7 +249,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 void AdvectionGreetings(Mesh *pmesh, ParameterInput *pin, parthenon::SimTime &tm) {
   if (parthenon::Globals::my_rank == 0) {
     std::cout << "Hello from the advection package in the advection example!\n"
-              << "This run is a restart: " << pmesh->is_restart << "\n"
+              << "This run is a restart: " << parthenon::Globals::is_restart << "\n"
               << std::endl;
   }
 }
@@ -555,7 +555,8 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
   const int nvar = v.GetDim(4);
-  size_t scratch_size_in_bytes = parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
+  std::size_t scratch_size_in_bytes =
+      parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
   // get x-fluxes
   pmb->par_for_outer(
       PARTHENON_AUTO_LABEL, 2 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s,

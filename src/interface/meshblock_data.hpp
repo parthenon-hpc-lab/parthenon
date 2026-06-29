@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -12,6 +12,8 @@
 //========================================================================================
 #ifndef INTERFACE_MESHBLOCK_DATA_HPP_
 #define INTERFACE_MESHBLOCK_DATA_HPP_
+
+// This file was made in part with generative AI
 
 #include <algorithm>
 #include <limits>
@@ -29,9 +31,11 @@
 #include "interface/variable.hpp"
 #include "interface/variable_pack.hpp"
 #include "mesh/domain.hpp"
-#include "pack/sparse_pack_base.hpp"
-#include "pack/sparse_pack_cache.hpp"
-#include "pack/swarm_pack_base.hpp"
+#include "pack/sparse_pack/sparse_pack_base.hpp"
+#include "pack/sparse_pack/sparse_pack_cache.hpp"
+#include "pack/swarm_pack/swarm_pack_base.hpp"
+#include "pack/swarm_pack/swarm_pack_cache.hpp"
+#include "pack/swarm_pack/swarm_pack_types.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/unique_id.hpp"
@@ -64,8 +68,8 @@ class MeshBlockData {
   // Public Methods
   //-----------------
   /// Constructor
-  MeshBlockData<T>() = default;
-  explicit MeshBlockData<T>(const std::string &name) : stage_name_(name) {}
+  MeshBlockData() = default;
+  explicit MeshBlockData(const std::string &name) : stage_name_(name) {}
 
   std::shared_ptr<MeshBlock> GetBlockSharedPointer() const {
     if (pmy_block.expired()) {
@@ -74,6 +78,7 @@ class MeshBlockData {
     return pmy_block.lock();
   }
   MeshBlock *GetBlockPointer() const { return GetBlockSharedPointer().get(); }
+  MeshBlockData<T> *GetBlockDataRawPointer(int n = 0) { return this; }
   MeshBlock *GetParentPointer() const { return GetBlockPointer(); }
   void SetAllowedDt(const Real dt) const { GetBlockPointer()->SetAllowedDt(dt); }
   Mesh *GetMeshPointer() const { return GetBlockPointer()->pmy_mesh; }
@@ -157,12 +162,13 @@ class MeshBlockData {
     varVector_.clear();
     varMap_.clear();
     varUidMap_.clear();
+    varUidSet_.clear();
     flagsToVars_.clear();
     varPackMap_.clear();
     coarseVarPackMap_.clear();
     varFluxPackMap_.clear();
 
-    [[maybe_unused]] auto add_var = [=](auto var) {
+    [[maybe_unused]] auto add_var = [=, this](auto var) {
       if (shallow_copy || var->IsSet(Metadata::OneCopy)) {
         Add(var);
       } else {
@@ -368,17 +374,13 @@ class MeshBlockData {
 
   template <typename TYPE>
   SwarmPackCache<TYPE> &GetSwarmPackCache() {
-    if constexpr (std::is_same<TYPE, int>::value) {
-      return swarm_pack_int_cache_;
-    } else if constexpr (std::is_same<TYPE, Real>::value) {
-      return swarm_pack_real_cache_;
-    }
-    PARTHENON_THROW("SwarmPacks only compatible with int and Real types");
+    static_assert(SwarmPackTypes::template IsIn<TYPE>(),
+                  "Unsupported type encountered in SwarmPack");
+    return std::get<SwarmPackTypes::template GetIdx<TYPE>()>(swarm_pack_caches_);
   }
 
   void ClearSwarmCaches() {
-    if (swarm_pack_real_cache_.size() > 0) swarm_pack_real_cache_.clear();
-    if (swarm_pack_int_cache_.size() > 0) swarm_pack_int_cache_.clear();
+    std::apply([](auto &...caches) { (caches.clear(), ...); }, swarm_pack_caches_);
   }
 
   /// Pack variables and fluxes by separate variables and fluxes names
@@ -534,9 +536,9 @@ class MeshBlockData {
   void Print();
 
   // return number of stored arrays
-  int Size() noexcept { return varVector_.size(); }
+  std::size_t Size() noexcept { return varVector_.size(); }
 
-  bool operator==(const MeshBlockData<T> &cmp);
+  bool operator==(const MeshBlockData<T> &cmp) const;
 
   bool Contains(const std::string &name) const noexcept { return varMap_.count(name); }
   bool Contains(const Uid_t &uid) const noexcept { return varUidMap_.count(uid); }
@@ -563,6 +565,8 @@ class MeshBlockData {
              return this->varUidIn_.count(Variable<Real>::GetUniqueID(v));
            });
   }
+
+  const auto &GetUids() const { return varUidSet_; }
 
   void SetAllVariablesToInitialized() {
     std::for_each(varVector_.begin(), varVector_.end(),
@@ -600,8 +604,11 @@ class MeshBlockData {
 
   VariableVector<T> varVector_; ///< the saved variable array
   std::map<Uid_t, std::shared_ptr<Variable<T>>> varUidMap_;
-  std::set<Uid_t> varUidIn_; // Uid list from which this MeshBlockData was created,
-                             // empty implies all variables were included
+  std::set<Uid_t> varUidIn_;  // Uid list from which this MeshBlockData was created,
+                              // empty implies all variables were included
+  std::set<Uid_t> varUidSet_; // All variables that are included in this MeshBlockData,
+                              // including fluxes that may not have been explicitly
+                              // specified.
 
   MapToVars<T> varMap_;
   MetadataFlagToVariableMap<T> flagsToVars_;
@@ -611,8 +618,7 @@ class MeshBlockData {
   MapToVariablePack<T> coarseVarPackMap_; // cache for varpacks over coarse arrays
   MapToVariableFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
-  SwarmPackCache<int> swarm_pack_int_cache_;
-  SwarmPackCache<Real> swarm_pack_real_cache_;
+  SwarmPackCaches swarm_pack_caches_;
 
   // swarm data
   std::shared_ptr<SwarmContainer> swarm_data = std::make_shared<SwarmContainer>();

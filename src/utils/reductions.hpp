@@ -49,6 +49,7 @@ enum MPI_Op {
 
 #ifdef MPI_PARALLEL
 template <class U>
+  requires(ContiguousContainer<U>)
 MPI_Datatype GetContainerMPIType(const U &v) {
   using value_type = decltype(contiguous_container::value_type(v));
   return MPITypeMap<value_type>::type();
@@ -68,7 +69,11 @@ struct ReductionBase {
     // Store the communicator in a shared_ptr, so that
     // MPI_Comm_free is called, but only when the last
     // copy of this ReductionBase is destroyed.
-    pcomm = std::shared_ptr<MPI_Comm>(new MPI_Comm, MPI_Comm_disconnect);
+    pcomm = std::shared_ptr<MPI_Comm>(new MPI_Comm, [](MPI_Comm *comm) {
+      auto *temp = comm;
+      PARTHENON_MPI_CHECK(MPI_Comm_disconnect(comm));
+      delete temp;
+    });
     PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, pcomm.get()));
 #endif
   }

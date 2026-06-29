@@ -67,15 +67,21 @@ void Driver::DumpInputParameters() {
 }
 
 void Driver::PreExecute() {
-  bool check_orphans = pinput->GetOrAddBoolean(
-      "parthenon/job", "check_orphans", true,
-      "print a warning if any parameters are in the input deck but not used in the code");
+  std::string check_orphans = pinput->GetOrAddString(
+      "parthenon/job", "check_orphans", "initially",
+      std::vector<std::string>{"always", "initially", "never"},
+      "Print a warning if any parameters are in the input deck but not used in the code. "
+      "By default this check is performed for new runs, but can also be enabled for "
+      "restarts or completely disabled.");
   // Output a text file of all parameters at this point
   // Optionally also dump to console
   DumpInputParameters();
 
   if (Globals::my_rank == 0) {
-    if (check_orphans) pinput->CheckOrphans();
+    if ((check_orphans == "always") ||
+        (!Globals::is_restart && (check_orphans == "initially"))) {
+      pinput->CheckOrphans();
+    }
     std::cout << "# Variables in use:\n" << *(pmesh->resolved_packages) << std::endl;
     std::cout << std::endl;
     std::cout << "Setup complete, executing driver...\n" << std::endl;
@@ -143,6 +149,11 @@ DriverStatus EvolutionDriver::Execute() {
     while (tm.KeepGoing() && signal != OutputSignal::analysis) {
       if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
+      // poke the dog
+      if (Globals::watchdog_enabled) {
+        WatchDog::WatchDog(0);
+      }
+
       if (pmesh->PreStepUserWorkInLoop != nullptr) {
         pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
       }
@@ -168,8 +179,17 @@ DriverStatus EvolutionDriver::Execute() {
       pmesh->mbcnt += pmesh->nbtotal;
       pmesh->step_since_lb++;
 
+      // skip the final (last) output at the end of the simulation time as it happens
+      // later
+      if (output_before_amr && tm.KeepGoing()) {
+        pouts->MakeOutputs(pmesh, pinput, &tm, signal);
+      }
+
       timer_LBandAMR.reset();
       pmesh->LoadBalancingAndAdaptiveMeshRefinement(pinput, app_input);
+      if ((buffer_reset_cadence_ > 0) && (tm.ncycle % buffer_reset_cadence_ == 0)) {
+        pmesh->TryReallocCommBufferPools();
+      }
       if (pmesh->modified) InitializeBlockTimeSteps();
       time_LBandAMR += timer_LBandAMR.seconds();
       SetGlobalTimeStep();
@@ -183,7 +203,7 @@ DriverStatus EvolutionDriver::Execute() {
 
       // skip the final (last) output at the end of the simulation time as it happens
       // later
-      if (tm.KeepGoing()) {
+      if (!output_before_amr && tm.KeepGoing()) {
         pouts->MakeOutputs(pmesh, pinput, &tm, signal);
       }
 
@@ -193,7 +213,7 @@ DriverStatus EvolutionDriver::Execute() {
       }
     } // END OF MAIN INTEGRATION LOOP
       // ======================================================
-  }   // Main t < tmax loop region
+  } // Main t < tmax loop region
 
   if (pmesh->UserWorkAfterLoop != nullptr) {
     pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
@@ -334,6 +354,8 @@ void EvolutionDriver::OutputCycleDiagnostics() {
                   << static_cast<double>(zonecycles) / (time_cycle_step + time_LBandAMR)
                   << " wsec_AMR=" << time_LBandAMR;
       }
+
+      OutputDownstreamCycleDiagnostics();
 
       // insert more diagnostics here
       std::cout << std::endl;

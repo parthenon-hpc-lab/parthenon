@@ -348,17 +348,22 @@ those fields are reset to ``ParArrayND``\ s of size 0.
 Deallocation
 ~~~~~~~~~~~~
 
-There is a new task called ``SparseDealloc`` in
-``src/interface/update.cpp`` taking a ``MeshData`` pointer. It is meant
-to be run after the update task for the last stage (of course, it does
-not have to be run every time step). On every block, it checks the
-values of all sparse variables. If the maximum absolute value is below
-the user-defined deallocation threshold, the variable is flagged for
-deallocation on that block. The variable is only actually deallocated if
-it has been flagged for deallocation a certain number of times in a row
-(if any of the values exceeds the deallocation threshold, the counter is
-reset to 0). That number is the deallocation count, which is also
-settable by the user in the input file.
+The header file ``src/sparse/sparse_management.hpp`` contains the
+function ``SparseDeallocOnCount``, which deallocates sparse variables
+if they have been below the dealloc threshold for ``count`` checks.
+
+The task ``SparseDealloc`` in ``src/interface/update.cpp`` calls
+``SparseDeallocOnCount`` in a task list. It takes a ``MeshData``
+pointer. It is meant to be run after the update task for the last
+stage (of course, it does not have to be run every time step). On
+every block, it checks the values of all sparse variables. If the
+maximum absolute value is below the user-defined deallocation
+threshold, the variable is flagged for deallocation on that block. The
+variable is only actually deallocated if it has been flagged for
+deallocation a certain number of times in a row (if any of the values
+exceeds the deallocation threshold, the counter is reset to 0). That
+number is the deallocation count, which is also settable by the user
+in the input file.
 
 Boundary exchange
 ~~~~~~~~~~~~~~~~~
@@ -373,45 +378,28 @@ communication and flux correction implementation in Parthenon is given
 AMR and load balancing
 ~~~~~~~~~~~~~~~~~~~~~~
 
-The sparse implementation for AMR and load balancing is quite straight
-forward. For AMR, when we create new mesh blocks, we allocate the same
-variables on them as there were allocated on the old mesh blocks the new
-ones are created from.
+The sparse implementation for AMR and load balancing is straight
+forward. When a block is refined or derefined, ``Mesh::SendCoarseToFine``
+or ``Mesh::SendFineToCoarse`` is called for each independent variable.
+If the variable is allocated on the block, its (coarse) data is sent to the
+rank holding the new block. If the variable is unallocated a message of
+size zero is sent, indicating to the receiver the variable is unallocated.
+The fields are received, allocated if necessary based on the message
+size, and have their internal values set if they are allocated in
+``Mesh::TryReceiveCoarseToFine`` and ``Mesh::TryReceiveFineToCoarse``.
 
-For the load balancing, we need to send the allocation statuses of the
-variables together with their data. So we add flags at the beginning of
-the send/receive buffers to indicate the allocation statuses. There is
-one flag per variable. The rest of the buffer is unchanged and always
-includes space for all variables regardless whether they are allocated
-or not. This simplifies the implementation drastically, because all the
-MPI messages have the same size and the sender and receiver know what
-that size is without needing the know the allocation status of the other
-block. The remaining changes are as follows:
+When blocks are transferred between ranks for load balancing,
+``Mesh::SendSameToSame`` either sends a message containing the
+allocated field with the ``derefinement_count`` for the block and
+``dealloc_count`` for the variable saved in the first two ghost zones or
+if it is unallocated just sends a message of size two containing the
+``derefinement_count`` and ``dealloc_count``.
+``Mesh::TryReceiveSameToSame`` then allocates or doesn't allocate
+the variable depending on the size of the message it receives, fills the
+variable if it is allocated, and sets the ``derefinement_count`` and
+``dealloc_count`` on the moved block and variable to maintain
+consistent state independent of the number of MPI ranks.
 
--  In ``Mesh::PrepareSendSameLevel`` we only fill the send buffer (using
-   ``BufferUtility::PackData``) if the variable is allocated, otherwise
-   we simply skip that region of the buffer (and leave its values
-   uninitialized, since they won't be read) so that the data for each
-   variable is in the same place as if all variables were allocated.
--  In ``Mesh::PrepareSendCoarseToFineAMR`` and
-   ``Mesh::PrepareSendFineToCoarseAMR`` we do the same as above, but
-   instead of leaving regions of the buffer belonging to unallocated
-   variables uninitialized, we fill them with zeros (using
-   ``BufferUtility::PackZero``) since the target block may have the
-   variable allocated even if the sender doesn't (actually, I think this
-   can only happen for fine-to-coarse and not for coarse-to-fine).
--  In ``Mesh::FillSameRankFineToCoarseAMR`` when filling in the
-   destination data, we write zeros if the fine source block doesn't
-   have the variable allocated. Whereas in
-   ``Mesh::FillSameRankCoarseToFineAMR`` we make sure the source and
-   destination blocks have the same allocation status for each variable
-   and we simply skip unallocated variables.
--  In all three types of ``Mesh::FinishRecv*`` functions, we read the
-   allocation flags for all variables from the buffer, and we allocate
-   it on the receiving block if the sending block had it allocated but
-   it's not yet allocated on the receiving block. We then proceed to
-   read the buffer only if the variable is allocated on the receiving
-   block.
 
 Memory Footprint Reporting
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

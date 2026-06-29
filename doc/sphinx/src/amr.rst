@@ -10,7 +10,6 @@ following lines to the ``<parthenon/mesh>`` block of your input file:
 .. code::
 
   refinement = static # Enable static mesh refinement
-  numlevel = 5 # maximum number of refined levels allowed
 
 Then you may add any number of blocks named
 ``<parthenon/static_refinement*>``, where ``*`` is a number. Each
@@ -64,9 +63,8 @@ based on predefined criteria that can be enabled at runtime in the input
 file. Multiple criteria can be enabled simultaneously, in which case the
 most refined criteria wins. If ``refinement=adaptive`` has been
 specified as above, parthenon will initialize your AMR choices by
-looking for blocks with names ``<parthenon/refinement#>`` where ``#`` is
-a zero-based sequential indexing of Refinement criteria. An input file
-might looks like
+looking for blocks with names ``<parthenon/refinement*>`` where ``*`` is
+any unique string per refinement criteria. It might look like this:
 
 .. code::
 
@@ -105,6 +103,11 @@ The predefined refinement criteria are calculated in terms of the user
 selected variable :math:`q` as follows.
 Method:
 
+* ``magnitude``: The magnitude of the field. Note this criterion also
+  supports an additional option, which is
+  ``comparator``. ``comparator`` may be either ``greater_than`` or
+  ``lesss_than`` which determines whether you refine on a large value
+  or a small one.
 * ``derivative_order_1``: :math:`|\partial \ln q / \partial \ln x|`
 * ``derivative_order_2``:
   :math:`\frac{\delta x^2}{4\|q\|} \left\| \frac{\partial^2 q}{\partial x^2} \right\| = \frac{ \| q_{i-1} - 2 q_{i} + q_{i+1} \| }{ 2\| q_{i} \| + \| q_{i-1} + q_{i+1} \| }` 

@@ -122,10 +122,24 @@ class EvolutionDriver : public Driver {
                                                    "cadence of outputs describing mesh");
     tm = SimTime(start_time, tstop, nmax, ncycle, nout, nout_mesh, dt);
     pouts = std::make_unique<Outputs>(pmesh, pinput, &tm);
+
+    output_before_amr = pinput->GetOrAddBoolean(
+        "parthenon/time", "output_before_amr", false,
+        "Set to true to generate outputs in a step BEFORE modifying the mesh at the end "
+        "of the step. By default outputs happen AFTER remeshing if remeshing happens. "
+        "WARNING: this will make restarts not bitwise-exact.");
+    buffer_reset_cadence_ = pin->GetOrAddInteger(
+        "parthenon/time", "comm_buffer_reset_cadence", -1,
+        "If set to a positive number N, the comm buffer object pool will be reset "
+        "every N cycles if the expected number of required buffers has "
+        "decreased to parthenon/mesh/comm_buffer_reset_fraction times the total number "
+        "of allocated buffers. If set to a non-positive number, the buffer "
+        "pool is never cleared.");
   }
   DriverStatus Execute() override;
   virtual void SetGlobalTimeStep();
   virtual void OutputCycleDiagnostics();
+  virtual void OutputDownstreamCycleDiagnostics() { return; }
 
   virtual TaskListStatus Step() = 0;
   SimTime tm;
@@ -137,6 +151,8 @@ class EvolutionDriver : public Driver {
   bool dt_init_force;
   int dt_min_count, dt_max_count;
   int dt_min_count_max, dt_max_count_max;
+  std::int64_t buffer_reset_cadence_;
+  bool output_before_amr;
 
  private:
   void InitializeBlockTimeSteps();
@@ -154,7 +170,7 @@ TaskListStatus ConstructAndExecuteBlockTasks(T *driver, Args... args) {
   for (auto &pmb : driver->pmesh->block_list) {
     tr[i++] = driver->MakeTaskList(pmb.get(), std::forward<Args>(args)...);
   }
-  TaskListStatus status = tc.Execute();
+  TaskListStatus status = tc.Execute(driver->pmesh->task_collection_timeout_in_seconds);
   return status;
 }
 
@@ -162,7 +178,7 @@ template <typename T, class... Args>
 TaskListStatus ConstructAndExecuteTaskLists(T *driver, Args... args) {
   TaskCollection tc =
       driver->MakeTaskCollection(driver->pmesh->block_list, std::forward<Args>(args)...);
-  TaskListStatus status = tc.Execute();
+  TaskListStatus status = tc.Execute(driver->pmesh->task_collection_timeout_in_seconds);
   return status;
 }
 

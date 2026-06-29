@@ -50,7 +50,7 @@ several useful features and functions.
   restart file and updated upon restart. In contrast, ``Mutable``
   params not marked ``Restart`` are updated only by user code, not
   automatically. Note that not all parameter types can be output to
-  HDF5 file. However, most common scalar, vector, and ``Kokkos`` view
+  restart files. However, most common scalar, vector, and ``Kokkos`` view
   types are supported. Note also that if the value of a ``Param`` is
   different on different MPI ranks, this will result in undefined
   behaviour.
@@ -121,15 +121,22 @@ several useful features and functions.
   has been generated, (2) problem generators are called, and (3) comms
   are executed, but before any time evolution. This work is done both on
   first initialization and on restart. If you would like to avoid doing the
-  work upon restart, you can check for the const ``is_restart`` member
-  field of the ``Mesh`` object.  It is worth making a clear distinction
+  work upon restart, you can check the ``Globals::is_restart`` variable.
+  It is worth making a clear distinction
   between ``UserWorkBeforeLoopMesh`` and ``ApplicationInput``s
-  ``PostInitialization``.  ``PostInitialization`` is very much so tied to
-  initialization, and will not be called upon restarts.  ``PostInitialization``
+  ``PostProblemGenerator``. ``PostProblemGenerator`` is very much so tied to
+  initialization, and will not be called upon restarts. ``PostProblemGenerator``
   is also carefully positioned after ``ProblemGenerator`` and before
   ``PreCommFillDerived`` (and hence communications).  In practice, when
   additional granularity is required inbetween initialization and communication,
-  ``PostInitialization`` may be the desired hook.
+  ``PostProblemGenerator`` may be the desired hook. Finally we highlight
+  ``PostInitialization``, yet another function hook that enables a user to
+  provide any last initialization changes after the initialization hierarchy
+  has converged. This final hook runs whether that convergence involved AMR,
+  SMR, or a uniform grid. Both mesh level and block-level versions of
+  ``PostInitialization`` are provided (i.e., ``PostInitializationMesh`` and
+  ``PostInitializationBlock``, respectively).
+
 
 The reasoning for providing ``FillDerived*`` and ``EstimateTimestep*``
 function pointers appropriate for usage with both ``MeshData`` and
@@ -357,3 +364,6 @@ This means that any kind of communication (most prominently flux
 correction and ghost zone exchange) of a given variable at a given stage
 should not be interleaved with any other modifications/communication of
 said variable as it may result in undefined behavior.
+
+.. note::
+    This file was made in part with generative AI.

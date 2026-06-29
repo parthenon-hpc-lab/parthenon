@@ -7,7 +7,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -18,6 +18,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
+
 //! \file mesh-amr_loadbalance.cpp
 //  \brief implementation of Mesh::AdaptiveMeshRefinement() and related utilities
 
@@ -39,10 +42,11 @@
 #include "globals.hpp"
 #include "interface/update.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/mesh_neighbors.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
+#include "mesh/swarm_amr_remesh.hpp"
 #include "parthenon_arrays.hpp"
-#include "utils/buffer_utils.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -112,9 +116,10 @@ bool TryRecvCoarseToFine(int lid_recv, int send_rank, const LogicalLocation &fin
       auto &c_cellbounds =
           var->IsSet(Metadata::Fine) ? pmb->cellbounds : pmb->c_cellbounds;
       for (auto te : var->GetTopologicalElements()) {
-        IndexRange ib = c_cellbounds.GetBoundsI(IndexDomain::entire, te);
-        IndexRange jb = c_cellbounds.GetBoundsJ(IndexDomain::entire, te);
-        IndexRange kb = c_cellbounds.GetBoundsK(IndexDomain::entire, te);
+        const auto te_entire = var->IsSet(Metadata::CellMemAligned) ? TE::CC : te;
+        IndexRange ib = c_cellbounds.GetBoundsI(IndexDomain::entire, te_entire);
+        IndexRange jb = c_cellbounds.GetBoundsJ(IndexDomain::entire, te_entire);
+        IndexRange kb = c_cellbounds.GetBoundsK(IndexDomain::entire, te_entire);
 
         IndexRange ib_int = cellbounds.GetBoundsI(IndexDomain::interior, te);
         IndexRange jb_int = cellbounds.GetBoundsJ(IndexDomain::interior, te);
@@ -644,9 +649,8 @@ bool Mesh::GatherCostListAndCheckBalance() {
 void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                            int ntot) {
   PARTHENON_INSTRUMENT
-  // kill any cached packs
-  mesh_data.PurgeNonBase();
-  mesh_data.Get()->ClearCaches();
+  // kill all old MeshData
+  mesh_data.clear();
 
   // compute nleaf= number of leaf MeshBlocks per refined block
   int nleaf = 2;
@@ -774,7 +778,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
                                                   oloc, var.get(), this));
       }
     }
-  }    // AMR Send region
+  } // AMR Send region
 #endif // MPI_PARALLEL
 
   // Construct a new MeshBlock list (moving the data within the MPI rank)
@@ -916,6 +920,16 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
                                    block_list[0]->c_cellbounds);
     }
 
+    // Field data is transferred by the usual AMR same-level, restriction, and
+    // prolongation paths above because the field layout is tied directly to block
+    // topology. Swarms are different: after remesh, ownership is determined by which new
+    // leaf block contains each particle. Run that ownership-based redistribution only
+    // after the new leaf mesh and field state are already in place.
+    const SwarmRemeshContext swarm_remesh_context(onbs, onbe, oldtonew, loclist, newloc,
+                                                  ranklist, newrank);
+    RemeshSwarms(resolved_packages, old_block_list, this, swarm_remesh_context);
+    ClearSwarmCachesAfterRemesh(this, block_list);
+
     // update the lists
     loclist = std::move(newloc);
     ranklist = std::move(newrank);
@@ -951,7 +965,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
       // in order to maintain a consistent global state.
       // Thus we rebuild and synchronize the mesh now, but using a unique
       // neighbor precedence favoring the "old" fine blocks over "new" ones
-      SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist, newly_refined);
+      SetMeshBlockNeighbors(this, GridIdentifier::leaf(), block_list, ranklist,
+                            newly_refined);
       SetGMGNeighbors();
       BuildTagMapAndBoundaryBuffers();
       std::string noncc = "mesh_internal_noncc";
@@ -974,7 +989,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
     // Rebuild just the ownership model, this time weighting the "new" fine blocks just
     // like any other blocks at their level.
-    SetMeshBlockNeighbors(GridIdentifier::leaf(), block_list, ranklist);
+    SetMeshBlockNeighbors(this, GridIdentifier::leaf(), block_list, ranklist);
     SetGMGNeighbors();
     // Ownership does not impact anything about the buffers, so we don't need to
     // rebuild them if they were built above
@@ -986,8 +1001,7 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     FillDerived();
 
     // Initialize the "base" MeshData object
-    // TODO(LFR): Is this necessary? Do we ever pull out the entire mesh MeshData?
-    mesh_data.Get()->Initialize(block_list, this);
+    mesh_data.Add("base", GetBasePartition());
   } // AMR Recv and unpack data
 
   ResetLoadBalanceVariables();

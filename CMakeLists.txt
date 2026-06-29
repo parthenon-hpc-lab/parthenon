@@ -20,7 +20,7 @@ cmake_minimum_required(VERSION 3.16)
 # Imports machine-specific configuration
 include(cmake/MachineCfg.cmake)
 
-project(parthenon VERSION 25.05 LANGUAGES C CXX)
+project(parthenon VERSION 25.12 LANGUAGES C CXX)
 
 if (${CMAKE_VERSION} VERSION_GREATER_EQUAL 3.19.0)
   cmake_policy(SET CMP0110 NEW)
@@ -36,7 +36,7 @@ option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to Tr
 option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "CUDA/HIP Only: Allocate communication buffers on host (may be slower)" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
-option(PARTHENON_DISABLE_OPENPMD "OpenPMD is enabled by default if found, set this to ON to disable OpenPMD" OFF)
+option(PARTHENON_DISABLE_OPENPMD "OpenPMD is enabled by default if found, set this to ON to disable OpenPMD" ON)
 option(PARTHENON_USE_SYSTEM_OPENPMD "OpenPMD API is downloaded and installed automatically by default. Set this to ON to find and use a version installed on the system." OFF)
 option(PARTHENON_DISABLE_SPARSE "Sparse capability is enabled by default, set this to True to compile-time disable all sparse capability" OFF)
 option(PARTHENON_ENABLE_ASCENT "Enable Ascent for in situ visualization and analysis" OFF)
@@ -62,6 +62,7 @@ option(CODE_COVERAGE "Enable code coverage reporting" OFF)
 option(ENABLE_ASAN "Turn on ASAN" OFF)
 option(ENABLE_HWASAN "Turn on HWASAN (currently ARM-only)" OFF)
 option(PARTHENON_USE_SERIAL_POOL "Disable threaded tasking" ON)
+option(PARTHENON_DEBUG_SCRATCH "Enable debugging for scratch variables" OFF)
 
 option(PARTHENON_USE_SYSTEM_PACKAGES "Enables search for system packages when available" OFF)
 if (PARTHENON_USE_SYSTEM_PACKAGES)
@@ -74,14 +75,42 @@ else()
     OFF)
 endif()
 
-include(cmake/Format.cmake)
-include(cmake/Lint.cmake)
+# Check if we are using Parthenon as a subproject
+set(_parthenon_is_toplevel OFF)
+if (CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    set(_parthenon_is_toplevel ON)
+endif()
+
+# Optionally disable formatting and linting, disabled by default
+# if Parthenon is a subdirectory to prevent collision with downstream 
+# code targets
+if (NOT DEFINED PARTHENON_ENABLE_DEVELOPER_TARGETS)
+    set(PARTHENON_ENABLE_DEVELOPER_TARGETS
+        ${_parthenon_is_toplevel}
+        CACHE BOOL "Enable Parthenon developer targets (format, lint, etc.)"
+    )
+endif()
+
+if(PARTHENON_ENABLE_DEVELOPER_TARGETS)
+  include(cmake/Format.cmake)
+  include(cmake/Lint.cmake)
+else()
+    # Disabled path: define no-op stubs so scattered lint_target/format_target calls
+    # don't break when Parthenon is used as a subproject.
+    if (NOT COMMAND lint_target)
+        function(lint_target target)
+            # intentionally empty
+        endfunction()
+    endif()
+endif()
+
+
 
 
 # regression test reference data
-set(REGRESSION_GOLD_STANDARD_VER 27 CACHE STRING "Version of gold standard to download and use")
+set(REGRESSION_GOLD_STANDARD_VER 28 CACHE STRING "Version of gold standard to download and use")
 set(REGRESSION_GOLD_STANDARD_HASH
-  "SHA512=9a1285612fe8a99861630232b1ca2cb382711b45863f9aad99fcb5e25d6daaba6c18158058c73ac61d4df3b78aee987a8f86ecf7eb61717c7932d1ef6651d100"
+  "SHA512=5755189763f00d68a942d20216a9e875bf4379102398f811754f271978792319eef76cb7dd30743c0c2cd7c5a56f082874e34c05f536805d434033c98c384628"
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
@@ -166,6 +195,10 @@ if (NOT PARTHENON_DISABLE_HDF5)
   endif()
   set(ENABLE_HDF5 ON)
 
+  if((NOT HDF5_IS_PARALLEL) AND HDF5_PROVIDES_PARALLEL)
+    set(HDF5_IS_PARALLEL ON)
+  endif()
+
   if (ENABLE_MPI AND (NOT HDF5_IS_PARALLEL))
     message(FATAL_ERROR "Both MPI and HDF5 are enabled but only a serial version of HDF5 "
     "was found. Please install a parallel version of HDF5 (or point CMake to it by adding its path "
@@ -245,7 +278,7 @@ if (NOT PARTHENON_DISABLE_OPENPMD)
     endif()
     FetchContent_Declare(openPMD
       GIT_REPOSITORY "https://github.com/openPMD/openPMD-api.git"
-      GIT_TAG        "3a60e77") # Release 0.16.1
+      GIT_TAG        "0.17.0") # Release 0.17.0
     FetchContent_MakeAvailable(openPMD)
     install(TARGETS openPMD EXPORT parthenonTargets)
   endif()
@@ -266,7 +299,7 @@ if (ENABLE_COMPILER_WARNINGS)
 endif()
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 if (NOT TARGET Kokkos::kokkos)
   if (PARTHENON_IMPORT_KOKKOS)
@@ -375,6 +408,13 @@ if(ENABLE_HWASAN)
   add_compile_options(-fsanitize=hwaddress)
   add_link_options(-fsanitize=hwaddress)
 endif(ENABLE_HWASAN)
+
+# option to have separate field names for scratch variables
+# for debugging purposes
+if(PARTHENON_DEBUG_SCRATCH)
+   message(STATUS "Compiling with scratch variable debugging enabled.")
+   target_compile_definitions(parthenon PUBLIC PARTHENON_DEBUG_SCRATCH)
+endif(PARTHENON_DEBUG_SCRATCH)
 
 
 # Build Tests and download Catch2

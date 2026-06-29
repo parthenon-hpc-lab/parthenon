@@ -316,7 +316,7 @@ def compare_metadata(f0, f1, quiet=False, one=False, check_input=False, tol=1.0e
                 # Compute norm error, check against tolerance
                 err_val = np.abs(val0 - val1)
                 err_mag = np.linalg.norm(err_val)
-                if err_mag > tol:
+                if tol < err_mag:
                     no_meta_variables_diff = False
                     if not quiet:
                         print("")
@@ -389,7 +389,10 @@ def compare(
     # **************
     # import Reader
     # **************
-    from phdf import phdf
+    try:
+        from phdf import phdf
+    except ModuleNotFoundError:
+        from parthenon_tools.phdf import phdf
 
     # **************
     # Reader Help
@@ -526,7 +529,7 @@ def compare(
         err_max = err_mag.max()
 
         # Check if the error of any block exceeds the tolerance
-        if err_max > tol:
+        if tol < err_max:
             no_diffs = False
             var_no_diffs = False
 
@@ -542,7 +545,7 @@ def compare(
                 bad_idxs = bad_idx.reshape((1, *bad_idx.shape))
             else:
                 # Print all differences exceeding maximum
-                bad_idxs = np.argwhere(err_mag > tol)
+                bad_idxs = np.argwhere(tol < err_mag)
 
             for bad_idx in bad_idxs:
                 bad_idx = tuple(bad_idx)
@@ -577,7 +580,7 @@ def compare(
         return ERROR_DATA_DIFFER
 
 
-if __name__ == "__main__":
+def main():
     addPath()
 
     # process arguments
@@ -612,3 +615,7 @@ if __name__ == "__main__":
         relative,
     )
     sys.exit(ret)
+
+
+if __name__ == "__main__":
+    main()

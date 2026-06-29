@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2024-2025 The Parthenon collaboration
+// Copyright(C) 2024-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 //! \file restart_opmd.cpp
@@ -15,11 +15,13 @@
 #include <string>
 #include <vector>
 
+// OpenPMD headers
+#include <openPMD/openPMD.hpp>
+
 #include "basic_types.hpp"
 #include "interface/params.hpp"
-#include "openPMD/Iteration.hpp"
-#include "openPMD/Series.hpp"
 #include "outputs/output_attr.hpp"
+#include "outputs/output_parameters.hpp"
 #include "outputs/parthenon_opmd.hpp"
 #include "outputs/restart.hpp"
 #include "outputs/restart_opmd.hpp"
@@ -43,7 +45,6 @@ RestartReaderOPMD::RestartReaderOPMD(const char *filename) : filename_(filename)
   }
 #else
   series = openPMD::Series(filename, openPMD::Access::READ_ONLY);
-
 #endif
   PARTHENON_REQUIRE_THROWS(
       series.iterations.size() == 1,
@@ -55,10 +56,14 @@ RestartReaderOPMD::RestartReaderOPMD(const char *filename) : filename_(filename)
   it = std::make_unique<openPMD::Iteration>(series.iterations[idx]);
   // Explicitly open (important for parallel execution)
   it->open();
+
+  format_version_ = GetOutputFormatVersion();
+  if (format_version_ < 0) {
+    format_version_ = 1;
+  }
 }
 
 int RestartReaderOPMD::GetOutputFormatVersion() const {
-  // TODO(pgrete) move info to shared header and introduce constexpr var
   if (it->containsAttribute("OutputFormatVersion")) {
     return it->getAttribute("OutputFormatVersion").get<int>();
   } else {
@@ -155,18 +160,28 @@ void RestartReaderOPMD::ReadAllParamsOfType(const std::string &prefix, Params &p
       // Thus we replace it.
       std::replace(full_path.begin(), full_path.end(), '/', delim[0]);
 
-      T val;
-      if constexpr (implements<kokkos_view(T)>::value) {
-        val = params.Get<T>(key);
-        RestoreViewAttribute(full_path, val);
-      } else if constexpr (is_specialization_of<T, ParArrayGeneric>::value) {
-        val = params.Get<T>(key);
-        auto &view = val.KokkosView();
-        RestoreViewAttribute(full_path, view);
-      } else {
-        val = it->getAttribute(full_path).get<T>();
+      try {
+        T val;
+        if constexpr (::KokkosView<T>) {
+          val = params.Get<T>(key);
+          RestoreViewAttribute(full_path, val);
+        } else if constexpr (is_specialization_of<T, ParArrayGeneric>::value) {
+          val = params.Get<T>(key);
+          auto &view = val.KokkosView();
+          RestoreViewAttribute(full_path, view);
+        } else {
+          val = it->getAttribute(full_path).get<T>();
+        }
+        params.Update(key, val);
+      } catch (...) {
+        // TODO(JMM/PG) Add failed load list of "fail/needs fix" list
+        if (Globals::my_rank == 0) {
+          std::stringstream ss;
+          ss << "Failed to load parameter " << full_path
+             << " from the restart file! Using default value." << std::endl;
+          PARTHENON_WARN(ss);
+        }
       }
-      params.Update(key, val);
     }
   }
 }
@@ -200,8 +215,7 @@ void RestartReaderOPMD::ReadParams(const std::string &pkg_name, Params &p) {
 
 void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block_range,
                                    const OutputUtils::VarInfo &vinfo,
-                                   std::vector<Real> &data_vec,
-                                   int file_output_format_version, Mesh *pm) const {
+                                   std::vector<Real> &data_vec, Mesh *pm) const {
   int64_t comp_offset = 0; // offset data_vector to store component data
   for (auto &pmb : pm->block_list) {
     // TODO(pgrete) check if we should skip the suffix for level 0
@@ -216,9 +230,10 @@ void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block
       for (int t = 0; t < Nt; ++t) {
         for (int u = 0; u < Nu; ++u) {
           for (int v = 0; v < Nv; ++v) {
-            // Get the correct record
+            // Get the correct record (using format version detected from file)
             const auto [record_name, comp_name] =
-                OpenPMDUtils::GetMeshRecordAndComponentNames(vinfo, te, comp_idx, level);
+                OpenPMDUtils::GetMeshRecordAndComponentNames(vinfo, te, comp_idx, level,
+                                                             format_version_);
 
             PARTHENON_REQUIRE_THROWS(it->meshes.contains(record_name),
                                      "Missing mesh record '" + record_name +
@@ -230,8 +245,11 @@ void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block
                                          "' of restart file.");
             auto mesh_comp = mesh_record[comp_name];
 
+            // Restarting from coarsened output not supported at the moment
+            const int coarsening_factor = 1;
             const auto [chunk_offset, chunk_extent] =
-                OpenPMDUtils::GetChunkOffsetAndExtent(pm, pmb, te);
+                OpenPMDUtils::GetChunkOffsetAndExtent(pm, pmb, te, coarsening_factor,
+                                                      DumpOutputMode::Restart);
             mesh_comp.loadChunkRaw(&data_vec[comp_offset], chunk_offset, chunk_extent);
             comp_offset += std::accumulate(chunk_extent.cbegin(), chunk_extent.cend(), 1,
                                            std::multiplies<std::uint64_t>{});
@@ -239,8 +257,8 @@ void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block
           }
         }
       } // loop over components
-    }   // loop over topological elements
-  }     // loop over blocks
+    } // loop over topological elements
+  } // loop over blocks
 
   // Now actually read the registered chunks form disk
   it->seriesFlush();

@@ -27,18 +27,23 @@ Community
 ^^^^^^^^^^
 
 * `Chat room on matrix.org`_
+* :doc:`Code of Conduct <src/code_of_conduct>`
 
 .. _`Chat room on matrix.org`: https://app.element.io/#/room/#parthenon-general:matrix.org
 
 
-.. toctree::
-   :maxdepth: 1
-   :caption: Contents:
-   :glob:
 
-   src/*
-   src/interface/*
-   src/mesh/*
+.. toctree::
+   :maxdepth: 2
+   :caption: Chapters
+
+   src/chapters/getting_started
+   src/chapters/core_concepts
+   src/chapters/parallelism_performance
+   src/chapters/advanced_features
+   src/chapters/reference
+   src/chapters/api_reference
+   src/chapters/developer_guide
 
 Indices and tables
 ==================

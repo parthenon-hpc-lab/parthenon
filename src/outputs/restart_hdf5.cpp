@@ -50,11 +50,22 @@ RestartReaderHDF5::RestartReaderHDF5(const char *filename) : filename_(filename)
       << "is required for restarts" << std::endl;
   PARTHENON_FAIL(msg);
 #else  // HDF5 enabled
+  // modify HDF5 error handling to throw an error
+  H5Eset_auto(H5E_DEFAULT, HDF5::aborting_error_handler, NULL);
   // Open the HDF file in read only mode
   fh_ = H5F::FromHIDCheck(H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT));
   params_group_ = H5G::FromHIDCheck(H5Oopen(fh_, "Params", H5P_DEFAULT));
 
   has_ghost = GetAttr<int>("Info", "IncludesGhost");
+
+  // Currently supports versions 3 and 4.
+  const auto file_output_format_ver = GetOutputFormatVersion();
+  if (file_output_format_ver < HDF5::OUTPUT_VERSION_FORMAT - 1) {
+    std::stringstream msg;
+    msg << "File format version " << file_output_format_ver << " not supported. "
+        << "Current format is " << HDF5::OUTPUT_VERSION_FORMAT << std::endl;
+    PARTHENON_THROW(msg)
+  }
 #endif // ENABLE_HDF5
 }
 
@@ -206,9 +217,7 @@ void RestartReaderHDF5::ReadParams(const std::string &name, Params &p) {
 }
 void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
                                    const OutputUtils::VarInfo &info,
-                                   std::vector<Real> &dataVec,
-                                   int file_output_format_version,
-                                   Mesh * /*pmesh*/) const {
+                                   std::vector<Real> &dataVec, Mesh * /*pmesh*/) const {
 #ifndef ENABLE_HDF5
   PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #else  // HDF5 enabled
@@ -226,15 +235,7 @@ void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
   count[0] = static_cast<hsize_t>(range.e - range.s + 1);
   const IndexDomain domain = has_ghost != 0 ? IndexDomain::entire : IndexDomain::interior;
 
-  // Currently supports versions 3 and 4.
-  if (file_output_format_version >= HDF5::OUTPUT_VERSION_FORMAT - 1) {
-    total_dim = info.FillShape<hsize_t>(domain, &(count[1])) + 1;
-  } else {
-    std::stringstream msg;
-    msg << "File format version " << file_output_format_version << " not supported. "
-        << "Current format is " << HDF5::OUTPUT_VERSION_FORMAT << std::endl;
-    PARTHENON_THROW(msg)
-  }
+  total_dim = info.FillShape<hsize_t>(domain, &(count[1])) + 1;
 
   hsize_t total_count = 1;
   for (int i = 0; i < total_dim; ++i) {

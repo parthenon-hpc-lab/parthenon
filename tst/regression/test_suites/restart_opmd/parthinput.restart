@@ -1,6 +1,6 @@
 # ========================================================================================
 #  Parthenon performance portable AMR framework
-#  Copyright(C) 2024 The Parthenon collaboration
+#  Copyright(C) 2024-2026 The Parthenon collaboration
 #  Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
 
@@ -57,8 +57,4 @@ fill_derived = false # whether to fill one-copy test vars
 <parthenon/output1>
 file_type = openpmd
 dt = 0.050
-
-<parthenon/output2>
-file_type = rst
-dt = 0.050
-
+use_final_label = false

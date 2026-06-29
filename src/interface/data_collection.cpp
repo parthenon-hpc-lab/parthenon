@@ -24,11 +24,12 @@
 namespace parthenon {
 
 template <typename T>
-std::string DataCollection<T>::GetKey(const std::string &stage_label,
-                                      const std::shared_ptr<BlockListPartition> &in) {
+std::string
+DataCollection<T>::GetKey(const std::string &stage_label,
+                          const std::shared_ptr<BlockListPartition> &in) const {
   auto key = stage_label;
-  if (in->grid.type == GridType::two_level_composite)
-    key = key + "_gmg-" + std::to_string(in->grid.logical_level);
+  if (in->grid.IsMultigrid())
+    key = key + "_gmg-" + std::to_string(in->grid.multigrid_level());
   for (const auto &pmb : in->block_list)
     key += "_" + std::to_string(pmb->gid);
   return key;
@@ -36,10 +37,10 @@ std::string DataCollection<T>::GetKey(const std::string &stage_label,
 
 template <typename T>
 std::string DataCollection<T>::GetKey(const std::string &stage_label,
-                                      const std::shared_ptr<MeshData<Real>> &in) {
+                                      const std::shared_ptr<MeshData<Real>> &in) const {
   auto key = stage_label;
-  if (in->grid.type == GridType::two_level_composite)
-    key = key + "_gmg-" + std::to_string(in->grid.logical_level);
+  if (in->grid.IsMultigrid())
+    key = key + "_gmg-" + std::to_string(in->grid.multigrid_level());
   for (const auto &pmbd : in->GetAllBlockData())
     key += "_" + std::to_string(pmbd->GetBlockPointer()->gid);
   return key;
@@ -49,17 +50,38 @@ template <>
 std::shared_ptr<MeshData<Real>> &
 DataCollection<MeshData<Real>>::GetOrAdd(const std::string &mbd_label,
                                          const int &partition_id) {
-  return Add(mbd_label,
-             pmy_mesh_->GetDefaultBlockPartitions(GridIdentifier::leaf())[partition_id]);
+  return Add(mbd_label, pmy_mesh_->GetDefaultBlockPartitions()[partition_id]);
 }
 
 template <>
 std::shared_ptr<MeshData<Real>> &
 DataCollection<MeshData<Real>>::GetOrAdd(int gmg_level, const std::string &mbd_label,
                                          const int &partition_id) {
-  return Add(mbd_label,
-             pmy_mesh_->GetDefaultBlockPartitions(
-                 GridIdentifier::two_level_composite(gmg_level))[partition_id]);
+  return Add(mbd_label, pmy_mesh_->GetMultigridBlockPartitions(gmg_level)[partition_id]);
+}
+
+template <class T>
+const std::shared_ptr<T> &DataCollection<T>::Get(const std::string &name) const {
+  if constexpr (std::is_same_v<T, MeshData<Real>>) {
+    // Here we call Get with some arbitrary shared ptr
+    // since Get doesn't use the second argument when
+    // templated on MeshBlockData. Gross, I know.
+    return Get(name, pmy_mesh_->GetBasePartition());
+  } else {
+    return Get(name, std::make_shared<int>());
+  }
+}
+
+template <class T>
+std::shared_ptr<T> &DataCollection<T>::Get(const std::string &name) {
+  if constexpr (std::is_same_v<T, MeshData<Real>>) {
+    return Get(name, pmy_mesh_->GetBasePartition());
+  } else {
+    // Here we call Get with some arbitrary shared ptr
+    // since Get doesn't use the second argument when
+    // templated on MeshBlockData. Gross, I know.
+    return Get(name, std::make_shared<int>());
+  }
 }
 
 template class DataCollection<MeshData<Real>>;

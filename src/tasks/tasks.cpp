@@ -43,7 +43,19 @@ TaskID TaskID::operator|(const TaskID &other) const {
 }
 
 TaskStatus Task::operator()() {
+  TimingAccumulator::time_t start;
+  if (time_task && enable_timing) {
+    Kokkos::fence();
+    start = std::chrono::steady_clock::now();
+  }
   auto status = f();
+  if (time_task && enable_timing) {
+    Kokkos::fence();
+    TimingAccumulator::time_t end = std::chrono::steady_clock::now();
+    TimingAccumulator::timing_chunk_t timing_chunk = std::make_tuple(start, end, status);
+    for (auto &tc : timing_accumulators)
+      tc->AddTiming(timing_chunk);
+  }
   if (verbose_level_ > 0)
     printf("%s [status = %i, rank = %i]\n", label_.c_str(), static_cast<int>(status),
            Globals::my_rank);
@@ -156,12 +168,11 @@ TaskListStatus TaskRegion::Execute(Pool_t &pool) {
   }
 
   // then wait until everything is done
-  pool.wait();
-  pool.check_task_returns();
+  const TaskStatus status = pool.wait();
 
   // Check the results, so as to fire any exceptions from threads
   // Return failure if a task failed
-  if (task_failed.load(std::memory_order_acquire)) {
+  if (status != TaskStatus::complete || task_failed.load(std::memory_order_acquire)) {
     return TaskListStatus::fail;
   } else {
     return TaskListStatus::complete;

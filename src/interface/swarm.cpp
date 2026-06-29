@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2026 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -21,7 +25,7 @@
 
 #include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/default_names.hpp"
 #include "swarm.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/sort.hpp"
@@ -67,7 +71,8 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   return context;
 }
 
-Swarm::Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in)
+Swarm::Swarm(const std::string &label, const Metadata &metadata,
+             const std::size_t nmax_pool_in)
     : label_(label), m_(metadata), nmax_pool_(nmax_pool_in), mask_("mask", nmax_pool_),
       marked_for_removal_("mfr", nmax_pool_),
       empty_indices_("empty_indices_", nmax_pool_),
@@ -115,7 +120,8 @@ std::shared_ptr<Swarm> Swarm::AllocateCopy(MeshBlock * /*pmb*/) {
 }
 
 ///
-/// The routine for allocating a particle variable in the current swarm.
+/// The routine for allocating a particle variable in the current swarm, with a type
+/// limited to those types contained in SwarmPackTypes type list
 ///
 /// @param label the name of the variable
 /// @param metadata the metadata associated with the particle
@@ -139,8 +145,8 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
   } else if (newm.Type() == Metadata::Real) {
     Add_<Real>(label, newm);
   } else {
-    throw std::invalid_argument("swarm variable " + label +
-                                " does not have a valid type during Add()");
+    PARTHENON_FAIL("swarm variable " + label +
+                   " does not have a valid type during Add()");
   }
 }
 
@@ -272,7 +278,7 @@ void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
 
   // Eliminate any cached SwarmPacks, as they will need to be rebuilt following SetPoolMax
   pmb->meshblock_data.Get()->ClearSwarmCaches();
-  pm->mesh_data.Get("base")->ClearSwarmCaches();
+  pm->mesh_data.Add("base", pm->GetBasePartition())->ClearSwarmCaches();
   for (auto &partition : pm->GetDefaultBlockPartitions()) {
     pm->mesh_data.Add("base", partition)->ClearSwarmCaches();
   }
@@ -440,9 +446,9 @@ void Swarm::Defrag() {
   auto vreal = PackAllVariables_<Real>(real_imap);
   auto vint = PackAllVariables_<int>(int_imap);
   auto vuint64 = PackAllVariables_<std::uint64_t>(uint64_imap);
-  int real_vars_size = real_vector.size();
-  int int_vars_size = int_vector.size();
-  int uint64_vars_size = uint64_vector.size();
+  std::size_t real_vars_size = real_vector.size();
+  std::size_t int_vars_size = int_vector.size();
+  std::size_t uint64_vars_size = uint64_vector.size();
   auto real_map = real_imap.Map();
   auto int_map = int_imap.Map();
   auto uint64_map = uint64_imap.Map();
@@ -493,7 +499,7 @@ void Swarm::SortParticlesByCell() {
                     "Too many cells for an int32 to store cell_idx_1d below!");
 
   auto cell_sorted = cell_sorted_;
-  int ncells = pmb->cellbounds.GetTotal(IndexDomain::entire);
+  std::size_t ncells = pmb->cellbounds.GetTotal(IndexDomain::entire);
   int num_active = num_active_;
   int max_active_index = max_active_index_;
 

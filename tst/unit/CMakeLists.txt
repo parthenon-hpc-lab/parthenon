@@ -4,7 +4,7 @@
 ## Copyright(C) 2020-2024 The Parthenon collaboration
 ## Licensed under the 3-clause BSD License, see LICENSE file for details
 ##========================================================================================
-## (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
+## (C) (or copyright) 2024-2026. Triad National Security, LLC. All rights reserved.
 ##
 ## This program was produced under U.S. Government contract 89233218CNA000001 for Los
 ## Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,7 +16,10 @@
 ## the public, perform publicly and display publicly, and to permit others to do so.
 ##========================================================================================
 
+# This file was made in part with generative AI.
+
 list(APPEND unit_tests_SOURCES
+    test_ascii_table_parsing.cpp
     test_concepts_lite.cpp
     test_coordinates.cpp
     test_data_collection.cpp
@@ -39,9 +42,12 @@ list(APPEND unit_tests_SOURCES
     test_sparse_pack.cpp
     test_parameter_input.cpp
     test_error_checking.cpp
+    test_object_pool.cpp
     test_partitioning.cpp
+    test_scratch_variables.cpp
     test_state_descriptor.cpp
     test_swarm.cpp
+    test_swarm_amr_remesh.cpp
     test_unit_integrators.cpp
     test_upper_bound.cpp
 )

@@ -1,36 +1,42 @@
-FROM nvidia/cuda:12.8.0-devel-ubuntu24.04
+FROM nvidia/cuda:12.8.1-devel-ubuntu24.04
 
+# nodejs for running interactive action with `act`
 RUN apt-get clean && apt-get update -y && \
-    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib python3-scipy python3-pip lcov curl cuda-nsight-systems-12-6 cmake ninja-build libpython3-dev gcc-11 g++-11 emacs nvi sphinx-doc python3-sphinx-rtd-theme python3-sphinxcontrib.bibtex python3-sphinx-copybutton && \
-    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 10 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 10
+    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-pip lcov curl cuda-nsight-systems-12-8 cmake ninja-build libpython3-dev emacs nvi python3-venv nodejs
 
 RUN g++ --version
 
-RUN pip3 install unyt --break-system-packages
+RUN python3 -m venv /opt/venv
 
-RUN pip3 install blosc2 --break-system-packages
+ENV VIRTUAL_ENV=/opt/venv
+
+ENV PATH="/opt/venv/bin:$PATH"
+
+RUN pip3 install yt numpy scipy matplotlib h5py sphinx-copybutton sphinx sphinxcontrib.bibtex sphinx-rtd-theme
+
+RUN pip3 install unyt
+
+RUN pip3 install blosc2
 
 # for Codespaces/VSCode Sphinx support
-RUN pip3 install esbonio --break-system-packages
+RUN pip3 install esbonio
 
-# h5py from the repo is incompatible with the default numpy 2.1.0
-# Downgrading is not the cleanest solution, but it works...
-# see https://stackoverflow.com/questions/78634235/numpy-dtype-size-changed-may-indicate-binary-incompatibility-expected-96-from
-RUN pip3 install numpy==1.26.4 --break-system-packages
+# current formatting standard
+RUN pip3 install clang-format==20.1.8
 
 RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key| apt-key add - && \
     echo "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main" > /etc/apt/sources.list.d/llvm.list
 
+# libclang-rt-20-dev for asan support with clang++
 RUN apt-get clean && apt-get update -y && \
-    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends clang-20 llvm-20 libomp-20-dev clangd-20 libstdc++-14-dev && \
+    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends clang-20 llvm-20 libomp-20-dev clangd-20 libclang-rt-20-dev libstdc++-14-dev && \
     rm -rf /var/lib/apt/lists/*
 
 RUN cd /tmp && \
-    wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.4.tar.bz2 && \
-    tar xjf openmpi-4.1.4.tar.bz2 && \
-    cd openmpi-4.1.4 && \
-    ./configure --prefix=/opt/openmpi --disable-mpi-fortran --disable-oshmem --with-cuda && \
+    wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.8.tar.bz2 && \
+    tar xjf openmpi-5.0.8.tar.bz2 && \
+    cd openmpi-5.0.8 && \
+    ./configure --prefix=/opt/openmpi --disable-mpi-fortran --disable-oshmem --with-cuda=/usr/local/cuda --with-cuda-libdir=/usr/local/cuda/lib64/stubs && \
     make -j16 && \
     make install && \
     cd / && \
@@ -69,30 +75,38 @@ RUN mkdir /tmp/build-openpmd && cd /tmp/build-openpmd && \
     cd / && \
     rm -rf /tmp/build-openpmd
 
-RUN mkdir /tmp/build-ascent
+# no need to prepend as PYTHONPATH doesn't exist yet
+ENV PYTHONPATH=/usr/local/lib/python3.12/site-packages
 
-COPY ascent_build.patch /tmp/build-ascent
+# Create symlink for clangd
+RUN ln -s /usr/bin/clangd-20 /usr/bin/clangd
 
-## NOTE: with enable_cuda=ON, you need a Docker VM with a LARGE amount of RAM (at least 15 GB RAM, 4 GB swap)
+# Create symlink for esbonio
+RUN ln -s /opt/venv/bin/esbonio /usr/bin/esbonio
 
-# commit version is dev branch on 2025-04-10
-RUN cd /tmp/build-ascent && \
-    wget https://github.com/Alpine-DAV/ascent/archive/4da1379.tar.gz && \
-    tar xzf 4da1379.tar.gz -C . --strip-components=1 && \
-    wget https://github.com/LLNL/blt/archive/refs/tags/v0.6.2.tar.gz && \
-    tar xzf v0.6.2.tar.gz -C ./src/blt --strip-components=1 && \
-    cd ./scripts/build_ascent && \
-    patch -p1 build_ascent.sh /tmp/build-ascent/ascent_build.patch && \
-    env enable_cuda=ON enable_mpi=ON build_hdf5=false build_silo=false bash build_ascent.sh && \
-    cd / && \
-    rm -rf /tmp/build-ascent
-
-# Technically not necessary (as we installed the api above) but makes it easier for package discovery
-RUN env openPMD_USE_MPI=ON python3 -m pip install openpmd-api --no-binary openpmd-api --break-system-packages
+# PG giving up on Ascent for now
+# https://github.com/Alpine-DAV/ascent/issues/1614
+#RUN mkdir /tmp/build-ascent
+#
+#COPY ascent_build.patch /tmp/build-ascent
+#
+### NOTE: with enable_cuda=ON, you need a Docker VM with a LARGE amount of RAM (at least 15 GB RAM, 4 GB swap)
+#
+#RUN cd /tmp/build-ascent && \
+#    wget https://github.com/Alpine-DAV/ascent/releases/download/v0.9.5/ascent-v0.9.5-src-with-blt.tar.gz && \
+#    tar xzf ascent-v0.9.5-src-with-blt.tar.gz -C . --strip-components=1 && \
+#    cd ./scripts/build_ascent && \
+#    patch -p1 build_ascent.sh /tmp/build-ascent/ascent_build.patch && \
+#    env enable_cuda=ON enable_mpi=ON build_hdf5=false build_silo=false bash build_ascent.sh && \
+#    cd / && \
+#    rm -rf /tmp/build-ascent
 
 # create new user
 RUN groupadd -g 109 render
 RUN useradd --create-home --shell /bin/bash -G render,sudo ci
+
+# make venv user owned so that pip install works
+RUN chown -R ci /opt/venv
 
 USER ci
 

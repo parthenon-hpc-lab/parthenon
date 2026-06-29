@@ -1,9 +1,5 @@
 #=========================================================================================
-# Parthenon performance portable AMR framework
-# Copyright(C) 2020-2025 The Parthenon collaboration
-# Licensed under the 3-clause BSD License, see LICENSE file for detail
-#=========================================================================================
-# (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +10,8 @@
 # license in this material to reproduce, prepare derivative works, distribute copies to
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
+
+# This file was made in part with generative AI.
 
 # Configure config.hpp
 set(PROBLEM_GENERATOR "<not-implemented>") # TODO: Figure out what to put here
@@ -112,9 +110,13 @@ add_library(parthenon
   bvals/comms/bvals_in_one.hpp
   bvals/comms/bvals_utils.hpp
   bvals/comms/build_boundary_buffers.cpp
+  bvals/comms/bnd_id.cpp
+  bvals/comms/bnd_id.hpp
   bvals/comms/bnd_info.cpp
   bvals/comms/bnd_info.hpp
   bvals/comms/boundary_communication.cpp
+  bvals/comms/coalesced_buffers.cpp
+  bvals/comms/coalesced_buffers.hpp
   bvals/comms/tag_map.cpp
   bvals/comms/tag_map.hpp
 
@@ -187,9 +189,12 @@ add_library(parthenon
   mesh/mesh-gmg.cpp
   mesh/mesh.cpp
   mesh/mesh.hpp
+  mesh/mesh_neighbors.hpp
   mesh/meshblock.hpp
   mesh/meshblock_pack.hpp
   mesh/meshblock.cpp
+  mesh/swarm_amr_remesh.cpp
+  mesh/swarm_amr_remesh.hpp
 
   outputs/ascent.cpp
   outputs/histogram.cpp
@@ -211,32 +216,34 @@ add_library(parthenon
   outputs/parthenon_hdf5_types.hpp
   outputs/parthenon_xdmf.cpp
   outputs/parthenon_hdf5.hpp
-  outputs/parthenon_opmd.cpp
-  outputs/parthenon_opmd.hpp
   outputs/parthenon_xdmf.hpp
   outputs/restart.hpp
   outputs/restart_hdf5.cpp
   outputs/restart_hdf5.hpp
-  outputs/restart_opmd.cpp
-  outputs/restart_opmd.hpp
 
   pack/block_selector.hpp
-  pack/make_pack_descriptor.hpp
-  pack/make_pack_descriptor.cpp
-  pack/make_swarm_pack_descriptor.hpp
-  pack/pack_descriptor.cpp
-  pack/pack_descriptor.hpp
   pack/pack_utils.hpp
-  pack/sparse_pack.hpp
-  pack/sparse_pack.cpp
-  pack/sparse_pack_base.cpp
-  pack/sparse_pack_base.hpp
-  pack/sparse_pack_cache.hpp
-  pack/sparse_pack_cache.cpp
-  pack/swarm_default_names.hpp
-  pack/swarm_pack.hpp
-  pack/swarm_pack_base.hpp
-  
+  pack/default_names.hpp
+  pack/sparse_pack/make_pack_descriptor.cpp
+  pack/sparse_pack/make_pack_descriptor.hpp
+  pack/sparse_pack/pack_descriptor.cpp
+  pack/sparse_pack/pack_descriptor.hpp
+  pack/sparse_pack/sparse_pack.cpp
+  pack/sparse_pack/sparse_pack.hpp
+  pack/sparse_pack/sparse_pack_base.cpp
+  pack/sparse_pack/sparse_pack_base.hpp
+  pack/sparse_pack/sparse_pack_cache.cpp
+  pack/sparse_pack/sparse_pack_cache.hpp
+  pack/swarm_pack/make_swarm_pack_descriptor.hpp
+  pack/swarm_pack/swarm_pack_descriptor.cpp
+  pack/swarm_pack/swarm_pack_descriptor.hpp
+  pack/swarm_pack/swarm_pack.hpp
+  pack/swarm_pack/swarm_pack_base.cpp
+  pack/swarm_pack/swarm_pack_base.hpp
+  pack/swarm_pack/swarm_pack_cache.cpp
+  pack/swarm_pack/swarm_pack_cache.hpp
+  pack/swarm_pack/swarm_pack_types.hpp
+
   parthenon/driver.hpp
   parthenon/package.hpp
   parthenon/parthenon.hpp
@@ -252,6 +259,9 @@ add_library(parthenon
   reconstruct/dc_inline.hpp
   reconstruct/plm_inline.hpp
 
+  sparse/sparse_management.cpp
+  sparse/sparse_management.hpp
+
   amr_criteria/amr_criteria.cpp
   amr_criteria/amr_criteria.hpp
   amr_criteria/refinement_package.cpp
@@ -265,6 +275,8 @@ add_library(parthenon
   solvers/solver_utils.hpp
   solvers/tridiag_solver.hpp
 
+  tasks/task_timing.cpp
+  tasks/task_timing.hpp
   tasks/tasks.cpp
   tasks/tasks.hpp
   tasks/thread_pool.hpp
@@ -278,8 +290,6 @@ add_library(parthenon
   utils/alias_method.hpp
   utils/array_to_tuple.hpp
   utils/bit_hacks.hpp
-  utils/buffer_utils.cpp
-  utils/buffer_utils.hpp
   utils/cell_center_offsets.cpp
   utils/cell_center_offsets.hpp
   utils/change_rundir.cpp
@@ -311,6 +321,7 @@ add_library(parthenon
   utils/unique_id.cpp
   utils/unique_id.hpp
   utils/utils.hpp
+  utils/watchdog.cpp
 
   argument_parser.hpp
   basic_types.hpp
@@ -335,7 +346,7 @@ add_library(Parthenon::parthenon ALIAS parthenon)
 
 set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
 
-target_compile_features(parthenon PUBLIC cxx_std_17)
+target_compile_features(parthenon PUBLIC cxx_std_20)
 
 # This will automatically link any extra libraries (or no extra libraries)
 # depending on the compiler, so it doesn't require an if() statement
@@ -363,6 +374,12 @@ if (ENABLE_HDF5)
 endif()
 
 if (PARTHENON_ENABLE_OPENPMD)
+  target_sources(parthenon PRIVATE
+    outputs/parthenon_opmd.cpp
+    outputs/parthenon_opmd.hpp
+    outputs/restart_opmd.cpp
+    outputs/restart_opmd.hpp
+  )
   target_link_libraries(parthenon PUBLIC openPMD::openPMD)
 endif()
 

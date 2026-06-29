@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "bvals/comms/bnd_id.hpp"
 #include "bvals/comms/bnd_info.hpp"
 #include "bvals/comms/bvals_in_one.hpp"
 #include "interface/variable.hpp"
@@ -40,31 +41,47 @@ inline auto &GetSenderGid(Mesh::channel_key_t &key) { return std::get<0>(key); }
 inline auto &GetReceiverGid(Mesh::channel_key_t &key) { return std::get<1>(key); }
 inline auto &GetVariable(Mesh::channel_key_t &key) { return std::get<2>(key); }
 inline auto &GetLocIdx(Mesh::channel_key_t &key) { return std::get<3>(key); }
-
+inline auto &GetOther(Mesh::channel_key_t &key) { return std::get<4>(key); }
+inline std::string GetLabel(Mesh::channel_key_t &key) {
+  return "sender: " + std::to_string(GetSenderGid(key)) +
+         ", receiver: " + std::to_string(GetReceiverGid(key)) +
+         ", var: " + GetVariable(key) + ", location: " + std::to_string(GetLocIdx(key)) +
+         ", other:" + std::to_string(GetOther(key));
+}
 inline Mesh::channel_key_t SendKey(const MeshBlock *pmb, const NeighborBlock &nb,
                                    const std::shared_ptr<Variable<Real>> &pcv,
-                                   BoundaryType btype) {
+                                   BoundaryType btype, int id) {
   const int sender_id = pmb->gid;
   const int receiver_id = nb.gid;
   const int location_idx = nb.offsets.GetIdx();
-  int other = (nb.gid == pmb->gid && (btype == BoundaryType::gmg_restrict_recv ||
-                                      btype == BoundaryType::gmg_restrict_send))
-                  ? 1
-                  : 0;
+
+  int gmg_self_comm = (nb.gid == pmb->gid && (btype == BoundaryType::gmg_restrict_recv ||
+                                              btype == BoundaryType::gmg_restrict_send))
+                          ? 1
+                          : 0;
+  int other =
+      gmg_self_comm + 2 * id; // Combine the id and gmg_self_comm into a single tag
   return {sender_id, receiver_id, pcv->label(), location_idx, other};
 }
 
 inline Mesh::channel_key_t ReceiveKey(const MeshBlock *pmb, const NeighborBlock &nb,
                                       const std::shared_ptr<Variable<Real>> &pcv,
-                                      BoundaryType btype) {
+                                      BoundaryType btype, int id) {
   const int receiver_id = pmb->gid;
   const int sender_id = nb.gid;
   const int location_idx = nb.lcoord_trans.Transform(nb.offsets).GetReverseIdx();
-  int other = (nb.gid == pmb->gid && (btype == BoundaryType::gmg_restrict_recv ||
-                                      btype == BoundaryType::gmg_restrict_send))
-                  ? 1
-                  : 0;
+  int gmg_self_comm = (nb.gid == pmb->gid && (btype == BoundaryType::gmg_restrict_recv ||
+                                              btype == BoundaryType::gmg_restrict_send))
+                          ? 1
+                          : 0;
+  int other =
+      gmg_self_comm + 2 * id; // Combine the id and gmg_self_comm into a single tag
   return {sender_id, receiver_id, pcv->label(), location_idx, other};
+}
+
+inline Mesh::channel_key_t GetChannelKey(BndId &in) {
+  return {in.send_gid(), in.recv_gid(), Variable<Real>::GetLabel(in.var_id()),
+          in.loc_idx(), in.extra_id()};
 }
 
 // Build a vector of pointers to all of the sending or receiving communication buffers on
@@ -83,24 +100,27 @@ inline Mesh::channel_key_t ReceiveKey(const MeshBlock *pmb, const NeighborBlock 
 // it (LFR).
 template <BoundaryType bound_type, class COMM_MAP, class F>
 void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_map,
-                           BvarsSubCache_t *pcache, F KeyFunc, bool initialize_flags) {
+                           BvarsSubCache_t *pcache, F KeyFunc) {
   using namespace loops;
   using namespace loops::shorthands;
   Mesh *pmesh = md->GetMeshPointer();
 
+  pcache->clear();
+
   std::vector<std::tuple<int, int, Mesh::channel_key_t>> key_order;
 
   int boundary_idx = 0;
-  ForEachBoundary<bound_type>(md, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-    auto key = KeyFunc(pmb, nb, v, bound_type);
-    PARTHENON_DEBUG_REQUIRE(comm_map->count(key) > 0,
-                            "Boundary communicator does not exist");
-    // Create a unique index by combining receiver gid (second element of the key
-    // tuple) and geometric element index (fourth element of the key tuple)
-    int recvr_idx = 27 * GetReceiverGid(key) + GetLocIdx(key);
-    key_order.push_back({recvr_idx, boundary_idx, key});
-    ++boundary_idx;
-  });
+  ForEachBoundary<bound_type>(
+      md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v) {
+        auto key = KeyFunc(pmb, nb, v, bound_type, md->GetBoundBufferId(bound_type));
+        PARTHENON_DEBUG_REQUIRE(comm_map->count(key) > 0,
+                                "Boundary communicator does not exist");
+        // Create a unique index by combining receiver gid (second element of the key
+        // tuple) and geometric element index (fourth element of the key tuple)
+        int recvr_idx = 27 * GetReceiverGid(key) + GetLocIdx(key);
+        key_order.push_back({recvr_idx, boundary_idx, key});
+        ++boundary_idx;
+      });
 
   // If desired, sort the keys and boundary indices by receiver_idx
   // std::sort(key_order.begin(), key_order.end(),
@@ -118,23 +138,13 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
   std::for_each(std::begin(key_order), std::end(key_order), [&](auto &t) {
     if (comm_map->count(std::get<2>(t)) == 0) {
       auto key = std::get<2>(t);
-      PARTHENON_FAIL(std::string("Asking for buffer that doesn't exist") +
-                     " (sender: " + std::to_string(GetSenderGid(key)) + ", receiver: " +
-                     std::to_string(GetReceiverGid(key)) + ", var: " + GetVariable(key) +
-                     ", location: " + std::to_string(GetLocIdx(key)) + ")");
+      PARTHENON_FAIL(std::string("Asking for buffer that doesn't exist") + " (" +
+                     GetLabel(key) + ")");
     }
     pcache->buf_vec.push_back(&((*comm_map)[std::get<2>(t)]));
     (pcache->idx_vec)[std::get<1>(t)] = buff_idx++;
   });
-
-  const int nbound = pcache->buf_vec.size();
-  if (initialize_flags && nbound > 0) {
-    if (nbound != pcache->sending_non_zero_flags.size()) {
-      pcache->sending_non_zero_flags = ParArray1D<bool>("sending_nonzero_flags", nbound);
-      pcache->sending_non_zero_flags_h =
-          Kokkos::create_mirror_view(pcache->sending_non_zero_flags);
-    }
-  }
+  pcache->epoch = comm_map->GetCurrentEpoch();
 }
 
 template <BoundaryType BOUND_TYPE, bool SENDER>
@@ -146,7 +156,8 @@ inline auto CheckSendBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md) {
   bool rebuild = false;
   bool other_communication_unfinished = false;
   int nbound = 0;
-  ForEachBoundary<BOUND_TYPE>(md, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+  ForEachBoundary<BOUND_TYPE>(md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb,
+                                      const sp_cv_t v) {
     const std::size_t ibuf = cache.idx_vec[nbound];
     auto &buf = *(cache.buf_vec[ibuf]);
 
@@ -178,7 +189,8 @@ inline auto CheckReceiveBufferCacheForRebuild(std::shared_ptr<MeshData<Real>> md
   bool rebuild = false;
   int nbound = 0;
 
-  ForEachBoundary<BOUND_TYPE>(md, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
+  ForEachBoundary<BOUND_TYPE>(md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb,
+                                      const sp_cv_t v) {
     const std::size_t ibuf = cache.idx_vec[nbound];
     auto &buf = *cache.buf_vec[ibuf];
     if (ibuf < cache.bnd_info_h.size()) {
@@ -228,19 +240,20 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
   cache.prores_cache.Initialize(nbound, pkg);
 
   int ibound = 0;
-  ForEachBoundary<BOUND_TYPE>(md, [&](auto pmb, sp_mbd_t rc, nb_t &nb, const sp_cv_t v) {
-    // bnd_info
-    const std::size_t ibuf = cache.idx_vec[ibound];
-    cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf]);
+  ForEachBoundary<BOUND_TYPE>(
+      md, [&](auto pmb, sp_mbd_t rc, const nb_t &nb, const sp_cv_t v) {
+        // bnd_info
+        const std::size_t ibuf = cache.idx_vec[ibound];
+        cache.bnd_info_h(ibuf) = BndInfoCreator(pmb, nb, v, cache.buf_vec[ibuf]);
 
-    // subsets ordering is same as in cache.bnd_info
-    // RefinementFunctions_t owns all relevant functionality, so
-    // only one ParArray2D needed.
-    cache.prores_cache.RegisterRegionHost(ibuf, ProResInfoCreator(pmb, nb, v), v.get(),
-                                          pkg);
+        // subsets ordering is same as in cache.bnd_info
+        // RefinementFunctions_t owns all relevant functionality, so
+        // only one ParArray2D needed.
+        cache.prores_cache.RegisterRegionHost(ibuf, ProResInfoCreator(pmb, nb, v),
+                                              v.get(), pkg);
 
-    ++ibound;
-  });
+        ++ibound;
+      });
   Kokkos::deep_copy(cache.bnd_info, cache.bnd_info_h);
   cache.prores_cache.CopyToDevice();
 }

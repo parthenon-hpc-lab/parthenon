@@ -14,9 +14,11 @@
 
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 
 #include "amr_criteria/refinement_package.hpp"
+#include "globals.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
@@ -29,8 +31,9 @@ AMRCriteria::AMRCriteria(ParameterInput *pin, std::string &block_name)
   field =
       pin->GetOrAddString(block_name, "field", "NO FIELD WAS SET", "Field to refine on");
   if (field == "NO FIELD WAS SET") {
-    std::cerr << "Error in " << block_name << ": no field set" << std::endl;
-    exit(1);
+    std::stringstream msg;
+    msg << "Error in " << block_name << ": no field set" << std::endl;
+    PARTHENON_THROW(msg);
   }
   if (pin->DoesParameterExist(block_name, "tensor_ijk")) {
     auto index = pin->GetVector<int>(block_name, "tensor_ijk");
@@ -55,20 +58,20 @@ AMRCriteria::AMRCriteria(ParameterInput *pin, std::string &block_name)
                                       "magnitude that triggers refinement");
   derefine_criteria = pin->GetOrAddReal(block_name, "derefine_tol", 0.05,
                                         "magnitude that triggers de-refinement");
-  int global_max_level = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
-                                              "maximum level of refinement globally");
+  int global_max_level =
+      pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
+                           "maximum level of refinement globally when AMR is on");
   max_level =
       pin->GetOrAddInteger(block_name, "max_level", global_max_level,
                            "maximum level this refinement criterion will achieve");
-  if (max_level > global_max_level) {
-    std::cerr << "WARNING: max_level in " << block_name
-              << " exceeds numlevel (the global maximum number of levels) set in "
-                 "<parthenon/mesh>."
-              << std::endl
-              << std::endl
-              << "Setting max_level = numlevel, but this may not be what you want."
-              << std::endl
-              << std::endl;
+  if ((max_level > global_max_level) && (Globals::my_rank == 0)) {
+    std::stringstream msg;
+    msg << "max_level in " << block_name
+        << " exceeds numlevel (the global maximum number of levels) set in "
+           "<parthenon/mesh>. Setting max_level = numlevel, but this may not be what you "
+           "want."
+        << std::endl;
+    PARTHENON_WARN(msg);
     max_level = global_max_level;
   }
 }
@@ -80,6 +83,7 @@ std::shared_ptr<AMRCriteria> AMRCriteria::MakeAMRCriteria(std::string &criteria,
     return std::make_shared<AMRFirstDerivative>(pin, block_name);
   if (criteria == "derivative_order_2")
     return std::make_shared<AMRSecondDerivative>(pin, block_name);
+  if (criteria == "magnitude") return std::make_shared<AMRMagnitude>(pin, block_name);
   throw std::invalid_argument("\n  Invalid selection for refinment method in " +
                               block_name + ": " + criteria);
 }
@@ -122,6 +126,25 @@ void AMRSecondDerivative::operator()(MeshData<Real> *md,
   const int idx = comp4 + n4 * (comp5 + n5 * comp6);
   Refinement::SecondDerivative(bnds, md, field, idx, amr_tags, refine_criteria,
                                derefine_criteria, max_level);
+}
+
+void AMRMagnitude::operator()(MeshData<Real> *md, ParArray1D<AmrTag> &amr_tags) const {
+  auto ib = md->GetBoundsI(IndexDomain::interior);
+  auto jb = md->GetBoundsJ(IndexDomain::interior);
+  auto kb = md->GetBoundsK(IndexDomain::interior);
+  auto bnds = AMRBounds(ib, jb, kb);
+  auto dims = md->GetMeshPointer()->resolved_packages->FieldMetadata(field).Shape();
+  int n5(0), n4(0);
+  if (dims.size() > 2) {
+    n5 = dims[1];
+    n4 = dims[2];
+  } else if (dims.size() > 1) {
+    n5 = dims[0];
+    n4 = dims[1];
+  }
+  const int idx = comp4 + n4 * (comp5 + n5 * comp6);
+  Refinement::Magnitude(bnds, md, field, idx, amr_tags, sign, refine_criteria,
+                        derefine_criteria, max_level);
 }
 
 } // namespace parthenon

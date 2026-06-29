@@ -22,13 +22,13 @@
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable_pack.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
-#include "pack/make_pack_descriptor.hpp"
-#include "pack/sparse_pack.hpp"
-
-#include "kokkos_abstraction.hpp"
 #include "mesh/meshblock_pack.hpp"
+#include "pack/sparse_pack/make_pack_descriptor.hpp"
+#include "pack/sparse_pack/sparse_pack.hpp"
+#include "sparse/sparse_management.hpp"
 
 namespace parthenon {
 
@@ -137,80 +137,6 @@ TaskStatus UpdateWithFluxDivergence(MeshData<Real> *u0_data, MeshData<Real> *u1_
                                    beta_dt * FluxDivHelper(l, k, j, i, ndim, coords, u0);
         }
       });
-  return TaskStatus::complete;
-}
-
-TaskStatus SparseDealloc(MeshData<Real> *md) {
-  PARTHENON_INSTRUMENT
-  if (!Globals::sparse_config.enabled || (md->NumBlocks() == 0)) {
-    return TaskStatus::complete;
-  }
-
-  const IndexRange ib = md->GetBoundsI(IndexDomain::entire);
-  const IndexRange jb = md->GetBoundsJ(IndexDomain::entire);
-  const IndexRange kb = md->GetBoundsK(IndexDomain::entire);
-
-  auto control_vars = md->GetMeshPointer()->resolved_packages->GetControlVariables();
-  auto desc = MakePackDescriptor(md, control_vars, {Metadata::Sparse});
-  auto pack = desc.GetPack(md);
-  auto packIdx = desc.GetMap();
-
-  ParArray2D<bool> is_zero("IsZero", pack.GetNBlocks(), pack.GetMaxNumberOfVars());
-  Kokkos::parallel_for(
-      PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), pack.GetNBlocks(), Kokkos::AUTO),
-      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        const int b = team_member.league_rank();
-
-        const int lo = pack.GetLowerBound(b);
-        const int hi = pack.GetUpperBound(b);
-
-        for (int v = lo; v <= hi; ++v) {
-          const auto &var = pack(b, v);
-          const Real threshold = var.deallocation_threshold;
-          bool all_zero = true;
-          const auto &var_raw = var.data();
-          Kokkos::parallel_reduce(
-              Kokkos::TeamThreadRange<>(team_member, var.size()),
-              [&](const int idx, bool &lall_zero) {
-                if (std::abs(var_raw[idx]) > threshold) {
-                  lall_zero = false;
-                  return;
-                }
-              },
-              Kokkos::LAnd<bool, DevMemSpace>(all_zero));
-          Kokkos::single(Kokkos::PerTeam(team_member),
-                         [&]() { is_zero(b, v) = all_zero; });
-        }
-      });
-
-  auto is_zero_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), is_zero);
-
-  for (int b = 0; b < pack.GetNBlocks(); ++b) {
-    for (auto &control_var : control_vars) {
-      int lo = pack.GetLowerBoundHost(b, PackIdx(packIdx[control_var]));
-      int hi = pack.GetUpperBoundHost(b, PackIdx(packIdx[control_var]));
-      if (lo <= hi) { // Check that this control variable is actually in the pack
-        auto &counter = md->GetBlockData(b)->Get(control_var).dealloc_count;
-        bool all_zero = true;
-        for (int iv = lo; iv <= hi; ++iv)
-          all_zero = all_zero && is_zero_h(b, iv);
-        if (all_zero) {
-          counter++;
-        } else {
-          counter = 0;
-        }
-        if (counter > Globals::sparse_config.deallocation_count) {
-          // this variable has been flagged for deallocation deallocation_count times in
-          // a row, now deallocate it
-          counter = 0;
-          auto pmb = md->GetBlockData(b)->GetBlockPointer();
-          pmb->DeallocateSparse(control_var);
-        }
-      }
-    }
-  }
-
   return TaskStatus::complete;
 }
 

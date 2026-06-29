@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,8 +10,11 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
 #ifndef INTERFACE_SWARM_HPP_
 #define INTERFACE_SWARM_HPP_
+
+// This file was made in part with generative AI.
 
 ///
 /// A swarm contains all particles of a particular species
@@ -34,6 +37,7 @@
 #include "bvals/bvals.hpp"
 #include "globals.hpp" // my_rank
 #include "metadata.hpp"
+#include "pack/swarm_pack/swarm_pack_types.hpp"
 #include "parthenon_arrays.hpp"
 #include "parthenon_mpi.hpp"
 #include "swarm_device_context.hpp"
@@ -92,7 +96,10 @@ class Swarm {
   }
 
  public:
-  Swarm(const std::string &label, const Metadata &metadata, const int nmax_pool_in = 3);
+  Swarm(const std::string &label, const Metadata &metadata,
+        const std::size_t nmax_pool_in);
+  Swarm(const std::string &label, const Metadata &metadata)
+      : Swarm(label, metadata, metadata.InitialSwarmPoolReservation()) {}
 
   ~Swarm() = default;
 
@@ -209,8 +216,8 @@ class Swarm {
 
   // This is the particle data size for indexing boundary data buffers, for which
   // integers are cast as Reals.
-  int GetParticleDataSize() {
-    int size = 0;
+  std::size_t GetParticleDataSize() {
+    std::size_t size = 0;
     for (auto &v : std::get<0>(vectors_)) {
       size += v->NumComponents();
     }
@@ -242,6 +249,28 @@ class Swarm {
   void CountParticlesToSend_(); // Must be public for launching kernel
 
   template <typename T>
+  std::vector<std::string> GetVariableNames() const {
+    std::vector<std::string> names;
+    const auto &vars = GetVariableVector<T>();
+    names.reserve(vars.size());
+    for (const auto &var : vars) {
+      names.push_back(var->label());
+    }
+    return names;
+  }
+
+  template <typename T>
+  int GetComponentCount() const {
+    int count = 0;
+    for (const auto &var : GetVariableVector<T>()) {
+      count += var->NumComponents();
+    }
+    return count;
+  }
+
+  int GetRecordSize() const { return GetRecordSizeImpl<Real, int, std::uint64_t>(); }
+
+  template <typename T>
   const auto &GetVariableVector() const {
     return std::get<getType<T>()>(vectors_);
   }
@@ -253,6 +282,11 @@ class Swarm {
   static constexpr int inactive_max_active_index = -1;
 
  private:
+  template <typename... Ts>
+  int GetRecordSizeImpl() const {
+    return (0 + ... + (GetComponentCount<Ts>() * sizeof(Ts)));
+  }
+
   template <class T>
   vpack_types::SwarmVarList<T> MakeVarListAll_();
   template <class T>
@@ -272,7 +306,7 @@ class Swarm {
   int num_active_ = 0;
   std::string label_;
   Metadata m_;
-  int nmax_pool_;
+  std::size_t nmax_pool_;
   std::string info_;
   std::tuple<ParticleVariableVector<int>, ParticleVariableVector<Real>,
              ParticleVariableVector<std::uint64_t>>
@@ -367,8 +401,18 @@ inline SwarmVariablePack<T> Swarm::PackAllVariables_(PackIndexMap &vmap) {
   return ret;
 }
 
+template <typename T, typename TypeListT>
+struct type_list_contains;
+
+template <typename T, typename... Ts>
+struct type_list_contains<T, TypeList<Ts...>>
+    : std::bool_constant<(std::is_same_v<T, Ts> || ...)> {};
+
 template <class T>
 inline void Swarm::Add_(const std::string &label, const Metadata &m) {
+  PARTHENON_REQUIRE((type_list_contains<T, SwarmPackTypes>::value),
+                    "Requested Swarm type is not contained in SwarmPackTypes");
+
   ParticleVariable<T> pvar(label, nmax_pool_, m);
   auto var = std::make_shared<ParticleVariable<T>>(pvar);
 

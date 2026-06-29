@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2025 The Parthenon collaboration
+// Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // Athena++ astrophysical MHD code
@@ -69,13 +69,14 @@
 #include <string>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_parameters.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/default_names.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
@@ -103,20 +104,24 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 
   // loop over "parthenon/output" blocks located in params
   auto pkg = pm->packages.Get("Outputs");
-  const auto &block_names = pkg->Param<std::vector<std::string>>("block_names");
-  const auto &block_numbers = pkg->Param<std::vector<int>>("block_numbers");
-  auto *pactive = pkg->MutableParam<std::vector<bool>>("active");
-  auto *pfile_numbers = pkg->MutableParam<std::vector<int>>("file_numbers");
-  auto *plast_times = pkg->MutableParam<std::vector<Real>>("last_times");
-  auto *plast_ns = pkg->MutableParam<std::vector<int>>("last_ns");
-  for (int iinput = 0; iinput < block_names.size(); ++iinput) {
+  // loop over input block names.  Find those that start with "parthenon/output", read
+  // parameters, and construct a vector of output types.
+  // PG: It could be discussed if we should work based on a vector that is initialized in
+  // the outpus packages (as before), but I don't think it's bad practice to work on
+  // `pinput` again here as we're actually processing (potentially even modifying)
+  // `pinput`.
+  auto output_blocks = pin->GetBlockNamesWithPrefix("parthenon/output");
+  for (const auto &block_name : output_blocks) {
     std::shared_ptr<OutputType> pnew_type; // the new output we will create
     bool restart = false;                  // we track restart outputs separately so we
                                            // need this temp variable to check
     OutputParameters op;                   // define temporary OutputParameters struct
-    op.block_name = block_names[iinput];
-    op.block_number = block_numbers[iinput];
-    op.contiguous_block_index = iinput;
+    op.block_name = block_name;
+    const auto outn_str = block_name.substr(16); // 16 because counting starts at 0!
+    op.block_number = atoi(outn_str.c_str());
+    auto *pfile_number = pkg->MutableParam<int>(outn_str + "/file_number");
+    auto *plast_time = pkg->MutableParam<Real>(outn_str + "/last_time");
+    auto *plast_n = pkg->MutableParam<int>(outn_str + "/last_n");
 
     Real dt = 0.0; // default value == 0 means that initial data is written by default
     int dn = -1;
@@ -132,10 +137,29 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     }
     // if this output is "soft-disabled" (negative value) skip processing
     if (dt < 0.0 && dn < 0) {
-      (*pactive)[iinput] = false;
       continue;
-    } else {
-      (*pactive)[iinput] = true;
+    }
+
+    // JMM: Backwards compatibility hack. Don't allow this unless
+    // we're restarting from a legacy file format.
+    if (parthenon::Globals::is_restart) {
+      bool next_time_exists = pin->DoesParameterExist(op.block_name, "next_time");
+      bool next_n_exists = pin->DoesParameterExist(op.block_name, "next_n");
+      if (next_time_exists) {
+        Real next_time = pin->GetReal(op.block_name, "next_time");
+        *plast_time = dt < 0 ? 0.0 : next_time - dt;
+        pin->RemoveParameter(op.block_name, "next_time");
+      }
+      if (next_n_exists) {
+        int next_n = pin->GetInteger(op.block_name, "next_n");
+
+        *plast_n = dn < 0 ? 0 : next_n - dn;
+        pin->RemoveParameter(op.block_name, "next_n");
+      }
+      if (next_time_exists || next_n_exists) {
+        *pfile_number = pin->GetOrAddInteger(op.block_name, "file_number", 0);
+        pin->RemoveParameter(op.block_name, "file_number");
+      }
     }
 
     PARTHENON_REQUIRE_THROWS(!(dt >= 0.0 && dn >= 0),
@@ -143,8 +167,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
                              "is not supported. Please set at most one value >= 0.");
 
     // set time of last output, time between outputs
-    op.last_time = (*plast_times)[iinput];
-    op.last_n = (*plast_ns)[iinput];
+    op.last_time = *plast_time;
+    op.last_n = *plast_n;
     if (tm != nullptr) {
       op.dt = dt;
       op.dn = dn;
@@ -163,7 +187,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         signaling number. However, I think the flag is less fraught.
       */
       if (dt >= 0) {
-        // TODO(JMM): Should this be a check for pmesh->is_restart instead?
+        // TODO(JMM): Should this be a check for Globals::is_restart instead?
         if (op.last_time > std::numeric_limits<Real>::lowest()) {
           op.next_time = op.last_time + dt;
         } else {
@@ -171,7 +195,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
         }
       }
       if (dn >= 0) {
-        // TODO(JMM): Should this be a check for pmesh->is_restart instead?
+        // TODO(JMM): Should this be a check for Globals::is_restart instead?
         if (op.last_n > std::numeric_limits<int>::lowest()) {
           op.next_n = op.last_n + dn;
         } else {
@@ -181,13 +205,16 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     }
 
     // set file number, basename, id, and format
-    op.file_number = std::max((*pfile_numbers)[iinput], 0);
+    op.file_number = std::max(*pfile_number, 0);
     op.file_basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon",
                                            "prefix for output files");
     op.file_number_width = pin->GetOrAddInteger(op.block_name, "file_number_width", 5);
     op.file_label_final = pin->GetOrAddBoolean(
         op.block_name, "use_final_label", true,
         "final output will use the word final instead of a number for its index");
+    op.include_in_final =
+        pin->GetOrAddBoolean(op.block_name, "include_in_final", true,
+                             "include output when triggered on final signal");
     char define_id[10];
     std::snprintf(define_id, sizeof(define_id), "out%d",
                   op.block_number); // default id="outN"
@@ -206,26 +233,34 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     // read single precision output option
     const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5") ||
                                 (op.file_type == "corehdf5");
+    const bool is_openpmd_output = (op.file_type == "openpmd");
 
-    if (is_hdf5_output) {
+    if (is_hdf5_output || is_openpmd_output) {
       op.single_precision_output =
           pin->GetOrAddBoolean(op.block_name, "single_precision_output", false);
+    } else {
+      op.single_precision_output = false;
+      if (pin->DoesParameterExist(op.block_name, "single_precision_output")) {
+        std::stringstream warn;
+        warn << "Output option single_precision_output only applies to "
+                "HDF5 outputs or restarts. Ignoring it for output block '"
+             << op.block_name << "'";
+        if (Globals::my_rank == 0) {
+          PARTHENON_WARN(warn);
+        }
+      }
+    }
+
+    if (is_hdf5_output) {
       op.sparse_seed_nans =
           pin->GetOrAddBoolean(op.block_name, "sparse_seed_nans", false,
                                "write non-allocated sparse data as NaN");
       op.meshdata_name = pin->GetOrAddString(op.block_name, "meshdata_name", "base",
                                              "which meshdata object to write from");
     } else {
-      op.single_precision_output = false;
+      // For OpenPMD/ADIOS2 it is not required to seed sparse nans as BP5 knows
+      // which chunks in a (sparse by default) mesh are written and which are not.
       op.sparse_seed_nans = false;
-
-      if (pin->DoesParameterExist(op.block_name, "single_precision_output")) {
-        std::stringstream warn;
-        warn << "Output option single_precision_output only applies to "
-                "HDF5 outputs or restarts. Ignoring it for output block '"
-             << op.block_name << "'";
-        PARTHENON_WARN(warn);
-      }
     }
 
     if (is_hdf5_output) {
@@ -260,8 +295,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     if (op.file_type == "hst") {
       // Do not use GetOrAddVector because it will pollute the input parameters for
       // restarts
-      if (pin->DoesParameterExist(block_names[iinput], "packages")) {
-        op.packages = pin->GetVector<std::string>(block_names[iinput], "packages");
+      if (pin->DoesParameterExist(op.block_name, "packages")) {
+        op.packages = pin->GetVector<std::string>(op.block_name, "packages");
       } else {
         op.packages = std::vector<std::string>();
       }
@@ -271,40 +306,39 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     if ((op.file_type != "hst") && (op.file_type != "rst") &&
         (op.file_type != "corehdf5") && (op.file_type != "ascent") &&
         (op.file_type != "histogram")) {
-      // differentiating here whether a block exists or not to not add an empty
-      // parameter to the input file (which might interfere with restarts)
-      if (pin->DoesParameterExist(block_names[iinput], "variables")) {
-        op.variables = pin->GetVector<std::string>(block_names[iinput], "variables",
-                                                   "variables to output");
+      // Do not use GetOrAddVector because it will pollute the input parameters for
+      // restarts
+      if (pin->DoesParameterExist(op.block_name, "variables")) {
+        op.variables = pin->GetVector<std::string>(op.block_name, "variables");
       } else {
         op.variables = std::vector<std::string>();
       }
       // JMM: If the requested var isn't present for a given swarm,
       // it is simply not output.
       op.swarms.clear(); // Not sure this is needed
-      if (pin->DoesParameterExist(block_names[iinput], "swarms")) {
-        std::vector<std::string> swarmnames = pin->GetVector<std::string>(
-            block_names[iinput], "swarms", "swarms to output");
+      if (pin->DoesParameterExist(op.block_name, "swarms")) {
+        std::vector<std::string> swarmnames =
+            pin->GetVector<std::string>(op.block_name, "swarms", "swarms to output");
         std::size_t nswarms = swarmnames.size();
-        if ((pin->DoesParameterExist(block_names[iinput], "swarm_variables")) &&
+        if ((pin->DoesParameterExist(op.block_name, "swarm_variables")) &&
             (nswarms > 1)) {
           std::stringstream msg;
-          msg << "The swarm_variables field is set in the block '" << block_names[iinput]
+          msg << "The swarm_variables field is set in the block '" << op.block_name
               << "' however, there are " << nswarms << " swarms."
               << " All swarms will be assumed to request the vars listed in "
                  "swarm_variables.";
           PARTHENON_WARN(msg);
         }
         for (const auto &swname : swarmnames) {
-          if (pin->DoesParameterExist(block_names[iinput], "swarm_variables")) {
+          if (pin->DoesParameterExist(op.block_name, "swarm_variables")) {
             auto varnames =
-                pin->GetVector<std::string>(block_names[iinput], "swarm_variables",
+                pin->GetVector<std::string>(op.block_name, "swarm_variables",
                                             "swarm variables to output for all swarms");
             op.swarms[swname].insert(varnames.begin(), varnames.end());
           }
-          if (pin->DoesParameterExist(block_names[iinput], swname + "_variables")) {
+          if (pin->DoesParameterExist(op.block_name, swname + "_variables")) {
             auto varnames = pin->GetVector<std::string>(
-                block_names[iinput], swname + "_variables",
+                op.block_name, swname + "_variables",
                 "swarm variables to output for a specific swarm");
             op.swarms[swname].insert(varnames.begin(), varnames.end());
           }
@@ -331,8 +365,59 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
 #ifdef PARTHENON_ENABLE_OPENPMD
       const auto backend_config =
           pin->GetOrAddString(op.block_name, "backend_config", "default");
+      const auto coarsening_factor =
+          pin->GetOrAddInteger(op.block_name, "coarsening_factor", 1,
+                               "Output data coarsened by given factor n. Every n^dim "
+                               "data point is used, i.e., the data is not average. "
+                               "Requires even number of cells in each block dimension.");
+      PARTHENON_REQUIRE_THROWS(coarsening_factor > 0, "Need positive coarsening factor");
+      const auto base_block_size = pm->GetDefaultBlockSize();
+      PARTHENON_REQUIRE_THROWS(
+          base_block_size.nx(X1DIR) % coarsening_factor == 0,
+          "Cannot coarsen with specified factor given nx1 block size");
+      PARTHENON_REQUIRE_THROWS(
+          base_block_size.nx(X2DIR) % coarsening_factor == 0 || pm->ndim < 2,
+          "Cannot coarsen with specified factor given nx2 block size");
+      PARTHENON_REQUIRE_THROWS(
+          base_block_size.nx(X3DIR) % coarsening_factor == 0 || pm->ndim < 3,
+          "Cannot coarsen with specified factor given nx3 block size");
+      PARTHENON_REQUIRE_THROWS(!op.include_ghost_zones,
+                               "Writing ghost zones not supported for OPMD outputs.");
 
-      pnew_type = std::make_shared<OpenPMDOutput>(op, backend_config);
+      const auto output_type_str = pin->GetOrAddString(
+          op.block_name, "output_type", "data",
+          std::vector<std::string>{"restart", "data", "x1slice", "x2slice", "x3slice"},
+          "Type of output in the file.");
+
+      using enum DumpOutputMode;
+      if (output_type_str == "restart") {
+        op.mode = Restart;
+        restart = true;
+        num_rst_outputs++;
+      } else if (output_type_str == "data") {
+        op.mode = Data;
+      } else if (output_type_str == "x1slice") {
+        op.mode = X1Slice;
+      } else if (output_type_str == "x2slice") {
+        op.mode = X2Slice;
+      } else if (output_type_str == "x3slice") {
+        op.mode = X3Slice;
+      } else {
+        PARTHENON_FAIL("Unknown output_type for openpmd output in block " +
+                       op.block_name);
+      }
+
+      if (op.mode == Restart) {
+        PARTHENON_REQUIRE_THROWS(coarsening_factor == 1,
+                                 "Restart outputs cannot be coarsened.");
+      }
+
+      const auto format_version = pin->GetOrAddInteger(
+          op.block_name, "openpmd_format_version", OpenPMDOutput::OUTPUT_VERSION_FORMAT,
+          "OpenPMD output format version (1 = legacy, 2 = standard-compliant vectors)");
+
+      pnew_type = std::make_shared<OpenPMDOutput>(op, backend_config, coarsening_factor,
+                                                  format_version);
 #else
       msg << "### FATAL ERROR in Outputs constructor" << std::endl
           << "Executable not configured for OpenPMD outputs, but OpenPMD file format "
@@ -353,21 +438,22 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       PARTHENON_FAIL(msg);
 #endif // ifdef ENABLE_HDF5
     } else if (is_hdf5_output) {
+      op.mode = DumpOutputMode::Data;
       restart = (op.file_type == "rst");
       const bool coredump = (op.file_type == "corehdf5");
       if (restart) {
         num_rst_outputs++;
+        op.mode = DumpOutputMode::Restart;
       }
       if (coredump) {
         num_core_outputs++;
+        op.mode = DumpOutputMode::Core;
       }
 #ifdef ENABLE_HDF5
       op.write_xdmf = pin->GetOrAddBoolean(op.block_name, "write_xdmf", true);
       op.write_swarm_xdmf =
           pin->GetOrAddBoolean(op.block_name, "write_swarm_xdmf", false);
-      pnew_type = std::make_shared<PHDF5Output>(
-          op, restart ? DumpOutputMode::RESTART
-                      : (coredump ? DumpOutputMode::CORE : DumpOutputMode::DUMP));
+      pnew_type = std::make_shared<PHDF5Output>(op);
 #else
       msg << "### FATAL ERROR in Outputs constructor" << std::endl
           << "Executable not configured for HDF5 outputs, but HDF5 file format "
@@ -390,7 +476,6 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       output_types_.push_back(pnew_type);
     }
   }
-
   // check there were no more than one restart file requested
   if (num_rst_outputs > 1) {
     msg << "### FATAL ERROR in Outputs constructor" << std::endl
@@ -432,7 +517,8 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
             (tm->nlim > 0 && tm->ncycle >= tm->nlim))) ||
           // or by manual triggers
           (signal == SignalHandler::OutputSignal::now) ||
-          (signal == SignalHandler::OutputSignal::final) ||
+          (signal == SignalHandler::OutputSignal::final &&
+           ptype->output_params.include_in_final) ||
           (signal == SignalHandler::OutputSignal::analysis &&
            ptype->output_params.analysis_flag)))) {
       if (first && ptype->output_params.file_type != "hst") {
@@ -442,11 +528,16 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
         }
         first = false;
       }
-      if (ptype->output_params.file_type == "rst") {
+      if (ptype->output_params.mode == DumpOutputMode::Restart) {
         pm->ApplyUserWorkBeforeRestartOutput(pm, pin, *tm, &(ptype->output_params));
         for (const auto &pkg : pm->packages.AllPackages()) {
           pkg.second->UserWorkBeforeRestartOutput(pm, pin, *tm, &(ptype->output_params));
         }
+      }
+      // Poke the dog before each output to not trigger an accidental kill for many
+      // simultaneous outputs (e.g., on final)
+      if (Globals::watchdog_enabled) {
+        WatchDog::WatchDog(0);
       }
       ptype->WriteOutputFile(pm, pin, tm, signal);
     }
@@ -456,10 +547,11 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
 void OutputType::UpdateNextOutput_(Mesh *pm, SimTime *tm) {
   output_params.file_number++;
   auto pkg = pm->packages.Get("Outputs");
-  auto *pfile_numbers = pkg->MutableParam<std::vector<int>>("file_numbers");
-  auto *plast_times = pkg->MutableParam<std::vector<Real>>("last_times");
-  auto *plast_ns = pkg->MutableParam<std::vector<int>>("last_ns");
-  (*pfile_numbers)[output_params.contiguous_block_index] = output_params.file_number;
+  const auto outn_str = std::to_string(output_params.block_number);
+  auto *pfile_number = pkg->MutableParam<int>(outn_str + "/file_number");
+  auto *plast_time = pkg->MutableParam<Real>(outn_str + "/last_time");
+  auto *plast_n = pkg->MutableParam<int>(outn_str + "/last_n");
+  *pfile_number = output_params.file_number;
   if (tm != nullptr) {
     // JMM: Do NOT use the current time to update these, as that can
     // cause drift because timestep is not guaranteed to align with
@@ -467,8 +559,8 @@ void OutputType::UpdateNextOutput_(Mesh *pm, SimTime *tm) {
     // time.
     output_params.last_n = output_params.next_n;
     output_params.last_time = output_params.next_time;
-    (*plast_ns)[output_params.contiguous_block_index] = output_params.last_n;
-    (*plast_times)[output_params.contiguous_block_index] = output_params.last_time;
+    *plast_n = output_params.last_n;
+    *plast_time = output_params.last_time;
     if (output_params.dt > 0.0) {
       output_params.next_time += output_params.dt;
     }

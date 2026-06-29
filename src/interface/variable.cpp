@@ -69,12 +69,10 @@ std::string Variable<T>::info() {
   return s;
 }
 
-// Makes a shallow copy of the boundary buffer and fluxes of the source variable and
-// assign them to this variable
+// Makes a shallow copy of the coarse buffer from src
 template <typename T>
-void Variable<T>::CopyFluxesAndBdryVar(const Variable<T> *src) {
-  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent) ||
-      IsSet(Metadata::ForceRemeshComm) || IsSet(Metadata::Flux)) {
+void Variable<T>::CopyCoarseBuffer(const Variable<T> *src) {
+  if (RequiresCoarseBuffer()) {
     // no need to check mesh->multilevel, if false, we're just making a shallow copy of
     // an empty ParArrayND
     coarse_s = src->coarse_s;
@@ -93,7 +91,7 @@ std::shared_ptr<Variable<T>> Variable<T>::AllocateCopy(std::weak_ptr<MeshBlock> 
     cv->AllocateData(wpmb);
   }
 
-  cv->CopyFluxesAndBdryVar(this);
+  cv->CopyCoarseBuffer(this);
 
   return cv;
 }
@@ -140,8 +138,7 @@ void Variable<T>::AllocateCoarse(std::weak_ptr<MeshBlock> wpmb) {
   std::string base_name = label();
 
   // Create the boundary object
-  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent) ||
-      IsSet(Metadata::ForceRemeshComm) || IsSet(Metadata::Flux)) {
+  if (RequiresCoarseBuffer()) {
     if (wpmb.expired()) return;
     std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
@@ -156,8 +153,8 @@ void Variable<T>::AllocateCoarse(std::weak_ptr<MeshBlock> wpmb) {
 
 template <typename T>
 std::int64_t Variable<T>::Deallocate() {
-  std::int64_t mem_size = 0;
 #ifdef ENABLE_SPARSE
+  std::int64_t mem_size = 0;
   if (!IsAllocated()) {
     return 0;
   }
@@ -165,8 +162,7 @@ std::int64_t Variable<T>::Deallocate() {
   mem_size += data.size() * sizeof(T);
   data.Reset();
 
-  if (IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent) ||
-      IsSet(Metadata::ForceRemeshComm) || IsSet(Metadata::Flux)) {
+  if (RequiresCoarseBuffer()) {
     mem_size += coarse_s.size() * sizeof(T);
     coarse_s.Reset();
   }

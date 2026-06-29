@@ -106,7 +106,7 @@ class RestartReader {
   // fills internal data for given pointer
   virtual void ReadBlocks(const std::string &name, IndexRange range,
                           const OutputUtils::VarInfo &info, std::vector<Real> &dataVec,
-                          int file_output_format_version, Mesh *pmesh) const = 0;
+                          Mesh *pmesh) const = 0;
 
   //  The PackOrUnpack logic requires knowledge of how data is stored and being read into
   //  the buffer. For HDF5 data is padded if needed (i.e., a face centered field has tims
@@ -135,6 +135,11 @@ class RestartReader {
                                                    std::vector<std::size_t> &offsets) = 0;
 
   virtual void ReadParams(const std::string &name, Params &p) = 0;
+
+  enum class DataType { Field, Swarm, SwarmVar };
+  [[nodiscard]] virtual bool
+  VariableExists(const std::string &name, const DataType data_type,
+                 const std::string swarmvarname = "") const = 0;
 
   // closes out the restart file
   // perhaps belongs in a destructor?

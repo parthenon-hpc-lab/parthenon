@@ -55,6 +55,8 @@ struct NeighborBlock {
   LogicalLocation loc;
   // LogicalLocation of neighbor block in origin tree
   LogicalLocation origin_loc;
+  // Number of block_coarsenings from the base block size
+  std::size_t block_coarsenings;
   // offsets of neighbor block if it is on a finer level
   // TODO(LFR): Remove these
   int fi1, fi2;
@@ -69,8 +71,8 @@ struct NeighborBlock {
 
   NeighborBlock();
   NeighborBlock(Mesh *mesh, LogicalLocation loc, LogicalLocation origin_loc, int rank,
-                int gid, std::array<int, 3> offsets, int bid, int target_id, int ifi1,
-                int ifi2);
+                int gid, Kokkos::Array<int, 3> offsets_in, int bid, int target_id,
+                int fi1, int fi2, std::size_t block_coarsenings);
 };
 
 //----------------------------------------------------------------------------------------

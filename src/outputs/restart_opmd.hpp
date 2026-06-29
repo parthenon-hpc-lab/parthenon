@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2024 The Parthenon collaboration
+// Copyright(C) 2024-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 #ifndef OUTPUTS_RESTART_OPMD_HPP_
@@ -13,11 +13,13 @@
 #include <string>
 #include <vector>
 
+// OpenPMD headers
+#include <openPMD/openPMD.hpp>
+
 #include "basic_types.hpp"
-#include "openPMD/Iteration.hpp"
-#include "openPMD/Series.hpp"
+#include "outputs/parthenon_opmd.hpp"
 #include "outputs/restart.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/default_names.hpp"
 
 #include "mesh/domain.hpp"
 
@@ -52,7 +54,7 @@ class RestartReaderOPMD : public RestartReader {
   // fills internal data for given pointer
   void ReadBlocks(const std::string &name, IndexRange range,
                   const OutputUtils::VarInfo &info, std::vector<Real> &dataVec,
-                  int file_output_format_version, Mesh *pmesh) const override;
+                  Mesh *pmesh) const override;
 
   //  The PackOrUnpack logic requires knowledge of how data is stored and being read into
   //  the buffer. OpenPMD is dense (i.e., a face centered field has dims
@@ -70,36 +72,18 @@ class RestartReaderOPMD : public RestartReader {
 
     const auto &shape = m.Shape();
     const int rank = shape.size();
-    std::size_t nvar = 1;
+    std::size_t ncomp = 1;
     for (int i = 0; i < rank; ++i) {
-      nvar *= shape[rank - 1 - i];
+      ncomp *= shape[rank - 1 - i];
     }
-    std::size_t total_count = nvar * count;
+    std::size_t total_count = ncomp * count;
     if (data_vec.size() < total_count) { // greedy re-alloc
       data_vec.resize(total_count);
     }
 
-    std::string particle_record;
-    std::string particle_record_component;
-    for (auto n = 0; n < nvar; n++) {
-      if (varname == swarm_position::x::name()) {
-        particle_record = "position";
-        particle_record_component = "x";
-      } else if (varname == swarm_position::y::name()) {
-        particle_record = "position";
-        particle_record_component = "y";
-      } else if (varname == swarm_position::z::name()) {
-        particle_record = "position";
-        particle_record_component = "z";
-      } else if (varname == swarm_position::id::name()) {
-        particle_record = "id";
-        particle_record_component = openPMD::MeshRecordComponent::SCALAR;
-      } else {
-        particle_record = varname;
-        particle_record_component =
-            rank == 0 ? openPMD::MeshRecordComponent::SCALAR : std::to_string(n);
-      }
-
+    for (auto n = 0; n < ncomp; n++) {
+      auto [particle_record, particle_record_component] =
+          OpenPMDUtils::GetParticleRecordAndComponentNames(varname, rank, n);
       openPMD::RecordComponent rc = swm[particle_record][particle_record_component];
       rc.loadChunkRaw(&data_vec[n * count], {offset}, {count});
     }
@@ -145,14 +129,41 @@ class RestartReaderOPMD : public RestartReader {
     // Cannot use Kokkos::resize here as it's ambiguous at this point.
     // Also, resize() interally also just create a new view.
     view = T(Kokkos::view_alloc(Kokkos::WithoutInitializing, view.label()), layout);
-    auto view_h = Kokkos::create_mirror_view(HostMemSpace(), view);
 
-    using base_t = typename std::remove_pointer<decltype(view_h.data())>::type;
+    using base_t = T::non_const_value_type;
+    using Unmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
+    const std::size_t n = view.size();
+
     auto flat_data = it->getAttribute(full_path).get<std::vector<base_t>>();
-    for (auto i = 0; i < view_h.size(); i++) {
-      view_h.data()[i] = flat_data[i];
+
+    Kokkos::View<base_t *, HostMemSpace, Unmanaged> view_h(flat_data.data(), n);
+    Kokkos::View<base_t *, Unmanaged> dev_flat(view.data(), n);
+    Kokkos::deep_copy(dev_flat, view_h);
+  }
+  [[nodiscard]] bool VariableExists(const std::string &name, const DataType data_type,
+                                    const std::string swarmvarname = "") const override {
+    if (data_type == DataType::Field) {
+      // Given that MeshRecord labels also carry information about the topological element
+      // and level, we just check for the prefix (this silently assumes that if one
+      // matching record is found, then the variable exists on all levels/for all
+      // components). Might cause issue for edge cases (and or variable combinations that
+      // contain the `_` separator), but this should not be an issue as the error message
+      // in the OpenPMD restart reader is clear (about the variable) when reading fails
+      // later.
+      for (auto [label, mesh] : it->meshes) {
+        if (label.compare(0, name.length() + 1, name + "_") == 0) {
+          return true;
+        }
+      }
+    } else if (data_type == DataType::Swarm) {
+      return it->particles.contains(name);
+    } else if (data_type == DataType::SwarmVar) {
+      // rank = 0, and component index = 0 because we just care about the record name
+      auto [particle_record, particle_record_component] =
+          OpenPMDUtils::GetParticleRecordAndComponentNames(swarmvarname, 0, 0);
+      return it->particles[name].contains(particle_record);
     }
-    Kokkos::deep_copy(view, view_h);
+    return false;
   }
   // closes out the restart file
   // perhaps belongs in a destructor?
@@ -160,6 +171,7 @@ class RestartReaderOPMD : public RestartReader {
 
  private:
   const std::string filename_;
+  int format_version_;
 
   openPMD::Series series;
   // Iteration is a pointer because it cannot be default constructed (it depends on the

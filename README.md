@@ -4,6 +4,7 @@
 [![Extended CI](https://github.com/parthenon-hpc-lab/parthenon/actions/workflows/ci-extended.yml/badge.svg?branch=develop)](https://github.com/parthenon-hpc-lab/parthenon/actions/workflows/ci-extended.yml)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Matrix chat](https://img.shields.io/matrix/parthenon-general:matrix.org)](https://app.element.io/#/room/#parthenon-general:matrix.org)
+[![Static Badge](https://img.shields.io/badge/Mailing%20list-subscribe-blue)](mailto:parthenon-hpc-lab+subscribe@googlegroups.com)
 [![Documentation](https://github.com/parthenon-hpc-lab/parthenon/actions/workflows/docs.yml/badge.svg?branch=develop)](https://parthenon-hpc-lab.github.io/parthenon/develop/index.html)
 
 Parthenon -- a performance portable block-structured adaptive mesh refinement framework
@@ -23,19 +24,22 @@ Parthenon -- a performance portable block-structured adaptive mesh refinement fr
 
 # Community
 * [Chat room on matrix.org](https://app.element.io/#/room/#parthenon-general:matrix.org)
+* [Mailing list (mostly announcements)](mailto:parthenon-hpc-lab+subscribe@googlegroups.com)
+
 
 # Dependencies
 
 ## Required
 
 * CMake 3.16 or greater
-* C++17 compatible compiler
-* Kokkos 4.4.1 or greater
+* C++20 compatible compiler
+* Kokkos 5.0.0 or greater
 
 ## Optional (enabling features)
 
 * MPI
 * OpenMP
+* OpenPMD and ADIOS2 (for outputs)
 * HDF5 (for outputs)
 * Ascent (for in situ visualization and analysis)
 
@@ -121,23 +125,14 @@ Please see the [developer guidelines](CONTRIBUTING.md) for additional informatio
 Please see the [docs](https://parthenon-hpc-lab.github.io/parthenon) for additional documentation on features and
 how to use them.
 
-# Contributors
+# Leadership team
 
-| Name     | Handle       | Team       |
-|----------|--------------|------------|
-| Jonah Miller | @Yurlungur  | LANL Physics  |
-| Josh Dolence | @jdolence | LANL Physics |
-| Andrew Gaspar | @AndrewGaspar | LANL Computer Science |
-| Philipp Grete | @pgrete | Athena Physics |
-| Forrest Glines | @forrestglines | Athena Physics |
-| Jim Stone | @jmstone | Athena Physics |
-| Jonas Lippuner | @jlippuner | LANL Computer Science |
-| Joshua Brown | @JoshuaSBrown | LANL Computer Science |
-| Christoph Junghans | @junghans | LANL Computer Science |
-| Sriram Swaminarayan | @nmsriram | LANL Computer Science |
-| Daniel Holladay | @dholladay00 | LANL Computer Science |
-| Galen Shipman | @gshipman | LANL Computer Science |
-| Ben Ryan | @brryan | LANL Physics |
-| Clell J. (CJ) Solomon | @clellsolomon | LANL Physics |
-| Luke Roberts | @lroberts36 | LANL Physics |
-| Ben Prather | @bprather | LANL Physics |
+| Name     | Handle       | Institution |
+|----------|--------------|-------------|
+| Josh Dolence | @jdolence | LANL |
+| Jonah Miller | @Yurlungur  | LANL  |
+| Philipp Grete | @pgrete | University of Hamburg |
+| Patrick Mullen | @pdmullen | LANL |
+| Cora Prather | @c-prather | Harvard BHI |
+| Adam Reyes | @acreyes | Pacific Fusion |
+| Luke Roberts | @lroberts36 | LANL |

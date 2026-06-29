@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2025 The Parthenon collaboration
+// Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // Athena++ astrophysical MHD code
@@ -29,10 +29,8 @@
 
 namespace parthenon {
 
-// JMM: I designed this for HDF5 but in pinciple this switching could
-// also work for other output types... Any output type that is capable
-// of outputting a full dump can do this.
-enum class DumpOutputMode { DUMP, RESTART, CORE };
+// Controlling additional logic in HDF5 and OpenPMD outputs
+enum class DumpOutputMode { Data, Restart, Core, X1Slice, X2Slice, X3Slice, Unspecified };
 
 //----------------------------------------------------------------------------------------
 //! \struct OutputParameters
@@ -41,11 +39,11 @@ struct OutputParameters {
   OutputParameters() = default;
 
   int block_number = 0;
-  int contiguous_block_index;
   std::string block_name;
   std::string file_basename;
   int file_number_width;
   bool file_label_final;
+  bool include_in_final;
   bool analysis_flag; // write this output for analysis/postprocessing restarts
   std::string file_id;
   std::vector<std::string> variables;
@@ -65,6 +63,7 @@ struct OutputParameters {
   int hdf5_compression_level = 5;
   bool write_xdmf = false;
   bool write_swarm_xdmf = false;
+  DumpOutputMode mode = DumpOutputMode::Unspecified;
 
   // These change after initialization, the other parameters do not.
   Real last_time;

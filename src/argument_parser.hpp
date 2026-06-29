@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2021-2025 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // (C) (or copyright) 2021-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -51,12 +55,12 @@ class ArgParse {
           break;
         case 'r': // -r <restart_file>
           invalid = invalid_arg();
-          res_flag = 1;
+          is_restart = true;
           restart_filename = argv[++i];
           break;
         case 'a': // -a <restart_file>
           invalid = invalid_arg();
-          res_flag = 1;
+          is_restart = true;
           analysis_flag = true;
           restart_filename = argv[++i];
           break;
@@ -81,6 +85,11 @@ class ArgParse {
           std::sscanf(argv[++i], "%d:%d:%d", &wth, &wtm, &wts);
           wtlim = wth * 3600 + wtm * 60 + wts;
           break;
+        case 'w': // -w <seconds>
+          invalid = invalid_arg();
+          watchdog_enabled = true;
+          watchdog_timeout = static_cast<int>(std::strtol(argv[++i], nullptr, 10));
+          break;
         case 'c':
           if (Globals::my_rank == 0) ShowConfig();
           return ArgStatus::error;
@@ -100,6 +109,7 @@ class ArgParse {
             std::cout << "  -c              show configuration and quit\n";
             std::cout << "  -m <nproc>      output mesh structure and quit\n";
             std::cout << "  -t hh:mm:ss     wall time limit for final output\n";
+            std::cout << "  -w ss           watchdog timeout in seconds\n";
             std::cout << "  -h              this help\n";
           }
           error = true;
@@ -135,7 +145,9 @@ class ArgParse {
   char *prundir = nullptr;
   char *params_regex = nullptr;
   bool analysis_flag = false;
-  int res_flag = 0;
+  bool is_restart = false;
+  bool watchdog_enabled = false;
+  int watchdog_timeout = 0;
   int param_flag = 0;
   int mesh_flag = 0;
   int wtlim = 0;

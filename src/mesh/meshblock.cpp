@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,6 +16,8 @@
 //========================================================================================
 //! \file mesh.cpp
 //  \brief implementation of functions in MeshBlock class
+
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <cstdlib>
@@ -42,7 +44,6 @@
 #include "mesh/meshblock.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
-#include "utils/buffer_utils.hpp"
 
 namespace parthenon {
 
@@ -91,6 +92,8 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   this->resolved_packages = resolved_packages;
   cost_ = icost;
 
+  if (pm) is_leaf_ll_ = pm->forest.IsLeaf(iloc);
+
   // initialize grid indices
   if (pmy_mesh->ndim >= 3) {
     InitializeIndexShapes(block_size.nx(X1DIR), block_size.nx(X2DIR),
@@ -113,6 +116,9 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   }
   if (app_in->PostInitialization != nullptr) {
     PostInitialization = app_in->PostInitialization;
+  }
+  if (app_in->PostProblemGenerator != nullptr) {
+    PostProblemGenerator = app_in->PostProblemGenerator;
   }
   if (app_in->MeshBlockUserWorkBeforeOutput != nullptr) {
     UserWorkBeforeOutput = app_in->MeshBlockUserWorkBeforeOutput;
@@ -170,7 +176,9 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   FC_t flags({Metadata::Independent, Metadata::FillGhost}, true);
   // Toss in RemeshComm for this one
   const auto vars =
-      real_container->GetVariablesByFlag(flags + FC_t({Metadata::ForceRemeshComm}, true))
+      real_container
+          ->GetVariablesByFlag(flags + FC_t({Metadata::ForceRemeshComm}, true), {},
+                               FluxRequest::Any)
           .vars();
   for (const auto &v : vars)
     vars_cc_.push_back(v);
@@ -303,7 +311,7 @@ void MeshBlock::AllocateSparse(std::string const &label, bool only_control,
         v->AllocateData(this, flag_uninitialized);
 
         // copy fluxes and boundary variable from variable on base stage
-        v->CopyFluxesAndBdryVar(base_var.get());
+        v->CopyCoarseBuffer(base_var.get());
       }
     }
   };

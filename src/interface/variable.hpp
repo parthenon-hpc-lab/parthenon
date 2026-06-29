@@ -60,13 +60,13 @@ class Variable {
   friend class MeshBlockData<T>;
 
  public:
-  Variable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
-              std::weak_ptr<MeshBlock> wpmb);
+  Variable(const std::string &base_name, const Metadata &metadata, int sparse_id,
+           std::weak_ptr<MeshBlock> wpmb);
 
   Variable() = default;
   ~Variable() {}
   // copy fluxes and boundary variable from src Variable (shallow copy)
-  void CopyFluxesAndBdryVar(const Variable<T> *src);
+  void CopyCoarseBuffer(const Variable<T> *src);
 
   // make a new Variable based on an existing one
   std::shared_ptr<Variable<T>> AllocateCopy(std::weak_ptr<MeshBlock> wpmb);
@@ -123,6 +123,7 @@ class Variable {
   Uid_t GetUniqueID() const { return uid_; }
 
   static Uid_t GetUniqueID(const std::string &var_label) { return get_uid_(var_label); }
+  static const std::string &GetLabel(Uid_t uid) { return get_uid_(uid); }
 
   /// return information string
   std::string info();
@@ -153,6 +154,12 @@ class Variable {
     if (IsSet(Metadata::Edge)) return {TE::E1, TE::E2, TE::E3};
     if (IsSet(Metadata::Node)) return {TE::NN};
     return {TE::CC};
+  }
+
+  bool RequiresCoarseBuffer() const {
+    return IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent) ||
+           IsSet(Metadata::ForceRemeshComm) || IsSet(Metadata::Flux) ||
+           IsSet(Metadata::GMGRestrict) || IsSet(Metadata::GMGProlongate);
   }
 
  private:

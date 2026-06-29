@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
+#include "bvals/boundary_conditions.hpp"
 #include "bvals/neighbor_block.hpp"
 #include "coordinates/coordinates.hpp"
 
@@ -39,7 +40,19 @@ template <typename T>
 class Variable;
 
 template <BoundaryType bound_type>
-TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
+                                           bool do_restriction);
+
+template <BoundaryType bound_type>
+inline TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
+  return SendBoundBufsWithRestrictOption<bound_type>(md, true);
+}
+
+template <BoundaryType bound_type>
+inline TaskStatus SendBoundBufsNoRestrict(std::shared_ptr<MeshData<Real>> &md) {
+  return SendBoundBufsWithRestrictOption<bound_type>(md, false);
+}
+
 template <BoundaryType bound_type>
 TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md);
 template <BoundaryType bound_type>
@@ -62,6 +75,8 @@ inline TaskStatus SetBoundaries(std::shared_ptr<MeshData<Real>> &md) {
 
 template <BoundaryType bound_type>
 TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md);
+template <BoundaryType bound_type>
+TaskStatus ProlongateInternalBounds(std::shared_ptr<MeshData<Real>> &md);
 inline TaskStatus ProlongateBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   return ProlongateBounds<BoundaryType::any>(md);
 }
@@ -79,19 +94,60 @@ static TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   return SetBounds<BoundaryType::flxcor_recv>(md);
 }
 
-// Adds all relevant boundary communication to a single task list
-template <BoundaryType bounds = BoundaryType::any>
-TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
-                                std::shared_ptr<MeshData<Real>> &md, bool multilevel);
-
 // Adds all relevant flux correction tasks to a single task list
 TaskID AddFluxCorrectionTasks(TaskID dependency, TaskList &tl,
                               std::shared_ptr<MeshData<Real>> &md, bool multilevel);
 
+using BValOnMDFunc_t = std::function<TaskStatus(std::shared_ptr<MeshData<Real>> &, bool)>;
+using BValOnMDTasks_t =
+    std::function<TaskID(TaskID, TaskList *, std::shared_ptr<MeshData<Real>>, bool)>;
+bool IsMeshMultilevel(std::shared_ptr<MeshData<Real>> &md);
+
+// Adds all relevant boundary communication to a single task list
+template <BoundaryType bounds = BoundaryType::any>
+TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
+                                std::shared_ptr<MeshData<Real>> &md, bool multilevel,
+                                BValOnMDTasks_t ApplyBCs) {
+  static_assert(bounds == BoundaryType::any || bounds == BoundaryType::gmg_same);
+
+  auto send = tl.AddTask(dependency, TF(SendBoundBufs<bounds>), md);
+  auto recv = tl.AddTask(dependency, TF(ReceiveBoundBufs<bounds>), md);
+  auto set = tl.AddTask(recv, TF(SetBounds<bounds>), md);
+
+  auto pro = set;
+  if (IsMeshMultilevel(md)) {
+    auto cbound = ApplyBCs(set, &tl, md, true);
+    pro = tl.AddTask(cbound, TF(ProlongateBounds<bounds>), md);
+  }
+  auto fbound = ApplyBCs(pro, &tl, md, false);
+  if (IsMeshMultilevel(md)) {
+    // Need to prolongate internal bounds after setting physical boundary
+    // conditions, since the internal prolongation uses the values of the
+    // normal buffer on shared elements (rather than values in the coarse)
+    // buffer for prolongation.
+    fbound = tl.AddTask(fbound, TF(ProlongateInternalBounds<bounds>), md);
+  }
+  return fbound;
+}
+
+template <BoundaryType bounds = BoundaryType::any>
+TaskID AddBoundaryExchangeTasks(
+    TaskID dependency, TaskList &tl, std::shared_ptr<MeshData<Real>> &md, bool multilevel,
+    BValOnMDFunc_t ApplyBCs = ApplyBoundaryConditionsOnCoarseOrFineMD) {
+  return AddBoundaryExchangeTasks<bounds>(
+      dependency, tl, md, multilevel,
+      [&](TaskID id, TaskList *tl, std::shared_ptr<MeshData<Real>> md, bool coarse) {
+        return tl->AddTask(id, TF(ApplyBCs), md, coarse);
+      });
+}
+
 // These tasks should not be called in down stream code
 TaskStatus BuildBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus BuildGMGBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
-
+// And this one should only be called AFTER the ones above
+TaskStatus RegisterCoalescedComms(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus RegisterCoalescedCommsGMG(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus RegisterCoalescedComms(Mesh *pmesh);
 } // namespace parthenon
 
 #endif // BVALS_COMMS_BVALS_IN_ONE_HPP_
