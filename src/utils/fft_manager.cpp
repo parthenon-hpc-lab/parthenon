@@ -30,8 +30,8 @@ struct FFTManager::Impl {
   ParArray1D<std::complex<Real>> workspace_;
 
   Impl(const heffte::box3d<> &real_space_box, const heffte::box3d<> &fourier_space_box,
-       int r2c_direction, MPI_Comm comm)
-      : fft_plan(real_space_box, fourier_space_box, r2c_direction, comm),
+       int r2c_direction, MPI_Comm comm, heffte::plan_options options)
+      : fft_plan(real_space_box, fourier_space_box, r2c_direction, comm, options),
         workspace_("fft workspace", fft_plan.size_workspace()) {}
 };
 
@@ -66,8 +66,11 @@ FFTManager::FFTManager(Mesh *mesh) : mesh_(mesh) {
 
   heffte::box3d<> const fourier_space_box = complex_boxes[parthenon::Globals::my_rank];
 
+  heffte::plan_options options = heffte::default_options<Impl::BackendTag>();
+  options.algorithm = heffte::reshape_algorithm::p2p_plined;
+
   impl_ = std::make_unique<Impl>(real_space_box, fourier_space_box, r2c_direction,
-                                 MPI_COMM_WORLD);
+                                 MPI_COMM_WORLD, options);
 } // FFTManager::FFTManager
 
 // -----------------------------
