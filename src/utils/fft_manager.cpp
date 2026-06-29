@@ -84,7 +84,7 @@ void FFTManager::Forward(const Real *input, Kokkos::complex<Real> *output) {
 
 void FFTManager::Backward(const Kokkos::complex<Real> *input, Real *output) {
   impl_->fft_plan.backward(reinterpret_cast<const std::complex<Real> *>(input), output,
-                           heffte::scale::none);
+                           impl_->workspace_.data(), heffte::scale::none);
 }
 
 // -----------------------------
