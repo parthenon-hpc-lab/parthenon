@@ -104,9 +104,9 @@ struct var_base_t {
   KOKKOS_INLINE_FUNCTION
   static constexpr bool regex() { return REGEX; }
   KOKKOS_INLINE_FUNCTION
-  static constexpr int ndim() { return sizeof...(NCOMP); }
+  static constexpr std::size_t ndim() { return sizeof...(NCOMP); }
   KOKKOS_INLINE_FUNCTION
-  static constexpr int size() { return multiply<NCOMP...>::value; }
+  static constexpr std::size_t size() { return multiply<NCOMP...>::value; }
 
   const int idx;
 

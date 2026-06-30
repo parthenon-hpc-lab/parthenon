@@ -122,7 +122,7 @@ ProlongationRestrictionLoop(const ProResInfoArr_t &info, const Idx_t &buffer_idx
   auto jb = cellbounds.GetBoundsJ(interior);
   auto ib = cellbounds.GetBoundsI(interior);
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
-  size_t scratch_size_in_bytes = 1;
+  std::size_t scratch_size_in_bytes = 1;
   par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(),
       scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,

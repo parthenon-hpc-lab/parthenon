@@ -210,7 +210,7 @@ struct BvarsCache_t {
     return caches[2 * static_cast<int>(boundType) + send];
   }
   void clear() {
-    for (int i = 0; i < caches.size(); ++i)
+    for (std::size_t i = 0; i < caches.size(); ++i)
       caches[i].clear();
   }
 };

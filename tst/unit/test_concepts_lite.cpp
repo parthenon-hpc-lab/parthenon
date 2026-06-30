@@ -21,12 +21,12 @@
 #include "utils/concepts_lite.hpp"
 
 template <class T, class VAL_TYPE>
-constexpr bool SatisfiesContainerRequirements(T &&in, VAL_TYPE val, size_t size_in) {
+constexpr bool SatisfiesContainerRequirements(T &&in, VAL_TYPE val, std::size_t size_in) {
   // Check that the value_type of the container is what we would expect
   using cont_val_type = decltype(contiguous_container::value_type(in));
   bool test = std::is_same<cont_val_type, VAL_TYPE>::value;
 
-  size_t size = contiguous_container::size(in);
+  std::size_t size = contiguous_container::size(in);
   test = test && (size == size_in);
 
   // Check that we can access the data and they all have value val
@@ -39,7 +39,7 @@ constexpr bool SatisfiesContainerRequirements(T &&in, VAL_TYPE val, size_t size_
 
 TEST_CASE("Check that the contiguous container concept works", "") {
   GIVEN("Some containers and some data") {
-    constexpr const size_t SIZE = 10;
+    constexpr const std::size_t SIZE = 10;
     int val = 2;
 
     int my_int = val;

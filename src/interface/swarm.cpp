@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2026 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -442,9 +446,9 @@ void Swarm::Defrag() {
   auto vreal = PackAllVariables_<Real>(real_imap);
   auto vint = PackAllVariables_<int>(int_imap);
   auto vuint64 = PackAllVariables_<std::uint64_t>(uint64_imap);
-  int real_vars_size = real_vector.size();
-  int int_vars_size = int_vector.size();
-  int uint64_vars_size = uint64_vector.size();
+  std::size_t real_vars_size = real_vector.size();
+  std::size_t int_vars_size = int_vector.size();
+  std::size_t uint64_vars_size = uint64_vector.size();
   auto real_map = real_imap.Map();
   auto int_map = int_imap.Map();
   auto uint64_map = uint64_imap.Map();
@@ -495,7 +499,7 @@ void Swarm::SortParticlesByCell() {
                     "Too many cells for an int32 to store cell_idx_1d below!");
 
   auto cell_sorted = cell_sorted_;
-  int ncells = pmb->cellbounds.GetTotal(IndexDomain::entire);
+  std::size_t ncells = pmb->cellbounds.GetTotal(IndexDomain::entire);
   int num_active = num_active_;
   int max_active_index = max_active_index_;
 
