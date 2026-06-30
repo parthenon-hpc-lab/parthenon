@@ -6,11 +6,12 @@
 #include <type_traits>
 #include <vector>
 
-#include "energy_transfer_driver.hpp"
-#include <parthenon/driver.hpp>
-
 #include <adios2.h>
 #include <openPMD/openPMD.hpp>
+
+#include "energy_transfer_driver.hpp"
+#include <parthenon/driver.hpp>
+#include <utils/calc_spectrum.hpp>
 
 using namespace parthenon::driver::prelude;
 using energy_transfer::EnergyTransferDriver;
@@ -219,21 +220,25 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
       pinput->GetOrAddBoolean("energy_transfer", "compute_UBPbb", false);
   const auto compute_PU = pinput->GetOrAddBoolean("energy_transfer", "compute_PU", false);
   const auto compute_FU = pinput->GetOrAddBoolean("energy_transfer", "compute_FU", false);
+
+  // energy spectra config
+  const auto compute_spec_U =
+      pinput->GetOrAddBoolean("energy_transfer", "compute_spec_U", true);
+
+  // Input data config
   const bool read_from_file = pinput->DoesParameterExist("energy_transfer", "input_file");
-  const auto input_quantity_type = read_from_file
-                                       ? pinput->GetOrAddString("energy_transfer",
-                                                                "input_quantity_type",
-                                                                "primitive")
-                                       : std::string("primitive");
+  const auto input_quantity_type =
+      read_from_file
+          ? pinput->GetOrAddString("energy_transfer", "input_quantity_type", "primitive")
+          : std::string("primitive");
   PARTHENON_REQUIRE_THROWS(input_quantity_type == "primitive" ||
                                input_quantity_type == "conserved",
                            "energy_transfer/input_quantity_type must be 'primitive' "
                            "or 'conserved'");
   const bool input_conserved = input_quantity_type == "conserved";
-  const Real gamma =
-      input_conserved && compute_PU
-          ? pinput->GetOrAddReal("energy_transfer", "gamma", 5.0 / 3.0)
-          : 0.0;
+  const Real gamma = input_conserved && compute_PU
+                         ? pinput->GetOrAddReal("energy_transfer", "gamma", 5.0 / 3.0)
+                         : 0.0;
   const auto output_file =
       pinput->GetOrAddString("energy_transfer", "output_file", "transfer");
   const auto output_number =
@@ -360,8 +365,7 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
       append(field);
       return name;
     };
-    auto input_name = [&](const std::string &mesh_param,
-                          const std::string &field_param,
+    auto input_name = [&](const std::string &mesh_param, const std::string &field_param,
                           const std::string &flat_default,
                           const std::string &component_default) -> std::string {
       const auto mesh =
@@ -412,9 +416,8 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
             });
         Kokkos::fence();
 #else
-        auto host_view =
-            Kokkos::View<Real *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
-                buffer.data(), fft_size_inbox);
+        auto host_view = Kokkos::View<Real *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
+            buffer.data(), fft_size_inbox);
         Kokkos::deep_copy(dest_sub, host_view);
 #endif
       } else {
@@ -426,9 +429,8 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
         reader.Get(var, buffer.data(), adios2::Mode::Deferred);
         reader.PerformGets();
 #if SINGLE_PRECISION_ENABLED
-        auto host_view =
-            Kokkos::View<Real *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
-                buffer.data(), fft_size_inbox);
+        auto host_view = Kokkos::View<Real *, Kokkos::HostSpace, Kokkos::MemoryUnmanaged>(
+            buffer.data(), fft_size_inbox);
         Kokkos::deep_copy(dest_sub, host_view);
 #else
         parthenon::ParArray1D<float> input_float("input_float", fft_size_inbox);
@@ -451,37 +453,37 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
     read_field(rho_name, rho_flat, 0);
 
     if (input_conserved) {
-      read_field(input_name("input_momentum_mesh", "input_momentum_x_field", "mom_x",
-                            "x"),
-                 vel_flat, 0);
-      read_field(input_name("input_momentum_mesh", "input_momentum_y_field", "mom_y",
-                            "y"),
-                 vel_flat, fft_size_inbox);
-      read_field(input_name("input_momentum_mesh", "input_momentum_z_field", "mom_z",
-                            "z"),
-                 vel_flat, 2 * fft_size_inbox);
+      read_field(
+          input_name("input_momentum_mesh", "input_momentum_x_field", "mom_x", "x"),
+          vel_flat, 0);
+      read_field(
+          input_name("input_momentum_mesh", "input_momentum_y_field", "mom_y", "y"),
+          vel_flat, fft_size_inbox);
+      read_field(
+          input_name("input_momentum_mesh", "input_momentum_z_field", "mom_z", "z"),
+          vel_flat, 2 * fft_size_inbox);
     } else {
-      read_field(input_name("input_velocity_mesh", "input_velocity_x_field", "vel_x",
-                            "x"),
-                 vel_flat, 0);
-      read_field(input_name("input_velocity_mesh", "input_velocity_y_field", "vel_y",
-                            "y"),
-                 vel_flat, fft_size_inbox);
-      read_field(input_name("input_velocity_mesh", "input_velocity_z_field", "vel_z",
-                            "z"),
-                 vel_flat, 2 * fft_size_inbox);
+      read_field(
+          input_name("input_velocity_mesh", "input_velocity_x_field", "vel_x", "x"),
+          vel_flat, 0);
+      read_field(
+          input_name("input_velocity_mesh", "input_velocity_y_field", "vel_y", "y"),
+          vel_flat, fft_size_inbox);
+      read_field(
+          input_name("input_velocity_mesh", "input_velocity_z_field", "vel_z", "z"),
+          vel_flat, 2 * fft_size_inbox);
     }
 
     if (need_mag_loaded) {
-      read_field(input_name("input_magnetic_mesh", "input_magnetic_x_field", "mag_x",
-                            "x"),
-                 mag_flat, 0);
-      read_field(input_name("input_magnetic_mesh", "input_magnetic_y_field", "mag_y",
-                            "y"),
-                 mag_flat, fft_size_inbox);
-      read_field(input_name("input_magnetic_mesh", "input_magnetic_z_field", "mag_z",
-                            "z"),
-                 mag_flat, 2 * fft_size_inbox);
+      read_field(
+          input_name("input_magnetic_mesh", "input_magnetic_x_field", "mag_x", "x"),
+          mag_flat, 0);
+      read_field(
+          input_name("input_magnetic_mesh", "input_magnetic_y_field", "mag_y", "y"),
+          mag_flat, fft_size_inbox);
+      read_field(
+          input_name("input_magnetic_mesh", "input_magnetic_z_field", "mag_z", "z"),
+          mag_flat, 2 * fft_size_inbox);
     }
 
     if (compute_PU) {
@@ -490,9 +492,9 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
                               "total_energy", "SCALAR"),
                    pres_flat, 0);
       } else {
-        read_field(input_name("input_pressure_mesh", "input_pressure_field", "pres",
-                              "SCALAR"),
-                   pres_flat, 0);
+        read_field(
+            input_name("input_pressure_mesh", "input_pressure_field", "pres", "SCALAR"),
+            pres_flat, 0);
       }
     }
 
@@ -620,8 +622,8 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   parthenon::ParArray1D<Kokkos::complex<Real>> FT_scratch("FT_scratch",
                                                           3 * fft_size_outbox);
   parthenon::ParArray1D<Kokkos::complex<Real>> FT_W("FT_W", 3 * fft_size_outbox);
-  parthenon::ParArray1D<Kokkos::complex<Real>> FT_U(
-      "FT_U", need_DivU ? 3 * fft_size_outbox : 0);
+  parthenon::ParArray1D<Kokkos::complex<Real>> FT_U("FT_U",
+                                                    need_DivU ? 3 * fft_size_outbox : 0);
 
   for (int n = 0; n < 3; n++) {
     FFTMgr->Forward(W_flat.data() + n * fft_size_inbox,
@@ -665,8 +667,7 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   }
 
   // Compute b = B/sqrt(rho) and its FT for magnetic tension terms.
-  parthenon::ParArray1D<Real> b_flat("b_flat",
-                                     need_b_flat ? 3 * fft_size_inbox : 0);
+  parthenon::ParArray1D<Real> b_flat("b_flat", need_b_flat ? 3 * fft_size_inbox : 0);
   parthenon::ParArray1D<Kokkos::complex<Real>> FT_b("FT_b",
                                                     need_FT_b ? 3 * fft_size_outbox : 0);
   if (need_b_flat) {
@@ -1177,6 +1178,14 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
     } // end K loop
   } // end Q loop
 
+  // Calculate the power spectra
+  parthenon::HostArray2D<TransferReal> spectra_h;
+  if (compute_spec_U) {
+    auto spectra = parthenon::utils::fft::CalcSpectrum(pmesh, vel_flat, 3);
+    spectra_h = spectra.GetHostMirrorAndCopy();
+    // const auto num_bins = spectra_h.extent(0);
+  }
+
   // --- Write output via openPMD/ADIOS2 ---
   // Python reading example:
   //   import openpmd_api as io
@@ -1281,6 +1290,38 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
     }
     if (compute_FU) {
       write_matrix("FU", FU_matrix);
+    }
+
+    // Write the power spectra
+    auto write_vector_from_matrix =
+        [&](const std::string &name, const parthenon::HostArray2D<TransferReal> &matrix,
+            const int idx) {
+          auto mesh = it.meshes[name];
+          auto comp = mesh[openPMD::MeshRecordComponent::SCALAR];
+
+          const auto num_bins = matrix.extent(0);
+          std::vector<TransferReal> outdata(num_bins);
+          for (int i = 0; i < num_bins; i++) {
+            outdata.at(i) = matrix(i, idx);
+          }
+
+          openPMD::Extent extent = {static_cast<uint64_t>(num_bins)};
+          // Result have been reduced to rank 0, so only rank 0 writes
+          if (parthenon::Globals::my_rank == 0) {
+            comp.resetDataset(
+                openPMD::Dataset(openPMD::determineDatatype<TransferReal>(), extent));
+
+            comp.storeChunkRaw(outdata.data(), {0}, extent);
+          }
+
+          it.seriesFlush();
+        };
+
+    if (compute_spec_U) {
+      std::string spec_prefix = "spec/u";
+      write_vector_from_matrix(spec_prefix + "/en_sum", spectra_h, 0);
+      write_vector_from_matrix(spec_prefix + "/k_sum", spectra_h, 1);
+      write_vector_from_matrix(spec_prefix + "/count_sum", spectra_h, 2);
     }
 
     series.close();

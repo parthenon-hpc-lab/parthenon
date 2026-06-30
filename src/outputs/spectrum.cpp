@@ -30,7 +30,7 @@ void SpectralOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   const auto output_label =
       pin->GetOrAddString(output_params.block_name, "output_label", var_name);
 
-  auto spectra = CalcSpectrum(pm, var_name, components);
+  auto spectra = utils::fft::CalcSpectrum(pm, var_name, components);
   auto spectra_h = spectra.GetHostMirrorAndCopy();
   const auto num_bins = spectra_h.extent(0);
 
