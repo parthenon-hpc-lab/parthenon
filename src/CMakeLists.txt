@@ -173,6 +173,7 @@ add_library(parthenon
   loop_abstraction/loop_abstraction_kokkos.hpp
   loop_abstraction/loop_abstraction_pack_view.hpp
   loop_abstraction/loop_abstraction_raw.hpp
+  loop_abstraction/loop_abstraction_scratch_primitives.hpp
   loop_abstraction/loop_abstraction_view.hpp
   loop_abstraction/loop_abstraction.hpp
 
