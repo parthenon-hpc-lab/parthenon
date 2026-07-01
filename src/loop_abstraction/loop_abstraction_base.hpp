@@ -217,7 +217,7 @@ inline auto AddHaloToIndexer(const parthenon::Indexer3D &idxer) {
                    {idxer.template StartIdx<2>() - extend_low[2], idxer.template EndIdx<2>() + extend_up[2]});
 } 
 
-template <class T, class Halo, class IndexSpaceType>
+template <class T, class Halo, std::size_t... Dims, class IndexSpaceType>
 std::size_t GetPerTeamScratchSize(const IndexSpaceType &idx_space);
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG,
@@ -327,6 +327,19 @@ class IndexSpace {
   template <class T, class Halo = halo::none_t>
   void AddPerPointScratch(std::size_t count = 1) {
     per_team_scratch_size_in_bytes += count * GetPerTeamScratchSize<T, Halo>(*this);
+  }
+
+  template <class T, std::size_t... Dims>
+    requires(sizeof...(Dims) > 0)
+  void AddPerPointScratch(std::size_t count = 1) {
+    per_team_scratch_size_in_bytes += count * GetPerTeamScratchSize<T, Dims...>(*this);
+  }
+
+  template <class T, class Halo, std::size_t... Dims>
+    requires(sizeof...(Dims) > 0)
+  void AddPerPointScratch(std::size_t count = 1) {
+    per_team_scratch_size_in_bytes +=
+        count * GetPerTeamScratchSize<T, Halo, Dims...>(*this);
   }
 
   std::size_t GetPerTeamScratchSizeInBytes() const {

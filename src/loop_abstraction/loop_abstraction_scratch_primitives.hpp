@@ -104,7 +104,7 @@ struct StackScratch1D {
   explicit StackScratch1D(const IndexRange &idx_range)
       : ks(idx_range.ks), js(idx_range.js), is(idx_range.is) {}
 
-  // Version called with last index as
+  // Version called with component indices first and point index last.
   template <class... Args>
     requires(sizeof...(Args) == idxer_t::ndim + 1 ||
              sizeof...(Args) == idxer_t::ndim + 3)
@@ -113,7 +113,7 @@ struct StackScratch1D {
     const auto dense_index = [&]{
       if constexpr (sizeof...(Args) == idxer_t::ndim + 1) {
         return GetDenseIndex(std::get<idxer_t::ndim>(tup));
-      } else if constexpr(sizeof...(Args) == idxer_t::ndim + 3) {
+      } else if constexpr (sizeof...(Args) == idxer_t::ndim + 3) {
         return GetDenseIndex(std::get<idxer_t::ndim>(tup),
                              std::get<idxer_t::ndim + 1>(tup),
                              std::get<idxer_t::ndim + 2>(tup));
@@ -167,21 +167,31 @@ struct StackScratch1D {
   }
 };
 
-template <class IndexRange, class T>
+template <class IndexRange, class T, std::size_t... Dims>
 struct HostScratch1D {
+  using idxer_t = ctime_flat_indexer<Dims...>;
+
   IndexRange idx_range;
   mutable std::vector<T> data;
 
   HostScratch1D(const IndexRange &idx_range)
-      : idx_range(idx_range), data(idx_range.size(), T{}) {}
+      : idx_range(idx_range), data(idx_range.size() * idxer_t::size, T{}) {}
 
-  template <class IDXT>
-  KOKKOS_FORCEINLINE_FUNCTION T &operator()(IDXT idx) const {
-    return data[idx_range.CompactIndex(idx)];
-  }
-
-  KOKKOS_FORCEINLINE_FUNCTION T &operator()(int k, int j, int i) const {
-    return data[idx_range.CompactIndex(k, j, i)];
+  template <class... Args>
+    requires(sizeof...(Args) == idxer_t::ndim + 1 ||
+             sizeof...(Args) == idxer_t::ndim + 3)
+  KOKKOS_FORCEINLINE_FUNCTION T &operator()(Args&&... all) const {
+    auto tup = std::forward_as_tuple(std::forward<Args>(all)...);
+    const auto dense_index = [&]{
+      if constexpr (sizeof...(Args) == idxer_t::ndim + 1) {
+        return idx_range.CompactIndex(std::get<idxer_t::ndim>(tup));
+      } else if constexpr (sizeof...(Args) == idxer_t::ndim + 3) {
+        return idx_range.CompactIndex(std::get<idxer_t::ndim>(tup),
+                                      std::get<idxer_t::ndim + 1>(tup),
+                                      std::get<idxer_t::ndim + 2>(tup));
+      }
+    }();
+    return data[dense_index + idx_range.size() * idxer_t::GetFlat(all...)];
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -195,25 +205,38 @@ struct HostScratch1D {
   }
 };
 
-template <class IndexRange, class T>
+template <class IndexRange, class T, std::size_t... Dims>
 struct TeamScratch1D {
+  using idxer_t = ctime_flat_indexer<Dims...>;
+
   static constexpr int scratch_level = 1;
   IndexRange idx_range;
   parthenon::ScratchPad1D<T> data;
   TeamScratch1D(const IndexRange &idx_range) 
       : idx_range(idx_range),
-        data(idx_range.team_member->team_scratch(scratch_level), idx_range.size()) {} 
+        data(idx_range.team_member->team_scratch(scratch_level),
+             idx_range.size() * idxer_t::size) {}
 
-  template<class IDXT>
-  KOKKOS_FORCEINLINE_FUNCTION
-  T &operator()(IDXT idx_in) const { return data(idx_range.CompactIndex(idx_in)); }
-  
-  KOKKOS_FORCEINLINE_FUNCTION T &operator()(int k, int j, int i) const {
-    return data(idx_range.CompactIndex(k, j, i));
+  template <class... Args>
+    requires(sizeof...(Args) == idxer_t::ndim + 1 ||
+             sizeof...(Args) == idxer_t::ndim + 3)
+  KOKKOS_FORCEINLINE_FUNCTION T &operator()(Args&&... all) const {
+    auto tup = std::forward_as_tuple(std::forward<Args>(all)...);
+    const auto dense_index = [&]{
+      if constexpr (sizeof...(Args) == idxer_t::ndim + 1) {
+        return idx_range.CompactIndex(std::get<idxer_t::ndim>(tup));
+      } else if constexpr (sizeof...(Args) == idxer_t::ndim + 3) {
+        return idx_range.CompactIndex(std::get<idxer_t::ndim>(tup),
+                                      std::get<idxer_t::ndim + 1>(tup),
+                                      std::get<idxer_t::ndim + 2>(tup));
+      }
+    }();
+    return data(dense_index + idx_range.size() * idxer_t::GetFlat(all...));
   }
+
   KOKKOS_FORCEINLINE_FUNCTION
   std::size_t size() const {
-    return idx_range.size();
+    return idx_range.size() * idxer_t::size;
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -228,41 +251,40 @@ auto GetPerPointScratch(const IndexRange &idx_range) {
   if constexpr (IndexRange::index_space_t::loop_tag_v == loop_tag::boiv) {
     return StackScratch1D<T, IndexRange, Dims...>(idx_range);
   } else if constexpr (IndexRange::index_space_t::backend_v == loop_backend::raw) {
-    static_assert(sizeof...(Dims) == 0,
-                  "Shaped host scratch is not implemented yet.");
-    return HostScratch1D<IndexRange, T>(idx_range);
+    return HostScratch1D<IndexRange, T, Dims...>(idx_range);
   } else if constexpr (IndexRange::index_space_t::backend_v == loop_backend::kokkos) {
-    static_assert(sizeof...(Dims) == 0,
-                  "Shaped team scratch is not implemented yet.");
-    return TeamScratch1D<IndexRange, T>(idx_range);
+    return TeamScratch1D<IndexRange, T, Dims...>(idx_range);
   } else {
     static_assert(always_false<IndexRange>,
                   "Unsupported loop backend for per-point scratch.");
   }
 }
 
-template <class T, class IndexRange>
+template <class T, std::size_t... Dims, class IndexRange>
 KOKKOS_INLINE_FUNCTION std::size_t GetPerPointScratchSize(const IndexRange &idx_range) {
+  using idxer_t = ctime_flat_indexer<Dims...>;
   if constexpr (IndexRange::index_space_t::loop_tag_v == loop_tag::boiv ||
                 IndexRange::index_space_t::backend_v == loop_backend::raw) {
     return 0;
   } else if constexpr (IndexRange::index_space_t::backend_v == loop_backend::kokkos) {
-    return parthenon::ScratchPad1D<T>::shmem_size(idx_range.size());
+    return parthenon::ScratchPad1D<T>::shmem_size(idx_range.size() * idxer_t::size);
   } else {
     static_assert(always_false<IndexRange>,
                   "Unsupported loop backend for per-point scratch size.");
   }
 }
 
-template <class T, class Halo, class IndexSpaceType>
+template <class T, class Halo, std::size_t... Dims, class IndexSpaceType>
 inline std::size_t GetPerTeamScratchSize(const IndexSpaceType &idx_space) {
+  using idxer_t = ctime_flat_indexer<Dims...>;
   if constexpr (IndexSpaceType::loop_tag_v == loop_tag::boiv ||
                 IndexSpaceType::backend_v == loop_backend::raw) {
     return 0;
   } else if constexpr (IndexSpaceType::backend_v == loop_backend::kokkos) {
     const std::size_t key = reinterpret_cast<std::size_t>(&idx_space) ^
                             (std::type_index(typeid(T)).hash_code() << 1) ^
-                            (std::type_index(typeid(Halo)).hash_code() << 2);
+                            (std::type_index(typeid(Halo)).hash_code() << 2) ^
+                            (std::type_index(typeid(idxer_t)).hash_code() << 3);
     static thread_local std::unordered_map<std::size_t, std::size_t> cache;
     if (const auto it = cache.find(key); it != cache.end()) {
       return it->second;
@@ -276,7 +298,8 @@ inline std::size_t GetPerTeamScratchSize(const IndexSpaceType &idx_space) {
       const auto halo_range = base_range.template AddHalo<Halo>();
       scratch_size =
           std::max(scratch_size,
-                   parthenon::ScratchPad1D<T>::shmem_size(halo_range.size()));
+                   parthenon::ScratchPad1D<T>::shmem_size(halo_range.size() *
+                                                          idxer_t::size));
     };
 
     if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
@@ -285,7 +308,7 @@ inline std::size_t GetPerTeamScratchSize(const IndexSpaceType &idx_space) {
         update_scratch_size(idx_range);
       }
     } else {
-      const int nouter = GetNOuter(idx_space);
+      const int nouter = impl::GetNOuter(idx_space);
       for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
         for (int o = 0; o < nouter; ++o) {
           const int logical_start = o * idx_space.GetNInner();
@@ -306,9 +329,9 @@ inline std::size_t GetPerTeamScratchSize(const IndexSpaceType &idx_space) {
   }
 }
 
-template <class T, class IndexSpaceType>
+template <class T, std::size_t... Dims, class IndexSpaceType>
 inline std::size_t GetPerTeamScratchSize(const IndexSpaceType &idx_space) {
-  return GetPerTeamScratchSize<T, halo::none_t>(idx_space);
+  return GetPerTeamScratchSize<T, halo::none_t, Dims...>(idx_space);
 }
 
 } // namespace loop_abstraction
