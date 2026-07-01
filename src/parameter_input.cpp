@@ -419,8 +419,8 @@ std::string ParameterInput::GetComment(const std::string &block,
 //  from input file when available
 
 std::string ParameterInput::GetAsUnresolvedString(const std::string &block,
-                                                   const std::string &name) {
-  FinalizeParsing();  // Ensure parsing is complete (consistent with other getters)
+                                                  const std::string &name) {
+  FinalizeParsing(); // Ensure parsing is complete (consistent with other getters)
 
   const Parameter *param = FindParameter_(block, name);
   if (param == nullptr) {
