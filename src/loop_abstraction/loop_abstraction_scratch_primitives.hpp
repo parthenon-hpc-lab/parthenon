@@ -59,12 +59,43 @@ struct HaloBox {
   static constexpr int size = nk * nj * ni;
 };
 
-template <class T, class IndexRange>
+template <std::size_t... Dims>
+struct ctime_flat_indexer {
+  static constexpr std::size_t ndim = sizeof...(Dims);
+  static constexpr std::size_t size = (Dims * ... * std::size_t{1});
+  static constexpr std::array<std::size_t, ndim> dim_sizes{Dims...};
+
+  template <class... Args>
+    requires(sizeof...(Args) >= ndim) // We allow for unused trailing arguments to simplify template code
+  KOKKOS_FORCEINLINE_FUNCTION
+  static constexpr std::size_t GetFlat(Args&&... args) {
+    auto tup = std::forward_as_tuple(std::forward<Args>(args)...);
+    return GetFlatImpl(std::make_index_sequence<ndim>{}, tup);
+  }
+
+ private:
+  template <std::size_t... I, class Tuple>
+  KOKKOS_FORCEINLINE_FUNCTION
+  static constexpr std::size_t GetFlatImpl(std::index_sequence<I...>, Tuple &&tup) {
+    std::size_t flat_idx{0};
+    ([&]{
+      KOKKOS_ASSERT(static_cast<std::size_t>(std::get<I>(tup)) < dim_sizes[I]);
+      flat_idx += std::get<I>(tup);
+      if constexpr (I + 1 < ndim) {
+        flat_idx *= dim_sizes[I + 1];
+      }
+    }(), ...);
+    return flat_idx;
+  }
+};
+
+template <class T, class IndexRange, std::size_t... Dims>
 struct StackScratch1D {
   using halo_t = typename IndexRange::halo_t;
   using box_t = HaloBox<halo_t>;
+  using idxer_t = ctime_flat_indexer<Dims...>;
 
-  mutable std::array<T, box_t::size> data{};
+  mutable std::array<T, box_t::size * idxer_t::size> data{};
   int ks = 0;
   int js = 0;
   int is = 0;
@@ -73,22 +104,27 @@ struct StackScratch1D {
   explicit StackScratch1D(const IndexRange &idx_range)
       : ks(idx_range.ks), js(idx_range.js), is(idx_range.is) {}
 
-  KOKKOS_FORCEINLINE_FUNCTION T &operator()(Index3 idx) const {
-    return data[DenseIndex(idx.k - ks, idx.j - js, idx.i - is)];
-  }
-
-  KOKKOS_FORCEINLINE_FUNCTION T &operator()(MemoryOffset idx) const {
-    return data[DenseIndex(idx.dk, idx.dj, idx.di)];
-  }
-
-  KOKKOS_FORCEINLINE_FUNCTION
-  T &operator()(int k, int j, int i) const {
-    return (*this)(Index3{k, j, i});
+  // Version called with last index as
+  template <class... Args>
+    requires(sizeof...(Args) == idxer_t::ndim + 1 ||
+             sizeof...(Args) == idxer_t::ndim + 3)
+  KOKKOS_FORCEINLINE_FUNCTION T &operator()(Args&&... all) const {
+    auto tup = std::forward_as_tuple(std::forward<Args>(all)...);
+    const auto dense_index = [&]{
+      if constexpr (sizeof...(Args) == idxer_t::ndim + 1) {
+        return GetDenseIndex(std::get<idxer_t::ndim>(tup));
+      } else if constexpr(sizeof...(Args) == idxer_t::ndim + 3) {
+        return GetDenseIndex(std::get<idxer_t::ndim>(tup),
+                             std::get<idxer_t::ndim + 1>(tup),
+                             std::get<idxer_t::ndim + 2>(tup));
+      }
+    }();
+    return data[dense_index + box_t::size * idxer_t::GetFlat(all...)];
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
   constexpr std::size_t size() const {
-    return box_t::size;
+    return box_t::size * idxer_t::size;
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -106,6 +142,18 @@ struct StackScratch1D {
       }
     }
     return false;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION int GetDenseIndex(int k, int j, int i) const {
+    return DenseIndex(k - ks, j - js, i - is);
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION int GetDenseIndex(Index3 idx) const {
+    return DenseIndex(idx.k - ks, idx.j - js, idx.i - is);
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION int GetDenseIndex(MemoryOffset idx) const {
+    return DenseIndex(idx.dk, idx.dj, idx.di);
   }
 
   KOKKOS_FORCEINLINE_FUNCTION static int DenseIndex(const int dk, const int dj,
@@ -174,14 +222,18 @@ struct TeamScratch1D {
   }
 };
 
-template <class T, class IndexRange>
+template <class T, std::size_t... Dims, class IndexRange>
 KOKKOS_INLINE_FUNCTION
 auto GetPerPointScratch(const IndexRange &idx_range) {
   if constexpr (IndexRange::index_space_t::loop_tag_v == loop_tag::boiv) {
-    return StackScratch1D<T, IndexRange>(idx_range);
+    return StackScratch1D<T, IndexRange, Dims...>(idx_range);
   } else if constexpr (IndexRange::index_space_t::backend_v == loop_backend::raw) {
+    static_assert(sizeof...(Dims) == 0,
+                  "Shaped host scratch is not implemented yet.");
     return HostScratch1D<IndexRange, T>(idx_range);
   } else if constexpr (IndexRange::index_space_t::backend_v == loop_backend::kokkos) {
+    static_assert(sizeof...(Dims) == 0,
+                  "Shaped team scratch is not implemented yet.");
     return TeamScratch1D<IndexRange, T>(idx_range);
   } else {
     static_assert(always_false<IndexRange>,
