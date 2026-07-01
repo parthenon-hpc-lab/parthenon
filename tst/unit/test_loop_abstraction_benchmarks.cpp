@@ -325,6 +325,37 @@ struct k_triplet_halo_t {
   KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
 };
 
+struct unsorted_halo_t {
+  static constexpr int npoints = 2;
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int n) { return n == 0 ? 0 : -1; }
+};
+
+struct duplicate_identity_halo_t {
+  static constexpr int npoints = 2;
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
+};
+
+struct missing_identity_halo_t {
+  static constexpr int npoints = 1;
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int) { return 1; }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
+};
+
+static_assert(loop_abstraction::impl::HaloSatisfiesContract<loop_abstraction::halo::none_t>());
+static_assert(loop_abstraction::impl::HaloSatisfiesContract<plus_j_halo_t>());
+static_assert(loop_abstraction::impl::HaloSatisfiesContract<minus_i_halo_t>());
+static_assert(loop_abstraction::impl::HaloSatisfiesContract<minus_j_halo_t>());
+static_assert(loop_abstraction::impl::HaloSatisfiesContract<plus_two_i_minus_k_halo_t>());
+static_assert(loop_abstraction::impl::HaloSatisfiesContract<k_triplet_halo_t>());
+static_assert(!loop_abstraction::impl::HaloSatisfiesContract<unsorted_halo_t>());
+static_assert(!loop_abstraction::impl::HaloSatisfiesContract<duplicate_identity_halo_t>());
+static_assert(!loop_abstraction::impl::HaloSatisfiesContract<missing_identity_halo_t>());
+
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 parthenon::HostArray5D<Real> RunAutoIndexBody(const ProblemSpec &spec, const int ninner,
                                               const bool use_kokkos) {

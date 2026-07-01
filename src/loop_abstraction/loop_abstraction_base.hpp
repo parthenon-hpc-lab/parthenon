@@ -87,6 +87,48 @@ template <class F>
 inline constexpr bool has_explicit_unary_int_call_v =
     HasExplicitUnaryIntCall<F>::value;
 
+constexpr bool HaloOffsetLess(const int dk0, const int dj0, const int di0,
+                              const int dk1, const int dj1, const int di1) {
+  if (dk0 != dk1) return dk0 < dk1;
+  if (dj0 != dj1) return dj0 < dj1;
+  return di0 < di1;
+}
+
+template <class Halo>
+constexpr bool HaloHasUniqueIdentity() {
+  if constexpr (Halo::npoints <= 0) {
+    return false;
+  } else {
+    int count = 0;
+    for (int n = 0; n < Halo::npoints; ++n) {
+      if (Halo::dk(n) == 0 && Halo::dj(n) == 0 && Halo::di(n) == 0) {
+        ++count;
+      }
+    }
+    return count == 1;
+  }
+}
+
+template <class Halo>
+constexpr bool HaloOffsetsAreStrictlySorted() {
+  if constexpr (Halo::npoints <= 0) {
+    return false;
+  } else {
+    for (int n = 1; n < Halo::npoints; ++n) {
+      if (!HaloOffsetLess(Halo::dk(n - 1), Halo::dj(n - 1), Halo::di(n - 1),
+                          Halo::dk(n), Halo::dj(n), Halo::di(n))) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
+template <class Halo>
+constexpr bool HaloSatisfiesContract() {
+  return HaloHasUniqueIdentity<Halo>() && HaloOffsetsAreStrictlySorted<Halo>();
+}
+
 } // namespace impl
 
 enum class loop_tag { bvoi, bovi, boiv };
@@ -305,6 +347,9 @@ class InnerIndexRange {
  public:
   using index_space_t = IndexSpaceType;
   using halo_t = Halo; 
+  static_assert(impl::HaloSatisfiesContract<Halo>(),
+                "Halo offsets must include exactly one identity offset {0,0,0} "
+                "and be strictly sorted lexicographically by (dk,dj,di).");
   
   const IndexSpaceType *pidx_space = nullptr;
   parthenon::Indexer3D logical_kji;
@@ -393,7 +438,6 @@ class InnerIndexRange {
   }
 
   KOKKOS_INLINE_FUNCTION void BuildRegionsFromEndpoints(const Index3 start, const Index3 end) {
-    static_assert(Halo::npoints > 0, "Halo types must include the identity offset {0,0,0}.");
     flat_start[0] = GetFlatIdxFromKJI(start.k + Halo::dk(0), start.j + Halo::dj(0), start.i + Halo::di(0));
     flat_end[0]   = GetFlatIdxFromKJI(end.k + Halo::dk(0), end.j + Halo::dj(0), end.i + Halo::di(0));
     nregions = 1;
@@ -497,6 +541,9 @@ class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>, Halo> {
  public:
   using index_space_t = IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>;
   using halo_t = Halo; 
+  static_assert(impl::HaloSatisfiesContract<Halo>(),
+                "Halo offsets must include exactly one identity offset {0,0,0} "
+                "and be strictly sorted lexicographically by (dk,dj,di).");
   const IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND> *pidx_space = nullptr;
   int block = 0;
   int ks = 0;
