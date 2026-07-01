@@ -224,6 +224,12 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   // energy spectra config
   const auto compute_spec_U =
       pinput->GetOrAddBoolean("energy_transfer", "compute_spec_U", true);
+  const auto compute_spec_rho =
+      pinput->GetOrAddBoolean("energy_transfer", "compute_spec_rho", false);
+  const auto compute_spec_W =
+      pinput->GetOrAddBoolean("energy_transfer", "compute_spec_W", false);
+  const auto compute_spec_B =
+      pinput->GetOrAddBoolean("energy_transfer", "compute_spec_B", false);
 
   // Input data config
   const bool read_from_file = pinput->DoesParameterExist("energy_transfer", "input_file");
@@ -301,7 +307,8 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   const bool need_FT_b = compute_UBTb;
   const bool need_DivU = compute_UU || compute_BB;
   const bool need_scalar_scratch = compute_UBTb || compute_BUPbb;
-  const bool need_mag_loaded = need_mag || (input_conserved && compute_PU);
+  const bool need_mag_loaded =
+      need_mag || compute_spec_B || (input_conserved && compute_PU);
 
   parthenon::ParArray1D<Real> rho_flat("rho_flat", fft_size_inbox);
   parthenon::ParArray1D<Real> vel_flat("vel_flat", 3 * fft_size_inbox);
@@ -538,7 +545,7 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
                   gm1 * (pres_flat(idx) - 0.5 * rho_flat(idx) * v2 - 0.5 * b2);
             });
         Kokkos::fence();
-        if (!need_mag) {
+        if (!need_mag && !compute_spec_B) {
           mag_flat = parthenon::ParArray1D<Real>();
         }
       }
@@ -570,7 +577,7 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
           }
         });
 
-    if (need_mag) {
+    if (need_mag_loaded) {
       auto mag_var = md->PackVariables(std::vector<std::string>{"mag"});
       parthenon::par_for(
           "GatherMag", 0, num_blocks - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
@@ -633,7 +640,9 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
                       FT_U.data() + n * fft_size_outbox);
     }
   }
-  W_flat = parthenon::ParArray1D<Real>();
+  if (!compute_spec_W) {
+    W_flat = parthenon::ParArray1D<Real>();
+  }
   if (need_DivU) {
     SpectralDivergence(FFTMgr, FT_U, FT_scratch, DivU, two_pi_over_L);
     FT_U = parthenon::ParArray1D<Kokkos::complex<Real>>();
@@ -1179,13 +1188,15 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   } // end Q loop
 
   // Calculate the power spectra
-  parthenon::HostArray2D<TransferReal> spectra_h;
+  parthenon::HostArray2D<TransferReal> spectra_u_h;
+  parthenon::HostArray2D<TransferReal> spectra_rho_h;
+  parthenon::HostArray2D<TransferReal> spectra_w_h;
+  parthenon::HostArray2D<TransferReal> spectra_b_h;
   if (compute_spec_U) {
     auto spectra = parthenon::utils::fft::CalcSpectrum(pmesh, vel_flat, 3);
-    spectra_h = spectra.GetHostMirrorAndCopy();
+    spectra_u_h = spectra.GetHostMirrorAndCopy();
 
-    // Sanity checks
-    // Power in real space
+    // Sanity checks (compare power in real space to spectral space power)
     Kokkos::Array<TransferReal, 4> sums{{0.0, 0.0, 0.0, 0.0}};
     Kokkos::parallel_reduce(
         "U2_sum", Kokkos::RangePolicy<>(0, fft_size_inbox),
@@ -1205,21 +1216,35 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
     PARTHENON_MPI_CHECK(
         MPI_Allreduce(MPI_IN_PLACE, sums.data(), 4, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD));
 #endif
-    sums[0] /= Nx * Ny * Nz;
-    sums[1] /= Nx * Ny * Nz;
-    sums[2] /= Nx * Ny * Nz;
-    sums[3] /= Nx * Ny * Nz;
+    const auto norm = static_cast<TransferReal>(Nx) * static_cast<TransferReal>(Ny) *
+                      static_cast<TransferReal>(Nz);
+    sums[0] /= norm;
+    sums[1] /= norm;
+    sums[2] /= norm;
+    sums[3] /= norm;
 
     TransferReal spec_sum = 0.0;
-    for (int i = 0; i < spectra_h.extent(0); i++) {
-      spec_sum += spectra_h(i, 0);
+    for (int i = 0; i < static_cast<int>(spectra_u_h.extent(0)); i++) {
+      spec_sum += spectra_u_h(i, 0);
     }
     if (parthenon::Globals::my_rank == 0) {
       std::cerr << "sum u^2=" << sums[0] << " sum uhat^2=" << spec_sum
                 << " <u>^2=" << SQR(sums[1]) + SQR(sums[2]) + SQR(sums[3])
-                << " uhat(0)^2=" << spectra_h(0, 0) << " sum u_1=" << sums[1]
+                << " uhat(0)^2=" << spectra_u_h(0, 0) << " sum u_1=" << sums[1]
                 << " sum u_2=" << sums[2] << " sum u_3=" << sums[3] << "\n";
     }
+  }
+  if (compute_spec_rho) {
+    auto spectra = parthenon::utils::fft::CalcSpectrum(pmesh, rho_flat, 1);
+    spectra_rho_h = spectra.GetHostMirrorAndCopy();
+  }
+  if (compute_spec_W) {
+    auto spectra = parthenon::utils::fft::CalcSpectrum(pmesh, W_flat, 3);
+    spectra_w_h = spectra.GetHostMirrorAndCopy();
+  }
+  if (compute_spec_B) {
+    auto spectra = parthenon::utils::fft::CalcSpectrum(pmesh, mag_flat, 3);
+    spectra_b_h = spectra.GetHostMirrorAndCopy();
   }
 
   // --- Write output via openPMD/ADIOS2 ---
@@ -1353,12 +1378,17 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
           it.seriesFlush();
         };
 
-    if (compute_spec_U) {
-      std::string spec_prefix = "spec/u";
-      write_vector_from_matrix(spec_prefix + "/en_sum", spectra_h, 0);
-      write_vector_from_matrix(spec_prefix + "/k_sum", spectra_h, 1);
-      write_vector_from_matrix(spec_prefix + "/count_sum", spectra_h, 2);
-    }
+    auto write_spectrum = [&](const std::string &prefix,
+                              const parthenon::HostArray2D<TransferReal> &spectra) {
+      write_vector_from_matrix(prefix + "/pow_sum", spectra, 0);
+      write_vector_from_matrix(prefix + "/k_sum", spectra, 1);
+      write_vector_from_matrix(prefix + "/count_sum", spectra, 2);
+    };
+
+    if (compute_spec_U) write_spectrum("spec/u", spectra_u_h);
+    if (compute_spec_rho) write_spectrum("spec/rho", spectra_rho_h);
+    if (compute_spec_W) write_spectrum("spec/w", spectra_w_h);
+    if (compute_spec_B) write_spectrum("spec/b", spectra_b_h);
 
     series.close();
     if (parthenon::Globals::my_rank == 0) {

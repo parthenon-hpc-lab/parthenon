@@ -103,6 +103,33 @@ For each Q shell:
 Single ADIOS2/bp5 file via openPMD. Each transfer term stored as a named
 2D mesh dataset. Shell edges and metadata stored as iteration attributes.
 
+### Optional Power Spectra
+
+The driver can also compute shell-averaged power spectra with
+`utils::fft::CalcSpectrum`, reusing the flat fields already loaded for the
+transfer analysis. These spectra use FFTManager's normalized forward transform,
+so the summed spectral power is comparable to the volume-averaged real-space
+power.
+
+Available spectra:
+
+| Switch | Input field | Output prefix | Power column |
+|--------|-------------|---------------|--------------|
+| `compute_spec_U` | `U` | `spec/u` | squared velocity Fourier amplitude |
+| `compute_spec_rho` | `rho` | `spec/rho` | squared density Fourier amplitude |
+| `compute_spec_W` | `W = sqrt(rho) * U` | `spec/w` | squared density-weighted velocity Fourier amplitude |
+| `compute_spec_B` | `B` | `spec/b` | squared magnetic-field Fourier amplitude |
+
+Each spectrum output prefix contains three 1D datasets:
+
+- `pow_sum`: shell-summed Fourier power
+- `k_sum`: shell-summed wavenumber magnitude
+- `count_sum`: weighted mode count
+
+`compute_spec_U` also performs a runtime sanity check comparing
+`sum_x |U|^2 / N` against the summed velocity spectrum and checking the mean
+mode. The other spectra do not perform sanity checks.
+
 ## Implemented Transfer Terms
 
 | Term | Formula | Description |
@@ -150,6 +177,10 @@ compute_BUPbb = false   # magnetic pressure
 compute_UBPbb = false   # magnetic pressure
 compute_PU = false      # pressure
 compute_FU = false      # forcing
+compute_spec_U = true   # velocity power spectrum
+compute_spec_rho = false # density power spectrum
+compute_spec_W = false  # density-weighted velocity power spectrum, W=sqrt(rho)*U
+compute_spec_B = false  # magnetic-field power spectrum
 output_file = transfer  # output filename base (produces transfer.%05T.bp)
 output_number = 0       # openPMD iteration/file number
 ```
@@ -183,8 +214,13 @@ it = s.iterations[0]
 shell_edges = it.get_attribute("shell_edges")
 n_shells = it.get_attribute("n_shells")
 UU = it.meshes["UU"][io.Mesh_Record_Component.SCALAR].load_chunk()
+u_power = it.meshes["spec/u/pow_sum"][io.Mesh_Record_Component.SCALAR].load_chunk()
 s.flush()
 ```
+
+Power spectra are stored under `spec/<field>/` with `pow_sum`, `k_sum`, and
+`count_sum` components. The magnetic spectrum is raw squared magnetic-field
+Fourier amplitude, not magnetic energy, so no `1/2` factor is applied.
 
 ## Dependencies
 
