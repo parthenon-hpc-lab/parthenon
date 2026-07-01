@@ -413,6 +413,34 @@ std::string ParameterInput::GetComment(const std::string &block,
 }
 
 //----------------------------------------------------------------------------------------
+//! \fn std::string ParameterInput::GetAsUnresolvedString(const std::string & block,
+//! const std::string & name)
+//  \brief returns string representation of parameter value, preferring original string
+//  from input file when available
+
+std::string ParameterInput::GetAsUnresolvedString(const std::string &block,
+                                                   const std::string &name) {
+  FinalizeParsing();  // Ensure parsing is complete (consistent with other getters)
+
+  const Parameter *param = FindParameter_(block, name);
+  if (param == nullptr) {
+    std::stringstream msg;
+    msg << "### FATAL ERROR in function [ParameterInput::GetAsUnresolvedString]"
+        << std::endl
+        << "Parameter name '" << name << "' not found in block '" << block << "'";
+    PARTHENON_THROW(msg);
+  }
+
+  // Prefer original string for determinism (matches ParameterDump behavior)
+  if (param->original_string.has_value()) {
+    return param->original_string.value().value;
+  }
+
+  // Fallback: convert typed value to string using existing infrastructure
+  return ParamValueToString(param->value);
+}
+
+//----------------------------------------------------------------------------------------
 //! \fn int ParameterInput::GetInteger(const std::string & block, const std::string &
 //! name)
 //  \brief returns integer value of string stored in block/name
