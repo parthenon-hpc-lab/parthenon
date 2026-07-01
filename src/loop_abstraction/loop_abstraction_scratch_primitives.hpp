@@ -21,29 +21,101 @@
 
 namespace loop_abstraction {
 
-template <class T, int N>
+template <class Halo>
+struct HaloBox {
+  static constexpr int min_k = [] {
+    int out = Halo::dk(0);
+    for (int n = 1; n < Halo::npoints; ++n) out = std::min(out, Halo::dk(n));
+    return out;
+  }();
+  static constexpr int max_k = [] {
+    int out = Halo::dk(0);
+    for (int n = 1; n < Halo::npoints; ++n) out = std::max(out, Halo::dk(n));
+    return out;
+  }();
+  static constexpr int min_j = [] {
+    int out = Halo::dj(0);
+    for (int n = 1; n < Halo::npoints; ++n) out = std::min(out, Halo::dj(n));
+    return out;
+  }();
+  static constexpr int max_j = [] {
+    int out = Halo::dj(0);
+    for (int n = 1; n < Halo::npoints; ++n) out = std::max(out, Halo::dj(n));
+    return out;
+  }();
+  static constexpr int min_i = [] {
+    int out = Halo::di(0);
+    for (int n = 1; n < Halo::npoints; ++n) out = std::min(out, Halo::di(n));
+    return out;
+  }();
+  static constexpr int max_i = [] {
+    int out = Halo::di(0);
+    for (int n = 1; n < Halo::npoints; ++n) out = std::max(out, Halo::di(n));
+    return out;
+  }();
+  static constexpr int nk = max_k - min_k + 1;
+  static constexpr int nj = max_j - min_j + 1;
+  static constexpr int ni = max_i - min_i + 1;
+  static constexpr int size = nk * nj * ni;
+};
+
+template <class T, class IndexRange>
 struct StackScratch1D {
-  mutable std::array<T, N> data{};
-  // TODO: Make this work for Halos
-  template <class IDXT>
-  KOKKOS_FORCEINLINE_FUNCTION
-  T &operator()(IDXT) const {
-    return data[0];
+  using halo_t = typename IndexRange::halo_t;
+  using box_t = HaloBox<halo_t>;
+
+  mutable std::array<T, box_t::size> data{};
+  int ks = 0;
+  int js = 0;
+  int is = 0;
+
+  KOKKOS_INLINE_FUNCTION
+  explicit StackScratch1D(const IndexRange &idx_range)
+      : ks(idx_range.ks), js(idx_range.js), is(idx_range.is) {}
+
+  KOKKOS_FORCEINLINE_FUNCTION T &operator()(Index3 idx) const {
+    return data[DenseIndex(idx.k - ks, idx.j - js, idx.i - is)];
   }
-  
+
+  KOKKOS_FORCEINLINE_FUNCTION T &operator()(MemoryOffset idx) const {
+    return data[DenseIndex(idx.dk, idx.dj, idx.di)];
+  }
+
   KOKKOS_FORCEINLINE_FUNCTION
   T &operator()(int k, int j, int i) const {
-    return data[0];
+    return (*this)(Index3{k, j, i});
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
   constexpr std::size_t size() const {
-    return N;
+    return box_t::size;
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
   constexpr std::size_t shmem_size() const {
     return 0;
+  }
+
+ private:
+  KOKKOS_FORCEINLINE_FUNCTION static bool ContainsDeclaredOffset(const int dk,
+                                                                 const int dj,
+                                                                 const int di) {
+    for (int n = 0; n < halo_t::npoints; ++n) {
+      if (dk == halo_t::dk(n) && dj == halo_t::dj(n) && di == halo_t::di(n)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION static int DenseIndex(const int dk, const int dj,
+                                                    const int di) {
+    KOKKOS_ASSERT(dk >= box_t::min_k && dk <= box_t::max_k);
+    KOKKOS_ASSERT(dj >= box_t::min_j && dj <= box_t::max_j);
+    KOKKOS_ASSERT(di >= box_t::min_i && di <= box_t::max_i);
+    KOKKOS_ASSERT(ContainsDeclaredOffset(dk, dj, di));
+    return ((dk - box_t::min_k) * box_t::nj + (dj - box_t::min_j)) * box_t::ni +
+           (di - box_t::min_i);
   }
 };
 
@@ -106,7 +178,7 @@ template <class T, class IndexRange>
 KOKKOS_INLINE_FUNCTION
 auto GetPerPointScratch(const IndexRange &idx_range) {
   if constexpr (IndexRange::index_space_t::loop_tag_v == loop_tag::boiv) {
-    return StackScratch1D<T, IndexRange::halo_t::npoints>{};
+    return StackScratch1D<T, IndexRange>(idx_range);
   } else if constexpr (IndexRange::index_space_t::backend_v == loop_backend::raw) {
     return HostScratch1D<IndexRange, T>(idx_range);
   } else if constexpr (IndexRange::index_space_t::backend_v == loop_backend::kokkos) {

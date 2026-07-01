@@ -39,6 +39,12 @@ struct pack_view_t {
   }
 
   template <class var_t>
+  KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(var_t v,
+                                                     MemoryOffset idx) const {
+    return (*this)(v, idx.flat);
+  }
+
+  template <class var_t>
   KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(var_t v, Index3 in) const {
     static_assert(TL::template IsIn<var_t>(), "Type must be in pack view type list.");
     return data_[SumSizesBefore<TL, var_t>() + v.idx]

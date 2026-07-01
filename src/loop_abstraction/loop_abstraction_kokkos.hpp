@@ -74,9 +74,13 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
           f(idx_range.ks + halo_t::dk(n), idx_range.js + halo_t::dj(n),
             idx_range.is + halo_t::di(n));
       } else {
-        auto &memory_kji = idx_space.GetMemoryIndexer();
+        static_assert(!impl::has_explicit_unary_int_call_v<F>,
+                      "boiv/logical_flat inner loops require auto or MemoryOffset "
+                      "single-argument bodies; explicit int bodies lose halo "
+                      "offset coordinates.");
         for (int n = 0; n < halo_t::npoints; ++n) {
-          f(memory_kji.GetFlatIdx(halo_t::dk(n), halo_t::dj(n), halo_t::di(n)));
+          f(idx_space.GetMemoryOffsetIndex(halo_t::dk(n), halo_t::dj(n),
+                                           halo_t::di(n)));
         }
       }
     } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {

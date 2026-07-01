@@ -18,6 +18,9 @@ struct var_view_t {
   parthenon::Real &operator()(int idx) const { return data[idx + flattened_offset]; }
 
   KOKKOS_FUNCTION
+  parthenon::Real &operator()(MemoryOffset idx) const { return (*this)(idx.flat); }
+
+  KOKKOS_FUNCTION
   parthenon::Real &operator()(Index3 in) const {
     return data[pidx_space->GetMemoryIndexer().GetFlatIdx(in.k, in.j, in.i) +
                 flattened_offset];
@@ -38,6 +41,9 @@ struct var_view_t<IndexSpace<loop_tag::bovi, INNER_TAG, BACKEND>> {
 
   KOKKOS_FUNCTION
   parthenon::Real &operator()(int idx) const { return data[idx]; }
+
+  KOKKOS_FUNCTION
+  parthenon::Real &operator()(MemoryOffset idx) const { return (*this)(idx.flat); }
 
   KOKKOS_FUNCTION
   parthenon::Real &operator()(Index3 in) const {
@@ -63,6 +69,12 @@ struct var_view_t<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>> {
 
   KOKKOS_FUNCTION
   parthenon::Real &operator()(int idx) const {
+    (void)idx;
+    return *data;
+  }
+
+  KOKKOS_FUNCTION
+  parthenon::Real &operator()(MemoryOffset idx) const {
     (void)idx;
     return *data;
   }

@@ -288,6 +288,34 @@ struct plus_j_halo_t {
   KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
 };
 
+struct minus_i_halo_t {
+  static constexpr int npoints = 2;
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int n) { return n == 0 ? -1 : 0; }
+};
+
+struct plus_i_halo_t {
+  static constexpr int npoints = 2;
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int n) { return n == 0 ? 0 : 1; }
+};
+
+struct minus_j_halo_t {
+  static constexpr int npoints = 2;
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) { return n == 0 ? -1 : 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
+};
+
+struct plus_two_i_minus_k_halo_t {
+  static constexpr int npoints = 2;
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) { return n == 0 ? -1 : 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int n) { return n == 0 ? 2 : 0; }
+};
+
 struct k_triplet_halo_t {
   static constexpr int npoints = 3;
   KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) {
@@ -315,8 +343,8 @@ parthenon::HostArray5D<Real> RunAutoIndexBody(const ProblemSpec &spec, const int
                     const auto [k, j, i] = idx_range.GetKJI(idx);
                     out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
                   } else {
-                    out(b, v, idx.k, idx.j, idx.i) +=
-                        EncodeValue(b, v, idx.k, idx.j, idx.i);
+                    const auto [k, j, i] = idx_range.GetKJI(idx);
+                    out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
                   }
                 });
           }
@@ -329,7 +357,8 @@ parthenon::HostArray5D<Real> RunAutoIndexBody(const ProblemSpec &spec, const int
             const auto [k, j, i] = idx_range.GetKJI(idx);
             out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
           } else {
-            out(b, v, idx.k, idx.j, idx.i) += EncodeValue(b, v, idx.k, idx.j, idx.i);
+            const auto [k, j, i] = idx_range.GetKJI(idx);
+            out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
           }
         });
       }
@@ -657,9 +686,10 @@ void RunPackViewCase(const PackViewSpec &spec, const int ninner, const bool kji_
           pack_view(v2(), idx) = PackViewExpectedValue(b, 1, k, j, i);
           pack_view(v5(), idx) = PackViewExpectedValue(b, 2, k, j, i);
         } else {
-          pack_view(v1(), idx) = PackViewExpectedValue(b, 0, idx.k, idx.j, idx.i);
-          pack_view(v2(), idx) = PackViewExpectedValue(b, 1, idx.k, idx.j, idx.i);
-          pack_view(v5(), idx) = PackViewExpectedValue(b, 2, idx.k, idx.j, idx.i);
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          pack_view(v1(), idx) = PackViewExpectedValue(b, 0, k, j, i);
+          pack_view(v2(), idx) = PackViewExpectedValue(b, 1, k, j, i);
+          pack_view(v5(), idx) = PackViewExpectedValue(b, 2, k, j, i);
         }
       });
     }
@@ -912,6 +942,67 @@ void RunScratchHaloPatternMatrixKokkos() {
   }
 }
 
+template <class HaloType, inner_tag INNER_TAG, parthenon::CoordinateDirection DIR,
+          int SIGN>
+void RunBoivScratchDeltaCase(const ProblemSpec &spec) {
+  using IndexSpaceType = PatternIndexSpace<loop_tag::boiv, INNER_TAG>;
+  IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost);
+  idx_space.template AddPerPointScratch<Real, HaloType>();
+  const auto delta = idx_space.GetDelta(DIR);
+
+  loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
+    const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
+    auto scratch = loop_abstraction::GetPerPointScratch<Real>(halo_range);
+
+    loop_abstraction::inner(halo_range, [&](auto idx) {
+      const auto [k, j, i] = halo_range.GetKJI(idx);
+      scratch(idx) = EncodeValue(b, 0, k, j, i);
+    });
+
+    loop_abstraction::inner(idx_range, [&](auto idx) {
+      const auto shifted = idx + SIGN * delta;
+      const auto [k, j, i] = idx_range.GetKJI(idx);
+      int kk = k;
+      int jj = j;
+      int ii = i;
+      if constexpr (DIR == parthenon::X1DIR) {
+        ii += SIGN;
+      } else if constexpr (DIR == parthenon::X2DIR) {
+        jj += SIGN;
+      } else if constexpr (DIR == parthenon::X3DIR) {
+        kk += SIGN;
+      }
+      REQUIRE(scratch(shifted) == Approx(EncodeValue(b, 0, kk, jj, ii)));
+    });
+  });
+}
+
+template <inner_tag INNER_TAG>
+void RunBoivScratchMixedDeltaCase(const ProblemSpec &spec) {
+  using IndexSpaceType = PatternIndexSpace<loop_tag::boiv, INNER_TAG>;
+  IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost);
+  idx_space.template AddPerPointScratch<Real, plus_two_i_minus_k_halo_t>();
+  const auto dx1 = idx_space.GetDelta(parthenon::X1DIR);
+  const auto dx3 = idx_space.GetDelta(parthenon::X3DIR);
+
+  loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
+    const auto halo_range =
+        loop_abstraction::AddHalo<plus_two_i_minus_k_halo_t>(idx_range);
+    auto scratch = loop_abstraction::GetPerPointScratch<Real>(halo_range);
+
+    loop_abstraction::inner(halo_range, [&](auto idx) {
+      const auto [k, j, i] = halo_range.GetKJI(idx);
+      scratch(idx) = EncodeValue(b, 0, k, j, i);
+    });
+
+    loop_abstraction::inner(idx_range, [&](auto idx) {
+      const auto shifted = idx + 2 * dx1 - dx3;
+      const auto [k, j, i] = idx_range.GetKJI(idx);
+      REQUIRE(scratch(shifted) == Approx(EncodeValue(b, 0, k - 1, j, i + 2)));
+    });
+  });
+}
+
 } // namespace
 
 TEST_CASE("loop abstraction logical contracts with auto index bodies",
@@ -972,10 +1063,39 @@ TEST_CASE("loop abstraction scratch halo roundtrip",
   RunScratchHaloPatternMatrix<plus_j_halo_t, loop_tag::bovi,
                               inner_tag::logical_coords>();
   RunScratchHaloPatternMatrix<plus_j_halo_t, loop_tag::bovi, inner_tag::memory>();
-  // RunScratchHaloPatternMatrix<plus_j_halo_t, loop_tag::boiv,
-  //                             inner_tag::logical_flat>();
-  // RunScratchHaloPatternMatrix<plus_j_halo_t, loop_tag::boiv,
-  //                             inner_tag::logical_coords>();
+  RunScratchHaloPatternMatrix<plus_j_halo_t, loop_tag::boiv,
+                              inner_tag::logical_flat>();
+  RunScratchHaloPatternMatrix<plus_j_halo_t, loop_tag::boiv,
+                              inner_tag::logical_coords>();
+}
+
+TEST_CASE("loop abstraction boiv scratch halo GetDelta access",
+          "[loop_abstraction][contract][scratch][halo]") {
+  constexpr ProblemSpec spec{2, 3, 3, 3, 2};
+
+  RunBoivScratchDeltaCase<minus_i_halo_t, inner_tag::logical_flat,
+                          parthenon::X1DIR, -1>(spec);
+  RunBoivScratchDeltaCase<minus_i_halo_t, inner_tag::logical_coords,
+                          parthenon::X1DIR, -1>(spec);
+  RunBoivScratchDeltaCase<plus_i_halo_t, inner_tag::logical_flat,
+                          parthenon::X1DIR, 1>(spec);
+  RunBoivScratchDeltaCase<plus_i_halo_t, inner_tag::logical_coords,
+                          parthenon::X1DIR, 1>(spec);
+  RunBoivScratchDeltaCase<minus_j_halo_t, inner_tag::logical_flat,
+                          parthenon::X2DIR, -1>(spec);
+  RunBoivScratchDeltaCase<minus_j_halo_t, inner_tag::logical_coords,
+                          parthenon::X2DIR, -1>(spec);
+  RunBoivScratchMixedDeltaCase<inner_tag::logical_flat>(spec);
+  RunBoivScratchMixedDeltaCase<inner_tag::logical_coords>(spec);
+}
+
+TEST_CASE("loop abstraction boiv scratch halo kokkos roundtrip",
+          "[loop_abstraction][contract][scratch][halo]") {
+  constexpr ProblemSpec spec{2, 3, 3, 3, 2};
+  RunScratchHaloCaseKokkos<plus_j_halo_t, loop_tag::boiv,
+                           inner_tag::logical_flat>(spec, spec.nx * spec.ny);
+  RunScratchHaloCaseKokkos<plus_j_halo_t, loop_tag::boiv,
+                           inner_tag::logical_coords>(spec, spec.nx * spec.ny);
 }
 
 TEST_CASE("loop abstraction halo producer-consumer contracts",

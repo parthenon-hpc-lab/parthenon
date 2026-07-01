@@ -64,6 +64,29 @@ KOKKOS_INLINE_FUNCTION int GetNOuter(const IndexSpaceType &idx_space) {
   return idx_space.GetNOuter();
 }
 
+template <class>
+struct ExplicitUnaryIntCall : std::false_type {};
+
+template <class R, class C, class Arg>
+struct ExplicitUnaryIntCall<R (C::*)(Arg)>
+    : std::is_same<std::remove_cvref_t<Arg>, int> {};
+
+template <class R, class C, class Arg>
+struct ExplicitUnaryIntCall<R (C::*)(Arg) const>
+    : std::is_same<std::remove_cvref_t<Arg>, int> {};
+
+template <class F, class = void>
+struct HasExplicitUnaryIntCall : std::false_type {};
+
+template <class F>
+struct HasExplicitUnaryIntCall<
+    F, std::void_t<decltype(&std::remove_reference_t<F>::operator())>>
+    : ExplicitUnaryIntCall<decltype(&std::remove_reference_t<F>::operator())> {};
+
+template <class F>
+inline constexpr bool has_explicit_unary_int_call_v =
+    HasExplicitUnaryIntCall<F>::value;
+
 } // namespace impl
 
 enum class loop_tag { bvoi, bovi, boiv };
@@ -102,6 +125,38 @@ constexpr Index3 operator*(int n, Index3 a) { return {n * a.k, n * a.j, n * a.i}
 KOKKOS_INLINE_FUNCTION
 constexpr Index3 operator*(Index3 a, int n) { return n * a; }
 
+struct MemoryOffset {
+  int dk = 0;
+  int dj = 0;
+  int di = 0;
+  int flat = 0;
+
+  KOKKOS_INLINE_FUNCTION constexpr operator int() const { return flat; }
+};
+
+KOKKOS_INLINE_FUNCTION
+constexpr MemoryOffset operator+(MemoryOffset a, MemoryOffset b) {
+  return {a.dk + b.dk, a.dj + b.dj, a.di + b.di, a.flat + b.flat};
+}
+
+KOKKOS_INLINE_FUNCTION
+constexpr MemoryOffset operator-(MemoryOffset a, MemoryOffset b) {
+  return {a.dk - b.dk, a.dj - b.dj, a.di - b.di, a.flat - b.flat};
+}
+
+KOKKOS_INLINE_FUNCTION
+constexpr MemoryOffset operator-(MemoryOffset a) {
+  return {-a.dk, -a.dj, -a.di, -a.flat};
+}
+
+KOKKOS_INLINE_FUNCTION
+constexpr MemoryOffset operator*(int n, MemoryOffset a) {
+  return {n * a.dk, n * a.dj, n * a.di, n * a.flat};
+}
+
+KOKKOS_INLINE_FUNCTION
+constexpr MemoryOffset operator*(MemoryOffset a, int n) { return n * a; }
+
 template <class Halo>
 inline auto AddHaloToIndexer(const parthenon::Indexer3D &idxer) { 
   std::array<int, 3> extend_low{0, 0, 0}, extend_up{0, 0, 0};
@@ -131,6 +186,20 @@ class IndexSpace {
   static constexpr inner_tag inner_tag_v = INNER_TAG;
   static constexpr loop_backend backend_v = BACKEND;
 
+  KOKKOS_INLINE_FUNCTION int GetMemoryOffset(const int dk, const int dj,
+                                             const int di) const {
+    const int nj =
+        memory_kji.template EndIdx<1>() - memory_kji.template StartIdx<1>() + 1;
+    const int ni =
+        memory_kji.template EndIdx<2>() - memory_kji.template StartIdx<2>() + 1;
+    return dk * nj * ni + dj * ni + di;
+  }
+
+  KOKKOS_INLINE_FUNCTION MemoryOffset GetMemoryOffsetIndex(const int dk, const int dj,
+                                                           const int di) const {
+    return {dk, dj, di, GetMemoryOffset(dk, dj, di)};
+  }
+
   auto GetDelta(parthenon::CoordinateDirection dir) {
     const int nk =
         memory_kji.template EndIdx<0>() - memory_kji.template StartIdx<0>() + 1;
@@ -144,10 +213,12 @@ class IndexSpace {
       if (dir == parthenon::X3DIR) return Index3{nk > 1, 0, 0};
       return Index3{0, 0, 0};
     } else {
-      if (dir == parthenon::X1DIR) return 1;
-      if (dir == parthenon::X2DIR) return nj > 1 ? ni : 0;
-      if (dir == parthenon::X3DIR) return nk > 1 ? ni * nj : 0;
-      return 0;
+      if (dir == parthenon::X1DIR) return GetMemoryOffsetIndex(0, 0, 1);
+      if (dir == parthenon::X2DIR)
+        return nj > 1 ? GetMemoryOffsetIndex(0, 1, 0) : MemoryOffset{};
+      if (dir == parthenon::X3DIR)
+        return nk > 1 ? GetMemoryOffsetIndex(1, 0, 0) : MemoryOffset{};
+      return MemoryOffset{};
     }
   }
 
@@ -373,6 +444,10 @@ class InnerIndexRange {
     return pidx_space->GetMemoryIndexer()(mem_idx + mem_shift);
   }
 
+  KOKKOS_INLINE_FUNCTION std::tuple<int, int, int> GetKJI(MemoryOffset idx) const {
+    return GetKJI(idx.flat);
+  }
+
   KOKKOS_INLINE_FUNCTION std::tuple<int, int, int> GetKJI(Index3 idx) const {
     return {idx.k, idx.j, idx.i};
   }
@@ -446,6 +521,10 @@ class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>, Halo> {
   KOKKOS_INLINE_FUNCTION std::tuple<int, int, int> GetKJI(int idx) const {
     const int shift = pidx_space->GetMemoryIndexer().GetFlatIdx(ks, js, is);
     return pidx_space->GetMemoryIndexer()(idx + shift);
+  }
+
+  KOKKOS_INLINE_FUNCTION std::tuple<int, int, int> GetKJI(MemoryOffset idx) const {
+    return {ks + idx.dk, js + idx.dj, is + idx.di};
   }
 
   KOKKOS_INLINE_FUNCTION std::tuple<int, int, int> GetKJI(Index3 idx) const {
