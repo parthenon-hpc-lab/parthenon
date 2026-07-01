@@ -55,9 +55,10 @@ struct pack_view_t {
   const IndexSpaceType *pidx_space = nullptr;
 };
 
-template <loop_tag LOOP_TAG, class PackType, class... Ts>
-struct pack_view_t<IndexSpace<LOOP_TAG, inner_tag::logical_coords>, PackType, Ts...> {
-  using IndexSpaceType = IndexSpace<LOOP_TAG, inner_tag::logical_coords>;
+template <loop_tag LOOP_TAG, loop_backend BACKEND, class PackType, class... Ts>
+struct pack_view_t<IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>, PackType,
+                   Ts...> {
+  using IndexSpaceType = IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>;
 
   const PackType *pack = nullptr;
   int b = 0;

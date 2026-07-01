@@ -35,7 +35,9 @@ using parthenon::DevExecSpace;
 using parthenon::IndexDomain;
 using loop_abstraction::Index3;
 using loop_abstraction::IndexSpace;
+using loop_abstraction::default_loop_backend_v;
 using loop_abstraction::inner_tag;
+using loop_abstraction::loop_backend;
 using loop_abstraction::loop_tag;
 using parthenon::MeshBlock;
 using parthenon::MeshData;
@@ -55,8 +57,9 @@ struct ProblemSpec {
   int nghost;
 };
 
-template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
-using PatternIndexSpace = IndexSpace<LOOP_TAG, INNER_TAG>;
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG,
+          loop_backend BACKEND = default_loop_backend_v>
+using PatternIndexSpace = IndexSpace<LOOP_TAG, INNER_TAG, BACKEND>;
 
 BlockList_t MakeBlockList(const std::shared_ptr<StateDescriptor> pkg, const int NBLOCKS,
                           const int NSIDE, const int NDIM) {
@@ -497,7 +500,9 @@ void RunHaloContractCase(const ProblemSpec &spec, const int ninner) {
 template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG, bool USE_KOKKOS>
 parthenon::HostArray5D<Real> RunHaloTouchBackend(const ProblemSpec &spec,
                                                  const int ninner) {
-  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG>;
+  using IndexSpaceType =
+      PatternIndexSpace<LOOP_TAG, INNER_TAG,
+                        USE_KOKKOS ? loop_backend::kokkos : loop_backend::raw>;
   IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
   auto touches = MakeOutput(idx_space);
   ZeroView(touches);
@@ -540,7 +545,7 @@ void RunHaloParityCase(const ProblemSpec &spec, const int ninner) {
   const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
   INFO("pattern=" << pattern_name << ", ninner=" << ninner << ", halo-parity="
                  << typeid(HaloType).name());
-  if constexpr (loop_abstraction::impl::use_raw_for_v) {
+  if constexpr (default_loop_backend_v == loop_backend::raw) {
     const auto raw =
         RunHaloTouchBackend<HaloType, LOOP_TAG, INNER_TAG, false>(spec, ninner);
     const auto kokkos =

@@ -8,13 +8,14 @@ One needs to be careful about making changes to the loop abstraction headers wit
 
 ## Core Types
 
-`IndexSpace<loop_tag, inner_tag>`
+`IndexSpace<loop_tag, inner_tag, backend>`
 - Defines a space of (block, k, j, i) points to iterate over.
   - What we call the `v` index is an intermediate level that a user of the loop hierarchy can write loops in, do block-level work, etc.
   - The level of the v loops in the hierarchy of the (b, k, j, i) space is determined by the loop tags.
 - Describes the logical iteration space and the memory space for a block.
 - Carries `nblocks`, `ninner`, and the logical/memory indexers.
 - Selects the outer-loop shape at compile time.
+- Selects the loop backend at compile time via `backend_v`.
 - Is the object that is passed into `outer(...)`.
 
 `InnerIndexRange<IndexSpaceType>`

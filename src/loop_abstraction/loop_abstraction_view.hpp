@@ -29,12 +29,12 @@ struct var_view_t {
   }
 };
 
-template <inner_tag INNER_TAG>
-struct var_view_t<IndexSpace<loop_tag::bovi, INNER_TAG>> {
+template <inner_tag INNER_TAG, loop_backend BACKEND>
+struct var_view_t<IndexSpace<loop_tag::bovi, INNER_TAG, BACKEND>> {
  public:
   parthenon::Real *data = nullptr;
   int shift = 0;
-  const IndexSpace<loop_tag::bovi, INNER_TAG> *pidx_space = nullptr;
+  const IndexSpace<loop_tag::bovi, INNER_TAG, BACKEND> *pidx_space = nullptr;
 
   KOKKOS_FUNCTION
   parthenon::Real &operator()(int idx) const { return data[idx]; }
@@ -50,8 +50,8 @@ struct var_view_t<IndexSpace<loop_tag::bovi, INNER_TAG>> {
   }
 };
 
-template <inner_tag INNER_TAG>
-struct var_view_t<IndexSpace<loop_tag::boiv, INNER_TAG>> {
+template <inner_tag INNER_TAG, loop_backend BACKEND>
+struct var_view_t<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>> {
  public:
   parthenon::Real *data = nullptr;
 

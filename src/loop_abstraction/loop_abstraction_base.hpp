@@ -16,9 +16,9 @@
 #include "basic_types.hpp"
 #include "interface/mesh_data.hpp"
 #include "kokkos_types.hpp"
-#include "loop_abstraction/loop_abstraction_scratch_primitives.hpp"
 #include "mesh/mesh.hpp"
 #include "utils/indexer.hpp"
+#include "utils/concepts_lite.hpp"
 
 
 namespace loop_abstraction {
@@ -27,17 +27,42 @@ using device_team_member_t =
     typename Kokkos::TeamPolicy<parthenon::DevExecSpace>::member_type;
 
 namespace halo {
-struct none_t;
+// Halo types enumerate the shifted copies of an inner range that should be
+// visited, including the identity offset {0,0,0}. Offsets must be ordered by
+// increasing flat index in the halo-extended logical indexer.
+//
+// This ordering lets the bovi implementation build the halo range with a
+// single linear merge pass: each candidate span only needs to be compared with
+// the last emitted span. In other words, halo construction stays device-friendly
+// and avoids sorting or dynamic storage before every inner loop.
+struct none_t {
+  static constexpr int npoints = 1;
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
+};
+
+struct plus_j_t {
+  static constexpr int npoints = 2;
+  // Sorted by flat offset: identity, then +j.
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) { return n==0 ? 0 : 1; }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
+};
 }
+
+enum class loop_backend { raw, kokkos };
+
+inline constexpr loop_backend default_loop_backend_v =
+    std::is_same_v<parthenon::DevExecSpace, parthenon::HostExecSpace>
+        ? loop_backend::raw
+        : loop_backend::kokkos;
 
 namespace impl {
 template <class IndexSpaceType>
 KOKKOS_INLINE_FUNCTION int GetNOuter(const IndexSpaceType &idx_space) {
   return idx_space.GetNOuter();
 }
-
-inline constexpr bool use_raw_for_v =
-    std::is_same_v<parthenon::DevExecSpace, parthenon::HostExecSpace>;
 
 } // namespace impl
 
@@ -95,11 +120,16 @@ inline auto AddHaloToIndexer(const parthenon::Indexer3D &idxer) {
                    {idxer.template StartIdx<2>() - extend_low[2], idxer.template EndIdx<2>() + extend_up[2]});
 } 
 
-template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+template <class T, class Halo, class IndexSpaceType>
+std::size_t GetPerTeamScratchSize(const IndexSpaceType &idx_space);
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG,
+          loop_backend BACKEND = default_loop_backend_v>
 class IndexSpace {
  public:
   static constexpr loop_tag loop_tag_v = LOOP_TAG;
   static constexpr inner_tag inner_tag_v = INNER_TAG;
+  static constexpr loop_backend backend_v = BACKEND;
 
   auto GetDelta(parthenon::CoordinateDirection dir) {
     const int nk =
@@ -182,7 +212,9 @@ class IndexSpace {
   KOKKOS_INLINE_FUNCTION int GetNInner() const { return ninner; }
 
   template <class T, class Halo = halo::none_t>
-  void AddPerPointScratch(std::size_t count = 1);
+  void AddPerPointScratch(std::size_t count = 1) {
+    per_team_scratch_size_in_bytes += count * GetPerTeamScratchSize<T, Halo>(*this);
+  }
 
   std::size_t GetPerTeamScratchSizeInBytes() const {
     return per_team_scratch_size_in_bytes;
@@ -195,30 +227,7 @@ class IndexSpace {
   std::size_t per_team_scratch_size_in_bytes = 0;
 };
 
-namespace halo {
-// Halo types enumerate the shifted copies of an inner range that should be
-// visited, including the identity offset {0,0,0}. Offsets must be ordered by
-// increasing flat index in the halo-extended logical indexer.
-//
-// This ordering lets the bovi implementation build the halo range with a
-// single linear merge pass: each candidate span only needs to be compared with
-// the last emitted span. In other words, halo construction stays device-friendly
-// and avoids sorting or dynamic storage before every inner loop.
-struct none_t {
-  static constexpr int npoints = 1;
-  KOKKOS_INLINE_FUNCTION static constexpr int dk(int) { return 0; }
-  KOKKOS_INLINE_FUNCTION static constexpr int dj(int) { return 0; }
-  KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
-};
 
-struct plus_j_t {
-  static constexpr int npoints = 2;
-  // Sorted by flat offset: identity, then +j.
-  KOKKOS_INLINE_FUNCTION static constexpr int dk(int) { return 0; }
-  KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) { return n==0 ? 0 : 1; }
-  KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
-};
-}
 
 template <class IndexSpaceType, class Halo = halo::none_t>
 class InnerIndexRange {
@@ -408,23 +417,24 @@ class InnerIndexRange {
   }
 };
 
-template <inner_tag INNER_TAG, class Halo>
-class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG>, Halo> {
+template <inner_tag INNER_TAG, loop_backend BACKEND, class Halo>
+class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>, Halo> {
  public:
-  using index_space_t = IndexSpace<loop_tag::boiv, INNER_TAG>;
+  using index_space_t = IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>;
   using halo_t = Halo; 
-  const IndexSpace<loop_tag::boiv, INNER_TAG> *pidx_space = nullptr;
+  const IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND> *pidx_space = nullptr;
   int block = 0;
   int ks = 0;
   int js = 0;
   int is = 0;
 
   template <class Halo_in>
-  KOKKOS_INLINE_FUNCTION InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG>, Halo_in>
+  KOKKOS_INLINE_FUNCTION
+  InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>, Halo_in>
   AddHalo() const {
     static_assert(std::is_same_v<Halo, halo::none_t>,
                   "Halo composition is currently not supported.");
-    InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG>, Halo_in> out;
+    InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>, Halo_in> out;
     out.pidx_space = pidx_space;
     out.block = block;
     out.ks = ks;
@@ -451,85 +461,6 @@ class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG>, Halo> {
   void TeamBarrier() const {}
 };
 
-template <class T, class IndexRange>
-KOKKOS_INLINE_FUNCTION
-auto GetPerPointScratch(const IndexRange &idx_range) {
-  if constexpr (IndexRange::index_space_t::loop_tag_v == loop_tag::boiv) {
-    return StackScratch1D<T, IndexRange::halo_t::npoints>{};
-  } else if constexpr (impl::use_raw_for_v) {
-    return HostScratch1D<IndexRange, T>(idx_range);
-  } else {
-    return TeamScratch1D<IndexRange, T>(idx_range);
-  }
-}
-
-template <class T, class IndexRange>
-KOKKOS_INLINE_FUNCTION std::size_t GetPerPointScratchSize(const IndexRange &idx_range) {
-  if constexpr (impl::use_raw_for_v || IndexRange::index_space_t::loop_tag_v == loop_tag::boiv) {
-    return 0;
-  } else {
-    return parthenon::ScratchPad1D<T>::shmem_size(idx_range.size());
-  }
-}
-
-template <class T, class Halo, class IndexSpaceType>
-inline std::size_t GetPerTeamScratchSize(const IndexSpaceType &idx_space) {
-  if constexpr (impl::use_raw_for_v || IndexSpaceType::loop_tag_v == loop_tag::boiv) {
-    return 0;
-  } else {
-    const std::size_t key = reinterpret_cast<std::size_t>(&idx_space) ^
-                            (std::type_index(typeid(T)).hash_code() << 1) ^
-                            (std::type_index(typeid(Halo)).hash_code() << 2);
-    static thread_local std::unordered_map<std::size_t, std::size_t> cache;
-    if (const auto it = cache.find(key); it != cache.end()) {
-      return it->second;
-    }
-    std::size_t scratch_size = 0;
-    using BaseRangeType = InnerIndexRange<IndexSpaceType>;
-    const auto &logical_kji = idx_space.GetLogicalIndexer();
-    
-    // Lambda for calculating the amount of scratch required for a given inner IndexRange
-    auto update_scratch_size = [&](const auto &base_range) {
-      const auto halo_range = base_range.template AddHalo<Halo>();
-      scratch_size =
-          std::max(scratch_size,
-                   parthenon::ScratchPad1D<T>::shmem_size(halo_range.size()));
-    };
-
-    if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
-      for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
-        const BaseRangeType idx_range(idx_space, logical_kji, b);
-        update_scratch_size(idx_range);
-      }
-    } else {
-      const int nouter = GetNOuter(idx_space);
-      for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
-        for (int o = 0; o < nouter; ++o) {
-          const int logical_start = o * idx_space.GetNInner();
-          const int logical_end =
-              std::min((o + 1) * idx_space.GetNInner() - 1,
-                       static_cast<int>(logical_kji.size()) - 1);
-          const BaseRangeType idx_range(idx_space, logical_kji, b, logical_start,
-                                        logical_end);
-          update_scratch_size(idx_range);
-        }
-      }
-    }
-    cache.emplace(key, scratch_size);
-    return scratch_size;
-  }
-}
-
-template <class T, class IndexSpaceType>
-inline std::size_t GetPerTeamScratchSize(const IndexSpaceType &idx_space) {
-  return GetPerTeamScratchSize<T, halo::none_t>(idx_space);
-}
-
-template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
-template <class T, class Halo>
-void IndexSpace<LOOP_TAG, INNER_TAG>::AddPerPointScratch(std::size_t count) {
-  per_team_scratch_size_in_bytes += count * GetPerTeamScratchSize<T, Halo>(*this);
-}
 
 
 } // namespace loop_abstraction
