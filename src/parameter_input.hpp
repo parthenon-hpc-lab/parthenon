@@ -251,6 +251,15 @@ class ParameterInput {
   bool DoesParameterExist(const std::string &block, const std::string &name);
   bool DoesBlockExist(const std::string &block);
   std::string GetComment(const std::string &block, const std::string &name);
+  //! Get parameter value as string representation
+  //! For parameters from input files, returns the exact string from the file.
+  //! For parameters added programmatically (Set/GetOrAdd), returns a string
+  //! representation of the typed value.
+  //! @param block The block name
+  //! @param name The parameter name
+  //! @return String representation of the parameter value
+  //! @throws If parameter does not exist in the specified block
+  std::string GetAsUnresolvedString(const std::string &block, const std::string &name);
 
   // === PARAMETER ACCESS METHODS ===
   // Get*: Retrieve parameter value (throws if missing)
