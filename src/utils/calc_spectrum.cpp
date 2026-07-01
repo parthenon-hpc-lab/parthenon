@@ -76,7 +76,7 @@ CalcSpectrum(Mesh *pm, const parthenon::ParArray1D<Real> &input, const int n_com
           val += SQR(output[outidx + n * fft_size_outbox].real()) +
                  SQR(output[outidx + n * fft_size_outbox].imag());
         }
-        const auto fac = ((k_vec[0] > 0) && (2 * k_vec[0] != nx)) ? 2.0 : 1.0;
+        const auto fac = ((k_vec[2] > 0) && (2 * k_vec[2] != nx)) ? 2.0 : 1.0;
         auto spec = scatter_spectra.access();
         spec(k_mag_int, 0) += fac * val;
         spec(k_mag_int, 1) += fac * k_mag;

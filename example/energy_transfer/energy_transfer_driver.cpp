@@ -1183,7 +1183,43 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   if (compute_spec_U) {
     auto spectra = parthenon::utils::fft::CalcSpectrum(pmesh, vel_flat, 3);
     spectra_h = spectra.GetHostMirrorAndCopy();
-    // const auto num_bins = spectra_h.extent(0);
+
+    // Sanity checks
+    // Power in real space
+    Kokkos::Array<TransferReal, 4> sums{{0.0, 0.0, 0.0, 0.0}};
+    Kokkos::parallel_reduce(
+        "U2_sum", Kokkos::RangePolicy<>(0, fft_size_inbox),
+        KOKKOS_LAMBDA(const std::size_t idx, TransferReal &sum_usqr, TransferReal &sum_u1,
+                      TransferReal &sum_u2, TransferReal &sum_u3) {
+          const auto u1 = static_cast<TransferReal>(vel_flat(idx));
+          const auto u2 = static_cast<TransferReal>(vel_flat(idx + fft_size_inbox));
+          const auto u3 = static_cast<TransferReal>(vel_flat(idx + 2 * fft_size_inbox));
+          sum_u1 += u1;
+          sum_u2 += u2;
+          sum_u3 += u3;
+          sum_usqr += SQR(u1) + SQR(u2) + SQR(u3);
+        },
+        sums[0], sums[1], sums[2], sums[3]);
+
+#ifdef MPI_PARALLEL
+    PARTHENON_MPI_CHECK(
+        MPI_Allreduce(MPI_IN_PLACE, sums.data(), 4, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD));
+#endif
+    sums[0] /= Nx * Ny * Nz;
+    sums[1] /= Nx * Ny * Nz;
+    sums[2] /= Nx * Ny * Nz;
+    sums[3] /= Nx * Ny * Nz;
+
+    TransferReal spec_sum = 0.0;
+    for (int i = 0; i < spectra_h.extent(0); i++) {
+      spec_sum += spectra_h(i, 0);
+    }
+    if (parthenon::Globals::my_rank == 0) {
+      std::cerr << "sum u^2=" << sums[0] << " sum uhat^2=" << spec_sum
+                << " <u>^2=" << SQR(sums[1]) + SQR(sums[2]) + SQR(sums[3])
+                << " uhat(0)^2=" << spectra_h(0, 0) << " sum u_1=" << sums[1]
+                << " sum u_2=" << sums[2] << " sum u_3=" << sums[3] << "\n";
+    }
   }
 
   // --- Write output via openPMD/ADIOS2 ---
