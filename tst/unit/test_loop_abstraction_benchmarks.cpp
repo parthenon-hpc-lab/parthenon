@@ -892,6 +892,14 @@ void RunScratchHaloCase(const ProblemSpec &spec, const int ninner) {
   using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG>;
   IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
   idx_space.template AddPerPointScratch<Real, HaloType>();
+  auto di = idx_space.GetDelta(parthenon::X1DIR);
+  auto dj = idx_space.GetDelta(parthenon::X2DIR);
+  auto dk = idx_space.GetDelta(parthenon::X3DIR);
+  using offset_t = decltype(di);
+  std::array<offset_t, HaloType::npoints> offsets{};
+  for (int n = 0; n < HaloType::npoints; ++n) {
+    offsets[n] = HaloType::di(n) * di + HaloType::dj(n) * dj + HaloType::dk(n) * dk;
+  }
 
   loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
     const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
@@ -911,12 +919,13 @@ void RunScratchHaloCase(const ProblemSpec &spec, const int ninner) {
         // Memory-tag ranges may include halo-of-ghost cells. Only verify
         // offsets that remain inside the allocated memory span.
         if constexpr (INNER_TAG == inner_tag::memory) {
-          if (!IsMemoryCell(idx_space, kk, jj, ii)) {
+          if (IsMemoryCell(idx_space, k, j, i)) {
             continue;
           }
         }
-        REQUIRE(scratch(Index3{kk, jj, ii}) ==
-                Approx(EncodeValue(b, 0, kk, jj, ii)));
+        const auto shifted = idx + offsets[n];
+        REQUIRE(scratch(shifted) == Approx(EncodeValue(b, 0, kk, jj, ii)));
+        REQUIRE(scratch(Index3{kk, jj, ii}) == Approx(EncodeValue(b, 0, kk, jj, ii)));
       }
     });
   });
@@ -933,6 +942,14 @@ void RunScratchHaloCaseKokkos(const ProblemSpec &spec, const int ninner) {
   using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG>;
   IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
   idx_space.template AddPerPointScratch<Real, HaloType>();
+  auto di = idx_space.GetDelta(parthenon::X1DIR);
+  auto dj = idx_space.GetDelta(parthenon::X2DIR);
+  auto dk = idx_space.GetDelta(parthenon::X3DIR);
+  using offset_t = decltype(di);
+  std::array<offset_t, HaloType::npoints> offsets{};
+  for (int n = 0; n < HaloType::npoints; ++n) {
+    offsets[n] = HaloType::di(n) * di + HaloType::dj(n) * dj + HaloType::dk(n) * dk;
+  }
 
   loop_abstraction::impl::outer_kokkos(idx_space, [&](const auto &idx_range, int b) {
     const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
@@ -950,12 +967,13 @@ void RunScratchHaloCaseKokkos(const ProblemSpec &spec, const int ninner) {
         const int jj = j + HaloType::dj(n);
         const int ii = i + HaloType::di(n);
         if constexpr (INNER_TAG == inner_tag::memory) {
-          if (!IsMemoryCell(idx_space, kk, jj, ii)) {
+          if (IsMemoryCell(idx_space, k, j, i)) {
             continue;
           }
         }
-        REQUIRE(scratch(Index3{kk, jj, ii}) ==
-                Approx(EncodeValue(b, 0, kk, jj, ii)));
+        const auto shifted = idx + offsets[n];
+        REQUIRE(scratch(shifted) == Approx(EncodeValue(b, 0, kk, jj, ii)));
+        REQUIRE(scratch(Index3{kk, jj, ii}) == Approx(EncodeValue(b, 0, kk, jj, ii)));
       }
     });
   });
@@ -1069,6 +1087,14 @@ void RunShapedScratchHaloCase(const ProblemSpec &spec, const int ninner) {
   IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost,
                            ninner);
   idx_space.template AddPerPointScratch<Real, HaloType, 2, 3>();
+  auto di = idx_space.GetDelta(parthenon::X1DIR);
+  auto dj = idx_space.GetDelta(parthenon::X2DIR);
+  auto dk = idx_space.GetDelta(parthenon::X3DIR);
+  using offset_t = decltype(di);
+  std::array<offset_t, HaloType::npoints> offsets{};
+  for (int n = 0; n < HaloType::npoints; ++n) {
+    offsets[n] = HaloType::di(n) * di + HaloType::dj(n) * dj + HaloType::dk(n) * dk;
+  }
 
   loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
     const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
@@ -1098,9 +1124,9 @@ void RunShapedScratchHaloCase(const ProblemSpec &spec, const int ninner) {
         }
         for (int c0 = 0; c0 < 2; ++c0) {
           for (int c1 = 0; c1 < 3; ++c1) {
-            const auto expected =
-                Approx(ShapedScratchValue(b, c0, c1, kk, jj, ii));
+            const auto expected = Approx(ShapedScratchValue(b, c0, c1, kk, jj, ii));
             REQUIRE(scratch(c0, c1, Index3{kk, jj, ii}) == expected);
+            REQUIRE(scratch(c0, c1, idx + offsets[n]) == expected);
             REQUIRE(scratch(c0, c1, kk, jj, ii) == expected);
           }
         }
