@@ -49,6 +49,28 @@ struct plus_j_t {
   KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) { return n==0 ? 0 : 1; }
   KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
 };
+
+struct minus_i_t {
+  static constexpr int npoints = 2;
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int n) { return -1 * (n == 0); }
+};
+
+struct minus_j_t {
+  static constexpr int npoints = 2;
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) { return -1 * (n == 0); }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
+};
+
+struct minus_k_t {
+  static constexpr int npoints = 2;
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) { return -1 * (n == 0); }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
+};
+
 }
 
 enum class loop_backend { raw, kokkos };
