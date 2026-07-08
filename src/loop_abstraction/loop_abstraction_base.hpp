@@ -245,6 +245,8 @@ std::size_t GetPerTeamScratchSize(const IndexSpaceType &idx_space);
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG,
           loop_backend BACKEND = default_loop_backend_v>
 class IndexSpace {
+  static_assert(!(LOOP_TAG == loop_tag::boiv && INNER_TAG == inner_tag::memory),
+                "IndexSpace: This tag combination is not supported and will not be.");
  public:
   static constexpr loop_tag loop_tag_v = LOOP_TAG;
   static constexpr inner_tag inner_tag_v = INNER_TAG;
