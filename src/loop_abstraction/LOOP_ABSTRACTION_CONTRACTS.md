@@ -347,58 +347,37 @@ struct span_union {
 
 Scratch should use the same halo-aware flat index space as the halo range.
 
-For a two-span case, compact scratch storage can map
+Hierarchical scratch currently allocates the whole memory-flat span covered by
+the halo-extended range. This uses more storage than the compact union of touched
+points, but lets flat-index scratch access use a simple base subtraction:
 
 ```text
-[start_idx_one, start_idx_one + n) -> [0, n)
-[start_idx_two, start_idx_two + n) -> [n, 2n)
+[span_start, span_stop] -> [0, span_stop - span_start]
 ```
 
-An efficient compact-index helper is:
+For flat-index bodies, the index passed to the body is already relative to the
+current inner range's memory origin, so scratch maps it as:
 
 ```cpp
 KOKKOS_INLINE_FUNCTION
-int compact_index(int cf_idx) const {
-  const int in_second = static_cast<int>(cf_idx >= start_idx_two);
-  const int gap = start_idx_two - start_idx_one - contig_size;
-  return cf_idx - start_idx_one - in_second * gap;
+int scratch_index(int idx) const {
+  return idx - scratch_index_start;
 }
 ```
 
-This is equivalent to the more intuitive piecewise mapping:
-
-```text
-if cf_idx is in the first span:
-    local = cf_idx - start_idx_one
-
-if cf_idx is in the second span:
-    local = contig_size + (cf_idx - start_idx_two)
-```
-
-For multiple spans, the general version is a short loop over the merged span list:
+For coordinate bodies, scratch first maps `(k,j,i)` into the memory-flat indexer
+and then subtracts the cached memory-flat span start:
 
 ```cpp
 KOKKOS_INLINE_FUNCTION
-int compact_index(int cf_idx) const {
-  int base = 0;
-
-  for (int s = 0; s < nspans; ++s) {
-    const auto span = spans[s];
-    const int len = span.stop - span.start + 1;
-
-    if (cf_idx >= span.start && cf_idx <= span.stop) {
-      return base + (cf_idx - span.start);
-    }
-
-    base += len;
-  }
-
-  KOKKOS_ASSERT(false);
-  return -1;
+int scratch_index(int k, int j, int i) const {
+  return memory_kji.GetFlatIdx(k, j, i) - scratch_flat_start;
 }
 ```
 
-Specialized one-span or two-span versions can be added later if needed.
+The logical coverage size of an `InnerIndexRange` is cached when the range is
+constructed. `size()` returns that cached value rather than recomputing the
+merged span lengths on every call.
 
 ## Backend interpretation
 
@@ -449,7 +428,9 @@ The halo range covers
 S ∪ shift(S, h1) ∪ shift(S, h2) ∪ ...
 ```
 
-and scratch can be allocated over the compact union of the corresponding flat spans. This allows reconstructed values to be reused across multiple flux calculations.
+and scratch is allocated over the enclosing memory-flat span for those shifted
+sets. This allows reconstructed values to be reused across multiple flux
+calculations while reducing per-access indexing arithmetic.
 
 ## Summary
 

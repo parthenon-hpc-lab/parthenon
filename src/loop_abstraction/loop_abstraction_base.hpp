@@ -394,6 +394,10 @@ class InnerIndexRange {
   std::array<int, Halo::npoints> flat_start{};
   std::array<int, Halo::npoints> flat_end{};
   int nregions = 1;
+  int cached_size = 0;
+  int scratch_flat_start = 0;
+  int scratch_index_start = 0;
+  int scratch_span_size = 0;
   int ks = 0;
   int js = 0;
   int is = 0;
@@ -477,12 +481,24 @@ class InnerIndexRange {
   KOKKOS_INLINE_FUNCTION void BuildRegionsFromEndpoints(const Index3 start, const Index3 end) {
     flat_start[0] = GetFlatIdxFromKJI(start.k + Halo::dk(0), start.j + Halo::dj(0), start.i + Halo::di(0));
     flat_end[0]   = GetFlatIdxFromKJI(end.k + Halo::dk(0), end.j + Halo::dj(0), end.i + Halo::di(0));
+    const int memory_base =
+        pidx_space->GetMemoryIndexer().GetFlatIdx(start.k, start.j, start.i);
+    scratch_flat_start = pidx_space->GetMemoryIndexer().GetFlatIdx(
+        start.k + Halo::dk(0), start.j + Halo::dj(0), start.i + Halo::di(0));
+    int scratch_flat_end = pidx_space->GetMemoryIndexer().GetFlatIdx(
+        end.k + Halo::dk(0), end.j + Halo::dj(0), end.i + Halo::di(0));
     nregions = 1;
     // Create possibly disjoint ranges, this algorithm relies on the start and end points of the ranges 
     // being sorted by flat start
     for (int n = 1; n < Halo::npoints; ++n) {
       const int fstart = GetFlatIdxFromKJI(start.k + Halo::dk(n), start.j + Halo::dj(n), start.i + Halo::di(n));
       const int fend   = GetFlatIdxFromKJI(end.k + Halo::dk(n), end.j + Halo::dj(n), end.i + Halo::di(n));
+      const int scratch_start = pidx_space->GetMemoryIndexer().GetFlatIdx(
+          start.k + Halo::dk(n), start.j + Halo::dj(n), start.i + Halo::di(n));
+      const int scratch_end = pidx_space->GetMemoryIndexer().GetFlatIdx(
+          end.k + Halo::dk(n), end.j + Halo::dj(n), end.i + Halo::di(n));
+      scratch_flat_start = std::min(scratch_flat_start, scratch_start);
+      scratch_flat_end = std::max(scratch_flat_end, scratch_end);
       if (fstart <= flat_end[nregions - 1] + 1) {
         if (fend > flat_end[nregions - 1])
           flat_end[nregions - 1] = fend;  
@@ -492,6 +508,12 @@ class InnerIndexRange {
         ++nregions;
       }
     }
+    cached_size = 0;
+    for (int r = 0; r < nregions; ++r) {
+      cached_size += flat_end[r] - flat_start[r] + 1;
+    }
+    scratch_index_start = scratch_flat_start - memory_base;
+    scratch_span_size = scratch_flat_end - scratch_flat_start + 1;
   }
 
   KOKKOS_FORCEINLINE_FUNCTION auto GetKJIFromFlatIdx(int flat_idx) const { 
@@ -535,13 +557,39 @@ class InnerIndexRange {
 
   KOKKOS_INLINE_FUNCTION
   int size() const {
-    int n = 0;
-    for (int r = 0; r < nregions; ++r) {
-      n += flat_end[r] - flat_start[r] + 1;
-    }
-    return n;
+    return cached_size;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int ScratchSize() const {
+    return scratch_span_size;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int ScratchIndex(int mem_idx) const {
+    return mem_idx - scratch_index_start;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int ScratchIndex(MemoryOffset idx) const {
+    return ScratchIndex(idx.flat);
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int ScratchIndex(Index3 idx) const {
+    return pidx_space->GetMemoryIndexer().GetFlatIdx(idx.k, idx.j, idx.i) -
+           scratch_flat_start;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int ScratchIndex(const int k, const int j, const int i) const {
+    return pidx_space->GetMemoryIndexer().GetFlatIdx(k, j, i) - scratch_flat_start;
   }
   
+  // CompactIndex maps the possibly disjoint merged halo spans onto a dense
+  // zero-based index space. This is the minimal-footprint scratch indexing model.
+  // Scratch currently uses the enclosing memory-flat span instead, so these helpers
+  // are unused but kept here as a reference path and possible future option.
   KOKKOS_INLINE_FUNCTION
   int CompactIndexFromFlat(int flat_idx) const {
     int offset = 0;
