@@ -313,7 +313,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
   if (num_components == 1 || is_cell_vector) {
     // we only make one entry, because either num_components == 1, or we write this as a
     // vector
-    names.push_back(name);
+    names.push_back(component_labels[0]);
   } else {
     nentries = num_components;
     for (int i = 0; i < num_components; i++) {
