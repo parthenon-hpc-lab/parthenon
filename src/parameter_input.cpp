@@ -663,8 +663,8 @@ void ParameterInput::CheckDesired(const std::string &block, const std::string &n
   if (defaulted) {
     auto *param = FindParameter_(block, name);
     std::cout << std::endl
-              << "Defaulting to <" << block << ">/" << name << " = "
-              << param->ToString() << std::endl;
+              << "Defaulting to <" << block << ">/" << name << " = " << param->ToString()
+              << std::endl;
   }
 }
 
@@ -712,7 +712,7 @@ void ParameterInput::ParameterDump(std::ostream &os) {
       auto key = std::make_pair(block.name, param_name);
       QueryRecord &record = queries_.at(key);
       std::string param_value = param.ToString();
-      if (record.IsStringVec() && (param_value.size() == 0)) {
+      if (record.IsDefaultEmptyStringVec() && (param_value.size() == 0)) {
         continue;
       }
 

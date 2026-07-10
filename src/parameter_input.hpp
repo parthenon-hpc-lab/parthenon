@@ -145,6 +145,14 @@ struct QueryRecord {
   bool IsStringVec() const {
     return param_type == GetTypeName<std::vector<std::string>>();
   }
+  bool IsDefaultEmptyStringVec() const {
+    if (IsStringVec() && default_value.has_value()) {
+      using value_t = std::vector<std::string>;
+      return std::any_cast<value_t>(default_value).size() == 0;
+    } else {
+      return false;
+    }
+  }
 };
 
 // Wrapper type to distinguish unresolved strings (from legacy parser)

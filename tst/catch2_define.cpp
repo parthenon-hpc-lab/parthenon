@@ -44,7 +44,7 @@ bool HasMPITests(const T &config) {
     const auto &info = test_case.getTestCaseInfo();
     const auto &tags = info.tags;
     // if the spec is empty, i.e., all tests are requested, we have to special case.
-   const bool selected = has_filters ? test_spec.matches(test_case) : !info.isHidden();
+    const bool selected = has_filters ? test_spec.matches(test_case) : !info.isHidden();
     const bool is_mpi = std::find(tags.begin(), tags.end(), "MPI") != tags.end();
     if (selected && is_mpi) {
       return true;
