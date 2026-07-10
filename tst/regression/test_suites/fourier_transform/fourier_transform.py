@@ -11,9 +11,9 @@ import utils.test_case
 sys.dont_write_bytecode = True
 
 # Maximum tolerated absolute error for a forward+inverse FFT round-trip on a
-# 16^3 grid.  Double-precision FFTs accumulate O(N log N) rounding errors, so
-# for N=16 the expected residual is well below 1e-10.
-ERROR_TOLERANCE = 1e-10
+# 16^3 grid.
+# Error tolerance currently set for double prec data and transforms.
+ERROR_TOLERANCE = 1e-14
 
 
 class TestCase(utils.test_case.TestCaseAbs):
@@ -28,30 +28,26 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         output = parameters.stdouts[0].decode()
 
-        match = re.search(
-            r"Max relative error after FFT round-trip:\s+([\d.eE+\-]+)", output
-        )
-        if match is None:
+        def parse_error(error_string):
+            match = re.search(rf"{error_string}:\s+([\d.eE+\-]+)", output)
+            if match is None:
+                print(f"ERROR: could not find '{error_string}' in output")
+                print("Driver output was:")
+                print(output)
+                return False
+
+            max_error = float(match.group(1))
             print(
-                "ERROR: could not find 'Max relative error after FFT round-trip' in output"
+                f"{error_string}: {max_error:.3e}  (tolerance: {ERROR_TOLERANCE:.3e})"
             )
-            print("Driver output was:")
-            print(output)
-            return False
 
-        max_error = float(match.group(1))
-        print(
-            "Max FFT round-trip error: {:.3e}  (tolerance: {:.3e})".format(
-                max_error, ERROR_TOLERANCE
-            )
-        )
+            if max_error > ERROR_TOLERANCE:
+                print("ERROR: exceeds tolerance")
+                return False
+            return True
 
-        if max_error > ERROR_TOLERANCE:
-            print(
-                "ERROR: FFT round-trip error {:.3e} exceeds tolerance {:.3e}".format(
-                    max_error, ERROR_TOLERANCE
-                )
-            )
-            return False
-
-        return True
+        success = True
+        success &= parse_error("Max relative error after FFT round-trip")
+        success &= parse_error("Error in spectrum total power")
+        success &= parse_error("Error in spectrum mean")
+        return success
