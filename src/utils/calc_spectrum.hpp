@@ -15,17 +15,30 @@
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
-
 class Mesh;
+namespace utils {
+namespace fft {
+
+// Keep spectra accumulations, MPI collectives, and output in double
+// precision even when the application is built with Real=float.
+using SpecReal = double;
 
 // Computes the shell-averaged power spectrum of the requested components of
 // var_name on a uniform mesh.  Returns a device-side array shaped [num_bins, 3]:
 //   col 0: power sum, col 1: wavenumber sum, col 2: bin count
 // num_bins = ceil(k_max) + 1.  An MPI_Reduce to rank 0 is performed internally,
 // so only rank 0 holds meaningful data on return.
-parthenon::ParArray2D<Real> CalcSpectrum(Mesh *pm, const std::string &var_name,
-                                         const std::vector<int> &components);
+parthenon::ParArray2D<SpecReal> CalcSpectrum(Mesh *pm, const std::string &var_name,
+                                             const std::vector<int> &components);
 
+// Computes the shell-averaged power spectrum from a pre-gathered 1D real-space array.
+// The input must contain n_comp contiguous fields, each of length
+// FFTManager::size_real_space_box().
+parthenon::ParArray2D<SpecReal>
+CalcSpectrum(Mesh *pm, const parthenon::ParArray1D<Real> &input, int n_comp = 1);
+
+} // namespace fft
+} // namespace utils
 } // namespace parthenon
 
 #endif // UTILS_CALC_SPECTRUM_HPP_
