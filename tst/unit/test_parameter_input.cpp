@@ -564,6 +564,18 @@ TEST_CASE("Empty vector defaults round-trip through the parameter store",
   auto values = in.GetOrAddVector<std::string>("block1", "var1", {});
   REQUIRE(values.empty());
   REQUIRE(in.GetVector<std::string>("block1", "var1").empty());
+
+  auto dummy = in.GetOrAddInteger("block2", "var2", 3);
+  std::stringstream ss;
+  in.ParameterDump(ss);
+  std::string paramdump = ss.str();
+
+  ParameterInput in2;
+  std::istringstream s(paramdump);
+  in2.LoadFromStream(s);
+  values = in2.GetOrAddVector<std::string>("block1", "var1", {});
+  REQUIRE(values.empty());
+  REQUIRE(in.GetVector<std::string>("block1", "var1").empty());
 }
 
 TEST_CASE("GetAsUnresolvedString returns string representations", "[ParameterInput]") {

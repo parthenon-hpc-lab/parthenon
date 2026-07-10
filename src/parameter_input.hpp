@@ -141,6 +141,10 @@ struct QueryRecord {
     ss << val;
     return ss.str();
   }
+
+  bool IsStringVec() const {
+    return param_type == GetTypeName<std::vector<std::string>>();
+  }
 };
 
 // Wrapper type to distinguish unresolved strings (from legacy parser)
@@ -190,6 +194,8 @@ struct Parameter {
   std::optional<UnresolvedString> original_string;
   // TODO(future): Consider merging QueryRecord into Parameter as
   // std::optional<QueryRecord> to eliminate the separate queries_ map
+
+  std::string ToString() const;
 };
 
 //----------------------------------------------------------------------------------------
@@ -437,6 +443,7 @@ class ParameterInput {
     AddParameter_(block, name, def, "# Default value added at run time");
     return def;
   }
+
   template <typename T>
   std::vector<T> GetOrAddVector(
       const std::string &block, const std::string &name, const ParameterRef &def,
@@ -477,7 +484,6 @@ class ParameterInput {
 
   // === HELPER METHODS (parser-agnostic) ===
   // Convert ParamValue to string for output
-  std::string ParamValueToString(const ParamValue &value);
   template <typename T>
   T ConvertParamValue(const ParamValue &value, const std::string &block,
                       const std::string &name);
