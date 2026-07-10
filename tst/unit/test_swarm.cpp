@@ -37,7 +37,6 @@
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
 
-using Real = double;
 using parthenon::ApplicationInput;
 using parthenon::BoundaryFlag;
 using parthenon::Mesh;
@@ -47,6 +46,7 @@ using parthenon::Packages_t;
 using parthenon::ParameterInput;
 using parthenon::ParArray1D;
 using parthenon::ParArrayND;
+using parthenon::Real;
 using parthenon::Swarm;
 using parthenon::SwarmDeviceContext;
 using namespace parthenon::BoundaryFunction;
