@@ -575,7 +575,7 @@ TEST_CASE("Empty vector defaults round-trip through the parameter store",
   in2.LoadFromStream(s);
   values = in2.GetOrAddVector<std::string>("block1", "var1", {});
   REQUIRE(values.empty());
-  REQUIRE(in.GetVector<std::string>("block1", "var1").empty());
+  REQUIRE(in2.GetVector<std::string>("block1", "var1").empty());
 }
 
 TEST_CASE("GetAsUnresolvedString returns string representations", "[ParameterInput]") {
