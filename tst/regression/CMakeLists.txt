@@ -196,6 +196,15 @@ if (PARTHENON_ENABLE_OPENPMD)
     --num_steps 3")
   list(APPEND EXTRA_TEST_LABELS "")
 
+  # Smoke test: sparse_advection OpenPMD output is conformant (openable by openpmd_api,
+  # no ghost mesh records, valid component shapes for all sparse and dense fields).
+  list(APPEND TEST_DIRS sparse_advection_opmd)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/sparse_advection/sparse_advection-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/sparse_advection/parthinput.sparse_advection \
+    --num_steps 1")
+  list(APPEND EXTRA_TEST_LABELS "")
+
   endif()
 
 # Any external modules that are required by python can be added to REQUIRED_PYTHON_MODULES

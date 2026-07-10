@@ -25,6 +25,14 @@ jobs:
         cmake_build_type: ['Release', 'DbgNoSym']
         device: ['cuda', 'host']
         parallel: ['serial', 'mpi']
+        # For one build, test single precision compilation.
+        # We pick one that we already run the regression tests for in double.
+        include:
+          - cxx: g++
+            cmake_build_type: Release
+            device: cuda
+            parallel: mpi
+            single_prec: "-DPARTHENON_SINGLE_PRECISION=ON"
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/parthenon-hpc-lab/cuda12.8-mpi-hdf5-opmd
@@ -40,6 +48,7 @@ jobs:
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
             -DMACHINE_CFG=${PWD}/cmake/machinecfg/GitHubActions.cmake \
+            ${{ matrix.single_prec }} \
             -DMACHINE_VARIANT=${{ matrix.device }}_${{ matrix.parallel }}
       - name: Build
         run: |
@@ -62,7 +71,7 @@ jobs:
         with:
           submodules: 'true'
       - name: CMake
-        # Manually chaning the arch for this (debug) build as the
+        # Manually changing the arch for this (debug) build as the
         # -O0 option causes compiler issue for the navi 1030 GPU at
         # compile time, see https://github.com/parthenon-hpc-lab/parthenon/pull/1191#issuecomment-2492035364
         run: |

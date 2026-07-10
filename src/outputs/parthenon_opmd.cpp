@@ -16,6 +16,7 @@
 //========================================================================================
 //! \file parthenon_openpmd.cpp
 //  \brief Output for OpenPMD https://www.openpmd.org/ (supporting various backends)
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <chrono>
@@ -261,9 +262,9 @@ GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te
   if (format_version >= 2) {
     // Standard-compliant: one shared record per variable+te+level, components
     // distinguished only by sub-group name.
-    mesh_record_name = vinfo.label + "_" + te_str + "lvl" + std::to_string(level);
+    mesh_record_name = vinfo.GetBaseName() + "_" + te_str + "lvl" + std::to_string(level);
 
-    if (vinfo.is_vector) {
+    if (vinfo.is_vector && vinfo.num_components == 3) {
       if (comp_idx == 0) {
         comp_name = "x";
       } else if (comp_idx == 1) {
@@ -277,9 +278,10 @@ GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te
       comp_name = openPMD::MeshRecordComponent::SCALAR;
     } else {
       // Multi-component non-vector (tensor or arbitrary shape): extract the
-      // user-provided suffix from the full component label ("label_suffix" → "suffix").
+      // user-provided suffix from the full component label.
+      // component_labels are built as GetBaseName() + "_" + suffix in VarInfo.
       const auto &full = vinfo.component_labels[comp_idx];
-      const auto prefix_len = vinfo.label.length() + 1; // skip "label_"
+      const auto prefix_len = vinfo.GetBaseName().length() + 1; // skip "<base_name>_"
       comp_name = full.substr(prefix_len);
     }
   } else {
@@ -288,7 +290,7 @@ GetMeshRecordAndComponentNames(const VarInfo &vinfo, const TopologicalElement te
     mesh_record_name = vinfo.label + "_" + te_str + vinfo.component_labels[comp_idx] +
                        "_lvl" + std::to_string(level);
 
-    if (vinfo.is_vector) {
+    if (vinfo.is_vector && vinfo.num_components == 3) {
       if (comp_idx == 0) {
         comp_name = "x";
       } else if (comp_idx == 1) {
@@ -704,6 +706,32 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   using OutT = typename std::conditional<WRITE_SINGLE_PRECISION, float, Real>::type;
   std::vector<OutT> tmp_data(var_size_max * static_cast<std::size_t>(num_blocks_local));
 
+  // Pre-pass (sparse only): determine globally which (sparse var, level) combinations
+  // have allocated data so all ranks create or skip mesh records uniformly.
+  // Dense variables are always allocated on every block — no reduction needed.
+  // Skipped entirely when sparse is disabled at compile time.
+  const int num_levels = pm->GetCurrentLevel() - pm->GetRootLevel() + 1;
+  // Flat layout: sparse_level_has_data[s_idx * num_levels + level] = 1 if any block
+  // on any rank has sparse_names[s_idx] allocated at that level.
+  std::vector<int8_t> sparse_level_has_data;
+#ifndef PARTHENON_DISABLE_SPARSE
+  if (num_sparse > 0) {
+    sparse_level_has_data.assign(num_sparse * num_levels, 0);
+    for (const auto &[label, s_idx] : sparse_field_idx) {
+      for (const auto &pmb : pm->block_list) {
+        const int level = pmb->loc.level() - pm->GetRootLevel();
+        if (pmb->meshblock_data.Get()->GetVarPtr(label)->IsAllocated())
+          sparse_level_has_data[s_idx * num_levels + level] = 1;
+      }
+    }
+#ifdef MPI_PARALLEL
+    PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, sparse_level_has_data.data(),
+                                      static_cast<int>(sparse_level_has_data.size()),
+                                      MPI_INT8_T, MPI_MAX, MPI_COMM_WORLD));
+#endif
+  }
+#endif
+
   // for each variable we write
   for (auto &vinfo : all_vars_info) {
     PARTHENON_INSTRUMENT_REGION("Write variable loop")
@@ -734,11 +762,26 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
 
       // TODO(pgrete) check if we should skip the suffix for level 0
       const auto level = pmb->loc.level() - pm->GetRootLevel();
+
+      auto out_var = pmb->meshblock_data.Get()->GetVarPtr(vinfo.label);
+
       for (const auto &te : vinfo.topological_elements) {
         for (int comp_idx = 0; comp_idx < vinfo.component_labels.size(); comp_idx++) {
           const auto [record_name, comp_name] =
               OpenPMDUtils::GetMeshRecordAndComponentNames(vinfo, te, comp_idx, level,
                                                            format_version_);
+
+          // Skip creating a new mesh record when no rank has data for this
+          // (sparse var, level) combination. Dense vars are always allocated so
+          // they never hit this guard. The global flag (set by the MPI_Allreduce
+          // pre-pass above) ensures all ranks make the same decision for a level.
+#ifndef PARTHENON_DISABLE_SPARSE
+          if (vinfo.is_sparse &&
+              !sparse_level_has_data[sparse_field_idx.at(vinfo.label) * num_levels +
+                                     level] &&
+              !it.meshes.contains(record_name))
+            continue;
+#endif
 
           const bool new_record = !it.meshes.contains(record_name);
           auto mesh_record = it.meshes[record_name];
@@ -762,7 +805,7 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
             if (pm->ndim == 3) {
               auto grid_spacing = std::vector<Real>{dx3, dx2, dx1};
               auto axis_labels = std::vector<std::string>{"z", "y", "x"};
-              auto global_offset = std::vector<double>{
+              auto global_offset = std::vector<LocReal>{
                   pm->mesh_size.xmin(X3DIR),
                   pm->mesh_size.xmin(X2DIR),
                   pm->mesh_size.xmin(X1DIR),
@@ -803,9 +846,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
             auto effective_nx = static_cast<std::uint64_t>(std::pow(2, level));
             openPMD::Extent global_extent;
             if (pm->ndim == 3) {
-              auto position = std::vector<Real>{0.5 - 0.5 * TopologicalOffsetK(te),
-                                                0.5 - 0.5 * TopologicalOffsetJ(te),
-                                                0.5 - 0.5 * TopologicalOffsetI(te)};
+              auto position = std::vector<LocReal>{0.5 - 0.5 * TopologicalOffsetK(te),
+                                                   0.5 - 0.5 * TopologicalOffsetJ(te),
+                                                   0.5 - 0.5 * TopologicalOffsetI(te)};
               global_extent = {
                   static_cast<std::uint64_t>(pm->mesh_size.nx(X3DIR) /
                                              coarsening_factor_) *
@@ -835,8 +878,8 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
               mesh_comp.setPosition(position);
             } else if (pm->ndim == 2) {
               mesh_comp.setPosition(
-                  std::vector<Real>{0.5 - 0.5 * TopologicalOffsetJ(te),
-                                    0.5 - 0.5 * TopologicalOffsetI(te)});
+                  std::vector<LocReal>{0.5 - 0.5 * TopologicalOffsetJ(te),
+                                       0.5 - 0.5 * TopologicalOffsetI(te)});
               global_extent = {
                   static_cast<std::uint64_t>(pm->mesh_size.nx(X2DIR) /
                                              coarsening_factor_) *
@@ -863,8 +906,6 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
       }
 
       // Now that the mesh record exists, actually write the data
-      auto out_var = pmb->meshblock_data.Get()->GetVarPtr(vinfo.label);
-
       if (out_var->IsAllocated()) {
         auto &coords = pmb->coords;
         auto out_var_h = out_var->data.GetHostMirrorAndCopy();
