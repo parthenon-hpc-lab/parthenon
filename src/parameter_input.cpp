@@ -709,12 +709,15 @@ void ParameterInput::ParameterDump(std::ostream &os) {
     // Output parameters with alignment
     for (const auto &param : block.params) {
       std::string param_name = param.name;
-      auto key = std::make_pair(block.name, param_name);
-      QueryRecord &record = queries_.at(key);
-      std::string param_value = param.ToString();
-      if (record.IsDefaultEmptyStringVec() && (param_value.size() == 0)) {
-        continue;
-      }
+  auto key = std::make_pair(block.name, param.name);
+  auto record_it = queries_.find(key);
+  std::string param_value = param.ToString();
+
+  if (record_it != queries_.end() &&
+      record_it->second.IsDefaultEmptyStringVec() &&
+      param_value.empty()) {
+    continue;
+  }
 
       std::size_t len = max_len_name - param_name.length() + 1;
       param_name.append(len, ' '); // pad name to align vertically
