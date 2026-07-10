@@ -577,14 +577,14 @@ TEST_CASE("Empty vector defaults round-trip through the parameter store",
   REQUIRE(values.empty());
   REQUIRE(in2.GetVector<std::string>("block1", "var1").empty());
 }
-  TEST_CASE("ParameterDump includes unqueried parameters", "[ParameterInput]") {
-    ParameterInput in;
-    in.AddParsedParameter("block", "unused", 42);
+TEST_CASE("ParameterDump includes unqueried parameters", "[ParameterInput]") {
+  ParameterInput in;
+  in.AddParsedParameter("block", "unused", 42);
 
-    std::stringstream dump;
-    REQUIRE_NOTHROW(in.ParameterDump(dump));
-    REQUIRE(dump.str().find("unused") != std::string::npos);
-  }
+  std::stringstream dump;
+  REQUIRE_NOTHROW(in.ParameterDump(dump));
+  REQUIRE(dump.str().find("unused") != std::string::npos);
+}
 
 TEST_CASE("GetAsUnresolvedString returns string representations", "[ParameterInput]") {
   GIVEN("Parameters from input file") {
