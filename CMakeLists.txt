@@ -509,8 +509,11 @@ if (PARTHENON_ENABLE_FFT)
     set(Heffte_ENABLE_ROCM ${Kokkos_ENABLE_HIP}  CACHE BOOL "Enable ROCm for heFFTe" FORCE)
     FetchContent_Declare(Heffte
       GIT_REPOSITORY "https://github.com/icl-utk-edu/heffte.git"
-      GIT_TAG        "v2.4.0")  # or whatever the current stable release is
+      GIT_TAG        "4d8d459")  # current (Jul26) GitHub `master` (from Nov25)
     FetchContent_MakeAvailable(Heffte)
+    if (NOT TARGET Heffte::Heffte)
+      add_library(Heffte::Heffte ALIAS Heffte)
+    endif()
     install(TARGETS Heffte EXPORT parthenonTargets)
   endif()
 endif()
@@ -518,7 +521,7 @@ endif()
 add_subdirectory(src)
 
 if (PARTHENON_ENABLE_FFT)
-  target_link_libraries(parthenon PRIVATE Heffte)
+  target_link_libraries(parthenon PRIVATE Heffte::Heffte)
   target_compile_definitions(parthenon PUBLIC PARTHENON_ENABLE_FFT)
 endif()
 
@@ -543,4 +546,3 @@ endif()
 # If you add tests with other binaries, add them to the DEPENDS line
 add_custom_target(checkit COMMAND ${CMAKE_CTEST_COMMAND}
                   DEPENDS unit_tests)
-                  

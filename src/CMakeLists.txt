@@ -358,7 +358,7 @@ if(PARTHENON_ENABLE_FFT)
     utils/calc_spectrum.hpp
     outputs/spectrum.cpp
   )
-  target_link_libraries(parthenon PRIVATE Heffte)
+  target_link_libraries(parthenon PRIVATE Heffte::Heffte)
   target_compile_definitions(parthenon PUBLIC PARTHENON_ENABLE_FFT)
 endif()
 
