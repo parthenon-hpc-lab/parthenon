@@ -39,6 +39,8 @@ using Real = double;
 #endif
 #endif
 
+using LocReal = double; // precision for location related variables
+
 struct IndexRange {
   int s = 0; /// Starting Index (inclusive)
   int e = 0; /// Ending Index (inclusive)

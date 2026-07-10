@@ -805,7 +805,7 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
             if (pm->ndim == 3) {
               auto grid_spacing = std::vector<Real>{dx3, dx2, dx1};
               auto axis_labels = std::vector<std::string>{"z", "y", "x"};
-              auto global_offset = std::vector<Real>{
+              auto global_offset = std::vector<LocReal>{
                   pm->mesh_size.xmin(X3DIR),
                   pm->mesh_size.xmin(X2DIR),
                   pm->mesh_size.xmin(X1DIR),
@@ -846,9 +846,9 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
             auto effective_nx = static_cast<std::uint64_t>(std::pow(2, level));
             openPMD::Extent global_extent;
             if (pm->ndim == 3) {
-              auto position = std::vector<Real>{0.5 - 0.5 * TopologicalOffsetK(te),
-                                                0.5 - 0.5 * TopologicalOffsetJ(te),
-                                                0.5 - 0.5 * TopologicalOffsetI(te)};
+              auto position = std::vector<LocReal>{0.5 - 0.5 * TopologicalOffsetK(te),
+                                                   0.5 - 0.5 * TopologicalOffsetJ(te),
+                                                   0.5 - 0.5 * TopologicalOffsetI(te)};
               global_extent = {
                   static_cast<std::uint64_t>(pm->mesh_size.nx(X3DIR) /
                                              coarsening_factor_) *
@@ -878,8 +878,8 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
               mesh_comp.setPosition(position);
             } else if (pm->ndim == 2) {
               mesh_comp.setPosition(
-                  std::vector<Real>{0.5 - 0.5 * TopologicalOffsetJ(te),
-                                    0.5 - 0.5 * TopologicalOffsetI(te)});
+                  std::vector<LocReal>{0.5 - 0.5 * TopologicalOffsetJ(te),
+                                       0.5 - 0.5 * TopologicalOffsetI(te)});
               global_extent = {
                   static_cast<std::uint64_t>(pm->mesh_size.nx(X2DIR) /
                                              coarsening_factor_) *

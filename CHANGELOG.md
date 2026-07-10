@@ -22,12 +22,13 @@
 
 
 ### Changed (changing behavior/API/variables/...)
-- [[PR 1441]](https://github.com/parthenon-hpc-lab/parthenon/pull/1401) Sparse Field Component Names
+- [[PR 1401]](https://github.com/parthenon-hpc-lab/parthenon/pull/1401) Sparse Field Component Names
 - [[PR 1331]](https://github.com/parthenon-hpc-lab/parthenon/pull/1331) Use `size_t` for sizes
 - [[PR 1355]](https://github.com/parthenon-hpc-lab/parthenon/pull/1355) Allow disabling format and lint targets
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1412]](https://github.com/parthenon-hpc-lab/parthenon/pull/1412) Fix single precision compilation with `Real=float`
 - [[PR 1406]](https://github.com/parthenon-hpc-lab/parthenon/pull/1406) Fix deadlock in parallel outputs after ParameterInput refactor
 - [[PR 1405]](https://github.com/parthenon-hpc-lab/parthenon/pull/1405) Fixes race condition in flux correction communication when sparse variables are disabled
 - [[PR 1339]](https://github.com/parthenon-hpc-lab/parthenon/pull/1339) Fixes doc for `numlevel` usage in non-AMR sims
