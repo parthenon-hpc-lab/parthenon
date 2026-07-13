@@ -92,6 +92,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(Independent)                                               \
   /** is a derived quantity (ignored) */                                                 \
   PARTHENON_INTERNAL_FOR_FLAG(Derived)                                                   \
+  /** is a variable that should not be updated in a multistage tasklist */               \
+  PARTHENON_INTERNAL_FOR_FLAG(OperatorSplit)                                             \
   /************************************************/                                     \
   /** OTHER: All the following flags can be turned on or off independently */            \
   /** advected variable */                                                               \
