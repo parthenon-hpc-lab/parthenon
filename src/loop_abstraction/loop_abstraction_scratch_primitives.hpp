@@ -17,6 +17,7 @@
 #include "interface/mesh_data.hpp"
 #include "kokkos_types.hpp"
 #include "mesh/mesh.hpp"
+#include "utils/bump_arena.hpp"
 #include "utils/indexer.hpp"
 
 namespace loop_abstraction {
@@ -172,10 +173,19 @@ struct HostScratch1D {
   using idxer_t = ctime_flat_indexer<Dims...>;
 
   IndexRange idx_range;
-  mutable std::vector<T> data;
+  // Non-owning view into the per-thread ThreadLocalBumpArena. Storage is
+  // bump-allocated (no init) and reclaimed wholesale when outer_raw_for resets the
+  // arena at the start of the next outer iteration. Callers that += into this
+  // scratch must zero it first, just like the Kokkos team_scratch path.
+  // Declaration order matters: `n` must precede `data` because `data`'s
+  // initializer reads `n` (members initialize in declaration order).
+  std::size_t n;
+  T *data;
 
   HostScratch1D(const IndexRange &idx_range)
-      : idx_range(idx_range), data(idx_range.ScratchSize() * idxer_t::size, T{}) {}
+      : idx_range(idx_range), n(idx_range.ScratchSize() * idxer_t::size),
+        data(static_cast<T *>(
+            parthenon::GetThreadLocalBumpArena().allocate(n * sizeof(T)))) {}
 
   template <class... Args>
     requires(sizeof...(Args) == idxer_t::ndim + 1 ||
@@ -196,7 +206,7 @@ struct HostScratch1D {
 
   KOKKOS_FORCEINLINE_FUNCTION
   std::size_t size() const {
-    return data.size();
+    return n;
   }
 
   KOKKOS_FORCEINLINE_FUNCTION

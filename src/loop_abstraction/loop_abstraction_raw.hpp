@@ -1,6 +1,7 @@
 #pragma once
 
 #include "loop_abstraction_base.hpp"
+#include "utils/bump_arena.hpp"
 
 namespace loop_abstraction::impl {
 
@@ -10,6 +11,8 @@ KOKKOS_INLINE_FUNCTION void outer_raw_for(IndexSpaceType idx_space, F &&f) {
   if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
     const auto &logical_kji = idx_space.GetLogicalIndexer();
     for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
+      // Reclaim last iteration's per-point scratch (see ThreadLocalBumpArena).
+      parthenon::GetThreadLocalBumpArena().reset();
       InnerIndexRangeType idx_range(idx_space, idx_space.GetLogicalIndexer(), b);
       f(idx_range, b);
     }
@@ -17,6 +20,8 @@ KOKKOS_INLINE_FUNCTION void outer_raw_for(IndexSpaceType idx_space, F &&f) {
     const int nouter = GetNOuter(idx_space);
     for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
       for (int o = 0; o < nouter; ++o) {
+        // Reclaim last iteration's per-point scratch (see ThreadLocalBumpArena).
+        parthenon::GetThreadLocalBumpArena().reset();
         const int logical_start = o * idx_space.GetNInner();
         const int logical_end =
             std::min((o + 1) * idx_space.GetNInner() - 1,
