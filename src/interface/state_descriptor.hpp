@@ -37,10 +37,10 @@
 #include "pack/scratch_variables.hpp"
 #include "parameter_input.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
+#include "utils/default_return_function.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
-
 // Forward declarations
 template <typename T>
 class MeshBlockData;
@@ -380,29 +380,37 @@ class StateDescriptor {
 
   bool FlagsPresent(std::vector<MetadataFlag> const &flags, bool matchAny = false);
 
-  void PreCommFillDerived(MeshBlockData<Real> *rc) const {
-    if (PreCommFillDerivedBlock != nullptr) PreCommFillDerivedBlock(rc);
+  TaskStatus PreCommFillDerived(MeshBlockData<Real> *rc) const {
+    if (PreCommFillDerivedBlock != nullptr) return PreCommFillDerivedBlock(rc);
+    return TaskStatus::complete;
   }
-  void PreCommFillDerived(MeshData<Real> *rc) const {
-    if (PreCommFillDerivedMesh != nullptr) PreCommFillDerivedMesh(rc);
+  TaskStatus PreCommFillDerived(MeshData<Real> *rc) const {
+    if (PreCommFillDerivedMesh != nullptr) return PreCommFillDerivedMesh(rc);
+    return TaskStatus::complete;
   }
-  void PreFillDerived(MeshBlockData<Real> *rc) const {
-    if (PreFillDerivedBlock != nullptr) PreFillDerivedBlock(rc);
+  TaskStatus PreFillDerived(MeshBlockData<Real> *rc) const {
+    if (PreFillDerivedBlock != nullptr) return PreFillDerivedBlock(rc);
+    return TaskStatus::complete;
   }
-  void PreFillDerived(MeshData<Real> *rc) const {
-    if (PreFillDerivedMesh != nullptr) PreFillDerivedMesh(rc);
+  TaskStatus PreFillDerived(MeshData<Real> *rc) const {
+    if (PreFillDerivedMesh != nullptr) return PreFillDerivedMesh(rc);
+    return TaskStatus::complete;
   }
-  void PostFillDerived(MeshBlockData<Real> *rc) const {
-    if (PostFillDerivedBlock != nullptr) PostFillDerivedBlock(rc);
+  TaskStatus PostFillDerived(MeshBlockData<Real> *rc) const {
+    if (PostFillDerivedBlock != nullptr) return PostFillDerivedBlock(rc);
+    return TaskStatus::complete;
   }
-  void PostFillDerived(MeshData<Real> *rc) const {
-    if (PostFillDerivedMesh != nullptr) PostFillDerivedMesh(rc);
+  TaskStatus PostFillDerived(MeshData<Real> *rc) const {
+    if (PostFillDerivedMesh != nullptr) return PostFillDerivedMesh(rc);
+    return TaskStatus::complete;
   }
-  void FillDerived(MeshBlockData<Real> *rc) const {
-    if (FillDerivedBlock != nullptr) FillDerivedBlock(rc);
+  TaskStatus FillDerived(MeshBlockData<Real> *rc) const {
+    if (FillDerivedBlock != nullptr) return FillDerivedBlock(rc);
+    return TaskStatus::complete;
   }
-  void FillDerived(MeshData<Real> *rc) const {
-    if (FillDerivedMesh != nullptr) FillDerivedMesh(rc);
+  TaskStatus FillDerived(MeshData<Real> *rc) const {
+    if (FillDerivedMesh != nullptr) return FillDerivedMesh(rc);
+    return TaskStatus::complete;
   }
 
   void PreStepDiagnostics(SimTime const &simtime, MeshData<Real> *rc) const {
@@ -455,14 +463,23 @@ class StateDescriptor {
 
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
 
-  std::function<void(MeshBlockData<Real> *rc)> PreCommFillDerivedBlock = nullptr;
-  std::function<void(MeshData<Real> *rc)> PreCommFillDerivedMesh = nullptr;
-  std::function<void(MeshBlockData<Real> *rc)> PreFillDerivedBlock = nullptr;
-  std::function<void(MeshData<Real> *rc)> PreFillDerivedMesh = nullptr;
-  std::function<void(MeshBlockData<Real> *rc)> PostFillDerivedBlock = nullptr;
-  std::function<void(MeshData<Real> *rc)> PostFillDerivedMesh = nullptr;
-  std::function<void(MeshBlockData<Real> *rc)> FillDerivedBlock = nullptr;
-  std::function<void(MeshData<Real> *rc)> FillDerivedMesh = nullptr;
+  // function_t behaves like a std::function<return_t(MeshData<Real>*)>. If the
+  // function it points to returns a TaskStatus, this is passed back to the caller.
+  // If return_t is any other type, calling function_t will return TaskStatus::complete.
+  using function_t =
+      DefaultReturnFunction<TaskStatus, TaskStatus::complete, MeshData<Real> *>;
+  using function_block_t =
+      DefaultReturnFunction<TaskStatus, TaskStatus::complete, MeshBlockData<Real> *>;
+
+  function_block_t PreCommFillDerivedBlock;
+  function_t PreCommFillDerivedMesh;
+  function_block_t PreFillDerivedBlock;
+  function_t PreFillDerivedMesh;
+  function_block_t PostFillDerivedBlock;
+  function_t PostFillDerivedMesh;
+  function_block_t FillDerivedBlock;
+  function_t FillDerivedMesh;
+
   std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkBeforeLoopMesh =
       nullptr;
   std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkBeforeOutputMesh =
