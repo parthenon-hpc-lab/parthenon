@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 class StateDescriptor; // forward declaration
@@ -43,23 +44,23 @@ class Packages_t {
   Dictionary<std::shared_ptr<StateDescriptor>> &AllPackages() { return packages_; }
 
   Dictionary<std::shared_ptr<StateDescriptor>> &
-  AllPackagesWithSubMeshdata(const std::string &name) {
+  AllPackagesWithSubMeshData(const std::string &name) {
     PARTHENON_REQUIRE(packages_with_submeshdata_.count(name) > 0,
                       "At least one package must contain submeshdata with subname " +
                           name);
     return packages_with_submeshdata_.at(name);
   }
   const Dictionary<std::shared_ptr<StateDescriptor>> &
-  AllPackagesWithSubMeshdata(const std::string &name) const {
+  AllPackagesWithSubMeshData(const std::string &name) const {
     PARTHENON_REQUIRE(packages_with_submeshdata_.count(name) > 0,
                       "At least one package must contain submeshdata with subname " +
                           name);
     return packages_with_submeshdata_.at(name);
   }
-  auto &AllPackagesWithSUbMeshData() {
+  auto &AllPackagesWithSubMeshData() {
     return packages_with_submeshdata_;
   }
-  const auto &AllPackagesWithSUbMeshData() const {
+  const auto &AllPackagesWithSubMeshData() const {
     return packages_with_submeshdata_;
   }
 

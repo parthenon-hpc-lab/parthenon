@@ -162,11 +162,14 @@ DriverStatus EvolutionDriver::Execute() {
       }
 
       { // Anonymous meshdata subsets from packages
+        // TODO(JMM): Currently this is always based on base. This is
+        // possibly not always desirable for shallow copies (which are
+        // nominally supported).
         auto &base = pmesh->mesh_data.Get();
         for (auto &[subname, pkgmap] :
-             pmesh->resolved_packages.AllPackagesWithSubMeshData()) {
+             pmesh->packages.AllPackagesWithSubMeshData()) {
           for (auto &[label, pkg] : pkgmap) {
-            pkg->AddMeshdataSubsetFromStage(pmesh, subname, base);
+            pkg->AddMeshDataSubset(pmesh, subname, base);
           }
         }
       }

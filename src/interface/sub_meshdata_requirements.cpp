@@ -29,7 +29,12 @@ std::vector<Uid_t>
 SubMeshDataRequirements::AddMDSubset(Mesh *pmesh, const std::string &name,
                                      const std::shared_ptr<MeshData<Real>> &base) {
   std::vector<std::string> resolved_vars = pmesh->GetVariableNames(varnames, flags, sparse_ids);
-  auto &md = pmesh->mesh_data.Add(name, base, resolved_vars);
+  std::shared_ptr<MeshData<Real>> md;
+  if (shallow) {
+    md = pmesh->mesh_data.AddShallow(name, base, resolved_vars);
+  } else {
+    md = pmesh->mesh_data.Add(name, base, resolved_vars);
+  }
   auto uids = UidIntersection(base.get(), md.get());
   uids_ = uids; // cache the uids for later reference
   return uids;

@@ -28,6 +28,7 @@
 #include "interface/state_descriptor.hpp"
 #include "interface/swarm.hpp"
 #include "interface/variable.hpp"
+#include "mesh/mesh.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -57,9 +58,9 @@ void Packages_t::Add(const std::shared_ptr<StateDescriptor> &package) {
                            "Package name " + name + " must be unique.");
   packages_[name] = package;
 
-  auto &subsets = pkg->GetAllMeshdataSubsets();
+  auto &subsets = package->GetAllMeshDataSubsets();
   for (auto &[subname, req] : subsets) {
-    packages_with_submeshdata[subname][package->label()] = package;
+    packages_with_submeshdata_[subname][package->label()] = package;
   }
 
   return;
@@ -690,10 +691,10 @@ int StateDescriptor::GetPackDimension(const Metadata::FlagCollection &flags) {
 }
 
 std::shared_ptr<MeshData<Real>>
-StateDescriptor::GetOrAddMeshdataSubset(Mesh *pmesh, const std::string &partial_name,
+StateDescriptor::GetOrAddMeshDataSubset(Mesh *pmesh, const std::string &partial_name,
                                         int stage_idx) {
-  auto full_name = GetMeshdataSubsetFullname(partial_name);
-  PARTHENON_REQUIRE(COntainsMeshdataSubset(partial_name,
+  auto full_name = GetMeshDataSubsetFullname(partial_name);
+  PARTHENON_REQUIRE(ContainsMeshDataSubset(partial_name),
                                            "Package " + label()
                                            + " must contain a subset " + partial_name);
   return pmesh->mesh_data.GetOrAdd(full_name, stage_idx);

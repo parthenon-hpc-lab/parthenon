@@ -284,8 +284,8 @@ class StateDescriptor {
 
   // Register a meshdata subset containing a subset of variables, flags, or sparse ids.
   // This can then be pulled out later in, e.g., the driver.
-  void RegisterMeshdataSubset(const std::string &name,
-                              const SubMeshdataRequirements &requirements) {
+  void RegisterMeshDataSubset(const std::string &name,
+                              const SubMeshDataRequirements &requirements) {
     PARTHENON_REQUIRE(submeshdata_map_.count(name) == 0,
                       "A meshdata subset with the same name must not already be added");
     // TODO(JMM): Technically this is an extra copy vs if we passed
@@ -392,25 +392,25 @@ class StateDescriptor {
     return itr->second;
   }
 
-  std::string GetMeshdataSubsetFullname(const std::string &partial_name) {
+  std::string GetMeshDataSubsetFullname(const std::string &partial_name) {
     return "md_subset::" + label() + "::" + partial_name;
   }
 
-  bool ContainsMeshdataSubset(const std::string &partial_name) {
+  bool ContainsMeshDataSubset(const std::string &partial_name) {
     return submeshdata_map_.count(partial_name) > 0;
   }
 
   std::vector<Uid_t>
-  AddMeshdataSubsetFromStage(Mesh *pmesh, const std::string &partial_name,
-                             const std::shared_ptr<MeshData<Real>> &base) {
-    auto full_name = GetMeshdataSubsetFullname(partial_name);
-    submeshdata_map_[partial_name].AddMDSubset(pmesh, full_name, base);
+  AddMeshDataSubset(Mesh *pmesh, const std::string &partial_name,
+                    const std::shared_ptr<MeshData<Real>> &base) {
+    auto full_name = GetMeshDataSubsetFullname(partial_name);
+    return submeshdata_map_[partial_name].AddMDSubset(pmesh, full_name, base);
   }
 
   std::shared_ptr<MeshData<Real>>
-  GetOrAddMeshdataSubset(Mesh *pmesh, const std::string &partial_name, int stage_idx);
+  GetOrAddMeshDataSubset(Mesh *pmesh, const std::string &partial_name, int stage_idx);
 
-  auto &GetAllMeshdataSubsets() {
+  auto &GetAllMeshDataSubsets() {
     return submeshdata_map_;
   }
 
