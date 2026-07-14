@@ -861,6 +861,85 @@ void RunPackViewCase(const PackViewSpec &spec, const int ninner, const bool kji_
   REQUIRE(nwrong == 0);
 }
 
+// Write a known pattern into the pack's flux arrays through make_flux_view, then
+// read it back through sparse_pack.flux() on the interior. Exercises flux_view_t
+// end to end (dense write, all inner tags, all ninner). dir is fixed per case.
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunFluxViewCase(const PackViewSpec &spec, const int ninner, const int dir) {
+  const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
+  INFO("pattern=" << pattern_name << ", ninner=" << ninner << ", flux dir=" << dir);
+
+  ScopedNghost guard;
+  parthenon::Globals::nghost = spec.nghost;
+
+  const std::vector<int> scalar_shape{spec.ncell + 2 * spec.nghost,
+                                      spec.ncell + 2 * spec.nghost,
+                                      spec.ncell + 2 * spec.nghost};
+  Metadata m({Metadata::Independent, Metadata::WithFluxes}, scalar_shape);
+  auto pkg = std::make_shared<StateDescriptor>("FluxView package");
+  pkg->AddField<v1>(m);
+  pkg->AddField<v2>(m);
+  pkg->AddField<v5>(m);
+
+  BlockList_t block_list = MakeBlockList(pkg, spec.nblocks, spec.ncell, 3);
+  MeshData<Real> mesh_data("base");
+  mesh_data.Initialize(block_list, nullptr);
+
+  using IndexSpaceType = IndexSpace<LOOP_TAG, INNER_TAG>;
+  IndexSpaceType idx_space(spec.nblocks, spec.ncell, spec.ncell, spec.ncell,
+                           spec.nghost, ninner);
+  auto desc = parthenon::MakePackDescriptor<v1, v2, v5>(
+      pkg.get(), {}, {parthenon::PDOpt::WithFluxes});
+  auto sparse_pack = desc.GetPack(&mesh_data);
+
+  loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
+    auto flux_view = loop_abstraction::make_flux_view(idx_range, sparse_pack, dir);
+    loop_abstraction::inner(idx_range, [&](auto idx) {
+      const auto [k, j, i] = idx_range.GetKJI(idx);
+      flux_view(v1(), idx) = PackViewExpectedValue(b, 0, k, j, i);
+      flux_view(v2(), idx) = PackViewExpectedValue(b, 1, k, j, i);
+      flux_view(v5(), idx) = PackViewExpectedValue(b, 2, k, j, i);
+    });
+  });
+
+  Kokkos::fence();
+
+  int nwrong = 0;
+  const auto ib_int = block_list[0]->cellbounds.GetBoundsI(IndexDomain::interior);
+  const auto jb_int = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const auto kb_int = block_list[0]->cellbounds.GetBoundsK(IndexDomain::interior);
+  parthenon::par_reduce(parthenon::loop_pattern_mdrange_tag, "check flux view",
+                        parthenon::DevExecSpace(), 0, sparse_pack.GetNBlocks() - 1,
+                        kb_int.s, kb_int.e, jb_int.s, jb_int.e, ib_int.s, ib_int.e,
+             KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+               if (sparse_pack.flux(b, dir, v1(), k, j, i) !=
+                   PackViewExpectedValue(b, 0, k, j, i)) {
+                 ++ltot;
+               }
+               if (sparse_pack.flux(b, dir, v2(), k, j, i) !=
+                   PackViewExpectedValue(b, 1, k, j, i)) {
+                 ++ltot;
+               }
+               if (sparse_pack.flux(b, dir, v5(), k, j, i) !=
+                   PackViewExpectedValue(b, 2, k, j, i)) {
+                 ++ltot;
+               }
+             },
+             nwrong);
+  REQUIRE(nwrong == 0);
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunFluxViewPatternMatrix() {
+  for (const auto &spec : PackViewCoverageSpecs()) {
+    for (const int ninner : PackViewNinnerCases(spec.ncell * spec.ncell * spec.ncell)) {
+      for (const int dir : {1, 2, 3}) {
+        RunFluxViewCase<LOOP_TAG, INNER_TAG>(spec, ninner, dir);
+      }
+    }
+  }
+}
+
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 void RunPackViewPatternMatrix(const std::string &body_name, const bool kji_body) {
   for (const auto &spec : PackViewCoverageSpecs()) {
@@ -1660,4 +1739,16 @@ TEST_CASE("loop abstraction pack view contracts",
   RunPackViewPatternMatrix<loop_tag::bovi, inner_tag::memory>();
   RunPackViewPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
   RunPackViewPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
+}
+
+TEST_CASE("loop abstraction flux view contracts",
+          "[loop_abstraction][contract][pack_view]") {
+  RunFluxViewPatternMatrix<loop_tag::bvoi, inner_tag::logical_flat>();
+  RunFluxViewPatternMatrix<loop_tag::bvoi, inner_tag::logical_coords>();
+  RunFluxViewPatternMatrix<loop_tag::bvoi, inner_tag::memory>();
+  RunFluxViewPatternMatrix<loop_tag::bovi, inner_tag::logical_flat>();
+  RunFluxViewPatternMatrix<loop_tag::bovi, inner_tag::logical_coords>();
+  RunFluxViewPatternMatrix<loop_tag::bovi, inner_tag::memory>();
+  RunFluxViewPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
+  RunFluxViewPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
 }
