@@ -103,7 +103,9 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
       // the chunk size, keeping the swept ghost work small.
       const int mem_start = memory_kji.GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
       const auto &ext_logical_kji = idx_range.logical_kji;
-      const int ninner = idx_space.GetNInner();
+      // Resolve the chunk shape against the *extended* indexer so, e.g., an ij_slab
+      // is one extended plane and chunks land on clean plane boundaries.
+      const int ninner = idx_space.GetNInner(ext_logical_kji);
       const int ext_size = static_cast<int>(ext_logical_kji.size());
       const int nouter = ext_size / ninner + (ext_size % ninner != 0);
       for (int o = 0; o < nouter; ++o) {

@@ -26,6 +26,49 @@ namespace loop_abstraction {
 using device_team_member_t =
     typename Kokkos::TeamPolicy<parthenon::DevExecSpace>::member_type;
 
+// Expressive inner-chunk shapes for the memory-tag chunking. Rather than a bare
+// cell count (which the caller must compute from the logical dimensions before the
+// halo is known, and which then misaligns once a halo is added), a chunk_shape is
+// resolved to a cell count against whichever indexer is actually being chunked --
+// including the halo-extended indexer in the bvoi/memory path -- so chunks land on
+// clean row/plane boundaries by construction.
+enum class chunk_shape {
+  i_pencil, // one (extended) i-row per chunk
+  ij_slab,  // one (extended) ij-plane per chunk
+  kji_cube, // the whole (extended) block in one chunk
+};
+
+// Chunk-size descriptor: either an explicit cell count or a chunk_shape resolved
+// lazily against a given indexer. Implicitly constructible from int so existing
+// call sites that pass a raw count keep working unchanged.
+class NInner {
+ public:
+  KOKKOS_FUNCTION NInner() : explicit_(true), cells_(0) {}
+  KOKKOS_FUNCTION NInner(int cells) : explicit_(true), cells_(cells) {}
+  KOKKOS_FUNCTION NInner(chunk_shape shape) : explicit_(false), shape_(shape) {}
+
+  KOKKOS_INLINE_FUNCTION int resolve(const parthenon::Indexer3D &idxer) const {
+    if (explicit_) return cells_;
+    const int nk = idxer.template EndIdx<0>() - idxer.template StartIdx<0>() + 1;
+    const int nj = idxer.template EndIdx<1>() - idxer.template StartIdx<1>() + 1;
+    const int ni = idxer.template EndIdx<2>() - idxer.template StartIdx<2>() + 1;
+    switch (shape_) {
+    case chunk_shape::i_pencil:
+      return ni;
+    case chunk_shape::ij_slab:
+      return ni * nj;
+    case chunk_shape::kji_cube:
+      return ni * nj * nk;
+    }
+    return ni * nj;
+  }
+
+ private:
+  bool explicit_;
+  int cells_ = 0;
+  chunk_shape shape_ = chunk_shape::ij_slab;
+};
+
 namespace halo {
 // Halo types enumerate the shifted copies of an inner range that should be
 // visited, including the identity offset {0,0,0}. Offsets must be ordered by
@@ -289,8 +332,8 @@ class IndexSpace {
   }
 
   IndexSpace(int nblocks, int nx, int ny, int nz, int nghost,
-             std::optional<int> ninner = std::nullopt)
-      : nblocks(nblocks), ninner(ninner.value_or(nx * ny)) {
+             std::optional<NInner> ninner = std::nullopt)
+      : nblocks(nblocks), ninner(ninner.value_or(NInner(chunk_shape::ij_slab))) {
     logical_kji = parthenon::Indexer3D(
         {nghost, nghost + nz - 1}, {nghost, nghost + ny - 1}, {nghost, nghost + nx - 1});
     memory_kji = parthenon::Indexer3D({0, 2 * nghost + nz - 1}, {0, 2 * nghost + ny - 1},
@@ -299,7 +342,7 @@ class IndexSpace {
 
   using ID = parthenon::IndexDomain;
   using TE = parthenon::TopologicalElement;
-  IndexSpace(int ninner, ID domain, int halo, int nblocks,
+  IndexSpace(NInner ninner, ID domain, int halo, int nblocks,
              const parthenon::MeshData<parthenon::Real> *md, TE domain_te,
              TE memory_te = TE::CC)
       : nblocks(nblocks), ninner(ninner),
@@ -333,7 +376,8 @@ class IndexSpace {
   }
 
   KOKKOS_INLINE_FUNCTION int GetNOuter() const {
-    return logical_kji.size() / ninner + (logical_kji.size() % ninner != 0);
+    const int ni = GetNInner();
+    return logical_kji.size() / ni + (logical_kji.size() % ni != 0);
   }
 
   KOKKOS_INLINE_FUNCTION const parthenon::Indexer3D &GetLogicalIndexer() const {
@@ -346,7 +390,15 @@ class IndexSpace {
 
   KOKKOS_INLINE_FUNCTION int GetNBlocks() const { return nblocks; }
 
-  KOKKOS_INLINE_FUNCTION int GetNInner() const { return ninner; }
+  // Default: resolve the chunk shape against the base logical indexer. Used by the
+  // logical-tag paths and scratch sizing, which chunk the un-extended space.
+  KOKKOS_INLINE_FUNCTION int GetNInner() const { return ninner.resolve(logical_kji); }
+
+  // Resolve against an explicit indexer -- e.g. the halo-extended indexer that the
+  // bvoi/memory path chunks, so an ij_slab means one *extended* plane.
+  KOKKOS_INLINE_FUNCTION int GetNInner(const parthenon::Indexer3D &idxer) const {
+    return ninner.resolve(idxer);
+  }
 
   template <class T, class Halo = halo::none_t>
   void AddPerPointScratch(std::size_t count = 1) {
@@ -373,7 +425,7 @@ class IndexSpace {
  private:
   parthenon::Indexer3D logical_kji, memory_kji;
   int nblocks;
-  int ninner;
+  NInner ninner;
   std::size_t per_team_scratch_size_in_bytes = 0;
 };
 
