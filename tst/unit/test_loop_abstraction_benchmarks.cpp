@@ -923,6 +923,100 @@ void RunScratchCase(const ProblemSpec &spec, const int ninner) {
   });
 }
 
+// Exercise scratch.Zero(): fill with garbage, Zero(), accumulate, verify; then
+// reuse the same buffer (Zero() again, re-accumulate) to confirm a buffer can be
+// zeroed and reused rather than needing a fresh zero-initialized allocation.
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunScratchZeroCase(const ProblemSpec &spec, const int ninner) {
+  const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
+  INFO("pattern=" << pattern_name << ", spec=" << spec.nblocks << "x" << spec.nx
+                  << "x" << spec.ny << "x" << spec.nz << " nghost=" << spec.nghost
+                  << ", ninner=" << ninner << ", Zero()");
+
+  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG>;
+  IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
+  idx_space.template AddPerPointScratch<Real>();
+
+  loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
+    auto scratch = loop_abstraction::GetPerPointScratch<Real>(idx_range);
+
+    for (int pass = 0; pass < 2; ++pass) {
+      // Dirty the whole buffer, then Zero() it.
+      loop_abstraction::inner(idx_range, [&](auto idx) { scratch(idx) = -7.0; });
+      idx_range.TeamBarrier();
+      scratch.Zero();
+      idx_range.TeamBarrier();
+
+      for (int v = 0; v < kNVars; ++v) {
+        loop_abstraction::inner(idx_range, [&](auto idx) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          scratch(idx) += EncodeValue(b, v, k, j, i);
+        });
+      }
+
+      loop_abstraction::inner(idx_range, [&](auto idx) {
+        const auto [k, j, i] = idx_range.GetKJI(idx);
+        REQUIRE(scratch(idx) == Approx(ScratchExpectedValue(b, k, j, i)));
+      });
+    }
+  });
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunScratchZeroPatternMatrix() {
+  for (const auto &spec : CoverageSpecs()) {
+    for (const int ninner : NinnerCases(spec.nx * spec.ny * spec.nz)) {
+      RunScratchZeroCase<LOOP_TAG, INNER_TAG>(spec, ninner);
+    }
+  }
+}
+
+// Kokkos-backend counterpart, exercising the team-parallel TeamScratch1D::Zero().
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunScratchZeroCaseKokkos(const ProblemSpec &spec, const int ninner) {
+  const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
+  INFO("pattern=" << pattern_name << ", spec=" << spec.nblocks << "x" << spec.nx
+                  << "x" << spec.ny << "x" << spec.nz << " nghost=" << spec.nghost
+                  << ", ninner=" << ninner << ", Zero(), backend=kokkos");
+
+  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG>;
+  IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
+  idx_space.template AddPerPointScratch<Real>();
+
+  loop_abstraction::impl::outer_kokkos(idx_space, [&](const auto &idx_range, int b) {
+    auto scratch = loop_abstraction::GetPerPointScratch<Real>(idx_range);
+
+    for (int pass = 0; pass < 2; ++pass) {
+      loop_abstraction::impl::inner_kokkos(idx_range,
+                                           [&](auto idx) { scratch(idx) = -7.0; });
+      idx_range.TeamBarrier();
+      scratch.Zero();
+      idx_range.TeamBarrier();
+
+      for (int v = 0; v < kNVars; ++v) {
+        loop_abstraction::impl::inner_kokkos(idx_range, [&](auto idx) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          scratch(idx) += EncodeValue(b, v, k, j, i);
+        });
+      }
+
+      loop_abstraction::impl::inner_kokkos(idx_range, [&](auto idx) {
+        const auto [k, j, i] = idx_range.GetKJI(idx);
+        REQUIRE(scratch(idx) == Approx(ScratchExpectedValue(b, k, j, i)));
+      });
+    }
+  });
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunScratchZeroPatternMatrixKokkos() {
+  for (const auto &spec : CoverageSpecs()) {
+    for (const int ninner : NinnerCases(spec.nx * spec.ny * spec.nz)) {
+      RunScratchZeroCaseKokkos<LOOP_TAG, INNER_TAG>(spec, ninner);
+    }
+  }
+}
+
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 void RunScratchCaseKokkos(const ProblemSpec &spec, const int ninner) {
   const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
@@ -1299,6 +1393,30 @@ TEST_CASE("loop abstraction scratch roundtrip",
   RunScratchPatternMatrix<loop_tag::bovi, inner_tag::memory>();
   RunScratchPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
   RunScratchPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
+}
+
+TEST_CASE("loop abstraction scratch Zero",
+          "[loop_abstraction][contract][scratch]") {
+  RunScratchZeroPatternMatrix<loop_tag::bvoi, inner_tag::logical_flat>();
+  RunScratchZeroPatternMatrix<loop_tag::bvoi, inner_tag::logical_coords>();
+  RunScratchZeroPatternMatrix<loop_tag::bvoi, inner_tag::memory>();
+  RunScratchZeroPatternMatrix<loop_tag::bovi, inner_tag::logical_flat>();
+  RunScratchZeroPatternMatrix<loop_tag::bovi, inner_tag::logical_coords>();
+  RunScratchZeroPatternMatrix<loop_tag::bovi, inner_tag::memory>();
+  RunScratchZeroPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
+  RunScratchZeroPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
+}
+
+TEST_CASE("loop abstraction scratch Zero kokkos",
+          "[loop_abstraction][contract][scratch]") {
+  RunScratchZeroPatternMatrixKokkos<loop_tag::bvoi, inner_tag::logical_flat>();
+  RunScratchZeroPatternMatrixKokkos<loop_tag::bvoi, inner_tag::logical_coords>();
+  RunScratchZeroPatternMatrixKokkos<loop_tag::bvoi, inner_tag::memory>();
+  RunScratchZeroPatternMatrixKokkos<loop_tag::bovi, inner_tag::logical_flat>();
+  RunScratchZeroPatternMatrixKokkos<loop_tag::bovi, inner_tag::logical_coords>();
+  RunScratchZeroPatternMatrixKokkos<loop_tag::bovi, inner_tag::memory>();
+  RunScratchZeroPatternMatrixKokkos<loop_tag::boiv, inner_tag::logical_flat>();
+  RunScratchZeroPatternMatrixKokkos<loop_tag::boiv, inner_tag::logical_coords>();
 }
 
 TEST_CASE("loop abstraction scratch roundtrip kokkos",

@@ -128,6 +128,14 @@ struct StackScratch1D {
     return box_t::size * idxer_t::size;
   }
 
+  // Zero the entire buffer. Prefer this over a zero-initializing constructor so a
+  // buffer can be reused without reallocating. No barrier is issued (matches
+  // inner()); the caller barriers before any cross-thread read.
+  KOKKOS_FORCEINLINE_FUNCTION void Zero() const {
+#pragma omp simd
+    for (std::size_t i = 0; i < data.size(); ++i) data[i] = T{};
+  }
+
   KOKKOS_FORCEINLINE_FUNCTION
   constexpr std::size_t shmem_size() const {
     return 0;
@@ -209,6 +217,15 @@ struct HostScratch1D {
     return n;
   }
 
+  // Zero the entire buffer. Prefer this over a zero-initializing allocation so the
+  // arena can hand out uninitialized memory and callers zero only what they += into.
+  // No barrier is issued (matches inner()); the caller barriers before cross-thread
+  // reads. Single-threaded on the raw backend.
+  KOKKOS_FORCEINLINE_FUNCTION void Zero() const {
+#pragma omp simd
+    for (std::size_t i = 0; i < n; ++i) data[i] = T{};
+  }
+
   KOKKOS_FORCEINLINE_FUNCTION
   constexpr std::size_t shmem_size() const {
     return 0;
@@ -247,6 +264,14 @@ struct TeamScratch1D {
   KOKKOS_FORCEINLINE_FUNCTION
   std::size_t size() const {
     return idx_range.ScratchSize() * idxer_t::size;
+  }
+
+  // Zero the entire buffer, team-parallel over the scratch span. No barrier is
+  // issued (matches inner()); the caller barriers before any cross-thread read.
+  KOKKOS_FORCEINLINE_FUNCTION void Zero() const {
+    const std::size_t n = size();
+    Kokkos::parallel_for(Kokkos::TeamVectorRange(*idx_range.team_member, 0, n),
+                         [&](const std::size_t i) { data(i) = T{}; });
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
