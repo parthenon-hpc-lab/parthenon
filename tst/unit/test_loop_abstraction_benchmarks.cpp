@@ -596,7 +596,12 @@ parthenon::HostArray5D<Real> RunHaloTouchBackend(const ProblemSpec &spec,
           const int kk = k + HaloType::dk(n);
           const int jj = j + HaloType::dj(n);
           const int ii = i + HaloType::di(n);
-          touches(b, v, kk, jj, ii) += 1.0;
+          // Memory-tag inner loops may visit ghost cells whose halo neighbor lies
+          // outside the allocated memory range; skip those, matching the guarded
+          // neighbor accesses elsewhere in this file.
+          if (IsMemoryCell(idx_space, kk, jj, ii)) {
+            touches(b, v, kk, jj, ii) += 1.0;
+          }
         }
       });
     }
