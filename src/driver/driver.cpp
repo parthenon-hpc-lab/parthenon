@@ -161,6 +161,16 @@ DriverStatus EvolutionDriver::Execute() {
         pmesh->PreStepUserDiagnosticsInLoop(pmesh, pinput, tm);
       }
 
+      { // Anonymous meshdata subsets from packages
+        auto &base = pmesh->mesh_data.Get();
+        for (auto &[subname, pkgmap] :
+             pmesh->resolved_packages.AllPackagesWithSubMeshData()) {
+          for (auto &[label, pkg] : pkgmap) {
+            pkg->AddMeshdataSubsetFromStage(pmesh, subname, base);
+          }
+        }
+      }
+
       TaskListStatus status = Step();
       if (status != TaskListStatus::complete) {
         std::cerr << "Step failed to complete all tasks." << std::endl;
