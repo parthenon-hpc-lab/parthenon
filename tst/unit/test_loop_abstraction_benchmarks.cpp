@@ -520,17 +520,18 @@ void RunHaloContractCase(const ProblemSpec &spec, const int ninner) {
       loop_abstraction::inner(idx_range, [&](auto idx) {
         const auto [k, j, i] = idx_range.GetKJI(idx);
         INFO("b=" << b << ", v=" << v << ", k=" << k << ", j=" << j << ", i=" << i);
+        // For memory-tag inner loops the visited span may include ghost cells. The
+        // producer only covers the halo-extended logical set S_halo, so a halo
+        // neighbor is only guaranteed written when its source base cell (k,j,i) is a
+        // logical cell -- the neighbor of a ghost base cell need not be in S_halo.
+        if (UsesMemorySpan<INNER_TAG>() && !IsLogicalCell(idx_space, k, j, i)) {
+          return;
+        }
         for (int n = 0; n < HaloType::npoints; ++n) {
           const int kk = k + HaloType::dk(n);
           const int jj = j + HaloType::dj(n);
           const int ii = i + HaloType::di(n);
-          // For memory-tag inner loops, the visited span may include extra ghost
-          // cells. Only verify halo neighbors that are still inside the
-          // allocated memory range; the contract guarantees correctness for the
-          // logical cells, not for halo-of-ghost points.
-          if (IsMemoryCell(idx_space, kk, jj, ii)) {
-            REQUIRE(out(b, v, kk, jj, ii) == Approx(EncodeValue(b, v, kk, jj, ii)));
-          }
+          REQUIRE(out(b, v, kk, jj, ii) == Approx(EncodeValue(b, v, kk, jj, ii)));
         }
       });
     }
@@ -609,6 +610,102 @@ parthenon::HostArray5D<Real> RunHaloTouchBackend(const ProblemSpec &spec,
 
   Kokkos::fence();
   return MirrorToHost(touches);
+}
+
+// Is (k,j,i) in the halo-extended logical set S_halo = S ∪ shift(S, h) for all
+// halo offsets h? This is the set the producer inner(AddHalo<H>) must cover, each
+// cell exactly once.
+template <class HaloType, class IndexSpaceType>
+bool InHaloLogicalSet(const IndexSpaceType &idx_space, const int k, const int j,
+                      const int i) {
+  for (int n = 0; n < HaloType::npoints; ++n) {
+    // (k,j,i) is a shifted image of a logical cell p under offset h_n iff
+    // p = (k,j,i) - h_n is itself a logical cell.
+    if (IsLogicalCell(idx_space, k - HaloType::dk(n), j - HaloType::dj(n),
+                      i - HaloType::di(n))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Contract: the producer pattern `inner(AddHalo<H>(idx_range))` must touch every
+// cell of the halo-extended logical set S_halo exactly once, and nothing else.
+// This is the invariant that accumulating (+=) bodies depend on; the earlier
+// halo tests only checked raw-vs-kokkos parity or used assignment, so a uniform
+// double-touch would slip through. Runs a single backend so a self-consistent
+// over-count in both backends is still caught.
+template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG, bool USE_KOKKOS>
+void RunHaloProducerSingleTouchCase(const ProblemSpec &spec, const int ninner) {
+  const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
+  INFO("pattern=" << pattern_name << ", ninner=" << ninner << ", producer-single-touch="
+                 << typeid(HaloType).name()
+                 << ", backend=" << (USE_KOKKOS ? "kokkos" : "raw"));
+
+  using IndexSpaceType =
+      PatternIndexSpace<LOOP_TAG, INNER_TAG,
+                        USE_KOKKOS ? loop_backend::kokkos : loop_backend::raw>;
+  IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
+  auto touches = MakeOutput(idx_space);
+  ZeroView(touches);
+
+  auto run_outer = [&](auto &&body) {
+    if constexpr (USE_KOKKOS) {
+      loop_abstraction::impl::outer_kokkos(idx_space, std::forward<decltype(body)>(body));
+    } else {
+      loop_abstraction::outer(idx_space, std::forward<decltype(body)>(body));
+    }
+  };
+
+  run_outer([&](const auto &idx_range, int b) {
+    const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
+    for (int v = 0; v < kNVars; ++v) {
+      loop_abstraction::inner(halo_range, [&](auto idx) {
+        const auto [k, j, i] = halo_range.GetKJI(idx);
+        touches(b, v, k, j, i) += 1.0;
+      });
+    }
+  });
+
+  Kokkos::fence();
+  const auto host = MirrorToHost(touches);
+
+  const auto &memory = idx_space.GetMemoryIndexer();
+  for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
+    for (int v = 0; v < kNVars; ++v) {
+      for (int k = memory.template StartIdx<0>(); k <= memory.template EndIdx<0>();
+           ++k) {
+        for (int j = memory.template StartIdx<1>(); j <= memory.template EndIdx<1>();
+             ++j) {
+          for (int i = memory.template StartIdx<2>(); i <= memory.template EndIdx<2>();
+               ++i) {
+            INFO("b=" << b << ", v=" << v << ", k=" << k << ", j=" << j << ", i=" << i);
+            const bool in_set = InHaloLogicalSet<HaloType>(idx_space, k, j, i);
+            if (in_set) {
+              // Every cell of the halo-extended logical set: touched exactly once.
+              REQUIRE(host(b, v, k, j, i) == Approx(1.0));
+            } else if constexpr (!UsesMemorySpan<INNER_TAG>()) {
+              // Logical inner tags must not touch anything outside S_halo. Memory
+              // tags may legitimately touch ghost cells in the contiguous span, so
+              // only assert the no-extra-touch bound for logical tags.
+              REQUIRE(host(b, v, k, j, i) == Approx(0.0));
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunHaloProducerSingleTouchPatternMatrix(const ProblemSpec &spec,
+                                             const std::vector<int> &ninner_cases) {
+  for (const int ninner : ninner_cases) {
+    RunHaloProducerSingleTouchCase<HaloType, LOOP_TAG, INNER_TAG, false>(spec, ninner);
+    if constexpr (default_loop_backend_v == loop_backend::raw) {
+      RunHaloProducerSingleTouchCase<HaloType, LOOP_TAG, INNER_TAG, true>(spec, ninner);
+    }
+  }
 }
 
 template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG>
@@ -1408,6 +1505,31 @@ TEST_CASE("loop abstraction halo kokkos parity",
       spec, k_triplet_cases);
   RunHaloParityPatternMatrix<k_triplet_halo_t, loop_tag::boiv, inner_tag::logical_coords>(
       spec, k_triplet_cases);
+}
+
+TEST_CASE("loop abstraction halo producer single touch",
+          "[loop_abstraction][contract][halo]") {
+  // Cover partial chunks (ninner not a multiple of a plane) since that is where a
+  // chunk's halo can overlap the next chunk's, and k-directed halos since the
+  // k-sweep is where reconstruction reuse (the flux z-sweep) needs single-touch.
+  const ProblemSpec spec{2, 3, 2, 2, 1};
+  const int plane = spec.nx * spec.ny;              // 6
+  const int cells = spec.nx * spec.ny * spec.nz;    // 12
+  const std::vector<int> ninner_cases{1, plane - 1, plane, plane + 1, cells - 1, cells};
+
+  RunHaloProducerSingleTouchPatternMatrix<plus_j_halo_t, loop_tag::bvoi,
+                                          inner_tag::logical_flat>(spec, ninner_cases);
+  RunHaloProducerSingleTouchPatternMatrix<plus_j_halo_t, loop_tag::bvoi,
+                                          inner_tag::logical_coords>(spec, ninner_cases);
+  RunHaloProducerSingleTouchPatternMatrix<plus_j_halo_t, loop_tag::bvoi,
+                                          inner_tag::memory>(spec, ninner_cases);
+
+  RunHaloProducerSingleTouchPatternMatrix<k_triplet_halo_t, loop_tag::bvoi,
+                                          inner_tag::logical_flat>(spec, ninner_cases);
+  RunHaloProducerSingleTouchPatternMatrix<k_triplet_halo_t, loop_tag::bvoi,
+                                          inner_tag::logical_coords>(spec, ninner_cases);
+  RunHaloProducerSingleTouchPatternMatrix<k_triplet_halo_t, loop_tag::bvoi,
+                                          inner_tag::memory>(spec, ninner_cases);
 }
 
 TEST_CASE("loop abstraction pack view contracts",

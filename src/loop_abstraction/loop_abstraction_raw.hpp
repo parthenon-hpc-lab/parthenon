@@ -90,28 +90,36 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
         }
       }
     } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
-      const int nouter = GetNOuter(idx_space);
+      // Chunk the *halo-extended* logical space directly (idx_range.logical_kji is
+      // already the extended indexer), exactly as the logical-tag branch above
+      // iterates it -- rather than chunking the base space and re-applying the halo
+      // per chunk. The latter double-counts cells on chunk boundaries when the halo
+      // is aligned with the chunk-iteration direction (adjacent chunks' halo images
+      // overlap). Here each chunk of the extended space maps to one contiguous
+      // memory span [memflat(start), memflat(end)]; because memory-flat order agrees
+      // with the extended lexicographic order, consecutive chunks' inclusive spans
+      // are strictly increasing and cannot overlap, so every extended cell (and any
+      // ghost cell swept inside a span) is touched exactly once. ninner still bounds
+      // the chunk size, keeping the swept ghost work small.
       const int mem_start = memory_kji.GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
-      const auto &base_logical_kji = idx_space.GetLogicalIndexer();
+      const auto &ext_logical_kji = idx_range.logical_kji;
+      const int ninner = idx_space.GetNInner();
+      const int ext_size = static_cast<int>(ext_logical_kji.size());
+      const int nouter = ext_size / ninner + (ext_size % ninner != 0);
       for (int o = 0; o < nouter; ++o) {
-        const int logical_start = o * idx_space.GetNInner();
-        const int logical_end =
-            std::min((o + 1) * idx_space.GetNInner() - 1,
-                     static_cast<int>(idx_space.GetLogicalIndexer().size()) - 1);
-        const auto [ks, js, is] = base_logical_kji(logical_start);
-        const auto [ke, je, ie] = base_logical_kji(logical_end);
-        const InnerIndexRangeType inner_range(idx_space, idx_range.logical_kji,
-                                              idx_range.block, {ks, js, is},
-                                              {ke, je, ie});
-        for (int r = 0; r < inner_range.nregions; ++r) {
+        const int logical_start = o * ninner;
+        const int logical_end = std::min((o + 1) * ninner - 1, ext_size - 1);
+        const auto [ks, js, is] = ext_logical_kji(logical_start);
+        const auto [ke, je, ie] = ext_logical_kji(logical_end);
+        const int mem_first = memory_kji.GetFlatIdx(ks, js, is);
+        const int mem_last = memory_kji.GetFlatIdx(ke, je, ie);
 #pragma omp simd
-          for (int idx = inner_range.flat_start[r]; idx <= inner_range.flat_end[r]; ++idx) {
-            if constexpr (std::is_invocable_v<F, int, int, int>) {
-              const auto [k, j, i] = memory_kji(idx);
-              f(k, j, i);
-            } else {
-              f(idx - mem_start);
-            }
+        for (int idx = mem_first; idx <= mem_last; ++idx) {
+          if constexpr (std::is_invocable_v<F, int, int, int>) {
+            const auto [k, j, i] = memory_kji(idx);
+            f(k, j, i);
+          } else {
+            f(idx - mem_start);
           }
         }
       }

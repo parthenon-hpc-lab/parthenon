@@ -135,32 +135,35 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
     const int mem_start =
         idx_space.GetMemoryIndexer().GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
     if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
-      const int nouter = impl::GetNOuter(idx_space);
-      const auto &base_logical_kji = idx_space.GetLogicalIndexer();
+      // Chunk the halo-extended logical space directly (see the raw backend's
+      // bvoi/memory branch for the full rationale): chunking the base space and
+      // re-applying the halo per chunk double-counts chunk-boundary cells when the
+      // halo aligns with the chunk-iteration direction. Each chunk of the extended
+      // space maps to one contiguous memory span, and consecutive spans are strictly
+      // increasing, so every cell is visited exactly once. ninner still bounds the
+      // chunk size.
+      const auto &ext_logical_kji = idx_range.logical_kji;
+      const int ninner = idx_space.GetNInner();
+      const int ext_size = static_cast<int>(ext_logical_kji.size());
+      const int nouter = ext_size / ninner + (ext_size % ninner != 0);
       for (int o = 0; o < nouter; ++o) {
-        const int logical_start = o * idx_space.GetNInner();
-        const int logical_end =
-            std::min((o + 1) * idx_space.GetNInner() - 1,
-                     static_cast<int>(base_logical_kji.size()) - 1);
-        const auto [ks, js, is] = base_logical_kji(logical_start);
-        const auto [ke, je, ie] = base_logical_kji(logical_end);
-        const InnerIndexRangeType inner_range(idx_space, idx_range.logical_kji,
-                                              idx_range.block, {ks, js, is},
-                                              {ke, je, ie}, team_member);
-        for (int r = 0; r < inner_range.nregions; ++r) {
-          const int start = inner_range.flat_start[r];
-          const int end_exclusive = inner_range.flat_end[r] + 1 - start;
-          Kokkos::parallel_for(
-              Kokkos::TeamThreadRange(member, 0, end_exclusive),
-              KOKKOS_LAMBDA(const int idx) {
-                if constexpr (std::is_invocable_v<F, int, int, int>) {
-                  const auto [k, j, i] = idx_space.GetMemoryIndexer()(idx + start);
-                  f(k, j, i);
-                } else {
-                  f(idx + start - mem_start);
-                }
-              });
-        }
+        const int logical_start = o * ninner;
+        const int logical_end = std::min((o + 1) * ninner - 1, ext_size - 1);
+        const auto [ks, js, is] = ext_logical_kji(logical_start);
+        const auto [ke, je, ie] = ext_logical_kji(logical_end);
+        const int mem_first = idx_space.GetMemoryIndexer().GetFlatIdx(ks, js, is);
+        const int mem_last = idx_space.GetMemoryIndexer().GetFlatIdx(ke, je, ie);
+        const int end_exclusive = mem_last + 1 - mem_first;
+        Kokkos::parallel_for(
+            Kokkos::TeamThreadRange(member, 0, end_exclusive),
+            KOKKOS_LAMBDA(const int idx) {
+              if constexpr (std::is_invocable_v<F, int, int, int>) {
+                const auto [k, j, i] = idx_space.GetMemoryIndexer()(idx + mem_first);
+                f(k, j, i);
+              } else {
+                f(idx + mem_first - mem_start);
+              }
+            });
       }
     } else {
       for (int r = 0; r < idx_range.nregions; ++r) {
