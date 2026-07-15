@@ -44,6 +44,7 @@ using parthenon::Real;
 using parthenon::ResolvePackages;
 using parthenon::SparsePool;
 using parthenon::StateDescriptor;
+using parthenon::SubMeshDataRequirements;
 using FlagVec = std::vector<MetadataFlag>;
 using parthenon::TopologicalElement;
 using parthenon::VariableState;
@@ -103,6 +104,113 @@ TEST_CASE("Test Add/Get in Packages_t", "[Packages_t]") {
         REQUIRE_THROWS(packages.Add(pkg3));
       }
     }
+  }
+}
+
+TEST_CASE("Test mesh data subset registration in StateDescriptor",
+          "[StateDescriptor][MeshDataSubset]") {
+  StateDescriptor state("package");
+  SubMeshDataRequirements requirements;
+  requirements.varnames = {"density", "velocity"};
+  requirements.flags = FC_t({Metadata::Independent, Metadata::FillGhost});
+  requirements.flags.TakeUnion(Metadata::Derived);
+  requirements.flags.Exclude(Metadata::Sparse);
+  requirements.sparse_ids = {1, 4, 8};
+  requirements.shallow = true;
+
+  state.RegisterMeshDataSubset("source", requirements);
+
+  SECTION("The registered subset can be found and is given a package-scoped name") {
+    REQUIRE(state.ContainsMeshDataSubset("source"));
+    REQUIRE_FALSE(state.ContainsMeshDataSubset("diagnostics"));
+    REQUIRE(state.GetMeshDataSubsetFullname("source") ==
+            "md_subset::package::source");
+  }
+
+  SECTION("Registration preserves all requirements") {
+    const auto &subsets = state.GetAllMeshDataSubsets();
+    REQUIRE(subsets.size() == 1);
+    REQUIRE(subsets.count("source") == 1);
+
+    const auto &registered = subsets.at("source");
+    REQUIRE(registered.varnames == std::vector<std::string>{"density", "velocity"});
+    REQUIRE(registered.flags.GetIntersections() ==
+            requirements.flags.GetIntersections());
+    REQUIRE(registered.flags.GetUnions() == requirements.flags.GetUnions());
+    REQUIRE(registered.flags.GetExclusions() == requirements.flags.GetExclusions());
+    REQUIRE(registered.sparse_ids == std::vector<int>{1, 4, 8});
+    REQUIRE(registered.shallow);
+    REQUIRE(registered.GetUids().empty());
+  }
+
+  SECTION("The StateDescriptor owns a copy of the requirements") {
+    requirements.varnames.push_back("pressure");
+    requirements.sparse_ids.clear();
+    requirements.shallow = false;
+
+    const auto &registered = state.GetAllMeshDataSubsets().at("source");
+    REQUIRE(registered.varnames == std::vector<std::string>{"density", "velocity"});
+    REQUIRE(registered.sparse_ids == std::vector<int>{1, 4, 8});
+    REQUIRE(registered.shallow);
+  }
+
+  SECTION("Multiple independently named subsets can be registered") {
+    SubMeshDataRequirements diagnostics;
+    diagnostics.varnames = {"pressure"};
+    state.RegisterMeshDataSubset("diagnostics", diagnostics);
+
+    const auto &subsets = state.GetAllMeshDataSubsets();
+    REQUIRE(subsets.size() == 2);
+    REQUIRE(subsets.at("diagnostics").varnames ==
+            std::vector<std::string>{"pressure"});
+    REQUIRE(state.GetMeshDataSubsetFullname("diagnostics") ==
+            "md_subset::package::diagnostics");
+  }
+}
+
+TEST_CASE("Test mesh data subset indexing in Packages_t",
+          "[Packages_t][MeshDataSubset]") {
+  Packages_t packages;
+  auto hydro = std::make_shared<StateDescriptor>("hydro");
+  auto gravity = std::make_shared<StateDescriptor>("gravity");
+  auto boundaries = std::make_shared<StateDescriptor>("boundaries");
+
+  SubMeshDataRequirements requirements;
+  hydro->RegisterMeshDataSubset("source", requirements);
+  hydro->RegisterMeshDataSubset("diagnostics", requirements);
+  gravity->RegisterMeshDataSubset("source", requirements);
+
+  packages.Add(hydro);
+  packages.Add(gravity);
+  packages.Add(boundaries);
+
+  SECTION("Packages are grouped under every subset name they prescribe") {
+    const auto &indexed = packages.AllPackagesWithSubMeshData();
+    REQUIRE(indexed.size() == 2);
+    REQUIRE(indexed.count("source") == 1);
+    REQUIRE(indexed.count("diagnostics") == 1);
+
+    const auto &sources = indexed.at("source");
+    REQUIRE(sources.size() == 2);
+    REQUIRE(sources.at("hydro") == hydro);
+    REQUIRE(sources.at("gravity") == gravity);
+
+    const auto &diagnostics = indexed.at("diagnostics");
+    REQUIRE(diagnostics.size() == 1);
+    REQUIRE(diagnostics.at("hydro") == hydro);
+    REQUIRE(diagnostics.count("gravity") == 0);
+    REQUIRE(diagnostics.count("boundaries") == 0);
+  }
+
+  SECTION("Named lookup and const access return the indexed packages") {
+    REQUIRE(packages.AllPackagesWithSubMeshData("source").at("hydro") == hydro);
+
+    const Packages_t &const_packages = packages;
+    const auto &sources = const_packages.AllPackagesWithSubMeshData("source");
+    REQUIRE(sources.size() == 2);
+    REQUIRE(sources.at("gravity") == gravity);
+    REQUIRE(const_packages.AllPackagesWithSubMeshData().at("diagnostics").at("hydro") ==
+            hydro);
   }
 }
 
