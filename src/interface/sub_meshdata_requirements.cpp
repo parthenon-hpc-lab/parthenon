@@ -36,8 +36,11 @@ SubMeshDataRequirements::AddMDSubset(Mesh *pmesh, const std::string &name,
   } else {
     md = pmesh->mesh_data.Add(name, base, resolved_vars);
   }
-  auto uids = UidIntersection(base.get(), md.get());
-  uids_ = uids; // cache the uids for later reference
+  // cache the uids for later reference
+  if (uids_.size() == 0) {
+    auto uids = UidIntersection(base.get(), md.get());
+    uids_ = uids;
+  }
   return uids;
 }
 } // namespace parthenon
