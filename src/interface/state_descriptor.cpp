@@ -695,8 +695,7 @@ StateDescriptor::GetOrAddMeshDataSubset(Mesh *pmesh, const std::string &partial_
                                         int stage_idx) {
   auto full_name = GetMeshDataSubsetFullname(partial_name);
   PARTHENON_REQUIRE(ContainsMeshDataSubset(partial_name),
-                                           "Package " + label()
-                                           + " must contain a subset " + partial_name);
+                    "Package " + label() + " must contain a subset " + partial_name);
   return pmesh->mesh_data.GetOrAdd(full_name, stage_idx);
 }
 } // namespace parthenon

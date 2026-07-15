@@ -125,8 +125,7 @@ TEST_CASE("Test mesh data subset registration in StateDescriptor",
   SECTION("The registered subset can be found and is given a package-scoped name") {
     REQUIRE(state.ContainsMeshDataSubset("source"));
     REQUIRE_FALSE(state.ContainsMeshDataSubset("diagnostics"));
-    REQUIRE(state.GetMeshDataSubsetFullname("source") ==
-            "md_subset::package::source");
+    REQUIRE(state.GetMeshDataSubsetFullname("source") == "md_subset::package::source");
   }
 
   SECTION("Registration preserves all requirements") {
@@ -136,8 +135,7 @@ TEST_CASE("Test mesh data subset registration in StateDescriptor",
 
     const auto &registered = subsets.at("source");
     REQUIRE(registered.varnames == std::vector<std::string>{"density", "velocity"});
-    REQUIRE(registered.flags.GetIntersections() ==
-            requirements.flags.GetIntersections());
+    REQUIRE(registered.flags.GetIntersections() == requirements.flags.GetIntersections());
     REQUIRE(registered.flags.GetUnions() == requirements.flags.GetUnions());
     REQUIRE(registered.flags.GetExclusions() == requirements.flags.GetExclusions());
     REQUIRE(registered.sparse_ids == std::vector<int>{1, 4, 8});
@@ -163,8 +161,7 @@ TEST_CASE("Test mesh data subset registration in StateDescriptor",
 
     const auto &subsets = state.GetAllMeshDataSubsets();
     REQUIRE(subsets.size() == 2);
-    REQUIRE(subsets.at("diagnostics").varnames ==
-            std::vector<std::string>{"pressure"});
+    REQUIRE(subsets.at("diagnostics").varnames == std::vector<std::string>{"pressure"});
     REQUIRE(state.GetMeshDataSubsetFullname("diagnostics") ==
             "md_subset::package::diagnostics");
   }

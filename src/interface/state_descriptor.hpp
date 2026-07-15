@@ -400,9 +400,8 @@ class StateDescriptor {
     return submeshdata_map_.count(partial_name) > 0;
   }
 
-  std::vector<Uid_t>
-  AddMeshDataSubset(Mesh *pmesh, const std::string &partial_name,
-                    const std::shared_ptr<MeshData<Real>> &base) {
+  std::vector<Uid_t> AddMeshDataSubset(Mesh *pmesh, const std::string &partial_name,
+                                       const std::shared_ptr<MeshData<Real>> &base) {
     auto full_name = GetMeshDataSubsetFullname(partial_name);
     return submeshdata_map_[partial_name].AddMDSubset(pmesh, full_name, base);
   }
@@ -410,9 +409,7 @@ class StateDescriptor {
   std::shared_ptr<MeshData<Real>>
   GetOrAddMeshDataSubset(Mesh *pmesh, const std::string &partial_name, int stage_idx);
 
-  auto &GetAllMeshDataSubsets() {
-    return submeshdata_map_;
-  }
+  auto &GetAllMeshDataSubsets() { return submeshdata_map_; }
 
   bool FlagsPresent(std::vector<MetadataFlag> const &flags, bool matchAny = false);
 

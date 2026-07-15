@@ -166,8 +166,7 @@ DriverStatus EvolutionDriver::Execute() {
         // possibly not always desirable for shallow copies (which are
         // nominally supported).
         auto &base = pmesh->mesh_data.Get();
-        for (auto &[subname, pkgmap] :
-             pmesh->packages.AllPackagesWithSubMeshData()) {
+        for (auto &[subname, pkgmap] : pmesh->packages.AllPackagesWithSubMeshData()) {
           for (auto &[label, pkg] : pkgmap) {
             pkg->AddMeshDataSubset(pmesh, subname, base);
           }

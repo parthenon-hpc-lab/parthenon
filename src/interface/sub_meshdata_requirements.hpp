@@ -23,11 +23,11 @@
 
 namespace parthenon {
 class Mesh;
-template<typename T>
+template <typename T>
 class MeshData;
 
 class SubMeshDataRequirements {
-public:
+ public:
   std::vector<std::string> varnames;
   Metadata::FlagCollection flags;
   std::vector<int> sparse_ids;
@@ -35,10 +35,9 @@ public:
 
   std::vector<Uid_t> AddMDSubset(Mesh *pmesh, const std::string &name,
                                  const std::shared_ptr<MeshData<Real>> &base);
-  const auto &GetUids() const {
-    return uids_;
-  }
-private:
+  const auto &GetUids() const { return uids_; }
+
+ private:
   std::vector<Uid_t> uids_;
 };
 } // namespace parthenon

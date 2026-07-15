@@ -57,12 +57,8 @@ class Packages_t {
                           name);
     return packages_with_submeshdata_.at(name);
   }
-  auto &AllPackagesWithSubMeshData() {
-    return packages_with_submeshdata_;
-  }
-  const auto &AllPackagesWithSubMeshData() const {
-    return packages_with_submeshdata_;
-  }
+  auto &AllPackagesWithSubMeshData() { return packages_with_submeshdata_; }
+  const auto &AllPackagesWithSubMeshData() const { return packages_with_submeshdata_; }
 
   // Returns a sub-Dictionary containing just pointers to packages of type T.
   // Dictionary is a *new copy*, and members are bare pointers, not shared_ptr.
