@@ -41,6 +41,6 @@ SubMeshDataRequirements::AddMDSubset(Mesh *pmesh, const std::string &name,
     auto uids = UidIntersection(base.get(), md.get());
     uids_ = uids;
   }
-  return uids;
+  return uids_;
 }
 } // namespace parthenon

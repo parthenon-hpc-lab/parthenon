@@ -20,6 +20,7 @@
 
 #include "basic_types.hpp"
 #include "interface/metadata.hpp"
+#include "utils/error_checking.hpp"
 #include "utils/type_list.hpp"
 #include "utils/unique_id.hpp"
 
@@ -37,6 +38,8 @@ class SubMeshDataRequirements {
 
   template <typename... Ts>
   void RegisterVariables() {
+    const bool contains_regex = (Ts::regex() || ...);
+    PARTHENON_REQUIRE(!contains_regex, "Can't add variable types that have a regex");
     std::vector<std::string> new_names = {Ts::name()...};
     RegisterVariables(new_names);
   }
