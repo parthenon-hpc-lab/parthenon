@@ -87,6 +87,14 @@ struct MyRestrictOp {
   }
 };
 
+struct SubsetVariableOne {
+  static std::string name() { return "typed_one"; }
+};
+
+struct SubsetVariableTwo {
+  static std::string name() { return "typed_two"; }
+};
+
 TEST_CASE("Test Add/Get in Packages_t", "[Packages_t]") {
   GIVEN("A Packages_t object and a few packages") {
     Packages_t packages;
@@ -164,6 +172,48 @@ TEST_CASE("Test mesh data subset registration in StateDescriptor",
     REQUIRE(subsets.at("diagnostics").varnames == std::vector<std::string>{"pressure"});
     REQUIRE(state.GetMeshDataSubsetFullname("diagnostics") ==
             "md_subset::package::diagnostics");
+  }
+}
+
+TEST_CASE("Test variable registration in SubMeshDataRequirements",
+          "[SubMeshDataRequirements][MeshDataSubset]") {
+  SubMeshDataRequirements requirements;
+
+  SECTION("A single string name can be registered") {
+    requirements.RegisterVariables("density");
+    REQUIRE(requirements.varnames == std::vector<std::string>{"density"});
+  }
+
+  SECTION("Multiple string names can be registered in one call") {
+    requirements.RegisterVariables("density", "pressure", "velocity");
+    REQUIRE(requirements.varnames ==
+            std::vector<std::string>{"density", "pressure", "velocity"});
+  }
+
+  SECTION("A vector of string names can be registered") {
+    const std::vector<std::string> names{"density", "pressure"};
+    requirements.RegisterVariables(names);
+    REQUIRE(requirements.varnames == names);
+  }
+
+  SECTION("Variable types can be registered as a template parameter pack") {
+    requirements.RegisterVariables<SubsetVariableOne, SubsetVariableTwo>();
+    REQUIRE(requirements.varnames == std::vector<std::string>{"typed_one", "typed_two"});
+  }
+
+  SECTION("Variable types can be registered from a TypeList") {
+    requirements.RegisterVariables(
+        parthenon::TypeList<SubsetVariableTwo, SubsetVariableOne>{});
+    REQUIRE(requirements.varnames == std::vector<std::string>{"typed_two", "typed_one"});
+  }
+
+  SECTION("Successive registrations append names in call order") {
+    requirements.RegisterVariables("density");
+    requirements.RegisterVariables(std::vector<std::string>{"pressure", "density"});
+    requirements.RegisterVariables<SubsetVariableOne>();
+
+    REQUIRE(requirements.varnames ==
+            std::vector<std::string>{"density", "pressure", "density", "typed_one"});
   }
 }
 

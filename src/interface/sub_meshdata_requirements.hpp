@@ -15,10 +15,12 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "basic_types.hpp"
 #include "interface/metadata.hpp"
+#include "utils/type_list.hpp"
 #include "utils/unique_id.hpp"
 
 namespace parthenon {
@@ -32,6 +34,25 @@ class SubMeshDataRequirements {
   Metadata::FlagCollection flags;
   std::vector<int> sparse_ids;
   bool shallow = false;
+
+  template <typename... Ts>
+  void RegisterVariables() {
+    std::vector<std::string> new_names = {Ts::name()...};
+    RegisterVariables(new_names);
+  }
+  template <typename... Ts>
+  void RegisterVariables(const TypeList<Ts...> &tl) {
+    RegisterVariables<Ts...>();
+  }
+  void RegisterVariables(const std::vector<std::string> &new_names) {
+    varnames.insert(varnames.end(), new_names.begin(), new_names.end());
+  }
+  void RegisterVariables(const std::string &new_name) { varnames.push_back(new_name); }
+  template <typename... Args>
+  void RegisterVariables(const std::string &new_name, Args... args) {
+    varnames.push_back(new_name);
+    RegisterVariables(std::forward<Args>(args)...);
+  }
 
   std::vector<Uid_t> AddMDSubset(Mesh *pmesh, const std::string &name,
                                  const std::shared_ptr<MeshData<Real>> &base);

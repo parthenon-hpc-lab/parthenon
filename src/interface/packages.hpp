@@ -43,12 +43,11 @@ class Packages_t {
   }
   Dictionary<std::shared_ptr<StateDescriptor>> &AllPackages() { return packages_; }
 
+  // Note the non-const accessor inserts an empty dictionary if a name
+  // is accessed but not present.
   Dictionary<std::shared_ptr<StateDescriptor>> &
   AllPackagesWithSubMeshData(const std::string &name) {
-    PARTHENON_REQUIRE(packages_with_submeshdata_.count(name) > 0,
-                      "At least one package must contain submeshdata with subname " +
-                          name);
-    return packages_with_submeshdata_.at(name);
+    return packages_with_submeshdata_[name];
   }
   const Dictionary<std::shared_ptr<StateDescriptor>> &
   AllPackagesWithSubMeshData(const std::string &name) const {

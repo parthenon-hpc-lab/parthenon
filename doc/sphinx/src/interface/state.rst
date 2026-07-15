@@ -179,6 +179,30 @@ the sparse variables selected by either method.  As with
 ``StateDescriptor::GetVariableNames``, select a sparse pool by its base name rather
 than by the label of an individual sparse field.
 
+Use ``RegisterVariables`` to add explicit variable names.  It accepts a single
+string, multiple strings, or a ``std::vector<std::string>``:
+
+.. code:: cpp
+
+   source_requirements.RegisterVariables("density");
+   source_requirements.RegisterVariables("pressure", "velocity");
+   source_requirements.RegisterVariables(
+       std::vector<std::string>{"tracers", "energy"});
+
+Variable-name types can instead be supplied as template parameters or in a
+``TypeList``.  Each type must provide a static ``name()`` method, as do the types
+used to build sparse packs:
+
+.. code:: cpp
+
+   source_requirements.RegisterVariables<Density, Pressure>();
+   source_requirements.RegisterVariables(
+       TypeList<Velocity, Tracers>{});
+
+Every overload appends to the existing list in the order supplied.  Names are not
+deduplicated during registration; duplicate resolution occurs later when Parthenon
+resolves the variables selected for the subset.
+
 For example, a package can register a subset in its ``Initialize`` function:
 
 .. code:: cpp
@@ -186,7 +210,7 @@ For example, a package can register a subset in its ``Initialize`` function:
    auto pkg = std::make_shared<StateDescriptor>("hydro");
 
    SubMeshDataRequirements source_requirements;
-   source_requirements.varnames = {"density", "pressure", "tracers"};
+   source_requirements.RegisterVariables("density", "pressure", "tracers");
    source_requirements.flags =
        Metadata::FlagCollection({Metadata::Derived});
    source_requirements.sparse_ids = {1, 3};
