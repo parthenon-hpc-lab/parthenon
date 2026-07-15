@@ -8,7 +8,7 @@
 namespace loop_abstraction {
 
 template <class IndexSpaceType>
-struct var_view_t {
+struct view_view_t {
  public:
   parthenon::Real *data = nullptr;
   int flattened_offset = 0;
@@ -33,7 +33,7 @@ struct var_view_t {
 };
 
 template <inner_tag INNER_TAG, loop_backend BACKEND>
-struct var_view_t<IndexSpace<loop_tag::bovi, INNER_TAG, BACKEND>> {
+struct view_view_t<IndexSpace<loop_tag::bovi, INNER_TAG, BACKEND>> {
  public:
   parthenon::Real *data = nullptr;
   int shift = 0;
@@ -57,7 +57,7 @@ struct var_view_t<IndexSpace<loop_tag::bovi, INNER_TAG, BACKEND>> {
 };
 
 template <inner_tag INNER_TAG, loop_backend BACKEND>
-struct var_view_t<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>> {
+struct view_view_t<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>> {
  public:
   parthenon::Real *data = nullptr;
 
@@ -93,13 +93,13 @@ KOKKOS_INLINE_FUNCTION auto GetView(const InnerIndexRange<IndexSpaceType> &idx_r
     static_assert(IndexSpaceType::inner_tag_v == inner_tag::logical_flat ||
                       IndexSpaceType::inner_tag_v == inner_tag::logical_coords,
                   "boiv currently expects logical inner coordinates");
-    return var_view_t<IndexSpaceType>{&in(idx_range.block, var, idx_range.ks + offset[0],
+    return view_view_t<IndexSpaceType>{&in(idx_range.block, var, idx_range.ks + offset[0],
                                           idx_range.js + offset[1],
                                           idx_range.is + offset[2])};
   } else {
     const int shift = idx_range.pidx_space->GetMemoryIndexer().GetFlatIdx(
         idx_range.ks + offset[0], idx_range.js + offset[1], idx_range.is + offset[2]);
-    return var_view_t<IndexSpaceType>{&in(idx_range.block, var, idx_range.ks + offset[0],
+    return view_view_t<IndexSpaceType>{&in(idx_range.block, var, idx_range.ks + offset[0],
                                           idx_range.js + offset[1],
                                           idx_range.is + offset[2]),
                                       shift, idx_range.pidx_space};

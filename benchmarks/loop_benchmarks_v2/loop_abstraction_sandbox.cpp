@@ -14,7 +14,7 @@ using IS = loop_abstraction::IndexSpace<loop_abstraction::loop_tag::bovi,
 
 using IR = loop_abstraction::InnerIndexRange<IS>;
 
-using VW = loop_abstraction::var_view_t<IS>;
+using VW = loop_abstraction::view_view_t<IS>;
 
 extern "C" __attribute__((noinline)) void raw_inner_probe(const IR &idx_range, VW &outp,
                                                           VW &inp) {
