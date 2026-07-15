@@ -89,10 +89,12 @@ struct MyRestrictOp {
 
 struct SubsetVariableOne {
   static std::string name() { return "typed_one"; }
+  static bool regex() { return false; }
 };
 
 struct SubsetVariableTwo {
   static std::string name() { return "typed_two"; }
+  static bool regex() { return false; }
 };
 
 TEST_CASE("Test Add/Get in Packages_t", "[Packages_t]") {

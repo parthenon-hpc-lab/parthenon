@@ -190,8 +190,9 @@ string, multiple strings, or a ``std::vector<std::string>``:
        std::vector<std::string>{"tracers", "energy"});
 
 Variable-name types can instead be supplied as template parameters or in a
-``TypeList``.  Each type must provide a static ``name()`` method, as do the types
-used to build sparse packs:
+``TypeList``.  Each type must provide the static ``name()`` and ``regex()`` methods
+used by sparse-pack variable-name types, and ``regex()`` must return ``false``.
+Regular-expression variable types cannot prescribe a concrete ``MeshData`` subset:
 
 .. code:: cpp
 
