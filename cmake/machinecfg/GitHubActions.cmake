@@ -19,7 +19,6 @@ message(STATUS "Loading machine configuration for GitHub Actions CI. ")
 
 # common options
 set(NUM_MPI_PROC_TESTING "2" CACHE STRING "CI runs tests with 2 MPI ranks")
-set(Kokkos_ENABLE_ROCTHRUST OFF CACHE BOOL "Temporarily disabled as the container needs to be updated to the `-complete` base image.")
 
 set(CMAKE_CXX_FLAGS_DBGNOSYM "-O0" CACHE STRING "Debug build without symbols")
 
@@ -44,11 +43,9 @@ if (${MACHINE_VARIANT} MATCHES "mpi")
   # not using the following as the default is determined correctly
   #set(TEST_MPIEXEC mpiexec CACHE STRING "Command to launch MPI applications")
   list(APPEND TEST_MPIOPTS "--allow-run-as-root")
-  set(HDF5_ROOT /usr/local/hdf5/parallel CACHE STRING "HDF5 path")
   set(PARTHENON_USE_SYSTEM_OPENPMD ON CACHE BOOL "Use API in container")
 
 else()
-  set(HDF5_ROOT /usr/local/hdf5/serial CACHE STRING "HDF5 path")
   set(PARTHENON_DISABLE_MPI ON CACHE BOOL "Disable MPI")
   # testing auto fetch and compile
   set(PARTHENON_USE_SYSTEM_OPENPMD OFF CACHE BOOL "Use API in container")

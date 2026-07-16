@@ -270,6 +270,7 @@ if (NOT PARTHENON_DISABLE_OPENPMD)
     set(openPMD_BUILD_SHARED_LIBS OFF)
     set(openPMD_INSTALL OFF)
     set(openPMD_USE_ADIOS2 ON)  # we definitely want ADIOS2
+    set(openPMD_USE_MPI ${ENABLE_MPI})
     if( NOT Python3_Interpreter_FOUND)
       find_package(Python3 REQUIRED COMPONENTS Interpreter)
     endif()
@@ -281,7 +282,7 @@ if (NOT PARTHENON_DISABLE_OPENPMD)
     endif()
     FetchContent_Declare(openPMD
       GIT_REPOSITORY "https://github.com/openPMD/openPMD-api.git"
-      GIT_TAG        "0.17.0") # Release 0.17.0
+      GIT_TAG        "0.17.1") # Release 0.17.1
     FetchContent_MakeAvailable(openPMD)
     install(TARGETS openPMD EXPORT parthenonTargets)
   endif()

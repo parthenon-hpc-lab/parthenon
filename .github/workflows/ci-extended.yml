@@ -135,7 +135,7 @@ jobs:
         parallel: ['serial', 'mpi']
     runs-on: [self-hosted, navi1030]
     container:
-      image: ghcr.io/parthenon-hpc-lab/rocm6.2-mpi-hdf5
+      image: ghcr.io/parthenon-hpc-lab/rocm7.2.4-mpi-hdf5-opmd
       # Map to local user id on CI  machine to allow writing to build cache and
       # forward device handles to access AMD GPU within container
       options: --user 1000 -w /home/ci --device /dev/kfd --device /dev/dri --security-opt seccomp=unconfined
@@ -156,14 +156,14 @@ jobs:
       - name: Configure
         run: |
           git config --global --add safe.directory $(pwd)
-          # The extra CMAKE_PREFIX_PATH seems to be required for current rocm6.2, see
+          # The extra CMAKE_PREFIX_PATH seems to be required for current rocm6.2 and 7.2, see
           # https://github.com/kokkos/kokkos/pull/8747/changes#r2621509391
           # Try to remove in next rocm bump.
           cmake -B build \
             -DMACHINE_CFG=${PWD}/cmake/machinecfg/GitHubActions.cmake \
             -DCMAKE_BUILD_TYPE=Release \
             -DMACHINE_VARIANT=hip-${{ matrix.parallel }} \
-            -DCMAKE_PREFIX_PATH=/opt/rocm-6.2.0 \
+            -DCMAKE_PREFIX_PATH=/opt/rocm-7.2.4 \
             -DCMAKE_CXX_COMPILER=hipcc \
             -DPARTHENON_ENABLE_FFT=ON
 
