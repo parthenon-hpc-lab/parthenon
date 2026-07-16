@@ -15,15 +15,25 @@
 
 // This file was made in part with generative AI.
 
+// Umbrella header for the loop abstraction and the intended include point for users.
+// It pulls in the core types and all backends/helpers, then defines the public
+// outer()/inner()/AddHalo() entry points that dispatch to the backend selected at
+// compile time by IndexSpace::backend_v. See LOOP_ABSTRACTION_CONTRACTS.md for the
+// semantics of the loop tags, inner tags, halos, and scratch.
+
 #include "loop_abstraction_base.hpp"
 #include "loop_abstraction_scratch.hpp"
+#include "loop_abstraction_scratch_indexed.hpp"
 #include "loop_abstraction_kokkos.hpp"
 #include "loop_abstraction_pack_view.hpp"
+#include "loop_abstraction_flux_view.hpp"
 #include "loop_abstraction_raw.hpp"
 #include "loop_abstraction_view.hpp"
 
 namespace parthenon::loop_abstraction {
 
+// Launch the outer loop over an IndexSpace (blocks and, for bovi/boiv, chunks of the
+// kji space). Dispatches to the raw or Kokkos backend at compile time.
 template <class IndexSpaceType, class F>
 void outer(IndexSpaceType idx_space, F &&f) {
   if constexpr (IndexSpaceType::backend_v == loop_backend::raw) {
@@ -36,6 +46,9 @@ void outer(IndexSpaceType idx_space, F &&f) {
   }
 }
 
+// Run the inner loop over one InnerIndexRange slice. The traversal (flat/coords/
+// memory span, plus any halo) follows the range's tags; dispatches to the backend at
+// compile time.
 template <class InnerIndexRangeType, class F>
 KOKKOS_FORCEINLINE_FUNCTION void inner(const InnerIndexRangeType &idx_range, F &&f) {
   if constexpr (InnerIndexRangeType::index_space_t::backend_v == loop_backend::raw) {
@@ -49,6 +62,8 @@ KOKKOS_FORCEINLINE_FUNCTION void inner(const InnerIndexRangeType &idx_range, F &
   }
 }
 
+// Extend an inner range's visited logical points by the shifted copies named by
+// Halo (see loop_abstraction_halo.hpp and LOOP_ABSTRACTION_CONTRACTS.md).
 template <class Halo, class InnerIndexRangeType>
 KOKKOS_INLINE_FUNCTION auto AddHalo(const InnerIndexRangeType &idx_range) {
   return idx_range.template AddHalo<Halo>();
