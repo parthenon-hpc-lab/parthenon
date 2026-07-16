@@ -342,18 +342,15 @@ inline std::size_t GetPerTeamScratchSize(const IndexSpaceType &idx_space) {
                 IndexSpaceType::backend_v == loop_backend::raw) {
     return 0;
   } else if constexpr (IndexSpaceType::backend_v == loop_backend::kokkos) {
-    const std::size_t key = reinterpret_cast<std::size_t>(&idx_space) ^
-                            (std::type_index(typeid(T)).hash_code() << 1) ^
-                            (std::type_index(typeid(Halo)).hash_code() << 2) ^
-                            (std::type_index(typeid(idxer_t)).hash_code() << 3);
-    static thread_local std::unordered_map<std::size_t, std::size_t> cache;
-    if (const auto it = cache.find(key); it != cache.end()) {
-      return it->second;
-    }
+    // Computed fresh on every call. This runs once per AddPerPointScratch at setup and
+    // is only O(nblocks * nouter) of host integer arithmetic, so it is cheap relative
+    // to the kernel launches that follow. (A previous memoization keyed on the
+    // idx_space address was removed: a fresh IndexSpace can reuse a prior object's
+    // stack address and collide, returning a stale, too-small size.)
     std::size_t scratch_size = 0;
     using BaseRangeType = InnerIndexRange<IndexSpaceType>;
     const auto &logical_kji = idx_space.GetLogicalIndexer();
-    
+
     // Lambda for calculating the amount of scratch required for a given inner IndexRange
     auto update_scratch_size = [&](const auto &base_range) {
       const auto halo_range = base_range.template AddHalo<Halo>();
@@ -382,7 +379,6 @@ inline std::size_t GetPerTeamScratchSize(const IndexSpaceType &idx_space) {
         }
       }
     }
-    cache.emplace(key, scratch_size);
     return scratch_size;
   } else {
     static_assert(always_false<IndexSpaceType>,
