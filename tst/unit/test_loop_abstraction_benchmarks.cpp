@@ -122,6 +122,37 @@ auto MirrorToHost(const ViewType &view) {
   return host;
 }
 
+// Device-side mismatch counter used to move correctness checks out of kernels.
+// Catch2's REQUIRE/INFO/Approx cannot run on device, so loop-abstraction bodies
+// atomic-increment this counter on a failed comparison instead. The test then fences
+// and REQUIREs the host-side total is zero. Capture by value into the kernel and call
+// note() inside the body; call total() on the host afterwards.
+struct MismatchCounter {
+  Kokkos::View<int> view;
+  MismatchCounter() : view("loop_abstraction_mismatch") { Kokkos::deep_copy(view, 0); }
+
+  KOKKOS_INLINE_FUNCTION void note(bool wrong) const {
+    if (wrong) Kokkos::atomic_add(&view(), 1);
+  }
+
+  int total() const {
+    Kokkos::fence();
+    int out = 0;
+    Kokkos::deep_copy(out, view);
+    return out;
+  }
+};
+
+// Device-safe analog of Catch2's Approx inequality (relative tolerance). Returns true
+// when a and b differ by more than a small multiple of their magnitude.
+KOKKOS_INLINE_FUNCTION bool NotApprox(const Real a, const Real b) {
+  const Real diff = a > b ? a - b : b - a;
+  const Real mag_a = a < 0 ? -a : a;
+  const Real mag_b = b < 0 ? -b : b;
+  const Real mag = mag_a > mag_b ? mag_a : mag_b;
+  return diff > 1.0e-8 * (1.0 + mag);
+}
+
 KOKKOS_INLINE_FUNCTION Real EncodeValue(const int b, const int v, const int k,
                                         const int j, const int i) {
   return 1.0e6 * static_cast<Real>(b) + 1.0e5 * static_cast<Real>(v) +
@@ -484,6 +515,12 @@ void RunHaloContractCase(const ProblemSpec &spec, const int ninner) {
   auto out = MakeOutput(idx_space);
   ZeroView(out);
 
+  // In-kernel checks accumulate into device counters (REQUIRE cannot run on device);
+  // the host asserts they are zero after the fence. span_wrong flags a malformed halo
+  // span structure; neighbor_wrong flags a produced halo value that does not match.
+  MismatchCounter span_wrong;
+  MismatchCounter neighbor_wrong;
+
   // Validate the halo span structure for the k-directed case
   // when the current base chunk is less than ni * nj.
   loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
@@ -499,16 +536,16 @@ void RunHaloContractCase(const ProblemSpec &spec, const int ninner) {
         base_ninner += idx_range.flat_end[r] - idx_range.flat_start[r] + 1;
       }
       if (base_ninner < ni * nj) {
-        REQUIRE(halo_range.nregions == HaloType::npoints);
+        span_wrong.note(halo_range.nregions != HaloType::npoints);
         int total_flat = 0;
         for (int r = 0; r < halo_range.nregions; ++r) {
-          REQUIRE(halo_range.flat_start[r] <= halo_range.flat_end[r]);
+          span_wrong.note(halo_range.flat_start[r] > halo_range.flat_end[r]);
           if (r > 0) {
-            REQUIRE(halo_range.flat_start[r] > halo_range.flat_end[r - 1]);
+            span_wrong.note(halo_range.flat_start[r] <= halo_range.flat_end[r - 1]);
           }
           total_flat += halo_range.flat_end[r] - halo_range.flat_start[r] + 1;
         }
-        REQUIRE(total_flat == HaloType::npoints * base_ninner);
+        span_wrong.note(total_flat != HaloType::npoints * base_ninner);
       }
     }
 
@@ -522,7 +559,6 @@ void RunHaloContractCase(const ProblemSpec &spec, const int ninner) {
     for (int v = 0; v < kNVars; ++v) {
       loop_abstraction::inner(idx_range, [&](auto idx) {
         const auto [k, j, i] = idx_range.GetKJI(idx);
-        INFO("b=" << b << ", v=" << v << ", k=" << k << ", j=" << j << ", i=" << i);
         // For memory-tag inner loops the visited span may include ghost cells. The
         // producer only covers the halo-extended logical set S_halo, so a halo
         // neighbor is only guaranteed written when its source base cell (k,j,i) is a
@@ -534,7 +570,8 @@ void RunHaloContractCase(const ProblemSpec &spec, const int ninner) {
           const int kk = k + HaloType::dk(n);
           const int jj = j + HaloType::dj(n);
           const int ii = i + HaloType::di(n);
-          REQUIRE(out(b, v, kk, jj, ii) == Approx(EncodeValue(b, v, kk, jj, ii)));
+          neighbor_wrong.note(
+              NotApprox(out(b, v, kk, jj, ii), EncodeValue(b, v, kk, jj, ii)));
         }
       });
     }
@@ -548,6 +585,8 @@ void RunHaloContractCase(const ProblemSpec &spec, const int ninner) {
   });
 
   Kokkos::fence();
+  REQUIRE(span_wrong.total() == 0);
+  REQUIRE(neighbor_wrong.total() == 0);
 
   const auto host = MirrorToHost(out);
   for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
@@ -1141,6 +1180,8 @@ void RunScratchCase(const ProblemSpec &spec, const int ninner) {
   idx_space.template AddPerPointScratch<Real>();
   idx_space.template AddPerPointScratch<Real>();
 
+  MismatchCounter wrong;
+
   loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
     auto scratch_a = loop_abstraction::GetPerPointScratch<Real>(idx_range);
     auto scratch_b = loop_abstraction::GetPerPointScratch<Real>(idx_range);
@@ -1163,12 +1204,14 @@ void RunScratchCase(const ProblemSpec &spec, const int ninner) {
 
     loop_abstraction::inner(idx_range, [&](auto idx) {
       const auto [k, j, i] = idx_range.GetKJI(idx);
-      const auto expected = Approx(ScratchExpectedValue(b, k, j, i));
-      REQUIRE(scratch_a(idx) == expected);
-      REQUIRE(scratch_b(idx) == expected);
-      REQUIRE(scratch_c(idx) == expected);
+      const Real expected = ScratchExpectedValue(b, k, j, i);
+      wrong.note(NotApprox(scratch_a(idx), expected));
+      wrong.note(NotApprox(scratch_b(idx), expected));
+      wrong.note(NotApprox(scratch_c(idx), expected));
     });
   });
+
+  REQUIRE(wrong.total() == 0);
 }
 
 // Exercise scratch.Zero(): fill with garbage, Zero(), accumulate, verify; then
@@ -1184,6 +1227,8 @@ void RunScratchZeroCase(const ProblemSpec &spec, const int ninner) {
   using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG>;
   IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
   idx_space.template AddPerPointScratch<Real>();
+
+  MismatchCounter wrong;
 
   loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
     auto scratch = loop_abstraction::GetPerPointScratch<Real>(idx_range);
@@ -1204,10 +1249,12 @@ void RunScratchZeroCase(const ProblemSpec &spec, const int ninner) {
 
       loop_abstraction::inner(idx_range, [&](auto idx) {
         const auto [k, j, i] = idx_range.GetKJI(idx);
-        REQUIRE(scratch(idx) == Approx(ScratchExpectedValue(b, k, j, i)));
+        wrong.note(NotApprox(scratch(idx), ScratchExpectedValue(b, k, j, i)));
       });
     }
   });
+
+  REQUIRE(wrong.total() == 0);
 }
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
@@ -1231,6 +1278,8 @@ void RunScratchZeroCaseKokkos(const ProblemSpec &spec, const int ninner) {
   IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
   idx_space.template AddPerPointScratch<Real>();
 
+  MismatchCounter wrong;
+
   loop_abstraction::impl::outer_kokkos(idx_space, [&](const auto &idx_range, int b) {
     auto scratch = loop_abstraction::GetPerPointScratch<Real>(idx_range);
 
@@ -1250,10 +1299,12 @@ void RunScratchZeroCaseKokkos(const ProblemSpec &spec, const int ninner) {
 
       loop_abstraction::impl::inner_kokkos(idx_range, [&](auto idx) {
         const auto [k, j, i] = idx_range.GetKJI(idx);
-        REQUIRE(scratch(idx) == Approx(ScratchExpectedValue(b, k, j, i)));
+        wrong.note(NotApprox(scratch(idx), ScratchExpectedValue(b, k, j, i)));
       });
     }
   });
+
+  REQUIRE(wrong.total() == 0);
 }
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
@@ -1278,6 +1329,8 @@ void RunScratchCaseKokkos(const ProblemSpec &spec, const int ninner) {
   idx_space.template AddPerPointScratch<Real>();
   idx_space.template AddPerPointScratch<Real>();
 
+  MismatchCounter wrong;
+
   loop_abstraction::impl::outer_kokkos(idx_space, [&](const auto &idx_range, int b) {
     auto scratch_a = loop_abstraction::GetPerPointScratch<Real>(idx_range);
     auto scratch_b = loop_abstraction::GetPerPointScratch<Real>(idx_range);
@@ -1300,12 +1353,14 @@ void RunScratchCaseKokkos(const ProblemSpec &spec, const int ninner) {
 
     loop_abstraction::impl::inner_kokkos(idx_range, [&](auto idx) {
       const auto [k, j, i] = idx_range.GetKJI(idx);
-      const auto expected = Approx(ScratchExpectedValue(b, k, j, i));
-      REQUIRE(scratch_a(idx) == expected);
-      REQUIRE(scratch_b(idx) == expected);
-      REQUIRE(scratch_c(idx) == expected);
+      const Real expected = ScratchExpectedValue(b, k, j, i);
+      wrong.note(NotApprox(scratch_a(idx), expected));
+      wrong.note(NotApprox(scratch_b(idx), expected));
+      wrong.note(NotApprox(scratch_c(idx), expected));
     });
   });
+
+  REQUIRE(wrong.total() == 0);
 }
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
@@ -1345,6 +1400,8 @@ void RunScratchHaloCase(const ProblemSpec &spec, const int ninner) {
     offsets[n] = HaloType::di(n) * di + HaloType::dj(n) * dj + HaloType::dk(n) * dk;
   }
 
+  MismatchCounter wrong;
+
   loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
     const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
     auto scratch = loop_abstraction::GetPerPointScratch<Real>(halo_range);
@@ -1368,11 +1425,13 @@ void RunScratchHaloCase(const ProblemSpec &spec, const int ninner) {
           }
         }
         const auto shifted = idx + offsets[n];
-        REQUIRE(scratch(shifted) == Approx(EncodeValue(b, 0, kk, jj, ii)));
-        REQUIRE(scratch(Index3{kk, jj, ii}) == Approx(EncodeValue(b, 0, kk, jj, ii)));
+        wrong.note(NotApprox(scratch(shifted), EncodeValue(b, 0, kk, jj, ii)));
+        wrong.note(NotApprox(scratch(Index3{kk, jj, ii}), EncodeValue(b, 0, kk, jj, ii)));
       }
     });
   });
+
+  REQUIRE(wrong.total() == 0);
 }
 
 template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG>
@@ -1395,6 +1454,8 @@ void RunScratchHaloCaseKokkos(const ProblemSpec &spec, const int ninner) {
     offsets[n] = HaloType::di(n) * di + HaloType::dj(n) * dj + HaloType::dk(n) * dk;
   }
 
+  MismatchCounter wrong;
+
   loop_abstraction::impl::outer_kokkos(idx_space, [&](const auto &idx_range, int b) {
     const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
     auto scratch = loop_abstraction::GetPerPointScratch<Real>(halo_range);
@@ -1416,11 +1477,13 @@ void RunScratchHaloCaseKokkos(const ProblemSpec &spec, const int ninner) {
           }
         }
         const auto shifted = idx + offsets[n];
-        REQUIRE(scratch(shifted) == Approx(EncodeValue(b, 0, kk, jj, ii)));
-        REQUIRE(scratch(Index3{kk, jj, ii}) == Approx(EncodeValue(b, 0, kk, jj, ii)));
+        wrong.note(NotApprox(scratch(shifted), EncodeValue(b, 0, kk, jj, ii)));
+        wrong.note(NotApprox(scratch(Index3{kk, jj, ii}), EncodeValue(b, 0, kk, jj, ii)));
       }
     });
   });
+
+  REQUIRE(wrong.total() == 0);
 }
 
 template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG>
@@ -1449,6 +1512,8 @@ void RunBoivScratchDeltaCase(const ProblemSpec &spec) {
   idx_space.template AddPerPointScratch<Real, HaloType>();
   const auto delta = idx_space.GetDelta(DIR);
 
+  MismatchCounter wrong;
+
   loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
     const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
     auto scratch = loop_abstraction::GetPerPointScratch<Real>(halo_range);
@@ -1471,9 +1536,11 @@ void RunBoivScratchDeltaCase(const ProblemSpec &spec) {
       } else if constexpr (DIR == parthenon::X3DIR) {
         kk += SIGN;
       }
-      REQUIRE(scratch(shifted) == Approx(EncodeValue(b, 0, kk, jj, ii)));
+      wrong.note(NotApprox(scratch(shifted), EncodeValue(b, 0, kk, jj, ii)));
     });
   });
+
+  REQUIRE(wrong.total() == 0);
 }
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG, loop_backend BACKEND>
@@ -1489,6 +1556,8 @@ void RunShapedScratchCase(const ProblemSpec &spec, const int ninner) {
   IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost,
                            ninner);
   idx_space.template AddPerPointScratch<Real, 2, 3>();
+
+  MismatchCounter wrong;
 
   loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
     auto scratch = loop_abstraction::GetPerPointScratch<Real, 2, 3>(idx_range);
@@ -1508,13 +1577,15 @@ void RunShapedScratchCase(const ProblemSpec &spec, const int ninner) {
       const auto [k, j, i] = idx_range.GetKJI(idx);
       for (int c0 = 0; c0 < 2; ++c0) {
         for (int c1 = 0; c1 < 3; ++c1) {
-          const auto expected = Approx(ShapedScratchValue(b, c0, c1, k, j, i));
-          REQUIRE(scratch(c0, c1, idx) == expected);
-          REQUIRE(scratch(c0, c1, k, j, i) == expected);
+          const Real expected = ShapedScratchValue(b, c0, c1, k, j, i);
+          wrong.note(NotApprox(scratch(c0, c1, idx), expected));
+          wrong.note(NotApprox(scratch(c0, c1, k, j, i), expected));
         }
       }
     });
   });
+
+  REQUIRE(wrong.total() == 0);
 }
 
 template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG,
@@ -1539,6 +1610,8 @@ void RunShapedScratchHaloCase(const ProblemSpec &spec, const int ninner) {
   for (int n = 0; n < HaloType::npoints; ++n) {
     offsets[n] = HaloType::di(n) * di + HaloType::dj(n) * dj + HaloType::dk(n) * dk;
   }
+
+  MismatchCounter wrong;
 
   loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
     const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
@@ -1568,15 +1641,17 @@ void RunShapedScratchHaloCase(const ProblemSpec &spec, const int ninner) {
         }
         for (int c0 = 0; c0 < 2; ++c0) {
           for (int c1 = 0; c1 < 3; ++c1) {
-            const auto expected = Approx(ShapedScratchValue(b, c0, c1, kk, jj, ii));
-            REQUIRE(scratch(c0, c1, Index3{kk, jj, ii}) == expected);
-            REQUIRE(scratch(c0, c1, idx + offsets[n]) == expected);
-            REQUIRE(scratch(c0, c1, kk, jj, ii) == expected);
+            const Real expected = ShapedScratchValue(b, c0, c1, kk, jj, ii);
+            wrong.note(NotApprox(scratch(c0, c1, Index3{kk, jj, ii}), expected));
+            wrong.note(NotApprox(scratch(c0, c1, idx + offsets[n]), expected));
+            wrong.note(NotApprox(scratch(c0, c1, kk, jj, ii), expected));
           }
         }
       }
     });
   });
+
+  REQUIRE(wrong.total() == 0);
 }
 
 template <inner_tag INNER_TAG>
@@ -1586,6 +1661,8 @@ void RunBoivScratchMixedDeltaCase(const ProblemSpec &spec) {
   idx_space.template AddPerPointScratch<Real, plus_two_i_minus_k_halo_t>();
   const auto dx1 = idx_space.GetDelta(parthenon::X1DIR);
   const auto dx3 = idx_space.GetDelta(parthenon::X3DIR);
+
+  MismatchCounter wrong;
 
   loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
     const auto halo_range =
@@ -1600,9 +1677,11 @@ void RunBoivScratchMixedDeltaCase(const ProblemSpec &spec) {
     loop_abstraction::inner(idx_range, [&](auto idx) {
       const auto shifted = idx + 2 * dx1 - dx3;
       const auto [k, j, i] = idx_range.GetKJI(idx);
-      REQUIRE(scratch(shifted) == Approx(EncodeValue(b, 0, k - 1, j, i + 2)));
+      wrong.note(NotApprox(scratch(shifted), EncodeValue(b, 0, k - 1, j, i + 2)));
     });
   });
+
+  REQUIRE(wrong.total() == 0);
 }
 
 } // namespace
