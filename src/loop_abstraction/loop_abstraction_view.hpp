@@ -15,6 +15,17 @@
 
 // This file was made in part with generative AI.
 
+// View over a single variable of a raw Kokkos view (as opposed to a SparsePack; see
+// loop_abstraction_pack_view.hpp for the pack-backed views). GetView binds one
+// (block, var) slice of a 5D view to the current InnerIndexRange, and the returned
+// view_view_t accepts the same index forms as the loop body (flat int, MemoryOffset,
+// Index3, or explicit k, j, i) so a kernel reads the same way regardless of loop tag.
+//
+// NOTE: this is not a primary way to use the loop abstraction. It exists mainly to
+// support the raw-Kokkos-view kernels in the loop benchmarks (which are not part of
+// this PR). Production kernels should prefer the SparsePack-backed views in
+// loop_abstraction_pack_view.hpp. This path is kept minimal and may be revisited.
+
 #include "pack/sparse_pack/sparse_pack.hpp"
 #include "utils/type_list.hpp"
 
@@ -22,6 +33,9 @@
 
 namespace parthenon::loop_abstraction {
 
+// Primary template: flat-index access is relative to the memory origin implied by the
+// IndexSpace and current slice (flattened_offset). Specialized below for bovi (origin
+// is the current chunk) and boiv (a single logical cell).
 template <class IndexSpaceType>
 struct view_view_t {
  public:
