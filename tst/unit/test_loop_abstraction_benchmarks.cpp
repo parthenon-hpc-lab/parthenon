@@ -703,9 +703,12 @@ template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG>
 void RunHaloProducerSingleTouchPatternMatrix(const ProblemSpec &spec,
                                              const std::vector<int> &ninner_cases) {
   for (const int ninner : ninner_cases) {
-    RunHaloProducerSingleTouchCase<HaloType, LOOP_TAG, INNER_TAG, false>(spec, ninner);
+    // Always exercise the kokkos backend (valid on host and device). Additionally
+    // run the raw backend only on a host build; on a device build the raw backend
+    // would drive host loops over device memory, which is invalid.
+    RunHaloProducerSingleTouchCase<HaloType, LOOP_TAG, INNER_TAG, true>(spec, ninner);
     if constexpr (default_loop_backend_v == loop_backend::raw) {
-      RunHaloProducerSingleTouchCase<HaloType, LOOP_TAG, INNER_TAG, true>(spec, ninner);
+      RunHaloProducerSingleTouchCase<HaloType, LOOP_TAG, INNER_TAG, false>(spec, ninner);
     }
   }
 }
