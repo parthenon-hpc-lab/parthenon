@@ -4,7 +4,7 @@
 # Copyright(C) 2020-2025 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 # =========================================================================================
-# (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -15,6 +15,8 @@
 # license in this material to reproduce, prepare derivative works, distribute copies to
 # the public, perform publicly and display publicly, and to permit others to do so.
 # =========================================================================================
+
+# This file was made in part with generative AI.
 
 from __future__ import print_function
 
@@ -450,8 +452,8 @@ def main():
                     ERROR_FLAG = True
                     break
                 swarm = data.GetSwarm(args.swarm)
-                swarmx = subsample(swarm.x, args.maxparticles)
-                swarmy = subsample(swarm.y, args.maxparticles)
+                swarmx = subsample(swarm.x1, args.maxparticles)
+                swarmy = subsample(swarm.x2, args.maxparticles)
                 if args.swarmcolor is not None:
                     if not is_color_like(args.swarmcolor):
                         if args.swarmcolor not in swarm.variables:

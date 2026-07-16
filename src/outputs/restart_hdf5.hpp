@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,11 +14,16 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
+
 #ifndef OUTPUTS_RESTART_HDF5_HPP_
 #define OUTPUTS_RESTART_HDF5_HPP_
 //! \file io_wrapper.hpp
 //  \brief defines a set of small wrapper functions for MPI versus Serial Output.
 
+#include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -41,6 +46,8 @@ namespace parthenon {
 
 class Mesh;
 class Param;
+class Swarm;
+class MeshBlock;
 
 class RestartReaderHDF5 : public RestartReader {
  public:
@@ -262,7 +269,6 @@ class RestartReaderHDF5 : public RestartReader {
   // perhaps belongs in a destructor?
   void Close();
 
- private:
   const std::string filename_;
 
   // Does file have ghost cells?

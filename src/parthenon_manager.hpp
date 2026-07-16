@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
 
 #ifndef PARTHENON_MANAGER_HPP_
 #define PARTHENON_MANAGER_HPP_
@@ -29,6 +31,7 @@
 #include "mesh/forest/forest_topology.hpp"
 #include "mesh/mesh.hpp"
 #include "outputs/restart.hpp"
+#include "outputs/restart_hdf5.hpp"
 #include "parameter_input.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
@@ -61,68 +64,6 @@ class ParthenonManager {
   ArgParse arg;
   bool called_init_env_ = false;
   bool called_init_packages_and_mesh_ = false;
-
-  template <typename T>
-  void ReadSwarmVars_(const SP_Swarm &pswarm, const BlockList_t &block_list,
-                      const std::size_t count_on_rank, const std::size_t offset) {
-    const std::string &swarmname = pswarm->label();
-    std::vector<T> dataVec;
-    for (const auto &var : pswarm->GetVariableVector<T>()) {
-      const std::string &varname = var->label();
-      const auto &m = var->metadata();
-      auto arrdims = m.GetArrayDims(pswarm->GetBlockPointer(), false);
-
-      auto var_missing_on_disk = !restartReader->VariableExists(
-          swarmname, RestartReader::DataType::SwarmVar, varname);
-      if (Globals::my_rank == 0) {
-        std::cout << "SwarmVar: " << varname
-                  << (var_missing_on_disk ? " missing on disk\n" : "\n");
-      }
-      if (var_missing_on_disk) {
-        // TODO(JMM/PG) Add failed load list of "fail/needs fix" list
-        continue;
-      }
-
-      try {
-        restartReader->ReadSwarmVar(swarmname, varname, count_on_rank, offset, m,
-                                    dataVec);
-      } catch (std::exception &ex) {
-        // Variable does exist but could not be read. So we definitely want to fail here.
-        PARTHENON_THROW(StringPrintf("[%d] WARNING: Failed to read Swarm %s Variable %s "
-                                     "from restart file:\n%s",
-                                     Globals::my_rank, swarmname.c_str(), varname.c_str(),
-                                     ex.what()));
-      }
-
-      // Only safe because swarm starts completely defragged.
-      // Note ordering here: block is second-inner-most loop.
-      // If hdf5 output format changes, this needs to change too.
-      std::size_t ivec = 0;
-      for (int n6 = 0; n6 < arrdims[5]; ++n6) {
-        for (int n5 = 0; n5 < arrdims[4]; ++n5) {
-          for (int n4 = 0; n4 < arrdims[3]; ++n4) {
-            for (int n3 = 0; n3 < arrdims[2]; ++n3) {
-              for (int n2 = 0; n2 < arrdims[1]; ++n2) {
-                for (auto &pmb : block_list) {
-                  // 1 deep copy per tensor component per swarmvar per
-                  // block, unfortunately. But only at initialization.
-                  auto swarm_container = pmb->meshblock_data.Get()->GetSwarmData();
-                  auto pswarm_blk = swarm_container->Get(swarmname);
-                  auto v = Kokkos::subview(pswarm_blk->Get<T>(varname).data, n6, n5, n4,
-                                           n3, n2, Kokkos::ALL());
-                  auto v_h = Kokkos::create_mirror_view(v);
-                  for (int n1 = 0; n1 < pswarm_blk->GetNumActive(); ++n1) {
-                    v_h(n1) = dataVec[ivec++];
-                  }
-                  Kokkos::deep_copy(v, v_h);
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
 };
 
 } // namespace parthenon

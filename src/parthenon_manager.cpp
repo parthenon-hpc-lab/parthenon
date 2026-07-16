@@ -439,9 +439,9 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       pswarm_blk->AddEmptyParticles(counts[block_index]);
       block_index++;
     }
-    ReadSwarmVars_<int>(swarm, rm.block_list, count_on_rank, offsets[0]);
-    ReadSwarmVars_<std::uint64_t>(swarm, rm.block_list, count_on_rank, offsets[0]);
-    ReadSwarmVars_<Real>(swarm, rm.block_list, count_on_rank, offsets[0]);
+    resfile.ReadSwarmVars<int>(swarm, rm.block_list, count_on_rank, offsets[0]);
+    resfile.ReadSwarmVars<std::uint64_t>(swarm, rm.block_list, count_on_rank, offsets[0]);
+    resfile.ReadSwarmVars<Real>(swarm, rm.block_list, count_on_rank, offsets[0]);
   }
 
   // Params

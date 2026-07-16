@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -12,6 +12,8 @@
 //========================================================================================
 #ifndef INTERFACE_SWARM_DEVICE_CONTEXT_HPP_
 #define INTERFACE_SWARM_DEVICE_CONTEXT_HPP_
+
+// This file was made in part with generative AI.
 
 #include <cstdio>
 
@@ -56,19 +58,19 @@ class SwarmDeviceContext {
 
   // TODO(BRR) This logic will change for non-uniform cartesian meshes
   KOKKOS_INLINE_FUNCTION
-  int GetNeighborBlockIndex(const int &n, const double &x, const double &y,
-                            const double &z, bool &is_on_current_mesh_block) const {
-    int i = static_cast<int>(std::floor((x - x_min_) / ((x_max_ - x_min_) / 2.))) + 1;
-    int j = static_cast<int>(std::floor((y - y_min_) / ((y_max_ - y_min_) / 2.))) + 1;
-    int k = static_cast<int>(std::floor((z - z_min_) / ((z_max_ - z_min_) / 2.))) + 1;
+  int GetNeighborBlockIndex(const int &n, const double &x1, const double &x2,
+                            const double &x3, bool &is_on_current_mesh_block) const {
+    int i = static_cast<int>(std::floor((x1 - x1_min_) / ((x1_max_ - x1_min_) / 2.))) + 1;
+    int j = static_cast<int>(std::floor((x2 - x2_min_) / ((x2_max_ - x2_min_) / 2.))) + 1;
+    int k = static_cast<int>(std::floor((x3 - x3_min_) / ((x3_max_ - x3_min_) / 2.))) + 1;
 
     // Particle is on neither this block nor a neighboring block
     if (i < 0 || i > 3 || ((j < 0 || j > 3) && ndim_ > 1) ||
         ((k < 0 || k > 3) && ndim_ > 2)) {
       printf("[%i] k = %i j = %i i = %i\n", n, k, j, i);
-      printf("x = %e [%e %e]\n", x, x_min_, x_max_);
-      printf("y = %e [%e %e]\n", y, y_min_, y_max_);
-      printf("z = %e [%e %e]\n", z, z_min_, z_max_);
+      printf("x1 = %e [%e %e]\n", x1, x1_min_, x1_max_);
+      printf("x2 = %e [%e %e]\n", x2, x2_min_, x2_max_);
+      printf("x3 = %e [%e %e]\n", x3, x3_min_, x3_max_);
       PARTHENON_FAIL("Particle neighbor indices out of bounds; particle has somehow "
                      "moved beyond the halo of adjacent blocks which is not permitted.");
     }
@@ -92,16 +94,17 @@ class SwarmDeviceContext {
 
   // TODO(BRR) This logic will change for non-uniform cartesian meshes
   KOKKOS_INLINE_FUNCTION
-  void Xtoijk(const Real &x, const Real &y, const Real &z, int &i, int &j, int &k) const {
+  void Xtoijk(const Real &x1, const Real &x2, const Real &x3, int &i, int &j,
+              int &k) const {
     i = static_cast<int>(
-            std::floor((x - x_min_) / coords_.Dx<CoordinateDirection::X1DIR>())) +
+            std::floor((x1 - x1_min_) / coords_.Dx<CoordinateDirection::X1DIR>())) +
         ib_s_;
     j = (ndim_ > 1) ? static_cast<int>(std::floor(
-                          (y - y_min_) / coords_.Dx<CoordinateDirection::X2DIR>())) +
+                          (x2 - x2_min_) / coords_.Dx<CoordinateDirection::X2DIR>())) +
                           jb_s_
                     : jb_s_;
     k = (ndim_ > 2) ? static_cast<int>(std::floor(
-                          (z - z_min_) / coords_.Dx<CoordinateDirection::X3DIR>())) +
+                          (x3 - x3_min_) / coords_.Dx<CoordinateDirection::X3DIR>())) +
                           kb_s_
                     : kb_s_;
   }
@@ -122,18 +125,18 @@ class SwarmDeviceContext {
   int ib_s_;
   int jb_s_;
   int kb_s_;
-  Real x_min_;
-  Real x_max_;
-  Real y_min_;
-  Real y_max_;
-  Real z_min_;
-  Real z_max_;
-  Real x_min_global_;
-  Real x_max_global_;
-  Real y_min_global_;
-  Real y_max_global_;
-  Real z_min_global_;
-  Real z_max_global_;
+  Real x1_min_;
+  Real x1_max_;
+  Real x2_min_;
+  Real x2_max_;
+  Real x3_min_;
+  Real x3_max_;
+  Real x1_min_global_;
+  Real x1_max_global_;
+  Real x2_min_global_;
+  Real x2_max_global_;
+  Real x3_min_global_;
+  Real x3_max_global_;
   ParArray1D<bool> mask_;
   ParArray1D<bool> marked_for_removal_;
   ParArrayND<int> block_index_;

@@ -7,7 +7,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -18,6 +18,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
+
 //! \file outputs.cpp
 //  \brief implements functions for Parthenon outputs
 //
@@ -342,12 +345,13 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
                 "swarm variables to output for a specific swarm");
             op.swarms[swname].insert(varnames.begin(), varnames.end());
           }
-          // Always output id, x, y, and z for swarms so that they work with vis tools.
+          // Always output id, x1, x2, and x3 for swarms so that they work with vis
+          // tools.
           // Note, it's fine to add the id by default (even though it might not actually
           // exist) because only variables that do exists are actually being written.
           std::vector<std::string> coords = {
-              swarm_position::id::name(), swarm_position::x::name(),
-              swarm_position::y::name(), swarm_position::z::name()};
+              swarm_position::id::name(), swarm_position::x1::name(),
+              swarm_position::x2::name(), swarm_position::x3::name()};
           op.swarms[swname].insert(coords.begin(), coords.end());
         }
       }

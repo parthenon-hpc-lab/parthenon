@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,12 +14,16 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
+
 #ifndef OUTPUTS_RESTART_HPP_
 #define OUTPUTS_RESTART_HPP_
 //! \file io_wrapper.hpp
 //  \brief defines a set of small wrapper functions for MPI versus Serial Output.
 
 #include <cinttypes>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <utility>
@@ -146,7 +150,113 @@ class RestartReader {
   void Close();
 
   [[nodiscard]] virtual int HasGhost() const = 0;
+
+  // Backwards compatibility: map new swarm position names to old names
+  static std::string GetBackwardsCompatibleSwarmVarName(const std::string &varname) {
+    if (varname == "swarm.x1") {
+      return "swarm.x";
+    } else if (varname == "swarm.x2") {
+      return "swarm.y";
+    } else if (varname == "swarm.x3") {
+      return "swarm.z";
+    }
+    return varname;
+  }
+
+  // High-level template function to read all swarm variables of a given type from restart
+  // file and distribute them to blocks
+  template <typename T>
+  void ReadSwarmVars(const std::shared_ptr<Swarm> &pswarm,
+                     const std::vector<std::shared_ptr<MeshBlock>> &block_list,
+                     const std::size_t count_on_rank, const std::size_t offset);
 };
+
+// Include full definitions needed for template implementation
+#include "interface/swarm.hpp"
+#include "mesh/meshblock.hpp"
+#include "utils/string_utils.hpp"
+
+// Template implementation for ReadSwarmVars
+// This needs to be in the header since it's a template function
+template <typename T>
+void RestartReader::ReadSwarmVars(
+    const std::shared_ptr<Swarm> &pswarm,
+    const std::vector<std::shared_ptr<MeshBlock>> &block_list,
+    const std::size_t count_on_rank, const std::size_t offset) {
+  const std::string &swarmname = pswarm->label();
+  std::vector<T> dataVec;
+  for (const auto &var : pswarm->GetVariableVector<T>()) {
+    const std::string &varname = var->label();
+    const auto &m = var->metadata();
+    auto arrdims = m.GetArrayDims(pswarm->GetBlockPointer(), false);
+
+    auto var_missing_on_disk = !VariableExists(swarmname, DataType::SwarmVar, varname);
+
+    // Backwards compatibility: try old position names if new ones missing
+    std::string varname_to_read = varname;
+    if (var_missing_on_disk) {
+      varname_to_read = GetBackwardsCompatibleSwarmVarName(varname);
+      // Check if the old name exists
+      if (varname_to_read != varname) {
+        var_missing_on_disk =
+            !VariableExists(swarmname, DataType::SwarmVar, varname_to_read);
+        if (!var_missing_on_disk && Globals::my_rank == 0) {
+          std::cout << "SwarmVar: " << varname
+                    << " using backwards-compatible name: " << varname_to_read << "\n";
+        }
+      }
+    }
+
+    if (Globals::my_rank == 0 && var_missing_on_disk) {
+      std::cout << "SwarmVar: " << varname << " missing on disk\n";
+    } else if (Globals::my_rank == 0 && varname_to_read == varname) {
+      std::cout << "SwarmVar: " << varname << "\n";
+    }
+
+    if (var_missing_on_disk) {
+      // TODO(JMM/PG) Add failed load list of "fail/needs fix" list
+      continue;
+    }
+
+    try {
+      ReadSwarmVar(swarmname, varname_to_read, count_on_rank, offset, m, dataVec);
+    } catch (std::exception &ex) {
+      // Variable does exist but could not be read. So we definitely want to fail here.
+      PARTHENON_THROW(StringPrintf("[%d] WARNING: Failed to read Swarm %s Variable %s "
+                                   "from restart file:\n%s",
+                                   Globals::my_rank, swarmname.c_str(), varname.c_str(),
+                                   ex.what()));
+    }
+
+    // Only safe because swarm starts completely defragged.
+    // Note ordering here: block is second-inner-most loop.
+    // If output format changes, this needs to change too.
+    std::size_t ivec = 0;
+    for (int n6 = 0; n6 < arrdims[5]; ++n6) {
+      for (int n5 = 0; n5 < arrdims[4]; ++n5) {
+        for (int n4 = 0; n4 < arrdims[3]; ++n4) {
+          for (int n3 = 0; n3 < arrdims[2]; ++n3) {
+            for (int n2 = 0; n2 < arrdims[1]; ++n2) {
+              for (auto &pmb : block_list) {
+                // 1 deep copy per tensor component per swarmvar per
+                // block, unfortunately. But only at initialization.
+                auto swarm_container = pmb->meshblock_data.Get()->GetSwarmData();
+                auto pswarm_blk = swarm_container->Get(swarmname);
+                auto v = Kokkos::subview(pswarm_blk->Get<T>(varname).data, n6, n5, n4, n3,
+                                         n2, Kokkos::ALL());
+                auto v_h = Kokkos::create_mirror_view(v);
+                for (int n1 = 0; n1 < pswarm_blk->GetNumActive(); ++n1) {
+                  v_h(n1) = dataVec[ivec++];
+                }
+                Kokkos::deep_copy(v, v_h);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
 
 } // namespace parthenon
 #endif // OUTPUTS_RESTART_HPP_

@@ -204,6 +204,14 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   SetupMPIComms();
 
+  if constexpr (!std::is_same_v<Coordinates_t, UniformCartesian>) {
+    if (!resolved_packages->AllSwarms().empty()) {
+      PARTHENON_WARN("Parthenon swarm infrastructure assumes a uniform mesh in native "
+                     "x1/x2/x3 coordinates. Curvilinear swarm support remains mostly "
+                     "untested.");
+    }
+  }
+
   PARTHENON_REQUIRE(minimum_number_of_teams_for_boundary_kernel > 0,
                     "parthenon/mesh/minimum_number_of_teams_for_boundary_kernel "
                     "must be positive.");

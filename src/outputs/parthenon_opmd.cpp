@@ -3,7 +3,7 @@
 // Copyright(C) 2024-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,6 +16,8 @@
 //========================================================================================
 //! \file parthenon_openpmd.cpp
 //  \brief Output for OpenPMD https://www.openpmd.org/ (supporting various backends)
+// This file was made in part with generative AI.
+
 // This file was made in part with generative AI.
 
 #include <algorithm>
@@ -206,19 +208,29 @@ GetParticleRecordAndComponentNames(const std::string &vname, const int rank,
   std::string particle_record;
   std::string particle_record_component;
 
-  // special sauce to align "positions" with standard
-  if (vname == swarm_position::x::name()) {
+  // Map swarm positions to OpenPMD standard "position" record with x1/x2/x3 components
+  if (vname == swarm_position::x1::name()) {
     particle_record = "position";
-    particle_record_component = "x";
-  } else if (vname == swarm_position::y::name()) {
+    particle_record_component = "x1";
+  } else if (vname == swarm_position::x2::name()) {
     particle_record = "position";
-    particle_record_component = "y";
-  } else if (vname == swarm_position::z::name()) {
+    particle_record_component = "x2";
+  } else if (vname == swarm_position::x3::name()) {
     particle_record = "position";
-    particle_record_component = "z";
+    particle_record_component = "x3";
   } else if (vname == swarm_position::id::name()) {
     particle_record = "id";
     particle_record_component = openPMD::MeshRecordComponent::SCALAR;
+    // Backwards compatibility: support old position names (swarm.x/y/z -> position/x,y,z)
+  } else if (vname == "swarm.x") {
+    particle_record = "position";
+    particle_record_component = "x";
+  } else if (vname == "swarm.y") {
+    particle_record = "position";
+    particle_record_component = "y";
+  } else if (vname == "swarm.z") {
+    particle_record = "position";
+    particle_record_component = "z";
   } else {
     particle_record = vname;
     particle_record_component =

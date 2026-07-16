@@ -3,7 +3,7 @@
 # Copyright(C) 2021 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
-# (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2021-2026. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,8 @@
 # license in this material to reproduce, prepare derivative works, distribute copies to
 # the public, perform publicly and display publicly, and to permit others to do so.
 # ========================================================================================
+
+# This file was made in part with generative AI.
 
 # Modules
 import math
@@ -60,7 +62,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         data = phdf("particles.out0.final.phdf")
         swarm = data.GetSwarm("my_particles")
         inds = np.argsort(swarm.id)
-        final_data = np.vstack((swarm.x, swarm.y, swarm.z, swarm["v"]))
+        final_data = np.vstack((swarm.x1, swarm.x2, swarm.x3, swarm["v"]))
         final_data = final_data.transpose()[inds]
         final_data[np.abs(final_data) < 1e-12] = 0
         print(final_data)

@@ -5,6 +5,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1391]](https://github.com/parthenon-hpc-lab/parthenon/pull/1391) Towards Curvilinear Swarms
 - [[PR 1408]](https://github.com/parthenon-hpc-lab/parthenon/pull/1408) Add GetAsUnresolvedString() method to ParameterInput
 - [[PR 1050]](https://github.com/parthenon-hpc-lab/parthenon/pull/1050) Add support for OpenPMD/ADIOS2 output (incl slices and coarsened dumps)
 - [[PR 1271]](https://github.com/parthenon-hpc-lab/parthenon/pull/1271) Add option to set a minimum number of teams for boundary communication kernels
@@ -53,6 +54,7 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1391]](https://github.com/parthenon-hpc-lab/parthenon/pull/1391) Towards Curvilinear Swarms
 - [[PR 1385]](https://github.com/parthenon-hpc-lab/parthenon/pull/1385) ParameterInput internal storage refactor removes direct access to linked list (`pfirst_block`). Use `GetBlocksWithPrefix()` or `GetBlockNames()` instead.
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 - [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy

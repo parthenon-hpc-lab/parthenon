@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2025 The Parthenon collaboration
+// Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
 
 // options for building
 #include "config.hpp"
@@ -554,8 +556,8 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       HDF5WriteND(g_var, vname, host_data.data(), vinfo.tensor_rank + 1, local_offset,
                   local_count, global_count, pl_xfer, H5P_DEFAULT);
       if (output_params.write_swarm_xdmf &&
-          (vname == swarm_position::x::name() || vname == swarm_position::y::name() ||
-           vname == swarm_position::z::name())) {
+          (vname == swarm_position::x1::name() || vname == swarm_position::x2::name() ||
+           vname == swarm_position::x3::name())) {
         pos_tmp.insert(pos_tmp.end(), host_data.begin(), host_data.end());
       }
     }

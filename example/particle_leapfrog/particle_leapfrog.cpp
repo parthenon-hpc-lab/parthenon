@@ -183,9 +183,9 @@ void PostInitialization(MeshBlock *pmb, ParameterInput *pin) {
   auto new_particles_context = swarm->AddEmptyParticles(num_particles_this_block);
 
   auto &id = swarm->Get<std::uint64_t>(swarm_position::id::name()).Get();
-  auto &x = swarm->Get<Real>(swarm_position::x::name()).Get();
-  auto &y = swarm->Get<Real>(swarm_position::y::name()).Get();
-  auto &z = swarm->Get<Real>(swarm_position::z::name()).Get();
+  auto &x = swarm->Get<Real>(swarm_position::x1::name()).Get();
+  auto &y = swarm->Get<Real>(swarm_position::x2::name()).Get();
+  auto &z = swarm->Get<Real>(swarm_position::x3::name()).Get();
   auto &v = swarm->Get<Real>("v").Get();
   auto &vv = swarm->Get<Real>("vv").Get();
 
@@ -225,7 +225,7 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
   // NOTE(@pdmullen): the data type for Positions (Real) are automatically deduced from
   // the variable typing
   static auto desc_pos =
-      MakeSwarmPackDescriptor<swarm_position::x, swarm_position::y, swarm_position::z>(
+      MakeSwarmPackDescriptor<swarm_position::x1, swarm_position::x2, swarm_position::x3>(
           swarm_name);
   auto pack_pos = desc_pos.GetPack(md);
 
@@ -250,9 +250,9 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
         const auto swarm_d = pack_pos.GetContext(b);
         if (swarm_d.IsActive(n)) {
           // drift
-          pack_pos(b, swarm_position::x(), n) += pack_v(b, iv + 0, n) * 0.5 * dt;
-          pack_pos(b, swarm_position::y(), n) += pack_v(b, iv + 1, n) * 0.5 * dt;
-          pack_pos(b, swarm_position::z(), n) += pack_v(b, iv + 2, n) * 0.5 * dt;
+          pack_pos(b, swarm_position::x1(), n) += pack_v(b, iv + 0, n) * 0.5 * dt;
+          pack_pos(b, swarm_position::x2(), n) += pack_v(b, iv + 1, n) * 0.5 * dt;
+          pack_pos(b, swarm_position::x3(), n) += pack_v(b, iv + 2, n) * 0.5 * dt;
 
           // kick
           pack_v(b, iv + 0, n) += ax * dt;
@@ -260,9 +260,9 @@ TaskStatus TransportParticles(MeshData<Real> *md, const StagedIntegrator *integr
           pack_v(b, iv + 2, n) += az * dt;
 
           // drift
-          pack_pos(b, swarm_position::x(), n) += pack_v(b, iv + 0, n) * 0.5 * dt;
-          pack_pos(b, swarm_position::y(), n) += pack_v(b, iv + 1, n) * 0.5 * dt;
-          pack_pos(b, swarm_position::z(), n) += pack_v(b, iv + 2, n) * 0.5 * dt;
+          pack_pos(b, swarm_position::x1(), n) += pack_v(b, iv + 0, n) * 0.5 * dt;
+          pack_pos(b, swarm_position::x2(), n) += pack_v(b, iv + 1, n) * 0.5 * dt;
+          pack_pos(b, swarm_position::x3(), n) += pack_v(b, iv + 2, n) * 0.5 * dt;
 
           // id
           PARTHENON_REQUIRE(pack_id(b, swarm_position::id(), n) >= 0,

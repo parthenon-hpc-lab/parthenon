@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
+
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
@@ -53,18 +56,18 @@ SwarmDeviceContext Swarm::GetDeviceContext() const {
   context.ib_s_ = ib.s;
   context.jb_s_ = jb.s;
   context.kb_s_ = kb.s;
-  context.x_min_ = pmb->coords.Xf<1>(ib.s);
-  context.y_min_ = pmb->coords.Xf<2>(jb.s);
-  context.z_min_ = pmb->coords.Xf<3>(kb.s);
-  context.x_max_ = pmb->coords.Xf<1>(ib.e + 1);
-  context.y_max_ = pmb->coords.Xf<2>(jb.e + 1);
-  context.z_max_ = pmb->coords.Xf<3>(kb.e + 1);
-  context.x_min_global_ = mesh_size.xmin(X1DIR);
-  context.x_max_global_ = mesh_size.xmax(X1DIR);
-  context.y_min_global_ = mesh_size.xmin(X2DIR);
-  context.y_max_global_ = mesh_size.xmax(X2DIR);
-  context.z_min_global_ = mesh_size.xmin(X3DIR);
-  context.z_max_global_ = mesh_size.xmax(X3DIR);
+  context.x1_min_ = pmb->coords.Xf<1>(ib.s);
+  context.x2_min_ = pmb->coords.Xf<2>(jb.s);
+  context.x3_min_ = pmb->coords.Xf<3>(kb.s);
+  context.x1_max_ = pmb->coords.Xf<1>(ib.e + 1);
+  context.x2_max_ = pmb->coords.Xf<2>(jb.e + 1);
+  context.x3_max_ = pmb->coords.Xf<3>(kb.e + 1);
+  context.x1_min_global_ = mesh_size.xmin(X1DIR);
+  context.x1_max_global_ = mesh_size.xmax(X1DIR);
+  context.x2_min_global_ = mesh_size.xmin(X2DIR);
+  context.x2_max_global_ = mesh_size.xmax(X2DIR);
+  context.x3_min_global_ = mesh_size.xmin(X3DIR);
+  context.x3_max_global_ = mesh_size.xmax(X3DIR);
   context.ndim_ = pmb->pmy_mesh->ndim;
   context.my_rank_ = Globals::my_rank;
   context.coords_ = pmb->coords;
@@ -85,18 +88,15 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata,
       neighbor_received_particles_("neighbor_received_particles_", NMAX_NEIGHBORS),
       cell_sorted_("cell_sorted_", nmax_pool_),
       buffer_sorted_("buffer_sorted_", nmax_pool_), mpiStatus(true) {
-  PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
-                           "SwarmDeviceContext only supports a uniform Cartesian mesh!");
-
   uid_ = get_uid_(label_);
 
   // Add default swarm fields
   if (!metadata.IsSet(Metadata::NoPersistentParticleIds)) {
     Add(swarm_position::id::name(), Metadata({Metadata::UInt64}));
   }
-  Add(swarm_position::x::name(), Metadata({Metadata::Real}));
-  Add(swarm_position::y::name(), Metadata({Metadata::Real}));
-  Add(swarm_position::z::name(), Metadata({Metadata::Real}));
+  Add(swarm_position::x1::name(), Metadata({Metadata::Real}));
+  Add(swarm_position::x2::name(), Metadata({Metadata::Real}));
+  Add(swarm_position::x3::name(), Metadata({Metadata::Real}));
 
   // Initialize index metadata
   num_active_ = 0;
@@ -488,9 +488,9 @@ void Swarm::Defrag() {
 void Swarm::SortParticlesByCell() {
   auto pmb = GetBlockPointer();
 
-  auto &x = Get<Real>(swarm_position::x::name()).Get();
-  auto &y = Get<Real>(swarm_position::y::name()).Get();
-  auto &z = Get<Real>(swarm_position::z::name()).Get();
+  auto &x1 = Get<Real>(swarm_position::x1::name()).Get();
+  auto &x2 = Get<Real>(swarm_position::x2::name()).Get();
+  auto &x3 = Get<Real>(swarm_position::x3::name()).Get();
 
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
   const int nx2 = pmb->cellbounds.ncellsj(IndexDomain::entire);
@@ -516,7 +516,7 @@ void Swarm::SortParticlesByCell() {
   pmb->par_for(
       PARTHENON_AUTO_LABEL, 0, max_active_index_, KOKKOS_LAMBDA(const int n) {
         int i, j, k;
-        swarm_d.Xtoijk(x(n), y(n), z(n), i, j, k);
+        swarm_d.Xtoijk(x1(n), x2(n), x3(n), i, j, k);
         const int64_t cell_idx_1d = i + nx1 * (j + nx2 * k);
         cell_sorted(n) = SwarmKey(static_cast<int>(cell_idx_1d), n);
       });

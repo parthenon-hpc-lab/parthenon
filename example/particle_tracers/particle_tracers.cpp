@@ -284,7 +284,7 @@ void SourceTracers(MeshBlock *pmb, ParameterInput *pin) {
 
   // Create pack
   static auto desc =
-      MakeSwarmPackDescriptor<swarm_position::x, swarm_position::y, swarm_position::z>(
+      MakeSwarmPackDescriptor<swarm_position::x1, swarm_position::x2, swarm_position::x3>(
           swarm_name);
   auto pack = desc.GetPack(mbd.get());
 
@@ -296,9 +296,9 @@ void SourceTracers(MeshBlock *pmb, ParameterInput *pin) {
         auto rng_gen = rng_pool.get_state();
 
         // Extract particle position
-        Real &xx = pack(0, swarm_position::x(), n);
-        Real &yy = pack(0, swarm_position::y(), n);
-        Real &zz = pack(0, swarm_position::z(), n);
+        Real &xx = pack(0, swarm_position::x1(), n);
+        Real &yy = pack(0, swarm_position::x2(), n);
+        Real &zz = pack(0, swarm_position::x3(), n);
 
         // Rejection sample the x position
         Real val;
@@ -334,7 +334,7 @@ TaskStatus AdvectTracers(MeshData<Real> *md, const Real dt) {
 
   // Create pack
   static auto desc =
-      MakeSwarmPackDescriptor<swarm_position::x, swarm_position::y, swarm_position::z>(
+      MakeSwarmPackDescriptor<swarm_position::x1, swarm_position::x2, swarm_position::x3>(
           swarm_name);
   auto pack = desc.GetPack(md);
 
@@ -345,9 +345,9 @@ TaskStatus AdvectTracers(MeshData<Real> *md, const Real dt) {
         auto [b, n] = pack.GetBlockParticleIndices(idx);
         const auto &swarm_d = pack.GetContext(b);
         if (swarm_d.IsActive(n)) {
-          pack(b, swarm_position::x(), n) += vx * dt;
-          pack(b, swarm_position::y(), n) += vy * dt;
-          pack(b, swarm_position::z(), n) += vz * dt;
+          pack(b, swarm_position::x1(), n) += vx * dt;
+          pack(b, swarm_position::x2(), n) += vy * dt;
+          pack(b, swarm_position::x3(), n) += vz * dt;
         }
       });
 
@@ -366,7 +366,7 @@ TaskStatus DepositTracers(MeshData<Real> *md) {
   // Create packs
   static auto desc = MakePackDescriptor<field::deposition>(resolved_pkgs.get());
   static auto pdesc =
-      MakeSwarmPackDescriptor<swarm_position::x, swarm_position::y, swarm_position::z>(
+      MakeSwarmPackDescriptor<swarm_position::x1, swarm_position::x2, swarm_position::x3>(
           swarm_name);
   auto vmesh = desc.GetPack(md);
   auto vpart = pdesc.GetPack(md);
@@ -387,9 +387,9 @@ TaskStatus DepositTracers(MeshData<Real> *md) {
         const auto &swarm_d = vpart.GetContext(b);
         if (swarm_d.IsActive(n)) {
           int ip, jp, kp;
-          const Real &xx = vpart(b, swarm_position::x(), n);
-          const Real &yy = vpart(b, swarm_position::y(), n);
-          const Real &zz = vpart(b, swarm_position::z(), n);
+          const Real &xx = vpart(b, swarm_position::x1(), n);
+          const Real &yy = vpart(b, swarm_position::x2(), n);
+          const Real &zz = vpart(b, swarm_position::x3(), n);
           swarm_d.Xtoijk(xx, yy, zz, ip, jp, kp);
 
           // For testing in this example we make sure the indices are correct; these

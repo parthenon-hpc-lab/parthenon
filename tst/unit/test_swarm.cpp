@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -16,6 +16,8 @@
 // the public, perform publicly and display publicly, and to permit others to do
 // so.
 //========================================================================================
+
+// This file was made in part with generative AI.
 
 #include <cmath>
 #include <iostream>
@@ -131,22 +133,22 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
 
   swarm->AddEmptyParticles(1);
   swarm_d = swarm->GetDeviceContext();
-  auto x_d = swarm->Get<Real>(swarm_position::x::name()).Get();
-  auto x_h = x_d.GetHostMirrorAndCopy();
+  auto x1_d = swarm->Get<Real>(swarm_position::x1::name()).Get();
+  auto x1_h = x1_d.GetHostMirrorAndCopy();
   auto i_d = swarm->Get<int>("i").Get();
   auto i_h = i_d.GetHostMirrorAndCopy();
 
-  x_h(0) = 0.5;
+  x1_h(0) = 0.5;
   i_h(1) = 2;
 
-  x_d.DeepCopy(x_h);
+  x1_d.DeepCopy(x1_h);
   i_d.DeepCopy(i_h);
 
   swarm->AddEmptyParticles(11);
   swarm_d = swarm->GetDeviceContext();
-  x_d = swarm->Get<Real>(swarm_position::x::name()).Get();
+  x1_d = swarm->Get<Real>(swarm_position::x1::name()).Get();
   i_d = swarm->Get<int>("i").Get();
-  x_h = x_d.GetHostMirrorAndCopy();
+  x1_h = x1_d.GetHostMirrorAndCopy();
   i_h = i_d.GetHostMirrorAndCopy();
   meshblock->par_for(
       "Check mask", 0, 2 * NUMINIT - 1, KOKKOS_LAMBDA(const int n) {
@@ -163,8 +165,8 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
   failures_h = failures_d.GetHostMirrorAndCopy();
   REQUIRE(failures_h(0) == 0);
   // Check that existing data was successfully copied during pool resize
-  x_h = swarm->Get<Real>(swarm_position::x::name()).Get().GetHostMirrorAndCopy();
-  REQUIRE(x_h(0) == 0.5);
+  x1_h = swarm->Get<Real>(swarm_position::x1::name()).Get().GetHostMirrorAndCopy();
+  REQUIRE(x1_h(0) == 0.5);
 
   // Remove particles 3 and 5
   meshblock->par_for(
@@ -191,10 +193,10 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
   REQUIRE(failures_h(0) == 0);
 
   // Enter some data to be moved during defragment
-  x_h = swarm->Get<Real>(swarm_position::x::name()).Get().GetHostMirrorAndCopy();
-  x_h(10) = 1.1;
-  x_h(11) = 1.2;
-  x_d.DeepCopy(x_h);
+  x1_h = swarm->Get<Real>(swarm_position::x1::name()).Get().GetHostMirrorAndCopy();
+  x1_h(10) = 1.1;
+  x1_h(11) = 1.2;
+  x1_d.DeepCopy(x1_h);
 
   // Defragment the list
   swarm->Defrag();
@@ -218,9 +220,9 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
   swarm->Validate();
 
   // Check that data was moved during defrag
-  x_h = swarm->Get<Real>(swarm_position::x::name()).Get().GetHostMirrorAndCopy();
-  REQUIRE(x_h(2) == 1.1);
-  REQUIRE(x_h(4) == 1.2);
+  x1_h = swarm->Get<Real>(swarm_position::x1::name()).Get().GetHostMirrorAndCopy();
+  REQUIRE(x1_h(2) == 1.1);
+  REQUIRE(x1_h(4) == 1.2);
   i_h = swarm->Get<int>("i").Get().GetHostMirrorAndCopy();
   REQUIRE(i_h(1) == 2);
 
@@ -228,7 +230,7 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
   ParArray1D<int> bc_indices("Boundary indices", 1);
   meshblock->par_for(
       "Transport", 0, 0, KOKKOS_LAMBDA(const int n) {
-        x_d(0) = -0.6;
+        x1_d(0) = -0.6;
         bc_indices(0) = 0;
       });
 
