@@ -396,77 +396,43 @@ static_assert(!loop_abstraction::impl::HaloSatisfiesContract<unsorted_halo_t>())
 static_assert(!loop_abstraction::impl::HaloSatisfiesContract<duplicate_identity_halo_t>());
 static_assert(!loop_abstraction::impl::HaloSatisfiesContract<missing_identity_halo_t>());
 
-template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
-parthenon::HostArray5D<Real> RunAutoIndexBody(const ProblemSpec &spec, const int ninner,
-                                              const bool use_kokkos) {
-  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG>;
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG,
+          loop_backend BACKEND = default_loop_backend_v>
+parthenon::HostArray5D<Real> RunAutoIndexBody(const ProblemSpec &spec,
+                                              const int ninner) {
+  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG, BACKEND>;
   IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
   auto out = MakeOutput(idx_space);
   ZeroView(out);
 
-  if (use_kokkos) {
-    loop_abstraction::impl::outer_kokkos(
-        idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
-          for (int v = 0; v < kNVars; ++v) {
-            loop_abstraction::impl::inner_kokkos(
-                idx_range, KOKKOS_LAMBDA(auto idx) {
-                  if constexpr (std::is_same_v<std::decay_t<decltype(idx)>, int>) {
-                    const auto [k, j, i] = idx_range.GetKJI(idx);
-                    out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
-                  } else {
-                    const auto [k, j, i] = idx_range.GetKJI(idx);
-                    out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
-                  }
-                });
-          }
-        });
-  } else {
-    loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
-      for (int v = 0; v < kNVars; ++v) {
-        loop_abstraction::inner(idx_range, [&](auto idx) {
-          if constexpr (std::is_same_v<std::decay_t<decltype(idx)>, int>) {
-            const auto [k, j, i] = idx_range.GetKJI(idx);
-            out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
-          } else {
-            const auto [k, j, i] = idx_range.GetKJI(idx);
-            out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
-          }
-        });
-      }
-    });
-  }
+  loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
+    for (int v = 0; v < kNVars; ++v) {
+      loop_abstraction::inner(idx_range, [&](auto idx) {
+        const auto [k, j, i] = idx_range.GetKJI(idx);
+        out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
+      });
+    }
+  });
 
   Kokkos::fence();
   return MirrorToHost(out);
 }
 
-template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
-parthenon::HostArray5D<Real> RunKjiBody(const ProblemSpec &spec, const int ninner,
-                                        const bool use_kokkos) {
-  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG>;
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG,
+          loop_backend BACKEND = default_loop_backend_v>
+parthenon::HostArray5D<Real> RunKjiBody(const ProblemSpec &spec, const int ninner) {
+  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG, BACKEND>;
   IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
   auto out = MakeOutput(idx_space);
   ZeroView(out);
 
-  if (use_kokkos) {
-    loop_abstraction::impl::outer_kokkos(
-        idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
-          for (int v = 0; v < kNVars; ++v) {
-            loop_abstraction::impl::inner_kokkos(
-                idx_range, KOKKOS_LAMBDA(const int k, const int j, const int i) {
-                  out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
-                });
-          }
-        });
-  } else {
-    loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
-      for (int v = 0; v < kNVars; ++v) {
-        loop_abstraction::inner(idx_range, [&](const int k, const int j, const int i) {
-          out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
-        });
-      }
-    });
-  }
+  loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
+    for (int v = 0; v < kNVars; ++v) {
+      loop_abstraction::inner(idx_range, [&](const int k, const int j, const int i) {
+        out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
+      });
+    }
+  });
 
   Kokkos::fence();
   return MirrorToHost(out);
@@ -479,19 +445,25 @@ void RunContractCase(const ProblemSpec &spec, const int ninner, const char *body
   INFO("pattern=" << pattern_name << ", ninner=" << ninner << ", body=" << body_name);
 
   const auto default_out =
-      kji_body ? RunKjiBody<LOOP_TAG, INNER_TAG>(spec, ninner, false)
-               : RunAutoIndexBody<LOOP_TAG, INNER_TAG>(spec, ninner, false);
-  const auto kokkos_out = kji_body
-                              ? RunKjiBody<LOOP_TAG, INNER_TAG>(spec, ninner, true)
-                              : RunAutoIndexBody<LOOP_TAG, INNER_TAG>(spec, ninner, true);
-
-  CheckParity(default_out, kokkos_out,
-              PatternIndexSpace<LOOP_TAG, INNER_TAG>(spec.nblocks, spec.nx, spec.ny,
-                                                     spec.nz, spec.nghost, ninner));
+      kji_body ? RunKjiBody<LOOP_TAG, INNER_TAG>(spec, ninner)
+               : RunAutoIndexBody<LOOP_TAG, INNER_TAG>(spec, ninner);
 
   CheckLogicalContract(PatternIndexSpace<LOOP_TAG, INNER_TAG>(
                            spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner),
                        default_out);
+
+  // Raw-vs-Kokkos parity is only meaningful where the raw backend can run (host):
+  // on a device build the raw backend would drive host loops over device memory. So
+  // only cross-check the two backends when raw is the default.
+  if constexpr (default_loop_backend_v == loop_backend::raw) {
+    const auto kokkos_out =
+        kji_body
+            ? RunKjiBody<LOOP_TAG, INNER_TAG, loop_backend::kokkos>(spec, ninner)
+            : RunAutoIndexBody<LOOP_TAG, INNER_TAG, loop_backend::kokkos>(spec, ninner);
+    CheckParity(default_out, kokkos_out,
+                PatternIndexSpace<LOOP_TAG, INNER_TAG>(spec.nblocks, spec.nx, spec.ny,
+                                                       spec.nz, spec.nghost, ninner));
+  }
 }
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
