@@ -430,14 +430,7 @@ std::string ParameterInput::GetAsUnresolvedString(const std::string &block,
         << "Parameter name '" << name << "' not found in block '" << block << "'";
     PARTHENON_THROW(msg);
   }
-
-  // Prefer original string for determinism (matches ParameterDump behavior)
-  if (param->original_string.has_value()) {
-    return param->original_string.value().value;
-  }
-
-  // Fallback: convert typed value to string using existing infrastructure
-  return ParamValueToString(param->value);
+  return param->ToString();
 }
 
 //----------------------------------------------------------------------------------------
@@ -670,8 +663,8 @@ void ParameterInput::CheckDesired(const std::string &block, const std::string &n
   if (defaulted) {
     auto *param = FindParameter_(block, name);
     std::cout << std::endl
-              << "Defaulting to <" << block << ">/" << name << " = "
-              << ParamValueToString(param->value) << std::endl;
+              << "Defaulting to <" << block << ">/" << name << " = " << param->ToString()
+              << std::endl;
   }
 }
 
@@ -708,9 +701,7 @@ void ParameterInput::ParameterDump(std::ostream &os) {
     std::size_t max_len_name = 0;
     std::size_t max_len_value = 0;
     for (const auto &param : block.params) {
-      std::string value_str = param.original_string.has_value()
-                                  ? param.original_string.value().value
-                                  : ParamValueToString(param.value);
+      std::string value_str = param.ToString();
       max_len_name = std::max(max_len_name, param.name.length());
       max_len_value = std::max(max_len_value, value_str.length());
     }
@@ -718,9 +709,14 @@ void ParameterInput::ParameterDump(std::ostream &os) {
     // Output parameters with alignment
     for (const auto &param : block.params) {
       std::string param_name = param.name;
-      std::string param_value = param.original_string.has_value()
-                                    ? param.original_string.value().value
-                                    : ParamValueToString(param.value);
+      auto key = std::make_pair(block.name, param.name);
+      auto record_it = queries_.find(key);
+      std::string param_value = param.ToString();
+
+      if (record_it != queries_.end() && record_it->second.IsDefaultEmptyStringVec() &&
+          param_value.empty()) {
+        continue;
+      }
 
       std::size_t len = max_len_name - param_name.length() + 1;
       param_name.append(len, ' '); // pad name to align vertically
@@ -800,11 +796,14 @@ void ParameterInput::OutputParameterTable(std::ostream &os,
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn std::string ParameterInput::ParamValueToString()
+//! \fn std::string Param::ToString()
 //  \brief Convert a ParamValue variant to string for linked list output
 
-std::string ParameterInput::ParamValueToString(const ParamValue &value) {
+std::string Parameter::ToString() const {
   std::stringstream ss;
+  if (original_string.has_value()) {
+    return original_string.value().value;
+  }
 
   if (std::holds_alternative<UnresolvedString>(value)) {
     ss << std::get<UnresolvedString>(value).value;
