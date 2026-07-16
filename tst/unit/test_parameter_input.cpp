@@ -324,7 +324,7 @@ TEST_CASE("AddParsedParameter with typed scalar values", "[ParameterInput][Parse
 
     WHEN("We add typed scalar parameters via AddParsedParameter") {
       in.AddParsedParameter("block1", "int_val", 42);
-      in.AddParsedParameter("block1", "real_val", 3.14);
+      in.AddParsedParameter("block1", "real_val", static_cast<Real>(3.14));
       in.AddParsedParameter("block1", "bool_val", true);
       in.AddParsedParameter("block1", "string_val", std::string("hello"));
       in.FinalizeParsing();
@@ -426,7 +426,7 @@ TEST_CASE("Mixing LoadFromStream and AddParsedParameter", "[ParameterInput][Pars
 
     WHEN("We add additional parameters via AddParsedParameter") {
       in.AddParsedParameter("code_block", "code_param", 200);
-      in.AddParsedParameter("shared_block", "from_code", 3.14);
+      in.AddParsedParameter("shared_block", "from_code", static_cast<Real>(3.14));
       in.FinalizeParsing();
 
       THEN("Both file and code parameters are accessible") {

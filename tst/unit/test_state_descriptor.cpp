@@ -151,7 +151,7 @@ TEST_CASE("Test AddParamFromInput in StateDescriptor",
 
     StateDescriptor pkg("block1");
     WHEN("We set a param from ParameterInput") {
-      pkg.AddParamFromInput("var1", 2.5, &in1);
+      pkg.AddParamFromInput("var1", static_cast<Real>(2.5), &in1);
     }
   }
 }
