@@ -1,30 +1,26 @@
-#pragma once
+//========================================================================================
+// (C) (or copyright) 2024-2026. Triad National Security, LLC. All rights reserved.
+//
+// This program was produced under U.S. Government contract 89233218CNA000001 for Los
+// Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+// for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+// in the program are reserved by Triad National Security, LLC, and the U.S. Department
+// of Energy/National Nuclear Security Administration. The Government is granted for
+// itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+// license in this material to reproduce, prepare derivative works, distribute copies to
+// the public, perform publicly and display publicly, and to permit others to do so.
+//========================================================================================
+#ifndef LOOP_ABSTRACTION_LOOP_ABSTRACTION_PACK_VIEW_HPP_
+#define LOOP_ABSTRACTION_LOOP_ABSTRACTION_PACK_VIEW_HPP_
+
+// This file was made in part with generative AI.
 
 #include "pack/sparse_pack/sparse_pack.hpp"
 #include "utils/type_list.hpp"
 
 #include "loop_abstraction_base.hpp"
 
-namespace loop_abstraction {
-
-namespace impl {
-struct SumAllTypes {};
-
-template <class TL, std::size_t... Is>
-constexpr std::size_t SumSizesImpl(std::index_sequence<Is...>) {
-  return (std::size_t{0} + ... + TL::template type<Is>::size());
-}
-} // namespace impl
-
-template <class TL, class StopT = impl::SumAllTypes>
-constexpr std::size_t SumSizesBefore() {
-  if constexpr (std::is_same_v<StopT, impl::SumAllTypes>) {
-    return impl::SumSizesImpl<TL>(std::make_index_sequence<TL::n_types>{});
-  } else {
-    constexpr std::size_t stop_idx = TL::template GetIdx<StopT>();
-    return impl::SumSizesImpl<TL>(std::make_index_sequence<stop_idx>{});
-  }
-}
+namespace parthenon::loop_abstraction {
 
 template <class IndexSpaceType, class PackType, class... Ts>
 struct pack_view_t {
@@ -332,11 +328,10 @@ make_flux_pack_view_impl(const InnerIndexRange<IndexSpaceType> &idx_range,
             // Cache the flux base pointer only if this variable actually has a flux
             // array; a with_fluxes pack may contain non-WithFluxes variables whose
             // flux slot is empty (see note on flux_view_t).
-            const int vidx =
-                pack_in.GetLowerBound(idx_range.block, Ts()) + (v + sparse_offset);
-            const auto &fvar = pack_in.flux(idx_range.block, dir, vidx);
-            if (pack_in.GetSize(idx_range.block, Ts()) > 0 && fvar.size() > 0) {
-              out.data_[vstart + v] = fvar.data() + out.shift_;
+            if (pack_in.GetSize(idx_range.block, Ts()) > 0) {
+              const int vidx = pack_in.GetLowerBound(idx_range.block, Ts()) + (v + sparse_offset);
+              const auto &fvar = pack_in.flux(idx_range.block, dir, vidx);
+              out.data_[vstart + v] = fvar.size() > 0 ? fvar.data() + out.shift_ : nullptr;
             } else {
               out.data_[vstart + v] = nullptr;
             }
@@ -444,4 +439,6 @@ make_flux_view(const InnerIndexRange<IndexSpaceType> &idx_range, const PackType 
   }
 }
 
-} // namespace loop_abstraction
+} // namespace parthenon::loop_abstraction
+
+#endif // LOOP_ABSTRACTION_LOOP_ABSTRACTION_PACK_VIEW_HPP_

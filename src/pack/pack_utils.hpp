@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -12,6 +12,8 @@
 //========================================================================================
 #ifndef PACK_PACK_UTILS_HPP_
 #define PACK_PACK_UTILS_HPP_
+
+// This file was made in part with generative AI.
 
 #include <string>
 #include <tuple>
@@ -197,6 +199,26 @@ template <class T>
   requires(std::is_integral<T>::value)
 KOKKOS_INLINE_FUNCTION PackIdx operator+(T offset, PackIdx idx) {
   return idx + offset;
+}
+
+// Utilities for type indexing
+namespace impl {
+struct SumAllTypes {};
+
+template <class TL, std::size_t... Is>
+constexpr std::size_t SumSizesImpl(std::index_sequence<Is...>) {
+  return (std::size_t{0} + ... + TL::template type<Is>::size());
+}
+} // namespace impl
+
+template <class TL, class StopT = impl::SumAllTypes>
+constexpr std::size_t SumSizesBefore() {
+  if constexpr (std::is_same_v<StopT, impl::SumAllTypes>) {
+    return impl::SumSizesImpl<TL>(std::make_index_sequence<TL::n_types>{});
+  } else {
+    constexpr std::size_t stop_idx = TL::template GetIdx<StopT>();
+    return impl::SumSizesImpl<TL>(std::make_index_sequence<stop_idx>{});
+  }
 }
 
 } // namespace parthenon
