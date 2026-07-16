@@ -588,15 +588,9 @@ parthenon::HostArray5D<Real> RunHaloTouchBackend(const ProblemSpec &spec,
   auto touches = MakeOutput(idx_space);
   ZeroView(touches);
 
-  auto run_outer = [&](auto &&body) {
-    if constexpr (USE_KOKKOS) {
-      loop_abstraction::impl::outer_kokkos(idx_space, std::forward<decltype(body)>(body));
-    } else {
-      loop_abstraction::outer(idx_space, std::forward<decltype(body)>(body));
-    }
-  };
-
-  run_outer(KOKKOS_LAMBDA(const auto &idx_range, int b) {
+  // Backend is fixed by the IndexSpace template argument above; the public outer()
+  // dispatches accordingly.
+  loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
     const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
 
     for (int v = 0; v < kNVars; ++v) {
@@ -663,15 +657,9 @@ void RunHaloProducerSingleTouchCase(const ProblemSpec &spec, const int ninner) {
   auto touches = MakeOutput(idx_space);
   ZeroView(touches);
 
-  auto run_outer = [&](auto &&body) {
-    if constexpr (USE_KOKKOS) {
-      loop_abstraction::impl::outer_kokkos(idx_space, std::forward<decltype(body)>(body));
-    } else {
-      loop_abstraction::outer(idx_space, std::forward<decltype(body)>(body));
-    }
-  };
-
-  run_outer(KOKKOS_LAMBDA(const auto &idx_range, int b) {
+  // Backend is fixed by the IndexSpace template argument above; the public outer()
+  // dispatches accordingly.
+  loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
     const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
     for (int v = 0; v < kNVars; ++v) {
       loop_abstraction::inner(halo_range, [&](auto idx) {
@@ -1316,15 +1304,6 @@ void RunScratchHaloPatternMatrix() {
   for (const auto &spec : CoverageSpecs()) {
     for (const int ninner : NinnerCases(spec.nx * spec.ny * spec.nz)) {
       RunScratchHaloCase<HaloType, LOOP_TAG, INNER_TAG, BACKEND>(spec, ninner);
-    }
-  }
-}
-
-template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG>
-void RunScratchHaloPatternMatrixKokkos() {
-  for (const auto &spec : CoverageSpecs()) {
-    for (const int ninner : NinnerCases(spec.nx * spec.ny * spec.nz)) {
-      RunScratchHaloCaseKokkos<HaloType, LOOP_TAG, INNER_TAG>(spec, ninner);
     }
   }
 }
