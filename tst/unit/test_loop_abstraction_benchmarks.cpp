@@ -6,7 +6,6 @@
 
 #include <algorithm>
 #include <array>
-#include <optional>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -46,9 +45,6 @@ using parthenon::MeshBlock;
 using parthenon::MeshData;
 using parthenon::Metadata;
 using parthenon::StateDescriptor;
-using parthenon::loop_pattern_mdrange_tag;
-using parthenon::par_for;
-using parthenon::par_reduce;
 
 constexpr int kNVars = 3;
 
@@ -1493,6 +1489,10 @@ void RunBoivScratchMixedDeltaCase(const ProblemSpec &spec) {
 
 } // namespace
 
+// The TEST_CASEs below enumerate every valid (loop_tag, inner_tag) pair. The
+// boiv/memory combination is intentionally absent throughout: it is rejected at
+// compile time by a static_assert in IndexSpace (boiv walks one logical cell at a
+// time, so a contiguous memory-span inner traversal is not a meaningful contract).
 TEST_CASE("loop abstraction logical contracts with auto index bodies",
           "[loop_abstraction][contract]") {
   RunPatternMatrix<loop_tag::bvoi, inner_tag::logical_flat>("auto", false);
