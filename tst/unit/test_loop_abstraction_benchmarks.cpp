@@ -421,7 +421,7 @@ parthenon::HostArray5D<Real> RunAutoIndexBody(const ProblemSpec &spec, const int
           }
         });
   } else {
-    loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
+    loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
       for (int v = 0; v < kNVars; ++v) {
         loop_abstraction::inner(idx_range, [&](auto idx) {
           if constexpr (std::is_same_v<std::decay_t<decltype(idx)>, int>) {
@@ -459,7 +459,7 @@ parthenon::HostArray5D<Real> RunKjiBody(const ProblemSpec &spec, const int ninne
           }
         });
   } else {
-    loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
+    loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
       for (int v = 0; v < kNVars; ++v) {
         loop_abstraction::inner(idx_range, [&](const int k, const int j, const int i) {
           out(b, v, k, j, i) += EncodeValue(b, v, k, j, i);
@@ -523,7 +523,7 @@ void RunHaloContractCase(const ProblemSpec &spec, const int ninner) {
 
   // Validate the halo span structure for the k-directed case
   // when the current base chunk is less than ni * nj.
-  loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
+  loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
     const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
 
     if constexpr (std::is_same_v<HaloType, k_triplet_halo_t> &&
@@ -624,7 +624,7 @@ parthenon::HostArray5D<Real> RunHaloTouchBackend(const ProblemSpec &spec,
     }
   };
 
-  run_outer([&](const auto &idx_range, int b) {
+  run_outer(KOKKOS_LAMBDA(const auto &idx_range, int b) {
     const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
 
     for (int v = 0; v < kNVars; ++v) {
@@ -699,7 +699,7 @@ void RunHaloProducerSingleTouchCase(const ProblemSpec &spec, const int ninner) {
     }
   };
 
-  run_outer([&](const auto &idx_range, int b) {
+  run_outer(KOKKOS_LAMBDA(const auto &idx_range, int b) {
     const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
     for (int v = 0; v < kNVars; ++v) {
       loop_abstraction::inner(halo_range, [&](auto idx) {
@@ -1182,7 +1182,7 @@ void RunScratchCase(const ProblemSpec &spec, const int ninner) {
 
   MismatchCounter wrong;
 
-  loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
+  loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
     auto scratch_a = loop_abstraction::GetPerPointScratch<Real>(idx_range);
     auto scratch_b = loop_abstraction::GetPerPointScratch<Real>(idx_range);
     auto scratch_c = loop_abstraction::GetPerPointScratch<Real>(idx_range);
@@ -1230,7 +1230,7 @@ void RunScratchZeroCase(const ProblemSpec &spec, const int ninner) {
 
   MismatchCounter wrong;
 
-  loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
+  loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
     auto scratch = loop_abstraction::GetPerPointScratch<Real>(idx_range);
 
     for (int pass = 0; pass < 2; ++pass) {
@@ -1280,7 +1280,7 @@ void RunScratchZeroCaseKokkos(const ProblemSpec &spec, const int ninner) {
 
   MismatchCounter wrong;
 
-  loop_abstraction::impl::outer_kokkos(idx_space, [&](const auto &idx_range, int b) {
+  loop_abstraction::impl::outer_kokkos(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
     auto scratch = loop_abstraction::GetPerPointScratch<Real>(idx_range);
 
     for (int pass = 0; pass < 2; ++pass) {
@@ -1331,7 +1331,7 @@ void RunScratchCaseKokkos(const ProblemSpec &spec, const int ninner) {
 
   MismatchCounter wrong;
 
-  loop_abstraction::impl::outer_kokkos(idx_space, [&](const auto &idx_range, int b) {
+  loop_abstraction::impl::outer_kokkos(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
     auto scratch_a = loop_abstraction::GetPerPointScratch<Real>(idx_range);
     auto scratch_b = loop_abstraction::GetPerPointScratch<Real>(idx_range);
     auto scratch_c = loop_abstraction::GetPerPointScratch<Real>(idx_range);
@@ -1402,7 +1402,7 @@ void RunScratchHaloCase(const ProblemSpec &spec, const int ninner) {
 
   MismatchCounter wrong;
 
-  loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
+  loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
     const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
     auto scratch = loop_abstraction::GetPerPointScratch<Real>(halo_range);
 
@@ -1456,7 +1456,7 @@ void RunScratchHaloCaseKokkos(const ProblemSpec &spec, const int ninner) {
 
   MismatchCounter wrong;
 
-  loop_abstraction::impl::outer_kokkos(idx_space, [&](const auto &idx_range, int b) {
+  loop_abstraction::impl::outer_kokkos(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
     const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
     auto scratch = loop_abstraction::GetPerPointScratch<Real>(halo_range);
 
@@ -1514,7 +1514,7 @@ void RunBoivScratchDeltaCase(const ProblemSpec &spec) {
 
   MismatchCounter wrong;
 
-  loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
+  loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
     const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
     auto scratch = loop_abstraction::GetPerPointScratch<Real>(halo_range);
 
@@ -1559,7 +1559,7 @@ void RunShapedScratchCase(const ProblemSpec &spec, const int ninner) {
 
   MismatchCounter wrong;
 
-  loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
+  loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
     auto scratch = loop_abstraction::GetPerPointScratch<Real, 2, 3>(idx_range);
 
     loop_abstraction::inner(idx_range, [&](auto idx) {
@@ -1613,7 +1613,7 @@ void RunShapedScratchHaloCase(const ProblemSpec &spec, const int ninner) {
 
   MismatchCounter wrong;
 
-  loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
+  loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
     const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
     auto scratch = loop_abstraction::GetPerPointScratch<Real, 2, 3>(halo_range);
 
@@ -1664,7 +1664,7 @@ void RunBoivScratchMixedDeltaCase(const ProblemSpec &spec) {
 
   MismatchCounter wrong;
 
-  loop_abstraction::outer(idx_space, [&](const auto &idx_range, int b) {
+  loop_abstraction::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
     const auto halo_range =
         loop_abstraction::AddHalo<plus_two_i_minus_k_halo_t>(idx_range);
     auto scratch = loop_abstraction::GetPerPointScratch<Real>(halo_range);
