@@ -29,6 +29,7 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 1412]](https://github.com/parthenon-hpc-lab/parthenon/pull/1412) Fix single precision compilation with `Real=float`
+- [[PR 1411]](https://github.com/parthenon-hpc-lab/parthenon/pull/1411) Fix bug where ParameterInput::GetOrAddVector<std::string> was ambiguous
 - [[PR 1406]](https://github.com/parthenon-hpc-lab/parthenon/pull/1406) Fix deadlock in parallel outputs after ParameterInput refactor
 - [[PR 1405]](https://github.com/parthenon-hpc-lab/parthenon/pull/1405) Fixes race condition in flux correction communication when sparse variables are disabled
 - [[PR 1339]](https://github.com/parthenon-hpc-lab/parthenon/pull/1339) Fixes doc for `numlevel` usage in non-AMR sims
