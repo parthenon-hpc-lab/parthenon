@@ -1139,14 +1139,15 @@ void RunPackViewPatternMatrix() {
   RunPackViewPatternMatrix<LOOP_TAG, INNER_TAG>("kji", true);
 }
 
-template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG,
+          loop_backend BACKEND = default_loop_backend_v>
 void RunScratchCase(const ProblemSpec &spec, const int ninner) {
   const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
   INFO("pattern=" << pattern_name << ", spec=" << spec.nblocks << "x" << spec.nx
                   << "x" << spec.ny << "x" << spec.nz << " nghost=" << spec.nghost
                   << ", ninner=" << ninner);
 
-  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG>;
+  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG, BACKEND>;
   IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
   idx_space.template AddPerPointScratch<Real>();
   idx_space.template AddPerPointScratch<Real>();
@@ -1288,67 +1289,12 @@ void RunScratchZeroPatternMatrixKokkos() {
   }
 }
 
-template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
-void RunScratchCaseKokkos(const ProblemSpec &spec, const int ninner) {
-  const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
-  INFO("pattern=" << pattern_name << ", spec=" << spec.nblocks << "x" << spec.nx
-                  << "x" << spec.ny << "x" << spec.nz << " nghost=" << spec.nghost
-                  << ", ninner=" << ninner << ", backend=kokkos");
-
-  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG>;
-  IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
-  idx_space.template AddPerPointScratch<Real>();
-  idx_space.template AddPerPointScratch<Real>();
-  idx_space.template AddPerPointScratch<Real>();
-
-  MismatchCounter wrong;
-
-  loop_abstraction::impl::outer_kokkos(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
-    auto scratch_a = loop_abstraction::GetPerPointScratch<Real>(idx_range);
-    auto scratch_b = loop_abstraction::GetPerPointScratch<Real>(idx_range);
-    auto scratch_c = loop_abstraction::GetPerPointScratch<Real>(idx_range);
-
-    loop_abstraction::impl::inner_kokkos(idx_range, [&](auto idx) {
-      scratch_a(idx) = 0.0;
-      scratch_b(idx) = 0.0;
-      scratch_c(idx) = 0.0;
-    });
-
-    for (int v = 0; v < kNVars; ++v) {
-      loop_abstraction::impl::inner_kokkos(idx_range, [&](auto idx) {
-        const auto [k, j, i] = idx_range.GetKJI(idx);
-        scratch_a(idx) += EncodeValue(b, v, k, j, i);
-        scratch_b(idx) += EncodeValue(b, v, k, j, i);
-        scratch_c(idx) += EncodeValue(b, v, k, j, i);
-      });
-    }
-
-    loop_abstraction::impl::inner_kokkos(idx_range, [&](auto idx) {
-      const auto [k, j, i] = idx_range.GetKJI(idx);
-      const Real expected = ScratchExpectedValue(b, k, j, i);
-      wrong.note(NotApprox(scratch_a(idx), expected));
-      wrong.note(NotApprox(scratch_b(idx), expected));
-      wrong.note(NotApprox(scratch_c(idx), expected));
-    });
-  });
-
-  REQUIRE(wrong.total() == 0);
-}
-
-template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG,
+          loop_backend BACKEND = default_loop_backend_v>
 void RunScratchPatternMatrix() {
   for (const auto &spec : CoverageSpecs()) {
     for (const int ninner : NinnerCases(spec.nx * spec.ny * spec.nz)) {
-      RunScratchCase<LOOP_TAG, INNER_TAG>(spec, ninner);
-    }
-  }
-}
-
-template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
-void RunScratchPatternMatrixKokkos() {
-  for (const auto &spec : CoverageSpecs()) {
-    for (const int ninner : NinnerCases(spec.nx * spec.ny * spec.nz)) {
-      RunScratchCaseKokkos<LOOP_TAG, INNER_TAG>(spec, ninner);
+      RunScratchCase<LOOP_TAG, INNER_TAG, BACKEND>(spec, ninner);
     }
   }
 }
@@ -1720,14 +1666,20 @@ TEST_CASE("loop abstraction scratch Zero kokkos",
 
 TEST_CASE("loop abstraction scratch roundtrip kokkos",
           "[loop_abstraction][contract][scratch]") {
-  RunScratchPatternMatrixKokkos<loop_tag::bvoi, inner_tag::logical_flat>();
-  RunScratchPatternMatrixKokkos<loop_tag::bvoi, inner_tag::logical_coords>();
-  RunScratchPatternMatrixKokkos<loop_tag::bvoi, inner_tag::memory>();
-  RunScratchPatternMatrixKokkos<loop_tag::bovi, inner_tag::logical_flat>();
-  RunScratchPatternMatrixKokkos<loop_tag::bovi, inner_tag::logical_coords>();
-  RunScratchPatternMatrixKokkos<loop_tag::bovi, inner_tag::memory>();
-  RunScratchPatternMatrixKokkos<loop_tag::boiv, inner_tag::logical_flat>();
-  RunScratchPatternMatrixKokkos<loop_tag::boiv, inner_tag::logical_coords>();
+  RunScratchPatternMatrix<loop_tag::bvoi, inner_tag::logical_flat,
+                          loop_backend::kokkos>();
+  RunScratchPatternMatrix<loop_tag::bvoi, inner_tag::logical_coords,
+                          loop_backend::kokkos>();
+  RunScratchPatternMatrix<loop_tag::bvoi, inner_tag::memory, loop_backend::kokkos>();
+  RunScratchPatternMatrix<loop_tag::bovi, inner_tag::logical_flat,
+                          loop_backend::kokkos>();
+  RunScratchPatternMatrix<loop_tag::bovi, inner_tag::logical_coords,
+                          loop_backend::kokkos>();
+  RunScratchPatternMatrix<loop_tag::bovi, inner_tag::memory, loop_backend::kokkos>();
+  RunScratchPatternMatrix<loop_tag::boiv, inner_tag::logical_flat,
+                          loop_backend::kokkos>();
+  RunScratchPatternMatrix<loop_tag::boiv, inner_tag::logical_coords,
+                          loop_backend::kokkos>();
 }
 
 TEST_CASE("loop abstraction scratch halo roundtrip",
