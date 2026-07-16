@@ -1,6 +1,6 @@
 # Loop Abstraction Contracts
 
-This document describes the current loop-abstraction paths in `benchmarks/loop_benchmarks_v2` and the contracts they are intended to satisfy.
+This document describes the current loop-abstraction paths in `src/loop_abstraction` and the contracts they are intended to satisfy.
 
 The goal is to keep the semantic choices explicit before changing the implementation again.
 
