@@ -159,8 +159,8 @@ KOKKOS_INLINE_FUNCTION Real PackViewExpectedValue(const int b, const int v, cons
          static_cast<Real>(i);
 }
 
-template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
-void RunAbstractionLoop(auto pkg, MeshData<Real> &md, int ninner, bool kji_body) {
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG, class Pkg>
+void RunAbstractionLoop(Pkg pkg, MeshData<Real> &md, int ninner, bool kji_body) {
   auto desc = parthenon::MakePackDescriptor<v1, v2, v5>(pkg.get());
   auto sparse_pack = desc.GetPack(&md);
   using IndexSpaceType = IndexSpace<LOOP_TAG, INNER_TAG>;
