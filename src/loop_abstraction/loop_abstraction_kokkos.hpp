@@ -24,14 +24,15 @@ void outer_kokkos(IndexSpaceType idx_space, F &&f) {
   using InnerIndexRangeType = InnerIndexRange<IndexSpaceType>;
   const std::size_t scratch_size_in_bytes = idx_space.GetPerTeamScratchSizeInBytes();
   if constexpr (IndexSpaceType::loop_tag_v == loop_tag::boiv) {
-    const int cells_per_block = static_cast<int>(idx_space.GetLogicalIndexer().size());
-    const int total = idx_space.GetNBlocks() * cells_per_block;
+    const std::int64_t cells_per_block =
+        static_cast<std::int64_t>(idx_space.GetLogicalIndexer().size());
+    const std::int64_t total = idx_space.GetNBlocks() * cells_per_block;
     Kokkos::parallel_for(
         "loop_abstraction::outer_kokkos_boiv",
         Kokkos::RangePolicy<parthenon::DevExecSpace>(0, total),
-        KOKKOS_LAMBDA(const int flat) {
-          const int b = flat / cells_per_block;
-          const int local = flat % cells_per_block;
+        KOKKOS_LAMBDA(const std::int64_t flat) {
+          const int b = static_cast<int>(flat / cells_per_block);
+          const int local = static_cast<int>(flat % cells_per_block);
           const auto [k, j, i] = idx_space.GetLogicalIndexer()(local);
           InnerIndexRangeType idx_range;
           idx_range.pidx_space = &idx_space;

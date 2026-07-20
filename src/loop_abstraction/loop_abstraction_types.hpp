@@ -25,9 +25,8 @@
 #include <algorithm>
 #include <array>
 #include <concepts>
+#include <cstdint>
 #include <optional>
-#include <typeindex>
-#include <unordered_map>
 #include <tuple>
 #include <type_traits>
 #include <utility>

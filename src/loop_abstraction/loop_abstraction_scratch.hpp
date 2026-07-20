@@ -26,8 +26,6 @@
 #include <array>
 #include <concepts>
 #include <optional>
-#include <typeindex>
-#include <unordered_map>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -115,7 +113,7 @@ struct ctime_flat_indexer {
   }
 };
 
-template <class T, class IndexRange, std::size_t... Dims>
+template <class IndexRange, class T, std::size_t... Dims>
 struct StackScratch1D {
   using halo_t = typename IndexRange::halo_t;
   using box_t = HaloBox<halo_t>;
@@ -309,7 +307,7 @@ template <class T, std::size_t... Dims, class IndexRange>
 KOKKOS_INLINE_FUNCTION
 auto GetPerPointScratch(const IndexRange &idx_range) {
   if constexpr (IndexRange::index_space_t::loop_tag_v == loop_tag::boiv) {
-    return StackScratch1D<T, IndexRange, Dims...>(idx_range);
+    return StackScratch1D<IndexRange, T, Dims...>(idx_range);
   } else if constexpr (IndexRange::index_space_t::backend_v == loop_backend::raw) {
     return HostScratch1D<IndexRange, T, Dims...>(idx_range);
   } else if constexpr (IndexRange::index_space_t::backend_v == loop_backend::kokkos) {
