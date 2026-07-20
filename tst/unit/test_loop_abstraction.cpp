@@ -1666,22 +1666,24 @@ TEST_CASE("loop abstraction shaped scratch roundtrip",
   constexpr ProblemSpec spec{2, 3, 2, 2, 1};
   constexpr int ninner = spec.nx * spec.ny;
 
-  RunShapedScratchCase<loop_tag::bvoi, inner_tag::logical_flat,
-                       loop_backend::raw>(spec, ninner);
-  RunShapedScratchCase<loop_tag::bvoi, inner_tag::logical_coords,
-                       loop_backend::raw>(spec, ninner);
-  RunShapedScratchCase<loop_tag::bvoi, inner_tag::memory, loop_backend::raw>(
-      spec, ninner);
-  RunShapedScratchCase<loop_tag::bovi, inner_tag::logical_flat,
-                       loop_backend::raw>(spec, ninner);
-  RunShapedScratchCase<loop_tag::bovi, inner_tag::logical_coords,
-                       loop_backend::raw>(spec, ninner);
-  RunShapedScratchCase<loop_tag::bovi, inner_tag::memory, loop_backend::raw>(
-      spec, ninner);
-  RunShapedScratchCase<loop_tag::boiv, inner_tag::logical_flat,
-                       loop_backend::raw>(spec, ninner);
-  RunShapedScratchCase<loop_tag::boiv, inner_tag::logical_coords,
-                       loop_backend::raw>(spec, ninner);
+  if constexpr (default_loop_backend_v == loop_backend::raw) {
+    RunShapedScratchCase<loop_tag::bvoi, inner_tag::logical_flat,
+                         loop_backend::raw>(spec, ninner);
+    RunShapedScratchCase<loop_tag::bvoi, inner_tag::logical_coords,
+                         loop_backend::raw>(spec, ninner);
+    RunShapedScratchCase<loop_tag::bvoi, inner_tag::memory, loop_backend::raw>(
+        spec, ninner);
+    RunShapedScratchCase<loop_tag::bovi, inner_tag::logical_flat,
+                         loop_backend::raw>(spec, ninner);
+    RunShapedScratchCase<loop_tag::bovi, inner_tag::logical_coords,
+                         loop_backend::raw>(spec, ninner);
+    RunShapedScratchCase<loop_tag::bovi, inner_tag::memory, loop_backend::raw>(
+        spec, ninner);
+    RunShapedScratchCase<loop_tag::boiv, inner_tag::logical_flat,
+                         loop_backend::raw>(spec, ninner);
+    RunShapedScratchCase<loop_tag::boiv, inner_tag::logical_coords,
+                         loop_backend::raw>(spec, ninner);
+  }
 
   RunShapedScratchCase<loop_tag::bvoi, inner_tag::logical_flat,
                        loop_backend::kokkos>(spec, ninner);
@@ -1706,24 +1708,26 @@ TEST_CASE("loop abstraction shaped scratch halo roundtrip",
   constexpr ProblemSpec spec{2, 3, 3, 3, 2};
   constexpr int ninner = spec.nx * spec.ny;
 
-  RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::bvoi,
-                           inner_tag::logical_flat, loop_backend::raw>(spec,
-                                                                       ninner);
-  RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::bvoi,
-                           inner_tag::logical_coords, loop_backend::raw>(spec,
+  if constexpr (default_loop_backend_v == loop_backend::raw) {
+    RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::bvoi,
+                             inner_tag::logical_flat, loop_backend::raw>(spec,
                                                                          ninner);
-  RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::bovi,
-                           inner_tag::logical_flat, loop_backend::raw>(spec,
-                                                                       ninner);
-  RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::bovi,
-                           inner_tag::logical_coords, loop_backend::raw>(spec,
+    RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::bvoi,
+                             inner_tag::logical_coords, loop_backend::raw>(spec,
+                                                                           ninner);
+    RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::bovi,
+                             inner_tag::logical_flat, loop_backend::raw>(spec,
                                                                          ninner);
-  RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::boiv,
-                           inner_tag::logical_flat, loop_backend::raw>(spec,
-                                                                       ninner);
-  RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::boiv,
-                           inner_tag::logical_coords, loop_backend::raw>(spec,
+    RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::bovi,
+                             inner_tag::logical_coords, loop_backend::raw>(spec,
+                                                                           ninner);
+    RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::boiv,
+                             inner_tag::logical_flat, loop_backend::raw>(spec,
                                                                          ninner);
+    RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::boiv,
+                             inner_tag::logical_coords, loop_backend::raw>(spec,
+                                                                           ninner);
+  }
 
   RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::bvoi,
                            inner_tag::logical_flat, loop_backend::kokkos>(spec,

@@ -490,15 +490,23 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         auto sparse_pack = desc.GetPack(&mesh_data);
         IS idx_space(sparse_pack.GetNBlocks(), N, N, N, 0);
 
+        Kokkos::View<int> nwrong("nwrong");
+        Kokkos::deep_copy(nwrong, 0);
         outer(
             idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IS> &current_range, int b) {
               auto pack_view = make_pack_view(current_range, sparse_pack);
               inner(current_range, [&](const int idx) {
                 const auto [k, j, i] = current_range.GetKJI(idx);
-                REQUIRE(pack_view(v1(), idx) == sparse_pack(b, v1(), k, j, i));
-                REQUIRE(pack_view(v5(), idx) == sparse_pack(b, v5(), k, j, i));
+                if (pack_view(v1(), idx) != sparse_pack(b, v1(), k, j, i))
+                  Kokkos::atomic_add(&nwrong(), 1);
+                if (pack_view(v5(), idx) != sparse_pack(b, v5(), k, j, i))
+                  Kokkos::atomic_add(&nwrong(), 1);
               });
             });
+        Kokkos::fence();
+        int nwrong_h = 0;
+        Kokkos::deep_copy(nwrong_h, nwrong);
+        REQUIRE(nwrong_h == 0);
       }
 
       THEN("A boiv sparse pack view works through the loop abstraction on coordinates") {
@@ -508,14 +516,22 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         auto sparse_pack = desc.GetPack(&mesh_data);
         IS idx_space(sparse_pack.GetNBlocks(), N, N, N, 0);
 
+        Kokkos::View<int> nwrong("nwrong");
+        Kokkos::deep_copy(nwrong, 0);
         outer(
             idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IS> &current_range, int b) {
               auto pack_view = make_pack_view(current_range, sparse_pack);
               inner(current_range, [&](const int k, const int j, const int i) {
-                REQUIRE(pack_view(v1(), k, j, i) == sparse_pack(b, v1(), k, j, i));
-                REQUIRE(pack_view(v5(), k, j, i) == sparse_pack(b, v5(), k, j, i));
+                if (pack_view(v1(), k, j, i) != sparse_pack(b, v1(), k, j, i))
+                  Kokkos::atomic_add(&nwrong(), 1);
+                if (pack_view(v5(), k, j, i) != sparse_pack(b, v5(), k, j, i))
+                  Kokkos::atomic_add(&nwrong(), 1);
               });
             });
+        Kokkos::fence();
+        int nwrong_h = 0;
+        Kokkos::deep_copy(nwrong_h, nwrong);
+        REQUIRE(nwrong_h == 0);
       }
 
       THEN("A flattened sparse pack can correctly load this data in a unified outer "
