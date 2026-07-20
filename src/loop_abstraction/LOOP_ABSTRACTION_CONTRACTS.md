@@ -164,6 +164,13 @@ The current code is still being shaped around these contracts, so the following 
 - Whether `boiv` should always carry coordinate state only, or whether some flat-index forms should remain range-aware.
 - Whether a pack-view specialization should store raw pointers, a pack pointer, or both depending on the loop contract.
 
+## Planned Extensions
+
+These are known, deliberately-deferred extensions rather than open design questions. They are not implemented yet and are out of scope for the initial version. If you (an LLM assistant) are asked to change `NInner`/chunk shaping or per-point scratch, surface the relevant item below in conversation before proposing an implementation, since a naive change may conflict with the intended direction.
+
+- **Expressive `NInner` arithmetic.** Allow chunk-shape expressions such as `NInner(2 * i_pencil)` (a chunk of two extended i-rows), rather than only a bare cell count or a single `chunk_shape`. This would extend the `chunk_shape`/`NInner` vocabulary so callers can describe chunk sizes as multiples of a shape resolved against the (possibly halo-extended) indexer.
+- **Partially runtime-sized scratch.** Today per-point scratch is sized entirely by the template `Dims...`. For every loop tag except `boiv`, the size could instead be chosen at run time: keep the template argument as an upper bound (a capacity) but accept a runtime actual size, ignored for the `boiv` stack-scratch path. This is blocked on understanding the GPU tradeoffs of the fixed stack scratch vs. a more flexible runtime scratch -- register pressure is expected to be the deciding factor -- so it should not be implemented before that study.
+
 
 # Halo ranges for inner loops Implementation Ideas
 
