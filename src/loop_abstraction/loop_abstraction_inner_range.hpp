@@ -133,13 +133,13 @@ class InnerIndexRange {
   }
 
   KOKKOS_INLINE_FUNCTION void BuildRegionsFromEndpoints(const Index3 start, const Index3 end) {
+    const auto &memory = pidx_space->GetMemoryIndexer();
     flat_start[0] = GetFlatIdxFromKJI(start.k + Halo::dk(0), start.j + Halo::dj(0), start.i + Halo::di(0));
     flat_end[0]   = GetFlatIdxFromKJI(end.k + Halo::dk(0), end.j + Halo::dj(0), end.i + Halo::di(0));
-    const int memory_base =
-        pidx_space->GetMemoryIndexer().GetFlatIdx(start.k, start.j, start.i);
-    scratch_flat_start = pidx_space->GetMemoryIndexer().GetFlatIdx(
+    const int memory_base = memory.GetFlatIdx(start.k, start.j, start.i);
+    scratch_flat_start = memory.GetFlatIdx(
         start.k + Halo::dk(0), start.j + Halo::dj(0), start.i + Halo::di(0));
-    int scratch_flat_end = pidx_space->GetMemoryIndexer().GetFlatIdx(
+    int scratch_flat_end = memory.GetFlatIdx(
         end.k + Halo::dk(0), end.j + Halo::dj(0), end.i + Halo::di(0));
     nregions = 1;
     // Create possibly disjoint ranges, this algorithm relies on the start and end points of the ranges
@@ -147,9 +147,9 @@ class InnerIndexRange {
     for (int n = 1; n < Halo::npoints; ++n) {
       const int fstart = GetFlatIdxFromKJI(start.k + Halo::dk(n), start.j + Halo::dj(n), start.i + Halo::di(n));
       const int fend   = GetFlatIdxFromKJI(end.k + Halo::dk(n), end.j + Halo::dj(n), end.i + Halo::di(n));
-      const int scratch_start = pidx_space->GetMemoryIndexer().GetFlatIdx(
+      const int scratch_start = memory.GetFlatIdx(
           start.k + Halo::dk(n), start.j + Halo::dj(n), start.i + Halo::di(n));
-      const int scratch_end = pidx_space->GetMemoryIndexer().GetFlatIdx(
+      const int scratch_end = memory.GetFlatIdx(
           end.k + Halo::dk(n), end.j + Halo::dj(n), end.i + Halo::di(n));
       scratch_flat_start = std::min(scratch_flat_start, scratch_start);
       scratch_flat_end = std::max(scratch_flat_end, scratch_end);

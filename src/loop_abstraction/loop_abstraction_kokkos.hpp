@@ -19,6 +19,12 @@
 
 namespace parthenon::loop_abstraction::impl {
 
+// The abstraction exposes three logical levels -- blocks, outer (kji) chunks, and the
+// inner traversal. Here only two are mapped onto Kokkos parallelism: the league (over
+// blocks, or blocks x chunks for bovi) and the team/vector inner loop. Where a raw
+// `for` walks chunks inside a team (e.g. the bvoi/memory chunk loop in inner_kokkos),
+// that middle level could instead become another level of Kokkos parallelism; it is a
+// plain loop for now because that path is not expected to be performance-critical.
 template <class IndexSpaceType, class F>
 void outer_kokkos(IndexSpaceType idx_space, F &&f) {
   using InnerIndexRangeType = InnerIndexRange<IndexSpaceType>;

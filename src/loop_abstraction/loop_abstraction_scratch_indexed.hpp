@@ -30,12 +30,10 @@
 
 namespace parthenon::loop_abstraction {
 
-//----------------------------------------------------------------------------------------
-//! \struct IndexedVarTypeList
-//! \brief  A compile-time list of variable types that indexes per-point scratch by
-//!         variable type (and, optionally, material). Each variable occupies a
-//!         contiguous block of components sized by that variable's size(); StartIdx
-//!         gives the offset of a given variable's block within the flat scratch.
+// A compile-time list of variable types that indexes per-point scratch by variable
+// type (and, optionally, material). Each variable occupies a contiguous block of
+// components sized by that variable's size(); StartIdx gives the offset of a given
+// variable's block within the flat scratch.
 template <class... Var_Types>
 struct IndexedVarTypeList {
   using var_types = parthenon::TypeList<Var_Types...>;
@@ -61,11 +59,9 @@ struct IndexedVarTypeList {
   }
 };
 
-//----------------------------------------------------------------------------------------
-//! \class  TypeIndexedPerPointScratch
-//! \brief  Wraps a flat per-point scratch buffer so it can be indexed by variable type
-//!         (field_tag), component (field_tag.idx), and (optionally) a sparse/material
-//!         index, using the layout defined by VarTL.
+// Wraps a flat per-point scratch buffer so it can be indexed by variable type
+// (field_tag), component (field_tag.idx), and (optionally) a sparse/material index,
+// using the layout defined by VarTL.
 template <class Scratch, class VarTL, int NSPARSE = 1>
 class TypeIndexedPerPointScratch {
  public:
@@ -96,10 +92,8 @@ class TypeIndexedPerPointScratch {
   Scratch scratch_;
 };
 
-//----------------------------------------------------------------------------------------
-//! \fn     GetTypeIndexedPerPointScratch
-//! \brief  Hand out a type-indexed per-point scratch buffer sized for ReconTypes
-//!         (times NSPARSE materials).
+// Hand out a type-indexed per-point scratch buffer sized for ReconTypes (times
+// NSPARSE materials).
 template <class Real, class ReconTypes, int NSPARSE = 1, class HaloRange>
 KOKKOS_INLINE_FUNCTION auto GetTypeIndexedPerPointScratch(HaloRange &&halo_range) {
   auto scratch = GetPerPointScratch<Real, ReconTypes::size() * NSPARSE>(

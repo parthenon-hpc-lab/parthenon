@@ -122,6 +122,47 @@ constexpr bool HaloSatisfiesContract() {
 
 } // namespace impl
 
+// Compile-time bounding box of a halo's offsets: the per-dimension min/max shift and
+// the resulting extents. Used by the per-point scratch storage to size a dense local
+// buffer that covers every shifted copy the halo names.
+template <class Halo>
+struct HaloBox {
+  static constexpr int min_k = [] {
+    int out = Halo::dk(0);
+    for (int n = 1; n < Halo::npoints; ++n) out = std::min(out, Halo::dk(n));
+    return out;
+  }();
+  static constexpr int max_k = [] {
+    int out = Halo::dk(0);
+    for (int n = 1; n < Halo::npoints; ++n) out = std::max(out, Halo::dk(n));
+    return out;
+  }();
+  static constexpr int min_j = [] {
+    int out = Halo::dj(0);
+    for (int n = 1; n < Halo::npoints; ++n) out = std::min(out, Halo::dj(n));
+    return out;
+  }();
+  static constexpr int max_j = [] {
+    int out = Halo::dj(0);
+    for (int n = 1; n < Halo::npoints; ++n) out = std::max(out, Halo::dj(n));
+    return out;
+  }();
+  static constexpr int min_i = [] {
+    int out = Halo::di(0);
+    for (int n = 1; n < Halo::npoints; ++n) out = std::min(out, Halo::di(n));
+    return out;
+  }();
+  static constexpr int max_i = [] {
+    int out = Halo::di(0);
+    for (int n = 1; n < Halo::npoints; ++n) out = std::max(out, Halo::di(n));
+    return out;
+  }();
+  static constexpr int nk = max_k - min_k + 1;
+  static constexpr int nj = max_j - min_j + 1;
+  static constexpr int ni = max_i - min_i + 1;
+  static constexpr int size = nk * nj * ni;
+};
+
 template <class Halo>
 inline auto AddHaloToIndexer(const parthenon::Indexer3D &idxer) {
   std::array<int, 3> extend_low{0, 0, 0}, extend_up{0, 0, 0};
