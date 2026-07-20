@@ -44,17 +44,26 @@ A minimal kernel looks like:
 .. code:: cpp
 
    namespace la = parthenon::loop_abstraction;
-   using IndexSpaceType =
-       la::IndexSpace<la::loop_tag::bovi, la::inner_tag::logical_flat>;
+   using IST = la::IndexSpace<la::loop_tag::bovi, la::inner_tag::logical_flat>;
 
-   IndexSpaceType idx_space(nblocks, nx, ny, nz, nghost);
+   IST idx_space(nblocks, nx, ny, nz, nghost);
 
-   la::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
+   la::outer(idx_space, KOKKOS_LAMBDA(const IST::idx_range_t &idx_range, int b) {
      la::inner(idx_range, [&](auto idx) {
        const auto [k, j, i] = idx_range.GetKJI(idx);
        // ... work at (b, k, j, i) ...
      });
    });
+
+Lambda markings follow the usual Kokkos hierarchical-parallelism rule: mark the
+``outer(...)`` body with ``KOKKOS_LAMBDA`` (it is stored and invoked on the device),
+and leave the ``inner(...)`` bodies as plain ``[&]`` lambdas (they are defined inside
+the outer device lambda, so they are already device code and capture by reference).
+
+The outer body must name its parameter type rather than use ``auto``: nvcc rejects
+generic extended (``__host__ __device__``) lambdas. ``IST::idx_range_t`` is the
+(base, no-halo) range ``outer`` hands the body; in code templated on the index space,
+spell ``la::InnerIndexRange<IST>`` directly to avoid a dependent-name ``typename``.
 
 Loop tags
 ---------
@@ -151,7 +160,7 @@ the base range:
    idx_space.AddPerPointScratch<Real, recon_halo>();  // at setup
    const auto dx1 = idx_space.GetDelta(X1DIR);
 
-   la::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
+   la::outer(idx_space, KOKKOS_LAMBDA(const IST::idx_range_t &idx_range, int b) {
      const auto halo_range = idx_range.AddHalo<recon_halo>();
      auto scratch = la::GetPerPointScratch<Real>(halo_range);
 
@@ -177,7 +186,7 @@ the outer body:
    idx_space.AddPerPointScratch<Real>();          // one Real per point
    idx_space.AddPerPointScratch<Real, 2, 3>();    // a 2x3 block per point
 
-   la::outer(idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
+   la::outer(idx_space, KOKKOS_LAMBDA(const IST::idx_range_t &idx_range, int b) {
      auto scratch = la::GetPerPointScratch<Real>(idx_range);
      // scratch(idx), scratch(Index3{k,j,i}), scratch(c0, c1, idx), ...
    });

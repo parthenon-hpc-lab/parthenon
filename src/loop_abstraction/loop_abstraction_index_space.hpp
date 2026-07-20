@@ -89,6 +89,11 @@ KOKKOS_INLINE_FUNCTION int GetNOuter(const IndexSpaceType &idx_space) {
 template <class T, class Halo, std::size_t... Dims, class IndexSpaceType>
 std::size_t GetPerTeamScratchSize(const IndexSpaceType &idx_space);
 
+// Forward declaration; defined in loop_abstraction_inner_range.hpp. The default Halo
+// argument is supplied there, so it must not be repeated here.
+template <class IndexSpaceType, class Halo>
+class InnerIndexRange;
+
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG,
           loop_backend BACKEND = default_loop_backend_v>
 class IndexSpace {
@@ -98,6 +103,11 @@ class IndexSpace {
   static constexpr loop_tag loop_tag_v = LOOP_TAG;
   static constexpr inner_tag inner_tag_v = INNER_TAG;
   static constexpr loop_backend backend_v = BACKEND;
+
+  // The (base, no-halo) inner range that outer() hands to a loop body. Naming it lets
+  // an outer body spell its parameter type without `auto` (which nvcc rejects for
+  // extended lambdas): outer(idx_space, KOKKOS_LAMBDA(const IST::idx_range_t &r, ...)).
+  using idx_range_t = InnerIndexRange<IndexSpace, halo::none_t>;
 
   KOKKOS_INLINE_FUNCTION int GetMemoryOffset(const int dk, const int dj,
                                              const int di) const {
