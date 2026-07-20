@@ -19,6 +19,14 @@
 
 namespace parthenon::loop_abstraction::impl {
 
+// An extended __host__ __device__ lambda (nvcc) fixes its capture set before resolving
+// any `if constexpr` in its body, so a variable first used only inside a constexpr-if
+// branch is never captured. Calling ForceCapture with those variables odr-uses them
+// unconditionally at the top of the lambda, forcing them into the capture set. Compiles
+// to nothing.
+template <class... Ts>
+KOKKOS_FORCEINLINE_FUNCTION void ForceCapture(const Ts &...) {}
+
 // The abstraction exposes three logical levels -- blocks, outer (kji) chunks, and the
 // inner traversal. Here only two are mapped onto Kokkos parallelism: the league (over
 // blocks, or blocks x chunks for bovi) and the team/vector inner loop. Where a raw
@@ -129,6 +137,7 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
       Kokkos::parallel_for(
           Kokkos::TeamThreadRange(member, 0, end_exclusive),
           KOKKOS_LAMBDA(const int idx) {
+            ForceCapture(f, start, logical_kji, idx_space, mem_start);
             if constexpr (std::is_invocable_v<F, int, int, int>) {
               if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
                 const auto [k, j, i] = idx_space.GetMemoryIndexer()(idx + start);
@@ -180,6 +189,7 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange(member, 0, end_exclusive),
             KOKKOS_LAMBDA(const int idx) {
+              ForceCapture(f, mem_first, idx_space, mem_start);
               if constexpr (std::is_invocable_v<F, int, int, int>) {
                 const auto [k, j, i] = idx_space.GetMemoryIndexer()(idx + mem_first);
                 f(k, j, i);
@@ -195,6 +205,7 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange(member, 0, end_exclusive),
             KOKKOS_LAMBDA(const int idx) {
+              ForceCapture(f, start, logical_kji, idx_space, mem_start);
               if constexpr (std::is_invocable_v<F, int, int, int>) {
                 const auto [k, j, i] = logical_kji(idx + start);
                 f(k, j, i);
