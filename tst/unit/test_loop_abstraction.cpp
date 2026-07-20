@@ -42,6 +42,7 @@ using loop_abstraction::default_loop_backend_v;
 using loop_abstraction::inner_tag;
 using loop_abstraction::loop_backend;
 using loop_abstraction::loop_tag;
+using loop_abstraction::impl::ForceCapture;
 using parthenon::MeshBlock;
 using parthenon::MeshData;
 using parthenon::Metadata;
@@ -499,6 +500,7 @@ void RunHaloContractCase(const ProblemSpec &spec, const int ninner) {
   loop_abstraction::outer(
       idx_space,
       KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
+    ForceCapture(span_wrong, idx_space);
     const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
 
     if constexpr (std::is_same_v<HaloType, k_triplet_halo_t> &&
@@ -1288,6 +1290,7 @@ void RunScratchHaloCase(const ProblemSpec &spec, const int ninner) {
   loop_abstraction::outer(
       idx_space,
       KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
+    ForceCapture(idx_space);
     const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
     auto scratch = loop_abstraction::GetPerPointScratch<Real>(halo_range);
 
@@ -1448,6 +1451,7 @@ void RunShapedScratchHaloCase(const ProblemSpec &spec, const int ninner) {
   loop_abstraction::outer(
       idx_space,
       KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
+    ForceCapture(idx_space);
     const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
     auto scratch = loop_abstraction::GetPerPointScratch<Real, 2, 3>(halo_range);
 

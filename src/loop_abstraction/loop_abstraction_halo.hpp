@@ -164,7 +164,8 @@ struct HaloBox {
 };
 
 template <class Halo>
-inline auto AddHaloToIndexer(const parthenon::Indexer3D &idxer) {
+KOKKOS_INLINE_FUNCTION
+auto AddHaloToIndexer(const parthenon::Indexer3D &idxer) {
   std::array<int, 3> extend_low{0, 0, 0}, extend_up{0, 0, 0};
   for (int p = 0; p < Halo::npoints; ++p) {
     extend_low[0] = std::max(extend_low[0], -Halo::dk(p));

@@ -136,7 +136,7 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
       const int end_exclusive = idx_range.flat_end[r] + 1 - start;
       Kokkos::parallel_for(
           Kokkos::TeamThreadRange(member, 0, end_exclusive),
-          KOKKOS_LAMBDA(const int idx) {
+          [&](const int idx) {
             ForceCapture(f, start, logical_kji, idx_space, mem_start);
             if constexpr (std::is_invocable_v<F, int, int, int>) {
               if constexpr (IndexSpaceType::inner_tag_v == inner_tag::memory) {
@@ -188,7 +188,7 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
         const int end_exclusive = mem_last + 1 - mem_first;
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange(member, 0, end_exclusive),
-            KOKKOS_LAMBDA(const int idx) {
+            [&](const int idx) {
               ForceCapture(f, mem_first, idx_space, mem_start);
               if constexpr (std::is_invocable_v<F, int, int, int>) {
                 const auto [k, j, i] = idx_space.GetMemoryIndexer()(idx + mem_first);
@@ -204,7 +204,7 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
         const int end_exclusive = idx_range.flat_end[r] + 1 - start;
         Kokkos::parallel_for(
             Kokkos::TeamThreadRange(member, 0, end_exclusive),
-            KOKKOS_LAMBDA(const int idx) {
+            [&](const int idx) {
               ForceCapture(f, start, logical_kji, idx_space, mem_start);
               if constexpr (std::is_invocable_v<F, int, int, int>) {
                 const auto [k, j, i] = logical_kji(idx + start);

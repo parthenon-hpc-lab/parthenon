@@ -68,7 +68,7 @@ enum class inner_tag { logical_flat, logical_coords, memory };
 // express stencil/halo shifts in logical index space.
 struct Index3 {
   int k, j, i;
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_DEFAULTED_FUNCTION
   constexpr Index3() = default;
 
   KOKKOS_INLINE_FUNCTION

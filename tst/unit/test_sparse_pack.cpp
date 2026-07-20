@@ -169,7 +169,7 @@ void RunAbstractionLoop(auto pkg, MeshData<Real> &md, int ninner, bool kji_body)
 
   if (kji_body) {
     outer(
-        idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
+        idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
           auto pack_view = make_pack_view(idx_range, sparse_pack);
           inner(idx_range, [&](const int k, const int j, const int i) {
             pack_view(v1(), k, j, i) = PackViewExpectedValue(b, 0, k, j, i);
@@ -183,7 +183,7 @@ void RunAbstractionLoop(auto pkg, MeshData<Real> &md, int ninner, bool kji_body)
     const auto dk = idx_space.GetDelta(parthenon::X3DIR);
     // Fill everything
     outer(
-        idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
+        idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
           auto pack_view = make_pack_view(idx_range, sparse_pack);
           inner(idx_range, [&](auto kji) {
             const auto [k, j, i] = idx_range.GetKJI(kji);
@@ -195,7 +195,7 @@ void RunAbstractionLoop(auto pkg, MeshData<Real> &md, int ninner, bool kji_body)
 
     // Refill offset by one in the j-direction
     outer(
-        idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
+        idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
           auto pack_view = make_pack_view(idx_range, sparse_pack);
           inner(idx_range, [&](auto kji) {
             const auto [k, j, i] = idx_range.GetKJI(kji);
@@ -205,7 +205,7 @@ void RunAbstractionLoop(auto pkg, MeshData<Real> &md, int ninner, bool kji_body)
 
     // Refill with some random offsets in the i- and k-directions
     outer(
-        idx_space, KOKKOS_LAMBDA(const auto &idx_range, int b) {
+        idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
           auto pack_view = make_pack_view(idx_range, sparse_pack);
           inner(idx_range, [&](auto kji) {
             const auto [k, j, i] = idx_range.GetKJI(kji);
@@ -491,7 +491,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         IS idx_space(sparse_pack.GetNBlocks(), N, N, N, 0);
 
         outer(
-            idx_space, KOKKOS_LAMBDA(const auto &current_range, int b) {
+            idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IS> &current_range, int b) {
               auto pack_view = make_pack_view(current_range, sparse_pack);
               inner(current_range, [&](const int idx) {
                 const auto [k, j, i] = current_range.GetKJI(idx);
@@ -509,7 +509,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         IS idx_space(sparse_pack.GetNBlocks(), N, N, N, 0);
 
         outer(
-            idx_space, KOKKOS_LAMBDA(const auto &current_range, int b) {
+            idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IS> &current_range, int b) {
               auto pack_view = make_pack_view(current_range, sparse_pack);
               inner(current_range, [&](const int k, const int j, const int i) {
                 REQUIRE(pack_view(v1(), k, j, i) == sparse_pack(b, v1(), k, j, i));

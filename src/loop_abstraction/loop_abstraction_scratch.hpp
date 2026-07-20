@@ -224,6 +224,8 @@ struct TeamScratch1D {
   static constexpr int scratch_level = 1;
   IndexRange idx_range;
   parthenon::ScratchPad1D<T> data;
+
+  KOKKOS_INLINE_FUNCTION
   TeamScratch1D(const IndexRange &idx_range) 
       : idx_range(idx_range),
         data(idx_range.team_member->team_scratch(scratch_level),

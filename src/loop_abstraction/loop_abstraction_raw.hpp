@@ -21,7 +21,7 @@
 namespace parthenon::loop_abstraction::impl {
 
 template <class IndexSpaceType, class F>
-KOKKOS_INLINE_FUNCTION void outer_raw_for(IndexSpaceType idx_space, F &&f) {
+void outer_raw_for(IndexSpaceType idx_space, F &&f) {
   using InnerIndexRangeType = InnerIndexRange<IndexSpaceType>;
   if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
     const auto &logical_kji = idx_space.GetLogicalIndexer();
