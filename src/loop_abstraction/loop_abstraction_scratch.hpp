@@ -221,7 +221,7 @@ template <class IndexRange, class T, std::size_t... Dims>
 struct TeamScratch1D {
   using idxer_t = ctime_flat_indexer<Dims...>;
 
-  static constexpr int scratch_level = 1;
+  const int scratch_level = 1;
   IndexRange idx_range;
   parthenon::ScratchPad1D<T> data;
 
