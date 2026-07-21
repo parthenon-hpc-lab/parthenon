@@ -54,9 +54,8 @@ template <class InnerIndexRangeType, class F>
 KOKKOS_FORCEINLINE_FUNCTION void inner(const InnerIndexRangeType &idx_range, F &&f) {
   if constexpr (InnerIndexRangeType::index_space_t::backend_v == loop_backend::raw) {
     impl::inner_raw_for(idx_range, std::forward<F>(f));
-  } else if constexpr (// NOLINT(readability/braces)
-                       InnerIndexRangeType::index_space_t::backend_v
-                       == loop_backend::kokkos) {
+  } else if constexpr ( // NOLINT(readability/braces)
+      InnerIndexRangeType::index_space_t::backend_v == loop_backend::kokkos) {
     impl::inner_kokkos(idx_range, std::forward<F>(f));
   } else {
     static_assert(always_false<InnerIndexRangeType>,

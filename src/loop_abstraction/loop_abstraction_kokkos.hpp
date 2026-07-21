@@ -211,8 +211,7 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
                 const auto [k, j, i] = logical_kji(idx + start);
                 f(k, j, i);
               } else if constexpr ( // NOLINT(readability/braces)
-                                   IndexSpaceType::inner_tag_v
-                                   == inner_tag::logical_flat) {
+                  IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
                 const auto [k, j, i] = logical_kji(idx + start);
                 f(idx_space.GetMemoryIndexer().GetFlatIdx(k, j, i) - mem_start);
               } else {
