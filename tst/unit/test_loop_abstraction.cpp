@@ -531,6 +531,7 @@ void RunHaloContractCase(const ProblemSpec &spec, const int ninner) {
             const auto [k, j, i] = halo_range.GetKJI(idx);
             out(b, v, k, j, i) = EncodeValue(b, v, k, j, i);
           });
+          idx_range.TeamBarrier();
         }
 
         for (int v = 0; v < kNVars; ++v) {
@@ -551,6 +552,7 @@ void RunHaloContractCase(const ProblemSpec &spec, const int ninner) {
                   NotApprox(out(b, v, kk, jj, ii), EncodeValue(b, v, kk, jj, ii)));
             }
           });
+          idx_range.TeamBarrier();
         }
 
         for (int v = 0; v < kNVars; ++v) {
@@ -558,6 +560,7 @@ void RunHaloContractCase(const ProblemSpec &spec, const int ninner) {
             const auto [k, j, i] = halo_range.GetKJI(idx);
             out(b, v, k, j, i) = 0.0;
           });
+          idx_range.TeamBarrier();
         }
       });
 
@@ -603,7 +606,7 @@ parthenon::HostArray5D<Real> RunHaloTouchBackend(const ProblemSpec &spec,
             const auto [k, j, i] = halo_range.GetKJI(idx);
             touches(b, v, k, j, i) += 1.0;
           });
-
+          idx_range.TeamBarrier();
           loop_abstraction::inner(idx_range, [&](auto idx) {
             const auto [k, j, i] = idx_range.GetKJI(idx);
             for (int n = 0; n < HaloType::npoints; ++n) {
@@ -618,6 +621,7 @@ parthenon::HostArray5D<Real> RunHaloTouchBackend(const ProblemSpec &spec,
               }
             }
           });
+          idx_range.TeamBarrier();
         }
       });
 
@@ -672,6 +676,7 @@ void RunHaloProducerSingleTouchCase(const ProblemSpec &spec, const int ninner) {
             const auto [k, j, i] = halo_range.GetKJI(idx);
             touches(b, v, k, j, i) += 1.0;
           });
+          idx_range.TeamBarrier();
         }
       });
 
@@ -1165,6 +1170,7 @@ void RunScratchCase(const ProblemSpec &spec, const int ninner) {
           scratch_b(idx) = 0.0;
           scratch_c(idx) = 0.0;
         });
+        idx_range.TeamBarrier();
 
         for (int v = 0; v < kNVars; ++v) {
           loop_abstraction::inner(idx_range, [&](auto idx) {
@@ -1173,6 +1179,7 @@ void RunScratchCase(const ProblemSpec &spec, const int ninner) {
             scratch_b(idx) += EncodeValue(b, v, k, j, i);
             scratch_c(idx) += EncodeValue(b, v, k, j, i);
           });
+          idx_range.TeamBarrier();
         }
 
         loop_abstraction::inner(idx_range, [&](auto idx) {
@@ -1222,6 +1229,7 @@ void RunScratchZeroCase(const ProblemSpec &spec, const int ninner) {
               const auto [k, j, i] = idx_range.GetKJI(idx);
               scratch(idx) += EncodeValue(b, v, k, j, i);
             });
+            idx_range.TeamBarrier();
           }
 
           loop_abstraction::inner(idx_range, [&](auto idx) {
@@ -1343,7 +1351,7 @@ void RunBoivScratchDeltaCase(const ProblemSpec &spec) {
           const auto [k, j, i] = halo_range.GetKJI(idx);
           scratch(idx) = EncodeValue(b, 0, k, j, i);
         });
-
+        idx_range.TeamBarrier();
         loop_abstraction::inner(idx_range, [&](auto idx) {
           const auto shifted = idx + SIGN * delta;
           const auto [k, j, i] = idx_range.GetKJI(idx);
@@ -1493,7 +1501,8 @@ void RunBoivScratchMixedDeltaCase(const ProblemSpec &spec) {
           const auto [k, j, i] = halo_range.GetKJI(idx);
           scratch(idx) = EncodeValue(b, 0, k, j, i);
         });
-
+        idx_range.TeamBarrier();
+        
         loop_abstraction::inner(idx_range, [&](auto idx) {
           const auto shifted = idx + 2 * dx1 - dx3;
           const auto [k, j, i] = idx_range.GetKJI(idx);
