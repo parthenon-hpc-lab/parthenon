@@ -1502,7 +1502,7 @@ void RunBoivScratchMixedDeltaCase(const ProblemSpec &spec) {
           scratch(idx) = EncodeValue(b, 0, k, j, i);
         });
         idx_range.TeamBarrier();
-        
+
         loop_abstraction::inner(idx_range, [&](auto idx) {
           const auto shifted = idx + 2 * dx1 - dx3;
           const auto [k, j, i] = idx_range.GetKJI(idx);
