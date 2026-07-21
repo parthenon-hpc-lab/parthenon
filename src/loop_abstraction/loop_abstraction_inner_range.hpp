@@ -65,25 +65,17 @@ class InnerIndexRange {
   // Constructor relevant for bvoi
   KOKKOS_INLINE_FUNCTION
   InnerIndexRange(const IndexSpaceType &idx_space,
-                  const parthenon::Indexer3D &logical_kji_in,
-                  int b,
+                  const parthenon::Indexer3D &logical_kji_in, int b,
                   const device_team_member_t *team_member_in = nullptr)
-    : pidx_space(&idx_space),
-      logical_kji(logical_kji_in),
-      block(b),
-      ks(logical_kji.template StartIdx<0>()),
-      js(logical_kji.template StartIdx<1>()),
-      is(logical_kji.template StartIdx<2>()),
-      team_member(team_member_in) {
-    const Index3 start{
-      logical_kji.template StartIdx<0>(),
-      logical_kji.template StartIdx<1>(),
-      logical_kji.template StartIdx<2>()};
+      : pidx_space(&idx_space), logical_kji(logical_kji_in), block(b),
+        ks(logical_kji.template StartIdx<0>()), js(logical_kji.template StartIdx<1>()),
+        is(logical_kji.template StartIdx<2>()), team_member(team_member_in) {
+    const Index3 start{logical_kji.template StartIdx<0>(),
+                       logical_kji.template StartIdx<1>(),
+                       logical_kji.template StartIdx<2>()};
 
-    const Index3 end{
-        logical_kji.template EndIdx<0>(),
-        logical_kji.template EndIdx<1>(),
-        logical_kji.template EndIdx<2>()};
+    const Index3 end{logical_kji.template EndIdx<0>(), logical_kji.template EndIdx<1>(),
+                     logical_kji.template EndIdx<2>()};
 
     BuildRegionsFromEndpoints(start, end);
   }
@@ -91,28 +83,19 @@ class InnerIndexRange {
   // Constructor relevant for bovi
   KOKKOS_INLINE_FUNCTION
   InnerIndexRange(const IndexSpaceType &idx_space,
-                  const parthenon::Indexer3D &logical_kji_in,
-                  int b, Index3 start, Index3 end,
-                  const device_team_member_t *team_member_in = nullptr)
-    : pidx_space(&idx_space),
-      logical_kji(logical_kji_in),
-      block(b),
-      ks(start.k),
-      js(start.j),
-      is(start.i),
-      team_member(team_member_in) {
+                  const parthenon::Indexer3D &logical_kji_in, int b, Index3 start,
+                  Index3 end, const device_team_member_t *team_member_in = nullptr)
+      : pidx_space(&idx_space), logical_kji(logical_kji_in), block(b), ks(start.k),
+        js(start.j), is(start.i), team_member(team_member_in) {
     BuildRegionsFromEndpoints(start, end);
   }
 
   KOKKOS_INLINE_FUNCTION
   InnerIndexRange(const IndexSpaceType &idx_space,
-                  const parthenon::Indexer3D &logical_kji_in,
-                  int b, int flat_start, int flat_end,
-                  const device_team_member_t *team_member_in = nullptr)
-    : pidx_space(&idx_space),
-      logical_kji(logical_kji_in),
-      block(b),
-      team_member(team_member_in) {
+                  const parthenon::Indexer3D &logical_kji_in, int b, int flat_start,
+                  int flat_end, const device_team_member_t *team_member_in = nullptr)
+      : pidx_space(&idx_space), logical_kji(logical_kji_in), block(b),
+        team_member(team_member_in) {
     const auto [ks_, js_, is_] = logical_kji(flat_start);
     ks = ks_;
     js = js_;
@@ -120,42 +103,44 @@ class InnerIndexRange {
     BuildRegionsFromEndpoints({ks, js, is}, logical_kji(flat_end));
   }
 
-
   template <class Halo_in>
-  KOKKOS_INLINE_FUNCTION
-  InnerIndexRange<IndexSpaceType, Halo_in> AddHalo() const {
-    static_assert(std::is_same_v<Halo, halo::none_t>, "Halo composition is currently not supported.");
+  KOKKOS_INLINE_FUNCTION InnerIndexRange<IndexSpaceType, Halo_in> AddHalo() const {
+    static_assert(std::is_same_v<Halo, halo::none_t>,
+                  "Halo composition is currently not supported.");
     parthenon::Indexer3D halo_kji = AddHaloToIndexer<Halo_in>(logical_kji);
     const auto [ke, je, ie] = GetKJIFromFlatIdx(flat_end[0]);
-    return InnerIndexRange<IndexSpaceType, Halo_in>(*pidx_space, halo_kji, block,
-                                                    {ks, js, is}, {ke, je, ie},
-                                                    team_member);
+    return InnerIndexRange<IndexSpaceType, Halo_in>(
+        *pidx_space, halo_kji, block, {ks, js, is}, {ke, je, ie}, team_member);
   }
 
-  KOKKOS_INLINE_FUNCTION void BuildRegionsFromEndpoints(const Index3 start, const Index3 end) {
+  KOKKOS_INLINE_FUNCTION void BuildRegionsFromEndpoints(const Index3 start,
+                                                        const Index3 end) {
     const auto &memory = pidx_space->GetMemoryIndexer();
-    flat_start[0] = GetFlatIdxFromKJI(start.k + Halo::dk(0), start.j + Halo::dj(0), start.i + Halo::di(0));
-    flat_end[0]   = GetFlatIdxFromKJI(end.k + Halo::dk(0), end.j + Halo::dj(0), end.i + Halo::di(0));
+    flat_start[0] = GetFlatIdxFromKJI(start.k + Halo::dk(0), start.j + Halo::dj(0),
+                                      start.i + Halo::di(0));
+    flat_end[0] =
+        GetFlatIdxFromKJI(end.k + Halo::dk(0), end.j + Halo::dj(0), end.i + Halo::di(0));
     const int memory_base = memory.GetFlatIdx(start.k, start.j, start.i);
-    scratch_flat_start = memory.GetFlatIdx(
-        start.k + Halo::dk(0), start.j + Halo::dj(0), start.i + Halo::di(0));
-    int scratch_flat_end = memory.GetFlatIdx(
-        end.k + Halo::dk(0), end.j + Halo::dj(0), end.i + Halo::di(0));
+    scratch_flat_start = memory.GetFlatIdx(start.k + Halo::dk(0), start.j + Halo::dj(0),
+                                           start.i + Halo::di(0));
+    int scratch_flat_end =
+        memory.GetFlatIdx(end.k + Halo::dk(0), end.j + Halo::dj(0), end.i + Halo::di(0));
     nregions = 1;
-    // Create possibly disjoint ranges, this algorithm relies on the start and end points of the ranges
-    // being sorted by flat start
+    // Create possibly disjoint ranges, this algorithm relies on the start and end points
+    // of the ranges being sorted by flat start
     for (int n = 1; n < Halo::npoints; ++n) {
-      const int fstart = GetFlatIdxFromKJI(start.k + Halo::dk(n), start.j + Halo::dj(n), start.i + Halo::di(n));
-      const int fend   = GetFlatIdxFromKJI(end.k + Halo::dk(n), end.j + Halo::dj(n), end.i + Halo::di(n));
+      const int fstart = GetFlatIdxFromKJI(start.k + Halo::dk(n), start.j + Halo::dj(n),
+                                           start.i + Halo::di(n));
+      const int fend = GetFlatIdxFromKJI(end.k + Halo::dk(n), end.j + Halo::dj(n),
+                                         end.i + Halo::di(n));
       const int scratch_start = memory.GetFlatIdx(
           start.k + Halo::dk(n), start.j + Halo::dj(n), start.i + Halo::di(n));
-      const int scratch_end = memory.GetFlatIdx(
-          end.k + Halo::dk(n), end.j + Halo::dj(n), end.i + Halo::di(n));
+      const int scratch_end = memory.GetFlatIdx(end.k + Halo::dk(n), end.j + Halo::dj(n),
+                                                end.i + Halo::di(n));
       scratch_flat_start = std::min(scratch_flat_start, scratch_start);
       scratch_flat_end = std::max(scratch_flat_end, scratch_end);
       if (fstart <= flat_end[nregions - 1] + 1) {
-        if (fend > flat_end[nregions - 1])
-          flat_end[nregions - 1] = fend;
+        if (fend > flat_end[nregions - 1]) flat_end[nregions - 1] = fend;
       } else {
         flat_start[nregions] = fstart;
         flat_end[nregions] = fend;
@@ -210,24 +195,16 @@ class InnerIndexRange {
   }
 
   KOKKOS_INLINE_FUNCTION
-  int size() const {
-    return cached_size;
-  }
+  int size() const { return cached_size; }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  int ScratchSize() const {
-    return scratch_span_size;
-  }
+  int ScratchSize() const { return scratch_span_size; }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  int ScratchIndex(int mem_idx) const {
-    return mem_idx - scratch_index_start;
-  }
+  int ScratchIndex(int mem_idx) const { return mem_idx - scratch_index_start; }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  int ScratchIndex(MemoryOffset idx) const {
-    return ScratchIndex(idx.flat);
-  }
+  int ScratchIndex(MemoryOffset idx) const { return ScratchIndex(idx.flat); }
 
   KOKKOS_FORCEINLINE_FUNCTION
   int ScratchIndex(Index3 idx) const {
@@ -291,8 +268,8 @@ class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>, Halo> {
 
   template <class Halo_in>
   KOKKOS_INLINE_FUNCTION
-  InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>, Halo_in>
-  AddHalo() const {
+      InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>, Halo_in>
+      AddHalo() const {
     static_assert(std::is_same_v<Halo, halo::none_t>,
                   "Halo composition is currently not supported.");
     InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>, Halo_in> out;
@@ -318,9 +295,7 @@ class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>, Halo> {
   }
 
   KOKKOS_INLINE_FUNCTION
-  int size() const {
-    return halo_t::npoints;
-  }
+  int size() const { return halo_t::npoints; }
 
   KOKKOS_FORCEINLINE_FUNCTION
   void TeamBarrier() const {}

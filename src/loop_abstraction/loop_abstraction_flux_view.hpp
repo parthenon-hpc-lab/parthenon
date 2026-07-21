@@ -79,8 +79,8 @@ struct flux_pack_view_t {
 // logical_coords specialization: forward straight to pack.flux() with coordinates,
 // no cached pointers (mirrors pack_view_t's logical_coords specialization).
 template <loop_tag LOOP_TAG, loop_backend BACKEND, class PackType, class... Ts>
-struct flux_pack_view_t<IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>, PackType,
-                        Ts...> {
+struct flux_pack_view_t<IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>,
+                        PackType, Ts...> {
   using IndexSpaceType = IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>;
 
   const PackType *pack = nullptr;
@@ -134,9 +134,11 @@ make_flux_pack_view_impl(const InnerIndexRange<IndexSpaceType> &idx_range,
             // array; a with_fluxes pack may contain non-WithFluxes variables whose
             // flux slot is empty (see note on flux_view_t).
             if (pack_in.GetSize(idx_range.block, Ts()) > 0) {
-              const int vidx = pack_in.GetLowerBound(idx_range.block, Ts()) + (v + sparse_offset);
+              const int vidx =
+                  pack_in.GetLowerBound(idx_range.block, Ts()) + (v + sparse_offset);
               const auto &fvar = pack_in.flux(idx_range.block, dir, vidx);
-              out.data_[vstart + v] = fvar.size() > 0 ? fvar.data() + out.shift_ : nullptr;
+              out.data_[vstart + v] =
+                  fvar.size() > 0 ? fvar.data() + out.shift_ : nullptr;
             } else {
               out.data_[vstart + v] = nullptr;
             }

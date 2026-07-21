@@ -22,12 +22,12 @@
 // semantics of the loop tags, inner tags, halos, and scratch.
 
 #include "loop_abstraction_base.hpp"
-#include "loop_abstraction_scratch.hpp"
-#include "loop_abstraction_scratch_indexed.hpp"
+#include "loop_abstraction_flux_view.hpp"
 #include "loop_abstraction_kokkos.hpp"
 #include "loop_abstraction_pack_view.hpp"
-#include "loop_abstraction_flux_view.hpp"
 #include "loop_abstraction_raw.hpp"
+#include "loop_abstraction_scratch.hpp"
+#include "loop_abstraction_scratch_indexed.hpp"
 #include "loop_abstraction_view.hpp"
 
 namespace parthenon::loop_abstraction {
@@ -41,8 +41,7 @@ void outer(IndexSpaceType idx_space, F &&f) {
   } else if constexpr (IndexSpaceType::backend_v == loop_backend::kokkos) {
     impl::outer_kokkos(idx_space, std::forward<F>(f));
   } else {
-    static_assert(always_false<IndexSpaceType>,
-                  "Unsupported loop backend for outer().");
+    static_assert(always_false<IndexSpaceType>, "Unsupported loop backend for outer().");
   }
 }
 

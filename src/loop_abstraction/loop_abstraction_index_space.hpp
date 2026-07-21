@@ -99,6 +99,7 @@ template <loop_tag LOOP_TAG, inner_tag INNER_TAG,
 class IndexSpace {
   static_assert(!(LOOP_TAG == loop_tag::boiv && INNER_TAG == inner_tag::memory),
                 "IndexSpace: This tag combination is not supported and will not be.");
+
  public:
   static constexpr loop_tag loop_tag_v = LOOP_TAG;
   static constexpr inner_tag inner_tag_v = INNER_TAG;
@@ -158,8 +159,7 @@ class IndexSpace {
   using TE = parthenon::TopologicalElement;
   template <class MeshDataOrMeshBlockData>
   IndexSpace(NInner ninner, ID domain, int halo, int nblocks,
-             const MeshDataOrMeshBlockData *md, TE domain_te,
-             TE memory_te = TE::CC)
+             const MeshDataOrMeshBlockData *md, TE domain_te, TE memory_te = TE::CC)
       : nblocks(nblocks), ninner(ninner),
         memory_kji(md->GetBoundsK(ID::entire, memory_te),
                    md->GetBoundsJ(ID::entire, memory_te),

@@ -123,15 +123,15 @@ KOKKOS_INLINE_FUNCTION auto GetView(const InnerIndexRange<IndexSpaceType> &idx_r
                       IndexSpaceType::inner_tag_v == inner_tag::logical_coords,
                   "boiv currently expects logical inner coordinates");
     return view_view_t<IndexSpaceType>{&in(idx_range.block, var, idx_range.ks + offset[0],
-                                          idx_range.js + offset[1],
-                                          idx_range.is + offset[2])};
+                                           idx_range.js + offset[1],
+                                           idx_range.is + offset[2])};
   } else {
     const int shift = idx_range.pidx_space->GetMemoryIndexer().GetFlatIdx(
         idx_range.ks + offset[0], idx_range.js + offset[1], idx_range.is + offset[2]);
     return view_view_t<IndexSpaceType>{&in(idx_range.block, var, idx_range.ks + offset[0],
-                                          idx_range.js + offset[1],
-                                          idx_range.is + offset[2]),
-                                      shift, idx_range.pidx_space};
+                                           idx_range.js + offset[1],
+                                           idx_range.is + offset[2]),
+                                       shift, idx_range.pidx_space};
   }
 }
 

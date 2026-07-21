@@ -50,7 +50,7 @@ struct plus_j_t {
   static constexpr int npoints = 2;
   // Sorted by flat offset: identity, then +j.
   KOKKOS_INLINE_FUNCTION static constexpr int dk(int) { return 0; }
-  KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) { return n==0 ? 0 : 1; }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) { return n == 0 ? 0 : 1; }
   KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
 };
 
@@ -75,11 +75,11 @@ struct minus_k_t {
   KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
 };
 
-}
+} // namespace halo
 
 namespace impl {
-constexpr bool HaloOffsetLess(const int dk0, const int dj0, const int di0,
-                              const int dk1, const int dj1, const int di1) {
+constexpr bool HaloOffsetLess(const int dk0, const int dj0, const int di0, const int dk1,
+                              const int dj1, const int di1) {
   if (dk0 != dk1) return dk0 < dk1;
   if (dj0 != dj1) return dj0 < dj1;
   return di0 < di1;
@@ -106,8 +106,8 @@ constexpr bool HaloOffsetsAreStrictlySorted() {
     return false;
   } else {
     for (int n = 1; n < Halo::npoints; ++n) {
-      if (!HaloOffsetLess(Halo::dk(n - 1), Halo::dj(n - 1), Halo::di(n - 1),
-                          Halo::dk(n), Halo::dj(n), Halo::di(n))) {
+      if (!HaloOffsetLess(Halo::dk(n - 1), Halo::dj(n - 1), Halo::di(n - 1), Halo::dk(n),
+                          Halo::dj(n), Halo::di(n))) {
         return false;
       }
     }
@@ -129,32 +129,38 @@ template <class Halo>
 struct HaloBox {
   static constexpr int min_k = [] {
     int out = Halo::dk(0);
-    for (int n = 1; n < Halo::npoints; ++n) out = std::min(out, Halo::dk(n));
+    for (int n = 1; n < Halo::npoints; ++n)
+      out = std::min(out, Halo::dk(n));
     return out;
   }();
   static constexpr int max_k = [] {
     int out = Halo::dk(0);
-    for (int n = 1; n < Halo::npoints; ++n) out = std::max(out, Halo::dk(n));
+    for (int n = 1; n < Halo::npoints; ++n)
+      out = std::max(out, Halo::dk(n));
     return out;
   }();
   static constexpr int min_j = [] {
     int out = Halo::dj(0);
-    for (int n = 1; n < Halo::npoints; ++n) out = std::min(out, Halo::dj(n));
+    for (int n = 1; n < Halo::npoints; ++n)
+      out = std::min(out, Halo::dj(n));
     return out;
   }();
   static constexpr int max_j = [] {
     int out = Halo::dj(0);
-    for (int n = 1; n < Halo::npoints; ++n) out = std::max(out, Halo::dj(n));
+    for (int n = 1; n < Halo::npoints; ++n)
+      out = std::max(out, Halo::dj(n));
     return out;
   }();
   static constexpr int min_i = [] {
     int out = Halo::di(0);
-    for (int n = 1; n < Halo::npoints; ++n) out = std::min(out, Halo::di(n));
+    for (int n = 1; n < Halo::npoints; ++n)
+      out = std::min(out, Halo::di(n));
     return out;
   }();
   static constexpr int max_i = [] {
     int out = Halo::di(0);
-    for (int n = 1; n < Halo::npoints; ++n) out = std::max(out, Halo::di(n));
+    for (int n = 1; n < Halo::npoints; ++n)
+      out = std::max(out, Halo::di(n));
     return out;
   }();
   static constexpr int nk = max_k - min_k + 1;
@@ -164,8 +170,7 @@ struct HaloBox {
 };
 
 template <class Halo>
-KOKKOS_INLINE_FUNCTION
-auto AddHaloToIndexer(const parthenon::Indexer3D &idxer) {
+KOKKOS_INLINE_FUNCTION auto AddHaloToIndexer(const parthenon::Indexer3D &idxer) {
   std::array<int, 3> extend_low{0, 0, 0}, extend_up{0, 0, 0};
   for (int p = 0; p < Halo::npoints; ++p) {
     extend_low[0] = std::max(extend_low[0], -Halo::dk(p));
@@ -177,9 +182,12 @@ auto AddHaloToIndexer(const parthenon::Indexer3D &idxer) {
     extend_up[2] = std::max(extend_up[2], Halo::di(p));
   }
 
-  return parthenon::Indexer3D({idxer.template StartIdx<0>() - extend_low[0], idxer.template EndIdx<0>() + extend_up[0]},
-                   {idxer.template StartIdx<1>() - extend_low[1], idxer.template EndIdx<1>() + extend_up[1]},
-                   {idxer.template StartIdx<2>() - extend_low[2], idxer.template EndIdx<2>() + extend_up[2]});
+  return parthenon::Indexer3D({idxer.template StartIdx<0>() - extend_low[0],
+                               idxer.template EndIdx<0>() + extend_up[0]},
+                              {idxer.template StartIdx<1>() - extend_low[1],
+                               idxer.template EndIdx<1>() + extend_up[1]},
+                              {idxer.template StartIdx<2>() - extend_low[2],
+                               idxer.template EndIdx<2>() + extend_up[2]});
 }
 
 } // namespace parthenon::loop_abstraction

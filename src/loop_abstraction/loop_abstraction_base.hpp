@@ -21,9 +21,9 @@
 // Backend and helper headers include only this file, so the split is source
 // compatible for them.
 
-#include "loop_abstraction/loop_abstraction_types.hpp"
 #include "loop_abstraction/loop_abstraction_halo.hpp"
 #include "loop_abstraction/loop_abstraction_index_space.hpp"
 #include "loop_abstraction/loop_abstraction_inner_range.hpp"
+#include "loop_abstraction/loop_abstraction_types.hpp"
 
 #endif // LOOP_ABSTRACTION_LOOP_ABSTRACTION_BASE_HPP_

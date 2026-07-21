@@ -38,9 +38,8 @@
 #include "interface/mesh_data.hpp"
 #include "kokkos_types.hpp"
 #include "mesh/mesh.hpp"
-#include "utils/indexer.hpp"
 #include "utils/concepts_lite.hpp"
-
+#include "utils/indexer.hpp"
 
 namespace parthenon::loop_abstraction {
 
@@ -72,8 +71,7 @@ struct Index3 {
   constexpr Index3() = default;
 
   KOKKOS_INLINE_FUNCTION
-  constexpr Index3(int k_, int j_, int i_)
-      : k(k_), j(j_), i(i_) {}
+  constexpr Index3(int k_, int j_, int i_) : k(k_), j(j_), i(i_) {}
 
   KOKKOS_INLINE_FUNCTION
   constexpr Index3(const std::tuple<int, int, int> &t)
@@ -142,8 +140,8 @@ template <class>
 struct ExplicitUnaryIntCall : std::false_type {};
 
 template <class R, class C, class Arg>
-struct ExplicitUnaryIntCall<R (C::*)(Arg)>
-    : std::is_same<std::remove_cvref_t<Arg>, int> {};
+struct ExplicitUnaryIntCall<R (C::*)(Arg)> : std::is_same<std::remove_cvref_t<Arg>, int> {
+};
 
 template <class R, class C, class Arg>
 struct ExplicitUnaryIntCall<R (C::*)(Arg) const>
@@ -158,8 +156,7 @@ struct HasExplicitUnaryIntCall<
     : ExplicitUnaryIntCall<decltype(&std::remove_reference_t<F>::operator())> {};
 
 template <class F>
-inline constexpr bool has_explicit_unary_int_call_v =
-    HasExplicitUnaryIntCall<F>::value;
+inline constexpr bool has_explicit_unary_int_call_v = HasExplicitUnaryIntCall<F>::value;
 
 } // namespace impl
 

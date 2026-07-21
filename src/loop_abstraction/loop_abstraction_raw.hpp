@@ -41,7 +41,8 @@ void outer_raw_for(IndexSpaceType idx_space, F &&f) {
         const int logical_end =
             std::min((o + 1) * idx_space.GetNInner() - 1,
                      static_cast<int>(idx_space.GetLogicalIndexer().size()) - 1);
-        InnerIndexRangeType idx_range(idx_space, idx_space.GetLogicalIndexer(), b, logical_start, logical_end);
+        InnerIndexRangeType idx_range(idx_space, idx_space.GetLogicalIndexer(), b,
+                                      logical_start, logical_end);
         f(idx_range, b);
       }
     }
@@ -78,9 +79,9 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
   using IndexSpaceType =
       std::remove_cv_t<std::remove_reference_t<decltype(*idx_range.pidx_space)>>;
   const auto &idx_space = *(idx_range.pidx_space);
-  const auto &memory_kji = idx_space.GetMemoryIndexer(); 
+  const auto &memory_kji = idx_space.GetMemoryIndexer();
   if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
-    const auto &logical_kji = idx_range.logical_kji; 
+    const auto &logical_kji = idx_range.logical_kji;
     if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_flat ||
                   IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
       const int ks = logical_kji.template StartIdx<0>();
@@ -89,7 +90,8 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
       const int je = logical_kji.template EndIdx<1>();
       const int is = logical_kji.template StartIdx<2>();
       const int ie = logical_kji.template EndIdx<2>();
-      const int mem_start = memory_kji.GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
+      const int mem_start =
+          memory_kji.GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
       for (int k = ks; k <= ke; ++k) {
         for (int j = js; j <= je; ++j) {
 #pragma omp simd
@@ -116,7 +118,8 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
       // are strictly increasing and cannot overlap, so every extended cell (and any
       // ghost cell swept inside a span) is touched exactly once. ninner still bounds
       // the chunk size, keeping the swept ghost work small.
-      const int mem_start = memory_kji.GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
+      const int mem_start =
+          memory_kji.GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
       const auto &ext_logical_kji = idx_range.logical_kji;
       // Resolve the chunk shape against the *extended* indexer so, e.g., an ij_slab
       // is one extended plane and chunks land on clean plane boundaries.
@@ -142,7 +145,7 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
       }
     }
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bovi) {
-    const auto &logical_kji = idx_range.logical_kji; 
+    const auto &logical_kji = idx_range.logical_kji;
     const int mem_base = memory_kji.GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
     for (int r = 0; r < idx_range.nregions; ++r) {
       const int start = idx_range.flat_start[r];
@@ -173,24 +176,26 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
     if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
       if constexpr (std::is_invocable_v<F, int, int, int>) {
         for (int n = 0; n < halo_t::npoints; ++n)
-          f(idx_range.ks + halo_t::dk(n), idx_range.js + halo_t::dj(n), idx_range.is + halo_t::di(n));
+          f(idx_range.ks + halo_t::dk(n), idx_range.js + halo_t::dj(n),
+            idx_range.is + halo_t::di(n));
       } else {
         static_assert(!impl::has_explicit_unary_int_call_v<F>,
                       "boiv/logical_flat inner loops require auto or MemoryOffset "
                       "single-argument bodies; explicit int bodies lose halo "
                       "offset coordinates.");
         for (int n = 0; n < halo_t::npoints; ++n) {
-          f(idx_space.GetMemoryOffsetIndex(halo_t::dk(n), halo_t::dj(n),
-                                           halo_t::di(n)));
+          f(idx_space.GetMemoryOffsetIndex(halo_t::dk(n), halo_t::dj(n), halo_t::di(n)));
         }
       }
     } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
       if constexpr (std::is_invocable_v<F, int, int, int>) {
         for (int n = 0; n < halo_t::npoints; ++n)
-          f(idx_range.ks + halo_t::dk(n), idx_range.js + halo_t::dj(n), idx_range.is + halo_t::di(n));
+          f(idx_range.ks + halo_t::dk(n), idx_range.js + halo_t::dj(n),
+            idx_range.is + halo_t::di(n));
       } else {
         for (int n = 0; n < halo_t::npoints; ++n)
-          f(Index3{idx_range.ks + halo_t::dk(n), idx_range.js + halo_t::dj(n), idx_range.is + halo_t::di(n)});
+          f(Index3{idx_range.ks + halo_t::dk(n), idx_range.js + halo_t::dj(n),
+                   idx_range.is + halo_t::di(n)});
       }
     }
   }

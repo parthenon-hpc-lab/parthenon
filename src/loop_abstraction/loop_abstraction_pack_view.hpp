@@ -42,8 +42,7 @@ struct pack_view_t {
   }
 
   template <class var_t>
-  KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(var_t v,
-                                                     MemoryOffset idx) const {
+  KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(var_t v, MemoryOffset idx) const {
     return (*this)(v, idx.flat);
   }
 
@@ -118,7 +117,7 @@ make_pack_view_impl(const InnerIndexRange<IndexSpaceType> &idx_range,
             if (pack_in.GetSize(idx_range.block, Ts()) > 0) {
               const auto &var = pack_in(idx_range.block, Ts(v + sparse_offset));
               out.data_[vstart + v] = var.data() + out.shift_;
-            } else { 
+            } else {
               out.data_[vstart + v] = nullptr;
             }
           }

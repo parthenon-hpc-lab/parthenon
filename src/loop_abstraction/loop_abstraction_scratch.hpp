@@ -52,25 +52,27 @@ struct ctime_flat_indexer {
   static constexpr std::array<std::size_t, ndim> dim_sizes{Dims...};
 
   template <class... Args>
-    requires(sizeof...(Args) >= ndim) // We allow for unused trailing arguments to simplify template code
-  KOKKOS_FORCEINLINE_FUNCTION
-  static constexpr std::size_t GetFlat(Args&&... args) {
+    requires(sizeof...(Args) >=
+             ndim) // We allow for unused trailing arguments to simplify template code
+  KOKKOS_FORCEINLINE_FUNCTION static constexpr std::size_t GetFlat(Args &&...args) {
     auto tup = std::forward_as_tuple(std::forward<Args>(args)...);
     return GetFlatImpl(std::make_index_sequence<ndim>{}, tup);
   }
 
  private:
   template <std::size_t... I, class Tuple>
-  KOKKOS_FORCEINLINE_FUNCTION
-  static constexpr std::size_t GetFlatImpl(std::index_sequence<I...>, Tuple &&tup) {
+  KOKKOS_FORCEINLINE_FUNCTION static constexpr std::size_t
+  GetFlatImpl(std::index_sequence<I...>, Tuple &&tup) {
     std::size_t flat_idx{0};
-    ([&]{
-      KOKKOS_ASSERT(static_cast<std::size_t>(std::get<I>(tup)) < dim_sizes[I]);
-      flat_idx += std::get<I>(tup);
-      if constexpr (I + 1 < ndim) {
-        flat_idx *= dim_sizes[I + 1];
-      }
-    }(), ...);
+    (
+        [&] {
+          KOKKOS_ASSERT(static_cast<std::size_t>(std::get<I>(tup)) < dim_sizes[I]);
+          flat_idx += std::get<I>(tup);
+          if constexpr (I + 1 < ndim) {
+            flat_idx *= dim_sizes[I + 1];
+          }
+        }(),
+        ...);
     return flat_idx;
   }
 };
@@ -92,11 +94,10 @@ struct StackScratch1D {
 
   // Version called with component indices first and point index last.
   template <class... Args>
-    requires(sizeof...(Args) == idxer_t::ndim + 1 ||
-             sizeof...(Args) == idxer_t::ndim + 3)
-  KOKKOS_FORCEINLINE_FUNCTION T &operator()(Args&&... all) const {
+    requires(sizeof...(Args) == idxer_t::ndim + 1 || sizeof...(Args) == idxer_t::ndim + 3)
+  KOKKOS_FORCEINLINE_FUNCTION T &operator()(Args &&...all) const {
     auto tup = std::forward_as_tuple(std::forward<Args>(all)...);
-    const auto dense_index = [&]{
+    const auto dense_index = [&] {
       if constexpr (sizeof...(Args) == idxer_t::ndim + 1) {
         return GetDenseIndex(std::get<idxer_t::ndim>(tup));
       } else if constexpr (sizeof...(Args) == idxer_t::ndim + 3) {
@@ -109,27 +110,23 @@ struct StackScratch1D {
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  constexpr std::size_t size() const {
-    return box_t::size * idxer_t::size;
-  }
+  constexpr std::size_t size() const { return box_t::size * idxer_t::size; }
 
   // Zero the entire buffer. Prefer this over a zero-initializing constructor so a
   // buffer can be reused without reallocating. No barrier is issued (matches
   // inner()); the caller barriers before any cross-thread read.
   KOKKOS_FORCEINLINE_FUNCTION void Zero() const {
 #pragma omp simd
-    for (std::size_t i = 0; i < data.size(); ++i) data[i] = T{};
+    for (std::size_t i = 0; i < data.size(); ++i)
+      data[i] = T{};
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  constexpr std::size_t shmem_size() const {
-    return 0;
-  }
+  constexpr std::size_t shmem_size() const { return 0; }
 
  private:
-  KOKKOS_FORCEINLINE_FUNCTION static bool ContainsDeclaredOffset(const int dk,
-                                                                 const int dj,
-                                                                 const int di) {
+  KOKKOS_FORCEINLINE_FUNCTION static bool
+  ContainsDeclaredOffset(const int dk, const int dj, const int di) {
     for (int n = 0; n < halo_t::npoints; ++n) {
       if (dk == halo_t::dk(n) && dj == halo_t::dj(n) && di == halo_t::di(n)) {
         return true;
@@ -181,11 +178,10 @@ struct HostScratch1D {
             parthenon::GetThreadLocalBumpArena().allocate(n * sizeof(T)))) {}
 
   template <class... Args>
-    requires(sizeof...(Args) == idxer_t::ndim + 1 ||
-             sizeof...(Args) == idxer_t::ndim + 3)
-  KOKKOS_FORCEINLINE_FUNCTION T &operator()(Args&&... all) const {
+    requires(sizeof...(Args) == idxer_t::ndim + 1 || sizeof...(Args) == idxer_t::ndim + 3)
+  KOKKOS_FORCEINLINE_FUNCTION T &operator()(Args &&...all) const {
     auto tup = std::forward_as_tuple(std::forward<Args>(all)...);
-    const auto dense_index = [&]{
+    const auto dense_index = [&] {
       if constexpr (sizeof...(Args) == idxer_t::ndim + 1) {
         return idx_range.ScratchIndex(std::get<idxer_t::ndim>(tup));
       } else if constexpr (sizeof...(Args) == idxer_t::ndim + 3) {
@@ -198,9 +194,7 @@ struct HostScratch1D {
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  std::size_t size() const {
-    return n;
-  }
+  std::size_t size() const { return n; }
 
   // Zero the entire buffer. Prefer this over a zero-initializing allocation so the
   // arena can hand out uninitialized memory and callers zero only what they += into.
@@ -208,13 +202,12 @@ struct HostScratch1D {
   // reads. Single-threaded on the raw backend.
   KOKKOS_FORCEINLINE_FUNCTION void Zero() const {
 #pragma omp simd
-    for (std::size_t i = 0; i < n; ++i) data[i] = T{};
+    for (std::size_t i = 0; i < n; ++i)
+      data[i] = T{};
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  constexpr std::size_t shmem_size() const {
-    return 0;
-  }
+  constexpr std::size_t shmem_size() const { return 0; }
 };
 
 template <class IndexRange, class T, std::size_t... Dims>
@@ -226,17 +219,15 @@ struct TeamScratch1D {
   parthenon::ScratchPad1D<T> data;
 
   KOKKOS_INLINE_FUNCTION
-  TeamScratch1D(const IndexRange &idx_range) 
-      : idx_range(idx_range),
-        data(idx_range.team_member->team_scratch(scratch_level),
-             idx_range.ScratchSize() * idxer_t::size) {}
+  TeamScratch1D(const IndexRange &idx_range)
+      : idx_range(idx_range), data(idx_range.team_member->team_scratch(scratch_level),
+                                   idx_range.ScratchSize() * idxer_t::size) {}
 
   template <class... Args>
-    requires(sizeof...(Args) == idxer_t::ndim + 1 ||
-             sizeof...(Args) == idxer_t::ndim + 3)
-  KOKKOS_FORCEINLINE_FUNCTION T &operator()(Args&&... all) const {
+    requires(sizeof...(Args) == idxer_t::ndim + 1 || sizeof...(Args) == idxer_t::ndim + 3)
+  KOKKOS_FORCEINLINE_FUNCTION T &operator()(Args &&...all) const {
     auto tup = std::forward_as_tuple(std::forward<Args>(all)...);
-    const auto dense_index = [&]{
+    const auto dense_index = [&] {
       if constexpr (sizeof...(Args) == idxer_t::ndim + 1) {
         return idx_range.ScratchIndex(std::get<idxer_t::ndim>(tup));
       } else if constexpr (sizeof...(Args) == idxer_t::ndim + 3) {
@@ -249,9 +240,7 @@ struct TeamScratch1D {
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  std::size_t size() const {
-    return idx_range.ScratchSize() * idxer_t::size;
-  }
+  std::size_t size() const { return idx_range.ScratchSize() * idxer_t::size; }
 
   // Zero the entire buffer, team-parallel over the scratch span. No barrier is
   // issued (matches inner()); the caller barriers before any cross-thread read.
@@ -268,8 +257,7 @@ struct TeamScratch1D {
 };
 
 template <class T, std::size_t... Dims, class IndexRange>
-KOKKOS_INLINE_FUNCTION
-auto GetPerPointScratch(const IndexRange &idx_range) {
+KOKKOS_INLINE_FUNCTION auto GetPerPointScratch(const IndexRange &idx_range) {
   if constexpr (IndexRange::index_space_t::loop_tag_v == loop_tag::boiv) {
     return StackScratch1D<IndexRange, T, Dims...>(idx_range);
   } else if constexpr (IndexRange::index_space_t::backend_v == loop_backend::raw) {
@@ -290,7 +278,7 @@ KOKKOS_INLINE_FUNCTION std::size_t GetPerPointScratchSize(const IndexRange &idx_
     return 0;
   } else if constexpr (IndexRange::index_space_t::backend_v == loop_backend::kokkos) {
     return parthenon::ScratchPad1D<T>::shmem_size(idx_range.ScratchSize() *
-                                                 idxer_t::size);
+                                                  idxer_t::size);
   } else {
     static_assert(always_false<IndexRange>,
                   "Unsupported loop backend for per-point scratch size.");
@@ -317,9 +305,8 @@ inline std::size_t GetPerTeamScratchSize(const IndexSpaceType &idx_space) {
     auto update_scratch_size = [&](const auto &base_range) {
       const auto halo_range = base_range.template AddHalo<Halo>();
       scratch_size =
-          std::max(scratch_size,
-                   parthenon::ScratchPad1D<T>::shmem_size(halo_range.ScratchSize() *
-                                                          idxer_t::size));
+          std::max(scratch_size, parthenon::ScratchPad1D<T>::shmem_size(
+                                     halo_range.ScratchSize() * idxer_t::size));
     };
 
     if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
@@ -332,9 +319,8 @@ inline std::size_t GetPerTeamScratchSize(const IndexSpaceType &idx_space) {
       for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
         for (int o = 0; o < nouter; ++o) {
           const int logical_start = o * idx_space.GetNInner();
-          const int logical_end =
-              std::min((o + 1) * idx_space.GetNInner() - 1,
-                       static_cast<int>(logical_kji.size()) - 1);
+          const int logical_end = std::min((o + 1) * idx_space.GetNInner() - 1,
+                                           static_cast<int>(logical_kji.size()) - 1);
           const BaseRangeType idx_range(idx_space, logical_kji, b, logical_start,
                                         logical_end);
           update_scratch_size(idx_range);
