@@ -324,7 +324,7 @@ TEST_CASE("AddParsedParameter with typed scalar values", "[ParameterInput][Parse
 
     WHEN("We add typed scalar parameters via AddParsedParameter") {
       in.AddParsedParameter("block1", "int_val", 42);
-      in.AddParsedParameter("block1", "real_val", 3.14);
+      in.AddParsedParameter("block1", "real_val", static_cast<Real>(3.14));
       in.AddParsedParameter("block1", "bool_val", true);
       in.AddParsedParameter("block1", "string_val", std::string("hello"));
       in.FinalizeParsing();
@@ -426,7 +426,7 @@ TEST_CASE("Mixing LoadFromStream and AddParsedParameter", "[ParameterInput][Pars
 
     WHEN("We add additional parameters via AddParsedParameter") {
       in.AddParsedParameter("code_block", "code_param", 200);
-      in.AddParsedParameter("shared_block", "from_code", 3.14);
+      in.AddParsedParameter("shared_block", "from_code", static_cast<Real>(3.14));
       in.FinalizeParsing();
 
       THEN("Both file and code parameters are accessible") {
@@ -564,6 +564,26 @@ TEST_CASE("Empty vector defaults round-trip through the parameter store",
   auto values = in.GetOrAddVector<std::string>("block1", "var1", {});
   REQUIRE(values.empty());
   REQUIRE(in.GetVector<std::string>("block1", "var1").empty());
+
+  auto dummy = in.GetOrAddInteger("block2", "var2", 3);
+  std::stringstream ss;
+  in.ParameterDump(ss);
+  std::string paramdump = ss.str();
+
+  ParameterInput in2;
+  std::istringstream s(paramdump);
+  in2.LoadFromStream(s);
+  values = in2.GetOrAddVector<std::string>("block1", "var1", {});
+  REQUIRE(values.empty());
+  REQUIRE(in2.GetVector<std::string>("block1", "var1").empty());
+}
+TEST_CASE("ParameterDump includes unqueried parameters", "[ParameterInput]") {
+  ParameterInput in;
+  in.AddParsedParameter("block", "unused", 42);
+
+  std::stringstream dump;
+  REQUIRE_NOTHROW(in.ParameterDump(dump));
+  REQUIRE(dump.str().find("unused") != std::string::npos);
 }
 
 TEST_CASE("GetAsUnresolvedString returns string representations", "[ParameterInput]") {
