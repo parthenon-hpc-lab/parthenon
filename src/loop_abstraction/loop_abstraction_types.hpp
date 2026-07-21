@@ -74,7 +74,7 @@ struct Index3 {
   constexpr Index3(int k_, int j_, int i_) : k(k_), j(j_), i(i_) {}
 
   KOKKOS_INLINE_FUNCTION
-  constexpr Index3(const std::tuple<int, int, int> &t)
+  explicit constexpr Index3(const std::tuple<int, int, int> &t)
       : k(std::get<0>(t)), j(std::get<1>(t)), i(std::get<2>(t)) {}
 };
 

@@ -172,7 +172,7 @@ struct HostScratch1D {
   std::size_t n;
   T *data;
 
-  HostScratch1D(const IndexRange &idx_range)
+  explicit HostScratch1D(const IndexRange &idx_range)
       : idx_range(idx_range), n(idx_range.ScratchSize() * idxer_t::size),
         data(static_cast<T *>(
             parthenon::GetThreadLocalBumpArena().allocate(n * sizeof(T)))) {}
@@ -219,7 +219,7 @@ struct TeamScratch1D {
   parthenon::ScratchPad1D<T> data;
 
   KOKKOS_INLINE_FUNCTION
-  TeamScratch1D(const IndexRange &idx_range)
+  explicit TeamScratch1D(const IndexRange &idx_range)
       : idx_range(idx_range), data(idx_range.team_member->team_scratch(scratch_level),
                                    idx_range.ScratchSize() * idxer_t::size) {}
 

@@ -15,6 +15,8 @@
 
 // This file was made in part with generative AI.
 
+#include <algorithm>
+
 #include "loop_abstraction_base.hpp"
 #include "utils/bump_arena.hpp"
 

@@ -15,6 +15,8 @@
 
 // This file was made in part with generative AI.
 
+#include <utility>
+
 // Umbrella header for the loop abstraction and the intended include point for users.
 // It pulls in the core types and all backends/helpers, then defines the public
 // outer()/inner()/AddHalo() entry points that dispatch to the backend selected at
@@ -52,8 +54,9 @@ template <class InnerIndexRangeType, class F>
 KOKKOS_FORCEINLINE_FUNCTION void inner(const InnerIndexRangeType &idx_range, F &&f) {
   if constexpr (InnerIndexRangeType::index_space_t::backend_v == loop_backend::raw) {
     impl::inner_raw_for(idx_range, std::forward<F>(f));
-  } else if constexpr (InnerIndexRangeType::index_space_t::backend_v ==
-                       loop_backend::kokkos) {
+  } else if constexpr (// NOLINT(readability/braces)
+                       InnerIndexRangeType::index_space_t::backend_v
+                       == loop_backend::kokkos) {
     impl::inner_kokkos(idx_range, std::forward<F>(f));
   } else {
     static_assert(always_false<InnerIndexRangeType>,

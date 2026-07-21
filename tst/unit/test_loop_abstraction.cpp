@@ -81,23 +81,23 @@ template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 constexpr std::string_view PatternName() {
   if constexpr (LOOP_TAG == loop_tag::bvoi && INNER_TAG == inner_tag::logical_flat) {
     return "bvoi/logical_flat";
-  } else if constexpr (LOOP_TAG == loop_tag::bvoi &&
+  } else if constexpr (LOOP_TAG == loop_tag::bvoi && // NOLINT(readability/braces)
                        INNER_TAG == inner_tag::logical_coords) {
     return "bvoi/logical_coords";
   } else if constexpr (LOOP_TAG == loop_tag::bvoi && INNER_TAG == inner_tag::memory) {
     return "bvoi/memory";
-  } else if constexpr (LOOP_TAG == loop_tag::bovi &&
+  } else if constexpr (LOOP_TAG == loop_tag::bovi && // NOLINT(readability/braces)
                        INNER_TAG == inner_tag::logical_flat) {
     return "bovi/logical_flat";
-  } else if constexpr (LOOP_TAG == loop_tag::bovi &&
+  } else if constexpr (LOOP_TAG == loop_tag::bovi && // NOLINT(readability/braces)
                        INNER_TAG == inner_tag::logical_coords) {
     return "bovi/logical_coords";
   } else if constexpr (LOOP_TAG == loop_tag::bovi && INNER_TAG == inner_tag::memory) {
     return "bovi/memory";
-  } else if constexpr (LOOP_TAG == loop_tag::boiv &&
+  } else if constexpr (LOOP_TAG == loop_tag::boiv && // NOLINT(readability/braces)
                        INNER_TAG == inner_tag::logical_flat) {
     return "boiv/logical_flat";
-  } else if constexpr (LOOP_TAG == loop_tag::boiv &&
+  } else if constexpr (LOOP_TAG == loop_tag::boiv && // NOLINT(readability/braces)
                        INNER_TAG == inner_tag::logical_coords) {
     return "boiv/logical_coords";
   } else {

@@ -22,6 +22,7 @@
 // memory, and logical coordinates. The boiv loop tag has its own thin specialization
 // whose range is a single logical point.
 
+#include <algorithm>
 #include <array>
 #include <tuple>
 

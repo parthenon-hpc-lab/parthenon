@@ -14,6 +14,7 @@
 #define LOOP_ABSTRACTION_LOOP_ABSTRACTION_KOKKOS_HPP_
 
 // This file was made in part with generative AI.
+#include <algorithm>
 
 #include "loop_abstraction_base.hpp"
 
@@ -209,8 +210,9 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
               if constexpr (std::is_invocable_v<F, int, int, int>) {
                 const auto [k, j, i] = logical_kji(idx + start);
                 f(k, j, i);
-              } else if constexpr (IndexSpaceType::inner_tag_v ==
-                                   inner_tag::logical_flat) {
+              } else if constexpr ( // NOLINT(readability/braces)
+                                   IndexSpaceType::inner_tag_v
+                                   == inner_tag::logical_flat) {
                 const auto [k, j, i] = logical_kji(idx + start);
                 f(idx_space.GetMemoryIndexer().GetFlatIdx(k, j, i) - mem_start);
               } else {
