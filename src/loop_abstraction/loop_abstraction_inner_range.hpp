@@ -101,7 +101,7 @@ class InnerIndexRange {
     ks = ks_;
     js = js_;
     is = is_;
-    BuildRegionsFromEndpoints({ks, js, is}, logical_kji(flat_end));
+    BuildRegionsFromEndpoints({ks, js, is}, Index3(logical_kji(flat_end)));
   }
 
   template <class Halo_in>
