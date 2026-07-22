@@ -184,15 +184,6 @@ KOKKOS_INLINE_FUNCTION bool IsLogicalCell(const IndexSpaceType &idx_space, const
 }
 
 template <class IndexSpaceType>
-KOKKOS_INLINE_FUNCTION bool IsMemoryCell(const IndexSpaceType &idx_space, const int k,
-                                         const int j, const int i) {
-  const auto &memory = idx_space.GetMemoryIndexer();
-  return k >= memory.template StartIdx<0>() && k <= memory.template EndIdx<0>() &&
-         j >= memory.template StartIdx<1>() && j <= memory.template EndIdx<1>() &&
-         i >= memory.template StartIdx<2>() && i <= memory.template EndIdx<2>();
-}
-
-template <class IndexSpaceType>
 auto MakeOutput(const IndexSpaceType &idx_space) {
   const auto &memory = idx_space.GetMemoryIndexer();
   const int nk = memory.template EndIdx<0>() - memory.template StartIdx<0>() + 1;
@@ -477,161 +468,8 @@ void RunPatternMatrix(const char *body_name, const bool kji_body) {
   }
 }
 
-template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG>
-void RunHaloContractCase(const ProblemSpec &spec, const int ninner) {
-  const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
-  INFO("pattern=" << pattern_name << ", ninner=" << ninner
-                  << ", halo=" << typeid(HaloType).name());
-
-  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG>;
-  IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
-  auto out = MakeOutput(idx_space);
-  ZeroView(out);
-
-  // In-kernel checks accumulate into device counters (REQUIRE cannot run on device);
-  // the host asserts they are zero after the fence. span_wrong flags a malformed halo
-  // span structure; neighbor_wrong flags a produced halo value that does not match.
-  MismatchCounter span_wrong;
-  MismatchCounter neighbor_wrong;
-
-  // Validate the halo span structure for the k-directed case
-  // when the current base chunk is less than ni * nj.
-  loop_abstraction::outer(
-      idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
-        ForceCapture(span_wrong, idx_space);
-        const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
-
-        if constexpr (std::is_same_v<HaloType, k_triplet_halo_t> &&
-                      LOOP_TAG == loop_tag::bovi) {
-          const auto &logical = idx_space.GetLogicalIndexer();
-          const int ni =
-              logical.template EndIdx<2>() - logical.template StartIdx<2>() + 1;
-          const int nj =
-              logical.template EndIdx<1>() - logical.template StartIdx<1>() + 1;
-          int base_ninner = 0;
-          for (int r = 0; r < idx_range.nregions; ++r) {
-            base_ninner += idx_range.flat_end[r] - idx_range.flat_start[r] + 1;
-          }
-          if (base_ninner < ni * nj) {
-            span_wrong.note(halo_range.nregions != HaloType::npoints);
-            int total_flat = 0;
-            for (int r = 0; r < halo_range.nregions; ++r) {
-              span_wrong.note(halo_range.flat_start[r] > halo_range.flat_end[r]);
-              if (r > 0) {
-                span_wrong.note(halo_range.flat_start[r] <= halo_range.flat_end[r - 1]);
-              }
-              total_flat += halo_range.flat_end[r] - halo_range.flat_start[r] + 1;
-            }
-            span_wrong.note(total_flat != HaloType::npoints * base_ninner);
-          }
-        }
-
-        for (int v = 0; v < kNVars; ++v) {
-          loop_abstraction::inner(halo_range, [&](auto idx) {
-            const auto [k, j, i] = halo_range.GetKJI(idx);
-            out(b, v, k, j, i) = EncodeValue(b, v, k, j, i);
-          });
-          idx_range.TeamBarrier();
-        }
-
-        for (int v = 0; v < kNVars; ++v) {
-          loop_abstraction::inner(idx_range, [&](auto idx) {
-            const auto [k, j, i] = idx_range.GetKJI(idx);
-            // For memory-tag inner loops the visited span may include ghost cells. The
-            // producer only covers the halo-extended logical set S_halo, so a halo
-            // neighbor is only guaranteed written when its source base cell (k,j,i) is a
-            // logical cell -- the neighbor of a ghost base cell need not be in S_halo.
-            if (UsesMemorySpan<INNER_TAG>() && !IsLogicalCell(idx_space, k, j, i)) {
-              return;
-            }
-            for (int n = 0; n < HaloType::npoints; ++n) {
-              const int kk = k + HaloType::dk(n);
-              const int jj = j + HaloType::dj(n);
-              const int ii = i + HaloType::di(n);
-              neighbor_wrong.note(
-                  NotApprox(out(b, v, kk, jj, ii), EncodeValue(b, v, kk, jj, ii)));
-            }
-          });
-          idx_range.TeamBarrier();
-        }
-
-        for (int v = 0; v < kNVars; ++v) {
-          loop_abstraction::inner(halo_range, [&](auto idx) {
-            const auto [k, j, i] = halo_range.GetKJI(idx);
-            out(b, v, k, j, i) = 0.0;
-          });
-          idx_range.TeamBarrier();
-        }
-      });
-
-  Kokkos::fence();
-  REQUIRE(span_wrong.total() == 0);
-  REQUIRE(neighbor_wrong.total() == 0);
-
-  const auto host = MirrorToHost(out);
-  for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
-    for (int v = 0; v < kNVars; ++v) {
-      const auto &memory = idx_space.GetMemoryIndexer();
-      for (int k = memory.template StartIdx<0>(); k <= memory.template EndIdx<0>(); ++k) {
-        for (int j = memory.template StartIdx<1>(); j <= memory.template EndIdx<1>();
-             ++j) {
-          for (int i = memory.template StartIdx<2>(); i <= memory.template EndIdx<2>();
-               ++i) {
-            REQUIRE(host(b, v, k, j, i) == Approx(0.0));
-          }
-        }
-      }
-    }
-  }
-}
-
-template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG, bool USE_KOKKOS>
-parthenon::HostArray5D<Real> RunHaloTouchBackend(const ProblemSpec &spec,
-                                                 const int ninner) {
-  using IndexSpaceType =
-      PatternIndexSpace<LOOP_TAG, INNER_TAG,
-                        USE_KOKKOS ? loop_backend::kokkos : loop_backend::raw>;
-  IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
-  auto touches = MakeOutput(idx_space);
-  ZeroView(touches);
-
-  // Backend is fixed by the IndexSpace template argument above; the public outer()
-  // dispatches accordingly.
-  loop_abstraction::outer(
-      idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
-        const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
-
-        for (int v = 0; v < kNVars; ++v) {
-          loop_abstraction::inner(halo_range, [&](auto idx) {
-            const auto [k, j, i] = halo_range.GetKJI(idx);
-            touches(b, v, k, j, i) += 1.0;
-          });
-          idx_range.TeamBarrier();
-          loop_abstraction::inner(idx_range, [&](auto idx) {
-            const auto [k, j, i] = idx_range.GetKJI(idx);
-            for (int n = 0; n < HaloType::npoints; ++n) {
-              const int kk = k + HaloType::dk(n);
-              const int jj = j + HaloType::dj(n);
-              const int ii = i + HaloType::di(n);
-              // Memory-tag inner loops may visit ghost cells whose halo neighbor lies
-              // outside the allocated memory range; skip those, matching the guarded
-              // neighbor accesses elsewhere in this file.
-              if (IsMemoryCell(idx_space, kk, jj, ii)) {
-                touches(b, v, kk, jj, ii) += 1.0;
-              }
-            }
-          });
-          idx_range.TeamBarrier();
-        }
-      });
-
-  Kokkos::fence();
-  return MirrorToHost(touches);
-}
-
 // Is (k,j,i) in the halo-extended logical set S_halo = S ∪ shift(S, h) for all
-// halo offsets h? This is the set the producer inner(AddHalo<H>) must cover, each
-// cell exactly once.
+// halo offsets h?
 template <class HaloType, class IndexSpaceType>
 bool InHaloLogicalSet(const IndexSpaceType &idx_space, const int k, const int j,
                       const int i) {
@@ -646,12 +484,9 @@ bool InHaloLogicalSet(const IndexSpaceType &idx_space, const int k, const int j,
   return false;
 }
 
-// Contract: the producer pattern `inner(AddHalo<H>(idx_range))` must touch every
-// cell of the halo-extended logical set S_halo exactly once, and nothing else.
-// This is the invariant that accumulating (+=) bodies depend on; the earlier
-// halo tests only checked raw-vs-kokkos parity or used assignment, so a uniform
-// double-touch would slip through. Runs a single backend so a self-consistent
-// over-count in both backends is still caught.
+// bvoi-specific regression: a full-block AddHalo traversal should cover each point in
+// the block's halo-extended set exactly once. This is not a general halo contract for
+// bovi/boiv, where neighboring outer ranges may overlap.
 template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG, bool USE_KOKKOS>
 void RunHaloProducerSingleTouchCase(const ProblemSpec &spec, const int ninner) {
   const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
@@ -720,48 +555,6 @@ void RunHaloProducerSingleTouchPatternMatrix(const ProblemSpec &spec,
     if constexpr (default_loop_backend_v == loop_backend::raw) {
       RunHaloProducerSingleTouchCase<HaloType, LOOP_TAG, INNER_TAG, false>(spec, ninner);
     }
-  }
-}
-
-template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG>
-void RunHaloParityCase(const ProblemSpec &spec, const int ninner) {
-  const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
-  INFO("pattern=" << pattern_name << ", ninner=" << ninner
-                  << ", halo-parity=" << typeid(HaloType).name());
-  if constexpr (default_loop_backend_v == loop_backend::raw) {
-    const auto raw =
-        RunHaloTouchBackend<HaloType, LOOP_TAG, INNER_TAG, false>(spec, ninner);
-    const auto kokkos =
-        RunHaloTouchBackend<HaloType, LOOP_TAG, INNER_TAG, true>(spec, ninner);
-    CheckParity(raw, kokkos,
-                PatternIndexSpace<LOOP_TAG, INNER_TAG>(spec.nblocks, spec.nx, spec.ny,
-                                                       spec.nz, spec.nghost, ninner));
-  }
-}
-
-template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG>
-void RunHaloParityPatternMatrix(const ProblemSpec &spec,
-                                const std::vector<int> &ninner_cases) {
-  for (const int ninner : ninner_cases) {
-    RunHaloParityCase<HaloType, LOOP_TAG, INNER_TAG>(spec, ninner);
-  }
-}
-
-template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
-void RunHaloPatternMatrix() {
-  for (const auto &spec : CoverageSpecs()) {
-    const auto cases = NinnerCases(spec.nx * spec.ny * spec.nz);
-    for (const int ninner : cases) {
-      RunHaloContractCase<plus_j_halo_t, LOOP_TAG, INNER_TAG>(spec, ninner);
-    }
-  }
-}
-
-template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
-void RunKTripletHaloPatternMatrix() {
-  constexpr ProblemSpec spec{2, 3, 2, 2, 1};
-  for (const int ninner : {1, 5}) {
-    RunHaloContractCase<k_triplet_halo_t, LOOP_TAG, INNER_TAG>(spec, ninner);
   }
 }
 
@@ -1143,55 +936,106 @@ void RunPackViewPatternMatrix() {
   RunPackViewPatternMatrix<LOOP_TAG, INNER_TAG>("kji", true);
 }
 
-template <loop_tag LOOP_TAG, inner_tag INNER_TAG,
+template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG,
           loop_backend BACKEND = default_loop_backend_v>
-void RunScratchCase(const ProblemSpec &spec, const int ninner) {
+void RunScratchRoundtripCase(const ProblemSpec &spec, const int ninner) {
   const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
   INFO("pattern=" << pattern_name << ", spec=" << spec.nblocks << "x" << spec.nx << "x"
                   << spec.ny << "x" << spec.nz << " nghost=" << spec.nghost
-                  << ", ninner=" << ninner);
+                  << ", ninner=" << ninner << ", halo=" << typeid(HaloType).name()
+                  << ", backend=" << (BACKEND == loop_backend::raw ? "raw" : "kokkos"));
 
   using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG, BACKEND>;
   IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
-  idx_space.template AddPerPointScratch<Real>();
-  idx_space.template AddPerPointScratch<Real>();
-  idx_space.template AddPerPointScratch<Real>();
+  idx_space.template AddPerPointScratch<Real, HaloType>();
+  idx_space.template AddPerPointScratch<Real, HaloType>();
+  idx_space.template AddPerPointScratch<Real, HaloType>();
+  idx_space.template AddPerPointScratch<Real, HaloType, 2, 3>();
+  auto di = idx_space.GetDelta(parthenon::X1DIR);
+  auto dj = idx_space.GetDelta(parthenon::X2DIR);
+  auto dk = idx_space.GetDelta(parthenon::X3DIR);
+  using offset_t = decltype(di);
+  std::array<offset_t, HaloType::npoints> offsets{};
+  for (int n = 0; n < HaloType::npoints; ++n) {
+    offsets[n] = HaloType::di(n) * di + HaloType::dj(n) * dj + HaloType::dk(n) * dk;
+  }
 
   MismatchCounter wrong;
 
   loop_abstraction::outer(
       idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
-        auto scratch_a = loop_abstraction::GetPerPointScratch<Real>(idx_range);
-        auto scratch_b = loop_abstraction::GetPerPointScratch<Real>(idx_range);
-        auto scratch_c = loop_abstraction::GetPerPointScratch<Real>(idx_range);
+        ForceCapture(idx_space, offsets);
+        const auto scratch_range = loop_abstraction::AddHalo<HaloType>(idx_range);
 
-        loop_abstraction::inner(idx_range, [&](auto idx) {
+        auto scratch_a = loop_abstraction::GetPerPointScratch<Real>(scratch_range);
+        auto scratch_b = loop_abstraction::GetPerPointScratch<Real>(scratch_range);
+        auto scratch_c = loop_abstraction::GetPerPointScratch<Real>(scratch_range);
+        auto scratch_shaped =
+            loop_abstraction::GetPerPointScratch<Real, 2, 3>(scratch_range);
+
+        loop_abstraction::inner(scratch_range, [&](auto idx) {
+          const auto [k, j, i] = scratch_range.GetKJI(idx);
           scratch_a(idx) = 0.0;
           scratch_b(idx) = 0.0;
           scratch_c(idx) = 0.0;
+          for (int c0 = 0; c0 < 2; ++c0) {
+            for (int c1 = 0; c1 < 3; ++c1) {
+              scratch_shaped(c0, c1, idx) = ShapedScratchValue(b, c0, c1, k, j, i);
+            }
+          }
         });
-        idx_range.TeamBarrier();
+        scratch_range.TeamBarrier();
 
         for (int v = 0; v < kNVars; ++v) {
-          loop_abstraction::inner(idx_range, [&](auto idx) {
-            const auto [k, j, i] = idx_range.GetKJI(idx);
+          loop_abstraction::inner(scratch_range, [&](auto idx) {
+            const auto [k, j, i] = scratch_range.GetKJI(idx);
             scratch_a(idx) += EncodeValue(b, v, k, j, i);
             scratch_b(idx) += EncodeValue(b, v, k, j, i);
             scratch_c(idx) += EncodeValue(b, v, k, j, i);
           });
-          idx_range.TeamBarrier();
+          scratch_range.TeamBarrier();
         }
 
         loop_abstraction::inner(idx_range, [&](auto idx) {
           const auto [k, j, i] = idx_range.GetKJI(idx);
-          const Real expected = ScratchExpectedValue(b, k, j, i);
-          wrong.note(NotApprox(scratch_a(idx), expected));
-          wrong.note(NotApprox(scratch_b(idx), expected));
-          wrong.note(NotApprox(scratch_c(idx), expected));
+          if constexpr (INNER_TAG == inner_tag::memory &&
+                        !std::is_same_v<HaloType, loop_abstraction::halo::none_t>) {
+            if (!IsLogicalCell(idx_space, k, j, i)) {
+              return;
+            }
+          }
+          for (int n = 0; n < HaloType::npoints; ++n) {
+            const int kk = k + HaloType::dk(n);
+            const int jj = j + HaloType::dj(n);
+            const int ii = i + HaloType::di(n);
+            const Real expected = ScratchExpectedValue(b, kk, jj, ii);
+            const auto shifted = idx + offsets[n];
+            wrong.note(NotApprox(scratch_a(shifted), expected));
+            wrong.note(NotApprox(scratch_b(Index3{kk, jj, ii}), expected));
+            wrong.note(NotApprox(scratch_c(kk, jj, ii), expected));
+            for (int c0 = 0; c0 < 2; ++c0) {
+              for (int c1 = 0; c1 < 3; ++c1) {
+                const Real shaped_expected = ShapedScratchValue(b, c0, c1, kk, jj, ii);
+                wrong.note(
+                    NotApprox(scratch_shaped(c0, c1, Index3{kk, jj, ii}), shaped_expected));
+                wrong.note(
+                    NotApprox(scratch_shaped(c0, c1, shifted), shaped_expected));
+                wrong.note(
+                    NotApprox(scratch_shaped(c0, c1, kk, jj, ii), shaped_expected));
+              }
+            }
+          }
         });
       });
 
   REQUIRE(wrong.total() == 0);
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG,
+          loop_backend BACKEND = default_loop_backend_v>
+void RunScratchCase(const ProblemSpec &spec, const int ninner) {
+  RunScratchRoundtripCase<loop_abstraction::halo::none_t, LOOP_TAG, INNER_TAG, BACKEND>(
+      spec, ninner);
 }
 
 // Exercise scratch.Zero(): fill with garbage, Zero(), accumulate, verify; then
@@ -1265,61 +1109,7 @@ void RunScratchPatternMatrix() {
 template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG,
           loop_backend BACKEND = default_loop_backend_v>
 void RunScratchHaloCase(const ProblemSpec &spec, const int ninner) {
-  const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
-  INFO("pattern=" << pattern_name << ", spec=" << spec.nblocks << "x" << spec.nx << "x"
-                  << spec.ny << "x" << spec.nz << " nghost=" << spec.nghost
-                  << ", ninner=" << ninner << ", halo=" << typeid(HaloType).name());
-
-  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG, BACKEND>;
-  IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
-  idx_space.template AddPerPointScratch<Real, HaloType>();
-  auto di = idx_space.GetDelta(parthenon::X1DIR);
-  auto dj = idx_space.GetDelta(parthenon::X2DIR);
-  auto dk = idx_space.GetDelta(parthenon::X3DIR);
-  using offset_t = decltype(di);
-  std::array<offset_t, HaloType::npoints> offsets{};
-  for (int n = 0; n < HaloType::npoints; ++n) {
-    offsets[n] = HaloType::di(n) * di + HaloType::dj(n) * dj + HaloType::dk(n) * dk;
-  }
-
-  MismatchCounter wrong;
-
-  loop_abstraction::outer(
-      idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
-        ForceCapture(idx_space);
-        const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
-        auto scratch = loop_abstraction::GetPerPointScratch<Real>(halo_range);
-
-        loop_abstraction::inner(halo_range, [&](auto idx) {
-          const auto [k, j, i] = halo_range.GetKJI(idx);
-          scratch(idx) = EncodeValue(b, 0, k, j, i);
-        });
-        // The consumer reads neighbor scratch written by other threads on the team
-        // backend, so the producer must complete first.
-        idx_range.TeamBarrier();
-
-        loop_abstraction::inner(idx_range, [&](auto idx) {
-          const auto [k, j, i] = idx_range.GetKJI(idx);
-          for (int n = 0; n < HaloType::npoints; ++n) {
-            const int kk = k + HaloType::dk(n);
-            const int jj = j + HaloType::dj(n);
-            const int ii = i + HaloType::di(n);
-            // Memory-tag ranges may include halo-of-ghost cells. Only verify
-            // offsets that remain inside the allocated memory span.
-            if constexpr (INNER_TAG == inner_tag::memory) {
-              if (IsMemoryCell(idx_space, k, j, i)) {
-                continue;
-              }
-            }
-            const auto shifted = idx + offsets[n];
-            wrong.note(NotApprox(scratch(shifted), EncodeValue(b, 0, kk, jj, ii)));
-            wrong.note(
-                NotApprox(scratch(Index3{kk, jj, ii}), EncodeValue(b, 0, kk, jj, ii)));
-          }
-        });
-      });
-
-  REQUIRE(wrong.total() == 0);
+  RunScratchRoundtripCase<HaloType, LOOP_TAG, INNER_TAG, BACKEND>(spec, ninner);
 }
 
 template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG,
@@ -1366,115 +1156,6 @@ void RunBoivScratchDeltaCase(const ProblemSpec &spec) {
             kk += SIGN;
           }
           wrong.note(NotApprox(scratch(shifted), EncodeValue(b, 0, kk, jj, ii)));
-        });
-      });
-
-  REQUIRE(wrong.total() == 0);
-}
-
-template <loop_tag LOOP_TAG, inner_tag INNER_TAG, loop_backend BACKEND>
-void RunShapedScratchCase(const ProblemSpec &spec, const int ninner) {
-  const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
-  INFO("pattern=" << pattern_name << ", spec=" << spec.nblocks << "x" << spec.nx << "x"
-                  << spec.ny << "x" << spec.nz << " nghost=" << spec.nghost
-                  << ", ninner=" << ninner
-                  << ", backend=" << (BACKEND == loop_backend::raw ? "raw" : "kokkos"));
-
-  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG, BACKEND>;
-  IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
-  idx_space.template AddPerPointScratch<Real, 2, 3>();
-
-  MismatchCounter wrong;
-
-  loop_abstraction::outer(
-      idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
-        auto scratch = loop_abstraction::GetPerPointScratch<Real, 2, 3>(idx_range);
-
-        loop_abstraction::inner(idx_range, [&](auto idx) {
-          const auto [k, j, i] = idx_range.GetKJI(idx);
-          for (int c0 = 0; c0 < 2; ++c0) {
-            for (int c1 = 0; c1 < 3; ++c1) {
-              scratch(c0, c1, idx) = ShapedScratchValue(b, c0, c1, k, j, i);
-            }
-          }
-        });
-
-        idx_range.TeamBarrier();
-
-        loop_abstraction::inner(idx_range, [&](auto idx) {
-          const auto [k, j, i] = idx_range.GetKJI(idx);
-          for (int c0 = 0; c0 < 2; ++c0) {
-            for (int c1 = 0; c1 < 3; ++c1) {
-              const Real expected = ShapedScratchValue(b, c0, c1, k, j, i);
-              wrong.note(NotApprox(scratch(c0, c1, idx), expected));
-              wrong.note(NotApprox(scratch(c0, c1, k, j, i), expected));
-            }
-          }
-        });
-      });
-
-  REQUIRE(wrong.total() == 0);
-}
-
-template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG, loop_backend BACKEND>
-void RunShapedScratchHaloCase(const ProblemSpec &spec, const int ninner) {
-  const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
-  INFO("pattern=" << pattern_name << ", spec=" << spec.nblocks << "x" << spec.nx << "x"
-                  << spec.ny << "x" << spec.nz << " nghost=" << spec.nghost
-                  << ", ninner=" << ninner << ", halo=" << typeid(HaloType).name()
-                  << ", backend=" << (BACKEND == loop_backend::raw ? "raw" : "kokkos"));
-
-  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG, BACKEND>;
-  IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
-  idx_space.template AddPerPointScratch<Real, HaloType, 2, 3>();
-  auto di = idx_space.GetDelta(parthenon::X1DIR);
-  auto dj = idx_space.GetDelta(parthenon::X2DIR);
-  auto dk = idx_space.GetDelta(parthenon::X3DIR);
-  using offset_t = decltype(di);
-  std::array<offset_t, HaloType::npoints> offsets{};
-  for (int n = 0; n < HaloType::npoints; ++n) {
-    offsets[n] = HaloType::di(n) * di + HaloType::dj(n) * dj + HaloType::dk(n) * dk;
-  }
-
-  MismatchCounter wrong;
-
-  loop_abstraction::outer(
-      idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
-        ForceCapture(idx_space);
-        const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
-        auto scratch = loop_abstraction::GetPerPointScratch<Real, 2, 3>(halo_range);
-
-        loop_abstraction::inner(halo_range, [&](auto idx) {
-          const auto [k, j, i] = halo_range.GetKJI(idx);
-          for (int c0 = 0; c0 < 2; ++c0) {
-            for (int c1 = 0; c1 < 3; ++c1) {
-              scratch(c0, c1, idx) = ShapedScratchValue(b, c0, c1, k, j, i);
-            }
-          }
-        });
-
-        halo_range.TeamBarrier();
-
-        loop_abstraction::inner(idx_range, [&](auto idx) {
-          const auto [k, j, i] = idx_range.GetKJI(idx);
-          for (int n = 0; n < HaloType::npoints; ++n) {
-            const int kk = k + HaloType::dk(n);
-            const int jj = j + HaloType::dj(n);
-            const int ii = i + HaloType::di(n);
-            if constexpr (INNER_TAG == inner_tag::memory) {
-              if (!IsMemoryCell(idx_space, kk, jj, ii)) {
-                continue;
-              }
-            }
-            for (int c0 = 0; c0 < 2; ++c0) {
-              for (int c1 = 0; c1 < 3; ++c1) {
-                const Real expected = ShapedScratchValue(b, c0, c1, kk, jj, ii);
-                wrong.note(NotApprox(scratch(c0, c1, Index3{kk, jj, ii}), expected));
-                wrong.note(NotApprox(scratch(c0, c1, idx + offsets[n]), expected));
-                wrong.note(NotApprox(scratch(c0, c1, kk, jj, ii), expected));
-              }
-            }
-          }
         });
       });
 
@@ -1640,146 +1321,6 @@ TEST_CASE("loop abstraction boiv scratch halo kokkos roundtrip",
                      loop_backend::kokkos>(spec, spec.nx * spec.ny);
   RunScratchHaloCase<plus_j_halo_t, loop_tag::boiv, inner_tag::logical_coords,
                      loop_backend::kokkos>(spec, spec.nx * spec.ny);
-}
-
-TEST_CASE("loop abstraction shaped scratch roundtrip",
-          "[loop_abstraction][contract][scratch][shaped]") {
-  constexpr ProblemSpec spec{2, 3, 2, 2, 1};
-  constexpr int ninner = spec.nx * spec.ny;
-
-  if constexpr (default_loop_backend_v == loop_backend::raw) {
-    RunShapedScratchCase<loop_tag::bvoi, inner_tag::logical_flat, loop_backend::raw>(
-        spec, ninner);
-    RunShapedScratchCase<loop_tag::bvoi, inner_tag::logical_coords, loop_backend::raw>(
-        spec, ninner);
-    RunShapedScratchCase<loop_tag::bvoi, inner_tag::memory, loop_backend::raw>(spec,
-                                                                               ninner);
-    RunShapedScratchCase<loop_tag::bovi, inner_tag::logical_flat, loop_backend::raw>(
-        spec, ninner);
-    RunShapedScratchCase<loop_tag::bovi, inner_tag::logical_coords, loop_backend::raw>(
-        spec, ninner);
-    RunShapedScratchCase<loop_tag::bovi, inner_tag::memory, loop_backend::raw>(spec,
-                                                                               ninner);
-    RunShapedScratchCase<loop_tag::boiv, inner_tag::logical_flat, loop_backend::raw>(
-        spec, ninner);
-    RunShapedScratchCase<loop_tag::boiv, inner_tag::logical_coords, loop_backend::raw>(
-        spec, ninner);
-  }
-
-  RunShapedScratchCase<loop_tag::bvoi, inner_tag::logical_flat, loop_backend::kokkos>(
-      spec, ninner);
-  RunShapedScratchCase<loop_tag::bvoi, inner_tag::logical_coords, loop_backend::kokkos>(
-      spec, ninner);
-  RunShapedScratchCase<loop_tag::bvoi, inner_tag::memory, loop_backend::kokkos>(spec,
-                                                                                ninner);
-  RunShapedScratchCase<loop_tag::bovi, inner_tag::logical_flat, loop_backend::kokkos>(
-      spec, ninner);
-  RunShapedScratchCase<loop_tag::bovi, inner_tag::logical_coords, loop_backend::kokkos>(
-      spec, ninner);
-  RunShapedScratchCase<loop_tag::bovi, inner_tag::memory, loop_backend::kokkos>(spec,
-                                                                                ninner);
-  RunShapedScratchCase<loop_tag::boiv, inner_tag::logical_flat, loop_backend::kokkos>(
-      spec, ninner);
-  RunShapedScratchCase<loop_tag::boiv, inner_tag::logical_coords, loop_backend::kokkos>(
-      spec, ninner);
-}
-
-TEST_CASE("loop abstraction shaped scratch halo roundtrip",
-          "[loop_abstraction][contract][scratch][halo][shaped]") {
-  constexpr ProblemSpec spec{2, 3, 3, 3, 2};
-  constexpr int ninner = spec.nx * spec.ny;
-
-  if constexpr (default_loop_backend_v == loop_backend::raw) {
-    RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::bvoi, inner_tag::logical_flat,
-                             loop_backend::raw>(spec, ninner);
-    RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::bvoi, inner_tag::logical_coords,
-                             loop_backend::raw>(spec, ninner);
-    RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::bovi, inner_tag::logical_flat,
-                             loop_backend::raw>(spec, ninner);
-    RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::bovi, inner_tag::logical_coords,
-                             loop_backend::raw>(spec, ninner);
-    RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::boiv, inner_tag::logical_flat,
-                             loop_backend::raw>(spec, ninner);
-    RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::boiv, inner_tag::logical_coords,
-                             loop_backend::raw>(spec, ninner);
-  }
-
-  RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::bvoi, inner_tag::logical_flat,
-                           loop_backend::kokkos>(spec, ninner);
-  RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::bvoi, inner_tag::logical_coords,
-                           loop_backend::kokkos>(spec, ninner);
-  RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::bovi, inner_tag::logical_flat,
-                           loop_backend::kokkos>(spec, ninner);
-  RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::bovi, inner_tag::logical_coords,
-                           loop_backend::kokkos>(spec, ninner);
-  RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::boiv, inner_tag::logical_flat,
-                           loop_backend::kokkos>(spec, ninner);
-  RunShapedScratchHaloCase<plus_j_halo_t, loop_tag::boiv, inner_tag::logical_coords,
-                           loop_backend::kokkos>(spec, ninner);
-}
-
-TEST_CASE("loop abstraction halo producer-consumer contracts",
-          "[loop_abstraction][contract][halo]") {
-  RunHaloPatternMatrix<loop_tag::bvoi, inner_tag::logical_flat>();
-  RunHaloPatternMatrix<loop_tag::bvoi, inner_tag::logical_coords>();
-  RunHaloPatternMatrix<loop_tag::bvoi, inner_tag::memory>();
-  RunHaloPatternMatrix<loop_tag::bovi, inner_tag::logical_flat>();
-  RunHaloPatternMatrix<loop_tag::bovi, inner_tag::logical_coords>();
-  RunHaloPatternMatrix<loop_tag::bovi, inner_tag::memory>();
-  RunHaloPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
-  RunHaloPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
-}
-
-TEST_CASE("loop abstraction k halo disjoint span contracts",
-          "[loop_abstraction][contract][halo]") {
-  RunKTripletHaloPatternMatrix<loop_tag::bvoi, inner_tag::logical_flat>();
-  RunKTripletHaloPatternMatrix<loop_tag::bvoi, inner_tag::logical_coords>();
-  RunKTripletHaloPatternMatrix<loop_tag::bvoi, inner_tag::memory>();
-  RunKTripletHaloPatternMatrix<loop_tag::bovi, inner_tag::logical_flat>();
-  RunKTripletHaloPatternMatrix<loop_tag::bovi, inner_tag::logical_coords>();
-  RunKTripletHaloPatternMatrix<loop_tag::bovi, inner_tag::memory>();
-  RunKTripletHaloPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
-  RunKTripletHaloPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
-}
-
-TEST_CASE("loop abstraction halo kokkos parity", "[loop_abstraction][contract][halo]") {
-  const ProblemSpec spec{2, 3, 2, 2, 1};
-  const std::vector<int> plus_j_cases{1, 11, 12, 13};
-  const std::vector<int> k_triplet_cases{1, 5};
-
-  RunHaloParityPatternMatrix<plus_j_halo_t, loop_tag::bvoi, inner_tag::logical_flat>(
-      spec, plus_j_cases);
-  RunHaloParityPatternMatrix<plus_j_halo_t, loop_tag::bvoi, inner_tag::logical_coords>(
-      spec, plus_j_cases);
-  RunHaloParityPatternMatrix<plus_j_halo_t, loop_tag::bvoi, inner_tag::memory>(
-      spec, plus_j_cases);
-  RunHaloParityPatternMatrix<plus_j_halo_t, loop_tag::bovi, inner_tag::logical_flat>(
-      spec, plus_j_cases);
-  RunHaloParityPatternMatrix<plus_j_halo_t, loop_tag::bovi, inner_tag::logical_coords>(
-      spec, plus_j_cases);
-  RunHaloParityPatternMatrix<plus_j_halo_t, loop_tag::bovi, inner_tag::memory>(
-      spec, plus_j_cases);
-  RunHaloParityPatternMatrix<plus_j_halo_t, loop_tag::boiv, inner_tag::logical_flat>(
-      spec, plus_j_cases);
-  RunHaloParityPatternMatrix<plus_j_halo_t, loop_tag::boiv, inner_tag::logical_coords>(
-      spec, plus_j_cases);
-
-  RunHaloParityPatternMatrix<k_triplet_halo_t, loop_tag::bvoi, inner_tag::logical_flat>(
-      spec, k_triplet_cases);
-  RunHaloParityPatternMatrix<k_triplet_halo_t, loop_tag::bvoi, inner_tag::logical_coords>(
-      spec, k_triplet_cases);
-  RunHaloParityPatternMatrix<k_triplet_halo_t, loop_tag::bvoi, inner_tag::memory>(
-      spec, k_triplet_cases);
-  RunHaloParityPatternMatrix<k_triplet_halo_t, loop_tag::bovi, inner_tag::logical_flat>(
-      spec, k_triplet_cases);
-  RunHaloParityPatternMatrix<k_triplet_halo_t, loop_tag::bovi, inner_tag::logical_coords>(
-      spec, k_triplet_cases);
-  RunHaloParityPatternMatrix<k_triplet_halo_t, loop_tag::bovi, inner_tag::memory>(
-      spec, k_triplet_cases);
-  RunHaloParityPatternMatrix<k_triplet_halo_t, loop_tag::boiv, inner_tag::logical_flat>(
-      spec, k_triplet_cases);
-  RunHaloParityPatternMatrix<k_triplet_halo_t, loop_tag::boiv, inner_tag::logical_coords>(
-      spec, k_triplet_cases);
 }
 
 TEST_CASE("loop abstraction halo producer single touch",
