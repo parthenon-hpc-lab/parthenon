@@ -359,7 +359,7 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
     // classes add the +1's where needed.  They all expect
     // these dimensions to be the number of cells in each
     // direction, NOT the size of the arrays
-    assert(N >= 0 && N <= 3);
+    assert(N <= 3);
     PARTHENON_REQUIRE_THROWS(!wpmb.expired(),
                              "Cannot determine array dimensions for mesh-tied entity "
                              "without a valid meshblock");
@@ -386,7 +386,7 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
       if (arrDims[2] > 1) arrDims[2]++;
     }
   } else if (IsSet(Particle)) {
-    assert(N >= 0 && N <= MAX_VARIABLE_DIMENSION - 1);
+    assert(N <= MAX_VARIABLE_DIMENSION - 1);
     arrDims[0] = 1; // To be updated by swarm based on pool size before allocation
     for (int i = 0; i < N; i++)
       arrDims[i + 1] = shape[i];
