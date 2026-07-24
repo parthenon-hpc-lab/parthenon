@@ -509,7 +509,7 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
     PARTHENON_INSTRUMENT_REGION("write input");
     // write input key-value pairs
     std::ostringstream oss;
-    pin->ParameterDump(oss);
+    pin->RestartDump(oss);
     it.setAttribute("InputFile", oss.str());
   }
 

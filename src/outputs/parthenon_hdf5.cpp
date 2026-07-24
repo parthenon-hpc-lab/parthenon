@@ -139,7 +139,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     Kokkos::Profiling::pushRegion("write input");
     // write input key-value pairs
     std::ostringstream oss;
-    pin->ParameterDump(oss);
+    pin->RestartDump(oss);
 
     // Mesh information
     const H5G input_group = MakeGroup(file, "/Input");

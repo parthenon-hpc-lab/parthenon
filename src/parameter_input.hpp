@@ -36,6 +36,7 @@
 #include <typeinfo>
 #include <unordered_map>
 #include <utility> // for std::forward, std::pair
+#include <variant>
 #include <vector>
 
 #include "config.hpp"
@@ -166,9 +167,17 @@ struct UnresolvedString {
   explicit UnresolvedString(std::string &&v) : value(std::move(v)) {}
 };
 
-// Build ParamValue variant from SupportedParamTypes + UnresolvedString
-using ParamValue =
-    type_list_to_variant_t<insert_type_list_t<UnresolvedString, SupportedParamTypes, 0>>;
+// A parser-provided vector whose elements retain their original scalar kind.
+// This avoids treating commas in string elements as separators while deferring
+// conversion until the consumer requests a concrete vector type.
+using UnresolvedScalar = std::variant<UnresolvedString, int, Real, bool, std::string>;
+struct UnresolvedVector {
+  std::vector<UnresolvedScalar> values;
+};
+
+// Build ParamValue variant from SupportedParamTypes + parser-preserved values.
+using ParamValue = type_list_to_variant_t<insert_type_list_t<
+    UnresolvedVector, insert_type_list_t<UnresolvedString, SupportedParamTypes, 0>, 0>>;
 
 // This can be used to tell the params infrastructure that the default
 // value of one parameter depends on another one
@@ -220,6 +229,7 @@ struct Block {
   // for the SimpleDeck parser and the legacy text parser.
   std::string class_name;
   std::string instance_name;
+  std::string canonical_path;
   std::vector<Parameter> params; // Ordered storage (for iteration)
   std::unordered_map<std::string, size_t>
       param_index; // Fast lookup within block (stores indices)
@@ -257,6 +267,9 @@ class ParameterInput {
   void AddParsedParameter(const std::string &block, const std::string &name,
                           const ParamValue &value,
                           const std::string &comment = "# From parser");
+  void AddParsedBlock(const std::string &block, const std::string &class_name = "",
+                      const std::string &instance_name = "",
+                      const std::string &canonical_path = "");
 
   // Finalize the parsing phase - no more parsing allowed (but GetOrAdd/Set still work)
   void FinalizeParsing();
@@ -274,9 +287,13 @@ class ParameterInput {
   // rummy parser when populating from a FullDeck; ignored for callers that
   // do not need class introspection.
   void SetBlockClassMetadata(const std::string &block, const std::string &class_name,
-                             const std::string &instance_name);
+                             const std::string &instance_name,
+                             const std::string &canonical_path = "");
 
   void ParameterDump(std::ostream &os);
+  // Backward-readable restart serialization that additionally preserves
+  // parser metadata and unresolved/typed value representations.
+  void RestartDump(std::ostream &os);
   // TODO(JMM): Make this more general?
   void OutputParameterTable(std::ostream &os,
                             const std::regex &block_regex = std::regex("(.*)")) const;
