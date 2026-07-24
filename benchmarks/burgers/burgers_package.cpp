@@ -187,12 +187,13 @@ Real EstimateTimestepMesh(MeshData<Real> *md) {
       md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &ldt) {
         auto &coords = v.GetCoords(b);
-        ldt = std::min(
-            ldt,
-            1.0 /
-                ((std::abs(v(b, 0, k, j, i))) / coords.Dxc<X1DIR>(k, j, i) +
-                 (ndim > 1) * (std::abs(v(b, 1, k, j, i))) / coords.Dxc<X2DIR>(k, j, i) +
-                 (ndim > 2) * (std::abs(v(b, 2, k, j, i))) / coords.Dxc<X3DIR>(k, j, i)));
+        ldt = Kokkos::min(
+            ldt, static_cast<Real>(
+                     1.0 / ((Kokkos::abs(v(b, 0, k, j, i))) / coords.Dxc<X1DIR>(k, j, i) +
+                            (ndim > 1) * (Kokkos::abs(v(b, 1, k, j, i))) /
+                                coords.Dxc<X2DIR>(k, j, i) +
+                            (ndim > 2) * (Kokkos::abs(v(b, 2, k, j, i))) /
+                                coords.Dxc<X3DIR>(k, j, i))));
       },
       Kokkos::Min<Real>(min_dt));
 

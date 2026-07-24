@@ -48,7 +48,7 @@ KOKKOS_FORCEINLINE_FUNCTION auto make_positive(const T val) {
 
 KOKKOS_FORCEINLINE_FUNCTION
 Real make_bounded(const Real val, const Real vmin, const Real vmax) {
-  return std::min(std::max(val, vmin + EPS()), vmax * (1.0 - EPS()));
+  return std::min(std::max(val, vmin + EPS()), vmax * (static_cast<Real>(1.0) - EPS()));
 }
 
 template <typename T>

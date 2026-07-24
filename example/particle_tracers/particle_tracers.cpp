@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2021-2024 The Parthenon collaboration
+// Copyright(C) 2021-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2021-2026. Triad National Security, LLC. All rights reserved.
@@ -98,8 +98,8 @@ Real EstimateTimestepMesh(MeshData<Real> *md) {
   }
 
   Real min_dt = dx[0] / std::abs(vx + TINY_NUMBER);
-  min_dt = std::min(min_dt, dx[1] / std::abs(vy + TINY_NUMBER));
-  min_dt = std::min(min_dt, dx[2] / std::abs(vz + TINY_NUMBER));
+  min_dt = std::min(min_dt, static_cast<Real>(dx[1] / std::abs(vy + TINY_NUMBER)));
+  min_dt = std::min(min_dt, static_cast<Real>(dx[2] / std::abs(vz + TINY_NUMBER)));
 
   return cfl * min_dt;
 }
@@ -201,8 +201,8 @@ Real EstimateTimestepMesh(MeshData<Real> *md) {
   }
 
   Real min_dt = dx[0] / std::abs(vx + TINY_NUMBER);
-  min_dt = std::min(min_dt, dx[1] / std::abs(vy + TINY_NUMBER));
-  min_dt = std::min(min_dt, dx[2] / std::abs(vz + TINY_NUMBER));
+  min_dt = std::min(min_dt, static_cast<Real>(dx[1] / std::abs(vy + TINY_NUMBER)));
+  min_dt = std::min(min_dt, static_cast<Real>(dx[2] / std::abs(vz + TINY_NUMBER)));
 
   // No CFL number for particles
   return min_dt;
