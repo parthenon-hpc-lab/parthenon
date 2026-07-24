@@ -19,6 +19,7 @@
 #include <initializer_list>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -607,6 +608,14 @@ class Metadata {
     return component_labels_;
   }
 
+  void SetSparseLabel(const std::optional<std::string> &sparse_label) {
+    sparse_label_ = sparse_label;
+  }
+
+  std::string GetSparseLabel(const int sparse_id) const {
+    return (sparse_label_) ? *sparse_label_ : std::to_string(sparse_id);
+  }
+
   void SetInitialSwarmPoolReservation(const std::size_t s) { swarm_nmax_pool_ = s; }
   std::size_t InitialSwarmPoolReservation() const noexcept { return swarm_nmax_pool_; }
 
@@ -618,6 +627,7 @@ class Metadata {
   std::vector<std::string> component_labels_ = {};
   std::string associated_ = "";
   std::string flux_var_ = "";
+  std::optional<std::string> sparse_label_ = std::nullopt;
 
   parthenon::Real allocation_threshold_;
   parthenon::Real deallocation_threshold_;

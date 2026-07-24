@@ -152,7 +152,11 @@ must be repeated in the driver’s evolution function until all particles
 are completed. See the ``particles`` example for further details. Note
 that this pattern is blocking, and may be replaced in the future.
 
-AMR is currently not supported, but support will be added in the future.
+AMR support for swarms is available. When the mesh changes, swarm
+particles are redistributed to the correct new leaf block after
+same-level redistribution, refinement, or derefinement. The
+``particle_tracers`` example demonstrates this path for advected tracer
+particles on an adaptively refined mesh.
 
 Variable Packing
 ----------------
@@ -292,3 +296,6 @@ Putting it all together, you might have an output block that looks like this:
 The result would be that both ``swarm1`` and ``swarm2`` output the
 variables ``id``, ``x``, ``y``, ``z``, and ``shared_var``. But only ``swarm1``
 outputs ``per_swarm_var``.
+
+.. note::
+    This file was made in part with generative AI.
