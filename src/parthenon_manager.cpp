@@ -18,6 +18,9 @@
 
 #include "parthenon_manager.hpp"
 
+#include <rummy/deck_base.hpp>
+#include <rummy/full_deck.hpp>
+
 #include <algorithm>
 #include <cstdio>
 #include <exception>
@@ -53,20 +56,37 @@ namespace fs = FS_NAMESPACE;
 
 namespace parthenon {
 
+ParthenonManager::ParthenonManager() { app_input = std::make_unique<ApplicationInput>(); }
+
+ParthenonManager::~ParthenonManager() = default;
+
+Rummy::FullDeck *ParthenonManager::GetRummyFullDeck() const {
+  return dynamic_cast<Rummy::FullDeck *>(input_deck.get());
+}
+
 ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[],
                                                    InputDeckType deck_type,
                                                    const std::string &schema_path) {
-  return ParthenonInitEnvCore_(argc, argv, deck_type, schema_path, nullptr);
+  return ParthenonInitEnvCore_(argc, argv, deck_type, InputParserPolicy::Auto,
+                               schema_path, nullptr);
 }
 
 ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[],
                                                    InputDeckType deck_type,
                                                    std::istream &schema_stream) {
-  return ParthenonInitEnvCore_(argc, argv, deck_type, "", &schema_stream);
+  return ParthenonInitEnvCore_(argc, argv, deck_type, InputParserPolicy::Auto, "",
+                               &schema_stream);
+}
+
+ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[],
+                                                   const InputDeckOptions &options) {
+  return ParthenonInitEnvCore_(argc, argv, ToInputDeckType(options.rummy_mode),
+                               options.parser, options.schema_path, nullptr);
 }
 
 ParthenonStatus ParthenonManager::ParthenonInitEnvCore_(int argc, char *argv[],
                                                         InputDeckType deck_type,
+                                                        InputParserPolicy parser_policy,
                                                         const std::string &schema_path,
                                                         std::istream *schema_stream) {
   if (called_init_env_) {
@@ -154,19 +174,21 @@ ParthenonStatus ParthenonManager::ParthenonInitEnvCore_(int argc, char *argv[],
     pinput->LoadFromStream(is);
   }
   // Determine what parser to use
-  bool is_rummy = false;
-  for (const auto &input_filename : arg.input_filenames) {
-    if (IsRummyFormat(input_filename)) {
-      is_rummy = true;
-      break;
-    }
-  }
-  if (!is_rummy) {
-    for (const auto &mod : arg.modifiers) {
-      std::stringstream ss(mod);
-      if (IsRummyFormat(ss, true)) {
+  bool is_rummy = parser_policy == InputParserPolicy::RummyOnly;
+  if (parser_policy == InputParserPolicy::Auto) {
+    for (const auto &input_filename : arg.input_filenames) {
+      if (IsRummyFormat(input_filename)) {
         is_rummy = true;
         break;
+      }
+    }
+    if (!is_rummy) {
+      for (const auto &mod : arg.modifiers) {
+        std::stringstream ss(mod);
+        if (IsRummyFormat(ss, true)) {
+          is_rummy = true;
+          break;
+        }
       }
     }
   }
@@ -177,13 +199,14 @@ ParthenonStatus ParthenonManager::ParthenonInitEnvCore_(int argc, char *argv[],
   }
   if (is_rummy) {
     if (schema_stream != nullptr) {
-      LoadParameterFromRummy(*pinput, arg.input_filenames, arg.modifiers, arg.is_restart,
-                             deck_type, *schema_stream);
+      input_deck = LoadParameterFromRummy(*pinput, arg.input_filenames, arg.modifiers,
+                                          arg.is_restart, deck_type, *schema_stream);
     } else {
-      LoadParameterFromRummy(*pinput, arg.input_filenames, arg.modifiers, arg.is_restart,
-                             deck_type, schema_path);
+      input_deck = LoadParameterFromRummy(*pinput, arg.input_filenames, arg.modifiers,
+                                          arg.is_restart, deck_type, schema_path);
     }
   } else {
+    input_deck.reset();
     for (const auto &input_filename : arg.input_filenames) {
       pinput->ReadFile(input_filename);
     }
