@@ -37,18 +37,36 @@ enum class InputDeckType {
   RummyFullSchema = 4,
 };
 
-void LoadParameterFromRummy(ParameterInput &input, const std::vector<std::string> &files,
-                            const std::vector<std::string> &mods, const bool is_restart,
-                            InputDeckType deck_type = InputDeckType::RummySimple,
-                            const std::string &schema_path = "");
-void LoadParameterFromRummy(ParameterInput &input, const std::vector<std::string> &files,
-                            const std::vector<std::string> &mods, const bool is_restart,
-                            InputDeckType deck_type, std::istream &schema_stream);
-void LoadParameterFromRummy(ParameterInput &pin, std::istream &ss, const bool sync,
-                            InputDeckType deck_type = InputDeckType::RummySimple,
-                            const std::string &schema_path = "");
-void LoadParameterFromRummy(ParameterInput &pin, std::istream &ss, const bool sync,
-                            InputDeckType deck_type, std::istream &schema_stream);
+enum class InputParserPolicy { Auto, NativeOnly, RummyOnly };
+enum class RummyMode { Simple, FullLoose, FullStrict };
+
+// Explicit parser selection. Unlike the legacy InputDeckType API this keeps
+// format detection separate from the Rummy implementation selected after a
+// Rummy deck has been chosen.
+struct InputDeckOptions {
+  InputParserPolicy parser = InputParserPolicy::Auto;
+  RummyMode rummy_mode = RummyMode::Simple;
+  std::string schema_path;
+};
+
+InputDeckType ToInputDeckType(RummyMode mode);
+
+std::unique_ptr<Rummy::DeckBase>
+LoadParameterFromRummy(ParameterInput &input, const std::vector<std::string> &files,
+                       const std::vector<std::string> &mods, const bool is_restart,
+                       InputDeckType deck_type = InputDeckType::RummySimple,
+                       const std::string &schema_path = "");
+std::unique_ptr<Rummy::DeckBase>
+LoadParameterFromRummy(ParameterInput &input, const std::vector<std::string> &files,
+                       const std::vector<std::string> &mods, const bool is_restart,
+                       InputDeckType deck_type, std::istream &schema_stream);
+std::unique_ptr<Rummy::DeckBase>
+LoadParameterFromRummy(ParameterInput &pin, std::istream &ss, const bool sync,
+                       InputDeckType deck_type = InputDeckType::RummySimple,
+                       const std::string &schema_path = "");
+std::unique_ptr<Rummy::DeckBase>
+LoadParameterFromRummy(ParameterInput &pin, std::istream &ss, const bool sync,
+                       InputDeckType deck_type, std::istream &schema_stream);
 void AddRummyParameters(ParameterInput &pin, Rummy::DeckBase &deck);
 void SyncDeckFromStorage(ParameterInput &pin, Rummy::DeckBase &deck);
 bool IsRummyFormat(const std::string &filename);
