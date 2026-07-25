@@ -232,7 +232,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     op.include_in_final =
         pin->GetOrAddBoolean(op.block_name, "include_in_final", true,
                              "include output when triggered on final signal");
-    const std::string default_id = legacy_output ? "out" + op.state_key : op.state_key;
+    const std::string default_id =
+        legacy_output ? "out" + std::to_string(op.block_number) : op.state_key;
     op.file_id = pin->GetOrAddString(op.block_name, "id", default_id);
     op.file_type = pin->GetString(op.block_name, "file_type", "output type");
 
