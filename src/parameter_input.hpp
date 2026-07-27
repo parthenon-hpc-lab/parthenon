@@ -49,6 +49,10 @@
 #include "utils/type_list.hpp"
 #include "utils/utils.hpp"
 
+namespace Rummy {
+class DeckBase;
+}
+
 namespace parthenon {
 
 std::string SanitizeString(const std::string &input);
@@ -294,6 +298,11 @@ class ParameterInput {
   // Backward-readable restart serialization that additionally preserves
   // parser metadata and unresolved/typed value representations.
   void RestartDump(std::ostream &os);
+  // Non-owning link to the input deck retained by ParthenonManager. Output
+  // writers use it to generate current Rummy restart state while RestartDump
+  // remains available for native and legacy restart compatibility.
+  void SetRummyDeck(Rummy::DeckBase *deck) { rummy_deck_ = deck; }
+  Rummy::DeckBase *GetRummyDeck() const { return rummy_deck_; }
   // TODO(JMM): Make this more general?
   void OutputParameterTable(std::ostream &os,
                             const std::regex &block_regex = std::regex("(.*)")) const;
@@ -506,6 +515,7 @@ class ParameterInput {
   std::unordered_map<std::string, size_t>
       block_index_;                // Fast O(1) block lookup (stores indices)
   bool parsing_finalized_ = false; // Track if parsing phase is complete
+  Rummy::DeckBase *rummy_deck_ = nullptr;
 
   std::string last_filename_; // last input file opened, to prevent duplicate reads
   // We will want to iterate through the record in lexicographic

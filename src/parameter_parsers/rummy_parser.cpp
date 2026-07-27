@@ -128,6 +128,47 @@ std::unique_ptr<Rummy::DeckBase> MakeDeck(InputDeckType /*deck_type*/,
                                            std::move(schema));
 }
 
+std::unique_ptr<Rummy::DeckBase> MakeRestartDeck(InputDeckType deck_type) {
+  switch (deck_type) {
+  case InputDeckType::RummyFullLoose:
+    return std::make_unique<Rummy::FullDeck>(Rummy::FullDeck::Mode::Loose);
+  case InputDeckType::RummyFullStrict:
+  case InputDeckType::RummyFullSchema:
+    // Schema-generated declarations are embedded in the restart source.
+    return std::make_unique<Rummy::FullDeck>(Rummy::FullDeck::Mode::Strict);
+  case InputDeckType::RummySimple:
+    return std::make_unique<Rummy::SimpleDeck>();
+  default:
+    PARTHENON_FAIL("A Rummy restart requires a Rummy input deck type");
+  }
+}
+
+std::vector<Rummy::InputSource>
+MakeSources(const std::string *restart_source, const std::vector<std::string> &files,
+            const std::vector<std::string> &mods) {
+  std::vector<Rummy::InputSource> sources;
+  if (restart_source != nullptr)
+    sources.push_back({"<restart-state>", *restart_source, ""});
+  for (const auto &file : files) {
+    std::ifstream input_file(file);
+    if (!input_file.is_open()) {
+      std::stringstream msg;
+      msg << "Could not open file '" << file << "'";
+      PARTHENON_FAIL(msg);
+    }
+    std::stringstream contents;
+    contents << input_file.rdbuf();
+    sources.push_back(
+        {file, contents.str(), std::filesystem::path(file).parent_path().string()});
+  }
+  if (!mods.empty()) {
+    std::stringstream contents;
+    for (const auto &mod : mods) contents << mod << " # From command line\n";
+    sources.push_back({"<command-line>", contents.str(), ""});
+  }
+  return sources;
+}
+
 // Construct a deck of the requested type
 std::unique_ptr<Rummy::DeckBase> MakeDeck(InputDeckType deck_type,
                                           const std::string &schema_path = "") {
@@ -185,25 +226,7 @@ LoadParameterFromRummy(ParameterInput &pin, const std::vector<std::string> &file
     SyncDeckFromStorage(pin, *deck);
   }
 
-  std::vector<Rummy::InputSource> sources;
-  for (const auto &file : files) {
-    std::ifstream input_file(file);
-    if (input_file.is_open()) {
-      std::stringstream contents;
-      contents << input_file.rdbuf();
-      sources.push_back(
-          {file, contents.str(), std::filesystem::path(file).parent_path().string()});
-    } else {
-      std::stringstream msg;
-      msg << "Could not open file '" << file << "'";
-      PARTHENON_FAIL(msg);
-    }
-  }
-  if (!mods.empty()) {
-    std::stringstream contents;
-    for (const auto &mod : mods) contents << mod << " # From command line\n";
-    sources.push_back({"<command-line>", contents.str(), ""});
-  }
+  auto sources = MakeSources(nullptr, files, mods);
   deck->BuildSources(sources);
   AddRummyParameters(pin, *deck);
   return deck;
@@ -236,28 +259,52 @@ LoadParameterFromRummy(ParameterInput &pin, const std::vector<std::string> &file
     SyncDeckFromStorage(pin, *deck);
   }
 
-  std::vector<Rummy::InputSource> sources;
-  for (const auto &file : files) {
-    std::ifstream input_file(file);
-    if (input_file.is_open()) {
-      std::stringstream contents;
-      contents << input_file.rdbuf();
-      sources.push_back(
-          {file, contents.str(), std::filesystem::path(file).parent_path().string()});
-    } else {
-      std::stringstream msg;
-      msg << "Could not open file '" << file << "'";
-      PARTHENON_FAIL(msg);
-    }
-  }
-  if (!mods.empty()) {
-    std::stringstream contents;
-    for (const auto &mod : mods) contents << mod << " # From command line\n";
-    sources.push_back({"<command-line>", contents.str(), ""});
-  }
+  auto sources = MakeSources(nullptr, files, mods);
   deck->BuildSources(sources);
   AddRummyParameters(pin, *deck);
   return deck;
+}
+
+std::unique_ptr<Rummy::DeckBase>
+LoadParameterFromRummyRestart(ParameterInput &pin, const std::string &restart_source,
+                              const std::vector<std::string> &files,
+                              const std::vector<std::string> &mods,
+                              InputDeckType deck_type) {
+  auto deck = MakeRestartDeck(deck_type);
+  auto sources = MakeSources(&restart_source, files, mods);
+  deck->BuildSources(sources);
+  AddRummyParameters(pin, *deck);
+  return deck;
+}
+
+InputDeckType RummyRestartModeToDeckType(const std::string &mode) {
+  if (mode == "simple") return InputDeckType::RummySimple;
+  if (mode == "full-loose") return InputDeckType::RummyFullLoose;
+  if (mode == "full-strict") return InputDeckType::RummyFullStrict;
+  PARTHENON_FAIL("Unsupported Rummy restart mode '" + mode + "'");
+}
+
+RummyRestartState MakeRummyRestartState(const ParameterInput &pin,
+                                        const Rummy::DeckBase &deck) {
+  RummyRestartState state;
+  std::ostringstream source;
+  if (const auto *full = dynamic_cast<const Rummy::FullDeck *>(&deck); full != nullptr) {
+    auto snapshot = *full;
+    SyncDeckFromStorage(pin, snapshot);
+    snapshot.SaveRestartState(source);
+    state.mode = full->GetMode() == Rummy::FullDeck::Mode::Strict ? "full-strict"
+                                                                  : "full-loose";
+  } else if (const auto *simple = dynamic_cast<const Rummy::SimpleDeck *>(&deck);
+             simple != nullptr) {
+    auto snapshot = *simple;
+    SyncDeckFromStorage(pin, snapshot);
+    snapshot.SaveRestartState(source);
+    state.mode = "simple";
+  } else {
+    PARTHENON_FAIL("Unsupported Rummy deck implementation in restart output");
+  }
+  state.source = source.str();
+  return state;
 }
 
 void AddRummyParameters(ParameterInput &pin, Rummy::DeckBase &deck) {
@@ -409,7 +456,7 @@ bool IsRummyFormat(const std::string &filename) {
 //----------------------------------------------------------------------------------------
 //! \fn void ParameterInput::SyncDeckFromStorage()
 //  \brief Seed the Rummy Deck from the current param_storage_ contents.
-void SyncDeckFromStorage(ParameterInput &pin, Rummy::DeckBase &deck) {
+void SyncDeckFromStorage(const ParameterInput &pin, Rummy::DeckBase &deck) {
   std::map<std::string, std::map<std::string, Rummy::Card>> new_cards;
   std::vector<std::string> new_suits;
   std::map<std::string, std::vector<std::string>> new_card_map;

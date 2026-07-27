@@ -144,6 +144,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnvCore_(int argc, char *argv[],
 
   // Populate the ParameterInput object.
   // If restart, then ParameterInput in the restart file takes precedence.
+  RestartReader::RummyInputState rummy_restart;
   if (arg.is_restart) {
     // Read input from restart file
     if (fs::path(arg.restart_filename).extension() == ".rhdf") {
@@ -167,16 +168,20 @@ ParthenonStatus ParthenonManager::ParthenonInitEnvCore_(int argc, char *argv[],
       PARTHENON_FAIL("Unsupported restart file format.");
     }
 
-    // Load input stream
+    rummy_restart = restartReader->GetRummyInputState();
     pinput = std::make_unique<ParameterInput>();
-    auto inputString = restartReader->GetInputString();
-    std::istringstream is(inputString);
-    pinput->LoadFromStream(is);
+    if (!rummy_restart.present) {
+      auto inputString = restartReader->GetInputString();
+      std::istringstream is(inputString);
+      pinput->LoadFromStream(is);
+    }
   }
   // Determine what parser to use
   bool is_rummy = parser_policy == InputParserPolicy::RummyOnly;
   if (parser_policy == InputParserPolicy::Auto) {
+    is_rummy = rummy_restart.present;
     for (const auto &input_filename : arg.input_filenames) {
+      if (is_rummy) break;
       if (IsRummyFormat(input_filename)) {
         is_rummy = true;
         break;
@@ -198,13 +203,22 @@ ParthenonStatus ParthenonManager::ParthenonInitEnvCore_(int argc, char *argv[],
     pinput = std::make_unique<ParameterInput>();
   }
   if (is_rummy) {
-    if (schema_stream != nullptr) {
+    if (rummy_restart.present) {
+      PARTHENON_REQUIRE_THROWS(
+          rummy_restart.version == RummyRestartState::VERSION,
+          "Unsupported Rummy restart state version " +
+              std::to_string(rummy_restart.version));
+      input_deck = LoadParameterFromRummyRestart(
+          *pinput, rummy_restart.source, arg.input_filenames, arg.modifiers,
+          RummyRestartModeToDeckType(rummy_restart.mode));
+    } else if (schema_stream != nullptr) {
       input_deck = LoadParameterFromRummy(*pinput, arg.input_filenames, arg.modifiers,
                                           arg.is_restart, deck_type, *schema_stream);
     } else {
       input_deck = LoadParameterFromRummy(*pinput, arg.input_filenames, arg.modifiers,
                                           arg.is_restart, deck_type, schema_path);
     }
+    pinput->SetRummyDeck(input_deck.get());
   } else {
     input_deck.reset();
     for (const auto &input_filename : arg.input_filenames) {

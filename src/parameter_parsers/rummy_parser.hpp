@@ -49,6 +49,13 @@ struct InputDeckOptions {
   std::string schema_path;
 };
 
+struct RummyRestartState {
+  static constexpr int VERSION = 1;
+  int version = VERSION;
+  std::string mode;
+  std::string source;
+};
+
 InputDeckType ToInputDeckType(RummyMode mode);
 
 std::unique_ptr<Rummy::DeckBase>
@@ -67,8 +74,16 @@ LoadParameterFromRummy(ParameterInput &pin, std::istream &ss, const bool sync,
 std::unique_ptr<Rummy::DeckBase>
 LoadParameterFromRummy(ParameterInput &pin, std::istream &ss, const bool sync,
                        InputDeckType deck_type, std::istream &schema_stream);
+std::unique_ptr<Rummy::DeckBase>
+LoadParameterFromRummyRestart(ParameterInput &pin, const std::string &restart_source,
+                              const std::vector<std::string> &files,
+                              const std::vector<std::string> &mods,
+                              InputDeckType deck_type);
+RummyRestartState MakeRummyRestartState(const ParameterInput &pin,
+                                        const Rummy::DeckBase &deck);
+InputDeckType RummyRestartModeToDeckType(const std::string &mode);
 void AddRummyParameters(ParameterInput &pin, Rummy::DeckBase &deck);
-void SyncDeckFromStorage(ParameterInput &pin, Rummy::DeckBase &deck);
+void SyncDeckFromStorage(const ParameterInput &pin, Rummy::DeckBase &deck);
 bool IsRummyFormat(const std::string &filename);
 bool IsRummyFormat(std::istream &is, const bool command_line);
 } // namespace parthenon

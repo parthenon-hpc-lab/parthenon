@@ -84,6 +84,23 @@ int RestartReaderHDF5::GetOutputFormatVersion() const {
 #endif // ENABLE_HDF5
 }
 
+RestartReader::RummyInputState RestartReaderHDF5::GetRummyInputState() const {
+#ifndef ENABLE_HDF5
+  PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
+#else
+  RummyInputState state;
+  const H5O input = H5O::FromHIDCheck(H5Oopen(fh_, "Input", H5P_DEFAULT));
+  auto status = PARTHENON_HDF5_CHECK(H5Aexists(input, "InputParser"));
+  if (status <= 0 || GetAttr<std::string>("Input", "InputParser") != "rummy")
+    return state;
+  state.present = true;
+  state.version = GetAttr<int>("Input", "RummyStateVersion");
+  state.mode = GetAttr<std::string>("Input", "RummyMode");
+  state.source = GetAttr<std::string>("Input", "RummyState");
+  return state;
+#endif
+}
+
 RestartReaderHDF5::SparseInfo RestartReaderHDF5::GetSparseInfo() const {
 #ifndef ENABLE_HDF5
   PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
