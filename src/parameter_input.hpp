@@ -143,6 +143,18 @@ struct QueryRecord {
     ss << val;
     return ss.str();
   }
+
+  bool IsStringVec() const {
+    return param_type == GetTypeName<std::vector<std::string>>();
+  }
+  bool IsDefaultEmptyStringVec() const {
+    if (IsStringVec() && default_value.has_value()) {
+      using value_t = std::vector<std::string>;
+      return std::any_cast<value_t>(default_value).size() == 0;
+    } else {
+      return false;
+    }
+  }
 };
 
 // Wrapper type to distinguish unresolved strings (from legacy parser)
@@ -184,8 +196,16 @@ struct Parameter {
   std::string comment;
   // Value can be unresolved (string from file) or typed (from API or post-resolution)
   ParamValue value;
+  // Original string representation from input file. Preserved to ensure all ranks
+  // produce identical ParameterDump output for parallel HDF5 collective metadata writes,
+  // even when parameters are resolved to typed values on different ranks at different
+  // times. Empty for parameters created programmatically (via Set/GetOrAdd with
+  // defaults).
+  std::optional<UnresolvedString> original_string;
   // TODO(future): Consider merging QueryRecord into Parameter as
   // std::optional<QueryRecord> to eliminate the separate queries_ map
+
+  std::string ToString() const;
 };
 
 //----------------------------------------------------------------------------------------
@@ -248,6 +268,15 @@ class ParameterInput {
   bool DoesParameterExist(const std::string &block, const std::string &name);
   bool DoesBlockExist(const std::string &block);
   std::string GetComment(const std::string &block, const std::string &name);
+  //! Get parameter value as string representation
+  //! For parameters from input files, returns the exact string from the file.
+  //! For parameters added programmatically (Set/GetOrAdd), returns a string
+  //! representation of the typed value.
+  //! @param block The block name
+  //! @param name The parameter name
+  //! @return String representation of the parameter value
+  //! @throws If parameter does not exist in the specified block
+  std::string GetAsUnresolvedString(const std::string &block, const std::string &name);
 
   // === PARAMETER ACCESS METHODS ===
   // Get*: Retrieve parameter value (throws if missing)
@@ -425,6 +454,7 @@ class ParameterInput {
     AddParameter_(block, name, def, "# Default value added at run time");
     return def;
   }
+
   template <typename T>
   std::vector<T> GetOrAddVector(
       const std::string &block, const std::string &name, const ParameterRef &def,
@@ -467,7 +497,6 @@ class ParameterInput {
 
   // === HELPER METHODS (parser-agnostic) ===
   // Convert ParamValue to string for output
-  std::string ParamValueToString(const ParamValue &value);
   template <typename T>
   T ConvertParamValue(const ParamValue &value, const std::string &block,
                       const std::string &name);
@@ -520,11 +549,11 @@ class ParameterInput {
   template <typename T>
   std::string ConcatVector_(std::vector<T> &vec) {
     std::stringstream ss;
-    const int n = vec.size();
+    const std::size_t n = vec.size();
     if (n == 0) return "";
 
     ss << vec[0];
-    for (int i = 1; i < n; i++) {
+    for (std::size_t i = 1; i < n; i++) {
       ss << "," << vec[i];
     }
     return ss.str();

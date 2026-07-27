@@ -63,40 +63,6 @@ void SwarmContainer::Add(const std::string &label, const Metadata &metadata) {
   Add(swarm);
 }
 
-// TODO(JMM): Should we support this operation
-void SwarmContainer::Remove(const std::string &label) {
-  // Find index of swarm
-  int isize = swarmVector_.size();
-  int idx = 0;
-  for (const auto &s : swarmVector_) {
-    if (!label.compare(s->label())) {
-      break;
-    }
-    idx++;
-  }
-  if (idx >= isize) {
-    PARTHENON_FAIL("swarm not found in Remove()");
-  }
-
-  // Pull out metadata
-  const SP_Swarm pswarm = swarmVector_[idx];
-  const Metadata &m = pswarm->metadata();
-
-  // Delete the variable
-  swarmVector_[idx].reset();
-
-  // Next move the last element into idx and pop last entry
-  isize--;
-  if (isize >= 0) swarmVector_[idx] = std::move(swarmVector_.back());
-  swarmVector_.pop_back();
-
-  // Also remove swarm from map
-  swarmMap_.erase(label);
-  for (const auto &flag : m.Flags()) {
-    swarmMetadataMap_[flag].erase(pswarm);
-  }
-}
-
 // Return swarms meeting some conditions
 SwarmSet SwarmContainer::GetSwarmsByFlag(const Metadata::FlagCollection &flags) {
   PARTHENON_INSTRUMENT
@@ -191,7 +157,7 @@ bool SwarmContainer::operator==(const SwarmContainer &cmp) {
   std::vector<std::string> my_keys(swarmMap_.size());
   auto &cmpMap = cmp.GetSwarmMap();
   std::vector<std::string> cmp_keys(cmpMap.size());
-  size_t i = 0;
+  std::size_t i = 0;
   for (auto &s : swarmMap_) {
     my_keys[i] = s.first;
     i++;

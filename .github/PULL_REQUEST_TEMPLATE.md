@@ -24,5 +24,5 @@ detail.  Why is this change required?  What problem does it solve?-->
   - [ ] Short summary API changes at the top of the PR (plus optionally with an automated update/fix script)
 - [ ] CI has been triggered on [Darwin](https://re-git.lanl.gov/eap-oss/parthenon/-/pipelines) for performance regression tests.
 - [ ] Docs build
-- [ ] Any contribution that was created or modified with the assistance of generative AI must have a comment disclosing this such as `// This file was made in part with generative AI.`
+- [ ] Any contribution that was created or modified with the assistance of generative AI is disclosed here and in code following the [guidelines](https://github.com/parthenon-hpc-lab/parthenon/blob/develop/CONTRIBUTING.md#use-of-agentic-coding)
 - [ ] (@lanl.gov employees) Update copyright on changed files

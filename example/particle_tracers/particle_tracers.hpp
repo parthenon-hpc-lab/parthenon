@@ -14,8 +14,11 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
 #ifndef EXAMPLE_PARTICLE_TRACERS_PARTICLE_TRACERS_HPP_
 #define EXAMPLE_PARTICLE_TRACERS_PARTICLE_TRACERS_HPP_
+
+// This file was made in part with generative AI.
 
 #include <memory>
 
@@ -59,6 +62,7 @@ namespace advection_package {
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 Real EstimateTimestepMesh(MeshData<Real> *rc);
+AmrTag CheckRefinementBlock(MeshBlockData<Real> *rc);
 
 } // namespace advection_package
 

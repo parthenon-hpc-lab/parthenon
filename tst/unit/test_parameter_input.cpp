@@ -15,6 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was created in part with the generative AI
+
 #include <iostream>
 #include <istream>
 #include <memory>
@@ -27,6 +29,7 @@
 #include "parameter_input.hpp"
 
 using parthenon::ParameterInput;
+using parthenon::Real;
 
 TEST_CASE("Test required/desired checking from inputs", "[ParameterInput]") {
   GIVEN("A ParameterInput object already populated") {
@@ -123,6 +126,22 @@ TEST_CASE("Test required/desired checking from inputs", "[ParameterInput]") {
           REQUIRE(((var2[0] == 1) && (var2[1] == 2)));
         }
         REQUIRE(in.GetString("block2", "var3") == "myval");
+      }
+    }
+  }
+
+  GIVEN("An input deck with a trailing comma in a vector-valued parameter") {
+    ParameterInput in;
+    std::stringstream ss;
+    ss << "<block1>" << std::endl << "var1 = 1, 2, 3," << std::endl;
+
+    std::istringstream s(ss.str());
+    in.LoadFromStream(s);
+
+    WHEN("The vector is read back") {
+      THEN("The trailing comma does not introduce an empty final element") {
+        auto var1 = in.GetVector<int>("block1", "var1");
+        REQUIRE(var1 == std::vector<int>{1, 2, 3});
       }
     }
   }
@@ -305,7 +324,7 @@ TEST_CASE("AddParsedParameter with typed scalar values", "[ParameterInput][Parse
 
     WHEN("We add typed scalar parameters via AddParsedParameter") {
       in.AddParsedParameter("block1", "int_val", 42);
-      in.AddParsedParameter("block1", "real_val", 3.14);
+      in.AddParsedParameter("block1", "real_val", static_cast<Real>(3.14));
       in.AddParsedParameter("block1", "bool_val", true);
       in.AddParsedParameter("block1", "string_val", std::string("hello"));
       in.FinalizeParsing();
@@ -407,7 +426,7 @@ TEST_CASE("Mixing LoadFromStream and AddParsedParameter", "[ParameterInput][Pars
 
     WHEN("We add additional parameters via AddParsedParameter") {
       in.AddParsedParameter("code_block", "code_param", 200);
-      in.AddParsedParameter("shared_block", "from_code", 3.14);
+      in.AddParsedParameter("shared_block", "from_code", static_cast<Real>(3.14));
       in.FinalizeParsing();
 
       THEN("Both file and code parameters are accessible") {
@@ -535,6 +554,83 @@ TEST_CASE("Parser interface works without FinalizeParsing for backward compatibi
         REQUIRE_NOTHROW(in.GetInteger("block", "value"));
         REQUIRE(in.GetInteger("block", "value") == 42);
       }
+    }
+  }
+}
+
+TEST_CASE("Empty vector defaults round-trip through the parameter store",
+          "[ParameterInput]") {
+  ParameterInput in;
+  auto values = in.GetOrAddVector<std::string>("block1", "var1", {});
+  REQUIRE(values.empty());
+  REQUIRE(in.GetVector<std::string>("block1", "var1").empty());
+
+  auto dummy = in.GetOrAddInteger("block2", "var2", 3);
+  std::stringstream ss;
+  in.ParameterDump(ss);
+  std::string paramdump = ss.str();
+
+  ParameterInput in2;
+  std::istringstream s(paramdump);
+  in2.LoadFromStream(s);
+  values = in2.GetOrAddVector<std::string>("block1", "var1", {});
+  REQUIRE(values.empty());
+  REQUIRE(in2.GetVector<std::string>("block1", "var1").empty());
+}
+TEST_CASE("ParameterDump includes unqueried parameters", "[ParameterInput]") {
+  ParameterInput in;
+  in.AddParsedParameter("block", "unused", 42);
+
+  std::stringstream dump;
+  REQUIRE_NOTHROW(in.ParameterDump(dump));
+  REQUIRE(dump.str().find("unused") != std::string::npos);
+}
+
+TEST_CASE("GetAsUnresolvedString returns string representations", "[ParameterInput]") {
+  GIVEN("Parameters from input file") {
+    ParameterInput in;
+    std::stringstream ss;
+    ss << "<test>" << std::endl
+       << "int_param = 42" << std::endl
+       << "real_param = 3.14159" << std::endl
+       << "bool_param = true" << std::endl
+       << "string_param = hello" << std::endl
+       << "vector_param = 1, 2, 3" << std::endl;
+    std::istringstream s(ss.str());
+    in.LoadFromStream(s);
+
+    WHEN("GetAsUnresolvedString is called") {
+      THEN("Returns original string from file") {
+        REQUIRE(in.GetAsUnresolvedString("test", "int_param") == "42");
+        REQUIRE(in.GetAsUnresolvedString("test", "real_param") == "3.14159");
+        REQUIRE(in.GetAsUnresolvedString("test", "bool_param") == "true");
+        REQUIRE(in.GetAsUnresolvedString("test", "string_param") == "hello");
+        REQUIRE(in.GetAsUnresolvedString("test", "vector_param") == "1, 2, 3");
+      }
+    }
+  }
+
+  GIVEN("Parameters added programmatically") {
+    ParameterInput in;
+    in.Set<int>("runtime", "int_val", 99);
+    in.Set<bool>("runtime", "bool_val", false);
+    in.Set<Real>("runtime", "real_val", 2.718);
+
+    WHEN("GetAsUnresolvedString is called") {
+      THEN("Returns converted string representation") {
+        REQUIRE(in.GetAsUnresolvedString("runtime", "int_val") == "99");
+        REQUIRE(in.GetAsUnresolvedString("runtime", "bool_val") == "false");
+        // Real conversion should use full precision
+        std::string real_str = in.GetAsUnresolvedString("runtime", "real_val");
+        REQUIRE(std::stod(real_str) == Approx(2.718));
+      }
+    }
+  }
+
+  GIVEN("Missing parameter") {
+    ParameterInput in;
+    THEN("GetAsUnresolvedString throws") {
+      REQUIRE_THROWS(in.GetAsUnresolvedString("missing", "param"));
     }
   }
 }

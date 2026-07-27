@@ -438,6 +438,27 @@ std::string ParameterInput::GetComment(const std::string &block,
 }
 
 //----------------------------------------------------------------------------------------
+//! \fn std::string ParameterInput::GetAsUnresolvedString(const std::string & block,
+//! const std::string & name)
+//  \brief returns string representation of parameter value, preferring original string
+//  from input file when available
+
+std::string ParameterInput::GetAsUnresolvedString(const std::string &block,
+                                                  const std::string &name) {
+  FinalizeParsing(); // Ensure parsing is complete (consistent with other getters)
+
+  const Parameter *param = FindParameter_(block, name);
+  if (param == nullptr) {
+    std::stringstream msg;
+    msg << "### FATAL ERROR in function [ParameterInput::GetAsUnresolvedString]"
+        << std::endl
+        << "Parameter name '" << name << "' not found in block '" << block << "'";
+    PARTHENON_THROW(msg);
+  }
+  return param->ToString();
+}
+
+//----------------------------------------------------------------------------------------
 //! \fn int ParameterInput::GetInteger(const std::string & block, const std::string &
 //! name)
 //  \brief returns integer value of string stored in block/name
@@ -667,8 +688,8 @@ void ParameterInput::CheckDesired(const std::string &block, const std::string &n
   if (defaulted) {
     auto *param = FindParameter_(block, name);
     std::cout << std::endl
-              << "Defaulting to <" << block << ">/" << name << " = "
-              << ParamValueToString(param->value) << std::endl;
+              << "Defaulting to <" << block << ">/" << name << " = " << param->ToString()
+              << std::endl;
   }
 }
 
@@ -705,7 +726,7 @@ void ParameterInput::ParameterDump(std::ostream &os) {
     std::size_t max_len_name = 0;
     std::size_t max_len_value = 0;
     for (const auto &param : block.params) {
-      std::string value_str = ParamValueToString(param.value);
+      std::string value_str = param.ToString();
       max_len_name = std::max(max_len_name, param.name.length());
       max_len_value = std::max(max_len_value, value_str.length());
     }
@@ -713,7 +734,14 @@ void ParameterInput::ParameterDump(std::ostream &os) {
     // Output parameters with alignment
     for (const auto &param : block.params) {
       std::string param_name = param.name;
-      std::string param_value = ParamValueToString(param.value);
+      auto key = std::make_pair(block.name, param.name);
+      auto record_it = queries_.find(key);
+      std::string param_value = param.ToString();
+
+      if (record_it != queries_.end() && record_it->second.IsDefaultEmptyStringVec() &&
+          param_value.empty()) {
+        continue;
+      }
 
       std::size_t len = max_len_name - param_name.length() + 1;
       param_name.append(len, ' '); // pad name to align vertically
@@ -793,11 +821,14 @@ void ParameterInput::OutputParameterTable(std::ostream &os,
 }
 
 //----------------------------------------------------------------------------------------
-//! \fn std::string ParameterInput::ParamValueToString()
+//! \fn std::string Param::ToString()
 //  \brief Convert a ParamValue variant to string for linked list output
 
-std::string ParameterInput::ParamValueToString(const ParamValue &value) {
+std::string Parameter::ToString() const {
   std::stringstream ss;
+  if (original_string.has_value()) {
+    return original_string.value().value;
+  }
 
   if (std::holds_alternative<UnresolvedString>(value)) {
     ss << std::get<UnresolvedString>(value).value;
@@ -974,6 +1005,9 @@ std::optional<T> ParameterInput::GetFromStorage_(const std::string &block,
 
   // If it's an UnresolvedString, convert and cache
   if (std::holds_alternative<UnresolvedString>(param->value)) {
+    if (!param->original_string.has_value()) {
+      param->original_string = std::get<UnresolvedString>(param->value);
+    }
     T typed_val = ConvertParamValue<T>(param->value, block, name);
     param->value = typed_val; // Cache the typed value in the variant
     return typed_val;
@@ -1021,7 +1055,10 @@ std::vector<std::string> ParameterInput::SplitCommaSeparated(const std::string &
     variables.push_back(string_utils::trim(token));
     str.erase(0, pos + delimiter.length());
   }
-  variables.push_back(string_utils::trim(str));
+  token = string_utils::trim(str);
+  if (!token.empty()) {
+    variables.push_back(token);
+  }
 
   return variables;
 }

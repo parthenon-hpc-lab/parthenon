@@ -29,7 +29,7 @@ namespace parthenon {
 class SparsePackBase {
  public:
   SparsePackBase() = default;
-  virtual ~SparsePackBase() = default;
+  ~SparsePackBase() = default;
 
  protected:
   friend class SparsePackCache;
@@ -82,7 +82,7 @@ class SparsePackBase {
   bool flat_;
   int nblocks_;
   int nvar_;
-  int size_;
+  std::size_t size_;
 };
 
 } // namespace parthenon

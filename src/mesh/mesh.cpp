@@ -83,6 +83,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       resolved_packages(ResolvePackages(packages)),
       task_collection_timeout_in_seconds(pin->GetOrAddInteger(
           "parthenon/mesh", "task_collection_timeout_in_seconds", 60 * 5)),
+      minimum_number_of_teams_for_boundary_kernel(pin->GetOrAddInteger(
+          "parthenon/mesh", "minimum_number_of_teams_for_boundary_kernel", 1,
+          "Minimum number of teams to launch when filling or applying boundary "
+          "buffers. Additional teams are distributed evenly across buffers.")),
+      boundary_buffer_work_chunk_size(
+          pin->GetOrAddInteger("parthenon/mesh", "boundary_buffer_work_chunk_size", 1)),
       // private members:
       num_mesh_threads_(
           pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1,
@@ -185,8 +191,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   root_level = 0;
   // SMR / AMR:
   if (adaptive) {
-    max_level_ref_ = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
-                                          "maximum level of refinement globally");
+    max_level_ref_ =
+        pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
+                             "maximum level of refinement globally when AMR is on");
     max_level = max_level_ref_ + root_level - 1;
   } else {
     max_level_ref_ = 63;
@@ -196,6 +203,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   if (multigrid) SetNumberOfCommChannels(BoundaryType::gmg_restrict_send, 2);
 
   SetupMPIComms();
+
+  PARTHENON_REQUIRE(minimum_number_of_teams_for_boundary_kernel > 0,
+                    "parthenon/mesh/minimum_number_of_teams_for_boundary_kernel "
+                    "must be positive.");
+  PARTHENON_REQUIRE(boundary_buffer_work_chunk_size > 0,
+                    "parthenon/mesh/boundary_buffer_work_chunk_size must be positive.");
 
   RegisterLoadBalancing_(pin);
 
@@ -223,8 +236,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   // SMR / AMR:
   if (adaptive) {
-    max_level_ref_ = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
-                                          "maximum level of refinement globally");
+    max_level_ref_ =
+        pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
+                             "maximum level of refinement globally when AMR is on");
     max_level = max_level_ref_ + root_level - 1;
   } else {
     max_level_ref_ = 63;
@@ -948,6 +962,14 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     PARTHENON_FAIL(msg);
   }
 #endif
+
+  PARTHENON_REQUIRE_THROWS(
+      nbtotal < std::numeric_limits<int>::max(),
+      "Congratulations. You're the first one to run a simulation with more blocks than "
+      "max `int`. Many loops in parthenon still use `int` indices over blocks or use "
+      "`int` for pack indices and partitions, so who knows what happens next. Please get "
+      "in contact with the dev team before proceeding (or proceed on your own risk and "
+      "remove this statement).");
 
   // Initialize the "base" MeshData object
   mesh_data.Add("base", GetBasePartition());
