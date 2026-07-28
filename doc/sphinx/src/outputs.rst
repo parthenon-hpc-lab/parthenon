@@ -550,6 +550,115 @@ The following is a minimal example to plot a 1D and 2D histogram from the output
       plt.pcolormesh(x,y,z,)
       plt.show()
 
+.. _output spectrum:
+
+Power Spectrum (optional)
+-------------------------
+
+Parthenon can compute shell-averaged power spectra in-situ and write them as
+lightweight ASCII files.  The output type requires the
+``PARTHENON_ENABLE_FFT`` build option (i.e., the HeFTe library must be
+available), and the mesh must be uniform (no AMR).
+
+In the input file include a ``<parthenon/output*>`` block with
+``file_type = spectrum``.  A minimal block looks like
+
+::
+
+   <parthenon/output5>
+   file_type    = spectrum
+   dt           = 0.1            # output every 0.1 time units
+   variable     = velocity       # variable name (registered in the package)
+   components   = 0, 1, 2       # component indices to include in the power sum
+
+A more complete example with an explicit output label
+
+::
+
+   <parthenon/output5>
+   file_type    = spectrum
+   dt           = 0.1
+   variable     = velocity
+   components   = 0, 1, 2
+   output_label = vel            # used in the output filename; defaults to variable name
+
+Parameters specific to ``file_type = spectrum``:
+
+- ``variable = STRING`` (required)
+   Name of the Parthenon variable to analyse.
+   The variable must be cell-centered and registered with at least
+   the number of components listed in ``components``.
+
+- ``components = INT, INT, ...`` (required)
+   Comma-separated list of component indices whose squared amplitudes are
+   summed to form the power at each wavenumber.
+   For a scalar field use ``components = 0``.
+   For a 3-component velocity field use ``components = 0, 1, 2``.
+
+- ``output_label = STRING`` (optional, default: value of ``variable``)
+   Arbitrary label embedded in the output filename.
+
+The standard scheduling parameters (``dt``, ``dn``) and trigger
+mechanisms (signal, ``output_now`` file) described at the top of this
+page apply to spectral outputs as well.
+
+Output file format
+^^^^^^^^^^^^^^^^^^
+
+Each write produces one ASCII file named::
+
+   {basename}.{label}.{id}.{suffix}.spc
+
+where ``basename`` and ``id`` follow the usual Parthenon conventions and
+``suffix`` is a zero-padded integer (or ``now`` / ``final`` for triggered
+outputs).
+
+The file contains a single header line followed by one row per shell bin:
+
+.. code-block:: text
+
+   # Bin    val_sum    K_sum    Count
+   0 0.000000000000000e+00 0.000000000000000e+00 0.000000000000000e+00
+   1 3.141592653589793e+00 1.000000000000000e+00 2.000000000000000e+00
+   ...
+
+Columns:
+
+- **Bin** — integer shell index :math:`i = \lfloor |\mathbf{k}| \rfloor`
+- **val_sum** — sum of :math:`|\hat{f}(\mathbf{k})|^2` over all modes in the shell,
+  with modes at :math:`0 < k_{x1} < n_{x1}/2` counted twice to account for
+  Hermitian symmetry
+- **K_sum** — sum of :math:`|\mathbf{k}|` over the same modes and weights
+- **Count** — total weight (number of modes, doubled for the Hermitian modes above)
+
+The number of bins is :math:`\lceil k_\mathrm{max} \rceil + 1` where
+:math:`k_\mathrm{max} = \sqrt{(n_{x1}/2)^2 + (n_{x2}/2)^2 + (n_{x3}/2)^2}`.
+
+To obtain the mean power per mode and mean wavenumber in each shell:
+
+.. code-block:: python
+
+   import numpy as np
+
+   data    = np.loadtxt("parthenon.vel.out5.00010.spc", comments="#")
+   val_sum = data[:, 1]
+   k_sum   = data[:, 2]
+   count   = data[:, 3]
+
+   mask  = count > 0
+   k_avg = np.where(mask, k_sum / count, 0.0)   # mean |k| per shell
+   E_k   = np.where(mask, val_sum / count, 0.0) # mean power per mode
+
+.. note::
+   The forward FFT applies a :math:`1/N^3` normalization (see
+   :ref:`fourier_transforms`), so the power values in the file already
+   include this factor.
+
+.. warning::
+   Using ``file_type = spectrum`` when the executable was not built with
+   ``PARTHENON_ENABLE_FFT`` is a fatal error at initialisation.
+   Disable the block without deleting it by setting ``dt < 0``.
+
 Ascent (optional)
 -----------------
 

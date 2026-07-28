@@ -1,3 +1,5 @@
+.. _fourier_transforms:
+
 Fourier Transforms
 ==================
 
@@ -278,20 +280,110 @@ UniformGridHelper::KernelHelper
    KOKKOS_INLINE_FUNCTION
    std::int64_t FlatIndex(int b, int k, int j, int i) const;
 
+.. _limitations:
+
 Limitations
 -----------
 
 * Only uniform grids are supported. AMR is not compatible with the current FFT infrastructure.
 * ``num_packs = 1`` is required (one partition per rank).
-* Only cubic domains are fully supported for physical wavenumber calculations.
-  Non-cubic domains work for the FFT itself but wavenumber scaling must be handled manually.
 * The r2c transform stores only modes with :math:`k_x \geq 0`, consistent with heFFTe's
   default convention.
 * Currently only 3D transforms are supported.
+
+CalcSpectrum Utility
+--------------------
+
+``CalcSpectrum`` computes a shell-averaged power spectrum of one or more
+components of a Parthenon variable and returns the result as a 2-D device
+array.  It is the backbone of the :ref:`output spectrum` output type, but
+can also be called directly from driver code when programmatic access to
+the spectrum data is needed.
+
+Include header:
+
+.. code-block:: cpp
+
+   #include "utils/calc_spectrum.hpp"
+
+Function signature:
+
+.. code-block:: cpp
+
+   namespace parthenon {
+
+   parthenon::ParArray2D<Real> CalcSpectrum(Mesh *pm,
+                                            const std::string &var_name,
+                                            const std::vector<int> &components);
+
+   } // namespace parthenon
+
+Parameters
+~~~~~~~~~~
+
+- ``pm`` — pointer to the :cpp:class:`Mesh` object.
+- ``var_name`` — name of the Parthenon variable to analyse.
+  Must be cell-centered and accessible through ``mesh_data.Get()``.
+- ``components`` — list of component indices whose squared Fourier amplitudes
+  are summed at each wavenumber.
+
+Return value
+~~~~~~~~~~~~
+
+A device-side ``ParArray2D<Real>`` of shape ``[num_bins, 3]`` where
+``num_bins = ceil(k_max) + 1`` and
+:math:`k_\mathrm{max} = \sqrt{(n_{x1}/2)^2 + (n_{x2}/2)^2 + (n_{x3}/2)^2}`.
+
+Column layout:
+
+- **col 0** (``val_sum``) — sum of :math:`|\hat{f}(\mathbf{k})|^2` over all modes
+  in the shell, with modes at :math:`0 < k_{x1} < n_{x1}/2` counted twice to
+  account for Hermitian symmetry.
+- **col 1** (``k_sum``) — sum of :math:`|\mathbf{k}|` over the same modes and
+  weights.
+- **col 2** (``count``) — total weight for the shell (number of modes, doubled for
+  the asymmetric modes above).
+
+An MPI ``MPI_Reduce`` to rank 0 is performed internally.
+Only rank 0 holds meaningful data on return; all other ranks receive zeros.
+
+The forward FFT normalisation (:math:`1/N^3`) is applied before binning,
+so ``val_sum`` values are already normalised.
+
+Usage example
+~~~~~~~~~~~~~
+
+.. code-block:: cpp
+
+   #include "utils/calc_spectrum.hpp"
+
+   // Inside a driver or task function:
+   auto spectra   = parthenon::CalcSpectrum(pm, "velocity", {0, 1, 2});
+   auto spectra_h = spectra.GetHostMirrorAndCopy();
+   const int num_bins = spectra_h.extent(0);
+
+   if (parthenon::Globals::my_rank == 0) {
+     for (int i = 0; i < num_bins; ++i) {
+       const Real count = spectra_h(i, 2);
+       if (count > 0) {
+         const Real k_avg = spectra_h(i, 1) / count;
+         const Real E_k   = spectra_h(i, 0) / count;
+         std::cout << k_avg << " " << E_k << "\n";
+       }
+     }
+   }
+
+Restrictions
+~~~~~~~~~~~~
+
+* Requires the mesh to be uniform (no AMR); see :ref:`limitations`.
+* ``num_packs = 1`` is required.
+* ``PARTHENON_ENABLE_FFT`` must be set at configure time.
 
 See Also
 --------
 
 * :doc:`/src/interface/state` — registering variables for use with ``GatherField``/``ScatterField``
+* :ref:`output spectrum` — the built-in output type that wraps ``CalcSpectrum``
 * `heFFTe documentation <https://icl-utk-edu.github.io/heffte/>`_
 * Fourier transform example: ``example/fourier_transform/``
