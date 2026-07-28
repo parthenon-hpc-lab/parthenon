@@ -226,7 +226,8 @@ bool IsRummyFormat(std::istream &is, const bool command_line) {
       std::string value_part = SanitizeString(line.substr(eq_pos + 1));
       // do not include +- because they can be used in exponential notation.
       // / can be used in command line arguments
-      if (value_part.find_first_of("*\"[%^|") != std::string::npos) {
+      // % can be used in data format
+      if (value_part.find_first_of("*\"[^|") != std::string::npos) {
         return restore_and_return(true);
       }
     }
