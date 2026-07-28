@@ -253,6 +253,15 @@ inline std::string TopologicalTypeToString(TopologicalType tt) {
   return "cell";
 }
 
+KOKKOS_INLINE_FUNCTION
+constexpr std::size_t NumberOfTopologicalElements(TopologicalType tt) {
+  using TT = TopologicalType;
+  if (tt == TT::Face || tt == TT::Edge) {
+    return 3;
+  }
+  return 1;
+}
+
 inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt) {
   using TE = TopologicalElement;
   using TT = TopologicalType;
@@ -263,7 +272,7 @@ inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt
 }
 
 KOKKOS_FORCEINLINE_FUNCTION
-TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
+constexpr TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
                                               const std::size_t d) {
   using TE = TopologicalElement;
   using TT = TopologicalType;
@@ -274,7 +283,6 @@ TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
 }
 KOKKOS_FORCEINLINE_FUNCTION
 TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
-
                                               const CoordinateDirection DIR) {
   return GetTopologicalElementInDir(tt, static_cast<std::size_t>(DIR - 1));
 }

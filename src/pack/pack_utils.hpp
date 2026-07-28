@@ -22,6 +22,8 @@
 #include <utility>
 #include <vector>
 
+#include "basic_types.hpp"
+
 // SFINAE for block iter so that Sparse/SwarmPacks can work for MeshBlockData and MeshData
 namespace {
 template <class T, class F>
@@ -65,15 +67,16 @@ using PackIdxMap = std::unordered_map<std::string, std::size_t>;
 namespace variable_names {
 // Struct that all variable_name types should inherit from
 constexpr int ANYDIM = -1234; // ANYDIM must be a slowest-moving index
-template <bool REGEX, typename T, int... NCOMP>
-struct var_base_t {
+template <bool REGEX, typename T, TopologicalType TT, int... NCOMP>
+struct var_base_impl_t {
   using data_type = T;
+  static constexpr TopologicalType topological_type{TT};
 
   KOKKOS_INLINE_FUNCTION
-  var_base_t() : idx(0) {}
+  var_base_impl_t() : idx(0) {}
 
   KOKKOS_INLINE_FUNCTION
-  explicit var_base_t(int idx1) : idx(idx1) {}
+  explicit var_base_impl_t(int idx1) : idx(idx1) {}
 
   /*
     for 2D:, (M, N),
@@ -84,13 +87,13 @@ struct var_base_t {
    */
   template <typename... Args>
     requires((Integral<Args> && ...) && (sizeof...(Args) == sizeof...(NCOMP)))
-  KOKKOS_INLINE_FUNCTION explicit var_base_t(Args... args)
+  KOKKOS_INLINE_FUNCTION explicit var_base_impl_t(Args... args)
       : idx(GetIndex_(std::forward<Args>(args)...)) {
     static_assert(CheckArgs_(NCOMP...),
                   "All dimensions must be strictly positive, "
                   "except the first (slowest), which may be ANYDIM.");
   }
-  virtual ~var_base_t() = default;
+  virtual ~var_base_impl_t() = default;
 
   // All of these are just static methods so that there is no
   // extra storage in the struct
@@ -130,10 +133,23 @@ struct var_base_t {
     return idx;
   }
 };
+
+template <bool REGEX, typename T, int... NCOMP>
+using var_base_t = var_base_impl_t<REGEX, T, TopologicalType::Cell, NCOMP...>;
+
+template <bool REGEX, typename T, TopologicalType TT, int... NCOMP>
+using var_base_w_tt_t = var_base_impl_t<REGEX, T, TT, NCOMP...>;
+
 template <bool REGEX, int... NCOMP>
 struct base_t : public var_base_t<REGEX, Real, NCOMP...> {
   using var_base_t<REGEX, Real, NCOMP...>::var_base_t;
 };
+
+template <bool REGEX, TopologicalType TT, int... NCOMP>
+struct base_w_tt_t : public var_base_w_tt_t<REGEX, Real, TT, NCOMP...> {
+  using var_base_w_tt_t<REGEX, Real, TT, NCOMP...>::var_base_w_tt_t;
+};
+
 // An example variable name type that selects all variables available
 // on Mesh*Data
 struct any_withautoflux : public base_t<true> {
@@ -207,7 +223,9 @@ struct SumAllTypes {};
 
 template <class TL, std::size_t... Is>
 constexpr std::size_t SumSizesImpl(std::index_sequence<Is...>) {
-  return (std::size_t{0} + ... + TL::template type<Is>::size());
+  return (std::size_t{0} + ... +
+          (TL::template type<Is>::size() *
+           NumberOfTopologicalElements(TL::template type<Is>::topological_type)));
 }
 } // namespace impl
 

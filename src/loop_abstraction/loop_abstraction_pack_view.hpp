@@ -47,6 +47,22 @@ struct pack_view_t {
   }
 
   template <class var_t>
+  KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(TopologicalElement te, var_t v,
+                                                     int idx) const {
+    static_assert(TL::template IsIn<var_t>(), "Type must be in pack view type list.");
+    PARTHENON_DEBUG_REQUIRE(GetTopologicalType(te) == var_t::topological_type,
+                            "Topological element must match variable topological type.");
+    return data_[SumSizesBefore<TL, var_t>() + (static_cast<int>(te) % 3) * var_t::size() +
+                 v.idx][idx];
+  }
+
+  template <class var_t>
+  KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(TopologicalElement te, var_t v,
+                                                     MemoryOffset idx) const {
+    return (*this)(te, v, idx.flat);
+  }
+
+  template <class var_t>
   KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(var_t v, Index3 in) const {
     static_assert(TL::template IsIn<var_t>(), "Type must be in pack view type list.");
     return data_[SumSizesBefore<TL, var_t>() + v.idx]
@@ -56,6 +72,23 @@ struct pack_view_t {
   template <class var_t>
   KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(var_t v, int k, int j, int i) const {
     return (*this)(v, Index3{k, j, i});
+  }
+
+  template <class var_t>
+  KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(TopologicalElement te, var_t v,
+                                                     Index3 in) const {
+    static_assert(TL::template IsIn<var_t>(), "Type must be in pack view type list.");
+    PARTHENON_DEBUG_REQUIRE(GetTopologicalType(te) == var_t::topological_type,
+                            "Topological element must match variable topological type.");
+    return data_[SumSizesBefore<TL, var_t>() + (static_cast<int>(te) % 3) * var_t::size() +
+                 v.idx]
+                [pidx_space->GetMemoryIndexer().GetFlatIdx(in.k, in.j, in.i) - shift_];
+  }
+
+  template <class var_t>
+  KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(TopologicalElement te, var_t v,
+                                                     int k, int j, int i) const {
+    return (*this)(te, v, Index3{k, j, i});
   }
 
   std::array<parthenon::Real *, SumSizesBefore<TL>()> data_{};
@@ -93,6 +126,27 @@ struct pack_view_t<IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>, Pac
                   "Type must be in pack view type list.");
     return (*pack)(b, var_t(v.idx + s * var_t::size()), k, j, i);
   }
+
+  template <class var_t>
+  KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(TopologicalElement te,
+                                                          var_t v, Index3 in) const {
+    static_assert(parthenon::TypeList<Ts...>::template IsIn<var_t>(),
+                  "Type must be in pack view type list.");
+    PARTHENON_DEBUG_REQUIRE(GetTopologicalType(te) == var_t::topological_type,
+                            "Topological element must match variable topological type.");
+    return (*pack)(b, te, var_t(v.idx + s * var_t::size()), in.k, in.j, in.i);
+  }
+
+  template <class var_t>
+  KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(TopologicalElement te,
+                                                          var_t v, int k, int j,
+                                                          int i) const {
+    static_assert(parthenon::TypeList<Ts...>::template IsIn<var_t>(),
+                  "Type must be in pack view type list.");
+    PARTHENON_DEBUG_REQUIRE(GetTopologicalType(te) == var_t::topological_type,
+                            "Topological element must match variable topological type.");
+    return (*pack)(b, te, var_t(v.idx + s * var_t::size()), k, j, i);
+  }
 };
 
 template <class IndexSpaceType, class sparse_pack_t, class... Ts>
@@ -112,13 +166,17 @@ make_pack_view_impl(const InnerIndexRange<IndexSpaceType> &idx_range,
     (
         [&] {
           constexpr std::size_t vstart = SumSizesBefore<TL, Ts>();
+          constexpr std::size_t ntopo = NumberOfTopologicalElements(Ts::topological_type);
           const std::size_t sparse_offset = s * Ts::size();
-          for (std::size_t v = 0; v < Ts::size(); ++v) {
-            if (pack_in.GetSize(idx_range.block, Ts()) > 0) {
-              const auto &var = pack_in(idx_range.block, Ts(v + sparse_offset));
-              out.data_[vstart + v] = var.data() + out.shift_;
-            } else {
-              out.data_[vstart + v] = nullptr;
+          for (std::size_t t = 0; t < ntopo; ++t) {
+            for (std::size_t v = 0; v < Ts::size(); ++v) {
+              if (pack_in.GetSize(idx_range.block, Ts()) > 0) {
+                const auto te = GetTopologicalElementInDir(Ts::topological_type, t);
+                const auto &var = pack_in(idx_range.block, te, Ts(v + sparse_offset));
+                out.data_[vstart + t * Ts::size() + v] = var.data() + out.shift_;
+              } else {
+                out.data_[vstart + t * Ts::size() + v] = nullptr;
+              }
             }
           }
         }(),
