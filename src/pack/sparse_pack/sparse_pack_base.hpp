@@ -29,7 +29,7 @@ namespace parthenon {
 class SparsePackBase {
  public:
   SparsePackBase() = default;
-  virtual ~SparsePackBase() = default;
+  ~SparsePackBase() = default;
 
  protected:
   friend class SparsePackCache;
