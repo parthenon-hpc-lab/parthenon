@@ -58,7 +58,7 @@ class MeshDataDescriptor {
     RegisterVariables(std::forward<Args>(args)...);
   }
 
-  std::vector<Uid_t> AddMDSubset(Mesh *pmesh, const std::string &name,
+  std::vector<Uid_t> AddMeshData(Mesh *pmesh, const std::string &name,
                                  const std::shared_ptr<MeshData<Real>> &base);
   const auto &GetUids() const { return uids_; }
 

@@ -58,7 +58,7 @@ void Packages_t::Add(const std::shared_ptr<StateDescriptor> &package) {
                            "Package name " + name + " must be unique.");
   packages_[name] = package;
 
-  auto &subsets = package->GetAllMeshDataSubsets();
+  auto &subsets = package->GetOrAddAllMeshData();
   for (auto &[subname, req] : subsets) {
     packages_with_submeshdata_[subname][package->label()] = package;
   }
@@ -691,10 +691,10 @@ int StateDescriptor::GetPackDimension(const Metadata::FlagCollection &flags) {
 }
 
 std::shared_ptr<MeshData<Real>>
-StateDescriptor::GetOrAddMeshDataSubset(Mesh *pmesh, const std::string &partial_name,
-                                        int stage_idx) {
-  auto full_name = GetMeshDataSubsetFullname(partial_name);
-  PARTHENON_REQUIRE(ContainsMeshDataSubset(partial_name),
+StateDescriptor::GetOrAddMeshData(Mesh *pmesh, const std::string &partial_name,
+                                  int stage_idx) {
+  auto full_name = GetMeshDataFullName(partial_name);
+  PARTHENON_REQUIRE(ContainsMeshDataDescriptor(partial_name),
                     "Package " + label() + " must contain a subset " + partial_name);
   return pmesh->mesh_data.GetOrAdd(full_name, stage_idx);
 }

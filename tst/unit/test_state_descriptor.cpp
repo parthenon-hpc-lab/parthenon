@@ -123,28 +123,28 @@ TEST_CASE("Test mesh data subset registration in StateDescriptor",
           "[StateDescriptor][MeshDataSubset]") {
   StateDescriptor state("package");
   MeshDataDescriptor requirements;
-  requirements.varnames = {"density", "velocity"};
+  requirements.varnames = {"var1", "var2"};
   requirements.flags = FC_t({Metadata::Independent, Metadata::FillGhost});
   requirements.flags.TakeUnion(Metadata::Derived);
   requirements.flags.Exclude(Metadata::Sparse);
   requirements.sparse_ids = {1, 4, 8};
   requirements.shallow = true;
 
-  state.RegisterMeshDataSubset("source", requirements);
+  state.RegisterMeshData("source", requirements);
 
   SECTION("The registered subset can be found and is given a package-scoped name") {
-    REQUIRE(state.ContainsMeshDataSubset("source"));
-    REQUIRE_FALSE(state.ContainsMeshDataSubset("diagnostics"));
-    REQUIRE(state.GetMeshDataSubsetFullname("source") == "md_subset::package::source");
+    REQUIRE(state.ContainsMeshDataDescriptor("source"));
+    REQUIRE_FALSE(state.ContainsMeshDataDescriptor("diagnostics"));
+    REQUIRE(state.GetMeshDataFullName("source") == "md_subset::package::source");
   }
 
   SECTION("Registration preserves all requirements") {
-    const auto &subsets = state.GetAllMeshDataSubsets();
+    const auto &subsets = state.GetOrAddAllMeshData();
     REQUIRE(subsets.size() == 1);
     REQUIRE(subsets.count("source") == 1);
 
     const auto &registered = subsets.at("source");
-    REQUIRE(registered.varnames == std::vector<std::string>{"density", "velocity"});
+    REQUIRE(registered.varnames == std::vector<std::string>{"var1", "var2"});
     REQUIRE(registered.flags.GetIntersections() == requirements.flags.GetIntersections());
     REQUIRE(registered.flags.GetUnions() == requirements.flags.GetUnions());
     REQUIRE(registered.flags.GetExclusions() == requirements.flags.GetExclusions());
@@ -154,25 +154,25 @@ TEST_CASE("Test mesh data subset registration in StateDescriptor",
   }
 
   SECTION("The StateDescriptor owns a copy of the requirements") {
-    requirements.varnames.push_back("pressure");
+    requirements.varnames.push_back("var3");
     requirements.sparse_ids.clear();
     requirements.shallow = false;
 
-    const auto &registered = state.GetAllMeshDataSubsets().at("source");
-    REQUIRE(registered.varnames == std::vector<std::string>{"density", "velocity"});
+    const auto &registered = state.GetOrAddAllMeshData().at("source");
+    REQUIRE(registered.varnames == std::vector<std::string>{"var1", "var2"});
     REQUIRE(registered.sparse_ids == std::vector<int>{1, 4, 8});
     REQUIRE(registered.shallow);
   }
 
   SECTION("Multiple independently named subsets can be registered") {
     MeshDataDescriptor diagnostics;
-    diagnostics.varnames = {"pressure"};
-    state.RegisterMeshDataSubset("diagnostics", diagnostics);
+    diagnostics.varnames = {"var3"};
+    state.RegisterMeshData("diagnostics", diagnostics);
 
-    const auto &subsets = state.GetAllMeshDataSubsets();
+    const auto &subsets = state.GetOrAddAllMeshData();
     REQUIRE(subsets.size() == 2);
-    REQUIRE(subsets.at("diagnostics").varnames == std::vector<std::string>{"pressure"});
-    REQUIRE(state.GetMeshDataSubsetFullname("diagnostics") ==
+    REQUIRE(subsets.at("diagnostics").varnames == std::vector<std::string>{"var3"});
+    REQUIRE(state.GetMeshDataFullName("diagnostics") ==
             "md_subset::package::diagnostics");
   }
 }
@@ -182,18 +182,18 @@ TEST_CASE("Test variable registration in MeshDataDescriptor",
   MeshDataDescriptor requirements;
 
   SECTION("A single string name can be registered") {
-    requirements.RegisterVariables("density");
-    REQUIRE(requirements.varnames == std::vector<std::string>{"density"});
+    requirements.RegisterVariables("var1");
+    REQUIRE(requirements.varnames == std::vector<std::string>{"var1"});
   }
 
   SECTION("Multiple string names can be registered in one call") {
-    requirements.RegisterVariables("density", "pressure", "velocity");
+    requirements.RegisterVariables("var1", "var3", "var2");
     REQUIRE(requirements.varnames ==
-            std::vector<std::string>{"density", "pressure", "velocity"});
+            std::vector<std::string>{"var1", "var3", "var2"});
   }
 
   SECTION("A vector of string names can be registered") {
-    const std::vector<std::string> names{"density", "pressure"};
+    const std::vector<std::string> names{"var1", "var3"};
     requirements.RegisterVariables(names);
     REQUIRE(requirements.varnames == names);
   }
@@ -210,29 +210,29 @@ TEST_CASE("Test variable registration in MeshDataDescriptor",
   }
 
   SECTION("Successive registrations append names in call order") {
-    requirements.RegisterVariables("density");
-    requirements.RegisterVariables(std::vector<std::string>{"pressure", "density"});
+    requirements.RegisterVariables("var1");
+    requirements.RegisterVariables(std::vector<std::string>{"var3", "var1"});
     requirements.RegisterVariables<SubsetVariableOne>();
 
     REQUIRE(requirements.varnames ==
-            std::vector<std::string>{"density", "pressure", "density", "typed_one"});
+            std::vector<std::string>{"var1", "var3", "var1", "typed_one"});
   }
 }
 
 TEST_CASE("Test mesh data subset indexing in Packages_t",
           "[Packages_t][MeshDataSubset]") {
   Packages_t packages;
-  auto hydro = std::make_shared<StateDescriptor>("hydro");
-  auto gravity = std::make_shared<StateDescriptor>("gravity");
+  auto package1 = std::make_shared<StateDescriptor>("package1");
+  auto package2 = std::make_shared<StateDescriptor>("package2");
   auto boundaries = std::make_shared<StateDescriptor>("boundaries");
 
   MeshDataDescriptor requirements;
-  hydro->RegisterMeshDataSubset("source", requirements);
-  hydro->RegisterMeshDataSubset("diagnostics", requirements);
-  gravity->RegisterMeshDataSubset("source", requirements);
+  package1->RegisterMeshData("source", requirements);
+  package1->RegisterMeshData("diagnostics", requirements);
+  package2->RegisterMeshData("source", requirements);
 
-  packages.Add(hydro);
-  packages.Add(gravity);
+  packages.Add(package1);
+  packages.Add(package2);
   packages.Add(boundaries);
 
   SECTION("Packages are grouped under every subset name they prescribe") {
@@ -243,25 +243,25 @@ TEST_CASE("Test mesh data subset indexing in Packages_t",
 
     const auto &sources = indexed.at("source");
     REQUIRE(sources.size() == 2);
-    REQUIRE(sources.at("hydro") == hydro);
-    REQUIRE(sources.at("gravity") == gravity);
+    REQUIRE(sources.at("package1") == package1);
+    REQUIRE(sources.at("package2") == package2);
 
     const auto &diagnostics = indexed.at("diagnostics");
     REQUIRE(diagnostics.size() == 1);
-    REQUIRE(diagnostics.at("hydro") == hydro);
-    REQUIRE(diagnostics.count("gravity") == 0);
+    REQUIRE(diagnostics.at("package1") == package1);
+    REQUIRE(diagnostics.count("package2") == 0);
     REQUIRE(diagnostics.count("boundaries") == 0);
   }
 
   SECTION("Named lookup and const access return the indexed packages") {
-    REQUIRE(packages.AllPackagesWithSubMeshData("source").at("hydro") == hydro);
+    REQUIRE(packages.AllPackagesWithSubMeshData("source").at("package1") == package1);
 
     const Packages_t &const_packages = packages;
     const auto &sources = const_packages.AllPackagesWithSubMeshData("source");
     REQUIRE(sources.size() == 2);
-    REQUIRE(sources.at("gravity") == gravity);
-    REQUIRE(const_packages.AllPackagesWithSubMeshData().at("diagnostics").at("hydro") ==
-            hydro);
+    REQUIRE(sources.at("package2") == package2);
+    REQUIRE(const_packages.AllPackagesWithSubMeshData().at("diagnostics").at("package1") ==
+            package1);
   }
 }
 

@@ -284,8 +284,8 @@ class StateDescriptor {
 
   // Register a meshdata subset containing a subset of variables, flags, or sparse ids.
   // This can then be pulled out later in, e.g., the driver.
-  void RegisterMeshDataSubset(const std::string &name,
-                              const MeshDataDescriptor &requirements) {
+  void RegisterMeshData(const std::string &name,
+                        const MeshDataDescriptor &requirements) {
     PARTHENON_REQUIRE(submeshdata_map_.count(name) == 0,
                       "A meshdata subset with the same name must not already be added");
     // TODO(JMM): Technically this is an extra copy vs if we passed
@@ -392,24 +392,24 @@ class StateDescriptor {
     return itr->second;
   }
 
-  std::string GetMeshDataSubsetFullname(const std::string &partial_name) {
+  std::string GetMeshDataFullName(const std::string &partial_name) {
     return "md_subset::" + label() + "::" + partial_name;
   }
 
-  bool ContainsMeshDataSubset(const std::string &partial_name) {
+  bool ContainsMeshDataDescriptor(const std::string &partial_name) {
     return submeshdata_map_.count(partial_name) > 0;
   }
 
-  std::vector<Uid_t> AddMeshDataSubset(Mesh *pmesh, const std::string &partial_name,
-                                       const std::shared_ptr<MeshData<Real>> &base) {
-    auto full_name = GetMeshDataSubsetFullname(partial_name);
-    return submeshdata_map_[partial_name].AddMDSubset(pmesh, full_name, base);
+  std::vector<Uid_t> AddMeshData(Mesh *pmesh, const std::string &partial_name,
+                                 const std::shared_ptr<MeshData<Real>> &base) {
+    auto full_name = GetMeshDataFullName(partial_name);
+    return submeshdata_map_[partial_name].AddMeshData(pmesh, full_name, base);
   }
 
   std::shared_ptr<MeshData<Real>>
-  GetOrAddMeshDataSubset(Mesh *pmesh, const std::string &partial_name, int stage_idx);
+  GetOrAddMeshData(Mesh *pmesh, const std::string &partial_name, int stage_idx);
 
-  auto &GetAllMeshDataSubsets() { return submeshdata_map_; }
+  auto &GetOrAddAllMeshData() { return submeshdata_map_; }
 
   bool FlagsPresent(std::vector<MetadataFlag> const &flags, bool matchAny = false);
 

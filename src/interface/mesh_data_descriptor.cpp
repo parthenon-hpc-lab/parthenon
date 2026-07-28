@@ -26,7 +26,7 @@
 
 namespace parthenon {
 std::vector<Uid_t>
-MeshDataDescriptor::AddMDSubset(Mesh *pmesh, const std::string &name,
+MeshDataDescriptor::AddMeshData(Mesh *pmesh, const std::string &name,
                                 const std::shared_ptr<MeshData<Real>> &base) {
   std::vector<std::string> resolved_vars =
       pmesh->GetVariableNames(varnames, flags, sparse_ids);

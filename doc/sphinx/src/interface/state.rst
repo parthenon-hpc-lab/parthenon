@@ -217,12 +217,12 @@ For example, a package can register a subset in its ``Initialize`` function:
    source_requirements.sparse_ids = {1, 3};
    source_requirements.shallow = true;
 
-   pkg->RegisterMeshDataSubset("source", source_requirements);
+   pkg->RegisterMeshData("source", source_requirements);
 
 The subset name is local to the package.  Parthenon gives the resulting
 ``MeshData`` the globally unique name
 ``md_subset::<package label>::<subset name>``.  Applications should use
-``GetMeshDataSubsetFullname`` when the full name is needed instead of constructing
+``GetMeshDataFullName`` when the full name is needed instead of constructing
 it directly.
 
 ``shallow`` controls how the subset's ``MeshBlockData`` objects are created from
@@ -240,24 +240,24 @@ partition with
 .. code:: cpp
 
    auto md_source =
-       pkg->GetOrAddMeshDataSubset(pmesh, "source", partition_index);
+       pkg->GetOrAddMeshData(pmesh, "source", partition_index);
    task_list.AddTask(dependency, ApplySources, md_source);
 
-``GetOrAddMeshDataSubset`` requires that the subset was registered by that package.
+``GetOrAddMeshData`` requires that the subset was registered by that package.
 It returns the requested partition of the package-scoped subset and can therefore be
 used anywhere a partitioned ``MeshData`` is expected.
 
 When a ``StateDescriptor`` is added to ``Packages_t``, Parthenon indexes it under
 each registered subset name.  ``AllPackagesWithSubMeshData(name)`` retrieves the
 packages prescribing one named category, while the no-argument overload retrieves
-all categories.  Consequently, all calls to ``RegisterMeshDataSubset`` must occur
+all categories.  Consequently, all calls to ``RegisterMeshData`` must occur
 before the descriptor is added to ``Packages_t``.  This happens naturally when
 registration is performed in the package's ``Initialize`` function.
 
 Drivers that do not use ``EvolutionDriver::Execute`` do not receive its automatic
-materialization.  They must call ``StateDescriptor::AddMeshDataSubset`` for the
+materialization.  They must call ``StateDescriptor::AddMeshData`` for the
 registered packages before requesting partitions with
-``GetOrAddMeshDataSubset``.  After a subset is materialized, its
+``GetOrAddMeshData``.  After a subset is materialized, its
 ``MeshDataDescriptor::GetUids`` method provides the cached unique IDs shared by
 the base and subset ``MeshData`` objects.
 
