@@ -1361,7 +1361,11 @@ T ParameterInput::ConvertParamValue(const ParamValue &value, const std::string &
       const std::string trimmed = SanitizeString(str_val);
       std::size_t pos = 0;
       int parsed = std::stoi(trimmed, &pos);
-      if (pos != trimmed.size()) throw std::invalid_argument("trailing characters");
+      if (pos != trimmed.size()) {
+        Real d_parsed = static_cast<Real>(std::stod(trimmed, &pos));
+        if (pos != trimmed.size()) throw std::invalid_argument("trailing characters");
+        if ( static_cast<Real>(parsed) != d_parsed) throw std::invalid_argument("Integer type parameter is not parsing correctly from the string value");
+      }
       return parsed;
     } else if constexpr (std::is_same_v<T, Real>) {
       const std::string trimmed = SanitizeString(str_val);
