@@ -85,13 +85,17 @@
 namespace parthenon {
 
 namespace {
-bool IsLegacyOutputBlock(const std::string &block_name) {
+int IsLegacyOutputBlock(const std::string &block_name) {
   constexpr const char *prefix = "parthenon/output";
   if (block_name.rfind(prefix, 0) != 0) return false;
   const std::string suffix = block_name.substr(std::char_traits<char>::length(prefix));
-  return !suffix.empty() &&
+  const bool is_legacy =  !suffix.empty() &&
          std::all_of(suffix.begin(), suffix.end(),
                      [](unsigned char c) { return std::isdigit(c) != 0; });
+  if (is_legacy) {
+    return  std::atoi(suffix.c_str());
+  } 
+  return -1;
 }
 } // namespace
 
@@ -133,9 +137,10 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     const auto outn_str =
         (slash == std::string::npos) ? block_name : block_name.substr(slash + 1);
     op.state_key = outn_str;
-    const bool legacy_output = IsLegacyOutputBlock(block_name);
+    const int legacy_number = IsLegacyOutputBlock(block_name);
+    const bool legacy_output = (legacy_number >= 0);
     op.block_number =
-        legacy_output ? std::atoi(outn_str.c_str()) : named_output_ordinal++;
+        legacy_output ? legacy_number : named_output_ordinal++;
     auto *pfile_number = pkg->MutableParam<int>(outn_str + "/file_number");
     auto *plast_time = pkg->MutableParam<Real>(outn_str + "/last_time");
     auto *plast_n = pkg->MutableParam<int>(outn_str + "/last_n");
