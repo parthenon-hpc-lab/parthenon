@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef INTERFACE_SUB_MESHDATA_REQUIREMENTS_HPP_
-#define INTERFACE_SUB_MESHDATA_REQUIREMENTS_HPP_
+#ifndef INTERFACE_MESH_DATA_DESCRIPTOR_HPP_
+#define INTERFACE_MESH_DATA_DESCRIPTOR_HPP_
 
 #include <memory>
 #include <string>
@@ -29,11 +29,12 @@ class Mesh;
 template <typename T>
 class MeshData;
 
-class SubMeshDataRequirements {
+class MeshDataDescriptor {
  public:
   std::vector<std::string> varnames;
   Metadata::FlagCollection flags;
   std::vector<int> sparse_ids;
+  std::string origin;
   bool shallow = false;
 
   template <typename... Ts>
@@ -66,4 +67,4 @@ class SubMeshDataRequirements {
 };
 } // namespace parthenon
 
-#endif // INTERFACE_SUB_MESHDATA_REQUIREMENTS_HPP_
+#endif // INTERFACE_MESH_DATA_DESCRIPTOR_HPP_

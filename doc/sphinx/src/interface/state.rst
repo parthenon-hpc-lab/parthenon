@@ -171,7 +171,7 @@ packages should operate on separate, package-specific collections of variables. 
 package describes the selection once during initialization, and the driver can then
 materialize and partition the subset without duplicating the selection logic.
 
-The selection is represented by ``SubMeshDataRequirements``.  Variables can be
+The selection is represented by ``MeshDataDescriptor``.  Variables can be
 selected by explicit name, by metadata flags, and by sparse id.  These selection
 methods are additive: the result contains explicitly named variables as well as
 variables matching the flag collection.  When ``sparse_ids`` is nonempty, it limits
@@ -210,7 +210,7 @@ For example, a package can register a subset in its ``Initialize`` function:
 
    auto pkg = std::make_shared<StateDescriptor>("hydro");
 
-   SubMeshDataRequirements source_requirements;
+   MeshDataDescriptor source_requirements;
    source_requirements.RegisterVariables("density", "pressure", "tracers");
    source_requirements.flags =
        Metadata::FlagCollection({Metadata::Derived});
@@ -258,7 +258,7 @@ Drivers that do not use ``EvolutionDriver::Execute`` do not receive its automati
 materialization.  They must call ``StateDescriptor::AddMeshDataSubset`` for the
 registered packages before requesting partitions with
 ``GetOrAddMeshDataSubset``.  After a subset is materialized, its
-``SubMeshDataRequirements::GetUids`` method provides the cached unique IDs shared by
+``MeshDataDescriptor::GetUids`` method provides the cached unique IDs shared by
 the base and subset ``MeshData`` objects.
 
 .. _state history output:

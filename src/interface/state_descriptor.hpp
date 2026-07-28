@@ -32,7 +32,7 @@
 #include "interface/metadata.hpp"
 #include "interface/params.hpp"
 #include "interface/sparse_pool.hpp"
-#include "interface/sub_meshdata_requirements.hpp"
+#include "interface/mesh_data_descriptor.hpp"
 #include "interface/var_id.hpp"
 #include "outputs/output_parameters.hpp"
 #include "pack/scratch_variables.hpp"
@@ -285,7 +285,7 @@ class StateDescriptor {
   // Register a meshdata subset containing a subset of variables, flags, or sparse ids.
   // This can then be pulled out later in, e.g., the driver.
   void RegisterMeshDataSubset(const std::string &name,
-                              const SubMeshDataRequirements &requirements) {
+                              const MeshDataDescriptor &requirements) {
     PARTHENON_REQUIRE(submeshdata_map_.count(name) == 0,
                       "A meshdata subset with the same name must not already be added");
     // TODO(JMM): Technically this is an extra copy vs if we passed
@@ -560,7 +560,7 @@ class StateDescriptor {
   Dictionary<Dictionary<Metadata>> swarmValueMetadataMap_;
 
   RefinementFunctionMaps refinementFuncMaps_;
-  Dictionary<SubMeshDataRequirements> submeshdata_map_;
+  Dictionary<MeshDataDescriptor> submeshdata_map_;
   std::map<TopologicalType, std::size_t> num_scratch_;
 };
 

@@ -20,14 +20,14 @@
 #include "interface/mesh_data.hpp"
 #include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
-#include "sub_meshdata_requirements.hpp"
+#include "mesh_data_descriptor.hpp"
 #include "utils/unique_id.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
 std::vector<Uid_t>
-SubMeshDataRequirements::AddMDSubset(Mesh *pmesh, const std::string &name,
-                                     const std::shared_ptr<MeshData<Real>> &base) {
+MeshDataDescriptor::AddMDSubset(Mesh *pmesh, const std::string &name,
+                                const std::shared_ptr<MeshData<Real>> &base) {
   std::vector<std::string> resolved_vars =
       pmesh->GetVariableNames(varnames, flags, sparse_ids);
   std::shared_ptr<MeshData<Real>> md;

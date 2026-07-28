@@ -46,7 +46,7 @@ using parthenon::Real;
 using parthenon::ResolvePackages;
 using parthenon::SparsePool;
 using parthenon::StateDescriptor;
-using parthenon::SubMeshDataRequirements;
+using parthenon::MeshDataDescriptor;
 using FlagVec = std::vector<MetadataFlag>;
 using parthenon::TopologicalElement;
 using parthenon::VariableState;
@@ -122,7 +122,7 @@ TEST_CASE("Test Add/Get in Packages_t", "[Packages_t]") {
 TEST_CASE("Test mesh data subset registration in StateDescriptor",
           "[StateDescriptor][MeshDataSubset]") {
   StateDescriptor state("package");
-  SubMeshDataRequirements requirements;
+  MeshDataDescriptor requirements;
   requirements.varnames = {"density", "velocity"};
   requirements.flags = FC_t({Metadata::Independent, Metadata::FillGhost});
   requirements.flags.TakeUnion(Metadata::Derived);
@@ -165,7 +165,7 @@ TEST_CASE("Test mesh data subset registration in StateDescriptor",
   }
 
   SECTION("Multiple independently named subsets can be registered") {
-    SubMeshDataRequirements diagnostics;
+    MeshDataDescriptor diagnostics;
     diagnostics.varnames = {"pressure"};
     state.RegisterMeshDataSubset("diagnostics", diagnostics);
 
@@ -177,9 +177,9 @@ TEST_CASE("Test mesh data subset registration in StateDescriptor",
   }
 }
 
-TEST_CASE("Test variable registration in SubMeshDataRequirements",
-          "[SubMeshDataRequirements][MeshDataSubset]") {
-  SubMeshDataRequirements requirements;
+TEST_CASE("Test variable registration in MeshDataDescriptor",
+          "[MeshDataDescriptor][MeshDataSubset]") {
+  MeshDataDescriptor requirements;
 
   SECTION("A single string name can be registered") {
     requirements.RegisterVariables("density");
@@ -226,7 +226,7 @@ TEST_CASE("Test mesh data subset indexing in Packages_t",
   auto gravity = std::make_shared<StateDescriptor>("gravity");
   auto boundaries = std::make_shared<StateDescriptor>("boundaries");
 
-  SubMeshDataRequirements requirements;
+  MeshDataDescriptor requirements;
   hydro->RegisterMeshDataSubset("source", requirements);
   hydro->RegisterMeshDataSubset("diagnostics", requirements);
   gravity->RegisterMeshDataSubset("source", requirements);
