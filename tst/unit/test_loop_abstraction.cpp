@@ -49,6 +49,8 @@ using parthenon::MeshBlock;
 using parthenon::MeshData;
 using parthenon::Metadata;
 using parthenon::StateDescriptor;
+using parthenon::TopologicalElement;
+using parthenon::TopologicalType;
 
 constexpr int kNVars = 3;
 
@@ -297,6 +299,15 @@ struct v5 : public parthenon::variable_names::base_t<false> {
   static constexpr bool is_sparse() { return false; }
 };
 
+struct vf : public parthenon::variable_names::base_w_tt_t<false, TopologicalType::Face> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION vf(Ts &&...args)
+      : parthenon::variable_names::base_w_tt_t<false, TopologicalType::Face>(
+            std::forward<Ts>(args)...) {}
+  static std::string name() { return "vf"; }
+  static constexpr bool is_sparse() { return false; }
+};
+
 KOKKOS_INLINE_FUNCTION Real PackViewSourceValue(const int b, const int src_var,
                                                 const int k, const int j, const int i) {
   return 1.0e6 * static_cast<Real>(b) + 1.0e5 * static_cast<Real>(src_var + 1) +
@@ -309,6 +320,15 @@ KOKKOS_INLINE_FUNCTION Real PackViewExpectedValue(const int b, const int v, cons
   return 2.0e6 * static_cast<Real>(b) + 2.0e5 * static_cast<Real>(v + 1) +
          1.0e3 * static_cast<Real>(k) + 10.0 * static_cast<Real>(j) +
          static_cast<Real>(i) + 1.0;
+}
+
+KOKKOS_INLINE_FUNCTION Real FacePackViewExpectedValue(const int b,
+                                                      const TopologicalElement te,
+                                                      const int k, const int j,
+                                                      const int i) {
+  return 3.0e6 * static_cast<Real>(b) + 1.0e5 * static_cast<Real>(te) +
+         1.0e3 * static_cast<Real>(k) + 10.0 * static_cast<Real>(j) +
+         static_cast<Real>(i) + 2.0;
 }
 
 struct plus_j_halo_t {
@@ -661,6 +681,89 @@ void RunPackViewCase(const PackViewSpec &spec, const int ninner, const bool kji_
           ++ltot;
         }
         if (sparse_pack(b, v5(), k, j, i) != PackViewExpectedValue(b, 2, k, j, i)) {
+          ++ltot;
+        }
+      },
+      nwrong);
+  REQUIRE(nwrong == 0);
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunFacePackViewCase(const PackViewSpec &spec, const int ninner) {
+  const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
+  INFO("pattern=" << pattern_name << ", ninner=" << ninner << ", topological=face");
+
+  ScopedNghost guard;
+  parthenon::Globals::nghost = spec.nghost;
+
+  const std::vector<int> scalar_shape{spec.ncell + 2 * spec.nghost,
+                                      spec.ncell + 2 * spec.nghost,
+                                      spec.ncell + 2 * spec.nghost};
+  Metadata m_cell({Metadata::Independent}, scalar_shape);
+  Metadata m_face;
+  if constexpr (INNER_TAG == inner_tag::logical_coords) {
+    m_face = Metadata({Metadata::Face, Metadata::Independent});
+  } else {
+    m_face = Metadata(
+        {Metadata::Face, Metadata::Independent, Metadata::CellMemAligned});
+  }
+  auto pkg = std::make_shared<StateDescriptor>("FacePackView package");
+  pkg->AddField<v1>(m_cell);
+  pkg->AddField<vf>(m_face);
+  pkg->AddField<v2>(m_cell);
+
+  BlockList_t block_list = MakeBlockList(pkg, spec.nblocks, spec.ncell, 3);
+  MeshData<Real> mesh_data("base");
+  mesh_data.Initialize(block_list, nullptr);
+
+  using TE = TopologicalElement;
+  using IndexSpaceType = IndexSpace<LOOP_TAG, INNER_TAG>;
+  const auto memory_te = INNER_TAG == inner_tag::logical_coords ? TE::NN : TE::CC;
+  IndexSpaceType idx_space(loop_abstraction::NInner(ninner), IndexDomain::interior, 0,
+                           spec.nblocks, &mesh_data, TE::NN, memory_te);
+  auto desc = parthenon::MakePackDescriptor<v1, vf, v2>(pkg.get());
+  auto sparse_pack = desc.GetPack(&mesh_data);
+
+  loop_abstraction::outer(
+      idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
+        auto pack_view = loop_abstraction::make_pack_view(idx_range, sparse_pack);
+        loop_abstraction::inner(idx_range, [&](auto idx) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          pack_view(v1(), idx) = PackViewExpectedValue(b, 0, k, j, i);
+          pack_view(TE::F1, vf(), idx) = FacePackViewExpectedValue(b, TE::F1, k, j, i);
+          pack_view(TE::F2, vf(), idx) = FacePackViewExpectedValue(b, TE::F2, k, j, i);
+          pack_view(TE::F3, vf(), idx) = FacePackViewExpectedValue(b, TE::F3, k, j, i);
+          pack_view(v2(), idx) = PackViewExpectedValue(b, 1, k, j, i);
+        });
+      });
+
+  Kokkos::fence();
+
+  int nwrong = 0;
+  const auto ib_int = block_list[0]->cellbounds.GetBoundsI(IndexDomain::interior, TE::NN);
+  const auto jb_int = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::interior, TE::NN);
+  const auto kb_int = block_list[0]->cellbounds.GetBoundsK(IndexDomain::interior, TE::NN);
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag, "check face pack view",
+      parthenon::DevExecSpace(), 0, sparse_pack.GetNBlocks() - 1, kb_int.s, kb_int.e,
+      jb_int.s, jb_int.e, ib_int.s, ib_int.e,
+      KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+        if (sparse_pack(b, v1(), k, j, i) != PackViewExpectedValue(b, 0, k, j, i)) {
+          ++ltot;
+        }
+        if (sparse_pack(b, TE::F1, vf(), k, j, i) !=
+            FacePackViewExpectedValue(b, TE::F1, k, j, i)) {
+          ++ltot;
+        }
+        if (sparse_pack(b, TE::F2, vf(), k, j, i) !=
+            FacePackViewExpectedValue(b, TE::F2, k, j, i)) {
+          ++ltot;
+        }
+        if (sparse_pack(b, TE::F3, vf(), k, j, i) !=
+            FacePackViewExpectedValue(b, TE::F3, k, j, i)) {
+          ++ltot;
+        }
+        if (sparse_pack(b, v2(), k, j, i) != PackViewExpectedValue(b, 1, k, j, i)) {
           ++ltot;
         }
       },
@@ -1358,6 +1461,22 @@ TEST_CASE("loop abstraction pack view contracts",
   RunPackViewPatternMatrix<loop_tag::bovi, inner_tag::memory>();
   RunPackViewPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
   RunPackViewPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
+}
+
+TEST_CASE("loop abstraction face pack view access",
+          "[loop_abstraction][contract][pack_view]") {
+  const PackViewSpec spec{2, 3, 2};
+  const int nn_cells = (spec.ncell + 1) * (spec.ncell + 1) * (spec.ncell + 1);
+  for (const int ninner : PackViewNinnerCases(nn_cells)) {
+    RunFacePackViewCase<loop_tag::bvoi, inner_tag::logical_flat>(spec, ninner);
+    RunFacePackViewCase<loop_tag::bvoi, inner_tag::logical_coords>(spec, ninner);
+    RunFacePackViewCase<loop_tag::bvoi, inner_tag::memory>(spec, ninner);
+    RunFacePackViewCase<loop_tag::bovi, inner_tag::logical_flat>(spec, ninner);
+    RunFacePackViewCase<loop_tag::bovi, inner_tag::logical_coords>(spec, ninner);
+    RunFacePackViewCase<loop_tag::bovi, inner_tag::memory>(spec, ninner);
+    RunFacePackViewCase<loop_tag::boiv, inner_tag::logical_flat>(spec, ninner);
+    RunFacePackViewCase<loop_tag::boiv, inner_tag::logical_coords>(spec, ninner);
+  }
 }
 
 TEST_CASE("loop abstraction flux view contracts",
