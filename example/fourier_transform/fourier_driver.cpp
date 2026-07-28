@@ -12,9 +12,10 @@
 #include <string>
 #include <vector>
 
+#include <parthenon/driver.hpp>
+
 #include "fourier_driver.hpp"
 #include "utils/calc_spectrum.hpp"
-#include <parthenon/driver.hpp>
 
 using namespace parthenon::driver::prelude;
 using fourier_transform::FourierDriver;

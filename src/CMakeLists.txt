@@ -366,6 +366,13 @@ set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
 
 target_compile_features(parthenon PUBLIC cxx_std_20)
 
+# Silence annoying psabi warnings in parthenon proper, without
+# impacting downstreams.
+target_compile_options(parthenon
+    PRIVATE
+        $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU>>:-Wno-psabi>
+)
+
 # This will automatically link any extra libraries (or no extra libraries)
 # depending on the compiler, so it doesn't require an if() statement
 target_link_libraries(parthenon PUBLIC std::filesystem)
