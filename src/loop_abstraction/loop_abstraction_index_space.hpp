@@ -190,7 +190,7 @@ class IndexSpace {
 
   KOKKOS_INLINE_FUNCTION int GetNOuter() const {
     const int ni = GetNInner();
-    KOKKOS_ASSERT(ni > 0 && "IndexSpace: inner chunk size must be positive.");
+    PARTHENON_DEBUG_REQUIRE(ni > 0, "IndexSpace: inner chunk size must be positive.");
     return logical_kji.size() / ni + (logical_kji.size() % ni != 0);
   }
 

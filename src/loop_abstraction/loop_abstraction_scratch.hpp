@@ -66,7 +66,7 @@ struct ctime_flat_indexer {
     std::size_t flat_idx{0};
     (
         [&] {
-          KOKKOS_ASSERT(static_cast<std::size_t>(std::get<I>(tup)) < dim_sizes[I]);
+          PARTHENON_DEBUG_REQUIRE(static_cast<std::size_t>(std::get<I>(tup)) < dim_sizes[I], "Asking for index outside of range.");
           flat_idx += std::get<I>(tup);
           if constexpr (I + 1 < ndim) {
             flat_idx *= dim_sizes[I + 1];
@@ -150,10 +150,10 @@ struct StackScratch1D {
 
   KOKKOS_FORCEINLINE_FUNCTION static int DenseIndex(const int dk, const int dj,
                                                     const int di) {
-    KOKKOS_ASSERT(dk >= box_t::min_k && dk <= box_t::max_k);
-    KOKKOS_ASSERT(dj >= box_t::min_j && dj <= box_t::max_j);
-    KOKKOS_ASSERT(di >= box_t::min_i && di <= box_t::max_i);
-    KOKKOS_ASSERT(ContainsDeclaredOffset(dk, dj, di));
+    PARTHENON_DEBUG_REQUIRE(dk >= box_t::min_k && dk <= box_t::max_k, "Index out of range.");
+    PARTHENON_DEBUG_REQUIRE(dj >= box_t::min_j && dj <= box_t::max_j, "Index out of range.");
+    PARTHENON_DEBUG_REQUIRE(di >= box_t::min_i && di <= box_t::max_i, "Index out of range.");
+    PARTHENON_DEBUG_REQUIRE(ContainsDeclaredOffset(dk, dj, di), "Asking for point not in the halo.");
     return ((dk - box_t::min_k) * box_t::nj + (dj - box_t::min_j)) * box_t::ni +
            (di - box_t::min_i);
   }
@@ -164,7 +164,7 @@ struct HostScratch1D {
   using idxer_t = ctime_flat_indexer<Dims...>;
 
   IndexRange idx_range;
-  // Non-owning view into the per-thread ThreadLocalBumpArena. Storage is
+  // Non-owning view into the per-thread BumpArena. Storage is
   // bump-allocated (no init) and reclaimed wholesale when outer_raw_for resets the
   // arena at the start of the next outer iteration. Callers that += into this
   // scratch must zero it first, just like the Kokkos team_scratch path.
@@ -176,7 +176,7 @@ struct HostScratch1D {
   explicit HostScratch1D(const IndexRange &idx_range)
       : idx_range(idx_range), n(idx_range.ScratchSize() * idxer_t::size),
         data(static_cast<T *>(
-            parthenon::GetThreadLocalBumpArena().allocate(n * sizeof(T)))) {}
+            parthenon::GetBumpArena().allocate(n * sizeof(T)))) {}
 
   template <class... Args>
     requires(sizeof...(Args) == idxer_t::ndim + 1 || sizeof...(Args) == idxer_t::ndim + 3)

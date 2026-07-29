@@ -38,10 +38,10 @@ namespace parthenon {
 //
 // This is a plain host allocator with no dependence on Kokkos or the loop
 // abstraction; it is never used on the Kokkos/GPU backend (which allocates through
-// team_scratch instead). Access it through GetThreadLocalBumpArena(), whose
+// team_scratch instead). Access it through GetBumpArena(), whose
 // thread_local instance makes it correct for a threaded host backend at no cost on
 // serial.
-class ThreadLocalBumpArena {
+class BumpArena {
  public:
   // Reserve `bytes` of raw storage from the arena, aligned for any scalar type.
   //
@@ -86,8 +86,8 @@ class ThreadLocalBumpArena {
   std::size_t high_water_ = 0;
 };
 
-inline ThreadLocalBumpArena &GetThreadLocalBumpArena() {
-  static thread_local ThreadLocalBumpArena arena;
+inline BumpArena &GetBumpArena() {
+  static thread_local BumpArena arena;
   return arena;
 }
 
