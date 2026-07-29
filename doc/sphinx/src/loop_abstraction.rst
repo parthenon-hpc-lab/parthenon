@@ -14,7 +14,7 @@ It is a newer, more experimental interface than ``par_for``/``par_for_outer`` an
 primarily used by downstream applications with demanding reconstruction/flux kernels.
 The precise semantic contracts each path must satisfy are recorded in
 ``src/loop_abstraction/LOOP_ABSTRACTION_CONTRACTS.md``; that document is the
-authoritative reference for the invariants summarized here.
+(somewhat) authoritative reference for the invariants summarized here.
 
 .. warning::
 
@@ -47,7 +47,8 @@ A minimal kernel looks like:
    namespace la = parthenon::loop_abstraction;
    using IST = la::IndexSpace<la::loop_tag::bovi, la::inner_tag::logical_flat>;
 
-   IST idx_space(nblocks, nx, ny, nz, nghost);
+   IST idx_space(ninner, IndexDomain::interior,
+                 0, nblocks, md, TopologicalElement::CC); 
 
    la::outer(idx_space, KOKKOS_LAMBDA(const IST::idx_range_t &idx_range, int b) {
      la::inner(idx_range, [&](auto idx) {
@@ -181,21 +182,17 @@ loop and a consumer that reads values written by other threads.
 Halos
 -----
 
-A halo is a compile-time annotation naming the neighboring produced values a consumer
-loop needs. If a consumer inner loop runs over a logical point set ``S``, then a
-producer that fills scratch for the consumer must cover ``S`` plus the shifted copies
-named by the halo:
+The common reconstruction-to-flux pattern is a producer inner loop that writes reconstructed
+states into scratch over an extended range, followed by a consumer flux loop over
+the base range that accessess the scratch memory with offsets. The parthenon loop abstraction
+implements patterns like this through the concept of inner range halos. As an example, a simple
+flux calculation kernel in the loop abstraction might look like:
 
 .. code:: cpp
-
-   AddHalo<halo_t<h1, h2, ...>>(S) == S ∪ shift(S, h1) ∪ shift(S, h2) ∪ ...
-
-The common reconstruction-to-flux pattern is a producer that writes reconstructed
-states into scratch over a halo-extended range, followed by a consumer flux loop over
-the base range:
-
-.. code:: cpp
-
+   // Declare an index space over F1 faces 
+   IndexSpace<loop_tag, inner_tag> idx_space(ninner, IndexDomain::interior,
+                                             0, nblocks, md, TopologicalElement::F1); 
+   
    using recon_halo = la::halo::minus_i_t;
    idx_space.AddPerPointScratch<Real, recon_halo>(2);  // at setup
 
@@ -220,6 +217,15 @@ the base range:
      });
    });
 
+More explicitly, a halo is a compile-time annotation naming the neighboring produced
+values a consumer loop needs. If a consumer inner loop runs over a logical point set
+``S``, then a producer that fills scratch for the consumer must cover ``S`` plus the
+shifted copies named by the halo:
+
+.. code:: cpp
+
+   AddHalo<halo_t<h1, h2, ...>>(S) == S ∪ shift(S, h1) ∪ shift(S, h2) ∪ ...
+
 A halo is *not* the same as a reconstruction stencil width: the stencil is internal to
 computing one value, while the halo describes which produced neighbors must exist.
 
@@ -235,7 +241,10 @@ the same index conventions as the loop body:
   contained in ``pack`` at sparse index ``sparse_index``.
 - ``make_var_view(idx_range, pack, var)`` -- a single-variable view.
 - ``make_flux_pack_view(idx_range, pack, dir)`` / ``make_flux_view(...)`` -- the
-  flux-array counterparts, for one sweep direction.
+  flux-array counterparts, for one sweep direction. Note that this is different from how sparse 
+  packs and variable packs work in Parthenon, where you can request fluxes from the pack and do 
+  it for any direction. Here the flux view only contains fluxes and only for the direction 
+  requested on construction.
 
 Each view accepts the same index forms the body produces (flat ``int``, ``Index3``,
 or explicit ``k, j, i``), so a kernel can be written once and reused across inner
