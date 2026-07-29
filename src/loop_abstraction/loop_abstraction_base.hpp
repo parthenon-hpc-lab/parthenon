@@ -16,7 +16,7 @@
 // This file was made in part with generative AI.
 
 // Aggregator for the core loop-abstraction types. Historically this header held all
-// of the foundational definitions; they now live in focused headers that this file 
+// of the foundational definitions; they now live in focused headers that this file
 // pulls together for convenience.
 
 #include "loop_abstraction/loop_abstraction_halo.hpp"

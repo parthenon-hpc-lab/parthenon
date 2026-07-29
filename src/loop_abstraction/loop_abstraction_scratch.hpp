@@ -82,7 +82,7 @@ struct StackScratch1D {
   using halo_t = typename IndexRange::halo_t;
   using box_t = HaloBox<halo_t>;
   using idxer_t = ctime_flat_indexer<Dims...>;
-  
+
   // This is uninitialized intentionally on construction
   mutable std::array<T, box_t::size * idxer_t::size> data;
   int ks = 0;

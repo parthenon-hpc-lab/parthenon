@@ -713,8 +713,7 @@ void RunFacePackViewCase(const PackViewSpec &spec, const int ninner) {
   if constexpr (INNER_TAG == inner_tag::logical_coords) {
     m_face = Metadata({Metadata::Face, Metadata::Independent});
   } else {
-    m_face = Metadata(
-        {Metadata::Face, Metadata::Independent, Metadata::CellMemAligned});
+    m_face = Metadata({Metadata::Face, Metadata::Independent, Metadata::CellMemAligned});
   }
   auto pkg = std::make_shared<StateDescriptor>("FacePackView package");
   pkg->AddField<v1>(m_cell);
@@ -1128,10 +1127,9 @@ void RunScratchRoundtripCase(const ProblemSpec &spec, const int ninner) {
             for (int c0 = 0; c0 < 2; ++c0) {
               for (int c1 = 0; c1 < 3; ++c1) {
                 const Real shaped_expected = ShapedScratchValue(b, c0, c1, kk, jj, ii);
-                wrong.note(
-                    NotApprox(scratch_shaped(c0, c1, Index3{kk, jj, ii}), shaped_expected));
-                wrong.note(
-                    NotApprox(scratch_shaped(c0, c1, shifted), shaped_expected));
+                wrong.note(NotApprox(scratch_shaped(c0, c1, Index3{kk, jj, ii}),
+                                     shaped_expected));
+                wrong.note(NotApprox(scratch_shaped(c0, c1, shifted), shaped_expected));
                 wrong.note(
                     NotApprox(scratch_shaped(c0, c1, kk, jj, ii), shaped_expected));
               }

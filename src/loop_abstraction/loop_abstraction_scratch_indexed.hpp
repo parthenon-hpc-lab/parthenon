@@ -68,14 +68,16 @@ class TypeIndexedPerPointScratch {
     return scratch_(VarTL::StartIdx(field_tag) + field_tag.idx,
                     std::forward<Index>(index));
   }
- 
+
   template <class Var, class Index>
     requires(NSPARSE == 1)
-  KOKKOS_INLINE_FUNCTION decltype(auto) operator()(TopologicalElement te, Var &&field_tag, Index &&index) const {
-    return scratch_(VarTL::StartIdx(field_tag) + (static_cast<int>(te) % 3) * Var::size() + field_tag.idx,
+  KOKKOS_INLINE_FUNCTION decltype(auto) operator()(TopologicalElement te, Var &&field_tag,
+                                                   Index &&index) const {
+    return scratch_(VarTL::StartIdx(field_tag) +
+                        (static_cast<int>(te) % 3) * Var::size() + field_tag.idx,
                     std::forward<Index>(index));
   }
-  
+
   template <class Var, class Index>
   KOKKOS_INLINE_FUNCTION decltype(auto) operator()(Var field_tag, int sparse_idx,
                                                    Index &&index) const {
@@ -85,9 +87,10 @@ class TypeIndexedPerPointScratch {
   }
 
   template <class Var, class Index>
-  KOKKOS_INLINE_FUNCTION decltype(auto) operator()(TopologicalElement te, Var field_tag, int sparse_idx,
-                                                   Index &&index) const {
-    return scratch_(VarTL::StartIdx(field_tag) + (static_cast<int>(te) % 3) * Var::size() + field_tag.idx +
+  KOKKOS_INLINE_FUNCTION decltype(auto) operator()(TopologicalElement te, Var field_tag,
+                                                   int sparse_idx, Index &&index) const {
+    return scratch_(VarTL::StartIdx(field_tag) +
+                        (static_cast<int>(te) % 3) * Var::size() + field_tag.idx +
                         VarTL::size() * sparse_idx,
                     std::forward<Index>(index));
   }

@@ -55,7 +55,8 @@ struct pack_view_t {
     static_assert(TL::template IsIn<var_t>(), "Type must be in pack view type list.");
     PARTHENON_DEBUG_REQUIRE(GetTopologicalType(te) == var_t::topological_type,
                             "Topological element must match variable topological type.");
-    Real *base = data_[SumSizesBefore<TL, var_t>() + (static_cast<int>(te) % 3) * var_t::size() + v.idx];
+    Real *base = data_[SumSizesBefore<TL, var_t>() +
+                       (static_cast<int>(te) % 3) * var_t::size() + v.idx];
     PARTHENON_DEBUG_REQUIRE(base != nullptr,
                             "pack view accessed for a variable with no flux array");
     return base[idx];
@@ -87,7 +88,8 @@ struct pack_view_t {
     static_assert(TL::template IsIn<var_t>(), "Type must be in pack view type list.");
     PARTHENON_DEBUG_REQUIRE(GetTopologicalType(te) == var_t::topological_type,
                             "Topological element must match variable topological type.");
-    Real *base = data_[SumSizesBefore<TL, var_t>() + (static_cast<int>(te) % 3) * var_t::size() + v.idx];
+    Real *base = data_[SumSizesBefore<TL, var_t>() +
+                       (static_cast<int>(te) % 3) * var_t::size() + v.idx];
     PARTHENON_DEBUG_REQUIRE(base != nullptr,
                             "pack view accessed for a variable with no flux array");
     return base[pidx_space->GetMemoryIndexer().GetFlatIdx(in.k, in.j, in.i) - shift_];
@@ -106,7 +108,7 @@ struct pack_view_t {
 
 template <loop_tag LOOP_TAG, loop_backend BACKEND, class PackType, class... Ts>
 class pack_view_t<IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>, PackType,
-                   Ts...> {
+                  Ts...> {
   int b = 0;
   int s = 0;
 
@@ -138,8 +140,8 @@ class pack_view_t<IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>, Pack
   }
 
   template <class var_t>
-  KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(TopologicalElement te,
-                                                          var_t v, Index3 in) const {
+  KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(TopologicalElement te, var_t v,
+                                                          Index3 in) const {
     static_assert(parthenon::TypeList<Ts...>::template IsIn<var_t>(),
                   "Type must be in pack view type list.");
     PARTHENON_DEBUG_REQUIRE(GetTopologicalType(te) == var_t::topological_type,
@@ -148,9 +150,8 @@ class pack_view_t<IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>, Pack
   }
 
   template <class var_t>
-  KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(TopologicalElement te,
-                                                          var_t v, int k, int j,
-                                                          int i) const {
+  KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(TopologicalElement te, var_t v,
+                                                          int k, int j, int i) const {
     static_assert(parthenon::TypeList<Ts...>::template IsIn<var_t>(),
                   "Type must be in pack view type list.");
     PARTHENON_DEBUG_REQUIRE(GetTopologicalType(te) == var_t::topological_type,

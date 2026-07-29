@@ -52,8 +52,10 @@ enum class chunk_shape {
 class NInner {
  public:
   KOKKOS_FUNCTION NInner() : explicit_(true), cells_(0), shape_(chunk_shape::ij_slab) {}
-  KOKKOS_FUNCTION NInner(int cells) : explicit_(true), cells_(cells), shape_(chunk_shape::ij_slab) {}
-  KOKKOS_FUNCTION NInner(chunk_shape shape) : explicit_(false), cells_(0), shape_(shape) {}
+  KOKKOS_FUNCTION NInner(int cells)
+      : explicit_(true), cells_(cells), shape_(chunk_shape::ij_slab) {}
+  KOKKOS_FUNCTION NInner(chunk_shape shape)
+      : explicit_(false), cells_(0), shape_(shape) {}
 
   KOKKOS_INLINE_FUNCTION int resolve(const parthenon::Indexer3D &idxer) const {
     if (explicit_) return cells_;

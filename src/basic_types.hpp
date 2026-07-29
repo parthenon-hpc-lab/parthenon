@@ -273,7 +273,7 @@ inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt
 
 KOKKOS_FORCEINLINE_FUNCTION
 constexpr TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
-                                              const std::size_t d) {
+                                                        const std::size_t d) {
   using TE = TopologicalElement;
   using TT = TopologicalType;
   if (tt == TT::Cell) return TE::CC;
