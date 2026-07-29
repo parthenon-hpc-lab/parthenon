@@ -517,7 +517,7 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
       it.setAttribute("RummyState", state.source);
     } else {
       std::ostringstream oss;
-      pin->RestartDump(oss);
+      pin->ParameterDump(oss);
       it.setAttribute("InputFile", oss.str());
     }
   }

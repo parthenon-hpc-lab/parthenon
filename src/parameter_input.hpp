@@ -295,12 +295,8 @@ class ParameterInput {
                              const std::string &canonical_path = "");
 
   void ParameterDump(std::ostream &os);
-  // Backward-readable restart serialization that additionally preserves
-  // parser metadata and unresolved/typed value representations.
-  void RestartDump(std::ostream &os);
   // Non-owning link to the input deck retained by ParthenonManager. Output
-  // writers use it to generate current Rummy restart state while RestartDump
-  // remains available for native and legacy restart compatibility.
+  // writers use it to generate current Rummy restart state.
   void SetRummyDeck(Rummy::DeckBase *deck) { rummy_deck_ = deck; }
   Rummy::DeckBase *GetRummyDeck() const { return rummy_deck_; }
   // TODO(JMM): Make this more general?

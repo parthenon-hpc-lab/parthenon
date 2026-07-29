@@ -148,7 +148,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
       HDF5WriteAttribute("RummyState", state.source, input_group);
     } else {
       std::ostringstream oss;
-      pin->RestartDump(oss);
+      pin->ParameterDump(oss);
       HDF5WriteAttribute("File", oss.str(), input_group);
     }
     Kokkos::Profiling::popRegion(); // write input

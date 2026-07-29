@@ -56,7 +56,6 @@
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <map>
@@ -84,170 +83,6 @@ std::string SanitizeString(const std::string &input) {
                output.end());
   return output;
 }
-
-namespace {
-std::string HexEncode(const std::string &value) {
-  static constexpr char digits[] = "0123456789abcdef";
-  std::string encoded;
-  encoded.reserve(value.size() * 2);
-  for (unsigned char c : value) {
-    encoded.push_back(digits[c >> 4]);
-    encoded.push_back(digits[c & 0x0f]);
-  }
-  return encoded;
-}
-
-std::string HexDecode(const std::string &value) {
-  if (value.size() % 2 != 0) throw std::runtime_error("Invalid restart hex payload");
-  auto nibble = [](char c) -> unsigned char {
-    if (c >= '0' && c <= '9') return c - '0';
-    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-    throw std::runtime_error("Invalid restart hex payload");
-  };
-  std::string decoded;
-  decoded.reserve(value.size() / 2);
-  for (std::size_t i = 0; i < value.size(); i += 2)
-    decoded.push_back(static_cast<char>((nibble(value[i]) << 4) | nibble(value[i + 1])));
-  return decoded;
-}
-
-std::string ScalarTag(const UnresolvedScalar &value) {
-  return std::visit(
-      [](const auto &element) -> std::string {
-        using T = std::decay_t<decltype(element)>;
-        if constexpr (std::is_same_v<T, UnresolvedString>) return "u";
-        if constexpr (std::is_same_v<T, int>) return "i";
-        if constexpr (std::is_same_v<T, Real>) return "r";
-        if constexpr (std::is_same_v<T, bool>) return "b";
-        return "s";
-      },
-      value);
-}
-
-std::string ScalarPayload(const UnresolvedScalar &value) {
-  return std::visit(
-      [](const auto &element) -> std::string {
-        using T = std::decay_t<decltype(element)>;
-        if constexpr (std::is_same_v<T, UnresolvedString>) {
-          return element.value;
-        } else if constexpr (std::is_same_v<T, Real>) {
-          std::ostringstream os;
-          os << std::setprecision(std::numeric_limits<Real>::max_digits10) << element;
-          return os.str();
-        } else if constexpr (std::is_same_v<T, bool>) {
-          return element ? "true" : "false";
-        } else if constexpr (std::is_same_v<T, std::string>) {
-          return element;
-        } else {
-          return std::to_string(element);
-        }
-      },
-      value);
-}
-
-UnresolvedScalar DecodeScalar(const std::string &tag, const std::string &payload) {
-  if (tag == "u") return UnresolvedString(payload);
-  if (tag == "i") return std::stoi(payload);
-  if (tag == "r") return static_cast<Real>(std::stod(payload));
-  if (tag == "b") return payload == "true";
-  if (tag == "s") return payload;
-  throw std::runtime_error("Unknown restart scalar tag");
-}
-
-std::pair<std::string, std::string> EncodeRestartValue(const ParamValue &value) {
-  auto encode_vector = [](const auto &elements, const std::string &tag) {
-    std::string payload;
-    for (std::size_t i = 0; i < elements.size(); ++i) {
-      if (i > 0) payload += ",";
-      std::ostringstream element;
-      if constexpr (std::is_same_v<typename std::decay_t<decltype(elements)>::value_type,
-                                   Real>)
-        element << std::setprecision(std::numeric_limits<Real>::max_digits10);
-      element << elements[i];
-      payload += HexEncode(element.str());
-    }
-    return std::make_pair(tag, payload);
-  };
-  if (std::holds_alternative<UnresolvedString>(value))
-    return {"u", HexEncode(std::get<UnresolvedString>(value).value)};
-  if (std::holds_alternative<int>(value))
-    return {"i", HexEncode(std::to_string(std::get<int>(value)))};
-  if (std::holds_alternative<Real>(value)) {
-    std::ostringstream os;
-    os << std::setprecision(std::numeric_limits<Real>::max_digits10)
-       << std::get<Real>(value);
-    return {"r", HexEncode(os.str())};
-  }
-  if (std::holds_alternative<bool>(value))
-    return {"b", HexEncode(std::get<bool>(value) ? "true" : "false")};
-  if (std::holds_alternative<std::string>(value))
-    return {"s", HexEncode(std::get<std::string>(value))};
-  if (std::holds_alternative<std::vector<int>>(value))
-    return encode_vector(std::get<std::vector<int>>(value), "vi");
-  if (std::holds_alternative<std::vector<Real>>(value))
-    return encode_vector(std::get<std::vector<Real>>(value), "vr");
-  if (std::holds_alternative<std::vector<bool>>(value))
-    return encode_vector(std::get<std::vector<bool>>(value), "vb");
-  if (std::holds_alternative<std::vector<std::string>>(value))
-    return encode_vector(std::get<std::vector<std::string>>(value), "vs");
-  const auto &values = std::get<UnresolvedVector>(value).values;
-  std::string payload;
-  for (std::size_t i = 0; i < values.size(); ++i) {
-    if (i > 0) payload += ",";
-    payload += ScalarTag(values[i]) + ":" + HexEncode(ScalarPayload(values[i]));
-  }
-  return {"vu", payload};
-}
-
-ParamValue DecodeRestartValue(const std::string &tag, const std::string &payload) {
-  if (tag == "u" || tag == "i" || tag == "r" || tag == "b" || tag == "s") {
-    auto scalar = DecodeScalar(tag, HexDecode(payload));
-    return std::visit([](const auto &item) -> ParamValue { return item; }, scalar);
-  }
-  std::vector<std::string> fields;
-  std::stringstream stream(payload);
-  std::string field;
-  while (std::getline(stream, field, ','))
-    if (!field.empty()) fields.push_back(field);
-  if (tag == "vi") {
-    std::vector<int> v;
-    for (const auto &f : fields)
-      v.push_back(std::stoi(HexDecode(f)));
-    return v;
-  }
-  if (tag == "vr") {
-    std::vector<Real> v;
-    for (const auto &f : fields)
-      v.push_back(static_cast<Real>(std::stod(HexDecode(f))));
-    return v;
-  }
-  if (tag == "vb") {
-    std::vector<bool> v;
-    for (const auto &f : fields)
-      v.push_back(HexDecode(f) == "true");
-    return v;
-  }
-  if (tag == "vs") {
-    std::vector<std::string> v;
-    for (const auto &f : fields)
-      v.push_back(HexDecode(f));
-    return v;
-  }
-  if (tag == "vu") {
-    UnresolvedVector v;
-    for (const auto &f : fields) {
-      const auto colon = f.find(':');
-      if (colon == std::string::npos)
-        throw std::runtime_error("Invalid restart vector payload");
-      v.values.emplace_back(
-          DecodeScalar(f.substr(0, colon), HexDecode(f.substr(colon + 1))));
-    }
-    return v;
-  }
-  throw std::runtime_error("Unknown restart value tag");
-}
-} // namespace
 //----------------------------------------------------------------------------------------
 // ParameterInput constructor
 
@@ -295,23 +130,6 @@ void ParameterInput::LoadFromStream(std::istream &is) {
     if (line.empty()) continue;                    // skip blank line
     first_char = line.find_first_not_of(" ");      // skip white space
     if (first_char == std::string::npos) continue; // line is all white space
-    if (line.compare(first_char, 2, "#@") == 0) {
-      std::istringstream directive(line.substr(first_char + 2));
-      std::string kind;
-      directive >> kind;
-      if (kind == "block" && !block_name.empty()) {
-        std::string class_name, instance_name, canonical_path;
-        directive >> class_name >> instance_name >> canonical_path;
-        AddParsedBlock(block_name, HexDecode(class_name), HexDecode(instance_name),
-                       HexDecode(canonical_path));
-      } else if (kind == "param" && !block_name.empty()) {
-        std::string name, tag, payload;
-        directive >> name >> tag >> payload;
-        AddParsedParameter(block_name, HexDecode(name), DecodeRestartValue(tag, payload),
-                           "# From restart metadata");
-      }
-      continue;
-    }
     if (line.compare(first_char, 1, "#") == 0) continue;      // skip comments
     if (line.compare(first_char, 9, "<par_end>") == 0) break; // stop on <par_end>
 
@@ -934,26 +752,6 @@ void ParameterInput::ParameterDump(std::ostream &os) {
 
   os << "#------------------------- PAR_DUMP -------------------------" << std::endl;
   os << "<par_end>" << std::endl; // finish with par-end (useful in restart files)
-}
-
-void ParameterInput::RestartDump(std::ostream &os) {
-  os << "#---------------------- PAR_RESTART_DUMP ----------------------" << std::endl;
-  os << "#@parthenon-restart-v1" << std::endl;
-  for (const auto &block : param_storage_) {
-    os << "<" << block.name << ">" << std::endl;
-    os << "#@block " << HexEncode(block.class_name) << " "
-       << HexEncode(block.instance_name) << " " << HexEncode(block.canonical_path)
-       << std::endl;
-    for (const auto &param : block.params) {
-      os << param.name << " = " << param.ToString() << param.comment << std::endl;
-      const auto [tag, payload] = EncodeRestartValue(param.value);
-      os << "#@param " << HexEncode(param.name) << " " << tag;
-      if (!payload.empty()) os << " " << payload;
-      os << std::endl;
-    }
-  }
-  os << "#---------------------- PAR_RESTART_DUMP ----------------------" << std::endl;
-  os << "<par_end>" << std::endl;
 }
 
 void ParameterInput::OutputParameterTable(std::ostream &os,
