@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2024-2026. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -18,9 +18,7 @@
 // Foundational, dependency-free vocabulary for the loop abstraction: the loop and
 // inner tag enums that select a loop shape at compile time, the backend enum, the
 // small logical (Index3) and memory (MemoryOffset) offset types, and the
-// call-signature traits used to distinguish body signatures. Everything else in the
-// abstraction builds on these types, so this header carries the external include
-// block and has no intra-abstraction dependencies.
+// call-signature traits used to distinguish body signatures.
 
 #include <algorithm>
 #include <array>

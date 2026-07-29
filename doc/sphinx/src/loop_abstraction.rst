@@ -29,7 +29,8 @@ Two objects and two free functions form the core of the API:
 - ``IndexSpace<loop_tag, inner_tag, backend>`` describes the logical
   ``(block, k, j, i)`` iteration space and the memory layout of a block. The three
   template parameters fix the loop shape, the inner traversal, and the backend at
-  compile time.
+  compile time. The backend has a default that is raw for loops with simd markings 
+  on host and kokkos based loops on device.
 - ``InnerIndexRange`` is one slice of an ``IndexSpace`` (a block plus the current
   chunk of ``kji`` space). It is the object handed to inner loop bodies and knows how
   to translate between flat, memory, and logical ``(k, j, i)`` indices.
@@ -130,6 +131,20 @@ The ``inner_tag`` selects how one inner chunk is traversed:
    ``boiv`` combined with ``memory`` is rejected at compile time: a single-cell
    inner range has no meaningful contiguous-span traversal.
 
+Backend selection
+-----------------
+
+The third ``IndexSpace`` template parameter is the ``loop_backend``:
+
+- ``loop_backend::raw`` -- a plain host loop nest (with ``#pragma omp simd``).
+- ``loop_backend::kokkos`` -- dispatch through Kokkos parallel policies.
+
+It defaults to ``default_loop_backend_v``, which is ``raw`` when the device execution
+space is the host space and ``kokkos`` otherwise. ``outer``/``inner`` dispatch on this
+tag with ``if constexpr``, so the selection is zero-cost. Pinning the tag explicitly
+is mostly useful in tests that want to exercise a specific backend regardless of the
+build.
+
 Body signatures
 ---------------
 
@@ -137,6 +152,31 @@ An inner body may be written as ``f(auto idx)`` or ``f(int k, int j, int i)``. W
 both are viable the three-argument coordinate form is selected. The coordinate form
 may cost some performance (the internal index is converted back to ``(k, j, i)``
 before the call) but is often clearer.
+
+Scratch
+-------
+
+Per-point scratch is registered on the ``IndexSpace`` at setup and requested inside
+the outer body:
+
+.. code:: cpp
+   using recon_halo = la::halo::minus_i_t;
+   idx_space.AddPerPointScratch<Real>();          // one Real per point
+   idx_space.AddPerPointScratch<Real, 2, 3>();    // a 2x3 block per point
+   idx_space.AddPerPointScratch<Real, recon_halo>(); // One Real per point, but with
+                                                     // enough storage to cover the
+                                                     // extended inner halo range
+
+   la::outer(idx_space, KOKKOS_LAMBDA(const IST::idx_range_t &idx_range, int b) {
+     auto scratch = la::GetPerPointScratch<Real>(idx_range);
+     // scratch(idx), scratch(Index3{k,j,i}), scratch(c0, c1, idx), ...
+   });
+
+The scratch object specializes per loop pattern and backend (compact per-cell storage
+for the point-wise ``boiv`` paths, and a host scratch for the raw backend or Kokkos team
+scratch for the Kokkos backend for other paths), but the user-facing indexing is uniform.
+As with raw nested parallelism, call ``idx_range.TeamBarrier()`` between a producer inner
+loop and a consumer that reads values written by other threads.
 
 Halos
 -----
@@ -157,71 +197,64 @@ the base range:
 .. code:: cpp
 
    using recon_halo = la::halo::minus_i_t;
-   idx_space.AddPerPointScratch<Real, recon_halo>();  // at setup
+   idx_space.AddPerPointScratch<Real, recon_halo>(2);  // at setup
+
+   // Get a value that offsets the index of an inner loop by +1 in the X1 direction
    const auto dx1 = idx_space.GetDelta(X1DIR);
 
    la::outer(idx_space, KOKKOS_LAMBDA(const IST::idx_range_t &idx_range, int b) {
      const auto halo_range = idx_range.AddHalo<recon_halo>();
-     auto scratch = la::GetPerPointScratch<Real>(halo_range);
-
-     la::inner(halo_range, [&](auto kji) { scratch(kji) = reconstruct(kji); });
+     auto scratch_plus = la::GetPerPointScratch<Real>(halo_range);
+     auto scratch_minus = la::GetPerPointScratch<Real>(halo_range);
+    
+     // Produce reconstructed left and right states across the halo range
+     la::inner(halo_range, [&](auto kji) {
+       scratch_plus(kji) = reconstruct_plus(var(kji - dx1), var(kji), var(kji + dx1)); 
+       scratch_minus(kji) = reconstruct_minus(var(kji - dx1), var(kji), var(kji + dx1)); 
+     });
      idx_range.TeamBarrier();  // producer must finish before the consumer reads
 
+     // Consume (use) reconstructed states in Riemann solver to calculate fluxes
      la::inner(idx_range, [&](auto kji) {
-       flux(kji) = riemann(scratch(kji - dx1), scratch(kji));
+       flux(kji) = riemann(scratch_plus(kji - dx1), scratch_minus(kji));
      });
    });
 
 A halo is *not* the same as a reconstruction stencil width: the stencil is internal to
 computing one value, while the halo describes which produced neighbors must exist.
 
-Scratch
--------
-
-Per-point scratch is registered on the ``IndexSpace`` at setup and requested inside
-the outer body:
-
-.. code:: cpp
-
-   idx_space.AddPerPointScratch<Real>();          // one Real per point
-   idx_space.AddPerPointScratch<Real, 2, 3>();    // a 2x3 block per point
-
-   la::outer(idx_space, KOKKOS_LAMBDA(const IST::idx_range_t &idx_range, int b) {
-     auto scratch = la::GetPerPointScratch<Real>(idx_range);
-     // scratch(idx), scratch(Index3{k,j,i}), scratch(c0, c1, idx), ...
-   });
-
-The scratch object specializes per backend (compact per-cell storage for the
-point-wise ``boiv`` path, a bump arena for the raw backend, Kokkos team scratch for
-the Kokkos backend), but the user-facing indexing is uniform. As with raw nested
-parallelism, call ``idx_range.TeamBarrier()`` between a producer inner loop and a
-consumer that reads values written by other threads.
-
 Pack and variable views
 ------------------------
 
-Views adapt a ``SparsePack`` to the current loop contract so variable access follows
+Views adapt a ``SparsePack`` to the loop abstraction so variable access follows
 the same index conventions as the loop body:
 
-- ``make_pack_view(idx_range, pack)`` -- a view over a set of variable types.
+- ``make_pack_view(idx_range, pack)`` -- a view over all non-sparse variables contained 
+  in ``pack``.
+- ``make_sparse_pack_view(idx_range, pack, sparse_idx)`` -- a view over all sparse variables
+  contained in ``pack`` at sparse index ``sparse_index``.
 - ``make_var_view(idx_range, pack, var)`` -- a single-variable view.
 - ``make_flux_pack_view(idx_range, pack, dir)`` / ``make_flux_view(...)`` -- the
   flux-array counterparts, for one sweep direction.
 
 Each view accepts the same index forms the body produces (flat ``int``, ``Index3``,
 or explicit ``k, j, i``), so a kernel can be written once and reused across inner
-tags.
+tags. In `inner_tag::logical_coords` loops, these are just light wrappers that call
+through to the sparse packs. For all other `inner_tag`s, pack view construction directly
+pulls out pointers to the variables. This can promote vectorization and be a significant
+performance benefit. 
 
-Backend selection
------------------
+.. code:: cpp
+  auto desc = parthenon::MakePackDescriptor<v1, vf>(md);
+  auto pack = desc.GetPack(md);
 
-The third ``IndexSpace`` template parameter is the ``loop_backend``:
-
-- ``loop_backend::raw`` -- a plain host loop nest (with ``#pragma omp simd``).
-- ``loop_backend::kokkos`` -- dispatch through Kokkos parallel policies.
-
-It defaults to ``default_loop_backend_v``, which is ``raw`` when the device execution
-space is the host space and ``kokkos`` otherwise. ``outer``/``inner`` dispatch on this
-tag with ``if constexpr``, so the selection is zero-cost. Pinning the tag explicitly
-is mostly useful in tests that want to exercise a specific backend regardless of the
-build.
+  loop_abstraction::outer(
+      idx_space, KOKKOS_LAMBDA(const idx_space_t::idx_range_t &idx_range, int b) {
+        auto pv = loop_abstraction::make_pack_view(idx_range, pack);
+        loop_abstraction::inner(idx_range, [&](auto idx) {
+          pv(v1(), idx) = ...;
+          pv(TE::F1, vf(), idx) = ...;
+          pv(TE::F2, vf(), idx) = ...;
+          pv(TE::F3, vf(), idx) = ...;
+        });
+      });

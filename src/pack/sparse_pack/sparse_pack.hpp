@@ -189,9 +189,9 @@ class SparsePack : public SparsePackBase {
   }
   // Integral overload: a raw pack index is already absolute, so pass it through. Lets
   // callers resolve either a typed index (ccmat::rho(m)) or a raw int uniformly.
-  template <typename TIn>
-    requires(std::is_integral_v<TIn>)
-  KOKKOS_INLINE_FUNCTION int GetIndex(const int /*b*/, const TIn &var) const {
+  template <typename integral_t>
+    requires(std::is_integral_v<integral_t>)
+  KOKKOS_INLINE_FUNCTION int GetIndex(const int /*b*/, const integral_t &var) const {
     return static_cast<int>(var);
   }
   template <typename TIn>

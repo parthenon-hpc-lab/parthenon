@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2024-2026. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -51,9 +51,9 @@ enum class chunk_shape {
 // call sites that pass a raw count keep working unchanged.
 class NInner {
  public:
-  KOKKOS_FUNCTION NInner() : explicit_(true), cells_(0) {}
-  KOKKOS_FUNCTION NInner(int cells) : explicit_(true), cells_(cells) {}
-  KOKKOS_FUNCTION NInner(chunk_shape shape) : explicit_(false), shape_(shape) {}
+  KOKKOS_FUNCTION NInner() : explicit_(true), cells_(0), shape_(chunk_shape::ij_slab) {}
+  KOKKOS_FUNCTION NInner(int cells) : explicit_(true), cells_(cells), shape_(chunk_shape::ij_slab) {}
+  KOKKOS_FUNCTION NInner(chunk_shape shape) : explicit_(false), cells_(0), shape_(shape) {}
 
   KOKKOS_INLINE_FUNCTION int resolve(const parthenon::Indexer3D &idxer) const {
     if (explicit_) return cells_;

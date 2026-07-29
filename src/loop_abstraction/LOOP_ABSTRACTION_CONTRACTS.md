@@ -1,4 +1,5 @@
 # Loop Abstraction Contracts
+[THIS FILE IS INTENDED AS RULES FOR LLMs]
 
 This document describes the current loop-abstraction paths in `src/loop_abstraction` and the contracts they are intended to satisfy.
 
@@ -56,7 +57,6 @@ Shape: block -> outer -> inner -> var
 
 - The inner loop walks one logical cell at a time. So it is really not a loop at all. Logically, it is the limit of bovi for inner chunk 
   size one, but it requires its own code path for performance reasons.
-- This is the hot-path shape for coordinate-based access.
 - The range object carries the current `(k, j, i)` point directly.so
 - Direct memory access is relative to the current `(k, j, i)` index.
 
@@ -86,7 +86,7 @@ The intended `logical_flat` integer contract is:
 
 - A logical variant just iterates over the cell indices contained in the inner chunk.
 - The logical region must be touched exactly once.
-- Non-logical cells (i.e. ghost cells) must not be touched.
+- Non-logical cells (i.e. ghost cells) must not be touched (aside from in halo inner ranges).
 - The auto functor receives an `Index3` object that contains the k, j, i indices of the current iteration point. 
   - This contract is required when fields accessed within a kernel have a different memory layout (say a face centered field and a cell centered field).
   - Different memory layouts are probably the only time when this layout is preferred.
@@ -154,15 +154,7 @@ The current intent is:
 - `logical_flat` and `memory` should support flat-index access.
 - `boiv` should remain a very thin adapter around the pack and current range.
 
-The pack-view implementation is still under development, but this will be the first-class way to access variables in kernels written using the loop abstraction.
-
-## Open Questions
-
-The current code is still being shaped around these contracts, so the following should be treated as intentional design questions until the implementation is stabilized:
-
-- Whether a flat integer in `logical_flat` should be interpreted as logical-span-relative or memory-span-relative in every loop tag.
-- Whether `boiv` should always carry coordinate state only, or whether some flat-index forms should remain range-aware.
-- Whether a pack-view specialization should store raw pointers, a pack pointer, or both depending on the loop contract.
+This is the first-class way to access variables in kernels written using the loop abstraction.
 
 ## Planned Extensions
 

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2024-2026. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -33,7 +33,8 @@ KOKKOS_FORCEINLINE_FUNCTION void ForceCapture(const Ts &...) {}
 // blocks, or blocks x chunks for bovi) and the team/vector inner loop. Where a raw
 // `for` walks chunks inside a team (e.g. the bvoi/memory chunk loop in inner_kokkos),
 // that middle level could instead become another level of Kokkos parallelism; it is a
-// plain loop for now because that path is not expected to be performance-critical.
+// plain loop for now because we don't really expect to use this in production. If we do
+// for some reason, we need to look at the performance implications.
 template <class IndexSpaceType, class F>
 void outer_kokkos(IndexSpaceType idx_space, F &&f) {
   using InnerIndexRangeType = InnerIndexRange<IndexSpaceType>;

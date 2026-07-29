@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2024-2026. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -46,11 +46,27 @@ struct none_t {
   KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
 };
 
+struct plus_i_t {
+  static constexpr int npoints = 2;
+  // Sorted by flat offset: identity, then +j.
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int n) { return n == 0 ? 0 : 1; }
+};
+
 struct plus_j_t {
   static constexpr int npoints = 2;
   // Sorted by flat offset: identity, then +j.
   KOKKOS_INLINE_FUNCTION static constexpr int dk(int) { return 0; }
   KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) { return n == 0 ? 0 : 1; }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
+};
+
+struct plus_k_t {
+  static constexpr int npoints = 2;
+  // Sorted by flat offset: identity, then +j.
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) { return n == 0 ? 0 : 1; }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int) { return 0; }
   KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
 };
 

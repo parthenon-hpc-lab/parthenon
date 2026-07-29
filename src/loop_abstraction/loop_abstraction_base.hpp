@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2024-2026. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,10 +16,8 @@
 // This file was made in part with generative AI.
 
 // Aggregator for the core loop-abstraction types. Historically this header held all
-// of the foundational definitions; they now live in focused headers that this file
-// pulls together in dependency order (types -> halo -> index_space -> inner_range).
-// Backend and helper headers include only this file, so the split is source
-// compatible for them.
+// of the foundational definitions; they now live in focused headers that this file 
+// pulls together for convenience.
 
 #include "loop_abstraction/loop_abstraction_halo.hpp"
 #include "loop_abstraction/loop_abstraction_index_space.hpp"

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2024-2026. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -38,7 +38,10 @@ struct pack_view_t {
   template <class var_t>
   KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(var_t v, int idx) const {
     static_assert(TL::template IsIn<var_t>(), "Type must be in pack view type list.");
-    return data_[SumSizesBefore<TL, var_t>() + v.idx][idx];
+    Real *base = data_[SumSizesBefore<TL, var_t>() + v.idx];
+    PARTHENON_DEBUG_REQUIRE(base != nullptr,
+                            "pack view accessed for a variable with no flux array");
+    return base[idx];
   }
 
   template <class var_t>
@@ -52,8 +55,10 @@ struct pack_view_t {
     static_assert(TL::template IsIn<var_t>(), "Type must be in pack view type list.");
     PARTHENON_DEBUG_REQUIRE(GetTopologicalType(te) == var_t::topological_type,
                             "Topological element must match variable topological type.");
-    return data_[SumSizesBefore<TL, var_t>() + (static_cast<int>(te) % 3) * var_t::size() +
-                 v.idx][idx];
+    Real *base = data_[SumSizesBefore<TL, var_t>() + (static_cast<int>(te) % 3) * var_t::size() + v.idx];
+    PARTHENON_DEBUG_REQUIRE(base != nullptr,
+                            "pack view accessed for a variable with no flux array");
+    return base[idx];
   }
 
   template <class var_t>
@@ -65,8 +70,10 @@ struct pack_view_t {
   template <class var_t>
   KOKKOS_INLINE_FUNCTION parthenon::Real &operator()(var_t v, Index3 in) const {
     static_assert(TL::template IsIn<var_t>(), "Type must be in pack view type list.");
-    return data_[SumSizesBefore<TL, var_t>() + v.idx]
-                [pidx_space->GetMemoryIndexer().GetFlatIdx(in.k, in.j, in.i) - shift_];
+    Real *base = data_[SumSizesBefore<TL, var_t>() + v.idx];
+    PARTHENON_DEBUG_REQUIRE(base != nullptr,
+                            "pack view accessed for a variable with no flux array");
+    return base[pidx_space->GetMemoryIndexer().GetFlatIdx(in.k, in.j, in.i) - shift_];
   }
 
   template <class var_t>
@@ -80,9 +87,10 @@ struct pack_view_t {
     static_assert(TL::template IsIn<var_t>(), "Type must be in pack view type list.");
     PARTHENON_DEBUG_REQUIRE(GetTopologicalType(te) == var_t::topological_type,
                             "Topological element must match variable topological type.");
-    return data_[SumSizesBefore<TL, var_t>() + (static_cast<int>(te) % 3) * var_t::size() +
-                 v.idx]
-                [pidx_space->GetMemoryIndexer().GetFlatIdx(in.k, in.j, in.i) - shift_];
+    Real *base = data_[SumSizesBefore<TL, var_t>() + (static_cast<int>(te) % 3) * var_t::size() + v.idx];
+    PARTHENON_DEBUG_REQUIRE(base != nullptr,
+                            "pack view accessed for a variable with no flux array");
+    return base[pidx_space->GetMemoryIndexer().GetFlatIdx(in.k, in.j, in.i) - shift_];
   }
 
   template <class var_t>
@@ -97,13 +105,15 @@ struct pack_view_t {
 };
 
 template <loop_tag LOOP_TAG, loop_backend BACKEND, class PackType, class... Ts>
-struct pack_view_t<IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>, PackType,
+class pack_view_t<IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>, PackType,
                    Ts...> {
+  int b = 0;
+  int s = 0;
+
+ public:
   using IndexSpaceType = IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>;
 
   const PackType *pack = nullptr;
-  int b = 0;
-  int s = 0;
 
   KOKKOS_DEFAULTED_FUNCTION
   pack_view_t() = default;
@@ -209,8 +219,8 @@ KOKKOS_INLINE_FUNCTION auto
 make_sparse_pack_view(const InnerIndexRange<IndexSpaceType> &idx_range,
                       const parthenon::SparsePack<Ts...> &pack_in, const int s) {
   using full_tl = parthenon::TypeList<Ts...>;
-  using no_sparse_tl = parthenon::filter_type_list_t<full_tl, check_sparse_type>;
-  using filtered_tl = parthenon::filter_type_list_t<no_sparse_tl, check_fixed_size>;
+  using sparse_tl = parthenon::filter_type_list_t<full_tl, check_sparse_type>;
+  using filtered_tl = parthenon::filter_type_list_t<sparse_tl, check_fixed_size>;
   return make_pack_view_impl(idx_range, pack_in, s, filtered_tl{});
 }
 
