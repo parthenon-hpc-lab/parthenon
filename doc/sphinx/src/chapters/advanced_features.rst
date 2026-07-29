@@ -12,3 +12,4 @@ and solvers.
    ../interface/sparse
    ../integrators
    ../solvers
+   ../fourier_transforms

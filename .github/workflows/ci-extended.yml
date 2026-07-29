@@ -58,11 +58,14 @@ jobs:
           fi
 
       - name: Configure
+        env:
+          ENABLE_FFT: ${{ matrix.parallel == 'mpi' && 'ON' || 'OFF' }}
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DENABLE_ASAN=${{ steps.cmake-vars.outputs.enable_asan }} \
-            -DMACHINE_VARIANT=${{ matrix.device }}-${{ matrix.parallel }}
+            -DMACHINE_VARIANT=${{ matrix.device }}-${{ matrix.parallel }} \
+            -DPARTHENON_ENABLE_FFT=${ENABLE_FFT}
 
       - name: Build
         run: cmake --build build
@@ -153,6 +156,8 @@ jobs:
           key: gold-standard
 
       - name: Configure
+        env:
+          ENABLE_FFT: ${{ matrix.parallel == 'mpi' && 'ON' || 'OFF' }}
         run: |
           git config --global --add safe.directory $(pwd)
           # The extra CMAKE_PREFIX_PATH seems to be required for current rocm6.2 and 7.2, see
@@ -163,7 +168,8 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DMACHINE_VARIANT=hip-${{ matrix.parallel }} \
             -DCMAKE_PREFIX_PATH=/opt/rocm-7.2.4 \
-            -DCMAKE_CXX_COMPILER=hipcc
+            -DCMAKE_CXX_COMPILER=hipcc \
+            -DPARTHENON_ENABLE_FFT=${ENABLE_FFT}
 
       - name: Build
         run: cmake --build build

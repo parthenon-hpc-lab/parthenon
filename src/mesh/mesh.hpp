@@ -59,6 +59,11 @@
 #include "utils/object_pool.hpp"
 #include "utils/partition_stl_containers.hpp"
 
+#ifdef PARTHENON_ENABLE_FFT
+#include "utils/fft_manager.hpp"
+#include "utils/uniform_grid_helper.hpp"
+#endif
+
 namespace parthenon {
 
 // Forward declarations
@@ -84,6 +89,7 @@ class Mesh {
   friend class HistoryOutput;
   friend class MeshBlock;
   friend class MeshRefinement;
+  friend class FFTManager;
 
   struct base_constructor_selector_t {};
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
@@ -93,6 +99,25 @@ class Mesh {
        hyper_rectangular_constructor_selector_t);
 
  public:
+#ifdef PARTHENON_ENABLE_FFT
+  std::unique_ptr<parthenon::FFTManager> fft_manager;
+
+  FFTManager *GetFFTManager() {
+    if (!fft_manager) {
+      fft_manager = std::make_unique<FFTManager>(this);
+    }
+    return fft_manager.get();
+  }
+
+  std::unique_ptr<parthenon::UniformGridHelper> uniform_grid_helper;
+
+  UniformGridHelper *GetUniformGridHelper() {
+    if (!uniform_grid_helper) {
+      uniform_grid_helper = std::make_unique<UniformGridHelper>(this);
+    }
+    return uniform_grid_helper.get();
+  }
+#endif
   // 2x function overloads of ctor: normal and restarted simulation
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        int test_flag = 0);

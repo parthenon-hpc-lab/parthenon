@@ -42,6 +42,7 @@ Parthenon -- a performance portable block-structured adaptive mesh refinement fr
 * OpenPMD and ADIOS2 (for outputs)
 * HDF5 (for outputs)
 * Ascent (for in situ visualization and analysis)
+* heFFTe (for performing Fourier transforms on uniform meshes)
 
 ## Other
 

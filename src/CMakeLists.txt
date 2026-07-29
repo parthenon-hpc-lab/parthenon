@@ -1,4 +1,8 @@
 #=========================================================================================
+# Parthenon performance portable AMR framework
+# Copyright(C) 2020-2026 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for detail
+#=========================================================================================
 # (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -358,6 +362,20 @@ add_library(parthenon
   $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/generated>/provenance.hpp
 )
 add_library(Parthenon::parthenon ALIAS parthenon)
+
+if(PARTHENON_ENABLE_FFT)
+  target_sources(parthenon PRIVATE
+    utils/fft_manager.cpp
+    utils/fft_manager.hpp
+    utils/uniform_grid_helper.cpp
+    utils/uniform_grid_helper.hpp
+    utils/calc_spectrum.cpp
+    utils/calc_spectrum.hpp
+    outputs/spectrum.cpp
+  )
+  target_link_libraries(parthenon PRIVATE Heffte::Heffte)
+  target_compile_definitions(parthenon PUBLIC PARTHENON_ENABLE_FFT)
+endif()
 
 set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
 
