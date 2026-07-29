@@ -142,12 +142,12 @@ using var_base_w_tt_t = var_base_impl_t<REGEX, T, TT, NCOMP...>;
 
 template <bool REGEX, int... NCOMP>
 struct base_t : public var_base_t<REGEX, Real, NCOMP...> {
-  using var_base_t<REGEX, Real, NCOMP...>::var_base_t;
+  using var_base_t<REGEX, Real, NCOMP...>::var_base_impl_t;
 };
 
 template <bool REGEX, TopologicalType TT, int... NCOMP>
 struct base_w_tt_t : public var_base_w_tt_t<REGEX, Real, TT, NCOMP...> {
-  using var_base_w_tt_t<REGEX, Real, TT, NCOMP...>::var_base_w_tt_t;
+  using var_base_w_tt_t<REGEX, Real, TT, NCOMP...>::var_base_impl_t;
 };
 
 // An example variable name type that selects all variables available
@@ -174,7 +174,7 @@ using any = any_nonautoflux;
 namespace swarm_variable_names {
 template <typename T, int... NCOMP>
 struct base_t : public variable_names::var_base_t<false, T, NCOMP...> {
-  using variable_names::var_base_t<false, T, NCOMP...>::var_base_t;
+  using variable_names::var_base_t<false, T, NCOMP...>::var_base_impl_t;
 };
 } // namespace swarm_variable_names
 
