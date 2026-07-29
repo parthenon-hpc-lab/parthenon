@@ -69,7 +69,7 @@ class NInner {
       return ni * nj;
     case chunk_shape::kji_cube:
       return ni * nj * nk;
-    }
+    } // default:
     return ni * nj;
   }
 
