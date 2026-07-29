@@ -86,13 +86,9 @@ KOKKOS_INLINE_FUNCTION int GetNOuter(const IndexSpaceType &idx_space) {
 }
 } // namespace impl
 
-// Forward declaration; defined in loop_abstraction_scratch.hpp. IndexSpace only needs
-// to call it, so a declaration suffices and keeps the scratch machinery downstream.
+// Forward declarations
 template <class T, class Halo, std::size_t... Dims, class IndexSpaceType>
 std::size_t GetPerTeamScratchSize(const IndexSpaceType &idx_space);
-
-// Forward declaration; defined in loop_abstraction_inner_range.hpp. The default Halo
-// argument is supplied there, so it must not be repeated here.
 template <class IndexSpaceType, class Halo>
 class InnerIndexRange;
 
