@@ -131,7 +131,8 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
     }
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bovi) {
     const auto *team_member = idx_range.team_member;
-    PARTHENON_DEBUG_REQUIRE(team_member != nullptr, "Should not be here with a nullptr team member.");
+    PARTHENON_DEBUG_REQUIRE(team_member != nullptr,
+                            "Should not be here with a nullptr team member.");
     const auto &member = *team_member;
     const auto &logical_kji = idx_range.logical_kji;
     const int mem_start =
@@ -164,7 +165,8 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
     const auto &idx_space = *(idx_range.pidx_space);
     const auto *team_member = idx_range.team_member;
-    PARTHENON_DEBUG_REQUIRE(team_member != nullptr, "Should not be here with a nullptr team member.");
+    PARTHENON_DEBUG_REQUIRE(team_member != nullptr,
+                            "Should not be here with a nullptr team member.");
     const auto &member = *team_member;
     const auto &logical_kji = idx_range.logical_kji;
     const int mem_start =

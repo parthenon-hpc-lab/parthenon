@@ -200,8 +200,8 @@ auto MakeOutput(const IndexSpaceType &idx_space) {
   const int nk = memory.template EndIdx<0>() - memory.template StartIdx<0>() + 1;
   const int nj = memory.template EndIdx<1>() - memory.template StartIdx<1>() + 1;
   const int ni = memory.template EndIdx<2>() - memory.template StartIdx<2>() + 1;
-  return parthenon::ParArray5D<Real>("unit_out", idx_space.GetNBlocks(),
-                                     kNVars, nk, nj, ni);
+  return parthenon::ParArray5D<Real>("unit_out", idx_space.GetNBlocks(), kNVars, nk, nj,
+                                     ni);
 }
 
 template <class IndexSpaceType>
