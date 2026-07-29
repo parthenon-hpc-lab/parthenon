@@ -496,6 +496,11 @@ set(DOC_GEN_PATH "${CMAKE_SOURCE_DIR}/doc/sphinx/src/generated" CACHE STRING
   "Path to save generated data for docs.")
 
 if (PARTHENON_ENABLE_FFT)
+  if(NOT ENABLE_MPI)
+    message(FATAL_ERROR
+      "PARTHENON_ENABLE_FFT requires MPI because the heFFTe backend uses "
+      "an MPI communicator. Reconfigure without PARTHENON_DISABLE_MPI=ON.")
+  endif()
   if (PARTHENON_USE_SYSTEM_HEFFTE)
     find_package(Heffte REQUIRED)
     if (NOT Heffte_FOUND)
