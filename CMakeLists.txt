@@ -75,6 +75,9 @@ else()
     OFF)
 endif()
 
+option(PARTHENON_ENABLE_FFT "Enable Parthenon FFT functionality" OFF)
+option(PARTHENON_USE_SYSTEM_HEFFTE "Use system-installed heFFTe instead of fetching it" OFF)
+
 # Check if we are using Parthenon as a subproject
 set(_parthenon_is_toplevel OFF)
 if (CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
@@ -492,7 +495,42 @@ set(CMAKE_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
 set(DOC_GEN_PATH "${CMAKE_SOURCE_DIR}/doc/sphinx/src/generated" CACHE STRING
   "Path to save generated data for docs.")
 
+if (PARTHENON_ENABLE_FFT)
+  if(NOT ENABLE_MPI)
+    message(FATAL_ERROR
+      "PARTHENON_ENABLE_FFT requires MPI because the heFFTe backend uses "
+      "an MPI communicator. Reconfigure without PARTHENON_DISABLE_MPI=ON.")
+  endif()
+  if (PARTHENON_USE_SYSTEM_HEFFTE)
+    find_package(Heffte REQUIRED)
+    if (NOT Heffte_FOUND)
+      message(FATAL_ERROR "heFFTe requested to be used from the environment but it was "
+        "not found. Either append the path to the installed heFFTe lib via "
+        "Heffte_DIR or CMAKE_PREFIX_PATH, or use the version fetched by Parthenon by "
+        "keeping PARTHENON_USE_SYSTEM_HEFFTE=OFF")
+    endif()
+  else()
+    include(FetchContent)
+    set(Heffte_ENABLE_CUDA ${Kokkos_ENABLE_CUDA} CACHE BOOL "Enable CUDA for heFFTe" FORCE)
+    set(Heffte_ENABLE_ROCM ${Kokkos_ENABLE_HIP}  CACHE BOOL "Enable ROCm for heFFTe" FORCE)
+    FetchContent_Declare(Heffte
+      GIT_REPOSITORY "https://github.com/icl-utk-edu/heffte.git"
+      GIT_TAG        "4d8d459")  # current (Jul26) GitHub `master` (from Nov25)
+    FetchContent_MakeAvailable(Heffte)
+    if (NOT TARGET Heffte::Heffte)
+      add_library(Heffte::Heffte ALIAS Heffte)
+    endif()
+    install(TARGETS Heffte EXPORT parthenonTargets)
+  endif()
+endif()
+
 add_subdirectory(src)
+
+if (PARTHENON_ENABLE_FFT)
+  target_link_libraries(parthenon PRIVATE Heffte::Heffte)
+  target_compile_definitions(parthenon PUBLIC PARTHENON_ENABLE_FFT)
+endif()
+
 add_subdirectory(example)
 add_subdirectory(benchmarks)
 
