@@ -10,13 +10,13 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef LOOP_ABSTRACTION_LOOP_ABSTRACTION_VIEW_HPP_
-#define LOOP_ABSTRACTION_LOOP_ABSTRACTION_VIEW_HPP_
+#ifndef LOOP_ABSTRACTION_VIEW_HPP_
+#define LOOP_ABSTRACTION_VIEW_HPP_
 
 // This file was made in part with generative AI.
 
 // View over a single variable of a raw Kokkos view (as opposed to a SparsePack; see
-// loop_abstraction_pack_view.hpp for the pack-backed views). GetView binds one
+// pack_view.hpp for the pack-backed views). GetView binds one
 // (block, var) slice of a 5D view to the current InnerIndexRange, and the returned
 // view_view_t accepts the same index forms as the loop body (flat int, MemoryOffset,
 // Index3, or explicit k, j, i) so a kernel reads the same way regardless of loop tag.
@@ -24,12 +24,12 @@
 // NOTE: this is not a primary way to use the loop abstraction. It exists mainly to
 // support the raw-Kokkos-view kernels in the loop benchmarks (which are not part of
 // this PR). Production kernels should prefer the SparsePack-backed views in
-// loop_abstraction_pack_view.hpp. This path is kept minimal and may be revisited.
+// pack_view.hpp. This path is kept minimal and may be revisited.
 
 #include "pack/sparse_pack/sparse_pack.hpp"
 #include "utils/type_list.hpp"
 
-#include "loop_abstraction_base.hpp"
+#include "base.hpp"
 
 namespace parthenon::loop_abstraction {
 
@@ -137,4 +137,4 @@ KOKKOS_INLINE_FUNCTION auto GetView(const InnerIndexRange<IndexSpaceType> &idx_r
 
 } // namespace parthenon::loop_abstraction
 
-#endif // LOOP_ABSTRACTION_LOOP_ABSTRACTION_VIEW_HPP_
+#endif // LOOP_ABSTRACTION_VIEW_HPP_

@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef LOOP_ABSTRACTION_LOOP_ABSTRACTION_PACK_VIEW_HPP_
-#define LOOP_ABSTRACTION_LOOP_ABSTRACTION_PACK_VIEW_HPP_
+#ifndef LOOP_ABSTRACTION_PACK_VIEW_HPP_
+#define LOOP_ABSTRACTION_PACK_VIEW_HPP_
 
 // This file was made in part with generative AI.
 
@@ -20,12 +20,12 @@
 // single-variable analog. Each has a logical_coords specialization that forwards
 // straight to the pack and a flat/memory form that caches base pointers. The shared
 // check_* predicates defined here also drive the flux-side views in
-// loop_abstraction_flux_view.hpp.
+// flux_view.hpp.
 
 #include "pack/sparse_pack/sparse_pack.hpp"
 #include "utils/type_list.hpp"
 
-#include "loop_abstraction_base.hpp"
+#include "base.hpp"
 
 namespace parthenon::loop_abstraction {
 
@@ -300,4 +300,4 @@ make_var_view(const InnerIndexRange<IndexSpaceType> &idx_range, const PackType &
 
 } // namespace parthenon::loop_abstraction
 
-#endif // LOOP_ABSTRACTION_LOOP_ABSTRACTION_PACK_VIEW_HPP_
+#endif // LOOP_ABSTRACTION_PACK_VIEW_HPP_

@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef LOOP_ABSTRACTION_LOOP_ABSTRACTION_SCRATCH_HPP_
-#define LOOP_ABSTRACTION_LOOP_ABSTRACTION_SCRATCH_HPP_
+#ifndef LOOP_ABSTRACTION_SCRATCH_HPP_
+#define LOOP_ABSTRACTION_SCRATCH_HPP_
 
 // This file was made in part with generative AI.
 
@@ -20,7 +20,7 @@
 // (StackScratch1D for boiv, HostScratch1D over the raw bump arena, TeamScratch1D over
 // Kokkos team scratch), and the GetPerPointScratch* / GetPerTeamScratchSize entry
 // points. The type-indexed wrapper that layers a variable-type view on top of these
-// buffers lives in loop_abstraction_scratch_indexed.hpp.
+// buffers lives in scratch_indexed.hpp.
 
 #include <algorithm>
 #include <array>
@@ -41,7 +41,7 @@
 #include "utils/bump_arena.hpp"
 #include "utils/indexer.hpp"
 
-#include "loop_abstraction/loop_abstraction_base.hpp"
+#include "loop_abstraction/base.hpp"
 
 namespace parthenon::loop_abstraction {
 
@@ -342,4 +342,4 @@ inline std::size_t GetPerTeamScratchSize(const IndexSpaceType &idx_space) {
 
 } // namespace parthenon::loop_abstraction
 
-#endif // LOOP_ABSTRACTION_LOOP_ABSTRACTION_SCRATCH_HPP_
+#endif // LOOP_ABSTRACTION_SCRATCH_HPP_

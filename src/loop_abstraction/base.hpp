@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef LOOP_ABSTRACTION_LOOP_ABSTRACTION_BASE_HPP_
-#define LOOP_ABSTRACTION_LOOP_ABSTRACTION_BASE_HPP_
+#ifndef LOOP_ABSTRACTION_BASE_HPP_
+#define LOOP_ABSTRACTION_BASE_HPP_
 
 // This file was made in part with generative AI.
 
@@ -19,9 +19,9 @@
 // of the foundational definitions; they now live in focused headers that this file
 // pulls together for convenience.
 
-#include "loop_abstraction/loop_abstraction_halo.hpp"
-#include "loop_abstraction/loop_abstraction_index_space.hpp"
-#include "loop_abstraction/loop_abstraction_inner_range.hpp"
-#include "loop_abstraction/loop_abstraction_types.hpp"
+#include "loop_abstraction/halo.hpp"
+#include "loop_abstraction/index_space.hpp"
+#include "loop_abstraction/inner_range.hpp"
+#include "loop_abstraction/types.hpp"
 
-#endif // LOOP_ABSTRACTION_LOOP_ABSTRACTION_BASE_HPP_
+#endif // LOOP_ABSTRACTION_BASE_HPP_

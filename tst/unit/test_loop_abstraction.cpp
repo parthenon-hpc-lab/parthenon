@@ -140,7 +140,7 @@ auto MirrorToHost(const ViewType &view) {
 // note() inside the body; call total() on the host afterwards.
 struct MismatchCounter {
   Kokkos::View<int> view;
-  MismatchCounter() : view("loop_abstraction_mismatch") { Kokkos::deep_copy(view, 0); }
+  MismatchCounter() : view("mismatch") { Kokkos::deep_copy(view, 0); }
 
   KOKKOS_INLINE_FUNCTION void note(bool wrong) const {
     if (wrong) Kokkos::atomic_add(&view(), 1);
@@ -200,7 +200,7 @@ auto MakeOutput(const IndexSpaceType &idx_space) {
   const int nk = memory.template EndIdx<0>() - memory.template StartIdx<0>() + 1;
   const int nj = memory.template EndIdx<1>() - memory.template StartIdx<1>() + 1;
   const int ni = memory.template EndIdx<2>() - memory.template StartIdx<2>() + 1;
-  return parthenon::ParArray5D<Real>("loop_abstraction_unit_out", idx_space.GetNBlocks(),
+  return parthenon::ParArray5D<Real>("unit_out", idx_space.GetNBlocks(),
                                      kNVars, nk, nj, ni);
 }
 

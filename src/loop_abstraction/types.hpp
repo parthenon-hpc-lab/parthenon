@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef LOOP_ABSTRACTION_LOOP_ABSTRACTION_TYPES_HPP_
-#define LOOP_ABSTRACTION_LOOP_ABSTRACTION_TYPES_HPP_
+#ifndef LOOP_ABSTRACTION_TYPES_HPP_
+#define LOOP_ABSTRACTION_TYPES_HPP_
 
 // This file was made in part with generative AI.
 
@@ -160,4 +160,4 @@ inline constexpr bool has_explicit_unary_int_call_v = HasExplicitUnaryIntCall<F>
 
 } // namespace parthenon::loop_abstraction
 
-#endif // LOOP_ABSTRACTION_LOOP_ABSTRACTION_TYPES_HPP_
+#endif // LOOP_ABSTRACTION_TYPES_HPP_

@@ -10,14 +10,14 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef LOOP_ABSTRACTION_LOOP_ABSTRACTION_RAW_HPP_
-#define LOOP_ABSTRACTION_LOOP_ABSTRACTION_RAW_HPP_
+#ifndef LOOP_ABSTRACTION_RAW_HPP_
+#define LOOP_ABSTRACTION_RAW_HPP_
 
 // This file was made in part with generative AI.
 
 #include <algorithm>
 
-#include "loop_abstraction_base.hpp"
+#include "base.hpp"
 #include "utils/bump_arena.hpp"
 
 namespace parthenon::loop_abstraction::impl {
@@ -205,4 +205,4 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_raw_for(const InnerIndexRangeType &idx_ra
 
 } // namespace parthenon::loop_abstraction::impl
 
-#endif // LOOP_ABSTRACTION_LOOP_ABSTRACTION_RAW_HPP_
+#endif // LOOP_ABSTRACTION_RAW_HPP_

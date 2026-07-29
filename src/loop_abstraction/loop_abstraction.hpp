@@ -23,14 +23,14 @@
 // compile time by IndexSpace::backend_v. See LOOP_ABSTRACTION_CONTRACTS.md for the
 // semantics of the loop tags, inner tags, halos, and scratch.
 
-#include "loop_abstraction_base.hpp"
-#include "loop_abstraction_flux_view.hpp"
-#include "loop_abstraction_kokkos.hpp"
-#include "loop_abstraction_pack_view.hpp"
-#include "loop_abstraction_raw.hpp"
-#include "loop_abstraction_scratch.hpp"
-#include "loop_abstraction_scratch_indexed.hpp"
-#include "loop_abstraction_view.hpp"
+#include "base.hpp"
+#include "flux_view.hpp"
+#include "kokkos.hpp"
+#include "pack_view.hpp"
+#include "raw.hpp"
+#include "scratch.hpp"
+#include "scratch_indexed.hpp"
+#include "view.hpp"
 
 namespace parthenon::loop_abstraction {
 
@@ -64,7 +64,7 @@ KOKKOS_FORCEINLINE_FUNCTION void inner(const InnerIndexRangeType &idx_range, F &
 }
 
 // Extend an inner range's visited logical points by the shifted copies named by
-// Halo (see loop_abstraction_halo.hpp and LOOP_ABSTRACTION_CONTRACTS.md).
+// Halo (see halo.hpp and LOOP_ABSTRACTION_CONTRACTS.md).
 template <class Halo, class InnerIndexRangeType>
 KOKKOS_INLINE_FUNCTION auto AddHalo(const InnerIndexRangeType &idx_range) {
   return idx_range.template AddHalo<Halo>();

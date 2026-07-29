@@ -10,15 +10,15 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef LOOP_ABSTRACTION_LOOP_ABSTRACTION_SCRATCH_INDEXED_HPP_
-#define LOOP_ABSTRACTION_LOOP_ABSTRACTION_SCRATCH_INDEXED_HPP_
+#ifndef LOOP_ABSTRACTION_SCRATCH_INDEXED_HPP_
+#define LOOP_ABSTRACTION_SCRATCH_INDEXED_HPP_
 
 // This file was made in part with generative AI.
 
 // Type-indexed view over a flat per-point scratch buffer. IndexedVarTypeList defines
 // the compile-time layout of a set of variable types within the buffer, and
 // TypeIndexedPerPointScratch adapts a raw scratch buffer (from
-// loop_abstraction_scratch.hpp) so it can be indexed by variable type, component, and
+// scratch.hpp) so it can be indexed by variable type, component, and
 // an optional sparse/material index. Also provides the Add*Scratch entry points that
 // register scratch sizing on an IndexSpace.
 
@@ -26,7 +26,7 @@
 
 #include "pack/pack_utils.hpp"
 
-#include "loop_abstraction/loop_abstraction_scratch.hpp"
+#include "loop_abstraction/scratch.hpp"
 
 namespace parthenon::loop_abstraction {
 
@@ -136,4 +136,4 @@ void AddPerPointScratch(IdxSpace &idx_space, int ncopies = 1) {
 
 } // namespace parthenon::loop_abstraction
 
-#endif // LOOP_ABSTRACTION_LOOP_ABSTRACTION_SCRATCH_INDEXED_HPP_
+#endif // LOOP_ABSTRACTION_SCRATCH_INDEXED_HPP_

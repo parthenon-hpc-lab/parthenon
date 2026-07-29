@@ -10,8 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef LOOP_ABSTRACTION_LOOP_ABSTRACTION_INDEX_SPACE_HPP_
-#define LOOP_ABSTRACTION_LOOP_ABSTRACTION_INDEX_SPACE_HPP_
+#ifndef LOOP_ABSTRACTION_INDEX_SPACE_HPP_
+#define LOOP_ABSTRACTION_INDEX_SPACE_HPP_
 
 // This file was made in part with generative AI.
 
@@ -29,8 +29,8 @@
 #include "mesh/mesh.hpp"
 #include "utils/indexer.hpp"
 
-#include "loop_abstraction/loop_abstraction_halo.hpp"
-#include "loop_abstraction/loop_abstraction_types.hpp"
+#include "loop_abstraction/halo.hpp"
+#include "loop_abstraction/types.hpp"
 
 namespace parthenon::loop_abstraction {
 
@@ -245,4 +245,4 @@ class IndexSpace {
 
 } // namespace parthenon::loop_abstraction
 
-#endif // LOOP_ABSTRACTION_LOOP_ABSTRACTION_INDEX_SPACE_HPP_
+#endif // LOOP_ABSTRACTION_INDEX_SPACE_HPP_

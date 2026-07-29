@@ -169,18 +169,18 @@ add_library(parthenon
   interface/variable.cpp
   interface/variable.hpp
   
-  loop_abstraction/loop_abstraction_base.hpp
-  loop_abstraction/loop_abstraction_flux_view.hpp
-  loop_abstraction/loop_abstraction_halo.hpp
-  loop_abstraction/loop_abstraction_index_space.hpp
-  loop_abstraction/loop_abstraction_inner_range.hpp
-  loop_abstraction/loop_abstraction_kokkos.hpp
-  loop_abstraction/loop_abstraction_pack_view.hpp
-  loop_abstraction/loop_abstraction_raw.hpp
-  loop_abstraction/loop_abstraction_scratch.hpp
-  loop_abstraction/loop_abstraction_scratch_indexed.hpp
-  loop_abstraction/loop_abstraction_types.hpp
-  loop_abstraction/loop_abstraction_view.hpp
+  loop_abstraction/base.hpp
+  loop_abstraction/flux_view.hpp
+  loop_abstraction/halo.hpp
+  loop_abstraction/index_space.hpp
+  loop_abstraction/inner_range.hpp
+  loop_abstraction/kokkos.hpp
+  loop_abstraction/pack_view.hpp
+  loop_abstraction/raw.hpp
+  loop_abstraction/scratch.hpp
+  loop_abstraction/scratch_indexed.hpp
+  loop_abstraction/types.hpp
+  loop_abstraction/view.hpp
   loop_abstraction/loop_abstraction.hpp
 
   mesh/domain.hpp

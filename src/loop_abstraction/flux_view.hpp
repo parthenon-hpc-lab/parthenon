@@ -10,12 +10,12 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-#ifndef LOOP_ABSTRACTION_LOOP_ABSTRACTION_FLUX_VIEW_HPP_
-#define LOOP_ABSTRACTION_LOOP_ABSTRACTION_FLUX_VIEW_HPP_
+#ifndef LOOP_ABSTRACTION_FLUX_VIEW_HPP_
+#define LOOP_ABSTRACTION_FLUX_VIEW_HPP_
 
 // This file was made in part with generative AI.
 
-// Flux-side counterparts of the state views in loop_abstraction_pack_view.hpp.
+// Flux-side counterparts of the state views in pack_view.hpp.
 // flux_pack_view_t views the flux arrays of a set of pack variables for one sweep
 // direction; flux_view_t is the single-variable analog. They mirror pack_view_t /
 // var_view_t and reuse the shared check_* predicates from the pack-view header.
@@ -23,8 +23,8 @@
 #include "pack/sparse_pack/sparse_pack.hpp"
 #include "utils/type_list.hpp"
 
-#include "loop_abstraction/loop_abstraction_base.hpp"
-#include "loop_abstraction/loop_abstraction_pack_view.hpp"
+#include "loop_abstraction/base.hpp"
+#include "loop_abstraction/pack_view.hpp"
 
 namespace parthenon::loop_abstraction {
 
@@ -248,4 +248,4 @@ make_flux_view(const InnerIndexRange<IndexSpaceType> &idx_range, const PackType 
 
 } // namespace parthenon::loop_abstraction
 
-#endif // LOOP_ABSTRACTION_LOOP_ABSTRACTION_FLUX_VIEW_HPP_
+#endif // LOOP_ABSTRACTION_FLUX_VIEW_HPP_
