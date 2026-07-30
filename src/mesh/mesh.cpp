@@ -83,6 +83,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       resolved_packages(ResolvePackages(packages)),
       task_collection_timeout_in_seconds(pin->GetOrAddInteger(
           "parthenon/mesh", "task_collection_timeout_in_seconds", 60 * 5)),
+      minimum_number_of_teams_for_boundary_kernel(pin->GetOrAddInteger(
+          "parthenon/mesh", "minimum_number_of_teams_for_boundary_kernel", 1,
+          "Minimum number of teams to launch when filling or applying boundary "
+          "buffers. Additional teams are distributed evenly across buffers.")),
+      boundary_buffer_work_chunk_size(
+          pin->GetOrAddInteger("parthenon/mesh", "boundary_buffer_work_chunk_size", 1)),
       // private members:
       num_mesh_threads_(
           pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1,
@@ -185,8 +191,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   root_level = 0;
   // SMR / AMR:
   if (adaptive) {
-    max_level_ref_ = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
-                                          "maximum level of refinement globally");
+    max_level_ref_ =
+        pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
+                             "maximum level of refinement globally when AMR is on");
     max_level = max_level_ref_ + root_level - 1;
   } else {
     max_level_ref_ = 63;
@@ -196,6 +203,12 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
   if (multigrid) SetNumberOfCommChannels(BoundaryType::gmg_restrict_send, 2);
 
   SetupMPIComms();
+
+  PARTHENON_REQUIRE(minimum_number_of_teams_for_boundary_kernel > 0,
+                    "parthenon/mesh/minimum_number_of_teams_for_boundary_kernel "
+                    "must be positive.");
+  PARTHENON_REQUIRE(boundary_buffer_work_chunk_size > 0,
+                    "parthenon/mesh/boundary_buffer_work_chunk_size must be positive.");
 
   RegisterLoadBalancing_(pin);
 
@@ -223,8 +236,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 
   // SMR / AMR:
   if (adaptive) {
-    max_level_ref_ = pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
-                                          "maximum level of refinement globally");
+    max_level_ref_ =
+        pin->GetOrAddInteger("parthenon/mesh", "numlevel", 1,
+                             "maximum level of refinement globally when AMR is on");
     max_level = max_level_ref_ + root_level - 1;
   } else {
     max_level_ref_ = 63;
@@ -1205,79 +1219,76 @@ void Mesh::DoStaticRefinement(ParameterInput *pin) {
     return std::pair<int, int>{lxmin, lxmax};
   };
 
-  InputBlock *pib = pin->pfirst_block;
-  while (pib != nullptr) {
-    if (pib->block_name.compare(0, 27, "parthenon/static_refinement") == 0) {
-      RegionSize ref_size;
-      ref_size.xmin(X1DIR) = pin->GetReal(pib->block_name, "x1min");
-      ref_size.xmax(X1DIR) = pin->GetReal(pib->block_name, "x1max");
-      if (ndim >= 2) {
-        ref_size.xmin(X2DIR) = pin->GetReal(pib->block_name, "x2min");
-        ref_size.xmax(X2DIR) = pin->GetReal(pib->block_name, "x2max");
-      } else {
-        ref_size.xmin(X2DIR) = mesh_size.xmin(X2DIR);
-        ref_size.xmax(X2DIR) = mesh_size.xmax(X2DIR);
-      }
-      if (ndim == 3) {
-        ref_size.xmin(X3DIR) = pin->GetReal(pib->block_name, "x3min");
-        ref_size.xmax(X3DIR) = pin->GetReal(pib->block_name, "x3max");
-      } else {
-        ref_size.xmin(X3DIR) = mesh_size.xmin(X3DIR);
-        ref_size.xmax(X3DIR) = mesh_size.xmax(X3DIR);
-      }
-      int ref_lev = pin->GetInteger(pib->block_name, "level");
-      int lrlev = ref_lev + GetLegacyTreeRootLevel();
-      // range check
-      if (ref_lev < 1) {
-        msg << "### FATAL ERROR in Mesh constructor" << std::endl
-            << "Refinement level must be larger than 0 (root level = 0)" << std::endl;
-        PARTHENON_FAIL(msg);
-      }
-      if (ref_lev > max_level_ref_) {
-        msg << "### FATAL ERROR in Mesh constructor" << std::endl
-            << "Refinement level exceeds the maximum level (specify "
-            << "'numlevel' parameter in <parthenon/mesh> input block if adaptive)."
-            << std::endl;
+  auto static_ref_blocks = pin->GetBlockNamesWithPrefix("parthenon/static_refinement");
+  for (const auto &block_name : static_ref_blocks) {
+    RegionSize ref_size;
+    ref_size.xmin(X1DIR) = pin->GetReal(block_name, "x1min");
+    ref_size.xmax(X1DIR) = pin->GetReal(block_name, "x1max");
+    if (ndim >= 2) {
+      ref_size.xmin(X2DIR) = pin->GetReal(block_name, "x2min");
+      ref_size.xmax(X2DIR) = pin->GetReal(block_name, "x2max");
+    } else {
+      ref_size.xmin(X2DIR) = mesh_size.xmin(X2DIR);
+      ref_size.xmax(X2DIR) = mesh_size.xmax(X2DIR);
+    }
+    if (ndim == 3) {
+      ref_size.xmin(X3DIR) = pin->GetReal(block_name, "x3min");
+      ref_size.xmax(X3DIR) = pin->GetReal(block_name, "x3max");
+    } else {
+      ref_size.xmin(X3DIR) = mesh_size.xmin(X3DIR);
+      ref_size.xmax(X3DIR) = mesh_size.xmax(X3DIR);
+    }
+    int ref_lev = pin->GetInteger(block_name, "level");
+    int lrlev = ref_lev + GetLegacyTreeRootLevel();
+    // range check
+    if (ref_lev < 1) {
+      msg << "### FATAL ERROR in Mesh constructor" << std::endl
+          << "Refinement level must be larger than 0 (root level = 0)" << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+    if (ref_lev > max_level_ref_) {
+      msg << "### FATAL ERROR in Mesh constructor" << std::endl
+          << "Refinement level exceeds the maximum level (specify "
+          << "'numlevel' parameter in <parthenon/mesh> input block if adaptive)."
+          << std::endl;
 
-        PARTHENON_FAIL(msg);
+      PARTHENON_FAIL(msg);
+    }
+    if (ref_size.xmin(X1DIR) > ref_size.xmax(X1DIR) ||
+        ref_size.xmin(X2DIR) > ref_size.xmax(X2DIR) ||
+        ref_size.xmin(X3DIR) > ref_size.xmax(X3DIR)) {
+      msg << "### FATAL ERROR in Mesh constructor" << std::endl
+          << "Invalid refinement region is specified." << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+    if (ref_size.xmin(X1DIR) < mesh_size.xmin(X1DIR) ||
+        ref_size.xmax(X1DIR) > mesh_size.xmax(X1DIR) ||
+        ref_size.xmin(X2DIR) < mesh_size.xmin(X2DIR) ||
+        ref_size.xmax(X2DIR) > mesh_size.xmax(X2DIR) ||
+        ref_size.xmin(X3DIR) < mesh_size.xmin(X3DIR) ||
+        ref_size.xmax(X3DIR) > mesh_size.xmax(X3DIR)) {
+      msg << "### FATAL ERROR in Mesh constructor" << std::endl
+          << "Refinement region must be smaller than the whole mesh." << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+    std::int64_t l_region_min[3]{0, 0, 0};
+    std::int64_t l_region_max[3]{1, 1, 1};
+    for (auto dir : {X1DIR, X2DIR, X3DIR}) {
+      if (!mesh_size.symmetry(dir)) {
+        auto [lmin, lmax] =
+            GetStaticRefLLIndexRange(dir, nrbx[dir - 1], ref_lev, ref_size, mesh_size);
+        l_region_min[dir - 1] = lmin;
+        l_region_max[dir - 1] = lmax;
       }
-      if (ref_size.xmin(X1DIR) > ref_size.xmax(X1DIR) ||
-          ref_size.xmin(X2DIR) > ref_size.xmax(X2DIR) ||
-          ref_size.xmin(X3DIR) > ref_size.xmax(X3DIR)) {
-        msg << "### FATAL ERROR in Mesh constructor" << std::endl
-            << "Invalid refinement region is specified." << std::endl;
-        PARTHENON_FAIL(msg);
-      }
-      if (ref_size.xmin(X1DIR) < mesh_size.xmin(X1DIR) ||
-          ref_size.xmax(X1DIR) > mesh_size.xmax(X1DIR) ||
-          ref_size.xmin(X2DIR) < mesh_size.xmin(X2DIR) ||
-          ref_size.xmax(X2DIR) > mesh_size.xmax(X2DIR) ||
-          ref_size.xmin(X3DIR) < mesh_size.xmin(X3DIR) ||
-          ref_size.xmax(X3DIR) > mesh_size.xmax(X3DIR)) {
-        msg << "### FATAL ERROR in Mesh constructor" << std::endl
-            << "Refinement region must be smaller than the whole mesh." << std::endl;
-        PARTHENON_FAIL(msg);
-      }
-      std::int64_t l_region_min[3]{0, 0, 0};
-      std::int64_t l_region_max[3]{1, 1, 1};
-      for (auto dir : {X1DIR, X2DIR, X3DIR}) {
-        if (!mesh_size.symmetry(dir)) {
-          auto [lmin, lmax] =
-              GetStaticRefLLIndexRange(dir, nrbx[dir - 1], ref_lev, ref_size, mesh_size);
-          l_region_min[dir - 1] = lmin;
-          l_region_max[dir - 1] = lmax;
-        }
-      }
-      for (std::int64_t k = l_region_min[2]; k < l_region_max[2]; k += 2) {
-        for (std::int64_t j = l_region_min[1]; j < l_region_max[1]; j += 2) {
-          for (std::int64_t i = l_region_min[0]; i < l_region_max[0]; i += 2) {
-            LogicalLocation nloc(lrlev, i, j, k);
-            forest.AddMeshBlock(forest.GetForestLocationFromLegacyTreeLocation(nloc));
-          }
+    }
+    for (std::int64_t k = l_region_min[2]; k < l_region_max[2]; k += 2) {
+      for (std::int64_t j = l_region_min[1]; j < l_region_max[1]; j += 2) {
+        for (std::int64_t i = l_region_min[0]; i < l_region_max[0]; i += 2) {
+          LogicalLocation nloc(lrlev, i, j, k);
+          forest.AddMeshBlock(forest.GetForestLocationFromLegacyTreeLocation(nloc));
         }
       }
     }
-    pib = pib->pnext;
   }
 }
 

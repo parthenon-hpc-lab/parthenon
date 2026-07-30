@@ -32,8 +32,9 @@ jobs:
       - name: cpplint
         run: python3 ./tst/style/cpplint.py --counting=detailed --recursive src example tst
       - name: copyright
+        # using variant mpi because openpmd lib is only installed with mpi support (no serial)
         run: |
-          cmake -DCMAKE_CXX_FLAGS=-Werror -Bbuild-copyright-check
+          cmake -DCMAKE_CXX_FLAGS=-Werror -Bbuild-copyright-check -DMACHINE_VARIANT=mpi
           cmake --build build-copyright-check -t check-copyright
       - uses: actions/upload-artifact@v4
         with:
@@ -104,6 +105,7 @@ jobs:
           # make sure parthenon tools is in our python path
           export PYTHONPATH="$PYTHONPATH:$(python -m site --user-site)"
           ctest -R regression_mpi_test:output_hdf5
+          ctest -R regression_mpi_test:restart_opmd
       # Test example with swarms
       - name: particle-leapfrog
         run: |
@@ -144,7 +146,7 @@ jobs:
   integration-amdgpu:
     runs-on: [self-hosted, navi1030]
     container:
-      image: ghcr.io/parthenon-hpc-lab/rocm6.2-mpi-hdf5
+      image: ghcr.io/parthenon-hpc-lab/rocm7.2.4-mpi-hdf5-opmd
       # Map to local user id on CI  machine to allow writing to build cache and
       # forward device handles to access AMD GPU within container
       options: --user 1000 -w /home/ci --device /dev/kfd --device /dev/dri --security-opt seccomp=unconfined
@@ -161,14 +163,14 @@ jobs:
       - name: Configure
         run: |
           git config --global --add safe.directory $(pwd)
-          # The extra CMAKE_PREFIX_PATH seems to be required for current rocm6.2, see
+          # The extra CMAKE_PREFIX_PATH seems to be required for current rocm6.2 and 7.2, see
           # https://github.com/kokkos/kokkos/pull/8747/changes#r2621509391
           # Try to remove in next rocm bump.
           cmake -B build \
             -DMACHINE_CFG=${PWD}/cmake/machinecfg/GitHubActions.cmake \
             -DCMAKE_BUILD_TYPE=Release \
             -DMACHINE_VARIANT=hip-mpi \
-            -DCMAKE_PREFIX_PATH=/opt/rocm-6.2.0 \
+            -DCMAKE_PREFIX_PATH=/opt/rocm-7.2.4 \
             -DCMAKE_CXX_COMPILER=hipcc
       # Test example with "variables" and output
       - name: advection
@@ -178,6 +180,7 @@ jobs:
           # make sure parthenon tools is in our python path
           export PYTHONPATH="$PYTHONPATH:$(python -m site --user-site)"
           ctest -R regression_mpi_test:output_hdf5
+          ctest -R regression_mpi_test:restart_opmd
       # Test example with swarms
       - name: particle-leapfrog
         run: |

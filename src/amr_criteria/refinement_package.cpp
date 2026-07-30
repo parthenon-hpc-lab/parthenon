@@ -38,16 +38,13 @@ namespace Refinement {
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto ref = std::make_shared<StateDescriptor>("Refinement");
 
-  for (InputBlock *pib = pin->pfirst_block; pib != nullptr; pib = pib->pnext) {
-    if (pib->block_name.compare(0, 20, "parthenon/refinement") != 0) {
-      continue;
-    }
+  auto refinement_blocks = pin->GetBlockNamesWithPrefix("parthenon/refinement");
+  for (auto block_name : refinement_blocks) {
     std::string method = pin->GetString(
-        pib->block_name, "method",
+        block_name, "method",
         std::vector<std::string>{"derivative_order_1", "derivative_order_2", "magnitude"},
         "method to use to check for refinement");
-    ref->amr_criteria.push_back(
-        AMRCriteria::MakeAMRCriteria(method, pin, pib->block_name));
+    ref->amr_criteria.push_back(AMRCriteria::MakeAMRCriteria(method, pin, block_name));
   }
   return ref;
 }

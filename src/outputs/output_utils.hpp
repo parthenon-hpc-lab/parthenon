@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2023-2025 The Parthenon collaboration
+// Copyright(C) 2023-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
@@ -25,6 +25,7 @@
 #include <map>
 #include <memory>
 #include <numeric>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <string>
@@ -53,6 +54,7 @@ namespace OutputUtils {
 struct VarInfo {
  public:
   static constexpr const int VNDIM = MAX_VARIABLE_DIMENSION;
+  std::string base_name;
   std::string label;
   int num_components;
   int tensor_rank; // 0- to 3-D for cell-centered variables, 0- to 6-D for arbitrary shape
@@ -63,6 +65,7 @@ struct VarInfo {
   bool is_vector;
   bool is_coordinate_field;
   IndexShape cellbounds;
+  std::string sparse_label; // only meaningful if is_sparse
   std::vector<std::string> component_labels;
   // list of topological elements in variable... e.g., Face1, Face2, etc
   std::vector<TopologicalElement> topological_elements;
@@ -72,14 +75,16 @@ struct VarInfo {
   // whether or not topological element matters.
   bool element_matters;
 
-  Triple_t<int> GetNumKJI(const IndexDomain domain) const;
+  Triple_t<int> GetPaddedNumKJI(const IndexDomain domain) const;
   Triple_t<IndexRange> GetPaddedBoundsKJI(const IndexDomain domain) const;
 
   std::size_t Size() const;
   // Includes topological element shape
   std::size_t TensorSize() const;
   // Size of region that needs to be filled with 0s if not allocated
-  std::size_t FillSize(const IndexDomain domain) const;
+  // is_padded is set to true by default as it's the assumption in the original (HDF5)
+  // output files.
+  std::size_t FillSize(const IndexDomain domain, const bool is_padded = true) const;
   // number of elements of data that describe variable shape
   int GetNDim() const;
 
@@ -93,7 +98,7 @@ struct VarInfo {
       // For nx1,nx2,nx3 find max storage required in each direction
       // accross topological elements. Unused indices will be written but
       // empty.
-      auto [nx3, nx2, nx1] = GetNumKJI(domain);
+      auto [nx3, nx2, nx1] = GetPaddedNumKJI(domain);
       // fill topological element, if relevant
       if (element_matters) {
         data[0] = ntop_elems;
@@ -128,15 +133,23 @@ struct VarInfo {
   std::vector<int> GetRawShape() const;
   int GetDim(int i) const;
 
+  // Returns basename with sparse label
+  std::string GetBaseName() const {
+    return base_name + ((is_sparse) ? "_" + sparse_label : "");
+  }
+
   VarInfo() = delete;
 
   // TODO(JMM): Separate this into an implementation file again?
-  VarInfo(const std::string &label, const std::vector<std::string> &component_labels_,
-          int num_components, std::array<int, VNDIM> nx, Metadata metadata,
+  VarInfo(const std::string &base_name, const std::string &label,
+          const std::string &sparse_label,
+          const std::vector<std::string> &component_labels_, int num_components,
+          std::array<int, VNDIM> nx, Metadata metadata,
           const std::vector<TopologicalElement> topological_elements, bool is_sparse,
           bool is_vector, const IndexShape &cellbounds)
-      : label(label), num_components(num_components), nx_(nx),
-        tensor_rank(metadata.Shape().size()), where(metadata.Where()),
+      : base_name(base_name), label(label), sparse_label(sparse_label),
+        num_components(num_components), nx_(nx), tensor_rank(metadata.Shape().size()),
+        where(metadata.Where()),
         is_mem_aligned(metadata.IsSet(Metadata::CellMemAligned) &&
                        !metadata.IsSet(Metadata::Cell)),
         topological_elements(topological_elements), is_sparse(is_sparse),
@@ -146,38 +159,39 @@ struct VarInfo {
     if (num_components <= 0) {
       std::stringstream msg;
       msg << "### ERROR: Got variable " << label << " with " << num_components
-          << " components."
-          << " num_components must be greater than 0" << std::endl;
+          << " components." << " num_components must be greater than 0" << std::endl;
       PARTHENON_FAIL(msg);
     }
 
-    // Full components labels will be composed according to the following rules:
-    // If there just one component (e.g., a scalar var or a vector/tensor with a single
-    // component) only the basename and no suffix is used unless a component label is
-    // provided (which will then be added as suffix following an `_`). For variables with
-    // >1 components, the final component label will be composed of the basename and a
-    // suffix. This suffix is either a integer if no component labels are given, or the
-    // component label itself.
-    component_labels = {};
-    if (num_components == 1) {
-      const auto suffix = component_labels_.empty() ? "" : "_" + component_labels_[0];
-      component_labels = std::vector<std::string>({label + suffix});
-    } else if (component_labels_.size() == num_components) {
+    // prefix full component label with full internal variable label.
+    // sparse fields labeled with sparse_id if no sparse_label provided
+    const auto component_label_prefix = GetBaseName();
+
+    component_labels = [&]() -> std::vector<std::string> {
+      const bool has_labels = component_labels_.size() == num_components;
+
+      const auto suffix = [&](const int i) -> std::string {
+        // suffix only if explicit component labels or multi-component variable
+        if (num_components == 1 && !has_labels) return "";
+        return "_" + (has_labels ? component_labels_[i] : std::to_string(i));
+      };
+
+      std::vector<std::string> full_labels = {};
       for (int i = 0; i < num_components; i++) {
-        component_labels.push_back(label + "_" + component_labels_[i]);
+        const auto sfx = suffix(i);
+        full_labels.push_back(component_label_prefix + sfx);
       }
-    } else {
-      for (int i = 0; i < num_components; i++) {
-        component_labels.push_back(label + "_" + std::to_string(i));
-      }
-    }
+      return full_labels;
+    }();
   }
 
   explicit VarInfo(const std::shared_ptr<Variable<Real>> &var,
                    const IndexShape &cellbounds)
-      : VarInfo(var->label(), var->metadata().getComponentLabels(), var->NumComponents(),
-                var->GetDim(), var->metadata(), var->GetTopologicalElements(),
-                var->IsSparse(), var->IsSet(Metadata::Vector), cellbounds) {}
+      : VarInfo(var->base_name(), var->label(),
+                var->metadata().GetSparseLabel(var->GetSparseID()),
+                var->metadata().getComponentLabels(), var->NumComponents(), var->GetDim(),
+                var->metadata(), var->GetTopologicalElements(), var->IsSparse(),
+                var->IsSet(Metadata::Vector), cellbounds) {}
 
   static std::vector<VarInfo> GetAll(const VariableVector<Real> &vars,
                                      const IndexShape &cellbounds,
@@ -188,6 +202,8 @@ struct VarInfo {
  private:
   // TODO(JMM): Probably nx_ and rnx_ both not necessary... but it was
   // easiest for me to reason about it this way.
+  // Note, nx_ is usually initialized to the view dimensions (i.e., padded for face and
+  // edge centered fields).
   std::array<int, VNDIM> nx_;
   std::vector<int> rnx_;
 };
@@ -219,8 +235,8 @@ struct SwarmInfo {
   std::size_t count_on_rank = 0;                // per-meshblock
   std::size_t global_offset;                    // global
   std::size_t global_count;                     // global
-  std::vector<std::size_t> counts;              // per-meshblock
-  std::vector<std::size_t> offsets;             // global
+  std::vector<std::size_t> counts;              // on local meshblocks
+  std::vector<std::size_t> offsets;             // global offset for local meshblocks
   // std::vector<ParArray1D<bool>> masks; // used for reading swarms without defrag
   std::vector<std::size_t> max_indices;   // JMM: If we defrag, unneeded?
   void AddOffsets(const SP_Swarm &swarm); // sets above metadata
@@ -249,7 +265,7 @@ struct SwarmInfo {
   // Copies swarmvar to host in prep for output
   template <typename T>
   std::vector<T> FillHostBuffer(const std::string vname,
-                                ParticleVariableVector<T> &swmvarvec) {
+                                const ParticleVariableVector<T> &swmvarvec) const {
     const auto &vinfo = var_info.at(vname);
     std::vector<T> host_data(count_on_rank * vinfo.nvar);
     std::size_t ivec = 0;
@@ -258,6 +274,7 @@ struct SwarmInfo {
         for (int n4 = 0; n4 < vinfo.GetN(4); ++n4) {
           for (int n3 = 0; n3 < vinfo.GetN(3); ++n3) {
             for (int n2 = 0; n2 < vinfo.GetN(2); ++n2) {
+              // TODO(pgrete) understand what's doing on with the blocks here...
               std::size_t block_idx = 0;
               for (auto &swmvar : swmvarvec) {
                 // Copied extra times. JMM: If we defrag, unneeded?
@@ -313,16 +330,19 @@ std::vector<T> FlattenBlockInfo(Mesh *pm, int shape, Function_t f) {
 
 // mirror must be provided because copying done externally
 template <typename idx_t, typename Function_t>
-void PackOrUnpackVar(const VarInfo &info, bool do_ghosts, idx_t &idx, Function_t f) {
+void PackOrUnpackVar(const VarInfo &info, bool do_ghosts, bool is_padded, idx_t &idx,
+                     Function_t f) {
   const IndexDomain domain = (do_ghosts ? IndexDomain::entire : IndexDomain::interior);
   // shape as written to or read from. contains additional padding
   // in orthogonal directions.
   // e.g., Face1-centered var is shape (N1+1)x(N2+1)x(N3+1)
   // format is
   // topological_elems x tensor_elems x block_elems
+  // If variable is written without padding, we'll cut the indices below.
   const auto shape = info.GetPaddedShapeReversed(domain);
   // TODO(JMM): Should I hide this inside VarInfo?
   auto [kb, jb, ib] = info.GetPaddedBoundsKJI(domain);
+  // Adjust padded indices for variables not tied to the mesh
   if (info.where == MetadataFlag({Metadata::None})) {
     kb.s = 0;
     kb.e = std::max(0, shape[4] - 1);
@@ -332,6 +352,12 @@ void PackOrUnpackVar(const VarInfo &info, bool do_ghosts, idx_t &idx, Function_t
     ib.e = std::max(0, shape[6] - 1);
   }
   for (int topo = 0; topo < shape[0]; ++topo) {
+    // Adjust padded indices for variables not written with padding
+    if (!is_padded) {
+      kb = info.cellbounds.GetBoundsK(domain, info.topological_elements.at(topo));
+      jb = info.cellbounds.GetBoundsJ(domain, info.topological_elements.at(topo));
+      ib = info.cellbounds.GetBoundsI(domain, info.topological_elements.at(topo));
+    }
     for (int t = 0; t < shape[1]; ++t) {
       for (int u = 0; u < shape[2]; ++u) {
         for (int v = 0; v < shape[3]; ++v) {
@@ -356,6 +382,11 @@ std::vector<Real> ComputeXminBlocks(Mesh *pm);
 std::vector<int64_t> ComputeLocs(Mesh *pm);
 std::vector<int> ComputeIDsAndFlags(Mesh *pm);
 std::vector<int> ComputeDerefinementCount(Mesh *pm);
+
+// Takes a vector containing flattened data of all rank local blocks and returns the
+// flattened data over all blocks.
+template <typename T>
+std::vector<T> FlattenedLocalToGlobal(Mesh *pm, const std::vector<T> &data_local);
 
 // TODO(JMM): If we ever need non-int need to generalize
 std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count);

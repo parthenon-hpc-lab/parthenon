@@ -29,6 +29,7 @@ jobs:
             pip install sphinx
             pip install sphinx-rtd-theme
             pip install sphinx-multiversion
+            pip install myst-parser
             sudo apt install -y --force-yes -qq build-essential cmake
         - name: generate csv files
           run: |
@@ -36,6 +37,7 @@ jobs:
             mkdir -p build && cd build
             cmake -DPARTHENON_DISABLE_HDF5=ON \
                   -DPARTHENON_DISABLE_MPI=ON \
+                  -DPARTHENON_DISABLE_OPENPMD=ON \
                   -DREGRESSION_GOLD_STANDARD_SYNC=OFF \
                   -DBUILD_TESTING=OFF \
                   ..

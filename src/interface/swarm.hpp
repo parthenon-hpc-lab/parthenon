@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,10 +10,11 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
 #ifndef INTERFACE_SWARM_HPP_
 #define INTERFACE_SWARM_HPP_
 
-// This file was made in part with generative AI
+// This file was made in part with generative AI.
 
 ///
 /// A swarm contains all particles of a particular species
@@ -248,6 +249,28 @@ class Swarm {
   void CountParticlesToSend_(); // Must be public for launching kernel
 
   template <typename T>
+  std::vector<std::string> GetVariableNames() const {
+    std::vector<std::string> names;
+    const auto &vars = GetVariableVector<T>();
+    names.reserve(vars.size());
+    for (const auto &var : vars) {
+      names.push_back(var->label());
+    }
+    return names;
+  }
+
+  template <typename T>
+  int GetComponentCount() const {
+    int count = 0;
+    for (const auto &var : GetVariableVector<T>()) {
+      count += var->NumComponents();
+    }
+    return count;
+  }
+
+  int GetRecordSize() const { return GetRecordSizeImpl<Real, int, std::uint64_t>(); }
+
+  template <typename T>
   const auto &GetVariableVector() const {
     return std::get<getType<T>()>(vectors_);
   }
@@ -259,6 +282,11 @@ class Swarm {
   static constexpr int inactive_max_active_index = -1;
 
  private:
+  template <typename... Ts>
+  int GetRecordSizeImpl() const {
+    return (0 + ... + (GetComponentCount<Ts>() * sizeof(Ts)));
+  }
+
   template <class T>
   vpack_types::SwarmVarList<T> MakeVarListAll_();
   template <class T>

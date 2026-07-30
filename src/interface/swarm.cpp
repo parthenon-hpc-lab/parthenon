@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2026 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -495,7 +499,7 @@ void Swarm::SortParticlesByCell() {
                     "Too many cells for an int32 to store cell_idx_1d below!");
 
   auto cell_sorted = cell_sorted_;
-  int ncells = pmb->cellbounds.GetTotal(IndexDomain::entire);
+  std::size_t ncells = pmb->cellbounds.GetTotal(IndexDomain::entire);
   int num_active = num_active_;
   int max_active_index = max_active_index_;
 
