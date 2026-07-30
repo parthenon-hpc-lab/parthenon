@@ -186,12 +186,15 @@ The common reconstruction-to-flux pattern is a producer inner loop that writes r
 states into scratch over an extended range, followed by a consumer flux loop over
 the base range that accessess the scratch memory with offsets. The parthenon loop abstraction
 implements patterns like this through the concept of inner range halos. As an example, a simple
-flux calculation kernel in the loop abstraction might look like:
+flux calculation kernel in the loop abstraction might look like (see below for pack views used 
+in the example):
 
 .. code:: cpp
+   const auto desc = MakePackDescriptor<var>(md, {}, {parthenon::PDOpt::WithFluxes});
+   auto pack = desc.GetPack(md);
    // Declare an index space over F1 faces 
    IndexSpace<loop_tag, inner_tag> idx_space(ninner, IndexDomain::interior,
-                                             0, nblocks, md, TopologicalElement::F1); 
+                                             0, pack.GetNBlocks(), md, TopologicalElement::F1); 
    
    using recon_halo = la::halo::minus_i_t;
    idx_space.AddPerPointScratch<Real, recon_halo>(2);  // at setup
@@ -203,17 +206,20 @@ flux calculation kernel in the loop abstraction might look like:
      const auto halo_range = idx_range.AddHalo<recon_halo>();
      auto scratch_plus = la::GetPerPointScratch<Real>(halo_range);
      auto scratch_minus = la::GetPerPointScratch<Real>(halo_range);
-    
+
+     auto pv = la::make_pack_view(halo_range, pack); 
+     
      // Produce reconstructed left and right states across the halo range
      la::inner(halo_range, [&](auto kji) {
-       scratch_plus(kji) = reconstruct_plus(var(kji - dx1), var(kji), var(kji + dx1)); 
-       scratch_minus(kji) = reconstruct_minus(var(kji - dx1), var(kji), var(kji + dx1)); 
+       scratch_plus(kji) = reconstruct_plus(pv(var(), kji - dx1), pv(var(), kji), pv(var(), kji + dx1)); 
+       scratch_minus(kji) = reconstruct_minus(pv(var(), kji - dx1), pv(var(), kji), pv(var(), kji + dx1)); 
      });
      idx_range.TeamBarrier();  // producer must finish before the consumer reads
 
      // Consume (use) reconstructed states in Riemann solver to calculate fluxes
+     auto fv = la::make_flux_pack_view(idx_range, pack, X1DIR); 
      la::inner(idx_range, [&](auto kji) {
-       flux(kji) = riemann(scratch_plus(kji - dx1), scratch_minus(kji));
+       fv(var(), kji) = riemann(scratch_plus(kji - dx1), scratch_minus(kji));
      });
    });
 
