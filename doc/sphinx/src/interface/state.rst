@@ -162,8 +162,8 @@ convenient way to define global parameters, for example.
 
 .. _state meshdata subsets:
 
-Package-defined ``MeshData`` subsets
-------------------------------------
+Package-defined ``MeshData``
+-----------------------------
 
 A package can prescribe a reusable ``MeshData`` containing only the fields needed
 for a particular operation.  This is useful, for example, when several source-term
@@ -221,7 +221,7 @@ For example, a package can register a subset in its ``Initialize`` function:
 
 The subset name is local to the package.  Parthenon gives the resulting
 ``MeshData`` the globally unique name
-``md_subset::<package label>::<subset name>``.  Applications should use
+``md::<package label>::<subset name>``.  Applications should use
 ``GetMeshDataFullName`` when the full name is needed instead of constructing
 it directly.
 
