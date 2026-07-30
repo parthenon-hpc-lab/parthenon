@@ -60,7 +60,7 @@ void Packages_t::Add(const std::shared_ptr<StateDescriptor> &package) {
 
   auto &subsets = package->GetOrAddAllMeshData();
   for (auto &[subname, req] : subsets) {
-    packages_with_submeshdata_[subname][package->label()] = package;
+    packages_with_mesh_data_[subname][package->label()] = package;
   }
 
   return;
@@ -695,7 +695,8 @@ StateDescriptor::GetOrAddMeshData(Mesh *pmesh, const std::string &partial_name,
                                   int stage_idx) {
   auto full_name = GetMeshDataFullName(partial_name);
   PARTHENON_REQUIRE(ContainsMeshDataDescriptor(partial_name),
-                    "Package " + label() + " must contain a subset " + partial_name);
+                    "Package " + label() + " must contain a meshdata descriptor " +
+                        partial_name);
   return pmesh->mesh_data.GetOrAdd(full_name, stage_idx);
 }
 } // namespace parthenon

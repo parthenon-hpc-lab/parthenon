@@ -248,7 +248,7 @@ It returns the requested partition of the package-scoped subset and can therefor
 used anywhere a partitioned ``MeshData`` is expected.
 
 When a ``StateDescriptor`` is added to ``Packages_t``, Parthenon indexes it under
-each registered subset name.  ``AllPackagesWithSubMeshData(name)`` retrieves the
+each registered subset name.  ``AllPackagesWithMeshData(name)`` retrieves the
 packages prescribing one named category, while the no-argument overload retrieves
 all categories.  Consequently, all calls to ``RegisterMeshData`` must occur
 before the descriptor is added to ``Packages_t``.  This happens naturally when

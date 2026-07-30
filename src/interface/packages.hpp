@@ -46,18 +46,18 @@ class Packages_t {
   // Note the non-const accessor inserts an empty dictionary if a name
   // is accessed but not present.
   Dictionary<std::shared_ptr<StateDescriptor>> &
-  AllPackagesWithSubMeshData(const std::string &name) {
-    return packages_with_submeshdata_[name];
+  AllPackagesWithMeshData(const std::string &name) {
+    return packages_with_mesh_data_[name];
   }
   const Dictionary<std::shared_ptr<StateDescriptor>> &
-  AllPackagesWithSubMeshData(const std::string &name) const {
-    PARTHENON_REQUIRE(packages_with_submeshdata_.count(name) > 0,
+  AllPackagesWithMeshData(const std::string &name) const {
+    PARTHENON_REQUIRE(packages_with_mesh_data_.count(name) > 0,
                       "At least one package must contain submeshdata with subname " +
                           name);
-    return packages_with_submeshdata_.at(name);
+    return packages_with_mesh_data_.at(name);
   }
-  auto &AllPackagesWithSubMeshData() { return packages_with_submeshdata_; }
-  const auto &AllPackagesWithSubMeshData() const { return packages_with_submeshdata_; }
+  auto &AllPackagesWithMeshData() { return packages_with_mesh_data_; }
+  const auto &AllPackagesWithMeshData() const { return packages_with_mesh_data_; }
 
   // Returns a sub-Dictionary containing just pointers to packages of type T.
   // Dictionary is a *new copy*, and members are bare pointers, not shared_ptr.
@@ -90,7 +90,7 @@ class Packages_t {
   // A map from category of meshdata subset requirements to state
   // descriptors containing subsets of that category. Makes it easy to
   // group things for, e.g., source terms.
-  Dictionary<Dictionary<std::shared_ptr<StateDescriptor>>> packages_with_submeshdata_;
+  Dictionary<Dictionary<std::shared_ptr<StateDescriptor>>> packages_with_mesh_data_;
 };
 } // namespace parthenon
 

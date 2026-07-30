@@ -62,6 +62,9 @@ std::shared_ptr<MeshData<Real>> MeshDataDescriptor::AddMeshData(Mesh *pmesh,
   return AddMeshData(pmesh, name, base);
 }
 
-std::shared_ptr<MeshData<Real>> GetMeshData(Mesh *pmesh, const std::string &name) {}
+std::shared_ptr<MeshData<Real>> MeshDataDescriptor::GetMeshData(Mesh *pmesh,
+                                                                const std::string &name) {
+  return AddMeshData(pmesh, name);
+}
 
 } // namespace parthenon

@@ -135,7 +135,7 @@ TEST_CASE("Test mesh data subset registration in StateDescriptor",
   SECTION("The registered subset can be found and is given a package-scoped name") {
     REQUIRE(state.ContainsMeshDataDescriptor("source"));
     REQUIRE_FALSE(state.ContainsMeshDataDescriptor("diagnostics"));
-    REQUIRE(state.GetMeshDataFullName("source") == "md_subset::package::source");
+    REQUIRE(state.GetMeshDataFullName("source") == "md::package::source");
   }
 
   SECTION("Registration preserves all requirements") {
@@ -172,8 +172,7 @@ TEST_CASE("Test mesh data subset registration in StateDescriptor",
     const auto &subsets = state.GetOrAddAllMeshData();
     REQUIRE(subsets.size() == 2);
     REQUIRE(subsets.at("diagnostics").varnames == std::vector<std::string>{"var3"});
-    REQUIRE(state.GetMeshDataFullName("diagnostics") ==
-            "md_subset::package::diagnostics");
+    REQUIRE(state.GetMeshDataFullName("diagnostics") == "md::package::diagnostics");
   }
 }
 
@@ -188,8 +187,7 @@ TEST_CASE("Test variable registration in MeshDataDescriptor",
 
   SECTION("Multiple string names can be registered in one call") {
     requirements.RegisterVariables("var1", "var3", "var2");
-    REQUIRE(requirements.varnames ==
-            std::vector<std::string>{"var1", "var3", "var2"});
+    REQUIRE(requirements.varnames == std::vector<std::string>{"var1", "var3", "var2"});
   }
 
   SECTION("A vector of string names can be registered") {
@@ -236,7 +234,7 @@ TEST_CASE("Test mesh data subset indexing in Packages_t",
   packages.Add(boundaries);
 
   SECTION("Packages are grouped under every subset name they prescribe") {
-    const auto &indexed = packages.AllPackagesWithSubMeshData();
+    const auto &indexed = packages.AllPackagesWithMeshData();
     REQUIRE(indexed.size() == 2);
     REQUIRE(indexed.count("source") == 1);
     REQUIRE(indexed.count("diagnostics") == 1);
@@ -254,13 +252,13 @@ TEST_CASE("Test mesh data subset indexing in Packages_t",
   }
 
   SECTION("Named lookup and const access return the indexed packages") {
-    REQUIRE(packages.AllPackagesWithSubMeshData("source").at("package1") == package1);
+    REQUIRE(packages.AllPackagesWithMeshData("source").at("package1") == package1);
 
     const Packages_t &const_packages = packages;
-    const auto &sources = const_packages.AllPackagesWithSubMeshData("source");
+    const auto &sources = const_packages.AllPackagesWithMeshData("source");
     REQUIRE(sources.size() == 2);
     REQUIRE(sources.at("package2") == package2);
-    REQUIRE(const_packages.AllPackagesWithSubMeshData().at("diagnostics").at("package1") ==
+    REQUIRE(const_packages.AllPackagesWithMeshData().at("diagnostics").at("package1") ==
             package1);
   }
 }

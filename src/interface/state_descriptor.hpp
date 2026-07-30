@@ -282,16 +282,15 @@ class StateDescriptor {
     return AddSparsePool(T::name(), m_in, std::forward<Args>(args)...);
   }
 
-  // Register a meshdata subset containing a subset of variables, flags, or sparse ids.
+  // Register a meshdata object containing a subset of variables, flags, or sparse ids.
   // This can then be pulled out later in, e.g., the driver.
-  void RegisterMeshData(const std::string &name,
-                        const MeshDataDescriptor &requirements) {
-    PARTHENON_REQUIRE(submeshdata_map_.count(name) == 0,
-                      "A meshdata subset with the same name must not already be added");
+  void RegisterMeshData(const std::string &name, const MeshDataDescriptor &requirements) {
+    PARTHENON_REQUIRE(meshDataMap_.count(name) == 0,
+                      "A meshdata with the same name must not already be added");
     // TODO(JMM): Technically this is an extra copy vs if we passed
     // around a pointer from the get-go but I think this is fine. It's
     // initialization only and won't be performance critical.
-    submeshdata_map_[name] = requirements;
+    meshDataMap_[name] = requirements;
   }
 
   // retrieve number of fields
@@ -393,25 +392,26 @@ class StateDescriptor {
   }
 
   std::string GetMeshDataFullName(const std::string &partial_name) {
-    return "md_subset::" + label() + "::" + partial_name;
+    return "md::" + label() + "::" + partial_name;
   }
 
   bool ContainsMeshDataDescriptor(const std::string &partial_name) {
-    return submeshdata_map_.count(partial_name) > 0;
+    return meshDataMap_.count(partial_name) > 0;
   }
 
-  std::vector<Uid_t> AddMeshData(Mesh *pmesh, const std::string &partial_name,
-                                 const std::shared_ptr<MeshData<Real>> &base) {
-    PARTHENON_REQUIRE(ContainsMeshDataSubset(partial_name),
-                      "Package " + label() + " must contain a subset " + partial_name);
+  auto AddMeshData(Mesh *pmesh, const std::string &partial_name,
+                   const std::shared_ptr<MeshData<Real>> &base) {
+    PARTHENON_REQUIRE(ContainsMeshDataDescriptor(partial_name),
+                      "Package " + label() + " must contain a meshdata descriptor for " +
+                          partial_name);
     auto full_name = GetMeshDataFullName(partial_name);
-    return submeshdata_map_[partial_name].AddMeshData(pmesh, full_name, base);
+    return meshDataMap_[partial_name].AddMeshData(pmesh, full_name, base);
   }
 
   std::shared_ptr<MeshData<Real>>
   GetOrAddMeshData(Mesh *pmesh, const std::string &partial_name, int stage_idx);
 
-  auto &GetOrAddAllMeshData() { return submeshdata_map_; }
+  auto &GetOrAddAllMeshData() { return meshDataMap_; }
 
   bool FlagsPresent(std::vector<MetadataFlag> const &flags, bool matchAny = false);
 
@@ -562,7 +562,7 @@ class StateDescriptor {
   Dictionary<Dictionary<Metadata>> swarmValueMetadataMap_;
 
   RefinementFunctionMaps refinementFuncMaps_;
-  Dictionary<MeshDataDescriptor> submeshdata_map_;
+  Dictionary<MeshDataDescriptor> meshDataMap_;
   std::map<TopologicalType, std::size_t> num_scratch_;
 };
 
