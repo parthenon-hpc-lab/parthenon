@@ -59,10 +59,7 @@ jobs:
 
       - name: Configure
         env:
-        # See
-        # https://github.com/parthenon-hpc-lab/parthenon/pull/1413#issuecomment-5133137437
-        # we should re-enable this test when we can run on a different AMD CI machine
-          ENABLE_FFT: 'OFF' #${{ matrix.parallel == 'mpi' && 'ON' || 'OFF' }}
+          ENABLE_FFT: ${{ matrix.parallel == 'mpi' && 'ON' || 'OFF' }}
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
