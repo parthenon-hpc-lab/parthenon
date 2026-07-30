@@ -402,6 +402,8 @@ class StateDescriptor {
 
   std::vector<Uid_t> AddMeshDataSubset(Mesh *pmesh, const std::string &partial_name,
                                        const std::shared_ptr<MeshData<Real>> &base) {
+    PARTHENON_REQUIRE(ContainsMeshDataSubset(partial_name),
+                      "Package " + label() + " must contain a subset " + partial_name);
     auto full_name = GetMeshDataSubsetFullname(partial_name);
     return submeshdata_map_[partial_name].AddMDSubset(pmesh, full_name, base);
   }

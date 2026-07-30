@@ -34,8 +34,8 @@ class MeshDataDescriptor {
   std::vector<std::string> varnames;
   Metadata::FlagCollection flags;
   std::vector<int> sparse_ids;
-  std::string origin;
   bool shallow = false;
+  bool request_all = false;
 
   template <typename... Ts>
   void RegisterVariables() {
