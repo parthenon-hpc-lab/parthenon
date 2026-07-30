@@ -29,10 +29,10 @@
 
 #include "basic_types.hpp"
 #include "bvals/boundary_conditions.hpp"
+#include "interface/mesh_data_descriptor.hpp"
 #include "interface/metadata.hpp"
 #include "interface/params.hpp"
 #include "interface/sparse_pool.hpp"
-#include "interface/mesh_data_descriptor.hpp"
 #include "interface/var_id.hpp"
 #include "outputs/output_parameters.hpp"
 #include "pack/scratch_variables.hpp"
@@ -402,6 +402,8 @@ class StateDescriptor {
 
   std::vector<Uid_t> AddMeshData(Mesh *pmesh, const std::string &partial_name,
                                  const std::shared_ptr<MeshData<Real>> &base) {
+    PARTHENON_REQUIRE(ContainsMeshDataSubset(partial_name),
+                      "Package " + label() + " must contain a subset " + partial_name);
     auto full_name = GetMeshDataFullName(partial_name);
     return submeshdata_map_[partial_name].AddMeshData(pmesh, full_name, base);
   }

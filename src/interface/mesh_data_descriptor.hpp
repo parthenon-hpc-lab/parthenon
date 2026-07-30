@@ -36,6 +36,7 @@ class MeshDataDescriptor {
   std::vector<int> sparse_ids;
   std::string origin = "base";
   bool shallow = false;
+  bool request_all = false;
 
   template <typename... Ts>
   void RegisterVariables() {

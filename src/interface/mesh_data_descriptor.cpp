@@ -26,9 +26,23 @@
 
 namespace parthenon {
 std::shared_ptr<MeshData<Real>>
-MeshDataDescriptor::AddMeshData(Mesh *pmesh, const std::string &name, const std::shared_ptr<MeshData<Real>> &base) {
-  std::vector<std::string> resolved_vars =
-      pmesh->GetVariableNames(varnames, flags, sparse_ids);
+MeshDataDescriptor::AddMeshData(Mesh *pmesh, const std::string &name,
+                                const std::shared_ptr<MeshData<Real>> &base) {
+  std::vector<std::string> resolved_vars;
+  // An empty vector requests all vars, so we don't have to call
+  // GetVariableNames if all variables were requested. However, if
+  // request_all is not set, we assume that an empty vector was an
+  // error.
+  if (!request_all) {
+    resolved_vars = pmesh->GetVariableNames(varnames, flags, sparse_ids);
+    PARTHENON_REQUIRE(
+        resolved_vars.size() > 0,
+        "A requested mesh data object with name " + name +
+            " contains no variables. "
+            "This suggests (more than likely) that you reached this place in error. "
+            "If this was intentional because you want ALL variables in your meshdata, "
+            "set request_all=true in the MeshDataDescriptor.");
+  }
   std::shared_ptr<MeshData<Real>> md;
   if (shallow) {
     md = pmesh->mesh_data.AddShallow(name, base, resolved_vars);
@@ -42,14 +56,12 @@ MeshDataDescriptor::AddMeshData(Mesh *pmesh, const std::string &name, const std:
   }
   return md;
 }
-std::shared_ptr<MeshData<Real>>
-MeshDataDescriptor::AddMeshData(Mesh *pmesh, const std::string &name) {
+std::shared_ptr<MeshData<Real>> MeshDataDescriptor::AddMeshData(Mesh *pmesh,
+                                                                const std::string &name) {
   std::shared_ptr<MeshData<Real>> base = pmesh->mesh_data.Get(origin);
   return AddMeshData(pmesh, name, base);
 }
 
-std::shared_ptr<MeshData<Real>> GetMeshData(Mesh *pmesh, const std::string &name) {
-  
-}
+std::shared_ptr<MeshData<Real>> GetMeshData(Mesh *pmesh, const std::string &name) {}
 
 } // namespace parthenon
