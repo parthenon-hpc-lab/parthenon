@@ -64,6 +64,15 @@ list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/particle_leapfrog/
 --num_steps 1")
 list(APPEND EXTRA_TEST_LABELS "")
 
+# Fourier transform FFT round-trip accuracy test (only when HeFTe/FFT is enabled)
+if(PARTHENON_ENABLE_FFT)
+  list(APPEND TEST_DIRS fourier_transform)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/fourier_transform/fourier-transform \
+--driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/fourier_transform/parthinput.fourier_transform")
+  list(APPEND EXTRA_TEST_LABELS "")
+endif()
+
 if (ENABLE_HDF5)
 
   # h5py is needed for restart and hdf5 test

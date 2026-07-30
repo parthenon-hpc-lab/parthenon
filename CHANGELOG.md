@@ -5,6 +5,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1403]](https://github.com/parthenon-hpc-lab/parthenon/pull/1403) Add interface for Fourier transforms on uniform meshes via heFFTe
 - [[PR 1408]](https://github.com/parthenon-hpc-lab/parthenon/pull/1408) Add GetAsUnresolvedString() method to ParameterInput
 - [[PR 1050]](https://github.com/parthenon-hpc-lab/parthenon/pull/1050) Add support for OpenPMD/ADIOS2 output (incl slices and coarsened dumps)
 - [[PR 1271]](https://github.com/parthenon-hpc-lab/parthenon/pull/1271) Add option to set a minimum number of teams for boundary communication kernels
@@ -41,6 +42,7 @@
 - [[PR 1360]](https://github.com/parthenon-hpc-lab/parthenon/pull/1360) Fix boundary cache clearing in different MeshData partitions
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1414]](https://github.com/parthenon-hpc-lab/parthenon/pull/1414) Bump ROCM CI Container to rocm 7.2.4
 - [[PR 1397]](https://github.com/parthenon-hpc-lab/parthenon/pull/1397) Add Code of Conduct
 - [[PR 1385]](https://github.com/parthenon-hpc-lab/parthenon/pull/1385) Refactor ParameterInput: Separate parsing from storage to enable multiple input formats
 - [[PR 1383]](https://github.com/parthenon-hpc-lab/parthenon/pull/1382) Document agentic coding guidelines
