@@ -25,9 +25,8 @@
 #include "utils/utils.hpp"
 
 namespace parthenon {
-std::vector<Uid_t>
-MeshDataDescriptor::AddMeshData(Mesh *pmesh, const std::string &name,
-                                const std::shared_ptr<MeshData<Real>> &base) {
+std::shared_ptr<MeshData<Real>>
+MeshDataDescriptor::AddMeshData(Mesh *pmesh, const std::string &name, const std::shared_ptr<MeshData<Real>> &base) {
   std::vector<std::string> resolved_vars =
       pmesh->GetVariableNames(varnames, flags, sparse_ids);
   std::shared_ptr<MeshData<Real>> md;
@@ -41,6 +40,16 @@ MeshDataDescriptor::AddMeshData(Mesh *pmesh, const std::string &name,
     auto uids = UidIntersection(base.get(), md.get());
     uids_ = uids;
   }
-  return uids_;
+  return md;
 }
+std::shared_ptr<MeshData<Real>>
+MeshDataDescriptor::AddMeshData(Mesh *pmesh, const std::string &name) {
+  std::shared_ptr<MeshData<Real>> base = pmesh->mesh_data.Get(origin);
+  return AddMeshData(pmesh, name, base);
+}
+
+std::shared_ptr<MeshData<Real>> GetMeshData(Mesh *pmesh, const std::string &name) {
+  
+}
+
 } // namespace parthenon

@@ -34,7 +34,7 @@ class MeshDataDescriptor {
   std::vector<std::string> varnames;
   Metadata::FlagCollection flags;
   std::vector<int> sparse_ids;
-  std::string origin;
+  std::string origin = "base";
   bool shallow = false;
 
   template <typename... Ts>
@@ -58,8 +58,13 @@ class MeshDataDescriptor {
     RegisterVariables(std::forward<Args>(args)...);
   }
 
-  std::vector<Uid_t> AddMeshData(Mesh *pmesh, const std::string &name,
-                                 const std::shared_ptr<MeshData<Real>> &base);
+  std::shared_ptr<MeshData<Real>> AddMeshData(Mesh *pmesh, const std::string &name, const std::shared_ptr<MeshData<Real>> &base);
+  std::shared_ptr<MeshData<Real>>
+  MeshDataDescriptor::AddMeshData(Mesh *pmesh, const std::string &name);
+  std::shared_ptr<MeshData<Real>>
+  MeshDataDescriptor::AddMeshData(Mesh *pmesh, const std::string &name, const int i);
+  std::shared_ptr<MeshData<Real>> GetMeshData(Mesh *pmesh, const std::string &name);
+
   const auto &GetUids() const { return uids_; }
 
  private:
