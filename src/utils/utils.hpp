@@ -23,6 +23,7 @@
 #include <csignal>
 #include <cstdint>
 #include <cstdio>
+#include <set>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -36,6 +37,13 @@ namespace parthenon {
 
 void ChangeRunDir(const char *pdir);
 void ShowConfig();
+
+template <typename T, typename... Args>
+T SetUnion(const T &a, const Args &...args) {
+  std::set<typename T::value_type> s(a.begin(), a.end());
+  (s.insert(args.begin(), args.end()), ...);
+  return T(s.begin(), s.end());
+}
 
 // Lets us "printf" into a `std::string` safely. Much more readable
 // than, and just as safe as, streams. std::format (C++20) makes this

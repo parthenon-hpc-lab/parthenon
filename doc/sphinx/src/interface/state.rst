@@ -160,6 +160,107 @@ of the ``Packages_t`` object, it iterates over all entries in the
 to the ``Packages_t`` object for the overall application, allowing for a
 convenient way to define global parameters, for example.
 
+.. _state meshdata subsets:
+
+Package-defined ``MeshData`` subsets
+------------------------------------
+
+A package can prescribe a reusable ``MeshData`` containing only the fields needed
+for a particular operation.  This is useful, for example, when several source-term
+packages should operate on separate, package-specific collections of variables.  The
+package describes the selection once during initialization, and the driver can then
+materialize and partition the subset without duplicating the selection logic.
+
+The selection is represented by ``MeshDataDescriptor``.  Variables can be
+selected by explicit name, by metadata flags, and by sparse id.  These selection
+methods are additive: the result contains explicitly named variables as well as
+variables matching the flag collection.  When ``sparse_ids`` is nonempty, it limits
+the sparse variables selected by either method.  As with
+``StateDescriptor::GetVariableNames``, select a sparse pool by its base name rather
+than by the label of an individual sparse field.
+
+Use ``RegisterVariables`` to add explicit variable names.  It accepts a single
+string, multiple strings, or a ``std::vector<std::string>``:
+
+.. code:: cpp
+
+   source_requirements.RegisterVariables("density");
+   source_requirements.RegisterVariables("pressure", "velocity");
+   source_requirements.RegisterVariables(
+       std::vector<std::string>{"tracers", "energy"});
+
+Variable-name types can instead be supplied as template parameters or in a
+``TypeList``.  Each type must provide the static ``name()`` and ``regex()`` methods
+used by sparse-pack variable-name types, and ``regex()`` must return ``false``.
+Regular-expression variable types cannot prescribe a concrete ``MeshData`` subset:
+
+.. code:: cpp
+
+   source_requirements.RegisterVariables<Density, Pressure>();
+   source_requirements.RegisterVariables(
+       TypeList<Velocity, Tracers>{});
+
+Every overload appends to the existing list in the order supplied.  Names are not
+deduplicated during registration; duplicate resolution occurs later when Parthenon
+resolves the variables selected for the subset.
+
+For example, a package can register a subset in its ``Initialize`` function:
+
+.. code:: cpp
+
+   auto pkg = std::make_shared<StateDescriptor>("hydro");
+
+   MeshDataDescriptor source_requirements;
+   source_requirements.RegisterVariables("density", "pressure", "tracers");
+   source_requirements.flags =
+       Metadata::FlagCollection({Metadata::Derived});
+   source_requirements.sparse_ids = {1, 3};
+   source_requirements.shallow = true;
+
+   pkg->RegisterMeshDataSubset("source", source_requirements);
+
+The subset name is local to the package.  Parthenon gives the resulting
+``MeshData`` the globally unique name
+``md_subset::<package label>::<subset name>``.  Applications should use
+``GetMeshDataSubsetFullname`` when the full name is needed instead of constructing
+it directly.
+
+``shallow`` controls how the subset's ``MeshBlockData`` objects are created from
+the base data.  When it is ``true``, variables in the subset refer to the existing
+variable storage.  When it is ``false`` (the default), new storage is allocated for
+variables other than ``OneCopy`` variables, but values are not copied into that
+storage automatically.
+
+The standard ``EvolutionDriver`` materializes registered subsets from the ``base``
+``MeshData`` before each call to ``Step``.  The underlying data collection caches an
+existing subset, so repeated calls reuse it as long as its selected fields have not
+changed.  A task-building method can retrieve the subset for a particular mesh
+partition with
+
+.. code:: cpp
+
+   auto md_source =
+       pkg->GetOrAddMeshDataSubset(pmesh, "source", partition_index);
+   task_list.AddTask(dependency, ApplySources, md_source);
+
+``GetOrAddMeshDataSubset`` requires that the subset was registered by that package.
+It returns the requested partition of the package-scoped subset and can therefore be
+used anywhere a partitioned ``MeshData`` is expected.
+
+When a ``StateDescriptor`` is added to ``Packages_t``, Parthenon indexes it under
+each registered subset name.  ``AllPackagesWithSubMeshData(name)`` retrieves the
+packages prescribing one named category, while the no-argument overload retrieves
+all categories.  Consequently, all calls to ``RegisterMeshDataSubset`` must occur
+before the descriptor is added to ``Packages_t``.  This happens naturally when
+registration is performed in the package's ``Initialize`` function.
+
+Drivers that do not use ``EvolutionDriver::Execute`` do not receive its automatic
+materialization.  They must call ``StateDescriptor::AddMeshDataSubset`` for the
+registered packages before requesting partitions with
+``GetOrAddMeshDataSubset``.  After a subset is materialized, its
+``MeshDataDescriptor::GetUids`` method provides the cached unique IDs shared by
+the base and subset ``MeshData`` objects.
+
 .. _state history output:
 
 History output
