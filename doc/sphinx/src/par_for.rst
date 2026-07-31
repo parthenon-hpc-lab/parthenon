@@ -97,6 +97,20 @@ allocations inside the parallel region.
          // Use work(...) as temporary storage for this token.
        });
 
+You can also use the free-floating ``allocate_scratch_view``:
+
+.. code:: cpp
+
+   parthenon::TokenScratchPool<> pool(64 * 1024);
+
+   parthenon::par_for(
+       "token_scratch_example", 0, nblocks - 1, KOKKOS_LAMBDA(const int b) {
+         auto scratch = pool.acquire();
+         auto work = parthenon::allocate_scratch_view<double>(ni, nj);
+         // Use work(...) as temporary storage for this token.
+       });
+
+
 .. note::
 
   The view created by ``allocate_view<T>`` is unmanaged and thus

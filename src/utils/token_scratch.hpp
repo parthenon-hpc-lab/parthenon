@@ -132,6 +132,11 @@ class ScratchAllocator {
   std::size_t remaining() const { return capacity_ - offset_; }
 };
 
+template <typename T, class scratch_t, typename... Args>
+decltype(auto) allocate_scratch_view(scratch_t &scratch, Args &&...args) {
+  return scratch.template allocate_view<T>(std::forward<Args>(args)...);
+}
+
 //========================================================================================
 //! \class TokenScratchPool
 //! \brief Manages a pool of per-token scratch memory using Kokkos UniqueToken
