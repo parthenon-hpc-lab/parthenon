@@ -6,6 +6,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 1415]](https://github.com/parthenon-hpc-lab/parthenon/pull/1415) Add portable loop abstraction
+- [[PR 1413]](https://github.com/parthenon-hpc-lab/parthenon/pull/1413) Add support for per-package meshdata objects containing subsets of variables 
 - [[PR 1403]](https://github.com/parthenon-hpc-lab/parthenon/pull/1403) Add interface for Fourier transforms on uniform meshes via heFFTe
 - [[PR 1408]](https://github.com/parthenon-hpc-lab/parthenon/pull/1408) Add GetAsUnresolvedString() method to ParameterInput
 - [[PR 1050]](https://github.com/parthenon-hpc-lab/parthenon/pull/1050) Add support for OpenPMD/ADIOS2 output (incl slices and coarsened dumps)
