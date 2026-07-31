@@ -457,7 +457,7 @@ static void ParticleVariableRef(std::ofstream &xdmf, const std::string &varname,
   } else {
     const int rank = varinfo.tensor_rank;
     std::string extradims;
-    for (int i = 6; i >= 2; --i) {
+    for (int i = rank + 1; i >= 2; --i) {
       extradims += StringPrintf("%d ", varinfo.GetN(i));
     }
     for (int n6 = 0; n6 < varinfo.GetN(6); ++n6) {
@@ -466,11 +466,11 @@ static void ParticleVariableRef(std::ofstream &xdmf, const std::string &varname,
           for (int n3 = 0; n3 < varinfo.GetN(3); ++n3) {
             for (int n2 = 0; n2 < varinfo.GetN(2); ++n2) {
               std::string name = swmname + "/" + varname;
-              if (rank > 4) name += StringPrintf("_%03d", n6);
-              if (rank > 3) name += StringPrintf("_%03d", n5);
-              if (rank > 2) name += StringPrintf("_%03d", n4);
-              if (rank > 1) name += StringPrintf("_%03d", n3);
-              if (rank > 0) name += StringPrintf("_%03d", n2);
+              if (rank > 4) name += StringPrintf("_%d", n6);
+              if (rank > 3) name += StringPrintf("_%d", n5);
+              if (rank > 2) name += StringPrintf("_%d", n4);
+              if (rank > 1) name += StringPrintf("_%d", n3);
+              if (rank > 0) name += StringPrintf("_%d", n2);
               xdmf << StringPrintf(fmt, name.c_str(), "Scalar");
               if (rank > 0) {
                 std::string starts = "";
@@ -489,16 +489,16 @@ static void ParticleVariableRef(std::ofstream &xdmf, const std::string &varname,
                 xdmf << StringPrintf(
                     "        <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\">\n"
                     "          <DataItem Dimensions=\"3 %d\" Format=\"XML\">\n"
-                    "            %s1\n"
+                    "            %s0\n"
                     "            1%s\n"
                     "            %s%d\n"
-                    "          </DataItem>\n"
-                    "        </DataItem>\n",
+                    "          </DataItem>\n",
                     particle_count, rank + 1, starts.c_str(), strides.c_str(),
                     counts.c_str(), particle_count);
-                xdmf << ParticleDatasetRef("        ", swmname, varname, hdffile,
+                xdmf << ParticleDatasetRef("          ", swmname, varname, hdffile,
                                            varinfo.swtype, extradims.c_str(),
                                            particle_count);
+                xdmf << "        </DataItem>\n";
               } else {
                 xdmf << ParticleDatasetRef("        ", swmname, varname, hdffile,
                                            varinfo.swtype, "", particle_count);
