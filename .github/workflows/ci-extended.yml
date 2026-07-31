@@ -157,7 +157,9 @@ jobs:
 
       - name: Configure
         env:
-          ENABLE_FFT: ${{ matrix.parallel == 'mpi' && 'ON' || 'OFF' }}
+          # https://github.com/parthenon-hpc-lab/parthenon/pull/1413#issuecomment-5133137437
+          # we should re-enable this test when we can run on a different AMD CI machine
+          ENABLE_FFT: 'OFF' #${{ matrix.parallel == 'mpi' && 'ON' || 'OFF' }}
         run: |
           git config --global --add safe.directory $(pwd)
           # The extra CMAKE_PREFIX_PATH seems to be required for current rocm6.2 and 7.2, see

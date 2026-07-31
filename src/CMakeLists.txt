@@ -159,6 +159,8 @@ add_library(parthenon
   interface/sparse_pool.hpp
   interface/state_descriptor.hpp
   interface/state_descriptor.cpp
+  interface/mesh_data_descriptor.cpp
+  interface/mesh_data_descriptor.hpp
   interface/swarm.cpp
   interface/swarm.hpp
   interface/swarm_comms.cpp
