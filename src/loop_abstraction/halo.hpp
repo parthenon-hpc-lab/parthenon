@@ -91,6 +91,158 @@ struct minus_k_t {
   KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
 };
 
+//===================================================================
+//  Asymmetric halos – needed when plasma_viscosity is ON
+//===================================================================
+// The three structs below each contain 7 points:
+//
+//   1. identity               { 0, 0, 0 }
+//   2. the “‑2” offset in the sweep direction
+//   3. the “‑1” offsets in the two *transverse* directions
+//   4. the “+1” offsets in the three directions
+//
+// Parthenon’s `AddHalo` expects the points to be **lexicographically
+// sorted by (dk, dj, di)** (i.e. first by k‑offset, then by j‑offset, then
+// by i‑offset).  The ordering we use below follows that rule exactly,
+// so the static‑assert in `inner_range.hpp` will succeed.
+//
+// ------------------------------------------------------------------
+//  i‑sweep (DIR == X1DIR)
+// ------------------------------------------------------------------
+struct asym_i_t {
+    static constexpr int npoints = 7;   // identity + six neighbours
+
+    // --------------------------------------------------------------
+    // Offsets are listed in the order required by the contract:
+    //   (dk, dj, di) =  (-1,  0,  0)   // k‑1
+    //                ,  ( 0, -1,  0)   // j‑1
+    //                ,  ( 0,  0, -2)   // i‑2
+    //                ,  ( 0,  0,  0)   // identity
+    //                ,  ( 0,  0, +1)   // i + 1
+    //                ,  ( 0, +1,  0)   // j + 1
+    //                ,  ( +1, 0,  0)   // k + 1
+    // --------------------------------------------------------------
+    KOKKOS_INLINE_FUNCTION static constexpr int di(int n) {
+        return (n == 0) ?  0   // (0, 0,-1)
+             : (n == 1) ?  0   // (0,-1, 0)
+             : (n == 2) ? -2   // (-2,0, 0)
+             : (n == 3) ?  0   // (0, 0, 0) identity
+             : (n == 4) ? +1   // (+1,0, 0)
+             : (n == 5) ?  0   // (0,+1, 0)
+             :               0;  // (0, 0,+1)
+    }
+
+    KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) {
+        return (n == 0) ?  0   // (0, 0,-1)
+             : (n == 1) ? -1   // (0,-1, 0)
+             : (n == 2) ?  0   // (-2,0, 0)
+             : (n == 3) ?  0   // identity
+             : (n == 4) ?  0   // (+1,0, 0)
+             : (n == 5) ? +1   // (0,+1, 0)
+             :               0;  // (0, 0,+1)
+    }
+
+    KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) {
+        return (n == 0) ? -1   // (0, 0,-1)
+             : (n == 1) ?  0   // (0,-1, 0)
+             : (n == 2) ?  0   // (-2,0, 0)
+             : (n == 3) ?  0   // identity
+             : (n == 4) ?  0   // (+1,0, 0)
+             : (n == 5) ?  0   // (0,+1, 0)
+             :               +1; // (0, 0,+1)
+    }
+};
+
+// ------------------------------------------------------------------
+//  j‑sweep (DIR == X2DIR)
+// ------------------------------------------------------------------
+struct asym_j_t {
+    static constexpr int npoints = 7;
+
+    // Order required by the contract (dk, dj, di):
+    //   (0, 0,-1)   // k‑1
+    //   (0,-2, 0)   // j‑2
+    //   (-1,0, 0)   // i‑1
+    //   (0, 0, 0)   // identity
+    //   (1, 0, 0)   // i + 1
+    //   (0, 1, 0)   // j + 1
+    //   (0, 0, 1)   // k + 1
+    KOKKOS_INLINE_FUNCTION static constexpr int di(int n) {
+        return (n == 0) ?  0   // (0,0,-1)
+             : (n == 1) ?  0   // (0,-2,0)
+             : (n == 2) ? -1   // (-1,0,0)
+             : (n == 3) ?  0   // identity
+             : (n == 4) ? +1   // (1,0,0)
+             : (n == 5) ?  0   // (0,1,0)
+             :               0;  // (0,0,1)
+    }
+
+    KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) {
+        return (n == 0) ?  0   // (0,0,-1)
+             : (n == 1) ? -2   // (0,-2,0)
+             : (n == 2) ?  0   // (-1,0,0)
+             : (n == 3) ?  0   // identity
+             : (n == 4) ?  0   // (1,0,0)
+             : (n == 5) ? +1   // (0,1,0)
+             :               0;  // (0,0,1)
+    }
+
+    KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) {
+        return (n == 0) ? -1   // (0,0,-1)
+             : (n == 1) ?  0   // (0,-2,0)
+             : (n == 2) ?  0   // (-1,0,0)
+             : (n == 3) ?  0   // identity
+             : (n == 4) ?  0   // (1,0,0)
+             : (n == 5) ?  0   // (0,1,0)
+             :               +1; // (0,0,1)
+    }
+};
+
+// ------------------------------------------------------------------
+//  k‑sweep (DIR == X3DIR)
+// ------------------------------------------------------------------
+struct asym_k_t {
+    static constexpr int npoints = 7;
+
+    // Order required by the contract (dk, dj, di):
+    //   (-2,0, 0)   // k‑2
+    //   (0,-1, 0)   // j‑1
+    //   (0, 0,-1)   // i‑1
+    //   (0, 0, 0)   // identity
+    //   (1, 0, 0)   // i + 1
+    //   (0, 1, 0)   // j + 1
+    //   (0, 0, 1)   // k + 1
+    KOKKOS_INLINE_FUNCTION static constexpr int di(int n) {
+        return (n == 0) ?  0   // (-2,0,0)  → di = 0
+             : (n == 1) ?  0   // (0,-1,0)  → di = 0
+             : (n == 2) ? -1   // (0,0,-1)  → di = -1
+             : (n == 3) ?  0   // identity
+             : (n == 4) ? +1   // (1,0,0)   → di = +1
+             : (n == 5) ?  0   // (0,1,0)   → di = 0
+             :               0;  // (0,0,1)   → di = 0
+    }
+
+    KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) {
+        return (n == 0) ?  0   // (-2,0,0)
+             : (n == 1) ? -1   // (0,-1,0)
+             : (n == 2) ?  0   // (0,0,-1)
+             : (n == 3) ?  0   // identity
+             : (n == 4) ?  0   // (1,0,0)
+             : (n == 5) ? +1   // (0,1,0)
+             :               0;  // (0,0,1)
+    }
+
+    KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) {
+        return (n == 0) ? -2   // (-2,0,0)  → k‑2
+             : (n == 1) ?  0   // (0,-1,0)
+             : (n == 2) ?  0   // (0,0,-1)
+             : (n == 3) ?  0   // identity
+             : (n == 4) ?  0   // (1,0,0)
+             : (n == 5) ?  0   // (0,1,0)
+             :               +1; // (0,0,1)  → k + 1
+    }
+};
+
 } // namespace halo
 
 namespace impl {
