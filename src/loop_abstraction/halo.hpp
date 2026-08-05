@@ -91,157 +91,93 @@ struct minus_k_t {
   KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
 };
 
-//===================================================================
-//  Asymmetric halos – needed when plasma_viscosity is ON
-//===================================================================
-// The three structs below each contain 7 points:
+// ---------------------------------------------------------------------------
+//  Asymmetric halo definitions – needed when plasma‑viscosity is enabled
+// ---------------------------------------------------------------------------
+// Parthenon requires the halo points to be listed in strict lexicographic
+// order of (dk, dj, di) and to contain exactly one identity point (0,0,0).
+// The ordering below follows that rule:
 //
-//   1. identity               { 0, 0, 0 }
-//   2. the “‑2” offset in the sweep direction
-//   3. the “‑1” offsets in the two *transverse* directions
-//   4. the “+1” offsets in the three directions
+//   0 : ( dk = -1, dj =  0, di =  0 )   // lower‑k neighbour
+//   1 : ( dk =  0, dj = -1, di =  0 )   // lower‑j neighbour
+//   2 : ( dk =  0, dj =  0, di = -2 )   // two cells back in sweep direction
+//   3 : ( dk =  0, dj =  0, di =  0 )   // identity (the cell itself)
+//   4 : ( dk =  0, dj =  0, di = +1 )   // forward neighbour in sweep direction
+//   5 : ( dk =  0, dj = +1, di =  0 )   // upper‑j neighbour
+//   6 : ( dk = +1, dj =  0, di =  0 )   // upper‑k neighbour
 //
-// Parthenon’s `AddHalo` expects the points to be **lexicographically
-// sorted by (dk, dj, di)** (i.e. first by k‑offset, then by j‑offset, then
-// by i‑offset).  The ordering we use below follows that rule exactly,
-// so the static‑assert in `inner_range.hpp` will succeed.
-//
-// ------------------------------------------------------------------
-//  i‑sweep (DIR == X1DIR)
-// ------------------------------------------------------------------
-struct asym_i_t {
-    static constexpr int npoints = 7;   // identity + six neighbours
+// This layout works for any sweep direction (`i`, `j`, or `k`) by swapping
+// the roles of the three structs below.
 
-    // --------------------------------------------------------------
-    // Offsets are listed in the order required by the contract:
-    //   (dk, dj, di) =  (-1,  0,  0)   // k‑1
-    //                ,  ( 0, -1,  0)   // j‑1
-    //                ,  ( 0,  0, -2)   // i‑2
-    //                ,  ( 0,  0,  0)   // identity
-    //                ,  ( 0,  0, +1)   // i + 1
-    //                ,  ( 0, +1,  0)   // j + 1
-    //                ,  ( +1, 0,  0)   // k + 1
-    // --------------------------------------------------------------
-    KOKKOS_INLINE_FUNCTION static constexpr int di(int n) {
-        return (n == 0) ?  0   // (0, 0,-1)
-             : (n == 1) ?  0   // (0,-1, 0)
-             : (n == 2) ? -2   // (-2,0, 0)
-             : (n == 3) ?  0   // (0, 0, 0) identity
-             : (n == 4) ? +1   // (+1,0, 0)
-             : (n == 5) ?  0   // (0,+1, 0)
-             :               0;  // (0, 0,+1)
-    }
+struct asym_i_t {                     // Sweep direction = X‑axis (i)
+  static constexpr int npoints = 7;
 
-    KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) {
-        return (n == 0) ?  0   // (0, 0,-1)
-             : (n == 1) ? -1   // (0,-1, 0)
-             : (n == 2) ?  0   // (-2,0, 0)
-             : (n == 3) ?  0   // identity
-             : (n == 4) ?  0   // (+1,0, 0)
-             : (n == 5) ? +1   // (0,+1, 0)
-             :               0;  // (0, 0,+1)
-    }
+  // Return the offset in the i‑direction for point “n”
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int n) {
+    return (n == 2) ? -2   // two cells back in i
+         : (n == 4) ?  1   // forward cell in i
+         :                0; // all other points have di = 0
+  }
 
-    KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) {
-        return (n == 0) ? -1   // (0, 0,-1)
-             : (n == 1) ?  0   // (0,-1, 0)
-             : (n == 2) ?  0   // (-2,0, 0)
-             : (n == 3) ?  0   // identity
-             : (n == 4) ?  0   // (+1,0, 0)
-             : (n == 5) ?  0   // (0,+1, 0)
-             :               +1; // (0, 0,+1)
-    }
+  // Return the offset in the j‑direction for point “n”
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) {
+    return (n == 1) ? -1   // lower‑j neighbour
+         : (n == 5) ?  1   // upper‑j neighbour
+         :                0; // all other points have dj = 0
+  }
+
+  // Return the offset in the k‑direction for point “n”
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) {
+    return (n == 0) ? -1   // lower‑k neighbour
+         : (n == 6) ?  1   // upper‑k neighbour
+         :                0; // all other points have dk = 0
+  }
 };
 
-// ------------------------------------------------------------------
-//  j‑sweep (DIR == X2DIR)
-// ------------------------------------------------------------------
-struct asym_j_t {
-    static constexpr int npoints = 7;
+struct asym_j_t {                     // Sweep direction = Y‑axis (j)
+  static constexpr int npoints = 7;
 
-    // Order required by the contract (dk, dj, di):
-    //   (0, 0,-1)   // k‑1
-    //   (0,-2, 0)   // j‑2
-    //   (-1,0, 0)   // i‑1
-    //   (0, 0, 0)   // identity
-    //   (1, 0, 0)   // i + 1
-    //   (0, 1, 0)   // j + 1
-    //   (0, 0, 1)   // k + 1
-    KOKKOS_INLINE_FUNCTION static constexpr int di(int n) {
-        return (n == 0) ?  0   // (0,0,-1)
-             : (n == 1) ?  0   // (0,-2,0)
-             : (n == 2) ? -1   // (-1,0,0)
-             : (n == 3) ?  0   // identity
-             : (n == 4) ? +1   // (1,0,0)
-             : (n == 5) ?  0   // (0,1,0)
-             :               0;  // (0,0,1)
-    }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int n) {
+    return (n == 1) ? -1   // lower‑i neighbour
+         : (n == 5) ?  1   // upper‑i neighbour
+         :                0;
+  }
 
-    KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) {
-        return (n == 0) ?  0   // (0,0,-1)
-             : (n == 1) ? -2   // (0,-2,0)
-             : (n == 2) ?  0   // (-1,0,0)
-             : (n == 3) ?  0   // identity
-             : (n == 4) ?  0   // (1,0,0)
-             : (n == 5) ? +1   // (0,1,0)
-             :               0;  // (0,0,1)
-    }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) {
+    return (n == 2) ? -2   // two cells back in j
+         : (n == 4) ?  1   // forward cell in j
+         :                0;
+  }
 
-    KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) {
-        return (n == 0) ? -1   // (0,0,-1)
-             : (n == 1) ?  0   // (0,-2,0)
-             : (n == 2) ?  0   // (-1,0,0)
-             : (n == 3) ?  0   // identity
-             : (n == 4) ?  0   // (1,0,0)
-             : (n == 5) ?  0   // (0,1,0)
-             :               +1; // (0,0,1)
-    }
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) {
+    return (n == 0) ? -1   // lower‑k neighbour
+         : (n == 6) ?  1   // upper‑k neighbour
+         :                0;
+  }
 };
 
-// ------------------------------------------------------------------
-//  k‑sweep (DIR == X3DIR)
-// ------------------------------------------------------------------
-struct asym_k_t {
-    static constexpr int npoints = 7;
+struct asym_k_t {                     // Sweep direction = Z‑axis (k)
+  static constexpr int npoints = 7;
 
-    // Order required by the contract (dk, dj, di):
-    //   (-2,0, 0)   // k‑2
-    //   (0,-1, 0)   // j‑1
-    //   (0, 0,-1)   // i‑1
-    //   (0, 0, 0)   // identity
-    //   (1, 0, 0)   // i + 1
-    //   (0, 1, 0)   // j + 1
-    //   (0, 0, 1)   // k + 1
-    KOKKOS_INLINE_FUNCTION static constexpr int di(int n) {
-        return (n == 0) ?  0   // (-2,0,0)  → di = 0
-             : (n == 1) ?  0   // (0,-1,0)  → di = 0
-             : (n == 2) ? -1   // (0,0,-1)  → di = -1
-             : (n == 3) ?  0   // identity
-             : (n == 4) ? +1   // (1,0,0)   → di = +1
-             : (n == 5) ?  0   // (0,1,0)   → di = 0
-             :               0;  // (0,0,1)   → di = 0
-    }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int n) {
+    return (n == 1) ? -1   // lower‑i neighbour
+         : (n == 5) ?  1   // upper‑i neighbour
+         :                0;
+  }
 
-    KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) {
-        return (n == 0) ?  0   // (-2,0,0)
-             : (n == 1) ? -1   // (0,-1,0)
-             : (n == 2) ?  0   // (0,0,-1)
-             : (n == 3) ?  0   // identity
-             : (n == 4) ?  0   // (1,0,0)
-             : (n == 5) ? +1   // (0,1,0)
-             :               0;  // (0,0,1)
-    }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) {
+    return (n == 0) ? -1   // lower‑j neighbour
+         : (n == 6) ?  1   // upper‑j neighbour
+         :                0;
+  }
 
-    KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) {
-        return (n == 0) ? -2   // (-2,0,0)  → k‑2
-             : (n == 1) ?  0   // (0,-1,0)
-             : (n == 2) ?  0   // (0,0,-1)
-             : (n == 3) ?  0   // identity
-             : (n == 4) ?  0   // (1,0,0)
-             : (n == 5) ?  0   // (0,1,0)
-             :               +1; // (0,0,1)  → k + 1
-    }
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) {
+    return (n == 2) ? -2   // two cells back in k
+         : (n == 4) ?  1   // forward cell in k
+         :                0;
+  }
 };
+
 
 } // namespace halo
 
