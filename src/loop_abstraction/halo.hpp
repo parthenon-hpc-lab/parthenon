@@ -136,7 +136,81 @@ constexpr bool HaloSatisfiesContract() {
   return HaloHasUniqueIdentity<Halo>() && HaloOffsetsAreStrictlySorted<Halo>();
 }
 
+// Projection-closure check for reduced-dimension (2D/1D) runs.
+//
+// In a run where some direction is degenerate (extent 1), a halo offset with a
+// nonzero component in that direction names a shifted copy of the inner range that
+// does not exist. The reduced-dimension policy is DROP: keep only offsets whose
+// components in every inactive direction are zero. DROP is a cheap special case of
+// the semantically correct operation PROJECT (zero the inactive components of every
+// offset). DROP == PROJECT exactly when the halo is closed under projection onto the
+// active directions -- i.e. every offset's projection is itself a declared offset.
+//
+// This holds for every physical stencil we expect (dense corner boxes, single-
+// direction extensions, standard 3/5/7-point stencils). It fails only for sparse
+// L-shaped / pure-diagonal halos, whose fix is to add the missing projection point
+// (filling an unused scratch cell has no side effects). We enforce closure at compile
+// time; PROJECT is a deliberately deferred extension.
+//
+// ndim follows the Parthenon convention: i is active for ndim >= 1, j for ndim >= 2,
+// k for ndim >= 3.
+template <class Halo>
+constexpr bool HaloProjectionClosedForNdim(int ndim) {
+  for (int n = 0; n < Halo::npoints; ++n) {
+    const int pk = (ndim > 2) ? Halo::dk(n) : 0;
+    const int pj = (ndim > 1) ? Halo::dj(n) : 0;
+    const int pi = (ndim > 0) ? Halo::di(n) : 0;
+    bool found = false;
+    for (int m = 0; m < Halo::npoints; ++m) {
+      if (Halo::dk(m) == pk && Halo::dj(m) == pj && Halo::di(m) == pi) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) return false;
+  }
+  return true;
+}
+
+// Check the only degenerations Parthenon can produce: 2D (k inactive) and 1D
+// (k and j inactive). A halo closed under both is safe in every run, independent of
+// the runtime dimensionality, so the check is fully compile-time.
+template <class Halo>
+constexpr bool HaloIsProjectionClosed() {
+  return HaloProjectionClosedForNdim<Halo>(2) && HaloProjectionClosedForNdim<Halo>(1);
+}
+
 } // namespace impl
+
+// The contiguous run [begin, end) of halo offsets kept in a reduced-dimension run.
+// Offsets are sorted lexicographically by (dk, dj, di); the inactive directions are
+// always the most-significant sort keys (k, then j), so the DROP-kept set -- offsets
+// with zero component in every inactive direction -- is a single contiguous run. The
+// identity {0,0,0} is always kept. Because a sub-range of a sorted array is still
+// sorted, the merge in BuildRegionsFromEndpoints stays valid when seeded from begin.
+//
+// ndim follows the Parthenon convention: i active for ndim >= 1, j for ndim >= 2,
+// k for ndim >= 3.
+struct HaloRange {
+  int begin;
+  int end;
+};
+
+template <class Halo>
+KOKKOS_INLINE_FUNCTION constexpr HaloRange HaloReducedRange(int ndim) {
+  int begin = Halo::npoints;
+  int end = 0;
+  for (int n = 0; n < Halo::npoints; ++n) {
+    const bool keep = (ndim > 2 || Halo::dk(n) == 0) && (ndim > 1 || Halo::dj(n) == 0) &&
+                      (ndim > 0 || Halo::di(n) == 0);
+    if (keep) {
+      if (n < begin) begin = n;
+      end = n + 1;
+    }
+  }
+  if (begin > end) begin = end; // the identity always survives, so end > begin
+  return {begin, end};
+}
 
 // Compile-time bounding box of a halo's offsets: the per-dimension min/max shift and
 // the resulting extents. Used by the per-point scratch storage to size a dense local
@@ -185,10 +259,15 @@ struct HaloBox {
   static constexpr int size = nk * nj * ni;
 };
 
+// Extend a base indexer's bounds to cover every shifted copy the halo names, using
+// only the offsets kept in a reduced-dimension run (the [begin, end) run). Offsets
+// dropped in a degenerate direction never extend that direction, so the extended
+// indexer stays inside the real logical space.
 template <class Halo>
-KOKKOS_INLINE_FUNCTION auto AddHaloToIndexer(const parthenon::Indexer3D &idxer) {
+KOKKOS_INLINE_FUNCTION auto AddHaloToIndexer(const parthenon::Indexer3D &idxer,
+                                             HaloRange range) {
   std::array<int, 3> extend_low{0, 0, 0}, extend_up{0, 0, 0};
-  for (int p = 0; p < Halo::npoints; ++p) {
+  for (int p = range.begin; p < range.end; ++p) {
     extend_low[0] = std::max(extend_low[0], -Halo::dk(p));
     extend_low[1] = std::max(extend_low[1], -Halo::dj(p));
     extend_low[2] = std::max(extend_low[2], -Halo::di(p));

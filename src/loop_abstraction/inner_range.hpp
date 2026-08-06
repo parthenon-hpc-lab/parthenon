@@ -108,7 +108,14 @@ class InnerIndexRange {
   KOKKOS_INLINE_FUNCTION InnerIndexRange<IndexSpaceType, Halo_in> AddHalo() const {
     static_assert(std::is_same_v<Halo, halo::none_t>,
                   "Halo composition is currently not supported.");
-    parthenon::Indexer3D halo_kji = AddHaloToIndexer<Halo_in>(logical_kji);
+    static_assert(impl::HaloIsProjectionClosed<Halo_in>(),
+                  "Halo is not closed under projection onto the active dimensions. In a "
+                  "reduced-dimension (2D/1D) run, offsets pointing into a degenerate "
+                  "direction are dropped; this is only correct when every offset's "
+                  "projection is itself a declared offset. Add the missing projection "
+                  "point(s) to the halo (filling an unused scratch cell is a no-op).");
+    const HaloRange hrange = HaloReducedRange<Halo_in>(pidx_space->GetNdim());
+    parthenon::Indexer3D halo_kji = AddHaloToIndexer<Halo_in>(logical_kji, hrange);
     const auto [ke, je, ie] = GetKJIFromFlatIdx(flat_end[0]);
     return InnerIndexRange<IndexSpaceType, Halo_in>(
         *pidx_space, halo_kji, block, {ks, js, is}, {ke, je, ie}, team_member);
@@ -117,19 +124,27 @@ class InnerIndexRange {
   KOKKOS_INLINE_FUNCTION void BuildRegionsFromEndpoints(const Index3 start,
                                                         const Index3 end) {
     const auto &memory = pidx_space->GetMemoryIndexer();
-    flat_start[0] = GetFlatIdxFromKJI(start.k + Halo::dk(0), start.j + Halo::dj(0),
-                                      start.i + Halo::di(0));
-    flat_end[0] =
-        GetFlatIdxFromKJI(end.k + Halo::dk(0), end.j + Halo::dj(0), end.i + Halo::di(0));
+    // In a reduced-dimension run, keep only the contiguous [begin, end) run of halo
+    // offsets that do not point into a degenerate direction (see HaloReducedRange).
+    // The run is still sorted, so the single-pass merge below stays valid.
+    const HaloRange hrange = HaloReducedRange<Halo>(pidx_space->GetNdim());
+    const int hbegin = hrange.begin;
+    flat_start[0] =
+        GetFlatIdxFromKJI(start.k + Halo::dk(hbegin), start.j + Halo::dj(hbegin),
+                          start.i + Halo::di(hbegin));
+    flat_end[0] = GetFlatIdxFromKJI(end.k + Halo::dk(hbegin), end.j + Halo::dj(hbegin),
+                                    end.i + Halo::di(hbegin));
     const int memory_base = memory.GetFlatIdx(start.k, start.j, start.i);
-    scratch_flat_start = memory.GetFlatIdx(start.k + Halo::dk(0), start.j + Halo::dj(0),
-                                           start.i + Halo::di(0));
+    scratch_flat_start =
+        memory.GetFlatIdx(start.k + Halo::dk(hbegin), start.j + Halo::dj(hbegin),
+                          start.i + Halo::di(hbegin));
     int scratch_flat_end =
-        memory.GetFlatIdx(end.k + Halo::dk(0), end.j + Halo::dj(0), end.i + Halo::di(0));
+        memory.GetFlatIdx(end.k + Halo::dk(hbegin), end.j + Halo::dj(hbegin),
+                          end.i + Halo::di(hbegin));
     nregions = 1;
     // Create possibly disjoint ranges, this algorithm relies on the start and end points
     // of the ranges being sorted by flat start
-    for (int n = 1; n < Halo::npoints; ++n) {
+    for (int n = hbegin + 1; n < hrange.end; ++n) {
       const int fstart = GetFlatIdxFromKJI(start.k + Halo::dk(n), start.j + Halo::dj(n),
                                            start.i + Halo::di(n));
       const int fend = GetFlatIdxFromKJI(end.k + Halo::dk(n), end.j + Halo::dj(n),
@@ -273,6 +288,12 @@ class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>, Halo> {
       AddHalo() const {
     static_assert(std::is_same_v<Halo, halo::none_t>,
                   "Halo composition is currently not supported.");
+    static_assert(impl::HaloIsProjectionClosed<Halo_in>(),
+                  "Halo is not closed under projection onto the active dimensions. In a "
+                  "reduced-dimension (2D/1D) run, offsets pointing into a degenerate "
+                  "direction are dropped; this is only correct when every offset's "
+                  "projection is itself a declared offset. Add the missing projection "
+                  "point(s) to the halo (filling an unused scratch cell is a no-op).");
     InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>, Halo_in> out;
     out.pidx_space = pidx_space;
     out.block = block;
@@ -296,7 +317,10 @@ class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>, Halo> {
   }
 
   KOKKOS_INLINE_FUNCTION
-  int size() const { return halo_t::npoints; }
+  int size() const {
+    const HaloRange r = HaloReducedRange<halo_t>(pidx_space->GetNdim());
+    return r.end - r.begin;
+  }
 
   KOKKOS_FORCEINLINE_FUNCTION
   void TeamBarrier() const {}

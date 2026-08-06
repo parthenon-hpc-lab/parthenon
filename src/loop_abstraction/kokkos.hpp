@@ -104,9 +104,12 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
   const auto &idx_space = *(idx_range.pidx_space);
   if constexpr (IndexSpaceType::loop_tag_v == loop_tag::boiv) {
     using halo_t = typename InnerIndexRangeType::halo_t;
+    // In a reduced-dimension run, visit only the [begin, end) run of halo offsets that
+    // do not point into a degenerate direction (see HaloReducedRange).
+    const HaloRange hrange = HaloReducedRange<halo_t>(idx_space.GetNdim());
     if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_flat) {
       if constexpr (std::is_invocable_v<F, int, int, int>) {
-        for (int n = 0; n < halo_t::npoints; ++n)
+        for (int n = hrange.begin; n < hrange.end; ++n)
           f(idx_range.ks + halo_t::dk(n), idx_range.js + halo_t::dj(n),
             idx_range.is + halo_t::di(n));
       } else {
@@ -114,17 +117,17 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
                       "boiv/logical_flat inner loops require auto or MemoryOffset "
                       "single-argument bodies; explicit int bodies lose halo "
                       "offset coordinates.");
-        for (int n = 0; n < halo_t::npoints; ++n) {
+        for (int n = hrange.begin; n < hrange.end; ++n) {
           f(idx_space.GetMemoryOffsetIndex(halo_t::dk(n), halo_t::dj(n), halo_t::di(n)));
         }
       }
     } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
       if constexpr (std::is_invocable_v<F, int, int, int>) {
-        for (int n = 0; n < halo_t::npoints; ++n)
+        for (int n = hrange.begin; n < hrange.end; ++n)
           f(idx_range.ks + halo_t::dk(n), idx_range.js + halo_t::dj(n),
             idx_range.is + halo_t::di(n));
       } else {
-        for (int n = 0; n < halo_t::npoints; ++n)
+        for (int n = hrange.begin; n < hrange.end; ++n)
           f(Index3{idx_range.ks + halo_t::dk(n), idx_range.js + halo_t::dj(n),
                    idx_range.is + halo_t::di(n)});
       }

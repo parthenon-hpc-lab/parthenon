@@ -144,6 +144,13 @@ class IndexSpace {
     }
   }
 
+  // Simple extent-based constructor used by unit tests. Every direction is padded
+  // with ghosts unconditionally, so this always describes a full-dimensional block:
+  // an extent of 1 denotes a thin *active* direction (with ghosts), not a symmetry
+  // direction. There is deliberately no way to spell a degenerate direction here --
+  // an extent alone cannot distinguish "thin active" from "symmetry" (real Parthenon
+  // disambiguates via mesh->ndim / a zero interior extent). Tests that need a genuine
+  // reduced-dimension layout must use the md-based constructor below.
   IndexSpace(int nblocks, int nx, int ny, int nz, int nghost,
              std::optional<NInner> ninner = std::nullopt)
       : nblocks(nblocks), ninner(ninner.value_or(NInner(chunk_shape::ij_slab))) {
@@ -200,6 +207,25 @@ class IndexSpace {
 
   KOKKOS_INLINE_FUNCTION const parthenon::Indexer3D &GetMemoryIndexer() const {
     return memory_kji;
+  }
+
+  // Number of active (non-degenerate) directions, derived from the *memory* extents:
+  // i active if ni > 1, j if nj > 1, k if nk > 1. Follows the Parthenon convention
+  // that degenerate directions are the higher ones (k, then j). The memory extent is
+  // the correct criterion -- a direction is active iff there is a cell to shift into --
+  // and it is consistent with GetDelta, which halo consumers pair with (GetDelta keys
+  // off the same memory extents). A genuinely thin but active direction (interior
+  // extent 1 with ghosts) has memory extent > 1 and is correctly counted as active,
+  // whereas a true symmetry direction has memory extent 1 (no ghosts). Used by AddHalo
+  // to drop halo offsets pointing into degenerate directions.
+  KOKKOS_INLINE_FUNCTION int GetNdim() const {
+    const int nk =
+        memory_kji.template EndIdx<0>() - memory_kji.template StartIdx<0>() + 1;
+    const int nj =
+        memory_kji.template EndIdx<1>() - memory_kji.template StartIdx<1>() + 1;
+    const int ni =
+        memory_kji.template EndIdx<2>() - memory_kji.template StartIdx<2>() + 1;
+    return (ni > 1) + (nj > 1) + (nk > 1);
   }
 
   KOKKOS_INLINE_FUNCTION int GetNBlocks() const { return nblocks; }

@@ -368,11 +368,15 @@ struct minus_j_halo_t {
   KOKKOS_INLINE_FUNCTION static constexpr int di(int) { return 0; }
 };
 
+// Offsets {(-1,0,2), (0,0,0), (0,0,2)}, sorted lexicographically. The (0,0,2) point is
+// the projection of (-1,0,2) onto the i-j plane; including it makes the halo closed
+// under projection so it is valid in a reduced-dimension run as well as in 3D. In 3D
+// (where this halo is exercised) the (0,0,2) copy is simply an extra produced cell.
 struct plus_two_i_minus_k_halo_t {
-  static constexpr int npoints = 2;
+  static constexpr int npoints = 3;
   KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) { return n == 0 ? -1 : 0; }
   KOKKOS_INLINE_FUNCTION static constexpr int dj(int) { return 0; }
-  KOKKOS_INLINE_FUNCTION static constexpr int di(int n) { return n == 0 ? 2 : 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int n) { return n == 1 ? 0 : 2; }
 };
 
 struct k_triplet_halo_t {
@@ -416,6 +420,50 @@ static_assert(!loop_abstraction::impl::HaloSatisfiesContract<unsorted_halo_t>())
 static_assert(
     !loop_abstraction::impl::HaloSatisfiesContract<duplicate_identity_halo_t>());
 static_assert(!loop_abstraction::impl::HaloSatisfiesContract<missing_identity_halo_t>());
+
+// A halo with a bare diagonal / off-axis offset whose projection onto a degenerate
+// direction is not itself a declared offset. minus_i is in the i-j plane but its k
+// component is zero, so it is projection-closed; this one has a nonzero k that, when
+// projected out in 2D, lands on (0,0,-1) which is absent -> not closed.
+struct not_projection_closed_halo_t {
+  static constexpr int npoints = 2;
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) { return n == 0 ? -1 : 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int) { return 0; }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int n) { return n == 0 ? -1 : 0; }
+};
+
+// Projection-closure: identity-only and in-plane/on-axis halos are closed under every
+// degeneration; k_triplet is closed because both non-identity k-offsets project to the
+// identity; plus_two_i_minus_k is closed by construction (it includes (0,0,2)); the
+// bare-diagonal halo above is not.
+static_assert(loop_abstraction::impl::HaloIsProjectionClosed<loop_abstraction::halo::none_t>());
+static_assert(loop_abstraction::impl::HaloIsProjectionClosed<plus_j_halo_t>());
+static_assert(loop_abstraction::impl::HaloIsProjectionClosed<minus_i_halo_t>());
+static_assert(loop_abstraction::impl::HaloIsProjectionClosed<k_triplet_halo_t>());
+static_assert(loop_abstraction::impl::HaloIsProjectionClosed<plus_two_i_minus_k_halo_t>());
+static_assert(
+    !loop_abstraction::impl::HaloIsProjectionClosed<not_projection_closed_halo_t>());
+
+// HaloReducedRange picks the contiguous [begin, end) run of offsets that survive in a
+// reduced-dimension run. ndim follows the Parthenon convention (i active for ndim>=1,
+// j for >=2, k for >=3). Verified at compile time so the drop logic is pinned down
+// independent of any mesh construction.
+//
+// plus_j = {(0,0,0),(0,1,0)}: kept whole in 3D/2D, +j dropped in 1D (only identity).
+static_assert(loop_abstraction::HaloReducedRange<plus_j_halo_t>(3).begin == 0 &&
+              loop_abstraction::HaloReducedRange<plus_j_halo_t>(3).end == 2);
+static_assert(loop_abstraction::HaloReducedRange<plus_j_halo_t>(2).begin == 0 &&
+              loop_abstraction::HaloReducedRange<plus_j_halo_t>(2).end == 2);
+static_assert(loop_abstraction::HaloReducedRange<plus_j_halo_t>(1).begin == 0 &&
+              loop_abstraction::HaloReducedRange<plus_j_halo_t>(1).end == 1);
+// k_triplet = {(-1,0,0),(0,0,0),(1,0,0)}: whole in 3D; in 2D only the identity (the
+// middle offset) survives -> the contiguous run [1,2).
+static_assert(loop_abstraction::HaloReducedRange<k_triplet_halo_t>(3).begin == 0 &&
+              loop_abstraction::HaloReducedRange<k_triplet_halo_t>(3).end == 3);
+static_assert(loop_abstraction::HaloReducedRange<k_triplet_halo_t>(2).begin == 1 &&
+              loop_abstraction::HaloReducedRange<k_triplet_halo_t>(2).end == 2);
+static_assert(loop_abstraction::HaloReducedRange<k_triplet_halo_t>(1).begin == 1 &&
+              loop_abstraction::HaloReducedRange<k_triplet_halo_t>(1).end == 2);
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG,
           loop_backend BACKEND = default_loop_backend_v>
@@ -498,11 +546,15 @@ void RunPatternMatrix(const char *body_name, const bool kji_body) {
 }
 
 // Is (k,j,i) in the halo-extended logical set S_halo = S ∪ shift(S, h) for all
-// halo offsets h?
+// halo offsets h? Only offsets kept in a reduced-dimension run count (those pointing
+// into a degenerate direction are dropped by the abstraction), so this iterates the
+// same [begin, end) run the production code uses.
 template <class HaloType, class IndexSpaceType>
 bool InHaloLogicalSet(const IndexSpaceType &idx_space, const int k, const int j,
                       const int i) {
-  for (int n = 0; n < HaloType::npoints; ++n) {
+  const auto hrange =
+      loop_abstraction::HaloReducedRange<HaloType>(idx_space.GetNdim());
+  for (int n = hrange.begin; n < hrange.end; ++n) {
     // (k,j,i) is a shifted image of a logical cell p under offset h_n iff
     // p = (k,j,i) - h_n is itself a logical cell.
     if (IsLogicalCell(idx_space, k - HaloType::dk(n), j - HaloType::dj(n),
@@ -1115,7 +1167,12 @@ void RunScratchRoundtripCase(const ProblemSpec &spec, const int ninner) {
               return;
             }
           }
-          for (int n = 0; n < HaloType::npoints; ++n) {
+          // Only offsets kept in a reduced-dimension run are produced (those pointing
+          // into a degenerate direction are dropped), so verify over the same
+          // [begin, end) run the abstraction uses.
+          const auto hrange =
+              loop_abstraction::HaloReducedRange<HaloType>(idx_space.GetNdim());
+          for (int n = hrange.begin; n < hrange.end; ++n) {
             const int kk = k + HaloType::dk(n);
             const int jj = j + HaloType::dj(n);
             const int ii = i + HaloType::di(n);
@@ -1457,6 +1514,77 @@ TEST_CASE("loop abstraction halo producer single touch",
   RunHaloProducerSingleTouchPatternMatrix<k_triplet_halo_t, loop_tag::bvoi,
                                           inner_tag::memory>(spec, ninner_cases);
 }
+
+// Genuine reduced-dimension regression, built through the md-based IndexSpace
+// constructor (the only faithful way to get a real degenerate direction: a 2D mesh
+// gives the k direction a memory extent of 1 and no ghosts, and sets mesh->ndim = 2).
+// A k-directed halo (k_triplet) must collapse to just its identity offset so the
+// producer touches every logical cell exactly once and never reads a nonexistent
+// k-plane. Uses the bvoi/logical single-touch contract (see RunHaloProducerSingleTouch
+// rationale). Also the only coverage of the md-based constructor itself.
+template <class HaloType, inner_tag INNER_TAG>
+void RunHalo2DMeshSingleTouchCase(int nblocks, int nside, int nghost) {
+  ScopedNghost guard;
+  parthenon::Globals::nghost = nghost;
+
+  const std::vector<int> scalar_shape{nside + 2 * nghost, nside + 2 * nghost, 1};
+  Metadata m({Metadata::Independent}, scalar_shape);
+  auto pkg = std::make_shared<StateDescriptor>("Halo2D package");
+  pkg->AddField<v1>(m);
+
+  BlockList_t block_list = MakeBlockList(pkg, nblocks, nside, /*NDIM=*/2);
+  MeshData<Real> mesh_data("base");
+  mesh_data.Initialize(block_list, nullptr);
+
+  using IndexSpaceType = IndexSpace<loop_tag::bvoi, INNER_TAG>;
+  IndexSpaceType idx_space(loop_abstraction::NInner(loop_abstraction::chunk_shape::ij_slab),
+                           IndexDomain::interior, /*halo=*/0, nblocks, &mesh_data,
+                           TopologicalElement::CC);
+  REQUIRE(idx_space.GetNdim() == 2);
+
+  auto touches = MakeOutput(idx_space);
+  ZeroView(touches);
+
+  loop_abstraction::outer(
+      idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
+        const auto halo_range = loop_abstraction::AddHalo<HaloType>(idx_range);
+        loop_abstraction::inner(halo_range, [&](auto idx) {
+          const auto [k, j, i] = halo_range.GetKJI(idx);
+          touches(b, 0, k, j, i) += 1.0;
+        });
+      });
+
+  Kokkos::fence();
+  const auto host = MirrorToHost(touches);
+
+  const auto &memory = idx_space.GetMemoryIndexer();
+  for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
+    for (int k = memory.template StartIdx<0>(); k <= memory.template EndIdx<0>(); ++k) {
+      for (int j = memory.template StartIdx<1>(); j <= memory.template EndIdx<1>(); ++j) {
+        for (int i = memory.template StartIdx<2>(); i <= memory.template EndIdx<2>();
+             ++i) {
+          INFO("b=" << b << ", k=" << k << ", j=" << j << ", i=" << i);
+          const bool in_set = InHaloLogicalSet<HaloType>(idx_space, k, j, i);
+          if (in_set) {
+            REQUIRE(host(b, 0, k, j, i) == Approx(1.0));
+          } else if constexpr (!UsesMemorySpan<INNER_TAG>()) {
+            REQUIRE(host(b, 0, k, j, i) == Approx(0.0));
+          }
+        }
+      }
+    }
+  }
+}
+
+TEST_CASE("loop abstraction halo 2D mesh k-halo single touch",
+          "[loop_abstraction][contract][halo]") {
+  RunHalo2DMeshSingleTouchCase<k_triplet_halo_t, inner_tag::logical_flat>(2, 3, 2);
+  RunHalo2DMeshSingleTouchCase<k_triplet_halo_t, inner_tag::logical_coords>(2, 3, 2);
+  RunHalo2DMeshSingleTouchCase<k_triplet_halo_t, inner_tag::memory>(2, 3, 2);
+  // An in-plane halo is unaffected by the k degeneration: it is kept whole.
+  RunHalo2DMeshSingleTouchCase<plus_j_halo_t, inner_tag::logical_flat>(2, 3, 2);
+}
+
 
 TEST_CASE("loop abstraction pack view contracts",
           "[loop_abstraction][contract][pack_view]") {
