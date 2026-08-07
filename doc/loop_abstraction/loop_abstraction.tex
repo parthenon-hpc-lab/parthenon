@@ -445,9 +445,10 @@ The named pieces, each the subject of a subsection below, are:
   a \code{KOKKOS_LAMBDA} (it is stored and invoked on the device) taking an
   \code{InnerIndexRange} and the block index.
 \item[\codelbl{InnerIndexRange} (the ``inner range'', \codelbl{r})] One slice of
-  the index space handed to the outer body --- a block plus the current chunk of
-  $kji$ space. It is the object \code{inner} runs over, and it knows how to
-  translate between the flat, memory, and $(k,j,i)$ index forms
+  the index space handed to the outer body --- what a ``slice'' is depends on the
+  loop tag (a whole block, one chunk, or a single cell; see
+  Section~\ref{sec:innerrange}). It is the object \code{inner} runs over, and it
+  knows how to translate between the flat, memory, and $(k,j,i)$ index forms
   (\code{r.GetKJI(idx)}).
 \item[\codelbl{inner(r, body)}] Runs the inner loop over one slice, calling the
   body once per logical cell.
@@ -646,11 +647,15 @@ object and how it interacts with degenerate directions.
 
 Where the \code{IndexSpace} describes a whole block's iteration space, the
 \code{InnerIndexRange} --- the \code{r} handed to the outer body and passed to
-\code{inner} --- describes \emph{one slice} of it: a single block, and, for the
-chunked tags, the current chunk of $kji$ space. It is the running state of the
-outer loop, and it is what every per-slice facility keys off of --- \code{inner}
-iterates it, \code{GetPerPointScratch} sizes a buffer to it, \code{AddHalo}
-extends it, and the pack views are constructed against it.
+\code{inner} --- describes \emph{one slice} of it. Exactly what a slice is depends
+on the loop tag. For \code{bvoi}, \code{outer} runs over blocks only, so the range
+represents an \emph{entire block}'s $kji$ space (the chunking into contiguous runs
+happens later, inside \code{inner}). For \code{bovi}, \code{outer} runs over
+(block, chunk) pairs, so the range represents \emph{one chunk} of a block. For
+\code{boiv} the range is a single $(k,j,i)$ cell. In every case it is the running
+state of the outer loop, and it is what every per-slice facility keys off of ---
+\code{inner} iterates it, \code{GetPerPointScratch} sizes a buffer to it,
+\code{AddHalo} extends it, and the pack views are constructed against it.
 
 Its main job for a loop body is index translation. Whatever index form the inner
 tag hands the body --- a flat integer, an \code{Index3}, or a memory offset ---
@@ -658,15 +663,16 @@ tag hands the body --- a flat integer, an \code{Index3}, or a memory offset ---
 slice's origin in both the logical and memory indexers, so it can map between the
 body's index, a memory-flat offset, and coordinates. This is why the same body
 text works under different inner tags: the range absorbs the difference between
-``a flat index into this chunk'' and ``these $(k,j,i)$ coordinates.''
+``a flat index into this slice'' and ``these $(k,j,i)$ coordinates.''
 
 A body rarely constructs an \code{InnerIndexRange} itself --- \code{outer} builds
 it and hands it in --- but it does name the type (to spell the outer lambda's
 parameter, via \code{idx_space_t::idx_range_t}) and call methods on it
-(\code{GetKJI}, \code{TeamBarrier}, \code{AddHalo}). The chunked tags carry the
-current chunk's extent on the range; the pointwise \code{boiv} form carries a
-single $(k,j,i)$ point, which is why its \code{inner} is a one-iteration
-``loop'' (Section~\ref{sec:looptags}).
+(\code{GetKJI}, \code{TeamBarrier}, \code{AddHalo}). The \code{bvoi} and \code{bovi}
+forms carry the slice's extent on the range (a whole block and a single chunk
+respectively); the pointwise \code{boiv} form carries a single $(k,j,i)$ point,
+which is why its \code{inner} is a one-iteration ``loop''
+(Section~\ref{sec:looptags}).
 
 % =====================================================================
 \section{Compile-time loop structure selection}
