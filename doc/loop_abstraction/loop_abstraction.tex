@@ -15,8 +15,21 @@
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{booktabs}
+\usepackage{float}
 \usepackage{hyperref}
 \hypersetup{colorlinks=true, linkcolor=blue!55!black, urlcolor=blue!55!black}
+
+% The halo/chunking figures are tall (~470pt / ~400pt). With the default float
+% fractions a top float may occupy at most ~0.7 of the text height, so neither
+% figure can be placed on a text page and both are deferred to the end. Relax the
+% placement fractions so a large figure can take most of a page near its
+% reference, and allow more floats to queue.
+\renewcommand{\topfraction}{0.95}
+\renewcommand{\bottomfraction}{0.95}
+\renewcommand{\textfraction}{0.05}
+\renewcommand{\floatpagefraction}{0.85}
+\setcounter{topnumber}{3}
+\setcounter{totalnumber}{4}
 
 % ---- code listing style ----
 \definecolor{codebg}{gray}{0.97}
@@ -42,6 +55,11 @@
 \lstset{style=cpp}
 
 \newcommand{\code}[1]{\lstinline[basicstyle=\ttfamily]|#1|}
+% \lstinline (verbatim) cannot appear inside a moving/box argument such as an
+% \item[...] label -- it breaks catcode handling and the label text spills into
+% the body. Use \codelbl for code set in description-list labels; it is plain
+% \texttt, so underscores must be escaped (\_) in its argument.
+\newcommand{\codelbl}[1]{\texttt{#1}}
 \newcommand{\Sset}{\mathcal{S}}
 
 \title{\bf The Parthenon Loop Abstraction:\\
@@ -416,22 +434,23 @@ la::outer(idx_space, KOKKOS_LAMBDA(const idx_space_t::idx_range_t &r, int b) {
 
 The named pieces, each the subject of a subsection below, are:
 \begin{description}
-\item[\code{IndexSpace<loop_tag, inner_tag, backend>}] The object that fixes the
-  iteration space, the memory layout, and --- through its three compile-time tags
-  --- the loop structure that will be generated. It is what \code{outer} is called
-  on. Its index information and coordinate conventions are covered in
+\item[\codelbl{IndexSpace<loop\_tag, inner\_tag, backend>}] The object that fixes
+  the iteration space, the memory layout, and --- through its three compile-time
+  tags --- the loop structure that will be generated. It is what \code{outer} is
+  called on. Its index information and coordinate conventions are covered in
   Section~\ref{sec:indexspace}; the three tags in Sections~\ref{sec:looptags}
   (\code{loop_tag}), \ref{sec:innertags} (\code{inner_tag}), and
   \ref{sec:backends} (\code{backend}).
-\item[\code{outer(idx_space, body)}] Launches the outermost loop. The body is a
-  \code{KOKKOS_LAMBDA} (it is stored and invoked on the device) taking an
+\item[\codelbl{outer(idx\_space, body)}] Launches the outermost loop. The body is
+  a \code{KOKKOS_LAMBDA} (it is stored and invoked on the device) taking an
   \code{InnerIndexRange} and the block index.
-\item[\code{InnerIndexRange} (the ``inner range'', \code{r})] One slice of the
-  index space handed to the outer body --- a block plus the current chunk of $kji$
-  space. It is the object \code{inner} runs over, and it knows how to translate
-  between the flat, memory, and $(k,j,i)$ index forms (\code{r.GetKJI(idx)}).
-\item[\code{inner(r, body)}] Runs the inner loop over one slice, calling the body
-  once per logical cell.
+\item[\codelbl{InnerIndexRange} (the ``inner range'', \codelbl{r})] One slice of
+  the index space handed to the outer body --- a block plus the current chunk of
+  $kji$ space. It is the object \code{inner} runs over, and it knows how to
+  translate between the flat, memory, and $(k,j,i)$ index forms
+  (\code{r.GetKJI(idx)}).
+\item[\codelbl{inner(r, body)}] Runs the inner loop over one slice, calling the
+  body once per logical cell.
 \end{description}
 
 \paragraph{Body signatures.} The inner body may be written in two forms. The
@@ -523,7 +542,7 @@ direction. There is deliberately no way to spell a degenerate direction through 
 extent constructor; a genuine reduced-dimension layout must come from the
 mesh-based constructor.
 
-\paragraph{Degenerate vs.\ thin-active directions, and \code{GetNdim}.} A
+\paragraph{Degenerate vs.\ thin-active directions, and \codelbl{GetNdim}.} A
 \emph{degenerate} (symmetry) direction has interior extent $1$ \emph{and no ghost
 cells} --- its memory extent is also $1$. A \emph{thin active} direction has
 interior extent $1$ but carries ghosts, so its memory extent exceeds $1$.
@@ -627,21 +646,21 @@ the rows in memory. Interior cells are still each touched exactly once.}
 \end{figure}
 
 \begin{description}
-\item[\code{bvoi} (block, var, outer, inner)] The $v$ loop sits \emph{above} the
+\item[\codelbl{bvoi} (block, var, outer, inner)] The $v$ loop sits \emph{above} the
   traversal, so one $v$ iteration spans the whole $kji$ space of a block.
   \code{outer} runs over blocks only. Halos and scratch are \emph{block}-relative
   (sized to the whole block). This is a mixed logical/memory path. It is a
   CPU-friendly hierarchical form and in practice often the fastest, at the price
   of the most scratch --- the entire block's worth of intermediates is live at
   once.
-\item[\code{bovi} (block, outer, var, inner)] The $v$ loop sits \emph{inside} the
+\item[\codelbl{bovi} (block, outer, var, inner)] The $v$ loop sits \emph{inside} the
   chunk \code{outer} loop but \emph{around} the \code{inner} traversal, so each
   $v$ iteration covers one $kji$ chunk. \code{outer} runs over (block, chunk)
   pairs. Halos and scratch are \emph{chunk}-relative. This is the main
   contiguous-span path and the other CPU-friendly form (\S\ref{sec:cpu}); it needs
   far less scratch than \code{bvoi} because only one chunk is live, at the cost of
   re-establishing per-chunk state more often.
-\item[\code{boiv} (block, outer, inner, var)] The $v$ loop is innermost, at a
+\item[\codelbl{boiv} (block, outer, inner, var)] The $v$ loop is innermost, at a
   single logical cell, so the \code{inner} ``traversal'' is one point --- the
   degenerate \code{ninner}${=}1$ limit of \code{bovi}, given its own code path for
   performance. \code{outer} is a flat grid over all $(\text{block}, k, j, i)$.
@@ -667,19 +686,19 @@ they differ in what the body is handed and which cells beyond the logical set ma
 also be visited.
 
 \begin{description}
-\item[\code{logical_flat}] Visits each logical cell exactly once and hands the body
+\item[\codelbl{logical\_flat}] Visits each logical cell exactly once and hands the body
   a single flat integer suitable for direct \code{var[idx]} pointer access. This
   requires that every field touched in the kernel share one memory layout, so they
   can share the flat index. It is the most likely to vectorize, because the inner
   loop reduces to \code{a[idx]}-style accesses over a contiguous run --- this is
   the tag behind the CPU form of \S\ref{sec:cpu}.
-\item[\code{logical_coords}] Same exactly-once logical coverage, but the body
+\item[\codelbl{logical\_coords}] Same exactly-once logical coverage, but the body
   receives an \code{Index3} of $(k,j,i)$ instead of a flat integer. Use this when
   the fields in a kernel do \emph{not} share a layout --- for instance a
   cell-centered field and a face-centered field accessed together --- so no single
   flat index is valid for all of them. Access goes through coordinates, which is
   also the natural form for the pointwise \code{boiv} path.
-\item[\code{memory}] Walks the \emph{contiguous memory span} of the chunk rather
+\item[\codelbl{memory}] Walks the \emph{contiguous memory span} of the chunk rather
   than only its logical cells. It still touches every logical cell exactly once,
   but ghost cells that happen to fall inside the span are also visited (their
   post-loop values are not meaningful and must not be relied on). This can be the
