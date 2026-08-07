@@ -42,7 +42,7 @@
 \lstset{style=cpp}
 
 \newcommand{\code}[1]{\lstinline[basicstyle=\ttfamily]|#1|}
-\newcommand{\S}{\mathcal{S}}
+\newcommand{\Sset}{\mathcal{S}}
 
 \title{\bf The Parthenon Loop Abstraction:\\
 A Portable, Compile-Time-Selectable Loop Structure\\
@@ -590,8 +590,8 @@ The moment a chunk \emph{straddles} a row boundary, the logical and \code{memory
 traversals diverge. This happens whenever a chunk cannot be contained in one row:
 any \code{ninner} $> n_i$ straddles (a chunk of $2 n_i$ spans parts of three rows),
 and so does any \code{ninner} $< n_i$ that does not divide $n_i$ evenly (panel b,
-with $n_i = 6$ and $\code{ninner} = 8$, is one such case, but so is
-$\code{ninner} = 2 n_i = 12$). What matters is only whether a chunk's cell run
+with $n_i = 6$ and \code{ninner}${}= 8$, is one such case, but so is
+\code{ninner}${}= 2 n_i = 12$). What matters is only whether a chunk's cell run
 crosses from the end of one interior row into the next --- not the specific
 relation between \code{ninner} and $n_i$. When it does, the run is still well
 defined in flat order, but it now contains a row boundary, and that is where the
@@ -840,22 +840,22 @@ a no-op; writing it anyway is what keeps the one kernel correct under every tag.
 % =====================================================================
 
 A \emph{halo} answers one question: \emph{if a consumer inner loop runs over a
-logical point set $\S$, which neighboring produced values must also exist?} It is
-a compile-time set of logical offsets that extends the point set a producer loop
-must cover, so that a later consumer over $\S$ can read produced values at its
-neighbors. This is the abstraction of the ``two loops over nearly the same range''
-pattern from Section~\ref{sec:cpu}.
+logical point set $\Sset$, which neighboring produced values must also exist?} It
+is a compile-time set of logical offsets that extends the point set a producer
+loop must cover, so that a later consumer over $\Sset$ can read produced values at
+its neighbors. This is the abstraction of the ``two loops over nearly the same
+range'' pattern from Section~\ref{sec:cpu}.
 
 Formally, for a halo with offsets $\{h_1, h_2, \dots\}$ (the identity
 $\mathbf{0}$ is always implicitly included),
 \[
-  \texttt{AddHalo}\langle h_1, h_2, \dots\rangle(\S)
-  \;=\; \S \,\cup\, \{p + h_1 : p \in \S\} \,\cup\, \{p + h_2 : p \in \S\}
-  \,\cup\, \dots
+  \texttt{AddHalo}\langle h_1, h_2, \dots\rangle(\Sset)
+  \;=\; \Sset \,\cup\, \{p + h_1 : p \in \Sset\} \,\cup\,
+  \{p + h_2 : p \in \Sset\} \,\cup\, \dots
 \]
 In the flux kernel, the consumer reads \code{qp(f - dx1)}: a produced value one
-cell in $-i$. So the producer must cover $\S \cup \{p - \hat{\imath}\}$, named by
-\code{halo::minus_i_t}.
+cell in $-i$. So the producer must cover $\Sset \cup \{p - \hat{\imath}\}$, named
+by \code{halo::minus_i_t}.
 
 Figure~\ref{fig:halo} shows the geometry for one- and two-offset halos and for
 several relationships between the halo direction and the inner-chunk layout.
