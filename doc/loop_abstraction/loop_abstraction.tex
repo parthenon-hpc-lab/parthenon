@@ -966,6 +966,35 @@ is chosen per loop path and backend:
 Because the indexing API is uniform, the kernel body never names which of these it
 got.
 
+\paragraph{\code{bvoi} vs \code{bovi}: block-relative vs chunk-relative scratch.}
+The two hierarchical tags use the same storage backends but differ in \emph{how
+much} scratch is live and \emph{for how long}, because their scratch is scoped to
+different index sets (Section~\ref{sec:looptags}). In \code{bovi}, \code{outer}
+runs over (block, chunk) pairs and the outer body sees one chunk at a time, so
+\code{GetPerPointScratch} is obtained \emph{per chunk} and sized to a single chunk
+(times any halo extension). Only that one chunk's worth of scratch is live at once;
+the buffer is re-established as the chunk loop advances, and it need only be large
+enough for one chunk. In \code{bvoi}, \code{outer} runs over blocks only and the
+single \code{inner} call covers the whole block, so scratch is \emph{block}-relative
+--- sized to the entire block (times halo) and live for the block's whole
+traversal. A producer/consumer pair in \code{bvoi} can therefore reconstruct once
+into a block-sized buffer and consume anywhere in the block, whereas in \code{bovi}
+the reuse is confined to a chunk.
+
+The practical trade-off follows directly. \code{bvoi} needs substantially more
+scratch --- on the Kokkos backend, enough team/shared memory to hold a full block's
+intermediates, which can limit occupancy or exceed the scratch budget for large
+blocks or many scratch variables --- but it establishes scratch and pays
+per-chunk setup only once per block, and it never has to worry about a
+producer/consumer dependency crossing a chunk boundary. \code{bovi} keeps the
+scratch footprint small and fixed (one chunk), which is friendlier to shared-memory
+limits, at the cost of re-establishing per-chunk state on every chunk and confining
+any scratch reuse to within a chunk. The chunk size (\code{ninner}) is the knob
+that trades between them: larger chunks approach \code{bvoi}'s footprint and reuse,
+smaller chunks minimize live scratch. This is why the flux kernel's choice between
+\code{bvoi} and \code{bovi} (Section~\ref{sec:onekernel}) is really a choice about
+scratch scope, not about what the kernel computes.
+
 \paragraph{Barriers.} When a consumer reads scratch that \emph{other} threads
 wrote --- the hierarchical tags, where a team cooperates on a chunk --- the
 producer loop must complete before the consumer starts. Call
@@ -1207,6 +1236,64 @@ DROP coincide with PROJECT for that halo. Implementing PROJECT proper (which
 requires de-duplicating the offsets that collapse onto the same projected point) is
 a deliberately deferred extension; until a genuinely non-closed halo is needed in
 practice, the guard plus the one-line workaround covers every case.
+
+% ---------------------------------------------------------------
+\subsection{Implementation details}
+\label{sec:halo-impl}
+% ---------------------------------------------------------------
+
+This subsection sketches how a halo range is actually constructed. It is not needed
+to \emph{use} halos, but it explains why the range is built the way it is and where
+the sorted-offset requirement comes from. The general procedure is:
+\begin{enumerate}
+\item Start from the base logical domain $D$ of the block (or slice).
+\item From the halo offsets, form an \emph{extended} logical domain $D_h$ large
+  enough to contain the base set $\Sset$ \emph{and} every shifted copy
+  $\mathrm{shift}(\Sset, h)$. (This is what \code{AddHaloToIndexer} does: it grows
+  the indexer bounds by the per-direction min/max of the kept offsets ---
+  Section~\ref{sec:reduced} --- so no shifted copy falls outside $D_h$.)
+\item Flatten $\Sset$ in $D_h$, giving one contiguous flat span.
+\item Flatten each shifted copy $\mathrm{shift}(\Sset, h_n)$ in $D_h$, each also a
+  contiguous span.
+\item Merge spans that overlap or touch, leaving a compact union of disjoint spans.
+\end{enumerate}
+Flattening in the \emph{extended} domain $D_h$ (not the base $D$) is what makes each
+shifted copy come out contiguous and correctly placed; the geometric shift is
+resolved before any flattening, so no row-wrap can occur.
+
+\paragraph{Why offsets must be sorted, and the single-pass merge.} Because the
+number of offsets is small and fixed at compile time, the span union is held in a
+small fixed-capacity list rather than allocated. The merge is a single linear pass:
+each candidate span is compared only against the last emitted span, extending it if
+they touch or overlap and starting a new span otherwise. That one-pass merge is
+correct only if the spans arrive in increasing flat order, which in turn requires
+the halo offsets to be listed sorted by increasing flat offset in $D_h$ ---
+lexicographically by $(dk, dj, di)$. This is the contract the halo types must
+satisfy (the \code{static_assert} on strict sorted order with a unique identity),
+and it is also what makes the reduced-dimension range a contiguous sub-run
+(Section~\ref{sec:reduced}): dropping the leading/trailing offsets of a sorted list
+leaves a sorted list.
+
+\paragraph{Scratch spans the enclosing memory range.} The scratch buffer for a
+halo range is sized not to the compact span union but to the single enclosing
+\emph{memory}-flat span from the range's lowest to highest touched cell. This
+over-allocates slightly (it includes any gaps between disjoint spans) in exchange
+for the cheapest possible indexing: a flat-index body's index is already relative
+to the slice's memory origin, so scratch access is one subtraction,
+\code{idx - scratch_index_start}; a coordinate body maps $(k,j,i)$ through the
+memory indexer and subtracts the same cached span start. The logical coverage
+\code{size()} of the range is cached at construction rather than recomputed by
+re-walking the spans.
+
+\paragraph{The same range, two backend realizations.} These mechanics are what let
+the two backends realize the identical halo semantics differently
+(Section~\ref{sec:scratch}). In a hierarchical (\code{bvoi}/\code{bovi}) loop the
+base set $\Sset$ is many cells, the halo range is the merged union above, and
+scratch is a team/host buffer over the enclosing memory span --- reconstructed
+values are computed once and reused across neighboring consumers. In the pointwise
+\code{boiv} loop $\Sset$ is a single cell, so a one-offset halo range is just
+$\{p, p+h\}$ and scratch collapses to a tiny per-thread stack array (a few
+cells); neighboring reconstructions are simply recomputed in adjacent iterations.
 
 % =====================================================================
 \section{Pack, variable, and flux views}
