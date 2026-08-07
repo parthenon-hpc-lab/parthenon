@@ -470,8 +470,11 @@ parameter type rather than use \code{auto}, because nvcc rejects generic extende
 that type; spell it that way rather than reaching for \code{decltype} on the index
 space object.
 
-Everything else in this document --- offsets, scratch, halos, pack views --- hangs
-off this skeleton. The subsections proceed in roughly that order.
+The two subsections below detail the \code{IndexSpace} and the
+\code{InnerIndexRange}. The section after them covers the three compile-time tags
+that select the loop structure, and the later sections --- offsets, scratch,
+halos, pack views --- add the remaining pieces onto this skeleton in roughly that
+order.
 
 % =====================================================================
 \subsection{Index spaces and coordinates}
@@ -520,6 +523,20 @@ This is the constructor that knows the true dimensionality of the problem: it
 consults \code{md->GetMeshPointer()->ndim} and only widens the logical bounds by
 \code{halo} in directions the mesh actually resolves.
 
+\paragraph{The \code{halo} argument (an unfortunate name).} The integer \code{halo}
+simply grows the logical index space outward by that many cells in every
+non-degenerate direction: the interior it would otherwise cover is padded by
+\code{halo} cells on each side in $i$ (and in $j$, $k$ where those directions are
+resolved). It is how a kernel asks to iterate a few ghost cells as if they were
+interior --- e.g.\ to fill a layer of boundary cells with the same loop that does
+the interior. Note the unfortunate name clash: this run-time \code{halo} integer
+has \emph{nothing to do} with the compile-time halo \emph{types}
+(\code{halo::minus_i_t} and friends) passed to \code{AddHalo}
+(Section~\ref{sec:halos}). The former uniformly enlarges the base iteration space;
+the latter names specific shifted copies of an inner range for producer/consumer
+reuse. They are entirely separate mechanisms that happen to share a word; pass
+\code{halo = 0} whenever the base interior is what you want.
+
 Note that the topological element appears \emph{twice}, and the two roles are
 distinct. The first (\code{domain_te}, here \code{F1}) is the element the
 \emph{logical} index space is over --- it is what makes this, e.g., a loop over
@@ -534,13 +551,51 @@ that direction), so the memory element is not free to be anything. Keeping
 face-centered logical space while indexing into storage laid out for its actual
 allocation.
 
-A second, simpler constructor takes explicit extents
+\paragraph{Relation to a traditional \code{par_for} iteration space.} It is worth
+seeing how this constructor lines up with the bounds a Parthenon kernel already
+spells out by hand. A conventional multi-block \code{par_for} over the interior
+looks like:
+\begin{lstlisting}
+IndexRange ib = md->GetBoundsI(IndexDomain::interior, TopologicalElement::F1);
+IndexRange jb = md->GetBoundsJ(IndexDomain::interior, TopologicalElement::F1);
+IndexRange kb = md->GetBoundsK(IndexDomain::interior, TopologicalElement::F1);
+par_for(loop_pattern_mdrange_tag, "name", DevExecSpace(),
+        0, nblocks - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) { ... });
+\end{lstlisting}
+The \code{IndexSpace} constructor arguments are the same information, gathered into
+one object: the \code{IndexDomain} and the block count play the roles of the
+\code{GetBounds*} calls and the \code{0..nblocks-1} range, and the mesh pointer is
+what those bounds are read from. What the \code{IndexSpace} adds are two arguments
+with no analogue in the \code{par_for} call. The first is \code{ninner}: a
+\code{par_for} does not chunk the $kji$ space, so it has nothing to size, whereas
+the \code{IndexSpace} needs the chunk size to build its \code{outer}/\code{inner}
+split (Section~\ref{sec:looptags}). The second is the memory topological element:
+a \code{par_for} body indexes fields directly through their own views, so the
+iteration space never needs to know the storage layout, but the \code{IndexSpace}
+computes flat indices itself and so must be told the memory extents. Both are
+inessential in the simplest case --- \code{ninner} has a sensible default shape and
+\code{memory_te} defaults to \code{CC} --- so a cell-centered kernel's constructor
+call is little more than the \code{par_for} bounds with the tags attached.
+
+\paragraph{Why the block count is passed explicitly.} The constructor takes both a
+\code{MeshData} pointer \emph{and} an \code{nblocks}, which looks redundant --- why
+not read the block count from \code{md}? Because the two are not always the same.
+A \code{SparsePack} may be built over a \emph{subset} of the blocks in a
+\code{MeshData} (for instance, only the blocks on a given refinement level, or
+those selected by some predicate), so the number of blocks a kernel actually
+iterates is a property of the \emph{pack}, not of the \code{MeshData} it was drawn
+from. Pulling the count from \code{md} would silently iterate blocks the pack does
+not contain --- indexing past the pack's block dimension --- which has bitten us
+more than once. The correct source is the pack: pass \code{pack.GetNBlocks()}. The
+\code{md} pointer is still needed, but only for the bounds and dimensionality; it
+does not define how many blocks the loop covers.
+
+A second, simpler \code{IndexSpace} constructor takes explicit extents
 \code{(nblocks, nx, ny, nz, nghost)} and is used by unit tests. It always pads
 ghosts in every direction, so it describes a fully-dimensional block --- an extent
 of $1$ denotes a \emph{thin active} direction (with ghosts), not a symmetry
-direction. There is deliberately no way to spell a degenerate direction through the
-extent constructor; a genuine reduced-dimension layout must come from the
-mesh-based constructor.
+direction. This should probably not be used in downstream code. 
 
 \paragraph{Degenerate vs.\ thin-active directions, and \codelbl{GetNdim}.} A
 \emph{degenerate} (symmetry) direction has interior extent $1$ \emph{and no ghost
@@ -560,6 +615,49 @@ recovered from whatever index form the inner tag produces via
 access is expressed with offset objects from \code{GetDelta} rather than raw
 integer arithmetic; Section~\ref{sec:getdelta} explains why the offset is an
 object and how it interacts with degenerate directions.
+
+% =====================================================================
+\subsection{The inner range}
+\label{sec:innerrange}
+% =====================================================================
+
+Where the \code{IndexSpace} describes a whole block's iteration space, the
+\code{InnerIndexRange} --- the \code{r} handed to the outer body and passed to
+\code{inner} --- describes \emph{one slice} of it: a single block, and, for the
+chunked tags, the current chunk of $kji$ space. It is the running state of the
+outer loop, and it is what every per-slice facility keys off of --- \code{inner}
+iterates it, \code{GetPerPointScratch} sizes a buffer to it, \code{AddHalo}
+extends it, and the pack views are constructed against it.
+
+Its main job for a loop body is index translation. Whatever index form the inner
+tag hands the body --- a flat integer, an \code{Index3}, or a memory offset ---
+\code{r.GetKJI(idx)} converts it to the $(k,j,i)$ triple, and the range knows the
+slice's origin in both the logical and memory indexers, so it can map between the
+body's index, a memory-flat offset, and coordinates. This is why the same body
+text works under different inner tags: the range absorbs the difference between
+``a flat index into this chunk'' and ``these $(k,j,i)$ coordinates.''
+
+A body rarely constructs an \code{InnerIndexRange} itself --- \code{outer} builds
+it and hands it in --- but it does name the type (to spell the outer lambda's
+parameter, via \code{idx_space_t::idx_range_t}) and call methods on it
+(\code{GetKJI}, \code{TeamBarrier}, \code{AddHalo}). The chunked tags carry the
+current chunk's extent on the range; the pointwise \code{boiv} form carries a
+single $(k,j,i)$ point, which is why its \code{inner} is a one-iteration
+``loop'' (Section~\ref{sec:looptags}).
+
+% =====================================================================
+\section{Compile-time loop structure selection}
+\label{sec:selection}
+% =====================================================================
+
+The three \code{IndexSpace} template parameters --- \code{loop_tag},
+\code{inner_tag}, and \code{loop_backend} --- are what turn one kernel body into a
+specific loop structure at compile time. None of them changes what the body
+computes; together they decide how the $(b,k,j,i)$ work is nested, how a chunk is
+walked, and which backend emits the loops. They are independent axes, so any
+combination is a valid \code{IndexSpace} (with the single exception noted under
+inner tags), and switching structure is a matter of changing a tag on the
+\code{using} alias. The three subsections below take them in turn.
 
 % =====================================================================
 \subsection{Loop tags: where the variable level sits}
@@ -740,7 +838,7 @@ in tests that want to exercise a specific backend regardless of the build --- fo
 example, to check raw-vs-Kokkos parity on a host build where both can run.
 
 % =====================================================================
-\subsection{Offsets and neighbor access}
+\section{Offsets and neighbor access}
 \label{sec:getdelta}
 % =====================================================================
 
@@ -792,7 +890,7 @@ Section~\ref{sec:reduced}: a consumer's \code{f - dx3} and a producer's $-\hat{k
 halo offset agree about which directions are real.
 
 % =====================================================================
-\subsection{Scratch}
+\section{Scratch}
 \label{sec:scratch}
 % =====================================================================
 
