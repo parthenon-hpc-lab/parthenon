@@ -1005,44 +1005,45 @@ a no-op; writing it anyway is what keeps the one kernel correct under every tag.
 
 \paragraph{A per-cell reduction over a variable loop.} Scratch is not only for the
 reconstruction/flux coupling. A common use is to accumulate a per-cell quantity
-across a variable loop and then reuse it. In a multimaterial code, for example, the
-total density at a cell is the sum of the per-material densities. Compute it once
-into scratch, with the material loop sitting \emph{outside} the inner cell loop:
+across a variable loop and then reuse it --- for instance, summing the sparse
+components of a pack variable \code{var} into a per-cell total that several later
+terms read. Compute it once into scratch, with the component loop sitting
+\emph{outside} the inner cell loop:
 \begin{lstlisting}
 idx_space.AddPerPointScratch<Real>();          // one Real per cell
 
 la::outer(idx_space, KOKKOS_LAMBDA(const idx_space_t::idx_range_t &r, int b) {
-  auto rho_tot = la::GetPerPointScratch<Real>(r);
+  auto total = la::GetPerPointScratch<Real>(r);
   auto pv = la::make_pack_view(r, pack);
 
-  rho_tot.Zero();
+  total.Zero();
   r.TeamBarrier();
 
-  // Material loop OUTSIDE the inner cell loop. The material bounds come from the
-  // pack for this block.
-  const int mlo = pack.GetLowerBound(b, rho());
-  const int mhi = pack.GetUpperBound(b, rho());
-  for (int m = mlo; m <= mhi; ++m) {
-    la::inner(r, [&](auto idx) { rho_tot(idx) += pv(m, idx); });
-    r.TeamBarrier();   // finish this material's contribution before the next
+  // Component loop OUTSIDE the inner cell loop. The component bounds come from the
+  // pack for this block (a sparse variable's extent can vary block to block).
+  const int clo = pack.GetLowerBound(b, var());
+  const int chi = pack.GetUpperBound(b, var());
+  for (int c = clo; c <= chi; ++c) {
+    la::inner(r, [&](auto idx) { total(idx) += pv(c, idx); });
+    r.TeamBarrier();   // finish this component's contribution before the next
   }
 
   // Reuse the accumulated total.
   la::inner(r, [&](auto idx) {
-    out(idx) = something(rho_tot(idx), ...);
+    out(idx) = something(total(idx), ...);
   });
 });
 \end{lstlisting}
-The structure to notice is that the variable (material) loop is the outer of the
-two loop levels: each iteration is a full inner sweep that adds one material's
+The structure to notice is that the variable (component) loop is the outer of the
+two loop levels: each iteration is a full inner sweep that adds one component's
 contribution into the running per-cell total, with a barrier between iterations so
 that a cell's accumulator is complete before the next sweep touches it. A loop of
 exactly this shape --- a user-written loop over variables wrapped around the inner
 $kji$ traversal --- is the origin of the $v$ (``variable'') level name in the loop
-hierarchy (Section~\ref{sec:looptags}). Taking the material bounds from the pack
-per block, rather than from a global constant, is what lets this work when the set
-of materials present varies from block to block. The final inner loop reads back
-the finished total. This is per-cell scratch used
+hierarchy (Section~\ref{sec:looptags}). Taking the component bounds from the pack
+per block, rather than from a global constant, is what lets this work when a sparse
+variable's extent varies from block to block. The final inner loop reads back the
+finished total. This is per-cell scratch used
 purely as an accumulator --- a very common pattern, and one that uses only the
 registration, \code{GetPerPointScratch}, and barrier machinery above.
 
