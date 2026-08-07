@@ -91,6 +91,16 @@ single kernel body can be compiled into either a CPU-friendly hierarchical form
 that stores and reuses intermediate results, or a GPU-friendly flat form that
 recomputes them, with no change to the physics code.
 
+This document is organized around that claim. Section~\ref{sec:motivation}
+develops a single motivating kernel and writes it out by hand twice, once for each
+architecture, to make the differences concrete. Section~\ref{sec:onekernel} shows
+the same kernel written once in the abstraction and recovers both hand-written
+forms by changing a tag. The remaining sections
+(\ref{sec:indexspace}--\ref{sec:views}) develop each piece of the vocabulary in
+turn, and Section~\ref{sec:halos} treats halos --- the mechanism for
+producer/consumer reuse --- in detail, including their behavior in reduced
+dimensionality.
+
 \paragraph{Why this is not a reinvention of Kokkos.} Kokkos is a general
 performance-portability layer: it can express essentially any parallel pattern,
 and it makes very few assumptions about what a kernel does. That generality is a
@@ -110,16 +120,6 @@ computation the way raw Kokkos can. In exchange, within that family it is easier
 to write a kernel that is already close to optimal on both architectures, and to
 switch between structures without rewriting the kernel. It is a domain-specific
 convenience layer over Kokkos, not a competitor to it.
-
-This document is organized around that claim. Section~\ref{sec:motivation}
-develops a single motivating kernel and writes it out by hand twice, once for each
-architecture, to make the differences concrete. Section~\ref{sec:onekernel} shows
-the same kernel written once in the abstraction and recovers both hand-written
-forms by changing a tag. The remaining sections
-(\ref{sec:indexspace}--\ref{sec:views}) develop each piece of the vocabulary in
-turn, and Section~\ref{sec:halos} treats halos --- the mechanism for
-producer/consumer reuse --- in detail, including their behavior in reduced
-dimensionality.
 
 % =====================================================================
 \section{A motivating example: a finite-volume flux kernel}
