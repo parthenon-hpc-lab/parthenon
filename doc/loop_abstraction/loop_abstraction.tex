@@ -455,11 +455,17 @@ The named pieces, each the subject of a subsection below, are:
 
 \paragraph{Body signatures.} The inner body may be written in two forms. The
 opaque form \code{[\&](auto idx)} receives whatever index the inner tag produces
-(a flat integer, an \code{Index3}, or a memory offset) and is the form that
-composes with the index-arithmetic and view helpers introduced later. The explicit
-form \code{[\&](int k, int j, int i)} receives coordinates directly and can be
-clearer, at a small cost; when both are viable the coordinate form is chosen.
-Section~\ref{sec:contracts} states the rule precisely.
+(a flat integer, an \code{Index3}, or a memory offset); it is the form intended for
+normal use, and the one that composes with the offset arithmetic and pack views
+introduced later. A body may instead be written \code{[\&](int k, int j, int i)},
+receiving coordinates directly; when both forms are viable this three-argument form
+is selected. The coordinate form exists mainly as a convenience for porting an
+existing \code{par_for} body quickly --- it lets old code that indexes fields by
+\code{(k, j, i)} drop in with minimal change and without adopting pack views or the
+single-index conventions. It is not otherwise preferred: it does not compose with
+the view/offset helpers, and because access no longer reduces to a flat
+\code{var[idx]} it will generally inhibit vectorization. Reach for it to migrate a
+loop; prefer \code{auto idx} for anything written fresh.
 
 \paragraph{Lambda markings.} Mark the \code{outer} body with \code{KOKKOS_LAMBDA}
 (it is captured and run on the device); leave the \code{inner} bodies as plain
@@ -469,6 +475,23 @@ parameter type rather than use \code{auto}, because nvcc rejects generic extende
 (\code{__host__ __device__}) lambdas. The \code{idx_space_t::idx_range_t} alias is
 that type; spell it that way rather than reaching for \code{decltype} on the index
 space object.
+
+\paragraph{Prefer \code{auto} for everything else.} Practically, the single most
+useful habit when writing these kernels is to declare almost every local with
+\code{auto} rather than a concrete type. The types the abstraction hands you ---
+the inner-loop index, the scratch object, the pack and flux views, the offset
+returned by \code{GetDelta} --- all \emph{change with the tags}. The index passed
+to an \code{[\&](auto idx)} body is a flat \code{int} under one inner tag and an
+\code{Index3} under another; the scratch object is a stack buffer, a bump-arena
+slice, or a team-scratch view depending on the loop tag and backend; \code{GetDelta}
+returns a memory offset for the flat paths and a coordinate offset for the
+coordinate path. Writing \code{auto qp = la::GetPerPointScratch<Real>(rp)} and
+\code{[\&](auto idx)} lets the \emph{same kernel text} recompile under a different
+tag with no edits; spelling a concrete type instead pins the kernel to one
+structure and defeats the whole point. The one exception is the outer lambda's
+\code{InnerIndexRange} parameter, which must be named for the nvcc reason given
+above --- and the \code{idx_range_t} alias fills that role without pinning the
+kernel to a tag.
 
 The two subsections below detail the \code{IndexSpace} and the
 \code{InnerIndexRange}. The section after them covers the three compile-time tags
@@ -951,31 +974,145 @@ hierarchical Kokkos parallelism. On the \code{boiv} path the producer and consum
 run back-to-back on the same thread and share no scratch, so \code{TeamBarrier} is
 a no-op; writing it anyway is what keeps the one kernel correct under every tag.
 
+\paragraph{A per-cell reduction over a variable loop.} Scratch is not only for the
+reconstruction/flux coupling. A common use is to accumulate a per-cell quantity
+across a variable loop and then reuse it. In a multimaterial code, for example, the
+total density at a cell is the sum of the per-material densities. Compute it once
+into scratch, with the material loop sitting \emph{outside} the inner cell loop:
+\begin{lstlisting}
+idx_space.AddPerPointScratch<Real>();          // one Real per cell
+
+la::outer(idx_space, KOKKOS_LAMBDA(const idx_space_t::idx_range_t &r, int b) {
+  auto rho_tot = la::GetPerPointScratch<Real>(r);
+  auto pv = la::make_pack_view(r, pack);
+
+  rho_tot.Zero();
+  r.TeamBarrier();
+
+  // Material loop OUTSIDE the inner cell loop. The material bounds come from the
+  // pack for this block.
+  const int mlo = pack.GetLowerBound(b, rho());
+  const int mhi = pack.GetUpperBound(b, rho());
+  for (int m = mlo; m <= mhi; ++m) {
+    la::inner(r, [&](auto idx) { rho_tot(idx) += pv(m, idx); });
+    r.TeamBarrier();   // finish this material's contribution before the next
+  }
+
+  // Reuse the accumulated total.
+  la::inner(r, [&](auto idx) {
+    out(idx) = something(rho_tot(idx), ...);
+  });
+});
+\end{lstlisting}
+The structure to notice is that the variable (material) loop is the outer of the
+two loop levels: each iteration is a full inner sweep that adds one material's
+contribution into the running per-cell total, with a barrier between iterations so
+that a cell's accumulator is complete before the next sweep touches it. A loop of
+exactly this shape --- a user-written loop over variables wrapped around the inner
+$kji$ traversal --- is the origin of the $v$ (``variable'') level name in the loop
+hierarchy (Section~\ref{sec:looptags}). Taking the material bounds from the pack
+per block, rather than from a global constant, is what lets this work when the set
+of materials present varies from block to block. The final inner loop reads back
+the finished total. This is per-cell scratch used
+purely as an accumulator --- a very common pattern, and one that uses only the
+registration, \code{GetPerPointScratch}, and barrier machinery above.
+
+% =====================================================================
+\subsection{Type-indexed scratch}
+\label{sec:typed-scratch}
+% =====================================================================
+
+The scratch shown so far is indexed by a bare component number:
+\code{scratch(c0, c1, idx)} for a shaped block, or \code{scratch(m, idx)} if you
+lay materials out along a component axis by hand. That works, but it forces the
+kernel to remember which component number means which quantity, and to keep the
+sizing (\code{AddPerPointScratch<Real, N>}) in sync with that hand-rolled layout.
+\emph{Type-indexed scratch} removes that bookkeeping: you describe the scratch
+contents as a list of variable \emph{types} once, and then index the buffer by
+type --- the same field tags used with the pack views --- rather than by number.
+
+\begin{lstlisting}
+// A compile-time list of the variable types this scratch holds.
+using recon_vars = la::IndexedVarTypeList<rho, vel, pres>;
+
+// Register / obtain scratch sized to hold those types (optionally x NMAT materials,
+// optionally over a halo range).
+la::AddTypeIndexedPerPointScratch<Real, recon_vars, /*NMAT=*/nmat>(idx_space);
+...
+auto sc = la::GetTypeIndexedPerPointScratch<Real, recon_vars, nmat>(rp);
+
+// Index by variable type (and component, material, topological element as needed):
+sc(rho(),  idx)          = ...;   // scalar
+sc(vel(1), idx)          = ...;   // component 1 of a vector variable
+sc(rho(),  m, idx)       = ...;   // material m
+sc(TE::F1, vel(0), idx)  = ...;   // an x1-face-centered component
+\end{lstlisting}
+
+The \code{IndexedVarTypeList} fixes a layout: each variable occupies a contiguous
+block of components sized by its own \code{size()}, laid out in the order listed,
+and (when a material count is given) that whole per-cell record is replicated per
+material. \code{GetTypeIndexedPerPointScratch} allocates a flat buffer of exactly
+that size and hands back a wrapper whose \code{operator()} maps a
+\code{(field_tag, ..., idx)} argument list to the right flat slot. This is not
+fundamental ---
+it compiles down to the same flat scratch access as the numeric form --- but in a
+kernel that reconstructs a dozen variables across several materials it is a large
+practical convenience, and it keeps the scratch layout and the field identities in
+one place instead of two. The sizing call and the access use the same
+\code{recon_vars} list, so the buffer cannot fall out of sync with how it is
+indexed.
+
 % =====================================================================
 \section{Halos}
 \label{sec:halos}
 % =====================================================================
 
-A \emph{halo} answers one question: \emph{if a consumer inner loop runs over a
-logical point set $\Sset$, which neighboring produced values must also exist?} It
-is a compile-time set of logical offsets that extends the point set a producer
-loop must cover, so that a later consumer over $\Sset$ can read produced values at
-its neighbors. This is the abstraction of the ``two loops over nearly the same
-range'' pattern from Section~\ref{sec:cpu}.
+Recall the pattern that motivated the abstraction (Section~\ref{sec:cpu}): a
+\emph{producer} inner loop reconstructs a value at every cell and writes it into
+scratch, and a later \emph{consumer} inner loop reads that scratch back, but at
+\emph{offset} positions --- the flux at face $f$ reads the reconstructed state at
+$f$ \emph{and} at $f - \hat{\imath}$. This offset read is the whole source of the
+problem a halo solves. If both loops ran over the same set of cells $\Sset$, the
+consumer's read at $f - \hat{\imath}$ would fall on a scratch cell the producer
+never wrote for the boundary faces of $\Sset$. The producer must therefore fill
+scratch not just on $\Sset$ but on $\Sset$ \emph{plus the shifted copies the
+consumer will reach into}. A halo is how the kernel declares exactly which shifted
+copies those are.
 
-Formally, for a halo with offsets $\{h_1, h_2, \dots\}$ (the identity
-$\mathbf{0}$ is always implicitly included),
+It is worth separating two things that are easy to run together:
+\begin{description}
+\item[The halo \emph{type}] (e.g.\ \code{halo::minus_i_t}) is a compile-time set of
+  logical offsets. It encodes the \emph{access pattern the consumer will use on
+  scratch} --- the little stencil of offset reads like ``$f$ and $f -
+  \hat{\imath}$''. It is a fixed property of the kernel, known before any loop
+  runs, and it is what you pass to \code{AddHalo<...>} and to
+  \code{AddPerPointScratch<T, ...>}.
+\item[The halo \emph{range}] is what that type produces when applied to a concrete
+  inner range: the actual set of logical cells the producer must visit, namely the
+  union of $\Sset$ with each of its shifted copies. This is a run-time set of
+  points (one per inner slice), and it is what the producer's \code{inner} loop
+  actually iterates.
+\end{description}
+The type is the \emph{intent} (``the consumer reads these neighbors''); the range
+is the \emph{consequence} (``so the producer must cover these cells''). Formally,
+for a halo type with offsets $\{h_1, h_2, \dots\}$ (the identity $\mathbf{0}$ is
+always implicitly included, since the consumer always reads its own cell),
+applying it to $\Sset$ gives the range
 \[
   \texttt{AddHalo}\langle h_1, h_2, \dots\rangle(\Sset)
   \;=\; \Sset \,\cup\, \{p + h_1 : p \in \Sset\} \,\cup\,
   \{p + h_2 : p \in \Sset\} \,\cup\, \dots
 \]
-In the flux kernel, the consumer reads \code{qp(f - dx1)}: a produced value one
-cell in $-i$. So the producer must cover $\Sset \cup \{p - \hat{\imath}\}$, named
-by \code{halo::minus_i_t}.
+In the flux kernel the consumer reads \code{qp(f - dx1)}, one cell in $-i$, so the
+type is \code{halo::minus_i_t} (offsets $\{\mathbf{0}, -\hat{\imath}\}$) and the
+range it produces is $\Sset \cup \{p - \hat{\imath} : p \in \Sset\}$ --- the flux
+faces plus one extra face below the bottom of the slice. That extra face is
+precisely the scratch cell the boundary consumer would otherwise read uninitialized.
 
-Figure~\ref{fig:halo} shows the geometry for one- and two-offset halos and for
-several relationships between the halo direction and the inner-chunk layout.
+Figure~\ref{fig:halo} draws this: the type is a fixed offset stencil (the insets),
+and the range is the union of the inner range with its shifted copy (the crosses).
+The panels vary the offset direction and the relationship between that direction
+and the chunk layout, to show how the same type produces differently-shaped ranges.
 
 \begin{figure}[t]
 \centering
@@ -995,21 +1132,27 @@ the single-point dependency that the halo encodes.}
 \label{sec:halo-not-stencil}
 % ---------------------------------------------------------------
 
-This distinction is the single most common point of confusion, so it is worth
-stating sharply. The \emph{reconstruction stencil} is the set of \emph{input}
-cells read to compute \emph{one} reconstructed value; for a three-point
-reconstruction it is \code{q(f-dx1)}, \code{q(f)}, \code{q(f+dx1)}, and a
-higher-order scheme would read a wider set. The \emph{halo} is the set of
-\emph{extra output faces} the producer must fill so the consumer's neighbor reads
-are satisfied; here it is a single cell, $-\hat{\imath}$.
-
-The two are unrelated in size. The stencil width is a property of the
-reconstruction operator and lives entirely inside the producer body (the
-arguments to \code{reconstruct_plus}). The halo is a property of the
-producer/consumer \emph{coupling} --- how far the consumer reaches into produced
-scratch --- and is expressed in the range the producer iterates. A wide stencil
-with a one-cell halo is the common case: reconstruction may read a broad input
-stencil, but the flux loop only ever reads the produced state one face away.
+The halo type is a stencil of sorts --- but of the \emph{consumer's scratch
+reads}, not of the producer's field reads, and conflating the two is the single
+most common point of confusion. Two stencils are in play, and they are unrelated
+in size:
+\begin{itemize}
+\item The \emph{reconstruction stencil} is the set of \emph{input field} cells read
+  to compute \emph{one} reconstructed value. For a three-point reconstruction it is
+  \code{q(f-dx1)}, \code{q(f)}, \code{q(f+dx1)}; a higher-order scheme reads a wider
+  set. It lives entirely inside the producer body (the arguments to
+  \code{reconstruct_plus}) and the abstraction never sees it.
+\item The \emph{halo} is the set of offsets at which the \emph{consumer} reads the
+  \emph{produced scratch}. In the flux kernel that is just $\{\mathbf{0},
+  -\hat{\imath}\}$ --- the consumer reads the reconstructed state at its own face
+  and one face below --- regardless of how wide the reconstruction stencil was.
+\end{itemize}
+So a wide reconstruction stencil with a one-cell halo is the common, expected case:
+reconstruction may read five input cells to produce each scratch value, but the
+flux loop still only reaches one produced face away. The halo describes the
+producer/consumer \emph{coupling} through scratch, and is what determines the
+producer's iteration range; the reconstruction stencil describes the producer's own
+inputs and does not.
 
 % ---------------------------------------------------------------
 \subsection{Halos in reduced dimensionality}
@@ -1119,8 +1262,13 @@ directions constructs one flux view per direction.
 
 Everything above is only sound because every loop path is held to the same small
 set of guarantees. These are the invariants that let a kernel be written once and
-trusted under any tag combination; they are stated more fully, as the developer
-reference, in \code{src/loop_abstraction/LOOP_ABSTRACTION_CONTRACTS.md}.
+trusted under any tag combination. A longer, more granular version of these
+contracts is written down in \code{src/loop_abstraction/LOOP_ABSTRACTION_CONTRACTS.md};
+be aware, though, that that file is primarily a working document aimed at LLM
+assistants, is not guaranteed to be fully current, and contains
+process admonitions (e.g.\ ``do not change this without asking'') meant for that
+audience. A human reader should treat it as useful background to be taken with a
+grain of salt, and defer to the code itself where the two disagree.
 
 \begin{enumerate}
 \item \textbf{Exactly-once coverage.} Every loop pattern touches every logical cell
@@ -1138,19 +1286,21 @@ reference, in \code{src/loop_abstraction/LOOP_ABSTRACTION_CONTRACTS.md}.
   directly (raw-vs-Kokkos parity) rather than re-deriving the abstraction's logic.
 \end{enumerate}
 
-\paragraph{Body signatures.} An inner body may be written as \code{f(auto idx)} or
-as \code{f(int k, int j, int i)}; when both are viable the three-argument
-coordinate form is selected. The coordinate form can cost a little performance ---
-the internal index is converted back to $(k,j,i)$ before the call --- but is often
-clearer, and it is required where an explicit single \code{int} argument would
-lose the halo-offset coordinates a body needs.
+\paragraph{Body signatures.} As described in Section~\ref{sec:anatomy}, an inner
+body may take a single opaque index (\code{auto idx}, the intended form) or
+explicit coordinates (\code{int k, int j, int i}, a porting convenience); when both
+are viable the three-argument form is selected. Whichever form is used, the
+coverage guarantees above hold identically --- the body signature changes only what
+the body is handed, not which cells it is called on.
 
 \paragraph{A note on documentation and this abstraction.} The loop abstraction
 encodes subtle index-space and scratch contracts, and small changes to the headers
 can violate an invariant in ways that do not show up until a specific tag
-combination runs. The contracts file is the authoritative reference for anyone
-modifying the headers; this document is the tutorial companion that motivates why
-the machinery is shaped the way it is. When the two disagree, the contracts file
-and the code win.
+combination runs. This document is the tutorial companion that motivates why the
+machinery is shaped the way it is; the contracts file is a more granular
+(LLM-oriented) record of the invariants. Neither is the final word --- the code,
+and the unit tests that exercise every tag combination, are the ground truth, and
+anyone modifying the headers should lean on those tests to confirm an invariant
+still holds.
 
 \end{document}
