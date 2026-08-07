@@ -384,97 +384,380 @@ The rest of this document explains each piece used above.
 \label{sec:indexspace}
 % =====================================================================
 
-\emph{[Draft scaffold --- to be expanded.]}
+The \code{IndexSpace} is the object a kernel iterates over, and it is where the
+compile-time structure choices are recorded. Its three template parameters ---
+\code{loop_tag}, \code{inner_tag}, and \code{loop_backend} --- are the subjects of
+the next three sections; this section describes the index information the object
+carries and the coordinate conventions every loop body relies on.
 
-An \code{IndexSpace<loop_tag, inner_tag, backend>} carries two indexers for a
-block: a \emph{logical} indexer describing the interior $(k,j,i)$ cells the kernel
-must cover, and a \emph{memory} indexer describing the full allocated extent
-including ghost cells. The distinction matters because halos and \code{memory}
-traversals touch cells outside the logical set, and because \emph{degenerate}
-directions (a symmetry direction, extent~1, no ghosts) must be distinguished from
-thin active directions. Cover here: construction (the extent-based test
-constructor vs.\ the \code{md}-based constructor), \code{GetLogicalIndexer} /
-\code{GetMemoryIndexer}, flat-vs-coordinate conversion, and \code{GetNdim} (keyed
-off the memory extents, consistent with \code{GetDelta}).
+\paragraph{Two indexers: logical and memory.} An \code{IndexSpace} holds two
+descriptions of a block's index space:
+\begin{itemize}
+\item the \emph{logical} indexer (\code{GetLogicalIndexer()}), covering the
+  interior $(k,j,i)$ cells the kernel is required to update; and
+\item the \emph{memory} indexer (\code{GetMemoryIndexer()}), covering the full
+  allocated extent of a block, ghost cells included.
+\end{itemize}
+Both are \code{Indexer3D} objects ordered $(k, j, i)$ from slowest- to
+fastest-varying, matching the in-memory layout: $i$ is contiguous, then $j$, then
+$k$. The logical indexer defines \emph{what must be touched}; the memory indexer
+defines \emph{where things live} and how a $(k,j,i)$ triple maps to a flat memory
+offset. Keeping the two separate is what lets the abstraction talk precisely about
+cells that are visited but not ``owned'': a \code{memory}-tag traversal
+(Section~\ref{sec:innertags}) may sweep ghost cells that fall inside a contiguous
+run, and a halo (Section~\ref{sec:halos}) deliberately extends the visited set
+past the logical interior. Both are expressed as excursions in the memory indexer
+around the logical set.
+
+\paragraph{Construction.} There are two constructors. The one used in production
+takes a \code{MeshData} / \code{MeshBlockData} pointer and an
+\code{IndexDomain}, and reads the block bounds and topological-element layout from
+the mesh:
+\begin{lstlisting}
+IndexSpace<LOOP_TAG, INNER_TAG> idx_space(
+    ninner,                      // inner chunk size (see Loop tags)
+    IndexDomain::interior,       // which cells are "logical"
+    halo,                        // uniform extra logical cells per active dir
+    nblocks, md,                 // block count and mesh data
+    TopologicalElement::F1,      // element the *logical* space is over (e.g. an x1 face)
+    TopologicalElement::CC);     // element that fixes the *memory* extents (default CC)
+\end{lstlisting}
+This is the constructor that knows the true dimensionality of the problem: it
+consults \code{md->GetMeshPointer()->ndim} and only widens the logical bounds by
+\code{halo} in directions the mesh actually resolves.
+
+Note that the topological element appears \emph{twice}, and the two roles are
+distinct. The first (\code{domain_te}, here \code{F1}) is the element the
+\emph{logical} index space is over --- it is what makes this, e.g., a loop over
+$x_1$ faces rather than cell centers. The second (\code{memory_te}, defaulting to
+\code{CC}) fixes the \emph{memory} extents the block's storage is sized to, and
+hence the strides all flat/memory indexing uses. Only two memory layouts are
+allowed, \code{CC} (cell-centered) and \code{NN} (node-centered): a face- or
+edge-centered field is stored in an array whose extents match one of these two
+(a face field has an extra entry in its normal direction, like a nodal layout in
+that direction), so the memory element is not free to be anything. Keeping
+\code{memory_te} separate from \code{domain_te} is what lets a kernel iterate a
+face-centered logical space while indexing into storage laid out for its actual
+allocation.
+
+A second, simpler constructor takes explicit extents
+\code{(nblocks, nx, ny, nz, nghost)} and is used by unit tests. It always pads
+ghosts in every direction, so it describes a fully-dimensional block --- an extent
+of $1$ denotes a \emph{thin active} direction (with ghosts), not a symmetry
+direction. There is deliberately no way to spell a degenerate direction through the
+extent constructor; a genuine reduced-dimension layout must come from the
+mesh-based constructor.
+
+\paragraph{Degenerate vs.\ thin-active directions, and \code{GetNdim}.} A
+\emph{degenerate} (symmetry) direction has interior extent $1$ \emph{and no ghost
+cells} --- its memory extent is also $1$. A \emph{thin active} direction has
+interior extent $1$ but carries ghosts, so its memory extent exceeds $1$.
+Distinguishing the two is essential for halos: an offset into a degenerate
+direction names a plane that does not exist and must be dropped, whereas an offset
+into a thin active direction is legitimate (Section~\ref{sec:reduced}).
+\code{GetNdim()} therefore counts a direction as active iff its \emph{memory}
+extent exceeds $1$ --- ``is there a cell to shift into?'' --- which is the same
+criterion \code{GetDelta} uses and is consistent across both constructors.
+
+\paragraph{Coordinates handed to a body.} Within a loop body the current point is
+recovered from whatever index form the inner tag produces via
+\code{range.GetKJI(idx)}, which returns the $(k,j,i)$ triple regardless of whether
+\code{idx} is a flat integer, an \code{Index3}, or a memory offset. Neighbor
+access is expressed with offset objects from \code{GetDelta} rather than raw
+integer arithmetic; Section~\ref{sec:getdelta} explains why the offset is an
+object and how it interacts with degenerate directions.
 
 % =====================================================================
 \section{Loop tags: where the variable level sits}
 \label{sec:looptags}
 % =====================================================================
 
-\emph{[Draft scaffold --- to be expanded.]}
+The abstraction organizes work into four conceptual levels: blocks ($b$), an
+\code{outer} traversal, an \code{inner} traversal, and a ``variable'' ($v$) level.
+The $v$ level is any per-block work the user writes between the block and the
+innermost $kji$ traversal --- most often a loop over the fields or components a
+kernel updates, but in general any block-local computation. The \code{loop_tag}
+selects where that $v$ level sits in the
+$\text{block}\to\text{outer}\to\text{inner}$ hierarchy, and that placement fixes
+the generated loop structure.
 
-The \code{loop_tag} selects where the user's ``variable'' ($v$) loop --- any
-per-block work between the block level and the innermost $kji$ traversal, most
-often a loop over fields/components --- sits in the
-$\text{block}\to\text{outer}\to\text{inner}$ hierarchy, and this fixes the
-generated loop structure. Emphasize the chunking/fusion picture: \code{bovi} and
-\code{boiv} \emph{chunk} (and can fuse) the $kji$ space in \code{outer}, while
-\code{bvoi} keeps the whole block in one slice.
+\paragraph{The key axis: chunking and fusion.} Both hierarchical tags,
+\code{bvoi} and \code{bovi}, \emph{chunk} the $kji$ space into runs of
+\code{ninner} cells; only \code{boiv} does no chunking (each point stands alone).
+Where the two hierarchical tags differ is \emph{which loop level} the chunk loop
+lives at. In \code{bovi} the chunking is at the \code{outer} level: \code{outer}
+runs over (block, chunk) pairs and each \code{inner} covers one chunk. In
+\code{bvoi} the \code{outer} loop runs over blocks only, but the single
+\code{inner} call still splits internally into a chunk loop and a within-chunk
+loop --- so \code{bvoi} chunks too, just \emph{inside} \code{inner} rather than in
+\code{outer}. In particular, a \code{bvoi} \code{memory} traversal walks the same
+per-chunk contiguous spans, and sweeps the same in-span ghost cells, as a
+\code{bovi} one; the difference between the two tags is where the user's variable
+loop sits and how scratch is scoped (below), not whether chunking happens.
+
+The chunk size is the \code{ninner} argument to the constructor, expressed either
+as a raw cell count or as a \code{chunk_shape} (\code{i_pencil}, \code{ij_slab},
+\code{kji_cube}) resolved against the indexer. This is the ``how much to fuse''
+knob planted in Section~\ref{sec:cpu}: a larger chunk fuses more $kji$ work into
+one contiguous \code{inner} sweep --- better for vectorization, at the cost of
+more live scratch and, for \code{memory}-tag traversals, more swept ghost work.
+
+\paragraph{What chunking looks like.} Because ``chunking the $kji$ space'' is not
+obvious until you have drawn it, Figure~\ref{fig:chunk} works a small example on a
+single $ji$ plane (the $k$ index held fixed; $kji$ chunking is the same idea with
+one more dimension). The cells of a block are stored row-major --- $i$ contiguous,
+then $j$, then $k$ --- and a chunk is a run of cells in that flat order. As long
+as a chunk stays within a single interior row --- i.e.\ the chunk size is at most
+the interior row length $n_i$ and divides it evenly, such as \code{i_pencil}
+(panel a) --- each chunk is a clean pencil and the picture is unsurprising.
+
+The moment a chunk \emph{straddles} a row boundary, the logical and \code{memory}
+traversals diverge. This happens whenever a chunk cannot be contained in one row:
+any \code{ninner} $> n_i$ straddles (a chunk of $2 n_i$ spans parts of three rows),
+and so does any \code{ninner} $< n_i$ that does not divide $n_i$ evenly (panel b,
+with $n_i = 6$ and $\code{ninner} = 8$, is one such case, but so is
+$\code{ninner} = 2 n_i = 12$). What matters is only whether a chunk's cell run
+crosses from the end of one interior row into the next --- not the specific
+relation between \code{ninner} and $n_i$. When it does, the run is still well
+defined in flat order, but it now contains a row boundary, and that is where the
+two inner tags part ways.
+
+The divergence is the point of panel~(c). A \code{logical} traversal
+(\code{logical_flat} / \code{logical_coords}) visits only interior cells: at each
+row boundary inside the chunk it jumps directly from the last interior cell of one
+row to the first interior cell of the next, skipping the ghost cells at the ends of
+the rows. A \code{memory} traversal instead walks the \emph{contiguous memory
+span} from the chunk's first cell to its last, so the ghost cells that physically
+lie between the rows in memory (the trailing ghost of the lower row and the
+leading ghost of the upper row, at each crossed boundary) are swept as part of the
+run. Both traversals touch every interior cell of the chunk exactly once; the
+\code{memory} one additionally touches those in-span ghosts, which is the ``swept
+ghost work'' the fusion knob trades against, and why a \code{chunk_shape} that
+lands on clean row/plane boundaries (\code{i_pencil}, \code{ij_slab}) avoids the
+extra work entirely.
+
+\begin{figure}[t]
+\centering
+\input{chunking_tikz.tex}
+\caption{Chunking of a block's $kji$ space, drawn on one $ji$ plane. The heavy
+outline is the interior; the light border is the one-cell ghost ring.
+\textbf{(a)} \code{i_pencil}: each chunk is exactly one interior row.
+\textbf{(b)} A chunk size ($n_{\mathrm{inner}}=8$, here with $n_i=6$) whose chunks
+straddle row boundaries --- as any chunk not contained within a single interior
+row does --- while a \emph{logical} traversal still touches only interior cells. \textbf{(c)} The same chunk~0 under a
+\code{memory} traversal: the contiguous memory span from the chunk's first to last
+cell also sweeps the two ghost cells (\textcolor{red!75!black}{g}) that lie between
+the rows in memory. Interior cells are still each touched exactly once.}
+\label{fig:chunk}
+\end{figure}
+
 \begin{description}
-\item[\code{bvoi}] $v$ above the traversal; a $v$ iteration spans the whole $kji$
-  space of a block. Mixed logical/memory path; halos/scratch are block-relative.
-\item[\code{bovi}] $v$ inside the chunk \code{outer} loop, around \code{inner};
-  each $v$ iteration covers one $kji$ chunk. The main contiguous-span path
-  (the CPU form of \S\ref{sec:cpu}).
-\item[\code{boiv}] $v$ innermost, at a single logical cell. The pointwise hot path
-  (the GPU form of \S\ref{sec:gpu}); the \code{ninner}${=}1$ limit of \code{bovi}
-  with its own code path.
+\item[\code{bvoi} (block, var, outer, inner)] The $v$ loop sits \emph{above} the
+  traversal, so one $v$ iteration spans the whole $kji$ space of a block.
+  \code{outer} runs over blocks only. Halos and scratch are \emph{block}-relative
+  (sized to the whole block). This is a mixed logical/memory path. It is a
+  CPU-friendly hierarchical form and in practice often the fastest, at the price
+  of the most scratch --- the entire block's worth of intermediates is live at
+  once.
+\item[\code{bovi} (block, outer, var, inner)] The $v$ loop sits \emph{inside} the
+  chunk \code{outer} loop but \emph{around} the \code{inner} traversal, so each
+  $v$ iteration covers one $kji$ chunk. \code{outer} runs over (block, chunk)
+  pairs. Halos and scratch are \emph{chunk}-relative. This is the main
+  contiguous-span path and the other CPU-friendly form (\S\ref{sec:cpu}); it needs
+  far less scratch than \code{bvoi} because only one chunk is live, at the cost of
+  re-establishing per-chunk state more often.
+\item[\code{boiv} (block, outer, inner, var)] The $v$ loop is innermost, at a
+  single logical cell, so the \code{inner} ``traversal'' is one point --- the
+  degenerate \code{ninner}${=}1$ limit of \code{bovi}, given its own code path for
+  performance. \code{outer} is a flat grid over all $(\text{block}, k, j, i)$.
+  This is the pointwise GPU-friendly form (\S\ref{sec:gpu}); scratch is a tiny
+  per-thread stack buffer and there is no producer/consumer barrier.
 \end{description}
+
+Where $v$ sits also governs what state is in scope for the user's block-local
+loop and how scratch and halos are sized (block-relative for \code{bvoi},
+chunk-relative for \code{bovi}/\code{boiv}), which is why the same halo annotation
+produces different amounts of scratch under different tags.
 
 % =====================================================================
 \section{Inner tags: how a chunk is traversed}
 \label{sec:innertags}
 % =====================================================================
 
-\emph{[Draft scaffold --- to be expanded.]}
+Where the \code{loop_tag} decides how the $kji$ space is split across
+\code{outer}/\code{inner}, the \code{inner_tag} decides how a single \code{inner}
+chunk is walked and what index form the body receives. All three variants satisfy
+the same coverage contract --- every logical cell is touched exactly once --- but
+they differ in what the body is handed and which cells beyond the logical set may
+also be visited.
 
 \begin{description}
-\item[\code{logical_flat}] Each logical cell once, body receives a flat integer for
-  \code{var[idx]} access; requires a shared layout across fields; most vectorizable.
-\item[\code{logical_coords}] Same coverage, body receives an \code{Index3};
-  use when fields have different layouts (e.g.\ cell- vs.\ face-centered).
-\item[\code{memory}] Contiguous memory span for the chunk, may include ghost
-  cells; logical cells still touched exactly once. \code{boiv}${+}$\code{memory}
-  is rejected at compile time.
+\item[\code{logical_flat}] Visits each logical cell exactly once and hands the body
+  a single flat integer suitable for direct \code{var[idx]} pointer access. This
+  requires that every field touched in the kernel share one memory layout, so they
+  can share the flat index. It is the most likely to vectorize, because the inner
+  loop reduces to \code{a[idx]}-style accesses over a contiguous run --- this is
+  the tag behind the CPU form of \S\ref{sec:cpu}.
+\item[\code{logical_coords}] Same exactly-once logical coverage, but the body
+  receives an \code{Index3} of $(k,j,i)$ instead of a flat integer. Use this when
+  the fields in a kernel do \emph{not} share a layout --- for instance a
+  cell-centered field and a face-centered field accessed together --- so no single
+  flat index is valid for all of them. Access goes through coordinates, which is
+  also the natural form for the pointwise \code{boiv} path.
+\item[\code{memory}] Walks the \emph{contiguous memory span} of the chunk rather
+  than only its logical cells. It still touches every logical cell exactly once,
+  but ghost cells that happen to fall inside the span are also visited (their
+  post-loop values are not meaningful and must not be relied on). This can be the
+  fastest option when it lets the loop consume one long uniform run of memory
+  without gaps, trading a little wasted work on ghosts for a simpler, longer inner
+  loop.
 \end{description}
+
+The \code{boiv}${+}$\code{memory} combination is rejected at compile time by a
+\code{static_assert} in \code{IndexSpace}: a single-cell inner range has no
+meaningful contiguous-span traversal, so the pairing is not a coherent contract.
 
 % =====================================================================
 \section{Backends}
 \label{sec:backends}
 % =====================================================================
 
-\emph{[Draft scaffold --- to be expanded.]}
+The third \code{IndexSpace} template parameter selects the backend that actually
+emits the loops:
+\begin{itemize}
+\item \code{loop_backend::raw} --- a plain host loop nest with \code{#pragma omp
+  simd} on the innermost loop. This is the form that gives the C++ compiler the
+  cleanest view for auto-vectorization on a CPU.
+\item \code{loop_backend::kokkos} --- dispatch through Kokkos parallel policies
+  (a flat \code{RangePolicy} for \code{boiv}, a \code{TeamPolicy} with team/vector
+  ranges for the hierarchical tags).
+\end{itemize}
+It defaults to \code{default_loop_backend_v}, which is \code{raw} when the device
+execution space \emph{is} the host space (a CPU-only build) and \code{kokkos}
+otherwise. \code{outer} and \code{inner} choose between the two with
+\code{if constexpr} on \code{backend_v}, so the unused path is never instantiated
+and the selection carries no runtime cost.
 
-The third template parameter is \code{loop_backend::raw} (a host nest with
-\code{#pragma omp simd}) or \code{loop_backend::kokkos} (Kokkos parallel
-policies). It defaults to \code{default_loop_backend_v} --- \code{raw} when the
-device execution space is the host space, \code{kokkos} otherwise. \code{outer} /
-\code{inner} dispatch with \code{if constexpr}, so selection is zero-cost.
+The backend is orthogonal to the loop and inner tags: any tag combination can be
+compiled through either backend, and the two are required to produce the same
+logical result for a given \code{IndexSpace} (Section~\ref{sec:contracts}).
+Pinning the backend explicitly, rather than taking the default, is mainly useful
+in tests that want to exercise a specific backend regardless of the build --- for
+example, to check raw-vs-Kokkos parity on a host build where both can run.
+
+% =====================================================================
+\section{Offsets and neighbor access}
+\label{sec:getdelta}
+% =====================================================================
+
+Many kernels read a cell's neighbors, whether or not scratch or halos are
+involved: a diffusion operator reads $q(f\pm\hat{\imath})$, a gradient reads
+neighbors in every direction, the flux consumer reads a produced state one face
+over. To do this the body needs a way to spell ``one cell over in $x_1$'' that is
+correct for whatever index form the current inner tag hands it. \code{GetDelta}
+provides exactly that, and it is a general facility --- nothing about it is tied to
+scratch or halos.
+
+\code{idx_space.GetDelta(dir)} returns an \emph{offset object} representing a
+$+1$ logical step in direction \code{dir}, usable directly in the body's index
+arithmetic:
+\begin{lstlisting}
+const auto dx1 = idx_space.GetDelta(X1DIR);   // one +x1 step
+
+la::inner(r, [&](auto f) {
+  // a plain three-point Laplacian in x1 -- no scratch, no halo:
+  out(f) = q(f - dx1) - 2.0 * q(f) + q(f + dx1);
+});
+\end{lstlisting}
+The step is \emph{signed through the coefficient}: \code{f + dx1} moves in
+$+\hat{\imath}$, \code{f - dx1} in $-\hat{\imath}$, \code{f + 2*dx1} two cells up.
+The delta always represents the positive unit step; the direction of travel is in
+how the body combines it.
+
+\paragraph{Why an object, not an integer.} \code{GetDelta} does not return a plain
+\code{int}. For the flat-indexed paths a $+1$ step in $x_1$ is a $+1$ change in the
+flat index, but a $+1$ step in $x_2$ is a jump of one full $i$-row, and in $x_3$ a
+jump of one full $ij$-plane --- the numeric stride depends on the block's memory
+extents. The returned object carries the correct memory stride \emph{and} the
+$(dk,dj,di)$ logical components, and it overloads \code{+}/\code{-}/scalar-multiply
+so that adding it to a flat index, an \code{Index3}, or a memory offset each does
+the right thing. That is what lets \code{f - dx1} appear unchanged in a kernel that
+might be compiled with \code{logical_flat}, \code{logical_coords}, or a
+\code{memory} tag: the same expression resolves to flat-index arithmetic or
+coordinate arithmetic as appropriate.
+
+\paragraph{Degenerate directions collapse to zero.} \code{GetDelta} returns a
+\emph{zero} step for a direction that is not resolved: \code{GetDelta(X3DIR)} in a
+2D problem has all components zero, so \code{f + dx3} is just \code{f}. A neighbor
+read in an unresolved direction therefore reads the cell itself --- the right
+behavior for a symmetry direction, and it makes a stencil kernel written for 3D
+also correct, unchanged, in 2D. This zeroing is keyed off the same memory-extent
+test as \code{GetNdim} (Section~\ref{sec:indexspace}), and it is the consumer-side
+counterpart of the producer-side halo behavior in
+Section~\ref{sec:reduced}: a consumer's \code{f - dx3} and a producer's $-\hat{k}$
+halo offset agree about which directions are real.
 
 % =====================================================================
 \section{Scratch}
 \label{sec:scratch}
 % =====================================================================
 
-\emph{[Draft scaffold --- to be expanded.]}
+Scratch is the per-cell temporary storage a producer inner loop writes and a
+consumer inner loop reads --- the reconstructed $q^\pm$ of the flux kernel. It is
+the mechanism that makes the store-and-reuse CPU form possible, and it is sized
+and allocated differently for each loop path so that the same kernel text works on
+all of them.
 
-Per-point scratch is registered on the \code{IndexSpace} at setup
-(\code{AddPerPointScratch<T>()}, \code{<T,2,3>()} for a shaped block,
-\code{<T,Halo>()} to size for a halo-extended range) and requested inside the
-outer body (\code{GetPerPointScratch<T>(range)}). The returned object is
-\emph{specialized per loop path and backend} behind a uniform indexing API:
+\paragraph{Registration and sizing (two-phase).} Scratch is declared in two steps.
+At setup, before any kernel launch, the amount of scratch per point is
+\emph{registered} on the \code{IndexSpace}:
+\begin{lstlisting}
+idx_space.AddPerPointScratch<Real>();          // one Real per point
+idx_space.AddPerPointScratch<Real, 2, 3>();    // a 2x3 block per point
+idx_space.AddPerPointScratch<Real, recon_halo>(2); // 2 Reals/point, sized for the halo range
+\end{lstlisting}
+The template arguments after the type are optional trailing extents for a
+\emph{shaped} per-point block (so \code{scratch(c0, c1, idx)} indexes a small dense
+array at each cell), and an optional \code{Halo} type that tells the sizing to
+account for the halo-extended range a producer will cover
+(Section~\ref{sec:halos}). Registration accumulates a per-team scratch budget;
+for the Kokkos backend this is what is requested from the team-scratch pool when
+the kernel launches. Then, inside the outer body, the actual buffer is obtained:
+\begin{lstlisting}
+auto scratch = la::GetPerPointScratch<Real>(range);   // range may be a halo-extended range
+\end{lstlisting}
+Passing a halo-extended range (\S\ref{sec:halos}) yields a buffer that covers the
+extended point set, so a producer can write every point a consumer will later
+read.
+
+\paragraph{Uniform indexing, backend-specialized storage.} The returned object
+accepts the same index forms the loop body uses --- \code{scratch(idx)} for a flat
+index, \code{scratch(Index3\{k,j,i\})} or \code{scratch(k,j,i)} for coordinates,
+and \code{scratch(c0, c1, idx)} for a shaped block --- but the storage underneath
+is chosen per loop path and backend:
 \begin{itemize}
-\item \code{boiv}: a tiny fixed-size \emph{stack} buffer (a few cells).
-\item raw backend: a non-owning slice of a per-thread \emph{bump arena} --- a
-  region allocator that hands out memory by advancing a pointer and reclaims
-  everything at once when the outer iteration resets
+\item \textbf{\code{boiv}}: a tiny fixed-size \emph{stack} buffer, just large
+  enough for the point and its halo neighbors (a handful of cells). Nothing is
+  shared between threads, matching the recompute-per-cell GPU form.
+\item \textbf{raw backend (hierarchical tags)}: a non-owning slice of a per-thread
+  \emph{bump arena} --- a region allocator that hands out memory by advancing a
+  pointer and reclaims everything at once when the next outer iteration resets it
   (\href{https://en.wikipedia.org/wiki/Region-based_memory_management}{region-based
-  allocation}).
-\item Kokkos backend: Kokkos team scratch (shared memory).
+  allocation}). This gives cheap, allocation-free scratch reuse across chunks on
+  the CPU.
+\item \textbf{Kokkos backend (hierarchical tags)}: Kokkos team scratch, i.e.\
+  GPU shared memory (or its host equivalent), shared across the threads of a team.
 \end{itemize}
-As with raw hierarchical parallelism, call \code{range.TeamBarrier()} between a
-producer inner loop and a consumer that reads values other threads wrote.
+Because the indexing API is uniform, the kernel body never names which of these it
+got.
+
+\paragraph{Barriers.} When a consumer reads scratch that \emph{other} threads
+wrote --- the hierarchical tags, where a team cooperates on a chunk --- the
+producer loop must complete before the consumer starts. Call
+\code{range.TeamBarrier()} between the two inner loops, exactly as with raw
+hierarchical Kokkos parallelism. On the \code{boiv} path the producer and consumer
+run back-to-back on the same thread and share no scratch, so \code{TeamBarrier} is
+a no-op; writing it anyway is what keeps the one kernel correct under every tag.
 
 % =====================================================================
 \section{Halos}
@@ -522,35 +805,19 @@ the single-point dependency that the halo encodes.}
 
 This distinction is the single most common point of confusion, so it is worth
 stating sharply. The \emph{reconstruction stencil} is the set of \emph{input}
-cells read to compute \emph{one} reconstructed value; in the flux kernel it is
-wide (\code{q(f-2*dx1)} through \code{q(f+dx1)} for \code{reconstruct_plus}). The
-\emph{halo} is the set of \emph{extra output faces} the producer must fill so the
-consumer's neighbor reads are satisfied; here it is a single cell, $-\hat{\imath}$.
+cells read to compute \emph{one} reconstructed value; for a three-point
+reconstruction it is \code{q(f-dx1)}, \code{q(f)}, \code{q(f+dx1)}, and a
+higher-order scheme would read a wider set. The \emph{halo} is the set of
+\emph{extra output faces} the producer must fill so the consumer's neighbor reads
+are satisfied; here it is a single cell, $-\hat{\imath}$.
 
 The two are unrelated in size. The stencil width is a property of the
 reconstruction operator and lives entirely inside the producer body (the
 arguments to \code{reconstruct_plus}). The halo is a property of the
 producer/consumer \emph{coupling} --- how far the consumer reaches into produced
 scratch --- and is expressed in the range the producer iterates. A wide stencil
-with a one-cell halo is the common case: the reconstruction reads five cells, but
-the flux loop only ever reads the produced state one face away.
-
-% ---------------------------------------------------------------
-\subsection{Offsets, \texttt{GetDelta}, and sign conventions}
-\label{sec:getdelta}
-% ---------------------------------------------------------------
-
-\emph{[Draft scaffold --- to be expanded.]}
-
-\code{GetDelta(dir)} returns an offset object \code{dx1} representing a
-\emph{$+1$} logical step in direction \code{dir}, usable in the body's index
-arithmetic: \code{f + dx1}, \code{f - dx1}, \code{f + 2*dx1}. It is signed through
-the coefficient; \code{f - dx1} is the step in $-\hat{\imath}$. Cover here: why the
-offset is an object rather than a raw integer (it carries the memory stride so it
-composes with flat, \code{Index3}, and memory-offset index forms), and how it
-relates to the halo offsets --- crucially, \code{GetDelta} zeroes the component of
-a degenerate direction, which is the hook that connects to
-Section~\ref{sec:reduced}.
+with a one-cell halo is the common case: reconstruction may read a broad input
+stencil, but the flux loop only ever reads the produced state one face away.
 
 % ---------------------------------------------------------------
 \subsection{Halos in reduced dimensionality}
@@ -611,39 +878,87 @@ practice, the guard plus the one-line workaround covers every case.
 \label{sec:views}
 % =====================================================================
 
-\emph{[Draft scaffold --- to be expanded.]}
+A kernel still has to read and write actual fields, and a \code{SparsePack} is
+Parthenon's usual way to hold them. \emph{Views} are the adapters that let a pack
+be accessed with the same index forms the loop body already uses --- a flat
+\code{int}, an \code{Index3}, or explicit $k,j,i$ --- so the variable access
+matches the loop contract instead of being spelled separately. They are the
+first-class way to touch variables inside a loop-abstraction kernel.
 
-Views adapt a \code{SparsePack} to the current loop contract so variable access
-uses the same index forms as the body (flat \code{int}, \code{Index3}, or explicit
-$k,j,i$):
+\paragraph{The view constructors.}
 \begin{itemize}
-\item \code{make_pack_view} (non-sparse vars), \code{make_sparse_pack_view}
-  (sparse vars at a sparse index), \code{make_var_view} (single variable).
-\item \code{make_flux_pack_view(range, pack, dir)} / \code{make_flux_view} --- flux
-  counterparts. Note the deliberate difference from ordinary Parthenon packs: a
-  flux view contains \emph{only} fluxes and \emph{only} for the one direction
-  requested at construction.
+\item \code{make_pack_view(range, pack)} --- a view over all non-sparse variables
+  in the pack.
+\item \code{make_sparse_pack_view(range, pack, sparse_idx)} --- a view over the
+  sparse variables at a given sparse index.
+\item \code{make_var_view(range, pack, var)} --- a single-variable view.
+\item \code{make_flux_pack_view(range, pack, dir)} / \code{make_flux_view(...)}
+  --- the flux-array counterparts for one sweep direction.
 \end{itemize}
-For \code{logical_coords} these are thin wrappers over the pack; for the other
-inner tags they pull out raw pointers at construction, which can significantly aid
-vectorization.
+Each accepts the same index forms the body produces, so a kernel can be written
+once and reused across inner tags: \code{pv(var(), idx)},
+\code{pv(var(), Index3\{k,j,i\})}, or \code{pv(TE::F1, var(), idx)} for a
+particular topological element.
+
+\paragraph{Pointer pull-out is where the view earns its keep.} As noted in
+Section~\ref{sec:onekernel}, a view is not merely cosmetic. For
+\code{logical_coords} (and the pointwise \code{boiv} path) it is a thin wrapper
+that forwards each access straight through to the sparse pack --- the right choice
+when fields have different layouts or when each thread handles one cell. For the
+flat-indexed paths, however, the view \emph{pulls raw pointers out of the pack at
+construction}, so an access like \code{pv(var(), f)} compiles to an
+\code{a[idx]}-style load/store the compiler can vectorize, with none of the pack's
+per-access indexing in the inner loop. This is a large part of why the CPU form of
+\S\ref{sec:cpu} is fast, and the kernel gets it without spelling any pointer
+arithmetic itself.
+
+\paragraph{Flux views are deliberately narrow.} A flux view differs from an
+ordinary Parthenon pack on purpose: it contains \emph{only} fluxes, and \emph{only}
+for the single direction requested at construction. Ordinary packs let you request
+fluxes in any direction from the same object; here, because a directional sweep
+only ever touches one flux direction, the view is specialized to that direction so
+the access is as direct as a variable access. A kernel that sweeps multiple
+directions constructs one flux view per direction.
 
 % =====================================================================
 \section{Contracts and invariants}
 \label{sec:contracts}
 % =====================================================================
 
-\emph{[Draft scaffold --- to be expanded. Mirror the invariant summary from
-\code{LOOP_ABSTRACTION_CONTRACTS.md}.]}
+Everything above is only sound because every loop path is held to the same small
+set of guarantees. These are the invariants that let a kernel be written once and
+trusted under any tag combination; they are stated more fully, as the developer
+reference, in \code{src/loop_abstraction/LOOP_ABSTRACTION_CONTRACTS.md}.
 
-The invariants every path must satisfy:
 \begin{enumerate}
-\item Every loop pattern touches every logical cell exactly once.
-\item \code{logical_flat} and \code{logical_coords} must not touch halo/ghost cells.
-\item \code{memory} may touch ghost cells but must still touch every logical cell
-  exactly once.
-\item raw and Kokkos backends agree on the contract for the same loop pattern and
-  body signature.
+\item \textbf{Exactly-once coverage.} Every loop pattern touches every logical cell
+  exactly once. This is the guarantee a physics kernel depends on: no cell is
+  skipped and none is updated twice.
+\item \textbf{Logical tags stay inside the logical set.} \code{logical_flat} and
+  \code{logical_coords} must not touch ghost cells (outside the deliberate
+  extension of a halo range).
+\item \textbf{Memory tags may sweep ghosts, but still cover logically.}
+  \code{memory} may touch ghost cells that fall inside a contiguous span, but must
+  still touch every logical cell exactly once, and the values it leaves in ghost
+  cells are not meaningful.
+\item \textbf{Backend agreement.} The raw and Kokkos backends produce the same
+  logical result for the same loop pattern and body signature. Tests assert this
+  directly (raw-vs-Kokkos parity) rather than re-deriving the abstraction's logic.
 \end{enumerate}
+
+\paragraph{Body signatures.} An inner body may be written as \code{f(auto idx)} or
+as \code{f(int k, int j, int i)}; when both are viable the three-argument
+coordinate form is selected. The coordinate form can cost a little performance ---
+the internal index is converted back to $(k,j,i)$ before the call --- but is often
+clearer, and it is required where an explicit single \code{int} argument would
+lose the halo-offset coordinates a body needs.
+
+\paragraph{A note on documentation and this abstraction.} The loop abstraction
+encodes subtle index-space and scratch contracts, and small changes to the headers
+can violate an invariant in ways that do not show up until a specific tag
+combination runs. The contracts file is the authoritative reference for anyone
+modifying the headers; this document is the tutorial companion that motivates why
+the machinery is shaped the way it is. When the two disagree, the contracts file
+and the code win.
 
 \end{document}
