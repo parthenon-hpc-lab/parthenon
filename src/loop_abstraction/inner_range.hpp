@@ -138,9 +138,8 @@ class InnerIndexRange {
     scratch_flat_start =
         memory.GetFlatIdx(start.k + Halo::dk(hbegin), start.j + Halo::dj(hbegin),
                           start.i + Halo::di(hbegin));
-    int scratch_flat_end =
-        memory.GetFlatIdx(end.k + Halo::dk(hbegin), end.j + Halo::dj(hbegin),
-                          end.i + Halo::di(hbegin));
+    int scratch_flat_end = memory.GetFlatIdx(
+        end.k + Halo::dk(hbegin), end.j + Halo::dj(hbegin), end.i + Halo::di(hbegin));
     nregions = 1;
     // Create possibly disjoint ranges, this algorithm relies on the start and end points
     // of the ranges being sorted by flat start
