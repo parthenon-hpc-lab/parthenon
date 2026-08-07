@@ -436,11 +436,13 @@ struct not_projection_closed_halo_t {
 // degeneration; k_triplet is closed because both non-identity k-offsets project to the
 // identity; plus_two_i_minus_k is closed by construction (it includes (0,0,2)); the
 // bare-diagonal halo above is not.
-static_assert(loop_abstraction::impl::HaloIsProjectionClosed<loop_abstraction::halo::none_t>());
+static_assert(
+    loop_abstraction::impl::HaloIsProjectionClosed<loop_abstraction::halo::none_t>());
 static_assert(loop_abstraction::impl::HaloIsProjectionClosed<plus_j_halo_t>());
 static_assert(loop_abstraction::impl::HaloIsProjectionClosed<minus_i_halo_t>());
 static_assert(loop_abstraction::impl::HaloIsProjectionClosed<k_triplet_halo_t>());
-static_assert(loop_abstraction::impl::HaloIsProjectionClosed<plus_two_i_minus_k_halo_t>());
+static_assert(
+    loop_abstraction::impl::HaloIsProjectionClosed<plus_two_i_minus_k_halo_t>());
 static_assert(
     !loop_abstraction::impl::HaloIsProjectionClosed<not_projection_closed_halo_t>());
 
@@ -552,8 +554,7 @@ void RunPatternMatrix(const char *body_name, const bool kji_body) {
 template <class HaloType, class IndexSpaceType>
 bool InHaloLogicalSet(const IndexSpaceType &idx_space, const int k, const int j,
                       const int i) {
-  const auto hrange =
-      loop_abstraction::HaloReducedRange<HaloType>(idx_space.GetNdim());
+  const auto hrange = loop_abstraction::HaloReducedRange<HaloType>(idx_space.GetNdim());
   for (int n = hrange.begin; n < hrange.end; ++n) {
     // (k,j,i) is a shifted image of a logical cell p under offset h_n iff
     // p = (k,j,i) - h_n is itself a logical cell.
@@ -1537,9 +1538,9 @@ void RunHalo2DMeshSingleTouchCase(int nblocks, int nside, int nghost) {
   mesh_data.Initialize(block_list, nullptr);
 
   using IndexSpaceType = IndexSpace<loop_tag::bvoi, INNER_TAG>;
-  IndexSpaceType idx_space(loop_abstraction::NInner(loop_abstraction::chunk_shape::ij_slab),
-                           IndexDomain::interior, /*halo=*/0, nblocks, &mesh_data,
-                           TopologicalElement::CC);
+  IndexSpaceType idx_space(
+      loop_abstraction::NInner(loop_abstraction::chunk_shape::ij_slab),
+      IndexDomain::interior, /*halo=*/0, nblocks, &mesh_data, TopologicalElement::CC);
   REQUIRE(idx_space.GetNdim() == 2);
 
   auto touches = MakeOutput(idx_space);
@@ -1584,7 +1585,6 @@ TEST_CASE("loop abstraction halo 2D mesh k-halo single touch",
   // An in-plane halo is unaffected by the k degeneration: it is kept whole.
   RunHalo2DMeshSingleTouchCase<plus_j_halo_t, inner_tag::logical_flat>(2, 3, 2);
 }
-
 
 TEST_CASE("loop abstraction pack view contracts",
           "[loop_abstraction][contract][pack_view]") {
