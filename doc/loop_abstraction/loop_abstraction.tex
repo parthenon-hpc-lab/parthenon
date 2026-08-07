@@ -91,6 +91,26 @@ single kernel body can be compiled into either a CPU-friendly hierarchical form
 that stores and reuses intermediate results, or a GPU-friendly flat form that
 recomputes them, with no change to the physics code.
 
+\paragraph{Why this is not a reinvention of Kokkos.} Kokkos is a general
+performance-portability layer: it can express essentially any parallel pattern,
+and it makes very few assumptions about what a kernel does. That generality is a
+strength, but it also means the programmer is responsible for choosing and hand-
+coding the loop structure, and a generic pattern gives the compiler and library
+little to exploit. The loop abstraction takes the opposite stance. It is
+deliberately \emph{narrower} --- it targets block-structured
+$(\text{block}, k, j, i)$ finite-volume kernels and a handful of loop shapes that
+are known to perform well for them --- and it is built \emph{on top of} Kokkos,
+not in place of it. The abstraction still dispatches through Kokkos (or a raw host
+nest) underneath; what it adds is a vocabulary specialized enough that the library
+can make the structural decisions a programmer would otherwise make by hand:
+where to chunk, what to store versus recompute, which index is contiguous, how
+scratch is sized. The trade-off is explicit: because the abstraction only knows
+how to express a constrained family of kernels, it cannot describe an arbitrary
+computation the way raw Kokkos can. In exchange, within that family it is easier
+to write a kernel that is already close to optimal on both architectures, and to
+switch between structures without rewriting the kernel. It is a domain-specific
+convenience layer over Kokkos, not a competitor to it.
+
 This document is organized around that claim. Section~\ref{sec:motivation}
 develops a single motivating kernel and writes it out by hand twice, once for each
 architecture, to make the differences concrete. Section~\ref{sec:onekernel} shows
@@ -111,8 +131,8 @@ $x_1$ sweep. For each cell we need the flux $F_{i-1/2}$ on its lower $x_1$ face.
 The standard recipe is:
 \begin{enumerate}
 \item \textbf{Reconstruct} the left and right interface states at each face
-  $i-1/2$ from a stencil of cell-centered values --- e.g.\ for a five-point
-  reconstruction, $q_{i-2},\dots,q_{i+1}$ contribute to the states at face
+  $i-1/2$ from a stencil of cell-centered values --- e.g.\ for a three-point
+  reconstruction, $q_{i-1}, q_i, q_{i+1}$ contribute to the states at face
   $i-1/2$. Call the resulting one-sided states $q^{+}_{i-1/2}$ (extrapolated from
   the left) and $q^{-}_{i-1/2}$ (extrapolated from the right).
 \item \textbf{Solve a Riemann problem} at each face from the two one-sided states:
@@ -157,8 +177,8 @@ for (int k = kb.s; k <= kb.e; ++k) {
     const Real *q_row = &q(k, j, 0);
     #pragma omp simd
     for (int i = is - 1; i <= ie; ++i) {
-      qp[i] = reconstruct_plus (q_row[i-2], q_row[i-1], q_row[i], q_row[i+1]);
-      qm[i] = reconstruct_minus(q_row[i-1], q_row[i], q_row[i+1], q_row[i+2]);
+      qp[i] = reconstruct_plus (q_row[i-1], q_row[i], q_row[i+1]);
+      qm[i] = reconstruct_minus(q_row[i-1], q_row[i], q_row[i+1]);
     }
 
     // Consumer: one Riemann solve per face, reading neighboring scratch.
@@ -183,7 +203,14 @@ Three features matter and will reappear as abstraction concepts:
   producer range.
 \item \textbf{Contiguous inner loops.} Both inner loops are unit-stride in $i$
   and marked for SIMD; \code{q_row}, \code{qp}, \code{qm} are raw pointers so the
-  compiler sees \code{a[i]}-style access.
+  compiler sees \code{a[i]}-style access. The row shown here is one $i$-pencil, but
+  nothing forbids fusing several adjacent $j$- (or $k$-) rows into one longer
+  contiguous run to give the vectorizer more to chew on. Because the allocated
+  block is contiguous in memory, such a fused run can be walked as a single span;
+  the cost is a little extra ghost work where the run crosses row boundaries. The
+  abstraction exposes this as a tunable chunk size (Section~\ref{sec:looptags});
+  the point to plant now is that ``how much to fuse'' is a knob, not a fixed
+  choice.
 \end{itemize}
 
 % ---------------------------------------------------------------
@@ -204,8 +231,8 @@ directly through the pack.
 par_for(is, ie, jb.s, jb.e, kb.s, kb.e,
   KOKKOS_LAMBDA(const int k, const int j, const int i) {
     // This face needs q^+ from face i-1 and q^- from face i.
-    const Real qp_im1 = reconstruct_plus (q(k,j,i-3), q(k,j,i-2), q(k,j,i-1), q(k,j,i));
-    const Real qm_i   = reconstruct_minus(q(k,j,i-1), q(k,j,i), q(k,j,i+1), q(k,j,i+2));
+    const Real qp_im1 = reconstruct_plus (q(k,j,i-2), q(k,j,i-1), q(k,j,i));
+    const Real qm_i   = reconstruct_minus(q(k,j,i-1), q(k,j,i), q(k,j,i+1));
     F(k, j, i) = riemann(qp_im1, qm_i);
   });
 \end{lstlisting}
@@ -230,6 +257,7 @@ byte-for-byte identical. What differs is entirely structural:
 \begin{tabular}{@{}lll@{}}
 \toprule
  & \textbf{CPU form (\S\ref{sec:cpu})} & \textbf{GPU form (\S\ref{sec:gpu})} \\
+ & \code{bvoi} / \code{bovi} & \code{boiv} \\
 \midrule
 Parallelism   & hierarchical (team over planes, & flat (one thread per face) \\
               & SIMD along $i$)                 &  \\
@@ -241,10 +269,15 @@ Barrier       & producer/consumer split         & none \\
 \end{center}
 
 An abstraction that lets us write the shared physics once and choose the column at
-compile time is exactly what Section~\ref{sec:onekernel} delivers. The mapping is:
-the CPU form is the \code{bovi} loop tag with team/host scratch; the GPU form is
-the \code{boiv} loop tag; the ``one extra face'' is a \code{minus_i} halo; and the
-choice between them is a single template argument on the \code{IndexSpace}.
+compile time is exactly what Section~\ref{sec:onekernel} delivers. At the level of
+this section the choice is just the one made above: a \emph{hierarchical} form
+that chunks the block and stores intermediates in scratch, versus a \emph{flat
+pointwise} form that gives each cell its own thread and recomputes. Both are
+selected by a single template argument on the \code{IndexSpace}, and the ``one
+extra face'' the producer covers becomes a \code{minus_i} \emph{halo}. The named
+tags that spell these choices, and the finer distinctions among the hierarchical
+variants, are introduced in Section~\ref{sec:onekernel} alongside the code and
+developed in Section~\ref{sec:looptags}.
 
 % =====================================================================
 \section{The same kernel, written once}
@@ -282,8 +315,8 @@ la::outer(idx_space, KOKKOS_LAMBDA(const la::InnerIndexRange<decltype(idx_space)
 
   // Producer: reconstruct over the halo-extended range.
   la::inner(rp, [&](auto f) {
-    qp(f) = reconstruct_plus (pv(q(), f - 2*dx1), pv(q(), f - dx1), pv(q(), f), pv(q(), f + dx1));
-    qm(f) = reconstruct_minus(pv(q(), f - dx1), pv(q(), f), pv(q(), f + dx1), pv(q(), f + 2*dx1));
+    qp(f) = reconstruct_plus (pv(q(), f - dx1), pv(q(), f), pv(q(), f + dx1));
+    qm(f) = reconstruct_minus(pv(q(), f - dx1), pv(q(), f), pv(q(), f + dx1));
   });
   r.TeamBarrier();  // producer must finish before the consumer reads (no-op where serial)
 
@@ -295,21 +328,54 @@ la::outer(idx_space, KOKKOS_LAMBDA(const la::InnerIndexRange<decltype(idx_space)
 });
 \end{lstlisting}
 
-Now the two instantiations:
+Now the instantiations:
 \begin{itemize}
-\item \code{IndexSpace<loop_tag::bovi, inner_tag::logical_flat>} recovers the CPU
-  form. \code{outer} walks chunks of the block; \code{inner} sweeps a contiguous
-  span; \code{GetPerPointScratch} resolves to team scratch (Kokkos) or a
-  host bump-arena buffer (raw), sized to the halo-extended producer range; the
-  \code{TeamBarrier} separates producer and consumer. The reconstructed states
-  are stored once and reused.
-\item \code{IndexSpace<loop_tag::boiv, ...>} recovers the GPU form. The inner
-  ``loop'' is a single face, \code{outer} is a flat grid over all
-  $(\text{block},k,j,i)$, scratch is a tiny per-thread stack buffer, and the
-  \code{TeamBarrier} is a no-op. The producer and consumer run back-to-back on the
-  same thread, so the reconstructed states are effectively recomputed per face ---
-  exactly Section~\ref{sec:gpu}.
+\item \code{IndexSpace<loop_tag::bovi, inner_tag::logical_flat>} (or
+  \code{loop_tag::bvoi}) recovers the CPU form. \code{outer} walks chunks of the
+  block; \code{inner} sweeps a contiguous span; \code{GetPerPointScratch} resolves
+  to team scratch (Kokkos) or a host bump-arena buffer (raw), sized to the
+  halo-extended producer range; the \code{TeamBarrier} separates producer and
+  consumer. The reconstructed states are stored once and reused. Choosing
+  \code{bvoi} instead keeps the whole block live per slice --- more scratch,
+  often faster (Section~\ref{sec:looptags}).
+\item \code{IndexSpace<loop_tag::boiv, ...>} recovers the GPU form. \code{outer}
+  is a flat grid over all $(\text{block},k,j,i)$, scratch is a tiny per-thread
+  stack buffer, and the \code{TeamBarrier} is a no-op. The producer and consumer
+  run back-to-back on the same thread, so the reconstructed states are effectively
+  recomputed per face --- exactly Section~\ref{sec:gpu}. Note that here the word
+  \code{inner} is something of a lie: for the base (non-halo) range the
+  ``\code{inner} loop'' is a single logical cell --- a one-iteration loop, i.e.\
+  not really a loop at all --- and even for the halo-extended range it runs only
+  over the handful of halo offsets, not a sweep. Writing it as \code{inner}
+  regardless is what lets the \emph{same} kernel text also compile to the
+  hierarchical forms, where \code{inner} genuinely is a sweep; \code{boiv} is the
+  degenerate limit in which that sweep collapses to one point.
 \end{itemize}
+
+One line in the body deserves emphasis, because it is where a large part of the
+CPU/GPU performance difference is actually realized:
+\code{make_pack_view(rp, pack)} adapts to the chosen structure. For the
+hierarchical, flat-indexed paths (the CPU form) it pulls raw pointers out of the
+\code{SparsePack} at construction, so \code{pv(q(), f)} compiles to an
+\code{a[idx]}-style access the vectorizer can see through --- recovering the
+raw-pointer access of Section~\ref{sec:cpu} without the kernel spelling any
+pointer arithmetic. For the pointwise / coordinate paths
+(\code{boiv}, \code{logical_coords}) it is instead a thin wrapper that forwards
+each access straight to the sparse pack, which is what the GPU form wants. The
+kernel text is identical either way; the view quietly does the right thing for the
+tag. Section~\ref{sec:views} returns to this.
+
+The flux kernel is the demanding case that motivated the design --- it exercises
+scratch, halos, and a producer/consumer split all at once --- but it is not the
+only intended use. The same \code{outer}/\code{inner} form is meant to be the way
+ordinary block-structured kernels are written too, including ones that touch no
+scratch and involve no stencil at all: a pointwise equation-of-state call, a
+per-cell source term, a copy or a rescale. Such a kernel is simply the flux
+example with the producer loop and halo removed --- one \code{inner} over the base
+range --- and it still benefits from compile-time structure selection and the
+pack-view access described above. The goal is a single idiom for block kernels,
+with the reconstruction/flux machinery as the elaborate end of a spectrum whose
+simple end is an unadorned loop.
 
 The rest of this document explains each piece used above.
 
