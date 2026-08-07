@@ -297,15 +297,15 @@ namespace la = parthenon::loop_abstraction;
 using recon_halo = la::halo::minus_i_t;
 
 // F1-face index space over the interior, backend chosen by the tags.
-la::IndexSpace<LOOP_TAG, INNER_TAG> idx_space(
+using idx_space_t = la::IndexSpace<LOOP_TAG, INNER_TAG>;
+idx_space_t idx_space(
     ninner, IndexDomain::interior, /*halo=*/0, pack.GetNBlocks(),
     md, TopologicalElement::F1);
 idx_space.AddPerPointScratch<Real, recon_halo>(2);   // q^+ and q^- per face
 
 const auto dx1 = idx_space.GetDelta(X1DIR);           // logical +1 step in x1
 
-la::outer(idx_space, KOKKOS_LAMBDA(const la::InnerIndexRange<decltype(idx_space)> &r,
-                                   int b) {
+la::outer(idx_space, KOKKOS_LAMBDA(const idx_space_t::idx_range_t &r, int b) {
   // Extend this slice by recon_halo: the producer below now covers the flux
   // range plus the one extra face in -i.
   const auto rp = la::AddHalo<recon_halo>(r);
@@ -377,10 +377,85 @@ pack-view access described above. The goal is a single idiom for block kernels,
 with the reconstruction/flux machinery as the elaborate end of a spectrum whose
 simple end is an unadorned loop.
 
-The rest of this document explains each piece used above.
+That full kernel used several pieces at once --- tags, a halo, scratch, offsets,
+pack views --- without defining any of them. The next section strips the example
+back to its bare skeleton and names the components; the subsections after it then
+develop each component in turn, adding the omitted pieces (offsets, scratch, halos)
+back onto the running example as they are introduced.
 
 % =====================================================================
-\section{Index spaces and coordinates}
+\section{Anatomy of a loop-abstraction kernel}
+\label{sec:anatomy}
+% =====================================================================
+
+Stripped of scratch, halos, and neighbor access, every loop-abstraction kernel has
+the same three-part skeleton: declare an \code{IndexSpace}, launch \code{outer}
+over it, and run \code{inner} inside. Here is the smallest complete example --- a
+pointwise kernel that writes one value per cell, with no scratch, no halo, and no
+stencil:
+\begin{lstlisting}
+namespace la = parthenon::loop_abstraction;
+
+// (1) The index space: WHAT to iterate (interior cells of nblocks blocks, laid
+// out per md) and HOW to compile it (the two tags). CC = cell-centered.
+using idx_space_t = la::IndexSpace<la::loop_tag::bovi, la::inner_tag::logical_flat>;
+idx_space_t idx_space(
+    ninner, IndexDomain::interior, /*halo=*/0, nblocks, md, TopologicalElement::CC);
+
+// (2) outer() launches the outer loop. Its body is called with an
+// InnerIndexRange -- one slice of the index space -- and the block index b.
+// idx_space_t::idx_range_t names that slice type (no decltype needed).
+la::outer(idx_space, KOKKOS_LAMBDA(const idx_space_t::idx_range_t &r, int b) {
+  // (3) inner() runs the inner loop over that slice, calling the body once per
+  // logical cell. The body may take a single opaque index...
+  la::inner(r, [&](auto idx) {
+    out(idx) = source(idx);
+  });
+});
+\end{lstlisting}
+
+The named pieces, each the subject of a subsection below, are:
+\begin{description}
+\item[\code{IndexSpace<loop_tag, inner_tag, backend>}] The object that fixes the
+  iteration space, the memory layout, and --- through its three compile-time tags
+  --- the loop structure that will be generated. It is what \code{outer} is called
+  on. Its index information and coordinate conventions are covered in
+  Section~\ref{sec:indexspace}; the three tags in Sections~\ref{sec:looptags}
+  (\code{loop_tag}), \ref{sec:innertags} (\code{inner_tag}), and
+  \ref{sec:backends} (\code{backend}).
+\item[\code{outer(idx_space, body)}] Launches the outermost loop. The body is a
+  \code{KOKKOS_LAMBDA} (it is stored and invoked on the device) taking an
+  \code{InnerIndexRange} and the block index.
+\item[\code{InnerIndexRange} (the ``inner range'', \code{r})] One slice of the
+  index space handed to the outer body --- a block plus the current chunk of $kji$
+  space. It is the object \code{inner} runs over, and it knows how to translate
+  between the flat, memory, and $(k,j,i)$ index forms (\code{r.GetKJI(idx)}).
+\item[\code{inner(r, body)}] Runs the inner loop over one slice, calling the body
+  once per logical cell.
+\end{description}
+
+\paragraph{Body signatures.} The inner body may be written in two forms. The
+opaque form \code{[\&](auto idx)} receives whatever index the inner tag produces
+(a flat integer, an \code{Index3}, or a memory offset) and is the form that
+composes with the index-arithmetic and view helpers introduced later. The explicit
+form \code{[\&](int k, int j, int i)} receives coordinates directly and can be
+clearer, at a small cost; when both are viable the coordinate form is chosen.
+Section~\ref{sec:contracts} states the rule precisely.
+
+\paragraph{Lambda markings.} Mark the \code{outer} body with \code{KOKKOS_LAMBDA}
+(it is captured and run on the device); leave the \code{inner} bodies as plain
+\code{[\&]} lambdas --- they are defined \emph{inside} the outer device lambda, so
+they are already device code and capture by reference. The outer body must name its
+parameter type rather than use \code{auto}, because nvcc rejects generic extended
+(\code{__host__ __device__}) lambdas. The \code{idx_space_t::idx_range_t} alias is
+that type; spell it that way rather than reaching for \code{decltype} on the index
+space object.
+
+Everything else in this document --- offsets, scratch, halos, pack views --- hangs
+off this skeleton. The subsections proceed in roughly that order.
+
+% =====================================================================
+\subsection{Index spaces and coordinates}
 \label{sec:indexspace}
 % =====================================================================
 
@@ -468,7 +543,7 @@ integer arithmetic; Section~\ref{sec:getdelta} explains why the offset is an
 object and how it interacts with degenerate directions.
 
 % =====================================================================
-\section{Loop tags: where the variable level sits}
+\subsection{Loop tags: where the variable level sits}
 \label{sec:looptags}
 % =====================================================================
 
@@ -580,7 +655,7 @@ chunk-relative for \code{bovi}/\code{boiv}), which is why the same halo annotati
 produces different amounts of scratch under different tags.
 
 % =====================================================================
-\section{Inner tags: how a chunk is traversed}
+\subsection{Inner tags: how a chunk is traversed}
 \label{sec:innertags}
 % =====================================================================
 
@@ -618,7 +693,7 @@ The \code{boiv}${+}$\code{memory} combination is rejected at compile time by a
 meaningful contiguous-span traversal, so the pairing is not a coherent contract.
 
 % =====================================================================
-\section{Backends}
+\subsection{Backends}
 \label{sec:backends}
 % =====================================================================
 
@@ -646,7 +721,7 @@ in tests that want to exercise a specific backend regardless of the build --- fo
 example, to check raw-vs-Kokkos parity on a host build where both can run.
 
 % =====================================================================
-\section{Offsets and neighbor access}
+\subsection{Offsets and neighbor access}
 \label{sec:getdelta}
 % =====================================================================
 
@@ -698,7 +773,7 @@ Section~\ref{sec:reduced}: a consumer's \code{f - dx3} and a producer's $-\hat{k
 halo offset agree about which directions are real.
 
 % =====================================================================
-\section{Scratch}
+\subsection{Scratch}
 \label{sec:scratch}
 % =====================================================================
 
