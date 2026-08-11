@@ -176,6 +176,27 @@ class IndexSpace {
 
   using ID = parthenon::IndexDomain;
   using TE = parthenon::TopologicalElement;
+
+  // Explicit-logical-ranges constructor: the caller hand-specifies the logical box of
+  // cells to visit (kb/jb/ib), while the memory extent is still fixed by Parthenon --
+  // the block's entire bounds for the chosen memory layout (memory_te selects CC vs NN;
+  // that is the only memory choice the caller gets). This is for reductions whose
+  // leading (nouter) dimension is not blocks and/or whose inner bounds are a non-standard
+  // box -- e.g. a per-material reduction over boundary-aware interior bounds. nouter
+  // fills the nblocks slot; the outer body's second argument iterates [0, nouter).
+  template <class MeshDataOrMeshBlockData>
+  IndexSpace(int nouter, const parthenon::IndexRange &kb, const parthenon::IndexRange &jb,
+             const parthenon::IndexRange &ib, const MeshDataOrMeshBlockData *md,
+             TE memory_te = TE::CC, std::optional<NInner> ninner_in = std::nullopt)
+      : logical_kji({kb.s, kb.e}, {jb.s, jb.e}, {ib.s, ib.e}),
+        memory_kji(md->GetBoundsK(ID::entire, memory_te),
+                   md->GetBoundsJ(ID::entire, memory_te),
+                   md->GetBoundsI(ID::entire, memory_te)),
+        nblocks(nouter), ninner(ninner_in.value_or(NInner(chunk_shape::ij_slab))) {
+    PARTHENON_REQUIRE(memory_te == TE::CC || memory_te == TE::NN,
+                      "Only two kinds of memory layouts for topological elements.");
+  }
+
   template <class MeshDataOrMeshBlockData>
   IndexSpace(NInner ninner, ID domain, int halo, int nblocks,
              const MeshDataOrMeshBlockData *md, TE domain_te, TE memory_te = TE::CC)
