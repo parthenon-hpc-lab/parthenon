@@ -189,9 +189,9 @@ inline constexpr bool has_explicit_unary_int_call_v = HasExplicitUnaryIntCall<F>
 //     reduce_t::reducer_t(result));
 template <class Reducer>
 struct Reduction {
-  using reducer_t = Reducer;                      // the Kokkos reducer, e.g. Kokkos::Sum
-  using value_t = typename Reducer::value_type;   // the reduced value / host result type
-  using handle_t = impl::ReduceHandle<Reducer>;   // threaded into the outer_reduce body
+  using reducer_t = Reducer;                    // the Kokkos reducer, e.g. Kokkos::Sum
+  using value_t = typename Reducer::value_type; // the reduced value / host result type
+  using handle_t = impl::ReduceHandle<Reducer>; // threaded into the outer_reduce body
 };
 
 } // namespace parthenon::loop_abstraction

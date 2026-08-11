@@ -236,11 +236,11 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
 // outer_reduce/inner_reduce mirror outer/inner but fold a single Kokkos reducer over the
 // index space. The reducer instance (e.g. Kokkos::Min<double>(result)) is bound to a host
 // result and passed to outer_reduce. A ReduceHandle threads the reducer *type* and the
-// enclosing accumulator into inner_reduce so the user does not restate the join op, and so
-// multiple inner_reduce calls (interleaved with plain inner calls that only fill scratch)
-// all contribute to the same result. Reductions never touch ghost/halo cells: halo ranges
-// are rejected at compile time and the memory inner tag degenerates to logical_flat so no
-// ghost cell swept by a contiguous memory span is ever visited.
+// enclosing accumulator into inner_reduce so the user does not restate the join op, and
+// so multiple inner_reduce calls (interleaved with plain inner calls that only fill
+// scratch) all contribute to the same result. Reductions never touch ghost/halo cells:
+// halo ranges are rejected at compile time and the memory inner tag degenerates to
+// logical_flat so no ghost cell swept by a contiguous memory span is ever visited.
 // ---------------------------------------------------------------------------------------
 
 // ReduceHandle lives in types.hpp (impl namespace) with the other loop vocabulary.
@@ -315,8 +315,8 @@ void outer_kokkos_reduce(IndexSpaceType idx_space, F &&f, Reducer reducer) {
 }
 
 template <class InnerIndexRangeType, class Handle, class F>
-KOKKOS_FORCEINLINE_FUNCTION void
-inner_kokkos_reduce(const InnerIndexRangeType &idx_range, const Handle &handle, F &&f) {
+KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos_reduce(const InnerIndexRangeType &idx_range,
+                                                     const Handle &handle, F &&f) {
   using IndexSpaceType =
       std::remove_cv_t<std::remove_reference_t<decltype(*idx_range.pidx_space)>>;
   using value_type = typename Handle::value_type;

@@ -1516,7 +1516,8 @@ Real RunReduceScratchInterleave(const ProblemSpec &spec, const int ninner) {
           idx_range.TeamBarrier();
         }
         loop_abstraction::inner_reduce(
-            idx_range, handle, [&](auto idx, reduce_t::value_t &v) { v += scratch(idx); });
+            idx_range, handle,
+            [&](auto idx, reduce_t::value_t &v) { v += scratch(idx); });
       },
       reduce_t::reducer_t(result));
   Kokkos::fence();
