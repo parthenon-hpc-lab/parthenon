@@ -1357,46 +1357,50 @@ directions constructs one flux view per direction.
 
 Alongside \code{outer}/\code{inner}, the abstraction provides
 \code{outer\_reduce}/\code{inner\_reduce} to fold a single Kokkos reducer over an
-index space. The reducer is a bound reducer instance (for example
-\code{Kokkos::Min<double>(result)}) and, matching
-\code{Kokkos::parallel\_reduce(policy, functor, reducer)}, it is passed
-\emph{last}. Unlike the plain loops these are Kokkos-only: they always dispatch to
+index space. Unlike the plain loops these are Kokkos-only: they always dispatch to
 the Kokkos backend regardless of \code{IndexSpace::backend\_v} (on a host-only
 build \code{DevExecSpace} is a host space, so the Kokkos reduce runs there too),
 and there is no raw reduction path.
 
+The reducer is baked into the index-space type. Build a reduction space with
+\code{ReductionIndexSpace<lt, it, R>} --- which hides the backend template parameter
+--- or rebind an existing space with \code{idx\_space.WithReducer<R>()}. Its
+\code{idx\_range\_t} then carries the reduction, so the body signature is just
+\code{(idx\_range, int b)}, exactly as for \code{outer}: there is no handle to thread
+through. The preferred \code{outer\_reduce} overload constructs the reducer over a
+fresh result and \emph{returns} it; because the result is a host scalar the Kokkos
+reduce is synchronous, so the value is valid on return with no explicit fence.
+
 \begin{lstlisting}
-using idx_space_t = decltype(idx_space);
-using reduce_t = la::Reduction<Kokkos::Sum<Real>>;  // bundles the reduction types
-reduce_t::value_t result = 0.0;
-la::outer_reduce(idx_space,
-  KOKKOS_LAMBDA(const idx_space_t::idx_range_t &r, int b,
-                const reduce_t::handle_t &handle) {
-    // Plain inner() still works here and ignores the handle -- e.g. fill scratch.
+using rist = la::ReductionIndexSpace<lt, it, Kokkos::Sum<Real>>;
+rist idx_space(/* ... */);
+
+auto result = la::outer_reduce(idx_space,
+  KOKKOS_LAMBDA(const rist::idx_range_t &r, int b) {
+    // Plain inner() still works here -- e.g. fill scratch.
     la::inner(r, [&](auto idx) { total(idx) = accumulate(...); });
     r.TeamBarrier();
     // inner_reduce contributes to the reduction; its body takes a trailing value ref.
-    la::inner_reduce(r, handle, [&](auto idx, reduce_t::value_t &v) { v += total(idx); });
-  },
-  reduce_t::reducer_t(result));
+    la::inner_reduce(r, [&](auto idx, auto &v) { v += total(idx); });
+  });
 \end{lstlisting}
 
-The body's parameter types must be named explicitly rather than written as
+The outer body's parameter types must be named explicitly rather than written as
 \code{auto}: \code{KOKKOS\_LAMBDA} expands to an extended \verb|__host__ __device__|
-lambda, and nvcc forbids \code{auto} parameters on those. The
-\code{Reduction<R>} alias, declared once at the top, bundles the three types you
-need so the body stays readable: \code{reduce\_t::reducer\_t} (the Kokkos reducer
-\code{R}, here \code{Kokkos::Sum<Real>}), \code{reduce\_t::value\_t} (the reduced
-value / host result type), and \code{reduce\_t::handle\_t} (the handle threaded into
-the body). Name the range with \code{idx\_space\_t::idx\_range\_t} as for a plain
-\code{outer}. The inner-body lambdas are ordinary lambdas, so their \code{auto}
-parameters are fine.
+lambda, and nvcc forbids \code{auto} parameters on those. Name the range with
+\code{rist::idx\_range\_t}, as for a plain \code{outer}. The \code{inner\_reduce}
+body is an ordinary lambda, so its \code{auto} parameters (including the trailing
+reduction value) are fine.
 
-The \code{handle} threaded into the body carries the reducer \emph{type}, so
-\code{inner\_reduce} reuses the same join op without the caller restating it, and a
-single region may contain several \code{inner\_reduce} calls (interleaved with plain
-\code{inner} calls) that all join into one accumulator. There is one reducer per
-\code{outer\_reduce} region.
+An escape-hatch overload instead takes a caller-constructed reducer instance
+\emph{last} (matching \code{Kokkos::parallel\_reduce(policy, functor, reducer)}) for
+reducing into a \code{View}, \code{ScatterView}, or device memory; it returns void
+and its reducer type must match the space's \code{reduction\_t}.
+
+Because the reducer type lives on the index space, \code{inner\_reduce} reuses its
+join op without the caller restating it, and a single region may contain several
+\code{inner\_reduce} calls (interleaved with plain \code{inner} calls) that all join
+into one accumulator. There is one reducer per \code{outer\_reduce} region.
 
 Two rules keep reductions from ever touching ghost cells. First, reductions over
 halo-extended ranges are rejected at compile time: extend a range only for producer

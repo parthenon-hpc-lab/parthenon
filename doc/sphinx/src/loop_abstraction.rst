@@ -186,36 +186,41 @@ Reductions
 reducer over the index space. They are **Kokkos-only**: they always dispatch to the
 Kokkos backend regardless of the ``IndexSpace`` backend tag (on a host-only build the
 device execution space *is* the host, so the Kokkos reduce still runs there), and
-there is no raw reduction path. The reducer instance is bound to a host result and
-passed *last*, matching ``Kokkos::parallel_reduce(policy, functor, reducer)``.
+there is no raw reduction path.
 
-Declare a ``Reduction<R>`` alias once to name the three types involved -- this keeps
-the ``KOKKOS_LAMBDA`` parameters readable, and they *must* be named rather than
-``auto`` (nvcc rejects generic extended lambdas):
+The reducer is baked into the index-space type. Build a reduction space with
+``ReductionIndexSpace<lt, it, R>`` (which hides the backend template parameter) or by
+rebinding an existing space with ``idx_space.WithReducer<R>()``. Its ``idx_range_t``
+then carries the reduction, so the outer body is just ``(idx_range, int b)`` -- no
+handle to thread through. The preferred ``outer_reduce`` overload constructs the reducer
+over a fresh result and **returns** it (the result is a host scalar, so the reduce is
+synchronous and the value is valid on return, no fence needed):
 
 .. code:: cpp
 
-   using reduce_t = la::Reduction<Kokkos::Sum<Real>>;
-   reduce_t::value_t result = 0.0;  // host result / reduced value type
+   using rist = la::ReductionIndexSpace<lt, it, Kokkos::Sum<Real>>;
+   rist idx_space(/* ... */);
 
-   la::outer_reduce(idx_space,
-     KOKKOS_LAMBDA(const IST::idx_range_t &idx_range, int b,
-                   const reduce_t::handle_t &handle) {
-       // Plain inner() still works here and ignores the handle -- e.g. fill scratch.
-       la::inner_reduce(idx_range, handle, [&](auto idx, reduce_t::value_t &v) {
+   auto result = la::outer_reduce(idx_space,
+     // Outer body param types must be named, not auto (nvcc rejects generic extended
+     // lambdas). The inner_reduce body is an ordinary lambda, so auto is fine there.
+     KOKKOS_LAMBDA(const rist::idx_range_t &idx_range, int b) {
+       la::inner_reduce(idx_range, [&](auto idx, auto &v) {
          v += /* something at idx */;
        });
-     },
-     reduce_t::reducer_t(result));
+     });
 
-``Reduction<R>`` exposes ``reducer_t`` (the Kokkos reducer ``R``, e.g.
-``Kokkos::Sum<Real>``), ``value_t`` (the reduced value / host result type), and
-``handle_t`` (the handle threaded into the outer body). The ``handle`` carries the
-reducer type, so ``inner_reduce`` reuses its join op without the caller restating it,
-and a single ``outer_reduce`` region may contain several ``inner_reduce`` calls
-(interleaved with plain ``inner`` calls that only fill scratch) that all join into one
-accumulator. There is one reducer per region. The ``inner_reduce`` body takes the
-usual index form plus a trailing reduction-value reference.
+An escape-hatch overload instead takes a caller-constructed reducer instance *last*
+(matching ``Kokkos::parallel_reduce(policy, functor, reducer)``) for reducing into a
+``View``, ``ScatterView``, or device memory; it returns void and its reducer type must
+match the space's ``reduction_t``.
+
+Because the reducer type lives on the index space, ``inner_reduce`` reuses its join op
+without the caller restating it, and a single ``outer_reduce`` region may contain
+several ``inner_reduce`` calls (interleaved with plain ``inner`` calls that only fill
+scratch) that all join into one accumulator. There is one reducer per region. The
+``inner_reduce`` body takes the usual index form plus a trailing reduction-value
+reference.
 
 Two rules keep reductions off ghost cells:
 

@@ -70,29 +70,50 @@ KOKKOS_INLINE_FUNCTION auto AddHalo(const InnerIndexRangeType &idx_range) {
   return idx_range.template AddHalo<Halo>();
 }
 
-// Reduce a single Kokkos reducer over an IndexSpace. reducer is a bound reducer
-// instance (e.g. Kokkos::Min<double>(result)) and comes last, matching
-// Kokkos::parallel_reduce(policy, functor, reducer). The body f has signature
-// (InnerIndexRange range, int b, Handle handle) -- the same as outer()'s body plus a
-// trailing reduction handle. Inside, call inner_reduce(range, handle, ...) to
-// contribute to the reduction; plain inner(range, ...) calls (e.g. filling scratch)
-// still work and simply ignore the handle. Reductions always run on the Kokkos
-// backend regardless of IndexSpace::backend_v (on a host-only build DevExecSpace is a
-// host space, so this still runs correctly). See LOOP_ABSTRACTION_CONTRACTS.md.
+// Reduce over a reduction index space -- one carrying a Kokkos reducer type, built via
+// ReductionIndexSpace<lt, it, R> or idx_space.WithReducer<R>(). The body f has signature
+// (idx_range, int b) -- the same as outer()'s -- and calls inner_reduce(idx_range, ...)
+// to contribute; plain inner(idx_range, ...) calls (e.g. filling scratch) still work.
+// Reductions always run on the Kokkos backend regardless of backend_v (on a host-only
+// build DevExecSpace is a host space, so this still runs). See the contracts document.
+//
+// Preferred form: constructs the reducer over a fresh result and returns it. Because the
+// result is a host scalar, the Kokkos reduce is synchronous, so the value is valid on
+// return (no fence needed).
+//   using rist = ReductionIndexSpace<lt, it, Kokkos::Sum<Real>>;
+//   auto result = outer_reduce(rist_obj, KOKKOS_LAMBDA(const rist::idx_range_t &r, int b){
+//     inner_reduce(r, [&](auto idx, auto &v){ v += ...; });
+//   });
+template <class IndexSpaceType, class F>
+typename IndexSpaceType::value_t outer_reduce(IndexSpaceType idx_space, F &&f) {
+  static_assert(IndexSpaceType::is_reduction_v,
+                "outer_reduce requires a reduction index space (see ReductionIndexSpace "
+                "/ IndexSpace::WithReducer).");
+  typename IndexSpaceType::value_t result{};
+  impl::outer_kokkos_reduce(idx_space, std::forward<F>(f),
+                            typename IndexSpaceType::reduction_t(result));
+  return result;
+}
+
+// Escape-hatch form: reduce into a caller-provided reducer instance (e.g. one bound to a
+// View, ScatterView, or device memory, or needing non-default construction). The
+// reducer's type must match the space's reduction_t. Returns void; the result lands in
+// whatever the reducer is bound to.
 template <class IndexSpaceType, class F, class Reducer>
 void outer_reduce(IndexSpaceType idx_space, F &&f, Reducer reducer) {
   impl::outer_kokkos_reduce(idx_space, std::forward<F>(f), reducer);
 }
 
-// Reduce over one InnerIndexRange slice, folding into the handle threaded in from
-// outer_reduce. The body f takes the usual index form plus a trailing reduction value
-// reference, e.g. [](auto idx, Real &v){ v += ...; } or [](int k,int j,int i,Real &v).
-// Halo-extended ranges are rejected at compile time (reductions must not touch ghost
-// cells); the memory inner tag degenerates to logical_flat for the same reason.
-template <class InnerIndexRangeType, class Handle, class F>
+// Reduce over one InnerIndexRange slice, folding into the enclosing outer_reduce's
+// accumulator (carried on the range; the reducer type comes from the index space). The
+// body f takes the usual index form plus a trailing reduction value reference, e.g.
+// [](auto idx, auto &v){ v += ...; } or [](int k,int j,int i,Real &v). Halo-extended
+// ranges are rejected at compile time (reductions must not touch ghost cells); the
+// memory inner tag degenerates to logical_flat for the same reason.
+template <class InnerIndexRangeType, class F>
 KOKKOS_FORCEINLINE_FUNCTION void inner_reduce(const InnerIndexRangeType &idx_range,
-                                              const Handle &handle, F &&f) {
-  impl::inner_kokkos_reduce(idx_range, handle, std::forward<F>(f));
+                                              F &&f) {
+  impl::inner_kokkos_reduce(idx_range, std::forward<F>(f));
 }
 
 } // namespace parthenon::loop_abstraction

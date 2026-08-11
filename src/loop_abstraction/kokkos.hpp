@@ -233,23 +233,24 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
 // ---------------------------------------------------------------------------------------
 // Reductions
 //
-// outer_reduce/inner_reduce mirror outer/inner but fold a single Kokkos reducer over the
-// index space. The reducer instance (e.g. Kokkos::Min<double>(result)) is bound to a host
-// result and passed to outer_reduce. A ReduceHandle threads the reducer *type* and the
-// enclosing accumulator into inner_reduce so the user does not restate the join op, and so
-// multiple inner_reduce calls (interleaved with plain inner calls that only fill scratch)
-// all contribute to the same result. Reductions never touch ghost/halo cells: halo ranges
-// are rejected at compile time and the memory inner tag degenerates to logical_flat so no
-// ghost cell swept by a contiguous memory span is ever visited.
+// outer_reduce/inner_reduce mirror outer/inner but fold a single Kokkos reducer over a
+// reduction index space (one carrying a reducer type; see ReductionIndexSpace). The
+// reducer instance (e.g. Kokkos::Min<double>(result)) is bound to a host result and
+// passed to outer_reduce; its type must match the space's reduction_t. The enclosing
+// parallel_reduce accumulator is stored on the InnerIndexRange (reduce_.update); the
+// reducer *type* comes from the index space, so inner_reduce needs no handle and does not
+// restate the join op. Multiple inner_reduce calls (interleaved with plain inner calls
+// that only fill scratch) all contribute to the same result. Reductions never touch
+// ghost/halo cells: halo ranges are rejected at compile time and the memory inner tag
+// degenerates to logical_flat so no ghost cell swept by a contiguous span is ever visited.
 // ---------------------------------------------------------------------------------------
-
-// ReduceHandle lives in types.hpp (impl namespace) with the other loop vocabulary.
 
 template <class IndexSpaceType, class F, class Reducer>
 void outer_kokkos_reduce(IndexSpaceType idx_space, F &&f, Reducer reducer) {
   using InnerIndexRangeType = InnerIndexRange<IndexSpaceType>;
   using value_type = typename Reducer::value_type;
-  using handle_t = ReduceHandle<Reducer>;
+  static_assert(std::is_same_v<Reducer, typename IndexSpaceType::reduction_t>,
+                "Reducer type must match the reduction index space's reduction_t.");
   const std::size_t scratch_size_in_bytes = idx_space.GetPerTeamScratchSizeInBytes();
   if constexpr (IndexSpaceType::loop_tag_v == loop_tag::boiv) {
     const std::int64_t cells_per_block =
@@ -268,8 +269,8 @@ void outer_kokkos_reduce(IndexSpaceType idx_space, F &&f, Reducer reducer) {
           idx_range.ks = k;
           idx_range.js = j;
           idx_range.is = i;
-          handle_t handle{nullptr, &update, reducer};
-          f(idx_range, b, handle);
+          idx_range.reduce_.update = &update;
+          f(idx_range, b);
         },
         reducer);
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bovi) {
@@ -291,8 +292,8 @@ void outer_kokkos_reduce(IndexSpaceType idx_space, F &&f, Reducer reducer) {
                        static_cast<int>(idx_space.GetLogicalIndexer().size()) - 1);
           InnerIndexRangeType idx_range(idx_space, idx_space.GetLogicalIndexer(), b,
                                         logical_start, logical_end, &member);
-          handle_t handle{&member, &update, reducer};
-          f(idx_range, b, handle);
+          idx_range.reduce_.update = &update;
+          f(idx_range, b);
         },
         reducer);
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
@@ -307,33 +308,38 @@ void outer_kokkos_reduce(IndexSpaceType idx_space, F &&f, Reducer reducer) {
           const int b = member.league_rank();
           InnerIndexRangeType idx_range(idx_space, idx_space.GetLogicalIndexer(), b,
                                         &member);
-          handle_t handle{&member, &update, reducer};
-          f(idx_range, b, handle);
+          idx_range.reduce_.update = &update;
+          f(idx_range, b);
         },
         reducer);
   }
 }
 
-template <class InnerIndexRangeType, class Handle, class F>
+template <class InnerIndexRangeType, class F>
 KOKKOS_FORCEINLINE_FUNCTION void
-inner_kokkos_reduce(const InnerIndexRangeType &idx_range, const Handle &handle, F &&f) {
+inner_kokkos_reduce(const InnerIndexRangeType &idx_range, F &&f) {
   using IndexSpaceType =
       std::remove_cv_t<std::remove_reference_t<decltype(*idx_range.pidx_space)>>;
-  using value_type = typename Handle::value_type;
+  static_assert(IndexSpaceType::is_reduction_v,
+                "inner_reduce requires a reduction index space (see ReductionIndexSpace "
+                "/ IndexSpace::WithReducer).");
+  using reducer_t = typename IndexSpaceType::reduction_t;
+  using value_type = typename reducer_t::value_type;
   static_assert(
       std::is_same_v<typename InnerIndexRangeType::halo_t, halo::none_t>,
       "Reductions over halo ranges are not allowed: extend the range only for "
       "producer (scratch) inner loops, and reduce over the base (halo-free) range.");
   const auto &idx_space = *(idx_range.pidx_space);
+  value_type &update = *idx_range.reduce_.update;
   if constexpr (IndexSpaceType::loop_tag_v == loop_tag::boiv) {
     // Single logical point, no team. halo is none_t (asserted above), so the identity
     // offset {0,0,0} is the only cell -- reduce it straight into the work-item's update.
     if constexpr (std::is_invocable_v<F, int, int, int, value_type &>) {
-      f(idx_range.ks, idx_range.js, idx_range.is, *handle.update);
+      f(idx_range.ks, idx_range.js, idx_range.is, update);
     } else if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
-      f(Index3{idx_range.ks, idx_range.js, idx_range.is}, *handle.update);
+      f(Index3{idx_range.ks, idx_range.js, idx_range.is}, update);
     } else {
-      f(idx_space.GetMemoryOffsetIndex(0, 0, 0), *handle.update);
+      f(idx_space.GetMemoryOffsetIndex(0, 0, 0), update);
     }
   } else {
     // bvoi / bovi team case. Unlike inner_kokkos -- whose parallel_for path needs
@@ -351,16 +357,18 @@ inner_kokkos_reduce(const InnerIndexRangeType &idx_range, const Handle &handle, 
     // idiom as par_reduce_inner in kokkos_abstraction.hpp), then join the team result
     // into the enclosing accumulator once. We iterate the logical span for every inner
     // tag, so the memory tag (degenerated to logical_flat) never sweeps ghost cells.
-    const auto &member = *handle.member;
+    const auto &member = *idx_range.team_member;
     const auto &logical_kji = idx_range.logical_kji;
     const int start = idx_range.chunk_logical_start;
     const int n = idx_range.chunk_logical_end - start + 1;
     const int mem_start =
         idx_space.GetMemoryIndexer().GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
-    // A fresh reducer of the same type bound to a team-local result. Kokkos reducers
-    // are cheap value types (a reference to the target + an optional space tag).
+    // A fresh reducer of the same type bound to a team-local result. Kokkos reducers are
+    // cheap value types (a reference to the target + an optional space tag); join(a, b)
+    // takes explicit refs and does not read the bound target, so any instance can perform
+    // the final join into the enclosing accumulator.
     value_type team_result;
-    typename Handle::reducer_type team_reducer(team_result);
+    reducer_t team_reducer(team_result);
     team_reducer.init(team_result);
     Kokkos::parallel_reduce(
         Kokkos::TeamThreadRange(member, 0, n),
@@ -378,7 +386,7 @@ inner_kokkos_reduce(const InnerIndexRangeType &idx_range, const Handle &handle, 
         },
         team_reducer);
     Kokkos::single(Kokkos::PerTeam(member),
-                   [&]() { handle.reducer.join(*handle.update, team_result); });
+                   [&]() { team_reducer.join(update, team_result); });
   }
 }
 

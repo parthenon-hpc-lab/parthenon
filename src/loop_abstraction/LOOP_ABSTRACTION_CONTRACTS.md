@@ -132,36 +132,46 @@ Kokkos backend regardless of `IndexSpace::backend_v` (on a host-only build
 `DevExecSpace` is a host space, so the Kokkos reduce still runs correctly). There is
 no raw reduction path.
 
+The reducer is baked into the index-space type. Build a reduction space with
+`ReductionIndexSpace<lt, it, R>` (which hides the backend parameter) or by rebinding an
+existing space with `idx_space.WithReducer<R>()`. Its `idx_range_t` then carries the
+reduction, so the body needs no reduction handle -- it is `(idx_range, int b)`, exactly
+like `outer`. The preferred `outer_reduce` overload constructs the reducer over a fresh
+result and returns it (the result is a host scalar, so the Kokkos reduce is synchronous
+and the value is valid on return -- no fence):
+
 ```cpp
-// Reduction<R> bundles the reduction types (reducer_t, value_t, handle_t) so the body
-// stays readable. The reducer is bound to a host result and passed *last*, matching
-// Kokkos::parallel_reduce(policy, functor, reducer).
-using idx_space_t = decltype(idx_space);
-using reduce_t = Reduction<Kokkos::Sum<Real>>;
-reduce_t::value_t result = 0.0;
-outer_reduce(idx_space,
-  // The body parameter types must be named, not `auto`: KOKKOS_LAMBDA is an extended
+using rist = ReductionIndexSpace<loop_tag::bovi, inner_tag::logical_flat, Kokkos::Sum<Real>>;
+rist idx_space(/* ... */);
+
+auto result = outer_reduce(idx_space,
+  // Body param types must be named, not `auto`: KOKKOS_LAMBDA is an extended
   // __host__ __device__ lambda and nvcc forbids `auto` params. Name the range with
-  // idx_space_t::idx_range_t and the handle with reduce_t::handle_t.
-  KOKKOS_LAMBDA(const idx_space_t::idx_range_t &range, int b,
-                const reduce_t::handle_t &handle) {
-    // Plain inner() calls still work here and ignore the handle -- e.g. fill scratch.
+  // rist::idx_range_t (the inner_reduce body lambdas are ordinary lambdas, so `auto` is
+  // fine there).
+  KOKKOS_LAMBDA(const rist::idx_range_t &range, int b) {
+    // Plain inner() calls still work here -- e.g. fill scratch.
     inner(range, [&](auto idx) { scratch(idx) = compute(idx); });
     range.TeamBarrier();
     // inner_reduce contributes to the reduction. Body takes a trailing value ref.
-    inner_reduce(range, handle, [&](auto idx, reduce_t::value_t &v) { v += scratch(idx); });
-  },
-  reduce_t::reducer_t(result));
+    inner_reduce(range, [&](auto idx, auto &v) { v += scratch(idx); });
+  });
 ```
+
+An escape-hatch overload takes a caller-constructed reducer instance last (matching
+`Kokkos::parallel_reduce(policy, functor, reducer)`) for reducing into a `View`,
+`ScatterView`, or device memory; it returns void. Its reducer type must match the
+space's `reduction_t`.
 
 Rules:
 
-1. **Single reducer per region.** One reducer op per `outer_reduce`. Multiple
-   `inner_reduce` calls in the same region all join into the same accumulator (via a
-   `handle` that carries the reducer type so the join op is not restated), so a region
-   may freely interleave plain `inner` (no reduction) and `inner_reduce` calls.
+1. **Single reducer per region.** One reducer op per `outer_reduce` (the space's
+   `reduction_t`). Multiple `inner_reduce` calls in the same region all join into the
+   same accumulator (the reducer type comes from the index space, so the join op is not
+   restated), so a region may freely interleave plain `inner` (no reduction) and
+   `inner_reduce` calls.
 2. **Body signature.** `inner_reduce`'s body takes the usual index form plus a trailing
-   reduction-value reference: `[](auto idx, Real &v)`, `[](Index3 idx, Real &v)`, or
+   reduction-value reference: `[](auto idx, auto &v)`, `[](Index3 idx, Real &v)`, or
    `[](int k, int j, int i, Real &v)`.
 3. **No reductions over halo ranges.** Reductions must never touch ghost/halo cells.
    `inner_reduce` `static_assert`s that the range's halo is `none_t`; extend a range
@@ -178,16 +188,18 @@ Rules:
    intended; just don't assume the producer stayed inside the logical set.
 5. **Custom reducers must not read their bound target in `join`/`init`.** The reducer
    instance is copied by value into the device kernel, carrying the reference it was
-   bound to (the host `result`). The implementation only ever calls `join(a, b)` and
-   `init(a)` on it, neither of which dereferences the bound target, so all built-in
-   Kokkos reducers (`Sum`, `Min`, `Max`, `MinLoc`, ...) are safe. A custom reducer
-   whose `join`/`init` read the bound `result` would dereference a host pointer on the
-   device — don't write one. (`value_type` must also be device-copyable, as for any
-   Kokkos reducer.)
+   bound to. The implementation only ever calls `join(a, b)` and `init(a)` on it,
+   neither of which dereferences the bound target, so all built-in Kokkos reducers
+   (`Sum`, `Min`, `Max`, `MinLoc`, ...) are safe. A custom reducer whose `join`/`init`
+   read the bound target would dereference a host pointer on the device — don't write
+   one. (`value_type` must also be device-copyable, as for any Kokkos reducer.) The
+   returning `outer_reduce` overload requires `reduction_t` to be constructible from a
+   `value_t&` and `value_t` to be default-constructible; use the instance-bound overload
+   for a reducer that needs anything else.
 
-Note on the host result: Kokkos initializes the accumulator to the reducer's identity
-and *overwrites* the bound `result`; it is not a seed. Set `reduce_t::value_t result`
-to anything (the tests use `0.0` even for `Min`); the pre-existing value is discarded.
+Note on the result: the returning overload discards its fresh result's initial value --
+Kokkos initializes the accumulator to the reducer's identity, not a seed. `value_t` is
+`IndexSpace::value_t` (the reducer's `value_type`).
 
 ## Current Backend Requirement
 

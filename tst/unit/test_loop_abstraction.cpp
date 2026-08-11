@@ -1406,68 +1406,49 @@ Real ReferenceMax(const IndexSpaceType &idx_space) {
   return best;
 }
 
-// Sum EncodeValue over the whole space with outer_reduce + a single inner_reduce.
+// Reduction index space for a given tag pair and reducer (backend defaulted).
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG, class Reducer>
+using ReduceIST = loop_abstraction::ReductionIndexSpace<LOOP_TAG, INNER_TAG, Reducer>;
+
+// Sum EncodeValue over the whole space with outer_reduce + a single inner_reduce, using
+// the preferred returning form.
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 Real RunReduceSum(const ProblemSpec &spec, const int ninner) {
-  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG>;
-  using reduce_t = loop_abstraction::Reduction<Kokkos::Sum<Real>>;
-  IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
-  reduce_t::value_t result = 0.0;
-  loop_abstraction::outer_reduce(
-      idx_space,
-      KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b,
-                    const reduce_t::handle_t &handle) {
-        loop_abstraction::inner_reduce(idx_range, handle,
-                                       [&](auto idx, reduce_t::value_t &v) {
-                                         const auto [k, j, i] = idx_range.GetKJI(idx);
-                                         v += EncodeValue(b, 0, k, j, i);
-                                       });
-      },
-      reduce_t::reducer_t(result));
-  Kokkos::fence();
-  return result;
+  using RIST = ReduceIST<LOOP_TAG, INNER_TAG, Kokkos::Sum<Real>>;
+  RIST idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
+  return loop_abstraction::outer_reduce(
+      idx_space, KOKKOS_LAMBDA(const RIST::idx_range_t &idx_range, int b) {
+        loop_abstraction::inner_reduce(idx_range, [&](auto idx, auto &v) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          v += EncodeValue(b, 0, k, j, i);
+        });
+      });
 }
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 Real RunReduceMin(const ProblemSpec &spec, const int ninner) {
-  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG>;
-  using reduce_t = loop_abstraction::Reduction<Kokkos::Min<Real>>;
-  IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
-  reduce_t::value_t result = 0.0;
-  loop_abstraction::outer_reduce(
-      idx_space,
-      KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b,
-                    const reduce_t::handle_t &handle) {
-        loop_abstraction::inner_reduce(idx_range, handle,
-                                       [&](auto idx, reduce_t::value_t &v) {
-                                         const auto [k, j, i] = idx_range.GetKJI(idx);
-                                         v = Kokkos::min(v, EncodeValue(b, 0, k, j, i));
-                                       });
-      },
-      reduce_t::reducer_t(result));
-  Kokkos::fence();
-  return result;
+  using RIST = ReduceIST<LOOP_TAG, INNER_TAG, Kokkos::Min<Real>>;
+  RIST idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
+  return loop_abstraction::outer_reduce(
+      idx_space, KOKKOS_LAMBDA(const RIST::idx_range_t &idx_range, int b) {
+        loop_abstraction::inner_reduce(idx_range, [&](auto idx, auto &v) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          v = Kokkos::min(v, EncodeValue(b, 0, k, j, i));
+        });
+      });
 }
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 Real RunReduceMax(const ProblemSpec &spec, const int ninner) {
-  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG>;
-  using reduce_t = loop_abstraction::Reduction<Kokkos::Max<Real>>;
-  IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
-  reduce_t::value_t result = 0.0;
-  loop_abstraction::outer_reduce(
-      idx_space,
-      KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b,
-                    const reduce_t::handle_t &handle) {
-        loop_abstraction::inner_reduce(idx_range, handle,
-                                       [&](auto idx, reduce_t::value_t &v) {
-                                         const auto [k, j, i] = idx_range.GetKJI(idx);
-                                         v = Kokkos::max(v, EncodeValue(b, 0, k, j, i));
-                                       });
-      },
-      reduce_t::reducer_t(result));
-  Kokkos::fence();
-  return result;
+  using RIST = ReduceIST<LOOP_TAG, INNER_TAG, Kokkos::Max<Real>>;
+  RIST idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
+  return loop_abstraction::outer_reduce(
+      idx_space, KOKKOS_LAMBDA(const RIST::idx_range_t &idx_range, int b) {
+        loop_abstraction::inner_reduce(idx_range, [&](auto idx, auto &v) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          v = Kokkos::max(v, EncodeValue(b, 0, k, j, i));
+        });
+      });
 }
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
@@ -1493,15 +1474,11 @@ void RunReducePatternMatrix() {
 // expected total is ReferenceSum scaled by summing ScratchExpectedValue.
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 Real RunReduceScratchInterleave(const ProblemSpec &spec, const int ninner) {
-  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG>;
-  using reduce_t = loop_abstraction::Reduction<Kokkos::Sum<Real>>;
-  IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
+  using RIST = ReduceIST<LOOP_TAG, INNER_TAG, Kokkos::Sum<Real>>;
+  RIST idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
   idx_space.template AddPerPointScratch<Real>();
-  reduce_t::value_t result = 0.0;
-  loop_abstraction::outer_reduce(
-      idx_space,
-      KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b,
-                    const reduce_t::handle_t &handle) {
+  return loop_abstraction::outer_reduce(
+      idx_space, KOKKOS_LAMBDA(const RIST::idx_range_t &idx_range, int b) {
         auto scratch = loop_abstraction::GetPerPointScratch<Real>(idx_range);
         scratch.Zero();
         idx_range.TeamBarrier();
@@ -1516,11 +1493,8 @@ Real RunReduceScratchInterleave(const ProblemSpec &spec, const int ninner) {
           idx_range.TeamBarrier();
         }
         loop_abstraction::inner_reduce(
-            idx_range, handle, [&](auto idx, reduce_t::value_t &v) { v += scratch(idx); });
-      },
-      reduce_t::reducer_t(result));
-  Kokkos::fence();
-  return result;
+            idx_range, [&](auto idx, auto &v) { v += scratch(idx); });
+      });
 }
 
 template <class IndexSpaceType>
@@ -1550,31 +1524,22 @@ void RunReduceScratchInterleavePatternMatrix() {
 }
 
 // Two inner_reduce calls in one region, each covering the same cells, must double the
-// single-inner_reduce sum (both join into the same handle/accumulator).
+// single-inner_reduce sum (both join into the same accumulator).
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 Real RunReduceTwoInner(const ProblemSpec &spec, const int ninner) {
-  using IndexSpaceType = PatternIndexSpace<LOOP_TAG, INNER_TAG>;
-  using reduce_t = loop_abstraction::Reduction<Kokkos::Sum<Real>>;
-  IndexSpaceType idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
-  reduce_t::value_t result = 0.0;
-  loop_abstraction::outer_reduce(
-      idx_space,
-      KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b,
-                    const reduce_t::handle_t &handle) {
-        loop_abstraction::inner_reduce(idx_range, handle,
-                                       [&](auto idx, reduce_t::value_t &v) {
-                                         const auto [k, j, i] = idx_range.GetKJI(idx);
-                                         v += EncodeValue(b, 0, k, j, i);
-                                       });
-        loop_abstraction::inner_reduce(idx_range, handle,
-                                       [&](auto idx, reduce_t::value_t &v) {
-                                         const auto [k, j, i] = idx_range.GetKJI(idx);
-                                         v += EncodeValue(b, 0, k, j, i);
-                                       });
-      },
-      reduce_t::reducer_t(result));
-  Kokkos::fence();
-  return result;
+  using RIST = ReduceIST<LOOP_TAG, INNER_TAG, Kokkos::Sum<Real>>;
+  RIST idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
+  return loop_abstraction::outer_reduce(
+      idx_space, KOKKOS_LAMBDA(const RIST::idx_range_t &idx_range, int b) {
+        loop_abstraction::inner_reduce(idx_range, [&](auto idx, auto &v) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          v += EncodeValue(b, 0, k, j, i);
+        });
+        loop_abstraction::inner_reduce(idx_range, [&](auto idx, auto &v) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          v += EncodeValue(b, 0, k, j, i);
+        });
+      });
 }
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
@@ -1589,6 +1554,42 @@ void RunReduceTwoInnerPatternMatrix() {
               Approx(2.0 * ReferenceSum(ref)));
     }
   }
+}
+
+// The per-range reduction state costs zero bytes for a non-reduction space
+// ([[no_unique_address]] over an empty ReduceState), so an ordinary range is not
+// enlarged by the reduction machinery. The reduction range is larger (it carries the
+// accumulator pointer).
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+constexpr bool NonReductionRangeUnchanged() {
+  using plain_t = InnerIndexRange<PatternIndexSpace<LOOP_TAG, INNER_TAG>>;
+  using reduce_t = InnerIndexRange<ReduceIST<LOOP_TAG, INNER_TAG, Kokkos::Sum<Real>>>;
+  return sizeof(plain_t) < sizeof(reduce_t);
+}
+static_assert(NonReductionRangeUnchanged<loop_tag::bvoi, inner_tag::logical_flat>());
+static_assert(NonReductionRangeUnchanged<loop_tag::bovi, inner_tag::memory>());
+static_assert(NonReductionRangeUnchanged<loop_tag::boiv, inner_tag::logical_coords>());
+
+// Escape-hatch form: reduce into a caller-constructed reducer instance bound to a
+// device View, then copy the single result back. Exercises the instance-bound
+// outer_reduce overload (returns void) rather than the returning form.
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+Real RunReduceInstanceBound(const ProblemSpec &spec, const int ninner) {
+  using RIST = ReduceIST<LOOP_TAG, INNER_TAG, Kokkos::Sum<Real>>;
+  RIST idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
+  Kokkos::View<Real> result_view("reduce_result");
+  loop_abstraction::outer_reduce(
+      idx_space,
+      KOKKOS_LAMBDA(const RIST::idx_range_t &idx_range, int b) {
+        loop_abstraction::inner_reduce(idx_range, [&](auto idx, auto &v) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          v += EncodeValue(b, 0, k, j, i);
+        });
+      },
+      Kokkos::Sum<Real>(result_view));
+  Real result = 0.0;
+  Kokkos::deep_copy(result, result_view);
+  return result;
 }
 
 } // namespace
@@ -1919,4 +1920,29 @@ TEST_CASE("loop abstraction reduction two inner regions",
   RunReduceTwoInnerPatternMatrix<loop_tag::bovi, inner_tag::memory>();
   RunReduceTwoInnerPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
   RunReduceTwoInnerPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
+}
+
+// The instance-bound outer_reduce overload (reducer bound to a View) must give the same
+// result as the returning form.
+TEST_CASE("loop abstraction reduction instance-bound reducer",
+          "[loop_abstraction][reduction]") {
+  auto check = [](auto lt_c, auto it_c) {
+    constexpr loop_tag LT = decltype(lt_c)::value;
+    constexpr inner_tag IT = decltype(it_c)::value;
+    for (const auto &spec : CoverageSpecs()) {
+      for (const int ninner : NinnerCases(spec.nx * spec.ny * spec.nz)) {
+        const auto pattern_name = PatternName<LT, IT>();
+        INFO("pattern=" << pattern_name << ", ninner=" << ninner);
+        PatternIndexSpace<LT, IT> ref(spec.nblocks, spec.nx, spec.ny, spec.nz,
+                                      spec.nghost, ninner);
+        REQUIRE(RunReduceInstanceBound<LT, IT>(spec, ninner) == Approx(ReferenceSum(ref)));
+      }
+    }
+  };
+  check(std::integral_constant<loop_tag, loop_tag::bvoi>{},
+        std::integral_constant<inner_tag, inner_tag::logical_flat>{});
+  check(std::integral_constant<loop_tag, loop_tag::bovi>{},
+        std::integral_constant<inner_tag, inner_tag::memory>{});
+  check(std::integral_constant<loop_tag, loop_tag::boiv>{},
+        std::integral_constant<inner_tag, inner_tag::logical_coords>{});
 }
