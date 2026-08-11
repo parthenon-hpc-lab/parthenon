@@ -6,6 +6,7 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 1428]](https://github.com/parthenon-hpc-lab/parthenon/pull/1428) Permit larger input file sizes
+- [[PR 1415]](https://github.com/parthenon-hpc-lab/parthenon/pull/1415) Add portable loop abstraction
 - [[PR 1413]](https://github.com/parthenon-hpc-lab/parthenon/pull/1413) Add support for per-package meshdata objects containing subsets of variables 
 - [[PR 1403]](https://github.com/parthenon-hpc-lab/parthenon/pull/1403) Add interface for Fourier transforms on uniform meshes via heFFTe
 - [[PR 1408]](https://github.com/parthenon-hpc-lab/parthenon/pull/1408) Add GetAsUnresolvedString() method to ParameterInput
@@ -32,6 +33,7 @@
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1430]](https://github.com/parthenon-hpc-lab/parthenon/pull/1430) Fix BiCGSTAB returning NaN when a solve converges in its first half step
 - [[PR 1412]](https://github.com/parthenon-hpc-lab/parthenon/pull/1412) Fix single precision compilation with `Real=float`
 - [[PR 1411]](https://github.com/parthenon-hpc-lab/parthenon/pull/1411) Fix bug where ParameterInput::GetOrAddVector<std::string> was ambiguous
 - [[PR 1406]](https://github.com/parthenon-hpc-lab/parthenon/pull/1406) Fix deadlock in parallel outputs after ParameterInput refactor

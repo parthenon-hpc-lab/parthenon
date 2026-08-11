@@ -87,7 +87,7 @@ struct contiguous_container {
 
   template <class T>
     requires(ContiguousContainer_scalar<T>)
-  static std::size_t size(const T &x) {
+  static std::size_t size(const T &) {
     return 1;
   }
 
