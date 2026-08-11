@@ -176,6 +176,18 @@ Rules:
    (ghost cells included). So mixing a `memory`-tag `inner()` producer (which may write
    ghosts) with an `inner_reduce()` consumer (which will not read them) is fine and
    intended; just don't assume the producer stayed inside the logical set.
+5. **Custom reducers must not read their bound target in `join`/`init`.** The reducer
+   instance is copied by value into the device kernel, carrying the reference it was
+   bound to (the host `result`). The implementation only ever calls `join(a, b)` and
+   `init(a)` on it, neither of which dereferences the bound target, so all built-in
+   Kokkos reducers (`Sum`, `Min`, `Max`, `MinLoc`, ...) are safe. A custom reducer
+   whose `join`/`init` read the bound `result` would dereference a host pointer on the
+   device — don't write one. (`value_type` must also be device-copyable, as for any
+   Kokkos reducer.)
+
+Note on the host result: Kokkos initializes the accumulator to the reducer's identity
+and *overwrites* the bound `result`; it is not a seed. Set `reduce_t::value_t result`
+to anything (the tests use `0.0` even for `Min`); the pre-existing value is discarded.
 
 ## Current Backend Requirement
 
