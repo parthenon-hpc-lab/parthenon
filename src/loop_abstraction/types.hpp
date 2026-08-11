@@ -131,6 +131,21 @@ KOKKOS_INLINE_FUNCTION
 constexpr MemoryOffset operator*(MemoryOffset a, int n) { return n * a; }
 
 namespace impl {
+// Threaded from outer_reduce into inner_reduce (see kokkos.hpp). member is null in the
+// boiv (flat RangePolicy) case; otherwise it is the enclosing team. update points at the
+// reduce's accumulator (per-team for bvoi/bovi, per-work-item for boiv). reducer is
+// carried by value so inner_reduce reuses its join() without the caller restating it;
+// Kokkos reducers are cheap, trivially copyable value types. The definition is
+// backend-agnostic (templated on the reducer), but reductions themselves are Kokkos-only.
+template <class Reducer>
+struct ReduceHandle {
+  using reducer_type = Reducer;
+  using value_type = typename Reducer::value_type;
+  const device_team_member_t *member = nullptr;
+  value_type *update = nullptr;
+  Reducer reducer;
+};
+
 // Traits that detect whether a body's operator() takes a single explicit `int`
 // argument. Used to reject explicit-int bodies where they would lose halo offset
 // coordinates (see the boiv/logical_flat static_asserts in the backends).
@@ -157,6 +172,27 @@ template <class F>
 inline constexpr bool has_explicit_unary_int_call_v = HasExplicitUnaryIntCall<F>::value;
 
 } // namespace impl
+
+// Bundles the three types involved in a reduction, keyed on the Kokkos reducer (the type
+// of the instance passed last to outer_reduce, e.g. Kokkos::Min<Real>). Declare one alias
+// at the top of a reduction kernel and name the pieces from it -- this keeps the
+// KOKKOS_LAMBDA parameter types readable, and they *must* be named rather than `auto`
+// because an extended __host__ __device__ lambda cannot take an `auto` parameter under
+// nvcc (the inner_reduce body lambdas are ordinary lambdas, so their `auto` is fine):
+//   using reduce_t = Reduction<Kokkos::Min<Real>>;
+//   reduce_t::value_t result = 0.0;
+//   outer_reduce(idx_space,
+//     KOKKOS_LAMBDA(const idx_space_t::idx_range_t &r, int b,
+//                   const reduce_t::handle_t &handle) {
+//       inner_reduce(r, handle, [&](auto idx, reduce_t::value_t &v) { ... });
+//     },
+//     reduce_t::reducer_t(result));
+template <class Reducer>
+struct Reduction {
+  using reducer_t = Reducer;                      // the Kokkos reducer, e.g. Kokkos::Sum
+  using value_t = typename Reducer::value_type;   // the reduced value / host result type
+  using handle_t = impl::ReduceHandle<Reducer>;   // threaded into the outer_reduce body
+};
 
 } // namespace parthenon::loop_abstraction
 

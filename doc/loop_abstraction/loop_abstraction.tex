@@ -1350,6 +1350,74 @@ the access is as direct as a variable access. A kernel that sweeps multiple
 directions constructs one flux view per direction.
 
 % =====================================================================
+% =====================================================================
+\section{Reductions}
+\label{sec:reductions}
+% =====================================================================
+
+Alongside \code{outer}/\code{inner}, the abstraction provides
+\code{outer\_reduce}/\code{inner\_reduce} to fold a single Kokkos reducer over an
+index space. The reducer is a bound reducer instance (for example
+\code{Kokkos::Min<double>(result)}) and, matching
+\code{Kokkos::parallel\_reduce(policy, functor, reducer)}, it is passed
+\emph{last}. Unlike the plain loops these are Kokkos-only: they always dispatch to
+the Kokkos backend regardless of \code{IndexSpace::backend\_v} (on a host-only
+build \code{DevExecSpace} is a host space, so the Kokkos reduce runs there too),
+and there is no raw reduction path.
+
+\begin{lstlisting}
+using idx_space_t = decltype(idx_space);
+using reduce_t = la::Reduction<Kokkos::Sum<Real>>;  // bundles the reduction types
+reduce_t::value_t result = 0.0;
+la::outer_reduce(idx_space,
+  KOKKOS_LAMBDA(const idx_space_t::idx_range_t &r, int b,
+                const reduce_t::handle_t &handle) {
+    // Plain inner() still works here and ignores the handle -- e.g. fill scratch.
+    la::inner(r, [&](auto idx) { total(idx) = accumulate(...); });
+    r.TeamBarrier();
+    // inner_reduce contributes to the reduction; its body takes a trailing value ref.
+    la::inner_reduce(r, handle, [&](auto idx, reduce_t::value_t &v) { v += total(idx); });
+  },
+  reduce_t::reducer_t(result));
+\end{lstlisting}
+
+The body's parameter types must be named explicitly rather than written as
+\code{auto}: \code{KOKKOS\_LAMBDA} expands to an extended \verb|__host__ __device__|
+lambda, and nvcc forbids \code{auto} parameters on those. The
+\code{Reduction<R>} alias, declared once at the top, bundles the three types you
+need so the body stays readable: \code{reduce\_t::reducer\_t} (the Kokkos reducer
+\code{R}, here \code{Kokkos::Sum<Real>}), \code{reduce\_t::value\_t} (the reduced
+value / host result type), and \code{reduce\_t::handle\_t} (the handle threaded into
+the body). Name the range with \code{idx\_space\_t::idx\_range\_t} as for a plain
+\code{outer}. The inner-body lambdas are ordinary lambdas, so their \code{auto}
+parameters are fine.
+
+The \code{handle} threaded into the body carries the reducer \emph{type}, so
+\code{inner\_reduce} reuses the same join op without the caller restating it, and a
+single region may contain several \code{inner\_reduce} calls (interleaved with plain
+\code{inner} calls) that all join into one accumulator. There is one reducer per
+\code{outer\_reduce} region.
+
+Two rules keep reductions from ever touching ghost cells. First, reductions over
+halo-extended ranges are rejected at compile time: extend a range only for producer
+(scratch) \code{inner} loops and reduce over the base, halo-free range. Second, the
+\code{memory} inner tag \emph{degenerates to} \code{logical\_flat} under a reduction
+--- it iterates logical cells rather than a contiguous memory span, so no swept
+ghost cell is ever folded in. The body still receives a memory-relative flat index,
+so \code{inner\_reduce} call sites are identical whether the tag is \code{memory} or
+\code{logical\_flat}.
+
+This degeneration is scoped strictly to \code{inner\_reduce}. A plain \code{inner}
+call inside an \code{outer\_reduce} region is dispatched exactly as it would be under
+a plain \code{outer}: it does \emph{not} degenerate, and with the \code{memory} tag it
+still sweeps whole contiguous memory spans, ghost cells included. That is deliberate
+--- a \code{memory}-tag \code{inner} producer may legitimately write into scratch (or
+another buffer) at ghost positions, and only the \code{inner\_reduce} consumer is
+guaranteed to stay inside the logical set. So the useful pattern of a \code{memory}
+producer feeding an \code{inner\_reduce} consumer is sound; just do not assume the
+producer confined itself to logical cells.
+
+% =====================================================================
 \section{Contracts and invariants}
 \label{sec:contracts}
 % =====================================================================

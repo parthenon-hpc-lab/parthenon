@@ -70,6 +70,31 @@ KOKKOS_INLINE_FUNCTION auto AddHalo(const InnerIndexRangeType &idx_range) {
   return idx_range.template AddHalo<Halo>();
 }
 
+// Reduce a single Kokkos reducer over an IndexSpace. reducer is a bound reducer
+// instance (e.g. Kokkos::Min<double>(result)) and comes last, matching
+// Kokkos::parallel_reduce(policy, functor, reducer). The body f has signature
+// (InnerIndexRange range, int b, Handle handle) -- the same as outer()'s body plus a
+// trailing reduction handle. Inside, call inner_reduce(range, handle, ...) to
+// contribute to the reduction; plain inner(range, ...) calls (e.g. filling scratch)
+// still work and simply ignore the handle. Reductions always run on the Kokkos
+// backend regardless of IndexSpace::backend_v (on a host-only build DevExecSpace is a
+// host space, so this still runs correctly). See LOOP_ABSTRACTION_CONTRACTS.md.
+template <class IndexSpaceType, class F, class Reducer>
+void outer_reduce(IndexSpaceType idx_space, F &&f, Reducer reducer) {
+  impl::outer_kokkos_reduce(idx_space, std::forward<F>(f), reducer);
+}
+
+// Reduce over one InnerIndexRange slice, folding into the handle threaded in from
+// outer_reduce. The body f takes the usual index form plus a trailing reduction value
+// reference, e.g. [](auto idx, Real &v){ v += ...; } or [](int k,int j,int i,Real &v).
+// Halo-extended ranges are rejected at compile time (reductions must not touch ghost
+// cells); the memory inner tag degenerates to logical_flat for the same reason.
+template <class InnerIndexRangeType, class Handle, class F>
+KOKKOS_FORCEINLINE_FUNCTION void inner_reduce(const InnerIndexRangeType &idx_range,
+                                              const Handle &handle, F &&f) {
+  impl::inner_kokkos_reduce(idx_range, handle, std::forward<F>(f));
+}
+
 } // namespace parthenon::loop_abstraction
 
 #endif // LOOP_ABSTRACTION_LOOP_ABSTRACTION_HPP_

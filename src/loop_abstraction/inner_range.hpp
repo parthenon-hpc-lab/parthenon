@@ -56,6 +56,12 @@ class InnerIndexRange {
   int ks = 0;
   int js = 0;
   int is = 0;
+  // Logical-flat bounds of this slice's chunk (inclusive), in the block-wide logical
+  // indexer. Used by the reduction path to iterate logical cells even for the memory
+  // inner tag (which otherwise sweeps a contiguous memory span that includes ghosts).
+  // See inner_kokkos_reduce in kokkos.hpp.
+  int chunk_logical_start = 0;
+  int chunk_logical_end = 0;
   const device_team_member_t *team_member = nullptr;
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -78,6 +84,8 @@ class InnerIndexRange {
     const Index3 end{logical_kji.template EndIdx<0>(), logical_kji.template EndIdx<1>(),
                      logical_kji.template EndIdx<2>()};
 
+    chunk_logical_start = 0;
+    chunk_logical_end = static_cast<int>(logical_kji.size()) - 1;
     BuildRegionsFromEndpoints(start, end);
   }
 
@@ -96,6 +104,7 @@ class InnerIndexRange {
                   const parthenon::Indexer3D &logical_kji_in, int b, int flat_start,
                   int flat_end, const device_team_member_t *team_member_in = nullptr)
       : pidx_space(&idx_space), logical_kji(logical_kji_in), block(b),
+        chunk_logical_start(flat_start), chunk_logical_end(flat_end),
         team_member(team_member_in) {
     const auto [ks_, js_, is_] = logical_kji(flat_start);
     ks = ks_;

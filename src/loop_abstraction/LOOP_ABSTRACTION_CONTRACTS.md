@@ -124,6 +124,59 @@ If both `f(auto idx)` and `f(int, int, int)` are viable, the three-argument form
 form is selected for a given `[loop_tag, inner_tag]` pair, the loop structure is as described above, but before calling the functor the internal index
 is transformed back to `(k, j, i)` space and then passed to the functor. This form may hurt performance, but is likely clearer to many users.
 
+## Reductions
+
+`outer_reduce` / `inner_reduce` fold a single Kokkos reducer over an `IndexSpace`,
+mirroring `outer` / `inner`. They are **Kokkos-only**: they always dispatch to the
+Kokkos backend regardless of `IndexSpace::backend_v` (on a host-only build
+`DevExecSpace` is a host space, so the Kokkos reduce still runs correctly). There is
+no raw reduction path.
+
+```cpp
+// Reduction<R> bundles the reduction types (reducer_t, value_t, handle_t) so the body
+// stays readable. The reducer is bound to a host result and passed *last*, matching
+// Kokkos::parallel_reduce(policy, functor, reducer).
+using idx_space_t = decltype(idx_space);
+using reduce_t = Reduction<Kokkos::Sum<Real>>;
+reduce_t::value_t result = 0.0;
+outer_reduce(idx_space,
+  // The body parameter types must be named, not `auto`: KOKKOS_LAMBDA is an extended
+  // __host__ __device__ lambda and nvcc forbids `auto` params. Name the range with
+  // idx_space_t::idx_range_t and the handle with reduce_t::handle_t.
+  KOKKOS_LAMBDA(const idx_space_t::idx_range_t &range, int b,
+                const reduce_t::handle_t &handle) {
+    // Plain inner() calls still work here and ignore the handle -- e.g. fill scratch.
+    inner(range, [&](auto idx) { scratch(idx) = compute(idx); });
+    range.TeamBarrier();
+    // inner_reduce contributes to the reduction. Body takes a trailing value ref.
+    inner_reduce(range, handle, [&](auto idx, reduce_t::value_t &v) { v += scratch(idx); });
+  },
+  reduce_t::reducer_t(result));
+```
+
+Rules:
+
+1. **Single reducer per region.** One reducer op per `outer_reduce`. Multiple
+   `inner_reduce` calls in the same region all join into the same accumulator (via a
+   `handle` that carries the reducer type so the join op is not restated), so a region
+   may freely interleave plain `inner` (no reduction) and `inner_reduce` calls.
+2. **Body signature.** `inner_reduce`'s body takes the usual index form plus a trailing
+   reduction-value reference: `[](auto idx, Real &v)`, `[](Index3 idx, Real &v)`, or
+   `[](int k, int j, int i, Real &v)`.
+3. **No reductions over halo ranges.** Reductions must never touch ghost/halo cells.
+   `inner_reduce` `static_assert`s that the range's halo is `none_t`; extend a range
+   only for producer (scratch) `inner` loops and reduce over the base range.
+4. **`memory` degenerates to `logical_flat` — but only for `inner_reduce`.** For a
+   reduction the `memory` inner tag iterates logical cells (not a contiguous memory
+   span), so no swept ghost cell is ever folded in. The body still receives a
+   memory-relative flat index, so call sites are identical to `logical_flat`. This
+   degeneration is scoped strictly to `inner_reduce`: a plain `inner()` call inside an
+   `outer_reduce` region behaves exactly as it does under `outer()` and does **not**
+   degenerate — with the `memory` tag it still sweeps whole contiguous memory spans
+   (ghost cells included). So mixing a `memory`-tag `inner()` producer (which may write
+   ghosts) with an `inner_reduce()` consumer (which will not read them) is fine and
+   intended; just don't assume the producer stayed inside the logical set.
+
 ## Current Backend Requirement
 
 The raw and Kokkos implementations are expected to satisfy the same contract for a given `IndexSpace`.
