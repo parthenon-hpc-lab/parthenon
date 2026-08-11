@@ -85,7 +85,8 @@ KOKKOS_INLINE_FUNCTION auto AddHalo(const InnerIndexRangeType &idx_range) {
 // result is a host scalar, the Kokkos reduce is synchronous, so the value is valid on
 // return (no fence needed).
 //   using rist = ReductionIndexSpace<lt, it, Kokkos::Sum<Real>>;
-//   auto result = outer_reduce(rist_obj, KOKKOS_LAMBDA(const rist::idx_range_t &r, int b){
+//   auto result = outer_reduce(rist_obj, KOKKOS_LAMBDA(const rist::idx_range_t &r, int
+//   b){
 //     inner_reduce(r, [&](auto idx, auto &v){ v += ...; });
 //   });
 template <class IndexSpaceType, class F>

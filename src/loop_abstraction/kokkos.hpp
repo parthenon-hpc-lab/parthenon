@@ -242,7 +242,8 @@ KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos(const InnerIndexRangeType &idx_ran
 // restate the join op. Multiple inner_reduce calls (interleaved with plain inner calls
 // that only fill scratch) all contribute to the same result. Reductions never touch
 // ghost/halo cells: halo ranges are rejected at compile time and the memory inner tag
-// degenerates to logical_flat so no ghost cell swept by a contiguous span is ever visited.
+// degenerates to logical_flat so no ghost cell swept by a contiguous span is ever
+// visited.
 // ---------------------------------------------------------------------------------------
 
 template <class IndexSpaceType, class F, class Reducer>
@@ -316,8 +317,8 @@ void outer_kokkos_reduce(IndexSpaceType idx_space, F &&f, Reducer reducer) {
 }
 
 template <class InnerIndexRangeType, class F>
-KOKKOS_FORCEINLINE_FUNCTION void
-inner_kokkos_reduce(const InnerIndexRangeType &idx_range, F &&f) {
+KOKKOS_FORCEINLINE_FUNCTION void inner_kokkos_reduce(const InnerIndexRangeType &idx_range,
+                                                     F &&f) {
   using IndexSpaceType =
       std::remove_cv_t<std::remove_reference_t<decltype(*idx_range.pidx_space)>>;
   static_assert(IndexSpaceType::is_reduction_v,
