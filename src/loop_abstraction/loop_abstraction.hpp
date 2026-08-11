@@ -38,6 +38,10 @@ namespace parthenon::loop_abstraction {
 // kji space). Dispatches to the raw or Kokkos backend at compile time.
 template <class IndexSpaceType, class F>
 void outer(IndexSpaceType idx_space, F &&f) {
+  static_assert(!IndexSpaceType::is_reduction_v,
+                "outer() was given a reduction index space (one carrying a reducer); "
+                "its reduction would never run. Use outer_reduce() instead, or a "
+                "non-reduction IndexSpace.");
   if constexpr (IndexSpaceType::backend_v == loop_backend::raw) {
     impl::outer_raw_for(idx_space, std::forward<F>(f));
   } else if constexpr (IndexSpaceType::backend_v == loop_backend::kokkos) {
@@ -101,6 +105,9 @@ typename IndexSpaceType::value_t outer_reduce(IndexSpaceType idx_space, F &&f) {
 // whatever the reducer is bound to.
 template <class IndexSpaceType, class F, class Reducer>
 void outer_reduce(IndexSpaceType idx_space, F &&f, Reducer reducer) {
+  static_assert(IndexSpaceType::is_reduction_v,
+                "outer_reduce requires a reduction index space (see ReductionIndexSpace "
+                "/ IndexSpace::WithReducer).");
   impl::outer_kokkos_reduce(idx_space, std::forward<F>(f), reducer);
 }
 
