@@ -1492,8 +1492,8 @@ Real RunReduceScratchInterleave(const ProblemSpec &spec, const int ninner) {
           });
           idx_range.TeamBarrier();
         }
-        loop_abstraction::inner_reduce(
-            idx_range, [&](auto idx, auto &v) { v += scratch(idx); });
+        loop_abstraction::inner_reduce(idx_range,
+                                       [&](auto idx, auto &v) { v += scratch(idx); });
       });
 }
 
@@ -1935,7 +1935,8 @@ TEST_CASE("loop abstraction reduction instance-bound reducer",
         INFO("pattern=" << pattern_name << ", ninner=" << ninner);
         PatternIndexSpace<LT, IT> ref(spec.nblocks, spec.nx, spec.ny, spec.nz,
                                       spec.nghost, ninner);
-        REQUIRE(RunReduceInstanceBound<LT, IT>(spec, ninner) == Approx(ReferenceSum(ref)));
+        REQUIRE(RunReduceInstanceBound<LT, IT>(spec, ninner) ==
+                Approx(ReferenceSum(ref)));
       }
     }
   };
