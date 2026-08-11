@@ -183,9 +183,10 @@ class IndexSpace {
   // only memory choice the caller gets). Use this when the logical bounds are a
   // non-standard box (e.g. boundary-aware interior bounds).
   template <class MeshDataOrMeshBlockData>
-  IndexSpace(int nblocks, const parthenon::IndexRange &kb, const parthenon::IndexRange &jb,
-             const parthenon::IndexRange &ib, const MeshDataOrMeshBlockData *md,
-             TE memory_te = TE::CC, std::optional<NInner> ninner_in = std::nullopt)
+  IndexSpace(int nblocks, const parthenon::IndexRange &kb,
+             const parthenon::IndexRange &jb, const parthenon::IndexRange &ib,
+             const MeshDataOrMeshBlockData *md, TE memory_te = TE::CC,
+             std::optional<NInner> ninner_in = std::nullopt)
       : logical_kji({kb.s, kb.e}, {jb.s, jb.e}, {ib.s, ib.e}),
         memory_kji(md->GetBoundsK(ID::entire, memory_te),
                    md->GetBoundsJ(ID::entire, memory_te),
