@@ -29,6 +29,7 @@
 #include "solvers/solver_utils.hpp"
 #include "tasks/tasks.hpp"
 #include "utils/reductions.hpp"
+#include "utils/robust.hpp"
 #include "utils/type_list.hpp"
 
 namespace parthenon {
@@ -346,7 +347,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
         get_tt_ts, "x <- h + omega u",
         [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md_h,
            std::shared_ptr<MeshData<Real>> &md_u, std::shared_ptr<MeshData<Real>> &md_x) {
-          Real omega = solver->tt_ts.val[1] / solver->tt_ts.val[0];
+          Real omega = robust::ratio(solver->tt_ts.val[1], solver->tt_ts.val[0]);
           return AddFieldsAndStore<FieldTL>(md_h, md_u, md_x, 1.0, omega);
         },
         this, md_h, md_u, md_x);
@@ -356,7 +357,7 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
         get_tt_ts, "r <- s - omega t",
         [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md_s,
            std::shared_ptr<MeshData<Real>> &md_t, std::shared_ptr<MeshData<Real>> &md_r) {
-          Real omega = solver->tt_ts.val[1] / solver->tt_ts.val[0];
+          Real omega = robust::ratio(solver->tt_ts.val[1], solver->tt_ts.val[0]);
           return AddFieldsAndStore<FieldTL>(md_s, md_t, md_r, 1.0, -omega);
         },
         this, md_s, md_t, md_r);
@@ -385,11 +386,10 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
         [](BiCGSTABSolver *solver, std::shared_ptr<MeshData<Real>> &md_p,
            std::shared_ptr<MeshData<Real>> &md_v, std::shared_ptr<MeshData<Real>> &md_r) {
           Real alpha = solver->rhat0r_old / solver->rhat0v.val;
-          Real omega = solver->tt_ts.val[1] / solver->tt_ts.val[0];
+          Real omega = robust::ratio(solver->tt_ts.val[1], solver->tt_ts.val[0]);
           Real beta = solver->res_rhat0r.val[1] / solver->rhat0r_old * alpha / omega;
           AddFieldsAndStore<FieldTL>(md_p, md_v, md_p, 1.0, -omega);
           return AddFieldsAndStore<FieldTL>(md_r, md_p, md_p, 1.0, beta);
-          return TaskStatus::complete;
         },
         this, md_p, md_v, md_r);
 

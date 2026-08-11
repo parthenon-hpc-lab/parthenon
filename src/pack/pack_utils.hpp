@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -13,12 +13,16 @@
 #ifndef PACK_PACK_UTILS_HPP_
 #define PACK_PACK_UTILS_HPP_
 
+// This file was made in part with generative AI.
+
 #include <string>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
+
+#include "basic_types.hpp"
 
 // SFINAE for block iter so that Sparse/SwarmPacks can work for MeshBlockData and MeshData
 namespace {
@@ -63,15 +67,16 @@ using PackIdxMap = std::unordered_map<std::string, std::size_t>;
 namespace variable_names {
 // Struct that all variable_name types should inherit from
 constexpr int ANYDIM = -1234; // ANYDIM must be a slowest-moving index
-template <bool REGEX, typename T, int... NCOMP>
-struct var_base_t {
+template <bool REGEX, typename T, TopologicalType TT, int... NCOMP>
+struct var_base_impl_t {
   using data_type = T;
+  static constexpr TopologicalType topological_type{TT};
 
   KOKKOS_INLINE_FUNCTION
-  var_base_t() : idx(0) {}
+  var_base_impl_t() : idx(0) {}
 
   KOKKOS_INLINE_FUNCTION
-  explicit var_base_t(int idx1) : idx(idx1) {}
+  explicit var_base_impl_t(int idx1) : idx(idx1) {}
 
   /*
     for 2D:, (M, N),
@@ -82,13 +87,13 @@ struct var_base_t {
    */
   template <typename... Args>
     requires((Integral<Args> && ...) && (sizeof...(Args) == sizeof...(NCOMP)))
-  KOKKOS_INLINE_FUNCTION explicit var_base_t(Args... args)
+  KOKKOS_INLINE_FUNCTION explicit var_base_impl_t(Args... args)
       : idx(GetIndex_(std::forward<Args>(args)...)) {
     static_assert(CheckArgs_(NCOMP...),
                   "All dimensions must be strictly positive, "
                   "except the first (slowest), which may be ANYDIM.");
   }
-  virtual ~var_base_t() = default;
+  virtual ~var_base_impl_t() = default;
 
   // All of these are just static methods so that there is no
   // extra storage in the struct
@@ -102,11 +107,11 @@ struct var_base_t {
   }
   static std::vector<int> GetShape() { return std::vector<int>{NCOMP...}; }
   KOKKOS_INLINE_FUNCTION
-  static bool regex() { return REGEX; }
+  static constexpr bool regex() { return REGEX; }
   KOKKOS_INLINE_FUNCTION
-  static std::size_t ndim() { return sizeof...(NCOMP); }
+  static constexpr std::size_t ndim() { return sizeof...(NCOMP); }
   KOKKOS_INLINE_FUNCTION
-  static std::size_t size() { return multiply<NCOMP...>::value; }
+  static constexpr std::size_t size() { return multiply<NCOMP...>::value; }
 
   const int idx;
 
@@ -128,10 +133,17 @@ struct var_base_t {
     return idx;
   }
 };
+
 template <bool REGEX, int... NCOMP>
-struct base_t : public var_base_t<REGEX, Real, NCOMP...> {
-  using var_base_t<REGEX, Real, NCOMP...>::var_base_t;
+struct base_t : public var_base_impl_t<REGEX, Real, TopologicalType::Cell, NCOMP...> {
+  using var_base_impl_t<REGEX, Real, TopologicalType::Cell, NCOMP...>::var_base_impl_t;
 };
+
+template <bool REGEX, TopologicalType TT, int... NCOMP>
+struct base_w_tt_t : public var_base_impl_t<REGEX, Real, TT, NCOMP...> {
+  using var_base_impl_t<REGEX, Real, TT, NCOMP...>::var_base_impl_t;
+};
+
 // An example variable name type that selects all variables available
 // on Mesh*Data
 struct any_withautoflux : public base_t<true> {
@@ -155,8 +167,10 @@ using any = any_nonautoflux;
 // SwarmPack<[type list of variable name types]> on device
 namespace swarm_variable_names {
 template <typename T, int... NCOMP>
-struct base_t : public variable_names::var_base_t<false, T, NCOMP...> {
-  using variable_names::var_base_t<false, T, NCOMP...>::var_base_t;
+struct base_t
+    : public variable_names::var_base_impl_t<false, T, TopologicalType::Cell, NCOMP...> {
+  using variable_names::var_base_impl_t<false, T, TopologicalType::Cell,
+                                        NCOMP...>::var_base_impl_t;
 };
 } // namespace swarm_variable_names
 
@@ -197,6 +211,28 @@ template <class T>
   requires(std::is_integral<T>::value)
 KOKKOS_INLINE_FUNCTION PackIdx operator+(T offset, PackIdx idx) {
   return idx + offset;
+}
+
+// Utilities for type indexing
+namespace impl {
+struct SumAllTypes {};
+
+template <class TL, std::size_t... Is>
+constexpr std::size_t SumSizesImpl(std::index_sequence<Is...>) {
+  return (std::size_t{0} + ... +
+          (TL::template type<Is>::size() *
+           NumberOfTopologicalElements(TL::template type<Is>::topological_type)));
+}
+} // namespace impl
+
+template <class TL, class StopT = impl::SumAllTypes>
+constexpr std::size_t SumSizesBefore() {
+  if constexpr (std::is_same_v<StopT, impl::SumAllTypes>) {
+    return impl::SumSizesImpl<TL>(std::make_index_sequence<TL::n_types>{});
+  } else {
+    constexpr std::size_t stop_idx = TL::template GetIdx<StopT>();
+    return impl::SumSizesImpl<TL>(std::make_index_sequence<stop_idx>{});
+  }
 }
 
 } // namespace parthenon
