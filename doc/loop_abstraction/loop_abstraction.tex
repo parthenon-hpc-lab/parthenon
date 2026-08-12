@@ -1355,71 +1355,99 @@ directions constructs one flux view per direction.
 \label{sec:reductions}
 % =====================================================================
 
-Alongside \code{outer}/\code{inner}, the abstraction provides
-\code{outer\_reduce}/\code{inner\_reduce} to fold a single Kokkos reducer over an
-index space. Unlike the plain loops these are Kokkos-only: they always dispatch to
-the Kokkos backend regardless of \code{IndexSpace::backend\_v} (on a host-only
-build \code{DevExecSpace} is a host space, so the Kokkos reduce runs there too),
-and there is no raw reduction path.
+So far every loop path has \emph{written} a result at each cell it visits. A
+reduction instead \emph{folds} a per-cell quantity down to a single value --- the
+maximum wave speed over a block for a timestep constraint, the total mass in a
+region, the dot product behind a solver residual. The quantity being combined is
+still defined cell by cell, over exactly the logical-cell set the loop already
+describes; a reduction just adds a rule for how those per-cell contributions merge
+into one. That combining rule is a \emph{reducer} (\code{Kokkos::Sum<Real>},
+\code{Kokkos::Max<Real>}, \dots), and the promise of the abstraction is the same as
+for the plain loops: the same kernel text expresses the reduction under any loop
+tag, and every logical cell contributes exactly once.
 
-The reducer is baked into the index-space type. Build a reduction space with
-\code{ReductionIndexSpace<lt, it, R>} --- which hides the backend template parameter
---- or rebind an existing space with \code{idx\_space.WithReducer<R>()}. Its
-\code{idx\_range\_t} then carries the reduction, so the body signature is just
-\code{(idx\_range, int b)}, exactly as for \code{outer}: there is no handle to thread
-through. The preferred \code{outer\_reduce} overload constructs the reducer over a
-fresh result and \emph{returns} it; because the result is a host scalar the Kokkos
-reduce is synchronous, so the value is valid on return with no explicit fence.
-
+\code{inner\_reduce} is the reducing counterpart of \code{inner}. Where an
+\code{inner} body writes ---
+\begin{lstlisting}
+la::inner(range, [&](auto idx) { out(idx) = f(idx); });
+\end{lstlisting}
+an \code{inner\_reduce} body is handed an accumulator to fold into, and the reducer
+supplies the merge:
+\begin{lstlisting}
+la::inner_reduce(range, [&](auto idx, auto &v) { v = Kokkos::max(v, speed(idx)); });
+\end{lstlisting}
+The reduced value the kernel ultimately produces is a property of the
+\emph{traversal}, not of any one \code{inner\_reduce} call, so --- like the loop and
+inner tags --- the reducer rides on the index space rather than being restated at
+each use. A \emph{reduction space} carries it:
 \begin{lstlisting}
 using rist = la::ReductionIndexSpace<lt, it, Kokkos::Sum<Real>>;
 rist idx_space(/* ... */);
 
 auto result = la::outer_reduce(idx_space,
   KOKKOS_LAMBDA(const rist::idx_range_t &r, int b) {
-    // Plain inner() still works here -- e.g. fill scratch.
+    // A plain inner() still does ordinary per-cell work here -- e.g. fill scratch.
     la::inner(r, [&](auto idx) { total(idx) = accumulate(...); });
     r.TeamBarrier();
-    // inner_reduce contributes to the reduction; its body takes a trailing value ref.
+    // inner_reduce folds into the reduction the space defines.
     la::inner_reduce(r, [&](auto idx, auto &v) { v += total(idx); });
   });
 \end{lstlisting}
+A region may mix several \code{inner\_reduce} calls with plain \code{inner} calls
+(the reconstruct-then-reduce shape above), and they all fold into the one reduction
+the space names.
 
-The outer body's parameter types must be named explicitly rather than written as
-\code{auto}: \code{KOKKOS\_LAMBDA} expands to an extended \verb|__host__ __device__|
-lambda, and nvcc forbids \code{auto} parameters on those. Name the range with
-\code{rist::idx\_range\_t}, as for a plain \code{outer}. The \code{inner\_reduce}
-body is an ordinary lambda, so its \code{auto} parameters (including the trailing
-reduction value) are fine.
+Crucially, adding a reduction does not change the loop structure the tags select. A
+reduction kernel is instantiated with the \emph{same} block/outer/inner hierarchy as
+the plain-loop kernel with the same tags: \code{bvoi} still runs one team per block
+with the variable loop above a whole-block inner traversal, \code{bovi} still tiles
+the block into \code{ninner}-sized chunks with a team per chunk, and \code{boiv}
+still walks one logical cell at a time. The fold simply rides along that traversal ---
+each level of the hierarchy the tag defines accumulates its own partial, and the
+partials combine up the hierarchy to the single result --- so the reduction visits
+exactly the cells the plain loop would, in the same order of nesting, with the sole
+exception that \code{memory} collapses to \code{logical\_flat} (discussed next). A
+kernel can therefore be re-tagged for a different architecture without the reduction
+needing any change, exactly as a plain kernel can.
 
-An escape-hatch overload instead takes a caller-constructed reducer instance
-\emph{last} (matching \code{Kokkos::parallel\_reduce(policy, functor, reducer)}) for
-reducing into a \code{View}, \code{ScatterView}, or device memory; it returns void
-and its reducer type must match the space's \code{reduction\_t}.
+This lockstep is not free-standing; it rests on how Kokkos expresses reductions. The
+abstraction realizes each hierarchy level's partial with the matching Kokkos
+construct --- a team-level \code{parallel\_reduce} for the inner traversal of the
+team-based tags, a plain range reduction for \code{boiv} --- and relies on Kokkos to
+combine those partials with the reducer's associative-commutative merge. The merge
+being order-independent is what lets the same reducer sit under any tag and still give
+one well-defined answer; a reduction whose combine truly depended on visitation order
+would not be portable across the loop shapes, and is outside what this supports.
 
-Because the reducer type lives on the index space, \code{inner\_reduce} reuses its
-join op without the caller restating it, and a single region may contain several
-\code{inner\_reduce} calls (interleaved with plain \code{inner} calls) that all join
-into one accumulator. There is one reducer per \code{outer\_reduce} region.
+\paragraph{A reduction is defined only over logical cells.} This is what makes the
+result well defined: a cell that is not part of the logical set has no meaningful
+contribution, and counting one twice would corrupt the fold. Two consequences follow
+directly. A reduction may not run over a halo-extended range --- a halo deliberately
+revisits shifted copies of cells, which is exactly the double-counting a fold cannot
+tolerate --- so \code{inner\_reduce} rejects halo ranges at compile time; extend a
+range only for the producer \code{inner} loops that fill scratch, and reduce over the
+base range. And the \code{memory} inner tag, whose contiguous spans may sweep ghost
+cells, is treated as \code{logical\_flat} inside a reduction, visiting logical cells
+only. Both are the same principle --- fold each logical cell once, and nothing else ---
+rather than two separate rules. Note that this narrowing applies only to
+\code{inner\_reduce}: a plain \code{inner} inside an \code{outer\_reduce} region
+behaves just as it would under \code{outer}, so a \code{memory}-tag producer may still
+legitimately touch ghost cells when writing scratch; only the reduction itself is
+confined to the logical set.
 
-Two rules keep reductions from ever touching ghost cells. First, reductions over
-halo-extended ranges are rejected at compile time: extend a range only for producer
-(scratch) \code{inner} loops and reduce over the base, halo-free range. Second, the
-\code{memory} inner tag \emph{degenerates to} \code{logical\_flat} under a reduction
---- it iterates logical cells rather than a contiguous memory span, so no swept
-ghost cell is ever folded in. The body still receives a memory-relative flat index,
-so \code{inner\_reduce} call sites are identical whether the tag is \code{memory} or
-\code{logical\_flat}.
-
-This degeneration is scoped strictly to \code{inner\_reduce}. A plain \code{inner}
-call inside an \code{outer\_reduce} region is dispatched exactly as it would be under
-a plain \code{outer}: it does \emph{not} degenerate, and with the \code{memory} tag it
-still sweeps whole contiguous memory spans, ghost cells included. That is deliberate
---- a \code{memory}-tag \code{inner} producer may legitimately write into scratch (or
-another buffer) at ghost positions, and only the \code{inner\_reduce} consumer is
-guaranteed to stay inside the logical set. So the useful pattern of a \code{memory}
-producer feeding an \code{inner\_reduce} consumer is sound; just do not assume the
-producer confined itself to logical cells.
+\paragraph{Practical notes.} The preferred \code{outer\_reduce} constructs the reducer
+over a fresh result and \emph{returns} it; the result is a host scalar, so the reduce
+is synchronous and the value is ready on return with no explicit fence. An
+escape-hatch overload instead takes a caller-built reducer instance \emph{last}
+(matching \code{Kokkos::parallel\_reduce}) for folding into a \code{View},
+\code{ScatterView}, or device memory. Reductions are Kokkos-only: they dispatch to the
+Kokkos backend regardless of the index space's backend (on a host-only build
+\code{DevExecSpace} is the host, so the Kokkos reduce still runs), with no raw path. As
+with a plain \code{outer}, the \code{outer\_reduce} body's parameter types must be
+named rather than \code{auto} (nvcc forbids \code{auto} parameters on the extended
+\verb|__host__ __device__| lambda \code{KOKKOS\_LAMBDA} expands to); use
+\code{rist::idx\_range\_t}. The \code{inner\_reduce} body is an ordinary lambda, so its
+\code{auto} parameters --- including the trailing accumulator --- are fine.
 
 % =====================================================================
 \section{Contracts and invariants}
