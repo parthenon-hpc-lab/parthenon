@@ -67,3 +67,5 @@ dt = 0.05
 file_type = hdf5
 dt = 0.25
 variables = advection.C
+variables = advection.phi
+variables = nodal.phi

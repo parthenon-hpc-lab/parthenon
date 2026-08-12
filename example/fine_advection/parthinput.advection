@@ -71,4 +71,4 @@ dt = 0.05
 <parthenon/output0>
 file_type = hdf5
 dt = 0.05
-variables = advection.phi, advection.phi_fine_restricted, phi_nodal
+variables = advection.phi, nodal.phi
