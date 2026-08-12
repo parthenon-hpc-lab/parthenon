@@ -338,22 +338,20 @@ class Metadata {
 
   // 4 constructors, this is the general constructor called by all other constructors, so
   // we do some sanity checks here
-  Metadata(
-      const std::vector<MetadataFlag> &bits, const std::vector<MetadataFlag> &flux_bits,
-      const std::vector<int> &shape = {},
-      const std::vector<std::string> &component_labels = {},
-      const std::string &associated = "",
-      const refinement::RefinementFunctions_t ref_funcs_ =
-          refinement::DefaultRefinementFunctions(),
-      const refinement::RefinementFunctions_t flux_ref_funcs_ =
-          refinement::DefaultRefinementFunctions());
+  Metadata(const std::vector<MetadataFlag> &bits,
+           const std::vector<MetadataFlag> &flux_bits, const std::vector<int> &shape = {},
+           const std::vector<std::string> &component_labels = {},
+           const std::string &associated = "",
+           const refinement::RefinementFunctions_t ref_funcs_ =
+               refinement::DefaultRefinementFunctions(),
+           const refinement::RefinementFunctions_t flux_ref_funcs_ =
+               refinement::DefaultRefinementFunctions());
 
-  Metadata(
-      const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
-      const std::vector<std::string> &component_labels = {},
-      const std::string &associated = "",
-      const refinement::RefinementFunctions_t ref_funcs_ =
-          refinement::DefaultRefinementFunctions())
+  Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
+           const std::vector<std::string> &component_labels = {},
+           const std::string &associated = "",
+           const refinement::RefinementFunctions_t ref_funcs_ =
+               refinement::DefaultRefinementFunctions())
       : Metadata(bits, {}, shape, component_labels, associated, ref_funcs_, ref_funcs_) {}
 
   Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
