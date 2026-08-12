@@ -86,7 +86,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     m = Metadata(
         {Metadata::Node, Metadata::Derived, Metadata::Sparse, Metadata::CellMemAligned},
         std::vector<int>{shape_size});
-    pkg->AddSparsePool<Derived::phi_nodal>(m, Conserved::phi::name(), sparse_idxs);
+    pkg->AddSparsePool<Nodal::phi>(m, Conserved::phi::name(), sparse_idxs);
   }
 
   bool do_fine_advection = pin->GetOrAddBoolean("Advection", "do_fine_advection", true);
@@ -216,8 +216,7 @@ TaskStatus FillDerived(MeshData<Real> *md) {
       parthenon::MakePackDescriptor<Conserved::phi, Conserved::phi_fine,
                                     Conserved::phi_fine_restricted, Conserved::C,
                                     Conserved::C_cc, Conserved::D, Conserved::D_cc,
-                                    Conserved::divC, Conserved::divD, Derived::phi_nodal>(
-          md);
+                                    Conserved::divC, Conserved::divD, Nodal::phi>(md);
   auto pack = desc.GetPack(md);
 
   std::shared_ptr<StateDescriptor> pkg =
@@ -259,26 +258,26 @@ TaskStatus FillDerived(MeshData<Real> *md) {
             auto pvn = la::make_sparse_pack_view(idx_range, pack, n);
 
             la::inner(idx_range, [&](const auto kji) {
-              pvn(Derived::phi_nodal(), kji) =
+              pvn(Nodal::phi(), kji) =
                   pvn(Conserved::phi(), kji) + pvn(Conserved::phi(), kji - di);
             });
             idx_range.TeamBarrier();
             if (ndim > 1) {
               la::inner(idx_range, [&](const auto kji) {
-                pvn(Derived::phi_nodal(), kji) +=
+                pvn(Nodal::phi(), kji) +=
                     (pvn(Conserved::phi(), kji) + pvn(Conserved::phi(), kji - dj));
               });
               idx_range.TeamBarrier();
             }
             if (ndim > 2) {
               la::inner(idx_range, [&](const auto kji) {
-                pvn(Derived::phi_nodal(), kji) +=
+                pvn(Nodal::phi(), kji) +=
                     (pvn(Conserved::phi(), kji) + pvn(Conserved::phi(), kji - dk));
               });
               idx_range.TeamBarrier();
             }
             la::inner(idx_range,
-                      [&](const auto kji) { pvn(Derived::phi_nodal(), kji) *= weight; });
+                      [&](const auto kji) { pvn(Nodal::phi(), kji) *= weight; });
           }
         });
   }

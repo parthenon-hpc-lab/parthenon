@@ -58,9 +58,9 @@ VARIABLE(advection, D_cc, false);
 VARIABLE(advection, divC, false);
 VARIABLE(advection, divD, false);
 } // namespace Conserved
-namespace Derived {
-NODE_VARIABLE(advection, phi_nodal, true);
-} // namespace Derived
+namespace Nodal {
+NODE_VARIABLE(nodal, phi, true);
+} // namespace Nodal
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 AmrTag CheckRefinement(MeshBlockData<Real> *rc);
