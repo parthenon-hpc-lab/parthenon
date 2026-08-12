@@ -253,31 +253,20 @@ TaskStatus FillDerived(MeshData<Real> *md) {
     la::outer(
         idx_space, KOKKOS_LAMBDA(const IST::idx_range_t &idx_range, int b) {
           const int nvar = pack.GetSize(b, Conserved::phi());
-          const Real weight = (ndim > 2) ? 0.125 : (ndim > 1) ? 0.25 : 0.5;
           for (int n = 0; n < nvar; ++n) {
             auto pvn = la::make_sparse_pack_view(idx_range, pack, n);
 
             la::inner(idx_range, [&](const auto kji) {
-              pvn(Nodal::phi(), kji) =
-                  pvn(Conserved::phi(), kji) + pvn(Conserved::phi(), kji - di);
+              pvn(Nodal::phi(), kji) = 0.125 * (
+                     pvn(Conserved::phi(), kji) 
+                  + pvn(Conserved::phi(), kji - di)
+                  + pvn(Conserved::phi(), kji - dj)
+                  + pvn(Conserved::phi(), kji - dk)
+                  + pvn(Conserved::phi(), kji - di - dj)
+                  + pvn(Conserved::phi(), kji - dj - dk)
+                  + pvn(Conserved::phi(), kji - dk - di)
+                  + pvn(Conserved::phi(), kji - di - dj - dk));
             });
-            idx_range.TeamBarrier();
-            if (ndim > 1) {
-              la::inner(idx_range, [&](const auto kji) {
-                pvn(Nodal::phi(), kji) +=
-                    (pvn(Conserved::phi(), kji) + pvn(Conserved::phi(), kji - dj));
-              });
-              idx_range.TeamBarrier();
-            }
-            if (ndim > 2) {
-              la::inner(idx_range, [&](const auto kji) {
-                pvn(Nodal::phi(), kji) +=
-                    (pvn(Conserved::phi(), kji) + pvn(Conserved::phi(), kji - dk));
-              });
-              idx_range.TeamBarrier();
-            }
-            la::inner(idx_range,
-                      [&](const auto kji) { pvn(Nodal::phi(), kji) *= weight; });
           }
         });
   }
