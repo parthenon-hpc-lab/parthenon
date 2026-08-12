@@ -1575,9 +1575,11 @@ static_assert(NonReductionRangeUnchanged<loop_tag::boiv, inner_tag::logical_coor
 // outer_reduce overload (returns void) rather than the returning form.
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
 Real RunReduceInstanceBound(const ProblemSpec &spec, const int ninner) {
-  using RIST = ReduceIST<LOOP_TAG, INNER_TAG, Kokkos::Sum<Real>>;
+  using result_view_t = Kokkos::View<Real>;
+  using reducer_t = Kokkos::Sum<Real, result_view_t::memory_space>;
+  using RIST = ReduceIST<LOOP_TAG, INNER_TAG, reducer_t>;
   RIST idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
-  Kokkos::View<Real> result_view("reduce_result");
+  result_view_t result_view("reduce_result");
   loop_abstraction::outer_reduce(
       idx_space,
       KOKKOS_LAMBDA(const RIST::idx_range_t &idx_range, int b) {
@@ -1586,7 +1588,7 @@ Real RunReduceInstanceBound(const ProblemSpec &spec, const int ninner) {
           v += EncodeValue(b, 0, k, j, i);
         });
       },
-      Kokkos::Sum<Real>(result_view));
+      reducer_t(result_view));
   Real result = 0.0;
   Kokkos::deep_copy(result, result_view);
   return result;
