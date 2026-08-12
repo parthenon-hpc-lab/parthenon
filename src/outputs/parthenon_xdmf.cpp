@@ -3,7 +3,7 @@
 // Copyright(C) 2023-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with the assistance of generative AI.
 
 // options for building
 #include "config.hpp"
@@ -106,12 +108,19 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
     auto coords_it = std::find_if(var_list.begin(), var_list.end(),
                                   [](const auto &v) { return v.is_coordinate_field; });
     const int ndim_mesh = (nx3 > 1) + (nx2 > 1) + (nx1 > 1);
+    const bool is_2d = (ndim_mesh == 2);
+    const bool is_1d = (ndim_mesh == 1);
     const bool output_coords = (ndim_mesh > 1) && (coords_it != var_list.end());
     if ((coords_it != var_list.end()) && (ndim_mesh < 2) && (Globals::my_rank == 0)) {
       PARTHENON_WARN(
           "Custom coordinates not supported in XDMF for 1D meshes. Reverting to "
-          "3DRectMesh");
+          "RectMesh");
     }
+    // TODO(JMM): This warning is probably sufficiently annoying we
+    // should suppress it, but this is true.
+    // if (is_1d) {
+    //   PARTHENON_DEBUG_WARN("1D output in XDMF can be ill-behaved. Use with caution.");
+    // }
 
     // open file
     xdmf = std::ofstream(filename_aux.c_str(), std::ofstream::trunc);
@@ -145,6 +154,9 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       } else {
         PARTHENON_FAIL("Custom coordinates not supported in XDMF for 1D meshes.");
       }
+    } else if (is_2d) {
+      mesh_type = "2DRectMesh";
+      dimstring = StringPrintf("%d %d", nx2 + 1, nx1 + 1);
     } else {
       mesh_type = "3DRectMesh";
       dimstring = StringPrintf("%d %d %d", nx3 + n3_offset, nx2 + n2_offset, nx1 + 1);
@@ -154,7 +166,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       xdmf << StringPrintf("      <Topology TopologyType=\"%s\" Dimensions=\"%s\"/>\n",
                            mesh_type.c_str(), dimstring.c_str());
       xdmf << StringPrintf("      <Geometry GeometryType=\"%s\">\n",
-                           output_coords ? "X_Y_Z" : "VXVYVZ");
+                           output_coords ? "X_Y_Z" : (is_2d ? "VXVY" : "VXVYVZ"));
       if (output_coords) {
         ndim = coords_it->FillShape<hsize_t>(domain, &(dims[1])) + 1;
         for (int d = 0; d < 3; ++d) {
@@ -175,7 +187,9 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       } else {
         BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx1, hdfFile, "x");
         BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx2, hdfFile, "y");
-        BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx3, hdfFile, "z");
+        if (!is_2d) {
+          BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx3, hdfFile, "z");
+        }
       }
       xdmf << "      </Geometry>" << std::endl;
 
@@ -193,7 +207,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
         const int num_components = vinfo.num_components;
         writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,
                                  num_components, ndim, dims, dims[ndim - 3],
-                                 dims[ndim - 2], dims[ndim - 1], output_coords,
+                                 dims[ndim - 2], dims[ndim - 1], output_coords || is_2d,
                                  vinfo.is_vector, vinfo.where);
       }
       xdmf << "    </Grid>" << std::endl;
