@@ -26,6 +26,7 @@
 #include "advection_package.hpp"
 #include "defs.hpp"
 #include "kokkos_abstraction.hpp"
+#include "loop_abstraction/loop_abstraction.hpp"
 #include "reconstruct/dc_inline.hpp"
 #include "utils/error_checking.hpp"
 
@@ -81,6 +82,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     std::vector<int> sparse_idxs(sparse_size);
     std::iota(sparse_idxs.begin(), sparse_idxs.end(), 0);
     pkg->AddSparsePool<Conserved::phi>(m, sparse_idxs);
+
+    m = Metadata(
+        {Metadata::Node, Metadata::Derived, Metadata::Sparse, Metadata::CellMemAligned},
+        std::vector<int>{shape_size});
+    pkg->AddSparsePool<Derived::phi_nodal>(m, Conserved::phi::name(), sparse_idxs);
   }
 
   bool do_fine_advection = pin->GetOrAddBoolean("Advection", "do_fine_advection", true);
@@ -207,9 +213,10 @@ Real EstimateTimestep(MeshData<Real> *md) {
 
 TaskStatus FillDerived(MeshData<Real> *md) {
   auto desc =
-      parthenon::MakePackDescriptor<Conserved::phi_fine, Conserved::phi_fine_restricted,
-                                    Conserved::C, Conserved::C_cc, Conserved::D,
-                                    Conserved::D_cc, Conserved::divC, Conserved::divD>(
+      parthenon::MakePackDescriptor<Conserved::phi, Conserved::phi_fine,
+                                    Conserved::phi_fine_restricted, Conserved::C,
+                                    Conserved::C_cc, Conserved::D, Conserved::D_cc,
+                                    Conserved::divC, Conserved::divD, Derived::phi_nodal>(
           md);
   auto pack = desc.GetPack(md);
 
@@ -221,6 +228,60 @@ TaskStatus FillDerived(MeshData<Real> *md) {
   IndexRange kb = md->GetBoundsK(IndexDomain::interior);
   const int ndim = md->GetMeshPointer()->ndim;
   const int nghost = parthenon::Globals::nghost;
+
+  auto do_regular_advection = pkg->Param<bool>("do_regular_advection");
+  if (do_regular_advection) {
+    // in general you'd add helpers for this boilerplate
+    namespace la = parthenon::loop_abstraction;
+    const la::NInner ninner = la::chunk_shape::ij_slab;
+    constexpr auto loop_tag =
+        parthenon::ENABLE_GPU ? la::loop_tag::boiv : la::loop_tag::bovi;
+    using IST = la::IndexSpace<loop_tag, la::inner_tag::memory>;
+
+    auto pm = md->GetParentPointer();
+    const int ndim = pm->ndim;
+
+    // We can use cell-centered topological elements because nodes are cell memaligned
+    // here
+    IST idx_space(ninner, IndexDomain::interior, 0, pack.GetNBlocks(), md,
+                  // logically nodes, but underlying memory is cell-shaped
+                  parthenon::TopologicalElement::NN, parthenon::TopologicalElement::CC);
+    auto di = idx_space.GetDelta(X1DIR);
+    auto dj = idx_space.GetDelta(X2DIR);
+    auto dk = idx_space.GetDelta(X3DIR);
+
+    // Average cell centered phi values to nodes, using the new loop abstraction for fun
+    la::outer(
+        idx_space, KOKKOS_LAMBDA(const IST::idx_range_t &idx_range, int b) {
+          const int nvar = pack.GetSize(b, Conserved::phi());
+          const Real weight = (ndim > 2) ? 0.125 : (ndim > 1) ? 0.25 : 0.5;
+          for (int n = 0; n < nvar; ++n) {
+            auto pvn = la::make_sparse_pack_view(idx_range, pack, n);
+
+            la::inner(idx_range, [&](const auto kji) {
+              pvn(Derived::phi_nodal(), kji) =
+                  pvn(Conserved::phi(), kji) + pvn(Conserved::phi(), kji - di);
+            });
+            idx_range.TeamBarrier();
+            if (ndim > 1) {
+              la::inner(idx_range, [&](const auto kji) {
+                pvn(Derived::phi_nodal(), kji) +=
+                    (pvn(Conserved::phi(), kji) + pvn(Conserved::phi(), kji - dj));
+              });
+              idx_range.TeamBarrier();
+            }
+            if (ndim > 2) {
+              la::inner(idx_range, [&](const auto kji) {
+                pvn(Derived::phi_nodal(), kji) +=
+                    (pvn(Conserved::phi(), kji) + pvn(Conserved::phi(), kji - dk));
+              });
+              idx_range.TeamBarrier();
+            }
+            la::inner(idx_range,
+                      [&](const auto kji) { pvn(Derived::phi_nodal(), kji) *= weight; });
+          }
+        });
+  }
 
   auto do_fine_advection = pkg->Param<bool>("do_fine_advection");
   if (do_fine_advection) {

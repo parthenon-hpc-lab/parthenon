@@ -22,30 +22,45 @@
 #include <utils/indexer.hpp>
 #include <utils/robust.hpp>
 
-#define VARIABLE(ns, varname)                                                            \
+#define VARIABLE(ns, varname, sparse)                                                    \
   struct varname : public parthenon::variable_names::base_t<false> {                     \
     template <class... Ts>                                                               \
     KOKKOS_INLINE_FUNCTION varname(Ts &&...args)                                         \
         : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}         \
     static std::string name() { return #ns "." #varname; }                               \
+    static constexpr bool is_sparse() { return sparse; }                                 \
+  }
+#define NODE_VARIABLE(ns, varname, sparse)                                               \
+  struct varname : public parthenon::variable_names::base_w_tt_t<                        \
+                       false, parthenon::TopologicalType::Node> {                        \
+    template <class... Ts>                                                               \
+    KOKKOS_INLINE_FUNCTION varname(Ts &&...args)                                         \
+        : parthenon::variable_names::base_w_tt_t<false,                                  \
+                                                 parthenon::TopologicalType::Node>(      \
+              std::forward<Ts>(args)...) {}                                              \
+    static std::string name() { return #ns "." #varname; }                               \
+    static constexpr bool is_sparse() { return sparse; }                                 \
   }
 
 namespace advection_package {
 using namespace parthenon::package::prelude;
 
 namespace Conserved {
-VARIABLE(advection, phi);
-VARIABLE(advection, phi_fine);
-VARIABLE(advection, phi_fine_restricted);
-VARIABLE(advection, C);
-VARIABLE(advection, D);
-VARIABLE(advection, recon);
-VARIABLE(advection, recon_f);
-VARIABLE(advection, C_cc);
-VARIABLE(advection, D_cc);
-VARIABLE(advection, divC);
-VARIABLE(advection, divD);
+VARIABLE(advection, phi, true);
+VARIABLE(advection, phi_fine, false);
+VARIABLE(advection, phi_fine_restricted, false);
+VARIABLE(advection, C, false);
+VARIABLE(advection, D, false);
+VARIABLE(advection, recon, false);
+VARIABLE(advection, recon_f, false);
+VARIABLE(advection, C_cc, false);
+VARIABLE(advection, D_cc, false);
+VARIABLE(advection, divC, false);
+VARIABLE(advection, divD, false);
 } // namespace Conserved
+namespace Derived {
+NODE_VARIABLE(advection, phi_nodal, true);
+} // namespace Derived
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 AmrTag CheckRefinement(MeshBlockData<Real> *rc);
