@@ -27,6 +27,7 @@ void outer_raw_for(IndexSpaceType idx_space, F &&f) {
   using InnerIndexRangeType = InnerIndexRange<IndexSpaceType>;
   if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
     const auto &logical_kji = idx_space.GetLogicalIndexer();
+#pragma omp parallel for
     for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
       // Reclaim last iteration's per-point scratch (see BumpArena).
       parthenon::GetBumpArena().reset();
@@ -35,6 +36,7 @@ void outer_raw_for(IndexSpaceType idx_space, F &&f) {
     }
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bovi) {
     const int nouter = GetNOuter(idx_space);
+#pragma omp parallel for collapse(2)
     for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
       for (int o = 0; o < nouter; ++o) {
         // Reclaim last iteration's per-point scratch (see BumpArena).
@@ -60,6 +62,7 @@ void outer_raw_for(IndexSpaceType idx_space, F &&f) {
     idx_range.pidx_space = &idx_space;
     for (idx_range.block = 0; idx_range.block < idx_space.GetNBlocks();
          ++idx_range.block) {
+#pragma omp parallel for collapse(2)
       for (int k = ks; k <= ke; ++k) {
         for (int j = js; j <= je; ++j) {
 #pragma omp simd
