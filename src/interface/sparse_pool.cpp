@@ -12,6 +12,7 @@
 //========================================================================================
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -27,7 +28,8 @@ SparsePool::SparsePool(const std::string &base_name, const Metadata &metadata,
                        const std::vector<std::vector<int>> &shapes,
                        const std::vector<MetadataFlag> &vector_tensor_flags,
                        const std::vector<std::vector<std::string>> &component_labels,
-                       const std::string &controller_base_name)
+                       const std::string &controller_base_name,
+                       const std::optional<std::vector<std::string>> &sparse_labels)
     : SparsePool(base_name, metadata, controller_base_name) {
   const auto N = sparse_ids.size();
 
@@ -37,24 +39,30 @@ SparsePool::SparsePool(const std::string &base_name, const Metadata &metadata,
   PARTHENON_REQUIRE_THROWS(component_labels.empty() || (component_labels.size() == N),
                            "Got wrong number of component labels");
 
-  std::vector<const MetadataFlag *> internal_vector_tensor_flags(N, nullptr);
+  PARTHENON_REQUIRE_THROWS(!sparse_labels || sparse_labels->size() == sparse_ids.size(),
+                           "Got wrong number of sparse labels");
+
+  std::vector<std::optional<MetadataFlag>> internal_vector_tensor_flags(N, std::nullopt);
   if (!vector_tensor_flags.empty()) {
     PARTHENON_REQUIRE_THROWS(vector_tensor_flags.size() == N,
                              "Got wrong number of Vector/Tensor flags");
-    for (size_t i = 0; i < N; ++i) {
-      internal_vector_tensor_flags[i] = &vector_tensor_flags[i];
+    for (std::size_t i = 0; i < N; ++i) {
+      internal_vector_tensor_flags[i] = vector_tensor_flags[i];
     }
   }
 
-  for (size_t i = 0; i < N; ++i) {
+  for (std::size_t i = 0; i < N; ++i) {
+    std::optional<std::string> sparse_label =
+        (sparse_labels) ? std::optional<std::string>(sparse_labels->at(i)) : std::nullopt;
     AddImpl(sparse_ids[i], internal_shapes[i], internal_vector_tensor_flags[i],
-            component_labels.empty() ? std::vector<std::string>{} : component_labels[i]);
+            component_labels.empty() ? std::vector<std::string>{} : component_labels[i],
+            sparse_label);
   }
 }
 
 std::shared_ptr<Metadata>
 MakeSparseVarMetadataImpl(Metadata *in, const std::vector<int> &shape,
-                          const MetadataFlag *vector_tensor,
+                          const std::optional<MetadataFlag> vector_tensor,
                           const std::vector<std::string> &component_labels) {
   // copy shared metadata
   auto flx_metadata = in->IsSet(Metadata::WithFluxes) ? in->GetSPtrFluxMetadata()
@@ -70,7 +78,7 @@ MakeSparseVarMetadataImpl(Metadata *in, const std::vector<int> &shape,
                                      in->GetDefaultValue());
 
   // if vector_tensor is set, apply it
-  if (vector_tensor != nullptr) {
+  if (vector_tensor) {
     if (*vector_tensor == Metadata::Vector) {
       this_metadata->Unset(Metadata::Tensor);
       this_metadata->Set(Metadata::Vector);
@@ -93,8 +101,9 @@ MakeSparseVarMetadataImpl(Metadata *in, const std::vector<int> &shape,
 }
 
 const Metadata &SparsePool::AddImpl(int sparse_id, const std::vector<int> &shape,
-                                    const MetadataFlag *vector_tensor,
-                                    const std::vector<std::string> &component_labels) {
+                                    const std::optional<MetadataFlag> vector_tensor,
+                                    const std::vector<std::string> &component_labels,
+                                    const std::optional<std::string> &sparse_label) {
   PARTHENON_REQUIRE_THROWS(sparse_id != InvalidSparseID,
                            "Tried to add InvalidSparseID to sparse pool " + base_name_);
 
@@ -112,6 +121,7 @@ const Metadata &SparsePool::AddImpl(int sparse_id, const std::vector<int> &shape
                                            " to sparse pool '" + base_name_ +
                                            "', but this sparse ID already exists");
 
+  ins.first->second.SetSparseLabel(sparse_label);
   return ins.first->second;
 }
 

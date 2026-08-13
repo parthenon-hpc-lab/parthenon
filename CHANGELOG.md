@@ -1,8 +1,76 @@
+<!-- This file was made in part with generative AI. -->
+
 # Changelog
 
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1428]](https://github.com/parthenon-hpc-lab/parthenon/pull/1428) Permit larger input file sizes
+- [[PR 1415]](https://github.com/parthenon-hpc-lab/parthenon/pull/1415) Add portable loop abstraction
+- [[PR 1413]](https://github.com/parthenon-hpc-lab/parthenon/pull/1413) Add support for per-package meshdata objects containing subsets of variables 
+- [[PR 1403]](https://github.com/parthenon-hpc-lab/parthenon/pull/1403) Add interface for Fourier transforms on uniform meshes via heFFTe
+- [[PR 1408]](https://github.com/parthenon-hpc-lab/parthenon/pull/1408) Add GetAsUnresolvedString() method to ParameterInput
+- [[PR 1050]](https://github.com/parthenon-hpc-lab/parthenon/pull/1050) Add support for OpenPMD/ADIOS2 output (incl slices and coarsened dumps)
+- [[PR 1271]](https://github.com/parthenon-hpc-lab/parthenon/pull/1271) Add option to set a minimum number of teams for boundary communication kernels
+- [[PR 1382]](https://github.com/parthenon-hpc-lab/parthenon/pull/1382) Support Particle AMR
+- [[PR 1378]](https://github.com/parthenon-hpc-lab/parthenon/pull/1378) MeshData Swarm Tasks
+- [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy
+- [[PR 1332]](https://github.com/parthenon-hpc-lab/parthenon/pull/1332) Add global WatchDog
+- [[PR 1375]](https://github.com/parthenon-hpc-lab/parthenon/pull/1375) Add uint64 support to SwarmPacks
+- [[PR 1353]](https://github.com/parthenon-hpc-lab/parthenon/pull/1363) Generalize multigrid hierarchy to include initially include leaf grids
+- [[PR 1369]](https://github.com/parthenon-hpc-lab/parthenon/pull/1369) Add an ascii table parser and a string broadcast operator
+- [[PR 1368]](https://github.com/parthenon-hpc-lab/parthenon/pull/1368) Add close, __enter__, and __exit__ for phdf / Add EvolutionDriver::OutputDownstreamCycleDiagnostics()
+- [[PR 1346]](https://github.com/parthenon-hpc-lab/parthenon/pull/1346) Allow for user defined inter-level restrictions in multigrid 
+- [[PR 1308]](https://github.com/parthenon-hpc-lab/parthenon/pull/1308) Add additional indexing options for (b, type, ...indices) meshdata fields. Helpful for lower dimensional Metadata::None fields.
+- [[PR 1344]](https://github.com/parthenon-hpc-lab/parthenon/pull/1344) Add option to communicate single layer of ghosts, only communicate required two-level composite boundaries
+
+
+### Changed (changing behavior/API/variables/...)
+- [[PR 1416][(https://github.com/parthenon-hpc-lab/parthenon/pull/1416) Remove virtual tag from destructors in sparse and swarm pack base classes
+- [[PR 1401]](https://github.com/parthenon-hpc-lab/parthenon/pull/1401) Sparse Field Component Names
+- [[PR 1331]](https://github.com/parthenon-hpc-lab/parthenon/pull/1331) Use `size_t` for sizes
+- [[PR 1355]](https://github.com/parthenon-hpc-lab/parthenon/pull/1355) Allow disabling format and lint targets
+- [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
+
+### Fixed (not changing behavior/API/variables/...)
+- [[PR 1430]](https://github.com/parthenon-hpc-lab/parthenon/pull/1430) Fix BiCGSTAB returning NaN when a solve converges in its first half step
+- [[PR 1412]](https://github.com/parthenon-hpc-lab/parthenon/pull/1412) Fix single precision compilation with `Real=float`
+- [[PR 1411]](https://github.com/parthenon-hpc-lab/parthenon/pull/1411) Fix bug where ParameterInput::GetOrAddVector<std::string> was ambiguous
+- [[PR 1406]](https://github.com/parthenon-hpc-lab/parthenon/pull/1406) Fix deadlock in parallel outputs after ParameterInput refactor
+- [[PR 1405]](https://github.com/parthenon-hpc-lab/parthenon/pull/1405) Fixes race condition in flux correction communication when sparse variables are disabled
+- [[PR 1339]](https://github.com/parthenon-hpc-lab/parthenon/pull/1339) Fixes doc for `numlevel` usage in non-AMR sims
+- [[PR 1393]](https://github.com/parthenon-hpc-lab/parthenon/pull/1393) Fixes a bug where CMake does not detect HDF5 parallel IO for HDF5 2.0.0 and later.
+- [[PR 1390]](https://github.com/parthenon-hpc-lab/parthenon/pull/1390) Fix bug where trailing comma in list in input deck treated as wildcard in some cases.
+- [[PR 1365]](https://github.com/parthenon-hpc-lab/parthenon/pull/1365) Fix boundary condition being called with coarse=true but no coarse neighbors.
+- [[PR 1345]](https://github.com/parthenon-hpc-lab/parthenon/pull/1345) Coalesce dot product reductions and speed up kernel
+- [[PR 1360]](https://github.com/parthenon-hpc-lab/parthenon/pull/1360) Fix boundary cache clearing in different MeshData partitions
+
+### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1414]](https://github.com/parthenon-hpc-lab/parthenon/pull/1414) Bump ROCM CI Container to rocm 7.2.4
+- [[PR 1397]](https://github.com/parthenon-hpc-lab/parthenon/pull/1397) Add Code of Conduct
+- [[PR 1385]](https://github.com/parthenon-hpc-lab/parthenon/pull/1385) Refactor ParameterInput: Separate parsing from storage to enable multiple input formats
+- [[PR 1383]](https://github.com/parthenon-hpc-lab/parthenon/pull/1382) Document agentic coding guidelines
+- [[PR 1376]](https://github.com/parthenon-hpc-lab/parthenon/pull/1376) Refactor SwarmPacks
+- [[PR 1352]](https://github.com/parthenon-hpc-lab/parthenon/pull/1352) Move to C++20 concepts
+- [[PR 1356]](https://github.com/parthenon-hpc-lab/parthenon/pull/1356) Implement ObjectPoolMap type
+- [[PR 1361]](https://github.com/parthenon-hpc-lab/parthenon/pull/1361) Bump formatters to clang-format-20 and black 25.12
+
+### Removed (removing behavior/API/variables/...)
+- [[PR 1399]](https://github.com/parthenon-hpc-lab/parthenon/pull/1399) Remove unused `SwarmContainer::Remove`
+
+
+### Incompatibilities (i.e. breaking changes)
+- [[PR 1385]](https://github.com/parthenon-hpc-lab/parthenon/pull/1385) ParameterInput internal storage refactor removes direct access to linked list (`pfirst_block`). Use `GetBlocksWithPrefix()` or `GetBlockNames()` instead.
+- [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
+- [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy
+- [[PR 1376]](https://github.com/parthenon-hpc-lab/parthenon/pull/1376) Refactor SwarmPacks
+
+
+## Release 25.12
+Date: 2025-12-17
+
+### Added (new features/APIs/variables/...)
+- [[PR 1337]](https://github.com/parthenon-hpc-lab/parthenon/pull/1337) Add task list based timing capabilities
 - [[PR 1331]](https://github.com/parthenon-hpc-lab/parthenon/pull/1331) Add control over whether to include/exclude an output on final signal
 - [[PR 1330]](https://github.com/parthenon-hpc-lab/parthenon/pull/1330) Add userspace mechanisms to control number of comm buffers allocated
 - [[PR 1319]](https://github.com/parthenon-hpc-lab/parthenon/pull/1319) Add common scratch variable utilities
@@ -13,13 +81,14 @@
 - [[PR 1314]](https://github.com/parthenon-hpc-lab/parthenon/pull/1314) Add option of user specified BCs in AddBoundaryExchangeTasks
 - [[PR 1244]](https://github.com/parthenon-hpc-lab/parthenon/pull/1244) Add TaskCollection timeout capability
 - [[PR 1311]](https://github.com/parthenon-hpc-lab/parthenon/pull/1311) Magnitude refinement criteria, per-package PostInitialize function hooks, mergescv and prettyparams utilities
-- [[PR 1142]](https://github.com/parthenon-hpc-lab/parthenon/pull/1142) Unify par_dispatch, par_for_outer & par_for_inner overloads
+- [[PR 1142]](https://github.com/parthenon-hpc-lab/parthenon/pull/1142) Unify `par_dispatch`, `par_for_outer` & `par_for_inner` overloads
 - [[PR 1255]](https://github.com/parthenon-hpc-lab/parthenon/pull/1255) RK34 low storage 3rd order 4 stage SSP integrator with CFL <= 2 from Spiteri & Ruuth 2002, SIAM Journal on Numerical Analysis, 40(2):469–491
 - [[PR 1283]](https://github.com/parthenon-hpc-lab/parthenon/pull/1283) Ability to automatically document ParameterInputs
 - [[PR 1258]](https://github.com/parthenon-hpc-lab/parthenon/pull/1258) Add "corehdf" version of hdf5 output that dumps everything
 - [[PR 1162]](https://github.com/parthenon-hpc-lab/parthenon/pull/1162) Add dev container (e.g., GitHub Codepsacer or VSCode)
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 - [[PR 1323]](https://github.com/parthenon-hpc-lab/parthenon/pull/1323) Added per-block `sparse_dealloc` functionality outside of tasking to new `sparse/sparse_management` header.
 - [[PR 1311]](https://github.com/parthenon-hpc-lab/parthenon/pull/1311) Refinement criteria no longer need to be a contiguous index range in the input deck
 - [[PR 1305]](https://github.com/parthenon-hpc-lab/parthenon/pull/1305) Minor tweaks and quality of life improvements to python package and some debugging output options
@@ -29,7 +98,7 @@
 - [[PR 1253]](https://github.com/parthenon-hpc-lab/parthenon/pull/1253) Add support for uint64 swarm variables and add default id
 - [[PR 1280]](https://github.com/parthenon-hpc-lab/parthenon/pull/1280) Print history file headers on restart
 
-### Fixed (not changing behavior/API/variables/...)1340
+### Fixed (not changing behavior/API/variables/...)
 - [[PR 1340]](https://github.com/parthenon-hpc-lab/parthenon/pull/1340) Set ownership for finer multigrid neighbors 
 - [[PR 1338]](https://github.com/parthenon-hpc-lab/parthenon/pull/1338) Fix bug where gmg block list wasn't completely cleared after remesh
 - [[PR 1330]](https://github.com/parthenon-hpc-lab/parthenon/pull/1330) Add missing device-side destructor to BndId. Make comm buffer pools safe to clear.
@@ -38,15 +107,15 @@
 - [[PR 1324]](https://github.com/parthenon-hpc-lab/parthenon/pull/1324) Fix SMR error check at initialization
 - [[PR 1318]](https://github.com/parthenon-hpc-lab/parthenon/pull/1318) Fix AMR criteria for sparse variables and re-fix blocks < ranks
 - [[PR 1317]](https://github.com/parthenon-hpc-lab/parthenon/pull/1317) Make VariableExits logic in HDF5 restart reader work
-- [[PR 1288]](https://github.com/parthenon-hpc-lab/parthenon/pull/1288) Fix restriction bug for non-cartesian coordinates and make poisson_gmg example work for curvilinear coordinates
-- [[PR 1307]](https://github.com/parthenon-hpc-lab/parthenon/pull/1307) Fix imports in parthenon tools + phdf_diff logic
+- [[PR 1288]](https://github.com/parthenon-hpc-lab/parthenon/pull/1288) Fix restriction bug for non-cartesian coordinates and make `poisson_gmg` example work for curvilinear coordinates
+- [[PR 1307]](https://github.com/parthenon-hpc-lab/parthenon/pull/1307) Fix imports in parthenon tools + `phdf_diff` logic
 - [[PR 1310]](https://github.com/parthenon-hpc-lab/parthenon/pull/1310) Fix logic causing issues for restarts with varying output blocks (introduced in #1266)
 - [[PR 1297]](https://github.com/parthenon-hpc-lab/parthenon/pull/1297) Backward compatibility fixes (`last_/next_` output package, restart with new `Restart` vars, `is_restart`)
-- [[PR 1303]](https://github.com/parthenon-hpc-lab/parthenon/pull/1303) Guard against block_list access when nmb==0
+- [[PR 1303]](https://github.com/parthenon-hpc-lab/parthenon/pull/1303) Guard against `block_list` access when `nmb==0`
 - [[PR 1291]](https://github.com/parthenon-hpc-lab/parthenon/pull/1291) Fix provenance for downstream codes 
 - [[PR 1289]](https://github.com/parthenon-hpc-lab/parthenon/pull/1289) Fix a bug in 1214
 - [[PR 1214]](https://github.com/parthenon-hpc-lab/parthenon/pull/1214) Initialize MPI in catch2 to prevent errors when constructing Meshes
-- [[PR 1276]](https://github.com/parthenon-hpc-lab/parthenon/pull/1276) Specialize Kokkos::reduction_identity for AmrTag
+- [[PR 1276]](https://github.com/parthenon-hpc-lab/parthenon/pull/1276) Specialize `Kokkos::reduction_identity` for AmrTag
 - [[PR 1275]](https://github.com/parthenon-hpc-lab/parthenon/pull/1275) Remove typeid from interpolation device code
 - [[PR 1254]](https://github.com/parthenon-hpc-lab/parthenon/pull/1254) Fix task failure handling
 - [[PR 1272]](https://github.com/parthenon-hpc-lab/parthenon/pull/1272) Remove mistakenly included pdf files in the base directory

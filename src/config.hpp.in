@@ -14,6 +14,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI.
 #ifndef CONFIG_HPP_
 #define CONFIG_HPP_
 //! \file config.hpp.in
@@ -44,6 +45,8 @@
 
 // defne ENABLE_HDF5 or not at all
 #cmakedefine ENABLE_HDF5
+
+#cmakedefine PARTHENON_ENABLE_OPENPMD
 
 // define PARTHENON_DISABLE_HDF5_COMPRESSION or not at all
 #cmakedefine PARTHENON_DISABLE_HDF5_COMPRESSION

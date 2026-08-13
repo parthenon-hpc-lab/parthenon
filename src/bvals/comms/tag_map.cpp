@@ -16,6 +16,7 @@
 //========================================================================================
 
 #include <memory>
+#include <utility>
 
 #include "bnd_info.hpp"
 #include "bvals_utils.hpp"
@@ -37,52 +38,56 @@ TagMap::rank_pair_t TagMap::MakeChannelPair(const MeshBlock *pmb,
 }
 
 template <BoundaryType BOUND>
-void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md) {
+void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md,
+                              int channels_per_pair) {
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);
     auto pmb = rc->GetBlockPointer();
     // type_t var = []{...}() pattern defines and uses a lambda that
     // returns  to reduce initializations of var
-    auto *neighbors = [&pmb, &md] {
+    const auto &neighbors = [&pmb, &md] {
       if constexpr (BOUND == BoundaryType::gmg_restrict_send)
-        return pmb->loc.level() == md->grid.logical_level ? &(pmb->gmg_coarser_neighbors)
-                                                          : &(pmb->gmg_leaf_neighbors);
+        return pmb->loc.level() == md->grid.logical_level()
+                   ? pmb->GetGMGCoarserNeighbors()
+                   : pmb->GetGMGSelfNeighbors();
       if constexpr (BOUND == BoundaryType::gmg_restrict_recv)
-        return pmb->gmg_finer_neighbors.size() > 0 ? &(pmb->gmg_finer_neighbors)
-                                                   : &(pmb->gmg_leaf_neighbors);
+        return pmb->GetGMGFinerNeighbors().size() > 0 ? pmb->GetGMGFinerNeighbors()
+                                                      : pmb->GetGMGSelfNeighbors();
       if constexpr (BOUND == BoundaryType::gmg_prolongate_send)
-        return &(pmb->gmg_finer_neighbors);
+        return pmb->GetGMGFinerNeighbors();
       if constexpr (BOUND == BoundaryType::gmg_prolongate_recv)
-        return &(pmb->gmg_coarser_neighbors);
-      if constexpr (BOUND == BoundaryType::gmg_prolongate_recv)
-        return &(pmb->gmg_coarser_neighbors);
-      if constexpr (BOUND == BoundaryType::gmg_same)
-        return pmb->loc.level() == md->grid.logical_level
-                   ? &(pmb->gmg_same_neighbors)
-                   : &(pmb->gmg_composite_finer_neighbors);
-      return &(pmb->neighbors);
+        return pmb->GetGMGCoarserNeighbors();
+      if constexpr (BOUND == BoundaryType::gmg_same) {
+        if (md->grid.type() == GridType::leaf) return pmb->GetNeighbors();
+        return pmb->loc.level() == md->grid.logical_level()
+                   ? pmb->GetGMGSameNeighbors()
+                   : pmb->GetGMGCompositeFinerNeighbors();
+      }
+      return pmb->GetNeighbors();
     }();
-    for (auto &nb : *neighbors) {
+    for (const auto &nb : neighbors) {
       const int other_rank = nb.rank;
       if (map_.count(other_rank) < 1) map_[other_rank] = rank_pair_map_t();
       auto &pair_map = map_[other_rank];
       // Add channel key with an invalid tag
-      pair_map[MakeChannelPair(pmb, nb)] = -1;
+      for (int id = 0; id < channels_per_pair; ++id)
+        pair_map[std::make_pair(MakeChannelPair(pmb, nb), id)] = -1;
     }
   }
 }
 template void
-TagMap::AddMeshDataToMap<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &md);
+TagMap::AddMeshDataToMap<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &md, int);
 template void
-TagMap::AddMeshDataToMap<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &md);
+TagMap::AddMeshDataToMap<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &md,
+                                                 int);
 template void TagMap::AddMeshDataToMap<BoundaryType::gmg_prolongate_send>(
-    std::shared_ptr<MeshData<Real>> &md);
+    std::shared_ptr<MeshData<Real>> &md, int);
 template void TagMap::AddMeshDataToMap<BoundaryType::gmg_restrict_send>(
-    std::shared_ptr<MeshData<Real>> &md);
+    std::shared_ptr<MeshData<Real>> &md, int);
 template void TagMap::AddMeshDataToMap<BoundaryType::gmg_prolongate_recv>(
-    std::shared_ptr<MeshData<Real>> &md);
+    std::shared_ptr<MeshData<Real>> &md, int);
 template void TagMap::AddMeshDataToMap<BoundaryType::gmg_restrict_recv>(
-    std::shared_ptr<MeshData<Real>> &md);
+    std::shared_ptr<MeshData<Real>> &md, int);
 
 void TagMap::ResolveMap() {
 #ifdef MPI_PARALLEL
@@ -105,13 +110,14 @@ void TagMap::ResolveMap() {
   }
 }
 
-int TagMap::GetTag(const MeshBlock *pmb, const NeighborBlock &nb) {
+int TagMap::GetTag(const MeshBlock *pmb, const NeighborBlock &nb, const int id) {
   const int other_rank = nb.rank;
   auto &pair_map = map_[other_rank];
   auto cpair = MakeChannelPair(pmb, nb);
-  PARTHENON_REQUIRE(pair_map.count(cpair) == 1,
+  auto key = std::make_pair(cpair, id);
+  PARTHENON_REQUIRE(pair_map.count(key) == 1,
                     "Trying to get tag for key that hasn't been entered.\n");
-  return pair_map[cpair];
+  return pair_map[key];
 }
 
 } // namespace parthenon

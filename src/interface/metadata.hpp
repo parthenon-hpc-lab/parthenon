@@ -19,6 +19,7 @@
 #include <initializer_list>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -128,6 +129,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(CellMemAligned)                                            \
   /** Particles in a Swarm will not contain a persistent, unique id field **/            \
   PARTHENON_INTERNAL_FOR_FLAG(NoPersistentParticleIds)                                   \
+  /** Only communicate one layer of ghosts at same-to-same boundaries **/                \
+  PARTHENON_INTERNAL_FOR_FLAG(CommunicateOne)                                            \
   /************************************************/                                     \
   /** Vars specifying coordinates for visualization purposes **/                         \
   /** You can specify a single 3D var **/                                                \
@@ -230,8 +233,8 @@ class Metadata {
   class FlagCollection {
    public:
     FlagCollection() = default;
-    template <typename T,
-              REQUIRES(std::is_same<typename T::value_type, MetadataFlag>::value)>
+    template <typename T>
+      requires(std::is_same<typename T::value_type, MetadataFlag>::value)
     explicit FlagCollection(const T &flags, bool take_union = false) {
       if (take_union) {
         unions_.insert(flags.begin(), flags.end());
@@ -514,8 +517,8 @@ class Metadata {
   /**
    * @brief Returns true if any flag is set
    */
-  template <class Container_t,
-            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  template <class Container_t>
+    requires(std::is_same<typename Container_t::value_type, MetadataFlag>::value)
   bool AnyFlagsSet(const Container_t &flags) const {
     return std::any_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
@@ -525,8 +528,8 @@ class Metadata {
     return AnyFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
   }
 
-  template <class Container_t,
-            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  template <class Container_t>
+    requires(std::is_same<typename Container_t::value_type, MetadataFlag>::value)
   bool AllFlagsSet(const Container_t &flags) const {
     return std::all_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
@@ -535,8 +538,8 @@ class Metadata {
   bool AllFlagsSet(const MetadataFlag &flag, Args... args) const {
     return AllFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
   }
-  template <class Container_t,
-            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  template <class Container_t>
+    requires(std::is_same<typename Container_t::value_type, MetadataFlag>::value)
   bool NoFlagsSet(const Container_t &flags) const {
     return std::none_of(flags.begin(), flags.end(),
                         [this](MetadataFlag const &f) { return IsSet(f); });
@@ -605,6 +608,14 @@ class Metadata {
     return component_labels_;
   }
 
+  void SetSparseLabel(const std::optional<std::string> &sparse_label) {
+    sparse_label_ = sparse_label;
+  }
+
+  std::string GetSparseLabel(const int sparse_id) const {
+    return (sparse_label_) ? *sparse_label_ : std::to_string(sparse_id);
+  }
+
   void SetInitialSwarmPoolReservation(const std::size_t s) { swarm_nmax_pool_ = s; }
   std::size_t InitialSwarmPoolReservation() const noexcept { return swarm_nmax_pool_; }
 
@@ -616,6 +627,7 @@ class Metadata {
   std::vector<std::string> component_labels_ = {};
   std::string associated_ = "";
   std::string flux_var_ = "";
+  std::optional<std::string> sparse_label_ = std::nullopt;
 
   parthenon::Real allocation_threshold_;
   parthenon::Real deallocation_threshold_;

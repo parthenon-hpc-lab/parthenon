@@ -58,10 +58,10 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
         const auto &coords = pack.GetCoordinates(b);
         Real x1 = coords.X<1, te>(i);
         Real x2 = coords.X<2, te>(j);
-        Real x3 = coords.X<2, te>(k);
+        Real x3 = coords.X<3, te>(k);
         Real x1f = coords.X<1, TE::F1>(k, j, i);
         Real x2f = coords.X<2, TE::F2>(k, j, i);
-        Real x3f = coords.X<2, TE::F3>(k, j, i);
+        Real x3f = coords.X<3, TE::F3>(k, j, i);
         Real dx1 = coords.Dxc<1>(k, j, i);
         Real dx2 = coords.Dxc<2>(k, j, i);
         Real dx3 = coords.Dxc<3>(k, j, i);

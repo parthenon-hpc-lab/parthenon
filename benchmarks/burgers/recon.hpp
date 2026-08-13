@@ -27,8 +27,10 @@ enum class ReconType { WENO5, Linear };
 KOKKOS_INLINE_FUNCTION
 Real mc(const Real dm, const Real dp) {
   const Real dc = (dm * dp > 0.0) * 0.5 * (dm + dp);
-  return std::copysign(
-      std::min(std::fabs(dc), 2.0 * std::min(std::fabs(dm), std::fabs(dp))), dc);
+  return Kokkos::copysign(
+      Kokkos::min(Kokkos::fabs(dc), static_cast<Real>(2.0) *
+                                        Kokkos::min(Kokkos::fabs(dm), Kokkos::fabs(dp))),
+      dc);
 }
 
 KOKKOS_INLINE_FUNCTION

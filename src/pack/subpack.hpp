@@ -15,6 +15,7 @@
 
 #include "basic_types.hpp"
 #include "utils/concepts_lite.hpp"
+#include "utils/type_list.hpp"
 
 namespace parthenon {
 
@@ -181,29 +182,30 @@ struct SubPack3D {
   static constexpr Axis axis3 = a3;
 };
 
-template <Axis axis, Axis... axes, typename Var_t, typename SparsePackType,
-          REQUIRES(is_sparse_pack<SparsePackType>)>
+template <Axis axis, Axis... axes, typename Var_t, typename SparsePackType>
+  requires(is_sparse_pack<SparsePackType>)
 KOKKOS_INLINE_FUNCTION auto SubPack(SparsePackType &pack, const int &b, const Var_t &var,
                                     const int &k, const int &j, const int &i) {
   return VarStencilSubPack_impl<Var_t, SparsePackType, axis, axes...>(pack, b, var, k, j,
                                                                       i);
 }
 
-template <Axis axis, Axis... axes, typename SparsePackType,
-          REQUIRES(is_sparse_pack<SparsePackType>)>
+template <Axis axis, Axis... axes, typename SparsePackType>
+  requires(is_sparse_pack<SparsePackType>)
 KOKKOS_INLINE_FUNCTION auto SubPack(SparsePackType &pack, const int &b, const int &k,
                                     const int &j, const int &i) {
   return StencilSubPack_impl<SparsePackType, axis, axes...>(pack, b, k, j, i);
 }
 
-template <typename SparsePackType, REQUIRES(is_sparse_pack<SparsePackType>)>
+template <typename SparsePackType>
+  requires(is_sparse_pack<SparsePackType>)
 KOKKOS_INLINE_FUNCTION auto SubPack(SparsePackType &pack, const int &b, const int &k,
                                     const int &j, const int &i) {
   return SubPack_impl<SparsePackType>(pack, b, k, j, i);
 }
 
-template <typename PackType, typename SparsePackType,
-          REQUIRES(is_sparse_pack<SparsePackType>)>
+template <typename PackType, typename SparsePackType>
+  requires(is_sparse_pack<SparsePackType>)
 KOKKOS_INLINE_FUNCTION auto SubPack(SparsePackType &pack, const int &b, const int &k,
                                     const int &j, const int &i) {
   constexpr int Naxes = PackType::Naxes;

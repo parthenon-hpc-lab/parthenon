@@ -68,7 +68,7 @@ void MeshBlockData<T>::Add(std::shared_ptr<Variable<T>> var) noexcept {
 }
 
 template <typename T>
-bool MeshBlockData<T>::operator==(const MeshBlockData<T> &cmp) {
+bool MeshBlockData<T>::operator==(const MeshBlockData<T> &cmp) const {
   // do some kind of check of equality
   // do the two containers contain the same named fields?
   std::vector<std::string> my_keys;
@@ -406,6 +406,6 @@ void MeshBlockData<T>::Print() {
   }
 }
 
-template class MeshBlockData<double>;
+template class MeshBlockData<Real>;
 
 } // namespace parthenon

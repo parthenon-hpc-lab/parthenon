@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -12,6 +12,8 @@
 //========================================================================================
 #ifndef INTERFACE_STATE_DESCRIPTOR_HPP_
 #define INTERFACE_STATE_DESCRIPTOR_HPP_
+
+// This file was made in part with generative AI.
 
 #include <functional>
 #include <iostream>
@@ -27,6 +29,7 @@
 
 #include "basic_types.hpp"
 #include "bvals/boundary_conditions.hpp"
+#include "interface/mesh_data_descriptor.hpp"
 #include "interface/metadata.hpp"
 #include "interface/params.hpp"
 #include "interface/sparse_pool.hpp"
@@ -35,6 +38,7 @@
 #include "pack/scratch_variables.hpp"
 #include "parameter_input.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
+#include "tasks/tasks.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -278,8 +282,20 @@ class StateDescriptor {
     return AddSparsePool(T::name(), m_in, std::forward<Args>(args)...);
   }
 
+  // Register a meshdata subset containing a subset of variables, flags, or sparse ids.
+  // This can then be pulled out later in, e.g., the driver.
+  void RegisterMeshDataSubset(const std::string &name,
+                              const MeshDataDescriptor &requirements) {
+    PARTHENON_REQUIRE(submeshdata_map_.count(name) == 0,
+                      "A meshdata subset with the same name must not already be added");
+    // TODO(JMM): Technically this is an extra copy vs if we passed
+    // around a pointer from the get-go but I think this is fine. It's
+    // initialization only and won't be performance critical.
+    submeshdata_map_[name] = requirements;
+  }
+
   // retrieve number of fields
-  int size() const noexcept { return metadataMap_.size(); }
+  std::size_t size() const noexcept { return metadataMap_.size(); }
 
   // retrieve all field names
   std::vector<std::string> Fields() noexcept;
@@ -375,6 +391,27 @@ class StateDescriptor {
                              "GetSparsePool: Non-existent sparse pool: " + base_name);
     return itr->second;
   }
+
+  std::string GetMeshDataSubsetFullname(const std::string &partial_name) {
+    return "md_subset::" + label() + "::" + partial_name;
+  }
+
+  bool ContainsMeshDataSubset(const std::string &partial_name) {
+    return submeshdata_map_.count(partial_name) > 0;
+  }
+
+  std::vector<Uid_t> AddMeshDataSubset(Mesh *pmesh, const std::string &partial_name,
+                                       const std::shared_ptr<MeshData<Real>> &base) {
+    PARTHENON_REQUIRE(ContainsMeshDataSubset(partial_name),
+                      "Package " + label() + " must contain a subset " + partial_name);
+    auto full_name = GetMeshDataSubsetFullname(partial_name);
+    return submeshdata_map_[partial_name].AddMDSubset(pmesh, full_name, base);
+  }
+
+  std::shared_ptr<MeshData<Real>>
+  GetOrAddMeshDataSubset(Mesh *pmesh, const std::string &partial_name, int stage_idx);
+
+  auto &GetAllMeshDataSubsets() { return submeshdata_map_; }
 
   bool FlagsPresent(std::vector<MetadataFlag> const &flags, bool matchAny = false);
 
@@ -473,6 +510,9 @@ class StateDescriptor {
   std::function<void(SimTime const &simtime, MeshData<Real> *rc)>
       PostStepDiagnosticsMesh = nullptr;
 
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)>
+      PostProblemGeneratorMesh = nullptr;
+  std::function<void(MeshBlock *, ParameterInput *)> PostProblemGeneratorBlock = nullptr;
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostInitializationMesh =
       nullptr;
   std::function<void(MeshBlock *, ParameterInput *)> PostInitializationBlock = nullptr;
@@ -522,6 +562,7 @@ class StateDescriptor {
   Dictionary<Dictionary<Metadata>> swarmValueMetadataMap_;
 
   RefinementFunctionMaps refinementFuncMaps_;
+  Dictionary<MeshDataDescriptor> submeshdata_map_;
   std::map<TopologicalType, std::size_t> num_scratch_;
 };
 

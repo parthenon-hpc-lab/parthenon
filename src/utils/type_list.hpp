@@ -18,6 +18,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace parthenon {
@@ -154,7 +155,6 @@ auto GetNames() {
   return names;
 }
 
-//<<<<<<< HEAD
 namespace impl {
 template <class N, class T>
 struct ListOfType {
@@ -173,17 +173,55 @@ struct ListOfType<std::integral_constant<std::size_t, 1>, T> {
 };
 } // namespace impl
 
-template <size_t N, class T>
+template <std::size_t N, class T>
 using list_of_type_t =
     typename impl::ListOfType<std::integral_constant<std::size_t, N>, T>::type;
-//=======
 template <class>
 struct isTypeList : public std::false_type {};
 
 template <class... Ts>
 struct isTypeList<TypeList<Ts...>> : public std::true_type {};
 
-//>>>>>>> develop
+namespace impl {
+template <class Tuple>
+struct TupleToTypeList;
+
+template <class... Ts>
+struct TupleToTypeList<std::tuple<Ts...>> {
+  using type = TypeList<Ts...>;
+};
+
+template <template <class> class Pred, class... Ts>
+auto FilterTypeList(TypeList<Ts...>) {
+  return std::tuple_cat(
+      std::conditional_t<Pred<Ts>::value, std::tuple<Ts>, std::tuple<>>{}...);
+}
+
+} // namespace impl
+
+template <class Tuple>
+using tuple_to_type_list_t = typename impl::TupleToTypeList<Tuple>::type;
+
+template <class TL, template <class> class Pred>
+using filter_type_list_t =
+    tuple_to_type_list_t<decltype(impl::FilterTypeList<Pred>(std::declval<TL>()))>;
+
+//----------------------------------------------------------------------------------------
+// Utility to convert TypeList to std::variant
+//----------------------------------------------------------------------------------------
+namespace impl {
+template <typename TL>
+struct TypeListToVariant;
+
+template <typename... Ts>
+struct TypeListToVariant<TypeList<Ts...>> {
+  using type = std::variant<Ts...>;
+};
+} // namespace impl
+
+template <typename TL>
+using type_list_to_variant_t = typename impl::TypeListToVariant<TL>::type;
+
 } // namespace parthenon
 
 #endif // UTILS_TYPE_LIST_HPP_

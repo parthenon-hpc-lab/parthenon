@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -63,40 +63,6 @@ void SwarmContainer::Add(const std::string &label, const Metadata &metadata) {
   Add(swarm);
 }
 
-// TODO(JMM): Should we support this operation
-void SwarmContainer::Remove(const std::string &label) {
-  // Find index of swarm
-  int isize = swarmVector_.size();
-  int idx = 0;
-  for (const auto &s : swarmVector_) {
-    if (!label.compare(s->label())) {
-      break;
-    }
-    idx++;
-  }
-  if (idx >= isize) {
-    PARTHENON_FAIL("swarm not found in Remove()");
-  }
-
-  // Pull out metadata
-  const SP_Swarm pswarm = swarmVector_[idx];
-  const Metadata &m = pswarm->metadata();
-
-  // Delete the variable
-  swarmVector_[idx].reset();
-
-  // Next move the last element into idx and pop last entry
-  isize--;
-  if (isize >= 0) swarmVector_[idx] = std::move(swarmVector_.back());
-  swarmVector_.pop_back();
-
-  // Also remove swarm from map
-  swarmMap_.erase(label);
-  for (const auto &flag : m.Flags()) {
-    swarmMetadataMap_[flag].erase(pswarm);
-  }
-}
-
 // Return swarms meeting some conditions
 SwarmSet SwarmContainer::GetSwarmsByFlag(const Metadata::FlagCollection &flags) {
   PARTHENON_INSTRUMENT
@@ -139,23 +105,14 @@ TaskStatus SwarmContainer::SortParticlesByCell() {
   return TaskStatus::complete;
 }
 
-void SwarmContainer::SendBoundaryBuffers() {}
-
 void SwarmContainer::SetupPersistentMPI() {
   for (auto &s : swarmVector_) {
     s->SetupPersistentMPI();
   }
 }
 
-bool SwarmContainer::ReceiveBoundaryBuffers() { return true; }
-
-void SwarmContainer::ReceiveAndSetBoundariesWithWait() {}
-
-void SwarmContainer::SetBoundaries() {}
-
 TaskStatus SwarmContainer::Send(BoundaryCommSubset phase) {
   PARTHENON_INSTRUMENT
-
   for (auto &s : swarmVector_) {
     s->Send(phase);
   }
@@ -165,7 +122,6 @@ TaskStatus SwarmContainer::Send(BoundaryCommSubset phase) {
 
 TaskStatus SwarmContainer::Receive(BoundaryCommSubset phase) {
   PARTHENON_INSTRUMENT
-
   int success = 0, total = 0;
   for (auto &s : swarmVector_) {
     if (s->Receive(phase)) {
@@ -182,32 +138,12 @@ TaskStatus SwarmContainer::Receive(BoundaryCommSubset phase) {
 
 TaskStatus SwarmContainer::ResetCommunication() {
   PARTHENON_INSTRUMENT
-
   for (auto &s : swarmVector_) {
     s->ResetCommunication();
   }
 
   return TaskStatus::complete;
 }
-
-TaskStatus SwarmContainer::FinalizeCommunicationIterative() {
-  PARTHENON_INSTRUMENT
-
-  PARTHENON_THROW("FinalizeCommunicationIterative not yet fully implemented!")
-
-  int success = 0, total = 0;
-  for (auto &s : swarmVector_) {
-    if (s->FinalizeCommunicationIterative()) {
-      success++;
-    }
-    total++;
-  }
-
-  if (success == total) return TaskStatus::complete;
-  return TaskStatus::incomplete;
-}
-
-void SwarmContainer::ClearBoundary(BoundaryCommSubset phase) {}
 
 void SwarmContainer::Print() const {
   std::cout << "Swarms are:\n";
@@ -221,7 +157,7 @@ bool SwarmContainer::operator==(const SwarmContainer &cmp) {
   std::vector<std::string> my_keys(swarmMap_.size());
   auto &cmpMap = cmp.GetSwarmMap();
   std::vector<std::string> cmp_keys(cmpMap.size());
-  size_t i = 0;
+  std::size_t i = 0;
   for (auto &s : swarmMap_) {
     my_keys[i] = s.first;
     i++;
@@ -232,6 +168,66 @@ bool SwarmContainer::operator==(const SwarmContainer &cmp) {
     i++;
   }
   return my_keys == cmp_keys;
+}
+
+TaskStatus SendSwarmsMesh(std::shared_ptr<MeshData<Real>> &md) {
+  PARTHENON_INSTRUMENT
+  for (int b = 0; b < md->NumBlocks(); b++) {
+    md->GetBlockData(b)->GetSwarmData()->Send(BoundaryCommSubset::all);
+  }
+
+  return TaskStatus::complete;
+}
+
+TaskStatus ReceiveSwarmsMesh(std::shared_ptr<MeshData<Real>> &md) {
+  PARTHENON_INSTRUMENT
+  TaskStatus status = TaskStatus::complete;
+  for (int b = 0; b < md->NumBlocks(); b++) {
+    if (md->GetBlockData(b)->GetSwarmData()->Receive(BoundaryCommSubset::all) ==
+        TaskStatus::incomplete) {
+      status = TaskStatus::incomplete;
+    }
+  }
+
+  return status;
+}
+
+TaskStatus ResetSwarmsCommunicationMesh(std::shared_ptr<MeshData<Real>> &md) {
+  PARTHENON_INSTRUMENT
+  for (int b = 0; b < md->NumBlocks(); b++) {
+    md->GetBlockData(b)->GetSwarmData()->ResetCommunication();
+  }
+
+  return TaskStatus::complete;
+}
+
+TaskStatus RemoveMarkedParticlesMesh(std::shared_ptr<MeshData<Real>> &md,
+                                     const std::string &swarm_name) {
+  PARTHENON_INSTRUMENT
+  for (int b = 0; b < md->NumBlocks(); b++) {
+    md->GetBlockData(b)->GetSwarmData()->Get(swarm_name)->RemoveMarkedParticles();
+  }
+
+  return TaskStatus::complete;
+}
+
+TaskStatus DefragSwarmsMesh(std::shared_ptr<MeshData<Real>> &md,
+                            const Real &min_occupancy) {
+  PARTHENON_INSTRUMENT
+  for (int b = 0; b < md->NumBlocks(); b++) {
+    md->GetBlockData(b)->GetSwarmData()->Defrag(min_occupancy);
+  }
+
+  return TaskStatus::complete;
+}
+
+TaskStatus DefragAllSwarmsMesh(std::shared_ptr<MeshData<Real>> &md) {
+  PARTHENON_INSTRUMENT
+  for (int b = 0; b < md->NumBlocks(); b++) {
+    md->GetBlockData(b)->GetSwarmData()->DefragAll();
+  }
+
+  return TaskStatus::complete;
 }
 
 } // namespace parthenon

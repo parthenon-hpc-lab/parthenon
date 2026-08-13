@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was generated with the assistance of generative AI
 
 #include <memory>
 #include <set>
@@ -38,6 +40,7 @@ using parthenon::IndexRange;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
 using FC_t = parthenon::Metadata::FlagCollection;
+using parthenon::MeshDataDescriptor;
 using parthenon::Packages_t;
 using parthenon::ParArrayND;
 using parthenon::Real;
@@ -84,6 +87,16 @@ struct MyRestrictOp {
   }
 };
 
+struct SubsetVariableOne {
+  static std::string name() { return "typed_one"; }
+  static bool regex() { return false; }
+};
+
+struct SubsetVariableTwo {
+  static std::string name() { return "typed_two"; }
+  static bool regex() { return false; }
+};
+
 TEST_CASE("Test Add/Get in Packages_t", "[Packages_t]") {
   GIVEN("A Packages_t object and a few packages") {
     Packages_t packages;
@@ -103,6 +116,152 @@ TEST_CASE("Test Add/Get in Packages_t", "[Packages_t]") {
         REQUIRE_THROWS(packages.Add(pkg3));
       }
     }
+  }
+}
+
+TEST_CASE("Test mesh data subset registration in StateDescriptor",
+          "[StateDescriptor][MeshDataSubset]") {
+  StateDescriptor state("package");
+  MeshDataDescriptor requirements;
+  requirements.varnames = {"density", "velocity"};
+  requirements.flags = FC_t({Metadata::Independent, Metadata::FillGhost});
+  requirements.flags.TakeUnion(Metadata::Derived);
+  requirements.flags.Exclude(Metadata::Sparse);
+  requirements.sparse_ids = {1, 4, 8};
+  requirements.shallow = true;
+
+  state.RegisterMeshDataSubset("source", requirements);
+
+  SECTION("The registered subset can be found and is given a package-scoped name") {
+    REQUIRE(state.ContainsMeshDataSubset("source"));
+    REQUIRE_FALSE(state.ContainsMeshDataSubset("diagnostics"));
+    REQUIRE(state.GetMeshDataSubsetFullname("source") == "md_subset::package::source");
+  }
+
+  SECTION("Registration preserves all requirements") {
+    const auto &subsets = state.GetAllMeshDataSubsets();
+    REQUIRE(subsets.size() == 1);
+    REQUIRE(subsets.count("source") == 1);
+
+    const auto &registered = subsets.at("source");
+    REQUIRE(registered.varnames == std::vector<std::string>{"density", "velocity"});
+    REQUIRE(registered.flags.GetIntersections() == requirements.flags.GetIntersections());
+    REQUIRE(registered.flags.GetUnions() == requirements.flags.GetUnions());
+    REQUIRE(registered.flags.GetExclusions() == requirements.flags.GetExclusions());
+    REQUIRE(registered.sparse_ids == std::vector<int>{1, 4, 8});
+    REQUIRE(registered.shallow);
+    REQUIRE(registered.GetUids().empty());
+  }
+
+  SECTION("The StateDescriptor owns a copy of the requirements") {
+    requirements.varnames.push_back("pressure");
+    requirements.sparse_ids.clear();
+    requirements.shallow = false;
+
+    const auto &registered = state.GetAllMeshDataSubsets().at("source");
+    REQUIRE(registered.varnames == std::vector<std::string>{"density", "velocity"});
+    REQUIRE(registered.sparse_ids == std::vector<int>{1, 4, 8});
+    REQUIRE(registered.shallow);
+  }
+
+  SECTION("Multiple independently named subsets can be registered") {
+    MeshDataDescriptor diagnostics;
+    diagnostics.varnames = {"pressure"};
+    state.RegisterMeshDataSubset("diagnostics", diagnostics);
+
+    const auto &subsets = state.GetAllMeshDataSubsets();
+    REQUIRE(subsets.size() == 2);
+    REQUIRE(subsets.at("diagnostics").varnames == std::vector<std::string>{"pressure"});
+    REQUIRE(state.GetMeshDataSubsetFullname("diagnostics") ==
+            "md_subset::package::diagnostics");
+  }
+}
+
+TEST_CASE("Test variable registration in MeshDataDescriptor",
+          "[MeshDataDescriptor][MeshDataSubset]") {
+  MeshDataDescriptor requirements;
+
+  SECTION("A single string name can be registered") {
+    requirements.RegisterVariables("density");
+    REQUIRE(requirements.varnames == std::vector<std::string>{"density"});
+  }
+
+  SECTION("Multiple string names can be registered in one call") {
+    requirements.RegisterVariables("density", "pressure", "velocity");
+    REQUIRE(requirements.varnames ==
+            std::vector<std::string>{"density", "pressure", "velocity"});
+  }
+
+  SECTION("A vector of string names can be registered") {
+    const std::vector<std::string> names{"density", "pressure"};
+    requirements.RegisterVariables(names);
+    REQUIRE(requirements.varnames == names);
+  }
+
+  SECTION("Variable types can be registered as a template parameter pack") {
+    requirements.RegisterVariables<SubsetVariableOne, SubsetVariableTwo>();
+    REQUIRE(requirements.varnames == std::vector<std::string>{"typed_one", "typed_two"});
+  }
+
+  SECTION("Variable types can be registered from a TypeList") {
+    requirements.RegisterVariables(
+        parthenon::TypeList<SubsetVariableTwo, SubsetVariableOne>{});
+    REQUIRE(requirements.varnames == std::vector<std::string>{"typed_two", "typed_one"});
+  }
+
+  SECTION("Successive registrations append names in call order") {
+    requirements.RegisterVariables("density");
+    requirements.RegisterVariables(std::vector<std::string>{"pressure", "density"});
+    requirements.RegisterVariables<SubsetVariableOne>();
+
+    REQUIRE(requirements.varnames ==
+            std::vector<std::string>{"density", "pressure", "density", "typed_one"});
+  }
+}
+
+TEST_CASE("Test mesh data subset indexing in Packages_t",
+          "[Packages_t][MeshDataSubset]") {
+  Packages_t packages;
+  auto hydro = std::make_shared<StateDescriptor>("hydro");
+  auto gravity = std::make_shared<StateDescriptor>("gravity");
+  auto boundaries = std::make_shared<StateDescriptor>("boundaries");
+
+  MeshDataDescriptor requirements;
+  hydro->RegisterMeshDataSubset("source", requirements);
+  hydro->RegisterMeshDataSubset("diagnostics", requirements);
+  gravity->RegisterMeshDataSubset("source", requirements);
+
+  packages.Add(hydro);
+  packages.Add(gravity);
+  packages.Add(boundaries);
+
+  SECTION("Packages are grouped under every subset name they prescribe") {
+    const auto &indexed = packages.AllPackagesWithSubMeshData();
+    REQUIRE(indexed.size() == 2);
+    REQUIRE(indexed.count("source") == 1);
+    REQUIRE(indexed.count("diagnostics") == 1);
+
+    const auto &sources = indexed.at("source");
+    REQUIRE(sources.size() == 2);
+    REQUIRE(sources.at("hydro") == hydro);
+    REQUIRE(sources.at("gravity") == gravity);
+
+    const auto &diagnostics = indexed.at("diagnostics");
+    REQUIRE(diagnostics.size() == 1);
+    REQUIRE(diagnostics.at("hydro") == hydro);
+    REQUIRE(diagnostics.count("gravity") == 0);
+    REQUIRE(diagnostics.count("boundaries") == 0);
+  }
+
+  SECTION("Named lookup and const access return the indexed packages") {
+    REQUIRE(packages.AllPackagesWithSubMeshData("source").at("hydro") == hydro);
+
+    const Packages_t &const_packages = packages;
+    const auto &sources = const_packages.AllPackagesWithSubMeshData("source");
+    REQUIRE(sources.size() == 2);
+    REQUIRE(sources.at("gravity") == gravity);
+    REQUIRE(const_packages.AllPackagesWithSubMeshData().at("diagnostics").at("hydro") ==
+            hydro);
   }
 }
 
@@ -151,7 +310,7 @@ TEST_CASE("Test AddParamFromInput in StateDescriptor",
 
     StateDescriptor pkg("block1");
     WHEN("We set a param from ParameterInput") {
-      pkg.AddParamFromInput("var1", 2.5, &in1);
+      pkg.AddParamFromInput("var1", static_cast<Real>(2.5), &in1);
     }
   }
 }

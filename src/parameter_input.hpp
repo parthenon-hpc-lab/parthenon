@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
+// This file was made in part with generative AI.
 
 #ifndef PARAMETER_INPUT_HPP_
 #define PARAMETER_INPUT_HPP_
@@ -33,6 +34,7 @@
 #include <set>
 #include <string>
 #include <typeinfo>
+#include <unordered_map>
 #include <utility> // for std::forward, std::pair
 #include <vector>
 
@@ -43,9 +45,17 @@
 #include "utils/hash.hpp"
 #include "utils/sort.hpp"
 #include "utils/string_utils.hpp"
+#include "utils/type_list.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
+
+//----------------------------------------------------------------------------------------
+// Supported parameter types - single source of truth
+//----------------------------------------------------------------------------------------
+using SupportedParamTypes =
+    TypeList<bool, int, Real, std::string, std::vector<bool>, std::vector<int>,
+             std::vector<Real>, std::vector<std::string>>;
 
 // We need to overload the stream operator for containers to output
 // something sensible
@@ -131,7 +141,32 @@ struct QueryRecord {
     ss << val;
     return ss.str();
   }
+
+  bool IsStringVec() const {
+    return param_type == GetTypeName<std::vector<std::string>>();
+  }
+  bool IsDefaultEmptyStringVec() const {
+    if (IsStringVec() && default_value.has_value()) {
+      using value_t = std::vector<std::string>;
+      return std::any_cast<value_t>(default_value).size() == 0;
+    } else {
+      return false;
+    }
+  }
 };
+
+// Wrapper type to distinguish unresolved strings (from legacy parser)
+// from actual string parameter values
+struct UnresolvedString {
+  std::string value;
+  UnresolvedString() = default;
+  explicit UnresolvedString(const std::string &v) : value(v) {}
+  explicit UnresolvedString(std::string &&v) : value(std::move(v)) {}
+};
+
+// Build ParamValue variant from SupportedParamTypes + UnresolvedString
+using ParamValue =
+    type_list_to_variant_t<insert_type_list_t<UnresolvedString, SupportedParamTypes, 0>>;
 
 // This can be used to tell the params infrastructure that the default
 // value of one parameter depends on another one
@@ -151,36 +186,35 @@ class ParameterRef {
 };
 
 //----------------------------------------------------------------------------------------
-//! \struct InputLine
-//  \brief  node in a singly linked list of parameters contained within 1x input block
+//! \struct Parameter
+//  \brief  single parameter within a block
 
-struct InputLine {
-  std::string param_name;
-  std::string param_value; // value of the parameter is stored as a string!
-  std::string param_comment;
-  InputLine *pnext; // pointer to the next node in this nested singly linked list
+struct Parameter {
+  std::string name;
+  std::string comment;
+  // Value can be unresolved (string from file) or typed (from API or post-resolution)
+  ParamValue value;
+  // Original string representation from input file. Preserved to ensure all ranks
+  // produce identical ParameterDump output for parallel HDF5 collective metadata writes,
+  // even when parameters are resolved to typed values on different ranks at different
+  // times. Empty for parameters created programmatically (via Set/GetOrAdd with
+  // defaults).
+  std::optional<UnresolvedString> original_string;
+  // TODO(future): Consider merging QueryRecord into Parameter as
+  // std::optional<QueryRecord> to eliminate the separate queries_ map
+
+  std::string ToString() const;
 };
 
 //----------------------------------------------------------------------------------------
-//! \class InputBlock
-//  \brief node in a singly linked list of all input blocks contained within input file
+//! \struct Block
+//  \brief  parameter block containing a vector of parameters
 
-class InputBlock {
- public:
-  InputBlock() = default;
-  ~InputBlock();
-
-  // data
-  std::string block_name;
-  std::size_t max_len_parname;  // length of longest param_name, for nice-looking output
-  std::size_t max_len_parvalue; // length of longest param_value, to format outputs
-  InputBlock *pnext; // pointer to the next node in InputBlock singly linked list
-
-  InputLine *pline; // pointer to head node in nested singly linked list (in this block)
-  // (not storing a reference to the tail node)
-
-  // functions
-  InputLine *GetPtrToLine(std::string name);
+struct Block {
+  std::string name;
+  std::vector<Parameter> params; // Ordered storage (for iteration)
+  std::unordered_map<std::string, size_t>
+      param_index; // Fast lookup within block (stores indices)
 };
 
 //----------------------------------------------------------------------------------------
@@ -192,27 +226,61 @@ class ParameterInput {
   friend class std::hash<ParameterInput>;
 
  public:
+  // === STORAGE TYPES (public for parser interface) ===
+  // For backward compatibility, make these types accessible from ParameterInput::
+  using UnresolvedString = parthenon::UnresolvedString;
+  using ParamValue = parthenon::ParamValue;
+
   // constructor/destructor
   ParameterInput();
   explicit ParameterInput(std::string input_filename);
   ~ParameterInput();
 
-  // data
-  InputBlock *pfirst_block; // pointer to head node in singly linked list of InputBlock
-  // (not storing a reference to the tail node)
-
-  // functions
+  // === PARSING INTERFACE ===
   void LoadFromStream(std::istream &is);
   void LoadFromFile(IOWrapper &input);
   void ModifyFromCmdline(int argc, char *argv[]);
+
+  // === PARSER INTERFACE (for input sources like text files, Python, TOML, etc.) ===
+  // Use AddParsedParameter to populate parameters from external input sources
+  // This is the proper interface for parsers - it enforces that parsing must not
+  // be complete yet. Can be called multiple times until FinalizeParsing() is called.
+  void AddParsedParameter(const std::string &block, const std::string &name,
+                          const ParamValue &value,
+                          const std::string &comment = "# From parser");
+
+  // Finalize the parsing phase - no more parsing allowed (but GetOrAdd/Set still work)
+  void FinalizeParsing();
+
+  // === QUERY INTERFACE (parser-agnostic) ===
+  std::vector<std::string> GetBlockNames() const;
+  std::vector<std::string> GetBlockNamesWithPrefix(const std::string &prefix) const;
+  std::vector<std::string> GetParameterNames(const std::string &block) const;
+
   void ParameterDump(std::ostream &os);
   // TODO(JMM): Make this more general?
   void OutputParameterTable(std::ostream &os,
                             const std::regex &block_regex = std::regex("(.*)")) const;
 
-  int DoesParameterExist(const std::string &block, const std::string &name);
-  int DoesBlockExist(const std::string &block);
+  bool DoesParameterExist(const std::string &block, const std::string &name);
+  bool DoesBlockExist(const std::string &block);
   std::string GetComment(const std::string &block, const std::string &name);
+  //! Get parameter value as string representation
+  //! For parameters from input files, returns the exact string from the file.
+  //! For parameters added programmatically (Set/GetOrAdd), returns a string
+  //! representation of the typed value.
+  //! @param block The block name
+  //! @param name The parameter name
+  //! @return String representation of the parameter value
+  //! @throws If parameter does not exist in the specified block
+  std::string GetAsUnresolvedString(const std::string &block, const std::string &name);
+
+  // === PARAMETER ACCESS METHODS ===
+  // Get*: Retrieve parameter value (throws if missing)
+  // GetOrAdd*: Retrieve if exists, otherwise add default and return it
+  // Set*: RUNTIME OVERRIDE - Programmatically force a value (used for restart data,
+  //       command line overrides, etc.). Marks parameter as SetInCode origin.
+  //       DO NOT use Set* in parsers - use AddParsedParameter instead.
   int GetInteger(
       const std::string &block, const std::string &name,
       const std::optional<std::string> &docstring = std::optional<std::string>{});
@@ -280,44 +348,87 @@ class ParameterInput {
   void CheckDesired(const std::string &block, const std::string &name);
   void CheckOrphans() const;
 
-  template <typename T, typename... Args>
-  T GetOrAdd(const std::string &block, const std::string &name, const T &value,
-             Args &&...args) {
-    if constexpr (std::is_same_v<T, bool>) {
-      return GetOrAddBoolean(block, name, value, std::forward<Args>(args)...);
-    } else if constexpr (std::is_same_v<T, Real>) {
-      return GetOrAddReal(block, name, value, std::forward<Args>(args)...);
-    } else if constexpr (std::is_same_v<T, std::string>) {
-      return GetOrAddString(block, name, value, std::forward<Args>(args)...);
-    } else if (std::is_integral_v<T>) {
-      return GetOrAddInteger(block, name, value, std::forward<Args>(args)...);
-    } else {
-      PARTHENON_THROW("Unknown type\n");
+  // === TEMPLATE INTERFACE ===
+
+  //! Get parameter value with compile-time type checking
+  template <typename T>
+  T Get(const std::string &block, const std::string &name,
+        const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+    static_assert(SupportedParamTypes::IsIn<T>(),
+                  "Type not supported by parameter storage");
+
+    FinalizeParsing();
+    std::stringstream msg;
+
+    auto opt = GetFromStorage_<T>(block, name);
+    if (!opt.has_value()) {
+      msg << "### FATAL ERROR in function [ParameterInput::Get<T>]" << std::endl
+          << "Parameter name '" << name << "' not found in block '" << block << "'";
+      PARTHENON_FAIL(msg);
     }
+
+    CheckAndUpdateQueries_<T>(block, name, docstring);
+    return opt.value();
   }
-  template <typename T, typename... Args>
-  T Get(const std::string &block, const std::string &name, Args &&...args) {
-    if constexpr (std::is_same_v<T, bool>) {
-      return GetBoolean(block, name, std::forward<Args>(args)...);
-    } else if constexpr (std::is_same_v<T, Real>) {
-      return GetReal(block, name, std::forward<Args>(args)...);
-    } else if constexpr (std::is_same_v<T, std::string>) {
-      return GetString(block, name, std::forward<Args>(args)...);
-    } else if (std::is_integral_v<T>) {
-      return GetInteger(block, name, std::forward<Args>(args)...);
-    } else {
-      PARTHENON_THROW("Unknown type\n");
+
+  //! Get parameter value or add with default if not present
+  template <typename T>
+  T GetOrAdd(const std::string &block, const std::string &name, const T &def_value,
+             const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+    static_assert(SupportedParamTypes::IsIn<T>(),
+                  "Type not supported by parameter storage");
+
+    FinalizeParsing();
+
+    CheckAndUpdateQueries_<T>(block, name, def_value, std::vector<T>{}, docstring);
+
+    auto opt = GetFromStorage_<T>(block, name);
+    if (opt.has_value()) {
+      return opt.value();
     }
+
+    // Add to storage
+    AddParameter_(block, name, def_value, "# Default value added at run time");
+    UpdateQueryProvenance_(block, name, QueryRecord::OriginType::Default);
+
+    return def_value;
   }
-  template <typename T, typename... Args>
-  T Get(const ParameterRef &r, Args &&...args) {
-    return Get<T>(r.block_, r.name_, std::forward<Args>(args)...);
+
+  //! RUNTIME OVERRIDE: Programmatically force a parameter value
+  //! Use this for runtime overrides (restart data, command line flags, etc.)
+  //! NOT for parsers - parsers should use AddParsedParameter instead.
+  //! Marks parameter with SetInCode origin, distinguishing it from input file values.
+  template <typename T>
+  T Set(const std::string &block, const std::string &name, const T &value,
+        const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+    static_assert(SupportedParamTypes::IsIn<T>(),
+                  "Type not supported by parameter storage");
+
+    FinalizeParsing();
+
+    if (queries_.count(std::make_pair(block, name)) == 0) {
+      CheckAndUpdateQueries_<T>(block, name, docstring);
+    }
+
+    // Update storage (uses AddParameter_ to bypass resolution check)
+    AddParameter_(block, name, value, "# Updated during run time");
+    UpdateQueryProvenance_(block, name, QueryRecord::OriginType::SetInCode);
+
+    return value;
   }
-  template <typename T, typename... Args>
+
+  //! Get parameter using ParameterRef
+  template <typename T>
+  T Get(const ParameterRef &r,
+        const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+    return Get<T>(r.block_, r.name_, docstring);
+  }
+
+  //! GetOrAdd with default from another parameter
+  template <typename T>
   T GetOrAdd(const std::string &block, const std::string &name, const ParameterRef &value,
-             Args &&...args) {
-    T ret = GetOrAdd<T>(block, name, Get<T>(value.block_, value.name_),
-                        std::forward<Args>(args)...);
+             const std::optional<std::string> &docstring = std::optional<std::string>{}) {
+    T ret = GetOrAdd<T>(block, name, Get<T>(value.block_, value.name_), docstring);
     SetQueryDependency_(block, name, value);
     return ret;
   }
@@ -326,21 +437,8 @@ class ParameterInput {
   std::vector<T>
   GetVector(const std::string &block, const std::string &name,
             const std::optional<std::string> &docstring = std::optional<std::string>{}) {
-    std::vector<std::string> fields = GetVector_(block, name);
-    if constexpr (std::is_same<T, std::string>::value) return fields;
-
-    std::vector<T> ret;
-    for (auto &f : fields) {
-      if constexpr (std::is_same<T, int>::value) {
-        ret.push_back(stoi(f));
-      } else if constexpr (std::is_same<T, Real>::value) {
-        ret.push_back(atof(f.c_str()));
-      } else if constexpr (std::is_same<T, bool>::value) {
-        ret.push_back(stob(f));
-      }
-    }
-    CheckAndUpdateQueries_<std::vector<T>>(block, name, docstring);
-    return ret;
+    // Just use the unified Get<T> template - it handles vectors
+    return Get<std::vector<T>>(block, name, docstring);
   }
   template <typename T>
   std::vector<T> GetOrAddVector(
@@ -350,11 +448,10 @@ class ParameterInput {
                                            std::vector<std::vector<T>>{}, docstring);
     if (DoesParameterExist(block, name)) return GetVector<T>(block, name);
 
-    std::string cname = ConcatVector_(def);
-    auto *pb = FindOrAddBlock(block);
-    AddParameter(pb, name, cname, "# Default value added at run time");
+    AddParameter_(block, name, def, "# Default value added at run time");
     return def;
   }
+
   template <typename T>
   std::vector<T> GetOrAddVector(
       const std::string &block, const std::string &name, const ParameterRef &def,
@@ -366,17 +463,53 @@ class ParameterInput {
   }
 
  private:
+  // === PARAMETER STORAGE (vector-of-vectors, preserves insertion order) ===
+  std::vector<Block> param_storage_; // Ordered storage (for iteration)
+  std::unordered_map<std::string, size_t>
+      block_index_;                // Fast O(1) block lookup (stores indices)
+  bool parsing_finalized_ = false; // Track if parsing phase is complete
+
   std::string last_filename_; // last input file opened, to prevent duplicate reads
   // We will want to iterate through the record in lexicographic
   // order, so this needs to be an ordered map
   std::map<std::pair<std::string, std::string>, QueryRecord> queries_;
 
-  InputBlock *FindOrAddBlock(const std::string &name);
-  InputBlock *GetPtrToBlock(const std::string &name);
-  bool ParseLine(InputBlock *pib, std::string line, std::string &name, std::string &value,
+  // Helper to find a block by name (returns pointer to block or nullptr)
+  Block *FindBlock_(const std::string &name);
+  const Block *FindBlock_(const std::string &name) const;
+
+  // Helper to find or create a block (returns pointer to block)
+  Block *FindOrAddBlock_(const std::string &name);
+
+  // Internal helper to add/update parameter without resolution check
+  // Used by GetOrAdd/Set and by AddParsedParameter (which does check resolution)
+  void AddParameter_(const std::string &block, const std::string &name,
+                     const ParamValue &value, const std::string &comment);
+
+  // Legacy parser helpers (still used for text file parsing)
+  bool ParseLine(std::string line, std::string &name, std::string &value,
                  std::string &comment);
-  void AddParameter(InputBlock *pib, const std::string &name, const std::string &value,
-                    const std::string &comment);
+
+  // === HELPER METHODS (parser-agnostic) ===
+  // Convert ParamValue to string for output
+  template <typename T>
+  T ConvertParamValue(const ParamValue &value, const std::string &block,
+                      const std::string &name);
+
+  // Helper to find a parameter in storage
+  // Returns pointer to Parameter if found, nullptr otherwise
+  Parameter *FindParameter_(const std::string &block, const std::string &name);
+  const Parameter *FindParameter_(const std::string &block,
+                                  const std::string &name) const;
+
+  // Helper to get a typed parameter value from storage
+  // Returns std::nullopt if parameter not found
+  // Throws if type mismatch detected
+  template <typename T>
+  std::optional<T> GetFromStorage_(const std::string &block, const std::string &name);
+
+  std::vector<std::string> SplitCommaSeparated(const std::string &s);
+
   bool stob(std::string val) {
     // check is string contains integers 0 or 1 (instead of true or false) and return
     if (val.compare(0, 1, "0") == 0 || val.compare(0, 1, "1") == 0) {
@@ -408,28 +541,14 @@ class ParameterInput {
       PARTHENON_THROW(msg);
     }
   }
-  std::vector<std::string> GetVector_(const std::string &block, const std::string &name) {
-    std::string s = GetString(block, name);
-    std::string delimiter = ",";
-    size_t pos = 0;
-    std::string token;
-    std::vector<std::string> variables;
-    while ((pos = s.find(delimiter)) != std::string::npos) {
-      token = s.substr(0, pos);
-      variables.push_back(string_utils::trim(token));
-      s.erase(0, pos + delimiter.length());
-    }
-    variables.push_back(string_utils::trim(s));
-    return variables;
-  }
   template <typename T>
   std::string ConcatVector_(std::vector<T> &vec) {
     std::stringstream ss;
-    const int n = vec.size();
+    const std::size_t n = vec.size();
     if (n == 0) return "";
 
     ss << vec[0];
-    for (int i = 1; i < n; i++) {
+    for (std::size_t i = 1; i < n; i++) {
       ss << "," << vec[i];
     }
     return ss.str();
@@ -556,21 +675,20 @@ class ParameterInput {
 // See: https://en.cppreference.com/w/cpp/utility/hash
 namespace std {
 template <>
-struct hash<parthenon::InputLine> {
-  std::size_t operator()(const parthenon::InputLine &il) {
-    return parthenon::impl::hash_combine(0, il.param_name, il.param_value,
-                                         il.param_comment);
+struct hash<parthenon::Parameter> {
+  std::size_t operator()(const parthenon::Parameter &p) {
+    // Hash the parameter name and comment (value is not hashable due to variant)
+    return parthenon::impl::hash_combine(0, p.name, p.comment);
   }
 };
 
 template <>
-struct hash<parthenon::InputBlock> {
-  std::size_t operator()(const parthenon::InputBlock &ib) {
+struct hash<parthenon::Block> {
+  std::size_t operator()(const parthenon::Block &b) {
     using parthenon::impl::hash_combine;
-    std::size_t out =
-        hash_combine(0, ib.block_name, ib.max_len_parname, ib.max_len_parvalue);
-    for (parthenon::InputLine *pline = ib.pline; pline != nullptr; pline = pline->pnext) {
-      out = hash_combine(out, *pline);
+    std::size_t out = hash_combine(0, b.name);
+    for (const auto &param : b.params) {
+      out = hash_combine(out, param);
     }
     return out;
   }
@@ -579,13 +697,11 @@ struct hash<parthenon::InputBlock> {
 template <>
 struct hash<parthenon::ParameterInput> {
   std::size_t operator()(const parthenon::ParameterInput &in) {
-    using parthenon::InputBlock;
     using parthenon::impl::hash_combine;
     std::size_t out = 0;
     out = hash_combine(out, in.last_filename_);
-    for (InputBlock *pblock = in.pfirst_block; pblock != nullptr;
-         pblock = pblock->pnext) {
-      out = hash_combine(out, *pblock);
+    for (const auto &block : in.param_storage_) {
+      out = hash_combine(out, block);
     }
     return out;
   }

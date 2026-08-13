@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
 
 #include "bvals/bvals.hpp"
 
@@ -70,8 +72,9 @@ void BoundarySwarm::SetupPersistentMPI() {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
 
   // Initialize neighbor communications to other ranks
-  for (int n = 0; n < pmb->neighbors.size(); n++) {
-    NeighborBlock &nb = pmb->neighbors[n];
+  const auto &neighbors = pmb->GetNeighbors();
+  for (std::size_t n = 0; n < neighbors.size(); n++) {
+    const NeighborBlock &nb = neighbors[n];
     // Neighbor on different MPI process
     if (nb.rank != Globals::my_rank) {
       send_tag[nb.bufid] = pmb->pmy_mesh->tag_map.GetTag(pmb.get(), nb);
@@ -93,8 +96,9 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   // Fence to make sure buffers are loaded before sending
   pmb->exec_space.fence();
-  for (int n = 0; n < pmb->neighbors.size(); n++) {
-    NeighborBlock &nb = pmb->neighbors[n];
+  const auto &neighbors = pmb->GetNeighbors();
+  for (std::size_t n = 0; n < neighbors.size(); n++) {
+    const NeighborBlock &nb = neighbors[n];
     if (nb.rank != Globals::my_rank) {
 #ifdef MPI_PARALLEL
       PARTHENON_REQUIRE(bd_var_.req_send[nb.bufid] == MPI_REQUEST_NULL,
@@ -109,14 +113,16 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
           target_block.pbswarm->bswarms[bswarm_index];
       if (send_size[nb.bufid] > 0) {
         // Ensure target buffer is large enough
-        if (bd_var_.send[nb.bufid].extent(0) >
-            ptarget_bswarm->bd_var_.recv[nb.targetid].extent(0)) {
+        if (send_size[nb.bufid] > ptarget_bswarm->bd_var_.recv[nb.targetid].extent(0)) {
           ptarget_bswarm->bd_var_.recv[nb.targetid] =
-              BufArray1D<Real>("Buffer", (bd_var_.send[nb.bufid].extent(0)));
+              BufArray1D<Real>("Buffer", send_size[nb.bufid]);
         }
 
-        target_block.deep_copy(ptarget_bswarm->bd_var_.recv[nb.targetid],
-                               bd_var_.send[nb.bufid]);
+        auto send_subview = Kokkos::subview(bd_var_.send[nb.bufid],
+                                            std::make_pair(0, send_size[nb.bufid]));
+        auto recv_subview = Kokkos::subview(ptarget_bswarm->bd_var_.recv[nb.targetid],
+                                            std::make_pair(0, send_size[nb.bufid]));
+        target_block.deep_copy(recv_subview, send_subview);
         ptarget_bswarm->recv_size[nb.targetid] = send_size[nb.bufid];
         ptarget_bswarm->bd_var_.flag[nb.targetid] = BoundaryStatus::arrived;
       } else {
@@ -131,8 +137,9 @@ void BoundarySwarm::Receive(BoundaryCommSubset phase) {
 #ifdef MPI_PARALLEL
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   const int &mylevel = pmb->loc.level();
-  for (int n = 0; n < pmb->neighbors.size(); n++) {
-    NeighborBlock &nb = pmb->neighbors[n];
+  const auto &neighbors = pmb->GetNeighbors();
+  for (std::size_t n = 0; n < neighbors.size(); n++) {
+    const NeighborBlock &nb = neighbors[n];
     if (nb.rank != Globals::my_rank) {
       // Check to see if we got a message
       int test;

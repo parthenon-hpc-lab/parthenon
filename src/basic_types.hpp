@@ -39,6 +39,8 @@ using Real = double;
 #endif
 #endif
 
+using LocReal = double; // precision for location related variables
+
 struct IndexRange {
   int s = 0; /// Starting Index (inclusive)
   int e = 0; /// Ending Index (inclusive)
@@ -110,29 +112,69 @@ inline constexpr BoundaryType GetAssociatedSender(BoundaryType btype) {
   return btype;
 }
 
-enum class GridType : int { none, leaf, two_level_composite, single_level_with_internal };
-struct GridIdentifier {
-  GridType type = GridType::none;
-  int logical_level = 0;
+enum class GridType : int { none, leaf, two_level_composite };
+class GridIdentifier {
+  GridType type_ = GridType::none;
+  int logical_level_ = 0; // Only meaningful for two_level_composite
+  bool is_multigrid_ = false;
+  int multigrid_level_ = 0; // Not always meaningful
+  std::size_t block_coarsenings_ = 0;
 
-  static GridIdentifier leaf() { return GridIdentifier{GridType::leaf, 0}; }
-  static GridIdentifier two_level_composite(int level) {
-    return GridIdentifier{GridType::two_level_composite, level};
+ public:
+  auto type() const { return type_; }
+  auto logical_level() const { return logical_level_; }
+  auto multigrid_level() const { return multigrid_level_; }
+  auto block_coarsenings() const { return block_coarsenings_; }
+  auto IsMultigrid() const { return is_multigrid_; }
+
+  static GridIdentifier leaf() {
+    auto out = GridIdentifier::leaf(-1, 0);
+    out.is_multigrid_ = false;
+    return out;
+  }
+
+  static GridIdentifier leaf(int multigrid_level, std::size_t block_coarsenings) {
+    GridIdentifier out;
+    out.type_ = GridType::leaf;
+    out.logical_level_ = -1111;
+    out.multigrid_level_ = multigrid_level;
+    out.block_coarsenings_ = block_coarsenings;
+    out.is_multigrid_ = true;
+    return out;
+  }
+
+  static GridIdentifier none() {
+    GridIdentifier out;
+    return out;
+  }
+
+  static GridIdentifier two_level_composite(int multigrid_level, int logical_level,
+                                            std::size_t block_coarsenings) {
+    GridIdentifier out;
+    out.type_ = GridType::two_level_composite;
+    out.logical_level_ = logical_level;
+    out.multigrid_level_ = multigrid_level;
+    out.is_multigrid_ = true;
+    out.block_coarsenings_ = block_coarsenings;
+    return out;
   }
 
   std::string label() const {
-    if (type == GridType::leaf) {
-      return "GridType::leaf";
-    } else if (type == GridType::two_level_composite) {
-      return "GridType::two_level_composite[" + std::to_string(logical_level) + "]";
+    if (type_ == GridType::leaf) {
+      return "GridType::leaf[" + std::to_string(block_coarsenings_) + "]";
+    } else if (type_ == GridType::two_level_composite) {
+      return "GridType::two_level_composite[" + std::to_string(logical_level_) + ", " +
+             std::to_string(block_coarsenings_) + "]";
     }
     return "GridType::none";
   }
 };
 // Add a comparator so we can store in std::map
 inline bool operator<(const GridIdentifier &lhs, const GridIdentifier &rhs) {
-  if (lhs.type != rhs.type) return lhs.type < rhs.type;
-  return lhs.logical_level < rhs.logical_level;
+  if (lhs.type() != rhs.type()) return lhs.type() < rhs.type();
+  if (lhs.block_coarsenings() != rhs.block_coarsenings())
+    return lhs.block_coarsenings() < rhs.block_coarsenings();
+  return lhs.logical_level() < rhs.logical_level();
 }
 
 // Enumeration for accessing spatial axes of a meshblock
@@ -214,6 +256,15 @@ inline std::string TopologicalTypeToString(TopologicalType tt) {
   return "cell";
 }
 
+KOKKOS_INLINE_FUNCTION
+constexpr std::size_t NumberOfTopologicalElements(TopologicalType tt) {
+  using TT = TopologicalType;
+  if (tt == TT::Face || tt == TT::Edge) {
+    return 3;
+  }
+  return 1;
+}
+
 inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt) {
   using TE = TopologicalElement;
   using TT = TopologicalType;
@@ -224,8 +275,8 @@ inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt
 }
 
 KOKKOS_FORCEINLINE_FUNCTION
-TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
-                                              const std::size_t d) {
+constexpr TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
+                                                        const std::size_t d) {
   using TE = TopologicalElement;
   using TT = TopologicalType;
   if (tt == TT::Cell) return TE::CC;
@@ -235,7 +286,6 @@ TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
 }
 KOKKOS_FORCEINLINE_FUNCTION
 TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
-
                                               const CoordinateDirection DIR) {
   return GetTopologicalElementInDir(tt, static_cast<std::size_t>(DIR - 1));
 }
@@ -282,8 +332,8 @@ struct SimTime {
   SimTime(const Real tstart, const Real tstop, const int nmax, const int ncurr,
           const int nout, const int nout_mesh,
           const Real dt_in = std::numeric_limits<Real>::max())
-      : start_time(tstart), time(tstart), tlim(tstop), dt(dt_in), nlim(nmax),
-        ncycle(ncurr), ncycle_out(nout), ncycle_out_mesh(nout_mesh) {}
+      : start_time(tstart), time(tstart), tlim(tstop), dt(dt_in), ncycle(ncurr),
+        nlim(nmax), ncycle_out(nout), ncycle_out_mesh(nout_mesh) {}
   // beginning time, current time, maximum time, time step
   Real start_time, time, tlim, dt;
   // current cycle number, maximum number of cycles, cycles between diagnostic output

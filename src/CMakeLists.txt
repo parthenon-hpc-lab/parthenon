@@ -1,5 +1,9 @@
 #=========================================================================================
-# (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+# Parthenon performance portable AMR framework
+# Copyright(C) 2020-2026 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for detail
+#=========================================================================================
+# (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +14,8 @@
 # license in this material to reproduce, prepare derivative works, distribute copies to
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
+
+# This file was made in part with generative AI.
 
 # Configure config.hpp
 set(PROBLEM_GENERATOR "<not-implemented>") # TODO: Figure out what to put here
@@ -153,6 +159,8 @@ add_library(parthenon
   interface/sparse_pool.hpp
   interface/state_descriptor.hpp
   interface/state_descriptor.cpp
+  interface/mesh_data_descriptor.cpp
+  interface/mesh_data_descriptor.hpp
   interface/swarm.cpp
   interface/swarm.hpp
   interface/swarm_comms.cpp
@@ -166,6 +174,20 @@ add_library(parthenon
   interface/variable_state.cpp
   interface/variable.cpp
   interface/variable.hpp
+  
+  loop_abstraction/base.hpp
+  loop_abstraction/flux_view.hpp
+  loop_abstraction/halo.hpp
+  loop_abstraction/index_space.hpp
+  loop_abstraction/inner_range.hpp
+  loop_abstraction/kokkos.hpp
+  loop_abstraction/pack_view.hpp
+  loop_abstraction/raw.hpp
+  loop_abstraction/scratch.hpp
+  loop_abstraction/scratch_indexed.hpp
+  loop_abstraction/types.hpp
+  loop_abstraction/view.hpp
+  loop_abstraction/loop_abstraction.hpp
 
   mesh/domain.hpp
   mesh/forest/block_ownership.cpp
@@ -187,15 +209,19 @@ add_library(parthenon
   mesh/mesh-gmg.cpp
   mesh/mesh.cpp
   mesh/mesh.hpp
+  mesh/mesh_neighbors.hpp
   mesh/meshblock.hpp
   mesh/meshblock_pack.hpp
   mesh/meshblock.cpp
+  mesh/swarm_amr_remesh.cpp
+  mesh/swarm_amr_remesh.hpp
 
   outputs/ascent.cpp
   outputs/histogram.cpp
   outputs/history.cpp
   outputs/io_wrapper.cpp
   outputs/io_wrapper.hpp
+  outputs/output_attr.hpp
   outputs/output_utils.cpp
   outputs/output_utils.hpp
   outputs/outputs.cpp
@@ -216,22 +242,28 @@ add_library(parthenon
   outputs/restart_hdf5.hpp
 
   pack/block_selector.hpp
-  pack/make_pack_descriptor.hpp
-  pack/make_pack_descriptor.cpp
-  pack/make_swarm_pack_descriptor.hpp
-  pack/pack_descriptor.cpp
-  pack/pack_descriptor.hpp
   pack/pack_utils.hpp
-  pack/sparse_pack.hpp
-  pack/sparse_pack.cpp
-  pack/sparse_pack_base.cpp
-  pack/sparse_pack_base.hpp
-  pack/sparse_pack_cache.hpp
-  pack/sparse_pack_cache.cpp
-  pack/swarm_default_names.hpp
-  pack/swarm_pack.hpp
-  pack/swarm_pack_base.hpp
-  
+  pack/default_names.hpp
+  pack/sparse_pack/make_pack_descriptor.cpp
+  pack/sparse_pack/make_pack_descriptor.hpp
+  pack/sparse_pack/pack_descriptor.cpp
+  pack/sparse_pack/pack_descriptor.hpp
+  pack/sparse_pack/sparse_pack.cpp
+  pack/sparse_pack/sparse_pack.hpp
+  pack/sparse_pack/sparse_pack_base.cpp
+  pack/sparse_pack/sparse_pack_base.hpp
+  pack/sparse_pack/sparse_pack_cache.cpp
+  pack/sparse_pack/sparse_pack_cache.hpp
+  pack/swarm_pack/make_swarm_pack_descriptor.hpp
+  pack/swarm_pack/swarm_pack_descriptor.cpp
+  pack/swarm_pack/swarm_pack_descriptor.hpp
+  pack/swarm_pack/swarm_pack.hpp
+  pack/swarm_pack/swarm_pack_base.cpp
+  pack/swarm_pack/swarm_pack_base.hpp
+  pack/swarm_pack/swarm_pack_cache.cpp
+  pack/swarm_pack/swarm_pack_cache.hpp
+  pack/swarm_pack/swarm_pack_types.hpp
+
   parthenon/driver.hpp
   parthenon/package.hpp
   parthenon/parthenon.hpp
@@ -263,6 +295,8 @@ add_library(parthenon
   solvers/solver_utils.hpp
   solvers/tridiag_solver.hpp
 
+  tasks/task_timing.cpp
+  tasks/task_timing.hpp
   tasks/tasks.cpp
   tasks/tasks.hpp
   tasks/thread_pool.hpp
@@ -280,6 +314,7 @@ add_library(parthenon
   utils/cell_center_offsets.hpp
   utils/change_rundir.cpp
   utils/communication_buffer.hpp
+  utils/bump_arena.hpp
   utils/cleantypes.hpp
   utils/concepts_lite.hpp
   utils/error_checking.cpp
@@ -307,6 +342,7 @@ add_library(parthenon
   utils/unique_id.cpp
   utils/unique_id.hpp
   utils/utils.hpp
+  utils/watchdog.cpp
 
   argument_parser.hpp
   basic_types.hpp
@@ -329,9 +365,30 @@ add_library(parthenon
 )
 add_library(Parthenon::parthenon ALIAS parthenon)
 
+if(PARTHENON_ENABLE_FFT)
+  target_sources(parthenon PRIVATE
+    utils/fft_manager.cpp
+    utils/fft_manager.hpp
+    utils/uniform_grid_helper.cpp
+    utils/uniform_grid_helper.hpp
+    utils/calc_spectrum.cpp
+    utils/calc_spectrum.hpp
+    outputs/spectrum.cpp
+  )
+  target_link_libraries(parthenon PRIVATE Heffte::Heffte)
+  target_compile_definitions(parthenon PUBLIC PARTHENON_ENABLE_FFT)
+endif()
+
 set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
 
-target_compile_features(parthenon PUBLIC cxx_std_17)
+target_compile_features(parthenon PUBLIC cxx_std_20)
+
+# Silence annoying psabi warnings in parthenon proper, without
+# impacting downstreams.
+target_compile_options(parthenon
+    PRIVATE
+        $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU>>:-Wno-psabi>
+)
 
 # This will automatically link any extra libraries (or no extra libraries)
 # depending on the compiler, so it doesn't require an if() statement
@@ -356,6 +413,16 @@ endif()
 
 if (ENABLE_HDF5)
   target_link_libraries(parthenon PUBLIC HDF5_C)
+endif()
+
+if (PARTHENON_ENABLE_OPENPMD)
+  target_sources(parthenon PRIVATE
+    outputs/parthenon_opmd.cpp
+    outputs/parthenon_opmd.hpp
+    outputs/restart_opmd.cpp
+    outputs/restart_opmd.hpp
+  )
+  target_link_libraries(parthenon PUBLIC openPMD::openPMD)
 endif()
 
 # For Cuda with NVCC (<11.2) and C++17 Kokkos currently does not work/compile with

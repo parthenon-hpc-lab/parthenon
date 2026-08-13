@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2025 The Parthenon collaboration
+// Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI.
 
 #include "parthenon_manager.hpp"
 
@@ -41,6 +42,9 @@
 #include "outputs/outputs_package.hpp"
 #include "outputs/restart.hpp"
 #include "outputs/restart_hdf5.hpp"
+#ifdef PARTHENON_ENABLE_OPENPMD
+#include "outputs/restart_opmd.hpp"
+#endif
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
 
@@ -90,6 +94,11 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   } else if (arg_status == ArgStatus::complete) {
     return ParthenonStatus::complete;
   }
+
+  Globals::watchdog_enabled = arg.watchdog_enabled;
+  if (Globals::watchdog_enabled) {
+    parthenon::WatchDog::WatchDog(arg.watchdog_timeout);
+  }
   // Now that the input is parsed we can pass the info to globals
   Globals::is_restart = arg.is_restart;
 
@@ -102,7 +111,22 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   if (arg.is_restart) {
     // Read input from restart file
     if (fs::path(arg.restart_filename).extension() == ".rhdf") {
+#ifdef ENABLE_HDF5
       restartReader = std::make_unique<RestartReaderHDF5>(arg.restart_filename);
+#else // HDF5 disabled
+      PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
+#endif
+    } else if (fs::path(arg.restart_filename).extension() == ".bp" ||
+               // allow user input for /path/to/restart.bp/ (with trailing `/`), e.g.,
+               // from autocomplete
+               (fs::is_directory(arg.restart_filename) &&
+                fs::path(arg.restart_filename).parent_path().extension() == ".bp")) {
+#ifdef PARTHENON_ENABLE_OPENPMD
+      restartReader = std::make_unique<RestartReaderOPMD>(arg.restart_filename);
+#else
+      PARTHENON_FAIL("Trying to restart from OpenPMD file but OpenPMD support was not "
+                     "compiled into Parthenon.");
+#endif // ifdef PARTHENON_ENABLE_OPENPMD
     } else {
       PARTHENON_FAIL("Unsupported restart file format.");
     }
@@ -130,6 +154,9 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // Modify based on command line inputs
   pinput->ModifyFromCmdline(argc, argv);
+
+  // Finalize parsing phase - parsers can no longer add parameters
+  pinput->FinalizeParsing();
 
   PARTHENON_REQUIRE_THROWS(
       !pinput->DoesParameterExist("parthenon/job", "run_only_analysis") ||
@@ -260,9 +287,6 @@ ParthenonManager::ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin) {
 }
 
 void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
-#ifndef ENABLE_HDF5
-  PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
-#else  // HDF5 enabled
   // Restart packages with information for blocks in ids from the restart file
   // Assumption: blocks are contiguous in restart file, may have to revisit this.
   const IndexDomain theDomain =
@@ -274,18 +298,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   int nbe = nbs + nb - 1;
   IndexRange myBlocks{nbs, nbe};
 
-  // TODO(cleanup) why is this code here and not contained in the restart reader?
   std::cout << "Blocks assigned to rank " << Globals::my_rank << ": " << nbs << ":" << nbe
             << std::endl;
-
-  // Currently supports versions 3 and 4.
-  const auto file_output_format_ver = resfile.GetOutputFormatVersion();
-  if (file_output_format_ver < HDF5::OUTPUT_VERSION_FORMAT - 1) {
-    std::stringstream msg;
-    msg << "File format version " << file_output_format_ver << " not supported. "
-        << "Current format is " << HDF5::OUTPUT_VERSION_FORMAT << std::endl;
-    PARTHENON_THROW(msg)
-  }
 
   // Get list of variables, they are the same for all blocks (since all blocks have the
   // same variable metadata)
@@ -304,7 +318,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
   // Allocate space based on largest vector
   int num_sparse = 0;
-  size_t max_fillsize = 1;
+  std::size_t max_fillsize = 1;
   for (const auto &v_info : all_vars_info) {
     const auto &label = v_info.label;
 
@@ -321,7 +335,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     }
 
     max_fillsize =
-        std::max(max_fillsize, static_cast<size_t>(v_info.FillSize(theDomain)));
+        std::max(max_fillsize, v_info.FillSize(theDomain, resfile.BlockdataIsPadded()));
   }
 
   // make sure we have all sparse variables that are in the restart file
@@ -333,13 +347,14 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   PARTHENON_REQUIRE_THROWS(
       num_sparse <= sparse_info.num_sparse,
       "Mismatch between sparse fields in simulation and restart file");
-  std::vector<Real> tmp(static_cast<size_t>(nb) * max_fillsize);
+  std::vector<Real> tmp(static_cast<std::size_t>(nb) * max_fillsize);
   for (const auto &v_info : all_vars_info) {
     const auto vlen = v_info.num_components * v_info.ntop_elems;
-    const auto fill_size = v_info.FillSize(theDomain);
+    const auto fill_size = v_info.FillSize(theDomain, resfile.BlockdataIsPadded());
     const auto &label = v_info.label;
 
-    auto var_missing_on_disk = !resfile.VariableExists(label);
+    auto var_missing_on_disk =
+        !resfile.VariableExists(label, RestartReader::DataType::Field);
     if (Globals::my_rank == 0) {
       std::cout << "Var: " << label << ":" << vlen
                 << (var_missing_on_disk ? " missing on disk\n" : "\n");
@@ -351,7 +366,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     // Read relevant data from the hdf file, this works for dense and sparse variables
     // because sparse variables are currently densely written for HDF5.
     try {
-      resfile.ReadBlocks(label, myBlocks, v_info, tmp, file_output_format_ver);
+      resfile.ReadBlocks(label, myBlocks, v_info, tmp, &rm);
       // Variable does exist but could not be read. So we definitely want to fail here.
     } catch (std::exception &ex) {
       std::stringstream msg;
@@ -361,7 +376,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       PARTHENON_THROW(msg);
     }
 
-    size_t index = 0;
+    std::size_t index = 0;
     for (auto &pmb : rm.block_list) {
       if (v_info.is_sparse) {
         // check if the sparse variable is allocated on this block
@@ -382,19 +397,12 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       auto v_h = v->data.GetHostMirror();
 
       // Double note that this also needs to be update in case
-      // we update the HDF5 infrastructure!
-      if (file_output_format_ver >= HDF5::OUTPUT_VERSION_FORMAT - 1) {
-        OutputUtils::PackOrUnpackVar(
-            v_info, resfile.HasGhost() != 0, index,
-            [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
-              v_h(topo, t, u, v, k, j, i) = tmp[index];
-            });
-      } else {
-        std::stringstream msg;
-        msg << "File format version " << file_output_format_ver << " not supported. "
-            << "Current format is " << HDF5::OUTPUT_VERSION_FORMAT << std::endl;
-        PARTHENON_THROW(msg)
-      }
+      // we update the OpenPMD/HDF5 infrastructure!
+      OutputUtils::PackOrUnpackVar(
+          v_info, resfile.HasGhost() != 0, resfile.BlockdataIsPadded(), index,
+          [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
+            v_h(topo, t, u, v, k, j, i) = tmp[index];
+          });
 
       v->data.DeepCopy(v_h);
     }
@@ -406,7 +414,8 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   auto swarms = (mb.meshblock_data.Get()->GetSwarmData())->GetSwarmsByFlag(flags);
   for (auto &swarm : swarms) {
     auto swarmname = swarm->label();
-    auto var_missing_on_disk = !resfile.VariableExists(swarmname);
+    auto var_missing_on_disk =
+        !resfile.VariableExists(swarmname, RestartReader::DataType::Swarm);
     if (Globals::my_rank == 0) {
       std::cout << "Swarm: " << swarmname
                 << (var_missing_on_disk ? " missing on disk\n" : "\n");
@@ -443,7 +452,6 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     auto &params = pkg->AllParams();
     resfile.ReadParams(name, params);
   }
-#endif // ifdef ENABLE_HDF5
 }
 
 } // namespace parthenon

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -12,6 +12,8 @@
 //========================================================================================
 #ifndef INTERFACE_MESH_DATA_HPP_
 #define INTERFACE_MESH_DATA_HPP_
+
+// This file was made in part with generative AI
 
 #include <algorithm>
 #include <limits>
@@ -28,9 +30,11 @@
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "pack/sparse_pack_base.hpp"
-#include "pack/sparse_pack_cache.hpp"
-#include "pack/swarm_pack_base.hpp"
+#include "pack/sparse_pack/sparse_pack_base.hpp"
+#include "pack/sparse_pack/sparse_pack_cache.hpp"
+#include "pack/swarm_pack/swarm_pack_base.hpp"
+#include "pack/swarm_pack/swarm_pack_cache.hpp"
+#include "pack/swarm_pack/swarm_pack_types.hpp"
 #include "utils/communication_buffer.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/object_pool.hpp"
@@ -124,7 +128,7 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
 
   std::vector<int> alloc_status_collection;
 
-  for (size_t i = 0; i < nblocks; i++) {
+  for (std::size_t i = 0; i < nblocks; i++) {
     const auto &pack = packing_function(block_data_[i], this_map, this_key);
     AppendKey(&total_key, &this_key);
     AllocationStatusCollector<P>::Append(&alloc_status_collection, pack);
@@ -154,7 +158,7 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
     ParArray1DRaw<P> packs(ViewOfViewAlloc("MeshData::PackVariables::packs"), nblocks);
     auto packs_host = create_view_of_view_mirror(packs);
 
-    for (size_t i = 0; i < nblocks; i++) {
+    for (std::size_t i = 0; i < nblocks; i++) {
       const auto &pack = packing_function(block_data_[i], this_map, this_key);
       packs_host(i) = pack;
     }
@@ -197,7 +201,16 @@ class MeshData {
   explicit MeshData(const std::string &name) : stage_name_(name) {}
 
   GridIdentifier grid;
-  int partition = -1;
+  int partition{-1};
+
+  void SetBoundBufferId(BoundaryType btype, int id);
+
+  int GetBoundBufferId(BoundaryType btype) const {
+    if (bound_buffer_ids_.count(btype)) return bound_buffer_ids_.at(btype);
+    return 0;
+  }
+
+  std::map<BoundaryType, int> bound_buffer_ids_{};
 
   const auto &StageName() const { return stage_name_; }
 
@@ -503,17 +516,13 @@ class MeshData {
 
   template <typename TYPE>
   SwarmPackCache<TYPE> &GetSwarmPackCache() {
-    if constexpr (std::is_same<TYPE, int>::value) {
-      return swarm_pack_int_cache_;
-    } else if constexpr (std::is_same<TYPE, Real>::value) {
-      return swarm_pack_real_cache_;
-    }
-    PARTHENON_THROW("SwarmPacks only compatible with int and Real types");
+    static_assert(SwarmPackTypes::template IsIn<TYPE>(),
+                  "Unsupported type encountered in SwarmPack");
+    return std::get<SwarmPackTypes::template GetIdx<TYPE>()>(swarm_pack_caches_);
   }
 
   void ClearSwarmCaches() {
-    if (swarm_pack_real_cache_.size() > 0) swarm_pack_real_cache_.clear();
-    if (swarm_pack_int_cache_.size() > 0) swarm_pack_int_cache_.clear();
+    std::apply([](auto &...caches) { (caches.clear(), ...); }, swarm_pack_caches_);
   }
 
  private:
@@ -528,8 +537,7 @@ class MeshData {
   MapToMeshBlockVarPack<T> varPackMap_;
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
-  SwarmPackCache<int> swarm_pack_int_cache_;
-  SwarmPackCache<Real> swarm_pack_real_cache_;
+  SwarmPackCaches swarm_pack_caches_;
   // caches for boundary information
   BvarsCache_t bvars_cache_;
 };

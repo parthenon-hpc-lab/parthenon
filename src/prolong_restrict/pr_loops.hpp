@@ -37,7 +37,7 @@ namespace loops {
 // TODO(JMM) if LayoutLeft is ever relaxed, these might need to become
 // template parameters
 using Idx_t = ParArray1D<std::size_t>;
-using IdxHost_t = typename ParArray1D<std::size_t>::HostMirror;
+using IdxHost_t = typename ParArray1D<std::size_t>::host_mirror_type;
 
 template <typename Info_t>
 KOKKOS_FORCEINLINE_FUNCTION bool DoRefinementOp(const Info_t &info,
@@ -122,7 +122,7 @@ ProlongationRestrictionLoop(const ProResInfoArr_t &info, const Idx_t &buffer_idx
   auto jb = cellbounds.GetBoundsJ(interior);
   auto ib = cellbounds.GetBoundsI(interior);
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
-  size_t scratch_size_in_bytes = 1;
+  std::size_t scratch_size_in_bytes = 1;
   par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(),
       scratch_size_in_bytes, scratch_level, 0, nbuffers - 1,

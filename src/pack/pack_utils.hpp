@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -13,9 +13,12 @@
 #ifndef PACK_PACK_UTILS_HPP_
 #define PACK_PACK_UTILS_HPP_
 
+// This file was made in part with generative AI.
+
 #include <string>
 #include <tuple>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -61,20 +64,24 @@ struct GetDataType<T> {
 
 namespace parthenon {
 
+// Map for going from variable names to pack variable indices
+using PackIdxMap = std::unordered_map<std::string, std::size_t>;
+
 // Namespace in which to put variable name types that are used for indexing into
 // SparsePack<[type list of variable name types]> on device
 namespace variable_names {
 // Struct that all variable_name types should inherit from
 constexpr int ANYDIM = -1234; // ANYDIM must be a slowest-moving index
-template <bool REGEX, typename T, int... NCOMP>
-struct var_base_t {
+template <bool REGEX, typename T, TopologicalType TT, int... NCOMP>
+struct var_base_impl_t {
   using data_type = T;
+  static constexpr TopologicalType topological_type{TT};
 
   KOKKOS_INLINE_FUNCTION
-  var_base_t() : idx(0) {}
+  var_base_impl_t() : idx(0) {}
 
   KOKKOS_INLINE_FUNCTION
-  explicit var_base_t(int idx1) : idx(idx1) {}
+  explicit var_base_impl_t(int idx1) : idx(idx1) {}
 
   /*
     for 2D:, (M, N),
@@ -83,15 +90,15 @@ struct var_base_t {
     idx(l, m, n) = (M*l + m)*N + n
                  = l*M*N + m*N + n
    */
-  template <typename... Args, REQUIRES(all_implement<integral(Args...)>::value),
-            REQUIRES(sizeof...(Args) == sizeof...(NCOMP))>
-  KOKKOS_INLINE_FUNCTION explicit var_base_t(Args... args)
+  template <typename... Args>
+    requires((Integral<Args> && ...) && (sizeof...(Args) == sizeof...(NCOMP)))
+  KOKKOS_INLINE_FUNCTION explicit var_base_impl_t(Args... args)
       : idx(GetIndex_(std::forward<Args>(args)...)) {
     static_assert(CheckArgs_(NCOMP...),
                   "All dimensions must be strictly positive, "
                   "except the first (slowest), which may be ANYDIM.");
   }
-  virtual ~var_base_t() = default;
+  virtual ~var_base_impl_t() = default;
 
   // All of these are just static methods so that there is no
   // extra storage in the struct
@@ -105,16 +112,17 @@ struct var_base_t {
   }
   static std::vector<int> GetShape() { return std::vector<int>{NCOMP...}; }
   KOKKOS_INLINE_FUNCTION
-  static bool regex() { return REGEX; }
+  static constexpr bool regex() { return REGEX; }
   KOKKOS_INLINE_FUNCTION
-  static int ndim() { return sizeof...(NCOMP); }
+  static constexpr std::size_t ndim() { return sizeof...(NCOMP); }
   KOKKOS_INLINE_FUNCTION
-  static int size() { return multiply<NCOMP...>::value; }
+  static constexpr std::size_t size() { return multiply<NCOMP...>::value; }
 
   const int idx;
 
  private:
-  template <typename... Tail, REQUIRES(all_implement<integral(Tail...)>::value)>
+  template <typename... Tail>
+    requires(Integral<Tail> && ...)
   static constexpr bool CheckArgs_(int head, Tail... tail) {
     return (... && (tail > 0));
   }
@@ -130,10 +138,17 @@ struct var_base_t {
     return idx;
   }
 };
+
 template <bool REGEX, int... NCOMP>
-struct base_t : public var_base_t<REGEX, Real, NCOMP...> {
-  using var_base_t<REGEX, Real, NCOMP...>::var_base_t;
+struct base_t : public var_base_impl_t<REGEX, Real, TopologicalType::Cell, NCOMP...> {
+  using var_base_impl_t<REGEX, Real, TopologicalType::Cell, NCOMP...>::var_base_impl_t;
 };
+
+template <bool REGEX, TopologicalType TT, int... NCOMP>
+struct base_w_tt_t : public var_base_impl_t<REGEX, Real, TT, NCOMP...> {
+  using var_base_impl_t<REGEX, Real, TT, NCOMP...>::var_base_impl_t;
+};
+
 // An example variable name type that selects all variables available
 // on Mesh*Data
 struct any_withautoflux : public base_t<true> {
@@ -154,13 +169,9 @@ using any = any_nonautoflux;
 
 // Concept to state that a typed-field is dependent on other
 // fields, and is not itself an actual indexable field.
-struct DependentVariable {
-  template <typename T>
-  auto requires_(T) -> void_t<typename T::independent_vars>;
-};
-
 template <typename T>
-constexpr bool dependent_variable_v = implements<DependentVariable(T)>::value;
+concept DependentVariable =
+    requires { typename T::independent_vars; }; // NOLINT(readability/braces)
 
 template <typename... Ts>
 struct virtual_variable_t {
@@ -168,31 +179,25 @@ struct virtual_variable_t {
   using independent_vars = TypeList<Ts...>;
 };
 
-// Cocnept to check that a type shares an ancestor with virtual_variable_t
-struct VirtualVariable {
-  template <typename T>
-  auto requires_(T) -> void_t<
-      ENABLEIF(is_specialization_of<typename T::type, virtual_variable_t>::value)>;
-};
-
+// Concept to check that a type shares an ancestor with virtual_variable_t
 template <typename T>
-constexpr bool virtual_variable_v = implements<VirtualVariable(T)>::value;
+concept VirtualVariable = requires {
+  typename T::type;
+  requires is_specialization_of<typename T::type, virtual_variable_t>::value;
+}; // NOLINT(readability/braces)
 
 // Concept to check that a type wants a subpack to evaluate the virtual field
-struct VirtualSubPack {
-  template <typename T>
-  auto requires_(T)
-      -> void_t<typename T::pack_type,
-                ENABLEIF(std::is_same_v<decltype(T::pack_type::Naxes), const int>)>;
-};
-
 template <typename T>
-constexpr bool virtual_subpack_v = implements<VirtualSubPack(T)>::value;
+concept VirtualSubPack = requires {
+  typename T::pack_type;
+  requires std::is_same_v<decltype(T::pack_type::Naxes), const int>;
+}; // NOLINT(readability/braces)
 
 namespace impl {
 
 struct AllIndependentVariables {
-  template <typename T, REQUIRES(!dependent_variable_v<T>)>
+  template <typename T>
+    requires(!DependentVariable<T>)
   static auto get(T) {
     return TypeList<T>();
   }
@@ -202,7 +207,8 @@ struct AllIndependentVariables {
     return AllIndependentVariables::get(Ts()...);
   }
 
-  template <typename T, REQUIRES(dependent_variable_v<T>)>
+  template <typename T>
+    requires(DependentVariable<T>)
   static auto get(T) {
     return AllIndependentVariables::get(typename T::independent_vars());
   }
@@ -225,8 +231,10 @@ using all_independent_variables_t = decltype(impl::AllIndependentVariables::get(
 // SwarmPack<[type list of variable name types]> on device
 namespace swarm_variable_names {
 template <typename T, int... NCOMP>
-struct base_t : public variable_names::var_base_t<false, T, NCOMP...> {
-  using variable_names::var_base_t<false, T, NCOMP...>::var_base_t;
+struct base_t
+    : public variable_names::var_base_impl_t<false, T, TopologicalType::Cell, NCOMP...> {
+  using variable_names::var_base_impl_t<false, T, TopologicalType::Cell,
+                                        NCOMP...>::var_base_impl_t;
 };
 } // namespace swarm_variable_names
 
@@ -258,13 +266,37 @@ class PackIdx {
   int offset;
 };
 // Operator overloads to make calls like `my_pack(b, my_pack_idx + 3, k, j, i)` work
-template <class T, REQUIRES(std::is_integral<T>::value)>
+template <class T>
+  requires(std::is_integral<T>::value)
 KOKKOS_INLINE_FUNCTION PackIdx operator+(PackIdx idx, T offset) {
   return PackIdx(idx.VariableIdx(), idx.Offset() + offset);
 }
-template <class T, REQUIRES(std::is_integral<T>::value)>
+template <class T>
+  requires(std::is_integral<T>::value)
 KOKKOS_INLINE_FUNCTION PackIdx operator+(T offset, PackIdx idx) {
   return idx + offset;
+}
+
+// Utilities for type indexing
+namespace impl {
+struct SumAllTypes {};
+
+template <class TL, std::size_t... Is>
+constexpr std::size_t SumSizesImpl(std::index_sequence<Is...>) {
+  return (std::size_t{0} + ... +
+          (TL::template type<Is>::size() *
+           NumberOfTopologicalElements(TL::template type<Is>::topological_type)));
+}
+} // namespace impl
+
+template <class TL, class StopT = impl::SumAllTypes>
+constexpr std::size_t SumSizesBefore() {
+  if constexpr (std::is_same_v<StopT, impl::SumAllTypes>) {
+    return impl::SumSizesImpl<TL>(std::make_index_sequence<TL::n_types>{});
+  } else {
+    constexpr std::size_t stop_idx = TL::template GetIdx<StopT>();
+    return impl::SumSizesImpl<TL>(std::make_index_sequence<stop_idx>{});
+  }
 }
 
 } // namespace parthenon
