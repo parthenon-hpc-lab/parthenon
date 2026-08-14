@@ -112,14 +112,15 @@ struct UnionTypeLists<TypeList<Ts...>, TypeList<>> {
 template <typename... Ts, typename V, typename... Vs>
 struct UnionTypeLists<TypeList<Ts...>, TypeList<V, Vs...>> {
   using TL = TypeList<Ts...>;
-  using type = std::conditional_t<
-      TL::template IsIn<V>(), TL,
-      typename UnionTypeLists<TypeList<Ts..., V>, TypeList<Vs...>>::type>;
+  using type = typename UnionTypeLists<
+      std::conditional_t<TL::template IsIn<V>(), TL, TypeList<Ts..., V>>,
+      TypeList<Vs...>>::type;
 };
 
 template <typename T, typename U, typename V, typename... Args>
 struct UnionTypeLists<T, U, V, Args...> {
-  using type = typename UnionTypeLists<typename UnionTypeLists<T, U>::type, V>::type;
+  using type =
+      typename UnionTypeLists<typename UnionTypeLists<T, U>::type, V, Args...>::type;
 };
 
 template <class T, std::size_t I, class... Ts>
