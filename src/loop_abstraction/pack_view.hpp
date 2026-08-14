@@ -252,6 +252,15 @@ struct var_view_t {
   parthenon::Real *data_ = nullptr;
   int shift_ = 0;
   const IndexSpaceType *pidx_space = nullptr;
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto operator+(const int offst) const {
+    var_view_t<IndexSpaceType, PackType> out;
+    out.data_ = data_ + offst;
+    out.shift_ = shift_;
+    out.pidx_space = pidx_space;
+    return out;
+  }
 };
 
 // logical_coords specialization: forward straight to pack(b, vidx, k,j,i), no cached
