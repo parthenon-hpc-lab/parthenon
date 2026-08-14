@@ -5,6 +5,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1429]](https://github.com/parthenon-hpc-lab/parthenon/pull/1429) Fixes to swarm tensor xdmf
 - [[PR 1428]](https://github.com/parthenon-hpc-lab/parthenon/pull/1428) Permit larger input file sizes
 - [[PR 1415]](https://github.com/parthenon-hpc-lab/parthenon/pull/1415) Add portable loop abstraction
 - [[PR 1413]](https://github.com/parthenon-hpc-lab/parthenon/pull/1413) Add support for per-package meshdata objects containing subsets of variables 
