@@ -250,12 +250,10 @@ These are known, deliberately-deferred extensions rather than open design questi
 
 Halo ranges are implemented (see `halo.hpp`, `inner_range.hpp`, `scratch.hpp`). Much of
 this section is written in the original proposal tense; the concepts and semantic rules
-below still hold. The worked producer/consumer examples use the real API, but a few
-conceptual code sketches do not describe the actual types: the `template <Index3...
-Offsets> struct halo_t` in "Offset-set representation" (real halos are the
-`halo::*_t` structs in `halo.hpp`) and the `span_union`/`flat_span` types in "Range
-construction" (regions are stored as `flat_start[]`/`flat_end[]` arrays and merged in
-`BuildRegions`).
+below still hold. The worked producer/consumer examples and "Range construction" describe
+the real API, but the `template <Index3... Offsets> struct halo_t` sketch in "Offset-set
+representation" is conceptual only -- real halos are the `halo::*_t` structs in
+`halo.hpp`.
 
 ## Concept
 
@@ -409,40 +407,50 @@ This keeps the halo operation geometric and avoids conflating logical coordinate
 
 ## Range construction
 
-For a one-offset halo, the halo range is the union of at most two flat spans in the halo-aware indexer:
+For a one-offset halo, the halo range is the union of at most two flat spans in the
+halo-aware indexer:
 
 ```text
 span 0: S flattened in D_h
 span 1: shift(S, h) flattened in D_h
 ```
 
-If the spans overlap or touch, they can be merged into one span. If they are disjoint, the range is represented as two spans.
+If the spans overlap or touch, they can be merged into one span. If they are disjoint,
+the range is represented as two spans.
 
-For a multi-offset halo, the same idea generalizes:
+For a multi-offset halo, the same idea generalizes -- one span per offset:
 
 ```text
-span 0: S
+span 0: shift(S, h0)
 span 1: shift(S, h1)
 span 2: shift(S, h2)
 ...
 ```
 
-After flattening these spans in the halo-aware logical domain, sort and merge them into a compact span union.
+where one of the offsets is the identity, so its span is `S` itself. After flattening
+these spans in the halo-aware logical domain, merge the ones that overlap or touch into a
+compact span union.
 
-Since the number of halo offsets is expected to be small, this can be represented with a small fixed-capacity span list.
+In the code this is `BuildRegions` (`inner_range.hpp`), and the merge is a single linear
+pass rather than a runtime sort. It relies on the halo offsets being **strictly sorted at
+compile time**: `HaloSatisfiesContract` enforces the ordering, and `HaloReducedRange`
+hands back a contiguous sub-run that is still sorted in a reduced-dimension run. Sorted
+offsets mean the spans arrive in non-decreasing flat-start order, so each candidate span
+only has to be compared against the last emitted one -- no runtime sort and no dynamic
+storage before every inner loop, which is what keeps it device-friendly.
+
+Since the number of halo offsets is small and known at compile time, the merged spans are
+stored in parallel fixed-capacity arrays sized by the offset count, plus a count of how
+many spans are live:
 
 ```cpp
-struct flat_span {
-  int start;
-  int stop; // inclusive
-};
-
-template <int MaxSpans>
-struct span_union {
-  int nspans;
-  flat_span spans[MaxSpans];
-};
+std::array<int, Halo::npoints> flat_start;  // inclusive
+std::array<int, Halo::npoints> flat_end;    // inclusive
+int nregions;
 ```
+
+The enclosing memory-flat interval of these spans is also tracked, for scratch sizing
+(see Scratch indexing).
 
 ## Scratch indexing
 
