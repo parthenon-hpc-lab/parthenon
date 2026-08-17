@@ -187,7 +187,7 @@ constexpr bool HaloIsProjectionClosed() {
 // always the most-significant sort keys (k, then j), so the DROP-kept set -- offsets
 // with zero component in every inactive direction -- is a single contiguous run. The
 // identity {0,0,0} is always kept. Because a sub-range of a sorted array is still
-// sorted, the merge in BuildRegionsFromEndpoints stays valid when seeded from begin.
+// sorted, the merge in BuildRegions stays valid when seeded from begin.
 //
 // ndim follows the Parthenon convention: i active for ndim >= 1, j for ndim >= 2,
 // k for ndim >= 3.
