@@ -210,10 +210,8 @@ synchronous and the value is valid on return, no fence needed):
        });
      });
 
-An escape-hatch overload instead takes a caller-constructed reducer instance *last*
-(matching ``Kokkos::parallel_reduce(policy, functor, reducer)``) for reducing into a
-``View``, ``ScatterView``, or device memory; it returns void and its reducer type must
-match the space's ``reduction_t``.
+An overload instead takes a caller-constructed reducer instance *last*, matching ``Kokkos::parallel_reduce(policy, functor, reducer)``. This returns void and its reducer type must match the space's ``reduction_t``. This overload is necessary for, e.g., reducing into a
+``View``, ``ScatterView``, or device memory.
 
 Because the reducer type lives on the index space, ``inner_reduce`` reuses its join op
 without the caller restating it, and a single ``outer_reduce`` region may contain
