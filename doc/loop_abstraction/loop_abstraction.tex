@@ -106,8 +106,8 @@ The loop abstraction exists to close that gap. A kernel declares \emph{what}
 index space it covers and \emph{how} its variables are laid out; a small set of
 compile-time tags then selects the concrete loop structure. The intent is that a
 single kernel body can be compiled into either a CPU-friendly hierarchical form
-that stores and reuses intermediate results, or a GPU-friendly flat form that
-recomputes them, with no change to the physics code.
+that computes intermediate results once and stores them, or a GPU-friendly flat
+form that recomputes them on demand, with no change to the physics code.
 
 This document is organized around that claim. Section~\ref{sec:motivation}
 develops a single motivating kernel and writes it out by hand twice, once for each
@@ -148,22 +148,25 @@ Consider the flux computation in a directionally-split Godunov scheme, for the
 $x_1$ sweep. For each cell we need the flux $F_{i-1/2}$ on its lower $x_1$ face.
 The standard recipe is:
 \begin{enumerate}
-\item \textbf{Reconstruct} the left and right interface states at each face
-  $i-1/2$ from a stencil of cell-centered values --- e.g.\ for a three-point
-  reconstruction, $q_{i-1}, q_i, q_{i+1}$ contribute to the states at face
-  $i-1/2$. Call the resulting one-sided states $q^{+}_{i-1/2}$ (extrapolated from
-  the left) and $q^{-}_{i-1/2}$ (extrapolated from the right).
-\item \textbf{Solve a Riemann problem} at each face from the two one-sided states:
-  $F_{i-1/2} = \mathcal{R}\!\left(q^{+}_{i-1/2}, q^{-}_{i-1/2}\right)$.
+\item \textbf{Reconstruct}, for each cell $i$, the two one-sided interface states on
+  its faces. A reconstruction reads a stencil of cell-centered values around cell
+  $i$ --- e.g.\ $q_{i-1}, q_i, q_{i+1}$ for a three-point scheme --- forms a single
+  slope, and applies it toward each face, giving the state $q^{+}_i$ extrapolated to
+  the cell's upper face ($i+1/2$) and $q^{-}_i$ to its lower face ($i-1/2$). Both
+  states come from the \emph{same} stencil read and slope, so a cell naturally
+  produces them together.
+\item \textbf{Solve a Riemann problem} at each face from the two states that meet
+  there --- the upper-face state of the cell below and the lower-face state of the
+  cell above: $F_{i-1/2} = \mathcal{R}\!\left(q^{+}_{i-1}, q^{-}_i\right)$.
 \end{enumerate}
 
-The key structural observation is that \emph{a reconstructed state is used
-twice}. The state $q^{\pm}_{i-1/2}$ produced at face $i-1/2$ feeds the Riemann
-solve at that face; but the reconstruction machinery that produces the states at
-face $i-1/2$ also produces (or shares most of its work with) the states at the
-neighboring face $i+1/2$. Whether it is worth \emph{storing} a reconstructed state
-so the neighbor can reuse it, or simply \emph{recomputing} it, is precisely the
-decision that differs between CPU and GPU. The next two subsections write the
+The key structural observation is that \emph{a cell's two states are computed from
+one shared slope}, and that slope is then needed at \emph{both} of the cell's faces:
+the Riemann solve above cell $i$ reads its $q^{+}_i$, and the one below reads its
+$q^{-}_i$. Whether it is worth reconstructing each cell once and \emph{storing} both
+states so the two flanking Riemann solves can read them, or simply
+\emph{recomputing} a cell's slope separately at each face that needs it, is precisely
+the decision that differs between CPU and GPU. The next two subsections write the
 kernel out both ways.
 
 Throughout, $q$ is a cell-centered field, and we compute the $x_1$ flux
@@ -178,20 +181,21 @@ On a CPU the dominant concerns are (i) keeping the innermost loop long,
 unit-stride, and vectorizable, and (ii) not repeating expensive arithmetic. Both
 push toward a \emph{hierarchical} structure: an outer loop that walks planes or
 pencils of the block, and an inner loop that sweeps contiguously along $x_1$.
-Reconstruction is done \emph{once per face} and stored in a scratch buffer; the
-flux loop then reads two neighboring scratch entries per face.
+Reconstruction is done \emph{once per cell} and both of that cell's states are
+stored in scratch; the flux loop then reads the two states that meet at each face.
 
 \begin{lstlisting}
-// CPU-style: reconstruct once into scratch, reuse for the flux.
+// CPU-style: reconstruct each cell once into scratch, then solve the fluxes.
 for (int k = kb.s; k <= kb.e; ++k) {
   for (int j = jb.s; j <= jb.e; ++j) {
 
-    // scratch spans [is-1, ie]: one extra face on the low side, because the
-    // flux at face i reads the reconstructed state at face i-1 as well.
-    Real *qp = scratch_plus_row(k, j);   // q^+ at each face in this row
-    Real *qm = scratch_minus_row(k, j);  // q^-
+    // scratch spans [is-1, ie]: one extra cell on the low side, because the
+    // flux at face i reads the upper-face state q^+ of the cell at i-1.
+    Real *qp = scratch_plus_row(k, j);   // q^+ (upper-face state) of each cell
+    Real *qm = scratch_minus_row(k, j);  // q^- (lower-face state) of each cell
 
-    // Producer: reconstruct every face in the (extended) row exactly once.
+    // Producer: reconstruct every cell in the (extended) row exactly once. One
+    // stencil read and slope per cell yields both of its one-sided states.
     const Real *q_row = &q(k, j, 0);
     #pragma omp simd
     for (int i = is - 1; i <= ie; ++i) {
@@ -199,11 +203,12 @@ for (int k = kb.s; k <= kb.e; ++k) {
       qm[i] = reconstruct_minus(q_row[i-1], q_row[i], q_row[i+1]);
     }
 
-    // Consumer: one Riemann solve per face, reading neighboring scratch.
+    // Consumer: one Riemann solve per face, from the two cells' states that meet
+    // there -- the upper-face state of cell i-1 and the lower-face state of cell i.
     Real *F_row = &F(k, j, 0);
     #pragma omp simd
     for (int i = is; i <= ie; ++i) {
-      F_row[i] = riemann(qp[i-1], qm[i]);   // <-- reuse of qp at face i-1
+      F_row[i] = riemann(qp[i-1], qm[i]);
     }
   }
 }
@@ -213,12 +218,16 @@ Three features matter and will reappear as abstraction concepts:
 \begin{itemize}
 \item \textbf{Two loops over nearly the same range.} The producer runs over
   $[i_s-1, i_e]$ and the consumer over $[i_s, i_e]$. The producer's range is the
-  consumer's range \emph{plus one extra face on the low side}, because
+  consumer's range \emph{plus one extra cell on the low side}, because
   \code{riemann(qp[i-1], qm[i])} reads a produced value at $i-1$. That ``one
-  extra face'' is exactly what a \emph{halo} will name (Section~\ref{sec:halos}).
-\item \textbf{Scratch reuse.} Each reconstructed state is computed once and read
-  by (up to) two Riemann solves. The scratch buffer is sized to the extended
-  producer range.
+  extra cell'' is exactly what a \emph{halo} will name (Section~\ref{sec:halos}).
+\item \textbf{Compute-once, read-twice \emph{work}.} Each cell's reconstruction is
+  done once and stored, but its \emph{slope} feeds the fluxes on both of the cell's
+  faces (the flux above reads $q^+$, the flux below reads $q^-$). Storing spends the
+  stencil read and slope once per cell; the flat form below repeats them at each
+  face. Each stored state itself is read exactly once --- it is the per-cell
+  \emph{work}, not any one value, that is shared. The scratch buffer is sized to the
+  extended producer range.
 \item \textbf{Contiguous inner loops.} Both inner loops are unit-stride in $i$
   and marked for SIMD; \code{q_row}, \code{qp}, \code{qm} are raw pointers so the
   compiler sees \code{a[i]}-style access. The row shown here is one $i$-pencil, but
@@ -248,18 +257,19 @@ directly through the pack.
 // GPU-style: one thread per face, recompute reconstruction, no scratch.
 par_for(is, ie, jb.s, jb.e, kb.s, kb.e,
   KOKKOS_LAMBDA(const int k, const int j, const int i) {
-    // This face needs q^+ from face i-1 and q^- from face i.
+    // Face i needs cell i-1's upper-face state and cell i's lower-face state.
     const Real qp_im1 = reconstruct_plus (q(k,j,i-2), q(k,j,i-1), q(k,j,i));
     const Real qm_i   = reconstruct_minus(q(k,j,i-1), q(k,j,i), q(k,j,i+1));
     F(k, j, i) = riemann(qp_im1, qm_i);
   });
 \end{lstlisting}
 
-Here \code{reconstruct_plus} at face $i-1$ is computed independently by the thread
-that owns face $i-1$ as well --- the value is produced twice, once per consuming
-face. That redundant arithmetic is deliberate: it buys a flat, barrier-free,
-single-level parallel loop with direct field access and no shared-memory
-bookkeeping.
+Here cell $i-1$'s slope is formed twice: this thread forms it to get
+$q^{+}_{i-1}$, and the thread owning face $i-1$ forms it again to get
+$q^{-}_{i-1}$. Every cell's reconstruction is thus done by both of the threads on
+its faces, roughly doubling the reconstruction arithmetic. That redundancy is
+deliberate: it buys a flat, barrier-free, single-level parallel loop with direct
+field access and no shared-memory bookkeeping.
 
 % ---------------------------------------------------------------
 \subsection{What differs, and what does not}
@@ -268,8 +278,8 @@ bookkeeping.
 
 Comparing the two, the \emph{physics} --- \code{reconstruct_plus},
 \code{reconstruct_minus}, \code{riemann}, and the fact that the flux at a face
-reads $q^+$ from the face below and $q^-$ from the face itself --- is
-byte-for-byte identical. What differs is entirely structural:
+reads the upper-face state of the cell below and the lower-face state of the cell
+above --- is byte-for-byte identical. What differs is entirely structural:
 
 \begin{center}
 \begin{tabular}{@{}lll@{}}
@@ -279,7 +289,8 @@ byte-for-byte identical. What differs is entirely structural:
 \midrule
 Parallelism   & hierarchical (team over planes, & flat (one thread per face) \\
               & SIMD along $i$)                 &  \\
-Intermediate  & stored in scratch, reused       & recomputed per consuming face \\
+Intermediate  & reconstructed once per cell,    & recomputed at each face \\
+              & stored in scratch               & (both faces redo the cell) \\
 Access        & raw pointers, \code{a[i]}       & direct pack access \\
 Barrier       & producer/consumer split         & none \\
 \bottomrule
@@ -310,35 +321,40 @@ touching the body.
 \begin{lstlisting}
 namespace la = parthenon::loop_abstraction;
 
-// recon_halo names the extra produced faces the flux loop will read: the flux at
-// face i reads the reconstructed q^+ at face i-1, i.e. one cell in -i.
+// recon_halo names the extra reconstructed cell the flux loop will read: the flux
+// at face i reads the upper-face state q^+ of cell i-1, i.e. one cell in -i.
 using recon_halo = la::halo::minus_i_t;
 
-// F1-face index space over the interior, backend chosen by the tags.
+// F1-face index space over the interior, backend chosen by the tags. Iterating over
+// F1 faces makes the index range include the topmost x1 face, so no flux is missed;
+// each array still reads the index by its own centering (cell-centered for the
+// reconstructed states, face for the flux).
 using idx_space_t = la::IndexSpace<LOOP_TAG, INNER_TAG>;
 idx_space_t idx_space(
     ninner, IndexDomain::interior, /*halo=*/0, pack.GetNBlocks(),
     md, TopologicalElement::F1);
-idx_space.AddPerPointScratch<Real, recon_halo>(2);   // q^+ and q^- per face
+idx_space.AddPerPointScratch<Real, recon_halo>(2);   // q^+ and q^- per cell
 
 const auto dx1 = idx_space.GetDelta(X1DIR);           // logical +1 step in x1
 
 la::outer(idx_space, KOKKOS_LAMBDA(const idx_space_t::idx_range_t &r, int b) {
-  // Extend this slice by recon_halo: the producer below now covers the flux
-  // range plus the one extra face in -i.
+  // Extend this slice by recon_halo: the producer below now covers the base
+  // cells plus the one extra cell in -i.
   const auto rp = la::AddHalo<recon_halo>(r);
   auto qp = la::GetPerPointScratch<Real>(rp);
   auto qm = la::GetPerPointScratch<Real>(rp);
   auto pv = la::make_pack_view(rp, pack);
 
-  // Producer: reconstruct over the halo-extended range.
+  // Producer: reconstruct each cell over the halo-extended range -- one stencil
+  // read and slope per cell yields both of its one-sided states.
   la::inner(rp, [&](auto f) {
     qp(f) = reconstruct_plus (pv(q(), f - dx1), pv(q(), f), pv(q(), f + dx1));
     qm(f) = reconstruct_minus(pv(q(), f - dx1), pv(q(), f), pv(q(), f + dx1));
   });
   r.TeamBarrier();  // producer must finish before the consumer reads (no-op where serial)
 
-  // Consumer: one Riemann solve per face over the base range.
+  // Consumer: one Riemann solve per face over the base range, from the two cells'
+  // states that meet there -- cell i-1's upper-face q^+ and cell i's lower-face q^-.
   auto fv = la::make_flux_pack_view(r, pack, X1DIR);
   la::inner(r, [&](auto f) {
     fv(q(), f) = riemann(qp(f - dx1), qm(f));
@@ -353,14 +369,14 @@ Now the instantiations:
   block; \code{inner} sweeps a contiguous span; \code{GetPerPointScratch} resolves
   to team scratch (Kokkos) or a host bump-arena buffer (raw), sized to the
   halo-extended producer range; the \code{TeamBarrier} separates producer and
-  consumer. The reconstructed states are stored once and reused. Choosing
-  \code{bvoi} instead keeps the whole block live per slice --- more scratch,
-  often faster (Section~\ref{sec:looptags}).
+  consumer. Each cell is reconstructed once into scratch and its two states are
+  read by the flanking flux solves. Choosing \code{bvoi} instead keeps the whole
+  block live per slice --- more scratch, often faster (Section~\ref{sec:looptags}).
 \item \code{IndexSpace<loop_tag::boiv, ...>} recovers the GPU form. \code{outer}
   is a flat grid over all $(\text{block},k,j,i)$, scratch is a tiny per-thread
   stack buffer, and the \code{TeamBarrier} is a no-op. The producer and consumer
-  run back-to-back on the same thread, so the reconstructed states are effectively
-  recomputed per face --- exactly Section~\ref{sec:gpu}. Note that here the word
+  run back-to-back on the same thread, so each cell's reconstruction is redone by
+  both of the threads on its faces --- exactly Section~\ref{sec:gpu}. Note that here the word
   \code{inner} is something of a lie: for the base (non-halo) range the
   ``\code{inner} loop'' is a single logical cell --- a one-iteration loop, i.e.\
   not really a loop at all --- and even for the halo-extended range it runs only
@@ -880,7 +896,7 @@ example, to check raw-vs-Kokkos parity on a host build where both can run.
 
 Many kernels read a cell's neighbors, whether or not scratch or halos are
 involved: a diffusion operator reads $q(f\pm\hat{\imath})$, a gradient reads
-neighbors in every direction, the flux consumer reads a produced state one face
+neighbors in every direction, the flux consumer reads a produced state one cell
 over. To do this the body needs a way to spell ``one cell over in $x_1$'' that is
 correct for whatever index form the current inner tag hands it. \code{GetDelta}
 provides exactly that, and it is a general facility --- nothing about it is tied to
@@ -932,7 +948,7 @@ halo offset agree about which directions are real.
 
 Scratch is the per-cell temporary storage a producer inner loop writes and a
 consumer inner loop reads --- the reconstructed $q^\pm$ of the flux kernel. It is
-the mechanism that makes the store-and-reuse CPU form possible, and it is sized
+the mechanism that makes the store-once CPU form possible, and it is sized
 and allocated differently for each loop path so that the same kernel text works on
 all of them.
 
@@ -1111,13 +1127,13 @@ indexed.
 % =====================================================================
 
 Recall the pattern that motivated the abstraction (Section~\ref{sec:cpu}): a
-\emph{producer} inner loop reconstructs a value at every cell and writes it into
+\emph{producer} inner loop reconstructs each cell's states and writes them into
 scratch, and a later \emph{consumer} inner loop reads that scratch back, but at
-\emph{offset} positions --- the flux at face $f$ reads the reconstructed state at
-$f$ \emph{and} at $f - \hat{\imath}$. This offset read is the whole source of the
-problem a halo solves. If both loops ran over the same set of cells $\Sset$, the
+\emph{offset} positions --- the flux at face $f$ reads the stored states of cell
+$f$ \emph{and} of cell $f - \hat{\imath}$. This offset read is the whole source of
+the problem a halo solves. If both loops ran over the same set of cells $\Sset$, the
 consumer's read at $f - \hat{\imath}$ would fall on a scratch cell the producer
-never wrote for the boundary faces of $\Sset$. The producer must therefore fill
+never wrote for the boundary cells of $\Sset$. The producer must therefore fill
 scratch not just on $\Sset$ but on $\Sset$ \emph{plus the shifted copies the
 consumer will reach into}. A halo is how the kernel declares exactly which shifted
 copies those are.
@@ -1148,9 +1164,9 @@ applying it to $\Sset$ gives the range
 \]
 In the flux kernel the consumer reads \code{qp(f - dx1)}, one cell in $-i$, so the
 type is \code{halo::minus_i_t} (offsets $\{\mathbf{0}, -\hat{\imath}\}$) and the
-range it produces is $\Sset \cup \{p - \hat{\imath} : p \in \Sset\}$ --- the flux
-faces plus one extra face below the bottom of the slice. That extra face is
-precisely the scratch cell the boundary consumer would otherwise read uninitialized.
+range it produces is $\Sset \cup \{p - \hat{\imath} : p \in \Sset\}$ --- the base
+cells plus one extra cell below the bottom of the slice. That extra cell is
+precisely the scratch entry the boundary consumer would otherwise read uninitialized.
 
 Figure~\ref{fig:halo} draws this: the type is a fixed offset stencil (the insets),
 and the range is the union of the inner range with its shifted copy (the crosses).
@@ -1181,18 +1197,18 @@ most common point of confusion. Two stencils are in play, and they are unrelated
 in size:
 \begin{itemize}
 \item The \emph{reconstruction stencil} is the set of \emph{input field} cells read
-  to compute \emph{one} reconstructed value. For a three-point reconstruction it is
-  \code{q(f-dx1)}, \code{q(f)}, \code{q(f+dx1)}; a higher-order scheme reads a wider
-  set. It lives entirely inside the producer body (the arguments to
+  to compute \emph{one} cell's reconstructed states. For a three-point reconstruction
+  it is \code{q(f-dx1)}, \code{q(f)}, \code{q(f+dx1)}; a higher-order scheme reads a
+  wider set. It lives entirely inside the producer body (the arguments to
   \code{reconstruct_plus}) and the abstraction never sees it.
 \item The \emph{halo} is the set of offsets at which the \emph{consumer} reads the
   \emph{produced scratch}. In the flux kernel that is just $\{\mathbf{0},
-  -\hat{\imath}\}$ --- the consumer reads the reconstructed state at its own face
-  and one face below --- regardless of how wide the reconstruction stencil was.
+  -\hat{\imath}\}$ --- a face reads the stored states of its own cell and of the
+  cell one step in $-i$ --- regardless of how wide the reconstruction stencil was.
 \end{itemize}
 So a wide reconstruction stencil with a one-cell halo is the common, expected case:
-reconstruction may read five input cells to produce each scratch value, but the
-flux loop still only reaches one produced face away. The halo describes the
+reconstruction may read five input cells to produce each cell's scratch states, but
+the flux loop still only reaches one produced cell away. The halo describes the
 producer/consumer \emph{coupling} through scratch, and is what determines the
 producer's iteration range; the reconstruction stencil describes the producer's own
 inputs and does not.
@@ -1312,11 +1328,12 @@ than recomputed by re-walking the spans.
 the two backends realize the identical halo semantics differently
 (Section~\ref{sec:scratch}). In a hierarchical (\code{bvoi}/\code{bovi}) loop the
 base set $\Sset$ is many cells, the halo range is the merged union above, and
-scratch is a team/host buffer over the enclosing memory span --- reconstructed
-values are computed once and reused across neighboring consumers. In the pointwise
-\code{boiv} loop $\Sset$ is a single cell, so a one-offset halo range is just
-$\{p, p+h\}$ and scratch collapses to a tiny per-thread stack array (a few
-cells); neighboring reconstructions are simply recomputed in adjacent iterations.
+scratch is a team/host buffer over the enclosing memory span --- each cell is
+reconstructed once and its stored states serve the flux solves on both of its
+faces. In the pointwise \code{boiv} loop $\Sset$ is a single cell, so a one-offset
+halo range is just $\{p, p+h\}$ and scratch collapses to a tiny per-thread stack
+array (a few cells); a cell's reconstruction is simply redone in each adjacent
+iteration that needs it.
 
 % =====================================================================
 \section{Pack, variable, and flux views}
