@@ -195,12 +195,12 @@ for (int k = kb.s; k <= kb.e; ++k) {
     Real *qm = scratch_minus_row(k, j);  // q^- (lower-face state) of each cell
 
     // Producer: reconstruct every cell in the (extended) row exactly once. One
-    // stencil read and slope per cell yields both of its one-sided states.
+    // call forms the cell's slope and writes both one-sided states through the
+    // trailing out-pointers.
     const Real *q_row = &q(k, j, 0);
     #pragma omp simd
     for (int i = is - 1; i <= ie; ++i) {
-      qp[i] = reconstruct_plus (q_row[i-1], q_row[i], q_row[i+1]);
-      qm[i] = reconstruct_minus(q_row[i-1], q_row[i], q_row[i+1]);
+      reconstruct(q_row[i-1], q_row[i], q_row[i+1], &qp[i], &qm[i]);
     }
 
     // Consumer: one Riemann solve per face, from the two cells' states that meet
@@ -258,28 +258,32 @@ directly through the pack.
 par_for(is, ie, jb.s, jb.e, kb.s, kb.e,
   KOKKOS_LAMBDA(const int k, const int j, const int i) {
     // Face i needs cell i-1's upper-face state and cell i's lower-face state.
-    const Real qp_im1 = reconstruct_plus (q(k,j,i-2), q(k,j,i-1), q(k,j,i));
-    const Real qm_i   = reconstruct_minus(q(k,j,i-1), q(k,j,i), q(k,j,i+1));
+    // Each reconstruct forms one cell's slope and writes both its states; this
+    // thread uses one of the two and discards the other (recomputed work).
+    Real qp_im1, qm_im1;
+    reconstruct(q(k,j,i-2), q(k,j,i-1), q(k,j,i), &qp_im1, &qm_im1);  // want qp_im1
+    Real qp_i, qm_i;
+    reconstruct(q(k,j,i-1), q(k,j,i), q(k,j,i+1), &qp_i, &qm_i);      // want qm_i
     F(k, j, i) = riemann(qp_im1, qm_i);
   });
 \end{lstlisting}
 
-Here cell $i-1$'s slope is formed twice: this thread forms it to get
-$q^{+}_{i-1}$, and the thread owning face $i-1$ forms it again to get
-$q^{-}_{i-1}$. Every cell's reconstruction is thus done by both of the threads on
-its faces, roughly doubling the reconstruction arithmetic. That redundancy is
-deliberate: it buys a flat, barrier-free, single-level parallel loop with direct
-field access and no shared-memory bookkeeping.
+Here cell $i-1$'s reconstruction is done twice: this thread runs it and keeps
+$q^{+}_{i-1}$ (discarding $q^{-}_{i-1}$), and the thread owning face $i-1$ runs it
+again and keeps $q^{-}_{i-1}$. Every cell is thus reconstructed by both of the
+threads on its faces, roughly doubling the reconstruction arithmetic. That
+redundancy is deliberate: it buys a flat, barrier-free, single-level parallel loop
+with direct field access and no shared-memory bookkeeping.
 
 % ---------------------------------------------------------------
 \subsection{What differs, and what does not}
 \label{sec:differs}
 % ---------------------------------------------------------------
 
-Comparing the two, the \emph{physics} --- \code{reconstruct_plus},
-\code{reconstruct_minus}, \code{riemann}, and the fact that the flux at a face
-reads the upper-face state of the cell below and the lower-face state of the cell
-above --- is byte-for-byte identical. What differs is entirely structural:
+Comparing the two, the \emph{physics} --- \code{reconstruct}, \code{riemann}, and
+the fact that the flux at a face reads the upper-face state of the cell below and
+the lower-face state of the cell above --- is byte-for-byte identical. What differs
+is entirely structural:
 
 \begin{center}
 \begin{tabular}{@{}lll@{}}
@@ -345,11 +349,10 @@ la::outer(idx_space, KOKKOS_LAMBDA(const idx_space_t::idx_range_t &r, int b) {
   auto qm = la::GetPerPointScratch<Real>(rp);
   auto pv = la::make_pack_view(rp, pack);
 
-  // Producer: reconstruct each cell over the halo-extended range -- one stencil
-  // read and slope per cell yields both of its one-sided states.
+  // Producer: reconstruct each cell over the halo-extended range -- one call forms
+  // the cell's slope and writes both one-sided states through the out-pointers.
   la::inner(rp, [&](auto f) {
-    qp(f) = reconstruct_plus (pv(q(), f - dx1), pv(q(), f), pv(q(), f + dx1));
-    qm(f) = reconstruct_minus(pv(q(), f - dx1), pv(q(), f), pv(q(), f + dx1));
+    reconstruct(pv(q(), f - dx1), pv(q(), f), pv(q(), f + dx1), &qp(f), &qm(f));
   });
   r.TeamBarrier();  // producer must finish before the consumer reads (no-op where serial)
 
@@ -1199,8 +1202,8 @@ in size:
 \item The \emph{reconstruction stencil} is the set of \emph{input field} cells read
   to compute \emph{one} cell's reconstructed states. For a three-point reconstruction
   it is \code{q(f-dx1)}, \code{q(f)}, \code{q(f+dx1)}; a higher-order scheme reads a
-  wider set. It lives entirely inside the producer body (the arguments to
-  \code{reconstruct_plus}) and the abstraction never sees it.
+  wider set. It lives entirely inside the producer body (the field arguments to
+  \code{reconstruct}) and the abstraction never sees it.
 \item The \emph{halo} is the set of offsets at which the \emph{consumer} reads the
   \emph{produced scratch}. In the flux kernel that is just $\{\mathbf{0},
   -\hat{\imath}\}$ --- a face reads the stored states of its own cell and of the
