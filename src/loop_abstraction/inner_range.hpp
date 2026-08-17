@@ -133,53 +133,102 @@ class InnerIndexRange {
         *pidx_space, halo_kji, block, {ks, js, is}, {ke, je, ie}, team_member);
   }
 
-  KOKKOS_INLINE_FUNCTION void BuildRegionsFromEndpoints(const Index3 start,
-                                                        const Index3 end) {
-    const auto &memory = pidx_space->GetMemoryIndexer();
+  // Result of merging the shifted copies of a [start, end] rectangle (one copy per
+  // halo offset) into contiguous flat spans, expressed in a supplied indexer's flat
+  // space. `span_start`/`span_end` are the enclosing flat interval (min flat start and
+  // max flat end over all offsets), used for scratch sizing.
+  struct RegionMerge {
+    std::array<int, Halo::npoints> flat_start{};
+    std::array<int, Halo::npoints> flat_end{};
+    int nregions = 1;
+    int cached_size = 0;
+    int span_start = 0;
+    int span_end = 0;
+  };
+
+  // Merge the halo-shifted copies of the [start, end] rectangle into contiguous flat
+  // spans, using `idxer` to flatten coordinates. This is a pure operation on (idxer,
+  // Halo, ndim, start, end): the iteration regions come from calling it with the
+  // inner-tag indexer, and the bovi scratch extent from calling it with the memory
+  // indexer.
+  KOKKOS_INLINE_FUNCTION RegionMerge BuildRegions(const parthenon::Indexer3D &idxer,
+                                                  const Index3 start,
+                                                  const Index3 end) const {
     // In a reduced-dimension run, keep only the contiguous [begin, end) run of halo
     // offsets that do not point into a degenerate direction (see HaloReducedRange).
     // The run is still sorted, so the single-pass merge below stays valid.
     const HaloRange hrange = HaloReducedRange<Halo>(pidx_space->GetNdim());
     const int hbegin = hrange.begin;
-    flat_start[0] =
-        GetFlatIdxFromKJI(start.k + Halo::dk(hbegin), start.j + Halo::dj(hbegin),
-                          start.i + Halo::di(hbegin));
-    flat_end[0] = GetFlatIdxFromKJI(end.k + Halo::dk(hbegin), end.j + Halo::dj(hbegin),
-                                    end.i + Halo::di(hbegin));
-    const int memory_base = memory.GetFlatIdx(start.k, start.j, start.i);
-    scratch_flat_start =
-        memory.GetFlatIdx(start.k + Halo::dk(hbegin), start.j + Halo::dj(hbegin),
-                          start.i + Halo::di(hbegin));
-    int scratch_flat_end = memory.GetFlatIdx(
-        end.k + Halo::dk(hbegin), end.j + Halo::dj(hbegin), end.i + Halo::di(hbegin));
-    nregions = 1;
+    RegionMerge out;
+    out.flat_start[0] =
+        idxer.GetFlatIdx(start.k + Halo::dk(hbegin), start.j + Halo::dj(hbegin),
+                         start.i + Halo::di(hbegin));
+    out.flat_end[0] = idxer.GetFlatIdx(end.k + Halo::dk(hbegin), end.j + Halo::dj(hbegin),
+                                       end.i + Halo::di(hbegin));
+    out.span_start = out.flat_start[0];
+    out.span_end = out.flat_end[0];
+    out.nregions = 1;
     // Create possibly disjoint ranges, this algorithm relies on the start and end points
     // of the ranges being sorted by flat start
     for (int n = hbegin + 1; n < hrange.end; ++n) {
-      const int fstart = GetFlatIdxFromKJI(start.k + Halo::dk(n), start.j + Halo::dj(n),
-                                           start.i + Halo::di(n));
-      const int fend = GetFlatIdxFromKJI(end.k + Halo::dk(n), end.j + Halo::dj(n),
-                                         end.i + Halo::di(n));
-      const int scratch_start = memory.GetFlatIdx(
-          start.k + Halo::dk(n), start.j + Halo::dj(n), start.i + Halo::di(n));
-      const int scratch_end = memory.GetFlatIdx(end.k + Halo::dk(n), end.j + Halo::dj(n),
-                                                end.i + Halo::di(n));
-      scratch_flat_start = std::min(scratch_flat_start, scratch_start);
-      scratch_flat_end = std::max(scratch_flat_end, scratch_end);
-      if (fstart <= flat_end[nregions - 1] + 1) {
-        if (fend > flat_end[nregions - 1]) flat_end[nregions - 1] = fend;
+      const int fstart = idxer.GetFlatIdx(start.k + Halo::dk(n), start.j + Halo::dj(n),
+                                          start.i + Halo::di(n));
+      const int fend = idxer.GetFlatIdx(end.k + Halo::dk(n), end.j + Halo::dj(n),
+                                        end.i + Halo::di(n));
+      out.span_start = std::min(out.span_start, fstart);
+      out.span_end = std::max(out.span_end, fend);
+      if (fstart <= out.flat_end[out.nregions - 1] + 1) {
+        if (fend > out.flat_end[out.nregions - 1]) out.flat_end[out.nregions - 1] = fend;
       } else {
-        flat_start[nregions] = fstart;
-        flat_end[nregions] = fend;
-        ++nregions;
+        out.flat_start[out.nregions] = fstart;
+        out.flat_end[out.nregions] = fend;
+        ++out.nregions;
       }
     }
-    cached_size = 0;
-    for (int r = 0; r < nregions; ++r) {
-      cached_size += flat_end[r] - flat_start[r] + 1;
+    out.cached_size = 0;
+    for (int r = 0; r < out.nregions; ++r) {
+      out.cached_size += out.flat_end[r] - out.flat_start[r] + 1;
     }
+    return out;
+  }
+
+  KOKKOS_INLINE_FUNCTION void BuildRegionsFromEndpoints(const Index3 start,
+                                                        const Index3 end) {
+    const auto &memory = pidx_space->GetMemoryIndexer();
+    // Iteration regions live in the inner-tag indexer's flat space (memory span for the
+    // memory tag, logical otherwise).
+    const parthenon::Indexer3D &iter_indexer =
+        (IndexSpaceType::inner_tag_v == inner_tag::memory) ? memory : logical_kji;
+    const RegionMerge iter = BuildRegions(iter_indexer, start, end);
+    flat_start = iter.flat_start;
+    flat_end = iter.flat_end;
+    nregions = iter.nregions;
+    cached_size = iter.cached_size;
+
+    if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
+      // bvoi enumerates contiguous flat spans and converts each flat index back to
+      // (k,j,i), so it sweeps the whole rectangular (halo-extended) box -- including the
+      // multi-axis corner cells that lie in no single shifted copy -- regardless of the
+      // inner tag. Scratch must therefore cover the full box, whose extent in memory is
+      // bounded by the box's low and high corners (logical_kji is that box here). Sizing
+      // from the shifted-copy union instead would under-allocate and under-run the
+      // buffer at those corners (e.g. a 7-point + (-2i) stencil).
+      scratch_flat_start = memory.GetFlatIdx(logical_kji.template StartIdx<0>(),
+                                             logical_kji.template StartIdx<1>(),
+                                             logical_kji.template StartIdx<2>());
+      const int scratch_flat_end = memory.GetFlatIdx(logical_kji.template EndIdx<0>(),
+                                                     logical_kji.template EndIdx<1>(),
+                                                     logical_kji.template EndIdx<2>());
+      scratch_span_size = scratch_flat_end - scratch_flat_start + 1;
+    } else {
+      // bovi visits only the union of shifted copies (flat spans in the memory indexer),
+      // so the enclosing memory interval suffices.
+      const RegionMerge scr = BuildRegions(memory, start, end);
+      scratch_flat_start = scr.span_start;
+      scratch_span_size = scr.span_end - scr.span_start + 1;
+    }
+    const int memory_base = memory.GetFlatIdx(start.k, start.j, start.i);
     scratch_index_start = scratch_flat_start - memory_base;
-    scratch_span_size = scratch_flat_end - scratch_flat_start + 1;
   }
 
   KOKKOS_FORCEINLINE_FUNCTION auto GetKJIFromFlatIdx(int flat_idx) const {
