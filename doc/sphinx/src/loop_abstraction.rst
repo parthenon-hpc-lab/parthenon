@@ -26,11 +26,12 @@ Overview
 
 Two objects and two free functions form the core of the API:
 
-- ``IndexSpace<loop_tag, inner_tag, backend>`` describes the logical
-  ``(block, k, j, i)`` iteration space and the memory layout of a block. The three
-  template parameters fix the loop shape, the inner traversal, and the backend at
-  compile time. The backend has a default that is raw for loops with simd markings 
-  on host and kokkos based loops on device.
+- ``IndexSpace<loop_tag, inner_tag, backend, reduction>`` describes the logical
+  ``(block, k, j, i)`` iteration space and the memory layout of a block. The template
+  parameters fix the loop shape, the inner traversal, the backend, and (for the
+  reduction paths) the reducer at compile time. The backend has a default that is raw
+  for loops with simd markings on host and kokkos based loops on device; ``reduction``
+  defaults to a non-reducing space, so most call sites use the three-parameter form.
 - ``InnerIndexRange`` is one slice of an ``IndexSpace`` (a block plus the current
   chunk of ``kji`` space). It is the object handed to inner loop bodies and knows how
   to translate between flat, memory, and logical ``(k, j, i)`` indices.
@@ -161,6 +162,7 @@ Per-point scratch is registered on the ``IndexSpace`` at setup and requested ins
 the outer body:
 
 .. code:: cpp
+
    using recon_halo = la::halo::minus_i_t;
    idx_space.AddPerPointScratch<Real>();          // one Real per point
    idx_space.AddPerPointScratch<Real, 2, 3>();    // a 2x3 block per point
@@ -246,6 +248,7 @@ flux calculation kernel in the loop abstraction might look like (see below for p
 in the example):
 
 .. code:: cpp
+
    const auto desc = MakePackDescriptor<var>(md, {}, {parthenon::PDOpt::WithFluxes});
    auto pack = desc.GetPack(md);
    // Declare an index space over F1 faces 
@@ -316,6 +319,7 @@ pulls out pointers to the variables. This can promote vectorization and be a sig
 performance benefit. 
 
 .. code:: cpp
+
   auto desc = parthenon::MakePackDescriptor<v1, vf>(md);
   auto pack = desc.GetPack(md);
 
