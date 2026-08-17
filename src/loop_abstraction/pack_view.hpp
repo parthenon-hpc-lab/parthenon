@@ -239,6 +239,11 @@ struct var_view_t {
   KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(int idx) const {
     return data_[idx];
   }
+
+  KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(int var_offset, int idx) const {
+    return data_[var_offset * stride_ + idx];
+  }
+
   KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(MemoryOffset idx) const {
     return data_[idx.flat];
   }
@@ -251,6 +256,7 @@ struct var_view_t {
 
   parthenon::Real *data_ = nullptr;
   int shift_ = 0;
+  int stride_ = 0;
   const IndexSpaceType *pidx_space = nullptr;
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -258,6 +264,7 @@ struct var_view_t {
     var_view_t<IndexSpaceType, PackType> out;
     out.data_ = data_ + offst;
     out.shift_ = shift_;
+    out.stride_ = stride_;
     out.pidx_space = pidx_space;
     return out;
   }
@@ -303,10 +310,11 @@ make_var_view(const InnerIndexRange<IndexSpaceType> &idx_range, const PackType &
     out.shift_ = idx_range.pidx_space->GetMemoryIndexer().GetFlatIdx(
         idx_range.ks, idx_range.js, idx_range.is);
     out.data_ = pack_in(idx_range.block, vidx).data() + out.shift_;
+    const int vidx_next = pack_in.GetSize() > vidx + 1 ? vidx + 1 : vidx;
+    out.stride_ = pack_in(idx_range.block, vidx_next).data() + out.shift_ - out.data_;
     return out;
   }
 }
-
 } // namespace parthenon::loop_abstraction
 
 #endif // LOOP_ABSTRACTION_PACK_VIEW_HPP_
