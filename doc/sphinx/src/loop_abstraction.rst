@@ -213,11 +213,12 @@ synchronous and the value is valid on return, no fence needed):
 An overload instead takes a caller-constructed reducer instance *last*, matching ``Kokkos::parallel_reduce(policy, functor, reducer)``. This returns void and its reducer type must match the space's ``reduction_t``. This overload is necessary for, e.g., reducing into a
 ``View``, ``ScatterView``, or device memory.
 
-Because the reducer type lives on the index space, ``inner_reduce`` reuses its join op
-without the caller restating it, and a single ``outer_reduce`` region may contain
-several ``inner_reduce`` calls (interleaved with plain ``inner`` calls that only fill
-scratch) that all join into one accumulator. There is one reducer per region. The
-``inner_reduce`` body takes the usual index form plus a trailing reduction-value
+Because the reducer type lives on the index space, ``inner_reduce`` uses the 
+reducer's merge operation to combine each inner team reduction into the enclosing
+reduction without the caller restating it, and a single ``outer_reduce`` region may
+contain several ``inner_reduce`` calls (interleaved with plain ``inner`` calls that
+only fill scratch) that all join into one accumulator. There is one reducer per region.
+The ``inner_reduce`` body takes the usual index form plus a trailing reduction-value
 reference.
 
 Two rules keep reductions off ghost cells:
