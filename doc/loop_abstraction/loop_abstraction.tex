@@ -148,23 +148,24 @@ Consider the flux computation in a directionally-split Godunov scheme, for the
 $x_1$ sweep. For each cell we need the flux $F_{i-1/2}$ on its lower $x_1$ face.
 The standard recipe is:
 \begin{enumerate}
-\item \textbf{Reconstruct}, for each cell $i$, the two one-sided interface states on
-  its faces. A reconstruction reads a stencil of cell-centered values around cell
-  $i$ --- e.g.\ $q_{i-1}, q_i, q_{i+1}$ for a three-point scheme --- forms a single
-  slope, and applies it toward each face, giving the state $q^{+}_i$ extrapolated to
-  the cell's upper face ($i+1/2$) and $q^{-}_i$ to its lower face ($i-1/2$). Both
-  states come from the \emph{same} stencil read and slope, so a cell naturally
-  produces them together.
+\item \textbf{Reconstruct}, for each cell $i$, the two one-sided states on its two
+  faces. A reconstruction reads a stencil of cell-centered values around cell $i$ ---
+  e.g.\ $q_{i-1}, q_i, q_{i+1}$ for a three-point scheme --- forms a single slope, and
+  applies it toward each face, giving the state $q^{+}_i$ on the cell's higher-$i$
+  face ($i+1/2$) and $q^{-}_i$ on its lower-$i$ face ($i-1/2$). (Throughout, a
+  superscript $\pm$ labels which of \emph{a cell's own two faces} a state sits on ---
+  not the two sides of a single face.) Both states come from the \emph{same} stencil
+  read and slope, so a cell naturally produces them together.
 \item \textbf{Solve a Riemann problem} at each face from the two states that meet
-  there --- the upper-face state of the cell below and the lower-face state of the
-  cell above: $F_{i-1/2} = \mathcal{R}\!\left(q^{+}_{i-1}, q^{-}_i\right)$.
+  there --- the $q^{+}$ of the cell to its left and the $q^{-}$ of the cell to its
+  right: $F_{i-1/2} = \mathcal{R}\!\left(q^{+}_{i-1}, q^{-}_i\right)$.
 \end{enumerate}
 
 The key structural observation is that \emph{a cell's two states are computed from
 one shared slope}, and that slope is then needed at \emph{both} of the cell's faces:
-the Riemann solve above cell $i$ reads its $q^{+}_i$, and the one below reads its
-$q^{-}_i$. Whether it is worth reconstructing each cell once and \emph{storing} both
-states so the two flanking Riemann solves can read them, or simply
+the Riemann solve on cell $i$'s right face reads its $q^{+}_i$, and the one on its
+left face reads its $q^{-}_i$. Whether it is worth reconstructing each cell once and
+\emph{storing} both states so the two flanking Riemann solves can read them, or simply
 \emph{recomputing} a cell's slope separately at each face that needs it, is precisely
 the decision that differs between CPU and GPU. The next two subsections write the
 kernel out both ways.
@@ -190,9 +191,9 @@ for (int k = kb.s; k <= kb.e; ++k) {
   for (int j = jb.s; j <= jb.e; ++j) {
 
     // scratch spans [is-1, ie]: one extra cell on the low side, because the
-    // flux at face i reads the upper-face state q^+ of the cell at i-1.
-    Real *qp = scratch_plus_row(k, j);   // q^+ (upper-face state) of each cell
-    Real *qm = scratch_minus_row(k, j);  // q^- (lower-face state) of each cell
+    // flux at face i reads q^+ of the cell to its left (i-1).
+    Real *qp = scratch_plus_row(k, j);   // q^+ (higher-i-face state) of each cell
+    Real *qm = scratch_minus_row(k, j);  // q^- (lower-i-face state) of each cell
 
     // Producer: reconstruct every cell in the (extended) row exactly once. One
     // call forms the cell's slope and writes both one-sided states through the
@@ -204,7 +205,7 @@ for (int k = kb.s; k <= kb.e; ++k) {
     }
 
     // Consumer: one Riemann solve per face, from the two cells' states that meet
-    // there -- the upper-face state of cell i-1 and the lower-face state of cell i.
+    // there -- q^+ of the left cell (i-1) and q^- of the right cell (i).
     Real *F_row = &F(k, j, 0);
     #pragma omp simd
     for (int i = is; i <= ie; ++i) {
@@ -223,7 +224,7 @@ Three features matter and will reappear as abstraction concepts:
   extra cell'' is exactly what a \emph{halo} will name (Section~\ref{sec:halos}).
 \item \textbf{Compute-once, read-twice \emph{work}.} Each cell's reconstruction is
   done once and stored, but its \emph{slope} feeds the fluxes on both of the cell's
-  faces (the flux above reads $q^+$, the flux below reads $q^-$). Storing spends the
+  faces (the right face reads $q^+$, the left face reads $q^-$). Storing spends the
   stencil read and slope once per cell; the flat form below repeats them at each
   face. Each stored state itself is read exactly once --- it is the per-cell
   \emph{work}, not any one value, that is shared. The scratch buffer is sized to the
@@ -251,13 +252,13 @@ scheduler the most freedom to hide latency. Storing reconstructed states in
 shared memory would force a team structure and a barrier between the producer and
 consumer phases; it is usually cheaper to give each face its own thread and let it
 \emph{recompute} whatever reconstructed states it needs, reading the input field
-directly through the pack.
+directly.
 
 \begin{lstlisting}
 // GPU-style: one thread per face, recompute reconstruction, no scratch.
 par_for(is, ie, jb.s, jb.e, kb.s, kb.e,
   KOKKOS_LAMBDA(const int k, const int j, const int i) {
-    // Face i needs cell i-1's upper-face state and cell i's lower-face state.
+    // Face i needs q^+ of the left cell (i-1) and q^- of the right cell (i).
     // Each reconstruct forms one cell's slope and writes both its states; this
     // thread uses one of the two and discards the other (recomputed work).
     Real qp_im1, qm_im1;
@@ -268,12 +269,13 @@ par_for(is, ie, jb.s, jb.e, kb.s, kb.e,
   });
 \end{lstlisting}
 
-Here cell $i-1$'s reconstruction is done twice: this thread runs it and keeps
-$q^{+}_{i-1}$ (discarding $q^{-}_{i-1}$), and the thread owning face $i-1$ runs it
-again and keeps $q^{-}_{i-1}$. Every cell is thus reconstructed by both of the
-threads on its faces, roughly doubling the reconstruction arithmetic. That
-redundancy is deliberate: it buys a flat, barrier-free, single-level parallel loop
-with direct field access and no shared-memory bookkeeping.
+Here cell $i-1$'s reconstruction is done twice: this thread (face $i$) runs it and
+keeps $q^{+}_{i-1}$, discarding $q^{-}_{i-1}$; the thread for face $i-1$ makes the
+identical \code{reconstruct(q(i-2), q(i-1), q(i), ...)} call and keeps $q^{-}_{i-1}$
+instead. Every cell is thus reconstructed by both of the threads on its faces,
+roughly doubling the reconstruction arithmetic. That redundancy is deliberate: it
+buys a flat, barrier-free, single-level parallel loop with direct field access and
+no shared-memory bookkeeping.
 
 % ---------------------------------------------------------------
 \subsection{What differs, and what does not}
@@ -281,9 +283,9 @@ with direct field access and no shared-memory bookkeeping.
 % ---------------------------------------------------------------
 
 Comparing the two, the \emph{physics} --- \code{reconstruct}, \code{riemann}, and
-the fact that the flux at a face reads the upper-face state of the cell below and
-the lower-face state of the cell above --- is byte-for-byte identical. What differs
-is entirely structural:
+the fact that the flux at a face reads $q^+$ of the cell to its left and $q^-$ of
+the cell to its right --- is byte-for-byte identical. What differs is entirely
+structural:
 
 \begin{center}
 \begin{tabular}{@{}lll@{}}
@@ -326,7 +328,7 @@ touching the body.
 namespace la = parthenon::loop_abstraction;
 
 // recon_halo names the extra reconstructed cell the flux loop will read: the flux
-// at face i reads the upper-face state q^+ of cell i-1, i.e. one cell in -i.
+// at face i reads q^+ of the cell to its left (i-1), i.e. one cell in -i.
 using recon_halo = la::halo::minus_i_t;
 
 // F1-face index space over the interior, backend chosen by the tags. Iterating over
@@ -357,7 +359,7 @@ la::outer(idx_space, KOKKOS_LAMBDA(const idx_space_t::idx_range_t &r, int b) {
   r.TeamBarrier();  // producer must finish before the consumer reads (no-op where serial)
 
   // Consumer: one Riemann solve per face over the base range, from the two cells'
-  // states that meet there -- cell i-1's upper-face q^+ and cell i's lower-face q^-.
+  // states that meet there -- q^+ of the left cell (i-1) and q^- of the right cell (i).
   auto fv = la::make_flux_pack_view(r, pack, X1DIR);
   la::inner(r, [&](auto f) {
     fv(q(), f) = riemann(qp(f - dx1), qm(f));
