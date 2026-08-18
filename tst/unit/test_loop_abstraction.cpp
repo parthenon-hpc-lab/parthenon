@@ -43,7 +43,7 @@ namespace {
 // loop_abstraction now lives under parthenon; keep the short name for the test body.
 namespace loop_abstraction = parthenon::loop_abstraction;
 
-using Real = double;
+using parthenon::Real;
 using loop_abstraction::default_loop_backend_v;
 using loop_abstraction::Index3;
 using loop_abstraction::IndexSpace;
