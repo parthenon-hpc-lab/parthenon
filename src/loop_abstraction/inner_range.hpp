@@ -60,9 +60,8 @@ BuildRegions(const parthenon::Indexer3D &idxer, int ndim, Index3 start, Index3 e
   const HaloRange hrange = HaloReducedRange<Halo>(ndim);
   const int hbegin = hrange.begin;
   RegionMerge<Halo> out;
-  out.flat_start[0] = idxer.GetFlatIdx(start.k + Halo::dk(hbegin),
-                                       start.j + Halo::dj(hbegin),
-                                       start.i + Halo::di(hbegin));
+  out.flat_start[0] = idxer.GetFlatIdx(
+      start.k + Halo::dk(hbegin), start.j + Halo::dj(hbegin), start.i + Halo::di(hbegin));
   out.flat_end[0] = idxer.GetFlatIdx(end.k + Halo::dk(hbegin), end.j + Halo::dj(hbegin),
                                      end.i + Halo::di(hbegin));
   out.span_start = out.flat_start[0];
@@ -73,8 +72,8 @@ BuildRegions(const parthenon::Indexer3D &idxer, int ndim, Index3 start, Index3 e
   for (int n = hbegin + 1; n < hrange.end; ++n) {
     const int fstart = idxer.GetFlatIdx(start.k + Halo::dk(n), start.j + Halo::dj(n),
                                         start.i + Halo::di(n));
-    const int fend = idxer.GetFlatIdx(end.k + Halo::dk(n), end.j + Halo::dj(n),
-                                      end.i + Halo::di(n));
+    const int fend =
+        idxer.GetFlatIdx(end.k + Halo::dk(n), end.j + Halo::dj(n), end.i + Halo::di(n));
     out.span_start = std::min(out.span_start, fstart);
     out.span_end = std::max(out.span_end, fend);
     if (fstart <= out.flat_end[out.nregions - 1] + 1) {

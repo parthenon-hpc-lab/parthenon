@@ -1744,9 +1744,8 @@ void RunScratchHaloCaseBothBackends(const ProblemSpec &spec, const int ninner) {
 TEST_CASE("loop abstraction corner halo scratch",
           "[loop_abstraction][contract][scratch][halo]") {
   using halo_t = seven_point_minus_two_i_halo_t;
-  const std::array<ProblemSpec, 3> specs{ProblemSpec{2, 8, 4, 3, 2},
-                                          ProblemSpec{1, 4, 8, 2, 2},
-                                          ProblemSpec{2, 6, 3, 5, 3}};
+  const std::array<ProblemSpec, 3> specs{
+      ProblemSpec{2, 8, 4, 3, 2}, ProblemSpec{1, 4, 8, 2, 2}, ProblemSpec{2, 6, 3, 5, 3}};
   for (const auto &spec : specs) {
     for (const int ninner : NinnerCases(spec.nx * spec.ny * spec.nz)) {
       RunScratchHaloCaseBothBackends<halo_t, loop_tag::bvoi, inner_tag::logical_flat>(
