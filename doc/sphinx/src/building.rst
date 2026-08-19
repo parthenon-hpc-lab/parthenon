@@ -20,6 +20,7 @@ General list of cmake options:
 || PARTHENON\_DISABLE_HDF5\_COMPRESSION     || OFF                           || Option || HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files                                                |
 || PARTHENON\_DISABLE\_OPENPMD              || ON                            || Option || OpenPMD is disabled by default (to be changed in the future). Set this to `OFF` to enable OpenPMD                                                           |
 || PARTHENON\_USE\_SYSTEM\_OPENPMD          || OFF                           || Option || OpenPMD by default is built along Parthenon. To use a system version (e.g., available as `module` set this to `ON`.                                         |
+|| PARTHENON\_ENABLE\_RAW\_OPENMP           || OFF                           || Option || Enable OpenMP parallelism in the raw host-loop backend, independently of the Kokkos execution spaces                                                       |
 || PARTHENON\_ENABLE\_ASCENT                || OFF                           || Option || Enable Ascent for in situ visualization and analysis                                                                                                        |
 || PARTHENON\_DISABLE\_MPI                  || OFF                           || Option || MPI is enabled by default if found, set this to True to disable MPI                                                                                         |
 || PARTHENON\_ENABLE\_HOST\_COMM\_BUFFERS   || OFF                           || Option || MPI communication buffers are by default allocated on the execution device. This options forces allocation in memory accessible directly by the host.       |
@@ -57,6 +58,25 @@ General list of cmake options:
 
 .. note::
    CMake options prefixed with *PARTHENON\_* modify behavior.
+
+Raw-loop OpenMP
+---------------
+
+``PARTHENON_ENABLE_RAW_OPENMP=ON`` enables OpenMP work sharing in the raw
+host-loop backend. This option is independent of Kokkos's OpenMP execution
+space. For example, raw loops can use OpenMP while Kokkos uses only its serial
+backend:
+
+.. code:: bash
+
+   cmake -S . -B build \
+     -DPARTHENON_ENABLE_RAW_OPENMP=ON \
+     -DKokkos_ENABLE_OPENMP=OFF \
+     -DKokkos_ENABLE_SERIAL=ON
+
+Enabling this option requires a C++ OpenMP implementation discoverable by
+CMake. It also propagates the required OpenMP compile and link flags to
+applications linked against ``Parthenon::parthenon``.
 
 .. note::
   **On MPI usage:** By default communication buffers are allocated in the execution device’s

@@ -15,12 +15,21 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
+#include <cstdlib>
 #include <memory>
+#include <mutex>
+#include <set>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <type_traits>
 #include <utility>
 #include <vector>
+
+#if defined(_OPENMP)
+#include <omp.h>
+#endif
 
 #include <catch2/catch.hpp>
 
@@ -323,14 +332,6 @@ struct var_view_vec3 : public parthenon::variable_names::base_t<false, 3> {
       : parthenon::variable_names::base_t<false, 3>(std::forward<Ts>(args)...) {}
   static std::string name() { return "var_view_vec3"; }
   static constexpr bool is_sparse() { return false; }
-};
-
-struct var_view_sparse : public parthenon::variable_names::base_t<false> {
-  template <class... Ts>
-  KOKKOS_INLINE_FUNCTION var_view_sparse(Ts &&...args)
-      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
-  static std::string name() { return "var_view_sparse"; }
-  static constexpr bool is_sparse() { return true; }
 };
 
 KOKKOS_INLINE_FUNCTION Real PackViewSourceValue(const int b, const int src_var,
@@ -1389,6 +1390,65 @@ void RunScratchPatternMatrix() {
   }
 }
 
+// Verify that the dedicated OpenMP CTest invocation really executes raw bovi outer
+// ranges on more than one host worker. The ordinary unit-test invocation also runs
+// this case, but only requires one worker unless CMake sets the expectation marker.
+void RunRawOpenMPWorkerProbe() {
+  using IndexSpaceType =
+      PatternIndexSpace<loop_tag::bovi, inner_tag::logical_flat, loop_backend::raw>;
+  IndexSpaceType idx_space(/*nblocks=*/1, /*nx=*/16, /*ny=*/8, /*nz=*/4,
+                           /*nghost=*/0, /*ninner=*/1);
+  std::mutex worker_mutex;
+  std::set<std::thread::id> workers;
+  const bool expect_openmp = std::getenv("PARTHENON_TEST_EXPECT_OPENMP") != nullptr;
+
+#if defined(_OPENMP)
+  if (expect_openmp) {
+    omp_set_dynamic(0);
+    omp_set_num_threads(4);
+  }
+#else
+  REQUIRE_FALSE(expect_openmp);
+#endif
+
+  loop_abstraction::outer(
+      idx_space, [&](const InnerIndexRange<IndexSpaceType> & /*idx_range*/, int /*b*/) {
+        const std::lock_guard<std::mutex> lock(worker_mutex);
+        workers.insert(std::this_thread::get_id());
+      });
+
+  REQUIRE_FALSE(workers.empty());
+  if (expect_openmp) {
+    REQUIRE(workers.size() > 1);
+  }
+}
+
+// Regression for the raw boiv outer loop: every SIMD iteration needs its own range
+// state. A shared range races on ks/js/is and manifests as duplicate and missing cells.
+template <inner_tag INNER_TAG>
+void RunRawBoivRangeIsolationCase() {
+  using IndexSpaceType = PatternIndexSpace<loop_tag::boiv, INNER_TAG, loop_backend::raw>;
+  IndexSpaceType idx_space(/*nblocks=*/1, /*nx=*/17, /*ny=*/11, /*nz=*/9,
+                           /*nghost=*/0);
+  const auto logical = idx_space.GetLogicalIndexer();
+  std::vector<std::atomic<int>> touches(logical.size());
+  for (auto &touch : touches)
+    touch.store(0, std::memory_order_relaxed);
+
+  loop_abstraction::outer(
+      idx_space, [&](const InnerIndexRange<IndexSpaceType> &idx_range, int /*b*/) {
+        loop_abstraction::inner(idx_range, [&](auto idx) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          const int flat = logical.GetFlatIdx(k, j, i);
+          touches[flat].fetch_add(1, std::memory_order_relaxed);
+        });
+      });
+
+  for (const auto &touch : touches) {
+    REQUIRE(touch.load(std::memory_order_relaxed) == 1);
+  }
+}
+
 template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG,
           loop_backend BACKEND = default_loop_backend_v>
 void RunScratchHaloCase(const ProblemSpec &spec, const int ninner) {
@@ -1527,6 +1587,32 @@ TEST_CASE("loop abstraction scratch Zero", "[loop_abstraction][contract][scratch
   RunScratchZeroPatternMatrix<loop_tag::bovi, inner_tag::memory>();
   RunScratchZeroPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
   RunScratchZeroPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
+}
+
+TEST_CASE("loop abstraction raw OpenMP worker probe",
+          "[loop_abstraction][contract][openmp]") {
+  RunRawOpenMPWorkerProbe();
+}
+
+TEST_CASE("loop abstraction raw OpenMP boiv range isolation",
+          "[loop_abstraction][contract][openmp]") {
+  RunRawBoivRangeIsolationCase<inner_tag::logical_flat>();
+  RunRawBoivRangeIsolationCase<inner_tag::logical_coords>();
+}
+
+TEST_CASE("loop abstraction raw OpenMP bump arena isolation",
+          "[loop_abstraction][contract][openmp][scratch]") {
+  if constexpr (default_loop_backend_v == loop_backend::raw) {
+    // One block with many chunks exercises repeated reset/allocation independently
+    // on each worker's thread-local arena.
+    RunScratchCase<loop_tag::bovi, inner_tag::logical_flat, loop_backend::raw>(
+        ProblemSpec{1, 12, 8, 6, 1}, /*ninner=*/7);
+    // Multiple blocks exercise block-parallel arena ownership.
+    RunScratchCase<loop_tag::bvoi, inner_tag::logical_flat, loop_backend::raw>(
+        ProblemSpec{8, 8, 5, 4, 1}, /*ninner=*/40);
+  } else {
+    SUCCEED("Raw scratch is only runnable when host memory is directly accessible.");
+  }
 }
 
 TEST_CASE("loop abstraction scratch Zero kokkos",

@@ -68,6 +68,17 @@ lint_target(unit_tests)
 # for Release build types.
 catch_discover_tests(unit_tests TEST_SPEC "~[performance]" PROPERTIES LABELS "unit")
 catch_discover_tests(unit_tests TEST_SPEC "[performance]" PROPERTIES LABELS "performance")
+if (PARTHENON_ENABLE_RAW_OPENMP)
+  catch_discover_tests(
+      unit_tests
+      TEST_SPEC "[loop_abstraction][openmp]"
+      TEST_PREFIX "openmp:"
+      TEST_LIST unit_tests_openmp_TESTS
+      PROPERTIES
+        LABELS openmp
+        PROCESSORS 4
+        ENVIRONMENT "PARTHENON_TEST_EXPECT_OPENMP=1")
+endif()
 
 get_property(ALL_TESTS DIRECTORY . PROPERTY TESTS)
 

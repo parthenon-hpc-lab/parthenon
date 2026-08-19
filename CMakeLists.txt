@@ -38,6 +38,7 @@ option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to 
 option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
 option(PARTHENON_DISABLE_OPENPMD "OpenPMD is enabled by default if found, set this to ON to disable OpenPMD" ON)
 option(PARTHENON_USE_SYSTEM_OPENPMD "OpenPMD API is downloaded and installed automatically by default. Set this to ON to find and use a version installed on the system." OFF)
+option(PARTHENON_ENABLE_RAW_OPENMP "Enable OpenMP for raw host loops" OFF)
 option(PARTHENON_DISABLE_SPARSE "Sparse capability is enabled by default, set this to True to compile-time disable all sparse capability" OFF)
 option(PARTHENON_ENABLE_ASCENT "Enable Ascent for in situ visualization and analysis" OFF)
 option(PARTHENON_LINT_DEFAULT "Linting is turned off by default, use the \"lint\" target or set \
@@ -171,6 +172,10 @@ find_package(Filesystem REQUIRED COMPONENTS Experimental Final)
 
 # Require threading for tasks
 find_package(Threads)
+
+if (PARTHENON_ENABLE_RAW_OPENMP)
+  find_package(OpenMP REQUIRED COMPONENTS CXX)
+endif()
 
 set(ENABLE_MPI OFF)
 set(NUM_MPI_PROC_TESTING "4" CACHE STRING "Number of mpi processors to use when running tests with MPI")

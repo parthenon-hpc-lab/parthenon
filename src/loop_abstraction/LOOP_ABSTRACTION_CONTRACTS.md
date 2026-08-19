@@ -134,8 +134,8 @@ order and which invocations run concurrently; user kernels must not depend on ei
 
 The raw backend is still selected as `loop_backend::raw`; OpenMP is not a separate
 loop backend. Its loop nests contain OpenMP directives that become active when the
-build enables OpenMP and otherwise leave an ordinary serial host loop (apart from any
-compiler handling of the SIMD directives).
+build sets `PARTHENON_ENABLE_RAW_OPENMP=ON` and otherwise leave an ordinary serial
+host loop (apart from any compiler handling of the SIMD directives).
 
 The current raw outer-loop decomposition is:
 
