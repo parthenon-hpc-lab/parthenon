@@ -34,6 +34,8 @@ void outer_raw_for(IndexSpaceType idx_space, F &&f) {
 #pragma omp parallel for
     for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
       // Reclaim last iteration's per-point scratch (see BumpArena).
+      // JMM: Note BumpArena is a thread-local singleton. So this is
+      // thread-safe.
       parthenon::GetBumpArena().reset();
       InnerIndexRangeType idx_range(idx_space, idx_space.GetLogicalIndexer(), b);
       f(idx_range, b);
@@ -48,6 +50,8 @@ void outer_raw_for(IndexSpaceType idx_space, F &&f) {
     for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
       for (int o = 0; o < nouter; ++o) {
         // Reclaim last iteration's per-point scratch (see BumpArena).
+        // JMM: Note BumpArena is a thread-local singleton. So this is
+        // thread-safe.
         parthenon::GetBumpArena().reset();
         const int logical_start = o * idx_space.GetNInner();
         const int logical_end =
@@ -79,10 +83,11 @@ void outer_raw_for(IndexSpaceType idx_space, F &&f) {
         for (int j = js; j <= je; ++j) {
 #pragma omp simd
           for (int i = is; i <= ie; ++i) {
-            idx_range.ks = k;
-            idx_range.js = j;
-            idx_range.is = i;
-            f(idx_range, idx_range.block);
+            auto range_local = idx_range;
+            range_local.ks = k;
+            range_local.js = j;
+            range_local.is = i;
+            f(range_local, range_local.block);
           }
         }
       }
