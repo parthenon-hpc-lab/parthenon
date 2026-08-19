@@ -258,16 +258,6 @@ struct var_view_t {
   int shift_ = 0;
   int stride_ = 0;
   const IndexSpaceType *pidx_space = nullptr;
-
-  KOKKOS_FORCEINLINE_FUNCTION
-  auto operator+(const int offst) const {
-    var_view_t<IndexSpaceType, PackType> out;
-    out.data_ = data_ + offst;
-    out.shift_ = shift_;
-    out.stride_ = stride_;
-    out.pidx_space = pidx_space;
-    return out;
-  }
 };
 
 // logical_coords specialization: forward straight to pack(b, vidx, k,j,i), no cached
@@ -292,6 +282,13 @@ struct var_view_t<IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>, Pack
   }
   KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(int k, int j, int i) const {
     return (*pack)(b, vidx, k, j, i);
+  }
+  KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(int offset, Index3 in) const {
+    return (*pack)(b, vidx + offset, in.k, in.j, in.i);
+  }
+  KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(int offset, int k, int j,
+                                                          int i) const {
+    return (*pack)(b, vidx + offset, k, j, i);
   }
 };
 
