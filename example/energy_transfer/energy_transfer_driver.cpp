@@ -1380,15 +1380,15 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
 
     auto write_spectrum = [&](const std::string &prefix,
                               const parthenon::HostArray2D<TransferReal> &spectra) {
-      write_vector_from_matrix(prefix + "/pow_sum", spectra, 0);
-      write_vector_from_matrix(prefix + "/k_sum", spectra, 1);
-      write_vector_from_matrix(prefix + "/count_sum", spectra, 2);
+      write_vector_from_matrix(prefix + "_pow_sum", spectra, 0);
+      write_vector_from_matrix(prefix + "_k_sum", spectra, 1);
+      write_vector_from_matrix(prefix + "_count_sum", spectra, 2);
     };
 
-    if (compute_spec_U) write_spectrum("spec/u", spectra_u_h);
-    if (compute_spec_rho) write_spectrum("spec/rho", spectra_rho_h);
-    if (compute_spec_W) write_spectrum("spec/w", spectra_w_h);
-    if (compute_spec_B) write_spectrum("spec/b", spectra_b_h);
+    if (compute_spec_U) write_spectrum("spec_u", spectra_u_h);
+    if (compute_spec_rho) write_spectrum("spec_rho", spectra_rho_h);
+    if (compute_spec_W) write_spectrum("spec_w", spectra_w_h);
+    if (compute_spec_B) write_spectrum("spec_b", spectra_b_h);
 
     series.close();
     if (parthenon::Globals::my_rank == 0) {
