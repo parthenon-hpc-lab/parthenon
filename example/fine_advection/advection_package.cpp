@@ -235,7 +235,9 @@ TaskStatus FillDerived(MeshData<Real> *md) {
     const la::NInner ninner = la::chunk_shape::ij_slab;
     constexpr auto loop_tag =
         parthenon::ENABLE_GPU ? la::loop_tag::boiv : la::loop_tag::bovi;
-    using IST = la::IndexSpace<loop_tag, la::inner_tag::memory>;
+    constexpr auto inner_tag =
+        parthenon::ENABLE_GPU ? la::inner_tag::logical_flat : la::inner_tag::memory;
+    using IST = la::IndexSpace<loop_tag, inner_tag>;
 
     auto pm = md->GetParentPointer();
     const int ndim = pm->ndim;
