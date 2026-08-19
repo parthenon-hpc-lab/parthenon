@@ -257,14 +257,18 @@ TaskStatus FillDerived(MeshData<Real> *md) {
             auto pvn = la::make_sparse_pack_view(idx_range, pack, n);
 
             la::inner(idx_range, [&](const auto kji) {
+              /* clang-format off */
               pvn(Nodal::phi(), kji) =
                   0.125 *
-                  (pvn(Conserved::phi(), kji) + pvn(Conserved::phi(), kji - di) +
-                   pvn(Conserved::phi(), kji - dj) + pvn(Conserved::phi(), kji - dk) +
+                  (pvn(Conserved::phi(), kji) +
+                   pvn(Conserved::phi(), kji - di) +
+                   pvn(Conserved::phi(), kji - dj) +
+                   pvn(Conserved::phi(), kji - dk) +
                    pvn(Conserved::phi(), kji - di - dj) +
                    pvn(Conserved::phi(), kji - dj - dk) +
                    pvn(Conserved::phi(), kji - dk - di) +
                    pvn(Conserved::phi(), kji - di - dj - dk));
+              /* clang-format on */
             });
           }
         });
