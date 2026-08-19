@@ -47,6 +47,18 @@ void outer_kokkos(IndexSpaceType idx_space, F &&f) {
         "loop_abstraction::outer_kokkos_boiv",
         Kokkos::RangePolicy<parthenon::DevExecSpace>(0, total),
         KOKKOS_LAMBDA(const std::int64_t flat) {
+#if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
+          // JMM: THis is a known compiler bug in AMD where these
+          // variables are not detected as constant deeper in
+          // hierarchical parallelism and they get assigned to vector
+          // registers rather than scaler registers. This declaration
+          // convinces the compiler to mark them into scalar registers.
+          // It can make a few percent difference in performance.
+          [[maybe_unused]] const auto bdx = blockDim.x;
+          [[maybe_unused]] const auto bdy = blockDim.y;
+          [[maybe_unused]] const auto bdz = blockDim.z;
+#endif
+
           const int b = static_cast<int>(flat / cells_per_block);
           const int local = static_cast<int>(flat % cells_per_block);
           const auto [k, j, i] = idx_space.GetLogicalIndexer()(local);
@@ -68,6 +80,18 @@ void outer_kokkos(IndexSpaceType idx_space, F &&f) {
     Kokkos::parallel_for(
         "loop_abstraction::outer_kokkos_team", policy,
         KOKKOS_LAMBDA(const device_team_member_t &member) {
+#if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
+          // JMM: THis is a known compiler bug in AMD where these
+          // variables are not detected as constant deeper in
+          // hierarchical parallelism and they get assigned to vector
+          // registers rather than scaler registers. This declaration
+          // convinces the compiler to mark them into scalar registers.
+          // It can make a few percent difference in performance.
+          [[maybe_unused]] const auto bdx = blockDim.x;
+          [[maybe_unused]] const auto bdy = blockDim.y;
+          [[maybe_unused]] const auto bdz = blockDim.z;
+#endif
+
           const int league = member.league_rank();
           const int b = league / nouter;
           const int o = league % nouter;
@@ -88,6 +112,18 @@ void outer_kokkos(IndexSpaceType idx_space, F &&f) {
     Kokkos::parallel_for(
         "loop_abstraction::outer_kokkos_bvoi", policy,
         KOKKOS_LAMBDA(const device_team_member_t &member) {
+#if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
+          // JMM: THis is a known compiler bug in AMD where these
+          // variables are not detected as constant deeper in
+          // hierarchical parallelism and they get assigned to vector
+          // registers rather than scaler registers. This declaration
+          // convinces the compiler to mark them into scalar registers.
+          // It can make a few percent difference in performance.
+          [[maybe_unused]] const auto bdx = blockDim.x;
+          [[maybe_unused]] const auto bdy = blockDim.y;
+          [[maybe_unused]] const auto bdz = blockDim.z;
+#endif
+
           const int b = member.league_rank();
           InnerIndexRangeType idx_range(idx_space, idx_space.GetLogicalIndexer(), b,
                                         &member);
