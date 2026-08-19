@@ -284,12 +284,9 @@ vector- or tensor-type variables:
      vv(component, kji) = ...;
    });
 
-Here ``component`` means ``base_variable_index + component`` in the pack and is not a
-spatial offset. The same form may select either a vector/tensor component or a sparse
-variable instance: both occupy consecutive variable entries in the pack. For a sparse
-variable, the argument is the instance's contiguous offset relative to the chosen base
-entry, not necessarily its sparse ID. Sparse IDs may have gaps even though their
-positions in the pack do not.
+Here ``component`` means ``base_variable_index + component`` in the
+pack and is not a spatial offset, but the spatial component of, e.g.,
+a vector.
 
 The base passed to ``make_var_view`` should be the first entry to be accessed, and the
 caller must keep the offset within that variable family's consecutive pack entries; no

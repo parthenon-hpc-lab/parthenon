@@ -224,12 +224,9 @@ for each component. The point argument follows the selected inner-tag contract:
 - `logical_coords` accepts `Index3` or explicit `(k, j, i)` coordinates, with the
   component offset prepended.
 
-The first argument is a pack-variable offset, not a logical-space offset. It may select
-a vector/tensor component or a sparse variable instance because both are represented
-as consecutive variable entries in the pack. For sparse variables, the offset is the
-instance's contiguous position relative to the base entry in this pack; it is not
-necessarily the sparse ID itself, since the packed instances remain contiguous even
-when their sparse IDs have gaps.
+The first argument is a pack-variable offset, not a logical-space
+offset. It may select a vector/tensor component, which are represented
+as consecutive variable entries in the pack.
 
 The caller must keep the offset within the consecutive pack entries represented by the
 variable family; there is no bounds check. Those entries must have the same topology

@@ -317,6 +317,22 @@ struct vf : public parthenon::variable_names::base_w_tt_t<false, TopologicalType
   static constexpr bool is_sparse() { return false; }
 };
 
+struct var_view_vec3 : public parthenon::variable_names::base_t<false, 3> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION var_view_vec3(Ts &&...args)
+      : parthenon::variable_names::base_t<false, 3>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "var_view_vec3"; }
+  static constexpr bool is_sparse() { return false; }
+};
+
+struct var_view_sparse : public parthenon::variable_names::base_t<false> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION var_view_sparse(Ts &&...args)
+      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "var_view_sparse"; }
+  static constexpr bool is_sparse() { return true; }
+};
+
 KOKKOS_INLINE_FUNCTION Real PackViewSourceValue(const int b, const int src_var,
                                                 const int k, const int j, const int i) {
   return 1.0e6 * static_cast<Real>(b) + 1.0e5 * static_cast<Real>(src_var + 1) +
@@ -996,6 +1012,105 @@ void RunVarViewPatternMatrix() {
   }
 }
 
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunVarViewDenseOffsetCase(const PackViewSpec &spec, const int ninner) {
+  const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
+  INFO("dense offset pattern=" << pattern_name << ", ninner=" << ninner);
+
+  ScopedNghost guard;
+  parthenon::Globals::nghost = spec.nghost;
+
+  const std::vector<int> scalar_shape{spec.ncell + 2 * spec.nghost,
+                                      spec.ncell + 2 * spec.nghost,
+                                      spec.ncell + 2 * spec.nghost};
+  auto vector_shape = scalar_shape;
+  vector_shape.push_back(3);
+  Metadata scalar_m({Metadata::Independent}, scalar_shape);
+  Metadata vector_m({Metadata::Independent, Metadata::Vector}, vector_shape);
+  auto pkg = std::make_shared<StateDescriptor>("VarView dense offset package");
+  pkg->AddField<v1>(scalar_m);
+  pkg->AddField<var_view_vec3>(vector_m);
+  pkg->AddField<v5>(scalar_m);
+
+  BlockList_t block_list = MakeBlockList(pkg, spec.nblocks, spec.ncell, 3);
+  MeshData<Real> mesh_data("base");
+  mesh_data.Initialize(block_list, nullptr);
+
+  auto desc = parthenon::MakePackDescriptor<v1, var_view_vec3, v5>(pkg.get());
+  auto sparse_pack = desc.GetPack(&mesh_data);
+  const auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
+  const auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::entire);
+  const auto kb = block_list[0]->cellbounds.GetBoundsK(IndexDomain::entire);
+  constexpr Real before_sentinel = -101.0;
+  constexpr Real after_sentinel = -202.0;
+
+  for (int b = 0; b < spec.nblocks; ++b) {
+    parthenon::par_for(
+        parthenon::loop_pattern_mdrange_tag, "initialize dense var view offsets",
+        parthenon::DevExecSpace(), kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(int k, int j, int i) {
+          sparse_pack(b, v1(), k, j, i) = before_sentinel;
+          for (int c = 0; c < 3; ++c) {
+            sparse_pack(b, var_view_vec3(c), k, j, i) = -1.0;
+          }
+          sparse_pack(b, v5(), k, j, i) = after_sentinel;
+        });
+  }
+  Kokkos::fence();
+
+  using IndexSpaceType = IndexSpace<LOOP_TAG, INNER_TAG>;
+  IndexSpaceType idx_space(spec.nblocks, spec.ncell, spec.ncell, spec.ncell, spec.nghost,
+                           ninner);
+  loop_abstraction::outer(
+      idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
+        auto vec =
+            loop_abstraction::make_var_view(idx_range, sparse_pack, var_view_vec3());
+        loop_abstraction::inner(idx_range, [&](auto idx) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          if constexpr (INNER_TAG == inner_tag::logical_coords) {
+            vec(0, idx) = PackViewExpectedValue(b, 0, k, j, i);
+            vec(1, k, j, i) = PackViewExpectedValue(b, 1, k, j, i);
+            vec(2, idx) = PackViewExpectedValue(b, 2, k, j, i);
+          } else {
+            for (int c = 0; c < 3; ++c) {
+              vec(c, idx) = PackViewExpectedValue(b, c, k, j, i);
+            }
+          }
+        });
+      });
+  Kokkos::fence();
+
+  int nwrong = 0;
+  const auto ib_int = block_list[0]->cellbounds.GetBoundsI(IndexDomain::interior);
+  const auto jb_int = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const auto kb_int = block_list[0]->cellbounds.GetBoundsK(IndexDomain::interior);
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag, "check dense var view offsets",
+      parthenon::DevExecSpace(), 0, sparse_pack.GetNBlocks() - 1, kb_int.s, kb_int.e,
+      jb_int.s, jb_int.e, ib_int.s, ib_int.e,
+      KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+        if (sparse_pack(b, v1(), k, j, i) != before_sentinel) ++ltot;
+        for (int c = 0; c < 3; ++c) {
+          if (sparse_pack(b, var_view_vec3(c), k, j, i) !=
+              PackViewExpectedValue(b, c, k, j, i)) {
+            ++ltot;
+          }
+        }
+        if (sparse_pack(b, v5(), k, j, i) != after_sentinel) ++ltot;
+      },
+      nwrong);
+  REQUIRE(nwrong == 0);
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunVarViewDenseOffsetPattern() {
+  constexpr PackViewSpec spec{2, 3, 2};
+  const int logical_cells = spec.ncell * spec.ncell * spec.ncell;
+  for (const int ninner : PackViewNinnerCases(logical_cells)) {
+    RunVarViewDenseOffsetCase<LOOP_TAG, INNER_TAG>(spec, ninner);
+  }
+}
+
 // Single-variable (anonymous) flux view: write a known pattern into one variable's flux
 // array through make_flux_view, read it back through sparse_pack.flux(). Exercises
 // flux_view_t end to end, covering both a typed index (v1()) and raw int indices.
@@ -1636,6 +1751,18 @@ TEST_CASE("loop abstraction var view contracts",
   RunVarViewPatternMatrix<loop_tag::bovi, inner_tag::memory>();
   RunVarViewPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
   RunVarViewPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
+}
+
+TEST_CASE("loop abstraction dense var view component offsets",
+          "[loop_abstraction][contract][pack_view][var_view_offset]") {
+  RunVarViewDenseOffsetPattern<loop_tag::bvoi, inner_tag::logical_flat>();
+  RunVarViewDenseOffsetPattern<loop_tag::bvoi, inner_tag::logical_coords>();
+  RunVarViewDenseOffsetPattern<loop_tag::bvoi, inner_tag::memory>();
+  RunVarViewDenseOffsetPattern<loop_tag::bovi, inner_tag::logical_flat>();
+  RunVarViewDenseOffsetPattern<loop_tag::bovi, inner_tag::logical_coords>();
+  RunVarViewDenseOffsetPattern<loop_tag::bovi, inner_tag::memory>();
+  RunVarViewDenseOffsetPattern<loop_tag::boiv, inner_tag::logical_flat>();
+  RunVarViewDenseOffsetPattern<loop_tag::boiv, inner_tag::logical_coords>();
 }
 
 TEST_CASE("loop abstraction var flux view contracts",
