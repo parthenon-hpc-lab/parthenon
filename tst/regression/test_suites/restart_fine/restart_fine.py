@@ -227,7 +227,7 @@ class TestCase(utils.test_case.TestCaseAbs):
                 "parthenon/output1/file_type=hdf5",
                 "parthenon/output1/dt=0.25",
                 "parthenon/output1/last_time=0.25",
-                "parthenon/output1/variables=advection.C",
+                "parthenon/output1/variables=advection.C, advection.phi, nodal.phi, advection.phi_fine_restricted, advection.phi_fine",
             ]
         return parameters
 
