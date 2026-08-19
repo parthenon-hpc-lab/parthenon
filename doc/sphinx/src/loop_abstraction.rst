@@ -29,8 +29,8 @@ Two objects and two free functions form the core of the API:
 - ``IndexSpace<loop_tag, inner_tag, backend>`` describes the logical
   ``(block, k, j, i)`` iteration space and the memory layout of a block. The three
   template parameters fix the loop shape, the inner traversal, and the backend at
-  compile time. The backend has a default that is raw for loops with simd markings 
-  on host and kokkos based loops on device.
+  compile time. The backend defaults to raw host loops (with OpenMP work-sharing and
+  SIMD directives when enabled) on host and Kokkos-based loops on device.
 - ``InnerIndexRange`` is one slice of an ``IndexSpace`` (a block plus the current
   chunk of ``kji`` space). It is the object handed to inner loop bodies and knows how
   to translate between flat, memory, and logical ``(k, j, i)`` indices.
@@ -137,7 +137,8 @@ Backend selection
 
 The third ``IndexSpace`` template parameter is the ``loop_backend``:
 
-- ``loop_backend::raw`` -- a plain host loop nest (with ``#pragma omp simd``).
+- ``loop_backend::raw`` -- a host loop nest with OpenMP work-sharing and SIMD
+  directives when OpenMP is enabled.
 - ``loop_backend::kokkos`` -- dispatch through Kokkos parallel policies.
 
 It defaults to ``default_loop_backend_v``, which is ``raw`` when the device execution
@@ -145,6 +146,18 @@ space is the host space and ``kokkos`` otherwise. ``outer``/``inner`` dispatch o
 tag with ``if constexpr``, so the selection is zero-cost. Pinning the tag explicitly
 is mostly useful in tests that want to exercise a specific backend regardless of the
 build.
+
+OpenMP is not a third backend; it augments the raw backend. The raw ``bvoi`` path
+parallelizes blocks, ``bovi`` parallelizes the collapsed block/chunk space, and
+``boiv`` processes blocks in turn while parallelizing the collapsed ``(k, j)`` space
+and marking the ``i`` loop SIMD. Thus ``bovi`` and ``boiv`` can expose thread-level
+parallelism in a one-block run, while ``bvoi`` requires multiple blocks for it.
+
+An outer body may therefore run concurrently for multiple ranges, with no guaranteed
+order. Writes from distinct ranges must be disjoint or synchronized, and mutable host
+state captured by a body must be thread-safe. Treat raw ``outer(...)`` as a top-level
+parallel operation: nesting it inside another OpenMP, host-threaded, or Kokkos parallel
+region requires explicit coordination and may oversubscribe threads.
 
 Body signatures
 ---------------
@@ -258,6 +271,32 @@ tags. In `inner_tag::logical_coords` loops, these are just light wrappers that c
 through to the sparse packs. For all other `inner_tag`s, pack view construction directly
 pulls out pointers to the variables. This can promote vectorization and be a significant
 performance benefit. 
+
+A variable view can also access components at consecutive pack-variable indices by
+passing a relative component offset before the point index. This is useful for
+vector- or tensor-type variables:
+
+.. code:: cpp
+
+   auto vv = loop_abstraction::make_var_view(idx_range, pack, my_vec_var());
+
+   loop_abstraction::inner(idx_range, [&](auto kji) {
+     vv(component, kji) = ...;
+   });
+
+Here ``component`` means ``base_variable_index + component`` in the pack and is not a
+spatial offset. The same form may select either a vector/tensor component or a sparse
+variable instance: both occupy consecutive variable entries in the pack. For a sparse
+variable, the argument is the instance's contiguous offset relative to the chosen base
+entry, not necessarily its sparse ID. Sparse IDs may have gaps even though their
+positions in the pack do not.
+
+The base passed to ``make_var_view`` should be the first entry to be accessed, and the
+caller must keep the offset within that variable family's consecutive pack entries; no
+bounds check is performed. All addressed entries must have the same topology and memory
+layout. Flat/memory paths use the cached stride between pack entries, while
+``logical_coords`` forwards the adjusted variable index and coordinates directly to
+the pack.
 
 .. code:: cpp
   auto desc = parthenon::MakePackDescriptor<v1, vf>(md);
