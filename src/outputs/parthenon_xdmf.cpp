@@ -109,7 +109,6 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
                                   [](const auto &v) { return v.is_coordinate_field; });
     const int ndim_mesh = (nx3 > 1) + (nx2 > 1) + (nx1 > 1);
     const bool is_2d = (ndim_mesh == 2);
-    const bool is_1d = (ndim_mesh == 1);
     const bool output_coords = (ndim_mesh > 1) && (coords_it != var_list.end());
     if ((coords_it != var_list.end()) && (ndim_mesh < 2) && (Globals::my_rank == 0)) {
       PARTHENON_WARN(
@@ -118,6 +117,7 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
     }
     // TODO(JMM): This warning is probably sufficiently annoying we
     // should suppress it, but this is true.
+    // const bool is_1d = (ndim_mesh == 1);
     // if (is_1d) {
     //   PARTHENON_DEBUG_WARN("1D output in XDMF can be ill-behaved. Use with caution.");
     // }
@@ -165,6 +165,8 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       xdmf << StringPrintf("    <Grid GridType=\"Uniform\" Name=\"%d\">\n", ib);
       xdmf << StringPrintf("      <Topology TopologyType=\"%s\" Dimensions=\"%s\"/>\n",
                            mesh_type.c_str(), dimstring.c_str());
+      // JMM: Unfortunately xdmf assumes 2D+ so VX doesn't exist and
+      // we can't special case for 1D.
       xdmf << StringPrintf("      <Geometry GeometryType=\"%s\">\n",
                            output_coords ? "X_Y_Z" : (is_2d ? "VXVY" : "VXVYVZ"));
       if (output_coords) {
