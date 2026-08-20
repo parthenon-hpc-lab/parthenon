@@ -63,7 +63,7 @@ Raw-loop OpenMP
 ---------------
 
 ``PARTHENON_ENABLE_RAW_OPENMP=ON`` enables OpenMP work sharing in the raw
-host-loop backend. This option is independent of Kokkos's OpenMP execution
+host-loop abstraction backend. This option is independent of Kokkos's OpenMP execution
 space. For example, raw loops can use OpenMP while Kokkos uses only its serial
 backend:
 
