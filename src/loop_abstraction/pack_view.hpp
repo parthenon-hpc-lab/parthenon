@@ -254,6 +254,15 @@ struct var_view_t {
     return (*this)(Index3{k, j, i});
   }
 
+  // TODO(JMM/LFR): If we are really worried about the number of
+  // members in var_views impacting register pressure or having other
+  // performance impacts, we could specialize var_views more to only
+  // include the Real* member and nothing else for most inner loop
+  // tags. That would require not allowing var_views to be used in
+  // loops with the functor signature (int k, int j, int i). We could
+  // also template on the variable type itself, and only store the
+  // offset when the variable is not a scalar. This may be overkill
+  // though.
   parthenon::Real *data_ = nullptr;
   int shift_ = 0;
   int stride_ = 0;
