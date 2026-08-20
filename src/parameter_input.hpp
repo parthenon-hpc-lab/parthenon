@@ -113,7 +113,16 @@ struct QueryRecord {
       T t;
       return typeid(t).name();
     } else if constexpr (std::is_same_v<T, std::vector<typename T::value_type>>) {
-      return "std::vector<" + GetTypeName<typename T::value_type>() + ">";
+      // Build up the name with append rather than a chained operator+. GCC 15's
+      // -Wstringop-overflow constant-folds the concatenated literal (e.g.
+      // "std::vector<string>", 19 bytes) and, after aggressive inlining, wrongly
+      // assumes it targets std::string's 16-byte SSO buffer instead of the heap,
+      // emitting a false-positive overflow warning. Building the string
+      // incrementally avoids that spurious analysis.
+      std::string s = "std::vector<";
+      s += GetTypeName<typename T::value_type>();
+      s += ">";
+      return s;
     } else {
       if (Globals::my_rank == 0) {
         PARTHENON_WARN("Unknown non-arithmetic type! Attempting to use typeid, which is "
