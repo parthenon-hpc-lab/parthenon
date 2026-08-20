@@ -51,7 +51,6 @@ namespace {
 // loop_abstraction now lives under parthenon; keep the short name for the test body.
 namespace loop_abstraction = parthenon::loop_abstraction;
 
-using Real = double;
 using loop_abstraction::default_loop_backend_v;
 using loop_abstraction::Index3;
 using loop_abstraction::IndexSpace;
@@ -66,6 +65,7 @@ using parthenon::IndexDomain;
 using parthenon::MeshBlock;
 using parthenon::MeshData;
 using parthenon::Metadata;
+using parthenon::Real;
 using parthenon::StateDescriptor;
 using parthenon::TopologicalElement;
 using parthenon::TopologicalType;
