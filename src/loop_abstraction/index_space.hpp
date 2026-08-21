@@ -93,7 +93,7 @@ template <class IndexSpaceType, class Halo>
 class InnerIndexRange;
 
 template <loop_tag LOOP_TAG, inner_tag INNER_TAG,
-          loop_backend BACKEND = default_loop_backend_v>
+          loop_backend BACKEND = default_loop_backend_v, class Reduction = no_reduce_t>
 class IndexSpace {
   static_assert(!(LOOP_TAG == loop_tag::boiv && INNER_TAG == inner_tag::memory),
                 "IndexSpace: This tag combination is not supported and will not be.");
@@ -103,9 +103,23 @@ class IndexSpace {
   static constexpr inner_tag inner_tag_v = INNER_TAG;
   static constexpr loop_backend backend_v = BACKEND;
 
-  // The (base, no-halo) inner range that outer() hands to a loop body. Naming it lets
-  // an outer body spell its parameter type without `auto` (which nvcc rejects for
-  // extended lambdas): outer(idx_space, KOKKOS_LAMBDA(const IST::idx_range_t &r, ...)).
+  // Reduction support. reduction_t is no_reduce_t for an ordinary space, or a Kokkos
+  // reducer (e.g. Kokkos::Sum<Real>) for a reduction space; see ReductionIndexSpace and
+  // WithReducer below, and outer_reduce/inner_reduce. value_t is the reduced value type.
+  using reduction_t = Reduction;
+  using value_t = loop_abstraction::reduction_value_t<Reduction>;
+  static constexpr bool is_reduction_v = loop_abstraction::is_reduction_v<Reduction>;
+
+  // Rebind this space's tags/backend onto a (possibly different) reducer. Reuses an
+  // already-built space -- mesh bounds, scratch registration, ninner -- rather than
+  // reconstructing one just to change the reduction op.
+  template <class NewReduction>
+  using with_reduction_t = IndexSpace<LOOP_TAG, INNER_TAG, BACKEND, NewReduction>;
+
+  // The (base, no-halo) inner range that outer()/outer_reduce() hands to a loop body.
+  // Naming it lets an outer body spell its parameter type without `auto` (which nvcc
+  // rejects for extended lambdas): both outer() and outer_reduce() bodies use it, e.g.
+  // outer_reduce(rist, KOKKOS_LAMBDA(const RIST::idx_range_t &r, int b) { ... }).
   using idx_range_t = InnerIndexRange<IndexSpace, halo::none_t>;
 
   KOKKOS_INLINE_FUNCTION int GetMemoryOffset(const int dk, const int dj,
@@ -162,6 +176,26 @@ class IndexSpace {
 
   using ID = parthenon::IndexDomain;
   using TE = parthenon::TopologicalElement;
+
+  // Explicit-logical-ranges constructor: the caller hand-specifies the logical box of
+  // cells to visit (kb/jb/ib), while the memory extent is fixed by Parthenon -- the
+  // block's entire bounds for the chosen memory layout (memory_te selects CC vs NN, the
+  // only memory choice the caller gets). Use this when the logical bounds are a
+  // non-standard box (e.g. boundary-aware interior bounds).
+  template <class MeshDataOrMeshBlockData>
+  IndexSpace(int nblocks, const parthenon::IndexRange &kb,
+             const parthenon::IndexRange &jb, const parthenon::IndexRange &ib,
+             const MeshDataOrMeshBlockData *md, TE memory_te = TE::CC,
+             std::optional<NInner> ninner_in = std::nullopt)
+      : logical_kji({kb.s, kb.e}, {jb.s, jb.e}, {ib.s, ib.e}),
+        memory_kji(md->GetBoundsK(ID::entire, memory_te),
+                   md->GetBoundsJ(ID::entire, memory_te),
+                   md->GetBoundsI(ID::entire, memory_te)),
+        nblocks(nblocks), ninner(ninner_in.value_or(NInner(chunk_shape::ij_slab))) {
+    PARTHENON_REQUIRE(memory_te == TE::CC || memory_te == TE::NN,
+                      "Only two kinds of memory layouts for topological elements.");
+  }
+
   template <class MeshDataOrMeshBlockData>
   IndexSpace(NInner ninner, ID domain, int halo, int nblocks,
              const MeshDataOrMeshBlockData *md, TE domain_te, TE memory_te = TE::CC)
@@ -262,12 +296,44 @@ class IndexSpace {
     return per_team_scratch_size_in_bytes;
   }
 
+  // Rebind this space onto a reducer, reusing its bounds/scratch/ninner. The result is a
+  // reduction space (reduction_t == NewReduction) usable with outer_reduce; the original
+  // is untouched. Typically NewReduction is a Kokkos reducer, e.g.
+  //   auto ridx = idx_space.WithReducer<Kokkos::Sum<Real>>();
+  template <class NewReduction>
+  with_reduction_t<NewReduction> WithReducer() const {
+    with_reduction_t<NewReduction> out;
+    out.logical_kji = logical_kji;
+    out.memory_kji = memory_kji;
+    out.nblocks = nblocks;
+    out.ninner = ninner;
+    out.per_team_scratch_size_in_bytes = per_team_scratch_size_in_bytes;
+    return out;
+  }
+
  private:
+  // All IndexSpace instantiations are mutual friends so WithReducer can copy the fields
+  // of a differently-reduced sibling.
+  template <loop_tag, inner_tag, loop_backend, class>
+  friend class IndexSpace;
+
+  // Used by WithReducer to build an uninitialized shell that is then filled field by
+  // field. Not for general use -- the public constructors establish the invariants.
+  IndexSpace() = default;
+
   parthenon::Indexer3D logical_kji, memory_kji;
   int nblocks;
   NInner ninner;
   std::size_t per_team_scratch_size_in_bytes = 0;
 };
+
+// Spell a reduction index space without naming the backend (which users should almost
+// never see): give the tags and a reducer, and the backend defaults as usual. Equivalent
+// to IndexSpace<LT, IT, backend, Reduction>. Construct one directly, or rebind an
+// existing space with idx_space.WithReducer<Reduction>().
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG, class Reduction,
+          loop_backend BACKEND = default_loop_backend_v>
+using ReductionIndexSpace = IndexSpace<LOOP_TAG, INNER_TAG, BACKEND, Reduction>;
 
 } // namespace parthenon::loop_abstraction
 

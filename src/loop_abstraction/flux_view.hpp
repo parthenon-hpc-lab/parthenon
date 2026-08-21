@@ -37,7 +37,8 @@ namespace parthenon::loop_abstraction {
 // default-constructed (null data, size 0). make_flux_pack_view detects this and stores
 // nullptr for such variables; accessing one is a bug caught (debug builds only) by
 // the DEBUG_REQUIRE below.
-template <class IndexSpaceType, class PackType, class... Ts>
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG, class PackType, class... Ts>
 struct flux_pack_view_t {
   using TL = parthenon::TypeList<Ts...>;
   KOKKOS_DEFAULTED_FUNCTION
@@ -63,7 +64,7 @@ struct flux_pack_view_t {
     parthenon::Real *base = data_[SumSizesBefore<TL, var_t>() + v.idx];
     PARTHENON_DEBUG_REQUIRE(base != nullptr,
                             "flux view accessed for a variable with no flux array");
-    return base[pidx_space->GetMemoryIndexer().GetFlatIdx(in.k, in.j, in.i) - shift_];
+    return base[memory_indexer->GetFlatIdx(in.k, in.j, in.i) - shift_];
   }
 
   template <class var_t>
@@ -73,16 +74,13 @@ struct flux_pack_view_t {
 
   std::array<parthenon::Real *, SumSizesBefore<TL>()> data_{};
   int shift_ = 0;
-  const IndexSpaceType *pidx_space = nullptr;
+  const parthenon::Indexer3D *memory_indexer = nullptr;
 };
 
 // logical_coords specialization: forward straight to pack.flux() with coordinates,
 // no cached pointers (mirrors pack_view_t's logical_coords specialization).
-template <loop_tag LOOP_TAG, loop_backend BACKEND, class PackType, class... Ts>
-struct flux_pack_view_t<IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>,
-                        PackType, Ts...> {
-  using IndexSpaceType = IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>;
-
+template <loop_tag LOOP_TAG, class PackType, class... Ts>
+struct flux_pack_view_t<LOOP_TAG, inner_tag::logical_coords, PackType, Ts...> {
   const PackType *pack = nullptr;
   int b = 0;
   int s = 0;
@@ -117,14 +115,16 @@ make_flux_pack_view_impl(const InnerIndexRange<IndexSpaceType> &idx_range,
                          const sparse_pack_t &pack_in, const int dir, const int s,
                          parthenon::TypeList<Ts...>) {
   using TL = parthenon::TypeList<Ts...>;
-  if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
-    return flux_pack_view_t<IndexSpaceType, sparse_pack_t, Ts...>{
+  constexpr loop_tag LOOP_TAG = IndexSpaceType::loop_tag_v;
+  constexpr inner_tag INNER_TAG = IndexSpaceType::inner_tag_v;
+  if constexpr (INNER_TAG == inner_tag::logical_coords) {
+    return flux_pack_view_t<LOOP_TAG, INNER_TAG, sparse_pack_t, Ts...>{
         &pack_in, idx_range.block, s, dir};
   } else {
-    flux_pack_view_t<IndexSpaceType, sparse_pack_t, Ts...> out;
-    out.pidx_space = idx_range.pidx_space;
-    out.shift_ = idx_range.pidx_space->GetMemoryIndexer().GetFlatIdx(
-        idx_range.ks, idx_range.js, idx_range.is);
+    flux_pack_view_t<LOOP_TAG, INNER_TAG, sparse_pack_t, Ts...> out;
+    const auto &memory_indexer = idx_range.pidx_space->GetMemoryIndexer();
+    out.memory_indexer = &memory_indexer;
+    out.shift_ = memory_indexer.GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
     (
         [&] {
           constexpr std::size_t vstart = SumSizesBefore<TL, Ts>();
@@ -178,7 +178,7 @@ make_sparse_flux_pack_view(const InnerIndexRange<IndexSpaceType> &idx_range,
 // counterpart of var_view_t. Constructed from either a raw int or a typed index; both
 // collapse to one absolute variable index at construction. operator() takes no variable
 // argument. Index contracts match var_view_t.
-template <class IndexSpaceType, class PackType>
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG, class PackType>
 struct flux_view_t {
   KOKKOS_DEFAULTED_FUNCTION
   flux_view_t() = default;
@@ -190,7 +190,7 @@ struct flux_view_t {
     return data_[idx.flat];
   }
   KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(Index3 in) const {
-    return data_[pidx_space->GetMemoryIndexer().GetFlatIdx(in.k, in.j, in.i) - shift_];
+    return data_[memory_indexer->GetFlatIdx(in.k, in.j, in.i) - shift_];
   }
   KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(int k, int j, int i) const {
     return (*this)(Index3{k, j, i});
@@ -198,15 +198,13 @@ struct flux_view_t {
 
   parthenon::Real *data_ = nullptr;
   int shift_ = 0;
-  const IndexSpaceType *pidx_space = nullptr;
+  const parthenon::Indexer3D *memory_indexer = nullptr;
 };
 
 // logical_coords specialization: forward straight to pack.flux(b, dir, vidx, k,j,i),
 // no cached pointer (mirrors flux_pack_view_t's logical_coords specialization).
-template <loop_tag LOOP_TAG, loop_backend BACKEND, class PackType>
-struct flux_view_t<IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>, PackType> {
-  using IndexSpaceType = IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>;
-
+template <loop_tag LOOP_TAG, class PackType>
+struct flux_view_t<LOOP_TAG, inner_tag::logical_coords, PackType> {
   const PackType *pack = nullptr;
   int b = 0;
   int vidx = 0;
@@ -233,14 +231,17 @@ template <class IndexSpaceType, class PackType, class IndexType>
 KOKKOS_INLINE_FUNCTION auto
 make_flux_view(const InnerIndexRange<IndexSpaceType> &idx_range, const PackType &pack_in,
                const int dir, const IndexType &var) {
+  constexpr loop_tag LOOP_TAG = IndexSpaceType::loop_tag_v;
+  constexpr inner_tag INNER_TAG = IndexSpaceType::inner_tag_v;
   const int vidx = pack_in.GetIndex(idx_range.block, var);
-  if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
-    return flux_view_t<IndexSpaceType, PackType>{&pack_in, idx_range.block, vidx, dir};
+  if constexpr (INNER_TAG == inner_tag::logical_coords) {
+    return flux_view_t<LOOP_TAG, INNER_TAG, PackType>{&pack_in, idx_range.block, vidx,
+                                                      dir};
   } else {
-    flux_view_t<IndexSpaceType, PackType> out;
-    out.pidx_space = idx_range.pidx_space;
-    out.shift_ = idx_range.pidx_space->GetMemoryIndexer().GetFlatIdx(
-        idx_range.ks, idx_range.js, idx_range.is);
+    flux_view_t<LOOP_TAG, INNER_TAG, PackType> out;
+    const auto &memory_indexer = idx_range.pidx_space->GetMemoryIndexer();
+    out.memory_indexer = &memory_indexer;
+    out.shift_ = memory_indexer.GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
     out.data_ = pack_in.flux(idx_range.block, dir, vidx).data() + out.shift_;
     return out;
   }
