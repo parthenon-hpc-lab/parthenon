@@ -95,7 +95,7 @@ and git will do the right thing.
    :ref:`build doc <building>`.
 
 The top-level ``CMakeLists.txt``
----------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ``cmake`` is a configuration language. It tells your computer how find
 and tie together dependencies and builds a ``makefile`` which actually
@@ -122,7 +122,7 @@ and edit to look like this:
       "Please make a build subdirectory. Feel free to remove CMakeCache.txt and CMakeFiles.")
    endif()
 
-he   # Mostly a convenience thing. If you don't specify which flags to
+   # Mostly a convenience thing. If you don't specify which flags to
    # compile with, cmake prefers a recipe "RelWithDebInfo" which is a
    # mix of code speed and debugging. For maximum performance, specify
    # -DCMAKE_BUILD_TYPE=Release. For debugging, specify
@@ -160,8 +160,18 @@ High-level Parthenon concepts
 -------------------------------
 
 A Parthenon-based project consists of:
+
 * Any number of *packages*, which, conceptually, own work to do and state to do it on.
+
 * A *driver* which orchestrates work.
+
 * At least one *problem generator* which provides initial conditions for the solver.
+
 * A main function which calls a ``ParthenonManager`` to provide setup/teardown and entry into a program.
+
+Let's go through them each.
+
+Packages
+^^^^^^^^^^^
+
 
