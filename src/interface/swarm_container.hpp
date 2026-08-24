@@ -140,6 +140,9 @@ class SwarmContainer {
   TaskStatus Defrag(double min_occupancy);
   TaskStatus DefragAll();
 
+  // Remove all particles while retaining each swarm's allocated pool.
+  void ClearParticles();
+
   // Sort-by-cell task
   TaskStatus SortParticlesByCell();
 

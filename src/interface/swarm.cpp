@@ -386,6 +386,15 @@ void Swarm::RemoveMarkedParticles() {
   UpdateEmptyIndices();
 }
 
+void Swarm::ClearParticles() {
+  Kokkos::deep_copy(mask_, false);
+  Kokkos::deep_copy(marked_for_removal_, false);
+  num_active_ = 0;
+  max_active_index_ = inactive_max_active_index;
+  new_indices_max_idx_ = -1;
+  UpdateEmptyIndices();
+}
+
 void Swarm::Defrag() {
   if (GetNumActive() == 0) {
     return;

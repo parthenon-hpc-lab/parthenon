@@ -95,6 +95,12 @@ TaskStatus SwarmContainer::DefragAll() {
   return TaskStatus::complete;
 }
 
+void SwarmContainer::ClearParticles() {
+  for (auto &s : swarmVector_) {
+    s->ClearParticles();
+  }
+}
+
 TaskStatus SwarmContainer::SortParticlesByCell() {
   PARTHENON_INSTRUMENT
 
