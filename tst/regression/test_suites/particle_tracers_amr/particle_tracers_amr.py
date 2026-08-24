@@ -62,6 +62,15 @@ class TestCase(utils.test_case.TestCaseAbs):
         ).transpose()
         amr_pos = np.vstack((amr_swarm.x, amr_swarm.y, amr_swarm.z)).transpose()
 
+        # SourceTracers rounds each block's share independently, so the sum of rounded
+        # allocations need not equal the requested global count. The 40-block
+        # initialization mesh therefore contains 4104 particles for the requested 4096.
+        expected_num_tracers = 4104
+        if initial_pos.shape[0] != expected_num_tracers:
+            print("Incorrect tracer count after initialization AMR.")
+            print("expected:", expected_num_tracers, "actual:", initial_pos.shape[0])
+            return False
+
         initial_pos[:, 0] = ((initial_pos[:, 0] + 0.5 + 0.35) % 1.0) - 0.5
         initial_pos = sorted_positions(initial_pos)
         amr_pos = sorted_positions(amr_pos)

@@ -221,8 +221,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // Assign package timestep hook
   tr_pkg->EstimateTimestepMesh = EstimateTimestepMesh;
 
-  // Assign package final initialization hook
-  tr_pkg->PostInitializationBlock = SourceTracers;
+  // Source particles after every problem-generator pass, once the advected field is set.
+  tr_pkg->PostProblemGeneratorBlock = SourceTracers;
 
   return tr_pkg;
 }
@@ -556,7 +556,7 @@ TaskCollection ParticleDriver::StepTasks() {
 // *************************************************//
 // Define the ProblemGenerator. Initializing the,  *//
 // advected field.  Recall that initial particle   *//
-// sourcing is handled in FinalInitialization      *//
+// sourcing is handled in PostProblemGenerator     *//
 // owned by the particles package.                 */
 // *************************************************//
 
