@@ -393,7 +393,7 @@ def plot_dump(
         p.scatter(swarmx, swarmy, s=particlesize, c=swarmcolor)
     if colorbar is not None:
         plt.colorbar(
-            pm, label=colorbar, fontsize=fontsize, fraction=0.02, pad=0.04, ax=p
+            pm, label=colorbar, fraction=0.02, pad=0.04, ax=p
         )
     if xlabel is not None:
         p.set_xlabel(xlabel, fontsize=fontsize)
@@ -581,7 +581,7 @@ def main():
             if args.movie_format == "gif":
                 ffmpeg_cmd += '-vf "scale=800:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" '
             elif args.movie_format == "mp4":
-                ffmpeg_cmd += "-c:v libx264 -pix_fmt yuv420p "
+                ffmpeg_cmd += '-vf "pad=ceil(iw/2)*2:ceil(ih/2)*2,format=yuv420p" -c:v libx264 '
 
             ffmpeg_cmd += f"{output_filename}"
             logger.debug(f"Executing ffmpeg command: {ffmpeg_cmd}")
