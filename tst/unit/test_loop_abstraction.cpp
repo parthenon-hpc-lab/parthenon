@@ -397,6 +397,30 @@ struct plus_two_i_minus_k_halo_t {
   KOKKOS_INLINE_FUNCTION static constexpr int di(int n) { return n == 1 ? 0 : 2; }
 };
 
+// Standard 7-point stencil plus an extra -2i offset. Its bounding box has multi-axis
+// corners (e.g. (-1,-1,-2)) that lie in no single shifted copy of the block, so a
+// bvoi loop -- which sweeps the whole rectangular halo-extended box -- indexes scratch
+// cells outside the shifted-copy union. Regression for a scratch under-allocation /
+// negative-index under-run that segfaulted for non-square blocks. Offsets sorted
+// lexicographically by (dk, dj, di). Projection-closed: every offset projects onto a
+// declared offset in 2D and 1D.
+struct seven_point_minus_two_i_halo_t {
+  static constexpr int npoints = 8;
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) {
+    return n == 0 ? -1 : (n == 7 ? 1 : 0);
+  }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) {
+    return n == 1 ? -1 : (n == 6 ? 1 : 0);
+  }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int n) {
+    // n: 0(-1,0,0) 1(0,-1,0) 2(0,0,-2) 3(0,0,-1) 4(0,0,0) 5(0,0,1) 6(0,1,0) 7(1,0,0)
+    if (n == 2) return -2;
+    if (n == 3) return -1;
+    if (n == 5) return 1;
+    return 0;
+  }
+};
+
 struct k_triplet_halo_t {
   static constexpr int npoints = 3;
   KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) {
@@ -433,6 +457,8 @@ static_assert(loop_abstraction::impl::HaloSatisfiesContract<plus_j_halo_t>());
 static_assert(loop_abstraction::impl::HaloSatisfiesContract<minus_i_halo_t>());
 static_assert(loop_abstraction::impl::HaloSatisfiesContract<minus_j_halo_t>());
 static_assert(loop_abstraction::impl::HaloSatisfiesContract<plus_two_i_minus_k_halo_t>());
+static_assert(
+    loop_abstraction::impl::HaloSatisfiesContract<seven_point_minus_two_i_halo_t>());
 static_assert(loop_abstraction::impl::HaloSatisfiesContract<k_triplet_halo_t>());
 static_assert(!loop_abstraction::impl::HaloSatisfiesContract<unsorted_halo_t>());
 static_assert(
@@ -461,6 +487,8 @@ static_assert(loop_abstraction::impl::HaloIsProjectionClosed<minus_i_halo_t>());
 static_assert(loop_abstraction::impl::HaloIsProjectionClosed<k_triplet_halo_t>());
 static_assert(
     loop_abstraction::impl::HaloIsProjectionClosed<plus_two_i_minus_k_halo_t>());
+static_assert(
+    loop_abstraction::impl::HaloIsProjectionClosed<seven_point_minus_two_i_halo_t>());
 static_assert(
     !loop_abstraction::impl::HaloIsProjectionClosed<not_projection_closed_halo_t>());
 
@@ -1893,6 +1921,52 @@ TEST_CASE("loop abstraction scratch halo roundtrip",
   RunScratchHaloPatternMatrix<plus_j_halo_t, loop_tag::bovi, inner_tag::memory>();
   RunScratchHaloPatternMatrix<plus_j_halo_t, loop_tag::boiv, inner_tag::logical_flat>();
   RunScratchHaloPatternMatrix<plus_j_halo_t, loop_tag::boiv, inner_tag::logical_coords>();
+}
+
+// Run one scratch-halo case on every available backend: always the kokkos backend
+// (valid on host and device), and additionally the raw backend on a host build (where
+// raw is the default; on a device build the raw backend would drive host loops over
+// device memory).
+template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunScratchHaloCaseBothBackends(const ProblemSpec &spec, const int ninner) {
+  RunScratchHaloCase<HaloType, LOOP_TAG, INNER_TAG, loop_backend::kokkos>(spec, ninner);
+  if constexpr (default_loop_backend_v == loop_backend::raw) {
+    RunScratchHaloCase<HaloType, LOOP_TAG, INNER_TAG, loop_backend::raw>(spec, ninner);
+  }
+}
+
+// Regression: a multi-axis "corner" halo (7-point + -2i), whose rectangular
+// halo-extended box has corners outside the union of shifted copies. A bvoi loop
+// sweeps the whole box, so scratch must be sized/indexed over the box, not the union.
+// Before the fix this under-allocated and under-ran the scratch buffer, segfaulting for
+// non-square blocks. Exercised over every valid (loop_tag, inner_tag) pair, both
+// backends, and rectangular specs (unequal nx/ny/nz) which is where it bit. boiv/memory
+// is intentionally absent (rejected at compile time, see the top-level note).
+TEST_CASE("loop abstraction corner halo scratch",
+          "[loop_abstraction][contract][scratch][halo]") {
+  using halo_t = seven_point_minus_two_i_halo_t;
+  const std::array<ProblemSpec, 3> specs{
+      ProblemSpec{2, 8, 4, 3, 2}, ProblemSpec{1, 4, 8, 2, 2}, ProblemSpec{2, 6, 3, 5, 3}};
+  for (const auto &spec : specs) {
+    for (const int ninner : NinnerCases(spec.nx * spec.ny * spec.nz)) {
+      RunScratchHaloCaseBothBackends<halo_t, loop_tag::bvoi, inner_tag::logical_flat>(
+          spec, ninner);
+      RunScratchHaloCaseBothBackends<halo_t, loop_tag::bvoi, inner_tag::logical_coords>(
+          spec, ninner);
+      RunScratchHaloCaseBothBackends<halo_t, loop_tag::bvoi, inner_tag::memory>(spec,
+                                                                                ninner);
+      RunScratchHaloCaseBothBackends<halo_t, loop_tag::bovi, inner_tag::logical_flat>(
+          spec, ninner);
+      RunScratchHaloCaseBothBackends<halo_t, loop_tag::bovi, inner_tag::logical_coords>(
+          spec, ninner);
+      RunScratchHaloCaseBothBackends<halo_t, loop_tag::bovi, inner_tag::memory>(spec,
+                                                                                ninner);
+      RunScratchHaloCaseBothBackends<halo_t, loop_tag::boiv, inner_tag::logical_flat>(
+          spec, ninner);
+      RunScratchHaloCaseBothBackends<halo_t, loop_tag::boiv, inner_tag::logical_coords>(
+          spec, ninner);
+    }
+  }
 }
 
 TEST_CASE("loop abstraction boiv scratch halo GetDelta access",

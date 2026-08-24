@@ -174,6 +174,7 @@ Per-point scratch is registered on the ``IndexSpace`` at setup and requested ins
 the outer body:
 
 .. code:: cpp
+
    using recon_halo = la::halo::minus_i_t;
    idx_space.AddPerPointScratch<Real>();          // one Real per point
    idx_space.AddPerPointScratch<Real, 2, 3>();    // a 2x3 block per point
@@ -260,6 +261,7 @@ flux calculation kernel in the loop abstraction might look like (see below for p
 in the example):
 
 .. code:: cpp
+
    const auto desc = MakePackDescriptor<var>(md, {}, {parthenon::PDOpt::WithFluxes});
    auto pack = desc.GetPack(md);
    // Declare an index space over F1 faces 
@@ -353,6 +355,7 @@ layout. Flat/memory paths use the cached stride between pack entries, while
 the pack.
 
 .. code:: cpp
+
   auto desc = parthenon::MakePackDescriptor<v1, vf>(md);
   auto pack = desc.GetPack(md);
 
