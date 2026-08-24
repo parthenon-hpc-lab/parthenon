@@ -199,7 +199,9 @@ and in the new ``ellipse`` folder:
    #define _ELLIPSE_ELLIPSE_HPP_
    
    #include <memory>
+
    #include <parthenon/package.hpp>
+   #include <utils/robust.hpp>
    
    namespace Ellipse {
    using namespace parthenon::package::prelude;
@@ -208,8 +210,9 @@ and in the new ``ellipse`` folder:
    // and minor axis b that has been rotated by th radians.
    KOKKOS_INLINE_FUNCTION
    bool InsideEllipse(const Real x, const Real y, const Real a, const Real b, const Real th) {
-     const Real c = std::cos(th);
-     const Real s = std::sin(th);
+     constexpr Real EPS = parthenon::robust::EPS();
+     const Real c = Kokkos::cos(th);
+     const Real s = Kokkos::sin(th);
    
      const Real xp =  c * x + s * y;
      const Real yp = -s * x + c * y;
@@ -217,7 +220,7 @@ and in the new ``ellipse`` folder:
      const Real aa = a * a;
      const Real bb = b * b;
    
-     return (xp * xp) / (aa + 1e-20) + (yp * yp) / (bb + 1e-20) <= 1.0;
+     return (xp * xp) / (aa + EPS) + (yp * yp) / (bb + EPScd ) <= 1.0;
    }
 
    // This is going to be the name of a variable we're going to set
@@ -496,11 +499,17 @@ Because we'll randomly initialize the particle positions, we also use
 a random number generator, which we call "rng_seed." This is provided
 by ``Kokkos`` via Parthenon.
 
-.. note::
+.. warning::
 
    This is a particularly simple choice of seed. To prevent each MPI
    rank from duplicating random numbers, in full generality you should
    probably shift your initial seed by MPI rank.
+
+.. warning::
+
+   Properly the state of the random number generator should be saved
+   in a way that can be recovered via restart using ``Params``. See
+   The :ref:`documentation on params <state>` for more details.
 
 Finally, notice the ``pkg->EstimateTimestepMesh = EstimateTimestep``
 line. Here we are registering the ``EstimateTimestep`` function (which
@@ -1248,7 +1257,7 @@ top level and let's name it ``ellipse/parthinput.ellipse``. It can look like thi
    method = derivative_order_1     # selects the first derivative method
    refine_tol = 0.5                # tag for refinement if |(dfield/dx)/field| > refine_tol
    derefine_tol = 0.05             # tag for derefinement if |(dfield/dx)/field| < derefine_tol
-   max_level = 3                   # if set, limits refinement level from this criterion to no greater than max_level
+   max_level = 2                   # if set, limits refinement level from this criterion to no greater than max_level
    
    <ellipse>
    major_axis = 1.5 
@@ -1263,7 +1272,7 @@ top level and let's name it ``ellipse/parthinput.ellipse``. It can look like thi
    file_type = hdf5
    variables = Ellipse.Indicator # the field to output
    swarms = samples # The swarm to output
-   samples_variables = weights # positions automatically output
+   samples_variables = samples.weight # positions automatically output
 
 Each name in angle brackets indicates an input block containing key-value
 pairs. You can see many of the parameters we chose to
@@ -1459,6 +1468,7 @@ can manually inspect a ``phdf`` file, e.g., as follows:
    /VolumeLocations/z       Dataset {28, 1}
    /samples                 Group
    /samples/SwarmVars       Group
+   /samples/SwarmVars/samples.weight Dataset {37}
    /samples/SwarmVars/swarm.id Dataset {36}
    /samples/SwarmVars/swarm.x Dataset {36}
    /samples/SwarmVars/swarm.y Dataset {36}
@@ -1520,6 +1530,58 @@ generate 20 frames, one for each output file, and an MP4 file
 The particles that pass out through our outflow boundaries are lost
 forever, but the others follow the ellipse rotation. Try playing with
 the settings of the plotting script and the simulation.
+
+Docstrings
+-------------
+
+Parthenon also provides a mechanism for looking at the "docstrings"
+discussed above for each input parameter actually touched. If you run
+the code with the ``-p`` flag, this is output to terminal as a ``csv``
+file and the simulation is not run:
+
+.. code-block:: bash
+
+   ./src/ellipse -i -p /path/to/parthinput.ellipse
+
+You can also use the ``pretty_params`` script in the
+``parthenon_tools`` python package to look at this as a nicely
+formatted ascii table:
+
+.. code-block:: bash
+
+      ./src/ellipse -p -i /path/to/parthinput.ellipse | python /path/to/ellipse/external/parthenon/scripts/python/packages/parthenon_tools/parthenon_tools/pretty_params.py
+
+and the output looks something like this:
+
+.. code-block:: bash
+
+   +-------------------------+---------------------------------------------+---------------------+--------------------+------------------------------------------------------------------------+
+   | block                   | parameters                                  | type                | default            | description                                                            |
+   +=========================+=============================================+=====================+====================+========================================================================+
+   | ellipse                 | major_axis                                  | Real                | 1                  | Major axis of our ellipse                                              |
+   +-------------------------+---------------------------------------------+---------------------+--------------------+------------------------------------------------------------------------+
+   | ellipse                 | minor_axis                                  | Real                | 1                  | Minor axis of our ellipse                                              |
+   +-------------------------+---------------------------------------------+---------------------+--------------------+------------------------------------------------------------------------+
+   | ellipse                 | rotation_rate                               | Real                | 6.2831853          | Rotation rate of the ellipse, in radians/s                             |
+   +-------------------------+---------------------------------------------+---------------------+--------------------+------------------------------------------------------------------------+
+   | parthenon/job           | output_params_and_exit                      | bool                | 0                  | output a description of all input parameters accessed and quit         |
+   +-------------------------+---------------------------------------------+---------------------+--------------------+------------------------------------------------------------------------+
+   | parthenon/job           | output_params_block_regex                   | string              | (.*)               | when outputting input parameters, this selects which input blocks to   |
+   |                         |                                             |                     |                    | output; all are output by default                                      |
+   +-------------------------+---------------------------------------------+---------------------+--------------------+------------------------------------------------------------------------+
+   | parthenon/job           | problem_id                                  | string              | parthenon          | prefix for output files                                                |
+   +-------------------------+---------------------------------------------+---------------------+--------------------+------------------------------------------------------------------------+
+
+but with many more lines. You can also access an "interactive" version of the table (though it is still read only) by passing the ``-i`` flag to ``pretty_params``:
+
+.. code-block:: bash
+
+      ./src/ellipse -p -i /path/to/parthinput.ellipse | python /path/to/ellipse/external/parthenon/scripts/python/packages/parthenon_tools/parthenon_tools/pretty_params.py -i
+
+and that looks something like this:
+
+.. figure:: figs/prettyparams.png
+   :alt: An example of interactive pretty params
 
 Conclusion
 -------------
