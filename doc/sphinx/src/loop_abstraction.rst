@@ -288,7 +288,7 @@ values a consumer loop needs. If a consumer inner loop runs over a logical point
 ``S``, then a producer that fills scratch for the consumer must cover ``S`` plus the
 shifted copies named by the halo:
 
-.. code:: cpp
+.. code::
 
    AddHalo<halo_t<h1, h2, ...>>(S) == S ∪ shift(S, h1) ∪ shift(S, h2) ∪ ...
 
@@ -313,9 +313,9 @@ the same index conventions as the loop body:
   requested on construction.
 
 Each view accepts the same index forms the body produces (flat ``int``, ``Index3``,
-or explicit ``k, j, i``), so a kernel can be written once and reused across inner
-tags. In `inner_tag::logical_coords` loops, these are just light wrappers that call
-through to the sparse packs. For all other `inner_tag`s, pack view construction directly
+or explicit ``k``, ``j``, ``i``), so a kernel can be written once and reused across inner
+tags. In ``inner_tag::logical_coords`` loops, these are just light wrappers that call
+through to the sparse packs. For all other ``inner_tag`` s, pack view construction directly
 pulls out pointers to the variables. This can promote vectorization and be a significant
 performance benefit. 
 
