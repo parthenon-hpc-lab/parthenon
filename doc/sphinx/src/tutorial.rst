@@ -11,18 +11,18 @@ up a Parthenon code and high-level Parthenon concepts.
 Prerequisites
 ---------------
 
-Parthenon requires at a minimum a C++20 compiler, git, and cmake. Most
+Parthenon requires, at a minimum, a C++20 compiler, Git, and CMake. Most
 real applications also require an MPI library (MPI stands for message
 passing interface) for parallelism. In this tutorial, we'll also be
 relying on HDF5 for output and numpy, matplotlib, and h5py for
-visualization. On Ubuntu Linux, you can install the non-python
+visualization. On Ubuntu Linux, you can install the non-Python
 dependencies as
 
 .. code-block:: bash
 
    sudo apt install build-essential libmpich-dev libhdf5-mpich-dev hdf5-tools git cmake
 
-For Python, use your preferred python environment. I suggest a
+For Python, use your preferred Python environment. I suggest a
 project-specific Python virtual environment:
 
 .. code-block:: bash
@@ -34,9 +34,9 @@ project-specific Python virtual environment:
 
 .. note::
 
-   Python and cmake can interfere with each other. I find this is
+   Python and CMake can interfere with each other. I find this is
    especially true with Anaconda and friends, as Anaconda can install,
-   e.g., a serial version of hdf5, which cmake finds when it
+   e.g., a serial version of HDF5, which CMake finds when it
    configures. Thus, I recommend activating your virtual environment
    but leaving your conda environment inactive.
 
@@ -57,14 +57,14 @@ including Parthenon *inside* it. This typically looks like:
 
 where here I've assumed we named our code *ellipse*. The source code
 for the new ellipse executable will live in ``src``, and Parthenon
-will live in ``external/parthenon``. Note the ``CMakeLists.txt`` file,
+will live in ``external/parthenon``. Note the ``CMakeLists.txt`` file;
 we'll come back to that.
 
-The most common way to include Parthenon in a project under git
-version control is ``git-submodules``, which allow a git repository to
-be included inside another git repository such that the source code
+The most common way to include Parthenon in a project under Git
+version control is Git submodules, which allow a Git repository to
+be included inside another Git repository such that the source code
 for the dependency isn't directly committed into the downstream
-project. Lets set it up. You can get to the project structure with:
+project. Let's set it up. You can get to the project structure with:
 
 .. code-block:: bash
 
@@ -86,28 +86,28 @@ Parthenon-based project to build. Do so via
    git submodule update --init --recursive
 
 You can now commit files and push as you normally would. If you want
-to update parthenon, simply go inside the parthenon directory inside
-your project, checkout the relevant release or branch and pull. Then
+to update Parthenon, simply go inside the Parthenon directory inside
+your project, check out the relevant release or branch and pull. Then
 you can commit the folder as if you were working with raw source code
-and git will do the right thing.
+and Git will do the right thing.
 
 .. note::
 
-   Parthenon also has a ``spackage``. You can see details in our
-   :ref:`build doc <building>`.
+   Parthenon also has a Spack package (``spackage``). You can see
+   details in our :ref:`build doc <building>`.
 
 The top-level ``CMakeLists.txt``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``cmake`` is a configuration language. It tells your computer how find
+``CMake`` is a configuration language. It tells your computer how to find
 and tie together dependencies and builds a ``makefile`` which actually
 calls the compiler to build your code. The top-level
 ``CMakeLists.txt`` file contains some of these details. Open the file
-and edit to look like this:
+and edit it to look like this:
 
 .. code-block:: cmake
 
-   # This is by the CMake standard
+   # This is required by the CMake standard
    cmake_minimum_required(VERSION 3.26)
    
    # Names the project ellipse
@@ -117,7 +117,7 @@ and edit to look like this:
    # A useful command for debugging
    set(CMAKE_EXPORT_COMPILE_COMMANDS On)
 
-   # This is just a safety thing, but I recommend it including it. It
+   # This is just a safety thing, but I recommend including it. It
    # forces you to build the code in a directory that isn't the same as
    # your source code.
    file(TO_CMAKE_PATH "${PROJECT_BINARY_DIR}/CMakeLists.txt" LOC_PATH)
@@ -128,7 +128,7 @@ and edit to look like this:
    endif()
 
    # Mostly a convenience thing. If you don't specify which flags to
-   # compile with, cmake prefers a recipe "RelWithDebInfo" which is a
+   # compile with, CMake prefers a recipe "RelWithDebInfo" which is a
    # mix of code speed and debugging. For maximum performance, specify
    # -DCMAKE_BUILD_TYPE=Release. For debugging, specify
    # -DCMAKE_BUILD_TYPE=Debug.
@@ -151,14 +151,14 @@ and edit to look like this:
    add_subdirectory(external/parthenon parthenon)
 
    # This command will error out currently, but we want it to tell
-   # cmake to look for our source code once we write some
+   # CMake to look for our source code once we write some
    add_subdirectory(src)
 
 A fully-featured project may have many more things in the top-level
-cmake, such as code for unit tests and additional dependency
+CMake, such as code for unit tests and additional dependency
 handling. But we'll stick with this for now.
 
-Now lets start writing some code and discussing some high-level
+Now let's start writing some code and discussing some high-level
 Parthenon concepts.
 
 High-level Parthenon concepts
@@ -166,7 +166,7 @@ High-level Parthenon concepts
 
 A Parthenon-based project consists of:
 
-* Any number of *packages*, which, conceptually, own work to do and state to do it on.
+* Any number of *packages*, which, conceptually, own work to do and state on which to operate.
 
 * At least one *problem generator* which provides initial conditions for the solver.
 
@@ -174,17 +174,17 @@ A Parthenon-based project consists of:
 
 * A main function which calls a ``ParthenonManager`` to provide setup/teardown and entry into a program.
 
-Let's go through them each.
+Let's go through each of them.
 
 Packages
 ----------
 
-In practice, a Parthenon *package* is a C++ ``namespace``, which
+In practice, a Parthenon *package* is a C++ ``namespace`` that
 contains any programs/functions you may want to include. In particular
 you *must* include an ``Initialize`` function, and you *probably* want
 to include at least one *task*. We'll talk about tasks in a
 minute. For now, let's create an ``Initialize`` function. We'll follow
-standard C++ style and create a header file, ``ellopse.hpp`` in a new
+standard C++ style and create a header file, ``ellipse.hpp`` in a new
 folder in ``src`` we'll call ``ellipse``:
 
 .. code-block:: bash
@@ -232,24 +232,24 @@ and in the new ``ellipse`` folder:
    
    #endif // _ELLIPSE_ELLIPSE_HPP_
 
-We'll discuss the ``InsideEllipse`` utiility function and ``Rotate``
+We'll discuss the ``InsideEllipse`` utility function and ``Rotate``
 task later. For now let's discuss the ``Initialize`` function and the
-``PAR_VAR`` macro. The macro reates a C++ type that represents the
-name of a variable, that we're naming ``Ellipse.Indicator``, which
+``PAR_VAR`` macro. The macro creates a C++ type that represents the
+name of a variable that we're naming ``Ellipse.Indicator``, which
 will be 1 when we're inside the ellipse and 0 otherwise. The
 type-based variable machinery is useful as it allows us to access
-variables by a string-like name on GPUs, which ottherwise wouldn't
+variables by a string-like name on GPUs, which otherwise wouldn't
 work, as strings don't function easily on GPUs. It also means typos in
 names are caught at compile time, rather than run time.
 
 The ``Initialize`` function returns a ``std::shared_ptr`` (a pointer
 with built-in memory management) to a ``StateDescriptor`` object. A
-``StateDescriptor`` object *describes* to the Parthenon infrastructure
-what a package expects the infrastructure to provide so it can do its
+``StateDescriptor`` object tells the Parthenon infrastructure what a
+package expects the infrastructure to provide so it can do its
 job. This may be variables on the mesh, but it might also be global
-variables owned/managed by a package, which we call ``Params``. It can
-also parse the input file, which is the ``ParameterInput``
-pointer. Let's put our Initialize function in
+variables owned/managed by a package, which we call ``Params``. The
+``Initialize`` function can also parse the input file through the
+``ParameterInput`` pointer. Let's put our Initialize function in
 ``ellipse/ellipse.cpp``. It'll look like this:
 
 .. code-block:: cpp
@@ -292,24 +292,24 @@ the third the default value. The fourth is a Python-like docstring
 that Parthenon can report.
 
 We register the major and minor axes in the package's ``Params``
-register with ``pkg->AddParam``, which stashes them away as constants
+registry with ``pkg->AddParam``, which stashes them away as constants
 we can access from a package. ``Params`` are a Python-like
 type-erasing dictionary. We'll see how to pull data out of them
-later. They're usuful as a global store for simulation parameters that
+later. They're useful as a global store for simulation parameters that
 need to be accessed in different places throughout the code. We do the
 same with the rotation rate ``omega``.
 
-We then add the ``Indicator`` field with the
+We then add the ``Indicator`` field with
 ``pkg->AddField<Indicator>(m);``. This command *does not* allocate
 memory or create the field on the mesh right now. It just declares to
-Parthenon the field should be available. Parthenon will handle the
+Parthenon that the field should be available. Parthenon will handle the
 rest, but ``Initialize`` is called before the mesh is created. The
-type-based variable is passed in inside the angle brackets as a
+type-based variable is passed inside the angle brackets as a
 *template argument*, but a string might also be used, e.g.,
 ``pkg->AddField("Ellipse.Indicator", m);``. The ``Metadata`` object
 passed in describes to the infrastructure the properties we want the
 variable to have. In this case, we want it to be cell-centered and
-``OneCopy``. The latter means that if Parthenon would create multiple
+``OneCopy``. The latter means that if Parthenon were to create multiple
 copies of state, e.g., multiple time levels in a Runge-Kutta
 integration, it treats this field as a shallow copy, and doesn't deep
 copy it. See :ref:`state management <state>` for more details.
@@ -317,13 +317,13 @@ copy it. See :ref:`state management <state>` for more details.
 Anatomy of a Task
 ^^^^^^^^^^^^^^^^^^^
 
-Now lets take a look at the rotate task. A task is work that you will
-ask Parthenon to do, you can think of it as a function or substep the
-solver. The ``TaskStatus`` return value can be used to specify if a
+Now let's take a look at the rotate task. A task is work that you will
+ask Parthenon to do. You can think of it as a function or substep of the
+solver. The ``TaskStatus`` return value can be used to specify whether a
 task succeeded, failed, or needs to be re-attempted (for example
-because you're waiting for an MPI message. In this case, ``Rotate``
-will entirely be the mechanism for updating the ``Indicator`` function
-which demonstrates the position of the ellipse. It might look like:
+because you're waiting for an MPI message). In this case, ``Rotate``
+will be the sole mechanism for updating the ``Indicator`` function
+that represents the position of the ellipse. It might look like:
 
 .. code-block:: cpp
 
@@ -335,7 +335,7 @@ which demonstrates the position of the ellipse. It might look like:
      const auto b = pkg->Param<Real>("minor_axis");
      const auto omega = pkg->Param<Real>("omega");
    
-     // Create a "Meshblockpack which fuses the ellipse variable accross
+     // Create a MeshBlockPack which fuses the ellipse variable across
      // all mesh elements
      auto desc = parthenon::MakePackDescriptor<Ellipse::Indicator>(md);
      auto pack = desc.GetPack(md);
@@ -380,7 +380,7 @@ perform these loops. Finally we return ``TaskStatus::complete``.
 
    Looping in Parthenon is a complex topic and Parthenon supports many
    options. The base loop constructs are described :ref:`here
-   <par_for>`, but there are also a suite of more advanced loops
+   <par_for>`, but there is also a suite of more advanced loops
    designed to be especially performant on both CPU and GPU that you
    can find :ref:`here <loop abstraction>`.
 
@@ -499,13 +499,13 @@ by ``Kokkos`` via Parthenon.
    rank from duplicating random numbers, in full generality you should
    probably shift your initial seed by MPI rank.
 
-Finally, notice the ``pkg->EstimateTimeStepMesh = EsitmateTimestep``
-line. Here we are registering the ``EstimateTimeStep`` function (which
+Finally, notice the ``pkg->EstimateTimestepMesh = EstimateTimestep``
+line. Here we are registering the ``EstimateTimestep`` function (which
 we'll see the implementation of below) with the Parthenon
 infrastructure. The Parthenon driver will use it to decide the maximum
-time stpe it's allowed to take. The reason we need that here is
+time step it's allowed to take. The reason we need that here is
 because we're going to actually update particle positions rather than
-resetting them, and they may move accross the mesh. If the update is
+resetting them, and they may move across the mesh. If the update is
 too large, the inter-meshblock comms infrastructure won't be able to
 keep up.
 
@@ -513,10 +513,10 @@ keep up.
 
    Also note the commented out code suggesting other possible routines
    that can be registered per-package. There are a lot of these and
-   the best way to find them to look in the source code at
+   the best way to find them is to look in the source code at
    ``parthenon/src/interface/state_descriptor.hpp``.
 
-Now add let's the update function to the same file. It looks like
+Now let's add the update function to the same file. It looks like
 this:
 
 .. code-block:: cpp
@@ -557,9 +557,9 @@ this:
    }
 
 This looks very similar to the rotate function we wrote for the
-ellipse package, whith a few details: we now build a swarm pack
-instead of a sparse pack. We pack on the positions of the particles x,
-and y. Finally the loop is over particle indices, rather than cell
+ellipse package, with a few details: we now build a swarm pack
+instead of a sparse pack. We pack the particles' x and y positions.
+Finally the loop is over particle indices, rather than cell
 indices.
 
 Finally, let's take a look at the ``EstimateTimestep`` function:
@@ -605,7 +605,7 @@ Finally, let's take a look at the ``EstimateTimestep`` function:
              const Real dy = std::min(std::abs(y - ymin), std::abs(ymax - y));
              const Real delta = std::min(dx, dy);
    
-             // maximum distance a particle can travel is it's "linear"
+             // maximum distance a particle can travel is its "linear"
              // speed times dt, which is r * omega * dt, which must be
              // less than delta:
              // dt <= delta / (r * omega)
@@ -631,7 +631,7 @@ solver. Let's create a new folder for it, in ``src``:
 
    mkdir pgen
 
-which create a new file there for the function prototype called
+and create a new file there for the function prototype called
 ``pgen.hpp``, which should look like:
 
 .. code-block:: cpp
@@ -645,14 +645,14 @@ which create a new file there for the function prototype called
    
    #endif // _PGEN_PGEN_HPP_
 
-The problem generator in this case operators on the state on a single
+The problem generator in this case operates on the state on a single
 ``MeshBlock`` (a coherent piece of the mesh) and may read from the
 ``ParameterInput`` object. Initial conditions are called after all
 packages have been initialized and state is set.
 
 .. note::
 
-   Problem generators may be defined on a single mesh block or accross
+   Problem generators may be defined on a single mesh block or across
    the whole mesh. The signature is slightly different but they behave
    very similarly.
 
@@ -737,7 +737,7 @@ in a file ``ellipse/src/pgen.cpp`` and will look like this:
          KOKKOS_LAMBDA(const int new_n) {
            // this is the particle index inside the swarm
            const int n = newParticlesContext.GetNewParticleIndex(new_n);
-           // Use a mutex lock to get device safe random number generator
+           // Use a mutex lock to get device-safe random number generator
            auto rng_gen = rng_pool.get_state();
    
            // Normally b would be free-floating and set by pack.GetBlockparticleIndices
@@ -784,7 +784,7 @@ works on a single meshblock, not when fusing loops over blocks:
    auto &weight = swarm->Get<Real>(Particles::weight::name()).Get();
 
 The loop below then loops over *only* the newly created particles and
-then randmnly samples their positions:
+then randomly samples their positions:
 
 .. code-block:: cpp
 
@@ -800,15 +800,15 @@ Finally, we set the particle weights to 1 inside the ellipse and 0 outside.
    Another exercise left to the reader: We have hinted at several ways
    the particle weights may be set to something non-trivial. How would
    you renormalize the weights so they sum to 1? Note you need to know
-   the total particle count accross the entire mesh. And each MPI rank
+   the total particle count across the entire mesh. And each MPI rank
    may have its own set of meshblocks with its own set of particles.
 
 
 The Driver
 ------------
 
-We're now ready to write the driver, which will be a C++ class, which
-inherits from Parthenon primitives. As before, let's create a new
+We're now ready to write the driver, a C++ class that inherits from
+Parthenon primitives. As before, let's create a new
 folder for it and put the driver class declaration in
 ``ellipse/driver/ellipse_driver.hpp``. The declaration should look
 like:
@@ -865,18 +865,18 @@ machinery, and move all the work into our implementation of
    multistage driver to implement, e.g., RK algorithms for particles.
 
 The core concept of the Parthenon driver is the
-``TaskCollection``. The idea is to express *what* you want parthenon
+``TaskCollection``. The idea is to express *what* you want Parthenon
 to do, and the relationship between units of work, or *tasks*. This is
-more free-form than saying "do A then do B, then do C." In stead, it
-is saying "A, and B can be done and have no dependencies, but A and B
-must both be done before C." The way this is expressed in code is the
+more free-form than saying "do A, then do B, then do C." Instead, it
+says "A and B can run independently, but both must finish before C."
+The way this is expressed in code is the
 ``AddTask`` method. The syntax looks like:
 
 .. code-block:: cpp
 
    auto newtaskid = tl.AddTask(dependency, TaskFunction, arguments...)
 
-where the ``dependency`` is a colleciton of task IDs that must be done
+where the ``dependency`` is a collection of task IDs that must be done
 before the new task can start. TaskID dependencies are combined via
 the ``|`` operator. In other words, in the prior example with Task C
 we might say:
@@ -888,17 +888,17 @@ we might say:
 ``DoC`` should be the name of the function that does the task. These
 are the functions we wrote before, like ``Particles::Rotate``. The
 function doesn't get called here, though. Parthenon calls it
-later. Thus the arguments for it to call must be passed in to
+later. Thus the arguments for it to call must be passed to
 ``AddTask``. Usually the ``MeshData`` object, which owns data on some
 subset of the mesh, is what we pass in. But we might also pass in
 things like the current simulation time.
 
 The reason to express things in this way is that it allows Parthenon
-to re-order work or to pick up work while waiting for other work to
+to reorder work or to pick up work while waiting for other work to
 complete. This can be relevant, for example, with MPI communication,
 as Parthenon can send messages, then do as much work as it can while
 waiting for them to be received. It thus allows Parthenon to overlap
-communication and computaiton and better scale to large core counts.
+communication and computation and better scale to large core counts.
 
 Our task list implementation will live in a new file,
 ``ellipse/src/driver/ellipse_driver.cpp`` and looks like:
@@ -983,7 +983,7 @@ Our task list implementation will live in a new file,
 The ``TaskCollection`` is, intuitively, a *collection* of ``TaskList``
 objects. Each task in a given ``TaskList`` is tied to some portion of
 the mesh, called a ``Partition``. The default number of partitions the
-code uses is set at run time, but you can code your own regions of
+code uses is set at runtime, but you can code your own regions of
 different sizes with different partitions in a task list if you want
 to. The above code loops over partitions and then registers the tasks
 for the task list associated with that partition inside the loop. The
@@ -1003,7 +1003,7 @@ on the mesh with no dependencies within a step. (The end of each step
 is blocking.)
 
 After the particle positions have been updated, they must be
-communicated accross the mesh, which is the role of the next set of tasks:
+communicated across the mesh, which is the role of the next set of tasks:
 
 .. code-block:: cpp
 
@@ -1014,12 +1014,12 @@ communicated accross the mesh, which is the role of the next set of tasks:
     auto receive_part = tl.AddTask(send_part | reset_comms | rotate_part,
                                    parthenon::ReceiveSwarmsMesh, md);
 
-These are built in Parthenon functions, you simply need to call
+These are built-in Parthenon functions; you simply need to call
 them. They depend on the particle update being complete.
 
 The next few tasks are included here but they don't do anything
 because our ellipse indicator field isn't sparse and doesn't require
-ghost zone exchange, and there are no ``FIllDerived`` methods
+ghost zone exchange, and there are no ``FillDerived`` methods
 registered. But these tasks are typically included in real solvers:
 
 .. code-block:: cpp
@@ -1040,7 +1040,7 @@ registered. But these tasks are typically included in real solvers:
     // This task is not needed unless you use sparse variables
     auto dealloc = tl.AddTask(fill_derived, parthenon::SparseDealloc, md.get());
 
-Finally, we have to call Parthenon's built in functions for computing
+Finally, we have to call Parthenon's built-in functions for computing
 AMR criteria and the time step for the next iteration. Note this time
 step function calls the estimate time step function *we* wrote in the
 ``ellipse.cpp`` file for the Ellipse package:
@@ -1126,17 +1126,17 @@ We're finally ready to write the entry point to the solver. In
    }
 
 The ``ParthenonManager`` object is a utility class that owns most of
-the machinery needed to set up and tear down a parthenon program. The
+the machinery needed to set up and tear down a Parthenon program. The
 top of the main function assigns the function pointers
 ``pman.app_input->ProcessPackages`` and
 ``pman.app_input->ProblemGenerator``. You can set them to whatever you
 want, but here we'll set the problem generator to the one we specified
-and we'll use an anonymous function to add our two packages we
+and we'll use an anonymous function to add the two packages we
 wrote. If you haven't seen that syntax before, it's equivalent to a
 Python lambda expression.
 
 The remainder of this file is standard Parthenon
-boiler-plate. ``ParthenonInitEnv`` reads the input deck and calls MPI
+boilerplate. ``ParthenonInitEnv`` reads the input deck and calls MPI
 and Kokkos setup functions. ``ParthenonInitPackagesAndMesh`` actually
 calls ``ProcessPackages``, allocates memory, builds the mesh, and
 calls the ``ProblemGenerator``.
@@ -1148,14 +1148,14 @@ calls the ``ProblemGenerator``.
    criteria and the mesh may refine multiple times during
    initialization.
 
-We then create the driver we wrote and call ``Execute`` which runs the
-program. Note that this code is inside a scope separator. This is
+We then create the driver we wrote and call ``Execute``, which runs the
+program. Note that this code is inside a block scope. This is
 because any Kokkos views that may be created during the simulation
 must be cleaned up and go out of scope by the time
-``ParthenonFinalize`` is called, otherwise ``Kokkos`` will complain.
+``ParthenonFinalize`` is called. Otherwise, ``Kokkos`` will complain.
 
-The src-level CMakeList
-------------------------
+The src-level CMakeLists file
+---------------------------------
 
 This concludes all the source code we need to write. Let's add the
 ``CMakeLists.txt`` for the source directory. It should be named
@@ -1185,7 +1185,7 @@ This concludes all the source code we need to write. Let's add the
      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
    )
    
-   # Tell Cmake we depend on Parthenon
+   # Tell CMake we depend on Parthenon
    target_link_libraries(ellipse PRIVATE Parthenon::parthenon)
    
    # Silence annoying psabi warnings
@@ -1245,7 +1245,7 @@ top level and let's name it ``ellipse/parthinput.ellipse``. It can look like thi
    method = derivative_order_1     # selects the first derivative method
    refine_tol = 0.5                # tag for refinement if |(dfield/dx)/field| > refine_tol
    derefine_tol = 0.05             # tag for derefinement if |(dfield/dx)/field| < derefine_tol
-   max_level = 3                   # if set, limits refinement level from this criteria to no greater than max_level
+   max_level = 3                   # if set, limits refinement level from this criterion to no greater than max_level
    
    <ellipse>
    major_axis = 1.5 
@@ -1262,8 +1262,8 @@ top level and let's name it ``ellipse/parthinput.ellipse``. It can look like thi
    swarms = samples # The swarm to output
    samples_variables = weights # positions automatically output
 
-Each angle bracket name indicates an input block, then key-value pairs
-are in each block. You can see many of the parameters we chose to
+Each name in angle brackets indicates an input block containing key-value
+pairs. You can see many of the parameters we chose to
 parse in the packages we wrote. Let's talk about the blocks that may
 need some explanation. The ``<parthenon/mesh>`` block contains mesh
 parameters. ``nx1``, ``nx2`` and ``nx3`` here define the number of
@@ -1280,12 +1280,12 @@ in Cartesian coordinates. The ``ix1_bc`` is the lower boundary for
    Parthenon are always 3D and have extent in the trivial directions.
 
 The ``refinement=adaptive`` flag tells Parthenon to do
-AMR. ``numlevel=2`` says its allowed to refine once for a total of two
+AMR. ``numlevel=2`` says it's allowed to refine once for a total of two
 mesh levels. More on that in a minute.
 
-The ``<parthenon/meshblock>`` block describes the shape of a given
-logical component of a mesh, the ``MeshBlock``, which are always the
-same logical size. The mesh needs to evenly divide into meshblocks
+The ``<parthenon/meshblock>`` block describes the shape of a ``MeshBlock``,
+a logical component of the mesh. MeshBlocks always have the same logical
+size. The mesh needs to evenly divide into meshblocks
 axis-by-axis. This of course means the third direction also needs to
 be trivial for this example.
 
@@ -1295,9 +1295,9 @@ the derivative of the Ellipse.Indicator field we defined, i.e., to
 resolve the surface of the ellipse. For more details, see :ref:`our
 documentation <amr>`.
 
-Finally the ``<parthenon/output0>`` block is an output block. Like the
+Finally, the ``<parthenon/output0>`` block is an output block. Like the
 refinement criteria blocks, you can have as many as you like. In this
-case, we output every t = 0.05 in HDF5 format. We also list the
+case, we output at intervals of 0.05 time units in HDF5 format. We also list the
 variables we want to output. For more details, see :ref:`our
 documentation <outputs>`.
 
@@ -1345,7 +1345,7 @@ Then from within ``build``, call ``cmake`` with a path to the ``ellipse`` projec
 
    cmake /path/to/ellipse
 
-you should see output like this:
+You should see output like this:
 
 .. code-block:: bash
 
@@ -1396,11 +1396,11 @@ you should see output like this:
    -- Configuring done (1.3s)
    -- Generating done (0.1s)
 
-This means ``CMake`` succesfully configured your code and generated a makefile.
+This means ``CMake`` successfully configured your code and generated a makefile.
 
 .. note::
 
-   Parthenon and Kokkos support a variety of options for, e.g.,,
+   Parthenon and Kokkos support a variety of options for, e.g.,
    building on GPU. Check out both :ref:`our build doc<building>` as
    well as the Kokkos documentation for all options.
 
@@ -1427,9 +1427,9 @@ This is an MPI executable, so you can run it in parallel with
 
 and it should generate a bunch of output and produce many files with
 the postfix ``.phdf`` and with ``.phdf.xdmf``. The former are
-Parthenon HDF5 files. The latter are XML files that describe to
-visualization tools such as Visit and Paraview how to read them. YOu
-can manually inspect a ``phdf`` file as, e.g,.
+Parthenon HDF5 files. The latter are XML files that tell visualization
+tools such as VisIt and ParaView how to read the HDF5 files. You
+can manually inspect a ``phdf`` file, e.g., as follows:
 
 .. code-block:: bash
 
@@ -1471,7 +1471,7 @@ that the ``Input`` deck you ran the code with is stashed in
 ``Input``. The ``VolumeLocations`` group contains the positions of
 cell centers. Note that the dataset ``VolumeLocations/x`` is shaped 28
 by 8. That is because there are 28 blocks and each block had 8 cells
-in the x direciton. The ``samples`` group was created because we
+in the x direction. The ``samples`` group was created because we
 created a particle swarm named ``samples``. Each dataset in that group
 is a swarm variable and there is one index per variable, hence the
 datasets are length 36.
@@ -1482,8 +1482,8 @@ datasets are length 36.
    how Parthenon identifies which particle is sitting on which
    meshblock.
 
-Note also the ``Elipse.Indicator`` dataset. That's our indicator field
-for whether or not we're in the ellipse. It's shape is 28 by 1 by 8
+Note also the ``Ellipse.Indicator`` dataset. That's our indicator field
+for whether or not we're in the ellipse. Its shape is 28 by 1 by 8
 by 8. That corresponds, from left to right, to the block index, the z
 index, the y index, and the x index, typically called ``b``, ``k``,
 ``j``, ``i``.
@@ -1495,14 +1495,14 @@ index, the y index, and the x index, typically called ``b``, ``k``,
    not later, due to the outflow boundary conditions.
 
 Parthenon ships with some simple visualization tooling. In the
-directory where you ran the simulation run
+directory where you ran the simulation, run
 
 .. code-block:: bash
 
    python /path/to/ellipse/external/parthenon/scripts/python/packages/parthenon_tools/parthenon_tools/movie2d.py --swarm samples Ellipse.Indicator ellipse.out0.*.phdf --render --movie-filename ellipse
 
 Assuming you have ``ffmpeg`` installed on your computer, this will
-generate 20 frames, one for each output file, and an mp4 file
+generate 20 frames, one for each output file, and an MP4 file
 ``ellipse.mp4``. The movie should look something like this:
 
 .. figure:: figs/ellipse.gif
@@ -1511,7 +1511,7 @@ generate 20 frames, one for each output file, and an mp4 file
 .. note::
 
    The ``parthenon_tools`` package can be installed from within the
-   parthenon python packages folder with ``pip install
+   Parthenon Python packages folder with ``pip install
    parthenon_tools``. It includes a few other utilities.
 
 The particles that pass out through our outflow boundaries are lost
