@@ -192,6 +192,63 @@ scratch for the Kokkos backend for other paths), but the user-facing indexing is
 As with raw nested parallelism, call ``idx_range.TeamBarrier()`` between a producer inner
 loop and a consumer that reads values written by other threads.
 
+Reductions
+----------
+
+``outer_reduce``/``inner_reduce`` mirror ``outer``/``inner`` but fold a single Kokkos
+reducer over the index space. They are **Kokkos-only**: they always dispatch to the
+Kokkos backend regardless of the ``IndexSpace`` backend tag (on a host-only build the
+device execution space *is* the host, so the Kokkos reduce still runs there), and
+there is no raw reduction path.
+
+The reducer is baked into the index-space type. Build a reduction space with
+``ReductionIndexSpace<lt, it, R>`` (which hides the backend template parameter) or by
+rebinding an existing space with ``idx_space.WithReducer<R>()``. Its ``idx_range_t``
+then carries the reduction, so the outer body is just ``(idx_range, int b)`` -- no
+handle to thread through. The preferred ``outer_reduce`` overload constructs the reducer
+over a fresh result and **returns** it (the result is a host scalar, so the reduce is
+synchronous and the value is valid on return, no fence needed):
+
+.. code:: cpp
+
+   using rist = la::ReductionIndexSpace<lt, it, Kokkos::Sum<Real>>;
+   rist idx_space(/* ... */);
+
+   auto result = la::outer_reduce(idx_space,
+     // Outer body param types must be named, not auto (nvcc rejects generic extended
+     // lambdas). The inner_reduce body is an ordinary lambda, so auto is fine there.
+     KOKKOS_LAMBDA(const rist::idx_range_t &idx_range, int b) {
+       la::inner_reduce(idx_range, [&](auto idx, auto &v) {
+         v += /* something at idx */;
+       });
+     });
+
+An overload instead takes a caller-constructed reducer instance *last*, matching ``Kokkos::parallel_reduce(policy, functor, reducer)``. This returns void and its reducer type must match the space's ``reduction_t``. This overload is necessary for, e.g., reducing into a
+``View``, ``ScatterView``, or device memory.
+
+Because the reducer type lives on the index space, ``inner_reduce`` uses the 
+reducer's merge operation to combine each inner team reduction into the enclosing
+reduction without the caller restating it, and a single ``outer_reduce`` region may
+contain several ``inner_reduce`` calls (interleaved with plain ``inner`` calls that
+only fill scratch) that all join into one accumulator. There is one reducer per region.
+The ``inner_reduce`` body takes the usual index form plus a trailing reduction-value
+reference.
+
+Two rules keep reductions off ghost cells:
+
+- **No reductions over halo ranges.** ``inner_reduce`` ``static_assert``\ s that the
+  range's halo is ``none_t``. Extend a range only for producer (scratch) ``inner``
+  loops and reduce over the base, halo-free range.
+- **The** ``memory`` **inner tag degenerates to** ``logical_flat`` **-- but only for**
+  ``inner_reduce``. Under a reduction the ``memory`` tag iterates logical cells rather
+  than a contiguous memory span, so no swept ghost cell is folded in (the body still
+  gets a memory-relative flat index, so call sites are unchanged). This is scoped
+  strictly to ``inner_reduce``: a plain ``inner()`` inside an ``outer_reduce`` region
+  behaves exactly as under ``outer()`` and does **not** degenerate -- with the
+  ``memory`` tag it still sweeps whole contiguous spans, ghosts included. A
+  ``memory``-tag producer feeding an ``inner_reduce`` consumer is therefore fine; just
+  don't assume the producer stayed inside the logical set.
+
 Halos
 -----
 

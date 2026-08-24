@@ -56,7 +56,16 @@ class InnerIndexRange {
   int ks = 0;
   int js = 0;
   int is = 0;
+  // Logical-flat bounds of this slice's chunk (inclusive), in the block-wide logical
+  // indexer. Used by the reduction path to iterate logical cells even for the memory
+  // inner tag (which otherwise sweeps a contiguous memory span that includes ghosts).
+  // See inner_kokkos_reduce in kokkos.hpp.
+  int chunk_logical_start = 0;
+  int chunk_logical_end = 0;
   const device_team_member_t *team_member = nullptr;
+  // Reduction accumulator, set by outer_reduce and joined into by inner_reduce. Empty
+  // (zero bytes, via [[no_unique_address]]) for a non-reduction index space.
+  [[no_unique_address]] impl::ReduceState<typename IndexSpaceType::reduction_t> reduce_;
 
   KOKKOS_FORCEINLINE_FUNCTION
   void TeamBarrier() const {
@@ -78,6 +87,8 @@ class InnerIndexRange {
     const Index3 end{logical_kji.template EndIdx<0>(), logical_kji.template EndIdx<1>(),
                      logical_kji.template EndIdx<2>()};
 
+    chunk_logical_start = 0;
+    chunk_logical_end = static_cast<int>(logical_kji.size()) - 1;
     BuildRegionsFromEndpoints(start, end);
   }
 
@@ -96,6 +107,7 @@ class InnerIndexRange {
                   const parthenon::Indexer3D &logical_kji_in, int b, int flat_start,
                   int flat_end, const device_team_member_t *team_member_in = nullptr)
       : pidx_space(&idx_space), logical_kji(logical_kji_in), block(b),
+        chunk_logical_start(flat_start), chunk_logical_end(flat_end),
         team_member(team_member_in) {
     const auto [ks_, js_, is_] = logical_kji(flat_start);
     ks = ks_;
@@ -267,24 +279,24 @@ class InnerIndexRange {
   }
 };
 
-template <inner_tag INNER_TAG, loop_backend BACKEND, class Halo>
-class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>, Halo> {
+template <inner_tag INNER_TAG, loop_backend BACKEND, class Reduction, class Halo>
+class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND, Reduction>, Halo> {
  public:
-  using index_space_t = IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>;
+  using index_space_t = IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND, Reduction>;
   using halo_t = Halo;
   static_assert(impl::HaloSatisfiesContract<Halo>(),
                 "Halo offsets must include exactly one identity offset {0,0,0} "
                 "and be strictly sorted lexicographically by (dk,dj,di).");
-  const IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND> *pidx_space = nullptr;
+  const index_space_t *pidx_space = nullptr;
   int block = 0;
   int ks = 0;
   int js = 0;
   int is = 0;
+  // Reduction accumulator (see the primary template). Empty for a non-reduction space.
+  [[no_unique_address]] impl::ReduceState<Reduction> reduce_;
 
   template <class Halo_in>
-  KOKKOS_INLINE_FUNCTION
-      InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>, Halo_in>
-      AddHalo() const {
+  KOKKOS_INLINE_FUNCTION InnerIndexRange<index_space_t, Halo_in> AddHalo() const {
     static_assert(std::is_same_v<Halo, halo::none_t>,
                   "Halo composition is currently not supported.");
     static_assert(impl::HaloIsProjectionClosed<Halo_in>(),
@@ -293,7 +305,7 @@ class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>, Halo> {
                   "direction are dropped; this is only correct when every offset's "
                   "projection is itself a declared offset. Add the missing projection "
                   "point(s) to the halo (filling an unused scratch cell is a no-op).");
-    InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND>, Halo_in> out;
+    InnerIndexRange<index_space_t, Halo_in> out;
     out.pidx_space = pidx_space;
     out.block = block;
     out.ks = ks;
