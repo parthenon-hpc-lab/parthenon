@@ -7,7 +7,7 @@ features in Parthenon and how to use them.
 Tutorial
 ---------
 
-See our :ref:`tutorial` for a gentle introduction to building your own
+See our :ref:`tutorial <tutorial>` for a gentle introduction to building your own
 Parthenon-based AMR code.
 
 Building parthenon

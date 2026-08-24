@@ -1,4 +1,4 @@
-.. par_for:
+.. _par_for:
 
 Parallelism
 ===========
