@@ -797,12 +797,12 @@ Finally, we set the particle weights to 1 inside the ellipse and 0 outside.
 
 .. note::
 
-   An exercise left to the reader: We have hinted at several ways the
-   particle weights may be set to something non-trivial. How would you
-   renormalize the weights so they sum to the total number of
-   particles? Note you need to know the total particle count accross
-   the entire mesh. And each MPI rank may have its own set of
-   meshblocks with its own set of particles.
+   Another exercise left to the reader: We have hinted at several ways
+   the particle weights may be set to something non-trivial. How would
+   you renormalize the weights so they sum to 1? Note you need to know
+   the total particle count accross the entire mesh. And each MPI rank
+   may have its own set of meshblocks with its own set of particles.
+
 
 The Driver
 ------------
@@ -1487,6 +1487,12 @@ for whether or not we're in the ellipse. It's shape is 28 by 1 by 8
 by 8. That corresponds, from left to right, to the block index, the z
 index, the y index, and the x index, typically called ``b``, ``k``,
 ``j``, ``i``.
+
+.. note::
+
+   An exercise left to the reader: How would you compute the surface
+   area of the ellipse, given the weights? Note you must do so at t=0,
+   not later, due to the outflow boundary conditions.
 
 Parthenon ships with some simple visualization tooling. In the
 directory where you ran the simulation run
