@@ -35,6 +35,7 @@
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1435]](https://github.com/parthenon-hpc-lab/parthenon/pull/1435) Fix loop abstraction scratch sizing for multi-axis (corner) halos
 - [[PR 1434]](https://github.com/parthenon-hpc-lab/parthenon/pull/1434) Repair nodal field output in XDMF.
 - [[PR 1430]](https://github.com/parthenon-hpc-lab/parthenon/pull/1430) Fix BiCGSTAB returning NaN when a solve converges in its first half step
 - [[PR 1412]](https://github.com/parthenon-hpc-lab/parthenon/pull/1412) Fix single precision compilation with `Real=float`
