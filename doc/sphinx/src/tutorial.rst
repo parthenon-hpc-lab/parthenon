@@ -8,6 +8,11 @@ code from scratch. We'll build a simple toy code that rotates an
 ellipse in a circle, with AMR, to demonstrate the elements that make
 up a Parthenon code and high-level Parthenon concepts.
 
+A full working version of the code described here is available on the
+`Parthenon-HPC-Lab github`_.
+
+.. _Parthenon-HPC-Lab github: https://github.com/parthenon-hpc-lab/ellipse-example
+
 Prerequisites
 ---------------
 
