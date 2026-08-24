@@ -119,9 +119,7 @@ class SwarmDeviceContext {
   }
 
   KOKKOS_INLINE_FUNCTION
-  const auto &GetCoords() const {
-    return coords_;
-  }
+  const auto &GetCoords() const { return coords_; }
 
   // private:
   int ib_s_;
