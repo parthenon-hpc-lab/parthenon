@@ -72,7 +72,7 @@ project. Let's set it up. You can get to the project structure with:
    cd ellipse
    git init
    mkdir external
-   mkdir source
+   mkdir src
    touch CMakeLists.txt
    git submodule add git@github.com:parthenon-hpc-lab/parthenon.git external/parthenon
    git add external parthenon
@@ -256,6 +256,9 @@ variables owned/managed by a package, which we call ``Params``. The
 
    #include <cmath>
    #include "ellipse.hpp"
+
+   #include <parthenon/package.hpp>
+   using namespace parthenon::package::prelude;
 
    std::shared_ptr<StateDescriptor> Ellipse::Initialize(ParameterInput *pin) {
      // Creates the state descriptor object
@@ -969,7 +972,7 @@ Our task list implementation will live in a new file,
    
        // This one we do need. It computes the new timestep after the update
        auto new_dt =
-           tl.AddTask(dealloc, EstimateTimestep<MeshData<Real>>, md.get());
+           tl.AddTask(dealloc, Update::EstimateTimestep<MeshData<Real>>, md.get());
    
        // And this one tells parthenon which blocks to refine/derefine
        if (pmesh->adaptive) {
