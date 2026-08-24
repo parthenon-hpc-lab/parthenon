@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was modified with the assistance of generative AI.
+
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
