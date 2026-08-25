@@ -59,6 +59,7 @@ jobs:
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Debug \
+            -DPARTHENON_ENABLE_RAW_OPENMP=ON \
             -DMACHINE_VARIANT=${{ matrix.device }}-mpi
       - name: Build
         run: cmake --build build
