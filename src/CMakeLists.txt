@@ -174,6 +174,20 @@ add_library(parthenon
   interface/variable_state.cpp
   interface/variable.cpp
   interface/variable.hpp
+  
+  loop_abstraction/base.hpp
+  loop_abstraction/flux_view.hpp
+  loop_abstraction/halo.hpp
+  loop_abstraction/index_space.hpp
+  loop_abstraction/inner_range.hpp
+  loop_abstraction/kokkos.hpp
+  loop_abstraction/pack_view.hpp
+  loop_abstraction/raw.hpp
+  loop_abstraction/scratch.hpp
+  loop_abstraction/scratch_indexed.hpp
+  loop_abstraction/types.hpp
+  loop_abstraction/view.hpp
+  loop_abstraction/loop_abstraction.hpp
 
   mesh/domain.hpp
   mesh/forest/block_ownership.cpp
@@ -300,6 +314,7 @@ add_library(parthenon
   utils/cell_center_offsets.hpp
   utils/change_rundir.cpp
   utils/communication_buffer.hpp
+  utils/bump_arena.hpp
   utils/cleantypes.hpp
   utils/concepts_lite.hpp
   utils/error_checking.cpp
@@ -393,7 +408,7 @@ if (ENABLE_MPI)
   target_link_libraries(parthenon PUBLIC MPI::MPI_CXX)
 endif()
 
-if (ENABLE_OPENMP)
+if (PARTHENON_ENABLE_RAW_OPENMP)
   target_link_libraries(parthenon PUBLIC OpenMP::OpenMP_CXX)
 endif()
 

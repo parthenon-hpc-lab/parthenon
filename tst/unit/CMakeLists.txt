@@ -1,7 +1,6 @@
-
 ##========================================================================================
 ## Parthenon performance portable AMR framework
-## Copyright(C) 2020-2024 The Parthenon collaboration
+## Copyright(C) 2020-2026 The Parthenon collaboration
 ## Licensed under the 3-clause BSD License, see LICENSE file for details
 ##========================================================================================
 ## (C) (or copyright) 2024-2026. Triad National Security, LLC. All rights reserved.
@@ -20,6 +19,7 @@
 
 list(APPEND unit_tests_SOURCES
     test_ascii_table_parsing.cpp
+    test_loop_abstraction.cpp
     test_concepts_lite.cpp
     test_coordinates.cpp
     test_data_collection.cpp
@@ -68,6 +68,17 @@ lint_target(unit_tests)
 # for Release build types.
 catch_discover_tests(unit_tests TEST_SPEC "~[performance]" PROPERTIES LABELS "unit")
 catch_discover_tests(unit_tests TEST_SPEC "[performance]" PROPERTIES LABELS "performance")
+if (PARTHENON_ENABLE_RAW_OPENMP)
+  catch_discover_tests(
+      unit_tests
+      TEST_SPEC "[loop_abstraction][openmp]"
+      TEST_PREFIX "openmp:"
+      TEST_LIST unit_tests_openmp_TESTS
+      PROPERTIES
+        LABELS openmp
+        PROCESSORS 4
+        ENVIRONMENT "PARTHENON_TEST_EXPECT_OPENMP=1")
+endif()
 
 get_property(ALL_TESTS DIRECTORY . PROPERTY TESTS)
 
