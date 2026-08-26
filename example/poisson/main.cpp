@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
   pman.app_input->MeshProblemGenerator = poisson_example::ProblemGenerator;
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
-  auto manager_status = pman.ParthenonInit(argc, argv);
+  auto manager_status = pman.ParthenonInitEnv(argc, argv);
   if (manager_status == ParthenonStatus::complete) {
     pman.ParthenonFinalize();
     return 0;
@@ -37,13 +37,16 @@ int main(int argc, char *argv[]) {
   // Now that ParthenonInit has been called and setup succeeded, the code can now
   // make use of MPI and Kokkos
 
-  // Initialize the driver
-  poisson_example::PoissonDriver driver(pman.pinput.get(), pman.app_input.get(),
-                                        pman.pmesh.get());
+  // This needs to be scoped so that the driver object is destructed before Finalize
+  pman.ParthenonInitPackagesAndMesh();
+  {
+    // Initialize the driver
+    poisson_example::PoissonDriver driver(pman.pinput.get(), pman.app_input.get(),
+                                          pman.pmesh.get());
 
-  // This line actually runs the simulation
-  auto driver_status = driver.Execute();
-
+    // This line actually runs the simulation
+    auto driver_status = driver.Execute();
+  }
   // call MPI_Finalize and Kokkos::finalize if necessary
   pman.ParthenonFinalize();
 

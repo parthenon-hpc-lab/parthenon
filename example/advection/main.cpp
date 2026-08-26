@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -24,9 +24,11 @@ int main(int argc, char *argv[]) {
   pman.app_input->ProcessPackages = advection_example::ProcessPackages;
   pman.app_input->ProblemGenerator = advection_example::ProblemGenerator;
   pman.app_input->UserWorkAfterLoop = advection_example::UserWorkAfterLoop;
+  pman.app_input->UserMeshWorkBeforeOutput = advection_example::UserMeshWorkBeforeOutput;
+  pman.app_input->RegisterDefaultReflectingBoundaryConditions();
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
-  auto manager_status = pman.ParthenonInit(argc, argv);
+  auto manager_status = pman.ParthenonInitEnv(argc, argv);
   if (manager_status == ParthenonStatus::complete) {
     pman.ParthenonFinalize();
     return 0;
@@ -35,16 +37,19 @@ int main(int argc, char *argv[]) {
     pman.ParthenonFinalize();
     return 1;
   }
+
   // Now that ParthenonInit has been called and setup succeeded, the code can now
-  // make use of MPI and Kokkos
+  // make use of MPI and Kokkos.
+  // This needs to be scoped so that the driver object is destructed before Finalize
+  pman.ParthenonInitPackagesAndMesh();
+  {
+    // Initialize the driver
+    advection_example::AdvectionDriver driver(pman.pinput.get(), pman.app_input.get(),
+                                              pman.pmesh.get());
 
-  // Initialize the driver
-  advection_example::AdvectionDriver driver(pman.pinput.get(), pman.app_input.get(),
-                                            pman.pmesh.get());
-
-  // This line actually runs the simulation
-  auto driver_status = driver.Execute();
-
+    // This line actually runs the simulation
+    auto driver_status = driver.Execute();
+  }
   // call MPI_Finalize and Kokkos::finalize if necessary
   pman.ParthenonFinalize();
 

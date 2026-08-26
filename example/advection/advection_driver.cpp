@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -18,13 +18,13 @@
 // Local Includes
 #include "advection_driver.hpp"
 #include "advection_package.hpp"
-#include "bvals/cc/bvals_cc_in_one.hpp"
+#include "amr_criteria/refinement_package.hpp"
+#include "bvals/comms/bvals_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
 #include "parthenon/driver.hpp"
-#include "refinement/refinement.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 
 using namespace parthenon::driver::prelude;
 
@@ -62,32 +62,26 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   const Real dt = integrator->dt;
   const auto &stage_name = integrator->stage_name;
 
-  // first make other useful containers
-  if (stage == 1) {
-    for (int i = 0; i < blocks.size(); i++) {
-      auto &pmb = blocks[i];
-      // first make other useful containers
-      auto &base = pmb->meshblock_data.Get();
-      pmb->meshblock_data.Add("dUdt", base);
-      for (int s = 1; s < integrator->nstages; s++)
-        pmb->meshblock_data.Add(stage_name[s], base);
-    }
-  }
-
-  const int num_partitions = pmesh->DefaultNumPartitions();
-
+  auto partitions = pmesh->GetDefaultBlockPartitions();
+  int num_partitions = partitions.size();
   // note that task within this region that contains one tasklist per pack
   // could still be executed in parallel
   TaskRegion &single_tasklist_per_pack_region2 = tc.AddRegion(num_partitions);
   for (int i = 0; i < num_partitions; i++) {
     auto &tl = single_tasklist_per_pack_region2[i];
-    auto &mc0 = pmesh->mesh_data.GetOrAdd(stage_name[stage - 1], i);
-    auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
+    // Initialize the base MeshData for this partition
+    // (this automatically initializes the MeshBlockData objects
+    // required by this MeshData object)
+    auto &mbase = pmesh->mesh_data.Add("base", partitions[i]);
+    // Initialize other MeshData objects based on the base container
+    auto &mc0 = pmesh->mesh_data.Add(stage_name[stage - 1], mbase);
+    auto &mc1 = pmesh->mesh_data.Add(stage_name[stage], mbase);
+    auto &mdudt = pmesh->mesh_data.Add("dUdt", mbase);
 
     const auto any = parthenon::BoundaryType::any;
 
-    tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
-    tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveFluxCorrections, mc0);
+    tl.AddTask(none, parthenon::StartReceiveBoundBufs<any>, mc1);
+    tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
   }
 
   // Number of task lists that can be executed independently and thus *may*
@@ -119,17 +113,12 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(num_partitions);
   for (int i = 0; i < num_partitions; i++) {
     auto &tl = single_tasklist_per_pack_region[i];
-    auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
-    auto &mc0 = pmesh->mesh_data.GetOrAdd(stage_name[stage - 1], i);
-    auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-    auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
+    auto &mbase = pmesh->mesh_data.Add("base", partitions[i]);
+    auto &mc0 = pmesh->mesh_data.Add(stage_name[stage - 1], mbase);
+    auto &mc1 = pmesh->mesh_data.Add(stage_name[stage], mbase);
+    auto &mdudt = pmesh->mesh_data.Add("dUdt", mbase);
 
-    auto send_flx =
-        tl.AddTask(none, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, mc0);
-    auto recv_flx =
-        tl.AddTask(none, parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
-    auto set_flx =
-        tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
+    auto set_flx = parthenon::AddFluxCorrectionTasks(none, tl, mc0, pmesh->multilevel);
 
     // compute the divergence of fluxes of conserved variables
     auto flux_div =
@@ -142,26 +131,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
                              mdudt.get(), beta * dt, mc1.get());
 
     // do boundary exchange
-    const auto local = parthenon::BoundaryType::local;
-    const auto nonlocal = parthenon::BoundaryType::nonlocal;
-    auto send =
-        tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<nonlocal>, mc1);
-
-    auto send_local =
-        tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<local>, mc1);
-    auto recv_local =
-        tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundBufs<local>, mc1);
-    auto set_local =
-        tl.AddTask(recv_local, parthenon::cell_centered_bvars::SetBounds<local>, mc1);
-
-    auto recv = tl.AddTask(
-        update, parthenon::cell_centered_bvars::ReceiveBoundBufs<nonlocal>, mc1);
-    auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBounds<nonlocal>, mc1);
-
-    if (pmesh->multilevel) {
-      tl.AddTask(set | set_local,
-                 parthenon::cell_centered_refinement::RestrictPhysicalBounds, mc1.get());
-    }
+    parthenon::AddBoundaryExchangeTasks(update, tl, mc1, pmesh->multilevel);
   }
 
   TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);
@@ -171,13 +141,8 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     auto &tl = async_region2[i];
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-    auto prolongBound = none;
-    if (pmesh->multilevel) {
-      prolongBound = tl.AddTask(none, parthenon::ProlongateBoundaries, sc1);
-    }
-
     // set physical boundaries
-    auto set_bc = tl.AddTask(prolongBound, parthenon::ApplyBoundaryConditions, sc1);
+    auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditions, sc1);
 
     // fill in derived fields
     auto fill_derived = tl.AddTask(

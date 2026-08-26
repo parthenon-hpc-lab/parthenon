@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -29,6 +29,7 @@
 #include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
 #include "parthenon_array_generic.hpp"
+#include "utils/multi_pointer.hpp"
 
 // Macro for automatically creating a useful name
 #define PARARRAY_TEMP                                                                    \
@@ -36,17 +37,18 @@
 
 namespace parthenon {
 
-template <typename T, typename Layout = LayoutWrapper>
-using device_view_t = Kokkos::View<T ******, Layout, DevMemSpace>;
-
-template <typename T, typename Layout = LayoutWrapper>
-using host_view_t = typename device_view_t<T, Layout>::HostMirror;
-
 template <typename T, typename State = empty_state_t, typename Layout = LayoutWrapper>
 using ParArrayND = ParArrayGeneric<device_view_t<T, Layout>, State>;
 
 template <typename T, typename State = empty_state_t, typename Layout = LayoutWrapper>
 using ParArrayHost = ParArrayGeneric<host_view_t<T, Layout>, State>;
+
+#define PARTHENON_ARRAY_DECL(T)                                                          \
+  extern template class ParArrayGeneric<device_view_t<T, LayoutWrapper>, empty_state_t>
+
+PARTHENON_ARRAY_DECL(Real);
+
+#undef PARTHENON_ARRAY_DECL
 
 } // namespace parthenon
 

@@ -1,9 +1,9 @@
 //========================================================================================
-// Athena++ astrophysical MHD code
-// Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -18,6 +18,8 @@
 #define GLOBALS_HPP_
 //! \file globals.hpp
 //  \brief namespace containing external global variables
+
+#include <string>
 
 #include "basic_types.hpp"
 
@@ -36,19 +38,21 @@ struct SparseConfig {
 };
 
 extern int my_rank, nranks, nghost;
+extern bool is_restart;
+extern bool watchdog_enabled;
 
 extern SparseConfig sparse_config;
 
 extern Real receive_boundary_buffer_timeout;
 extern Real current_task_runtime_sec;
 
-namespace cell_centered_refinement {
-// Communication buffers are packed into a `BufferInfo_t` object.
+namespace refinement {
+// Communication buffers are packed into a `BndInfo` object.
 // if the size of this object is greater than min_num_bufs,
 // hierarchical parallelism is used for prolongation/restriction.
 // otherwise one kernel per buffer is launched.
 extern int min_num_bufs;
-} // namespace cell_centered_refinement
+} // namespace refinement
 
 } // namespace Globals
 } // namespace parthenon

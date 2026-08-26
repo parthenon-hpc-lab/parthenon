@@ -1,9 +1,9 @@
 //========================================================================================
-// Athena++ astrophysical MHD code
-// Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,12 +16,28 @@
 //========================================================================================
 
 #include <string>
+#include <tuple>
+#include <type_traits>
+#include <vector>
 
 #include <catch2/catch.hpp>
 
+#include "basic_types.hpp"
+#include "config.hpp"
 #include "interface/params.hpp"
+#include "kokkos_abstraction.hpp"
+#include "outputs/parthenon_hdf5.hpp"
+#include "outputs/restart_hdf5.hpp"
+#include "parthenon_array_generic.hpp"
+
+#ifdef PARTHENON_ENABLE_OPENPMD
+#include "openPMD/Series.hpp"
+#include "outputs/parthenon_opmd.hpp"
+#include "outputs/restart_opmd.hpp"
+#endif
 
 using parthenon::Params;
+using parthenon::Real;
 
 TEST_CASE("Add, Get, and Update are called", "[Add,Get,Update]") {
   GIVEN("A key with some value") {
@@ -89,7 +105,7 @@ TEST_CASE("Add, Get, and Update are called", "[Add,Get,Update]") {
     std::string non_existent_key = "key";
     WHEN(" attempting to get a key that does not exist ") {
       THEN("an error is thrown") {
-        REQUIRE_THROWS_AS(params.Get<double>(non_existent_key), std::runtime_error);
+        REQUIRE_THROWS_AS(params.Get<double>(non_existent_key), std::out_of_range);
       }
     }
     WHEN(" attempting to update a key that does not exist ") {
@@ -109,7 +125,7 @@ TEST_CASE("reset is called", "[reset]") {
     params.Add(key, value);
     WHEN("the params are reset") {
       params.reset();
-      REQUIRE_THROWS_AS(params.Get<double>(key), std::runtime_error);
+      REQUIRE_THROWS_AS(params.Get<double>(key), std::out_of_range);
     }
   }
 }
@@ -126,6 +142,230 @@ TEST_CASE("when hasKey is called", "[hasKey]") {
     WHEN("the params are reset") {
       params.reset();
       REQUIRE(params.hasKey(key) == false);
+    }
+  }
+}
+
+#if defined(ENABLE_HDF5) && defined(PARTHENON_ENABLE_OPENPMD)
+using parthenon::RestartReaderHDF5;
+using parthenon::RestartReaderOPMD;
+using OutputTypes = std::tuple<RestartReaderHDF5, RestartReaderOPMD>;
+#elif defined(ENABLE_HDF5)
+using parthenon::RestartReaderHDF5;
+using OutputTypes = std::tuple<RestartReaderHDF5>;
+#elif defined(PARTHENON_ENABLE_OPENPMD)
+using parthenon::RestartReaderOPMD;
+using OutputTypes = std::tuple<RestartReaderOPMD>;
+#else
+using OutputTypes = std::tuple<>;
+#endif
+
+TEMPLATE_LIST_TEST_CASE("A set of params can be dumped to file", "[params][output]",
+                        OutputTypes) {
+  GIVEN("A params object with a few kinds of objects") {
+    Params params;
+    const auto restart = Params::Mutability::Restart;
+    const auto only_mutable = Params::Mutability::Mutable;
+
+    Real scalar = 3.0;
+    params.Add("scalar", scalar, restart);
+
+    bool boolscalar = false;
+    params.Add("boolscalar", boolscalar, restart);
+
+    std::vector<int> vector = {0, 1, 2};
+    params.Add("vector", vector, only_mutable);
+
+    parthenon::ParArray2D<Real> arr2d("myarr", 3, 2);
+    auto arr2d_h = Kokkos::create_mirror_view(arr2d);
+    for (int i = 0; i < 3; ++i) {
+      for (int j = 0; j < 2; ++j) {
+        arr2d_h(i, j) = 2 * i + j;
+      }
+    }
+    Kokkos::deep_copy(arr2d, arr2d_h);
+    params.Add("arr2d", arr2d);
+
+    // "Vectors" of bools have some special sauce under the hood so let's try the logic
+    // with a plain view
+    Kokkos::View<bool *> bool1d("boolview", 10);
+    auto bool1d_h = Kokkos::create_mirror_view(bool1d);
+    for (int i = 0; i < 10; ++i) {
+      bool1d_h(i) = i % 2;
+    }
+    Kokkos::deep_copy(bool1d, bool1d_h);
+    params.Add("bool1d", bool1d);
+
+    parthenon::HostArray2D<Real> hostarr2d("hostarr2d", 2, 3);
+    for (int i = 0; i < 2; ++i) {
+      for (int j = 0; j < 3; ++j) {
+        hostarr2d(i, j) = 2 * i + j + 1;
+      }
+    }
+    params.Add("hostarr2d", hostarr2d, restart);
+
+    THEN("We can output") {
+      std::string filename;
+      const std::string groupname = "Params";
+      const std::string prefix = "test_pkg";
+#ifdef ENABLE_HDF5
+      if constexpr (std::is_same_v<RestartReaderHDF5, TestType>) {
+        using namespace parthenon::HDF5;
+        filename = "params_test.h5";
+
+        H5F file = H5F::FromHIDCheck(
+            H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT));
+        auto group = MakeGroup(file, groupname);
+        params.WriteAllToHDF5(prefix, group);
+      }
+#endif // ENABLE_HDF5
+#ifdef PARTHENON_ENABLE_OPENPMD
+      if constexpr (std::is_same_v<RestartReaderOPMD, TestType>) {
+        filename = ("params_test.%05T.bp");
+        auto series = openPMD::Series(filename, openPMD::Access::CREATE);
+        series.setIterationEncoding(openPMD::IterationEncoding::fileBased);
+        auto it = series.iterations[0];
+        parthenon::OpenPMDUtils::WriteAllParams(params, prefix, &it);
+      }
+#endif // PARTHENON_ENABLE_OPENPMD
+
+      AND_THEN("We can directly read the relevant data from the file") {
+        Real in_scalar;
+        std::vector<int> in_vector;
+        // deliberately the wrong size
+        parthenon::ParArray2D<Real> in_arr2d("myarr", 1, 1);
+        parthenon::HostArray2D<Real> in_hostarr2d("hostarr2d", 2, 3);
+        Kokkos::View<bool *> in_bool1d("in_bool1d", 5);
+
+#ifdef ENABLE_HDF5
+        if constexpr (std::is_same_v<RestartReaderHDF5, TestType>) {
+          H5F file =
+              H5F::FromHIDCheck(H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT));
+          const H5O obj =
+              H5O::FromHIDCheck(H5Oopen(file, groupname.c_str(), H5P_DEFAULT));
+
+          HDF5ReadAttribute(obj, prefix + "/scalar", in_scalar);
+          HDF5ReadAttribute(obj, prefix + "/vector", in_vector);
+          HDF5ReadAttribute(obj, prefix + "/arr2d", in_arr2d);
+          HDF5ReadAttribute(obj, prefix + "/hostarr2d", in_hostarr2d);
+          HDF5ReadAttribute(obj, prefix + "/bool1d", in_bool1d);
+        }
+#endif // ENABLE_HDF5
+#ifdef PARTHENON_ENABLE_OPENPMD
+        if constexpr (std::is_same_v<RestartReaderOPMD, TestType>) {
+          auto series = openPMD::Series(filename, openPMD::Access::READ_ONLY);
+          auto it = series.iterations[0];
+          // Note that we're explicitly using `delim` here which tests the character
+          // replacement of '/' in the WriteAllParams function.
+          using parthenon::OpenPMDUtils::delim;
+
+          in_scalar =
+              it.getAttribute(groupname + delim + prefix + delim + "scalar").get<Real>();
+
+          in_vector = it.getAttribute(groupname + delim + prefix + delim + "vector")
+                          .get<std::vector<int>>();
+
+          // Technically, we're not reading "directly" here but the restart reader ctor
+          // literally just opens the file.
+          auto resfile = RestartReaderOPMD(filename.c_str());
+          auto &in_arr2d_v = in_arr2d.KokkosView();
+          resfile.RestoreViewAttribute(groupname + delim + prefix + delim + "arr2d",
+                                       in_arr2d_v);
+
+          auto &in_hostarr2d_v = in_hostarr2d.KokkosView();
+          resfile.RestoreViewAttribute(groupname + delim + prefix + delim + "hostarr2d",
+                                       in_hostarr2d_v);
+          // TODO(pgrete) make this work and also add checks for correctness below
+          // resfile.RestoreViewAttribute(groupname + delim + prefix + delim + "bool1d",
+          // in_bool1d);
+        }
+#endif // PARTHENON_ENABLE_OPENPMD
+        REQUIRE(scalar == in_scalar);
+
+        for (int i = 0; i < vector.size(); ++i) {
+          REQUIRE(in_vector[i] == vector[i]);
+        }
+
+        REQUIRE(in_arr2d.extent_int(0) == arr2d.extent_int(0));
+        REQUIRE(in_arr2d.extent_int(1) == arr2d.extent_int(1));
+        int nwrong = 1;
+        parthenon::par_reduce(
+            parthenon::loop_pattern_mdrange_tag, "test arr2d", parthenon::DevExecSpace(),
+            0, arr2d.extent_int(0) - 1, 0, arr2d.extent_int(1) - 1,
+            KOKKOS_LAMBDA(const int i, const int j, int &nw) {
+              nw += (in_arr2d(i, j) != arr2d(i, j));
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
+
+        REQUIRE(in_hostarr2d.extent_int(0) == hostarr2d.extent_int(0));
+        REQUIRE(in_hostarr2d.extent_int(1) == hostarr2d.extent_int(1));
+        for (int i = 0; i < 2; ++i) {
+          for (int j = 0; j < 3; ++j) {
+            REQUIRE(hostarr2d(i, j) == in_hostarr2d(i, j));
+          }
+        }
+      }
+
+      AND_THEN("We can restart a params object from the file") {
+        Params rparams;
+
+        // init the params object to restart into
+        Real test_scalar = 0.0;
+        rparams.Add("scalar", test_scalar, restart);
+
+        bool test_bool = true;
+        rparams.Add("boolscalar", test_bool, restart);
+
+        std::vector<int> test_vector;
+        rparams.Add("vector", test_vector, only_mutable);
+
+        parthenon::ParArray2D<Real> test_arr2d("myarr", 1, 1);
+        rparams.Add("arr2d", test_arr2d);
+
+        parthenon::HostArray2D<Real> test_hostarr("hostarr2d", 1, 1);
+        rparams.Add("hostarr2d", test_hostarr, restart);
+
+#ifdef ENABLE_HDF5
+        if constexpr (std::is_same_v<RestartReaderHDF5, TestType>) {
+          H5F file =
+              H5F::FromHIDCheck(H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT));
+          const H5G obj =
+              H5G::FromHIDCheck(H5Oopen(file, groupname.c_str(), H5P_DEFAULT));
+          rparams.ReadFromRestart(prefix, obj);
+        }
+#endif // ENABLE_HDF5
+#ifdef PARTHENON_ENABLE_OPENPMD
+        if constexpr (std::is_same_v<RestartReaderOPMD, TestType>) {
+          auto resfile = RestartReaderOPMD(filename.c_str());
+          resfile.ReadParams(prefix, rparams);
+        }
+#endif // PARTHENON_ENABLE_OPENPMD
+
+        AND_THEN("The values for the restartable params are updated to match the file") {
+          auto test_scalar = rparams.Get<Real>("scalar");
+          REQUIRE(test_scalar == scalar);
+
+          auto test_bool = rparams.Get<bool>("boolscalar");
+          REQUIRE(test_bool == boolscalar);
+
+          auto test_hostarr = rparams.Get<parthenon::HostArray2D<Real>>("hostarr2d");
+          REQUIRE(test_hostarr.extent_int(0) == hostarr2d.extent_int(0));
+          REQUIRE(test_hostarr.extent_int(1) == hostarr2d.extent_int(1));
+          for (int i = 0; i < hostarr2d.extent_int(0); ++i) {
+            for (int j = 0; j < hostarr2d.extent_int(1); ++j) {
+              REQUIRE(test_hostarr(i, j) == hostarr2d(i, j));
+            }
+          }
+        }
+        AND_THEN("The values for non-restartable params have not been updated") {
+          auto test_vector = rparams.Get<std::vector<int>>("vector");
+          REQUIRE(test_vector.size() == 0);
+          auto test_arr2d = rparams.Get<parthenon::ParArray2D<Real>>("arr2d");
+          REQUIRE(test_arr2d.extent_int(0) == 1);
+          REQUIRE(test_arr2d.extent_int(1) == 1);
+        }
+      }
     }
   }
 }

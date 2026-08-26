@@ -18,11 +18,46 @@
 #include <string>
 #define CATCH_CONFIG_RUNNER
 
+#include <algorithm>
+#include <iostream>
+
+#ifdef CATCH2_MPI_PARALLEL
+#include <mpi.h>
+#endif // CATCH2_MPI_PARALLEL
+
 #include <catch2/catch.hpp>
 
 #include <Kokkos_Core.hpp>
 
+#include "globals.hpp"
+
+#ifdef CATCH2_MPI_PARALLEL
+template <class T>
+bool HasMPITests(const T &config) {
+  // Used to check if a given test in the suite matches the requsted
+  // test specification
+  const auto &test_spec = config.testSpec();
+  const bool has_filters = test_spec.hasFilters();
+
+  const auto &all_test_cases = Catch::getAllTestCasesSorted(config);
+  for (auto const &test_case : all_test_cases) {
+    const auto &info = test_case.getTestCaseInfo();
+    const auto &tags = info.tags;
+    // if the spec is empty, i.e., all tests are requested, we have to special case.
+    const bool selected = has_filters ? test_spec.matches(test_case) : !info.isHidden();
+    const bool is_mpi = std::find(tags.begin(), tags.end(), "MPI") != tags.end();
+    if (selected && is_mpi) {
+      return true;
+    }
+  }
+  return false;
+}
+#endif // CATCH2_MPI_PARALLEL
+
 int main(int argc, char *argv[]) {
+  parthenon::Globals::my_rank = 0; // overwritten below as needed
+  parthenon::Globals::nranks = 1;
+
   // With Catch2 >2.13.4 catch_discover_tests() is used to discover tests by calling the
   // test executable with `--list-test-names-only` and parsing the results.
   // However, we have to init Kokkos first, which potentially shows warnings that are
@@ -30,20 +65,53 @@ int main(int argc, char *argv[]) {
   // parsed.
   for (auto i = 1; i < argc; i++) {
     if (std::string(argv[i]) == "--list-test-names-only") {
-      setenv("KOKKOS_DISABLE_WARNINGS", "ON", 1);
+      setenv("KOKKOS_DISABLE_WARNINGS", "TRUE", 1);
     }
   }
 
-  // global setup...
+  Catch::Session session;
+
+  int returnCode = session.applyCommandLine(argc, argv);
+  if (returnCode != 0) {
+    return returnCode;
+  }
+  const auto &config = session.config();
+#ifdef CATCH2_MPI_PARALLEL
+  bool running_mpi_tests = HasMPITests(config);
+  if (running_mpi_tests) {
+    int already_initialized = 0;
+    MPI_Initialized(&already_initialized);
+    if (!already_initialized) {
+      int status = MPI_Init(&argc, &argv);
+      if (status != MPI_SUCCESS) {
+        std::cerr << "### FATAL ERROR in ParthenonInit" << std::endl
+                  << "MPI Initialization failed." << std::endl;
+        return -1;
+      }
+    }
+    MPI_Comm_rank(MPI_COMM_WORLD, &parthenon::Globals::my_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &parthenon::Globals::nranks);
+  }
+#endif // CATCH2_MPI_PARALLEL
+
   Kokkos::initialize(argc, argv);
 
   int result;
   {
-    result = Catch::Session().run(argc, argv);
+    result = session.run();
 
     // global clean-up...
   }
 
   Kokkos::finalize();
+
+#ifdef CATCH2_MPI_PARALLEL
+  if (running_mpi_tests) {
+    int mpi_finalized;
+    MPI_Finalized(&mpi_finalized);
+    if (!mpi_finalized) MPI_Finalize();
+  }
+#endif // CATCH2_MPI_PARALLEL
+
   return result;
 }

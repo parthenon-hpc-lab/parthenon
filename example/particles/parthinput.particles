@@ -3,7 +3,7 @@
 #  Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 #  Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
-#  (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+#  (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 #
 #  This program was produced under U.S. Government contract 89233218CNA000001 for Los
 #  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -40,8 +40,8 @@ ix3_bc = periodic
 ox3_bc = periodic
 
 <parthenon/meshblock>
-nx1 = 16
-nx2 = 16
+nx1 = 8
+nx2 = 8
 
 <parthenon/output0>
 file_type = hdf5
@@ -59,3 +59,4 @@ rng_seed = 23487
 const_dt = 0.5
 deposition_method = per_cell
 destroy_particles_frac = 0.1
+defrag_threshold = 0.9

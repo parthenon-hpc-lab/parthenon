@@ -211,7 +211,8 @@ def compare_metadata(f0, f1, quiet=False, one=False, check_input=False, tol=1.0e
         if one:
             return ret_code
 
-    # Compare the names of attributes in /Info, except "Time"
+    # Compare the names of attributes in /Info, except those we know
+    # may vary safely
     f0_Info = {
         key: value
         for key, value in f0.Info.items()
@@ -219,6 +220,15 @@ def compare_metadata(f0, f1, quiet=False, one=False, check_input=False, tol=1.0e
         and key != "BlocksPerPE"
         and key != "WallTime"
         and key != "OutputFormatVersion"
+        and key != "BoundaryConditions"
+        and key != "SwarmBoundaryConditions"
+        and key != "ParthenonGitHash"
+        and key != "ParthenonGitBranch"
+        and key != "ParthenonCompiler"
+        and key != "ParthenonBuildTimestamp"
+        and key != "ParthenonBuildArch"
+        and key != "ParthenonBuildOptLevel"
+        and key != "KokkosConfig"
     }
     f1_Info = {
         key: value
@@ -227,6 +237,15 @@ def compare_metadata(f0, f1, quiet=False, one=False, check_input=False, tol=1.0e
         and key != "BlocksPerPE"
         and key != "WallTime"
         and key != "OutputFormatVersion"
+        and key != "BoundaryConditions"
+        and key != "SwarmBoundaryConditions"
+        and key != "ParthenonGitHash"
+        and key != "ParthenonGitBranch"
+        and key != "ParthenonCompiler"
+        and key != "ParthenonBuildTimestamp"
+        and key != "ParthenonBuildArch"
+        and key != "ParthenonBuildOptLevel"
+        and key != "KokkosConfig"
     }
     if sorted(f0_Info.keys()) != sorted(f1_Info.keys()):
         print("Names of attributes in '/Info' of differ")
@@ -285,7 +304,8 @@ def compare_metadata(f0, f1, quiet=False, one=False, check_input=False, tol=1.0e
             for key in f0.fid[var].keys():
                 if var == "Blocks" and key == "loc.level-gid-lid-cnghost-gflag":
                     continue  # depends on number of MPI ranks and distribution of blocks among ranks
-
+                if var == "Blocks" and key == "derefinement_count":
+                    continue  # Gold files have not been updated to include derefinement_count
                 # Compare raw data of these variables
                 val0 = f0.fid[var][key]
                 val1 = f1.fid[var][key]
@@ -296,7 +316,7 @@ def compare_metadata(f0, f1, quiet=False, one=False, check_input=False, tol=1.0e
                 # Compute norm error, check against tolerance
                 err_val = np.abs(val0 - val1)
                 err_mag = np.linalg.norm(err_val)
-                if err_mag > tol:
+                if tol < err_mag:
                     no_meta_variables_diff = False
                     if not quiet:
                         print("")
@@ -369,7 +389,10 @@ def compare(
     # **************
     # import Reader
     # **************
-    from phdf import phdf
+    try:
+        from phdf import phdf
+    except ModuleNotFoundError:
+        from parthenon_tools.phdf import phdf
 
     # **************
     # Reader Help
@@ -461,6 +484,7 @@ def compare(
             "Info",
             "Params",
             "SparseInfo",
+            "SparseDeallocCount",
             "Input",
             "Blocks",
         ]:
@@ -505,7 +529,7 @@ def compare(
         err_max = err_mag.max()
 
         # Check if the error of any block exceeds the tolerance
-        if err_max > tol:
+        if tol < err_max:
             no_diffs = False
             var_no_diffs = False
 
@@ -521,7 +545,7 @@ def compare(
                 bad_idxs = bad_idx.reshape((1, *bad_idx.shape))
             else:
                 # Print all differences exceeding maximum
-                bad_idxs = np.argwhere(err_mag > tol)
+                bad_idxs = np.argwhere(tol < err_mag)
 
             for bad_idx in bad_idxs:
                 bad_idx = tuple(bad_idx)
@@ -537,7 +561,7 @@ def compare(
                     f"    bkji: ({bad_idx[0]:4d},{bad_idx[1]:4d},{bad_idx[2]:4d},{bad_idx[3]:4d})"
                 )
                 print(f"    zyx: ({bad_loc[0]:4f},{bad_loc[1]:4f},{bad_loc[2]:4f})")
-                print(f"    err_mag: {err_mag[bad_idx]:4f}")
+                print(f"    err_mag: {err_mag[bad_idx]:4e}")
                 if is_vec:
                     print(f"    f0: " + " ".join(f"{u:.4e}" for u in val0[bad_idx]))
                     print(f"    f1: " + " ".join(f"{u:.4e}" for u in val1[bad_idx]))
@@ -556,7 +580,7 @@ def compare(
         return ERROR_DATA_DIFFER
 
 
-if __name__ == "__main__":
+def main():
     addPath()
 
     # process arguments
@@ -591,3 +615,7 @@ if __name__ == "__main__":
         relative,
     )
     sys.exit(ret)
+
+
+if __name__ == "__main__":
+    main()

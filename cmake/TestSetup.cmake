@@ -152,7 +152,7 @@ function(setup_test_parallel nproc dir arg extra_labels)
     list(APPEND labels "${extra_labels}")
 
     if(Kokkos_ENABLE_CUDA OR Kokkos_ENABLE_HIP)
-      set(PARTHENON_KOKKOS_TEST_ARGS "--kokkos-num-devices=${NUM_GPU_DEVICES_PER_NODE}")
+      set(PARTHENON_KOKKOS_TEST_ARGS "--kokkos-map-device-id-by=mpi_rank")
       list(APPEND labels "cuda")
     endif()
     if (Kokkos_ENABLE_OPENMP)

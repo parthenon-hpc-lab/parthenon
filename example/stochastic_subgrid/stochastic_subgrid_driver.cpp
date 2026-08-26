@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,13 +16,13 @@
 #include <vector>
 
 // Local Includes
-#include "bvals/cc/bvals_cc_in_one.hpp"
+#include "amr_criteria/refinement_package.hpp"
+#include "bvals/comms/bvals_in_one.hpp"
 #include "interface/metadata.hpp"
 #include "interface/update.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "mesh/refinement_cc_in_one.hpp"
 #include "parthenon/driver.hpp"
-#include "refinement/refinement.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 #include "stochastic_subgrid_driver.hpp"
 #include "stochastic_subgrid_package.hpp"
 
@@ -64,16 +64,11 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
 
   // sample number of iterations task
   {
-    const int pack_size = pmesh->DefaultPackSize();
-    auto partitions = partition::ToSizeN(blocks, pack_size);
-    for (int i = 0; i < partitions.size(); i++) {
-      auto md = pmesh->mesh_data.Add("num_iter_partition_" + std::to_string(i));
-      md->Set(partitions[i], "base");
-    }
-
-    TaskRegion &async_region = tc.AddRegion(partitions.size());
-    for (int i = 0; i < partitions.size(); i++) {
-      auto &md = pmesh->mesh_data.Get("num_iter_partition_" + std::to_string(i));
+    auto partitions = pmesh->GetDefaultBlockPartitions();
+    const int num_partitions = partitions.size();
+    TaskRegion &async_region = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; i++) {
+      auto &md = pmesh->mesh_data.Add("base", partitions[i]);
       async_region[i].AddTask(none, ComputeNumIter, md, pmesh->packages);
     }
   }
@@ -120,29 +115,25 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
   {
     const Real beta = integrator->beta[stage - 1];
     const Real dt = integrator->dt;
-    const int num_partitions = pmesh->DefaultNumPartitions();
+    auto partitions = pmesh->GetDefaultBlockPartitions();
+    const int num_partitions = partitions.size();
 
     // note that task within this region that contains one tasklist per pack
     // could still be executed in parallel
     TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(num_partitions);
     for (int i = 0; i < num_partitions; i++) {
       auto &tl = single_tasklist_per_pack_region[i];
-      auto &mbase = pmesh->mesh_data.GetOrAdd("base", i);
-      auto &mc0 = pmesh->mesh_data.GetOrAdd(stage_name[stage - 1], i);
-      auto &mc1 = pmesh->mesh_data.GetOrAdd(stage_name[stage], i);
-      auto &mdudt = pmesh->mesh_data.GetOrAdd("dUdt", i);
+      auto &mbase = pmesh->mesh_data.Add("base", partitions[i]);
+      auto &mc0 = pmesh->mesh_data.Add(stage_name[stage - 1], mbase);
+      auto &mc1 = pmesh->mesh_data.Add(stage_name[stage], mbase);
+      auto &mdudt = pmesh->mesh_data.Add("dUdt", mbase);
 
       const auto any = parthenon::BoundaryType::any;
 
-      tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveBoundBufs<any>, mc1);
-      tl.AddTask(none, parthenon::cell_centered_bvars::StartReceiveFluxCorrections, mc0);
+      tl.AddTask(none, parthenon::StartReceiveBoundBufs<any>, mc1);
+      tl.AddTask(none, parthenon::StartReceiveFluxCorrections, mc0);
 
-      auto send_flx = tl.AddTask(
-          none, parthenon::cell_centered_bvars::LoadAndSendFluxCorrections, mc0);
-      auto recv_flx =
-          tl.AddTask(none, parthenon::cell_centered_bvars::ReceiveFluxCorrections, mc0);
-      auto set_flx =
-          tl.AddTask(recv_flx, parthenon::cell_centered_bvars::SetFluxCorrections, mc0);
+      auto set_flx = parthenon::AddFluxCorrectionTasks(none, tl, mc0, pmesh->multilevel);
 
       // compute the divergence of fluxes of conserved variables
       auto flux_div =
@@ -155,15 +146,7 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
                                mdudt.get(), beta * dt, mc1.get());
 
       // do boundary exchange
-      auto send =
-          tl.AddTask(update, parthenon::cell_centered_bvars::SendBoundBufs<any>, mc1);
-      auto recv =
-          tl.AddTask(update, parthenon::cell_centered_bvars::ReceiveBoundBufs<any>, mc1);
-      auto set = tl.AddTask(recv, parthenon::cell_centered_bvars::SetBounds<any>, mc1);
-      if (pmesh->multilevel) {
-        tl.AddTask(set, parthenon::cell_centered_refinement::RestrictPhysicalBounds,
-                   mc1.get());
-      }
+      parthenon::AddBoundaryExchangeTasks(update, tl, mc1, pmesh->multilevel);
     }
   }
 
@@ -177,13 +160,8 @@ TaskCollection StochasticSubgridDriver::MakeTaskCollection(BlockList_t &blocks,
       auto &tl = async_region2[i];
       auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
-      auto prolongBound = none;
-      if (pmesh->multilevel) {
-        prolongBound = tl.AddTask(none, parthenon::ProlongateBoundaries, sc1);
-      }
-
       // set physical boundaries
-      auto set_bc = tl.AddTask(prolongBound, parthenon::ApplyBoundaryConditions, sc1);
+      auto set_bc = tl.AddTask(none, parthenon::ApplyBoundaryConditions, sc1);
 
       // fill in derived fields
       auto fill_derived = tl.AddTask(

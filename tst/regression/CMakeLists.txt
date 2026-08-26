@@ -1,5 +1,5 @@
 #=========================================================================================
-# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,8 @@
 # license in this material to reproduce, prepare derivative works, distribute copies to
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
+
+# This file was made in part with generative AI.
 
 # Adding regression tests
 #
@@ -52,7 +54,7 @@ list(APPEND TEST_DIRS particle_leapfrog)
 list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
 list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/particle_leapfrog/particle-leapfrog \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/particle_leapfrog/parthinput.particle_leapfrog \
---num_steps 1")
+--num_steps 2")
 list(APPEND EXTRA_TEST_LABELS "")
 
 list(APPEND TEST_DIRS particle_leapfrog_outflow)
@@ -61,6 +63,15 @@ list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/particle_leapfrog/
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/particle_leapfrog_outflow/parthinput.particle_leapfrog_outflow \
 --num_steps 1")
 list(APPEND EXTRA_TEST_LABELS "")
+
+# Fourier transform FFT round-trip accuracy test (only when HeFTe/FFT is enabled)
+if(PARTHENON_ENABLE_FFT)
+  list(APPEND TEST_DIRS fourier_transform)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/fourier_transform/fourier-transform \
+--driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/fourier_transform/parthinput.fourier_transform")
+  list(APPEND EXTRA_TEST_LABELS "")
+endif()
 
 if (ENABLE_HDF5)
 
@@ -72,7 +83,15 @@ if (ENABLE_HDF5)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/sparse_advection/sparse_advection-example \
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart/parthinput.restart \
-    --num_steps 3")
+    --num_steps 4")
+  list(APPEND EXTRA_TEST_LABELS "")
+
+  # Restart fine
+  list(APPEND TEST_DIRS restart_fine)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/fine_advection/fine_advection-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart_fine/parthinput.restart_fine \
+    --num_steps 4")
   list(APPEND EXTRA_TEST_LABELS "")
 
   # Calculate pi example
@@ -80,6 +99,13 @@ if (ENABLE_HDF5)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/calculate_pi/pi-example \
   --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
+  list(APPEND EXTRA_TEST_LABELS "")
+  
+  # Boundary exchange example
+  list(APPEND TEST_DIRS boundary_exchange)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/boundary_exchange/boundary-exchange-example \
+  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/boundary_exchange/parthinput.boundary_exchange")
   list(APPEND EXTRA_TEST_LABELS "")
 
   # Advection test
@@ -103,6 +129,12 @@ if (ENABLE_HDF5)
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_outflow/parthinput.advection_outflow")
   list(APPEND EXTRA_TEST_LABELS "")
 
+  list(APPEND TEST_DIRS advection_undersubscribed)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_undersubscribed/parthinput.advection_undersubscribed")
+  list(APPEND EXTRA_TEST_LABELS "")
+
   list(APPEND TEST_DIRS bvals)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
@@ -116,13 +148,64 @@ if (ENABLE_HDF5)
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/poisson/parthinput.poisson")
   list(APPEND EXTRA_TEST_LABELS "poisson")
 
+  list(APPEND TEST_DIRS poisson_gmg)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/poisson_gmg/poisson-gmg-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/poisson_gmg/parthinput.poisson \
+    --num_steps 4")
+  list(APPEND EXTRA_TEST_LABELS "poisson_gmg")
+
   list(APPEND TEST_DIRS sparse_advection)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/sparse_advection/sparse_advection-example \
-    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/sparse_advection/parthinput.sparse_advection")
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/sparse_advection/parthinput.sparse_advection \
+    --num_steps 3")
   list(APPEND EXTRA_TEST_LABELS "")
 
+  list(APPEND TEST_DIRS particle_tracers)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/particle_tracers/particle-tracers \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/particle_tracers/parthinput.particle_tracers")
+  list(APPEND EXTRA_TEST_LABELS "")
+
+  list(APPEND TEST_DIRS particle_tracers_amr)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/particle_tracers/particle-tracers \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/particle_tracers_amr/parthinput.particle_tracers_amr \
+    --num_steps 2")
+  list(APPEND EXTRA_TEST_LABELS "")
+
+  list(APPEND TEST_DIRS diffusion)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/diffusion/diffusion-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/diffusion/parthinput.diffusion")
+  list(APPEND EXTRA_TEST_LABELS "diffusion")
+
 endif()
+
+if (PARTHENON_ENABLE_OPENPMD)
+
+  # h5py is also needed for the current test
+  list(APPEND REQUIRED_PYTHON_MODULES openpmd_api h5py)
+
+  # Restart
+  list(APPEND TEST_DIRS restart_opmd)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart_opmd/parthinput.restart \
+    --num_steps 3")
+  list(APPEND EXTRA_TEST_LABELS "")
+
+  # Smoke test: sparse_advection OpenPMD output is conformant (openable by openpmd_api,
+  # no ghost mesh records, valid component shapes for all sparse and dense fields).
+  list(APPEND TEST_DIRS sparse_advection_opmd)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/sparse_advection/sparse_advection-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/sparse_advection/parthinput.sparse_advection \
+    --num_steps 1")
+  list(APPEND EXTRA_TEST_LABELS "")
+
+  endif()
 
 # Any external modules that are required by python can be added to REQUIRED_PYTHON_MODULES
 # list variable, before including TestSetup.cmake.
@@ -154,4 +237,3 @@ foreach( index RANGE ${end_index})
   setup_test_parallel(${TEST_PROC} ${TEST_DIR} ${TEST_ARG} "${TEST_LABELS}")
   setup_test_mpi_coverage(${TEST_PROC} ${TEST_DIR} ${TEST_ARG} "${TEST_LABELS}")
 endforeach()
-

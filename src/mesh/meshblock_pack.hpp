@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -24,13 +24,10 @@
 #include "coordinates/coordinates.hpp"
 #include "interface/variable_pack.hpp"
 #include "kokkos_abstraction.hpp"
-#include "mesh/domain.hpp"
-#include "mesh/meshblock.hpp" // TODO(JMM): Replace with forward declaration?
 
 namespace parthenon {
 
 class Mesh;
-// class MeshBlock;
 
 // a separate dims array removes a branch case in `GetDim`
 // TODO(JMM): Using one IndexShape because its the same for all
@@ -41,7 +38,7 @@ class MeshBlockPack {
   using pack_type = T;
 
   MeshBlockPack() = default;
-  MeshBlockPack(const ParArray1D<T> view, const std::array<int, 5> dims)
+  MeshBlockPack(const ParArray1DRaw<T> view, const std::array<int, 5> dims)
       : v_(view), dims_(dims), ndim_((dims[2] > 1 ? 3 : (dims[1] > 1 ? 2 : 1))) {}
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -49,9 +46,18 @@ class MeshBlockPack {
   KOKKOS_FORCEINLINE_FUNCTION
   auto &operator()(const int block, const int n) const { return v_(block)(n); }
   KOKKOS_FORCEINLINE_FUNCTION
+  auto &operator()(const int block, TopologicalElement el, const int n) const {
+    return v_(block)(el, n);
+  }
+  KOKKOS_FORCEINLINE_FUNCTION
   auto &operator()(const int block, const int n, const int k, const int j,
                    const int i) const {
     return v_(block)(n)(k, j, i);
+  }
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto &operator()(const int block, TopologicalElement el, const int n, const int k,
+                   const int j, const int i) const {
+    return v_(block)(el, n, k, j, i);
   }
 
 #ifdef ENABLE_SPARSE
@@ -79,7 +85,7 @@ class MeshBlockPack {
   const Coordinates_t &GetCoords(const int i) const { return v_(i).GetCoords(); }
 
  private:
-  ParArray1D<T> v_;
+  ParArray1DRaw<T> v_;
   std::array<int, 5> dims_;
   int ndim_;
 };
@@ -91,10 +97,10 @@ using MeshBlockVarFluxPack = MeshBlockPack<VariableFluxPack<T>>;
 
 template <typename T>
 using MapToMeshBlockVarPack =
-    std::map<std::vector<std::string>, PackAndIndexMap<MeshBlockVarPack<T>>>;
+    std::map<std::vector<std::size_t>, PackAndIndexMap<MeshBlockVarPack<T>>>;
 template <typename T>
 using MapToMeshBlockVarFluxPack =
-    std::map<vpack_types::StringPair, PackAndIndexMap<MeshBlockVarFluxPack<T>>>;
+    std::map<vpack_types::UidVecPair, PackAndIndexMap<MeshBlockVarFluxPack<T>>>;
 
 } // namespace parthenon
 

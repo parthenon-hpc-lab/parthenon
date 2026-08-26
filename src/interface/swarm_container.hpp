@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -13,6 +13,7 @@
 #ifndef INTERFACE_SWARM_CONTAINER_HPP_
 #define INTERFACE_SWARM_CONTAINER_HPP_
 
+#include <algorithm>
 #include <map>
 #include <memory>
 #include <string>
@@ -42,7 +43,8 @@ class SwarmContainer {
   // Public Methods
   //-----------------
   // Constructor does nothing
-  SwarmContainer() {}
+  SwarmContainer() = default;
+  explicit SwarmContainer(const std::string &name) : swarm_name_(name) {}
 
   /// Returns a shared pointer to a block
   std::shared_ptr<MeshBlock> GetBlockPointer() {
@@ -85,10 +87,16 @@ class SwarmContainer {
   ///
   void Add(const std::vector<std::string> &labelArray, const Metadata &metadata);
 
+  void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages,
+                  const std::shared_ptr<MeshBlock> pmb);
+
   void Add(std::shared_ptr<Swarm> swarm) {
     swarmVector_.push_back(swarm);
     swarmMap_[swarm->label()] = swarm;
+    UpdateMetadataMap_(swarm);
   }
+
+  bool Contains(const std::string &label) const { return swarmMap_.count(label); }
 
   ///
   /// Get a swarm from the container
@@ -111,16 +119,8 @@ class SwarmContainer {
     return -1;
   }
 
-  void AllocateBoundaries();
-
   const SwarmVector &GetSwarmVector() const { return swarmVector_; }
   const SwarmMap &GetSwarmMap() const { return swarmMap_; }
-
-  ///
-  /// Remove a variable from the container or throw exception if not
-  /// found.
-  /// @param label the name of the variable to be deleted
-  void Remove(const std::string &label);
 
   // Temporary functions till we implement a *real* iterator
 
@@ -128,55 +128,55 @@ class SwarmContainer {
   void Print() const;
 
   // return number of stored arrays
-  int Size() const { return swarmVector_.size(); }
+  std::size_t Size() const { return swarmVector_.size(); }
 
   // Element accessor functions
   std::vector<std::shared_ptr<Swarm>> &allSwarms() { return swarmVector_; }
 
+  // Return swarms meeting some conditions
+  SwarmSet GetSwarmsByFlag(const Metadata::FlagCollection &flags);
+
   // Defragmentation task
   TaskStatus Defrag(double min_occupancy);
+  TaskStatus DefragAll();
 
   // Sort-by-cell task
   TaskStatus SortParticlesByCell();
 
   // Communication routines
   void SetupPersistentMPI();
-  [[deprecated("Not yet implemented")]] void SetBoundaries();
-  [[deprecated("Not yet implemented")]] void SendBoundaryBuffers();
-  [[deprecated("Not yet implemented")]] void ReceiveAndSetBoundariesWithWait();
-  [[deprecated("Not yet implemented")]] bool ReceiveBoundaryBuffers();
   TaskStatus StartCommunication(BoundaryCommSubset phase);
   TaskStatus Send(BoundaryCommSubset phase);
   TaskStatus Receive(BoundaryCommSubset phase);
   TaskStatus ResetCommunication();
   TaskStatus FinalizeCommunicationIterative();
-  [[deprecated("Not yet implemented")]] void ClearBoundary(BoundaryCommSubset phase);
 
-  bool operator==(const SwarmContainer &cmp) {
-    // Test that labels of swarms are the same
-    std::vector<std::string> my_keys(swarmMap_.size());
-    auto &cmpMap = cmp.GetSwarmMap();
-    std::vector<std::string> cmp_keys(cmpMap.size());
-    size_t i = 0;
-    for (auto &s : swarmMap_) {
-      my_keys[i] = s.first;
-      i++;
-    }
-    i = 0;
-    for (auto &s : cmpMap) {
-      cmp_keys[i] = s.first;
-      i++;
-    }
-    return my_keys == cmp_keys;
-  }
+  bool operator==(const SwarmContainer &cmp);
 
  private:
-  int debug = 0;
+  void UpdateMetadataMap_(std::shared_ptr<Swarm> swarm) {
+    for (const auto &flag : swarm->metadata().Flags()) {
+      swarmMetadataMap_[flag].insert(swarm);
+    }
+  }
+
+  std::string swarm_name_;
   std::weak_ptr<MeshBlock> pmy_block;
 
   SwarmVector swarmVector_ = {};
   SwarmMap swarmMap_ = {};
+  SwarmMetadataMap swarmMetadataMap_ = {};
 };
+
+// MeshData Swarm Tasks
+TaskStatus SendSwarmsMesh(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus ReceiveSwarmsMesh(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus ResetSwarmsCommunicationMesh(std::shared_ptr<MeshData<Real>> &md);
+TaskStatus RemoveMarkedParticlesMesh(std::shared_ptr<MeshData<Real>> &md,
+                                     const std::string &swarm_name);
+TaskStatus DefragSwarmsMesh(std::shared_ptr<MeshData<Real>> &md,
+                            const Real &min_occupancy);
+TaskStatus DefragAllSwarmsMesh(std::shared_ptr<MeshData<Real>> &md);
 
 } // namespace parthenon
 #endif // INTERFACE_SWARM_CONTAINER_HPP_

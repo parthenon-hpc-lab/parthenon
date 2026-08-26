@@ -26,6 +26,9 @@
 #include <filesystem>
 #include <iostream>
 
+#include FS_HEADER
+namespace fs = FS_NAMESPACE;
+
 #include "parthenon_mpi.hpp"
 
 #include "globals.hpp"
@@ -63,7 +66,7 @@ void SignalHandlerInit() {
 OutputSignal CheckSignalFlags() {
   if (Globals::my_rank == 0) {
     // if file "output_now" exists
-    if (std::filesystem::exists("output_now")) {
+    if (fs::exists("output_now")) {
       signalflag[nsignal] = 1;
     }
   }

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -15,6 +15,8 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdio>
 #include <forward_list>
 #include <map>
 #include <memory>
@@ -30,15 +32,17 @@
 #include "defs.hpp"
 #include "interface/metadata.hpp"
 #include "interface/variable.hpp"
+#include "interface/variable_state.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/unique_id.hpp"
 
 namespace parthenon {
 
 // Forward declarations
 template <typename T>
-class CellVariable;
+class Variable;
 template <typename T>
 class ParticleVariable;
 
@@ -124,45 +128,45 @@ class FlatIdx {
 };
 
 // The key for variable packs
-using VPackKey_t = std::vector<std::string>;
+using VPackKey_t = std::vector<Uid_t>;
 
-// Flux packs require a set of names for the variables and a set of names for the strings
-// and order matters. So StringPair forms the keys for the FluxPack cache.
+// Flux packs require a set of names for the variables and a set of names for the fluxes
+// and order matters. So a pair forms the keys for the FluxPack cache.
 using StringPair = std::pair<std::vector<std::string>, std::vector<std::string>>;
-
+using UidVecPair = std::pair<std::vector<Uid_t>, std::vector<Uid_t>>;
 } // namespace vpack_types
 
-// helper class to make lists of variables with labels
+// helper class to make lists of variables with some kind of unique identifier per
+// variable.
 template <typename T>
-class VarListWithLabels {
+class VarListWithKeys {
  public:
-  VarListWithLabels<T>() = default;
+  VarListWithKeys() = default;
 
   // Adds a variable to the list if one of the following is true:
   // a) The variable is not sparse
   // b) The set of sparse_ids is empty
   // c) The sparse id of the variable is contained in the set of sparse_ids
-  void Add(const std::shared_ptr<CellVariable<T>> &var,
+  void Add(const std::shared_ptr<Variable<T>> &var,
            const std::unordered_set<int> &sparse_ids = {}) {
     if (!var->IsSparse() || sparse_ids.empty() ||
         (sparse_ids.count(var->GetSparseID()) > 0)) {
       vars_.push_back(var);
-      labels_.push_back(var->label());
-      alloc_status_.push_back(var->IsAllocated());
+      uids_.push_back(var->GetUniqueID());
+      alloc_status_.push_back(var->GetAllocationStatus());
     }
   }
 
   const auto &vars() const { return vars_; }
-  const auto &labels() const { return labels_; }
+  const auto &unique_ids() const { return uids_; }
   const auto &alloc_status() const { return alloc_status_; }
 
  private:
-  CellVariableVector<T> vars_;
-  std::vector<std::string> labels_;
-  std::vector<bool> alloc_status_;
+  VariableVector<T> vars_;
+  std::vector<Uid_t> uids_;
+  std::vector<int> alloc_status_;
 };
 
-// using PackIndexMap = std::unordered_map<std::string, vpack_types::IndexPair>;
 class PackIndexMap {
  public:
   PackIndexMap() = default;
@@ -179,7 +183,7 @@ class PackIndexMap {
     return itr->second;
   }
 
-  bool operator==(const PackIndexMap &other) {
+  bool operator==(const PackIndexMap &other) const {
     return (map_ == other.map_) && (shape_map_ == other.shape_map_);
   }
 
@@ -240,10 +244,10 @@ class PackIndexMap {
 };
 
 template <typename T>
-using ViewOfParArrays = ParArray1D<ParArray3D<T>>;
+using ViewOfParArrays = ParArray1DRaw<ParArray3D<T, VariableState>>;
 
 template <typename T>
-using ViewOfParArrays1D = ParArray1D<ParArray1D<T>>;
+using ViewOfParArrays1D = ParArray1DRaw<ParArray1D<T>>;
 
 // forward declaration
 template <typename T>
@@ -273,7 +277,7 @@ class VariablePack {
     assert(dims_[0] > 1);
     assert(dims_[1] > 0);
     assert(dims_[2] > 0);
-    assert(dims_[3] == v_.extent(0));
+    assert((dims_[3] == v_.extent(0)) || (dims_[3] * 3 == v_.extent(0)));
     assert(dims_[3] == sparse_ids_.extent(0));
     assert(dims_[3] == vector_component_.extent(0));
   }
@@ -305,14 +309,32 @@ class VariablePack {
 #endif
 
   KOKKOS_FORCEINLINE_FUNCTION
-  ParArray3D<T> &operator()(const int n) const {
+  ParArray3D<T, VariableState> &operator()(TopologicalElement el, const int n) const {
     assert(IsAllocated(n));
+    assert(v_((static_cast<std::size_t>(el) % 3) * dims_[3] + n).topological_type ==
+           GetTopologicalType(el));
+    return v_((static_cast<std::size_t>(el) % 3) * dims_[3] + n);
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  ParArray3D<T, VariableState> &operator()(const int n) const {
+    assert(IsAllocated(n));
+    assert(v_(n).topological_type == TopologicalType::Cell);
     return v_(n);
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
+  T &operator()(TopologicalElement el, const int n, const int k, const int j,
+                const int i) const {
+    assert(IsAllocated(n));
+    assert(v_((static_cast<std::size_t>(el) % 3) * dims_[3] + n).topological_type ==
+           GetTopologicalType(el));
+    return v_((static_cast<std::size_t>(el) % 3) * dims_[3] + n)(k, j, i);
+  }
+  KOKKOS_FORCEINLINE_FUNCTION
   T &operator()(const int n, const int k, const int j, const int i) const {
     assert(IsAllocated(n));
+    assert(v_(n).topological_type == TopologicalType::Cell);
     return v_(n)(k, j, i);
   }
 
@@ -322,6 +344,13 @@ class VariablePack {
   T &operator()(const int m, const int n, const int k, const int j, const int i) const {
     assert(m == 0);
     return (*this)(n, k, j, i);
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  T &operator()(const int m, TopologicalElement dir, const int n, const int k,
+                const int j, const int i) const {
+    assert(m == 0);
+    return (*this)(dir, n, k, j, i);
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -373,7 +402,7 @@ class VariablePack {
   int ndim_;
 
   // lives on host
-  const std::vector<bool> *alloc_status_;
+  const std::vector<int> *alloc_status_;
 };
 
 template <typename T>
@@ -424,9 +453,14 @@ class VariableFluxPack : public VariablePack<T> {
   // host only
   inline auto flux_alloc_status() const { return flux_alloc_status_; }
 
-  KOKKOS_FORCEINLINE_FUNCTION
-  const ViewOfParArrays<T> &flux(const int dir) const {
-    assert(dir > 0 && dir <= this->ndim_);
+  template <TopologicalType TT = TopologicalType::Face>
+  KOKKOS_FORCEINLINE_FUNCTION const ViewOfParArrays<T> &flux(const int dir) const {
+    assert(dir > 0);
+    if constexpr (TT == TopologicalType::Edge) {
+      assert(dir <= this->ndim_ || (this->ndim_ == 2 && dir == 3));
+    } else {
+      assert(dir <= this->ndim_);
+    }
     return f_[dir - 1];
   }
 
@@ -443,10 +477,11 @@ class VariableFluxPack : public VariablePack<T> {
   constexpr bool IsFluxAllocated(const int /*n*/) const { return true; }
 #endif
 
-  KOKKOS_FORCEINLINE_FUNCTION
-  T &flux(const int dir, const int n, const int k, const int j, const int i) const {
+  template <TopologicalType TT = TopologicalType::Face>
+  KOKKOS_FORCEINLINE_FUNCTION T &flux(const int dir, const int n, const int k,
+                                      const int j, const int i) const {
     assert(IsFluxAllocated(n));
-    return flux(dir)(n)(k, j, i);
+    return flux<TT>(dir)(n)(k, j, i);
   }
 
  private:
@@ -455,7 +490,7 @@ class VariableFluxPack : public VariablePack<T> {
   ParArray1D<bool> flux_allocated_;
 
   // lives on host
-  const std::vector<bool> *flux_alloc_status_;
+  const std::vector<int> *flux_alloc_status_;
 };
 
 // Using std::map, not std::unordered_map because the key
@@ -469,8 +504,8 @@ template <typename PackType>
 struct PackAndIndexMap {
   PackType pack;
   PackIndexMap map;
-  std::vector<bool> alloc_status;
-  std::vector<bool> flux_alloc_status;
+  std::vector<int> alloc_status;
+  std::vector<int> flux_alloc_status;
 };
 
 template <typename T>
@@ -480,14 +515,14 @@ using FluxPackIndxPair = PackAndIndexMap<VariableFluxPack<T>>;
 template <typename T>
 using SwarmPackIndxPair = PackAndIndexMap<SwarmVariablePack<T>>;
 template <typename T>
-using MapToVariablePack = std::map<std::vector<std::string>, PackIndxPair<T>>;
+using MapToVariablePack = std::map<std::vector<Uid_t>, PackIndxPair<T>>;
 template <typename T>
-using MapToVariableFluxPack = std::map<vpack_types::StringPair, FluxPackIndxPair<T>>;
+using MapToVariableFluxPack = std::map<vpack_types::UidVecPair, FluxPackIndxPair<T>>;
 template <typename T>
-using MapToSwarmVariablePack = std::map<std::vector<std::string>, SwarmPackIndxPair<T>>;
+using MapToSwarmVariablePack = std::map<std::vector<Uid_t>, SwarmPackIndxPair<T>>;
 
 template <typename T>
-void AppendSparseBaseMap(const CellVariableVector<T> &vars, PackIndexMap *pvmap) {
+void AppendSparseBaseMap(const VariableVector<T> &vars, PackIndexMap *pvmap) {
   using vpack_types::IndexPair;
 
   if (pvmap != nullptr) {
@@ -526,19 +561,19 @@ void AppendSparseBaseMap(const CellVariableVector<T> &vars, PackIndexMap *pvmap)
 }
 
 template <typename T>
-void FillVarView(const CellVariableVector<T> &vars, bool coarse,
+void FillVarView(const VariableVector<T> &vars, int vsize, bool coarse,
                  ViewOfParArrays<T> &cv_out, ParArray1D<int> &sparse_id_out,
                  ParArray1D<int> &vector_component_out, ParArray1D<bool> &allocated_out,
                  PackIndexMap *pvmap) {
   using vpack_types::IndexPair;
+  assert(vsize == cv_out.size() || 3 * vsize == cv_out.size());
+  assert(vsize == sparse_id_out.size());
+  assert(vsize == vector_component_out.size());
 
-  assert(cv_out.size() == sparse_id_out.size());
-  assert(cv_out.size() == vector_component_out.size());
-
-  auto host_cv = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv_out);
-  auto host_sp = Kokkos::create_mirror_view(Kokkos::HostSpace(), sparse_id_out);
-  auto host_vc = Kokkos::create_mirror_view(Kokkos::HostSpace(), vector_component_out);
-  auto host_al = Kokkos::create_mirror_view(Kokkos::HostSpace(), allocated_out);
+  auto host_cv = create_view_of_view_mirror(cv_out);
+  auto host_sp = Kokkos::create_mirror_view(sparse_id_out);
+  auto host_vc = Kokkos::create_mirror_view(vector_component_out);
+  auto host_al = Kokkos::create_mirror_view(allocated_out);
 
   int vindex = 0;
   for (const auto &v : vars) {
@@ -556,9 +591,18 @@ void FillVarView(const CellVariableVector<T> &vars, bool coarse,
 
           host_al(vindex) = v->IsAllocated();
           if (v->IsAllocated()) {
-            host_cv(vindex) = coarse ? v->coarse_s.Get(k, j, i) : v->data.Get(k, j, i);
+            if (v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge)) {
+              host_cv(vindex) =
+                  coarse ? v->coarse_s.Get(0, k, j, i) : v->data.Get(0, k, j, i);
+              host_cv(vindex + vsize) =
+                  coarse ? v->coarse_s.Get(1, k, j, i) : v->data.Get(1, k, j, i);
+              host_cv(vindex + 2 * vsize) =
+                  coarse ? v->coarse_s.Get(2, k, j, i) : v->data.Get(2, k, j, i);
+            } else {
+              host_cv(vindex) =
+                  coarse ? v->coarse_s.Get(0, k, j, i) : v->data.Get(0, k, j, i);
+            }
           }
-
           vindex++;
         }
       }
@@ -590,7 +634,7 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars,
                       ViewOfParArrays1D<T> &cv_out, PackIndexMap *pvmap) {
   using vpack_types::IndexPair;
 
-  auto host_cv = Kokkos::create_mirror_view(Kokkos::HostSpace(), cv_out);
+  auto host_cv = create_view_of_view_mirror(cv_out);
 
   int vindex = 0;
   for (const auto v : vars) {
@@ -600,7 +644,7 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars,
         for (int n = 0; n < v->GetDim(4); n++) {
           for (int t = 0; t < v->GetDim(3); t++) {
             for (int u = 0; u < v->GetDim(2); u++) {
-              host_cv(vindex) = v->data.Get(l, m, n, t, u);
+              host_cv(vindex) = v->data.Get(0, l, m, n, t, u);
               vindex++;
             }
           }
@@ -625,16 +669,16 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars,
 }
 
 template <typename T>
-void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
+void FillFluxViews(const VariableVector<T> &vars, const int ndim,
                    ViewOfParArrays<T> &f1_out, ViewOfParArrays<T> &f2_out,
                    ViewOfParArrays<T> &f3_out, ParArray1D<bool> &flux_allocated_out,
                    PackIndexMap *pvmap) {
   using vpack_types::IndexPair;
 
-  auto host_f1 = Kokkos::create_mirror_view(Kokkos::HostSpace(), f1_out);
-  auto host_f2 = Kokkos::create_mirror_view(Kokkos::HostSpace(), f2_out);
-  auto host_f3 = Kokkos::create_mirror_view(Kokkos::HostSpace(), f3_out);
-  auto host_al = Kokkos::create_mirror_view(Kokkos::HostSpace(), flux_allocated_out);
+  auto host_f1 = create_view_of_view_mirror(f1_out);
+  auto host_f2 = create_view_of_view_mirror(f2_out);
+  auto host_f3 = create_view_of_view_mirror(f3_out);
+  auto host_al = Kokkos::create_mirror_view(flux_allocated_out);
 
   int vindex = 0;
   for (const auto &v : vars) {
@@ -644,9 +688,15 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
         for (int i = 0; i < v->GetDim(4); i++) {
           host_al(vindex) = v->IsAllocated();
           if (v->IsAllocated()) {
-            host_f1(vindex) = v->flux[X1DIR].Get(k, j, i);
-            if (ndim >= 2) host_f2(vindex) = v->flux[X2DIR].Get(k, j, i);
-            if (ndim >= 3) host_f3(vindex) = v->flux[X3DIR].Get(k, j, i);
+            if (v->IsSet(Metadata::Edge)) {
+              if (ndim >= 2) host_f3(vindex) = v->data.Get(2, k, j, i);
+              if (ndim >= 3) host_f2(vindex) = v->data.Get(1, k, j, i);
+              if (ndim >= 3) host_f1(vindex) = v->data.Get(0, k, j, i);
+            } else {
+              host_f1(vindex) = v->data.Get(0, k, j, i);
+              if (ndim >= 2) host_f2(vindex) = v->data.Get(1, k, j, i);
+              if (ndim >= 3) host_f3(vindex) = v->data.Get(2, k, j, i);
+            }
           }
 
           vindex++;
@@ -676,8 +726,8 @@ void FillFluxViews(const CellVariableVector<T> &vars, const int ndim,
 }
 
 template <typename T>
-VariableFluxPack<T> MakeFluxPack(const VarListWithLabels<T> &var_list,
-                                 const VarListWithLabels<T> &flux_var_list,
+VariableFluxPack<T> MakeFluxPack(const VarListWithKeys<T> &var_list,
+                                 const VarListWithKeys<T> &flux_var_list,
                                  PackIndexMap *pvmap) {
   const auto &vars = var_list.vars();           // for convenience
   const auto &flux_vars = flux_var_list.vars(); // for convenience
@@ -689,10 +739,13 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithLabels<T> &var_list,
 
   // count up the size
   int vsize = 0;
+  bool extra_components = false;
   for (const auto &v : vars) {
     // we also count unallocated vars because the total size needs to be uniform across
     // meshblocks that meshblock packs will work
     vsize += v->NumComponents();
+    extra_components =
+        extra_components || v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge);
   }
   int fsize = 0;
   for (const auto &v : flux_vars) {
@@ -702,10 +755,11 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithLabels<T> &var_list,
   }
 
   // make the outer view
-  ViewOfParArrays<T> cv("MakeFluxPack::cv", vsize);
-  ViewOfParArrays<T> f1("MakeFluxPack::f1", fsize);
-  ViewOfParArrays<T> f2("MakeFluxPack::f2", fsize);
-  ViewOfParArrays<T> f3("MakeFluxPack::f3", fsize);
+  ViewOfParArrays<T> cv(ViewOfViewAlloc("MakeFluxPack::cv"),
+                        vsize * (extra_components ? 3 : 1));
+  ViewOfParArrays<T> f1(ViewOfViewAlloc("MakeFluxPack::f1"), fsize);
+  ViewOfParArrays<T> f2(ViewOfViewAlloc("MakeFluxPack::f2"), fsize);
+  ViewOfParArrays<T> f3(ViewOfViewAlloc("MakeFluxPack::f3"), fsize);
   ParArray1D<bool> flux_allocated("MakePack::allocated", fsize);
   ParArray1D<int> sparse_id("MakeFluxPack::sparse_id", vsize);
   ParArray1D<int> vector_component("MakeFluxPack::vector_component", vsize);
@@ -721,7 +775,7 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithLabels<T> &var_list,
     }
     cv_size[3] = vsize;
 
-    FillVarView(vars, false, cv, sparse_id, vector_component, allocated, pvmap);
+    FillVarView(vars, vsize, false, cv, sparse_id, vector_component, allocated, pvmap);
 
     if (fsize > 0) {
       // add fluxes
@@ -735,7 +789,7 @@ VariableFluxPack<T> MakeFluxPack(const VarListWithLabels<T> &var_list,
 }
 
 template <typename T>
-VariablePack<T> MakePack(const VarListWithLabels<T> &var_list, bool coarse,
+VariablePack<T> MakePack(const VarListWithKeys<T> &var_list, bool coarse,
                          PackIndexMap *pvmap) {
   const auto &vars = var_list.vars(); // for convenience
 
@@ -746,14 +800,18 @@ VariablePack<T> MakePack(const VarListWithLabels<T> &var_list, bool coarse,
 
   // count up the size
   int vsize = 0;
+  bool extra_components = false;
   for (const auto &v : vars) {
     // we also count unallocated vars because the total size needs to be uniform across
     // meshblocks that meshblock packs will work
     vsize += v->NumComponents();
+    extra_components =
+        extra_components || v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge);
   }
 
   // make the outer view
-  ViewOfParArrays<T> cv("MakePack::cv", vsize);
+  ViewOfParArrays<T> cv(ViewOfViewAlloc("MakePack::cv"),
+                        vsize * (extra_components ? 3 : 1));
   ParArray1D<int> sparse_id("MakePack::sparse_id", vsize);
   ParArray1D<int> vector_component("MakePack::vector_component", vsize);
   ParArray1D<bool> allocated("MakePack::allocated", vsize);
@@ -768,7 +826,7 @@ VariablePack<T> MakePack(const VarListWithLabels<T> &var_list, bool coarse,
     }
     cv_size[3] = vsize;
 
-    FillVarView(vars, coarse, cv, sparse_id, vector_component, allocated, pvmap);
+    FillVarView(vars, vsize, coarse, cv, sparse_id, vector_component, allocated, pvmap);
   }
 
   return VariablePack<T>(cv, sparse_id, vector_component, allocated, cv_size);
@@ -786,7 +844,7 @@ SwarmVariablePack<T> MakeSwarmPack(const vpack_types::SwarmVarList<T> &vars,
   }
 
   // make the outer view
-  ViewOfParArrays1D<T> cv("MakePack::cv", vsize);
+  ViewOfParArrays1D<T> cv(ViewOfViewAlloc("MakePack::cv"), vsize);
 
   std::array<int, 2> cv_size{0, 0};
   if (vsize > 0) {

@@ -17,13 +17,13 @@ problem_id = particle_tracers
 <parthenon/mesh>
 refinement = none
 
-nx1 = 16
+nx1 = 64
 x1min = -0.5
 x1max = 0.5
 ix1_bc = periodic
 ox1_bc = periodic
 
-nx2 = 1
+nx2 = 64
 x2min = -0.5
 x2max = 0.5
 ix2_bc = periodic
@@ -36,8 +36,8 @@ ix3_bc = periodic
 ox3_bc = periodic
 
 <parthenon/meshblock>
-nx1 = 8
-nx2 = 1
+nx1 = 16
+nx2 = 16
 nx3 = 1
 
 <parthenon/time>
@@ -56,4 +56,10 @@ variables = advected, tracer_deposition
 
 <Tracers>
 num_tracers = 10000
-write_particle_log = true
+
+<parthenon/output0>
+file_type = hdf5
+dt = 0.05
+variables = advected
+swarms = tracers
+swarm_variables = id

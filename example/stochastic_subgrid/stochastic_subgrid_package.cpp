@@ -1,5 +1,9 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2025 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -245,11 +249,9 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
 // randomly sample an interation number for each cell from the discrete power-law
 // distribution
 TaskStatus ComputeNumIter(std::shared_ptr<MeshData<Real>> &md, Packages_t &packages) {
-  Kokkos::Profiling::pushRegion("Task_ComputeNumIter");
+  PARTHENON_INSTRUMENT
 
-  Kokkos::Profiling::pushRegion("Task_ComputeNumIter_pack");
   auto pack = md->PackVariables(std::vector<std::string>({"num_iter"}));
-  Kokkos::Profiling::popRegion();
 
   auto pkg = packages.Get("stochastic_subgrid_package");
   const auto &pool =
@@ -264,9 +266,9 @@ TaskStatus ComputeNumIter(std::shared_ptr<MeshData<Real>> &md, Packages_t &packa
   int N_min = pkg->Param<int>("N_min");
 
   par_for(
-      parthenon::loop_pattern_mdrange_tag, "ComputeNumIter", parthenon::DevExecSpace(), 0,
-      pack.GetDim(5) - 1, 0, pack.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(int b, int v, int k, int j, int i) {
+      parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL,
+      parthenon::DevExecSpace(), 0, pack.GetDim(5) - 1, 0, pack.GetDim(4) - 1, kb.s, kb.e,
+      jb.s, jb.e, ib.s, ib.e, KOKKOS_LAMBDA(int b, int v, int k, int j, int i) {
         auto rng = pool.get_state();
         double rand1 = rng.drand();
         double rand2 = rng.drand();
@@ -276,7 +278,6 @@ TaskStatus ComputeNumIter(std::shared_ptr<MeshData<Real>> &md, Packages_t &packa
         pack(b, v, k, j, i) = num_iter;
       });
 
-  Kokkos::Profiling::popRegion(); // Task_ComputeNumIter
   return TaskStatus::complete;
 }
 
@@ -305,13 +306,13 @@ void DoLotsOfWork(MeshBlockData<Real> *rc) {
   const Real ilog10 = 1.0 / log(10.0);
 
   pmb->par_for(
-      "stochastic_subgrid_package::DoLotsOfWork", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         int num_iter = v(niter, k, j, i);
 
         // surprisingly, this seems to be almost free
         if (num_iter > 0) {
-          Kokkos::atomic_increment(&hist(num_iter - N_min));
+          Kokkos::atomic_inc(&hist(num_iter - N_min));
         }
 
         for (int r = 0; r < num_iter; ++r) {
@@ -346,14 +347,14 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   // this is obviously overkill for this constant velocity problem
   Real min_dt;
   pmb->par_reduce(
-      "stochastic_subgrid_package::EstimateTimestep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i, Real &lmin_dt) {
         if (vx != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.Dx(X1DIR, k, j, i) / std::abs(vx));
+          lmin_dt = std::min(lmin_dt, coords.Dxc<X1DIR>(k, j, i) / std::abs(vx));
         if (vy != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.Dx(X2DIR, k, j, i) / std::abs(vy));
+          lmin_dt = std::min(lmin_dt, coords.Dxc<X2DIR>(k, j, i) / std::abs(vy));
         if (vz != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.Dx(X3DIR, k, j, i) / std::abs(vz));
+          lmin_dt = std::min(lmin_dt, coords.Dxc<X3DIR>(k, j, i) / std::abs(vz));
       },
       Kokkos::Min<Real>(min_dt));
 
@@ -364,7 +365,7 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 // some field "advected" that we are pushing around.
 // This routine implements all the "physics" in this example
 TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
-  Kokkos::Profiling::pushRegion("Task_Advection_CalculateFluxes");
+  PARTHENON_INSTRUMENT
   auto pmb = rc->GetBlockPointer();
   const IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
   const IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -379,12 +380,13 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
   const int nvar = advected.GetDim(4);
-  size_t scratch_size_in_bytes = parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
-  parthenon::ParArray4D<Real> x1flux = rc->Get("advected").flux[X1DIR].Get<4>();
+  std::size_t scratch_size_in_bytes =
+      parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
+  parthenon::ParArray4D<Real> x1flux = rc->Get("bnd_flux::advected").data.Get(0, 0, 0);
   // get x-fluxes
   pmb->par_for_outer(
-      "x1 flux", 2 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s, jb.e,
-      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
+      PARTHENON_AUTO_LABEL, 2 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s,
+      jb.e, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
         parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
         parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
         // get reconstructed state on faces
@@ -405,10 +407,10 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
   // get y-fluxes
   if (pmb->pmy_mesh->ndim >= 2) {
-    parthenon::ParArray4D<Real> x2flux = rc->Get("advected").flux[X2DIR].Get<4>();
+    parthenon::ParArray4D<Real> x2flux = rc->Get("bnd_flux::advected").data.Get(1, 0, 0);
     pmb->par_for_outer(
-        "x2 flux", 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s, jb.e + 1,
-        KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
+        PARTHENON_AUTO_LABEL, 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s,
+        jb.e + 1, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
           // the overall algorithm/use of scratch pad here is clear inefficient and kept
           // just for demonstrating purposes. The key point is that we cannot reuse
           // reconstructed arrays for different `j` with `j` being part of the outer
@@ -437,9 +439,10 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
   // get z-fluxes
   if (pmb->pmy_mesh->ndim == 3) {
-    parthenon::ParArray4D<Real> x3flux = rc->Get("advected").flux[X3DIR].Get<4>();
+    parthenon::ParArray4D<Real> x3flux = rc->Get("bnd_flux::advected").data.Get(2, 0, 0);
     pmb->par_for_outer(
-        "x3 flux", 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e + 1, jb.s, jb.e,
+        PARTHENON_AUTO_LABEL, 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e + 1,
+        jb.s, jb.e,
         KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
           // the overall algorithm/use of scratch pad here is clear inefficient and kept
           // just for demonstrating purposes. The key point is that we cannot reuse
@@ -467,7 +470,6 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
         });
   }
 
-  Kokkos::Profiling::popRegion(); // Task_Advection_CalculateFluxes
   return TaskStatus::complete;
 }
 

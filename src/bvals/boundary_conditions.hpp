@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,24 +14,28 @@
 #ifndef BVALS_BOUNDARY_CONDITIONS_HPP_
 #define BVALS_BOUNDARY_CONDITIONS_HPP_
 
+#include <array>
 #include <functional>
 #include <memory>
-#include <string>
+#include <vector>
 
 #include "basic_types.hpp"
-#include "interface/meshblock_data.hpp"
-#include "interface/swarm_boundaries.hpp"
-#include "mesh/domain.hpp"
+#include "defs.hpp"
 
 namespace parthenon {
 
+// Forward declarations
+template <typename T>
+class MeshBlockData;
+template <typename T>
+class MeshData;
+class Swarm;
+
 // Physical boundary conditions
-
 using BValFunc = std::function<void(std::shared_ptr<MeshBlockData<Real>> &, bool)>;
-using SBValFunc = std::function<
-    std::unique_ptr<ParticleBound, DeviceDeleter<parthenon::DevMemSpace>>()>;
-
-TaskStatus ProlongateBoundaries(std::shared_ptr<MeshBlockData<Real>> &rc);
+using SBValFunc = std::function<void(std::shared_ptr<Swarm> &)>;
+using BValFuncArray_t = std::array<std::vector<BValFunc>, BOUNDARY_NFACES>;
+using SBValFuncArray_t = std::array<std::vector<SBValFunc>, BOUNDARY_NFACES>;
 
 TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<Real>> &rc,
                                                  bool coarse);
@@ -39,6 +43,15 @@ TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<R
 inline TaskStatus ApplyBoundaryConditions(std::shared_ptr<MeshBlockData<Real>> &rc) {
   return ApplyBoundaryConditionsOnCoarseOrFine(rc, false);
 }
+
+TaskStatus ApplyBoundaryConditionsMD(std::shared_ptr<MeshData<Real>> &pmd);
+
+TaskStatus ApplyBoundaryConditionsOnCoarseOrFineMD(std::shared_ptr<MeshData<Real>> &pmd,
+                                                   bool coarse);
+
+TaskStatus ApplySwarmBoundaryConditionsMD(std::shared_ptr<MeshData<Real>> &pmd);
+
+TaskStatus ApplySwarmBoundaryConditions(std::shared_ptr<Swarm> &swarm);
 
 namespace BoundaryFunction {
 
@@ -54,6 +67,19 @@ void ReflectInnerX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
 void ReflectOuterX2(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
 void ReflectInnerX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
 void ReflectOuterX3(std::shared_ptr<MeshBlockData<Real>> &rc, bool coarse);
+
+void SwarmOutflowInnerX1(std::shared_ptr<Swarm> &s);
+void SwarmOutflowOuterX1(std::shared_ptr<Swarm> &s);
+void SwarmOutflowInnerX2(std::shared_ptr<Swarm> &s);
+void SwarmOutflowOuterX2(std::shared_ptr<Swarm> &s);
+void SwarmOutflowInnerX3(std::shared_ptr<Swarm> &s);
+void SwarmOutflowOuterX3(std::shared_ptr<Swarm> &s);
+void SwarmPeriodicInnerX1(std::shared_ptr<Swarm> &s);
+void SwarmPeriodicOuterX1(std::shared_ptr<Swarm> &s);
+void SwarmPeriodicInnerX2(std::shared_ptr<Swarm> &s);
+void SwarmPeriodicOuterX2(std::shared_ptr<Swarm> &s);
+void SwarmPeriodicInnerX3(std::shared_ptr<Swarm> &s);
+void SwarmPeriodicOuterX3(std::shared_ptr<Swarm> &s);
 
 } // namespace BoundaryFunction
 } // namespace parthenon

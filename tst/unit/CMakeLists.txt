@@ -1,10 +1,9 @@
-
 ##========================================================================================
 ## Parthenon performance portable AMR framework
-## Copyright(C) 2020-2022 The Parthenon collaboration
+## Copyright(C) 2020-2026 The Parthenon collaboration
 ## Licensed under the 3-clause BSD License, see LICENSE file for details
 ##========================================================================================
-## (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+## (C) (or copyright) 2024-2026. Triad National Security, LLC. All rights reserved.
 ##
 ## This program was produced under U.S. Government contract 89233218CNA000001 for Los
 ## Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,26 +15,41 @@
 ## the public, perform publicly and display publicly, and to permit others to do so.
 ##========================================================================================
 
+# This file was made in part with generative AI.
+
 list(APPEND unit_tests_SOURCES
-    test_concepts_lite.cpp    
+    test_ascii_table_parsing.cpp
+    test_loop_abstraction.cpp
+    test_concepts_lite.cpp
+    test_coordinates.cpp
     test_data_collection.cpp
     test_taskid.cpp
     test_tasklist.cpp
+    test_tasklist_fail.cpp
     test_unit_params.cpp
     test_unit_constants.cpp
     test_unit_domain.cpp
     test_unit_sort.cpp
-    kokkos_abstraction.cpp
+    test_kokkos_abstraction.cpp
+    test_index_split.cpp
+    test_logical_location.cpp
+    test_forest.cpp
     test_metadata.cpp
-    test_pararrays.cpp
     test_meshblock_data_iterator.cpp
     test_mesh_data.cpp
+    test_output_utils.cpp
+    test_pararrays.cpp
     test_sparse_pack.cpp
-    test_swarm.cpp
-    test_required_desired.cpp
+    test_parameter_input.cpp
     test_error_checking.cpp
+    test_object_pool.cpp
     test_partitioning.cpp
+    test_scratch_variables.cpp
     test_state_descriptor.cpp
+    test_swarm.cpp
+    test_swarm_amr_remesh.cpp
+    test_unit_integrators.cpp
+    test_upper_bound.cpp
 )
 
 add_executable(unit_tests "${unit_tests_SOURCES}")
@@ -53,6 +67,17 @@ lint_target(unit_tests)
 # for Release build types.
 catch_discover_tests(unit_tests TEST_SPEC "~[performance]" PROPERTIES LABELS "unit")
 catch_discover_tests(unit_tests TEST_SPEC "[performance]" PROPERTIES LABELS "performance")
+if (PARTHENON_ENABLE_RAW_OPENMP)
+  catch_discover_tests(
+      unit_tests
+      TEST_SPEC "[loop_abstraction][openmp]"
+      TEST_PREFIX "openmp:"
+      TEST_LIST unit_tests_openmp_TESTS
+      PROPERTIES
+        LABELS openmp
+        PROCESSORS 4
+        ENVIRONMENT "PARTHENON_TEST_EXPECT_OPENMP=1")
+endif()
 
 get_property(ALL_TESTS DIRECTORY . PROPERTY TESTS)
 

@@ -1,6 +1,6 @@
 # ========================================================================================
 # Parthenon performance portable AMR framework
-# Copyright(C) 2020-2021 The Parthenon collaboration
+# Copyright(C) 2020-2024 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
 # (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
@@ -38,9 +38,18 @@ class TestCase(utils.test_case.TestCaseAbs):
             parameters.driver_cmd_line_args = [
                 "-r",
                 "gold.out0.00001.rhdf",
-                "parthenon/job/problem_id=silver",
+                "-i",
+                f"{parameters.parthenon_path}/tst/regression/test_suites/restart/parthinput_override.restart",
                 "-t",
                 "00:00:02",
+            ]
+        # Test restarting on a step that should have non-zero
+        # derefinement counts on some blocks
+        elif step == 3:
+            parameters.driver_cmd_line_args = [
+                "-r",
+                "gold.out0.00009.rhdf",
+                "parthenon/job/problem_id=silver9",
             ]
         # now restart from the walltime based output
         else:
@@ -66,11 +75,11 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         success = True
 
-        def compare_files(name):
+        def compare_files(name, base="silver"):
             delta = compare(
                 [
                     "gold.out0.%s.rhdf" % name,
-                    "silver.out0.%s.rhdf" % name,
+                    "{}.out0.{}.rhdf".format(base, name),
                 ],
                 one=True,
             )
@@ -89,6 +98,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         success &= compare_files("00005")
         success &= compare_files("00009")
         success &= compare_files("final")
+        success &= compare_files("final", "silver9")
 
         found_line = False
         for line in parameters.stdouts[1].decode("utf-8").split("\n"):

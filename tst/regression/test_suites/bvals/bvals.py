@@ -84,7 +84,7 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         # Reflection: First comparing initial condition to final state
         res = compare(
-            ["advection.reflecting.00000.phdf", "advection.reflecting.00004.phdf"],
+            ["advection.reflecting.00000.phdf", "advection.reflecting.final.phdf"],
             check_metadata=False,
             quiet=True,
         )
@@ -104,7 +104,7 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         # Periodic: First comparing initial condition to final state
         res = compare(
-            ["advection.periodic.00000.phdf", "advection.periodic.00004.phdf"],
+            ["advection.periodic.00000.phdf", "advection.periodic.final.phdf"],
             check_metadata=False,
             quiet=True,
         )
@@ -130,7 +130,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             all_pass = False
 
         # ... and nothing at the end
-        outflow_data_final = phdf.phdf("advection.outflow.00004.phdf")
+        outflow_data_final = phdf.phdf("advection.outflow.final.phdf")
         advected_final = outflow_data_final.Get("advected")
         if np.sum(advected_final) != 0.0:
             print("Some 'advected' did not leave the box in outflow test.")

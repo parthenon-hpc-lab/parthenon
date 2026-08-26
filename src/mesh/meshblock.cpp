@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,6 +16,8 @@
 //========================================================================================
 //! \file mesh.cpp
 //  \brief implementation of functions in MeshBlock class
+
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <cstdlib>
@@ -40,10 +42,8 @@
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/meshblock_tree.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
-#include "utils/buffer_utils.hpp"
 
 namespace parthenon {
 
@@ -92,13 +92,16 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   this->resolved_packages = resolved_packages;
   cost_ = icost;
 
+  if (pm) is_leaf_ll_ = pm->forest.IsLeaf(iloc);
+
   // initialize grid indices
   if (pmy_mesh->ndim >= 3) {
-    InitializeIndexShapes(block_size.nx1, block_size.nx2, block_size.nx3);
+    InitializeIndexShapes(block_size.nx(X1DIR), block_size.nx(X2DIR),
+                          block_size.nx(X3DIR));
   } else if (pmy_mesh->ndim >= 2) {
-    InitializeIndexShapes(block_size.nx1, block_size.nx2, 0);
+    InitializeIndexShapes(block_size.nx(X1DIR), block_size.nx(X2DIR), 0);
   } else {
-    InitializeIndexShapes(block_size.nx1, 0, 0);
+    InitializeIndexShapes(block_size.nx(X1DIR), 0, 0);
   }
 
   // Allow for user overrides to default Parthenon functions
@@ -110,9 +113,12 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   }
   if (app_in->ProblemGenerator != nullptr) {
     ProblemGenerator = app_in->ProblemGenerator;
-    // Only set default block pgen when no mesh pgen is set
-  } else if (app_in->MeshProblemGenerator == nullptr) {
-    ProblemGenerator = &ProblemGeneratorDefault;
+  }
+  if (app_in->PostInitialization != nullptr) {
+    PostInitialization = app_in->PostInitialization;
+  }
+  if (app_in->PostProblemGenerator != nullptr) {
+    PostProblemGenerator = app_in->PostProblemGenerator;
   }
   if (app_in->MeshBlockUserWorkBeforeOutput != nullptr) {
     UserWorkBeforeOutput = app_in->MeshBlockUserWorkBeforeOutput;
@@ -133,30 +139,16 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
   // mesh-related objects
   // Boundary
-  pbval = std::make_unique<BoundaryValues>(shared_from_this(), input_bcs, pin);
-  pbval->SetBoundaryFlags(boundary_flag);
   pbswarm = std::make_unique<BoundarySwarms>(shared_from_this(), input_bcs, pin);
-  pbswarm->SetBoundaryFlags(boundary_flag);
+  for (int n = 0; n < 6; n++) {
+    boundary_flag[n] = input_bcs[n];
+  }
 
   // Add physics data, including dense, sparse, and swarm variables.
   // Resolve issues.
 
   auto &real_container = meshblock_data.Get();
-  auto &swarm_container = swarm_data.Get();
-
-  real_container->Initialize(resolved_packages, shared_from_this());
-
-  swarm_container->SetBlockPointer(shared_from_this());
-  for (auto const &q : resolved_packages->AllSwarms()) {
-    swarm_container->Add(q.first, q.second);
-    // Populate swarm values
-    auto &swarm = swarm_container->Get(q.first);
-    for (auto const &m : resolved_packages->AllSwarmValues(q.first)) {
-      swarm->Add(m.first, m.second);
-    }
-  }
-
-  swarm_container->AllocateBoundaries();
+  real_container->Initialize(shared_from_this());
 
   // TODO(jdolence): Should these loops be moved to Variable creation
   // TODO(JMM): What variables should be in vars_cc_? They are used
@@ -179,31 +171,34 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // potentially used in the load balancing calculation, but not all
   // variables that we may want to communicate are necessarily relevant
   // to the cost per meshblock.
-  const auto vars = real_container
-                        ->GetVariablesByFlag({Metadata::Independent, Metadata::FillGhost,
-                                              Metadata::ForceRemeshComm},
-                                             false)
-                        .vars();
-  for (int n = 0; n < vars.size(); ++n) {
-    RegisterMeshBlockData(vars[n]);
-  }
+  using FC_t = Metadata::FlagCollection;
+  // union of Independent and FillGhost
+  FC_t flags({Metadata::Independent, Metadata::FillGhost}, true);
+  // Toss in RemeshComm for this one
+  const auto vars =
+      real_container
+          ->GetVariablesByFlag(flags + FC_t({Metadata::ForceRemeshComm}, true), {},
+                               FluxRequest::Any)
+          .vars();
+  for (const auto &v : vars)
+    vars_cc_.push_back(v);
 
+  // No RemeshComm
   if (pm->multilevel) {
-    const auto refine_vars =
-        real_container
-            ->GetVariablesByFlag({Metadata::Independent, Metadata::FillGhost}, false)
-            .vars();
+    const auto refine_vars = real_container->GetVariablesByFlag(flags).vars();
     pmr = std::make_unique<MeshRefinement>(shared_from_this(), pin);
     // This is very redundant, I think, but necessary for now
-    for (int n = 0; n < refine_vars.size(); n++) {
+    for (const auto &v : refine_vars) {
       // These are used for doing refinement
-      pmr->AddToRefinement(refine_vars[n]);
+      pmr->AddToRefinement(v);
     }
   }
 
   // Create user mesh data
   // InitMeshBlockUserData(pin);
-  app = InitApplicationMeshBlockData(this, pin);
+  if (InitApplicationMeshBlockData != nullptr) {
+    app = InitApplicationMeshBlockData(this, pin);
+  }
 }
 
 //----------------------------------------------------------------------------------------
@@ -211,17 +206,34 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
 
 MeshBlock::~MeshBlock() = default;
 
+std::array<IndexShape, 3> GetIndexShapes(const int nx1, const int nx2, const int nx3,
+                                         bool multilevel, const Mesh *pmesh) {
+  IndexShape cellbounds(nx3, nx2, nx1, Globals::nghost);
+  IndexShape f_cellbounds(2 * nx3, 2 * nx2, 2 * nx1, Globals::nghost);
+  IndexShape c_cellbounds(nx3 / 2, nx2 / 2, nx1 / 2, 0);
+  if (multilevel) {
+    // Prevent the coarse bounds from going to zero
+    int cnx1 = nx1 / 2;
+    int cnx2 = nx2 / 2;
+    int cnx3 = nx3 / 2;
+    if (pmesh != nullptr) {
+      cnx1 = pmesh->mesh_size.symmetry(X1DIR) ? 0 : std::max(1, nx1 / 2);
+      cnx2 = pmesh->mesh_size.symmetry(X2DIR) ? 0 : std::max(1, nx2 / 2);
+      cnx3 = pmesh->mesh_size.symmetry(X3DIR) ? 0 : std::max(1, nx3 / 2);
+    }
+    c_cellbounds = IndexShape(cnx3, cnx2, cnx1, Globals::nghost);
+  }
+  return {cellbounds, f_cellbounds, c_cellbounds};
+}
+
 void MeshBlock::InitializeIndexShapesImpl(const int nx1, const int nx2, const int nx3,
                                           bool init_coarse, bool multilevel) {
-  cellbounds = IndexShape(nx3, nx2, nx1, Globals::nghost);
-
+  auto [cb, fcb, ccb] = GetIndexShapes(nx1, nx2, nx3, multilevel, pmy_mesh);
+  cellbounds = cb;
+  f_cellbounds = fcb;
   if (init_coarse) {
-    if (multilevel) {
-      cnghost = (Globals::nghost + 1) / 2 + 1;
-      c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, Globals::nghost);
-    } else {
-      c_cellbounds = IndexShape(nx3 / 2, nx2 / 2, nx1 / 2, 0);
-    }
+    cnghost = (Globals::nghost + 1) / 2 + 1;
+    c_cellbounds = ccb;
   }
 }
 
@@ -270,43 +282,77 @@ void MeshBlock::StopTimeMeasurement() {
   }
 }
 
-void MeshBlock::RegisterMeshBlockData(std::shared_ptr<CellVariable<Real>> pvar_cc) {
-  vars_cc_.push_back(pvar_cc);
-  return;
-}
+void MeshBlock::AllocateSparse(std::string const &label, bool only_control,
+                               bool flag_uninitialized) {
+  auto &mbd = meshblock_data;
+  auto AllocateVar = [this, flag_uninitialized, &mbd](const std::string &l) {
+    // first allocate variable in base stage
+    auto base_var = mbd.Get()->AllocateSparse(l, flag_uninitialized);
 
-void MeshBlock::AllocateSparse(std::string const &label) {
-  // first allocate variable in base stage
-  auto base_var = meshblock_data.Get()->AllocateSparse(label);
+    // now allocate in all other stages
+    for (auto stage : mbd.Stages()) {
+      if (stage.first == "base") {
+        // we've already done this
+        continue;
+      }
 
-  // now allocate in all other stages
-  for (auto stage : meshblock_data.Stages()) {
-    if (stage.first == "base") {
-      // we've already done this
-      continue;
+      if (!stage.second->HasVariable(l)) continue;
+
+      auto v = stage.second->GetVarPtr(l);
+
+      if (v->IsSet(Metadata::OneCopy) || stage.second->IsShallow()) {
+        // nothing to do, we already allocated variable on base stage, and all other
+        // stages share that variable
+        continue;
+      }
+
+      if (!v->IsAllocated()) {
+        // allocate data of target variable
+        v->AllocateData(this, flag_uninitialized);
+
+        // copy fluxes and boundary variable from variable on base stage
+        v->CopyCoarseBuffer(base_var.get());
+      }
     }
+  };
 
-    auto v = stage.second->GetCellVarPtr(label);
+  bool cont_set = false;
+  if ((pmy_mesh != nullptr) && pmy_mesh->resolved_packages) {
+    cont_set = pmy_mesh->resolved_packages->ControlVariablesSet();
+  }
 
-    if (v->IsSet(Metadata::OneCopy)) {
-      // nothing to do, we already allocated variable on base stage, and all other
-      // stages share that variable
-      continue;
-    }
-
-    if (!v->IsAllocated()) {
-      // allocate data of target variable
-      v->AllocateData();
-
-      // copy fluxes and boundary variable from variable on base stage
-      v->CopyFluxesAndBdryVar(base_var.get());
-    }
+  if (cont_set && meshblock_data.Get()->GetVarPtr(label)->IsSparse()) {
+    auto clabel = label;
+    if (!only_control) clabel = pmy_mesh->resolved_packages->GetFieldController(label);
+    const auto &var_labels = pmy_mesh->resolved_packages->GetControlledVariables(clabel);
+    for (const auto &l : var_labels)
+      AllocateVar(l);
+  } else {
+    AllocateVar(label);
   }
 }
 
 void MeshBlock::DeallocateSparse(std::string const &label) {
-  for (auto stage : meshblock_data.Stages()) {
-    stage.second->DeallocateSparse(label);
+  auto &mbd = meshblock_data;
+  auto DeallocateVar = [&mbd](const std::string &l) {
+    for (auto stage : mbd.Stages()) {
+      if (!stage.second->IsShallow() && stage.second->HasVariable(l)) {
+        stage.second->DeallocateSparse(l);
+      }
+    }
+  };
+
+  bool cont_set = false;
+  if ((pmy_mesh != nullptr) && pmy_mesh->resolved_packages) {
+    cont_set = pmy_mesh->resolved_packages->ControlVariablesSet();
+  }
+
+  if (cont_set && meshblock_data.Get()->GetVarPtr(label)->IsSparse()) {
+    const auto &var_labels = pmy_mesh->resolved_packages->GetControlledVariables(label);
+    for (const auto &l : var_labels)
+      DeallocateVar(l);
+  } else {
+    DeallocateVar(label);
   }
 }
 

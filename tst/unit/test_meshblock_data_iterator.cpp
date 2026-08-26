@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -18,7 +18,9 @@
 #include <cmath>
 #include <iostream>
 #include <memory>
+#include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <catch2/catch.hpp>
@@ -37,9 +39,8 @@
 #include "mesh/meshblock.hpp"
 #include "parthenon_arrays.hpp"
 
-using parthenon::CellVariable;
-using parthenon::CellVariableVector;
 using parthenon::DevExecSpace;
+using parthenon::FluxRequest;
 using parthenon::loop_pattern_mdrange_tag;
 using parthenon::MeshBlock;
 using parthenon::MeshBlockData;
@@ -51,6 +52,8 @@ using parthenon::ParArray4D;
 using parthenon::ParArrayND;
 using parthenon::Real;
 using parthenon::StateDescriptor;
+using parthenon::Variable;
+using parthenon::VariableVector;
 using parthenon::X1DIR;
 using parthenon::X2DIR;
 using parthenon::X3DIR;
@@ -75,7 +78,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     std::vector<int> vector_shape{16, 16, 16, 3};
 
     Metadata m_in({Metadata::Independent, Metadata::WithFluxes}, scalar_shape);
-    Metadata m_in_vector({Metadata::Independent, Metadata::WithFluxes, Metadata::Vector},
+    Metadata m_in_vector({Metadata::Independent, Metadata::WithFluxes,
+                          Metadata::ForceRemeshComm, Metadata::Vector},
                          vector_shape);
     Metadata m_out({Metadata::Derived}, scalar_shape);
     Metadata m_out_vector({Metadata::Derived}, vector_shape);
@@ -96,17 +100,59 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     auto &mbd = *dummy_mb->meshblock_data.Get();
     mbd.Initialize(pkg, dummy_mb);
 
-    WHEN("We extract a subcontainer") {
-      auto subcontainer = MeshBlockData<Real>(mbd, {"v1", "v3", "v5"});
-      THEN("The container has the names in the right order") {
-        auto vars = subcontainer.GetCellVariableVector();
-        REQUIRE(vars[0]->label() == "v1");
-        REQUIRE(vars[1]->label() == "v3");
-        REQUIRE(vars[2]->label() == "v5");
+    WHEN("We construct the VariableList by flags") {
+      using FS_t = Metadata::FlagCollection;
+      auto flags = (FS_t({Metadata::Independent, Metadata::Derived}, true) &&
+                    FS_t(Metadata::WithFluxes) - FS_t(Metadata::ForceRemeshComm));
+      THEN("Sanity check that the flags got set correctly") {
+        REQUIRE(flags.GetUnions().count(Metadata::Independent) > 0);
+        REQUIRE(flags.GetUnions().count(Metadata::Derived) > 0);
+        REQUIRE(flags.GetIntersections().count(Metadata::WithFluxes) > 0);
+        REQUIRE(flags.GetExclusions().count(Metadata::ForceRemeshComm) > 0);
+      }
+      auto varlist = mbd.GetVariablesByFlag(flags).vars();
+      THEN("The list containes the desired variables") {
+        REQUIRE(varlist.size() > 0);
+        for (const auto &v : varlist) {
+          const auto &m = v->metadata();
+          REQUIRE(m.AnyFlagsSet(Metadata::Independent, Metadata::Derived));
+          REQUIRE(m.IsSet(Metadata::WithFluxes));
+          REQUIRE(!(m.IsSet(Metadata::ForceRemeshComm)));
+          REQUIRE(!(m.IsSet(Metadata::Flux)));
+        }
+      }
+      WHEN("We construct a list of only fluxes") {
+        auto varlist = mbd.GetVariablesByFlag(flags, {}, FluxRequest::OnlyFlux).vars();
+        THEN("The list contains the desired variables") {
+          REQUIRE(varlist.size() > 0);
+          for (const auto &v : varlist) {
+            const auto &m = v->metadata();
+            REQUIRE(m.IsSet(Metadata::Flux));
+          }
+        }
+      }
+      WHEN("We construct a metadata flag collection with only unions") {
+        FS_t unions({Metadata::Derived, Metadata::ForceRemeshComm}, true);
+        THEN("The resulting var list contains the correct flags") {
+          auto vlu = mbd.GetVariablesByFlag(unions).vars();
+          std::set<std::string> varnames;
+          for (const auto &v : vlu) {
+            varnames.insert(v->label());
+          }
+          REQUIRE(varnames.count("v1") == 0);
+          REQUIRE(varnames.count("v2") > 0);
+          REQUIRE(varnames.count("v3") > 0);
+          REQUIRE(varnames.count("v4") > 0);
+          REQUIRE(varnames.count("v5") == 0);
+          REQUIRE(varnames.count("v6") > 0);
+        }
       }
     }
 
-    auto v = mbd.PackVariables();
+    using FS_t = Metadata::FlagCollection;
+    auto flags =
+        (FS_t({Metadata::Independent, Metadata::Derived}, true) - FS_t(Metadata::Flux));
+    auto v = mbd.PackVariables(flags);
     par_for(
         DEFAULT_LOOP_PATTERN, "Initialize variables", DevExecSpace(), 0, v.GetDim(4) - 1,
         0, v.GetDim(3) - 1, 0, v.GetDim(2) - 1, 0, v.GetDim(1) - 1,
@@ -116,7 +162,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
 
     WHEN("we check them") {
       // set them all to zero
-      const CellVariableVector<Real> &cv = mbd.GetCellVariableVector();
+      const VariableVector<Real> &cv = mbd.GetVariableVector();
       for (int n = 0; n < cv.size(); n++) {
         ParArrayND<Real> v = cv[n]->data;
         par_for(
@@ -155,6 +201,10 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     }
 
     WHEN("we set Independent variables to one") {
+      THEN("Sanity check this produces the right varlist") {
+        auto varlist = mbd.GetVariablesByFlag({Metadata::Independent}).vars();
+        REQUIRE(varlist.size() == 3);
+      }
       // set "Independent" variables to one
       auto v = mbd.PackVariables({Metadata::Independent});
       par_for(
@@ -402,7 +452,7 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
 
     pkg->AddField("var", m);
 
-    MeshBlockData<Real> mbd;
+    MeshBlockData<Real> mbd("base");
     mbd.Initialize(pkg, dummy_mb);
     auto &var = mbd.Get("var");
 
@@ -460,7 +510,7 @@ TEST_CASE("Get the correct access pattern when using FlatIdx", "[FlatIdx]") {
 
   auto pmb = std::make_shared<MeshBlock>(N, NDIM);
 
-  GIVEN("Tensor fields accessed using CellVariables") {
+  GIVEN("Tensor fields accessed using Variables") {
     Metadata m_tensor2({Metadata::Independent, Metadata::WithFluxes, Metadata::Vector},
                        tensor2_shape);
     Metadata m_tensor3({Metadata::Independent, Metadata::WithFluxes, Metadata::Vector},

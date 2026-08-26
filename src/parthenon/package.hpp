@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -27,8 +27,15 @@
 #include <mesh/mesh.hpp>
 #include <mesh/meshblock.hpp>
 #include <mesh/meshblock_pack.hpp>
+#include <pack/scratch_variables.hpp>
+#include <pack/sparse_pack/make_pack_descriptor.hpp>
+#include <pack/sparse_pack/pack_descriptor.hpp>
+#include <pack/sparse_pack/sparse_pack.hpp>
+#include <pack/swarm_pack/make_swarm_pack_descriptor.hpp>
+#include <pack/swarm_pack/swarm_pack.hpp>
 #include <parameter_input.hpp>
 #include <parthenon_manager.hpp>
+#include <utils/index_split.hpp>
 #include <utils/partition_stl_containers.hpp>
 
 // Local Includes
@@ -44,6 +51,7 @@ using ::parthenon::ApplicationInput;
 using ::parthenon::BlockList_t;
 using ::parthenon::DevExecSpace;
 using ::parthenon::HostExecSpace;
+using ::parthenon::IndexSplit;
 using ::parthenon::Mesh;
 using ::parthenon::MeshBlock;
 using ::parthenon::MeshBlockPack;
@@ -54,8 +62,10 @@ using ::parthenon::PackIndexMap;
 using ::parthenon::par_for;
 using ::parthenon::ParameterInput;
 using ::parthenon::Params;
+using ::parthenon::SparsePack;
 using ::parthenon::SparsePool;
 using ::parthenon::StateDescriptor;
+using ::parthenon::SwarmPack;
 using ::parthenon::TaskStatus;
 using ::parthenon::VariableFluxPack;
 using ::parthenon::VariablePack;

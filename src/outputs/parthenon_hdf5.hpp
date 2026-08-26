@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2022 The Parthenon collaboration
+// Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
@@ -18,6 +18,12 @@
 #define OUTPUTS_PARTHENON_HDF5_HPP_
 
 #include "config.hpp"
+#include "defs.hpp"
+
+#include "kokkos_abstraction.hpp"
+#include "output_attr.hpp"
+#include "parthenon_arrays.hpp"
+
 // Only proceed if HDF5 output enabled
 #ifdef ENABLE_HDF5
 
@@ -31,110 +37,24 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <vector>
 
+#include "outputs/parthenon_hdf5_types.hpp"
+#include "utils/concepts_lite.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
 namespace HDF5 {
 
-// Number of dimension of HDF5 field data sets (block x num vars x nz x ny x nx)
-static constexpr size_t H5_NDIM = 5;
-
-static constexpr int OUTPUT_VERSION_FORMAT = 2;
-
-/**
- * @brief RAII handles for HDF5. Use the typedefs directly (e.g. `H5A`, `H5D`, etc.)
- *
- * @tparam CloseFn - function pointer to destructor for HDF5 object
- */
-template <herr_t (*CloseFn)(hid_t)>
-class H5Handle {
- public:
-  H5Handle() = default;
-
-  H5Handle(H5Handle const &) = delete;
-  H5Handle &operator=(H5Handle const &) = delete;
-
-  H5Handle(H5Handle &&other) : hid_(other.Release()) {}
-  H5Handle &operator=(H5Handle &&other) {
-    Reset();
-    hid_ = other.Release();
-    return *this;
-  }
-
-  static H5Handle FromHIDCheck(hid_t const hid) {
-    PARTHENON_REQUIRE_THROWS(hid >= 0, "H5 FromHIDCheck failed");
-
-    H5Handle handle;
-    handle.hid_ = hid;
-    return handle;
-  }
-
-  void Reset() {
-    if (*this) {
-      PARTHENON_HDF5_CHECK(CloseFn(hid_));
-      hid_ = -1;
-    }
-  }
-
-  hid_t Release() {
-    auto hid = hid_;
-    hid_ = -1;
-    return hid;
-  }
-
-  ~H5Handle() { Reset(); }
-
-  // Implicit conversion to hid_t for convenience
-  operator hid_t() const { return hid_; }
-  explicit operator bool() const { return hid_ >= 0; }
-
- private:
-  hid_t hid_ = -1;
-};
-
-using H5A = H5Handle<&H5Aclose>;
-using H5D = H5Handle<&H5Dclose>;
-using H5F = H5Handle<&H5Fclose>;
-using H5G = H5Handle<&H5Gclose>;
-using H5O = H5Handle<&H5Oclose>;
-using H5P = H5Handle<&H5Pclose>;
-using H5T = H5Handle<&H5Tclose>;
-using H5S = H5Handle<&H5Sclose>;
-
-// Static functions to return HDF type
-static hid_t getHDF5Type(const hbool_t *) { return H5T_NATIVE_HBOOL; }
-static hid_t getHDF5Type(const int32_t *) { return H5T_NATIVE_INT32; }
-static hid_t getHDF5Type(const int64_t *) { return H5T_NATIVE_INT64; }
-static hid_t getHDF5Type(const uint32_t *) { return H5T_NATIVE_UINT32; }
-static hid_t getHDF5Type(const uint64_t *) { return H5T_NATIVE_UINT64; }
-static hid_t getHDF5Type(const float *) { return H5T_NATIVE_FLOAT; }
-static hid_t getHDF5Type(const double *) { return H5T_NATIVE_DOUBLE; }
-
-// On MacOS size_t is "unsigned long" and uint64_t is != "unsigned long".
-// Thus, size_t is not captured by the overload above and needs to selectively enabled.
-template <typename T,
-          typename std::enable_if<std::is_same<T, unsigned long>::value && // NOLINT
-                                      !std::is_same<T, uint64_t>::value,
-                                  bool>::type = true>
-static hid_t getHDF5Type(const T *) {
-  return H5T_NATIVE_ULONG;
+inline herr_t aborting_error_handler(hid_t stack, void *client_data) {
+  H5Eprint2(stack, stderr);
+  PARTHENON_THROW("HDF5 error detected! Erroring out\n");
+  return -1;
 }
 
-static H5T getHDF5Type(const char *const *) {
-  H5T var_string_type = H5T::FromHIDCheck(H5Tcopy(H5T_C_S1));
-  PARTHENON_HDF5_CHECK(H5Tset_size(var_string_type, H5T_VARIABLE));
-  return var_string_type;
-}
-
-//  Implemented in CPP file as it's complex
 hid_t GenerateFileAccessProps();
-
-inline H5G MakeGroup(hid_t file, const std::string &name) {
-  return H5G::FromHIDCheck(
-      H5Gcreate(file, name.c_str(), H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
-}
+H5G MakeGroup(hid_t file, const std::string &name);
 
 template <typename T>
 void HDF5WriteND(hid_t location, const std::string &name, const T *data, int rank,
@@ -154,6 +74,14 @@ void HDF5WriteND(hid_t location, const std::string &name, const T *data, int ran
 }
 
 template <typename T>
+void HDF5Write1D(hid_t location, const std::string &name, const T *data,
+                 const hsize_t *local_offset, const hsize_t *local_count,
+                 const hsize_t *global_count, const H5P &plist_xfer) {
+  HDF5WriteND(location, name, data, 1, local_offset, local_count, global_count,
+              plist_xfer, H5P_DEFAULT);
+}
+
+template <typename T>
 void HDF5Write2D(hid_t location, const std::string &name, const T *data,
                  const hsize_t *local_offset, const hsize_t *local_count,
                  const hsize_t *global_count, const H5P &plist_xfer) {
@@ -162,7 +90,7 @@ void HDF5Write2D(hid_t location, const std::string &name, const T *data,
 }
 
 template <typename T>
-void HDF5WriteAttribute(const std::string &name, size_t num_values, const T *data,
+void HDF5WriteAttribute(const std::string &name, std::size_t num_values, const T *data,
                         hid_t location) {
   // can't write 0-size attributes
   if (num_values == 0) return;
@@ -177,6 +105,13 @@ void HDF5WriteAttribute(const std::string &name, size_t num_values, const T *dat
       H5Acreate(location, name.c_str(), type, data_space, H5P_DEFAULT, H5P_DEFAULT));
   PARTHENON_HDF5_CHECK(H5Awrite(attribute, type, data));
 }
+
+// In CPP file
+void HDF5WriteAttribute(const std::string &name, const std::string &value,
+                        hid_t location);
+void HDF5WriteAttribute(const std::string &name,
+                        const std::array<std::string, BOUNDARY_NFACES> &values,
+                        hid_t location);
 
 template <typename T>
 void HDF5WriteAttribute(const std::string &name, const std::vector<T> &values,
@@ -195,57 +130,125 @@ void HDF5WriteAttribute(const std::string &name, const std::vector<bool> &values
                         hid_t location);
 
 template <typename T>
-void HDF5WriteAttribute(const std::string &name, T value, hid_t location) {
+  requires(KokkosView<T>)
+void HDF5WriteAttribute(const std::string &name, const T &view, hid_t location) {
+  PARTHENON_REQUIRE(view.span_is_contiguous(), "Only works for contiguous views");
+
+  // cpplint demands compile constants be all caps
+  constexpr std::size_t RANK = static_cast<std::size_t>(T::rank);
+  hsize_t dim[RANK];
+  for (std::size_t d = 0; d < RANK; ++d) {
+    dim[d] = view.extent_int(d);
+  }
+  const H5S data_space = H5S::FromHIDCheck(H5Screate_simple(RANK, dim, dim));
+  // works regardless of memory space of the view
+  auto *pdata = view.data();
+  auto view_h = Kokkos::create_mirror_view(view);
+  if constexpr (!std::is_same<typename T::memory_space, Kokkos::HostSpace>::value) {
+    Kokkos::deep_copy(view_h, view);
+    pdata = view_h.data();
+  }
+  auto type = getHDF5Type(pdata);
+  H5A const attribute = H5A::FromHIDCheck(
+      H5Acreate(location, name.c_str(), type, data_space, H5P_DEFAULT, H5P_DEFAULT));
+  PARTHENON_HDF5_CHECK(H5Awrite(attribute, type, pdata));
+}
+
+template <typename T>
+  requires(Scalar<T>)
+void HDF5WriteAttribute(const std::string &name, const T &value, hid_t location) {
   std::vector<T> vec(1);
   vec[0] = value;
   HDF5WriteAttribute(name, vec, location);
 }
 
-template <typename T>
-std::vector<T> HDF5ReadAttributeVec(hid_t location, const std::string &name) {
-  std::vector<T> res;
-  auto type = getHDF5Type(res.data());
-
-  // check if attribute exists
-  auto status = PARTHENON_HDF5_CHECK(H5Aexists(location, name.c_str()));
-  PARTHENON_REQUIRE_THROWS(status > 0, "Attribute '" + name + "' does not exist");
-
-  const H5A attr = H5A::FromHIDCheck(H5Aopen(location, name.c_str(), H5P_DEFAULT));
-
-  // check data type
-  const H5T hdf5_type = H5T::FromHIDCheck(H5Aget_type(attr));
-  status = PARTHENON_HDF5_CHECK(H5Tequal(type, hdf5_type));
-  PARTHENON_REQUIRE_THROWS(status > 0, "Type mismatch for attribute " + name);
-
-  // Allocate array of correct size
-  const H5S dataspace = H5S::FromHIDCheck(H5Aget_space(attr));
-  int rank = PARTHENON_HDF5_CHECK(H5Sget_simple_extent_ndims(dataspace));
-  if (rank > 1) {
-    PARTHENON_THROW("Attribute " + name + " has rank " + std::to_string(rank) +
-                    ", but only rank 0 and 1 attributes are supported");
-  }
-
-  if (rank == 1) {
-    hsize_t dim = 0;
-    PARTHENON_HDF5_CHECK(H5Sget_simple_extent_dims(dataspace, &dim, NULL));
-    res.resize(dim);
-
-    if (dim == 0) {
-      PARTHENON_THROW("Attribute " + name + " has no value");
-    }
-  } else {
-    res.resize(1);
-  }
-
-  // Read data from file
-  PARTHENON_HDF5_CHECK(H5Aread(attr, type, res.data()));
-
-  return res;
+template <typename D, typename S>
+void HDF5WriteAttribute(const std::string &name, const ParArrayGeneric<D, S> &view,
+                        hid_t location) {
+  return HDF5WriteAttribute(name, view.KokkosView(), location);
 }
 
-// template specialization for std::string (must go into cpp file)
-template <>
-std::vector<std::string> HDF5ReadAttributeVec(hid_t location, const std::string &name);
+template <typename T>
+  requires(Scalar<T>)
+void HDF5ReadAttribute(hid_t location, const std::string &name, T &val) {
+  auto vec = HDF5ReadAttributeVec<T>(location, name);
+  val = vec[0];
+}
+
+template <typename T>
+  requires(KokkosView<T>)
+void HDF5ReadAttribute(hid_t location, const std::string &name, T &view) {
+  static_assert(std::is_same<typename T::array_layout, Kokkos::LayoutLeft>::value ||
+                    std::is_same<typename T::array_layout, Kokkos::LayoutRight>::value,
+                "Currently can only read from contiguous views");
+  // attribute info
+  H5A attr;
+  auto [rank, dim, size] = HDF5GetAttributeInfo(location, name, attr);
+
+  // check rank
+  int view_rank = static_cast<std::size_t>(T::rank);
+  PARTHENON_REQUIRE(rank == view_rank, "input and output view are same rank");
+
+  // Resize view.
+  typename T::array_layout layout;
+  for (int d = 0; d < rank; ++d) {
+    layout.dimension[d] = dim[d];
+  }
+  view = T(view.label(), layout);
+
+  // pull out data pointer
+  auto *pdata = view.data();
+  auto view_h = Kokkos::create_mirror_view(view);
+  if constexpr (!std::is_same<typename T::memory_space, Kokkos::HostSpace>::value) {
+    // JMM: I need the pointer to point at host memory. But right now,
+    // only the type of the memory matters, not its contents.
+    pdata = view_h.data();
+  }
+
+  // check type
+  auto type = getHDF5Type(pdata);
+  const H5T hdf5_type = H5T::FromHIDCheck(H5Aget_type(attr));
+  auto status = PARTHENON_HDF5_CHECK(H5Tequal(type, hdf5_type));
+  PARTHENON_REQUIRE_THROWS(status > 0, "Type mismatch for attribute " + name);
+
+  // Read attribute from file
+  PARTHENON_HDF5_CHECK(H5Aread(attr, type, pdata));
+
+  if constexpr (!std::is_same<typename T::memory_space, Kokkos::HostSpace>::value) {
+    Kokkos::deep_copy(view, view_h);
+  }
+}
+
+template <typename D, typename S>
+void HDF5ReadAttribute(hid_t location, const std::string &name,
+                       ParArrayGeneric<D, S> &pararray) {
+  // forces compiler to pass by non-const reference into the next function
+  // Note this loses information stored in the `State` of the pararray.
+  D &view = pararray.KokkosView();
+  HDF5ReadAttribute(location, name, view);
+}
+
+template <typename T>
+void HDF5ReadAttribute(hid_t location, const std::string &name, std::vector<T> &vec) {
+  vec = HDF5ReadAttributeVec<T>(location, name);
+}
+
+// Template extern declarations ensuring these are instantiated elsewhere
+#define PARTHENON_ATTR_APPLY(...)                                                        \
+  extern template void HDF5ReadAttribute<__VA_ARGS__>(                                   \
+      hid_t location, const std::string &name, __VA_ARGS__ &val);                        \
+  extern template void HDF5WriteAttribute<__VA_ARGS__>(                                  \
+      const std::string &name, const __VA_ARGS__ &value, hid_t location)
+
+PARTHENON_ATTR_FOREACH_VECTOR_TYPE(bool);
+PARTHENON_ATTR_FOREACH_VECTOR_TYPE(int32_t);
+PARTHENON_ATTR_FOREACH_VECTOR_TYPE(int64_t);
+PARTHENON_ATTR_FOREACH_VECTOR_TYPE(uint32_t);
+PARTHENON_ATTR_FOREACH_VECTOR_TYPE(uint64_t);
+PARTHENON_ATTR_FOREACH_VECTOR_TYPE(float);
+PARTHENON_ATTR_FOREACH_VECTOR_TYPE(double);
+
+#undef PARTHENON_ATTR_APPLY
 
 } // namespace HDF5
 } // namespace parthenon

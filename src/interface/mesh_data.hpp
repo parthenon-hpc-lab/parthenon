@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -13,6 +13,8 @@
 #ifndef INTERFACE_MESH_DATA_HPP_
 #define INTERFACE_MESH_DATA_HPP_
 
+// This file was made in part with generative AI
+
 #include <algorithm>
 #include <limits>
 #include <map>
@@ -22,15 +24,21 @@
 #include <utility>
 #include <vector>
 
-#include "bvals/cc/bnd_info.hpp"
-#include "interface/sparse_pack_base.hpp"
+#include "bvals/comms/bnd_info.hpp"
 #include "interface/variable_pack.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
+#include "pack/sparse_pack/sparse_pack_base.hpp"
+#include "pack/sparse_pack/sparse_pack_cache.hpp"
+#include "pack/swarm_pack/swarm_pack_base.hpp"
+#include "pack/swarm_pack/swarm_pack_cache.hpp"
+#include "pack/swarm_pack/swarm_pack_types.hpp"
 #include "utils/communication_buffer.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/object_pool.hpp"
+#include "utils/unique_id.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
@@ -48,20 +56,19 @@ namespace pack_on_mesh_impl {
 template <typename K>
 inline void AppendKey(K *key_collection, const K *new_key);
 
-// Specialization for variable packs where key is a std::vector<std::string>
+// Specialization for variable packs where key is a vpack_types::VPackKey_t
 template <>
-inline void AppendKey<std::vector<std::string>>(std::vector<std::string> *key_collection,
-                                                const std::vector<std::string> *new_key) {
+inline void AppendKey<vpack_types::VPackKey_t>(vpack_types::VPackKey_t *key_collection,
+                                               const vpack_types::VPackKey_t *new_key) {
   for (const auto &k : *new_key) {
     key_collection->push_back(k);
   }
 }
 
-// Specialization for flux-variable packs where key is a vpack_types::StringPair (which is
-// a pair of std::vector<std::string>)
+// Specialization for flux-variable packs where key is a vpack_types::UidVecPair
 template <>
-inline void AppendKey<vpack_types::StringPair>(vpack_types::StringPair *key_collection,
-                                               const vpack_types::StringPair *new_key) {
+inline void AppendKey<vpack_types::UidVecPair>(vpack_types::UidVecPair *key_collection,
+                                               const vpack_types::UidVecPair *new_key) {
   for (const auto &k : new_key->first) {
     key_collection->first.push_back(k);
   }
@@ -76,13 +83,13 @@ inline void AppendKey<vpack_types::StringPair>(vpack_types::StringPair *key_coll
 // partially specialized
 template <typename P>
 struct AllocationStatusCollector {
-  static inline void Append(std::vector<bool> *alloc_status_collection, const P &pack);
+  static inline void Append(std::vector<int> *alloc_status_collection, const P &pack);
 };
 
 // Specialization for VariablePack<T>
 template <typename T>
 struct AllocationStatusCollector<VariablePack<T>> {
-  static inline void Append(std::vector<bool> *alloc_status_collection,
+  static inline void Append(std::vector<int> *alloc_status_collection,
                             const VariablePack<T> &var_pack) {
     alloc_status_collection->insert(alloc_status_collection->end(),
                                     var_pack.alloc_status()->begin(),
@@ -93,7 +100,7 @@ struct AllocationStatusCollector<VariablePack<T>> {
 // Specialization for VariableFluxPack<T>
 template <typename T>
 struct AllocationStatusCollector<VariableFluxPack<T>> {
-  static inline void Append(std::vector<bool> *alloc_status_collection,
+  static inline void Append(std::vector<int> *alloc_status_collection,
                             const VariableFluxPack<T> &var_flux_pack) {
     alloc_status_collection->insert(alloc_status_collection->end(),
                                     var_flux_pack.alloc_status()->cbegin(),
@@ -119,9 +126,9 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
   PackIndexMap pack_idx_map;
   PackIndexMap this_map;
 
-  std::vector<bool> alloc_status_collection;
+  std::vector<int> alloc_status_collection;
 
-  for (size_t i = 0; i < nblocks; i++) {
+  for (std::size_t i = 0; i < nblocks; i++) {
     const auto &pack = packing_function(block_data_[i], this_map, this_key);
     AppendKey(&total_key, &this_key);
     AllocationStatusCollector<P>::Append(&alloc_status_collection, pack);
@@ -148,10 +155,10 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
   }
 
   if (make_new_pack) {
-    ParArray1D<P> packs("MeshData::PackVariables::packs", nblocks);
-    auto packs_host = Kokkos::create_mirror_view(packs);
+    ParArray1DRaw<P> packs(ViewOfViewAlloc("MeshData::PackVariables::packs"), nblocks);
+    auto packs_host = create_view_of_view_mirror(packs);
 
-    for (size_t i = 0; i < nblocks; i++) {
+    for (std::size_t i = 0; i < nblocks; i++) {
       const auto &pack = packing_function(block_data_[i], this_map, this_key);
       packs_host(i) = pack;
     }
@@ -189,7 +196,21 @@ const MeshBlockPack<P> &PackOnMesh(M &map, BlockDataList_t<Real> &block_data_,
 template <typename T>
 class MeshData {
  public:
+  using parent_t = Mesh;
   MeshData() = default;
+  explicit MeshData(const std::string &name) : stage_name_(name) {}
+
+  GridIdentifier grid;
+  int partition{-1};
+
+  void SetBoundBufferId(BoundaryType btype, int id);
+
+  int GetBoundBufferId(BoundaryType btype) const {
+    if (bound_buffer_ids_.count(btype)) return bound_buffer_ids_.at(btype);
+    return 0;
+  }
+
+  std::map<BoundaryType, int> bound_buffer_ids_{};
 
   const auto &StageName() const { return stage_name_; }
 
@@ -209,30 +230,28 @@ class MeshData {
 
   auto &GetBvarsCache() { return bvars_cache_; }
 
-  const auto &GetRestrictBufAllocStatus() const { return restrict_buf_alloc_status_; }
-
-  void
-  SetRestrictBuffers(const cell_centered_bvars::BufferCache_t &restrict_buffers,
-                     const cell_centered_bvars::BufferCacheHost_t &restrict_buffers_h,
-                     const std::vector<bool> &restrict_buf_alloc_status) {
-    restrict_buffers_ = restrict_buffers;
-    restrict_buffers_h_ = restrict_buffers_h;
-    restrict_buf_alloc_status_ = restrict_buf_alloc_status;
+  template <class... Ts>
+  IndexRange GetBoundsI(Ts &&...args) const {
+    if (block_data_.size() > 0)
+      return block_data_[0]->GetBoundsI(std::forward<Ts>(args)...);
+    return IndexRange{-1, -2};
   }
 
-  auto GetRestrictBuffers() const {
-    return std::make_pair(restrict_buffers_, restrict_buffers_h_);
+  template <class... Ts>
+  IndexRange GetBoundsJ(Ts &&...args) const {
+    if (block_data_.size() > 0)
+      return block_data_[0]->GetBoundsJ(std::forward<Ts>(args)...);
+    return IndexRange{-1, -2};
   }
 
-  IndexRange GetBoundsI(const IndexDomain &domain) const {
-    return block_data_[0]->GetBoundsI(domain);
+  template <class... Ts>
+  IndexRange GetBoundsK(Ts &&...args) const {
+    if (block_data_.size() > 0)
+      return block_data_[0]->GetBoundsK(std::forward<Ts>(args)...);
+    return IndexRange{-1, -2};
   }
-  IndexRange GetBoundsJ(const IndexDomain &domain) const {
-    return block_data_[0]->GetBoundsJ(domain);
-  }
-  IndexRange GetBoundsK(const IndexDomain &domain) const {
-    return block_data_[0]->GetBoundsK(domain);
-  }
+
+  const auto &GetUids() const { return block_data_[0]->GetUids(); }
 
   template <class... Args>
   void Add(Args &&...args) {
@@ -241,26 +260,44 @@ class MeshData {
     }
   }
 
-  void Set(BlockList_t blocks, const std::string &name) {
-    stage_name_ = name;
-    const int nblocks = blocks.size();
-    block_data_.resize(nblocks);
-    SetMeshPointer(blocks[0]->pmy_mesh);
-    for (int i = 0; i < nblocks; i++) {
-      block_data_[i] = blocks[i]->meshblock_data.Get(name);
-    }
+  template <typename ID_t>
+  void Initialize(const std::shared_ptr<BlockListPartition> &part,
+                  const std::vector<ID_t> &vars, const bool shallow) {
+    PARTHENON_REQUIRE(
+        shallow == false,
+        "Can't shallow copy when the source is not another MeshData object.");
+    SetMeshProperties(part->pmesh);
+    auto &bl = part->block_list;
+    block_data_.resize(bl.size());
+    for (int i = 0; i < bl.size(); ++i)
+      block_data_[i] = bl[i]->meshblock_data.Add(stage_name_, bl[i], vars);
+    grid = part->grid;
+    partition = part->partition;
   }
 
-  template <typename... Args>
-  void Copy(const std::shared_ptr<MeshData<T>> src, Args &&...args) {
-    if (src.get() == nullptr) {
+  template <typename ID_t>
+  void Initialize(std::shared_ptr<MeshData<T>> src, const std::vector<ID_t> &vars,
+                  const bool shallow) {
+    if (src == nullptr) {
       PARTHENON_THROW("src points at null");
     }
+    SetMeshProperties(src->GetParentPointer());
     const int nblocks = src->NumBlocks();
     block_data_.resize(nblocks);
-    for (int i = 0; i < nblocks; i++) {
-      block_data_[i]->Copy(src->GetBlockData(i), std::forward<Args>(args)...);
+    for (int i = 0; i < nblocks; ++i) {
+      auto pmbd = src->GetBlockData(i);
+      block_data_[i] = pmbd->GetBlockSharedPointer()->meshblock_data.Add(
+          stage_name_, pmbd, vars, shallow);
     }
+    grid = src->grid;
+    partition = src->partition;
+  }
+
+  void Initialize(BlockList_t blocks, Mesh *pmesh, std::optional<int> gmg_level = {});
+
+  MeshBlockData<T> *GetBlockDataRawPointer(int n) {
+    assert(n >= 0 && n < block_data_.size());
+    return block_data_[n].get();
   }
 
   const std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) const {
@@ -268,23 +305,59 @@ class MeshData {
     return block_data_[n];
   }
 
+  std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) {
+    assert(n >= 0 && n < block_data_.size());
+    return block_data_[n];
+  }
+
+  const auto &GetAllBlockData() const { return block_data_; }
+
+  bool ContainsGid(int gid) const {
+    bool contains = false;
+    for (auto &b : block_data_) {
+      if (b->GetBlockPointer()->gid == gid) contains = true;
+    }
+    return contains;
+  }
+
+  void SetAllVariablesToInitialized() {
+    std::for_each(block_data_.begin(), block_data_.end(),
+                  [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
+  }
+
+  bool AllVariablesInitialized() {
+    bool all_initialized = true;
+    std::for_each(block_data_.begin(), block_data_.end(), [&](auto &sp_block) {
+      all_initialized = all_initialized && sp_block->AllVariablesInitialized();
+    });
+    return all_initialized;
+  }
+
+  std::vector<bool> AllocationStatus(const std::string &label) {
+    std::vector<bool> status(NumBlocks());
+    std::transform(
+        block_data_.begin(), block_data_.end(), status.begin(),
+        [&](std::shared_ptr<MeshBlockData<T>> mbd) { return mbd->IsAllocated(label); });
+    return status;
+  }
+
  private:
   template <typename... Args>
   const auto &PackVariablesAndFluxesImpl(PackIndexMap *map_out, Args &&...args) {
     auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data,
-                             PackIndexMap &map, vpack_types::StringPair &key) {
+                             PackIndexMap &map, vpack_types::UidVecPair &key) {
       return meshblock_data->PackVariablesAndFluxes(std::forward<Args>(args)..., map,
                                                     key);
     };
 
-    return pack_on_mesh_impl::PackOnMesh<VariableFluxPack<T>, vpack_types::StringPair>(
+    return pack_on_mesh_impl::PackOnMesh<VariableFluxPack<T>, vpack_types::UidVecPair>(
         varFluxPackMap_, block_data_, pack_function, map_out);
   }
 
   template <typename... Args>
   const auto &PackVariablesImpl(PackIndexMap *map_out, bool coarse, Args &&...args) {
     auto pack_function = [&](std::shared_ptr<MeshBlockData<T>> meshblock_data,
-                             PackIndexMap &map, std::vector<std::string> &key) {
+                             PackIndexMap &map, vpack_types::VPackKey_t &key) {
       return meshblock_data->PackVariables(std::forward<Args>(args)..., map, key, coarse);
     };
     return pack_on_mesh_impl::PackOnMesh<VariablePack<T>, vpack_types::VPackKey_t>(
@@ -317,25 +390,24 @@ class MeshData {
     return PackVariablesAndFluxesImpl(nullptr, var_names, flx_names);
   }
   // Pack by either the same variable and flux names, or by metadata flags
-  template <typename Elem>
-  const auto &PackVariablesAndFluxes(const std::vector<Elem> &names_or_flags,
+  template <typename Selector>
+  const auto &PackVariablesAndFluxes(const Selector &names_or_flags,
                                      const std::vector<int> &sparse_ids,
                                      PackIndexMap &map) {
     return PackVariablesAndFluxesImpl(&map, names_or_flags, sparse_ids);
   }
-  template <typename Elem>
-  const auto &PackVariablesAndFluxes(const std::vector<Elem> &names_or_flags,
+  template <typename Selector>
+  const auto &PackVariablesAndFluxes(const Selector &names_or_flags,
                                      const std::vector<int> &sparse_ids) {
     return PackVariablesAndFluxesImpl(nullptr, names_or_flags, sparse_ids);
   }
   // no sparse ids
-  template <typename Elem>
-  const auto &PackVariablesAndFluxes(const std::vector<Elem> &names_or_flags,
-                                     PackIndexMap &map) {
+  template <typename Selector>
+  const auto &PackVariablesAndFluxes(const Selector &names_or_flags, PackIndexMap &map) {
     return PackVariablesAndFluxesImpl(&map, names_or_flags);
   }
-  template <typename Elem>
-  const auto &PackVariablesAndFluxes(const std::vector<Elem> &names_or_flags) {
+  template <typename Selector>
+  const auto &PackVariablesAndFluxes(const Selector &names_or_flags) {
     return PackVariablesAndFluxesImpl(nullptr, names_or_flags);
   }
   // only sparse ids
@@ -352,27 +424,27 @@ class MeshData {
   }
   const auto &PackVariablesAndFluxes() { return PackVariablesAndFluxesImpl(nullptr); }
 
-  // As above, DO NOT use variatic templates here. They shadow each other.
+  // As above, DO NOT use variadic templates here. They shadow each other.
   // covers names and metadata flags
-  template <typename Elem>
-  const auto &PackVariables(const std::vector<Elem> names_or_flags,
+  template <typename Selector>
+  const auto &PackVariables(const Selector &names_or_flags,
                             const std::vector<int> &sparse_ids, PackIndexMap &map,
                             bool coarse = false) {
     return PackVariablesImpl(&map, coarse, names_or_flags, sparse_ids);
   }
-  template <typename Elem>
-  const auto &PackVariables(const std::vector<Elem> names_or_flags,
+  template <typename Selector>
+  const auto &PackVariables(const Selector &names_or_flags,
                             const std::vector<int> &sparse_ids, bool coarse = false) {
     return PackVariablesImpl(nullptr, coarse, names_or_flags, sparse_ids);
   }
   // no sparse ids
-  template <typename Elem>
-  const auto &PackVariables(const std::vector<Elem> names_or_flags, PackIndexMap &map,
+  template <typename Selector>
+  const auto &PackVariables(const Selector &names_or_flags, PackIndexMap &map,
                             bool coarse = false) {
     return PackVariablesImpl(&map, coarse, names_or_flags);
   }
-  template <typename Elem>
-  const auto &PackVariables(const std::vector<Elem> names_or_flags, bool coarse = false) {
+  template <typename Selector>
+  const auto &PackVariables(const Selector &names_or_flags, bool coarse = false) {
     return PackVariablesImpl(nullptr, coarse, names_or_flags);
   }
   // No names or flags
@@ -396,13 +468,10 @@ class MeshData {
     block_data_.clear();
     varPackMap_.clear();
     varFluxPackMap_.clear();
-    restrict_buffers_ = cell_centered_bvars::BufferCache_t{};
-    restrict_buffers_h_ = cell_centered_bvars::BufferCacheHost_t{};
-
     bvars_cache_.clear();
-    restrict_buf_alloc_status_.clear();
   }
 
+  int GetNDim() const { return ndim_; }
   int NumBlocks() const { return block_data_.size(); }
 
   bool operator==(MeshData<T> &cmp) const {
@@ -416,16 +485,50 @@ class MeshData {
     return true;
   }
 
-  bool Contains(const std::vector<std::string> &names) const {
-    for (const auto &b : block_data_) {
-      if (!b->Contains(names)) return false;
-    }
-    return true;
+  // vars may be a subset of the MeshData object
+  template <typename Vars_t>
+  bool Contains(const Vars_t &vars) const noexcept {
+    return std::all_of(block_data_.begin(), block_data_.end(),
+                       [this, vars](const auto &b) { return b->Contains(vars); });
+  }
+  // MeshData object must contain these vars and only these vars
+  template <typename Vars_t>
+  bool ContainsExactly(const Vars_t &vars) const noexcept {
+    return std::all_of(block_data_.begin(), block_data_.end(),
+                       [this, vars](const auto &b) { return b->ContainsExactly(vars); });
+  }
+
+  // Checks that the same set of variables was requested to create this container
+  // (which may be different than the set of variables in the container because of fluxes)
+  template <typename Vars_t>
+  bool CreatedFrom(const Vars_t &vars) const noexcept {
+    return std::all_of(block_data_.begin(), block_data_.end(),
+                       [this, vars](const auto &b) { return b->CreatedFrom(vars); });
+  }
+
+  std::shared_ptr<SwarmContainer> GetSwarmData(int n) {
+    PARTHENON_REQUIRE(n >= 0 && n < block_data_.size(),
+                      "MeshData::GetSwarmData requires n within [0, block_data_.size()]");
+    return block_data_[n]->GetSwarmData();
   }
 
   SparsePackCache &GetSparsePackCache() { return sparse_pack_cache_; }
 
+  template <typename TYPE>
+  SwarmPackCache<TYPE> &GetSwarmPackCache() {
+    static_assert(SwarmPackTypes::template IsIn<TYPE>(),
+                  "Unsupported type encountered in SwarmPack");
+    return std::get<SwarmPackTypes::template GetIdx<TYPE>()>(swarm_pack_caches_);
+  }
+
+  void ClearSwarmCaches() {
+    std::apply([](auto &...caches) { (caches.clear(), ...); }, swarm_pack_caches_);
+  }
+
  private:
+  void SetMeshProperties(Mesh *pmesh);
+
+  int ndim_;
   Mesh *pmy_mesh_;
   BlockDataList_t<T> block_data_;
   std::string stage_name_;
@@ -434,17 +537,17 @@ class MeshData {
   MapToMeshBlockVarPack<T> varPackMap_;
   MapToMeshBlockVarFluxPack<T> varFluxPackMap_;
   SparsePackCache sparse_pack_cache_;
-
+  SwarmPackCaches swarm_pack_caches_;
   // caches for boundary information
-  cell_centered_bvars::BvarsCache_t bvars_cache_;
-
-  cell_centered_bvars::BufferCache_t restrict_buffers_{};
-  std::vector<bool> restrict_buf_alloc_status_;
-  // Cache both host and device buffer info. Reduces mallocs, and also
-  // means the bounds values are available on host if needed.
-  cell_centered_bvars::BufferCacheHost_t restrict_buffers_h_{};
+  BvarsCache_t bvars_cache_;
 };
 
+template <typename T, typename... Args>
+std::vector<Uid_t> UidIntersection(MeshData<T> *md1, MeshData<T> *md2, Args &&...args) {
+  if (md1->NumBlocks() == 0 || md2->NumBlocks() == 0) return std::vector<Uid_t>();
+  return UidIntersection(md1->GetBlockData(0).get(), md2->GetBlockData(0).get(),
+                         std::forward<Args>(args)...);
+}
 } // namespace parthenon
 
 #endif // INTERFACE_MESH_DATA_HPP_

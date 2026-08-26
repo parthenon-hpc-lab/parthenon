@@ -13,6 +13,7 @@
 
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include <parthenon/package.hpp>
 
@@ -50,12 +51,13 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   const int iphi = imap["potential"].first;
 
   pmb->par_for(
-      "Poisson::ProblemGenerator", 0, q_bpack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
-      ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+      PARTHENON_AUTO_LABEL, 0, q_bpack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         const auto &coords = q_bpack.GetCoords(b);
         auto &q = q_bpack(b);
-        Real dist2 = std::pow(coords.x1v(i) - x0, 2) + std::pow(coords.x2v(j) - y0, 2) +
-                     std::pow(coords.x3v(k) - z0, 2);
+        Real dist2 = std::pow(coords.Xc<1>(i) - x0, 2) +
+                     std::pow(coords.Xc<2>(j) - y0, 2) +
+                     std::pow(coords.Xc<3>(k) - z0, 2);
         if (dist2 < radius * radius) {
           q(irho, k, j, i) = 1.0 / (4.0 / 3.0 * M_PI * std::pow(radius, 3));
         } else {

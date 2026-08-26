@@ -1,9 +1,13 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2026 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // Athena++ astrophysical MHD code
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -15,7 +19,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 //! \file outputs.cpp
-//  \brief implements functions for Athena++ outputs
+//  \brief implements functions for Parthenon outputs
 //
 // The number and types of outputs are all controlled by the number and values of
 // parameters specified in <output[n]> blocks in the input file.  Each output block must
@@ -27,21 +31,6 @@
 // number of <output[n]> blocks does not need to be specified -- in Athena++ a new output
 // type will be created for each and every <output[n]> block in the input file.
 //
-// Required parameters that must be specified in an <output[n]> block are:
-//   - variable     = cons,prim,D,d,E,e,m,m1,m2,m3,v,v1=vx,v2=vy,v3=vz,p,
-//                    bcc,bcc1,bcc2,bcc3,b,b1,b2,b3,phi,uov
-//   - file_type    = rst,tab,vtk,hst,hdf5
-//   - dt           = problem time between outputs
-//
-// EXAMPLE of an <output[n]> block for a VTK dump:
-//   <output3>
-//   file_type   = tab       # Tabular data dump
-//   variable    = prim      # variables to be output
-//   data_format = %12.5e    # Optional data format string
-//   dt          = 0.01      # time increment between outputs
-//   x2_slice    = 0.0       # slice in x2
-//   x3_slice    = 0.0       # slice in x3
-//
 // Each <output[n]> block will result in a new node being created in a linked list of
 // OutputType stored in the Outputs class.  During a simulation, outputs are made when
 // the simulation time satisfies the criteria implemented in the MakeOutputs() function.
@@ -50,25 +39,14 @@
 // an object of this class in the Outputs constructor at the location indicated by the
 // comment text: 'NEW_OUTPUT_TYPES'. Current summary:
 // -----------------------------------
-// - outputs.cpp, OutputType:LoadOutputData() (below): conditionally add new OutputData
-// node to linked list, depending on the user-input 'variable' string. Provide direction
-// on how to slice a possible 4D source ParArrayND into separate 3D arrays; automatically
-// enrolls quantity in vtk.cpp, formatted_table.cpp outputs.
-
-// - parthenon_hdf5.cpp, PHDF5Output::WriteOutputFile(): need to allocate space for the
-// new OutputData node as an HDF5 "variable" inside an existing HDF5 "dataset"
+// - outputs.cpp
+//
+// - parthenon_hdf5.cpp, PHDF5Output::WriteOutputFile():
 // (cell-centered vs. face-centered data).
-
-// - mesh/meshblock.cpp, MeshBlock restart constructor: memcpy quantity (IN THE SAME ORDER
-// AS THE VARIABLES ARE WRITTEN IN restart.cpp) from the loaded .rst file to the
-// MeshBlock's appropriate physics member object
-
-// - history.cpp, HistoryOutput::WriteOutputFile() (3x places): 1) modify NHISTORY_VARS
-// macro so that the size of data_sum[] can accommodate the new physics, when active.
-// 2) Compute volume-weighted data_sum[i] for the new quantity + etc. factors
-// 3) Provide short string to serve as the column header description of new quantity
+//
+// - history.cpp: Add the relevant history quantity to your package
 // -----------------------------------
-
+//
 // HDF5 note: packing gas velocity into the "prim" HDF5 dataset will cause VisIt to treat
 // the 3x components as independent scalars instead of a physical vector, unlike how it
 // treats .vtk velocity output from Athena++. The workaround is to import the
@@ -77,391 +55,454 @@
 
 #include "outputs/outputs.hpp"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <limits>
+#include <memory>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
+#include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
+#include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "outputs/output_parameters.hpp"
+#include "pack/default_names.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
-#include "utils/string_utils.hpp"
+#include "utils/utils.hpp"
 
 namespace parthenon {
 
 //----------------------------------------------------------------------------------------
 // OutputType constructor
 
-OutputType::OutputType(OutputParameters oparams)
-    : output_params(oparams),
-      pnext_type(), // Terminate this node in singly linked list with nullptr
-      num_vars_(),
-      // nested doubly linked list of OutputData:
-      pfirst_data_(), // Initialize head node to nullptr
-      plast_data_() { // Initialize tail node to nullptr
-}
+OutputType::OutputType(OutputParameters oparams) : output_params(oparams), num_vars_() {}
 
 //----------------------------------------------------------------------------------------
 // Outputs constructor
 
 Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
-  pfirst_type_ = nullptr;
   std::stringstream msg;
-  InputBlock *pib = pin->pfirst_block;
-  OutputType *pnew_type;
-  OutputType *plast = pfirst_type_;
-  int num_hst_outputs = 0, num_rst_outputs = 0; // number of history and restart outputs
+  // We should only have at most one each of these output types. Count
+  // them so we can raise an error.
+  int num_rst_outputs = 0;
+  int num_core_outputs = 0;
 
+  // track restart outputs separately. We'll combine at the end.
+  std::vector<std::shared_ptr<OutputType>> restart_outputs;
+
+  // loop over "parthenon/output" blocks located in params
+  auto pkg = pm->packages.Get("Outputs");
   // loop over input block names.  Find those that start with "parthenon/output", read
-  // parameters, and construct singly linked list of OutputTypes.
-  while (pib != nullptr) {
-    if (pib->block_name.compare(0, 16, "parthenon/output") == 0) {
-      OutputParameters op; // define temporary OutputParameters struct
+  // parameters, and construct a vector of output types.
+  // PG: It could be discussed if we should work based on a vector that is initialized in
+  // the outpus packages (as before), but I don't think it's bad practice to work on
+  // `pinput` again here as we're actually processing (potentially even modifying)
+  // `pinput`.
+  auto output_blocks = pin->GetBlockNamesWithPrefix("parthenon/output");
+  for (const auto &block_name : output_blocks) {
+    std::shared_ptr<OutputType> pnew_type; // the new output we will create
+    bool restart = false;                  // we track restart outputs separately so we
+                                           // need this temp variable to check
+    OutputParameters op;                   // define temporary OutputParameters struct
+    op.block_name = block_name;
+    const auto outn_str = block_name.substr(16); // 16 because counting starts at 0!
+    op.block_number = atoi(outn_str.c_str());
+    auto *pfile_number = pkg->MutableParam<int>(outn_str + "/file_number");
+    auto *plast_time = pkg->MutableParam<Real>(outn_str + "/last_time");
+    auto *plast_n = pkg->MutableParam<int>(outn_str + "/last_n");
 
-      // extract integer number of output block.  Save name and number
-      std::string outn = pib->block_name.substr(16); // 6 because counting starts at 0!
-      op.block_number = atoi(outn.c_str());
-      op.block_name.assign(pib->block_name);
+    Real dt = 0.0; // default value == 0 means that initial data is written by default
+    int dn = -1;
+    if (tm != nullptr) {
+      dn = pin->GetOrAddInteger(op.block_name, "dn", -1, "output cadence in cycles");
 
-      Real dt = 0.0; // default value == 0 means that initial data is written by default
-      // for temporal drivers, setting dt to tlim ensures a final output is also written
-      if (tm != nullptr) {
-        dt = pin->GetOrAddReal(op.block_name, "dt", tm->tlim);
-      }
-      // if this output is "soft-disabled" (negative value) skip processing
-      if (dt < 0.0) {
-        pib = pib->pnext; // move to next input block name
-        continue;
-      }
-      // set time of last output, time between outputs
-      if (tm != nullptr) {
-        op.next_time = pin->GetOrAddReal(op.block_name, "next_time", tm->time);
-        op.dt = dt;
-      }
-
-      // set file number, basename, id, and format
-      op.file_number = pin->GetOrAddInteger(op.block_name, "file_number", 0);
-      op.file_basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon");
-      op.file_number_width = pin->GetOrAddInteger(op.block_name, "file_number_width", 5);
-      op.file_label_final = pin->GetOrAddBoolean(op.block_name, "use_final_label", true);
-      char define_id[10];
-      std::snprintf(define_id, sizeof(define_id), "out%d",
-                    op.block_number); // default id="outN"
-      op.file_id = pin->GetOrAddString(op.block_name, "id", define_id);
-      op.file_type = pin->GetString(op.block_name, "file_type");
-
-      // read slicing options.  Check that slice is within mesh
-      if (pin->DoesParameterExist(op.block_name, "x1_slice")) {
-        Real x1 = pin->GetReal(op.block_name, "x1_slice");
-        if (x1 >= pm->mesh_size.x1min && x1 < pm->mesh_size.x1max) {
-          op.x1_slice = x1;
-          op.output_slicex1 = true;
-        } else {
-          msg << "### FATAL ERROR in Outputs constructor" << std::endl
-              << "Slice at x1=" << x1 << " in output block '" << op.block_name
-              << "' is out of range of Mesh" << std::endl;
-          PARTHENON_FAIL(msg);
-        }
-      }
-
-      if (pin->DoesParameterExist(op.block_name, "x2_slice")) {
-        Real x2 = pin->GetReal(op.block_name, "x2_slice");
-        if (x2 >= pm->mesh_size.x2min && x2 < pm->mesh_size.x2max) {
-          op.x2_slice = x2;
-          op.output_slicex2 = true;
-        } else {
-          msg << "### FATAL ERROR in Outputs constructor" << std::endl
-              << "Slice at x2=" << x2 << " in output block '" << op.block_name
-              << "' is out of range of Mesh" << std::endl;
-          PARTHENON_FAIL(msg);
-        }
-      }
-
-      if (pin->DoesParameterExist(op.block_name, "x3_slice")) {
-        Real x3 = pin->GetReal(op.block_name, "x3_slice");
-        if (x3 >= pm->mesh_size.x3min && x3 < pm->mesh_size.x3max) {
-          op.x3_slice = x3;
-          op.output_slicex3 = true;
-        } else {
-          msg << "### FATAL ERROR in Outputs constructor" << std::endl
-              << "Slice at x3=" << x3 << " in output block '" << op.block_name
-              << "' is out of range of Mesh" << std::endl;
-          PARTHENON_FAIL(msg);
-        }
-      }
-
-      // read sum options.  Check for conflicts with slicing.
-      op.output_sumx1 = pin->GetOrAddBoolean(op.block_name, "x1_sum", false);
-      if ((op.output_slicex1) && (op.output_sumx1)) {
-        msg << "### FATAL ERROR in Outputs constructor" << std::endl
-            << "Cannot request both slice and sum along x1-direction"
-            << " in output block '" << op.block_name << "'" << std::endl;
-        PARTHENON_FAIL(msg);
-      }
-      op.output_sumx2 = pin->GetOrAddBoolean(op.block_name, "x2_sum", false);
-      if ((op.output_slicex2) && (op.output_sumx2)) {
-        msg << "### FATAL ERROR in Outputs constructor" << std::endl
-            << "Cannot request both slice and sum along x2-direction"
-            << " in output block '" << op.block_name << "'" << std::endl;
-        PARTHENON_FAIL(msg);
-      }
-      op.output_sumx3 = pin->GetOrAddBoolean(op.block_name, "x3_sum", false);
-      if ((op.output_slicex3) && (op.output_sumx3)) {
-        msg << "### FATAL ERROR in Outputs constructor" << std::endl
-            << "Cannot request both slice and sum along x3-direction"
-            << " in output block '" << op.block_name << "'" << std::endl;
-        PARTHENON_FAIL(msg);
-      }
-
-      // read ghost cell option
-      op.include_ghost_zones = pin->GetOrAddBoolean(op.block_name, "ghost_zones", false);
-
-      // read cartesian mapping option
-      op.cartesian_vector = false;
-
-      // read single precision output option
-      const bool is_hdf5_output =
-          (op.file_type == "rst") || (op.file_type == "ath5") || (op.file_type == "hdf5");
-
-      if (is_hdf5_output) {
-        op.single_precision_output =
-            pin->GetOrAddBoolean(op.block_name, "single_precision_output", false);
-      } else {
-        op.single_precision_output = false;
-
-        if (pin->DoesParameterExist(op.block_name, "single_precision_output")) {
-          std::stringstream warn;
-          warn << "### WARNING Output option single_precision_output only applies to "
-                  "HDF5 outputs or restarts. Ignoring it for output block '"
-               << op.block_name << "'" << std::endl;
-          PARTHENON_WARN(warn);
-        }
-      }
-
-      if (is_hdf5_output) {
-        int default_compression_level = 5;
-#ifdef PARTHENON_DISABLE_HDF5_COMPRESSION
-        default_compression_level = 0;
-#endif
-
-        op.hdf5_compression_level = pin->GetOrAddInteger(
-            op.block_name, "hdf5_compression_level", default_compression_level);
-
-#ifdef PARTHENON_DISABLE_HDF5_COMPRESSION
-        if (op.hdf5_compression_level != 0) {
-          std::stringstream err;
-          err << "### ERROR: HDF5 compression requested for output block '"
-              << op.block_name << "', but HDF5 compression is disabled" << std::endl;
-          PARTHENON_THROW(err)
-        }
-#endif
-      } else {
-        op.hdf5_compression_level = 0;
-
-        if (pin->DoesParameterExist(op.block_name, "hdf5_compression_level")) {
-          std::stringstream warn;
-          warn << "### WARNING Output option hdf5_compression_level only applies to "
-                  "HDF5 outputs or restarts. Ignoring it for output block '"
-               << op.block_name << "'" << std::endl;
-          PARTHENON_WARN(warn);
-        }
-      }
-
-      // set output variable and optional data format string used in formatted writes
-      if ((op.file_type != "hst") && (op.file_type != "rst")) {
-        // op.variable = pin->GetString(op.block_name, "variable");
-        op.variables = SetOutputVariables(pin, pib->block_name);
-      }
-      op.data_format = pin->GetOrAddString(op.block_name, "data_format", "%12.5e");
-      op.data_format.insert(0, " "); // prepend with blank to separate columns
-
-      // Construct new OutputType according to file format
-      // NEW_OUTPUT_TYPES: Add block to construct new types here
-      if (op.file_type == "hst") {
-        pnew_type = new HistoryOutput(op);
-        num_hst_outputs++;
-      } else if (op.file_type == "tab") {
-        pnew_type = new FormattedTableOutput(op);
-      } else if (op.file_type == "vtk") {
-        pnew_type = new VTKOutput(op);
-      } else if (is_hdf5_output) {
-        const bool restart = (op.file_type == "rst");
-        if (restart) {
-          num_rst_outputs++;
-        }
-#ifdef ENABLE_HDF5
-        pnew_type = new PHDF5Output(op, restart);
-#else
-        msg << "### FATAL ERROR in Outputs constructor" << std::endl
-            << "Executable not configured for HDF5 outputs, but HDF5 file format "
-            << "is requested in output/restart block '" << op.block_name << "'. "
-            << "You can disable this block without deleting it by setting a dt < 0."
-            << std::endl;
-        PARTHENON_FAIL(msg);
-#endif // ifdef ENABLE_HDF5
-      } else {
-        msg << "### FATAL ERROR in Outputs constructor" << std::endl
-            << "Unrecognized file format = '" << op.file_type << "' in output block '"
-            << op.block_name << "'" << std::endl;
-        PARTHENON_FAIL(msg);
-      }
-
-      // Append type as tail node in singly linked list
-      if (pfirst_type_ == nullptr) {
-        pfirst_type_ = pnew_type;
-      } else {
-        plast->pnext_type = pnew_type;
-      }
-      plast = pnew_type;
+      // If this is a dn controlled output (dn >= 0), soft disable dt based triggering
+      // (-> dt = -1), otherwise setting dt to tlim ensures a final output is also
+      // written for temporal drivers.
+      const auto tlim = dn >= 0 ? -1.0 : tm->tlim;
+      dt =
+          pin->GetOrAddReal(op.block_name, "dt", tlim, "output cadence in physical time");
     }
-    pib = pib->pnext; // move to next input block name
-  }
+    // if this output is "soft-disabled" (negative value) skip processing
+    if (dt < 0.0 && dn < 0) {
+      continue;
+    }
 
-  // check there were no more than one history or restart files requested
-  if (num_hst_outputs > 1 || num_rst_outputs > 1) {
+    // JMM: Backwards compatibility hack. Don't allow this unless
+    // we're restarting from a legacy file format.
+    if (parthenon::Globals::is_restart) {
+      bool next_time_exists = pin->DoesParameterExist(op.block_name, "next_time");
+      bool next_n_exists = pin->DoesParameterExist(op.block_name, "next_n");
+      if (next_time_exists) {
+        Real next_time = pin->GetReal(op.block_name, "next_time");
+        *plast_time = dt < 0 ? 0.0 : next_time - dt;
+        pin->RemoveParameter(op.block_name, "next_time");
+      }
+      if (next_n_exists) {
+        int next_n = pin->GetInteger(op.block_name, "next_n");
+
+        *plast_n = dn < 0 ? 0 : next_n - dn;
+        pin->RemoveParameter(op.block_name, "next_n");
+      }
+      if (next_time_exists || next_n_exists) {
+        *pfile_number = pin->GetOrAddInteger(op.block_name, "file_number", 0);
+        pin->RemoveParameter(op.block_name, "file_number");
+      }
+    }
+
+    PARTHENON_REQUIRE_THROWS(!(dt >= 0.0 && dn >= 0),
+                             "dt and dn are enabled for the same output block, which "
+                             "is not supported. Please set at most one value >= 0.");
+
+    // set time of last output, time between outputs
+    op.last_time = *plast_time;
+    op.last_n = *plast_n;
+    if (tm != nullptr) {
+      op.dt = dt;
+      op.dn = dn;
+      /*
+        JMM: Set next time/iteration to output. At startup, the
+        process looks something like this:
+        1. simulation starts at start_time
+        2. Outputs package sets last_output to numeric_limits<>::lowest
+        3. In Outputs consturctor, we detect this dummy value and set
+        the next output to now
+        4. An initial dump is created
+        5. When these vars are next updated, next output will be start_time + dt
+
+        Alternatively, we could have set last_output output to
+        start_time - dt in the outputs package rather than use a
+        signaling number. However, I think the flag is less fraught.
+      */
+      if (dt >= 0) {
+        // TODO(JMM): Should this be a check for Globals::is_restart instead?
+        if (op.last_time > std::numeric_limits<Real>::lowest()) {
+          op.next_time = op.last_time + dt;
+        } else {
+          op.next_time = tm->time;
+        }
+      }
+      if (dn >= 0) {
+        // TODO(JMM): Should this be a check for Globals::is_restart instead?
+        if (op.last_n > std::numeric_limits<int>::lowest()) {
+          op.next_n = op.last_n + dn;
+        } else {
+          op.next_n = tm->ncycle;
+        }
+      }
+    }
+
+    // set file number, basename, id, and format
+    op.file_number = std::max(*pfile_number, 0);
+    op.file_basename = pin->GetOrAddString("parthenon/job", "problem_id", "parthenon",
+                                           "prefix for output files");
+    op.file_number_width = pin->GetOrAddInteger(op.block_name, "file_number_width", 5);
+    op.file_label_final = pin->GetOrAddBoolean(
+        op.block_name, "use_final_label", true,
+        "final output will use the word final instead of a number for its index");
+    op.include_in_final =
+        pin->GetOrAddBoolean(op.block_name, "include_in_final", true,
+                             "include output when triggered on final signal");
+    char define_id[10];
+    std::snprintf(define_id, sizeof(define_id), "out%d",
+                  op.block_number); // default id="outN"
+    op.file_id = pin->GetOrAddString(op.block_name, "id", define_id);
+    op.file_type = pin->GetString(op.block_name, "file_type", "output type");
+
+    // read ghost cell option
+    op.include_ghost_zones = pin->GetOrAddBoolean(
+        op.block_name, "ghost_zones", false, "whether or not ghost zones are output");
+
+    // read cartesian mapping option
+    op.cartesian_vector = false;
+
+    op.analysis_flag = pin->GetOrAddBoolean(op.block_name, "analysis_output", false);
+
+    // read single precision output option
+    const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5") ||
+                                (op.file_type == "corehdf5");
+    const bool is_openpmd_output = (op.file_type == "openpmd");
+
+    if (is_hdf5_output || is_openpmd_output) {
+      op.single_precision_output =
+          pin->GetOrAddBoolean(op.block_name, "single_precision_output", false);
+    } else {
+      op.single_precision_output = false;
+      if (pin->DoesParameterExist(op.block_name, "single_precision_output")) {
+        std::stringstream warn;
+        warn << "Output option single_precision_output only applies to "
+                "HDF5 outputs or restarts. Ignoring it for output block '"
+             << op.block_name << "'";
+        if (Globals::my_rank == 0) {
+          PARTHENON_WARN(warn);
+        }
+      }
+    }
+
+    if (is_hdf5_output) {
+      op.sparse_seed_nans =
+          pin->GetOrAddBoolean(op.block_name, "sparse_seed_nans", false,
+                               "write non-allocated sparse data as NaN");
+      op.meshdata_name = pin->GetOrAddString(op.block_name, "meshdata_name", "base",
+                                             "which meshdata object to write from");
+    } else {
+      // For OpenPMD/ADIOS2 it is not required to seed sparse nans as BP5 knows
+      // which chunks in a (sparse by default) mesh are written and which are not.
+      op.sparse_seed_nans = false;
+    }
+
+    if (is_hdf5_output) {
+      int default_compression_level = 5;
+#ifdef PARTHENON_DISABLE_HDF5_COMPRESSION
+      default_compression_level = 0;
+#endif
+
+      op.hdf5_compression_level = pin->GetOrAddInteger(
+          op.block_name, "hdf5_compression_level", default_compression_level);
+
+#ifdef PARTHENON_DISABLE_HDF5_COMPRESSION
+      if (op.hdf5_compression_level != 0) {
+        std::stringstream err;
+        err << "HDF5 compression requested for output block '" << op.block_name
+            << "', but HDF5 compression is disabled";
+        PARTHENON_THROW(err)
+      }
+#endif
+    } else {
+      op.hdf5_compression_level = 0;
+
+      if (pin->DoesParameterExist(op.block_name, "hdf5_compression_level")) {
+        std::stringstream warn;
+        warn << "Output option hdf5_compression_level only applies to "
+                "HDF5 outputs or restarts. Ignoring it for output block '"
+             << op.block_name << "'";
+        PARTHENON_WARN(warn);
+      }
+    }
+
+    if (op.file_type == "hst") {
+      // Do not use GetOrAddVector because it will pollute the input parameters for
+      // restarts
+      if (pin->DoesParameterExist(op.block_name, "packages")) {
+        op.packages = pin->GetVector<std::string>(op.block_name, "packages");
+      } else {
+        op.packages = std::vector<std::string>();
+      }
+    }
+
+    // set output variable and optional data format string used in formatted writes
+    if ((op.file_type != "hst") && (op.file_type != "rst") &&
+        (op.file_type != "corehdf5") && (op.file_type != "ascent") &&
+        (op.file_type != "histogram")) {
+      // Do not use GetOrAddVector because it will pollute the input parameters for
+      // restarts
+      if (pin->DoesParameterExist(op.block_name, "variables")) {
+        op.variables = pin->GetVector<std::string>(op.block_name, "variables");
+      } else {
+        op.variables = std::vector<std::string>();
+      }
+      // JMM: If the requested var isn't present for a given swarm,
+      // it is simply not output.
+      op.swarms.clear(); // Not sure this is needed
+      if (pin->DoesParameterExist(op.block_name, "swarms")) {
+        std::vector<std::string> swarmnames =
+            pin->GetVector<std::string>(op.block_name, "swarms", "swarms to output");
+        std::size_t nswarms = swarmnames.size();
+        if ((pin->DoesParameterExist(op.block_name, "swarm_variables")) &&
+            (nswarms > 1)) {
+          std::stringstream msg;
+          msg << "The swarm_variables field is set in the block '" << op.block_name
+              << "' however, there are " << nswarms << " swarms."
+              << " All swarms will be assumed to request the vars listed in "
+                 "swarm_variables.";
+          PARTHENON_WARN(msg);
+        }
+        for (const auto &swname : swarmnames) {
+          if (pin->DoesParameterExist(op.block_name, "swarm_variables")) {
+            auto varnames =
+                pin->GetVector<std::string>(op.block_name, "swarm_variables",
+                                            "swarm variables to output for all swarms");
+            op.swarms[swname].insert(varnames.begin(), varnames.end());
+          }
+          if (pin->DoesParameterExist(op.block_name, swname + "_variables")) {
+            auto varnames = pin->GetVector<std::string>(
+                op.block_name, swname + "_variables",
+                "swarm variables to output for a specific swarm");
+            op.swarms[swname].insert(varnames.begin(), varnames.end());
+          }
+          // Always output id, x, y, and z for swarms so that they work with vis tools.
+          // Note, it's fine to add the id by default (even though it might not actually
+          // exist) because only variables that do exists are actually being written.
+          std::vector<std::string> coords = {
+              swarm_position::id::name(), swarm_position::x::name(),
+              swarm_position::y::name(), swarm_position::z::name()};
+          op.swarms[swname].insert(coords.begin(), coords.end());
+        }
+      }
+    }
+    op.data_format = pin->GetOrAddString(op.block_name, "data_format", "%12.5e");
+    op.data_format.insert(0, " "); // prepend with blank to separate columns
+
+    // Construct new OutputType according to file format
+    // NEW_OUTPUT_TYPES: Add block to construct new types here
+    if (op.file_type == "hst") {
+      pnew_type = std::make_shared<HistoryOutput>(op);
+    } else if (op.file_type == "ascent") {
+      pnew_type = std::make_shared<AscentOutput>(op);
+    } else if (op.file_type == "spectrum") {
+#ifdef PARTHENON_ENABLE_FFT
+      pnew_type = std::make_shared<SpectralOutput>(op);
+#else
+      msg << "### FATAL ERROR in Outputs constructor" << std::endl
+          << "Executable not configured for Fourier transforms, but file format "
+          << "spectrum is requested in output block '" << op.block_name << "'. "
+          << "You can disable this block without deleting it by setting a dt < 0."
+          << std::endl;
+      PARTHENON_FAIL(msg);
+#endif // ifdef PARTHENON_ENABLE_FFT
+    } else if (op.file_type == "openpmd") {
+#ifdef PARTHENON_ENABLE_OPENPMD
+      const auto backend_config =
+          pin->GetOrAddString(op.block_name, "backend_config", "default");
+      const auto coarsening_factor =
+          pin->GetOrAddInteger(op.block_name, "coarsening_factor", 1,
+                               "Output data coarsened by given factor n. Every n^dim "
+                               "data point is used, i.e., the data is not average. "
+                               "Requires even number of cells in each block dimension.");
+      PARTHENON_REQUIRE_THROWS(coarsening_factor > 0, "Need positive coarsening factor");
+      const auto base_block_size = pm->GetDefaultBlockSize();
+      PARTHENON_REQUIRE_THROWS(
+          base_block_size.nx(X1DIR) % coarsening_factor == 0,
+          "Cannot coarsen with specified factor given nx1 block size");
+      PARTHENON_REQUIRE_THROWS(
+          base_block_size.nx(X2DIR) % coarsening_factor == 0 || pm->ndim < 2,
+          "Cannot coarsen with specified factor given nx2 block size");
+      PARTHENON_REQUIRE_THROWS(
+          base_block_size.nx(X3DIR) % coarsening_factor == 0 || pm->ndim < 3,
+          "Cannot coarsen with specified factor given nx3 block size");
+      PARTHENON_REQUIRE_THROWS(!op.include_ghost_zones,
+                               "Writing ghost zones not supported for OPMD outputs.");
+
+      const auto output_type_str = pin->GetOrAddString(
+          op.block_name, "output_type", "data",
+          std::vector<std::string>{"restart", "data", "x1slice", "x2slice", "x3slice"},
+          "Type of output in the file.");
+
+      using enum DumpOutputMode;
+      if (output_type_str == "restart") {
+        op.mode = Restart;
+        restart = true;
+        num_rst_outputs++;
+      } else if (output_type_str == "data") {
+        op.mode = Data;
+      } else if (output_type_str == "x1slice") {
+        op.mode = X1Slice;
+      } else if (output_type_str == "x2slice") {
+        op.mode = X2Slice;
+      } else if (output_type_str == "x3slice") {
+        op.mode = X3Slice;
+      } else {
+        PARTHENON_FAIL("Unknown output_type for openpmd output in block " +
+                       op.block_name);
+      }
+
+      if (op.mode == Restart) {
+        PARTHENON_REQUIRE_THROWS(coarsening_factor == 1,
+                                 "Restart outputs cannot be coarsened.");
+      }
+
+      const auto format_version = pin->GetOrAddInteger(
+          op.block_name, "openpmd_format_version", OpenPMDOutput::OUTPUT_VERSION_FORMAT,
+          "OpenPMD output format version (1 = legacy, 2 = standard-compliant vectors)");
+
+      pnew_type = std::make_shared<OpenPMDOutput>(op, backend_config, coarsening_factor,
+                                                  format_version);
+#else
+      msg << "### FATAL ERROR in Outputs constructor" << std::endl
+          << "Executable not configured for OpenPMD outputs, but OpenPMD file format "
+          << "is requested in output/restart block '" << op.block_name << "'. "
+          << "You can disable this block without deleting it by setting a dt < 0."
+          << std::endl;
+      PARTHENON_FAIL(msg);
+#endif // ifdef PARTHENON_ENABLE_OPENPMD
+    } else if (op.file_type == "histogram") {
+#ifdef ENABLE_HDF5
+      pnew_type = std::make_shared<HistogramOutput>(op, pin);
+#else
+      msg << "### FATAL ERROR in Outputs constructor" << std::endl
+          << "Executable not configured for HDF5 outputs, but HDF5 file format "
+          << "is requested in output/restart block '" << op.block_name << "'. "
+          << "You can disable this block without deleting it by setting a dt < 0."
+          << std::endl;
+      PARTHENON_FAIL(msg);
+#endif // ifdef ENABLE_HDF5
+    } else if (is_hdf5_output) {
+      op.mode = DumpOutputMode::Data;
+      restart = (op.file_type == "rst");
+      const bool coredump = (op.file_type == "corehdf5");
+      if (restart) {
+        num_rst_outputs++;
+        op.mode = DumpOutputMode::Restart;
+      }
+      if (coredump) {
+        num_core_outputs++;
+        op.mode = DumpOutputMode::Core;
+      }
+#ifdef ENABLE_HDF5
+      op.write_xdmf = pin->GetOrAddBoolean(op.block_name, "write_xdmf", true);
+      op.write_swarm_xdmf =
+          pin->GetOrAddBoolean(op.block_name, "write_swarm_xdmf", false);
+      pnew_type = std::make_shared<PHDF5Output>(op);
+#else
+      msg << "### FATAL ERROR in Outputs constructor" << std::endl
+          << "Executable not configured for HDF5 outputs, but HDF5 file format "
+          << "is requested in output/restart block '" << op.block_name << "'. "
+          << "You can disable this block without deleting it by setting a dt < 0."
+          << std::endl;
+      PARTHENON_FAIL(msg);
+#endif // ifdef ENABLE_HDF5
+    } else {
+      msg << "### FATAL ERROR in Outputs constructor" << std::endl
+          << "Unrecognized file format = '" << op.file_type << "' in output block '"
+          << op.block_name << "'" << std::endl;
+      PARTHENON_FAIL(msg);
+    }
+
+    // Append type
+    if (restart) {
+      restart_outputs.push_back(pnew_type);
+    } else {
+      output_types_.push_back(pnew_type);
+    }
+  }
+  // check there were no more than one restart file requested
+  if (num_rst_outputs > 1) {
     msg << "### FATAL ERROR in Outputs constructor" << std::endl
-        << "More than one history or restart output block detected in input file"
-        << std::endl;
+        << "More than one restart output block detected in input file" << std::endl;
+    PARTHENON_FAIL(msg);
+  }
+  if (num_core_outputs > 1) {
+    msg << "### FATAL ERROR in Outputs constructor\n"
+        << "More than one corehdf5 output block detected in input file" << std::endl;
     PARTHENON_FAIL(msg);
   }
 
   // Move restarts to the tail end of the OutputType list, so file counters for other
   // output types are up-to-date in restart file
-  int pos = 0, found = 0;
-  OutputType *pot = pfirst_type_;
-  OutputType *prst = pot;
-  while (pot != nullptr) {
-    if (pot->output_params.file_type == "rst") {
-      prst = pot;
-      found = 1;
-      if (pot->pnext_type == nullptr) found = 2;
-      break;
-    }
-    pos++;
-    pot = pot->pnext_type;
-  }
-  if (found == 1) {
-    // remove the restarting block
-    pot = pfirst_type_;
-    if (pos == 0) { // head node/first block
-      pfirst_type_ = pfirst_type_->pnext_type;
-    } else {
-      for (int j = 0; j < pos - 1; j++) // seek the list
-        pot = pot->pnext_type;
-      pot->pnext_type = prst->pnext_type; // remove it
-    }
-    while (pot->pnext_type != nullptr)
-      pot = pot->pnext_type; // find the tail node
-    prst->pnext_type = nullptr;
-    pot->pnext_type = prst;
-  }
-  // if found == 2, do nothing; it's already at the tail node/end of the list
-} // namespace parthenon
-
-// destructor - iterates through singly linked list of OutputTypes and deletes nodes
-
-Outputs::~Outputs() {
-  OutputType *ptype = pfirst_type_;
-  while (ptype != nullptr) {
-    OutputType *ptype_old = ptype;
-    ptype = ptype->pnext_type;
-    delete ptype_old;
-  }
-}
-
-std::vector<std::string> Outputs::SetOutputVariables(ParameterInput *pin,
-                                                     std::string block_name) {
-  if (!pin->DoesParameterExist(block_name, "variables")) {
-    std::cerr << "Block " << block_name << " must provide a variables parameter"
-              << std::endl;
-    std::exit(1);
-  }
-
-  std::string s = pin->GetString(block_name, "variables");
-  std::string delimiter = ",";
-  size_t pos = 0;
-  std::string token;
-  std::vector<std::string> variables;
-  while ((pos = s.find(delimiter)) != std::string::npos) {
-    token = s.substr(0, pos);
-    variables.push_back(string_utils::trim(token));
-    s.erase(0, pos + delimiter.length());
-  }
-  variables.push_back(string_utils::trim(s));
-  return variables;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void OutputType::LoadOutputData(MeshBlock *pmb)
-//  \brief Create doubly linked list of OutputData's containing requested variables
-
-void OutputType::LoadOutputData(MeshBlock *pmb) {
-  throw std::runtime_error(std::string(__func__) + " is not implemented");
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void OutputData::AppendOutputDataNode(OutputData *pod)
-//  \brief
-
-void OutputType::AppendOutputDataNode(OutputData *pnew_data) {
-  if (pfirst_data_ == nullptr) {
-    pfirst_data_ = pnew_data;
-  } else {
-    pnew_data->pprev = plast_data_;
-    plast_data_->pnext = pnew_data;
-  }
-  // make the input node the new tail node of the doubly linked list
-  plast_data_ = pnew_data;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void OutputData::ReplaceOutputDataNode()
-//  \brief
-
-void OutputType::ReplaceOutputDataNode(OutputData *pold, OutputData *pnew) {
-  if (pold == pfirst_data_) {
-    pfirst_data_ = pnew;
-    if (pold->pnext != nullptr) { // there is another node in the list
-      pnew->pnext = pold->pnext;
-      pnew->pnext->pprev = pnew;
-    } else { // there is only one node in the list
-      plast_data_ = pnew;
-    }
-  } else if (pold == plast_data_) {
-    plast_data_ = pnew;
-    pnew->pprev = pold->pprev;
-    pnew->pprev->pnext = pnew;
-  } else {
-    pnew->pnext = pold->pnext;
-    pnew->pprev = pold->pprev;
-    pnew->pprev->pnext = pnew;
-    pnew->pnext->pprev = pnew;
-  }
-  delete pold;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void OutputData::ClearOutputData()
-//  \brief
-
-void OutputType::ClearOutputData() {
-  OutputData *pdata = pfirst_data_;
-  while (pdata != nullptr) {
-    OutputData *pdata_old = pdata;
-    pdata = pdata->pnext;
-    delete pdata_old;
-  }
-  // reset pointers to head and tail nodes of doubly linked list:
-  pfirst_data_ = nullptr;
-  plast_data_ = nullptr;
+  output_types_.insert(output_types_.end(), restart_outputs.begin(),
+                       restart_outputs.end());
 }
 
 //----------------------------------------------------------------------------------------
@@ -470,247 +511,74 @@ void OutputType::ClearOutputData() {
 
 void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
                           const SignalHandler::OutputSignal signal) {
-  Kokkos::Profiling::pushRegion("MakeOutputs");
+  PARTHENON_INSTRUMENT
   bool first = true;
-  OutputType *ptype = pfirst_type_;
-  while (ptype != nullptr) {
+  for (auto ptype : output_types_) {
     if ((tm == nullptr) ||
-        ((ptype->output_params.dt >= 0.0) &&
-         ((tm->ncycle == 0) || (tm->time >= ptype->output_params.next_time) ||
-          (tm->time >= tm->tlim) || (signal != SignalHandler::OutputSignal::none)))) {
+        // output is not soft disabled and
+        (((ptype->output_params.dt >= 0.0) || (ptype->output_params.dn >= 0)) &&
+         // either dump initial data
+         ((tm->ncycle == 0) ||
+          //  or by triggering time or cycle based conditions
+          ((ptype->output_params.dt >= 0.0) &&
+           ((tm->time >= ptype->output_params.next_time) ||
+            (tm->tlim > 0.0 && tm->time >= tm->tlim))) ||
+          ((ptype->output_params.dn >= 0) &&
+           ((tm->ncycle >= ptype->output_params.next_n) ||
+            (tm->nlim > 0 && tm->ncycle >= tm->nlim))) ||
+          // or by manual triggers
+          (signal == SignalHandler::OutputSignal::now) ||
+          (signal == SignalHandler::OutputSignal::final &&
+           ptype->output_params.include_in_final) ||
+          (signal == SignalHandler::OutputSignal::analysis &&
+           ptype->output_params.analysis_flag)))) {
       if (first && ptype->output_params.file_type != "hst") {
-        pm->ApplyUserWorkBeforeOutput(pin);
+        pm->ApplyUserWorkBeforeOutput(pm, pin, *tm);
+        for (const auto &pkg : pm->packages.AllPackages()) {
+          pkg.second->UserWorkBeforeOutput(pm, pin, *tm);
+        }
         first = false;
+      }
+      if (ptype->output_params.mode == DumpOutputMode::Restart) {
+        pm->ApplyUserWorkBeforeRestartOutput(pm, pin, *tm, &(ptype->output_params));
+        for (const auto &pkg : pm->packages.AllPackages()) {
+          pkg.second->UserWorkBeforeRestartOutput(pm, pin, *tm, &(ptype->output_params));
+        }
+      }
+      // Poke the dog before each output to not trigger an accidental kill for many
+      // simultaneous outputs (e.g., on final)
+      if (Globals::watchdog_enabled) {
+        WatchDog::WatchDog(0);
       }
       ptype->WriteOutputFile(pm, pin, tm, signal);
     }
-    ptype = ptype->pnext_type; // move to next OutputType node in singly linked list
   }
-  Kokkos::Profiling::popRegion(); // MakeOutputs
 }
 
-//----------------------------------------------------------------------------------------
-//! \fn void OutputType::TransformOutputData(MeshBlock *pmb)
-//  \brief Calls sum and slice functions on each direction in turn, in order to allow
-//  mulitple operations performed on the same data set
-
-bool OutputType::TransformOutputData(MeshBlock *pmb) {
-  bool flag = true;
-  if (output_params.output_slicex3) {
-    bool ret = SliceOutputData(pmb, 3);
-    if (!ret) flag = false;
+void OutputType::UpdateNextOutput_(Mesh *pm, SimTime *tm) {
+  output_params.file_number++;
+  auto pkg = pm->packages.Get("Outputs");
+  const auto outn_str = std::to_string(output_params.block_number);
+  auto *pfile_number = pkg->MutableParam<int>(outn_str + "/file_number");
+  auto *plast_time = pkg->MutableParam<Real>(outn_str + "/last_time");
+  auto *plast_n = pkg->MutableParam<int>(outn_str + "/last_n");
+  *pfile_number = output_params.file_number;
+  if (tm != nullptr) {
+    // JMM: Do NOT use the current time to update these, as that can
+    // cause drift because timestep is not guaranteed to align with
+    // desired output time. Instead set last time to previous next
+    // time.
+    output_params.last_n = output_params.next_n;
+    output_params.last_time = output_params.next_time;
+    *plast_n = output_params.last_n;
+    *plast_time = output_params.last_time;
+    if (output_params.dt > 0.0) {
+      output_params.next_time += output_params.dt;
+    }
+    if (output_params.dn > 0) {
+      output_params.next_n += output_params.dn;
+    }
   }
-  if (output_params.output_slicex2) {
-    bool ret = SliceOutputData(pmb, 2);
-    if (!ret) flag = false;
-  }
-  if (output_params.output_slicex1) {
-    bool ret = SliceOutputData(pmb, 1);
-    if (!ret) flag = false;
-  }
-  if (output_params.output_sumx3) {
-    SumOutputData(pmb, 3);
-  }
-  if (output_params.output_sumx2) {
-    SumOutputData(pmb, 2);
-  }
-  if (output_params.output_sumx1) {
-    SumOutputData(pmb, 1);
-  }
-  return flag;
 }
-
-//----------------------------------------------------------------------------------------
-//! \fn bool OutputType::SliceOutputData(MeshBlock *pmb, int dim)
-//  \brief perform data slicing and update the data list
-
-bool OutputType::SliceOutputData(MeshBlock *pmb, int dim) {
-  int islice(0), jslice(0), kslice(0);
-
-  // Compute i,j,k indices of slice; check if in range of data in this block
-  const IndexDomain interior = IndexDomain::interior;
-  if (dim == 1) {
-    if (output_params.x1_slice >= pmb->block_size.x1min &&
-        output_params.x1_slice < pmb->block_size.x1max) {
-      for (int i = pmb->cellbounds.is(interior) + 1;
-           i <= pmb->cellbounds.ie(interior) + 1; ++i) {
-        if (pmb->coords.x1f(i) > output_params.x1_slice) {
-          islice = i - 1;
-          output_params.islice = islice;
-          break;
-        }
-      }
-    } else {
-      return false;
-    }
-  } else if (dim == 2) {
-    if (output_params.x2_slice >= pmb->block_size.x2min &&
-        output_params.x2_slice < pmb->block_size.x2max) {
-      for (int j = pmb->cellbounds.js(interior) + 1;
-           j <= pmb->cellbounds.je(interior) + 1; ++j) {
-        if (pmb->coords.x2f(j) > output_params.x2_slice) {
-          jslice = j - 1;
-          output_params.jslice = jslice;
-          break;
-        }
-      }
-    } else {
-      return false;
-    }
-  } else {
-    if (output_params.x3_slice >= pmb->block_size.x3min &&
-        output_params.x3_slice < pmb->block_size.x3max) {
-      for (int k = pmb->cellbounds.ks(interior) + 1;
-           k <= pmb->cellbounds.ke(interior) + 1; ++k) {
-        if (pmb->coords.x3f(k) > output_params.x3_slice) {
-          kslice = k - 1;
-          output_params.kslice = kslice;
-          break;
-        }
-      }
-    } else {
-      return false;
-    }
-  }
-
-  // For each node in OutputData doubly linked list, slice arrays containing output data
-  OutputData *pdata, *pnew;
-  pdata = pfirst_data_;
-
-  while (pdata != nullptr) {
-    pnew = new OutputData;
-    pnew->type = pdata->type;
-    pnew->name = pdata->name;
-    int nx4 = pdata->data.GetDim(4);
-    int nx3 = pdata->data.GetDim(3);
-    int nx2 = pdata->data.GetDim(2);
-    int nx1 = pdata->data.GetDim(1);
-
-    // Loop over variables and dimensions, extract slice
-    if (dim == 3) {
-      pnew->data = ParArrayND<Real>(PARARRAY_TEMP, nx4, 1, nx2, nx1);
-      for (int n = 0; n < nx4; ++n) {
-        for (int j = out_js; j <= out_je; ++j) {
-          for (int i = out_is; i <= out_ie; ++i) {
-            pnew->data(n, 0, j, i) = pdata->data(n, kslice, j, i);
-          }
-        }
-      }
-    } else if (dim == 2) {
-      pnew->data = ParArrayND<Real>(PARARRAY_TEMP, nx4, nx3, 1, nx1);
-      for (int n = 0; n < nx4; ++n) {
-        for (int k = out_ks; k <= out_ke; ++k) {
-          for (int i = out_is; i <= out_ie; ++i) {
-            pnew->data(n, k, 0, i) = pdata->data(n, k, jslice, i);
-          }
-        }
-      }
-    } else {
-      pnew->data = ParArrayND<Real>(PARARRAY_TEMP, nx4, nx3, nx2, 1);
-      for (int n = 0; n < nx4; ++n) {
-        for (int k = out_ks; k <= out_ke; ++k) {
-          for (int j = out_js; j <= out_je; ++j) {
-            pnew->data(n, k, j, 0) = pdata->data(n, k, j, islice);
-          }
-        }
-      }
-    }
-
-    ReplaceOutputDataNode(pdata, pnew);
-    pdata = pnew->pnext;
-  }
-
-  // modify array indices
-  if (dim == 3) {
-    out_ks = 0;
-    out_ke = 0;
-  } else if (dim == 2) {
-    out_js = 0;
-    out_je = 0;
-  } else {
-    out_is = 0;
-    out_ie = 0;
-  }
-  return true;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void OutputType::SumOutputData(OutputData* pod, int dim)
-//  \brief perform data summation and update the data list
-
-void OutputType::SumOutputData(MeshBlock *pmb, int dim) {
-  // For each node in OutputData doubly linked list, sum arrays containing output data
-  OutputData *pdata = pfirst_data_;
-
-  while (pdata != nullptr) {
-    OutputData *pnew = new OutputData;
-    pnew->type = pdata->type;
-    pnew->name = pdata->name;
-    int nx4 = pdata->data.GetDim(4);
-    int nx3 = pdata->data.GetDim(3);
-    int nx2 = pdata->data.GetDim(2);
-    int nx1 = pdata->data.GetDim(1);
-
-    // Loop over variables and dimensions, sum over specified dimension
-    if (dim == 3) {
-      pnew->data = ParArrayND<Real>(PARARRAY_TEMP, nx4, 1, nx2, nx1);
-      for (int n = 0; n < nx4; ++n) {
-        for (int k = out_ks; k <= out_ke; ++k) {
-          for (int j = out_js; j <= out_je; ++j) {
-            for (int i = out_is; i <= out_ie; ++i) {
-              pnew->data(n, 0, j, i) += pdata->data(n, k, j, i);
-            }
-          }
-        }
-      }
-    } else if (dim == 2) {
-      pnew->data = ParArrayND<Real>(PARARRAY_TEMP, nx4, nx3, 1, nx1);
-      for (int n = 0; n < nx4; ++n) {
-        for (int k = out_ks; k <= out_ke; ++k) {
-          for (int j = out_js; j <= out_je; ++j) {
-            for (int i = out_is; i <= out_ie; ++i) {
-              pnew->data(n, k, 0, i) += pdata->data(n, k, j, i);
-            }
-          }
-        }
-      }
-    } else {
-      pnew->data = ParArrayND<Real>(PARARRAY_TEMP, nx4, nx3, nx2, 1);
-      for (int n = 0; n < nx4; ++n) {
-        for (int k = out_ks; k <= out_ke; ++k) {
-          for (int j = out_js; j <= out_je; ++j) {
-            for (int i = out_is; i <= out_ie; ++i) {
-              pnew->data(n, k, j, 0) += pdata->data(n, k, j, i);
-            }
-          }
-        }
-      }
-    }
-
-    ReplaceOutputDataNode(pdata, pnew);
-    pdata = pdata->pnext;
-  }
-
-  // modify array indices
-  if (dim == 3) {
-    out_ks = 0;
-    out_ke = 0;
-  } else if (dim == 2) {
-    out_js = 0;
-    out_je = 0;
-  } else {
-    out_is = 0;
-    out_ie = 0;
-  }
-  return;
-}
-
-//----------------------------------------------------------------------------------------
-//! \fn void OutputType::CalculateCartesianVector(ParArrayND<Real> &src,
-//                                ParArrayND<Real> &dst, Coordinates *pco)
-//  \brief Convert vectors in curvilinear coordinates into Cartesian
-
-void OutputType::CalculateCartesianVector(ParArrayND<Real> &src, ParArrayND<Real> &dst,
-                                          Coordinates_t *pco) {}
 
 } // namespace parthenon

@@ -2,7 +2,7 @@
 # Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
-# (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -17,7 +17,7 @@
 import os
 from shutil import rmtree
 import subprocess
-from subprocess import PIPE
+from subprocess import PIPE, STDOUT
 import sys
 from shutil import which
 
@@ -48,6 +48,10 @@ class TestCaseAbs:
 
     def Analyse(parameters):
         raise NotImplementedError("Every TestCase must initialse an Analyse method")
+
+    def ErrorOnNonZeroReturnCode(self, parameters, returncode):
+        # Do not raise an error when returncode /= 1
+        return returncode == 1
 
 
 class TestManager:
@@ -89,9 +93,7 @@ class TestManager:
         try:
             parthenon_path = os.path.realpath(__file__)
             idx = parthenon_path.rindex("/parthenon/")
-            self.parameters.parthenon_path = os.path.join(
-                parthenon_path[:idx], "parthenon"
-            )
+            self.parameters.parthenon_path = parthenon_path[: idx + 10]
         except ValueError:
             baseDir = os.path.dirname(__file__)
             self.parameters.parthenon_path = os.path.abspath(baseDir + "/../../../")
@@ -242,21 +244,34 @@ class TestManager:
         print(" ".join(run_command))
         sys.stdout.flush()
         try:
-            proc = subprocess.run(run_command, check=True, stdout=PIPE, stderr=PIPE)
+            proc = subprocess.run(run_command, check=True, stdout=PIPE, stderr=STDOUT)
+            print(proc.stdout.decode())
             self.parameters.stdouts.append(proc.stdout)
         except subprocess.CalledProcessError as err:
-            print("\n*****************************************************************")
-            print("Subprocess error message")
-            print("*****************************************************************\n")
-            print(str(repr(err.output)).replace("\\n", os.linesep))
-            print("\n*****************************************************************")
-            print("Error detected while running subprocess command")
-            print("*****************************************************************\n")
-            raise TestManagerError(
-                "\nReturn code {0} from command '{1}'".format(
-                    err.returncode, " ".join(err.cmd)
+            if self.test_case.ErrorOnNonZeroReturnCode(self.parameters, err.returncode):
+                print(
+                    "\n*****************************************************************"
                 )
-            )
+                print("Subprocess error message")
+                print(
+                    "*****************************************************************\n"
+                )
+                print(str(repr(err.output)).replace("\\n", os.linesep))
+                print(
+                    "\n*****************************************************************"
+                )
+                print("Error detected while running subprocess command")
+                print(
+                    "*****************************************************************\n"
+                )
+                raise TestManagerError(
+                    "\nReturn code {0} from command '{1}'".format(
+                        err.returncode, " ".join(err.cmd)
+                    )
+                )
+            else:
+                print(err.stdout.decode())
+                self.parameters.stdouts.append(err.stdout)
         # Reset parameters
         self.parameters.coverage_status = "only-regression"
 

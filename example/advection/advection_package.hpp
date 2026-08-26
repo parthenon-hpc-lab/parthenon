@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,7 @@
 #define EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_
 
 #include <memory>
+#include <vector>
 
 #include <parthenon/package.hpp>
 
@@ -21,6 +22,7 @@ namespace advection_package {
 using namespace parthenon::package::prelude;
 
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
+void AdvectionGreetings(Mesh *pmesh, ParameterInput *pin, parthenon::SimTime &tm);
 AmrTag CheckRefinement(MeshBlockData<Real> *rc);
 void PreFill(MeshBlockData<Real> *rc);
 void SquareIt(MeshBlockData<Real> *rc);
@@ -29,6 +31,8 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc);
 TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc);
 template <typename T>
 Real AdvectionHst(MeshData<Real> *md);
+template <typename T>
+std::vector<Real> AdvectionVecHst(MeshData<Real> *md);
 } // namespace advection_package
 
 #endif // EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_

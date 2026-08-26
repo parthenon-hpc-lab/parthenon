@@ -14,6 +14,8 @@
 find_program(
     CLANG_FORMAT
     NAMES
+        clang-format-20 # Debian package manager, among others, provide this name
+        clang-format-mp-20.0 # MacPorts
         clang-format-13 # Debian package manager, among others, provide this name
         clang-format-mp-13.0 # MacPorts
         clang-format-12 # Debian package manager, among others, provide this name
@@ -66,9 +68,10 @@ endif()
 # Specifically trying to exclude external here - I'm not sure if there's a better way
 set(
     GLOBS
-    ${PROJECT_SOURCE_DIR}/src/[^\.]*.cpp     ${PROJECT_SOURCE_DIR}/src/[^\.]*.hpp
-    ${PROJECT_SOURCE_DIR}/tst/[^\.]*.cpp     ${PROJECT_SOURCE_DIR}/tst/[^\.]*.hpp
-    ${PROJECT_SOURCE_DIR}/example/[^\.]*.cpp ${PROJECT_SOURCE_DIR}/example/[^\.]*.hpp
+    ${PROJECT_SOURCE_DIR}/src/[^\.]*.cpp         ${PROJECT_SOURCE_DIR}/src/[^\.]*.hpp
+    ${PROJECT_SOURCE_DIR}/tst/[^\.]*.cpp         ${PROJECT_SOURCE_DIR}/tst/[^\.]*.hpp
+    ${PROJECT_SOURCE_DIR}/example/[^\.]*.cpp     ${PROJECT_SOURCE_DIR}/example/[^\.]*.hpp
+    ${PROJECT_SOURCE_DIR}/benchmarks/[^\.]*.cpp  ${PROJECT_SOURCE_DIR}/benchmarks/[^\.]*.hpp
 )
 
 # Specifically trying to exclude external here - I'm not sure if there's a better way
@@ -77,6 +80,7 @@ set(
     ${parthenon_SOURCE_DIR}/scripts/[^\.]*.py
     ${parthenon_SOURCE_DIR}/tst/[^\.]*.py
     ${parthenon_SOURCE_DIR}/example/[^\.]*.py
+    ${parthenon_SOURCE_DIR}/benchmarks/[^\.]*.py
 )
 
 file(GLOB_RECURSE FORMAT_SOURCES CONFIGURE_DEPENDS ${GLOBS})

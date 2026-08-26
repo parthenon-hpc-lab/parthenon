@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -13,12 +13,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include <coordinates/coordinates.hpp>
+#include <globals.hpp>
 #include <parthenon/package.hpp>
 
 #include "advection_package.hpp"
@@ -116,10 +118,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   // For lambda choose the smaller of the 3
   Real lambda = x1;
-  if ((pin->GetOrAddInteger("parthenon/mesh", "nx2", 1) > 1) && ang_3 != 0.0)
-    lambda = std::min(lambda, x2);
-  if ((pin->GetOrAddInteger("parthenon/mesh", "nx3", 1) > 1) && ang_2 != 0.0)
-    lambda = std::min(lambda, x3);
+  auto [mesh_size, meshblock_size] = Mesh::GetRegionSizes(pin);
+  if ((mesh_size.nx(X2DIR) > 1) && ang_3 != 0.0) lambda = std::min(lambda, x2);
+  if ((mesh_size.nx(X3DIR) > 1) && ang_2 != 0.0) lambda = std::min(lambda, x3);
 
   // If cos_a2 or cos_a3 = 0, need to override lambda
   if (ang_3_vert) lambda = x2;
@@ -153,8 +154,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     std::vector<std::string> advected_labels;
     advected_labels.reserve(vec_size);
     for (int j = 0; j < vec_size; ++j) {
-      advected_labels.push_back("Advected_" + std::to_string(var) + "_" +
-                                std::to_string(j));
+      advected_labels.push_back(std::to_string(var) + "_" + std::to_string(j));
     }
     if (var == 0) { // first var is always called just "advected"
       field_name = field_name_base;
@@ -191,6 +191,24 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     pkg->AddSparsePool(field_name, m, std::vector<int>{12, 37});
   }
 
+  // add derived output variable
+  m = Metadata({Metadata::Cell, Metadata::OneCopy}, std::vector<int>({1}));
+  pkg->AddField("my_derived_var", m);
+
+  // Create a Metadata::None variable for IO testing purposes.
+  // Only load if test_metadata_none is specified in the Advection block
+  auto test_metadata_none =
+      pin->GetOrAddBoolean("Advection", "test_metadata_none", false);
+  pkg->AddParam<bool>("test_metadata_none", test_metadata_none);
+  if (test_metadata_none) {
+    const int nx1 = meshblock_size.nx(X1DIR);
+    const int nx2 = meshblock_size.nx(X2DIR);
+    const int nx3 = meshblock_size.nx(X3DIR);
+    std::vector<int> test_shape = {nx1 + 1, nx2 + 1, nx3 + 1, 3};
+    m = Metadata({Metadata::OneCopy, Metadata::None}, test_shape);
+    pkg->AddField("metadata_none_var", m);
+  }
+
   // List (vector) of HistoryOutputVar that will all be enrolled as output variables
   parthenon::HstVar_list hst_vars = {};
   // Now we add a couple of callback functions
@@ -208,16 +226,32 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
       UserHistoryOperation::min, AdvectionHst<Kokkos::Min<Real, HostExecSpace>>,
       "min_advected"));
 
+  // Enroll example vector history output
+  parthenon::HstVec_list hst_vecs = {};
+  hst_vecs.emplace_back(parthenon::HistoryOutputVec(
+      UserHistoryOperation::sum, AdvectionVecHst<Kokkos::Sum<Real, HostExecSpace>>,
+      "advected_powers"));
+
   // add callbacks for HST output identified by the `hist_param_key`
   pkg->AddParam<>(parthenon::hist_param_key, hst_vars);
+  pkg->AddParam<>(parthenon::hist_vec_param_key, hst_vecs);
 
   if (fill_derived) {
     pkg->FillDerivedBlock = SquareIt;
   }
   pkg->CheckRefinementBlock = CheckRefinement;
   pkg->EstimateTimestepBlock = EstimateTimestepBlock;
+  pkg->UserWorkBeforeLoopMesh = AdvectionGreetings;
 
   return pkg;
+}
+
+void AdvectionGreetings(Mesh *pmesh, ParameterInput *pin, parthenon::SimTime &tm) {
+  if (parthenon::Globals::my_rank == 0) {
+    std::cout << "Hello from the advection package in the advection example!\n"
+              << "This run is a restart: " << parthenon::Globals::is_restart << "\n"
+              << std::endl;
+  }
 }
 
 AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
@@ -229,7 +263,7 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   for (int var = 1; var < num_vars; ++var) {
     vars.push_back("advected_" + std::to_string(var));
   }
-  // type is parthenon::VariablePack<CellVariable<Real>>
+  // type is parthenon::VariablePack<Variable<Real>>
   auto v = rc->PackVariables(vars);
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
@@ -238,8 +272,7 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
 
   typename Kokkos::MinMax<Real>::value_type minmax;
   pmb->par_reduce(
-      "advection check refinement", 0, v.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
-      ib.e,
+      PARTHENON_AUTO_LABEL, 0, v.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i,
                     typename Kokkos::MinMax<Real>::value_type &lminmax) {
         lminmax.min_val =
@@ -261,6 +294,7 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
 void PreFill(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages.Get("advection_package");
+  const bool test_metadata_none = pkg->Param<bool>("test_metadata_none");
   bool fill_derived = pkg->Param<bool>("fill_derived");
 
   if (fill_derived) {
@@ -277,9 +311,27 @@ void PreFill(MeshBlockData<Real> *rc) {
     const int out = imap.get("one_minus_advected").first;
     const auto num_vars = rc->Get("advected").data.GetDim(4);
     pmb->par_for(
-        "advection_package::PreFill", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
           v(out + n, k, j, i) = 1.0 - v(in + n, k, j, i);
+        });
+  }
+
+  // Fill the metadata::None var with index gymnastics.
+  if (test_metadata_none) {
+    const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::interior);
+    const int nx2 = pmb->cellbounds.ncellsj(IndexDomain::interior);
+    const int nx3 = pmb->cellbounds.ncellsk(IndexDomain::interior);
+
+    // packing in principle unnecessary/convoluted here and just done for demonstration
+    std::vector<std::string> vars({"metadata_none_var"});
+    PackIndexMap imap;
+    const auto &v = rc->PackVariables(vars, imap);
+
+    pmb->par_for(
+        PARTHENON_AUTO_LABEL, 0, 2, 0, nx3, 0, nx2, 0, nx1,
+        KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+          v(n, k, j, i) = n + k + j + i;
         });
   }
 }
@@ -301,7 +353,7 @@ void SquareIt(MeshBlockData<Real> *rc) {
   const int out = imap.get("one_minus_advected_sq").first;
   const auto num_vars = rc->Get("advected").data.GetDim(4);
   pmb->par_for(
-      "advection_package::SquareIt", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
         v(out + n, k, j, i) = v(in + n, k, j, i) * v(in + n, k, j, i);
       });
@@ -318,8 +370,8 @@ void SquareIt(MeshBlockData<Real> *rc) {
   if (profile == "smooth_gaussian") {
     const auto &advected = rc->Get("advected").data;
     pmb->par_for(
-        "advection_package::SquareIt bval check", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e,
-        ib.s, ib.e, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+        PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
           PARTHENON_REQUIRE(advected(n, k, j, i) != 0.0,
                             "Advected not properly initialized.");
         });
@@ -354,12 +406,51 @@ void PostFill(MeshBlockData<Real> *rc) {
     const int out37 = imap.get("one_minus_sqrt_one_minus_advected_sq_37").first;
     const auto num_vars = rc->Get("advected").data.GetDim(4);
     pmb->par_for(
-        "advection_package::PostFill", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
-        ib.e, KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+        PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
           v(out12 + n, k, j, i) = 1.0 - sqrt(v(in + n, k, j, i));
           v(out37 + n, k, j, i) = 1.0 - v(out12 + n, k, j, i);
         });
   }
+}
+
+template <typename T>
+std::vector<Real> AdvectionVecHst(MeshData<Real> *md) {
+  auto pmb = md->GetBlockData(0)->GetBlockPointer();
+
+  const auto ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+  const auto jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const auto kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
+  // Packing variable over MeshBlock as the function is called for MeshData, i.e., a
+  // collection of blocks
+  const auto &advected_pack = md->PackVariables(std::vector<std::string>{"advected"});
+
+  const int nvec = 3;
+
+  std::vector<Real> result(nvec, 0);
+
+  // We choose to apply volume weighting when using the sum reduction.
+  // Downstream this choice will be done on a variable by variable basis and volume
+  // weighting needs to be applied in the reduction region.
+  const bool volume_weighting = std::is_same<T, Kokkos::Sum<Real, HostExecSpace>>::value;
+
+  for (int n = 0; n < nvec; n++) {
+    T reducer(result[n]);
+    parthenon::par_reduce(
+        parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
+        advected_pack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lresult) {
+          const auto &coords = advected_pack.GetCoords(b);
+          // `join` is a function of the Kokkos::ReducerConecpt that allows to use the
+          // same call for different reductions
+          const Real vol = volume_weighting ? coords.CellVolume(k, j, i) : 1.0;
+          reducer.join(lresult, pow(advected_pack(b, 0, k, j, i), n + 1) * vol);
+        },
+        reducer);
+  }
+
+  return result;
 }
 
 // Example of how to enroll a history function.
@@ -387,13 +478,14 @@ Real AdvectionHst(MeshData<Real> *md) {
   // weighting needs to be applied in the reduction region.
   const bool volume_weighting = std::is_same<T, Kokkos::Sum<Real, HostExecSpace>>::value;
 
-  pmb->par_reduce(
-      "AdvectionHst", 0, advected_pack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
+      advected_pack.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &lresult) {
         const auto &coords = advected_pack.GetCoords(b);
         // `join` is a function of the Kokkos::ReducerConecpt that allows to use the same
         // call for different reductions
-        const Real vol = volume_weighting ? coords.Volume(k, j, i) : 1.0;
+        const Real vol = volume_weighting ? coords.CellVolume(k, j, i) : 1.0;
         reducer.join(lresult, advected_pack(b, 0, k, j, i) * vol);
       },
       reducer);
@@ -419,14 +511,14 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
   // this is obviously overkill for this constant velocity problem
   Real min_dt;
   pmb->par_reduce(
-      "advection_package::EstimateTimestep", kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int k, const int j, const int i, Real &lmin_dt) {
         if (vx != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.Dx(X1DIR, k, j, i) / std::abs(vx));
+          lmin_dt = std::min(lmin_dt, coords.Dxc<X1DIR>(k, j, i) / std::abs(vx));
         if (vy != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.Dx(X2DIR, k, j, i) / std::abs(vy));
+          lmin_dt = std::min(lmin_dt, coords.Dxc<X2DIR>(k, j, i) / std::abs(vy));
         if (vz != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.Dx(X3DIR, k, j, i) / std::abs(vz));
+          lmin_dt = std::min(lmin_dt, coords.Dxc<X3DIR>(k, j, i) / std::abs(vz));
       },
       Kokkos::Min<Real>(min_dt));
 
@@ -439,7 +531,7 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   using parthenon::MetadataFlag;
 
-  Kokkos::Profiling::pushRegion("Task_Advection_CalculateFluxes");
+  PARTHENON_INSTRUMENT
   auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
@@ -463,11 +555,12 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
   const int nvar = v.GetDim(4);
-  size_t scratch_size_in_bytes = parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
+  std::size_t scratch_size_in_bytes =
+      parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
   // get x-fluxes
   pmb->par_for_outer(
-      "x1 flux", 2 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s, jb.e,
-      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
+      PARTHENON_AUTO_LABEL, 2 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s,
+      jb.e, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
         parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
         parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
         // get reconstructed state on faces
@@ -499,8 +592,8 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   // get y-fluxes
   if (pmb->pmy_mesh->ndim >= 2) {
     pmb->par_for_outer(
-        "x2 flux", 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s, jb.e + 1,
-        KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
+        PARTHENON_AUTO_LABEL, 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s,
+        jb.e + 1, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
           // the overall algorithm/use of scratch pad here is clear inefficient and kept
           // just for demonstrating purposes. The key point is that we cannot reuse
           // reconstructed arrays for different `j` with `j` being part of the outer
@@ -542,7 +635,8 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   // get z-fluxes
   if (pmb->pmy_mesh->ndim == 3) {
     pmb->par_for_outer(
-        "x3 flux", 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e + 1, jb.s, jb.e,
+        PARTHENON_AUTO_LABEL, 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e + 1,
+        jb.s, jb.e,
         KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
           // the overall algorithm/use of scratch pad here is clear inefficient and kept
           // just for demonstrating purposes. The key point is that we cannot reuse
@@ -582,7 +676,6 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
         });
   }
 
-  Kokkos::Profiling::popRegion(); // Task_Advection_CalculateFluxes
   return TaskStatus::complete;
 }
 

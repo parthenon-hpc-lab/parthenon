@@ -13,6 +13,7 @@ and revision any time as necessary.
         * [Merging Code from a Fork](#merging-code-from-a-fork)
     - [Linting Code](#linting-code)
     - [Formatting Code](#formatting-code)
+    - [Use of agentic coding](#use-of-agentic-coding)
 2. [Test Suite](#test-suite)
     - [Continuous Testing/Integration Environment](#continuous-testingintegration-environment)
     - [Adding Tests](#adding-tests)
@@ -39,34 +40,29 @@ Use GitHub labels as appropriate and feel free to directly add/tag people to the
 
 ### Summary of Branching Model and Versioning
 
-Two main branches exist:
-- `stable` contains the latest "stable" release
-- `develop` contains all approved changes since the previous release
+Only a single main branch called `develop` exists and all PRs should be merged
+into that branch.
+Individual versions/releases are tracked by tags.
 
-We aim at creating a new release everyone 4 to 6 weeks.
+We aim at creating a new release every 6 months.
 The decision on creating a new release is made during the bi-weekly calls.
-A release consists of of merging `develop` into `stable` and create a new tag for that version
-using a modified [semantic versioning](https://semver.org/) scheme.
-Releases will be tagged `v0.MAJOR.MINOR` given the current rapid development.
+Following steps need to be done for a new release:
 
-- MAJOR is incremented for API incompatible changes
-- MINOR is incremented for backwards compatible changes and bug fixes
-
-This scheme will be reevaluated once a future version is considered to be the first official stable release.
-
-The main idea behind separating `stable` from `develop` is to allow for more in-depth nightly testing
-on the latter.
-This specifically applies to downstream codes so that incompatibilities (e.g., due to to an
-updated API) are discovered early.
-
+- Create a new tag for that version using a modified [calender versioning](https://calver.org/) scheme.
+Releases will be tagged `vYY.0M` i.e., short years and zero-padded months.
+- Update the version in the main `CMakeLists.txt`.
+- Update the `CHANGELOG.md` (i.e., add a release header and create new empty
+categories for the "Current develop" section.
+- Sent a mail to the mailing list announcing the new release.
 
 ### Contributing Code
 
 In order to keep the main repository in order, everyone is encouraged to create feature
 branches starting with their username, followed by a "/", and ending with a brief
 description, e.g., "username/add\_feature\_xyz".
-Working on branches in private forks is also fine but not recommended (as the automated
-testing infrastructure will then first work upon opening a pull request).
+Long term contributors with write access can directly push to feature branches
+in the main repository.
+New contributors should fork the repository and create a pull request from said fork
 
 Once all changes are implemented or feedback by other developers is required/helpful
 open a pull request again the `develop` branch of the main repository.
@@ -94,24 +90,13 @@ request.
 
 #### Merging Code from a Fork
 
-PRs can opened as usual from forks.
+PRs can be opened as usual from forks.
 Unfortunately, the CI will not automatically trigger for forks. This is for security
-reasons. As a workaround, in order to trigger the CI, a local branch will need to be created
-on Parthenon first. The forked code can then be merged into the local branch on
-Parthenon. At this point when a new merge request is opened from the local branch
-to the develop branch it will trigger the CI.
-Someone of the Parthenon core team will take care of the work around once a PR from a fork.
-No extra work is required from the contributor.
-
-The workaround workflow for the Parthenon core developer may look like
-(from a local Parthenon repository pulling in changes from a `feature-A` branch in a fork):
-
-$ git remote add external-A https://github.com/CONTRIBUTOR/parthenon.git
-$ git fetch external-A
-$ git checkout external-A/feature-A
-$ git push --set-upstream origin CONTRIBUTOR/feature-A
-
-NOTE: Any subsequent updates made to the forked branch will need to be manually pulled into the local branch.
+reasons. One maintainer with write access to the main repository needs to manually
+approve the workflow (after having had a first look at the changes).
+The style check is currently not properly reporting on forks.
+Once the style check has been confirmed manually, the PR from the fork can be force-merged
+(by temporarily allowing to override branch proection rules).
 
 ### Linting Code
 cpplint will automatically run as part of the CI. You can run the lint explicitly by
@@ -143,7 +128,7 @@ branch.
 
 **WARNING:** Due to a limitation in GitHub Actions, the "Check Formatting" CI will not
 run, which will block merging. If you don't plan on making any further commits, you or a
-reviewer can run ["./scripts/retrigger-ci.sh"](scripts/retrigger-ci.sh) with your branch
+reviewer can run ["./scripts/retrigger-ci.sh"](https://github.com/parthenon-hpc-lab/parthenon/blob/develop/scripts/retrigger-ci.sh) with your branch
 checked out to re-run the CI.
 
 If you'd like Hermes to amend the formatting to the latest commit, you can use the
@@ -168,49 +153,40 @@ Running:
 
 Will also format all the ".py" files found in the repository.
 
+### Use of Agentic Coding
+
+The following general guidelines were discussed in March 2026 during a
+[regular call](https://github.com/parthenon-hpc-lab/parthenon/wiki/2026.03.26-Meeting-Notes#handling-llm-supportedassisted-prs).
+They are subject to live evaluation and may change in the future.
+
+In general, there are no limitations to the use of agentic coding/LLMs/... given that
+- the usage is disclosed
+  - by adding `// This file was made in part with generative AI` to the file, and
+  - by clearly stating the extent of usage in the PR description
+- the person submitting the PR keeps ownership/responsiblity of all changes (i.e., conducts a thorough review themself)
+
+In addition, the following recommendations should be followed
+- for large/feature-style PRs a `plan.md` document outlining the changes should be part of the PR. The file should be named by the PR number and placed in the `doc/plan_histories` folder.
+  - if possible, large feature-style PRs are split into smaller, logically separated chunks (to ease reviewing)
+- condense/consolidate generated code (to ease maintenance) as it is (still) often much more verbose than necessary (and typical in the existing codebase)
+- reviewers are expected to be much more skeptical and thorough compared to code written by long-term contributors, and possibly more willing to reject
+
+
 ## Test Suite
 
 ### Continuous Testing/Integration Environment
 
 Commits pushed to any branch of this repository is automatically tested by
-two CI pipelines.
+multiple CI pipelines all configured via GitHub Actions within the `.github/workflows` folder.
 
-The first pipeline focuses on correctness targeting code style, formatting, as well
-as unit and regression tests.
-It is executed through a repository [mirror](https://gitlab.com/pgrete/parthenon) on GitLab
-on a machine with an Intel Xeon E5540 (Broadwell) processor and Nvidia GeForce GTX 1060 (Pascal) GPU.
-The Dockerfile for the CI runner can be found [here](scripts/docker/Dockerfile.nvcc) and the
-pipeline is configured through [.gitlab-ci.yml](.gitlab-ci.yml).
-The current tests span MPI and non-MPI configurations on CPUs (using GCC) and GPUs (using Cuda/nvcc).
+The first (short) pipeline focuses on correctness targeting code style, formatting, as well
+as unit and simple regression tests.
+The current tests span MPI and non-MPI configurations on CPUs (using GCC) and GPUs (using Cuda/nvcc and ROCM/hip).
 
-The second pipeline focuses on performance regression.
-It is executed through a (different) repository [mirror](https://gitlab.com/theias/hpc/jmstone/athena-parthenon/parthenon-ci-mirror)
-using runners provided by the IAS.
-The runners have Intel Xeon Gold 6148 (Skylake) processors and Nvidia V100 (Volta) GPUs.
-Both the environment and the pipeline are configured through [.gitlab-ci-ias.yml](.gitlab-ci-ias.yml).
-The current tests span uniform grids on GPUs (using Cuda/nvcc).
-Note, in order to integrate this kind of performance regression test with CMake
-follow the instructions [below](#integrating-the-regression-test-with-cmake) *and* add the
-`perf-reg` label to the test (see bottom of the regression
-[CMakeLists.txt](tst/regression/CMakeLists.txt)).
+The second (extended) pipeline tests more features.
 
-A third pipeline is run using LANL internal systems and is run manually when
-approved, it is also scheduled to run on a daily basis on the development
-branch. The internal machines use the newest IBM powerPC processors and the
-NVIDIA V100 (Volta) GPUs (power9 architecture). Tests run on these systems are
-primarily aimed at measuring the performance of this specific architecture.
-Compilation and testing details can be found by looking in the
-[.gitlab-ci-darwin.yml](.gitlab-ci-darwin.yml) file *and* the /scripts/darwin
-folder. In summary, the CI is built in release mode, with OpenMP, MPI, HDF5 and
-Cuda enabled. All tests are run on a single node with access to two Volta
-GPUs. In addition, the regression tests are run in parallel with two mpi
-processors each of which have access to their own Volta gpu. The following
-tests are run with this CI: unit, regression, performance. A final note,
-this CI has been chosen to also check for performance regressions. The CI
-uses a GitHub application located in /scripts/python. After a successful run
-of the CI a link to the performance metrics will appear as part of the parthenon
-metrics status check in the pr next to the commit the metrics were recorded for.
-All data from the regression tests are recorded in the parthenon wiki in a JSON file.
+Finally, compilation is tested across various compilers and architectures (including MacOS).
+
 
 ### Adding Tests
 

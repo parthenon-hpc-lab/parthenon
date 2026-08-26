@@ -13,10 +13,18 @@
 
 add_subdirectory(stochastic_subgrid)
 add_subdirectory(advection)
+add_subdirectory(boundary_exchange)
+add_subdirectory(fine_advection)
 add_subdirectory(calculate_pi)
 add_subdirectory(kokkos_pi)
 add_subdirectory(particles)
 add_subdirectory(particle_leapfrog)
 add_subdirectory(particle_tracers)
 add_subdirectory(poisson)
+add_subdirectory(poisson_gmg)
+add_subdirectory(diffusion)
 add_subdirectory(sparse_advection)
+if(PARTHENON_ENABLE_FFT)
+  add_subdirectory(fourier_transform)
+endif()
+

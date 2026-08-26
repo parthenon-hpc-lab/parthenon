@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2021-2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
@@ -22,6 +23,7 @@
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
 #include <solvers/solver_utils.hpp>
+#include <utils/robust.hpp>
 
 #include "defs.hpp"
 #include "kokkos_abstraction.hpp"
@@ -70,7 +72,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   if (use_stencil) {
     std::vector<Real> wgts;
     if (use_jacobi) {
-      wgts = std::vector<Real>({1.0, -2.0 * ndim, 1.0, 1.0, 1.0, 1.0, 1.0});
+      wgts = std::vector<Real>(
+          {1.0, static_cast<Real>(-2.0 * ndim), 1.0, 1.0, 1.0, 1.0, 1.0});
     } else {
       const Real w0 = 1.0 / (2.0 * ndim);
       wgts = std::vector<Real>({w0, -1.0, w0, w0, w0, w0, w0});
@@ -97,10 +100,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // This first loop is actually unnecessary,
   // as Kokkos initializes to zero automatically.
   // We show it here just for illustration.
-  for (int i = 0; i < view_reduce.val.size(); i++) {
+  for (std::size_t i = 0; i < view_reduce.val.size(); i++) {
     view_reduce.val(i) = 0;
   }
-  for (int i = 0; i < view_reduce.val.size(); i++) {
+  for (std::size_t i = 0; i < view_reduce.val.size(); i++) {
     view_reduce.val(i) += i;
   }
   pkg->AddParam("view_reduce", view_reduce, true);
@@ -129,8 +132,7 @@ TaskStatus SetMatrixElements(T *u) {
   const int ndim = v.GetNdim();
   const Real w0 = -2.0 * ndim;
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "SetMatElem", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s, kb.e,
-      jb.s, jb.e, ib.s, ib.e,
+      PARTHENON_AUTO_LABEL, 0, v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         for (int n = isp_lo; n <= isp_hi; n++) {
           v(b, n, k, j, i) = 1;
@@ -142,6 +144,7 @@ TaskStatus SetMatrixElements(T *u) {
 }
 
 auto &GetCoords(std::shared_ptr<MeshBlock> &pmb) { return pmb->coords; }
+auto &GetCoords(MeshBlock *pmb) { return pmb->coords; }
 auto &GetCoords(Mesh *pm) { return pm->block_list[0]->coords; }
 
 template <typename T>
@@ -157,19 +160,19 @@ TaskStatus SumMass(T *u, Real *reduce_sum) {
   const auto &v = u->PackVariables(vars, imap);
   const int irho = imap["density"].first;
 
-  auto coords = GetCoords(pm);
+  const parthenon::Coordinates_t &coords = GetCoords(pm);
   const int ndim = v.GetNdim();
-  const Real dx = coords.Dx(X1DIR);
+  const Real dx = coords.Dxc<X1DIR>(0, 0, 0);
   for (int i = X2DIR; i <= ndim; i++) {
-    const Real dy = coords.Dx(i);
+    const Real dy = coords.Dxc(i, 0, 0, 0);
     PARTHENON_REQUIRE_THROWS(dx == dy,
                              "SumMass requires that DX be equal in all directions.");
   }
 
   Real total;
   parthenon::par_reduce(
-      parthenon::loop_pattern_mdrange_tag, "SumMass", DevExecSpace(), 0, v.GetDim(5) - 1,
-      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
+      v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &sum) {
         sum += v(b, irho, k, j, i) * std::pow(dx, ndim);
       },
@@ -194,8 +197,8 @@ TaskStatus SumDeltaPhi(T *du, Real *reduce_sum) {
 
   Real total;
   parthenon::par_reduce(
-      parthenon::loop_pattern_mdrange_tag, "SumMass", DevExecSpace(), 0, dv.GetDim(5) - 1,
-      kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
+      dv.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &sum) {
         sum += std::pow(dv(b, iphi, k, j, i), 2);
       },
@@ -207,7 +210,7 @@ TaskStatus SumDeltaPhi(T *du, Real *reduce_sum) {
 template <typename T>
 TaskStatus UpdatePhi(T *u, T *du) {
   using Stencil_t = parthenon::solvers::Stencil<Real>;
-  Kokkos::Profiling::pushRegion("Task_Poisson_UpdatePhi");
+  PARTHENON_INSTRUMENT
   auto pm = u->GetParentPointer();
 
   IndexRange ib = u->GetBoundsI(IndexDomain::interior);
@@ -228,11 +231,11 @@ TaskStatus UpdatePhi(T *u, T *du) {
 
   using PackType = decltype(v);
 
-  auto coords = GetCoords(pm);
+  const parthenon::Coordinates_t &coords = GetCoords(pm);
   const int ndim = v.GetNdim();
-  const Real dx = coords.Dx(X1DIR);
+  const Real dx = coords.Dxc<X1DIR>(0, 0, 0);
   for (int i = X2DIR; i <= ndim; i++) {
-    const Real dy = coords.Dx(i);
+    const Real dy = coords.Dxc(i, 0, 0, 0);
     PARTHENON_REQUIRE_THROWS(dx == dy,
                              "UpdatePhi requires that DX be equal in all directions.");
   }
@@ -245,8 +248,7 @@ TaskStatus UpdatePhi(T *u, T *du) {
   if (isp_hi < 0) { // there is no sparse matrix, so we must be using the stencil
     const auto &stencil = pkg->Param<Stencil_t>("stencil");
     parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "StencilJacobi", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s,
-        kb.e, jb.s, jb.e, ib.s, ib.e,
+        PARTHENON_AUTO_LABEL, 0, v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           const Real rhs = dV * v(b, irho, k, j, i);
           const Real phi_new = stencil.Jacobi(v, iphi, b, k, j, i, rhs);
@@ -257,8 +259,7 @@ TaskStatus UpdatePhi(T *u, T *du) {
     const auto &sp_accessor =
         pkg->Param<parthenon::solvers::SparseMatrixAccessor>("sparse_accessor");
     parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, "SparseUpdate", DevExecSpace(), 0, v.GetDim(5) - 1, kb.s,
-        kb.e, jb.s, jb.e, ib.s, ib.e,
+        PARTHENON_AUTO_LABEL, 0, v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           const Real rhs = dV * v(b, irho, k, j, i);
           const Real phi_new =
@@ -268,19 +269,17 @@ TaskStatus UpdatePhi(T *u, T *du) {
   }
 
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "UpdatePhi", DevExecSpace(), 0, dv.GetDim(5) - 1, kb.s, kb.e,
-      jb.s, jb.e, ib.s, ib.e,
+      PARTHENON_AUTO_LABEL, 0, dv.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
         v(b, iphi, k, j, i) += dv(b, idphi, k, j, i);
       });
 
-  Kokkos::Profiling::popRegion(); // Task_Poisson_UpdatePhi
   return TaskStatus::complete;
 }
 
 template <typename T>
 TaskStatus CheckConvergence(T *u, T *du) {
-  Kokkos::Profiling::pushRegion("Task_Poisson_UpdatePhi");
+  PARTHENON_INSTRUMENT
   auto pm = u->GetParentPointer();
 
   IndexRange ib = u->GetBoundsI(IndexDomain::interior);
@@ -297,10 +296,11 @@ TaskStatus CheckConvergence(T *u, T *du) {
 
   Real max_err;
   parthenon::par_reduce(
-      parthenon::loop_pattern_mdrange_tag, "CheckConvergence", DevExecSpace(), 0,
+      parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
       v.GetDim(5) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &eps) {
-        Real reps = std::abs(dv(b, idphi, k, j, i) / v(b, iphi, k, j, i));
+        Real reps = std::abs(
+            parthenon::robust::ratio(dv(b, idphi, k, j, i), v(b, iphi, k, j, i)));
         Real aeps = std::abs(dv(b, idphi, k, j, i));
         eps = std::max(eps, std::min(reps, aeps));
       },
@@ -311,7 +311,6 @@ TaskStatus CheckConvergence(T *u, T *du) {
 
   auto status = (max_err < err_tol ? TaskStatus::complete : TaskStatus::iterate);
 
-  Kokkos::Profiling::popRegion(); // Task_Poisson_CheckConvergence
   return status;
 }
 

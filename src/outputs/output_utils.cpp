@@ -1,0 +1,450 @@
+//========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2023-2026 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
+// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+//
+// This program was produced under U.S. Government contract 89233218CNA000001 for Los
+// Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+// for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+// in the program are reserved by Triad National Security, LLC, and the U.S. Department
+// of Energy/National Nuclear Security Administration. The Government is granted for
+// itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+// license in this material to reproduce, prepare derivative works, distribute copies to
+// the public, perform publicly and display publicly, and to permit others to do so.
+//========================================================================================
+
+#include <algorithm>
+#include <functional>
+#include <map>
+#include <memory>
+#include <set>
+#include <string>
+#include <type_traits>
+#include <vector>
+
+#include "defs.hpp"
+#include "globals.hpp"
+#include "interface/metadata.hpp"
+#include "interface/swarm.hpp"
+#include "interface/swarm_container.hpp"
+#include "interface/variable.hpp"
+#include "mesh/mesh.hpp"
+#include "mesh/mesh_refinement.hpp"
+#include "mesh/meshblock.hpp"
+#include "outputs/output_utils.hpp"
+#include "parameter_input.hpp"
+#include "utils/error_checking.hpp"
+#include "utils/mpi_types.hpp"
+
+namespace parthenon {
+namespace OutputUtils {
+
+// This function returns the max dimensions over all topological elements of the given
+// variable, i.e., it returns nx1+1, nx2+1, nx3+1 for a face centered variable.
+Triple_t<int> VarInfo::GetPaddedNumKJI(const IndexDomain domain) const {
+  int nx3 = 1, nx2 = 1, nx1 = 1;
+  // TODO(JMM): I know that this could be done by hand, but I'd rather
+  // rely on the loop bounds machinery and this should be cheap.
+  for (auto el : topological_elements) {
+    nx3 = std::max(nx3, cellbounds.ncellsk(domain, el));
+    nx2 = std::max(nx2, cellbounds.ncellsj(domain, el));
+    nx1 = std::max(nx1, cellbounds.ncellsi(domain, el));
+  }
+  if (is_mem_aligned && DomainTouchesOuterGhosts(domain)) {
+    nx1 -= 1;
+    if (nx2 > 1) nx2 -= 1;
+    if (nx3 > 1) nx3 -= 1;
+  }
+  return std::make_tuple(nx3, nx2, nx1);
+}
+
+Triple_t<IndexRange> VarInfo::GetPaddedBoundsKJI(const IndexDomain domain) const {
+  // TODO(JMM): I know that this could be done by hand, but I'd rather
+  // rely on the loop bounds machinery and this should be cheap.
+  int ks = 0, ke = 0, js = 0, je = 0, is = 0, ie = 0;
+  for (auto el : topological_elements) {
+    auto kb = cellbounds.GetBoundsK(domain, el);
+    auto jb = cellbounds.GetBoundsJ(domain, el);
+    auto ib = cellbounds.GetBoundsI(domain, el);
+    ks = kb.s; // pads are only upper indices
+    js = jb.s;
+    is = ib.s;
+    ke = std::max(ke, kb.e);
+    je = std::max(je, jb.e);
+    ie = std::max(ie, ib.e);
+  }
+  if (is_mem_aligned && DomainTouchesOuterGhosts(domain)) {
+    ie -= 1;
+    if (je > 0) je -= 1;
+    if (ke > 0) ke -= 1;
+  }
+  IndexRange kb{ks, ke}, jb{js, je}, ib{is, ie};
+  return std::make_tuple(kb, jb, ib);
+}
+
+std::size_t VarInfo::Size() const {
+  return std::accumulate(nx_.begin(), nx_.end(), std::size_t{1},
+                         std::multiplies<std::size_t>());
+}
+
+// Includes topological element shape
+std::size_t VarInfo::TensorSize() const {
+  if (where == MetadataFlag({Metadata::None})) {
+    return Size();
+  } else {
+    return std::accumulate(rnx_.begin() + 1, rnx_.end() - 3, std::size_t{1},
+                           std::multiplies<std::size_t>());
+  }
+}
+
+std::size_t VarInfo::FillSize(const IndexDomain domain, const bool is_padded) const {
+  if (where == MetadataFlag({Metadata::None})) {
+    return Size();
+  }
+  if (is_padded) {
+    auto [n3, n2, n1] = GetPaddedNumKJI(domain);
+    return ntop_elems * TensorSize() * n3 * n2 * n1;
+  }
+  // Use raw info from topological elements
+  auto ncells = cellbounds.GetTotal(domain, topological_elements.at(0));
+  for (auto el_idx = 1; el_idx < ntop_elems; el_idx++) {
+    ncells += cellbounds.GetTotal(domain, topological_elements.at(el_idx));
+  }
+  return TensorSize() * ncells;
+}
+
+// number of elements of data that describe variable shape
+int VarInfo::GetNDim() const {
+  // 3 cell indices, tensor rank, topological element index if needed
+  return (where == MetadataFlag({Metadata::None})) ? tensor_rank
+                                                   : (3 + tensor_rank + element_matters);
+}
+
+// Returns full shape as read to/written from I/O, with 1-padding.
+std::vector<int> VarInfo::GetPaddedShape(IndexDomain domain) const {
+  std::vector<int> out = GetRawShape();
+  if (where != MetadataFlag({Metadata::None})) {
+    auto [nx3, nx2, nx1] = GetPaddedNumKJI(domain);
+    out[0] = nx3;
+    out[1] = nx2;
+    out[2] = nx1;
+  }
+  return out;
+}
+std::vector<int> VarInfo::GetPaddedShapeReversed(IndexDomain domain) const {
+  std::vector<int> out(rnx_.begin(), rnx_.end());
+  if (where != MetadataFlag({Metadata::None})) {
+    auto [nx3, nx2, nx1] = GetPaddedNumKJI(domain);
+    out[VNDIM - 3] = nx3;
+    out[VNDIM - 2] = nx2;
+    out[VNDIM - 1] = nx1;
+  }
+  return out;
+}
+
+std::vector<int> VarInfo::GetRawShape() const {
+  return std::vector<int>(nx_.begin(), nx_.end());
+}
+
+int VarInfo::GetDim(int i) const {
+  PARTHENON_DEBUG_REQUIRE(0 < i && i < VNDIM, "Index out of bounds");
+  return nx_[i - 1];
+}
+
+std::vector<VarInfo> VarInfo::GetAll(const VariableVector<Real> &vars,
+                                     const IndexShape &cellbounds,
+                                     const IndexShape &f_cellbounds) {
+  std::vector<VarInfo> out;
+  for (const auto &v : vars) {
+    out.emplace_back(v, v->IsSet(Metadata::Fine) ? f_cellbounds : cellbounds);
+  }
+  std::sort(out.begin(), out.end(),
+            [](const VarInfo &a, const VarInfo &b) { return a.label < b.label; });
+
+  std::set<std::string> output_component_names;
+  for (const auto &info : out) {
+    for (const auto &component_name : info.component_labels) {
+      PARTHENON_REQUIRE_THROWS(output_component_names.insert(component_name).second,
+                               "Duplicate output component name '" + component_name +
+                                   "' detected for `" + info.base_name + "'");
+    }
+  }
+
+  return out;
+}
+
+void SwarmInfo::AddOffsets(const SP_Swarm &swarm) {
+  std::size_t count = swarm->GetNumActive();
+  std::size_t offset = (offsets.size() > 0) ? offsets.back() : 0;
+  offset += (counts.size() > 0) ? counts.back() : 0;
+  counts.push_back(count);
+  offsets.push_back(offset);
+  count_on_rank += count;
+  max_indices.push_back(swarm->GetMaxActiveIndex());
+  // JMM: If we defrag, we don't need these
+  // masks.push_back(swarm->GetMask());
+}
+
+AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
+                           const std::map<std::string, std::set<std::string>> &swarmnames,
+                           DumpOutputMode mode, const std::string &meshdata_name) {
+  for (auto &pmb : block_list) {
+    // TODO(JMM): Swap these out when swarms are allowed to exist in
+    // multiple meshdata registers
+    // const auto &swarm_container =
+    // pmb->meshblock_data.Get(meshdata_name)->GetSwarmData();
+    const auto &swarm_container = pmb->meshblock_data.Get("base")->GetSwarmData();
+    swarm_container->DefragAll(); // JMM: If we defrag, we don't need to mask?
+    if (mode == DumpOutputMode::Restart) {
+      using FC = parthenon::Metadata::FlagCollection;
+      auto flags =
+          FC({parthenon::Metadata::Independent, parthenon::Metadata::Restart}, true);
+      auto swarms = swarm_container->GetSwarmsByFlag(flags);
+      for (auto &swarm : swarms) {
+        auto swarmname = swarm->label();
+        auto &info = all_info[swarmname];
+        info.AddOffsets(swarm);
+        for (const auto &var : swarm->GetVariableVector<int>()) {
+          const auto &varname = var->label();
+          info.Add(varname, var);
+        }
+        for (const auto &var : swarm->GetVariableVector<std::uint64_t>()) {
+          const auto &varname = var->label();
+          info.Add(varname, var);
+        }
+        for (const auto &var : swarm->GetVariableVector<Real>()) {
+          const auto &varname = var->label();
+          info.Add(varname, var);
+        }
+      }
+    } else if (mode == DumpOutputMode::Data) {
+      for (const auto &[swarmname, varnames] : swarmnames) {
+        if (swarm_container->Contains(swarmname)) {
+          auto &swarm = swarm_container->Get(swarmname);
+          auto &info = all_info[swarmname];
+          info.AddOffsets(swarm);
+          for (const auto &varname : varnames) {
+            if (swarm->Contains<int>(varname)) {
+              auto var = swarm->GetP<int>(varname);
+              info.Add(varname, var);
+            } else if (swarm->Contains<std::uint64_t>(varname)) {
+              auto var = swarm->GetP<std::uint64_t>(varname);
+              info.Add(varname, var);
+            } else if (swarm->Contains<Real>(varname)) {
+              auto var = swarm->GetP<Real>(varname);
+              info.Add(varname, var);
+            } // else nothing
+          }
+        }
+      }
+    } else if (mode == DumpOutputMode::Core) {
+      const auto &swarm_map = swarm_container->GetSwarmMap();
+      for (const auto &[swarmname, swarm] : swarm_map) {
+        auto &info = all_info[swarmname];
+        info.AddOffsets(swarm);
+        for (const auto &var : swarm->GetVariableVector<int>()) {
+          info.Add(var->label(), var);
+        }
+        for (const auto &var : swarm->GetVariableVector<std::uint64_t>()) {
+          info.Add(var->label(), var);
+        }
+        for (const auto &var : swarm->GetVariableVector<Real>()) {
+          info.Add(var->label(), var);
+        }
+      }
+    } else {
+      PARTHENON_FAIL("Not sure how to handle/create swarm info for given output type");
+    }
+  }
+  for (auto &[name, info] : all_info) {
+    // TODO(JMM): Implies a bunch of blocking MPIAllReduces... but
+    // we're just doing I/O right now, so probably ok?
+    std::size_t tot_count;
+    info.global_offset = MPIPrefixSum(info.count_on_rank, tot_count);
+    for (std::size_t i = 0; i < info.offsets.size(); ++i) {
+      info.offsets[i] += info.global_offset;
+    }
+    info.global_count = tot_count;
+  }
+}
+
+// Tools that can be shared accross Output types
+
+std::vector<Real> ComputeXminBlocks(Mesh *pm) {
+  return FlattenBlockInfo<Real>(pm, pm->ndim,
+                                [=](MeshBlock *pmb, std::vector<Real> &data, int &i) {
+                                  auto xmin = pmb->coords.GetXmin();
+                                  data[i++] = xmin[0];
+                                  if (pm->ndim > 1) {
+                                    data[i++] = xmin[1];
+                                  }
+                                  if (pm->ndim > 2) {
+                                    data[i++] = xmin[2];
+                                  }
+                                });
+}
+
+std::vector<int64_t> ComputeLocs(Mesh *pm) {
+  return FlattenBlockInfo<int64_t>(
+      pm, 3, [=](MeshBlock *pmb, std::vector<int64_t> &locs, int &i) {
+        auto loc = pmb->pmy_mesh->Forest().GetLegacyTreeLocation(pmb->loc);
+        locs[i++] = loc.lx1();
+        locs[i++] = loc.lx2();
+        locs[i++] = loc.lx3();
+      });
+}
+
+std::vector<int> ComputeIDsAndFlags(Mesh *pm) {
+  return FlattenBlockInfo<int>(
+      pm, 5, [=](MeshBlock *pmb, std::vector<int> &data, int &i) {
+        auto loc = pmb->pmy_mesh->Forest().GetLegacyTreeLocation(pmb->loc);
+        data[i++] = loc.level();
+        data[i++] = pmb->gid;
+        data[i++] = pmb->lid;
+        data[i++] = pmb->cnghost;
+        data[i++] = pmb->gflag;
+      });
+}
+
+std::vector<int> ComputeDerefinementCount(Mesh *pm) {
+  return FlattenBlockInfo<int>(pm, 1,
+                               [=](MeshBlock *pmb, std::vector<int> &data, int &i) {
+                                 data[i++] = pmb->pmr ? pmb->pmr->DerefinementCount() : 0;
+                               });
+}
+
+template <typename T>
+std::vector<T> FlattenedLocalToGlobal(Mesh *pm, const std::vector<T> &data_local) {
+  const int n_blocks_global = pm->nbtotal;
+  const int n_blocks_local = static_cast<int>(pm->block_list.size());
+
+  const std::size_t n_elem = data_local.size() / n_blocks_local;
+  PARTHENON_REQUIRE_THROWS(data_local.size() % n_blocks_local == 0,
+                           "Results from flattened input vector does not evenly divide "
+                           "into number of local blocks.");
+  std::vector<T> data_global(n_elem * n_blocks_global);
+
+  std::vector<int> counts(Globals::nranks);
+  std::vector<int> offsets(Globals::nranks);
+
+  const auto &nblist = pm->GetNbList();
+  counts[0] = n_elem * nblist[0];
+  offsets[0] = 0;
+  for (int r = 1; r < Globals::nranks; r++) {
+    counts[r] = n_elem * nblist[r];
+    offsets[r] = offsets[r - 1] + counts[r - 1];
+  }
+
+#ifdef MPI_PARALLEL
+  PARTHENON_MPI_CHECK(MPI_Allgatherv(data_local.data(), counts[Globals::my_rank],
+                                     MPITypeMap<T>::type(), data_global.data(),
+                                     counts.data(), offsets.data(), MPITypeMap<T>::type(),
+                                     MPI_COMM_WORLD));
+#else
+  return data_local;
+#endif
+  return data_global;
+}
+
+// explicit template instantiation
+template std::vector<std::size_t>
+FlattenedLocalToGlobal(Mesh *pm, const std::vector<std::size_t> &data_local);
+template std::vector<int8_t>
+FlattenedLocalToGlobal(Mesh *pm, const std::vector<int8_t> &data_local);
+template std::vector<int64_t>
+FlattenedLocalToGlobal(Mesh *pm, const std::vector<int64_t> &data_local);
+template std::vector<int> FlattenedLocalToGlobal(Mesh *pm,
+                                                 const std::vector<int> &data_local);
+
+// TODO(JMM): I could make this use the other loop
+// functionality/high-order functions.  but it was more code than this
+// for, I think, little benefit.
+void ComputeCoords(Mesh *pm, bool face, const IndexRange &ib, const IndexRange &jb,
+                   const IndexRange &kb, std::vector<Real> &x, std::vector<Real> &y,
+                   std::vector<Real> &z) {
+  const int nx1 = ib.e - ib.s + 1;
+  const int nx2 = jb.e - jb.s + 1;
+  const int nx3 = kb.e - kb.s + 1;
+  const int num_blocks = pm->block_list.size();
+  x.resize((nx1 + face) * num_blocks);
+  y.resize((nx2 + face) * num_blocks);
+  z.resize((nx3 + face) * num_blocks);
+  std::size_t idx_x = 0, idx_y = 0, idx_z = 0;
+
+  // note relies on casting of bool to int
+  for (auto &pmb : pm->block_list) {
+    for (int i = ib.s; i <= ib.e + face; ++i) {
+      x[idx_x++] = face ? pmb->coords.Xf<1>(i) : pmb->coords.Xc<1>(i);
+    }
+    for (int j = jb.s; j <= jb.e + face; ++j) {
+      y[idx_y++] = face ? pmb->coords.Xf<2>(j) : pmb->coords.Xc<2>(j);
+    }
+    for (int k = kb.s; k <= kb.e + face; ++k) {
+      z[idx_z++] = face ? pmb->coords.Xf<3>(k) : pmb->coords.Xc<3>(k);
+    }
+  }
+}
+
+constexpr void CheckMPISizeT() {
+#ifdef MPI_PARALLEL
+  static_assert(std::is_integral<std::size_t>::value &&
+                    !std::is_signed<std::size_t>::value,
+                "size_t is unsigned and integral");
+  static_assert((sizeof(void *) == 4) || (sizeof(void *) == 8),
+                "We're on a 32 or 64 bit system.");
+#endif
+}
+
+// TODO(JMM): may need to generalize this
+std::size_t MPIPrefixSum(std::size_t local, std::size_t &tot_count) {
+  std::size_t out = 0;
+  tot_count = 0;
+#ifdef MPI_PARALLEL
+  // Need to use sizeof here because unsigned long long and unsigned
+  // long are identical under the hood but registered as different
+  // types
+  CheckMPISizeT();
+  std::vector<std::size_t> buffer(Globals::nranks);
+  MPI_Allgather(&local, 1, MPI_SIZE_T, buffer.data(), 1, MPI_SIZE_T, MPI_COMM_WORLD);
+  for (int i = 0; i < Globals::my_rank; ++i) {
+    out += buffer[i];
+  }
+  for (int i = 0; i < buffer.size(); ++i) {
+    tot_count += buffer[i];
+  }
+#else
+  tot_count = local;
+#endif // MPI_PARALLEL
+  return out;
+}
+
+std::size_t MPISum(std::size_t val) {
+#ifdef MPI_PARALLEL
+  CheckMPISizeT();
+  PARTHENON_MPI_CHECK(
+      MPI_Allreduce(MPI_IN_PLACE, &val, 1, MPI_SIZE_T, MPI_SUM, MPI_COMM_WORLD));
+#endif
+  return val;
+}
+
+void CheckParameterInputConsistent(ParameterInput *pin) {
+#ifdef MPI_PARALLEL
+  CheckMPISizeT();
+
+  std::size_t pin_hash = std::hash<ParameterInput>()(*pin);
+  std::size_t pin_hash_root = pin_hash;
+  PARTHENON_MPI_CHECK(MPI_Bcast(&pin_hash_root, 1, MPI_SIZE_T, 0, MPI_COMM_WORLD));
+  PARTHENON_REQUIRE_THROWS(
+      pin_hash == pin_hash_root,
+      "Parameter input object must be the same on every rank, otherwise I/O may "
+      "be\n\t\t"
+      "unable to write it safely. If you reached this error message, look to make "
+      "sure\n\t\t"
+      "that your calls to functions that look like pin->GetOrAdd are all called\n\t\t"
+      "exactly the same way on every MPI rank.");
+#endif // MPI_PARALLEL
+}
+} // namespace OutputUtils
+} // namespace parthenon

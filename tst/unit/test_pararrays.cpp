@@ -52,6 +52,10 @@ using UVMSpace = Kokkos::Experimental::HIPHostPinnedSpace;
 using UVMSpace = DevMemSpace;
 #endif
 
+template <typename T, typename Layout = parthenon::LayoutWrapper>
+using device_view6_t =
+    Kokkos::View<parthenon::multi_pointer_t<T, 6>, Layout, DevMemSpace>;
+
 KOKKOS_INLINE_FUNCTION Real coord(const int i, const int n) {
   const Real dx = 2.0 / (n - 1.0);
   return -1.0 + dx * i;
@@ -261,47 +265,6 @@ TEST_CASE("ParArrayND", "[ParArrayND][Kokkos]") {
           REQUIRE(sum_host == sum_device);
         }
       }
-      THEN("slicing is possible") {
-        // auto b = a.SliceD(std::make_pair(1,3),3);
-        // auto b = a.SliceD<3>(std::make_pair(1,3));
-        auto b = a.SliceD<3>(1, 2); // indx,nvar
-        AND_THEN("slices have correct values.") {
-          int total_errors = 1; // != 0
-          Kokkos::parallel_reduce(
-              policy3d({0, 0, 0}, {2, N2, N1}),
-              KOKKOS_LAMBDA(const int k, const int j, const int i, int &update) {
-                update += (b(k, j, i) == a(k + 1, j, i)) ? 0 : 1;
-              },
-              total_errors);
-          REQUIRE(total_errors == 0);
-        }
-      }
-      THEN("We can slice the 2nd dimension") {
-        auto b = a.SliceD<2>(1, 2);
-        AND_THEN("slices have correct values.") {
-          int total_errors = 1;
-          Kokkos::parallel_reduce(
-              policy2d({0, 0}, {2, N1}),
-              KOKKOS_LAMBDA(const int j, const int i, int &update) {
-                update += (b(j, i) == a(j + 1, i)) ? 0 : 1;
-              },
-              total_errors);
-          REQUIRE(total_errors == 0);
-        }
-      }
-      THEN("We can slice the 1st dimension") {
-        auto b = a.SliceD<1>(1, N1 - 1);
-        AND_THEN("Slices have correct values.") {
-          int total_errors = 1;
-          Kokkos::parallel_reduce(
-              N1 - 1,
-              KOKKOS_LAMBDA(const int i, int &update) {
-                update += (b(i) == a(i + 1)) ? 0 : 1;
-              },
-              total_errors);
-          REQUIRE(total_errors == 0);
-        }
-      }
     }
   }
 }
@@ -338,34 +301,6 @@ TEST_CASE("ParArrayND with LayoutLeft", "[ParArrayND][Kokkos][LayoutLeft]") {
             },
             sum_device);
         REQUIRE(sum_host == sum_device);
-      }
-      THEN("slicing is possible") {
-        // auto b = a.SliceD(std::make_pair(1,3),3);
-        // auto b = a.SliceD<3>(std::make_pair(1,3));
-        auto b = a.SliceD<3>(1, 2); // indx,nvar
-        AND_THEN("slices have correct values.") {
-          int total_errors = 1; // != 0
-          Kokkos::parallel_reduce(
-              policy3d({0, 0, 0}, {2, N2, N1}),
-              KOKKOS_LAMBDA(const int k, const int j, const int i, int &update) {
-                update += (b(k, j, i) == a(k + 1, j, i)) ? 0 : 1;
-              },
-              total_errors);
-          REQUIRE(total_errors == 0);
-        }
-      }
-      THEN("We can slice the 1st dimension") {
-        auto b = a.SliceD<1>(1, N1 - 1);
-        AND_THEN("Slices have correct values.") {
-          int total_errors = 1;
-          Kokkos::parallel_reduce(
-              N1 - 1,
-              KOKKOS_LAMBDA(const int i, int &update) {
-                update += (b(i) == a(i + 1)) ? 0 : 1;
-              },
-              total_errors);
-          REQUIRE(total_errors == 0);
-        }
       }
     }
   }
@@ -516,8 +451,8 @@ TEST_CASE("ParArray state", "[ParArrayND]") {
   }
 
   GIVEN("An array of ParArrays filled with the values contained in their state") {
-    parthenon::ParArray1D<arr3d_t> pack("test pack", NS);
-    auto pack_h = Kokkos::create_mirror_view(pack);
+    parthenon::ParArray1DRaw<arr3d_t> pack(parthenon::ViewOfViewAlloc("test pack"), NS);
+    auto pack_h = create_view_of_view_mirror(pack);
 
     for (int b = 0; b < NS; ++b) {
       state_t state(static_cast<double>(b));
@@ -592,24 +527,26 @@ TEST_CASE("Check registry pressure", "[ParArrayND][performance]") {
 
   // view of views. See:
   // https://github.com/kokkos/kokkos/wiki/View#6232-whats-the-problem-with-a-view-of-views
+  // TODO(PG) depending on the results of the view of view discussion, we should add
+  // destructor or ViewOfViewAlloc with SequentialHostInit
   using view_3d_t =
       Kokkos::View<Real ***, parthenon::LayoutWrapper, parthenon::DevMemSpace>;
-  using arrays_t = Kokkos::View<ParArrayND<Real> *, UVMSpace>;
+  using arrays_t = Kokkos::View<parthenon::ParArray6D<Real> *, UVMSpace>;
   using views_t = Kokkos::View<view_3d_t *, UVMSpace>;
-  using device_view_t = parthenon::device_view_t<Real>;
+  using device_view_t = device_view6_t<Real>;
   arrays_t arrays(Kokkos::view_alloc(std::string("arrays"), Kokkos::WithoutInitializing),
                   NARRAYS);
   views_t views(Kokkos::view_alloc(std::string("views"), Kokkos::WithoutInitializing),
                 NARRAYS);
   for (int n = 0; n < NARRAYS; n++) {
     std::string label = std::string("array ") + std::to_string(n);
-    new (&arrays[n]) ParArrayND<Real>(device_view_t(
+    new (&arrays[n]) parthenon::ParArray6D<Real>(device_view_t(
         Kokkos::view_alloc(label, Kokkos::WithoutInitializing), 1, 1, 1, N, N, N));
     label = std::string("view ") + std::to_string(n);
     new (&views[n])
         view_3d_t(Kokkos::view_alloc(label, Kokkos::WithoutInitializing), N, N, N);
     auto a_h = arrays(n).GetHostMirror();
-    auto v_h = Kokkos::create_mirror_view(views(n));
+    auto v_h = parthenon::create_view_of_view_mirror(views(n));
     for (int k = 0; k < N; k++) {
       for (int j = 0; j < N; j++) {
         for (int i = 0; i < N; i++) {
@@ -637,7 +574,7 @@ TEST_CASE("Check registry pressure", "[ParArrayND][performance]") {
   auto time_views = timer.seconds();
   timer.reset();
   parthenon::par_for(
-      parthenon::loop_pattern_flatrange_tag, "compute intensive task for ParArrayND",
+      parthenon::loop_pattern_flatrange_tag, "compute intensive task for ParArray6D",
       exec_space, 0, N - 1, 0, N - 1, 0, N - 1,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
         for (int n = 0; n < NARRAYS; n++) {

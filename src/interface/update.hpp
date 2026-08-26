@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -27,6 +27,10 @@
 #include "interface/metadata.hpp"
 #include "interface/params.hpp"
 #include "interface/state_descriptor.hpp"
+#include "pack/sparse_pack/make_pack_descriptor.hpp"
+#include "pack/sparse_pack/sparse_pack.hpp"
+#include "sparse/sparse_management.hpp"
+#include "time_integration/staged_integrator.hpp"
 
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
@@ -39,17 +43,17 @@ namespace Update {
 KOKKOS_FORCEINLINE_FUNCTION
 Real FluxDivHelper(const int l, const int k, const int j, const int i, const int ndim,
                    const Coordinates_t &coords, const VariableFluxPack<Real> &v) {
-  Real du = (coords.Area(X1DIR, k, j, i + 1) * v.flux(X1DIR, l, k, j, i + 1) -
-             coords.Area(X1DIR, k, j, i) * v.flux(X1DIR, l, k, j, i));
+  Real du = (coords.FaceArea<X1DIR>(k, j, i + 1) * v.flux(X1DIR, l, k, j, i + 1) -
+             coords.FaceArea<X1DIR>(k, j, i) * v.flux(X1DIR, l, k, j, i));
   if (ndim >= 2) {
-    du += (coords.Area(X2DIR, k, j + 1, i) * v.flux(X2DIR, l, k, j + 1, i) -
-           coords.Area(X2DIR, k, j, i) * v.flux(X2DIR, l, k, j, i));
+    du += (coords.FaceArea<X2DIR>(k, j + 1, i) * v.flux(X2DIR, l, k, j + 1, i) -
+           coords.FaceArea<X2DIR>(k, j, i) * v.flux(X2DIR, l, k, j, i));
   }
   if (ndim == 3) {
-    du += (coords.Area(X3DIR, k + 1, j, i) * v.flux(X3DIR, l, k + 1, j, i) -
-           coords.Area(X3DIR, k, j, i) * v.flux(X3DIR, l, k, j, i));
+    du += (coords.FaceArea<X3DIR>(k + 1, j, i) * v.flux(X3DIR, l, k + 1, j, i) -
+           coords.FaceArea<X3DIR>(k, j, i) * v.flux(X3DIR, l, k, j, i));
   }
-  return -du / coords.Volume(k, j, i);
+  return -du / coords.CellVolume(k, j, i);
 }
 
 template <typename T>
@@ -65,15 +69,15 @@ TaskStatus UpdateWithFluxDivergence(T *data_u0, T *data_u1, const Real gam0,
                                     const Real gam1, const Real beta_dt);
 
 template <typename F, typename T>
-TaskStatus WeightedSumData(const std::vector<F> &flags, T *in1, T *in2, const Real w1,
-                           const Real w2, T *out) {
-  Kokkos::Profiling::pushRegion("Task_WeightedSumData");
+TaskStatus WeightedSumData(const F &flags, T *in1, T *in2, const Real w1, const Real w2,
+                           T *out) {
+  PARTHENON_INSTRUMENT
   const auto &x = in1->PackVariables(flags);
   const auto &y = in2->PackVariables(flags);
   const auto &z = out->PackVariables(flags);
   parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, "WeightedSumData", DevExecSpace(), 0, x.GetDim(5) - 1, 0,
-      x.GetDim(4) - 1, 0, x.GetDim(3) - 1, 0, x.GetDim(2) - 1, 0, x.GetDim(1) - 1,
+      PARTHENON_AUTO_LABEL, 0, x.GetDim(5) - 1, 0, x.GetDim(4) - 1, 0, x.GetDim(3) - 1, 0,
+      x.GetDim(2) - 1, 0, x.GetDim(1) - 1,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
         // TOOD(someone) This is potentially dangerous and/or not intended behavior
         // as we still may want to update (or populate) z if any of those vars are
@@ -82,18 +86,36 @@ TaskStatus WeightedSumData(const std::vector<F> &flags, T *in1, T *in2, const Re
           z(b, l, k, j, i) = w1 * x(b, l, k, j, i) + w2 * y(b, l, k, j, i);
         }
       });
-  Kokkos::Profiling::popRegion(); // Task_WeightedSumData
   return TaskStatus::complete;
 }
 
 template <typename F, typename T>
-TaskStatus SumData(const std::vector<F> &flags, T *in1, T *in2, T *out) {
+TaskStatus CopyData(const F &flags, T *in, T *out) {
+  return WeightedSumData(flags, in, in, 1, 0, out);
+}
+
+template <typename F, typename T>
+TaskStatus SetDataToConstant(const F &flags, T *data, const Real val) {
+  PARTHENON_INSTRUMENT
+  const auto &x = data->PackVariables(flags);
+  parthenon::par_for(
+      PARTHENON_AUTO_LABEL, 0, x.GetDim(5) - 1, 0, x.GetDim(4) - 1, 0, x.GetDim(3) - 1, 0,
+      x.GetDim(2) - 1, 0, x.GetDim(1) - 1,
+      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
+        if (x.IsAllocated(b, l)) {
+          x(b, l, k, j, i) = val;
+        }
+      });
+  return TaskStatus::complete;
+}
+
+template <typename F, typename T>
+TaskStatus SumData(const F &flags, T *in1, T *in2, T *out) {
   return WeightedSumData(flags, in1, in2, 1.0, 1.0, out);
 }
 
 template <typename F, typename T>
-TaskStatus UpdateData(const std::vector<F> &flags, T *in, T *dudt, const Real dt,
-                      T *out) {
+TaskStatus UpdateData(const F &flags, T *in, T *dudt, const Real dt, T *out) {
   return WeightedSumData(flags, in, dudt, 1.0, dt, out);
 }
 
@@ -114,46 +136,188 @@ TaskStatus AverageIndependentData(T *c1, T *c2, const Real wgt1) {
                          (1.0 - wgt1), c1);
 }
 
+// See equation 14 in Ketcheson, Jcomp 229 (2010) 1763-1773
+// In Parthenon language, s0 is the variable we are updating
+// and rhs should be computed with respect to s0.
+// if update_s1, s1 should be set at the beginning of the cycle to 0
+// otherwise, s1 should be set at the beginning of the RK update to be
+// a copy of base. in the final stage, base for the next cycle should
+// be set to s0.
+template <typename F, typename T>
+TaskStatus Update2S(const F &flags, T *s0_data, T *s1_data, T *rhs_data,
+                    const LowStorageIntegrator *pint, Real dt, int stage,
+                    bool update_s1) {
+  PARTHENON_INSTRUMENT
+  const auto &s0 = s0_data->PackVariables(flags);
+  const auto &s1 = s1_data->PackVariables(flags);
+  const auto &rhs = rhs_data->PackVariables(flags);
+
+  const IndexDomain interior = IndexDomain::interior;
+  const IndexRange ib = s0_data->GetBoundsI(interior);
+  const IndexRange jb = s0_data->GetBoundsJ(interior);
+  const IndexRange kb = s0_data->GetBoundsK(interior);
+
+  Real delta = pint->delta[stage - 1];
+  Real beta = pint->beta[stage - 1];
+  Real gam0 = pint->gam0[stage - 1];
+  Real gam1 = pint->gam1[stage - 1];
+  parthenon::par_for(
+      PARTHENON_AUTO_LABEL, 0, s0.GetDim(5) - 1, 0, s0.GetDim(4) - 1, kb.s, kb.e, jb.s,
+      jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
+        if (s0.IsAllocated(b, l) && s1.IsAllocated(b, l) && rhs.IsAllocated(b, l)) {
+          if (update_s1) {
+            s1(b, l, k, j, i) = s1(b, l, k, j, i) + delta * s0(b, l, k, j, i);
+          }
+          s0(b, l, k, j, i) = gam0 * s0(b, l, k, j, i) + gam1 * s1(b, l, k, j, i) +
+                              beta * dt * rhs(b, l, k, j, i);
+        }
+      });
+  return TaskStatus::complete;
+}
+template <typename T>
+TaskStatus Update2SIndependent(T *s0_data, T *s1_data, T *rhs_data,
+                               const LowStorageIntegrator *pint, Real dt, int stage,
+                               bool update_s1) {
+  return Update2S(std::vector<MetadataFlag>({Metadata::Independent}), s0_data, s1_data,
+                  rhs_data, pint, dt, stage, update_s1);
+}
+
+// For integration with Butcher tableaus
+// returns base + dt * sum_{j=0}^{k-1} a_{kj} S_j
+// for stages S_j
+// This can then be used to compute right-hand sides.
+template <typename F, typename T>
+TaskStatus SumButcher(const F &flags, std::shared_ptr<T> base_data,
+                      std::vector<std::shared_ptr<T>> stage_data,
+                      std::shared_ptr<T> out_data, const ButcherIntegrator *pint, Real dt,
+                      int stage) {
+  PARTHENON_INSTRUMENT
+  const auto &out = out_data->PackVariables(flags);
+  const auto &in = base_data->PackVariables(flags);
+  const IndexDomain interior = IndexDomain::interior;
+  const IndexRange ib = out_data->GetBoundsI(interior);
+  const IndexRange jb = out_data->GetBoundsJ(interior);
+  const IndexRange kb = out_data->GetBoundsK(interior);
+  parthenon::par_for(
+      PARTHENON_AUTO_LABEL, 0, out.GetDim(5) - 1, 0, out.GetDim(4) - 1, kb.s, kb.e, jb.s,
+      jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
+        if (out.IsAllocated(b, l) && in.IsAllocated(b, l)) {
+          out(b, l, k, j, i) = in(b, l, k, j, i);
+        }
+      });
+  for (int prev = 0; prev < stage; ++prev) {
+    Real a = pint->a[stage - 1][prev];
+    const auto &in = stage_data[stage]->PackVariables(flags);
+    parthenon::par_for(
+        PARTHENON_AUTO_LABEL, 0, out.GetDim(5) - 1, 0, out.GetDim(4) - 1, kb.s, kb.e,
+        jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
+          if (out.IsAllocated(b, l) && in.IsAllocated(b, l)) {
+            out(b, l, k, j, i) += dt * a * in(b, l, k, j, i);
+          }
+        });
+  }
+  return TaskStatus::complete;
+}
+template <typename T>
+TaskStatus SumButcherIndependent(std::shared_ptr<T> base_data,
+                                 std::vector<std::shared_ptr<T>> stage_data,
+                                 std::shared_ptr<T> out_data,
+                                 const ButcherIntegrator *pint, Real dt, int stage) {
+  return SumButcher(std::vector<MetadataFlag>({Metadata::Independent}), base_data,
+                    stage_data, out_data, pint, dt, stage);
+}
+
+// The actual butcher update at the final stage of a cycle
+template <typename F, typename T>
+TaskStatus UpdateButcher(const F &flags, std::vector<std::shared_ptr<T>> stage_data,
+                         std::shared_ptr<T> out_data, const ButcherIntegrator *pint,
+                         Real dt) {
+  PARTHENON_INSTRUMENT
+
+  const auto &out = out_data->PackVariables(flags);
+  const IndexDomain interior = IndexDomain::interior;
+  const IndexRange ib = out_data->GetBoundsI(interior);
+  const IndexRange jb = out_data->GetBoundsJ(interior);
+  const IndexRange kb = out_data->GetBoundsK(interior);
+
+  const int nstages = pint->nstages;
+  for (int stage = 0; stage < nstages; ++stage) {
+    const Real butcher_b = pint->b[stage];
+    const auto &in = stage_data[stage]->PackVariables(flags);
+    parthenon::par_for(
+        PARTHENON_AUTO_LABEL, 0, out.GetDim(5) - 1, 0, out.GetDim(4) - 1, kb.s, kb.e,
+        jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
+          if (out.IsAllocated(b, l) && in.IsAllocated(b, l)) {
+            out(b, l, k, j, i) += dt * b * in(b, l, k, j, i);
+          }
+        });
+  }
+  return TaskStatus::complete;
+}
+template <typename F, typename T>
+TaskStatus UpdateButcherIndependent(std::vector<std::shared_ptr<T>> stage_data,
+                                    std::shared_ptr<T> out_data,
+                                    const ButcherIntegrator *pint, Real dt) {
+  return UpdateButcherIndependent(std::vector<MetadataFlag>({Metadata::Independent}),
+                                  stage_data, out_data, pint, dt);
+}
+
 template <typename T>
 TaskStatus EstimateTimestep(T *rc) {
-  Kokkos::Profiling::pushRegion("Task_EstimateTimestep");
+  PARTHENON_INSTRUMENT
   Real dt_min = std::numeric_limits<Real>::max();
   for (const auto &pkg : rc->GetParentPointer()->packages.AllPackages()) {
     Real dt = pkg.second->EstimateTimestep(rc);
     dt_min = std::min(dt_min, dt);
   }
   rc->SetAllowedDt(dt_min);
-  Kokkos::Profiling::popRegion(); // Task_EstimateTimestep
+  return TaskStatus::complete;
+}
+
+template <typename T>
+TaskStatus PreCommFillDerived(T *rc) {
+  PARTHENON_INSTRUMENT
+  auto pm = rc->GetParentPointer();
+  for (const auto &pkg : pm->packages.AllPackages()) {
+    pkg.second->PreCommFillDerived(rc);
+  }
   return TaskStatus::complete;
 }
 
 template <typename T>
 TaskStatus FillDerived(T *rc) {
-  Kokkos::Profiling::pushRegion("Task_FillDerived");
+  PARTHENON_INSTRUMENT
   auto pm = rc->GetParentPointer();
-  Kokkos::Profiling::pushRegion("PreFillDerived");
-  for (const auto &pkg : pm->packages.AllPackages()) {
-    pkg.second->PreFillDerived(rc);
-  }
-  Kokkos::Profiling::popRegion(); // PreFillDerived
-  Kokkos::Profiling::pushRegion("FillDerived");
-  for (const auto &pkg : pm->packages.AllPackages()) {
-    pkg.second->FillDerived(rc);
-  }
-  Kokkos::Profiling::popRegion(); // FillDerived
-  Kokkos::Profiling::pushRegion("PostFillDerived");
-  for (const auto &pkg : pm->packages.AllPackages()) {
-    pkg.second->PostFillDerived(rc);
-  }
-  Kokkos::Profiling::popRegion(); // PostFillDerived
-  Kokkos::Profiling::popRegion(); // Task_FillDerived
+  { // PreFillDerived region
+    PARTHENON_INSTRUMENT
+    for (const auto &pkg : pm->packages.AllPackages()) {
+      pkg.second->PreFillDerived(rc);
+    }
+  } // PreFillDerived region
+  { // FillDerived region
+    PARTHENON_INSTRUMENT
+    for (const auto &pkg : pm->packages.AllPackages()) {
+      pkg.second->FillDerived(rc);
+    }
+  } // FillDerived region
+  { // PostFillDerived region
+    PARTHENON_INSTRUMENT
+    for (const auto &pkg : pm->packages.AllPackages()) {
+      pkg.second->PostFillDerived(rc);
+    }
+  } // PostFillDerived region
   return TaskStatus::complete;
 }
 
-TaskStatus SparseDealloc(MeshData<Real> *md);
+// In sparse/sparse_management.hpp but convenient to include here
+using parthenon::InitNewlyAllocatedVars;
+using parthenon::SparseDealloc;
 
 } // namespace Update
-
 } // namespace parthenon
 
 #endif // INTERFACE_UPDATE_HPP_

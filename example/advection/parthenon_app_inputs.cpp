@@ -11,6 +11,9 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <algorithm>
+#include <cstdio>
+#include <memory>
 #include <sstream>
 #include <string>
 
@@ -21,6 +24,8 @@
 #include "config.hpp"
 #include "defs.hpp"
 #include "interface/variable_pack.hpp"
+#include "kokkos_abstraction.hpp"
+#include "parameter_input.hpp"
 #include "utils/error_checking.hpp"
 
 using namespace parthenon::package::prelude;
@@ -73,20 +78,22 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   if (profile == "block") profile_type = 3;
 
   pmb->par_for(
-      "Advection::ProblemGenerator", 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+      PARTHENON_AUTO_LABEL, 0, num_vars - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
         if (profile_type == 0) {
-          Real x = cos_a2 * (coords.x1v(i) * cos_a3 + coords.x2v(j) * sin_a3) +
-                   coords.x3v(k) * sin_a2;
+          Real x = cos_a2 * (coords.Xc<1>(i) * cos_a3 + coords.Xc<2>(j) * sin_a3) +
+                   coords.Xc<3>(k) * sin_a2;
           Real sn = std::sin(k_par * x);
           q(n, k, j, i) = 1.0 + amp * sn * vel;
         } else if (profile_type == 1) {
-          Real rsq = coords.x1v(i) * coords.x1v(i) + coords.x2v(j) * coords.x2v(j) +
-                     coords.x3v(k) * coords.x3v(k);
+          Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
+                     coords.Xc<2>(j) * coords.Xc<2>(j) +
+                     coords.Xc<3>(k) * coords.Xc<3>(k);
           q(n, k, j, i) = 1. + amp * exp(-100.0 * rsq);
         } else if (profile_type == 2) {
-          Real rsq = coords.x1v(i) * coords.x1v(i) + coords.x2v(j) * coords.x2v(j) +
-                     coords.x3v(k) * coords.x3v(k);
+          Real rsq = coords.Xc<1>(i) * coords.Xc<1>(i) +
+                     coords.Xc<2>(j) * coords.Xc<2>(j) +
+                     coords.Xc<3>(k) * coords.Xc<3>(k);
           q(n, k, j, i) = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
         } else {
           q(n, k, j, i) = 0.0;
@@ -97,8 +104,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   // initialize some arbitrary cells in the first block that move in all 6 directions
   if (profile_type == 3 && block_id == 0) {
     pmb->par_for(
-        "Advection::ProblemGenerator bvals test", 0, 1,
-        KOKKOS_LAMBDA(const int /*unused*/) {
+        PARTHENON_AUTO_LABEL, 0, 1, KOKKOS_LAMBDA(const int /*unused*/) {
           q(idx_adv, 4, 4, 4) = 10.0;
           q(idx_v, 4, 4, 4) = vx;
           q(idx_adv, 4, 6, 4) = 10.0;
@@ -154,26 +160,26 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
           Real ref_val;
           if (profile == "wave") {
             Real x =
-                cos_a2 * (pmb->coords.x1v(i) * cos_a3 + pmb->coords.x2v(j) * sin_a3) +
-                pmb->coords.x3v(k) * sin_a2;
+                cos_a2 * (pmb->coords.Xc<1>(i) * cos_a3 + pmb->coords.Xc<2>(j) * sin_a3) +
+                pmb->coords.Xc<3>(k) * sin_a2;
             Real sn = std::sin(k_par * x);
             ref_val = 1.0 + amp * sn * vel;
           } else if (profile == "smooth_gaussian") {
-            Real rsq = pmb->coords.x1v(i) * pmb->coords.x1v(i) +
-                       pmb->coords.x2v(j) * pmb->coords.x2v(j) +
-                       pmb->coords.x3v(k) * pmb->coords.x3v(k);
+            Real rsq = pmb->coords.Xc<1>(i) * pmb->coords.Xc<1>(i) +
+                       pmb->coords.Xc<2>(j) * pmb->coords.Xc<2>(j) +
+                       pmb->coords.Xc<3>(k) * pmb->coords.Xc<3>(k);
             ref_val = 1. + amp * exp(-100.0 * rsq);
           } else if (profile == "hard_sphere") {
-            Real rsq = pmb->coords.x1v(i) * pmb->coords.x1v(i) +
-                       pmb->coords.x2v(j) * pmb->coords.x2v(j) +
-                       pmb->coords.x3v(k) * pmb->coords.x3v(k);
+            Real rsq = pmb->coords.Xc<1>(i) * pmb->coords.Xc<1>(i) +
+                       pmb->coords.Xc<2>(j) * pmb->coords.Xc<2>(j) +
+                       pmb->coords.Xc<3>(k) * pmb->coords.Xc<3>(k);
             ref_val = (rsq < 0.15 * 0.15 ? 1.0 : 0.0);
           } else {
             ref_val = 1e9; // use an artificially large error
           }
 
           // Weight l1 error by cell volume
-          Real vol = pmb->coords.Volume(k, j, i);
+          Real vol = pmb->coords.CellVolume(k, j, i);
 
           l1_err += std::abs(ref_val - q(k, j, i)) * vol;
           max_err = std::max(static_cast<Real>(std::abs(ref_val - q(k, j, i))), max_err);
@@ -202,8 +208,9 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   if (Globals::my_rank == 0) {
     // normalize errors by number of cells
     auto mesh_size = mesh->mesh_size;
-    Real vol = (mesh_size.x1max - mesh_size.x1min) * (mesh_size.x2max - mesh_size.x2min) *
-               (mesh_size.x3max - mesh_size.x3min);
+    Real vol = (mesh_size.xmax(X1DIR) - mesh_size.xmin(X1DIR)) *
+               (mesh_size.xmax(X2DIR) - mesh_size.xmin(X2DIR)) *
+               (mesh_size.xmax(X3DIR) - mesh_size.xmin(X3DIR));
     l1_err /= vol;
     // compute rms error
     max_max_over_l1 = std::max(max_max_over_l1, (max_err / l1_err));
@@ -235,8 +242,8 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
     }
 
     // write errors
-    std::fprintf(pfile, "%d  %d", mesh_size.nx1, mesh_size.nx2);
-    std::fprintf(pfile, "  %d  %d", mesh_size.nx3, tm.ncycle);
+    std::fprintf(pfile, "%d  %d", mesh_size.nx(X1DIR), mesh_size.nx(X2DIR));
+    std::fprintf(pfile, "  %d  %d", mesh_size.nx(X3DIR), tm.ncycle);
     std::fprintf(pfile, "  %e ", l1_err);
     std::fprintf(pfile, "  %e  %e  ", max_max_over_l1, max_err);
     std::fprintf(pfile, "\n");
@@ -244,6 +251,25 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   }
 
   return;
+}
+
+void UserMeshWorkBeforeOutput(Mesh *mesh, ParameterInput *pin, SimTime const &) {
+  // loop over blocks
+  for (auto &pmb : mesh->block_list) {
+    auto rc = pmb->meshblock_data.Get(); // get base container
+    auto q = rc->Get("advected").data;
+    auto deriv = rc->Get("my_derived_var").data;
+
+    IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+    IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+    IndexRange kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+
+    pmb->par_for(
+        "Advection::FillDerived", 0, 0, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
+          deriv(0, k, j, i) = std::log10(q(0, k, j, i) + 1.0e-5);
+        });
+  }
 }
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {

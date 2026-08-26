@@ -3,7 +3,7 @@
 // Copyright(C) 2021 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,6 +16,8 @@
 //========================================================================================
 #ifndef EXAMPLE_PARTICLE_LEAPFROG_PARTICLE_LEAPFROG_HPP_
 #define EXAMPLE_PARTICLE_LEAPFROG_PARTICLE_LEAPFROG_HPP_
+
+// This file was made in part with generative AI.
 
 #include <memory>
 
@@ -39,10 +41,11 @@ class ParticleDriver : public EvolutionDriver {
   TaskListStatus Step();
 
  private:
-  StagedIntegrator integrator;
+  LowStorageIntegrator integrator;
 };
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin);
+void PostInitialization(MeshBlock *pmb, ParameterInput *pin);
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
 
 namespace Particles {

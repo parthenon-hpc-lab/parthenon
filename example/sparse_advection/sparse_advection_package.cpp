@@ -72,8 +72,7 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // add sparse field
   {
     Metadata m({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
-                Metadata::FillGhost, Metadata::Sparse},
-               std::vector<int>({1}));
+                Metadata::FillGhost, Metadata::Sparse});
     SparsePool pool("sparse", m);
 
     for (int sid = 0; sid < NUM_FIELDS; ++sid) {
@@ -94,9 +93,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
                        Metadata::FillGhost, Metadata::Sparse});
 
     SparsePool pool("shape_shift", m_sparse);
-    pool.Add(1, std::vector<int>{1}, std::vector<std::string>{"scalar"});
+    pool.Add(1, std::vector<int>{1}, {}, /*sparse_label=*/"scalar");
     pool.Add(3, std::vector<int>{3}, Metadata::Vector,
-             std::vector<std::string>{"vec_x", "vec_y", "vec_z"});
+             std::vector<std::string>{"x", "y", "z"}, "vec");
     pool.Add(4, std::vector<int>{4}, Metadata::Vector);
 
     pkg->AddSparsePool(pool);
@@ -113,7 +112,7 @@ AmrTag CheckRefinement(MeshBlockData<Real> *rc) {
   auto pmb = rc->GetBlockPointer();
   auto pkg = pmb->packages.Get("sparse_advection_package");
   std::vector<std::string> vars{"sparse"};
-  // type is parthenon::VariablePack<CellVariable<Real>>
+  // type is parthenon::VariablePack<Variable<Real>>
   const auto &v = rc->PackVariables(vars);
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
@@ -165,11 +164,11 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
       jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int v, const int k, const int j, const int i, Real &lmin_dt) {
         if (vx[v] != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.Dx(X1DIR, k, j, i) / std::abs(vx[v]));
+          lmin_dt = std::min(lmin_dt, coords.Dxc<X1DIR>(k, j, i) / std::abs(vx[v]));
         if (vy[v] != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.Dx(X2DIR, k, j, i) / std::abs(vy[v]));
+          lmin_dt = std::min(lmin_dt, coords.Dxc<X2DIR>(k, j, i) / std::abs(vy[v]));
         if (vz[v] != 0.0)
-          lmin_dt = std::min(lmin_dt, coords.Dx(X3DIR, k, j, i) / std::abs(vz[v]));
+          lmin_dt = std::min(lmin_dt, coords.Dxc<X3DIR>(k, j, i) / std::abs(vz[v]));
       },
       Kokkos::Min<Real>(min_dt));
 
@@ -182,7 +181,7 @@ Real EstimateTimestepBlock(MeshBlockData<Real> *rc) {
 TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   using parthenon::MetadataFlag;
 
-  Kokkos::Profiling::pushRegion("Task_Advection_CalculateFluxes");
+  PARTHENON_INSTRUMENT
   auto pmb = rc->GetBlockPointer();
 
   IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
@@ -200,11 +199,12 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   const int scratch_level = 1; // 0 is actual scratch (tiny); 1 is HBM
   const int nx1 = pmb->cellbounds.ncellsi(IndexDomain::entire);
   const int nvar = v.GetDim(4);
-  size_t scratch_size_in_bytes = parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
+  std::size_t scratch_size_in_bytes =
+      parthenon::ScratchPad2D<Real>::shmem_size(nvar, nx1);
   // get x-fluxes
   pmb->par_for_outer(
-      "x1 flux", 2 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s, jb.e,
-      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
+      PARTHENON_AUTO_LABEL, 2 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s,
+      jb.e, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
         parthenon::ScratchPad2D<Real> ql(member.team_scratch(scratch_level), nvar, nx1);
         parthenon::ScratchPad2D<Real> qr(member.team_scratch(scratch_level), nvar, nx1);
 
@@ -216,7 +216,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
         for (int n = 0; n < nvar; n++) {
           if (!v.IsAllocated(n)) continue;
-          const auto this_v = vx[n % NUM_FIELDS];
+          const auto this_v = vx[v(n).sparse_id % NUM_FIELDS];
           par_for_inner(member, ib.s, ib.e + 1, [&](const int i) {
             v.flux(X1DIR, n, k, j, i) = (this_v > 0.0 ? ql(n, i) : qr(n, i)) * this_v;
           });
@@ -226,8 +226,8 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   // get y-fluxes
   if (pmb->pmy_mesh->ndim >= 2) {
     pmb->par_for_outer(
-        "x2 flux", 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s, jb.e + 1,
-        KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
+        PARTHENON_AUTO_LABEL, 3 * scratch_size_in_bytes, scratch_level, kb.s, kb.e, jb.s,
+        jb.e + 1, KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int k, const int j) {
           // the overall algorithm/use of scratch pad here is clearly inefficient and kept
           // just for demonstrating purposes. The key point is that we cannot reuse
           // reconstructed arrays for different `j` with `j` being part of the outer
@@ -246,7 +246,7 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
 
           for (int n = 0; n < nvar; n++) {
             if (!v.IsAllocated(n)) continue;
-            const auto this_v = vy[n % NUM_FIELDS];
+            const auto this_v = vy[v(n).sparse_id % NUM_FIELDS];
             par_for_inner(member, ib.s, ib.e, [&](const int i) {
               v.flux(X2DIR, n, k, j, i) = (this_v > 0.0 ? ql(n, i) : qr(n, i)) * this_v;
             });
@@ -257,7 +257,6 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   PARTHENON_REQUIRE_THROWS(pmb->pmy_mesh->ndim == 2,
                            "Sparse Advection example must be 2D");
 
-  Kokkos::Profiling::popRegion(); // Task_Advection_CalculateFluxes
   return TaskStatus::complete;
 }
 

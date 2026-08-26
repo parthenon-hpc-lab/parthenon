@@ -1,22 +1,27 @@
-FROM rocm/dev-ubuntu-20.04:4.5
+FROM rocm/dev-ubuntu-24.04:7.2.4-complete
 
 RUN apt-get clean && apt-get update -y && \
-    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib lcov curl cmake ninja-build openmpi-bin libopenmpi-dev && \
+    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib lcov curl cmake ninja-build openmpi-bin libopenmpi-dev adios2-mpi-bin adios2-serial-bin libadios2-mpi-c++11-dev libadios2-mpi-core-dev libadios2-serial-core-dev libadios2-serial-c++11-dev libhdf5-dev libhdf5-openmpi-dev && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN cd /tmp && \
-    wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.8/src/hdf5-1.10.8.tar.gz && \
-    tar xzf hdf5-1.10.8.tar.gz && \
-    cd hdf5-1.10.8 && \
-    mkdir -p /usr/local/hdf5/serial /usr/local/hdf5/parallel && \
-    ./configure --prefix=/usr/local/hdf5/serial --enable-hl --enable-build-mode=production && make -j8 && make install && make clean && \
-    ./configure --prefix=/usr/local/hdf5/parallel --enable-hl --enable-build-mode=production --enable-parallel && make -j8 && make install && \
-    cd / && \
-    rm -rf /tmp/hdf5-1.10.8*
-
-# "mpic++ --showme" forgets open-pal in Ubuntu 20.04 + OpenMPI 4.0.3
-#   https://bugs.launchpad.net/ubuntu/+source/openmpi/+bug/1941786
-#   https://github.com/open-mpi/ompi/issues/9317
-ENV LDFLAGS="-lopen-pal"
-
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 10
+
+# commit version is ver 0.17.1
+RUN mkdir /tmp/build-openpmd && cd /tmp/build-openpmd && \
+    wget https://github.com/openPMD/openPMD-api/archive/f0033b4.tar.gz && \
+    tar xzf f0033b4.tar.gz && \
+    mkdir openPMD-api-build && cd openPMD-api-build && \
+    cmake ../openPMD-api-f0033b4deee00ec2b76cafcdd765e960b4906e31 -DopenPMD_USE_PYTHON=ON -DPython_EXECUTABLE=$(which python3) -DopenPMD_USE_ADIOS2=ON && \
+    cmake --build . -j 16 && \
+    cmake --build . --target install && \
+    cd / && \
+    rm -rf /tmp/build-openpmd
+
+# Technically not necessary (as we installed the api above) but makes it easier for package discovery
+RUN env openPMD_USE_MPI=ON python3 -m pip install openpmd-api --no-binary openpmd-api --break-system-packages
+
+# Latest image has default user with uid 1000 (which maps to the one running the container on the CI host
+# Need to add user to the group that can access the GPU
+RUN usermod -a -G render ubuntu
+
+WORKDIR /home/ubuntu

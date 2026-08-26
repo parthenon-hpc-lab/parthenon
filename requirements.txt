@@ -1,0 +1,4 @@
+h5py
+numpy
+matplotlib
+openpmd_api

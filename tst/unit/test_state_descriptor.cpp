@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -15,6 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was generated with the assistance of generative AI
+
 #include <memory>
 #include <set>
 #include <string>
@@ -22,20 +24,78 @@
 
 #include <catch2/catch.hpp>
 
+#include "basic_types.hpp"
 #include "defs.hpp"
 #include "interface/metadata.hpp"
+#include "interface/packages.hpp"
 #include "interface/sparse_pool.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
+#include "parameter_input.hpp"
+#include "prolong_restrict/pr_ops.hpp"
+#include "prolong_restrict/prolong_restrict.hpp"
 
+using parthenon::Coordinates_t;
+using parthenon::IndexRange;
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
+using FC_t = parthenon::Metadata::FlagCollection;
+using parthenon::MeshDataDescriptor;
 using parthenon::Packages_t;
+using parthenon::ParArrayND;
 using parthenon::Real;
 using parthenon::ResolvePackages;
 using parthenon::SparsePool;
 using parthenon::StateDescriptor;
 using FlagVec = std::vector<MetadataFlag>;
+using parthenon::TopologicalElement;
+using parthenon::VariableState;
+
+// Some fake ops classes
+struct MyProlongOp {
+  static constexpr bool OperationRequired(TopologicalElement fel,
+                                          TopologicalElement cel) {
+    return fel == cel;
+  }
+  template <int DIM, TopologicalElement EL = TopologicalElement::CC,
+            TopologicalElement /*CEL*/ = TopologicalElement::CC>
+  KOKKOS_FORCEINLINE_FUNCTION static void
+  Do(const int l, const int m, const int n, const int k, const int j, const int i,
+     const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
+     const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
+     const Coordinates_t &coords, const Coordinates_t &coarse_coords,
+     const ParArrayND<Real, VariableState> *pcoarse,
+     const ParArrayND<Real, VariableState> *pfine) {
+    return; // stub
+  }
+};
+struct MyRestrictOp {
+  static constexpr bool OperationRequired(TopologicalElement fel,
+                                          TopologicalElement cel) {
+    return fel == cel;
+  }
+  template <int DIM, TopologicalElement EL = TopologicalElement::CC,
+            TopologicalElement /*CEL*/ = TopologicalElement::CC>
+  KOKKOS_FORCEINLINE_FUNCTION static void
+  Do(const int l, const int m, const int n, const int ck, const int cj, const int ci,
+     const IndexRange &ckb, const IndexRange &cjb, const IndexRange &cib,
+     const IndexRange &kb, const IndexRange &jb, const IndexRange &ib,
+     const Coordinates_t &coords, const Coordinates_t &coarse_coords,
+     const ParArrayND<Real, VariableState> *pcoarse,
+     const ParArrayND<Real, VariableState> *pfine) {
+    return; // stub
+  }
+};
+
+struct SubsetVariableOne {
+  static std::string name() { return "typed_one"; }
+  static bool regex() { return false; }
+};
+
+struct SubsetVariableTwo {
+  static std::string name() { return "typed_two"; }
+  static bool regex() { return false; }
+};
 
 TEST_CASE("Test Add/Get in Packages_t", "[Packages_t]") {
   GIVEN("A Packages_t object and a few packages") {
@@ -59,6 +119,152 @@ TEST_CASE("Test Add/Get in Packages_t", "[Packages_t]") {
   }
 }
 
+TEST_CASE("Test mesh data subset registration in StateDescriptor",
+          "[StateDescriptor][MeshDataSubset]") {
+  StateDescriptor state("package");
+  MeshDataDescriptor requirements;
+  requirements.varnames = {"density", "velocity"};
+  requirements.flags = FC_t({Metadata::Independent, Metadata::FillGhost});
+  requirements.flags.TakeUnion(Metadata::Derived);
+  requirements.flags.Exclude(Metadata::Sparse);
+  requirements.sparse_ids = {1, 4, 8};
+  requirements.shallow = true;
+
+  state.RegisterMeshDataSubset("source", requirements);
+
+  SECTION("The registered subset can be found and is given a package-scoped name") {
+    REQUIRE(state.ContainsMeshDataSubset("source"));
+    REQUIRE_FALSE(state.ContainsMeshDataSubset("diagnostics"));
+    REQUIRE(state.GetMeshDataSubsetFullname("source") == "md_subset::package::source");
+  }
+
+  SECTION("Registration preserves all requirements") {
+    const auto &subsets = state.GetAllMeshDataSubsets();
+    REQUIRE(subsets.size() == 1);
+    REQUIRE(subsets.count("source") == 1);
+
+    const auto &registered = subsets.at("source");
+    REQUIRE(registered.varnames == std::vector<std::string>{"density", "velocity"});
+    REQUIRE(registered.flags.GetIntersections() == requirements.flags.GetIntersections());
+    REQUIRE(registered.flags.GetUnions() == requirements.flags.GetUnions());
+    REQUIRE(registered.flags.GetExclusions() == requirements.flags.GetExclusions());
+    REQUIRE(registered.sparse_ids == std::vector<int>{1, 4, 8});
+    REQUIRE(registered.shallow);
+    REQUIRE(registered.GetUids().empty());
+  }
+
+  SECTION("The StateDescriptor owns a copy of the requirements") {
+    requirements.varnames.push_back("pressure");
+    requirements.sparse_ids.clear();
+    requirements.shallow = false;
+
+    const auto &registered = state.GetAllMeshDataSubsets().at("source");
+    REQUIRE(registered.varnames == std::vector<std::string>{"density", "velocity"});
+    REQUIRE(registered.sparse_ids == std::vector<int>{1, 4, 8});
+    REQUIRE(registered.shallow);
+  }
+
+  SECTION("Multiple independently named subsets can be registered") {
+    MeshDataDescriptor diagnostics;
+    diagnostics.varnames = {"pressure"};
+    state.RegisterMeshDataSubset("diagnostics", diagnostics);
+
+    const auto &subsets = state.GetAllMeshDataSubsets();
+    REQUIRE(subsets.size() == 2);
+    REQUIRE(subsets.at("diagnostics").varnames == std::vector<std::string>{"pressure"});
+    REQUIRE(state.GetMeshDataSubsetFullname("diagnostics") ==
+            "md_subset::package::diagnostics");
+  }
+}
+
+TEST_CASE("Test variable registration in MeshDataDescriptor",
+          "[MeshDataDescriptor][MeshDataSubset]") {
+  MeshDataDescriptor requirements;
+
+  SECTION("A single string name can be registered") {
+    requirements.RegisterVariables("density");
+    REQUIRE(requirements.varnames == std::vector<std::string>{"density"});
+  }
+
+  SECTION("Multiple string names can be registered in one call") {
+    requirements.RegisterVariables("density", "pressure", "velocity");
+    REQUIRE(requirements.varnames ==
+            std::vector<std::string>{"density", "pressure", "velocity"});
+  }
+
+  SECTION("A vector of string names can be registered") {
+    const std::vector<std::string> names{"density", "pressure"};
+    requirements.RegisterVariables(names);
+    REQUIRE(requirements.varnames == names);
+  }
+
+  SECTION("Variable types can be registered as a template parameter pack") {
+    requirements.RegisterVariables<SubsetVariableOne, SubsetVariableTwo>();
+    REQUIRE(requirements.varnames == std::vector<std::string>{"typed_one", "typed_two"});
+  }
+
+  SECTION("Variable types can be registered from a TypeList") {
+    requirements.RegisterVariables(
+        parthenon::TypeList<SubsetVariableTwo, SubsetVariableOne>{});
+    REQUIRE(requirements.varnames == std::vector<std::string>{"typed_two", "typed_one"});
+  }
+
+  SECTION("Successive registrations append names in call order") {
+    requirements.RegisterVariables("density");
+    requirements.RegisterVariables(std::vector<std::string>{"pressure", "density"});
+    requirements.RegisterVariables<SubsetVariableOne>();
+
+    REQUIRE(requirements.varnames ==
+            std::vector<std::string>{"density", "pressure", "density", "typed_one"});
+  }
+}
+
+TEST_CASE("Test mesh data subset indexing in Packages_t",
+          "[Packages_t][MeshDataSubset]") {
+  Packages_t packages;
+  auto hydro = std::make_shared<StateDescriptor>("hydro");
+  auto gravity = std::make_shared<StateDescriptor>("gravity");
+  auto boundaries = std::make_shared<StateDescriptor>("boundaries");
+
+  MeshDataDescriptor requirements;
+  hydro->RegisterMeshDataSubset("source", requirements);
+  hydro->RegisterMeshDataSubset("diagnostics", requirements);
+  gravity->RegisterMeshDataSubset("source", requirements);
+
+  packages.Add(hydro);
+  packages.Add(gravity);
+  packages.Add(boundaries);
+
+  SECTION("Packages are grouped under every subset name they prescribe") {
+    const auto &indexed = packages.AllPackagesWithSubMeshData();
+    REQUIRE(indexed.size() == 2);
+    REQUIRE(indexed.count("source") == 1);
+    REQUIRE(indexed.count("diagnostics") == 1);
+
+    const auto &sources = indexed.at("source");
+    REQUIRE(sources.size() == 2);
+    REQUIRE(sources.at("hydro") == hydro);
+    REQUIRE(sources.at("gravity") == gravity);
+
+    const auto &diagnostics = indexed.at("diagnostics");
+    REQUIRE(diagnostics.size() == 1);
+    REQUIRE(diagnostics.at("hydro") == hydro);
+    REQUIRE(diagnostics.count("gravity") == 0);
+    REQUIRE(diagnostics.count("boundaries") == 0);
+  }
+
+  SECTION("Named lookup and const access return the indexed packages") {
+    REQUIRE(packages.AllPackagesWithSubMeshData("source").at("hydro") == hydro);
+
+    const Packages_t &const_packages = packages;
+    const auto &sources = const_packages.AllPackagesWithSubMeshData("source");
+    REQUIRE(sources.size() == 2);
+    REQUIRE(sources.at("gravity") == gravity);
+    REQUIRE(const_packages.AllPackagesWithSubMeshData().at("diagnostics").at("hydro") ==
+            hydro);
+  }
+}
+
 TEST_CASE("Test Associate in StateDescriptor", "[StateDescriptor]") {
   GIVEN("Some flags and state descriptors") {
     FlagVec foo = {Metadata::Independent, Metadata::FillGhost};
@@ -72,6 +278,39 @@ TEST_CASE("Test Associate in StateDescriptor", "[StateDescriptor]") {
         REQUIRE(state.FieldMetadata("bar").getAssociated() == "foo");
         REQUIRE(state.FieldMetadata("baz").getAssociated() == "baz");
       }
+    }
+  }
+}
+
+TEST_CASE("Test GetPackDimension in StateDescriptor", "[StateDescriptor]") {
+  GIVEN("Some flags and state descriptors") {
+    StateDescriptor state("state");
+    WHEN("We add some fields with various shapes and total size") {
+      state.AddField("foo", Metadata(std::vector<MetadataFlag>{}, std::vector<int>{4}));
+      state.AddField("bar",
+                     Metadata(std::vector<MetadataFlag>{}, std::vector<int>{4, 4}));
+      state.AddField("baz",
+                     Metadata(std::vector<MetadataFlag>{}, std::vector<int>{4, 4, 4}));
+      THEN("The total length is identified correctly") {
+        REQUIRE(state.GetPackDimension(Metadata::GetUserFlag("state")) == 84);
+      }
+    }
+  }
+}
+
+TEST_CASE("Test AddParamFromInput in StateDescriptor",
+          "[StateDescriptor][ParameterInput][Params]") {
+  GIVEN("A ParameterInput object containing a parameter and an empty StateDescrptor "
+        "object") {
+    parthenon::ParameterInput in1;
+    std::stringstream ss;
+    ss << "<block1>\n"
+       << "var1 = 0.0" << std::endl;
+    in1.LoadFromStream(ss);
+
+    StateDescriptor pkg("block1");
+    WHEN("We set a param from ParameterInput") {
+      pkg.AddParamFromInput("var1", static_cast<Real>(2.5), &in1);
     }
   }
 }
@@ -175,6 +414,14 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
             REQUIRE(pkg4->FieldMetadata("sparse", sparse_ids[i]) == (m_sparse_provides));
           }
         }
+        AND_THEN("The sparse ids in the sparse pool are sorted") {
+          auto &pool = (pkg4->GetSparsePool("sparse")).pool();
+          std::vector<int> local_ids;
+          for (auto &[id, m] : pool) {
+            local_ids.push_back(id);
+          }
+          REQUIRE(std::is_sorted(local_ids.begin(), local_ids.end()));
+        }
       }
     }
 
@@ -191,20 +438,20 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
     }
 
     WHEN("We add the same private swarm to two different packages") {
-      pkg1->AddSwarm("swarm", m_private);
-      pkg2->AddSwarm("swarm", m_private);
-      pkg1->AddSwarmValue("value1", "swarm", m_swarmval);
-      pkg2->AddSwarmValue("value2", "swarm", m_swarmval);
+      pkg1->AddSwarm("myswarm", m_private);
+      pkg2->AddSwarm("myswarm", m_private);
+      pkg1->AddSwarmValue("value1", "myswarm", m_swarmval);
+      pkg2->AddSwarmValue("value2", "myswarm", m_swarmval);
       THEN("We can safely resolve the conflicts") {
         auto pkg3 = ResolvePackages(packages);
         AND_THEN("The names are privately namespaced") {
-          REQUIRE(pkg3->SwarmPresent("package1::swarm"));
-          REQUIRE(pkg3->SwarmPresent("package2::swarm"));
-          REQUIRE(!(pkg3->SwarmPresent("swarm")));
+          REQUIRE(pkg3->SwarmPresent("package1::myswarm"));
+          REQUIRE(pkg3->SwarmPresent("package2::myswarm"));
+          REQUIRE(!(pkg3->SwarmPresent("myswarm")));
         }
         AND_THEN("The swarm values were added appropriately") {
-          REQUIRE(pkg3->SwarmValuePresent("value1", "package1::swarm"));
-          REQUIRE(pkg3->SwarmValuePresent("value2", "package2::swarm"));
+          REQUIRE(pkg3->SwarmValuePresent("value1", "package1::myswarm"));
+          REQUIRE(pkg3->SwarmValuePresent("value2", "package2::myswarm"));
         }
       }
     }
@@ -225,7 +472,11 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
         auto pkg3 = ResolvePackages(packages);
         AND_THEN("The provides package is available") {
           REQUIRE(pkg3->FieldPresent("dense"));
-          REQUIRE(pkg3->FieldMetadata("dense") == m_provides);
+          // add in package Metadata before checking equality
+          Metadata m_provides_local = m_provides;
+          m_provides_local.Set(Metadata::GetUserFlag("package2"));
+          m_provides_local.Set(Metadata::GetUserFlag("parthenon::resolved_state"));
+          REQUIRE(pkg3->FieldMetadata("dense") == m_provides_local);
         }
       }
     }
@@ -233,9 +484,9 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
     WHEN("We add an overridable variable and nothing else") {
       pkg1->AddField("dense", m_overridable);
       pkg2->AddSparsePool("sparse", m_sparse_overridable, sparse_ids);
-      pkg3->AddSwarm("swarm", m_overridable);
-      pkg3->AddSwarmValue("value1", "swarm", m_swarmval);
-      pkg3->AddSwarmValue("value2", "swarm", m_swarmval);
+      pkg3->AddSwarm("myswarm", m_overridable);
+      pkg3->AddSwarmValue("value1", "myswarm", m_swarmval);
+      pkg3->AddSwarmValue("value2", "myswarm", m_swarmval);
       THEN("We can safely resolve conflicts") {
         auto pkg4 = ResolvePackages(packages);
         AND_THEN("The overridable variables are retained") {
@@ -243,9 +494,9 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
           for (const int sid : sparse_ids) {
             REQUIRE(pkg4->FieldPresent("sparse", sid));
           }
-          REQUIRE(pkg4->SwarmPresent("swarm"));
-          REQUIRE(pkg4->SwarmValuePresent("value1", "swarm"));
-          REQUIRE(pkg4->SwarmValuePresent("value2", "swarm"));
+          REQUIRE(pkg4->SwarmPresent("myswarm"));
+          REQUIRE(pkg4->SwarmValuePresent("value1", "myswarm"));
+          REQUIRE(pkg4->SwarmValuePresent("value2", "myswarm"));
         }
       }
     }
@@ -255,15 +506,20 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
       pkg2->AddField("dense", m_overridable);
       pkg3->AddField("dense", m_overridable);
 
-      pkg1->AddSwarm("swarm", m_overridable);
-      pkg1->AddSwarmValue("overridable", "swarm", m_swarmval);
-      pkg2->AddSwarm("swarm", m_provides);
-      pkg2->AddSwarmValue("provides", "swarm", m_swarmval);
-      pkg3->AddSwarm("swarm", m_requires);
+      pkg1->AddSwarm("myswarm", m_overridable);
+      pkg1->AddSwarmValue("overridable", "myswarm", m_swarmval);
+      pkg2->AddSwarm("myswarm", m_provides);
+      pkg2->AddSwarmValue("provides", "myswarm", m_swarmval);
+      pkg3->AddSwarm("myswarm", m_requires);
 
       pkg1->AddSparsePool("sparse", m_sparse_overridable, sparse_ids);
       pkg2->AddSparsePool("sparse", m_sparse_overridable, sparse_ids);
       pkg3->AddSparsePool("sparse", m_sparse_provides, sparse_ids);
+
+      pkg2->AddSparsePool("sparse_a", m_sparse_provides, sparse_ids);
+      pkg2->AddSparsePool("sparse_b", m_sparse_provides, "sparse_a", sparse_ids);
+      pkg2->AddSparsePool("sparse_c", m_sparse_provides, "sparse_b", sparse_ids);
+
       for (const int sid : sparse_ids) {
         REQUIRE(pkg1->FieldPresent("sparse", sid));
         REQUIRE(pkg2->FieldPresent("sparse", sid));
@@ -271,14 +527,24 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
       }
 
       THEN("We can safely resolve conflicts") {
+        Metadata m_provides_swarm(m_provides);
+        // This is set automatically when adding a Swarm if not already set
+        m_provides_swarm.Set(Metadata::Swarm);
         auto pkg4 = ResolvePackages(packages);
         AND_THEN("The provides variables take precedence.") {
           REQUIRE(pkg4->FieldPresent("dense"));
-          REQUIRE(pkg4->FieldMetadata("dense") == m_provides);
-          REQUIRE(pkg4->SwarmPresent("swarm"));
-          REQUIRE(pkg4->SwarmMetadata("swarm") == m_provides);
-          REQUIRE(pkg4->SwarmValuePresent("provides", "swarm"));
-          REQUIRE(!(pkg4->SwarmValuePresent("overridable", "swarm")));
+          // add in package metadata before equality check
+          Metadata m_provides_local = m_provides;
+          m_provides_local.Set(Metadata::GetUserFlag("package1"));
+          m_provides_local.Set(Metadata::GetUserFlag("parthenon::resolved_state"));
+          REQUIRE(pkg4->FieldMetadata("dense") == m_provides_local);
+          REQUIRE(pkg4->SwarmPresent("myswarm"));
+          Metadata m_provides_swarm_local = m_provides_swarm;
+          m_provides_swarm_local.Set(Metadata::GetUserFlag("package2"));
+          m_provides_swarm_local.Set(Metadata::GetUserFlag("parthenon::resolved_state"));
+          REQUIRE(pkg4->SwarmMetadata("myswarm") == m_provides_swarm_local);
+          REQUIRE(pkg4->SwarmValuePresent("provides", "myswarm"));
+          REQUIRE(!(pkg4->SwarmValuePresent("overridable", "myswarm")));
           REQUIRE(pkg4->SparseBaseNamePresent("sparse"));
           for (const int sid : sparse_ids) {
             REQUIRE(pkg4->FieldPresent("sparse", sid));
@@ -286,6 +552,67 @@ TEST_CASE("Test dependency resolution in StateDescriptor", "[StateDescriptor]") 
           for (const int sid : sparse_ids) {
             REQUIRE(pkg4->FieldMetadata("sparse", sid) == m_sparse_provides);
           }
+        }
+        AND_THEN("The correct sparse allocation control is resolved.") {
+          auto controlled_vars_a = pkg4->GetControlledVariables("sparse_a_3");
+          REQUIRE(std::count(controlled_vars_a.begin(), controlled_vars_a.end(),
+                             "sparse_a_3") == 1);
+          REQUIRE(std::count(controlled_vars_a.begin(), controlled_vars_a.end(),
+                             "sparse_b_3") == 1);
+          REQUIRE(controlled_vars_a.size() == 2);
+
+          auto controlled_vars_b = pkg4->GetControlledVariables("sparse_b_3");
+          REQUIRE(std::count(controlled_vars_b.begin(), controlled_vars_b.end(),
+                             "sparse_c_3") == 1);
+          REQUIRE(controlled_vars_b.size() == 1);
+
+          auto controlled_vars_c = pkg4->GetControlledVariables("sparse_c_3");
+          REQUIRE(controlled_vars_c.size() == 0);
+
+          auto controlled_vars_dense = pkg4->GetControlledVariables("dense");
+          REQUIRE(std::count(controlled_vars_dense.begin(), controlled_vars_dense.end(),
+                             "dense") == 1);
+          REQUIRE(controlled_vars_dense.size() == 1);
+        }
+      }
+    }
+
+    WHEN("We register a dense variable with default prolongation/restriction") {
+      pkg1->AddField("dense", m_provides);
+      WHEN("We register a sparse variable with custom prolongation/restriction") {
+        auto m_sparse_provides_ = m_sparse_provides;
+        m_sparse_provides_.RegisterRefinementOps<MyProlongOp, MyRestrictOp>();
+        pkg2->AddSparsePool("sparse", m_sparse_provides_, sparse_ids);
+        THEN("We can perform dependency resolution") {
+          auto pkg3 = ResolvePackages(packages);
+          AND_THEN("The two relevant prolongation restriction operators exist, are "
+                   "appropriately set, and have unique ids") {
+            const auto my_funcs =
+                parthenon::refinement::RefinementFunctions_t::RegisterOps<MyProlongOp,
+                                                                          MyRestrictOp>();
+            const auto cell_funcs =
+                parthenon::refinement::RefinementFunctions_t::RegisterOps<
+                    parthenon::refinement_ops::ProlongateSharedMinMod,
+                    parthenon::refinement_ops::RestrictAverage>();
+            REQUIRE(pkg3->NumRefinementFuncs() == 2);
+            REQUIRE((pkg3->RefinementFuncID(my_funcs)) !=
+                    (pkg3->RefinementFuncID(cell_funcs)));
+            REQUIRE(pkg3->FieldMetadata("dense").GetRefinementFunctions() == cell_funcs);
+            for (int i = 0; i < sparse_ids.size(); i++) {
+              REQUIRE(
+                  pkg3->FieldMetadata("sparse", sparse_ids[i]).GetRefinementFunctions() ==
+                  my_funcs);
+            }
+          }
+        }
+      }
+      // TODO(JMM): This test should go away when issue #844 is resolved
+      WHEN("We register a var that needs prolongation/restriction without ops") {
+        Metadata m_dangerous(
+            FlagVec{Metadata::Sparse, Metadata::Derived, Metadata::OneCopy});
+        m_dangerous.Set(Metadata::FillGhost);
+        THEN("Dependency resolution captures an ill-formed variable") {
+          REQUIRE_THROWS(pkg2->AddSparsePool("sparse", m_dangerous, sparse_ids));
         }
       }
     }
@@ -400,6 +727,76 @@ TEST_CASE("Test SparsePool interface", "[StateDescriptor]") {
       REQUIRE(pkg->AddField("fake2_sparse_27", Metadata()));
       REQUIRE_THROWS(
           pkg->AddSparsePool("fake2_sparse", meta_sparse, std::vector<int>{13, 27, 9}));
+    }
+  }
+}
+
+TEST_CASE("Test getting a vector of variable names given criteria", "[StateDescriptor]") {
+  FlagVec m_indc = {Metadata::Independent, Metadata::FillGhost, Metadata::Cell};
+  FlagVec m_indf = {Metadata::Independent, Metadata::FillGhost, Metadata::Face};
+  FlagVec m_derc = {Metadata::Derived, Metadata::OneCopy, Metadata::Cell};
+  FlagVec m_sparse = {Metadata::Sparse, Metadata::OneCopy};
+
+  StateDescriptor state("state");
+  state.AddField("indc", m_indc);
+  state.AddField("indf", m_indf);
+  state.AddField("derc", m_derc);
+  state.AddSparsePool("sp", m_sparse, std::vector<int>{3, 7, 12});
+  GIVEN("A state descriptor with some fields with differenet metadata") {
+    WHEN("We ask for fields by name") {
+      std::vector<std::string> req_names({"indc", "derc"});
+      auto names = state.GetVariableNames(req_names);
+      THEN("The vector contains the requested fields") { REQUIRE(names == req_names); }
+    }
+    WHEN("We ask for fields by metadata") {
+      FC_t fc =
+          FC_t({Metadata::Independent, Metadata::FillGhost}) - FC_t({Metadata::Face});
+      auto names = state.GetVariableNames(fc);
+      THEN("The vector contains the request fields") {
+        REQUIRE(names == std::vector<std::string>({"indc"}));
+      }
+    }
+    WHEN("We try to pull out sparse fields by base name") {
+      std::vector<std::string> bname({"sp"});
+      auto names = state.GetVariableNames(bname);
+      THEN("We should get all the sparse variables tied to that base name") {
+        REQUIRE(names == std::vector<std::string>({"sp_3", "sp_7", "sp_12"}));
+      }
+    }
+    WHEN("We try to filter based on sparse ids") {
+      std::vector<std::string> bname({"sp"});
+      std::vector<int> sids({3, 12});
+      auto names = state.GetVariableNames(bname, sids);
+      THEN("We should get only the ids we asked for") {
+        REQUIRE(names == std::vector<std::string>({"sp_3", "sp_12"}));
+      }
+    }
+    WHEN("We use metadata and filter on sparse ids") {
+      FC_t fc({Metadata::OneCopy});
+      std::vector<int> sids({3, 12});
+      auto names = state.GetVariableNames(fc, sids);
+      THEN("We should get fields that satisfy the metadata criteria including only "
+           "specific sparse ids") {
+        REQUIRE(names == std::vector<std::string>({"derc", "sp_3", "sp_12"}));
+      }
+    }
+    WHEN("We use all possible filters") {
+      std::vector<std::string> req_names({"indc", "indf"});
+      FC_t fc = FC_t({Metadata::OneCopy}) - FC_t({Metadata::Cell});
+      std::vector<int> sids({3, 7});
+      auto names = state.GetVariableNames(req_names, fc, sids);
+      THEN("We should get just what we asked for") {
+        REQUIRE(names == std::vector<std::string>({"indc", "indf", "sp_3", "sp_7"}));
+      }
+    }
+    WHEN("We ask for a specific sparse id by name") {
+      std::vector<std::string> req_names({"indc", "sp_7"});
+      REQUIRE_THROWS(state.GetVariableNames(req_names));
+    }
+    WHEN("We ask for metadata that are not satisfied for any variable") {
+      FC_t fc = FC_t({Metadata::Independent, Metadata::Sparse});
+      auto names = state.GetVariableNames(fc);
+      THEN("We should get nothing back") { REQUIRE(names == std::vector<std::string>()); }
     }
   }
 }

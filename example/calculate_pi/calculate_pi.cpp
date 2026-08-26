@@ -49,10 +49,10 @@ void SetInOrOut(MeshBlockData<Real> *rc) {
   if (use_sparse) {
     auto &bs = pmb->block_size;
     // check if block falls on radius.
-    Real coords[4][2] = {{bs.x1min, bs.x2min},
-                         {bs.x1min, bs.x2max},
-                         {bs.x1max, bs.x2min},
-                         {bs.x1max, bs.x2max}};
+    Real coords[4][2] = {{bs.xmin(X1DIR), bs.xmin(X2DIR)},
+                         {bs.xmin(X1DIR), bs.xmax(X2DIR)},
+                         {bs.xmax(X1DIR), bs.xmin(X2DIR)},
+                         {bs.xmax(X1DIR), bs.xmax(X2DIR)}};
 
     bool fully_outside = true;
 
@@ -88,9 +88,9 @@ void SetInOrOut(MeshBlockData<Real> *rc) {
   // Loop bounds are set to catch the case where the edge is between the
   // cell centers of the first/last real cell and the first ghost cell
   pmb->par_for(
-      "SetInOrOut", kb.s, kb.e, jb.s - 1, jb.e + 1, ib.s - 1, ib.e + 1,
+      PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s - 1, jb.e + 1, ib.s - 1, ib.e + 1,
       KOKKOS_LAMBDA(const int k, const int j, const int i) {
-        Real rsq = std::pow(coords.x1v(i), 2) + std::pow(coords.x2v(j), 2);
+        Real rsq = std::pow(coords.Xc<1>(i), 2) + std::pow(coords.Xc<2>(j), 2);
         if (rsq < radius * radius) {
           v(k, j, i) = 1.0;
         } else {
@@ -159,7 +159,7 @@ Real ComputeAreaInternal(MeshBlockPack<VariablePack<Real>> pack, ParArrayHost<Re
         // Must check if in_or_out is allocated for sparse variables
         if (check_allocated(b, v)) {
           larea +=
-              pack(b, v, k, j, i) * pack.GetCoords(b).Area(parthenon::X3DIR, k, j, i);
+              pack(b, v, k, j, i) * pack.GetCoords(b).FaceArea<parthenon::X3DIR>(k, j, i);
         }
       },
       area);
@@ -199,7 +199,7 @@ TaskStatus AccumulateAreas(ParArrayHost<Real> areas, Packages_t &packages) {
   const auto &radius = packages.Get("calculate_pi")->Param<Real>("radius");
 
   Real area = 0.0;
-  for (int i = 0; i < areas.GetSize(); i++) {
+  for (std::size_t i = 0; i < areas.GetSize(); i++) {
     area += areas(i);
   }
   area /= (radius * radius);
