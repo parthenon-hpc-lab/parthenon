@@ -208,12 +208,45 @@ Kokkos initializes the accumulator to the reducer's identity, not a seed. `value
 
 ## Current Backend Requirement
 
-The raw and Kokkos implementations are expected to satisfy the same contract for a given `IndexSpace`.
+The raw and Kokkos implementations are expected to satisfy the same indexing and
+coverage contract for a given `IndexSpace`. Backend choice may change execution
+order and which invocations run concurrently; user kernels must not depend on either.
+
+### Raw backend and OpenMP
+
+The raw backend is still selected as `loop_backend::raw`; OpenMP is not a separate
+loop backend. Its loop nests contain OpenMP directives that become active when the
+build sets `PARTHENON_ENABLE_RAW_OPENMP=ON` and otherwise leave an ordinary serial
+host loop (apart from any compiler handling of the SIMD directives).
+
+The current raw outer-loop decomposition is:
+
+| Loop tag | OpenMP work-sharing in `outer(...)` |
+| --- | --- |
+| `bvoi` | Parallelize the block loop. |
+| `bovi` | Parallelize the collapsed `(block, outer chunk)` loops. This exposes parallel work even for a one-block run when it has multiple chunks. |
+| `boiv` | Keep the block loop outside the parallel region; for each block, parallelize the collapsed `(k, j)` loops and mark the `i` loop SIMD. |
+
+Raw inner loops use `omp simd` on their contiguous innermost loops where applicable.
+This is deliberately moderate OpenMP support rather than a general nested-parallel
+execution model. In particular:
+
+- An `outer(...)` body may execute concurrently for different ranges, and no ordering
+  between those invocations is guaranteed.
+- Each invocation must observe its own correct `InnerIndexRange` state. Backend
+  implementation must not introduce races by sharing mutable current-point/range state.
+- The user's writes must be disjoint across outer ranges or use appropriate
+  synchronization. Captured host state is not made thread-safe by the abstraction.
+- Do not assume that raw `outer(...)` composes safely or efficiently inside another
+  OpenMP parallel region, a separate host-threaded region, or a Kokkos parallel region.
+  Nested use requires deliberate coordination of the threading models.
+- Completion of `outer(...)` remains a synchronization point for the work it launches.
 
 For tests, the safest reference is:
 
 - a plain host nested loop over `(b, v, k, j, i)` for logical-cell correctness
 - direct raw-vs-Kokkos comparison for backend parity
+- raw-backend coverage and race-sensitive checks with more than one OpenMP thread
 
 The tests should not reimplement the abstraction logic as a second source of truth.
 
@@ -237,6 +270,51 @@ The current intent is:
 - `boiv` should remain a very thin adapter around the pack and current range.
 
 This is the first-class way to access variables in kernels written using the loop abstraction.
+
+### Single-variable views and component offsets
+
+`make_var_view(inner_range, pack, var)` resolves `var` to one absolute variable
+index in the pack for the current block. `var` may be a typed index or a raw integral
+pack index. The returned view supports the ordinary single-variable forms:
+
+```cpp
+pv(kji);
+pv(k, j, i);
+```
+
+It also supports a relative packed-variable offset as the first argument:
+
+```cpp
+auto pv = make_var_view(idx_range, pack, my_vec_var());
+
+inner(idx_range, [&](auto kji) {
+  pv(component, kji) = value;
+});
+```
+
+The meaning is:
+
+```text
+pv(component, point) == pack(block, base_variable_index + component, point)
+```
+
+This makes a view rooted at the first component of a vector/tensor-type variable
+usable for all of that variable's components without constructing a separate view
+for each component. The point argument follows the selected inner-tag contract:
+
+- flat and memory paths accept the loop's flat `int`/`MemoryOffset` index;
+- `logical_coords` accepts `Index3` or explicit `(k, j, i)` coordinates, with the
+  component offset prepended.
+
+The first argument is a pack-variable offset, not a logical-space
+offset. It may select a vector/tensor component, which are represented
+as consecutive variable entries in the pack.
+
+The caller must keep the offset within the consecutive pack entries represented by the
+variable family; there is no bounds check. Those entries must have the same topology
+and memory layout. Flat/memory views cache the stride between consecutive pack entries,
+while `logical_coords` views forward `base_variable_index + offset` to the pack, but
+both forms must have the semantics above.
 
 ## Planned Extensions
 

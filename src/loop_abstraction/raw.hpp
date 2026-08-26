@@ -27,17 +27,31 @@ void outer_raw_for(IndexSpaceType idx_space, F &&f) {
   using InnerIndexRangeType = InnerIndexRange<IndexSpaceType>;
   if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bvoi) {
     const auto &logical_kji = idx_space.GetLogicalIndexer();
+    // TODO(JMM): This allows a 1 block simulation to be paralellized
+    // and vectorized with the raw backend by distributing the outer
+    // loop indices over blocks. That said, use with caution as it
+    // won't mix well with threads or Kokkos.
+#pragma omp parallel for
     for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
       // Reclaim last iteration's per-point scratch (see BumpArena).
+      // JMM: Note BumpArena is a thread-local singleton. So this is
+      // thread-safe.
       parthenon::GetBumpArena().reset();
       InnerIndexRangeType idx_range(idx_space, idx_space.GetLogicalIndexer(), b);
       f(idx_range, b);
     }
   } else if constexpr (IndexSpaceType::loop_tag_v == loop_tag::bovi) {
     const int nouter = GetNOuter(idx_space);
+    // TODO(JMM): This allows a 1 block simulation to be paralellized
+    // and vectorized with the raw backend by distributing the outer
+    // loop indices over blocks. That said, use with caution as it
+    // won't mix well with threads or Kokkos.
+#pragma omp parallel for collapse(2)
     for (int b = 0; b < idx_space.GetNBlocks(); ++b) {
       for (int o = 0; o < nouter; ++o) {
         // Reclaim last iteration's per-point scratch (see BumpArena).
+        // JMM: Note BumpArena is a thread-local singleton. So this is
+        // thread-safe.
         parthenon::GetBumpArena().reset();
         const int logical_start = o * idx_space.GetNInner();
         const int logical_end =
@@ -60,14 +74,20 @@ void outer_raw_for(IndexSpaceType idx_space, F &&f) {
     idx_range.pidx_space = &idx_space;
     for (idx_range.block = 0; idx_range.block < idx_space.GetNBlocks();
          ++idx_range.block) {
+      // TODO(JMM): This allows a 1 block simulation to be paralellized
+      // and vectorized with the raw backend by distributing the outer
+      // loop indices over blocks. That said, use with caution as it
+      // won't mix well with threads or Kokkos.
+#pragma omp parallel for collapse(2)
       for (int k = ks; k <= ke; ++k) {
         for (int j = js; j <= je; ++j) {
 #pragma omp simd
           for (int i = is; i <= ie; ++i) {
-            idx_range.ks = k;
-            idx_range.js = j;
-            idx_range.is = i;
-            f(idx_range, idx_range.block);
+            auto range_local = idx_range;
+            range_local.ks = k;
+            range_local.js = j;
+            range_local.is = i;
+            f(range_local, range_local.block);
           }
         }
       }
