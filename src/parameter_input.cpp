@@ -194,6 +194,7 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
       "Can't add new parameters to the linked list after the map is resolved.");
   std::stringstream par, msg;
   constexpr int kBufSize = 4096;
+  constexpr IOWrapperSizeT kMaxInputHeaderSize = 10 * 1024 * 1024; // 10 MiB
   char buf[kBufSize];
   IOWrapperSizeT header = 0, ret, loc;
 
@@ -215,9 +216,9 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
       header = loc + 10;             // store the header length
       break;
     }
-    if (header > kBufSize * 10) {
+    if (header > kMaxInputHeaderSize) {
       msg << "### FATAL ERROR in function [ParameterInput::LoadFromFile]"
-          << "<par_end> is not found in the first 40KBytes." << std::endl
+          << "<par_end> is not found in the first 10MiB." << std::endl
           << "Probably the file is broken or a wrong file is specified" << std::endl;
       PARTHENON_FAIL(msg);
     }

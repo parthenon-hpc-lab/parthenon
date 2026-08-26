@@ -29,7 +29,7 @@
 
 namespace parthenon::loop_abstraction {
 
-template <class IndexSpaceType, class PackType, class... Ts>
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG, class PackType, class... Ts>
 struct pack_view_t {
   using TL = parthenon::TypeList<Ts...>;
   KOKKOS_DEFAULTED_FUNCTION
@@ -74,7 +74,7 @@ struct pack_view_t {
     Real *base = data_[SumSizesBefore<TL, var_t>() + v.idx];
     PARTHENON_DEBUG_REQUIRE(base != nullptr,
                             "pack view accessed for a variable with no flux array");
-    return base[pidx_space->GetMemoryIndexer().GetFlatIdx(in.k, in.j, in.i) - shift_];
+    return base[memory_indexer->GetFlatIdx(in.k, in.j, in.i) - shift_];
   }
 
   template <class var_t>
@@ -92,7 +92,7 @@ struct pack_view_t {
                        (static_cast<int>(te) % 3) * var_t::size() + v.idx];
     PARTHENON_DEBUG_REQUIRE(base != nullptr,
                             "pack view accessed for a variable with no flux array");
-    return base[pidx_space->GetMemoryIndexer().GetFlatIdx(in.k, in.j, in.i) - shift_];
+    return base[memory_indexer->GetFlatIdx(in.k, in.j, in.i) - shift_];
   }
 
   template <class var_t>
@@ -103,18 +103,15 @@ struct pack_view_t {
 
   std::array<parthenon::Real *, SumSizesBefore<TL>()> data_{};
   int shift_ = 0;
-  const IndexSpaceType *pidx_space = nullptr;
+  const parthenon::Indexer3D *memory_indexer = nullptr;
 };
 
-template <loop_tag LOOP_TAG, loop_backend BACKEND, class PackType, class... Ts>
-class pack_view_t<IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>, PackType,
-                  Ts...> {
+template <loop_tag LOOP_TAG, class PackType, class... Ts>
+class pack_view_t<LOOP_TAG, inner_tag::logical_coords, PackType, Ts...> {
   int b = 0;
   int s = 0;
 
  public:
-  using IndexSpaceType = IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>;
-
   const PackType *pack = nullptr;
 
   KOKKOS_DEFAULTED_FUNCTION
@@ -166,14 +163,16 @@ make_pack_view_impl(const InnerIndexRange<IndexSpaceType> &idx_range,
                     const sparse_pack_t &pack_in, const int s,
                     parthenon::TypeList<Ts...>) {
   using TL = parthenon::TypeList<Ts...>;
-  if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
-    return pack_view_t<IndexSpaceType, sparse_pack_t, Ts...>{&pack_in, idx_range.block,
-                                                             s};
+  constexpr loop_tag LOOP_TAG = IndexSpaceType::loop_tag_v;
+  constexpr inner_tag INNER_TAG = IndexSpaceType::inner_tag_v;
+  if constexpr (INNER_TAG == inner_tag::logical_coords) {
+    return pack_view_t<LOOP_TAG, INNER_TAG, sparse_pack_t, Ts...>{&pack_in,
+                                                                  idx_range.block, s};
   } else {
-    pack_view_t<IndexSpaceType, sparse_pack_t, Ts...> out;
-    out.pidx_space = idx_range.pidx_space;
-    out.shift_ = idx_range.pidx_space->GetMemoryIndexer().GetFlatIdx(
-        idx_range.ks, idx_range.js, idx_range.is);
+    pack_view_t<LOOP_TAG, INNER_TAG, sparse_pack_t, Ts...> out;
+    const auto &memory_indexer = idx_range.pidx_space->GetMemoryIndexer();
+    out.memory_indexer = &memory_indexer;
+    out.shift_ = memory_indexer.GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
     (
         [&] {
           constexpr std::size_t vstart = SumSizesBefore<TL, Ts>();
@@ -231,7 +230,7 @@ make_sparse_pack_view(const InnerIndexRange<IndexSpaceType> &idx_range,
 // Unlike pack_view_t, operator() takes no variable argument: it addresses that one
 // variable directly. Index contracts (int / MemoryOffset / Index3 / k,j,i) match
 // pack_view_t.
-template <class IndexSpaceType, class PackType>
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG, class PackType>
 struct var_view_t {
   KOKKOS_DEFAULTED_FUNCTION
   var_view_t() = default;
@@ -239,27 +238,40 @@ struct var_view_t {
   KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(int idx) const {
     return data_[idx];
   }
+
+  KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(int var_offset, int idx) const {
+    return data_[var_offset * stride_ + idx];
+  }
+
   KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(MemoryOffset idx) const {
     return data_[idx.flat];
   }
   KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(Index3 in) const {
-    return data_[pidx_space->GetMemoryIndexer().GetFlatIdx(in.k, in.j, in.i) - shift_];
+    return data_[memory_indexer->GetFlatIdx(in.k, in.j, in.i) - shift_];
   }
   KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(int k, int j, int i) const {
     return (*this)(Index3{k, j, i});
   }
 
+  // TODO(JMM/LFR): If we are really worried about the number of
+  // members in var_views impacting register pressure or having other
+  // performance impacts, we could specialize var_views more to only
+  // include the Real* member and nothing else for most inner loop
+  // tags. That would require not allowing var_views to be used in
+  // loops with the functor signature (int k, int j, int i). We could
+  // also template on the variable type itself, and only store the
+  // offset when the variable is not a scalar. This may be overkill
+  // though.
   parthenon::Real *data_ = nullptr;
   int shift_ = 0;
-  const IndexSpaceType *pidx_space = nullptr;
+  int stride_ = 0;
+  const parthenon::Indexer3D *memory_indexer = nullptr;
 };
 
 // logical_coords specialization: forward straight to pack(b, vidx, k,j,i), no cached
 // pointer (mirrors pack_view_t's logical_coords specialization).
-template <loop_tag LOOP_TAG, loop_backend BACKEND, class PackType>
-struct var_view_t<IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>, PackType> {
-  using IndexSpaceType = IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>;
-
+template <loop_tag LOOP_TAG, class PackType>
+struct var_view_t<LOOP_TAG, inner_tag::logical_coords, PackType> {
   const PackType *pack = nullptr;
   int b = 0;
   int vidx = 0;
@@ -277,6 +289,13 @@ struct var_view_t<IndexSpace<LOOP_TAG, inner_tag::logical_coords, BACKEND>, Pack
   KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(int k, int j, int i) const {
     return (*pack)(b, vidx, k, j, i);
   }
+  KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(int offset, Index3 in) const {
+    return (*pack)(b, vidx + offset, in.k, in.j, in.i);
+  }
+  KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(int offset, int k, int j,
+                                                          int i) const {
+    return (*pack)(b, vidx + offset, k, j, i);
+  }
 };
 
 // View over a single (anonymous) variable of `pack_in`, addressed by raw int or typed
@@ -285,19 +304,25 @@ template <class IndexSpaceType, class PackType, class IndexType>
 KOKKOS_INLINE_FUNCTION auto
 make_var_view(const InnerIndexRange<IndexSpaceType> &idx_range, const PackType &pack_in,
               const IndexType &var) {
+  constexpr loop_tag LOOP_TAG = IndexSpaceType::loop_tag_v;
+  constexpr inner_tag INNER_TAG = IndexSpaceType::inner_tag_v;
   const int vidx = pack_in.GetIndex(idx_range.block, var);
-  if constexpr (IndexSpaceType::inner_tag_v == inner_tag::logical_coords) {
-    return var_view_t<IndexSpaceType, PackType>{&pack_in, idx_range.block, vidx};
+  if constexpr (INNER_TAG == inner_tag::logical_coords) {
+    return var_view_t<LOOP_TAG, INNER_TAG, PackType>{&pack_in, idx_range.block, vidx};
   } else {
-    var_view_t<IndexSpaceType, PackType> out;
-    out.pidx_space = idx_range.pidx_space;
-    out.shift_ = idx_range.pidx_space->GetMemoryIndexer().GetFlatIdx(
-        idx_range.ks, idx_range.js, idx_range.is);
+    var_view_t<LOOP_TAG, INNER_TAG, PackType> out;
+    const auto &memory_indexer = idx_range.pidx_space->GetMemoryIndexer();
+    out.memory_indexer = &memory_indexer;
+    out.shift_ = memory_indexer.GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
     out.data_ = pack_in(idx_range.block, vidx).data() + out.shift_;
+    const int vidx_next = ((pack_in.GetSize() > vidx + 1) &&
+                           (pack_in(idx_range.block, vidx).tensor_components > 1))
+                              ? vidx + 1
+                              : vidx;
+    out.stride_ = pack_in(idx_range.block, vidx_next).data() + out.shift_ - out.data_;
     return out;
   }
 }
-
 } // namespace parthenon::loop_abstraction
 
 #endif // LOOP_ABSTRACTION_PACK_VIEW_HPP_

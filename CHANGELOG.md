@@ -5,6 +5,9 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1431]](https://github.com/parthenon-hpc-lab/parthenon/pull/1431) Add reductions to the loop abstraction
+- [[PR 1429]](https://github.com/parthenon-hpc-lab/parthenon/pull/1429) Fixes to swarm tensor xdmf
+- [[PR 1428]](https://github.com/parthenon-hpc-lab/parthenon/pull/1428) Permit larger input file sizes
 - [[PR 1415]](https://github.com/parthenon-hpc-lab/parthenon/pull/1415) Add portable loop abstraction
 - [[PR 1413]](https://github.com/parthenon-hpc-lab/parthenon/pull/1413) Add support for per-package meshdata objects containing subsets of variables 
 - [[PR 1403]](https://github.com/parthenon-hpc-lab/parthenon/pull/1403) Add interface for Fourier transforms on uniform meshes via heFFTe
@@ -25,6 +28,7 @@
 
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1438]](https://github.com/parthenon-hpc-lab/parthenon/pull/1438) Performance tuning for the loop abstraction machinery and add loop abstraction OpenMP support
 - [[PR 1416][(https://github.com/parthenon-hpc-lab/parthenon/pull/1416) Remove virtual tag from destructors in sparse and swarm pack base classes
 - [[PR 1401]](https://github.com/parthenon-hpc-lab/parthenon/pull/1401) Sparse Field Component Names
 - [[PR 1331]](https://github.com/parthenon-hpc-lab/parthenon/pull/1331) Use `size_t` for sizes
@@ -32,6 +36,8 @@
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1435]](https://github.com/parthenon-hpc-lab/parthenon/pull/1435) Fix loop abstraction scratch sizing for multi-axis (corner) halos
+- [[PR 1434]](https://github.com/parthenon-hpc-lab/parthenon/pull/1434) Repair nodal field output in XDMF.
 - [[PR 1430]](https://github.com/parthenon-hpc-lab/parthenon/pull/1430) Fix BiCGSTAB returning NaN when a solve converges in its first half step
 - [[PR 1412]](https://github.com/parthenon-hpc-lab/parthenon/pull/1412) Fix single precision compilation with `Real=float`
 - [[PR 1411]](https://github.com/parthenon-hpc-lab/parthenon/pull/1411) Fix bug where ParameterInput::GetOrAddVector<std::string> was ambiguous

@@ -407,7 +407,7 @@ if (ENABLE_MPI)
   target_link_libraries(parthenon PUBLIC MPI::MPI_CXX)
 endif()
 
-if (ENABLE_OPENMP)
+if (PARTHENON_ENABLE_RAW_OPENMP)
   target_link_libraries(parthenon PUBLIC OpenMP::OpenMP_CXX)
 endif()
 

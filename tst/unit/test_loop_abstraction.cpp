@@ -15,12 +15,22 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
+#include <cstdlib>
+#include <limits>
 #include <memory>
+#include <mutex>
+#include <set>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <type_traits>
 #include <utility>
 #include <vector>
+
+#if defined(_OPENMP)
+#include <omp.h>
+#endif
 
 #include <catch2/catch.hpp>
 
@@ -42,7 +52,6 @@ namespace {
 // loop_abstraction now lives under parthenon; keep the short name for the test body.
 namespace loop_abstraction = parthenon::loop_abstraction;
 
-using Real = double;
 using loop_abstraction::default_loop_backend_v;
 using loop_abstraction::Index3;
 using loop_abstraction::IndexSpace;
@@ -57,6 +66,7 @@ using parthenon::IndexDomain;
 using parthenon::MeshBlock;
 using parthenon::MeshData;
 using parthenon::Metadata;
+using parthenon::Real;
 using parthenon::StateDescriptor;
 using parthenon::TopologicalElement;
 using parthenon::TopologicalType;
@@ -317,6 +327,14 @@ struct vf : public parthenon::variable_names::base_w_tt_t<false, TopologicalType
   static constexpr bool is_sparse() { return false; }
 };
 
+struct var_view_vec3 : public parthenon::variable_names::base_t<false, 3> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION var_view_vec3(Ts &&...args)
+      : parthenon::variable_names::base_t<false, 3>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "var_view_vec3"; }
+  static constexpr bool is_sparse() { return false; }
+};
+
 KOKKOS_INLINE_FUNCTION Real PackViewSourceValue(const int b, const int src_var,
                                                 const int k, const int j, const int i) {
   return 1.0e6 * static_cast<Real>(b) + 1.0e5 * static_cast<Real>(src_var + 1) +
@@ -379,6 +397,30 @@ struct plus_two_i_minus_k_halo_t {
   KOKKOS_INLINE_FUNCTION static constexpr int di(int n) { return n == 1 ? 0 : 2; }
 };
 
+// Standard 7-point stencil plus an extra -2i offset. Its bounding box has multi-axis
+// corners (e.g. (-1,-1,-2)) that lie in no single shifted copy of the block, so a
+// bvoi loop -- which sweeps the whole rectangular halo-extended box -- indexes scratch
+// cells outside the shifted-copy union. Regression for a scratch under-allocation /
+// negative-index under-run that segfaulted for non-square blocks. Offsets sorted
+// lexicographically by (dk, dj, di). Projection-closed: every offset projects onto a
+// declared offset in 2D and 1D.
+struct seven_point_minus_two_i_halo_t {
+  static constexpr int npoints = 8;
+  KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) {
+    return n == 0 ? -1 : (n == 7 ? 1 : 0);
+  }
+  KOKKOS_INLINE_FUNCTION static constexpr int dj(int n) {
+    return n == 1 ? -1 : (n == 6 ? 1 : 0);
+  }
+  KOKKOS_INLINE_FUNCTION static constexpr int di(int n) {
+    // n: 0(-1,0,0) 1(0,-1,0) 2(0,0,-2) 3(0,0,-1) 4(0,0,0) 5(0,0,1) 6(0,1,0) 7(1,0,0)
+    if (n == 2) return -2;
+    if (n == 3) return -1;
+    if (n == 5) return 1;
+    return 0;
+  }
+};
+
 struct k_triplet_halo_t {
   static constexpr int npoints = 3;
   KOKKOS_INLINE_FUNCTION static constexpr int dk(int n) {
@@ -415,6 +457,8 @@ static_assert(loop_abstraction::impl::HaloSatisfiesContract<plus_j_halo_t>());
 static_assert(loop_abstraction::impl::HaloSatisfiesContract<minus_i_halo_t>());
 static_assert(loop_abstraction::impl::HaloSatisfiesContract<minus_j_halo_t>());
 static_assert(loop_abstraction::impl::HaloSatisfiesContract<plus_two_i_minus_k_halo_t>());
+static_assert(
+    loop_abstraction::impl::HaloSatisfiesContract<seven_point_minus_two_i_halo_t>());
 static_assert(loop_abstraction::impl::HaloSatisfiesContract<k_triplet_halo_t>());
 static_assert(!loop_abstraction::impl::HaloSatisfiesContract<unsorted_halo_t>());
 static_assert(
@@ -443,6 +487,8 @@ static_assert(loop_abstraction::impl::HaloIsProjectionClosed<minus_i_halo_t>());
 static_assert(loop_abstraction::impl::HaloIsProjectionClosed<k_triplet_halo_t>());
 static_assert(
     loop_abstraction::impl::HaloIsProjectionClosed<plus_two_i_minus_k_halo_t>());
+static_assert(
+    loop_abstraction::impl::HaloIsProjectionClosed<seven_point_minus_two_i_halo_t>());
 static_assert(
     !loop_abstraction::impl::HaloIsProjectionClosed<not_projection_closed_halo_t>());
 
@@ -996,6 +1042,105 @@ void RunVarViewPatternMatrix() {
   }
 }
 
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunVarViewDenseOffsetCase(const PackViewSpec &spec, const int ninner) {
+  const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
+  INFO("dense offset pattern=" << pattern_name << ", ninner=" << ninner);
+
+  ScopedNghost guard;
+  parthenon::Globals::nghost = spec.nghost;
+
+  const std::vector<int> scalar_shape{spec.ncell + 2 * spec.nghost,
+                                      spec.ncell + 2 * spec.nghost,
+                                      spec.ncell + 2 * spec.nghost};
+  auto vector_shape = scalar_shape;
+  vector_shape.push_back(3);
+  Metadata scalar_m({Metadata::Independent}, scalar_shape);
+  Metadata vector_m({Metadata::Independent, Metadata::Vector}, vector_shape);
+  auto pkg = std::make_shared<StateDescriptor>("VarView dense offset package");
+  pkg->AddField<v1>(scalar_m);
+  pkg->AddField<var_view_vec3>(vector_m);
+  pkg->AddField<v5>(scalar_m);
+
+  BlockList_t block_list = MakeBlockList(pkg, spec.nblocks, spec.ncell, 3);
+  MeshData<Real> mesh_data("base");
+  mesh_data.Initialize(block_list, nullptr);
+
+  auto desc = parthenon::MakePackDescriptor<v1, var_view_vec3, v5>(pkg.get());
+  auto sparse_pack = desc.GetPack(&mesh_data);
+  const auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
+  const auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::entire);
+  const auto kb = block_list[0]->cellbounds.GetBoundsK(IndexDomain::entire);
+  constexpr Real before_sentinel = -101.0;
+  constexpr Real after_sentinel = -202.0;
+
+  for (int b = 0; b < spec.nblocks; ++b) {
+    parthenon::par_for(
+        parthenon::loop_pattern_mdrange_tag, "initialize dense var view offsets",
+        parthenon::DevExecSpace(), kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(int k, int j, int i) {
+          sparse_pack(b, v1(), k, j, i) = before_sentinel;
+          for (int c = 0; c < 3; ++c) {
+            sparse_pack(b, var_view_vec3(c), k, j, i) = -1.0;
+          }
+          sparse_pack(b, v5(), k, j, i) = after_sentinel;
+        });
+  }
+  Kokkos::fence();
+
+  using IndexSpaceType = IndexSpace<LOOP_TAG, INNER_TAG>;
+  IndexSpaceType idx_space(spec.nblocks, spec.ncell, spec.ncell, spec.ncell, spec.nghost,
+                           ninner);
+  loop_abstraction::outer(
+      idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
+        auto vec =
+            loop_abstraction::make_var_view(idx_range, sparse_pack, var_view_vec3());
+        loop_abstraction::inner(idx_range, [&](auto idx) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          if constexpr (INNER_TAG == inner_tag::logical_coords) {
+            vec(0, idx) = PackViewExpectedValue(b, 0, k, j, i);
+            vec(1, k, j, i) = PackViewExpectedValue(b, 1, k, j, i);
+            vec(2, idx) = PackViewExpectedValue(b, 2, k, j, i);
+          } else {
+            for (int c = 0; c < 3; ++c) {
+              vec(c, idx) = PackViewExpectedValue(b, c, k, j, i);
+            }
+          }
+        });
+      });
+  Kokkos::fence();
+
+  int nwrong = 0;
+  const auto ib_int = block_list[0]->cellbounds.GetBoundsI(IndexDomain::interior);
+  const auto jb_int = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::interior);
+  const auto kb_int = block_list[0]->cellbounds.GetBoundsK(IndexDomain::interior);
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag, "check dense var view offsets",
+      parthenon::DevExecSpace(), 0, sparse_pack.GetNBlocks() - 1, kb_int.s, kb_int.e,
+      jb_int.s, jb_int.e, ib_int.s, ib_int.e,
+      KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+        if (sparse_pack(b, v1(), k, j, i) != before_sentinel) ++ltot;
+        for (int c = 0; c < 3; ++c) {
+          if (sparse_pack(b, var_view_vec3(c), k, j, i) !=
+              PackViewExpectedValue(b, c, k, j, i)) {
+            ++ltot;
+          }
+        }
+        if (sparse_pack(b, v5(), k, j, i) != after_sentinel) ++ltot;
+      },
+      nwrong);
+  REQUIRE(nwrong == 0);
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunVarViewDenseOffsetPattern() {
+  constexpr PackViewSpec spec{2, 3, 2};
+  const int logical_cells = spec.ncell * spec.ncell * spec.ncell;
+  for (const int ninner : PackViewNinnerCases(logical_cells)) {
+    RunVarViewDenseOffsetCase<LOOP_TAG, INNER_TAG>(spec, ninner);
+  }
+}
+
 // Single-variable (anonymous) flux view: write a known pattern into one variable's flux
 // array through make_flux_view, read it back through sparse_pack.flux(). Exercises
 // flux_view_t end to end, covering both a typed index (v1()) and raw int indices.
@@ -1274,6 +1419,65 @@ void RunScratchPatternMatrix() {
   }
 }
 
+// Verify that the dedicated OpenMP CTest invocation really executes raw bovi outer
+// ranges on more than one host worker. The ordinary unit-test invocation also runs
+// this case, but only requires one worker unless CMake sets the expectation marker.
+void RunRawOpenMPWorkerProbe() {
+  using IndexSpaceType =
+      PatternIndexSpace<loop_tag::bovi, inner_tag::logical_flat, loop_backend::raw>;
+  IndexSpaceType idx_space(/*nblocks=*/1, /*nx=*/16, /*ny=*/8, /*nz=*/4,
+                           /*nghost=*/0, /*ninner=*/1);
+  std::mutex worker_mutex;
+  std::set<std::thread::id> workers;
+  const bool expect_openmp = std::getenv("PARTHENON_TEST_EXPECT_OPENMP") != nullptr;
+
+#if defined(_OPENMP)
+  if (expect_openmp) {
+    omp_set_dynamic(0);
+    omp_set_num_threads(4);
+  }
+#else
+  REQUIRE_FALSE(expect_openmp);
+#endif
+
+  loop_abstraction::outer(
+      idx_space, [&](const InnerIndexRange<IndexSpaceType> & /*idx_range*/, int /*b*/) {
+        const std::lock_guard<std::mutex> lock(worker_mutex);
+        workers.insert(std::this_thread::get_id());
+      });
+
+  REQUIRE_FALSE(workers.empty());
+  if (expect_openmp) {
+    REQUIRE(workers.size() > 1);
+  }
+}
+
+// Regression for the raw boiv outer loop: every SIMD iteration needs its own range
+// state. A shared range races on ks/js/is and manifests as duplicate and missing cells.
+template <inner_tag INNER_TAG>
+void RunRawBoivRangeIsolationCase() {
+  using IndexSpaceType = PatternIndexSpace<loop_tag::boiv, INNER_TAG, loop_backend::raw>;
+  IndexSpaceType idx_space(/*nblocks=*/1, /*nx=*/17, /*ny=*/11, /*nz=*/9,
+                           /*nghost=*/0);
+  const auto logical = idx_space.GetLogicalIndexer();
+  std::vector<std::atomic<int>> touches(logical.size());
+  for (auto &touch : touches)
+    touch.store(0, std::memory_order_relaxed);
+
+  loop_abstraction::outer(
+      idx_space, [&](const InnerIndexRange<IndexSpaceType> &idx_range, int /*b*/) {
+        loop_abstraction::inner(idx_range, [&](auto idx) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          const int flat = logical.GetFlatIdx(k, j, i);
+          touches[flat].fetch_add(1, std::memory_order_relaxed);
+        });
+      });
+
+  for (const auto &touch : touches) {
+    REQUIRE(touch.load(std::memory_order_relaxed) == 1);
+  }
+}
+
 template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG,
           loop_backend BACKEND = default_loop_backend_v>
 void RunScratchHaloCase(const ProblemSpec &spec, const int ninner) {
@@ -1362,6 +1566,237 @@ void RunBoivScratchMixedDeltaCase(const ProblemSpec &spec) {
   REQUIRE(wrong.total() == 0);
 }
 
+// --------------------------------------------------------------------------------------
+// Reduction coverage. outer_reduce/inner_reduce fold a single Kokkos reducer over the
+// logical cells of the space. The value reduced is EncodeValue(b, 0, k, j, i); the host
+// reference iterates the same logical cells so results are exact.
+// --------------------------------------------------------------------------------------
+
+// Host reference reductions over every logical cell of every block.
+template <class IndexSpaceType>
+Real ReferenceSum(const IndexSpaceType &idx_space) {
+  const auto &logical = idx_space.GetLogicalIndexer();
+  Real total = 0.0;
+  for (int b = 0; b < idx_space.GetNBlocks(); ++b)
+    for (int flat = 0; flat < static_cast<int>(logical.size()); ++flat) {
+      const auto [k, j, i] = logical(flat);
+      total += EncodeValue(b, 0, k, j, i);
+    }
+  return total;
+}
+
+template <class IndexSpaceType>
+Real ReferenceMin(const IndexSpaceType &idx_space) {
+  const auto &logical = idx_space.GetLogicalIndexer();
+  Real best = std::numeric_limits<Real>::max();
+  for (int b = 0; b < idx_space.GetNBlocks(); ++b)
+    for (int flat = 0; flat < static_cast<int>(logical.size()); ++flat) {
+      const auto [k, j, i] = logical(flat);
+      best = std::min(best, EncodeValue(b, 0, k, j, i));
+    }
+  return best;
+}
+
+template <class IndexSpaceType>
+Real ReferenceMax(const IndexSpaceType &idx_space) {
+  const auto &logical = idx_space.GetLogicalIndexer();
+  Real best = std::numeric_limits<Real>::lowest();
+  for (int b = 0; b < idx_space.GetNBlocks(); ++b)
+    for (int flat = 0; flat < static_cast<int>(logical.size()); ++flat) {
+      const auto [k, j, i] = logical(flat);
+      best = std::max(best, EncodeValue(b, 0, k, j, i));
+    }
+  return best;
+}
+
+// Reduction index space for a given tag pair and reducer (backend defaulted).
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG, class Reducer>
+using ReduceIST = loop_abstraction::ReductionIndexSpace<LOOP_TAG, INNER_TAG, Reducer>;
+
+// Sum EncodeValue over the whole space with outer_reduce + a single inner_reduce, using
+// the preferred returning form.
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+Real RunReduceSum(const ProblemSpec &spec, const int ninner) {
+  using RIST = ReduceIST<LOOP_TAG, INNER_TAG, Kokkos::Sum<Real>>;
+  RIST idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
+  return loop_abstraction::outer_reduce(
+      idx_space, KOKKOS_LAMBDA(const RIST::idx_range_t &idx_range, int b) {
+        loop_abstraction::inner_reduce(idx_range, [&](auto idx, auto &v) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          v += EncodeValue(b, 0, k, j, i);
+        });
+      });
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+Real RunReduceMin(const ProblemSpec &spec, const int ninner) {
+  using RIST = ReduceIST<LOOP_TAG, INNER_TAG, Kokkos::Min<Real>>;
+  RIST idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
+  return loop_abstraction::outer_reduce(
+      idx_space, KOKKOS_LAMBDA(const RIST::idx_range_t &idx_range, int b) {
+        loop_abstraction::inner_reduce(idx_range, [&](auto idx, auto &v) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          v = Kokkos::min(v, EncodeValue(b, 0, k, j, i));
+        });
+      });
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+Real RunReduceMax(const ProblemSpec &spec, const int ninner) {
+  using RIST = ReduceIST<LOOP_TAG, INNER_TAG, Kokkos::Max<Real>>;
+  RIST idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
+  return loop_abstraction::outer_reduce(
+      idx_space, KOKKOS_LAMBDA(const RIST::idx_range_t &idx_range, int b) {
+        loop_abstraction::inner_reduce(idx_range, [&](auto idx, auto &v) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          v = Kokkos::max(v, EncodeValue(b, 0, k, j, i));
+        });
+      });
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunReducePatternMatrix() {
+  for (const auto &spec : CoverageSpecs()) {
+    for (const int ninner : NinnerCases(spec.nx * spec.ny * spec.nz)) {
+      const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
+      INFO("pattern=" << pattern_name << ", ninner=" << ninner);
+      PatternIndexSpace<LOOP_TAG, INNER_TAG> ref(spec.nblocks, spec.nx, spec.ny, spec.nz,
+                                                 spec.nghost, ninner);
+      REQUIRE(RunReduceSum<LOOP_TAG, INNER_TAG>(spec, ninner) ==
+              Approx(ReferenceSum(ref)));
+      REQUIRE(RunReduceMin<LOOP_TAG, INNER_TAG>(spec, ninner) ==
+              Approx(ReferenceMin(ref)));
+      REQUIRE(RunReduceMax<LOOP_TAG, INNER_TAG>(spec, ninner) ==
+              Approx(ReferenceMax(ref)));
+    }
+  }
+}
+
+// Interleave a plain inner (fill scratch) with an inner_reduce (reduce over scratch)
+// inside a single outer_reduce region. Reduces the per-cell sum-over-vars, so the
+// expected total is ReferenceSum scaled by summing ScratchExpectedValue.
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+Real RunReduceScratchInterleave(const ProblemSpec &spec, const int ninner) {
+  using RIST = ReduceIST<LOOP_TAG, INNER_TAG, Kokkos::Sum<Real>>;
+  RIST idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
+  idx_space.template AddPerPointScratch<Real>();
+  return loop_abstraction::outer_reduce(
+      idx_space, KOKKOS_LAMBDA(const RIST::idx_range_t &idx_range, int b) {
+        auto scratch = loop_abstraction::GetPerPointScratch<Real>(idx_range);
+        scratch.Zero();
+        idx_range.TeamBarrier();
+        // Variable (component) loop OUTSIDE the inner cell loop, matching the
+        // per-cell-accumulator pattern in the docs: each iteration is a full inner
+        // sweep that adds one component's contribution, with a barrier between sweeps.
+        for (int v = 0; v < kNVars; ++v) {
+          loop_abstraction::inner(idx_range, [&](auto idx) {
+            const auto [k, j, i] = idx_range.GetKJI(idx);
+            scratch(idx) += EncodeValue(b, v, k, j, i);
+          });
+          idx_range.TeamBarrier();
+        }
+        loop_abstraction::inner_reduce(idx_range,
+                                       [&](auto idx, auto &v) { v += scratch(idx); });
+      });
+}
+
+template <class IndexSpaceType>
+Real ReferenceScratchSum(const IndexSpaceType &idx_space) {
+  const auto &logical = idx_space.GetLogicalIndexer();
+  Real total = 0.0;
+  for (int b = 0; b < idx_space.GetNBlocks(); ++b)
+    for (int flat = 0; flat < static_cast<int>(logical.size()); ++flat) {
+      const auto [k, j, i] = logical(flat);
+      total += ScratchExpectedValue(b, k, j, i);
+    }
+  return total;
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunReduceScratchInterleavePatternMatrix() {
+  for (const auto &spec : CoverageSpecs()) {
+    for (const int ninner : NinnerCases(spec.nx * spec.ny * spec.nz)) {
+      const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
+      INFO("pattern=" << pattern_name << ", ninner=" << ninner);
+      PatternIndexSpace<LOOP_TAG, INNER_TAG> ref(spec.nblocks, spec.nx, spec.ny, spec.nz,
+                                                 spec.nghost, ninner);
+      REQUIRE(RunReduceScratchInterleave<LOOP_TAG, INNER_TAG>(spec, ninner) ==
+              Approx(ReferenceScratchSum(ref)));
+    }
+  }
+}
+
+// Two inner_reduce calls in one region, each covering the same cells, must double the
+// single-inner_reduce sum (both join into the same accumulator).
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+Real RunReduceTwoInner(const ProblemSpec &spec, const int ninner) {
+  using RIST = ReduceIST<LOOP_TAG, INNER_TAG, Kokkos::Sum<Real>>;
+  RIST idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
+  return loop_abstraction::outer_reduce(
+      idx_space, KOKKOS_LAMBDA(const RIST::idx_range_t &idx_range, int b) {
+        loop_abstraction::inner_reduce(idx_range, [&](auto idx, auto &v) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          v += EncodeValue(b, 0, k, j, i);
+        });
+        loop_abstraction::inner_reduce(idx_range, [&](auto idx, auto &v) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          v += EncodeValue(b, 0, k, j, i);
+        });
+      });
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunReduceTwoInnerPatternMatrix() {
+  for (const auto &spec : CoverageSpecs()) {
+    for (const int ninner : NinnerCases(spec.nx * spec.ny * spec.nz)) {
+      const auto pattern_name = PatternName<LOOP_TAG, INNER_TAG>();
+      INFO("pattern=" << pattern_name << ", ninner=" << ninner);
+      PatternIndexSpace<LOOP_TAG, INNER_TAG> ref(spec.nblocks, spec.nx, spec.ny, spec.nz,
+                                                 spec.nghost, ninner);
+      REQUIRE(RunReduceTwoInner<LOOP_TAG, INNER_TAG>(spec, ninner) ==
+              Approx(2.0 * ReferenceSum(ref)));
+    }
+  }
+}
+
+// The per-range reduction state costs zero bytes for a non-reduction space
+// ([[no_unique_address]] over an empty ReduceState), so an ordinary range is not
+// enlarged by the reduction machinery. The reduction range is larger (it carries the
+// accumulator pointer).
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+constexpr bool NonReductionRangeUnchanged() {
+  using plain_t = InnerIndexRange<PatternIndexSpace<LOOP_TAG, INNER_TAG>>;
+  using reduce_t = InnerIndexRange<ReduceIST<LOOP_TAG, INNER_TAG, Kokkos::Sum<Real>>>;
+  return sizeof(plain_t) < sizeof(reduce_t);
+}
+static_assert(NonReductionRangeUnchanged<loop_tag::bvoi, inner_tag::logical_flat>());
+static_assert(NonReductionRangeUnchanged<loop_tag::bovi, inner_tag::memory>());
+static_assert(NonReductionRangeUnchanged<loop_tag::boiv, inner_tag::logical_coords>());
+
+// Escape-hatch form: reduce into a caller-constructed reducer instance bound to a
+// device View, then copy the single result back. Exercises the instance-bound
+// outer_reduce overload (returns void) rather than the returning form.
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+Real RunReduceInstanceBound(const ProblemSpec &spec, const int ninner) {
+  using result_view_t = Kokkos::View<Real>;
+  using reducer_t = Kokkos::Sum<Real, result_view_t::memory_space>;
+  using RIST = ReduceIST<LOOP_TAG, INNER_TAG, reducer_t>;
+  RIST idx_space(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost, ninner);
+  result_view_t result_view("reduce_result");
+  loop_abstraction::outer_reduce(
+      idx_space,
+      KOKKOS_LAMBDA(const RIST::idx_range_t &idx_range, int b) {
+        loop_abstraction::inner_reduce(idx_range, [&](auto idx, auto &v) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          v += EncodeValue(b, 0, k, j, i);
+        });
+      },
+      reducer_t(result_view));
+  Real result = 0.0;
+  Kokkos::deep_copy(result, result_view);
+  return result;
+}
+
 } // namespace
 
 // The TEST_CASEs below enumerate every valid (loop_tag, inner_tag) pair. The
@@ -1414,6 +1849,32 @@ TEST_CASE("loop abstraction scratch Zero", "[loop_abstraction][contract][scratch
   RunScratchZeroPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
 }
 
+TEST_CASE("loop abstraction raw OpenMP worker probe",
+          "[loop_abstraction][contract][openmp]") {
+  RunRawOpenMPWorkerProbe();
+}
+
+TEST_CASE("loop abstraction raw OpenMP boiv range isolation",
+          "[loop_abstraction][contract][openmp]") {
+  RunRawBoivRangeIsolationCase<inner_tag::logical_flat>();
+  RunRawBoivRangeIsolationCase<inner_tag::logical_coords>();
+}
+
+TEST_CASE("loop abstraction raw OpenMP bump arena isolation",
+          "[loop_abstraction][contract][openmp][scratch]") {
+  if constexpr (default_loop_backend_v == loop_backend::raw) {
+    // One block with many chunks exercises repeated reset/allocation independently
+    // on each worker's thread-local arena.
+    RunScratchCase<loop_tag::bovi, inner_tag::logical_flat, loop_backend::raw>(
+        ProblemSpec{1, 12, 8, 6, 1}, /*ninner=*/7);
+    // Multiple blocks exercise block-parallel arena ownership.
+    RunScratchCase<loop_tag::bvoi, inner_tag::logical_flat, loop_backend::raw>(
+        ProblemSpec{8, 8, 5, 4, 1}, /*ninner=*/40);
+  } else {
+    SUCCEED("Raw scratch is only runnable when host memory is directly accessible.");
+  }
+}
+
 TEST_CASE("loop abstraction scratch Zero kokkos",
           "[loop_abstraction][contract][scratch]") {
   RunScratchZeroPatternMatrix<loop_tag::bvoi, inner_tag::logical_flat,
@@ -1460,6 +1921,52 @@ TEST_CASE("loop abstraction scratch halo roundtrip",
   RunScratchHaloPatternMatrix<plus_j_halo_t, loop_tag::bovi, inner_tag::memory>();
   RunScratchHaloPatternMatrix<plus_j_halo_t, loop_tag::boiv, inner_tag::logical_flat>();
   RunScratchHaloPatternMatrix<plus_j_halo_t, loop_tag::boiv, inner_tag::logical_coords>();
+}
+
+// Run one scratch-halo case on every available backend: always the kokkos backend
+// (valid on host and device), and additionally the raw backend on a host build (where
+// raw is the default; on a device build the raw backend would drive host loops over
+// device memory).
+template <class HaloType, loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunScratchHaloCaseBothBackends(const ProblemSpec &spec, const int ninner) {
+  RunScratchHaloCase<HaloType, LOOP_TAG, INNER_TAG, loop_backend::kokkos>(spec, ninner);
+  if constexpr (default_loop_backend_v == loop_backend::raw) {
+    RunScratchHaloCase<HaloType, LOOP_TAG, INNER_TAG, loop_backend::raw>(spec, ninner);
+  }
+}
+
+// Regression: a multi-axis "corner" halo (7-point + -2i), whose rectangular
+// halo-extended box has corners outside the union of shifted copies. A bvoi loop
+// sweeps the whole box, so scratch must be sized/indexed over the box, not the union.
+// Before the fix this under-allocated and under-ran the scratch buffer, segfaulting for
+// non-square blocks. Exercised over every valid (loop_tag, inner_tag) pair, both
+// backends, and rectangular specs (unequal nx/ny/nz) which is where it bit. boiv/memory
+// is intentionally absent (rejected at compile time, see the top-level note).
+TEST_CASE("loop abstraction corner halo scratch",
+          "[loop_abstraction][contract][scratch][halo]") {
+  using halo_t = seven_point_minus_two_i_halo_t;
+  const std::array<ProblemSpec, 3> specs{
+      ProblemSpec{2, 8, 4, 3, 2}, ProblemSpec{1, 4, 8, 2, 2}, ProblemSpec{2, 6, 3, 5, 3}};
+  for (const auto &spec : specs) {
+    for (const int ninner : NinnerCases(spec.nx * spec.ny * spec.nz)) {
+      RunScratchHaloCaseBothBackends<halo_t, loop_tag::bvoi, inner_tag::logical_flat>(
+          spec, ninner);
+      RunScratchHaloCaseBothBackends<halo_t, loop_tag::bvoi, inner_tag::logical_coords>(
+          spec, ninner);
+      RunScratchHaloCaseBothBackends<halo_t, loop_tag::bvoi, inner_tag::memory>(spec,
+                                                                                ninner);
+      RunScratchHaloCaseBothBackends<halo_t, loop_tag::bovi, inner_tag::logical_flat>(
+          spec, ninner);
+      RunScratchHaloCaseBothBackends<halo_t, loop_tag::bovi, inner_tag::logical_coords>(
+          spec, ninner);
+      RunScratchHaloCaseBothBackends<halo_t, loop_tag::bovi, inner_tag::memory>(spec,
+                                                                                ninner);
+      RunScratchHaloCaseBothBackends<halo_t, loop_tag::boiv, inner_tag::logical_flat>(
+          spec, ninner);
+      RunScratchHaloCaseBothBackends<halo_t, loop_tag::boiv, inner_tag::logical_coords>(
+          spec, ninner);
+    }
+  }
 }
 
 TEST_CASE("loop abstraction boiv scratch halo GetDelta access",
@@ -1638,6 +2145,18 @@ TEST_CASE("loop abstraction var view contracts",
   RunVarViewPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
 }
 
+TEST_CASE("loop abstraction dense var view component offsets",
+          "[loop_abstraction][contract][pack_view][var_view_offset]") {
+  RunVarViewDenseOffsetPattern<loop_tag::bvoi, inner_tag::logical_flat>();
+  RunVarViewDenseOffsetPattern<loop_tag::bvoi, inner_tag::logical_coords>();
+  RunVarViewDenseOffsetPattern<loop_tag::bvoi, inner_tag::memory>();
+  RunVarViewDenseOffsetPattern<loop_tag::bovi, inner_tag::logical_flat>();
+  RunVarViewDenseOffsetPattern<loop_tag::bovi, inner_tag::logical_coords>();
+  RunVarViewDenseOffsetPattern<loop_tag::bovi, inner_tag::memory>();
+  RunVarViewDenseOffsetPattern<loop_tag::boiv, inner_tag::logical_flat>();
+  RunVarViewDenseOffsetPattern<loop_tag::boiv, inner_tag::logical_coords>();
+}
+
 TEST_CASE("loop abstraction var flux view contracts",
           "[loop_abstraction][contract][pack_view]") {
   RunVarFluxViewPatternMatrix<loop_tag::bvoi, inner_tag::logical_flat>();
@@ -1648,4 +2167,72 @@ TEST_CASE("loop abstraction var flux view contracts",
   RunVarFluxViewPatternMatrix<loop_tag::bovi, inner_tag::memory>();
   RunVarFluxViewPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
   RunVarFluxViewPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
+}
+
+// Sum/Min/Max over every valid (loop_tag, inner_tag) pair. The memory inner tag
+// degenerates to logical_flat for reductions, so it must match the logical reference
+// (ghost cells excluded) -- covered here by using the same ReferenceSum/Min/Max.
+TEST_CASE("loop abstraction reductions", "[loop_abstraction][reduction]") {
+  RunReducePatternMatrix<loop_tag::bvoi, inner_tag::logical_flat>();
+  RunReducePatternMatrix<loop_tag::bvoi, inner_tag::logical_coords>();
+  RunReducePatternMatrix<loop_tag::bvoi, inner_tag::memory>();
+  RunReducePatternMatrix<loop_tag::bovi, inner_tag::logical_flat>();
+  RunReducePatternMatrix<loop_tag::bovi, inner_tag::logical_coords>();
+  RunReducePatternMatrix<loop_tag::bovi, inner_tag::memory>();
+  RunReducePatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
+  RunReducePatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
+}
+
+// Interleave a plain inner (fill scratch) with an inner_reduce over that scratch in one
+// region. Scratch is supported for every tag (stack-allocated for boiv, Kokkos team
+// scratch otherwise), so this runs the full pattern matrix.
+TEST_CASE("loop abstraction reduction scratch interleave",
+          "[loop_abstraction][reduction][scratch]") {
+  RunReduceScratchInterleavePatternMatrix<loop_tag::bvoi, inner_tag::logical_flat>();
+  RunReduceScratchInterleavePatternMatrix<loop_tag::bvoi, inner_tag::logical_coords>();
+  RunReduceScratchInterleavePatternMatrix<loop_tag::bvoi, inner_tag::memory>();
+  RunReduceScratchInterleavePatternMatrix<loop_tag::bovi, inner_tag::logical_flat>();
+  RunReduceScratchInterleavePatternMatrix<loop_tag::bovi, inner_tag::logical_coords>();
+  RunReduceScratchInterleavePatternMatrix<loop_tag::bovi, inner_tag::memory>();
+  RunReduceScratchInterleavePatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
+  RunReduceScratchInterleavePatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
+}
+
+// Two inner_reduce calls joining into the same handle sum to twice a single pass.
+TEST_CASE("loop abstraction reduction two inner regions",
+          "[loop_abstraction][reduction]") {
+  RunReduceTwoInnerPatternMatrix<loop_tag::bvoi, inner_tag::logical_flat>();
+  RunReduceTwoInnerPatternMatrix<loop_tag::bvoi, inner_tag::logical_coords>();
+  RunReduceTwoInnerPatternMatrix<loop_tag::bvoi, inner_tag::memory>();
+  RunReduceTwoInnerPatternMatrix<loop_tag::bovi, inner_tag::logical_flat>();
+  RunReduceTwoInnerPatternMatrix<loop_tag::bovi, inner_tag::logical_coords>();
+  RunReduceTwoInnerPatternMatrix<loop_tag::bovi, inner_tag::memory>();
+  RunReduceTwoInnerPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>();
+  RunReduceTwoInnerPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>();
+}
+
+// The instance-bound outer_reduce overload (reducer bound to a View) must give the same
+// result as the returning form.
+TEST_CASE("loop abstraction reduction instance-bound reducer",
+          "[loop_abstraction][reduction]") {
+  auto check = [](auto lt_c, auto it_c) {
+    constexpr loop_tag LT = decltype(lt_c)::value;
+    constexpr inner_tag IT = decltype(it_c)::value;
+    for (const auto &spec : CoverageSpecs()) {
+      for (const int ninner : NinnerCases(spec.nx * spec.ny * spec.nz)) {
+        const auto pattern_name = PatternName<LT, IT>();
+        INFO("pattern=" << pattern_name << ", ninner=" << ninner);
+        PatternIndexSpace<LT, IT> ref(spec.nblocks, spec.nx, spec.ny, spec.nz,
+                                      spec.nghost, ninner);
+        REQUIRE(RunReduceInstanceBound<LT, IT>(spec, ninner) ==
+                Approx(ReferenceSum(ref)));
+      }
+    }
+  };
+  check(std::integral_constant<loop_tag, loop_tag::bvoi>{},
+        std::integral_constant<inner_tag, inner_tag::logical_flat>{});
+  check(std::integral_constant<loop_tag, loop_tag::bovi>{},
+        std::integral_constant<inner_tag, inner_tag::memory>{});
+  check(std::integral_constant<loop_tag, loop_tag::boiv>{},
+        std::integral_constant<inner_tag, inner_tag::logical_coords>{});
 }

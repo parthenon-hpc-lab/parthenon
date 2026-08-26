@@ -29,8 +29,8 @@ Two objects and two free functions form the core of the API:
 - ``IndexSpace<loop_tag, inner_tag, backend>`` describes the logical
   ``(block, k, j, i)`` iteration space and the memory layout of a block. The three
   template parameters fix the loop shape, the inner traversal, and the backend at
-  compile time. The backend has a default that is raw for loops with simd markings 
-  on host and kokkos based loops on device.
+  compile time. The backend defaults to raw host loops (with OpenMP work-sharing and
+  SIMD directives when enabled) on host and Kokkos-based loops on device.
 - ``InnerIndexRange`` is one slice of an ``IndexSpace`` (a block plus the current
   chunk of ``kji`` space). It is the object handed to inner loop bodies and knows how
   to translate between flat, memory, and logical ``(k, j, i)`` indices.
@@ -137,7 +137,8 @@ Backend selection
 
 The third ``IndexSpace`` template parameter is the ``loop_backend``:
 
-- ``loop_backend::raw`` -- a plain host loop nest (with ``#pragma omp simd``).
+- ``loop_backend::raw`` -- a host loop nest with OpenMP work-sharing and SIMD
+  directives when OpenMP is enabled.
 - ``loop_backend::kokkos`` -- dispatch through Kokkos parallel policies.
 
 It defaults to ``default_loop_backend_v``, which is ``raw`` when the device execution
@@ -145,6 +146,18 @@ space is the host space and ``kokkos`` otherwise. ``outer``/``inner`` dispatch o
 tag with ``if constexpr``, so the selection is zero-cost. Pinning the tag explicitly
 is mostly useful in tests that want to exercise a specific backend regardless of the
 build.
+
+OpenMP is not a third backend; it augments the raw backend. The raw ``bvoi`` path
+parallelizes blocks, ``bovi`` parallelizes the collapsed block/chunk space, and
+``boiv`` processes blocks in turn while parallelizing the collapsed ``(k, j)`` space
+and marking the ``i`` loop SIMD. Thus ``bovi`` and ``boiv`` can expose thread-level
+parallelism in a one-block run, while ``bvoi`` requires multiple blocks for it.
+
+An outer body may therefore run concurrently for multiple ranges, with no guaranteed
+order. Writes from distinct ranges must be disjoint or synchronized, and mutable host
+state captured by a body must be thread-safe. Treat raw ``outer(...)`` as a top-level
+parallel operation: nesting it inside another OpenMP, host-threaded, or Kokkos parallel
+region requires explicit coordination and may oversubscribe threads.
 
 Body signatures
 ---------------
@@ -161,6 +174,7 @@ Per-point scratch is registered on the ``IndexSpace`` at setup and requested ins
 the outer body:
 
 .. code:: cpp
+
    using recon_halo = la::halo::minus_i_t;
    idx_space.AddPerPointScratch<Real>();          // one Real per point
    idx_space.AddPerPointScratch<Real, 2, 3>();    // a 2x3 block per point
@@ -179,6 +193,63 @@ scratch for the Kokkos backend for other paths), but the user-facing indexing is
 As with raw nested parallelism, call ``idx_range.TeamBarrier()`` between a producer inner
 loop and a consumer that reads values written by other threads.
 
+Reductions
+----------
+
+``outer_reduce``/``inner_reduce`` mirror ``outer``/``inner`` but fold a single Kokkos
+reducer over the index space. They are **Kokkos-only**: they always dispatch to the
+Kokkos backend regardless of the ``IndexSpace`` backend tag (on a host-only build the
+device execution space *is* the host, so the Kokkos reduce still runs there), and
+there is no raw reduction path.
+
+The reducer is baked into the index-space type. Build a reduction space with
+``ReductionIndexSpace<lt, it, R>`` (which hides the backend template parameter) or by
+rebinding an existing space with ``idx_space.WithReducer<R>()``. Its ``idx_range_t``
+then carries the reduction, so the outer body is just ``(idx_range, int b)`` -- no
+handle to thread through. The preferred ``outer_reduce`` overload constructs the reducer
+over a fresh result and **returns** it (the result is a host scalar, so the reduce is
+synchronous and the value is valid on return, no fence needed):
+
+.. code:: cpp
+
+   using rist = la::ReductionIndexSpace<lt, it, Kokkos::Sum<Real>>;
+   rist idx_space(/* ... */);
+
+   auto result = la::outer_reduce(idx_space,
+     // Outer body param types must be named, not auto (nvcc rejects generic extended
+     // lambdas). The inner_reduce body is an ordinary lambda, so auto is fine there.
+     KOKKOS_LAMBDA(const rist::idx_range_t &idx_range, int b) {
+       la::inner_reduce(idx_range, [&](auto idx, auto &v) {
+         v += /* something at idx */;
+       });
+     });
+
+An overload instead takes a caller-constructed reducer instance *last*, matching ``Kokkos::parallel_reduce(policy, functor, reducer)``. This returns void and its reducer type must match the space's ``reduction_t``. This overload is necessary for, e.g., reducing into a
+``View``, ``ScatterView``, or device memory.
+
+Because the reducer type lives on the index space, ``inner_reduce`` uses the 
+reducer's merge operation to combine each inner team reduction into the enclosing
+reduction without the caller restating it, and a single ``outer_reduce`` region may
+contain several ``inner_reduce`` calls (interleaved with plain ``inner`` calls that
+only fill scratch) that all join into one accumulator. There is one reducer per region.
+The ``inner_reduce`` body takes the usual index form plus a trailing reduction-value
+reference.
+
+Two rules keep reductions off ghost cells:
+
+- **No reductions over halo ranges.** ``inner_reduce`` ``static_assert``\ s that the
+  range's halo is ``none_t``. Extend a range only for producer (scratch) ``inner``
+  loops and reduce over the base, halo-free range.
+- **The** ``memory`` **inner tag degenerates to** ``logical_flat`` **-- but only for**
+  ``inner_reduce``. Under a reduction the ``memory`` tag iterates logical cells rather
+  than a contiguous memory span, so no swept ghost cell is folded in (the body still
+  gets a memory-relative flat index, so call sites are unchanged). This is scoped
+  strictly to ``inner_reduce``: a plain ``inner()`` inside an ``outer_reduce`` region
+  behaves exactly as under ``outer()`` and does **not** degenerate -- with the
+  ``memory`` tag it still sweeps whole contiguous spans, ghosts included. A
+  ``memory``-tag producer feeding an ``inner_reduce`` consumer is therefore fine; just
+  don't assume the producer stayed inside the logical set.
+
 Halos
 -----
 
@@ -190,6 +261,7 @@ flux calculation kernel in the loop abstraction might look like (see below for p
 in the example):
 
 .. code:: cpp
+
    const auto desc = MakePackDescriptor<var>(md, {}, {parthenon::PDOpt::WithFluxes});
    auto pack = desc.GetPack(md);
    // Declare an index space over F1 faces 
@@ -259,7 +331,31 @@ through to the sparse packs. For all other `inner_tag`s, pack view construction 
 pulls out pointers to the variables. This can promote vectorization and be a significant
 performance benefit. 
 
+A variable view can also access components at consecutive pack-variable indices by
+passing a relative component offset before the point index. This is useful for
+vector- or tensor-type variables:
+
 .. code:: cpp
+
+   auto vv = loop_abstraction::make_var_view(idx_range, pack, my_vec_var());
+
+   loop_abstraction::inner(idx_range, [&](auto kji) {
+     vv(component, kji) = ...;
+   });
+
+Here ``component`` means ``base_variable_index + component`` in the
+pack and is not a spatial offset, but the spatial component of, e.g.,
+a vector.
+
+The base passed to ``make_var_view`` should be the first entry to be accessed, and the
+caller must keep the offset within that variable family's consecutive pack entries; no
+bounds check is performed. All addressed entries must have the same topology and memory
+layout. Flat/memory paths use the cached stride between pack entries, while
+``logical_coords`` forwards the adjusted variable index and coordinates directly to
+the pack.
+
+.. code:: cpp
+
   auto desc = parthenon::MakePackDescriptor<v1, vf>(md);
   auto pack = desc.GetPack(md);
 
