@@ -9,7 +9,7 @@ One needs to be careful about making changes to the loop abstraction headers wit
 
 ## Core Types
 
-`IndexSpace<loop_tag, inner_tag, backend>`
+`IndexSpace<loop_tag, inner_tag, backend, reduction>`
 - Defines a space of (block, k, j, i) points to iterate over.
   - What we call the `v` index is an intermediate level that a user of the loop hierarchy can write loops in, do block-level work, etc.
   - The level of the v loops in the hierarchy of the (b, k, j, i) space is determined by the loop tags.
@@ -17,6 +17,9 @@ One needs to be careful about making changes to the loop abstraction headers wit
 - Carries `nblocks`, `ninner`, and the logical/memory indexers.
 - Selects the outer-loop shape at compile time.
 - Selects the loop backend at compile time via `backend_v`.
+- The trailing `reduction` parameter defaults to `no_reduce_t` (an ordinary,
+  non-reducing space); a Kokkos reducer is baked in for the reduction paths (see the
+  Reductions section). Most call sites omit it and use the three-parameter form.
 - Is the object that is passed into `outer(...)`.
 
 `InnerIndexRange<IndexSpaceType>`
@@ -24,7 +27,9 @@ One needs to be careful about making changes to the loop abstraction headers wit
 - Describes one slice of an index space.
 - Carries the block index and the current slice state.
 - Is the object passed into `inner(...)`.
-- Exposes `GetKJI(int idx)` so tests and pack-view helpers can recover `(k, j, i)` from the current inner index contract.
+- Exposes `GetKJI(...)` so tests and pack-view helpers can recover `(k, j, i)` from the
+  current inner index. It is overloaded on the index form the body received: a flat
+  `int`, a `MemoryOffset`, or an `Index3`.
 
 ## Loop Tags
 
@@ -124,14 +129,124 @@ If both `f(auto idx)` and `f(int, int, int)` are viable, the three-argument form
 form is selected for a given `[loop_tag, inner_tag]` pair, the loop structure is as described above, but before calling the functor the internal index
 is transformed back to `(k, j, i)` space and then passed to the functor. This form may hurt performance, but is likely clearer to many users.
 
+## Reductions
+
+`outer_reduce` / `inner_reduce` fold a single Kokkos reducer over an `IndexSpace`,
+mirroring `outer` / `inner`. They are **Kokkos-only**: they always dispatch to the
+Kokkos backend regardless of `IndexSpace::backend_v` (on a host-only build
+`DevExecSpace` is a host space, so the Kokkos reduce still runs correctly). There is
+no raw reduction path.
+
+The reducer is baked into the index-space type. Build a reduction space with
+`ReductionIndexSpace<lt, it, R>` (which hides the backend parameter) or by rebinding an
+existing space with `idx_space.WithReducer<R>()`. Its `idx_range_t` then carries the
+reduction, so the body needs no reduction handle -- it is `(idx_range, int b)`, exactly
+like `outer`. The preferred `outer_reduce` overload constructs the reducer over a fresh
+result and returns it (the result is a host scalar, so the Kokkos reduce is synchronous
+and the value is valid on return -- no fence):
+
+```cpp
+using rist = ReductionIndexSpace<loop_tag::bovi, inner_tag::logical_flat, Kokkos::Sum<Real>>;
+rist idx_space(/* ... */);
+
+auto result = outer_reduce(idx_space,
+  // Body param types must be named, not `auto`: KOKKOS_LAMBDA is an extended
+  // __host__ __device__ lambda and nvcc forbids `auto` params. Name the range with
+  // rist::idx_range_t (the inner_reduce body lambdas are ordinary lambdas, so `auto` is
+  // fine there).
+  KOKKOS_LAMBDA(const rist::idx_range_t &range, int b) {
+    // Plain inner() calls still work here -- e.g. fill scratch.
+    inner(range, [&](auto idx) { scratch(idx) = compute(idx); });
+    range.TeamBarrier();
+    // inner_reduce contributes to the reduction. Body takes a trailing value ref.
+    inner_reduce(range, [&](auto idx, auto &v) { v += scratch(idx); });
+  });
+```
+
+An escape-hatch overload takes a caller-constructed reducer instance last (matching
+`Kokkos::parallel_reduce(policy, functor, reducer)`) for reducing into a `View`,
+`ScatterView`, or device memory; it returns void. Its reducer type must match the
+space's `reduction_t`.
+
+Rules:
+
+1. **Single reducer per region.** One reducer op per `outer_reduce` (the space's
+   `reduction_t`). Multiple `inner_reduce` calls in the same region all join into the
+   same accumulator (the reducer type comes from the index space, so the join op is not
+   restated), so a region may freely interleave plain `inner` (no reduction) and
+   `inner_reduce` calls.
+2. **Body signature.** `inner_reduce`'s body takes the usual index form plus a trailing
+   reduction-value reference: `[](auto idx, auto &v)`, `[](Index3 idx, Real &v)`, or
+   `[](int k, int j, int i, Real &v)`.
+3. **No reductions over halo ranges.** Reductions must never touch ghost/halo cells.
+   `inner_reduce` `static_assert`s that the range's halo is `none_t`; extend a range
+   only for producer (scratch) `inner` loops and reduce over the base range.
+4. **`memory` degenerates to `logical_flat` — but only for `inner_reduce`.** For a
+   reduction the `memory` inner tag iterates logical cells (not a contiguous memory
+   span), so no swept ghost cell is ever folded in. The body still receives a
+   memory-relative flat index, so call sites are identical to `logical_flat`. This
+   degeneration is scoped strictly to `inner_reduce`: a plain `inner()` call inside an
+   `outer_reduce` region behaves exactly as it does under `outer()` and does **not**
+   degenerate — with the `memory` tag it still sweeps whole contiguous memory spans
+   (ghost cells included). So mixing a `memory`-tag `inner()` producer (which may write
+   ghosts) with an `inner_reduce()` consumer (which will not read them) is fine and
+   intended; just don't assume the producer stayed inside the logical set.
+5. **Custom reducers must not read their bound target in `join`/`init`.** The reducer
+   instance is copied by value into the device kernel, carrying the reference it was
+   bound to. The implementation only ever calls `join(a, b)` and `init(a)` on it,
+   neither of which dereferences the bound target, so all built-in Kokkos reducers
+   (`Sum`, `Min`, `Max`, `MinLoc`, ...) are safe. A custom reducer whose `join`/`init`
+   read the bound target would dereference a host pointer on the device — don't write
+   one. (`value_type` must also be device-copyable, as for any Kokkos reducer.) The
+   returning `outer_reduce` overload requires `reduction_t` to be constructible from a
+   `value_t&` and `value_t` to be default-constructible; use the instance-bound overload
+   for a reducer that needs anything else.
+
+Note on the result: the returning overload discards its fresh result's initial value --
+Kokkos initializes the accumulator to the reducer's identity, not a seed. `value_t` is
+`IndexSpace::value_t` (the reducer's `value_type`).
+
 ## Current Backend Requirement
 
-The raw and Kokkos implementations are expected to satisfy the same contract for a given `IndexSpace`.
+The raw and Kokkos implementations are expected to satisfy the same indexing and
+coverage contract for a given `IndexSpace`. Backend choice may change execution
+order and which invocations run concurrently; user kernels must not depend on either.
+
+### Raw backend and OpenMP
+
+The raw backend is still selected as `loop_backend::raw`; OpenMP is not a separate
+loop backend. Its loop nests contain OpenMP directives that become active when the
+build sets `PARTHENON_ENABLE_RAW_OPENMP=ON` and otherwise leave an ordinary serial
+host loop (apart from any compiler handling of the SIMD directives).
+
+The current raw outer-loop decomposition is:
+
+| Loop tag | OpenMP work-sharing in `outer(...)` |
+| --- | --- |
+| `bvoi` | Parallelize the block loop. |
+| `bovi` | Parallelize the collapsed `(block, outer chunk)` loops. This exposes parallel work even for a one-block run when it has multiple chunks. |
+| `boiv` | Keep the block loop outside the parallel region; for each block, parallelize the collapsed `(k, j)` loops and mark the `i` loop SIMD. |
+
+Raw inner loops use `omp simd` on their contiguous innermost loops where applicable.
+This is deliberately moderate OpenMP support rather than a general nested-parallel
+execution model. In particular:
+
+- An `outer(...)` body may execute concurrently for different ranges, and no ordering
+  between those invocations is guaranteed.
+- Each invocation must observe its own correct `InnerIndexRange` state. Backend
+  implementation must not introduce races by sharing mutable current-point/range state.
+- The user's writes must be disjoint across outer ranges or use appropriate
+  synchronization. Captured host state is not made thread-safe by the abstraction.
+- Do not assume that raw `outer(...)` composes safely or efficiently inside another
+  OpenMP parallel region, a separate host-threaded region, or a Kokkos parallel region.
+  Nested use requires deliberate coordination of the threading models.
+- Completion of `outer(...)` remains a synchronization point for the work it launches.
 
 For tests, the safest reference is:
 
 - a plain host nested loop over `(b, v, k, j, i)` for logical-cell correctness
 - direct raw-vs-Kokkos comparison for backend parity
+- raw-backend coverage and race-sensitive checks with more than one OpenMP thread
 
 The tests should not reimplement the abstraction logic as a second source of truth.
 
@@ -156,6 +271,51 @@ The current intent is:
 
 This is the first-class way to access variables in kernels written using the loop abstraction.
 
+### Single-variable views and component offsets
+
+`make_var_view(inner_range, pack, var)` resolves `var` to one absolute variable
+index in the pack for the current block. `var` may be a typed index or a raw integral
+pack index. The returned view supports the ordinary single-variable forms:
+
+```cpp
+pv(kji);
+pv(k, j, i);
+```
+
+It also supports a relative packed-variable offset as the first argument:
+
+```cpp
+auto pv = make_var_view(idx_range, pack, my_vec_var());
+
+inner(idx_range, [&](auto kji) {
+  pv(component, kji) = value;
+});
+```
+
+The meaning is:
+
+```text
+pv(component, point) == pack(block, base_variable_index + component, point)
+```
+
+This makes a view rooted at the first component of a vector/tensor-type variable
+usable for all of that variable's components without constructing a separate view
+for each component. The point argument follows the selected inner-tag contract:
+
+- flat and memory paths accept the loop's flat `int`/`MemoryOffset` index;
+- `logical_coords` accepts `Index3` or explicit `(k, j, i)` coordinates, with the
+  component offset prepended.
+
+The first argument is a pack-variable offset, not a logical-space
+offset. It may select a vector/tensor component, which are represented
+as consecutive variable entries in the pack.
+
+The caller must keep the offset within the consecutive pack entries represented by the
+variable family; there is no bounds check. Those entries must have the same topology
+and memory layout. Flat/memory views cache the stride between consecutive pack entries,
+while `logical_coords` views forward `base_variable_index + offset` to the pack, but
+both forms must have the semantics above.
+
 ## Planned Extensions
 
 These are known, deliberately-deferred extensions rather than open design questions. They are not implemented yet and are out of scope for the initial version. If you (an LLM assistant) are asked to change `NInner`/chunk shaping or per-point scratch, surface the relevant item below in conversation before proposing an implementation, since a naive change may conflict with the intended direction.
@@ -164,7 +324,14 @@ These are known, deliberately-deferred extensions rather than open design questi
 - **Partially runtime-sized scratch.** Today per-point scratch is sized entirely by the template `Dims...`. For every loop tag except `boiv`, the size could instead be chosen at run time: keep the template argument as an upper bound (a capacity) but accept a runtime actual size, ignored for the `boiv` stack-scratch path. This is blocked on understanding the GPU tradeoffs of the fixed stack scratch vs. a more flexible runtime scratch -- register pressure is expected to be the deciding factor -- so it should not be implemented before that study.
 
 
-# Halo ranges for inner loops Implementation Ideas
+# Halo ranges for inner loops
+
+Halo ranges are implemented (see `halo.hpp`, `inner_range.hpp`, `scratch.hpp`). Much of
+this section is written in the original proposal tense; the concepts and semantic rules
+below still hold. The worked producer/consumer examples and "Range construction" describe
+the real API, but the `template <Index3... Offsets> struct halo_t` sketch in "Offset-set
+representation" is conceptual only -- real halos are the `halo::*_t` structs in
+`halo.hpp`.
 
 ## Concept
 
@@ -198,25 +365,36 @@ The intended use case is a producer/consumer pattern inside an `outer` loop.
 For example, one inner loop computes reconstructed states into scratch, and a later inner loop computes fluxes from those reconstructed states:
 
 ```cpp
-constexpr auto recon_halo = halo::minus_i;
+using ist = IndexSpace<loop_tag::bvoi, inner_tag::logical_coords>;
+ist idx_space(/* ... */);
+using halo_t = halo::minus_i_t;
 
-auto scratch_p = idx_range.GetScratch<Real, recon_halo>();
-auto scratch_m = idx_range.GetScratch<Real, recon_halo>();
+// Register the scratch on the IndexSpace up front (once per buffer), sizing it for the
+// halo. GetDelta is a host call whose result is captured into the kernel.
+idx_space.AddPerPointScratch<Real, halo_t>();  // scratch_p
+idx_space.AddPerPointScratch<Real, halo_t>();  // scratch_m
+const auto dx1 = idx_space.GetDelta(X1DIR);
 
-inner(idx_range.AddHalo<recon_halo>(), KOKKOS_LAMBDA(auto kji) {
-  scratch_p(kji) = reconstruct_plus(kji);
-  scratch_m(kji) = reconstruct_minus(kji);
-});
+// Name the range type (not `auto`): KOKKOS_LAMBDA is an extended __host__ __device__
+// lambda and nvcc forbids `auto` params. `ist` is the IndexSpace type.
+outer(idx_space, KOKKOS_LAMBDA(const ist::idx_range_t &idx_range, int b) {
+  const auto halo_range = AddHalo<halo_t>(idx_range);
+  auto scratch_p = GetPerPointScratch<Real>(halo_range);
+  auto scratch_m = GetPerPointScratch<Real>(halo_range);
 
-inner(idx_range, KOKKOS_LAMBDA(auto kji) {
-  auto dx1 = idx_range.GetOffset<X1DIR>();
+  inner(halo_range, [&](auto kji) {
+    scratch_p(kji) = reconstruct_plus(kji);
+    scratch_m(kji) = reconstruct_minus(kji);
+  });
+  idx_range.TeamBarrier();
 
-  flux(kji) = riemann(scratch_p(kji - dx1),
-                      scratch_m(kji));
+  inner(idx_range, [&](auto kji) {
+    flux(kji) = riemann(scratch_p(kji - dx1), scratch_m(kji));
+  });
 });
 ```
 
-The flux loop runs over `idx_range`, but it consumes a reconstructed value at `kji - dx1`. Therefore, the reconstruction loop must produce values over `idx_range` plus that neighboring logical point set. The halo expresses this dependency.
+The flux loop runs over `idx_range`, but it consumes a reconstructed value at `kji - dx1`. Therefore, the reconstruction loop must produce values over `idx_range` plus that neighboring logical point set. The halo expresses this dependency. The `TeamBarrier()` between producer and consumer is required whenever a later inner loop reads scratch a different thread wrote.
 
 ## Halo is not reconstruction stencil width
 
@@ -274,8 +452,8 @@ not just the shifted set.
 Common aliases can make this readable:
 
 ```cpp
-constexpr auto recon_halo = halo::minus_i;
-constexpr auto transverse_halo = halo::plus_j;
+using recon_halo = halo::minus_i_t;
+using transverse_halo = halo::plus_j_t;
 ```
 
 For the expected use cases, the number of offsets is small: usually one, sometimes two or six, and perhaps up to around twelve in more general cases.
@@ -307,52 +485,81 @@ This keeps the halo operation geometric and avoids conflating logical coordinate
 
 ## Range construction
 
-For a one-offset halo, the halo range is the union of at most two flat spans in the halo-aware indexer:
+For a one-offset halo, the halo range is the union of at most two flat spans in the
+halo-aware indexer:
 
 ```text
 span 0: S flattened in D_h
 span 1: shift(S, h) flattened in D_h
 ```
 
-If the spans overlap or touch, they can be merged into one span. If they are disjoint, the range is represented as two spans.
+If the spans overlap or touch, they can be merged into one span. If they are disjoint,
+the range is represented as two spans.
 
-For a multi-offset halo, the same idea generalizes:
+For a multi-offset halo, the same idea generalizes -- one span per offset:
 
 ```text
-span 0: S
+span 0: shift(S, h0)
 span 1: shift(S, h1)
 span 2: shift(S, h2)
 ...
 ```
 
-After flattening these spans in the halo-aware logical domain, sort and merge them into a compact span union.
+where one of the offsets is the identity, so its span is `S` itself. After flattening
+these spans in the halo-aware logical domain, merge the ones that overlap or touch into a
+compact span union.
 
-Since the number of halo offsets is expected to be small, this can be represented with a small fixed-capacity span list.
+In the code this is `BuildRegions` (`inner_range.hpp`), and the merge is a single linear
+pass rather than a runtime sort. It relies on the halo offsets being **strictly sorted at
+compile time**: `HaloSatisfiesContract` enforces the ordering, and `HaloReducedRange`
+hands back a contiguous sub-run that is still sorted in a reduced-dimension run. Sorted
+offsets mean the spans arrive in non-decreasing flat-start order, so each candidate span
+only has to be compared against the last emitted one -- no runtime sort and no dynamic
+storage before every inner loop, which is what keeps it device-friendly.
+
+Since the number of halo offsets is small and known at compile time, the merged spans are
+stored in parallel fixed-capacity arrays sized by the offset count, plus a count of how
+many spans are live:
 
 ```cpp
-struct flat_span {
-  int start;
-  int stop; // inclusive
-};
-
-template <int MaxSpans>
-struct span_union {
-  int nspans;
-  flat_span spans[MaxSpans];
-};
+std::array<int, Halo::npoints> flat_start;  // inclusive
+std::array<int, Halo::npoints> flat_end;    // inclusive
+int nregions;
 ```
+
+The enclosing memory-flat interval of these spans is also tracked, for scratch sizing
+(see Scratch indexing).
 
 ## Scratch indexing
 
 Scratch should use the same halo-aware flat index space as the halo range.
 
-Hierarchical scratch currently allocates the whole memory-flat span covered by
-the halo-extended range. This uses more storage than the compact union of touched
-points, but lets flat-index scratch access use a simple base subtraction:
+Hierarchical scratch is indexed by a single base subtraction in the memory-flat indexer,
+so it allocates a contiguous memory-flat span. Which span depends on the loop tag,
+because the two tags visit different sets of cells:
+
+- **`bvoi`** enumerates contiguous flat spans and converts each flat index back to
+  `(k, j, i)`, so it sweeps the *entire rectangular* halo-extended box -- including the
+  multi-axis corner cells (e.g. the low corner of a 7-point + `-2i` stencil) that lie in
+  no single shifted copy of the base range. Regardless of inner tag, its scratch is sized
+  over the full box: the memory-flat interval from the box's low corner to its high
+  corner. (Sizing from the shifted-copy union instead under-allocates and produces a
+  negative scratch index at those corners -- a real bug that segfaulted for non-square
+  blocks.)
+- **`bovi`** visits only the union of shifted copies (contiguous flat spans in the memory
+  indexer), so its scratch is sized over the enclosing memory-flat interval of that union
+  -- a tighter span than the box.
+
+Both are computed in `InnerIndexRange::InitFromEndpoints`. Either way the result is one
+contiguous span `[span_start, span_stop]`, so flat-index scratch access is a base
+subtraction:
 
 ```text
 [span_start, span_stop] -> [0, span_stop - span_start]
 ```
+
+(The `boiv` tag is different again: its scratch is a compact per-cell stack buffer sized
+by the halo's bounding box, not a memory-flat span -- see the point-wise backend below.)
 
 For flat-index bodies, the index passed to the body is already relative to the
 current inner range's memory origin, so scratch maps it as:
@@ -383,17 +590,26 @@ merged span lengths on every call.
 The user-facing semantics stay the same:
 
 ```cpp
-constexpr auto recon_halo = halo::minus_i;
+using ist = IndexSpace<loop_tag::bvoi, inner_tag::logical_coords>;
+ist idx_space(/* ... */);
+using halo_t = halo::minus_i_t;
 
-auto scratch = idx_range.GetScratch<Real, recon_halo>();
+idx_space.AddPerPointScratch<Real, halo_t>();
+const auto dx1 = idx_space.GetDelta(X1DIR);
 
-inner(idx_range.AddHalo<recon_halo>(), KOKKOS_LAMBDA(auto kji) {
-  scratch(kji) = reconstruct(kji);
-});
+// See the note above on naming the range type rather than using `auto`.
+outer(idx_space, KOKKOS_LAMBDA(const ist::idx_range_t &idx_range, int b) {
+  const auto halo_range = AddHalo<halo_t>(idx_range);
+  auto scratch = GetPerPointScratch<Real>(halo_range);
 
-inner(idx_range, KOKKOS_LAMBDA(auto kji) {
-  auto dx1 = idx_range.GetOffset<X1DIR>();
-  flux(kji) = riemann(scratch(kji - dx1), scratch(kji));
+  inner(halo_range, [&](auto kji) {
+    scratch(kji) = reconstruct(kji);
+  });
+  idx_range.TeamBarrier();
+
+  inner(idx_range, [&](auto kji) {
+    flux(kji) = riemann(scratch(kji - dx1), scratch(kji));
+  });
 });
 ```
 
@@ -427,8 +643,9 @@ The halo range covers
 S ∪ shift(S, h1) ∪ shift(S, h2) ∪ ...
 ```
 
-and scratch is allocated over the enclosing memory-flat span for those shifted
-sets. This allows reconstructed values to be reused across multiple flux
+and scratch is allocated over a contiguous enclosing memory-flat span (the full
+rectangular box for `bvoi`, the tighter union interval for `bovi` -- see Scratch
+indexing above). This allows reconstructed values to be reused across multiple flux
 calculations while reducing per-access indexing arithmetic.
 
 ## Summary

@@ -130,7 +130,41 @@ constexpr MemoryOffset operator*(int n, MemoryOffset a) {
 KOKKOS_INLINE_FUNCTION
 constexpr MemoryOffset operator*(MemoryOffset a, int n) { return n * a; }
 
+// Sentinel reducer type: the default 4th IndexSpace parameter, marking a non-reduction
+// index space. A space carrying a real Kokkos reducer here (see ReductionIndexSpace) is
+// a reduction space; outer_reduce/inner_reduce use that reducer.
+struct no_reduce_t {};
+
+template <class Reduction>
+inline constexpr bool is_reduction_v = !std::is_same_v<Reduction, no_reduce_t>;
+
+// The reduced value type of a reduction, or void for a non-reduction (no_reduce_t).
 namespace impl {
+template <class Reduction>
+struct reduction_value {
+  using type = typename Reduction::value_type;
+};
+template <>
+struct reduction_value<no_reduce_t> {
+  using type = void;
+};
+} // namespace impl
+template <class Reduction>
+using reduction_value_t = typename impl::reduction_value<Reduction>::type;
+
+namespace impl {
+// Per-range reduction state, stored on InnerIndexRange as a [[no_unique_address]] member
+// so it costs zero bytes for a non-reduction space. For a reduction space it holds a
+// pointer to the enclosing parallel_reduce accumulator (per-team for bvoi/bovi, per
+// work-item for boiv), which inner_reduce joins into. The reducer type comes from the
+// index space, so no reducer instance needs to be carried here.
+template <class Reduction>
+struct ReduceState {
+  typename Reduction::value_type *update = nullptr;
+};
+template <>
+struct ReduceState<no_reduce_t> {};
+
 // Traits that detect whether a body's operator() takes a single explicit `int`
 // argument. Used to reject explicit-int bodies where they would lose halo offset
 // coordinates (see the boiv/logical_flat static_asserts in the backends).
