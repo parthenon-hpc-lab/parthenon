@@ -29,6 +29,7 @@
 
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1438]](https://github.com/parthenon-hpc-lab/parthenon/pull/1438) Performance tuning for the loop abstraction machinery and add loop abstraction OpenMP support
 - [[PR 1416][(https://github.com/parthenon-hpc-lab/parthenon/pull/1416) Remove virtual tag from destructors in sparse and swarm pack base classes
 - [[PR 1401]](https://github.com/parthenon-hpc-lab/parthenon/pull/1401) Sparse Field Component Names
 - [[PR 1331]](https://github.com/parthenon-hpc-lab/parthenon/pull/1331) Use `size_t` for sizes
