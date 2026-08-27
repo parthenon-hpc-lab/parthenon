@@ -283,7 +283,7 @@ struct var_view_t<LOOP_TAG, inner_tag::logical_coords, PackType> {
   KOKKOS_INLINE_FUNCTION
   var_view_t(const PackType *pack_in, int block, int var_in, TopologicalElement te)
       : pack(pack_in), b(block), vidx(var_in), te(te) {}
-  
+
   KOKKOS_INLINE_FUNCTION
   var_view_t(const PackType *pack_in, int block, int var_in)
       : pack(pack_in), b(block), vidx(var_in), te(TopologicalElement::CC) {}
