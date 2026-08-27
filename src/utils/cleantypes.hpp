@@ -14,6 +14,8 @@
 #ifndef UTILS_CLEANTYPES_HPP_
 #define UTILS_CLEANTYPES_HPP_
 
+// This file made with the assistance of generative AI
+
 namespace parthenon {
 namespace cleantypes {
 
@@ -42,6 +44,19 @@ struct remove_all_pointers<T *volatile> {
 template <typename T>
 struct remove_all_pointers<T *const volatile> {
   using type = typename remove_all_pointers<T>::type;
+};
+
+//! Helper to build pointer types with specified depth
+//! E.g., pointer_depth<T, 3>::type = T***
+//! Used for constructing multi-dimensional Kokkos::View data types
+template <typename T, std::size_t Rank>
+struct pointer_depth {
+  using type = typename pointer_depth<T *, Rank - 1>::type;
+};
+
+template <typename T>
+struct pointer_depth<T, 1> {
+  using type = T *;
 };
 
 } // namespace cleantypes

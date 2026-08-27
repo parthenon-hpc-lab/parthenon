@@ -46,6 +46,7 @@ list(APPEND unit_tests_SOURCES
     test_partitioning.cpp
     test_scratch_variables.cpp
     test_state_descriptor.cpp
+    test_token_scratch.cpp
     test_swarm.cpp
     test_swarm_amr_remesh.cpp
     test_unit_integrators.cpp

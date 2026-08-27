@@ -75,6 +75,54 @@ When ommitted the ``DEFAULT_LOOP_PATTERN`` is used.
        flattened into an outer ``TeamThreadRange``. The specializations ``loop_pattern_[tpttr|tptvr|tpttrtvr]_tag`` correspond
        to ``<1,0>``, ``<0,1>``, ``<1,1>`` respectively.
 
+Token Scratch Utility
+---------------------
+
+For kernels launched with ``parthenon::par_for`` or directly with Kokkos, Parthenon provides
+``parthenon::TokenScratchPool`` in ``utils/token_scratch.hpp`` for temporary per-thread workspace.
+The pool pre-allocates a fixed number of bytes for each
+``Kokkos::Experimental::UniqueToken``, and ``acquire()`` returns a ``ScratchAllocator`` that can
+carve one or more unmanaged typed ``Kokkos::View`` objects from that token-local buffer. This is
+useful when a kernel needs short-lived scratch storage without performing repeated dynamic
+allocations inside the parallel region.
+
+.. code:: cpp
+
+   parthenon::TokenScratchPool<> pool(64 * 1024);
+
+   parthenon::par_for(
+       "token_scratch_example", 0, nblocks - 1, KOKKOS_LAMBDA(const int b) {
+         auto scratch = pool.acquire();
+         auto work = scratch.template allocate_view<double>(ni, nj);
+         // Use work(...) as temporary storage for this token.
+       });
+
+You can also use the free-floating ``allocate_scratch_view``:
+
+.. code:: cpp
+
+   parthenon::TokenScratchPool<> pool(64 * 1024);
+
+   parthenon::par_for(
+       "token_scratch_example", 0, nblocks - 1, KOKKOS_LAMBDA(const int b) {
+         auto scratch = pool.acquire();
+         auto work = parthenon::allocate_scratch_view<double>(ni, nj);
+         // Use work(...) as temporary storage for this token.
+       });
+
+
+.. note::
+
+  The view created by ``allocate_view<T>`` is unmanaged and thus
+  non-blocking when destructed. The backing view, which is created by
+  the ``TokenScratchPool`` object is owning and thus **does** fence
+  upon going out of scope.
+
+.. warning::
+
+  The token scratch infrastructure is not tested for hierarchical
+  parallelism. In this case, we recommend that you use the team
+  scratch provided by Kokkos.
 
 Cmake Options
 -------------
@@ -129,4 +177,3 @@ New types can be provided by specializing the ``ProcessLoopBound`` struct in the
 These structs need to provide a ``GetNumBounds`` method to count the number of start/end bounds contained
 in the type, as well as a ``GetIndexRanges`` method to fill the ``IndexRange`` bounds used in the
 parallel dispatch.
-
