@@ -125,9 +125,9 @@ class IndexSpace {
 
   // The type the inner body's single index parameter receives (see inner() dispatch).
   // A pure function of the tags, so bodies can spell it instead of using `auto`.
-  using inner_idx_t =
-      std::conditional_t<INNER_TAG == inner_tag::logical_coords, Index3,
-                         std::conditional_t<LOOP_TAG == loop_tag::boiv, MemoryOffset, int>>;
+  using inner_idx_t = std::conditional_t<
+      INNER_TAG == inner_tag::logical_coords, Index3,
+      std::conditional_t<LOOP_TAG == loop_tag::boiv, MemoryOffset, int>>;
 
   KOKKOS_INLINE_FUNCTION int GetMemoryOffset(const int dk, const int dj,
                                              const int di) const {
