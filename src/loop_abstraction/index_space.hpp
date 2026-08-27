@@ -23,6 +23,7 @@
 // needed here so IndexSpace::AddPerPointScratch can call it.
 
 #include <optional>
+#include <type_traits>
 
 #include "basic_types.hpp"
 #include "interface/mesh_data.hpp"
@@ -121,6 +122,12 @@ class IndexSpace {
   // rejects for extended lambdas): both outer() and outer_reduce() bodies use it, e.g.
   // outer_reduce(rist, KOKKOS_LAMBDA(const RIST::idx_range_t &r, int b) { ... }).
   using idx_range_t = InnerIndexRange<IndexSpace, halo::none_t>;
+
+  // The type the inner body's single index parameter receives (see inner() dispatch).
+  // A pure function of the tags, so bodies can spell it instead of using `auto`.
+  using inner_index_t =
+      std::conditional_t<INNER_TAG == inner_tag::logical_coords, Index3,
+                         std::conditional_t<LOOP_TAG == loop_tag::boiv, MemoryOffset, int>>;
 
   KOKKOS_INLINE_FUNCTION int GetMemoryOffset(const int dk, const int dj,
                                              const int di) const {

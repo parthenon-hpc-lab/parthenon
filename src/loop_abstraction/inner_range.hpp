@@ -96,6 +96,7 @@ class InnerIndexRange {
  public:
   using index_space_t = IndexSpaceType;
   using halo_t = Halo;
+  using inner_index_t = typename IndexSpaceType::inner_index_t;
   static_assert(impl::HaloSatisfiesContract<Halo>(),
                 "Halo offsets must include exactly one identity offset {0,0,0} "
                 "and be strictly sorted lexicographically by (dk,dj,di).");
@@ -333,6 +334,7 @@ class InnerIndexRange<IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND, Reduction>,
  public:
   using index_space_t = IndexSpace<loop_tag::boiv, INNER_TAG, BACKEND, Reduction>;
   using halo_t = Halo;
+  using inner_index_t = typename index_space_t::inner_index_t;
   static_assert(impl::HaloSatisfiesContract<Halo>(),
                 "Halo offsets must include exactly one identity offset {0,0,0} "
                 "and be strictly sorted lexicographically by (dk,dj,di).");
