@@ -44,6 +44,7 @@ namespace parthenon {
 block_ownership_t
 DetermineOwnership(const LogicalLocation &main_block,
                    const std::vector<forest::NeighborLocation> &allowed_neighbors,
+                   const std::array<bool, 3> self_border_block = {false, false, false},
                    const std::unordered_set<LogicalLocation> &newly_refined = {});
 
 // Given a topological element, ownership array of the sending block, and offset indices
