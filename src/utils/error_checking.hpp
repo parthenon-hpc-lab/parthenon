@@ -112,11 +112,9 @@ namespace ErrorChecking {
 KOKKOS_INLINE_FUNCTION
 void require(const char *const condition, const char *const message,
              const char *const filename, int const linenumber) {
-#ifndef KOKKOS_ENABLE_SYCL
-  printf("### PARTHENON ERROR\n  Condition:   %s\n  Message:     %s\n  File:        "
+  Kokkos::printf("### PARTHENON ERROR\n  Condition:   %s\n  Message:     %s\n  File:        "
          "%s\n  Line number: %i\n",
          condition, message, filename, linenumber);
-#endif
   Kokkos::abort(message);
 }
 
@@ -153,10 +151,8 @@ inline void require_throws(const char *const condition, std::stringstream const 
 
 [[noreturn]] KOKKOS_INLINE_FUNCTION void
 fail(const char *const message, const char *const filename, int const linenumber) {
-#ifndef KOKKOS_ENABLE_SYCL
-  printf("### PARTHENON ERROR\n  Message:     %s\n  File:        %s\n  Line number: %i\n",
+  Kokkos::printf("### PARTHENON ERROR\n  Message:     %s\n  File:        %s\n  Line number: %i\n",
          message, filename, linenumber);
-#endif
   Kokkos::abort(message);
   // Kokkos::abort ends control flow, but is not marked as `[[noreturn]]`, so we need this
   // loop to supress a warning that the function does not return.
