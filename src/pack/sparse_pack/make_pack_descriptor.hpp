@@ -24,8 +24,10 @@
 #include "interface/metadata.hpp"
 #include "interface/state_descriptor.hpp"
 #include "mesh/mesh.hpp"
+#include "pack/pack_utils.hpp"
 #include "pack/sparse_pack/pack_descriptor.hpp"
 #include "pack/sparse_pack/sparse_pack.hpp"
+#include "utils/concepts_lite.hpp"
 #include "utils/type_list.hpp"
 
 namespace parthenon {
@@ -63,6 +65,7 @@ inline auto MakePackDescriptor(MT *pmd, const std::vector<std::string> &vars,
 }
 
 template <class... Ts, class MT>
+  requires(!variable_names::DependentVariable<Ts> && ...)
 inline auto MakePackDescriptor(MT *pmd, const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
   const std::vector<std::string> vars{Ts::name()...};
@@ -72,6 +75,7 @@ inline auto MakePackDescriptor(MT *pmd, const std::vector<MetadataFlag> &flags =
 }
 
 template <class... Ts, class MT>
+  requires(!variable_names::DependentVariable<Ts> && ...)
 inline auto MakePackDescriptor(SparsePack<Ts...> pack, MT *pmd,
                                const std::vector<MetadataFlag> &flags = {},
                                const std::set<PDOpt> &options = {}) {
@@ -108,6 +112,14 @@ inline auto MakePackDescriptorFromTypeList(TL<Types...>, Args &&...args) {
 template <class TL, class... Args>
 inline auto MakePackDescriptorFromTypeList(Args &&...args) {
   return MakePackDescriptorFromTypeList(TL(), std::forward<Args>(args)...);
+}
+
+template <class... Ts, class MT>
+  requires(variable_names::DependentVariable<Ts> || ...)
+inline auto MakePackDescriptor(MT *pmd, const std::vector<MetadataFlag> &flags = {},
+                               const std::set<PDOpt> &options = {}) {
+  return MakePackDescriptorFromTypeList(
+      variable_names::all_independent_variables_t<Ts...>(), pmd, flags, options);
 }
 
 struct PackDescriptorCacheBase {
