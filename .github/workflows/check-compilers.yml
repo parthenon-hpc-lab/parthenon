@@ -25,14 +25,22 @@ jobs:
         cmake_build_type: ['Release', 'DbgNoSym']
         device: ['cuda', 'host']
         parallel: ['serial', 'mpi']
-        # For one build, test single precision compilation.
-        # We pick one that we already run the regression tests for in double.
+        # Single-element axis, so it labels every job's precision without growing
+        # the matrix.
+        precision: ['double']
+        # A couple of single-precision compile checks (build only), appended as new
+        # jobs since precision=single is not in the base matrix.
         include:
           - cxx: g++
             cmake_build_type: Release
             device: cuda
             parallel: mpi
-            single_prec: "-DPARTHENON_SINGLE_PRECISION=ON"
+            precision: single
+          - cxx: g++
+            cmake_build_type: DbgNoSym
+            device: host
+            parallel: serial
+            precision: single
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/parthenon-hpc-lab/cuda12.8-mpi-hdf5-opmd
@@ -48,7 +56,7 @@ jobs:
             -DCMAKE_CXX_COMPILER=${{ matrix.cxx }} \
             -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }} \
             -DMACHINE_CFG=${PWD}/cmake/machinecfg/GitHubActions.cmake \
-            ${{ matrix.single_prec }} \
+            ${{ matrix.precision == 'single' && '-DPARTHENON_SINGLE_PRECISION=ON' || '' }} \
             -DMACHINE_VARIANT=${{ matrix.device }}_${{ matrix.parallel }}
       - name: Build
         run: |
