@@ -321,7 +321,7 @@ make_var_view(const InnerIndexRange<IndexSpaceType> &idx_range, const PackType &
     out.shift_ = memory_indexer.GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
     out.data_ = pack_in(idx_range.block, te, vidx).data() + out.shift_;
     const int vidx_next = ((pack_in.GetSize() > vidx + 1) &&
-                           (pack_in(idx_range.block, vidx).tensor_components > 1))
+                           (pack_in(idx_range.block, te, vidx).tensor_components > 1))
                               ? vidx + 1
                               : vidx;
     out.stride_ = pack_in(idx_range.block, te, vidx_next).data() + out.shift_ - out.data_;
