@@ -55,6 +55,7 @@ class RestartReaderHDF5 : public RestartReader {
   [[nodiscard]] std::string GetInputString() const override {
     return GetAttr<std::string>("Input", "File");
   };
+  [[nodiscard]] RummyInputState GetRummyInputState() const override;
 
   // Return output format version number. Return -1 if not existent.
   [[nodiscard]] int GetOutputFormatVersion() const override;
