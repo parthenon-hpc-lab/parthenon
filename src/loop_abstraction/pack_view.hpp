@@ -324,7 +324,7 @@ make_var_view(const InnerIndexRange<IndexSpaceType> &idx_range, const PackType &
     // contiguously, any time that multiple fields are packed into a single variable type
     // the stride will not be sensible since the the pointer arithmetic will involve two 
     // chunks of memory that were allocated at separate times. To keep things light, we 
-    // only provide a partial check
+    // only provide a partial check **user beware**
     if constexpr (std::is_integral_v<IndexType>) {
       const int vidx_next = ((pack_in.GetUpperBound(idx_range.block) >= vidx + 1) &&
                              (pack_in(idx_range.block, te, vidx).tensor_components > 1))
