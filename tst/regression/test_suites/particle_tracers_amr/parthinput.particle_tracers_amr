@@ -57,6 +57,8 @@ derefine_tol = 1.05
 
 <Tracers>
 num_tracers = 4096
+# The regression overrides this to false for the PostInitialization coverage runs.
+source_after_problem_generator = true
 
 <parthenon/output0>
 file_type = hdf5
