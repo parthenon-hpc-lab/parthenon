@@ -238,6 +238,11 @@ struct var_view_t {
   KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(int idx) const {
     return data_[idx];
   }
+
+  KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(int var_offset, int idx) const {
+    return data_[var_offset * stride_ + idx];
+  }
+
   KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(MemoryOffset idx) const {
     return data_[idx.flat];
   }
@@ -248,8 +253,18 @@ struct var_view_t {
     return (*this)(Index3{k, j, i});
   }
 
+  // TODO(JMM/LFR): If we are really worried about the number of
+  // members in var_views impacting register pressure or having other
+  // performance impacts, we could specialize var_views more to only
+  // include the Real* member and nothing else for most inner loop
+  // tags. That would require not allowing var_views to be used in
+  // loops with the functor signature (int k, int j, int i). We could
+  // also template on the variable type itself, and only store the
+  // offset when the variable is not a scalar. This may be overkill
+  // though.
   parthenon::Real *data_ = nullptr;
   int shift_ = 0;
+  int stride_ = 0;
   const parthenon::Indexer3D *memory_indexer = nullptr;
 };
 
@@ -260,19 +275,31 @@ struct var_view_t<LOOP_TAG, inner_tag::logical_coords, PackType> {
   const PackType *pack = nullptr;
   int b = 0;
   int vidx = 0;
+  TopologicalElement te;
 
   KOKKOS_DEFAULTED_FUNCTION
   var_view_t() = default;
 
   KOKKOS_INLINE_FUNCTION
+  var_view_t(const PackType *pack_in, int block, int var_in, TopologicalElement te)
+      : pack(pack_in), b(block), vidx(var_in), te(te) {}
+
+  KOKKOS_INLINE_FUNCTION
   var_view_t(const PackType *pack_in, int block, int var_in)
-      : pack(pack_in), b(block), vidx(var_in) {}
+      : pack(pack_in), b(block), vidx(var_in), te(TopologicalElement::CC) {}
 
   KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(Index3 in) const {
-    return (*pack)(b, vidx, in.k, in.j, in.i);
+    return (*pack)(b, te, vidx, in.k, in.j, in.i);
   }
   KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(int k, int j, int i) const {
-    return (*pack)(b, vidx, k, j, i);
+    return (*pack)(b, te, vidx, k, j, i);
+  }
+  KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(int offset, Index3 in) const {
+    return (*pack)(b, te, vidx + offset, in.k, in.j, in.i);
+  }
+  KOKKOS_FORCEINLINE_FUNCTION parthenon::Real &operator()(int offset, int k, int j,
+                                                          int i) const {
+    return (*pack)(b, te, vidx + offset, k, j, i);
   }
 };
 
@@ -281,20 +308,32 @@ struct var_view_t<LOOP_TAG, inner_tag::logical_coords, PackType> {
 template <class IndexSpaceType, class PackType, class IndexType>
 KOKKOS_INLINE_FUNCTION auto
 make_var_view(const InnerIndexRange<IndexSpaceType> &idx_range, const PackType &pack_in,
-              const IndexType &var) {
+              TopologicalElement te, const IndexType &var) {
   constexpr loop_tag LOOP_TAG = IndexSpaceType::loop_tag_v;
   constexpr inner_tag INNER_TAG = IndexSpaceType::inner_tag_v;
   const int vidx = pack_in.GetIndex(idx_range.block, var);
   if constexpr (INNER_TAG == inner_tag::logical_coords) {
-    return var_view_t<LOOP_TAG, INNER_TAG, PackType>{&pack_in, idx_range.block, vidx};
+    return var_view_t<LOOP_TAG, INNER_TAG, PackType>{&pack_in, idx_range.block, vidx, te};
   } else {
     var_view_t<LOOP_TAG, INNER_TAG, PackType> out;
     const auto &memory_indexer = idx_range.pidx_space->GetMemoryIndexer();
     out.memory_indexer = &memory_indexer;
     out.shift_ = memory_indexer.GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
-    out.data_ = pack_in(idx_range.block, vidx).data() + out.shift_;
+    out.data_ = pack_in(idx_range.block, te, vidx).data() + out.shift_;
+    const int vidx_next = ((pack_in.GetSize() > vidx + 1) &&
+                           (pack_in(idx_range.block, vidx).tensor_components > 1))
+                              ? vidx + 1
+                              : vidx;
+    out.stride_ = pack_in(idx_range.block, te, vidx_next).data() + out.shift_ - out.data_;
     return out;
   }
+}
+
+template <class IndexSpaceType, class PackType, class IndexType>
+KOKKOS_INLINE_FUNCTION auto
+make_var_view(const InnerIndexRange<IndexSpaceType> &idx_range, const PackType &pack_in,
+              const IndexType &var) {
+  return make_var_view(idx_range, pack_in, TopologicalElement::CC, var);
 }
 
 } // namespace parthenon::loop_abstraction
