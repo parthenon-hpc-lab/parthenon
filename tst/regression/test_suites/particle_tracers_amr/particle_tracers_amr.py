@@ -75,7 +75,9 @@ class TestCase(utils.test_case.TestCaseAbs):
             expected_num_tracers = 4104
             if initial_pos.shape[0] != expected_num_tracers:
                 print(f"Incorrect tracer count after {hook} initialization AMR.")
-                print("expected:", expected_num_tracers, "actual:", initial_pos.shape[0])
+                print(
+                    "expected:", expected_num_tracers, "actual:", initial_pos.shape[0]
+                )
                 return False
 
             initial_positions[hook] = sorted_positions(initial_pos.copy())
@@ -93,7 +95,9 @@ class TestCase(utils.test_case.TestCaseAbs):
 
             if not np.allclose(translated_initial_pos, amr_pos, atol=1.0e-10, rtol=0.0):
                 diff = np.max(np.abs(translated_initial_pos - amr_pos))
-                print(f"{hook} AMR tracer positions differ from the analytic translation.")
+                print(
+                    f"{hook} AMR tracer positions differ from the analytic translation."
+                )
                 print("max difference:", diff)
                 return False
 
@@ -113,7 +117,9 @@ class TestCase(utils.test_case.TestCaseAbs):
             atol=1.0e-10,
             rtol=0.0,
         ):
-            print("Particle setup differs between PostProblemGenerator and PostInitialization.")
+            print(
+                "Particle setup differs between PostProblemGenerator and PostInitialization."
+            )
             return False
 
         return True
