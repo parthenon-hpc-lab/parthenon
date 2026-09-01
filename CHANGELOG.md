@@ -29,6 +29,7 @@
 
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1441]](https://github.com/parthenon-hpc-lab/parthenon/pull/1441) Make it so you can safely create particles in a problem generator.
 - [[PR 1438]](https://github.com/parthenon-hpc-lab/parthenon/pull/1438) Performance tuning for the loop abstraction machinery and add loop abstraction OpenMP support
 - [[PR 1416][(https://github.com/parthenon-hpc-lab/parthenon/pull/1416) Remove virtual tag from destructors in sparse and swarm pack base classes
 - [[PR 1401]](https://github.com/parthenon-hpc-lab/parthenon/pull/1401) Sparse Field Component Names
@@ -37,7 +38,6 @@
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 
 ### Fixed (not changing behavior/API/variables/...)
-- [[PR 1441]](https://github.com/parthenon-hpc-lab/parthenon/pull/1441) Make it so you can safely create particles in a problem generator
 - [[PR 1435]](https://github.com/parthenon-hpc-lab/parthenon/pull/1435) Fix loop abstraction scratch sizing for multi-axis (corner) halos
 - [[PR 1434]](https://github.com/parthenon-hpc-lab/parthenon/pull/1434) Repair nodal field output in XDMF.
 - [[PR 1430]](https://github.com/parthenon-hpc-lab/parthenon/pull/1430) Fix BiCGSTAB returning NaN when a solve converges in its first half step
@@ -68,6 +68,7 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1441]](https://github.com/parthenon-hpc-lab/parthenon/pull/1441) Clear particles in problem generator, meaning that particles can no longer be seeded in the problem generator at the root level and be appropriately refined at pgen.
 - [[PR 1385]](https://github.com/parthenon-hpc-lab/parthenon/pull/1385) ParameterInput internal storage refactor removes direct access to linked list (`pfirst_block`). Use `GetBlocksWithPrefix()` or `GetBlockNames()` instead.
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 - [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy
