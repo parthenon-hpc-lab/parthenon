@@ -56,9 +56,9 @@ variables = advected, tracer_deposition
 
 <Tracers>
 num_tracers = 10000
-# Source particles after each problem-generator pass. Set false to source only after
+# Source particles in each problem-generator pass. Set false to source only after
 # initialization AMR has resolved.
-source_after_problem_generator = true
+source_in_problem_generator = true
 
 <parthenon/output0>
 file_type = hdf5

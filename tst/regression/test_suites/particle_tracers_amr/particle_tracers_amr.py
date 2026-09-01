@@ -29,23 +29,23 @@ def sorted_positions(positions):
 class TestCase(utils.test_case.TestCaseAbs):
     def Prepare(self, parameters, step):
         if step in (1, 3):
-            hook = "post_problem_generator" if step == 1 else "post_initialization"
-            source_after_problem_generator = "true" if step == 1 else "false"
+            source_location = "problem_generator" if step == 1 else "post_initialization"
+            source_in_problem_generator = "true" if step == 1 else "false"
             parameters.driver_cmd_line_args = [
-                f"parthenon/job/problem_id=particle_tracers_amr_{hook}_init",
+                f"parthenon/job/problem_id=particle_tracers_amr_{source_location}_init",
                 "parthenon/mesh/refinement=adaptive",
                 "parthenon/mesh/numlevel=2",
                 "parthenon/time/tlim=0.0",
-                f"Tracers/source_after_problem_generator={source_after_problem_generator}",
+                f"Tracers/source_in_problem_generator={source_in_problem_generator}",
             ]
         elif step in (2, 4):
-            hook = "post_problem_generator" if step == 2 else "post_initialization"
-            source_after_problem_generator = "true" if step == 2 else "false"
+            source_location = "problem_generator" if step == 2 else "post_initialization"
+            source_in_problem_generator = "true" if step == 2 else "false"
             parameters.driver_cmd_line_args = [
-                f"parthenon/job/problem_id=particle_tracers_amr_{hook}",
+                f"parthenon/job/problem_id=particle_tracers_amr_{source_location}",
                 "parthenon/mesh/refinement=adaptive",
                 "parthenon/mesh/numlevel=2",
-                f"Tracers/source_after_problem_generator={source_after_problem_generator}",
+                f"Tracers/source_in_problem_generator={source_in_problem_generator}",
             ]
         return parameters
 
@@ -58,9 +58,9 @@ class TestCase(utils.test_case.TestCaseAbs):
         from phdf import phdf
 
         initial_positions = {}
-        for hook in ("post_problem_generator", "post_initialization"):
-            initial = phdf(f"particle_tracers_amr_{hook}_init.out0.final.phdf")
-            amr = phdf(f"particle_tracers_amr_{hook}.out0.final.phdf")
+        for source_location in ("problem_generator", "post_initialization"):
+            initial = phdf(f"particle_tracers_amr_{source_location}_init.out0.final.phdf")
+            amr = phdf(f"particle_tracers_amr_{source_location}.out0.final.phdf")
 
             initial_swarm = initial.GetSwarm("tracers")
             amr_swarm = amr.GetSwarm("tracers")
@@ -74,11 +74,11 @@ class TestCase(utils.test_case.TestCaseAbs):
             # initialization mesh therefore contains 4104 particles for the requested 4096.
             expected_num_tracers = 4104
             if initial_pos.shape[0] != expected_num_tracers:
-                print(f"Incorrect tracer count after {hook} initialization AMR.")
+                print(f"Incorrect tracer count after {source_location} initialization AMR.")
                 print("expected:", expected_num_tracers, "actual:", initial_pos.shape[0])
                 return False
 
-            initial_positions[hook] = sorted_positions(initial_pos.copy())
+            initial_positions[source_location] = sorted_positions(initial_pos.copy())
             translated_initial_pos = initial_pos.copy()
             translated_initial_pos[:, 0] = (
                 (translated_initial_pos[:, 0] + 0.5 + 0.35) % 1.0
@@ -87,13 +87,15 @@ class TestCase(utils.test_case.TestCaseAbs):
             amr_pos = sorted_positions(amr_pos)
 
             if translated_initial_pos.shape != amr_pos.shape:
-                print(f"Particle count changed during {hook} AMR tracer evolution.")
+                print(f"Particle count changed during {source_location} AMR tracer evolution.")
                 print("initial:", translated_initial_pos.shape, "final:", amr_pos.shape)
                 return False
 
             if not np.allclose(translated_initial_pos, amr_pos, atol=1.0e-10, rtol=0.0):
                 diff = np.max(np.abs(translated_initial_pos - amr_pos))
-                print(f"{hook} AMR tracer positions differ from the analytic translation.")
+                print(
+                    f"{source_location} AMR tracer positions differ from the analytic translation."
+                )
                 print("max difference:", diff)
                 return False
 
@@ -104,16 +106,16 @@ class TestCase(utils.test_case.TestCaseAbs):
             if not mesh_changed:
                 mesh_changed = not np.allclose(initial_bounds, final_bounds)
             if not mesh_changed:
-                print(f"AMR mesh did not change during the {hook} run.")
+                print(f"AMR mesh did not change during the {source_location} run.")
                 return False
 
         if not np.allclose(
-            initial_positions["post_problem_generator"],
+            initial_positions["problem_generator"],
             initial_positions["post_initialization"],
             atol=1.0e-10,
             rtol=0.0,
         ):
-            print("Particle setup differs between PostProblemGenerator and PostInitialization.")
+            print("Particle setup differs between ProblemGenerator and PostInitialization.")
             return False
 
         return True
