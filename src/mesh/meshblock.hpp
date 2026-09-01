@@ -41,6 +41,7 @@
 #include "outputs/io_wrapper.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
+#include "tensors/tt_container.hpp"
 
 namespace parthenon {
 
@@ -162,6 +163,10 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   }
   // The User defined containers
   DataCollection<MeshBlockData<Real>> meshblock_data;
+  // Tensor-train field containers. Kept in a separate DataCollection so that TT
+  // fields have an independent set of stages and regular-field storage is
+  // untouched.
+  DataCollection<MeshBlockTTData> tt_block_data;
 
   Packages_t packages;
   std::shared_ptr<StateDescriptor> resolved_packages;

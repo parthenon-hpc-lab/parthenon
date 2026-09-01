@@ -47,6 +47,7 @@
 #include "mesh/forest/forest.hpp"
 #include "mesh/forest/forest_topology.hpp"
 #include "mesh/meshblock_pack.hpp"
+#include "tensors/tt_container.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "pack/pack_descriptor.hpp"
 #include "parameter_input.hpp"
@@ -146,6 +147,8 @@ class Mesh {
   std::shared_ptr<StateDescriptor> resolved_packages;
 
   DataCollection<MeshData<Real>> mesh_data;
+  // Tensor-train field containers over mesh partitions (see MeshBlock::tt_block_data).
+  DataCollection<MeshTTData> tt_data;
 
   const BlockList_t &GetGMGBlockList(int level) const {
     PARTHENON_REQUIRE(multigrid, "Asking for multigrid blocks on a Mesh that was created "

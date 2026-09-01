@@ -143,6 +143,10 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   auto &real_container = meshblock_data.Get();
   real_container->Initialize(shared_from_this());
 
+  // Build the base tensor-train container for this block (one train per
+  // registered TT field). Sequenced after resolved_packages is set above.
+  tt_block_data.Get()->Initialize(shared_from_this());
+
   // TODO(jdolence): Should these loops be moved to Variable creation
   // TODO(JMM): What variables should be in vars_cc_? They are used
   // for counting load-balance cost. Should it be different than the
