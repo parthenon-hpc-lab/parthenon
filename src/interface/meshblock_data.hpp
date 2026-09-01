@@ -559,6 +559,11 @@ class MeshBlockData {
            std::all_of(vars.begin(), vars.end(),
                        [this](const auto &v) { return this->varUidIn_.count(v); });
   }
+  bool CreatedFrom(const std::set<Uid_t> &vars) {
+    return (vars.size() == varUidIn_.size()) &&
+           std::all_of(vars.begin(), vars.end(),
+                       [this](const auto &v) { return this->varUidIn_.count(v); });
+  }
   bool CreatedFrom(const std::vector<std::string> &vars) {
     return (vars.size() == varUidIn_.size()) &&
            std::all_of(vars.begin(), vars.end(), [this](const auto &v) {
