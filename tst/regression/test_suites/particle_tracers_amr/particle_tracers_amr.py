@@ -29,7 +29,9 @@ def sorted_positions(positions):
 class TestCase(utils.test_case.TestCaseAbs):
     def Prepare(self, parameters, step):
         if step in (1, 3):
-            source_location = "problem_generator" if step == 1 else "post_initialization"
+            source_location = (
+                "problem_generator" if step == 1 else "post_initialization"
+            )
             source_in_problem_generator = "true" if step == 1 else "false"
             parameters.driver_cmd_line_args = [
                 f"parthenon/job/problem_id=particle_tracers_amr_{source_location}_init",
@@ -39,7 +41,9 @@ class TestCase(utils.test_case.TestCaseAbs):
                 f"Tracers/source_in_problem_generator={source_in_problem_generator}",
             ]
         elif step in (2, 4):
-            source_location = "problem_generator" if step == 2 else "post_initialization"
+            source_location = (
+                "problem_generator" if step == 2 else "post_initialization"
+            )
             source_in_problem_generator = "true" if step == 2 else "false"
             parameters.driver_cmd_line_args = [
                 f"parthenon/job/problem_id=particle_tracers_amr_{source_location}",
@@ -59,7 +63,9 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         initial_positions = {}
         for source_location in ("problem_generator", "post_initialization"):
-            initial = phdf(f"particle_tracers_amr_{source_location}_init.out0.final.phdf")
+            initial = phdf(
+                f"particle_tracers_amr_{source_location}_init.out0.final.phdf"
+            )
             amr = phdf(f"particle_tracers_amr_{source_location}.out0.final.phdf")
 
             initial_swarm = initial.GetSwarm("tracers")
@@ -74,8 +80,12 @@ class TestCase(utils.test_case.TestCaseAbs):
             # initialization mesh therefore contains 4104 particles for the requested 4096.
             expected_num_tracers = 4104
             if initial_pos.shape[0] != expected_num_tracers:
-                print(f"Incorrect tracer count after {source_location} initialization AMR.")
-                print("expected:", expected_num_tracers, "actual:", initial_pos.shape[0])
+                print(
+                    f"Incorrect tracer count after {source_location} initialization AMR."
+                )
+                print(
+                    "expected:", expected_num_tracers, "actual:", initial_pos.shape[0]
+                )
                 return False
 
             initial_positions[source_location] = sorted_positions(initial_pos.copy())
@@ -87,7 +97,9 @@ class TestCase(utils.test_case.TestCaseAbs):
             amr_pos = sorted_positions(amr_pos)
 
             if translated_initial_pos.shape != amr_pos.shape:
-                print(f"Particle count changed during {source_location} AMR tracer evolution.")
+                print(
+                    f"Particle count changed during {source_location} AMR tracer evolution."
+                )
                 print("initial:", translated_initial_pos.shape, "final:", amr_pos.shape)
                 return False
 
@@ -115,7 +127,9 @@ class TestCase(utils.test_case.TestCaseAbs):
             atol=1.0e-10,
             rtol=0.0,
         ):
-            print("Particle setup differs between ProblemGenerator and PostInitialization.")
+            print(
+                "Particle setup differs between ProblemGenerator and PostInitialization."
+            )
             return False
 
         return True
