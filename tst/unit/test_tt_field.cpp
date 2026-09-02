@@ -208,10 +208,10 @@ TEST_CASE("MeshTTData assembles over a block partition", "[TTField]") {
       }
 
       // Build host packs directly from the mesh containers (the mesh -> host
-      // pack -> op path an application uses).
+      // pack -> op path an application uses). FromContainer gathers all fields.
       using parthenon::tensor2::TensorTrainHostPack;
-      auto in_pack = TensorTrainHostPack::FromContainer(in, "I");
-      auto out_pack = TensorTrainHostPack::FromContainer(out, "I");
+      auto in_pack = TensorTrainHostPack::FromContainer(in);
+      auto out_pack = TensorTrainHostPack::FromContainer(out);
 
       THEN("NonDestructiveSum(in, in, out) yields combined ranks in out") {
         parthenon::tensor2::NonDestructiveSum(in_pack, in_pack, out_pack);
@@ -233,6 +233,76 @@ TEST_CASE("MeshTTData assembles over a block partition", "[TTField]") {
             REQUIRE(t->GetCoreHost(0).RR() >= 1);
           }
         }
+      }
+    }
+  }
+}
+
+// Field tags for the multi-field pack test.
+namespace tags {
+struct A : public parthenon::tensor2::tt_var_base_t {
+  static std::string name() { return "A"; }
+};
+struct B : public parthenon::tensor2::tt_var_base_t {
+  static std::string name() { return "B"; }
+};
+} // namespace tags
+
+TEST_CASE("Multi-field packs support integer and tag indexing", "[TTField]") {
+  GIVEN("A container holding two same-shape tensor-train fields") {
+    constexpr int NTHETA = 8;
+    constexpr int NPHI = 16;
+    constexpr int NSIDE = 4;
+    constexpr int NDIM = 2;
+    constexpr int NBLOCKS = 2;
+
+    auto pkg = std::make_shared<StateDescriptor>("tt_test");
+    Metadata cell({Metadata::Cell, Metadata::Independent});
+    pkg->AddTTField("A", TTFieldMetadata({NTHETA, NPHI}, cell));
+    pkg->AddTTField("B", TTFieldMetadata({NTHETA, NPHI}, cell));
+    Packages_t packages;
+    packages.Add(pkg);
+    auto resolved = ResolvePackages(packages);
+
+    BlockList_t block_list;
+    for (int i = 0; i < NBLOCKS; ++i) {
+      auto pmb = std::make_shared<MeshBlock>(NSIDE, NDIM);
+      pmb->resolved_packages = resolved;
+      pmb->tt_block_data.Get()->Initialize(pmb);
+      block_list.push_back(pmb);
+    }
+    auto part = std::make_shared<BlockListPartition>(0, GridIdentifier::leaf(),
+                                                     block_list, nullptr);
+    MeshTTData md("base");
+    md.Initialize(part);
+
+    WHEN("An untagged host pack is built over all fields") {
+      using parthenon::tensor2::TensorTrainHostPack;
+      auto host = TensorTrainHostPack::FromContainer(md);
+
+      THEN("It reports the container's field count") {
+        REQUIRE(host.NumVars() == 2);
+        REQUIRE(host.NumBlocks() == NBLOCKS);
+      }
+    }
+
+    WHEN("A tagged host pack is built for a specific field set") {
+      using parthenon::tensor2::TensorTrainHostPackFor;
+      auto host = TensorTrainHostPackFor<tags::A, tags::B>::FromContainer(md);
+
+      THEN("The host pack is accessible by tag (block leads)") {
+        REQUIRE(host.template VarIndex<tags::A>() == 0);
+        REQUIRE(host.template VarIndex<tags::B>() == 1);
+        // Tag and integer accessors reach the same train.
+        REQUIRE(&host(0, tags::A{}) == &host(0, 0));
+        REQUIRE(&host(0, tags::B{}) == &host(0, 1));
+      }
+
+      THEN("Its device pack resolves tags to var slots (block leads)") {
+        auto pack = host.MakeDevicePack();
+        REQUIRE(pack.GetNVars() == 2);
+        REQUIRE(pack.template VarIndex<tags::A>() == 0);
+        REQUIRE(pack.template VarIndex<tags::B>() == 1);
       }
     }
   }

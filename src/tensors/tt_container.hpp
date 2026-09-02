@@ -105,6 +105,16 @@ class MeshBlockTTData {
       f(pair.first, pair.second);
   }
 
+  // Ordered list of field names held by this container (sorted, since the
+  // backing map is ordered by name).
+  std::vector<std::string> FieldNames() const {
+    std::vector<std::string> names;
+    names.reserve(map_.size());
+    for (const auto &pair : map_)
+      names.push_back(pair.first);
+    return names;
+  }
+
   int Size() const { return static_cast<int>(map_.size()); }
   const std::string &StageName() const { return stage_name_; }
 
@@ -201,6 +211,11 @@ class MeshTTData {
   }
 
   int NumBlocks() const { return static_cast<int>(block_data_.size()); }
+  // Ordered field names held by this partition (all blocks share the same set).
+  std::vector<std::string> FieldNames() const {
+    return block_data_.empty() ? std::vector<std::string>{}
+                               : block_data_[0]->FieldNames();
+  }
   const std::shared_ptr<MeshBlockTTData> &GetBlockData(int n) const {
     return block_data_[n];
   }
