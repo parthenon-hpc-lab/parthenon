@@ -225,7 +225,7 @@ and in the new ``ellipse`` folder:
      const Real aa = a * a;
      const Real bb = b * b;
    
-     return (xp * xp) / (aa + EPS) + (yp * yp) / (bb + EPScd ) <= 1.0;
+     return (xp * xp) / (aa + EPS) + (yp * yp) / (bb + EPS) <= 1.0;
    }
 
    // This is going to be the name of a variable we're going to set
