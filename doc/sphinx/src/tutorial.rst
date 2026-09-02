@@ -632,7 +632,7 @@ constexpr Real EPS = parthenon::robust::EPS();
              // speed times dt, which is r * omega * dt, which must be
              // less than delta:
              // dt <= delta / (r * omega)
-             ldt = std::min(ldt, delta / (std::abs(r * omega) + 1e-20));
+             ldt = std::min(ldt, delta / (std::abs(r * omega) + EPS));
            }
          }, Kokkos::Min<Real>(dtmin));
    
