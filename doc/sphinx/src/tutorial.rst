@@ -1348,8 +1348,8 @@ After all is said and done, your ``ellipse`` folder should look like this:
            └── pgen.hpp
 
 To build your new code, make a new folder and change directory into
-it. This folder can be anywhere, so long as it's not in the top level
-source directory. I call it ``build``:
+it. This folder can be anywhere, so long as you don't build in the
+top level source directory itself. I call it ``build``:
 
 .. code-block:: bash
 
