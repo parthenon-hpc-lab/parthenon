@@ -288,6 +288,7 @@ add_library(parthenon
   tensors/tt_container.cpp
   tensors/tt_container.hpp
   tensors/tt_field_metadata.hpp
+  tensors/tt_pack.hpp
 
   utils/alias_method.cpp
   utils/alias_method.hpp

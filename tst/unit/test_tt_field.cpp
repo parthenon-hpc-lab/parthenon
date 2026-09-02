@@ -26,6 +26,7 @@
 #include "tensors/tt_container.hpp"
 #include "tensors/tt_field_metadata.hpp"
 #include "tensors/tt_operations.hpp"
+#include "tensors/tt_pack.hpp"
 
 using parthenon::BlockList_t;
 using parthenon::BlockListPartition;
@@ -283,6 +284,17 @@ TEST_CASE("Multi-field packs support integer and tag indexing", "[TTField]") {
       THEN("It reports the container's field count") {
         REQUIRE(host.NumVars() == 2);
         REQUIRE(host.NumBlocks() == NBLOCKS);
+      }
+    }
+
+    WHEN("An untagged host pack is built from an explicit name list") {
+      using parthenon::tensor2::TensorTrainHostPack;
+      auto host = TensorTrainHostPack::FromNames(md, {"B"});
+
+      THEN("It gathers only the named fields, in the given order") {
+        REQUIRE(host.NumVars() == 1);
+        REQUIRE(host.NumBlocks() == NBLOCKS);
+        REQUIRE(&host(0, 0) == md.GetBlockData(0)->Get("B").get());
       }
     }
 

@@ -20,6 +20,7 @@
 #include "linear_algebra/symmetric_evd.hpp"
 #include "linear_algebra/square_svd.hpp"
 #include "tt_traits.hpp"
+#include "tt_pack.hpp"
 #include "tt_types.hpp"
 
 

@@ -23,6 +23,7 @@
 
 #include "kokkos_abstraction.hpp"
 #include "tensors/tt_operations.hpp"
+#include "tensors/tt_pack.hpp"
 #include "tensors/tt_types.hpp"
 
 using namespace parthenon;
