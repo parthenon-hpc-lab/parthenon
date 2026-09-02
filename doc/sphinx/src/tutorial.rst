@@ -590,7 +590,8 @@ Finally, let's take a look at the ``EstimateTimestep`` function:
 
    Real Particles::EstimateTimestep(MeshData<Real> *md) {
      constexpr double SAFETY = 0.5;
-   
+constexpr Real EPS = parthenon::robust::EPS();
+
      std::shared_ptr<StateDescriptor> pkg = md->GetMeshPointer()->packages.Get("ellipse");
      const auto omega = pkg->Param<Real>("omega");
    
