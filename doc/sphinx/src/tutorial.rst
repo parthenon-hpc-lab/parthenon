@@ -27,6 +27,17 @@ dependencies as
 
    sudo apt install build-essential libmpich-dev libhdf5-mpich-dev hdf5-tools git cmake
 
+On Mac OS, via homebrew, it is sufficient to run
+
+.. code-block:: bash
+
+   brew install hdf5-mpi 
+   brew install cmake
+
+.. note::
+
+   The tutorial will build/run without MPI, but HDF5 is essential.
+
 For Python, use your preferred Python environment. I suggest a
 project-specific Python virtual environment:
 
