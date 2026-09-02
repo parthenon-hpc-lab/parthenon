@@ -112,40 +112,42 @@ void SetTTPackToValue(TensorPackT<TTraits> &pack, typename TTraits::real_t value
       });
 }
 
-// Form the non-destructive TT sum of two batches of tensor trains. The output
-// trains are allocated on host, packed, and then filled on device by copying
-// the two input trains into the appropriate diagonal blocks.
+// Form the non-destructive TT sum C = A + B over a batch of tensor trains.
+//
+// This is the canonical tensor-train operation shape: it takes host packs (a
+// batch of trains per operand), reshapes the output trains host-side to the
+// combined block-diagonal ranks, builds device packs from the host packs, and
+// fills the output on device. C must be distinct from A and B (the output
+// trains are reshaped in place, which would clobber an aliased input).
 template <class TTraits>
-std::vector<TensorTrainT<TTraits>>
-NonDestructiveSum(const std::vector<TensorTrainT<TTraits>> &TrainsA,
-                  const std::vector<TensorTrainT<TTraits>> &TrainsB) {
-  PARTHENON_REQUIRE(TrainsA.size() == TrainsB.size(),
-                    "Must be adding the same number of TTs.");
+void NonDestructiveSum(const TensorTrainHostPackT<TTraits> &A,
+                       const TensorTrainHostPackT<TTraits> &B,
+                       TensorTrainHostPackT<TTraits> &C) {
+  const int nblocks = A.NumBlocks();
+  PARTHENON_REQUIRE(B.NumBlocks() == nblocks && C.NumBlocks() == nblocks,
+                    "Must be adding the same number of trains.");
 
-  std::vector<TensorTrainT<TTraits>> TrainsC;
-  TrainsC.reserve(TrainsA.size());
-
-  for (int t = 0; t < TrainsA.size(); ++t) {
-    const auto &train_A = TrainsA[t];
-    const auto &train_B = TrainsB[t];
-    std::vector<int> phys_dims, target_ranks;
+  // Reshape each output train to the combined ranks (metadata op, host-side).
+  for (int t = 0; t < nblocks; ++t) {
+    const auto &train_A = A(t);
+    const auto &train_B = B(t);
     PARTHENON_REQUIRE(train_A.NCores() == train_B.NCores(),
                       "Added trains must have the same number of cores.");
+    std::vector<int> phys_dims, target_ranks;
     for (int c = 0; c < train_A.NCores(); ++c) {
       PARTHENON_REQUIRE(train_A(c).DD() == train_B(c).DD(),
                         "Must have equivalent physical dims.");
       phys_dims.push_back(train_A(c).DD());
     }
-    for (int c = 0; c < train_A.NCores() - 1; ++c) {
+    for (int c = 0; c < train_A.NCores() - 1; ++c)
       target_ranks.push_back(train_A(c).RR() + train_B(c).RR());
-    }
-    TrainsC.emplace_back(phys_dims, target_ranks);
+    C.Reshape(t, phys_dims, target_ranks);
   }
 
-  TensorPackT<TTraits> pack_a(TrainsA);
-  TensorPackT<TTraits> pack_b(TrainsB);
-  TensorPackT<TTraits> pack_c(TrainsC);
-
+  // Build device packs and fill the (now correctly sized) output.
+  auto pack_a = A.MakeDevicePack();
+  auto pack_b = B.MakeDevicePack();
+  auto pack_c = C.MakeDevicePack();
   constexpr int unused_scratch_size = 0;
   constexpr int unused_scratch_level = 1;
   parthenon::par_for_outer(
@@ -171,7 +173,37 @@ NonDestructiveSum(const std::vector<TensorTrainT<TTraits>> &TrainsA,
                             std::pair<int, int>{0, core_a.RR()});
         }
       });
+}
+
+// Convenience overload for a batch held in plain vectors (e.g. unit tests):
+// returns a freshly-allocated result vector.
+template <class TTraits>
+std::vector<TensorTrainT<TTraits>>
+NonDestructiveSum(std::vector<TensorTrainT<TTraits>> &TrainsA,
+                  std::vector<TensorTrainT<TTraits>> &TrainsB) {
+  PARTHENON_REQUIRE(TrainsA.size() == TrainsB.size(),
+                    "Must be adding the same number of TTs.");
+  std::vector<TensorTrainT<TTraits>> TrainsC(TrainsA.size());
+  auto A = TensorTrainHostPackT<TTraits>::FromVector(TrainsA);
+  auto B = TensorTrainHostPackT<TTraits>::FromVector(TrainsB);
+  auto C = TensorTrainHostPackT<TTraits>::FromVector(TrainsC);
+  NonDestructiveSum(A, B, C);
   return TrainsC;
+}
+
+// Convenience overload over a named field of mesh-partition containers (e.g.
+// MeshTTData*): C[field] = A[field] + B[field]. Templated on the container type
+// so this stays independent of the mesh/interface headers. C must be a distinct
+// container/stage from A and B.
+template <class Container>
+void NonDestructiveSum(Container *A, Container *B, Container *C,
+                       const std::string &field) {
+  using train_t = std::decay_t<decltype(*A->GetBlockData(0)->Get(field))>;
+  using TTraits = typename train_t::traits;
+  auto pa = TensorTrainHostPackT<TTraits>::FromContainer(*A, field);
+  auto pb = TensorTrainHostPackT<TTraits>::FromContainer(*B, field);
+  auto pc = TensorTrainHostPackT<TTraits>::FromContainer(*C, field);
+  NonDestructiveSum(pa, pb, pc);
 }
 
 // Form the Hadamard product of two batches of tensor trains. The output ranks
@@ -317,17 +349,21 @@ struct no_core_mask {
   static constexpr bool active(int c, int j) {return true;}
 };
 
+// Round a batch of tensor trains in place via the Gram-matrix SVD, truncating
+// bond ranks to relative tolerance eps. This is the canonical op shape: it takes
+// a host pack and mutates the trains in place (ranks only shrink, so no
+// reshaping/reallocation is needed -- unlike NonDestructiveSum).
 template <class TTraits, class F = no_core_mask>
-void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
-                  typename TTraits::real_t eps,
-                  F core_mask = no_core_mask{}) {
+void RoundGramSVD(TensorTrainHostPackT<TTraits> &pack_host,
+                  typename TTraits::real_t eps, F core_mask = no_core_mask{}) {
   using real_t = typename TTraits::real_t;
 
-  // Find the number of cores and maximum rank 
+  // Find the number of cores and maximum rank
   int max_rank{0};
   int max_core_size{0};
   int n_cores{0};
-  for (const auto &train : trains) {
+  for (int t = 0; t < pack_host.NumBlocks(); ++t) {
+    const auto &train = pack_host(t);
     n_cores = train.NCores();
     for (int c = 0; c < train.NCores(); ++c) {
       max_rank = std::max(max_rank, train(c).RR());
@@ -364,7 +400,7 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
   const int storage_size = std::max(max_rank, 32) * std::max(max_rank, 32);
   scratch_size += 3 * ScratchPad1D<real_t>::shmem_size(storage_size);
 
-  TensorPackT<TTraits> pack(trains);
+  TensorPackT<TTraits> pack = pack_host.MakeDevicePack();
 
   // Allocate array for storing final ranks to eventually copy back to host to
   // round
@@ -560,8 +596,8 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
   auto final_rank_arr_h = Kokkos::create_mirror_view(final_rank_arr);
   Kokkos::deep_copy(final_rank_arr_h, final_rank_arr);
 
-  for (int b = 0; b < trains.size(); ++b) {
-    auto &train = trains[b];
+  for (int b = 0; b < pack_host.NumBlocks(); ++b) {
+    auto &train = pack_host(b);
     const int ncores = train.NCores();
 
     // Bond c stores the rank between core c and core c+1, so:
@@ -579,6 +615,28 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
 
     train(ncores - 1).ReduceSize(final_rank_arr_h(b, ncores - 2), 1);
   }
+}
+
+// Convenience overload for a batch held in plain vectors (e.g. unit tests).
+template <class TTraits, class F = no_core_mask>
+void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
+                  typename TTraits::real_t eps, F core_mask = no_core_mask{}) {
+  auto pack_host = TensorTrainHostPackT<TTraits>::FromVector(trains);
+  RoundGramSVD(pack_host, eps, core_mask);
+}
+
+// Convenience overload rounding a named field of a mesh-partition container
+// (e.g. MeshTTData*) in place. Templated on the container type to stay
+// independent of the mesh/interface headers.
+template <class Container, class F = no_core_mask>
+void RoundGramSVD(Container *md, const std::string &field,
+                  typename std::decay_t<decltype(
+                      *md->GetBlockData(0)->Get(field))>::traits::real_t eps,
+                  F core_mask = no_core_mask{}) {
+  using train_t = std::decay_t<decltype(*md->GetBlockData(0)->Get(field))>;
+  using TTraits = typename train_t::traits;
+  auto pack_host = TensorTrainHostPackT<TTraits>::FromContainer(*md, field);
+  RoundGramSVD(pack_host, eps, core_mask);
 }
 
 template <class TTraits>

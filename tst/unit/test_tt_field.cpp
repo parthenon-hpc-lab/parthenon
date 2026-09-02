@@ -25,6 +25,7 @@
 #include "mesh/meshblock.hpp"
 #include "tensors/tt_container.hpp"
 #include "tensors/tt_field_metadata.hpp"
+#include "tensors/tt_operations.hpp"
 
 using parthenon::BlockList_t;
 using parthenon::BlockListPartition;
@@ -189,6 +190,49 @@ TEST_CASE("MeshTTData assembles over a block partition", "[TTField]") {
       THEN("It carries the partition's grid identity for symmetry with MeshData") {
         REQUIRE(md.partition == kPartition);
         REQUIRE(md.grid.type == GridIdentifier::leaf().type);
+      }
+    }
+
+    WHEN("Host-pack tensor-train ops run over the partition") {
+      MeshTTData in("base");
+      in.Initialize(part);
+      MeshTTData out("stage1");
+      out.Initialize(std::make_shared<MeshTTData>(in));
+
+      // Record input ranks (all-ones for a freshly-created field).
+      std::vector<int> in_r0(NBLOCKS), in_r1(NBLOCKS);
+      for (int b = 0; b < NBLOCKS; ++b) {
+        auto t = in.GetBlockData(b)->Get("I");
+        in_r0[b] = t->GetCoreHost(0).RR();
+        in_r1[b] = t->GetCoreHost(1).RR();
+      }
+
+      // Build host packs directly from the mesh containers (the mesh -> host
+      // pack -> op path an application uses).
+      using parthenon::tensor2::TensorTrainHostPack;
+      auto in_pack = TensorTrainHostPack::FromContainer(in, "I");
+      auto out_pack = TensorTrainHostPack::FromContainer(out, "I");
+
+      THEN("NonDestructiveSum(in, in, out) yields combined ranks in out") {
+        parthenon::tensor2::NonDestructiveSum(in_pack, in_pack, out_pack);
+        for (int b = 0; b < NBLOCKS; ++b) {
+          auto t = out.GetBlockData(b)->Get("I");
+          REQUIRE(t->GetCoreHost(0).RR() == in_r0[b] + in_r0[b]);
+          REQUIRE(t->GetCoreHost(1).RR() == in_r1[b] + in_r1[b]);
+          // Inputs are untouched (out is a distinct stage).
+          REQUIRE(in.GetBlockData(b)->Get("I")->GetCoreHost(0).RR() == in_r0[b]);
+        }
+
+        AND_THEN("RoundGramSVD compresses the summed field back down") {
+          parthenon::tensor2::RoundGramSVD(out_pack, 1.e-12);
+          for (int b = 0; b < NBLOCKS; ++b) {
+            auto t = out.GetBlockData(b)->Get("I");
+            // in+in is rank-deficient, so rounding cannot exceed the summed rank
+            // and should not error.
+            REQUIRE(t->GetCoreHost(0).RR() <= in_r0[b] + in_r0[b]);
+            REQUIRE(t->GetCoreHost(0).RR() >= 1);
+          }
+        }
       }
     }
   }
