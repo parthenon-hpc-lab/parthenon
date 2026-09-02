@@ -1430,7 +1430,10 @@ You should see output like this:
    -- Configuring done (1.3s)
    -- Generating done (0.1s)
 
-This means ``CMake`` successfully configured your code and generated a makefile.
+This means ``CMake`` successfully configured your code and generated a
+makefile. If this doesn't work, it is likely because you are missing a
+dependency, like MPI or HDF5, or that CMake is unable to find a
+dependency you have installed.
 
 .. note::
 
