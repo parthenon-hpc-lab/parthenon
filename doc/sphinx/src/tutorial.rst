@@ -461,7 +461,12 @@ like:
    #include "particles.hpp"
    
    #include <limits>
-   
+
+#include <parthenon/package.hpp>
+#include <utils/robust.hpp>
+
+using namespace parthenon::package::prelude;
+
    std::shared_ptr<StateDescriptor> Particles::Initialize(ParameterInput *pin) {
      auto pkg = std::make_shared<StateDescriptor>("particles");
    
