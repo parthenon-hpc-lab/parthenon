@@ -158,11 +158,11 @@ class DataCollection {
         return f;
     };
 
-    // Track the field list (as a canonical uid set) each container name is created from,
-    // so the DataCollection is the single source of truth for it (see GetCreationFields).
-    // Containers sharing a base name but built from different sources get distinct keys,
-    // so the per-key CreatedFrom check above cannot compare them; this does. All
-    // instances of a name must be created from the same list -- fail if not.
+    // Track the field list (as a canonical uid set) each container base name is created from,
+    // so every container with a given base name contains the same set of fields.
+    // Containers sharing a base name but built from different sources get distinct internal names,
+    // so the check above cannot compare them; this does. All
+    // instances of a name must be created from the same list.
     std::set<Uid_t> created;
     for (const auto &f : fields)
       created.insert(to_uid(f));
