@@ -1,0 +1,308 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Task-based reductions &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=e2af37d4" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Solvers" href="solvers.html" />
+    <link rel="prev" title="Particles" href="particles.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts_lite.html">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="instrumentation.html">Performance Instrumentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Task-based reductions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#allreduce">AllReduce</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#reduce">Reduce</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html">Mesh</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Task-based reductions</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/reductions.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="task-based-reductions">
+<span id="reductions"></span><h1>Task-based reductions<a class="headerlink" href="#task-based-reductions" title="Link to this heading"></a></h1>
+<p>Many codes require the ability to do global reductions. In a task-based
+environment where each rank may be executing multiple tasks lists
+operating on independent sub-domains, orchestrating these reductions
+turns out to be nontrivial. Here, we document a Parthenon-ic way of
+expressing a global reduction. The basic strategy follows:</p>
+<ol class="arabic simple">
+<li><p>Initialize a variable that will capture the <em>local</em> (just a given MPI
+rank’s value) reduced value.</p></li>
+<li><p>Launch a task in each list which updates the <em>local</em> value. For
+example, if the reduction is a sum, each task will add its
+contribution to this shared variable. Since task launching is not
+threaded, there is no concern over race conditions.</p></li>
+<li><p>Mark the task which accumulates the <em>local</em> reduction using the
+<code class="docutils literal notranslate"><span class="pre">TaskRegion</span></code> member function <code class="docutils literal notranslate"><span class="pre">AddRegionalDependencies</span></code>. This will
+ensure that tasks that require a complete local reduction will not
+launch until that <em>local</em> value is available.</p></li>
+<li><p>One task list on each rank launches a non-blocking reduction
+operation.</p></li>
+<li><p>All task lists launch a task which checks the status of the
+reduction, returning <code class="docutils literal notranslate"><span class="pre">TaskStatus::complete</span></code> once the value of the
+global reduction is set.</p></li>
+</ol>
+<p>To facilitate this pattern, parthenon provides an <code class="docutils literal notranslate"><span class="pre">AllReduce</span></code> struct,
+described below. Examples of the pattern above and the usage of
+<code class="docutils literal notranslate"><span class="pre">AllReduce</span></code> are provided
+<a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/poisson/poisson_driver.cpp">here</a>.</p>
+<section id="allreduce">
+<h2>AllReduce<a class="headerlink" href="#allreduce" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">AllReduce</span></code> is a struct templated on the type of value that needs to
+be reduced (e.g. <code class="docutils literal notranslate"><span class="pre">int</span></code>, <code class="docutils literal notranslate"><span class="pre">Real</span></code>, <code class="docutils literal notranslate"><span class="pre">std::vector&lt;Real&gt;</span></code>, etc.). It
+manages the storage in a member variable <code class="docutils literal notranslate"><span class="pre">val</span></code> which is of the type
+provided as a template argument. <code class="docutils literal notranslate"><span class="pre">val</span></code> must be appropriately
+initialized by the user. The functionality in <code class="docutils literal notranslate"><span class="pre">AllReduce</span></code> (described
+above) is exposed through two member functions, <code class="docutils literal notranslate"><span class="pre">StartReduce</span></code> and
+<code class="docutils literal notranslate"><span class="pre">CheckReduce</span></code>. <code class="docutils literal notranslate"><span class="pre">StartReduce</span></code> requires a single argument which is the
+MPI reduction operator (e.g. <code class="docutils literal notranslate"><span class="pre">MPI_SUM</span></code>, <code class="docutils literal notranslate"><span class="pre">MPI_MAX</span></code>, etc.). Both of
+these tasks are non-blocking (i.e. they call <code class="docutils literal notranslate"><span class="pre">MPI_Iallreduce</span></code> and
+<code class="docutils literal notranslate"><span class="pre">MPI_Test</span></code>).</p>
+</section>
+<section id="reduce">
+<h2>Reduce<a class="headerlink" href="#reduce" title="Link to this heading"></a></h2>
+<p>Same as <code class="docutils literal notranslate"><span class="pre">AllReduce</span></code> except <code class="docutils literal notranslate"><span class="pre">MPI_Ireduce</span></code> is called and the root rank
+of the reduction must be provided in <code class="docutils literal notranslate"><span class="pre">StartReduce</span></code></p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="particles.html" class="btn btn-neutral float-left" title="Particles" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="solvers.html" class="btn btn-neutral float-right" title="Solvers" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: jdolence/thread_safe
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/reductions.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/reductions.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/reductions.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/reductions.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/reductions.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/reductions.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/reductions.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/reductions.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/reductions.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/reductions.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../regression-gold-v26/src/reductions.html">regression-gold-v26</a></dd>
+      <dd><a href="../../../regression-gold-v27/src/reductions.html">regression-gold-v27</a></dd>
+      <dd><a href="../../../regression-gold-v28/src/reductions.html">regression-gold-v28</a></dd>
+      <dd><a href="../../../v0.8.0/src/reductions.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/reductions.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/reductions.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/reductions.html">v24.08</a></dd>
+      <dd><a href="../../../v25.05/src/reductions.html">v25.05</a></dd>
+      <dd><a href="../../../v25.12/src/reductions.html">v25.12</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../BenWibking/mainloop-debug-output-callback/src/reductions.html">BenWibking/mainloop-debug-output-callback</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/reductions.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../HEAD/src/reductions.html">HEAD</a></dd>
+      <dd><a href="../../../acreyes/hypre-diffusion-example/src/reductions.html">acreyes/hypre-diffusion-example</a></dd>
+      <dd><a href="../../../ats5/src/reductions.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/reductions.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/reductions.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/reductions.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../blb/toml/src/reductions.html">blb/toml</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/reductions.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/reductions.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../brryan/kokkos_sort/src/reductions.html">brryan/kokkos_sort</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/reductions.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/reductions.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/reductions.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../c-prather/fix-oneblock/src/reductions.html">c-prather/fix-oneblock</a></dd>
+      <dd><a href="../../../c-prather/sigint-kill/src/reductions.html">c-prather/sigint-kill</a></dd>
+      <dd><a href="../../../cep/one-block-mesh/src/reductions.html">cep/one-block-mesh</a></dd>
+      <dd><a href="../../../dempsey/rummy/src/reductions.html">dempsey/rummy</a></dd>
+      <dd><a href="../../../dempsey/rummy2/src/reductions.html">dempsey/rummy2</a></dd>
+      <dd><a href="../../../dempsey/rummy3/src/reductions.html">dempsey/rummy3</a></dd>
+      <dd><a href="../../../dempsey/swarm_amr/src/reductions.html">dempsey/swarm_amr</a></dd>
+      <dd><a href="../../../develop/src/reductions.html">develop</a></dd>
+      <dd><a href="../../../fglines-nv/optimize-burgers/src/reductions.html">fglines-nv/optimize-burgers</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/reductions.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/reductions.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../loop-benchmarks/src/reductions.html">jdolence/loop-benchmarks</a></dd>
+      <dd><a href="reductions.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../timer_based_loadbalancing/src/reductions.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../trace/src/reductions.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/clear-particles-in-pgen/src/reductions.html">jmm/clear-particles-in-pgen</a></dd>
+      <dd><a href="../../../jmm/docstrings-2-blockref-boogaloo/src/reductions.html">jmm/docstrings-2-blockref-boogaloo</a></dd>
+      <dd><a href="../../../jmm/fix-block-less-than-ranks/src/reductions.html">jmm/fix-block-less-than-ranks</a></dd>
+      <dd><a href="../../../jmm/pyproxy/src/reductions.html">jmm/pyproxy</a></dd>
+      <dd><a href="../../../jmm/shrinkcores/src/reductions.html">jmm/shrinkcores</a></dd>
+      <dd><a href="../../../jmm/submeshdata-2/src/reductions.html">jmm/submeshdata-2</a></dd>
+      <dd><a href="../../../jmm/token-scratch/src/reductions.html">jmm/token-scratch</a></dd>
+      <dd><a href="../../../jmm/turorial/src/reductions.html">jmm/turorial</a></dd>
+      <dd><a href="../../../lkasselm/fft/src/reductions.html">lkasselm/fft</a></dd>
+      <dd><a href="../../../lkasselm/fft-backup/src/reductions.html">lkasselm/fft-backup</a></dd>
+      <dd><a href="../../../lrobert36/update-index-split-manual/src/reductions.html">lrobert36/update-index-split-manual</a></dd>
+      <dd><a href="../../../lroberts36/add-callback-taskstatus/src/reductions.html">lroberts36/add-callback-taskstatus</a></dd>
+      <dd><a href="../../../lroberts36/add-densitization-solver-option/src/reductions.html">lroberts36/add-densitization-solver-option</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-indices/src/reductions.html">lroberts36/add-sparse-indices</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/src/reductions.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/fix-cellmemaligned-independent/src/reductions.html">lroberts36/fix-cellmemaligned-independent</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-flag-error/src/reductions.html">lroberts36/fix-multigrid-flag-error</a></dd>
+      <dd><a href="../../../lroberts36/fix-multiple-solvers/src/reductions.html">lroberts36/fix-multiple-solvers</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/src/reductions.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/src/reductions.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/imex-advection/src/reductions.html">lroberts36/imex-advection</a></dd>
+      <dd><a href="../../../lroberts36/loop-benchmarks-bench/src/reductions.html">lroberts36/loop-benchmarks-bench</a></dd>
+      <dd><a href="../../../lroberts36/python-field-init/src/reductions.html">lroberts36/python-field-init</a></dd>
+      <dd><a href="../../../lroberts36/python-input-support/src/reductions.html">lroberts36/python-input-support</a></dd>
+      <dd><a href="../../../lroberts36/solver-noncell-vars/src/reductions.html">lroberts36/solver-noncell-vars</a></dd>
+      <dd><a href="../../../lroberts36/solver-speedups/src/reductions.html">lroberts36/solver-speedups</a></dd>
+      <dd><a href="../../../lroberts36/solver-timing/src/reductions.html">lroberts36/solver-timing</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/src/reductions.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../lroberts36/switch-to-weak-ptrs/src/reductions.html">lroberts36/switch-to-weak-ptrs</a></dd>
+      <dd><a href="../../../lroberts36/temp-p1-branch/src/reductions.html">lroberts36/temp-p1-branch</a></dd>
+      <dd><a href="../../../lroberts36/tensor-library-packs/src/reductions.html">lroberts36/tensor-library-packs</a></dd>
+      <dd><a href="../../../lroberts36/test-forest-mesh/src/reductions.html">lroberts36/test-forest-mesh</a></dd>
+      <dd><a href="../../../lroberts36/update-diffusion-example/src/reductions.html">lroberts36/update-diffusion-example</a></dd>
+      <dd><a href="../../../lroberts36/update-sparse-ids/src/reductions.html">lroberts36/update-sparse-ids</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/reductions.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/reductions.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pdmullen/towards-curv-swarm/src/reductions.html">pdmullen/towards-curv-swarm</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/src/reductions.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/energy-transfer/src/reductions.html">pgrete/energy-transfer</a></dd>
+      <dd><a href="../../../pgrete/enspec/src/reductions.html">pgrete/enspec</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/src/reductions.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/jupiter/src/reductions.html">pgrete/jupiter</a></dd>
+      <dd><a href="../../../pgrete/jupiter-26/src/reductions.html">pgrete/jupiter-26</a></dd>
+      <dd><a href="../../../pgrete/metadata-allow-new-field-restart/src/reductions.html">pgrete/metadata-allow-new-field-restart</a></dd>
+      <dd><a href="../../../pgrete/pmd-output-wuser/src/reductions.html">pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/unique-ids/src/reductions.html">pgrete/unique-ids</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/reductions.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../swjones/asym_halos/src/reductions.html">swjones/asym_halos</a></dd>
+      <dd><a href="../../../swjones/dt_package_reporting/src/reductions.html">swjones/dt_package_reporting</a></dd>
+      <dd><a href="../../../swjones/rk34_integrator-unit-test/src/reductions.html">swjones/rk34_integrator-unit-test</a></dd>
+      <dd><a href="../../../swjones/tensor-library/src/reductions.html">swjones/tensor-library</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

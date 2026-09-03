@@ -1,0 +1,665 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rummy Input Files &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=e2af37d4" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Outputs" href="outputs.html" />
+    <link rel="prev" title="Input Parameters" href="inputs.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Chapters</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="chapters/getting_started.html">Getting Started</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="README.html">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="building.html">Building Parthenon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="inputs.html">Input Parameters</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Rummy Input Files</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#basic-syntax">Basic Syntax</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#global-variables">Global Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#expression-evaluation">Expression Evaluation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#math-functions">Math Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#environment-variables">Environment Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#ternary-operator">Ternary Operator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#string-parameters">String Parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#boolean-parameters">Boolean Parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vector-parameters">Vector Parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#relative-block-paths">Relative Block Paths</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#including-other-files">Including Other Files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#multiple-input-files">Multiple Input Files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#debugging-utilities">Debugging Utilities</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#the-print-function">The <code class="docutils literal notranslate"><span class="pre">print</span></code> Function</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#multiline-expressions">Multiline Expressions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#how-parthenon-detects-rummy-files">How Parthenon Detects Rummy Files</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#restart-files-and-rummy">Restart Files and Rummy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#example">Example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="outputs.html">Outputs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="outputs.html#postprocessing-and-data-analysis">Postprocessing and data analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/parallelism_performance.html">Parallelism and Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/advanced_features.html">Advanced Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/api_reference.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/developer_guide.html">Developer Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="chapters/getting_started.html">Getting Started</a></li>
+      <li class="breadcrumb-item active">Rummy Input Files</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/rummy_input.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="rummy-input-files">
+<span id="rummy-input"></span><h1>Rummy Input Files<a class="headerlink" href="#rummy-input-files" title="Link to this heading"></a></h1>
+<p>Parthenon supports an extended input file format provided by the <cite>Link Rummy &lt;https://github.com/lanl/rummy&gt;</cite> library, in addition
+to the native, Athena++ format. Rummy input files provide expression evaluation,
+global variables, vector operations, relative block paths, file inclusion,
+and more.</p>
+<p>Rummy is auto-detected — no special build flag is required.  Whether a
+particular input file is parsed by Rummy or the native parser is determined
+automatically at runtime (see <a class="reference internal" href="#rummy-detection"><span class="std std-ref">How Parthenon Detects Rummy Files</span></a>).</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#basic-syntax" id="id1">Basic Syntax</a></p></li>
+<li><p><a class="reference internal" href="#global-variables" id="id2">Global Variables</a></p></li>
+<li><p><a class="reference internal" href="#expression-evaluation" id="id3">Expression Evaluation</a></p></li>
+<li><p><a class="reference internal" href="#math-functions" id="id4">Math Functions</a></p></li>
+<li><p><a class="reference internal" href="#environment-variables" id="id5">Environment Variables</a></p></li>
+<li><p><a class="reference internal" href="#ternary-operator" id="id6">Ternary Operator</a></p></li>
+<li><p><a class="reference internal" href="#string-parameters" id="id7">String Parameters</a></p></li>
+<li><p><a class="reference internal" href="#boolean-parameters" id="id8">Boolean Parameters</a></p></li>
+<li><p><a class="reference internal" href="#vector-parameters" id="id9">Vector Parameters</a></p></li>
+<li><p><a class="reference internal" href="#relative-block-paths" id="id10">Relative Block Paths</a></p></li>
+<li><p><a class="reference internal" href="#including-other-files" id="id11">Including Other Files</a></p></li>
+<li><p><a class="reference internal" href="#multiple-input-files" id="id12">Multiple Input Files</a></p></li>
+<li><p><a class="reference internal" href="#debugging-utilities" id="id13">Debugging Utilities</a></p></li>
+<li><p><a class="reference internal" href="#the-print-function" id="id14">The <code class="docutils literal notranslate"><span class="pre">print</span></code> Function</a></p></li>
+<li><p><a class="reference internal" href="#multiline-expressions" id="id15">Multiline Expressions</a></p></li>
+<li><p><a class="reference internal" href="#how-parthenon-detects-rummy-files" id="id16">How Parthenon Detects Rummy Files</a></p></li>
+<li><p><a class="reference internal" href="#restart-files-and-rummy" id="id17">Restart Files and Rummy</a></p></li>
+<li><p><a class="reference internal" href="#example" id="id18">Example</a></p></li>
+</ul>
+</nav>
+<section id="basic-syntax">
+<h2><a class="toc-backref" href="#id1" role="doc-backlink">Basic Syntax</a><a class="headerlink" href="#basic-syntax" title="Link to this heading"></a></h2>
+<p>Rummy input files share the same block/parameter structure as native files:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&lt;blockname&gt;
+param = value           # optional inline comment
+other  = 1.23
+</pre></div>
+</div>
+<p>The key difference is that Rummy compiles the entire file from the top down,
+so any card defined earlier can be referenced by name in a later expression.</p>
+</section>
+<section id="global-variables">
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">Global Variables</a><a class="headerlink" href="#global-variables" title="Link to this heading"></a></h2>
+<p>Variables declared <strong>before</strong> the first <code class="docutils literal notranslate"><span class="pre">&lt;block&gt;</span></code> header are <em>global variables</em>.
+Global variables can be referenced by name anywhere in
+the file without a block qualifier:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>L   = 1.0
+rho = 2.5
+
+&lt;mesh&gt;
+Lx = L          # reference the global variable L
+Ly = L
+</pre></div>
+</div>
+<p>Global variables are the simplest Rummy feature.  Their presence (content
+before the first <code class="docutils literal notranslate"><span class="pre">&lt;...&gt;</span></code> line) is one of the markers that causes Parthenon
+to choose the Rummy parser automatically.</p>
+</section>
+<section id="expression-evaluation">
+<h2><a class="toc-backref" href="#id3" role="doc-backlink">Expression Evaluation</a><a class="headerlink" href="#expression-evaluation" title="Link to this heading"></a></h2>
+<p>Parameter values can be arbitrary arithmetic expressions.</p>
+<p><strong>Arithmetic</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Syntax</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">+</span>&#160; <span class="pre">-</span></code></p></td>
+<td><p>Addition / subtraction</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*</span>&#160; <span class="pre">/</span></code></p></td>
+<td><p>Multiplication / division</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">//</span></code></p></td>
+<td><p>Integer (floor) division</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">**</span></code></p></td>
+<td><p>Power (e.g. <code class="docutils literal notranslate"><span class="pre">2**10</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">%</span></code></p></td>
+<td><p>Modulo</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">pi</span></code></p></td>
+<td><p>Named constant π</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Boolean</strong> (operate on <code class="docutils literal notranslate"><span class="pre">true</span></code>/<code class="docutils literal notranslate"><span class="pre">false</span></code> values)</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Syntax</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">and</span></code></p></td>
+<td><p>Logical AND</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">or</span></code></p></td>
+<td><p>Logical OR</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">xor</span></code></p></td>
+<td><p>Logical XOR</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">not</span></code></p></td>
+<td><p>Logical NOT (unary)</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Bitwise</strong> (operate on integers; also work on booleans)</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Syntax</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&amp;</span></code></p></td>
+<td><p>Bitwise AND</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">|</span></code></p></td>
+<td><p>Bitwise OR</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">^</span></code></p></td>
+<td><p>Bitwise XOR</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">~</span></code></p></td>
+<td><p>Bitwise NOT (unary)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&lt;&lt;</span></code></p></td>
+<td><p>Left shift</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&gt;&gt;</span></code></p></td>
+<td><p>Right shift</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Comparison</strong>: <code class="docutils literal notranslate"><span class="pre">==</span></code>, <code class="docutils literal notranslate"><span class="pre">!=</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;=</span></code>, <code class="docutils literal notranslate"><span class="pre">&gt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&gt;=</span></code></p>
+<p>Examples:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>dt      = 0.45 * dx
+gamma   = 5.0/3.0
+cv      = 1.0/(gamma - 1.0)
+vol     = L**3
+half_nx = nx // 2
+use_mhd = hydro and conduction
+</pre></div>
+</div>
+<p>Values from <strong>any previously-defined card</strong> (including cards in other blocks)
+can be referenced by their fully-qualified dotted name:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&lt;eos&gt;
+gamma = 5.0/3.0
+
+&lt;gas&gt;
+cv = 1.0/(eos.gamma - 1.0)
+</pre></div>
+</div>
+</section>
+<section id="math-functions">
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">Math Functions</a><a class="headerlink" href="#math-functions" title="Link to this heading"></a></h2>
+<p>Almost all <code class="docutils literal notranslate"><span class="pre">&lt;cmath&gt;</span></code> functions are available as built-in keywords:</p>
+<p><strong>Trigonometric</strong> — <code class="docutils literal notranslate"><span class="pre">sin</span></code>, <code class="docutils literal notranslate"><span class="pre">cos</span></code>, <code class="docutils literal notranslate"><span class="pre">tan</span></code>, <code class="docutils literal notranslate"><span class="pre">asin</span></code>, <code class="docutils literal notranslate"><span class="pre">acos</span></code>, <code class="docutils literal notranslate"><span class="pre">atan</span></code>,
+<code class="docutils literal notranslate"><span class="pre">atan2(y,</span> <span class="pre">x)</span></code></p>
+<p><strong>Exponential / logarithm</strong> — <code class="docutils literal notranslate"><span class="pre">exp</span></code>, <code class="docutils literal notranslate"><span class="pre">log</span></code> (natural), <code class="docutils literal notranslate"><span class="pre">log10</span></code></p>
+<p><strong>Power / rounding</strong> — <code class="docutils literal notranslate"><span class="pre">sqrt</span></code>, <code class="docutils literal notranslate"><span class="pre">ceil</span></code>, <code class="docutils literal notranslate"><span class="pre">floor</span></code>, <code class="docutils literal notranslate"><span class="pre">abs</span></code>, <code class="docutils literal notranslate"><span class="pre">sign</span></code></p>
+<p><strong>Extrema</strong> — <code class="docutils literal notranslate"><span class="pre">min(a,</span> <span class="pre">b)</span></code>, <code class="docutils literal notranslate"><span class="pre">max(a,</span> <span class="pre">b)</span></code></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>theta = pi / 4.0
+vx    = v * cos(theta)
+vy    = v * sin(theta)
+r     = sqrt(vx**2 + vy**2)
+lo    = min(r, 1.0)
+</pre></div>
+</div>
+</section>
+<section id="environment-variables">
+<h2><a class="toc-backref" href="#id5" role="doc-backlink">Environment Variables</a><a class="headerlink" href="#environment-variables" title="Link to this heading"></a></h2>
+<p>The special function <code class="docutils literal notranslate"><span class="pre">env(&quot;VARIABLE&quot;)</span></code> is available for reading environment variables. The output can be stored into a variable for later use.</p>
+</section>
+<section id="ternary-operator">
+<h2><a class="toc-backref" href="#id6" role="doc-backlink">Ternary Operator</a><a class="headerlink" href="#ternary-operator" title="Link to this heading"></a></h2>
+<p>The C-style ternary <code class="docutils literal notranslate"><span class="pre">condition</span> <span class="pre">?</span> <span class="pre">value_if_true</span> <span class="pre">:</span> <span class="pre">value_if_false</span></code> is
+supported:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>nx = 64
+ny = (nx &gt; 32) ? nx // 2 : nx       # ny = 32
+label = (debug) ? "debug" : "production"
+</pre></div>
+</div>
+</section>
+<section id="string-parameters">
+<h2><a class="toc-backref" href="#id7" role="doc-backlink">String Parameters</a><a class="headerlink" href="#string-parameters" title="Link to this heading"></a></h2>
+<p>String values must be quoted:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&lt;parthenon/job&gt;
+problem_id = "advection"
+</pre></div>
+</div>
+<p>String concatenation uses <code class="docutils literal notranslate"><span class="pre">+</span></code>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>prefix = "my_"
+&lt;outputs&gt;
+label = prefix + "run"
+</pre></div>
+</div>
+</section>
+<section id="boolean-parameters">
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">Boolean Parameters</a><a class="headerlink" href="#boolean-parameters" title="Link to this heading"></a></h2>
+<p>Boolean values are written as <code class="docutils literal notranslate"><span class="pre">true</span></code> or <code class="docutils literal notranslate"><span class="pre">false</span></code> (case-insensitive):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&lt;physics&gt;
+hydro      = true
+conduction = false
+do_work    = hydro or conduction
+both       = hydro and conduction
+neither    = not hydro and not conduction
+</pre></div>
+</div>
+</section>
+<section id="vector-parameters">
+<h2><a class="toc-backref" href="#id9" role="doc-backlink">Vector Parameters</a><a class="headerlink" href="#vector-parameters" title="Link to this heading"></a></h2>
+<p>Vectors are comma-separated lists.  Both bare and bracketed syntax work:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>L = 1.0, 1.0, 0.5       # bare comma list
+n = [10, 10, 1]          # bracket syntax
+</pre></div>
+</div>
+<p>Individual elements are accessed with zero-based indexing:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&lt;mesh&gt;
+nx1 = n[0]
+nx2 = n[1]
+</pre></div>
+</div>
+<p><strong>Slice assignments</strong> copy a range of elements from a vector into another:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>xmin = -L[0]/2., -L[1]/2., -L[2]/2.
+xmax[:] = 0.5 * L[:3]     # broadcast scalar * slice
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">[:]</span></code> slice on the left-hand side means “all elements”; <code class="docutils literal notranslate"><span class="pre">[:3]</span></code> means
+elements 0, 1, 2.</p>
+</section>
+<section id="relative-block-paths">
+<h2><a class="toc-backref" href="#id10" role="doc-backlink">Relative Block Paths</a><a class="headerlink" href="#relative-block-paths" title="Link to this heading"></a></h2>
+<p>A block header starting with <code class="docutils literal notranslate"><span class="pre">&lt;../</span></code> declares a child of the <em>current</em> block:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&lt;gas&gt;
+name = "hydrogen"
+
+&lt;../eos&gt;            # expands to &lt;gas/eos&gt;
+gamma = 5.0/3.0
+
+&lt;../conductivity&gt;   # expands to &lt;gas/conductivity&gt;
+kappa = 0.1 / gas.eos.gamma
+</pre></div>
+</div>
+<p>Relative paths allow logically related sub-blocks to stay near each other in
+the file without repeating long prefixes.</p>
+</section>
+<section id="including-other-files">
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">Including Other Files</a><a class="headerlink" href="#including-other-files" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">include</span></code> statement inserts another file into the current compilation
+at that point.  All variables defined before the <code class="docutils literal notranslate"><span class="pre">include</span></code> are visible
+inside the included file, and all variables defined inside are visible after
+it returns:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span># main.par
+# use rummy
+
+L  = 1.0
+nx = 64
+
+include "mesh.par"            # relative to the directory of main.par
+include "/abs/path/eos.par"   # absolute path also works
+</pre></div>
+</div>
+<p>Circular includes are detected and cause a fatal error.  Paths are resolved
+relative to the directory of the file containing the <code class="docutils literal notranslate"><span class="pre">include</span></code> statement.</p>
+</section>
+<section id="multiple-input-files">
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">Multiple Input Files</a><a class="headerlink" href="#multiple-input-files" title="Link to this heading"></a></h2>
+<p>Multiple <code class="docutils literal notranslate"><span class="pre">-i</span></code> arguments can be passed on the command line.  All files are
+compiled in the <strong>same Rummy compilation space</strong>, so variables defined in an
+earlier file are available in later ones:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./my-app<span class="w"> </span>-i<span class="w"> </span>base.par<span class="w"> </span>-i<span class="w"> </span>overrides.par<span class="w"> </span>parthenon.time.nlim<span class="o">=</span><span class="m">100</span>
+</pre></div>
+</div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span># base.par
+# use rummy
+nx = 64
+&lt;parthenon/mesh&gt;
+nx1 = nx
+</pre></div>
+</div>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span># overrides.par — sees nx from base.par
+nx = 128         # redefines nx for the higher-resolution run
+</pre></div>
+</div>
+<p>Files are read in the order they appear on the command line.</p>
+</section>
+<section id="debugging-utilities">
+<h2><a class="toc-backref" href="#id13" role="doc-backlink">Debugging Utilities</a><a class="headerlink" href="#debugging-utilities" title="Link to this heading"></a></h2>
+<p>Three special statements print the current state of the compiler to
+standard output and are useful for debugging input decks:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">__locals__</span></code></dt><dd><p>Print all variables local to the current block (suit).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">__globals__</span></code></dt><dd><p>Print all globally defined variables (including cards from all
+previously compiled suits).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">__stack__</span></code></dt><dd><p>Print the current expression evaluation stack.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">__list__</span></code></dt><dd><p>The combined output of <code class="docutils literal notranslate"><span class="pre">__globals__</span></code>, <code class="docutils literal notranslate"><span class="pre">__locals__</span></code>, and <code class="docutils literal notranslate"><span class="pre">__stack__</span></code>.</p>
+</dd>
+</dl>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&lt;mesh&gt;
+nx = 64
+__globals__     # prints all globals including nx
+</pre></div>
+</div>
+</section>
+<section id="the-print-function">
+<h2><a class="toc-backref" href="#id14" role="doc-backlink">The <code class="docutils literal notranslate"><span class="pre">print</span></code> Function</a><a class="headerlink" href="#the-print-function" title="Link to this heading"></a></h2>
+<p>The built-in variadic <code class="docutils literal notranslate"><span class="pre">print</span></code> function writes any previously compiled card’s value to
+standard output when the deck is loaded.  It is useful for sanity-checking
+derived quantities:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>dt = 0.45 * dx
+print("dt = ", dt)
+</pre></div>
+</div>
+<p>Only cards defined <em>before</em> the <code class="docutils literal notranslate"><span class="pre">print</span></code> call can be printed.</p>
+</section>
+<section id="multiline-expressions">
+<h2><a class="toc-backref" href="#id15" role="doc-backlink">Multiline Expressions</a><a class="headerlink" href="#multiline-expressions" title="Link to this heading"></a></h2>
+<p>A trailing <code class="docutils literal notranslate"><span class="pre">&amp;</span></code> continues an expression on the next line:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>long_value = 1.0   &amp;
+           + 2.0   &amp;
+           + 3.0   # = 6.0
+</pre></div>
+</div>
+</section>
+<section id="how-parthenon-detects-rummy-files">
+<span id="rummy-detection"></span><h2><a class="toc-backref" href="#id16" role="doc-backlink">How Parthenon Detects Rummy Files</a><a class="headerlink" href="#how-parthenon-detects-rummy-files" title="Link to this heading"></a></h2>
+<p>Parthenon auto-detects Rummy format without any explicit flag.  A file (or
+command-line override string) is routed to the Rummy parser if <strong>any</strong> of the
+following is true:</p>
+<ol class="arabic simple">
+<li><p>The first non-blank line is <code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">use</span> <span class="pre">rummy</span></code> (case-insensitive) — the
+explicit opt-in marker.</p></li>
+<li><p>There is non-comment, non-blank content <strong>before</strong> the first <code class="docutils literal notranslate"><span class="pre">&lt;block&gt;</span></code>
+header (i.e., global variables are present).</p></li>
+<li><p>A block header begins with <code class="docutils literal notranslate"><span class="pre">&lt;..</span></code> (relative path syntax).</p></li>
+<li><p>A parameter <strong>name</strong> contains <code class="docutils literal notranslate"><span class="pre">.</span></code> or <code class="docutils literal notranslate"><span class="pre">[</span></code> (dotted reference or vector
+index on the LHS).</p></li>
+<li><p>A parameter <strong>value</strong> contains any of: <code class="docutils literal notranslate"><span class="pre">**</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">[</span></code>, <code class="docutils literal notranslate"><span class="pre">%</span></code>, <code class="docutils literal notranslate"><span class="pre">^</span></code>, or <code class="docutils literal notranslate"><span class="pre">|</span></code> (expression operators or quoted strings).</p></li>
+</ol>
+<p>To unconditionally use the native (Rummy) parser, place <code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">use</span> <span class="pre">native</span></code> (<code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">use</span> <span class="pre">rummy</span></code>) at the first line of the file:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span># use rummy
+&lt;parthenon/time&gt;
+nlim = 100
+tlim = 1.0
+</pre></div>
+</div>
+<p>A native input file (no Rummy syntax) continues to be parsed by the native
+parser transparently.</p>
+</section>
+<section id="restart-files-and-rummy">
+<h2><a class="toc-backref" href="#id17" role="doc-backlink">Restart Files and Rummy</a><a class="headerlink" href="#restart-files-and-rummy" title="Link to this heading"></a></h2>
+<p>When restarting from an HDF5 restart file (<code class="docutils literal notranslate"><span class="pre">-r</span></code>), Parthenon loads the
+parameter snapshot stored in the restart file using the native parser, then
+layers any Rummy input file (<code class="docutils literal notranslate"><span class="pre">-i</span></code>) and command-line overrides on top.</p>
+<p>The Rummy deck is seeded with all parameters from the restart before the Rummy
+file is compiled, so expressions in the Rummy file can reference values that
+came from the restart.  For example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./my-app<span class="w"> </span>-r<span class="w"> </span>run.out1.final.rhdf<span class="w"> </span>-i<span class="w"> </span>params.par<span class="w"> </span>parthenon.time.nlim<span class="o">=</span><span class="m">10</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">parthenon.time.nlim=10</span></code> is itself detected as a Rummy override (native
+overrides use <code class="docutils literal notranslate"><span class="pre">block/param=value</span></code> syntax) and is applied after the restart
+parameters are seeded into the deck.</p>
+</section>
+<section id="example">
+<h2><a class="toc-backref" href="#id18" role="doc-backlink">Example</a><a class="headerlink" href="#example" title="Link to this heading"></a></h2>
+<p>A complete minimal Rummy input file:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span># use rummy
+
+# --- Global parameters ---
+L  = 1.0
+nx = 64
+
+include "common_physics.par"
+
+&lt;parthenon/mesh&gt;
+nx1   = nx
+nx2   = nx
+x1min = -L/2.
+x1max =  L/2.
+x2min = -L/2.
+x2max =  L/2.
+
+&lt;parthenon/time&gt;
+tlim = 2.0
+nlim = -1
+dt   = 0.45 * L / nx    # CFL-based initial guess
+
+&lt;../output&gt;              # relative: expands to parthenon/output
+file_type = "hdf5"
+dt        = 0.1
+
+__globals__              # print all compiled globals for debugging
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="inputs.html" class="btn btn-neutral float-left" title="Input Parameters" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="outputs.html" class="btn btn-neutral float-right" title="Outputs" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: dempsey/rummy2
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/index.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/index.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/index.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/index.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/index.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/index.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/index.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/index.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/index.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/index.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../regression-gold-v26/index.html">regression-gold-v26</a></dd>
+      <dd><a href="../../../regression-gold-v27/index.html">regression-gold-v27</a></dd>
+      <dd><a href="../../../regression-gold-v28/index.html">regression-gold-v28</a></dd>
+      <dd><a href="../../../v0.8.0/index.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/index.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/index.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/index.html">v24.08</a></dd>
+      <dd><a href="../../../v25.05/index.html">v25.05</a></dd>
+      <dd><a href="../../../v25.12/index.html">v25.12</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../BenWibking/mainloop-debug-output-callback/index.html">BenWibking/mainloop-debug-output-callback</a></dd>
+      <dd><a href="../../../BenWibking/move-params/index.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../HEAD/index.html">HEAD</a></dd>
+      <dd><a href="../../../acreyes/hypre-diffusion-example/index.html">acreyes/hypre-diffusion-example</a></dd>
+      <dd><a href="../../../ats5/index.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/index.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/index.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/index.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../blb/toml/index.html">blb/toml</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/index.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/index.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../brryan/kokkos_sort/index.html">brryan/kokkos_sort</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/index.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/index.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/index.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../c-prather/fix-oneblock/index.html">c-prather/fix-oneblock</a></dd>
+      <dd><a href="../../../c-prather/sigint-kill/index.html">c-prather/sigint-kill</a></dd>
+      <dd><a href="../../../cep/one-block-mesh/index.html">cep/one-block-mesh</a></dd>
+      <dd><a href="../../rummy/index.html">dempsey/rummy</a></dd>
+      <dd><a href="rummy_input.html">dempsey/rummy2</a></dd>
+      <dd><a href="../../rummy3/src/rummy_input.html">dempsey/rummy3</a></dd>
+      <dd><a href="../../swarm_amr/index.html">dempsey/swarm_amr</a></dd>
+      <dd><a href="../../../develop/index.html">develop</a></dd>
+      <dd><a href="../../../fglines-nv/optimize-burgers/index.html">fglines-nv/optimize-burgers</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/index.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/index.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/loop-benchmarks/index.html">jdolence/loop-benchmarks</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/index.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/index.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/index.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/clear-particles-in-pgen/index.html">jmm/clear-particles-in-pgen</a></dd>
+      <dd><a href="../../../jmm/docstrings-2-blockref-boogaloo/index.html">jmm/docstrings-2-blockref-boogaloo</a></dd>
+      <dd><a href="../../../jmm/fix-block-less-than-ranks/index.html">jmm/fix-block-less-than-ranks</a></dd>
+      <dd><a href="../../../jmm/pyproxy/index.html">jmm/pyproxy</a></dd>
+      <dd><a href="../../../jmm/shrinkcores/index.html">jmm/shrinkcores</a></dd>
+      <dd><a href="../../../jmm/submeshdata-2/index.html">jmm/submeshdata-2</a></dd>
+      <dd><a href="../../../jmm/token-scratch/index.html">jmm/token-scratch</a></dd>
+      <dd><a href="../../../jmm/turorial/index.html">jmm/turorial</a></dd>
+      <dd><a href="../../../lkasselm/fft/index.html">lkasselm/fft</a></dd>
+      <dd><a href="../../../lkasselm/fft-backup/index.html">lkasselm/fft-backup</a></dd>
+      <dd><a href="../../../lrobert36/update-index-split-manual/index.html">lrobert36/update-index-split-manual</a></dd>
+      <dd><a href="../../../lroberts36/add-callback-taskstatus/index.html">lroberts36/add-callback-taskstatus</a></dd>
+      <dd><a href="../../../lroberts36/add-densitization-solver-option/index.html">lroberts36/add-densitization-solver-option</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-indices/index.html">lroberts36/add-sparse-indices</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/index.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/fix-cellmemaligned-independent/index.html">lroberts36/fix-cellmemaligned-independent</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-flag-error/index.html">lroberts36/fix-multigrid-flag-error</a></dd>
+      <dd><a href="../../../lroberts36/fix-multiple-solvers/index.html">lroberts36/fix-multiple-solvers</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/index.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/index.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/imex-advection/index.html">lroberts36/imex-advection</a></dd>
+      <dd><a href="../../../lroberts36/loop-benchmarks-bench/index.html">lroberts36/loop-benchmarks-bench</a></dd>
+      <dd><a href="../../../lroberts36/python-field-init/index.html">lroberts36/python-field-init</a></dd>
+      <dd><a href="../../../lroberts36/python-input-support/index.html">lroberts36/python-input-support</a></dd>
+      <dd><a href="../../../lroberts36/solver-noncell-vars/index.html">lroberts36/solver-noncell-vars</a></dd>
+      <dd><a href="../../../lroberts36/solver-speedups/index.html">lroberts36/solver-speedups</a></dd>
+      <dd><a href="../../../lroberts36/solver-timing/index.html">lroberts36/solver-timing</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/index.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../lroberts36/switch-to-weak-ptrs/index.html">lroberts36/switch-to-weak-ptrs</a></dd>
+      <dd><a href="../../../lroberts36/temp-p1-branch/index.html">lroberts36/temp-p1-branch</a></dd>
+      <dd><a href="../../../lroberts36/tensor-library-packs/index.html">lroberts36/tensor-library-packs</a></dd>
+      <dd><a href="../../../lroberts36/test-forest-mesh/index.html">lroberts36/test-forest-mesh</a></dd>
+      <dd><a href="../../../lroberts36/update-diffusion-example/index.html">lroberts36/update-diffusion-example</a></dd>
+      <dd><a href="../../../lroberts36/update-sparse-ids/index.html">lroberts36/update-sparse-ids</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/index.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/index.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pdmullen/towards-curv-swarm/index.html">pdmullen/towards-curv-swarm</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/index.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/energy-transfer/index.html">pgrete/energy-transfer</a></dd>
+      <dd><a href="../../../pgrete/enspec/index.html">pgrete/enspec</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/index.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/jupiter/index.html">pgrete/jupiter</a></dd>
+      <dd><a href="../../../pgrete/jupiter-26/index.html">pgrete/jupiter-26</a></dd>
+      <dd><a href="../../../pgrete/metadata-allow-new-field-restart/index.html">pgrete/metadata-allow-new-field-restart</a></dd>
+      <dd><a href="../../../pgrete/pmd-output-wuser/index.html">pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/unique-ids/index.html">pgrete/unique-ids</a></dd>
+      <dd><a href="../../../pgrete/user-output/index.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../swjones/asym_halos/index.html">swjones/asym_halos</a></dd>
+      <dd><a href="../../../swjones/dt_package_reporting/index.html">swjones/dt_package_reporting</a></dd>
+      <dd><a href="../../../swjones/rk34_integrator-unit-test/index.html">swjones/rk34_integrator-unit-test</a></dd>
+      <dd><a href="../../../swjones/tensor-library/index.html">swjones/tensor-library</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

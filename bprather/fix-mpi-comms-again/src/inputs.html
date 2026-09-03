@@ -1,0 +1,426 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Input Parameters &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=e2af37d4" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Integrators" href="integrators.html" />
+    <link rel="prev" title="Application Drivers" href="driver.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts_lite.html">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Input Parameters</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#parthenon-job"><code class="docutils literal notranslate"><span class="pre">&lt;parthenon/job&gt;</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#parthenon-time"><code class="docutils literal notranslate"><span class="pre">&lt;parthenon/time&gt;</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#parthenon-mesh"><code class="docutils literal notranslate"><span class="pre">&lt;parthenon/mesh&gt;</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#parthenon-sparse"><code class="docutils literal notranslate"><span class="pre">&lt;parthenon/sparse&gt;</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interface/state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mesh/mesh.html">Mesh</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Input Parameters</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/inputs.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="input-parameters">
+<span id="inputs"></span><h1>Input Parameters<a class="headerlink" href="#input-parameters" title="Link to this heading"></a></h1>
+<p>Most Parthenon behavior is controlled via an input file, generally named
+<code class="docutils literal notranslate"><span class="pre">parthinput.&lt;problem-name&gt;</span></code>. Parameters in this file take the form
+<code class="docutils literal notranslate"><span class="pre">param</span> <span class="pre">=</span> <span class="pre">value</span></code>, with a particular type for each parameter set in the
+Parthenon code.</p>
+<p>Parameters are split into blocks, denoted by bracketed names
+(<code class="docutils literal notranslate"><span class="pre">&lt;blockname&gt;</span></code>). All Parthenon-specific parameters are in blocks named
+<code class="docutils literal notranslate"><span class="pre">&lt;parthenon/x&gt;</span></code>. Below is an incomplete list of some parameters
+Parthenon accepts, split by block.</p>
+<section id="parthenon-job">
+<h2><code class="docutils literal notranslate"><span class="pre">&lt;parthenon/job&gt;</span></code><a class="headerlink" href="#parthenon-job" title="Link to this heading"></a></h2>
+<p>General parthenon options such as problem name and parameter handling.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><div class="line-block">
+<div class="line">name</div>
+<div class="line">archive_parameters</div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">none</div>
+<div class="line">false</div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">string</div>
+<div class="line">string</div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">Name of this problem or initialization, prefixed to output files.</div>
+<div class="line">Produce a parameter file containing all parameters known to Parthenon. Set to <cite>true</cite> for an output file named <cite>parthinput.archive</cite>. Set to <cite>timestamp</cite> for a file with a name containing a timestamp.</div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="parthenon-time">
+<h2><code class="docutils literal notranslate"><span class="pre">&lt;parthenon/time&gt;</span></code><a class="headerlink" href="#parthenon-time" title="Link to this heading"></a></h2>
+<p>Options related to time-stepping and printing of diagnostic data.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><div class="line-block">
+<div class="line">tlim</div>
+<div class="line">nlim</div>
+<div class="line">perf_cycle_offset</div>
+<div class="line">ncycle_out</div>
+<div class="line">ncycle_out_mesh</div>
+<div class="line">ncrecv_bdry_buf_timeout_sec</div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">none</div>
+<div class="line">-1</div>
+<div class="line">0</div>
+<div class="line">1</div>
+<div class="line">0</div>
+<div class="line">-1.0</div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">float</div>
+<div class="line">int</div>
+<div class="line">int</div>
+<div class="line">int</div>
+<div class="line">int</div>
+<div class="line">Real</div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">Stop criterion on simulation time.</div>
+<div class="line">Stop criterion on total number of steps taken. Ignored if &lt; 0.</div>
+<div class="line">Skip the first N cycles when calculating the final performance (e.g., zone-cycles/wall_second). Allows to hide the initialization overhead in Parthenon.</div>
+<div class="line">Number of cycles between short diagnostic output to standard out containing, e.g., current time, dt, zone-update/wsec. Default: 1 (i.e, every cycle).</div>
+<div class="line">Number of cycles between printing the mesh structure to standard out. Use a negative number to also print every time the mesh was modified. Default: 0 (i.e, off).</div>
+<div class="line">Timeout in seconds for the <cite>ReceiveBoundaryBuffers</cite> tasks. Disabed (negative) by default. Typically no need in production runs. Useful for debugging MPI calls.</div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="parthenon-mesh">
+<h2><code class="docutils literal notranslate"><span class="pre">&lt;parthenon/mesh&gt;</span></code><a class="headerlink" href="#parthenon-mesh" title="Link to this heading"></a></h2>
+<p>See the <a class="reference internal" href="amr.html#amr"><span class="std std-ref">Adaptive Mesh Refinement</span></a> documentation for details of the required
+parameters in <code class="docutils literal notranslate"><span class="pre">&lt;parthenon/mesh&gt;</span></code> and <code class="docutils literal notranslate"><span class="pre">&lt;parthenon/meshblock&gt;</span></code>.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>nghost</p></td>
+<td><p>2</p></td>
+<td><p>int</p></td>
+<td><p>Number of ghost cells for each mesh block on each side.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="parthenon-sparse">
+<h2><code class="docutils literal notranslate"><span class="pre">&lt;parthenon/sparse&gt;</span></code><a class="headerlink" href="#parthenon-sparse" title="Link to this heading"></a></h2>
+<p>See the <a class="reference internal" href="interface/sparse.html#sparse-impl"><span class="std std-ref">Sparse implementation</span></a> documentation for details.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><div class="line-block">
+<div class="line">enable_sparse</div>
+<div class="line">alloc_threshold</div>
+<div class="line">dealloc_threshold</div>
+<div class="line">dealloc_count</div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line"><cite>true</cite></div>
+<div class="line">1e-12</div>
+<div class="line">1e-14</div>
+<div class="line">5</div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">bool</div>
+<div class="line">float</div>
+<div class="line">float</div>
+<div class="line">int</div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">If set to false, sparse variables will always be allocated, see also <a class="reference internal" href="interface/sparse.html#sparse-run-time"><span class="std std-ref">Run-time</span></a></div>
+<div class="line">Global (for all sparse variables) threshold to trigger allocation of a variable if cells in the receiving ghost cells are above this value.</div>
+<div class="line">Global (for all sparse variables) threshold to trigger deallocation if all active cells of a variable in a block are below this value.</div>
+<div class="line">First deallocate a sparse variable if the <cite>dealloc_threshold</cite> has been met in this number of consecutive cycles.</div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="driver.html" class="btn btn-neutral float-left" title="Application Drivers" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="integrators.html" class="btn btn-neutral float-right" title="Integrators" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: bprather/fix-mpi-comms-again
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/inputs.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/inputs.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/inputs.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/inputs.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/inputs.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/inputs.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/inputs.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/inputs.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/inputs.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/inputs.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../regression-gold-v26/src/inputs.html">regression-gold-v26</a></dd>
+      <dd><a href="../../../regression-gold-v27/src/inputs.html">regression-gold-v27</a></dd>
+      <dd><a href="../../../regression-gold-v28/src/inputs.html">regression-gold-v28</a></dd>
+      <dd><a href="../../../v0.8.0/src/inputs.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/inputs.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/inputs.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/inputs.html">v24.08</a></dd>
+      <dd><a href="../../../v25.05/src/inputs.html">v25.05</a></dd>
+      <dd><a href="../../../v25.12/src/inputs.html">v25.12</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../BenWibking/mainloop-debug-output-callback/src/inputs.html">BenWibking/mainloop-debug-output-callback</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/inputs.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../HEAD/src/inputs.html">HEAD</a></dd>
+      <dd><a href="../../../acreyes/hypre-diffusion-example/src/inputs.html">acreyes/hypre-diffusion-example</a></dd>
+      <dd><a href="../../../ats5/src/inputs.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/inputs.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/inputs.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/inputs.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../blb/toml/src/inputs.html">blb/toml</a></dd>
+      <dd><a href="inputs.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../mbd_add_niceties/src/inputs.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../brryan/kokkos_sort/src/inputs.html">brryan/kokkos_sort</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/inputs.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/inputs.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/inputs.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../c-prather/fix-oneblock/src/inputs.html">c-prather/fix-oneblock</a></dd>
+      <dd><a href="../../../c-prather/sigint-kill/src/inputs.html">c-prather/sigint-kill</a></dd>
+      <dd><a href="../../../cep/one-block-mesh/src/inputs.html">cep/one-block-mesh</a></dd>
+      <dd><a href="../../../dempsey/rummy/src/inputs.html">dempsey/rummy</a></dd>
+      <dd><a href="../../../dempsey/rummy2/src/inputs.html">dempsey/rummy2</a></dd>
+      <dd><a href="../../../dempsey/rummy3/src/inputs.html">dempsey/rummy3</a></dd>
+      <dd><a href="../../../dempsey/swarm_amr/src/inputs.html">dempsey/swarm_amr</a></dd>
+      <dd><a href="../../../develop/src/inputs.html">develop</a></dd>
+      <dd><a href="../../../fglines-nv/optimize-burgers/src/inputs.html">fglines-nv/optimize-burgers</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/inputs.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/inputs.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/loop-benchmarks/src/inputs.html">jdolence/loop-benchmarks</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/src/inputs.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/src/inputs.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/src/inputs.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/clear-particles-in-pgen/src/inputs.html">jmm/clear-particles-in-pgen</a></dd>
+      <dd><a href="../../../jmm/docstrings-2-blockref-boogaloo/src/inputs.html">jmm/docstrings-2-blockref-boogaloo</a></dd>
+      <dd><a href="../../../jmm/fix-block-less-than-ranks/src/inputs.html">jmm/fix-block-less-than-ranks</a></dd>
+      <dd><a href="../../../jmm/pyproxy/src/inputs.html">jmm/pyproxy</a></dd>
+      <dd><a href="../../../jmm/shrinkcores/src/inputs.html">jmm/shrinkcores</a></dd>
+      <dd><a href="../../../jmm/submeshdata-2/src/inputs.html">jmm/submeshdata-2</a></dd>
+      <dd><a href="../../../jmm/token-scratch/src/inputs.html">jmm/token-scratch</a></dd>
+      <dd><a href="../../../jmm/turorial/src/inputs.html">jmm/turorial</a></dd>
+      <dd><a href="../../../lkasselm/fft/src/inputs.html">lkasselm/fft</a></dd>
+      <dd><a href="../../../lkasselm/fft-backup/src/inputs.html">lkasselm/fft-backup</a></dd>
+      <dd><a href="../../../lrobert36/update-index-split-manual/src/inputs.html">lrobert36/update-index-split-manual</a></dd>
+      <dd><a href="../../../lroberts36/add-callback-taskstatus/src/inputs.html">lroberts36/add-callback-taskstatus</a></dd>
+      <dd><a href="../../../lroberts36/add-densitization-solver-option/src/inputs.html">lroberts36/add-densitization-solver-option</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-indices/src/inputs.html">lroberts36/add-sparse-indices</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/src/inputs.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/fix-cellmemaligned-independent/src/inputs.html">lroberts36/fix-cellmemaligned-independent</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-flag-error/src/inputs.html">lroberts36/fix-multigrid-flag-error</a></dd>
+      <dd><a href="../../../lroberts36/fix-multiple-solvers/src/inputs.html">lroberts36/fix-multiple-solvers</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/src/inputs.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/src/inputs.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/imex-advection/src/inputs.html">lroberts36/imex-advection</a></dd>
+      <dd><a href="../../../lroberts36/loop-benchmarks-bench/src/inputs.html">lroberts36/loop-benchmarks-bench</a></dd>
+      <dd><a href="../../../lroberts36/python-field-init/src/inputs.html">lroberts36/python-field-init</a></dd>
+      <dd><a href="../../../lroberts36/python-input-support/src/inputs.html">lroberts36/python-input-support</a></dd>
+      <dd><a href="../../../lroberts36/solver-noncell-vars/src/inputs.html">lroberts36/solver-noncell-vars</a></dd>
+      <dd><a href="../../../lroberts36/solver-speedups/src/inputs.html">lroberts36/solver-speedups</a></dd>
+      <dd><a href="../../../lroberts36/solver-timing/src/inputs.html">lroberts36/solver-timing</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/src/inputs.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../lroberts36/switch-to-weak-ptrs/src/inputs.html">lroberts36/switch-to-weak-ptrs</a></dd>
+      <dd><a href="../../../lroberts36/temp-p1-branch/src/inputs.html">lroberts36/temp-p1-branch</a></dd>
+      <dd><a href="../../../lroberts36/tensor-library-packs/src/inputs.html">lroberts36/tensor-library-packs</a></dd>
+      <dd><a href="../../../lroberts36/test-forest-mesh/src/inputs.html">lroberts36/test-forest-mesh</a></dd>
+      <dd><a href="../../../lroberts36/update-diffusion-example/src/inputs.html">lroberts36/update-diffusion-example</a></dd>
+      <dd><a href="../../../lroberts36/update-sparse-ids/src/inputs.html">lroberts36/update-sparse-ids</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/inputs.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/inputs.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pdmullen/towards-curv-swarm/src/inputs.html">pdmullen/towards-curv-swarm</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/src/inputs.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/energy-transfer/src/inputs.html">pgrete/energy-transfer</a></dd>
+      <dd><a href="../../../pgrete/enspec/src/inputs.html">pgrete/enspec</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/src/inputs.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/jupiter/src/inputs.html">pgrete/jupiter</a></dd>
+      <dd><a href="../../../pgrete/jupiter-26/src/inputs.html">pgrete/jupiter-26</a></dd>
+      <dd><a href="../../../pgrete/metadata-allow-new-field-restart/src/inputs.html">pgrete/metadata-allow-new-field-restart</a></dd>
+      <dd><a href="../../../pgrete/pmd-output-wuser/src/inputs.html">pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/unique-ids/src/inputs.html">pgrete/unique-ids</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/inputs.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../swjones/asym_halos/src/inputs.html">swjones/asym_halos</a></dd>
+      <dd><a href="../../../swjones/dt_package_reporting/src/inputs.html">swjones/dt_package_reporting</a></dd>
+      <dd><a href="../../../swjones/rk34_integrator-unit-test/src/inputs.html">swjones/rk34_integrator-unit-test</a></dd>
+      <dd><a href="../../../swjones/tensor-library/src/inputs.html">swjones/tensor-library</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

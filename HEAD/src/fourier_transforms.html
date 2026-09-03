@@ -1,0 +1,532 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fourier Transforms &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=e2af37d4" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Reference" href="chapters/reference.html" />
+    <link rel="prev" title="Solvers" href="solvers.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Chapters</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="chapters/getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/parallelism_performance.html">Parallelism and Performance</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="chapters/advanced_features.html">Advanced Features</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Fourier Transforms</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#normalization-convention">Normalization Convention</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#backends">Backends</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#basic-usage">Basic Usage</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#allocating-arrays">Allocating arrays</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#gathering-a-field-from-the-mesh">Gathering a field from the mesh</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#performing-the-transforms">Performing the transforms</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#processing-in-fourier-space">Processing in Fourier space</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#scattering-a-field-back-to-the-mesh">Scattering a field back to the mesh</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#api-reference">API Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#box3d">Box3D</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fftmanager">FFTManager</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fftmanager-kernelhelper">FFTManager::KernelHelper</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#uniformgridhelper">UniformGridHelper</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#uniformgridhelper-kernelhelper">UniformGridHelper::KernelHelper</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#limitations">Limitations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#see-also">See Also</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/api_reference.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/developer_guide.html">Developer Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="chapters/advanced_features.html">Advanced Features</a></li>
+      <li class="breadcrumb-item active">Fourier Transforms</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/fourier_transforms.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="fourier-transforms">
+<h1>Fourier Transforms<a class="headerlink" href="#fourier-transforms" title="Link to this heading"></a></h1>
+<p>Parthenon provides infrastructure for performing distributed Fast Fourier Transforms (FFTs)
+on uniform meshes via the <code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">FFTManager</span></code> and <code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">UniformGridHelper</span></code> classes.
+These are built on top of <a class="reference external" href="https://github.com/icl-utk-edu/heffte">heFFTe</a> and support
+both CPU and GPU backends transparently.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>FFT functionality requires <code class="docutils literal notranslate"><span class="pre">num_packs</span> <span class="pre">=</span> <span class="pre">1</span></code> in the input file, meaning all meshblocks
+on a rank are packed into a single partition. This is required for the flat array indexing
+used by heFFTe. Similarly, MPI is required (as it is a dependency of heFFTe).</p>
+</div>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>The FFT infrastructure consists of two classes that work together:</p>
+<ul class="simple">
+<li><p><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">FFTManager</span></code> — manages the FFT plan and performs forward/backward transforms</p></li>
+<li><p><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">UniformGridHelper</span></code> — provides mesh layout information and helper functions
+for mapping between Parthenon’s meshblock-based data layout and the flat arrays required
+by heFFTe</p></li>
+</ul>
+<p>Both are accessible via the <code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">Mesh</span></code> object:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="n">fftManager</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="n">pmesh</span><span class="o">-&gt;</span><span class="n">GetFFTManager</span><span class="p">();</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">uniformGridHelper</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pmesh</span><span class="o">-&gt;</span><span class="n">GetUniformGridHelper</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>Both classes use the <code class="xref cpp cpp-struct docutils literal notranslate"><span class="pre">Box3D</span></code> struct to describe spatial extents:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">Box3D</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">low</span><span class="p">[</span><span class="mi">3</span><span class="p">];</span><span class="w">    </span><span class="c1">// lower bound in each dimension</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">high</span><span class="p">[</span><span class="mi">3</span><span class="p">];</span><span class="w">   </span><span class="c1">// upper bound in each dimension</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">size</span><span class="p">[</span><span class="mi">3</span><span class="p">];</span><span class="w">   </span><span class="c1">// size in each dimension: high - low + 1</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
+<section id="normalization-convention">
+<h2>Normalization Convention<a class="headerlink" href="#normalization-convention" title="Link to this heading"></a></h2>
+<p>The forward transform applies a <span class="math notranslate nohighlight">\(1/N^3\)</span> normalization, and the backward transform
+applies no normalization. This means the round-trip (forward followed by backward) recovers
+the original field exactly, and Parseval’s theorem reads:</p>
+<div class="math notranslate nohighlight">
+\[\sum_{\mathbf{k}} |\hat{f}(\mathbf{k})|^2 = \frac{1}{N^3} \sum_{\mathbf{x}} |f(\mathbf{x})|^2\]</div>
+<p>Physical wavenumbers are related to integer mode numbers by <span class="math notranslate nohighlight">\(k_\mathrm{phys} = 2\pi k / L\)</span>,
+assuming a periodic domain of size <span class="math notranslate nohighlight">\(L\)</span>.</p>
+</section>
+<section id="backends">
+<h2>Backends<a class="headerlink" href="#backends" title="Link to this heading"></a></h2>
+<p>The backend is selected automatically at compile time based on the Kokkos execution space:</p>
+<ul class="simple">
+<li><p><strong>GPU</strong> (CUDA/HIP): uses heFFTe’s GPU backend</p></li>
+<li><p><strong>CPU</strong>: uses heFFTe’s CPU backend (FFTW or MKL if available, otherwise stock)</p></li>
+</ul>
+<p>No code changes are required to switch between backends.</p>
+</section>
+<section id="basic-usage">
+<h2>Basic Usage<a class="headerlink" href="#basic-usage" title="Link to this heading"></a></h2>
+<p>The following example demonstrates the complete workflow for performing a forward and
+backward FFT of a scalar field registered in Parthenon.</p>
+<section id="allocating-arrays">
+<h3>Allocating arrays<a class="headerlink" href="#allocating-arrays" title="Link to this heading"></a></h3>
+<p>FFT input and output arrays are standard Parthenon device arrays. The sizes are provided
+by <code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">FFTManager</span></code>:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">fft_size_inbox</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="n">fftManager</span><span class="o">-&gt;</span><span class="n">size_real_space_box</span><span class="p">();</span>
+<span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">fft_size_outbox</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fftManager</span><span class="o">-&gt;</span><span class="n">size_fourier_space_box</span><span class="p">();</span>
+
+<span class="n">parthenon</span><span class="o">::</span><span class="n">ParArray1D</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="w">                </span><span class="n">input</span><span class="p">(</span><span class="s">"input"</span><span class="p">,</span><span class="w">  </span><span class="n">fft_size_inbox</span><span class="p">);</span>
+<span class="n">parthenon</span><span class="o">::</span><span class="n">ParArray1D</span><span class="o">&lt;</span><span class="n">Kokkos</span><span class="o">::</span><span class="n">complex</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;&gt;</span><span class="w">  </span><span class="n">output</span><span class="p">(</span><span class="s">"output"</span><span class="p">,</span><span class="w"> </span><span class="n">fft_size_outbox</span><span class="p">);</span>
+<span class="n">parthenon</span><span class="o">::</span><span class="n">ParArray1D</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="w">                </span><span class="n">result</span><span class="p">(</span><span class="s">"result"</span><span class="p">,</span><span class="w"> </span><span class="n">fft_size_inbox</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Note that complex arrays must use Kokkos::complex, not std::complex, so that complex arithmetic is possible in Kokkos kernels.</p>
+</section>
+<section id="gathering-a-field-from-the-mesh">
+<h3>Gathering a field from the mesh<a class="headerlink" href="#gathering-a-field-from-the-mesh" title="Link to this heading"></a></h3>
+<p><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">UniformGridHelper::GatherField()</span></code> copies a single component of a named Parthenon
+variable into a flat array suitable for FFT input:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Gather component 0 of "cons" into the input array</span>
+<span class="n">uniformGridHelper</span><span class="o">-&gt;</span><span class="n">GatherField</span><span class="p">(</span><span class="s">"cons"</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">input</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>For derived quantities that require computation,
+use a custom gather loop with <code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">UniformGridHelper::GetKernelHelper()</span></code>:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="o">&amp;</span><span class="n">md</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="n">pmesh</span><span class="o">-&gt;</span><span class="n">mesh_data</span><span class="p">.</span><span class="n">Get</span><span class="p">();</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">cons</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">md</span><span class="o">-&gt;</span><span class="n">PackVariables</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="p">{</span><span class="s">"cons"</span><span class="p">});</span>
+
+<span class="k">auto</span><span class="w"> </span><span class="o">&amp;</span><span class="n">mbb</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">uniformGridHelper</span><span class="o">-&gt;</span><span class="n">MeshBlockBox</span><span class="p">;</span><span class="w"> </span><span class="c1">// interior cell bounds within a meshblock</span>
+
+<span class="k">auto</span><span class="w"> </span><span class="n">helper</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">uniformGridHelper</span><span class="o">-&gt;</span><span class="n">GetKernelHelper</span><span class="p">();</span>
+
+<span class="n">parthenon</span><span class="o">::</span><span class="n">par_for</span><span class="p">(</span>
+<span class="w">    </span><span class="s">"GatherVelocity"</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">md</span><span class="o">-&gt;</span><span class="n">NumBlocks</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="n">mbb</span><span class="p">.</span><span class="n">low</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="w"> </span><span class="n">mbb</span><span class="p">.</span><span class="n">high</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+<span class="w">    </span><span class="n">mbb</span><span class="p">.</span><span class="n">low</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="n">mbb</span><span class="p">.</span><span class="n">high</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+<span class="w">    </span><span class="n">mbb</span><span class="p">.</span><span class="n">low</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="n">mbb</span><span class="p">.</span><span class="n">high</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+<span class="w">    </span><span class="n">KOKKOS_LAMBDA</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">idx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">helper</span><span class="p">.</span><span class="n">FlatIndex</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">);</span>
+<span class="w">        </span><span class="n">input</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cons</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">cons</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">);</span>
+<span class="w">    </span><span class="p">});</span>
+</pre></div>
+</div>
+</section>
+<section id="performing-the-transforms">
+<h3>Performing the transforms<a class="headerlink" href="#performing-the-transforms" title="Link to this heading"></a></h3>
+<p><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">FFTManager::Forward()</span></code> and <code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">FFTManager::Backward()</span></code> operate on raw
+device pointers:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Forward FFT (applies 1/N^3 normalization)</span>
+<span class="n">fftManager</span><span class="o">-&gt;</span><span class="n">Forward</span><span class="p">(</span><span class="n">input</span><span class="p">.</span><span class="n">data</span><span class="p">(),</span><span class="w"> </span><span class="n">output</span><span class="p">.</span><span class="n">data</span><span class="p">());</span>
+
+<span class="c1">// ... process output in Fourier space ...</span>
+
+<span class="c1">// Backward FFT (no normalization)</span>
+<span class="n">fftManager</span><span class="o">-&gt;</span><span class="n">Backward</span><span class="p">(</span><span class="n">output</span><span class="p">.</span><span class="n">data</span><span class="p">(),</span><span class="w"> </span><span class="n">result</span><span class="p">.</span><span class="n">data</span><span class="p">());</span>
+</pre></div>
+</div>
+</section>
+<section id="processing-in-fourier-space">
+<h3>Processing in Fourier space<a class="headerlink" href="#processing-in-fourier-space" title="Link to this heading"></a></h3>
+<p>The local Fourier space box is accessible via <code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">FFTManager::fourier_space_box()</span></code>.
+Use <code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">FFTManager::GetKernelHelper()</span></code> to obtain a device-copyable helper that
+provides <code class="docutils literal notranslate"><span class="pre">FourierFlatIndex</span></code> and <code class="docutils literal notranslate"><span class="pre">Wavevector</span></code>:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="n">fft_helper</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fftManager</span><span class="o">-&gt;</span><span class="n">GetKernelHelper</span><span class="p">();</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">outbox</span><span class="w">     </span><span class="o">=</span><span class="w"> </span><span class="n">fftManager</span><span class="o">-&gt;</span><span class="n">fourier_space_box</span><span class="p">();</span>
+
+<span class="n">parthenon</span><span class="o">::</span><span class="n">par_for</span><span class="p">(</span>
+<span class="w">    </span><span class="s">"FourierSpaceKernel"</span><span class="p">,</span>
+<span class="w">    </span><span class="n">outbox</span><span class="p">.</span><span class="n">low</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="w"> </span><span class="n">outbox</span><span class="p">.</span><span class="n">high</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+<span class="w">    </span><span class="n">outbox</span><span class="p">.</span><span class="n">low</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="n">outbox</span><span class="p">.</span><span class="n">high</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+<span class="w">    </span><span class="n">outbox</span><span class="p">.</span><span class="n">low</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="n">outbox</span><span class="p">.</span><span class="n">high</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+<span class="w">    </span><span class="n">KOKKOS_LAMBDA</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">kx3_idx</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">kx2_idx</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">kx1_idx</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+
+<span class="w">        </span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">idx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fft_helper</span><span class="p">.</span><span class="n">FourierFlatIndex</span><span class="p">(</span><span class="n">kx3_idx</span><span class="p">,</span><span class="w"> </span><span class="n">kx2_idx</span><span class="p">,</span><span class="w"> </span><span class="n">kx1_idx</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// integer wavevector components (negative frequencies unwrapped)</span>
+<span class="w">        </span><span class="k">auto</span><span class="w"> </span><span class="p">[</span><span class="n">kx3</span><span class="p">,</span><span class="w"> </span><span class="n">kx2</span><span class="p">,</span><span class="w"> </span><span class="n">kx1</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fft_helper</span><span class="p">.</span><span class="n">Wavevector</span><span class="p">(</span><span class="n">kx3_idx</span><span class="p">,</span><span class="w"> </span><span class="n">kx2_idx</span><span class="p">,</span><span class="w"> </span><span class="n">kx1_idx</span><span class="p">);</span>
+
+<span class="w">        </span><span class="c1">// ... process output[idx] ...</span>
+<span class="w">    </span><span class="p">});</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The r2c transform only stores modes with <span class="math notranslate nohighlight">\(k_{x1} \geq 0\)</span>. When computing
+quantities like the power spectrum, modes with <span class="math notranslate nohighlight">\(0 &lt; k_{x1} &lt; n_{x1}/2\)</span> must be
+counted twice to account for Hermitian symmetry:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">fac</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">((</span><span class="n">kx1</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="p">(</span><span class="mi">2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">kx1</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">nx1</span><span class="p">))</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="mf">2.0</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">;</span>
+</pre></div>
+</div>
+</div>
+</section>
+<section id="scattering-a-field-back-to-the-mesh">
+<h3>Scattering a field back to the mesh<a class="headerlink" href="#scattering-a-field-back-to-the-mesh" title="Link to this heading"></a></h3>
+<p><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">UniformGridHelper::ScatterField()</span></code> copies a flat array back to a named
+Parthenon variable on the mesh:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">parthenon</span><span class="o">::</span><span class="n">ParArray1D</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="w"> </span><span class="n">result</span><span class="p">(</span><span class="s">"result"</span><span class="p">,</span><span class="w"> </span><span class="n">fft_size_inbox</span><span class="p">);</span>
+<span class="c1">// ... fill result ...</span>
+<span class="n">uniformGridHelper</span><span class="o">-&gt;</span><span class="n">ScatterField</span><span class="p">(</span><span class="n">result</span><span class="p">,</span><span class="w"> </span><span class="s">"my_derived_field"</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The variable must be registered in the package before use (see <a class="reference internal" href="interface/state.html#state"><span class="std std-ref">State Management</span></a>).</p>
+</section>
+</section>
+<section id="api-reference">
+<h2>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading"></a></h2>
+<section id="box3d">
+<h3>Box3D<a class="headerlink" href="#box3d" title="Link to this heading"></a></h3>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">Box3D</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">low</span><span class="p">[</span><span class="mi">3</span><span class="p">];</span><span class="w">    </span><span class="c1">// lower index bound in each dimension</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">high</span><span class="p">[</span><span class="mi">3</span><span class="p">];</span><span class="w">   </span><span class="c1">// upper index bound in each dimension</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">size</span><span class="p">[</span><span class="mi">3</span><span class="p">];</span><span class="w">   </span><span class="c1">// size = high - low + 1</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
+<section id="fftmanager">
+<h3>FFTManager<a class="headerlink" href="#fftmanager" title="Link to this heading"></a></h3>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Forward r2c FFT. Applies 1/N^3 normalization.</span>
+<span class="kt">void</span><span class="w"> </span><span class="nf">Forward</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">double</span><span class="o">*</span><span class="w"> </span><span class="n">input</span><span class="p">,</span><span class="w"> </span><span class="n">Kokkos</span><span class="o">::</span><span class="n">complex</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;*</span><span class="w"> </span><span class="n">output</span><span class="p">);</span>
+
+<span class="c1">// Backward c2r FFT. Applies no normalization.</span>
+<span class="kt">void</span><span class="w"> </span><span class="nf">Backward</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">Kokkos</span><span class="o">::</span><span class="n">complex</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;*</span><span class="w"> </span><span class="n">input</span><span class="p">,</span><span class="w"> </span><span class="kt">double</span><span class="o">*</span><span class="w"> </span><span class="n">output</span><span class="p">);</span>
+
+<span class="c1">// Returns the local Fourier-space box (global Fourier indices)</span>
+<span class="n">Box3D</span><span class="w"> </span><span class="nf">fourier_space_box</span><span class="p">()</span><span class="w"> </span><span class="k">const</span><span class="p">;</span>
+
+<span class="c1">// Returns the local real-space box (global cell indices)</span>
+<span class="n">Box3D</span><span class="w"> </span><span class="nf">real_space_box</span><span class="p">()</span><span class="w"> </span><span class="k">const</span><span class="p">;</span>
+
+<span class="c1">// Total number of points in the local Fourier/real space box</span>
+<span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="nf">size_fourier_space_box</span><span class="p">()</span><span class="w"> </span><span class="k">const</span><span class="p">;</span>
+<span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="nf">size_real_space_box</span><span class="p">()</span><span class="w"> </span><span class="k">const</span><span class="p">;</span>
+
+<span class="c1">// Returns a device-copyable helper for use in Kokkos kernels.</span>
+<span class="c1">// Capture by value in KOKKOS_LAMBDA.</span>
+<span class="n">KernelHelper</span><span class="w"> </span><span class="nf">GetKernelHelper</span><span class="p">()</span><span class="w"> </span><span class="k">const</span><span class="p">;</span>
+</pre></div>
+</div>
+</section>
+<section id="fftmanager-kernelhelper">
+<h3>FFTManager::KernelHelper<a class="headerlink" href="#fftmanager-kernelhelper" title="Link to this heading"></a></h3>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Flat index into the local Fourier-space array</span>
+<span class="n">KOKKOS_INLINE_FUNCTION</span>
+<span class="n">std</span><span class="o">::</span><span class="kt">int64_t</span><span class="w"> </span><span class="n">FourierFlatIndex</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="k">const</span><span class="p">;</span>
+
+<span class="c1">// Flat index into the local real-space array</span>
+<span class="n">KOKKOS_INLINE_FUNCTION</span>
+<span class="n">std</span><span class="o">::</span><span class="kt">int64_t</span><span class="w"> </span><span class="n">RealFlatIndex</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="k">const</span><span class="p">;</span>
+
+<span class="c1">// Integer wavevector components (handles negative frequency unwrapping).</span>
+<span class="c1">// For r2c transforms, kx &gt;= 0 always.</span>
+<span class="c1">// Returns {kx, ky, kz}.</span>
+<span class="n">KOKKOS_INLINE_FUNCTION</span>
+<span class="n">std</span><span class="o">::</span><span class="n">array</span><span class="o">&lt;</span><span class="kt">int</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Wavevector</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="k">const</span><span class="p">;</span>
+</pre></div>
+</div>
+</section>
+<section id="uniformgridhelper">
+<h3>UniformGridHelper<a class="headerlink" href="#uniformgridhelper" title="Link to this heading"></a></h3>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Gather a single component of a named variable into a flat FFT-ready array.</span>
+<span class="c1">// output must be pre-allocated with size &gt;= size_real_space_box()</span>
+<span class="kt">void</span><span class="w"> </span><span class="nf">GatherField</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="o">&amp;</span><span class="n">var_name</span><span class="p">,</span>
+<span class="w">                 </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">var_index</span><span class="p">,</span>
+<span class="w">                 </span><span class="n">parthenon</span><span class="o">::</span><span class="n">ParArray1D</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="w"> </span><span class="o">&amp;</span><span class="n">output</span><span class="p">);</span>
+
+<span class="c1">// Scatter a flat array back to a named variable on the mesh.</span>
+<span class="kt">void</span><span class="w"> </span><span class="nf">ScatterField</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">ParArray1D</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="w"> </span><span class="o">&amp;</span><span class="n">input</span><span class="p">,</span>
+<span class="w">                  </span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="o">&amp;</span><span class="n">var_name</span><span class="p">,</span>
+<span class="w">                  </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">var_index</span><span class="p">);</span>
+
+<span class="c1">// Returns a device-copyable helper for use in Kokkos kernels.</span>
+<span class="c1">// Capture by value in KOKKOS_LAMBDA.</span>
+<span class="n">KernelHelper</span><span class="w"> </span><span class="nf">GetKernelHelper</span><span class="p">()</span><span class="w"> </span><span class="k">const</span><span class="p">;</span>
+
+<span class="c1">// Local real-space box (global cell indices of this rank's domain)</span>
+<span class="n">Box3D</span><span class="w"> </span><span class="n">LocalMeshBox</span><span class="p">;</span>
+
+<span class="c1">// Per-meshblock box (interior cell bounds within a single meshblock)</span>
+<span class="n">Box3D</span><span class="w"> </span><span class="n">MeshBlockBox</span><span class="p">;</span>
+</pre></div>
+</div>
+</section>
+<section id="uniformgridhelper-kernelhelper">
+<h3>UniformGridHelper::KernelHelper<a class="headerlink" href="#uniformgridhelper-kernelhelper" title="Link to this heading"></a></h3>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Flat index into the local real-space FFT array.</span>
+<span class="c1">// Call from within a par_for loop over blocks and interior cells.</span>
+<span class="n">KOKKOS_INLINE_FUNCTION</span>
+<span class="n">std</span><span class="o">::</span><span class="kt">int64_t</span><span class="w"> </span><span class="n">FlatIndex</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="k">const</span><span class="p">;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="limitations">
+<h2>Limitations<a class="headerlink" href="#limitations" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Only uniform grids are supported. AMR is not compatible with the current FFT infrastructure.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_packs</span> <span class="pre">=</span> <span class="pre">1</span></code> is required (one partition per rank).</p></li>
+<li><p>Only cubic domains are fully supported for physical wavenumber calculations.
+Non-cubic domains work for the FFT itself but wavenumber scaling must be handled manually.</p></li>
+<li><p>The r2c transform stores only modes with <span class="math notranslate nohighlight">\(k_x \geq 0\)</span>, consistent with heFFTe’s
+default convention.</p></li>
+<li><p>Currently only 3D transforms are supported.</p></li>
+</ul>
+</section>
+<section id="see-also">
+<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="interface/state.html"><span class="doc">State Management</span></a> — registering variables for use with <code class="docutils literal notranslate"><span class="pre">GatherField</span></code>/<code class="docutils literal notranslate"><span class="pre">ScatterField</span></code></p></li>
+<li><p><a class="reference external" href="https://icl-utk-edu.github.io/heffte/">heFFTe documentation</a></p></li>
+<li><p>Fourier transform example: <code class="docutils literal notranslate"><span class="pre">example/fourier_transform/</span></code></p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="solvers.html" class="btn btn-neutral float-left" title="Solvers" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="chapters/reference.html" class="btn btn-neutral float-right" title="Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: HEAD
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../regression-gold-v16/index.html">regression-gold-v16</a></dd>
+      <dd><a href="../../regression-gold-v17/index.html">regression-gold-v17</a></dd>
+      <dd><a href="../../regression-gold-v18/index.html">regression-gold-v18</a></dd>
+      <dd><a href="../../regression-gold-v19/index.html">regression-gold-v19</a></dd>
+      <dd><a href="../../regression-gold-v20/index.html">regression-gold-v20</a></dd>
+      <dd><a href="../../regression-gold-v21/index.html">regression-gold-v21</a></dd>
+      <dd><a href="../../regression-gold-v22/index.html">regression-gold-v22</a></dd>
+      <dd><a href="../../regression-gold-v23/index.html">regression-gold-v23</a></dd>
+      <dd><a href="../../regression-gold-v24/index.html">regression-gold-v24</a></dd>
+      <dd><a href="../../regression-gold-v25/index.html">regression-gold-v25</a></dd>
+      <dd><a href="../../regression-gold-v26/index.html">regression-gold-v26</a></dd>
+      <dd><a href="../../regression-gold-v27/index.html">regression-gold-v27</a></dd>
+      <dd><a href="../../regression-gold-v28/index.html">regression-gold-v28</a></dd>
+      <dd><a href="../../v0.8.0/index.html">v0.8.0</a></dd>
+      <dd><a href="../../v23.11/index.html">v23.11</a></dd>
+      <dd><a href="../../v24.03/index.html">v24.03</a></dd>
+      <dd><a href="../../v24.08/index.html">v24.08</a></dd>
+      <dd><a href="../../v25.05/index.html">v25.05</a></dd>
+      <dd><a href="../../v25.12/index.html">v25.12</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../BenWibking/mainloop-debug-output-callback/index.html">BenWibking/mainloop-debug-output-callback</a></dd>
+      <dd><a href="../../BenWibking/move-params/index.html">BenWibking/move-params</a></dd>
+      <dd><a href="fourier_transforms.html">HEAD</a></dd>
+      <dd><a href="../../acreyes/hypre-diffusion-example/index.html">acreyes/hypre-diffusion-example</a></dd>
+      <dd><a href="../../ats5/index.html">ats5</a></dd>
+      <dd><a href="../../ats5-cali/index.html">ats5-cali</a></dd>
+      <dd><a href="../../ats5-debug/index.html">ats5-debug</a></dd>
+      <dd><a href="../../bdw/gauss-quad/index.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../blb/toml/index.html">blb/toml</a></dd>
+      <dd><a href="../../bprather/fix-mpi-comms-again/index.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../bprather/mbd_add_niceties/index.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../brryan/kokkos_sort/index.html">brryan/kokkos_sort</a></dd>
+      <dd><a href="../../brryan/mesh_swarm_bc_funcs/index.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../brryan/swarm_mpi_tags/index.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../brryan/swarm_tag_map_2/index.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../c-prather/fix-oneblock/src/fourier_transforms.html">c-prather/fix-oneblock</a></dd>
+      <dd><a href="../../c-prather/sigint-kill/src/fourier_transforms.html">c-prather/sigint-kill</a></dd>
+      <dd><a href="../../cep/one-block-mesh/src/fourier_transforms.html">cep/one-block-mesh</a></dd>
+      <dd><a href="../../dempsey/rummy/index.html">dempsey/rummy</a></dd>
+      <dd><a href="../../dempsey/rummy2/src/fourier_transforms.html">dempsey/rummy2</a></dd>
+      <dd><a href="../../dempsey/rummy3/index.html">dempsey/rummy3</a></dd>
+      <dd><a href="../../dempsey/swarm_amr/index.html">dempsey/swarm_amr</a></dd>
+      <dd><a href="../../develop/src/fourier_transforms.html">develop</a></dd>
+      <dd><a href="../../fglines-nv/optimize-burgers/index.html">fglines-nv/optimize-burgers</a></dd>
+      <dd><a href="../../forrestglines/cuda-with-nvc++-fix/index.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../forrestglines/curvilinear/index.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../jdolence/loop-benchmarks/index.html">jdolence/loop-benchmarks</a></dd>
+      <dd><a href="../../jdolence/thread_safe/index.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../jdolence/timer_based_loadbalancing/index.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../jdolence/trace/index.html">jdolence/trace</a></dd>
+      <dd><a href="../../jmm/clear-particles-in-pgen/src/fourier_transforms.html">jmm/clear-particles-in-pgen</a></dd>
+      <dd><a href="../../jmm/docstrings-2-blockref-boogaloo/index.html">jmm/docstrings-2-blockref-boogaloo</a></dd>
+      <dd><a href="../../jmm/fix-block-less-than-ranks/index.html">jmm/fix-block-less-than-ranks</a></dd>
+      <dd><a href="../../jmm/pyproxy/index.html">jmm/pyproxy</a></dd>
+      <dd><a href="../../jmm/shrinkcores/index.html">jmm/shrinkcores</a></dd>
+      <dd><a href="../../jmm/submeshdata-2/src/fourier_transforms.html">jmm/submeshdata-2</a></dd>
+      <dd><a href="../../jmm/token-scratch/src/fourier_transforms.html">jmm/token-scratch</a></dd>
+      <dd><a href="../../jmm/turorial/src/fourier_transforms.html">jmm/turorial</a></dd>
+      <dd><a href="../../lkasselm/fft/src/fourier_transforms.html">lkasselm/fft</a></dd>
+      <dd><a href="../../lkasselm/fft-backup/src/fourier_transforms.html">lkasselm/fft-backup</a></dd>
+      <dd><a href="../../lrobert36/update-index-split-manual/index.html">lrobert36/update-index-split-manual</a></dd>
+      <dd><a href="../../lroberts36/add-callback-taskstatus/index.html">lroberts36/add-callback-taskstatus</a></dd>
+      <dd><a href="../../lroberts36/add-densitization-solver-option/index.html">lroberts36/add-densitization-solver-option</a></dd>
+      <dd><a href="../../lroberts36/add-sparse-indices/index.html">lroberts36/add-sparse-indices</a></dd>
+      <dd><a href="../../lroberts36/boundary-comms-perforfmance-upgrades/index.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../lroberts36/fix-cellmemaligned-independent/src/fourier_transforms.html">lroberts36/fix-cellmemaligned-independent</a></dd>
+      <dd><a href="../../lroberts36/fix-multigrid-flag-error/index.html">lroberts36/fix-multigrid-flag-error</a></dd>
+      <dd><a href="../../lroberts36/fix-multiple-solvers/src/fourier_transforms.html">lroberts36/fix-multiple-solvers</a></dd>
+      <dd><a href="../../lroberts36/fix-sptr-cycle-tree/index.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../lroberts36/generalize-par-dispatch/index.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../lroberts36/imex-advection/index.html">lroberts36/imex-advection</a></dd>
+      <dd><a href="../../lroberts36/loop-benchmarks-bench/index.html">lroberts36/loop-benchmarks-bench</a></dd>
+      <dd><a href="../../lroberts36/python-field-init/index.html">lroberts36/python-field-init</a></dd>
+      <dd><a href="../../lroberts36/python-input-support/index.html">lroberts36/python-input-support</a></dd>
+      <dd><a href="../../lroberts36/solver-noncell-vars/index.html">lroberts36/solver-noncell-vars</a></dd>
+      <dd><a href="../../lroberts36/solver-speedups/index.html">lroberts36/solver-speedups</a></dd>
+      <dd><a href="../../lroberts36/solver-timing/index.html">lroberts36/solver-timing</a></dd>
+      <dd><a href="../../lroberts36/speedup-buffer-kernel-split/index.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../lroberts36/switch-to-weak-ptrs/index.html">lroberts36/switch-to-weak-ptrs</a></dd>
+      <dd><a href="../../lroberts36/temp-p1-branch/index.html">lroberts36/temp-p1-branch</a></dd>
+      <dd><a href="../../lroberts36/tensor-library-packs/index.html">lroberts36/tensor-library-packs</a></dd>
+      <dd><a href="../../lroberts36/test-forest-mesh/index.html">lroberts36/test-forest-mesh</a></dd>
+      <dd><a href="../../lroberts36/update-diffusion-example/index.html">lroberts36/update-diffusion-example</a></dd>
+      <dd><a href="../../lroberts36/update-sparse-ids/index.html">lroberts36/update-sparse-ids</a></dd>
+      <dd><a href="../../morarumaxim/neigh_collectives/index.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../neighborhood_ats5/index.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../pdmullen/towards-curv-swarm/index.html">pdmullen/towards-curv-swarm</a></dd>
+      <dd><a href="../../pgrete/ci-hamilton/index.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../pgrete/energy-transfer/src/fourier_transforms.html">pgrete/energy-transfer</a></dd>
+      <dd><a href="../../pgrete/enspec/index.html">pgrete/enspec</a></dd>
+      <dd><a href="../../pgrete/fix-chunk/index.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../pgrete/jupiter/index.html">pgrete/jupiter</a></dd>
+      <dd><a href="../../pgrete/jupiter-26/index.html">pgrete/jupiter-26</a></dd>
+      <dd><a href="../../pgrete/metadata-allow-new-field-restart/index.html">pgrete/metadata-allow-new-field-restart</a></dd>
+      <dd><a href="../../pgrete/pmd-output-wuser/index.html">pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../pgrete/unique-ids/index.html">pgrete/unique-ids</a></dd>
+      <dd><a href="../../pgrete/user-output/index.html">pgrete/user-output</a></dd>
+      <dd><a href="../../swjones/asym_halos/src/fourier_transforms.html">swjones/asym_halos</a></dd>
+      <dd><a href="../../swjones/dt_package_reporting/index.html">swjones/dt_package_reporting</a></dd>
+      <dd><a href="../../swjones/rk34_integrator-unit-test/index.html">swjones/rk34_integrator-unit-test</a></dd>
+      <dd><a href="../../swjones/tensor-library/index.html">swjones/tensor-library</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

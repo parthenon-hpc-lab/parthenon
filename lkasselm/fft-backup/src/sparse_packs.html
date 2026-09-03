@@ -1,0 +1,431 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Packing Variables &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=e2af37d4" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Static Mesh Refinement" href="amr.html" />
+    <link rel="prev" title="Parthenon Set-Dimensional Arrays" href="parthenon_arrays.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Chapters</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="chapters/getting_started.html">Getting Started</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="chapters/core_concepts.html">Core Concepts</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l2"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Packing Variables</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#type-based-packing">Type-based Packing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#scratch-variable-packing">Scratch Variable Packing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#building-and-using-a-sparsepack">Building and Using a <code class="docutils literal notranslate"><span class="pre">SparsePack</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#sparsepack-operator"><code class="docutils literal notranslate"><span class="pre">SparsePack::operator()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#other-sparsepack-methods">Other <code class="docutils literal notranslate"><span class="pre">SparsePack</span></code> Methods</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#sparsepacks-with-sparse-fields"><code class="docutils literal notranslate"><span class="pre">SparsePack</span></code>s with Sparse Fields</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="amr.html">Static Mesh Refinement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="amr.html#adaptive-mesh-refinement">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/parallelism_performance.html">Parallelism and Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/advanced_features.html">Advanced Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/api_reference.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/developer_guide.html">Developer Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="chapters/core_concepts.html">Core Concepts</a></li>
+      <li class="breadcrumb-item active">Packing Variables</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/sparse_packs.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="packing-variables">
+<span id="sparse-packs"></span><h1>Packing Variables<a class="headerlink" href="#packing-variables" title="Link to this heading"></a></h1>
+<p>Starting from a high level, at the beginning of a simulation a Parthenon based code defines fields on the <code class="docutils literal notranslate"><span class="pre">Mesh</span></code> by adding them to a <code class="docutils literal notranslate"><span class="pre">StateDescriptor</span></code>. The <code class="docutils literal notranslate"><span class="pre">StateDescriptor</span></code>s for all packages are then passed to the <code class="docutils literal notranslate"><span class="pre">Mesh</span></code> constructor. A constructed <code class="docutils literal notranslate"><span class="pre">Mesh</span></code> includes  a collection of <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code>s that cover the domain of the <code class="docutils literal notranslate"><span class="pre">Mesh</span></code>. The <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code>s contain information about the coordinate region they cover, their relationship to neighboring <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code>s, and <em>importantly</em> a container holding <code class="docutils literal notranslate"><span class="pre">MeshBlockData</span></code> objects. These <code class="docutils literal notranslate"><span class="pre">MeshBlockData</span></code> objects in turn hold <code class="docutils literal notranslate"><span class="pre">Variable</span></code> objects corresponding to the fields defined on the <code class="docutils literal notranslate"><span class="pre">Mesh</span></code> <a class="footnote-reference brackets" href="#id7" id="id1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a>. Each of the <code class="docutils literal notranslate"><span class="pre">MeshBlockData</span></code> objects stored in a given <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> is labeled as a <em>stage</em>. By construction, every <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> in a Parthenon contains the same stages. Memory for storing a field on a block on a stage is only actually allocated (on device) and held within a <code class="docutils literal notranslate"><span class="pre">Variable</span></code> object in a <code class="docutils literal notranslate"><span class="pre">ParArray</span></code> <a class="footnote-reference brackets" href="#id8" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a>.   Putting the storage for fields in a separate object from <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code>, the <code class="docutils literal notranslate"><span class="pre">MeshBlockData</span></code>, easily allows for multiple storage locations for a given field on a given block within the mesh, e.g. to store multiple Runge-Kutta stages. Further, for performance reasons, downstream Parthenon codes generally should work with <code class="docutils literal notranslate"><span class="pre">MeshData</span></code> objects, which hold pointers to groups of <code class="docutils literal notranslate"><span class="pre">MeshBlockData</span></code> objects across different blocks but on the same stage.</p>
+<p>As a result of this somewhat complicated structure, it is impractical to access variable storage by following through these different objects in a downstream code <a class="footnote-reference brackets" href="#id9" id="id3" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a>. Therefore, Parthenon defines <code class="docutils literal notranslate"><span class="pre">SparsePack</span></code>s and <code class="docutils literal notranslate"><span class="pre">SwarmPack</span></code>s to allow seamless access to variables within compute kernels. Essentially, packs are objects that contain a <code class="docutils literal notranslate"><span class="pre">ParArray</span></code> of references to the <code class="docutils literal notranslate"><span class="pre">ParArray</span></code>s stored within <code class="docutils literal notranslate"><span class="pre">Variable</span></code> over a chosen set of fields on a given set of blocks. Said differently, given a <code class="docutils literal notranslate"><span class="pre">SparsePack</span> <span class="pre">pack</span></code> built from <code class="docutils literal notranslate"><span class="pre">MeshData</span> <span class="pre">md</span></code> and a set of fields <code class="docutils literal notranslate"><span class="pre">var1</span></code>, <code class="docutils literal notranslate"><span class="pre">var2</span></code>,… , a sparse pack allows one to access the field <code class="docutils literal notranslate"><span class="pre">var1</span></code> on block <code class="docutils literal notranslate"><span class="pre">b</span></code> of <code class="docutils literal notranslate"><span class="pre">md</span></code> at position <code class="docutils literal notranslate"><span class="pre">(k,</span> <span class="pre">j,</span> <span class="pre">i)</span></code> using syntax like</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">Real</span><span class="w"> </span><span class="o">&amp;</span><span class="n">my_val</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pack</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">var1_t</span><span class="p">(),</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">);</span><span class="w"> </span><span class="c1">// Pull out a reference to the value of var1 on block b in cell (k, j, i)</span>
+<span class="n">ParArray3D</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="w"> </span><span class="n">var1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pack</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">var1_t</span><span class="p">());</span><span class="w"> </span><span class="c1">// Pull out a reference to the 3D array containing var1 on block b</span>
+</pre></div>
+</div>
+<p>etc. within a kernel.</p>
+<p><code class="docutils literal notranslate"><span class="pre">SparsePack</span></code>s <em>work for all types of variables (both dense and sparse). They were originally implemented to support sparse variables and to supersede the older</em> <code class="docutils literal notranslate"><span class="pre">VariablePack</span></code>s <em>and</em> <code class="docutils literal notranslate"><span class="pre">VariableFluxPack</span></code>s <em>and picked up the</em> <code class="docutils literal notranslate"><span class="pre">Sparse</span></code> <em>modifier to differentiate them. The latter have not been removed from ``Parthenon`` because some downstream codes still rely on them, but they are deprecated and will be removed eventually.</em></p>
+<p><em>If you want to deal with particle fields, you will need to use</em> <code class="docutils literal notranslate"><span class="pre">SwarmPack</span></code><em>s, which are described at</em> <a class="reference internal" href="particles.html#swarm-packs"><span class="std std-ref">SwarmPacks</span></a>.</p>
+<section id="type-based-packing">
+<h2>Type-based Packing<a class="headerlink" href="#type-based-packing" title="Link to this heading"></a></h2>
+<p>Parthenon provides functionality for accessing fields in a pack via a type that is associated with a field name <a class="footnote-reference brackets" href="#id10" id="id4" role="doc-noteref"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></a>. As an example, if a downstream code includes a field with the name <code class="docutils literal notranslate"><span class="pre">&quot;var1&quot;</span></code> the code could also define a type</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">var1_t</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="k">public</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">variable_names</span><span class="o">::</span><span class="n">base_t</span><span class="o">&lt;</span><span class="nb">false</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">class</span><span class="p">...</span><span class="w"> </span><span class="n">Ts</span><span class="o">&gt;</span>
+<span class="w">  </span><span class="n">KOKKOS_INLINE_FUNCTION</span><span class="w"> </span><span class="n">varname</span><span class="p">(</span><span class="n">Ts</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="p">...</span><span class="n">args</span><span class="p">)</span>
+<span class="w">      </span><span class="o">:</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">variable_names</span><span class="o">::</span><span class="n">base_t</span><span class="o">&lt;</span><span class="nb">false</span><span class="o">&gt;</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">forward</span><span class="o">&lt;</span><span class="n">Ts</span><span class="o">&gt;</span><span class="p">(</span><span class="n">args</span><span class="p">)...)</span><span class="w"> </span><span class="p">{}</span>
+<span class="w">  </span><span class="k">static</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">name</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="s">"var1"</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>which inherits from <code class="docutils literal notranslate"><span class="pre">parthenon::variable_names::base_t</span></code> <a class="footnote-reference brackets" href="#id11" id="id5" role="doc-noteref"><span class="fn-bracket">[</span>5<span class="fn-bracket">]</span></a>. Rather than write this boilerplate out for every variable name in a downstream code, it is often easier to define a macro that expands to this class for a given variable name argument. Additionally, fields can be added to a <code class="docutils literal notranslate"><span class="pre">StateDescriptor</span></code> using the variable name type directly using</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">StateDescriptor</span><span class="w"> </span><span class="n">pkg</span><span class="p">;</span>
+<span class="n">Metadata</span><span class="w"> </span><span class="n">metadata</span><span class="p">;</span>
+<span class="n">pkg</span><span class="o">-&gt;</span><span class="n">AddField</span><span class="o">&lt;</span><span class="n">var1_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">metadata</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The advantage of using types instead of just strings to denote field names is that the types are accessible within kernels on device. Under the hood, <code class="docutils literal notranslate"><span class="pre">SparsePack::operator()</span></code> is overloaded on each of the type list of variable name types used to create the pack, so an instance of the variable name type can be used to access desired field within a pack.</p>
+</section>
+<section id="scratch-variable-packing">
+<h2>Scratch Variable Packing<a class="headerlink" href="#scratch-variable-packing" title="Link to this heading"></a></h2>
+<p>Parthenon provides the capability to access non-persistent fields allocated on the meshblocks by aliasing a pool of <code class="docutils literal notranslate"><span class="pre">Metadata::overrideable</span></code> fields with different types.
+These scratch variables are registered and pooled per <code class="docutils literal notranslate"><span class="pre">StateDescriptor</span></code> and the total number fields allocated determined by the maximum registered to any single <code class="docutils literal notranslate"><span class="pre">StateDescriptor</span></code>.</p>
+<p>Scratch variables can be defined using the <code class="docutils literal notranslate"><span class="pre">SCRATCH_VARIABLE</span></code> macro,</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="k">using</span><span class="w"> </span><span class="n">TT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">TopologicalType</span><span class="p">;</span>
+<span class="k">namespace</span><span class="w"> </span><span class="nn">parthenon</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="c1">// scratch variables need to be declared in the parthenon namespace</span>
+<span class="n">SCRATCH_VARIABLE</span><span class="p">(</span><span class="n">First</span><span class="p">,</span><span class="w"> </span><span class="n">TT</span><span class="o">::</span><span class="n">Cell</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">)</span><span class="w">     </span><span class="c1">// 3 fields</span>
+<span class="n">SCRATCH_VARIABLE</span><span class="p">(</span><span class="n">Second</span><span class="p">,</span><span class="w"> </span><span class="n">TT</span><span class="o">::</span><span class="n">Cell</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">)</span><span class="w"> </span><span class="c1">// 8 fields</span>
+<span class="n">SCRATCH_VARIABLE</span><span class="p">(</span><span class="n">Third</span><span class="p">,</span><span class="w"> </span><span class="n">TT</span><span class="o">::</span><span class="n">Cell</span><span class="p">)</span><span class="w">        </span><span class="c1">// 1 field</span>
+<span class="n">SCRATCH_VARIABLE</span><span class="p">(</span><span class="n">Fourth</span><span class="p">,</span><span class="w"> </span><span class="n">TT</span><span class="o">::</span><span class="n">Cell</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">)</span><span class="w">    </span><span class="c1">// 5 fields</span>
+<span class="p">}</span><span class="w"> </span><span class="c1">// namespace parthenon</span>
+
+<span class="c1">// pkgA requests a total of 11 fields</span>
+<span class="n">pkgA</span><span class="o">-&gt;</span><span class="n">AddScratch</span><span class="o">&lt;</span><span class="n">parthenon</span><span class="o">::</span><span class="n">First</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="n">pkgA</span><span class="o">-&gt;</span><span class="n">AddScratch</span><span class="o">&lt;</span><span class="n">parthenon</span><span class="o">::</span><span class="n">Second</span><span class="o">&gt;</span><span class="p">();</span>
+
+<span class="c1">// pkgB requests a total of 6 fields</span>
+<span class="n">pkgB</span><span class="o">-&gt;</span><span class="n">AddScratch</span><span class="o">&lt;</span><span class="n">parthenon</span><span class="o">::</span><span class="n">Third</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="n">pkgB</span><span class="o">-&gt;</span><span class="n">AddScratch</span><span class="o">&lt;</span><span class="n">parthenon</span><span class="o">::</span><span class="n">Fourth</span><span class="o">&gt;</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>In the above example 4 scratch variables are registered to two different packages, totalling
+17 indexable fields across the 4 types, but only 11 fields will be allocated.
+These types can then be packed and accessed as normal in type-based sparse packs.
+An example of usage can be found in <cite>the unit
+test &lt;https://github.com/parthenon-hpc-lab/parthenon/blob/develop/tst/unit/test_scratch_variables.cpp&gt;</cite></p>
+<p>It should not be expected that values in these fields will persist outside the local
+scope of the tasks where they are packed. For debugging purposes the cmake build can
+be configured with <code class="docutils literal notranslate"><span class="pre">-DPARTHENON_DEBUG_SCRATCH=ON</span></code>, in which case the fields will
+be registered with unique names, <code class="docutils literal notranslate"><span class="pre">scratch_First</span></code> as an example from the above
+snippet.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Parthenon’s tasking infrastructure can not make guarantees about the order that tasks are executed. Therefore
+care should be taken not to assume that scratch variables can persist between tasks, even when they are directly
+dependent on each other. Issues resolved by setting <code class="docutils literal notranslate"><span class="pre">-DPARTHENON_DEBUG_SCRATCH=ON</span></code> can be an indication of this issue.</p>
+</div>
+</section>
+<section id="building-and-using-a-sparsepack">
+<h2>Building and Using a <code class="docutils literal notranslate"><span class="pre">SparsePack</span></code><a class="headerlink" href="#building-and-using-a-sparsepack" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">SparsePack</span></code>s are built in two stages, first a <code class="docutils literal notranslate"><span class="pre">PackDescriptor</span></code> is built that defines the set of fields to include in the pack using one of the overloaded <code class="docutils literal notranslate"><span class="pre">MakePackDescriptor</span></code> functions. Then <code class="docutils literal notranslate"><span class="pre">PackDescriptor::GetPack(...)</span></code> is called on a given <code class="docutils literal notranslate"><span class="pre">MeshData</span></code> or <code class="docutils literal notranslate"><span class="pre">MeshBlockData</span></code> object to return an actual pack. In practice, this will look like</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">parthenon</span><span class="o">::</span><span class="n">TaskStatus</span><span class="w"> </span><span class="nf">my_task</span><span class="p">(</span><span class="n">MeshData</span><span class="w"> </span><span class="o">*</span><span class="n">md</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Pull out indices, etc.</span>
+<span class="w">  </span><span class="n">std</span><span class="o">:::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">MetadataFlags</span><span class="o">&gt;</span><span class="w"> </span><span class="n">md_flags</span><span class="p">;</span><span class="w"> </span><span class="c1">// Optional argument below</span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">set</span><span class="o">&lt;</span><span class="n">PDOpt</span><span class="o">&gt;</span><span class="w"> </span><span class="n">options</span><span class="p">{</span><span class="n">PDOpt</span><span class="o">::</span><span class="n">WithFluxes</span><span class="p">};</span><span class="w"> </span><span class="c1">// Optional argument below</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">desc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">MakePackDescriptor</span><span class="o">&lt;</span><span class="n">var1_t</span><span class="p">,</span><span class="w"> </span><span class="n">var2_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">pmd</span><span class="p">,</span><span class="w"> </span><span class="n">md_flags</span><span class="p">,</span><span class="w"> </span><span class="n">options</span><span class="p">);</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">pack</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">desc</span><span class="p">.</span><span class="n">GetPack</span><span class="p">(</span><span class="n">md</span><span class="p">);</span>
+<span class="w">  </span><span class="n">parthenon</span><span class="o">::</span><span class="n">par_for</span><span class="p">(</span><span class="cm">/*index ranges, etc. go here */</span><span class="p">,</span>
+<span class="w">      </span><span class="n">KOKKOS_LAMBDA</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">ncomponents_2</span><span class="p">;</span><span class="w"> </span><span class="o">++</span><span class="n">c</span><span class="p">)</span>
+<span class="w">      </span><span class="n">pack</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">var1_t</span><span class="p">(),</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mf">2.0</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">pack</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">var2_t</span><span class="p">(</span><span class="n">c</span><span class="p">),</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">);</span>
+<span class="w">    </span><span class="n">pack</span><span class="p">.</span><span class="n">flux</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">X1DIR</span><span class="p">,</span><span class="w"> </span><span class="n">var1_t</span><span class="p">(),</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pack</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">var1_t</span><span class="p">(),</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">pack</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">var2_t</span><span class="p">(),</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">);</span>
+<span class="w">  </span><span class="p">});</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">TaskStatus</span><span class="o">::</span><span class="n">complete</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">PackDescriptor</span></code>s can be somewhat expensive to build because they require searching through all fields in simulation. Therefore, they are automatically cached in the <code class="docutils literal notranslate"><span class="pre">StateDescriptor</span></code> where possible. Additionally, it is often possible to declare <code class="docutils literal notranslate"><span class="pre">PackDescriptors</span></code> that are created in task functions to be <code class="docutils literal notranslate"><span class="pre">static</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">PackDescriptor</span></code> takes a <code class="docutils literal notranslate"><span class="pre">std::set</span></code> of <code class="docutils literal notranslate"><span class="pre">PDOpt</span></code> options to determine what to include in the pack:</p>
+<table class="docutils align-default" id="id12">
+<caption><span class="caption-text">Pack Descriptor Options</span><a class="headerlink" href="#id12" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 28.6%" />
+<col style="width: 71.4%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PDOpt::WithFluxes</span></code></p></td>
+<td><p>Fluxes associated with variables in the pack are included in the pack and accessible through <code class="docutils literal notranslate"><span class="pre">pack.flux(...)</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PDOpt::Coarse</span></code></p></td>
+<td><p>Pack the coarse buffers for the fields rather than the normal resolution buffers.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PDOpt::Flatten</span></code></p></td>
+<td><p>Packs all blocks across all fields into the variable index so that the pack looks like it has a single block.</p></td>
+</tr>
+</tbody>
+</table>
+<section id="sparsepack-operator">
+<h3><code class="docutils literal notranslate"><span class="pre">SparsePack::operator()</span></code><a class="headerlink" href="#sparsepack-operator" title="Link to this heading"></a></h3>
+<p>There are a number of different overloads for <code class="docutils literal notranslate"><span class="pre">operator()</span></code> in sparse packs that allow accessing field data:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">template</span> <span class="pre">&lt;class</span> <span class="pre">var_t&gt;</span> <span class="pre">Real</span> <span class="pre">&amp;operator()(int</span> <span class="pre">b,</span> <span class="pre">TopologicalElement</span> <span class="pre">te,</span> <span class="pre">const</span> <span class="pre">var_t</span> <span class="pre">&amp;t,</span> <span class="pre">int</span> <span class="pre">k,</span> <span class="pre">int</span> <span class="pre">j,</span> <span class="pre">int</span> <span class="pre">i)</span></code> and <code class="docutils literal notranslate"><span class="pre">template</span> <span class="pre">&lt;class</span> <span class="pre">var_t&gt;</span> <span class="pre">ParArray3D</span> <span class="pre">operator()(int</span> <span class="pre">b,</span> <span class="pre">TopologicalElement</span> <span class="pre">te,</span> <span class="pre">const</span> <span class="pre">var_t</span> <span class="pre">&amp;t)</span></code> : Returns the value on block <code class="docutils literal notranslate"><span class="pre">b</span></code> for topological element <code class="docutils literal notranslate"><span class="pre">te</span></code> of <code class="docutils literal notranslate"><span class="pre">var_t</span></code>. The first call returns a reference to the value at position <code class="docutils literal notranslate"><span class="pre">(k,</span> <span class="pre">j,</span> <span class="pre">i)</span></code> while the second returns a <code class="docutils literal notranslate"><span class="pre">ParArray3D</span></code> (which obeys reference semantics) containing that component of the field on the block. <code class="docutils literal notranslate"><span class="pre">var_t</span></code> must be in the list of types used to create the pack.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">template</span> <span class="pre">&lt;class</span> <span class="pre">var_t&gt;</span> <span class="pre">Real</span> <span class="pre">&amp;operator()(int</span> <span class="pre">b,</span> <span class="pre">const</span> <span class="pre">var_t</span> <span class="pre">&amp;t,</span> <span class="pre">int</span> <span class="pre">k,</span> <span class="pre">int</span> <span class="pre">j,</span> <span class="pre">int</span> <span class="pre">i)</span></code> and <code class="docutils literal notranslate"><span class="pre">template</span> <span class="pre">&lt;class</span> <span class="pre">var_t&gt;</span> <span class="pre">Real</span> <span class="pre">&amp;operator()(int</span> <span class="pre">b,</span> <span class="pre">const</span> <span class="pre">var_t</span> <span class="pre">&amp;t)</span></code>: Same as above, but with the topological element defaulted to cell-centered.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Real</span> <span class="pre">&amp;operator()(int</span> <span class="pre">b,</span> <span class="pre">TopologicalElement</span> <span class="pre">te,</span> <span class="pre">int</span> <span class="pre">idx,</span> <span class="pre">int</span> <span class="pre">k,</span> <span class="pre">int</span> <span class="pre">j,</span> <span class="pre">int</span> <span class="pre">i)</span></code> and <code class="docutils literal notranslate"><span class="pre">Real</span> <span class="pre">&amp;operator()(int</span> <span class="pre">b,</span> <span class="pre">int</span> <span class="pre">idx,</span> <span class="pre">int</span> <span class="pre">k,</span> <span class="pre">int</span> <span class="pre">j,</span> <span class="pre">int</span> <span class="pre">i)</span></code> and <code class="docutils literal notranslate"><span class="pre">Real</span> <span class="pre">&amp;operator()(int</span> <span class="pre">b,</span> <span class="pre">TopologicalElement</span> <span class="pre">te,</span> <span class="pre">int</span> <span class="pre">idx)</span></code> and <code class="docutils literal notranslate"><span class="pre">Real</span> <span class="pre">&amp;operator()(int</span> <span class="pre">b,</span> <span class="pre">int</span> <span class="pre">idx)</span></code>: Same as above, but directly accesses the field at position <code class="docutils literal notranslate"><span class="pre">idx</span></code> in the pack. This should be used with the bounds returned from <code class="docutils literal notranslate"><span class="pre">SparsePack::GetLowerBound(...)</span></code> and <code class="docutils literal notranslate"><span class="pre">SparsePack::GetUpperBound(...)</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Real</span> <span class="pre">&amp;operator()(int</span> <span class="pre">b,</span> <span class="pre">TopologicalElement</span> <span class="pre">te,</span> <span class="pre">PackIdx</span> <span class="pre">idx,</span> <span class="pre">int</span> <span class="pre">k,</span> <span class="pre">int</span> <span class="pre">j,</span> <span class="pre">int</span> <span class="pre">i)</span></code> and <code class="docutils literal notranslate"><span class="pre">Real</span> <span class="pre">&amp;operator()(int</span> <span class="pre">b,</span> <span class="pre">PackIdx</span> <span class="pre">idx,</span> <span class="pre">int</span> <span class="pre">k,</span> <span class="pre">int</span> <span class="pre">j,</span> <span class="pre">int</span> <span class="pre">i)</span></code> and <code class="docutils literal notranslate"><span class="pre">Real</span> <span class="pre">&amp;operator()(int</span> <span class="pre">b,</span> <span class="pre">TopologicalElement</span> <span class="pre">te,</span> <span class="pre">PackIdx</span> <span class="pre">idx)</span></code> and <code class="docutils literal notranslate"><span class="pre">Real</span> <span class="pre">&amp;operator()(int</span> <span class="pre">b,</span> <span class="pre">PackIdx</span> <span class="pre">idx)</span></code>: Same as above, but access the field using <code class="docutils literal notranslate"><span class="pre">PackIdx</span> <span class="pre">idx</span></code>. This only works for packs that were built using a list of names (as opposed to a list of types), see <a class="footnote-reference brackets" href="#id10" id="id6" role="doc-noteref"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></a>.</p></li>
+</ul>
+</section>
+<section id="other-sparsepack-methods">
+<h3>Other <code class="docutils literal notranslate"><span class="pre">SparsePack</span></code> Methods<a class="headerlink" href="#other-sparsepack-methods" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Coordinates_t</span> <span class="pre">&amp;GetCoordinates(const</span> <span class="pre">int</span> <span class="pre">b</span> <span class="pre">=</span> <span class="pre">0)</span></code>: Returns a reference to the coordinates object associated with block <code class="docutils literal notranslate"><span class="pre">b</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">template</span> <span class="pre">&lt;class</span> <span class="pre">var_t&gt;</span> <span class="pre">int</span> <span class="pre">GetLowerBound(int</span> <span class="pre">b,</span> <span class="pre">var_t)</span></code>: Returns the first index in the pack where a field corresponding to <code class="docutils literal notranslate"><span class="pre">var_t</span></code> is stored. Returns <code class="docutils literal notranslate"><span class="pre">-1</span></code> if <code class="docutils literal notranslate"><span class="pre">var_t</span></code> is not allocated on block <code class="docutils literal notranslate"><span class="pre">b</span></code>. A similar functions exist for <code class="docutils literal notranslate"><span class="pre">PackIdx</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">template</span> <span class="pre">&lt;class</span> <span class="pre">var_t&gt;</span> <span class="pre">int</span> <span class="pre">GetUpperBound(int</span> <span class="pre">b,</span> <span class="pre">var_t)</span></code>: Returns the last index in the pack where a field corresponding to <code class="docutils literal notranslate"><span class="pre">var_t</span></code> is stored. Returns <code class="docutils literal notranslate"><span class="pre">-2</span></code> if <code class="docutils literal notranslate"><span class="pre">var_t</span></code> is not allocated on block <code class="docutils literal notranslate"><span class="pre">b</span></code>. A similar functions exist for <code class="docutils literal notranslate"><span class="pre">PackIdx</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">GetLevel(int</span> <span class="pre">b,</span> <span class="pre">int</span> <span class="pre">off3,</span> <span class="pre">int</span> <span class="pre">off2,</span> <span class="pre">int</span> <span class="pre">off1)</span></code>: Returns the logical level of neighbor block(s) of block <code class="docutils literal notranslate"><span class="pre">b</span></code> offset in direction <code class="docutils literal notranslate"><span class="pre">(off3,</span> <span class="pre">off2,</span> <span class="pre">off1)</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">IsPhysicalBoundary(int</span> <span class="pre">b,</span> <span class="pre">int</span> <span class="pre">off3,</span> <span class="pre">int</span> <span class="pre">off2,</span> <span class="pre">int</span> <span class="pre">off1)</span></code>: Returns if block <code class="docutils literal notranslate"><span class="pre">b</span></code> has a physical boundary in offset direction <code class="docutils literal notranslate"><span class="pre">(off3,</span> <span class="pre">off2,</span> <span class="pre">off1)</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">template</span> <span class="pre">&lt;class</span> <span class="pre">var_t&gt;</span> <span class="pre">bool</span> <span class="pre">Contains(const</span> <span class="pre">int</span> <span class="pre">b,</span> <span class="pre">const</span> <span class="pre">var_t</span> <span class="pre">t)</span></code>: Returns if <code class="docutils literal notranslate"><span class="pre">var_t</span></code> is allocated on block <code class="docutils literal notranslate"><span class="pre">b</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">template</span> <span class="pre">&lt;class</span> <span class="pre">var_t&gt;</span> <span class="pre">Real</span> <span class="pre">&amp;flux(int</span> <span class="pre">b,</span> <span class="pre">int</span> <span class="pre">dir,</span> <span class="pre">const</span> <span class="pre">var_t</span> <span class="pre">&amp;t,</span> <span class="pre">int</span> <span class="pre">k,</span> <span class="pre">int</span> <span class="pre">j,</span> <span class="pre">int</span> <span class="pre">i)</span></code>: Gets the flux in direction <code class="docutils literal notranslate"><span class="pre">dir</span></code> associated with variable <code class="docutils literal notranslate"><span class="pre">var_t</span></code>.</p></li>
+</ul>
+</section>
+</section>
+<section id="sparsepacks-with-sparse-fields">
+<h2><code class="docutils literal notranslate"><span class="pre">SparsePack</span></code>s with Sparse Fields<a class="headerlink" href="#sparsepacks-with-sparse-fields" title="Link to this heading"></a></h2>
+<p>A given sparse field may or may not be allocated on each block within a pack. To safely access the fields in a given pack, <code class="docutils literal notranslate"><span class="pre">SparsePack</span></code>s provide checks on whether or not a given sparse variable/pool is allocated</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">parthenon</span><span class="o">::</span><span class="n">TaskStatus</span><span class="w"> </span><span class="nf">my_task</span><span class="p">(</span><span class="n">MeshData</span><span class="w"> </span><span class="o">*</span><span class="n">md</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// Pull out indices, etc.</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">desc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">MakePackDescriptor</span><span class="o">&lt;</span><span class="n">sparse_var_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">pmd</span><span class="p">);</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">pack</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">desc</span><span class="p">.</span><span class="n">GetPack</span><span class="p">(</span><span class="n">md</span><span class="p">);</span>
+<span class="w">  </span><span class="n">parthenon</span><span class="o">::</span><span class="n">par_for</span><span class="p">(</span><span class="cm">/*index ranges, etc. go here */</span><span class="p">,</span>
+<span class="w">      </span><span class="n">KOKKOS_LAMBDA</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="c1">// For a single sparse field</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">pack</span><span class="p">.</span><span class="n">Contains</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">sparse_var_t</span><span class="p">()))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// The sparse field is allocated on block b, and so is safe to access</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">      </span><span class="c1">// This loop will go over all allocated sparse fields in the sparse_var sparse pool</span>
+<span class="w">      </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">idx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pack</span><span class="p">.</span><span class="n">GetLowerBound</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">sparse_var_t</span><span class="p">());</span><span class="w"> </span><span class="n">idx</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">pack</span><span class="p">.</span><span class="n">GetUpperBound</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">sparse_var_t</span><span class="p">());</span><span class="w"> </span><span class="o">++</span><span class="n">idx</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">pack</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">idx</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.0</span><span class="p">;</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">  </span><span class="p">});</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">TaskStatus</span><span class="o">::</span><span class="n">complete</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="id7" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">1</a><span class="fn-bracket">]</span></span>
+<p>In practice, there are ways of selecting subsets of fields for inclusion in a given <code class="docutils literal notranslate"><span class="pre">MeshBlockData</span></code> instance.</p>
+</aside>
+<aside class="footnote brackets" id="id8" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id2">2</a><span class="fn-bracket">]</span></span>
+<p><code class="docutils literal notranslate"><span class="pre">ParArray</span></code>s are lite wrappers around <code class="docutils literal notranslate"><span class="pre">Kokkos::View</span></code>s and therefore obey reference semantics.</p>
+</aside>
+<aside class="footnote brackets" id="id9" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id3">3</a><span class="fn-bracket">]</span></span>
+<p>Additionally, because many <code class="docutils literal notranslate"><span class="pre">std::</span></code> library containers don’t work on device, the chain from field name through <code class="docutils literal notranslate"><span class="pre">MeshBlockData</span></code> to <code class="docutils literal notranslate"><span class="pre">Variable</span></code> to the underlying <code class="docutils literal notranslate"><span class="pre">ParArray</span></code> cannot be legally followed within a kernel.</p>
+</aside>
+<aside class="footnote brackets" id="id10" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>4<span class="fn-bracket">]</span></span>
+<span class="backrefs">(<a role="doc-backlink" href="#id4">1</a>,<a role="doc-backlink" href="#id6">2</a>)</span>
+<p>It is also possible to use <code class="docutils literal notranslate"><span class="pre">SparsePack</span></code>s created with a vector of string field names. In this case, the <code class="docutils literal notranslate"><span class="pre">PackDescriptor</span></code> can return a map from variable name strings to <code class="docutils literal notranslate"><span class="pre">PackIdx</span></code>s using the function <code class="docutils literal notranslate"><span class="pre">PackDescriptor::GetMap()</span></code>. These indices need to be pulled out from the map outside of the kernel, since <code class="docutils literal notranslate"><span class="pre">std::unordered_map</span></code> is unavailable on device. Then inside the kernel, packs are accessed using <code class="docutils literal notranslate"><span class="pre">PackIdx</span> <span class="pre">var_idx</span></code> in calls to the pack <code class="docutils literal notranslate"><span class="pre">pack(b,</span> <span class="pre">var_idx,</span> <span class="pre">k,</span> <span class="pre">j,</span> <span class="pre">i)</span></code>, etc.</p>
+</aside>
+<aside class="footnote brackets" id="id11" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id5">5</a><span class="fn-bracket">]</span></span>
+<p>The template arguments for <code class="docutils literal notranslate"><span class="pre">parthenon::variable_names::base_t</span></code> are <code class="docutils literal notranslate"><span class="pre">&lt;bool</span> <span class="pre">REGEX,</span> <span class="pre">int...</span> <span class="pre">NCOMP&gt;</span></code> where the <code class="docutils literal notranslate"><span class="pre">REGEX</span></code> boolean determines if the returned name sure be interpreted as a simple string or as a regex that possibly selects multiple variable names. The variadic integer pack <code class="docutils literal notranslate"><span class="pre">NCOMP...</span></code> defines the tensor shape of the field, so that when the <code class="docutils literal notranslate"><span class="pre">var1_t(m,</span> <span class="pre">l)</span></code> constructor is called the correct component of the field is returned from a call to <code class="docutils literal notranslate"><span class="pre">SparsePack::operator()</span></code> (assuming we have a two component field).</p>
+</aside>
+</aside>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="parthenon_arrays.html" class="btn btn-neutral float-left" title="Parthenon Set-Dimensional Arrays" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="amr.html" class="btn btn-neutral float-right" title="Static Mesh Refinement" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: lkasselm/fft-backup
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/index.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/index.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/index.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/index.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/index.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/index.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/index.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/index.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/index.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/index.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../regression-gold-v26/src/sparse_packs.html">regression-gold-v26</a></dd>
+      <dd><a href="../../../regression-gold-v27/src/sparse_packs.html">regression-gold-v27</a></dd>
+      <dd><a href="../../../regression-gold-v28/src/sparse_packs.html">regression-gold-v28</a></dd>
+      <dd><a href="../../../v0.8.0/index.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/index.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/index.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/index.html">v24.08</a></dd>
+      <dd><a href="../../../v25.05/src/sparse_packs.html">v25.05</a></dd>
+      <dd><a href="../../../v25.12/src/sparse_packs.html">v25.12</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../BenWibking/mainloop-debug-output-callback/index.html">BenWibking/mainloop-debug-output-callback</a></dd>
+      <dd><a href="../../../BenWibking/move-params/index.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../HEAD/src/sparse_packs.html">HEAD</a></dd>
+      <dd><a href="../../../acreyes/hypre-diffusion-example/src/sparse_packs.html">acreyes/hypre-diffusion-example</a></dd>
+      <dd><a href="../../../ats5/index.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/index.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/index.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/index.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../blb/toml/src/sparse_packs.html">blb/toml</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/index.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/index.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../brryan/kokkos_sort/index.html">brryan/kokkos_sort</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/index.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/index.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/index.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../c-prather/fix-oneblock/src/sparse_packs.html">c-prather/fix-oneblock</a></dd>
+      <dd><a href="../../../c-prather/sigint-kill/src/sparse_packs.html">c-prather/sigint-kill</a></dd>
+      <dd><a href="../../../cep/one-block-mesh/src/sparse_packs.html">cep/one-block-mesh</a></dd>
+      <dd><a href="../../../dempsey/rummy/src/sparse_packs.html">dempsey/rummy</a></dd>
+      <dd><a href="../../../dempsey/rummy2/src/sparse_packs.html">dempsey/rummy2</a></dd>
+      <dd><a href="../../../dempsey/rummy3/src/sparse_packs.html">dempsey/rummy3</a></dd>
+      <dd><a href="../../../dempsey/swarm_amr/src/sparse_packs.html">dempsey/swarm_amr</a></dd>
+      <dd><a href="../../../develop/src/sparse_packs.html">develop</a></dd>
+      <dd><a href="../../../fglines-nv/optimize-burgers/src/sparse_packs.html">fglines-nv/optimize-burgers</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/index.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/index.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/loop-benchmarks/src/sparse_packs.html">jdolence/loop-benchmarks</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/index.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/index.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/index.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/clear-particles-in-pgen/src/sparse_packs.html">jmm/clear-particles-in-pgen</a></dd>
+      <dd><a href="../../../jmm/docstrings-2-blockref-boogaloo/src/sparse_packs.html">jmm/docstrings-2-blockref-boogaloo</a></dd>
+      <dd><a href="../../../jmm/fix-block-less-than-ranks/src/sparse_packs.html">jmm/fix-block-less-than-ranks</a></dd>
+      <dd><a href="../../../jmm/pyproxy/src/sparse_packs.html">jmm/pyproxy</a></dd>
+      <dd><a href="../../../jmm/shrinkcores/src/sparse_packs.html">jmm/shrinkcores</a></dd>
+      <dd><a href="../../../jmm/submeshdata-2/src/sparse_packs.html">jmm/submeshdata-2</a></dd>
+      <dd><a href="../../../jmm/token-scratch/src/sparse_packs.html">jmm/token-scratch</a></dd>
+      <dd><a href="../../../jmm/turorial/src/sparse_packs.html">jmm/turorial</a></dd>
+      <dd><a href="../../fft/src/sparse_packs.html">lkasselm/fft</a></dd>
+      <dd><a href="sparse_packs.html">lkasselm/fft-backup</a></dd>
+      <dd><a href="../../../lrobert36/update-index-split-manual/src/sparse_packs.html">lrobert36/update-index-split-manual</a></dd>
+      <dd><a href="../../../lroberts36/add-callback-taskstatus/src/sparse_packs.html">lroberts36/add-callback-taskstatus</a></dd>
+      <dd><a href="../../../lroberts36/add-densitization-solver-option/src/sparse_packs.html">lroberts36/add-densitization-solver-option</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-indices/src/sparse_packs.html">lroberts36/add-sparse-indices</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/index.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/fix-cellmemaligned-independent/src/sparse_packs.html">lroberts36/fix-cellmemaligned-independent</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-flag-error/src/sparse_packs.html">lroberts36/fix-multigrid-flag-error</a></dd>
+      <dd><a href="../../../lroberts36/fix-multiple-solvers/src/sparse_packs.html">lroberts36/fix-multiple-solvers</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/index.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/src/sparse_packs.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/imex-advection/src/sparse_packs.html">lroberts36/imex-advection</a></dd>
+      <dd><a href="../../../lroberts36/loop-benchmarks-bench/src/sparse_packs.html">lroberts36/loop-benchmarks-bench</a></dd>
+      <dd><a href="../../../lroberts36/python-field-init/src/sparse_packs.html">lroberts36/python-field-init</a></dd>
+      <dd><a href="../../../lroberts36/python-input-support/src/sparse_packs.html">lroberts36/python-input-support</a></dd>
+      <dd><a href="../../../lroberts36/solver-noncell-vars/src/sparse_packs.html">lroberts36/solver-noncell-vars</a></dd>
+      <dd><a href="../../../lroberts36/solver-speedups/src/sparse_packs.html">lroberts36/solver-speedups</a></dd>
+      <dd><a href="../../../lroberts36/solver-timing/src/sparse_packs.html">lroberts36/solver-timing</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/index.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../lroberts36/switch-to-weak-ptrs/src/sparse_packs.html">lroberts36/switch-to-weak-ptrs</a></dd>
+      <dd><a href="../../../lroberts36/temp-p1-branch/src/sparse_packs.html">lroberts36/temp-p1-branch</a></dd>
+      <dd><a href="../../../lroberts36/tensor-library-packs/src/sparse_packs.html">lroberts36/tensor-library-packs</a></dd>
+      <dd><a href="../../../lroberts36/test-forest-mesh/src/sparse_packs.html">lroberts36/test-forest-mesh</a></dd>
+      <dd><a href="../../../lroberts36/update-diffusion-example/src/sparse_packs.html">lroberts36/update-diffusion-example</a></dd>
+      <dd><a href="../../../lroberts36/update-sparse-ids/src/sparse_packs.html">lroberts36/update-sparse-ids</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/index.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/index.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pdmullen/towards-curv-swarm/src/sparse_packs.html">pdmullen/towards-curv-swarm</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/index.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/energy-transfer/src/sparse_packs.html">pgrete/energy-transfer</a></dd>
+      <dd><a href="../../../pgrete/enspec/src/sparse_packs.html">pgrete/enspec</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/index.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/jupiter/src/sparse_packs.html">pgrete/jupiter</a></dd>
+      <dd><a href="../../../pgrete/jupiter-26/src/sparse_packs.html">pgrete/jupiter-26</a></dd>
+      <dd><a href="../../../pgrete/metadata-allow-new-field-restart/src/sparse_packs.html">pgrete/metadata-allow-new-field-restart</a></dd>
+      <dd><a href="../../../pgrete/pmd-output-wuser/src/sparse_packs.html">pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/unique-ids/src/sparse_packs.html">pgrete/unique-ids</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/sparse_packs.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../swjones/asym_halos/src/sparse_packs.html">swjones/asym_halos</a></dd>
+      <dd><a href="../../../swjones/dt_package_reporting/src/sparse_packs.html">swjones/dt_package_reporting</a></dd>
+      <dd><a href="../../../swjones/rk34_integrator-unit-test/src/sparse_packs.html">swjones/rk34_integrator-unit-test</a></dd>
+      <dd><a href="../../../swjones/tensor-library/src/sparse_packs.html">swjones/tensor-library</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

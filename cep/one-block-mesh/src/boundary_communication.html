@@ -1,0 +1,900 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Boundary communication-in-one concepts &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=e2af37d4" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Parallelism and Performance" href="chapters/parallelism_performance.html" />
+    <link rel="prev" title="Boundary Conditions" href="boundary_conditions.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Chapters</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="chapters/getting_started.html">Getting Started</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="chapters/core_concepts.html">Core Concepts</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l2"><a class="reference internal" href="driver.html">Application Drivers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coordinates.html">Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l2"><a class="reference internal" href="parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sparse_packs.html">Packing Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="amr.html">Static Mesh Refinement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="amr.html#adaptive-mesh-refinement">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Boundary communication-in-one concepts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#buffer-subsets">Buffer subsets</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#sparse-boundary-communication">Sparse boundary communication</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#communication-channels-on-the-mesh">Communication channels on the Mesh</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mpi-communication-ids">MPI Communication IDs</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#utilities-classes-for-boundary-communication">Utilities classes for boundary communication</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#class-commbuffer-t"><code class="docutils literal notranslate"><span class="pre">class</span> <span class="pre">CommBuffer&lt;T&gt;</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#class-objectpool-t"><code class="docutils literal notranslate"><span class="pre">class</span> <span class="pre">ObjectPool&lt;T&gt;</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#sparse-boundary-communication-implementation">Sparse boundary communication implementation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#chunking-of-sparsely-allocated-comm-buffers">Chunking of sparsely allocated comm buffers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#deallocating-pooled-comm-buffers">Deallocating pooled comm buffers</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#send-and-receive-ordering">Send and Receive Ordering</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#boundary-communication-tasks">Boundary Communication Tasks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#flux-correction-tasks">Flux Correction Tasks</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#coalesced-mpi-communication">Coalesced MPI Communication</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#implementation-details">Implementation Details</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/parallelism_performance.html">Parallelism and Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/advanced_features.html">Advanced Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/api_reference.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/developer_guide.html">Developer Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="chapters/core_concepts.html">Core Concepts</a></li>
+      <li class="breadcrumb-item active">Boundary communication-in-one concepts</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/boundary_communication.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="boundary-communication-in-one-concepts">
+<span id="boundary-communication"></span><h1>Boundary communication-in-one concepts<a class="headerlink" href="#boundary-communication-in-one-concepts" title="Link to this heading"></a></h1>
+<p>On CPU, the naive implementation of ghost halos for meshblocks is to
+loop over each geometric sub-area of a ghost halo relevant for
+communicating to neighboring meshblocks. In practice, on accelerators,
+this is not performant, as launching a GPU kernel per sub-halo costs
+significant latency.</p>
+<p>To resolve this issue, we coalesce GPU kernels into hierarchically
+paraellel loops, where the outer loop is over sub-halos, and the inner
+loop is over the cells within a sub-halo. The information required to,
+e.g., send, receive, prolongate, restrict information in each sub-halo
+is precomputed and cached.</p>
+<p>Per sub-halo, there is a struct, <code class="docutils literal notranslate"><span class="pre">BndInfo_t</span></code>, which contains the
+relevant information needed on device to perform loop operations. The
+caching is enabled by two structs, <code class="docutils literal notranslate"><span class="pre">BvarsSubCache_t</span></code> which contains
+all the arrays on host and device needed mostly containing these
+<code class="docutils literal notranslate"><span class="pre">BndInfo_t</span></code> objects, and <code class="docutils literal notranslate"><span class="pre">BvarsCache_t</span></code> which is essentially an
+array of all the kinds of caches needed for the various kinds of
+boundary operations performed.</p>
+<p>We note that this infrastructure is more general than just ghost halos.
+The same machinery is used for communicating the interiors of meshblocks
+that are restricted and/or prolongated between geometric multi-grid levels.
+Additionally, with the ownership model for non-face fields, the basic
+communication infrastructure could deal with flux correction as well
+(although currently flux correction uses a somewhat separate code path).</p>
+<section id="buffer-subsets">
+<h2>Buffer subsets<a class="headerlink" href="#buffer-subsets" title="Link to this heading"></a></h2>
+<p>Sometimes it is desirable, for example for custom prolongation and
+restriction or to communicate on a single geometric multi-grid level,
+to loop over a subset of the ghost sub-halos, rather than
+all halos at once. This is enabled by the <code class="docutils literal notranslate"><span class="pre">buffer_subsets</span></code> and
+<code class="docutils literal notranslate"><span class="pre">buffer_subsets_h</span></code> arrays, which are contained in <code class="docutils literal notranslate"><span class="pre">BvarsSubCache_t</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">buffer_subsets</span></code> array is a matrix, where the rows index the
+subset, and the columns point to the indices in the <code class="docutils literal notranslate"><span class="pre">bnd_info</span></code> array
+containing the subset of sub-halos you wish to operate on.</p>
+<p>To communicate across a particular boundary type, the templated
+boundary communication routines (see <a class="reference internal" href="#boundary-comm-tasks"><span class="std std-ref">Boundary Communication Tasks</span></a>)
+should be instantiated with the desired <code class="docutils literal notranslate"><span class="pre">BoundaryType</span></code>, i.e.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">SendBoundBufs</span><span class="o">&lt;</span><span class="n">BoundaryType</span><span class="o">::</span><span class="n">gmg_restrict_send</span><span class="o">&gt;</span><span class="p">(</span><span class="n">md</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The different <code class="docutils literal notranslate"><span class="pre">BoundaryType</span></code>s are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">any</span></code>: Communications are performed between all leaf blocks (i.e. the
+standard Parthenon grid that does not include multi-grid related blocks).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">local</span></code>: Communications are performed between all leaf blocks that
+are on the current rank. <em>Currently, this option should not be used
+because there are possibly associated bugs. This and nonlocal would
+only be used as a potential performance enhancement, calling both
+should result in the same communication as just calling
+BoundaryType::any.</em></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nonlocal</span></code>: Communications are performed between all leaf blocks that
+are on different ranks than the current rank. <em>Currently, this option
+should not be used because there are possibly associated bugs.</em></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">flxcor_send</span></code> and <code class="docutils literal notranslate"><span class="pre">flxcor_recv</span></code>: Used for flux correction
+routines, see below.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gmg_same</span></code>: Communicates ghost halos between blocks in the
+same geometric multi-grid level.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gmg_restrict_send</span></code> and <code class="docutils literal notranslate"><span class="pre">gmg_restrict_recv</span></code>: For restricting
+block interiors between geometric multi-grid levels, i.e. inter-grid
+communication. <em>It is probably not necessary to have separate
+communicators for sending and receiving, but for now this is the way
+if was written</em></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gmg_prolongate_send</span></code> and <code class="docutils literal notranslate"><span class="pre">gmg_prolongate_recv</span></code>: For prolongating
+block interiors between geometric multi-grid levels, i.e. inter-grid
+communication. <em>It is probably not necessary to have separate
+communicators for sending and receiving, but for now this is the way
+if was written</em></p></li>
+</ul>
+</section>
+</section>
+<section id="sparse-boundary-communication">
+<span id="sparse-boundary-comm"></span><h1>Sparse boundary communication<a class="headerlink" href="#sparse-boundary-communication" title="Link to this heading"></a></h1>
+<p>Communication between meshblocks at all stages is required to
+synchronize fields that include ghost zones. For each pair of meshblocks
+<strong>a</strong> and <strong>b</strong> that share a boundary, we define two <em>communication
+channel</em>s (<strong>a</strong>-&gt;<strong>b</strong> and <strong>b</strong>-&gt;<strong>a</strong>) for each field that
+communicates ghost zone data. This communication channel can be shared
+amongst all stages contained in the <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> field
+<code class="docutils literal notranslate"><span class="pre">DataCollection&lt;MeshBlockData&lt;Real&gt;&gt;</span> <span class="pre">meshblock_data</span></code>, since the
+communication during different stages doesn’t overlap. A communication
+channel needs to contain some state that indicates if information has
+been sent from block <strong>a</strong> but not received on block <strong>b</strong>, or if the
+information has been received. Additionally, the communication channel
+should contain storage if data is being communicated, which may not
+always be the case for sparse variables. When the sender is sparse and
+unallocated, no storage communication buffer storage is required since
+the ghost zones of the receiver should be filled with default values.
+When the sender is allocated, we always allocate buffer storage.</p>
+<p>For (potentially) sparse variables, there should be five possible states
+of the buffer:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">sending</span></code>: The sender has filled the buffer with data meets the
+threshold for sparse allocation.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sending_null</span></code>: The sender is either unallocated, so that it just
+contains default data, or the sender is allocated and but all of the
+values in the communicated region fall below the sparse threshold.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">received</span></code>: The receiver has successfully queried that information
+has been sent and the buffer contains data that is above the sparse
+threshold.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">received_null</span></code>: The receiver has successfully queried that
+information has been sent and the buffer contains data that is above
+the sparse threshold.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">stale</span></code>: The receiver no longer needs the information currently
+stored by the communication channel.</p></li>
+</ul>
+<p>Information about the indices of the data being copied from the sender
+and where they are copied to in the receiver is kept separate from the
+communication channel in the current implementation. The only
+information the communication channel has is the size of buffer
+required.</p>
+<section id="communication-channels-on-the-mesh">
+<h2>Communication channels on the Mesh<a class="headerlink" href="#communication-channels-on-the-mesh" title="Link to this heading"></a></h2>
+<p>Communication channels on a mesh can be uniquely identified by the
+global id (gid) of the sending block, the global id (gid) of the
+receiving block, the variable for which data is being sent, and the
+geometric element of the sending block that is shared with the receiving
+block, with the geometric element being the volume, a face, an edge, or
+a node of a block. The geometric element is necessary for unique
+identification, since with periodic boundary conditions two blocks may
+share more than a single geometric element. Each block has 27 geometric
+elements which can each be represented with a vector extending from the
+center of the block to the center of the geometric element (e.g. the
+volume of the block corresponds to (0, 0, 0),the top face of the block
+would be represented by (0, 0, 1), the bottom face by (0,0,-1), some
+edge by (0, 1, -1), and a vertex to (1, 1, 1)). This vector can be
+flattened as
+<code class="docutils literal notranslate"><span class="pre">geom_idx</span> <span class="pre">=</span> <span class="pre">(vec.x</span> <span class="pre">+</span> <span class="pre">1)</span> <span class="pre">+</span> <span class="pre">3</span> <span class="pre">*</span> <span class="pre">(vec.y</span> <span class="pre">+</span> <span class="pre">1)</span> <span class="pre">*</span> <span class="pre">9</span> <span class="pre">*</span> <span class="pre">(vec.z</span> <span class="pre">+</span> <span class="pre">1)</span></code> to assign
+a unique element to each index. Also note that if two blocks share an
+element (or at least part of an element in the case of a multi-level
+mesh), the corresponding geometric element index of the second element
+is obviously
+<code class="docutils literal notranslate"><span class="pre">geom_idx</span> <span class="pre">=</span> <span class="pre">(vec.x</span> <span class="pre">-</span> <span class="pre">1)</span> <span class="pre">+</span> <span class="pre">3</span> <span class="pre">*</span> <span class="pre">(vec.y</span> <span class="pre">-</span> <span class="pre">1)</span> <span class="pre">*</span> <span class="pre">9</span> <span class="pre">*</span> <span class="pre">(vec.z</span> <span class="pre">-</span> <span class="pre">1)</span></code> when
+<code class="docutils literal notranslate"><span class="pre">vec</span></code> is the offset vector of the first element. This information is
+stored in a <code class="docutils literal notranslate"><span class="pre">NeighborIndexes</span></code> object.</p>
+<p>In practice, we denote each channel by a unique key
+<code class="docutils literal notranslate"><span class="pre">std::tuple&lt;int,</span> <span class="pre">int,</span> <span class="pre">std::string,</span> <span class="pre">int&gt;{send_gid,</span> <span class="pre">receive_gid,</span> <span class="pre">var_name,</span> <span class="pre">geometric_element_index_of_sender}</span></code>,
+so that the <code class="docutils literal notranslate"><span class="pre">Mesh</span></code> can contain a map from these keys to communication
+channels. Then, at each remesh, sending blocks and blocks that are
+receiving from blocks on a different rank can create new communication
+channels and register them in this map.</p>
+<section id="mpi-communication-ids">
+<h3>MPI Communication IDs<a class="headerlink" href="#mpi-communication-ids" title="Link to this heading"></a></h3>
+<p>For MPI commnunication, we need to uniquely identify MPI messages
+between an ordered pair of ranks. In an easy world, we would do all
+communication on <code class="docutils literal notranslate"><span class="pre">MPI_COMM_WORLD</span></code> and just create a unique tag from
+the elements of the unique key tuple by doing something like
+<code class="docutils literal notranslate"><span class="pre">tag</span> <span class="pre">=</span> <span class="pre">num_blocks_total</span> <span class="pre">*</span> <span class="pre">nvars</span> <span class="pre">*</span> <span class="pre">27</span> <span class="pre">*</span> <span class="pre">send_gid</span> <span class="pre">+</span> <span class="pre">nvars</span> <span class="pre">*</span> <span class="pre">27</span> <span class="pre">*</span> <span class="pre">receive_gid</span> <span class="pre">+</span> <span class="pre">27</span> <span class="pre">*</span> <span class="pre">var_idx</span> <span class="pre">+</span> <span class="pre">geometric_element_index_of_sender</span></code>,
+but this creates sparsely populated tag numbers and quickly blows
+through the maximum tag limit of 32767 defined by the MPI standard. In
+practice, we create an MPI communicator associated with each variable
+(see <code class="docutils literal notranslate"><span class="pre">Mesh::SetupMPIComms()</span></code> and <code class="docutils literal notranslate"><span class="pre">Mesh::GetMPIComm(std::string)</span></code>)
+and for each pair of ranks fill a
+<code class="docutils literal notranslate"><span class="pre">std::map&lt;UnorderedPair({send_gid,</span> <span class="pre">send_geom_elem},</span> <span class="pre">{recv_gid,</span> <span class="pre">recv_geom_elem}),</span> <span class="pre">int&gt;</span></code>
+contained in the <code class="docutils literal notranslate"><span class="pre">Mesh</span></code> with zeros. Since <code class="docutils literal notranslate"><span class="pre">std::map</span></code> is always
+sorted and we define comparators for <code class="docutils literal notranslate"><span class="pre">UnorderedPair</span></code>, we end up with
+the same ordering of the map on both ranks of the pair. We can then
+iterate through the map and assign a unique, densely populated tag to
+each pair in the map, which does not blow through the MPI tag limit. The
+same tags can obviously be re-used in each communicator.</p>
+</section>
+</section>
+<section id="utilities-classes-for-boundary-communication">
+<h2>Utilities classes for boundary communication<a class="headerlink" href="#utilities-classes-for-boundary-communication" title="Link to this heading"></a></h2>
+<section id="class-commbuffer-t">
+<h3><code class="docutils literal notranslate"><span class="pre">class</span> <span class="pre">CommBuffer&lt;T&gt;</span></code><a class="headerlink" href="#class-commbuffer-t" title="Link to this heading"></a></h3>
+<p>This general idea is implemented in the <code class="docutils literal notranslate"><span class="pre">CommBuffer&lt;T&gt;</span></code> class
+template, which contains a field <code class="docutils literal notranslate"><span class="pre">T</span> <span class="pre">buf_</span></code> and access to that field
+through the method <code class="docutils literal notranslate"><span class="pre">T&amp;</span> <span class="pre">buffer()</span></code>. <code class="docutils literal notranslate"><span class="pre">T</span></code> is assumed to be some type
+that can act as a buffer for storing the communicated data that has
+methods <code class="docutils literal notranslate"><span class="pre">size()</span></code> and <code class="docutils literal notranslate"><span class="pre">data()</span></code>, the latter of which must give access
+to the underlying storage that can be used by the MPI communication
+calls. <code class="docutils literal notranslate"><span class="pre">CommBuffer</span></code> has the public methods:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">T&amp;</span> <span class="pre">buffer()</span></code>: Gives access to the the actual data buffer for
+filling and reading.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">Allocate()</span></code>: Which allocates storage for the buffer and can
+be called internally by <code class="docutils literal notranslate"><span class="pre">TryReceive()</span></code> when non-null data is being
+communicated by a block on a different rank.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">Send()</span></code>: If the underlying storage buffer is allocated, sets
+the state of the buffer to <code class="docutils literal notranslate"><span class="pre">sending</span></code>. If the underlying storage
+buffer is unallocated, set the state of the buffer to
+<code class="docutils literal notranslate"><span class="pre">sending_null</span></code>. Also starts asynchronous MPI send if sender and
+receiver are on separate ranks.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">SendNull()</span></code>: Sets the buffer state to <code class="docutils literal notranslate"><span class="pre">sending_null</span></code>. Also
+starts asynchronous MPI send of a zero length buffer if sender and
+receiver are on separate ranks.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">TryStartReceive()</span></code>: If on same rank, this does nothing. If on
+different ranks and irecv_started flag is set, does nothing. If on
+different ranks and it is a receiving buffer and
+<code class="docutils literal notranslate"><span class="pre">do_sparse_allocation</span> <span class="pre">=</span> <span class="pre">false</span></code> for the buffer, posts an
+<code class="docutils literal notranslate"><span class="pre">MPI_Irecv</span></code> right away, allocates the buffer if it is not already
+allocated, and flags that <code class="docutils literal notranslate"><span class="pre">MPI_Irecv</span></code> has been called. If on
+different ranks and it is a receiving buffer and
+<code class="docutils literal notranslate"><span class="pre">do_sparse_allocation</span> <span class="pre">=</span> <span class="pre">true</span></code>, calls <code class="docutils literal notranslate"><span class="pre">MPI_Iprobe</span></code> to see if a
+message is available. If there is a message, check it is sending data
+or sending null, allocates or deallocates the buffer as necessary,
+and then posts an <code class="docutils literal notranslate"><span class="pre">MPI_Irecv</span></code> and sets the <code class="docutils literal notranslate"><span class="pre">MPI_Irecv</span></code> flag.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">TryReceive()</span></code>: If on same rank, checks if state is
+<code class="docutils literal notranslate"><span class="pre">sending</span></code> or <code class="docutils literal notranslate"><span class="pre">sending_null</span></code> and sets to <code class="docutils literal notranslate"><span class="pre">received</span></code> or
+<code class="docutils literal notranslate"><span class="pre">received_null</span></code>, respectively, and returns <code class="docutils literal notranslate"><span class="pre">true</span></code>. If on
+different ranks, first calls <code class="docutils literal notranslate"><span class="pre">TryStartReceive()</span></code> then, if the
+<code class="docutils literal notranslate"><span class="pre">MPI_Irecv</span></code> has been posted tests wether or not it has been
+completed. If it has, sets the buffer state to <code class="docutils literal notranslate"><span class="pre">received</span></code> or
+<code class="docutils literal notranslate"><span class="pre">received_null</span></code> depending on the size of the incoming message and
+returns <code class="docutils literal notranslate"><span class="pre">true</span></code>. Otherwise returns <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Stale()</span></code>: Sets the state to <code class="docutils literal notranslate"><span class="pre">stale</span></code>.</p></li>
+</ul>
+<p>as well as copy constructors, assignment operators, etc. The constructor
+of <code class="docutils literal notranslate"><span class="pre">CommBuffer</span></code> is called as</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">CommBuffer</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">mpi_message_tag</span><span class="p">,</span><span class="w"> </span><span class="n">sender_rank</span><span class="p">,</span><span class="w"> </span><span class="n">receiver_rank</span><span class="p">,</span><span class="w"> </span><span class="n">mpi_communicator</span><span class="p">,</span>
+<span class="w">            </span><span class="p">[...</span><span class="n">capture</span><span class="w"> </span><span class="n">necessary</span><span class="w"> </span><span class="n">stuff</span><span class="p">...](){</span>
+<span class="w">              </span><span class="k">return</span><span class="w"> </span><span class="p">...</span><span class="n">allocated</span><span class="w"> </span><span class="n">object</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="n">type</span><span class="w"> </span><span class="n">T</span><span class="w"> </span><span class="n">that</span><span class="w"> </span><span class="n">has</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">desired</span><span class="w"> </span><span class="n">size</span><span class="p">...;</span>
+<span class="w">            </span><span class="p">},</span><span class="w"> </span><span class="n">do_sparse_allocation</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The lambda passed to the constructor is stored as a field in the class
+and is called when the internal storage buffer needs to be allocated
+(see <code class="docutils literal notranslate"><span class="pre">BuildBoundaryBuffers</span></code> in <code class="docutils literal notranslate"><span class="pre">sparse_bvals_cc_in_one.cpp</span></code> for an
+example usage). Aside from during construction, there should be no
+difference in useage between a same rank to same rank <code class="docutils literal notranslate"><span class="pre">CommBuffer</span></code> and
+a separate rank <code class="docutils literal notranslate"><span class="pre">CommBuffer</span></code>.</p>
+<p><em>Note that setting ``do_sparse_allocation = true`` minimizes the memory
+allocated for sparse variables but may result in slower MPI
+communication since ``MPI_Irecv`` can’t be posted until the incoming
+message size is known. In simple tests, it appears that this does not
+give a significant slow down, so all ``Metadata::Sparse`` variables use
+sparse allocation. If in the future there is a need to turn this on and
+off on a per variable there is a flag,
+``Metadata::SparseCommunication``, that can be set for variables to make
+them use this memory minimizing communication pattern. This would also
+be required a change in ``BuildBoundaryBuffers`` switching how the flag
+for using sparse buffers is set.</em></p>
+</section>
+<section id="class-objectpool-t">
+<h3><code class="docutils literal notranslate"><span class="pre">class</span> <span class="pre">ObjectPool&lt;T&gt;</span></code><a class="headerlink" href="#class-objectpool-t" title="Link to this heading"></a></h3>
+<p>An <code class="docutils literal notranslate"><span class="pre">ObjectPool</span></code> hands out reference counted objects that publicly
+inherit from <code class="docutils literal notranslate"><span class="pre">T</span></code>, which is assumed to be something like a Kokkos view
+which has an assignment operator and copy ctor that perform shallow
+copies. Rather than creating a new object each time one is requested, an
+<code class="docutils literal notranslate"><span class="pre">ObjectPool</span></code> recycles previously created objects that have been
+released back to the pool to limit the number of times that objects need
+to allocated (in particular on device). When the class method <code class="docutils literal notranslate"><span class="pre">Get()</span></code>
+is called a pre-allocated, free resource is handed out if one is
+available, otherwise a new resource is created.</p>
+<p>An object pool has two types of objects it can hand out,</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">ObjectPool</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;::</span><span class="n">weak_t</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="k">public</span><span class="w"> </span><span class="n">T</span><span class="w"> </span><span class="p">{...};</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ObjectPool</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;::</span><span class="n">owner_t</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="k">public</span><span class="w"> </span><span class="n">weak_t</span><span class="w"> </span><span class="p">{...};</span>
+</pre></div>
+</div>
+<p>both of which contain a pointer to the object pool that handed them out
+and a key that identifies the unique resource in the pool that they
+reference. An <code class="docutils literal notranslate"><span class="pre">owner_t</span></code> object contributes to the reference count for
+a particular resource. When the reference count goes to zero in an
+<code class="docutils literal notranslate"><span class="pre">owner_t</span></code> dtor, the underlying resource is added to the stack of
+available objects and the key associated with the resource is
+invalidated, but a copy of it still exists (so, for instance, the
+reference count of an underlying <code class="docutils literal notranslate"><span class="pre">Kokkos::View</span></code> will not go to zero
+and its memory will not be released). A <code class="docutils literal notranslate"><span class="pre">weak_t</span></code> object does not
+contribute to the reference count and its underlying resource can become
+invalid. The validity of an object can be checked with the member method
+<code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">IsValid()</span></code>.</p>
+<p>The mechanism by which new pool objects are created is specified by a
+lambda passed to the <code class="docutils literal notranslate"><span class="pre">ObjectPool</span></code> constructor:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">class</span><span class="w"> </span><span class="nc">T</span><span class="o">&gt;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">dev_arr_t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">typename</span><span class="w"> </span><span class="nc">Kokkos</span><span class="o">::</span><span class="n">View</span><span class="o">&lt;</span><span class="n">T</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">Kokkos</span><span class="o">::</span><span class="n">LayoutRight</span><span class="p">,</span><span class="w"> </span><span class="n">Kokkos</span><span class="o">::</span><span class="n">CudaSpace</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">N</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">100</span><span class="p">;</span>
+<span class="n">Pool</span><span class="o">&lt;</span><span class="n">dev_arr_t</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;&gt;</span><span class="p">([</span><span class="n">N</span><span class="p">](){</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="n">dev_arr_t</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="p">(</span><span class="s">"test pool"</span><span class="p">,</span><span class="w"> </span><span class="n">N</span><span class="p">);</span><span class="w"> </span><span class="p">});</span>
+</pre></div>
+</div>
+<p>On host a lot of this functionality could be replicated with
+<code class="docutils literal notranslate"><span class="pre">shared_ptr</span></code> I think, but it is somewhat useful for these objects to
+be able to exist on device (even though the reference counting doesn’t
+work there).</p>
+<p>It is often convenient to hold multiple pools, one for each different
+size of object that we might want to pool. (For example for
+differently shaped comm buffers.) We implement that via the
+<code class="docutils literal notranslate"><span class="pre">ObjectPoolMap&lt;T&gt;</span></code> type, which owns an arbitrary number of
+pools. The main functionality that it provides is it can construct a
+pool with an allocation strategy that allocates buffers in chunks of
+contiguous blocks of memory, reducing the number of malloc calls
+required. For example, the code</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">ObjectPoolMap</span><span class="o">&lt;</span><span class="n">ParArray1D</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">pool_map</span><span class="p">;</span>
+<span class="n">pool_map</span><span class="p">.</span><span class="n">AddPool</span><span class="p">(</span><span class="n">buf_len</span><span class="p">,</span><span class="w"> </span><span class="n">nbufs</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>tells the pool map that you would like a pool of objects of size
+<code class="docutils literal notranslate"><span class="pre">buf_len</span></code> that allocates <code class="docutils literal notranslate"><span class="pre">nbufs</span></code> at once when it runs out of
+memory, minimizing allocation costs. Objects can be explicitly added
+to the pool with</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">pool_map</span><span class="p">.</span><span class="n">AddFreeObjectsToPool</span><span class="p">(</span><span class="n">buf_len</span><span class="p">,</span><span class="w"> </span><span class="n">nbufs</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>A pool for objects of a given size may be requested with
+<code class="docutils literal notranslate"><span class="pre">pool_map.GetPool(buf_len)</span></code>, a <code class="docutils literal notranslate"><span class="pre">weak_t</span></code> buffer may be requested
+with <code class="docutils literal notranslate"><span class="pre">pool_map.GetBuffer(buf_len)</span></code> and an <code class="docutils literal notranslate"><span class="pre">owning_t</span></code> may be
+requested with <code class="docutils literal notranslate"><span class="pre">GetOwningBuffer</span></code>. The existence of a pool for
+objects may be checked with <code class="docutils literal notranslate"><span class="pre">pool_map.Contains(buf_len)</span></code> and all
+pools may be cleared and their buffers deallocated with
+<code class="docutils literal notranslate"><span class="pre">pool_map.Clear()</span></code>. Finally, the underlying map may be accessed for,
+e.g., iteration, with <code class="docutils literal notranslate"><span class="pre">pool_map.GetMap()</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The pool map is bounds checking. It will not add a new pool of
+objects of a given shape unless they are requested. If you request
+a buffer from a non-existent pool, the code will throw an error.</p>
+</div>
+</section>
+</section>
+<section id="sparse-boundary-communication-implementation">
+<h2>Sparse boundary communication implementation<a class="headerlink" href="#sparse-boundary-communication-implementation" title="Link to this heading"></a></h2>
+<p>The tasks for sparse cell centered variable boundary communication
+pretty closely mirror the old <code class="docutils literal notranslate"><span class="pre">bvals_in_one</span></code> tasks but allow for
+allocation and deallocation of the communication buffers on the fly. The
+<code class="docutils literal notranslate"><span class="pre">BndInfo</span></code> class (which comes from the old bvals_in_one implementation)
+stores the index ranges and data arrays necessary for copying from the
+mesh to a buffer or vice versa. These are cached within a one
+dimensional par array so that loading and unloading of buffers can done
+“in one” kernel launch on device (in exactly the same way as the old
+<code class="docutils literal notranslate"><span class="pre">bvals_in_one</span></code> setup). The <code class="docutils literal notranslate"><span class="pre">BndInfo</span></code> objects are cached in each
+<code class="docutils literal notranslate"><span class="pre">MeshData&lt;Real&gt;</span></code> object within a <code class="docutils literal notranslate"><span class="pre">BvarsCache_t</span></code> object (which can
+contain a number of sub-caches <code class="docutils literal notranslate"><span class="pre">BvarsSubCache_t</span></code> that correspond to
+different subsets of communication channels) to limit the number of deep
+copies from host to device. We also add a map of object pools containing
+pools for various buffer sizes.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">&gt;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">buf_pool_t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ObjectPool</span><span class="o">&lt;</span><span class="n">BufArray1D</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span>
+<span class="n">std</span><span class="o">::</span><span class="n">unordered_map</span><span class="o">&lt;</span><span class="kt">int</span><span class="p">,</span><span class="w"> </span><span class="n">buf_pool_t</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">pool_map</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>As well as the map from communication channel keys to communication
+buffers associated with each channel</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span><span class="w"> </span><span class="n">channel_key_t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">tuple</span><span class="o">&lt;</span><span class="kt">int</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="n">std</span><span class="o">::</span><span class="n">unordered_map</span><span class="o">&lt;</span><span class="n">channel_key_t</span><span class="p">,</span><span class="w"> </span><span class="n">CommBuffer</span><span class="o">&lt;</span><span class="n">buf_pool_t</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;::</span><span class="n">owner_t</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">boundary_comm_map</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>Note that every stage shares the same <code class="docutils literal notranslate"><span class="pre">CommBuffer</span></code>s, but we keep
+separate buffers for boundary value communication and flux correction
+communication so these operations can occur concurrently if necessary.</p>
+</section>
+<section id="chunking-of-sparsely-allocated-comm-buffers">
+<h2>Chunking of sparsely allocated comm buffers<a class="headerlink" href="#chunking-of-sparsely-allocated-comm-buffers" title="Link to this heading"></a></h2>
+<p>Memory for comm buffers in the buffer pools is allocated in “chunks”
+of some fixed size. Ideally this chunk size is large enough to
+minimize individual <code class="docutils literal notranslate"><span class="pre">malloc</span></code> calls but not over-allocate by too
+much. This can be set via the <code class="docutils literal notranslate"><span class="pre">comm_buffer_chunk_size</span></code> setting in
+the <code class="docutils literal notranslate"><span class="pre">parthenon/mesh</span></code> block of the input deck. E.g.,</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">parthenon</span><span class="o">/</span><span class="n">mesh</span><span class="o">&gt;</span>
+<span class="n">comm_buffer_chunk_size</span> <span class="o">=</span> <span class="mi">200</span>
+</pre></div>
+</div>
+<p>The default, <code class="docutils literal notranslate"><span class="pre">-1</span></code>, tells parthenon to make a heuristic choice based
+on the number of meshblocks per rank. This chunk size will always be
+at least 1 buffer and never more than the total number of buffers it
+is possible for a given mesh to require.</p>
+<p>In general (for sparse fields or AMR meshes) a smaller chunk size will
+require more <code class="docutils literal notranslate"><span class="pre">malloc</span></code> calls (which are expensive) but will imply a
+smaller memory footprint, as the code is less likely to over-allocate
+beyond the number of buffers it needs. For static meshes with only
+dense fields, the chunk size should be set to roughly the number of
+variables required, and the heuristic will choose something
+appropriate.</p>
+</section>
+<section id="deallocating-pooled-comm-buffers">
+<h2>Deallocating pooled comm buffers<a class="headerlink" href="#deallocating-pooled-comm-buffers" title="Link to this heading"></a></h2>
+<p>Comm buffers in the buffer pool are, by default, never
+deallocated. This provides a performance improvement (at the cost of
+memory) by saving on memory allocations if those buffers should be
+needed again. However, in memory constrained environments, that may
+not be desirable. The mesh member function
+<code class="docutils literal notranslate"><span class="pre">Mesh::TryReallocCommBufferPools</span></code> will check to see if deallocating
+and reseting the buffer pools is appropriate. It will do so by
+checking whether the current number of buffers in use is less than
+some factor times the total number allocated <strong>and</strong> that the
+difference between the number in use and number allocated is larger
+than the chunk size described above. If these conditions are met, all
+comm buffers will be deallocated and then reallocated as appropriate
+for the current mesh. This constant factor may be set with the input
+variable <code class="docutils literal notranslate"><span class="pre">parthenon/mesh/comm_buffer_reset_fraction</span></code>.</p>
+<p>This function may be called by hand in user code. However, it may also
+be automatically called at a fixed cadence. The evolution driver (and
+thus any code with a concept of a time step) will check whether or not
+comm buffers may be reallocated every
+<code class="docutils literal notranslate"><span class="pre">parthenon/time/comm_buffer_reset_cadence</span></code> cycles. This
+variable is set to <code class="docutils literal notranslate"><span class="pre">-1</span></code> by default, which indicates comm buffers are
+never reset. An input deck that changes these settings by hand might
+look like:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">parthenon</span><span class="o">/</span><span class="n">time</span><span class="o">&gt;</span>
+<span class="n">comm_buffer_reallocate_cadence</span> <span class="o">=</span> <span class="mi">1000</span> <span class="c1"># Re-allocate comm buffers every 1000 cycles...</span>
+
+<span class="o">&lt;</span><span class="n">parthenon</span><span class="o">/</span><span class="n">mesh</span><span class="o">&gt;</span>
+<span class="n">comm_buffer_reset_fraction</span> <span class="o">=</span> <span class="mf">0.9</span> <span class="c1"># ...if at least 10% of all comm buffers are unused</span>
+</pre></div>
+</div>
+<section id="send-and-receive-ordering">
+<h3>Send and Receive Ordering<a class="headerlink" href="#send-and-receive-ordering" title="Link to this heading"></a></h3>
+<p>In each cache, we build a
+<code class="docutils literal notranslate"><span class="pre">std::vector&lt;CommBuffer&lt;....&gt;*&gt;</span> <span class="pre">send_buf_vec,</span> <span class="pre">recv_buf_vec</span></code> which
+contains pointers to every communication channel associated with
+sending/receiving from a <code class="docutils literal notranslate"><span class="pre">MeshData</span></code> object. This is useful for a
+couple of reasons. First, this speeds up the code by reducing the number
+of times a <code class="docutils literal notranslate"><span class="pre">std::unordered_map</span></code> lookup from the <code class="docutils literal notranslate"><span class="pre">boundary_comm_map</span></code>
+is required. Second, we allow for any ordering of <code class="docutils literal notranslate"><span class="pre">*_buf_vec</span></code> (by
+including a secondary array for indexing between sequential index
+defined by the order of <code class="docutils literal notranslate"><span class="pre">ForEachBoundary</span></code> to the index in the buffer
+cache). The ordering of this vector determines the order in which
+<code class="docutils literal notranslate"><span class="pre">MPI_Isend</span></code> and <code class="docutils literal notranslate"><span class="pre">MPI_Irecv</span></code> calls are posted, which can impact the
+communication performance. <em>This is something that can be experimented
+with for optimal performance. Strangely, I have seen the best results on
+test problems for random ordering, but it is not clear if this
+generalizes to more realistic problems not being run with all ranks on
+the same node. See ``InitializeBufferCache(…)`` for how to choose the
+ordering.</em></p>
+</section>
+<section id="boundary-communication-tasks">
+<span id="boundary-comm-tasks"></span><h3>Boundary Communication Tasks<a class="headerlink" href="#boundary-communication-tasks" title="Link to this heading"></a></h3>
+<aside class="topic">
+<p class="topic-title"><code class="docutils literal notranslate"><span class="pre">BuildBoundaryBuffers(std::shared_ptr&lt;MeshData&lt;Real&gt;&gt;&amp;)</span></code></p>
+<ul class="simple">
+<li><p>Iterates over communication channels sending or receiving from blocks in
+<code class="docutils literal notranslate"><span class="pre">md</span></code>. For every sending channel it creates a communication channel for
+each in the <code class="docutils literal notranslate"><span class="pre">Mesh::boundary_comm_map</span></code>. For receiving channels where
+the blocks are on different ranks, it also creates a receiving channel
+in <code class="docutils literal notranslate"><span class="pre">Mesh::boundary_comm_map</span></code> since the sender will not add this
+channel on the current rank. Also creates new <code class="docutils literal notranslate"><span class="pre">buf_pool_t</span></code>s for the
+required buffer sizes if they don’t already exist. Note that no memory
+is saved for the communication buffers at this point.</p></li>
+<li><p>This is called
+during <code class="docutils literal notranslate"><span class="pre">Mesh::Initialize(...)</span></code> and during
+<code class="docutils literal notranslate"><span class="pre">EvolutionDriver::InitializeBlockTimeStepsAndBoundaries()</span></code> and before
+this task is called <code class="docutils literal notranslate"><span class="pre">Mesh::boundary_comm_map</span></code> is cleared.
+<strong>This should not be called in downstream code.</strong></p></li>
+</ul>
+</aside>
+<aside class="topic">
+<p class="topic-title"><code class="docutils literal notranslate"><span class="pre">SendBoundBufs&lt;bound_type&gt;(std::shared_ptr&lt;MeshData&lt;Real&gt;&gt;&amp;)</span></code></p>
+<ul class="simple">
+<li><p>Iterates over boundaries of <code class="docutils literal notranslate"><span class="pre">bound_type</span></code>, which supports <code class="docutils literal notranslate"><span class="pre">any</span></code>,
+<code class="docutils literal notranslate"><span class="pre">local</span></code> which implies the communicating blocks are on the same rank,
+and <code class="docutils literal notranslate"><span class="pre">nonlocal</span></code> which implies differing ranks for the two blocks.
+Could have one task with <code class="docutils literal notranslate"><span class="pre">any</span></code> or split communication into separate
+<code class="docutils literal notranslate"><span class="pre">local</span></code> and <code class="docutils literal notranslate"><span class="pre">nonlocal</span></code> tasks.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SendBoundaryBuffers</span></code> is just an
+alias for <code class="docutils literal notranslate"><span class="pre">SendBoundBufs&lt;any&gt;</span></code> to ensure backward compatibility.</p></li>
+<li><p>Allocates buffers if necessary based on allocation status of block
+fields and checks if <code class="docutils literal notranslate"><span class="pre">MeshData::send_bnd_info</span></code> objects are stale.</p></li>
+<li><p>Rebuilds the <code class="docutils literal notranslate"><span class="pre">MeshData::send_bnd_info</span></code> objects if they are stale</p></li>
+<li><p>Restricts where necessary</p></li>
+<li><p>Launches kernels to load data from fields
+into buffers, checks whether any of the data is above the sparse
+allocation threshold.</p></li>
+<li><p>Calls <code class="docutils literal notranslate"><span class="pre">Send()</span></code> or <code class="docutils literal notranslate"><span class="pre">SendNull()</span></code> from all of
+the boundary buffers depending on their status.</p></li>
+</ul>
+</aside>
+<aside class="topic">
+<p class="topic-title"><code class="docutils literal notranslate"><span class="pre">StartReceiveBoundBufs&lt;bound_type&gt;(std::shared_ptr&lt;MeshData&lt;Real&gt;&gt;&amp;)</span></code></p>
+<ul class="simple">
+<li><p>Iterates over boundaries of <code class="docutils literal notranslate"><span class="pre">bound_type</span></code>, which supports <code class="docutils literal notranslate"><span class="pre">any</span></code>,
+<code class="docutils literal notranslate"><span class="pre">local</span></code> which implies the communicating blocks are on the same rank,
+and <code class="docutils literal notranslate"><span class="pre">nonlocal</span></code> which implies differing ranks for the two blocks. This
+is a no-op for <code class="docutils literal notranslate"><span class="pre">local</span></code> boundaries.</p></li>
+<li><p>Posts/tries to post an
+<code class="docutils literal notranslate"><span class="pre">MPI_Irecv</span></code> for receiving buffers. For performance, it is often
+necessary to call this early in the task list before the rest of the
+communication routines get called. Codes will produce correct results
+without ever calling this task though.</p></li>
+</ul>
+</aside>
+<aside class="topic">
+<p class="topic-title"><code class="docutils literal notranslate"><span class="pre">ReceiveBoundBufs&lt;bound_type&gt;(std::shared_ptr&lt;MeshData&lt;Real&gt;&gt;</span> <span class="pre">&amp;)</span></code></p>
+<ul class="simple">
+<li><p>Iterates over boundaries of <code class="docutils literal notranslate"><span class="pre">bound_type</span></code>, which supports <code class="docutils literal notranslate"><span class="pre">any</span></code>,
+<code class="docutils literal notranslate"><span class="pre">local</span></code> which implies the communicating blocks are on the same rank,
+and <code class="docutils literal notranslate"><span class="pre">nonlocal</span></code> which implies differing ranks for the two blocks.
+Could have one task with <code class="docutils literal notranslate"><span class="pre">any</span></code> or split communication into separate
+<code class="docutils literal notranslate"><span class="pre">local</span></code> and <code class="docutils literal notranslate"><span class="pre">nonlocal</span></code> tasks.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ReceiveBoundaryBuffers</span></code> is just an alias for <code class="docutils literal notranslate"><span class="pre">ReceiveBoundBufs&lt;any&gt;</span></code>
+to ensure backward compatibility.</p></li>
+<li><p>Tries to receive from each of the receive channels associated with
+<code class="docutils literal notranslate"><span class="pre">md</span></code> of the chosen boundary type.</p></li>
+<li><p>If the receive is succesful, and
+allocation of the associated field is required, allocate it.</p></li>
+</ul>
+</aside>
+<aside class="topic">
+<p class="topic-title"><code class="docutils literal notranslate"><span class="pre">SetBounds&lt;bound_type&gt;(std::shared_ptr&lt;MeshData&lt;Real&gt;&gt;&amp;</span> <span class="pre">md)</span></code></p>
+<ul class="simple">
+<li><p>Iterates over boundaries of <code class="docutils literal notranslate"><span class="pre">bound_type</span></code>, which supports <code class="docutils literal notranslate"><span class="pre">any</span></code>,
+<code class="docutils literal notranslate"><span class="pre">local</span></code> which implies the communicating blocks are on the same rank,
+and <code class="docutils literal notranslate"><span class="pre">nonlocal</span></code> which implies differing ranks for the two blocks. Could
+have one task with <code class="docutils literal notranslate"><span class="pre">any</span></code> or split communication into separate
+<code class="docutils literal notranslate"><span class="pre">local</span></code> and <code class="docutils literal notranslate"><span class="pre">nonlocal</span></code> tasks.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SetBoundaries</span></code> is just an alias for <code class="docutils literal notranslate"><span class="pre">SetBounds&lt;any&gt;</span></code> to ensure backward compatibility.</p></li>
+<li><p>Check if <code class="docutils literal notranslate"><span class="pre">MeshData::recv_bnd_info</span></code> needs to be rebuilt because of changed
+allocation status.</p></li>
+<li><p>Rebuild <code class="docutils literal notranslate"><span class="pre">MeshData::recv_bnd_info</span></code> if necessary.</p></li>
+<li><p>Launch kernels to copy from buffers into fields or copy default data
+into fields if sending null.</p></li>
+<li><p>Stale the communication buffers.</p></li>
+<li><p>Restrict ghost regions where necessary to fill prolongation stencils.</p></li>
+</ul>
+</aside>
+</section>
+<section id="flux-correction-tasks">
+<h3>Flux Correction Tasks<a class="headerlink" href="#flux-correction-tasks" title="Link to this heading"></a></h3>
+<p>Flux correction is required to ensure conservation at fine-coarse boundaries, as the
+sum of fluxes on a fine block corresponding to a single flux on a coarse neighbor block
+is not guaranteed to be equal to the coarse flux. To ensure conservation, coarse fluxes
+at fine-coarse boundaries are replaced with the sums of fine fluxes in an interblock
+communication step separate from filling ghost zones. Nevertheless, Parthenon uses the
+same machinery for flux correction as ghosts communication since they are essentially the
+same operation, just on different fields and different index ranges.</p>
+<p>Flux correction can be implemented in a task list via the calls
+- <code class="docutils literal notranslate"><span class="pre">StartReceiveBoundBufs&lt;BoundaryType::flxcor_recv&gt;(std::shared_ptr&lt;MeshData&lt;Real&gt;&gt;&amp;)</span></code>
+- <code class="docutils literal notranslate"><span class="pre">SendBoundBufs&lt;BoundaryType::flxcor_send&gt;(std::shared_ptr&lt;MeshData&lt;Real&gt;&gt;&amp;)</span></code>
+- <code class="docutils literal notranslate"><span class="pre">ReceiveBoundBufs&lt;BoundaryType::flxcor_recv&gt;(std::shared_ptr&lt;MeshData&lt;Real&gt;&gt;&amp;)</span></code>
+- <code class="docutils literal notranslate"><span class="pre">SetBoundBufs&lt;BoundaryType::flxcor_recv&gt;(std::shared_ptr&lt;MeshData&lt;Real&gt;&gt;&amp;)</span></code>
+which cause fields with <cite>Metadata::Flux</cite> set to restrict and then communicate only shared
+elements only on fine to coarse boundaries (as was done in legacy Parthenon versions of
+flux correction that only worked for cell variable flux correction). Notice that the send
+operation requires a different <code class="docutils literal notranslate"><span class="pre">BoundaryType</span></code> than the receive operation, unlike regular
+boundary communication. All of these tasks can be added to a task list in one call using
+<code class="docutils literal notranslate"><span class="pre">AddFluxCorrectionTasks</span></code>.</p>
+<p>Flux correction for sparse variables and dense variables is very
+similar, the only difference being that for sparse variables if either
+the fine or the coarse block is unallocated no flux correction occurs.
+Flux correction communication cannot trigger allocation.</p>
+<p>For backwards compatibility, we keep the aliases</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">StartReceiveFluxCorrections</span></code> = <code class="docutils literal notranslate"><span class="pre">StartReceiveBoundBufs&lt;BoundaryType::flxcor_recv&gt;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">LoadAndSendFluxCorrections</span></code> = <code class="docutils literal notranslate"><span class="pre">SendBoundBufs&lt;BoundaryType::flxcor_send&gt;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ReceiveFluxCorrections</span></code> = <code class="docutils literal notranslate"><span class="pre">ReceiveBoundBufs&lt;BoundaryType::flxcor_recv&gt;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SetFluxCorrections</span></code> = <code class="docutils literal notranslate"><span class="pre">SetBoundBufs&lt;BoundaryType::flxcor_recv&gt;</span></code></p></li>
+</ul>
+</section>
+</section>
+<section id="coalesced-mpi-communication">
+<h2>Coalesced MPI Communication<a class="headerlink" href="#coalesced-mpi-communication" title="Link to this heading"></a></h2>
+<p>As is described above, a one-dimensional buffer is packed and unpacked for each communicated
+field on each pair of blocks that share a unique topological element (below we refer to this
+as a variable-boundary buffer). For codes with larger numbers of variables and/or in
+simulations run with smaller block sizes, this can result in a large total number of buffers
+and importantly a large number of buffers that need to be communicated across MPI ranks. The
+latter fact can have significant performance implications, as each <code class="docutils literal notranslate"><span class="pre">CommBuffer&lt;T&gt;::Send()</span></code>
+call for these non-local buffers corresponds to an <code class="docutils literal notranslate"><span class="pre">MPI_Isend</span></code>. Generally, these messages
+contain a small amount of data which results in a small effective MPI bandwith. Additionally,
+MPI implementations seem to have a hard time dealing with the large number of messages
+required. In some cases, this can result in poor scaling behavior for Parthenon.</p>
+<p>To get around this, we introduce a second level of buffers for communicating across ranks.
+For each <code class="docutils literal notranslate"><span class="pre">MeshData</span></code> object on a given MPI rank, coalesced buffers equal in size to all
+MPI non-local variable-boundary buffers are created for each other MPI rank that <code class="docutils literal notranslate"><span class="pre">MeshData</span></code>
+communicates to. These coalesced buffers are then filled from the single variable-boundary
+buffers, a <em>single</em> MPI send is called per MPI rank pair, and the receiving ranks unpack the
+coalesced buffer into the single variable-boundary buffers. This can drastically reduce the
+number of MPI sends and increase the total amount of data sent per message, thereby
+increasing the effective bandwidth. Further, in cases where Parthenon is running on GPUs but
+GPUDirect MPI is not available, this can also minimize the number of DtoH and HtoD copies
+during communication. On the other hand, using coalesced communications implies an extra
+set of copies from the variable-boundary buffers to the coalesced buffers. As a result,
+using coalesced communications can have a negative performance impact in some situations
+(e.g. when running with large meshblocks (&gt;~128^3) and small numbers of fields).</p>
+<p>To use coalesced communication, your input must include:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">parthenon</span><span class="o">/</span><span class="n">mesh</span><span class="o">/</span><span class="n">do_coalesced_comms</span> <span class="o">=</span> <span class="n">true</span>
+</pre></div>
+</div>
+<p>curently by default this is set to <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p>
+<section id="implementation-details">
+<h3>Implementation Details<a class="headerlink" href="#implementation-details" title="Link to this heading"></a></h3>
+<p>The coalesced send and receive buffers for each rank are stored in <code class="docutils literal notranslate"><span class="pre">Mesh::pcoalesced_comms</span></code>,
+which is a <code class="docutils literal notranslate"><span class="pre">std::shared_ptr</span></code> to a <code class="docutils literal notranslate"><span class="pre">CoalescedComms</span></code> object. To do coalesced communication
+two pieces are required: 1) an initialization step telling all ranks what coalesced buffer
+messages they can expect and 2) a mechanism for packing, sending and unpacking the coalesced
+buffers during each boundary communication step.</p>
+<p>For the first piece, after every remesh during <code class="docutils literal notranslate"><span class="pre">BuildBoundaryBuffers</span></code>, each non-local
+variable-boundary buffer is registered with <code class="docutils literal notranslate"><span class="pre">pcoalesced_comms</span></code>. Once all these buffers are
+registered, <code class="docutils literal notranslate"><span class="pre">CoalescedComms::ResolveAndSendSendBuffers()</span></code> is called, which determines all
+the coalesced buffers that are going to be sent from a given rank to every other rank, packs
+information about each of the coalesced buffers into MPI messages, and sends them to the other
+ranks so that the receiving ranks know how to interpret the subsequent messages they receive
+from a given rank. <code class="docutils literal notranslate"><span class="pre">CoalescedComms::ReceiveBufferInfo()</span></code> is then called to receive this
+information from other ranks. This process basically just packs <code class="docutils literal notranslate"><span class="pre">BndId</span></code> objects, which contain
+the information necessary to identify a variable-boundary communication channel and the amount
+of data that is communicated across that channel, and then unpacks them on the receiving end and
+finds the correct variable-boundary buffers. These routines are called once per rank (rather than
+per <code class="docutils literal notranslate"><span class="pre">MeshData</span></code>).</p>
+<p>For the second piece, variable-boundary buffers are first filled as normal in <code class="docutils literal notranslate"><span class="pre">SendBoundBufs</span></code>
+but the states of the <code class="docutils literal notranslate"><span class="pre">CommBuffer</span></code>s are updated without actually calling the associated
+<code class="docutils literal notranslate"><span class="pre">MPI_Isend</span></code>s. Then <code class="docutils literal notranslate"><span class="pre">CoalescedComms::PackAndSend(MeshData&lt;Real&gt;</span> <span class="pre">*pmd,</span> <span class="pre">BoundaryType</span> <span class="pre">b_type)</span></code>
+is called, which for each rank pair associated with <code class="docutils literal notranslate"><span class="pre">pmd</span></code> packs the variable-boundary buffers
+into the coalesced buffer, packs a second message containing the sparse allocation status of
+each variable-boundary buffer, send these two messages, and then stales the associated
+variable-boundary buffers since their data is no longer required. On the receiving side,
+<code class="docutils literal notranslate"><span class="pre">ReceiveBoundBufs</span></code> receives these messages, sets the corresponding variable-boundary
+buffers to the correct <code class="docutils literal notranslate"><span class="pre">received</span></code> or <code class="docutils literal notranslate"><span class="pre">received_null</span></code> state, and then unpacks the data
+into the buffers. Note that the messages received here do not necessarily correspond to the
+<code class="docutils literal notranslate"><span class="pre">MeshData</span></code> that is passed to the associated <code class="docutils literal notranslate"><span class="pre">ReceiveBoundBufs</span></code> call, so all
+variable-boundary associated with a given receiving <code class="docutils literal notranslate"><span class="pre">MeshData</span></code> must still be checked for
+being in a received state. Once they are all in a received state, setting of boundaries,
+prolongation, etc. can proceed normally.</p>
+<p>Some notes:</p>
+<ul class="simple">
+<li><p>Internally <code class="docutils literal notranslate"><span class="pre">CoalescedComms</span></code> contains maps from MPI rank and <code class="docutils literal notranslate"><span class="pre">BoundaryType</span></code> (e.g. regular
+communication, flux correction) to <code class="docutils literal notranslate"><span class="pre">CoalescedBuffersRank</span></code> objects for sending and receiving
+rank pairs. These <code class="docutils literal notranslate"><span class="pre">CoalescedBuffersRank</span></code> objects in turn contain maps from <code class="docutils literal notranslate"><span class="pre">MeshData</span></code>
+partition id of the sending <code class="docutils literal notranslate"><span class="pre">MeshData</span></code> (which also doubles as the MPI tag for the messages)
+to <code class="docutils literal notranslate"><span class="pre">CoalescedBuffer</span></code> objects).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CoalescedBuffersRank</span></code> is where the post-remesh initialization routines are actually
+implemented. This can either correspond to the send or receive side.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CoalescedBuffer</span></code> corresponds to each coalesced buffer and is where
+the packing, sending, receiving, and unpacking details for coalesced boundary communication
+are implemented. This object internally owns the <code class="docutils literal notranslate"><span class="pre">CommunicationBuffer&lt;BufArray1D&lt;Real&gt;&gt;</span></code>
+that is used for sending and receiving the coalesced data (as well as the communication buffer
+used for communicating allocation status).</p></li>
+<li><p>Because Parthenon allows communication on <code class="docutils literal notranslate"><span class="pre">MeshData</span></code> objects that contain a subset of the
+<code class="docutils literal notranslate"><span class="pre">MetaData::FillGhost</span></code> fields in a simulation, we need to be able to interpret coalesced
+messages that that contain a subset of fields. Most of what is needed for this is implemented
+in <code class="docutils literal notranslate"><span class="pre">GetBndIdsOnDevice</span></code>.</p></li>
+<li><p>The coalesced buffers are sparse aware and approximately allocate the amount of space required
+to store the <em>allocated</em> fields. This means the size of the buffers can change dynamically
+between steps. Currently, we allocate twice as much memory as is required to store the allocated
+variable-boundary buffers whenever their total size becomes larger than current size of the
+coalesced buffer in an attempt to balance the number of allocations and memory consumption. Since
+the receiving end does not <em>a priori</em> know the size of the coalesced messages it is going to
+receive, we first check the size of the incoming MPI message, reallocate the coalesced receive
+buffer if necessary, and then actually post the <cite>Irecv</cite>. FWIW, this prevents pre-posting
+the <cite>Irecv</cite>.</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="boundary_conditions.html" class="btn btn-neutral float-left" title="Boundary Conditions" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="chapters/parallelism_performance.html" class="btn btn-neutral float-right" title="Parallelism and Performance" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: cep/one-block-mesh
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/boundary_communication.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/boundary_communication.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/boundary_communication.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/boundary_communication.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/boundary_communication.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/boundary_communication.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/boundary_communication.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/boundary_communication.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/boundary_communication.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/boundary_communication.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../regression-gold-v26/src/boundary_communication.html">regression-gold-v26</a></dd>
+      <dd><a href="../../../regression-gold-v27/src/boundary_communication.html">regression-gold-v27</a></dd>
+      <dd><a href="../../../regression-gold-v28/src/boundary_communication.html">regression-gold-v28</a></dd>
+      <dd><a href="../../../v0.8.0/src/boundary_communication.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/boundary_communication.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/boundary_communication.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/boundary_communication.html">v24.08</a></dd>
+      <dd><a href="../../../v25.05/src/boundary_communication.html">v25.05</a></dd>
+      <dd><a href="../../../v25.12/src/boundary_communication.html">v25.12</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../BenWibking/mainloop-debug-output-callback/src/boundary_communication.html">BenWibking/mainloop-debug-output-callback</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/boundary_communication.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../HEAD/src/boundary_communication.html">HEAD</a></dd>
+      <dd><a href="../../../acreyes/hypre-diffusion-example/src/boundary_communication.html">acreyes/hypre-diffusion-example</a></dd>
+      <dd><a href="../../../ats5/src/boundary_communication.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/boundary_communication.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/boundary_communication.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/boundary_communication.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../blb/toml/src/boundary_communication.html">blb/toml</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/boundary_communication.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/boundary_communication.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../brryan/kokkos_sort/src/boundary_communication.html">brryan/kokkos_sort</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/boundary_communication.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/boundary_communication.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/boundary_communication.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../c-prather/fix-oneblock/src/boundary_communication.html">c-prather/fix-oneblock</a></dd>
+      <dd><a href="../../../c-prather/sigint-kill/src/boundary_communication.html">c-prather/sigint-kill</a></dd>
+      <dd><a href="boundary_communication.html">cep/one-block-mesh</a></dd>
+      <dd><a href="../../../dempsey/rummy/src/boundary_communication.html">dempsey/rummy</a></dd>
+      <dd><a href="../../../dempsey/rummy2/src/boundary_communication.html">dempsey/rummy2</a></dd>
+      <dd><a href="../../../dempsey/rummy3/src/boundary_communication.html">dempsey/rummy3</a></dd>
+      <dd><a href="../../../dempsey/swarm_amr/src/boundary_communication.html">dempsey/swarm_amr</a></dd>
+      <dd><a href="../../../develop/src/boundary_communication.html">develop</a></dd>
+      <dd><a href="../../../fglines-nv/optimize-burgers/src/boundary_communication.html">fglines-nv/optimize-burgers</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/boundary_communication.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/boundary_communication.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/loop-benchmarks/src/boundary_communication.html">jdolence/loop-benchmarks</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/src/boundary_communication.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/src/boundary_communication.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/src/boundary_communication.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/clear-particles-in-pgen/src/boundary_communication.html">jmm/clear-particles-in-pgen</a></dd>
+      <dd><a href="../../../jmm/docstrings-2-blockref-boogaloo/src/boundary_communication.html">jmm/docstrings-2-blockref-boogaloo</a></dd>
+      <dd><a href="../../../jmm/fix-block-less-than-ranks/src/boundary_communication.html">jmm/fix-block-less-than-ranks</a></dd>
+      <dd><a href="../../../jmm/pyproxy/src/boundary_communication.html">jmm/pyproxy</a></dd>
+      <dd><a href="../../../jmm/shrinkcores/src/boundary_communication.html">jmm/shrinkcores</a></dd>
+      <dd><a href="../../../jmm/submeshdata-2/src/boundary_communication.html">jmm/submeshdata-2</a></dd>
+      <dd><a href="../../../jmm/token-scratch/src/boundary_communication.html">jmm/token-scratch</a></dd>
+      <dd><a href="../../../jmm/turorial/src/boundary_communication.html">jmm/turorial</a></dd>
+      <dd><a href="../../../lkasselm/fft/src/boundary_communication.html">lkasselm/fft</a></dd>
+      <dd><a href="../../../lkasselm/fft-backup/src/boundary_communication.html">lkasselm/fft-backup</a></dd>
+      <dd><a href="../../../lrobert36/update-index-split-manual/src/boundary_communication.html">lrobert36/update-index-split-manual</a></dd>
+      <dd><a href="../../../lroberts36/add-callback-taskstatus/src/boundary_communication.html">lroberts36/add-callback-taskstatus</a></dd>
+      <dd><a href="../../../lroberts36/add-densitization-solver-option/src/boundary_communication.html">lroberts36/add-densitization-solver-option</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-indices/src/boundary_communication.html">lroberts36/add-sparse-indices</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/src/boundary_communication.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/fix-cellmemaligned-independent/src/boundary_communication.html">lroberts36/fix-cellmemaligned-independent</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-flag-error/src/boundary_communication.html">lroberts36/fix-multigrid-flag-error</a></dd>
+      <dd><a href="../../../lroberts36/fix-multiple-solvers/src/boundary_communication.html">lroberts36/fix-multiple-solvers</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/src/boundary_communication.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/src/boundary_communication.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/imex-advection/src/boundary_communication.html">lroberts36/imex-advection</a></dd>
+      <dd><a href="../../../lroberts36/loop-benchmarks-bench/src/boundary_communication.html">lroberts36/loop-benchmarks-bench</a></dd>
+      <dd><a href="../../../lroberts36/python-field-init/src/boundary_communication.html">lroberts36/python-field-init</a></dd>
+      <dd><a href="../../../lroberts36/python-input-support/src/boundary_communication.html">lroberts36/python-input-support</a></dd>
+      <dd><a href="../../../lroberts36/solver-noncell-vars/src/boundary_communication.html">lroberts36/solver-noncell-vars</a></dd>
+      <dd><a href="../../../lroberts36/solver-speedups/src/boundary_communication.html">lroberts36/solver-speedups</a></dd>
+      <dd><a href="../../../lroberts36/solver-timing/src/boundary_communication.html">lroberts36/solver-timing</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/src/boundary_communication.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../lroberts36/switch-to-weak-ptrs/src/boundary_communication.html">lroberts36/switch-to-weak-ptrs</a></dd>
+      <dd><a href="../../../lroberts36/temp-p1-branch/src/boundary_communication.html">lroberts36/temp-p1-branch</a></dd>
+      <dd><a href="../../../lroberts36/tensor-library-packs/src/boundary_communication.html">lroberts36/tensor-library-packs</a></dd>
+      <dd><a href="../../../lroberts36/test-forest-mesh/src/boundary_communication.html">lroberts36/test-forest-mesh</a></dd>
+      <dd><a href="../../../lroberts36/update-diffusion-example/src/boundary_communication.html">lroberts36/update-diffusion-example</a></dd>
+      <dd><a href="../../../lroberts36/update-sparse-ids/src/boundary_communication.html">lroberts36/update-sparse-ids</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/boundary_communication.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/boundary_communication.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pdmullen/towards-curv-swarm/src/boundary_communication.html">pdmullen/towards-curv-swarm</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/src/boundary_communication.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/energy-transfer/src/boundary_communication.html">pgrete/energy-transfer</a></dd>
+      <dd><a href="../../../pgrete/enspec/src/boundary_communication.html">pgrete/enspec</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/src/boundary_communication.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/jupiter/src/boundary_communication.html">pgrete/jupiter</a></dd>
+      <dd><a href="../../../pgrete/jupiter-26/src/boundary_communication.html">pgrete/jupiter-26</a></dd>
+      <dd><a href="../../../pgrete/metadata-allow-new-field-restart/src/boundary_communication.html">pgrete/metadata-allow-new-field-restart</a></dd>
+      <dd><a href="../../../pgrete/pmd-output-wuser/src/boundary_communication.html">pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/unique-ids/src/boundary_communication.html">pgrete/unique-ids</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/boundary_communication.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../swjones/asym_halos/src/boundary_communication.html">swjones/asym_halos</a></dd>
+      <dd><a href="../../../swjones/dt_package_reporting/src/boundary_communication.html">swjones/dt_package_reporting</a></dd>
+      <dd><a href="../../../swjones/rk34_integrator-unit-test/src/boundary_communication.html">swjones/rk34_integrator-unit-test</a></dd>
+      <dd><a href="../../../swjones/tensor-library/src/boundary_communication.html">swjones/tensor-library</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

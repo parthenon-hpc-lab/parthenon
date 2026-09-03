@@ -1,0 +1,503 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Particles &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=e2af37d4" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Sparse implementation" href="interface/sparse.html" />
+    <link rel="prev" title="Advanced Features" href="chapters/advanced_features.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Chapters</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="chapters/getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/parallelism_performance.html">Parallelism and Performance</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="chapters/advanced_features.html">Advanced Features</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Particles</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#swarms">Swarms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parallel-dispatch">Parallel Dispatch</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#sorting">Sorting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#defragmenting">Defragmenting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#swarmcontainer">SwarmContainer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#particles-example"><code class="docutils literal notranslate"><span class="pre">particles</span></code> Example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#communication">Communication</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#variable-packing">Variable Packing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#swarmpacks"><code class="docutils literal notranslate"><span class="pre">SwarmPack</span></code>s</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#boundary-conditions">Boundary conditions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#outputs">Outputs</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fourier_transforms.html">Fourier Transforms</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/api_reference.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/developer_guide.html">Developer Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="chapters/advanced_features.html">Advanced Features</a></li>
+      <li class="breadcrumb-item active">Particles</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/particles.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="particles">
+<h1>Particles<a class="headerlink" href="#particles" title="Link to this heading"></a></h1>
+<p>Parthenon provides a data framework for particle methods that allows for
+Kokkos accelerated parallel dispatch of compute operations. Particle
+memory is allocated as a separate pool for each variable in the
+particle.</p>
+<section id="swarms">
+<h2>Swarms<a class="headerlink" href="#swarms" title="Link to this heading"></a></h2>
+<p>A <code class="docutils literal notranslate"><span class="pre">Swarm</span></code> contains all the particle data for all particles of a given
+species. It owns a set of <code class="docutils literal notranslate"><span class="pre">ParticleVariable</span></code>s, one for each value of
+each particle. For example, the spatial positions <code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">z</span></code> of the particles in a swarm are three separate
+<code class="docutils literal notranslate"><span class="pre">ParticleVariable</span></code>s. <code class="docutils literal notranslate"><span class="pre">ParticleVariable</span></code>s can be either <code class="docutils literal notranslate"><span class="pre">Real</span></code>-,
+<code class="docutils literal notranslate"><span class="pre">uint64_t</span></code>-, or <code class="docutils literal notranslate"><span class="pre">int</span></code>-valued, which is specified by the metadata values
+<code class="docutils literal notranslate"><span class="pre">Metadata::Real</span></code>, <code class="docutils literal notranslate"><span class="pre">MetaData::UInt64</span></code>, and <code class="docutils literal notranslate"><span class="pre">Metadata::Integer</span></code>. <code class="docutils literal notranslate"><span class="pre">ParticleVariable</span></code>s
+should also contain the <code class="docutils literal notranslate"><span class="pre">Metadata::Particle</span></code> flag. By default,
+<code class="docutils literal notranslate"><span class="pre">ParticleVariable</span></code>s provide one scalar quantity per particle, but up
+to 2D data per particle is currently supported, by passing
+<code class="docutils literal notranslate"><span class="pre">std::vector&lt;int&gt;{N1,</span> <span class="pre">N2}</span></code> as the second argument to the
+<code class="docutils literal notranslate"><span class="pre">ParticleVariable</span></code> <code class="docutils literal notranslate"><span class="pre">Metadata</span></code>. All <code class="docutils literal notranslate"><span class="pre">Swarm</span></code>s by default contain
+positional <code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, and <code class="docutils literal notranslate"><span class="pre">z</span></code> <code class="docutils literal notranslate"><span class="pre">ParticleVariable</span></code>s and a <code class="docutils literal notranslate"><span class="pre">uint64</span></code> particle
+<code class="docutils literal notranslate"><span class="pre">id</span></code> that is persistent and unique for a given simulation.
+The latter field can be disabled (e.g., because it is not required for a method
+that constant creates and destroys anonymous particles) by providing the
+<code class="docutils literal notranslate"><span class="pre">Metadata::NoPersistentParticleIds</span></code> flag;
+additional fields can be added as:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">Swarm</span><span class="p">.</span><span class="n">Add</span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">metadata</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Instances of <code class="docutils literal notranslate"><span class="pre">MeshBlockData</span></code> own the <code class="docutils literal notranslate"><span class="pre">Swarm``s</span> <span class="pre">that</span> <span class="pre">hold</span> <span class="pre">particles</span> <span class="pre">spatially</span> <span class="pre">contained</span>
+<span class="pre">by</span> <span class="pre">the</span> <span class="pre">associated</span> <span class="pre">``MeshBlock</span></code>. The <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> is pointed to by <code class="docutils literal notranslate"><span class="pre">Swarm::pmy_block</span></code>.
+<code class="docutils literal notranslate"><span class="pre">Swarm``s</span> <span class="pre">can</span> <span class="pre">be</span> <span class="pre">retrieved</span> <span class="pre">via</span> <span class="pre">both</span> <span class="pre">``MeshBlockData::GetSwarmData()</span></code> or
+<code class="docutils literal notranslate"><span class="pre">MeshData::GetSwarmData(b)</span></code> where the latter returns the <code class="docutils literal notranslate"><span class="pre">Swarm``s</span> <span class="pre">associated</span> <span class="pre">with</span> <span class="pre">the</span>
+<span class="pre">``MeshBlockData</span></code> pointed to by the <code class="docutils literal notranslate"><span class="pre">b</span></code> index within a <code class="docutils literal notranslate"><span class="pre">MeshData</span></code>.  We currently only
+permit <code class="docutils literal notranslate"><span class="pre">Swarm``s</span> <span class="pre">to</span> <span class="pre">be</span> <span class="pre">retrieved</span> <span class="pre">from</span> <span class="pre">``&quot;base&quot;</span></code> <code class="docutils literal notranslate"><span class="pre">MeshBlockData</span></code> and <code class="docutils literal notranslate"><span class="pre">MeshData</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Swarms manage a “pool” of particles. Memory is reserved for this
+pool in a greedy fashion. When more particles are required, the
+pool is expanded. You can set the default initial number of
+particles that the reservation holds for a given swarm by calling
+<code class="docutils literal notranslate"><span class="pre">metadata.SetInitialSwarmPoolReservation(nparticles);</span></code>.</p>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">Swarm</span></code> is a host-side object, but some of its data members are
+required for device- side compution. To access this data, a
+<code class="docutils literal notranslate"><span class="pre">SwarmDeviceContext</span></code> object is created via
+<code class="docutils literal notranslate"><span class="pre">Swarm::GetDeviceContext()</span></code>. This object can then be passed by copy
+into Kokkos lambdas. Hereafter we refer to it as <code class="docutils literal notranslate"><span class="pre">swarm_d</span></code>.</p>
+<p>To add particles to a <code class="docutils literal notranslate"><span class="pre">Swarm</span></code>, one calls</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">NewParticlesContext</span><span class="w"> </span><span class="n">context</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">swarm</span><span class="o">-&gt;</span><span class="n">AddEmptyParticles</span><span class="p">(</span><span class="n">num_to_add</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>This call automatically resizes the memory pools as necessary and
+returns a <code class="docutils literal notranslate"><span class="pre">NewParticlesContext</span></code> object that provides the methods
+<code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">GetNewParticlesMaxIndex()</span></code> to get the max index of the contiguous block
+of indices into the swarm, and <code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">GetNewParticleIndex(const</span> <span class="pre">int</span> <span class="pre">n)</span></code> to
+convert a new particle index into the swarm index.</p>
+<p>To remove particles from a <code class="docutils literal notranslate"><span class="pre">Swarm</span></code>, one first calls</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">swarm_d</span><span class="p">.</span><span class="n">MarkParticleForRemoval</span><span class="p">(</span><span class="n">index_to_remove</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>inside device code. This only indicates that this particle should be
+removed from the pool, it does not actually update any data. To remove
+all particles so marked, one then calls</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">swarm</span><span class="p">.</span><span class="n">RemoveMarkedParticles</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>in host code. This updates the swarm such that the marked particles are
+seen as free slots in the memory pool.</p>
+</section>
+<section id="parallel-dispatch">
+<h2>Parallel Dispatch<a class="headerlink" href="#parallel-dispatch" title="Link to this heading"></a></h2>
+<p>Parallel computations on particle data can be performed with the usual
+<code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> <code class="docutils literal notranslate"><span class="pre">par_for</span></code> calls. Typically one loops over the entire
+range of active indices and uses a mask variable to only perform
+computations on currently active particles:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="o">&amp;</span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">swarm</span><span class="p">.</span><span class="n">Get</span><span class="p">(</span><span class="s">"x"</span><span class="p">).</span><span class="n">Get</span><span class="p">();</span>
+<span class="n">swarm</span><span class="p">.</span><span class="n">pmy_block</span><span class="o">-&gt;</span><span class="n">par_for</span><span class="p">(</span><span class="s">"Simple loop"</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">swarm</span><span class="p">.</span><span class="n">GetMaxActiveIndex</span><span class="p">(),</span>
+<span class="w">  </span><span class="n">KOKKOS_LAMBDA</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">swarm_d</span><span class="p">.</span><span class="n">IsActive</span><span class="p">(</span><span class="n">n</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">x</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mf">1.0</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">});</span>
+</pre></div>
+</div>
+</section>
+<section id="sorting">
+<h2>Sorting<a class="headerlink" href="#sorting" title="Link to this heading"></a></h2>
+<p>By default, particles are stored in per-meshblock pools of memory.
+However, one frequently wants convenient access to all the particles in
+each computational cell separately. To facilitate this, the Swarm
+provides the method <code class="docutils literal notranslate"><span class="pre">SortParticlesByCell</span></code> (and the <code class="docutils literal notranslate"><span class="pre">SwarmContainer</span></code>
+provides the matching task <code class="docutils literal notranslate"><span class="pre">SortParticlesByCell</span></code>). Calling this
+function populates internal data structures that map from per-cell
+indices to the per-meshblock data array. These are accessed by the
+<code class="docutils literal notranslate"><span class="pre">SwarmDeviceContext</span></code> member functions <code class="docutils literal notranslate"><span class="pre">GetParticleCountPerCell</span></code> and
+<code class="docutils literal notranslate"><span class="pre">GetFullIndex</span></code>. See <code class="docutils literal notranslate"><span class="pre">examples/particles</span></code> for example usage.</p>
+</section>
+<section id="defragmenting">
+<h2>Defragmenting<a class="headerlink" href="#defragmenting" title="Link to this heading"></a></h2>
+<p>Because one typically loops over particles from 0 to
+<code class="docutils literal notranslate"><span class="pre">max_active_index</span></code>, if only a small fraction of particles in that
+range are active, significant effort will be wasted. To clean up these
+situations, <code class="docutils literal notranslate"><span class="pre">Swarm</span></code> provides a <code class="docutils literal notranslate"><span class="pre">Defrag</span></code> method which, when called,
+will copy all active particles to be contiguous starting from the 0
+index. <code class="docutils literal notranslate"><span class="pre">Defrag</span></code> is not fully parallelized so should be called only
+sparingly.</p>
+</section>
+<section id="swarmcontainer">
+<h2>SwarmContainer<a class="headerlink" href="#swarmcontainer" title="Link to this heading"></a></h2>
+<p>A <code class="docutils literal notranslate"><span class="pre">SwarmContainer</span></code> contains a set of related <code class="docutils literal notranslate"><span class="pre">Swarm</span></code>s, such as the
+different stages used by a higher order time integrator. This feature is
+currently not exercised in detail.</p>
+</section>
+<section id="particles-example">
+<h2><code class="docutils literal notranslate"><span class="pre">particles</span></code> Example<a class="headerlink" href="#particles-example" title="Link to this heading"></a></h2>
+<p>An example showing how to create a Parthenon application that defines a
+<code class="docutils literal notranslate"><span class="pre">Swarm</span></code> and creates, destroys, and transports particles is available
+in <code class="docutils literal notranslate"><span class="pre">parthenon/examples/particles</span></code>.</p>
+</section>
+<section id="communication">
+<h2>Communication<a class="headerlink" href="#communication" title="Link to this heading"></a></h2>
+<p>Communication of particles across <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code>s, including across MPI
+processors, is supported. Particle communication is currently handled
+via paired asynchronous/synchronous tasking regions on each MPI
+processor. The asynchronous tasks include transporting particles and
+<code class="docutils literal notranslate"><span class="pre">SwarmContainer::Send</span></code> and <code class="docutils literal notranslate"><span class="pre">SwarmContainer::Receive</span></code> calls. The
+synchronous task checks every <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code> on that MPI processor for
+whether the <code class="docutils literal notranslate"><span class="pre">Swarm</span></code>s are finished transporting. This set of tasks
+must be repeated in the driver’s evolution function until all particles
+are completed. See the <code class="docutils literal notranslate"><span class="pre">particles</span></code> example for further details. Note
+that this pattern is blocking, and may be replaced in the future.</p>
+<p>AMR support for swarms is available. When the mesh changes, swarm
+particles are redistributed to the correct new leaf block after
+same-level redistribution, refinement, or derefinement. The
+<code class="docutils literal notranslate"><span class="pre">particle_tracers</span></code> example demonstrates this path for advected tracer
+particles on an adaptively refined mesh.</p>
+</section>
+<section id="variable-packing">
+<h2>Variable Packing<a class="headerlink" href="#variable-packing" title="Link to this heading"></a></h2>
+<p>Similarly to grid variables, particle swarms support
+<code class="docutils literal notranslate"><span class="pre">ParticleVariable</span></code> packing, by the function <code class="docutils literal notranslate"><span class="pre">Swarm::PackVariables</span></code>.
+This also supports <code class="docutils literal notranslate"><span class="pre">FlatIdx</span></code> for indexing; see the
+<code class="docutils literal notranslate"><span class="pre">particle_leapfrog</span></code> example for usage.</p>
+</section>
+<section id="swarmpacks">
+<span id="swarm-packs"></span><h2><code class="docutils literal notranslate"><span class="pre">SwarmPack</span></code>s<a class="headerlink" href="#swarmpacks" title="Link to this heading"></a></h2>
+<p>Similar to grid variables, swarms can be packed over <code class="docutils literal notranslate"><span class="pre">MeshBlock</span></code>s via <code class="docutils literal notranslate"><span class="pre">SwarmPack</span></code>s.
+<code class="docutils literal notranslate"><span class="pre">SwarmPack</span></code>s are the particle analog to <code class="docutils literal notranslate"><span class="pre">SparsePack</span></code>s for field variables.  A single
+<code class="docutils literal notranslate"><span class="pre">SwarmPack</span></code> can contain either <code class="docutils literal notranslate"><span class="pre">int</span></code>, <code class="docutils literal notranslate"><span class="pre">uint64_t</span></code>, or <code class="docutils literal notranslate"><span class="pre">Real</span></code> entries, but not combinations of them.  One can pack
+a <code class="docutils literal notranslate"><span class="pre">SwarmPack</span></code> via a <code class="docutils literal notranslate"><span class="pre">std::vector&lt;std::string&gt;</span></code> or the type-based variable prescription
+previously used by <code class="docutils literal notranslate"><span class="pre">SparsePack</span></code>s (see <a class="reference internal" href="sparse_packs.html#sparse-packs"><span class="std std-ref">Packing Variables</span></a>).</p>
+<p>For packing via string (wherein below, <code class="docutils literal notranslate"><span class="pre">swarm_position::x::name()</span></code> returns a string),
+one must specify the data type by template argument:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="w"> </span><span class="n">vars</span><span class="p">{</span><span class="n">swarm_position</span><span class="o">::</span><span class="n">x</span><span class="o">::</span><span class="n">name</span><span class="p">(),</span>
+<span class="w">                              </span><span class="n">swarm_position</span><span class="o">::</span><span class="n">y</span><span class="o">::</span><span class="n">name</span><span class="p">(),</span>
+<span class="w">                              </span><span class="n">swarm_position</span><span class="o">::</span><span class="n">z</span><span class="o">::</span><span class="n">name</span><span class="p">()};</span>
+<span class="k">static</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">desc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MakeSwarmPackDescriptor</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="p">(</span><span class="n">swarm_name</span><span class="p">,</span><span class="w"> </span><span class="n">vars</span><span class="p">);</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">pack</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">desc</span><span class="p">.</span><span class="n">GetPack</span><span class="p">(</span><span class="n">md</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>For packing via type-based variables (see pack/default_names.hpp for an
+example), the type can be inferred automatically:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">desc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MakeSwarmPackDescriptor</span><span class="o">&lt;</span><span class="n">swarm_position</span><span class="o">::</span><span class="n">x</span><span class="p">,</span>
+<span class="w">                                           </span><span class="n">swarm_position</span><span class="o">::</span><span class="n">y</span><span class="p">,</span>
+<span class="w">                                           </span><span class="n">swarm_position</span><span class="o">::</span><span class="n">z</span><span class="o">&gt;</span><span class="p">(</span><span class="n">swarm_name</span><span class="p">);</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">pack</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">desc</span><span class="p">.</span><span class="n">GetPack</span><span class="p">(</span><span class="n">md</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>For example <code class="docutils literal notranslate"><span class="pre">SwarmPack</span></code> usage, see the <code class="docutils literal notranslate"><span class="pre">particle_leapfrog</span></code> example.</p>
+</section>
+<section id="boundary-conditions">
+<h2>Boundary conditions<a class="headerlink" href="#boundary-conditions" title="Link to this heading"></a></h2>
+<p>Particle boundary conditions are applied in per-block per-boundary kernel
+launches analogous to grid-based variables. Outflow and periodic boundaries
+are supported natively, but other boundary conditions (including reflecting)
+must be provided by the downstream application. Particle boundary conditions are
+enrolled by setting entries in <code class="docutils literal notranslate"><span class="pre">ApplicationInput::swarm_boundary_conditions</span></code>
+to per-boundary (inner <code class="docutils literal notranslate"><span class="pre">x1</span></code>, outer <code class="docutils literal notranslate"><span class="pre">x2</span></code>, etc.) custom boundary functions
+with signature</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="kt">void</span><span class="w"> </span><span class="nf">SwarmUserInnerX1</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">shared_ptr</span><span class="o">&lt;</span><span class="n">Swarm</span><span class="o">&gt;</span><span class="w"> </span><span class="o">&amp;</span><span class="n">swarm</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">particles</span></code> example demonstrates how to create and enroll custom particle
+boundary conditions.</p>
+<p>Note that periodic boundary conditions cannot be enrolled by the user; the
+default <code class="docutils literal notranslate"><span class="pre">periodic</span></code> option for Parthenon must be requested in the input file.</p>
+</section>
+<section id="outputs">
+<h2>Outputs<a class="headerlink" href="#outputs" title="Link to this heading"></a></h2>
+<p>Outputs for swarms can be set in an output block, just like any other
+variable. The user must specify a comma separated list denoting which
+swarms are marked for output:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">swarms</span> <span class="o">=</span> <span class="n">swarm1</span><span class="p">,</span> <span class="n">swarm2</span><span class="p">,</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p>By default every swarm is initialized with <code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, and <code class="docutils literal notranslate"><span class="pre">z</span></code>
+position variables. These are automatically output.</p>
+<p>To specify additional outputs, one may add an additional comma
+separated list:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">swarmname_variables</span> <span class="o">=</span> <span class="n">var1</span><span class="p">,</span> <span class="n">var2</span><span class="p">,</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p>Here <code class="docutils literal notranslate"><span class="pre">swarmname</span></code> is the name of the swarm in question, and <code class="docutils literal notranslate"><span class="pre">var1</span></code>,
+<code class="docutils literal notranslate"><span class="pre">var2</span></code>, etc., are the variables to output for that particular
+swarm. You may still specify <code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, and <code class="docutils literal notranslate"><span class="pre">z</span></code>, but specifying
+them is superfluous as they are automatically output for any swarm
+that is output.</p>
+<p>Alternatively, you may provide the</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">swarm_variables</span> <span class="o">=</span> <span class="n">var1</span><span class="p">,</span> <span class="n">var2</span><span class="p">,</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p>input as a comma separated list. This will output each variable in the
+<code class="docutils literal notranslate"><span class="pre">swarm_variables</span></code> list for <strong>every</strong> swarm. This is most useful if
+all the swarms contain similar variable structure, or if you only have
+one swarm to output. The per-swarm lists can be composed with the
+<code class="docutils literal notranslate"><span class="pre">swarm_variables</span></code> field. Every swarm will output the vars in
+<code class="docutils literal notranslate"><span class="pre">swarm_variables</span></code> but then <strong>additionally</strong> the variables in a
+per-swarm list will be output for that swarm.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Some visualization tools, like Visit and Paraview, prefer to have
+access to an <code class="docutils literal notranslate"><span class="pre">id</span></code> field for each particle, however it’s not clear
+that a unique ID is required for each particle in
+general. Therefore, if swarms do not automatically contain a unique ID swarm
+variable (because the <code class="docutils literal notranslate"><span class="pre">Metadata::NoPersistentParticleIds</span></code> has been passed when
+creating the swarm), Parthenon will generate an <code class="docutils literal notranslate"><span class="pre">id</span></code> variable just for output
+(i.e., it is still not available within the simulation itself) and write it to file.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The automatically generated <code class="docutils literal notranslate"><span class="pre">id</span></code> is unique for a snapshot in time,
+but not guaranteed to be time invariant. Indeed it is likely
+<strong>not</strong> the same between dumps.</p>
+</div>
+<p>Putting it all together, you might have an output block that looks like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">&lt;</span><span class="n">parthenon</span><span class="o">/</span><span class="n">output1</span><span class="o">&gt;</span>
+<span class="n">file_type</span> <span class="o">=</span> <span class="n">hdf5</span>
+<span class="n">dt</span> <span class="o">=</span> <span class="mf">1.0</span>
+<span class="n">swarms</span> <span class="o">=</span> <span class="n">swarm1</span><span class="p">,</span> <span class="n">swarm2</span>
+<span class="n">swarm_variables</span> <span class="o">=</span> <span class="n">shared_var</span>
+<span class="n">swarm1_variables</span> <span class="o">=</span> <span class="n">per_swarm_var</span>
+</pre></div>
+</div>
+<p>The result would be that both <code class="docutils literal notranslate"><span class="pre">swarm1</span></code> and <code class="docutils literal notranslate"><span class="pre">swarm2</span></code> output the
+variables <code class="docutils literal notranslate"><span class="pre">id</span></code>, <code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, <code class="docutils literal notranslate"><span class="pre">z</span></code>, and <code class="docutils literal notranslate"><span class="pre">shared_var</span></code>. But only <code class="docutils literal notranslate"><span class="pre">swarm1</span></code>
+outputs <code class="docutils literal notranslate"><span class="pre">per_swarm_var</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This file was made in part with generative AI.</p>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="chapters/advanced_features.html" class="btn btn-neutral float-left" title="Advanced Features" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="interface/sparse.html" class="btn btn-neutral float-right" title="Sparse implementation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: lroberts36/fix-cellmemaligned-independent
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/particles.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/particles.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/particles.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/particles.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/particles.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/particles.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/particles.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/particles.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/particles.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/particles.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../regression-gold-v26/src/particles.html">regression-gold-v26</a></dd>
+      <dd><a href="../../../regression-gold-v27/src/particles.html">regression-gold-v27</a></dd>
+      <dd><a href="../../../regression-gold-v28/src/particles.html">regression-gold-v28</a></dd>
+      <dd><a href="../../../v0.8.0/src/particles.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/particles.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/particles.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/particles.html">v24.08</a></dd>
+      <dd><a href="../../../v25.05/src/particles.html">v25.05</a></dd>
+      <dd><a href="../../../v25.12/src/particles.html">v25.12</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../BenWibking/mainloop-debug-output-callback/src/particles.html">BenWibking/mainloop-debug-output-callback</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/particles.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../HEAD/src/particles.html">HEAD</a></dd>
+      <dd><a href="../../../acreyes/hypre-diffusion-example/src/particles.html">acreyes/hypre-diffusion-example</a></dd>
+      <dd><a href="../../../ats5/src/particles.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/particles.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/particles.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/particles.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../blb/toml/src/particles.html">blb/toml</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/particles.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/particles.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../brryan/kokkos_sort/src/particles.html">brryan/kokkos_sort</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/particles.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/particles.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/particles.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../c-prather/fix-oneblock/src/particles.html">c-prather/fix-oneblock</a></dd>
+      <dd><a href="../../../c-prather/sigint-kill/src/particles.html">c-prather/sigint-kill</a></dd>
+      <dd><a href="../../../cep/one-block-mesh/src/particles.html">cep/one-block-mesh</a></dd>
+      <dd><a href="../../../dempsey/rummy/src/particles.html">dempsey/rummy</a></dd>
+      <dd><a href="../../../dempsey/rummy2/src/particles.html">dempsey/rummy2</a></dd>
+      <dd><a href="../../../dempsey/rummy3/src/particles.html">dempsey/rummy3</a></dd>
+      <dd><a href="../../../dempsey/swarm_amr/src/particles.html">dempsey/swarm_amr</a></dd>
+      <dd><a href="../../../develop/src/particles.html">develop</a></dd>
+      <dd><a href="../../../fglines-nv/optimize-burgers/src/particles.html">fglines-nv/optimize-burgers</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/particles.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/particles.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/loop-benchmarks/src/particles.html">jdolence/loop-benchmarks</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/src/particles.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/src/particles.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/src/particles.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/clear-particles-in-pgen/src/particles.html">jmm/clear-particles-in-pgen</a></dd>
+      <dd><a href="../../../jmm/docstrings-2-blockref-boogaloo/src/particles.html">jmm/docstrings-2-blockref-boogaloo</a></dd>
+      <dd><a href="../../../jmm/fix-block-less-than-ranks/src/particles.html">jmm/fix-block-less-than-ranks</a></dd>
+      <dd><a href="../../../jmm/pyproxy/src/particles.html">jmm/pyproxy</a></dd>
+      <dd><a href="../../../jmm/shrinkcores/src/particles.html">jmm/shrinkcores</a></dd>
+      <dd><a href="../../../jmm/submeshdata-2/src/particles.html">jmm/submeshdata-2</a></dd>
+      <dd><a href="../../../jmm/token-scratch/src/particles.html">jmm/token-scratch</a></dd>
+      <dd><a href="../../../jmm/turorial/src/particles.html">jmm/turorial</a></dd>
+      <dd><a href="../../../lkasselm/fft/src/particles.html">lkasselm/fft</a></dd>
+      <dd><a href="../../../lkasselm/fft-backup/src/particles.html">lkasselm/fft-backup</a></dd>
+      <dd><a href="../../../lrobert36/update-index-split-manual/src/particles.html">lrobert36/update-index-split-manual</a></dd>
+      <dd><a href="../../add-callback-taskstatus/src/particles.html">lroberts36/add-callback-taskstatus</a></dd>
+      <dd><a href="../../add-densitization-solver-option/src/particles.html">lroberts36/add-densitization-solver-option</a></dd>
+      <dd><a href="../../add-sparse-indices/src/particles.html">lroberts36/add-sparse-indices</a></dd>
+      <dd><a href="../../boundary-comms-perforfmance-upgrades/src/particles.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="particles.html">lroberts36/fix-cellmemaligned-independent</a></dd>
+      <dd><a href="../../fix-multigrid-flag-error/src/particles.html">lroberts36/fix-multigrid-flag-error</a></dd>
+      <dd><a href="../../fix-multiple-solvers/src/particles.html">lroberts36/fix-multiple-solvers</a></dd>
+      <dd><a href="../../fix-sptr-cycle-tree/src/particles.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../generalize-par-dispatch/src/particles.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../imex-advection/src/particles.html">lroberts36/imex-advection</a></dd>
+      <dd><a href="../../loop-benchmarks-bench/src/particles.html">lroberts36/loop-benchmarks-bench</a></dd>
+      <dd><a href="../../python-field-init/src/particles.html">lroberts36/python-field-init</a></dd>
+      <dd><a href="../../python-input-support/src/particles.html">lroberts36/python-input-support</a></dd>
+      <dd><a href="../../solver-noncell-vars/src/particles.html">lroberts36/solver-noncell-vars</a></dd>
+      <dd><a href="../../solver-speedups/src/particles.html">lroberts36/solver-speedups</a></dd>
+      <dd><a href="../../solver-timing/src/particles.html">lroberts36/solver-timing</a></dd>
+      <dd><a href="../../speedup-buffer-kernel-split/src/particles.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../switch-to-weak-ptrs/src/particles.html">lroberts36/switch-to-weak-ptrs</a></dd>
+      <dd><a href="../../temp-p1-branch/src/particles.html">lroberts36/temp-p1-branch</a></dd>
+      <dd><a href="../../tensor-library-packs/src/particles.html">lroberts36/tensor-library-packs</a></dd>
+      <dd><a href="../../test-forest-mesh/src/particles.html">lroberts36/test-forest-mesh</a></dd>
+      <dd><a href="../../update-diffusion-example/src/particles.html">lroberts36/update-diffusion-example</a></dd>
+      <dd><a href="../../update-sparse-ids/src/particles.html">lroberts36/update-sparse-ids</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/particles.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/particles.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pdmullen/towards-curv-swarm/src/particles.html">pdmullen/towards-curv-swarm</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/src/particles.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/energy-transfer/src/particles.html">pgrete/energy-transfer</a></dd>
+      <dd><a href="../../../pgrete/enspec/src/particles.html">pgrete/enspec</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/src/particles.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/jupiter/src/particles.html">pgrete/jupiter</a></dd>
+      <dd><a href="../../../pgrete/jupiter-26/src/particles.html">pgrete/jupiter-26</a></dd>
+      <dd><a href="../../../pgrete/metadata-allow-new-field-restart/src/particles.html">pgrete/metadata-allow-new-field-restart</a></dd>
+      <dd><a href="../../../pgrete/pmd-output-wuser/src/particles.html">pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/unique-ids/src/particles.html">pgrete/unique-ids</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/particles.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../swjones/asym_halos/src/particles.html">swjones/asym_halos</a></dd>
+      <dd><a href="../../../swjones/dt_package_reporting/src/particles.html">swjones/dt_package_reporting</a></dd>
+      <dd><a href="../../../swjones/rk34_integrator-unit-test/src/particles.html">swjones/rk34_integrator-unit-test</a></dd>
+      <dd><a href="../../../swjones/tensor-library/src/particles.html">swjones/tensor-library</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

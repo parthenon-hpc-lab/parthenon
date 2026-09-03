@@ -1,0 +1,776 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contributing &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=e2af37d4" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Coding concepts" href="development.html" />
+    <link rel="prev" title="Code of Conduct" href="code_of_conduct.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Chapters</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="chapters/getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/parallelism_performance.html">Parallelism and Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/advanced_features.html">Advanced Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/api_reference.html">API Reference</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="chapters/developer_guide.html">Developer Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Contributing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#parthenon-development-guide">Parthenon Development Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#general-workflow">General Workflow</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#test-suite">Test Suite</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="development.html">Coding concepts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="chapters/developer_guide.html">Developer Guide</a></li>
+      <li class="breadcrumb-item active">Contributing</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/contributing.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="contributing">
+<h1>Contributing<a class="headerlink" href="#contributing" title="Link to this heading"></a></h1>
+<section id="parthenon-development-guide">
+<h2>Parthenon Development Guide<a class="headerlink" href="#parthenon-development-guide" title="Link to this heading"></a></h2>
+<p>The following sections cover the current guidelines that all developers are expected
+to try to follow.
+As with all development these guidelines are not set in stone but subject to discussion
+and revision any time as necessary.</p>
+<ol class="arabic simple">
+<li><p><a class="reference internal" href="#general-workflow">General Workflow</a></p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#planning-requesting-announcing-changes">Planning/Requesting/Announcing Changes</a></p></li>
+<li><p><a class="reference internal" href="#summary-of-branching-model-and-versioning">Sumary of Branching Model and Versioning</a></p></li>
+<li><p><a class="reference internal" href="#contributing-code">Contributing Code</a></p></li>
+<li><p><a class="reference internal" href="#merging-code">Merging Code</a></p>
+<ul>
+<li><p><a class="reference internal" href="#merging-code-from-a-fork">Merging Code from a Fork</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#linting-code">Linting Code</a></p></li>
+<li><p><a class="reference internal" href="#formatting-code">Formatting Code</a></p></li>
+<li><p><a class="reference internal" href="#use-of-agentic-coding">Use of agentic coding</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#test-suite">Test Suite</a></p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#continuous-testing-integration-environment">Continuous Testing/Integration Environment</a></p></li>
+<li><p><a class="reference internal" href="#adding-tests">Adding Tests</a></p>
+<ul>
+<li><p><a class="reference internal" href="#adding-regression-tests">Adding Regression Tests</a></p>
+<ul>
+<li><p><a class="reference internal" href="#creating-a-regression-test">Creating a Regression Test</a></p></li>
+<li><p><a class="reference internal" href="#integrating-the-regression-test-with-cmake">Integrating the Regression Test with CMake</a></p></li>
+<li><p><a class="reference internal" href="#running-ctest">Running ctest</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#adding-performance-regression-tests">Adding Performance Regression Tests</a></p></li>
+<li><p><a class="reference internal" href="#including-tests-in-code-coverage-report">Including Tests in Code Coverage Report</a></p></li>
+<li><p><a class="reference internal" href="#creating-and-uploading-coverage-report">Creating and Uploading Coverage Report</a></p></li>
+</ul>
+</li>
+</ul>
+</li>
+</ol>
+<section id="general-workflow">
+<h3>General Workflow<a class="headerlink" href="#general-workflow" title="Link to this heading"></a></h3>
+<section id="planning-requesting-announcing-changes">
+<h4>Planning/Requesting/Announcing Changes<a class="headerlink" href="#planning-requesting-announcing-changes" title="Link to this heading"></a></h4>
+<p>If you discover a bug, would like to see a new feature, would like to implement
+a new feature, or have any other item/idea that you would like to share
+and/or discuss open an issue.</p>
+<p>This helps us to keep track of who is working on what and prevent duplicated efforts
+and/or allows to pool resources early on.</p>
+<p>Use GitHub labels as appropriate and feel free to directly add/tag people to the issue.</p>
+</section>
+<section id="summary-of-branching-model-and-versioning">
+<h4>Summary of Branching Model and Versioning<a class="headerlink" href="#summary-of-branching-model-and-versioning" title="Link to this heading"></a></h4>
+<p>Only a single main branch called <code class="docutils literal notranslate"><span class="pre">develop</span></code> exists and all PRs should be merged
+into that branch.
+Individual versions/releases are tracked by tags.</p>
+<p>We aim at creating a new release every 6 months.
+The decision on creating a new release is made during the bi-weekly calls.
+Following steps need to be done for a new release:</p>
+<ul class="simple">
+<li><p>Create a new tag for that version using a modified <a class="reference external" href="https://calver.org/">calender versioning</a> scheme.
+Releases will be tagged <code class="docutils literal notranslate"><span class="pre">vYY.0M</span></code> i.e., short years and zero-padded months.</p></li>
+<li><p>Update the version in the main <code class="docutils literal notranslate"><span class="pre">CMakeLists.txt</span></code>.</p></li>
+<li><p>Update the <code class="docutils literal notranslate"><span class="pre">CHANGELOG.md</span></code> (i.e., add a release header and create new empty
+categories for the “Current develop” section.</p></li>
+<li><p>Sent a mail to the mailing list announcing the new release.</p></li>
+</ul>
+</section>
+<section id="contributing-code">
+<h4>Contributing Code<a class="headerlink" href="#contributing-code" title="Link to this heading"></a></h4>
+<p>In order to keep the main repository in order, everyone is encouraged to create feature
+branches starting with their username, followed by a “/”, and ending with a brief
+description, e.g., “username/add_feature_xyz”.
+Long term contributors with write access can directly push to feature branches
+in the main repository.
+New contributors should fork the repository and create a pull request from said fork</p>
+<p>Once all changes are implemented or feedback by other developers is required/helpful
+open a pull request again the <code class="docutils literal notranslate"><span class="pre">develop</span></code> branch of the main repository.</p>
+<p>In that pull request refer to the issue that you have addressed.</p>
+<p>If your branch is not ready for a final merge (e.g., in order to discuss the
+implementation), mark it as “work in progress” by prepending “WIP:” to the subject.</p>
+</section>
+<section id="merging-code">
+<h4>Merging Code<a class="headerlink" href="#merging-code" title="Link to this heading"></a></h4>
+<p>In order for code to be merged into <code class="docutils literal notranslate"><span class="pre">develop</span></code> it must</p>
+<ul class="simple">
+<li><p>obey the style guide (test with CPPLINT)</p></li>
+<li><p>pass the linting test (test with CPPLINT)</p></li>
+<li><p>pass the formatting test (see “Formatting Code” below)</p></li>
+<li><p>pass the existing test suite</p></li>
+<li><p>have at least one approval by one member of each physics/application code</p></li>
+<li><p>include tests that cover the new feature (if applicable)</p></li>
+<li><p>include documentation in the <code class="docutils literal notranslate"><span class="pre">doc/</span></code> folder (feature or developer; if applicable)</p></li>
+<li><p>include a brief summary in <code class="docutils literal notranslate"><span class="pre">CHANGELOG.md</span></code></p></li>
+</ul>
+<p>The reviewers are expected to look out for the items above before approving a merge
+request.</p>
+<section id="merging-code-from-a-fork">
+<h5>Merging Code from a Fork<a class="headerlink" href="#merging-code-from-a-fork" title="Link to this heading"></a></h5>
+<p>PRs can be opened as usual from forks.
+Unfortunately, the CI will not automatically trigger for forks. This is for security
+reasons. One maintainer with write access to the main repository needs to manually
+approve the workflow (after having had a first look at the changes).
+The style check is currently not properly reporting on forks.
+Once the style check has been confirmed manually, the PR from the fork can be force-merged
+(by temporarily allowing to override branch proection rules).</p>
+</section>
+</section>
+<section id="linting-code">
+<h4>Linting Code<a class="headerlink" href="#linting-code" title="Link to this heading"></a></h4>
+<p>cpplint will automatically run as part of the CI. You can run the lint explicitly by
+building the <code class="docutils literal notranslate"><span class="pre">lint</span></code> target.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cmake</span> <span class="o">--</span><span class="n">build</span> <span class="o">.</span> <span class="o">--</span><span class="n">target</span> <span class="n">lint</span>
+</pre></div>
+</div>
+<p>If you want the code to be linted as part of the default build target, you
+can enable that behavior with the <code class="docutils literal notranslate"><span class="pre">PARTHENON_LINT_DEFAULT</span></code> cmake option.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cmake</span> <span class="o">-</span><span class="n">DPARTHENON_LINT_DEFAULT</span><span class="o">=</span><span class="n">ON</span> <span class="o">.</span>
+</pre></div>
+</div>
+</section>
+<section id="formatting-code">
+<h4>Formatting Code<a class="headerlink" href="#formatting-code" title="Link to this heading"></a></h4>
+<p>We use clang-format to automatically format the C++ code. If you have clang-format installed
+locally, you can always execute <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">format</span></code> or <code class="docutils literal notranslate"><span class="pre">cmake</span> <span class="pre">--build</span> <span class="pre">.</span> <span class="pre">--target</span> <span class="pre">format</span></code> from
+your build directory to automatically format the code.</p>
+<p>If you don’t have clang-format installed locally, our “Hermes” automation can always
+format the code for you. Just create the following comment in your PR, and Hermes will
+format the code and automatically commit it:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@par</span><span class="o">-</span><span class="n">hermes</span> <span class="nb">format</span>
+</pre></div>
+</div>
+<p>After Hermes formats your code, remember to run <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">pull</span></code> to update your local tracking
+branch.</p>
+<p><strong>WARNING:</strong> Due to a limitation in GitHub Actions, the “Check Formatting” CI will not
+run, which will block merging. If you don’t plan on making any further commits, you or a
+reviewer can run <a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/scripts/retrigger-ci.sh">“./scripts/retrigger-ci.sh”</a> with your branch
+checked out to re-run the CI.</p>
+<p>If you’d like Hermes to amend the formatting to the latest commit, you can use the
+<code class="docutils literal notranslate"><span class="pre">--amend</span></code> option. WARNING: The usual caveats with changing history apply. See:
+https://mirrors.edge.kernel.org/pub/software/scm/git/docs/user-manual.html#problems-With-rewriting-history</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@par</span><span class="o">-</span><span class="n">hermes</span> <span class="nb">format</span> <span class="o">--</span><span class="n">amend</span>
+</pre></div>
+</div>
+<p>You will remain the author of the commit, but Hermes will amend the commit for you with
+the proper formatting.
+Remember - this will change the branch history from your local commit, so you’ll need to
+run something equivalent to
+<code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">fetch</span> <span class="pre">origin</span> <span class="pre">&amp;&amp;</span> <span class="pre">git</span> <span class="pre">reset</span> <span class="pre">--hard</span> <span class="pre">origin/$(git</span> <span class="pre">branch</span> <span class="pre">--show-current)</span></code> to update your
+local tracking branch.</p>
+<p>In addition to clang-format, black is used to enforce formatting on python scripts.
+Running:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@par</span><span class="o">-</span><span class="n">hermes</span> <span class="nb">format</span>
+</pre></div>
+</div>
+<p>Will also format all the “.py” files found in the repository.</p>
+</section>
+<section id="use-of-agentic-coding">
+<h4>Use of Agentic Coding<a class="headerlink" href="#use-of-agentic-coding" title="Link to this heading"></a></h4>
+<p>The following general guidelines were discussed in March 2026 during a
+<a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/wiki/2026.03.26-Meeting-Notes#handling-llm-supportedassisted-prs">regular call</a>.
+They are subject to live evaluation and may change in the future.</p>
+<p>In general, there are no limitations to the use of agentic coding/LLMs/… given that</p>
+<ul class="simple">
+<li><p>the usage is disclosed</p>
+<ul>
+<li><p>by adding <code class="docutils literal notranslate"><span class="pre">//</span> <span class="pre">This</span> <span class="pre">file</span> <span class="pre">was</span> <span class="pre">made</span> <span class="pre">in</span> <span class="pre">part</span> <span class="pre">with</span> <span class="pre">generative</span> <span class="pre">AI</span></code> to the file, and</p></li>
+<li><p>by clearly stating the extent of usage in the PR description</p></li>
+</ul>
+</li>
+<li><p>the person submitting the PR keeps ownership/responsiblity of all changes (i.e., conducts a thorough review themself)</p></li>
+</ul>
+<p>In addition, the following recommendations should be followed</p>
+<ul class="simple">
+<li><p>for large/feature-style PRs a <code class="docutils literal notranslate"><span class="pre">plan.md</span></code> document outlining the changes should be part of the PR. The file should be named by the PR number and placed in the <code class="docutils literal notranslate"><span class="pre">doc/plan_histories</span></code> folder.</p>
+<ul>
+<li><p>if possible, large feature-style PRs are split into smaller, logically separated chunks (to ease reviewing)</p></li>
+</ul>
+</li>
+<li><p>condense/consolidate generated code (to ease maintenance) as it is (still) often much more verbose than necessary (and typical in the existing codebase)</p></li>
+<li><p>reviewers are expected to be much more skeptical and thorough compared to code written by long-term contributors, and possibly more willing to reject</p></li>
+</ul>
+</section>
+</section>
+<section id="test-suite">
+<h3>Test Suite<a class="headerlink" href="#test-suite" title="Link to this heading"></a></h3>
+<section id="continuous-testing-integration-environment">
+<h4>Continuous Testing/Integration Environment<a class="headerlink" href="#continuous-testing-integration-environment" title="Link to this heading"></a></h4>
+<p>Commits pushed to any branch of this repository is automatically tested by
+multiple CI pipelines all configured via GitHub Actions within the <code class="docutils literal notranslate"><span class="pre">.github/workflows</span></code> folder.</p>
+<p>The first (short) pipeline focuses on correctness targeting code style, formatting, as well
+as unit and simple regression tests.
+The current tests span MPI and non-MPI configurations on CPUs (using GCC) and GPUs (using Cuda/nvcc and ROCM/hip).</p>
+<p>The second (extended) pipeline tests more features.</p>
+<p>Finally, compilation is tested across various compilers and architectures (including MacOS).</p>
+</section>
+<section id="adding-tests">
+<h4>Adding Tests<a class="headerlink" href="#adding-tests" title="Link to this heading"></a></h4>
+<p>Five categories of tests have been identified in parthenon, and they are
+located in their respective folders in the <code class="docutils literal notranslate"><span class="pre">tst</span></code> folder.</p>
+<ol class="arabic simple">
+<li><p>Unit testing</p></li>
+<li><p>Integration testing</p></li>
+<li><p>Performance testing</p></li>
+<li><p>Regression testing</p></li>
+<li><p>Style</p></li>
+</ol>
+<p>Parthenon uses ctest to manage the different tests. Cmake labels are attached
+to each test to provide control over which group of tests should be executed.
+Any test added within the <code class="docutils literal notranslate"><span class="pre">tst/unit</span></code>, <code class="docutils literal notranslate"><span class="pre">tst/integration</span></code>, <code class="docutils literal notranslate"><span class="pre">tst/performance</span></code> or
+<code class="docutils literal notranslate"><span class="pre">tst/regression</span></code> test folders will automatically be associated with the
+appropriate label.</p>
+<p>When possible a test should be designed to fall into only one of these
+categories. For instance a unit test should not also have a performance
+component. If such a case occurs, it is better to split the test into two
+separate tests, one that tests the performance and one that tests the
+correctness.</p>
+<section id="adding-regression-tests">
+<h5>Adding Regression Tests<a class="headerlink" href="#adding-regression-tests" title="Link to this heading"></a></h5>
+<p>A python script is available for help analysing the results of each regression
+test. As such adding regression tests to cmake consists of two parts.</p>
+<section id="creating-a-regression-test">
+<h6>Creating a Regression Test<a class="headerlink" href="#creating-a-regression-test" title="Link to this heading"></a></h6>
+<p>Each regression test should have its own folder in /tst/regression/test_suites. Lets assume
+we want to add a test which we will call foo_test. We will begin by adding a folder named
+foo_test to /tst/regression/test_suites. Within that folder there must exist at least two files.</p>
+<ol class="arabic simple">
+<li><p>test_suites/foo_test/__init__.py</p></li>
+<li><p>test_suites/foo_test/foo_test.py</p></li>
+</ol>
+<p>The __init__.py file is left empty, it is used to notify python that it is allowed to
+import the contents from any python file present in the foo_test folder.</p>
+<p>The second file foo_test.py <strong>must</strong> have the same name as the folder it is located in. The
+foo_test.py folder <strong>must</strong> contain a class called TestCase which inherets from TestCaseAbs. The
+TestCase class <strong>must</strong> contain an Analyze and Prepare method. The prepare method can be used to
+execute tasks before the driver is called such a file prepartion or overwriting arguments that
+are passed in through the input deck file. The analyze method is responsible for
+checking the output of the driver (foo_driver) and ensuring it has passed. It is called once the
+foo_driver has been executed.</p>
+<p>Here is a base template for foo_test.py:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">utils.test_case</span>
+
+<span class="c1"># To prevent littering up imported folders with .pyc files or __pycache_ folder</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">dont_write_bytecode</span> <span class="o">=</span> <span class="kc">True</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">TestCase</span><span class="p">(</span><span class="n">utils</span><span class="o">.</span><span class="n">test_case</span><span class="o">.</span><span class="n">TestCaseAbs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">Prepare</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">parameters</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">parameters</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">Analyse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">parameters</span><span class="p">):</span>
+        <span class="n">analyze_status</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="n">analyze_status</span>
+
+</pre></div>
+</div>
+<p>All regression tests are run using the <code class="docutils literal notranslate"><span class="pre">run_test.py</span></code> script located in /test/regression. The reason
+for the python script is to ensure that after the test has been run it meets the appropriate
+test criteria.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">run_test.py</span></code> <strong>requires</strong> three different files be specified:</p>
+<ol class="arabic simple">
+<li><p>the driver - the binary that is to be executed for the test</p></li>
+<li><p>the input deck - parthenon input file with run parameters</p></li>
+<li><p>the test folder - the folder in parthenon/tst/regression/test_suites containing test files</p></li>
+</ol>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">./</span><span class="n">run_test</span><span class="o">.</span><span class="n">py</span> <span class="o">--</span><span class="n">test_dir</span> <span class="n">test_suites</span><span class="o">/</span><span class="n">foo_test</span> <span class="o">--</span><span class="n">driver</span> <span class="n">location_of_foo_driver</span>  <span class="o">--</span><span class="n">driver_input</span> <span class="n">location_of_foo_input_deck</span>
+</pre></div>
+</div>
+<p>Assuming parthenon was compiled in parthenon/build one could run the calculate_pi example with the python script <code class="docutils literal notranslate"><span class="pre">run_test.py</span></code> from /tst/regression using</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">./</span><span class="n">run_test</span><span class="o">.</span><span class="n">py</span> <span class="o">--</span><span class="n">test_dir</span> <span class="n">test_suites</span><span class="o">/</span><span class="n">calculate_pi</span> <span class="o">--</span><span class="n">driver</span> <span class="o">../../</span><span class="n">build</span><span class="o">/</span><span class="n">example</span><span class="o">/</span><span class="n">calculate_pi</span><span class="o">/</span><span class="n">parthenon</span><span class="o">-</span><span class="n">example</span> <span class="o">--</span><span class="n">driver_input</span> <span class="n">test_suites</span><span class="o">/</span><span class="n">calculate_pi</span><span class="o">/</span><span class="n">parthinput</span><span class="o">.</span><span class="n">regression</span>
+</pre></div>
+</div>
+<p>More options can be passed to <code class="docutils literal notranslate"><span class="pre">run_test.py</span></code> but those three <strong>must</strong> be specified. For options
+that are supported you can call <code class="docutils literal notranslate"><span class="pre">run_test.py</span> <span class="pre">-h</span></code></p>
+<p>Note that running more than a single test with <code class="docutils literal notranslate"><span class="pre">run_test.py</span></code> is intentinally not supported, Running
+groups of tests will be handled by ctest.</p>
+</section>
+<section id="integrating-the-regression-test-with-cmake">
+<h6>Integrating the Regression Test with CMake<a class="headerlink" href="#integrating-the-regression-test-with-cmake" title="Link to this heading"></a></h6>
+<p>At this point CMake and ctest know nothing about your dandy new regression test. To integrate the
+test with cmake it needs to be added to the CMakeLists.txt file in parthenon/tst/regression.
+Essentially, the command for running <code class="docutils literal notranslate"><span class="pre">run_test.py</span></code> must be called from within cmake.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">list</span><span class="p">(</span><span class="n">APPEND</span> <span class="n">TEST_DIRS</span> <span class="n">foo_test</span><span class="p">)</span>
+<span class="nb">list</span><span class="p">(</span><span class="n">APPEND</span> <span class="n">TEST_PROCS</span> <span class="s2">"5"</span><span class="p">)</span>
+<span class="nb">list</span><span class="p">(</span><span class="n">APPEND</span> <span class="n">TEST_ARGS</span> <span class="s2">"--driver location_of_foo_driver --driver_input Location_of_foo_input_deck"</span><span class="p">)</span>
+<span class="nb">list</span><span class="p">(</span><span class="n">APPEND</span> <span class="n">EXTRA_TEST_LABELS</span> <span class="s2">""</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For the calculate pi example shown above this consists of adding parameters to four cmake lists</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>list(APPEND TEST_DIRS calculate_pi)
+list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+list(APPEND TEST_ARGS "--driver ${CMAKE_BINARY_DIR}/example/calculate_pi/parthenon-example --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/calculate_pi/parthinput.regression")
+list(APPEND EXTRA_TEST_LABELS "perf")
+</pre></div>
+</div>
+<p>NOTE: The TEST_PROCS list indicates how many processors to use when running
+mpi. The cmake variable NUM_MPI_PROC_TESTING can be used if you do not want
+to hardcode a value, and is recommended.  By default all regression tests added
+to these lists will be run in serial and in parallel with mpi. The number of
+mpi processors used is by default set to 4. This default can be adjusted by
+changing the cmake variable NUM_MPI_PROC_TESTING. The number of OpenMP
+threads is by default set to 1 but can be adjusted in the driver input file
+deck. If parthenon is compiled with CUDA enabled, by default a single GPU will
+be assigned to each node..</p>
+</section>
+<section id="integratingthe-regression-test-with-the-github-python-performance-regression-app">
+<h6>Integratingthe Regression Test with the Github python performance regression app<a class="headerlink" href="#integratingthe-regression-test-with-the-github-python-performance-regression-app" title="Link to this heading"></a></h6>
+<p>In addition to running regression tests, the Parthenon CI makes use of a Github python app to
+report performance metrics on machines of interest i.e. (power9 nodes). Currently, the apps source
+files are located in parthenon/scripts/python/packages/parthenon_performance_app. To add
+additional tests metrics changes will need to be made to the scripts located in the folder:
+parthenon/scripts/python/packages/parthenon_performance_app.  In general, the app
+works by taking performance metrics that are ouput to a file when a regression test is executed.
+This output is read by the app and compared with metrics that are stored in the wiki (JSON format).
+The metrics are then plotted in a png file which is also uploaded to the wiki. Finally, a markdown
+page is created with links to the images and is uploaded to the wiki.</p>
+</section>
+<section id="running-ctest">
+<h6>Running ctest<a class="headerlink" href="#running-ctest" title="Link to this heading"></a></h6>
+<p>If the above steps have been executed, the tests will automatically be built anytime the code is
+compiled. The tests can be run by calling ctest directly from the build directory. Individual tests
+or groups of tests can be run by using ctest regular expression matching, or making use of labels.</p>
+<p>All regression tests have the following name format:</p>
+<p>regression_test:foo_test</p>
+<p>So for the pi example we will see the following output:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ctest</span> <span class="o">-</span><span class="n">R</span> <span class="n">regression</span>
+
+    <span class="n">Start</span> <span class="mi">17</span><span class="p">:</span> <span class="n">regression_test</span><span class="p">:</span><span class="n">calculate_pi</span>
+<span class="mi">1</span><span class="o">/</span><span class="mi">1</span> <span class="n">Test</span> <span class="c1">#17: regression_test:calculate_pi .....   Passed    1.44 sec</span>
+
+<span class="mi">100</span><span class="o">%</span> <span class="n">tests</span> <span class="n">passed</span><span class="p">,</span> <span class="mi">0</span> <span class="n">tests</span> <span class="n">failed</span> <span class="n">out</span> <span class="n">of</span> <span class="mi">1</span>
+
+<span class="n">Label</span> <span class="n">Time</span> <span class="n">Summary</span><span class="p">:</span>
+<span class="n">regression</span>    <span class="o">=</span>   <span class="mf">1.44</span> <span class="n">sec</span><span class="o">*</span><span class="n">proc</span> <span class="p">(</span><span class="mi">1</span> <span class="n">test</span><span class="p">)</span>
+
+<span class="n">Total</span> <span class="n">Test</span> <span class="n">time</span> <span class="p">(</span><span class="n">real</span><span class="p">)</span> <span class="o">=</span>   <span class="mf">1.47</span> <span class="n">sec</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="adding-performance-regression-tests">
+<h5>Adding Performance Regression Tests<a class="headerlink" href="#adding-performance-regression-tests" title="Link to this heading"></a></h5>
+<p>Regression tests can also be added for the purposes of testing the performance.
+Adding performance tests does require understanding a bit about how the CI
+infrastructure is setup. Currently, the performance tests are setup to run on
+dedicated Power9 nodes that are provided by LANL, this is to ensure consistency
+in the result. However, because the performance tests are running on LANL
+machines it means that it is not straightforward to make the results viewable
+to non LANL contributors. To make the results of the regression tests viewable
+on GitHub a custom GitHub application was developed to be used with Parthenon
+which we will call the Parthenon Performance Metrics App (PPMA).</p>
+<p>The PPMA is series of python scripts located in the parthenon repository in
+./scripts/python/packages/parthenon_performance_app. The PPMA has the following
+responsibilities:</p>
+<ol class="arabic simple">
+<li><p>Submit a status check associated with the commit being analyzed to the
+Parthenon repository</p></li>
+<li><p>Read in performance metrics from regression tests in a build directory</p></li>
+<li><p>Compare the current metrics with metrics stored in the Parthenon Wiki, the
+files in the Wiki should contain performance metrics from previous runs.</p></li>
+<li><p>Generate images showing the performance numbers.</p></li>
+<li><p>Add images to an orphan branch in the Parthenon repository (branch name is
+figures).</p></li>
+<li><p>Add new performance metrics to the appropriate performance JSON file stored
+in the Wiki. These JSON files are labeled with the following format:
+<code class="docutils literal notranslate"><span class="pre">performance_metrics_current-branch.json</span></code>, this means each branch should
+have its own JSON performance file.</p></li>
+<li><p>Create or overwrite a wiki page that contains links to the performance
+figures located in the parthenon wiki repository.</p></li>
+<li><p>Upload the wiki page the images and performance metrics to the Parthenon
+repository. The wiki page will be named with the following format:
+current-branch_target-branch.md
+E.g. If you were merging hotfix branch into develop the wiki page would be
+named: hotfix_develop.md, each PR should have it’s own Wiki page. For performance
+tests that are not run as part of a wiki such as the develop branch is scheduled
+to run daily the current-branch and target-branch are the same: develop_develop.md.</p></li>
+<li><p>Submit a status check indicating that the performance metrics are ready to
+be viewed with a link to the wiki page.</p></li>
+</ol>
+<p>In order to add a performance test, let’s call it <code class="docutils literal notranslate"><span class="pre">TEST</span></code>, the following tasks must be completed.</p>
+<ol class="arabic">
+<li><p>The test must be inside the folder <code class="docutils literal notranslate"><span class="pre">./tst/regression/test_suites/TEST_performance</span></code>.
+NOTE: the test folder must have <code class="docutils literal notranslate"><span class="pre">performance</span></code> in the name because
+regexp matching of the folder name is used to figure out which tests to run
+from the CI. To be explicit you can see what command is run by looking in the
+file <code class="docutils literal notranslate"><span class="pre">./scripts/darwin/build_fast.sh</span></code>, there is a line</p>
+<div class="highlight-Bash notranslate"><div class="highlight"><pre><span></span><span class="w">    </span>ctest<span class="w"> </span>--output-on-failure<span class="w"> </span>-R<span class="w"> </span>performance<span class="w"> </span>-E<span class="w"> </span><span class="s2">"SpaceInstances"</span>
+</pre></div>
+</div>
+</li>
+<li><p>When the test is run e.g. by calling ctest the test must output the
+performance metrics in a file called <code class="docutils literal notranslate"><span class="pre">TEST_results.txt</span></code> which will appear in the
+build directory.</p></li>
+<li><p>The main PPMA file located in
+<code class="docutils literal notranslate"><span class="pre">./scripts/python/packages/parthenon_performance_app/bin/</span></code> must be edited. The
+PPMA script works by looping over the output directories of the regression
+tests, the loop exists in the main PPMA file and should have a logic block
+similar to what is shown below:</p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">test_dir</span> <span class="ow">in</span> <span class="n">all_dirs</span><span class="p">:</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">test_dir</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">test_dir</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">test_dir</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">test_dir</span> <span class="o">==</span> <span class="s2">"advection_performance"</span>
+        <span class="ow">or</span> <span class="n">test_dir</span> <span class="o">==</span> <span class="s2">"advection_performance_mpi"</span><span class="p">):</span>
+
+        <span class="n">figure_url</span><span class="p">,</span> <span class="n">figure_file</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_createFigureURLPathAndName</span><span class="p">(</span>
+                    <span class="n">test_dir</span><span class="p">,</span> <span class="n">current_branch</span><span class="p">,</span> <span class="n">target_branch</span>
+                <span class="p">)</span>
+
+        <span class="c1"># do something...</span>
+
+        <span class="k">if</span> <span class="n">create_figures</span><span class="p">:</span>
+            <span class="n">figure_files_to_upload</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">figure_file</span><span class="p">)</span>
+            <span class="n">figure_urls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">figure_url</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Above you can see a branch for <code class="docutils literal notranslate"><span class="pre">advection_performance</span></code> and
+<code class="docutils literal notranslate"><span class="pre">advection_performance_mpi</span></code>, because the logic is the same for both tests there is
+a single if statement. You will likely need to add a separate branch for any
+additional tests e.g. <code class="docutils literal notranslate"><span class="pre">dir_foo_performance</span></code>.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">_createFigureURLPathAndName</span></code> is a convenience method for generating a figure URL
+and a figure_file name. The <code class="docutils literal notranslate"><span class="pre">figure_url</span></code> will be of the form https://github.com/lanl/parthenon/blob/figures/figure_file.
+Using this method is not a requirement. For instance, if you had multiple different performance figures that you
+wanted to generate for a single test you could do, for example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
+<span class="k">if</span> <span class="p">(</span><span class="n">test_dir</span> <span class="o">==</span> <span class="s2">"dir_foo_performance"</span><span class="p">):</span>
+    <span class="n">jpeg_fig_name</span> <span class="o">=</span> <span class="s2">"awesome.jpeg"</span>
+    <span class="n">figure_url1</span> <span class="o">=</span> <span class="s2">"https://github.com/lanl/parthenon/blob/figures/"</span> <span class="o">+</span> <span class="n">jpeg_fig_name</span>
+
+    <span class="n">png_fig_name</span> <span class="o">=</span> <span class="s2">"awesome.png"</span>
+    <span class="n">figure_url2</span> <span class="o">=</span> <span class="s2">"https://github.com/lanl/parthenon/blob/figures/"</span> <span class="o">+</span> <span class="n">png_fig_name</span>
+
+    <span class="n">png_fig_name2</span> <span class="o">=</span> <span class="s2">"awesome2.png"</span>
+    <span class="n">figure_url3</span> <span class="o">=</span> <span class="s2">"https://github.com/lanl/parthenon/blob/figures/"</span> <span class="o">+</span> <span class="n">png_fig_name2</span>
+
+    <span class="c1"># do something... need to actually generate the figures and read in performance metrics</span>
+
+    <span class="k">if</span> <span class="n">create_figures</span><span class="p">:</span>
+        <span class="n">figure_files_to_upload</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">jpeg_fig_name</span><span class="p">)</span>
+        <span class="n">figure_urls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">figure_url1</span><span class="p">)</span>
+        <span class="n">figure_files_to_upload</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">png_fig_name</span><span class="p">)</span>
+        <span class="n">figure_urls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">figure_url2</span><span class="p">)</span>
+        <span class="n">figure_files_to_upload</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">png_fig_name2</span><span class="p">)</span>
+        <span class="n">figure_urls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">figure_url3</span><span class="p">)</span>
+</pre></div>
+</div>
+<ol class="arabic" start="4">
+<li><p>At this point we know the app knows the URLs of the figures and we know the
+figure names, however we have to actually generate the figures, this
+involves creating an analyzer, you can take a look at the AdvectionAnalyzer as
+an example
+./scripts/python/packages/parthenon_performance_app/parthenon_performance_app/parthenon_performance_advection_analyzer.py.
+In general, the Analyzer has the following responsibilities:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span> a. It must be able
+    to read in results from the regression tests.
+
+ b. It must be able to package the results in a json format.
+
+ c. It must be able to read previous performance metrics results from the json
+    files stored in the wiki. A convenience script is provided to help with this in
+    the form of the parthenon_performance_json_parser.py, if you are adding new
+    metrics the parser will need to be updated in order to correctly read in the
+    new data.
+
+ d. It must be able to create the figures displaying performance. This is also
+    handled by a separate script the parthenon_performance_plotter.py, it may be
+    approprite to adjust it as needed for new functionality or add a separate
+    plotting script.
+</pre></div>
+</div>
+</li>
+</ol>
+<p>A few closing points, the advection performance tests are currently setup so that
+if a user creates a pr to another branch the figures generated will contain the
+performance metrics of the two branches and plot them. In the case that the performance
+metrics are not being run as part of a pr, for example the performance of the development
+branch is checked on a daily basis then the performance from the last 5 commits that
+branches metrics file (stored on the wiki, performance_metrics_develop.json) will be plotted.</p>
+</section>
+<section id="including-tests-in-code-coverage-report">
+<h5>Including Tests in Code Coverage Report<a class="headerlink" href="#including-tests-in-code-coverage-report" title="Link to this heading"></a></h5>
+<p>Unit tests that are not performance tests (Do not have the [performance] tag) are
+automatically included in the coverage report. If you want to include a performance
+unit test in the coverage report the tag [coverage] should be added to the catch2
+<code class="docutils literal notranslate"><span class="pre">TEST_CASE</span></code> macro. E.g.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">TEST_CASE</span><span class="p">(</span><span class="s2">"test description"</span><span class="p">,</span> <span class="s2">"[unit][performance][coverage]"</span><span class="p">){</span>
+<span class="o">...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>It is advisable not to add the coverage tag to performance tests especially if they
+take a long time to run, as adding code coverage will make them even slower. It is
+better to reserve coverage for tests that show correct behavior.</p>
+<p>Unlike unit tests, regression tests are not automatically added to the coverage report.
+To add a regression test to the coverage report an attribute of the parameters argument
+can be altered. E.g.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">TestCase</span><span class="p">(</span><span class="n">utils</span><span class="o">.</span><span class="n">test_case</span><span class="o">.</span><span class="n">TestCaseAbs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">Prepare</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">parameters</span><span class="p">):</span>
+        <span class="n">parameters</span><span class="o">.</span><span class="n">coverage_status</span> <span class="o">=</span> <span class="s2">"only-coverage"</span>
+        <span class="k">return</span> <span class="n">parameters</span>
+</pre></div>
+</div>
+<p>The coverage status argument can take 3 different settings:</p>
+<ol class="arabic simple">
+<li><p><strong>only-regression</strong> - will not run if with coverage, is the default</p></li>
+<li><p><strong>both</strong> - will run with or without coverage</p></li>
+<li><p><strong>only-coverage</strong> - will only run if coverage is specified</p></li>
+</ol>
+<section id="creating-and-uploading-coverage-report">
+<h6>Creating and Uploading Coverage Report<a class="headerlink" href="#creating-and-uploading-coverage-report" title="Link to this heading"></a></h6>
+<p>To create a coverage report cmake should be run with both the CMAKE_BUILD_TYPE
+flag set to debug, and the CODE_COVERAGE flag set to On.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>  <span class="n">mkdir</span> <span class="n">build</span>
+  <span class="n">cd</span> <span class="n">build</span>
+  <span class="n">cmake</span> <span class="o">-</span><span class="n">DCODE_COVERAGE</span><span class="o">=</span><span class="n">On</span> <span class="o">-</span><span class="n">DCMAKE_BUILD_TYPE</span><span class="o">=</span><span class="n">Debug</span> <span class="o">../</span>
+  <span class="n">make</span> <span class="n">coverage</span>
+  <span class="n">make</span> <span class="n">coverage</span><span class="o">-</span><span class="n">upload</span>
+</pre></div>
+</div>
+<p>Fine grained control of where the coverage reports are placed can be specified
+with COVERAGE_PATH, COVERAGE_NAME, which represent the path to the coverage
+reports and the directory where they will be placed. The default location is in
+a folder named coverage in the build directory.</p>
+</section>
+</section>
+</section>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="code_of_conduct.html" class="btn btn-neutral float-left" title="Code of Conduct" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="development.html" class="btn btn-neutral float-right" title="Coding concepts" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: pdmullen/towards-curv-swarm
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/index.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/index.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/index.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/index.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/index.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/index.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/index.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/index.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/index.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/index.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../regression-gold-v26/index.html">regression-gold-v26</a></dd>
+      <dd><a href="../../../regression-gold-v27/index.html">regression-gold-v27</a></dd>
+      <dd><a href="../../../regression-gold-v28/index.html">regression-gold-v28</a></dd>
+      <dd><a href="../../../v0.8.0/index.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/index.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/index.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/index.html">v24.08</a></dd>
+      <dd><a href="../../../v25.05/index.html">v25.05</a></dd>
+      <dd><a href="../../../v25.12/index.html">v25.12</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../BenWibking/mainloop-debug-output-callback/index.html">BenWibking/mainloop-debug-output-callback</a></dd>
+      <dd><a href="../../../BenWibking/move-params/index.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../HEAD/src/contributing.html">HEAD</a></dd>
+      <dd><a href="../../../acreyes/hypre-diffusion-example/index.html">acreyes/hypre-diffusion-example</a></dd>
+      <dd><a href="../../../ats5/index.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/index.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/index.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/index.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../blb/toml/index.html">blb/toml</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/index.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/index.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../brryan/kokkos_sort/index.html">brryan/kokkos_sort</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/index.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/index.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/index.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../c-prather/fix-oneblock/src/contributing.html">c-prather/fix-oneblock</a></dd>
+      <dd><a href="../../../c-prather/sigint-kill/src/contributing.html">c-prather/sigint-kill</a></dd>
+      <dd><a href="../../../cep/one-block-mesh/src/contributing.html">cep/one-block-mesh</a></dd>
+      <dd><a href="../../../dempsey/rummy/index.html">dempsey/rummy</a></dd>
+      <dd><a href="../../../dempsey/rummy2/src/contributing.html">dempsey/rummy2</a></dd>
+      <dd><a href="../../../dempsey/rummy3/src/contributing.html">dempsey/rummy3</a></dd>
+      <dd><a href="../../../dempsey/swarm_amr/index.html">dempsey/swarm_amr</a></dd>
+      <dd><a href="../../../develop/src/contributing.html">develop</a></dd>
+      <dd><a href="../../../fglines-nv/optimize-burgers/index.html">fglines-nv/optimize-burgers</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/index.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/index.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/loop-benchmarks/index.html">jdolence/loop-benchmarks</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/index.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/index.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/index.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/clear-particles-in-pgen/src/contributing.html">jmm/clear-particles-in-pgen</a></dd>
+      <dd><a href="../../../jmm/docstrings-2-blockref-boogaloo/index.html">jmm/docstrings-2-blockref-boogaloo</a></dd>
+      <dd><a href="../../../jmm/fix-block-less-than-ranks/index.html">jmm/fix-block-less-than-ranks</a></dd>
+      <dd><a href="../../../jmm/pyproxy/index.html">jmm/pyproxy</a></dd>
+      <dd><a href="../../../jmm/shrinkcores/index.html">jmm/shrinkcores</a></dd>
+      <dd><a href="../../../jmm/submeshdata-2/src/contributing.html">jmm/submeshdata-2</a></dd>
+      <dd><a href="../../../jmm/token-scratch/src/contributing.html">jmm/token-scratch</a></dd>
+      <dd><a href="../../../jmm/turorial/src/contributing.html">jmm/turorial</a></dd>
+      <dd><a href="../../../lkasselm/fft/src/contributing.html">lkasselm/fft</a></dd>
+      <dd><a href="../../../lkasselm/fft-backup/src/contributing.html">lkasselm/fft-backup</a></dd>
+      <dd><a href="../../../lrobert36/update-index-split-manual/index.html">lrobert36/update-index-split-manual</a></dd>
+      <dd><a href="../../../lroberts36/add-callback-taskstatus/index.html">lroberts36/add-callback-taskstatus</a></dd>
+      <dd><a href="../../../lroberts36/add-densitization-solver-option/index.html">lroberts36/add-densitization-solver-option</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-indices/index.html">lroberts36/add-sparse-indices</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/index.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/fix-cellmemaligned-independent/src/contributing.html">lroberts36/fix-cellmemaligned-independent</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-flag-error/index.html">lroberts36/fix-multigrid-flag-error</a></dd>
+      <dd><a href="../../../lroberts36/fix-multiple-solvers/src/contributing.html">lroberts36/fix-multiple-solvers</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/index.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/index.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/imex-advection/index.html">lroberts36/imex-advection</a></dd>
+      <dd><a href="../../../lroberts36/loop-benchmarks-bench/src/contributing.html">lroberts36/loop-benchmarks-bench</a></dd>
+      <dd><a href="../../../lroberts36/python-field-init/index.html">lroberts36/python-field-init</a></dd>
+      <dd><a href="../../../lroberts36/python-input-support/index.html">lroberts36/python-input-support</a></dd>
+      <dd><a href="../../../lroberts36/solver-noncell-vars/index.html">lroberts36/solver-noncell-vars</a></dd>
+      <dd><a href="../../../lroberts36/solver-speedups/index.html">lroberts36/solver-speedups</a></dd>
+      <dd><a href="../../../lroberts36/solver-timing/index.html">lroberts36/solver-timing</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/index.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../lroberts36/switch-to-weak-ptrs/index.html">lroberts36/switch-to-weak-ptrs</a></dd>
+      <dd><a href="../../../lroberts36/temp-p1-branch/index.html">lroberts36/temp-p1-branch</a></dd>
+      <dd><a href="../../../lroberts36/tensor-library-packs/index.html">lroberts36/tensor-library-packs</a></dd>
+      <dd><a href="../../../lroberts36/test-forest-mesh/index.html">lroberts36/test-forest-mesh</a></dd>
+      <dd><a href="../../../lroberts36/update-diffusion-example/index.html">lroberts36/update-diffusion-example</a></dd>
+      <dd><a href="../../../lroberts36/update-sparse-ids/index.html">lroberts36/update-sparse-ids</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/index.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/index.html">neighborhood_ats5</a></dd>
+      <dd><a href="contributing.html">pdmullen/towards-curv-swarm</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/index.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/energy-transfer/src/contributing.html">pgrete/energy-transfer</a></dd>
+      <dd><a href="../../../pgrete/enspec/src/contributing.html">pgrete/enspec</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/index.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/jupiter/index.html">pgrete/jupiter</a></dd>
+      <dd><a href="../../../pgrete/jupiter-26/src/contributing.html">pgrete/jupiter-26</a></dd>
+      <dd><a href="../../../pgrete/metadata-allow-new-field-restart/index.html">pgrete/metadata-allow-new-field-restart</a></dd>
+      <dd><a href="../../../pgrete/pmd-output-wuser/index.html">pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/unique-ids/index.html">pgrete/unique-ids</a></dd>
+      <dd><a href="../../../pgrete/user-output/index.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../swjones/asym_halos/src/contributing.html">swjones/asym_halos</a></dd>
+      <dd><a href="../../../swjones/dt_package_reporting/index.html">swjones/dt_package_reporting</a></dd>
+      <dd><a href="../../../swjones/rk34_integrator-unit-test/index.html">swjones/rk34_integrator-unit-test</a></dd>
+      <dd><a href="../../../swjones/tensor-library/index.html">swjones/tensor-library</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

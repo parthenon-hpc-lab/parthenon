@@ -1,0 +1,265 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Performance Instrumentation &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=e2af37d4" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Advanced Features" href="chapters/advanced_features.html" />
+    <link rel="prev" title="Running a Weak Scaling Test in Parthenon" href="weak_scaling.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Chapters</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="chapters/getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="chapters/parallelism_performance.html">Parallelism and Performance</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="par_for.html">Parallelism</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reductions.html">Task-based reductions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Performance Instrumentation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/advanced_features.html">Advanced Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/api_reference.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/developer_guide.html">Developer Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="chapters/parallelism_performance.html">Parallelism and Performance</a></li>
+      <li class="breadcrumb-item active">Performance Instrumentation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/instrumentation.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="performance-instrumentation">
+<span id="instrumentation"></span><h1>Performance Instrumentation<a class="headerlink" href="#performance-instrumentation" title="Link to this heading"></a></h1>
+<p>Parthenon provides several macros that make instrumenting your code simple.  For now,
+these macros instantiate Kokkos profiling regions via calls to
+<code class="docutils literal notranslate"><span class="pre">Kokkos::Profiling::pushRegion</span></code> and <code class="docutils literal notranslate"><span class="pre">Kokkos::Profiling::popRegion</span></code>, meaning all the
+Kokkos profiling tools should work straightforwardly with Parthenon-based applications.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">PARTHENON_INSTRUMENT</span></code>: Instantiates an object that pushes a profiling region on
+construction and pops the region on destruction.  The name of the region is
+auto-generated and takes the form <code class="docutils literal notranslate"><span class="pre">&quot;file_name::line_number::function_name&quot;</span></code>.  The region
+being profiled is controlled by invoking the macro at the appropriate scope.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PARTHENON_INSTRUMENT_REGION(name)</span></code>: Same as <code class="docutils literal notranslate"><span class="pre">PARTHENON_INSTRUMENT</span></code>, but uses the
+provided name instead of the auto-generated name.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PARTHENON_INSTRUMENT_REGION_PUSH</span></code>: A trivial wrapper around <code class="docutils literal notranslate"><span class="pre">pushRegion</span></code> where
+the name is auto-generated as above.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PARTHENON_INSTRUMENT_REGION_POP</span></code>: A trivial wrapper around <code class="docutils literal notranslate"><span class="pre">popRegion</span></code>.</p></li>
+</ul>
+<p>In addition to these macros, Parthenon provides the <code class="docutils literal notranslate"><span class="pre">PARTHENON_AUTO_LABEL</span></code> macro which
+can be used to provide a label to kernels (e.g. through the various <code class="docutils literal notranslate"><span class="pre">par_for</span></code>
+functions).  The auto-generated name is the same as was described above.</p>
+<p>Though not required, the use of the auto-generated names is highly recommended.  In
+addition to avoiding possible name collisions, the auto-generated names provide a simple
+structure that is amenable to post-processing profiling results to ease analysis.  For
+example, the <code class="docutils literal notranslate"><span class="pre">process_timer.py</span></code> script that ships with Parthenon post-processes the
+results of the Kokkos simple kernel timer output to provide a convenient view of the data.</p>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="weak_scaling.html" class="btn btn-neutral float-left" title="Running a Weak Scaling Test in Parthenon" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="chapters/advanced_features.html" class="btn btn-neutral float-right" title="Advanced Features" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: jdolence/loop-benchmarks
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/index.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/index.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/index.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/index.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/index.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/instrumentation.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/instrumentation.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/instrumentation.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/instrumentation.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/instrumentation.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../regression-gold-v26/src/instrumentation.html">regression-gold-v26</a></dd>
+      <dd><a href="../../../regression-gold-v27/src/instrumentation.html">regression-gold-v27</a></dd>
+      <dd><a href="../../../regression-gold-v28/src/instrumentation.html">regression-gold-v28</a></dd>
+      <dd><a href="../../../v0.8.0/index.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/index.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/instrumentation.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/instrumentation.html">v24.08</a></dd>
+      <dd><a href="../../../v25.05/src/instrumentation.html">v25.05</a></dd>
+      <dd><a href="../../../v25.12/src/instrumentation.html">v25.12</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../BenWibking/mainloop-debug-output-callback/src/instrumentation.html">BenWibking/mainloop-debug-output-callback</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/instrumentation.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../HEAD/src/instrumentation.html">HEAD</a></dd>
+      <dd><a href="../../../acreyes/hypre-diffusion-example/src/instrumentation.html">acreyes/hypre-diffusion-example</a></dd>
+      <dd><a href="../../../ats5/src/instrumentation.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/instrumentation.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/instrumentation.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/instrumentation.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../blb/toml/src/instrumentation.html">blb/toml</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/index.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/index.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../brryan/kokkos_sort/src/instrumentation.html">brryan/kokkos_sort</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/instrumentation.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/instrumentation.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/instrumentation.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../c-prather/fix-oneblock/src/instrumentation.html">c-prather/fix-oneblock</a></dd>
+      <dd><a href="../../../c-prather/sigint-kill/src/instrumentation.html">c-prather/sigint-kill</a></dd>
+      <dd><a href="../../../cep/one-block-mesh/src/instrumentation.html">cep/one-block-mesh</a></dd>
+      <dd><a href="../../../dempsey/rummy/src/instrumentation.html">dempsey/rummy</a></dd>
+      <dd><a href="../../../dempsey/rummy2/src/instrumentation.html">dempsey/rummy2</a></dd>
+      <dd><a href="../../../dempsey/rummy3/src/instrumentation.html">dempsey/rummy3</a></dd>
+      <dd><a href="../../../dempsey/swarm_amr/src/instrumentation.html">dempsey/swarm_amr</a></dd>
+      <dd><a href="../../../develop/src/instrumentation.html">develop</a></dd>
+      <dd><a href="../../../fglines-nv/optimize-burgers/src/instrumentation.html">fglines-nv/optimize-burgers</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/instrumentation.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/index.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="instrumentation.html">jdolence/loop-benchmarks</a></dd>
+      <dd><a href="../../thread_safe/src/instrumentation.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../timer_based_loadbalancing/index.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../trace/index.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/clear-particles-in-pgen/src/instrumentation.html">jmm/clear-particles-in-pgen</a></dd>
+      <dd><a href="../../../jmm/docstrings-2-blockref-boogaloo/src/instrumentation.html">jmm/docstrings-2-blockref-boogaloo</a></dd>
+      <dd><a href="../../../jmm/fix-block-less-than-ranks/src/instrumentation.html">jmm/fix-block-less-than-ranks</a></dd>
+      <dd><a href="../../../jmm/pyproxy/src/instrumentation.html">jmm/pyproxy</a></dd>
+      <dd><a href="../../../jmm/shrinkcores/src/instrumentation.html">jmm/shrinkcores</a></dd>
+      <dd><a href="../../../jmm/submeshdata-2/src/instrumentation.html">jmm/submeshdata-2</a></dd>
+      <dd><a href="../../../jmm/token-scratch/src/instrumentation.html">jmm/token-scratch</a></dd>
+      <dd><a href="../../../jmm/turorial/src/instrumentation.html">jmm/turorial</a></dd>
+      <dd><a href="../../../lkasselm/fft/src/instrumentation.html">lkasselm/fft</a></dd>
+      <dd><a href="../../../lkasselm/fft-backup/src/instrumentation.html">lkasselm/fft-backup</a></dd>
+      <dd><a href="../../../lrobert36/update-index-split-manual/src/instrumentation.html">lrobert36/update-index-split-manual</a></dd>
+      <dd><a href="../../../lroberts36/add-callback-taskstatus/src/instrumentation.html">lroberts36/add-callback-taskstatus</a></dd>
+      <dd><a href="../../../lroberts36/add-densitization-solver-option/src/instrumentation.html">lroberts36/add-densitization-solver-option</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-indices/src/instrumentation.html">lroberts36/add-sparse-indices</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/src/instrumentation.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/fix-cellmemaligned-independent/src/instrumentation.html">lroberts36/fix-cellmemaligned-independent</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-flag-error/src/instrumentation.html">lroberts36/fix-multigrid-flag-error</a></dd>
+      <dd><a href="../../../lroberts36/fix-multiple-solvers/src/instrumentation.html">lroberts36/fix-multiple-solvers</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/src/instrumentation.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/src/instrumentation.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/imex-advection/src/instrumentation.html">lroberts36/imex-advection</a></dd>
+      <dd><a href="../../../lroberts36/loop-benchmarks-bench/src/instrumentation.html">lroberts36/loop-benchmarks-bench</a></dd>
+      <dd><a href="../../../lroberts36/python-field-init/src/instrumentation.html">lroberts36/python-field-init</a></dd>
+      <dd><a href="../../../lroberts36/python-input-support/src/instrumentation.html">lroberts36/python-input-support</a></dd>
+      <dd><a href="../../../lroberts36/solver-noncell-vars/src/instrumentation.html">lroberts36/solver-noncell-vars</a></dd>
+      <dd><a href="../../../lroberts36/solver-speedups/src/instrumentation.html">lroberts36/solver-speedups</a></dd>
+      <dd><a href="../../../lroberts36/solver-timing/src/instrumentation.html">lroberts36/solver-timing</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/index.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../lroberts36/switch-to-weak-ptrs/src/instrumentation.html">lroberts36/switch-to-weak-ptrs</a></dd>
+      <dd><a href="../../../lroberts36/temp-p1-branch/src/instrumentation.html">lroberts36/temp-p1-branch</a></dd>
+      <dd><a href="../../../lroberts36/tensor-library-packs/src/instrumentation.html">lroberts36/tensor-library-packs</a></dd>
+      <dd><a href="../../../lroberts36/test-forest-mesh/src/instrumentation.html">lroberts36/test-forest-mesh</a></dd>
+      <dd><a href="../../../lroberts36/update-diffusion-example/src/instrumentation.html">lroberts36/update-diffusion-example</a></dd>
+      <dd><a href="../../../lroberts36/update-sparse-ids/src/instrumentation.html">lroberts36/update-sparse-ids</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/index.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/instrumentation.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pdmullen/towards-curv-swarm/src/instrumentation.html">pdmullen/towards-curv-swarm</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/src/instrumentation.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/energy-transfer/src/instrumentation.html">pgrete/energy-transfer</a></dd>
+      <dd><a href="../../../pgrete/enspec/src/instrumentation.html">pgrete/enspec</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/index.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/jupiter/src/instrumentation.html">pgrete/jupiter</a></dd>
+      <dd><a href="../../../pgrete/jupiter-26/src/instrumentation.html">pgrete/jupiter-26</a></dd>
+      <dd><a href="../../../pgrete/metadata-allow-new-field-restart/src/instrumentation.html">pgrete/metadata-allow-new-field-restart</a></dd>
+      <dd><a href="../../../pgrete/pmd-output-wuser/src/instrumentation.html">pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/unique-ids/src/instrumentation.html">pgrete/unique-ids</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/instrumentation.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../swjones/asym_halos/src/instrumentation.html">swjones/asym_halos</a></dd>
+      <dd><a href="../../../swjones/dt_package_reporting/src/instrumentation.html">swjones/dt_package_reporting</a></dd>
+      <dd><a href="../../../swjones/rk34_integrator-unit-test/src/instrumentation.html">swjones/rk34_integrator-unit-test</a></dd>
+      <dd><a href="../../../swjones/tensor-library/src/instrumentation.html">swjones/tensor-library</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

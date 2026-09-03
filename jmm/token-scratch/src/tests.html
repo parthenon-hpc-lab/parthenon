@@ -1,0 +1,341 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How to add tests to Parthenon &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=e2af37d4" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="How to Use Sphinx for Writing Docs" href="sphinx-doc.html" />
+    <link rel="prev" title="Coding concepts" href="development.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Chapters</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="chapters/getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/parallelism_performance.html">Parallelism and Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/advanced_features.html">Advanced Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/api_reference.html">API Reference</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="chapters/developer_guide.html">Developer Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l2"><a class="reference internal" href="contributing.html">Contributing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development.html">Coding concepts</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">How to add tests to Parthenon</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#unit-tests">Unit Tests</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#regression-tests">Regression Tests</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gold-files">Gold Files</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="chapters/developer_guide.html">Developer Guide</a></li>
+      <li class="breadcrumb-item active">How to add tests to Parthenon</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/tests.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="how-to-add-tests-to-parthenon">
+<span id="tests"></span><h1>How to add tests to Parthenon<a class="headerlink" href="#how-to-add-tests-to-parthenon" title="Link to this heading"></a></h1>
+<section id="unit-tests">
+<h2>Unit Tests<a class="headerlink" href="#unit-tests" title="Link to this heading"></a></h2>
+<p>Unit tests are straightforward to implement. Open the <code class="docutils literal notranslate"><span class="pre">tst/unit</span></code>
+directory to see the current test suites. You may either add a new
+file to this directory (and the associated <code class="docutils literal notranslate"><span class="pre">CMakeLists.txt</span></code> file, or
+extend an existing file.</p>
+<p>Parthenon uses the <a class="reference external" href="https://github.com/catchorg/Catch2/tree/v2.x">Catch2</a> unit test framework. Tests are typically
+written in the following format:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">TEST_CASE</span><span class="p">(</span><span class="s">"Name"</span><span class="p">,</span><span class="w"> </span><span class="s">"[category1][category2]"</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">GIVEN</span><span class="p">(</span><span class="s">"Set up code"</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// some code</span>
+<span class="w">    </span><span class="n">WHEN</span><span class="p">(</span><span class="s">"Trigger"</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">THEN</span><span class="p">(</span><span class="s">"Condition"</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">REQUIRE</span><span class="p">(</span><span class="n">some_bool_expression</span><span class="p">);</span>
+<span class="w">      </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>See the Catch documentation for more details.</p>
+</section>
+<section id="regression-tests">
+<h2>Regression Tests<a class="headerlink" href="#regression-tests" title="Link to this heading"></a></h2>
+<p>The regression test infrastructure is more complicated, and our
+regression test infrastructure is built on a mix of Python and
+CMake. Each test is defined by a <em>test suite</em>. You can find the test
+suites in the <code class="docutils literal notranslate"><span class="pre">tst/regression/test_suites</span></code> directory. Each test
+suite is a Python module that defines a <code class="docutils literal notranslate"><span class="pre">TestCase</span></code> class, which
+inherits from the abstract base class provided by the
+<code class="docutils literal notranslate"><span class="pre">utils.test_case</span></code> module included in the test suite. A <code class="docutils literal notranslate"><span class="pre">TestCase</span></code>
+class must implement the following methods:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Prepare(self,</span> <span class="pre">parameters,</span> <span class="pre">step)</span></code> is the python code which sets up
+a simulation run. It modifies an included input deck for a given
+test, based on the test design. The <code class="docutils literal notranslate"><span class="pre">parameters</span></code> input contains a
+list of command line arguments that should modify the parthenon
+run. These are passed in to the test infrastructure via CMake
+(described below). The <code class="docutils literal notranslate"><span class="pre">step</span></code> argument is an integer. It is used
+for regression tests that require multiple simulation runs, such as
+a convergence test.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Analyze(self,</span> <span class="pre">parameters)</span></code> is the post-processing step that
+checks whether or not the test passed. Some tests compare to gold
+files (described further below) and some simply compare to a known
+solution.</p></li>
+</ul>
+<p>A test suite needs to have not only the python file containing the
+<code class="docutils literal notranslate"><span class="pre">TestCase</span></code> class, but an empty <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code> file to match the
+Python module API.</p>
+<p>After adding a module, you must also modify the file
+<code class="docutils literal notranslate"><span class="pre">tst/regression/CMakeLists.txt</span></code>. In particular for a new regression
+test, you must add a set of arguments like these:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>list(APPEND TEST_DIRS name_of_folder )
+list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+list(APPEND TEST_ARGS args_to_pass_to_run_test.py )
+list(APPEND EXTRA_TEST_LABELS "my-awesome-test")
+</pre></div>
+</div>
+<p>The first argument specifies the name of the folder containing the new
+python module for the new test. The second argument specifies number
+of MPI ranks if the test should be run with MPI (specify 1 if
+not). The third argument specifies arguments to pass to your test
+suite, for example</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">"--driver $</span><span class="si">{PROJECT_BINARY_DIR}</span><span class="s2">/example/advection/advection-example --driver_input $</span><span class="si">{CMAKE_CURRENT_SOURCE_DIR}</span><span class="s2">/test_suites/advection_performance/parthinput.advection_performance --num_steps 4"</span>
+</pre></div>
+</div>
+<p>which would specify which application to run for the test, as well as the input deck and the number of steps.</p>
+<p>The final argument specifies labels attached to the test for use with
+CTest.</p>
+</section>
+<section id="gold-files">
+<h2>Gold Files<a class="headerlink" href="#gold-files" title="Link to this heading"></a></h2>
+<p>Many tests use so-called <em>gold files</em>, files are files containing
+known results to compare against. Parthenon bundles its gold files as
+part of releases. These files are automatically downloaded and are
+located in <code class="docutils literal notranslate"><span class="pre">tst/regression/gold_standard</span></code>. To add a new gold file
+(or update an old one), place it in this directory.</p>
+<p>To make the new (or updated) test official, you must add it to the
+official test suite. First update
+<code class="docutils literal notranslate"><span class="pre">tst/regression/gold_standard/README.rst</span></code> and add a new version of
+the test suite, corresponding to the commit where you added the
+relevant test code and an explanation for why the gold files needed to
+change. Then run the script <code class="docutils literal notranslate"><span class="pre">`make_tarball.sh</span></code> as</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">bash</span> <span class="n">make_tarball</span><span class="o">.</span><span class="n">sh</span> <span class="n">NEW_VERSION</span>
+</pre></div>
+</div>
+<p>where <code class="docutils literal notranslate"><span class="pre">NEW_VERSION</span></code> is the new version of the gold files (not
+necessarily tied to the version of the code release). You can then ask
+a maintainer to create a new goldfile release and attach the resultant
+tarball to the release.</p>
+<p>As a sanity check, Parthenon checks against the <code class="docutils literal notranslate"><span class="pre">sha512</span></code> hash of the
+tarball. The make tarball script will output the hash. The new version
+and new hash must be set as the default values of the
+<code class="docutils literal notranslate"><span class="pre">REGRESSION_GOLD_STANDARD_VER</span></code> and <code class="docutils literal notranslate"><span class="pre">REGRESSION_GOLD_STANDARD_HASH</span></code>
+in the top level <code class="docutils literal notranslate"><span class="pre">CMakeLists.txt</span></code> file.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="development.html" class="btn btn-neutral float-left" title="Coding concepts" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="sphinx-doc.html" class="btn btn-neutral float-right" title="How to Use Sphinx for Writing Docs" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: jmm/token-scratch
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/index.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/index.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/index.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/tests.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/tests.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/tests.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/tests.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/tests.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/tests.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/tests.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../regression-gold-v26/src/tests.html">regression-gold-v26</a></dd>
+      <dd><a href="../../../regression-gold-v27/src/tests.html">regression-gold-v27</a></dd>
+      <dd><a href="../../../regression-gold-v28/src/tests.html">regression-gold-v28</a></dd>
+      <dd><a href="../../../v0.8.0/index.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/tests.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/tests.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/tests.html">v24.08</a></dd>
+      <dd><a href="../../../v25.05/src/tests.html">v25.05</a></dd>
+      <dd><a href="../../../v25.12/src/tests.html">v25.12</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../BenWibking/mainloop-debug-output-callback/src/tests.html">BenWibking/mainloop-debug-output-callback</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/tests.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../HEAD/src/tests.html">HEAD</a></dd>
+      <dd><a href="../../../acreyes/hypre-diffusion-example/src/tests.html">acreyes/hypre-diffusion-example</a></dd>
+      <dd><a href="../../../ats5/src/tests.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/tests.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/tests.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/tests.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../blb/toml/src/tests.html">blb/toml</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/tests.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/tests.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../brryan/kokkos_sort/src/tests.html">brryan/kokkos_sort</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/tests.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/tests.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/tests.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../c-prather/fix-oneblock/src/tests.html">c-prather/fix-oneblock</a></dd>
+      <dd><a href="../../../c-prather/sigint-kill/src/tests.html">c-prather/sigint-kill</a></dd>
+      <dd><a href="../../../cep/one-block-mesh/src/tests.html">cep/one-block-mesh</a></dd>
+      <dd><a href="../../../dempsey/rummy/src/tests.html">dempsey/rummy</a></dd>
+      <dd><a href="../../../dempsey/rummy2/src/tests.html">dempsey/rummy2</a></dd>
+      <dd><a href="../../../dempsey/rummy3/src/tests.html">dempsey/rummy3</a></dd>
+      <dd><a href="../../../dempsey/swarm_amr/src/tests.html">dempsey/swarm_amr</a></dd>
+      <dd><a href="../../../develop/src/tests.html">develop</a></dd>
+      <dd><a href="../../../fglines-nv/optimize-burgers/src/tests.html">fglines-nv/optimize-burgers</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/tests.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/tests.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/loop-benchmarks/src/tests.html">jdolence/loop-benchmarks</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/src/tests.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/src/tests.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/src/tests.html">jdolence/trace</a></dd>
+      <dd><a href="../../clear-particles-in-pgen/src/tests.html">jmm/clear-particles-in-pgen</a></dd>
+      <dd><a href="../../docstrings-2-blockref-boogaloo/src/tests.html">jmm/docstrings-2-blockref-boogaloo</a></dd>
+      <dd><a href="../../fix-block-less-than-ranks/src/tests.html">jmm/fix-block-less-than-ranks</a></dd>
+      <dd><a href="../../pyproxy/src/tests.html">jmm/pyproxy</a></dd>
+      <dd><a href="../../shrinkcores/src/tests.html">jmm/shrinkcores</a></dd>
+      <dd><a href="../../submeshdata-2/src/tests.html">jmm/submeshdata-2</a></dd>
+      <dd><a href="tests.html">jmm/token-scratch</a></dd>
+      <dd><a href="../../turorial/src/tests.html">jmm/turorial</a></dd>
+      <dd><a href="../../../lkasselm/fft/src/tests.html">lkasselm/fft</a></dd>
+      <dd><a href="../../../lkasselm/fft-backup/src/tests.html">lkasselm/fft-backup</a></dd>
+      <dd><a href="../../../lrobert36/update-index-split-manual/src/tests.html">lrobert36/update-index-split-manual</a></dd>
+      <dd><a href="../../../lroberts36/add-callback-taskstatus/src/tests.html">lroberts36/add-callback-taskstatus</a></dd>
+      <dd><a href="../../../lroberts36/add-densitization-solver-option/src/tests.html">lroberts36/add-densitization-solver-option</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-indices/src/tests.html">lroberts36/add-sparse-indices</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/src/tests.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/fix-cellmemaligned-independent/src/tests.html">lroberts36/fix-cellmemaligned-independent</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-flag-error/src/tests.html">lroberts36/fix-multigrid-flag-error</a></dd>
+      <dd><a href="../../../lroberts36/fix-multiple-solvers/src/tests.html">lroberts36/fix-multiple-solvers</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/src/tests.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/src/tests.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/imex-advection/src/tests.html">lroberts36/imex-advection</a></dd>
+      <dd><a href="../../../lroberts36/loop-benchmarks-bench/src/tests.html">lroberts36/loop-benchmarks-bench</a></dd>
+      <dd><a href="../../../lroberts36/python-field-init/src/tests.html">lroberts36/python-field-init</a></dd>
+      <dd><a href="../../../lroberts36/python-input-support/src/tests.html">lroberts36/python-input-support</a></dd>
+      <dd><a href="../../../lroberts36/solver-noncell-vars/src/tests.html">lroberts36/solver-noncell-vars</a></dd>
+      <dd><a href="../../../lroberts36/solver-speedups/src/tests.html">lroberts36/solver-speedups</a></dd>
+      <dd><a href="../../../lroberts36/solver-timing/src/tests.html">lroberts36/solver-timing</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/src/tests.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../lroberts36/switch-to-weak-ptrs/src/tests.html">lroberts36/switch-to-weak-ptrs</a></dd>
+      <dd><a href="../../../lroberts36/temp-p1-branch/src/tests.html">lroberts36/temp-p1-branch</a></dd>
+      <dd><a href="../../../lroberts36/tensor-library-packs/src/tests.html">lroberts36/tensor-library-packs</a></dd>
+      <dd><a href="../../../lroberts36/test-forest-mesh/src/tests.html">lroberts36/test-forest-mesh</a></dd>
+      <dd><a href="../../../lroberts36/update-diffusion-example/src/tests.html">lroberts36/update-diffusion-example</a></dd>
+      <dd><a href="../../../lroberts36/update-sparse-ids/src/tests.html">lroberts36/update-sparse-ids</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/tests.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/tests.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pdmullen/towards-curv-swarm/src/tests.html">pdmullen/towards-curv-swarm</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/src/tests.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/energy-transfer/src/tests.html">pgrete/energy-transfer</a></dd>
+      <dd><a href="../../../pgrete/enspec/src/tests.html">pgrete/enspec</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/src/tests.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/jupiter/src/tests.html">pgrete/jupiter</a></dd>
+      <dd><a href="../../../pgrete/jupiter-26/src/tests.html">pgrete/jupiter-26</a></dd>
+      <dd><a href="../../../pgrete/metadata-allow-new-field-restart/src/tests.html">pgrete/metadata-allow-new-field-restart</a></dd>
+      <dd><a href="../../../pgrete/pmd-output-wuser/src/tests.html">pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/unique-ids/src/tests.html">pgrete/unique-ids</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/tests.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../swjones/asym_halos/src/tests.html">swjones/asym_halos</a></dd>
+      <dd><a href="../../../swjones/dt_package_reporting/src/tests.html">swjones/dt_package_reporting</a></dd>
+      <dd><a href="../../../swjones/rk34_integrator-unit-test/src/tests.html">swjones/rk34_integrator-unit-test</a></dd>
+      <dd><a href="../../../swjones/tensor-library/src/tests.html">swjones/tensor-library</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

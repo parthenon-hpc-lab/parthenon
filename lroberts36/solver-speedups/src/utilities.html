@@ -1,0 +1,287 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Utilities &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=e2af37d4" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="API Reference" href="chapters/api_reference.html" />
+    <link rel="prev" title="Parthenon Built-in Physical Constants" href="constants.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Chapters</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="chapters/getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/parallelism_performance.html">Parallelism and Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/advanced_features.html">Advanced Features</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="chapters/reference.html">Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="0_input_parameters_ref.html">Input Parameters Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#typelists"><code class="docutils literal notranslate"><span class="pre">TypeList</span></code>s</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#robust">Robust</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c-11-style-concepts-implementation">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#indexer"><code class="docutils literal notranslate"><span class="pre">Indexer</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/api_reference.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/developer_guide.html">Developer Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="chapters/reference.html">Reference</a></li>
+      <li class="breadcrumb-item active">Utilities</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/utilities.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="utilities">
+<h1>Utilities<a class="headerlink" href="#utilities" title="Link to this heading"></a></h1>
+<section id="typelists">
+<h2><code class="docutils literal notranslate"><span class="pre">TypeList</span></code>s<a class="headerlink" href="#typelists" title="Link to this heading"></a></h2>
+<p>Provides a wrapper class around a variadic pack of types to simplify
+performing compile time operations on the pack. There are templated
+types defined giving the type at a particular index in the pack, types
+for extracting sub-<code class="docutils literal notranslate"><span class="pre">TypeList</span></code>s of the original type list, and <code class="docutils literal notranslate"><span class="pre">constexpr</span></code>
+functions for getting the index of the first instance of a type in the
+pack. Additionally it provides a capability for iterating an <code class="docutils literal notranslate"><span class="pre">auto</span></code> lambda
+over the type list, which can be useful for calling a <code class="docutils literal notranslate"><span class="pre">static</span></code> function
+defined for each of the types on each of the types. <em>In the future, it
+would be nice to have the capability to make a unique type list from
+another type list (i.e. the unique one only a single instance of each type
+in the original type list)</em></p>
+<p><code class="docutils literal notranslate"><span class="pre">TypeList</span></code>s have many applications and are commonly found in many
+codebases, but in Parthenon one of the main use cases is for storing
+lists of types associated with field variables that are used in type
+based <code class="docutils literal notranslate"><span class="pre">SparsePack</span></code>s.</p>
+</section>
+<section id="robust">
+<h2>Robust<a class="headerlink" href="#robust" title="Link to this heading"></a></h2>
+<p>Provides a number of functions for doing operations on floating point
+numbers that are bounded, avoid division by zero, etc.</p>
+</section>
+<section id="c-11-style-concepts-implementation">
+<h2>C++11 Style Concepts Implementation<a class="headerlink" href="#c-11-style-concepts-implementation" title="Link to this heading"></a></h2>
+<p><em>This documentation needs to be written (see issue #695), but there are
+extensive comments in src/utlils/concepts_lite.hpp and examples of
+useage in tst/unit/test_concepts_lite.hpp</em></p>
+</section>
+<section id="indexer">
+<h2><code class="docutils literal notranslate"><span class="pre">Indexer</span></code><a class="headerlink" href="#indexer" title="Link to this heading"></a></h2>
+<p>Provides functionality for iterating over an arbitrary dimensional
+hyper-rectangular index space using a flattened loop. Specific
+instantiations, e.g. <code class="docutils literal notranslate"><span class="pre">Indexer5D</span></code>, are provided up to eight
+dimensions. Useage:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">Indexer4D</span><span class="w"> </span><span class="nf">idxer</span><span class="p">({</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="mi">16</span><span class="p">});</span>
+<span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">flat_idx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">flat_idx</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">idxer</span><span class="p">.</span><span class="n">size</span><span class="p">();</span><span class="w"> </span><span class="o">++</span><span class="n">flat_idx</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">l</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">idxer</span><span class="p">(</span><span class="n">flat_idx</span><span class="p">);</span>
+<span class="w">  </span><span class="c1">// Do stuff in the 4D index space...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="constants.html" class="btn btn-neutral float-left" title="Parthenon Built-in Physical Constants" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="chapters/api_reference.html" class="btn btn-neutral float-right" title="API Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: lroberts36/solver-speedups
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/index.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/index.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/index.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/index.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/index.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/index.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/index.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/index.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/index.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/utilities.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../regression-gold-v26/src/utilities.html">regression-gold-v26</a></dd>
+      <dd><a href="../../../regression-gold-v27/src/utilities.html">regression-gold-v27</a></dd>
+      <dd><a href="../../../regression-gold-v28/src/utilities.html">regression-gold-v28</a></dd>
+      <dd><a href="../../../v0.8.0/index.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/index.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/index.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/utilities.html">v24.08</a></dd>
+      <dd><a href="../../../v25.05/src/utilities.html">v25.05</a></dd>
+      <dd><a href="../../../v25.12/src/utilities.html">v25.12</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../BenWibking/mainloop-debug-output-callback/src/utilities.html">BenWibking/mainloop-debug-output-callback</a></dd>
+      <dd><a href="../../../BenWibking/move-params/index.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../HEAD/src/utilities.html">HEAD</a></dd>
+      <dd><a href="../../../acreyes/hypre-diffusion-example/src/utilities.html">acreyes/hypre-diffusion-example</a></dd>
+      <dd><a href="../../../ats5/index.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/index.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/index.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/index.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../blb/toml/src/utilities.html">blb/toml</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/index.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/index.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../brryan/kokkos_sort/src/utilities.html">brryan/kokkos_sort</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/index.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/index.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/index.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../c-prather/fix-oneblock/src/utilities.html">c-prather/fix-oneblock</a></dd>
+      <dd><a href="../../../c-prather/sigint-kill/src/utilities.html">c-prather/sigint-kill</a></dd>
+      <dd><a href="../../../cep/one-block-mesh/src/utilities.html">cep/one-block-mesh</a></dd>
+      <dd><a href="../../../dempsey/rummy/src/utilities.html">dempsey/rummy</a></dd>
+      <dd><a href="../../../dempsey/rummy2/src/utilities.html">dempsey/rummy2</a></dd>
+      <dd><a href="../../../dempsey/rummy3/src/utilities.html">dempsey/rummy3</a></dd>
+      <dd><a href="../../../dempsey/swarm_amr/src/utilities.html">dempsey/swarm_amr</a></dd>
+      <dd><a href="../../../develop/src/utilities.html">develop</a></dd>
+      <dd><a href="../../../fglines-nv/optimize-burgers/src/utilities.html">fglines-nv/optimize-burgers</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/index.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/index.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/loop-benchmarks/src/utilities.html">jdolence/loop-benchmarks</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/index.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/index.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/index.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/clear-particles-in-pgen/src/utilities.html">jmm/clear-particles-in-pgen</a></dd>
+      <dd><a href="../../../jmm/docstrings-2-blockref-boogaloo/src/utilities.html">jmm/docstrings-2-blockref-boogaloo</a></dd>
+      <dd><a href="../../../jmm/fix-block-less-than-ranks/src/utilities.html">jmm/fix-block-less-than-ranks</a></dd>
+      <dd><a href="../../../jmm/pyproxy/src/utilities.html">jmm/pyproxy</a></dd>
+      <dd><a href="../../../jmm/shrinkcores/src/utilities.html">jmm/shrinkcores</a></dd>
+      <dd><a href="../../../jmm/submeshdata-2/src/utilities.html">jmm/submeshdata-2</a></dd>
+      <dd><a href="../../../jmm/token-scratch/src/utilities.html">jmm/token-scratch</a></dd>
+      <dd><a href="../../../jmm/turorial/src/utilities.html">jmm/turorial</a></dd>
+      <dd><a href="../../../lkasselm/fft/src/utilities.html">lkasselm/fft</a></dd>
+      <dd><a href="../../../lkasselm/fft-backup/src/utilities.html">lkasselm/fft-backup</a></dd>
+      <dd><a href="../../../lrobert36/update-index-split-manual/src/utilities.html">lrobert36/update-index-split-manual</a></dd>
+      <dd><a href="../../add-callback-taskstatus/src/utilities.html">lroberts36/add-callback-taskstatus</a></dd>
+      <dd><a href="../../add-densitization-solver-option/src/utilities.html">lroberts36/add-densitization-solver-option</a></dd>
+      <dd><a href="../../add-sparse-indices/src/utilities.html">lroberts36/add-sparse-indices</a></dd>
+      <dd><a href="../../boundary-comms-perforfmance-upgrades/src/utilities.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../fix-cellmemaligned-independent/src/utilities.html">lroberts36/fix-cellmemaligned-independent</a></dd>
+      <dd><a href="../../fix-multigrid-flag-error/src/utilities.html">lroberts36/fix-multigrid-flag-error</a></dd>
+      <dd><a href="../../fix-multiple-solvers/src/utilities.html">lroberts36/fix-multiple-solvers</a></dd>
+      <dd><a href="../../fix-sptr-cycle-tree/index.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../generalize-par-dispatch/src/utilities.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../imex-advection/src/utilities.html">lroberts36/imex-advection</a></dd>
+      <dd><a href="../../loop-benchmarks-bench/src/utilities.html">lroberts36/loop-benchmarks-bench</a></dd>
+      <dd><a href="../../python-field-init/src/utilities.html">lroberts36/python-field-init</a></dd>
+      <dd><a href="../../python-input-support/src/utilities.html">lroberts36/python-input-support</a></dd>
+      <dd><a href="../../solver-noncell-vars/src/utilities.html">lroberts36/solver-noncell-vars</a></dd>
+      <dd><a href="utilities.html">lroberts36/solver-speedups</a></dd>
+      <dd><a href="../../solver-timing/src/utilities.html">lroberts36/solver-timing</a></dd>
+      <dd><a href="../../speedup-buffer-kernel-split/index.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../switch-to-weak-ptrs/src/utilities.html">lroberts36/switch-to-weak-ptrs</a></dd>
+      <dd><a href="../../temp-p1-branch/src/utilities.html">lroberts36/temp-p1-branch</a></dd>
+      <dd><a href="../../tensor-library-packs/src/utilities.html">lroberts36/tensor-library-packs</a></dd>
+      <dd><a href="../../test-forest-mesh/src/utilities.html">lroberts36/test-forest-mesh</a></dd>
+      <dd><a href="../../update-diffusion-example/src/utilities.html">lroberts36/update-diffusion-example</a></dd>
+      <dd><a href="../../update-sparse-ids/src/utilities.html">lroberts36/update-sparse-ids</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/index.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/index.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pdmullen/towards-curv-swarm/src/utilities.html">pdmullen/towards-curv-swarm</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/index.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/energy-transfer/src/utilities.html">pgrete/energy-transfer</a></dd>
+      <dd><a href="../../../pgrete/enspec/src/utilities.html">pgrete/enspec</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/index.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/jupiter/src/utilities.html">pgrete/jupiter</a></dd>
+      <dd><a href="../../../pgrete/jupiter-26/src/utilities.html">pgrete/jupiter-26</a></dd>
+      <dd><a href="../../../pgrete/metadata-allow-new-field-restart/src/utilities.html">pgrete/metadata-allow-new-field-restart</a></dd>
+      <dd><a href="../../../pgrete/pmd-output-wuser/src/utilities.html">pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/unique-ids/src/utilities.html">pgrete/unique-ids</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/utilities.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../swjones/asym_halos/src/utilities.html">swjones/asym_halos</a></dd>
+      <dd><a href="../../../swjones/dt_package_reporting/src/utilities.html">swjones/dt_package_reporting</a></dd>
+      <dd><a href="../../../swjones/rk34_integrator-unit-test/src/utilities.html">swjones/rk34_integrator-unit-test</a></dd>
+      <dd><a href="../../../swjones/tensor-library/src/utilities.html">swjones/tensor-library</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

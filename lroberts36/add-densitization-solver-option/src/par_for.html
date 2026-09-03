@@ -1,0 +1,408 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parallelism &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=e2af37d4" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Nested Parallelism" href="nested_par_for.html" />
+    <link rel="prev" title="Parallelism and Performance" href="chapters/parallelism_performance.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Chapters</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="chapters/getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="chapters/parallelism_performance.html">Parallelism and Performance</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Parallelism</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#cmake-options">Cmake Options</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#adding-new-loop-patterns">Adding New Loop Patterns</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#adding-new-loop-bound-types">Adding New Loop Bound Types</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reductions.html">Task-based reductions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="instrumentation.html">Performance Instrumentation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/advanced_features.html">Advanced Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/api_reference.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/developer_guide.html">Developer Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="chapters/parallelism_performance.html">Parallelism and Performance</a></li>
+      <li class="breadcrumb-item active">Parallelism</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/par_for.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="parallelism">
+<h1>Parallelism<a class="headerlink" href="#parallelism" title="Link to this heading"></a></h1>
+<p>The loop wrappers documented here abstract the <code class="docutils literal notranslate"><span class="pre">Kokkos::parallel_*</span></code> parallel launches. The wrappers
+simplify the use of Kokkos <a class="reference external" href="https://kokkos.org/kokkos-core-wiki/API/core/Execution-Policies.html">execution policies</a>
+for multidimensional loops through a common interface using loop pattern tags.</p>
+<p>Additionally there is a provided <code class="docutils literal notranslate"><span class="pre">parthenon::seq_for</span></code> wrapper that uses a similar interface to perform
+multidimensional sequential loops.</p>
+<p>An example of usage can be found in <a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon/blob/develop/tst/unit/kokkos_abstraction.cpp">the unit
+test</a></p>
+<table class="docutils align-default" id="id1">
+<caption><span class="caption-text">parallel launches</span><a class="headerlink" href="#id1" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 50.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parthenon</p></th>
+<th class="head"><p>Kokkos</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">par_for</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">parallel_for</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">par_reduce</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">parallel_reduce</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">par_scan</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">parallel_scan</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p>Parallel launches are passed a string label, a set of inclusive loop bounds, a functor, and any extra arguments needed
+for parallel reductions/scans. Optionally a loop pattern tag and an execution space may be provided.
+When ommitted the <code class="docutils literal notranslate"><span class="pre">DEFAULT_LOOP_PATTERN</span></code> is used.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">parthenon</span><span class="o">::</span><span class="n">par_for</span><span class="p">(</span>
+<span class="w">    </span><span class="n">loop_pattern_tag</span><span class="p">,</span><span class="w"> </span><span class="n">exec_space</span><span class="p">,</span><span class="w"> </span><span class="n">PARTHENON_AUTO_LABEL</span><span class="p">,</span><span class="w"> </span><span class="n">ks</span><span class="p">,</span><span class="w"> </span><span class="n">ke</span><span class="p">,</span><span class="w"> </span><span class="n">js</span><span class="p">,</span><span class="w"> </span><span class="n">je</span><span class="p">,</span><span class="w"> </span><span class="n">is</span><span class="p">,</span><span class="w"> </span><span class="n">ie</span><span class="p">,</span>
+<span class="w">    </span><span class="n">KOKKOS_LAMBDA</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">data</span><span class="p">(</span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="mf">1.</span><span class="p">;</span>
+<span class="w">    </span><span class="p">});</span>
+</pre></div>
+</div>
+<table class="docutils align-default" id="id2">
+<caption><span class="caption-text">parallel launch parameters</span><a class="headerlink" href="#id2" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 75.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>loop_pattern_tag</p></td>
+<td><p>Determines the execution policy. See table below.</p></td>
+</tr>
+<tr class="row-odd"><td><p>exec_space</p></td>
+<td><p>kokkos execution space</p></td>
+</tr>
+<tr class="row-even"><td><p>loop bounds</p></td>
+<td><p>inclusive start/end pairs for the multidimensional loop. Supported types are <code class="docutils literal notranslate"><span class="pre">integral</span></code> and <code class="docutils literal notranslate"><span class="pre">parthenon::IndexRange</span></code>.
+Can be extended to accept other types (see below).</p></td>
+</tr>
+<tr class="row-odd"><td><p>functor</p></td>
+<td><p>Defines the body of the parallel loop.
+See <a class="reference external" href="https://kokkos.org/kokkos-core-wiki/ProgrammingGuide/ParallelDispatch.html#functors">Kokkos programming guide</a>
+for more.</p></td>
+</tr>
+</tbody>
+</table>
+<table class="docutils align-default" id="id3">
+<caption><span class="caption-text">Loop Pattern tags</span><a class="headerlink" href="#id3" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 40.0%" />
+<col style="width: 60.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Tag</p></th>
+<th class="head"><p>Execution Policy</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">loop_pattern_flatrange_tag</span></code></p></td>
+<td><p>Flattens all of the loops into a single <code class="docutils literal notranslate"><span class="pre">Kokkos::RangePolicy</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">loop_pattern_simdfor_tag</span></code></p></td>
+<td><p>Maps to two C-style loops. The innermost gets decorated with a <code class="docutils literal notranslate"><span class="pre">#pragma</span> <span class="pre">omp</span> <span class="pre">simd</span></code> and the remaining
+loops are flattened into a single C-style for loop. Only supported on CPU.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">loop_pattern_mdrange_tag</span></code></p></td>
+<td><p>Maps all the loop bounds onto a <code class="docutils literal notranslate"><span class="pre">Kokkos::MDRangePolicy</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LoopPatternTeamThreadVec&lt;Nt,</span> <span class="pre">Nv&gt;()</span></code></p></td>
+<td><p>Maps onto a hierarchical parallel loop. The <code class="docutils literal notranslate"><span class="pre">Nv</span></code> inner loops are flattened onto a <code class="docutils literal notranslate"><span class="pre">VectorRange</span></code> policy,
+the next <code class="docutils literal notranslate"><span class="pre">Nt</span></code> onto a <code class="docutils literal notranslate"><span class="pre">ThreadRange</span></code> policy, and the remaining loops are
+flattened into an outer <code class="docutils literal notranslate"><span class="pre">TeamThreadRange</span></code>. The specializations <code class="docutils literal notranslate"><span class="pre">loop_pattern_[tpttr|tptvr|tpttrtvr]_tag</span></code> correspond
+to <code class="docutils literal notranslate"><span class="pre">&lt;1,0&gt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;0,1&gt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;1,1&gt;</span></code> respectively.</p></td>
+</tr>
+</tbody>
+</table>
+<section id="cmake-options">
+<h2>Cmake Options<a class="headerlink" href="#cmake-options" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">PAR_LOOP_LAYOUT</span></code> controls the <code class="docutils literal notranslate"><span class="pre">DEFAULT_LOOP_PATTERN</span></code> macro.</p>
+<table class="docutils align-default" id="id4">
+<caption><span class="caption-text"><code class="docutils literal notranslate"><span class="pre">PAR_LOOP_LAYOUT</span></code> options.</span><a class="headerlink" href="#id4" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 50.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p><code class="docutils literal notranslate"><span class="pre">PAR_LOOP_LAYOUT</span></code></p></th>
+<th class="head"><p>Pattern Tag</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>“MANUAL1D_LOOP”</p></td>
+<td><p>loop_pattern_flatrange_tag</p></td>
+</tr>
+<tr class="row-odd"><td><p>“SIMDFOR_LOOP”</p></td>
+<td><p>loop_pattern_simdfor_tag</p></td>
+</tr>
+<tr class="row-even"><td><p>“MDRANGE_LOOP”</p></td>
+<td><p>loop_pattern_mdrange_tag</p></td>
+</tr>
+<tr class="row-odd"><td><p>“TP_TTR_LOOP”</p></td>
+<td><p>loop_pattern_tpttr_tag</p></td>
+</tr>
+<tr class="row-even"><td><p>“TP_TVR_LOOP”</p></td>
+<td><p>loop_pattern_tptvr_tag</p></td>
+</tr>
+<tr class="row-odd"><td><p>“TPTTRTVR_LOOP”</p></td>
+<td><p>loop_pattern_tpttrtvr_tag</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="adding-new-loop-patterns">
+<h2>Adding New Loop Patterns<a class="headerlink" href="#adding-new-loop-patterns" title="Link to this heading"></a></h2>
+<p>All of the <code class="docutils literal notranslate"><span class="pre">par_for*</span></code> overloads get processed into the <code class="docutils literal notranslate"><span class="pre">par_dispatch_impl</span></code> struct that
+determines the types of the loop pattern, functor, functor arguments, loop bounds, and any
+extra arguments need for scans/reductions. The struct implements overloads of the
+<code class="docutils literal notranslate"><span class="pre">par_dispatch_impl::dispatch_impl</span></code> method that are tagged using the <code class="docutils literal notranslate"><span class="pre">PatternTag</span></code> <code class="docutils literal notranslate"><span class="pre">enum</span></code>
+to specialize the <code class="docutils literal notranslate"><span class="pre">LoopPatternTag</span></code> struct. New loop patterns need to extend this enum and
+provide an additional overload.</p>
+<p>There is a chance that the requested loop pattern passed through <code class="docutils literal notranslate"><span class="pre">parthenon::par_for</span></code>, for
+example a <code class="docutils literal notranslate"><span class="pre">loop_pattern_simdfor_tag</span></code> <code class="docutils literal notranslate"><span class="pre">DEFAULT_LOOP_PATTERN</span></code> being used in a <code class="docutils literal notranslate"><span class="pre">par_reduce</span></code>,
+resulting in a conflict. For this reason the <code class="docutils literal notranslate"><span class="pre">DispatchType</span></code> type trait provides the
+<code class="docutils literal notranslate"><span class="pre">DispatchType::GetPatternTag()</span></code> method that processes the requested loop pattern and returns
+a <code class="docutils literal notranslate"><span class="pre">PatternTag</span></code> and provides sensible fallbacks for the loop pattern if there are any conflicts.
+In this way <code class="docutils literal notranslate"><span class="pre">DEFAULT_LOOP_PATTERN</span></code> can be reliably used.</p>
+</section>
+<section id="adding-new-loop-bound-types">
+<h2>Adding New Loop Bound Types<a class="headerlink" href="#adding-new-loop-bound-types" title="Link to this heading"></a></h2>
+<p>All of the loop bounds provided to any parallel wrapper gets processed by the <code class="docutils literal notranslate"><span class="pre">LoopBoundTranslator</span></code>
+to determine the rank of the multidimensional loop and translate the start/end pairs into an array
+of <code class="docutils literal notranslate"><span class="pre">IndexRange</span></code> s. Each bound type gets processed individually and allows the flexibility to mix
+loop bound types as long as they are supported.</p>
+<p>New types can be provided by specializing the <code class="docutils literal notranslate"><span class="pre">ProcessLoopBound</span></code> struct in the <code class="docutils literal notranslate"><span class="pre">parthenon</span></code> namespace.
+These structs need to provide a <code class="docutils literal notranslate"><span class="pre">GetNumBounds</span></code> method to count the number of start/end bounds contained
+in the type, as well as a <code class="docutils literal notranslate"><span class="pre">GetIndexRanges</span></code> method to fill the <code class="docutils literal notranslate"><span class="pre">IndexRange</span></code> bounds used in the
+parallel dispatch.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="chapters/parallelism_performance.html" class="btn btn-neutral float-left" title="Parallelism and Performance" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="nested_par_for.html" class="btn btn-neutral float-right" title="Nested Parallelism" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: lroberts36/add-densitization-solver-option
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/index.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/index.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/index.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/index.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/index.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/index.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/index.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/index.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/index.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/index.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../regression-gold-v26/index.html">regression-gold-v26</a></dd>
+      <dd><a href="../../../regression-gold-v27/index.html">regression-gold-v27</a></dd>
+      <dd><a href="../../../regression-gold-v28/src/par_for.html">regression-gold-v28</a></dd>
+      <dd><a href="../../../v0.8.0/index.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/index.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/index.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/index.html">v24.08</a></dd>
+      <dd><a href="../../../v25.05/index.html">v25.05</a></dd>
+      <dd><a href="../../../v25.12/src/par_for.html">v25.12</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../BenWibking/mainloop-debug-output-callback/index.html">BenWibking/mainloop-debug-output-callback</a></dd>
+      <dd><a href="../../../BenWibking/move-params/index.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../HEAD/src/par_for.html">HEAD</a></dd>
+      <dd><a href="../../../acreyes/hypre-diffusion-example/src/par_for.html">acreyes/hypre-diffusion-example</a></dd>
+      <dd><a href="../../../ats5/index.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/index.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/index.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/index.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../blb/toml/index.html">blb/toml</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/index.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/index.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../brryan/kokkos_sort/index.html">brryan/kokkos_sort</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/index.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/index.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/index.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../c-prather/fix-oneblock/src/par_for.html">c-prather/fix-oneblock</a></dd>
+      <dd><a href="../../../c-prather/sigint-kill/src/par_for.html">c-prather/sigint-kill</a></dd>
+      <dd><a href="../../../cep/one-block-mesh/src/par_for.html">cep/one-block-mesh</a></dd>
+      <dd><a href="../../../dempsey/rummy/src/par_for.html">dempsey/rummy</a></dd>
+      <dd><a href="../../../dempsey/rummy2/src/par_for.html">dempsey/rummy2</a></dd>
+      <dd><a href="../../../dempsey/rummy3/src/par_for.html">dempsey/rummy3</a></dd>
+      <dd><a href="../../../dempsey/swarm_amr/src/par_for.html">dempsey/swarm_amr</a></dd>
+      <dd><a href="../../../develop/src/par_for.html">develop</a></dd>
+      <dd><a href="../../../fglines-nv/optimize-burgers/src/par_for.html">fglines-nv/optimize-burgers</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/index.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/index.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/loop-benchmarks/src/par_for.html">jdolence/loop-benchmarks</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/index.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/index.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/index.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/clear-particles-in-pgen/src/par_for.html">jmm/clear-particles-in-pgen</a></dd>
+      <dd><a href="../../../jmm/docstrings-2-blockref-boogaloo/index.html">jmm/docstrings-2-blockref-boogaloo</a></dd>
+      <dd><a href="../../../jmm/fix-block-less-than-ranks/src/par_for.html">jmm/fix-block-less-than-ranks</a></dd>
+      <dd><a href="../../../jmm/pyproxy/src/par_for.html">jmm/pyproxy</a></dd>
+      <dd><a href="../../../jmm/shrinkcores/src/par_for.html">jmm/shrinkcores</a></dd>
+      <dd><a href="../../../jmm/submeshdata-2/src/par_for.html">jmm/submeshdata-2</a></dd>
+      <dd><a href="../../../jmm/token-scratch/src/par_for.html">jmm/token-scratch</a></dd>
+      <dd><a href="../../../jmm/turorial/src/par_for.html">jmm/turorial</a></dd>
+      <dd><a href="../../../lkasselm/fft/src/par_for.html">lkasselm/fft</a></dd>
+      <dd><a href="../../../lkasselm/fft-backup/src/par_for.html">lkasselm/fft-backup</a></dd>
+      <dd><a href="../../../lrobert36/update-index-split-manual/src/par_for.html">lrobert36/update-index-split-manual</a></dd>
+      <dd><a href="../../add-callback-taskstatus/index.html">lroberts36/add-callback-taskstatus</a></dd>
+      <dd><a href="par_for.html">lroberts36/add-densitization-solver-option</a></dd>
+      <dd><a href="../../add-sparse-indices/src/par_for.html">lroberts36/add-sparse-indices</a></dd>
+      <dd><a href="../../boundary-comms-perforfmance-upgrades/index.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../fix-cellmemaligned-independent/src/par_for.html">lroberts36/fix-cellmemaligned-independent</a></dd>
+      <dd><a href="../../fix-multigrid-flag-error/index.html">lroberts36/fix-multigrid-flag-error</a></dd>
+      <dd><a href="../../fix-multiple-solvers/src/par_for.html">lroberts36/fix-multiple-solvers</a></dd>
+      <dd><a href="../../fix-sptr-cycle-tree/index.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../generalize-par-dispatch/index.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../imex-advection/index.html">lroberts36/imex-advection</a></dd>
+      <dd><a href="../../loop-benchmarks-bench/src/par_for.html">lroberts36/loop-benchmarks-bench</a></dd>
+      <dd><a href="../../python-field-init/src/par_for.html">lroberts36/python-field-init</a></dd>
+      <dd><a href="../../python-input-support/src/par_for.html">lroberts36/python-input-support</a></dd>
+      <dd><a href="../../solver-noncell-vars/src/par_for.html">lroberts36/solver-noncell-vars</a></dd>
+      <dd><a href="../../solver-speedups/src/par_for.html">lroberts36/solver-speedups</a></dd>
+      <dd><a href="../../solver-timing/src/par_for.html">lroberts36/solver-timing</a></dd>
+      <dd><a href="../../speedup-buffer-kernel-split/index.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../switch-to-weak-ptrs/src/par_for.html">lroberts36/switch-to-weak-ptrs</a></dd>
+      <dd><a href="../../temp-p1-branch/index.html">lroberts36/temp-p1-branch</a></dd>
+      <dd><a href="../../tensor-library-packs/src/par_for.html">lroberts36/tensor-library-packs</a></dd>
+      <dd><a href="../../test-forest-mesh/src/par_for.html">lroberts36/test-forest-mesh</a></dd>
+      <dd><a href="../../update-diffusion-example/src/par_for.html">lroberts36/update-diffusion-example</a></dd>
+      <dd><a href="../../update-sparse-ids/src/par_for.html">lroberts36/update-sparse-ids</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/index.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/index.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pdmullen/towards-curv-swarm/src/par_for.html">pdmullen/towards-curv-swarm</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/index.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/energy-transfer/src/par_for.html">pgrete/energy-transfer</a></dd>
+      <dd><a href="../../../pgrete/enspec/src/par_for.html">pgrete/enspec</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/index.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/jupiter/src/par_for.html">pgrete/jupiter</a></dd>
+      <dd><a href="../../../pgrete/jupiter-26/src/par_for.html">pgrete/jupiter-26</a></dd>
+      <dd><a href="../../../pgrete/metadata-allow-new-field-restart/index.html">pgrete/metadata-allow-new-field-restart</a></dd>
+      <dd><a href="../../../pgrete/pmd-output-wuser/src/par_for.html">pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/unique-ids/index.html">pgrete/unique-ids</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/par_for.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../swjones/asym_halos/src/par_for.html">swjones/asym_halos</a></dd>
+      <dd><a href="../../../swjones/dt_package_reporting/index.html">swjones/dt_package_reporting</a></dd>
+      <dd><a href="../../../swjones/rk34_integrator-unit-test/src/par_for.html">swjones/rk34_integrator-unit-test</a></dd>
+      <dd><a href="../../../swjones/tensor-library/src/par_for.html">swjones/tensor-library</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,1020 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Input Parameters Reference &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=e2af37d4" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Parthenon Built-in Physical Constants" href="constants.html" />
+    <link rel="prev" title="Reference" href="chapters/reference.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Chapters</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="chapters/getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/parallelism_performance.html">Parallelism and Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/advanced_features.html">Advanced Features</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="chapters/reference.html">Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Input Parameters Reference</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#in-parthenon">In Parthenon</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#in-the-diffusion-example">In the diffusion example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#in-the-burgers-benchmark-parthenon-vibe">In the Burgers benchmark, Parthenon-VIBE</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utilities.html">Utilities</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/api_reference.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/developer_guide.html">Developer Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="chapters/reference.html">Reference</a></li>
+      <li class="breadcrumb-item active">Input Parameters Reference</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/0_input_parameters_ref.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="input-parameters-reference">
+<span id="inputref"></span><h1>Input Parameters Reference<a class="headerlink" href="#input-parameters-reference" title="Link to this heading"></a></h1>
+<p>This reference is automatically generated with Parthenon’s
+<code class="docutils literal notranslate"><span class="pre">ParameterInput</span></code> class. To generate it, pass the <code class="docutils literal notranslate"><span class="pre">-p</span></code> flag into a
+parthenon-based executable (in addition to the other flags you would
+normally pass), and optionally a <code class="docutils literal notranslate"><span class="pre">regex</span></code> to specify which blocks
+you’d like to output. Parthenon will print a valid CSV file to the
+terminal.</p>
+<p>Every call to <code class="docutils literal notranslate"><span class="pre">ParameterInput::Get*</span></code> optionally takes a “docstring”
+as a final argument, which is the details column listed here. Default
+values are recorded if they are available.</p>
+<section id="in-parthenon">
+<h2>In Parthenon<a class="headerlink" href="#in-parthenon" title="Link to this heading"></a></h2>
+<p>An incomplete list of all input parameters provided by Parthenon is tabulated below</p>
+<table class="csv-wrap docutils align-default" id="id1">
+<caption><span class="caption-text">Parthenon input parameters</span><a class="headerlink" href="#id1" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 20.0%" />
+<col style="width: 10.0%" />
+<col style="width: 20.0%" />
+<col style="width: 30.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>block</p></th>
+<th class="head"><p>parameters</p></th>
+<th class="head"><p>type</p></th>
+<th class="head"><p>default</p></th>
+<th class="head"><p>description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>parthenon/job</p></td>
+<td><p>output_params_and_exit</p></td>
+<td><p>bool</p></td>
+<td><p>0</p></td>
+<td><p>output a description of all input parameters accessed and quit</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/job</p></td>
+<td><p>output_params_block_regex</p></td>
+<td><p>string</p></td>
+<td><p>(.*)</p></td>
+<td><p>when outputting input parameters, this selects which input blocks to output; all are output by default</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/job</p></td>
+<td><p>run_only_analysis</p></td>
+<td><p>bool</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/loadbalancing</p></td>
+<td><p>balancer</p></td>
+<td><p>string</p></td>
+<td><p>default</p></td>
+<td><p>load balancing strategy; Allowed values: automatic, default, manual</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/loadbalancing</p></td>
+<td><p>interval</p></td>
+<td><p>int</p></td>
+<td><p>10</p></td>
+<td><p>how frequently load balancing is performed if the mesh does not change</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/loadbalancing</p></td>
+<td><p>tolerance</p></td>
+<td><p>Real</p></td>
+<td><p>0.5</p></td>
+<td><p>load balancer tolerance</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/mesh</p></td>
+<td><p>base_block_coarsenings</p></td>
+<td><p>int</p></td>
+<td><p>0</p></td>
+<td><p>How many times to internally coarsen blocks before going to two-level composite grids</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/mesh</p></td>
+<td><p>boundary_buffer_work_chunk_size</p></td>
+<td><p>int</p></td>
+<td><p>1</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/mesh</p></td>
+<td><p>comm_buffer_chunk_size</p></td>
+<td><p>int</p></td>
+<td><p>-1</p></td>
+<td><p>Number of comm buffers to allocate when more are required. Default is a heuristic.</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/mesh</p></td>
+<td><p>comm_buffer_reset_fraction</p></td>
+<td><p>Real</p></td>
+<td><p>0.8</p></td>
+<td><p>When a check for comm buffer realocation is made (see comm_buffer_reallocate_cadence), reallocation happens only if the number of buffers in use divided by the number of buffers allocated is less than this variable.</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/mesh</p></td>
+<td><p>derefine_count</p></td>
+<td><p>int</p></td>
+<td><p>10</p></td>
+<td><p>number of iterations a block must request derefinement before it is derefined</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/mesh</p></td>
+<td><p>do_coalesced_comms</p></td>
+<td><p>bool</p></td>
+<td><p>0</p></td>
+<td><p>Use coalesced MPI messages for inter-block communication</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/mesh</p></td>
+<td><p>ix1_bc</p></td>
+<td><p>string</p></td>
+<td><p>outflow</p></td>
+<td><p>global mesh boundary condition on inner X1 face</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/mesh</p></td>
+<td><p>ix2_bc</p></td>
+<td><p>string</p></td>
+<td><p>outflow</p></td>
+<td><p>global mesh boundary condition on inner X2 face</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/mesh</p></td>
+<td><p>ix3_bc</p></td>
+<td><p>string</p></td>
+<td><p>outflow</p></td>
+<td><p>global mesh boundary condition on inner X3 face</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/mesh</p></td>
+<td><p>minimum_number_of_teams_for_boundary_kernel</p></td>
+<td><p>int</p></td>
+<td><p>1</p></td>
+<td><p>Minimum number of teams to launch when filling or applying boundary buffers. Additional teams are distributed evenly across buffers.</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/mesh</p></td>
+<td><p>multigrid</p></td>
+<td><p>bool</p></td>
+<td><p>0</p></td>
+<td><p>enable a multigrid mesh</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/mesh</p></td>
+<td><p>nghost</p></td>
+<td><p>int</p></td>
+<td><p>2</p></td>
+<td><p>number of ghost zones on a block</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/mesh</p></td>
+<td><p>num_threads</p></td>
+<td><p>int</p></td>
+<td><p>1</p></td>
+<td><p>number of host threads for infrastructure; unused</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/mesh</p></td>
+<td><p>nx1</p></td>
+<td><p>int</p></td>
+<td><p>parthenon/mesh/nx1</p></td>
+<td><p>number of cells on base mesh in x1 direction</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/mesh</p></td>
+<td><p>nx2</p></td>
+<td><p>int</p></td>
+<td><p>parthenon/mesh/nx2</p></td>
+<td><p>number of cells on base mesh in x2 direction</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/mesh</p></td>
+<td><p>nx3</p></td>
+<td><p>int</p></td>
+<td><p>parthenon/mesh/nx3</p></td>
+<td><p>number of cells on base mesh in x3 direction</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/mesh</p></td>
+<td><p>ox1_bc</p></td>
+<td><p>string</p></td>
+<td><p>outflow</p></td>
+<td><p>global mesh boundary condition on outer X1 face</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/mesh</p></td>
+<td><p>ox2_bc</p></td>
+<td><p>string</p></td>
+<td><p>outflow</p></td>
+<td><p>global mesh boundary condition on outer X2 face</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/mesh</p></td>
+<td><p>ox3_bc</p></td>
+<td><p>string</p></td>
+<td><p>outflow</p></td>
+<td><p>global mesh boundary condition on outer X3 face</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/mesh</p></td>
+<td><p>packs_per_rank</p></td>
+<td><p>int</p></td>
+<td><p>1</p></td>
+<td><p>number of meshblockpacks per rank, overrides pack_size</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/mesh</p></td>
+<td><p>refinement</p></td>
+<td><p>string</p></td>
+<td><p>none</p></td>
+<td><p>mesh refinement mode; Allowed values: adaptive, none, static</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/mesh</p></td>
+<td><p>refinement_in_one_min_nbufs</p></td>
+<td><p>int</p></td>
+<td><p>64</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/mesh</p></td>
+<td><p>task_collection_timeout_in_seconds</p></td>
+<td><p>int</p></td>
+<td><p>300</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/mesh</p></td>
+<td><p>x1max</p></td>
+<td><p>Real</p></td>
+<td></td>
+<td><p>maximum x1 value of domain</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/mesh</p></td>
+<td><p>x1min</p></td>
+<td><p>Real</p></td>
+<td></td>
+<td><p>minimum x1 value of domain</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/mesh</p></td>
+<td><p>x1rat</p></td>
+<td><p>Real</p></td>
+<td><p>1</p></td>
+<td><p>unused</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/mesh</p></td>
+<td><p>x2max</p></td>
+<td><p>Real</p></td>
+<td></td>
+<td><p>maximum x2 value of domain</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/mesh</p></td>
+<td><p>x2min</p></td>
+<td><p>Real</p></td>
+<td></td>
+<td><p>minimum x2 value of domain</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/mesh</p></td>
+<td><p>x2rat</p></td>
+<td><p>Real</p></td>
+<td><p>1</p></td>
+<td><p>unused</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/mesh</p></td>
+<td><p>x3max</p></td>
+<td><p>Real</p></td>
+<td></td>
+<td><p>maximum x3 value of domain</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/mesh</p></td>
+<td><p>x3min</p></td>
+<td><p>Real</p></td>
+<td></td>
+<td><p>minimum x3 value of domain</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/mesh</p></td>
+<td><p>x3rat</p></td>
+<td><p>Real</p></td>
+<td><p>1</p></td>
+<td><p>unused</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/meshblock</p></td>
+<td><p>nx1</p></td>
+<td><p>int</p></td>
+<td><p>64</p></td>
+<td><p>logical size of a meshblock; defaults to the base size of the mesh</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/meshblock</p></td>
+<td><p>nx2</p></td>
+<td><p>int</p></td>
+<td><p>64</p></td>
+<td><p>logical size of a meshblock; defaults to the base size of the mesh</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/meshblock</p></td>
+<td><p>nx3</p></td>
+<td><p>int</p></td>
+<td><p>1</p></td>
+<td><p>logical size of a meshblock; defaults to the base size of the mesh</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/output0</p></td>
+<td><p>dn</p></td>
+<td><p>int</p></td>
+<td><p>-1</p></td>
+<td><p>output cadence in cycles</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/output0</p></td>
+<td><p>dt</p></td>
+<td><p>Real</p></td>
+<td><p>0.02</p></td>
+<td><p>output cadence in physical time</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/sparse</p></td>
+<td><p>alloc_threshold</p></td>
+<td><p>Real</p></td>
+<td><p>1e-12</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/sparse</p></td>
+<td><p>dealloc_count</p></td>
+<td><p>int</p></td>
+<td><p>5</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/sparse</p></td>
+<td><p>dealloc_threshold</p></td>
+<td><p>Real</p></td>
+<td><p>1e-14</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/sparse</p></td>
+<td><p>enable_sparse</p></td>
+<td><p>bool</p></td>
+<td><p>1</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/static_refinement0</p></td>
+<td><p>level</p></td>
+<td><p>int</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/static_refinement0</p></td>
+<td><p>x1max</p></td>
+<td><p>Real</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/static_refinement0</p></td>
+<td><p>x1min</p></td>
+<td><p>Real</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/static_refinement0</p></td>
+<td><p>x2max</p></td>
+<td><p>Real</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/static_refinement0</p></td>
+<td><p>x2min</p></td>
+<td><p>Real</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/swarm</p></td>
+<td><p>ix1_bc</p></td>
+<td><p>string</p></td>
+<td><p>outflow</p></td>
+<td><p>global particle boundary condition on inner X1 face</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/swarm</p></td>
+<td><p>ix2_bc</p></td>
+<td><p>string</p></td>
+<td><p>outflow</p></td>
+<td><p>global particle boundary condition on inner X2 face</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/swarm</p></td>
+<td><p>ix3_bc</p></td>
+<td><p>string</p></td>
+<td><p>periodic</p></td>
+<td><p>global particle boundary condition on inner X3 face</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/swarm</p></td>
+<td><p>ox1_bc</p></td>
+<td><p>string</p></td>
+<td><p>outflow</p></td>
+<td><p>global particle boundary condition on outer X1 face</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/swarm</p></td>
+<td><p>ox2_bc</p></td>
+<td><p>string</p></td>
+<td><p>outflow</p></td>
+<td><p>global particle boundary condition on outer X2 face</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/swarm</p></td>
+<td><p>ox3_bc</p></td>
+<td><p>string</p></td>
+<td><p>periodic</p></td>
+<td><p>global particle boundary condition on outer X3 face</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/time</p></td>
+<td><p>comm_buffer_reset_cadence</p></td>
+<td><p>int</p></td>
+<td><p>-1</p></td>
+<td><p>If set to a positive number N, the comm buffer object pool will be reset every N cycles if the expected number of required buffers has decreased to parthenon/mesh/comm_buffer_reset_fraction times the total number of allocated buffers. If set to a non-positive number, the buffer pool is never cleared.</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/time</p></td>
+<td><p>dt</p></td>
+<td><p>Real</p></td>
+<td><p>1.7976931e+308</p></td>
+<td><p>initial value of time step before constraining via cfl</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/time</p></td>
+<td><p>dt_ceil</p></td>
+<td><p>Real</p></td>
+<td><p>1.7976931e+308</p></td>
+<td><p>maximum allowed timestep</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/time</p></td>
+<td><p>dt_factor</p></td>
+<td><p>Real</p></td>
+<td><p>2</p></td>
+<td><p>maximum relative change in dt per timestep</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/time</p></td>
+<td><p>dt_floor</p></td>
+<td><p>Real</p></td>
+<td><p>2.2250739e-308</p></td>
+<td><p>minimum allowed timestep</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/time</p></td>
+<td><p>dt_force</p></td>
+<td><p>Real</p></td>
+<td><p>-1.7976931e+308</p></td>
+<td><p>if set manually enforces this time step exactly</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/time</p></td>
+<td><p>dt_init</p></td>
+<td><p>Real</p></td>
+<td><p>1.7976931e+308</p></td>
+<td><p>the first time step will be at least as small as dt_init</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/time</p></td>
+<td><p>dt_init_force</p></td>
+<td><p>bool</p></td>
+<td><p>0</p></td>
+<td><p>if set to true, the first time step will be exactly dt_init</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/time</p></td>
+<td><p>dt_max</p></td>
+<td><p>Real</p></td>
+<td><p>1.7976931e+308</p></td>
+<td><p>if timestep is above this level for dt_max_count_max iterations, parthenon throws an error</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/time</p></td>
+<td><p>dt_max_cycle_limit</p></td>
+<td><p>int</p></td>
+<td><p>1</p></td>
+<td><p>number of cycles where dt &gt; dt_max before error</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/time</p></td>
+<td><p>dt_min</p></td>
+<td><p>Real</p></td>
+<td><p>2.2250739e-308</p></td>
+<td><p>if timestep falls below this level for dt_min_count_max iterations, parthenon throws an error</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/time</p></td>
+<td><p>dt_min_cycle_limit</p></td>
+<td><p>int</p></td>
+<td><p>10</p></td>
+<td><p>number of cycles where dt &lt; dt_min before error</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/time</p></td>
+<td><p>integrator</p></td>
+<td><p>string</p></td>
+<td><p>rk2</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/time</p></td>
+<td><p>ncycle</p></td>
+<td><p>int</p></td>
+<td><p>0</p></td>
+<td><p>initial iteration count</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/time</p></td>
+<td><p>ncycle_out</p></td>
+<td><p>int</p></td>
+<td><p>1</p></td>
+<td><p>cadence of outputs to stdout</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/time</p></td>
+<td><p>ncycle_out_mesh</p></td>
+<td><p>int</p></td>
+<td><p>0</p></td>
+<td><p>cadence of outputs describing mesh</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/time</p></td>
+<td><p>nlim</p></td>
+<td><p>int</p></td>
+<td><p>-1</p></td>
+<td><p>maximum number of iterations, only limiting if non-negative</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/time</p></td>
+<td><p>output_before_amr</p></td>
+<td><p>bool</p></td>
+<td><p>0</p></td>
+<td><p>Set to true to generate outputs in a step BEFORE modifying the mesh at the end of the step. By default outputs happen AFTER remeshing if remeshing happens. WARNING: this will make restarts not bitwise-exact.</p></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/time</p></td>
+<td><p>perf_cycle_offset</p></td>
+<td><p>int</p></td>
+<td><p>0</p></td>
+<td><p>don’t measure performance for some number of initial cycles</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/time</p></td>
+<td><p>recv_bdry_buf_timeout_sec</p></td>
+<td><p>Real</p></td>
+<td><p>-1</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>parthenon/time</p></td>
+<td><p>start_time</p></td>
+<td><p>Real</p></td>
+<td><p>0</p></td>
+<td><p>physical time at which to start the simulation</p></td>
+</tr>
+<tr class="row-odd"><td><p>parthenon/time</p></td>
+<td><p>tlim</p></td>
+<td><p>Real</p></td>
+<td><p>inf</p></td>
+<td><p>physical time at which to end the simulation</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="in-the-diffusion-example">
+<h2>In the diffusion example<a class="headerlink" href="#in-the-diffusion-example" title="Link to this heading"></a></h2>
+<p>The non-parthenon input parameters used in the diffusion example are tabulated below</p>
+<table class="csv-wrap docutils align-default" id="id2">
+<caption><span class="caption-text">Parthenon input parameters</span><a class="headerlink" href="#id2" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 20.0%" />
+<col style="width: 10.0%" />
+<col style="width: 20.0%" />
+<col style="width: 30.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>block</p></th>
+<th class="head"><p>parameters</p></th>
+<th class="head"><p>type</p></th>
+<th class="head"><p>default</p></th>
+<th class="head"><p>description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>diffusion</p></td>
+<td><p>boundary_prolongation</p></td>
+<td><p>string</p></td>
+<td><p>Linear</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>diffusion</p></td>
+<td><p>cfl</p></td>
+<td><p>Real</p></td>
+<td><p>1</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>diffusion</p></td>
+<td><p>constant_coefficient</p></td>
+<td><p>bool</p></td>
+<td><p>1</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>diffusion</p></td>
+<td><p>diagonal_alpha</p></td>
+<td><p>Real</p></td>
+<td><p>1</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>diffusion</p></td>
+<td><p>dt</p></td>
+<td><p>Real</p></td>
+<td><p>1</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>diffusion</p></td>
+<td><p>flux_correct</p></td>
+<td><p>bool</p></td>
+<td><p>0</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>diffusion</p></td>
+<td><p>set_flux_boundary</p></td>
+<td><p>bool</p></td>
+<td><p>0</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>diffusion</p></td>
+<td><p>solver</p></td>
+<td><p>string</p></td>
+<td><p>MG</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>diffusion</p></td>
+<td><p>t0</p></td>
+<td><p>Real</p></td>
+<td><p>0.001</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>diffusion</p></td>
+<td><p>x0</p></td>
+<td><p>Real</p></td>
+<td><p>0</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>diffusion</p></td>
+<td><p>y0</p></td>
+<td><p>Real</p></td>
+<td><p>0</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>diffusion</p></td>
+<td><p>z0</p></td>
+<td><p>Real</p></td>
+<td><p>0</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>diffusion/solver_params</p></td>
+<td><p>block_interior_prolongation</p></td>
+<td><p>string</p></td>
+<td><p>MetadataDefault</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>diffusion/solver_params</p></td>
+<td><p>do_FAS</p></td>
+<td><p>bool</p></td>
+<td><p>1</p></td>
+<td><p>Use the full approximation scheme in multigrid, required for amr.</p></td>
+</tr>
+<tr class="row-odd"><td><p>diffusion/solver_params</p></td>
+<td><p>max_coarsenings</p></td>
+<td><p>int</p></td>
+<td><p>2147483647</p></td>
+<td><p>Maximum number of levels to include in the multigrid hierarchy.</p></td>
+</tr>
+<tr class="row-even"><td><p>diffusion/solver_params</p></td>
+<td><p>max_iterations</p></td>
+<td><p>int</p></td>
+<td><p>1000</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>diffusion/solver_params</p></td>
+<td><p>postsmoother</p></td>
+<td><p>string</p></td>
+<td><p>SRJ2</p></td>
+<td><p>Post-smoother used in multigrid.; Allowed values: SRJ1, SRJ2, SRJ3</p></td>
+</tr>
+<tr class="row-even"><td><p>diffusion/solver_params</p></td>
+<td><p>presmoother</p></td>
+<td><p>string</p></td>
+<td><p>SRJ2</p></td>
+<td><p>Pre-smoother used in multigrid.; Allowed values: SRJ1, SRJ2, SRJ3</p></td>
+</tr>
+<tr class="row-odd"><td><p>diffusion/solver_params</p></td>
+<td><p>prolongation</p></td>
+<td><p>string</p></td>
+<td><p>OldLinear</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>diffusion/solver_params</p></td>
+<td><p>residual_tolerance</p></td>
+<td><p>Real</p></td>
+<td><p>1e-12</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>diffusion/solver_params</p></td>
+<td><p>smoother</p></td>
+<td><p>string</p></td>
+<td><p>SRJ2</p></td>
+<td><p>Default value of the pre- and post-smoother in multigrid.; Allowed values: SRJ1, SRJ2, SRJ3</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="in-the-burgers-benchmark-parthenon-vibe">
+<h2>In the Burgers benchmark, Parthenon-VIBE<a class="headerlink" href="#in-the-burgers-benchmark-parthenon-vibe" title="Link to this heading"></a></h2>
+<p>The non-parthenon input parameters used in Parthenon-VIBE are tabulated below</p>
+<table class="csv-wrap docutils align-default" id="id3">
+<caption><span class="caption-text">Parthenon input parameters</span><a class="headerlink" href="#id3" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 20.0%" />
+<col style="width: 10.0%" />
+<col style="width: 20.0%" />
+<col style="width: 30.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>block</p></th>
+<th class="head"><p>parameters</p></th>
+<th class="head"><p>type</p></th>
+<th class="head"><p>default</p></th>
+<th class="head"><p>description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>burgers</p></td>
+<td><p>cfl</p></td>
+<td><p>Real</p></td>
+<td><p>0.8</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>burgers</p></td>
+<td><p>kx_fact</p></td>
+<td><p>Real</p></td>
+<td><p>1</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>burgers</p></td>
+<td><p>ky_fact</p></td>
+<td><p>Real</p></td>
+<td><p>1</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>burgers</p></td>
+<td><p>kz_fact</p></td>
+<td><p>Real</p></td>
+<td><p>1</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>burgers</p></td>
+<td><p>num_scalars</p></td>
+<td><p>int</p></td>
+<td><p>1</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>burgers</p></td>
+<td><p>recon</p></td>
+<td><p>string</p></td>
+<td><p>weno5</p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="chapters/reference.html" class="btn btn-neutral float-left" title="Reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="constants.html" class="btn btn-neutral float-right" title="Parthenon Built-in Physical Constants" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: lroberts36/loop-benchmarks-bench
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/index.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/index.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/index.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/index.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/index.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/index.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/index.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/index.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/index.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/index.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../regression-gold-v26/index.html">regression-gold-v26</a></dd>
+      <dd><a href="../../../regression-gold-v27/index.html">regression-gold-v27</a></dd>
+      <dd><a href="../../../regression-gold-v28/src/0_input_parameters_ref.html">regression-gold-v28</a></dd>
+      <dd><a href="../../../v0.8.0/index.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/index.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/index.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/index.html">v24.08</a></dd>
+      <dd><a href="../../../v25.05/index.html">v25.05</a></dd>
+      <dd><a href="../../../v25.12/src/0_input_parameters_ref.html">v25.12</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../BenWibking/mainloop-debug-output-callback/index.html">BenWibking/mainloop-debug-output-callback</a></dd>
+      <dd><a href="../../../BenWibking/move-params/index.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../HEAD/src/0_input_parameters_ref.html">HEAD</a></dd>
+      <dd><a href="../../../acreyes/hypre-diffusion-example/src/0_input_parameters_ref.html">acreyes/hypre-diffusion-example</a></dd>
+      <dd><a href="../../../ats5/index.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/index.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/index.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/index.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../blb/toml/src/0_input_parameters_ref.html">blb/toml</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/index.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/index.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../brryan/kokkos_sort/index.html">brryan/kokkos_sort</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/index.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/index.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/index.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../c-prather/fix-oneblock/src/0_input_parameters_ref.html">c-prather/fix-oneblock</a></dd>
+      <dd><a href="../../../c-prather/sigint-kill/src/0_input_parameters_ref.html">c-prather/sigint-kill</a></dd>
+      <dd><a href="../../../cep/one-block-mesh/src/0_input_parameters_ref.html">cep/one-block-mesh</a></dd>
+      <dd><a href="../../../dempsey/rummy/src/0_input_parameters_ref.html">dempsey/rummy</a></dd>
+      <dd><a href="../../../dempsey/rummy2/src/0_input_parameters_ref.html">dempsey/rummy2</a></dd>
+      <dd><a href="../../../dempsey/rummy3/src/0_input_parameters_ref.html">dempsey/rummy3</a></dd>
+      <dd><a href="../../../dempsey/swarm_amr/src/0_input_parameters_ref.html">dempsey/swarm_amr</a></dd>
+      <dd><a href="../../../develop/src/0_input_parameters_ref.html">develop</a></dd>
+      <dd><a href="../../../fglines-nv/optimize-burgers/src/0_input_parameters_ref.html">fglines-nv/optimize-burgers</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/index.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/index.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/loop-benchmarks/src/0_input_parameters_ref.html">jdolence/loop-benchmarks</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/index.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/index.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/index.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/clear-particles-in-pgen/src/0_input_parameters_ref.html">jmm/clear-particles-in-pgen</a></dd>
+      <dd><a href="../../../jmm/docstrings-2-blockref-boogaloo/src/0_input_parameters_ref.html">jmm/docstrings-2-blockref-boogaloo</a></dd>
+      <dd><a href="../../../jmm/fix-block-less-than-ranks/src/0_input_parameters_ref.html">jmm/fix-block-less-than-ranks</a></dd>
+      <dd><a href="../../../jmm/pyproxy/src/0_input_parameters_ref.html">jmm/pyproxy</a></dd>
+      <dd><a href="../../../jmm/shrinkcores/src/0_input_parameters_ref.html">jmm/shrinkcores</a></dd>
+      <dd><a href="../../../jmm/submeshdata-2/src/0_input_parameters_ref.html">jmm/submeshdata-2</a></dd>
+      <dd><a href="../../../jmm/token-scratch/src/0_input_parameters_ref.html">jmm/token-scratch</a></dd>
+      <dd><a href="../../../jmm/turorial/src/0_input_parameters_ref.html">jmm/turorial</a></dd>
+      <dd><a href="../../../lkasselm/fft/src/0_input_parameters_ref.html">lkasselm/fft</a></dd>
+      <dd><a href="../../../lkasselm/fft-backup/src/0_input_parameters_ref.html">lkasselm/fft-backup</a></dd>
+      <dd><a href="../../../lrobert36/update-index-split-manual/src/0_input_parameters_ref.html">lrobert36/update-index-split-manual</a></dd>
+      <dd><a href="../../add-callback-taskstatus/src/0_input_parameters_ref.html">lroberts36/add-callback-taskstatus</a></dd>
+      <dd><a href="../../add-densitization-solver-option/src/0_input_parameters_ref.html">lroberts36/add-densitization-solver-option</a></dd>
+      <dd><a href="../../add-sparse-indices/src/0_input_parameters_ref.html">lroberts36/add-sparse-indices</a></dd>
+      <dd><a href="../../boundary-comms-perforfmance-upgrades/index.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../fix-cellmemaligned-independent/src/0_input_parameters_ref.html">lroberts36/fix-cellmemaligned-independent</a></dd>
+      <dd><a href="../../fix-multigrid-flag-error/index.html">lroberts36/fix-multigrid-flag-error</a></dd>
+      <dd><a href="../../fix-multiple-solvers/src/0_input_parameters_ref.html">lroberts36/fix-multiple-solvers</a></dd>
+      <dd><a href="../../fix-sptr-cycle-tree/index.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../generalize-par-dispatch/index.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../imex-advection/src/0_input_parameters_ref.html">lroberts36/imex-advection</a></dd>
+      <dd><a href="0_input_parameters_ref.html">lroberts36/loop-benchmarks-bench</a></dd>
+      <dd><a href="../../python-field-init/src/0_input_parameters_ref.html">lroberts36/python-field-init</a></dd>
+      <dd><a href="../../python-input-support/src/0_input_parameters_ref.html">lroberts36/python-input-support</a></dd>
+      <dd><a href="../../solver-noncell-vars/src/0_input_parameters_ref.html">lroberts36/solver-noncell-vars</a></dd>
+      <dd><a href="../../solver-speedups/src/0_input_parameters_ref.html">lroberts36/solver-speedups</a></dd>
+      <dd><a href="../../solver-timing/src/0_input_parameters_ref.html">lroberts36/solver-timing</a></dd>
+      <dd><a href="../../speedup-buffer-kernel-split/index.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../switch-to-weak-ptrs/src/0_input_parameters_ref.html">lroberts36/switch-to-weak-ptrs</a></dd>
+      <dd><a href="../../temp-p1-branch/src/0_input_parameters_ref.html">lroberts36/temp-p1-branch</a></dd>
+      <dd><a href="../../tensor-library-packs/src/0_input_parameters_ref.html">lroberts36/tensor-library-packs</a></dd>
+      <dd><a href="../../test-forest-mesh/src/0_input_parameters_ref.html">lroberts36/test-forest-mesh</a></dd>
+      <dd><a href="../../update-diffusion-example/src/0_input_parameters_ref.html">lroberts36/update-diffusion-example</a></dd>
+      <dd><a href="../../update-sparse-ids/src/0_input_parameters_ref.html">lroberts36/update-sparse-ids</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/index.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/index.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pdmullen/towards-curv-swarm/src/0_input_parameters_ref.html">pdmullen/towards-curv-swarm</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/index.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/energy-transfer/src/0_input_parameters_ref.html">pgrete/energy-transfer</a></dd>
+      <dd><a href="../../../pgrete/enspec/src/0_input_parameters_ref.html">pgrete/enspec</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/index.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/jupiter/src/0_input_parameters_ref.html">pgrete/jupiter</a></dd>
+      <dd><a href="../../../pgrete/jupiter-26/src/0_input_parameters_ref.html">pgrete/jupiter-26</a></dd>
+      <dd><a href="../../../pgrete/metadata-allow-new-field-restart/index.html">pgrete/metadata-allow-new-field-restart</a></dd>
+      <dd><a href="../../../pgrete/pmd-output-wuser/src/0_input_parameters_ref.html">pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/unique-ids/index.html">pgrete/unique-ids</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/0_input_parameters_ref.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../swjones/asym_halos/src/0_input_parameters_ref.html">swjones/asym_halos</a></dd>
+      <dd><a href="../../../swjones/dt_package_reporting/index.html">swjones/dt_package_reporting</a></dd>
+      <dd><a href="../../../swjones/rk34_integrator-unit-test/src/0_input_parameters_ref.html">swjones/rk34_integrator-unit-test</a></dd>
+      <dd><a href="../../../swjones/tensor-library/src/0_input_parameters_ref.html">swjones/tensor-library</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

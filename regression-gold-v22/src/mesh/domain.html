@@ -1,0 +1,337 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Domain &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=e2af37d4" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Mesh" href="mesh.html" />
+    <link rel="prev" title="State Management" href="../interface/state.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../amr.html">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts_lite.html">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../instrumentation.html">Performance Instrumentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../particles.html">Particles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../interface/containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../interface/metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../interface/state.html">State Management</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Domain</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#indexshape-class">IndexShape Class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#indexrange-struct">IndexRange Struct</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#example-usage">Example Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="mesh.html">Mesh</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Domain</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/src/mesh/domain.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="domain">
+<span id="id1"></span><h1>Domain<a class="headerlink" href="#domain" title="Link to this heading"></a></h1>
+<section id="indexshape-class">
+<h2>IndexShape Class<a class="headerlink" href="#indexshape-class" title="Link to this heading"></a></h2>
+<p>The index shape class provides access to the index bounds of a mesh
+block. The bounds are split into several domains which can be accessed
+using a class enum <code class="docutils literal notranslate"><span class="pre">IndexDomain</span></code>. The <code class="docutils literal notranslate"><span class="pre">IndexDomain</span></code> can be:</p>
+<dl class="field-list simple">
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">entire</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>which allows one to access the starting indices of the full meshblock including ghost zones</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">interior</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>which allows access to the interior of the meshblock excluding ghost cells</p>
+</dd>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">inner_x1</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>which accesses the ghost zones for “inner” face of a meshblock in the <code class="docutils literal notranslate"><span class="pre">x1</span></code> direction</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">outer_x1</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>which accesses the ghost zones for “outer” face of a meshblock in the <code class="docutils literal notranslate"><span class="pre">x1</span></code> direction</p>
+</dd>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">inner_x2</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>which accesses the ghost zones for “inner” face of a meshblock in the <code class="docutils literal notranslate"><span class="pre">x2</span></code> direction</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">outer_x2</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>which accesses the ghost zones for “outer” face of a meshblock in the <code class="docutils literal notranslate"><span class="pre">x2</span></code> direction</p>
+</dd>
+<dt class="field-odd"><code class="docutils literal notranslate"><span class="pre">inner_x3</span></code><span class="colon">:</span></dt>
+<dd class="field-odd"><p>which accesses the ghost zones for “inner” face of a meshblock in the <code class="docutils literal notranslate"><span class="pre">x3</span></code> direction</p>
+</dd>
+<dt class="field-even"><code class="docutils literal notranslate"><span class="pre">outer_x3</span></code><span class="colon">:</span></dt>
+<dd class="field-even"><p>which accesses the ghost zones for “outer” face of a meshblock in the <code class="docutils literal notranslate"><span class="pre">x3</span></code> direction</p>
+</dd>
+</dl>
+<p>The starting and ending indices of each dimension of the index shape can
+be accessed using the <code class="docutils literal notranslate"><span class="pre">is</span></code>, <code class="docutils literal notranslate"><span class="pre">ie</span></code>, <code class="docutils literal notranslate"><span class="pre">js</span></code>, <code class="docutils literal notranslate"><span class="pre">je</span></code>, <code class="docutils literal notranslate"><span class="pre">ks</span></code>, <code class="docutils literal notranslate"><span class="pre">ke</span></code>
+methods. Currently, access is limited to three dimensions, if needed it
+can be extended. In cases where the indices are called often it may be
+more conveneint to pull out the index bounds of a given domain. The
+<code class="docutils literal notranslate"><span class="pre">IndexRange</span></code> struct provides an easy way to group the indices
+together.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">IndexShape</span></code> class also provides a means for accessing the number
+of cells in each dimension of each of the domains. This is provided with
+the <code class="docutils literal notranslate"><span class="pre">ncellsi</span></code>, <code class="docutils literal notranslate"><span class="pre">ncellsj</span></code>, and <code class="docutils literal notranslate"><span class="pre">ncellsk</span></code> methods.</p>
+<p>Below is a diagram illustrating a 2d instance of an IndexShape which we
+will call cellbounds.</p>
+<figure class="align-default">
+<img alt="index_shape_diagram" src="../../_images/IndexShape.jpg" />
+</figure>
+</section>
+<section id="indexrange-struct">
+<h2>IndexRange Struct<a class="headerlink" href="#indexrange-struct" title="Link to this heading"></a></h2>
+<p>The index range struct simply contains the starting and ending indices
+as well as a method for returning the total number of cells within the
+range.</p>
+</section>
+<section id="example-usage">
+<h2>Example Usage<a class="headerlink" href="#example-usage" title="Link to this heading"></a></h2>
+<p>The primary use case of the <code class="docutils literal notranslate"><span class="pre">IndexShape</span></code> occurs when indexing over the
+different dimensions. Assuming we have a meshblock pointer given as
+<code class="docutils literal notranslate"><span class="pre">pmb</span></code> e.g.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">const</span><span class="w"> </span><span class="n">IndexRange</span><span class="w"> </span><span class="n">ib</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pmb</span><span class="o">-&gt;</span><span class="n">cellbounds</span><span class="p">.</span><span class="n">GetBoundsI</span><span class="p">(</span><span class="n">IndexDomain</span><span class="o">::</span><span class="n">interior</span><span class="p">);</span>
+<span class="k">const</span><span class="w"> </span><span class="n">IndexRange</span><span class="w"> </span><span class="n">jb</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pmb</span><span class="o">-&gt;</span><span class="n">cellbounds</span><span class="p">.</span><span class="n">GetBoundsJ</span><span class="p">(</span><span class="n">IndexDomain</span><span class="o">::</span><span class="n">interior</span><span class="p">);</span>
+<span class="k">const</span><span class="w"> </span><span class="n">IndexRange</span><span class="w"> </span><span class="n">kb</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pmb</span><span class="o">-&gt;</span><span class="n">cellbounds</span><span class="p">.</span><span class="n">GetBoundsK</span><span class="p">(</span><span class="n">IndexDomain</span><span class="o">::</span><span class="n">interior</span><span class="p">);</span>
+
+<span class="k">for</span><span class="p">(</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">kb</span><span class="p">.</span><span class="n">s</span><span class="p">;</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">kb</span><span class="p">.</span><span class="n">e</span><span class="p">;</span><span class="w"> </span><span class="n">k</span><span class="o">++</span><span class="w"> </span><span class="p">){</span>
+<span class="w">  </span><span class="k">for</span><span class="p">(</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">jb</span><span class="p">.</span><span class="n">s</span><span class="p">;</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">jb</span><span class="p">.</span><span class="n">e</span><span class="p">;</span><span class="w"> </span><span class="n">j</span><span class="o">++</span><span class="w"> </span><span class="p">){</span>
+<span class="w">    </span><span class="k">for</span><span class="p">(</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ib</span><span class="p">.</span><span class="n">s</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">ib</span><span class="p">.</span><span class="n">e</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="w"> </span><span class="p">){</span>
+<span class="w">      </span><span class="p">...</span><span class="w"> </span><span class="n">code</span><span class="w"> </span><span class="p">..</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../interface/state.html" class="btn btn-neutral float-left" title="State Management" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="mesh.html" class="btn btn-neutral float-right" title="Mesh" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: regression-gold-v22
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/mesh/domain.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/mesh/domain.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/mesh/domain.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/mesh/domain.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/mesh/domain.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/mesh/domain.html">regression-gold-v21</a></dd>
+      <dd><a href="domain.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/mesh/domain.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/mesh/domain.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/mesh/domain.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../regression-gold-v26/src/mesh/domain.html">regression-gold-v26</a></dd>
+      <dd><a href="../../../regression-gold-v27/src/mesh/domain.html">regression-gold-v27</a></dd>
+      <dd><a href="../../../regression-gold-v28/src/mesh/domain.html">regression-gold-v28</a></dd>
+      <dd><a href="../../../v0.8.0/src/mesh/domain.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/mesh/domain.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/mesh/domain.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/mesh/domain.html">v24.08</a></dd>
+      <dd><a href="../../../v25.05/src/mesh/domain.html">v25.05</a></dd>
+      <dd><a href="../../../v25.12/src/mesh/domain.html">v25.12</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../BenWibking/mainloop-debug-output-callback/src/mesh/domain.html">BenWibking/mainloop-debug-output-callback</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/mesh/domain.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../HEAD/src/mesh/domain.html">HEAD</a></dd>
+      <dd><a href="../../../acreyes/hypre-diffusion-example/src/mesh/domain.html">acreyes/hypre-diffusion-example</a></dd>
+      <dd><a href="../../../ats5/src/mesh/domain.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/mesh/domain.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/mesh/domain.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/mesh/domain.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../blb/toml/src/mesh/domain.html">blb/toml</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/mesh/domain.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/mesh/domain.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../brryan/kokkos_sort/src/mesh/domain.html">brryan/kokkos_sort</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/mesh/domain.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/mesh/domain.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/mesh/domain.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../c-prather/fix-oneblock/src/mesh/domain.html">c-prather/fix-oneblock</a></dd>
+      <dd><a href="../../../c-prather/sigint-kill/src/mesh/domain.html">c-prather/sigint-kill</a></dd>
+      <dd><a href="../../../cep/one-block-mesh/src/mesh/domain.html">cep/one-block-mesh</a></dd>
+      <dd><a href="../../../dempsey/rummy/src/mesh/domain.html">dempsey/rummy</a></dd>
+      <dd><a href="../../../dempsey/rummy2/src/mesh/domain.html">dempsey/rummy2</a></dd>
+      <dd><a href="../../../dempsey/rummy3/src/mesh/domain.html">dempsey/rummy3</a></dd>
+      <dd><a href="../../../dempsey/swarm_amr/src/mesh/domain.html">dempsey/swarm_amr</a></dd>
+      <dd><a href="../../../develop/src/mesh/domain.html">develop</a></dd>
+      <dd><a href="../../../fglines-nv/optimize-burgers/src/mesh/domain.html">fglines-nv/optimize-burgers</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/mesh/domain.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/mesh/domain.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/loop-benchmarks/src/mesh/domain.html">jdolence/loop-benchmarks</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/src/mesh/domain.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/src/mesh/domain.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/src/mesh/domain.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/clear-particles-in-pgen/src/mesh/domain.html">jmm/clear-particles-in-pgen</a></dd>
+      <dd><a href="../../../jmm/docstrings-2-blockref-boogaloo/src/mesh/domain.html">jmm/docstrings-2-blockref-boogaloo</a></dd>
+      <dd><a href="../../../jmm/fix-block-less-than-ranks/src/mesh/domain.html">jmm/fix-block-less-than-ranks</a></dd>
+      <dd><a href="../../../jmm/pyproxy/src/mesh/domain.html">jmm/pyproxy</a></dd>
+      <dd><a href="../../../jmm/shrinkcores/src/mesh/domain.html">jmm/shrinkcores</a></dd>
+      <dd><a href="../../../jmm/submeshdata-2/src/mesh/domain.html">jmm/submeshdata-2</a></dd>
+      <dd><a href="../../../jmm/token-scratch/src/mesh/domain.html">jmm/token-scratch</a></dd>
+      <dd><a href="../../../jmm/turorial/src/mesh/domain.html">jmm/turorial</a></dd>
+      <dd><a href="../../../lkasselm/fft/src/mesh/domain.html">lkasselm/fft</a></dd>
+      <dd><a href="../../../lkasselm/fft-backup/src/mesh/domain.html">lkasselm/fft-backup</a></dd>
+      <dd><a href="../../../lrobert36/update-index-split-manual/src/mesh/domain.html">lrobert36/update-index-split-manual</a></dd>
+      <dd><a href="../../../lroberts36/add-callback-taskstatus/src/mesh/domain.html">lroberts36/add-callback-taskstatus</a></dd>
+      <dd><a href="../../../lroberts36/add-densitization-solver-option/src/mesh/domain.html">lroberts36/add-densitization-solver-option</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-indices/src/mesh/domain.html">lroberts36/add-sparse-indices</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/src/mesh/domain.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/fix-cellmemaligned-independent/src/mesh/domain.html">lroberts36/fix-cellmemaligned-independent</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-flag-error/src/mesh/domain.html">lroberts36/fix-multigrid-flag-error</a></dd>
+      <dd><a href="../../../lroberts36/fix-multiple-solvers/src/mesh/domain.html">lroberts36/fix-multiple-solvers</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/src/mesh/domain.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/src/mesh/domain.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/imex-advection/src/mesh/domain.html">lroberts36/imex-advection</a></dd>
+      <dd><a href="../../../lroberts36/loop-benchmarks-bench/src/mesh/domain.html">lroberts36/loop-benchmarks-bench</a></dd>
+      <dd><a href="../../../lroberts36/python-field-init/src/mesh/domain.html">lroberts36/python-field-init</a></dd>
+      <dd><a href="../../../lroberts36/python-input-support/src/mesh/domain.html">lroberts36/python-input-support</a></dd>
+      <dd><a href="../../../lroberts36/solver-noncell-vars/src/mesh/domain.html">lroberts36/solver-noncell-vars</a></dd>
+      <dd><a href="../../../lroberts36/solver-speedups/src/mesh/domain.html">lroberts36/solver-speedups</a></dd>
+      <dd><a href="../../../lroberts36/solver-timing/src/mesh/domain.html">lroberts36/solver-timing</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/src/mesh/domain.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../lroberts36/switch-to-weak-ptrs/src/mesh/domain.html">lroberts36/switch-to-weak-ptrs</a></dd>
+      <dd><a href="../../../lroberts36/temp-p1-branch/src/mesh/domain.html">lroberts36/temp-p1-branch</a></dd>
+      <dd><a href="../../../lroberts36/tensor-library-packs/src/mesh/domain.html">lroberts36/tensor-library-packs</a></dd>
+      <dd><a href="../../../lroberts36/test-forest-mesh/src/mesh/domain.html">lroberts36/test-forest-mesh</a></dd>
+      <dd><a href="../../../lroberts36/update-diffusion-example/src/mesh/domain.html">lroberts36/update-diffusion-example</a></dd>
+      <dd><a href="../../../lroberts36/update-sparse-ids/src/mesh/domain.html">lroberts36/update-sparse-ids</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/mesh/domain.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/mesh/domain.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pdmullen/towards-curv-swarm/src/mesh/domain.html">pdmullen/towards-curv-swarm</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/src/mesh/domain.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/energy-transfer/src/mesh/domain.html">pgrete/energy-transfer</a></dd>
+      <dd><a href="../../../pgrete/enspec/src/mesh/domain.html">pgrete/enspec</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/src/mesh/domain.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/jupiter/src/mesh/domain.html">pgrete/jupiter</a></dd>
+      <dd><a href="../../../pgrete/jupiter-26/src/mesh/domain.html">pgrete/jupiter-26</a></dd>
+      <dd><a href="../../../pgrete/metadata-allow-new-field-restart/src/mesh/domain.html">pgrete/metadata-allow-new-field-restart</a></dd>
+      <dd><a href="../../../pgrete/pmd-output-wuser/src/mesh/domain.html">pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/unique-ids/src/mesh/domain.html">pgrete/unique-ids</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/mesh/domain.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../swjones/asym_halos/src/mesh/domain.html">swjones/asym_halos</a></dd>
+      <dd><a href="../../../swjones/dt_package_reporting/src/mesh/domain.html">swjones/dt_package_reporting</a></dd>
+      <dd><a href="../../../swjones/rk34_integrator-unit-test/src/mesh/domain.html">swjones/rk34_integrator-unit-test</a></dd>
+      <dd><a href="../../../swjones/tensor-library/src/mesh/domain.html">swjones/tensor-library</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

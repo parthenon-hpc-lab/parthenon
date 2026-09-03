@@ -1,0 +1,280 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Boundary related classes &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=e2af37d4" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Containers" href="containers.html" />
+    <link rel="prev" title="Running a Weak Scaling Test in Parthenon" href="../weak_scaling.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../README.html">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../amr.html">Static Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../amr.html#adaptive-mesh-refinement">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../building.html">Building Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../coordinates.html">Coordinates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../development.html">Parthenon developer guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../driver.html">Application Drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../inputs.html">Input Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../instrumentation.html">Performance Instrumentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../integrators.html">Integrators</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../outputs.html">Outputs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../particles.html">Particles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reductions.html">Task-based reductions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../solvers.html">Solvers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sparse_packs.html">Packing Variables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tasks.html">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utilities.html"><code class="docutils literal notranslate"><span class="pre">TypeList</span></code>s</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utilities.html#robust">Robust</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utilities.html#c-11-style-concepts-implementation">C++11 Style Concepts Implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../utilities.html#indexer"><code class="docutils literal notranslate"><span class="pre">Indexer</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Boundary related classes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#boundarydata">BoundaryData</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#boundarycommunication">BoundaryCommunication</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="containers.html">Containers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="metadata.html">Metadata</a></li>
+<li class="toctree-l1"><a class="reference internal" href="refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sparse.html">Sparse implementation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="state.html">State Management</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mesh/domain.html">Domain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mesh/mesh.html">Mesh</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mesh/mesh.html#parthenon-forest-implementation-details">Parthenon Forest Implementation Details</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Boundary related classes</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/src/interface/boundary.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="boundary-related-classes">
+<h1>Boundary related classes<a class="headerlink" href="#boundary-related-classes" title="Link to this heading"></a></h1>
+<section id="boundarydata">
+<h2>BoundaryData<a class="headerlink" href="#boundarydata" title="Link to this heading"></a></h2>
+<p><strong>Contains</strong>: <code class="docutils literal notranslate"><span class="pre">BoundaryStatus</span></code>, buffers, send/receive buffers and
+requests, all PER NEIGHBOR</p>
+</section>
+<section id="boundarycommunication">
+<h2>BoundaryCommunication<a class="headerlink" href="#boundarycommunication" title="Link to this heading"></a></h2>
+<p>Pure abstract base class, defines interfaces for managing
+<code class="docutils literal notranslate"><span class="pre">BoundaryStatus</span></code> flags and MPI requests</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../weak_scaling.html" class="btn btn-neutral float-left" title="Running a Weak Scaling Test in Parthenon" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="containers.html" class="btn btn-neutral float-right" title="Containers" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: v25.05
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/src/interface/boundary.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/src/interface/boundary.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/src/interface/boundary.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/src/interface/boundary.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/src/interface/boundary.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/src/interface/boundary.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/src/interface/boundary.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/src/interface/boundary.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/src/interface/boundary.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/src/interface/boundary.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../regression-gold-v26/src/interface/boundary.html">regression-gold-v26</a></dd>
+      <dd><a href="../../../regression-gold-v27/src/interface/boundary.html">regression-gold-v27</a></dd>
+      <dd><a href="../../../regression-gold-v28/src/interface/boundary.html">regression-gold-v28</a></dd>
+      <dd><a href="../../../v0.8.0/src/interface/boundary.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/src/interface/boundary.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/src/interface/boundary.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/src/interface/boundary.html">v24.08</a></dd>
+      <dd><a href="boundary.html">v25.05</a></dd>
+      <dd><a href="../../../v25.12/src/interface/boundary.html">v25.12</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../BenWibking/mainloop-debug-output-callback/src/interface/boundary.html">BenWibking/mainloop-debug-output-callback</a></dd>
+      <dd><a href="../../../BenWibking/move-params/src/interface/boundary.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../HEAD/src/interface/boundary.html">HEAD</a></dd>
+      <dd><a href="../../../acreyes/hypre-diffusion-example/src/interface/boundary.html">acreyes/hypre-diffusion-example</a></dd>
+      <dd><a href="../../../ats5/src/interface/boundary.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/src/interface/boundary.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/src/interface/boundary.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/src/interface/boundary.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../blb/toml/src/interface/boundary.html">blb/toml</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/src/interface/boundary.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/src/interface/boundary.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../brryan/kokkos_sort/src/interface/boundary.html">brryan/kokkos_sort</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/src/interface/boundary.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/src/interface/boundary.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/src/interface/boundary.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../c-prather/fix-oneblock/src/interface/boundary.html">c-prather/fix-oneblock</a></dd>
+      <dd><a href="../../../c-prather/sigint-kill/src/interface/boundary.html">c-prather/sigint-kill</a></dd>
+      <dd><a href="../../../cep/one-block-mesh/src/interface/boundary.html">cep/one-block-mesh</a></dd>
+      <dd><a href="../../../dempsey/rummy/src/interface/boundary.html">dempsey/rummy</a></dd>
+      <dd><a href="../../../dempsey/rummy2/src/interface/boundary.html">dempsey/rummy2</a></dd>
+      <dd><a href="../../../dempsey/rummy3/src/interface/boundary.html">dempsey/rummy3</a></dd>
+      <dd><a href="../../../dempsey/swarm_amr/src/interface/boundary.html">dempsey/swarm_amr</a></dd>
+      <dd><a href="../../../develop/src/interface/boundary.html">develop</a></dd>
+      <dd><a href="../../../fglines-nv/optimize-burgers/src/interface/boundary.html">fglines-nv/optimize-burgers</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/src/interface/boundary.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/src/interface/boundary.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/loop-benchmarks/src/interface/boundary.html">jdolence/loop-benchmarks</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/src/interface/boundary.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/src/interface/boundary.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/src/interface/boundary.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/clear-particles-in-pgen/src/interface/boundary.html">jmm/clear-particles-in-pgen</a></dd>
+      <dd><a href="../../../jmm/docstrings-2-blockref-boogaloo/src/interface/boundary.html">jmm/docstrings-2-blockref-boogaloo</a></dd>
+      <dd><a href="../../../jmm/fix-block-less-than-ranks/src/interface/boundary.html">jmm/fix-block-less-than-ranks</a></dd>
+      <dd><a href="../../../jmm/pyproxy/src/interface/boundary.html">jmm/pyproxy</a></dd>
+      <dd><a href="../../../jmm/shrinkcores/src/interface/boundary.html">jmm/shrinkcores</a></dd>
+      <dd><a href="../../../jmm/submeshdata-2/src/interface/boundary.html">jmm/submeshdata-2</a></dd>
+      <dd><a href="../../../jmm/token-scratch/src/interface/boundary.html">jmm/token-scratch</a></dd>
+      <dd><a href="../../../jmm/turorial/src/interface/boundary.html">jmm/turorial</a></dd>
+      <dd><a href="../../../lkasselm/fft/src/interface/boundary.html">lkasselm/fft</a></dd>
+      <dd><a href="../../../lkasselm/fft-backup/src/interface/boundary.html">lkasselm/fft-backup</a></dd>
+      <dd><a href="../../../lrobert36/update-index-split-manual/src/interface/boundary.html">lrobert36/update-index-split-manual</a></dd>
+      <dd><a href="../../../lroberts36/add-callback-taskstatus/src/interface/boundary.html">lroberts36/add-callback-taskstatus</a></dd>
+      <dd><a href="../../../lroberts36/add-densitization-solver-option/src/interface/boundary.html">lroberts36/add-densitization-solver-option</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-indices/src/interface/boundary.html">lroberts36/add-sparse-indices</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/src/interface/boundary.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/fix-cellmemaligned-independent/src/interface/boundary.html">lroberts36/fix-cellmemaligned-independent</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-flag-error/src/interface/boundary.html">lroberts36/fix-multigrid-flag-error</a></dd>
+      <dd><a href="../../../lroberts36/fix-multiple-solvers/src/interface/boundary.html">lroberts36/fix-multiple-solvers</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/src/interface/boundary.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/src/interface/boundary.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/imex-advection/src/interface/boundary.html">lroberts36/imex-advection</a></dd>
+      <dd><a href="../../../lroberts36/loop-benchmarks-bench/src/interface/boundary.html">lroberts36/loop-benchmarks-bench</a></dd>
+      <dd><a href="../../../lroberts36/python-field-init/src/interface/boundary.html">lroberts36/python-field-init</a></dd>
+      <dd><a href="../../../lroberts36/python-input-support/src/interface/boundary.html">lroberts36/python-input-support</a></dd>
+      <dd><a href="../../../lroberts36/solver-noncell-vars/src/interface/boundary.html">lroberts36/solver-noncell-vars</a></dd>
+      <dd><a href="../../../lroberts36/solver-speedups/src/interface/boundary.html">lroberts36/solver-speedups</a></dd>
+      <dd><a href="../../../lroberts36/solver-timing/src/interface/boundary.html">lroberts36/solver-timing</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/src/interface/boundary.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../lroberts36/switch-to-weak-ptrs/src/interface/boundary.html">lroberts36/switch-to-weak-ptrs</a></dd>
+      <dd><a href="../../../lroberts36/temp-p1-branch/src/interface/boundary.html">lroberts36/temp-p1-branch</a></dd>
+      <dd><a href="../../../lroberts36/tensor-library-packs/src/interface/boundary.html">lroberts36/tensor-library-packs</a></dd>
+      <dd><a href="../../../lroberts36/test-forest-mesh/src/interface/boundary.html">lroberts36/test-forest-mesh</a></dd>
+      <dd><a href="../../../lroberts36/update-diffusion-example/src/interface/boundary.html">lroberts36/update-diffusion-example</a></dd>
+      <dd><a href="../../../lroberts36/update-sparse-ids/src/interface/boundary.html">lroberts36/update-sparse-ids</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/src/interface/boundary.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/src/interface/boundary.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pdmullen/towards-curv-swarm/src/interface/boundary.html">pdmullen/towards-curv-swarm</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/src/interface/boundary.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/energy-transfer/src/interface/boundary.html">pgrete/energy-transfer</a></dd>
+      <dd><a href="../../../pgrete/enspec/src/interface/boundary.html">pgrete/enspec</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/src/interface/boundary.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/jupiter/src/interface/boundary.html">pgrete/jupiter</a></dd>
+      <dd><a href="../../../pgrete/jupiter-26/src/interface/boundary.html">pgrete/jupiter-26</a></dd>
+      <dd><a href="../../../pgrete/metadata-allow-new-field-restart/src/interface/boundary.html">pgrete/metadata-allow-new-field-restart</a></dd>
+      <dd><a href="../../../pgrete/pmd-output-wuser/src/interface/boundary.html">pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/unique-ids/src/interface/boundary.html">pgrete/unique-ids</a></dd>
+      <dd><a href="../../../pgrete/user-output/src/interface/boundary.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../swjones/asym_halos/src/interface/boundary.html">swjones/asym_halos</a></dd>
+      <dd><a href="../../../swjones/dt_package_reporting/src/interface/boundary.html">swjones/dt_package_reporting</a></dd>
+      <dd><a href="../../../swjones/rk34_integrator-unit-test/src/interface/boundary.html">swjones/rk34_integrator-unit-test</a></dd>
+      <dd><a href="../../../swjones/tensor-library/src/interface/boundary.html">swjones/tensor-library</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

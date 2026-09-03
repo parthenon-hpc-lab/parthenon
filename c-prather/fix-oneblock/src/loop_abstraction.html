@@ -1,0 +1,587 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Loop Abstraction &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=e2af37d4" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Tasks" href="tasks.html" />
+    <link rel="prev" title="Nested Parallelism" href="nested_par_for.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Chapters</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="chapters/getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="chapters/parallelism_performance.html">Parallelism and Performance</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="par_for.html">Parallelism</a></li>
+<li class="toctree-l2"><a class="reference internal" href="nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Loop Abstraction</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#loop-tags">Loop tags</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#inner-tags">Inner tags</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#backend-selection">Backend selection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#body-signatures">Body signatures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#scratch">Scratch</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#reductions">Reductions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#halos">Halos</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#pack-and-variable-views">Pack and variable views</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="tasks.html">Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reductions.html">Task-based reductions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="instrumentation.html">Performance Instrumentation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/advanced_features.html">Advanced Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/api_reference.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/developer_guide.html">Developer Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="chapters/parallelism_performance.html">Parallelism and Performance</a></li>
+      <li class="breadcrumb-item active">Loop Abstraction</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/loop_abstraction.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="loop-abstraction">
+<span id="id1"></span><h1>Loop Abstraction<a class="headerlink" href="#loop-abstraction" title="Link to this heading"></a></h1>
+<p>The loop abstraction in <code class="docutils literal notranslate"><span class="pre">src/loop_abstraction</span></code> (header
+<code class="docutils literal notranslate"><span class="pre">loop_abstraction/loop_abstraction.hpp</span></code>, namespace
+<code class="docutils literal notranslate"><span class="pre">parthenon::loop_abstraction</span></code>) is a higher-level way to write block-structured
+kernels than raw <a class="reference internal" href="nested_par_for.html#nested-par-for"><span class="std std-ref">Nested Parallelism</span></a> calls. It lets a kernel describe <em>what</em>
+index space it iterates over and <em>how</em> variables are laid out, and then chooses an
+efficient loop structure for the target backend at compile time.</p>
+<p>It is a newer, more experimental interface than <code class="docutils literal notranslate"><span class="pre">par_for</span></code>/<code class="docutils literal notranslate"><span class="pre">par_for_outer</span></code> and is
+primarily used by downstream applications with demanding reconstruction/flux kernels.
+The precise semantic contracts each path must satisfy are recorded in
+<code class="docutils literal notranslate"><span class="pre">src/loop_abstraction/LOOP_ABSTRACTION_CONTRACTS.md</span></code>; that document is the
+(somewhat) authoritative reference for the invariants summarized here.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The loop-abstraction headers encode subtle index-space and scratch contracts.
+Read <code class="docutils literal notranslate"><span class="pre">LOOP_ABSTRACTION_CONTRACTS.md</span></code> before changing them.</p>
+</div>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>Two objects and two free functions form the core of the API:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">IndexSpace&lt;loop_tag,</span> <span class="pre">inner_tag,</span> <span class="pre">backend&gt;</span></code> describes the logical
+<code class="docutils literal notranslate"><span class="pre">(block,</span> <span class="pre">k,</span> <span class="pre">j,</span> <span class="pre">i)</span></code> iteration space and the memory layout of a block. The three
+template parameters fix the loop shape, the inner traversal, and the backend at
+compile time. The backend defaults to raw host loops (with OpenMP work-sharing and
+SIMD directives when enabled) on host and Kokkos-based loops on device.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">InnerIndexRange</span></code> is one slice of an <code class="docutils literal notranslate"><span class="pre">IndexSpace</span></code> (a block plus the current
+chunk of <code class="docutils literal notranslate"><span class="pre">kji</span></code> space). It is the object handed to inner loop bodies and knows how
+to translate between flat, memory, and logical <code class="docutils literal notranslate"><span class="pre">(k,</span> <span class="pre">j,</span> <span class="pre">i)</span></code> indices.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">outer(idx_space,</span> <span class="pre">f)</span></code> launches the outer loop. Its body <code class="docutils literal notranslate"><span class="pre">f(idx_range,</span> <span class="pre">b)</span></code>
+receives an <code class="docutils literal notranslate"><span class="pre">InnerIndexRange</span></code> and the block index <code class="docutils literal notranslate"><span class="pre">b</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">inner(idx_range,</span> <span class="pre">g)</span></code> runs the inner loop over one slice. Its body <code class="docutils literal notranslate"><span class="pre">g</span></code> may take
+either a single index (<code class="docutils literal notranslate"><span class="pre">g(auto</span> <span class="pre">idx)</span></code>) or explicit coordinates
+(<code class="docutils literal notranslate"><span class="pre">g(int</span> <span class="pre">k,</span> <span class="pre">int</span> <span class="pre">j,</span> <span class="pre">int</span> <span class="pre">i)</span></code>).</p></li>
+</ul>
+<p>A minimal kernel looks like:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">namespace</span><span class="w"> </span><span class="nn">la</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nn">parthenon</span><span class="o">::</span><span class="nn">loop_abstraction</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">IST</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">la</span><span class="o">::</span><span class="n">IndexSpace</span><span class="o">&lt;</span><span class="n">la</span><span class="o">::</span><span class="n">loop_tag</span><span class="o">::</span><span class="n">bovi</span><span class="p">,</span><span class="w"> </span><span class="n">la</span><span class="o">::</span><span class="n">inner_tag</span><span class="o">::</span><span class="n">logical_flat</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="n">IST</span><span class="w"> </span><span class="nf">idx_space</span><span class="p">(</span><span class="n">ninner</span><span class="p">,</span><span class="w"> </span><span class="n">IndexDomain</span><span class="o">::</span><span class="n">interior</span><span class="p">,</span>
+<span class="w">              </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">nblocks</span><span class="p">,</span><span class="w"> </span><span class="n">md</span><span class="p">,</span><span class="w"> </span><span class="n">TopologicalElement</span><span class="o">::</span><span class="n">CC</span><span class="p">);</span>
+
+<span class="n">la</span><span class="o">::</span><span class="n">outer</span><span class="p">(</span><span class="n">idx_space</span><span class="p">,</span><span class="w"> </span><span class="n">KOKKOS_LAMBDA</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">IST</span><span class="o">::</span><span class="n">idx_range_t</span><span class="w"> </span><span class="o">&amp;</span><span class="n">idx_range</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">la</span><span class="o">::</span><span class="n">inner</span><span class="p">(</span><span class="n">idx_range</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="o">&amp;</span><span class="p">](</span><span class="k">auto</span><span class="w"> </span><span class="n">idx</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="p">[</span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">,</span><span class="w"> </span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">idx_range</span><span class="p">.</span><span class="n">GetKJI</span><span class="p">(</span><span class="n">idx</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">// ... work at (b, k, j, i) ...</span>
+<span class="w">  </span><span class="p">});</span>
+<span class="p">});</span>
+</pre></div>
+</div>
+<p>Lambda markings follow the usual Kokkos hierarchical-parallelism rule: mark the
+<code class="docutils literal notranslate"><span class="pre">outer(...)</span></code> body with <code class="docutils literal notranslate"><span class="pre">KOKKOS_LAMBDA</span></code> (it is stored and invoked on the device),
+and leave the <code class="docutils literal notranslate"><span class="pre">inner(...)</span></code> bodies as plain <code class="docutils literal notranslate"><span class="pre">[&amp;]</span></code> lambdas (they are defined inside
+the outer device lambda, so they are already device code and capture by reference).</p>
+<p>The outer body must name its parameter type rather than use <code class="docutils literal notranslate"><span class="pre">auto</span></code>: nvcc rejects
+generic extended (<code class="docutils literal notranslate"><span class="pre">__host__</span> <span class="pre">__device__</span></code>) lambdas. <code class="docutils literal notranslate"><span class="pre">IST::idx_range_t</span></code> is the
+(base, no-halo) range <code class="docutils literal notranslate"><span class="pre">outer</span></code> hands the body; in code templated on the index space,
+spell <code class="docutils literal notranslate"><span class="pre">la::InnerIndexRange&lt;IST&gt;</span></code> directly to avoid a dependent-name <code class="docutils literal notranslate"><span class="pre">typename</span></code>.</p>
+</section>
+<section id="loop-tags">
+<h2>Loop tags<a class="headerlink" href="#loop-tags" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">loop_tag</span></code> selects where the variable (<code class="docutils literal notranslate"><span class="pre">v</span></code>) loop sits in the
+<code class="docutils literal notranslate"><span class="pre">block</span> <span class="pre">-&gt;</span> <span class="pre">outer</span> <span class="pre">-&gt;</span> <span class="pre">inner</span></code> hierarchy. This controls the generated loop structure.</p>
+<p>The “variable” (<code class="docutils literal notranslate"><span class="pre">v</span></code>) level is an intermediate level in the hierarchy at which a user
+can write their own loops – typically a loop over the fields/components a kernel
+updates, but more generally any per-block work that sits between the block level and
+the innermost <code class="docutils literal notranslate"><span class="pre">kji</span></code> traversal. The name was chosen early in prototyping (the loop is
+usually over <em>variables</em>) and stuck; read <code class="docutils literal notranslate"><span class="pre">v</span></code> as “the level where you write your own
+block-local loop.” Its placement relative to the <code class="docutils literal notranslate"><span class="pre">outer</span></code> and <code class="docutils literal notranslate"><span class="pre">inner</span></code> loops is what
+each tag names, and it determines what state is in scope for that loop:</p>
+<ul class="simple">
+<li><p>In <code class="docutils literal notranslate"><span class="pre">bvoi</span></code> the <code class="docutils literal notranslate"><span class="pre">v</span></code> loop sits <em>above</em> the <code class="docutils literal notranslate"><span class="pre">outer</span></code>/<code class="docutils literal notranslate"><span class="pre">inner</span></code> traversal, so a
+<code class="docutils literal notranslate"><span class="pre">v</span></code> iteration spans the whole <code class="docutils literal notranslate"><span class="pre">kji</span></code> space of a block.</p></li>
+<li><p>In <code class="docutils literal notranslate"><span class="pre">bovi</span></code> the <code class="docutils literal notranslate"><span class="pre">v</span></code> loop sits <em>inside</em> the chunk <code class="docutils literal notranslate"><span class="pre">outer</span></code> loop but <em>around</em> the
+<code class="docutils literal notranslate"><span class="pre">inner</span></code> traversal, so each <code class="docutils literal notranslate"><span class="pre">v</span></code> iteration covers one <code class="docutils literal notranslate"><span class="pre">kji</span></code> chunk.</p></li>
+<li><p>In <code class="docutils literal notranslate"><span class="pre">boiv</span></code> the <code class="docutils literal notranslate"><span class="pre">v</span></code> loop is innermost, at a single logical cell.</p></li>
+</ul>
+<p>Where <code class="docutils literal notranslate"><span class="pre">v</span></code> sits also governs how it composes with scratch and halos (which are
+chunk-relative in <code class="docutils literal notranslate"><span class="pre">bovi</span></code>/<code class="docutils literal notranslate"><span class="pre">boiv</span></code> but block-relative in <code class="docutils literal notranslate"><span class="pre">bvoi</span></code>); the tradeoffs
+between these placements are discussed further in
+<code class="docutils literal notranslate"><span class="pre">LOOP_ABSTRACTION_CONTRACTS.md</span></code>.</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">bvoi</span></code> (block, var, outer, inner)</dt><dd><p><code class="docutils literal notranslate"><span class="pre">outer(...)</span></code> runs over blocks only; <code class="docutils literal notranslate"><span class="pre">inner(...)</span></code> walks the whole <code class="docutils literal notranslate"><span class="pre">kji</span></code>
+space (internally possibly split into an outer/inner pair). A mixed
+logical/memory path.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">bovi</span></code> (block, outer, var, inner)</dt><dd><p><code class="docutils literal notranslate"><span class="pre">outer(...)</span></code> runs over blocks <em>and</em> chunks of <code class="docutils literal notranslate"><span class="pre">kji</span></code> space; <code class="docutils literal notranslate"><span class="pre">inner(...)</span></code>
+runs over one chunk. This is the main contiguous-span path.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">boiv</span></code> (block, outer, inner, var)</dt><dd><p>The inner “loop” is a single logical cell – the hot path for point-wise,
+coordinate-based access. Logically the <code class="docutils literal notranslate"><span class="pre">inner_chunk</span> <span class="pre">=</span> <span class="pre">1</span></code> limit of <code class="docutils literal notranslate"><span class="pre">bovi</span></code>, but
+with its own code path for performance.</p>
+</dd>
+</dl>
+</section>
+<section id="inner-tags">
+<h2>Inner tags<a class="headerlink" href="#inner-tags" title="Link to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">inner_tag</span></code> selects how one inner chunk is traversed:</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">logical_flat</span></code></dt><dd><p>Visits each logical cell exactly once, passing a flat integer suitable for
+<code class="docutils literal notranslate"><span class="pre">var[idx]</span></code>-style access. Requires that all fields touched in the kernel share a
+memory layout so they can share the flat index. Most likely to vectorize.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">logical_coords</span></code></dt><dd><p>Same logical-cell coverage, but the body receives an <code class="docutils literal notranslate"><span class="pre">Index3</span></code> with <code class="docutils literal notranslate"><span class="pre">(k,</span> <span class="pre">j,</span> <span class="pre">i)</span></code>.
+Use this when fields in the kernel have <em>different</em> layouts (e.g. cell-centered and
+face-centered).</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">memory</span></code></dt><dd><p>Iterates the contiguous memory span for the chunk, which may include ghost cells.
+The logical region is still touched exactly once; ghost cells inside the span may
+also be touched (their post-loop values are not meaningful). Can be faster by
+consuming long uniform runs of memory.</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">boiv</span></code> combined with <code class="docutils literal notranslate"><span class="pre">memory</span></code> is rejected at compile time: a single-cell
+inner range has no meaningful contiguous-span traversal.</p>
+</div>
+</section>
+<section id="backend-selection">
+<h2>Backend selection<a class="headerlink" href="#backend-selection" title="Link to this heading"></a></h2>
+<p>The third <code class="docutils literal notranslate"><span class="pre">IndexSpace</span></code> template parameter is the <code class="docutils literal notranslate"><span class="pre">loop_backend</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">loop_backend::raw</span></code> – a host loop nest with OpenMP work-sharing and SIMD
+directives when OpenMP is enabled.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">loop_backend::kokkos</span></code> – dispatch through Kokkos parallel policies.</p></li>
+</ul>
+<p>It defaults to <code class="docutils literal notranslate"><span class="pre">default_loop_backend_v</span></code>, which is <code class="docutils literal notranslate"><span class="pre">raw</span></code> when the device execution
+space is the host space and <code class="docutils literal notranslate"><span class="pre">kokkos</span></code> otherwise. <code class="docutils literal notranslate"><span class="pre">outer</span></code>/<code class="docutils literal notranslate"><span class="pre">inner</span></code> dispatch on this
+tag with <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">constexpr</span></code>, so the selection is zero-cost. Pinning the tag explicitly
+is mostly useful in tests that want to exercise a specific backend regardless of the
+build.</p>
+<p>OpenMP is not a third backend; it augments the raw backend. The raw <code class="docutils literal notranslate"><span class="pre">bvoi</span></code> path
+parallelizes blocks, <code class="docutils literal notranslate"><span class="pre">bovi</span></code> parallelizes the collapsed block/chunk space, and
+<code class="docutils literal notranslate"><span class="pre">boiv</span></code> processes blocks in turn while parallelizing the collapsed <code class="docutils literal notranslate"><span class="pre">(k,</span> <span class="pre">j)</span></code> space
+and marking the <code class="docutils literal notranslate"><span class="pre">i</span></code> loop SIMD. Thus <code class="docutils literal notranslate"><span class="pre">bovi</span></code> and <code class="docutils literal notranslate"><span class="pre">boiv</span></code> can expose thread-level
+parallelism in a one-block run, while <code class="docutils literal notranslate"><span class="pre">bvoi</span></code> requires multiple blocks for it.</p>
+<p>An outer body may therefore run concurrently for multiple ranges, with no guaranteed
+order. Writes from distinct ranges must be disjoint or synchronized, and mutable host
+state captured by a body must be thread-safe. Treat raw <code class="docutils literal notranslate"><span class="pre">outer(...)</span></code> as a top-level
+parallel operation: nesting it inside another OpenMP, host-threaded, or Kokkos parallel
+region requires explicit coordination and may oversubscribe threads.</p>
+</section>
+<section id="body-signatures">
+<h2>Body signatures<a class="headerlink" href="#body-signatures" title="Link to this heading"></a></h2>
+<p>An inner body may be written as <code class="docutils literal notranslate"><span class="pre">f(auto</span> <span class="pre">idx)</span></code> or <code class="docutils literal notranslate"><span class="pre">f(int</span> <span class="pre">k,</span> <span class="pre">int</span> <span class="pre">j,</span> <span class="pre">int</span> <span class="pre">i)</span></code>. When
+both are viable the three-argument coordinate form is selected. The coordinate form
+may cost some performance (the internal index is converted back to <code class="docutils literal notranslate"><span class="pre">(k,</span> <span class="pre">j,</span> <span class="pre">i)</span></code>
+before the call) but is often clearer.</p>
+</section>
+<section id="scratch">
+<h2>Scratch<a class="headerlink" href="#scratch" title="Link to this heading"></a></h2>
+<p>Per-point scratch is registered on the <code class="docutils literal notranslate"><span class="pre">IndexSpace</span></code> at setup and requested inside
+the outer body:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span><span class="w"> </span><span class="n">recon_halo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">la</span><span class="o">::</span><span class="n">halo</span><span class="o">::</span><span class="n">minus_i_t</span><span class="p">;</span>
+<span class="n">idx_space</span><span class="p">.</span><span class="n">AddPerPointScratch</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="p">();</span><span class="w">          </span><span class="c1">// one Real per point</span>
+<span class="n">idx_space</span><span class="p">.</span><span class="n">AddPerPointScratch</span><span class="o">&lt;</span><span class="n">Real</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="o">&gt;</span><span class="p">();</span><span class="w">    </span><span class="c1">// a 2x3 block per point</span>
+<span class="n">idx_space</span><span class="p">.</span><span class="n">AddPerPointScratch</span><span class="o">&lt;</span><span class="n">Real</span><span class="p">,</span><span class="w"> </span><span class="n">recon_halo</span><span class="o">&gt;</span><span class="p">();</span><span class="w"> </span><span class="c1">// One Real per point, but with</span>
+<span class="w">                                                  </span><span class="c1">// enough storage to cover the</span>
+<span class="w">                                                  </span><span class="c1">// extended inner halo range</span>
+
+<span class="n">la</span><span class="o">::</span><span class="n">outer</span><span class="p">(</span><span class="n">idx_space</span><span class="p">,</span><span class="w"> </span><span class="n">KOKKOS_LAMBDA</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">IST</span><span class="o">::</span><span class="n">idx_range_t</span><span class="w"> </span><span class="o">&amp;</span><span class="n">idx_range</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">scratch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">la</span><span class="o">::</span><span class="n">GetPerPointScratch</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="p">(</span><span class="n">idx_range</span><span class="p">);</span>
+<span class="w">  </span><span class="c1">// scratch(idx), scratch(Index3{k,j,i}), scratch(c0, c1, idx), ...</span>
+<span class="p">});</span>
+</pre></div>
+</div>
+<p>The scratch object specializes per loop pattern and backend (compact per-cell storage
+for the point-wise <code class="docutils literal notranslate"><span class="pre">boiv</span></code> paths, and a host scratch for the raw backend or Kokkos team
+scratch for the Kokkos backend for other paths), but the user-facing indexing is uniform.
+As with raw nested parallelism, call <code class="docutils literal notranslate"><span class="pre">idx_range.TeamBarrier()</span></code> between a producer inner
+loop and a consumer that reads values written by other threads.</p>
+</section>
+<section id="reductions">
+<h2>Reductions<a class="headerlink" href="#reductions" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">outer_reduce</span></code>/<code class="docutils literal notranslate"><span class="pre">inner_reduce</span></code> mirror <code class="docutils literal notranslate"><span class="pre">outer</span></code>/<code class="docutils literal notranslate"><span class="pre">inner</span></code> but fold a single Kokkos
+reducer over the index space. They are <strong>Kokkos-only</strong>: they always dispatch to the
+Kokkos backend regardless of the <code class="docutils literal notranslate"><span class="pre">IndexSpace</span></code> backend tag (on a host-only build the
+device execution space <em>is</em> the host, so the Kokkos reduce still runs there), and
+there is no raw reduction path.</p>
+<p>The reducer is baked into the index-space type. Build a reduction space with
+<code class="docutils literal notranslate"><span class="pre">ReductionIndexSpace&lt;lt,</span> <span class="pre">it,</span> <span class="pre">R&gt;</span></code> (which hides the backend template parameter) or by
+rebinding an existing space with <code class="docutils literal notranslate"><span class="pre">idx_space.WithReducer&lt;R&gt;()</span></code>. Its <code class="docutils literal notranslate"><span class="pre">idx_range_t</span></code>
+then carries the reduction, so the outer body is just <code class="docutils literal notranslate"><span class="pre">(idx_range,</span> <span class="pre">int</span> <span class="pre">b)</span></code> – no
+handle to thread through. The preferred <code class="docutils literal notranslate"><span class="pre">outer_reduce</span></code> overload constructs the reducer
+over a fresh result and <strong>returns</strong> it (the result is a host scalar, so the reduce is
+synchronous and the value is valid on return, no fence needed):</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span><span class="w"> </span><span class="n">rist</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">la</span><span class="o">::</span><span class="n">ReductionIndexSpace</span><span class="o">&lt;</span><span class="n">lt</span><span class="p">,</span><span class="w"> </span><span class="n">it</span><span class="p">,</span><span class="w"> </span><span class="n">Kokkos</span><span class="o">::</span><span class="n">Sum</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+<span class="n">rist</span><span class="w"> </span><span class="nf">idx_space</span><span class="p">(</span><span class="cm">/* ... */</span><span class="p">);</span>
+
+<span class="k">auto</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">la</span><span class="o">::</span><span class="n">outer_reduce</span><span class="p">(</span><span class="n">idx_space</span><span class="p">,</span>
+<span class="w">  </span><span class="c1">// Outer body param types must be named, not auto (nvcc rejects generic extended</span>
+<span class="w">  </span><span class="c1">// lambdas). The inner_reduce body is an ordinary lambda, so auto is fine there.</span>
+<span class="w">  </span><span class="n">KOKKOS_LAMBDA</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">rist</span><span class="o">::</span><span class="n">idx_range_t</span><span class="w"> </span><span class="o">&amp;</span><span class="n">idx_range</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">la</span><span class="o">::</span><span class="n">inner_reduce</span><span class="p">(</span><span class="n">idx_range</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="o">&amp;</span><span class="p">](</span><span class="k">auto</span><span class="w"> </span><span class="n">idx</span><span class="p">,</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="o">&amp;</span><span class="n">v</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">v</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="cm">/* something at idx */</span><span class="p">;</span>
+<span class="w">    </span><span class="p">});</span>
+<span class="w">  </span><span class="p">});</span>
+</pre></div>
+</div>
+<p>An overload instead takes a caller-constructed reducer instance <em>last</em>, matching <code class="docutils literal notranslate"><span class="pre">Kokkos::parallel_reduce(policy,</span> <span class="pre">functor,</span> <span class="pre">reducer)</span></code>. This returns void and its reducer type must match the space’s <code class="docutils literal notranslate"><span class="pre">reduction_t</span></code>. This overload is necessary for, e.g., reducing into a
+<code class="docutils literal notranslate"><span class="pre">View</span></code>, <code class="docutils literal notranslate"><span class="pre">ScatterView</span></code>, or device memory.</p>
+<p>Because the reducer type lives on the index space, <code class="docutils literal notranslate"><span class="pre">inner_reduce</span></code> uses the
+reducer’s merge operation to combine each inner team reduction into the enclosing
+reduction without the caller restating it, and a single <code class="docutils literal notranslate"><span class="pre">outer_reduce</span></code> region may
+contain several <code class="docutils literal notranslate"><span class="pre">inner_reduce</span></code> calls (interleaved with plain <code class="docutils literal notranslate"><span class="pre">inner</span></code> calls that
+only fill scratch) that all join into one accumulator. There is one reducer per region.
+The <code class="docutils literal notranslate"><span class="pre">inner_reduce</span></code> body takes the usual index form plus a trailing reduction-value
+reference.</p>
+<p>Two rules keep reductions off ghost cells:</p>
+<ul class="simple">
+<li><p><strong>No reductions over halo ranges.</strong> <code class="docutils literal notranslate"><span class="pre">inner_reduce</span></code> <code class="docutils literal notranslate"><span class="pre">static_assert</span></code>s that the
+range’s halo is <code class="docutils literal notranslate"><span class="pre">none_t</span></code>. Extend a range only for producer (scratch) <code class="docutils literal notranslate"><span class="pre">inner</span></code>
+loops and reduce over the base, halo-free range.</p></li>
+<li><p><strong>The</strong> <code class="docutils literal notranslate"><span class="pre">memory</span></code> <strong>inner tag degenerates to</strong> <code class="docutils literal notranslate"><span class="pre">logical_flat</span></code> <strong>– but only for</strong>
+<code class="docutils literal notranslate"><span class="pre">inner_reduce</span></code>. Under a reduction the <code class="docutils literal notranslate"><span class="pre">memory</span></code> tag iterates logical cells rather
+than a contiguous memory span, so no swept ghost cell is folded in (the body still
+gets a memory-relative flat index, so call sites are unchanged). This is scoped
+strictly to <code class="docutils literal notranslate"><span class="pre">inner_reduce</span></code>: a plain <code class="docutils literal notranslate"><span class="pre">inner()</span></code> inside an <code class="docutils literal notranslate"><span class="pre">outer_reduce</span></code> region
+behaves exactly as under <code class="docutils literal notranslate"><span class="pre">outer()</span></code> and does <strong>not</strong> degenerate – with the
+<code class="docutils literal notranslate"><span class="pre">memory</span></code> tag it still sweeps whole contiguous spans, ghosts included. A
+<code class="docutils literal notranslate"><span class="pre">memory</span></code>-tag producer feeding an <code class="docutils literal notranslate"><span class="pre">inner_reduce</span></code> consumer is therefore fine; just
+don’t assume the producer stayed inside the logical set.</p></li>
+</ul>
+</section>
+<section id="halos">
+<h2>Halos<a class="headerlink" href="#halos" title="Link to this heading"></a></h2>
+<p>The common reconstruction-to-flux pattern is a producer inner loop that writes reconstructed
+states into scratch over an extended range, followed by a consumer flux loop over
+the base range that accessess the scratch memory with offsets. The parthenon loop abstraction
+implements patterns like this through the concept of inner range halos. As an example, a simple
+flux calculation kernel in the loop abstraction might look like (see below for pack views used
+in the example):</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">desc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">MakePackDescriptor</span><span class="o">&lt;</span><span class="n">var</span><span class="o">&gt;</span><span class="p">(</span><span class="n">md</span><span class="p">,</span><span class="w"> </span><span class="p">{},</span><span class="w"> </span><span class="p">{</span><span class="n">parthenon</span><span class="o">::</span><span class="n">PDOpt</span><span class="o">::</span><span class="n">WithFluxes</span><span class="p">});</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">pack</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">desc</span><span class="p">.</span><span class="n">GetPack</span><span class="p">(</span><span class="n">md</span><span class="p">);</span>
+<span class="c1">// Declare an index space over F1 faces</span>
+<span class="n">IndexSpace</span><span class="o">&lt;</span><span class="n">loop_tag</span><span class="p">,</span><span class="w"> </span><span class="n">inner_tag</span><span class="o">&gt;</span><span class="w"> </span><span class="n">idx_space</span><span class="p">(</span><span class="n">ninner</span><span class="p">,</span><span class="w"> </span><span class="n">IndexDomain</span><span class="o">::</span><span class="n">interior</span><span class="p">,</span>
+<span class="w">                                          </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">pack</span><span class="p">.</span><span class="n">GetNBlocks</span><span class="p">(),</span><span class="w"> </span><span class="n">md</span><span class="p">,</span><span class="w"> </span><span class="n">TopologicalElement</span><span class="o">::</span><span class="n">F1</span><span class="p">);</span>
+
+<span class="k">using</span><span class="w"> </span><span class="n">recon_halo</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">la</span><span class="o">::</span><span class="n">halo</span><span class="o">::</span><span class="n">minus_i_t</span><span class="p">;</span>
+<span class="n">idx_space</span><span class="p">.</span><span class="n">AddPerPointScratch</span><span class="o">&lt;</span><span class="n">Real</span><span class="p">,</span><span class="w"> </span><span class="n">recon_halo</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span><span class="w">  </span><span class="c1">// at setup</span>
+
+<span class="c1">// Get a value that offsets the index of an inner loop by +1 in the X1 direction</span>
+<span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">dx1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">idx_space</span><span class="p">.</span><span class="n">GetDelta</span><span class="p">(</span><span class="n">X1DIR</span><span class="p">);</span>
+
+<span class="n">la</span><span class="o">::</span><span class="n">outer</span><span class="p">(</span><span class="n">idx_space</span><span class="p">,</span><span class="w"> </span><span class="n">KOKKOS_LAMBDA</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">IST</span><span class="o">::</span><span class="n">idx_range_t</span><span class="w"> </span><span class="o">&amp;</span><span class="n">idx_range</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">halo_range</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">idx_range</span><span class="p">.</span><span class="n">AddHalo</span><span class="o">&lt;</span><span class="n">recon_halo</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">scratch_plus</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">la</span><span class="o">::</span><span class="n">GetPerPointScratch</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="p">(</span><span class="n">halo_range</span><span class="p">);</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">scratch_minus</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">la</span><span class="o">::</span><span class="n">GetPerPointScratch</span><span class="o">&lt;</span><span class="n">Real</span><span class="o">&gt;</span><span class="p">(</span><span class="n">halo_range</span><span class="p">);</span>
+
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">pv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">la</span><span class="o">::</span><span class="n">make_pack_view</span><span class="p">(</span><span class="n">halo_range</span><span class="p">,</span><span class="w"> </span><span class="n">pack</span><span class="p">);</span>
+
+<span class="w">  </span><span class="c1">// Produce reconstructed left and right states across the halo range</span>
+<span class="w">  </span><span class="n">la</span><span class="o">::</span><span class="n">inner</span><span class="p">(</span><span class="n">halo_range</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="o">&amp;</span><span class="p">](</span><span class="k">auto</span><span class="w"> </span><span class="n">kji</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">scratch_plus</span><span class="p">(</span><span class="n">kji</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">reconstruct_plus</span><span class="p">(</span><span class="n">pv</span><span class="p">(</span><span class="n">var</span><span class="p">(),</span><span class="w"> </span><span class="n">kji</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">dx1</span><span class="p">),</span><span class="w"> </span><span class="n">pv</span><span class="p">(</span><span class="n">var</span><span class="p">(),</span><span class="w"> </span><span class="n">kji</span><span class="p">),</span><span class="w"> </span><span class="n">pv</span><span class="p">(</span><span class="n">var</span><span class="p">(),</span><span class="w"> </span><span class="n">kji</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">dx1</span><span class="p">));</span>
+<span class="w">    </span><span class="n">scratch_minus</span><span class="p">(</span><span class="n">kji</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">reconstruct_minus</span><span class="p">(</span><span class="n">pv</span><span class="p">(</span><span class="n">var</span><span class="p">(),</span><span class="w"> </span><span class="n">kji</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">dx1</span><span class="p">),</span><span class="w"> </span><span class="n">pv</span><span class="p">(</span><span class="n">var</span><span class="p">(),</span><span class="w"> </span><span class="n">kji</span><span class="p">),</span><span class="w"> </span><span class="n">pv</span><span class="p">(</span><span class="n">var</span><span class="p">(),</span><span class="w"> </span><span class="n">kji</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">dx1</span><span class="p">));</span>
+<span class="w">  </span><span class="p">});</span>
+<span class="w">  </span><span class="n">idx_range</span><span class="p">.</span><span class="n">TeamBarrier</span><span class="p">();</span><span class="w">  </span><span class="c1">// producer must finish before the consumer reads</span>
+
+<span class="w">  </span><span class="c1">// Consume (use) reconstructed states in Riemann solver to calculate fluxes</span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">fv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">la</span><span class="o">::</span><span class="n">make_flux_pack_view</span><span class="p">(</span><span class="n">idx_range</span><span class="p">,</span><span class="w"> </span><span class="n">pack</span><span class="p">,</span><span class="w"> </span><span class="n">X1DIR</span><span class="p">);</span>
+<span class="w">  </span><span class="n">la</span><span class="o">::</span><span class="n">inner</span><span class="p">(</span><span class="n">idx_range</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="o">&amp;</span><span class="p">](</span><span class="k">auto</span><span class="w"> </span><span class="n">kji</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">fv</span><span class="p">(</span><span class="n">var</span><span class="p">(),</span><span class="w"> </span><span class="n">kji</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">riemann</span><span class="p">(</span><span class="n">scratch_plus</span><span class="p">(</span><span class="n">kji</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">dx1</span><span class="p">),</span><span class="w"> </span><span class="n">scratch_minus</span><span class="p">(</span><span class="n">kji</span><span class="p">));</span>
+<span class="w">  </span><span class="p">});</span>
+<span class="p">});</span>
+</pre></div>
+</div>
+<p>More explicitly, a halo is a compile-time annotation naming the neighboring produced
+values a consumer loop needs. If a consumer inner loop runs over a logical point set
+<code class="docutils literal notranslate"><span class="pre">S</span></code>, then a producer that fills scratch for the consumer must cover <code class="docutils literal notranslate"><span class="pre">S</span></code> plus the
+shifted copies named by the halo:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">AddHalo</span><span class="o">&lt;</span><span class="n">halo_t</span><span class="o">&lt;</span><span class="n">h1</span><span class="p">,</span><span class="w"> </span><span class="n">h2</span><span class="p">,</span><span class="w"> </span><span class="p">...</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">S</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">S</span><span class="w"> </span><span class="err">∪</span><span class="w"> </span><span class="n">shift</span><span class="p">(</span><span class="n">S</span><span class="p">,</span><span class="w"> </span><span class="n">h1</span><span class="p">)</span><span class="w"> </span><span class="err">∪</span><span class="w"> </span><span class="n">shift</span><span class="p">(</span><span class="n">S</span><span class="p">,</span><span class="w"> </span><span class="n">h2</span><span class="p">)</span><span class="w"> </span><span class="err">∪</span><span class="w"> </span><span class="p">...</span>
+</pre></div>
+</div>
+<p>A halo is <em>not</em> the same as a reconstruction stencil width: the stencil is internal to
+computing one value, while the halo describes which produced neighbors must exist.</p>
+</section>
+<section id="pack-and-variable-views">
+<h2>Pack and variable views<a class="headerlink" href="#pack-and-variable-views" title="Link to this heading"></a></h2>
+<p>Views adapt a <code class="docutils literal notranslate"><span class="pre">SparsePack</span></code> to the loop abstraction so variable access follows
+the same index conventions as the loop body:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">make_pack_view(idx_range,</span> <span class="pre">pack)</span></code> – a view over all non-sparse variables contained
+in <code class="docutils literal notranslate"><span class="pre">pack</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">make_sparse_pack_view(idx_range,</span> <span class="pre">pack,</span> <span class="pre">sparse_idx)</span></code> – a view over all sparse variables
+contained in <code class="docutils literal notranslate"><span class="pre">pack</span></code> at sparse index <code class="docutils literal notranslate"><span class="pre">sparse_index</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">make_var_view(idx_range,</span> <span class="pre">pack,</span> <span class="pre">var)</span></code> – a single-variable view.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">make_flux_pack_view(idx_range,</span> <span class="pre">pack,</span> <span class="pre">dir)</span></code> / <code class="docutils literal notranslate"><span class="pre">make_flux_view(...)</span></code> – the
+flux-array counterparts, for one sweep direction. Note that this is different from how sparse
+packs and variable packs work in Parthenon, where you can request fluxes from the pack and do
+it for any direction. Here the flux view only contains fluxes and only for the direction
+requested on construction.</p></li>
+</ul>
+<p>Each view accepts the same index forms the body produces (flat <code class="docutils literal notranslate"><span class="pre">int</span></code>, <code class="docutils literal notranslate"><span class="pre">Index3</span></code>,
+or explicit <code class="docutils literal notranslate"><span class="pre">k,</span> <span class="pre">j,</span> <span class="pre">i</span></code>), so a kernel can be written once and reused across inner
+tags. In <cite>inner_tag::logical_coords</cite> loops, these are just light wrappers that call
+through to the sparse packs. For all other <a href="#id2"><span class="problematic" id="id3">`</span></a>inner_tag`s, pack view construction directly
+pulls out pointers to the variables. This can promote vectorization and be a significant
+performance benefit.</p>
+<p>A variable view can also access components at consecutive pack-variable indices by
+passing a relative component offset before the point index. This is useful for
+vector- or tensor-type variables:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="n">vv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">loop_abstraction</span><span class="o">::</span><span class="n">make_var_view</span><span class="p">(</span><span class="n">idx_range</span><span class="p">,</span><span class="w"> </span><span class="n">pack</span><span class="p">,</span><span class="w"> </span><span class="n">my_vec_var</span><span class="p">());</span>
+
+<span class="n">loop_abstraction</span><span class="o">::</span><span class="n">inner</span><span class="p">(</span><span class="n">idx_range</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="o">&amp;</span><span class="p">](</span><span class="k">auto</span><span class="w"> </span><span class="n">kji</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="n">vv</span><span class="p">(</span><span class="n">component</span><span class="p">,</span><span class="w"> </span><span class="n">kji</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">...;</span>
+<span class="p">});</span>
+</pre></div>
+</div>
+<p>Here <code class="docutils literal notranslate"><span class="pre">component</span></code> means <code class="docutils literal notranslate"><span class="pre">base_variable_index</span> <span class="pre">+</span> <span class="pre">component</span></code> in the
+pack and is not a spatial offset, but the spatial component of, e.g.,
+a vector.</p>
+<p>The base passed to <code class="docutils literal notranslate"><span class="pre">make_var_view</span></code> should be the first entry to be accessed, and the
+caller must keep the offset within that variable family’s consecutive pack entries; no
+bounds check is performed. All addressed entries must have the same topology and memory
+layout. Flat/memory paths use the cached stride between pack entries, while
+<code class="docutils literal notranslate"><span class="pre">logical_coords</span></code> forwards the adjusted variable index and coordinates directly to
+the pack.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="n">desc</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">MakePackDescriptor</span><span class="o">&lt;</span><span class="n">v1</span><span class="p">,</span><span class="w"> </span><span class="n">vf</span><span class="o">&gt;</span><span class="p">(</span><span class="n">md</span><span class="p">);</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">pack</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">desc</span><span class="p">.</span><span class="n">GetPack</span><span class="p">(</span><span class="n">md</span><span class="p">);</span>
+
+<span class="n">loop_abstraction</span><span class="o">::</span><span class="n">outer</span><span class="p">(</span>
+<span class="w">    </span><span class="n">idx_space</span><span class="p">,</span><span class="w"> </span><span class="n">KOKKOS_LAMBDA</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">idx_space_t</span><span class="o">::</span><span class="n">idx_range_t</span><span class="w"> </span><span class="o">&amp;</span><span class="n">idx_range</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">auto</span><span class="w"> </span><span class="n">pv</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">loop_abstraction</span><span class="o">::</span><span class="n">make_pack_view</span><span class="p">(</span><span class="n">idx_range</span><span class="p">,</span><span class="w"> </span><span class="n">pack</span><span class="p">);</span>
+<span class="w">      </span><span class="n">loop_abstraction</span><span class="o">::</span><span class="n">inner</span><span class="p">(</span><span class="n">idx_range</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="o">&amp;</span><span class="p">](</span><span class="k">auto</span><span class="w"> </span><span class="n">idx</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">pv</span><span class="p">(</span><span class="n">v1</span><span class="p">(),</span><span class="w"> </span><span class="n">idx</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">...;</span>
+<span class="w">        </span><span class="n">pv</span><span class="p">(</span><span class="n">TE</span><span class="o">::</span><span class="n">F1</span><span class="p">,</span><span class="w"> </span><span class="n">vf</span><span class="p">(),</span><span class="w"> </span><span class="n">idx</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">...;</span>
+<span class="w">        </span><span class="n">pv</span><span class="p">(</span><span class="n">TE</span><span class="o">::</span><span class="n">F2</span><span class="p">,</span><span class="w"> </span><span class="n">vf</span><span class="p">(),</span><span class="w"> </span><span class="n">idx</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">...;</span>
+<span class="w">        </span><span class="n">pv</span><span class="p">(</span><span class="n">TE</span><span class="o">::</span><span class="n">F3</span><span class="p">,</span><span class="w"> </span><span class="n">vf</span><span class="p">(),</span><span class="w"> </span><span class="n">idx</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">...;</span>
+<span class="w">      </span><span class="p">});</span>
+<span class="w">    </span><span class="p">});</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="nested_par_for.html" class="btn btn-neutral float-left" title="Nested Parallelism" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="tasks.html" class="btn btn-neutral float-right" title="Tasks" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: c-prather/fix-oneblock
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/index.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/index.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/index.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/index.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/index.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/index.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/index.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/index.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/index.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/index.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../regression-gold-v26/index.html">regression-gold-v26</a></dd>
+      <dd><a href="../../../regression-gold-v27/index.html">regression-gold-v27</a></dd>
+      <dd><a href="../../../regression-gold-v28/index.html">regression-gold-v28</a></dd>
+      <dd><a href="../../../v0.8.0/index.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/index.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/index.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/index.html">v24.08</a></dd>
+      <dd><a href="../../../v25.05/index.html">v25.05</a></dd>
+      <dd><a href="../../../v25.12/index.html">v25.12</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../BenWibking/mainloop-debug-output-callback/index.html">BenWibking/mainloop-debug-output-callback</a></dd>
+      <dd><a href="../../../BenWibking/move-params/index.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../HEAD/src/loop_abstraction.html">HEAD</a></dd>
+      <dd><a href="../../../acreyes/hypre-diffusion-example/index.html">acreyes/hypre-diffusion-example</a></dd>
+      <dd><a href="../../../ats5/index.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/index.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/index.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/index.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../blb/toml/index.html">blb/toml</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/index.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/index.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../brryan/kokkos_sort/index.html">brryan/kokkos_sort</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/index.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/index.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/index.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="loop_abstraction.html">c-prather/fix-oneblock</a></dd>
+      <dd><a href="../../sigint-kill/src/loop_abstraction.html">c-prather/sigint-kill</a></dd>
+      <dd><a href="../../../cep/one-block-mesh/src/loop_abstraction.html">cep/one-block-mesh</a></dd>
+      <dd><a href="../../../dempsey/rummy/index.html">dempsey/rummy</a></dd>
+      <dd><a href="../../../dempsey/rummy2/index.html">dempsey/rummy2</a></dd>
+      <dd><a href="../../../dempsey/rummy3/index.html">dempsey/rummy3</a></dd>
+      <dd><a href="../../../dempsey/swarm_amr/index.html">dempsey/swarm_amr</a></dd>
+      <dd><a href="../../../develop/src/loop_abstraction.html">develop</a></dd>
+      <dd><a href="../../../fglines-nv/optimize-burgers/index.html">fglines-nv/optimize-burgers</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/index.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/index.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/loop-benchmarks/index.html">jdolence/loop-benchmarks</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/index.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/index.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/index.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/clear-particles-in-pgen/src/loop_abstraction.html">jmm/clear-particles-in-pgen</a></dd>
+      <dd><a href="../../../jmm/docstrings-2-blockref-boogaloo/index.html">jmm/docstrings-2-blockref-boogaloo</a></dd>
+      <dd><a href="../../../jmm/fix-block-less-than-ranks/index.html">jmm/fix-block-less-than-ranks</a></dd>
+      <dd><a href="../../../jmm/pyproxy/index.html">jmm/pyproxy</a></dd>
+      <dd><a href="../../../jmm/shrinkcores/index.html">jmm/shrinkcores</a></dd>
+      <dd><a href="../../../jmm/submeshdata-2/index.html">jmm/submeshdata-2</a></dd>
+      <dd><a href="../../../jmm/token-scratch/src/loop_abstraction.html">jmm/token-scratch</a></dd>
+      <dd><a href="../../../jmm/turorial/src/loop_abstraction.html">jmm/turorial</a></dd>
+      <dd><a href="../../../lkasselm/fft/index.html">lkasselm/fft</a></dd>
+      <dd><a href="../../../lkasselm/fft-backup/index.html">lkasselm/fft-backup</a></dd>
+      <dd><a href="../../../lrobert36/update-index-split-manual/index.html">lrobert36/update-index-split-manual</a></dd>
+      <dd><a href="../../../lroberts36/add-callback-taskstatus/index.html">lroberts36/add-callback-taskstatus</a></dd>
+      <dd><a href="../../../lroberts36/add-densitization-solver-option/index.html">lroberts36/add-densitization-solver-option</a></dd>
+      <dd><a href="../../../lroberts36/add-sparse-indices/index.html">lroberts36/add-sparse-indices</a></dd>
+      <dd><a href="../../../lroberts36/boundary-comms-perforfmance-upgrades/index.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../../lroberts36/fix-cellmemaligned-independent/src/loop_abstraction.html">lroberts36/fix-cellmemaligned-independent</a></dd>
+      <dd><a href="../../../lroberts36/fix-multigrid-flag-error/index.html">lroberts36/fix-multigrid-flag-error</a></dd>
+      <dd><a href="../../../lroberts36/fix-multiple-solvers/src/loop_abstraction.html">lroberts36/fix-multiple-solvers</a></dd>
+      <dd><a href="../../../lroberts36/fix-sptr-cycle-tree/index.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../../lroberts36/generalize-par-dispatch/index.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../../lroberts36/imex-advection/index.html">lroberts36/imex-advection</a></dd>
+      <dd><a href="../../../lroberts36/loop-benchmarks-bench/src/loop_abstraction.html">lroberts36/loop-benchmarks-bench</a></dd>
+      <dd><a href="../../../lroberts36/python-field-init/index.html">lroberts36/python-field-init</a></dd>
+      <dd><a href="../../../lroberts36/python-input-support/index.html">lroberts36/python-input-support</a></dd>
+      <dd><a href="../../../lroberts36/solver-noncell-vars/index.html">lroberts36/solver-noncell-vars</a></dd>
+      <dd><a href="../../../lroberts36/solver-speedups/index.html">lroberts36/solver-speedups</a></dd>
+      <dd><a href="../../../lroberts36/solver-timing/index.html">lroberts36/solver-timing</a></dd>
+      <dd><a href="../../../lroberts36/speedup-buffer-kernel-split/index.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../../lroberts36/switch-to-weak-ptrs/index.html">lroberts36/switch-to-weak-ptrs</a></dd>
+      <dd><a href="../../../lroberts36/temp-p1-branch/index.html">lroberts36/temp-p1-branch</a></dd>
+      <dd><a href="../../../lroberts36/tensor-library-packs/index.html">lroberts36/tensor-library-packs</a></dd>
+      <dd><a href="../../../lroberts36/test-forest-mesh/index.html">lroberts36/test-forest-mesh</a></dd>
+      <dd><a href="../../../lroberts36/update-diffusion-example/index.html">lroberts36/update-diffusion-example</a></dd>
+      <dd><a href="../../../lroberts36/update-sparse-ids/index.html">lroberts36/update-sparse-ids</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/index.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/index.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pdmullen/towards-curv-swarm/index.html">pdmullen/towards-curv-swarm</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/index.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/energy-transfer/index.html">pgrete/energy-transfer</a></dd>
+      <dd><a href="../../../pgrete/enspec/index.html">pgrete/enspec</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/index.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/jupiter/index.html">pgrete/jupiter</a></dd>
+      <dd><a href="../../../pgrete/jupiter-26/index.html">pgrete/jupiter-26</a></dd>
+      <dd><a href="../../../pgrete/metadata-allow-new-field-restart/index.html">pgrete/metadata-allow-new-field-restart</a></dd>
+      <dd><a href="../../../pgrete/pmd-output-wuser/index.html">pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/unique-ids/index.html">pgrete/unique-ids</a></dd>
+      <dd><a href="../../../pgrete/user-output/index.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../swjones/asym_halos/src/loop_abstraction.html">swjones/asym_halos</a></dd>
+      <dd><a href="../../../swjones/dt_package_reporting/index.html">swjones/dt_package_reporting</a></dd>
+      <dd><a href="../../../swjones/rk34_integrator-unit-test/index.html">swjones/rk34_integrator-unit-test</a></dd>
+      <dd><a href="../../../swjones/tensor-library/index.html">swjones/tensor-library</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

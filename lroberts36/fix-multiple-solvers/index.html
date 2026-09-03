@@ -1,0 +1,332 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parthenon: A Performance Portable Block-Structured Adaptive Mesh Refinement Framework &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="_static/custom.css?v=e2af37d4" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Getting Started" href="src/chapters/getting_started.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Chapters</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="src/chapters/getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="src/chapters/core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="src/chapters/parallelism_performance.html">Parallelism and Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="src/chapters/advanced_features.html">Advanced Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="src/chapters/reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="src/chapters/api_reference.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="src/chapters/developer_guide.html">Developer Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Parthenon: A Performance Portable Block-Structured Adaptive Mesh Refinement Framework</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="parthenon-a-performance-portable-block-structured-adaptive-mesh-refinement-framework">
+<h1>Parthenon: A Performance Portable Block-Structured Adaptive Mesh Refinement Framework<a class="headerlink" href="#parthenon-a-performance-portable-block-structured-adaptive-mesh-refinement-framework" title="Link to this heading"></a></h1>
+<p><a class="reference external" href="https://github.com/parthenon-hpc-lab/parthenon">Parthenon</a> is a performance portable block-structured adaptive mesh refinement framework.</p>
+<section id="key-features">
+<h2>Key Features<a class="headerlink" href="#key-features" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Device first/device resident approach (work data only in device memory to prevent expensive transfers between host and device)</p></li>
+<li><p>Transparent packing of data across blocks (to reduce/hide kernel launch latency)</p></li>
+<li><p>Direct device-to-device communication via asynchronous MPI communication</p></li>
+<li><p>Intermediate abstraction layer to hide complexity of device kernel launches</p></li>
+<li><p>Flexible, plug-in package system</p></li>
+<li><p>Abstract variables controlled via metadata flags</p></li>
+<li><p>Support for particles</p></li>
+<li><p>Support for cell-, node-, face-, and edge-centered fields</p></li>
+<li><p>Multi-stage drivers/integrators with support for task-based parallelism</p></li>
+</ul>
+</section>
+<section id="community">
+<h2>Community<a class="headerlink" href="#community" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="https://app.element.io/#/room/#parthenon-general:matrix.org">Chat room on matrix.org</a></p></li>
+<li><p><a class="reference internal" href="src/code_of_conduct.html"><span class="doc">Code of Conduct</span></a></p></li>
+</ul>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Chapters</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="src/chapters/getting_started.html">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="src/README.html">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/building.html">Building Parthenon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/inputs.html">Input Parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/outputs.html">Outputs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/outputs.html#postprocessing-and-data-analysis">Postprocessing and data analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="src/chapters/core_concepts.html">Core Concepts</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="src/parthenon_manager.html">Parthenon Manager</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/driver.html">Application Drivers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/coordinates.html">Coordinates</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/parthenon_arrays.html">Parthenon Set-Dimensional Arrays</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/parthenon_arrays.html#parthenon-arbitrary-dimensional-arrays">Parthenon Arbitrary-Dimensional Arrays</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/sparse_packs.html">Packing Variables</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/amr.html">Static Mesh Refinement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/amr.html#adaptive-mesh-refinement">Adaptive Mesh Refinement</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/boundary_conditions.html">Boundary Conditions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/boundary_communication.html">Boundary communication-in-one concepts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/boundary_communication.html#sparse-boundary-communication">Sparse boundary communication</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="src/chapters/parallelism_performance.html">Parallelism and Performance</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="src/par_for.html">Parallelism</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/nested_par_for.html">Nested Parallelism</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/loop_abstraction.html">Loop Abstraction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/tasks.html">Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/reductions.html">Task-based reductions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/load_balancing.html">Load Balancing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/weak_scaling.html">Running a Weak Scaling Test in Parthenon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/instrumentation.html">Performance Instrumentation</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="src/chapters/advanced_features.html">Advanced Features</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="src/particles.html">Particles</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/integrators.html">Integrators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/solvers.html">Solvers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/fourier_transforms.html">Fourier Transforms</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="src/chapters/reference.html">Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="src/0_input_parameters_ref.html">Input Parameters Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/constants.html">Parthenon Built-in Physical Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/utilities.html">Utilities</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="src/chapters/api_reference.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="src/interface/metadata.html">Metadata</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/interface/containers.html">Containers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/interface/state.html">State Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/interface/boundary.html">Boundary related classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/interface/refinement_operations.html">Prolongation and Restriction Operations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/mesh/mesh.html">Mesh</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/mesh/mesh.html#parthenon-forest-implementation-details">Parthenon Forest Implementation Details</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/mesh/domain.html">Domain</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="src/chapters/developer_guide.html">Developer Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="src/code_of_conduct.html">Code of Conduct</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/contributing.html">Contributing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/development.html">Coding concepts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/tests.html">How to add tests to Parthenon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="src/sphinx-doc.html">How to Use Sphinx for Writing Docs</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading"></a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="src/chapters/getting_started.html" class="btn btn-neutral float-right" title="Getting Started" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: lroberts36/fix-multiple-solvers
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../regression-gold-v16/index.html">regression-gold-v16</a></dd>
+      <dd><a href="../../regression-gold-v17/index.html">regression-gold-v17</a></dd>
+      <dd><a href="../../regression-gold-v18/index.html">regression-gold-v18</a></dd>
+      <dd><a href="../../regression-gold-v19/index.html">regression-gold-v19</a></dd>
+      <dd><a href="../../regression-gold-v20/index.html">regression-gold-v20</a></dd>
+      <dd><a href="../../regression-gold-v21/index.html">regression-gold-v21</a></dd>
+      <dd><a href="../../regression-gold-v22/index.html">regression-gold-v22</a></dd>
+      <dd><a href="../../regression-gold-v23/index.html">regression-gold-v23</a></dd>
+      <dd><a href="../../regression-gold-v24/index.html">regression-gold-v24</a></dd>
+      <dd><a href="../../regression-gold-v25/index.html">regression-gold-v25</a></dd>
+      <dd><a href="../../regression-gold-v26/index.html">regression-gold-v26</a></dd>
+      <dd><a href="../../regression-gold-v27/index.html">regression-gold-v27</a></dd>
+      <dd><a href="../../regression-gold-v28/index.html">regression-gold-v28</a></dd>
+      <dd><a href="../../v0.8.0/index.html">v0.8.0</a></dd>
+      <dd><a href="../../v23.11/index.html">v23.11</a></dd>
+      <dd><a href="../../v24.03/index.html">v24.03</a></dd>
+      <dd><a href="../../v24.08/index.html">v24.08</a></dd>
+      <dd><a href="../../v25.05/index.html">v25.05</a></dd>
+      <dd><a href="../../v25.12/index.html">v25.12</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../BenWibking/mainloop-debug-output-callback/index.html">BenWibking/mainloop-debug-output-callback</a></dd>
+      <dd><a href="../../BenWibking/move-params/index.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../HEAD/index.html">HEAD</a></dd>
+      <dd><a href="../../acreyes/hypre-diffusion-example/index.html">acreyes/hypre-diffusion-example</a></dd>
+      <dd><a href="../../ats5/index.html">ats5</a></dd>
+      <dd><a href="../../ats5-cali/index.html">ats5-cali</a></dd>
+      <dd><a href="../../ats5-debug/index.html">ats5-debug</a></dd>
+      <dd><a href="../../bdw/gauss-quad/index.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../blb/toml/index.html">blb/toml</a></dd>
+      <dd><a href="../../bprather/fix-mpi-comms-again/index.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../bprather/mbd_add_niceties/index.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../brryan/kokkos_sort/index.html">brryan/kokkos_sort</a></dd>
+      <dd><a href="../../brryan/mesh_swarm_bc_funcs/index.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../brryan/swarm_mpi_tags/index.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../brryan/swarm_tag_map_2/index.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../c-prather/fix-oneblock/index.html">c-prather/fix-oneblock</a></dd>
+      <dd><a href="../../c-prather/sigint-kill/index.html">c-prather/sigint-kill</a></dd>
+      <dd><a href="../../cep/one-block-mesh/index.html">cep/one-block-mesh</a></dd>
+      <dd><a href="../../dempsey/rummy/index.html">dempsey/rummy</a></dd>
+      <dd><a href="../../dempsey/rummy2/index.html">dempsey/rummy2</a></dd>
+      <dd><a href="../../dempsey/rummy3/index.html">dempsey/rummy3</a></dd>
+      <dd><a href="../../dempsey/swarm_amr/index.html">dempsey/swarm_amr</a></dd>
+      <dd><a href="../../develop/index.html">develop</a></dd>
+      <dd><a href="../../fglines-nv/optimize-burgers/index.html">fglines-nv/optimize-burgers</a></dd>
+      <dd><a href="../../forrestglines/cuda-with-nvc++-fix/index.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../forrestglines/curvilinear/index.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../jdolence/loop-benchmarks/index.html">jdolence/loop-benchmarks</a></dd>
+      <dd><a href="../../jdolence/thread_safe/index.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../jdolence/timer_based_loadbalancing/index.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../jdolence/trace/index.html">jdolence/trace</a></dd>
+      <dd><a href="../../jmm/clear-particles-in-pgen/index.html">jmm/clear-particles-in-pgen</a></dd>
+      <dd><a href="../../jmm/docstrings-2-blockref-boogaloo/index.html">jmm/docstrings-2-blockref-boogaloo</a></dd>
+      <dd><a href="../../jmm/fix-block-less-than-ranks/index.html">jmm/fix-block-less-than-ranks</a></dd>
+      <dd><a href="../../jmm/pyproxy/index.html">jmm/pyproxy</a></dd>
+      <dd><a href="../../jmm/shrinkcores/index.html">jmm/shrinkcores</a></dd>
+      <dd><a href="../../jmm/submeshdata-2/index.html">jmm/submeshdata-2</a></dd>
+      <dd><a href="../../jmm/token-scratch/index.html">jmm/token-scratch</a></dd>
+      <dd><a href="../../jmm/turorial/index.html">jmm/turorial</a></dd>
+      <dd><a href="../../lkasselm/fft/index.html">lkasselm/fft</a></dd>
+      <dd><a href="../../lkasselm/fft-backup/index.html">lkasselm/fft-backup</a></dd>
+      <dd><a href="../../lrobert36/update-index-split-manual/index.html">lrobert36/update-index-split-manual</a></dd>
+      <dd><a href="../add-callback-taskstatus/index.html">lroberts36/add-callback-taskstatus</a></dd>
+      <dd><a href="../add-densitization-solver-option/index.html">lroberts36/add-densitization-solver-option</a></dd>
+      <dd><a href="../add-sparse-indices/index.html">lroberts36/add-sparse-indices</a></dd>
+      <dd><a href="../boundary-comms-perforfmance-upgrades/index.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../fix-cellmemaligned-independent/index.html">lroberts36/fix-cellmemaligned-independent</a></dd>
+      <dd><a href="../fix-multigrid-flag-error/index.html">lroberts36/fix-multigrid-flag-error</a></dd>
+      <dd><a href="index.html">lroberts36/fix-multiple-solvers</a></dd>
+      <dd><a href="../fix-sptr-cycle-tree/index.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../generalize-par-dispatch/index.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../imex-advection/index.html">lroberts36/imex-advection</a></dd>
+      <dd><a href="../loop-benchmarks-bench/index.html">lroberts36/loop-benchmarks-bench</a></dd>
+      <dd><a href="../python-field-init/index.html">lroberts36/python-field-init</a></dd>
+      <dd><a href="../python-input-support/index.html">lroberts36/python-input-support</a></dd>
+      <dd><a href="../solver-noncell-vars/index.html">lroberts36/solver-noncell-vars</a></dd>
+      <dd><a href="../solver-speedups/index.html">lroberts36/solver-speedups</a></dd>
+      <dd><a href="../solver-timing/index.html">lroberts36/solver-timing</a></dd>
+      <dd><a href="../speedup-buffer-kernel-split/index.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../switch-to-weak-ptrs/index.html">lroberts36/switch-to-weak-ptrs</a></dd>
+      <dd><a href="../temp-p1-branch/index.html">lroberts36/temp-p1-branch</a></dd>
+      <dd><a href="../tensor-library-packs/index.html">lroberts36/tensor-library-packs</a></dd>
+      <dd><a href="../test-forest-mesh/index.html">lroberts36/test-forest-mesh</a></dd>
+      <dd><a href="../update-diffusion-example/index.html">lroberts36/update-diffusion-example</a></dd>
+      <dd><a href="../update-sparse-ids/index.html">lroberts36/update-sparse-ids</a></dd>
+      <dd><a href="../../morarumaxim/neigh_collectives/index.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../neighborhood_ats5/index.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../pdmullen/towards-curv-swarm/index.html">pdmullen/towards-curv-swarm</a></dd>
+      <dd><a href="../../pgrete/ci-hamilton/index.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../pgrete/energy-transfer/index.html">pgrete/energy-transfer</a></dd>
+      <dd><a href="../../pgrete/enspec/index.html">pgrete/enspec</a></dd>
+      <dd><a href="../../pgrete/fix-chunk/index.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../pgrete/jupiter/index.html">pgrete/jupiter</a></dd>
+      <dd><a href="../../pgrete/jupiter-26/index.html">pgrete/jupiter-26</a></dd>
+      <dd><a href="../../pgrete/metadata-allow-new-field-restart/index.html">pgrete/metadata-allow-new-field-restart</a></dd>
+      <dd><a href="../../pgrete/pmd-output-wuser/index.html">pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../pgrete/unique-ids/index.html">pgrete/unique-ids</a></dd>
+      <dd><a href="../../pgrete/user-output/index.html">pgrete/user-output</a></dd>
+      <dd><a href="../../swjones/asym_halos/index.html">swjones/asym_halos</a></dd>
+      <dd><a href="../../swjones/dt_package_reporting/index.html">swjones/dt_package_reporting</a></dd>
+      <dd><a href="../../swjones/rk34_integrator-unit-test/index.html">swjones/rk34_integrator-unit-test</a></dd>
+      <dd><a href="../../swjones/tensor-library/index.html">swjones/tensor-library</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
