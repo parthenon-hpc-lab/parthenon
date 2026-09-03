@@ -208,7 +208,7 @@ Metadata::Metadata(const std::vector<MetadataFlag> &bits,
 std::ostream &operator<<(std::ostream &os, const parthenon::Metadata &m) {
   bool first = true;
   auto &flags = metadata_state.AllFlags();
-  for (int i = 0; i < flags.size(); ++i) {
+  for (std::size_t i = 0; i < flags.size(); ++i) {
     auto flag = MetadataFlag(i);
     if (m.IsSet(flag)) {
       if (!first) {
@@ -316,7 +316,7 @@ bool Metadata::IsValid(bool throw_on_fail) const {
 std::vector<MetadataFlag> Metadata::Flags() const {
   std::vector<MetadataFlag> set_flags;
   const auto &flags = metadata_state.AllFlags();
-  for (int i = 0; i < flags.size(); ++i) {
+  for (std::size_t i = 0; i < flags.size(); ++i) {
     const auto flag = MetadataFlag(i);
     if (IsSet(flag)) {
       set_flags.push_back(flag);
@@ -340,7 +340,7 @@ bool Metadata::HasSameFlags(const Metadata &b) const {
     }
   }
 
-  for (size_t i = 0; i < min_bits; i++) {
+  for (std::size_t i = 0; i < min_bits; i++) {
     if (a.bits_[i] != b.bits_[i]) {
       return false;
     }
@@ -352,14 +352,14 @@ std::array<int, MAX_VARIABLE_DIMENSION>
 Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
   std::array<int, MAX_VARIABLE_DIMENSION> arrDims;
   const auto &shape = shape_;
-  const int N = shape.size();
+  const std::size_t N = shape.size();
 
   if (IsMeshTied()) {
     // Let the FaceVariable, EdgeVariable, and NodeVariable
     // classes add the +1's where needed.  They all expect
     // these dimensions to be the number of cells in each
     // direction, NOT the size of the arrays
-    assert(N >= 0 && N <= 3);
+    assert(N <= 3);
     PARTHENON_REQUIRE_THROWS(!wpmb.expired(),
                              "Cannot determine array dimensions for mesh-tied entity "
                              "without a valid meshblock");
@@ -369,7 +369,7 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
     arrDims[0] = bnds.ncellsi(IndexDomain::entire);
     arrDims[1] = bnds.ncellsj(IndexDomain::entire);
     arrDims[2] = bnds.ncellsk(IndexDomain::entire);
-    for (int i = 0; i < N; i++)
+    for (std::size_t i = 0; i < N; i++)
       arrDims[i + 3] = shape[i];
     for (int i = N; i < 3; i++)
       arrDims[i + 3] = 1;
@@ -386,7 +386,7 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
       if (arrDims[2] > 1) arrDims[2]++;
     }
   } else if (IsSet(Particle)) {
-    assert(N >= 0 && N <= MAX_VARIABLE_DIMENSION - 1);
+    assert(N <= MAX_VARIABLE_DIMENSION - 1);
     arrDims[0] = 1; // To be updated by swarm based on pool size before allocation
     for (int i = 0; i < N; i++)
       arrDims[i + 1] = shape[i];
@@ -401,9 +401,9 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
     // mesh element, so dims will be used as the actual array
     // size in each dimension
     assert(N >= 1 && N < MAX_VARIABLE_DIMENSION);
-    for (int i = 0; i < N; i++)
+    for (std::size_t i = 0; i < N; i++)
       arrDims[i] = shape[i];
-    for (int i = N; i < MAX_VARIABLE_DIMENSION; i++)
+    for (std::size_t i = N; i < MAX_VARIABLE_DIMENSION; i++)
       arrDims[i] = 1;
     if (IsSet(Flux)) arrDims[MAX_VARIABLE_DIMENSION - 1] = 3;
   }

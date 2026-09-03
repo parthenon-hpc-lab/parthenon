@@ -1,0 +1,27 @@
+//========================================================================================
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
+//
+// This program was produced under U.S. Government contract 89233218CNA000001 for Los
+// Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+// for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+// in the program are reserved by Triad National Security, LLC, and the U.S. Department
+// of Energy/National Nuclear Security Administration. The Government is granted for
+// itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+// license in this material to reproduce, prepare derivative works, distribute copies to
+// the public, perform publicly and display publicly, and to permit others to do so.
+//========================================================================================
+#ifndef LOOP_ABSTRACTION_BASE_HPP_
+#define LOOP_ABSTRACTION_BASE_HPP_
+
+// This file was made in part with generative AI.
+
+// Aggregator for the core loop-abstraction types. Historically this header held all
+// of the foundational definitions; they now live in focused headers that this file
+// pulls together for convenience.
+
+#include "loop_abstraction/halo.hpp"
+#include "loop_abstraction/index_space.hpp"
+#include "loop_abstraction/inner_range.hpp"
+#include "loop_abstraction/types.hpp"
+
+#endif // LOOP_ABSTRACTION_BASE_HPP_

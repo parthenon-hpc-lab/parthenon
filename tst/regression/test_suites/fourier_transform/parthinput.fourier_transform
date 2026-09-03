@@ -1,0 +1,37 @@
+# ========================================================================================
+# Parthenon performance portable AMR framework
+# Copyright(C) 2026 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for details
+# ========================================================================================
+
+<parthenon/job>
+problem_id = fourier_transform
+
+<parthenon/mesh>
+refinement = none
+nghost = 3
+
+nx1 = 16
+x1min = -2.0
+x1max = 2.0
+ix1_bc = periodic
+ox1_bc = periodic
+
+nx2 = 16
+x2min = -2.0
+x2max = 2.0
+ix2_bc = periodic
+ox2_bc = periodic
+
+nx3 = 16
+x3min = -2.0
+x3max = 2.0
+ix3_bc = periodic
+ox3_bc = periodic
+
+num_packs = 1
+
+<parthenon/meshblock>
+nx1 = 8
+nx2 = 8
+nx3 = 8

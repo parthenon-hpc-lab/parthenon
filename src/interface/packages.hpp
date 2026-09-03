@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
+#include "utils/error_checking.hpp"
 
 namespace parthenon {
 class StateDescriptor; // forward declaration
@@ -41,6 +42,22 @@ class Packages_t {
     return packages_;
   }
   Dictionary<std::shared_ptr<StateDescriptor>> &AllPackages() { return packages_; }
+
+  // Note the non-const accessor inserts an empty dictionary if a name
+  // is accessed but not present.
+  Dictionary<std::shared_ptr<StateDescriptor>> &
+  AllPackagesWithSubMeshData(const std::string &name) {
+    return packages_with_submeshdata_[name];
+  }
+  const Dictionary<std::shared_ptr<StateDescriptor>> &
+  AllPackagesWithSubMeshData(const std::string &name) const {
+    PARTHENON_REQUIRE(packages_with_submeshdata_.count(name) > 0,
+                      "At least one package must contain submeshdata with subname " +
+                          name);
+    return packages_with_submeshdata_.at(name);
+  }
+  auto &AllPackagesWithSubMeshData() { return packages_with_submeshdata_; }
+  const auto &AllPackagesWithSubMeshData() const { return packages_with_submeshdata_; }
 
   // Returns a sub-Dictionary containing just pointers to packages of type T.
   // Dictionary is a *new copy*, and members are bare pointers, not shared_ptr.
@@ -70,6 +87,10 @@ class Packages_t {
 
  private:
   Dictionary<std::shared_ptr<StateDescriptor>> packages_;
+  // A map from category of meshdata subset requirements to state
+  // descriptors containing subsets of that category. Makes it easy to
+  // group things for, e.g., source terms.
+  Dictionary<Dictionary<std::shared_ptr<StateDescriptor>>> packages_with_submeshdata_;
 };
 } // namespace parthenon
 

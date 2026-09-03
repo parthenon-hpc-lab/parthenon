@@ -149,10 +149,10 @@ constexpr int FirstFuncIdx() {
   return TL::n_types;
 }
 
-template <size_t, typename>
+template <std::size_t, typename>
 struct FunctionSignature {};
 
-template <size_t Rank, typename R, typename T, typename Arg0, typename... Args>
+template <std::size_t Rank, typename R, typename T, typename Arg0, typename... Args>
 struct FunctionSignature<Rank, R (T::*)(Arg0, Args...) const> {
  private:
   using team_mbr_t = Kokkos::TeamPolicy<>::member_type;
@@ -163,7 +163,7 @@ struct FunctionSignature<Rank, R (T::*)(Arg0, Args...) const> {
   using FArgs = typename TL::template continuous_sublist<Rank + team_mbr>;
 };
 
-template <size_t Rank, typename F>
+template <std::size_t Rank, typename F>
 using function_signature = FunctionSignature<Rank, decltype(&base_type<F>::operator())>;
 
 } // namespace parthenon

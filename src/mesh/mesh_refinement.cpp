@@ -91,7 +91,7 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
     } else {
       deref_count_++;
       int ec = 0;
-      for (const auto &nb : pmb->neighbors) {
+      for (const auto &nb : pmb->GetNeighbors()) {
         if (nb.loc.level() > pmb->loc.level()) ec++;
       }
       if (ec > 0) {

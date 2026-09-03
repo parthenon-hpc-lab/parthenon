@@ -21,8 +21,8 @@
 #include "interface/metadata.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
-#include "pack/make_pack_descriptor.hpp"
-#include "pack/sparse_pack.hpp"
+#include "pack/sparse_pack/make_pack_descriptor.hpp"
+#include "pack/sparse_pack/sparse_pack.hpp"
 
 #ifndef SPARSE_SPARSE_MANAGEMENT_HPP_
 #define SPARSE_SPARSE_MANAGEMENT_HPP_

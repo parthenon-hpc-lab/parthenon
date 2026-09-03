@@ -6,6 +6,15 @@ Outputs
 Outputs from Parthenon are controlled via ``<parthenon/output*>`` blocks,
 where ``*`` should be replaced by a unique integer for each block.
 
+Various output types are supported for writing both raw data (e.g., in
+openPMD/ADIOS2/BP5 or HDF5 format) and processed data (like high level aggregated
+history files or histograms), see the following subsections for more details.
+While HDF5 has been the default in the past, openPMD/ADIOS2/BP5 is expected to
+become the default in the near-term future given its features, flexiblity,
+and significantly improved perforance (especially at scale).
+Advanced features like slices or coarse graining are only supported in openPMD
+outputs.
+
 The frequency of outputs can be controlled for each block separately
 and can be triggered by either (simulation) time or cycle, i.e.,
 
@@ -20,7 +29,7 @@ the block's ``dt < 0.0`` and ``dn < 0`` (which is also happening by default
 if the paramter is not provided in the input file).
 
 In addition to time or cycle based outputs, two additional options to trigger
-outputs (applies to HDF5, restart and histogram outputs) exist.
+outputs (applies to OpenPMD, HDF5, restart, and histogram outputs) exist.
 
 -  Signaling: If ``Parthenon`` catches a signal, e.g., ``SIGALRM`` which
    is often sent by schedulers such as Slurm to signal a job of
@@ -39,6 +48,158 @@ outputs (applies to HDF5, restart and histogram outputs) exist.
 Note, in both cases the original numbering of the output will be
 unaffected and the ``final`` and ``now`` files will be overwritten each
 time without warning.
+
+openPMD
+-------
+
+Parthenon supports writing outputs in the "Open Standard for Particle-Mesh Data",
+`openPMD <https://www.openpmd.org>`__.
+While openPMD supports various backends only the
+`ADIOS2 <https://adios2.readthedocs.io/en/v2.11.0/>`__ IO framework is currently
+supported/tested with files being writen in BP5 format.
+To enable openPMD support configure Parthenon with ``PARTHENON_DISABLE_OPENPMD=OFF``.
+Simulation metadata provided by the optional ``author``, ``machine``, and ``comment``
+parameter in the ``<parthenon/job>`` input block are automatically forwarded to the
+respective openPMD standard fields.
+
+The most simple output block for openPMD output is
+
+::
+
+   <parthenon/output6>
+   file_type   = openpmd    # write data in openPMD format
+   output_type = restart
+   dt          = 0.125      # time increment between outputs
+
+and will produce outputs in directories named ``parthenon.out6.#####.bp``
+where the ``6`` (in the output block header is arbitrary and used
+as default value in the resulting directory name) and ``#####`` an increasing
+zero-padded integer that is increased for each output written.
+
+Restarting from outputs using this minimal, simple block is supported by
+default (i.e., it contains all the information for restarting a simulation,
+such as independent fields including particles, mesh structure, input file,
+and other parameters).
+
+More complex configurations are possible, e.g.,
+
+::
+
+   <parthenon/output5>
+   file_type   = openpmd           # write data in openPMD format
+   dt          = 0.125             # time increment between outputs
+   id          = compressed        # arb. string used in resulting directory name
+   backend_config = openpmd.toml   # path to external config file controlling IO behavior
+   output_type = data              # only write subset of fields
+
+   variables   = density, pressure # list of fields to be written in output
+
+   swarms = tracers, photons       # Particle swarms
+   swarm_variables = x, y, z       # swarm variables output for every swarm
+
+   # Each swarm can specify in a separate list which additional
+   # variables it would like to output.
+   tracers_variables = x, y, z, rho, id
+   photons_variables = x, y, z, frequency
+
+Here, the resulting outputs will be written to ``parthenon.compressed.#####.bp``
+directories and only include the mesh fields named ``density`` and ``pressure``
+and particle species ``tracers`` and ``photons`` with their respective fields.
+Moreover, an external config file (arbitrarily named ``openpmd.toml``)
+is parsed to tune IO behavior (like performance or compression).
+This might be particuarly relevant at scale or for reduced outputs.
+For example, it could be useful to tune the total number of files being written
+to to the number of storage servers/blocks for large outputs or reduce the
+number of files to just one for simple, reduced outputs (like slices where
+some ranks may not write any data at all).
+By default ADIOS2 uses the "TwoLevelShm" aggegration approach where only
+one rank per compute node write data (to a unique file for each rank
+in the output folder), see the
+`ADIOS2 doc <https://adios2.readthedocs.io/en/latest/advanced/aggregation.html>`__.
+To control this (even at runtime) and enable compression for outputs,
+a potential `openpmd.toml` file could look like
+
+::
+
+   [adios2.engine.parameters]
+   NumSubFiles = "1"
+
+   # use double brackets to indicate lists
+   [[adios2.dataset.operators]]
+   type = "blosc"
+
+   # specify parameters for the current operator
+   [adios2.dataset.operators.parameters]
+   clevel = "1"
+   doshuffle = "BLOSC_BITSHUFFLE"
+
+and results in data being written to a single file (per output) and compressed
+using the BLOSC algorithm.
+Various compression algorithms (including very efficient, but lossy ones)
+are supported.
+Given that they are handled by ADIOS2 (and libraries compiled into ADIOS2)
+and are thus external to Parthenon, the documenations of those libraries applies.
+
+.. warning::
+   While openPMD supports writing attributes only from a subset of ranks,
+   do not use this option for Parthenon outputs as some attributes/metadata
+   may only be written from a subset of ranks and, therefore, missing if those
+   ranks are not included in the actual writing process.
+   The architecture of ADIOS2 already allows to performantly write attributes
+   at scale (contrary to a potential bottleneck in HDF5 outputs).
+
+Slices and coarsened outputs
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+openPMD outputs in Parthenon support reduced data outputs in form of slices
+(i.e., 2D cuts in a 3D domain at a given coodinate value) and coarsened
+(i.e., only writing a subset of cells).
+Note that coarsening only supports factors in powers of two (i.e., picking
+n-th cell in each direction) and no interpolation is done.
+In addition, data can be written in single precision.
+All three options are mix and match and support multilevel meshes.
+These kind of outputs can dramatically reduce output volume (often without
+sacrificing fidelity for post processing), for example, a 3D simulation coarse
+grained by a factor of 2 and written in single precision uses only 1/16th disk
+storage (compared to the corresponding restart output).
+Thus, they especially suitable for analysis pipelines that benefit from high
+temporal resolution or animations/movies.
+
+An output block for the latter example may look like
+
+::
+
+   <parthenon/output4>
+   file_type         = openpmd
+   dt                = 0.05
+   id                = single_coarse # arb. id for easy identification
+   single_precision_output = true    # write data using float32
+   # dump every n-th cell (in each dim), only powers of two are supported
+   coarsening_factor = 2
+
+An output block for slices may look like
+
+::
+
+   <parthenon/output10>
+   file_type         = openpmd
+   dt                = 0.05        # frequency of outputs
+   id                = sl.x1.0.5   # arb. id for easy identification
+   output_type       = x1slice     # fixed axis of slice. Options: x1slice, x2slice, x3slice
+   slice_loc         = 0.5         # location of the slice
+   backend_config    = single_file.toml  # (optional) runtime IO config
+
+where the backend configuration is optional (but recommended at scale to
+prevent a large number of empty files being created from nodes that do not
+handle blocks intersecting with the slice) ensuring that only a single file
+is written (``single_file.toml``):
+
+::
+
+   [adios2.engine.parameters]
+   NumSubFiles = "1"
+
+
 
 HDF5
 ----
@@ -111,7 +272,7 @@ be disabled altogether with the CMake build option
 See the :ref:`building` for more details.
 
 Tuning HDF5 Performance
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
 
 Tuning IO parameters can be passed to Parthenon through the use of
 environment variables. Available environment variables are:
@@ -131,7 +292,7 @@ environment variables. Available environment variables are:
 +---------------------------+---------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 Corehdf5
--------------------------------------------------------------------
+^^^^^^^^
 
 Sometimes, usually for debugging purposes, you may wish to dump every
 variable that parthenon is aware of. To do so, request a ``corehdf5``
@@ -155,8 +316,8 @@ contains everything.
   It is unwise to output ``corehdf5`` files routinely as they might be
   very large. These should be used only strategically.
 
-Restart Files
--------------
+Restart Files (openPMD and HDf5)
+--------------------------------
 
 Parthenon allows users to output restart files for restarting a
 simulation. The restart file captures the input file, so no input file
@@ -164,9 +325,12 @@ is required to be specified. Parameters for the input can be overridden
 in the usual way from the command line. At a future date we will allow
 for users the ability to extensively edit the parameters stored within
 the restart file.
+Restart files can either be written in openPMD format or in HDF5 format.
 
 In the input file, include a ``<parthenon/output*>`` block and specify
-``file_type = rst``. A ``dt`` parameter controls the frequency of
+``file_type = rst`` (for HDF5) or ``file_type = openpmd`` and
+``output_type = restart`` (for openPMD).
+A ``dt`` parameter controls the frequency of
 outputs for simulations involving evolution. A ``<parthenon/output*>``
 block might look like
 
@@ -176,11 +340,16 @@ block might look like
    file_type = rst
    dt = 1.0
 
-This will produce an hdf5 (``.rhdf``) output file every 1 units of
+This will produce an HDF5 (``.rhdf``) output file every 1 units of
 simulation time that can be used for restarting the simulation.
+Note, that the key difference between the "standard" HDF5 output files
+(with ``.phdf`` suffix) and restart HDF5 files are enforced settings for
+the latter, such as writing all independent variables and writing data
+in the native simulation precision.
+For openPMD output files there is no distinction in naming.
 
 To use this restart file, simply specify the restart file with a
-``-r <restart.rhdf>`` at the command line. If both ``-r <restart.rhdf>``
+``-r /PATH/TO/RESTART_OUTPUT`` at the command line. If both ``-r /PATH/TO/RESTART_OUTPUT``
 and ``-i <input.in>`` are specified, the simulation will be restarted from
 the restart file with input parameters updated (or added) from the input file.
 
@@ -196,27 +365,6 @@ immediately prior to restart files being written with the optional
 callbacks (if provided) will be called in that order before restart files are
 written.
 
-Postprocessing/native analysis
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-A rudimentary postprocessing option is available to analyze data in
-restart files within the downstream/Parthenon framework, i.e., making use of
-native compute capabilities.
-
-To trigger this kind of analysis, restart with ``-a restart.rhdf`` (instead of
-``-r``).
-This will launch the standard driver as if a simulation would be restarted,
-but never call the main time loop.
-Only the callbacks ``UserWorkBeforeLoop`` are executed.
-Afterwards, all output blocks that have the parameter ``analysis_output=true`` are
-going to be processed including ``UserWorkBeforeOutput`` callbacks.
-
-Note, the standard modifications to the original input parameters via the command line
-or via an input file apply.
-A typical use case is, for example, to calculate histograms a posteriori, i.e., a new
-output block is specified in a file called ``sample_hist.in`` with all necessary details
-(particularly the ``analysis_output=true`` parameter within said block) and then the
-data can be processed via ``-a restart.rhdf -i sample_hist.in``.
 
 .. _output hist files:
 
@@ -454,8 +602,47 @@ In this case, add an ``ascent_options.yaml`` file to the run directory containin
 to override at runtime.
 See `Ascent documenation <https://ascent.readthedocs.io/en/latest/AscentAPI.html#field-filtering>`__ for more information.
 
+
+Postprocessing and data analysis
+================================
+
+Native Parthenon-based
+----------------------
+
+A rudimentary postprocessing option is available to analyze data in
+restart files within the downstream/Parthenon framework, i.e., making use of
+native compute capabilities.
+
+To trigger this kind of analysis, restart with ``-a /PATH/TO/RESTART/OUTPUT``
+(instead of ``-r``).
+This will launch the standard driver as if a simulation would be restarted,
+but never call the main time loop.
+Only the callbacks ``UserWorkBeforeLoop`` are executed.
+Afterwards, all output blocks that have the parameter ``analysis_output=true`` are
+going to be processed including ``UserWorkBeforeOutput`` callbacks.
+
+Note, the standard modifications to the original input parameters via the command line
+or via an input file apply.
+A typical use case is, for example, to calculate histograms a posteriori, i.e., a new
+output block is specified in a file called ``sample_hist.in`` with all necessary details
+(particularly the ``analysis_output=true`` parameter within said block) and then the
+data can be processed via ``-a /PATH/TO/RESTART/OUTPUT -i sample_hist.in``.
+
 Python scripts
 --------------
+
+openPMD outputs
+^^^^^^^^^^^^^^^
+
+Outputs written following the openPMD standard can be processed by any tool implementing
+the standard.
+For Python based analysis the most straightforward way is via the
+`openPMD-api <https://github.com/openPMD/openPMD-api>`__
+or even more easily via the `openPMD-viewer <https://github.com/openPMD/openPMD-viewer>`__
+that builds on the API (both can be installed via ``pip``).
+
+HDF5 outputs
+^^^^^^^^^^^^
 
 The ``scripts/python`` folder includes scripts that may be useful for
 visualizing or analyzing data in the ``.phdf`` files. The ``phdf.py``
@@ -498,9 +685,17 @@ Visualization software
 
 Both `ParaView <https://www.paraview.org/>`__ and
 `VisIt <https://wci.llnl.gov/simulation/computer-codes/visit/>`__ are
-capable of opening and visualizing Parthenon graphics dumps. In both
-cases, the ``.xdmf`` files should be opened. In ParaView, select the
-“XDMF Reader” when prompted.
+capable of opening and visualizing Parthenon graphics dumps.
+
+For HDF5 outputs, the ``.xdmf`` files should be opened.
+In ParaView, select the “XDMF Reader” when prompted.
+
+For openPMD outputs, the native BP5 reader can be used to open the files.
+However, this may perform poorly (due to lack of automated mesh decomposition
+and load balancing).
+Thus, it is recommended to use the specific
+`openpmd-visit-reader <https://github.com/BenWibking/openpmd-visit-reader>`__
+plugin for VisIt, which has robustly handled larger, multiple TB datasets.
 
 .. warning::
    Currently parthenon face- and edge- centered data is not supported
@@ -568,6 +763,10 @@ transformation. Or actually evolve ``"locations"``.
 
 Preparing outputs for ``yt``
 ----------------------------
+
+Support for openPMD outputs in ``yt`` is currently under development, see
+`open PR <https://github.com/yt-project/yt/pull/4982>`__ so mileage may
+vary at the moment.
 
 Parthenon HDF5 outputs can be read with the python visualization library
 `yt <https://yt-project.org/>`__ as certain variables are named when

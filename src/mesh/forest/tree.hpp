@@ -89,14 +89,17 @@ class Tree : public std::enable_shared_from_this<Tree> {
   int count(const LogicalLocation &loc) const { return leaves.count(loc); }
   std::vector<LogicalLocation> GetSortedMeshBlockList() const;
   std::vector<LogicalLocation> GetSortedInternalNodeList() const;
-  RegionSize GetBlockDomain(const LogicalLocation &loc) const;
+  RegionSize GetBlockDomain(const LogicalLocation &loc,
+                            std::size_t block_coarsenings) const;
   std::array<BoundaryFlag, BOUNDARY_NFACES> GetBlockBCs(const LogicalLocation &loc) const;
   std::vector<NeighborLocation>
   FindNeighbors(const LogicalLocation &loc,
                 GridIdentifier grid_id = GridIdentifier::leaf()) const;
   std::vector<NeighborLocation> FindNeighbors(const LogicalLocation &loc, int ox1,
                                               int ox2, int ox3) const;
-  std::size_t CountMeshBlock() const { return leaves.size(); }
+  std::size_t CountLeafMeshBlock() const { return leaves.size(); }
+  std::size_t CountInternalMeshBlock() const { return internal_nodes.size(); }
+  bool IsLeaf(const LogicalLocation &loc) const { return leaves.count(loc); }
 
   // Gid related methods
   void InsertGid(const LogicalLocation &loc, std::int64_t gid);

@@ -65,10 +65,10 @@ class SwarmDeviceContext {
     // Particle is on neither this block nor a neighboring block
     if (i < 0 || i > 3 || ((j < 0 || j > 3) && ndim_ > 1) ||
         ((k < 0 || k > 3) && ndim_ > 2)) {
-      printf("[%i] k = %i j = %i i = %i\n", n, k, j, i);
-      printf("x = %e [%e %e]\n", x, x_min_, x_max_);
-      printf("y = %e [%e %e]\n", y, y_min_, y_max_);
-      printf("z = %e [%e %e]\n", z, z_min_, z_max_);
+      Kokkos::printf("[%i] k = %i j = %i i = %i\n", n, k, j, i);
+      Kokkos::printf("x = %e [%e %e]\n", x, x_min_, x_max_);
+      Kokkos::printf("y = %e [%e %e]\n", y, y_min_, y_max_);
+      Kokkos::printf("z = %e [%e %e]\n", z, z_min_, z_max_);
       PARTHENON_FAIL("Particle neighbor indices out of bounds; particle has somehow "
                      "moved beyond the halo of adjacent blocks which is not permitted.");
     }

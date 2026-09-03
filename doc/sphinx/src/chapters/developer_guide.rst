@@ -8,6 +8,8 @@ your first patch or pull request.
 .. toctree::
    :maxdepth: 1
 
+   ../code_of_conduct
+   ../contributing
    ../development
    ../tests
    ../sphinx-doc

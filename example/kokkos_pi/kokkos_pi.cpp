@@ -244,8 +244,9 @@ result_t naiveKokkos(int n_block, int n_mesh, int n_iter, double radius) {
   // formulate result struct
   constexpr int niops = 8;
   constexpr int nfops = 11;
-  auto r = result_t{"Naive_Kokkos", (6.0 * sumArray(blocks, n_block) * dVol / radius3),
-                    time_basic, niops, nfops};
+  auto r = result_t{"Naive_Kokkos",
+                    (static_cast<Real>(6.0 * sumArray(blocks, n_block) * dVol / radius3)),
+                    static_cast<Real>(time_basic), niops, nfops};
 
   return r;
 }

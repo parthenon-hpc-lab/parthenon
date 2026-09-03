@@ -1,9 +1,9 @@
 #=========================================================================================
 # Parthenon performance portable AMR framework
-# Copyright(C) 2020-2025 The Parthenon collaboration
+# Copyright(C) 2020-2026 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 #=========================================================================================
-# (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -36,6 +36,9 @@ option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to Tr
 option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "CUDA/HIP Only: Allocate communication buffers on host (may be slower)" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
+option(PARTHENON_DISABLE_OPENPMD "OpenPMD is enabled by default if found, set this to ON to disable OpenPMD" ON)
+option(PARTHENON_USE_SYSTEM_OPENPMD "OpenPMD API is downloaded and installed automatically by default. Set this to ON to find and use a version installed on the system." OFF)
+option(PARTHENON_ENABLE_RAW_OPENMP "Enable OpenMP for raw host loops" OFF)
 option(PARTHENON_DISABLE_SPARSE "Sparse capability is enabled by default, set this to True to compile-time disable all sparse capability" OFF)
 option(PARTHENON_ENABLE_ASCENT "Enable Ascent for in situ visualization and analysis" OFF)
 option(PARTHENON_LINT_DEFAULT "Linting is turned off by default, use the \"lint\" target or set \
@@ -72,6 +75,9 @@ else()
     "If ON, attempt to link to an external Kokkos library. If OFF, build Kokkos from source and package with Parthenon"
     OFF)
 endif()
+
+option(PARTHENON_ENABLE_FFT "Enable Parthenon FFT functionality" OFF)
+option(PARTHENON_USE_SYSTEM_HEFFTE "Use system-installed heFFTe instead of fetching it" OFF)
 
 # Check if we are using Parthenon as a subproject
 set(_parthenon_is_toplevel OFF)
@@ -167,6 +173,10 @@ find_package(Filesystem REQUIRED COMPONENTS Experimental Final)
 # Require threading for tasks
 find_package(Threads)
 
+if (PARTHENON_ENABLE_RAW_OPENMP)
+  find_package(OpenMP REQUIRED COMPONENTS CXX)
+endif()
+
 set(ENABLE_MPI OFF)
 set(NUM_MPI_PROC_TESTING "4" CACHE STRING "Number of mpi processors to use when running tests with MPI")
 if (NOT PARTHENON_DISABLE_MPI)
@@ -192,6 +202,10 @@ if (NOT PARTHENON_DISABLE_HDF5)
     "If you want to build Parthenon without HDF5, please rerun CMake with -DPARTHENON_DISABLE_HDF5=ON")
   endif()
   set(ENABLE_HDF5 ON)
+
+  if((NOT HDF5_IS_PARALLEL) AND HDF5_PROVIDES_PARALLEL)
+    set(HDF5_IS_PARALLEL ON)
+  endif()
 
   if (ENABLE_MPI AND (NOT HDF5_IS_PARALLEL))
     message(FATAL_ERROR "Both MPI and HDF5 are enabled but only a serial version of HDF5 "
@@ -235,6 +249,52 @@ if (NOT PARTHENON_DISABLE_HDF5)
   install(TARGETS HDF5_C EXPORT parthenonTargets)
 endif()
 
+set(PARTHENON_ENABLE_OPENPMD OFF)
+if (NOT PARTHENON_DISABLE_OPENPMD)
+  if (PARTHENON_USE_SYSTEM_OPENPMD)
+    # we want to enforce the use of ADIOS2 with this backend
+    set(PARTHENON_OPENPMD_COMPONENTS "ADIOS2")
+    if (ENABLE_MPI)
+      list(APPEND PARTHENON_OPENPMD_COMPONENTS "MPI")
+    else()
+      list(APPEND PARTHENON_OPENPMD_COMPONENTS "NOMPI")
+    endif()
+    find_package(openPMD 0.16.1 CONFIG COMPONENTS ${PARTHENON_OPENPMD_COMPONENTS})
+    if (NOT openPMD_FOUND)
+      message(FATAL_ERROR "OpenPMD API requested to be used from the environment but it was "
+      "not found. Either append the path to the installed OpenPMD lib via the "
+      "openPMD_DIR or CMAKE_PREFIX_PATH, or use the version shipped with Parthenon by keeping "
+      "PARTHENON_USE_SYSTEM_OPENPMD=OFF")
+    endif()
+  else()
+    include(FetchContent)
+    set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+    set(openPMD_BUILD_CLI_TOOLS OFF)
+    set(openPMD_BUILD_EXAMPLES OFF)
+    set(openPMD_BUILD_TESTING OFF)
+    set(openPMD_BUILD_SHARED_LIBS OFF)
+    set(openPMD_INSTALL OFF)
+    set(openPMD_USE_ADIOS2 ON)  # we definitely want ADIOS2
+    set(openPMD_USE_MPI ${ENABLE_MPI})
+    if( NOT Python3_Interpreter_FOUND)
+      find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    endif()
+    # Why not build the python interface for easier testing when Python is available
+    if(Python3_Interpreter_FOUND)
+      set(openPMD_USE_PYTHON ON)
+    else()
+      set(openPMD_USE_PYTHON OFF)
+    endif()
+    FetchContent_Declare(openPMD
+      GIT_REPOSITORY "https://github.com/openPMD/openPMD-api.git"
+      GIT_TAG        "0.17.1") # Release 0.17.1
+    FetchContent_MakeAvailable(openPMD)
+    install(TARGETS openPMD EXPORT parthenonTargets)
+  endif()
+
+  set(PARTHENON_ENABLE_OPENPMD ON)
+endif()
+
 # Kokkos recommendatation resulting in not using default GNU extensions
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -248,7 +308,7 @@ if (ENABLE_COMPILER_WARNINGS)
 endif()
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 if (NOT TARGET Kokkos::kokkos)
   if (PARTHENON_IMPORT_KOKKOS)
@@ -440,7 +500,42 @@ set(CMAKE_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
 set(DOC_GEN_PATH "${CMAKE_SOURCE_DIR}/doc/sphinx/src/generated" CACHE STRING
   "Path to save generated data for docs.")
 
+if (PARTHENON_ENABLE_FFT)
+  if(NOT ENABLE_MPI)
+    message(FATAL_ERROR
+      "PARTHENON_ENABLE_FFT requires MPI because the heFFTe backend uses "
+      "an MPI communicator. Reconfigure without PARTHENON_DISABLE_MPI=ON.")
+  endif()
+  if (PARTHENON_USE_SYSTEM_HEFFTE)
+    find_package(Heffte REQUIRED)
+    if (NOT Heffte_FOUND)
+      message(FATAL_ERROR "heFFTe requested to be used from the environment but it was "
+        "not found. Either append the path to the installed heFFTe lib via "
+        "Heffte_DIR or CMAKE_PREFIX_PATH, or use the version fetched by Parthenon by "
+        "keeping PARTHENON_USE_SYSTEM_HEFFTE=OFF")
+    endif()
+  else()
+    include(FetchContent)
+    set(Heffte_ENABLE_CUDA ${Kokkos_ENABLE_CUDA} CACHE BOOL "Enable CUDA for heFFTe" FORCE)
+    set(Heffte_ENABLE_ROCM ${Kokkos_ENABLE_HIP}  CACHE BOOL "Enable ROCm for heFFTe" FORCE)
+    FetchContent_Declare(Heffte
+      GIT_REPOSITORY "https://github.com/icl-utk-edu/heffte.git"
+      GIT_TAG        "4d8d459")  # current (Jul26) GitHub `master` (from Nov25)
+    FetchContent_MakeAvailable(Heffte)
+    if (NOT TARGET Heffte::Heffte)
+      add_library(Heffte::Heffte ALIAS Heffte)
+    endif()
+    install(TARGETS Heffte EXPORT parthenonTargets)
+  endif()
+endif()
+
 add_subdirectory(src)
+
+if (PARTHENON_ENABLE_FFT)
+  target_link_libraries(parthenon PRIVATE Heffte::Heffte)
+  target_compile_definitions(parthenon PUBLIC PARTHENON_ENABLE_FFT)
+endif()
+
 add_subdirectory(example)
 add_subdirectory(benchmarks)
 

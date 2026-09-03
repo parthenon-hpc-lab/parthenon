@@ -25,3 +25,7 @@ add_subdirectory(poisson_gmg)
 add_subdirectory(diffusion)
 add_subdirectory(sparse_advection)
 add_subdirectory(linear_algebra)
+if(PARTHENON_ENABLE_FFT)
+  add_subdirectory(fourier_transform)
+endif()
+

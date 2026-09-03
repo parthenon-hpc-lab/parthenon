@@ -60,8 +60,8 @@ class Variable {
   friend class MeshBlockData<T>;
 
  public:
-  Variable<T>(const std::string &base_name, const Metadata &metadata, int sparse_id,
-              std::weak_ptr<MeshBlock> wpmb);
+  Variable(const std::string &base_name, const Metadata &metadata, int sparse_id,
+           std::weak_ptr<MeshBlock> wpmb);
 
   Variable() = default;
   ~Variable() {}

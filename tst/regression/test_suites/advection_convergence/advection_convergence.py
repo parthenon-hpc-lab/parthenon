@@ -265,6 +265,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         elif step == 3 * n_res + 9:
             parameters.driver_cmd_line_args = [
                 "parthenon/mesh/refinement=adaptive",
+                "parthenon/mesh/numlevel=2",
                 "parthenon/mesh/nx1=40",
                 "parthenon/meshblock/nx1=8",
                 "parthenon/mesh/nx2=30",
@@ -290,6 +291,7 @@ class TestCase(utils.test_case.TestCaseAbs):
             parameters.driver_cmd_line_args = [
                 "parthenon/time/tlim=0.01",
                 "parthenon/mesh/refinement=adaptive",
+                "parthenon/mesh/numlevel=2",
                 "parthenon/mesh/nx1=40",
                 "parthenon/meshblock/nx1=8",
                 "parthenon/mesh/nx2=30",

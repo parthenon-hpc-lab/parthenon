@@ -59,7 +59,8 @@ class PoissonEquation {
     if (set_flux_boundary) {
       flux_res = tl.AddTask(flux_res, SetFluxBoundaries, md_mat, md_in, include_flux_dx);
     }
-    if (do_flux_cor && !(md_mat->grid.type == parthenon::GridType::two_level_composite)) {
+    if (do_flux_cor &&
+        !(md_mat->grid.type() == parthenon::GridType::two_level_composite)) {
       auto start_flxcor =
           tl.AddTask(flux_res, parthenon::StartReceiveFluxCorrections, md_in);
       auto send_flxcor =
@@ -73,7 +74,7 @@ class PoissonEquation {
 
   template <parthenon::CoordinateDirection dir, class coords_t>
   KOKKOS_INLINE_FUNCTION auto GetEffectiveInverseDx2(const coords_t &coords, const int k,
-                                                     const int j, const int i) {
+                                                     const int j, const int i) const {
     using TE = parthenon::TopologicalElement;
     constexpr TE te = dir == X1DIR ? TE::F1 : (dir == X2DIR ? TE::F2 : TE::F3);
     constexpr int ioff = (dir == X1DIR);
@@ -114,7 +115,7 @@ class PoissonEquation {
     using TE = parthenon::TopologicalElement;
     parthenon::par_for(
         "StoreDiagonal", 0, pack_mat.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-        KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+        KOKKOS_CLASS_LAMBDA(const int b, const int k, const int j, const int i) {
           const auto &coords = pack_mat.GetCoordinates(b);
           // Build the unigrid diagonal of the matrix
           Real diag_elem = -alpha;

@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -13,12 +13,15 @@
 #ifndef INTERFACE_METADATA_HPP_
 #define INTERFACE_METADATA_HPP_
 
+// This file was made in part with generative AI.
+
 #include <algorithm>
 #include <bitset>
 #include <exception>
 #include <initializer_list>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -128,6 +131,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(CellMemAligned)                                            \
   /** Particles in a Swarm will not contain a persistent, unique id field **/            \
   PARTHENON_INTERNAL_FOR_FLAG(NoPersistentParticleIds)                                   \
+  /** Only communicate one layer of ghosts at same-to-same boundaries **/                \
+  PARTHENON_INTERNAL_FOR_FLAG(CommunicateOne)                                            \
   /************************************************/                                     \
   /** Vars specifying coordinates for visualization purposes **/                         \
   /** You can specify a single 3D var **/                                                \
@@ -230,8 +235,8 @@ class Metadata {
   class FlagCollection {
    public:
     FlagCollection() = default;
-    template <typename T,
-              REQUIRES(std::is_same<typename T::value_type, MetadataFlag>::value)>
+    template <typename T>
+      requires(std::is_same<typename T::value_type, MetadataFlag>::value)
     explicit FlagCollection(const T &flags, bool take_union = false) {
       if (take_union) {
         unions_.insert(flags.begin(), flags.end());
@@ -333,25 +338,20 @@ class Metadata {
 
   // 4 constructors, this is the general constructor called by all other constructors, so
   // we do some sanity checks here
-  Metadata(
-      const std::vector<MetadataFlag> &bits, const std::vector<MetadataFlag> &flux_bits,
-      const std::vector<int> &shape = {},
-      const std::vector<std::string> &component_labels = {},
-      const std::string &associated = "",
-      const refinement::RefinementFunctions_t ref_funcs_ =
-          refinement::RefinementFunctions_t::RegisterOps<
-              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>(),
-      const refinement::RefinementFunctions_t flux_ref_funcs_ =
-          refinement::RefinementFunctions_t::RegisterOps<
-              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>());
+  Metadata(const std::vector<MetadataFlag> &bits,
+           const std::vector<MetadataFlag> &flux_bits, const std::vector<int> &shape = {},
+           const std::vector<std::string> &component_labels = {},
+           const std::string &associated = "",
+           const refinement::RefinementFunctions_t ref_funcs_ =
+               refinement::DefaultRefinementFunctions(),
+           const refinement::RefinementFunctions_t flux_ref_funcs_ =
+               refinement::DefaultRefinementFunctions());
 
-  Metadata(
-      const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
-      const std::vector<std::string> &component_labels = {},
-      const std::string &associated = "",
-      const refinement::RefinementFunctions_t ref_funcs_ =
-          refinement::RefinementFunctions_t::RegisterOps<
-              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>())
+  Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
+           const std::vector<std::string> &component_labels = {},
+           const std::string &associated = "",
+           const refinement::RefinementFunctions_t ref_funcs_ =
+               refinement::DefaultRefinementFunctions())
       : Metadata(bits, {}, shape, component_labels, associated, ref_funcs_, ref_funcs_) {}
 
   Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
@@ -514,8 +514,8 @@ class Metadata {
   /**
    * @brief Returns true if any flag is set
    */
-  template <class Container_t,
-            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  template <class Container_t>
+    requires(std::is_same<typename Container_t::value_type, MetadataFlag>::value)
   bool AnyFlagsSet(const Container_t &flags) const {
     return std::any_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
@@ -525,8 +525,8 @@ class Metadata {
     return AnyFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
   }
 
-  template <class Container_t,
-            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  template <class Container_t>
+    requires(std::is_same<typename Container_t::value_type, MetadataFlag>::value)
   bool AllFlagsSet(const Container_t &flags) const {
     return std::all_of(flags.begin(), flags.end(),
                        [this](MetadataFlag const &f) { return IsSet(f); });
@@ -535,8 +535,8 @@ class Metadata {
   bool AllFlagsSet(const MetadataFlag &flag, Args... args) const {
     return AllFlagsSet(FlagVec{flag, std::forward<Args>(args)...});
   }
-  template <class Container_t,
-            REQUIRES(std::is_same<typename Container_t::value_type, MetadataFlag>::value)>
+  template <class Container_t>
+    requires(std::is_same<typename Container_t::value_type, MetadataFlag>::value)
   bool NoFlagsSet(const Container_t &flags) const {
     return std::none_of(flags.begin(), flags.end(),
                         [this](MetadataFlag const &f) { return IsSet(f); });
@@ -605,6 +605,14 @@ class Metadata {
     return component_labels_;
   }
 
+  void SetSparseLabel(const std::optional<std::string> &sparse_label) {
+    sparse_label_ = sparse_label;
+  }
+
+  std::string GetSparseLabel(const int sparse_id) const {
+    return (sparse_label_) ? *sparse_label_ : std::to_string(sparse_id);
+  }
+
   void SetInitialSwarmPoolReservation(const std::size_t s) { swarm_nmax_pool_ = s; }
   std::size_t InitialSwarmPoolReservation() const noexcept { return swarm_nmax_pool_; }
 
@@ -616,6 +624,7 @@ class Metadata {
   std::vector<std::string> component_labels_ = {};
   std::string associated_ = "";
   std::string flux_var_ = "";
+  std::optional<std::string> sparse_label_ = std::nullopt;
 
   parthenon::Real allocation_threshold_;
   parthenon::Real deallocation_threshold_;

@@ -8,8 +8,8 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.event.comment.body, '@par-hermes format')
     steps:
-    - uses: pgrete/cpp-py-formatter/command@v0.3.0
+    - uses: pgrete/cpp-py-formatter/command@v0.4.0
       with:
         botName: par-hermes
-        clangFormatVersion: 11
+        clangFormatVersion: 20
         token: ${{ secrets.GITHUB_TOKEN }}

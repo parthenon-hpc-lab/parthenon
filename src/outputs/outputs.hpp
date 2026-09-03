@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2025 The Parthenon collaboration
+// Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // Athena++ astrophysical MHD code
@@ -27,6 +27,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "Kokkos_ScatterView.hpp"
@@ -115,6 +116,17 @@ const char hist_param_key[] = "HistoryFunctions";
 const char hist_vec_param_key[] = "HistoryVectorFunctions";
 
 //----------------------------------------------------------------------------------------
+//! \class SpectralOutput
+//  \brief derived OutputType class for Spectrum dumps
+
+class SpectralOutput : public OutputType {
+ public:
+  explicit SpectralOutput(const OutputParameters &oparams) : OutputType(oparams) {}
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                       const SignalHandler::OutputSignal signal) override;
+};
+
+//----------------------------------------------------------------------------------------
 //! \class HistoryFile
 //  \brief derived OutputType class for history dumps
 
@@ -141,6 +153,35 @@ class AscentOutput : public OutputType {
   ParArray1D<Real> ghost_mask_;
 };
 
+//----------------------------------------------------------------------------------------
+//! \class OpenPMDOutput
+//  \brief derived OutputType class for OpenPMD based output
+
+class OpenPMDOutput : public OutputType {
+ public:
+  explicit OpenPMDOutput(const OutputParameters &oparams, std::string backend_config,
+                         int coarsening_factor, int format_version)
+      : OutputType(oparams), backend_config_(std::move(backend_config)),
+        coarsening_factor_(coarsening_factor), format_version_(format_version) {}
+  void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                       const SignalHandler::OutputSignal signal) override;
+  template <bool WRITE_SINGLE_PRECISION>
+  void WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                           const SignalHandler::OutputSignal signal);
+
+  // Version 1: Original format — each component creates a separate record with the
+  //            component label embedded in the record name (e.g., "v_v_vx_lvl0/x").
+  // Version 2: Standard-compliant — all components share one record, distinguished only
+  //            by their component name within the sub-group (e.g., "v_lvl0/x").
+  static constexpr int OUTPUT_VERSION_FORMAT = 2;
+
+ private:
+  //  path to file containing config passed to backend
+  std::string backend_config_;
+  int coarsening_factor_;
+  int format_version_;
+};
+
 #ifdef ENABLE_HDF5
 //----------------------------------------------------------------------------------------
 //! \class PHDF5Output
@@ -149,8 +190,7 @@ class AscentOutput : public OutputType {
 class PHDF5Output : public OutputType {
  public:
   // Function declarations
-  PHDF5Output(const OutputParameters &oparams, DumpOutputMode mode)
-      : OutputType(oparams), mode_(mode) {}
+  explicit PHDF5Output(const OutputParameters &oparams) : OutputType(oparams) {}
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                        const SignalHandler::OutputSignal signal) override;
   template <bool WRITE_SINGLE_PRECISION>
@@ -170,21 +210,20 @@ class PHDF5Output : public OutputType {
   void WriteSparseInfo_(Mesh *pm, hbool_t *sparse_allocated,
                         const std::vector<int> &dealloc_count,
                         const std::vector<std::string> &sparse_names, hsize_t num_sparse,
-                        hid_t file, const HDF5::H5P &pl, size_t offset,
+                        hid_t file, const HDF5::H5P &pl, std::size_t offset,
                         hsize_t max_blocks_global) const;
   std::string FilePostfix_() const {
-    if (mode_ == DumpOutputMode::DUMP) {
+    if (output_params.mode == DumpOutputMode::Data) {
       return ".phdf";
-    } else if (mode_ == DumpOutputMode::RESTART) {
+    } else if (output_params.mode == DumpOutputMode::Restart) {
       return ".rhdf";
-    } else if (mode_ == DumpOutputMode::CORE) {
+    } else if (output_params.mode == DumpOutputMode::Core) {
       return ".chdf";
     } else {
       PARTHENON_FAIL("Unknown dump output mode");
       return "";
     }
   }
-  const DumpOutputMode mode_;
 };
 
 //----------------------------------------------------------------------------------------

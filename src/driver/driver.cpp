@@ -149,11 +149,28 @@ DriverStatus EvolutionDriver::Execute() {
     while (tm.KeepGoing() && signal != OutputSignal::analysis) {
       if (Globals::my_rank == 0) OutputCycleDiagnostics();
 
+      // poke the dog
+      if (Globals::watchdog_enabled) {
+        WatchDog::WatchDog(0);
+      }
+
       if (pmesh->PreStepUserWorkInLoop != nullptr) {
         pmesh->PreStepUserWorkInLoop(pmesh, pinput, tm);
       }
       if (pmesh->PreStepUserDiagnosticsInLoop != nullptr) {
         pmesh->PreStepUserDiagnosticsInLoop(pmesh, pinput, tm);
+      }
+
+      { // Anonymous meshdata subsets from packages
+        // TODO(JMM): Currently this is always based on base. This is
+        // possibly not always desirable for shallow copies (which are
+        // nominally supported).
+        auto &base = pmesh->mesh_data.Get();
+        for (auto &[subname, pkgmap] : pmesh->packages.AllPackagesWithSubMeshData()) {
+          for (auto &[label, pkg] : pkgmap) {
+            pkg->AddMeshDataSubset(pmesh, subname, base);
+          }
+        }
       }
 
       TaskListStatus status = Step();
@@ -208,7 +225,7 @@ DriverStatus EvolutionDriver::Execute() {
       }
     } // END OF MAIN INTEGRATION LOOP
       // ======================================================
-  }   // Main t < tmax loop region
+  } // Main t < tmax loop region
 
   if (pmesh->UserWorkAfterLoop != nullptr) {
     pmesh->UserWorkAfterLoop(pmesh, pinput, tm);
@@ -349,6 +366,8 @@ void EvolutionDriver::OutputCycleDiagnostics() {
                   << static_cast<double>(zonecycles) / (time_cycle_step + time_LBandAMR)
                   << " wsec_AMR=" << time_LBandAMR;
       }
+
+      OutputDownstreamCycleDiagnostics();
 
       // insert more diagnostics here
       std::cout << std::endl;

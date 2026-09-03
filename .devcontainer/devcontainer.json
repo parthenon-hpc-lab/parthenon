@@ -1,7 +1,7 @@
 // devcontainer.json
     {
       "name": "parthenon-dev",
-      "image": "ghcr.io/parthenon-hpc-lab/cuda12.8-mpi-hdf5-opmd",
+      "image": "ghcr.io/parthenon-hpc-lab/cuda12.9-mpi-hdf5-opmd",
       // Somehow required to make GPUs work inside docker on the CI machine.
       // Just passing the runtime and/or --gpus=all works initially but then
       // the GPU disappears in the active container.

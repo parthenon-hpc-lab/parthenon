@@ -22,8 +22,8 @@
 #include "defs.hpp"
 #include "globals.hpp"
 #include "parameter_input.hpp"
-using Real = double;
 using parthenon::ParameterInput;
+using parthenon::Real;
 using parthenon::RegionSize;
 using parthenon::UniformCartesian;
 using parthenon::UniformCylindrical;

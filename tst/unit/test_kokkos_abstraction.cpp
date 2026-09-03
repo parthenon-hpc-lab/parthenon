@@ -37,6 +37,7 @@
 #include "parthenon_array_generic.hpp"
 #include "utils/indexer.hpp"
 #include "utils/instrument.hpp"
+#include "utils/summable_array.hpp"
 #include "utils/type_list.hpp"
 
 using parthenon::DevExecSpace;
@@ -670,6 +671,22 @@ TEST_CASE("DEFAULT loop patterns", "[default]") {
         Kokkos::Sum<int>(test_sum2));
 
     REQUIRE(h_sum == test_sum2);
+
+    // We can sum over our summable array type
+    using sarr_t = parthenon::summable_array_t<int, 3>;
+    sarr_t vsum;
+    parthenon::par_reduce(
+        PARTHENON_AUTO_LABEL, idr3d,
+        KOKKOS_LAMBDA(const int k, const int j, const int i, sarr_t &sum) {
+          sum[0] += k + j + i;
+          sum[1] += k + j + i;
+          sum[2] += k + j + i;
+        },
+        Kokkos::Sum<sarr_t>(vsum));
+
+    REQUIRE(h_sum == vsum[0]);
+    REQUIRE(h_sum == vsum[1]);
+    REQUIRE(h_sum == vsum[2]);
   }
 
   SECTION("par_for_outer") {

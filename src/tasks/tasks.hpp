@@ -118,6 +118,7 @@ class Task {
   }
 
   static inline bool enable_timing{false};
+  static inline bool enable_timing_chunks{false};
 
   TaskStatus operator()();
   TaskID GetID() { return this; }
@@ -420,7 +421,7 @@ class TaskList {
   }
 
   Task *GetStartupTask() { return first_task; }
-  size_t NumRegional() const { return regional_tasks.size(); }
+  std::size_t NumRegional() const { return regional_tasks.size(); }
   Task *Regional(const int i) { return regional_tasks[i]; }
   void SetID(const int id) { unique_id = id; }
 
@@ -488,7 +489,7 @@ class TaskRegion {
 
   TaskListStatus Execute(Pool_t &pool);
   TaskList &operator[](const int i) { return task_lists[i]; }
-  size_t size() const { return task_lists.size(); }
+  std::size_t size() const { return task_lists.size(); }
 
   inline friend std::ostream &operator<<(std::ostream &stream, TaskRegion &region) {
     std::vector<std::shared_ptr<Task>> tasks;

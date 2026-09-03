@@ -69,8 +69,8 @@ KOKKOS_INLINE_FUNCTION int upper_bound(const T &arr, Real val) {
 }
 
 template <class Key, class KeyComparator>
-void sort(ParArray1D<Key> data, KeyComparator comparator, size_t min_idx,
-          size_t max_idx) {
+void sort(ParArray1D<Key> data, KeyComparator comparator, std::size_t min_idx,
+          std::size_t max_idx) {
   PARTHENON_DEBUG_REQUIRE(min_idx < data.extent(0), "Invalid minimum sort index!");
   PARTHENON_DEBUG_REQUIRE(max_idx < data.extent(0), "Invalid maximum sort index!");
 #if defined(KOKKOS_ENABLE_CUDA)
@@ -105,7 +105,7 @@ void sort(ParArray1D<Key> data, KeyComparator comparator, size_t min_idx,
 }
 
 template <class Key>
-void sort(ParArray1D<Key> data, size_t min_idx, size_t max_idx) {
+void sort(ParArray1D<Key> data, std::size_t min_idx, std::size_t max_idx) {
   PARTHENON_DEBUG_REQUIRE(min_idx < data.extent(0), "Invalid minimum sort index!");
   PARTHENON_DEBUG_REQUIRE(max_idx < data.extent(0), "Invalid maximum sort index!");
 #if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)

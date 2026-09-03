@@ -49,6 +49,7 @@ enum MPI_Op {
 
 #ifdef MPI_PARALLEL
 template <class U>
+  requires(ContiguousContainer<U>)
 MPI_Datatype GetContainerMPIType(const U &v) {
   using value_type = decltype(contiguous_container::value_type(v));
   return MPITypeMap<value_type>::type();

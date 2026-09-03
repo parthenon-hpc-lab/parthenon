@@ -152,7 +152,11 @@ must be repeated in the driver’s evolution function until all particles
 are completed. See the ``particles`` example for further details. Note
 that this pattern is blocking, and may be replaced in the future.
 
-AMR is currently not supported, but support will be added in the future.
+AMR support for swarms is available. When the mesh changes, swarm
+particles are redistributed to the correct new leaf block after
+same-level redistribution, refinement, or derefinement. The
+``particle_tracers`` example demonstrates this path for advected tracer
+particles on an adaptively refined mesh.
 
 Variable Packing
 ----------------
@@ -169,7 +173,7 @@ This also supports ``FlatIdx`` for indexing; see the
 
 Similar to grid variables, swarms can be packed over ``MeshBlock``\ s via ``SwarmPack``\ s.
 ``SwarmPack``\ s are the particle analog to ``SparsePack``\ s for field variables.  A single
-``SwarmPack`` can contain either ``int`` or ``Real`` entries, but not both.  One can pack
+``SwarmPack`` can contain either ``int``, ``uint64_t``, or ``Real`` entries, but not combinations of them.  One can pack
 a ``SwarmPack`` via a ``std::vector<std::string>`` or the type-based variable prescription
 previously used by ``SparsePack``\ s (see :ref:`sparse_packs`).
 
@@ -185,7 +189,7 @@ one must specify the data type by template argument:
    auto pack = desc.GetPack(md);
 
 
-For packing via type-based variables (see pack/swarm_default_names.hpp for an
+For packing via type-based variables (see pack/default_names.hpp for an
 example), the type can be inferred automatically:
 
 .. code:: cpp
@@ -292,3 +296,6 @@ Putting it all together, you might have an output block that looks like this:
 The result would be that both ``swarm1`` and ``swarm2`` output the
 variables ``id``, ``x``, ``y``, ``z``, and ``shared_var``. But only ``swarm1``
 outputs ``per_swarm_var``.
+
+.. note::
+    This file was made in part with generative AI.

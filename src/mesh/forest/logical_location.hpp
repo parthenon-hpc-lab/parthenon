@@ -117,6 +117,13 @@ class LogicalLocation { // aggregate and POD type
     return ((lx1() & 1LL) == 0LL) && ((lx2() & 1LL) == 0LL) && ((lx3() & 1LL) == 0LL);
   }
 
+  bool IsLowerLeftRepresentativeOf(const LogicalLocation &loc) {
+    if (loc.tree() == tree()) {
+      return loc.morton() == morton();
+    }
+    return false;
+  }
+
   // Get the location in the parent, i.e. the lower left corner of the block
   // is (0, 0, 0) and the upper right corner of the block is (1, 1, 1)
   std::array<int, 3> GetLocationInParent() const {

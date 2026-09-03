@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "mesh/mesh.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/default_names.hpp"
 #include "swarm.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/sort.hpp"
@@ -102,8 +102,9 @@ void Swarm::SetNeighborIndices_() {
         }
 
         // Loop over neighbor blocks and see if any contains this test point.
-        for (int n = 0; n < pmb->neighbors.size(); n++) {
-          NeighborBlock &nb = pmb->neighbors[n];
+        const auto &neighbors = pmb->GetNeighbors();
+        for (std::size_t n = 0; n < neighbors.size(); n++) {
+          const NeighborBlock &nb = neighbors[n];
           const auto &nbsize = nb.block_size;
           if ((x_test[0] > nbsize.xmin_[0] && x_test[0] < nbsize.xmax_[0]) &&
               (x_test[1] > nbsize.xmin_[1] && x_test[1] < nbsize.xmax_[1]) &&
@@ -146,11 +147,12 @@ void Swarm::SetupPersistentMPI() {
   SetNeighborIndices_();
 
   // Build device array mapping neighbor index to neighbor bufid
-  if (pmb->neighbors.size() > 0) {
-    ParArrayND<int> neighbor_buffer_index("Neighbor buffer index", pmb->neighbors.size());
+  const auto &neighbors = pmb->GetNeighbors();
+  if (neighbors.size() > 0) {
+    ParArrayND<int> neighbor_buffer_index("Neighbor buffer index", neighbors.size());
     auto neighbor_buffer_index_h = neighbor_buffer_index.GetHostMirror();
-    for (int n = 0; n < pmb->neighbors.size(); n++) {
-      neighbor_buffer_index_h(n) = pmb->neighbors[n].bufid;
+    for (std::size_t n = 0; n < neighbors.size(); n++) {
+      neighbor_buffer_index_h(n) = neighbors[n].bufid;
     }
     neighbor_buffer_index.DeepCopy(neighbor_buffer_index_h);
     neighbor_buffer_index_ = neighbor_buffer_index;
@@ -160,9 +162,9 @@ void Swarm::SetupPersistentMPI() {
 void Swarm::LoadBuffers_() {
   auto swarm_d = GetDeviceContext();
   auto pmb = GetBlockPointer();
-  const int particle_size = GetParticleDataSize();
+  const std::size_t particle_size = GetParticleDataSize();
   vbswarm->particle_size = particle_size;
-  const int nneighbor = pmb->neighbors.size();
+  const std::size_t nneighbor = pmb->GetNeighbors().size();
   // Fence to make sure particles aren't currently being transported locally
   pmb->exec_space.fence();
 
@@ -235,9 +237,10 @@ void Swarm::LoadBuffers_() {
     auto buffer_start_h = buffer_start.GetHostMirrorAndCopy();
 
     // Resize send buffers if too small
-    for (int n = 0; n < pmb->neighbors.size(); n++) {
+    const auto &neighbors = pmb->GetNeighbors();
+    for (std::size_t n = 0; n < neighbors.size(); n++) {
       num_particles_to_send_h(n) -= buffer_start_h(n);
-      const int bufid = pmb->neighbors[n].bufid;
+      const int bufid = neighbors[n].bufid;
       auto sendbuf = vbswarm->bd_var_.send[bufid];
       if (sendbuf.extent(0) < num_particles_to_send_h(n) * particle_size) {
         sendbuf = BufArray1D<Real>("Buffer", num_particles_to_send_h(n) * particle_size);
@@ -265,13 +268,15 @@ void Swarm::LoadBuffers_() {
                 buffer_index++;
               }
               // Making sure we catch/update this, when allowing Real = float again
-              static_assert(sizeof(Real) == 2 * sizeof(int));
+              PARTHENON_REQUIRE(sizeof(Real) == 2 * sizeof(int),
+                                "Fixme to make swarm comm work in float");
               for (int i = 0; i < intPackDim; i++) {
                 bdvar.send[bufid](buffer_index) = static_cast<Real>(vint(i, p_index));
                 buffer_index++;
               }
               // Should eventually be a bit_cast once we're on C++20
-              static_assert(sizeof(Real) == sizeof(std::uint64_t));
+              PARTHENON_REQUIRE(sizeof(Real) == sizeof(std::uint64_t),
+                                "Fixme to make swarm comm work in float");
               for (int i = 0; i < uint64PackDim; i++) {
                 std::memcpy(&bdvar.send[bufid](buffer_index), &vuint64(i, p_index),
                             sizeof(std::uint64_t));
@@ -284,8 +289,9 @@ void Swarm::LoadBuffers_() {
     // Remove particles that were loaded to send to another block from this block
     RemoveMarkedParticles();
   } else {
-    for (int n = 0; n < pmb->neighbors.size(); n++) {
-      const int bufid = pmb->neighbors[n].bufid;
+    const auto &neighbors = pmb->GetNeighbors();
+    for (std::size_t n = 0; n < neighbors.size(); n++) {
+      const int bufid = neighbors[n].bufid;
       vbswarm->send_size[bufid] = 0;
     }
   }
@@ -293,7 +299,7 @@ void Swarm::LoadBuffers_() {
 
 void Swarm::Send(BoundaryCommSubset phase) {
   auto pmb = GetBlockPointer();
-  const int nneighbor = pmb->neighbors.size();
+  const std::size_t nneighbor = pmb->GetNeighbors().size();
   auto swarm_d = GetDeviceContext();
 
   // Potentially resize buffer, get consistent index from particle array, get ready to
@@ -311,8 +317,9 @@ void Swarm::UnloadBuffers_() {
   total_received_particles_ = 0;
   auto &neighbor_received_particles = neighbor_received_particles_;
   auto neighbor_received_particles_h = neighbor_received_particles.GetHostMirror();
-  for (int n = 0; n < pmb->neighbors.size(); n++) {
-    const int bufid = pmb->neighbors[n].bufid;
+  const auto &neighbors = pmb->GetNeighbors();
+  for (std::size_t n = 0; n < neighbors.size(); n++) {
+    const int bufid = neighbors[n].bufid;
     if (vbswarm->bd_var_.flag[bufid] == BoundaryStatus::arrived) {
       PARTHENON_DEBUG_REQUIRE(vbswarm->recv_size[bufid] % vbswarm->particle_size == 0,
                               "Receive buffer is not divisible by particle size!");
@@ -345,7 +352,7 @@ void Swarm::UnloadBuffers_() {
     const int intPackDim = vint.GetDim(2);
     const int uint64PackDim = vuint64.GetDim(2);
 
-    const int particle_size = GetParticleDataSize();
+    const std::size_t particle_size = GetParticleDataSize();
     auto swarm_d = GetDeviceContext();
 
     // Change meaning of neighbor_received_particles from particles per neighbor to
@@ -378,13 +385,15 @@ void Swarm::UnloadBuffers_() {
             bid++;
           }
           // Making sure we catch/update this, when allowing Real = float again
-          static_assert(sizeof(Real) == 2 * sizeof(int));
+          PARTHENON_REQUIRE(sizeof(Real) == 2 * sizeof(int),
+                            "Fixme to make swarm comm work in float");
           for (int i = 0; i < intPackDim; i++) {
             vint(i, sid) = static_cast<int>(bdvar.recv[nbid](bid));
             bid++;
           }
           // Should eventually be a bit_cast once we're on C++20
-          static_assert(sizeof(Real) == sizeof(std::uint64_t));
+          PARTHENON_REQUIRE(sizeof(Real) == sizeof(std::uint64_t),
+                            "Fixme to make swarm comm work in float");
           for (int i = 0; i < uint64PackDim; i++) {
             std::memcpy(&vuint64(i, sid), &bdvar.recv[nbid](bid), sizeof(std::uint64_t));
             bid++;
@@ -395,7 +404,7 @@ void Swarm::UnloadBuffers_() {
 
 bool Swarm::Receive(BoundaryCommSubset phase) {
   auto pmb = GetBlockPointer();
-  const int nneighbor = pmb->neighbors.size();
+  const std::size_t nneighbor = pmb->GetNeighbors().size();
 
   if (nneighbor == 0) {
     // Do nothing; no boundaries to receive
@@ -414,8 +423,9 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
 
   auto &bdvar = vbswarm->bd_var_;
   bool all_boundaries_received = true;
+  const auto &neighbors = pmb->GetNeighbors();
   for (int n = 0; n < nneighbor; n++) {
-    NeighborBlock &nb = pmb->neighbors[n];
+    const NeighborBlock &nb = neighbors[n];
     if (bdvar.flag[nb.bufid] == BoundaryStatus::arrived) {
       bdvar.flag[nb.bufid] = BoundaryStatus::completed;
     } else if (bdvar.flag[nb.bufid] == BoundaryStatus::waiting) {
@@ -428,9 +438,10 @@ bool Swarm::Receive(BoundaryCommSubset phase) {
 
 void Swarm::ResetCommunication() {
   auto pmb = GetBlockPointer();
+  const auto &neighbors = pmb->GetNeighbors();
 #ifdef MPI_PARALLEL
-  for (int n = 0; n < pmb->neighbors.size(); n++) {
-    NeighborBlock &nb = pmb->neighbors[n];
+  for (std::size_t n = 0; n < neighbors.size(); n++) {
+    const NeighborBlock &nb = neighbors[n];
     if (vbswarm->bd_var_.req_send[nb.bufid] != MPI_REQUEST_NULL) {
       MPI_Request_free(&(vbswarm->bd_var_.req_send[nb.bufid]));
     }
@@ -438,8 +449,8 @@ void Swarm::ResetCommunication() {
 #endif
 
   // Reset boundary statuses
-  for (int n = 0; n < pmb->neighbors.size(); n++) {
-    auto &nb = pmb->neighbors[n];
+  for (std::size_t n = 0; n < neighbors.size(); n++) {
+    const auto &nb = neighbors[n];
     vbswarm->bd_var_.flag[nb.bufid] = BoundaryStatus::waiting;
   }
 }
