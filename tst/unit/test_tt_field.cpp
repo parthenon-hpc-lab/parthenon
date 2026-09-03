@@ -190,7 +190,7 @@ TEST_CASE("MeshTTData assembles over a block partition", "[TTField]") {
 
       THEN("It carries the partition's grid identity for symmetry with MeshData") {
         REQUIRE(md.partition == kPartition);
-        REQUIRE(md.grid.type == GridIdentifier::leaf().type);
+        REQUIRE(md.grid.type() == GridIdentifier::leaf().type());
       }
     }
 
