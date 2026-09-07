@@ -338,7 +338,9 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
 }
 
 void Mesh::SetGMGNeighbors() {
-  auto write_block_str = [](const auto &in) {
+  // JMM: This lambda doesn't do anything, but I think it's useful
+  // for debugging so I left it in.
+  [[maybe_unused]] auto write_block_str = [](const auto &in) {
     return std::to_string(in.gid) + " " + in.loc.label() + "{" +
            std::to_string(in.block_coarsenings) + "}";
   };

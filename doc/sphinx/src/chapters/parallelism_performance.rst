@@ -10,6 +10,7 @@ load balancing, and weak-scaling instrumentation.
 
    ../par_for
    ../nested_par_for
+   ../loop_abstraction
    ../tasks
    ../reductions
    ../load_balancing

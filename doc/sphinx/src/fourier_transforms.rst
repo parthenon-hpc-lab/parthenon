@@ -9,7 +9,7 @@ both CPU and GPU backends transparently.
 .. note::
    FFT functionality requires ``num_packs = 1`` in the input file, meaning all meshblocks
    on a rank are packed into a single partition. This is required for the flat array indexing
-   used by heFFTe.
+   used by heFFTe. Similarly, MPI is required (as it is a dependency of heFFTe).
 
 Overview
 --------

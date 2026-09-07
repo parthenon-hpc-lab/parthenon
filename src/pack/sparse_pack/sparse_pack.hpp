@@ -21,6 +21,7 @@
 #include "pack/block_selector.hpp"
 #include "pack/pack_utils.hpp"
 #include "pack/sparse_pack/sparse_pack_base.hpp"
+#include "pack/subpack.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/type_list.hpp"
 
@@ -187,6 +188,13 @@ class SparsePack : public SparsePackBase {
   KOKKOS_INLINE_FUNCTION int GetIndex(const int b, const TIn &var) const {
     return GetLowerBound(b, var) + var.idx;
   }
+  // Integral overload: a raw pack index is already absolute, so pass it through. Lets
+  // callers resolve either a typed index (ccmat::rho(m)) or a raw int uniformly.
+  template <typename integral_t>
+    requires(std::is_integral_v<integral_t>)
+  KOKKOS_INLINE_FUNCTION int GetIndex(const int /*b*/, const integral_t &var) const {
+    return static_cast<int>(var);
+  }
   template <typename TIn>
     requires(IncludesType<TIn, Ts...>::value)
   int GetIndexHost(const int b, const TIn &var) const {
@@ -331,6 +339,51 @@ class SparsePack : public SparsePackBase {
                                           const int k, const int j, const int i) const {
     const int vidx = GetLowerBound(b, t) + t.idx;
     return pack_(static_cast<int>(el) % 3, b, vidx)(k, j, i);
+  }
+
+  template <typename Tin, typename... Args>
+    requires(variable_names::VirtualVariable<Tin> && !variable_names::VirtualSubPack<Tin>)
+  KOKKOS_INLINE_FUNCTION Real operator()(const int b, const Tin &t, const int k,
+                                         const int j, const int i, Args &&...args) const {
+    static_assert(
+        TypeList<Ts...>::IsIn(typename Tin::independent_vars()),
+        "SparsePack must pack all independent_vars needed for virtual variable");
+    return t.evaluate(*this, b, k, j, i, std::forward<Args>(args)...);
+  }
+
+  template <typename Tin, typename... Args>
+    requires(variable_names::VirtualVariable<Tin> && variable_names::VirtualSubPack<Tin>)
+  KOKKOS_INLINE_FUNCTION Real operator()(const int b, const Tin &t, const int k,
+                                         const int j, const int i, Args &&...args) const {
+    static_assert(
+        TypeList<Ts...>::IsIn(typename Tin::independent_vars()),
+        "SparsePack must pack all independent_vars needed for virtual variable");
+    using sub_pack_type = decltype(SubPack<typename Tin::pack_type>(*this, b, k, j, i));
+    return t.evaluate(SubPack<typename Tin::pack_type>(*this, b, k, j, i),
+                      std::forward<Args>(args)...);
+  }
+  template <typename Tin, typename... Args>
+    requires(variable_names::VirtualVariable<Tin> && variable_names::VirtualSubPack<Tin>)
+  KOKKOS_INLINE_FUNCTION Real operator()(const int b, const TE el, const Tin &t,
+                                         const int k, const int j, const int i,
+                                         Args &&...args) const {
+    static_assert(
+        TypeList<Ts...>::IsIn(typename Tin::independent_vars()),
+        "SparsePack must pack all independent_vars needed for virtual variable");
+    using sub_pack_type = decltype(SubPack<typename Tin::pack_type>(*this, b, k, j, i));
+    return t.evaluate(SubPack<typename Tin::pack_type>(*this, b, k, j, i), el,
+                      std::forward<Args>(args)...);
+  }
+
+  template <typename Tin, typename... Args>
+    requires(variable_names::VirtualVariable<Tin> && !variable_names::VirtualSubPack<Tin>)
+  KOKKOS_INLINE_FUNCTION Real operator()(const int b, const TE el, const Tin &t,
+                                         const int k, const int j, const int i,
+                                         Args &&...args) const {
+    static_assert(
+        TypeList<Ts...>::IsIn(typename Tin::independent_vars()),
+        "SparsePack must pack all independent_vars needed for virtual variable");
+    return t.evaluate(*this, b, el, k, j, i, std::forward<Args>(args)...);
   }
 
   // flux() overloads

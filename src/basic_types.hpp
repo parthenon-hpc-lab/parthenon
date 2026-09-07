@@ -177,6 +177,9 @@ inline bool operator<(const GridIdentifier &lhs, const GridIdentifier &rhs) {
   return lhs.logical_level() < rhs.logical_level();
 }
 
+// Enumeration for accessing spatial axes of a meshblock
+enum class Axis { I = 0, J = 1, K = 2 };
+
 // Enumeration for accessing a field on different locations of the grid:
 // CC = cell center of (i, j, k)
 // F1 = x-normal face at (i - 1/2, j, k)
@@ -253,6 +256,15 @@ inline std::string TopologicalTypeToString(TopologicalType tt) {
   return "cell";
 }
 
+KOKKOS_INLINE_FUNCTION
+constexpr std::size_t NumberOfTopologicalElements(TopologicalType tt) {
+  using TT = TopologicalType;
+  if (tt == TT::Face || tt == TT::Edge) {
+    return 3;
+  }
+  return 1;
+}
+
 inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt) {
   using TE = TopologicalElement;
   using TT = TopologicalType;
@@ -263,8 +275,8 @@ inline std::vector<TopologicalElement> GetTopologicalElements(TopologicalType tt
 }
 
 KOKKOS_FORCEINLINE_FUNCTION
-TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
-                                              const std::size_t d) {
+constexpr TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
+                                                        const std::size_t d) {
   using TE = TopologicalElement;
   using TT = TopologicalType;
   if (tt == TT::Cell) return TE::CC;
@@ -274,7 +286,6 @@ TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
 }
 KOKKOS_FORCEINLINE_FUNCTION
 TopologicalElement GetTopologicalElementInDir(const TopologicalType tt,
-
                                               const CoordinateDirection DIR) {
   return GetTopologicalElementInDir(tt, static_cast<std::size_t>(DIR - 1));
 }
@@ -321,8 +332,8 @@ struct SimTime {
   SimTime(const Real tstart, const Real tstop, const int nmax, const int ncurr,
           const int nout, const int nout_mesh,
           const Real dt_in = std::numeric_limits<Real>::max())
-      : start_time(tstart), time(tstart), tlim(tstop), dt(dt_in), nlim(nmax),
-        ncycle(ncurr), ncycle_out(nout), ncycle_out_mesh(nout_mesh) {}
+      : start_time(tstart), time(tstart), tlim(tstop), dt(dt_in), ncycle(ncurr),
+        nlim(nmax), ncycle_out(nout), ncycle_out_mesh(nout_mesh) {}
   // beginning time, current time, maximum time, time step
   Real start_time, time, tlim, dt;
   // current cycle number, maximum number of cycles, cycles between diagnostic output

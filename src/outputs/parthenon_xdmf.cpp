@@ -3,7 +3,7 @@
 // Copyright(C) 2023-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with the assistance of generative AI.
 
 // options for building
 #include "config.hpp"
@@ -106,12 +108,19 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
     auto coords_it = std::find_if(var_list.begin(), var_list.end(),
                                   [](const auto &v) { return v.is_coordinate_field; });
     const int ndim_mesh = (nx3 > 1) + (nx2 > 1) + (nx1 > 1);
+    const bool is_2d = (ndim_mesh == 2);
     const bool output_coords = (ndim_mesh > 1) && (coords_it != var_list.end());
     if ((coords_it != var_list.end()) && (ndim_mesh < 2) && (Globals::my_rank == 0)) {
       PARTHENON_WARN(
           "Custom coordinates not supported in XDMF for 1D meshes. Reverting to "
-          "3DRectMesh");
+          "RectMesh");
     }
+    // TODO(JMM): This warning is probably sufficiently annoying we
+    // should suppress it, but this is true.
+    // const bool is_1d = (ndim_mesh == 1);
+    // if (is_1d) {
+    //   PARTHENON_DEBUG_WARN("1D output in XDMF can be ill-behaved. Use with caution.");
+    // }
 
     // open file
     xdmf = std::ofstream(filename_aux.c_str(), std::ofstream::trunc);
@@ -145,6 +154,9 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       } else {
         PARTHENON_FAIL("Custom coordinates not supported in XDMF for 1D meshes.");
       }
+    } else if (is_2d) {
+      mesh_type = "2DRectMesh";
+      dimstring = StringPrintf("%d %d", nx2 + 1, nx1 + 1);
     } else {
       mesh_type = "3DRectMesh";
       dimstring = StringPrintf("%d %d %d", nx3 + n3_offset, nx2 + n2_offset, nx1 + 1);
@@ -153,8 +165,10 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       xdmf << StringPrintf("    <Grid GridType=\"Uniform\" Name=\"%d\">\n", ib);
       xdmf << StringPrintf("      <Topology TopologyType=\"%s\" Dimensions=\"%s\"/>\n",
                            mesh_type.c_str(), dimstring.c_str());
+      // JMM: Unfortunately xdmf assumes 2D+ so VX doesn't exist and
+      // we can't special case for 1D.
       xdmf << StringPrintf("      <Geometry GeometryType=\"%s\">\n",
-                           output_coords ? "X_Y_Z" : "VXVYVZ");
+                           output_coords ? "X_Y_Z" : (is_2d ? "VXVY" : "VXVYVZ"));
       if (output_coords) {
         ndim = coords_it->FillShape<hsize_t>(domain, &(dims[1])) + 1;
         for (int d = 0; d < 3; ++d) {
@@ -175,7 +189,9 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       } else {
         BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx1, hdfFile, "x");
         BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx2, hdfFile, "y");
-        BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx3, hdfFile, "z");
+        if (!is_2d) {
+          BlockCoordRegularRef(xdmf, pm->nbtotal, ib, nx3, hdfFile, "z");
+        }
       }
       xdmf << "      </Geometry>" << std::endl;
 
@@ -191,11 +207,9 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
         }
         ndim = vinfo.FillShape<hsize_t>(domain, &(dims[1])) + 1;
         const int num_components = vinfo.num_components;
-        nx3 = dims[ndim - 3];
-        nx2 = dims[ndim - 2];
-        nx1 = dims[ndim - 1];
         writeXdmfSlabVariableRef(xdmf, vinfo.label, vinfo.component_labels, hdfFile, ib,
-                                 num_components, ndim, dims, nx3, nx2, nx1, output_coords,
+                                 num_components, ndim, dims, dims[ndim - 3],
+                                 dims[ndim - 2], dims[ndim - 1], output_coords || is_2d,
                                  vinfo.is_vector, vinfo.where);
       }
       xdmf << "    </Grid>" << std::endl;
@@ -457,7 +471,7 @@ static void ParticleVariableRef(std::ofstream &xdmf, const std::string &varname,
   } else {
     const int rank = varinfo.tensor_rank;
     std::string extradims;
-    for (int i = 6; i >= 2; --i) {
+    for (int i = rank + 1; i >= 2; --i) {
       extradims += StringPrintf("%d ", varinfo.GetN(i));
     }
     for (int n6 = 0; n6 < varinfo.GetN(6); ++n6) {
@@ -466,11 +480,11 @@ static void ParticleVariableRef(std::ofstream &xdmf, const std::string &varname,
           for (int n3 = 0; n3 < varinfo.GetN(3); ++n3) {
             for (int n2 = 0; n2 < varinfo.GetN(2); ++n2) {
               std::string name = swmname + "/" + varname;
-              if (rank > 4) name += StringPrintf("_%03d", n6);
-              if (rank > 3) name += StringPrintf("_%03d", n5);
-              if (rank > 2) name += StringPrintf("_%03d", n4);
-              if (rank > 1) name += StringPrintf("_%03d", n3);
-              if (rank > 0) name += StringPrintf("_%03d", n2);
+              if (rank > 4) name += StringPrintf("_%d", n6);
+              if (rank > 3) name += StringPrintf("_%d", n5);
+              if (rank > 2) name += StringPrintf("_%d", n4);
+              if (rank > 1) name += StringPrintf("_%d", n3);
+              if (rank > 0) name += StringPrintf("_%d", n2);
               xdmf << StringPrintf(fmt, name.c_str(), "Scalar");
               if (rank > 0) {
                 std::string starts = "";
@@ -489,16 +503,16 @@ static void ParticleVariableRef(std::ofstream &xdmf, const std::string &varname,
                 xdmf << StringPrintf(
                     "        <DataItem ItemType=\"HyperSlab\" Dimensions=\"%d\">\n"
                     "          <DataItem Dimensions=\"3 %d\" Format=\"XML\">\n"
-                    "            %s1\n"
+                    "            %s0\n"
                     "            1%s\n"
                     "            %s%d\n"
-                    "          </DataItem>\n"
-                    "        </DataItem>\n",
+                    "          </DataItem>\n",
                     particle_count, rank + 1, starts.c_str(), strides.c_str(),
                     counts.c_str(), particle_count);
-                xdmf << ParticleDatasetRef("        ", swmname, varname, hdffile,
+                xdmf << ParticleDatasetRef("          ", swmname, varname, hdffile,
                                            varinfo.swtype, extradims.c_str(),
                                            particle_count);
+                xdmf << "        </DataItem>\n";
               } else {
                 xdmf << ParticleDatasetRef("        ", swmname, varname, hdffile,
                                            varinfo.swtype, "", particle_count);

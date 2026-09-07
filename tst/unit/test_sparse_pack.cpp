@@ -1,5 +1,5 @@
-//========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+//=======================================================================================
+//(C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#include <algorithm>
+#include <array>
 #include <memory>
 #include <string>
 #include <utility>
@@ -23,12 +25,17 @@
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
 #include "kokkos_abstraction.hpp"
+#include "loop_abstraction/loop_abstraction.hpp"
 #include "mesh/meshblock.hpp"
+#include "pack/pack_utils.hpp"
 #include "pack/sparse_pack/make_pack_descriptor.hpp"
 #include "pack/sparse_pack/sparse_pack.hpp"
 
 // TODO(jcd): can't call the MeshBlock constructor without mesh_refinement.hpp???
 #include "mesh/mesh_refinement.hpp"
+#include "pack/subpack.hpp"
+#include "utils/error_checking.hpp"
+#include "utils/type_list.hpp"
 
 using parthenon::BlockList_t;
 using parthenon::DevExecSpace;
@@ -62,6 +69,16 @@ struct v1 : public parthenon::variable_names::base_t<false> {
   KOKKOS_INLINE_FUNCTION v1(Ts &&...args)
       : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v1"; }
+  static constexpr bool is_sparse() { return false; }
+};
+
+struct v2 : public parthenon::variable_names::base_t<false> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION v2(Ts &&...args)
+      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "v2"; }
+  // This isn't made from a sparse pool, be we allocate and deallocate by hand below
+  static constexpr bool is_sparse() { return false; }
 };
 
 struct v3 : public parthenon::variable_names::base_t<false, 3> {
@@ -69,6 +86,8 @@ struct v3 : public parthenon::variable_names::base_t<false, 3> {
   KOKKOS_INLINE_FUNCTION v3(Ts &&...args)
       : parthenon::variable_names::base_t<false, 3>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v3"; }
+  // This isn't made from a sparse pool, be we allocate and deallocate by hand below
+  static constexpr bool is_sparse() { return true; }
 };
 
 struct v5 : public parthenon::variable_names::base_t<false> {
@@ -76,6 +95,7 @@ struct v5 : public parthenon::variable_names::base_t<false> {
   KOKKOS_INLINE_FUNCTION v5(Ts &&...args)
       : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v5"; }
+  static constexpr bool is_sparse() { return false; }
 };
 
 using parthenon::variable_names::ANYDIM;
@@ -84,7 +104,310 @@ struct v7 : public parthenon::variable_names::base_t<false, ANYDIM, 3> {
   KOKKOS_INLINE_FUNCTION v7(Ts &&...args)
       : parthenon::variable_names::base_t<false, ANYDIM, 3>(std::forward<Ts>(args)...) {}
   static std::string name() { return "v7"; }
+  static constexpr bool is_sparse() { return false; }
 };
+
+struct d1 : parthenon::variable_names::virtual_variable_t<v1, v3> {
+  KOKKOS_INLINE_FUNCTION d1() : x(0.0) {}
+
+  KOKKOS_INLINE_FUNCTION d1(const Real &xx) : x(xx) {}
+
+  template <typename Pack_t>
+  KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack, const int b, const int k,
+                                       const int j, const int i) const {
+    return pack(b, v1(), k, j, i) * pack(b, v3(1), k, j, i) * pack(b, v3(2), k, j, i) + x;
+  }
+
+  Real x;
+};
+
+// use a subpack to index into the sparse pack
+struct d1_subpack : public parthenon::variable_names::virtual_variable_t<v1, v3> {
+  // declare the type of subpack we want to use for our evaluate method
+  using pack_type = parthenon::SubPack0D;
+
+  KOKKOS_INLINE_FUNCTION d1_subpack() {}
+
+  template <typename Pack_t>
+  KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack, const Real &x) const {
+    return pack(v1()) * pack(v3(1)) * pack(v3(2)) + x;
+  }
+};
+
+// use 1D subpack to get the gradient of v1()
+template <parthenon::Axis axis>
+struct gradient : public parthenon::variable_names::virtual_variable_t<v1> {
+  using pack_type = parthenon::SubPack1D<axis>;
+
+  template <typename Pack_t>
+  KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack) const {
+    return 0.5 * (pack(v1(), 1) - pack(v1(), -1));
+  }
+};
+
+// gradient normal to face from te
+struct gradient_te : public parthenon::variable_names::virtual_variable_t<v1> {
+  template <typename Pack_t>
+  KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack, const int b,
+                                       const parthenon::TopologicalElement el,
+                                       const int k, const int j, const int i) const {
+    using TE = parthenon::TopologicalElement;
+    switch (el) {
+    case (TE::F1):
+      return (pack(b, v1(), k, j, i) - pack(b, v1(), k, j, i - 1));
+    case (TE::F2):
+      return (pack(b, v1(), k, j, i) - pack(b, v1(), k, j - 1, i));
+    case (TE::F3):
+      return (pack(b, v1(), k, j, i) - pack(b, v1(), k - 1, j, i));
+    default:
+      return 0.;
+    }
+  }
+};
+
+// use 2d subpack to get the curl of a vector
+template <parthenon::Axis axis>
+struct curl : public parthenon::variable_names::virtual_variable_t<v3> {
+  static constexpr parthenon::Axis axis2 =
+      static_cast<parthenon::Axis>((static_cast<int>(axis) + 1) % 3);
+  static constexpr parthenon::Axis axis3 =
+      static_cast<parthenon::Axis>((static_cast<int>(axis) + 2) % 3);
+  using pack_type = parthenon::SubPack2D<axis2, axis3>;
+
+  template <typename Pack_t>
+  KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack) const {
+    constexpr int ax2 = static_cast<int>(axis2);
+    constexpr int ax3 = static_cast<int>(axis3);
+    return 0.5 * ((pack(v3(ax3), 1, 0) - pack(v3(ax3), -1, 0)) -
+                  (pack(v3(ax2), 0, 1) - pack(v3(ax2), 0, -1)));
+  }
+};
+
+// use 3d subpack to get the third derivative
+// d_1 d_2 d_3 v1
+struct der3 : public parthenon::variable_names::virtual_variable_t<v1> {
+  using pack_type =
+      parthenon::SubPack3D<parthenon::Axis::I, parthenon::Axis::J, parthenon::Axis::K>;
+
+  template <typename Pack_t>
+  KOKKOS_INLINE_FUNCTION Real evaluate(const Pack_t &pack) const {
+    Real d3 = 0.;
+    const parthenon::IndexRange pm{0, 1};
+    parthenon::seq_for(pm, pm, pm, [&](const int k, const int j, const int i) {
+      const int kk = 2 * k - 1;
+      const int jj = 2 * j - 1;
+      const int ii = 2 * i - 1;
+      d3 += kk * jj * ii * pack(v1(), kk, jj, ii);
+    });
+    return d3 * 0.125;
+  }
+};
+
+using namespace parthenon::loop_abstraction;
+struct PackViewSpec {
+  int nblocks;
+  int ncell;
+  int nghost;
+};
+
+constexpr std::array<PackViewSpec, 3> PackViewCoverageSpecs() {
+  return {PackViewSpec{2, 3, 2}, PackViewSpec{1, 1, 2}, PackViewSpec{2, 4, 2}};
+}
+
+const char *LoopTagName(const loop_tag tag) {
+  switch (tag) {
+  case loop_tag::bvoi:
+    return "bvoi";
+  case loop_tag::bovi:
+    return "bovi";
+  case loop_tag::boiv:
+    return "boiv";
+  }
+  return "unknown";
+}
+
+const char *InnerTagName(const inner_tag tag) {
+  switch (tag) {
+  case inner_tag::logical_flat:
+    return "logical_flat";
+  case inner_tag::logical_coords:
+    return "logical_coords";
+  case inner_tag::memory:
+    return "memory";
+  }
+  return "unknown";
+}
+
+std::vector<int> PackViewNinnerCases(const int logical_cells) {
+  std::vector<int> cases{1, std::max(1, logical_cells - 1), logical_cells,
+                         logical_cells + 1};
+  std::sort(cases.begin(), cases.end());
+  cases.erase(std::unique(cases.begin(), cases.end()), cases.end());
+  return cases;
+}
+
+KOKKOS_INLINE_FUNCTION Real PackViewSourceValue(const int b, const int src_var,
+                                                const int k, const int j, const int i) {
+  return 1.0e6 * static_cast<Real>(b) + 1.0e5 * static_cast<Real>(src_var + 1) +
+         1.0e3 * static_cast<Real>(k) + 10.0 * static_cast<Real>(j) +
+         static_cast<Real>(i);
+}
+
+KOKKOS_INLINE_FUNCTION Real PackViewExpectedValue(const int b, const int v, const int k,
+                                                  const int j, const int i) {
+  return 1.0e6 * static_cast<Real>(b) + 1.0e5 * static_cast<Real>(v + 1) +
+         1.0e3 * static_cast<Real>(k) + 10.0 * static_cast<Real>(j) +
+         static_cast<Real>(i);
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG, class Pkg>
+void RunAbstractionLoop(Pkg pkg, MeshData<Real> &md, int ninner, bool kji_body) {
+  auto desc = parthenon::MakePackDescriptor<v1, v2, v5>(pkg.get());
+  auto sparse_pack = desc.GetPack(&md);
+  using IndexSpaceType = IndexSpace<LOOP_TAG, INNER_TAG>;
+  IndexSpaceType idx_space(ninner, IndexDomain::interior, 0, sparse_pack.GetNBlocks(),
+                           &md, parthenon::TopologicalElement::CC);
+
+  if (kji_body) {
+    outer(
+        idx_space,
+        KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
+          auto pack_view = make_pack_view(idx_range, sparse_pack);
+          inner(idx_range, [&](const int k, const int j, const int i) {
+            pack_view(v1(), k, j, i) = PackViewExpectedValue(b, 0, k, j, i);
+            pack_view(v2(), k, j, i) = PackViewExpectedValue(b, 1, k, j, i);
+            pack_view(v5(), k, j, i) = PackViewExpectedValue(b, 2, k, j, i);
+          });
+        });
+  } else {
+    const auto di = idx_space.GetDelta(parthenon::X1DIR);
+    const auto dj = idx_space.GetDelta(parthenon::X2DIR);
+    const auto dk = idx_space.GetDelta(parthenon::X3DIR);
+    // Fill everything
+    outer(
+        idx_space,
+        KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
+          auto pack_view = make_pack_view(idx_range, sparse_pack);
+          inner(idx_range, [&](auto kji) {
+            const auto [k, j, i] = idx_range.GetKJI(kji);
+            pack_view(v1(), kji) = PackViewExpectedValue(b, 0, k, j, i);
+            pack_view(v2(), kji) = PackViewExpectedValue(b, 1, k, j, i);
+            pack_view(v5(), kji) = PackViewExpectedValue(b, 2, k, j, i);
+          });
+        });
+
+    // Refill offset by one in the j-direction
+    outer(
+        idx_space,
+        KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
+          auto pack_view = make_pack_view(idx_range, sparse_pack);
+          inner(idx_range, [&](auto kji) {
+            const auto [k, j, i] = idx_range.GetKJI(kji);
+            pack_view(v2(), kji - dj) = PackViewExpectedValue(b, 1, k, j - 1, i);
+          });
+        });
+
+    // Refill with some random offsets in the i- and k-directions
+    outer(
+        idx_space,
+        KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
+          auto pack_view = make_pack_view(idx_range, sparse_pack);
+          inner(idx_range, [&](auto kji) {
+            const auto [k, j, i] = idx_range.GetKJI(kji);
+            pack_view(v5(), kji + 2 * di - dk) =
+                PackViewExpectedValue(b, 2, k - 1, j, i + 2);
+          });
+        });
+  }
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunPackViewCase(const PackViewSpec &spec, const int ninner, const bool kji_body) {
+  // We have to do some a little gross stuff here to make blocks that have the expected
+  // number of ghost zones without producing a mesh object
+  const int nghost_orig = parthenon::Globals::nghost;
+  parthenon::Globals::nghost = spec.nghost;
+  const std::vector<int> scalar_shape{spec.ncell + 2 * spec.nghost,
+                                      spec.ncell + 2 * spec.nghost,
+                                      spec.ncell + 2 * spec.nghost};
+
+  // Describe the fields we want to access
+  Metadata m({Metadata::Independent, Metadata::WithFluxes}, scalar_shape);
+  auto pkg = std::make_shared<StateDescriptor>("PackView package");
+  pkg->AddField<v1>(m);
+  pkg->AddField<v2>(m);
+  pkg->AddField<v5>(m);
+
+  // Build the relevant block list
+  BlockList_t block_list = MakeBlockList(pkg, spec.nblocks, spec.ncell, 3);
+  MeshData<Real> mesh_data("base");
+  mesh_data.Initialize(block_list, nullptr);
+
+  std::vector<std::string> var_names{v1::name(), v2::name(), v5::name()};
+  // Initialize the fields
+  auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
+  auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::entire);
+  auto kb = block_list[0]->cellbounds.GetBoundsK(IndexDomain::entire);
+  for (int b = 0; b < spec.nblocks; ++b) {
+    auto &pmb = block_list[b];
+    auto &pmbd = pmb->meshblock_data.Get();
+    for (int v = 0; v < var_names.size(); ++v) {
+      const auto &vnam = var_names[v];
+      auto var = pmbd->Get(vnam);
+      auto var4 = var.data.template Get<4>();
+      const int num_components = var.GetDim(4);
+      par_for(
+          loop_pattern_mdrange_tag, "initialize pack view data", DevExecSpace(), kb.s,
+          kb.e, jb.s, jb.e, ib.s, ib.e, KOKKOS_LAMBDA(int k, int j, int i) {
+            for (int c = 0; c < num_components; ++c) {
+              var4(c, k, j, i) = PackViewSourceValue(b, v, k, j, i);
+            }
+          });
+    }
+  }
+
+  // Fill the fields using the loop abstraction and pack_views
+  RunAbstractionLoop<LOOP_TAG, INNER_TAG>(pkg, mesh_data, ninner, kji_body);
+
+  // Check that results were stored in the variables correctly
+  {
+    auto desc = parthenon::MakePackDescriptor<v1, v2, v5>(pkg.get());
+    auto sparse_pack = desc.GetPack(&mesh_data);
+    auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::interior);
+    auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::interior);
+    auto kb = block_list[0]->cellbounds.GetBoundsK(IndexDomain::interior);
+    int nwrong = 0;
+    par_reduce(
+        loop_pattern_mdrange_tag, "check vector", DevExecSpace(), 0,
+        sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+          const auto v1_value = sparse_pack(b, v1(), k, j, i);
+          const auto v2_value = sparse_pack(b, v2(), k, j, i);
+          const auto v5_value = sparse_pack(b, v5(), k, j, i);
+          const auto v1_expected = PackViewExpectedValue(b, 0, k, j, i);
+          const auto v2_expected = PackViewExpectedValue(b, 1, k, j, i);
+          const auto v5_expected = PackViewExpectedValue(b, 2, k, j, i);
+          if (std::abs(v1_value - v1_expected) > 1.e-12) ++ltot;
+          if (std::abs(v2_value - v2_expected) > 1.e-12) ++ltot;
+          if (std::abs(v5_value - v5_expected) > 1.e-12) ++ltot;
+        },
+        nwrong);
+    REQUIRE(nwrong == 0);
+  }
+  // Restore original gobal
+  parthenon::Globals::nghost = nghost_orig;
+}
+
+template <loop_tag LOOP_TAG, inner_tag INNER_TAG>
+void RunPackViewPatternMatrix(const std::string &body_name, const bool kji_body) {
+  for (const auto &spec : PackViewCoverageSpecs()) {
+    for (const int ninner : PackViewNinnerCases(spec.ncell * spec.ncell * spec.ncell)) {
+      INFO("pattern=" << LoopTagName(LOOP_TAG) << "/" << InnerTagName(INNER_TAG)
+                      << ", ninner=" << ninner << ", body=" << body_name);
+      RunPackViewCase<LOOP_TAG, INNER_TAG>(spec, ninner, kji_body);
+    }
+  }
+}
 
 } // namespace
 
@@ -265,6 +588,176 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         REQUIRE(nwrong == 0);
       }
 
+      THEN("A sub pack correctly loads this data and can be read from v3 on all "
+           "blocks") {
+        // Create a pack use type variables
+        auto desc =
+            parthenon::MakePackDescriptor<v5, v3>(pkg.get(), {Metadata::WithFluxes});
+        auto sparse_pack = desc.GetPack(&mesh_data);
+
+        const int v = 1; // v3 is the second variable in the loop above so v = 1 there
+        int nwrong = 0;
+        par_reduce(
+            loop_pattern_mdrange_tag, "check vector", DevExecSpace(), 0,
+            sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+            KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+              int lo = sparse_pack.GetLowerBound(b, v3());
+              int hi = sparse_pack.GetUpperBound(b, v3());
+              for (int c = 0; c <= hi - lo; ++c) {
+                Real n = i + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
+                auto sub_pack = parthenon::SubPack(sparse_pack, b, k, j, i);
+                if (n != sub_pack(v3(c))) ltot += 1;
+              }
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
+
+        using Axis = parthenon::Axis;
+        AND_THEN("1D Stencil subpacks can correctly access the data") {
+          const int ni = ib.e - ib.s + 1;
+          const int ic = ib.s + ni / 2;
+          par_reduce(
+              loop_pattern_mdrange_tag, "check vector", DevExecSpace(), 0,
+              sparse_pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e,
+              KOKKOS_LAMBDA(int b, int k, int j, int &ltot) {
+                int lo = sparse_pack.GetLowerBound(b, v3());
+                int hi = sparse_pack.GetUpperBound(b, v3());
+                int vc = (hi - lo) / 2;
+                auto sub_pack_v =
+                    parthenon::SubPack<Axis::I>(sparse_pack, b, v3(vc), k, j, ic);
+                auto sub_pack = parthenon::SubPack<Axis::I>(sparse_pack, b, k, j, ic);
+
+                for (int i = ib.s - ni / 2; i <= ib.e - ni / 2; i++) {
+                  for (int c = 0; c <= hi - lo; ++c) {
+                    Real n = i + ic + 1e1 * j + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
+                    if (n != sub_pack(v3(c), i)) ltot += 1;
+                    if (n != sub_pack_v(i) && c == vc) ltot += 1;
+                  }
+                }
+              },
+              nwrong);
+          REQUIRE(nwrong == 0);
+        }
+
+        AND_THEN("2D Stencil subpacks can correctly access the data") {
+          const int ni = ib.e - ib.s + 1;
+          const int ic = ib.s + ni / 2;
+          const int nj = jb.e - jb.s + 1;
+          const int jc = jb.s + nj / 2;
+          par_reduce(
+              loop_pattern_mdrange_tag, "check vector", DevExecSpace(), 0,
+              sparse_pack.GetNBlocks() - 1, kb.s, kb.e,
+              KOKKOS_LAMBDA(int b, int k, int &ltot) {
+                int lo = sparse_pack.GetLowerBound(b, v3());
+                int hi = sparse_pack.GetUpperBound(b, v3());
+                int vc = (hi - lo) / 2;
+                auto sub_pack_v = parthenon::SubPack<Axis::I, Axis::J>(sparse_pack, b,
+                                                                       v3(vc), k, jc, ic);
+                auto sub_pack =
+                    parthenon::SubPack<Axis::I, Axis::J>(sparse_pack, b, k, jc, ic);
+
+                for (int j = jb.s - nj / 2; j <= jb.e - nj / 2; j++) {
+                  for (int i = ib.s - ni / 2; i <= ib.e - ni / 2; i++) {
+                    for (int c = 0; c <= hi - lo; ++c) {
+                      Real n =
+                          i + ic + 1e1 * (j + jc) + 1e2 * k + 1e4 * c + 1e5 * v + 1e3 * b;
+                      if (n != sub_pack(v3(c), i, j)) ltot += 1;
+                      if (n != sub_pack_v(i, j) && c == vc) ltot += 1;
+                    }
+                  }
+                }
+              },
+              nwrong);
+          REQUIRE(nwrong == 0);
+        }
+
+        AND_THEN("3D Stencil subpacks can correctly access the data") {
+          const int ni = ib.e - ib.s + 1;
+          const int ic = ib.s + ni / 2;
+          const int nj = jb.e - jb.s + 1;
+          const int jc = jb.s + nj / 2;
+          const int nk = kb.e - kb.s + 1;
+          const int kc = kb.s + nk / 2;
+          parthenon::par_reduce(
+              "check vector", 0, sparse_pack.GetNBlocks() - 1,
+              KOKKOS_LAMBDA(int b, int &ltot) {
+                int lo = sparse_pack.GetLowerBound(b, v3());
+                int hi = sparse_pack.GetUpperBound(b, v3());
+                int vc = (hi - lo) / 2;
+                auto sub_pack_v = parthenon::SubPack<Axis::I, Axis::J, Axis::K>(
+                    sparse_pack, b, v3(vc), kc, jc, ic);
+                auto sub_pack = parthenon::SubPack<Axis::I, Axis::J, Axis::K>(
+                    sparse_pack, b, kc, jc, ic);
+
+                for (int k = kb.s - nk / 2; k <= kb.e - nk / 2; k++) {
+                  for (int j = jb.s - nj / 2; j <= jb.e - nj / 2; j++) {
+                    for (int i = ib.s - ni / 2; i <= ib.e - ni / 2; i++) {
+                      for (int c = 0; c <= hi - lo; ++c) {
+                        Real n = i + ic + 1e1 * (j + jc) + 1e2 * (k + kc) + 1e4 * c +
+                                 1e5 * v + 1e3 * b;
+                        if (n != sub_pack(v3(c), i, j, k)) ltot += 1;
+                        if (n != sub_pack_v(i, j, k) && c == vc) ltot += 1;
+                      }
+                    }
+                  }
+                }
+              },
+              nwrong);
+          REQUIRE(nwrong == 0);
+        }
+      }
+
+      THEN("A bovi sparse pack view works through the loop abstraction on memory spans") {
+        using namespace parthenon::loop_abstraction;
+        using IS = IndexSpace<loop_tag::bovi, inner_tag::memory>;
+        auto desc = parthenon::MakePackDescriptor<v1, v3, v5>(pkg.get());
+        auto sparse_pack = desc.GetPack(&mesh_data);
+        IS idx_space(sparse_pack.GetNBlocks(), N, N, N, 0);
+
+        Kokkos::View<int> nwrong("nwrong");
+        Kokkos::deep_copy(nwrong, 0);
+        outer(
+            idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IS> &current_range, int b) {
+              auto pack_view = make_pack_view(current_range, sparse_pack);
+              inner(current_range, [&](const int idx) {
+                const auto [k, j, i] = current_range.GetKJI(idx);
+                if (pack_view(v1(), idx) != sparse_pack(b, v1(), k, j, i))
+                  Kokkos::atomic_add(&nwrong(), 1);
+                if (pack_view(v5(), idx) != sparse_pack(b, v5(), k, j, i))
+                  Kokkos::atomic_add(&nwrong(), 1);
+              });
+            });
+        Kokkos::fence();
+        int nwrong_h = 0;
+        Kokkos::deep_copy(nwrong_h, nwrong);
+        REQUIRE(nwrong_h == 0);
+      }
+
+      THEN("A boiv sparse pack view works through the loop abstraction on coordinates") {
+        using namespace parthenon::loop_abstraction;
+        using IS = IndexSpace<loop_tag::boiv, inner_tag::logical_coords>;
+        auto desc = parthenon::MakePackDescriptor<v1, v3, v5>(pkg.get());
+        auto sparse_pack = desc.GetPack(&mesh_data);
+        IS idx_space(sparse_pack.GetNBlocks(), N, N, N, 0);
+
+        Kokkos::View<int> nwrong("nwrong");
+        Kokkos::deep_copy(nwrong, 0);
+        outer(
+            idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IS> &current_range, int b) {
+              auto pack_view = make_pack_view(current_range, sparse_pack);
+              inner(current_range, [&](const int k, const int j, const int i) {
+                if (pack_view(v1(), k, j, i) != sparse_pack(b, v1(), k, j, i))
+                  Kokkos::atomic_add(&nwrong(), 1);
+                if (pack_view(v5(), k, j, i) != sparse_pack(b, v5(), k, j, i))
+                  Kokkos::atomic_add(&nwrong(), 1);
+              });
+            });
+        Kokkos::fence();
+        int nwrong_h = 0;
+        Kokkos::deep_copy(nwrong_h, nwrong);
+        REQUIRE(nwrong_h == 0);
+      }
+
       THEN("A flattened sparse pack can correctly load this data in a unified outer "
            "index space") {
         using parthenon::PDOpt;
@@ -423,5 +916,168 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
         REQUIRE(mesh_data.GetSparsePackCache().size() == 2);
       }
     }
+  }
+  GIVEN("A pair of fields on a mesh") {
+    const std::vector<int> scalar_shape{N, N, N};
+    Metadata m({Metadata::Independent}, scalar_shape);
+    const std::vector<int> vector_shape{N, N, N, 3};
+    Metadata m_vector({Metadata::Independent, Metadata::Vector}, vector_shape);
+
+    auto pkg = std::make_shared<StateDescriptor>("Test package");
+    pkg->AddField(v1::name(), m);
+    pkg->AddField(v3::name(), m_vector);
+    BlockList_t block_list = MakeBlockList(pkg, NBLOCKS, N, NDIM);
+
+    MeshData<Real> mesh_data("base");
+    mesh_data.Initialize(block_list, nullptr);
+    auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
+    auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::entire);
+    auto kb = block_list[0]->cellbounds.GetBoundsK(IndexDomain::entire);
+
+    const parthenon::IndexRange ibi{ib.s + 1, ib.e - 1}, jbi{jb.s + 1, jb.e - 1},
+        kbi{kb.s + 1, kb.e - 1};
+
+    WHEN("We get a sparse pack for a virtual variable dependent on "
+         "our pair of fields, and initialize the dependent vars.") {
+      using Axis = parthenon::Axis;
+      auto desc = parthenon::MakePackDescriptor<d1, d1_subpack, gradient<Axis::I>,
+                                                curl<Axis::J>, der3>(pkg.get());
+      auto pack = desc.GetPack(&mesh_data);
+      par_for(
+          "initialize d1", 0, NBLOCKS - 1, kb, jb, ib,
+          KOKKOS_LAMBDA(int b, int k, int j, int i) {
+            Real n = b + k * j * i;
+            Real m = i * i + j * j + k * k + b * b;
+            pack(b, v1(), k, j, i) = n;
+            pack(b, v3(0), k, j, i) = 0.;
+            pack(b, v3(1), k, j, i) = m;
+            pack(b, v3(2), k, j, i) = m + n;
+          });
+
+      THEN("We can correctly evaluate the virtual field.") {
+        int nwrong = 0;
+        par_reduce(
+            "check virtual", 0, NBLOCKS - 1, kb, jb, ib,
+            KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+              const Real x = 3.8;
+              const Real answer = pack(b, v1(), k, j, i) * pack(b, v3(1), k, j, i) *
+                                      pack(b, v3(2), k, j, i) +
+                                  x;
+              if (pack(b, d1(x), k, j, i) != answer) {
+                ltot += 1;
+              }
+              if (pack(b, d1(x), k, j, i) != pack(b, d1_subpack(), k, j, i, x)) {
+                ltot += 1;
+              }
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
+      }
+      THEN("We can correctly use subpacks to get gradients.") {
+        par_for(
+            "initialize v1", 0, NBLOCKS - 1, kb, jb, ib,
+            KOKKOS_LAMBDA(int b, int k, int j, int i) {
+              pack(b, v1(), k, j, i) = 11.0 * i + 22.0 * j + 33.0 * k;
+            });
+        int nwrong = 0;
+        par_reduce(
+            "check virtual", 0, NBLOCKS - 1, kbi, jbi, ibi,
+            KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+              if (std::abs(pack(b, gradient<parthenon::Axis::I>(), k, j, i) - 11.0) >=
+                  1.e-12) {
+                ltot += 1;
+              }
+              if (std::abs(pack(b, gradient<parthenon::Axis::J>(), k, j, i) - 22.0) >=
+                  1.e-12) {
+                ltot += 1;
+              }
+              if (std::abs(pack(b, gradient<parthenon::Axis::K>(), k, j, i) - 33.0) >=
+                  1.e-12) {
+                ltot += 1;
+              }
+              using TE = parthenon::TopologicalElement;
+              if (std::abs(pack(b, gradient<parthenon::Axis::I>(), k, j, i) -
+                           pack(b, TE::F1, gradient_te(), k, j, i)) >= 1.e-12) {
+                ltot += 1;
+              }
+              if (std::abs(pack(b, gradient<parthenon::Axis::J>(), k, j, i) -
+                           pack(b, TE::F2, gradient_te(), k, j, i)) >= 1.e-12) {
+                ltot += 1;
+              }
+              if (std::abs(pack(b, gradient<parthenon::Axis::K>(), k, j, i) -
+                           pack(b, TE::F3, gradient_te(), k, j, i)) >= 1.e-12) {
+                ltot += 1;
+              }
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
+      }
+      THEN("We can use 2D subpacks") {
+        const Real axy = 12.;
+        const Real azx = 48.32;
+        const Real ayz = 3.14;
+        par_for(
+            "Initialize a simple vector with curl", 0, NBLOCKS - 1, kb, jb, ib,
+            KOKKOS_LAMBDA(int b, int k, int j, int i) {
+              pack(b, v3(0), k, j, i) = ayz * static_cast<Real>(j * k);
+              pack(b, v3(1), k, j, i) = azx * static_cast<Real>(k * i);
+              pack(b, v3(2), k, j, i) = axy * static_cast<Real>(i * j);
+            });
+
+        int nwrong = 0;
+        par_reduce(
+            "check virtual", 0, NBLOCKS - 1, kbi, jbi, ibi,
+            KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+              if (std::abs(pack(b, curl<parthenon::Axis::K>(), k, j, i) -
+                           (azx - ayz) * k) >= 1.e-12) {
+                ltot += 1;
+              }
+              if (std::abs(pack(b, curl<parthenon::Axis::J>(), k, j, i) -
+                           (ayz - axy) * j) >= 1.e-12) {
+                ltot += 1;
+              }
+              if (std::abs(pack(b, curl<parthenon::Axis::I>(), k, j, i) -
+                           (axy - azx) * i) >= 1.e-12) {
+                ltot += 1;
+              }
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
+      }
+      THEN("We can use 3D subpacks") {
+        const Real a = 12.345;
+        par_for(
+            "Initialize a simple vector with curl", 0, NBLOCKS - 1, kb, jb, ib,
+            KOKKOS_LAMBDA(int b, int k, int j, int i) {
+              pack(b, v1(), k, j, i) = a * static_cast<Real>(i * j * k);
+            });
+
+        int nwrong = 0;
+        par_reduce(
+            "check virtual", 0, NBLOCKS - 1, kbi, jbi, ibi,
+            KOKKOS_LAMBDA(int b, int k, int j, int i, int &ltot) {
+              if (std::abs(pack(b, der3(), k, j, i) - a) >= 1.e-12) {
+                ltot += 1;
+              }
+            },
+            nwrong);
+        REQUIRE(nwrong == 0);
+      }
+    }
+  }
+}
+
+TEST_CASE("Pack views preserve the loop abstraction contract through pack_view",
+          "[SparsePack][PackView]") {
+  for (bool kji_body : {true, false}) {
+    std::string name = kji_body ? "kji" : "auto";
+    RunPackViewPatternMatrix<loop_tag::bvoi, inner_tag::memory>(name, kji_body);
+    RunPackViewPatternMatrix<loop_tag::bvoi, inner_tag::logical_flat>(name, kji_body);
+    RunPackViewPatternMatrix<loop_tag::bvoi, inner_tag::logical_coords>(name, kji_body);
+    RunPackViewPatternMatrix<loop_tag::bovi, inner_tag::memory>(name, kji_body);
+    RunPackViewPatternMatrix<loop_tag::bovi, inner_tag::logical_flat>(name, kji_body);
+    RunPackViewPatternMatrix<loop_tag::bovi, inner_tag::logical_coords>(name, kji_body);
+    RunPackViewPatternMatrix<loop_tag::boiv, inner_tag::logical_flat>(name, kji_body);
+    RunPackViewPatternMatrix<loop_tag::boiv, inner_tag::logical_coords>(name, kji_body);
   }
 }

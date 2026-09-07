@@ -1,9 +1,9 @@
 #=========================================================================================
 # Parthenon performance portable AMR framework
-# Copyright(C) 2020-2025 The Parthenon collaboration
+# Copyright(C) 2020-2026 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 #=========================================================================================
-# (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -38,6 +38,7 @@ option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to 
 option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
 option(PARTHENON_DISABLE_OPENPMD "OpenPMD is enabled by default if found, set this to ON to disable OpenPMD" ON)
 option(PARTHENON_USE_SYSTEM_OPENPMD "OpenPMD API is downloaded and installed automatically by default. Set this to ON to find and use a version installed on the system." OFF)
+option(PARTHENON_ENABLE_RAW_OPENMP "Enable OpenMP for raw host loops" OFF)
 option(PARTHENON_DISABLE_SPARSE "Sparse capability is enabled by default, set this to True to compile-time disable all sparse capability" OFF)
 option(PARTHENON_ENABLE_ASCENT "Enable Ascent for in situ visualization and analysis" OFF)
 option(PARTHENON_LINT_DEFAULT "Linting is turned off by default, use the \"lint\" target or set \
@@ -172,6 +173,10 @@ find_package(Filesystem REQUIRED COMPONENTS Experimental Final)
 # Require threading for tasks
 find_package(Threads)
 
+if (PARTHENON_ENABLE_RAW_OPENMP)
+  find_package(OpenMP REQUIRED COMPONENTS CXX)
+endif()
+
 set(ENABLE_MPI OFF)
 set(NUM_MPI_PROC_TESTING "4" CACHE STRING "Number of mpi processors to use when running tests with MPI")
 if (NOT PARTHENON_DISABLE_MPI)
@@ -270,6 +275,7 @@ if (NOT PARTHENON_DISABLE_OPENPMD)
     set(openPMD_BUILD_SHARED_LIBS OFF)
     set(openPMD_INSTALL OFF)
     set(openPMD_USE_ADIOS2 ON)  # we definitely want ADIOS2
+    set(openPMD_USE_MPI ${ENABLE_MPI})
     if( NOT Python3_Interpreter_FOUND)
       find_package(Python3 REQUIRED COMPONENTS Interpreter)
     endif()
@@ -281,7 +287,7 @@ if (NOT PARTHENON_DISABLE_OPENPMD)
     endif()
     FetchContent_Declare(openPMD
       GIT_REPOSITORY "https://github.com/openPMD/openPMD-api.git"
-      GIT_TAG        "0.17.0") # Release 0.17.0
+      GIT_TAG        "0.17.1") # Release 0.17.1
     FetchContent_MakeAvailable(openPMD)
     install(TARGETS openPMD EXPORT parthenonTargets)
   endif()
@@ -495,6 +501,11 @@ set(DOC_GEN_PATH "${CMAKE_SOURCE_DIR}/doc/sphinx/src/generated" CACHE STRING
   "Path to save generated data for docs.")
 
 if (PARTHENON_ENABLE_FFT)
+  if(NOT ENABLE_MPI)
+    message(FATAL_ERROR
+      "PARTHENON_ENABLE_FFT requires MPI because the heFFTe backend uses "
+      "an MPI communicator. Reconfigure without PARTHENON_DISABLE_MPI=ON.")
+  endif()
   if (PARTHENON_USE_SYSTEM_HEFFTE)
     find_package(Heffte REQUIRED)
     if (NOT Heffte_FOUND)

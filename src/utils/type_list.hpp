@@ -67,6 +67,11 @@ struct TypeList {
     }
   }
 
+  template <template <typename...> typename TL, typename... Ts>
+  static constexpr bool IsIn(TL<Ts...>) {
+    return (IsIn<Ts>() && ...);
+  }
+
   template <class F>
   static void IterateTypes(F func) {
     (func(Args()), ...);
@@ -96,6 +101,28 @@ auto ConcatenateTypeLists(TypeList<Args1...>, TypeList<Args2...>, Args...) {
   return ConcatenateTypeLists(TypeList<Args1..., Args2...>(), Args()...);
 }
 
+template <typename, typename, typename...>
+struct UnionTypeLists {};
+
+template <typename... Ts>
+struct UnionTypeLists<TypeList<Ts...>, TypeList<>> {
+  using type = TypeList<Ts...>;
+};
+
+template <typename... Ts, typename V, typename... Vs>
+struct UnionTypeLists<TypeList<Ts...>, TypeList<V, Vs...>> {
+  using TL = TypeList<Ts...>;
+  using type = typename UnionTypeLists<
+      std::conditional_t<TL::template IsIn<V>(), TL, TypeList<Ts..., V>>,
+      TypeList<Vs...>>::type;
+};
+
+template <typename T, typename U, typename V, typename... Args>
+struct UnionTypeLists<T, U, V, Args...> {
+  using type =
+      typename UnionTypeLists<typename UnionTypeLists<T, U>::type, V, Args...>::type;
+};
+
 template <class T, std::size_t I, class... Ts>
 static auto InsertTypeImpl(TypeList<Ts...>) {
   if constexpr (I == 0) {
@@ -115,6 +142,9 @@ template <class... TLs>
 using concatenate_type_lists_t =
     decltype(impl::ConcatenateTypeLists(std::declval<TLs>()...));
 
+template <typename... TLs>
+using union_type_lists_t = typename impl::UnionTypeLists<TLs...>::type;
+
 template <class T, class TL, std::size_t I = TL::n_types>
 using insert_type_list_t = decltype(impl::InsertTypeImpl<T, I>(TL()));
 
@@ -126,7 +156,6 @@ auto GetNames() {
   return names;
 }
 
-//<<<<<<< HEAD
 namespace impl {
 template <class N, class T>
 struct ListOfType {
@@ -148,14 +177,35 @@ struct ListOfType<std::integral_constant<std::size_t, 1>, T> {
 template <std::size_t N, class T>
 using list_of_type_t =
     typename impl::ListOfType<std::integral_constant<std::size_t, N>, T>::type;
-//=======
 template <class>
 struct isTypeList : public std::false_type {};
 
 template <class... Ts>
 struct isTypeList<TypeList<Ts...>> : public std::true_type {};
 
-//>>>>>>> develop
+namespace impl {
+template <class Tuple>
+struct TupleToTypeList;
+
+template <class... Ts>
+struct TupleToTypeList<std::tuple<Ts...>> {
+  using type = TypeList<Ts...>;
+};
+
+template <template <class> class Pred, class... Ts>
+auto FilterTypeList(TypeList<Ts...>) {
+  return std::tuple_cat(
+      std::conditional_t<Pred<Ts>::value, std::tuple<Ts>, std::tuple<>>{}...);
+}
+
+} // namespace impl
+
+template <class Tuple>
+using tuple_to_type_list_t = typename impl::TupleToTypeList<Tuple>::type;
+
+template <class TL, template <class> class Pred>
+using filter_type_list_t =
+    tuple_to_type_list_t<decltype(impl::FilterTypeList<Pred>(std::declval<TL>()))>;
 
 //----------------------------------------------------------------------------------------
 // Utility to convert TypeList to std::variant

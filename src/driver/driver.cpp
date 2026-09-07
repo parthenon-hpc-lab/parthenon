@@ -161,6 +161,18 @@ DriverStatus EvolutionDriver::Execute() {
         pmesh->PreStepUserDiagnosticsInLoop(pmesh, pinput, tm);
       }
 
+      { // Anonymous meshdata subsets from packages
+        // TODO(JMM): Currently this is always based on base. This is
+        // possibly not always desirable for shallow copies (which are
+        // nominally supported).
+        auto &base = pmesh->mesh_data.Get();
+        for (auto &[subname, pkgmap] : pmesh->packages.AllPackagesWithSubMeshData()) {
+          for (auto &[label, pkg] : pkgmap) {
+            pkg->AddMeshDataSubset(pmesh, subname, base);
+          }
+        }
+      }
+
       TaskListStatus status = Step();
       if (status != TaskListStatus::complete) {
         std::cerr << "Step failed to complete all tasks." << std::endl;

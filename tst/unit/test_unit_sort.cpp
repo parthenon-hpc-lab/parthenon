@@ -45,8 +45,6 @@ struct KeyComparator {
 };
 
 TEST_CASE("Sorting", "[sort]") {
-// No sort support on HIP at the moment
-#if !defined(KOKKOS_ENABLE_HIP)
   GIVEN("An unordered list of integers") {
     ParArray1D<int> data("Data to sort", N);
 
@@ -94,5 +92,4 @@ TEST_CASE("Sorting", "[sort]") {
     REQUIRE(data_h(3).value_ == 4);
     REQUIRE(data_h(4).value_ == 5);
   }
-#endif // !defined(KOKKOS_ENABLE_HIP)
 }

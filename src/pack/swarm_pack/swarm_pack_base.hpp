@@ -37,7 +37,7 @@ template <typename TYPE>
 class SwarmPackBase {
  public:
   SwarmPackBase() = default;
-  virtual ~SwarmPackBase() = default;
+  ~SwarmPackBase() = default;
 
  protected:
   friend class SwarmPackCache<TYPE>;

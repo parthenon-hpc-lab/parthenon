@@ -3,6 +3,7 @@ build*/
 bin/
 debug*
 .cache/
+results/ 
 
 # Visualization package files
 .smhist
@@ -37,6 +38,7 @@ compile_commands.json
 *.phdf
 *.phdf.xdmf
 *.dat
+reports/
 
 # Files created by bad CMake hygiene
 a.out

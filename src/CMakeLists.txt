@@ -159,6 +159,8 @@ add_library(parthenon
   interface/sparse_pool.hpp
   interface/state_descriptor.hpp
   interface/state_descriptor.cpp
+  interface/mesh_data_descriptor.cpp
+  interface/mesh_data_descriptor.hpp
   interface/swarm.cpp
   interface/swarm.hpp
   interface/swarm_comms.cpp
@@ -172,6 +174,20 @@ add_library(parthenon
   interface/variable_state.cpp
   interface/variable.cpp
   interface/variable.hpp
+  
+  loop_abstraction/base.hpp
+  loop_abstraction/flux_view.hpp
+  loop_abstraction/halo.hpp
+  loop_abstraction/index_space.hpp
+  loop_abstraction/inner_range.hpp
+  loop_abstraction/kokkos.hpp
+  loop_abstraction/pack_view.hpp
+  loop_abstraction/raw.hpp
+  loop_abstraction/scratch.hpp
+  loop_abstraction/scratch_indexed.hpp
+  loop_abstraction/types.hpp
+  loop_abstraction/view.hpp
+  loop_abstraction/loop_abstraction.hpp
 
   mesh/domain.hpp
   mesh/forest/block_ownership.cpp
@@ -298,6 +314,7 @@ add_library(parthenon
   utils/cell_center_offsets.hpp
   utils/change_rundir.cpp
   utils/communication_buffer.hpp
+  utils/bump_arena.hpp
   utils/cleantypes.hpp
   utils/concepts_lite.hpp
   utils/error_checking.cpp
@@ -366,6 +383,13 @@ set_target_properties(parthenon PROPERTIES SOVERSION ${parthenon_VERSION})
 
 target_compile_features(parthenon PUBLIC cxx_std_20)
 
+# Silence annoying psabi warnings in parthenon proper, without
+# impacting downstreams.
+target_compile_options(parthenon
+    PRIVATE
+        $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:GNU>>:-Wno-psabi>
+)
+
 # This will automatically link any extra libraries (or no extra libraries)
 # depending on the compiler, so it doesn't require an if() statement
 target_link_libraries(parthenon PUBLIC std::filesystem)
@@ -383,7 +407,7 @@ if (ENABLE_MPI)
   target_link_libraries(parthenon PUBLIC MPI::MPI_CXX)
 endif()
 
-if (ENABLE_OPENMP)
+if (PARTHENON_ENABLE_RAW_OPENMP)
   target_link_libraries(parthenon PUBLIC OpenMP::OpenMP_CXX)
 endif()
 
