@@ -103,6 +103,78 @@ For each Q shell:
 Single ADIOS2/bp5 file via openPMD. Each transfer term stored as a named
 2D mesh dataset. Shell edges and metadata stored as iteration attributes.
 
+### Optional Direct Hydrodynamic Cross-Scale Flux
+
+`compute_flux_U` and `compute_flux_W` independently enable direct fluxes for
+`X = U` and `X = W = sqrt(rho) U`, respectively. Both default to false. To run
+only the direct flux calculation, set `compute_UU = false` (its default is true)
+and leave all other shell-transfer switches false. Disable all `compute_spec_*`
+switches as well when only fluxes are needed. No transfer matrices are allocated
+and the double loop is skipped when all shell-transfer switches are false.
+
+At cutoff `c = shell_edges[s]`, define `X_<` using modes in
+`(shell_edges.front(), c]` and `X_>` using `(c, shell_edges.back()]`. Then compute
+
+```
+flux_X/advection   = -sum_x X_> . (U . grad) X_<
+flux_X/compression = -0.5 sum_x X_> . X_< div(U)
+flux_X/total       = advection + compression
+```
+
+The advecting velocity and its divergence are unfiltered. The unweighted option
+uses the same advection/compression decomposition with `W` replaced by `U`;
+for incompressible velocity the compression contribution vanishes. This is the
+hydrodynamic redistribution term; pressure work and forcing are not included.
+
+Positive flux denotes transfer from lower to higher wavenumbers. Values are
+spatial sums, matching the transfer matrices; divide by `Nx*Ny*Nz` for spatial
+averages. In particular, the weighted flux at index `s` equals
+`sum(UU[s:, :s])`, and its components equal the corresponding sums of `UUA`
+and `UUC`. The unweighted result equals this construction with `W` replaced by
+`U`. At uniform density `rho0`, weighted flux is `rho0` times unweighted flux.
+
+The mode range deliberately matches the configured shells, including their
+exclusion of the mean mode and any truncation at the last edge. The mean velocity
+is still included in the advecting field. Each output contains `n_shells + 1`
+values, one per shell edge; the first and last are exactly zero because one
+filtered set is empty. Shell edges must be strictly increasing.
+
+The direct calculation needs 15 inverse transforms per interior cutoff per
+enabled field (six for the two filtered vectors and nine for derivatives),
+with linear work in the number of cutoffs and fixed-size device scratch arrays.
+It does not sum or construct individual shell transfers. Device and MPI
+reductions, and flux output, use double precision even in single-precision builds.
+
+Output meshes `flux_u` and `flux_w` each have the components `advection`,
+`compression`, and `total`. Iteration attributes `flux_cutoffs`,
+`flux_sign`, `flux_normalization`, and `flux_mode_range` describe the conventions.
+For example:
+
+```python
+s = io.Series("transfer.%05T.bp", io.Access.read_only)
+it = s.iterations[0]
+cutoffs = it.get_attribute("flux_cutoffs")
+flux_w = it.meshes["flux_w"]["total"].load_chunk()
+s.flush()
+```
+
+`test_flux.py` checks against an independent NumPy shell-transfer calculation
+and against the driver's weighted matrices. It covers varying and constant
+density, primitive and conserved inputs, each flux enabled alone, linear/log/test
+bins, and a single shell. It requires `numpy`, `adios2`, and `openpmd_api`:
+
+```bash
+OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 python example/energy_transfer/test_flux.py \
+    build-test/example/energy_transfer/energy-transfer
+OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 python example/energy_transfer/test_flux.py \
+    build-test/example/energy_transfer/energy-transfer --ranks 4
+# Add --single when testing a Real=float build.
+```
+
+When regression testing is enabled and these Python modules are available at
+configuration time, the serial check is also registered as the CTest test
+`energy_transfer_flux`.
+
 ### Optional Power Spectra
 
 The driver can also compute shell-averaged power spectra with
@@ -170,6 +242,8 @@ input_file = data.bp    # ADIOS2/bp5 input (must end in .bp); omit for meshblock
 binning = lin|log|test  # shell edge distribution
 num_shells = 20         # number of shells
 compute_UU = true       # kinetic transfer
+compute_flux_U = false  # direct hydrodynamic flux using U
+compute_flux_W = false  # direct hydrodynamic flux using W=sqrt(rho)*U
 compute_BB = false      # magnetic transfer
 compute_BUT = false     # magnetic tension
 compute_UBTb = false    # magnetic tension
@@ -232,6 +306,10 @@ Fourier amplitude, not magnetic energy, so no `1/2` factor is applied.
 
 ## Known Limitations / TODO
 
+- The existing power-spectrum output uses slash-containing scalar mesh names,
+  which the openPMD 0.17.1 ADIOS2 backend rejects. Keep `compute_spec_* = false`
+  for flux-only runs with this backend. The new flux meshes use record components
+  and do not have this restriction.
 - Assumes isotropic (cubic) domain: spectral derivatives use `2*pi/Lx` for all directions
 - Missing terms: SS (internal energy), UBT, nuU, etaB (dissipation)
 - No runtime check that domain is actually cubic when non-cubic would give wrong results

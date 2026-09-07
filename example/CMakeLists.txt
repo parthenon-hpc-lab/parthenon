@@ -26,5 +26,7 @@ add_subdirectory(diffusion)
 add_subdirectory(sparse_advection)
 if(PARTHENON_ENABLE_FFT)
   add_subdirectory(fourier_transform)
+  if(PARTHENON_ENABLE_OPENPMD)
+    add_subdirectory(energy_transfer)
+  endif()
 endif()
-

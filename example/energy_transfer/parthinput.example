@@ -63,6 +63,10 @@ nx3 = 64
 binning = test
 num_shells = 20
 compute_UU = false
+# Direct hydrodynamic flux at shell edges. Independent of compute_UU; leave all
+# shell-transfer switches false to avoid the shell-pair calculation.
+compute_flux_U = false  # unweighted: X = U
+compute_flux_W = false  # density-weighted: X = sqrt(rho) U
 compute_BB = false
 compute_BUT = false
 compute_UBTb = false

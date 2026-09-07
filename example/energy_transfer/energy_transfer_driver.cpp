@@ -200,6 +200,71 @@ static void SpectralDivergence(parthenon::FFTManager *fft_mgr,
 }
 
 // ============================================================================
+// Direct kinetic flux at each shell edge, using X = U or W = sqrt(rho) U.
+// X_< contains (edges.front(), cutoff], X_> contains (cutoff, edges.back()].
+// These products equal sum_{K>=s,Q<s} T(K,Q), without constructing T:
+//   A = -sum_x X_> . (U . grad) X_<
+//   C = -0.5 sum_x X_> . X_< div(U)
+// Positive flux transfers energy toward larger wavenumbers. As for the shell
+// matrices, these are spatial sums, not volume averages. The advecting U is full.
+// ============================================================================
+static parthenon::HostArray2D<TransferReal> CrossScaleFlux(
+    parthenon::FFTManager *fft_mgr,
+    const parthenon::ParArray1D<Kokkos::complex<Real>> &FT_field,
+    const parthenon::ParArray1D<Real> &velocity,
+    const parthenon::ParArray1D<Real> &div_velocity,
+    parthenon::ParArray1D<Kokkos::complex<Real>> &FT_scratch,
+    const std::vector<Real> &edges, Real two_pi_over_L) {
+  const auto nr = fft_mgr->size_real_space_box();
+  const auto nf = fft_mgr->size_fourier_space_box();
+  parthenon::HostArray2D<TransferReal> flux("cross_scale_flux", edges.size(), 3);
+  Kokkos::deep_copy(flux, 0.0);
+  parthenon::ParArray1D<Real> low("flux_low", 3 * nr);
+  parthenon::ParArray1D<Real> high("flux_high", 3 * nr);
+  parthenon::ParArray1D<Real> advection("flux_advection", 3 * nr);
+  parthenon::ParArray1D<Real> derivative("flux_derivative", nr);
+
+  // At the first/last edge one side is empty, so both endpoint fluxes are zero.
+  for (std::size_t s = 1; s + 1 < edges.size(); ++s) {
+    ShellFilter(fft_mgr, 3, FT_field, FT_scratch, low, edges.front(), edges[s]);
+    ShellFilter(fft_mgr, 3, FT_field, FT_scratch, high, edges[s], edges.back());
+    Kokkos::deep_copy(advection, 0.0);
+    for (int c = 0; c < 3; ++c) {
+      for (int d = 0; d < 3; ++d) {
+        ShellFilterDerivative(fft_mgr, FT_field, c * nf, FT_scratch, 0, derivative, 0,
+                              edges.front(), edges[s], d, two_pi_over_L);
+        const auto out_offset = c * nr;
+        const auto vel_offset = d * nr;
+        parthenon::par_for(
+            "FluxAdvection", std::size_t(0), nr - 1,
+            KOKKOS_LAMBDA(const std::size_t idx) {
+              advection(out_offset + idx) += velocity(vel_offset + idx) * derivative(idx);
+            });
+      }
+    }
+
+    std::array<TransferReal, 2> sums{{0.0, 0.0}};
+    Kokkos::parallel_reduce(
+        "FluxReduce", Kokkos::RangePolicy<>(0, 3 * nr),
+        KOKKOS_LAMBDA(const std::size_t idx, TransferReal &adv, TransferReal &comp) {
+          const auto h = static_cast<TransferReal>(high(idx));
+          adv -= h * static_cast<TransferReal>(advection(idx));
+          comp -= 0.5 * h * static_cast<TransferReal>(low(idx)) *
+                  static_cast<TransferReal>(div_velocity(idx % nr));
+        },
+        sums[0], sums[1]);
+#ifdef MPI_PARALLEL
+    PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, sums.data(), 2, MPI_DOUBLE, MPI_SUM,
+                                    MPI_COMM_WORLD));
+#endif
+    flux(s, 0) = sums[0];
+    flux(s, 1) = sums[1];
+    flux(s, 2) = sums[0] + sums[1];
+  }
+  return flux;
+}
+
+// ============================================================================
 // Main Execute method
 // ============================================================================
 parthenon::DriverStatus EnergyTransferDriver::Execute() {
@@ -220,6 +285,13 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
       pinput->GetOrAddBoolean("energy_transfer", "compute_UBPbb", false);
   const auto compute_PU = pinput->GetOrAddBoolean("energy_transfer", "compute_PU", false);
   const auto compute_FU = pinput->GetOrAddBoolean("energy_transfer", "compute_FU", false);
+  const auto compute_flux_U =
+      pinput->GetOrAddBoolean("energy_transfer", "compute_flux_U", false);
+  const auto compute_flux_W =
+      pinput->GetOrAddBoolean("energy_transfer", "compute_flux_W", false);
+  const bool compute_shell_transfers = compute_UU || compute_BB || compute_BUT ||
+                                       compute_UBTb || compute_BUPbb || compute_UBPbb ||
+                                       compute_PU || compute_FU;
 
   // energy spectra config
   const auto compute_spec_U =
@@ -262,6 +334,8 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   const Real two_pi_over_L = 2.0 * M_PI / Lx;
 
   // Build shell edges
+  PARTHENON_REQUIRE_THROWS(num_shells > 0,
+                           "energy_transfer/num_shells must be positive");
   std::vector<Real> shell_edges;
   if (binning == "lin") {
     shell_edges.push_back(0.5);
@@ -282,6 +356,11 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
     PARTHENON_FAIL("Unknown binning type: " + binning);
   }
   const int n_shells = static_cast<int>(shell_edges.size()) - 1;
+  for (int s = 0; s < n_shells; ++s) {
+    PARTHENON_REQUIRE_THROWS(shell_edges[s] < shell_edges[s + 1],
+                             "Energy transfer shell edges must be strictly increasing; "
+                             "reduce num_shells for this mesh resolution");
+  }
 
   if (parthenon::Globals::my_rank == 0) {
     std::cout << "Energy transfer analysis: " << n_shells
@@ -305,7 +384,9 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
       compute_BB || compute_BUT || compute_UBTb || compute_BUPbb || compute_UBPbb;
   const bool need_b_flat = compute_BUT || compute_UBTb;
   const bool need_FT_b = compute_UBTb;
-  const bool need_DivU = compute_UU || compute_BB;
+  const bool need_DivU = compute_UU || compute_BB || compute_flux_U || compute_flux_W;
+  const bool need_FT_W = compute_UU || compute_UBTb || compute_UBPbb || compute_BUT ||
+                         compute_BUPbb || compute_PU || compute_FU || compute_flux_W;
   const bool need_scalar_scratch = compute_UBTb || compute_BUPbb;
   const bool need_mag_loaded =
       need_mag || compute_spec_B || (input_conserved && compute_PU);
@@ -628,13 +709,16 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   parthenon::ParArray1D<Real> DivU("DivU", need_DivU ? fft_size_inbox : 0);
   parthenon::ParArray1D<Kokkos::complex<Real>> FT_scratch("FT_scratch",
                                                           3 * fft_size_outbox);
-  parthenon::ParArray1D<Kokkos::complex<Real>> FT_W("FT_W", 3 * fft_size_outbox);
+  parthenon::ParArray1D<Kokkos::complex<Real>> FT_W(
+      "FT_W", need_FT_W ? 3 * fft_size_outbox : 0);
   parthenon::ParArray1D<Kokkos::complex<Real>> FT_U("FT_U",
                                                     need_DivU ? 3 * fft_size_outbox : 0);
 
   for (int n = 0; n < 3; n++) {
-    FFTMgr->Forward(W_flat.data() + n * fft_size_inbox,
-                    FT_W.data() + n * fft_size_outbox);
+    if (need_FT_W) {
+      FFTMgr->Forward(W_flat.data() + n * fft_size_inbox,
+                      FT_W.data() + n * fft_size_outbox);
+    }
     if (need_DivU) {
       FFTMgr->Forward(vel_flat.data() + n * fft_size_inbox,
                       FT_U.data() + n * fft_size_outbox);
@@ -645,8 +729,19 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   }
   if (need_DivU) {
     SpectralDivergence(FFTMgr, FT_U, FT_scratch, DivU, two_pi_over_L);
-    FT_U = parthenon::ParArray1D<Kokkos::complex<Real>>();
   }
+
+  parthenon::HostArray2D<TransferReal> flux_u_h;
+  parthenon::HostArray2D<TransferReal> flux_w_h;
+  if (compute_flux_U) {
+    flux_u_h = CrossScaleFlux(FFTMgr, FT_U, vel_flat, DivU, FT_scratch, shell_edges,
+                              two_pi_over_L);
+  }
+  if (compute_flux_W) {
+    flux_w_h = CrossScaleFlux(FFTMgr, FT_W, vel_flat, DivU, FT_scratch, shell_edges,
+                              two_pi_over_L);
+  }
+  FT_U = parthenon::ParArray1D<Kokkos::complex<Real>>();
 
   parthenon::ParArray1D<Kokkos::complex<Real>> FT_B("FT_B",
                                                     need_mag ? 3 * fft_size_outbox : 0);
@@ -699,18 +794,22 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   }
 
   // --- Allocate transfer matrices (host 2D views) ---
-  parthenon::HostArray2D<TransferReal> UUA_matrix("UUA", n_shells, n_shells);
-  parthenon::HostArray2D<TransferReal> UUC_matrix("UUC", n_shells, n_shells);
-  parthenon::HostArray2D<TransferReal> BBA_matrix("BBA", n_shells, n_shells);
-  parthenon::HostArray2D<TransferReal> BBC_matrix("BBC", n_shells, n_shells);
-  parthenon::HostArray2D<TransferReal> BUT_matrix("BUT", n_shells, n_shells);
-  parthenon::HostArray2D<TransferReal> UBTb_matrix("UBTb", n_shells, n_shells);
-  parthenon::HostArray2D<TransferReal> UBTbA_matrix("UBTbA", n_shells, n_shells);
-  parthenon::HostArray2D<TransferReal> UBTbC_matrix("UBTbC", n_shells, n_shells);
-  parthenon::HostArray2D<TransferReal> BUPbb_matrix("BUPbb", n_shells, n_shells);
-  parthenon::HostArray2D<TransferReal> UBPbb_matrix("UBPbb", n_shells, n_shells);
-  parthenon::HostArray2D<TransferReal> PU_matrix("PU", n_shells, n_shells);
-  parthenon::HostArray2D<TransferReal> FU_matrix("FU", n_shells, n_shells);
+  auto make_matrix = [&](const std::string &name, const bool enabled) {
+    const int n = enabled ? n_shells : 0;
+    return parthenon::HostArray2D<TransferReal>(name, n, n);
+  };
+  auto UUA_matrix = make_matrix("UUA", compute_UU);
+  auto UUC_matrix = make_matrix("UUC", compute_UU);
+  auto BBA_matrix = make_matrix("BBA", compute_BB);
+  auto BBC_matrix = make_matrix("BBC", compute_BB);
+  auto BUT_matrix = make_matrix("BUT", compute_BUT);
+  auto UBTb_matrix = make_matrix("UBTb", compute_UBTb);
+  auto UBTbA_matrix = make_matrix("UBTbA", compute_UBTb);
+  auto UBTbC_matrix = make_matrix("UBTbC", compute_UBTb);
+  auto BUPbb_matrix = make_matrix("BUPbb", compute_BUPbb);
+  auto UBPbb_matrix = make_matrix("UBPbb", compute_UBPbb);
+  auto PU_matrix = make_matrix("PU", compute_PU);
+  auto FU_matrix = make_matrix("FU", compute_FU);
 
   // --- Working arrays for shell-filtered fields (only allocate what's needed) ---
   parthenon::ParArray1D<Real> W_Q(
@@ -754,7 +853,7 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
   }
 
   // --- Main double loop ---
-  for (int q = 0; q < n_shells; q++) {
+  for (int q = 0; compute_shell_transfers && q < n_shells; q++) {
     const Real Q_low = shell_edges[q];
     const Real Q_high = shell_edges[q + 1];
 
@@ -1356,9 +1455,10 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
     // Write the power spectra
     auto write_vector_from_matrix =
         [&](const std::string &name, const parthenon::HostArray2D<TransferReal> &matrix,
-            const int idx) {
+            const int idx,
+            const std::string &component = openPMD::MeshRecordComponent::SCALAR) {
           auto mesh = it.meshes[name];
-          auto comp = mesh[openPMD::MeshRecordComponent::SCALAR];
+          auto comp = mesh[component];
 
           const auto num_bins = matrix.extent(0);
           std::vector<TransferReal> outdata(num_bins);
@@ -1389,6 +1489,22 @@ parthenon::DriverStatus EnergyTransferDriver::Execute() {
     if (compute_spec_rho) write_spectrum("spec/rho", spectra_rho_h);
     if (compute_spec_W) write_spectrum("spec/w", spectra_w_h);
     if (compute_spec_B) write_spectrum("spec/b", spectra_b_h);
+
+    if (compute_flux_U || compute_flux_W) {
+      it.setAttribute("flux_cutoffs", shell_edges);
+      it.setAttribute("flux_sign", std::string("positive: low to high wavenumbers"));
+      it.setAttribute("flux_normalization", std::string("spatial sum"));
+      it.setAttribute("flux_mode_range",
+                      std::string("(shell_edges.front, shell_edges.back]"));
+      auto write_flux = [&](const std::string &prefix,
+                            const parthenon::HostArray2D<TransferReal> &flux) {
+        write_vector_from_matrix(prefix, flux, 0, "advection");
+        write_vector_from_matrix(prefix, flux, 1, "compression");
+        write_vector_from_matrix(prefix, flux, 2, "total");
+      };
+      if (compute_flux_U) write_flux("flux_u", flux_u_h);
+      if (compute_flux_W) write_flux("flux_w", flux_w_h);
+    }
 
     series.close();
     if (parthenon::Globals::my_rank == 0) {
