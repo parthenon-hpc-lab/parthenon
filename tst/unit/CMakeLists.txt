@@ -48,6 +48,7 @@ list(APPEND unit_tests_SOURCES
     test_state_descriptor.cpp
     test_swarm.cpp
     test_swarm_amr_remesh.cpp
+    test_calc_indices_gold.cpp
     test_unit_integrators.cpp
     test_upper_bound.cpp
 )
@@ -55,6 +56,13 @@ list(APPEND unit_tests_SOURCES
 add_executable(unit_tests "${unit_tests_SOURCES}")
 
 target_link_libraries(unit_tests PRIVATE Parthenon::parthenon catch2_define Kokkos::kokkos)
+
+# The CalcIndices golden-master file lives in this directory (downloaded from a release
+# asset by the top-level CMakeLists.txt, see CALC_INDICES_GOLD_*). Pass the directory and
+# the pinned version so the test resolves calc_indices_gold_v<VER>.h5.
+set_source_files_properties(test_calc_indices_gold.cpp PROPERTIES
+    COMPILE_DEFINITIONS
+    "CALC_INDICES_GOLD_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/data\";CALC_INDICES_GOLD_VER=${CALC_INDICES_GOLD_VER}")
 
 if (TEST_ERROR_CHECKING)
    message(WARNING "\tTesting error checking. This test will FAIL.")

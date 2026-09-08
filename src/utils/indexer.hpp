@@ -253,6 +253,9 @@ class SpatiallyMaskedIndexer : public Indexer<Ts...> {
     return active_(iidx, jidx, kidx);
   }
 
+  KOKKOS_INLINE_FUNCTION
+  const block_ownership_t &GetOwnership() const { return active_; }
+
  private:
   block_ownership_t active_;
 };

@@ -118,6 +118,16 @@ set(REGRESSION_GOLD_STANDARD_HASH
   CACHE STRING "Hash of default gold standard file to download")
 option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." ON)
 
+# CalcIndices golden-master data for the test_calc_indices_gold unit test. Like the
+# regression gold standard, this file is not stored in the repository; it is downloaded
+# from a GitHub release asset and verified against a SHA-512 hash. See
+# tst/unit/data/README.md for how to regenerate and publish a new version.
+set(CALC_INDICES_GOLD_VER 1 CACHE STRING "Version of the CalcIndices gold file to download")
+set(CALC_INDICES_GOLD_HASH
+  "SHA512=5d5aee9344f9a0f0e7bdb7800eda069f99255c76b845450e924df3f6cb03f713cef34e87f89f69818fdff54bb47cc8099431e5717b06b4946f88d075a8538aab"
+  CACHE STRING "Hash of the CalcIndices gold file to download")
+option(CALC_INDICES_GOLD_SYNC "Automatically sync the CalcIndices gold file." ON)
+
 # set single precision #define
 if ( PARTHENON_SINGLE_PRECISION )
   set(SINGLE_PRECISION_ENABLED 1)
@@ -459,6 +469,45 @@ if (PARTHENON_ENABLE_UNIT_TESTS OR PARTHENON_ENABLE_INTEGRATION_TESTS OR PARTHEN
       message(WARNING "Consider changing the number of MPI processors used in testing, currently "
         "NUM_MPI_PROC_TESTING is set to ${NUM_MPI_PROC_TESTING} but cmake has only detected a"
         " total of ${N} available processors")
+    endif()
+  endif()
+
+  # If running unit tests, sync the CalcIndices gold file. This is a single HDF5 file
+  # downloaded from a release asset and verified by hash, mirroring the regression gold
+  # standard but kept separate so a unit-only build does not pull the (much larger)
+  # regression tarball. A download failure is non-fatal: the test skips with a warning if
+  # the file is absent.
+  if (PARTHENON_ENABLE_UNIT_TESTS AND CALC_INDICES_GOLD_SYNC)
+    set(CALC_INDICES_GOLD_FILE
+      ${PROJECT_SOURCE_DIR}/tst/unit/data/calc_indices_gold_v${CALC_INDICES_GOLD_VER}.h5)
+    if (NOT EXISTS ${CALC_INDICES_GOLD_FILE})
+      message(STATUS "Attempting to download CalcIndices gold file v${CALC_INDICES_GOLD_VER}. To disable set CALC_INDICES_GOLD_SYNC=OFF.")
+      # Download without EXPECTED_HASH (which is fatal on mismatch) so a missing asset or
+      # offline build is non-fatal; verify the hash separately below and drop the file on
+      # any problem so the test simply skips.
+      file(
+        DOWNLOAD https://github.com/parthenon-hpc-lab/parthenon/releases/download/calc-indices-gold-v${CALC_INDICES_GOLD_VER}/calc_indices_gold_v${CALC_INDICES_GOLD_VER}.h5 ${CALC_INDICES_GOLD_FILE}
+        STATUS CALC_INDICES_GOLD_DL_STATUS
+        )
+      list(GET CALC_INDICES_GOLD_DL_STATUS 0 CALC_INDICES_GOLD_DL_CODE)
+      if (NOT CALC_INDICES_GOLD_DL_CODE EQUAL 0)
+        list(GET CALC_INDICES_GOLD_DL_STATUS 1 CALC_INDICES_GOLD_DL_MSG)
+        message(WARNING "Could not download CalcIndices gold file v${CALC_INDICES_GOLD_VER} "
+          "(${CALC_INDICES_GOLD_DL_MSG}). The test_calc_indices_gold test will skip.")
+        file(REMOVE ${CALC_INDICES_GOLD_FILE})
+      else()
+        file(SHA512 ${CALC_INDICES_GOLD_FILE} CALC_INDICES_GOLD_DL_SHA)
+        if (NOT "SHA512=${CALC_INDICES_GOLD_DL_SHA}" STREQUAL "${CALC_INDICES_GOLD_HASH}")
+          message(WARNING "CalcIndices gold file v${CALC_INDICES_GOLD_VER} hash mismatch "
+            "(expected ${CALC_INDICES_GOLD_HASH}, got SHA512=${CALC_INDICES_GOLD_DL_SHA}). "
+            "Discarding; the test_calc_indices_gold test will skip.")
+          file(REMOVE ${CALC_INDICES_GOLD_FILE})
+        else()
+          message(STATUS "  Download of CalcIndices gold successful (version ${CALC_INDICES_GOLD_VER}).")
+        endif()
+      endif()
+    else()
+      message(STATUS "CalcIndices gold is up-to-date (version ${CALC_INDICES_GOLD_VER}). No download required.")
     endif()
   endif()
 

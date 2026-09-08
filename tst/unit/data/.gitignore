@@ -1,0 +1,8 @@
+# The CalcIndices golden-master file is not stored in the repository. It is downloaded
+# from a GitHub release asset at configure time (see CALC_INDICES_GOLD_* in the top-level
+# CMakeLists.txt), mirroring the regression gold-standard mechanism.
+#
+# Ignore everything in this directory except this file and the README.
+*
+!.gitignore
+!README.md
