@@ -1,0 +1,20 @@
+# IndexSplit Gold File: 3D_ng2_allk_allj
+# Config: ndim=3 nx=4,4,4 nghost=2 nkp=-100 njp=-100
+# Domain bounds: k=[2,5] j=[2,5] i=[2,5]
+outer_size=16
+p=0 k=[2,2] j=[2,2] i=[2,5] inner=[2,5] inner_size=4
+p=1 k=[2,2] j=[3,3] i=[2,5] inner=[2,5] inner_size=4
+p=2 k=[2,2] j=[4,4] i=[2,5] inner=[2,5] inner_size=4
+p=3 k=[2,2] j=[5,5] i=[2,5] inner=[2,5] inner_size=4
+p=4 k=[3,3] j=[2,2] i=[2,5] inner=[2,5] inner_size=4
+p=5 k=[3,3] j=[3,3] i=[2,5] inner=[2,5] inner_size=4
+p=6 k=[3,3] j=[4,4] i=[2,5] inner=[2,5] inner_size=4
+p=7 k=[3,3] j=[5,5] i=[2,5] inner=[2,5] inner_size=4
+p=8 k=[4,4] j=[2,2] i=[2,5] inner=[2,5] inner_size=4
+p=9 k=[4,4] j=[3,3] i=[2,5] inner=[2,5] inner_size=4
+p=10 k=[4,4] j=[4,4] i=[2,5] inner=[2,5] inner_size=4
+p=11 k=[4,4] j=[5,5] i=[2,5] inner=[2,5] inner_size=4
+p=12 k=[5,5] j=[2,2] i=[2,5] inner=[2,5] inner_size=4
+p=13 k=[5,5] j=[3,3] i=[2,5] inner=[2,5] inner_size=4
+p=14 k=[5,5] j=[4,4] i=[2,5] inner=[2,5] inner_size=4
+p=15 k=[5,5] j=[5,5] i=[2,5] inner=[2,5] inner_size=4
