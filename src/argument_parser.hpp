@@ -21,6 +21,7 @@
 #include <cstdio>
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include "defs.hpp"
 #include "globals.hpp"
@@ -51,7 +52,7 @@ class ArgParse {
         switch (opt_letter) {
         case 'i': // -i <input_filename>
           invalid = invalid_arg();
-          input_filename = argv[++i];
+          input_filenames.push_back(argv[++i]);
           break;
         case 'r': // -r <restart_file>
           invalid = invalid_arg();
@@ -128,10 +129,12 @@ class ArgParse {
           }
           return ArgStatus::error;
         }
-      } // else if argv[i] not of form "-?" ignore it here (tested in ModifyFromCmdline)
+      } else {
+        modifiers.push_back(argv[i]);
+      }
     }
 
-    if (restart_filename == nullptr && input_filename == nullptr) {
+    if (restart_filename == nullptr && input_filenames.empty()) {
       // no input file is given
       std::cout << "### FATAL ERROR in main" << std::endl
                 << "No input file or restart file is specified." << std::endl;
@@ -140,7 +143,8 @@ class ArgParse {
     return ArgStatus::ok;
   }
 
-  char *input_filename = nullptr;
+  std::vector<std::string> input_filenames;
+  std::vector<std::string> modifiers;
   char *restart_filename = nullptr;
   char *prundir = nullptr;
   char *params_regex = nullptr;
