@@ -630,9 +630,20 @@ std::vector<Record> BuildRecords(const std::shared_ptr<Mesh> &mesh,
         for (std::int32_t ri = 0; ri < static_cast<std::int32_t>(kRangeTypes.size());
              ++ri) {
           for (std::int32_t pr = 0; pr < 2; ++pr) {
-            auto idx = parthenon::CalcIndices(rel.nb, rel.pmb.get(), concepts[ci].var,
-                                              kElements[ei], kRangeTypes[ri], pr != 0,
-                                              rel.nb.lcoord_trans);
+            // Set lcoord_trans.ncell exactly as BndInfo::BndInfo does before calling
+            // CalcIndices: it is the number of cells along the first dimension of the
+            // array CalcIndices will index into (the coarse buffer when the neighbor is
+            // coarser, otherwise the main array), and it is only consumed by the flipped
+            // branch of the transform. The forest constructor leaves ncell unset, so
+            // failing to set it here feeds CalcIndices an uninitialized value.
+            auto lct = rel.nb.lcoord_trans;
+            const bool nb_coarser = rel.nb.loc.level() < rel.pmb->loc.level() ||
+                                    rel.nb.block_coarsenings > rel.pmb->block_coarsenings;
+            lct.ncell = nb_coarser ? concepts[ci].var->GetCoarseDim(1)
+                                   : concepts[ci].var->GetDim(1);
+            auto idx =
+                parthenon::CalcIndices(rel.nb, rel.pmb.get(), concepts[ci].var,
+                                       kElements[ei], kRangeTypes[ri], pr != 0, lct);
             std::array<std::int32_t, kKeyLen> key{};
             for (int c = 0; c < 7; ++c)
               key[c] = rel.rel_key[c];
