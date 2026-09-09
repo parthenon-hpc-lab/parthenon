@@ -19,25 +19,33 @@
 // (LogicalLocation, RegionSize, NeighborBlock, field concept, TopologicalElement,
 // IndexRangeType, prores). This test pins its full output -- both the 6D box AND the
 // 27-entry ownership mask embedded in the returned indexer -- plus a mesh/neighbor
-// fingerprint, for a fixed set of 1D/2D/3D statically-refined periodic meshes so that
-// any behavioral drift during the upcoming boundary-communication refactor is caught
-// immediately with a precise, per-tuple diff.
+// fingerprint, over a fixed set of meshes, so that any behavioral drift during the
+// upcoming boundary-communication refactor is caught immediately with a precise,
+// per-tuple diff.
 //
-// Neighbor coverage: the meshes enable multigrid, so every block's regular leaf
-// neighbor list AND its five multigrid neighbor lists (coarser/finer/same/self/
-// composite-finer) are fed through the full CalcIndices matrix. Flux-correction paths
-// only narrow the element set for a leaf neighbor, so they are a strict subset of what
-// is already pinned here.
+// Meshes:
+//   - dim_1 / dim_2 / dim_3: 1D/2D/3D statically-refined periodic meshes with multigrid
+//     enabled, so every block's leaf neighbor list AND its five multigrid neighbor lists
+//     (coarser/finer/same/self/composite-finer) are covered.
+//   - forest_2tree: a 2D two-tree forest whose second tree is glued on with a rotated/
+//     flipped orientation, so the logical coordinate transformation between trees is
+//     non-trivial -- exercising the lcoord_trans branches of CalcIndices that the
+//     single-tree periodic meshes never reach.
+//
+// The enumeration is over unique neighbor *relationships* (deduped across all neighbor
+// lists, since the list is not an input to CalcIndices) crossed with concept x element x
+// range-type x prores. Flux-correction paths only narrow the element set for a leaf
+// neighbor, so they are a strict subset of what is already pinned here.
 //
 // Gold storage: the keys/boxes/ownership are stored in an HDF5 file
 // (data/calc_indices_gold_v<VER>.h5), which keeps the file small and portable across
-// platforms. Following the regression gold-standard convention, this file is NOT committed
-// to the repository -- it is downloaded from a GitHub release asset and verified by hash
-// at configure time (see CALC_INDICES_GOLD_* in the top-level CMakeLists.txt and
-// tst/unit/data/README.md). Two conditions make this test a no-op-with-warning rather than
-// a failure: built without HDF5 (ENABLE_HDF5 off), or the gold file absent (offline build
-// / new version not yet published). Regenerate + publish a new version per the steps in
-// tst/unit/data/README.md; regenerate locally with
+// platforms. Following the regression gold-standard convention, this file is NOT
+// committed to the repository -- it is downloaded from a GitHub release asset and
+// verified by hash at configure time (see CALC_INDICES_GOLD_* in the top-level
+// CMakeLists.txt and tst/unit/data/README.md). Two conditions make this test a
+// no-op-with-warning rather than a failure: built without HDF5 (ENABLE_HDF5 off), or the
+// gold file absent (offline build / new version not yet published). Regenerate + publish
+// a new version per the steps in tst/unit/data/README.md; regenerate locally with
 //     PARTHENON_REGEN_GOLD=1 mpirun -np 1 <path>/unit_tests "[CalcIndices]"
 
 #include <catch2/catch.hpp>
@@ -74,6 +82,9 @@ TEST_CASE("CalcIndices golden master", "[CalcIndices][bvals][MPI]") {
 #include "interface/packages.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable.hpp"
+#include "mesh/forest/forest.hpp"
+#include "mesh/forest/forest_node.hpp"
+#include "mesh/forest/forest_topology.hpp"
 #include "mesh/forest/logical_coordinate_transformation.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
@@ -234,6 +245,100 @@ std::shared_ptr<Mesh> MakeMesh(const int dim, ApplicationInput *app_in,
 }
 
 //----------------------------------------------------------------------------------------
+// A minimal deck for the forest mesh: just the block size and (user) boundary names the
+// forest constructor reads. The forest geometry itself is defined programmatically below.
+std::shared_ptr<ParameterInput> MakeForestPin() {
+  std::stringstream is;
+  is << "<parthenon/mesh>\n";
+  is << "nghost = " << kNGhost << "\n";
+  is << "nx1 = 8\n";
+  is << "nx2 = 8\n";
+  is << "nx3 = 1\n";
+  is << "<parthenon/meshblock>\n";
+  is << "nx1 = 4\n";
+  is << "nx2 = 4\n";
+  is << "nx3 = 1\n";
+  auto pin = std::make_shared<ParameterInput>();
+  pin->LoadFromStream(is);
+  return pin;
+}
+
+//----------------------------------------------------------------------------------------
+// Build a 2D two-tree forest in which the second tree is glued to the first along a
+// shared edge with a rotated/flipped node ordering, so the logical coordinate
+// transformation between the trees is non-trivial (dir_connection reorders and/or
+// dir_flip is set). This exercises the lcoord_trans branches of CalcIndices (the
+// BoundaryExteriorRecv transform and the InverseTransform of the element) that the
+// single-tree periodic deck meshes never reach. This constructor does NOT enable
+// multigrid, so this mesh contributes only leaf neighbor relationships.
+//
+// Face node ordering convention (see forest_topology.hpp):
+//   2---3      X0: 0->1
+//   |   |      X1: 0->2
+//   0---1
+// Tree 0 occupies the unit square with nodes at its corners. Tree 1 shares tree 0's
+// right edge (nodes 1,3). By listing tree 1's nodes so that the shared edge runs along
+// tree 1's X1 axis (rather than X0) and in reversed order, the derived transform both
+// swaps the logical directions and flips one -- a rotation+flip.
+std::shared_ptr<Mesh> MakeForestMesh(ApplicationInput *app_in, Packages_t &packages) {
+  namespace forest = parthenon::forest;
+  using forest::Node;
+  using ar3_t = std::array<Real, 3>;
+
+  // Shared nodes between the two trees are 1 and 3 (tree 0's right edge).
+  std::unordered_map<int, std::shared_ptr<Node>> n;
+  n[0] = Node::create(0, {0.0, 0.0});
+  n[1] = Node::create(1, {1.0, 0.0});
+  n[2] = Node::create(2, {0.0, 1.0});
+  n[3] = Node::create(3, {1.0, 1.0});
+  // Extra nodes for tree 1, placed to the right.
+  n[4] = Node::create(4, {2.0, 0.0});
+  n[5] = Node::create(5, {2.0, 1.0});
+
+  forest::ForestDefinition forest_def;
+  // Tree 0: standard orientation on the unit square.
+  forest_def.AddFace(0, {n[0], n[1], n[2], n[3]}, ar3_t{0.0, 0.0, 0.0},
+                     ar3_t{1.0, 1.0, 1.0});
+  // Tree 1: node slots {0,1,2,3} = {n3, n1, n5, n4}. Face slot layout (see
+  // forest_topology.hpp) is slot0=(-,-), slot1=(+,-), slot2=(-,+), slot3=(+,+), with the
+  // X0 edge along slots 0->1 and the X1 edge along slots 0->2. The edge shared with tree
+  // 0 is {n1,n3}: on tree 0 it runs along X1 (its +x face), but here n3 and n1 sit in
+  // slots 0 and 1, so on tree 1 it runs along X0 -- the logical directions are swapped.
+  // The slot0->slot1 order (n3->n1) is opposite tree 0's edge order, adding a flip.
+  // Together this yields a non-trivial (rotation + flip) logical coordinate
+  // transformation.
+  forest_def.AddFace(1, {n[3], n[1], n[5], n[4]}, ar3_t{1.0, 0.0, 0.0},
+                     ar3_t{2.0, 1.0, 1.0});
+
+  // Close off the remaining outer edges with user BCs so the forest is well-posed.
+  using edge_t = forest::Edge;
+  forest_def.AddBC(edge_t({n[0], n[1]}));
+  forest_def.AddBC(edge_t({n[0], n[2]}));
+  forest_def.AddBC(edge_t({n[2], n[3]}));
+  forest_def.AddBC(edge_t({n[1], n[4]}));
+  forest_def.AddBC(edge_t({n[4], n[5]}));
+  forest_def.AddBC(edge_t({n[3], n[5]}));
+
+  auto pin = MakeForestPin();
+  return std::make_shared<Mesh>(pin.get(), app_in, packages, forest_def);
+}
+
+// True if any cross-tree neighbor of any block carries a non-identity logical coordinate
+// transformation (a genuine rotation/flip). Used to assert the forest mesh actually
+// exercises the transform paths, independent of internal orientation conventions.
+bool HasNonTrivialTransform(const std::shared_ptr<Mesh> &mesh) {
+  const parthenon::forest::LogicalCoordinateTransformation identity;
+  for (const auto &pmb : mesh->block_list) {
+    for (const auto &nb : pmb->GetNeighbors()) {
+      const auto &t = nb.lcoord_trans;
+      if (t.dir_connection != identity.dir_connection || t.dir_flip != identity.dir_flip)
+        return true;
+    }
+  }
+  return false;
+}
+
+//----------------------------------------------------------------------------------------
 // Build one standalone Variable<Real> per field concept CalcIndices distinguishes. A
 // valid (non-expired) MeshBlock weak_ptr is required only so the mesh-tied metadata can
 // resolve its array dimensions; no allocation is performed. The dims/flags read by
@@ -319,13 +424,19 @@ std::string IrName(IndexRangeType ir) {
 // Stable human-readable descriptor of a neighbor, used only in the topology fingerprint
 // (layer 1). Independent of iteration order.
 std::string NeighborKey(const NeighborBlock &nb) {
+  const auto &t = nb.lcoord_trans;
   std::ostringstream os;
   os << "off=(" << PadInt(nb.offsets(parthenon::X1DIR), 1) << ","
      << PadInt(nb.offsets(parthenon::X2DIR), 1) << ","
      << PadInt(nb.offsets(parthenon::X3DIR), 1) << ") lev=" << PadInt(nb.loc.level(), 2)
      << " nloc=(" << PadInt(nb.loc.lx1(), 3) << "," << PadInt(nb.loc.lx2(), 3) << ","
-     << PadInt(nb.loc.lx3(), 3) << ") ngid=" << PadInt(nb.gid, 4)
-     << " ncoarsen=" << nb.block_coarsenings;
+     << PadInt(nb.loc.lx3(), 3) << ") ngid=" << PadInt(nb.gid, 4) << " ncoarsen="
+     << nb.block_coarsenings
+     // Include the logical coordinate transformation: it is an input to CalcIndices for
+     // receive ranges and is non-trivial for the multi-tree forest mesh.
+     << " lct_dir=(" << t.dir_connection[0] << "," << t.dir_connection[1] << ","
+     << t.dir_connection[2] << ") lct_flip=(" << t.dir_flip[0] << "," << t.dir_flip[1]
+     << "," << t.dir_flip[2] << ")";
   return os.str();
 }
 
@@ -408,10 +519,15 @@ std::vector<std::shared_ptr<MeshBlock>> AllBlocks(const std::shared_ptr<Mesh> &m
   std::map<const MeshBlock *, std::shared_ptr<MeshBlock>> uniq;
   for (const auto &pmb : mesh->block_list)
     uniq[pmb.get()] = pmb;
-  for (int lvl = mesh->GetGMGMinLevel(); lvl <= mesh->GetGMGMaxLevel(); ++lvl) {
-    for (const auto &part : mesh->GetMultigridBlockPartitions(lvl)) {
-      for (const auto &pmb : part->block_list)
-        uniq[pmb.get()] = pmb;
+  // The multigrid grids carry the internal/coarse blocks. They are only built when the
+  // mesh was constructed with multigrid enabled (the deck meshes); the forest mesh has
+  // none, and GetMultigridBlockPartitions would assert.
+  if (mesh->multigrid) {
+    for (int lvl = mesh->GetGMGMinLevel(); lvl <= mesh->GetGMGMaxLevel(); ++lvl) {
+      for (const auto &part : mesh->GetMultigridBlockPartitions(lvl)) {
+        for (const auto &pmb : part->block_list)
+          uniq[pmb.get()] = pmb;
+      }
     }
   }
   std::vector<std::shared_ptr<MeshBlock>> blocks;
@@ -432,11 +548,12 @@ std::vector<std::shared_ptr<MeshBlock>> AllBlocks(const std::shared_ptr<Mesh> &m
 // The mesh/neighbor fingerprint (layer 1). If this drifts, the box gold is meaningless
 // and must be regenerated deliberately. Kept as human-readable text -- it is small and
 // topology is what a reviewer actually wants to eyeball.
-std::string BuildFingerprint(const std::shared_ptr<Mesh> &mesh, const int dim) {
+std::string BuildFingerprint(const std::shared_ptr<Mesh> &mesh,
+                             const std::string &label) {
   std::vector<std::string> lines;
   for (const auto &pmb : AllBlocks(mesh)) {
     std::ostringstream head;
-    head << "dim=" << dim << " gid=" << PadInt(pmb->gid, 4) << " loc=("
+    head << "mesh=" << label << " gid=" << PadInt(pmb->gid, 4) << " loc=("
          << PadInt(pmb->loc.level(), 2) << "," << PadInt(pmb->loc.lx1(), 3) << ","
          << PadInt(pmb->loc.lx2(), 3) << "," << PadInt(pmb->loc.lx3(), 3)
          << ") ncoarsen=" << pmb->block_coarsenings;
@@ -689,9 +806,8 @@ GoldData ReadDimGroup(hid_t file, const std::string &group_name) {
 }
 
 //----------------------------------------------------------------------------------------
-// Per-dimension bundle of everything we pin.
+// Per-mesh bundle of everything we pin. `group` is the HDF5 group name / mesh label.
 struct DimGold {
-  int dim;
   std::string group;
   std::vector<Record> records;
   std::string fingerprint;
@@ -719,9 +835,9 @@ void CompareDim(hid_t file, const DimGold &gen,
       ++line;
       if (!ghas && !nhas) break;
       if (ghas != nhas || gl != nl) {
-        FAIL("Mesh fingerprint drift (dim=" << gen.dim << ") at line " << line
-                                            << ":\n  gold: " << (ghas ? gl : "<eof>")
-                                            << "\n  test: " << (nhas ? nl : "<eof>"));
+        FAIL("Mesh fingerprint drift (mesh=" << gen.group << ") at line " << line
+                                             << ":\n  gold: " << (ghas ? gl : "<eof>")
+                                             << "\n  test: " << (nhas ? nl : "<eof>"));
       }
     }
   }
@@ -733,16 +849,16 @@ void CompareDim(hid_t file, const DimGold &gen,
   for (std::size_t i = 0; i < gen.records.size(); ++i) {
     const auto &t = gen.records[i];
     if (gold.keys[i] != t.key) {
-      FAIL("Enumeration changed (dim="
-           << gen.dim << ") at record " << i
+      FAIL("Enumeration changed (mesh="
+           << gen.group << ") at record " << i
            << ": gold and test keys differ. Regenerate the gold deliberately with "
               "PARTHENON_REGEN_GOLD=1.\n  key(gold): "
            << KeyToString(gold.keys[i], concept_names)
            << "\n  key(test): " << KeyToString(t.key, concept_names));
     }
     if (gold.boxes[i] != t.box || gold.owns[i] != t.own) {
-      FAIL("CalcIndices gold mismatch (dim="
-           << gen.dim << ") at record " << i
+      FAIL("CalcIndices gold mismatch (mesh="
+           << gen.group << ") at record " << i
            << ":\n  key: " << KeyToString(t.key, concept_names) << "\n  box(gold): "
            << BoxToString(gold.boxes[i]) << "\n  box(test): " << BoxToString(t.box)
            << "\n  own(gold): " << OwnToString(gold.owns[i])
@@ -761,14 +877,23 @@ TEST_CASE("CalcIndices golden master", "[CalcIndices][bvals][MPI]") {
   auto packages = MakePackages();
 
   std::vector<DimGold> golds;
-  for (const int dim : {1, 2, 3}) {
-    auto mesh = MakeMesh(dim, app_in.get(), packages);
+  auto add_mesh = [&](const std::string &label, const std::shared_ptr<Mesh> &mesh) {
     DimGold g;
-    g.dim = dim;
-    g.group = "dim_" + std::to_string(dim);
+    g.group = label;
     g.records = BuildRecords(mesh, &g.concept_names);
-    g.fingerprint = BuildFingerprint(mesh, dim);
+    g.fingerprint = BuildFingerprint(mesh, label);
     golds.push_back(std::move(g));
+  };
+  for (const int dim : {1, 2, 3})
+    add_mesh("dim_" + std::to_string(dim), MakeMesh(dim, app_in.get(), packages));
+
+  // A 2D two-tree forest with a rotated/flipped second tree, exercising the non-trivial
+  // logical-coordinate-transformation paths of CalcIndices. Assert the transform is
+  // actually non-trivial so this coverage cannot silently degrade to an identity map.
+  {
+    auto forest_mesh = MakeForestMesh(app_in.get(), packages);
+    REQUIRE(HasNonTrivialTransform(forest_mesh));
+    add_mesh("forest_2tree", forest_mesh);
   }
 
   if (RegenRequested()) {

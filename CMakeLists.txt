@@ -124,7 +124,7 @@ option(REGRESSION_GOLD_STANDARD_SYNC "Automatically sync gold standard files." O
 # tst/unit/data/README.md for how to regenerate and publish a new version.
 set(CALC_INDICES_GOLD_VER 1 CACHE STRING "Version of the CalcIndices gold file to download")
 set(CALC_INDICES_GOLD_HASH
-  "SHA512=5d5aee9344f9a0f0e7bdb7800eda069f99255c76b845450e924df3f6cb03f713cef34e87f89f69818fdff54bb47cc8099431e5717b06b4946f88d075a8538aab"
+  "SHA512=181032d80fb16e4e355cfd62001133e3ea3c5d9fa60b30fe4560da15de0d6543045a27fc177f64d6c081076a56915dd89911d06e60309d0c1e73f51146e2b04a"
   CACHE STRING "Hash of the CalcIndices gold file to download")
 option(CALC_INDICES_GOLD_SYNC "Automatically sync the CalcIndices gold file." ON)
 

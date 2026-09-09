@@ -1,21 +1,9 @@
-# CalcIndices golden-master data
+# CalcIndices gold data
 
-This directory holds the golden-master file for the `test_calc_indices_gold` unit test
-(`[CalcIndices]`), which pins the output of `CalcIndices` (boundary index boxes + ownership
-masks) so the upcoming boundary-communication refactor cannot silently change boundary
-geometry.
-
-## The gold file is not committed
-
-Like the regression gold standard (`tst/regression/gold_standard/`), the gold data is
-**not** stored in the repository. It is a single HDF5 file
-(`calc_indices_gold_v<N>.h5`) published as a GitHub release asset and downloaded at CMake
-configure time when unit tests are enabled. The download is pinned by
-`CALC_INDICES_GOLD_VER` and verified against `CALC_INDICES_GOLD_HASH` (SHA-512) in the
-top-level `CMakeLists.txt`. Set `CALC_INDICES_GOLD_SYNC=OFF` to disable the download.
-
-If the file is absent (e.g. offline build, or a new version not yet uploaded), the test
-skips with a warning rather than failing.
+This directory holds the gold file for the `test_calc_indices_gold` unit test
+(`[CalcIndices]`), which checks the output of `CalcIndices` for a few small meshes
+against a known correct set. Similarly to the regression test gold files, this data
+is not stored directly in the git repository. 
 
 ## Regenerating and publishing a new version
 
@@ -35,4 +23,6 @@ skips with a warning rather than failing.
 ## Version history
 
 - 1: initial golden master. Pins CalcIndices boxes + ownership over 1D/2D/3D
-  statically-refined periodic multigrid meshes (leaf + all GMG neighbor relationships).
+  statically-refined periodic multigrid meshes (leaf + all GMG neighbor relationships)
+  and a 2D two-tree forest mesh with a non-trivial (rotation + flip) coordinate
+  transformation between trees.
