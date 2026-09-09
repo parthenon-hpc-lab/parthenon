@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "basic_types.hpp"
+#include "interface/metadata.hpp"
 #include "kokkos_abstraction.hpp"
 #include "tt_traits.hpp"
 
@@ -161,6 +162,13 @@ class TensorTrainT {
     }
   }
 
+  TensorTrainT(const std::vector<core_type> &cores_in, std::string label,
+               Metadata metadata)
+      : TensorTrainT(cores_in) {
+    label_ = std::move(label);
+    metadata_ = std::move(metadata);
+  }
+
   // Construct a train from physical dimensions and internal bond ranks.
   // The boundary ranks are fixed to one.
   TensorTrainT(const std::vector<int> &phys_dims, const std::vector<int> &ranks) {
@@ -178,9 +186,37 @@ class TensorTrainT {
     }
   }
 
+  TensorTrainT(const std::vector<int> &phys_dims, const std::vector<int> &ranks,
+               std::string label, Metadata metadata)
+      : TensorTrainT(phys_dims, ranks) {
+    label_ = std::move(label);
+    metadata_ = std::move(metadata);
+  }
+
   auto NCores() const { return cores.size(); }
   auto &GetCoreHost(int c) { return cores[c]; }
   const auto &GetCoreHost(int c) const { return cores[c]; }
+
+  // Variable-concept surface -------------------------------------------------
+  // TensorTrainT is the tensor-train analogue of Variable<T>: the container
+  // stamps a label and Metadata onto each train so that the same boundary-comm
+  // templates (CalcIndices, ForEachBoundary, SendKey/ReceiveKey) that operate on
+  // Variable<T> also accept a TensorTrainT.
+  const std::string &label() const { return label_; }
+  const Metadata &metadata() const { return metadata_; }
+  bool IsSet(const MetadataFlag bit) const { return metadata_.IsSet(bit); }
+
+  // Physical dimension along Variable tensor axis i (1-indexed), as consumed by
+  // CalcIndices for the {GetDim(6), GetDim(5), GetDim(4)} component ranges. These
+  // are always 1 for a tensor train: a TT field's fixed extra indices would be
+  // flattened into the spatial (first) core, so they are not separate index
+  // dimensions the way tensor components are for a regular field. The separate
+  // trailing cores (e.g. angular NTHETA/NPHI) are a distinct concept from the
+  // unflattened dimensions of the first core and are not exposed here.
+  int GetDim(const int i) const {
+    PARTHENON_REQUIRE(0 < i && i <= 6, "Index out of bounds");
+    return 1;
+  }
 
   auto &operator()(int c) { return cores[c]; }
   const auto &operator()(int c) const { return cores[c]; }
@@ -193,11 +229,13 @@ class TensorTrainT {
     for (const auto &core : cores) {
       new_cores.push_back(core.DeepCopy());
     }
-    return TensorTrainT(new_cores);
+    return TensorTrainT(new_cores, label_, metadata_);
   }
 
  private:
   std::vector<core_type> cores;
+  std::string label_;
+  Metadata metadata_;
 };
 
 template <class TTraits>

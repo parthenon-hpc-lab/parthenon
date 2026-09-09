@@ -57,7 +57,7 @@ void MeshBlockTTData::InitializeFromBlock_(const std::shared_ptr<MeshBlock> &pmb
       phys_dims.push_back(dim);
     // New fields start at all-ones bond rank; physics fills in structure.
     std::vector<int> ranks(phys_dims.size() - 1, 1);
-    map_[name] = std::make_shared<train_t>(phys_dims, ranks);
+    map_[name] = std::make_shared<train_t>(phys_dims, ranks, name, d.metadata);
   };
 
   if (fields.empty()) {

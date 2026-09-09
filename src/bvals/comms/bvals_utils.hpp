@@ -48,9 +48,11 @@ inline std::string GetLabel(Mesh::channel_key_t &key) {
          ", var: " + GetVariable(key) + ", location: " + std::to_string(GetLocIdx(key)) +
          ", other:" + std::to_string(GetOther(key));
 }
+// SendKey/ReceiveKey are templated on the field type: they only need field->label(),
+// which both std::shared_ptr<Variable<Real>> and a TensorTrain shared_ptr provide.
+template <class Field>
 inline Mesh::channel_key_t SendKey(const MeshBlock *pmb, const NeighborBlock &nb,
-                                   const std::shared_ptr<Variable<Real>> &pcv,
-                                   BoundaryType btype, int id) {
+                                   const Field &pcv, BoundaryType btype, int id) {
   const int sender_id = pmb->gid;
   const int receiver_id = nb.gid;
   const int location_idx = nb.offsets.GetIdx();
@@ -64,9 +66,9 @@ inline Mesh::channel_key_t SendKey(const MeshBlock *pmb, const NeighborBlock &nb
   return {sender_id, receiver_id, pcv->label(), location_idx, other};
 }
 
+template <class Field>
 inline Mesh::channel_key_t ReceiveKey(const MeshBlock *pmb, const NeighborBlock &nb,
-                                      const std::shared_ptr<Variable<Real>> &pcv,
-                                      BoundaryType btype, int id) {
+                                      const Field &pcv, BoundaryType btype, int id) {
   const int receiver_id = pmb->gid;
   const int sender_id = nb.gid;
   const int location_idx = nb.lcoord_trans.Transform(nb.offsets).GetReverseIdx();

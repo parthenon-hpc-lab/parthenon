@@ -105,6 +105,15 @@ class MeshBlockTTData {
       f(pair.first, pair.second);
   }
 
+  // The trains as "variables", mirroring MeshBlockData::GetVariableVector.
+  std::vector<train_ptr> GetVariableVector() const {
+    std::vector<train_ptr> vars;
+    vars.reserve(map_.size());
+    for (const auto &pair : map_)
+      vars.push_back(pair.second);
+    return vars;
+  }
+
   // Ordered list of field names held by this container (sorted, since the
   // backing map is ordered by name).
   std::vector<std::string> FieldNames() const {

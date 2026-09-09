@@ -18,6 +18,9 @@
 #include <catch2/catch.hpp>
 
 #include "basic_types.hpp"
+#include "bvals/comms/bvals_utils.hpp"
+#include "bvals/comms/calc_indices.hpp"
+#include "bvals/neighbor_block.hpp"
 #include "interface/metadata.hpp"
 #include "interface/packages.hpp"
 #include "interface/state_descriptor.hpp"
@@ -27,6 +30,8 @@
 #include "tensors/tt_field_metadata.hpp"
 #include "tensors/tt_operations.hpp"
 #include "tensors/tt_pack.hpp"
+#include "utils/cell_center_offsets.hpp"
+#include "utils/loop_utils.hpp"
 
 using parthenon::BlockList_t;
 using parthenon::BlockListPartition;
@@ -315,6 +320,123 @@ TEST_CASE("Multi-field packs support integer and tag indexing", "[TTField]") {
         REQUIRE(pack.GetNVars() == 2);
         REQUIRE(pack.template VarIndex<tags::A>() == 0);
         REQUIRE(pack.template VarIndex<tags::B>() == 1);
+      }
+    }
+  }
+}
+
+namespace {
+// Compile-time proof that a TensorTrain (shared_ptr) satisfies the field surface the
+// boundary-comm templates require, so CalcIndices/ForEachBoundary accept it exactly like
+// a std::shared_ptr<Variable<Real>>.
+using parthenon::Metadata;
+using parthenon::MetadataFlag;
+using train_sptr = std::shared_ptr<parthenon::tensor2::TensorTrain>;
+static_assert(std::is_same_v<decltype(std::declval<train_sptr>()->label()),
+                             const std::string &>,
+              "TensorTrain must expose label().");
+static_assert(std::is_same_v<decltype(std::declval<train_sptr>()->IsSet(
+                                 std::declval<MetadataFlag>())),
+                             bool>,
+              "TensorTrain must expose IsSet(MetadataFlag).");
+static_assert(
+    std::is_same_v<decltype(std::declval<train_sptr>()->GetDim(4)), int>,
+    "TensorTrain must expose GetDim(int).");
+} // namespace
+
+TEST_CASE("TT types drive the boundary-comm templates", "[TTField]") {
+  using parthenon::BlockInfo;
+  using parthenon::BoundaryType;
+  using parthenon::CalcIndices;
+  using parthenon::CellCentOffsets;
+  using parthenon::IndexRangeType;
+  using parthenon::NeighborBlock;
+  using parthenon::TopologicalElement;
+  namespace loops = parthenon::loops;
+
+  constexpr int NTHETA = 8;
+  constexpr int NPHI = 16;
+  constexpr int NSIDE = 4;
+  constexpr int NDIM = 3;
+  parthenon::Globals::nghost = 2;
+
+  auto pkg = std::make_shared<StateDescriptor>("tt_test");
+  pkg->AddTTField("I", TTFieldMetadata({NTHETA, NPHI},
+                                       Metadata({Metadata::Cell, Metadata::Independent,
+                                                 Metadata::FillGhost})));
+  Packages_t packages;
+  packages.Add(pkg);
+  auto resolved = ResolvePackages(packages);
+
+  auto pmb = std::make_shared<MeshBlock>(NSIDE, NDIM);
+  pmb->resolved_packages = resolved;
+  pmb->tt_block_data.Get()->Initialize(pmb);
+
+  GIVEN("A tensor-train field carrying the Variable-concept surface") {
+    auto train = pmb->tt_block_data.Get()->Get("I");
+
+    THEN("Its label/flags come from the registered metadata") {
+      REQUIRE(train->label() == "I");
+      REQUIRE(train->IsSet(Metadata::FillGhost));
+      REQUIRE_FALSE(train->IsSet(Metadata::Fine));
+      // Tensor-component axes are always 1: a TT field's fixed extra indices would
+      // flatten into the spatial core rather than being separate index dimensions.
+      REQUIRE(train->GetDim(4) == 1);
+      REQUIRE(train->GetDim(5) == 1);
+      REQUIRE(train->GetDim(6) == 1);
+    }
+
+    WHEN("CalcIndices is called with the train as the field (a +x face neighbor)") {
+      // A same-level +x face neighbor built by hand; only the descriptor fields
+      // CalcIndices reads are populated.
+      NeighborBlock nb;
+      nb.loc = pmb->loc;
+      nb.origin_loc = pmb->loc;
+      nb.block_coarsenings = pmb->block_coarsenings;
+      nb.block_size = pmb->block_size;
+      nb.offsets = CellCentOffsets(1, 0, 0);
+
+      // Lightweight MeshBlock has no owning mesh, so pass multilevel=false directly.
+      auto idx_train = CalcIndices(nb, BlockInfo(pmb.get()), /*multilevel=*/false, train,
+                                   TopologicalElement::CC,
+                                   IndexRangeType::BoundaryInteriorSend, false);
+
+      THEN("It produces a non-empty boundary region") {
+        // The interior-send region for a cell-centered FillGhost field on a +x face
+        // neighbor is the nghost-deep +x slab; just assert it is non-degenerate.
+        REQUIRE(idx_train.size() > 0);
+      }
+
+      THEN("SendKey/ReceiveKey template on the train and key off its label") {
+        nb.gid = 1;
+        auto skey = parthenon::SendKey(pmb.get(), nb, train, BoundaryType::any, 0);
+        REQUIRE(std::get<2>(skey) == "I"); // channel_key_t's variable slot is the label
+      }
+    }
+  }
+
+  GIVEN("A MeshTTData partition") {
+    BlockList_t block_list{pmb};
+    auto part = std::make_shared<BlockListPartition>(0, GridIdentifier::leaf(),
+                                                     block_list, nullptr);
+    auto md = std::make_shared<MeshTTData>("base");
+    md->Initialize(part);
+
+    WHEN("ForEachBoundary is instantiated on it") {
+      int count = 0;
+      // The lambda body is type-checked against the TT container: rc is a
+      // MeshBlockTTData shared_ptr and v is a TensorTrain shared_ptr exposing the
+      // Variable-concept surface. This instantiation compiling *is* the proof that
+      // the same boundary walk drives a MeshTTData with no MeshData<Real> in sight.
+      loops::ForEachBoundary<BoundaryType::any>(
+          md, [&](auto pmb_in, auto rc, const NeighborBlock &nb, auto v) {
+            REQUIRE(v->label() == "I");
+            REQUIRE(v->IsSet(Metadata::FillGhost));
+            ++count;
+          });
+
+      THEN("The walk runs; a lightweight block has no neighbors so it visits none") {
+        REQUIRE(count == 0);
       }
     }
   }
