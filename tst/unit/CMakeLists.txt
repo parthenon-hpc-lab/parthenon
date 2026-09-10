@@ -19,6 +19,7 @@
 
 list(APPEND unit_tests_SOURCES
     test_reverse_neighbor.cpp
+    test_tt_boundary_cache.cpp
     test_ascii_table_parsing.cpp
     test_loop_abstraction.cpp
     test_concepts_lite.cpp

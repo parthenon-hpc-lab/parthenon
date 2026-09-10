@@ -21,6 +21,7 @@
 
 #include "basic_types.hpp"
 #include "mesh/domain.hpp"
+#include "tensors/tt_boundary_cache.hpp"
 #include "tensors/tt_types.hpp"
 
 namespace parthenon {
@@ -242,8 +243,13 @@ class MeshTTData {
 
   bool ContainsGid(int gid) const;
 
+  // Cache of per-boundary index info for tensor-train boundary communication, rebuilt
+  // after (re)mesh (see BuildTTBoundaryCache). Mirrors MeshData's boundary cache.
+  TTBoundaryCache &GetBoundaryCache() { return boundary_cache_; }
+
  private:
   std::string stage_name_{"base"};
+  TTBoundaryCache boundary_cache_;
   Mesh *pmy_mesh_ = nullptr;
   std::vector<std::string> fields_in_;
   std::vector<std::shared_ptr<MeshBlockTTData>> block_data_;
