@@ -112,6 +112,7 @@ add_library(parthenon
   application_input.hpp
 
   bvals/comms/bvals_in_one.hpp
+  bvals/comms/boundary_flux.hpp
   bvals/comms/bvals_utils.hpp
   bvals/comms/build_boundary_buffers.cpp
   bvals/comms/bnd_id.cpp

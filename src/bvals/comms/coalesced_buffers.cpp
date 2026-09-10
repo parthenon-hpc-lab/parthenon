@@ -145,18 +145,22 @@ void CoalescedBuffer::PackAndSend(const std::set<Uid_t> &vars) {
 #endif
   coalesced_comm_buffer.Send(false, comb_size);
 
-  // Send the sparse null info as well
-  if (bids.size() != sparse_status_buffer.buffer().size()) {
-    sparse_status_buffer.Allocate(bids.size());
+  // Describe the actual subset in the existing status message. A receiver may
+  // currently be servicing a different MeshData subset on this same channel.
+  // -1 means absent; 0/1 retain the existing null/data meanings.
+  if (TotalBuffers() != sparse_status_buffer.buffer().size()) {
+    sparse_status_buffer.Allocate(TotalBuffers());
   }
 
   const auto &var_set = vars.size() == 0 ? all_vars : vars;
   auto &stat = sparse_status_buffer.buffer();
   int idx{0};
-  for (auto uid : var_set) {
-    // Skip this variable if it is not communicated in this BoundaryType
-    if (coalesced_info_buf.count(uid) == 0) continue;
+  for (auto uid : all_vars) {
     for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
+      if (var_set.count(uid) == 0) {
+        stat[idx++] = -1;
+        continue;
+      }
       const auto state = pvbbuf->GetState();
       PARTHENON_REQUIRE(state == BufferState::sending ||
                             state == BufferState::sending_null,
@@ -179,34 +183,43 @@ void CoalescedBuffer::PackAndSend(const std::set<Uid_t> &vars) {
 }
 
 //----------------------------------------------------------------------------------------
-bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
-  if ((sparse_status_buffer.GetState() == BufferState::received) &&
-      (coalesced_comm_buffer.GetState() == BufferState::received))
-    return true;
-
-  const auto &var_set = vars.size() == 0 ? all_vars : vars;
-  // Make sure the var-boundary buffers are available to write to
-  int nbuf{0};
-  for (auto uid : var_set) {
-    // Skip this variable if it is not communicated in this BoundaryType
-    if (coalesced_info_buf.count(uid) == 0) continue;
-    for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
-      if (pvbbuf->GetState() != BufferState::stale) return false;
-      nbuf++;
-    }
-  }
-
+bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> & /*vars*/) {
   auto received_sparse = sparse_status_buffer.TryReceive();
   auto received = coalesced_comm_buffer.TryReceive();
   if (!received || !received_sparse) return false;
 
+  const auto &status = sparse_status_buffer.buffer();
+  PARTHENON_REQUIRE(status.size() == TotalBuffers(),
+                    "Invalid coalesced variable-status message size");
+  std::set<Uid_t> var_set;
+  int index{0};
+  for (auto uid : all_vars) {
+    const bool included = status[index] != -1;
+    for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
+      PARTHENON_REQUIRE((status[index] != -1) == included && status[index] >= -1 &&
+                            status[index] <= 1,
+                        "Invalid coalesced variable-status message");
+      ++index;
+      // Retain this received packet until its actual destination is free.
+      if (included && pvbbuf->GetState() != BufferState::stale) return false;
+    }
+    if (included) var_set.insert(uid);
+  }
+  if (var_set.empty()) {
+    coalesced_comm_buffer.Stale();
+    sparse_status_buffer.Stale();
+    return true;
+  }
+
   // Allocate and free buffers as required
   int idx{0};
   auto &stat = sparse_status_buffer.buffer();
-  for (auto uid : var_set) {
-    // Skip this variable if it is not communicated in this BoundaryType
-    if (coalesced_info_buf.count(uid) == 0) continue;
+  for (auto uid : all_vars) {
     for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
+      if (stat[idx] == -1) {
+        ++idx;
+        continue;
+      }
       if (stat[idx] == 1) {
         pvbbuf->SetReceived();
         if (!pvbbuf->IsActive()) pvbbuf->Allocate();
@@ -218,7 +231,7 @@ bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
     }
   }
 
-  auto &bids = GetBndIdsOnDevice(vars);
+  auto &bids = GetBndIdsOnDevice(var_set);
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(), Kokkos::AUTO),
@@ -232,6 +245,7 @@ bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
                                [&](const int idx) { buf[idx] = com_buf[idx]; });
         }
       });
+  Kokkos::fence();
   coalesced_comm_buffer.Stale();
   sparse_status_buffer.Stale();
 

@@ -640,6 +640,8 @@ void Mesh::BuildTagMapAndBoundaryBuffers() {
   for (auto &partition : GetDefaultBlockPartitions()) {
     auto &md = mesh_data.Add("base", partition);
     AddToTagMap<BoundaryType::any>(md);
+    AddToTagMap<BoundaryType::flxcor_send>(md);
+    AddToTagMap<BoundaryType::flxcor_recv>(md);
   }
 
   if (multigrid) {

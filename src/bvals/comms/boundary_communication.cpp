@@ -98,6 +98,9 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
                                            ProResInfo::GetSend);
     }
   }
+  for (int b = 0; b < cache.bnd_info_h.size(); ++b)
+    PARTHENON_REQUIRE(!cache.bnd_info_h(b).boundary_flux || cache.boundary_flux_loaded,
+                      "Use LoadAndSendBoundaryFluxes to produce BoundaryFlux data");
   // Restrict
   if (md->NumBlocks() > 0 && do_restriction) {
     auto pmb = md->GetBlockData(0)->GetBlockPointer();
@@ -131,6 +134,12 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
         if (!bnd_info(b).allocated || bnd_info(b).same_to_same) {
           Kokkos::single(Kokkos::PerTeam(team_member),
                          [&]() { sending_nonzero_flags(iflag) = false; });
+          return;
+        }
+        // BoundaryFlux producers have already restricted directly into this buffer.
+        if (bnd_info(b).boundary_flux) {
+          Kokkos::single(Kokkos::PerTeam(team_member),
+                         [&]() { sending_nonzero_flags(iflag) = true; });
           return;
         }
         Real threshold = bnd_info(b).var.allocation_threshold;
@@ -203,6 +212,7 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
   if (pmesh->do_coalesced_comms)
     pmesh->pcoalesced_comms->PackAndSend(md.get(), bound_type);
 
+  cache.boundary_flux_loaded = false;
   return TaskStatus::complete;
 }
 
@@ -305,6 +315,74 @@ ReceiveBoundBufs<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ReceiveBoundBufs<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
 
+// Prepare the ordinary flux-correction buffers for an application-supplied
+// boundary-only flux producer. No face field or coarse field is materialized.
+TaskStatus PrepareBoundaryFluxBuffers(std::shared_ptr<MeshData<Real>> &md, bool send) {
+  for (int b = 0; b < md->NumBlocks(); ++b) {
+    const auto &vars = md->GetBlockData(b)->GetVariableVector();
+    PARTHENON_REQUIRE(vars.size() == 1 && vars[0]->IsSet(Metadata::BoundaryFlux),
+                      "Boundary flux callbacks require a single BoundaryFlux field");
+  }
+  auto *mesh = md->GetMeshPointer();
+  const auto bt = send ? BoundaryType::flxcor_send : BoundaryType::flxcor_recv;
+  auto &cache = md->GetBvarsCache().GetSubCache(bt, send);
+  ParArray1D<int>::host_mirror_type head;
+  int ibound = 0;
+  auto info = [&](MeshBlock *block, const NeighborBlock &nb, auto var, auto *buf) {
+    auto bi = send ? BndInfo::GetSendBndInfo(block, nb, var, buf)
+                   : BndInfo::GetSetBndInfo(block, nb, var, buf);
+    for (int b = 0; b < md->NumBlocks(); ++b)
+      if (md->GetBlockData(b)->GetBlockPointer() == block) bi.block_index = b;
+    PARTHENON_REQUIRE(bi.block_index >= 0,
+                      "Boundary flux block is missing from MeshData");
+    const auto interior = IndexDomain::interior;
+    const auto &fine = block->cellbounds, &coarse = block->c_cellbounds;
+    const int fs[]{fine.is(interior), fine.js(interior), fine.ks(interior)};
+    const int cs[]{coarse.is(interior), coarse.js(interior), coarse.ks(interior)};
+    for (int d = 0; d < 3; ++d) {
+      const auto dir = static_cast<CoordinateDirection>(d + 1);
+      bi.refinement_factor[d] = block->block_size.symmetry(dir) ? 1 : 2;
+      bi.fine_offset[d] = fs[d] - bi.refinement_factor[d] * cs[d];
+      if (nb.offsets(dir)) {
+        bi.dir = dir;
+        bi.face_side = nb.offsets(dir);
+      }
+    }
+    if (!send) {
+      const SpatiallyMaskedIndexer6D &idx = bi.idxer[0];
+      PARTHENON_REQUIRE(idx.StartIdx<0>() == 0 && idx.EndIdx<0>() == 0 &&
+                            idx.StartIdx<1>() == 0 && idx.EndIdx<1>() == 0 &&
+                            idx.StartIdx<2>() == 0,
+                        "Cell boundary flux access requires one component dimension");
+      bi.next_boundary_flux = head(bi.block_index);
+      head(bi.block_index) = cache.idx_vec[ibound++];
+    }
+    return bi;
+  };
+  if (send) {
+    constexpr auto bt = BoundaryType::flxcor_send;
+    if (cache.RequiresReinitialize(mesh))
+      InitializeBufferCache<bt>(md, &mesh->boundary_comm_map, &cache, SendKey);
+    auto [rebuild, nbound, busy] = CheckSendBufferCacheForRebuild<bt, true>(md);
+    if (busy || (mesh->do_coalesced_comms &&
+                 !mesh->pcoalesced_comms->IsAvailableForWrite(md.get(), bt)))
+      return TaskStatus::incomplete;
+    if (rebuild) RebuildBufferCache<bt, true>(md, nbound, info, ProResInfo::GetNull);
+  } else {
+    constexpr auto bt = BoundaryType::flxcor_recv;
+    auto [rebuild, nbound] = CheckReceiveBufferCacheForRebuild<bt, false>(md);
+    if (rebuild) {
+      cache.boundary_flux_head = ParArray1D<int>("boundary_flux_head", md->NumBlocks());
+      head = cache.boundary_flux_head.GetHostMirrorAndCopy();
+      for (int b = 0; b < md->NumBlocks(); ++b)
+        head(b) = -1;
+      RebuildBufferCache<bt, false>(md, nbound, info, ProResInfo::GetNull);
+      cache.boundary_flux_head.DeepCopy(head);
+    }
+  }
+  return TaskStatus::complete;
+}
+
 template <BoundaryType bound_type>
 TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
@@ -330,6 +408,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                                             ProResInfo::GetSet);
     }
   }
+  for (int b = 0; b < cache.bnd_info_h.size(); ++b)
+    PARTHENON_REQUIRE(!cache.bnd_info_h(b).boundary_flux,
+                      "Use ApplyBoundaryFluxes to consume BoundaryFlux data");
   // const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = cache.bnd_info;
   const int nteams_per_buffer = GetNteamsPerBoundaryBuffer(pmesh, nbound);
