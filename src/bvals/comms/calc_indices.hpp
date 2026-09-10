@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <array>
+#include <utility>
 
 #include "basic_types.hpp"
 #include "bvals/comms/bnd_info.hpp"
@@ -239,6 +240,31 @@ CalcIndices(const NeighborBlock &nb, const BlockInfo &binfo, bool multilevel,
   return SpatiallyMaskedIndexer6D(owns, {0, tensor_shape[0] - 1},
                                   {0, tensor_shape[1] - 1}, {0, tensor_shape[2] - 1},
                                   {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
+}
+
+// Invert a boundary relationship. `binfo` describes some block and `nb` describes its
+// neighbor as seen from `binfo`'s frame. Returns {BlockInfo of nb's block, NeighborBlock
+// describing binfo's block as seen from nb's block} -- the mirror-image pair.
+inline std::pair<BlockInfo, NeighborBlock>
+ReverseNeighbor(const BlockInfo &binfo, const NeighborBlock &nb) {
+  BlockInfo other(nb);
+
+  NeighborBlock rev;
+  rev.rank = binfo.rank;
+  rev.gid = binfo.gid;
+  // binfo's block in its own frame ...
+  rev.loc = binfo.loc;
+  // ... and in nb's frame (nb.lcoord_trans maps binfo's frame -> nb's frame).
+  rev.origin_loc = nb.lcoord_trans.Transform(binfo.loc, nb.loc.tree());
+  rev.block_coarsenings = binfo.block_coarsenings;
+  rev.block_size = binfo.block_size;
+  rev.ownership = binfo.ownership; // binfo's own ownership, in its own frame
+  // Offset of binfo's block relative to nb's block, in nb's frame: transform nb.offsets
+  // into nb's frame and reverse it (mirrors ReceiveKey's location index).
+  const CellCentOffsets fwd = nb.lcoord_trans.Transform(nb.offsets);
+  rev.offsets = CellCentOffsets(-fwd(X1DIR), -fwd(X2DIR), -fwd(X3DIR));
+  rev.lcoord_trans = forest::GetInverseTransform(nb.lcoord_trans);
+  return {other, rev};
 }
 
 } // namespace parthenon
