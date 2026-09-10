@@ -72,7 +72,8 @@ struct BoundaryFluxes {
   BndInfoArr_t info;
   ParArray1D<int> head;
 
-  KOKKOS_INLINE_FUNCTION CellBoundaryFluxes ForCell(int block, int k, int j, int i) const {
+  KOKKOS_INLINE_FUNCTION CellBoundaryFluxes ForCell(int block, int k, int j,
+                                                    int i) const {
     CellBoundaryFluxes cell;
     cell.info = info;
     if (head.size() == 0) return cell;
@@ -86,10 +87,10 @@ struct BoundaryFluxes {
       const int jl = j + (side > 0 && dir == X2DIR);
       const int kl = k + (side > 0 && dir == X3DIR);
       const auto [ib, jb, kb] = bi.lcoord_trans.Transform(std::array<int, 3>{il, jl, kl});
-      if (ib < idx.StartIdx<5>() || ib > idx.EndIdx<5>() ||
-          jb < idx.StartIdx<4>() || jb > idx.EndIdx<4>() ||
-          kb < idx.StartIdx<3>() || kb > idx.EndIdx<3>() ||
-          !idx.IsActive(kl, jl, il)) continue;
+      if (ib < idx.StartIdx<5>() || ib > idx.EndIdx<5>() || jb < idx.StartIdx<4>() ||
+          jb > idx.EndIdx<4>() || kb < idx.StartIdx<3>() || kb > idx.EndIdx<3>() ||
+          !idx.IsActive(kl, jl, il))
+        continue;
       const int face = 2 * (dir - 1) + (side > 0);
       cell.buffer[face] = n;
       cell.offset[face] = idx.GetFlatIdx(0, 0, 0, kb, jb, ib);

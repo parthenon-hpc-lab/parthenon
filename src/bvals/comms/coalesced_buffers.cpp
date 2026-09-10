@@ -196,8 +196,8 @@ bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> & /*vars*/) {
   for (auto uid : all_vars) {
     const bool included = status[index] != -1;
     for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
-      PARTHENON_REQUIRE((status[index] != -1) == included &&
-                            status[index] >= -1 && status[index] <= 1,
+      PARTHENON_REQUIRE((status[index] != -1) == included && status[index] >= -1 &&
+                            status[index] <= 1,
                         "Invalid coalesced variable-status message");
       ++index;
       // Retain this received packet until its actual destination is free.

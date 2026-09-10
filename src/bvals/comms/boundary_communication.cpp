@@ -333,7 +333,8 @@ TaskStatus PrepareBoundaryFluxBuffers(std::shared_ptr<MeshData<Real>> &md, bool 
                    : BndInfo::GetSetBndInfo(block, nb, var, buf);
     for (int b = 0; b < md->NumBlocks(); ++b)
       if (md->GetBlockData(b)->GetBlockPointer() == block) bi.block_index = b;
-    PARTHENON_REQUIRE(bi.block_index >= 0, "Boundary flux block is missing from MeshData");
+    PARTHENON_REQUIRE(bi.block_index >= 0,
+                      "Boundary flux block is missing from MeshData");
     const auto interior = IndexDomain::interior;
     const auto &fine = block->cellbounds, &coarse = block->c_cellbounds;
     const int fs[]{fine.is(interior), fine.js(interior), fine.ks(interior)};
@@ -373,7 +374,8 @@ TaskStatus PrepareBoundaryFluxBuffers(std::shared_ptr<MeshData<Real>> &md, bool 
     if (rebuild) {
       cache.boundary_flux_head = ParArray1D<int>("boundary_flux_head", md->NumBlocks());
       head = cache.boundary_flux_head.GetHostMirrorAndCopy();
-      for (int b = 0; b < md->NumBlocks(); ++b) head(b) = -1;
+      for (int b = 0; b < md->NumBlocks(); ++b)
+        head(b) = -1;
       RebuildBufferCache<bt, false>(md, nbound, info, ProResInfo::GetNull);
       cache.boundary_flux_head.DeepCopy(head);
     }
