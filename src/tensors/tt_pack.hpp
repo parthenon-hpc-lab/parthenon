@@ -15,6 +15,7 @@
 #define TENSORS_TT_PACK_HPP
 
 #include <string>
+#include <memory>
 #include <vector>
 
 #include "kokkos_abstraction.hpp"
@@ -198,6 +199,17 @@ class TensorTrainHostPackT {
     VarBlockGrid<train_t *> grid(1, trains.size());
     for (std::size_t b = 0; b < trains.size(); ++b)
       grid(0, b) = &trains[b];
+    return TensorTrainHostPackT(std::move(grid));
+  }
+
+  // Wrap a batch of shared-ptr-owned trains as a single-variable host pack. The trains
+  // are not copied; the caller retains ownership and the pack aliases them (as it does
+  // for container-owned trains). Used to pack transient boundary addend trains.
+  static TensorTrainHostPackT
+  FromSharedPtrs(std::vector<std::shared_ptr<train_t>> &trains) {
+    VarBlockGrid<train_t *> grid(1, trains.size());
+    for (std::size_t b = 0; b < trains.size(); ++b)
+      grid(0, b) = trains[b].get();
     return TensorTrainHostPackT(std::move(grid));
   }
 

@@ -16,6 +16,7 @@
 //========================================================================================
 
 #include <array>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -1203,4 +1204,44 @@ SCENARIO("tensor2 contiguous storage reconstruction agrees with fiber storage", 
       pack_fiber, pack_contig);
 
   REQUIRE(nmismatches == 0);
+}
+
+// Step 6c: a host pack built from a vector of shared_ptr trains aliases those trains, so a
+// device kernel over the pack mutates the caller-owned trains (the transient boundary
+// addend trains are held this way).
+TEMPLATE_TEST_CASE("TensorTrainHostPack from shared_ptr trains", "[tensor2]",
+                   FiberTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = TensorTrainT<TTraits>;
+  using real_t = typename TTraits::real_t;
+
+  std::vector<std::shared_ptr<TensorTrain>> trains;
+  trains.push_back(std::make_shared<TensorTrain>(std::vector<int>{4, 3}, std::vector<int>{1}));
+  trains.push_back(std::make_shared<TensorTrain>(std::vector<int>{4, 3}, std::vector<int>{1}));
+
+  auto host = TensorTrainHostPackT<TTraits>::FromSharedPtrs(trains);
+  REQUIRE(host.NumVars() == 1);
+  REQUIRE(host.NumBlocks() == static_cast<int>(trains.size()));
+  // The pack aliases (does not copy) the shared trains.
+  REQUIRE(&host(0, 0) == trains[0].get());
+  REQUIRE(&host(1, 0) == trains[1].get());
+
+  auto pack = host.MakeDevicePack();
+  SetTTPackToValue(pack, real_t(3.0));
+  Kokkos::fence();
+
+  // Every entry of every core of every shared train now holds the written value.
+  int nwrong{0};
+  par_reduce(
+      loop_pattern_mdrange_tag, "CheckSharedPtrPack", DevExecSpace(),
+      0, pack.GetNBlocks() - 1, 0, pack.GetNCores() - 1,
+      KOKKOS_LAMBDA(int b, int c, int &lnwrong) {
+        auto &core = pack(b, 0, c);
+        for (int l = 0; l < core.LR(); ++l)
+          for (int j = 0; j < core.DD(); ++j)
+            for (int r = 0; r < core.RR(); ++r)
+              lnwrong += (core(l, j, r) != real_t(3.0));
+      },
+      nwrong);
+  REQUIRE(nwrong == 0);
 }
