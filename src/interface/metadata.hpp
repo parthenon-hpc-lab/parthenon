@@ -110,6 +110,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(OneCopy)                                                   \
   /** Do boundary communication */                                                       \
   PARTHENON_INTERNAL_FOR_FLAG(FillGhost)                                                 \
+  /** Flux exists only in coarse-fine communication buffers */                           \
+  PARTHENON_INTERNAL_FOR_FLAG(BoundaryFlux)                                              \
   /** does variable have fluxes */                                                       \
   PARTHENON_INTERNAL_FOR_FLAG(WithFluxes)                                                \
   /** the variable needs to be communicated across ranks during remeshing */             \

@@ -157,6 +157,7 @@ class Variable {
   }
 
   bool RequiresCoarseBuffer() const {
+    if (IsSet(Metadata::BoundaryFlux)) return false;
     return IsSet(Metadata::FillGhost) || IsSet(Metadata::Independent) ||
            IsSet(Metadata::ForceRemeshComm) || IsSet(Metadata::Flux) ||
            IsSet(Metadata::GMGRestrict) || IsSet(Metadata::GMGProlongate);

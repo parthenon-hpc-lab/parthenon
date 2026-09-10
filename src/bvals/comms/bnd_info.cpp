@@ -285,6 +285,13 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
 
 int GetBufferSize(const MeshBlock *const pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v) {
+  if (v->IsSet(Metadata::BoundaryFlux)) {
+    auto *block = const_cast<MeshBlock *>(pmb);
+    const auto range = NeighborIsCoarser(block, nb)
+                           ? IndexRangeType::BoundaryInteriorSend
+                           : IndexRangeType::BoundaryExteriorRecv;
+    return BndInfo(block, nb, v, nullptr, range).size();
+  }
   // This does not do a careful job of calculating the buffer size, in many
   // cases there will be some extra storage that is not required, but there
   // will always be enough storage
@@ -317,7 +324,8 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   same_to_same = pmb->gid == nb.gid && nb.offsets.IsCell();
   lcoord_trans = nb.lcoord_trans;
 
-  if (NeighborIsCoarser(pmb, nb)) {
+  boundary_flux = v->IsSet(Metadata::BoundaryFlux);
+  if (NeighborIsCoarser(pmb, nb) && !boundary_flux) {
     var = v->coarse_s.Get();
   } else {
     var = v->data.Get();
@@ -329,7 +337,7 @@ BndInfo::BndInfo(MeshBlock *pmb, const NeighborBlock &nb,
   if (v->IsSet(Metadata::Flux)) elements = GetFluxCorrectionElements(v, nb.offsets);
   ntopological_elements = elements.size();
 
-  lcoord_trans.ncell = var.GetDim(1);
+  lcoord_trans.ncell = boundary_flux ? v->GetDim(1) : var.GetDim(1);
   int idx{0};
   for (auto el : elements) {
     topo_idx[idx] = el;
@@ -390,7 +398,7 @@ ProResInfo::ProResInfo(MeshBlock *pmb, const NeighborBlock &nb,
 ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &nb,
                                            std::shared_ptr<Variable<Real>> v) {
   ProResInfo out(pmb, nb, v);
-  if (!out.allocated) return out;
+  if (!out.allocated || v->IsSet(Metadata::BoundaryFlux)) return out;
 
   if (NeighborIsCoarser(pmb, nb)) {
     for (auto el : v->GetTopologicalElements()) {
@@ -406,7 +414,7 @@ ProResInfo ProResInfo::GetInteriorRestrict(MeshBlock *pmb, const NeighborBlock &
 ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock &nb,
                                              std::shared_ptr<Variable<Real>> v) {
   ProResInfo out(pmb, nb, v);
-  if (!out.allocated) return out;
+  if (!out.allocated || v->IsSet(Metadata::BoundaryFlux)) return out;
 
   if (NeighborIsCoarser(pmb, nb)) {
     for (auto el : v->GetTopologicalElements())
@@ -422,7 +430,7 @@ ProResInfo ProResInfo::GetInteriorProlongate(MeshBlock *pmb, const NeighborBlock
 ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
                                std::shared_ptr<Variable<Real>> v) {
   ProResInfo out(pmb, nb, v);
-  if (!out.allocated) return out;
+  if (!out.allocated || v->IsSet(Metadata::BoundaryFlux)) return out;
 
   if (NeighborIsCoarser(pmb, nb)) {
     auto elements = v->GetTopologicalElements();
@@ -440,6 +448,7 @@ ProResInfo ProResInfo::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
 ProResInfo ProResInfo::GetSet(MeshBlock *pmb, const NeighborBlock &nb,
                               std::shared_ptr<Variable<Real>> v) {
   ProResInfo out(pmb, nb, v);
+  if (v->IsSet(Metadata::BoundaryFlux)) return out;
 
   // This will select a superset of the boundaries that actually need to be restricted,
   // more logic could be added to only restrict boundary regions that abut boundary

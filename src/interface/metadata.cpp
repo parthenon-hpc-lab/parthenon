@@ -227,6 +227,14 @@ std::ostream &operator<<(std::ostream &os, const parthenon::Metadata &m) {
 // is true, throw a descriptive exception when invalid
 bool Metadata::IsValid(bool throw_on_fail) const {
   bool valid = true;
+  if (IsSet(BoundaryFlux) &&
+      (!AllFlagsSet(Face, Flux, OneCopy, Derived) ||
+       AnyFlagsSet(Independent, FillGhost, Sparse, Fine, Restart, WithFluxes,
+                   ForceRemeshComm, GMGRestrict, GMGProlongate))) {
+    if (throw_on_fail)
+      PARTHENON_THROW("BoundaryFlux requires dense OneCopy derived face flux metadata");
+    valid = false;
+  }
 
   // Topology
   if (CountSet({None, Node, Edge, Face, Cell}) != 1) {
