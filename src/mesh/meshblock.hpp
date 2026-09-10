@@ -103,6 +103,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   LogicalLocation loc;
   std::size_t block_coarsenings{0};
   RegionSize block_size;
+  block_ownership_t ownership;
   // for convenience: "max" # of real+ghost cells along each dir for allocating "standard"
   // sized MeshBlock arrays, depending on ndim i.e.
   //
