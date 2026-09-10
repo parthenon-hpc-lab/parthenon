@@ -19,11 +19,13 @@
 #include "bvals/comms/bvals_utils.hpp"
 #include "bvals/comms/calc_indices.hpp"
 #include "bvals/neighbor_block.hpp"
+#include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "tensors/tt_boundary_cache.hpp"
 #include "tensors/tt_comm_channel.hpp"
+#include "tensors/tt_pack.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/loop_utils.hpp"
 
@@ -98,6 +100,67 @@ void BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md, TTBoundaryCache *cach
 
   Kokkos::deep_copy(cache->bnd_info, cache->bnd_info_h);
   cache->epoch = pmesh->tt_comm_map.GetCurrentEpoch();
+}
+
+std::vector<std::shared_ptr<tensor2::TensorTrain>>
+BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cache) {
+  using namespace loops;
+  using train_t = tensor2::TensorTrain;
+
+  // Source trains (aliased from the container) and freshly-built addend trains, both
+  // boundary-indexed so pack(e, 0, core) reaches the right train. The walk visits
+  // boundaries in the same order as BuildTTBoundaryCache, so index e aligns with the
+  // cache's bnd_info(e); v is the sending block's current train for this boundary.
+  std::vector<std::shared_ptr<train_t>> src;
+  std::vector<std::shared_ptr<train_t>> out;
+  ForEachBoundary<BoundaryType::any>(
+      md, [&](auto /*pmb*/, auto /*rc*/, const NeighborBlock & /*nb*/, auto v) {
+        src.push_back(v);
+        // The addend has the source's structure so NonDestructiveSum lines up later; its
+        // spatial core is zeroed then gathered below.
+        out.push_back(std::make_shared<train_t>(v->DeepCopy()));
+      });
+  const int nbound = static_cast<int>(out.size());
+  if (nbound == 0) return out;
+  PARTHENON_DEBUG_REQUIRE(nbound == static_cast<int>(cache.bnd_info_h.extent(0)),
+                          "Boundary walk and cache disagree on boundary count.");
+
+  using HostPack = tensor2::TensorTrainHostPackT<DefaultTTraits>;
+  auto pack_src = HostPack::FromSharedPtrs(src).MakeDevicePack();
+  auto pack_out = HostPack::FromSharedPtrs(out).MakeDevicePack();
+  auto bnd_info = cache.bnd_info;
+  const int ni_dev = cache.ni;
+  const int nj_dev = cache.nj;
+
+  // One launch over all boundaries: zero the addend's spatial core, then place each sender
+  // interior cell into the corresponding receiver ghost cell (send-cell e -> recv-cell e),
+  // for every rank column of the spatial core. Mirrors MakeNeighborTensors, but the shift
+  // is the cached index maps rather than a hardcoded offset.
+  constexpr int unused_scratch_size = 0;
+  constexpr int unused_scratch_level = 1;
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, unused_scratch_size, unused_scratch_level, 0, nbound - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int e) {
+        auto &sc_src = pack_src(e, 0, 0);
+        auto &sc_out = pack_out(e, 0, 0);
+        const auto &send = bnd_info(e).send;
+        const auto &recv = bnd_info(e).recv;
+        const int ncell = static_cast<int>(send.size());
+        for (int r = 0; r < sc_out.RR(); ++r) {
+          parthenon::par_for_inner(member, 0, sc_out.DD() - 1,
+                                   [&](const int idx) { sc_out(0, idx, r) = 0.0; });
+          member.team_barrier();
+          parthenon::par_for_inner(member, 0, ncell - 1, [&](const int c) {
+            const auto [ts, us, vs, ks, js, is] = send(c);
+            const auto [tr, ur, vr, kr, jr, ir] = recv(c);
+            const int src_idx = (ks * nj_dev + js) * ni_dev + is;
+            const int dst_idx = (kr * nj_dev + jr) * ni_dev + ir;
+            sc_out(0, dst_idx, r) = sc_src(0, src_idx, r);
+          });
+          member.team_barrier();
+        }
+      });
+  return out;
 }
 
 } // namespace parthenon

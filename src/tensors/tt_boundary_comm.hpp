@@ -15,9 +15,11 @@
 #define TENSORS_TT_BOUNDARY_COMM_HPP
 
 #include <memory>
+#include <vector>
 
 #include "tensors/tt_boundary_cache.hpp"
 #include "tensors/tt_container.hpp"
+#include "tensors/tt_types.hpp"
 
 namespace parthenon {
 
@@ -30,6 +32,16 @@ namespace parthenon {
 // boundaries only for now (Step 6 scope); asserts otherwise. Rebuilds when the mesh
 // channel-map epoch has advanced (i.e. after (re)mesh).
 void BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md, TTBoundaryCache *cache);
+
+// Build the boundary "addend" trains: one whole-block train per cached boundary, holding
+// the sending block's field on the *receiver's* index space (its interior cells gathered
+// into the receiver's ghost layer, all other cells zero). This is the generic,
+// mesh-driven analogue of the prototype's MakeNeighborTensors: the block/neighbor loop is
+// the boundary cache and the shift is the cached send/recv indexers. The returned trains
+// are the addends to be summed into each neighbor. Rounding and channel deposit are done
+// by the caller (Send). The cache must be current (see BuildTTBoundaryCache).
+std::vector<std::shared_ptr<tensor2::TensorTrain>>
+BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cache);
 
 } // namespace parthenon
 

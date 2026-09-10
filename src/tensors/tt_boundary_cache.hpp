@@ -49,7 +49,7 @@ struct TTBndInfo {
   // InverseTransform to the recv cell before writing (as regular-field comm does), so the
   // send-cell e -> recv-cell e correspondence holds under the transform.
   parthenon::forest::LogicalCoordinateTransformation lcoord_trans;
-  int channel_idx = -1;
+  int channel_idx = -1; // index into the cache's host-side channel vector
 
   KOKKOS_DEFAULTED_FUNCTION TTBndInfo() = default;
 };
