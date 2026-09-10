@@ -39,8 +39,7 @@ class TTCommChannel;
 // addend train, flattening (k, j, i) to the spatial-core index via the whole-block extents
 // held on the cache. Placement is 1-to-1 -- multilevel is handled by restricting/
 // prolongating the spatial core (via coarse train buffers) on the send side, as for
-// regular fields, not by weights in this map. channel_idx indexes the host-side channel
-// vector on the cache.
+// regular fields, not by weights in this map.
 struct TTBndInfo {
   SpatiallyMaskedIndexer6D send;
   SpatiallyMaskedIndexer6D recv;
@@ -49,7 +48,6 @@ struct TTBndInfo {
   // InverseTransform to the recv cell before writing (as regular-field comm does), so the
   // send-cell e -> recv-cell e correspondence holds under the transform.
   parthenon::forest::LogicalCoordinateTransformation lcoord_trans;
-  int channel_idx = -1; // index into the cache's host-side channel vector
 
   KOKKOS_DEFAULTED_FUNCTION TTBndInfo() = default;
 };
@@ -57,18 +55,22 @@ struct TTBndInfo {
 using TTBndInfoArr_t = ParArray1DRaw<TTBndInfo>;
 using TTBndInfoArrHost_t = typename TTBndInfoArr_t::host_mirror_type;
 
-// Per-MeshTTData cache of boundary index info, mirroring the regular BvarsSubCache_t: a
-// flat device array (+ host mirror) of TTBndInfo for a single batched launch, a parallel
-// host vector of channel pointers into Mesh::tt_comm_map (stable within an epoch, like
-// buf_vec), and the channel-map epoch it was built against.
+// Per-MeshTTData send-side boundary cache for tensor-train comm. Only the send side needs
+// a cache: it launches one batched device kernel over all boundaries to build the addend
+// trains, which needs the per-boundary index boxes (bnd_info) packed into a flat device
+// array. The receive/set side needs no cache -- it walks ForEachBoundary, looks the
+// channel up inline by ReceiveKey, sums the addend into the block train, and stales it.
+//
+// bnd_info: flat device array (+ host mirror) of TTBndInfo for the batched launch.
+// channels: send channel per boundary (into Mesh::tt_comm_map), in ForEachBoundary order,
+//   stable within an epoch (like the regular buf_vec).
+// ni, nj: whole-block (entire, incl. ghosts) spatial extents to flatten (k, j, i) to the
+//   spatial-core index (idx = (k * nj + j) * ni + i); mesh-wide, so held once here.
+// epoch: the channel-map epoch this cache was built against, to detect (re)mesh.
 struct TTBoundaryCache {
   TTBndInfoArr_t bnd_info{};
   TTBndInfoArrHost_t bnd_info_h{};
-  std::vector<TTCommChannel *> channels; // indexed by TTBndInfo::channel_idx
-  // Whole-block (entire, incl. ghosts) spatial extents used to flatten an indexer's
-  // (k, j, i) to the spatial-core index: idx = (k * nj + j) * ni + i. These are mesh-wide
-  // (every block shares the same cell shape), so they live once on the cache rather than
-  // per boundary.
+  std::vector<TTCommChannel *> channels;
   int ni{0}, nj{0};
   std::size_t epoch{0};
 

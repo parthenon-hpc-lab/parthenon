@@ -39,9 +39,23 @@ void BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md, TTBoundaryCache *cach
 // mesh-driven analogue of the prototype's MakeNeighborTensors: the block/neighbor loop is
 // the boundary cache and the shift is the cached send/recv indexers. The returned trains
 // are the addends to be summed into each neighbor. Rounding and channel deposit are done
-// by the caller (Send). The cache must be current (see BuildTTBoundaryCache).
+// by the caller (TTSend). The cache must be current (see BuildTTBoundaryCache).
 std::vector<std::shared_ptr<tensor2::TensorTrain>>
 BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cache);
+
+// TT boundary communication (single rank, same-level). Send builds the per-boundary addend
+// trains (BuildBoundaryTensors), rounds each, and deposits them into the send channels via
+// the cache. Only the send side needs the cache. Receive/Set look their channels up inline
+// by ReceiveKey: Set is a pure additive combine that sums each received addend into the
+// destination block's train, rounds once per block, and stales the channel -- no index
+// math on the receive side. The cache must be current (BuildTTBoundaryCache after (re)mesh).
+void TTSend(std::shared_ptr<MeshTTData> &md, TTBoundaryCache &cache, Real round_eps);
+
+// Try to receive every boundary's addend. Returns true once all receive channels have
+// deposited (single rank: complete after the matching TTSend). Idempotent.
+bool TTReceive(std::shared_ptr<MeshTTData> &md);
+
+void TTSetBounds(std::shared_ptr<MeshTTData> &md, Real round_eps);
 
 } // namespace parthenon
 

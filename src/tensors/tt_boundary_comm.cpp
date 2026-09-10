@@ -16,6 +16,7 @@
 #include <memory>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "bvals/comms/bvals_utils.hpp"
 #include "bvals/comms/calc_indices.hpp"
 #include "bvals/neighbor_block.hpp"
@@ -25,6 +26,7 @@
 #include "mesh/meshblock.hpp"
 #include "tensors/tt_boundary_cache.hpp"
 #include "tensors/tt_comm_channel.hpp"
+#include "tensors/tt_operations.hpp"
 #include "tensors/tt_pack.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/loop_utils.hpp"
@@ -40,27 +42,35 @@ bool IsIdentityTransform(const forest::LogicalCoordinateTransformation &t) {
 
 } // namespace
 
+namespace {
+
+int CountBoundaries(std::shared_ptr<MeshTTData> &md) {
+  int nbound = 0;
+  loops::ForEachBoundary<BoundaryType::any>(
+      md, [&](auto, auto, const NeighborBlock &, auto) { ++nbound; });
+  return nbound;
+}
+
+} // namespace
+
+// Build the send-side boundary cache: walk every boundary, record its send channel (keyed
+// by SendKey) and the send/recv index boxes needed to build the addend, packed into a flat
+// device array for one batched launch. The set side needs no cache (it looks up its
+// channel inline by ReceiveKey), so only this send cache exists.
 void BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md, TTBoundaryCache *cache) {
   using namespace loops;
   Mesh *pmesh = md->GetMeshPointer();
   const bool ml = pmesh->multilevel;
-  const int bound_buffer_id = 0; // single TT comm channel set for now
+  const int id = 0; // single TT comm channel set for now
 
-  // First pass: count boundaries so the flat device array can be sized once.
-  int nbound = 0;
-  ForEachBoundary<BoundaryType::any>(
-      md, [&](auto /*pmb*/, auto /*rc*/, const NeighborBlock & /*nb*/, auto /*v*/) {
-        ++nbound;
-      });
-
+  const int nbound = CountBoundaries(md);
   cache->clear();
+  cache->channels.reserve(nbound);
   cache->bnd_info = TTBndInfoArr_t(ViewOfViewAlloc("tt_bnd_info"), nbound);
   cache->bnd_info_h = create_view_of_view_mirror(cache->bnd_info);
-  cache->channels.reserve(nbound);
 
   // Whole-block (entire, incl. ghosts) spatial extents for flattening (k, j, i) to the
-  // spatial-core index. Mesh-wide (every block shares the same cell shape), so derived
-  // once from any block in the partition.
+  // spatial-core index. Mesh-wide (every block shares the same cell shape).
   if (md->NumBlocks() > 0) {
     const auto shapes =
         CalcIndexShapes(BlockInfo(md->GetBlockData(0)->GetBlockPointer()).block_size, ml);
@@ -76,9 +86,11 @@ void BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md, TTBoundaryCache *cach
             IsIdentityTransform(nb.lcoord_trans),
             "TT boundary comm currently supports identity-transform boundaries only.");
 
+        cache->channels.push_back(
+            &pmesh->tt_comm_map[SendKey(pmb, nb, v, BoundaryType::any, id)]);
+
         BlockInfo binfo(pmb);
         auto [other, rev] = ReverseNeighbor(binfo, nb);
-
         TTBndInfo info;
         // Sender's interior cells destined for the neighbor, and the neighbor's ghost
         // cells that receive them -- both on the whole-block index space.
@@ -87,13 +99,6 @@ void BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md, TTBoundaryCache *cach
         info.recv = CalcIndices(rev, other, ml, v, TopologicalElement::CC,
                                 IndexRangeType::BoundaryExteriorRecv, false);
         info.lcoord_trans = nb.lcoord_trans;
-
-        // Ensure a channel exists for this boundary and record it by index (pointer stable
-        // within an epoch, like the regular buf_vec).
-        auto key = SendKey(pmb, nb, v, BoundaryType::any, bound_buffer_id);
-        info.channel_idx = static_cast<int>(cache->channels.size());
-        cache->channels.push_back(&pmesh->tt_comm_map[key]);
-
         cache->bnd_info_h(ibound) = info;
         ++ibound;
       });
@@ -161,6 +166,66 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
         }
       });
   return out;
+}
+
+void TTSend(std::shared_ptr<MeshTTData> &md, TTBoundaryCache &cache, Real eps) {
+  auto addends = BuildBoundaryTensors(md, cache);
+  const int nbound = static_cast<int>(addends.size());
+  if (nbound == 0) return;
+
+  // Round each addend to keep ranks bounded before shipping.
+  auto pack = tensor2::TensorTrainHostPackT<DefaultTTraits>::FromSharedPtrs(addends);
+  tensor2::RoundGramSVD(pack, eps);
+
+  // Deposit each addend into its send channel.
+  for (int e = 0; e < nbound; ++e)
+    cache.channels[e]->Send(addends[e]);
+}
+
+bool TTReceive(std::shared_ptr<MeshTTData> &md) {
+  using namespace loops;
+  Mesh *pmesh = md->GetMeshPointer();
+  const int id = 0;
+  bool all = true;
+  ForEachBoundary<BoundaryType::any>(
+      md, [&](auto pmb, auto /*rc*/, const NeighborBlock &nb, auto v) {
+        auto &chan = pmesh->tt_comm_map[ReceiveKey(pmb, nb, v, BoundaryType::any, id)];
+        all = chan.TryReceive() && all;
+      });
+  return all;
+}
+
+void TTSetBounds(std::shared_ptr<MeshTTData> &md, Real eps) {
+  using namespace loops;
+  using train_t = tensor2::TensorTrain;
+  Mesh *pmesh = md->GetMeshPointer();
+  const int id = 0;
+
+  // Sum each received addend into its destination block's train, looking the receive
+  // channel up inline by ReceiveKey (no cache needed on the set side -- the payload is
+  // already on this block's index space, so there is no index math). Re-fetching via
+  // rc->Get keeps a running sum as multiple neighbors contribute to the same field, then
+  // the channel is staled for the next round.
+  ForEachBoundary<BoundaryType::any>(
+      md, [&](auto pmb, auto rc, const NeighborBlock &nb, auto v) {
+        const auto name = v->label();
+        auto &chan = pmesh->tt_comm_map[ReceiveKey(pmb, nb, v, BoundaryType::any, id)];
+        auto cur = rc->Get(name);
+        auto addend = chan.Get();
+        std::vector<train_t> a{*cur};
+        std::vector<train_t> b{*addend};
+        auto summed = tensor2::NonDestructiveSum(a, b);
+        // Preserve the field's Variable-concept surface: NonDestructiveSum produces a
+        // metadata-less result, but the container's train must keep its label/metadata so
+        // subsequent ForEachBoundary walks still see the field.
+        auto result = std::make_shared<train_t>(std::move(summed[0]));
+        result->SetConcept(name, v->metadata());
+        rc->Set(name, result);
+        chan.Stale();
+      });
+
+  // Round every block's fields once now that all addends are summed in.
+  tensor2::RoundGramSVD(md.get(), eps);
 }
 
 } // namespace parthenon

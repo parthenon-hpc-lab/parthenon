@@ -205,6 +205,12 @@ class TensorTrainT {
   const std::string &label() const { return label_; }
   const Metadata &metadata() const { return metadata_; }
   bool IsSet(const MetadataFlag bit) const { return metadata_.IsSet(bit); }
+  // Stamp the identity onto a freshly-produced train (e.g. the result of a sum/round op,
+  // which starts metadata-less) so it still satisfies the Variable concept.
+  void SetConcept(std::string label, Metadata metadata) {
+    label_ = std::move(label);
+    metadata_ = std::move(metadata);
+  }
 
   // Physical dimension along Variable tensor axis i (1-indexed), as consumed by
   // CalcIndices for the {GetDim(6), GetDim(5), GetDim(4)} component ranges. These
