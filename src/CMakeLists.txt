@@ -318,6 +318,7 @@ add_library(parthenon
   time_integration/staged_integrator.hpp
   tensors/tensors.cpp
   tensors/tensors.hpp
+  tensors/tt_comm_channel.hpp
   tensors/tt_container.cpp
   tensors/tt_container.hpp
   tensors/tt_field_metadata.hpp

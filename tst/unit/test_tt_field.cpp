@@ -26,6 +26,8 @@
 #include "interface/state_descriptor.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
+#include "mesh/mesh.hpp"
+#include "tensors/tt_comm_channel.hpp"
 #include "tensors/tt_container.hpp"
 #include "tensors/tt_field_metadata.hpp"
 #include "tensors/tt_operations.hpp"
@@ -437,6 +439,84 @@ TEST_CASE("TT types drive the boundary-comm templates", "[TTField]") {
 
       THEN("The walk runs; a lightweight block has no neighbors so it visits none") {
         REQUIRE(count == 0);
+      }
+    }
+  }
+}
+
+TEST_CASE("TTCommChannel carries a train through a shared-state handshake", "[TTField]") {
+  using parthenon::BufferState;
+  using parthenon::TTCommChannel;
+  using train_t = parthenon::tensor2::TensorTrain;
+
+  GIVEN("A single channel") {
+    TTCommChannel chan;
+
+    THEN("It starts stale and writable") {
+      REQUIRE(chan.GetState() == BufferState::stale);
+      REQUIRE(chan.IsAvailableForWrite());
+    }
+
+    WHEN("A train is sent and then received") {
+      auto train = std::make_shared<train_t>(std::vector<int>{4, 8}, std::vector<int>{1});
+      chan.Send(train);
+
+      THEN("The state advances stale -> sending -> received and the train survives") {
+        REQUIRE(chan.GetState() == BufferState::sending);
+        REQUIRE_FALSE(chan.IsAvailableForWrite());
+        REQUIRE(chan.TryReceive());
+        REQUIRE(chan.GetState() == BufferState::received);
+        REQUIRE(chan.Get().get() == train.get());
+      }
+
+      THEN("Staling releases the payload and returns it to writable") {
+        chan.Stale();
+        REQUIRE(chan.GetState() == BufferState::stale);
+        REQUIRE(chan.IsAvailableForWrite());
+        REQUIRE(chan.Get() == nullptr);
+      }
+    }
+
+    WHEN("TryReceive is called before any Send") {
+      THEN("It reports not-yet-received") { REQUIRE_FALSE(chan.TryReceive()); }
+    }
+  }
+
+  GIVEN("A mesh channel map keyed by channel_key_t") {
+    using parthenon::BoundaryType;
+    using parthenon::CellCentOffsets;
+    using parthenon::NeighborBlock;
+
+    // Two blocks A(gid=0) and B(gid=1); A's +x neighbor is B and B's -x neighbor is A.
+    // On a single rank SendKey(A->B) and ReceiveKey(B->A) must produce the same key, so
+    // both ends resolve to one shared channel in the map.
+    auto A = std::make_shared<MeshBlock>(4, 3);
+    auto B = std::make_shared<MeshBlock>(4, 3);
+    A->gid = 0;
+    B->gid = 1;
+
+    NeighborBlock nb_of_A; // B as seen from A: +x
+    nb_of_A.gid = B->gid;
+    nb_of_A.offsets = CellCentOffsets(1, 0, 0);
+
+    NeighborBlock nb_of_B; // A as seen from B: -x
+    nb_of_B.gid = A->gid;
+    nb_of_B.offsets = CellCentOffsets(-1, 0, 0);
+
+    auto train = std::make_shared<train_t>(std::vector<int>{4, 8}, std::vector<int>{1},
+                                           "I", Metadata());
+
+    WHEN("A sends via SendKey and B receives via ReceiveKey") {
+      auto skey = parthenon::SendKey(A.get(), nb_of_A, train, BoundaryType::any, 0);
+      auto rkey = parthenon::ReceiveKey(B.get(), nb_of_B, train, BoundaryType::any, 0);
+
+      THEN("Both keys are identical, so they resolve to one shared channel") {
+        REQUIRE(skey == rkey);
+
+        parthenon::Mesh::tt_comm_map_t map;
+        map[skey].Send(train);
+        REQUIRE(map[rkey].TryReceive());
+        REQUIRE(map[rkey].Get().get() == train.get());
       }
     }
   }
