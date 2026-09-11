@@ -42,6 +42,12 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   const bool constant_coeff =
       pin->GetOrAddBoolean("diffusion", "constant_coefficient", true);
 
+  Real C1 = pin->GetReal("diffusion", "C1");
+  Real C2 = pin->GetReal("diffusion", "C2");
+  Real C3 = pin->GetReal("diffusion", "C3");
+  Real xp = pin->GetReal("diffusion", "xp");
+  Real yp = pin->GetReal("diffusion", "yp");
+
   auto desc =
       parthenon::MakePackDescriptor<diffusion_package::u, diffusion_package::D>(md);
   auto pack = desc.GetPack(md);
@@ -74,6 +80,12 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
           Real exponent = -rad * rad / (4.0 * D * t0);
           return std::exp(exponent);
         };
+        auto profile_c = [=](Real x, Real y, Real z) {
+          return (x - x0) > xp   ? C1
+                 : (y - y0) > yp ? C2
+                                 : 10*std::exp(-rad * rad / (4 * t0 * C3));
+        };
+
         const Real val = profile(x1, x2, x3);
         pack(b, diffusion_package::u(), k, j, i) = val;
 
@@ -82,9 +94,9 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
           pack(b, TE::F2, diffusion_package::D(), k, j, i) = 1.0 * dt;
           pack(b, TE::F3, diffusion_package::D(), k, j, i) = 1.0 * dt;
         } else {
-          pack(b, TE::F1, diffusion_package::D(), k, j, i) = profile(x1f, x2, x3) * dt;
-          pack(b, TE::F2, diffusion_package::D(), k, j, i) = profile(x1, x2f, x3) * dt;
-          pack(b, TE::F3, diffusion_package::D(), k, j, i) = profile(x1, x2, x3f) * dt;
+          pack(b, TE::F1, diffusion_package::D(), k, j, i) = profile_c(x1f, x2, x3) * dt;
+          pack(b, TE::F2, diffusion_package::D(), k, j, i) = profile_c(x1, x2f, x3) * dt;
+          pack(b, TE::F3, diffusion_package::D(), k, j, i) = profile_c(x1, x2, x3f) * dt;
         }
       });
 }

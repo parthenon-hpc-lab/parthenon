@@ -167,6 +167,21 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // timestep
   pkg->EstimateTimestepMesh = EstimateTimestep;
 
+  Real C1 = pin->GetReal("diffusion", "C1");
+  Real C2 = pin->GetReal("diffusion", "C2");
+  Real C3 = pin->GetReal("diffusion", "C3");
+  Real x0 = pin->GetReal("diffusion", "x0");
+  Real y0 = pin->GetReal("diffusion", "y0");
+  Real xp = pin->GetReal("diffusion", "xp");
+  Real yp = pin->GetReal("diffusion", "yp");
+  pkg->AddParam("C1", C1);
+  pkg->AddParam("C2", C2);
+  pkg->AddParam("C3", C3);
+  pkg->AddParam("x0", x0);
+  pkg->AddParam("y0", y0);
+  pkg->AddParam("xp", xp);
+  pkg->AddParam("yp", yp);
+
   return pkg;
 }
 
@@ -256,6 +271,14 @@ parthenon::TaskStatus SetDiffusionCoefficient(std::shared_ptr<MeshData<Real>> md
   auto desc =
       parthenon::MakePackDescriptor<diffusion_package::u, diffusion_package::D>(md.get());
   auto pack = desc.GetPack(md.get());
+  auto C1 = pkg->Param<Real>("C1");
+  auto C2 = pkg->Param<Real>("C2");
+  auto C3 = pkg->Param<Real>("C3");
+  auto x0 = pkg->Param<Real>("x0");
+  auto y0 = pkg->Param<Real>("y0");
+  auto xp = pkg->Param<Real>("xp");
+  auto yp = pkg->Param<Real>("yp");
+  auto t0 = pkg->Param<Real>("t0");
 
   const bool constant_coeff = pkg->Param<bool>("constant_coefficient");
 
@@ -271,6 +294,17 @@ parthenon::TaskStatus SetDiffusionCoefficient(std::shared_ptr<MeshData<Real>> md
     parthenon::par_for(
         "SetDiffusionCoefficient", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
         ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
+          auto profile_c = [=](Real x, Real y, Real z) {
+            Real rad2 = (x - x0) * (x - x0) + (y - y0) * (y - y0);
+            return (x - x0) > xp   ? C1
+                   : (y - y0) > yp ? C2
+                                   : 10*std::exp(-rad2 / (4 * t0 * C3));
+          };
+          const auto &coords = pack.GetCoordinates(b);
+          Real x1 = (te == TE::F1) ? coords.X<1, TE::F1>(k, j, i) : coords.Xc<1>(i);
+          Real x2 = (te == TE::F2) ? coords.X<2, TE::F2>(k, j, i) : coords.Xc<2>(j);
+          Real x3 = (te == TE::F3) ? coords.X<3, TE::F3>(k, j, i) : coords.Xc<3>(k);
+
           const Real u = 0.5 * (pack(b, TE::CC, diffusion_package::u(), k - offset_x3,
                                      j - offset_x2, i - offset_x1) +
                                 pack(b, TE::CC, diffusion_package::u(), k, j, i));
@@ -278,7 +312,7 @@ parthenon::TaskStatus SetDiffusionCoefficient(std::shared_ptr<MeshData<Real>> md
             pack(b, te, diffusion_package::D(), k, j, i) = 1.0 * dt;
           } else {
             pack(b, te, diffusion_package::D(), k, j, i) =
-                10.0 * std::sqrt(std::fabs(u)) * dt;
+              profile_c(x1, x2, x3) * dt;
           }
         });
   }
