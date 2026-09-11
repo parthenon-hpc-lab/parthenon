@@ -23,6 +23,7 @@
 
 // first 2x macros and signal() are the only ISO C features; rest are POSIX C extensions
 #include <csignal>
+#include <filesystem>
 #include <iostream>
 
 #include FS_HEADER
@@ -132,15 +133,17 @@ void SetSignalFlag(int s) {
   // Signal handler functions must have C linkage; C++ linkage is implemantation-defined
   switch (s) {
   case SIGTERM:
-    signalflag[ITERM] = 1;
+    signalflag[ITERM] += 1;
     signal(s, SetSignalFlag);
     break;
   case SIGINT:
-    signalflag[IINT] = 1;
+    signalflag[IINT] += 1;
+    if (signalflag[IINT] >= SIGINTS_BEFORE_THROW)
+      PARTHENON_THROW("Terminating immediately on repeated Terminate signal");
     signal(s, SetSignalFlag);
     break;
   case SIGALRM:
-    signalflag[IALRM] = 1;
+    signalflag[IALRM] += 1;
     signal(s, SetSignalFlag);
     break;
   default:
