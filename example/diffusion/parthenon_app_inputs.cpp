@@ -47,6 +47,10 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
   Real C3 = pin->GetReal("diffusion", "C3");
   Real xp = pin->GetReal("diffusion", "xp");
   Real yp = pin->GetReal("diffusion", "yp");
+  Real kx1 = pin->GetReal("diffusion", "kx1");
+  Real kx2 = pin->GetReal("diffusion", "kx2");
+  Real ky1 = pin->GetReal("diffusion", "ky1");
+  Real ky2 = pin->GetReal("diffusion", "ky2");
 
   auto desc =
       parthenon::MakePackDescriptor<diffusion_package::u, diffusion_package::D>(md);
@@ -81,8 +85,8 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
           return std::exp(exponent);
         };
         auto profile_c = [=](Real x, Real y, Real z) {
-          return (x - x0) > xp   ? C1
-                 : (y - y0) > yp ? C2
+          return (x - x0) > xp   ? C1 * std::cos(kx1 * x) * std::cos(ky1 * y)
+                 : (y - y0) > yp ? C2 * std::cos(kx2 * x) * std::cos(ky2 * y)
                                  : 10*std::exp(-rad * rad / (4 * t0 * C3));
         };
 

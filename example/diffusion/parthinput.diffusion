@@ -83,6 +83,11 @@ C3 = 15
 xp = 0
 yp = 0
 
+kx1 = 1
+kx2 = 0
+ky1 = 1
+ky2 = 0
+
 <diffusion/solver_params>
 precondition = true
 max_iterations = 20

@@ -182,6 +182,15 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam("xp", xp);
   pkg->AddParam("yp", yp);
 
+  Real kx1 = pin->GetReal("diffusion", "kx1");
+  Real kx2 = pin->GetReal("diffusion", "kx2");
+  Real ky1 = pin->GetReal("diffusion", "ky1");
+  Real ky2 = pin->GetReal("diffusion", "ky2");
+  pkg->AddParam("kx1", kx1);
+  pkg->AddParam("kx2", kx2);
+  pkg->AddParam("ky1", ky1);
+  pkg->AddParam("ky2", ky2);
+
   return pkg;
 }
 
@@ -279,6 +288,10 @@ parthenon::TaskStatus SetDiffusionCoefficient(std::shared_ptr<MeshData<Real>> md
   auto xp = pkg->Param<Real>("xp");
   auto yp = pkg->Param<Real>("yp");
   auto t0 = pkg->Param<Real>("t0");
+  auto kx1 = pkg->Param<Real>("kx1");
+  auto kx2 = pkg->Param<Real>("kx2");
+  auto ky1 = pkg->Param<Real>("ky1");
+  auto ky2 = pkg->Param<Real>("ky2");
 
   const bool constant_coeff = pkg->Param<bool>("constant_coefficient");
 
@@ -296,9 +309,9 @@ parthenon::TaskStatus SetDiffusionCoefficient(std::shared_ptr<MeshData<Real>> md
         ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           auto profile_c = [=](Real x, Real y, Real z) {
             Real rad2 = (x - x0) * (x - x0) + (y - y0) * (y - y0);
-            return (x - x0) > xp   ? C1
-                   : (y - y0) > yp ? C2
-                                   : 10*std::exp(-rad2 / (4 * t0 * C3));
+            return (x - x0) > xp   ? C1 * std::cos(kx1 * x) * std::cos(ky1 * y)
+                   : (y - y0) > yp ? C2 * std::cos(kx2 * x) * std::cos(ky2 * y)
+                                   : 10 * std::exp(-rad2 / (4 * t0 * C3));
           };
           const auto &coords = pack.GetCoordinates(b);
           Real x1 = (te == TE::F1) ? coords.X<1, TE::F1>(k, j, i) : coords.Xc<1>(i);
@@ -311,8 +324,7 @@ parthenon::TaskStatus SetDiffusionCoefficient(std::shared_ptr<MeshData<Real>> md
           if (constant_coeff) {
             pack(b, te, diffusion_package::D(), k, j, i) = 1.0 * dt;
           } else {
-            pack(b, te, diffusion_package::D(), k, j, i) =
-              profile_c(x1, x2, x3) * dt;
+            pack(b, te, diffusion_package::D(), k, j, i) = profile_c(x1, x2, x3) * dt;
           }
         });
   }
