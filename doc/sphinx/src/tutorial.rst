@@ -91,7 +91,7 @@ project. Let's set it up. You can get to the project structure with:
    mkdir src
    touch CMakeLists.txt
    git submodule add git@github.com:parthenon-hpc-lab/parthenon.git external/parthenon
-   git add external parthenon
+   git add external/parthenon
    git commit -m "add parthenon"
 
 Parthenon itself also has submodules. We need to clone them for a
@@ -130,7 +130,8 @@ and edit it to look like this:
    project(ellipse LANGUAGES C CXX)
    # We require C++20
    set(CMAKE_CXX_STANDARD 20)
-   # A useful command for debugging
+   # A useful command for debugging, as it creates a
+   # compile_commands.json in your build folder
    set(CMAKE_EXPORT_COMPILE_COMMANDS On)
 
    # This is just a safety thing, but I recommend including it. It
@@ -337,7 +338,7 @@ integration, it treats this field as a shallow copy, and doesn't deep
 copy it. See :ref:`state management <state>` for more details.
 
 Anatomy of a Task
-^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^
 
 Now let's take a look at the rotate task. A task is work that you will
 ask Parthenon to do. You can think of it as a function or substep of the
@@ -437,12 +438,12 @@ create a ``particles.hpp`` file containing:
    // y
    KOKKOS_INLINE_FUNCTION
    auto GetNewCoords(const Real x, const Real y, const Real dth) {
-     const Real r = std::sqrt(x * x + y * y);
-     const Real th = std::atan2(y, x);
+     const Real r = Kokkos::sqrt(x * x + y * y);
+     const Real th = Kokkos::atan2(y, x);
      const Real thp = th + dth;
    
-     const Real xp = r * std::cos(thp);
-     const Real yp = r * std::sin(thp);
+     const Real xp = r * Kokkos::cos(thp);
+     const Real yp = r * Kokkos::sin(thp);
    
      return std::make_pair(xp, yp);
    }
@@ -473,10 +474,10 @@ like:
    
    #include <limits>
 
-#include <parthenon/package.hpp>
-#include <utils/robust.hpp>
+   #include <parthenon/package.hpp>
+   #include <utils/robust.hpp>
 
-using namespace parthenon::package::prelude;
+   using namespace parthenon::package::prelude;
 
    std::shared_ptr<StateDescriptor> Particles::Initialize(ParameterInput *pin) {
      auto pkg = std::make_shared<StateDescriptor>("particles");
@@ -524,7 +525,8 @@ by ``Kokkos`` via Parthenon.
 
    This is a particularly simple choice of seed. To prevent each MPI
    rank from duplicating random numbers, in full generality you should
-   probably shift your initial seed by MPI rank.
+   probably shift your initial seed by MPI rank, or even tie it to
+   block ids so that runs with different rank counts remain identical.
 
 .. warning::
 
@@ -601,7 +603,7 @@ Finally, let's take a look at the ``EstimateTimestep`` function:
 
    Real Particles::EstimateTimestep(MeshData<Real> *md) {
      constexpr double SAFETY = 0.5;
-constexpr Real EPS = parthenon::robust::EPS();
+     constexpr Real EPS = parthenon::robust::EPS();
 
      std::shared_ptr<StateDescriptor> pkg = md->GetMeshPointer()->packages.Get("ellipse");
      const auto omega = pkg->Param<Real>("omega");
@@ -633,17 +635,17 @@ constexpr Real EPS = parthenon::robust::EPS();
              // How far is a particle away from that?
              const Real x = pack_swarm(b, swarm_position::x(), n);
              const Real y = pack_swarm(b, swarm_position::y(), n);
-             const Real r = std::sqrt(x * x + y * y);
+             const Real r = Kokkos::sqrt(x * x + y * y);
 
-             const Real dx = std::min(std::abs(x - xmin), std::abs(xmax - x));
-             const Real dy = std::min(std::abs(y - ymin), std::abs(ymax - y));
-             const Real delta = std::min(dx, dy);
+             const Real dx = Kokkos::min(Kokkos::abs(x - xmin), Kokkos::abs(xmax - x));
+             const Real dy = Kokkos::min(Kokkos::abs(y - ymin), Kokkos::abs(ymax - y));
+             const Real delta = Kokkos::min(dx, dy);
    
              // maximum distance a particle can travel is its "linear"
              // speed times dt, which is r * omega * dt, which must be
              // less than delta:
              // dt <= delta / (r * omega)
-             ldt = std::min(ldt, delta / (std::abs(r * omega) + EPS));
+             ldt = Kokkos::min(ldt, delta / (Kokkos::abs(r * omega) + EPS));
            }
          }, Kokkos::Min<Real>(dtmin));
    
@@ -654,6 +656,12 @@ This is very much a toy heuristic for a toy problem. We simply check
 how far away a particle is from the boundaries of its meshblock
 (including ghost cells) and don't let the particle move fast enough to
 leave its current block.
+
+.. note::
+
+   Note the use of Kokkos math functions. While not strictly necessary
+   (``std::`` math works just fine on most architectures) using the
+   Kokkos version ensures portability for future architectures.
 
 The problem generator
 -----------------------
@@ -729,6 +737,9 @@ in a file ``ellipse/src/pgen.cpp`` and will look like this:
      const IndexRange ib = cellbounds.GetBoundsI(IndexDomain::interior);
      const IndexRange jb = cellbounds.GetBoundsJ(IndexDomain::interior);
      const IndexRange kb = cellbounds.GetBoundsK(IndexDomain::interior);
+     const IndexRange ibe = cellbounds.GetBoundsI(IndexDomain::entire);
+     const IndexRange jbe = cellbounds.GetBoundsJ(IndexDomain::entire);
+     const IndexRange kbe = cellbounds.GetBoundsK(IndexDomain::entire);
      const int nx_i = cellbounds.ncellsi(IndexDomain::interior);
      const int nx_j = cellbounds.ncellsj(IndexDomain::interior);
      const int nx_k = cellbounds.ncellsk(IndexDomain::interior);
@@ -744,7 +755,7 @@ in a file ``ellipse/src/pgen.cpp`` and will look like this:
      auto pack = desc.GetPack(data.get());
      const int blk = 0;
      parthenon::par_for(
-         PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+         PARTHENON_AUTO_LABEL, kbe.s, kbe.e, jbe.s, jbe.e, ibe.s, ibe.e,
          KOKKOS_LAMBDA(const int k, const int j, const int i) {
            const Real x = coords.Xc<X1DIR>(i);
            const Real y = coords.Xc<X2DIR>(j);
@@ -771,7 +782,7 @@ in a file ``ellipse/src/pgen.cpp`` and will look like this:
          KOKKOS_LAMBDA(const int new_n) {
            // this is the particle index inside the swarm
            const int n = newParticlesContext.GetNewParticleIndex(new_n);
-           // Use a mutex lock to get device-safe random number generator
+         // Use a mutex lock to get device-safe random number generator
            auto rng_gen = rng_pool.get_state();
    
            // Normally b would be free-floating and set by pack.GetBlockparticleIndices
@@ -1036,8 +1047,9 @@ which tell Parthenon that it can rotate the particles and the ellipse
 on the mesh with no dependencies within a step. (The end of each step
 is blocking.)
 
-After the particle positions have been updated, they must be
-communicated across the mesh, which is the role of the next set of tasks:
+After the particle positions have been updated, the particles now
+residing in ghost zones must be communicated to their respective
+neighboring blocks, which is the role of the next set of tasks:
 
 .. code-block:: cpp
 
