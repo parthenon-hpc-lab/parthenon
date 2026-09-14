@@ -89,6 +89,13 @@ template void TagMap::AddMeshDataToMap<BoundaryType::gmg_prolongate_recv>(
 template void TagMap::AddMeshDataToMap<BoundaryType::gmg_restrict_recv>(
     std::shared_ptr<MeshData<Real>> &md, int);
 
+template void
+TagMap::AddMeshDataToMap<BoundaryType::flxcor_send>(std::shared_ptr<MeshData<Real>> &md,
+                                                    int);
+template void
+TagMap::AddMeshDataToMap<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &md,
+                                                    int);
+
 void TagMap::ResolveMap() {
 #ifdef MPI_PARALLEL
   int flag;

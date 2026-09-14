@@ -111,8 +111,15 @@ void Variable<T>::AllocateData(MeshBlock *pmb, bool flag_uninitialized) {
   PARTHENON_REQUIRE_THROWS(
       !is_allocated_,
       "Tried to allocate data for variable that's already allocated: " + label());
-  data = std::make_from_tuple<ParArrayND<T, VariableState>>(std::tuple_cat(
-      std::make_tuple(label(), MakeVariableState()), ArrayToReverseTuple(dims_)));
+  // Boundary fluxes live exclusively in communication buffers. Keep only a
+  // spatially scalar component view for the variable/pack bookkeeping.
+  auto allocation_dims = dims_;
+  if (IsSet(Metadata::BoundaryFlux))
+    for (int d = 0; d < 3; ++d)
+      allocation_dims[d] = 1;
+  data = std::make_from_tuple<ParArrayND<T, VariableState>>(
+      std::tuple_cat(std::make_tuple(label(), MakeVariableState()),
+                     ArrayToReverseTuple(allocation_dims)));
 
   ++num_alloc_;
 

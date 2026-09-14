@@ -66,6 +66,12 @@ struct BndInfo {
     return s;
   }
 
+  bool boundary_flux = false;
+  int block_index = -1;
+  int next_boundary_flux = -1;
+  int fine_offset[3]{0, 0, 0};
+  int refinement_factor[3]{1, 1, 1};
+  int face_side = 0;
   CoordinateDirection dir{CoordinateDirection::X0DIR};
   bool allocated = true;
   bool buf_allocated = true;
@@ -175,7 +181,11 @@ struct ProResCache_t {
 // This is just a struct to cleanly hold all of the information it is useful to cache
 // for the block boundary communication routines. A copy of it is contained in MeshData.
 struct BvarsSubCache_t {
+  bool boundary_flux_loaded = false;
+  ParArray1D<int> boundary_flux_head;
   void clear() {
+    boundary_flux_loaded = false;
+    boundary_flux_head = ParArray1D<int>{};
     buf_vec.clear();
     idx_vec.clear();
     if (sending_non_zero_flags.KokkosView().is_allocated())
