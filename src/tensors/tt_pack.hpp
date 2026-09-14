@@ -272,7 +272,8 @@ class TensorTrainHostPackT {
   // rank-changing op fills it on device.
   void Reshape(int b, int v, const std::vector<int> &phys_dims,
                const std::vector<int> &ranks) {
-    *grid_(v, b) = train_t(phys_dims, ranks);
+    auto &train = *grid_(v, b);
+    train = train_t(phys_dims, ranks, train.label(), train.metadata());
   }
   void Reshape(int b, const std::vector<int> &phys_dims,
                const std::vector<int> &ranks) {
