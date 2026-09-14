@@ -159,9 +159,11 @@ class SquareSVD {
     barrier(tm);
     std::size_t *start = &(iscratch[0]);
     std::size_t *end = &(iscratch[ncols / 2 + 1]);
+    // Match LAPACK dbdsqr: MAXITR = 6, maxit = 6 * n * n.
+    const int max_iters = 6 * ncols * ncols;
     const int status =
-        ImplicitQRBidiag(tm, sings, scratch, pU, pV, start, end, ncols, 10 * ncols);
-    if (status == 10 * ncols) return -status;
+        ImplicitQRBidiag(tm, sings, scratch, pU, pV, start, end, ncols, max_iters);
+    if (status >= max_iters) PARTHENON_FAIL("SVD failed.");
 
     // Apply the Householder vectors to pU 
     if (pU) {

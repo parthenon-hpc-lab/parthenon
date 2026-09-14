@@ -167,17 +167,23 @@ KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRBidiag(tm_t tm, double *d, double *b,
         if (pV) ApplyGivensRight(tm, sp, result.cr, result.sr, *pV);
         if (pU) ApplyGivensRight(tm, sp, result.cl, result.sl, *pU);
       } else if (ep - sp > 2) {
-        // Compute shift and initial Given's rotation (which must satisfy
-        // implicit QR) for the Gram matrix T = A^T A
-        const int ii = ep - 2;
-        const double te00 = d[ii] * d[ii] + b[ii - 1] * b[ii - 1];
-        const double te01 = b[ii] * d[ii];
-        const double te11 = d[ii + 1] * d[ii + 1] + b[ii] * b[ii];
-        const double mu = WilkinsonShift(te00, te11, te01);
+        // The shift is the smallest singular value of the trailing 2x2
+        // bidiagonal block
+        const double shift =
+            ComputeSVD2by2UpperTriangular(d[ep - 2], b[ep - 2], d[ep - 1]).smin;
 
-        const double t00 = d[sp] * d[sp];
-        const double t01 = b[sp] * d[sp];
-        const auto [c1, s1] = ComputeGivensZeroSecond(t00 - mu, t01);
+        // Initial rotation zeros the (1,0) entry of T - shift^2 I with T = A^T A.
+        // With t00 = d[sp]^2 and t01 = b[sp] * a[sp], we have t00 - shift^2 = 
+        // (d[sp] + shift) (d[sp] - shift) = f. We evaluate in factored form to
+        // avoid the d[sp]^2 - shift^2 cancellation; the target g = b[sp] follows
+        // by dividing the Gram-matrix pair (t00 - mu, t01) through by d[sp]. Guard
+        // the d[sp] == 0 case, which degenerates to a zero-shift start.
+        const double f =
+            d[sp] == 0.0
+                ? 0.0
+                : (std::abs(d[sp]) - shift) * (sign_of(d[sp]) + shift / d[sp]);
+        const double g = b[sp];
+        const auto [c1, s1] = ComputeGivensZeroSecond(f, g);
         bulge = ApplyGivensRight<true, false>(tm, sp, c1, s1, bulge, d, b);
         if (pV) ApplyGivensRight(tm, sp, c1, s1, *pV);
 
