@@ -110,8 +110,11 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   // If restart, then ParameterInput in the restart file takes precedence.
   if (arg.is_restart) {
     // Read input from restart file
-    if (fs::path(arg.restart_filename).extension() == ".rhdf") {
+    if (fs::path(arg.restart_filename).extension() == ".rhdf" ||
+        fs::path(arg.restart_filename).extension() == ".phdf") {
 #ifdef ENABLE_HDF5
+      if (fs::path(arg.restart_filename).extension() == ".phdf")
+        PARTHENON_WARN("Restarting from phdf files is allowed but unsupported.");
       restartReader = std::make_unique<RestartReaderHDF5>(arg.restart_filename);
 #else // HDF5 disabled
       PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
