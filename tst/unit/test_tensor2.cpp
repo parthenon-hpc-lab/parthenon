@@ -46,7 +46,7 @@ MakeSparseDeltaTrain3D(const std::array<int, 3> &dims,
 
   const int nterms = static_cast<int>(entries.size());
 
-  TensorTrainT<TTraits> train({dims[0], dims[1], dims[2]},
+  TensorTrainT<TTraits> train(std::vector<int>{dims[0], dims[1], dims[2]},
                                 nterms == 0 ? std::vector<int>{1, 1} : std::vector<int>{nterms, nterms});
   std::vector<TensorTrainT<TTraits>> trains{train};
 
@@ -186,7 +186,7 @@ TEMPLATE_TEST_CASE("tensor2 single-core train basic structure", "[tensor2]",
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
 
-  TensorTrain train({4}, {});
+  TensorTrain train(std::vector<int>{4}, {});
   TensorTrain train_copy = train;
 
   REQUIRE(train.NCores() == 1);
@@ -229,7 +229,7 @@ TEMPLATE_TEST_CASE("tensor2 train construction and pack metadata", "[tensor2]",
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
 
-  TensorTrain train({2, 3, 4}, {5, 6});
+  TensorTrain train(std::vector<int>{2, 3, 4}, {5, 6});
   std::vector<TensorTrain> trains{train};
 
   REQUIRE(train.NCores() == 3);
@@ -263,14 +263,14 @@ TEMPLATE_TEST_CASE("tensor2 train copy and move preserve packable storage", "[te
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
 
-  TensorTrain original({2, 3, 2}, {2, 2});
+  TensorTrain original(std::vector<int>{2, 3, 2}, {2, 2});
   std::vector<TensorTrain> originals{original};
   TensorPack original_pack(originals);
   SetTTPackToValue(original_pack, 1.5);
   Kokkos::fence();
 
   TensorTrain copy_constructed = original;
-  TensorTrain copy_assigned({2, 3, 2}, {1, 1});
+  TensorTrain copy_assigned(std::vector<int>{2, 3, 2}, {1, 1});
   copy_assigned = original;
 
   std::vector<TensorTrain> copied_trains;
@@ -290,7 +290,7 @@ TEMPLATE_TEST_CASE("tensor2 train copy and move preserve packable storage", "[te
               }, copied_pack) == 0);
 
   TensorTrain move_constructed = std::move(copy_constructed);
-  TensorTrain move_assigned({2, 3, 2}, {1, 1});
+  TensorTrain move_assigned(std::vector<int>{2, 3, 2}, {1, 1});
   move_assigned = std::move(copy_assigned);
 
   std::vector<TensorTrain> trains;
@@ -314,8 +314,8 @@ TEMPLATE_TEST_CASE("tensor2 train vector push_back preserves packable storage", 
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
 
-  TensorTrain train_a({2, 3, 2}, {2, 2});
-  TensorTrain train_b({2, 3, 2}, {2, 2});
+  TensorTrain train_a(std::vector<int>{2, 3, 2}, {2, 2});
+  TensorTrain train_b(std::vector<int>{2, 3, 2}, {2, 2});
 
   std::vector<TensorTrain> one_train{train_a};
   TensorPack pack_a(one_train);
@@ -412,7 +412,7 @@ TEMPLATE_TEST_CASE("tensor2 ReduceSize preserves retained core data", "[tensor2]
 
   using real_t = typename TTraits::real_t;
 
-  TensorTrain train({3, 4, 2}, {3, 4});
+  TensorTrain train(std::vector<int>{3, 4, 2}, {3, 4});
 
   std::vector<TensorTrain> trains{train};
   TensorPack pack(trains);
@@ -484,8 +484,8 @@ TEMPLATE_TEST_CASE("tensor2 non-destructive sum of constant trains reconstructs 
 
   using real_t = typename TTraits::real_t;
 
-  TensorTrain train_a({2, 5, 4}, {2, 1});
-  TensorTrain train_b({2, 5, 4}, {2, 3});
+  TensorTrain train_a(std::vector<int>{2, 5, 4}, {2, 1});
+  TensorTrain train_b(std::vector<int>{2, 5, 4}, {2, 3});
 
   std::vector<TensorTrain> trains_a{train_a};
   std::vector<TensorTrain> trains_b{train_b};
@@ -558,8 +558,8 @@ TEMPLATE_TEST_CASE("tensor2 Hadamard product of constant trains reconstructs cor
 
   using real_t = typename TTraits::real_t;
 
-  TensorTrain train_a({2, 3, 4}, {2, 2});
-  TensorTrain train_b({2, 3, 4}, {2, 2});
+  TensorTrain train_a(std::vector<int>{2, 3, 4}, {2, 2});
+  TensorTrain train_b(std::vector<int>{2, 3, 4}, {2, 2});
 
   std::vector<TensorTrain> trains_a{train_a};
   std::vector<TensorTrain> trains_b{train_b};
@@ -700,7 +700,7 @@ TEMPLATE_TEST_CASE("tensor2 Gram-SVD rounding scaffold on a mixed two-channel tr
 
   using real_t = typename TTraits::real_t;
 
-  TensorTrain train({2, 2, 2}, {2, 2});
+  TensorTrain train(std::vector<int>{2, 2, 2}, {2, 2});
 
   std::vector<TensorTrain> trains{train};
   TensorPack pack(trains);
@@ -1120,7 +1120,7 @@ TEMPLATE_TEST_CASE("tensor2 Oseledets-SVD truncation respects relative Frobenius
 // ==============================================================================
 
 SCENARIO("tensor2 contiguous storage basic structure", "[tensor2]") {
-  TensorTrainContiguous train({4}, {});
+  TensorTrainContiguous train(std::vector<int>{4}, {});
   TensorTrainContiguous train_copy = train;
 
   REQUIRE(train.NCores() == 1);
@@ -1142,7 +1142,7 @@ SCENARIO("tensor2 contiguous storage basic structure", "[tensor2]") {
 }
 
 SCENARIO("tensor2 contiguous storage multi-core train structure", "[tensor2]") {
-  TensorTrainContiguous train({4, 8, 16}, {2, 3});
+  TensorTrainContiguous train(std::vector<int>{4, 8, 16}, {2, 3});
 
   REQUIRE(train.NCores() == 3);
   REQUIRE(train(0).LR() == 1);

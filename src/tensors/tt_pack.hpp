@@ -80,14 +80,19 @@ struct TensorPackT {
 
   using view_t = typename TTraits::template view_t<device_core_t***, ManagedTag>;
   using dims_host_view_t = typename TTraits::template host_view_t<int*, ManagedTag>;
+  using indexer_view_t = typename TTraits::template view_t<Indexer6D*, ManagedTag>;
 
   view_t cores; // (nblocks, nvars, ncores)
   dims_host_view_t physical_dims_h;
+  indexer_view_t indexers;
   int ncores_per_train;
 
   KOKKOS_INLINE_FUNCTION int GetNBlocks() const { return cores.extent_int(0); }
   KOKKOS_INLINE_FUNCTION int GetNVars() const { return cores.extent_int(1); }
   KOKKOS_INLINE_FUNCTION int GetNCores() const { return cores.extent_int(2); }
+
+  // Logical physical indexer for core slot c (shared by every block/variable in the pack).
+  KOKKOS_INLINE_FUNCTION const Indexer6D &indexer(int c) const { return indexers(c); }
 
   int GetPhysicalDimension(int dim) const { return physical_dims_h(dim); }
   std::vector<int> GetPhysicalDimensions() const {
@@ -147,8 +152,12 @@ struct TensorPackT {
     cores = view_t("TensorPackT", nblocks, nvars, ncores_per_train);
     auto cores_h = Kokkos::create_mirror_view(cores);
     physical_dims_h = dims_host_view_t("TensorPackT physical dims", ncores_per_train);
-    for (int c = 0; c < ncores_per_train; ++c)
+    indexers = indexer_view_t("TensorPackT indexers", ncores_per_train);
+    auto indexers_h = Kokkos::create_mirror_view(indexers);
+    for (int c = 0; c < ncores_per_train; ++c) {
       physical_dims_h(c) = grid(0, 0)->GetPhysicalDimension(c);
+      indexers_h(c) = grid(0, 0)->GetCoreHost(c).Indexer();
+    }
 
     for (int v = 0; v < nvars; ++v) {
       for (int b = 0; b < nblocks; ++b) {
@@ -163,6 +172,7 @@ struct TensorPackT {
       }
     }
     Kokkos::deep_copy(cores, cores_h);
+    Kokkos::deep_copy(indexers, indexers_h);
   }
 };
 
@@ -265,24 +275,6 @@ class TensorTrainHostPackT {
   template <class var_t>
   const train_t &operator()(int b, const var_t &) const {
     return *grid_(VarIndex<var_t>(), b);
-  }
-
-  // Reshape a train in place to the given physical dimensions and internal bond
-  // ranks (mutates the owner's train). Used to size an output train before a
-  // rank-changing op fills it on device.
-  void Reshape(int b, int v, const std::vector<int> &phys_dims,
-               const std::vector<int> &ranks) {
-    auto &train = *grid_(v, b);
-    train = train_t(phys_dims, ranks, train.label(), train.metadata());
-  }
-  void Reshape(int b, const std::vector<int> &phys_dims,
-               const std::vector<int> &ranks) {
-    Reshape(b, 0, phys_dims, ranks);
-  }
-  template <class var_t>
-  void Reshape(int b, const var_t &, const std::vector<int> &phys_dims,
-               const std::vector<int> &ranks) {
-    Reshape(b, VarIndex<var_t>(), phys_dims, ranks);
   }
 
   // Build the device pack over the current (post-reshape) trains, carrying this

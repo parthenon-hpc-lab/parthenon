@@ -150,7 +150,7 @@ void NonDestructiveSum(const TensorTrainHostPackT<TTraits> &A,
       }
       for (int c = 0; c < train_A.NCores() - 1; ++c)
         target_ranks.push_back(train_A(c).RR() + train_B(c).RR());
-      C.Reshape(t, v, phys_dims, target_ranks);
+      C(t, v) = TensorTrainT<TTraits>(A(t, v), target_ranks);
     }
   }
 

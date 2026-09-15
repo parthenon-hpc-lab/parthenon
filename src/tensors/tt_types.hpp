@@ -21,6 +21,7 @@
 #include "interface/metadata.hpp"
 #include "kokkos_abstraction.hpp"
 #include "tt_traits.hpp"
+#include "utils/indexer.hpp"
 
 namespace parthenon {
 namespace tensor2 {
@@ -80,20 +81,29 @@ class TensorCoreHostT {
 
  private:
   Storage storage_;
+  Indexer6D phys_indexer_{};
 
  public:
   TensorCoreHostT() = default;
 
-  TensorCoreHostT(int lr, int dd, int rr) {
+  TensorCoreHostT(int lr, int dd, int rr) 
+      : phys_indexer_({0,0}, {0,0}, {0,0}, {0, 0}, {0, 0}, {0, dd - 1}) {
     storage_.Allocate(lr, dd, rr);
+  }
+ 
+  TensorCoreHostT(int lr, const Indexer6D& idxer, int rr) 
+      : phys_indexer_(idxer) {
+    storage_.Allocate(lr, phys_indexer_.size(), rr);
   }
 
   // Copy constructor delegates to storage policy
   TensorCoreHostT(const TensorCoreHostT &other) {
+    phys_indexer_ = other.phys_indexer_;
     storage_.CopyFrom(other.storage_);
   }
 
   TensorCoreHostT &operator=(const TensorCoreHostT &other) {
+    phys_indexer_ = other.phys_indexer_;
     storage_.CopyFrom(other.storage_);
     return *this;
   }
@@ -105,6 +115,7 @@ class TensorCoreHostT {
 
   TensorCoreHostT DeepCopy() const {
     TensorCoreHostT out;
+    out.phys_indexer_ = phys_indexer_;
     out.storage_ = storage_.DeepCopy();
     return out;
   }
@@ -114,7 +125,8 @@ class TensorCoreHostT {
   void ReduceSize(int lr_new, int rr_new) {
     storage_.ReduceSize(lr_new, rr_new);
   }
-
+  
+  const auto &Indexer() const {return phys_indexer_;}
   int RR() const { return storage_.RR(); }
   int DD() const { return storage_.DD(); }
   int LR() const { return storage_.LR(); }
@@ -171,7 +183,8 @@ class TensorTrainT {
 
   // Construct a train from physical dimensions and internal bond ranks.
   // The boundary ranks are fixed to one.
-  TensorTrainT(const std::vector<int> &phys_dims, const std::vector<int> &ranks) {
+  template <class idx_type> 
+  TensorTrainT(const std::vector<idx_type> &phys_dims, const std::vector<int> &ranks) {
     PARTHENON_REQUIRE(phys_dims.size() - 1 == ranks.size(),
                       "Incompatible number of ranks and dimensions.");
     cores.reserve(phys_dims.size());
@@ -185,12 +198,24 @@ class TensorTrainT {
       cores.emplace_back(ranks.back(), phys_dims.back(), 1);
     }
   }
-
-  TensorTrainT(const std::vector<int> &phys_dims, const std::vector<int> &ranks,
+  
+  template <class idx_type>
+  TensorTrainT(const std::vector<idx_type> &phys_dims, const std::vector<int> &ranks,
                std::string label, Metadata metadata)
       : TensorTrainT(phys_dims, ranks) {
     label_ = std::move(label);
     metadata_ = std::move(metadata);
+  }
+
+  TensorTrainT(const TensorTrainT &other, const std::vector<int> &ranks)
+      : TensorTrainT(other.GetCoreIndexers(), ranks, other.label_, other.metadata_) {}
+  
+  std::vector<Indexer6D> GetCoreIndexers() const { 
+    std::vector<Indexer6D> out; 
+    for (int c = 0; c < NCores(); ++c) {
+      out.push_back(cores[c].Indexer());
+    }
+    return out;
   }
 
   auto NCores() const { return cores.size(); }
