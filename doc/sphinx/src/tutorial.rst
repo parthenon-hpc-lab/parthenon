@@ -782,7 +782,7 @@ in a file ``ellipse/src/pgen.cpp`` and will look like this:
          KOKKOS_LAMBDA(const int new_n) {
            // this is the particle index inside the swarm
            const int n = newParticlesContext.GetNewParticleIndex(new_n);
-         // Use a mutex lock to get device-safe random number generator
+          // Use a mutex lock to get device-safe random number generator
            auto rng_gen = rng_pool.get_state();
    
            // Normally b would be free-floating and set by pack.GetBlockparticleIndices
