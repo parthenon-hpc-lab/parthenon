@@ -116,6 +116,18 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           pin->GetOrAddInteger("parthenon/mesh", "base_block_coarsenings", 0,
                                "How many times to internally coarsen blocks before going "
                                "to two-level composite grids")} {
+  // Warn curvilinear + swarms
+  if constexpr (!std::is_same_v<Coordinates_t, UniformCartesian>) {
+    if (!resolved_packages->AllSwarms().empty()) {
+      if (Globals::my_rank == 0) {
+        PARTHENON_WARN("Parthenon swarm infrastructure assumes a uniform mesh in native "
+                       "(x1, x2, x3) coordinates. Treat swarm.{x,y,z} as {x1,x2,x3} when "
+                       "calling utilities such as Xtoijk and during automatic remeshing "
+                       "triggered by AMR refinement or coarsening.");
+      }
+    }
+  }
+
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =
