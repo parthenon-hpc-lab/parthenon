@@ -163,11 +163,13 @@ class TensorTrainT {
   // pack before a rank-changing op sizes it).
   TensorTrainT() = default;
 
+  // A train's cores must have consistent adjacent bond ranks. The boundary
+  // (first-core left, last-core right) ranks are NOT required to be one: a
+  // "closed" train has them equal to one and represents a scalar-valued tensor,
+  // while an "open" train carries dangling boundary bonds (e.g. a single-core
+  // buffer that is a factor of a larger train). Operations that require a closed
+  // train guard on IsClosed(); see the op definitions in tt_operations.hpp.
   TensorTrainT(const std::vector<core_type> &cores_in) : cores(cores_in) {
-    PARTHENON_REQUIRE(cores.front().LR() == 1,
-                      "First core must have left side size one.");
-    PARTHENON_REQUIRE(cores.back().RR() == 1,
-                      "Last core must have right side size one.");
     for (int c = 1; c < NCores(); ++c) {
       PARTHENON_REQUIRE(cores[c - 1].RR() == cores[c].LR(),
                         "Cores must have consistent ranks.");
@@ -181,21 +183,24 @@ class TensorTrainT {
     metadata_ = std::move(metadata);
   }
 
-  // Construct a train from physical dimensions and internal bond ranks.
-  // The boundary ranks are fixed to one.
-  template <class idx_type> 
-  TensorTrainT(const std::vector<idx_type> &phys_dims, const std::vector<int> &ranks) {
+  // Construct a train from physical dimensions and internal bond ranks. The
+  // boundary (left of the first core, right of the last core) ranks default to
+  // one -- a closed train -- but can be set to build an open train with dangling
+  // boundary bonds (e.g. a single-core buffer factored out of a larger train).
+  template <class idx_type>
+  TensorTrainT(const std::vector<idx_type> &phys_dims, const std::vector<int> &ranks,
+               int left_bond = 1, int right_bond = 1) {
     PARTHENON_REQUIRE(phys_dims.size() - 1 == ranks.size(),
                       "Incompatible number of ranks and dimensions.");
     cores.reserve(phys_dims.size());
     if (ranks.size() == 0) {
-      cores.emplace_back(1, phys_dims[0], 1);
+      cores.emplace_back(left_bond, phys_dims[0], right_bond);
     } else {
-      cores.emplace_back(1, phys_dims[0], ranks[0]);
+      cores.emplace_back(left_bond, phys_dims[0], ranks[0]);
       for (int c = 1; c < phys_dims.size() - 1; ++c) {
         cores.emplace_back(ranks[c - 1], phys_dims[c], ranks[c]);
       }
-      cores.emplace_back(ranks.back(), phys_dims.back(), 1);
+      cores.emplace_back(ranks.back(), phys_dims.back(), right_bond);
     }
   }
   
@@ -221,6 +226,14 @@ class TensorTrainT {
   auto NCores() const { return cores.size(); }
   auto &GetCoreHost(int c) { return cores[c]; }
   const auto &GetCoreHost(int c) const { return cores[c]; }
+
+  // A train is "closed" when its boundary bonds are one -- i.e. it contracts to a
+  // scalar-valued tensor rather than carrying dangling factor bonds. Operations
+  // that assume proper TT structure (sums, rounding) require this; buffers that
+  // are a single factored-out core (e.g. AMR coarse buffers) are open.
+  bool IsClosed() const {
+    return !cores.empty() && cores.front().LR() == 1 && cores.back().RR() == 1;
+  }
 
   // Variable-concept surface -------------------------------------------------
   // TensorTrainT is the tensor-train analogue of Variable<T>: the container

@@ -142,6 +142,10 @@ void NonDestructiveSum(const TensorTrainHostPackT<TTraits> &A,
       const auto &train_B = B(t, v);
       PARTHENON_REQUIRE(train_A.NCores() == train_B.NCores(),
                         "Added trains must have the same number of cores.");
+      PARTHENON_REQUIRE_THROWS(
+          train_A.IsClosed() && train_B.IsClosed(),
+          "NonDestructiveSum requires closed trains: the block-diagonal stacking of "
+          "boundary bonds is only well-defined when they are one.");
       std::vector<int> phys_dims, target_ranks;
       for (int c = 0; c < train_A.NCores(); ++c) {
         PARTHENON_REQUIRE(train_A(c).DD() == train_B(c).DD(),
@@ -240,6 +244,9 @@ HadamardProduct(std::vector<TensorTrainT<TTraits>> &TrainsA,
 
     PARTHENON_REQUIRE(train_A.NCores() == train_B.NCores(),
                       "Hadamard product requires the same number of cores.");
+    PARTHENON_REQUIRE_THROWS(
+        train_A.IsClosed() && train_B.IsClosed(),
+        "HadamardProduct requires closed trains.");
 
     std::vector<int> phys_dims, target_ranks;
     for (int c = 0; c < train_A.NCores(); ++c) {
@@ -377,6 +384,9 @@ void RoundGramSVDVar_(TensorTrainHostPackT<TTraits> &pack_host, int var,
   int n_cores{0};
   for (int t = 0; t < pack_host.NumBlocks(); ++t) {
     const auto &train = pack_host(t, var);
+    PARTHENON_REQUIRE_THROWS(train.IsClosed(),
+                      "RoundGramSVD requires closed trains: the orthogonalization sweep "
+                      "assumes boundary bonds of one.");
     n_cores = train.NCores();
     for (int c = 0; c < train.NCores(); ++c) {
       max_rank = std::max(max_rank, train(c).RR());
@@ -673,6 +683,9 @@ void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
   int max_core_size{0};
   int n_cores{0};
   for (const auto &train : trains) {
+    PARTHENON_REQUIRE_THROWS(train.IsClosed(),
+                      "RoundOseledetsSVD requires closed trains: the orthogonalization "
+                      "sweep assumes boundary bonds of one.");
     n_cores = train.NCores();
     for (int c = 0; c < train.NCores(); ++c) {
       max_rank = std::max(max_rank, train(c).RR());

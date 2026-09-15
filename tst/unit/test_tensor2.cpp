@@ -1245,3 +1245,58 @@ TEMPLATE_TEST_CASE("TensorTrainHostPack from shared_ptr trains", "[tensor2]",
       nwrong);
   REQUIRE(nwrong == 0);
 }
+
+// R2: trains may carry dangling boundary bonds (open trains). Construction no longer
+// forces the first-core left and last-core right ranks to one; IsClosed() reports the
+// distinction, and operations that require proper TT structure guard on it.
+TEMPLATE_TEST_CASE("tensor2 open trains carry dangling boundary bonds", "[tensor2]",
+                   FiberTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = TensorTrainT<TTraits>;
+
+  // A default (closed) train has boundary bonds of one.
+  TensorTrain closed(std::vector<int>{2, 3, 4}, {5, 6});
+  REQUIRE(closed.IsClosed());
+  REQUIRE(closed(0).LR() == 1);
+  REQUIRE(closed(closed.NCores() - 1).RR() == 1);
+
+  // A single-core open train: dangling left and right bonds (e.g. a factored-out core).
+  TensorTrain open_single(std::vector<int>{4}, {}, /*left_bond=*/2, /*right_bond=*/3);
+  REQUIRE(open_single.NCores() == 1);
+  REQUIRE(open_single(0).LR() == 2);
+  REQUIRE(open_single(0).DD() == 4);
+  REQUIRE(open_single(0).RR() == 3);
+  REQUIRE_FALSE(open_single.IsClosed());
+
+  // A multi-core open train: interior bonds still must be consistent, only the boundary
+  // bonds dangle.
+  TensorTrain open_multi(std::vector<int>{2, 3}, {5}, /*left_bond=*/4, /*right_bond=*/7);
+  REQUIRE(open_multi(0).LR() == 4);
+  REQUIRE(open_multi(0).RR() == 5);
+  REQUIRE(open_multi(1).LR() == 5);
+  REQUIRE(open_multi(1).RR() == 7);
+  REQUIRE_FALSE(open_multi.IsClosed());
+
+  // The open-ness survives a copy.
+  TensorTrain open_copy = open_single;
+  REQUIRE_FALSE(open_copy.IsClosed());
+}
+
+// R2: closed-train operations reject open trains loudly rather than producing a
+// silently-wrong result.
+TEMPLATE_TEST_CASE("tensor2 closed-train ops reject open trains", "[tensor2]",
+                   FiberTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = TensorTrainT<TTraits>;
+  using real_t = typename TTraits::real_t;
+
+  TensorTrain closed(std::vector<int>{2, 3, 4}, {2, 2});
+  TensorTrain open(std::vector<int>{2, 3, 4}, {2, 2}, /*left_bond=*/1, /*right_bond=*/2);
+
+  std::vector<TensorTrain> a_open{open};
+  std::vector<TensorTrain> b_closed{closed};
+  REQUIRE_THROWS(NonDestructiveSum(a_open, b_closed));
+
+  std::vector<TensorTrain> to_round{open};
+  REQUIRE_THROWS(RoundGramSVD(to_round, real_t(1.0e-12)));
+}
