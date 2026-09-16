@@ -90,11 +90,11 @@ void BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md, TTBoundaryCache *cach
         info.recv = CalcIndices(rev, other, ml, v, te,
                                 IndexRangeType::BoundaryExteriorRecv, false);
         info.lcoord_trans = nb.lcoord_trans;
-        if (nb.loc.level() > pmb->loc.level()) {
+        if (NeighborIsCoarser(binfo, nb)) {
           info.btype = BoundaryRelation::f2c;
           info.prores = CalcIndices(nb, binfo, ml, v, te,
                                     IndexRangeType::BoundaryInteriorSend, true);
-        } else if (nb.loc.level() < pmb->loc.level()) {
+        } else if (NeighborIsFiner(binfo, nb)) {
           info.btype = BoundaryRelation::c2f;
           info.prores = CalcIndices(nb, binfo, ml, v, te,
                                     IndexRangeType::BoundaryExteriorRecv, true);
