@@ -84,11 +84,23 @@ void BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md, TTBoundaryCache *cach
         TTBndInfo info;
         // Sender's interior cells destined for the neighbor, and the neighbor's ghost
         // cells that receive them -- both on the whole-block index space.
-        info.send = CalcIndices(nb, binfo, ml, v, TopologicalElement::CC,
+        const TopologicalElement te = TopologicalElement::CC; // TODO: Fix this
+        info.send = CalcIndices(nb, binfo, ml, v, te,
                                 IndexRangeType::BoundaryInteriorSend, false);
-        info.recv = CalcIndices(rev, other, ml, v, TopologicalElement::CC,
+        info.recv = CalcIndices(rev, other, ml, v, te,
                                 IndexRangeType::BoundaryExteriorRecv, false);
         info.lcoord_trans = nb.lcoord_trans;
+        if (nb.loc.level() > pmb->loc.level()) {
+          info.btype = BoundaryRelation::f2c;
+          info.prores = CalcIndices(nb, binfo, ml, v, te,
+                                    IndexRangeType::BoundaryInteriorSend, true);
+        } else if (nb.loc.level() < pmb->loc.level()) {
+          info.btype = BoundaryRelation::c2f;
+          info.prores = CalcIndices(nb, binfo, ml, v, te,
+                                    IndexRangeType::BoundaryExteriorRecv, true);
+        } else {
+          info.btype = BoundaryRelation::same;
+        }
         cache->bnd_info_h(ibound) = info;
         ++ibound;
       });
@@ -101,38 +113,79 @@ std::vector<std::shared_ptr<tensor2::TensorTrain>>
 BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cache) {
   using namespace loops;
   using train_t = tensor2::TensorTrain;
-
+  using HostPack = tensor2::TensorTrainHostPackT<DefaultTTraits>;
+  
+  // Build all the sets of trains for stages of boundary communication
   std::vector<train_t *> src;
-  std::vector<std::shared_ptr<train_t>> out;
+  std::vector<std::shared_ptr<train_t>> out; 
+  std::vector<std::shared_ptr<train_t>> coarse; 
   ForEachBoundary<BoundaryType::any>(
-      md, [&](auto /*pmb*/, auto /*rc*/, const NeighborBlock & /*nb*/, auto v) {
+      md, [&](auto pmb, auto /*rc*/, const NeighborBlock & nb, auto v) {
         src.push_back(&v->train());
         out.push_back(std::make_shared<train_t>(v->train().DeepCopy()));
+        // Create a coarse version of the spatial cores for each boundary
+        TTFieldMetadata metadata({}, v->metadata());
+        const int ranks = v->train().GetCoreHost(0).RR();
+        coarse.push_back(std::make_shared<train_t>(metadata.CoreIndexers(pmb, true), std::vector<int>{}, 1, ranks));
       });
+  
   const int nbound = static_cast<int>(out.size());
-  if (nbound == 0) return out;
   PARTHENON_DEBUG_REQUIRE(nbound == static_cast<int>(cache.bnd_info_h.extent(0)),
                           "Boundary walk and cache disagree on boundary count.");
-
-  using HostPack = tensor2::TensorTrainHostPackT<DefaultTTraits>;
+  if (nbound == 0) return out;
+  
   auto pack_src = HostPack::FromPointers(src).MakeDevicePack();
+  auto pack_coarse = HostPack::FromSharedPtrs(coarse).MakeDevicePack();
   auto pack_out = HostPack::FromSharedPtrs(out).MakeDevicePack();
   auto bnd_info = cache.bnd_info;
 
-  // One launch over all boundaries: zero the addend's spatial core, then place each sender
-  // interior cell into the corresponding receiver ghost cell (send-cell e -> recv-cell e),
-  // for every rank column of the spatial core. Mirrors MakeNeighborTensors, but the shift
-  // is the cached index maps rather than a hardcoded offset.
+  // Restrict to coarse trains where required
+  {
+    constexpr int unused_scratch_size = 0;
+    constexpr int unused_scratch_level = 1;
+    parthenon::par_for_outer(
+        PARTHENON_AUTO_LABEL, unused_scratch_size, unused_scratch_level, 0, nbound - 1,
+        KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int e) {
+          const auto &info = bnd_info(e);
+          if (info.btype == BoundaryRelation::f2c) {
+            auto &sc_src = pack_src(e, 0, 0);
+            auto &sc_out = pack_coarse(e, 0, 0);
+            const auto &idxerp = info.prores;
+            const auto &idxerf = pack_src.indexer(0);
+            const auto &idxerc = pack_coarse.indexer(0);
+            // TODO: Finish the indexing for restriction here
+            for (int r = 0; r < sc_out.RR(); ++r) {
+              parthenon::par_for_inner(member, 0, idxerp.size() - 1, [&](const int idx) { 
+                const auto [t, u, v, kc, jc, ic] = idxerp(idx);
+                const auto coarse_idx = idxerc.GetFlatIdx(t, u, v, kc, jc, ic);
+                sc_out(0, coarse_idx, r) = 0.0;
+                // TODO: Need a way to map from coarse indices to fine indices, below is wrong
+                // For Each fine cell in kc 
+                const int kfine = kc;
+                const int jfine = jc;
+                const int ifine = ic;
+                const auto fine_idx = idxerf.GetFlatIdx(t, u, v, kfine, jfine, ifine);
+                sc_out(0, coarse_idx, r) += sc_src(0, fine_idx, r);
+              });
+              member.team_barrier();
+            }
+          }
+        }); 
+  }
+
+  // Move cells from the sender index space to the receiver index space
   constexpr int unused_scratch_size = 0;
   constexpr int unused_scratch_level = 1;
   parthenon::par_for_outer(
       PARTHENON_AUTO_LABEL, unused_scratch_size, unused_scratch_level, 0, nbound - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int e) {
-        auto &sc_src = pack_src(e, 0, 0);
-        auto &sc_out = pack_out(e, 0, 0);
-        const auto &idxer = pack_out.indexer(0);
-        const auto &send = bnd_info(e).send;
-        const auto &recv = bnd_info(e).recv;
+        auto &info = bnd_info(e);
+        auto &sc_src = (info.btype == BoundaryRelation::f2c) ? pack_coarse(e, 0, 0) : pack_src(e, 0, 0);
+        auto &sc_out = (info.btype == BoundaryRelation::c2f) ? pack_coarse(e, 0, 0) : pack_out(e, 0, 0);
+        auto &idxer_src = (info.btype == BoundaryRelation::f2c) ? pack_coarse.indexer(0) : pack_src.indexer(0);
+        auto &idxer_out = (info.btype == BoundaryRelation::c2f) ? pack_coarse.indexer(0) : pack_out.indexer(0);
+        const auto &send = info.send;
+        const auto &recv = info.recv;
         const int ncell = static_cast<int>(send.size());
         for (int r = 0; r < sc_out.RR(); ++r) {
           parthenon::par_for_inner(member, 0, sc_out.DD() - 1,
@@ -141,13 +194,54 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
           parthenon::par_for_inner(member, 0, ncell - 1, [&](const int c) {
             const auto [ts, us, vs, ks, js, is] = send(c);
             const auto [tr, ur, vr, kr, jr, ir] = recv(c);
-            const int src_idx = idxer.GetFlatIdx(ts, us, vs, ks, js, is);
-            const int dst_idx = idxer.GetFlatIdx(tr, ur, vr, kr, jr, ir);
+            const int src_idx = idxer_src.GetFlatIdx(ts, us, vs, ks, js, is);
+            const int dst_idx = idxer_out.GetFlatIdx(tr, ur, vr, kr, jr, ir);
             sc_out(0, dst_idx, r) = sc_src(0, src_idx, r);
           });
           member.team_barrier();
         }
       });
+
+  // Prolongate on c2f blocks
+  // TODO: Implement
+  {
+    constexpr int unused_scratch_size = 0;
+    constexpr int unused_scratch_level = 1;
+    parthenon::par_for_outer(
+        PARTHENON_AUTO_LABEL, unused_scratch_size, unused_scratch_level, 0, nbound - 1,
+        KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int e) {
+          const auto &info = bnd_info(e);
+          if (info.btype == BoundaryRelation::c2f) {
+            auto &sc_src = pack_coarse(e, 0, 0);
+            auto &sc_out = pack_out(e, 0, 0);
+            const auto &idxerp = info.prores;
+            const auto &idxerf = pack_out.indexer(0);
+            const auto &idxerc = pack_coarse.indexer(0);
+            for (int r = 0; r < sc_out.RR(); ++r) {
+              // Zero the spatial core of the output train, since we copied the source 
+              // train
+              parthenon::par_for_inner(member, 0, idxerf.size() - 1, [&](const int idx){
+                sc_out(0, idx, r) = 0.0;
+              });
+              member.team_barrier();
+
+              parthenon::par_for_inner(member, 0, idxerp.size() - 1, [&](const int idx) { 
+                const auto [t, u, v, kc, jc, ic] = idxerp(idx);
+                const auto coarse_idx = idxerc.GetFlatIdx(t, u, v, kc, jc, ic);
+                // TODO: Need a way to map from coarse indices to fine indices, below is wrong
+                // For Each fine cell in kc 
+                const int kfine = kc;
+                const int jfine = jc;
+                const int ifine = ic;
+                const auto fine_idx = idxerf.GetFlatIdx(t, u, v, kfine, jfine, ifine);
+                sc_out(0, fine_idx, r) = sc_src(0, coarse_idx, r);
+              });
+              member.team_barrier();
+            }
+          }
+        }); 
+  }
+
   return out;
 }
 

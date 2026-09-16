@@ -30,6 +30,8 @@ namespace parthenon {
 
 class TTCommChannel;
 
+enum class BoundaryRelation {same, f2c, c2f};
+
 // One boundary's device-resident index info, analogous to a regular-field BndInfo but for
 // the whole-block spatial core of a tensor train. Fixed size (two indexers + block
 // extents), so an array of these packs into a single flat view for one batched launch.
@@ -43,6 +45,8 @@ class TTCommChannel;
 struct TTBndInfo {
   SpatiallyMaskedIndexer6D send;
   SpatiallyMaskedIndexer6D recv;
+  SpatiallyMaskedIndexer6D prores;
+  BoundaryRelation btype;
   // Sender->neighbor logical coordinate transformation. Identity for same-tree
   // boundaries; for a rotated/flipped cross-tree boundary the set kernel applies its
   // InverseTransform to the recv cell before writing (as regular-field comm does), so the

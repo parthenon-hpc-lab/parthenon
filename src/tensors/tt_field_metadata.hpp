@@ -53,7 +53,12 @@ struct TTFieldMetadata {
 
   std::vector<Indexer6D> CoreIndexers(std::weak_ptr<MeshBlock> wpmb,
                                       bool coarse = false) const {
-    const auto dims = metadata.GetArrayDims(wpmb, coarse);
+    return CoreIndexers(wpmb.lock().get(), coarse);
+  }
+
+  std::vector<Indexer6D> CoreIndexers(MeshBlock *pmb,
+                                      bool coarse = false) const {
+    const auto dims = metadata.GetArrayDims(pmb, coarse);
     std::vector<Indexer6D> out;
     out.reserve(NCores());
     out.push_back(Indexer6D({0, dims[5] - 1}, {0, dims[4] - 1}, {0, dims[3] - 1},
