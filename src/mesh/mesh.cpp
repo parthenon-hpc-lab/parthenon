@@ -116,18 +116,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           pin->GetOrAddInteger("parthenon/mesh", "base_block_coarsenings", 0,
                                "How many times to internally coarsen blocks before going "
                                "to two-level composite grids")} {
-  // Warn curvilinear + swarms
-  if constexpr (!std::is_same_v<Coordinates_t, UniformCartesian>) {
-    if (!resolved_packages->AllSwarms().empty()) {
-      if (Globals::my_rank == 0) {
-        PARTHENON_WARN("Parthenon swarm infrastructure assumes a uniform mesh in native "
-                       "(x1, x2, x3) coordinates. Treat swarm.{x,y,z} as {x1,x2,x3} when "
-                       "calling utilities such as Xtoijk and during automatic remeshing "
-                       "triggered by AMR refinement or coarsening.");
-      }
-    }
-  }
-
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =
@@ -161,6 +149,22 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           1,
           pin->GetOrAddInteger("parthenon/mesh", "packs_per_rank", 1,
                                "number of meshblockpacks per rank, overrides pack_size"));
+    }
+  }
+
+  // Check swarms compatibility
+  if (!resolved_packages->AllSwarms().empty()) {
+    const bool single_pack_per_rank =
+        use_pack_size_ ? default_pack_size_ < 1 : default_num_packs_ == 1;
+    PARTHENON_REQUIRE(single_pack_per_rank,
+                      "Swarms require parthenon/mesh/pack_size=-1 or packs_per_rank=1.");
+    if constexpr (!std::is_same_v<Coordinates_t, UniformCartesian>) {
+      if (Globals::my_rank == 0) {
+        PARTHENON_WARN("Parthenon swarm infrastructure assumes a uniform mesh in native "
+                       "(x1, x2, x3) coordinates. Treat swarm.{x,y,z} as {x1,x2,x3} when "
+                       "calling utilities such as Xtoijk and during automatic remeshing "
+                       "triggered by AMR refinement or coarsening.");
+      }
     }
   }
 
