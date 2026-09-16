@@ -216,9 +216,7 @@ NonDestructiveSum(std::vector<TensorTrainT<TTraits>> &TrainsA,
 // set.
 template <class Container>
 void NonDestructiveSum(Container *A, Container *B, Container *C) {
-  using train_t = std::decay_t<decltype(*A->GetBlockData(0)->Get(
-      A->FieldNames().front()))>;
-  using TTraits = typename train_t::traits;
+  using TTraits = typename Container::train_t::traits;
   auto pa = TensorTrainHostPackT<TTraits>::FromContainer(*A);
   auto pb = TensorTrainHostPackT<TTraits>::FromContainer(*B);
   auto pc = TensorTrainHostPackT<TTraits>::FromContainer(*C);
@@ -663,13 +661,9 @@ void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
 // (e.g. MeshTTData*) in place. Templated on the container type to stay
 // independent of the mesh/interface headers.
 template <class Container, class F = no_core_mask>
-void RoundGramSVD(Container *md,
-                  typename std::decay_t<decltype(*md->GetBlockData(0)->Get(
-                      md->FieldNames().front()))>::traits::real_t eps,
+void RoundGramSVD(Container *md, typename Container::train_t::traits::real_t eps,
                   F core_mask = no_core_mask{}) {
-  using train_t = std::decay_t<decltype(*md->GetBlockData(0)->Get(
-      md->FieldNames().front()))>;
-  using TTraits = typename train_t::traits;
+  using TTraits = typename Container::train_t::traits;
   auto pack_host = TensorTrainHostPackT<TTraits>::FromContainer(*md);
   RoundGramSVD(pack_host, eps, core_mask);
 }

@@ -223,6 +223,13 @@ class TensorTrainHostPackT {
     return TensorTrainHostPackT(std::move(grid));
   }
 
+  static TensorTrainHostPackT FromPointers(const std::vector<train_t *> &trains) {
+    VarBlockGrid<train_t *> grid(1, trains.size());
+    for (std::size_t b = 0; b < trains.size(); ++b)
+      grid(0, b) = trains[b];
+    return TensorTrainHostPackT(std::move(grid));
+  }
+
   // Gather named fields from a mesh-partition container (e.g. MeshTTData). The
   // untagged pack gathers all of the container's fields in its field order; a
   // tagged pack gathers {var_ts::name()...} in tag order. Templated on the
@@ -249,7 +256,7 @@ class TensorTrainHostPackT {
     VarBlockGrid<train_t *> grid(static_cast<int>(names.size()), nblocks);
     for (std::size_t v = 0; v < names.size(); ++v)
       for (int b = 0; b < nblocks; ++b)
-        grid(v, b) = md.GetBlockData(b)->Get(names[v]).get();
+        grid(v, b) = &md.GetBlockData(b)->Get(names[v])->train();
     return TensorTrainHostPackT(std::move(grid));
   }
 

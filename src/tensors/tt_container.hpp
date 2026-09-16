@@ -23,6 +23,7 @@
 #include "mesh/domain.hpp"
 #include "tensors/tt_boundary_cache.hpp"
 #include "tensors/tt_types.hpp"
+#include "tensors/tt_variable.hpp"
 
 namespace parthenon {
 
@@ -42,7 +43,8 @@ struct BlockListPartition;
 class MeshBlockTTData {
  public:
   using train_t = tensor2::TensorTrain;
-  using train_ptr = std::shared_ptr<train_t>;
+  using var_t = TTVariable;
+  using var_ptr = std::shared_ptr<var_t>;
 
   MeshBlockTTData() = default;
   explicit MeshBlockTTData(std::string name) : stage_name_(std::move(name)) {}
@@ -84,31 +86,30 @@ class MeshBlockTTData {
 
   bool Contains(const std::string &name) const { return map_.count(name) > 0; }
 
-  train_ptr Get(const std::string &name) const {
+  var_ptr Get(const std::string &name) const {
     auto it = map_.find(name);
     PARTHENON_REQUIRE(it != map_.end(),
                       "Tensor-train field \"" + name + "\" not found in container.");
     return it->second;
   }
 
-  // Rebind a field to a freshly-produced train (e.g. after rounding, when ranks
-  // have changed and the train is a new object).
-  void Set(const std::string &name, train_ptr t) {
+  // Rebind a field to a freshly-produced variable.
+  void Set(const std::string &name, var_ptr v) {
     PARTHENON_REQUIRE(map_.count(name) > 0,
                       "Tensor-train field \"" + name + "\" not found in container.");
-    map_[name] = std::move(t);
+    map_[name] = std::move(v);
   }
 
-  // Controlled iteration over (name, train_ptr) without exposing the raw map.
+  // Controlled iteration over (name, var_ptr) without exposing the raw map.
   template <class F>
   void ForEachField(F f) const {
     for (const auto &pair : map_)
       f(pair.first, pair.second);
   }
 
-  // The trains as "variables", mirroring MeshBlockData::GetVariableVector.
-  std::vector<train_ptr> GetVariableVector() const {
-    std::vector<train_ptr> vars;
+  // The field variables, mirroring MeshBlockData::GetVariableVector.
+  std::vector<var_ptr> GetVariableVector() const {
+    std::vector<var_ptr> vars;
     vars.reserve(map_.size());
     for (const auto &pair : map_)
       vars.push_back(pair.second);
@@ -165,7 +166,7 @@ class MeshBlockTTData {
   std::string stage_name_{"base"};
   std::weak_ptr<MeshBlock> pmy_block_;
   std::vector<std::string> fields_in_;    // field set used to create this container
-  std::map<std::string, train_ptr> map_;  // owning trains, one per field
+  std::map<std::string, var_ptr> map_;  // owning field variables, one per field
 };
 
 // Mesh-partition container for tensor-train fields, analogous to MeshData:
@@ -173,6 +174,9 @@ class MeshBlockTTData {
 // DataCollection contract so Mesh can hold a DataCollection<MeshTTData>.
 class MeshTTData {
  public:
+  using train_t = tensor2::TensorTrain;
+  using var_t = TTVariable;
+
   MeshTTData() = default;
   explicit MeshTTData(std::string name) : stage_name_(std::move(name)) {}
 

@@ -14,11 +14,15 @@
 #ifndef TENSORS_TT_FIELD_METADATA_HPP
 #define TENSORS_TT_FIELD_METADATA_HPP
 
+#include <memory>
 #include <vector>
 
 #include "interface/metadata.hpp"
+#include "utils/indexer.hpp"
 
 namespace parthenon {
+
+class MeshBlock;
 
 // Descriptor for a tensor-train field registered with a package. Unlike a
 // regular field, a tensor train has dynamic ranks that change every timestep,
@@ -46,6 +50,18 @@ struct TTFieldMetadata {
   // Total number of cores in the train: one spatial core plus the registered
   // non-spatial cores.
   int NCores() const { return static_cast<int>(phys_dims.size()) + 1; }
+
+  std::vector<Indexer6D> CoreIndexers(std::weak_ptr<MeshBlock> wpmb,
+                                      bool coarse = false) const {
+    const auto dims = metadata.GetArrayDims(wpmb, coarse);
+    std::vector<Indexer6D> out;
+    out.reserve(NCores());
+    out.push_back(Indexer6D({0, dims[5] - 1}, {0, dims[4] - 1}, {0, dims[3] - 1},
+                            {0, dims[2] - 1}, {0, dims[1] - 1}, {0, dims[0] - 1}));
+    for (int dd : phys_dims)
+      out.push_back(Indexer6D({0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, dd - 1}));
+    return out;
+  }
 };
 
 } // namespace parthenon

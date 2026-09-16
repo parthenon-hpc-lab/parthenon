@@ -26,16 +26,6 @@
 
 namespace parthenon {
 
-namespace {
-// Derive the physical dimension of the spatial (first) core for a TT field on a
-// given block. For Stage 1 only cell-centered fields are supported, so this is
-// the total number of cells in the block including ghost zones. Later stages
-// can branch on the Metadata topological type for Face/Edge/Node fields.
-int SpatialCoreDim(const MeshBlock *pmb, const TTFieldMetadata & /*d*/) {
-  return pmb->cellbounds.GetTotal(IndexDomain::entire);
-}
-} // namespace
-
 void MeshBlockTTData::InitializeFromBlock_(const std::shared_ptr<MeshBlock> &pmb,
                                            const std::vector<std::string> &fields) {
   pmy_block_ = pmb;
@@ -48,16 +38,11 @@ void MeshBlockTTData::InitializeFromBlock_(const std::shared_ptr<MeshBlock> &pmb
                     "MeshBlock.");
 
   auto add_field = [&](const std::string &name, const TTFieldMetadata &d) {
-    // Full physical dimensions: derived spatial core followed by the registered
-    // non-spatial cores.
-    std::vector<int> phys_dims;
-    phys_dims.reserve(d.NCores());
-    phys_dims.push_back(SpatialCoreDim(pmb.get(), d));
-    for (int dim : d.phys_dims)
-      phys_dims.push_back(dim);
-    // New fields start at all-ones bond rank; physics fills in structure.
-    std::vector<int> ranks(phys_dims.size() - 1, 1);
-    map_[name] = std::make_shared<train_t>(phys_dims, ranks, name, d.metadata);
+    // The variable builds its own train from the field's registered structure (spatial
+    // core sized from the block geometry via the metadata). New fields start at all-ones
+    // bond rank; physics fills in structure.
+    std::vector<int> ranks(d.NCores() - 1, 1);
+    map_[name] = std::make_shared<var_t>(name, d, pmb, ranks);
   };
 
   if (fields.empty()) {
@@ -86,13 +71,13 @@ void MeshBlockTTData::InitializeFromContainer_(
   fields_in_ = names;
 
   for (const auto &name : names) {
-    auto sptr = src->Get(name);
+    auto svar = src->Get(name);
     if (shallow) {
-      // Alias the source train (same underlying object).
-      map_[name] = sptr;
+      // Alias the source variable (same underlying object).
+      map_[name] = svar;
     } else {
-      // Independent stage: deep copy so rounding/updates don't touch the source.
-      map_[name] = std::make_shared<train_t>(sptr->DeepCopy());
+      map_[name] = std::make_shared<var_t>(svar->label(), svar->field_metadata(),
+                                           svar->train().DeepCopy());
     }
   }
 }

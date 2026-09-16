@@ -14,11 +14,9 @@
 #ifndef TENSORS_TT_TYPES_HPP
 #define TENSORS_TT_TYPES_HPP
 
-#include <string>
 #include <vector>
 
 #include "basic_types.hpp"
-#include "interface/metadata.hpp"
 #include "kokkos_abstraction.hpp"
 #include "tt_traits.hpp"
 #include "utils/indexer.hpp"
@@ -176,13 +174,6 @@ class TensorTrainT {
     }
   }
 
-  TensorTrainT(const std::vector<core_type> &cores_in, std::string label,
-               Metadata metadata)
-      : TensorTrainT(cores_in) {
-    label_ = std::move(label);
-    metadata_ = std::move(metadata);
-  }
-
   // Construct a train from physical dimensions and internal bond ranks. The
   // boundary (left of the first core, right of the last core) ranks default to
   // one -- a closed train -- but can be set to build an open train with dangling
@@ -204,19 +195,13 @@ class TensorTrainT {
     }
   }
   
-  template <class idx_type>
-  TensorTrainT(const std::vector<idx_type> &phys_dims, const std::vector<int> &ranks,
-               std::string label, Metadata metadata)
-      : TensorTrainT(phys_dims, ranks) {
-    label_ = std::move(label);
-    metadata_ = std::move(metadata);
-  }
-
+  // Build a train with the same physical structure (per-core physical indexers)
+  // as `other` but fresh, zeroed bond space of the given internal ranks.
   TensorTrainT(const TensorTrainT &other, const std::vector<int> &ranks)
-      : TensorTrainT(other.GetCoreIndexers(), ranks, other.label_, other.metadata_) {}
-  
-  std::vector<Indexer6D> GetCoreIndexers() const { 
-    std::vector<Indexer6D> out; 
+      : TensorTrainT(other.GetCoreIndexers(), ranks) {}
+
+  std::vector<Indexer6D> GetCoreIndexers() const {
+    std::vector<Indexer6D> out;
     for (int c = 0; c < NCores(); ++c) {
       out.push_back(cores[c].Indexer());
     }
@@ -235,33 +220,6 @@ class TensorTrainT {
     return !cores.empty() && cores.front().LR() == 1 && cores.back().RR() == 1;
   }
 
-  // Variable-concept surface -------------------------------------------------
-  // TensorTrainT is the tensor-train analogue of Variable<T>: the container
-  // stamps a label and Metadata onto each train so that the same boundary-comm
-  // templates (CalcIndices, ForEachBoundary, SendKey/ReceiveKey) that operate on
-  // Variable<T> also accept a TensorTrainT.
-  const std::string &label() const { return label_; }
-  const Metadata &metadata() const { return metadata_; }
-  bool IsSet(const MetadataFlag bit) const { return metadata_.IsSet(bit); }
-  // Stamp the identity onto a freshly-produced train (e.g. the result of a sum/round op,
-  // which starts metadata-less) so it still satisfies the Variable concept.
-  void SetConcept(std::string label, Metadata metadata) {
-    label_ = std::move(label);
-    metadata_ = std::move(metadata);
-  }
-
-  // Physical dimension along Variable tensor axis i (1-indexed), as consumed by
-  // CalcIndices for the {GetDim(6), GetDim(5), GetDim(4)} component ranges. These
-  // are always 1 for a tensor train: a TT field's fixed extra indices would be
-  // flattened into the spatial (first) core, so they are not separate index
-  // dimensions the way tensor components are for a regular field. The separate
-  // trailing cores (e.g. angular NTHETA/NPHI) are a distinct concept from the
-  // unflattened dimensions of the first core and are not exposed here.
-  int GetDim(const int i) const {
-    PARTHENON_REQUIRE(0 < i && i <= 6, "Index out of bounds");
-    return 1;
-  }
-
   auto &operator()(int c) { return cores[c]; }
   const auto &operator()(int c) const { return cores[c]; }
 
@@ -273,13 +231,11 @@ class TensorTrainT {
     for (const auto &core : cores) {
       new_cores.push_back(core.DeepCopy());
     }
-    return TensorTrainT(new_cores, label_, metadata_);
+    return TensorTrainT(new_cores);
   }
 
  private:
   std::vector<core_type> cores;
-  std::string label_;
-  Metadata metadata_;
 };
 
 template <class TTraits>

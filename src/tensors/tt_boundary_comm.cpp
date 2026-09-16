@@ -112,18 +112,12 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
   using namespace loops;
   using train_t = tensor2::TensorTrain;
 
-  // Source trains (aliased from the container) and freshly-built addend trains, both
-  // boundary-indexed so pack(e, 0, core) reaches the right train. The walk visits
-  // boundaries in the same order as BuildTTBoundaryCache, so index e aligns with the
-  // cache's bnd_info(e); v is the sending block's current train for this boundary.
-  std::vector<std::shared_ptr<train_t>> src;
+  std::vector<train_t *> src;
   std::vector<std::shared_ptr<train_t>> out;
   ForEachBoundary<BoundaryType::any>(
       md, [&](auto /*pmb*/, auto /*rc*/, const NeighborBlock & /*nb*/, auto v) {
-        src.push_back(v);
-        // The addend has the source's structure so NonDestructiveSum lines up later; its
-        // spatial core is zeroed then gathered below.
-        out.push_back(std::make_shared<train_t>(v->DeepCopy()));
+        src.push_back(&v->train());
+        out.push_back(std::make_shared<train_t>(v->train().DeepCopy()));
       });
   const int nbound = static_cast<int>(out.size());
   if (nbound == 0) return out;
@@ -131,7 +125,7 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
                           "Boundary walk and cache disagree on boundary count.");
 
   using HostPack = tensor2::TensorTrainHostPackT<DefaultTTraits>;
-  auto pack_src = HostPack::FromSharedPtrs(src).MakeDevicePack();
+  auto pack_src = HostPack::FromPointers(src).MakeDevicePack();
   auto pack_out = HostPack::FromSharedPtrs(out).MakeDevicePack();
   auto bnd_info = cache.bnd_info;
   const int ni_dev = cache.ni;
@@ -212,15 +206,10 @@ void TTSetBounds(std::shared_ptr<MeshTTData> &md, Real eps) {
         auto &chan = pmesh->tt_comm_map[ReceiveKey(pmb, nb, v, BoundaryType::any, id)];
         auto cur = rc->Get(name);
         auto addend = chan.Get();
-        std::vector<train_t> a{*cur};
+        std::vector<train_t> a{cur->train()};
         std::vector<train_t> b{*addend};
         auto summed = tensor2::NonDestructiveSum(a, b);
-        // Preserve the field's Variable-concept surface: NonDestructiveSum produces a
-        // metadata-less result, but the container's train must keep its label/metadata so
-        // subsequent ForEachBoundary walks still see the field.
-        auto result = std::make_shared<train_t>(std::move(summed[0]));
-        result->SetConcept(name, v->metadata());
-        rc->Set(name, result);
+        cur->set_train(std::move(summed[0]));
         chan.Stale();
       });
 

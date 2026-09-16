@@ -114,11 +114,11 @@ TEST_CASE("Tensor-train containers build trains from a block", "[TTField]") {
     THEN("The base container holds a train with the derived spatial core dim") {
       auto &ttdata = pmb->tt_block_data.Get();
       REQUIRE(ttdata->Contains("I"));
-      auto train = ttdata->Get("I");
-      REQUIRE(train->NCores() == 3);
-      REQUIRE(train->GetPhysicalDimension(0) == nspace);
-      REQUIRE(train->GetPhysicalDimension(1) == NTHETA);
-      REQUIRE(train->GetPhysicalDimension(2) == NPHI);
+      const auto &train = ttdata->Get("I")->train();
+      REQUIRE(train.NCores() == 3);
+      REQUIRE(train.GetPhysicalDimension(0) == nspace);
+      REQUIRE(train.GetPhysicalDimension(1) == NTHETA);
+      REQUIRE(train.GetPhysicalDimension(2) == NPHI);
     }
 
     THEN("GetBounds* mirror the block's cellbounds") {
@@ -140,7 +140,7 @@ TEST_CASE("Tensor-train containers build trains from a block", "[TTField]") {
       THEN("The stage has an independent train object") {
         REQUIRE(stage->Contains("I"));
         REQUIRE(stage->Get("I").get() != base->Get("I").get());
-        REQUIRE(stage->Get("I")->NCores() == base->Get("I")->NCores());
+        REQUIRE(stage->Get("I")->train().NCores() == base->Get("I")->train().NCores());
       }
     }
 
@@ -210,9 +210,9 @@ TEST_CASE("MeshTTData assembles over a block partition", "[TTField]") {
       // Record input ranks (all-ones for a freshly-created field).
       std::vector<int> in_r0(NBLOCKS), in_r1(NBLOCKS);
       for (int b = 0; b < NBLOCKS; ++b) {
-        auto t = in.GetBlockData(b)->Get("I");
-        in_r0[b] = t->GetCoreHost(0).RR();
-        in_r1[b] = t->GetCoreHost(1).RR();
+        const auto &t = in.GetBlockData(b)->Get("I")->train();
+        in_r0[b] = t.GetCoreHost(0).RR();
+        in_r1[b] = t.GetCoreHost(1).RR();
       }
 
       // Build host packs directly from the mesh containers (the mesh -> host
@@ -224,21 +224,21 @@ TEST_CASE("MeshTTData assembles over a block partition", "[TTField]") {
       THEN("NonDestructiveSum(in, in, out) yields combined ranks in out") {
         parthenon::tensor2::NonDestructiveSum(in_pack, in_pack, out_pack);
         for (int b = 0; b < NBLOCKS; ++b) {
-          auto t = out.GetBlockData(b)->Get("I");
-          REQUIRE(t->GetCoreHost(0).RR() == in_r0[b] + in_r0[b]);
-          REQUIRE(t->GetCoreHost(1).RR() == in_r1[b] + in_r1[b]);
+          const auto &t = out.GetBlockData(b)->Get("I")->train();
+          REQUIRE(t.GetCoreHost(0).RR() == in_r0[b] + in_r0[b]);
+          REQUIRE(t.GetCoreHost(1).RR() == in_r1[b] + in_r1[b]);
           // Inputs are untouched (out is a distinct stage).
-          REQUIRE(in.GetBlockData(b)->Get("I")->GetCoreHost(0).RR() == in_r0[b]);
+          REQUIRE(in.GetBlockData(b)->Get("I")->train().GetCoreHost(0).RR() == in_r0[b]);
         }
 
         AND_THEN("RoundGramSVD compresses the summed field back down") {
           parthenon::tensor2::RoundGramSVD(out_pack, 1.e-12);
           for (int b = 0; b < NBLOCKS; ++b) {
-            auto t = out.GetBlockData(b)->Get("I");
+            const auto &t = out.GetBlockData(b)->Get("I")->train();
             // in+in is rank-deficient, so rounding cannot exceed the summed rank
             // and should not error.
-            REQUIRE(t->GetCoreHost(0).RR() <= in_r0[b] + in_r0[b]);
-            REQUIRE(t->GetCoreHost(0).RR() >= 1);
+            REQUIRE(t.GetCoreHost(0).RR() <= in_r0[b] + in_r0[b]);
+            REQUIRE(t.GetCoreHost(0).RR() >= 1);
           }
         }
       }
@@ -301,7 +301,7 @@ TEST_CASE("Multi-field packs support integer and tag indexing", "[TTField]") {
       THEN("It gathers only the named fields, in the given order") {
         REQUIRE(host.NumVars() == 1);
         REQUIRE(host.NumBlocks() == NBLOCKS);
-        REQUIRE(&host(0, 0) == md.GetBlockData(0)->Get("B").get());
+        REQUIRE(&host(0, 0) == &md.GetBlockData(0)->Get("B")->train());
       }
     }
 
@@ -328,22 +328,23 @@ TEST_CASE("Multi-field packs support integer and tag indexing", "[TTField]") {
 }
 
 namespace {
-// Compile-time proof that a TensorTrain (shared_ptr) satisfies the field surface the
+// Compile-time proof that a TTVariable (shared_ptr) satisfies the field surface the
 // boundary-comm templates require, so CalcIndices/ForEachBoundary accept it exactly like
-// a std::shared_ptr<Variable<Real>>.
+// a std::shared_ptr<Variable<Real>>. (The math TensorTrain is deliberately identity-free;
+// the field concept lives on the TTVariable wrapper.)
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
-using train_sptr = std::shared_ptr<parthenon::tensor2::TensorTrain>;
-static_assert(std::is_same_v<decltype(std::declval<train_sptr>()->label()),
+using var_sptr = std::shared_ptr<parthenon::TTVariable>;
+static_assert(std::is_same_v<decltype(std::declval<var_sptr>()->label()),
                              const std::string &>,
-              "TensorTrain must expose label().");
-static_assert(std::is_same_v<decltype(std::declval<train_sptr>()->IsSet(
+              "TTVariable must expose label().");
+static_assert(std::is_same_v<decltype(std::declval<var_sptr>()->IsSet(
                                  std::declval<MetadataFlag>())),
                              bool>,
-              "TensorTrain must expose IsSet(MetadataFlag).");
+              "TTVariable must expose IsSet(MetadataFlag).");
 static_assert(
-    std::is_same_v<decltype(std::declval<train_sptr>()->GetDim(4)), int>,
-    "TensorTrain must expose GetDim(int).");
+    std::is_same_v<decltype(std::declval<var_sptr>()->GetDim(4)), int>,
+    "TTVariable must expose GetDim(int).");
 } // namespace
 
 TEST_CASE("TT types drive the boundary-comm templates", "[TTField]") {
@@ -503,12 +504,16 @@ TEST_CASE("TTCommChannel carries a train through a shared-state handshake", "[TT
     nb_of_B.gid = A->gid;
     nb_of_B.offsets = CellCentOffsets(-1, 0, 0);
 
-    auto train = std::make_shared<train_t>(std::vector<int>{4, 8}, std::vector<int>{1},
-                                           "I", Metadata());
+    // The keys are computed from the field's label, so key off a TTVariable; the channel
+    // payload is the bare math train.
+    auto var = std::make_shared<parthenon::TTVariable>(
+        "I", parthenon::TTFieldMetadata({8}, Metadata()),
+        train_t(std::vector<int>{4, 8}, std::vector<int>{1}));
+    auto train = std::make_shared<train_t>(var->train().DeepCopy());
 
     WHEN("A sends via SendKey and B receives via ReceiveKey") {
-      auto skey = parthenon::SendKey(A.get(), nb_of_A, train, BoundaryType::any, 0);
-      auto rkey = parthenon::ReceiveKey(B.get(), nb_of_B, train, BoundaryType::any, 0);
+      auto skey = parthenon::SendKey(A.get(), nb_of_A, var, BoundaryType::any, 0);
+      auto rkey = parthenon::ReceiveKey(B.get(), nb_of_B, var, BoundaryType::any, 0);
 
       THEN("Both keys are identical, so they resolve to one shared channel") {
         REQUIRE(skey == rkey);
