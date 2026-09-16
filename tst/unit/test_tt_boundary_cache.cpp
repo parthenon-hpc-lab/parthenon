@@ -105,6 +105,10 @@ TEST_CASE("TT boundary cache maps interior cells to ghost cells", "[TTField][mes
   BuildTTBoundaryCache(md, &cache);
   const auto &bi = cache.bnd_info_h;
 
+  // Spatial-core logical indexer flattens a (comp.., k, j, i) cell to its physical index,
+  // replacing the formerly cached ni/nj extents.
+  const auto sidx = md->GetBlockData(0)->Get("I")->train().GetCoreHost(0).Indexer();
+
   GIVEN("The built (send-side) boundary cache") {
     THEN("It holds one channel per boundary and records the current epoch") {
       REQUIRE(bi.extent(0) > 0);
@@ -130,7 +134,7 @@ TEST_CASE("TT boundary cache maps interior cells to ghost cells", "[TTField][mes
           REQUIRE(is_interior(is_, js_));
           REQUIRE_FALSE(is_interior(ir, jr));
           // One-to-one: no destination cell written twice.
-          const int dst_flat = (kr * cache.nj + jr) * cache.ni + ir;
+          const int dst_flat = sidx.GetFlatIdx(tr, ur, vr, kr, jr, ir);
           REQUIRE(dst_seen.insert(dst_flat).second);
         }
       }
@@ -188,7 +192,6 @@ TEST_CASE("BuildBoundaryTensors gathers interior cells into the addend ghost lay
   // For each boundary: the addend's spatial core equals the source value at each dst cell
   // (from the corresponding src cell) and is zero everywhere else.
   auto bnd_info = cache.bnd_info;
-  const int ni = cache.ni, nj = cache.nj;
   for (int e = 0; e < nbound; ++e) {
     std::vector<tensor2::TensorTrain *> pair{addends[e].get(), srcs[e]};
     auto pack = tensor2::TensorTrainHostPackT<DefaultTTraits>::FromPointers(pair)
@@ -200,6 +203,7 @@ TEST_CASE("BuildBoundaryTensors gathers interior cells into the addend ghost lay
         KOKKOS_LAMBDA(const int, int &lwrong) {
           auto &sc = pack(0, 0, 0);  // addend
           auto &sc_src = pack(1, 0, 0); // source
+          const auto &idxer = pack.indexer(0);
           const auto &send = bnd_info(e).send;
           const auto &recv = bnd_info(e).recv;
           const int ncell = static_cast<int>(send.size());
@@ -211,8 +215,8 @@ TEST_CASE("BuildBoundaryTensors gathers interior cells into the addend ghost lay
             for (int c = 0; c < ncell; ++c) {
               const auto [ts, us, vs, ks, js, is] = send(c);
               const auto [tr, ur, vr, kr, jr, ir] = recv(c);
-              const int src_idx = (ks * nj + js) * ni + is;
-              const int dst_idx = (kr * nj + jr) * ni + ir;
+              const int src_idx = idxer.GetFlatIdx(ts, us, vs, ks, js, is);
+              const int dst_idx = idxer.GetFlatIdx(tr, ur, vr, kr, jr, ir);
               const double expect = sc_src(0, src_idx, r);
               lwrong += (sc(0, dst_idx, r) != expect);
               nmatched += (sc(0, dst_idx, r) == expect);
@@ -250,7 +254,6 @@ TEST_CASE("TT Send/Receive/Set exchanges ghost data between blocks",
     const auto &cb = pmb0->cellbounds;
     const int ii_s = cb.is(IndexDomain::interior), ii_e = cb.ie(IndexDomain::interior);
     const int jj_s = cb.js(IndexDomain::interior), jj_e = cb.je(IndexDomain::interior);
-    const int ni = cache.ni, nj = cache.nj;
     std::vector<tensor2::TensorTrain *> src;
     for (int b = 0; b < md->NumBlocks(); ++b)
       src.push_back(&md->GetBlockData(b)->Get("I")->train());
@@ -268,9 +271,9 @@ TEST_CASE("TT Send/Receive/Set exchanges ghost data between blocks",
                   core(l, j, r) = 1.0;
           }
           auto &sc = pack(b, 0, 0);
+          const auto &idxer = pack.indexer(0);
           for (int idx = 0; idx < sc.DD(); ++idx) {
-            const int i = idx % ni;
-            const int j = (idx / ni) % nj;
+            const auto [t, u, v, k, j, i] = idxer(idx);
             const bool interior = i >= ii_s && i <= ii_e && j >= jj_s && j <= jj_e;
             for (int r = 0; r < sc.RR(); ++r)
               sc(0, idx, r) = interior ? (b + 1.0) : 0.0;
@@ -304,7 +307,6 @@ TEST_CASE("TT Send/Receive/Set exchanges ghost data between blocks",
         });
 
     const auto &bi = cache.bnd_info_h;
-    const int ni = cache.ni, nj = cache.nj;
     auto bnd_info = cache.bnd_info;
     for (std::size_t e = 0; e < bi.extent(0); ++e) {
       REQUIRE(src_block[e] >= 0);
@@ -320,11 +322,12 @@ TEST_CASE("TT Send/Receive/Set exchanges ghost data between blocks",
             auto &core0 = pack(0, 0, 0); // spatial
             auto &core1 = pack(0, 0, 1); // NTHETA
             auto &core2 = pack(0, 0, 2); // NPHI
+            const auto &idxer = pack.indexer(0);
             const auto &recv = bnd_info(ee).recv;
             const int ncell = static_cast<int>(recv.size());
             for (int c = 0; c < ncell; ++c) {
               const auto [tr, ur, vr, kr, jr, ir] = recv(c);
-              const int dst_idx = (kr * nj + jr) * ni + ir;
+              const int dst_idx = idxer.GetFlatIdx(tr, ur, vr, kr, jr, ir);
               // Reconstruct the field value at (dst_idx, theta=0, phi=0) by contracting the
               // train, so it is correct regardless of the post-sum rank structure.
               double val = 0.0;

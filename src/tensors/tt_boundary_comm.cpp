@@ -69,16 +69,6 @@ void BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md, TTBoundaryCache *cach
   cache->bnd_info = TTBndInfoArr_t(ViewOfViewAlloc("tt_bnd_info"), nbound);
   cache->bnd_info_h = create_view_of_view_mirror(cache->bnd_info);
 
-  // Whole-block (entire, incl. ghosts) spatial extents for flattening (k, j, i) to the
-  // spatial-core index. Mesh-wide (every block shares the same cell shape).
-  if (md->NumBlocks() > 0) {
-    const auto shapes =
-        CalcIndexShapes(BlockInfo(md->GetBlockData(0)->GetBlockPointer()).block_size, ml);
-    const IndexShape &cb = shapes[0];
-    cache->ni = cb.ncellsi(IndexDomain::entire);
-    cache->nj = cb.ncellsj(IndexDomain::entire);
-  }
-
   int ibound = 0;
   ForEachBoundary<BoundaryType::any>(
       md, [&](auto pmb, auto /*rc*/, const NeighborBlock &nb, auto v) {
@@ -128,8 +118,6 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
   auto pack_src = HostPack::FromPointers(src).MakeDevicePack();
   auto pack_out = HostPack::FromSharedPtrs(out).MakeDevicePack();
   auto bnd_info = cache.bnd_info;
-  const int ni_dev = cache.ni;
-  const int nj_dev = cache.nj;
 
   // One launch over all boundaries: zero the addend's spatial core, then place each sender
   // interior cell into the corresponding receiver ghost cell (send-cell e -> recv-cell e),
@@ -142,6 +130,7 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int e) {
         auto &sc_src = pack_src(e, 0, 0);
         auto &sc_out = pack_out(e, 0, 0);
+        const auto &idxer = pack_out.indexer(0);
         const auto &send = bnd_info(e).send;
         const auto &recv = bnd_info(e).recv;
         const int ncell = static_cast<int>(send.size());
@@ -152,8 +141,8 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
           parthenon::par_for_inner(member, 0, ncell - 1, [&](const int c) {
             const auto [ts, us, vs, ks, js, is] = send(c);
             const auto [tr, ur, vr, kr, jr, ir] = recv(c);
-            const int src_idx = (ks * nj_dev + js) * ni_dev + is;
-            const int dst_idx = (kr * nj_dev + jr) * ni_dev + ir;
+            const int src_idx = idxer.GetFlatIdx(ts, us, vs, ks, js, is);
+            const int dst_idx = idxer.GetFlatIdx(tr, ur, vr, kr, jr, ir);
             sc_out(0, dst_idx, r) = sc_src(0, src_idx, r);
           });
           member.team_barrier();
