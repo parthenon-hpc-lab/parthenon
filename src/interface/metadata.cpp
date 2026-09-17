@@ -353,8 +353,7 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
     PARTHENON_REQUIRE_THROWS(!wpmb.expired(),
                              "Cannot determine array dimensions for mesh-tied entity "
                              "without a valid meshblock");
-    auto pmb = wpmb.lock();
-    return GetArrayDims(wpmb.lock(), coarse);
+    return GetArrayDims(wpmb.lock().get(), coarse);
   } else {
     return GetArrayDims(nullptr, coarse);
   }
