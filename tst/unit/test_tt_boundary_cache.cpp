@@ -101,8 +101,8 @@ TEST_CASE("TT boundary cache maps interior cells to ghost cells", "[TTField][mes
     return i >= is && i <= ie && j >= js && j <= je;
   };
 
+  BuildTTBoundaryCache(md);
   auto &cache = md->GetBoundaryCache();
-  BuildTTBoundaryCache(md, &cache);
   const auto &bi = cache.bnd_info_h;
 
   // Spatial-core logical indexer flattens a (comp.., k, j, i) cell to its physical index,
@@ -152,8 +152,8 @@ TEST_CASE("BuildBoundaryTensors gathers interior cells into the addend ghost lay
   auto partition = mesh->GetDefaultBlockPartitions()[0];
   auto md = mesh->tt_data.Add("base", partition);
 
+  BuildTTBoundaryCache(md);
   auto &cache = md->GetBoundaryCache();
-  BuildTTBoundaryCache(md, &cache);
   const int nbound = static_cast<int>(cache.bnd_info_h.extent(0));
   REQUIRE(nbound > 0);
 
@@ -241,8 +241,8 @@ TEST_CASE("TT Send/Receive/Set exchanges ghost data between blocks",
   auto partition = mesh->GetDefaultBlockPartitions()[0];
   auto md = mesh->tt_data.Add("base", partition);
 
+  BuildTTBoundaryCache(md);
   auto &cache = md->GetBoundaryCache();
-  BuildTTBoundaryCache(md, &cache);
 
   auto pmb0 = md->GetBlockData(0)->GetBlockPointer();
 
@@ -283,7 +283,7 @@ TEST_CASE("TT Send/Receive/Set exchanges ghost data between blocks",
   }
 
   // Run one exchange.
-  parthenon::TTSend(md, cache, /*eps=*/1.0e-12);
+  parthenon::TTSend(md, /*eps=*/1.0e-12);
   REQUIRE(parthenon::TTReceive(md) == parthenon::TaskStatus::complete);
   parthenon::TTSetBounds(md, /*eps=*/1.0e-12);
 

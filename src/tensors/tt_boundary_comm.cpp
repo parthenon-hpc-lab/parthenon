@@ -58,12 +58,12 @@ int CountBoundaries(std::shared_ptr<MeshTTData> &md) {
 // by SendKey) and the send/recv index boxes needed to build the addend, packed into a flat
 // device array for one batched launch. The set side needs no cache (it looks up its
 // channel inline by ReceiveKey), so only this send cache exists.
-TaskStatus BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md, TTBoundaryCache *cache) {
+TaskStatus BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md) {
   using namespace loops;
   Mesh *pmesh = md->GetMeshPointer();
   const bool ml = pmesh->multilevel;
   const int id = 0; // single TT comm channel set for now
-
+  TTBoundaryCache *cache = &md->GetBoundaryCache();
   const int nbound = CountBoundaries(md);
   cache->clear();
   cache->channels.reserve(nbound);
@@ -244,7 +244,8 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
   return out;
 }
 
-TaskStatus TTSend(std::shared_ptr<MeshTTData> &md, TTBoundaryCache &cache, Real eps) {
+TaskStatus TTSend(std::shared_ptr<MeshTTData> &md, Real eps) {
+  TTBoundaryCache &cache = md->GetBoundaryCache();
   auto addends = BuildBoundaryTensors(md, cache);
   const int nbound = static_cast<int>(addends.size());
   if (nbound == 0) return TaskStatus::complete;

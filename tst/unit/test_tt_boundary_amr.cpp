@@ -107,8 +107,8 @@ TEST_CASE("TT boundary comm preserves a constant field across refined interfaces
   auto partition = mesh->GetDefaultBlockPartitions()[0];
   auto md = mesh->tt_data.Add("base", partition);
 
+  BuildTTBoundaryCache(md);
   auto &cache = md->GetBoundaryCache();
-  BuildTTBoundaryCache(md, &cache);
   const int nbound = static_cast<int>(cache.bnd_info_h.extent(0));
   REQUIRE(nbound > 0);
 
@@ -230,7 +230,7 @@ TEST_CASE("TT boundary comm preserves a constant field across refined interfaces
   }
 
   // Run one exchange.
-  parthenon::TTSend(md, cache, /*eps=*/1.0e-12);
+  parthenon::TTSend(md, /*eps=*/1.0e-12);
   REQUIRE(parthenon::TTReceive(md) == parthenon::TaskStatus::complete);
   parthenon::TTSetBounds(md, /*eps=*/1.0e-12);
 
