@@ -284,7 +284,7 @@ TEST_CASE("TT Send/Receive/Set exchanges ghost data between blocks",
 
   // Run one exchange.
   parthenon::TTSend(md, cache, /*eps=*/1.0e-12);
-  REQUIRE(parthenon::TTReceive(md));
+  REQUIRE(parthenon::TTReceive(md) == parthenon::TaskStatus::complete);
   parthenon::TTSetBounds(md, /*eps=*/1.0e-12);
 
   // For each boundary, the receiving block's ghost cells that receive from neighbor nb

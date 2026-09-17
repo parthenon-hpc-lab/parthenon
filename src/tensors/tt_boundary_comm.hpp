@@ -31,7 +31,7 @@ namespace parthenon {
 // a single flat device array for one batched Send launch. Identity-transform, same-level
 // boundaries only for now (Step 6 scope); asserts otherwise. Rebuilds when the mesh
 // channel-map epoch has advanced (i.e. after (re)mesh).
-void BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md, TTBoundaryCache *cache);
+TaskStatus BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md, TTBoundaryCache *cache);
 
 // Build the boundary "addend" trains: one whole-block train per cached boundary, holding
 // the sending block's field on the *receiver's* index space (its interior cells gathered
@@ -49,13 +49,13 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
 // by ReceiveKey: Set is a pure additive combine that sums each received addend into the
 // destination block's train, rounds once per block, and stales the channel -- no index
 // math on the receive side. The cache must be current (BuildTTBoundaryCache after (re)mesh).
-void TTSend(std::shared_ptr<MeshTTData> &md, TTBoundaryCache &cache, Real round_eps);
+TaskStatus TTSend(std::shared_ptr<MeshTTData> &md, TTBoundaryCache &cache, Real round_eps);
 
 // Try to receive every boundary's addend. Returns true once all receive channels have
 // deposited (single rank: complete after the matching TTSend). Idempotent.
-bool TTReceive(std::shared_ptr<MeshTTData> &md);
+TaskStatus TTReceive(std::shared_ptr<MeshTTData> &md);
 
-void TTSetBounds(std::shared_ptr<MeshTTData> &md, Real round_eps);
+TaskStatus TTSetBounds(std::shared_ptr<MeshTTData> &md, Real round_eps);
 
 } // namespace parthenon
 

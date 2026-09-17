@@ -58,7 +58,7 @@ int CountBoundaries(std::shared_ptr<MeshTTData> &md) {
 // by SendKey) and the send/recv index boxes needed to build the addend, packed into a flat
 // device array for one batched launch. The set side needs no cache (it looks up its
 // channel inline by ReceiveKey), so only this send cache exists.
-void BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md, TTBoundaryCache *cache) {
+TaskStatus BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md, TTBoundaryCache *cache) {
   using namespace loops;
   Mesh *pmesh = md->GetMeshPointer();
   const bool ml = pmesh->multilevel;
@@ -109,6 +109,8 @@ void BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md, TTBoundaryCache *cach
 
   Kokkos::deep_copy(cache->bnd_info, cache->bnd_info_h);
   cache->epoch = pmesh->tt_comm_map.GetCurrentEpoch();
+
+  return TaskStatus::complete;
 }
 
 std::vector<std::shared_ptr<tensor2::TensorTrain>>
@@ -242,10 +244,10 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
   return out;
 }
 
-void TTSend(std::shared_ptr<MeshTTData> &md, TTBoundaryCache &cache, Real eps) {
+TaskStatus TTSend(std::shared_ptr<MeshTTData> &md, TTBoundaryCache &cache, Real eps) {
   auto addends = BuildBoundaryTensors(md, cache);
   const int nbound = static_cast<int>(addends.size());
-  if (nbound == 0) return;
+  if (nbound == 0) return TaskStatus::complete;
 
   // Round each addend to keep ranks bounded before shipping.
   auto pack = tensor2::TensorTrainHostPackT<DefaultTTraits>::FromSharedPtrs(addends);
@@ -254,9 +256,11 @@ void TTSend(std::shared_ptr<MeshTTData> &md, TTBoundaryCache &cache, Real eps) {
   // Deposit each addend into its send channel.
   for (int e = 0; e < nbound; ++e)
     cache.channels[e]->Send(addends[e]);
+
+  return TaskStatus::complete;
 }
 
-bool TTReceive(std::shared_ptr<MeshTTData> &md) {
+TaskStatus TTReceive(std::shared_ptr<MeshTTData> &md) {
   using namespace loops;
   Mesh *pmesh = md->GetMeshPointer();
   const int id = 0;
@@ -266,10 +270,11 @@ bool TTReceive(std::shared_ptr<MeshTTData> &md) {
         auto &chan = pmesh->tt_comm_map[ReceiveKey(pmb, nb, v, BoundaryType::any, id)];
         all = chan.TryReceive() && all;
       });
-  return all;
+  if (all) return TaskStatus::complete;
+  return TaskStatus::incomplete;
 }
 
-void TTSetBounds(std::shared_ptr<MeshTTData> &md, Real eps) {
+TaskStatus TTSetBounds(std::shared_ptr<MeshTTData> &md, Real eps) {
   using namespace loops;
   using train_t = tensor2::TensorTrain;
   Mesh *pmesh = md->GetMeshPointer();
@@ -295,6 +300,7 @@ void TTSetBounds(std::shared_ptr<MeshTTData> &md, Real eps) {
 
   // Round every block's fields once now that all addends are summed in.
   tensor2::RoundGramSVD(md.get(), eps);
+  return TaskStatus::complete;
 }
 
 } // namespace parthenon

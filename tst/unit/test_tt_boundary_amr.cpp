@@ -231,7 +231,7 @@ TEST_CASE("TT boundary comm preserves a constant field across refined interfaces
 
   // Run one exchange.
   parthenon::TTSend(md, cache, /*eps=*/1.0e-12);
-  REQUIRE(parthenon::TTReceive(md));
+  REQUIRE(parthenon::TTReceive(md) == parthenon::TaskStatus::complete);
   parthenon::TTSetBounds(md, /*eps=*/1.0e-12);
 
   // After the additive combine + rounding, no cell of any block may hold a wrong non-zero
