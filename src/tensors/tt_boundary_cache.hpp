@@ -32,6 +32,50 @@ class TTCommChannel;
 
 enum class BoundaryRelation {same, f2c, c2f};
 
+// Uniform 2:1 coarse<->fine cell map for a boundary's spatial core. A coarse cell covers a
+// 2^d block of fine cells; the coarse buffer and the full-resolution train both anchor their
+// interior at Globals::nghost, so a coarse logical index c maps to fine base 2*(c - ng) + ng
+// in each refined direction (identity in symmetry directions, where the coarse and fine
+// extents coincide and the refinement factor is 1). Built once per cross-level boundary in
+// BuildTTBoundaryCache and stored on TTBndInfo. Kept as a small device-callable struct --
+// ghost anchor plus a per-direction refinement factor, with a functor-driven iterator over
+// the fine cells under one coarse (k, j, i) -- so a coordinate-aware operator can be dropped
+// in later without touching the kernels. (The per-direction factors are redundant with the
+// spatial-core extents today, but will diverge for non-cell-centered fields.)
+struct CoarseFineMap {
+  int ng{0};                     // interior anchor (ghost count), shared by coarse and fine
+  int rfk{1}, rfj{1}, rfi{1};    // per-direction refinement factor (1 in symmetry dirs, 2 else)
+
+  KOKKOS_DEFAULTED_FUNCTION CoarseFineMap() = default;
+
+  // Number of fine cells under one coarse cell (2^d).
+  KOKKOS_FORCEINLINE_FUNCTION int NumFine() const { return rfk * rfj * rfi; }
+
+  // Invoke fn(kf, jf, if) for each fine cell under coarse cell (kc, jc, ic).
+  template <class Fn>
+  KOKKOS_FORCEINLINE_FUNCTION void ForEachFine(int kc, int jc, int ic, Fn &&fn) const {
+    const int kf0 = rfk == 2 ? 2 * (kc - ng) + ng : kc;
+    const int jf0 = rfj == 2 ? 2 * (jc - ng) + ng : jc;
+    const int if0 = rfi == 2 ? 2 * (ic - ng) + ng : ic;
+    for (int ok = 0; ok < rfk; ++ok)
+      for (int oj = 0; oj < rfj; ++oj)
+        for (int oi = 0; oi < rfi; ++oi)
+          fn(kf0 + ok, jf0 + oj, if0 + oi);
+  }
+
+  // Build from the mesh dimensionality: directions are active (and so 2:1 refined) in a
+  // contiguous block from x1, so x1 (i) is refined for ndim >= 1, x2 (j) for ndim >= 2, and
+  // x3 (k) for ndim >= 3. Symmetry directions keep factor 1.
+  static CoarseFineMap FromNDim(int ndim, int ng) {
+    CoarseFineMap m;
+    m.ng = ng;
+    m.rfi = ndim >= 1 ? 2 : 1;
+    m.rfj = ndim >= 2 ? 2 : 1;
+    m.rfk = ndim >= 3 ? 2 : 1;
+    return m;
+  }
+};
+
 // One boundary's device-resident index info, analogous to a regular-field BndInfo but for
 // the whole-block spatial core of a tensor train. Fixed size (two indexers + block
 // extents), so an array of these packs into a single flat view for one batched launch.
@@ -47,6 +91,8 @@ struct TTBndInfo {
   SpatiallyMaskedIndexer6D recv;
   SpatiallyMaskedIndexer6D prores;
   BoundaryRelation btype;
+  // Coarse<->fine cell map for cross-level boundaries (unused for same-level).
+  CoarseFineMap cfmap;
   // Sender->neighbor logical coordinate transformation. Identity for same-tree
   // boundaries; for a rotated/flipped cross-tree boundary the set kernel applies its
   // InverseTransform to the recv cell before writing (as regular-field comm does), so the

@@ -20,6 +20,7 @@
 #include "bvals/comms/bvals_utils.hpp"
 #include "bvals/comms/calc_indices.hpp"
 #include "bvals/neighbor_block.hpp"
+#include "globals.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
@@ -96,11 +97,12 @@ void BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md, TTBoundaryCache *cach
                                     IndexRangeType::BoundaryInteriorSend, true);
         } else if (NeighborIsFiner(binfo, nb)) {
           info.btype = BoundaryRelation::c2f;
-          info.prores = CalcIndices(nb, binfo, ml, v, te,
+          info.prores = CalcIndices(rev, other, ml, v, te,
                                     IndexRangeType::BoundaryExteriorRecv, true);
         } else {
           info.btype = BoundaryRelation::same;
         }
+        info.cfmap = CoarseFineMap::FromNDim(pmesh->ndim, Globals::nghost);
         cache->bnd_info_h(ibound) = info;
         ++ibound;
       });
@@ -153,19 +155,20 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
             const auto &idxerp = info.prores;
             const auto &idxerf = pack_src.indexer(0);
             const auto &idxerc = pack_coarse.indexer(0);
-            // TODO: Finish the indexing for restriction here
+            const auto &cfmap = info.cfmap;
+            const Real winv = 1.0 / cfmap.NumFine();
             for (int r = 0; r < sc_out.RR(); ++r) {
-              parthenon::par_for_inner(member, 0, idxerp.size() - 1, [&](const int idx) { 
+              parthenon::par_for_inner(member, 0, sc_out.DD() - 1,
+                                       [&](const int idx) { sc_out(0, idx, r) = 0.0; });
+              member.team_barrier();
+              parthenon::par_for_inner(member, 0, idxerp.size() - 1, [&](const int idx) {
                 const auto [t, u, v, kc, jc, ic] = idxerp(idx);
                 const auto coarse_idx = idxerc.GetFlatIdx(t, u, v, kc, jc, ic);
-                sc_out(0, coarse_idx, r) = 0.0;
-                // TODO: Need a way to map from coarse indices to fine indices, below is wrong
-                // For Each fine cell in kc 
-                const int kfine = kc;
-                const int jfine = jc;
-                const int ifine = ic;
-                const auto fine_idx = idxerf.GetFlatIdx(t, u, v, kfine, jfine, ifine);
-                sc_out(0, coarse_idx, r) += sc_src(0, fine_idx, r);
+                Real sum = 0.0;
+                cfmap.ForEachFine(kc, jc, ic, [&](int kf, int jf, int iff) {
+                  sum += sc_src(0, idxerf.GetFlatIdx(t, u, v, kf, jf, iff), r);
+                });
+                sc_out(0, coarse_idx, r) = winv * sum;
               });
               member.team_barrier();
             }
@@ -203,7 +206,6 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
       });
 
   // Prolongate on c2f blocks
-  // TODO: Implement
   {
     constexpr int unused_scratch_size = 0;
     constexpr int unused_scratch_level = 1;
@@ -218,23 +220,18 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
             const auto &idxerf = pack_out.indexer(0);
             const auto &idxerc = pack_coarse.indexer(0);
             for (int r = 0; r < sc_out.RR(); ++r) {
-              // Zero the spatial core of the output train, since we copied the source 
-              // train
               parthenon::par_for_inner(member, 0, idxerf.size() - 1, [&](const int idx){
                 sc_out(0, idx, r) = 0.0;
               });
               member.team_barrier();
 
-              parthenon::par_for_inner(member, 0, idxerp.size() - 1, [&](const int idx) { 
+              parthenon::par_for_inner(member, 0, idxerp.size() - 1, [&](const int idx) {
                 const auto [t, u, v, kc, jc, ic] = idxerp(idx);
                 const auto coarse_idx = idxerc.GetFlatIdx(t, u, v, kc, jc, ic);
-                // TODO: Need a way to map from coarse indices to fine indices, below is wrong
-                // For Each fine cell in kc 
-                const int kfine = kc;
-                const int jfine = jc;
-                const int ifine = ic;
-                const auto fine_idx = idxerf.GetFlatIdx(t, u, v, kfine, jfine, ifine);
-                sc_out(0, fine_idx, r) = sc_src(0, coarse_idx, r);
+                const Real cval = sc_src(0, coarse_idx, r);
+                info.cfmap.ForEachFine(kc, jc, ic, [&](int kf, int jf, int iff) {
+                  sc_out(0, idxerf.GetFlatIdx(t, u, v, kf, jf, iff), r) = cval;
+                });
               });
               member.team_barrier();
             }
