@@ -1,0 +1,20 @@
+/* Enable word wrap in table cells */
+
+/* JMM: This is preferable IMO but it messed up the word wrapping for
+ * our hand-written tables, so I removed it and enabled wrapping only
+ * for csv-imported tables
+ */
+/*
+.rst-content table.docutils td {
+  white-space: normal !important;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+*/
+/* Only apply word wrapping to CSV-imported tables with .csv-wrap class */
+.rst-content table.csv-wrap td {
+  white-space: normal !important;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
