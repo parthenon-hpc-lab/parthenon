@@ -152,21 +152,23 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     }
   }
 
-  // Check swarms compatibility
-  if (!resolved_packages->AllSwarms().empty()) {
-    const bool single_pack_per_rank =
-        use_pack_size_ ? default_pack_size_ < 1 : default_num_packs_ == 1;
-    PARTHENON_REQUIRE(single_pack_per_rank,
-                      "Swarms require parthenon/mesh/pack_size=-1 or packs_per_rank=1.");
-    if constexpr (!std::is_same_v<Coordinates_t, UniformCartesian>) {
-      if (Globals::my_rank == 0) {
-        PARTHENON_WARN("Parthenon swarm infrastructure assumes a uniform mesh in native "
-                       "(x1, x2, x3) coordinates. Treat swarm.{x,y,z} as {x1,x2,x3} when "
-                       "calling utilities such as Xtoijk and during automatic remeshing "
-                       "triggered by AMR refinement or coarsening.");
-      }
-    }
-  }
+  // Swarms developer warnings
+  // if (!resolved_packages->AllSwarms().empty()) {
+  //   const bool single_pack_per_rank =
+  //       use_pack_size_ ? default_pack_size_ < 1 : default_num_packs_ == 1;
+  //   PARTHENON_DEBUG_WARN(single_pack_per_rank,
+  //                        "TaskCollections operating on swarms always require a "
+  //                        "single partition, independent of pack_size.");
+  //   if constexpr (!std::is_same_v<Coordinates_t, UniformCartesian>) {
+  //     if (Globals::my_rank == 0) {
+  //       PARTHENON_DEBUG_WARN(
+  //           "Parthenon swarm infrastructure assumes a uniform mesh in native "
+  //           "(x1, x2, x3) coordinates. Treat swarm.{x,y,z} as {x1,x2,x3} when "
+  //           "calling utilities such as Xtoijk and during automatic remeshing "
+  //           "triggered by AMR refinement or coarsening.");
+  //     }
+  //   }
+  // }
 
   // Allow for user overrides to default Parthenon functions
   if (app_in->InitUserMeshData != nullptr) {
