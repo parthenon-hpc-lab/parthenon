@@ -582,6 +582,10 @@ class MeshBlockData {
   }
 
   bool IsShallow() const { return is_shallow_; }
+  void SetBoundaryCommunicationOverride(bool value) {
+    boundary_communication_override_ = value;
+  }
+  bool BoundaryCommunicationOverride() const { return boundary_communication_override_; }
 
  private:
   void AddField(const std::string &base_name, const Metadata &metadata,
@@ -600,6 +604,7 @@ class MeshBlockData {
   std::weak_ptr<MeshBlock> pmy_block;
   std::shared_ptr<StateDescriptor> resolved_packages;
   bool is_shallow_ = false;
+  bool boundary_communication_override_ = false;
   const std::string stage_name_;
 
   VariableVector<T> varVector_; ///< the saved variable array

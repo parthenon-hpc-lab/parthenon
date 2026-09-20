@@ -384,6 +384,7 @@ class Mesh {
   std::shared_ptr<CoalescedComms> pcoalesced_comms;
 
   bool TryReallocCommBufferPools();
+  void CommunicateBoundariesForFields(const std::vector<std::string> &fields);
 
 #ifdef MPI_PARALLEL
   MPI_Comm GetMPIComm(const std::string &label) const { return mpi_comm_map_.at(label); }

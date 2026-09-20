@@ -23,6 +23,7 @@
 #include <exception>
 #include <iostream>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -33,6 +34,7 @@
 
 #include "amr_criteria/amr_criteria.hpp"
 #include "amr_criteria/refinement_package.hpp"
+#include "coordinates/coordinates.hpp"
 #include "config.hpp"
 #include FS_HEADER
 #include "globals.hpp"
@@ -110,7 +112,9 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   // If restart, then ParameterInput in the restart file takes precedence.
   if (arg.is_restart) {
     // Read input from restart file
-    if (fs::path(arg.restart_filename).extension() == ".rhdf") {
+    const auto extension = fs::path(arg.restart_filename).extension();
+    if (extension == ".rhdf" || extension == ".phdf" || extension == ".hdf5" ||
+        extension == ".h5") {
 #ifdef ENABLE_HDF5
       restartReader = std::make_unique<RestartReaderHDF5>(arg.restart_filename);
 #else // HDF5 disabled
@@ -131,16 +135,38 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
       PARTHENON_FAIL("Unsupported restart file format.");
     }
 
-    // Load input stream
-    pinput = std::make_unique<ParameterInput>();
-    auto inputString = restartReader->GetInputString();
-    std::istringstream is(inputString);
-    pinput->LoadFromStream(is);
+    if (arg.analysis_flag) {
+      const auto output_mode = restartReader->GetOutputMode();
+      if (output_mode == RestartReader::OutputMode::data ||
+          output_mode == RestartReader::OutputMode::core) {
+        analysis_data_ = true;
+      } else if (output_mode == RestartReader::OutputMode::slice) {
+        PARTHENON_FAIL("Analysis loading from sliced HDF5 outputs is not supported.");
+      } else if (output_mode == RestartReader::OutputMode::unknown &&
+                 extension != ".rhdf") {
+        analysis_data_ = true;
+        if (Globals::my_rank == 0) {
+          PARTHENON_WARN("HDF5 file does not contain OutputMode metadata; treating the "
+                         "non-.rhdf analysis input as a data dump.");
+        }
+      }
+      PARTHENON_REQUIRE_THROWS(
+          !analysis_data_ || arg.input_filename != nullptr,
+          "Analysis loading from an HDF5 data dump requires '-i <analysis input file>'.");
+    }
+
+    if (!analysis_data_) {
+      // Load input stream
+      pinput = std::make_unique<ParameterInput>();
+      auto inputString = restartReader->GetInputString();
+      std::istringstream is(inputString);
+      pinput->LoadFromStream(is);
+    }
   }
   // If an input file was provided
   if (arg.input_filename != nullptr) {
     // Modify info read from restart file
-    if (arg.is_restart) {
+    if (arg.is_restart && !analysis_data_) {
       IOWrapper infile;
       infile.Open(arg.input_filename, IOWrapper::FileMode::read);
       pinput->LoadFromFile(infile);
@@ -223,6 +249,30 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
   } else {
     // Open restart file
     // Read Mesh from restart file and create meshblocks
+    if (analysis_data_) {
+      const auto mesh_info = restartReader->GetMeshInfo();
+      const auto input_nx2 = pinput->DoesParameterExist("parthenon/mesh", "nx2")
+                                 ? pinput->GetInteger("parthenon/mesh", "nx2")
+                                 : 1;
+      const auto input_nx3 = pinput->DoesParameterExist("parthenon/mesh", "nx3")
+                                 ? pinput->GetInteger("parthenon/mesh", "nx3")
+                                 : 1;
+      const int input_ndim = 1 + (input_nx2 > 1) + (input_nx3 > 1);
+      PARTHENON_REQUIRE_THROWS(
+          mesh_info.ndim == input_ndim,
+          "Analysis mesh dimensionality mismatch: file has " +
+              std::to_string(mesh_info.ndim) + " dimensions, input requests " +
+              std::to_string(input_ndim) + ".");
+      PARTHENON_REQUIRE_THROWS(
+          mesh_info.coordinates == Coordinates_t::name_,
+          "Analysis coordinate-system mismatch: file uses '" + mesh_info.coordinates +
+              "', executable/input uses '" + Coordinates_t::name_ + "'.");
+      PARTHENON_REQUIRE_THROWS(
+          mesh_info.n_ghost == Globals::nghost,
+          "Analysis ghost-width mismatch: file was written with nghost=" +
+              std::to_string(mesh_info.n_ghost) + ", input requests nghost=" +
+              std::to_string(Globals::nghost) + ".");
+    }
     pmesh =
         std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader, packages);
 
@@ -237,12 +287,12 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     int ncycle = time_info.ncycle;
     pinput->SetInteger("parthenon/time", "ncycle", ncycle);
 
-    // Read package data from restart file
-    RestartPackages(*pmesh, *restartReader);
+    // Restart data must be present before the normal restart initialization path.
+    if (!analysis_data_) RestartPackages(*pmesh, *restartReader);
 
     // close hdf5 file to prevent HDF5 hangs and corrupted files
     // if code dies after restart
-    restartReader = nullptr;
+    if (!analysis_data_) restartReader = nullptr;
   }
 
   // add root_level to all max_level
@@ -263,6 +313,18 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
   }
 
   pmesh->Initialize(!arg.is_restart, pinput.get(), app_input.get());
+
+  if (analysis_data_) {
+    RestartPackages(*pmesh, *restartReader, true);
+    pmesh->CommunicateBoundariesForFields(loaded_analysis_fields_);
+    if (Globals::my_rank == 0) {
+      std::cout << "Analysis load ghost-filled (" << loaded_analysis_fields_.size()
+                << "):";
+      for (const auto &name : loaded_analysis_fields_) std::cout << " " << name;
+      std::cout << std::endl;
+    }
+    restartReader = nullptr;
+  }
 
   ChangeRunDir(arg.prundir);
 }
@@ -286,11 +348,14 @@ ParthenonManager::ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin) {
   return packages;
 }
 
-void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
+void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile,
+                                       bool analysis_data) {
   // Restart packages with information for blocks in ids from the restart file
   // Assumption: blocks are contiguous in restart file, may have to revisit this.
-  const IndexDomain theDomain =
-      (resfile.HasGhost() != 0 ? IndexDomain::entire : IndexDomain::interior);
+  const IndexDomain theDomain = analysis_data
+                                    ? IndexDomain::interior
+                                    : (resfile.HasGhost() != 0 ? IndexDomain::entire
+                                                               : IndexDomain::interior);
   // Get block list and temp array size
   auto &mb = *(rm.block_list.front());
   int nb = rm.GetNumMeshBlocksThisRank(Globals::my_rank);
@@ -303,11 +368,26 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
   // Get list of variables, they are the same for all blocks (since all blocks have the
   // same variable metadata)
-  const auto indep_restart_vars =
-      GetAnyVariables(mb.meshblock_data.Get()->GetVariableVector(),
-                      {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
+  auto selected_vars = analysis_data
+                           ? mb.meshblock_data.Get()->GetVariableVector()
+                           : GetAnyVariables(
+                                 mb.meshblock_data.Get()->GetVariableVector(),
+                                 {parthenon::Metadata::Independent,
+                                  parthenon::Metadata::Restart});
+  std::set<std::string> file_fields;
+  std::set<std::string> registered_fields;
+  if (analysis_data) {
+    const auto names = resfile.GetFieldNames();
+    file_fields.insert(names.begin(), names.end());
+    VariableVector<Real> intersection;
+    for (const auto &var : selected_vars) {
+      registered_fields.insert(var->label());
+      if (file_fields.count(var->label()) != 0) intersection.push_back(var);
+    }
+    selected_vars = std::move(intersection);
+  }
   const auto all_vars_info =
-      OutputUtils::VarInfo::GetAll(indep_restart_vars, mb.cellbounds, mb.f_cellbounds);
+      OutputUtils::VarInfo::GetAll(selected_vars, mb.cellbounds, mb.f_cellbounds);
 
   const auto sparse_info = resfile.GetSparseInfo();
   // create map of sparse field labels to index in the SparseInfo table
@@ -344,9 +424,11 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   // need, for example if you're outputting a core dump, so we
   // complain only if the number of sparse varaibles required is
   // greater than the number in the file, not if it is less.
-  PARTHENON_REQUIRE_THROWS(
-      num_sparse <= sparse_info.num_sparse,
-      "Mismatch between sparse fields in simulation and restart file");
+  if (!analysis_data) {
+    PARTHENON_REQUIRE_THROWS(
+        num_sparse <= sparse_info.num_sparse,
+        "Mismatch between sparse fields in simulation and restart file");
+  }
   std::vector<Real> tmp(static_cast<std::size_t>(nb) * max_fillsize);
   for (const auto &v_info : all_vars_info) {
     const auto vlen = v_info.num_components * v_info.ntop_elems;
@@ -366,7 +448,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     // Read relevant data from the hdf file, this works for dense and sparse variables
     // because sparse variables are currently densely written for HDF5.
     try {
-      resfile.ReadBlocks(label, myBlocks, v_info, tmp, &rm);
+      resfile.ReadBlocks(label, myBlocks, v_info, tmp, &rm, analysis_data);
       // Variable does exist but could not be read. So we definitely want to fail here.
     } catch (std::exception &ex) {
       std::stringstream msg;
@@ -399,13 +481,36 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       // Double note that this also needs to be update in case
       // we update the OpenPMD/HDF5 infrastructure!
       OutputUtils::PackOrUnpackVar(
-          v_info, resfile.HasGhost() != 0, resfile.BlockdataIsPadded(), index,
+          v_info, !analysis_data && resfile.HasGhost() != 0,
+          resfile.BlockdataIsPadded(), index,
           [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
             v_h(topo, t, u, v, k, j, i) = tmp[index];
           });
 
       v->data.DeepCopy(v_h);
     }
+    if (analysis_data) loaded_analysis_fields_.push_back(label);
+  }
+
+  if (analysis_data) {
+    std::vector<std::string> missing, ignored;
+    for (const auto &name : registered_fields) {
+      if (file_fields.count(name) == 0) missing.push_back(name);
+    }
+    for (const auto &name : file_fields) {
+      if (registered_fields.count(name) == 0) ignored.push_back(name);
+    }
+    if (Globals::my_rank == 0) {
+      auto print_names = [](const char *label, const std::vector<std::string> &names) {
+        std::cout << "Analysis load " << label << " (" << names.size() << "):";
+        for (const auto &name : names) std::cout << " " << name;
+        std::cout << std::endl;
+      };
+      print_names("loaded", loaded_analysis_fields_);
+      print_names("missing", missing);
+      print_names("ignored", ignored);
+    }
+    return;
   }
 
   // Swarm data

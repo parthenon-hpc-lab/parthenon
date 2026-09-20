@@ -211,7 +211,9 @@ class TestManager:
         for opt in self.parameters.mpi_opts:
             run_command.extend(opt.split())
         run_command.append(self.parameters.driver_path)
-        if not "-r" in self.parameters.driver_cmd_line_args:
+        if not any(
+            option in self.parameters.driver_cmd_line_args for option in ("-r", "-a")
+        ):
             run_command.append("-i")
             run_command.append(self.parameters.driver_input_path)
         for arg in self.parameters.driver_cmd_line_args:

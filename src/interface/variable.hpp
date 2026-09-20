@@ -161,6 +161,9 @@ class Variable {
            IsSet(Metadata::ForceRemeshComm) || IsSet(Metadata::Flux) ||
            IsSet(Metadata::GMGRestrict) || IsSet(Metadata::GMGProlongate);
   }
+  void AllocateCoarseForCommunication(std::weak_ptr<MeshBlock> wpmb) {
+    AllocateCoarse(wpmb, true);
+  }
 
  private:
   // allocate data, fluxes, and boundary variable
@@ -176,7 +179,7 @@ class Variable {
 
   /// allocate fluxes (if Metadata::WithFluxes is set) and coarse data if
   /// (Metadata::FillGhost is set)
-  void AllocateCoarse(std::weak_ptr<MeshBlock> wpmb);
+  void AllocateCoarse(std::weak_ptr<MeshBlock> wpmb, bool force = false);
 
   VariableState MakeVariableState() const { return VariableState(m_, sparse_id_, dims_); }
 

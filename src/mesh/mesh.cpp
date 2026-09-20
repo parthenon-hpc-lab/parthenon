@@ -703,6 +703,67 @@ void Mesh::CommunicateBoundaries(std::string md_name,
                     "Boundary communication called internal by mesh failed.");
 }
 
+void Mesh::CommunicateBoundariesForFields(const std::vector<std::string> &fields) {
+  if (fields.empty() || GetNumMeshBlocksThisRank(Globals::my_rank) < 1) return;
+
+#ifdef MPI_PARALLEL
+  for (const auto &field : fields) {
+    if (mpi_comm_map_.count(field) == 0) {
+      MPI_Comm mpi_comm;
+      PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
+      mpi_comm_map_.insert({field, mpi_comm});
+    }
+  }
+#endif
+
+  constexpr const char *stage_name = "analysis_data_boundary_exchange";
+  for (auto &pmb : block_list) {
+    auto &base = pmb->meshblock_data.Get();
+    for (const auto &field : fields) {
+      auto var = base->GetVarPtr(field);
+      if (var->IsAllocated()) var->AllocateCoarseForCommunication(pmb);
+    }
+  }
+
+  tag_map.clear();
+  for (auto &partition : GetDefaultBlockPartitions()) {
+    auto &base = mesh_data.Add("base", partition);
+    auto &md = mesh_data.AddShallow(stage_name, base, fields);
+    md->SetBoundaryCommunicationOverride(true);
+    AddToTagMap<BoundaryType::any>(md);
+  }
+  tag_map.ResolveMap();
+
+  boundary_comm_map.clear();
+  pcoalesced_comms->clear();
+  auto &base_data = mesh_data.Add("base", GetBasePartition());
+  auto &comm_data = mesh_data.AddShallow(stage_name, base_data, fields);
+  comm_data->SetBoundaryCommunicationOverride(true);
+  BuildBoundaryBuffers(comm_data);
+  if (do_coalesced_comms) {
+    for (auto &partition : GetDefaultBlockPartitions()) {
+      auto &base = mesh_data.Add("base", partition);
+      auto &md = mesh_data.AddShallow(stage_name, base, fields);
+      RegisterCoalescedComms(md);
+    }
+    pcoalesced_comms->ResolveAndSendSendBuffers();
+    pcoalesced_comms->ReceiveBufferInfo();
+  }
+
+  const int num_partitions = DefaultNumPartitions();
+  TaskCollection tc;
+  TaskRegion &region = tc.AddRegion(num_partitions);
+  auto partitions = GetDefaultBlockPartitions();
+  for (int i = 0; i < num_partitions; i++) {
+    auto &base = mesh_data.Add("base", partitions[i]);
+    auto &md = mesh_data.AddShallow(stage_name, base, fields);
+    AddBoundaryExchangeTasks(TaskID(0), region[i], md, multilevel);
+  }
+  const auto status = tc.Execute(task_collection_timeout_in_seconds);
+  PARTHENON_REQUIRE(status == TaskListStatus::complete,
+                    "Explicit-field boundary communication failed.");
+}
+
 void Mesh::PreCommFillDerived() {
   const int num_partitions = DefaultNumPartitions();
   const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);

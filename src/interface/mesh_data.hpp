@@ -213,6 +213,13 @@ class MeshData {
   std::map<BoundaryType, int> bound_buffer_ids_{};
 
   const auto &StageName() const { return stage_name_; }
+  void SetBoundaryCommunicationOverride(bool value) {
+    boundary_communication_override_ = value;
+    for (auto &block_data : block_data_) {
+      block_data->SetBoundaryCommunicationOverride(value);
+    }
+  }
+  bool BoundaryCommunicationOverride() const { return boundary_communication_override_; }
 
   Mesh *GetMeshPointer() const { return pmy_mesh_; }
   auto GetParentPointer() const { return GetMeshPointer(); }
@@ -532,6 +539,7 @@ class MeshData {
   Mesh *pmy_mesh_;
   BlockDataList_t<T> block_data_;
   std::string stage_name_;
+  bool boundary_communication_override_ = false;
 
   // caches for packs
   MapToMeshBlockVarPack<T> varPackMap_;

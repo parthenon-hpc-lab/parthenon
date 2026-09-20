@@ -353,6 +353,26 @@ To use this restart file, simply specify the restart file with a
 and ``-i <input.in>`` are specified, the simulation will be restarted from
 the restart file with input parameters updated (or added) from the input file.
 
+HDF5 data and core files can also be loaded for analysis with
+``-a /PATH/TO/DATA_OUTPUT -i <analysis.in>``. In this mode, the dump supplies
+the mesh topology, simulation time, cycle, and field data, while the analysis
+input file supplies package registration, boundary conditions, and output
+configuration. Every registered field that is present in the dump is loaded,
+regardless of its ``Independent``, ``Restart``, or ``FillGhost`` metadata.
+Sparse allocation is restored for fields represented in the dump.
+
+Only field interiors are loaded from analysis data files. Any ghost values in
+the file are ignored. Parthenon regenerates same-level and coarse-fine ghosts
+for the loaded fields, and applies the physical boundary conditions configured
+by the analysis input file. User boundary callbacks must therefore handle every
+loaded field whose physical ghosts are needed by the analysis. Derived-field
+initialization callbacks are not run after the file data is loaded, so they
+cannot overwrite the authoritative dump values. Analysis mode exits after
+initialization and configured analysis work rather than evolving the mesh.
+
+Using ``-a`` with a restart file retains the restart loading behavior described
+above. Slice outputs cannot be used to reconstruct an analysis mesh.
+
 For physics developers: The fields to be output are automatically
 selected as all the variables that have either the ``Independent`` or
 ``Restart`` ``Metadata`` flags specified. No other intervention is
