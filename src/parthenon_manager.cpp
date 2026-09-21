@@ -155,18 +155,16 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
           "Analysis loading from an HDF5 data dump requires '-i <analysis input file>'.");
     }
 
-    if (!analysis_data_) {
-      // Load input stream
-      pinput = std::make_unique<ParameterInput>();
-      auto inputString = restartReader->GetInputString();
-      std::istringstream is(inputString);
-      pinput->LoadFromStream(is);
-    }
+    // Load input stream
+    pinput = std::make_unique<ParameterInput>();
+    auto inputString = restartReader->GetInputString();
+    std::istringstream is(inputString);
+    pinput->LoadFromStream(is);
   }
   // If an input file was provided
   if (arg.input_filename != nullptr) {
     // Modify info read from restart file
-    if (arg.is_restart && !analysis_data_) {
+    if (arg.is_restart) {
       IOWrapper infile;
       infile.Open(arg.input_filename, IOWrapper::FileMode::read);
       pinput->LoadFromFile(infile);

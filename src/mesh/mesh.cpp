@@ -721,6 +721,10 @@ void Mesh::CommunicateBoundariesForFields(const std::vector<std::string> &fields
     auto &base = pmb->meshblock_data.Get();
     for (const auto &field : fields) {
       auto var = base->GetVarPtr(field);
+      PARTHENON_REQUIRE_THROWS(
+          !var->IsSet(Metadata::None),
+          "Explicit boundary communication does not support Metadata::None field '" +
+              field + "'.");
       if (var->IsAllocated()) var->AllocateCoarseForCommunication(pmb);
     }
   }

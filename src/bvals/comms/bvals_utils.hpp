@@ -250,7 +250,8 @@ inline void RebuildBufferCache(std::shared_ptr<MeshData<Real>> md, int nbound,
         // RefinementFunctions_t owns all relevant functionality, so
         // only one ParArray2D needed.
         cache.prores_cache.RegisterRegionHost(ibuf, ProResInfoCreator(pmb, nb, v),
-                                              v.get(), pkg);
+                                              v.get(), pkg,
+                                              md->BoundaryCommunicationOverride());
 
         ++ibound;
       });
