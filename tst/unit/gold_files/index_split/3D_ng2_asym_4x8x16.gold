@@ -1,0 +1,12 @@
+# IndexSplit Gold File: 3D_ng2_asym_4x8x16
+# Config: ndim=3 nx=4,8,16 nghost=2 nkp=4 njp=2
+# Domain bounds: k=[2,17] j=[2,9] i=[2,5]
+outer_size=8
+p=0 k=[2,5] j=[2,5] i=[2,5] inner=[2,29] inner_size=28
+p=1 k=[2,5] j=[6,9] i=[2,5] inner=[2,29] inner_size=28
+p=2 k=[6,9] j=[2,5] i=[2,5] inner=[2,29] inner_size=28
+p=3 k=[6,9] j=[6,9] i=[2,5] inner=[2,29] inner_size=28
+p=4 k=[10,13] j=[2,5] i=[2,5] inner=[2,29] inner_size=28
+p=5 k=[10,13] j=[6,9] i=[2,5] inner=[2,29] inner_size=28
+p=6 k=[14,17] j=[2,5] i=[2,5] inner=[2,29] inner_size=28
+p=7 k=[14,17] j=[6,9] i=[2,5] inner=[2,29] inner_size=28
