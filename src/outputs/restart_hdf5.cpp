@@ -312,6 +312,13 @@ void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
             std::to_string(file_count[d]));
     if (interior_only) offset[d] = (file_count[d] - count[d]) / 2;
   }
+  if (interior_only && info.where != MetadataFlag(Metadata::None)) {
+    const auto [file_kb, file_jb, file_ib] = info.GetPaddedBoundsKJI(file_domain);
+    const auto [read_kb, read_jb, read_ib] = info.GetPaddedBoundsKJI(read_domain);
+    offset[file_total_dim - 3] = read_kb.s - file_kb.s;
+    offset[file_total_dim - 2] = read_jb.s - file_jb.s;
+    offset[file_total_dim - 1] = read_ib.s - file_ib.s;
+  }
 
   hsize_t total_count = 1;
   for (int i = 0; i < total_dim; ++i) {

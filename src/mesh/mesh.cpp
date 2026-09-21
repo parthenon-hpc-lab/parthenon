@@ -725,6 +725,10 @@ void Mesh::CommunicateBoundariesForFields(const std::vector<std::string> &fields
           !var->IsSet(Metadata::None),
           "Explicit boundary communication does not support Metadata::None field '" +
               field + "'.");
+      PARTHENON_REQUIRE_THROWS(
+          !var->IsSet(Metadata::Flux),
+          "Explicit boundary communication does not support Metadata::Flux field '" +
+              field + "'; flux fields use flux-correction communication.");
       if (var->IsAllocated()) var->AllocateCoarseForCommunication(pmb);
     }
   }
@@ -732,7 +736,7 @@ void Mesh::CommunicateBoundariesForFields(const std::vector<std::string> &fields
   tag_map.clear();
   for (auto &partition : GetDefaultBlockPartitions()) {
     auto &base = mesh_data.Add("base", partition);
-    auto &md = mesh_data.AddShallow(stage_name, base, fields);
+    auto &md = mesh_data.AddShallowWithoutFluxes(stage_name, base, fields);
     md->SetBoundaryCommunicationOverride(true);
     AddToTagMap<BoundaryType::any>(md);
   }
@@ -741,13 +745,14 @@ void Mesh::CommunicateBoundariesForFields(const std::vector<std::string> &fields
   boundary_comm_map.clear();
   pcoalesced_comms->clear();
   auto &base_data = mesh_data.Add("base", GetBasePartition());
-  auto &comm_data = mesh_data.AddShallow(stage_name, base_data, fields);
+  auto &comm_data =
+      mesh_data.AddShallowWithoutFluxes(stage_name, base_data, fields);
   comm_data->SetBoundaryCommunicationOverride(true);
   BuildBoundaryBuffers(comm_data);
   if (do_coalesced_comms) {
     for (auto &partition : GetDefaultBlockPartitions()) {
       auto &base = mesh_data.Add("base", partition);
-      auto &md = mesh_data.AddShallow(stage_name, base, fields);
+      auto &md = mesh_data.AddShallowWithoutFluxes(stage_name, base, fields);
       RegisterCoalescedComms(md);
     }
     pcoalesced_comms->ResolveAndSendSendBuffers();
@@ -760,7 +765,7 @@ void Mesh::CommunicateBoundariesForFields(const std::vector<std::string> &fields
   auto partitions = GetDefaultBlockPartitions();
   for (int i = 0; i < num_partitions; i++) {
     auto &base = mesh_data.Add("base", partitions[i]);
-    auto &md = mesh_data.AddShallow(stage_name, base, fields);
+    auto &md = mesh_data.AddShallowWithoutFluxes(stage_name, base, fields);
     AddBoundaryExchangeTasks(TaskID(0), region[i], md, multilevel);
   }
   const auto status = tc.Execute(task_collection_timeout_in_seconds);

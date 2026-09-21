@@ -129,14 +129,14 @@ class MeshBlockData {
   /// for non-OneCopy vars, but the data from src is not actually deep copied
   template <class SRC_t, typename ID_t = std::string>
   void Initialize(const std::shared_ptr<SRC_t> src, const std::vector<ID_t> &vars = {},
-                  const bool shallow_copy = false) {
-    Initialize(src->resolved_packages, src, vars, shallow_copy);
+                  const bool shallow_copy = false, const bool include_fluxes = true) {
+    Initialize(src->resolved_packages, src, vars, shallow_copy, include_fluxes);
   }
 
   template <class SRC_t, typename ID_t = std::string>
   void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages_in,
                   const std::shared_ptr<SRC_t> src, const std::vector<ID_t> &vars = {},
-                  const bool shallow_copy = false) {
+                  const bool shallow_copy = false, const bool include_fluxes = true) {
     if constexpr (!(std::is_same_v<SRC_t, MeshBlockData<Real>> ||
                     std::is_same_v<SRC_t, MeshBlock>)) {
       // We don't allow other types
@@ -194,7 +194,7 @@ class MeshBlockData {
           add_var(var);
           // Add the associated flux as well if not explicitly
           // asked for
-          if (var->IsSet(Metadata::WithFluxes)) {
+          if (include_fluxes && var->IsSet(Metadata::WithFluxes)) {
             auto flx_name = var->metadata().GetFluxName();
             bool found = false;
             for (const auto &v2 : vars) {
@@ -210,7 +210,7 @@ class MeshBlockData {
           AddField(vid.base_name, md, vid.sparse_id);
           // Add the associated flux as well if not explicitly
           // asked for
-          if (md.IsSet(Metadata::WithFluxes)) {
+          if (include_fluxes && md.IsSet(Metadata::WithFluxes)) {
             auto flx_vid = resolved_packages->GetFieldVarID(md.GetFluxName());
             bool found = false;
             for (const auto &v2 : vars)

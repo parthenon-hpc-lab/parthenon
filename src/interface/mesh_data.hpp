@@ -269,7 +269,8 @@ class MeshData {
 
   template <typename ID_t>
   void Initialize(const std::shared_ptr<BlockListPartition> &part,
-                  const std::vector<ID_t> &vars, const bool shallow) {
+                  const std::vector<ID_t> &vars, const bool shallow,
+                  const bool include_fluxes = true) {
     PARTHENON_REQUIRE(
         shallow == false,
         "Can't shallow copy when the source is not another MeshData object.");
@@ -277,14 +278,15 @@ class MeshData {
     auto &bl = part->block_list;
     block_data_.resize(bl.size());
     for (int i = 0; i < bl.size(); ++i)
-      block_data_[i] = bl[i]->meshblock_data.Add(stage_name_, bl[i], vars);
+      block_data_[i] = bl[i]->meshblock_data.Add(stage_name_, bl[i], vars, false,
+                                                 include_fluxes);
     grid = part->grid;
     partition = part->partition;
   }
 
   template <typename ID_t>
   void Initialize(std::shared_ptr<MeshData<T>> src, const std::vector<ID_t> &vars,
-                  const bool shallow) {
+                  const bool shallow, const bool include_fluxes = true) {
     if (src == nullptr) {
       PARTHENON_THROW("src points at null");
     }
@@ -294,7 +296,7 @@ class MeshData {
     for (int i = 0; i < nblocks; ++i) {
       auto pmbd = src->GetBlockData(i);
       block_data_[i] = pmbd->GetBlockSharedPointer()->meshblock_data.Add(
-          stage_name_, pmbd, vars, shallow);
+          stage_name_, pmbd, vars, shallow, include_fluxes);
     }
     grid = src->grid;
     partition = src->partition;

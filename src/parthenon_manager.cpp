@@ -314,12 +314,27 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
 
   if (analysis_data_) {
     RestartPackages(*pmesh, *restartReader, true);
-    pmesh->CommunicateBoundariesForFields(loaded_analysis_fields_);
+    std::vector<std::string> ghost_fill_fields;
+    std::vector<std::string> skipped_ghost_fill_fields;
+    for (const auto &name : loaded_analysis_fields_) {
+      const auto &metadata = pmesh->resolved_packages->GetFieldMetadata(name);
+      if (metadata.IsSet(Metadata::Flux)) {
+        skipped_ghost_fill_fields.push_back(name);
+      } else {
+        ghost_fill_fields.push_back(name);
+      }
+    }
+    pmesh->CommunicateBoundariesForFields(ghost_fill_fields);
     if (Globals::my_rank == 0) {
-      std::cout << "Analysis load ghost-filled (" << loaded_analysis_fields_.size()
-                << "):";
-      for (const auto &name : loaded_analysis_fields_) std::cout << " " << name;
+      std::cout << "Analysis load ghost-filled (" << ghost_fill_fields.size() << "):";
+      for (const auto &name : ghost_fill_fields) std::cout << " " << name;
       std::cout << std::endl;
+      if (!skipped_ghost_fill_fields.empty()) {
+        std::cout << "Analysis load ghost-fill skipped for flux fields ("
+                  << skipped_ghost_fill_fields.size() << "):";
+        for (const auto &name : skipped_ghost_fill_fields) std::cout << " " << name;
+        std::cout << std::endl;
+      }
     }
     restartReader = nullptr;
   }
