@@ -589,8 +589,11 @@ class MeshBlockData {
   }
 
   bool IsShallow() const { return is_shallow_; }
-  
+
   const auto &StageName() const { return stage_name_; }
+
+  // The set of variable uids this container was created from (empty means "all fields").
+  const std::set<Uid_t> &GetUidsCreatedFrom() const { return varUidIn_; }
 
  private:
   void AddField(const std::string &base_name, const Metadata &metadata,

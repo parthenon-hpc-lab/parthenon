@@ -127,9 +127,30 @@ class DataCollection {
   std::shared_ptr<T> &GetOrAdd(int gmg_level, const std::string &mbd_label,
                                const int &partition_id);
 
-  void clear() { containers_.clear(); }
+  void clear() {
+    containers_.clear();
+    name_creation_fields_.clear();
+  }
 
  private:
+  // Render a collection of variable uids as a readable "[name1, name2, ...]" string for
+  // diagnostics.
+  template <class Fields_t>
+  static std::string FieldsToString(const Fields_t &fields) {
+    using elem_t = typename Fields_t::value_type;
+    std::string out = "[";
+    bool first = true;
+    for (const auto &f : fields) {
+      if constexpr (std::is_same_v<elem_t, std::string>) {
+        out += (first ? "" : ", ") + f;
+      } else {
+        out += (first ? "" : ", ") + Variable<Real>::GetLabel(f);
+      }
+      first = false;
+    }
+    return out + "]";
+  }
+
   template <class SRC_t, class Fields_t>
   std::shared_ptr<T> &
   AddImpl(const std::string &name, const std::shared_ptr<SRC_t> &src,
@@ -143,7 +164,11 @@ class DataCollection {
       // containers built by hand or through a different DataCollection); an empty list
       // means "all fields"/"don't check" and always passes.
       if (fields.size() && !(it->second)->CreatedFrom(fields))
-        PARTHENON_THROW(key + " already exists in collection but fields do not match.");
+        PARTHENON_THROW("Container \"" + key +
+                        "\" already exists in collection but the requested field list " +
+                        FieldsToString(fields) +
+                        " does not match the list it was created from " +
+                        FieldsToString((it->second)->GetUidsCreatedFrom()) + ".");
       return it->second;
     }
 
@@ -188,10 +213,18 @@ class DataCollection {
     if (nit == name_creation_fields_.end()) {
       name_creation_fields_[name] = field_uids;
     } else if (!same_fields(field_uids, nit->second)) {
+      std::string src_label;
+      if constexpr (requires { src->StageName(); }) {
+        src_label = " (from source \"" + src->StageName() + "\")";
+      }
       PARTHENON_THROW(
           "Container \"" + name +
           "\" is being created from different field lists on different sources. All "
-          "instances sharing a name must be created from the same field list.");
+          "instances sharing a name must be created from the same field list. This "
+          "source" +
+          src_label + " requests " + FieldsToString(field_uids) +
+          " but the name was previously created from " + FieldsToString(nit->second) +
+          ".");
     }
 
     std::shared_ptr<T> c;
