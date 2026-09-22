@@ -146,9 +146,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
       return preconditioner.AddSetupTasks(tl, dependence, partition, pmesh);
     } else if (params_.precondition_type == Preconditioner::Diagonal) {
       auto partitions = pmesh->GetDefaultBlockPartitions();
-      auto &md =
-          pmesh->mesh_data.Add(container_base, partitions[partition],
-                               pmesh->mesh_data.GetCreationFields(container_base));
+      auto &md = pmesh->mesh_data.Add(container_base, partitions[partition],
+                                      pmesh->mesh_data.GetCreationFields(container_base));
       auto &md_diag = pmesh->mesh_data.Add(container_diag, md, sol_fields);
       return tl.AddTask(dependence, &equations_t::SetDiagonal, &eqs_, md, md_diag);
     } else {
