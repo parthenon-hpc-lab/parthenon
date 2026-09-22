@@ -770,6 +770,13 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
             (nmb != 0 && block_list[0]->PostProblemGenerator != nullptr)),
           "Mesh and MeshBlock PostProblemGenerators are defined. Please use only one.");
 
+      // Problem generation is repeated while initialization AMR resolves. Clear the
+      // particles remeshed from the preceding pass so this pass regenerates them rather
+      // than appending to them. Keep the allocated pools for reuse.
+      for (int i = 0; i < nmb; ++i) {
+        block_list[i]->meshblock_data.Get()->GetSwarmData()->ClearParticles();
+      }
+
       // Call Mesh ProblemGenerator
       if (ProblemGenerator != nullptr) {
         for (auto &partition : GetDefaultBlockPartitions()) {
