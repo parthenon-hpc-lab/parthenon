@@ -513,6 +513,13 @@ class MeshData {
                        [this, vars](const auto &b) { return b->CreatedFrom(vars); });
   }
 
+  // The set of variable uids this container was created from (empty means "all fields").
+  // All blocks share the same creation set by invariant, so the first block suffices.
+  const std::set<Uid_t> &GetUidsCreatedFrom() const {
+    static const std::set<Uid_t> empty;
+    return block_data_.empty() ? empty : block_data_.front()->GetUidsCreatedFrom();
+  }
+
   std::shared_ptr<SwarmContainer> GetSwarmData(int n) {
     PARTHENON_REQUIRE(n >= 0 && n < block_data_.size(),
                       "MeshData::GetSwarmData requires n within [0, block_data_.size()]");
