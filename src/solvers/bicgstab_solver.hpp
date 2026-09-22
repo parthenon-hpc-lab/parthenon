@@ -147,8 +147,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     } else if (params_.precondition_type == Preconditioner::Diagonal) {
       auto partitions = pmesh->GetDefaultBlockPartitions();
       auto &md =
-          pmesh->mesh_data.AddFromSet(container_base, partitions[partition],
-                                      pmesh->mesh_data.GetCreationFields(container_base));
+          pmesh->mesh_data.Add(container_base, partitions[partition],
+                               pmesh->mesh_data.GetCreationFields(container_base));
       auto &md_diag = pmesh->mesh_data.Add(container_diag, md, sol_fields);
       return tl.AddTask(dependence, &equations_t::SetDiagonal, &eqs_, md, md_diag);
     } else {
@@ -164,8 +164,8 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
     // Should contain all fields necessary for applying the matrix to a give state vector,
     // e.g. diffusion coefficients and diagonal, these will not be modified by the solvers
     auto &md_base =
-        pmesh->mesh_data.AddFromSet(container_base, partitions[partition],
-                                    pmesh->mesh_data.GetCreationFields(container_base));
+        pmesh->mesh_data.Add(container_base, partitions[partition],
+                             pmesh->mesh_data.GetCreationFields(container_base));
     // Container in which the solution is stored and with which the downstream user can
     // interact. This container only requires the fields in sol_fields
     auto &md_u = pmesh->mesh_data.Add(container_u, partitions[partition], sol_fields);

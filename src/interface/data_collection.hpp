@@ -75,20 +75,6 @@ class DataCollection {
     return AddImpl(label, src, fields, true);
   }
 
-  template <class SRC_t, typename ID_t = Uid_t>
-  std::shared_ptr<T> &AddFromSet(const std::string &label,
-                                 const std::shared_ptr<SRC_t> &src,
-                                 const std::set<ID_t> &fields) {
-    return AddImpl(label, src, fields, false);
-  }
-
-  template <class SRC_t, typename ID_t = Uid_t>
-  std::shared_ptr<T> &AddShallowFromSet(const std::string &label,
-                                        const std::shared_ptr<SRC_t> &src,
-                                        const std::set<ID_t> &fields) {
-    return AddImpl(label, src, fields, true);
-  }
-
   auto &Stages() { return containers_; }
   const auto &Stages() const { return containers_; }
 
@@ -119,8 +105,8 @@ class DataCollection {
   // The field list (as a canonical variable-uid set) that the named container was created
   // from. Every container sharing a base name is created from the same list (see the
   // warning in Add). If the name has never been added, returns a static empty set.
-  const std::set<Uid_t> &GetCreationFields(const std::string &name) const {
-    static const std::set<Uid_t> empty;
+  const std::vector<Uid_t> &GetCreationFields(const std::string &name) const {
+    static const std::vector<Uid_t> empty;
     const auto nit = name_creation_fields_.find(name);
     return nit == name_creation_fields_.end() ? empty : nit->second;
   }
@@ -158,27 +144,49 @@ class DataCollection {
         return f;
     };
 
+    auto same_fields = [](const std::vector<Uid_t> &a,
+                          const std::vector<Uid_t> &b) {
+         return a.size() == b.size() && std::is_permutation(a.begin(), a.end(), b.begin());
+    };
+   
     // Track the field list (as a canonical uid set) each container base name is created
     // from, so every container with a given base name contains the same set of fields.
     // Containers sharing a base name but built from different sources get distinct
     // internal names, so the check above cannot compare them; this does. All instances of
     // a name must be created from the same list.
-    std::set<Uid_t> created;
-    for (const auto &f : fields)
-      created.insert(to_uid(f));
+    //
+    // Three possibilities in order of precedence:
+    //   1. fields is not empty, so we explicitly only include those fields in the container 
+    //      and check that set against name_creation_fields_ if the base name exists, otherwise
+    //      store the field set in name_creation_fields_ since this is the first container 
+    //      created with that base name. [Should we be checking that this is a subset of the
+    //      parent container? Yes, probably.]
+    //   2. fields is empty but src has a base name set (which means it is a MeshBlockData or MeshData), 
+    //      then we inherit the field set from base. 
+    //   3. fields is empty and src has no base name (which means it is a MeshBlock or BlockListPartition), 
+    //      then we store the empty field list which implies all variables are included.
+    std::vector<Uid_t> field_uids;
+    for (const auto &f : fields) field_uids.push_back(to_uid(f));
+    if constexpr (requires { src->StageName(); }) {
+      if (field_uids.empty()) {
+        // Assume empty -> all fields as default if container is unregistered
+        auto sit = name_creation_fields_.find(src->StageName());
+        if (sit != name_creation_fields_.end()) field_uids = sit->second;
+      }
+    }
+
     auto nit = name_creation_fields_.find(name);
     if (nit == name_creation_fields_.end()) {
-      name_creation_fields_[name] = created;
-    } else if (nit->second != created) {
+      name_creation_fields_[name] = field_uids;
+    } else if (!same_fields(field_uids, nit->second)) {
       PARTHENON_THROW(
           "Container \"" + name +
           "\" is being created from different field lists on different sources. All "
           "instances sharing a name must be created from the same field list.");
     }
 
-    std::vector<Uid_t> uids(created.begin(), created.end());
     auto c = std::make_shared<T>(name);
-    c->Initialize(src, uids, shallow);
+    c->Initialize(src, field_uids, shallow);
     containers_[key] = c;
     return containers_[key];
   }
@@ -194,7 +202,7 @@ class DataCollection {
 
   Mesh *pmy_mesh_;
   std::map<std::string, std::shared_ptr<T>> containers_;
-  std::map<std::string, std::set<Uid_t>> name_creation_fields_;
+  std::map<std::string, std::vector<Uid_t>> name_creation_fields_;
 };
 
 } // namespace parthenon
