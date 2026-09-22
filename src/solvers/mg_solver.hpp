@@ -182,7 +182,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
       PARTHENON_FAIL("Does not work with non-default partitioning.");
     auto partition = partitions[default_partition_idx];
 
-    auto &md = pmesh->mesh_data.AddFromSet(
+    auto &md = pmesh->mesh_data.Add(
         container_base, partition, pmesh->mesh_data.GetCreationFields(container_base));
     auto &md_u = pmesh->mesh_data.Add(container_u, partition, sol_fields);
     auto &md_res_err = pmesh->mesh_data.Add(container_res_err, partition, sol_fields);
@@ -341,7 +341,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
                             bool input_is_zero) {
     using namespace utils;
 
-    auto &md_base = pmesh->mesh_data.AddFromSet(
+    auto &md_base = pmesh->mesh_data.Add(
         container_base, partition, pmesh->mesh_data.GetCreationFields(container_base));
     auto &md_rhs = pmesh->mesh_data.Add(container_rhs, partition, sol_fields);
     auto &md_diag = pmesh->mesh_data.Add(container_diag, partition, sol_fields);
@@ -420,7 +420,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
     const int level = partition->grid.multigrid_level();
     const auto [min_level, max_level] = GetMinMaxLevel(pmesh);
 
-    auto &md = pmesh->mesh_data.AddFromSet(
+    auto &md = pmesh->mesh_data.Add(
         container_base, partition, pmesh->mesh_data.GetCreationFields(container_base));
     auto &md_diag = pmesh->mesh_data.Add(container_diag, partition, sol_fields);
 
@@ -460,7 +460,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
 
     bool do_FAS = params_.do_FAS;
 
-    auto &md = pmesh->mesh_data.AddFromSet(
+    auto &md = pmesh->mesh_data.Add(
         container_base, partition, pmesh->mesh_data.GetCreationFields(container_base));
     auto &md_u = pmesh->mesh_data.Add(container_u, partition, sol_fields);
     auto &md_rhs = pmesh->mesh_data.Add(container_rhs, partition, sol_fields);

@@ -587,6 +587,8 @@ class MeshBlockData {
   }
 
   bool IsShallow() const { return is_shallow_; }
+  
+  const auto &StageName() const { return stage_name_; }
 
  private:
   void AddField(const std::string &base_name, const Metadata &metadata,
