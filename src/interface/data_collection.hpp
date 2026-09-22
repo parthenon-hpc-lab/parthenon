@@ -30,6 +30,7 @@
 namespace parthenon {
 class Mesh;
 class MeshBlock;
+class StateDescriptor;
 struct BlockListPartition;
 template <class T>
 class MeshData;
@@ -49,10 +50,7 @@ class MeshBlockData;
 template <typename T>
 class DataCollection {
  public:
-  DataCollection() {
-    containers_["base"] = std::make_shared<T>("base"); // always add "base" container
-    pmy_mesh_ = nullptr;
-  }
+  DataCollection() { pmy_mesh_ = nullptr; }
 
   void SetMeshPointer(Mesh *pmesh) { pmy_mesh_ = pmesh; }
 
@@ -73,6 +71,17 @@ class DataCollection {
                                  const std::shared_ptr<SRC_t> &src,
                                  const std::vector<ID_t> &fields = {}) {
     return AddImpl(label, src, fields, true);
+  }
+
+  // Overload used when the source (e.g. a bare MeshBlock) does not carry a
+  // resolved_packages of its own, so the field set is defined by an explicitly
+  // supplied StateDescriptor.
+  template <class SRC_t, typename ID_t = std::string>
+  std::shared_ptr<T> &Add(const std::string &label,
+                          const std::shared_ptr<StateDescriptor> &resolved_packages,
+                          const std::shared_ptr<SRC_t> &src,
+                          const std::vector<ID_t> &fields = {}) {
+    return AddImpl(label, src, fields, false, resolved_packages);
   }
 
   auto &Stages() { return containers_; }
@@ -122,8 +131,10 @@ class DataCollection {
 
  private:
   template <class SRC_t, class Fields_t>
-  std::shared_ptr<T> &AddImpl(const std::string &name, const std::shared_ptr<SRC_t> &src,
-                              const Fields_t &fields, const bool shallow) {
+  std::shared_ptr<T> &
+  AddImpl(const std::string &name, const std::shared_ptr<SRC_t> &src,
+          const Fields_t &fields, const bool shallow,
+          const std::shared_ptr<StateDescriptor> &resolved_packages = nullptr) {
     auto key = GetKey(name, src);
     auto it = containers_.find(key);
     if (it != containers_.end()) {
@@ -169,9 +180,7 @@ class DataCollection {
     for (const auto &f : fields) field_uids.push_back(to_uid(f));
     if constexpr (requires { src->StageName(); }) {
       if (field_uids.empty()) {
-        // Assume empty -> all fields as default if container is unregistered
-        auto sit = name_creation_fields_.find(src->StageName());
-        if (sit != name_creation_fields_.end()) field_uids = sit->second;
+        field_uids = name_creation_fields_.at(src->StageName());
       }
     }
 
@@ -185,8 +194,16 @@ class DataCollection {
           "instances sharing a name must be created from the same field list.");
     }
 
-    auto c = std::make_shared<T>(name);
-    c->Initialize(src, field_uids, shallow);
+    std::shared_ptr<T> c;
+    if constexpr (std::is_constructible_v<T, const std::string &,
+                                          const std::shared_ptr<StateDescriptor> &,
+                                          const std::shared_ptr<SRC_t> &,
+                                          const std::vector<Uid_t> &, const bool>) {
+      if (resolved_packages) {
+        c = std::make_shared<T>(name, resolved_packages, src, field_uids, shallow);
+      }
+    }
+    if (!c) c = std::make_shared<T>(name, src, field_uids, shallow);
     containers_[key] = c;
     return containers_[key];
   }
