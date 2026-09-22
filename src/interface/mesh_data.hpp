@@ -260,9 +260,11 @@ class MeshData {
     }
   }
 
+  // Construct a MeshData covering the blocks of a partition.
   template <typename ID_t>
-  void Initialize(const std::shared_ptr<BlockListPartition> &part,
-                  const std::vector<ID_t> &vars, const bool shallow) {
+  MeshData(const std::string &name, const std::shared_ptr<BlockListPartition> &part,
+           const std::vector<ID_t> &vars, const bool shallow)
+      : stage_name_(name) {
     PARTHENON_REQUIRE(
         shallow == false,
         "Can't shallow copy when the source is not another MeshData object.");
@@ -275,9 +277,12 @@ class MeshData {
     partition = part->partition;
   }
 
+  // Construct a MeshData from another MeshData, possibly with a subset of fields and
+  // possibly shallow.
   template <typename ID_t>
-  void Initialize(std::shared_ptr<MeshData<T>> src, const std::vector<ID_t> &vars,
-                  const bool shallow) {
+  MeshData(const std::string &name, std::shared_ptr<MeshData<T>> src,
+           const std::vector<ID_t> &vars, const bool shallow)
+      : stage_name_(name) {
     if (src == nullptr) {
       PARTHENON_THROW("src points at null");
     }
@@ -293,7 +298,9 @@ class MeshData {
     partition = src->partition;
   }
 
-  void Initialize(BlockList_t blocks, Mesh *pmesh, std::optional<int> gmg_level = {});
+  // Construct a MeshData directly from a block list (used to build the base container).
+  MeshData(const std::string &name, BlockList_t blocks, Mesh *pmesh,
+           std::optional<int> gmg_level = {});
 
   MeshBlockData<T> *GetBlockDataRawPointer(int n) {
     assert(n >= 0 && n < block_data_.size());

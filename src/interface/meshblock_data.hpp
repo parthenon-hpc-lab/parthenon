@@ -124,19 +124,21 @@ class MeshBlockData {
     pmy_block = other->GetBlockSharedPointer();
   }
 
-  /// Create copy of MeshBlockData, possibly with a subset of named fields,
-  /// and possibly shallow.  Note when shallow=false, new storage is allocated
-  /// for non-OneCopy vars, but the data from src is not actually deep copied
+  /// Create a MeshBlockData from a source (MeshBlock or another MeshBlockData),
+  /// possibly with a subset of named fields, and possibly shallow. Note when
+  /// shallow=false, new storage is allocated for non-OneCopy vars, but the data
+  /// from src is not actually deep copied.
   template <class SRC_t, typename ID_t = std::string>
-  void Initialize(const std::shared_ptr<SRC_t> src, const std::vector<ID_t> &vars = {},
-                  const bool shallow_copy = false) {
-    Initialize(src->resolved_packages, src, vars, shallow_copy);
-  }
+  MeshBlockData(const std::string &name, const std::shared_ptr<SRC_t> src,
+                const std::vector<ID_t> &vars = {}, const bool shallow_copy = false)
+      : MeshBlockData(name, src->resolved_packages, src, vars, shallow_copy) {}
 
   template <class SRC_t, typename ID_t = std::string>
-  void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages_in,
-                  const std::shared_ptr<SRC_t> src, const std::vector<ID_t> &vars = {},
-                  const bool shallow_copy = false) {
+  MeshBlockData(const std::string &name,
+                const std::shared_ptr<StateDescriptor> resolved_packages_in,
+                const std::shared_ptr<SRC_t> src, const std::vector<ID_t> &vars = {},
+                const bool shallow_copy = false)
+      : stage_name_(name) {
     if constexpr (!(std::is_same_v<SRC_t, MeshBlockData<Real>> ||
                     std::is_same_v<SRC_t, MeshBlock>)) {
       // We don't allow other types
@@ -607,7 +609,7 @@ class MeshBlockData {
   std::weak_ptr<MeshBlock> pmy_block;
   std::shared_ptr<StateDescriptor> resolved_packages;
   bool is_shallow_ = false;
-  const std::string stage_name_;
+  std::string stage_name_;
 
   VariableVector<T> varVector_; ///< the saved variable array
   std::map<Uid_t, std::shared_ptr<Variable<T>>> varUidMap_;
