@@ -129,14 +129,17 @@ class MeshBlockData {
   /// for non-OneCopy vars, but the data from src is not actually deep copied
   template <class SRC_t, typename ID_t = std::string>
   void Initialize(const std::shared_ptr<SRC_t> src, const std::vector<ID_t> &vars = {},
-                  const bool shallow_copy = false, const bool include_fluxes = true) {
-    Initialize(src->resolved_packages, src, vars, shallow_copy, include_fluxes);
+                  const bool shallow_copy = false, const bool include_fluxes = true,
+                  const bool include_all_if_empty = true) {
+    Initialize(src->resolved_packages, src, vars, shallow_copy, include_fluxes,
+               include_all_if_empty);
   }
 
   template <class SRC_t, typename ID_t = std::string>
   void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages_in,
                   const std::shared_ptr<SRC_t> src, const std::vector<ID_t> &vars = {},
-                  const bool shallow_copy = false, const bool include_fluxes = true) {
+                  const bool shallow_copy = false, const bool include_fluxes = true,
+                  const bool include_all_if_empty = true) {
     if constexpr (!(std::is_same_v<SRC_t, MeshBlockData<Real>> ||
                     std::is_same_v<SRC_t, MeshBlock>)) {
       // We don't allow other types
@@ -177,7 +180,7 @@ class MeshBlockData {
     };
 
     // special case when the list of vars is empty, copy everything
-    if (vars.empty()) {
+    if (vars.empty() && include_all_if_empty) {
       if constexpr (std::is_same_v<SRC_t, MeshBlockData<Real>>) {
         for (auto v : src->GetVariableVector()) {
           add_var(v);

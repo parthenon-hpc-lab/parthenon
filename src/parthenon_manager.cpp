@@ -271,8 +271,23 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
               std::to_string(mesh_info.n_ghost) + ", input requests nghost=" +
               std::to_string(Globals::nghost) + ".");
     }
-    pmesh =
-        std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader, packages);
+    std::optional<std::vector<std::string>> analysis_exclude_fields;
+    if (analysis_data_) {
+      analysis_exclude_fields = pinput->GetOrAddVector<std::string>(
+          "parthenon/analysis", "exclude_fields", {},
+          "PHDF fields to omit from analysis allocation and loading");
+    }
+    pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader,
+                                   packages, 0, analysis_exclude_fields);
+    if (analysis_data_) {
+      for (const auto &name : pmesh->AnalysisOnlyFields()) {
+        const auto &metadata = pmesh->resolved_packages->GetFieldMetadata(name);
+        if (!metadata.IsSet(Metadata::Sparse)) continue;
+        for (auto &pmb : pmesh->block_list) {
+          if (!pmb->IsAllocated(name)) pmb->AllocateSparseExact(name);
+        }
+      }
+    }
 
     // Read simulation time and cycle from restart file and set in input
     const auto time_info = restartReader->GetTimeInfo();
@@ -310,7 +325,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     pinput->SetString("parthenon/job", "output_params_block_regex", arg.params_regex);
   }
 
-  pmesh->Initialize(!arg.is_restart, pinput.get(), app_input.get());
+  pmesh->Initialize(!arg.is_restart, pinput.get(), app_input.get(), !analysis_data_);
 
   if (analysis_data_) {
     RestartPackages(*pmesh, *restartReader, true);
@@ -381,23 +396,14 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile,
 
   // Get list of variables, they are the same for all blocks (since all blocks have the
   // same variable metadata)
-  auto selected_vars = analysis_data
-                           ? mb.meshblock_data.Get()->GetVariableVector()
-                           : GetAnyVariables(
-                                 mb.meshblock_data.Get()->GetVariableVector(),
-                                 {parthenon::Metadata::Independent,
-                                  parthenon::Metadata::Restart});
-  std::set<std::string> file_fields;
-  std::set<std::string> registered_fields;
+  auto selected_vars =
+      GetAnyVariables(mb.meshblock_data.Get()->GetVariableVector(),
+                      {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
   if (analysis_data) {
-    const auto names = resfile.GetFieldNames();
-    file_fields.insert(names.begin(), names.end());
-    VariableVector<Real> intersection;
-    for (const auto &var : selected_vars) {
-      registered_fields.insert(var->label());
-      if (file_fields.count(var->label()) != 0) intersection.push_back(var);
+    selected_vars.clear();
+    for (const auto &name : rm.AnalysisLoadFields()) {
+      selected_vars.push_back(mb.meshblock_data.Get()->GetVarPtr(name));
     }
-    selected_vars = std::move(intersection);
   }
   const auto all_vars_info =
       OutputUtils::VarInfo::GetAll(selected_vars, mb.cellbounds, mb.f_cellbounds);
@@ -476,7 +482,11 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile,
       if (v_info.is_sparse) {
         // check if the sparse variable is allocated on this block
         if (sparse_info.IsAllocated(pmb->gid, sparse_idxs.at(label))) {
-          pmb->AllocateSparse(label);
+          if (analysis_data) {
+            pmb->AllocateSparseExact(label);
+          } else {
+            pmb->AllocateSparse(label);
+          }
           auto dealloc_count = sparse_info.DeallocCount(pmb->gid, sparse_idxs.at(label));
           // Warning: For this to work, it is required that the controlling variable is
           // stored in the restart files.
@@ -506,13 +516,6 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile,
   }
 
   if (analysis_data) {
-    std::vector<std::string> missing, ignored;
-    for (const auto &name : registered_fields) {
-      if (file_fields.count(name) == 0) missing.push_back(name);
-    }
-    for (const auto &name : file_fields) {
-      if (registered_fields.count(name) == 0) ignored.push_back(name);
-    }
     if (Globals::my_rank == 0) {
       auto print_names = [](const char *label, const std::vector<std::string> &names) {
         std::cout << "Analysis load " << label << " (" << names.size() << "):";
@@ -520,8 +523,10 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile,
         std::cout << std::endl;
       };
       print_names("loaded", loaded_analysis_fields_);
-      print_names("missing", missing);
-      print_names("ignored", ignored);
+      print_names("analysis-only", rm.AnalysisOnlyFields());
+      print_names("excluded", rm.AnalysisExcludedFields());
+      print_names("ignored", rm.AnalysisIgnoredFields());
+      print_names("omitted", rm.AnalysisOmittedFields());
     }
     return;
   }

@@ -28,6 +28,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <tuple>
@@ -122,7 +123,9 @@ class Mesh {
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        int test_flag = 0);
   Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &resfile,
-       Packages_t &packages, int test_flag = 0);
+       Packages_t &packages, int test_flag = 0,
+       const std::optional<std::vector<std::string>> &analysis_exclude_fields =
+           std::nullopt);
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        forest::ForestDefinition &forest_def);
   static RegionSize GetBaseMeshBlockSize(ParameterInput *pin,
@@ -147,6 +150,21 @@ class Mesh {
   ParArray1D<AmrTag> &GetAmrTags();
 
   const forest::Forest &Forest() const { return forest; }
+  const std::vector<std::string> &AnalysisLoadFields() const {
+    return analysis_load_fields_;
+  }
+  const std::vector<std::string> &AnalysisOnlyFields() const {
+    return analysis_only_fields_;
+  }
+  const std::vector<std::string> &AnalysisExcludedFields() const {
+    return analysis_excluded_fields_;
+  }
+  const std::vector<std::string> &AnalysisIgnoredFields() const {
+    return analysis_ignored_fields_;
+  }
+  const std::vector<std::string> &AnalysisOmittedFields() const {
+    return analysis_omitted_fields_;
+  }
 
   // data
   bool modified;
@@ -183,7 +201,8 @@ class Mesh {
   }
 
   // functions
-  void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
+  void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in,
+                  bool initialize_data = true);
 
   bool SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                  BoundaryFlag *block_bcs,
@@ -473,6 +492,13 @@ class Mesh {
 
   int gmg_min_level_ = 0;
 
+  std::vector<std::string> analysis_allocation_fields_;
+  std::vector<std::string> analysis_load_fields_;
+  std::vector<std::string> analysis_only_fields_;
+  std::vector<std::string> analysis_excluded_fields_;
+  std::vector<std::string> analysis_ignored_fields_;
+  std::vector<std::string> analysis_omitted_fields_;
+
 #ifdef MPI_PARALLEL
   // Global map of MPI comms for separate variables
   std::unordered_map<std::string, MPI_Comm> mpi_comm_map_;
@@ -484,9 +510,12 @@ class Mesh {
 
   // functions
   void CheckMeshValidity() const;
-  void BuildBlockList(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
-                      int mesh_test,
-                      const std::unordered_map<LogicalLocation, int> &dealloc_count = {});
+  void BuildBlockList(
+      ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages, int mesh_test,
+      const std::unordered_map<LogicalLocation, int> &dealloc_count = {},
+      const std::optional<std::vector<std::string>> &base_fields = std::nullopt);
+  void ConfigureAnalysisFields(RestartReader &rr,
+                               const std::vector<std::string> &analysis_exclude_fields);
   void DoStaticRefinement(ParameterInput *pin);
   void CalculateLoadBalance(std::vector<double> const &costlist,
                             std::vector<int> &ranklist, std::vector<int> &nslist,

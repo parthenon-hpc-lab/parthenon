@@ -78,6 +78,18 @@ TEST_CASE("Built-in flags are registered", "[Metadata]") {
   }
 }
 
+TEST_CASE("Analysis metadata is independent", "[Metadata]") {
+  Metadata metadata({Metadata::Cell, Metadata::Analysis});
+
+  REQUIRE(metadata.IsSet(Metadata::Analysis));
+  REQUIRE_FALSE(metadata.IsSet(Metadata::Independent));
+  REQUIRE_FALSE(metadata.IsSet(Metadata::Restart));
+  REQUIRE_FALSE(metadata.IsSet(Metadata::FillGhost));
+
+  Metadata::FlagCollection flags(Metadata::Analysis);
+  REQUIRE(parthenon::MetadataUtils::MatchFlags(flags, metadata));
+}
+
 TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
   GIVEN("A User Flag") {
     const std::string name = "TestFlag";

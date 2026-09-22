@@ -357,9 +357,24 @@ HDF5 data and core files can also be loaded for analysis with
 ``-a /PATH/TO/DATA_OUTPUT -i <analysis.in>``. In this mode, the dump supplies
 the mesh topology, simulation time, cycle, and field data, while the analysis
 input file supplies package registration, boundary conditions, and output
-configuration. Every registered field that is present in the dump is loaded,
-regardless of its ``Independent``, ``Restart``, or ``FillGhost`` metadata.
-Sparse allocation is restored for fields represented in the dump.
+configuration. Every registered field that is present in the dump is allocated and
+loaded, regardless of its ``Independent``, ``Restart``, or ``FillGhost`` metadata.
+Registered fields marked ``Metadata::Analysis`` are also allocated, even when absent
+from the dump, so the analysis pipeline can populate them. This flag does not cause a
+field to be written to normal outputs or restart files. Sparse allocation is restored
+for fields represented in the dump; an analysis-only sparse field is allocated on every
+block.
+
+Individual PHDF datasets can be omitted from allocation and loading with
+
+.. code-block:: text
+
+   <parthenon/analysis>
+   exclude_fields = field_a, field_b
+
+Every excluded name must exist in the PHDF file. Exclusion takes precedence over both
+presence in the file and ``Metadata::Analysis``. Excluded fields are not allocated,
+read, restored from sparse metadata, or included in the analysis ghost exchange.
 
 Only field interiors are loaded from analysis data files. Any ghost values in
 the file are ignored. Parthenon regenerates same-level and coarse-fine ghosts
@@ -369,6 +384,8 @@ loaded field whose physical ghosts are needed by the analysis. Derived-field
 initialization callbacks are not run after the file data is loaded, so they
 cannot overwrite the authoritative dump values. Analysis mode exits after
 initialization and configured analysis work rather than evolving the mesh.
+Fields selected only by ``Metadata::Analysis`` are not initialized or ghost-filled by
+the loader; the analysis application must populate them before use.
 
 Using ``-a`` with a restart file retains the restart loading behavior described
 above. Slice outputs cannot be used to reconstruct an analysis mesh.
