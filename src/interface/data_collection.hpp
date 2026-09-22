@@ -77,10 +77,9 @@ class DataCollection {
   // resolved_packages of its own, so the field set is defined by an explicitly
   // supplied StateDescriptor.
   template <class SRC_t, typename ID_t = std::string>
-  std::shared_ptr<T> &Add(const std::string &label,
-                          const std::shared_ptr<StateDescriptor> &resolved_packages,
-                          const std::shared_ptr<SRC_t> &src,
-                          const std::vector<ID_t> &fields = {}) {
+  std::shared_ptr<T> &
+  Add(const std::string &label, const std::shared_ptr<StateDescriptor> &resolved_packages,
+      const std::shared_ptr<SRC_t> &src, const std::vector<ID_t> &fields = {}) {
     return AddImpl(label, src, fields, false, resolved_packages);
   }
 
@@ -180,11 +179,10 @@ class DataCollection {
         return f;
     };
 
-    auto same_fields = [](const std::vector<Uid_t> &a,
-                          const std::vector<Uid_t> &b) {
-         return a.size() == b.size() && std::is_permutation(a.begin(), a.end(), b.begin());
+    auto same_fields = [](const std::vector<Uid_t> &a, const std::vector<Uid_t> &b) {
+      return a.size() == b.size() && std::is_permutation(a.begin(), a.end(), b.begin());
     };
-   
+
     // Track the field list (as a canonical uid set) each container base name is created
     // from, so every container with a given base name contains the same set of fields.
     // Containers sharing a base name but built from different sources get distinct
@@ -192,17 +190,21 @@ class DataCollection {
     // a name must be created from the same list.
     //
     // Three possibilities in order of precedence:
-    //   1. fields is not empty, so we explicitly only include those fields in the container 
-    //      and check that set against name_creation_fields_ if the base name exists, otherwise
-    //      store the field set in name_creation_fields_ since this is the first container 
-    //      created with that base name. [Should we be checking that this is a subset of the
-    //      parent container? Yes, probably.]
-    //   2. fields is empty but src has a base name set (which means it is a MeshBlockData or MeshData), 
-    //      then we inherit the field set from base. 
-    //   3. fields is empty and src has no base name (which means it is a MeshBlock or BlockListPartition), 
+    //   1. fields is not empty, so we explicitly only include those fields in the
+    //   container
+    //      and check that set against name_creation_fields_ if the base name exists,
+    //      otherwise store the field set in name_creation_fields_ since this is the first
+    //      container created with that base name. [Should we be checking that this is a
+    //      subset of the parent container? Yes, probably.]
+    //   2. fields is empty but src has a base name set (which means it is a MeshBlockData
+    //   or MeshData),
+    //      then we inherit the field set from base.
+    //   3. fields is empty and src has no base name (which means it is a MeshBlock or
+    //   BlockListPartition),
     //      then we store the empty field list which implies all variables are included.
     std::vector<Uid_t> field_uids;
-    for (const auto &f : fields) field_uids.push_back(to_uid(f));
+    for (const auto &f : fields)
+      field_uids.push_back(to_uid(f));
     if constexpr (requires { src->StageName(); }) {
       if (field_uids.empty()) {
         field_uids = name_creation_fields_.at(src->StageName());
