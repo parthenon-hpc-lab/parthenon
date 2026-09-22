@@ -288,7 +288,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 //----------------------------------------------------------------------------------------
 // Mesh constructor for restarts. Load the restart file
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
-           Packages_t &packages, int mesh_test)
+           Packages_t &packages, int mesh_test,
+           const std::optional<std::vector<std::string>> &analysis_exclude_fields)
     : Mesh(pin, app_in, packages, hyper_rectangular_constructor_selector_t()) {
   std::stringstream msg;
 
@@ -358,12 +359,18 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     PARTHENON_FAIL(msg);
   }
 
-  BuildBlockList(pin, app_in, packages, mesh_test, dealloc_count);
+  std::optional<std::vector<std::string>> base_fields;
+  if (analysis_exclude_fields) {
+    ConfigureAnalysisFields(rr, *analysis_exclude_fields);
+    base_fields = analysis_allocation_fields_;
+  }
+  BuildBlockList(pin, app_in, packages, mesh_test, dealloc_count, base_fields);
 }
 
 void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
                           Packages_t &packages, int mesh_test,
-                          const std::unordered_map<LogicalLocation, int> &dealloc_count) {
+                          const std::unordered_map<LogicalLocation, int> &dealloc_count,
+                          const std::optional<std::vector<std::string>> &base_fields) {
   // LFR: This routine should work for general block lists
   std::stringstream msg;
 
@@ -418,7 +425,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
                       "There is an inconsistency in the GIDs.");
     block_list[i - nbs] =
         MeshBlock::Make(i, i - nbs, loclist[i], block_size, block_bcs, this, pin, app_in,
-                        packages, resolved_packages, gflag, costlist[i]);
+                        packages, resolved_packages, gflag, costlist[i], base_fields);
     if (block_list[i - nbs]->pmr)
       block_list[i - nbs]->pmr->DerefinementCount() =
           dealloc_count.count(loclist[i]) ? dealloc_count.at(loclist[i]) : 0;
@@ -428,6 +435,64 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
   SetMeshBlockNeighbors(this, GridIdentifier::leaf(), block_list, ranklist);
   SetGMGNeighbors();
   ResetLoadBalanceVariables();
+}
+
+void Mesh::ConfigureAnalysisFields(
+    RestartReader &rr, const std::vector<std::string> &analysis_exclude_fields) {
+  const auto file_fields = rr.GetFieldNames();
+  const std::set<std::string> file_field_set(file_fields.begin(), file_fields.end());
+  const std::set<std::string> excluded_set(analysis_exclude_fields.begin(),
+                                           analysis_exclude_fields.end());
+
+  std::vector<std::string> missing_exclusions;
+  for (const auto &name : excluded_set) {
+    if (file_field_set.count(name) == 0) missing_exclusions.push_back(name);
+  }
+  if (!missing_exclusions.empty()) {
+    std::stringstream msg;
+    msg << "Analysis exclude_fields entries are not datasets in the PHDF file:";
+    for (const auto &name : missing_exclusions)
+      msg << " " << name;
+    PARTHENON_THROW(msg);
+  }
+
+  std::set<std::string> allocation_set;
+  for (const auto &name : file_field_set) {
+    if (excluded_set.count(name) != 0) {
+      analysis_excluded_fields_.push_back(name);
+    } else if (resolved_packages->FieldPresent(name)) {
+      analysis_load_fields_.push_back(name);
+      allocation_set.insert(name);
+    } else {
+      analysis_ignored_fields_.push_back(name);
+    }
+  }
+
+  const auto analysis_fields =
+      resolved_packages->GetVariableNames(Metadata::FlagCollection(Metadata::Analysis));
+  for (const auto &name : analysis_fields) {
+    if (excluded_set.count(name) != 0) continue;
+    allocation_set.insert(name);
+    if (file_field_set.count(name) == 0) analysis_only_fields_.push_back(name);
+  }
+
+  analysis_allocation_fields_.assign(allocation_set.begin(), allocation_set.end());
+  for (const auto &field : resolved_packages->AllFields()) {
+    const auto name = field.first.label();
+    if (allocation_set.count(name) == 0 && excluded_set.count(name) == 0) {
+      analysis_omitted_fields_.push_back(name);
+    }
+  }
+
+  auto sort_unique = [](std::vector<std::string> &names) {
+    std::sort(names.begin(), names.end());
+    names.erase(std::unique(names.begin(), names.end()), names.end());
+  };
+  sort_unique(analysis_load_fields_);
+  sort_unique(analysis_only_fields_);
+  sort_unique(analysis_excluded_fields_);
+  sort_unique(analysis_ignored_fields_);
+  sort_unique(analysis_omitted_fields_);
 }
 
 //----------------------------------------------------------------------------------------
@@ -703,6 +768,76 @@ void Mesh::CommunicateBoundaries(std::string md_name,
                     "Boundary communication called internal by mesh failed.");
 }
 
+void Mesh::CommunicateBoundariesForFields(const std::vector<std::string> &fields) {
+  if (fields.empty() || GetNumMeshBlocksThisRank(Globals::my_rank) < 1) return;
+
+#ifdef MPI_PARALLEL
+  for (const auto &field : fields) {
+    if (mpi_comm_map_.count(field) == 0) {
+      MPI_Comm mpi_comm;
+      PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
+      mpi_comm_map_.insert({field, mpi_comm});
+    }
+  }
+#endif
+
+  constexpr const char *stage_name = "analysis_data_boundary_exchange";
+  for (auto &pmb : block_list) {
+    auto &base = pmb->meshblock_data.Get();
+    for (const auto &field : fields) {
+      auto var = base->GetVarPtr(field);
+      PARTHENON_REQUIRE_THROWS(
+          !var->IsSet(Metadata::None),
+          "Explicit boundary communication does not support Metadata::None field '" +
+              field + "'.");
+      PARTHENON_REQUIRE_THROWS(
+          !var->IsSet(Metadata::Flux),
+          "Explicit boundary communication does not support Metadata::Flux field '" +
+              field + "'; flux fields use flux-correction communication.");
+      if (var->IsAllocated()) var->AllocateCoarseForCommunication(pmb);
+    }
+  }
+
+  tag_map.clear();
+  for (auto &partition : GetDefaultBlockPartitions()) {
+    auto &base = mesh_data.Add("base", partition);
+    auto &md = mesh_data.AddShallowWithoutFluxes(stage_name, base, fields);
+    md->SetBoundaryCommunicationOverride(true);
+    AddToTagMap<BoundaryType::any>(md);
+  }
+  tag_map.ResolveMap();
+
+  boundary_comm_map.clear();
+  pcoalesced_comms->clear();
+  auto &base_data = mesh_data.Add("base", GetBasePartition());
+  auto &comm_data =
+      mesh_data.AddShallowWithoutFluxes(stage_name, base_data, fields);
+  comm_data->SetBoundaryCommunicationOverride(true);
+  BuildBoundaryBuffers(comm_data);
+  if (do_coalesced_comms) {
+    for (auto &partition : GetDefaultBlockPartitions()) {
+      auto &base = mesh_data.Add("base", partition);
+      auto &md = mesh_data.AddShallowWithoutFluxes(stage_name, base, fields);
+      RegisterCoalescedComms(md);
+    }
+    pcoalesced_comms->ResolveAndSendSendBuffers();
+    pcoalesced_comms->ReceiveBufferInfo();
+  }
+
+  const int num_partitions = DefaultNumPartitions();
+  TaskCollection tc;
+  TaskRegion &region = tc.AddRegion(num_partitions);
+  auto partitions = GetDefaultBlockPartitions();
+  for (int i = 0; i < num_partitions; i++) {
+    auto &base = mesh_data.Add("base", partitions[i]);
+    auto &md = mesh_data.AddShallowWithoutFluxes(stage_name, base, fields);
+    AddBoundaryExchangeTasks(TaskID(0), region[i], md, multilevel);
+  }
+  const auto status = tc.Execute(task_collection_timeout_in_seconds);
+  PARTHENON_REQUIRE(status == TaskListStatus::complete,
+                    "Explicit-field boundary communication failed.");
+}
+
 void Mesh::PreCommFillDerived() {
   const int num_partitions = DefaultNumPartitions();
   const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
@@ -739,7 +874,8 @@ void Mesh::FillDerived() {
 // \!fn void Mesh::Initialize(bool init_problem, ParameterInput *pin)
 // \brief  initialization before the main loop
 
-void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in) {
+void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in,
+                      bool initialize_data) {
   PARTHENON_INSTRUMENT
   bool init_done = true;
   const int nb_initial = nbtotal;
@@ -836,13 +972,12 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
                     [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
     }
 
-    PreCommFillDerived();
-
-    BuildTagMapAndBoundaryBuffers();
-
-    CommunicateBoundaries();
-
-    FillDerived();
+    if (initialize_data) {
+      PreCommFillDerived();
+      BuildTagMapAndBoundaryBuffers();
+      CommunicateBoundaries();
+      FillDerived();
+    }
 
     if (init_problem && adaptive) {
       for (auto &partition : GetDefaultBlockPartitions()) {

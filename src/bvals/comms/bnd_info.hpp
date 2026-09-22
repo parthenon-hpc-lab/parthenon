@@ -164,7 +164,7 @@ struct ProResCache_t {
   void Initialize(int n_regions, StateDescriptor *pkg);
 
   void RegisterRegionHost(int region, ProResInfo pri, Variable<Real> *v,
-                          StateDescriptor *pkg);
+                          StateDescriptor *pkg, bool force_refinement = false);
 
   void CopyToDevice() {
     Kokkos::deep_copy(prores_info, prores_info_h);

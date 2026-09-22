@@ -63,15 +63,14 @@ MeshBlock::MeshBlock(const int n_side, const int ndim, bool init_coarse, bool mu
 }
 
 // Factory method deals with initialization for you
-std::shared_ptr<MeshBlock>
-MeshBlock::Make(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
-                BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-                ApplicationInput *app_in, Packages_t &packages,
-                std::shared_ptr<StateDescriptor> resolved_packages, int igflag,
-                double icost) {
+std::shared_ptr<MeshBlock> MeshBlock::Make(
+    int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
+    BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin, ApplicationInput *app_in,
+    Packages_t &packages, std::shared_ptr<StateDescriptor> resolved_packages, int igflag,
+    double icost, const std::optional<std::vector<std::string>> &base_fields) {
   auto pmb = std::make_shared<MeshBlock>();
   pmb->Initialize(igid, ilid, iloc, input_block, input_bcs, pm, pin, app_in, packages,
-                  resolved_packages, igflag, icost);
+                  resolved_packages, igflag, icost, base_fields);
   return pmb;
 }
 
@@ -80,7 +79,8 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
                            ParameterInput *pin, ApplicationInput *app_in,
                            Packages_t &packages,
                            std::shared_ptr<StateDescriptor> resolved_packages, int igflag,
-                           double icost) {
+                           double icost,
+                           const std::optional<std::vector<std::string>> &base_fields) {
   exec_space = DevExecSpace();
   pmy_mesh = pm;
   loc = iloc;
@@ -148,7 +148,11 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // Resolve issues.
 
   auto &real_container = meshblock_data.Get();
-  real_container->Initialize(shared_from_this());
+  if (base_fields) {
+    real_container->Initialize(shared_from_this(), *base_fields, false, false, false);
+  } else {
+    real_container->Initialize(shared_from_this());
+  }
 
   // TODO(jdolence): Should these loops be moved to Variable creation
   // TODO(JMM): What variables should be in vars_cc_? They are used
@@ -284,38 +288,6 @@ void MeshBlock::StopTimeMeasurement() {
 
 void MeshBlock::AllocateSparse(std::string const &label, bool only_control,
                                bool flag_uninitialized) {
-  auto &mbd = meshblock_data;
-  auto AllocateVar = [this, flag_uninitialized, &mbd](const std::string &l) {
-    // first allocate variable in base stage
-    auto base_var = mbd.Get()->AllocateSparse(l, flag_uninitialized);
-
-    // now allocate in all other stages
-    for (auto stage : mbd.Stages()) {
-      if (stage.first == "base") {
-        // we've already done this
-        continue;
-      }
-
-      if (!stage.second->HasVariable(l)) continue;
-
-      auto v = stage.second->GetVarPtr(l);
-
-      if (v->IsSet(Metadata::OneCopy) || stage.second->IsShallow()) {
-        // nothing to do, we already allocated variable on base stage, and all other
-        // stages share that variable
-        continue;
-      }
-
-      if (!v->IsAllocated()) {
-        // allocate data of target variable
-        v->AllocateData(this, flag_uninitialized);
-
-        // copy fluxes and boundary variable from variable on base stage
-        v->CopyCoarseBuffer(base_var.get());
-      }
-    }
-  };
-
   bool cont_set = false;
   if ((pmy_mesh != nullptr) && pmy_mesh->resolved_packages) {
     cont_set = pmy_mesh->resolved_packages->ControlVariablesSet();
@@ -326,9 +298,26 @@ void MeshBlock::AllocateSparse(std::string const &label, bool only_control,
     if (!only_control) clabel = pmy_mesh->resolved_packages->GetFieldController(label);
     const auto &var_labels = pmy_mesh->resolved_packages->GetControlledVariables(clabel);
     for (const auto &l : var_labels)
-      AllocateVar(l);
+      AllocateSparseExact(l, flag_uninitialized);
   } else {
-    AllocateVar(label);
+    AllocateSparseExact(label, flag_uninitialized);
+  }
+}
+
+void MeshBlock::AllocateSparseExact(std::string const &label, bool flag_uninitialized) {
+  auto &mbd = meshblock_data;
+  auto base_var = mbd.Get()->AllocateSparse(label, flag_uninitialized);
+
+  for (auto stage : mbd.Stages()) {
+    if (stage.first == "base" || !stage.second->HasVariable(label)) continue;
+
+    auto var = stage.second->GetVarPtr(label);
+    if (var->IsSet(Metadata::OneCopy) || stage.second->IsShallow()) continue;
+
+    if (!var->IsAllocated()) {
+      var->AllocateData(this, flag_uninitialized);
+      var->CopyCoarseBuffer(base_var.get());
+    }
   }
 }
 

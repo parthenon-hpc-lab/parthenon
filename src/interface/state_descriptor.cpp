@@ -34,21 +34,20 @@
 namespace parthenon {
 
 void RefinementFunctionMaps::Register(const Metadata &m, std::string varname) {
-  if (m.HasRefinementOps()) {
-    const auto &funcs = m.GetRefinementFunctions();
-    // Guard against uninitialized refinement functions by checking
-    // if the label is the empty string.
-    if (funcs.label().size() == 0) {
+  const auto &funcs = m.GetRefinementFunctions();
+  if (funcs.label().size() == 0) {
+    if (m.HasRefinementOps()) {
       std::stringstream ss;
-      ss << "Variable " << varname << " registed for refinement, "
+      ss << "Variable " << varname << " registered for refinement, "
          << "but no prolongation/restriction options found!"
-         << "Please register them with Metadata::RegisterRefinementOps." << std::endl;
+         << " Please register them with Metadata::RegisterRefinementOps." << std::endl;
       PARTHENON_THROW(ss);
     }
-    bool in_map = (funcs_to_ids.count(funcs) > 0);
-    if (!in_map) {
-      funcs_to_ids[funcs] = next_refinement_id_++;
-    }
+    return;
+  }
+  bool in_map = (funcs_to_ids.count(funcs) > 0);
+  if (!in_map) {
+    funcs_to_ids[funcs] = next_refinement_id_++;
   }
 }
 

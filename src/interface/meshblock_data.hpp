@@ -129,14 +129,17 @@ class MeshBlockData {
   /// for non-OneCopy vars, but the data from src is not actually deep copied
   template <class SRC_t, typename ID_t = std::string>
   void Initialize(const std::shared_ptr<SRC_t> src, const std::vector<ID_t> &vars = {},
-                  const bool shallow_copy = false) {
-    Initialize(src->resolved_packages, src, vars, shallow_copy);
+                  const bool shallow_copy = false, const bool include_fluxes = true,
+                  const bool include_all_if_empty = true) {
+    Initialize(src->resolved_packages, src, vars, shallow_copy, include_fluxes,
+               include_all_if_empty);
   }
 
   template <class SRC_t, typename ID_t = std::string>
   void Initialize(const std::shared_ptr<StateDescriptor> resolved_packages_in,
                   const std::shared_ptr<SRC_t> src, const std::vector<ID_t> &vars = {},
-                  const bool shallow_copy = false) {
+                  const bool shallow_copy = false, const bool include_fluxes = true,
+                  const bool include_all_if_empty = true) {
     if constexpr (!(std::is_same_v<SRC_t, MeshBlockData<Real>> ||
                     std::is_same_v<SRC_t, MeshBlock>)) {
       // We don't allow other types
@@ -177,7 +180,7 @@ class MeshBlockData {
     };
 
     // special case when the list of vars is empty, copy everything
-    if (vars.empty()) {
+    if (vars.empty() && include_all_if_empty) {
       if constexpr (std::is_same_v<SRC_t, MeshBlockData<Real>>) {
         for (auto v : src->GetVariableVector()) {
           add_var(v);
@@ -194,7 +197,7 @@ class MeshBlockData {
           add_var(var);
           // Add the associated flux as well if not explicitly
           // asked for
-          if (var->IsSet(Metadata::WithFluxes)) {
+          if (include_fluxes && var->IsSet(Metadata::WithFluxes)) {
             auto flx_name = var->metadata().GetFluxName();
             bool found = false;
             for (const auto &v2 : vars) {
@@ -210,7 +213,7 @@ class MeshBlockData {
           AddField(vid.base_name, md, vid.sparse_id);
           // Add the associated flux as well if not explicitly
           // asked for
-          if (md.IsSet(Metadata::WithFluxes)) {
+          if (include_fluxes && md.IsSet(Metadata::WithFluxes)) {
             auto flx_vid = resolved_packages->GetFieldVarID(md.GetFluxName());
             bool found = false;
             for (const auto &v2 : vars)
@@ -582,6 +585,10 @@ class MeshBlockData {
   }
 
   bool IsShallow() const { return is_shallow_; }
+  void SetBoundaryCommunicationOverride(bool value) {
+    boundary_communication_override_ = value;
+  }
+  bool BoundaryCommunicationOverride() const { return boundary_communication_override_; }
 
  private:
   void AddField(const std::string &base_name, const Metadata &metadata,
@@ -600,6 +607,7 @@ class MeshBlockData {
   std::weak_ptr<MeshBlock> pmy_block;
   std::shared_ptr<StateDescriptor> resolved_packages;
   bool is_shallow_ = false;
+  bool boundary_communication_override_ = false;
   const std::string stage_name_;
 
   VariableVector<T> varVector_; ///< the saved variable array

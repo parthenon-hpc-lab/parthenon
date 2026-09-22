@@ -55,7 +55,8 @@ class DataCollection {
 
   template <class SRC_t, typename ID_t>
   std::shared_ptr<T> &Add(const std::string &name, const std::shared_ptr<SRC_t> &src,
-                          const std::vector<ID_t> &fields, const bool shallow) {
+                          const std::vector<ID_t> &fields, const bool shallow,
+                          const bool include_fluxes = true) {
     auto key = GetKey(name, src);
     auto it = containers_.find(key);
     if (it != containers_.end()) {
@@ -66,7 +67,7 @@ class DataCollection {
     }
 
     auto c = std::make_shared<T>(name);
-    c->Initialize(src, fields, shallow);
+    c->Initialize(src, fields, shallow, include_fluxes);
 
     containers_[key] = c;
     return containers_[key];
@@ -75,14 +76,21 @@ class DataCollection {
   template <class SRC_t, typename ID_t = std::string>
   std::shared_ptr<T> &Add(const std::string &label, const std::shared_ptr<SRC_t> &src,
                           const std::vector<ID_t> &fields = {}) {
-    return Add(label, src, fields, false);
+    return Add(label, src, fields, false, true);
   }
 
   template <class SRC_t, typename ID_t = std::string>
   std::shared_ptr<T> &AddShallow(const std::string &label,
                                  const std::shared_ptr<SRC_t> &src,
                                  const std::vector<ID_t> &fields = {}) {
-    return Add(label, src, fields, true);
+    return Add(label, src, fields, true, true);
+  }
+
+  template <class SRC_t, typename ID_t = std::string>
+  std::shared_ptr<T> &AddShallowWithoutFluxes(
+      const std::string &label, const std::shared_ptr<SRC_t> &src,
+      const std::vector<ID_t> &fields = {}) {
+    return Add(label, src, fields, true, false);
   }
 
   auto &Stages() { return containers_; }

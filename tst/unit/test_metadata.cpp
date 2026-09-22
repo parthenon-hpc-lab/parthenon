@@ -19,6 +19,7 @@
 #include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
 #include "interface/metadata.hpp"
+#include "interface/state_descriptor.hpp"
 #include "interface/variable_state.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
@@ -75,6 +76,18 @@ TEST_CASE("Built-in flags are registered", "[Metadata]") {
     PARTHENON_INTERNAL_FOREACH_BUILTIN_FLAG
 #undef PARTHENON_INTERNAL_FOR_FLAG
   }
+}
+
+TEST_CASE("Analysis metadata is independent", "[Metadata]") {
+  Metadata metadata({Metadata::Cell, Metadata::Analysis});
+
+  REQUIRE(metadata.IsSet(Metadata::Analysis));
+  REQUIRE_FALSE(metadata.IsSet(Metadata::Independent));
+  REQUIRE_FALSE(metadata.IsSet(Metadata::Restart));
+  REQUIRE_FALSE(metadata.IsSet(Metadata::FillGhost));
+
+  Metadata::FlagCollection flags(Metadata::Analysis);
+  REQUIRE(parthenon::MetadataUtils::MatchFlags(flags, metadata));
 }
 
 TEST_CASE("A Metadata flag is allocated", "[Metadata]") {
@@ -236,10 +249,33 @@ TEST_CASE("Refinement Information in Metadata", "[Metadata]") {
     using FlagVec = std::vector<parthenon::MetadataFlag>;
     Metadata m(FlagVec{Metadata::Derived, Metadata::OneCopy});
     THEN("It's valid") { REQUIRE(m.IsValid()); }
-    // TODO(JMM): This test should go away when issue #844 is resolved
-    WHEN("We improperly set prolongation/restriction") {
-      m.Set(Metadata::FillGhost);
-      THEN("The metadata is no longer valid") { REQUIRE(!m.IsValid()); }
+  }
+  GIVEN("A mesh field not normally selected for refinement communication") {
+    Metadata m({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
+    THEN("It retains default refinement functions without changing its selection flags") {
+      const auto default_funcs =
+          parthenon::refinement::DefaultRefinementFunctions();
+      REQUIRE_FALSE(m.HasRefinementOps());
+      REQUIRE(m.GetRefinementFunctions() == default_funcs);
+    }
+    THEN("Its refinement functions receive a valid state descriptor identifier") {
+      parthenon::StateDescriptor package("metadata refinement test");
+      REQUIRE(package.AddField("derived", m));
+      REQUIRE(package.RefinementFuncID(package.GetFieldMetadata("derived")) == 0);
+      REQUIRE(package.NumRefinementFuncs() == 1);
+    }
+    THEN("It retains explicitly configured refinement functions") {
+      const auto custom_funcs =
+          parthenon::refinement::RefinementFunctions_t::RegisterOps<MyProlongOp,
+                                                                    MyRestrictOp>();
+      Metadata custom({Metadata::Cell, Metadata::Derived, Metadata::OneCopy}, {}, {}, "",
+                      custom_funcs);
+      REQUIRE_FALSE(custom.HasRefinementOps());
+      REQUIRE(custom.GetRefinementFunctions() == custom_funcs);
+
+      parthenon::StateDescriptor package("custom metadata refinement test");
+      REQUIRE(package.AddField("derived", custom));
+      REQUIRE(package.RefinementFuncID(package.GetFieldMetadata("derived")) == 0);
     }
   }
 }

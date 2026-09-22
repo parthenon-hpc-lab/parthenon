@@ -44,9 +44,13 @@ class ParthenonManager {
   void
   ParthenonInitPackagesAndMesh(std::optional<forest::ForestDefinition> forest_def = {});
   ParthenonStatus ParthenonFinalize();
+  bool IsAnalysis() const { return arg.analysis_flag; }
+  const std::vector<std::string> &LoadedAnalysisFields() const {
+    return loaded_analysis_fields_;
+  }
 
   static Packages_t ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin);
-  void RestartPackages(Mesh &rm, RestartReader &resfile);
+  void RestartPackages(Mesh &rm, RestartReader &resfile, bool analysis_data = false);
 
   std::function<Packages_t(std::unique_ptr<ParameterInput> &)> ProcessPackages =
       ProcessPackagesDefault;
@@ -61,6 +65,8 @@ class ParthenonManager {
   ArgParse arg;
   bool called_init_env_ = false;
   bool called_init_packages_and_mesh_ = false;
+  bool analysis_data_ = false;
+  std::vector<std::string> loaded_analysis_fields_;
 
   template <typename T>
   void ReadSwarmVars_(const SP_Swarm &pswarm, const BlockList_t &block_list,

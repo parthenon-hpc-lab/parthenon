@@ -101,7 +101,7 @@ class ArgParse {
             std::cout << "Options:" << std::endl;
             std::cout << "  -i <file>       specify input file [athinput]\n";
             std::cout << "  -r <file>       restart with this file\n";
-            std::cout << "  -a <file>       analyze/postprocess this file\n";
+            std::cout << "  -a <file>       analyze a restart or HDF5 data file\n";
             std::cout << "  -d <directory>  specify run dir [current dir]\n";
             std::cout << "  -p [regex]      parse input file, report parameters\n"
                       << "                  for blocks matching regex in table and quit\n"
