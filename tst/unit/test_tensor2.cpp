@@ -550,6 +550,99 @@ TEMPLATE_TEST_CASE("tensor2 non-destructive sum of sparse delta trains reconstru
               pack_a, pack_b, pack_c) == 0);
 }
 
+TEMPLATE_TEST_CASE("tensor2 destructive sum of constant trains reconstructs correctly", "[tensor2]",
+                   FiberTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = TensorTrainT<TTraits>;
+  using TensorPack = TensorPackT<TTraits>;
+
+  using real_t = typename TTraits::real_t;
+
+  TensorTrain train_a(std::vector<int>{2, 5, 4}, {2, 1});
+  TensorTrain train_b(std::vector<int>{2, 5, 4}, {2, 3});
+
+  std::vector<TensorTrain> trains_a{train_a};
+  std::vector<TensorTrain> trains_b{train_b};
+
+  constexpr real_t a = 1.5;
+  constexpr real_t b = -0.25;
+
+  {
+    TensorPack pack_a(trains_a);
+    TensorPack pack_b(trains_b);
+    SetTTPackToValue(pack_a, a);
+    SetTTPackToValue(pack_b, b);
+    Kokkos::fence();
+  }
+
+  // Keep reference copies of the summands: the destructive op consumes its
+  // inputs, and TT linearity means reconstruct(A+B) == reconstruct(A) +
+  // reconstruct(B) (constant-valued cores do not reconstruct to a constant).
+  std::vector<TensorTrain> ref_a{trains_a[0].DeepCopy()};
+  std::vector<TensorTrain> ref_b{trains_b[0].DeepCopy()};
+  TensorPack pack_ref_a(ref_a);
+  TensorPack pack_ref_b(ref_b);
+
+  DestructiveSum(trains_a, trains_b);
+
+  // B's train is left empty; A now holds the combined block-diagonal sum.
+  REQUIRE(trains_b[0].IsEmpty());
+  REQUIRE(trains_a[0].NCores() == 3);
+  REQUIRE(trains_a[0](0).RR() == 2 + 2);
+  REQUIRE(trains_a[0](1).RR() == 1 + 3);
+
+  TensorPack pack_a(trains_a);
+  REQUIRE(pack_a.GetPhysicalDimensions() == std::vector<int>{2, 5, 4});
+
+  REQUIRE(CountDenseMismatches3D(
+              KOKKOS_LAMBDA(int, int, int, int, real_t vc, real_t va, real_t vb) {
+                return vc != va + vb;
+              },
+              pack_a, pack_ref_a, pack_ref_b) == 0);
+}
+
+TEMPLATE_TEST_CASE("tensor2 destructive sum of sparse delta trains reconstructs correctly",
+                   "[tensor2]", DefaultTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = TensorTrainT<TTraits>;
+  using TensorPack = TensorPackT<TTraits>;
+
+  using real_t = typename TTraits::real_t;
+
+  const std::array<int, 3> dims{3, 4, 5};
+
+  TensorTrain train_a = MakeSparseDeltaTrain3D<TTraits>(dims,
+                                         {{1, 2, 3}, {0, 1, 4}},
+                                         {real_t(2.0), real_t(-1.5)});
+  TensorTrain train_b = MakeSparseDeltaTrain3D<TTraits>(dims,
+                                         {{1, 2, 3}, {2, 0, 1}},
+                                         {real_t(4.5), real_t(3.0)});
+
+  // Keep reference copies of the summands to reconstruct the expected sum, since
+  // the destructive op consumes its inputs.
+  std::vector<TensorTrain> ref_a{train_a.DeepCopy()};
+  std::vector<TensorTrain> ref_b{train_b.DeepCopy()};
+  TensorPack pack_ref_a(ref_a);
+  TensorPack pack_ref_b(ref_b);
+
+  std::vector<TensorTrain> trains_a{train_a};
+  std::vector<TensorTrain> trains_b{train_b};
+
+  DestructiveSum(trains_a, trains_b);
+
+  REQUIRE(trains_b[0].IsEmpty());
+  REQUIRE(trains_a[0].NCores() == 3);
+
+  TensorPack pack_a(trains_a);
+  REQUIRE(pack_a.GetPhysicalDimensions() == std::vector<int>{dims[0], dims[1], dims[2]});
+
+  REQUIRE(CountDenseMismatches3D(
+              KOKKOS_LAMBDA(int, int, int, int, real_t vc, real_t va, real_t vb) {
+                return vc != va + vb;
+              },
+              pack_a, pack_ref_a, pack_ref_b) == 0);
+}
+
 TEMPLATE_TEST_CASE("tensor2 Hadamard product of constant trains reconstructs correctly", "[tensor2]",
                    FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;

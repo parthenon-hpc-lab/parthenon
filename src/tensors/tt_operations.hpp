@@ -223,6 +223,181 @@ void NonDestructiveSum(Container *A, Container *B, Container *C) {
   NonDestructiveSum(pa, pb, pc);
 }
 
+// Form the destructive TT sum A <- A + B over every field and block in the host
+// packs, leaving every train in B empty (see TensorTrainT::IsEmpty).
+//
+// Unlike NonDestructiveSum, the result is assembled in place in A by moving core
+// storage rather than copying the existing numeric data. For the fiber storage
+// backend (d_fastest_moving) this is a pure host-side pointer move: A's and B's
+// fibers are placed directly into the block-diagonal result core and only the
+// off-diagonal zero blocks are freshly allocated -- no device kernel runs. For
+// the contiguous backend a core is a single buffer that cannot be stitched from
+// two smaller ones, so we fall back to the proven copy-based block-diagonal fill
+// (as in NonDestructiveSum) writing into a fresh combined core, then move it into
+// A. In both cases B is left holding empty trains. A and B must be distinct.
+template <class TTraits>
+void DestructiveSum(TensorTrainHostPackT<TTraits> &A,
+                    TensorTrainHostPackT<TTraits> &B) {
+  const int nblocks = A.NumBlocks();
+  const int nvars = A.NumVars();
+  PARTHENON_REQUIRE(B.NumBlocks() == nblocks,
+                    "Must be adding the same number of blocks.");
+  PARTHENON_REQUIRE(B.NumVars() == nvars,
+                    "Must be adding the same number of fields.");
+
+  using train_t = TensorTrainT<TTraits>;
+  using core_type = typename train_t::core_type;
+
+  if constexpr (TTraits::d_fastest_moving) {
+    // Fiber backend: zero-copy block-diagonal assembly, host-side only.
+    for (int v = 0; v < nvars; ++v) {
+      for (int t = 0; t < nblocks; ++t) {
+        auto &train_A = A(t, v);
+        auto &train_B = B(t, v);
+        const int ncores = train_A.NCores();
+        PARTHENON_REQUIRE(ncores == train_B.NCores(),
+                          "Added trains must have the same number of cores.");
+        PARTHENON_REQUIRE_THROWS(
+            train_A.IsClosed() && train_B.IsClosed(),
+            "DestructiveSum requires closed trains: the block-diagonal stacking of "
+            "boundary bonds is only well-defined when they are one.");
+
+        std::vector<core_type> combined;
+        combined.reserve(ncores);
+        for (int c = 0; c < ncores; ++c) {
+          auto &core_a = train_A(c);
+          auto &core_b = train_B(c);
+          PARTHENON_REQUIRE(core_a.DD() == core_b.DD(),
+                            "Must have equivalent physical dims.");
+          const int loffset = (c > 0) * core_a.LR();
+          const int roffset = (c != (ncores - 1)) * core_a.RR();
+          const int lr_c = loffset ? core_a.LR() + core_b.LR() : core_a.LR();
+          const int rr_c = roffset ? core_a.RR() + core_b.RR() : core_a.RR();
+
+          // Block-diagonal placement lives here, in the operation: A's fibers
+          // occupy the top-left [0,LR_a) x [0,RR_a) block, B's the block offset
+          // by (loffset, roffset), and every other slot gets a fresh zero fiber.
+          // Existing fibers are shared by handle -- no numeric data is copied.
+          core_type core_c;
+          core_c.RebuildFibers(
+              lr_c, rr_c, core_a.Indexer(),
+              [&](int l, int r) {
+                if (l < core_a.LR() && r < core_a.RR())
+                  return core_a.GetFiber(l, r);
+                if (l >= loffset && l < loffset + core_b.LR() &&
+                    r >= roffset && r < roffset + core_b.RR())
+                  return core_b.GetFiber(l - loffset, r - roffset);
+                return core_a.MakeZeroFiber();
+              });
+          combined.push_back(std::move(core_c));
+        }
+        train_A = train_t(std::move(combined));
+        train_B.Clear();
+      }
+    }
+    return;
+  } else {
+    // Contiguous backend: copy-based fill into fresh combined cores, then move
+    // into A. Mirrors NonDestructiveSum's kernel but writes into a temporary and
+    // leaves B empty.
+    std::vector<std::vector<train_t>> temps(nvars, std::vector<train_t>(nblocks));
+    for (int v = 0; v < nvars; ++v) {
+      for (int t = 0; t < nblocks; ++t) {
+        const auto &train_A = A(t, v);
+        const auto &train_B = B(t, v);
+        PARTHENON_REQUIRE(train_A.NCores() == train_B.NCores(),
+                          "Added trains must have the same number of cores.");
+        PARTHENON_REQUIRE_THROWS(
+            train_A.IsClosed() && train_B.IsClosed(),
+            "DestructiveSum requires closed trains: the block-diagonal stacking of "
+            "boundary bonds is only well-defined when they are one.");
+        std::vector<int> target_ranks;
+        for (int c = 0; c < train_A.NCores(); ++c)
+          PARTHENON_REQUIRE(train_A(c).DD() == train_B(c).DD(),
+                            "Must have equivalent physical dims.");
+        for (int c = 0; c < train_A.NCores() - 1; ++c)
+          target_ranks.push_back(train_A(c).RR() + train_B(c).RR());
+        temps[v][t] = train_t(train_A, target_ranks);
+      }
+    }
+
+    // Wrap the temporaries in a host pack sharing A's (var, block) layout so the
+    // existing block-diagonal fill kernel can target them.
+    VarBlockGrid<train_t *> temp_grid(nvars, nblocks);
+    for (int v = 0; v < nvars; ++v)
+      for (int t = 0; t < nblocks; ++t)
+        temp_grid(v, t) = &temps[v][t];
+    TensorTrainHostPackT<TTraits> C(std::move(temp_grid));
+
+    auto pack_a = A.MakeDevicePack();
+    auto pack_b = B.MakeDevicePack();
+    auto pack_c = C.MakeDevicePack();
+    constexpr int unused_scratch_size = 0;
+    constexpr int unused_scratch_level = 1;
+    for (int v = 0; v < nvars; ++v) {
+      parthenon::par_for_outer(
+          PARTHENON_AUTO_LABEL, unused_scratch_size, unused_scratch_level,
+          0, pack_a.GetNBlocks() - 1, 0, pack_a.GetNCores() - 1,
+          KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int c) {
+            auto &core_c = pack_c(b, v, c);
+
+            auto &core_a = pack_a(b, v, c);
+            impl::CopyCoreBlock(member, core_a, core_c, 0, 0);
+
+            auto &core_b = pack_b(b, v, c);
+            const int loffset = (c > 0) * core_a.LR();
+            const int roffset = (c != (pack_a.GetNCores() - 1)) * core_a.RR();
+            impl::CopyCoreBlock(member, core_b, core_c, loffset, roffset);
+
+            if (loffset && roffset) {
+              impl::SetCoreBlock(member, core_c, typename TTraits::real_t(0),
+                                std::pair<int, int>{0, core_a.LR()},
+                                std::pair<int, int>{core_a.RR(), core_a.RR() + core_b.RR()});
+              impl::SetCoreBlock(member, core_c, typename TTraits::real_t(0),
+                                std::pair<int, int>{core_a.LR(), core_a.LR() + core_b.LR()},
+                                std::pair<int, int>{0, core_a.RR()});
+            }
+          });
+    }
+    // Kernels are asynchronous; make sure the fills complete before we move the
+    // temporaries into A and drop B.
+    Kokkos::fence();
+    for (int v = 0; v < nvars; ++v) {
+      for (int t = 0; t < nblocks; ++t) {
+        A(t, v) = std::move(temps[v][t]);
+        B(t, v).Clear();
+      }
+    }
+  }
+}
+
+// Convenience overload for a batch held in plain vectors (e.g. unit tests): sums
+// TrainsB into TrainsA in place and empties every train in TrainsB.
+template <class TTraits>
+void DestructiveSum(std::vector<TensorTrainT<TTraits>> &TrainsA,
+                    std::vector<TensorTrainT<TTraits>> &TrainsB) {
+  PARTHENON_REQUIRE(TrainsA.size() == TrainsB.size(),
+                    "Must be adding the same number of TTs.");
+  auto A = TensorTrainHostPackT<TTraits>::FromVector(TrainsA);
+  auto B = TensorTrainHostPackT<TTraits>::FromVector(TrainsB);
+  DestructiveSum(A, B);
+}
+
+// Task-based convenience wrapper over mesh-partition containers (e.g.
+// MeshTTData*): A <- A + B for every field, leaving B's trains empty. Templated
+// on the container type so this stays independent of the mesh/interface
+// headers. A and B must be distinct containers/stages holding the same field
+// set. Given a distinct name (not an overload of DestructiveSum) so it can be
+// passed by name to TaskList::AddTask without ambiguous overload resolution.
+template <class Container>
+TaskStatus DestructiveSumTask(Container *A, Container *B) {
+  using TTraits = typename Container::train_t::traits;
+  auto pa = TensorTrainHostPackT<TTraits>::FromContainer(*A);
+  auto pb = TensorTrainHostPackT<TTraits>::FromContainer(*B);
+  DestructiveSum(pa, pb);
+  return TaskStatus::complete;
+}
+
 // Form the Hadamard product of two batches of tensor trains. The output ranks
 // are the products of the corresponding input ranks, and the core entries are
 // filled by pairwise fiber multiplication.
@@ -666,6 +841,17 @@ void RoundGramSVD(Container *md, typename Container::train_t::traits::real_t eps
   using TTraits = typename Container::train_t::traits;
   auto pack_host = TensorTrainHostPackT<TTraits>::FromContainer(*md);
   RoundGramSVD(pack_host, eps, core_mask);
+}
+
+// Task-based wrapper rounding all fields of a mesh-partition container in place,
+// returning a TaskStatus. Given a distinct name (not an overload of
+// RoundGramSVD) so it can be passed by name to TaskList::AddTask without
+// ambiguous overload resolution.
+template <class Container>
+TaskStatus RoundGramSVDTask(Container *md,
+                            typename Container::train_t::traits::real_t eps) {
+  RoundGramSVD(md, eps);
+  return TaskStatus::complete;
 }
 
 template <class TTraits>

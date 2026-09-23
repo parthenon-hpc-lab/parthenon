@@ -123,7 +123,31 @@ class TensorCoreHostT {
   void ReduceSize(int lr_new, int rr_new) {
     storage_.ReduceSize(lr_new, rr_new);
   }
-  
+
+  // Generic building blocks for block-structured fiber operations (fiber storage
+  // only; the methods below forward to fiber-specific storage members and are
+  // therefore only instantiated when called -- e.g. inside DestructiveSum's
+  // `if constexpr (d_fastest_moving)` branch). They carry no operation-specific
+  // layout knowledge: the operation supplies both the target extents and the
+  // per-slot fiber source.
+
+  // Read the managed fiber handle at (l, r), for use as a RebuildFibers source.
+  auto GetFiber(int l, int r) const { return storage_.GetFiber(l, r); }
+
+  // Allocate a fresh, zero-initialized fiber sized to this core's physical
+  // dimension, for use as a RebuildFibers source in zero blocks.
+  auto MakeZeroFiber() const { return storage_.MakeZeroFiber(DD()); }
+
+  // Rebuild this core's fiber storage to (lr x rr) with physical layout `idxer`,
+  // sourcing each (l, r) fiber handle from `get_fiber`. Returning an existing
+  // handle shares storage (no numeric copy); returning a fresh fiber zero-fills.
+  // The physical dimension is inferred from the placed fibers by the storage.
+  template <class Getter>
+  void RebuildFibers(int lr, int rr, const Indexer6D &idxer, Getter &&get_fiber) {
+    phys_indexer_ = idxer;
+    storage_.RebuildOuterViews(lr, rr, std::forward<Getter>(get_fiber));
+  }
+
   const auto &Indexer() const {return phys_indexer_;}
   int RR() const { return storage_.RR(); }
   int DD() const { return storage_.DD(); }
@@ -168,6 +192,16 @@ class TensorTrainT {
   // buffer that is a factor of a larger train). Operations that require a closed
   // train guard on IsClosed(); see the op definitions in tt_operations.hpp.
   TensorTrainT(const std::vector<core_type> &cores_in) : cores(cores_in) {
+    for (int c = 1; c < NCores(); ++c) {
+      PARTHENON_REQUIRE(cores[c - 1].RR() == cores[c].LR(),
+                        "Cores must have consistent ranks.");
+    }
+  }
+
+  // Move-construct a train from an already-assembled sequence of cores. Used by
+  // DestructiveSum to install cores whose fiber storage was moved (not copied)
+  // from the summands without re-touching the fiber handles.
+  TensorTrainT(std::vector<core_type> &&cores_in) : cores(std::move(cores_in)) {
     for (int c = 1; c < NCores(); ++c) {
       PARTHENON_REQUIRE(cores[c - 1].RR() == cores[c].LR(),
                         "Cores must have consistent ranks.");
@@ -219,6 +253,13 @@ class TensorTrainT {
   bool IsClosed() const {
     return !cores.empty() && cores.front().LR() == 1 && cores.back().RR() == 1;
   }
+
+  // A train is "empty" when it holds no cores. This is the state a summand pack's
+  // trains are left in after DestructiveSum moves their cores into the result.
+  bool IsEmpty() const { return cores.empty(); }
+
+  // Drop all cores, leaving an empty train (see IsEmpty).
+  void Clear() { cores.clear(); }
 
   auto &operator()(int c) { return cores[c]; }
   const auto &operator()(int c) const { return cores[c]; }

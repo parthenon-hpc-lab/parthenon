@@ -228,6 +228,15 @@ class FiberStorageHost {
     });
   }
 
+  // Read the managed fiber handle at (l, r), for use as a RebuildOuterViews source.
+  const fiber_managed_t &GetFiber(int l, int r) const { return host_fibers(l, r); }
+
+  // Allocate a fresh, zero-initialized fiber of length dd_new, for use as a
+  // RebuildOuterViews source in blocks that should be zero.
+  fiber_managed_t MakeZeroFiber(int dd_new) const {
+    return fiber_managed_t("fiber_zero", dd_new);
+  }
+
   FiberStorageHost DeepCopy() const {
     FiberStorageHost out;
     out.Allocate(lr, dd, rr);
@@ -247,7 +256,14 @@ class FiberStorageHost {
   int DD() const { return dd; }
   int RR() const { return rr; }
 
- private:
+  // Resize the rank space to (lr_new x rr_new), sourcing the managed fiber handle
+  // for each (l, r) slot from `get_fiber`. This is the single generic building
+  // block used by all block-structured fiber operations (Allocate, CopyFrom,
+  // ReduceSize, and TT ops such as DestructiveSum). Because fibers are
+  // reference-counted managed views, returning an existing handle shares its
+  // storage (no numeric data is copied); returning a freshly-allocated fiber
+  // introduces a zeroed block. The physical dimension dd is inferred from the
+  // fibers placed, so it always mirrors the actual fiber length.
   template <class ManagedFiberGetter>
   void RebuildOuterViews(int lr_new, int rr_new, ManagedFiberGetter &&get_fiber) {
     lr = lr_new;
@@ -262,6 +278,7 @@ class FiberStorageHost {
       for (int r = 0; r < rr; ++r) {
         host_fibers(l, r) = get_fiber(l, r);
         auto &f = host_fibers(l, r);
+        dd = f.extent(0);
         device_managed_fibers_h(l, r) = fiber_unmanaged_t(f.data(), f.extent(0));
       }
     }
