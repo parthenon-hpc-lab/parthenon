@@ -1,0 +1,528 @@
+//========================================================================================
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
+//
+// This program was produced under U.S. Government contract 89233218CNA000001 for Los
+// Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+// for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+// in the program are reserved by Triad National Security, LLC, and the U.S. Department
+// of Energy/National Nuclear Security Administration. The Government is granted for
+// itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+// license in this material to reproduce, prepare derivative works, distribute copies to
+// the public, perform publicly and display publicly, and to permit others to do so.
+//========================================================================================
+
+#include <memory>
+#include <string>
+#include <vector>
+
+#include <catch2/catch.hpp>
+
+#include "basic_types.hpp"
+#include "bvals/comms/bvals_utils.hpp"
+#include "bvals/comms/calc_indices.hpp"
+#include "bvals/neighbor_block.hpp"
+#include "interface/metadata.hpp"
+#include "interface/packages.hpp"
+#include "interface/state_descriptor.hpp"
+#include "mesh/domain.hpp"
+#include "mesh/meshblock.hpp"
+#include "mesh/mesh.hpp"
+#include "tensors/tt_comm_channel.hpp"
+#include "tensors/tt_container.hpp"
+#include "tensors/tt_field_metadata.hpp"
+#include "tensors/tt_operations.hpp"
+#include "tensors/tt_pack.hpp"
+#include "utils/cell_center_offsets.hpp"
+#include "utils/loop_utils.hpp"
+
+using parthenon::BlockList_t;
+using parthenon::BlockListPartition;
+using parthenon::GridIdentifier;
+using parthenon::IndexDomain;
+using parthenon::MeshBlock;
+using parthenon::MeshBlockTTData;
+using parthenon::MeshTTData;
+using parthenon::Metadata;
+using parthenon::Packages_t;
+using parthenon::ResolvePackages;
+using parthenon::StateDescriptor;
+using parthenon::TTFieldMetadata;
+
+TEST_CASE("Tensor-train fields register and resolve", "[TTField]") {
+  GIVEN("A package with a registered tensor-train field") {
+    constexpr int NTHETA = 8;
+    constexpr int NPHI = 16;
+    auto pkg = std::make_shared<StateDescriptor>("tt_test");
+    TTFieldMetadata d({NTHETA, NPHI}, Metadata({Metadata::Cell, Metadata::Independent}));
+    pkg->AddTTField("I", d);
+
+    THEN("The field is present with the expected structure") {
+      REQUIRE(pkg->TTFieldPresent("I"));
+      const auto &md = pkg->GetTTFieldMetadata("I");
+      REQUIRE(md.NCores() == 3);
+      REQUIRE(md.phys_dims.size() == 2);
+      REQUIRE(md.phys_dims[0] == NTHETA);
+      REQUIRE(md.phys_dims[1] == NPHI);
+    }
+
+    WHEN("Packages are resolved") {
+      Packages_t packages;
+      packages.Add(pkg);
+      auto resolved = ResolvePackages(packages);
+
+      THEN("The resolved descriptor carries the TT field") {
+        REQUIRE(resolved->TTFieldPresent("I"));
+        REQUIRE(resolved->AllTTFields().size() == 1);
+      }
+    }
+
+    WHEN("A duplicate TT field name is registered in a second package") {
+      auto pkg2 = std::make_shared<StateDescriptor>("tt_test2");
+      pkg2->AddTTField("I", d);
+      Packages_t packages;
+      packages.Add(pkg);
+      packages.Add(pkg2);
+      THEN("Resolution raises an error") {
+        REQUIRE_THROWS(ResolvePackages(packages));
+      }
+    }
+  }
+}
+
+TEST_CASE("Tensor-train containers build trains from a block", "[TTField]") {
+  GIVEN("A resolved package and a MeshBlock") {
+    constexpr int NTHETA = 8;
+    constexpr int NPHI = 16;
+    constexpr int NSIDE = 4;
+    constexpr int NDIM = 2;
+
+    auto pkg = std::make_shared<StateDescriptor>("tt_test");
+    pkg->AddTTField(
+        "I", TTFieldMetadata({NTHETA, NPHI}, Metadata({Metadata::Cell, Metadata::Independent})));
+    Packages_t packages;
+    packages.Add(pkg);
+    auto resolved = ResolvePackages(packages);
+
+    auto pmb = std::make_shared<MeshBlock>(NSIDE, NDIM);
+    pmb->resolved_packages = resolved;
+    // The lightweight MeshBlock ctor does not run the full setup, so initialize
+    // the base TT container explicitly (the real ctor does this in meshblock.cpp).
+    pmb->tt_block_data.Get()->Initialize(pmb);
+
+    const int nspace = pmb->cellbounds.GetTotal(IndexDomain::entire);
+
+    THEN("The base container holds a train with the derived spatial core dim") {
+      auto &ttdata = pmb->tt_block_data.Get();
+      REQUIRE(ttdata->Contains("I"));
+      const auto &train = ttdata->Get("I")->train();
+      REQUIRE(train.NCores() == 3);
+      REQUIRE(train.GetPhysicalDimension(0) == nspace);
+      REQUIRE(train.GetPhysicalDimension(1) == NTHETA);
+      REQUIRE(train.GetPhysicalDimension(2) == NPHI);
+    }
+
+    THEN("GetBounds* mirror the block's cellbounds") {
+      auto &ttdata = pmb->tt_block_data.Get();
+      auto ib = ttdata->GetBoundsI(parthenon::IndexDomain::interior);
+      auto ib_ref = pmb->cellbounds.GetBoundsI(parthenon::IndexDomain::interior);
+      REQUIRE(ib.s == ib_ref.s);
+      REQUIRE(ib.e == ib_ref.e);
+      auto jb = ttdata->GetBoundsJ(parthenon::IndexDomain::entire);
+      auto jb_ref = pmb->cellbounds.GetBoundsJ(parthenon::IndexDomain::entire);
+      REQUIRE(jb.s == jb_ref.s);
+      REQUIRE(jb.e == jb_ref.e);
+    }
+
+    WHEN("A named stage is created as a deep copy") {
+      auto &base = pmb->tt_block_data.Get();
+      auto &stage = pmb->tt_block_data.Add("stage1", base);
+
+      THEN("The stage has an independent train object") {
+        REQUIRE(stage->Contains("I"));
+        REQUIRE(stage->Get("I").get() != base->Get("I").get());
+        REQUIRE(stage->Get("I")->train().NCores() == base->Get("I")->train().NCores());
+      }
+    }
+
+    WHEN("A named stage is created shallow") {
+      auto &base = pmb->tt_block_data.Get();
+      auto &stage = pmb->tt_block_data.AddShallow("shallow1", base);
+
+      THEN("The stage aliases the base train object") {
+        REQUIRE(stage->Get("I").get() == base->Get("I").get());
+      }
+    }
+  }
+}
+
+TEST_CASE("MeshTTData assembles over a block partition", "[TTField]") {
+  GIVEN("A partition of blocks each holding a base TT container") {
+    constexpr int NTHETA = 8;
+    constexpr int NPHI = 16;
+    constexpr int NSIDE = 4;
+    constexpr int NDIM = 2;
+    constexpr int NBLOCKS = 3;
+
+    auto pkg = std::make_shared<StateDescriptor>("tt_test");
+    pkg->AddTTField(
+        "I", TTFieldMetadata({NTHETA, NPHI}, Metadata({Metadata::Cell, Metadata::Independent})));
+    Packages_t packages;
+    packages.Add(pkg);
+    auto resolved = ResolvePackages(packages);
+
+    BlockList_t block_list;
+    for (int i = 0; i < NBLOCKS; ++i) {
+      auto pmb = std::make_shared<MeshBlock>(NSIDE, NDIM);
+      pmb->resolved_packages = resolved;
+      pmb->tt_block_data.Get()->Initialize(pmb);
+      block_list.push_back(pmb);
+    }
+    constexpr int kPartition = 7;
+    auto part = std::make_shared<BlockListPartition>(kPartition, GridIdentifier::leaf(),
+                                                     block_list, nullptr);
+
+    WHEN("A MeshTTData base stage is initialized from the partition") {
+      MeshTTData md("base");
+      md.Initialize(part);
+
+      THEN("It exposes one block container per block, each with the field") {
+        REQUIRE(md.NumBlocks() == NBLOCKS);
+        for (int b = 0; b < NBLOCKS; ++b) {
+          REQUIRE(md.GetBlockData(b)->Contains("I"));
+          // The MeshTTData stage aliases each block's own base container.
+          REQUIRE(md.GetBlockData(b).get() ==
+                  block_list[b]->tt_block_data.Get().get());
+        }
+      }
+
+      THEN("It carries the partition's grid identity for symmetry with MeshData") {
+        REQUIRE(md.partition == kPartition);
+        REQUIRE(md.grid.type() == GridIdentifier::leaf().type());
+      }
+    }
+
+    WHEN("Host-pack tensor-train ops run over the partition") {
+      MeshTTData in("base");
+      in.Initialize(part);
+      MeshTTData out("stage1");
+      out.Initialize(std::make_shared<MeshTTData>(in));
+
+      // Record input ranks (all-ones for a freshly-created field).
+      std::vector<int> in_r0(NBLOCKS), in_r1(NBLOCKS);
+      for (int b = 0; b < NBLOCKS; ++b) {
+        const auto &t = in.GetBlockData(b)->Get("I")->train();
+        in_r0[b] = t.GetCoreHost(0).RR();
+        in_r1[b] = t.GetCoreHost(1).RR();
+      }
+
+      // Build host packs directly from the mesh containers (the mesh -> host
+      // pack -> op path an application uses). FromContainer gathers all fields.
+      using parthenon::tensor::TensorTrainHostPack;
+      auto in_pack = TensorTrainHostPack::FromContainer(in);
+      auto out_pack = TensorTrainHostPack::FromContainer(out);
+
+      THEN("NonDestructiveSum(in, in, out) yields combined ranks in out") {
+        parthenon::tensor::NonDestructiveSum(in_pack, in_pack, out_pack);
+        for (int b = 0; b < NBLOCKS; ++b) {
+          const auto &t = out.GetBlockData(b)->Get("I")->train();
+          REQUIRE(t.GetCoreHost(0).RR() == in_r0[b] + in_r0[b]);
+          REQUIRE(t.GetCoreHost(1).RR() == in_r1[b] + in_r1[b]);
+          // Inputs are untouched (out is a distinct stage).
+          REQUIRE(in.GetBlockData(b)->Get("I")->train().GetCoreHost(0).RR() == in_r0[b]);
+        }
+
+        AND_THEN("RoundGramSVD compresses the summed field back down") {
+          parthenon::tensor::RoundGramSVD(out_pack, 1.e-12);
+          for (int b = 0; b < NBLOCKS; ++b) {
+            const auto &t = out.GetBlockData(b)->Get("I")->train();
+            // in+in is rank-deficient, so rounding cannot exceed the summed rank
+            // and should not error.
+            REQUIRE(t.GetCoreHost(0).RR() <= in_r0[b] + in_r0[b]);
+            REQUIRE(t.GetCoreHost(0).RR() >= 1);
+          }
+        }
+      }
+    }
+  }
+}
+
+// Field tags for the multi-field pack test.
+namespace tags {
+struct A : public parthenon::tensor::tt_var_base_t {
+  static std::string name() { return "A"; }
+};
+struct B : public parthenon::tensor::tt_var_base_t {
+  static std::string name() { return "B"; }
+};
+} // namespace tags
+
+TEST_CASE("Multi-field packs support integer and tag indexing", "[TTField]") {
+  GIVEN("A container holding two same-shape tensor-train fields") {
+    constexpr int NTHETA = 8;
+    constexpr int NPHI = 16;
+    constexpr int NSIDE = 4;
+    constexpr int NDIM = 2;
+    constexpr int NBLOCKS = 2;
+
+    auto pkg = std::make_shared<StateDescriptor>("tt_test");
+    Metadata cell({Metadata::Cell, Metadata::Independent});
+    pkg->AddTTField("A", TTFieldMetadata({NTHETA, NPHI}, cell));
+    pkg->AddTTField("B", TTFieldMetadata({NTHETA, NPHI}, cell));
+    Packages_t packages;
+    packages.Add(pkg);
+    auto resolved = ResolvePackages(packages);
+
+    BlockList_t block_list;
+    for (int i = 0; i < NBLOCKS; ++i) {
+      auto pmb = std::make_shared<MeshBlock>(NSIDE, NDIM);
+      pmb->resolved_packages = resolved;
+      pmb->tt_block_data.Get()->Initialize(pmb);
+      block_list.push_back(pmb);
+    }
+    auto part = std::make_shared<BlockListPartition>(0, GridIdentifier::leaf(),
+                                                     block_list, nullptr);
+    MeshTTData md("base");
+    md.Initialize(part);
+
+    WHEN("An untagged host pack is built over all fields") {
+      using parthenon::tensor::TensorTrainHostPack;
+      auto host = TensorTrainHostPack::FromContainer(md);
+
+      THEN("It reports the container's field count") {
+        REQUIRE(host.NumVars() == 2);
+        REQUIRE(host.NumBlocks() == NBLOCKS);
+      }
+    }
+
+    WHEN("An untagged host pack is built from an explicit name list") {
+      using parthenon::tensor::TensorTrainHostPack;
+      auto host = TensorTrainHostPack::FromNames(md, {"B"});
+
+      THEN("It gathers only the named fields, in the given order") {
+        REQUIRE(host.NumVars() == 1);
+        REQUIRE(host.NumBlocks() == NBLOCKS);
+        REQUIRE(&host(0, 0) == &md.GetBlockData(0)->Get("B")->train());
+      }
+    }
+
+    WHEN("A tagged host pack is built for a specific field set") {
+      using parthenon::tensor::TensorTrainHostPackFor;
+      auto host = TensorTrainHostPackFor<tags::A, tags::B>::FromContainer(md);
+
+      THEN("The host pack is accessible by tag (block leads)") {
+        REQUIRE(host.template VarIndex<tags::A>() == 0);
+        REQUIRE(host.template VarIndex<tags::B>() == 1);
+        // Tag and integer accessors reach the same train.
+        REQUIRE(&host(0, tags::A{}) == &host(0, 0));
+        REQUIRE(&host(0, tags::B{}) == &host(0, 1));
+      }
+
+      THEN("Its device pack resolves tags to var slots (block leads)") {
+        auto pack = host.MakeDevicePack();
+        REQUIRE(pack.GetNVars() == 2);
+        REQUIRE(pack.template VarIndex<tags::A>() == 0);
+        REQUIRE(pack.template VarIndex<tags::B>() == 1);
+      }
+    }
+  }
+}
+
+namespace {
+// Compile-time proof that a TTVariable (shared_ptr) satisfies the field surface the
+// boundary-comm templates require, so CalcIndices/ForEachBoundary accept it exactly like
+// a std::shared_ptr<Variable<Real>>. (The math TensorTrain is deliberately identity-free;
+// the field concept lives on the TTVariable wrapper.)
+using parthenon::Metadata;
+using parthenon::MetadataFlag;
+using var_sptr = std::shared_ptr<parthenon::TTVariable>;
+static_assert(std::is_same_v<decltype(std::declval<var_sptr>()->label()),
+                             const std::string &>,
+              "TTVariable must expose label().");
+static_assert(std::is_same_v<decltype(std::declval<var_sptr>()->IsSet(
+                                 std::declval<MetadataFlag>())),
+                             bool>,
+              "TTVariable must expose IsSet(MetadataFlag).");
+static_assert(
+    std::is_same_v<decltype(std::declval<var_sptr>()->GetDim(4)), int>,
+    "TTVariable must expose GetDim(int).");
+} // namespace
+
+TEST_CASE("TT types drive the boundary-comm templates", "[TTField]") {
+  using parthenon::BlockInfo;
+  using parthenon::BoundaryType;
+  using parthenon::CalcIndices;
+  using parthenon::CellCentOffsets;
+  using parthenon::IndexRangeType;
+  using parthenon::NeighborBlock;
+  using parthenon::TopologicalElement;
+  namespace loops = parthenon::loops;
+
+  constexpr int NTHETA = 8;
+  constexpr int NPHI = 16;
+  constexpr int NSIDE = 4;
+  constexpr int NDIM = 3;
+  parthenon::Globals::nghost = 2;
+
+  auto pkg = std::make_shared<StateDescriptor>("tt_test");
+  pkg->AddTTField("I", TTFieldMetadata({NTHETA, NPHI},
+                                       Metadata({Metadata::Cell, Metadata::Independent,
+                                                 Metadata::FillGhost})));
+  Packages_t packages;
+  packages.Add(pkg);
+  auto resolved = ResolvePackages(packages);
+
+  auto pmb = std::make_shared<MeshBlock>(NSIDE, NDIM);
+  pmb->resolved_packages = resolved;
+  pmb->tt_block_data.Get()->Initialize(pmb);
+
+  GIVEN("A tensor-train field carrying the Variable-concept surface") {
+    auto train = pmb->tt_block_data.Get()->Get("I");
+
+    THEN("Its label/flags come from the registered metadata") {
+      REQUIRE(train->label() == "I");
+      REQUIRE(train->IsSet(Metadata::FillGhost));
+      REQUIRE_FALSE(train->IsSet(Metadata::Fine));
+      // Tensor-component axes are always 1: a TT field's fixed extra indices would
+      // flatten into the spatial core rather than being separate index dimensions.
+      REQUIRE(train->GetDim(4) == 1);
+      REQUIRE(train->GetDim(5) == 1);
+      REQUIRE(train->GetDim(6) == 1);
+    }
+
+    WHEN("CalcIndices is called with the train as the field (a +x face neighbor)") {
+      // A same-level +x face neighbor built by hand; only the descriptor fields
+      // CalcIndices reads are populated.
+      NeighborBlock nb;
+      nb.loc = pmb->loc;
+      nb.origin_loc = pmb->loc;
+      nb.block_coarsenings = pmb->block_coarsenings;
+      nb.block_size = pmb->block_size;
+      nb.offsets = CellCentOffsets(1, 0, 0);
+
+      // Lightweight MeshBlock has no owning mesh, so pass multilevel=false directly.
+      auto idx_train = CalcIndices(nb, BlockInfo(pmb.get()), /*multilevel=*/false, train,
+                                   TopologicalElement::CC,
+                                   IndexRangeType::BoundaryInteriorSend, false);
+
+      THEN("It produces a non-empty boundary region") {
+        // The interior-send region for a cell-centered FillGhost field on a +x face
+        // neighbor is the nghost-deep +x slab; just assert it is non-degenerate.
+        REQUIRE(idx_train.size() > 0);
+      }
+
+      THEN("SendKey/ReceiveKey template on the train and key off its label") {
+        nb.gid = 1;
+        auto skey = parthenon::SendKey(pmb.get(), nb, train, BoundaryType::any, 0);
+        REQUIRE(std::get<2>(skey) == "I"); // channel_key_t's variable slot is the label
+      }
+    }
+  }
+
+  GIVEN("A MeshTTData partition") {
+    BlockList_t block_list{pmb};
+    auto part = std::make_shared<BlockListPartition>(0, GridIdentifier::leaf(),
+                                                     block_list, nullptr);
+    auto md = std::make_shared<MeshTTData>("base");
+    md->Initialize(part);
+
+    WHEN("ForEachBoundary is instantiated on it") {
+      int count = 0;
+      // The lambda body is type-checked against the TT container: rc is a
+      // MeshBlockTTData shared_ptr and v is a TensorTrain shared_ptr exposing the
+      // Variable-concept surface. This instantiation compiling *is* the proof that
+      // the same boundary walk drives a MeshTTData with no MeshData<Real> in sight.
+      loops::ForEachBoundary<BoundaryType::any>(
+          md, [&](auto pmb_in, auto rc, const NeighborBlock &nb, auto v) {
+            REQUIRE(v->label() == "I");
+            REQUIRE(v->IsSet(Metadata::FillGhost));
+            ++count;
+          });
+
+      THEN("The walk runs; a lightweight block has no neighbors so it visits none") {
+        REQUIRE(count == 0);
+      }
+    }
+  }
+}
+
+TEST_CASE("TTCommChannel carries a train through a shared-state handshake", "[TTField]") {
+  using parthenon::BufferState;
+  using parthenon::TTCommChannel;
+  using train_t = parthenon::tensor::TensorTrain;
+
+  GIVEN("A single channel") {
+    TTCommChannel chan;
+
+    THEN("It starts stale and writable") {
+      REQUIRE(chan.GetState() == BufferState::stale);
+      REQUIRE(chan.IsAvailableForWrite());
+    }
+
+    WHEN("A train is sent and then received") {
+      auto train = std::make_shared<train_t>(std::vector<int>{4, 8}, std::vector<int>{1});
+      chan.Send(train);
+
+      THEN("The state advances stale -> sending -> received and the train survives") {
+        REQUIRE(chan.GetState() == BufferState::sending);
+        REQUIRE_FALSE(chan.IsAvailableForWrite());
+        REQUIRE(chan.TryReceive());
+        REQUIRE(chan.GetState() == BufferState::received);
+        REQUIRE(chan.Get().get() == train.get());
+      }
+
+      THEN("Staling releases the payload and returns it to writable") {
+        chan.Stale();
+        REQUIRE(chan.GetState() == BufferState::stale);
+        REQUIRE(chan.IsAvailableForWrite());
+        REQUIRE(chan.Get() == nullptr);
+      }
+    }
+
+    WHEN("TryReceive is called before any Send") {
+      THEN("It reports not-yet-received") { REQUIRE_FALSE(chan.TryReceive()); }
+    }
+  }
+
+  GIVEN("A mesh channel map keyed by channel_key_t") {
+    using parthenon::BoundaryType;
+    using parthenon::CellCentOffsets;
+    using parthenon::NeighborBlock;
+
+    // Two blocks A(gid=0) and B(gid=1); A's +x neighbor is B and B's -x neighbor is A.
+    // On a single rank SendKey(A->B) and ReceiveKey(B->A) must produce the same key, so
+    // both ends resolve to one shared channel in the map.
+    auto A = std::make_shared<MeshBlock>(4, 3);
+    auto B = std::make_shared<MeshBlock>(4, 3);
+    A->gid = 0;
+    B->gid = 1;
+
+    NeighborBlock nb_of_A; // B as seen from A: +x
+    nb_of_A.gid = B->gid;
+    nb_of_A.offsets = CellCentOffsets(1, 0, 0);
+
+    NeighborBlock nb_of_B; // A as seen from B: -x
+    nb_of_B.gid = A->gid;
+    nb_of_B.offsets = CellCentOffsets(-1, 0, 0);
+
+    // The keys are computed from the field's label, so key off a TTVariable; the channel
+    // payload is the bare math train.
+    auto var = std::make_shared<parthenon::TTVariable>(
+        "I", parthenon::TTFieldMetadata({8}, Metadata()),
+        train_t(std::vector<int>{4, 8}, std::vector<int>{1}));
+    auto train = std::make_shared<train_t>(var->train().DeepCopy());
+
+    WHEN("A sends via SendKey and B receives via ReceiveKey") {
+      auto skey = parthenon::SendKey(A.get(), nb_of_A, var, BoundaryType::any, 0);
+      auto rkey = parthenon::ReceiveKey(B.get(), nb_of_B, var, BoundaryType::any, 0);
+
+      THEN("Both keys are identical, so they resolve to one shared channel") {
+        REQUIRE(skey == rkey);
+
+        parthenon::Mesh::tt_comm_map_t map;
+        map[skey].Send(train);
+        REQUIRE(map[rkey].TryReceive());
+        REQUIRE(map[rkey].Get().get() == train.get());
+      }
+    }
+  }
+}

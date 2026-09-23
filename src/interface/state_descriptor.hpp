@@ -38,6 +38,7 @@
 #include "pack/scratch_variables.hpp"
 #include "parameter_input.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
+#include "tensors/tt_field_metadata.hpp"
 #include "tasks/tasks.hpp"
 #include "utils/error_checking.hpp"
 
@@ -229,6 +230,34 @@ class StateDescriptor {
   bool AddSwarmValue(const Metadata &m) {
     return AddSwarmValue(T::name(), V::name(), m);
   }
+
+  // tensor-train field addition / retrieval. Tensor-train fields are registered
+  // on a parallel path to regular fields (like swarms) because their data has
+  // dynamic ranks that cannot live in fixed-size Variable<T> storage.
+  bool AddTTField(const std::string &name, const TTFieldMetadata &d_in) {
+    PARTHENON_REQUIRE(name.find_first_of("\n\t ") == std::string::npos,
+                      "A tensor-train field name may not contain whitespace");
+    if (ttFieldMetadataMap_.count(name) > 0) {
+      throw std::invalid_argument("Tensor-train field " + name + " already exists!");
+    }
+    TTFieldMetadata d = d_in; // so we can modify it
+    if (!d.metadata.IsSet(GetMetadataFlag())) d.metadata.Set(GetMetadataFlag());
+    ttFieldMetadataMap_[name] = d;
+    return true;
+  }
+  template <typename T>
+  bool AddTTField(const TTFieldMetadata &d) {
+    return AddTTField(T::name(), d);
+  }
+
+  bool TTFieldPresent(const std::string &name) const noexcept {
+    return ttFieldMetadataMap_.count(name) > 0;
+  }
+  const auto &AllTTFields() const noexcept { return ttFieldMetadataMap_; }
+  const TTFieldMetadata &GetTTFieldMetadata(const std::string &name) const {
+    return ttFieldMetadataMap_.at(name);
+  }
+  std::vector<std::string> TTFields() noexcept;
 
   // field addition / retrieval routines
   bool AddField(const std::string &field_name, const Metadata &m_in,
@@ -560,6 +589,7 @@ class StateDescriptor {
 
   Dictionary<Metadata> swarmMetadataMap_;
   Dictionary<Dictionary<Metadata>> swarmValueMetadataMap_;
+  Dictionary<TTFieldMetadata> ttFieldMetadataMap_;
 
   RefinementFunctionMaps refinementFuncMaps_;
   Dictionary<MeshDataDescriptor> submeshdata_map_;

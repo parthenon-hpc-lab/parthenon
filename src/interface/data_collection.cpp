@@ -19,6 +19,7 @@
 #include "interface/meshblock_data.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "tensors/tt_container.hpp"
 #include "utils/partition_stl_containers.hpp"
 
 namespace parthenon {
@@ -86,5 +87,7 @@ std::shared_ptr<T> &DataCollection<T>::Get(const std::string &name) {
 
 template class DataCollection<MeshData<Real>>;
 template class DataCollection<MeshBlockData<Real>>;
+template class DataCollection<MeshBlockTTData>;
+template class DataCollection<MeshTTData>;
 
 } // namespace parthenon

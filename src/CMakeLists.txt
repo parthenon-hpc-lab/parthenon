@@ -315,6 +315,14 @@ add_library(parthenon
   time_integration/low_storage_integrator.cpp
   time_integration/staged_integrator.cpp
   time_integration/staged_integrator.hpp
+  tensors/tt_boundary_cache.hpp
+  tensors/tt_boundary_comm.cpp
+  tensors/tt_boundary_comm.hpp
+  tensors/tt_comm_channel.hpp
+  tensors/tt_container.cpp
+  tensors/tt_container.hpp
+  tensors/tt_field_metadata.hpp
+  tensors/tt_pack.hpp
 
   utils/alias_method.cpp
   utils/alias_method.hpp
