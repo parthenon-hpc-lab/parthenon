@@ -37,6 +37,15 @@
 
 namespace parthenon {
 
+BlockInfo::BlockInfo(const MeshBlock *pmb)
+    : rank{Globals::my_rank}, gid{pmb->gid}, loc{pmb->loc},
+      block_coarsenings{pmb->block_coarsenings}, block_size{pmb->block_size},
+      ownership{pmb->ownership} {}
+
+BlockInfo::BlockInfo(const NeighborBlock &nb)
+    : rank{nb.rank}, gid{nb.gid}, loc{nb.loc}, block_coarsenings{nb.block_coarsenings},
+      block_size{nb.block_size}, ownership{nb.ownership} {}
+
 NeighborBlock::NeighborBlock()
     : rank{-1}, gid{-1}, bufid{-1}, targetid{-1}, loc(), fi1{-1}, fi2{-1}, block_size(),
       offsets(0, 0, 0), ownership(true) {}

@@ -108,6 +108,9 @@ LogicalCoordinateTransformation
 ComposeTransformations(const LogicalCoordinateTransformation &first,
                        const LogicalCoordinateTransformation &second);
 
+LogicalCoordinateTransformation
+GetInverseTransform(const LogicalCoordinateTransformation &t);
+
 struct NeighborLocation {
   NeighborLocation(const LogicalLocation &g, const LogicalLocation &o,
                    const LogicalCoordinateTransformation &lcoord_trans)

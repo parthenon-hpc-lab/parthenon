@@ -347,9 +347,19 @@ bool Metadata::HasSameFlags(const Metadata &b) const {
   }
   return true;
 }
-
 std::array<int, MAX_VARIABLE_DIMENSION>
 Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
+  if (IsMeshTied()) {
+    PARTHENON_REQUIRE_THROWS(!wpmb.expired(),
+                             "Cannot determine array dimensions for mesh-tied entity "
+                             "without a valid meshblock");
+    return GetArrayDims(wpmb.lock().get(), coarse);
+  } else {
+    return GetArrayDims(nullptr, coarse);
+  }
+}
+std::array<int, MAX_VARIABLE_DIMENSION>
+Metadata::GetArrayDims(MeshBlock* pmb, bool coarse) const {
   std::array<int, MAX_VARIABLE_DIMENSION> arrDims;
   const auto &shape = shape_;
   const std::size_t N = shape.size();
@@ -360,10 +370,7 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
     // these dimensions to be the number of cells in each
     // direction, NOT the size of the arrays
     assert(N <= 3);
-    PARTHENON_REQUIRE_THROWS(!wpmb.expired(),
-                             "Cannot determine array dimensions for mesh-tied entity "
-                             "without a valid meshblock");
-    auto pmb = wpmb.lock();
+    
     auto bnds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
     if (IsSet(Fine)) bnds = coarse ? pmb->cellbounds : pmb->f_cellbounds;
     arrDims[0] = bnds.ncellsi(IndexDomain::entire);
