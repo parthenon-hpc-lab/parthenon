@@ -117,5 +117,22 @@ ComposeTransformations(const LogicalCoordinateTransformation &first,
   return out;
 }
 
+LogicalCoordinateTransformation
+GetInverseTransform(const LogicalCoordinateTransformation &t) {
+  LogicalCoordinateTransformation inv;
+  // dir_flip and offset are indexed by the transform's *origin* dir, which for the
+  // inverse is nd, so they move to slot nd.
+  for (int d = 0; d < 3; ++d) {
+    const int nd = t.dir_connection[d];
+    inv.dir_connection[nd] = d;
+    inv.dir_connection_inverse[d] = nd;
+    inv.dir_flip[nd] = t.dir_flip[d];
+    inv.offset[nd] = t.dir_flip[d] ? t.offset[d] : -t.offset[d];
+  }
+  inv.use_offset = t.use_offset;
+  inv.ncell = t.ncell;
+  return inv;
+}
+
 } // namespace forest
 } // namespace parthenon

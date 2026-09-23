@@ -40,7 +40,29 @@ namespace parthenon {
 
 // forward declarations
 class Mesh;
+class MeshBlock;
 struct RegionSize;
+struct NeighborBlock;
+
+//----------------------------------------------------------------------------------------
+//! \struct BlockInfo
+//  \brief Plain-data description of a block for boundary index math, holding no live
+//  MeshBlock or mesh pointer. Carries the fields CalcIndices reads off of a block.
+struct BlockInfo {
+  int rank, gid;
+  LogicalLocation loc;
+  std::size_t block_coarsenings;
+  RegionSize block_size;
+  block_ownership_t ownership;
+
+  BlockInfo() = default;
+  BlockInfo(int rank, int gid, LogicalLocation loc, std::size_t block_coarsenings,
+            RegionSize block_size, block_ownership_t ownership)
+      : rank(rank), gid(gid), loc(loc), block_coarsenings(block_coarsenings),
+        block_size(block_size), ownership(ownership) {}
+  explicit BlockInfo(const MeshBlock *pmb);
+  explicit BlockInfo(const NeighborBlock &nb);
+};
 
 //----------------------------------------------------------------------------------------
 //! \struct NeighborBlock

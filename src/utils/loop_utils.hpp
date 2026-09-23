@@ -99,8 +99,8 @@ inline auto &GetNeighborsOnFinerGMGGrid(MeshBlock *pmb, const GridIdentifier &gr
 // routines and allows for easy selection of a subset of the boundaries based
 // on the template parameter BoundaryType. [Really, this probably does not
 // need to be a template parameter, it could just be a function argument]
-template <BoundaryType bound = BoundaryType::any, class F>
-inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
+template <BoundaryType bound = BoundaryType::any, class MD, class F>
+inline void ForEachBoundary(std::shared_ptr<MD> &md, F func) {
   int fine_level = md->grid.logical_level();
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);

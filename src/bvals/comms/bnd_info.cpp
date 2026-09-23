@@ -25,6 +25,7 @@
 #include "basic_types.hpp"
 #include "bvals/comms/bnd_info.hpp"
 #include "bvals/comms/bvals_utils.hpp"
+#include "bvals/comms/calc_indices.hpp"
 #include "bvals/neighbor_block.hpp"
 #include "config.hpp"
 #include "globals.hpp"
@@ -122,165 +123,18 @@ bool NeighborIsSame(MeshBlock *pmb, const NeighborBlock &nb) {
          nb.block_coarsenings == pmb->block_coarsenings;
 }
 
+// Thin wrapper preserving the historical MeshBlock-taking signature. Packs the block's
+// geometry into a BlockInfo and forwards to the CalcIndices in calc_indices.hpp. The
+// receiving-block box can be computed without a live MeshBlock via the templated routine
+// directly.
 SpatiallyMaskedIndexer6D
 CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
             const std::shared_ptr<Variable<Real>> &v, TopologicalElement el,
             IndexRangeType ir_type, bool prores,
             const forest::LogicalCoordinateTransformation &lcoord_trans =
                 forest::LogicalCoordinateTransformation()) {
-  std::array<int, 3> tensor_shape{v->GetDim(6), v->GetDim(5), v->GetDim(4)};
-  const bool flux = v->IsSet(Metadata::Flux);
-
-  const auto &loc = pmb->loc;
-  bool is_fine_field = v->IsSet(Metadata::Fine);
-  auto shape = is_fine_field ? pmb->f_cellbounds : pmb->cellbounds;
-
-  const bool nb_is_coarser = NeighborIsCoarser(pmb, nb);
-  const bool nb_is_finer = NeighborIsFiner(pmb, nb);
-  const bool nb_is_same = NeighborIsSame(pmb, nb);
-  PARTHENON_REQUIRE(nb_is_coarser + nb_is_finer + nb_is_same == 1,
-                    "Only one should be set.");
-  // Both prolongation and restriction always operate in the coarse
-  // index space. Also need to use the coarse index space if the
-  // neighbor is coarser than you, wether or not you are setting
-  // interior or exterior cells
-  if (prores || nb_is_coarser)
-    shape = is_fine_field ? pmb->cellbounds : pmb->c_cellbounds;
-
-  // Re-create the index space for the neighbor block (either the main block or
-  // the coarse buffer as required)
-  int fine_field_fac = is_fine_field ? 2 : 1;
-  int coarse_fac = nb_is_finer ? 2 : 1;
-  auto neighbor_shape =
-      IndexShape(nb.block_size.nx(X3DIR) * fine_field_fac / coarse_fac,
-                 nb.block_size.nx(X2DIR) * fine_field_fac / coarse_fac,
-                 nb.block_size.nx(X1DIR) * fine_field_fac / coarse_fac, Globals::nghost);
-
-  IndexDomain interior = IndexDomain::interior;
-  std::array<IndexRange, 3> bounds{shape.GetBoundsI(interior, el),
-                                   shape.GetBoundsJ(interior, el),
-                                   shape.GetBoundsK(interior, el)};
-  std::array<IndexRange, 3> neighbor_bounds{neighbor_shape.GetBoundsI(interior, el),
-                                            neighbor_shape.GetBoundsJ(interior, el),
-                                            neighbor_shape.GetBoundsK(interior, el)};
-
-  std::array<bool, 3> not_symmetry{!pmb->block_size.symmetry(X1DIR),
-                                   !pmb->block_size.symmetry(X2DIR),
-                                   !pmb->block_size.symmetry(X3DIR)};
-  // Account for the fact that the neighbor block may duplicate
-  // some active zones on the loading block for face, edge, and nodal
-  // fields, so the boundary of the neighbor block is one deeper into
-  // the current block in some cases
-  std::array<int, 3> top_offset{TopologicalOffsetI(el), TopologicalOffsetJ(el),
-                                TopologicalOffsetK(el)};
-  std::array<int, 3> block_offset = nb.offsets;
-
-  int communicated_ghosts = Globals::nghost;
-  if (!prores && nb_is_same && v->IsSet(Metadata::CommunicateOne))
-    communicated_ghosts = 1;
-  int interior_offset =
-      ir_type == IndexRangeType::BoundaryInteriorSend ? communicated_ghosts : 0;
-  int exterior_offset =
-      ir_type == IndexRangeType::BoundaryExteriorRecv ? communicated_ghosts : 0;
-  if (prores) {
-    // The coarse ghosts cover twice as much volume as the fine ghosts, so when working in
-    // the exterior (i.e. ghosts) we must only go over the coarse ghosts that have
-    // corresponding fine ghosts
-    exterior_offset /= 2;
-  }
-
-  std::array<int, 3> s, e;
-  for (int dir = 0; dir < 3; ++dir) {
-    if (block_offset[dir] == 0) {
-      s[dir] = bounds[dir].s;
-      e[dir] = bounds[dir].e;
-      // Check that this dimension has ghost zones
-      if (nb_is_finer && not_symmetry[dir]) {
-        // The requested neighbor block is at a finer level, so it only abuts
-        // approximately half of the zones in any given direction with offset zero. If we
-        // are asking for an interior index range, we also send nghost "extra" zones in
-        // the interior to ensure there is enough information for prolongation. Also note
-        // for non-cell centered values the number of grid points may be odd, so we pick
-        // up an extra zone that is communicated. I think this is ok, but something to
-        // keep in mind if there are issues.
-        const int extra_zones = (bounds[dir].e - bounds[dir].s + 1) -
-                                (neighbor_bounds[dir].e - neighbor_bounds[dir].s + 1);
-        s[dir] += nb.origin_loc.l(dir) % 2 == 1 ? extra_zones - interior_offset : 0;
-        e[dir] -= nb.origin_loc.l(dir) % 2 == 0 ? extra_zones - interior_offset : 0;
-        if (ir_type == IndexRangeType::InteriorSend && !prores) {
-          // Include ghosts of finer block coarse array in message
-          s[dir] -= Globals::nghost;
-          e[dir] += Globals::nghost;
-        }
-      }
-      if (nb_is_coarser && not_symmetry[dir]) {
-        // If we are setting (i.e. have non-zero exterior_offset) from a neighbor block
-        // that is coarser, we got extra ghost zones from the neighbor (see inclusion of
-        // interior_offset in the above if block)
-        s[dir] -= loc.l(dir) % 2 == 1 ? exterior_offset : 0;
-        e[dir] += loc.l(dir) % 2 == 0 ? exterior_offset : 0;
-        if (ir_type == IndexRangeType::InteriorRecv && !prores) {
-          // Include ghosts of finer block coarse array in message
-          s[dir] -= Globals::nghost;
-          e[dir] += Globals::nghost;
-        }
-      }
-      // Prolongate into ghosts of interior receiver since we have the data available,
-      // having this is important for AMR MG
-      if (prores && not_symmetry[dir] && IndexRangeType::InteriorRecv == ir_type) {
-        s[dir] -= Globals::nghost / 2;
-        e[dir] += Globals::nghost / 2;
-      }
-    } else if (block_offset[dir] > 0) {
-      // Fluxes are only communicated on shared elements
-      s[dir] = bounds[dir].e + (flux ? 0 : -interior_offset + 1 - top_offset[dir]);
-      e[dir] = bounds[dir].e + (flux ? 0 : exterior_offset);
-    } else {
-      s[dir] = bounds[dir].s + (flux ? 0 : -exterior_offset);
-      e[dir] = bounds[dir].s + (flux ? 0 : interior_offset - 1 + top_offset[dir]);
-    }
-  }
-
-  // Transform to logical coordinates of neighbor block if this
-  // is a receiving block
-  if (ir_type == IndexRangeType::BoundaryExteriorRecv) {
-    s = lcoord_trans.Transform(s);
-    e = lcoord_trans.Transform(e);
-    // Transformation can flip the order of the upper and
-    // lower index, so make sure they are increasing
-    for (int dir = 0; dir < 3; ++dir) {
-      if (s[dir] > e[dir]) {
-        int temp = s[dir];
-        s[dir] = e[dir];
-        e[dir] = temp;
-      }
-    }
-  }
-  block_ownership_t owns(true);
-  // Although it wouldn't hurt to include ownership when producing an interior
-  // index range, it is unecessary. This is probably not immediately obvious,
-  // but it is possible to convince oneself that dealing with ownership in
-  // only exterior index ranges works correctly
-  if (ir_type == IndexRangeType::BoundaryExteriorRecv) {
-    int sox1 = -block_offset[0];
-    int sox2 = -block_offset[1];
-    int sox3 = -block_offset[2];
-    if (nb_is_coarser) {
-      // For coarse to fine interfaces, we are passing zones from only an
-      // interior corner of the cell, never an entire face or edge
-      if (sox1 == 0) sox1 = loc.l(0) % 2 == 1 ? 1 : -1;
-      if (sox2 == 0) sox2 = loc.l(1) % 2 == 1 ? 1 : -1;
-      if (sox3 == 0) sox3 = loc.l(2) % 2 == 1 ? 1 : -1;
-    }
-    owns = GetIndexRangeMaskFromOwnership(el, nb.ownership, sox1, sox2, sox3);
-  } else if (ir_type == IndexRangeType::InteriorRecv) {
-    // Also need to set ownership when a parent block receives from a daughter
-    // block during multigrid operations
-    owns = GetIndexRangeMaskFromOwnership(el, nb.ownership, 0, 0, 0);
-  }
-  return SpatiallyMaskedIndexer6D(owns, {0, tensor_shape[0] - 1},
-                                  {0, tensor_shape[1] - 1}, {0, tensor_shape[2] - 1},
-                                  {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
+  return CalcIndices(nb, BlockInfo(pmb), pmb->pmy_mesh->multilevel, v, el, ir_type,
+                     prores, lcoord_trans);
 }
 
 int GetBufferSize(const MeshBlock *const pmb, const NeighborBlock &nb,

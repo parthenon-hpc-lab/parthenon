@@ -104,6 +104,10 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
       for (const auto &n : all_neighbors) {
         if (n.loc.level() < pmb->loc.level()) pmb->has_coarser_neighbors_ = true;
       }
+      // Store this block's own ownership of shared topological elements (in its own
+      // logical frame), computed exactly as for a neighbor but for the block itself.
+      pmb->ownership = DetermineOwnership(loc, neighbors, newly_refined);
+      pmb->ownership.initialized = true;
     } else if (grid_id.type() == GridType::two_level_composite &&
                pmb->loc.level() == grid_id.logical_level()) {
       pmb->gmg_same_neighbors = all_neighbors;
