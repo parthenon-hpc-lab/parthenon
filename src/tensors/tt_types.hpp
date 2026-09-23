@@ -124,6 +124,9 @@ class TensorCoreHostT {
     storage_.ReduceSize(lr_new, rr_new);
   }
 
+  // Release this core's bond storage (fibers/data), leaving a rank-(0 x 0) core.
+  void Release() { storage_.Release(); }
+
   // Generic building blocks for block-structured fiber operations (fiber storage
   // only; the methods below forward to fiber-specific storage members and are
   // therefore only instantiated when called -- e.g. inside DestructiveSum's
@@ -254,12 +257,22 @@ class TensorTrainT {
     return !cores.empty() && cores.front().LR() == 1 && cores.back().RR() == 1;
   }
 
-  // A train is "empty" when it holds no cores. This is the state a summand pack's
-  // trains are left in after DestructiveSum moves their cores into the result.
-  bool IsEmpty() const { return cores.empty(); }
+  // A train is "empty" when it carries no bond data.
+  bool IsEmpty() const { return cores.empty() || cores.front().RR() == 0; }
 
-  // Drop all cores, leaving an empty train (see IsEmpty).
-  void Clear() { cores.clear(); }
+  // Empty the train's bond storage while preserving its structural identity: the
+  // core objects, and thus NCores() and each core's physical indexer, are kept.
+  void Clear() {
+    for (auto &c : cores) c.Release();
+  }
+
+  // Rebuild this train in place as a fresh, zeroed train at the given internal
+  // bond ranks, reusing the existing cores' physical indexers.
+  void BuildFresh(const std::vector<int> &ranks) {
+    PARTHENON_REQUIRE(!cores.empty(),
+                      "BuildFresh: train has no cores to describe its shape.");
+    *this = TensorTrainT(GetCoreIndexers(), ranks);
+  }
 
   auto &operator()(int c) { return cores[c]; }
   const auto &operator()(int c) const { return cores[c]; }

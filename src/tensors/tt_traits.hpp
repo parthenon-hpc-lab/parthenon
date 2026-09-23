@@ -228,6 +228,15 @@ class FiberStorageHost {
     });
   }
 
+  // Release all fiber storage, leaving a rank-(0 x 0) core that owns no data. The
+  // physical dimension dd is retained so the core still reports its shape
+  void Release() {
+    lr = 0;
+    rr = 0;
+    host_fibers = host_fibers_view_t();
+    device_managed_fibers = device_managed_fibers_view_t();
+  }
+
   // Read the managed fiber handle at (l, r), for use as a RebuildOuterViews source.
   const fiber_managed_t &GetFiber(int l, int r) const { return host_fibers(l, r); }
 
@@ -406,6 +415,14 @@ class ContiguousStorageHost {
 
   data_unmanaged_t GetDeviceData() const {
     return data_unmanaged_t(data.data(), lr, dd, rr);
+  }
+
+  // Release the core data buffer, leaving a rank-(0 x 0) core that owns no data.
+  // The physical dimension dd is retained so the core still reports its shape.
+  void Release() {
+    lr = 0;
+    rr = 0;
+    data = data_managed_t();
   }
 
   int LR() const { return lr; }

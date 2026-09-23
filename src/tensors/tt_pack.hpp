@@ -284,6 +284,17 @@ class TensorTrainHostPackT {
     return *grid_(VarIndex<var_t>(), b);
   }
 
+  // Rebuild variable v of block b in place as a fresh, zeroed train at the given
+  // internal bond ranks, reusing the train's existing per-core physical shapes.
+  void BuildFreshTrain(int b, int v, const std::vector<int> &ranks) {
+    grid_(v, b)->BuildFresh(ranks);
+  }
+
+  template <class var_t>
+  void BuildFreshTrain(int b, const var_t &, const std::vector<int> &ranks) {
+    BuildFreshTrain(b, VarIndex<var_t>(), ranks);
+  }
+
   // Build the device pack over the current (post-reshape) trains, carrying this
   // host pack's tags var_ts...
   TensorPackT<TTraits, var_ts...> MakeDevicePack() const {
