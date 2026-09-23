@@ -51,8 +51,7 @@ TEST_CASE("Adding MeshBlockData objects to a DataCollection", "[DataCollection]"
     pgk->AddField("var2", m_one);
     pgk->AddField("var3", m_ind);
 
-    auto &mbd = d.Get();
-    mbd->Initialize(pgk, pmb);
+    auto &mbd = d.Add("base", pgk, pmb);
 
     auto &v1 = mbd->Get("var1").data;
     auto &v2 = mbd->Get("var2").data;

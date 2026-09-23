@@ -83,18 +83,9 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
     }
   }
 
-  // Get "base" MeshData, which always exists but may not be populated yet
-  auto &md_base = pm->mesh_data.Get();
-  // Populated with all blocks
-  if (md_base->NumBlocks() == 0) {
-    md_base->Initialize(pm->block_list, pm);
-  } else if (md_base->NumBlocks() != pm->block_list.size()) {
-    PARTHENON_WARN(
-        "Resetting \"base\" MeshData to contain all blocks. This indicates that "
-        "the \"base\" MeshData container has been modified elsewhere. Double check "
-        "that the modification was intentional and is compatible with this reset.")
-    md_base->Initialize(pm->block_list, pm);
-  }
+  // Get "base" MeshData covering all blocks, creating it on demand if it does not
+  // already exist (Add returns the existing container otherwise).
+  auto &md_base = pm->mesh_data.Add("base", pm->GetBasePartition());
 
   // Loop over all packages of the application in alphabetical order to ensure consistency
   // of ordering of data in columns.
