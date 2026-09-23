@@ -40,7 +40,7 @@ TaskStatus BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md);
 // the boundary cache and the shift is the cached send/recv indexers. The returned trains
 // are the addends to be summed into each neighbor. Rounding and channel deposit are done
 // by the caller (TTSend). The cache must be current (see BuildTTBoundaryCache).
-std::vector<std::shared_ptr<tensor2::TensorTrain>>
+std::vector<std::shared_ptr<tensor::TensorTrain>>
 BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cache);
 
 // TT boundary communication (single rank, same-level). Send builds the per-boundary addend

@@ -57,7 +57,7 @@ using parthenon::Packages_t;
 using parthenon::ParameterInput;
 using parthenon::StateDescriptor;
 using parthenon::TTFieldMetadata;
-namespace tensor2 = parthenon::tensor2;
+namespace tensor = parthenon::tensor;
 
 namespace {
 
@@ -134,10 +134,10 @@ TEST_CASE("TT boundary comm preserves a constant field across refined interfaces
   // differs in resolution across a refinement jump).
   constexpr double kC = 5.0;
   {
-    std::vector<tensor2::TensorTrain *> src;
+    std::vector<tensor::TensorTrain *> src;
     for (int b = 0; b < md->NumBlocks(); ++b)
       src.push_back(&md->GetBlockData(b)->Get("I")->train());
-    auto pack = tensor2::TensorTrainHostPackT<DefaultTTraits>::FromPointers(src)
+    auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(src)
                     .MakeDevicePack();
 
     // The whole-block index space is identical for every block (cell count is
@@ -181,8 +181,8 @@ TEST_CASE("TT boundary comm preserves a constant field across refined interfaces
     long f2c_filled = 0, c2f_filled = 0; // cells filled, summed across each class
     for (int e = 0; e < nbound; ++e) {
       const auto btype = cache.bnd_info_h(e).btype;
-      std::vector<tensor2::TensorTrain *> one{addends[e].get()};
-      auto p1 = tensor2::TensorTrainHostPackT<DefaultTTraits>::FromPointers(one)
+      std::vector<tensor::TensorTrain *> one{addends[e].get()};
+      auto p1 = tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(one)
                     .MakeDevicePack();
       int nbad = 0, nnz = 0;
       parthenon::par_reduce(
@@ -240,10 +240,10 @@ TEST_CASE("TT boundary comm preserves a constant field across refined interfaces
   // ghosts across the refinement jump need neighbors not in this one-round set -- so we do
   // not assert full coverage here; the addend check above already confirms every boundary
   // fills cells with the correct value.)
-  std::vector<tensor2::TensorTrain *> chk;
+  std::vector<tensor::TensorTrain *> chk;
   for (int b = 0; b < md->NumBlocks(); ++b)
     chk.push_back(&md->GetBlockData(b)->Get("I")->train());
-  auto pack = tensor2::TensorTrainHostPackT<DefaultTTraits>::FromPointers(chk)
+  auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(chk)
                   .MakeDevicePack();
   int nbad = 0;
   parthenon::par_reduce(

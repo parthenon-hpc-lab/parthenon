@@ -64,42 +64,42 @@ struct TensorTraits {
   // Unfolding factory methods
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto GetHorizontalUnfolding(const CoreLike &core) {
-    return tensor2::horizontal_unfolding<CoreLike, false, DFastestMoving>(core);
+    return tensor::horizontal_unfolding<CoreLike, false, DFastestMoving>(core);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto GetHorizontalUnfolding(const CoreLike &core, int nl, int nd, int nr) {
-    return tensor2::horizontal_unfolding<CoreLike, false, DFastestMoving>(core, nl, nd, nr);
+    return tensor::horizontal_unfolding<CoreLike, false, DFastestMoving>(core, nl, nd, nr);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto GetHorizontalUnfoldingTranspose(const CoreLike &core) {
-    return tensor2::horizontal_unfolding<CoreLike, true, DFastestMoving>(core);
+    return tensor::horizontal_unfolding<CoreLike, true, DFastestMoving>(core);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto GetHorizontalUnfoldingTranspose(const CoreLike &core, int nl, int nd, int nr) {
-    return tensor2::horizontal_unfolding<CoreLike, true, DFastestMoving>(core, nl, nd, nr);
+    return tensor::horizontal_unfolding<CoreLike, true, DFastestMoving>(core, nl, nd, nr);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto GetVerticalUnfolding(const CoreLike &core) {
-    return tensor2::vertical_unfolding<CoreLike, false>(core);
+    return tensor::vertical_unfolding<CoreLike, false>(core);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto GetVerticalUnfolding(const CoreLike &core, int nl, int nd, int nr) {
-    return tensor2::vertical_unfolding<CoreLike, false>(core, nl, nd, nr);
+    return tensor::vertical_unfolding<CoreLike, false>(core, nl, nd, nr);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto GetVerticalUnfoldingTranspose(const CoreLike &core) {
-    return tensor2::vertical_unfolding<CoreLike, true>(core);
+    return tensor::vertical_unfolding<CoreLike, true>(core);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto GetVerticalUnfoldingTranspose(const CoreLike &core, int nl, int nd, int nr) {
-    return tensor2::vertical_unfolding<CoreLike, true>(core, nl, nd, nr);
+    return tensor::vertical_unfolding<CoreLike, true>(core, nl, nd, nr);
   }
 };
 
@@ -114,7 +114,7 @@ using DefaultTTraits = FiberTTraits;
 // STORAGE POLICIES FOR TENSOR CORES
 // ==============================================================================
 
-namespace tensor2 {
+namespace tensor {
 
 // Forward declarations for StorageFor
 template <class TTraits> class FiberStorageHost;
@@ -122,17 +122,17 @@ template <class TTraits> class FiberStorageDevice;
 template <class TTraits> class ContiguousStorageHost;
 template <class TTraits> class ContiguousStorageDevice;
 
-} // namespace tensor2
+} // namespace tensor
 
 // Helper to select storage policy based on TTraits layout
 // This selects FiberStorage for dd-fastest (d_fastest_moving=true)
 // and ContiguousStorage for rr-fastest (d_fastest_moving=false)
 template <class TTraits>
 using StorageFor = std::conditional_t<TTraits::d_fastest_moving,
-                                      tensor2::FiberStorageHost<TTraits>,
-                                      tensor2::ContiguousStorageHost<TTraits>>;
+                                      tensor::FiberStorageHost<TTraits>,
+                                      tensor::ContiguousStorageHost<TTraits>>;
 
-namespace tensor2 {
+namespace tensor {
 
 // FiberView is the fundamental 1D storage unit for tensor-core data.
 template <class TTraits, class OwnershipTag>
@@ -430,7 +430,7 @@ class ContiguousStorageHost {
   int RR() const { return rr; }
 };
 
-} // namespace tensor2
+} // namespace tensor
 
 } // namespace parthenon
 

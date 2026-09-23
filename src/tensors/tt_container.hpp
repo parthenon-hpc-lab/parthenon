@@ -42,7 +42,7 @@ struct BlockListPartition;
 // DataCollection<MeshBlockTTData> with an independent set of stages.
 class MeshBlockTTData {
  public:
-  using train_t = tensor2::TensorTrain;
+  using train_t = tensor::TensorTrain;
   using var_t = TTVariable;
   using var_ptr = std::shared_ptr<var_t>;
 
@@ -174,7 +174,7 @@ class MeshBlockTTData {
 // DataCollection contract so Mesh can hold a DataCollection<MeshTTData>.
 class MeshTTData {
  public:
-  using train_t = tensor2::TensorTrain;
+  using train_t = tensor::TensorTrain;
   using var_t = TTVariable;
 
   MeshTTData() = default;

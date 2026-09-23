@@ -22,7 +22,7 @@
 #include "utils/indexer.hpp"
 
 namespace parthenon {
-namespace tensor2 {
+namespace tensor {
 
 // Lightweight device-side descriptor for one tensor core. This owns no memory;
 // it only wraps an unmanaged device view of fibers together with the logical
@@ -325,7 +325,7 @@ using TensorCoreDeviceContiguous = TensorCoreDeviceT<ContiguousTTraits, Contiguo
 using TensorCoreHostContiguous = TensorCoreHostT<ContiguousTTraits, ContiguousStorageHost<ContiguousTTraits>>;
 using TensorTrainContiguous = TensorTrainT<ContiguousTTraits>;
 
-} // namespace tensor2
+} // namespace tensor
 } // namespace parthenon
 
 #endif // TENSORS_TT_TYPES_HPP

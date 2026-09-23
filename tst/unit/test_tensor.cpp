@@ -28,7 +28,7 @@
 #include "tensors/tt_types.hpp"
 
 using namespace parthenon;
-using namespace parthenon::tensor2;
+using namespace parthenon::tensor;
 
 namespace {
 
@@ -180,7 +180,7 @@ int CountDenseMismatches3D(CheckFunctor check, const Pack0 &pack0,
 }
 } // namespace
 
-TEMPLATE_TEST_CASE("tensor2 single-core train basic structure", "[tensor2]",
+TEMPLATE_TEST_CASE("tensor single-core train basic structure", "[tensor]",
                    FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
@@ -223,7 +223,7 @@ TEMPLATE_TEST_CASE("tensor2 single-core train basic structure", "[tensor2]",
   REQUIRE(nwrong == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor2 train construction and pack metadata", "[tensor2]",
+TEMPLATE_TEST_CASE("tensor train construction and pack metadata", "[tensor]",
                    FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
@@ -257,7 +257,7 @@ TEMPLATE_TEST_CASE("tensor2 train construction and pack metadata", "[tensor2]",
               }, pack) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor2 train copy and move preserve packable storage", "[tensor2]",
+TEMPLATE_TEST_CASE("tensor train copy and move preserve packable storage", "[tensor]",
                    FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
@@ -308,7 +308,7 @@ TEMPLATE_TEST_CASE("tensor2 train copy and move preserve packable storage", "[te
               }, pack) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor2 train vector push_back preserves packable storage", "[tensor2]",
+TEMPLATE_TEST_CASE("tensor train vector push_back preserves packable storage", "[tensor]",
                    FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
@@ -345,7 +345,7 @@ TEMPLATE_TEST_CASE("tensor2 train vector push_back preserves packable storage", 
               }, pack) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor2 sparse delta train reconstructs to the correct dense values", "[tensor2]",
+TEMPLATE_TEST_CASE("tensor sparse delta train reconstructs to the correct dense values", "[tensor]",
                    FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
@@ -404,7 +404,7 @@ TEMPLATE_TEST_CASE("tensor2 sparse delta train reconstructs to the correct dense
               }, pack) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor2 ReduceSize preserves retained core data", "[tensor2]",
+TEMPLATE_TEST_CASE("tensor ReduceSize preserves retained core data", "[tensor]",
                    FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
@@ -476,7 +476,7 @@ TEMPLATE_TEST_CASE("tensor2 ReduceSize preserves retained core data", "[tensor2]
   REQUIRE(nwrong == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor2 non-destructive sum of constant trains reconstructs correctly", "[tensor2]",
+TEMPLATE_TEST_CASE("tensor non-destructive sum of constant trains reconstructs correctly", "[tensor]",
                    FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
@@ -513,8 +513,8 @@ TEMPLATE_TEST_CASE("tensor2 non-destructive sum of constant trains reconstructs 
               }, pack_a, pack_b, pack_c) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor2 non-destructive sum of sparse delta trains reconstructs correctly",
-                   "[tensor2]", DefaultTTraits, ContiguousTTraits) {
+TEMPLATE_TEST_CASE("tensor non-destructive sum of sparse delta trains reconstructs correctly",
+                   "[tensor]", DefaultTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
@@ -550,7 +550,7 @@ TEMPLATE_TEST_CASE("tensor2 non-destructive sum of sparse delta trains reconstru
               pack_a, pack_b, pack_c) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor2 destructive sum of constant trains reconstructs correctly", "[tensor2]",
+TEMPLATE_TEST_CASE("tensor destructive sum of constant trains reconstructs correctly", "[tensor]",
                    FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
@@ -601,8 +601,8 @@ TEMPLATE_TEST_CASE("tensor2 destructive sum of constant trains reconstructs corr
               pack_a, pack_ref_a, pack_ref_b) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor2 destructive sum of sparse delta trains reconstructs correctly",
-                   "[tensor2]", DefaultTTraits, ContiguousTTraits) {
+TEMPLATE_TEST_CASE("tensor destructive sum of sparse delta trains reconstructs correctly",
+                   "[tensor]", DefaultTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
@@ -643,7 +643,7 @@ TEMPLATE_TEST_CASE("tensor2 destructive sum of sparse delta trains reconstructs 
               pack_a, pack_ref_a, pack_ref_b) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor2 Hadamard product of constant trains reconstructs correctly", "[tensor2]",
+TEMPLATE_TEST_CASE("tensor Hadamard product of constant trains reconstructs correctly", "[tensor]",
                    FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
@@ -681,8 +681,8 @@ TEMPLATE_TEST_CASE("tensor2 Hadamard product of constant trains reconstructs cor
               pack_a, pack_b, pack_c) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor2 Hadamard product of sparse delta trains reconstructs correctly",
-                   "[tensor2]", DefaultTTraits, ContiguousTTraits) {
+TEMPLATE_TEST_CASE("tensor Hadamard product of sparse delta trains reconstructs correctly",
+                   "[tensor]", DefaultTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
@@ -718,7 +718,7 @@ TEMPLATE_TEST_CASE("tensor2 Hadamard product of sparse delta trains reconstructs
               pack_a, pack_b, pack_c) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor2 Gram-SVD rounding scaffold on a two-delta train", "[tensor2]",
+TEMPLATE_TEST_CASE("tensor Gram-SVD rounding scaffold on a two-delta train", "[tensor]",
                    FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
@@ -785,7 +785,7 @@ TEMPLATE_TEST_CASE("tensor2 Gram-SVD rounding scaffold on a two-delta train", "[
   REQUIRE(trains[0](2).RR() == 1);
 }
 
-TEMPLATE_TEST_CASE("tensor2 Gram-SVD rounding scaffold on a mixed two-channel train", "[tensor2]",
+TEMPLATE_TEST_CASE("tensor Gram-SVD rounding scaffold on a mixed two-channel train", "[tensor]",
                    FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
@@ -852,7 +852,7 @@ TEMPLATE_TEST_CASE("tensor2 Gram-SVD rounding scaffold on a mixed two-channel tr
               orig_pack, rounded_pack) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor2 Gram-SVD no-truncation preserves randomized trains", "[tensor2]",
+TEMPLATE_TEST_CASE("tensor Gram-SVD no-truncation preserves randomized trains", "[tensor]",
                    FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
@@ -907,7 +907,7 @@ TEMPLATE_TEST_CASE("tensor2 Gram-SVD no-truncation preserves randomized trains",
               orig_pack, rounded_pack) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor2 Gram-SVD rounds duplicate delta terms down to rank one", "[tensor2]",
+TEMPLATE_TEST_CASE("tensor Gram-SVD rounds duplicate delta terms down to rank one", "[tensor]",
                    FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
@@ -965,8 +965,8 @@ TEMPLATE_TEST_CASE("tensor2 Gram-SVD rounds duplicate delta terms down to rank o
               rounded_pack) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor2 Gram-SVD truncation respects relative Frobenius error on randomized trains",
-                   "[tensor2]", DefaultTTraits, ContiguousTTraits) {
+TEMPLATE_TEST_CASE("tensor Gram-SVD truncation respects relative Frobenius error on randomized trains",
+                   "[tensor]", DefaultTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
@@ -1026,7 +1026,7 @@ TEMPLATE_TEST_CASE("tensor2 Gram-SVD truncation respects relative Frobenius erro
   Kokkos::deep_copy(norm2_d, norm2_h);
 
   parthenon::par_for(
-      "tensor2_relative_frobenius_rounding_error",
+      "tensor_relative_frobenius_rounding_error",
       0, orig_pack.GetNBlocks() - 1,
       0, orig_pack.GetPhysicalDimension(0) - 1,
       0, orig_pack.GetPhysicalDimension(1) - 1,
@@ -1060,7 +1060,7 @@ TEMPLATE_TEST_CASE("tensor2 Gram-SVD truncation respects relative Frobenius erro
   }
 }
 
-TEMPLATE_TEST_CASE("tensor2 Oseledets-SVD no-truncation preserves randomized trains", "[tensor2]",
+TEMPLATE_TEST_CASE("tensor Oseledets-SVD no-truncation preserves randomized trains", "[tensor]",
                    DefaultTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
@@ -1114,8 +1114,8 @@ TEMPLATE_TEST_CASE("tensor2 Oseledets-SVD no-truncation preserves randomized tra
               orig_pack, rounded_pack) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor2 Oseledets-SVD truncation respects relative Frobenius error on randomized trains",
-                   "[tensor2]", DefaultTTraits, ContiguousTTraits) {
+TEMPLATE_TEST_CASE("tensor Oseledets-SVD truncation respects relative Frobenius error on randomized trains",
+                   "[tensor]", DefaultTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
@@ -1174,7 +1174,7 @@ TEMPLATE_TEST_CASE("tensor2 Oseledets-SVD truncation respects relative Frobenius
   Kokkos::deep_copy(norm2_d, norm2_h);
 
   parthenon::par_for(
-      "tensor2_oseledets_relative_frobenius_rounding_error",
+      "tensor_oseledets_relative_frobenius_rounding_error",
       0, orig_pack.GetNBlocks() - 1,
       0, orig_pack.GetPhysicalDimension(0) - 1,
       0, orig_pack.GetPhysicalDimension(1) - 1,
@@ -1212,7 +1212,7 @@ TEMPLATE_TEST_CASE("tensor2 Oseledets-SVD truncation respects relative Frobenius
 // Tests for contiguous storage (rr stride-1)
 // ==============================================================================
 
-SCENARIO("tensor2 contiguous storage basic structure", "[tensor2]") {
+SCENARIO("tensor contiguous storage basic structure", "[tensor]") {
   TensorTrainContiguous train(std::vector<int>{4}, {});
   TensorTrainContiguous train_copy = train;
 
@@ -1234,7 +1234,7 @@ SCENARIO("tensor2 contiguous storage basic structure", "[tensor2]") {
   REQUIRE(pack.GetPhysicalDimension(0) == 4);
 }
 
-SCENARIO("tensor2 contiguous storage multi-core train structure", "[tensor2]") {
+SCENARIO("tensor contiguous storage multi-core train structure", "[tensor]") {
   TensorTrainContiguous train(std::vector<int>{4, 8, 16}, {2, 3});
 
   REQUIRE(train.NCores() == 3);
@@ -1249,7 +1249,7 @@ SCENARIO("tensor2 contiguous storage multi-core train structure", "[tensor2]") {
   REQUIRE(train(2).RR() == 1);
 }
 
-SCENARIO("tensor2 contiguous storage unfolding dimensions", "[tensor2]") {
+SCENARIO("tensor contiguous storage unfolding dimensions", "[tensor]") {
   TensorCoreHostContiguous core(2, 3, 4);  // lr=2, dd=3, rr=4
   auto device_core = core.GetTensorCoreDevice();
 
@@ -1274,7 +1274,7 @@ SCENARIO("tensor2 contiguous storage unfolding dimensions", "[tensor2]") {
   REQUIRE(GetNcols(VT) == 6);
 }
 
-SCENARIO("tensor2 contiguous storage reconstruction agrees with fiber storage", "[tensor2]") {
+SCENARIO("tensor contiguous storage reconstruction agrees with fiber storage", "[tensor]") {
   // Create identical trains with both storage layouts
   const std::array<int, 3> dims{4, 8, 16};
   const std::vector<std::array<int, 3>> entries = {{0, 0, 0}, {1, 2, 3}, {2, 4, 8}};
@@ -1302,7 +1302,7 @@ SCENARIO("tensor2 contiguous storage reconstruction agrees with fiber storage", 
 // Step 6c: a host pack built from a vector of shared_ptr trains aliases those trains, so a
 // device kernel over the pack mutates the caller-owned trains (the transient boundary
 // addend trains are held this way).
-TEMPLATE_TEST_CASE("TensorTrainHostPack from shared_ptr trains", "[tensor2]",
+TEMPLATE_TEST_CASE("TensorTrainHostPack from shared_ptr trains", "[tensor]",
                    FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
@@ -1342,7 +1342,7 @@ TEMPLATE_TEST_CASE("TensorTrainHostPack from shared_ptr trains", "[tensor2]",
 // R2: trains may carry dangling boundary bonds (open trains). Construction no longer
 // forces the first-core left and last-core right ranks to one; IsClosed() reports the
 // distinction, and operations that require proper TT structure guard on it.
-TEMPLATE_TEST_CASE("tensor2 open trains carry dangling boundary bonds", "[tensor2]",
+TEMPLATE_TEST_CASE("tensor open trains carry dangling boundary bonds", "[tensor]",
                    FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
@@ -1377,7 +1377,7 @@ TEMPLATE_TEST_CASE("tensor2 open trains carry dangling boundary bonds", "[tensor
 
 // R2: closed-train operations reject open trains loudly rather than producing a
 // silently-wrong result.
-TEMPLATE_TEST_CASE("tensor2 closed-train ops reject open trains", "[tensor2]",
+TEMPLATE_TEST_CASE("tensor closed-train ops reject open trains", "[tensor]",
                    FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;

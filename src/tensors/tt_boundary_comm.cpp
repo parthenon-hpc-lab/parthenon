@@ -113,11 +113,11 @@ TaskStatus BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md) {
   return TaskStatus::complete;
 }
 
-std::vector<std::shared_ptr<tensor2::TensorTrain>>
+std::vector<std::shared_ptr<tensor::TensorTrain>>
 BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cache) {
   using namespace loops;
-  using train_t = tensor2::TensorTrain;
-  using HostPack = tensor2::TensorTrainHostPackT<DefaultTTraits>;
+  using train_t = tensor::TensorTrain;
+  using HostPack = tensor::TensorTrainHostPackT<DefaultTTraits>;
   
   // Build all the sets of trains for stages of boundary communication
   std::vector<train_t *> src;
@@ -251,8 +251,8 @@ TaskStatus TTSend(std::shared_ptr<MeshTTData> &md, Real eps) {
   if (nbound == 0) return TaskStatus::complete;
 
   // Round each addend to keep ranks bounded before shipping.
-  auto pack = tensor2::TensorTrainHostPackT<DefaultTTraits>::FromSharedPtrs(addends);
-  tensor2::RoundGramSVD(pack, eps);
+  auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>::FromSharedPtrs(addends);
+  tensor::RoundGramSVD(pack, eps);
 
   // Deposit each addend into its send channel.
   for (int e = 0; e < nbound; ++e)
@@ -277,7 +277,7 @@ TaskStatus TTReceive(std::shared_ptr<MeshTTData> &md) {
 
 TaskStatus TTSetBounds(std::shared_ptr<MeshTTData> &md, Real eps) {
   using namespace loops;
-  using train_t = tensor2::TensorTrain;
+  using train_t = tensor::TensorTrain;
   Mesh *pmesh = md->GetMeshPointer();
   const int id = 0;
 
@@ -294,13 +294,13 @@ TaskStatus TTSetBounds(std::shared_ptr<MeshTTData> &md, Real eps) {
         auto addend = chan.Get();
         std::vector<train_t> a{cur->train()};
         std::vector<train_t> b{*addend};
-        auto summed = tensor2::NonDestructiveSum(a, b);
+        auto summed = tensor::NonDestructiveSum(a, b);
         cur->set_train(std::move(summed[0]));
         chan.Stale();
       });
 
   // Round every block's fields once now that all addends are summed in.
-  tensor2::RoundGramSVD(md.get(), eps);
+  tensor::RoundGramSVD(md.get(), eps);
   return TaskStatus::complete;
 }
 

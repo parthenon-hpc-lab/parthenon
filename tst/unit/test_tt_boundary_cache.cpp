@@ -48,7 +48,7 @@ using parthenon::Packages_t;
 using parthenon::ParameterInput;
 using parthenon::StateDescriptor;
 using parthenon::TTFieldMetadata;
-namespace tensor2 = parthenon::tensor2;
+namespace tensor = parthenon::tensor;
 
 namespace {
 
@@ -161,10 +161,10 @@ TEST_CASE("BuildBoundaryTensors gathers interior cells into the addend ghost lay
   // can be checked value-by-value: sc(0, idx, r) = 10000*b + idx + 1 (strictly positive,
   // so 0 unambiguously means "unwritten").
   {
-    std::vector<tensor2::TensorTrain *> src;
+    std::vector<tensor::TensorTrain *> src;
     for (int b = 0; b < md->NumBlocks(); ++b)
       src.push_back(&md->GetBlockData(b)->Get("I")->train());
-    auto pack = tensor2::TensorTrainHostPackT<DefaultTTraits>::FromPointers(src)
+    auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(src)
                     .MakeDevicePack();
     parthenon::par_for(
         parthenon::loop_pattern_flatrange_tag, "SeedCores", DevExecSpace(), 0,
@@ -179,7 +179,7 @@ TEST_CASE("BuildBoundaryTensors gathers interior cells into the addend ghost lay
 
   // Capture the source train per boundary in the same ForEachBoundary order that
   // BuildBoundaryTensors uses, so addend e can be compared directly against its source.
-  std::vector<tensor2::TensorTrain *> srcs;
+  std::vector<tensor::TensorTrain *> srcs;
   parthenon::loops::ForEachBoundary<parthenon::BoundaryType::any>(
       md, [&](auto, auto, const parthenon::NeighborBlock &, auto v) {
         srcs.push_back(&v->train());
@@ -193,8 +193,8 @@ TEST_CASE("BuildBoundaryTensors gathers interior cells into the addend ghost lay
   // (from the corresponding src cell) and is zero everywhere else.
   auto bnd_info = cache.bnd_info;
   for (int e = 0; e < nbound; ++e) {
-    std::vector<tensor2::TensorTrain *> pair{addends[e].get(), srcs[e]};
-    auto pack = tensor2::TensorTrainHostPackT<DefaultTTraits>::FromPointers(pair)
+    std::vector<tensor::TensorTrain *> pair{addends[e].get(), srcs[e]};
+    auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(pair)
                     .MakeDevicePack();
 
     int nwrong = 0;
@@ -254,10 +254,10 @@ TEST_CASE("TT Send/Receive/Set exchanges ghost data between blocks",
     const auto &cb = pmb0->cellbounds;
     const int ii_s = cb.is(IndexDomain::interior), ii_e = cb.ie(IndexDomain::interior);
     const int jj_s = cb.js(IndexDomain::interior), jj_e = cb.je(IndexDomain::interior);
-    std::vector<tensor2::TensorTrain *> src;
+    std::vector<tensor::TensorTrain *> src;
     for (int b = 0; b < md->NumBlocks(); ++b)
       src.push_back(&md->GetBlockData(b)->Get("I")->train());
-    auto pack = tensor2::TensorTrainHostPackT<DefaultTTraits>::FromPointers(src)
+    auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(src)
                     .MakeDevicePack();
     parthenon::par_for(
         parthenon::loop_pattern_flatrange_tag, "SeedConst", DevExecSpace(), 0,
@@ -295,7 +295,7 @@ TEST_CASE("TT Send/Receive/Set exchanges ghost data between blocks",
   {
     // Recover each boundary's sending-block constant: the neighbor gid maps to a block
     // whose seeded value is (block_index + 1). Build gid->index once.
-    std::vector<tensor2::TensorTrain *> recv_trains;
+    std::vector<tensor::TensorTrain *> recv_trains;
     parthenon::loops::ForEachBoundary<parthenon::BoundaryType::any>(
         md, [&](auto pmb, auto rc, const parthenon::NeighborBlock &nb, auto v) {
           recv_trains.push_back(&rc->Get(v->label())->train());
@@ -311,8 +311,8 @@ TEST_CASE("TT Send/Receive/Set exchanges ghost data between blocks",
     for (std::size_t e = 0; e < bi.extent(0); ++e) {
       REQUIRE(src_block[e] >= 0);
       const double nb_val = src_block[e] + 1.0;
-      std::vector<tensor2::TensorTrain *> one{recv_trains[e]};
-      auto pack = tensor2::TensorTrainHostPackT<DefaultTTraits>::FromPointers(one)
+      std::vector<tensor::TensorTrain *> one{recv_trains[e]};
+      auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(one)
                       .MakeDevicePack();
       int nwrong = 0;
       const int ee = static_cast<int>(e);

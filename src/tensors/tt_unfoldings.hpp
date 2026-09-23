@@ -17,7 +17,7 @@
 #include "kokkos_abstraction.hpp"
 
 namespace parthenon {
-namespace tensor2 {
+namespace tensor {
 
 // ==============================================================================
 // TENSOR UNFOLDINGS
@@ -121,7 +121,7 @@ int GetNcols(const horizontal_unfolding<T, transpose, d_fastest_moving> &m) {
   return transpose ? m.nl : m.nd * m.nr;
 }
 
-} // namespace tensor2
+} // namespace tensor
 } // namespace parthenon
 
 #endif // TENSORS_TT_UNFOLDINGS_HPP

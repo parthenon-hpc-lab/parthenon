@@ -49,10 +49,9 @@ list(APPEND unit_tests_SOURCES
     test_partitioning.cpp
     test_scratch_variables.cpp
     test_state_descriptor.cpp
-    test_tensor2.cpp
+    test_tensor.cpp
     test_tt_field.cpp
     test_swarm.cpp
-    test_tensors.cpp
     test_swarm_amr_remesh.cpp
     test_calc_indices_gold.cpp
     test_unit_integrators.cpp

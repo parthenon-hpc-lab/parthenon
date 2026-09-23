@@ -25,14 +25,14 @@
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
-namespace tensor2 {
+namespace tensor {
 
 // Base type for tensor-train field name tags, analogous to
 // variable_names::var_base_t for SparsePack. A tensor-train field is a whole
 // train (no sub-components), so a tag only supplies a name. Downstream code
 // defines one tag per field and indexes a pack with pack(b, my_field{}, c):
 //
-//   struct my_field : public tensor2::tt_var_base_t {
+//   struct my_field : public tensor::tt_var_base_t {
 //     static std::string name() { return "my_field"; }
 //   };
 struct tt_var_base_t {
@@ -332,7 +332,7 @@ using TensorTrainHostPackFor = TensorTrainHostPackT<DefaultTTraits, var_ts...>;
 using TensorPackContiguous = TensorPackT<ContiguousTTraits>;
 using TensorTrainHostPackContiguous = TensorTrainHostPackT<ContiguousTTraits>;
 
-} // namespace tensor2
+} // namespace tensor
 } // namespace parthenon
 
 #endif // TENSORS_TT_PACK_HPP

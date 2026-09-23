@@ -217,12 +217,12 @@ TEST_CASE("MeshTTData assembles over a block partition", "[TTField]") {
 
       // Build host packs directly from the mesh containers (the mesh -> host
       // pack -> op path an application uses). FromContainer gathers all fields.
-      using parthenon::tensor2::TensorTrainHostPack;
+      using parthenon::tensor::TensorTrainHostPack;
       auto in_pack = TensorTrainHostPack::FromContainer(in);
       auto out_pack = TensorTrainHostPack::FromContainer(out);
 
       THEN("NonDestructiveSum(in, in, out) yields combined ranks in out") {
-        parthenon::tensor2::NonDestructiveSum(in_pack, in_pack, out_pack);
+        parthenon::tensor::NonDestructiveSum(in_pack, in_pack, out_pack);
         for (int b = 0; b < NBLOCKS; ++b) {
           const auto &t = out.GetBlockData(b)->Get("I")->train();
           REQUIRE(t.GetCoreHost(0).RR() == in_r0[b] + in_r0[b]);
@@ -232,7 +232,7 @@ TEST_CASE("MeshTTData assembles over a block partition", "[TTField]") {
         }
 
         AND_THEN("RoundGramSVD compresses the summed field back down") {
-          parthenon::tensor2::RoundGramSVD(out_pack, 1.e-12);
+          parthenon::tensor::RoundGramSVD(out_pack, 1.e-12);
           for (int b = 0; b < NBLOCKS; ++b) {
             const auto &t = out.GetBlockData(b)->Get("I")->train();
             // in+in is rank-deficient, so rounding cannot exceed the summed rank
@@ -248,10 +248,10 @@ TEST_CASE("MeshTTData assembles over a block partition", "[TTField]") {
 
 // Field tags for the multi-field pack test.
 namespace tags {
-struct A : public parthenon::tensor2::tt_var_base_t {
+struct A : public parthenon::tensor::tt_var_base_t {
   static std::string name() { return "A"; }
 };
-struct B : public parthenon::tensor2::tt_var_base_t {
+struct B : public parthenon::tensor::tt_var_base_t {
   static std::string name() { return "B"; }
 };
 } // namespace tags
@@ -285,7 +285,7 @@ TEST_CASE("Multi-field packs support integer and tag indexing", "[TTField]") {
     md.Initialize(part);
 
     WHEN("An untagged host pack is built over all fields") {
-      using parthenon::tensor2::TensorTrainHostPack;
+      using parthenon::tensor::TensorTrainHostPack;
       auto host = TensorTrainHostPack::FromContainer(md);
 
       THEN("It reports the container's field count") {
@@ -295,7 +295,7 @@ TEST_CASE("Multi-field packs support integer and tag indexing", "[TTField]") {
     }
 
     WHEN("An untagged host pack is built from an explicit name list") {
-      using parthenon::tensor2::TensorTrainHostPack;
+      using parthenon::tensor::TensorTrainHostPack;
       auto host = TensorTrainHostPack::FromNames(md, {"B"});
 
       THEN("It gathers only the named fields, in the given order") {
@@ -306,7 +306,7 @@ TEST_CASE("Multi-field packs support integer and tag indexing", "[TTField]") {
     }
 
     WHEN("A tagged host pack is built for a specific field set") {
-      using parthenon::tensor2::TensorTrainHostPackFor;
+      using parthenon::tensor::TensorTrainHostPackFor;
       auto host = TensorTrainHostPackFor<tags::A, tags::B>::FromContainer(md);
 
       THEN("The host pack is accessible by tag (block leads)") {
@@ -448,7 +448,7 @@ TEST_CASE("TT types drive the boundary-comm templates", "[TTField]") {
 TEST_CASE("TTCommChannel carries a train through a shared-state handshake", "[TTField]") {
   using parthenon::BufferState;
   using parthenon::TTCommChannel;
-  using train_t = parthenon::tensor2::TensorTrain;
+  using train_t = parthenon::tensor::TensorTrain;
 
   GIVEN("A single channel") {
     TTCommChannel chan;

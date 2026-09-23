@@ -28,7 +28,7 @@ namespace parthenon {
 // is no persistent fixed buffer the way regular-field comm has.
 class TTCommChannel {
  public:
-  using train_t = tensor2::TensorTrain;
+  using train_t = tensor::TensorTrain;
   using train_ptr = std::shared_ptr<train_t>;
 
   TTCommChannel() = default;

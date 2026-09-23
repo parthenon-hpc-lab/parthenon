@@ -25,7 +25,7 @@
 
 
 namespace parthenon {
-namespace tensor2 {
+namespace tensor {
 namespace impl {
 
 // Copy all fibers from a source core into a destination core with optional
@@ -1050,7 +1050,7 @@ void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
   }
 }
 
-} // namespace tensor2
+} // namespace tensor
 } // namespace parthenon
 
 #endif // TENSORS_TT_OPERATIONS_HPP

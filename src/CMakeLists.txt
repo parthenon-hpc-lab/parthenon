@@ -278,7 +278,6 @@ add_library(parthenon
   parthenon/package.hpp
   parthenon/parthenon.hpp
   parthenon/prelude.hpp
-  parthenon/tensor_networks.hpp
 
   pgen/default_pgen.cpp
 
@@ -316,8 +315,6 @@ add_library(parthenon
   time_integration/low_storage_integrator.cpp
   time_integration/staged_integrator.cpp
   time_integration/staged_integrator.hpp
-  tensors/tensors.cpp
-  tensors/tensors.hpp
   tensors/tt_boundary_cache.hpp
   tensors/tt_boundary_comm.cpp
   tensors/tt_boundary_comm.hpp

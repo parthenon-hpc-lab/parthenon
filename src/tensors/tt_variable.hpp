@@ -40,7 +40,7 @@ class MeshBlock;
 template <class TTraits>
 class TTVariableT {
  public:
-  using train_t = tensor2::TensorTrainT<TTraits>;
+  using train_t = tensor::TensorTrainT<TTraits>;
 
   TTVariableT() = default;
 
