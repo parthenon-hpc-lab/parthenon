@@ -126,7 +126,16 @@ TEST_CASE("Tall-skinny QR decomposition", "[qr][rect][thin]") {
         const double scale = std::max(1.0, A0.FrobeniusNorm());
         REQUIRE(UpperTrapezoidError(A) / scale < 1e-12);
         REQUIRE(OrthoError(Q) / std::max(1.0, std::sqrt(double(n))) < 1e-12);
-        REQUIRE(ReconstructionError(A0, Q, A) / scale < 1e-11);
+
+        // With a thin Q (m x n), R is the top n x n block of the returned A;
+        // reconstruct A0 = Q * R from that block.
+        Matrix R(n, n);
+        for (int r = 0; r < n; ++r) {
+          for (int c = 0; c < n; ++c) {
+            R(r, c) = A(r, c);
+          }
+        }
+        REQUIRE(ReconstructionError(A0, Q, R) / scale < 1e-11);
       }
     }
   }
