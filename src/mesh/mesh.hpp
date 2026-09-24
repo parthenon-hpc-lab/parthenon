@@ -50,6 +50,8 @@
 #include "mesh/forest/forest.hpp"
 #include "mesh/forest/forest_topology.hpp"
 #include "mesh/meshblock_pack.hpp"
+#include "tensors/tt_comm_channel.hpp"
+#include "tensors/tt_container.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "pack/sparse_pack/pack_descriptor.hpp"
 #include "parameter_input.hpp"
@@ -174,6 +176,8 @@ class Mesh {
   std::shared_ptr<StateDescriptor> resolved_packages;
 
   DataCollection<MeshData<Real>> mesh_data;
+  // Tensor-train field containers over mesh partitions (see MeshBlock::tt_block_data).
+  DataCollection<MeshTTData> tt_data;
 
   int GetGMGMaxLevel() const { return current_level; }
   int GetGMGMinLevel() const { return gmg_min_level_; }
@@ -300,17 +304,21 @@ class Mesh {
   // between two blocks for a given variable
   using channel_key_t = std::tuple<int, int, std::string, int, int>;
   using comm_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
-  class comm_buf_map_t {
+
+  // Map of communication channels keyed by channel_key_t, templated on the channel
+  // payload type (CommBuffer for regular fields, TTCommChannel for tensor trains).
+  template <class channel_t>
+  class comm_map_t {
    public:
-    using map_t = std::unordered_map<channel_key_t, comm_buf_t>;
-    using key_type = map_t::key_type;
-    using mapped_type = map_t::mapped_type;
+    using map_t = std::unordered_map<channel_key_t, channel_t>;
+    using key_type = typename map_t::key_type;
+    using mapped_type = typename map_t::mapped_type;
 
    private:
-    // On initial meshing and after remeshing, the comm buffer map is cleared and
-    // rebuilt. The member epoch_ stores the number of times the comm buffers have
-    // been built so that various boundary cache objects that point to the comm
-    // buffers can easily check if they point to buffers from an old mesh
+    // On initial meshing and after remeshing, the comm channel map is cleared and
+    // rebuilt. The member epoch_ stores the number of times the channels have
+    // been built so that various boundary cache objects that point to the
+    // channels can easily check if they point to channels from an old mesh
     // configuration that have been cleared.
     std::size_t epoch_{1};
     map_t m_;
@@ -331,9 +339,13 @@ class Mesh {
       epoch_++;
     }
   };
+  using comm_buf_map_t = comm_map_t<comm_buf_t>;
+  using tt_comm_map_t = comm_map_t<TTCommChannel>;
 
   ObjectPoolMap<BufArray1D<Real>> pool_map;
   comm_buf_map_t boundary_comm_map;
+  tt_comm_map_t tt_comm_map;
+
   TagMap tag_map;
   int minimum_number_of_teams_for_boundary_kernel;
   int boundary_buffer_work_chunk_size;

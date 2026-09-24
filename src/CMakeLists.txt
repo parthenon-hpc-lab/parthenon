@@ -190,6 +190,15 @@ add_library(parthenon
   loop_abstraction/view.hpp
   loop_abstraction/loop_abstraction.hpp
 
+  linear_algebra/givens.hpp
+  linear_algebra/householder.hpp
+  linear_algebra/implicit_qr.hpp
+  linear_algebra/matrix.cpp
+  linear_algebra/matrix.hpp
+  linear_algebra/qr_decomposition.hpp
+  linear_algebra/square_svd.hpp
+  linear_algebra/symmetric_evd.hpp
+
   mesh/domain.hpp
   mesh/forest/block_ownership.cpp
   mesh/forest/block_ownership.hpp
@@ -306,6 +315,14 @@ add_library(parthenon
   time_integration/low_storage_integrator.cpp
   time_integration/staged_integrator.cpp
   time_integration/staged_integrator.hpp
+  tensors/tt_boundary_cache.hpp
+  tensors/tt_boundary_comm.cpp
+  tensors/tt_boundary_comm.hpp
+  tensors/tt_comm_channel.hpp
+  tensors/tt_container.cpp
+  tensors/tt_container.hpp
+  tensors/tt_field_metadata.hpp
+  tensors/tt_pack.hpp
 
   utils/alias_method.cpp
   utils/alias_method.hpp
