@@ -500,6 +500,17 @@ set(CMAKE_INSTALL_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}/parthenon")
 set(DOC_GEN_PATH "${CMAKE_SOURCE_DIR}/doc/sphinx/src/generated" CACHE STRING
   "Path to save generated data for docs.")
 
+
+find_package(Rummy QUIET)
+
+if (NOT Rummy_FOUND)
+  # If Rummy is not found, instead use the git submodule
+  set(RUMMY_ENABLE_COVERAGE OFF CACHE BOOL "Disable Rummy coverage" FORCE)
+  set(RUMMY_ENABLE_UNIT_TESTS OFF CACHE BOOL "Disable Rummy unit tests" FORCE)
+  add_subdirectory(external/rummy)
+endif()
+
+
 if (PARTHENON_ENABLE_FFT)
   if(NOT ENABLE_MPI)
     message(FATAL_ERROR

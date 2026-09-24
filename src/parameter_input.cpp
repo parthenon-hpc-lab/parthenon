@@ -72,12 +72,28 @@
 
 namespace parthenon {
 
+//! \fn std::string SanitizeString(const std::string &input)
+//  \brief Strip leading/trailing whitespace and inline comments.
+std::string SanitizeString(const std::string &input) {
+  std::string output = input.substr(0, input.find('#')); // remove trailing comment
+  output.erase(output.begin(), std::find_if(output.begin(), output.end(),
+                                            [](char c) { return !std::isspace(c); }));
+  output.erase(std::find_if(output.rbegin(), output.rend(),
+                            [](char c) { return !std::isspace(c); })
+                   .base(),
+               output.end());
+  return output;
+}
 //----------------------------------------------------------------------------------------
 // ParameterInput constructor
 
 ParameterInput::ParameterInput() : last_filename_{} {}
 
 ParameterInput::ParameterInput(std::string input_filename) : last_filename_{} {
+  ReadFile(input_filename);
+}
+
+void ParameterInput::ReadFile(const std::string &input_filename) {
   IOWrapper infile;
   infile.Open(input_filename.c_str(), IOWrapper::FileMode::read);
   LoadFromFile(infile);
@@ -330,15 +346,21 @@ bool ParameterInput::ParseLine(std::string line, std::string &name, std::string 
 //  \brief parse commandline for changes to input parameters
 // Note this function is very forgiving (no warnings!) if there is an error in format
 
-void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
+void ParameterInput::ModifyFromCmdline(std::vector<std::string> mods) {
   PARTHENON_REQUIRE_THROWS(
       !parsing_finalized_,
       "Can't add new parameters to the linked list after the map is resolved.");
-  std::string input_text, block, name, value;
-  std::stringstream msg;
 
-  for (int i = 1; i < argc; i++) {
-    input_text = argv[i];
+  if (mods.empty()) return;
+  std::stringstream ss;
+  for (const auto &mod : mods) {
+    ss << mod << " # From command line\n";
+  }
+
+  // Native parsing
+  std::string line;
+  while (std::getline(ss, line)) {
+    auto input_text = SanitizeString(line);
     std::size_t equal_posn = input_text.find_first_of("=");     // first "=" character
     std::size_t slash_posn = input_text.rfind("/", equal_posn); // last "/" before "="
 
@@ -346,6 +368,7 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
     if ((slash_posn == std::string::npos) || (equal_posn == std::string::npos)) continue;
 
     if (slash_posn > equal_posn) {
+      std::stringstream msg;
       msg << "'/' used as value (rhs of =) when modifying " << input_text << "."
           << " Please update value of change "
           << "logic in ModifyFromCmdline function.";
@@ -353,14 +376,15 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
     }
 
     // extract block/name/value strings
-    block = input_text.substr(0, slash_posn);
-    name = input_text.substr(slash_posn + 1, (equal_posn - slash_posn - 1));
-    value = input_text.substr(equal_posn + 1, std::string::npos);
+    auto block = input_text.substr(0, slash_posn);
+    auto name = input_text.substr(slash_posn + 1, (equal_posn - slash_posn - 1));
+    auto value = input_text.substr(equal_posn + 1, std::string::npos);
 
     // Check if block/parameter exists for warning messages
     Block *pb = FindBlock_(block);
     if (pb == nullptr) {
       if (Globals::my_rank == 0) {
+        std::stringstream msg;
         msg << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
             << "               Block name '" << block
             << "' on command line not found in input/restart file. Block will be added.";
@@ -368,6 +392,7 @@ void ParameterInput::ModifyFromCmdline(int argc, char *argv[]) {
       }
     } else if (FindParameter_(block, name) == nullptr) {
       if (Globals::my_rank == 0) {
+        std::stringstream msg;
         msg << "In function [ParameterInput::ModifyFromCmdline]:" << std::endl
             << "               Parameter '" << name << "' in block '" << block
             << "' on command line not found in input/restart file. Parameter will be "
@@ -992,6 +1017,19 @@ std::optional<T> ParameterInput::GetFromStorage_(const std::string &block,
   // If it's already the correct type, return it
   if (std::holds_alternative<T>(param->value)) {
     return std::get<T>(param->value);
+  }
+
+  // If T is a vector and the stored value is the scalar element type, wrap it.
+  // This handles the case where a single-element vector was stored as a scalar
+  // (e.g. a one-element string vector stored as std::string).
+  if constexpr (std::is_same_v<T, std::vector<int>> ||
+                std::is_same_v<T, std::vector<Real>> ||
+                std::is_same_v<T, std::vector<bool>> ||
+                std::is_same_v<T, std::vector<std::string>>) {
+    using ElemType = typename T::value_type;
+    if (std::holds_alternative<ElemType>(param->value)) {
+      return T{std::get<ElemType>(param->value)};
+    }
   }
 
   // Type mismatch - was previously resolved as a different type

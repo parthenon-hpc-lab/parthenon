@@ -4,3 +4,6 @@
 [submodule "external/kokkos"]
 	path = external/Kokkos
 	url = https://github.com/kokkos/kokkos.git
+[submodule "external/rummy"]
+	path = external/rummy
+	url = https://github.com/lanl/rummy
