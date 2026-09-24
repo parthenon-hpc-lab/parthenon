@@ -23,6 +23,7 @@
 #include <exception>
 #include <iostream>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -34,6 +35,7 @@
 #include "amr_criteria/amr_criteria.hpp"
 #include "amr_criteria/refinement_package.hpp"
 #include "config.hpp"
+#include "coordinates/coordinates.hpp"
 #include FS_HEADER
 #include "globals.hpp"
 #include "mesh/domain.hpp"
@@ -110,7 +112,9 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   // If restart, then ParameterInput in the restart file takes precedence.
   if (arg.is_restart) {
     // Read input from restart file
-    if (fs::path(arg.restart_filename).extension() == ".rhdf") {
+    const auto extension = fs::path(arg.restart_filename).extension();
+    if (extension == ".rhdf" || extension == ".phdf" || extension == ".hdf5" ||
+        extension == ".h5") {
 #ifdef ENABLE_HDF5
       restartReader = std::make_unique<RestartReaderHDF5>(arg.restart_filename);
 #else // HDF5 disabled
@@ -131,11 +135,41 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
       PARTHENON_FAIL("Unsupported restart file format.");
     }
 
+    if (arg.analysis_flag) {
+      const auto output_mode = restartReader->GetOutputMode();
+      if (output_mode == RestartReader::OutputMode::data ||
+          output_mode == RestartReader::OutputMode::core) {
+        analysis_data_ = true;
+      } else if (output_mode == RestartReader::OutputMode::slice) {
+        PARTHENON_FAIL("Analysis loading from sliced HDF5 outputs is not supported.");
+      } else if (output_mode == RestartReader::OutputMode::unknown &&
+                 extension != ".rhdf") {
+        analysis_data_ = true;
+        if (Globals::my_rank == 0) {
+          PARTHENON_WARN("HDF5 file does not contain OutputMode metadata; treating the "
+                         "non-.rhdf analysis input as a data dump.");
+        }
+      }
+      PARTHENON_REQUIRE_THROWS(
+          !analysis_data_ || arg.input_filename != nullptr,
+          "Analysis loading from an HDF5 data dump requires '-i <analysis input file>'.");
+    }
+
     // Load input stream
     pinput = std::make_unique<ParameterInput>();
     auto inputString = restartReader->GetInputString();
     std::istringstream is(inputString);
     pinput->LoadFromStream(is);
+    if (analysis_data_) {
+      const auto time_info = restartReader->GetTimeInfo();
+      std::ostringstream time_overlay;
+      time_overlay << "<parthenon/time>\n"
+                   << "start_time = " << time_info.time << "\n"
+                   << "dt = " << time_info.dt << "\n"
+                   << "ncycle = " << time_info.ncycle << "\n";
+      std::istringstream time_stream(time_overlay.str());
+      pinput->LoadFromStream(time_stream);
+    }
   }
   // If an input file was provided
   if (arg.input_filename != nullptr) {
@@ -145,6 +179,30 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
       infile.Open(arg.input_filename, IOWrapper::FileMode::read);
       pinput->LoadFromFile(infile);
       infile.Close();
+
+      if (analysis_data_) {
+        ParameterInput analysis_input;
+        IOWrapper analysis_file;
+        analysis_file.Open(arg.input_filename, IOWrapper::FileMode::read);
+        analysis_input.LoadFromFile(analysis_file);
+        analysis_file.Close();
+        std::ostringstream swarm_overlay;
+        bool has_swarm_overlay = false;
+        swarm_overlay << "<parthenon/swarm>\n";
+        for (const auto &face :
+             {"ix1_bc", "ox1_bc", "ix2_bc", "ox2_bc", "ix3_bc", "ox3_bc"}) {
+          if (analysis_input.DoesParameterExist("parthenon/mesh", face) &&
+              !analysis_input.DoesParameterExist("parthenon/swarm", face)) {
+            swarm_overlay << face << " = "
+                          << analysis_input.GetString("parthenon/mesh", face) << "\n";
+            has_swarm_overlay = true;
+          }
+        }
+        if (has_swarm_overlay) {
+          std::istringstream swarm_stream(swarm_overlay.str());
+          pinput->LoadFromStream(swarm_stream);
+        }
+      }
 
       // Populate new object for fresh simulation
     } else {
@@ -223,26 +281,56 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
   } else {
     // Open restart file
     // Read Mesh from restart file and create meshblocks
-    pmesh =
-        std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader, packages);
+    if (analysis_data_) {
+      const auto mesh_info = restartReader->GetMeshInfo();
+      const auto input_nx2 = pinput->DoesParameterExist("parthenon/mesh", "nx2")
+                                 ? pinput->GetInteger("parthenon/mesh", "nx2")
+                                 : 1;
+      const auto input_nx3 = pinput->DoesParameterExist("parthenon/mesh", "nx3")
+                                 ? pinput->GetInteger("parthenon/mesh", "nx3")
+                                 : 1;
+      const int input_ndim = 1 + (input_nx2 > 1) + (input_nx3 > 1);
+      PARTHENON_REQUIRE_THROWS(mesh_info.ndim == input_ndim,
+                               "Analysis mesh dimensionality mismatch: file has " +
+                                   std::to_string(mesh_info.ndim) +
+                                   " dimensions, input requests " +
+                                   std::to_string(input_ndim) + ".");
+      PARTHENON_REQUIRE_THROWS(mesh_info.coordinates == Coordinates_t::name_,
+                               "Analysis coordinate-system mismatch: file uses '" +
+                                   mesh_info.coordinates + "', executable/input uses '" +
+                                   Coordinates_t::name_ + "'.");
+    }
+    std::optional<std::vector<std::string>> analysis_exclude_fields;
+    if (analysis_data_) {
+      analysis_exclude_fields = pinput->GetOrAddVector<std::string>(
+          "parthenon/analysis", "exclude_fields", {},
+          "PHDF fields to omit from analysis allocation and loading");
+    }
+    pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader,
+                                   packages, 0, analysis_exclude_fields);
+    if (analysis_data_) {
+      for (const auto &name : pmesh->AnalysisOnlyFields()) {
+        const auto &metadata = pmesh->resolved_packages->GetFieldMetadata(name);
+        if (!metadata.IsSet(Metadata::Sparse)) continue;
+        for (auto &pmb : pmesh->block_list) {
+          if (!pmb->IsAllocated(name)) pmb->AllocateSparseExact(name);
+        }
+      }
+    }
 
-    // Read simulation time and cycle from restart file and set in input
-    const auto time_info = restartReader->GetTimeInfo();
-    Real tNow = time_info.time;
-    pinput->SetReal("parthenon/time", "start_time", tNow);
+    if (!analysis_data_) {
+      const auto time_info = restartReader->GetTimeInfo();
+      pinput->SetReal("parthenon/time", "start_time", time_info.time);
+      pinput->SetReal("parthenon/time", "dt", time_info.dt);
+      pinput->SetInteger("parthenon/time", "ncycle", time_info.ncycle);
+    }
 
-    Real dt = time_info.dt;
-    pinput->SetReal("parthenon/time", "dt", dt);
-
-    int ncycle = time_info.ncycle;
-    pinput->SetInteger("parthenon/time", "ncycle", ncycle);
-
-    // Read package data from restart file
-    RestartPackages(*pmesh, *restartReader);
+    // Restart data must be present before the normal restart initialization path.
+    if (!analysis_data_) RestartPackages(*pmesh, *restartReader);
 
     // close hdf5 file to prevent HDF5 hangs and corrupted files
     // if code dies after restart
-    restartReader = nullptr;
+    if (!analysis_data_) restartReader = nullptr;
   }
 
   // add root_level to all max_level
@@ -262,7 +350,30 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     pinput->SetString("parthenon/job", "output_params_block_regex", arg.params_regex);
   }
 
-  pmesh->Initialize(!arg.is_restart, pinput.get(), app_input.get());
+  pmesh->Initialize(!arg.is_restart, pinput.get(), app_input.get(), !analysis_data_);
+
+  if (analysis_data_) {
+    RestartPackages(*pmesh, *restartReader, true);
+    if (!pmesh->AnalysisOnlyFields().empty()) {
+      PARTHENON_REQUIRE_THROWS(
+          app_input->AnalysisInitialize != nullptr,
+          "Analysis-requested fields are absent from the dump, but no "
+          "ApplicationInput::AnalysisInitialize callback was registered.");
+      app_input->AnalysisInitialize(pmesh.get(), pinput.get());
+    }
+    pmesh->PrepareAnalysisBoundaryData();
+    if (Globals::my_rank == 0) {
+      std::vector<std::string> boundary_ready = loaded_analysis_fields_;
+      boundary_ready.insert(boundary_ready.end(), pmesh->AnalysisOnlyFields().begin(),
+                            pmesh->AnalysisOnlyFields().end());
+      std::sort(boundary_ready.begin(), boundary_ready.end());
+      std::cout << "Analysis load boundary-ready (" << boundary_ready.size() << "):";
+      for (const auto &name : boundary_ready)
+        std::cout << " " << name;
+      std::cout << std::endl;
+    }
+    restartReader = nullptr;
+  }
 
   ChangeRunDir(arg.prundir);
 }
@@ -286,11 +397,14 @@ ParthenonManager::ProcessPackagesDefault(std::unique_ptr<ParameterInput> &pin) {
   return packages;
 }
 
-void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
+void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile,
+                                       bool analysis_data) {
   // Restart packages with information for blocks in ids from the restart file
   // Assumption: blocks are contiguous in restart file, may have to revisit this.
   const IndexDomain theDomain =
-      (resfile.HasGhost() != 0 ? IndexDomain::entire : IndexDomain::interior);
+      analysis_data
+          ? IndexDomain::interior
+          : (resfile.HasGhost() != 0 ? IndexDomain::entire : IndexDomain::interior);
   // Get block list and temp array size
   auto &mb = *(rm.block_list.front());
   int nb = rm.GetNumMeshBlocksThisRank(Globals::my_rank);
@@ -303,11 +417,17 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
 
   // Get list of variables, they are the same for all blocks (since all blocks have the
   // same variable metadata)
-  const auto indep_restart_vars =
+  auto selected_vars =
       GetAnyVariables(mb.meshblock_data.Get()->GetVariableVector(),
                       {parthenon::Metadata::Independent, parthenon::Metadata::Restart});
+  if (analysis_data) {
+    selected_vars.clear();
+    for (const auto &name : rm.AnalysisLoadFields()) {
+      selected_vars.push_back(mb.meshblock_data.Get()->GetVarPtr(name));
+    }
+  }
   const auto all_vars_info =
-      OutputUtils::VarInfo::GetAll(indep_restart_vars, mb.cellbounds, mb.f_cellbounds);
+      OutputUtils::VarInfo::GetAll(selected_vars, mb.cellbounds, mb.f_cellbounds);
 
   const auto sparse_info = resfile.GetSparseInfo();
   // create map of sparse field labels to index in the SparseInfo table
@@ -344,9 +464,11 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
   // need, for example if you're outputting a core dump, so we
   // complain only if the number of sparse varaibles required is
   // greater than the number in the file, not if it is less.
-  PARTHENON_REQUIRE_THROWS(
-      num_sparse <= sparse_info.num_sparse,
-      "Mismatch between sparse fields in simulation and restart file");
+  if (!analysis_data) {
+    PARTHENON_REQUIRE_THROWS(
+        num_sparse <= sparse_info.num_sparse,
+        "Mismatch between sparse fields in simulation and restart file");
+  }
   std::vector<Real> tmp(static_cast<std::size_t>(nb) * max_fillsize);
   for (const auto &v_info : all_vars_info) {
     const auto vlen = v_info.num_components * v_info.ntop_elems;
@@ -366,7 +488,7 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
     // Read relevant data from the hdf file, this works for dense and sparse variables
     // because sparse variables are currently densely written for HDF5.
     try {
-      resfile.ReadBlocks(label, myBlocks, v_info, tmp, &rm);
+      resfile.ReadBlocks(label, myBlocks, v_info, tmp, &rm, analysis_data);
       // Variable does exist but could not be read. So we definitely want to fail here.
     } catch (std::exception &ex) {
       std::stringstream msg;
@@ -381,7 +503,11 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       if (v_info.is_sparse) {
         // check if the sparse variable is allocated on this block
         if (sparse_info.IsAllocated(pmb->gid, sparse_idxs.at(label))) {
-          pmb->AllocateSparse(label);
+          if (analysis_data) {
+            pmb->AllocateSparseExact(label);
+          } else {
+            pmb->AllocateSparse(label);
+          }
           auto dealloc_count = sparse_info.DeallocCount(pmb->gid, sparse_idxs.at(label));
           // Warning: For this to work, it is required that the controlling variable is
           // stored in the restart files.
@@ -399,13 +525,31 @@ void ParthenonManager::RestartPackages(Mesh &rm, RestartReader &resfile) {
       // Double note that this also needs to be update in case
       // we update the OpenPMD/HDF5 infrastructure!
       OutputUtils::PackOrUnpackVar(
-          v_info, resfile.HasGhost() != 0, resfile.BlockdataIsPadded(), index,
-          [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
+          v_info, !analysis_data && resfile.HasGhost() != 0, resfile.BlockdataIsPadded(),
+          index, [&](auto index, int topo, int t, int u, int v, int k, int j, int i) {
             v_h(topo, t, u, v, k, j, i) = tmp[index];
           });
 
       v->data.DeepCopy(v_h);
     }
+    if (analysis_data) loaded_analysis_fields_.push_back(label);
+  }
+
+  if (analysis_data) {
+    if (Globals::my_rank == 0) {
+      auto print_names = [](const char *label, const std::vector<std::string> &names) {
+        std::cout << "Analysis load " << label << " (" << names.size() << "):";
+        for (const auto &name : names)
+          std::cout << " " << name;
+        std::cout << std::endl;
+      };
+      print_names("loaded", loaded_analysis_fields_);
+      print_names("analysis-only", rm.AnalysisOnlyFields());
+      print_names("excluded", rm.AnalysisExcludedFields());
+      print_names("ignored", rm.AnalysisIgnoredFields());
+      print_names("omitted", rm.AnalysisOmittedFields());
+    }
+    return;
   }
 
   // Swarm data

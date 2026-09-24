@@ -41,6 +41,8 @@ constexpr int NumIDsAndFlags{5};
 
 class RestartReader {
  public:
+  enum class OutputMode { unknown, data, restart, core, slice };
+
   RestartReader() = default;
   virtual ~RestartReader() = default;
 
@@ -85,7 +87,8 @@ class RestartReader {
   [[nodiscard]] virtual SparseInfo GetSparseInfo() const = 0;
 
   struct MeshInfo {
-    int nbnew, nbdel, nbtotal, root_level, includes_ghost, n_ghost;
+    int nbnew, nbdel, nbtotal, root_level, includes_ghost, n_ghost, ndim;
+    std::string coordinates;
     std::vector<int> block_size;
     std::vector<Real> grid_dim;
     std::vector<int64_t> lx123;
@@ -101,12 +104,16 @@ class RestartReader {
   // Return output format version number. Return -1 if not existent.
   [[nodiscard]] virtual int GetOutputFormatVersion() const = 0;
 
+  [[nodiscard]] virtual OutputMode GetOutputMode() const = 0;
+
+  [[nodiscard]] virtual std::vector<std::string> GetFieldNames() const = 0;
+
   // Gets data for all blocks on current rank.
   // Assumes blocks are contiguous
   // fills internal data for given pointer
   virtual void ReadBlocks(const std::string &name, IndexRange range,
                           const OutputUtils::VarInfo &info, std::vector<Real> &dataVec,
-                          Mesh *pmesh) const = 0;
+                          Mesh *pmesh, bool interior_only = false) const = 0;
 
   //  The PackOrUnpack logic requires knowledge of how data is stored and being read into
   //  the buffer. For HDF5 data is padded if needed (i.e., a face centered field has tims

@@ -111,7 +111,8 @@ Metadata::Metadata(const std::vector<MetadataFlag> &bits,
                    const std::string &associated,
                    const refinement::RefinementFunctions_t ref_funcs_,
                    const refinement::RefinementFunctions_t flux_ref_funcs_)
-    : shape_(shape), component_labels_(component_labels), associated_(associated) {
+    : refinement_funcs_(ref_funcs_), shape_(shape), component_labels_(component_labels),
+      associated_(associated) {
   // set flags
   for (const auto f : bits) {
     DoBit(f, true);
@@ -130,12 +131,6 @@ Metadata::Metadata(const std::vector<MetadataFlag> &bits,
   if (CountSet({Independent, Derived}) == 0) {
     DoBit(Derived, true);
   }
-  // If variable is refined, set a default prolongation/restriction op
-  // TODO(JMM): This is dangerous. See Issue #844.
-  if (HasRefinementOps()) {
-    refinement_funcs_ = ref_funcs_;
-  }
-
   // check if all flag constraints are satisfied, throw if not
   IsValid(true);
 
