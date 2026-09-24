@@ -6,6 +6,8 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 1394]](https://github.com/parthenon-hpc-lab/parthenon/pull/1394) Add token scratch utility
+- [[PR 1439]](https://github.com/parthenon-hpc-lab/parthenon/pull/1439) Long-overdue parthenon tutorial
+- [[PR 1443]](https://github.com/parthenon-hpc-lab/parthenon/pull/1443) Allow for specifying topological elements in var views
 - [[PR 1431]](https://github.com/parthenon-hpc-lab/parthenon/pull/1431) Add reductions to the loop abstraction
 - [[PR 1429]](https://github.com/parthenon-hpc-lab/parthenon/pull/1429) Fixes to swarm tensor xdmf
 - [[PR 1428]](https://github.com/parthenon-hpc-lab/parthenon/pull/1428) Permit larger input file sizes
@@ -29,6 +31,7 @@
 
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1441]](https://github.com/parthenon-hpc-lab/parthenon/pull/1441) Make it so you can safely create particles in a problem generator.
 - [[PR 1438]](https://github.com/parthenon-hpc-lab/parthenon/pull/1438) Performance tuning for the loop abstraction machinery and add loop abstraction OpenMP support
 - [[PR 1416][(https://github.com/parthenon-hpc-lab/parthenon/pull/1416) Remove virtual tag from destructors in sparse and swarm pack base classes
 - [[PR 1401]](https://github.com/parthenon-hpc-lab/parthenon/pull/1401) Sparse Field Component Names
@@ -37,6 +40,7 @@
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1448]](https://github.com/parthenon-hpc-lab/parthenon/pull/1448) Fix bugs: CellMemAligned and Independent buffer overrun, var_view bad access
 - [[PR 1435]](https://github.com/parthenon-hpc-lab/parthenon/pull/1435) Fix loop abstraction scratch sizing for multi-axis (corner) halos
 - [[PR 1434]](https://github.com/parthenon-hpc-lab/parthenon/pull/1434) Repair nodal field output in XDMF.
 - [[PR 1430]](https://github.com/parthenon-hpc-lab/parthenon/pull/1430) Fix BiCGSTAB returning NaN when a solve converges in its first half step
@@ -52,6 +56,8 @@
 - [[PR 1360]](https://github.com/parthenon-hpc-lab/parthenon/pull/1360) Fix boundary cache clearing in different MeshData partitions
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1432]](https://github.com/parthenon-hpc-lab/parthenon/pull/1432) Instantiate default refinement ops once instead of at every Metadata call site
+- [[PR 1436]](https://github.com/parthenon-hpc-lab/parthenon/pull/1436) Add explicit single-precision compile CI jobs and label build precision in job names
 - [[PR 1414]](https://github.com/parthenon-hpc-lab/parthenon/pull/1414) Bump ROCM CI Container to rocm 7.2.4
 - [[PR 1397]](https://github.com/parthenon-hpc-lab/parthenon/pull/1397) Add Code of Conduct
 - [[PR 1385]](https://github.com/parthenon-hpc-lab/parthenon/pull/1385) Refactor ParameterInput: Separate parsing from storage to enable multiple input formats
@@ -66,6 +72,7 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1441]](https://github.com/parthenon-hpc-lab/parthenon/pull/1441) Clear particles in problem generator, meaning that particles can no longer be seeded in the problem generator at the root level and be appropriately refined at pgen.
 - [[PR 1385]](https://github.com/parthenon-hpc-lab/parthenon/pull/1385) ParameterInput internal storage refactor removes direct access to linked list (`pfirst_block`). Use `GetBlocksWithPrefix()` or `GetBlockNames()` instead.
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 - [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy

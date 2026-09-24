@@ -22,7 +22,12 @@
 #include <utility>
 #include <vector>
 
+#include <Kokkos_Core.hpp>
+
 #include "basic_types.hpp"
+#include "utils/concepts_lite.hpp"
+#include "utils/error_checking.hpp"
+#include "utils/type_list.hpp"
 
 // SFINAE for block iter so that Sparse/SwarmPacks can work for MeshBlockData and MeshData
 namespace {
@@ -161,6 +166,65 @@ struct any_nonautoflux : public base_t<true> {
   }
 };
 using any = any_nonautoflux;
+
+// Concept to state that a typed-field is dependent on other
+// fields, and is not itself an actual indexable field.
+template <typename T>
+concept DependentVariable =
+    requires { typename T::independent_vars; }; // NOLINT(readability/braces)
+
+template <typename... Ts>
+struct virtual_variable_t {
+  using type = virtual_variable_t<Ts...>;
+  using independent_vars = TypeList<Ts...>;
+};
+
+// Concept to check that a type shares an ancestor with virtual_variable_t
+template <typename T>
+concept VirtualVariable = requires {
+  typename T::type;
+  requires is_specialization_of<typename T::type, virtual_variable_t>::value;
+}; // NOLINT(readability/braces)
+
+// Concept to check that a type wants a subpack to evaluate the virtual field
+template <typename T>
+concept VirtualSubPack = requires {
+  typename T::pack_type;
+  requires std::is_same_v<decltype(T::pack_type::Naxes), const int>;
+}; // NOLINT(readability/braces)
+
+namespace impl {
+
+struct AllIndependentVariables {
+  template <typename T>
+    requires(!DependentVariable<T>)
+  static auto get(T) {
+    return TypeList<T>();
+  }
+
+  template <template <typename...> typename TL, typename... Ts>
+  static auto get(TL<Ts...>) {
+    return AllIndependentVariables::get(Ts()...);
+  }
+
+  template <typename T>
+    requires(DependentVariable<T>)
+  static auto get(T) {
+    return AllIndependentVariables::get(typename T::independent_vars());
+  }
+
+  template <typename T, typename... Ts>
+  static auto get(T, Ts...) {
+    return union_type_lists_t<decltype(AllIndependentVariables::get(T())),
+                              decltype(AllIndependentVariables::get(Ts()...))>();
+  }
+};
+} // namespace impl
+
+// Get a TypeList of all the independent variables that make up the requested types.
+template <typename... Ts>
+using all_independent_variables_t = decltype(impl::AllIndependentVariables::get(Ts()...));
+
 } // namespace variable_names
 
 // Namespace in which to put swarm variable name types that are used for indexing into
