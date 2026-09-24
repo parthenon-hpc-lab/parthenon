@@ -288,7 +288,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 //----------------------------------------------------------------------------------------
 // Mesh constructor for restarts. Load the restart file
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
-           Packages_t &packages, int mesh_test)
+           Packages_t &packages, int mesh_test,
+           const std::optional<std::vector<std::string>> &analysis_exclude_fields)
     : Mesh(pin, app_in, packages, hyper_rectangular_constructor_selector_t()) {
   std::stringstream msg;
 
@@ -356,6 +357,19 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
         << "Tree reconstruction failed. The total numbers of the blocks do not match. ("
         << nbtotal << " != " << nnb << ")" << std::endl;
     PARTHENON_FAIL(msg);
+  }
+
+  if (analysis_exclude_fields) {
+    auto selection = StateDescriptor::CreateAnalysisStateDescriptor(
+        resolved_packages, rr.GetFieldNames(), *analysis_exclude_fields);
+    analysis_source_catalog = selection.source_catalog;
+    resolved_packages = std::move(selection.descriptor);
+    analysis_load_fields_ = std::move(selection.imported);
+    analysis_only_fields_ = std::move(selection.analysis_only);
+    analysis_excluded_fields_ = std::move(selection.excluded);
+    analysis_ignored_fields_ = std::move(selection.ignored);
+    analysis_omitted_fields_ = std::move(selection.omitted);
+    SetupMPIComms();
   }
 
   BuildBlockList(pin, app_in, packages, mesh_test, dealloc_count);
@@ -739,7 +753,8 @@ void Mesh::FillDerived() {
 // \!fn void Mesh::Initialize(bool init_problem, ParameterInput *pin)
 // \brief  initialization before the main loop
 
-void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in) {
+void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in,
+                      bool initialize_data) {
   PARTHENON_INSTRUMENT
   bool init_done = true;
   const int nb_initial = nbtotal;
@@ -836,13 +851,12 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
                     [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
     }
 
-    PreCommFillDerived();
-
-    BuildTagMapAndBoundaryBuffers();
-
-    CommunicateBoundaries();
-
-    FillDerived();
+    if (initialize_data) {
+      PreCommFillDerived();
+      BuildTagMapAndBoundaryBuffers();
+      CommunicateBoundaries();
+      FillDerived();
+    }
 
     if (init_problem && adaptive) {
       for (auto &partition : GetDefaultBlockPartitions()) {
@@ -982,6 +996,11 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
   mesh_data.Add("base", GetBasePartition());
 }
 
+void Mesh::PrepareAnalysisBoundaryData() {
+  BuildTagMapAndBoundaryBuffers();
+  CommunicateBoundaries();
+}
+
 /// Finds location of a block with ID `tgid`.
 std::shared_ptr<MeshBlock> Mesh::FindMeshBlock(int tgid) const {
   PARTHENON_REQUIRE(block_list.size() > 0,
@@ -1085,6 +1104,7 @@ void Mesh::SetupMPIComms() {
         metadata.IsSet(Metadata::ForceRemeshComm) ||
         metadata.IsSet(Metadata::GMGProlongate) ||
         metadata.IsSet(Metadata::GMGRestrict) || metadata.IsSet(Metadata::Flux)) {
+      if (mpi_comm_map_.count(pair.first.label()) != 0) continue;
       MPI_Comm mpi_comm;
       PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
       const auto ret = mpi_comm_map_.insert({pair.first.label(), mpi_comm});
@@ -1092,6 +1112,7 @@ void Mesh::SetupMPIComms() {
     }
   }
   for (auto &pair : resolved_packages->AllSwarms()) {
+    if (mpi_comm_map_.count(pair.first) != 0) continue;
     MPI_Comm mpi_comm;
     PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
     const auto ret = mpi_comm_map_.insert({pair.first, mpi_comm});

@@ -51,6 +51,7 @@ class ApplicationInput {
       MeshPostProblemGenerator = nullptr;
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> MeshPostInitialization =
       nullptr;
+  std::function<void(Mesh *, ParameterInput *)> AnalysisInitialize = nullptr;
 
   std::function<void(Mesh *, ParameterInput *, SimTime &)> PreStepMeshUserWorkInLoop =
       nullptr;
