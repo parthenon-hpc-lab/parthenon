@@ -40,6 +40,7 @@ struct OutputParameters {
 
   int block_number = 0;
   std::string block_name;
+  std::string state_key;
   std::string file_basename;
   int file_number_width;
   bool file_label_final;

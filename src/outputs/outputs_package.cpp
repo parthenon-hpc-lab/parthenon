@@ -42,7 +42,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // from restart files or are cleanly initialized).
   auto output_blocks = pin->GetBlockNamesWithPrefix("parthenon/output");
   for (const auto &block_name : output_blocks) {
-    std::string outn = block_name.substr(16); // 16 because counting starts at 0!
+    const auto slash = block_name.find_last_of('/');
+    const std::string outn =
+        (slash == std::string::npos) ? block_name : block_name.substr(slash + 1);
 
     // These will be updated later or restarted from
     int file_number = 0;

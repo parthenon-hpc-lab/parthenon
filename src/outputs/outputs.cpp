@@ -84,6 +84,21 @@
 
 namespace parthenon {
 
+namespace {
+int IsLegacyOutputBlock(const std::string &block_name) {
+  constexpr const char *prefix = "parthenon/output";
+  if (block_name.rfind(prefix, 0) != 0) return false;
+  const std::string suffix = block_name.substr(std::char_traits<char>::length(prefix));
+  const bool is_legacy =  !suffix.empty() &&
+         std::all_of(suffix.begin(), suffix.end(),
+                     [](unsigned char c) { return std::isdigit(c) != 0; });
+  if (is_legacy) {
+    return  std::atoi(suffix.c_str());
+  } 
+  return -1;
+}
+} // namespace
+
 //----------------------------------------------------------------------------------------
 // OutputType constructor
 
@@ -111,14 +126,21 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
   // `pinput` again here as we're actually processing (potentially even modifying)
   // `pinput`.
   auto output_blocks = pin->GetBlockNamesWithPrefix("parthenon/output");
+  int named_output_ordinal = 0;
   for (const auto &block_name : output_blocks) {
     std::shared_ptr<OutputType> pnew_type; // the new output we will create
     bool restart = false;                  // we track restart outputs separately so we
                                            // need this temp variable to check
     OutputParameters op;                   // define temporary OutputParameters struct
     op.block_name = block_name;
-    const auto outn_str = block_name.substr(16); // 16 because counting starts at 0!
-    op.block_number = atoi(outn_str.c_str());
+    const auto slash = block_name.find_last_of('/');
+    const auto outn_str =
+        (slash == std::string::npos) ? block_name : block_name.substr(slash + 1);
+    op.state_key = outn_str;
+    const int legacy_number = IsLegacyOutputBlock(block_name);
+    const bool legacy_output = (legacy_number >= 0);
+    op.block_number =
+        legacy_output ? legacy_number : named_output_ordinal++;
     auto *pfile_number = pkg->MutableParam<int>(outn_str + "/file_number");
     auto *plast_time = pkg->MutableParam<Real>(outn_str + "/last_time");
     auto *plast_n = pkg->MutableParam<int>(outn_str + "/last_n");
@@ -215,10 +237,9 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     op.include_in_final =
         pin->GetOrAddBoolean(op.block_name, "include_in_final", true,
                              "include output when triggered on final signal");
-    char define_id[10];
-    std::snprintf(define_id, sizeof(define_id), "out%d",
-                  op.block_number); // default id="outN"
-    op.file_id = pin->GetOrAddString(op.block_name, "id", define_id);
+    const std::string default_id =
+        legacy_output ? "out" + std::to_string(op.block_number) : op.state_key;
+    op.file_id = pin->GetOrAddString(op.block_name, "id", default_id);
     op.file_type = pin->GetString(op.block_name, "file_type", "output type");
 
     // read ghost cell option
@@ -558,10 +579,9 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
 void OutputType::UpdateNextOutput_(Mesh *pm, SimTime *tm) {
   output_params.file_number++;
   auto pkg = pm->packages.Get("Outputs");
-  const auto outn_str = std::to_string(output_params.block_number);
-  auto *pfile_number = pkg->MutableParam<int>(outn_str + "/file_number");
-  auto *plast_time = pkg->MutableParam<Real>(outn_str + "/last_time");
-  auto *plast_n = pkg->MutableParam<int>(outn_str + "/last_n");
+  auto *pfile_number = pkg->MutableParam<int>(output_params.state_key + "/file_number");
+  auto *plast_time = pkg->MutableParam<Real>(output_params.state_key + "/last_time");
+  auto *plast_n = pkg->MutableParam<int>(output_params.state_key + "/last_n");
   *pfile_number = output_params.file_number;
   if (tm != nullptr) {
     // JMM: Do NOT use the current time to update these, as that can

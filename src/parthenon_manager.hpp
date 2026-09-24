@@ -30,6 +30,7 @@
 #include "mesh/mesh.hpp"
 #include "outputs/restart.hpp"
 #include "parameter_input.hpp"
+#include "parameter_parsers/rummy_parser.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
 
@@ -39,8 +40,15 @@ enum class ParthenonStatus { ok, complete, error };
 
 class ParthenonManager {
  public:
-  ParthenonManager() { app_input.reset(new ApplicationInput()); }
-  ParthenonStatus ParthenonInitEnv(int argc, char *argv[]);
+  ParthenonManager();
+  ~ParthenonManager();
+  ParthenonStatus ParthenonInitEnv(int argc, char *argv[],
+                                   InputDeckType deck_type = InputDeckType::Native,
+                                   const std::string &schema_path = "");
+  ParthenonStatus ParthenonInitEnv(int argc, char *argv[], InputDeckType deck_type,
+                                   std::istream &schema_stream);
+  ParthenonStatus ParthenonInitEnv(int argc, char *argv[],
+                                   const InputDeckOptions &options);
   void
   ParthenonInitPackagesAndMesh(std::optional<forest::ForestDefinition> forest_def = {});
   ParthenonStatus ParthenonFinalize();
@@ -56,11 +64,23 @@ class ParthenonManager {
   std::unique_ptr<Mesh> pmesh;
   std::unique_ptr<RestartReader> restartReader;
   std::unique_ptr<ApplicationInput> app_input;
+  // Retains full Rummy state (graphs and packed device functions) for the
+  // complete Parthenon lifetime. Null when the native parser is selected.
+  std::unique_ptr<Rummy::DeckBase> input_deck;
+
+  Rummy::DeckBase *GetRummyDeck() const { return input_deck.get(); }
+  Rummy::FullDeck *GetRummyFullDeck() const;
 
  private:
   ArgParse arg;
   bool called_init_env_ = false;
   bool called_init_packages_and_mesh_ = false;
+
+  // Shared implementation for both ParthenonInitEnv overloads.
+  ParthenonStatus ParthenonInitEnvCore_(int argc, char *argv[], InputDeckType deck_type,
+                                        InputParserPolicy parser_policy,
+                                        const std::string &schema_path,
+                                        std::istream *schema_stream);
 
   template <typename T>
   void ReadSwarmVars_(const SP_Swarm &pswarm, const BlockList_t &block_list,

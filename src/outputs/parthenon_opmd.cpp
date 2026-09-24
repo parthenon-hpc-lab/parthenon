@@ -56,6 +56,7 @@
 #include "outputs/outputs.hpp"
 #include "outputs/parthenon_opmd.hpp"
 #include "pack/default_names.hpp"
+#include "parameter_parsers/rummy_parser.hpp"
 #include "parthenon_array_generic.hpp"
 #include "provenance.hpp"
 #include "utils/error_checking.hpp"
@@ -507,10 +508,18 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // Then our own
   if (!is_slice) {
     PARTHENON_INSTRUMENT_REGION("write input");
-    // write input key-value pairs
-    std::ostringstream oss;
-    pin->ParameterDump(oss);
-    it.setAttribute("InputFile", oss.str());
+    if (const auto *deck = pin->GetRummyDeck(); deck != nullptr) {
+      const auto state = MakeRummyRestartState(*pin, *deck);
+      it.setAttribute("InputFile", state.source);
+      it.setAttribute("InputParser", std::string("rummy"));
+      it.setAttribute("RummyMode", state.mode);
+      it.setAttribute("RummyStateVersion", state.version);
+      it.setAttribute("RummyState", state.source);
+    } else {
+      std::ostringstream oss;
+      pin->ParameterDump(oss);
+      it.setAttribute("InputFile", oss.str());
+    }
   }
 
   if (!is_slice) {

@@ -56,7 +56,6 @@
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <limits>
 #include <map>
@@ -128,9 +127,9 @@ void ParameterInput::LoadFromStream(std::istream &is) {
                               [](char c) { return std::isspace(c) && c != ' '; }),
                line.end());
 
-    if (line.empty()) continue;                               // skip blank line
-    first_char = line.find_first_not_of(" ");                 // skip white space
-    if (first_char == std::string::npos) continue;            // line is all white space
+    if (line.empty()) continue;                    // skip blank line
+    first_char = line.find_first_not_of(" ");      // skip white space
+    if (first_char == std::string::npos) continue; // line is all white space
     if (line.compare(first_char, 1, "#") == 0) continue;      // skip comments
     if (line.compare(first_char, 9, "<par_end>") == 0) break; // stop on <par_end>
 
@@ -279,8 +278,7 @@ Block *ParameterInput::FindOrAddBlock_(const std::string &name) {
 
   // Not found - create new block in vector and index it
   size_t new_idx = param_storage_.size();
-  param_storage_.emplace_back(
-      Block{name, {}, {}});     // name, params vector, param_index map
+  param_storage_.emplace_back(Block{name, {}, {}, {}, {}});
   block_index_[name] = new_idx; // Index it
   return &param_storage_[new_idx];
 }
@@ -833,6 +831,21 @@ std::string Parameter::ToString() const {
 
   if (std::holds_alternative<UnresolvedString>(value)) {
     ss << std::get<UnresolvedString>(value).value;
+  } else if (std::holds_alternative<UnresolvedVector>(value)) {
+    const auto &vec = std::get<UnresolvedVector>(value).values;
+    for (size_t i = 0; i < vec.size(); ++i) {
+      if (i > 0) ss << ", ";
+      std::visit(
+          [&](const auto &element) {
+            using Element = std::decay_t<decltype(element)>;
+            if constexpr (std::is_same_v<Element, UnresolvedString>) {
+              ss << element.value;
+            } else {
+              ss << element;
+            }
+          },
+          vec[i]);
+    }
   } else if (std::holds_alternative<int>(value)) {
     ss << std::get<int>(value);
   } else if (std::holds_alternative<Real>(value)) {
@@ -913,6 +926,18 @@ void ParameterInput::AddParsedParameter(const std::string &block, const std::str
   AddParameter_(block, name, value, comment);
 }
 
+void ParameterInput::AddParsedBlock(const std::string &block,
+                                    const std::string &class_name,
+                                    const std::string &instance_name,
+                                    const std::string &canonical_path) {
+  PARTHENON_REQUIRE_THROWS(!parsing_finalized_,
+                           "Can't add new blocks after parsing is resolved.");
+  auto *parsed_block = FindOrAddBlock_(block);
+  if (!class_name.empty()) parsed_block->class_name = class_name;
+  if (!instance_name.empty()) parsed_block->instance_name = instance_name;
+  if (!canonical_path.empty()) parsed_block->canonical_path = canonical_path;
+}
+
 //----------------------------------------------------------------------------------------
 //! \fn void ParameterInput::FinalizeParsing()
 //  \brief Finalize the parsing phase - no more parsing allowed (GetOrAdd/Set still work)
@@ -941,12 +966,41 @@ ParameterInput::GetBlockNamesWithPrefix(const std::string &prefix) const {
   std::vector<std::string> matching_blocks;
 
   for (const auto &block : param_storage_) {
-    if (block.name.compare(0, prefix.length(), prefix) == 0) {
+    if ((block.canonical_path == prefix) ||
+        (block.name.compare(0, prefix.length(), prefix) == 0)) {
       matching_blocks.push_back(block.name);
     }
   }
 
   return matching_blocks;
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn std::vector<std::string> ParameterInput::GetBlocksOfClass()
+//  \brief Return all block names whose rummy class metadata equals `class_name`.
+
+std::vector<std::string>
+ParameterInput::GetBlocksOfClass(const std::string &class_name) const {
+  std::vector<std::string> matching_blocks;
+  for (const auto &block : param_storage_) {
+    if (block.class_name == class_name) matching_blocks.push_back(block.name);
+  }
+  return matching_blocks;
+}
+
+//----------------------------------------------------------------------------------------
+//! \fn void ParameterInput::SetBlockClassMetadata()
+//  \brief Record the rummy class/instance metadata for an existing block.
+
+void ParameterInput::SetBlockClassMetadata(const std::string &block,
+                                           const std::string &class_name,
+                                           const std::string &instance_name,
+                                           const std::string &canonical_path) {
+  auto it = block_index_.find(block);
+  if (it == block_index_.end()) return;
+  param_storage_[it->second].class_name = class_name;
+  param_storage_[it->second].instance_name = instance_name;
+  if (!canonical_path.empty()) param_storage_[it->second].canonical_path = canonical_path;
 }
 
 //----------------------------------------------------------------------------------------
@@ -1004,9 +1058,12 @@ std::optional<T> ParameterInput::GetFromStorage_(const std::string &block,
     return std::nullopt; // Not in storage
   }
 
-  // If it's an UnresolvedString, convert and cache
-  if (std::holds_alternative<UnresolvedString>(param->value)) {
-    if (!param->original_string.has_value()) {
+  // Parser-preserved unresolved values convert on first use and then cache
+  // the requested concrete type.
+  if (std::holds_alternative<UnresolvedString>(param->value) ||
+      std::holds_alternative<UnresolvedVector>(param->value)) {
+    if (std::holds_alternative<UnresolvedString>(param->value) &&
+        !param->original_string.has_value()) {
       param->original_string = std::get<UnresolvedString>(param->value);
     }
     T typed_val = ConvertParamValue<T>(param->value, block, name);
@@ -1078,19 +1135,43 @@ T ParameterInput::ConvertParamValue(const ParamValue &value, const std::string &
     return std::get<T>(value);
   }
 
+  constexpr bool is_vector_type =
+      std::is_same_v<T, std::vector<int>> || std::is_same_v<T, std::vector<Real>> ||
+      std::is_same_v<T, std::vector<bool>> || std::is_same_v<T, std::vector<std::string>>;
+
+  if (std::holds_alternative<UnresolvedVector>(value)) {
+    if constexpr (is_vector_type) {
+      using ElemType = typename T::value_type;
+      T result;
+      for (const auto &element : std::get<UnresolvedVector>(value).values) {
+        ParamValue scalar =
+            std::visit([](const auto &item) -> ParamValue { return item; }, element);
+        result.push_back(ConvertParamValue<ElemType>(scalar, block, name));
+      }
+      return result;
+    }
+  }
+
   // If it's an unresolved string, convert it
   if (std::holds_alternative<UnresolvedString>(value)) {
     const std::string &str_val = std::get<UnresolvedString>(value).value;
 
-    constexpr bool is_vector_type = std::is_same_v<T, std::vector<int>> ||
-                                    std::is_same_v<T, std::vector<Real>> ||
-                                    std::is_same_v<T, std::vector<bool>> ||
-                                    std::is_same_v<T, std::vector<std::string>>;
-
     if constexpr (std::is_same_v<T, int>) {
-      return stoi(str_val);
+      const std::string trimmed = SanitizeString(str_val);
+      std::size_t pos = 0;
+      int parsed = std::stoi(trimmed, &pos);
+      if (pos != trimmed.size()) {
+        Real d_parsed = static_cast<Real>(std::stod(trimmed, &pos));
+        if (pos != trimmed.size()) throw std::invalid_argument("trailing characters");
+        if ( static_cast<Real>(parsed) != d_parsed) throw std::invalid_argument("Integer type parameter is not parsing correctly from the string value");
+      }
+      return parsed;
     } else if constexpr (std::is_same_v<T, Real>) {
-      return static_cast<Real>(atof(str_val.c_str()));
+      const std::string trimmed = SanitizeString(str_val);
+      std::size_t pos = 0;
+      Real parsed = static_cast<Real>(std::stod(trimmed, &pos));
+      if (pos != trimmed.size()) throw std::invalid_argument("trailing characters");
+      return parsed;
     } else if constexpr (std::is_same_v<T, bool>) {
       return stob(str_val);
     } else if constexpr (std::is_same_v<T, std::string>) {
@@ -1101,15 +1182,8 @@ T ParameterInput::ConvertParamValue(const ParamValue &value, const std::string &
       T result;
 
       for (const auto &field : fields) {
-        if constexpr (std::is_same_v<ElemType, int>) {
-          result.push_back(stoi(field));
-        } else if constexpr (std::is_same_v<ElemType, Real>) {
-          result.push_back(static_cast<Real>(atof(field.c_str())));
-        } else if constexpr (std::is_same_v<ElemType, bool>) {
-          result.push_back(stob(field));
-        } else if constexpr (std::is_same_v<ElemType, std::string>) {
-          result.push_back(field);
-        }
+        result.push_back(ConvertParamValue<ElemType>(ParamValue(UnresolvedString(field)),
+                                                     block, name));
       }
       return result;
     }
