@@ -71,10 +71,10 @@ The most simple output block for openPMD output is
    output_type = restart
    dt          = 0.125      # time increment between outputs
 
-and will produce outputs in directories named ``parthenon.out6.#####.bp``
-where the ``6`` (in the output block header is arbitrary and used
-as default value in the resulting directory name) and ``#####`` an increasing
-zero-padded integer that is increased for each output written.
+and will produce outputs in directories named ``parthenon.restart.#####.bp``
+where ``#####`` is an increasing zero-padded integer. The output block number
+is arbitrary. Restart outputs default to ``id = restart``; other outputs default
+to ``id = out6`` for this block. An explicit ``id`` overrides either default.
 
 Restarting from outputs using this minimal, simple block is supported by
 default (i.e., it contains all the information for restarting a simulation,
@@ -207,8 +207,10 @@ HDF5
 Parthenon allows users to select which fields are captured in the HDF5
 (``.phdf``) dumps at runtime. In the input file, include a
 ``<parthenon/output*>`` block, list of variables, and specify
-``file_type = hdf5``. A ``dt`` parameter controls the frequency of
-outputs for simulations involving evolution. If the optional parameter
+``file_type = hdf5``. The ``output_type`` parameter selects ``data`` (the
+default), ``restart``, or ``core``. All three use the ``.phdf`` suffix.
+A ``dt`` parameter controls the frequency of outputs for simulations involving
+evolution. If the optional parameter
 ``single_precision_output`` is set to ``true``, all variable data will
 be written in single precision. A ``<parthenon/output*>`` block might
 look like
@@ -291,32 +293,32 @@ environment variables. Available environment variables are:
 || MPI_cb_buffer_size       || N/A          || int       || Sets the total buffer space, in bytes, that can be used for collective buffering on each target node, usually a multiple of cb_block_size. Default is 4 MiB.                                                                                                                                                                                                                                                                                              |
 +---------------------------+---------------+------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
-Corehdf5
-^^^^^^^^
+Core dumps
+^^^^^^^^^^
 
 Sometimes, usually for debugging purposes, you may wish to dump every
-variable that parthenon is aware of. To do so, request a ``corehdf5``
-file. These files are identical to ``hdf5`` output files, but
-parthenon automatically selects every variable and swarm variable it
-is aware of for output. A relevant output block might look like:
+variable that Parthenon is aware of. To do so, set ``file_type = hdf5``
+and ``output_type = core``. Parthenon automatically selects every variable and
+swarm variable it is aware of for output. A relevant output block might look like:
 
 ::
 
   <parthenon/output3>
-  file_type = corehdf5
+  file_type = hdf5
+  output_type = core
   dt = 1.0
   write_xdmf = false
 
-this will produce an hdf5 (``.chdf``) output file every 1 unit of
+this will produce an hdf5 (``.phdf``) output file every 1 unit of
 simulation time that can be read with standard visualization tools but
 contains everything.
 
 .. warning::
 
-  It is unwise to output ``corehdf5`` files routinely as they might be
+  It is unwise to output core dumps routinely as they might be
   very large. These should be used only strategically.
 
-Restart Files (openPMD and HDf5)
+Restart Files (openPMD and HDF5)
 --------------------------------
 
 Parthenon allows users to output restart files for restarting a
@@ -328,8 +330,9 @@ the restart file.
 Restart files can either be written in openPMD format or in HDF5 format.
 
 In the input file, include a ``<parthenon/output*>`` block and specify
-``file_type = rst`` (for HDF5) or ``file_type = openpmd`` and
-``output_type = restart`` (for openPMD).
+``file_type = hdf5`` or ``file_type = openpmd``, together with
+``output_type = restart``. At most one enabled restart output block is allowed,
+including when mixing formats.
 A ``dt`` parameter controls the frequency of
 outputs for simulations involving evolution. A ``<parthenon/output*>``
 block might look like
@@ -337,16 +340,27 @@ block might look like
 ::
 
    <parthenon/output7>
-   file_type = rst
+   file_type = hdf5
+   output_type = restart
    dt = 1.0
 
-This will produce an HDF5 (``.rhdf``) output file every 1 units of
-simulation time that can be used for restarting the simulation.
-Note, that the key difference between the "standard" HDF5 output files
-(with ``.phdf`` suffix) and restart HDF5 files are enforced settings for
-the latter, such as writing all independent variables and writing data
-in the native simulation precision.
-For openPMD output files there is no distinction in naming.
+This produces ``parthenon.restart.#####.phdf`` every 1 unit of simulation time.
+The default filename ID is ``restart`` for both formats; set ``id`` explicitly
+(e.g., ``id = checkpoint``) to override it. Analysis outputs still default to
+``outN``, where ``N`` is the output block number.
+
+Restart outputs automatically include all independent and restart fields, swarm
+data, mesh structure, and parameters needed to resume the simulation. Use native
+simulation precision for faithful restarts; openPMD restart outputs cannot be
+coarsened. Analysis outputs may contain only a subset of these data.
+
+For compatibility, ``file_type = rst`` still defaults to HDF5 restart output and
+``file_type = corehdf5`` still defaults to HDF5 core output. Both now write
+``.phdf`` files. An explicit ``output_type`` takes precedence over these defaults.
+Existing ``.rhdf`` files remain supported for restarting. Restarting from
+``.phdf`` is also supported, but emits a warning if the file is not marked as
+having been written with ``output_type = restart`` (including older ``.phdf``
+files without this metadata). Such files may lack required restart data.
 
 To use this restart file, simply specify the restart file with a
 ``-r /PATH/TO/RESTART_OUTPUT`` at the command line. If both ``-r /PATH/TO/RESTART_OUTPUT``
