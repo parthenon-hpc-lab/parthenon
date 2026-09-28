@@ -215,10 +215,6 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     op.include_in_final =
         pin->GetOrAddBoolean(op.block_name, "include_in_final", true,
                              "include output when triggered on final signal");
-    char define_id[10];
-    std::snprintf(define_id, sizeof(define_id), "out%d",
-                  op.block_number); // default id="outN"
-    op.file_id = pin->GetOrAddString(op.block_name, "id", define_id);
     op.file_type = pin->GetString(op.block_name, "file_type", "output type");
 
     // read ghost cell option
@@ -234,6 +230,41 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5") ||
                                 (op.file_type == "corehdf5");
     const bool is_openpmd_output = (op.file_type == "openpmd");
+
+    // Legacy file types supply defaults; output_type controls the contents for both
+    // backends independently of the filename suffix.
+    if (is_hdf5_output || is_openpmd_output) {
+      const auto default_type = op.file_type == "rst"        ? "restart"
+                                : op.file_type == "corehdf5" ? "core"
+                                                             : "data";
+      const auto allowed_types =
+          is_hdf5_output ? std::vector<std::string>{"restart", "data", "core"}
+                         : std::vector<std::string>{"restart", "data", "x1slice",
+                                                    "x2slice", "x3slice"};
+      const auto output_type =
+          pin->GetOrAddString(op.block_name, "output_type", default_type, allowed_types,
+                              "Type of output in the file.");
+      using enum DumpOutputMode;
+      if (output_type == "restart") {
+        op.mode = Restart;
+        restart = true;
+        num_rst_outputs++;
+      } else if (output_type == "core") {
+        op.mode = Core;
+        num_core_outputs++;
+      } else if (output_type == "data") {
+        op.mode = Data;
+      } else if (output_type == "x1slice") {
+        op.mode = X1Slice;
+      } else if (output_type == "x2slice") {
+        op.mode = X2Slice;
+      } else if (output_type == "x3slice") {
+        op.mode = X3Slice;
+      }
+    }
+    op.file_id = pin->GetOrAddString(op.block_name, "id",
+                                     restart ? "restart"
+                                             : "out" + std::to_string(op.block_number));
 
     if (is_hdf5_output || is_openpmd_output) {
       op.single_precision_output =
@@ -303,9 +334,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     }
 
     // set output variable and optional data format string used in formatted writes
-    if ((op.file_type != "hst") && (op.file_type != "rst") &&
-        (op.file_type != "corehdf5") && (op.file_type != "ascent") &&
-        (op.file_type != "histogram")) {
+    if ((op.file_type != "hst") && !restart && (op.mode != DumpOutputMode::Core) &&
+        (op.file_type != "ascent") && (op.file_type != "histogram")) {
       // Do not use GetOrAddVector because it will pollute the input parameters for
       // restarts
       if (pin->DoesParameterExist(op.block_name, "variables")) {
@@ -395,30 +425,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       PARTHENON_REQUIRE_THROWS(!op.include_ghost_zones,
                                "Writing ghost zones not supported for OPMD outputs.");
 
-      const auto output_type_str = pin->GetOrAddString(
-          op.block_name, "output_type", "data",
-          std::vector<std::string>{"restart", "data", "x1slice", "x2slice", "x3slice"},
-          "Type of output in the file.");
-
-      using enum DumpOutputMode;
-      if (output_type_str == "restart") {
-        op.mode = Restart;
-        restart = true;
-        num_rst_outputs++;
-      } else if (output_type_str == "data") {
-        op.mode = Data;
-      } else if (output_type_str == "x1slice") {
-        op.mode = X1Slice;
-      } else if (output_type_str == "x2slice") {
-        op.mode = X2Slice;
-      } else if (output_type_str == "x3slice") {
-        op.mode = X3Slice;
-      } else {
-        PARTHENON_FAIL("Unknown output_type for openpmd output in block " +
-                       op.block_name);
-      }
-
-      if (op.mode == Restart) {
+      if (restart) {
         PARTHENON_REQUIRE_THROWS(coarsening_factor == 1,
                                  "Restart outputs cannot be coarsened.");
       }
@@ -449,17 +456,6 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       PARTHENON_FAIL(msg);
 #endif // ifdef ENABLE_HDF5
     } else if (is_hdf5_output) {
-      op.mode = DumpOutputMode::Data;
-      restart = (op.file_type == "rst");
-      const bool coredump = (op.file_type == "corehdf5");
-      if (restart) {
-        num_rst_outputs++;
-        op.mode = DumpOutputMode::Restart;
-      }
-      if (coredump) {
-        num_core_outputs++;
-        op.mode = DumpOutputMode::Core;
-      }
 #ifdef ENABLE_HDF5
       op.write_xdmf = pin->GetOrAddBoolean(op.block_name, "write_xdmf", true);
       op.write_swarm_xdmf =

@@ -1,0 +1,60 @@
+# Parthenon performance portable AMR framework
+# Copyright(C) 2026 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for details
+
+<parthenon/job>
+problem_id = types
+
+<parthenon/mesh>
+nx1 = 32
+x1min = -0.5
+x1max = 0.5
+ix1_bc = periodic
+ox1_bc = periodic
+nx2 = 1
+x2min = -0.5
+x2max = 0.5
+ix2_bc = periodic
+ox2_bc = periodic
+nx3 = 1
+x3min = -0.5
+x3max = 0.5
+ix3_bc = periodic
+ox3_bc = periodic
+
+<parthenon/meshblock>
+nx1 = 8
+nx2 = 1
+nx3 = 1
+
+<parthenon/time>
+nlim = 1
+tlim = 1.0
+integrator = rk2
+
+<Advection>
+profile = wave
+ang_2 = 0.0
+ang_3 = 0.0
+vx = 1.0
+vy = 0.0
+vz = 0.0
+compute_error = false
+fill_derived = true
+
+<parthenon/output0>
+file_type = hdf5
+output_type = restart
+dn = 1
+variables = nonexistent
+
+<parthenon/output1>
+file_type = hdf5
+dn = 1
+variables = advected, one_minus_sqrt_one_minus_advected_sq_12, &
+            one_minus_sqrt_one_minus_advected_sq_37
+
+<parthenon/output2>
+file_type = hdf5
+output_type = core
+dn = 1

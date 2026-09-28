@@ -14,7 +14,7 @@ sys.dont_write_bytecode = True
 
 
 # The test case uses an AMR simulation (with blocks being created and destroyed) as basline.
-# The initial run will run to completion (writing hdf5 rst and opmd output with the same cadence).
+# The initial run will run to completion writing openPMD restart output.
 # Then the simulation is restarted from the first, non-initial condition opmd output and again run to completion.
 # Finally, the simulation is restarted again but using the hdf5 output generated from the previous restart.
 # For testing all resulting pmd snapshots are compared against each other at the same simulation time.
@@ -26,6 +26,8 @@ class TestCase(utils.test_case.TestCaseAbs):
         # files are both read and written
         parameters.coverage_status = "both"
 
+        self.expect_failure = step == 4
+
         # run baseline (to the very end)
         if step == 1:
             parameters.driver_cmd_line_args = ["parthenon/job/problem_id=gold"]
@@ -33,8 +35,8 @@ class TestCase(utils.test_case.TestCaseAbs):
         elif step == 2:
             parameters.driver_cmd_line_args = [
                 "-r",
-                "gold.out1.00001.bp",
-                "parthenon/output1/file_type=rst",
+                "gold.restart.00001.bp",
+                "parthenon/output1/file_type=hdf5",
                 "-i",
                 f"{parameters.parthenon_path}/tst/regression/test_suites/restart_opmd/parthinput_override.restart",
             ]
@@ -42,12 +44,28 @@ class TestCase(utils.test_case.TestCaseAbs):
         elif step == 3:
             parameters.driver_cmd_line_args = [
                 "-r",
-                "silver.out1.00002.rhdf",
+                "silver.restart.00002.phdf",
                 "parthenon/output1/file_type=openpmd",
                 "parthenon/job/problem_id=bronze",
             ]
 
+        elif step == 4:
+            # The single-restart restriction also applies across different backends.
+            self.duplicate_rejected = False
+            parameters.driver_cmd_line_args = [
+                "parthenon/time/nlim=0",
+                "parthenon/output2/file_type=hdf5",
+                "parthenon/output2/output_type=restart",
+                "parthenon/output2/dt=0.05",
+            ]
+
         return parameters
+
+    def ErrorOnNonZeroReturnCode(self, parameters, returncode):
+        if self.expect_failure:
+            self.duplicate_rejected = True
+            return False
+        return True
 
     def Analyse(self, parameters):
         try:
@@ -55,7 +73,9 @@ class TestCase(utils.test_case.TestCaseAbs):
         except ModuleNotFoundError:
             print("Couldn't find required openpmd_api module to compare test results.")
             return False
-        success = True
+        success = self.duplicate_rejected and (
+            "More than one restart output block" in parameters.stdouts[-1].decode()
+        )
 
         def compare_attributes(series_a, series_b):
             skip_attributes = [
@@ -146,8 +166,10 @@ class TestCase(utils.test_case.TestCaseAbs):
 
         def compare_files(idx_it, name_a, name_b):
             all_good = True
-            series_gold = opmd.Series(f"{name_a}.out1.%T.bp/", opmd.Access.read_only)
-            series_silver = opmd.Series(f"{name_b}.out1.%T.bp/", opmd.Access.read_only)
+            series_gold = opmd.Series(f"{name_a}.restart.%T.bp/", opmd.Access.read_only)
+            series_silver = opmd.Series(
+                f"{name_b}.restart.%T.bp/", opmd.Access.read_only
+            )
 
             # PG: yes, this is inefficient but keeps the logic simple
             all_good &= compare_attributes(series_gold, series_silver)
