@@ -11,17 +11,17 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// TODO(LFR): Maybe remove this or just move it to the tests
+#include "linalg_test_utils.hpp"
 
-#include "matrix.hpp"
-
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <random>
+#include <vector>
 
-#include "qr_decomposition.hpp"
+#include "batched_linear_algebra/qr_decomposition.hpp"
 
 Matrix::Matrix(int nrows, int ncols)
     : data_("matrix data", nrows, ncols), ncols_(ncols), nrows_(nrows) {}
@@ -69,7 +69,7 @@ Matrix Matrix::RandomGaussian(int m, int n, unsigned seed) {
 Matrix Matrix::RandomOrthogonal(int n, unsigned seed) {
   Matrix A = Matrix::RandomGaussian(n, n, seed);
   Matrix Q = Matrix::Identity(n, n);
-  QRDecomposition(A, Q);
+  parthenon::batched_linear_algebra::QRDecomposition(A, Q);
   return Q;
 }
 

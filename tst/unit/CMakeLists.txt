@@ -50,6 +50,7 @@ list(APPEND unit_tests_SOURCES
     test_swarm_amr_remesh.cpp
     test_unit_integrators.cpp
     test_upper_bound.cpp
+    linalg_test_utils.cpp
     test_qr.cpp
     test_svd.cpp
     test_implicit_qr.cpp

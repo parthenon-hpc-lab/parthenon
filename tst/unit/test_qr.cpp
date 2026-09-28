@@ -1,11 +1,26 @@
+//========================================================================================
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
+//
+// This program was produced under U.S. Government contract 89233218CNA000001 for Los
+// Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+// for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+// in the program are reserved by Triad National Security, LLC, and the U.S. Department
+// of Energy/National Nuclear Security Administration. The Government is granted for
+// itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+// license in this material to reproduce, prepare derivative works, distribute copies to
+// the public, perform publicly and display publicly, and to permit others to do so.
+//========================================================================================
+
 #include <algorithm>
 #include <cmath>
 #include <vector>
 
 #include <catch2/catch.hpp>
 
-#include "linear_algebra/matrix.hpp"
-#include "linear_algebra/qr_decomposition.hpp"
+#include "batched_linear_algebra/qr_decomposition.hpp"
+#include "linalg_test_utils.hpp"
+
+using namespace parthenon::batched_linear_algebra; // NOLINT(build/namespaces)
 
 static Matrix Multiply2(const Matrix &A, const Matrix &B) {
   Matrix C(A.nrows(), B.ncols());
@@ -80,8 +95,7 @@ static double AboveDiagonalError(const Matrix &A) {
   return std::sqrt(s);
 }
 
-static double LQReconstructionError(const Matrix &A0, const Matrix &L,
-                                    const Matrix &Q) {
+static double LQReconstructionError(const Matrix &A0, const Matrix &L, const Matrix &Q) {
   Matrix LQ = Multiply2(L, Q);
 
   double s = 0.0;
@@ -107,7 +121,7 @@ TEST_CASE("Tall-skinny QR decomposition", "[qr][rect][thin]") {
 
         const double scale = std::max(1.0, A0.FrobeniusNorm());
         REQUIRE(UpperTrapezoidError(A) / scale < 1e-12);
-        REQUIRE(OrthoError(Q) / std::max(1.0, std::sqrt(double(m))) < 1e-12);
+        REQUIRE(OrthoError(Q) / std::max(1.0, std::sqrt(static_cast<double>(m))) < 1e-12);
         REQUIRE(ReconstructionError(A0, Q, A) / scale < 1e-11);
       }
     }
@@ -125,7 +139,7 @@ TEST_CASE("Tall-skinny QR decomposition", "[qr][rect][thin]") {
 
         const double scale = std::max(1.0, A0.FrobeniusNorm());
         REQUIRE(UpperTrapezoidError(A) / scale < 1e-12);
-        REQUIRE(OrthoError(Q) / std::max(1.0, std::sqrt(double(n))) < 1e-12);
+        REQUIRE(OrthoError(Q) / std::max(1.0, std::sqrt(static_cast<double>(n))) < 1e-12);
 
         // With a thin Q (m x n), R is the top n x n block of the returned A;
         // reconstruct A0 = Q * R from that block.
@@ -170,7 +184,8 @@ TEST_CASE("Tall-skinny QR decomposition", "[qr][rect][thin]") {
 
         const double scale = std::max(1.0, A0.FrobeniusNorm());
         REQUIRE(AboveDiagonalError(A) / scale < 1e-12);
-        REQUIRE(RowOrthoError(Q) / std::max(1.0, std::sqrt(double(m))) < 1e-12);
+        REQUIRE(RowOrthoError(Q) / std::max(1.0, std::sqrt(static_cast<double>(m))) <
+                1e-12);
 
         Matrix L(m, m);
         for (int r = 0; r < m; ++r) {
