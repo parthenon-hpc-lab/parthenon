@@ -110,6 +110,10 @@ class QRDecomposition {
       if (pQ) {
         once_per_team(tm, [&]() { vhead[col] = v[col]; });
         parallel_loop(tm, col + 1, nrows - 1, [&](int r) { A(r, col) = v[r]; });
+      } else {
+        // The reflector leaves O(eps ||x||) roundoff below the diagonal; these
+        // entries are zero in exact arithmetic, so set them explicitly.
+        parallel_loop(tm, col + 1, nrows - 1, [&](int r) { A(r, col) = 0.0; });
       }
     });
 
