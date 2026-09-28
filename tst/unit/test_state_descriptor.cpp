@@ -119,6 +119,41 @@ TEST_CASE("Test Add/Get in Packages_t", "[Packages_t]") {
   }
 }
 
+TEST_CASE("Analysis state descriptor projection", "[StateDescriptor][Analysis]") {
+  auto source = std::make_shared<StateDescriptor>("analysis source");
+  source->AddField("advected", Metadata({Metadata::Cell, Metadata::Independent,
+                                         Metadata::WithFluxes}));
+  source->AddField("derived", Metadata({Metadata::Cell, Metadata::OneCopy}));
+  source->AddField("analysis_only",
+                   Metadata({Metadata::Cell, Metadata::OneCopy, Metadata::Analysis}));
+  source->AddField("excluded",
+                   Metadata({Metadata::Cell, Metadata::OneCopy, Metadata::Analysis}));
+  source->AddSparsePool(
+      "analysis_sparse",
+      Metadata({Metadata::Cell, Metadata::OneCopy, Metadata::Sparse, Metadata::Analysis}),
+      std::vector<int>{7});
+
+  auto selection = StateDescriptor::CreateAnalysisStateDescriptor(
+      source, {"advected", "derived", "bnd_flux::advected"},
+      {"excluded", "bnd_flux::advected"});
+
+  REQUIRE(selection.imported == std::vector<std::string>{"advected", "derived"});
+  REQUIRE(selection.analysis_only ==
+          std::vector<std::string>{"analysis_only", "analysis_sparse_7"});
+  REQUIRE(selection.excluded ==
+          std::vector<std::string>{"bnd_flux::advected", "excluded"});
+  REQUIRE(selection.descriptor->FieldPresent("advected"));
+  REQUIRE(selection.descriptor->FieldPresent("derived"));
+  REQUIRE(selection.descriptor->FieldPresent("analysis_only"));
+  REQUIRE(selection.descriptor->FieldPresent("analysis_sparse_7"));
+  REQUIRE_FALSE(selection.descriptor->FieldPresent("bnd_flux::advected"));
+  REQUIRE(selection.descriptor->GetFieldMetadata("derived").IsSet(Metadata::FillGhost));
+  REQUIRE_FALSE(
+      selection.descriptor->GetFieldMetadata("advected").IsSet(Metadata::WithFluxes));
+  REQUIRE(source->GetFieldMetadata("advected").IsSet(Metadata::WithFluxes));
+  REQUIRE_THROWS(StateDescriptor::CreateAnalysisStateDescriptor(source, {}, {"unknown"}));
+}
+
 TEST_CASE("Test mesh data subset registration in StateDescriptor",
           "[StateDescriptor][MeshDataSubset]") {
   StateDescriptor state("package");

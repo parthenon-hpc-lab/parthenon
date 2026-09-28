@@ -15,6 +15,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+#include <cstdio>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -26,6 +27,8 @@
 #include "config.hpp"
 #include "interface/params.hpp"
 #include "kokkos_abstraction.hpp"
+#include "mesh/domain.hpp"
+#include "outputs/output_utils.hpp"
 #include "outputs/parthenon_hdf5.hpp"
 #include "outputs/restart_hdf5.hpp"
 #include "parthenon_array_generic.hpp"
@@ -38,6 +41,69 @@
 
 using parthenon::Params;
 using parthenon::Real;
+
+#ifdef ENABLE_HDF5
+TEST_CASE("HDF5 restart reader exposes dump metadata", "[RestartReaderHDF5]") {
+  using namespace parthenon::HDF5;
+  const std::string filename = "restart_reader_metadata_test.h5";
+  {
+    H5F file = H5F::FromHIDCheck(
+        H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT));
+    MakeGroup(file, "Params");
+    auto info = MakeGroup(file, "Info");
+    HDF5WriteAttribute("IncludesGhost", 0, info);
+    HDF5WriteAttribute("OutputFormatVersion", OUTPUT_VERSION_FORMAT, info);
+    HDF5WriteAttribute("OutputMode", std::string("data"), info);
+    HDF5WriteAttribute("OutputDatasetNames",
+                       std::vector<std::string>{"density", "derived"}, info);
+  }
+
+  {
+    parthenon::RestartReaderHDF5 reader(filename.c_str());
+    REQUIRE(reader.GetOutputMode() == parthenon::RestartReader::OutputMode::data);
+    REQUIRE(reader.GetFieldNames() == std::vector<std::string>{"density", "derived"});
+  }
+  std::remove(filename.c_str());
+}
+
+TEST_CASE("HDF5 analysis reads field interiors with precision conversion",
+          "[RestartReaderHDF5]") {
+  using namespace parthenon;
+  using namespace parthenon::HDF5;
+  const std::string filename = "restart_reader_analysis_data_test.h5";
+  {
+    H5F file = H5F::FromHIDCheck(
+        H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT));
+    MakeGroup(file, "Params");
+    auto info = MakeGroup(file, "Info");
+    HDF5WriteAttribute("IncludesGhost", 1, info);
+    HDF5WriteAttribute("OutputFormatVersion", OUTPUT_VERSION_FORMAT, info);
+
+    const hsize_t dims[] = {1, 1, 1, 4};
+    const H5S dataspace = H5S::FromHIDCheck(H5Screate_simple(4, dims, nullptr));
+    const H5D dataset =
+        H5D::FromHIDCheck(H5Dcreate2(file, "density", H5T_NATIVE_FLOAT, dataspace,
+                                     H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+    const float values[] = {-1.0F, 2.0F, 3.0F, -4.0F};
+    PARTHENON_HDF5_CHECK(
+        H5Dwrite(dataset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, values));
+  }
+
+  std::array<int, OutputUtils::VarInfo::VNDIM> dimensions{};
+  dimensions.fill(1);
+  const Metadata metadata({Metadata::Cell});
+  const OutputUtils::VarInfo variable_info("density", "density", "", {}, 1, dimensions,
+                                           metadata, {TopologicalElement::CC}, false,
+                                           false, IndexShape(2, 1));
+  std::vector<Real> values(2);
+  {
+    RestartReaderHDF5 reader(filename.c_str());
+    reader.ReadBlocks("density", IndexRange{0, 0}, variable_info, values, nullptr, true);
+  }
+  REQUIRE(values == std::vector<Real>{2.0, 3.0});
+  std::remove(filename.c_str());
+}
+#endif
 
 TEST_CASE("Add, Get, and Update are called", "[Add,Get,Update]") {
   GIVEN("A key with some value") {

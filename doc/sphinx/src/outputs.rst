@@ -353,6 +353,45 @@ To use this restart file, simply specify the restart file with a
 and ``-i <input.in>`` are specified, the simulation will be restarted from
 the restart file with input parameters updated (or added) from the input file.
 
+HDF5 data and core files can also be loaded for analysis with
+``-a /PATH/TO/DATA_OUTPUT -i <analysis.in>``. In this mode, the dump supplies
+the mesh topology, simulation time, cycle, and field data, while the analysis
+input file supplies package registration, boundary conditions, and output
+configuration. Every registered field that is present in the dump is allocated and
+loaded, regardless of its ``Independent``, ``Restart``, or ``FillGhost`` metadata.
+Registered fields marked ``Metadata::Analysis`` are also allocated, even when absent
+from the dump, so the analysis pipeline can populate them. This flag does not cause a
+field to be written to normal outputs or restart files. Sparse allocation is restored
+for fields represented in the dump; an analysis-only sparse field is allocated on every
+block.
+
+Individual PHDF datasets can be omitted from allocation and loading with
+
+.. code-block:: text
+
+   <parthenon/analysis>
+   exclude_fields = field_a, field_b
+
+Every excluded name must be present in the application's source catalog. Exclusion takes
+precedence over both presence in the file and ``Metadata::Analysis``. Excluded fields are not allocated,
+read, restored from sparse metadata, or included in the analysis ghost exchange.
+
+Only field interiors are loaded from analysis data files. Any ghost values in
+the file are ignored. Parthenon regenerates same-level and coarse-fine ghosts
+for the loaded fields, and applies the physical boundary conditions configured
+by the analysis input file. User boundary callbacks must therefore handle every
+loaded field whose physical ghosts are needed by the analysis. Derived-field
+initialization callbacks are not run after the file data is loaded, so they
+cannot overwrite the authoritative dump values. Analysis mode exits after
+initialization and configured analysis work rather than evolving the mesh.
+Fields selected only by ``Metadata::Analysis`` must be populated by the application's
+``ApplicationInput::AnalysisInitialize`` callback. Parthenon rejects missing callbacks,
+then ghost-fills the initialized fields together with imported fields before analysis
+callbacks or outputs run.
+
+Using ``-a`` with a restart file retains the restart loading behavior described
+above. Slice outputs cannot be used to reconstruct an analysis mesh.
+
 For physics developers: The fields to be output are automatically
 selected as all the variables that have either the ``Independent`` or
 ``Restart`` ``Metadata`` flags specified. No other intervention is

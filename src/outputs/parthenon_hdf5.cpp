@@ -153,6 +153,25 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   {
     Kokkos::Profiling::pushRegion("write Info");
     HDF5WriteAttribute("OutputFormatVersion", OUTPUT_VERSION_FORMAT, info_group);
+    const auto output_mode = [this]() {
+      switch (output_params.mode) {
+      case DumpOutputMode::Data:
+        return "data";
+      case DumpOutputMode::Restart:
+        return "restart";
+      case DumpOutputMode::Core:
+        return "core";
+      case DumpOutputMode::X1Slice:
+        return "x1slice";
+      case DumpOutputMode::X2Slice:
+        return "x2slice";
+      case DumpOutputMode::X3Slice:
+        return "x3slice";
+      default:
+        return "unknown";
+      }
+    }();
+    HDF5WriteAttribute("OutputMode", std::string(output_mode), info_group);
 
     if (tm != nullptr) {
       HDF5WriteAttribute("NCycle", tm->ncycle, info_group);

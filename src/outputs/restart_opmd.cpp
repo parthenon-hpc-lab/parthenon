@@ -112,6 +112,8 @@ RestartReaderOPMD::MeshInfo RestartReaderOPMD::GetMeshInfo() const {
   mesh_info.block_size = it->getAttribute("MeshBlockSize").get<std::vector<int>>();
   mesh_info.includes_ghost = it->getAttribute("IncludesGhost").get<int>();
   mesh_info.n_ghost = it->getAttribute("NGhost").get<int>();
+  mesh_info.ndim = it->getAttribute("NumDims").get<int>();
+  mesh_info.coordinates = it->getAttribute("Coordinates").get<std::string>();
 
   mesh_info.grid_dim = it->getAttribute("RootGridDomain").get<std::vector<Real>>();
   mesh_info.lx123 = it->getAttribute("loc.lx123").get<std::vector<int64_t>>();
@@ -226,7 +228,10 @@ void RestartReaderOPMD::ReadParams(const std::string &pkg_name, Params &p) {
 
 void RestartReaderOPMD::ReadBlocks(const std::string &var_name, IndexRange block_range,
                                    const OutputUtils::VarInfo &vinfo,
-                                   std::vector<Real> &data_vec, Mesh *pm) const {
+                                   std::vector<Real> &data_vec, Mesh *pm,
+                                   bool interior_only) const {
+  PARTHENON_REQUIRE_THROWS(!interior_only,
+                           "Interior-only analysis loads are only supported for HDF5");
   int64_t comp_offset = 0; // offset data_vector to store component data
   for (auto &pmb : pm->block_list) {
     // TODO(pgrete) check if we should skip the suffix for level 0

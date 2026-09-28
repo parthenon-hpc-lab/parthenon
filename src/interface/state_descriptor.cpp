@@ -15,6 +15,7 @@
 #include <iostream>
 #include <memory>
 #include <numeric>
+#include <set>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -34,21 +35,20 @@
 namespace parthenon {
 
 void RefinementFunctionMaps::Register(const Metadata &m, std::string varname) {
-  if (m.HasRefinementOps()) {
-    const auto &funcs = m.GetRefinementFunctions();
-    // Guard against uninitialized refinement functions by checking
-    // if the label is the empty string.
-    if (funcs.label().size() == 0) {
+  const auto &funcs = m.GetRefinementFunctions();
+  if (funcs.label().size() == 0) {
+    if (m.HasRefinementOps()) {
       std::stringstream ss;
-      ss << "Variable " << varname << " registed for refinement, "
+      ss << "Variable " << varname << " registered for refinement, "
          << "but no prolongation/restriction options found!"
-         << "Please register them with Metadata::RegisterRefinementOps." << std::endl;
+         << " Please register them with Metadata::RegisterRefinementOps." << std::endl;
       PARTHENON_THROW(ss);
     }
-    bool in_map = (funcs_to_ids.count(funcs) > 0);
-    if (!in_map) {
-      funcs_to_ids[funcs] = next_refinement_id_++;
-    }
+    return;
+  }
+  bool in_map = (funcs_to_ids.count(funcs) > 0);
+  if (!in_map) {
+    funcs_to_ids[funcs] = next_refinement_id_++;
   }
 }
 
@@ -571,6 +571,100 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
   state->InvertControllerMap();
 
   return state;
+}
+
+AnalysisStateSelection StateDescriptor::CreateAnalysisStateDescriptor(
+    const std::shared_ptr<StateDescriptor> &source_catalog,
+    const std::vector<std::string> &file_fields,
+    const std::vector<std::string> &excluded_fields) {
+  AnalysisStateSelection selection;
+  selection.source_catalog = source_catalog;
+  selection.descriptor = std::make_shared<StateDescriptor>("parthenon::analysis_state");
+
+  const std::set<std::string> file_set(file_fields.begin(), file_fields.end());
+  const std::set<std::string> excluded_set(excluded_fields.begin(),
+                                           excluded_fields.end());
+  for (const auto &name : excluded_set) {
+    PARTHENON_REQUIRE_THROWS(source_catalog->FieldPresent(name),
+                             "Unknown analysis exclusion '" + name + "'.");
+    selection.excluded.push_back(name);
+  }
+
+  std::set<std::string> selected;
+  for (const auto &name : file_set) {
+    if (excluded_set.count(name) != 0) {
+    } else if (source_catalog->FieldPresent(name)) {
+      selected.insert(name);
+      selection.imported.push_back(name);
+    } else {
+      selection.ignored.push_back(name);
+    }
+  }
+  for (const auto &field : source_catalog->AllFields()) {
+    const auto name = field.first.label();
+    if (field.second.IsSet(Metadata::Analysis) && excluded_set.count(name) == 0) {
+      selected.insert(name);
+      if (file_set.count(name) == 0) selection.analysis_only.push_back(name);
+    }
+  }
+
+  auto project_metadata = [](const Metadata &source) {
+    Metadata projected(source);
+    projected.Unset(Metadata::WithFluxes);
+    projected.Unset(Metadata::Flux);
+    if (projected.IsMeshTied()) projected.Set(Metadata::FillGhost);
+    projected.IsValid(true);
+    return projected;
+  };
+
+  std::map<std::string, SparsePool> sparse_pools;
+  for (const auto &name : selected) {
+    const auto &id = source_catalog->GetFieldVarID(name);
+    const auto &source_metadata = source_catalog->GetFieldMetadata(id);
+    const auto projected = project_metadata(source_metadata);
+    if (source_metadata.IsSet(Metadata::Sparse)) {
+      auto pool = sparse_pools.find(id.base_name);
+      if (pool == sparse_pools.end()) {
+        pool = sparse_pools
+                   .emplace(id.base_name,
+                            SparsePool(id.base_name,
+                                       project_metadata(
+                                           source_catalog->GetSparsePool(id.base_name)
+                                               .shared_metadata())))
+                   .first;
+      }
+      pool->second.Add(id.sparse_id, projected);
+    } else {
+      PARTHENON_REQUIRE_THROWS(selection.descriptor->AddField(name, projected),
+                               "Failed to add analysis field '" + name + "'.");
+    }
+  }
+  for (const auto &pool : sparse_pools) {
+    PARTHENON_REQUIRE_THROWS(selection.descriptor->AddSparsePool(pool.second),
+                             "Failed to add analysis sparse pool '" + pool.first + "'.");
+  }
+
+  for (const auto &field : source_catalog->AllFields()) {
+    const auto name = field.first.label();
+    if (selected.count(name) == 0 && excluded_set.count(name) == 0) {
+      selection.omitted.push_back(name);
+    }
+  }
+  selection.descriptor->UserBoundaryFunctions = source_catalog->UserBoundaryFunctions;
+  selection.descriptor->UserSwarmBoundaryFunctions =
+      source_catalog->UserSwarmBoundaryFunctions;
+  selection.descriptor->InvertControllerMap();
+
+  auto sort_unique = [](std::vector<std::string> &names) {
+    std::sort(names.begin(), names.end());
+    names.erase(std::unique(names.begin(), names.end()), names.end());
+  };
+  sort_unique(selection.imported);
+  sort_unique(selection.analysis_only);
+  sort_unique(selection.excluded);
+  sort_unique(selection.ignored);
+  sort_unique(selection.omitted);
+  return selection;
 }
 
 // Build a list of variables in the following order

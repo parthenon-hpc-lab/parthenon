@@ -240,6 +240,9 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   void AllocateSparse(std::string const &label, bool only_control = false,
                       bool flag_uninitialized = false);
+  void AllocateSparseExact(std::string const &label, bool flag_uninitialized = false) {
+    AllocateSparse(label, true, flag_uninitialized);
+  }
 
   void AllocSparseID(std::string const &base_name, const int sparse_id) {
     AllocateSparse(MakeVarLabel(base_name, sparse_id));

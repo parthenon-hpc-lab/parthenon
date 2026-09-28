@@ -51,6 +51,7 @@ class MeshData;
 class AMRCriteria;
 class Packages_t;
 class PackDescriptorCacheBase;
+struct AnalysisStateSelection;
 
 /// A little container class owning refinement function properties
 /// needed for the state descriptor.
@@ -103,6 +104,10 @@ class StateDescriptor {
 
   static std::shared_ptr<StateDescriptor>
   CreateResolvedStateDescriptor(Packages_t &packages);
+  static AnalysisStateSelection
+  CreateAnalysisStateDescriptor(const std::shared_ptr<StateDescriptor> &source_catalog,
+                                const std::vector<std::string> &file_fields,
+                                const std::vector<std::string> &excluded_fields);
 
   MetadataFlag GetMetadataFlag() {
     return params_.Get<MetadataFlag>("PackageMetadataFlag_");
@@ -564,6 +569,16 @@ class StateDescriptor {
   RefinementFunctionMaps refinementFuncMaps_;
   Dictionary<MeshDataDescriptor> submeshdata_map_;
   std::map<TopologicalType, std::size_t> num_scratch_;
+};
+
+struct AnalysisStateSelection {
+  std::shared_ptr<const StateDescriptor> source_catalog;
+  std::shared_ptr<StateDescriptor> descriptor;
+  std::vector<std::string> imported;
+  std::vector<std::string> analysis_only;
+  std::vector<std::string> excluded;
+  std::vector<std::string> ignored;
+  std::vector<std::string> omitted;
 };
 
 inline std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {

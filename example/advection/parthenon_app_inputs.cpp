@@ -253,12 +253,65 @@ void UserWorkAfterLoop(Mesh *mesh, ParameterInput *pin, SimTime &tm) {
   return;
 }
 
+void AnalysisInitialize(Mesh *mesh, ParameterInput *pin) {
+  if (!pin->GetOrAddBoolean("Advection", "test_analysis_fields", false)) return;
+  for (auto &pmb : mesh->block_list) {
+    auto rc = pmb->meshblock_data.Get();
+    PARTHENON_REQUIRE(rc->HasVariable("analysis_only_var"),
+                      "Metadata::Analysis field was not allocated");
+    PARTHENON_REQUIRE(rc->HasVariable("analysis_only_sparse_7"),
+                      "Sparse Metadata::Analysis field was not allocated");
+    if (!rc->IsAllocated("analysis_only_sparse_7")) {
+      pmb->AllocateSparseExact("analysis_only_sparse_7");
+    }
+    auto q = rc->Get("advected").data;
+    auto analysis_only = rc->Get("analysis_only_var").data;
+    auto analysis_only_sparse = rc->Get("analysis_only_sparse_7").data;
+    const auto ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
+    const auto jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
+    const auto kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
+    pmb->par_for(
+        "Advection::AnalysisInitialize", 0, 0, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int, const int k, const int j, const int i) {
+          analysis_only(0, k, j, i) = 2.0 * q(0, k, j, i);
+          analysis_only_sparse(0, k, j, i) = 4.0 * q(0, k, j, i);
+        });
+  }
+  Kokkos::fence();
+}
+
 void UserMeshWorkBeforeOutput(Mesh *mesh, ParameterInput *pin, SimTime const &) {
+  const bool test_analysis_fields =
+      pin->GetOrAddBoolean("Advection", "test_analysis_fields", false);
+  const bool analysis_run = pin->GetBoolean("parthenon/job", "run_only_analysis");
   // loop over blocks
   for (auto &pmb : mesh->block_list) {
     auto rc = pmb->meshblock_data.Get(); // get base container
+    if (test_analysis_fields && analysis_run) {
+      PARTHENON_REQUIRE(rc->HasVariable("analysis_only_var"),
+                        "Metadata::Analysis field was not allocated");
+      PARTHENON_REQUIRE(!rc->HasVariable("analysis_excluded_var"),
+                        "Excluded analysis field was allocated");
+      PARTHENON_REQUIRE(!rc->HasVariable("analysis_omitted_var"),
+                        "Unselected analysis field was allocated");
+      PARTHENON_REQUIRE(!rc->HasVariable("bnd_flux::advected"),
+                        "Excluded generated flux was allocated implicitly");
+      PARTHENON_REQUIRE(rc->HasVariable("analysis_only_sparse_7") &&
+                            rc->IsAllocated("analysis_only_sparse_7"),
+                        "Sparse Metadata::Analysis field was not allocated");
+    }
     auto q = rc->Get("advected").data;
     auto deriv = rc->Get("my_derived_var").data;
+    auto analysis_only = q;
+    if (test_analysis_fields) analysis_only = rc->Get("analysis_only_var").data;
+    auto analysis_excluded = q;
+    if (test_analysis_fields && !analysis_run) {
+      analysis_excluded = rc->Get("analysis_excluded_var").data;
+    }
+    auto analysis_only_sparse = q;
+    if (test_analysis_fields && analysis_run) {
+      analysis_only_sparse = rc->Get("analysis_only_sparse_7").data;
+    }
 
     IndexRange ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
     IndexRange jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
@@ -268,6 +321,11 @@ void UserMeshWorkBeforeOutput(Mesh *mesh, ParameterInput *pin, SimTime const &) 
         "Advection::FillDerived", 0, 0, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int n, const int k, const int j, const int i) {
           deriv(0, k, j, i) = std::log10(q(0, k, j, i) + 1.0e-5);
+          if (test_analysis_fields) analysis_only(0, k, j, i) = 2.0 * q(0, k, j, i);
+          if (test_analysis_fields && !analysis_run)
+            analysis_excluded(0, k, j, i) = 3.0 * q(0, k, j, i);
+          if (test_analysis_fields && analysis_run)
+            analysis_only_sparse(0, k, j, i) = 4.0 * q(0, k, j, i);
         });
   }
 }

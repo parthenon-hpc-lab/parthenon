@@ -55,6 +55,8 @@ class RestartReaderOPMD : public RestartReader {
 
   // Return output format version number. Return -1 if not existent.
   [[nodiscard]] int GetOutputFormatVersion() const override;
+  [[nodiscard]] OutputMode GetOutputMode() const override { return OutputMode::restart; }
+  [[nodiscard]] std::vector<std::string> GetFieldNames() const override { return {}; }
 
   // Current not supported
   [[nodiscard]] int HasGhost() const override { return 0; };
@@ -65,7 +67,7 @@ class RestartReaderOPMD : public RestartReader {
   // fills internal data for given pointer
   void ReadBlocks(const std::string &name, IndexRange range,
                   const OutputUtils::VarInfo &info, std::vector<Real> &dataVec,
-                  Mesh *pmesh) const override;
+                  Mesh *pmesh, bool interior_only = false) const override;
 
   //  The PackOrUnpack logic requires knowledge of how data is stored and being read into
   //  the buffer. OpenPMD is dense (i.e., a face centered field has dims

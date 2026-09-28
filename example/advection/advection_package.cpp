@@ -195,6 +195,22 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   m = Metadata({Metadata::Cell, Metadata::OneCopy}, std::vector<int>({1}));
   pkg->AddField("my_derived_var", m);
 
+  const auto test_analysis_fields =
+      pin->GetOrAddBoolean("Advection", "test_analysis_fields", false);
+  pkg->AddParam<>("test_analysis_fields", test_analysis_fields);
+  if (test_analysis_fields) {
+    m = Metadata({Metadata::Cell, Metadata::OneCopy, Metadata::Analysis});
+    pkg->AddField("analysis_only_var", m);
+    pkg->AddField("analysis_excluded_var", m);
+
+    m = Metadata({Metadata::Cell, Metadata::OneCopy});
+    pkg->AddField("analysis_omitted_var", m);
+
+    m = Metadata(
+        {Metadata::Cell, Metadata::OneCopy, Metadata::Sparse, Metadata::Analysis});
+    pkg->AddSparsePool("analysis_only_sparse", m, std::vector<int>{7});
+  }
+
   // Create a Metadata::None variable for IO testing purposes.
   // Only load if test_metadata_none is specified in the Advection block
   auto test_metadata_none =
