@@ -16,6 +16,7 @@
 
 // This file was made in part with generative AI.
 
+#include <algorithm>
 #include <cmath>
 
 #include "batched_linear_algebra/execution_utils.hpp"
@@ -42,33 +43,37 @@ namespace batched_linear_algebra {
 ///   - If ‖x‖ = 0, v is set to zero and the reflector is the identity
 ///
 /// This reflector is intended for left application: A ← H A.
+///
+/// x is scaled by max|x_i| before forming any sums of squares (the reflector is
+/// invariant under this scaling), which avoids overflow/underflow for entries
+/// outside roughly [1e-154, 1e154].
 template <class tm_t, class matrix_t>
 KOKKOS_FORCEINLINE_FUNCTION void
 build_householder_vector_col(tm_t tm, int row, int col, const matrix_t &A, double *v) {
   const int nrows = GetNrows(A);
-  double norm_x{0.0};
 
-  summation(
+  double xmax{0.0};
+  find_maximum(
       tm, row, nrows - 1,
-      [&](const int r, double &norm) { norm += A(r, col) * A(r, col); }, norm_x);
-
-  norm_x = safe_sqrt(norm_x);
-  if (norm_x == 0.0) {
+      [&](const int r, double &mx) { mx = std::max(mx, std::abs(A(r, col))); }, xmax);
+  if (xmax == 0.0) {
     parallel_loop(tm, 0, nrows - 1, [&](const int i) { v[i] = 0.0; });
     return;
   }
 
-  v[row] = A(row, col) + sign_of(A(row, col)) * norm_x;
-  double norm_v{0.0};
+  double norm_tail{0.0};
   summation(
       tm, row + 1, nrows - 1,
       [&](const int i, double &norm) {
-        v[i] = A(i, col);
+        v[i] = A(i, col) / xmax;
         norm += v[i] * v[i];
       },
-      norm_v);
-  norm_v += v[row] * v[row];
-  norm_v = safe_sqrt(norm_v);
+      norm_tail);
+
+  const double x0 = A(row, col) / xmax;
+  const double norm_x = safe_sqrt(norm_tail + x0 * x0);
+  v[row] = x0 + sign_of(x0) * norm_x;
+  const double norm_v = safe_sqrt(norm_tail + v[row] * v[row]);
 
   double inv_norm_v = parthenon::robust::ratio(1.0, norm_v);
   parallel_loop(tm, 0, nrows - 1, [&](const int i) { v[i] *= (i >= row) * inv_norm_v; });
@@ -79,37 +84,32 @@ KOKKOS_FORCEINLINE_FUNCTION void
 build_householder_vector_row(tm_t tm, int row, int col, const matrix_t &A, double *v) {
   const int ncols = GetNcols(A);
 
-  double norm_x{0.0};
-
-  // Compute ||x|| where x = A(row, col:ncols-1)
-  summation(
-      tm, col, ncols - 1,
-      [&](const int c, double &norm) { norm += A(row, c) * A(row, c); }, norm_x);
-
-  norm_x = safe_sqrt(norm_x);
-
+  // Scale x = A(row, col:ncols-1) by max|x_j| to avoid overflow/underflow.
   // If the row segment is already zero, the reflector is identity
-  if (norm_x == 0.0) {
+  double xmax{0.0};
+  find_maximum(
+      tm, col, ncols - 1,
+      [&](const int c, double &mx) { mx = std::max(mx, std::abs(A(row, c))); }, xmax);
+  if (xmax == 0.0) {
     parallel_loop(tm, 0, ncols - 1, [&](const int j) { v[j] = 0.0; });
     return;
   }
 
-  // v[col] = x₀ + sign(x₀) * ||x||
-  v[col] = A(row, col) + sign_of(A(row, col)) * norm_x;
-
-  double norm_v{0.0};
-
-  // Copy the remainder of the row segment into v
+  // Copy the remainder of the scaled row segment into v
+  double norm_tail{0.0};
   summation(
       tm, col + 1, ncols - 1,
       [&](const int j, double &norm) {
-        v[j] = A(row, j);
+        v[j] = A(row, j) / xmax;
         norm += v[j] * v[j];
       },
-      norm_v);
+      norm_tail);
 
-  norm_v += v[col] * v[col];
-  norm_v = safe_sqrt(norm_v);
+  // v[col] = x₀ + sign(x₀) * ||x||, with x = A(row, col:ncols-1) / xmax
+  const double x0 = A(row, col) / xmax;
+  const double norm_x = safe_sqrt(norm_tail + x0 * x0);
+  v[col] = x0 + sign_of(x0) * norm_x;
+  const double norm_v = safe_sqrt(norm_tail + v[col] * v[col]);
 
   const double inv_norm_v = parthenon::robust::ratio(1.0, norm_v);
 
