@@ -14,6 +14,8 @@
 #ifndef BATCHED_LINEAR_ALGEBRA_QR_DECOMPOSITION_HPP_
 #define BATCHED_LINEAR_ALGEBRA_QR_DECOMPOSITION_HPP_
 
+// This file was made in part with generative AI.
+
 #include <algorithm>
 #include <vector>
 

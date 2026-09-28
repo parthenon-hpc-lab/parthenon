@@ -14,6 +14,8 @@
 #ifndef BATCHED_LINEAR_ALGEBRA_MATRIX_UTILS_HPP_
 #define BATCHED_LINEAR_ALGEBRA_MATRIX_UTILS_HPP_
 
+// This file was made in part with generative AI.
+
 #include "kokkos_abstraction.hpp"
 
 namespace parthenon {

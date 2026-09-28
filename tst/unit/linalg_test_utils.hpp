@@ -17,6 +17,8 @@
 #ifndef TST_UNIT_LINALG_TEST_UTILS_HPP_
 #define TST_UNIT_LINALG_TEST_UTILS_HPP_
 
+// This file was made in part with generative AI.
+
 #include <iosfwd>
 #include <vector>
 

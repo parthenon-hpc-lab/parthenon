@@ -14,6 +14,8 @@
 #ifndef BATCHED_LINEAR_ALGEBRA_MATMUL_HPP_
 #define BATCHED_LINEAR_ALGEBRA_MATMUL_HPP_
 
+// This file was made in part with generative AI.
+
 #include "batched_linear_algebra/execution_utils.hpp"
 #include "batched_linear_algebra/matrix_utils.hpp"
 #include "kokkos_abstraction.hpp"

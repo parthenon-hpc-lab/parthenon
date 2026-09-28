@@ -14,6 +14,8 @@
 #ifndef BATCHED_LINEAR_ALGEBRA_EXECUTION_UTILS_HPP_
 #define BATCHED_LINEAR_ALGEBRA_EXECUTION_UTILS_HPP_
 
+// This file was made in part with generative AI.
+
 #include <algorithm>
 #include <cmath>
 #include <type_traits>
