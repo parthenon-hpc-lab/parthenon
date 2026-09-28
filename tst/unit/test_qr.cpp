@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 #include <vector>
 
 #include <catch2/catch.hpp>
@@ -264,7 +265,7 @@ TEST_CASE("QR decomposition robustness", "[qr][rect][robust]") {
 
 TEST_CASE("Tall-skinny QR decomposition", "[qr][rect][thin]") {
   SECTION("Random tall-skinny matrices, full Q") {
-    for (const auto [m, n] : {std::pair<int, int>{8, 3}, {16, 5}, {30, 8}}) {
+    for (const auto [m, n] : std::vector<std::pair<int, int>>{{8, 3}, {16, 5}, {30, 8}}) {
       for (unsigned seed = 0; seed < 10; ++seed) {
         Matrix A = Matrix::RandomGaussian(m, n, seed + 1234u);
         Matrix A0 = A.GetDeepCopy();
@@ -282,7 +283,7 @@ TEST_CASE("Tall-skinny QR decomposition", "[qr][rect][thin]") {
   }
 
   SECTION("Random tall-skinny matrices, thin Q") {
-    for (const auto [m, n] : {std::pair<int, int>{8, 3}, {16, 5}, {30, 8}}) {
+    for (const auto [m, n] : std::vector<std::pair<int, int>>{{8, 3}, {16, 5}, {30, 8}}) {
       for (unsigned seed = 0; seed < 10; ++seed) {
         Matrix A = Matrix::RandomGaussian(m, n, seed + 2234u);
         Matrix A0 = A.GetDeepCopy();
@@ -327,7 +328,7 @@ TEST_CASE("Tall-skinny QR decomposition", "[qr][rect][thin]") {
   }
 
   SECTION("Wide matrix LQ decomposition") {
-    for (const auto [m, n] : {std::pair<int, int>{3, 8}, {5, 16}}) {
+    for (const auto [m, n] : std::vector<std::pair<int, int>>{{3, 8}, {5, 16}}) {
       for (unsigned seed = 0; seed < 10; ++seed) {
         Matrix A = Matrix::RandomGaussian(m, n, seed + 3234u);
         Matrix A0 = A.GetDeepCopy();
