@@ -131,6 +131,7 @@ class SquareSVD {
       build_householder_vector_col(tm, col, col, A, v);
       barrier(tm);
       apply_left_householder_transformation(tm, v, s, A, col, col);
+      barrier(tm);
 
       once_per_team(tm, [&]() { vhead[col] = v[col]; });
       parallel_loop(tm, col + 1, nrows - 1, [&](int r) { A(r, col) = v[r]; });
@@ -173,6 +174,7 @@ class SquareSVD {
         parallel_loop(tm, col + 1, nrows - 1, [&](int r) { v[r] = A(r, col); });
         barrier(tm);
         apply_left_householder_transformation(tm, v, s, *pU, col, 0);
+        barrier(tm);
       });
     }
 

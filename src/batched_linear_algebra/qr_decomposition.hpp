@@ -138,6 +138,7 @@ class QRDecomposition {
         });
         barrier(tm);
         apply_left_householder_transformation(tm, v, s, Q, col, 0);
+        barrier(tm);
       });
     }
 
