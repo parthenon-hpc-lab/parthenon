@@ -118,6 +118,9 @@ class SwarmDeviceContext {
     return cell_sorted_(cell_sorted_begin_(k, j, i) + n).swarm_idx_;
   }
 
+  KOKKOS_INLINE_FUNCTION
+  const auto &GetCoords() const { return coords_; }
+
   // private:
   int ib_s_;
   int jb_s_;
