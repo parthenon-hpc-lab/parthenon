@@ -90,6 +90,8 @@ KOKKOS_FORCEINLINE_FUNCTION int Partition(tm_t tm, double *d, double *b,
     once_per_team(tm, [&]() { end[partition] = nrows; });
     partition++;
   }
+  // start/end are written by a single thread but read by the whole team
+  barrier(tm);
   return partition;
 }
 
@@ -169,9 +171,13 @@ KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRBidiag(tm_t tm, double *d, double *b,
       // size one partition is already by definition diagonal
       if (ep - sp == 2) {
         auto result = ComputeSVD2by2UpperTriangular(d[sp], b[sp], d[sp + 1]);
-        d[sp] = result.smax;
-        d[sp + 1] = result.smin;
-        b[sp] = 0.0;
+        barrier(tm);
+        once_per_team(tm, [&]() {
+          d[sp] = result.smax;
+          d[sp + 1] = result.smin;
+          b[sp] = 0.0;
+        });
+        barrier(tm);
         if (pV) ApplyGivensRight(tm, sp, result.cr, result.sr, *pV);
         if (pU) ApplyGivensRight(tm, sp, result.cl, result.sl, *pU);
       } else if (ep - sp > 2) {

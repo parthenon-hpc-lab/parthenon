@@ -72,11 +72,15 @@ build_householder_vector_col(tm_t tm, int row, int col, const matrix_t &A, doubl
 
   const double x0 = A(row, col) / xmax;
   const double norm_x = safe_sqrt(norm_tail + x0 * x0);
-  v[row] = x0 + sign_of(x0) * norm_x;
-  const double norm_v = safe_sqrt(norm_tail + v[row] * v[row]);
+  // Keep the head in a local so v is not written by every thread before the
+  // final loop
+  const double vh = x0 + sign_of(x0) * norm_x;
+  const double norm_v = safe_sqrt(norm_tail + vh * vh);
 
   double inv_norm_v = parthenon::robust::ratio(1.0, norm_v);
-  parallel_loop(tm, 0, nrows - 1, [&](const int i) { v[i] *= (i >= row) * inv_norm_v; });
+  parallel_loop(tm, 0, nrows - 1, [&](const int i) {
+    v[i] = ((i == row) * vh + (i > row) * v[i]) * inv_norm_v;
+  });
 }
 
 template <class tm_t, class matrix_t>
@@ -108,13 +112,17 @@ build_householder_vector_row(tm_t tm, int row, int col, const matrix_t &A, doubl
   // v[col] = x₀ + sign(x₀) * ||x||, with x = A(row, col:ncols-1) / xmax
   const double x0 = A(row, col) / xmax;
   const double norm_x = safe_sqrt(norm_tail + x0 * x0);
-  v[col] = x0 + sign_of(x0) * norm_x;
-  const double norm_v = safe_sqrt(norm_tail + v[col] * v[col]);
+  // Keep the head in a local so v is not written by every thread before the
+  // final loop
+  const double vh = x0 + sign_of(x0) * norm_x;
+  const double norm_v = safe_sqrt(norm_tail + vh * vh);
 
   const double inv_norm_v = parthenon::robust::ratio(1.0, norm_v);
 
-  // Zero entries before col and normalize the active part
-  parallel_loop(tm, 0, ncols - 1, [&](const int j) { v[j] *= (j >= col) * inv_norm_v; });
+  // Zero entries before col, set the head, and normalize the active part
+  parallel_loop(tm, 0, ncols - 1, [&](const int j) {
+    v[j] = ((j == col) * vh + (j > col) * v[j]) * inv_norm_v;
+  });
 }
 
 // Apply the Householder transformation H = I - 2 v^T v to A in place,
