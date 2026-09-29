@@ -156,10 +156,12 @@ class SymmetricEVD {
   }
 
   KOKKOS_INLINE_FUNCTION
-  static std::size_t double_scratch_size(std::size_t ncols) { return 2 * ncols; }
+  static constexpr std::size_t double_scratch_size(std::size_t ncols) {
+    return 2 * ncols;
+  }
 
   KOKKOS_INLINE_FUNCTION
-  static std::size_t sizet_scratch_size(std::size_t ncols) { return ncols + 2; }
+  static constexpr std::size_t sizet_scratch_size(std::size_t ncols) { return ncols + 2; }
 
   static std::size_t total_shmem_scratch_size(std::size_t ncols) {
     return parthenon::ScratchPad1D<double>::shmem_size(double_scratch_size(ncols)) +

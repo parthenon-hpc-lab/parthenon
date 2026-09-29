@@ -5,13 +5,13 @@ Parthenon provides a small set of dense linear algebra routines in
 ``src/batched_linear_algebra/`` (namespace
 ``parthenon::batched_linear_algebra``). They are meant for many small,
 independent problems, for example one matrix per cell or per meshblock. Each
-routine can be called from host code or by a single Kokkos team inside a
-kernel, so a batch is processed by launching one team per matrix.
+routine can be called from host code, by a single thread in a flat kernel, or
+by a Kokkos team in a hierarchical kernel (see `Ways to call the routines`_).
 
 .. note::
    These routines are designed for small matrices (up to a few tens of rows
-   and columns) that fit in team scratch memory. They are not a replacement
-   for a distributed or vendor BLAS/LAPACK for large problems.
+   and columns). They are not a replacement for a distributed or vendor
+   BLAS/LAPACK for large problems.
 
 Available decompositions
 ------------------------
@@ -38,26 +38,14 @@ needed.
 ``SquareSVD`` and ``SymmetricEVD`` return the number of QR iterations they
 performed. ``QRDecomposition`` and ``LQDecomposition`` return 0.
 
-Execution contexts and scratch
-------------------------------
+Workspace
+---------
 
-The first argument ``tm`` selects how the work is parallelized:
-
-* ``serial_tm_t()`` runs serially, for example on the host or inside a flat
-  ``par_for``.
-* A ``team_mbr_t`` distributes the inner loops over the team members.
-
-Each class provides ``double_scratch_size(...)`` (and ``sizet_scratch_size``
-where integer scratch is needed), plus ``total_shmem_scratch_size(...)``,
-which returns the number of bytes to request from ``par_for_outer``. For
-convenience, host-only overloads that omit ``tm`` and the scratch arguments
-allocate their own workspace:
-
-.. code-block:: cpp
-
-   using namespace parthenon::batched_linear_algebra;
-   QRDecomposition::execute(&A, &Q); // host only, allocates scratch
-   QRDecomposition::execute(&A);     // R only
+Besides the matrices themselves, each routine needs a ``double`` workspace
+and, for ``SquareSVD`` and ``SymmetricEVD``, a ``std::size_t`` workspace.
+Each class reports the required lengths through ``double_scratch_size(...)``
+and ``sizet_scratch_size(...)``. ``total_shmem_scratch_size(...)`` returns
+the number of bytes to request from ``par_for_outer`` for both workspaces.
 
 Matrix types
 ------------
@@ -70,8 +58,67 @@ into scratch memory, and ``matrix_transpose_wrapper_t`` and the
 permuted-row/column wrappers in ``matrix_utils.hpp`` provide views without
 copies.
 
-Example: batched QR in a team kernel
-------------------------------------
+Ways to call the routines
+-------------------------
+
+The first argument of ``execute``, ``tm``, is the execution handle. It
+selects one of three ways to use the library.
+
+On the host
+~~~~~~~~~~~
+
+Host-only overloads omit ``tm`` and the workspace arguments and allocate
+their own workspace. They are convenient for setup code and testing:
+
+.. code-block:: cpp
+
+   using namespace parthenon::batched_linear_algebra;
+   QRDecomposition::execute(&A, &Q); // host only, allocates scratch
+   QRDecomposition::execute(&A);     // R only
+
+In a flat kernel (one thread per matrix)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Passing ``serial_tm_t()`` runs the whole decomposition on the calling
+thread, so it can be called from an ordinary ``par_for`` with one matrix per
+iteration. This suits large batches of very small matrices, where one thread
+per matrix already exposes enough parallelism. There is no team scratch in a
+flat kernel, so the matrices and workspace live either in per-thread local
+arrays, when the sizes are known at compile time, or in slices of
+preallocated device arrays:
+
+.. code-block:: cpp
+
+   using namespace parthenon::batched_linear_algebra;
+   constexpr int m = 6, n = 3;
+
+   parthenon::par_for(
+       "BatchedQRFlat", 0, nbatch - 1, KOKKOS_LAMBDA(const int b) {
+         double a_data[m * n], q_data[m * n];
+         double work[QRDecomposition::double_scratch_size(m, n)];
+         matrix_wrapper_t<double> A(a_data, m, n);
+         matrix_wrapper_t<double> Q(q_data, m, n);
+
+         // Fill A for this batch entry, e.g. from cell data
+         for (int r = 0; r < m; ++r) {
+           for (int c = 0; c < n; ++c) {
+             A(r, c) = data(b, r, c);
+           }
+         }
+
+         QRDecomposition::execute(serial_tm_t(), &A, &Q, work);
+
+         // A now holds R and Q holds the thin Q factor; use them here
+       });
+
+In a hierarchical kernel (one team per matrix)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Passing a ``team_mbr_t`` spreads each decomposition over the threads of a
+team, which suits larger matrices or smaller batches. All threads of the team
+must call ``execute`` together. The matrices and workspace would usually be
+allocated in team scratch. ``execute`` does not end with a team barrier, so
+add one before reading the results:
 
 .. code-block:: cpp
 

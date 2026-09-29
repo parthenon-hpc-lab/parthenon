@@ -179,13 +179,14 @@ class QRDecomposition {
     return execute(serial_tm_t(), pA, pQ, scratch.data());
   }
 
-  KOKKOS_INLINE_FUNCTION static std::size_t double_scratch_size(std::size_t nrows,
-                                                                std::size_t ncols) {
+  KOKKOS_INLINE_FUNCTION static constexpr std::size_t
+  double_scratch_size(std::size_t nrows, std::size_t ncols) {
     // v + scratch scalars + Householder heads
     return 2 * std::max(nrows, ncols) + ncols;
   }
 
-  KOKKOS_INLINE_FUNCTION static std::size_t double_scratch_size(std::size_t nrows) {
+  KOKKOS_INLINE_FUNCTION static constexpr std::size_t
+  double_scratch_size(std::size_t nrows) {
     return double_scratch_size(nrows, nrows);
   }
 
@@ -266,12 +267,13 @@ class LQDecomposition {
     return execute(serial_tm_t(), pA, pQ, scratch.data());
   }
 
-  KOKKOS_INLINE_FUNCTION static std::size_t double_scratch_size(std::size_t nrows,
-                                                                std::size_t ncols) {
+  KOKKOS_INLINE_FUNCTION static constexpr std::size_t
+  double_scratch_size(std::size_t nrows, std::size_t ncols) {
     return QRDecomposition::double_scratch_size(ncols, nrows);
   }
 
-  KOKKOS_INLINE_FUNCTION static std::size_t double_scratch_size(std::size_t nrows) {
+  KOKKOS_INLINE_FUNCTION static constexpr std::size_t
+  double_scratch_size(std::size_t nrows) {
     return double_scratch_size(nrows, nrows);
   }
 
