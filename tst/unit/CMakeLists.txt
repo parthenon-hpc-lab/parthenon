@@ -54,6 +54,7 @@ list(APPEND unit_tests_SOURCES
     test_qr.cpp
     test_svd.cpp
     test_implicit_qr.cpp
+    test_linalg_device.cpp
 )
 
 add_executable(unit_tests "${unit_tests_SOURCES}")
