@@ -47,8 +47,8 @@ using parthenon::team_mbr_t;
 
 namespace linalg_device_test {
 
-constexpr int scratch_level = 0;
 constexpr int nbatch = 8;
+using View3D = ParArray3D<double>::base_t;
 
 // Copy a batch of equally sized host matrices into a device array.
 ParArray3D<double> ToDevice(const std::vector<Matrix> &mats) {
@@ -178,6 +178,9 @@ void FactorTeam(ParArray3D<double> A_dev, ParArray3D<double> Q_dev) {
   const int n = A_dev.extent_int(2);
   const int qm = Q_dev.extent_int(1);
   const int qn = Q_dev.extent_int(2);
+  // team_scratch takes the level by reference on CUDA, so it must be a local
+  // captured by the lambda rather than a namespace-scope constant
+  const int scratch_level = 0;
   const std::size_t nwork = Decomposition::double_scratch_size(m, n);
   const std::size_t scratch_bytes = Decomposition::total_shmem_scratch_size(m, n) +
                                     ScratchPad2D<double>::shmem_size(m, n) +
@@ -210,10 +213,13 @@ void FactorFlat(ParArray3D<double> A_dev, ParArray3D<double> Q_dev) {
   const int m = A_dev.extent_int(1);
   const int n = A_dev.extent_int(2);
   ParArray2D<double> work("work", nbatch, Decomposition::double_scratch_size(m, n));
+  // The ParArray subview overload is host only, so slice the underlying views
+  const View3D A_view = A_dev;
+  const View3D Q_view = Q_dev;
   parthenon::par_for(
       "FactorFlat", 0, nbatch - 1, KOKKOS_LAMBDA(const int b) {
-        auto A = Kokkos::subview(A_dev, b, Kokkos::ALL(), Kokkos::ALL());
-        auto Q = Kokkos::subview(Q_dev, b, Kokkos::ALL(), Kokkos::ALL());
+        auto A = Kokkos::subview(A_view, b, Kokkos::ALL(), Kokkos::ALL());
+        auto Q = Kokkos::subview(Q_view, b, Kokkos::ALL(), Kokkos::ALL());
         Decomposition::execute(serial_tm_t(), &A, &Q, &work(b, 0));
       });
 }
@@ -249,6 +255,7 @@ void SVDTeam(ParArray3D<double> A_dev, ParArray3D<double> U_dev, ParArray3D<doub
              ParArray2D<double> s_dev) {
   const int m = A_dev.extent_int(1);
   const int n = A_dev.extent_int(2);
+  const int scratch_level = 0;
   const std::size_t nwork = SquareSVD::double_scratch_size(m, n);
   const std::size_t niwork = SquareSVD::sizet_scratch_size(n);
   const std::size_t scratch_bytes = SquareSVD::total_shmem_scratch_size(m, n) +
@@ -289,11 +296,14 @@ void SVDFlat(ParArray3D<double> A_dev, ParArray3D<double> U_dev, ParArray3D<doub
   const int n = A_dev.extent_int(2);
   ParArray2D<double> work("work", nbatch, SquareSVD::double_scratch_size(m, n));
   ParArray2D<std::size_t> iwork("iwork", nbatch, SquareSVD::sizet_scratch_size(n));
+  const View3D A_view = A_dev;
+  const View3D U_view = U_dev;
+  const View3D V_view = V_dev;
   parthenon::par_for(
       "SVDFlat", 0, nbatch - 1, KOKKOS_LAMBDA(const int b) {
-        auto A = Kokkos::subview(A_dev, b, Kokkos::ALL(), Kokkos::ALL());
-        auto U = Kokkos::subview(U_dev, b, Kokkos::ALL(), Kokkos::ALL());
-        auto V = Kokkos::subview(V_dev, b, Kokkos::ALL(), Kokkos::ALL());
+        auto A = Kokkos::subview(A_view, b, Kokkos::ALL(), Kokkos::ALL());
+        auto U = Kokkos::subview(U_view, b, Kokkos::ALL(), Kokkos::ALL());
+        auto V = Kokkos::subview(V_view, b, Kokkos::ALL(), Kokkos::ALL());
         SquareSVD::execute(serial_tm_t(), &A, &U, &V, &s_dev(b, 0), &work(b, 0),
                            &iwork(b, 0));
       });
@@ -302,6 +312,7 @@ void SVDFlat(ParArray3D<double> A_dev, ParArray3D<double> U_dev, ParArray3D<doub
 void EVDTeam(ParArray3D<double> A_dev, ParArray3D<double> Q_dev,
              ParArray2D<double> eigs_dev) {
   const int n = A_dev.extent_int(1);
+  const int scratch_level = 0;
   const std::size_t nwork = SymmetricEVD::double_scratch_size(n);
   const std::size_t niwork = SymmetricEVD::sizet_scratch_size(n);
   const std::size_t scratch_bytes = SymmetricEVD::total_shmem_scratch_size(n) +
@@ -336,10 +347,12 @@ void EVDFlat(ParArray3D<double> A_dev, ParArray3D<double> Q_dev,
   const int n = A_dev.extent_int(1);
   ParArray2D<double> work("work", nbatch, SymmetricEVD::double_scratch_size(n));
   ParArray2D<std::size_t> iwork("iwork", nbatch, SymmetricEVD::sizet_scratch_size(n));
+  const View3D A_view = A_dev;
+  const View3D Q_view = Q_dev;
   parthenon::par_for(
       "EVDFlat", 0, nbatch - 1, KOKKOS_LAMBDA(const int b) {
-        auto A = Kokkos::subview(A_dev, b, Kokkos::ALL(), Kokkos::ALL());
-        auto Q = Kokkos::subview(Q_dev, b, Kokkos::ALL(), Kokkos::ALL());
+        auto A = Kokkos::subview(A_view, b, Kokkos::ALL(), Kokkos::ALL());
+        auto Q = Kokkos::subview(Q_view, b, Kokkos::ALL(), Kokkos::ALL());
         SymmetricEVD::execute(serial_tm_t(), &A, &Q, &eigs_dev(b, 0), &work(b, 0),
                               &iwork(b, 0));
       });

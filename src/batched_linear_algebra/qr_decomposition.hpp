@@ -286,13 +286,14 @@ class LQDecomposition {
   }
 };
 
+// Host only, since these allocate their own scratch
 template <class matrix_a_t, class matrix_q_t>
-KOKKOS_FORCEINLINE_FUNCTION int QRDecomposition(matrix_a_t &A, matrix_q_t &Q) {
+inline int QRDecomposition(matrix_a_t &A, matrix_q_t &Q) {
   return batched_linear_algebra::QRDecomposition::execute(&A, &Q);
 }
 
 template <class matrix_a_t, class matrix_q_t>
-KOKKOS_FORCEINLINE_FUNCTION int LQDecomposition(matrix_a_t &A, matrix_q_t &Q) {
+inline int LQDecomposition(matrix_a_t &A, matrix_q_t &Q) {
   return batched_linear_algebra::LQDecomposition::execute(&A, &Q);
 }
 
