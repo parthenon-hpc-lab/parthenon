@@ -94,8 +94,8 @@ preallocated device arrays:
 
    parthenon::par_for(
        "BatchedQRFlat", 0, nbatch - 1, KOKKOS_LAMBDA(const int b) {
-         double a_data[m * n], q_data[m * n];
-         double work[QRDecomposition::double_scratch_size(m, n)];
+         constexpr std::size_t kWorkSize = QRDecomposition::double_scratch_size(m, n);
+         double a_data[m * n], q_data[m * n], work[kWorkSize];
          matrix_wrapper_t<double> A(a_data, m, n);
          matrix_wrapper_t<double> Q(q_data, m, n);
 

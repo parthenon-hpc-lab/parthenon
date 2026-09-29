@@ -224,8 +224,8 @@ template <class Decomposition, int m, int n>
 void FactorFlatLocal(ParArray3D<double> A_dev, ParArray3D<double> Q_dev) {
   parthenon::par_for(
       "FactorFlatLocal", 0, nbatch - 1, KOKKOS_LAMBDA(const int b) {
-        double a_data[m * n], q_data[m * n];
-        double work[Decomposition::double_scratch_size(m, n)];
+        constexpr std::size_t kWorkSize = Decomposition::double_scratch_size(m, n);
+        double a_data[m * n], q_data[m * n], work[kWorkSize];
         matrix_wrapper_t<double> A(a_data, m, n);
         matrix_wrapper_t<double> Q(q_data, m, n);
         for (int r = 0; r < m; ++r) {
