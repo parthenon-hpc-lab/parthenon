@@ -286,17 +286,6 @@ class LQDecomposition {
   }
 };
 
-// Host only, since these allocate their own scratch
-template <class matrix_a_t, class matrix_q_t>
-inline int QRDecomposition(matrix_a_t &A, matrix_q_t &Q) {
-  return batched_linear_algebra::QRDecomposition::execute(&A, &Q);
-}
-
-template <class matrix_a_t, class matrix_q_t>
-inline int LQDecomposition(matrix_a_t &A, matrix_q_t &Q) {
-  return batched_linear_algebra::LQDecomposition::execute(&A, &Q);
-}
-
 } // namespace batched_linear_algebra
 } // namespace parthenon
 

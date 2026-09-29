@@ -71,7 +71,7 @@ Matrix Matrix::RandomGaussian(int m, int n, unsigned seed) {
 Matrix Matrix::RandomOrthogonal(int n, unsigned seed) {
   Matrix A = Matrix::RandomGaussian(n, n, seed);
   Matrix Q = Matrix::Identity(n, n);
-  parthenon::batched_linear_algebra::QRDecomposition(A, Q);
+  parthenon::batched_linear_algebra::QRDecomposition::execute(&A, &Q);
   return Q;
 }
 

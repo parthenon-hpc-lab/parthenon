@@ -457,27 +457,22 @@ void TestEVD(const bool team, const int n, const unsigned seed) {
 
 using namespace linalg_device_test; // NOLINT(build/namespaces)
 
-// QRDecomposition and LQDecomposition are also the names of free functions,
-// which hide the class names when used as template arguments.
-using QR = class parthenon::batched_linear_algebra::QRDecomposition;
-using LQ = class parthenon::batched_linear_algebra::LQDecomposition;
-
 // The 40-row cases make the matrices larger than a warp, so a team spans more
 // than one warp and missing team barriers can show up as wrong answers.
 
 TEST_CASE("Batched QR decomposition on device", "[qr][device]") {
   for (const bool team : {true, false}) {
     for (const int m : {12, 40}) {
-      TestFactorization<QR>(team, m, m / 2, 100u);
+      TestFactorization<QRDecomposition>(team, m, m / 2, 100u);
     }
   }
-  TestFactorizationLocal<QR, 6, 3>(150u);
+  TestFactorizationLocal<QRDecomposition, 6, 3>(150u);
 }
 
 TEST_CASE("Batched LQ decomposition on device", "[qr][device]") {
   for (const bool team : {true, false}) {
     for (const int n : {12, 40}) {
-      TestFactorization<LQ>(team, n / 2, n, 200u);
+      TestFactorization<LQDecomposition>(team, n / 2, n, 200u);
     }
   }
 }
