@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020 The Parthenon collaboration
+// Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
 
 #ifndef BVALS_COMMS_CALC_INDICES_HPP_
 #define BVALS_COMMS_CALC_INDICES_HPP_
@@ -103,8 +105,7 @@ CalcIndices(const NeighborBlock &nb, const BlockInfo &binfo, bool multilevel,
   // index space. Also need to use the coarse index space if the
   // neighbor is coarser than you, wether or not you are setting
   // interior or exterior cells
-  if (prores || nb_is_coarser)
-    shape = is_fine_field ? cellbounds : c_cellbounds;
+  if (prores || nb_is_coarser) shape = is_fine_field ? cellbounds : c_cellbounds;
 
   // Re-create the index space for the neighbor block (either the main block or
   // the coarse buffer as required)
@@ -250,8 +251,8 @@ CalcIndices(const NeighborBlock &nb, const BlockInfo &binfo, bool multilevel,
 // Invert a boundary relationship. `binfo` describes some block and `nb` describes its
 // neighbor as seen from `binfo`'s frame. Returns {BlockInfo of nb's block, NeighborBlock
 // describing binfo's block as seen from nb's block} -- the mirror-image pair.
-inline std::pair<BlockInfo, NeighborBlock>
-ReverseNeighbor(const BlockInfo &binfo, const NeighborBlock &nb) {
+inline std::pair<BlockInfo, NeighborBlock> ReverseNeighbor(const BlockInfo &binfo,
+                                                           const NeighborBlock &nb) {
   BlockInfo other(nb);
 
   NeighborBlock rev;
