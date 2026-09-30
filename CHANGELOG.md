@@ -5,6 +5,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1459]](https://github.com/parthenon-hpc-lab/parthenon/pull/1459) Add tensor-train fields, operations, and boundary communication
 - [[PR 1457]](https://github.com/parthenon-hpc-lab/parthenon/pull/1457) Extract CalcIndices into a MeshBlock-free header and add supporting infrastructure for tensor trains
 - [[PR 1456]](https://github.com/parthenon-hpc-lab/parthenon/pull/1456) Add batched dense linear algebra kernels
 - [[PR 1439]](https://github.com/parthenon-hpc-lab/parthenon/pull/1439) Long-overdue parthenon tutorial
