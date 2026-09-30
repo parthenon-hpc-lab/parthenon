@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
+
 #ifndef BVALS_NEIGHBOR_BLOCK_HPP_
 #define BVALS_NEIGHBOR_BLOCK_HPP_
 //! \file neighbor_block.hpp
@@ -40,7 +43,29 @@ namespace parthenon {
 
 // forward declarations
 class Mesh;
+class MeshBlock;
 struct RegionSize;
+struct NeighborBlock;
+
+//----------------------------------------------------------------------------------------
+//! \struct BlockInfo
+//  \brief Plain-data description of a block for boundary index math, holding no live
+//  MeshBlock or mesh pointer. Carries the fields CalcIndices reads off of a block.
+struct BlockInfo {
+  int rank, gid;
+  LogicalLocation loc;
+  std::size_t block_coarsenings;
+  RegionSize block_size;
+  block_ownership_t ownership;
+
+  BlockInfo() = default;
+  BlockInfo(int rank, int gid, LogicalLocation loc, std::size_t block_coarsenings,
+            RegionSize block_size, block_ownership_t ownership)
+      : rank(rank), gid(gid), loc(loc), block_coarsenings(block_coarsenings),
+        block_size(block_size), ownership(ownership) {}
+  explicit BlockInfo(const MeshBlock *pmb);
+  explicit BlockInfo(const NeighborBlock &nb);
+};
 
 //----------------------------------------------------------------------------------------
 //! \struct NeighborBlock
