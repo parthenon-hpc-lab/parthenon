@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <array>
+#include <memory>
 #include <utility>
 
 #include "basic_types.hpp"
@@ -30,6 +31,7 @@
 #include "defs.hpp"
 #include "globals.hpp"
 #include "interface/metadata.hpp"
+#include "interface/variable.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/forest/block_ownership.hpp"
 #include "mesh/forest/logical_coordinate_transformation.hpp"
@@ -52,10 +54,21 @@ inline bool NeighborIsSame(const BlockInfo &binfo, const NeighborBlock &nb) {
          nb.block_coarsenings == binfo.block_coarsenings;
 }
 
+inline bool NeighborIsCoarser(MeshBlock *pmb, const NeighborBlock &nb) {
+  return NeighborIsCoarser(BlockInfo(pmb), nb);
+}
+
+inline bool NeighborIsFiner(MeshBlock *pmb, const NeighborBlock &nb) {
+  return NeighborIsFiner(BlockInfo(pmb), nb);
+}
+
+inline bool NeighborIsSame(MeshBlock *pmb, const NeighborBlock &nb) {
+  return NeighborIsSame(BlockInfo(pmb), nb);
+}
+
 // Reconstruct a block's fine/regular/coarse index shapes from its size alone, matching
 // GetIndexShapes in meshblock.cpp (using block_size.symmetry in place of mesh_size).
-inline std::array<IndexShape, 3> CalcIndexShapes(const RegionSize &block_size,
-                                                 bool multilevel) {
+inline std::array<IndexShape, 3> CalcIndexShapes(const RegionSize &block_size) {
   // Symmetry directions carry nx==1 in RegionSize but must be treated as zero-dimensional
   // (as MeshBlock does by passing 0 for inactive directions to InitializeIndexShapes).
   const int nx1 = block_size.symmetry(X1DIR) ? 0 : block_size.nx(X1DIR);
@@ -63,26 +76,20 @@ inline std::array<IndexShape, 3> CalcIndexShapes(const RegionSize &block_size,
   const int nx3 = block_size.symmetry(X3DIR) ? 0 : block_size.nx(X3DIR);
   IndexShape cellbounds(nx3, nx2, nx1, Globals::nghost);
   IndexShape f_cellbounds(2 * nx3, 2 * nx2, 2 * nx1, Globals::nghost);
-  IndexShape c_cellbounds(nx3 / 2, nx2 / 2, nx1 / 2, 0);
-  if (multilevel) {
-    // Prevent the coarse bounds from going to zero
-    int cnx1 = block_size.symmetry(X1DIR) ? 0 : std::max(1, nx1 / 2);
-    int cnx2 = block_size.symmetry(X2DIR) ? 0 : std::max(1, nx2 / 2);
-    int cnx3 = block_size.symmetry(X3DIR) ? 0 : std::max(1, nx3 / 2);
-    c_cellbounds = IndexShape(cnx3, cnx2, cnx1, Globals::nghost);
-  }
+  // Prevent the coarse bounds from going to zero
+  const int cnx1 = block_size.symmetry(X1DIR) ? 0 : std::max(1, nx1 / 2);
+  const int cnx2 = block_size.symmetry(X2DIR) ? 0 : std::max(1, nx2 / 2);
+  const int cnx3 = block_size.symmetry(X3DIR) ? 0 : std::max(1, nx3 / 2);
+  IndexShape c_cellbounds(cnx3, cnx2, cnx1, Globals::nghost);
   return {cellbounds, f_cellbounds, c_cellbounds};
 }
 
 // Compute the 6D index range (and ownership mask) of a boundary region on a block. The
-// block is described by a lightweight BlockInfo (no live MeshBlock is required), the
-// neighbor by a NeighborBlock descriptor, and the field by any pointer-like type
-// providing GetDim(4..6) and IsSet(MetadataFlag) (a std::shared_ptr<Variable<Real>>
-// today; a TensorTrainT in the future).
+// Field can be any pointer-like type providing GetDim(4..6) and IsSet(MetadataFlag).
 template <class Field>
 SpatiallyMaskedIndexer6D
-CalcIndices(const NeighborBlock &nb, const BlockInfo &binfo, bool multilevel,
-            const Field &v, TopologicalElement el, IndexRangeType ir_type, bool prores,
+CalcIndices(const NeighborBlock &nb, const BlockInfo &binfo, const Field &v,
+            TopologicalElement el, IndexRangeType ir_type, bool prores,
             const forest::LogicalCoordinateTransformation &lcoord_trans =
                 forest::LogicalCoordinateTransformation()) {
   std::array<int, 3> tensor_shape{v->GetDim(6), v->GetDim(5), v->GetDim(4)};
@@ -90,7 +97,7 @@ CalcIndices(const NeighborBlock &nb, const BlockInfo &binfo, bool multilevel,
 
   const auto &loc = binfo.loc;
   bool is_fine_field = v->IsSet(Metadata::Fine);
-  auto shapes = CalcIndexShapes(binfo.block_size, multilevel);
+  auto shapes = CalcIndexShapes(binfo.block_size);
   const IndexShape &cellbounds = shapes[0];
   const IndexShape &f_cellbounds = shapes[1];
   const IndexShape &c_cellbounds = shapes[2];
@@ -248,8 +255,16 @@ CalcIndices(const NeighborBlock &nb, const BlockInfo &binfo, bool multilevel,
                                   {s[2], e[2]}, {s[1], e[1]}, {s[0], e[0]});
 }
 
-// Invert a boundary relationship. `binfo` describes some block and `nb` describes its
-// neighbor as seen from `binfo`'s frame. Returns {BlockInfo of nb's block, NeighborBlock
+inline SpatiallyMaskedIndexer6D
+CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
+            const std::shared_ptr<Variable<Real>> &v, TopologicalElement el,
+            IndexRangeType ir_type, bool prores,
+            const forest::LogicalCoordinateTransformation &lcoord_trans =
+                forest::LogicalCoordinateTransformation()) {
+  return CalcIndices(nb, BlockInfo(pmb), v, el, ir_type, prores, lcoord_trans);
+}
+
+// Invert a boundary relationship. Returns {BlockInfo of nb's block, NeighborBlock
 // describing binfo's block as seen from nb's block} -- the mirror-image pair.
 inline std::pair<BlockInfo, NeighborBlock> ReverseNeighbor(const BlockInfo &binfo,
                                                            const NeighborBlock &nb) {

@@ -110,35 +110,6 @@ GetFluxCorrectionElements(const std::shared_ptr<Variable<Real>> &v,
   return elements;
 }
 
-bool NeighborIsCoarser(MeshBlock *pmb, const NeighborBlock &nb) {
-  return nb.loc.level() < pmb->loc.level() ||
-         nb.block_coarsenings > pmb->block_coarsenings;
-}
-
-bool NeighborIsFiner(MeshBlock *pmb, const NeighborBlock &nb) {
-  return nb.loc.level() > pmb->loc.level() ||
-         nb.block_coarsenings < pmb->block_coarsenings;
-}
-
-bool NeighborIsSame(MeshBlock *pmb, const NeighborBlock &nb) {
-  return nb.loc.level() == pmb->loc.level() &&
-         nb.block_coarsenings == pmb->block_coarsenings;
-}
-
-// Thin wrapper preserving the historical MeshBlock-taking signature. Packs the block's
-// geometry into a BlockInfo and forwards to the CalcIndices in calc_indices.hpp. The
-// receiving-block box can be computed without a live MeshBlock via the templated routine
-// directly.
-SpatiallyMaskedIndexer6D
-CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
-            const std::shared_ptr<Variable<Real>> &v, TopologicalElement el,
-            IndexRangeType ir_type, bool prores,
-            const forest::LogicalCoordinateTransformation &lcoord_trans =
-                forest::LogicalCoordinateTransformation()) {
-  return CalcIndices(nb, BlockInfo(pmb), pmb->pmy_mesh->multilevel, v, el, ir_type,
-                     prores, lcoord_trans);
-}
-
 int GetBufferSize(const MeshBlock *const pmb, const NeighborBlock &nb,
                   std::shared_ptr<Variable<Real>> v) {
   // This does not do a careful job of calculating the buffer size, in many
