@@ -11,17 +11,19 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 // Cross-level (AMR) tensor-train boundary communication. Builds a statically 2:1 refined
 // periodic mesh (mirroring test_calc_indices_gold.cpp) with at least one f2c and one c2f
 // interface, then drives the full BuildTTBoundaryCache / TTSend / TTReceive / TTSetBounds
 // path and reconstructs the ghost field values from the trains.
 //
-// A spatially constant field is the sharpest correctness signal for the restriction-average
-// and (piecewise-constant) prolongation cell maps: restriction of a constant is that
-// constant, and prolongation of a constant is that constant, so a constant seeded per block
-// must survive across every refined interface exactly. (A linear-field check -- the key
-// signal for a *linear* prolongation operator -- is deferred until that operator lands; the
-// current prolongation is piecewise constant.)
+// A spatially constant field is the sharpest correctness signal for the
+// restriction-average and (piecewise-constant) prolongation cell maps: restriction of a
+// constant is that constant, and prolongation of a constant is that constant, so a
+// constant seeded per block must survive across every refined interface exactly. (A
+// linear-field check -- the key signal for a *linear* prolongation operator -- is
+// deferred until that operator lands; the current prolongation is piecewise constant.)
 
 #include <memory>
 #include <sstream>
@@ -75,8 +77,9 @@ Packages_t MakePackages() {
   return packages;
 }
 
-// A statically 2:1-refined periodic mesh: 2x2 base blocks (8 cells / 4-cell blocks) with the
-// lower-left quadrant refined one level. This yields same-level, f2c, and c2f interfaces.
+// A statically 2:1-refined periodic mesh: 2x2 base blocks (8 cells / 4-cell blocks) with
+// the lower-left quadrant refined one level. This yields same-level, f2c, and c2f
+// interfaces.
 std::shared_ptr<Mesh> MakeMesh(ApplicationInput *app_in, Packages_t &packages) {
   std::stringstream is;
   is << "<parthenon/mesh>\n";
@@ -124,21 +127,22 @@ TEST_CASE("TT boundary comm preserves a constant field across refined interfaces
     REQUIRE(n_c2f > 0);
   }
 
-  // Seed every block to the SAME global constant C in its interior and 0 in its ghosts, as a
-  // rank-1 train (trailing cores all ones). This mesh is periodic in both active directions
-  // (x3 is a symmetry direction with no ghosts), so every i/j ghost cell of every block abuts
-  // a neighbor. Restriction of a constant is that constant, and (piecewise-constant)
-  // prolongation of a constant is that constant, so after one exchange EVERY spatial-core
-  // cell -- interior and all ghosts -- must equal C. That fully detects under-filling (a
-  // missed cell stays 0) and any wrong value, without needing a per-boundary cell map (which
-  // differs in resolution across a refinement jump).
+  // Seed every block to the SAME global constant C in its interior and 0 in its ghosts,
+  // as a rank-1 train (trailing cores all ones). This mesh is periodic in both active
+  // directions (x3 is a symmetry direction with no ghosts), so every i/j ghost cell of
+  // every block abuts a neighbor. Restriction of a constant is that constant, and
+  // (piecewise-constant) prolongation of a constant is that constant, so after one
+  // exchange EVERY spatial-core cell -- interior and all ghosts -- must equal C. That
+  // fully detects under-filling (a missed cell stays 0) and any wrong value, without
+  // needing a per-boundary cell map (which differs in resolution across a refinement
+  // jump).
   constexpr double kC = 5.0;
   {
     std::vector<tensor::TensorTrain *> src;
     for (int b = 0; b < md->NumBlocks(); ++b)
       src.push_back(&md->GetBlockData(b)->Get("I")->train());
-    auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(src)
-                    .MakeDevicePack();
+    auto pack =
+        tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(src).MakeDevicePack();
 
     // The whole-block index space is identical for every block (cell count is
     // level-independent), so one indexer's interior bounds cover all blocks.
@@ -170,15 +174,15 @@ TEST_CASE("TT boundary comm preserves a constant field across refined interfaces
 
   // The addend built for each boundary is the neighbor's contribution to the receiving
   // block's ghosts. For a global constant C, restriction (f2c) and piecewise-constant
-  // prolongation (c2f) both reproduce C, so every NON-ZERO spatial-core cell of every addend
-  // must equal C exactly. This is a frame-independent correctness signal for both cell maps
-  // (a mis-indexed map would either write a stray value -- caught here -- or fail to fill,
-  // caught by the nonzero-count check below). We assert at least one f2c and one c2f addend
-  // is actually exercised.
+  // prolongation (c2f) both reproduce C, so every NON-ZERO spatial-core cell of every
+  // addend must equal C exactly. This is a frame-independent correctness signal for both
+  // cell maps (a mis-indexed map would either write a stray value -- caught here -- or
+  // fail to fill, caught by the nonzero-count check below). We assert at least one f2c
+  // and one c2f addend is actually exercised.
   {
     auto addends = parthenon::BuildBoundaryTensors(md, cache);
     REQUIRE(static_cast<int>(addends.size()) == nbound);
-    long f2c_filled = 0, c2f_filled = 0; // cells filled, summed across each class
+    int64_t f2c_filled = 0, c2f_filled = 0; // cells filled, summed across each class
     for (int e = 0; e < nbound; ++e) {
       const auto btype = cache.bnd_info_h(e).btype;
       std::vector<tensor::TensorTrain *> one{addends[e].get()};
@@ -219,8 +223,8 @@ TEST_CASE("TT boundary comm preserves a constant field across refined interfaces
           nnz);
       INFO("addend " << e << " btype " << static_cast<int>(btype));
       REQUIRE(nbad == 0); // no stray/wrong value (the operator correctness signal)
-      // A cross-level boundary should fill cells; some corner/edge boundaries have an empty
-      // prores box, so accumulate per class rather than asserting per boundary.
+      // A cross-level boundary should fill cells; some corner/edge boundaries have an
+      // empty prores box, so accumulate per class rather than asserting per boundary.
       if (btype == BoundaryRelation::f2c) f2c_filled += nnz;
       if (btype == BoundaryRelation::c2f) c2f_filled += nnz;
     }
@@ -235,20 +239,21 @@ TEST_CASE("TT boundary comm preserves a constant field across refined interfaces
   parthenon::TTSetBounds(md, /*eps=*/1.0e-12);
 
   // After the additive combine + rounding, no cell of any block may hold a wrong non-zero
-  // value: a constant field must never be corrupted by the restriction/prolongation maps or
-  // the sum. (Under-filled ghosts remaining zero after a single round are expected -- corner
-  // ghosts across the refinement jump need neighbors not in this one-round set -- so we do
-  // not assert full coverage here; the addend check above already confirms every boundary
-  // fills cells with the correct value.)
+  // value: a constant field must never be corrupted by the restriction/prolongation maps
+  // or the sum. (Under-filled ghosts remaining zero after a single round are expected --
+  // corner ghosts across the refinement jump need neighbors not in this one-round set --
+  // so we do not assert full coverage here; the addend check above already confirms every
+  // boundary fills cells with the correct value.)
   std::vector<tensor::TensorTrain *> chk;
   for (int b = 0; b < md->NumBlocks(); ++b)
     chk.push_back(&md->GetBlockData(b)->Get("I")->train());
-  auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(chk)
-                  .MakeDevicePack();
+  auto pack =
+      tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(chk).MakeDevicePack();
   int nbad = 0;
   parthenon::par_reduce(
       parthenon::loop_pattern_flatrange_tag, "CheckNoBad", DevExecSpace(), 0,
-      pack.GetNBlocks() - 1, KOKKOS_LAMBDA(const int b, int &lbad) {
+      pack.GetNBlocks() - 1,
+      KOKKOS_LAMBDA(const int b, int &lbad) {
         auto &core0 = pack(b, 0, 0);
         auto &core1 = pack(b, 0, 1);
         auto &core2 = pack(b, 0, 2);

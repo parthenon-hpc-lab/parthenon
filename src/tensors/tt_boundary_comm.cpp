@@ -11,9 +11,12 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #include "tensors/tt_boundary_comm.hpp"
 
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "basic_types.hpp"
@@ -55,8 +58,8 @@ int CountBoundaries(std::shared_ptr<MeshTTData> &md) {
 } // namespace
 
 // Build the send-side boundary cache: walk every boundary, record its send channel (keyed
-// by SendKey) and the send/recv index boxes needed to build the addend, packed into a flat
-// device array for one batched launch. The set side needs no cache (it looks up its
+// by SendKey) and the send/recv index boxes needed to build the addend, packed into a
+// flat device array for one batched launch. The set side needs no cache (it looks up its
 // channel inline by ReceiveKey), so only this send cache exists.
 TaskStatus BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md) {
   using namespace loops;
@@ -84,7 +87,7 @@ TaskStatus BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md) {
         TTBndInfo info;
         // Sender's interior cells destined for the neighbor, and the neighbor's ghost
         // cells that receive them -- both on the whole-block index space.
-        const TopologicalElement te = TopologicalElement::CC; // TODO: Fix this
+        const TopologicalElement te = TopologicalElement::CC; // TODO(LFR): Fix this
         info.send =
             CalcIndices(nb, binfo, v, te, IndexRangeType::BoundaryInteriorSend, false);
         info.recv =
@@ -117,26 +120,27 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
   using namespace loops;
   using train_t = tensor::TensorTrain;
   using HostPack = tensor::TensorTrainHostPackT<DefaultTTraits>;
-  
+
   // Build all the sets of trains for stages of boundary communication
   std::vector<train_t *> src;
-  std::vector<std::shared_ptr<train_t>> out; 
-  std::vector<std::shared_ptr<train_t>> coarse; 
+  std::vector<std::shared_ptr<train_t>> out;
+  std::vector<std::shared_ptr<train_t>> coarse;
   ForEachBoundary<BoundaryType::any>(
-      md, [&](auto pmb, auto /*rc*/, const NeighborBlock & nb, auto v) {
+      md, [&](auto pmb, auto /*rc*/, const NeighborBlock &nb, auto v) {
         src.push_back(&v->train());
         out.push_back(std::make_shared<train_t>(v->train().DeepCopy()));
         // Create a coarse version of the spatial cores for each boundary
         TTFieldMetadata metadata({}, v->metadata());
         const int ranks = v->train().GetCoreHost(0).RR();
-        coarse.push_back(std::make_shared<train_t>(metadata.CoreIndexers(pmb, true), std::vector<int>{}, 1, ranks));
+        coarse.push_back(std::make_shared<train_t>(metadata.CoreIndexers(pmb, true),
+                                                   std::vector<int>{}, 1, ranks));
       });
-  
+
   const int nbound = static_cast<int>(out.size());
   PARTHENON_DEBUG_REQUIRE(nbound == static_cast<int>(cache.bnd_info_h.extent(0)),
                           "Boundary walk and cache disagree on boundary count.");
   if (nbound == 0) return out;
-  
+
   auto pack_src = HostPack::FromPointers(src).MakeDevicePack();
   auto pack_coarse = HostPack::FromSharedPtrs(coarse).MakeDevicePack();
   auto pack_out = HostPack::FromSharedPtrs(out).MakeDevicePack();
@@ -174,7 +178,7 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
               member.team_barrier();
             }
           }
-        }); 
+        });
   }
 
   // Move cells from the sender index space to the receiver index space
@@ -184,10 +188,14 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
       PARTHENON_AUTO_LABEL, unused_scratch_size, unused_scratch_level, 0, nbound - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int e) {
         auto &info = bnd_info(e);
-        auto &sc_src = (info.btype == BoundaryRelation::f2c) ? pack_coarse(e, 0, 0) : pack_src(e, 0, 0);
-        auto &sc_out = (info.btype == BoundaryRelation::c2f) ? pack_coarse(e, 0, 0) : pack_out(e, 0, 0);
-        auto &idxer_src = (info.btype == BoundaryRelation::f2c) ? pack_coarse.indexer(0) : pack_src.indexer(0);
-        auto &idxer_out = (info.btype == BoundaryRelation::c2f) ? pack_coarse.indexer(0) : pack_out.indexer(0);
+        auto &sc_src = (info.btype == BoundaryRelation::f2c) ? pack_coarse(e, 0, 0)
+                                                             : pack_src(e, 0, 0);
+        auto &sc_out = (info.btype == BoundaryRelation::c2f) ? pack_coarse(e, 0, 0)
+                                                             : pack_out(e, 0, 0);
+        auto &idxer_src = (info.btype == BoundaryRelation::f2c) ? pack_coarse.indexer(0)
+                                                                : pack_src.indexer(0);
+        auto &idxer_out = (info.btype == BoundaryRelation::c2f) ? pack_coarse.indexer(0)
+                                                                : pack_out.indexer(0);
         const auto &send = info.send;
         const auto &recv = info.recv;
         const int ncell = static_cast<int>(send.size());
@@ -221,9 +229,8 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
             const auto &idxerf = pack_out.indexer(0);
             const auto &idxerc = pack_coarse.indexer(0);
             for (int r = 0; r < sc_out.RR(); ++r) {
-              parthenon::par_for_inner(member, 0, idxerf.size() - 1, [&](const int idx){
-                sc_out(0, idx, r) = 0.0;
-              });
+              parthenon::par_for_inner(member, 0, idxerf.size() - 1,
+                                       [&](const int idx) { sc_out(0, idx, r) = 0.0; });
               member.team_barrier();
 
               parthenon::par_for_inner(member, 0, idxerp.size() - 1, [&](const int idx) {
@@ -237,7 +244,7 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
               member.team_barrier();
             }
           }
-        }); 
+        });
   }
 
   return out;

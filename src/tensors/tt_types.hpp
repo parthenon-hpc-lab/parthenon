@@ -11,9 +11,12 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef TENSORS_TT_TYPES_HPP
-#define TENSORS_TT_TYPES_HPP
+// This file was made in part with generative AI.
 
+#ifndef TENSORS_TT_TYPES_HPP_
+#define TENSORS_TT_TYPES_HPP_
+
+#include <utility>
 #include <vector>
 
 #include "basic_types.hpp"
@@ -49,8 +52,7 @@ class TensorCoreDeviceT {
 
   // Constructor takes whatever data the policy needs
   template <typename ViewType>
-  KOKKOS_FUNCTION
-  TensorCoreDeviceT(int lr, int dd, int rr, const ViewType &view)
+  KOKKOS_FUNCTION TensorCoreDeviceT(int lr, int dd, int rr, const ViewType &view)
       : storage_(lr, dd, rr, view) {}
 
   KOKKOS_FORCEINLINE_FUNCTION int RR() const { return storage_.RR(); }
@@ -84,13 +86,12 @@ class TensorCoreHostT {
  public:
   TensorCoreHostT() = default;
 
-  TensorCoreHostT(int lr, int dd, int rr) 
-      : phys_indexer_({0,0}, {0,0}, {0,0}, {0, 0}, {0, 0}, {0, dd - 1}) {
+  TensorCoreHostT(int lr, int dd, int rr)
+      : phys_indexer_({0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, dd - 1}) {
     storage_.Allocate(lr, dd, rr);
   }
- 
-  TensorCoreHostT(int lr, const Indexer6D& idxer, int rr) 
-      : phys_indexer_(idxer) {
+
+  TensorCoreHostT(int lr, const Indexer6D &idxer, int rr) : phys_indexer_(idxer) {
     storage_.Allocate(lr, phys_indexer_.size(), rr);
   }
 
@@ -120,9 +121,7 @@ class TensorCoreHostT {
 
   // Reduce the active rank-space extent of the core while assuming the fibers
   // in the retained range already contain the correct data.
-  void ReduceSize(int lr_new, int rr_new) {
-    storage_.ReduceSize(lr_new, rr_new);
-  }
+  void ReduceSize(int lr_new, int rr_new) { storage_.ReduceSize(lr_new, rr_new); }
 
   // Release this core's bond storage (fibers/data), leaving a rank-(0 x 0) core.
   void Release() { storage_.Release(); }
@@ -151,7 +150,7 @@ class TensorCoreHostT {
     storage_.RebuildOuterViews(lr, rr, std::forward<Getter>(get_fiber));
   }
 
-  const auto &Indexer() const {return phys_indexer_;}
+  const auto &Indexer() const { return phys_indexer_; }
   int RR() const { return storage_.RR(); }
   int DD() const { return storage_.DD(); }
   int LR() const { return storage_.LR(); }
@@ -162,10 +161,9 @@ class TensorCoreHostT {
   auto GetTensorCoreDevice() const {
     auto device_data = storage_.GetDeviceData();
 
-    using DeviceStorage = std::conditional_t<
-      TTraits::d_fastest_moving,
-      FiberStorageDevice<TTraits>,
-      ContiguousStorageDevice<TTraits>>;
+    using DeviceStorage =
+        std::conditional_t<TTraits::d_fastest_moving, FiberStorageDevice<TTraits>,
+                           ContiguousStorageDevice<TTraits>>;
 
     return TensorCoreDeviceT<TTraits, DeviceStorage>(LR(), DD(), RR(), device_data);
   }
@@ -178,10 +176,10 @@ template <class TTraits>
 class TensorTrainT {
  public:
   using traits = TTraits;
-  using core_type = std::conditional_t<
-    TTraits::d_fastest_moving,
-    TensorCoreHostT<TTraits, FiberStorageHost<TTraits>>,
-    TensorCoreHostT<TTraits, ContiguousStorageHost<TTraits>>>;
+  using core_type =
+      std::conditional_t<TTraits::d_fastest_moving,
+                         TensorCoreHostT<TTraits, FiberStorageHost<TTraits>>,
+                         TensorCoreHostT<TTraits, ContiguousStorageHost<TTraits>>>;
 
   // Default-constructs an empty train (no cores). Only valid as a placeholder
   // that is subsequently assigned or reshaped (e.g. an output slot in a host
@@ -194,7 +192,7 @@ class TensorTrainT {
   // while an "open" train carries dangling boundary bonds (e.g. a single-core
   // buffer that is a factor of a larger train). Operations that require a closed
   // train guard on IsClosed(); see the op definitions in tt_operations.hpp.
-  TensorTrainT(const std::vector<core_type> &cores_in) : cores(cores_in) {
+  explicit TensorTrainT(const std::vector<core_type> &cores_in) : cores(cores_in) {
     for (int c = 1; c < NCores(); ++c) {
       PARTHENON_REQUIRE(cores[c - 1].RR() == cores[c].LR(),
                         "Cores must have consistent ranks.");
@@ -204,7 +202,7 @@ class TensorTrainT {
   // Move-construct a train from an already-assembled sequence of cores. Used by
   // DestructiveSum to install cores whose fiber storage was moved (not copied)
   // from the summands without re-touching the fiber handles.
-  TensorTrainT(std::vector<core_type> &&cores_in) : cores(std::move(cores_in)) {
+  explicit TensorTrainT(std::vector<core_type> &&cores_in) : cores(std::move(cores_in)) {
     for (int c = 1; c < NCores(); ++c) {
       PARTHENON_REQUIRE(cores[c - 1].RR() == cores[c].LR(),
                         "Cores must have consistent ranks.");
@@ -231,7 +229,7 @@ class TensorTrainT {
       cores.emplace_back(ranks.back(), phys_dims.back(), right_bond);
     }
   }
-  
+
   // Build a train with the same physical structure (per-core physical indexers)
   // as `other` but fresh, zeroed bond space of the given internal ranks.
   TensorTrainT(const TensorTrainT &other, const std::vector<int> &ranks)
@@ -263,7 +261,8 @@ class TensorTrainT {
   // Empty the train's bond storage while preserving its structural identity: the
   // core objects, and thus NCores() and each core's physical indexer, are kept.
   void Clear() {
-    for (auto &c : cores) c.Release();
+    for (auto &c : cores)
+      c.Release();
   }
 
   // Rebuild this train in place as a fresh, zeroed train at the given internal
@@ -309,23 +308,25 @@ using ScratchCore = TensorCoreDeviceT<TTraits, UnmanagedStorageDevice<TTraits>>;
 
 // Default type aliases (uses DefaultTTraits - can be swapped by Parthenon)
 using TensorCoreDevice = std::conditional_t<
-  DefaultTTraits::d_fastest_moving,
-  TensorCoreDeviceT<DefaultTTraits, FiberStorageDevice<DefaultTTraits>>,
-  TensorCoreDeviceT<DefaultTTraits, ContiguousStorageDevice<DefaultTTraits>>>;
+    DefaultTTraits::d_fastest_moving,
+    TensorCoreDeviceT<DefaultTTraits, FiberStorageDevice<DefaultTTraits>>,
+    TensorCoreDeviceT<DefaultTTraits, ContiguousStorageDevice<DefaultTTraits>>>;
 
 using TensorCoreHost = std::conditional_t<
-  DefaultTTraits::d_fastest_moving,
-  TensorCoreHostT<DefaultTTraits, FiberStorageHost<DefaultTTraits>>,
-  TensorCoreHostT<DefaultTTraits, ContiguousStorageHost<DefaultTTraits>>>;
+    DefaultTTraits::d_fastest_moving,
+    TensorCoreHostT<DefaultTTraits, FiberStorageHost<DefaultTTraits>>,
+    TensorCoreHostT<DefaultTTraits, ContiguousStorageHost<DefaultTTraits>>>;
 
 using TensorTrain = TensorTrainT<DefaultTTraits>;
 
 // Contiguous storage variants (explicit TTraits for testing)
-using TensorCoreDeviceContiguous = TensorCoreDeviceT<ContiguousTTraits, ContiguousStorageDevice<ContiguousTTraits>>;
-using TensorCoreHostContiguous = TensorCoreHostT<ContiguousTTraits, ContiguousStorageHost<ContiguousTTraits>>;
+using TensorCoreDeviceContiguous =
+    TensorCoreDeviceT<ContiguousTTraits, ContiguousStorageDevice<ContiguousTTraits>>;
+using TensorCoreHostContiguous =
+    TensorCoreHostT<ContiguousTTraits, ContiguousStorageHost<ContiguousTTraits>>;
 using TensorTrainContiguous = TensorTrainT<ContiguousTTraits>;
 
 } // namespace tensor
 } // namespace parthenon
 
-#endif // TENSORS_TT_TYPES_HPP
+#endif // TENSORS_TT_TYPES_HPP_

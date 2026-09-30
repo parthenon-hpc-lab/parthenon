@@ -11,8 +11,10 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef TENSORS_TT_VARIABLE_HPP
-#define TENSORS_TT_VARIABLE_HPP
+// This file was made in part with generative AI.
+
+#ifndef TENSORS_TT_VARIABLE_HPP_
+#define TENSORS_TT_VARIABLE_HPP_
 
 #include <memory>
 #include <string>
@@ -34,9 +36,9 @@ class MeshBlock;
 // so it satisfies the "Variable concept" the boundary-comm templates (CalcIndices,
 // ForEachBoundary, SendKey/ReceiveKey) require -- label(), metadata(), IsSet(), GetDim().
 //
-// This is the tensor-train analogue of Variable<T>: the container owns TTVariableT objects
-// (one per field per block), boundary comm walks them as variables, and the math library
-// operates on the TensorTrain reached via train().
+// This is the tensor-train analogue of Variable<T>: the container owns TTVariableT
+// objects (one per field per block), boundary comm walks them as variables, and the math
+// library operates on the TensorTrain reached via train().
 template <class TTraits>
 class TTVariableT {
  public:
@@ -81,13 +83,14 @@ class TTVariableT {
 
   // Install a train, validating its physical structure against the field's registered
   // metadata: the core count must match, and each non-spatial core's physical dimension
-  // must match the registered phys_dims. (The spatial core's dimension is derived per-block
-  // and so is not stored on the metadata; only its presence -- core 0 -- is checked.) Only
-  // bond ranks may differ, so the field's shape identity is preserved. Checked always (host
-  // side, once per field per exchange -- never a hot path).
+  // must match the registered phys_dims. (The spatial core's dimension is derived
+  // per-block and so is not stored on the metadata; only its presence -- core 0 -- is
+  // checked.) Only bond ranks may differ, so the field's shape identity is preserved.
+  // Checked always (host side, once per field per exchange -- never a hot path).
   void set_train(train_t train) {
-    PARTHENON_REQUIRE(train.NCores() == md_.NCores(),
-                      "set_train: core count must match the field's registered structure.");
+    PARTHENON_REQUIRE(
+        train.NCores() == md_.NCores(),
+        "set_train: core count must match the field's registered structure.");
     for (std::size_t c = 0; c < md_.phys_dims.size(); ++c)
       PARTHENON_REQUIRE(
           train(c + 1).DD() == md_.phys_dims[c],
@@ -105,4 +108,4 @@ using TTVariable = TTVariableT<DefaultTTraits>;
 
 } // namespace parthenon
 
-#endif // TENSORS_TT_VARIABLE_HPP
+#endif // TENSORS_TT_VARIABLE_HPP_

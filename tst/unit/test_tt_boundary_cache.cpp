@@ -11,6 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 // Step 6b: the per-MeshTTData boundary index-map cache. Builds the cache over a real
 // periodic mesh and checks that every boundary yields a congruent, one-to-one cell map
 // (src interior -> dst ghost) with a channel registered in the mesh channel map.
@@ -18,6 +20,7 @@
 #include <memory>
 #include <set>
 #include <sstream>
+#include <vector>
 
 #include <catch2/catch.hpp>
 
@@ -83,7 +86,8 @@ std::shared_ptr<Mesh> MakeMesh(ApplicationInput *app_in, Packages_t &packages) {
 
 } // namespace
 
-TEST_CASE("TT boundary cache maps interior cells to ghost cells", "[TTField][mesh][MPI]") {
+TEST_CASE("TT boundary cache maps interior cells to ghost cells",
+          "[TTField][mesh][MPI]") {
   parthenon::Globals::nghost = kNGhost;
   auto app_in = std::make_shared<ApplicationInput>();
   auto packages = MakePackages();
@@ -92,7 +96,8 @@ TEST_CASE("TT boundary cache maps interior cells to ghost cells", "[TTField][mes
   auto partition = mesh->GetDefaultBlockPartitions()[0];
   auto md = mesh->tt_data.Add("base", partition);
 
-  // Whole-block spatial extents (entire domain incl. ghosts) for classifying flat indices.
+  // Whole-block spatial extents (entire domain incl. ghosts) for classifying flat
+  // indices.
   auto pmb0 = md->GetBlockData(0)->GetBlockPointer();
   const auto &cb = pmb0->cellbounds;
   const int is = cb.is(IndexDomain::interior), ie = cb.ie(IndexDomain::interior);
@@ -164,8 +169,8 @@ TEST_CASE("BuildBoundaryTensors gathers interior cells into the addend ghost lay
     std::vector<tensor::TensorTrain *> src;
     for (int b = 0; b < md->NumBlocks(); ++b)
       src.push_back(&md->GetBlockData(b)->Get("I")->train());
-    auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(src)
-                    .MakeDevicePack();
+    auto pack =
+        tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(src).MakeDevicePack();
     parthenon::par_for(
         parthenon::loop_pattern_flatrange_tag, "SeedCores", DevExecSpace(), 0,
         pack.GetNBlocks() - 1, KOKKOS_LAMBDA(const int b) {
@@ -194,14 +199,14 @@ TEST_CASE("BuildBoundaryTensors gathers interior cells into the addend ghost lay
   auto bnd_info = cache.bnd_info;
   for (int e = 0; e < nbound; ++e) {
     std::vector<tensor::TensorTrain *> pair{addends[e].get(), srcs[e]};
-    auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(pair)
-                    .MakeDevicePack();
+    auto pack =
+        tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(pair).MakeDevicePack();
 
     int nwrong = 0;
     parthenon::par_reduce(
         parthenon::loop_pattern_flatrange_tag, "CheckAddend", DevExecSpace(), 0, 0,
         KOKKOS_LAMBDA(const int, int &lwrong) {
-          auto &sc = pack(0, 0, 0);  // addend
+          auto &sc = pack(0, 0, 0);     // addend
           auto &sc_src = pack(1, 0, 0); // source
           const auto &idxer = pack.indexer(0);
           const auto &send = bnd_info(e).send;
@@ -247,9 +252,9 @@ TEST_CASE("TT Send/Receive/Set exchanges ghost data between blocks",
   auto pmb0 = md->GetBlockData(0)->GetBlockPointer();
 
   // Seed each block b to the constant (b + 1) in its interior and 0 in its ghosts, as a
-  // rank-1 train (trailing cores all ones). Zero ghosts match the pre-exchange state, so a
-  // received addend carrying neighbor nb's interface constant (nb_block + 1) lands cleanly
-  // in the ghost layer after the additive combine.
+  // rank-1 train (trailing cores all ones). Zero ghosts match the pre-exchange state, so
+  // a received addend carrying neighbor nb's interface constant (nb_block + 1) lands
+  // cleanly in the ghost layer after the additive combine.
   {
     const auto &cb = pmb0->cellbounds;
     const int ii_s = cb.is(IndexDomain::interior), ii_e = cb.ie(IndexDomain::interior);
@@ -257,8 +262,8 @@ TEST_CASE("TT Send/Receive/Set exchanges ghost data between blocks",
     std::vector<tensor::TensorTrain *> src;
     for (int b = 0; b < md->NumBlocks(); ++b)
       src.push_back(&md->GetBlockData(b)->Get("I")->train());
-    auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(src)
-                    .MakeDevicePack();
+    auto pack =
+        tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(src).MakeDevicePack();
     parthenon::par_for(
         parthenon::loop_pattern_flatrange_tag, "SeedConst", DevExecSpace(), 0,
         pack.GetNBlocks() - 1, KOKKOS_LAMBDA(const int b) {
@@ -328,8 +333,8 @@ TEST_CASE("TT Send/Receive/Set exchanges ghost data between blocks",
             for (int c = 0; c < ncell; ++c) {
               const auto [tr, ur, vr, kr, jr, ir] = recv(c);
               const int dst_idx = idxer.GetFlatIdx(tr, ur, vr, kr, jr, ir);
-              // Reconstruct the field value at (dst_idx, theta=0, phi=0) by contracting the
-              // train, so it is correct regardless of the post-sum rank structure.
+              // Reconstruct the field value at (dst_idx, theta=0, phi=0) by contracting
+              // the train, so it is correct regardless of the post-sum rank structure.
               double val = 0.0;
               for (int r1 = 0; r1 < core0.RR(); ++r1)
                 for (int r2 = 0; r2 < core1.RR(); ++r2)

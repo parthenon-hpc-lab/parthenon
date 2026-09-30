@@ -15,6 +15,9 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
+#include <algorithm>
 #include <array>
 #include <memory>
 #include <utility>
@@ -39,15 +42,17 @@ MakeSparseDeltaTrain3D(const std::array<int, 3> &dims,
                        const std::vector<typename TTraits::real_t> &values) {
   using real_t = typename TTraits::real_t;
 
-  PARTHENON_REQUIRE(entries.size() == values.size(),
-                    "MakeSparseDeltaTrain3D: entries and values must have the same size.");
+  PARTHENON_REQUIRE(
+      entries.size() == values.size(),
+      "MakeSparseDeltaTrain3D: entries and values must have the same size.");
   PARTHENON_REQUIRE(dims[0] > 0 && dims[1] > 0 && dims[2] > 0,
                     "MakeSparseDeltaTrain3D: physical dimensions must be positive.");
 
   const int nterms = static_cast<int>(entries.size());
 
   TensorTrainT<TTraits> train(std::vector<int>{dims[0], dims[1], dims[2]},
-                                nterms == 0 ? std::vector<int>{1, 1} : std::vector<int>{nterms, nterms});
+                              nterms == 0 ? std::vector<int>{1, 1}
+                                          : std::vector<int>{nterms, nterms});
   std::vector<TensorTrainT<TTraits>> trains{train};
 
   // Create pack - automatically selects correct storage
@@ -68,8 +73,8 @@ MakeSparseDeltaTrain3D(const std::array<int, 3> &dims,
                       "MakeSparseDeltaTrain3D: third index out of bounds.");
   }
 
-  using entries_view_t = typename TTraits::template view_t<int*[3], ManagedTag>;
-  using values_view_t = typename TTraits::template view_t<real_t*, ManagedTag>;
+  using entries_view_t = typename TTraits::template view_t<int *[3], ManagedTag>;
+  using values_view_t = typename TTraits::template view_t<real_t *, ManagedTag>;
 
   entries_view_t entries_d("delta_entries", nterms);
   values_view_t values_d("delta_values", nterms);
@@ -88,9 +93,7 @@ MakeSparseDeltaTrain3D(const std::array<int, 3> &dims,
   Kokkos::deep_copy(values_d, values_h);
 
   parthenon::par_for(
-      "MakeSparseDeltaTrain3D",
-      0, nterms - 1,
-      KOKKOS_LAMBDA(const int m) {
+      "MakeSparseDeltaTrain3D", 0, nterms - 1, KOKKOS_LAMBDA(const int m) {
         auto &core0 = pack(0, 0, 0);
         auto &core1 = pack(0, 0, 1);
         auto &core2 = pack(0, 0, 2);
@@ -110,9 +113,8 @@ MakeSparseDeltaTrain3D(const std::array<int, 3> &dims,
 }
 
 template <class TTraits>
-KOKKOS_INLINE_FUNCTION
-typename TTraits::real_t ReconstructDenseValue3D(const TensorPackT<TTraits> &pack,
-                                                 int b, int i1, int i2, int i3) {
+KOKKOS_INLINE_FUNCTION typename TTraits::real_t
+ReconstructDenseValue3D(const TensorPackT<TTraits> &pack, int b, int i1, int i2, int i3) {
   auto &core0 = pack(b, 0, 0);
   auto &core1 = pack(b, 0, 1);
   auto &core2 = pack(b, 0, 2);
@@ -163,25 +165,21 @@ int CountDenseMismatches3D(CheckFunctor check, const Pack0 &pack0,
   const int n2 = pack0.GetPhysicalDimension(2);
 
   int nwrong{0};
-  par_reduce(loop_pattern_mdrange_tag, "Check TT", DevExecSpace(),
-             0, pack0.GetNBlocks() - 1,
-             0, n0 - 1,
-             0, n1 - 1,
-             0, n2 - 1,
-             KOKKOS_LAMBDA(int b, int i1, int i2, int i3, int &lnwrong) {
-               lnwrong += check(
-                   b, i1, i2, i3,
-                   ReconstructDenseValue3D(pack0, b, i1, i2, i3),
-                   ReconstructDenseValue3D(packs, b, i1, i2, i3)...);
-             },
-             nwrong);
+  par_reduce(
+      loop_pattern_mdrange_tag, "Check TT", DevExecSpace(), 0, pack0.GetNBlocks() - 1, 0,
+      n0 - 1, 0, n1 - 1, 0, n2 - 1,
+      KOKKOS_LAMBDA(int b, int i1, int i2, int i3, int &lnwrong) {
+        lnwrong += check(b, i1, i2, i3, ReconstructDenseValue3D(pack0, b, i1, i2, i3),
+                         ReconstructDenseValue3D(packs, b, i1, i2, i3)...);
+      },
+      nwrong);
 
   return nwrong;
 }
 } // namespace
 
-TEMPLATE_TEST_CASE("tensor single-core train basic structure", "[tensor]",
-                   FiberTTraits, ContiguousTTraits) {
+TEMPLATE_TEST_CASE("tensor single-core train basic structure", "[tensor]", FiberTTraits,
+                   ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
@@ -211,14 +209,14 @@ TEMPLATE_TEST_CASE("tensor single-core train basic structure", "[tensor]",
   Kokkos::fence();
 
   int nwrong{0};
-  par_reduce(loop_pattern_mdrange_tag, "Check single-core TT", DevExecSpace(),
-             0, pack.GetNBlocks() - 1,
-             0, pack.GetPhysicalDimension(0) - 1,
-             KOKKOS_LAMBDA(int b, int i, int &lnwrong) {
-               auto &core = pack(b, 0, 0);
-               lnwrong += (core(0, i, 0) != 2.0);
-             },
-             nwrong);
+  par_reduce(
+      loop_pattern_mdrange_tag, "Check single-core TT", DevExecSpace(), 0,
+      pack.GetNBlocks() - 1, 0, pack.GetPhysicalDimension(0) - 1,
+      KOKKOS_LAMBDA(int b, int i, int &lnwrong) {
+        auto &core = pack(b, 0, 0);
+        lnwrong += (core(0, i, 0) != 2.0);
+      },
+      nwrong);
 
   REQUIRE(nwrong == 0);
 }
@@ -252,9 +250,8 @@ TEMPLATE_TEST_CASE("tensor train construction and pack metadata", "[tensor]",
   REQUIRE(pack.GetPhysicalDimensions() == std::vector<int>{2, 3, 4});
   // Check zero initialized
   REQUIRE(CountDenseMismatches3D(
-              KOKKOS_LAMBDA(int, int, int, int, Real value) {
-                return value != 0.0;
-              }, pack) == 0);
+              KOKKOS_LAMBDA(int, int, int, int, Real value) { return value != 0.0; },
+              pack) == 0);
 }
 
 TEMPLATE_TEST_CASE("tensor train copy and move preserve packable storage", "[tensor]",
@@ -287,7 +284,8 @@ TEMPLATE_TEST_CASE("tensor train copy and move preserve packable storage", "[ten
   REQUIRE(CountDenseMismatches3D(
               KOKKOS_LAMBDA(int, int, int, int, Real value) {
                 return value != expected_dense_value;
-              }, copied_pack) == 0);
+              },
+              copied_pack) == 0);
 
   TensorTrain move_constructed = std::move(copy_constructed);
   TensorTrain move_assigned(std::vector<int>{2, 3, 2}, {1, 1});
@@ -305,7 +303,8 @@ TEMPLATE_TEST_CASE("tensor train copy and move preserve packable storage", "[ten
   REQUIRE(CountDenseMismatches3D(
               KOKKOS_LAMBDA(int, int, int, int, Real value) {
                 return value != expected_dense_value;
-              }, pack) == 0);
+              },
+              pack) == 0);
 }
 
 TEMPLATE_TEST_CASE("tensor train vector push_back preserves packable storage", "[tensor]",
@@ -334,33 +333,30 @@ TEMPLATE_TEST_CASE("tensor train vector push_back preserves packable storage", "
   TensorPack pack(trains);
   REQUIRE(pack.GetNBlocks() == 3);
   REQUIRE(pack.GetNCores() == 3);
-  
+
   constexpr Real expected_a_dense_value = 4.0 * 2.5 * 2.5 * 2.5;
   constexpr Real expected_b_dense_value = 4.0 * 4.5 * 4.5 * 4.5;
 
   REQUIRE(CountDenseMismatches3D(
               KOKKOS_LAMBDA(int b, int, int, int, Real value) {
-                if (b == 1) return value != expected_b_dense_value;  
-                return value != expected_a_dense_value;  
-              }, pack) == 0);
+                if (b == 1) return value != expected_b_dense_value;
+                return value != expected_a_dense_value;
+              },
+              pack) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor sparse delta train reconstructs to the correct dense values", "[tensor]",
-                   FiberTTraits, ContiguousTTraits) {
+TEMPLATE_TEST_CASE("tensor sparse delta train reconstructs to the correct dense values",
+                   "[tensor]", FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
 
   using real_t = typename TTraits::real_t;
-  using entry_view_t = typename TTraits::template view_t<int*[3], ManagedTag>;
-  using value_view_t = typename TTraits::template view_t<real_t*, ManagedTag>;
+  using entry_view_t = typename TTraits::template view_t<int *[3], ManagedTag>;
+  using value_view_t = typename TTraits::template view_t<real_t *, ManagedTag>;
 
   const std::array<int, 3> dims{3, 4, 5};
-  const std::vector<std::array<int, 3>> entries_h{
-      {1, 2, 3},
-      {0, 1, 4},
-      {2, 0, 1}
-  };
+  const std::vector<std::array<int, 3>> entries_h{{1, 2, 3}, {0, 1, 4}, {2, 0, 1}};
   const std::vector<real_t> values_h{7.5, -2.0, 3.25};
 
   TensorTrain train = MakeSparseDeltaTrain3D<TTraits>(dims, entries_h, values_h);
@@ -394,14 +390,14 @@ TEMPLATE_TEST_CASE("tensor sparse delta train reconstructs to the correct dense 
               KOKKOS_LAMBDA(int, int i1, int i2, int i3, real_t dense_val) {
                 real_t expected = real_t(0);
                 for (int n = 0; n < nentries; ++n) {
-                  if (i1 == entries_d(n, 0) &&
-                      i2 == entries_d(n, 1) &&
+                  if (i1 == entries_d(n, 0) && i2 == entries_d(n, 1) &&
                       i3 == entries_d(n, 2)) {
                     expected += values_d(n);
                   }
                 }
                 return dense_val != expected;
-              }, pack) == 0);
+              },
+              pack) == 0);
 }
 
 TEMPLATE_TEST_CASE("tensor ReduceSize preserves retained core data", "[tensor]",
@@ -419,10 +415,8 @@ TEMPLATE_TEST_CASE("tensor ReduceSize preserves retained core data", "[tensor]",
 
   // Fill every entry with a value that uniquely identifies its location.
   parthenon::par_for(
-      "FillTensorTrainForReduceSizeTest",
-      0, pack.GetNBlocks() - 1,
-      0, pack.GetNCores() - 1,
-      KOKKOS_LAMBDA(const int b, const int c) {
+      "FillTensorTrainForReduceSizeTest", 0, pack.GetNBlocks() - 1, 0,
+      pack.GetNCores() - 1, KOKKOS_LAMBDA(const int b, const int c) {
         auto &core = pack(b, 0, c);
         for (int l = 0; l < core.LR(); ++l) {
           for (int r = 0; r < core.RR(); ++r) {
@@ -457,12 +451,11 @@ TEMPLATE_TEST_CASE("tensor ReduceSize preserves retained core data", "[tensor]",
 
   int nwrong{0};
   par_reduce(
-      loop_pattern_mdrange_tag, "CheckReduceSizeRetainedEntries", DevExecSpace(),
-      0, shrunk_pack.GetNCores() - 1,
-      0, 1,           // block index always 0
-      0, 2,           // maximum retained left rank range we need to inspect
-      0, 4,           // maximum physical dimension in this test
-      0, 2,           // maximum retained right rank range we need to inspect
+      loop_pattern_mdrange_tag, "CheckReduceSizeRetainedEntries", DevExecSpace(), 0,
+      shrunk_pack.GetNCores() - 1, 0, 1, // block index always 0
+      0, 2, // maximum retained left rank range we need to inspect
+      0, 4, // maximum physical dimension in this test
+      0, 2, // maximum retained right rank range we need to inspect
       KOKKOS_LAMBDA(int c, int b_dummy, int l, int j, int r, int &lnwrong) {
         auto &core = shrunk_pack(0, 0, c);
 
@@ -476,8 +469,8 @@ TEMPLATE_TEST_CASE("tensor ReduceSize preserves retained core data", "[tensor]",
   REQUIRE(nwrong == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor non-destructive sum of constant trains reconstructs correctly", "[tensor]",
-                   FiberTTraits, ContiguousTTraits) {
+TEMPLATE_TEST_CASE("tensor non-destructive sum of constant trains reconstructs correctly",
+                   "[tensor]", FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
@@ -510,11 +503,13 @@ TEMPLATE_TEST_CASE("tensor non-destructive sum of constant trains reconstructs c
   REQUIRE(CountDenseMismatches3D(
               KOKKOS_LAMBDA(int, int, int, int, real_t va, real_t vb, real_t vc) {
                 return vc != va + vb;
-              }, pack_a, pack_b, pack_c) == 0);
+              },
+              pack_a, pack_b, pack_c) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor non-destructive sum of sparse delta trains reconstructs correctly",
-                   "[tensor]", DefaultTTraits, ContiguousTTraits) {
+TEMPLATE_TEST_CASE(
+    "tensor non-destructive sum of sparse delta trains reconstructs correctly",
+    "[tensor]", DefaultTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
@@ -523,12 +518,10 @@ TEMPLATE_TEST_CASE("tensor non-destructive sum of sparse delta trains reconstruc
 
   const std::array<int, 3> dims{3, 4, 5};
 
-  TensorTrain train_a = MakeSparseDeltaTrain3D<TTraits>(dims,
-                                         {{1, 2, 3}, {0, 1, 4}},
-                                         {real_t(2.0), real_t(-1.5)});
-  TensorTrain train_b = MakeSparseDeltaTrain3D<TTraits>(dims,
-                                         {{1, 2, 3}, {2, 0, 1}},
-                                         {real_t(4.5), real_t(3.0)});
+  TensorTrain train_a = MakeSparseDeltaTrain3D<TTraits>(dims, {{1, 2, 3}, {0, 1, 4}},
+                                                        {real_t(2.0), real_t(-1.5)});
+  TensorTrain train_b = MakeSparseDeltaTrain3D<TTraits>(dims, {{1, 2, 3}, {2, 0, 1}},
+                                                        {real_t(4.5), real_t(3.0)});
 
   std::vector<TensorTrain> trains_a{train_a};
   std::vector<TensorTrain> trains_b{train_b};
@@ -550,8 +543,8 @@ TEMPLATE_TEST_CASE("tensor non-destructive sum of sparse delta trains reconstruc
               pack_a, pack_b, pack_c) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor destructive sum of constant trains reconstructs correctly", "[tensor]",
-                   FiberTTraits, ContiguousTTraits) {
+TEMPLATE_TEST_CASE("tensor destructive sum of constant trains reconstructs correctly",
+                   "[tensor]", FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
@@ -611,12 +604,10 @@ TEMPLATE_TEST_CASE("tensor destructive sum of sparse delta trains reconstructs c
 
   const std::array<int, 3> dims{3, 4, 5};
 
-  TensorTrain train_a = MakeSparseDeltaTrain3D<TTraits>(dims,
-                                         {{1, 2, 3}, {0, 1, 4}},
-                                         {real_t(2.0), real_t(-1.5)});
-  TensorTrain train_b = MakeSparseDeltaTrain3D<TTraits>(dims,
-                                         {{1, 2, 3}, {2, 0, 1}},
-                                         {real_t(4.5), real_t(3.0)});
+  TensorTrain train_a = MakeSparseDeltaTrain3D<TTraits>(dims, {{1, 2, 3}, {0, 1, 4}},
+                                                        {real_t(2.0), real_t(-1.5)});
+  TensorTrain train_b = MakeSparseDeltaTrain3D<TTraits>(dims, {{1, 2, 3}, {2, 0, 1}},
+                                                        {real_t(4.5), real_t(3.0)});
 
   // Keep reference copies of the summands to reconstruct the expected sum, since
   // the destructive op consumes its inputs.
@@ -643,8 +634,8 @@ TEMPLATE_TEST_CASE("tensor destructive sum of sparse delta trains reconstructs c
               pack_a, pack_ref_a, pack_ref_b) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor Hadamard product of constant trains reconstructs correctly", "[tensor]",
-                   FiberTTraits, ContiguousTTraits) {
+TEMPLATE_TEST_CASE("tensor Hadamard product of constant trains reconstructs correctly",
+                   "[tensor]", FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
@@ -681,8 +672,9 @@ TEMPLATE_TEST_CASE("tensor Hadamard product of constant trains reconstructs corr
               pack_a, pack_b, pack_c) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor Hadamard product of sparse delta trains reconstructs correctly",
-                   "[tensor]", DefaultTTraits, ContiguousTTraits) {
+TEMPLATE_TEST_CASE(
+    "tensor Hadamard product of sparse delta trains reconstructs correctly", "[tensor]",
+    DefaultTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
@@ -691,12 +683,10 @@ TEMPLATE_TEST_CASE("tensor Hadamard product of sparse delta trains reconstructs 
 
   const std::array<int, 3> dims{3, 4, 5};
 
-  TensorTrain train_a = MakeSparseDeltaTrain3D<TTraits>(dims,
-                                         {{1, 2, 3}, {0, 1, 4}},
-                                         {real_t(2.0), real_t(-1.5)});
-  TensorTrain train_b = MakeSparseDeltaTrain3D<TTraits>(dims,
-                                         {{1, 2, 3}, {2, 0, 1}},
-                                         {real_t(4.5), real_t(3.0)});
+  TensorTrain train_a = MakeSparseDeltaTrain3D<TTraits>(dims, {{1, 2, 3}, {0, 1, 4}},
+                                                        {real_t(2.0), real_t(-1.5)});
+  TensorTrain train_b = MakeSparseDeltaTrain3D<TTraits>(dims, {{1, 2, 3}, {2, 0, 1}},
+                                                        {real_t(4.5), real_t(3.0)});
 
   std::vector<TensorTrain> trains_a{train_a};
   std::vector<TensorTrain> trains_b{train_b};
@@ -730,9 +720,8 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounding scaffold on a two-delta train", "[t
 
   // Choose two distinct delta terms so the induced Gram matrices should be
   // easy to reason about and mostly diagonal.
-  TensorTrain train = MakeSparseDeltaTrain3D<TTraits>(dims,
-                                       {{0, 1, 2}, {3, 2, 1}},
-                                       {real_t(2.0), real_t(-1.5)});
+  TensorTrain train = MakeSparseDeltaTrain3D<TTraits>(dims, {{0, 1, 2}, {3, 2, 1}},
+                                                      {real_t(2.0), real_t(-1.5)});
 
   std::vector<TensorTrain> trains{train};
   std::vector<TensorTrain> trains_orig = DeepCopyTrains(trains);
@@ -767,16 +756,17 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounding scaffold on a two-delta train", "[t
   REQUIRE(trains[0].NCores() == 3);
   REQUIRE(rounded_pack.GetNBlocks() == 1);
   REQUIRE(rounded_pack.GetNCores() == 3);
-  REQUIRE(rounded_pack.GetPhysicalDimensions() == std::vector<int>{dims[0], dims[1], dims[2]});
+  REQUIRE(rounded_pack.GetPhysicalDimensions() ==
+          std::vector<int>{dims[0], dims[1], dims[2]});
 
   // No-truncation round should preserve the represented dense tensor exactly.
   REQUIRE(CountDenseMismatches3D(
-              KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val, real_t rounded_val) {
-                return original_val != rounded_val;
-              },
+              KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val,
+                            real_t rounded_val) { return original_val != rounded_val; },
               orig_pack, rounded_pack) == 0);
 
-  // In the current scaffold, no singular values are dropped, so ranks should stay unchanged.
+  // In the current scaffold, no singular values are dropped, so ranks should stay
+  // unchanged.
   REQUIRE(trains[0](0).LR() == 1);
   REQUIRE(trains[0](0).RR() == 2);
   REQUIRE(trains[0](1).LR() == 2);
@@ -785,8 +775,8 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounding scaffold on a two-delta train", "[t
   REQUIRE(trains[0](2).RR() == 1);
 }
 
-TEMPLATE_TEST_CASE("tensor Gram-SVD rounding scaffold on a mixed two-channel train", "[tensor]",
-                   FiberTTraits, ContiguousTTraits) {
+TEMPLATE_TEST_CASE("tensor Gram-SVD rounding scaffold on a mixed two-channel train",
+                   "[tensor]", FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
@@ -840,20 +830,23 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounding scaffold on a mixed two-channel tra
   TensorPack rounded_pack(trains);
   TensorPack orig_pack(trains_orig);
 
-  // No-truncation round should preserve the represented dense tensor to around machine precision.
+  // No-truncation round should preserve the represented dense tensor to around machine
+  // precision.
   constexpr real_t atol = 1.0e-12;
   constexpr real_t rtol = 1.0e-10;
   REQUIRE(CountDenseMismatches3D(
-              KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val, real_t rounded_val) {
+              KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val,
+                            real_t rounded_val) {
                 const real_t err = std::abs(original_val - rounded_val);
-                const real_t scale = std::max(std::abs(original_val), std::abs(rounded_val));
+                const real_t scale =
+                    std::max(std::abs(original_val), std::abs(rounded_val));
                 return err > atol + rtol * scale;
               },
               orig_pack, rounded_pack) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor Gram-SVD no-truncation preserves randomized trains", "[tensor]",
-                   FiberTTraits, ContiguousTTraits) {
+TEMPLATE_TEST_CASE("tensor Gram-SVD no-truncation preserves randomized trains",
+                   "[tensor]", FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
@@ -874,14 +867,14 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD no-truncation preserves randomized trains", 
 
   // Fill with deterministic pseudo-random values.
   parthenon::par_for_outer(
-      PARTHENON_AUTO_LABEL, 0, 1,
-      0, pack.GetNBlocks() - 1, 0, pack.GetNCores() - 1,
+      PARTHENON_AUTO_LABEL, 0, 1, 0, pack.GetNBlocks() - 1, 0, pack.GetNCores() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int b, const int c) {
         auto &core = pack(b, 0, c);
         for (int l = 0; l < core.LR(); ++l) {
           for (int r = 0; r < core.RR(); ++r) {
             parthenon::par_for_inner(tm, 0, core.DD() - 1, [&](const int j) {
-              const int key = 97 * (b + 1) + 31 * (c + 1) + 11 * (l + 1) + 7 * (r + 1) + 3 * (j + 1);
+              const int key =
+                  97 * (b + 1) + 31 * (c + 1) + 11 * (l + 1) + 7 * (r + 1) + 3 * (j + 1);
               core(l, j, r) = real_t((key % 17) - 8) / real_t(8);
             });
           }
@@ -899,16 +892,18 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD no-truncation preserves randomized trains", 
   constexpr real_t rtol = real_t(1.0e-10);
 
   REQUIRE(CountDenseMismatches3D(
-              KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val, real_t rounded_val) {
+              KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val,
+                            real_t rounded_val) {
                 const real_t err = std::abs(original_val - rounded_val);
-                const real_t scale = std::max(std::abs(original_val), std::abs(rounded_val));
+                const real_t scale =
+                    std::max(std::abs(original_val), std::abs(rounded_val));
                 return err > atol + rtol * scale;
               },
               orig_pack, rounded_pack) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor Gram-SVD rounds duplicate delta terms down to rank one", "[tensor]",
-                   FiberTTraits, ContiguousTTraits) {
+TEMPLATE_TEST_CASE("tensor Gram-SVD rounds duplicate delta terms down to rank one",
+                   "[tensor]", FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
@@ -918,9 +913,8 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounds duplicate delta terms down to rank on
   const std::array<int, 3> dims{4, 4, 4};
   const std::array<int, 3> entry{1, 2, 3};
 
-  TensorTrain train = MakeSparseDeltaTrain3D<TTraits>(dims,
-                                       {entry, entry},
-                                       {real_t(2.0), real_t(-1.5)});
+  TensorTrain train =
+      MakeSparseDeltaTrain3D<TTraits>(dims, {entry, entry}, {real_t(2.0), real_t(-1.5)});
 
   std::vector<TensorTrain> trains{train};
 
@@ -929,12 +923,12 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounds duplicate delta terms down to rank on
   REQUIRE(trains[0](1).LR() == 2);
   REQUIRE(trains[0](1).RR() == 2);
   REQUIRE(trains[0](2).LR() == 2);
-  
+
   // A single left-to-right Gram-SVD sweep is locally optimal at each bond, but it
   // does not necessarily produce the minimal global TT ranks in one pass. In this
   // duplicate-delta case the first sweep reduces the left bond to rank one, and a
   // second sweep then sees the updated representation and collapses the remaining
-  // bond as well. 
+  // bond as well.
   RoundGramSVD(trains, real_t(1.0e-7));
   RoundGramSVD(trains, real_t(1.0e-7));
 
@@ -965,8 +959,9 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounds duplicate delta terms down to rank on
               rounded_pack) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor Gram-SVD truncation respects relative Frobenius error on randomized trains",
-                   "[tensor]", DefaultTTraits, ContiguousTTraits) {
+TEMPLATE_TEST_CASE(
+    "tensor Gram-SVD truncation respects relative Frobenius error on randomized trains",
+    "[tensor]", DefaultTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
@@ -987,15 +982,14 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD truncation respects relative Frobenius error
 
   // Fill with deterministic pseudo-random values.
   parthenon::par_for_outer(
-      PARTHENON_AUTO_LABEL, 0, 1,
-      0, pack.GetNBlocks() - 1, 0, pack.GetNCores() - 1,
+      PARTHENON_AUTO_LABEL, 0, 1, 0, pack.GetNBlocks() - 1, 0, pack.GetNCores() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int b, const int c) {
         auto &core = pack(b, 0, c);
         for (int l = 0; l < core.LR(); ++l) {
           for (int r = 0; r < core.RR(); ++r) {
             parthenon::par_for_inner(tm, 0, core.DD() - 1, [&](const int j) {
-              const int key =
-                  101 * (b + 1) + 37 * (c + 1) + 13 * (l + 1) + 11 * (r + 1) + 5 * (j + 1);
+              const int key = 101 * (b + 1) + 37 * (c + 1) + 13 * (l + 1) + 11 * (r + 1) +
+                              5 * (j + 1);
               core(l, j, r) = real_t((key % 29) - 14) / real_t(10);
             });
           }
@@ -1011,7 +1005,7 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD truncation respects relative Frobenius error
   RoundGramSVD(trains, eps_rel);
   TensorPack rounded_pack(trains);
 
-  using err_view_t = DefaultTTraits::template view_t<real_t*, ManagedTag>;
+  using err_view_t = DefaultTTraits::template view_t<real_t *, ManagedTag>;
   err_view_t err2_d("err2_d", nblocks);
   err_view_t norm2_d("norm2_d", nblocks);
 
@@ -1026,11 +1020,9 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD truncation respects relative Frobenius error
   Kokkos::deep_copy(norm2_d, norm2_h);
 
   parthenon::par_for(
-      "tensor_relative_frobenius_rounding_error",
-      0, orig_pack.GetNBlocks() - 1,
-      0, orig_pack.GetPhysicalDimension(0) - 1,
-      0, orig_pack.GetPhysicalDimension(1) - 1,
-      0, orig_pack.GetPhysicalDimension(2) - 1,
+      "tensor_relative_frobenius_rounding_error", 0, orig_pack.GetNBlocks() - 1, 0,
+      orig_pack.GetPhysicalDimension(0) - 1, 0, orig_pack.GetPhysicalDimension(1) - 1, 0,
+      orig_pack.GetPhysicalDimension(2) - 1,
       KOKKOS_LAMBDA(const int b, const int i1, const int i2, const int i3) {
         const real_t orig_val =
             ReconstructDenseValue3D<TTraits>(orig_pack, b, i1, i2, i3);
@@ -1050,18 +1042,16 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD truncation respects relative Frobenius error
     const real_t err_frob = std::sqrt(err2_h(b));
     const real_t norm_frob = std::sqrt(norm2_h(b));
     const real_t rhs = eps_rel * norm_frob;
-    
-    INFO("block = " << b
-         << "  ||X - X_round||_F = " << err_frob
-         << "  ||X||_F = " << norm_frob
-         << "  eps_rel * ||X||_F = " << rhs);
+
+    INFO("block = " << b << "  ||X - X_round||_F = " << err_frob
+                    << "  ||X||_F = " << norm_frob << "  eps_rel * ||X||_F = " << rhs);
 
     REQUIRE(err_frob <= rhs);
   }
 }
 
-TEMPLATE_TEST_CASE("tensor Oseledets-SVD no-truncation preserves randomized trains", "[tensor]",
-                   DefaultTTraits, ContiguousTTraits) {
+TEMPLATE_TEST_CASE("tensor Oseledets-SVD no-truncation preserves randomized trains",
+                   "[tensor]", DefaultTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
   using TensorPack = TensorPackT<TTraits>;
@@ -1081,14 +1071,14 @@ TEMPLATE_TEST_CASE("tensor Oseledets-SVD no-truncation preserves randomized trai
   TensorPack pack(trains);
 
   parthenon::par_for_outer(
-      PARTHENON_AUTO_LABEL, 0, 1,
-      0, pack.GetNBlocks() - 1, 0, pack.GetNCores() - 1,
+      PARTHENON_AUTO_LABEL, 0, 1, 0, pack.GetNBlocks() - 1, 0, pack.GetNCores() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int b, const int c) {
         auto &core = pack(b, 0, c);
         for (int l = 0; l < core.LR(); ++l) {
           for (int r = 0; r < core.RR(); ++r) {
             parthenon::par_for_inner(tm, 0, core.DD() - 1, [&](const int j) {
-              const int key = 97 * (b + 1) + 31 * (c + 1) + 11 * (l + 1) + 7 * (r + 1) + 3 * (j + 1);
+              const int key =
+                  97 * (b + 1) + 31 * (c + 1) + 11 * (l + 1) + 7 * (r + 1) + 3 * (j + 1);
               core(l, j, r) = real_t((key % 17) - 8) / real_t(8);
             });
           }
@@ -1106,15 +1096,18 @@ TEMPLATE_TEST_CASE("tensor Oseledets-SVD no-truncation preserves randomized trai
   constexpr real_t rtol = real_t(1.0e-10);
 
   REQUIRE(CountDenseMismatches3D(
-              KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val, real_t rounded_val) {
+              KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val,
+                            real_t rounded_val) {
                 const real_t err = std::abs(original_val - rounded_val);
-                const real_t scale = std::max(std::abs(original_val), std::abs(rounded_val));
+                const real_t scale =
+                    std::max(std::abs(original_val), std::abs(rounded_val));
                 return err > atol + rtol * scale;
               },
               orig_pack, rounded_pack) == 0);
 }
 
-TEMPLATE_TEST_CASE("tensor Oseledets-SVD truncation respects relative Frobenius error on randomized trains",
+TEMPLATE_TEST_CASE("tensor Oseledets-SVD truncation respects relative Frobenius error on "
+                   "randomized trains",
                    "[tensor]", DefaultTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
@@ -1135,15 +1128,14 @@ TEMPLATE_TEST_CASE("tensor Oseledets-SVD truncation respects relative Frobenius 
   TensorPack pack(trains);
 
   parthenon::par_for_outer(
-      PARTHENON_AUTO_LABEL, 0, 1,
-      0, pack.GetNBlocks() - 1, 0, pack.GetNCores() - 1,
+      PARTHENON_AUTO_LABEL, 0, 1, 0, pack.GetNBlocks() - 1, 0, pack.GetNCores() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int b, const int c) {
         auto &core = pack(b, 0, c);
         for (int l = 0; l < core.LR(); ++l) {
           for (int r = 0; r < core.RR(); ++r) {
             parthenon::par_for_inner(tm, 0, core.DD() - 1, [&](const int j) {
-              const int key =
-                  101 * (b + 1) + 37 * (c + 1) + 13 * (l + 1) + 11 * (r + 1) + 5 * (j + 1);
+              const int key = 101 * (b + 1) + 37 * (c + 1) + 13 * (l + 1) + 11 * (r + 1) +
+                              5 * (j + 1);
               core(l, j, r) = real_t((key % 29) - 14) / real_t(10);
             });
           }
@@ -1159,7 +1151,7 @@ TEMPLATE_TEST_CASE("tensor Oseledets-SVD truncation respects relative Frobenius 
   RoundOseledetsSVD(trains, eps_rel);
   TensorPack rounded_pack(trains);
 
-  using err_view_t = DefaultTTraits::template view_t<real_t*, ManagedTag>;
+  using err_view_t = DefaultTTraits::template view_t<real_t *, ManagedTag>;
   err_view_t err2_d("err2_d", nblocks);
   err_view_t norm2_d("norm2_d", nblocks);
 
@@ -1174,10 +1166,8 @@ TEMPLATE_TEST_CASE("tensor Oseledets-SVD truncation respects relative Frobenius 
   Kokkos::deep_copy(norm2_d, norm2_h);
 
   parthenon::par_for(
-      "tensor_oseledets_relative_frobenius_rounding_error",
-      0, orig_pack.GetNBlocks() - 1,
-      0, orig_pack.GetPhysicalDimension(0) - 1,
-      0, orig_pack.GetPhysicalDimension(1) - 1,
+      "tensor_oseledets_relative_frobenius_rounding_error", 0, orig_pack.GetNBlocks() - 1,
+      0, orig_pack.GetPhysicalDimension(0) - 1, 0, orig_pack.GetPhysicalDimension(1) - 1,
       0, orig_pack.GetPhysicalDimension(2) - 1,
       KOKKOS_LAMBDA(const int b, const int i1, const int i2, const int i3) {
         const real_t orig_val =
@@ -1199,10 +1189,8 @@ TEMPLATE_TEST_CASE("tensor Oseledets-SVD truncation respects relative Frobenius 
     const real_t norm_frob = std::sqrt(norm2_h(b));
     const real_t rhs = eps_rel * norm_frob;
 
-    INFO("block = " << b
-         << "  ||X - X_round||_F = " << err_frob
-         << "  ||X||_F = " << norm_frob
-         << "  eps_rel * ||X||_F = " << rhs);
+    INFO("block = " << b << "  ||X - X_round||_F = " << err_frob
+                    << "  ||X||_F = " << norm_frob << "  eps_rel * ||X||_F = " << rhs);
 
     REQUIRE(err_frob <= rhs);
   }
@@ -1250,13 +1238,13 @@ SCENARIO("tensor contiguous storage multi-core train structure", "[tensor]") {
 }
 
 SCENARIO("tensor contiguous storage unfolding dimensions", "[tensor]") {
-  TensorCoreHostContiguous core(2, 3, 4);  // lr=2, dd=3, rr=4
+  TensorCoreHostContiguous core(2, 3, 4); // lr=2, dd=3, rr=4
   auto device_core = core.GetTensorCoreDevice();
 
   // Test horizontal unfolding: reshape [lr][dd][rr] as [lr, dd*rr]
   auto H = ContiguousTTraits::GetHorizontalUnfolding(device_core);
   REQUIRE(GetNrows(H) == 2);
-  REQUIRE(GetNcols(H) == 12);  // 3 * 4
+  REQUIRE(GetNcols(H) == 12); // 3 * 4
 
   // Test horizontal unfolding transpose: reshape [lr][dd][rr] as [dd*rr, lr]
   auto HT = ContiguousTTraits::GetHorizontalUnfoldingTranspose(device_core);
@@ -1265,7 +1253,7 @@ SCENARIO("tensor contiguous storage unfolding dimensions", "[tensor]") {
 
   // Test vertical unfolding: reshape [lr][dd][rr] as [lr*dd, rr]
   auto V = ContiguousTTraits::GetVerticalUnfolding(device_core);
-  REQUIRE(GetNrows(V) == 6);  // 2 * 3
+  REQUIRE(GetNrows(V) == 6); // 2 * 3
   REQUIRE(GetNcols(V) == 4);
 
   // Test vertical unfolding transpose: reshape [lr][dd][rr] as [rr, lr*dd]
@@ -1274,7 +1262,8 @@ SCENARIO("tensor contiguous storage unfolding dimensions", "[tensor]") {
   REQUIRE(GetNcols(VT) == 6);
 }
 
-SCENARIO("tensor contiguous storage reconstruction agrees with fiber storage", "[tensor]") {
+SCENARIO("tensor contiguous storage reconstruction agrees with fiber storage",
+         "[tensor]") {
   // Create identical trains with both storage layouts
   const std::array<int, 3> dims{4, 8, 16};
   const std::vector<std::array<int, 3>> entries = {{0, 0, 0}, {1, 2, 3}, {2, 4, 8}};
@@ -1299,18 +1288,20 @@ SCENARIO("tensor contiguous storage reconstruction agrees with fiber storage", "
   REQUIRE(nmismatches == 0);
 }
 
-// Step 6c: a host pack built from a vector of shared_ptr trains aliases those trains, so a
-// device kernel over the pack mutates the caller-owned trains (the transient boundary
+// Step 6c: a host pack built from a vector of shared_ptr trains aliases those trains, so
+// a device kernel over the pack mutates the caller-owned trains (the transient boundary
 // addend trains are held this way).
-TEMPLATE_TEST_CASE("TensorTrainHostPack from shared_ptr trains", "[tensor]",
-                   FiberTTraits, ContiguousTTraits) {
+TEMPLATE_TEST_CASE("TensorTrainHostPack from shared_ptr trains", "[tensor]", FiberTTraits,
+                   ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
   using real_t = typename TTraits::real_t;
 
   std::vector<std::shared_ptr<TensorTrain>> trains;
-  trains.push_back(std::make_shared<TensorTrain>(std::vector<int>{4, 3}, std::vector<int>{1}));
-  trains.push_back(std::make_shared<TensorTrain>(std::vector<int>{4, 3}, std::vector<int>{1}));
+  trains.push_back(
+      std::make_shared<TensorTrain>(std::vector<int>{4, 3}, std::vector<int>{1}));
+  trains.push_back(
+      std::make_shared<TensorTrain>(std::vector<int>{4, 3}, std::vector<int>{1}));
 
   auto host = TensorTrainHostPackT<TTraits>::FromSharedPtrs(trains);
   REQUIRE(host.NumVars() == 1);
@@ -1326,8 +1317,8 @@ TEMPLATE_TEST_CASE("TensorTrainHostPack from shared_ptr trains", "[tensor]",
   // Every entry of every core of every shared train now holds the written value.
   int nwrong{0};
   par_reduce(
-      loop_pattern_mdrange_tag, "CheckSharedPtrPack", DevExecSpace(),
-      0, pack.GetNBlocks() - 1, 0, pack.GetNCores() - 1,
+      loop_pattern_mdrange_tag, "CheckSharedPtrPack", DevExecSpace(), 0,
+      pack.GetNBlocks() - 1, 0, pack.GetNCores() - 1,
       KOKKOS_LAMBDA(int b, int c, int &lnwrong) {
         auto &core = pack(b, 0, c);
         for (int l = 0; l < core.LR(); ++l)
@@ -1377,8 +1368,8 @@ TEMPLATE_TEST_CASE("tensor open trains carry dangling boundary bonds", "[tensor]
 
 // R2: closed-train operations reject open trains loudly rather than producing a
 // silently-wrong result.
-TEMPLATE_TEST_CASE("tensor closed-train ops reject open trains", "[tensor]",
-                   FiberTTraits, ContiguousTTraits) {
+TEMPLATE_TEST_CASE("tensor closed-train ops reject open trains", "[tensor]", FiberTTraits,
+                   ContiguousTTraits) {
   using TTraits = TestType;
   using TensorTrain = TensorTrainT<TTraits>;
   using real_t = typename TTraits::real_t;

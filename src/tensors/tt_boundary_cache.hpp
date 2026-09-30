@@ -11,8 +11,10 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef TENSORS_TT_BOUNDARY_CACHE_HPP
-#define TENSORS_TT_BOUNDARY_CACHE_HPP
+// This file was made in part with generative AI.
+
+#ifndef TENSORS_TT_BOUNDARY_CACHE_HPP_
+#define TENSORS_TT_BOUNDARY_CACHE_HPP_
 
 #include <cstddef>
 #include <vector>
@@ -23,28 +25,31 @@
 #include "utils/indexer.hpp"
 
 // Data structures for the tensor-train boundary-comm cache. Kept in this light,
-// tensor-free header (no mesh.hpp) so MeshTTData can hold the cache without pulling in the
-// heavy mesh headers; the builder that populates it lives in tt_boundary_comm.{hpp,cpp}.
+// tensor-free header (no mesh.hpp) so MeshTTData can hold the cache without pulling in
+// the heavy mesh headers; the builder that populates it lives in
+// tt_boundary_comm.{hpp,cpp}.
 
 namespace parthenon {
 
 class TTCommChannel;
 
-enum class BoundaryRelation {same, f2c, c2f};
+enum class BoundaryRelation { same, f2c, c2f };
 
-// Uniform 2:1 coarse<->fine cell map for a boundary's spatial core. A coarse cell covers a
-// 2^d block of fine cells; the coarse buffer and the full-resolution train both anchor their
-// interior at Globals::nghost, so a coarse logical index c maps to fine base 2*(c - ng) + ng
-// in each refined direction (identity in symmetry directions, where the coarse and fine
-// extents coincide and the refinement factor is 1). Built once per cross-level boundary in
-// BuildTTBoundaryCache and stored on TTBndInfo. Kept as a small device-callable struct --
-// ghost anchor plus a per-direction refinement factor, with a functor-driven iterator over
-// the fine cells under one coarse (k, j, i) -- so a coordinate-aware operator can be dropped
-// in later without touching the kernels. (The per-direction factors are redundant with the
-// spatial-core extents today, but will diverge for non-cell-centered fields.)
+// Uniform 2:1 coarse<->fine cell map for a boundary's spatial core. A coarse cell covers
+// a 2^d block of fine cells; the coarse buffer and the full-resolution train both anchor
+// their interior at Globals::nghost, so a coarse logical index c maps to fine base 2*(c -
+// ng) + ng in each refined direction (identity in symmetry directions, where the coarse
+// and fine extents coincide and the refinement factor is 1). Built once per cross-level
+// boundary in BuildTTBoundaryCache and stored on TTBndInfo. Kept as a small
+// device-callable struct -- ghost anchor plus a per-direction refinement factor, with a
+// functor-driven iterator over the fine cells under one coarse (k, j, i) -- so a
+// coordinate-aware operator can be dropped in later without touching the kernels. (The
+// per-direction factors are redundant with the spatial-core extents today, but will
+// diverge for non-cell-centered fields.)
 struct CoarseFineMap {
-  int ng{0};                     // interior anchor (ghost count), shared by coarse and fine
-  int rfk{1}, rfj{1}, rfi{1};    // per-direction refinement factor (1 in symmetry dirs, 2 else)
+  int ng{0}; // interior anchor (ghost count), shared by coarse and fine
+  int rfk{1}, rfj{1},
+      rfi{1}; // per-direction refinement factor (1 in symmetry dirs, 2 else)
 
   KOKKOS_DEFAULTED_FUNCTION CoarseFineMap() = default;
 
@@ -64,8 +69,8 @@ struct CoarseFineMap {
   }
 
   // Build from the mesh dimensionality: directions are active (and so 2:1 refined) in a
-  // contiguous block from x1, so x1 (i) is refined for ndim >= 1, x2 (j) for ndim >= 2, and
-  // x3 (k) for ndim >= 3. Symmetry directions keep factor 1.
+  // contiguous block from x1, so x1 (i) is refined for ndim >= 1, x2 (j) for ndim >= 2,
+  // and x3 (k) for ndim >= 3. Symmetry directions keep factor 1.
   static CoarseFineMap FromNDim(int ndim, int ng) {
     CoarseFineMap m;
     m.ng = ng;
@@ -82,8 +87,8 @@ struct CoarseFineMap {
 //
 // send/recv enumerate the same number of cells in the same order (congruent boxes, Step
 // 6a); the kernel reads send-cell e from the source train and writes recv-cell e into the
-// addend train, flattening (k, j, i) to the spatial-core index via the whole-block extents
-// held on the cache. Placement is 1-to-1 -- multilevel is handled by restricting/
+// addend train, flattening (k, j, i) to the spatial-core index via the whole-block
+// extents held on the cache. Placement is 1-to-1 -- multilevel is handled by restricting/
 // prolongating the spatial core (via coarse train buffers) on the send side, as for
 // regular fields, not by weights in this map.
 struct TTBndInfo {
@@ -116,9 +121,10 @@ using TTBndInfoArrHost_t = typename TTBndInfoArr_t::host_mirror_type;
 //   stable within an epoch (like the regular buf_vec).
 // epoch: the channel-map epoch this cache was built against, to detect (re)mesh.
 //
-// Flattening (k, j, i) to a spatial-core physical index is not held here: the spatial core
-// carries its own logical Indexer6D, exposed per core slot on the device pack
-// (pack.indexer(0)), so kernels flatten via that shared indexer rather than cached extents.
+// Flattening (k, j, i) to a spatial-core physical index is not held here: the spatial
+// core carries its own logical Indexer6D, exposed per core slot on the device pack
+// (pack.indexer(0)), so kernels flatten via that shared indexer rather than cached
+// extents.
 struct TTBoundaryCache {
   TTBndInfoArr_t bnd_info{};
   TTBndInfoArrHost_t bnd_info_h{};
@@ -135,4 +141,4 @@ struct TTBoundaryCache {
 
 } // namespace parthenon
 
-#endif // TENSORS_TT_BOUNDARY_CACHE_HPP
+#endif // TENSORS_TT_BOUNDARY_CACHE_HPP_

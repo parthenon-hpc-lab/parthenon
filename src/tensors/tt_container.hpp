@@ -11,12 +11,15 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef TENSORS_TT_CONTAINER_HPP
-#define TENSORS_TT_CONTAINER_HPP
+// This file was made in part with generative AI.
+
+#ifndef TENSORS_TT_CONTAINER_HPP_
+#define TENSORS_TT_CONTAINER_HPP_
 
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "basic_types.hpp"
@@ -165,8 +168,8 @@ class MeshBlockTTData {
 
   std::string stage_name_{"base"};
   std::weak_ptr<MeshBlock> pmy_block_;
-  std::vector<std::string> fields_in_;    // field set used to create this container
-  std::map<std::string, var_ptr> map_;  // owning field variables, one per field
+  std::vector<std::string> fields_in_; // field set used to create this container
+  std::map<std::string, var_ptr> map_; // owning field variables, one per field
 };
 
 // Mesh-partition container for tensor-train fields, analogous to MeshData:
@@ -261,4 +264,4 @@ class MeshTTData {
 
 } // namespace parthenon
 
-#endif // TENSORS_TT_CONTAINER_HPP
+#endif // TENSORS_TT_CONTAINER_HPP_

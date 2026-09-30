@@ -11,8 +11,12 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef TENSORS_TT_TRAITS_HPP
-#define TENSORS_TT_TRAITS_HPP
+// This file was made in part with generative AI.
+
+#ifndef TENSORS_TT_TRAITS_HPP_
+#define TENSORS_TT_TRAITS_HPP_
+
+#include <utility>
 
 #include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
@@ -28,9 +32,7 @@ struct UnmanagedTag {};
 // can stay relatively clean. In particular, view_t<DataType, OwnershipTag>
 // gives a device-space Kokkos::View, while host_view_t<DataType, OwnershipTag>
 // gives the corresponding host-mirror-space view with the same ownership mode.
-template <class Device,
-          class RealT = Real,
-          class Layout = Kokkos::LayoutRight,
+template <class Device, class RealT = Real, class Layout = Kokkos::LayoutRight,
           bool DFastestMoving = true>
 struct TensorTraits {
   using device_type = Device;
@@ -43,23 +45,20 @@ struct TensorTraits {
   static constexpr bool d_fastest_moving = DFastestMoving;
 
   using host_mirror_space =
-      typename Kokkos::View<real_t*, layout, memory_space>::host_mirror_space;
+      typename Kokkos::View<real_t *, layout, memory_space>::host_mirror_space;
 
   template <class OwnershipTag>
-  using memory_traits =
-      std::conditional_t<std::is_same_v<OwnershipTag, ManagedTag>,
-                         Kokkos::MemoryTraits<0>,
-                         Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+  using memory_traits = std::conditional_t<std::is_same_v<OwnershipTag, ManagedTag>,
+                                           Kokkos::MemoryTraits<0>,
+                                           Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
 
   template <class DataType, class OwnershipTag>
   using view_t =
-      Kokkos::View<DataType, layout, memory_space,
-                   memory_traits<OwnershipTag>>;
+      Kokkos::View<DataType, layout, memory_space, memory_traits<OwnershipTag>>;
 
   template <class DataType, class OwnershipTag>
   using host_view_t =
-      Kokkos::View<DataType, layout, host_mirror_space,
-                   memory_traits<OwnershipTag>>;
+      Kokkos::View<DataType, layout, host_mirror_space, memory_traits<OwnershipTag>>;
 
   // Unfolding factory methods
   template <class CoreLike>
@@ -68,17 +67,21 @@ struct TensorTraits {
   }
 
   template <class CoreLike>
-  static KOKKOS_FORCEINLINE_FUNCTION auto GetHorizontalUnfolding(const CoreLike &core, int nl, int nd, int nr) {
-    return tensor::horizontal_unfolding<CoreLike, false, DFastestMoving>(core, nl, nd, nr);
+  static KOKKOS_FORCEINLINE_FUNCTION auto GetHorizontalUnfolding(const CoreLike &core,
+                                                                 int nl, int nd, int nr) {
+    return tensor::horizontal_unfolding<CoreLike, false, DFastestMoving>(core, nl, nd,
+                                                                         nr);
   }
 
   template <class CoreLike>
-  static KOKKOS_FORCEINLINE_FUNCTION auto GetHorizontalUnfoldingTranspose(const CoreLike &core) {
+  static KOKKOS_FORCEINLINE_FUNCTION auto
+  GetHorizontalUnfoldingTranspose(const CoreLike &core) {
     return tensor::horizontal_unfolding<CoreLike, true, DFastestMoving>(core);
   }
 
   template <class CoreLike>
-  static KOKKOS_FORCEINLINE_FUNCTION auto GetHorizontalUnfoldingTranspose(const CoreLike &core, int nl, int nd, int nr) {
+  static KOKKOS_FORCEINLINE_FUNCTION auto
+  GetHorizontalUnfoldingTranspose(const CoreLike &core, int nl, int nd, int nr) {
     return tensor::horizontal_unfolding<CoreLike, true, DFastestMoving>(core, nl, nd, nr);
   }
 
@@ -88,24 +91,29 @@ struct TensorTraits {
   }
 
   template <class CoreLike>
-  static KOKKOS_FORCEINLINE_FUNCTION auto GetVerticalUnfolding(const CoreLike &core, int nl, int nd, int nr) {
+  static KOKKOS_FORCEINLINE_FUNCTION auto GetVerticalUnfolding(const CoreLike &core,
+                                                               int nl, int nd, int nr) {
     return tensor::vertical_unfolding<CoreLike, false>(core, nl, nd, nr);
   }
 
   template <class CoreLike>
-  static KOKKOS_FORCEINLINE_FUNCTION auto GetVerticalUnfoldingTranspose(const CoreLike &core) {
+  static KOKKOS_FORCEINLINE_FUNCTION auto
+  GetVerticalUnfoldingTranspose(const CoreLike &core) {
     return tensor::vertical_unfolding<CoreLike, true>(core);
   }
 
   template <class CoreLike>
-  static KOKKOS_FORCEINLINE_FUNCTION auto GetVerticalUnfoldingTranspose(const CoreLike &core, int nl, int nd, int nr) {
+  static KOKKOS_FORCEINLINE_FUNCTION auto
+  GetVerticalUnfoldingTranspose(const CoreLike &core, int nl, int nd, int nr) {
     return tensor::vertical_unfolding<CoreLike, true>(core, nl, nd, nr);
   }
 };
 
 // Explicit layout traits
-using FiberTTraits = TensorTraits<Kokkos::Device<DevExecSpace, DevMemSpace>, Real, Kokkos::LayoutRight, true>;
-using ContiguousTTraits = TensorTraits<Kokkos::Device<DevExecSpace, DevMemSpace>, Real, Kokkos::LayoutRight, false>;
+using FiberTTraits = TensorTraits<Kokkos::Device<DevExecSpace, DevMemSpace>, Real,
+                                  Kokkos::LayoutRight, true>;
+using ContiguousTTraits = TensorTraits<Kokkos::Device<DevExecSpace, DevMemSpace>, Real,
+                                       Kokkos::LayoutRight, false>;
 
 // Default traits (currently fiber storage, but could be made context-dependent later)
 using DefaultTTraits = FiberTTraits;
@@ -117,10 +125,14 @@ using DefaultTTraits = FiberTTraits;
 namespace tensor {
 
 // Forward declarations for StorageFor
-template <class TTraits> class FiberStorageHost;
-template <class TTraits> class FiberStorageDevice;
-template <class TTraits> class ContiguousStorageHost;
-template <class TTraits> class ContiguousStorageDevice;
+template <class TTraits>
+class FiberStorageHost;
+template <class TTraits>
+class FiberStorageDevice;
+template <class TTraits>
+class ContiguousStorageHost;
+template <class TTraits>
+class ContiguousStorageDevice;
 
 } // namespace tensor
 
@@ -128,16 +140,16 @@ template <class TTraits> class ContiguousStorageDevice;
 // This selects FiberStorage for dd-fastest (d_fastest_moving=true)
 // and ContiguousStorage for rr-fastest (d_fastest_moving=false)
 template <class TTraits>
-using StorageFor = std::conditional_t<TTraits::d_fastest_moving,
-                                      tensor::FiberStorageHost<TTraits>,
-                                      tensor::ContiguousStorageHost<TTraits>>;
+using StorageFor =
+    std::conditional_t<TTraits::d_fastest_moving, tensor::FiberStorageHost<TTraits>,
+                       tensor::ContiguousStorageHost<TTraits>>;
 
 namespace tensor {
 
 // FiberView is the fundamental 1D storage unit for tensor-core data.
 template <class TTraits, class OwnershipTag>
 using FiberView =
-    typename TTraits::template view_t<typename TTraits::real_t*, OwnershipTag>;
+    typename TTraits::template view_t<typename TTraits::real_t *, OwnershipTag>;
 
 // FiberStorageDevice: Device-side storage policy using fiber-based (view-of-views) layout
 // Extracted from TensorCoreDeviceT. This is a lightweight unmanaged descriptor
@@ -149,7 +161,8 @@ class FiberStorageDevice {
   using traits = TTraits;
   using real_t = typename TTraits::real_t;
   using fiber_unmanaged_t = FiberView<TTraits, UnmanagedTag>;
-  using fibers_view_t = typename TTraits::template view_t<fiber_unmanaged_t**, UnmanagedTag>;
+  using fibers_view_t =
+      typename TTraits::template view_t<fiber_unmanaged_t **, UnmanagedTag>;
 
  private:
   fibers_view_t fibers;
@@ -164,9 +177,7 @@ class FiberStorageDevice {
       : fibers(fibers_in), lr(lr_in), dd(dd_in), rr(rr_in) {}
 
   KOKKOS_INLINE_FUNCTION
-  real_t &operator()(int alpha, int j, int beta) const {
-    return fibers(alpha, beta)(j);
-  }
+  real_t &operator()(int alpha, int j, int beta) const { return fibers(alpha, beta)(j); }
 
   KOKKOS_INLINE_FUNCTION int LR() const { return lr; }
   KOKKOS_INLINE_FUNCTION int DD() const { return dd; }
@@ -184,11 +195,11 @@ class FiberStorageHost {
   using fiber_managed_t = FiberView<TTraits, ManagedTag>;
   using fiber_unmanaged_t = FiberView<TTraits, UnmanagedTag>;
   using host_fibers_view_t =
-      typename TTraits::template host_view_t<fiber_managed_t**, ManagedTag>;
+      typename TTraits::template host_view_t<fiber_managed_t **, ManagedTag>;
   using device_managed_fibers_view_t =
-      typename TTraits::template view_t<fiber_unmanaged_t**, ManagedTag>;
+      typename TTraits::template view_t<fiber_unmanaged_t **, ManagedTag>;
   using device_unmanaged_fibers_view_t =
-      typename TTraits::template view_t<fiber_unmanaged_t**, UnmanagedTag>;
+      typename TTraits::template view_t<fiber_unmanaged_t **, UnmanagedTag>;
 
  private:
   int lr{0}, dd{0}, rr{0};
@@ -200,9 +211,8 @@ class FiberStorageHost {
 
   void Allocate(int lr_in, int dd_in, int rr_in) {
     dd = dd_in;
-    RebuildOuterViews(lr_in, rr_in, [dd_in](int, int) {
-      return fiber_managed_t("fiber_m", dd_in);
-    });
+    RebuildOuterViews(lr_in, rr_in,
+                      [dd_in](int, int) { return fiber_managed_t("fiber_m", dd_in); });
   }
 
   void CopyFrom(const FiberStorageHost &other) {
@@ -214,18 +224,16 @@ class FiberStorageHost {
       device_managed_fibers = device_managed_fibers_view_t();
       return;
     }
-    RebuildOuterViews(other.lr, other.rr, [&](int l, int r) {
-      return other.host_fibers(l, r);
-    });
+    RebuildOuterViews(other.lr, other.rr,
+                      [&](int l, int r) { return other.host_fibers(l, r); });
   }
 
   void ReduceSize(int lr_new, int rr_new) {
     PARTHENON_REQUIRE(lr_new <= lr && rr_new <= rr,
                       "Target sizes must be smaller than original sizes.");
     auto old_host_fibers = host_fibers;
-    RebuildOuterViews(lr_new, rr_new, [&](int l, int r) {
-      return old_host_fibers(l, r);
-    });
+    RebuildOuterViews(lr_new, rr_new,
+                      [&](int l, int r) { return old_host_fibers(l, r); });
   }
 
   // Release all fiber storage, leaving a rank-(0 x 0) core that owns no data. The
@@ -279,7 +287,8 @@ class FiberStorageHost {
     rr = rr_new;
 
     host_fibers = host_fibers_view_t(ViewOfViewAlloc<HostMemSpace>("fibers_m"), lr, rr);
-    device_managed_fibers = device_managed_fibers_view_t(ViewOfViewAlloc("fibers_u"), lr, rr);
+    device_managed_fibers =
+        device_managed_fibers_view_t(ViewOfViewAlloc("fibers_u"), lr, rr);
 
     auto device_managed_fibers_h = Kokkos::create_mirror_view(device_managed_fibers);
 
@@ -319,9 +328,9 @@ class UnmanagedStorageDevice {
   KOKKOS_INLINE_FUNCTION
   real_t &operator()(int alpha, int j, int beta) const {
     if constexpr (TTraits::d_fastest_moving) {
-      return scratch[rr * dd * alpha + dd * beta + j];  // [lr][rr][dd]
+      return scratch[rr * dd * alpha + dd * beta + j]; // [lr][rr][dd]
     } else {
-      return scratch[rr * dd * alpha + rr * j + beta];  // [lr][dd][rr]
+      return scratch[rr * dd * alpha + rr * j + beta]; // [lr][dd][rr]
     }
   }
 
@@ -336,7 +345,7 @@ class ContiguousStorageDevice {
  public:
   using traits = TTraits;
   using real_t = typename TTraits::real_t;
-  using data_view_t = typename TTraits::template view_t<real_t***, UnmanagedTag>;
+  using data_view_t = typename TTraits::template view_t<real_t ***, UnmanagedTag>;
 
  private:
   data_view_t data;
@@ -352,7 +361,7 @@ class ContiguousStorageDevice {
 
   KOKKOS_INLINE_FUNCTION
   real_t &operator()(int alpha, int j, int beta) const {
-    return data(alpha, j, beta);  // [lr][dd][rr] with rr stride-1
+    return data(alpha, j, beta); // [lr][dd][rr] with rr stride-1
   }
 
   KOKKOS_INLINE_FUNCTION int LR() const { return lr; }
@@ -366,8 +375,8 @@ class ContiguousStorageHost {
  public:
   using traits = TTraits;
   using real_t = typename TTraits::real_t;
-  using data_managed_t = typename TTraits::template view_t<real_t***, ManagedTag>;
-  using data_unmanaged_t = typename TTraits::template view_t<real_t***, UnmanagedTag>;
+  using data_managed_t = typename TTraits::template view_t<real_t ***, ManagedTag>;
+  using data_unmanaged_t = typename TTraits::template view_t<real_t ***, UnmanagedTag>;
 
  private:
   data_managed_t data;
@@ -396,10 +405,8 @@ class ContiguousStorageHost {
     PARTHENON_REQUIRE(lr_new <= lr && rr_new <= rr,
                       "Target sizes must be smaller than original sizes.");
     auto new_data = data_managed_t("tensor_core_contiguous", lr_new, dd, rr_new);
-    auto old_sub = Kokkos::subview(data,
-                                    std::make_pair(0, lr_new),
-                                    Kokkos::ALL,
-                                    std::make_pair(0, rr_new));
+    auto old_sub = Kokkos::subview(data, std::make_pair(0, lr_new), Kokkos::ALL,
+                                   std::make_pair(0, rr_new));
     Kokkos::deep_copy(new_data, old_sub);
     data = new_data;
     lr = lr_new;
@@ -434,4 +441,4 @@ class ContiguousStorageHost {
 
 } // namespace parthenon
 
-#endif // TENSOR_TT_TRAITS_HPP
+#endif // TENSORS_TT_TRAITS_HPP_

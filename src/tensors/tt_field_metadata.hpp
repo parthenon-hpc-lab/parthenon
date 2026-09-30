@@ -11,10 +11,13 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef TENSORS_TT_FIELD_METADATA_HPP
-#define TENSORS_TT_FIELD_METADATA_HPP
+// This file was made in part with generative AI.
+
+#ifndef TENSORS_TT_FIELD_METADATA_HPP_
+#define TENSORS_TT_FIELD_METADATA_HPP_
 
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "interface/metadata.hpp"
@@ -56,8 +59,7 @@ struct TTFieldMetadata {
     return CoreIndexers(wpmb.lock().get(), coarse);
   }
 
-  std::vector<Indexer6D> CoreIndexers(MeshBlock *pmb,
-                                      bool coarse = false) const {
+  std::vector<Indexer6D> CoreIndexers(MeshBlock *pmb, bool coarse = false) const {
     const auto dims = metadata.GetArrayDims(pmb, coarse);
     std::vector<Indexer6D> out;
     out.reserve(NCores());
@@ -71,4 +73,4 @@ struct TTFieldMetadata {
 
 } // namespace parthenon
 
-#endif // TENSORS_TT_FIELD_METADATA_HPP
+#endif // TENSORS_TT_FIELD_METADATA_HPP_

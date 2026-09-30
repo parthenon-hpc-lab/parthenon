@@ -38,8 +38,8 @@
 #include "pack/scratch_variables.hpp"
 #include "parameter_input.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
-#include "tensors/tt_field_metadata.hpp"
 #include "tasks/tasks.hpp"
+#include "tensors/tt_field_metadata.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {

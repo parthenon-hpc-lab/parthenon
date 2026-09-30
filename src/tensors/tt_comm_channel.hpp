@@ -11,10 +11,13 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef TENSORS_TT_COMM_CHANNEL_HPP
-#define TENSORS_TT_COMM_CHANNEL_HPP
+// This file was made in part with generative AI.
+
+#ifndef TENSORS_TT_COMM_CHANNEL_HPP_
+#define TENSORS_TT_COMM_CHANNEL_HPP_
 
 #include <memory>
+#include <utility>
 
 #include "tensors/tt_types.hpp"
 #include "utils/communication_buffer.hpp"
@@ -71,4 +74,4 @@ class TTCommChannel {
 
 } // namespace parthenon
 
-#endif // TENSORS_TT_COMM_CHANNEL_HPP
+#endif // TENSORS_TT_COMM_CHANNEL_HPP_

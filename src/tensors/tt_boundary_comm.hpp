@@ -11,8 +11,10 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef TENSORS_TT_BOUNDARY_COMM_HPP
-#define TENSORS_TT_BOUNDARY_COMM_HPP
+// This file was made in part with generative AI.
+
+#ifndef TENSORS_TT_BOUNDARY_COMM_HPP_
+#define TENSORS_TT_BOUNDARY_COMM_HPP_
 
 #include <memory>
 #include <vector>
@@ -27,10 +29,10 @@ namespace parthenon {
 // boundary, derive the sender's interior-send box and the receiver's exterior-recv box
 // (via CalcIndices + the reverse-neighbor descriptor), store the two indexers plus the
 // whole-block extents as a TTBndInfo, and ensure a TTCommChannel exists in
-// mesh->tt_comm_map for each boundary (recorded by index in cache.channels). The result is
-// a single flat device array for one batched Send launch. Identity-transform, same-level
-// boundaries only for now (Step 6 scope); asserts otherwise. Rebuilds when the mesh
-// channel-map epoch has advanced (i.e. after (re)mesh).
+// mesh->tt_comm_map for each boundary (recorded by index in cache.channels). The result
+// is a single flat device array for one batched Send launch. Identity-transform,
+// same-level boundaries only for now (Step 6 scope); asserts otherwise. Rebuilds when the
+// mesh channel-map epoch has advanced (i.e. after (re)mesh).
 TaskStatus BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md);
 
 // Build the boundary "addend" trains: one whole-block train per cached boundary, holding
@@ -43,12 +45,13 @@ TaskStatus BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md);
 std::vector<std::shared_ptr<tensor::TensorTrain>>
 BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cache);
 
-// TT boundary communication (single rank, same-level). Send builds the per-boundary addend
-// trains (BuildBoundaryTensors), rounds each, and deposits them into the send channels via
-// the cache. Only the send side needs the cache. Receive/Set look their channels up inline
-// by ReceiveKey: Set is a pure additive combine that sums each received addend into the
-// destination block's train, rounds once per block, and stales the channel -- no index
-// math on the receive side. The cache must be current (BuildTTBoundaryCache after (re)mesh).
+// TT boundary communication (single rank, same-level). Send builds the per-boundary
+// addend trains (BuildBoundaryTensors), rounds each, and deposits them into the send
+// channels via the cache. Only the send side needs the cache. Receive/Set look their
+// channels up inline by ReceiveKey: Set is a pure additive combine that sums each
+// received addend into the destination block's train, rounds once per block, and stales
+// the channel -- no index math on the receive side. The cache must be current
+// (BuildTTBoundaryCache after (re)mesh).
 TaskStatus TTSend(std::shared_ptr<MeshTTData> &md, Real round_eps);
 
 // Try to receive every boundary's addend. Returns true once all receive channels have
@@ -59,4 +62,4 @@ TaskStatus TTSetBounds(std::shared_ptr<MeshTTData> &md, Real round_eps);
 
 } // namespace parthenon
 
-#endif // TENSORS_TT_BOUNDARY_COMM_HPP
+#endif // TENSORS_TT_BOUNDARY_COMM_HPP_

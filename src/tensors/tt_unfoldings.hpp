@@ -11,8 +11,10 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef TENSORS_TT_UNFOLDINGS_HPP
-#define TENSORS_TT_UNFOLDINGS_HPP
+// This file was made in part with generative AI.
+
+#ifndef TENSORS_TT_UNFOLDINGS_HPP_
+#define TENSORS_TT_UNFOLDINGS_HPP_
 
 #include "kokkos_abstraction.hpp"
 
@@ -33,7 +35,7 @@ struct vertical_unfolding {
   const CoreLike &core;
   int nl, nd, nr;
 
-  vertical_unfolding(const CoreLike &core_in)
+  explicit vertical_unfolding(const CoreLike &core_in)
       : core(core_in), nl(core_in.LR()), nd(core_in.DD()), nr(core_in.RR()) {}
 
   vertical_unfolding(const CoreLike &core_in, int nl, int nd, int nr)
@@ -60,7 +62,7 @@ struct horizontal_unfolding {
   const CoreLike &core;
   int nl, nd, nr;
 
-  horizontal_unfolding(const CoreLike &core_in)
+  explicit horizontal_unfolding(const CoreLike &core_in)
       : core(core_in), nl(core_in.LR()), nd(core_in.DD()), nr(core_in.RR()) {}
 
   horizontal_unfolding(const CoreLike &core_in, int nl, int nd, int nr)
@@ -98,30 +100,28 @@ struct horizontal_unfolding {
 
 // Helper functions to get matrix dimensions
 template <class T, bool transpose>
-KOKKOS_FORCEINLINE_FUNCTION
-int GetNrows(const vertical_unfolding<T, transpose> &m) {
+KOKKOS_FORCEINLINE_FUNCTION int GetNrows(const vertical_unfolding<T, transpose> &m) {
   return transpose ? m.nr : m.nd * m.nl;
 }
 
 template <class T, bool transpose>
-KOKKOS_FORCEINLINE_FUNCTION
-int GetNcols(const vertical_unfolding<T, transpose> &m) {
+KOKKOS_FORCEINLINE_FUNCTION int GetNcols(const vertical_unfolding<T, transpose> &m) {
   return transpose ? m.nd * m.nl : m.nr;
 }
 
 template <class T, bool transpose, bool d_fastest_moving>
-KOKKOS_FORCEINLINE_FUNCTION
-int GetNrows(const horizontal_unfolding<T, transpose, d_fastest_moving> &m) {
+KOKKOS_FORCEINLINE_FUNCTION int
+GetNrows(const horizontal_unfolding<T, transpose, d_fastest_moving> &m) {
   return transpose ? m.nd * m.nr : m.nl;
 }
 
 template <class T, bool transpose, bool d_fastest_moving>
-KOKKOS_FORCEINLINE_FUNCTION
-int GetNcols(const horizontal_unfolding<T, transpose, d_fastest_moving> &m) {
+KOKKOS_FORCEINLINE_FUNCTION int
+GetNcols(const horizontal_unfolding<T, transpose, d_fastest_moving> &m) {
   return transpose ? m.nl : m.nd * m.nr;
 }
 
 } // namespace tensor
 } // namespace parthenon
 
-#endif // TENSORS_TT_UNFOLDINGS_HPP
+#endif // TENSORS_TT_UNFOLDINGS_HPP_

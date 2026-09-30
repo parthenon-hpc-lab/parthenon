@@ -11,6 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -25,8 +27,8 @@
 #include "interface/packages.hpp"
 #include "interface/state_descriptor.hpp"
 #include "mesh/domain.hpp"
-#include "mesh/meshblock.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/meshblock.hpp"
 #include "tensors/tt_comm_channel.hpp"
 #include "tensors/tt_container.hpp"
 #include "tensors/tt_field_metadata.hpp"
@@ -82,9 +84,7 @@ TEST_CASE("Tensor-train fields register and resolve", "[TTField]") {
       Packages_t packages;
       packages.Add(pkg);
       packages.Add(pkg2);
-      THEN("Resolution raises an error") {
-        REQUIRE_THROWS(ResolvePackages(packages));
-      }
+      THEN("Resolution raises an error") { REQUIRE_THROWS(ResolvePackages(packages)); }
     }
   }
 }
@@ -97,8 +97,9 @@ TEST_CASE("Tensor-train containers build trains from a block", "[TTField]") {
     constexpr int NDIM = 2;
 
     auto pkg = std::make_shared<StateDescriptor>("tt_test");
-    pkg->AddTTField(
-        "I", TTFieldMetadata({NTHETA, NPHI}, Metadata({Metadata::Cell, Metadata::Independent})));
+    pkg->AddTTField("I",
+                    TTFieldMetadata({NTHETA, NPHI},
+                                    Metadata({Metadata::Cell, Metadata::Independent})));
     Packages_t packages;
     packages.Add(pkg);
     auto resolved = ResolvePackages(packages);
@@ -164,8 +165,9 @@ TEST_CASE("MeshTTData assembles over a block partition", "[TTField]") {
     constexpr int NBLOCKS = 3;
 
     auto pkg = std::make_shared<StateDescriptor>("tt_test");
-    pkg->AddTTField(
-        "I", TTFieldMetadata({NTHETA, NPHI}, Metadata({Metadata::Cell, Metadata::Independent})));
+    pkg->AddTTField("I",
+                    TTFieldMetadata({NTHETA, NPHI},
+                                    Metadata({Metadata::Cell, Metadata::Independent})));
     Packages_t packages;
     packages.Add(pkg);
     auto resolved = ResolvePackages(packages);
@@ -190,8 +192,7 @@ TEST_CASE("MeshTTData assembles over a block partition", "[TTField]") {
         for (int b = 0; b < NBLOCKS; ++b) {
           REQUIRE(md.GetBlockData(b)->Contains("I"));
           // The MeshTTData stage aliases each block's own base container.
-          REQUIRE(md.GetBlockData(b).get() ==
-                  block_list[b]->tt_block_data.Get().get());
+          REQUIRE(md.GetBlockData(b).get() == block_list[b]->tt_block_data.Get().get());
         }
       }
 
@@ -335,16 +336,15 @@ namespace {
 using parthenon::Metadata;
 using parthenon::MetadataFlag;
 using var_sptr = std::shared_ptr<parthenon::TTVariable>;
-static_assert(std::is_same_v<decltype(std::declval<var_sptr>()->label()),
-                             const std::string &>,
-              "TTVariable must expose label().");
-static_assert(std::is_same_v<decltype(std::declval<var_sptr>()->IsSet(
-                                 std::declval<MetadataFlag>())),
-                             bool>,
-              "TTVariable must expose IsSet(MetadataFlag).");
 static_assert(
-    std::is_same_v<decltype(std::declval<var_sptr>()->GetDim(4)), int>,
-    "TTVariable must expose GetDim(int).");
+    std::is_same_v<decltype(std::declval<var_sptr>()->label()), const std::string &>,
+    "TTVariable must expose label().");
+static_assert(
+    std::is_same_v<
+        decltype(std::declval<var_sptr>()->IsSet(std::declval<MetadataFlag>())), bool>,
+    "TTVariable must expose IsSet(MetadataFlag).");
+static_assert(std::is_same_v<decltype(std::declval<var_sptr>()->GetDim(4)), int>,
+              "TTVariable must expose GetDim(int).");
 } // namespace
 
 TEST_CASE("TT types drive the boundary-comm templates", "[TTField]") {

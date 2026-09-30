@@ -11,11 +11,14 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef TENSORS_TT_PACK_HPP
-#define TENSORS_TT_PACK_HPP
+// This file was made in part with generative AI.
 
-#include <string>
+#ifndef TENSORS_TT_PACK_HPP_
+#define TENSORS_TT_PACK_HPP_
+
 #include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "kokkos_abstraction.hpp"
@@ -73,14 +76,14 @@ class VarBlockGrid {
 template <class TTraits, class... var_ts>
 struct TensorPackT {
   using train_t = TensorTrainT<TTraits>;
-  using device_core_t = std::conditional_t<
-    TTraits::d_fastest_moving,
-    TensorCoreDeviceT<TTraits, FiberStorageDevice<TTraits>>,
-    TensorCoreDeviceT<TTraits, ContiguousStorageDevice<TTraits>>>;
+  using device_core_t =
+      std::conditional_t<TTraits::d_fastest_moving,
+                         TensorCoreDeviceT<TTraits, FiberStorageDevice<TTraits>>,
+                         TensorCoreDeviceT<TTraits, ContiguousStorageDevice<TTraits>>>;
 
-  using view_t = typename TTraits::template view_t<device_core_t***, ManagedTag>;
-  using dims_host_view_t = typename TTraits::template host_view_t<int*, ManagedTag>;
-  using indexer_view_t = typename TTraits::template view_t<Indexer6D*, ManagedTag>;
+  using view_t = typename TTraits::template view_t<device_core_t ***, ManagedTag>;
+  using dims_host_view_t = typename TTraits::template host_view_t<int *, ManagedTag>;
+  using indexer_view_t = typename TTraits::template view_t<Indexer6D *, ManagedTag>;
 
   view_t cores; // (nblocks, nvars, ncores)
   dims_host_view_t physical_dims_h;
@@ -91,7 +94,8 @@ struct TensorPackT {
   KOKKOS_INLINE_FUNCTION int GetNVars() const { return cores.extent_int(1); }
   KOKKOS_INLINE_FUNCTION int GetNCores() const { return cores.extent_int(2); }
 
-  // Logical physical indexer for core slot c (shared by every block/variable in the pack).
+  // Logical physical indexer for core slot c (shared by every block/variable in the
+  // pack).
   KOKKOS_INLINE_FUNCTION const Indexer6D &indexer(int c) const { return indexers(c); }
 
   int GetPhysicalDimension(int dim) const { return physical_dims_h(dim); }
@@ -103,7 +107,7 @@ struct TensorPackT {
   }
 
   // Single-variable pack from a batch of trains (one per block).
-  TensorPackT(const std::vector<TensorTrainT<TTraits>> &trains) {
+  explicit TensorPackT(const std::vector<TensorTrainT<TTraits>> &trains) {
     PARTHENON_REQUIRE(!trains.empty(),
                       "Cannot construct a TensorPackT from an empty train vector.");
     VarBlockGrid<const train_t *> grid(1, trains.size());
@@ -113,7 +117,7 @@ struct TensorPackT {
   }
 
   // Single-variable pack from a batch of (non-owning) train pointers.
-  TensorPackT(const std::vector<const TensorTrainT<TTraits> *> &train_ptrs) {
+  explicit TensorPackT(const std::vector<const TensorTrainT<TTraits> *> &train_ptrs) {
     PARTHENON_REQUIRE(!train_ptrs.empty(),
                       "Cannot construct a TensorPackT from an empty train pointer list.");
     VarBlockGrid<const train_t *> grid(1, train_ptrs.size());
@@ -165,8 +169,9 @@ struct TensorPackT {
         PARTHENON_REQUIRE(train->NCores() == ncores_per_train,
                           "All trains in a pack must have the same number of cores.");
         for (int c = 0; c < ncores_per_train; ++c) {
-          PARTHENON_REQUIRE(train->GetPhysicalDimension(c) == physical_dims_h(c),
-                            "All trains in a pack must have the same physical dimensions.");
+          PARTHENON_REQUIRE(
+              train->GetPhysicalDimension(c) == physical_dims_h(c),
+              "All trains in a pack must have the same physical dimensions.");
           cores_h(b, v, c) = train->GetCoreHost(c).GetTensorCoreDevice();
         }
       }
@@ -278,7 +283,9 @@ class TensorTrainHostPackT {
 
   // Tag-based variable indexing: pack(b, my_field{}).
   template <class var_t>
-  train_t &operator()(int b, const var_t &) { return *grid_(VarIndex<var_t>(), b); }
+  train_t &operator()(int b, const var_t &) {
+    return *grid_(VarIndex<var_t>(), b);
+  }
   template <class var_t>
   const train_t &operator()(int b, const var_t &) const {
     return *grid_(VarIndex<var_t>(), b);
@@ -335,4 +342,4 @@ using TensorTrainHostPackContiguous = TensorTrainHostPackT<ContiguousTTraits>;
 } // namespace tensor
 } // namespace parthenon
 
-#endif // TENSORS_TT_PACK_HPP
+#endif // TENSORS_TT_PACK_HPP_
