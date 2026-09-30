@@ -315,6 +315,11 @@ add_library(parthenon
   time_integration/low_storage_integrator.cpp
   time_integration/staged_integrator.cpp
   time_integration/staged_integrator.hpp
+  tensors/tt_operations.hpp
+  tensors/tt_pack.hpp
+  tensors/tt_traits.hpp
+  tensors/tt_types.hpp
+  tensors/tt_unfoldings.hpp
 
   utils/alias_method.cpp
   utils/alias_method.hpp
