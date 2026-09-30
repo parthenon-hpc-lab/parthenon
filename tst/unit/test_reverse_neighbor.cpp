@@ -11,7 +11,9 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// Step 6a: GetInverseTransform and the ReverseNeighbor descriptor. Verifies the transform
+// This file was made in part with generative AI.
+
+// GetInverseTransform and the ReverseNeighbor descriptor. Verifies the transform
 // inverse behaviorally, and -- on a single rank where the neighbor is itself a live block
 // holding a back-pointing NeighborBlock -- that ReverseNeighbor(BlockInfo(A), nb_A->B)
 // reproduces exactly the {BlockInfo(B), nb_B->A} the mesh built independently. Checked
@@ -81,8 +83,7 @@ std::shared_ptr<Mesh> MakeRefinedMesh(ApplicationInput *app_in, Packages_t &pack
 }
 
 // A 2D two-tree forest whose second tree is glued on with a rotated/flipped orientation,
-// so the cross-tree logical coordinate transformation is non-trivial. Mirrors the gold
-// test's forest construction.
+// so the cross-tree logical coordinate transformation is non-trivial.
 std::shared_ptr<Mesh> MakeForestMesh(ApplicationInput *app_in, Packages_t &packages) {
   using forest::Node;
   using ar3_t = std::array<Real, 3>;

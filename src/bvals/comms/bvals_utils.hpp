@@ -51,8 +51,8 @@ inline std::string GetLabel(Mesh::channel_key_t &key) {
          ", var: " + GetVariable(key) + ", location: " + std::to_string(GetLocIdx(key)) +
          ", other:" + std::to_string(GetOther(key));
 }
-// SendKey/ReceiveKey are templated on the field type: they only need field->label(),
-// which both std::shared_ptr<Variable<Real>> and a TensorTrain shared_ptr provide.
+// SendKey/ReceiveKey are templated on the field type since they only need
+// field->label().
 template <class Field>
 inline Mesh::channel_key_t SendKey(const MeshBlock *pmb, const NeighborBlock &nb,
                                    const Field &pcv, BoundaryType btype, int id) {
