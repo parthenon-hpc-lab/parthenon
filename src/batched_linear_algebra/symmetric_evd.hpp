@@ -11,14 +11,23 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef SYMMETRIC_EVD_HPP
-#define SYMMETRIC_EVD_HPP
+#ifndef BATCHED_LINEAR_ALGEBRA_SYMMETRIC_EVD_HPP_
+#define BATCHED_LINEAR_ALGEBRA_SYMMETRIC_EVD_HPP_
 
-#include "parthenon/parthenon.hpp"
+// This file was made in part with generative AI.
 
-#include "householder.hpp"
-#include "implicit_qr.hpp"
-#include "matrix.hpp"
+#include <cstddef>
+#include <vector>
+
+#include "batched_linear_algebra/execution_utils.hpp"
+#include "batched_linear_algebra/householder.hpp"
+#include "batched_linear_algebra/implicit_qr.hpp"
+#include "batched_linear_algebra/matrix_utils.hpp"
+#include "kokkos_abstraction.hpp"
+#include "utils/error_checking.hpp"
+
+namespace parthenon {
+namespace batched_linear_algebra {
 
 class SymmetricEVD {
  public:
@@ -67,9 +76,10 @@ class SymmetricEVD {
     auto &A = *pA;
     const int ncols = GetNcols(A);
     if (ncols == 1) {
-      if (pQ)
-        once_per_team(tm, KOKKOS_LAMBDA() { (*pQ)(0, 0) = 1.0; });
-      once_per_team(tm, KOKKOS_LAMBDA() { eigs[0] = A(0, 0); });
+      if (pQ) {
+        once_per_team(tm, [&]() { (*pQ)(0, 0) = 1.0; });
+      }
+      once_per_team(tm, [&]() { eigs[0] = A(0, 0); });
       barrier(tm);
       return 0;
     }
@@ -97,18 +107,17 @@ class SymmetricEVD {
 
     // Move to tridiagonal storage
     barrier(tm);
-    once_per_team(
-        tm, KOKKOS_LAMBDA() { eigs[0] = A(0, 0); });
-    parallel_loop(
-        tm, 0, ncols - 2, KOKKOS_LAMBDA(int i) {
-          eigs[i + 1] = A(i + 1, i + 1);
-          scratch[i] = A(i, i + 1);
-        });
+    once_per_team(tm, [&]() { eigs[0] = A(0, 0); });
+    parallel_loop(tm, 0, ncols - 2, [&](int i) {
+      eigs[i + 1] = A(i + 1, i + 1);
+      scratch[i] = A(i, i + 1);
+    });
 
     barrier(tm);
     std::size_t *start = &(iscratch[0]);
     std::size_t *end = &(iscratch[ncols / 2 + 1]);
-    const int status = ImplicitQRTridiag(tm, eigs, scratch, pQ, start, end, ncols, 10 * ncols);
+    const int status =
+        ImplicitQRTridiag(tm, eigs, scratch, pQ, start, end, ncols, 10 * ncols);
     if (status == 10 * ncols) return -status;
     return status;
   }
@@ -130,7 +139,7 @@ class SymmetricEVD {
   // Version that is only callable on host and allocates its own
   // scratch space
   template <class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int execute(matrix_t *pA, matrix_t *pQ, double *eigs) {
+  static int execute(matrix_t *pA, matrix_t *pQ, double *eigs) {
     const int ncols = GetNcols(*pA);
     std::vector<double> scratch(double_scratch_size(ncols));
     std::vector<std::size_t> iscratch(sizet_scratch_size(ncols));
@@ -138,7 +147,7 @@ class SymmetricEVD {
   }
 
   template <class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int execute(matrix_t *pA, double *eigs) {
+  static int execute(matrix_t *pA, double *eigs) {
     const int ncols = GetNcols(*pA);
     std::vector<double> scratch(double_scratch_size(ncols));
     std::vector<std::size_t> iscratch(sizet_scratch_size(ncols));
@@ -147,10 +156,12 @@ class SymmetricEVD {
   }
 
   KOKKOS_INLINE_FUNCTION
-  static std::size_t double_scratch_size(std::size_t ncols) { return 2 * ncols; }
+  static constexpr std::size_t double_scratch_size(std::size_t ncols) {
+    return 2 * ncols;
+  }
 
   KOKKOS_INLINE_FUNCTION
-  static std::size_t sizet_scratch_size(std::size_t ncols) { return ncols + 2; }
+  static constexpr std::size_t sizet_scratch_size(std::size_t ncols) { return ncols + 2; }
 
   static std::size_t total_shmem_scratch_size(std::size_t ncols) {
     return parthenon::ScratchPad1D<double>::shmem_size(double_scratch_size(ncols)) +
@@ -158,4 +169,7 @@ class SymmetricEVD {
   }
 };
 
-#endif // SYMMETRIC_EVD_HPP
+} // namespace batched_linear_algebra
+} // namespace parthenon
+
+#endif // BATCHED_LINEAR_ALGEBRA_SYMMETRIC_EVD_HPP_

@@ -190,14 +190,15 @@ add_library(parthenon
   loop_abstraction/view.hpp
   loop_abstraction/loop_abstraction.hpp
 
-  linear_algebra/givens.hpp
-  linear_algebra/householder.hpp
-  linear_algebra/implicit_qr.hpp
-  linear_algebra/matrix.cpp
-  linear_algebra/matrix.hpp
-  linear_algebra/qr_decomposition.hpp
-  linear_algebra/square_svd.hpp
-  linear_algebra/symmetric_evd.hpp
+  batched_linear_algebra/execution_utils.hpp
+  batched_linear_algebra/givens.hpp
+  batched_linear_algebra/householder.hpp
+  batched_linear_algebra/implicit_qr.hpp
+  batched_linear_algebra/matmul.hpp
+  batched_linear_algebra/matrix_utils.hpp
+  batched_linear_algebra/qr_decomposition.hpp
+  batched_linear_algebra/square_svd.hpp
+  batched_linear_algebra/symmetric_evd.hpp
 
   mesh/domain.hpp
   mesh/forest/block_ownership.cpp

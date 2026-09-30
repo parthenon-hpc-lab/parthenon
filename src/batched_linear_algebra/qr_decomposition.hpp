@@ -11,22 +11,29 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef QR_DECOMPOSITION_HPP
-#define QR_DECOMPOSITION_HPP
+#ifndef BATCHED_LINEAR_ALGEBRA_QR_DECOMPOSITION_HPP_
+#define BATCHED_LINEAR_ALGEBRA_QR_DECOMPOSITION_HPP_
 
-#include "parthenon/parthenon.hpp"
+// This file was made in part with generative AI.
 
-#include "householder.hpp"
-#include "matrix.hpp"
+#include <algorithm>
+#include <vector>
+
+#include "batched_linear_algebra/execution_utils.hpp"
+#include "batched_linear_algebra/householder.hpp"
+#include "batched_linear_algebra/matrix_utils.hpp"
+#include "kokkos_abstraction.hpp"
+#include "utils/error_checking.hpp"
+
+namespace parthenon {
+namespace batched_linear_algebra {
 
 template <class matrix_t>
 struct matrix_transpose_view_t {
   KOKKOS_INLINE_FUNCTION explicit matrix_transpose_view_t(matrix_t &mat_in)
       : mat(&mat_in) {}
 
-  KOKKOS_INLINE_FUNCTION decltype(auto) operator()(int r, int c) {
-    return (*mat)(c, r);
-  }
+  KOKKOS_INLINE_FUNCTION decltype(auto) operator()(int r, int c) { return (*mat)(c, r); }
 
   KOKKOS_INLINE_FUNCTION decltype(auto) operator()(int r, int c) const {
     return (*mat)(c, r);
@@ -88,8 +95,7 @@ class QRDecomposition {
       auto &Q = *pQ;
       const int qrows = GetNrows(Q);
       const int qcols = GetNcols(Q);
-      PARTHENON_REQUIRE(qrows == nrows,
-                        "Q must have the same number of rows as A.");
+      PARTHENON_REQUIRE(qrows == nrows, "Q must have the same number of rows as A.");
       PARTHENON_REQUIRE(qcols == nrows || qcols == ncols,
                         "Q must be either full (m x m) or thin (m x n).");
     }
@@ -104,6 +110,10 @@ class QRDecomposition {
       if (pQ) {
         once_per_team(tm, [&]() { vhead[col] = v[col]; });
         parallel_loop(tm, col + 1, nrows - 1, [&](int r) { A(r, col) = v[r]; });
+      } else {
+        // The reflector leaves O(eps ||x||) roundoff below the diagonal; these
+        // entries are zero in exact arithmetic, so set them explicitly.
+        parallel_loop(tm, col + 1, nrows - 1, [&](int r) { A(r, col) = 0.0; });
       }
     });
 
@@ -128,6 +138,7 @@ class QRDecomposition {
         });
         barrier(tm);
         apply_left_householder_transformation(tm, v, s, Q, col, 0);
+        barrier(tm);
       });
     }
 
@@ -153,7 +164,7 @@ class QRDecomposition {
   }
 
   template <class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int execute(matrix_t *pA, matrix_t *pQ) {
+  static int execute(matrix_t *pA, matrix_t *pQ) {
     const int nrows = GetNrows(*pA);
     const int ncols = GetNcols(*pA);
     std::vector<double> scratch(double_scratch_size(nrows, ncols));
@@ -161,7 +172,7 @@ class QRDecomposition {
   }
 
   template <class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int execute(matrix_t *pA) {
+  static int execute(matrix_t *pA) {
     const int nrows = GetNrows(*pA);
     const int ncols = GetNcols(*pA);
     std::vector<double> scratch(double_scratch_size(nrows, ncols));
@@ -169,13 +180,14 @@ class QRDecomposition {
     return execute(serial_tm_t(), pA, pQ, scratch.data());
   }
 
-  KOKKOS_INLINE_FUNCTION static std::size_t double_scratch_size(std::size_t nrows,
-                                                                std::size_t ncols) {
+  KOKKOS_INLINE_FUNCTION static constexpr std::size_t
+  double_scratch_size(std::size_t nrows, std::size_t ncols) {
     // v + scratch scalars + Householder heads
     return 2 * std::max(nrows, ncols) + ncols;
   }
 
-  KOKKOS_INLINE_FUNCTION static std::size_t double_scratch_size(std::size_t nrows) {
+  KOKKOS_INLINE_FUNCTION static constexpr std::size_t
+  double_scratch_size(std::size_t nrows) {
     return double_scratch_size(nrows, nrows);
   }
 
@@ -240,7 +252,7 @@ class LQDecomposition {
   }
 
   template <class matrix_a_t, class matrix_q_t>
-  KOKKOS_INLINE_FUNCTION static int execute(matrix_a_t *pA, matrix_q_t *pQ) {
+  static int execute(matrix_a_t *pA, matrix_q_t *pQ) {
     const int nrows = GetNrows(*pA);
     const int ncols = GetNcols(*pA);
     std::vector<double> scratch(QRDecomposition::double_scratch_size(ncols, nrows));
@@ -248,7 +260,7 @@ class LQDecomposition {
   }
 
   template <class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int execute(matrix_t *pA) {
+  static int execute(matrix_t *pA) {
     const int nrows = GetNrows(*pA);
     const int ncols = GetNcols(*pA);
     std::vector<double> scratch(QRDecomposition::double_scratch_size(ncols, nrows));
@@ -256,12 +268,13 @@ class LQDecomposition {
     return execute(serial_tm_t(), pA, pQ, scratch.data());
   }
 
-  KOKKOS_INLINE_FUNCTION static std::size_t double_scratch_size(std::size_t nrows,
-                                                                std::size_t ncols) {
+  KOKKOS_INLINE_FUNCTION static constexpr std::size_t
+  double_scratch_size(std::size_t nrows, std::size_t ncols) {
     return QRDecomposition::double_scratch_size(ncols, nrows);
   }
 
-  KOKKOS_INLINE_FUNCTION static std::size_t double_scratch_size(std::size_t nrows) {
+  KOKKOS_INLINE_FUNCTION static constexpr std::size_t
+  double_scratch_size(std::size_t nrows) {
     return double_scratch_size(nrows, nrows);
   }
 
@@ -274,14 +287,7 @@ class LQDecomposition {
   }
 };
 
-template <class matrix_a_t, class matrix_q_t>
-KOKKOS_FORCEINLINE_FUNCTION int QRDecomposition(matrix_a_t &A, matrix_q_t &Q) {
-  return ::QRDecomposition::execute(&A, &Q);
-}
+} // namespace batched_linear_algebra
+} // namespace parthenon
 
-template <class matrix_a_t, class matrix_q_t>
-KOKKOS_FORCEINLINE_FUNCTION int LQDecomposition(matrix_a_t &A, matrix_q_t &Q) {
-  return ::LQDecomposition::execute(&A, &Q);
-}
-
-#endif // QR_DECOMPOSITION_HPP
+#endif // BATCHED_LINEAR_ALGEBRA_QR_DECOMPOSITION_HPP_

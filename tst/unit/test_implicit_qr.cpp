@@ -1,14 +1,31 @@
+//========================================================================================
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
+//
+// This program was produced under U.S. Government contract 89233218CNA000001 for Los
+// Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+// for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+// in the program are reserved by Triad National Security, LLC, and the U.S. Department
+// of Energy/National Nuclear Security Administration. The Government is granted for
+// itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+// license in this material to reproduce, prepare derivative works, distribute copies to
+// the public, perform publicly and display publicly, and to permit others to do so.
+//========================================================================================
+
+// This file was made in part with generative AI.
+
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <numeric>
 #include <random>
 #include <vector>
 
-// #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch.hpp>
 
-#include "linear_algebra/matrix.hpp"
-#include "linear_algebra/symmetric_evd.hpp"
+#include "batched_linear_algebra/symmetric_evd.hpp"
+#include "linalg_test_utils.hpp"
+
+using namespace parthenon::batched_linear_algebra; // NOLINT(build/namespaces)
 
 static double FrobeniusNorm(const Matrix &A) {
   double s = 0.0;

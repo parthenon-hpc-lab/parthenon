@@ -11,14 +11,21 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef GIVENS_HPP
-#define GIVENS_HPP
+#ifndef BATCHED_LINEAR_ALGEBRA_GIVENS_HPP_
+#define BATCHED_LINEAR_ALGEBRA_GIVENS_HPP_
 
+// This file was made in part with generative AI.
+
+#include <algorithm>
 #include <cmath>
 #include <utility>
 
-#include "matrix.hpp"
+#include "batched_linear_algebra/execution_utils.hpp"
+#include "batched_linear_algebra/matrix_utils.hpp"
 #include "utils/robust.hpp"
+
+namespace parthenon {
+namespace batched_linear_algebra {
 
 // Returns the 2x2 unitary matrix components
 // sigma = [c -s]
@@ -57,7 +64,7 @@ auto ComputeGivensDiagonalize2by2(double d1, double d2, double b1) {
   const double s = -1.0 / std::sqrt(1.0 + tau * tau);
   const double c = -tau * s;
   return std::make_pair(c, s);
-} 
+}
 
 struct SVD2by2Result {
   double smin;
@@ -71,7 +78,7 @@ struct SVD2by2Result {
 KOKKOS_FORCEINLINE_FUNCTION
 SVD2by2Result ComputeSVD2by2UpperTriangular(double a11, double a12, double a22) {
   using namespace parthenon::robust;
-  // Scale the matrix to order unity 
+  // Scale the matrix to order unity
   double scale = std::max(std::max(std::abs(a11), std::abs(a22)), std::abs(a12));
   if (scale == 0.0) return SVD2by2Result{0, 0, 0, 1, 0, 1};
 
@@ -100,7 +107,7 @@ SVD2by2Result ComputeSVD2by2UpperTriangular(double a11, double a12, double a22) 
   SVD2by2Result out;
   out.smax = scale * aa;
   out.smin = ratio(scale * a11 * a22, aa);
-  
+
   // First right singular vector v1 is proportional to
   // [a11 * a12, -(sigma_max^2 - a11^2)]
   double xr = a11 * a12;
@@ -118,7 +125,7 @@ SVD2by2Result ComputeSVD2by2UpperTriangular(double a11, double a12, double a22) 
   const double sl = ratio(a22 * sr, aa);
   // Renormalize for floating-point safety
   const double norml = std::hypot(cl, sl);
-  
+
   if (swap) {
     // Swapping the working-frame diagonal entries corresponds to a transpose-
     // permutation relation, so the left and right singular vectors map back
@@ -135,7 +142,7 @@ SVD2by2Result ComputeSVD2by2UpperTriangular(double a11, double a12, double a22) 
   }
 
   return out;
-}  
+}
 
 template <bool return_zero>
 KOKKOS_FORCEINLINE_FUNCTION double ValueAtIndexOrZero(int idx, double *arr) {
@@ -162,19 +169,18 @@ KOKKOS_FORCEINLINE_FUNCTION double ApplyGivensLeftRight(tm_t tm, int gidx, doubl
   const double b2 = ValueAtIndexOrZero<last>(gidx + 1, b);
 
   barrier(tm);
-  once_per_team(
-      tm, KOKKOS_LAMBDA() {
-        const double c2 = c * c;
-        const double s2 = s * s;
-        const double cs = c * s;
+  once_per_team(tm, [&]() {
+    const double c2 = c * c;
+    const double s2 = s * s;
+    const double cs = c * s;
 
-        // Apply G A G^T to the tridiagonal elements
-        d[gidx] = c2 * d1 + s2 * d2 - 2 * cs * b1;
-        d[gidx + 1] = s2 * d1 + c2 * d2 + 2 * cs * b1;
-        if constexpr (!first) b[gidx - 1] = c * b0 - s * bulge;
-        b[gidx] = cs * (d1 - d2) + (c2 - s2) * b1;
-        if constexpr (!last) b[gidx + 1] = c * b2;
-      });
+    // Apply G A G^T to the tridiagonal elements
+    d[gidx] = c2 * d1 + s2 * d2 - 2 * cs * b1;
+    d[gidx + 1] = s2 * d1 + c2 * d2 + 2 * cs * b1;
+    if constexpr (!first) b[gidx - 1] = c * b0 - s * bulge;
+    b[gidx] = cs * (d1 - d2) + (c2 - s2) * b1;
+    if constexpr (!last) b[gidx + 1] = c * b2;
+  });
   barrier(tm);
 
   // Return the value of the bulge element at the new position (gidx, gidx + 2)
@@ -194,14 +200,13 @@ KOKKOS_FORCEINLINE_FUNCTION double ApplyGivensLeft(tm_t tm, int gidx, double c, 
   const double b2 = ValueAtIndexOrZero<last>(gidx + 1, b);
 
   barrier(tm);
-  once_per_team(
-      tm, KOKKOS_LAMBDA() {
-        // Apply G A to the upper bidiagonal elements
-        d[gidx] = c * d1 - bulge * s;
-        d[gidx + 1] = c * d2 + s * b1;
-        b[gidx] = c * b1 - s * d2;
-        if constexpr (!last) b[gidx + 1] = c * b2;
-      });
+  once_per_team(tm, [&]() {
+    // Apply G A to the upper bidiagonal elements
+    d[gidx] = c * d1 - bulge * s;
+    d[gidx + 1] = c * d2 + s * b1;
+    b[gidx] = c * b1 - s * d2;
+    if constexpr (!last) b[gidx + 1] = c * b2;
+  });
   barrier(tm);
 
   // Return the value of the bulge element at the new position (gidx, gidx + 2)
@@ -221,17 +226,16 @@ KOKKOS_FORCEINLINE_FUNCTION double ApplyGivensRight(tm_t tm, int gidx, double c,
   const double b1 = b[gidx];
 
   barrier(tm);
-  once_per_team(
-      tm, KOKKOS_LAMBDA() {
-        // Apply A G to the upper bidiagonal elements
-        d[gidx] = c * d1 - s * b1;
-        d[gidx + 1] = c * d2;
-        if constexpr (!first) b[gidx - 1] = c * b0 - s * bulge;
-        b[gidx] = c * b1 + s * d1;
-        // If first = false, this assumes that c and s are chosen such that
-        // A' = A G element
-        // A'(gidx - 1, gidx + 1) = c * bulge + s * b0 = 0
-      });
+  once_per_team(tm, [&]() {
+    // Apply A G to the upper bidiagonal elements
+    d[gidx] = c * d1 - s * b1;
+    d[gidx + 1] = c * d2;
+    if constexpr (!first) b[gidx - 1] = c * b0 - s * bulge;
+    b[gidx] = c * b1 + s * d1;
+    // If first = false, this assumes that c and s are chosen such that
+    // A' = A G element
+    // A'(gidx - 1, gidx + 1) = c * bulge + s * b0 = 0
+  });
   barrier(tm);
 
   // Return the value of the bulge element at the new position (gidx + 1, gidx)
@@ -245,13 +249,12 @@ template <class tm_t, class matrix_t>
 KOKKOS_INLINE_FUNCTION void ApplyGivensLeft(tm_t tm, int gidx, double c, double s,
                                             matrix_t &A) {
   const int ncols = GetNcols(A);
-  parallel_loop(
-      tm, 0, ncols - 1, KOKKOS_LAMBDA(const int col) {
-        double a1 = A(gidx, col);
-        double a2 = A(gidx + 1, col);
-        A(gidx, col) = c * a1 - s * a2;
-        A(gidx + 1, col) = s * a1 + c * a2;
-      });
+  parallel_loop(tm, 0, ncols - 1, [&](const int col) {
+    double a1 = A(gidx, col);
+    double a2 = A(gidx + 1, col);
+    A(gidx, col) = c * a1 - s * a2;
+    A(gidx + 1, col) = s * a1 + c * a2;
+  });
 }
 
 // A <- A G^T
@@ -261,13 +264,12 @@ template <class tm_t, class matrix_t>
 KOKKOS_INLINE_FUNCTION void ApplyGivensRight(tm_t tm, int gidx, double c, double s,
                                              matrix_t &A) {
   const int nrows = GetNrows(A);
-  parallel_loop(
-      tm, 0, nrows - 1, KOKKOS_LAMBDA(const int row) {
-        double a1 = A(row, gidx);
-        double a2 = A(row, gidx + 1);
-        A(row, gidx) = c * a1 - s * a2;
-        A(row, gidx + 1) = s * a1 + c * a2;
-      });
+  parallel_loop(tm, 0, nrows - 1, [&](const int row) {
+    double a1 = A(row, gidx);
+    double a2 = A(row, gidx + 1);
+    A(row, gidx) = c * a1 - s * a2;
+    A(row, gidx + 1) = s * a1 + c * a2;
+  });
 }
 
 // A <- G A G^T
@@ -279,4 +281,8 @@ KOKKOS_INLINE_FUNCTION void ApplyGivensLeftRight(tm_t tm, int gidx, double c, do
   ApplyGivensLeft(tm, gidx, c, s, A);
   ApplyGivensRight(tm, gidx, c, s, A);
 }
-#endif // GIVENS_HPP
+
+} // namespace batched_linear_algebra
+} // namespace parthenon
+
+#endif // BATCHED_LINEAR_ALGEBRA_GIVENS_HPP_

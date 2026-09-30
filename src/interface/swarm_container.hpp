@@ -10,6 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was modified with the assistance of generative AI.
+
 #ifndef INTERFACE_SWARM_CONTAINER_HPP_
 #define INTERFACE_SWARM_CONTAINER_HPP_
 
@@ -139,6 +141,9 @@ class SwarmContainer {
   // Defragmentation task
   TaskStatus Defrag(double min_occupancy);
   TaskStatus DefragAll();
+
+  // Remove all particles while retaining each swarm's allocated pool.
+  void ClearParticles();
 
   // Sort-by-cell task
   TaskStatus SortParticlesByCell();

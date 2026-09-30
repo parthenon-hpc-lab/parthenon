@@ -1,3 +1,18 @@
+//========================================================================================
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
+//
+// This program was produced under U.S. Government contract 89233218CNA000001 for Los
+// Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+// for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+// in the program are reserved by Triad National Security, LLC, and the U.S. Department
+// of Energy/National Nuclear Security Administration. The Government is granted for
+// itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+// license in this material to reproduce, prepare derivative works, distribute copies to
+// the public, perform publicly and display publicly, and to permit others to do so.
+//========================================================================================
+
+// This file was made in part with generative AI.
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -5,12 +20,13 @@
 #include <random>
 #include <vector>
 
-// #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch.hpp>
 
-#include "linear_algebra/matrix.hpp"
-#include "linear_algebra/square_svd.hpp"
-#include "linear_algebra/symmetric_evd.hpp"
+#include "batched_linear_algebra/square_svd.hpp"
+#include "batched_linear_algebra/symmetric_evd.hpp"
+#include "linalg_test_utils.hpp"
+
+using namespace parthenon::batched_linear_algebra; // NOLINT(build/namespaces)
 
 // ---------- basic norms / helpers ----------
 
@@ -71,14 +87,14 @@ static void CheckSingularValueSanity(
 
 static double SingularValueEnergy(const std::vector<double> &sings) {
   double sum = 0.0;
-  for (double x : sings) sum += x * x;
+  for (double x : sings)
+    sum += x * x;
   return sum;
 }
 
 static void CheckSingularValueEnergyIdentity(const Matrix &A,
                                              const std::vector<double> &sings,
-                                             double rtol = 1e-12,
-                                             double atol = 1e-12) {
+                                             double rtol = 1e-12, double atol = 1e-12) {
   const double sigma2 = SingularValueEnergy(sings);
   const double frob2 = A.FrobeniusNorm() * A.FrobeniusNorm();
   const double denom = std::max(frob2, atol);
@@ -144,8 +160,10 @@ static void RunTallSVDStress(int m, int n, const std::vector<double> &sings_temp
     REQUIRE(iters >= 0);
 
     CheckSVDReconstruction(A0, U, V, s, recon_rtol, /*atol=*/1e-12);
-    REQUIRE(OrthoError(U) / std::max(1.0, std::sqrt(double(n))) < ortho_rtol);
-    REQUIRE(OrthoError(V) / std::max(1.0, std::sqrt(double(n))) < ortho_rtol);
+    REQUIRE(OrthoError(U) / std::max(1.0, std::sqrt(static_cast<double>(n))) <
+            ortho_rtol);
+    REQUIRE(OrthoError(V) / std::max(1.0, std::sqrt(static_cast<double>(n))) <
+            ortho_rtol);
     CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/1e-10, /*atol=*/1e-12);
 
     std::vector<double> s_sorted = s;
@@ -191,8 +209,8 @@ static void RunSVDStress(const std::vector<double> &sings_template, int num_real
     double uerr = OrthoError(U);
     double verr = OrthoError(V);
     // Scale orthogonality tolerance loosely with n
-    REQUIRE(uerr / std::max(1.0, std::sqrt(double(n))) < ortho_rtol);
-    REQUIRE(verr / std::max(1.0, std::sqrt(double(n))) < ortho_rtol);
+    REQUIRE(uerr / std::max(1.0, std::sqrt(static_cast<double>(n))) < ortho_rtol);
+    REQUIRE(verr / std::max(1.0, std::sqrt(static_cast<double>(n))) < ortho_rtol);
 
     // 3) singular values sanity + compare to reference spectrum
     // (order-insensitive)
@@ -284,7 +302,8 @@ TEST_CASE("Tall-skinny SVD edge cases", "[svd][rect][edge_case]") {
     CheckSVDReconstruction(A0, U, V, s, /*rtol=*/1e-12, /*atol=*/1e-12);
     REQUIRE(OrthoError(U) < 1e-12);
     REQUIRE(OrthoError(V) < 1e-12);
-    for (double x : s) REQUIRE(std::abs(x) < 1e-12);
+    for (double x : s)
+      REQUIRE(std::abs(x) < 1e-12);
   }
 }
 
@@ -387,17 +406,17 @@ TEST_CASE("ImplicitQR bidiag SVD stress tests over spectra", "[svd][qr][bidiag]"
 
 TEST_CASE("SVD handles single row/column non-zero matrices", "[svd][edge_case]") {
   SECTION("Matrix with only first row non-zero") {
-    for (int n : {5}) {  // Test multiple sizes
-      Matrix A(n, n);  // Initialize with zeros
+    for (int n : {5}) { // Test multiple sizes
+      Matrix A(n, n);   // Initialize with zeros
       // Set only the first row to non-zero values
       for (int j = 0; j < n; ++j) {
-        A(0, j) = 1.0 + j;  // Simple increasing pattern
+        A(0, j) = 1.0 + j; // Simple increasing pattern
       }
-      
+
       Matrix A0 = A.GetDeepCopy();
       Matrix U(n, n), V(n, n);
       std::vector<double> s(n);
-      
+
       int iters = SquareSVD::execute(&A, &U, &V, s.data());
       REQUIRE(iters < 15 * n);
       REQUIRE(iters > 0);
@@ -410,20 +429,20 @@ TEST_CASE("SVD handles single row/column non-zero matrices", "[svd][edge_case]")
           REQUIRE_FALSE(std::isnan(V(i, j)));
         }
       }
-      
+
       // Verify reconstruction
       CheckSVDReconstruction(A0, U, V, s, /*rtol=*/1e-9, /*atol=*/1e-12);
-      
+
       // For a single-row matrix, there should be exactly one non-zero singular value
       double row_norm = 0.0;
       for (int j = 0; j < n; ++j) {
         row_norm += A0(0, j) * A0(0, j);
       }
       row_norm = std::sqrt(row_norm);
-      
+
       // The first singular value should match the norm of the row
       REQUIRE(std::abs(s[0] - row_norm) / row_norm < 1e-10);
-      
+
       // All other singular values should be effectively zero
       for (int i = 1; i < n; ++i) {
         REQUIRE(std::abs(s[i]) < 1e-10 * row_norm);
@@ -475,10 +494,22 @@ TEST_CASE("SVD handles 1x1 matrices exactly", "[svd][edge_case]") {
 TEST_CASE("SVD handles structured rank-deficient matrices with zero leading entries",
           "[svd][edge_case]") {
   Matrix A(4, 4);
-  A(0, 0) = 0.0; A(0, 1) = 1.0; A(0, 2) = 2.0; A(0, 3) = 0.0;
-  A(1, 0) = 0.0; A(1, 1) = 0.0; A(1, 2) = 0.0; A(1, 3) = 0.0;
-  A(2, 0) = 3.0; A(2, 1) = 0.0; A(2, 2) = 1.0; A(2, 3) = 4.0;
-  A(3, 0) = 0.0; A(3, 1) = 2.0; A(3, 2) = 0.0; A(3, 3) = 1.0;
+  A(0, 0) = 0.0;
+  A(0, 1) = 1.0;
+  A(0, 2) = 2.0;
+  A(0, 3) = 0.0;
+  A(1, 0) = 0.0;
+  A(1, 1) = 0.0;
+  A(1, 2) = 0.0;
+  A(1, 3) = 0.0;
+  A(2, 0) = 3.0;
+  A(2, 1) = 0.0;
+  A(2, 2) = 1.0;
+  A(2, 3) = 4.0;
+  A(3, 0) = 0.0;
+  A(3, 1) = 2.0;
+  A(3, 2) = 0.0;
+  A(3, 3) = 1.0;
 
   Matrix A0 = A.GetDeepCopy();
   Matrix U(4, 4), V(4, 4);

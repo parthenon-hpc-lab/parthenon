@@ -11,14 +11,22 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef IMPLICIT_QR_HPP
-#define IMPLICIT_QR_HPP
+#ifndef BATCHED_LINEAR_ALGEBRA_IMPLICIT_QR_HPP_
+#define BATCHED_LINEAR_ALGEBRA_IMPLICIT_QR_HPP_
 
-#include "parthenon/parthenon.hpp"
+// This file was made in part with generative AI.
 
-#include "givens.hpp"
-#include "householder.hpp"
-#include "matrix.hpp"
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <limits>
+
+#include "batched_linear_algebra/execution_utils.hpp"
+#include "batched_linear_algebra/givens.hpp"
+#include "kokkos_abstraction.hpp"
+
+namespace parthenon {
+namespace batched_linear_algebra {
 
 KOKKOS_FORCEINLINE_FUNCTION
 double WilkinsonShift(double a00, double a11, double a01) {
@@ -42,7 +50,7 @@ KOKKOS_FORCEINLINE_FUNCTION int Partition(tm_t tm, double *d, double *b,
   double scale = 0.0;
   find_maximum(
       tm, 0, nrows - 2,
-      KOKKOS_LAMBDA(const int i, double &scale) {
+      [&](const int i, double &scale) {
         scale = std::max(scale, std::abs(d[i]));
         scale = std::max(scale, std::abs(b[i]));
       },
@@ -82,6 +90,8 @@ KOKKOS_FORCEINLINE_FUNCTION int Partition(tm_t tm, double *d, double *b,
     once_per_team(tm, [&]() { end[partition] = nrows; });
     partition++;
   }
+  // start/end are written by a single thread but read by the whole team
+  barrier(tm);
   return partition;
 }
 
@@ -96,7 +106,7 @@ ImplicitQRTridiag(tm_t tm, double *d, double *b, matrix_t *pQ, std::size_t *star
   int iter{0};
   for (iter = 0; iter < max_iters; ++iter) {
     // Collect decoupled regions of the matrix
-    std::size_t npartitions = Partition(tm, d, b, start, end, nrows);
+    const int npartitions = Partition(tm, d, b, start, end, nrows);
     // If all off diagonal elements are close to zero, we are done
     if (npartitions == 0) break;
 
@@ -136,7 +146,7 @@ ImplicitQRTridiag(tm_t tm, double *d, double *b, matrix_t *pQ, std::size_t *star
 // Perform implicit QR (Francis algorithm) on Gram matrix of a symmetric, bidiagonal
 // matrix A with diagonals d_i = A_{i,i} and off-diagonals b_i = A_{i, i+1}
 // in place. On return, all elements of b should be ~zero and d should
-// contain the singular values of A. The Gram matrix B = A^T A is never explicitly 
+// contain the singular values of A. The Gram matrix B = A^T A is never explicitly
 // formed.
 template <class tm_t, class matrix_u_t, class matrix_v_t>
 KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRBidiag(tm_t tm, double *d, double *b,
@@ -146,7 +156,7 @@ KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRBidiag(tm_t tm, double *d, double *b,
   int iter{0};
   for (iter = 0; iter < max_iters; ++iter) {
     // Collect decoupled regions of the matrix
-    std::size_t npartitions = Partition(tm, d, b, start, end, nrows);
+    const int npartitions = Partition(tm, d, b, start, end, nrows);
     // If all off diagonal elements are close to zero, we are done
     if (npartitions == 0) break;
 
@@ -161,9 +171,13 @@ KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRBidiag(tm_t tm, double *d, double *b,
       // size one partition is already by definition diagonal
       if (ep - sp == 2) {
         auto result = ComputeSVD2by2UpperTriangular(d[sp], b[sp], d[sp + 1]);
-        d[sp] = result.smax;
-        d[sp+1] = result.smin;
-        b[sp] = 0.0;
+        barrier(tm);
+        once_per_team(tm, [&]() {
+          d[sp] = result.smax;
+          d[sp + 1] = result.smin;
+          b[sp] = 0.0;
+        });
+        barrier(tm);
         if (pV) ApplyGivensRight(tm, sp, result.cr, result.sr, *pV);
         if (pU) ApplyGivensRight(tm, sp, result.cl, result.sl, *pU);
       } else if (ep - sp > 2) {
@@ -173,15 +187,14 @@ KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRBidiag(tm_t tm, double *d, double *b,
             ComputeSVD2by2UpperTriangular(d[ep - 2], b[ep - 2], d[ep - 1]).smin;
 
         // Initial rotation zeros the (1,0) entry of T - shift^2 I with T = A^T A.
-        // With t00 = d[sp]^2 and t01 = b[sp] * a[sp], we have t00 - shift^2 = 
+        // With t00 = d[sp]^2 and t01 = b[sp] * a[sp], we have t00 - shift^2 =
         // (d[sp] + shift) (d[sp] - shift) = f. We evaluate in factored form to
         // avoid the d[sp]^2 - shift^2 cancellation; the target g = b[sp] follows
         // by dividing the Gram-matrix pair (t00 - mu, t01) through by d[sp]. Guard
         // the d[sp] == 0 case, which degenerates to a zero-shift start.
         const double f =
-            d[sp] == 0.0
-                ? 0.0
-                : (std::abs(d[sp]) - shift) * (sign_of(d[sp]) + shift / d[sp]);
+            d[sp] == 0.0 ? 0.0
+                         : (std::abs(d[sp]) - shift) * (sign_of(d[sp]) + shift / d[sp]);
         const double g = b[sp];
         const auto [c1, s1] = ComputeGivensZeroSecond(f, g);
         bulge = ApplyGivensRight<true, false>(tm, sp, c1, s1, bulge, d, b);
@@ -210,4 +223,7 @@ KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRBidiag(tm_t tm, double *d, double *b,
   return iter;
 }
 
-#endif // IMPLICIT_QR_HPP
+} // namespace batched_linear_algebra
+} // namespace parthenon
+
+#endif // BATCHED_LINEAR_ALGEBRA_IMPLICIT_QR_HPP_

@@ -11,14 +11,24 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-#ifndef SQUARE_SVD_HPP
-#define SQUARE_SVD_HPP
+#ifndef BATCHED_LINEAR_ALGEBRA_SQUARE_SVD_HPP_
+#define BATCHED_LINEAR_ALGEBRA_SQUARE_SVD_HPP_
 
-#include "parthenon/parthenon.hpp"
+// This file was made in part with generative AI.
 
-#include "householder.hpp"
-#include "implicit_qr.hpp"
-#include "matrix.hpp"
+#include <algorithm>
+#include <cstddef>
+#include <vector>
+
+#include "batched_linear_algebra/execution_utils.hpp"
+#include "batched_linear_algebra/householder.hpp"
+#include "batched_linear_algebra/implicit_qr.hpp"
+#include "batched_linear_algebra/matrix_utils.hpp"
+#include "kokkos_abstraction.hpp"
+#include "utils/error_checking.hpp"
+
+namespace parthenon {
+namespace batched_linear_algebra {
 
 class SquareSVD {
  public:
@@ -64,24 +74,20 @@ class SquareSVD {
 
   template <class tm_t, class matrix_a_t, class matrix_u_t, class matrix_v_t>
   KOKKOS_INLINE_FUNCTION static int execute(tm_t tm, matrix_a_t *pA, matrix_u_t *pU,
-                                            matrix_v_t *pV, double *sings, double *scratch,
-                                            std::size_t *iscratch) {
+                                            matrix_v_t *pV, double *sings,
+                                            double *scratch, std::size_t *iscratch) {
     PARTHENON_REQUIRE(pA, "A must not be null.");
     auto &A = *pA;
     const int ncols = GetNcols(A);
     const int nrows = GetNrows(A);
-    PARTHENON_REQUIRE(nrows >= ncols,
-                    "Tall-skinny SVD requires nrows >= ncols.");
+    PARTHENON_REQUIRE(nrows >= ncols, "Tall-skinny SVD requires nrows >= ncols.");
     const int max_dim = (nrows > ncols ? nrows : ncols);
 
     if (ncols == 1) {
       double sigma2{0.0};
 
       summation(
-          tm, 0, nrows - 1,
-          [&](const int r, double &sum) {
-            sum += A(r, 0) * A(r, 0);
-          },
+          tm, 0, nrows - 1, [&](const int r, double &sum) { sum += A(r, 0) * A(r, 0); },
           sigma2);
 
       const double sigma = safe_sqrt(sigma2);
@@ -94,13 +100,11 @@ class SquareSVD {
 
       if (pU) {
         if (sigma > 0.0) {
-          parallel_loop(
-              tm, 0, nrows - 1,
-              [&](const int r) { (*pU)(r, 0) = A(r, 0) / sigma; });
+          parallel_loop(tm, 0, nrows - 1,
+                        [&](const int r) { (*pU)(r, 0) = A(r, 0) / sigma; });
         } else {
-          parallel_loop(
-              tm, 0, nrows - 1,
-              [&](const int r) { (*pU)(r, 0) = (r == 0 ? 1.0 : 0.0); });
+          parallel_loop(tm, 0, nrows - 1,
+                        [&](const int r) { (*pU)(r, 0) = (r == 0 ? 1.0 : 0.0); });
         }
       }
       barrier(tm);
@@ -121,18 +125,16 @@ class SquareSVD {
       parallel_loop(tm, 0, ncols - 1, 0, ncols - 1,
                     [&](int r, int c) { V(r, c) = (r == c); });
     }
-    
+
     const int upper_lim = (nrows == ncols ? ncols - 2 : ncols - 1);
     sequential_loop(0, upper_lim, [&](const int col) {
       build_householder_vector_col(tm, col, col, A, v);
       barrier(tm);
       apply_left_householder_transformation(tm, v, s, A, col, col);
-      
-      once_per_team(
-          tm, [&]() { vhead[col] = v[col]; });
-      parallel_loop(tm, col + 1, nrows - 1, [&](int r) { 
-        A(r, col) = v[r];
-      });
+      barrier(tm);
+
+      once_per_team(tm, [&]() { vhead[col] = v[col]; });
+      parallel_loop(tm, col + 1, nrows - 1, [&](int r) { A(r, col) = v[r]; });
       barrier(tm);
 
       if (col < upper_lim) {
@@ -143,18 +145,15 @@ class SquareSVD {
         if (pV) apply_right_householder_transformation(tm, v, s, *pV, col + 1);
       }
       barrier(tm);
-      
     });
-    
+
     // Move to bidiagonal storage
     barrier(tm);
-    once_per_team(
-        tm, [&]() { sings[0] = A(0, 0); });
-    parallel_loop(
-        tm, 0, ncols - 2, [&](int i) {
-          sings[i + 1] = A(i + 1, i + 1);
-          scratch[i] = A(i, i + 1);
-        });
+    once_per_team(tm, [&]() { sings[0] = A(0, 0); });
+    parallel_loop(tm, 0, ncols - 2, [&](int i) {
+      sings[i + 1] = A(i + 1, i + 1);
+      scratch[i] = A(i, i + 1);
+    });
 
     barrier(tm);
     std::size_t *start = &(iscratch[0]);
@@ -165,36 +164,31 @@ class SquareSVD {
         ImplicitQRBidiag(tm, sings, scratch, pU, pV, start, end, ncols, max_iters);
     if (status >= max_iters) PARTHENON_FAIL("SVD failed.");
 
-    // Apply the Householder vectors to pU 
+    // Apply the Householder vectors to pU
     if (pU) {
       sequential_loop(0, upper_lim, [&](const int inv_col) {
         int col = upper_lim - inv_col;
         // Reconstruct householder vector
-        parallel_loop(tm, 0, col - 1, [&](int r) { 
-          v[r] = 0.0;
-        });
-        once_per_team(
-            tm, [&]() { v[col] = vhead[col]; });
-        parallel_loop(tm, col + 1, nrows - 1, [&](int r) { 
-          v[r] = A(r, col);
-        });
+        parallel_loop(tm, 0, col - 1, [&](int r) { v[r] = 0.0; });
+        once_per_team(tm, [&]() { v[col] = vhead[col]; });
+        parallel_loop(tm, col + 1, nrows - 1, [&](int r) { v[r] = A(r, col); });
         barrier(tm);
         apply_left_householder_transformation(tm, v, s, *pU, col, 0);
+        barrier(tm);
       });
     }
 
     // Ensure singular values are positive
-    parallel_loop(
-        tm, 0, ncols - 1, [&](int col) {
-          if (sings[col] < 0.) {
-            sings[col] *= -1.;
-            if (pU) {
-              for (int row = 0; row < nrows; row++) {
-                (*pU)(row, col) *= -1.;
-              }
-            }
+    parallel_loop(tm, 0, ncols - 1, [&](int col) {
+      if (sings[col] < 0.) {
+        sings[col] *= -1.;
+        if (pU) {
+          for (int row = 0; row < nrows; row++) {
+            (*pU)(row, col) *= -1.;
           }
-        });
+        }
+      }
+    });
     barrier(tm);
 
     return status;
@@ -219,8 +213,7 @@ class SquareSVD {
   // Version that is only callable on host and allocates its own
   // scratch space
   template <class matrix_a_t, class matrix_u_t, class matrix_v_t>
-  KOKKOS_INLINE_FUNCTION static int execute(matrix_a_t *pA, matrix_u_t *pU, matrix_v_t *pV,
-                                            double *eigs) {
+  static int execute(matrix_a_t *pA, matrix_u_t *pU, matrix_v_t *pV, double *eigs) {
     const int nrows = GetNrows(*pA);
     const int ncols = GetNcols(*pA);
     std::vector<double> scratch(double_scratch_size(nrows, ncols));
@@ -229,7 +222,7 @@ class SquareSVD {
   }
 
   template <class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int execute(matrix_t *pA, double *eigs) {
+  static int execute(matrix_t *pA, double *eigs) {
     const int nrows = GetNrows(*pA);
     const int ncols = GetNcols(*pA);
     std::vector<double> scratch(double_scratch_size(nrows, ncols));
@@ -240,20 +233,21 @@ class SquareSVD {
   }
 
   KOKKOS_INLINE_FUNCTION
-  static std::size_t double_scratch_size(std::size_t nrows, std::size_t ncols) {
+  static constexpr std::size_t double_scratch_size(std::size_t nrows, std::size_t ncols) {
     return 3 * std::max(nrows, ncols);
   }
 
   KOKKOS_INLINE_FUNCTION
-  static std::size_t double_scratch_size(std::size_t ncols) {
+  static constexpr std::size_t double_scratch_size(std::size_t ncols) {
     return double_scratch_size(ncols, ncols);
   }
 
   KOKKOS_INLINE_FUNCTION
-  static std::size_t sizet_scratch_size(std::size_t ncols) { return ncols + 2; }
+  static constexpr std::size_t sizet_scratch_size(std::size_t ncols) { return ncols + 2; }
 
   static std::size_t total_shmem_scratch_size(std::size_t nrows, std::size_t ncols) {
-    return parthenon::ScratchPad1D<double>::shmem_size(double_scratch_size(nrows, ncols)) +
+    return parthenon::ScratchPad1D<double>::shmem_size(
+               double_scratch_size(nrows, ncols)) +
            parthenon::ScratchPad1D<std::size_t>::shmem_size(sizet_scratch_size(ncols));
   }
 
@@ -262,4 +256,7 @@ class SquareSVD {
   }
 };
 
-#endif // SQUARE_SVD_HPP
+} // namespace batched_linear_algebra
+} // namespace parthenon
+
+#endif // BATCHED_LINEAR_ALGEBRA_SQUARE_SVD_HPP_
