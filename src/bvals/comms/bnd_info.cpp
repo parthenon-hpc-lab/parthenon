@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2022 The Parthenon collaboration
+// Copyright(C) 2022-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <cstdio>
@@ -106,35 +108,6 @@ GetFluxCorrectionElements(const std::shared_ptr<Variable<Real>> &v,
     PARTHENON_FAIL("Only faces, edges, and nodes can be fluxes.");
   }
   return elements;
-}
-
-bool NeighborIsCoarser(MeshBlock *pmb, const NeighborBlock &nb) {
-  return nb.loc.level() < pmb->loc.level() ||
-         nb.block_coarsenings > pmb->block_coarsenings;
-}
-
-bool NeighborIsFiner(MeshBlock *pmb, const NeighborBlock &nb) {
-  return nb.loc.level() > pmb->loc.level() ||
-         nb.block_coarsenings < pmb->block_coarsenings;
-}
-
-bool NeighborIsSame(MeshBlock *pmb, const NeighborBlock &nb) {
-  return nb.loc.level() == pmb->loc.level() &&
-         nb.block_coarsenings == pmb->block_coarsenings;
-}
-
-// Thin wrapper preserving the historical MeshBlock-taking signature. Packs the block's
-// geometry into a BlockInfo and forwards to the CalcIndices in calc_indices.hpp. The
-// receiving-block box can be computed without a live MeshBlock via the templated routine
-// directly.
-SpatiallyMaskedIndexer6D
-CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
-            const std::shared_ptr<Variable<Real>> &v, TopologicalElement el,
-            IndexRangeType ir_type, bool prores,
-            const forest::LogicalCoordinateTransformation &lcoord_trans =
-                forest::LogicalCoordinateTransformation()) {
-  return CalcIndices(nb, BlockInfo(pmb), pmb->pmy_mesh->multilevel, v, el, ir_type,
-                     prores, lcoord_trans);
 }
 
 int GetBufferSize(const MeshBlock *const pmb, const NeighborBlock &nb,

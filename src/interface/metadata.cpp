@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
 
 #include "interface/metadata.hpp"
 
@@ -358,8 +360,8 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
     return GetArrayDims(nullptr, coarse);
   }
 }
-std::array<int, MAX_VARIABLE_DIMENSION>
-Metadata::GetArrayDims(MeshBlock* pmb, bool coarse) const {
+std::array<int, MAX_VARIABLE_DIMENSION> Metadata::GetArrayDims(MeshBlock *pmb,
+                                                               bool coarse) const {
   std::array<int, MAX_VARIABLE_DIMENSION> arrDims;
   const auto &shape = shape_;
   const std::size_t N = shape.size();
@@ -370,7 +372,7 @@ Metadata::GetArrayDims(MeshBlock* pmb, bool coarse) const {
     // these dimensions to be the number of cells in each
     // direction, NOT the size of the arrays
     assert(N <= 3);
-    
+
     auto bnds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
     if (IsSet(Fine)) bnds = coarse ? pmb->cellbounds : pmb->f_cellbounds;
     arrDims[0] = bnds.ncellsi(IndexDomain::entire);

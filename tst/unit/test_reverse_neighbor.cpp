@@ -11,7 +11,9 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// Step 6a: GetInverseTransform and the ReverseNeighbor descriptor. Verifies the transform
+// This file was made in part with generative AI.
+
+// GetInverseTransform and the ReverseNeighbor descriptor. Verifies the transform
 // inverse behaviorally, and -- on a single rank where the neighbor is itself a live block
 // holding a back-pointing NeighborBlock -- that ReverseNeighbor(BlockInfo(A), nb_A->B)
 // reproduces exactly the {BlockInfo(B), nb_B->A} the mesh built independently. Checked
@@ -81,8 +83,7 @@ std::shared_ptr<Mesh> MakeRefinedMesh(ApplicationInput *app_in, Packages_t &pack
 }
 
 // A 2D two-tree forest whose second tree is glued on with a rotated/flipped orientation,
-// so the cross-tree logical coordinate transformation is non-trivial. Mirrors the gold
-// test's forest construction.
+// so the cross-tree logical coordinate transformation is non-trivial.
 std::shared_ptr<Mesh> MakeForestMesh(ApplicationInput *app_in, Packages_t &packages) {
   using forest::Node;
   using ar3_t = std::array<Real, 3>;
@@ -146,8 +147,9 @@ bool SameLct(const forest::LogicalCoordinateTransformation &a,
 }
 
 // Ground-truth check: single-rank, so the neighbor B is itself a live MeshBlock holding a
-// NeighborBlock describing A. ReverseNeighbor(BlockInfo(A), nb_A->B) must reproduce exactly
-// the {BlockInfo(B), nb_B->A} the mesh built independently for B. Returns #boundaries.
+// NeighborBlock describing A. ReverseNeighbor(BlockInfo(A), nb_A->B) must reproduce
+// exactly the {BlockInfo(B), nb_B->A} the mesh built independently for B. Returns
+// #boundaries.
 int CheckAgainstMesh(const std::shared_ptr<Mesh> &mesh) {
   int nchecked = 0;
   for (const auto &pmbA : mesh->block_list) {
@@ -155,24 +157,26 @@ int CheckAgainstMesh(const std::shared_ptr<Mesh> &mesh) {
     for (const auto &nbAB : pmbA->GetNeighbors()) {
       auto [biB_calc, nbBA_calc] = ReverseNeighbor(biA, nbAB);
 
-      // Locate B and its actual NeighborBlock back at A (unique by gid + reversed offset).
+      // Locate B and its actual NeighborBlock back at A (unique by gid + reversed
+      // offset).
       auto pmbB = FindBlock(mesh, nbAB.gid);
       REQUIRE(pmbB != nullptr);
       const NeighborBlock *nbBA = nullptr;
       for (const auto &cand : pmbB->GetNeighbors()) {
-        if (cand.gid == pmbA->gid &&
-            cand.offsets(X1DIR) == nbBA_calc.offsets(X1DIR) &&
+        if (cand.gid == pmbA->gid && cand.offsets(X1DIR) == nbBA_calc.offsets(X1DIR) &&
             cand.offsets(X2DIR) == nbBA_calc.offsets(X2DIR) &&
             cand.offsets(X3DIR) == nbBA_calc.offsets(X3DIR)) {
           nbBA = &cand;
           break;
         }
       }
-      INFO("A.gid=" << pmbA->gid << " B.gid=" << nbAB.gid << " off=(" << nbAB.offsets(X1DIR)
-                    << "," << nbAB.offsets(X2DIR) << "," << nbAB.offsets(X3DIR) << ")");
+      INFO("A.gid=" << pmbA->gid << " B.gid=" << nbAB.gid << " off=("
+                    << nbAB.offsets(X1DIR) << "," << nbAB.offsets(X2DIR) << ","
+                    << nbAB.offsets(X3DIR) << ")");
       REQUIRE(nbBA != nullptr);
 
-      // BlockInfo(B) reconstructed from the descriptor matches B's real geometry/ownership.
+      // BlockInfo(B) reconstructed from the descriptor matches B's real
+      // geometry/ownership.
       BlockInfo biB(pmbB.get());
       REQUIRE(biB_calc.gid == biB.gid);
       REQUIRE(biB_calc.loc == biB.loc);
@@ -215,7 +219,8 @@ TEST_CASE("GetInverseTransform inverts a logical coordinate transformation", "[b
   auto inv = GetInverseTransform(t);
   inv.ncell = t.ncell;
 
-  const std::array<std::array<int, 3>, 4> pts{{{0, 0, 0}, {1, 2, 0}, {7, 3, 0}, {5, 6, 0}}};
+  const std::array<std::array<int, 3>, 4> pts{
+      {{0, 0, 0}, {1, 2, 0}, {7, 3, 0}, {5, 6, 0}}};
 
   THEN("inv.Transform reproduces t.InverseTransform on index triples") {
     for (auto x : pts)
@@ -237,7 +242,8 @@ TEST_CASE("ReverseNeighbor matches the mesh's own back-neighbor", "[bvals][mesh]
 
   GIVEN("A statically-refined periodic mesh (same-level, finer, and coarser neighbors)") {
     auto mesh = MakeRefinedMesh(app_in.get(), packages);
-    THEN("The reverse descriptor matches the mesh's own back-neighbor for each boundary") {
+    THEN(
+        "The reverse descriptor matches the mesh's own back-neighbor for each boundary") {
       REQUIRE(CheckAgainstMesh(mesh) > 0);
     }
   }
@@ -245,7 +251,8 @@ TEST_CASE("ReverseNeighbor matches the mesh's own back-neighbor", "[bvals][mesh]
   GIVEN("A two-tree forest with a non-trivial coordinate transformation") {
     auto mesh = MakeForestMesh(app_in.get(), packages);
     REQUIRE(HasNonTrivialTransform(mesh));
-    THEN("The reverse descriptor matches the mesh's own back-neighbor for each boundary") {
+    THEN(
+        "The reverse descriptor matches the mesh's own back-neighbor for each boundary") {
       REQUIRE(CheckAgainstMesh(mesh) > 0);
     }
   }
