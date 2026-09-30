@@ -14,9 +14,9 @@
 // This file was made in part with generative AI.
 
 // Cross-level (AMR) tensor-train boundary communication. Builds a statically 2:1 refined
-// periodic mesh (mirroring test_calc_indices_gold.cpp) with at least one f2c and one c2f
-// interface, then drives the full BuildTTBoundaryCache / TTSend / TTReceive / TTSetBounds
-// path and reconstructs the ghost field values from the trains.
+// periodic mesh with at least one f2c and one c2f interface, then drives the full
+// BuildTTBoundaryCache / TTSend / TTReceive / TTSetBounds path and reconstructs the
+// ghost field values from the trains.
 //
 // A spatially constant field is the sharpest correctness signal for the
 // restriction-average and (piecewise-constant) prolongation cell maps: restriction of a
