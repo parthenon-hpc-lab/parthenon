@@ -399,10 +399,10 @@ TEST_CASE("TT types drive the boundary-comm templates", "[TTField]") {
       nb.block_size = pmb->block_size;
       nb.offsets = CellCentOffsets(1, 0, 0);
 
-      // Lightweight MeshBlock has no owning mesh, so pass multilevel=false directly.
-      auto idx_train = CalcIndices(nb, BlockInfo(pmb.get()), /*multilevel=*/false, train,
-                                   TopologicalElement::CC,
-                                   IndexRangeType::BoundaryInteriorSend, false);
+      // Lightweight MeshBlock has no owning mesh, so go through BlockInfo directly.
+      auto idx_train =
+          CalcIndices(nb, BlockInfo(pmb.get()), train, TopologicalElement::CC,
+                      IndexRangeType::BoundaryInteriorSend, false);
 
       THEN("It produces a non-empty boundary region") {
         // The interior-send region for a cell-centered FillGhost field on a +x face

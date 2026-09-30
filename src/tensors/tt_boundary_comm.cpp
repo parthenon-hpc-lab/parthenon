@@ -61,7 +61,6 @@ int CountBoundaries(std::shared_ptr<MeshTTData> &md) {
 TaskStatus BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md) {
   using namespace loops;
   Mesh *pmesh = md->GetMeshPointer();
-  const bool ml = pmesh->multilevel;
   const int id = 0; // single TT comm channel set for now
   TTBoundaryCache *cache = &md->GetBoundaryCache();
   const int nbound = CountBoundaries(md);
@@ -86,19 +85,19 @@ TaskStatus BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md) {
         // Sender's interior cells destined for the neighbor, and the neighbor's ghost
         // cells that receive them -- both on the whole-block index space.
         const TopologicalElement te = TopologicalElement::CC; // TODO: Fix this
-        info.send = CalcIndices(nb, binfo, ml, v, te,
-                                IndexRangeType::BoundaryInteriorSend, false);
-        info.recv = CalcIndices(rev, other, ml, v, te,
-                                IndexRangeType::BoundaryExteriorRecv, false);
+        info.send =
+            CalcIndices(nb, binfo, v, te, IndexRangeType::BoundaryInteriorSend, false);
+        info.recv =
+            CalcIndices(rev, other, v, te, IndexRangeType::BoundaryExteriorRecv, false);
         info.lcoord_trans = nb.lcoord_trans;
         if (NeighborIsCoarser(binfo, nb)) {
           info.btype = BoundaryRelation::f2c;
-          info.prores = CalcIndices(nb, binfo, ml, v, te,
-                                    IndexRangeType::BoundaryInteriorSend, true);
+          info.prores =
+              CalcIndices(nb, binfo, v, te, IndexRangeType::BoundaryInteriorSend, true);
         } else if (NeighborIsFiner(binfo, nb)) {
           info.btype = BoundaryRelation::c2f;
-          info.prores = CalcIndices(rev, other, ml, v, te,
-                                    IndexRangeType::BoundaryExteriorRecv, true);
+          info.prores =
+              CalcIndices(rev, other, v, te, IndexRangeType::BoundaryExteriorRecv, true);
         } else {
           info.btype = BoundaryRelation::same;
         }

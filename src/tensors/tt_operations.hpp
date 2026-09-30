@@ -16,9 +16,10 @@
 
 #include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
-#include "linear_algebra/qr_decomposition.hpp"
-#include "linear_algebra/symmetric_evd.hpp"
-#include "linear_algebra/square_svd.hpp"
+#include "batched_linear_algebra/matmul.hpp"
+#include "batched_linear_algebra/qr_decomposition.hpp"
+#include "batched_linear_algebra/square_svd.hpp"
+#include "batched_linear_algebra/symmetric_evd.hpp"
 #include "tt_traits.hpp"
 #include "tt_pack.hpp"
 #include "tt_types.hpp"
@@ -26,6 +27,7 @@
 
 namespace parthenon {
 namespace tensor {
+using namespace batched_linear_algebra; // NOLINT(build/namespaces)
 namespace impl {
 
 // Copy all fibers from a source core into a destination core with optional
