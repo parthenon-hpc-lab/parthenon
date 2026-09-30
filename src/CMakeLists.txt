@@ -323,7 +323,12 @@ add_library(parthenon
   tensors/tt_container.cpp
   tensors/tt_container.hpp
   tensors/tt_field_metadata.hpp
+  tensors/tt_operations.hpp
   tensors/tt_pack.hpp
+  tensors/tt_traits.hpp
+  tensors/tt_types.hpp
+  tensors/tt_unfoldings.hpp
+  tensors/tt_variable.hpp
 
   utils/alias_method.cpp
   utils/alias_method.hpp
