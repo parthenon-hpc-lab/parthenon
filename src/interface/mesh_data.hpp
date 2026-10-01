@@ -213,6 +213,13 @@ class MeshData {
   std::map<BoundaryType, int> bound_buffer_ids_{};
 
   const auto &StageName() const { return stage_name_; }
+  void SetBoundaryCommunicationOverride(bool value) {
+    boundary_communication_override_ = value;
+    for (auto &block_data : block_data_) {
+      block_data->SetBoundaryCommunicationOverride(value);
+    }
+  }
+  bool BoundaryCommunicationOverride() const { return boundary_communication_override_; }
 
   Mesh *GetMeshPointer() const { return pmy_mesh_; }
   auto GetParentPointer() const { return GetMeshPointer(); }
@@ -262,7 +269,8 @@ class MeshData {
 
   template <typename ID_t>
   void Initialize(const std::shared_ptr<BlockListPartition> &part,
-                  const std::vector<ID_t> &vars, const bool shallow) {
+                  const std::vector<ID_t> &vars, const bool shallow,
+                  const bool include_fluxes = true) {
     PARTHENON_REQUIRE(
         shallow == false,
         "Can't shallow copy when the source is not another MeshData object.");
@@ -270,14 +278,15 @@ class MeshData {
     auto &bl = part->block_list;
     block_data_.resize(bl.size());
     for (int i = 0; i < bl.size(); ++i)
-      block_data_[i] = bl[i]->meshblock_data.Add(stage_name_, bl[i], vars);
+      block_data_[i] = bl[i]->meshblock_data.Add(stage_name_, bl[i], vars, false,
+                                                 include_fluxes);
     grid = part->grid;
     partition = part->partition;
   }
 
   template <typename ID_t>
   void Initialize(std::shared_ptr<MeshData<T>> src, const std::vector<ID_t> &vars,
-                  const bool shallow) {
+                  const bool shallow, const bool include_fluxes = true) {
     if (src == nullptr) {
       PARTHENON_THROW("src points at null");
     }
@@ -287,7 +296,7 @@ class MeshData {
     for (int i = 0; i < nblocks; ++i) {
       auto pmbd = src->GetBlockData(i);
       block_data_[i] = pmbd->GetBlockSharedPointer()->meshblock_data.Add(
-          stage_name_, pmbd, vars, shallow);
+          stage_name_, pmbd, vars, shallow, include_fluxes);
     }
     grid = src->grid;
     partition = src->partition;
@@ -532,6 +541,7 @@ class MeshData {
   Mesh *pmy_mesh_;
   BlockDataList_t<T> block_data_;
   std::string stage_name_;
+  bool boundary_communication_override_ = false;
 
   // caches for packs
   MapToMeshBlockVarPack<T> varPackMap_;

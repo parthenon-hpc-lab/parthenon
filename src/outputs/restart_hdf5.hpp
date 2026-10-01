@@ -58,6 +58,8 @@ class RestartReaderHDF5 : public RestartReader {
 
   // Return output format version number. Return -1 if not existent.
   [[nodiscard]] int GetOutputFormatVersion() const override;
+  [[nodiscard]] OutputMode GetOutputMode() const override;
+  [[nodiscard]] std::vector<std::string> GetFieldNames() const override;
 
   [[nodiscard]] int HasGhost() const override { return has_ghost; };
 
@@ -75,7 +77,7 @@ class RestartReaderHDF5 : public RestartReader {
   // internal convenience function to open a dataset, perform some checks, and get
   // dimensions
   template <typename T>
-  DatasetHandle OpenDataset(const std::string &name) const {
+  DatasetHandle OpenDataset(const std::string &name, bool require_exact_type = true) const {
     DatasetHandle handle;
 
     // make sure dataset exists
@@ -92,8 +94,10 @@ class RestartReaderHDF5 : public RestartReader {
     T *typepointer = nullptr;
     handle.type = getHDF5Type(typepointer);
     const H5T dset_type = H5T::FromHIDCheck(H5Dget_type(handle.dataset));
-    status = PARTHENON_HDF5_CHECK(H5Tequal(handle.type, dset_type));
-    PARTHENON_REQUIRE_THROWS(status > 0, "Type mismatch for dataset " + name);
+    if (require_exact_type) {
+      status = PARTHENON_HDF5_CHECK(H5Tequal(handle.type, dset_type));
+      PARTHENON_REQUIRE_THROWS(status > 0, "Type mismatch for dataset " + name);
+    }
 
     // get rank and dims
     const H5S filespace = H5S::FromHIDCheck(H5Dget_space(handle.dataset));
@@ -116,7 +120,7 @@ class RestartReaderHDF5 : public RestartReader {
   // fills internal data for given pointer
   void ReadBlocks(const std::string &name, IndexRange range,
                   const OutputUtils::VarInfo &info, std::vector<Real> &dataVec,
-                  Mesh *pmesh) const override;
+                  Mesh *pmesh, bool interior_only = false) const override;
 
   //  The PackOrUnpack logic requires knowledge of how data is stored and being read into
   //  the buffer. For HDF5 data is padded if needed (i.e., a face centered field has tims

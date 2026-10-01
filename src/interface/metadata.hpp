@@ -104,6 +104,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(Intensive)                                                 \
   /** added to restart dump */                                                           \
   PARTHENON_INTERNAL_FOR_FLAG(Restart)                                                   \
+  /** allocate for analysis of ordinary HDF5 data outputs */                             \
+  PARTHENON_INTERNAL_FOR_FLAG(Analysis)                                                  \
   /** is a sparse variable */                                                            \
   PARTHENON_INTERNAL_FOR_FLAG(Sparse)                                                    \
   /** should this variable minimize buffer use during communication */                   \

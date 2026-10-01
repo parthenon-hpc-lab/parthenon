@@ -134,7 +134,7 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
           }
         }
       } else if constexpr (bound == BoundaryType::gmg_same) {
-        if (v->IsSet(Metadata::FillGhost)) {
+        if (v->IsSet(Metadata::FillGhost) || md->BoundaryCommunicationOverride()) {
           if (md->grid.type() == GridType::two_level_composite) {
             for (auto &nb : gmg_same) {
               if (pmb->loc.level() == fine_level || nb.loc.level() == fine_level) {
@@ -150,7 +150,8 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
           }
         }
       } else {
-        if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::Flux)) {
+        if (v->IsSet(Metadata::FillGhost) || v->IsSet(Metadata::Flux) ||
+            md->BoundaryCommunicationOverride()) {
           [[maybe_unused]] constexpr bool flx_bound =
               bound == BoundaryType::flxcor_send || bound == BoundaryType::flxcor_recv;
           const auto &neighbors = pmb->GetNeighbors();
@@ -162,7 +163,9 @@ inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
               if (!v->IsSet(Metadata::FillGhost)) continue;
               if (nb.rank == Globals::my_rank) continue;
             } else if constexpr (bound == BoundaryType::any) {
-              if (!v->IsSet(Metadata::FillGhost)) continue;
+              if (!v->IsSet(Metadata::FillGhost) &&
+                  !md->BoundaryCommunicationOverride())
+                continue;
             } else if constexpr (flx_bound) {
               if (!v->IsSet(Metadata::Flux)) continue;
               // Check if this boundary requires flux correction

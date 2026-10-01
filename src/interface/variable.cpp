@@ -132,17 +132,17 @@ void Variable<T>::AllocateData(std::weak_ptr<MeshBlock> wpmb, bool flag_uninitia
 /// allocate communication space based on info in MeshBlock
 /// Initialize a 6D variable
 template <typename T>
-void Variable<T>::AllocateCoarse(std::weak_ptr<MeshBlock> wpmb) {
+void Variable<T>::AllocateCoarse(std::weak_ptr<MeshBlock> wpmb, bool force) {
   PARTHENON_REQUIRE_THROWS(
       IsAllocated(), "Tried to allocate coarse for un-allocated variable " + label());
   std::string base_name = label();
 
   // Create the boundary object
-  if (RequiresCoarseBuffer()) {
+  if (RequiresCoarseBuffer() || force) {
     if (wpmb.expired()) return;
     std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
-    if (pmb->pmy_mesh != nullptr && pmb->pmy_mesh->multilevel) {
+    if (pmb->pmy_mesh != nullptr && pmb->pmy_mesh->multilevel && coarse_s.size() == 0) {
       coarse_s = std::make_from_tuple<ParArrayND<T, VariableState>>(
           std::tuple_cat(std::make_tuple(label() + ".coarse", MakeVariableState()),
                          ArrayToReverseTuple(coarse_dims_)));

@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <numeric>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -38,6 +39,25 @@
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
+
+#ifdef ENABLE_HDF5
+namespace {
+herr_t CollectRootDatasets(hid_t group, const char *name, const H5L_info_t *, void *data) {
+  hid_t dataset = -1;
+  H5E_BEGIN_TRY { dataset = H5Dopen2(group, name, H5P_DEFAULT); }
+  H5E_END_TRY;
+  if (dataset >= 0) {
+    static const std::set<std::string> non_field_datasets{
+        "SparseInfo", "SparseDeallocCount", "VolumeLocations", "Levels", "LogicalLocations"};
+    if (non_field_datasets.count(name) == 0) {
+      static_cast<std::vector<std::string> *>(data)->emplace_back(name);
+    }
+    H5Dclose(dataset);
+  }
+  return 0;
+}
+} // namespace
+#endif
 
 //----------------------------------------------------------------------------------------
 //! \fn void RestartReader::RestartReader(const std::string filename)
@@ -82,6 +102,39 @@ int RestartReaderHDF5::GetOutputFormatVersion() const {
     return -1;
   }
 #endif // ENABLE_HDF5
+}
+
+RestartReader::OutputMode RestartReaderHDF5::GetOutputMode() const {
+#ifndef ENABLE_HDF5
+  PARTHENON_FAIL("HDF5 functionality is not available because HDF5 is disabled");
+#else
+  const H5O obj = H5O::FromHIDCheck(H5Oopen(fh_, "Info", H5P_DEFAULT));
+  if (PARTHENON_HDF5_CHECK(H5Aexists(obj, "OutputMode")) <= 0) return OutputMode::unknown;
+  const auto mode = GetAttr<std::string>("Info", "OutputMode");
+  if (mode == "data") return OutputMode::data;
+  if (mode == "restart") return OutputMode::restart;
+  if (mode == "core") return OutputMode::core;
+  if (mode == "x1slice" || mode == "x2slice" || mode == "x3slice") {
+    return OutputMode::slice;
+  }
+  return OutputMode::unknown;
+#endif
+}
+
+std::vector<std::string> RestartReaderHDF5::GetFieldNames() const {
+#ifndef ENABLE_HDF5
+  PARTHENON_FAIL("HDF5 functionality is not available because HDF5 is disabled");
+#else
+  const H5O obj = H5O::FromHIDCheck(H5Oopen(fh_, "Info", H5P_DEFAULT));
+  if (PARTHENON_HDF5_CHECK(H5Aexists(obj, "OutputDatasetNames")) > 0) {
+    return GetAttrVec<std::string>("Info", "OutputDatasetNames");
+  }
+  std::vector<std::string> fields;
+  hsize_t index = 0;
+  PARTHENON_HDF5_CHECK(H5Literate(fh_, H5_INDEX_NAME, H5_ITER_NATIVE, &index,
+                                  CollectRootDatasets, &fields));
+  return fields;
+#endif
 }
 
 RestartReaderHDF5::SparseInfo RestartReaderHDF5::GetSparseInfo() const {
@@ -140,6 +193,8 @@ RestartReaderHDF5::MeshInfo RestartReaderHDF5::GetMeshInfo() const {
   mesh_info.block_size = GetAttrVec<int>("Info", "MeshBlockSize");
   mesh_info.includes_ghost = GetAttr<int>("Info", "IncludesGhost");
   mesh_info.n_ghost = GetAttr<int>("Info", "NGhost");
+  mesh_info.ndim = GetAttr<int>("Info", "NumDims");
+  mesh_info.coordinates = GetAttr<std::string>("Info", "Coordinates");
 
   mesh_info.grid_dim = GetAttrVec<Real>("Info", "RootGridDomain");
 
@@ -217,25 +272,53 @@ void RestartReaderHDF5::ReadParams(const std::string &name, Params &p) {
 }
 void RestartReaderHDF5::ReadBlocks(const std::string &name, IndexRange range,
                                    const OutputUtils::VarInfo &info,
-                                   std::vector<Real> &dataVec, Mesh * /*pmesh*/) const {
+                                   std::vector<Real> &dataVec, Mesh * /*pmesh*/,
+                                   bool interior_only) const {
 #ifndef ENABLE_HDF5
   PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
 #else  // HDF5 enabled
-  auto hdl = OpenDataset<Real>(name);
+  auto hdl = OpenDataset<Real>(name, false);
+  const H5T file_type = H5T::FromHIDCheck(H5Dget_type(hdl.dataset));
+  PARTHENON_REQUIRE_THROWS(H5Tget_class(file_type) == H5T_FLOAT,
+                           "Dataset '" + name + "' is not floating-point data");
 
   constexpr int VNDIM = OutputUtils::VarInfo::VNDIM;
 
   /** Select hyperslab in dataset **/
   int total_dim = 0;
   hsize_t offset[VNDIM], count[VNDIM];
-  std::fill(offset + 1, offset + VNDIM, 0);
+  std::fill(offset, offset + VNDIM, 0);
   std::fill(count + 1, count + VNDIM, 1);
 
   offset[0] = static_cast<hsize_t>(range.s);
   count[0] = static_cast<hsize_t>(range.e - range.s + 1);
-  const IndexDomain domain = has_ghost != 0 ? IndexDomain::entire : IndexDomain::interior;
+  const IndexDomain file_domain = has_ghost != 0 ? IndexDomain::entire : IndexDomain::interior;
+  const IndexDomain read_domain = interior_only ? IndexDomain::interior : file_domain;
 
-  total_dim = info.FillShape<hsize_t>(domain, &(count[1])) + 1;
+  total_dim = info.FillShape<hsize_t>(read_domain, &(count[1])) + 1;
+  hsize_t file_count[VNDIM];
+  std::fill(file_count, file_count + VNDIM, 1);
+  file_count[0] = hdl.dims[0];
+  const int file_total_dim = info.FillShape<hsize_t>(file_domain, &(file_count[1])) + 1;
+  PARTHENON_REQUIRE_THROWS(
+      hdl.rank == file_total_dim,
+      "Dataset '" + name + "' has rank " + std::to_string(hdl.rank) +
+          " but registered field expects rank " + std::to_string(file_total_dim));
+  for (int d = 1; d < file_total_dim; ++d) {
+    PARTHENON_REQUIRE_THROWS(
+        hdl.dims[d] == file_count[d],
+        "Dataset '" + name + "' dimension " + std::to_string(d) + " is " +
+            std::to_string(hdl.dims[d]) + " but registered field expects " +
+            std::to_string(file_count[d]));
+    if (interior_only) offset[d] = (file_count[d] - count[d]) / 2;
+  }
+  if (interior_only && info.where != MetadataFlag(Metadata::None)) {
+    const auto [file_kb, file_jb, file_ib] = info.GetPaddedBoundsKJI(file_domain);
+    const auto [read_kb, read_jb, read_ib] = info.GetPaddedBoundsKJI(read_domain);
+    offset[file_total_dim - 3] = read_kb.s - file_kb.s;
+    offset[file_total_dim - 2] = read_jb.s - file_jb.s;
+    offset[file_total_dim - 1] = read_ib.s - file_ib.s;
+  }
 
   hsize_t total_count = 1;
   for (int i = 0; i < total_dim; ++i) {

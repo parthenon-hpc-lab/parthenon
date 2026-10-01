@@ -23,6 +23,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -92,7 +93,8 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   Make(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
        BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin, ApplicationInput *app_in,
        Packages_t &packages, std::shared_ptr<StateDescriptor> resolved_packages,
-       int igflag, double icost = 1.0);
+       int igflag, double icost = 1.0,
+       const std::optional<std::vector<std::string>> &base_fields = std::nullopt);
 
   // Kokkos execution space for this MeshBlock
   DevExecSpace exec_space;
@@ -240,6 +242,7 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
 
   void AllocateSparse(std::string const &label, bool only_control = false,
                       bool flag_uninitialized = false);
+  void AllocateSparseExact(std::string const &label, bool flag_uninitialized = false);
 
   void AllocSparseID(std::string const &base_name, const int sparse_id) {
     AllocateSparse(MakeVarLabel(base_name, sparse_id));
@@ -472,11 +475,13 @@ class MeshBlock : public std::enable_shared_from_this<MeshBlock> {
   // Initializer to set up a meshblock called with the default constructor
   // This is necessary because the back pointers can't be set up until
   // the block is allocated.
-  void Initialize(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
-                  BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
-                  ApplicationInput *app_in, Packages_t &packages,
-                  std::shared_ptr<StateDescriptor> resolved_packages, int igflag,
-                  double icost = 1.0);
+  void
+  Initialize(int igid, int ilid, LogicalLocation iloc, RegionSize input_block,
+             BoundaryFlag *input_bcs, Mesh *pm, ParameterInput *pin,
+             ApplicationInput *app_in, Packages_t &packages,
+             std::shared_ptr<StateDescriptor> resolved_packages, int igflag,
+             double icost = 1.0,
+             const std::optional<std::vector<std::string>> &base_fields = std::nullopt);
 
   void InitializeIndexShapesImpl(const int nx1, const int nx2, const int nx3,
                                  bool init_coarse, bool multilevel);

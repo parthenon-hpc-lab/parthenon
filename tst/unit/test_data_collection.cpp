@@ -45,11 +45,14 @@ TEST_CASE("Adding MeshBlockData objects to a DataCollection", "[DataCollection]"
     std::vector<int> size(6, 1);
     Metadata m_ind({Metadata::Independent}, size);
     Metadata m_one({Metadata::OneCopy}, size);
+    Metadata m_fluxed(
+        {Metadata::Cell, Metadata::Independent, Metadata::WithFluxes});
 
     auto pgk = std::make_shared<StateDescriptor>("DataCollection test");
     pgk->AddField("var1", m_ind);
     pgk->AddField("var2", m_one);
     pgk->AddField("var3", m_ind);
+    pgk->AddField("var4", m_fluxed);
 
     auto &mbd = d.Get();
     mbd->Initialize(pgk, pmb);
@@ -145,6 +148,18 @@ TEST_CASE("Adding MeshBlockData objects to a DataCollection", "[DataCollection]"
         auto hxv3 = xv3.GetHostMirrorAndCopy();
         REQUIRE(hxv3(0) != hv3(0));
         REQUIRE(hxv2(0) == hv2(0));
+      }
+    }
+    AND_WHEN("We shallow-copy a field with associated fluxes") {
+      auto with_fluxes = d.AddShallow("with_fluxes", mbd, {"var4"});
+      auto without_fluxes =
+          d.AddShallowWithoutFluxes("without_fluxes", mbd, {"var4"});
+      THEN("The normal shallow copy includes its associated flux") {
+        REQUIRE_NOTHROW(with_fluxes->Get("bnd_flux::var4"));
+      }
+      AND_THEN("The no-flux shallow copy contains only the requested field") {
+        REQUIRE_NOTHROW(without_fluxes->Get("var4"));
+        REQUIRE_THROWS(without_fluxes->Get("bnd_flux::var4"));
       }
     }
   }
