@@ -540,14 +540,13 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
   PARTHENON_INSTRUMENT
   bool first = true;
   for (auto ptype : output_types_) {
-    auto &op = ptype->output_params;
     const bool times_trigger =
-        tm != nullptr && op.current_time_index < op.times.size() &&
-        tm->time >= op.times[op.current_time_index];
+        tm != nullptr && ptype->output_params.current_time_index < ptype->output_params.times.size() &&
+        tm->time >= ptype->output_params.times[ptype->output_params.current_time_index];
 
     if ((tm == nullptr) ||
         // output is not soft disabled and
-        (((op.dt >= 0.0) || (op.dn >= 0) || !op.times.empty()) &&
+        (((ptype->output_params.dt >= 0.0) || (ptype->output_params.dn >= 0) || !ptype->output_params.times.empty()) &&
          // either dump initial data
          ((tm->ncycle == 0) ||
           //  or by triggering time or cycle based conditions
@@ -587,9 +586,9 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
       // JJ: safety if we pass multiple required output times in one timestep 
       // Probably not needed
       if (tm != nullptr) {
-        while (op.current_time_index < op.times.size() &&
-               op.times[op.current_time_index] <= tm->time) {
-          ++op.current_time_index;
+        while (ptype->output_params.current_time_index < ptype->output_params.times.size() &&
+               ptype->output_params.times[ptype->output_params.current_time_index] <= tm->time) {
+          ++ptype->output_params.current_time_index;
         }
       }
     }
