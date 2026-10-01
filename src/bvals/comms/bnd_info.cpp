@@ -189,6 +189,8 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
     exterior_offset /= 2;
   }
 
+  const bool missing_last_face =
+      (!v->IsSet(Metadata::Cell)) && v->IsSet(Metadata::CellMemAligned);
   std::array<int, 3> s, e;
   for (int dir = 0; dir < 3; ++dir) {
     if (block_offset[dir] == 0) {
@@ -227,9 +229,12 @@ CalcIndices(const NeighborBlock &nb, MeshBlock *pmb,
       }
       // Prolongate into ghosts of interior receiver since we have the data available,
       // having this is important for AMR MG
+      // For cell mem-aligned fields, we cannot safely prolongate in the ghosts on the
+      // upper sides so we only prolongate into the interior. MG does not support
+      // non-cell fields currently, so there is no mismatch.
       if (prores && not_symmetry[dir] && IndexRangeType::InteriorRecv == ir_type) {
         s[dir] -= Globals::nghost / 2;
-        e[dir] += Globals::nghost / 2;
+        if (!missing_last_face) e[dir] += Globals::nghost / 2;
       }
     } else if (block_offset[dir] > 0) {
       // Fluxes are only communicated on shared elements
