@@ -56,6 +56,7 @@
 #include "outputs/outputs.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -128,15 +129,40 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     if (tm != nullptr) {
       dn = pin->GetOrAddInteger(op.block_name, "dn", -1, "output cadence in cycles");
 
-      // If this is a dn controlled output (dn >= 0), soft disable dt based triggering
-      // (-> dt = -1), otherwise setting dt to tlim ensures a final output is also
-      // written for temporal drivers.
-      const auto tlim = dn >= 0 ? -1.0 : tm->tlim;
-      dt =
-          pin->GetOrAddReal(op.block_name, "dt", tlim, "output cadence in physical time");
+      const bool has_times = pin->DoesParameterExist(op.block_name, "times");
+      if (has_times) {
+        op.times = pin->GetVector<Real>(op.block_name, "times", "specific output times");
+        // JJ: checking if users did put right array form, .e.g. times=0.0, 0.28448,
+        // 0.65532
+        PARTHENON_REQUIRE_THROWS(!op.times.empty(),
+                                 "The times array must not be empty in output block " +
+                                     op.block_name);
+        for (const Real time : op.times) {
+          PARTHENON_REQUIRE_THROWS(std::isfinite(time),
+                                   "Output times must be finite in output block " +
+                                       op.block_name);
+        }
+        std::sort(op.times.begin(), op.times.end());
+        op.times.erase(std::unique(op.times.begin(), op.times.end()), op.times.end());
+
+        if (Globals::is_restart) {
+          // On restart, requests at or before the restart time are complete.
+          op.current_time_index = static_cast<std::size_t>(
+              std::upper_bound(op.times.begin(), op.times.end(), tm->time) -
+              op.times.begin());
+        }
+      }
+
+      // JJ: Explicit times disable the default periodic schedule, but a user-specified
+      // dt still enables periodic output alongside the requested times
+      const Real default_dt = (dn >= 0 || has_times) ? -1.0 : tm->tlim;
+      dt = pin->GetOrAddReal(op.block_name, "dt", default_dt,
+                             "output cadence in physical time");
+      PARTHENON_REQUIRE_THROWS(
+          std::isfinite(dt), "Output dt must be finite in output block " + op.block_name);
     }
     // if this output is "soft-disabled" (negative value) skip processing
-    if (dt < 0.0 && dn < 0) {
+    if (dt < 0.0 && dn < 0 && op.times.empty()) {
       continue;
     }
 
@@ -514,9 +540,15 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
   PARTHENON_INSTRUMENT
   bool first = true;
   for (auto ptype : output_types_) {
+    const bool times_trigger =
+        tm != nullptr &&
+        ptype->output_params.current_time_index < ptype->output_params.times.size() &&
+        tm->time >= ptype->output_params.times[ptype->output_params.current_time_index];
+
     if ((tm == nullptr) ||
         // output is not soft disabled and
-        (((ptype->output_params.dt >= 0.0) || (ptype->output_params.dn >= 0)) &&
+        (((ptype->output_params.dt >= 0.0) || (ptype->output_params.dn >= 0) ||
+          ptype->output_params.times.size() > 0) &&
          // either dump initial data
          ((tm->ncycle == 0) ||
           //  or by triggering time or cycle based conditions
@@ -526,6 +558,8 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
           ((ptype->output_params.dn >= 0) &&
            ((tm->ncycle >= ptype->output_params.next_n) ||
             (tm->nlim > 0 && tm->ncycle >= tm->nlim))) ||
+          // JJ: add times_triger for specific times output
+          times_trigger ||
           // or by manual triggers
           (signal == SignalHandler::OutputSignal::now) ||
           (signal == SignalHandler::OutputSignal::final &&
@@ -551,6 +585,15 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
         WatchDog::WatchDog(0);
       }
       ptype->WriteOutputFile(pm, pin, tm, signal);
+      // JJ: safety if we pass multiple required output times in one timestep
+      if (tm != nullptr) {
+        while (ptype->output_params.current_time_index <
+                   ptype->output_params.times.size() &&
+               ptype->output_params.times[ptype->output_params.current_time_index] <=
+                   tm->time) {
+          ++ptype->output_params.current_time_index;
+        }
+      }
     }
   }
 }
@@ -564,19 +607,28 @@ void OutputType::UpdateNextOutput_(Mesh *pm, SimTime *tm) {
   auto *plast_n = pkg->MutableParam<int>(outn_str + "/last_n");
   *pfile_number = output_params.file_number;
   if (tm != nullptr) {
+    const bool has_specific_times = output_params.times.size() > 0;
     // JMM: Do NOT use the current time to update these, as that can
     // cause drift because timestep is not guaranteed to align with
     // desired output time. Instead set last time to previous next
     // time.
-    output_params.last_n = output_params.next_n;
-    output_params.last_time = output_params.next_time;
-    *plast_n = output_params.last_n;
-    *plast_time = output_params.last_time;
-    if (output_params.dt > 0.0) {
-      output_params.next_time += output_params.dt;
+    // JJ: Extra dumps must not consume a regular output that is still in the future.
+    // Update last_time and next_time together so restart reconstruction is consistent.
+    if (!has_specific_times ||
+        (output_params.dt >= 0.0 && tm->time >= output_params.next_time)) {
+      output_params.last_time = output_params.next_time;
+      *plast_time = output_params.last_time;
+      if (output_params.dt > 0.0) {
+        output_params.next_time += output_params.dt;
+      }
     }
-    if (output_params.dn > 0) {
-      output_params.next_n += output_params.dn;
+    if (!has_specific_times ||
+        (output_params.dn >= 0 && tm->ncycle >= output_params.next_n)) {
+      output_params.last_n = output_params.next_n;
+      *plast_n = output_params.last_n;
+      if (output_params.dn > 0) {
+        output_params.next_n += output_params.dn;
+      }
     }
   }
 }
