@@ -132,7 +132,7 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
       const bool has_times = pin->DoesParameterExist(op.block_name, "times");
       if (has_times) {
         op.times = pin->GetVector<Real>(op.block_name, "times", "specific output times");
-        // JJ: checking if users did put right array form, .e.g. times=[0.0, 0.28448, 0.65532]
+        // JJ: checking if users did put right array form, .e.g. times=0.0, 0.28448, 0.65532
         PARTHENON_REQUIRE_THROWS(
             !op.times.empty(),
             "The times array must not be empty in output block " + op.block_name);
@@ -546,7 +546,7 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
 
     if ((tm == nullptr) ||
         // output is not soft disabled and
-        (((ptype->output_params.dt >= 0.0) || (ptype->output_params.dn >= 0) || !ptype->output_params.times.empty()) &&
+        (((ptype->output_params.dt >= 0.0) || (ptype->output_params.dn >= 0) || ptype->output_params.times.size() > 0) &&
          // either dump initial data
          ((tm->ncycle == 0) ||
           //  or by triggering time or cycle based conditions
@@ -584,7 +584,6 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
       }
       ptype->WriteOutputFile(pm, pin, tm, signal);
       // JJ: safety if we pass multiple required output times in one timestep 
-      // Probably not needed
       if (tm != nullptr) {
         while (ptype->output_params.current_time_index < ptype->output_params.times.size() &&
                ptype->output_params.times[ptype->output_params.current_time_index] <= tm->time) {
@@ -603,42 +602,29 @@ void OutputType::UpdateNextOutput_(Mesh *pm, SimTime *tm) {
   auto *plast_time = pkg->MutableParam<Real>(outn_str + "/last_time");
   auto *plast_n = pkg->MutableParam<int>(outn_str + "/last_n");
   *pfile_number = output_params.file_number;
-  if (tm == nullptr) {
-    return;
-  }
-
-  if (output_params.times.empty()) {
+  if (tm != nullptr) {
+    const bool has_specific_times = output_params.times.size() > 0;
     // JMM: Do NOT use the current time to update these, as that can
     // cause drift because timestep is not guaranteed to align with
     // desired output time. Instead set last time to previous next
     // time.
-    output_params.last_n = output_params.next_n;
-    output_params.last_time = output_params.next_time;
-    *plast_n = output_params.last_n;
-    *plast_time = output_params.last_time;
-    if (output_params.dt > 0.0) {
-      output_params.next_time += output_params.dt;
+    // JJ: Extra dumps must not consume a regular output that is still in the future.
+    // Update last_time and next_time together so restart reconstruction is consistent.
+    if (!has_specific_times ||
+        (output_params.dt >= 0.0 && tm->time >= output_params.next_time)) {
+      output_params.last_time = output_params.next_time;
+      *plast_time = output_params.last_time;
+      if (output_params.dt > 0.0) {
+        output_params.next_time += output_params.dt;
+      }
     }
-    if (output_params.dn > 0) {
-      output_params.next_n += output_params.dn;
-    }
-    return;
-  }
-
-  // JJ: Extra dumps must not consume a regular output that is still in the future
-  // update last_time and next_time together so restart reconstruction is consistent
-  if (output_params.dt >= 0.0 && tm->time >= output_params.next_time) {
-    output_params.last_time = output_params.next_time;
-    *plast_time = output_params.last_time;
-    if (output_params.dt > 0.0) {
-      output_params.next_time += output_params.dt;
-    }
-  }
-  if (output_params.dn >= 0 && tm->ncycle >= output_params.next_n) {
-    output_params.last_n = output_params.next_n;
-    *plast_n = output_params.last_n;
-    if (output_params.dn > 0) {
-      output_params.next_n += output_params.dn;
+    if (!has_specific_times ||
+        (output_params.dn >= 0 && tm->ncycle >= output_params.next_n)) {
+      output_params.last_n = output_params.next_n;
+      *plast_n = output_params.last_n;
+      if (output_params.dn > 0) {
+        output_params.next_n += output_params.dn;
+      }
     }
   }
 }
