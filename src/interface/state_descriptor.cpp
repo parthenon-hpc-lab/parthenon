@@ -573,6 +573,93 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
   return state;
 }
 
+std::shared_ptr<StateDescriptor>
+StateDescriptor::CreateResolvedStateDescriptorAnalysis(Packages_t &packages, const std::vector<std::string> &available_fields_vec) {
+  auto state = std::make_shared<StateDescriptor>("parthenon::resolved_state");
+
+  std::set<std::string> available_fields;
+  for (const auto &v : available_fields_vec) {
+    available_fields.insert(v);
+  }
+  std::set<std::string> added_fields;
+  for (auto &pair : packages.AllPackages()) {
+    const auto &pkg_name = pair.first;
+    auto &package = pair.second;
+
+    for (const auto& [var_id, var_metadata] : package->AllFields()) {
+      if (var_metadata.IsSet(Metadata::Analysis)) {
+        if (!added_fields.contains(var_id.label())) {
+          state->AddField(var_id.label(), var_metadata);
+          added_fields.insert(var_id.label());
+        }
+      }
+      if (!var_metadata.IsSet(Metadata::Sparse) &&
+          available_fields.contains(var_id.label())) {
+        available_fields.erase(var_id.label());
+        auto mflags = var_metadata.Flags();
+        std::vector<MetadataFlag> mf;
+        for (auto f : mflags) {
+          if (f != Metadata::Independent &&
+              f != Metadata::WithFluxes) {
+            mf.push_back(f);
+          }
+        }
+        mf.push_back(Metadata::FillGhost);
+        mf.push_back(Metadata::CommunicateOne);
+        mf.push_back(Metadata::Restart);
+        Metadata m(mf, var_metadata.Shape());
+        state->AddField(var_id.label(), m);
+      }
+    }
+
+    for (const auto& [pool_name, pool] : package->AllSparsePools()) {
+      // first check if it's available
+      std::vector<int> avail_ids;
+      std::vector<std::vector<int>> shapes;
+      std::vector<MetadataFlag> vector_tensor;
+      for (const auto& [sparse_id, sparse_meta] : pool.pool()) {
+        bool is_avail = available_fields.contains(MakeVarLabel(pool.base_name(), sparse_id));
+        if (is_avail) {
+          avail_ids.push_back(sparse_id);
+          shapes.push_back(sparse_meta.Shape());
+          if (sparse_meta.IsSet(Metadata::Vector)) vector_tensor.push_back(Metadata::Vector);
+          else if (sparse_meta.IsSet(Metadata::Tensor)) vector_tensor.push_back(Metadata::Tensor);
+          else vector_tensor.push_back(Metadata::None);
+        }
+      }
+      // TODO(JCD): should we support sparse Metadata::Analysis fields?
+      if (avail_ids.size() > 0) {
+        auto m = pool.shared_metadata();
+        m.Unset(Metadata::Independent);
+        m.Unset(Metadata::WithFluxes);
+        m.Set(Metadata::FillGhost);
+        m.Set(Metadata::CommunicateOne);
+        m.Set(Metadata::Restart);
+        state->AddSparsePool(pool.base_name(), m, avail_ids, shapes, vector_tensor);
+      }
+    }
+
+    for (const auto& [swarm_name, swarm_meta] : package->AllSwarms()) {
+      if (swarm_meta.IsSet(Metadata::Analysis)) {
+        if (!added_fields.contains(swarm_name)) {
+          state->AddSwarm(swarm_name, swarm_meta);
+          added_fields.insert(swarm_name);
+          // add all swarm values
+          for (const auto& [val_name, val_meta] :  package->AllSwarmValues(swarm_name)) {
+            state->AddSwarmValue(val_name, swarm_name, val_meta);
+          }
+        }
+      }
+    }
+
+    for (int i = 0; i < 6; ++i)
+      state->UserBoundaryFunctions[i].insert(state->UserBoundaryFunctions[i].end(),
+                                             package->UserBoundaryFunctions[i].begin(),
+                                             package->UserBoundaryFunctions[i].end());
+  }
+  return state;
+}
+
 // Build a list of variables in the following order
 // 1. fields requested by name (if present), in the order they're requested
 // 2. non-sparse fields picked up by the provided Metadata::FlagCollection

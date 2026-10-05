@@ -53,6 +53,11 @@ class RestartReaderOPMD : public RestartReader {
     return it->getAttribute("InputFile").get<std::string>();
   };
 
+  [[nodiscard]] std::vector<std::string> GetFieldNames() const override {
+    PARTHENON_FAIL("OPMD restarts do not yet support analysis pathway");
+    return {};
+  }
+
   // Return output format version number. Return -1 if not existent.
   [[nodiscard]] int GetOutputFormatVersion() const override;
 

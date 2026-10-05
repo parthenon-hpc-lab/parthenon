@@ -133,6 +133,8 @@
   PARTHENON_INTERNAL_FOR_FLAG(NoPersistentParticleIds)                                   \
   /** Only communicate one layer of ghosts at same-to-same boundaries **/                \
   PARTHENON_INTERNAL_FOR_FLAG(CommunicateOne)                                            \
+  /** Allocate these fields even if they are not in analysis dump file **/               \
+  PARTHENON_INTERNAL_FOR_FLAG(Analysis)                                                  \
   /************************************************/                                     \
   /** Vars specifying coordinates for visualization purposes **/                         \
   /** You can specify a single 3D var **/                                                \

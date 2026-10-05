@@ -56,6 +56,9 @@ class RestartReaderHDF5 : public RestartReader {
     return GetAttr<std::string>("Input", "File");
   };
 
+
+  [[nodiscard]] std::vector<std::string> GetFieldNames() const override;
+
   // Return output format version number. Return -1 if not existent.
   [[nodiscard]] int GetOutputFormatVersion() const override;
 
