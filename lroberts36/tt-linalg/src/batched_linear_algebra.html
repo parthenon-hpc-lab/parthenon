@@ -1,0 +1,402 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Batched Linear Algebra &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=e2af37d4" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Reference" href="chapters/reference.html" />
+    <link rel="prev" title="Fourier Transforms" href="fourier_transforms.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Chapters</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="chapters/getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/parallelism_performance.html">Parallelism and Performance</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="chapters/advanced_features.html">Advanced Features</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fourier_transforms.html">Fourier Transforms</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Batched Linear Algebra</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#available-decompositions">Available decompositions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#workspace">Workspace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#matrix-types">Matrix types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#ways-to-call-the-routines">Ways to call the routines</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#on-the-host">On the host</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#in-a-flat-kernel-one-thread-per-matrix">In a flat kernel (one thread per matrix)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#in-a-hierarchical-kernel-one-team-per-matrix">In a hierarchical kernel (one team per matrix)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/api_reference.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/developer_guide.html">Developer Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="chapters/advanced_features.html">Advanced Features</a></li>
+      <li class="breadcrumb-item active">Batched Linear Algebra</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/batched_linear_algebra.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="batched-linear-algebra">
+<h1>Batched Linear Algebra<a class="headerlink" href="#batched-linear-algebra" title="Link to this heading"></a></h1>
+<p>Parthenon provides a small set of dense linear algebra routines in
+<code class="docutils literal notranslate"><span class="pre">src/batched_linear_algebra/</span></code> (namespace
+<code class="docutils literal notranslate"><span class="pre">parthenon::batched_linear_algebra</span></code>). They are meant for many small,
+independent problems, for example one matrix per cell or per meshblock. Each
+routine can be called from host code, by a single thread in a flat kernel, or
+by a Kokkos team in a hierarchical kernel (see <a class="reference internal" href="#ways-to-call-the-routines">Ways to call the routines</a>).</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>These routines are designed for small matrices (up to a few tens of rows
+and columns). They are not a replacement for a distributed or vendor
+BLAS/LAPACK for large problems.</p>
+</div>
+<section id="available-decompositions">
+<h2>Available decompositions<a class="headerlink" href="#available-decompositions" title="Link to this heading"></a></h2>
+<p>All routines work in place and overwrite the input matrix. Optional output
+factors are passed as pointers and may be <code class="docutils literal notranslate"><span class="pre">nullptr</span></code> if they are not
+needed.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">QRDecomposition::execute(tm,</span> <span class="pre">pA,</span> <span class="pre">pQ,</span> <span class="pre">scratch)</span></code>: Householder QR of an
+<span class="math notranslate nohighlight">\(m \times n\)</span> matrix with <span class="math notranslate nohighlight">\(m \geq n\)</span>. On exit <code class="docutils literal notranslate"><span class="pre">*pA</span></code> holds the
+upper-trapezoidal <span class="math notranslate nohighlight">\(R\)</span>, and all entries below the diagonal are exactly
+zero. <code class="docutils literal notranslate"><span class="pre">*pQ</span></code> may be a full (<span class="math notranslate nohighlight">\(m \times m\)</span>) or thin
+(<span class="math notranslate nohighlight">\(m \times n\)</span>) matrix.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">LQDecomposition::execute(tm,</span> <span class="pre">pA,</span> <span class="pre">pQ,</span> <span class="pre">scratch)</span></code>: LQ of a wide matrix
+(<span class="math notranslate nohighlight">\(m \leq n\)</span>), computed by applying QR to the transpose.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SquareSVD::execute(tm,</span> <span class="pre">pA,</span> <span class="pre">pU,</span> <span class="pre">pV,</span> <span class="pre">sings,</span> <span class="pre">scratch,</span> <span class="pre">iscratch)</span></code>: SVD of a
+matrix with <span class="math notranslate nohighlight">\(n_{rows} \geq n_{cols}\)</span>, computed by Householder
+bidiagonalization followed by implicit-shift QR iteration. The singular
+values are returned non-negative but are not sorted.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SymmetricEVD::execute(tm,</span> <span class="pre">pA,</span> <span class="pre">pQ,</span> <span class="pre">eigs,</span> <span class="pre">scratch,</span> <span class="pre">iscratch)</span></code>: eigen
+decomposition of a symmetric matrix, computed by Householder
+tridiagonalization followed by implicit QR. The eigenvalues are not sorted.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">SquareSVD</span></code> and <code class="docutils literal notranslate"><span class="pre">SymmetricEVD</span></code> return the number of QR iterations they
+performed. <code class="docutils literal notranslate"><span class="pre">QRDecomposition</span></code> and <code class="docutils literal notranslate"><span class="pre">LQDecomposition</span></code> return 0.</p>
+</section>
+<section id="workspace">
+<h2>Workspace<a class="headerlink" href="#workspace" title="Link to this heading"></a></h2>
+<p>Besides the matrices themselves, each routine needs a <code class="docutils literal notranslate"><span class="pre">double</span></code> workspace
+and, for <code class="docutils literal notranslate"><span class="pre">SquareSVD</span></code> and <code class="docutils literal notranslate"><span class="pre">SymmetricEVD</span></code>, a <code class="docutils literal notranslate"><span class="pre">std::size_t</span></code> workspace.
+Each class reports the required lengths through <code class="docutils literal notranslate"><span class="pre">double_scratch_size(...)</span></code>
+and <code class="docutils literal notranslate"><span class="pre">sizet_scratch_size(...)</span></code>. <code class="docutils literal notranslate"><span class="pre">total_shmem_scratch_size(...)</span></code> returns
+the number of bytes to request from <code class="docutils literal notranslate"><span class="pre">par_for_outer</span></code> for both workspaces.</p>
+</section>
+<section id="matrix-types">
+<h2>Matrix types<a class="headerlink" href="#matrix-types" title="Link to this heading"></a></h2>
+<p>The routines are templated on the matrix type. Any type works if it provides
+<code class="docutils literal notranslate"><span class="pre">operator()(int</span> <span class="pre">r,</span> <span class="pre">int</span> <span class="pre">c)</span></code> and has <code class="docutils literal notranslate"><span class="pre">GetNrows</span></code>/<code class="docutils literal notranslate"><span class="pre">GetNcols</span></code> overloads
+that can be found by argument-dependent lookup. Rank-2 Kokkos views work
+directly. <code class="docutils literal notranslate"><span class="pre">matrix_wrapper_t&lt;T&gt;</span></code> wraps a row-major pointer, for example
+into scratch memory, and <code class="docutils literal notranslate"><span class="pre">matrix_transpose_wrapper_t</span></code> and the
+permuted-row/column wrappers in <code class="docutils literal notranslate"><span class="pre">matrix_utils.hpp</span></code> provide views without
+copies.</p>
+</section>
+<section id="ways-to-call-the-routines">
+<h2>Ways to call the routines<a class="headerlink" href="#ways-to-call-the-routines" title="Link to this heading"></a></h2>
+<p>The first argument of <code class="docutils literal notranslate"><span class="pre">execute</span></code>, <code class="docutils literal notranslate"><span class="pre">tm</span></code>, is the execution handle. It
+selects one of three ways to use the library.</p>
+<section id="on-the-host">
+<h3>On the host<a class="headerlink" href="#on-the-host" title="Link to this heading"></a></h3>
+<p>Host-only overloads omit <code class="docutils literal notranslate"><span class="pre">tm</span></code> and the workspace arguments and allocate
+their own workspace. They are convenient for setup code and testing:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span><span class="w"> </span><span class="k">namespace</span><span class="w"> </span><span class="nn">parthenon</span><span class="o">::</span><span class="nn">batched_linear_algebra</span><span class="p">;</span>
+<span class="n">QRDecomposition</span><span class="o">::</span><span class="n">execute</span><span class="p">(</span><span class="o">&amp;</span><span class="n">A</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">Q</span><span class="p">);</span><span class="w"> </span><span class="c1">// host only, allocates scratch</span>
+<span class="n">QRDecomposition</span><span class="o">::</span><span class="n">execute</span><span class="p">(</span><span class="o">&amp;</span><span class="n">A</span><span class="p">);</span><span class="w">     </span><span class="c1">// R only</span>
+</pre></div>
+</div>
+</section>
+<section id="in-a-flat-kernel-one-thread-per-matrix">
+<h3>In a flat kernel (one thread per matrix)<a class="headerlink" href="#in-a-flat-kernel-one-thread-per-matrix" title="Link to this heading"></a></h3>
+<p>Passing <code class="docutils literal notranslate"><span class="pre">serial_tm_t()</span></code> runs the whole decomposition on the calling
+thread, so it can be called from an ordinary <code class="docutils literal notranslate"><span class="pre">par_for</span></code> with one matrix per
+iteration. This suits large batches of very small matrices, where one thread
+per matrix already exposes enough parallelism. There is no team scratch in a
+flat kernel, so the matrices and workspace live either in per-thread local
+arrays, when the sizes are known at compile time, or in slices of
+preallocated device arrays:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span><span class="w"> </span><span class="k">namespace</span><span class="w"> </span><span class="nn">parthenon</span><span class="o">::</span><span class="nn">batched_linear_algebra</span><span class="p">;</span>
+<span class="k">constexpr</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+
+<span class="n">parthenon</span><span class="o">::</span><span class="n">par_for</span><span class="p">(</span>
+<span class="w">    </span><span class="s">"BatchedQRFlat"</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">nbatch</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">KOKKOS_LAMBDA</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="k">constexpr</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">kWorkSize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">QRDecomposition</span><span class="o">::</span><span class="n">double_scratch_size</span><span class="p">(</span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">);</span>
+<span class="w">      </span><span class="kt">double</span><span class="w"> </span><span class="n">a_data</span><span class="p">[</span><span class="n">m</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">n</span><span class="p">],</span><span class="w"> </span><span class="n">q_data</span><span class="p">[</span><span class="n">m</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">n</span><span class="p">],</span><span class="w"> </span><span class="n">work</span><span class="p">[</span><span class="n">kWorkSize</span><span class="p">];</span>
+<span class="w">      </span><span class="n">matrix_wrapper_t</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="w"> </span><span class="n">A</span><span class="p">(</span><span class="n">a_data</span><span class="p">,</span><span class="w"> </span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">);</span>
+<span class="w">      </span><span class="n">matrix_wrapper_t</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Q</span><span class="p">(</span><span class="n">q_data</span><span class="p">,</span><span class="w"> </span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">);</span>
+
+<span class="w">      </span><span class="c1">// Fill A for this batch entry, e.g. from cell data</span>
+<span class="w">      </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">m</span><span class="p">;</span><span class="w"> </span><span class="o">++</span><span class="n">r</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">n</span><span class="p">;</span><span class="w"> </span><span class="o">++</span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">          </span><span class="n">A</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">data</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="n">c</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">      </span><span class="p">}</span>
+
+<span class="w">      </span><span class="n">QRDecomposition</span><span class="o">::</span><span class="n">execute</span><span class="p">(</span><span class="n">serial_tm_t</span><span class="p">(),</span><span class="w"> </span><span class="o">&amp;</span><span class="n">A</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">Q</span><span class="p">,</span><span class="w"> </span><span class="n">work</span><span class="p">);</span>
+
+<span class="w">      </span><span class="c1">// A now holds R and Q holds the thin Q factor; use them here</span>
+<span class="w">    </span><span class="p">});</span>
+</pre></div>
+</div>
+</section>
+<section id="in-a-hierarchical-kernel-one-team-per-matrix">
+<h3>In a hierarchical kernel (one team per matrix)<a class="headerlink" href="#in-a-hierarchical-kernel-one-team-per-matrix" title="Link to this heading"></a></h3>
+<p>Passing a <code class="docutils literal notranslate"><span class="pre">team_mbr_t</span></code> spreads each decomposition over the threads of a
+team, which suits larger matrices or smaller batches. All threads of the team
+must call <code class="docutils literal notranslate"><span class="pre">execute</span></code> together. The matrices and workspace would usually be
+allocated in team scratch. <code class="docutils literal notranslate"><span class="pre">execute</span></code> does not end with a team barrier, so
+add one before reading the results:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span><span class="w"> </span><span class="k">namespace</span><span class="w"> </span><span class="nn">parthenon</span><span class="o">::</span><span class="nn">batched_linear_algebra</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">ScratchPad1D</span><span class="p">;</span>
+<span class="k">using</span><span class="w"> </span><span class="n">parthenon</span><span class="o">::</span><span class="n">ScratchPad2D</span><span class="p">;</span>
+<span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">6</span><span class="p">;</span>
+<span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">nscratch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">QRDecomposition</span><span class="o">::</span><span class="n">double_scratch_size</span><span class="p">(</span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">);</span>
+<span class="c1">// Workspace plus scratch for A (m x n) and a thin Q (m x n)</span>
+<span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="kt">size_t</span><span class="w"> </span><span class="n">scratch_bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">QRDecomposition</span><span class="o">::</span><span class="n">total_shmem_scratch_size</span><span class="p">(</span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="o">+</span>
+<span class="w">                                  </span><span class="mi">2</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">ScratchPad2D</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;::</span><span class="n">shmem_size</span><span class="p">(</span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">);</span>
+<span class="k">constexpr</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">scratch_level</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+
+<span class="n">parthenon</span><span class="o">::</span><span class="n">par_for_outer</span><span class="p">(</span>
+<span class="w">    </span><span class="s">"BatchedQR"</span><span class="p">,</span><span class="w"> </span><span class="n">scratch_bytes</span><span class="p">,</span><span class="w"> </span><span class="n">scratch_level</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">nbatch</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">    </span><span class="n">KOKKOS_LAMBDA</span><span class="p">(</span><span class="n">parthenon</span><span class="o">::</span><span class="n">team_mbr_t</span><span class="w"> </span><span class="n">member</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="n">ScratchPad1D</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="w"> </span><span class="n">work</span><span class="p">(</span><span class="n">member</span><span class="p">.</span><span class="n">team_scratch</span><span class="p">(</span><span class="n">scratch_level</span><span class="p">),</span><span class="w"> </span><span class="n">nscratch</span><span class="p">);</span>
+<span class="w">      </span><span class="n">ScratchPad2D</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="w"> </span><span class="n">A</span><span class="p">(</span><span class="n">member</span><span class="p">.</span><span class="n">team_scratch</span><span class="p">(</span><span class="n">scratch_level</span><span class="p">),</span><span class="w"> </span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">);</span>
+<span class="w">      </span><span class="n">ScratchPad2D</span><span class="o">&lt;</span><span class="kt">double</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Q</span><span class="p">(</span><span class="n">member</span><span class="p">.</span><span class="n">team_scratch</span><span class="p">(</span><span class="n">scratch_level</span><span class="p">),</span><span class="w"> </span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">);</span>
+
+<span class="w">      </span><span class="c1">// Fill A for this batch entry, e.g. from cell data</span>
+<span class="w">      </span><span class="n">parthenon</span><span class="o">::</span><span class="n">par_for_inner</span><span class="p">(</span><span class="n">member</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">m</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">                               </span><span class="p">[</span><span class="o">&amp;</span><span class="p">](</span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">A</span><span class="p">(</span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="n">c</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">data</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="n">c</span><span class="p">);</span><span class="w"> </span><span class="p">});</span>
+<span class="w">      </span><span class="n">member</span><span class="p">.</span><span class="n">team_barrier</span><span class="p">();</span>
+
+<span class="w">      </span><span class="n">QRDecomposition</span><span class="o">::</span><span class="n">execute</span><span class="p">(</span><span class="n">member</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">A</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">Q</span><span class="p">,</span><span class="w"> </span><span class="n">work</span><span class="p">.</span><span class="n">data</span><span class="p">());</span>
+<span class="w">      </span><span class="n">member</span><span class="p">.</span><span class="n">team_barrier</span><span class="p">();</span>
+
+<span class="w">      </span><span class="c1">// A now holds R and Q holds the thin Q factor; use them here</span>
+<span class="w">    </span><span class="p">});</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="fourier_transforms.html" class="btn btn-neutral float-left" title="Fourier Transforms" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="chapters/reference.html" class="btn btn-neutral float-right" title="Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: lroberts36/tt-linalg
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/index.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/index.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/index.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/index.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/index.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/index.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/index.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/index.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/index.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/index.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../regression-gold-v26/index.html">regression-gold-v26</a></dd>
+      <dd><a href="../../../regression-gold-v27/index.html">regression-gold-v27</a></dd>
+      <dd><a href="../../../regression-gold-v28/index.html">regression-gold-v28</a></dd>
+      <dd><a href="../../../v0.8.0/index.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/index.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/index.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/index.html">v24.08</a></dd>
+      <dd><a href="../../../v25.05/index.html">v25.05</a></dd>
+      <dd><a href="../../../v25.12/index.html">v25.12</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../BenWibking/mainloop-debug-output-callback/index.html">BenWibking/mainloop-debug-output-callback</a></dd>
+      <dd><a href="../../../BenWibking/move-params/index.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../HEAD/index.html">HEAD</a></dd>
+      <dd><a href="../../../acreyes/hypre-diffusion-example/index.html">acreyes/hypre-diffusion-example</a></dd>
+      <dd><a href="../../../ats5/index.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/index.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/index.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/index.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../blb/toml/index.html">blb/toml</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/index.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/index.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../brryan/kokkos_sort/index.html">brryan/kokkos_sort</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/index.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/index.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/index.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../c-prather/fix-oneblock/index.html">c-prather/fix-oneblock</a></dd>
+      <dd><a href="../../../c-prather/sigint-kill/index.html">c-prather/sigint-kill</a></dd>
+      <dd><a href="../../../cep/allow-phdf/index.html">cep/allow-phdf</a></dd>
+      <dd><a href="../../../cep/one-block-mesh/index.html">cep/one-block-mesh</a></dd>
+      <dd><a href="../../../dempsey/rummy/index.html">dempsey/rummy</a></dd>
+      <dd><a href="../../../dempsey/rummy2/index.html">dempsey/rummy2</a></dd>
+      <dd><a href="../../../dempsey/rummy3/index.html">dempsey/rummy3</a></dd>
+      <dd><a href="../../../dempsey/swarm_amr/index.html">dempsey/swarm_amr</a></dd>
+      <dd><a href="../../../develop/index.html">develop</a></dd>
+      <dd><a href="../../../fglines-nv/optimize-burgers/index.html">fglines-nv/optimize-burgers</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/index.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/index.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../jdolence/analysis/index.html">jdolence/analysis</a></dd>
+      <dd><a href="../../../jdolence/analysis_refresh/index.html">jdolence/analysis_refresh</a></dd>
+      <dd><a href="../../../jdolence/hi_analysis/index.html">jdolence/hi_analysis</a></dd>
+      <dd><a href="../../../jdolence/loop-benchmarks/index.html">jdolence/loop-benchmarks</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/index.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/index.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/index.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/diffusion-hack/index.html">jmm/diffusion-hack</a></dd>
+      <dd><a href="../../../jmm/docstrings-2-blockref-boogaloo/index.html">jmm/docstrings-2-blockref-boogaloo</a></dd>
+      <dd><a href="../../../jmm/fix-block-less-than-ranks/index.html">jmm/fix-block-less-than-ranks</a></dd>
+      <dd><a href="../../../jmm/pyproxy/index.html">jmm/pyproxy</a></dd>
+      <dd><a href="../../../jmm/shrinkcores/index.html">jmm/shrinkcores</a></dd>
+      <dd><a href="../../../jmm/submeshdata-2/index.html">jmm/submeshdata-2</a></dd>
+      <dd><a href="../../../jmm/token-scratch/index.html">jmm/token-scratch</a></dd>
+      <dd><a href="../../../lkasselm/fft/index.html">lkasselm/fft</a></dd>
+      <dd><a href="../../../lkasselm/fft-backup/index.html">lkasselm/fft-backup</a></dd>
+      <dd><a href="../../../lrobert36/update-index-split-manual/index.html">lrobert36/update-index-split-manual</a></dd>
+      <dd><a href="../../add-callback-taskstatus/index.html">lroberts36/add-callback-taskstatus</a></dd>
+      <dd><a href="../../add-densitization-solver-option/index.html">lroberts36/add-densitization-solver-option</a></dd>
+      <dd><a href="../../add-sparse-indices/index.html">lroberts36/add-sparse-indices</a></dd>
+      <dd><a href="../../boundary-comms-perforfmance-upgrades/index.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../calc-indices-unit-tests/index.html">lroberts36/calc-indices-unit-tests</a></dd>
+      <dd><a href="../../fix-multigrid-flag-error/index.html">lroberts36/fix-multigrid-flag-error</a></dd>
+      <dd><a href="../../fix-multiple-solvers/index.html">lroberts36/fix-multiple-solvers</a></dd>
+      <dd><a href="../../fix-sptr-cycle-tree/index.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../generalize-par-dispatch/index.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../imex-advection/index.html">lroberts36/imex-advection</a></dd>
+      <dd><a href="../../loop-benchmarks-bench/index.html">lroberts36/loop-benchmarks-bench</a></dd>
+      <dd><a href="../../python-field-init/index.html">lroberts36/python-field-init</a></dd>
+      <dd><a href="../../python-input-support/index.html">lroberts36/python-input-support</a></dd>
+      <dd><a href="../../solver-noncell-vars/index.html">lroberts36/solver-noncell-vars</a></dd>
+      <dd><a href="../../solver-speedups/index.html">lroberts36/solver-speedups</a></dd>
+      <dd><a href="../../solver-timing/index.html">lroberts36/solver-timing</a></dd>
+      <dd><a href="../../speedup-buffer-kernel-split/index.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../switch-to-weak-ptrs/index.html">lroberts36/switch-to-weak-ptrs</a></dd>
+      <dd><a href="../../temp-p1-branch/index.html">lroberts36/temp-p1-branch</a></dd>
+      <dd><a href="../../tensor-library-packs/index.html">lroberts36/tensor-library-packs</a></dd>
+      <dd><a href="../../test-forest-mesh/index.html">lroberts36/test-forest-mesh</a></dd>
+      <dd><a href="../../tt-infra/index.html">lroberts36/tt-infra</a></dd>
+      <dd><a href="../../tt-infrastructure/index.html">lroberts36/tt-infrastructure</a></dd>
+      <dd><a href="batched_linear_algebra.html">lroberts36/tt-linalg</a></dd>
+      <dd><a href="../../tt-mesh/src/batched_linear_algebra.html">lroberts36/tt-mesh</a></dd>
+      <dd><a href="../../tt-tensors/src/batched_linear_algebra.html">lroberts36/tt-tensors</a></dd>
+      <dd><a href="../../update-diffusion-example/index.html">lroberts36/update-diffusion-example</a></dd>
+      <dd><a href="../../update-sparse-ids/index.html">lroberts36/update-sparse-ids</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/index.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/index.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pdmullen/bndry-flx/index.html">pdmullen/bndry-flx</a></dd>
+      <dd><a href="../../../pdmullen/towards-curv-swarm/index.html">pdmullen/towards-curv-swarm</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/index.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/energy-transfer/index.html">pgrete/energy-transfer</a></dd>
+      <dd><a href="../../../pgrete/enspec/index.html">pgrete/enspec</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/index.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/jupiter/index.html">pgrete/jupiter</a></dd>
+      <dd><a href="../../../pgrete/jupiter-26/index.html">pgrete/jupiter-26</a></dd>
+      <dd><a href="../../../pgrete/metadata-allow-new-field-restart/index.html">pgrete/metadata-allow-new-field-restart</a></dd>
+      <dd><a href="../../../pgrete/pmd-output-wuser/index.html">pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/remove-rhdf-suffix/index.html">pgrete/remove-rhdf-suffix</a></dd>
+      <dd><a href="../../../pgrete/unique-ids/index.html">pgrete/unique-ids</a></dd>
+      <dd><a href="../../../pgrete/user-output/index.html">pgrete/user-output</a></dd>
+      <dd><a href="../../../swjones/asym_halos/index.html">swjones/asym_halos</a></dd>
+      <dd><a href="../../../swjones/dt_package_reporting/index.html">swjones/dt_package_reporting</a></dd>
+      <dd><a href="../../../swjones/rk34_integrator-unit-test/index.html">swjones/rk34_integrator-unit-test</a></dd>
+      <dd><a href="../../../swjones/tensor-library/index.html">swjones/tensor-library</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
