@@ -108,9 +108,10 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // Populate the ParameterInput object.
   // If restart, then ParameterInput in the restart file takes precedence.
-  if (arg.is_restart) {
-    // Read input from restart file
-    if (fs::path(arg.restart_filename).extension() == ".rhdf") {
+  if (arg.is_restart || arg.analysis_flag) {
+    // Read input from restart/dump file
+    if (fs::path(arg.restart_filename).extension() == ".rhdf" ||
+        fs::path(arg.restart_filename).extension() == ".phdf") {
 #ifdef ENABLE_HDF5
       restartReader = std::make_unique<RestartReaderHDF5>(arg.restart_filename);
 #else // HDF5 disabled
@@ -140,7 +141,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
   // If an input file was provided
   if (arg.input_filename != nullptr) {
     // Modify info read from restart file
-    if (arg.is_restart) {
+    if (arg.is_restart || arg.analysis_flag) {
       IOWrapper infile;
       infile.Open(arg.input_filename, IOWrapper::FileMode::read);
       pinput->LoadFromFile(infile);
@@ -217,14 +218,14 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
   packages.Add(OutputsPackage::Initialize(pinput.get()));
   if (forest_def) {
     pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, *forest_def);
-  } else if (!arg.is_restart) {
+  } else if (!arg.is_restart && !arg.analysis_flag) {
     pmesh =
         std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, arg.mesh_flag);
-  } else {
+  } else if (arg.is_restart || arg.analysis_flag) {
     // Open restart file
     // Read Mesh from restart file and create meshblocks
     pmesh =
-        std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader, packages);
+        std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader, packages, arg.analysis_flag);
 
     // Read simulation time and cycle from restart file and set in input
     const auto time_info = restartReader->GetTimeInfo();
@@ -243,6 +244,8 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     // close hdf5 file to prevent HDF5 hangs and corrupted files
     // if code dies after restart
     restartReader = nullptr;
+  } else if (arg.analysis_flag) {
+    // 
   }
 
   // add root_level to all max_level
@@ -262,7 +265,8 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     pinput->SetString("parthenon/job", "output_params_block_regex", arg.params_regex);
   }
 
-  pmesh->Initialize(!arg.is_restart, pinput.get(), app_input.get());
+  auto init_flag = (arg.is_restart ? MeshInitType::restart : (arg.analysis_flag ? MeshInitType::analysis : MeshInitType::pgen));
+  pmesh->Initialize(init_flag, pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);
 }

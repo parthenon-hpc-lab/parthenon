@@ -98,6 +98,8 @@ class RestartReader {
 
   [[nodiscard]] virtual std::string GetInputString() const = 0;
 
+  [[nodiscard]] virtual std::vector<std::string> GetFieldNames() const = 0;
+
   // Return output format version number. Return -1 if not existent.
   [[nodiscard]] virtual int GetOutputFormatVersion() const = 0;
 

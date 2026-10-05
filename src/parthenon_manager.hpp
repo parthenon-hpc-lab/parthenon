@@ -50,6 +50,8 @@ class ParthenonManager {
 
   std::function<Packages_t(std::unique_ptr<ParameterInput> &)> ProcessPackages =
       ProcessPackagesDefault;
+  
+  bool IsAnalysis() const { return arg.analysis_flag; }
 
   // member data
   std::unique_ptr<ParameterInput> pinput;

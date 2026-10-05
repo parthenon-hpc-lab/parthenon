@@ -244,6 +244,8 @@ struct base_t
 // and/or regexes)
 class PackIdx {
  public:
+  KOKKOS_DEFAULTED_FUNCTION
+  PackIdx() = default;
   KOKKOS_INLINE_FUNCTION
   explicit PackIdx(std::size_t var_idx) : vidx(var_idx), offset(0) {}
   KOKKOS_INLINE_FUNCTION

@@ -60,7 +60,6 @@ class ArgParse {
           break;
         case 'a': // -a <restart_file>
           invalid = invalid_arg();
-          is_restart = true;
           analysis_flag = true;
           restart_filename = argv[++i];
           break;
@@ -135,6 +134,12 @@ class ArgParse {
       // no input file is given
       std::cout << "### FATAL ERROR in main" << std::endl
                 << "No input file or restart file is specified." << std::endl;
+      return ArgStatus::error;
+    }
+    if (analysis_flag && input_filename == nullptr) {
+      // no input file
+      std::cout << "### FATAL ERROR in main" << std::endl
+                << "No input file specified for analysis." << std::endl;
       return ArgStatus::error;
     }
     return ArgStatus::ok;

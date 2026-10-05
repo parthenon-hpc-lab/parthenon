@@ -75,6 +75,8 @@ class Packages_t;
 class ParameterInput;
 class RestartReader;
 
+enum class MeshInitType {pgen, restart, analysis};
+
 // Map from LogicalLocation to (gid, rank) pair of location
 using LogicalLocMap_t = std::map<LogicalLocation, std::pair<int, int>>;
 
@@ -93,10 +95,10 @@ class Mesh {
 
   struct base_constructor_selector_t {};
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
-       base_constructor_selector_t);
+       base_constructor_selector_t, bool analysis = false, const std::vector<std::string> &fields = {});
   struct hyper_rectangular_constructor_selector_t {};
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
-       hyper_rectangular_constructor_selector_t);
+       hyper_rectangular_constructor_selector_t, bool analysis = false, const std::vector<std::string> &fields = {});
 
  public:
 #ifdef PARTHENON_ENABLE_FFT
@@ -122,7 +124,7 @@ class Mesh {
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        int test_flag = 0);
   Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &resfile,
-       Packages_t &packages, int test_flag = 0);
+       Packages_t &packages, bool analysis = false);
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        forest::ForestDefinition &forest_def);
   static RegionSize GetBaseMeshBlockSize(ParameterInput *pin,
@@ -183,7 +185,7 @@ class Mesh {
   }
 
   // functions
-  void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
+  void Initialize(MeshInitType flag, ParameterInput *pin, ApplicationInput *app_in);
 
   bool SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
                                  BoundaryFlag *block_bcs,
