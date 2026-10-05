@@ -184,7 +184,7 @@ static BlockList_t setupMesh(const int &n_block, const int &n_mesh, const double
         h_xyz(1, idx) = dxyzCell * (static_cast<Real>(j_mesh * n_block) + 0.5) - delta;
         h_xyz(2, idx) = dxyzCell * (static_cast<Real>(k_mesh * n_block) + 0.5) - delta;
         // Add variable for in_or_out
-        pmb->meshblock_data.Get()->Initialize(pgk, pmb);
+        pmb->meshblock_data.Add("base", pgk, pmb);
       }
     }
   }

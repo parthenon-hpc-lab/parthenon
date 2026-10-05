@@ -34,6 +34,7 @@
 #include "interface/params.hpp"
 #include "interface/sparse_pool.hpp"
 #include "interface/var_id.hpp"
+#include "interface/variable.hpp"
 #include "outputs/output_parameters.hpp"
 #include "pack/scratch_variables.hpp"
 #include "parameter_input.hpp"
@@ -313,8 +314,14 @@ class StateDescriptor {
   const auto &GetFieldVarID(const std::string &label) const {
     return labelToVidMap_.at(label);
   }
+  const auto &GetFieldVarID(const Uid_t &uid) const {
+    return labelToVidMap_.at(Variable<Real>::GetLabel(uid));
+  }
   const auto &GetFieldMetadata(const std::string &label) const {
     return metadataMap_.at(labelToVidMap_.at(label));
+  }
+  const auto &GetFieldMetadata(const Uid_t &uid) const {
+    return metadataMap_.at(labelToVidMap_.at(Variable<Real>::GetLabel(uid)));
   }
   const auto &GetFieldMetadata(const VarID &id) const { return metadataMap_.at(id); }
   const auto &AllFields() const noexcept { return metadataMap_; }

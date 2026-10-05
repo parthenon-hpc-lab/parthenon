@@ -147,8 +147,7 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // Add physics data, including dense, sparse, and swarm variables.
   // Resolve issues.
 
-  auto &real_container = meshblock_data.Get();
-  real_container->Initialize(shared_from_this());
+  auto &real_container = meshblock_data.Add("base", shared_from_this());
 
   // TODO(jdolence): Should these loops be moved to Variable creation
   // TODO(JMM): What variables should be in vars_cc_? They are used

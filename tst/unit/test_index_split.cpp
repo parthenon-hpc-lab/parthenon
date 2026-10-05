@@ -55,8 +55,7 @@ BlockList_t MakeBlockList(const std::shared_ptr<StateDescriptor> pkg, const int 
   block_list.reserve(NBLOCKS);
   for (int i = 0; i < NBLOCKS; ++i) {
     auto pmb = std::make_shared<MeshBlock>(NSIDE, NDIM);
-    auto &pmbd = pmb->meshblock_data.Get();
-    pmbd->Initialize(pkg, pmb);
+    auto &pmbd = pmb->meshblock_data.Add("base", pkg, pmb);
     block_list.push_back(pmb);
   }
   return block_list;
@@ -99,8 +98,7 @@ TEST_CASE("IndexSplit", "[IndexSplit]") {
     pkg->AddField(v5::name(), m);
     BlockList_t block_list = MakeBlockList(pkg, NBLOCKS, N, NDIM);
 
-    MeshData<Real> mesh_data("base");
-    mesh_data.Initialize(block_list, nullptr);
+    MeshData<Real> mesh_data("base", block_list, nullptr);
 
     WHEN("We initialize an IndexSplit with all outer k and no outer j") {
       IndexSplit sp(&mesh_data, IndexDomain::interior, IndexSplit::all_outer,
