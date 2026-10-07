@@ -33,6 +33,7 @@
 
 #include <catch2/catch.hpp>
 
+#include "batched_linear_algebra/maxvol.hpp"
 #include "batched_linear_algebra/qr_decomposition.hpp"
 #include "batched_linear_algebra/qr_solve.hpp"
 #include "batched_linear_algebra/square_svd.hpp"
@@ -257,8 +258,7 @@ void FactorFlatLocal(ParArray3D<double> A_dev, ParArray3D<double> Q_dev) {
 // (A X = B) and the number of rows of B for QRSolveRight (X A = B).
 template <class Solver>
 int NumRhs(const ParArray3D<double> &B_dev) {
-  return std::is_same_v<Solver, QRSolveRight> ? B_dev.extent_int(1)
-                                              : B_dev.extent_int(2);
+  return std::is_same_v<Solver, QRSolveRight> ? B_dev.extent_int(1) : B_dev.extent_int(2);
 }
 
 template <class Solver>
@@ -309,6 +309,57 @@ void SolveFlat(ParArray3D<double> A_dev, ParArray3D<double> B_dev) {
         auto A = Kokkos::subview(A_view, b, Kokkos::ALL(), Kokkos::ALL());
         auto B = Kokkos::subview(B_view, b, Kokkos::ALL(), Kokkos::ALL());
         Solver::execute(serial_tm_t(), &A, &B, &work(b, 0));
+      });
+}
+
+constexpr double kMaxvolTau = 1.05;
+
+void MaxvolTeam(ParArray3D<double> A_dev, ParArray3D<double> B_dev,
+                ParArray2D<int> I_dev) {
+  const int n = A_dev.extent_int(1);
+  const int r = A_dev.extent_int(2);
+  const int scratch_level = 0;
+  const std::size_t nwork = Maxvol::double_scratch_size(n, r);
+  const std::size_t scratch_bytes = Maxvol::total_shmem_scratch_size(n, r) +
+                                    2 * ScratchPad2D<double>::shmem_size(n, r) +
+                                    ScratchPad1D<int>::shmem_size(r);
+  const double tau = kMaxvolTau;
+  parthenon::par_for_outer(
+      "MaxvolTeam", scratch_bytes, scratch_level, 0, nbatch - 1,
+      KOKKOS_LAMBDA(team_mbr_t member, const int b) {
+        ScratchPad1D<double> work(member.team_scratch(scratch_level), nwork);
+        ScratchPad2D<double> A(member.team_scratch(scratch_level), n, r);
+        ScratchPad2D<double> B(member.team_scratch(scratch_level), n, r);
+        ScratchPad1D<int> I(member.team_scratch(scratch_level), r);
+        parthenon::par_for_inner(
+            member, 0, n - 1, 0, r - 1,
+            [&](const int i, const int c) { A(i, c) = A_dev(b, i, c); });
+        member.team_barrier();
+
+        Maxvol::execute(member, A, &B, I.data(), work.data(), true, tau);
+        member.team_barrier();
+
+        parthenon::par_for_inner(
+            member, 0, n - 1, 0, r - 1,
+            [&](const int i, const int c) { B_dev(b, i, c) = B(i, c); });
+        parthenon::par_for_inner(member, 0, r - 1,
+                                 [&](const int j) { I_dev(b, j) = I(j); });
+      });
+}
+
+void MaxvolFlat(ParArray3D<double> A_dev, ParArray3D<double> B_dev,
+                ParArray2D<int> I_dev) {
+  const int n = A_dev.extent_int(1);
+  const int r = A_dev.extent_int(2);
+  ParArray2D<double> work("work", nbatch, Maxvol::double_scratch_size(n, r));
+  const View3D A_view = A_dev;
+  const View3D B_view = B_dev;
+  const double tau = kMaxvolTau;
+  parthenon::par_for(
+      "MaxvolFlat", 0, nbatch - 1, KOKKOS_LAMBDA(const int b) {
+        auto A = Kokkos::subview(A_view, b, Kokkos::ALL(), Kokkos::ALL());
+        auto B = Kokkos::subview(B_view, b, Kokkos::ALL(), Kokkos::ALL());
+        Maxvol::execute(serial_tm_t(), A, &B, &I_dev(b, 0), &work(b, 0), true, tau);
       });
 }
 
@@ -514,6 +565,54 @@ void TestSolve(const bool team, const int a_rows, const int a_cols, const int nr
   }
 }
 
+// Rounding and tie-breaking differ between host and device, so the selected
+// rows may differ while being equally valid. Check each result on its own:
+// distinct rows, B(I,:) = identity, B A(I,:) = A, and max |B| <= tau.
+void TestMaxvol(const bool team, const int n, const int r, const unsigned seed) {
+  const auto A0 = RandomBatch(n, r, seed);
+  auto A_dev = ToDevice(A0);
+  ParArray3D<double> B_dev("B", nbatch, n, r);
+  ParArray2D<int> I_dev("I", nbatch, r);
+  if (team) {
+    MaxvolTeam(A_dev, B_dev, I_dev);
+  } else {
+    MaxvolFlat(A_dev, B_dev, I_dev);
+  }
+
+  const auto B = ToHost(B_dev);
+  const auto I_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), I_dev);
+  for (int b = 0; b < nbatch; ++b) {
+    std::vector<int> I(r);
+    for (int j = 0; j < r; ++j) {
+      I[j] = I_host(b, j);
+      REQUIRE(I[j] >= 0);
+      REQUIRE(I[j] < n);
+    }
+    std::vector<int> sorted = I;
+    std::sort(sorted.begin(), sorted.end());
+    REQUIRE(std::adjacent_find(sorted.begin(), sorted.end()) == sorted.end());
+
+    Matrix S(r, r);
+    for (int a = 0; a < r; ++a) {
+      for (int c = 0; c < r; ++c) {
+        S(a, c) = A0[b](I[a], c);
+        REQUIRE(std::abs(B[b](I[a], c) - (a == c)) < 1e-12);
+      }
+    }
+    Matrix BS(n, r);
+    Multiply(B[b], S, BS);
+    REQUIRE(MaxAbsDiff(BS, A0[b]) < 1e-12 * A0[b].FrobeniusNorm());
+
+    double bmax = 0.0;
+    for (int i = 0; i < n; ++i) {
+      for (int c = 0; c < r; ++c) {
+        bmax = std::max(bmax, std::abs(B[b](i, c)));
+      }
+    }
+    REQUIRE(bmax <= kMaxvolTau * (1.0 + 1e-12));
+  }
+}
+
 // The SVD and EVD iterate, so compare the (sorted) values against host and
 // check the vectors through orthogonality and the residual.
 void TestSVD(const bool team, const int m, const int n, const unsigned seed) {
@@ -601,6 +700,13 @@ TEST_CASE("Batched QR solve on device", "[qr_solve][device]") {
     TestSolve<QRSolve>(team, 40, 40, 50, 700u);
     TestSolve<QRSolveRight>(team, 12, 12, 5, 800u);
     TestSolve<QRSolveRight>(team, 20, 40, 50, 900u);
+  }
+}
+
+TEST_CASE("Batched maxvol on device", "[maxvol][device]") {
+  for (const bool team : {true, false}) {
+    TestMaxvol(team, 12, 4, 1000u);
+    TestMaxvol(team, 40, 6, 1100u);
   }
 }
 

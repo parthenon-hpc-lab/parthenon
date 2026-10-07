@@ -143,6 +143,28 @@ KOKKOS_FORCEINLINE_FUNCTION void find_maximum(tm_t tm, const int il, const int i
   }
 }
 
+using maxloc_t = Kokkos::MaxLoc<double, int>;
+using maxloc_value_t = maxloc_t::value_type;
+
+// Find the largest value and its location over [il, iu]. func(i, result) should
+// update result.val and result.loc when its value exceeds result.val. result
+// is overwritten, starting from the reduction identity. With ties, which of the
+// tied locations is returned is unspecified.
+template <class tm_t, class F>
+KOKKOS_FORCEINLINE_FUNCTION void find_maximum_location(tm_t tm, const int il,
+                                                       const int iu, const F &func,
+                                                       maxloc_value_t &result) {
+  check_execution_handle<tm_t>();
+  if constexpr (std::is_same_v<tm_t, serial_tm_t>) {
+    maxloc_t(result).init(result);
+    for (int i = il; i <= iu; ++i)
+      func(i, result);
+  } else if constexpr (std::is_same_v<tm_t, parthenon::team_mbr_t>) {
+    parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag, tm, il, iu, func,
+                                maxloc_t(result));
+  }
+}
+
 template <class tm_t, class F>
 KOKKOS_FORCEINLINE_FUNCTION void summation(tm_t tm, const int jl, const int ju,
                                            const int il, const int iu, const F &func,

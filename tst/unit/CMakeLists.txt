@@ -58,6 +58,7 @@ list(APPEND unit_tests_SOURCES
     linalg_test_utils.cpp
     test_qr.cpp
     test_qr_solve.cpp
+    test_maxvol.cpp
     test_svd.cpp
     test_implicit_qr.cpp
     test_linalg_device.cpp

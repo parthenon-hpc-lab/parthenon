@@ -64,6 +64,28 @@ The workspace size functions of ``QRSolve`` and ``QRSolveRight`` take the
 dimensions of ``A`` and the number of right-hand sides,
 ``double_scratch_size(nrows, ncols, nrhs)``.
 
+Row selection
+-------------
+
+* ``Maxvol::execute(tm, A, pB, I, scratch, initialize_indices, tau,
+  max_iters)``: for an :math:`n \times r` matrix ``A`` with :math:`n \geq r`,
+  finds :math:`r` rows ``I`` whose submatrix is :math:`\tau`-dominant, meaning
+  every entry of :math:`B = A A(I,:)^{-1}` is at most :math:`\tau` in absolute
+  value. Such a submatrix has close to the largest :math:`|\det|` of all
+  :math:`r \times r` submatrices. ``A`` is only read. On exit ``*pB``
+  (:math:`n \times r`) holds :math:`B`, and ``I`` (an ``int`` array of length
+  :math:`r`) holds the rows.
+
+  If ``initialize_indices`` is true (the default), the starting rows are chosen
+  greedily by eliminating the largest entry of each column in turn. Otherwise
+  ``I`` must hold a starting set with :math:`A(I,:)` nonsingular, which allows
+  warm starts. Each iteration finds the largest :math:`|B(i,j)|`, replaces row
+  ``I[j]`` with row :math:`i`, and updates :math:`B` by a rank-1 correction, until
+  :math:`\max |B| \leq \tau` (default 1.05; it should be greater than 1) or
+  ``max_iters`` (default 100) swaps. The return value is the number of swaps.
+  Columns of a wide matrix can be selected by passing its transpose through
+  ``matrix_transpose_view_t``. Rank-deficient ``A`` is not checked for.
+
 ``SquareSVD`` and ``SymmetricEVD`` return the number of QR iterations they
 performed. ``QRDecomposition``, ``LQDecomposition`` and the solvers return 0.
 
