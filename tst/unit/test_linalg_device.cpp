@@ -28,11 +28,13 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <type_traits>
 #include <vector>
 
 #include <catch2/catch.hpp>
 
 #include "batched_linear_algebra/qr_decomposition.hpp"
+#include "batched_linear_algebra/qr_solve.hpp"
 #include "batched_linear_algebra/square_svd.hpp"
 #include "batched_linear_algebra/symmetric_evd.hpp"
 #include "kokkos_abstraction.hpp"
@@ -251,6 +253,65 @@ void FactorFlatLocal(ParArray3D<double> A_dev, ParArray3D<double> Q_dev) {
       });
 }
 
+// The number of right-hand sides is the number of columns of B for QRSolve
+// (A X = B) and the number of rows of B for QRSolveRight (X A = B).
+template <class Solver>
+int NumRhs(const ParArray3D<double> &B_dev) {
+  return std::is_same_v<Solver, QRSolveRight> ? B_dev.extent_int(1)
+                                              : B_dev.extent_int(2);
+}
+
+template <class Solver>
+void SolveTeam(ParArray3D<double> A_dev, ParArray3D<double> B_dev) {
+  const int am = A_dev.extent_int(1);
+  const int an = A_dev.extent_int(2);
+  const int bm = B_dev.extent_int(1);
+  const int bn = B_dev.extent_int(2);
+  const int nrhs = NumRhs<Solver>(B_dev);
+  const int scratch_level = 0;
+  const std::size_t nwork = Solver::double_scratch_size(am, an, nrhs);
+  const std::size_t scratch_bytes = Solver::total_shmem_scratch_size(am, an, nrhs) +
+                                    ScratchPad2D<double>::shmem_size(am, an) +
+                                    ScratchPad2D<double>::shmem_size(bm, bn);
+  parthenon::par_for_outer(
+      "SolveTeam", scratch_bytes, scratch_level, 0, nbatch - 1,
+      KOKKOS_LAMBDA(team_mbr_t member, const int b) {
+        ScratchPad1D<double> work(member.team_scratch(scratch_level), nwork);
+        ScratchPad2D<double> A(member.team_scratch(scratch_level), am, an);
+        ScratchPad2D<double> B(member.team_scratch(scratch_level), bm, bn);
+        parthenon::par_for_inner(
+            member, 0, am - 1, 0, an - 1,
+            [&](const int r, const int c) { A(r, c) = A_dev(b, r, c); });
+        parthenon::par_for_inner(
+            member, 0, bm - 1, 0, bn - 1,
+            [&](const int r, const int c) { B(r, c) = B_dev(b, r, c); });
+        member.team_barrier();
+
+        Solver::execute(member, &A, &B, work.data());
+        member.team_barrier();
+
+        parthenon::par_for_inner(
+            member, 0, bm - 1, 0, bn - 1,
+            [&](const int r, const int c) { B_dev(b, r, c) = B(r, c); });
+      });
+}
+
+template <class Solver>
+void SolveFlat(ParArray3D<double> A_dev, ParArray3D<double> B_dev) {
+  const int am = A_dev.extent_int(1);
+  const int an = A_dev.extent_int(2);
+  const int nrhs = NumRhs<Solver>(B_dev);
+  ParArray2D<double> work("work", nbatch, Solver::double_scratch_size(am, an, nrhs));
+  const View3D A_view = A_dev;
+  const View3D B_view = B_dev;
+  parthenon::par_for(
+      "SolveFlat", 0, nbatch - 1, KOKKOS_LAMBDA(const int b) {
+        auto A = Kokkos::subview(A_view, b, Kokkos::ALL(), Kokkos::ALL());
+        auto B = Kokkos::subview(B_view, b, Kokkos::ALL(), Kokkos::ALL());
+        Solver::execute(serial_tm_t(), &A, &B, &work(b, 0));
+      });
+}
+
 void SVDTeam(ParArray3D<double> A_dev, ParArray3D<double> U_dev, ParArray3D<double> V_dev,
              ParArray2D<double> s_dev) {
   const int m = A_dev.extent_int(1);
@@ -398,6 +459,61 @@ void TestFactorizationLocal(const unsigned seed) {
   CheckFactorization<Decomposition>(A0, ToHost(A_dev), ToHost(Q_dev));
 }
 
+// Team reductions and fused multiply-adds on GPUs change the rounding, so a
+// direct comparison with the host solution would scale with cond(A). Instead
+// check that the device X satisfies the normal equations Aᵀ (A X - B) = 0 to
+// within a backward-stable tolerance, which holds for square and tall A alike.
+// A, B and X are given in the left-solve form A X = B.
+void CheckNormalEquations(const Matrix &A, const Matrix &B, const Matrix &X) {
+  Matrix res(B.nrows(), B.ncols());
+  Multiply(A, X, res);
+  for (int r = 0; r < B.nrows(); ++r) {
+    for (int c = 0; c < B.ncols(); ++c) {
+      res(r, c) -= B(r, c);
+    }
+  }
+  Matrix normal(X.nrows(), X.ncols());
+  Multiply(Matrix::Transpose(A), res, normal);
+  const double a = A.FrobeniusNorm();
+  REQUIRE(normal.FrobeniusNorm() <
+          1e-13 * a * (a * X.FrobeniusNorm() + B.FrobeniusNorm()));
+}
+
+// Solves A X = B with QRSolve, or X A = B with QRSolveRight, where A is
+// a_rows x a_cols and there are nrhs right-hand sides.
+template <class Solver>
+void TestSolve(const bool team, const int a_rows, const int a_cols, const int nrhs,
+               const unsigned seed) {
+  constexpr bool right = std::is_same_v<Solver, QRSolveRight>;
+  const int b_rows = right ? nrhs : a_rows;
+  const int b_cols = right ? a_cols : nrhs;
+  const auto A0 = RandomBatch(a_rows, a_cols, seed);
+  const auto B0 = RandomBatch(b_rows, b_cols, seed + 1000u);
+  auto A_dev = ToDevice(A0);
+  auto B_dev = ToDevice(B0);
+  if (team) {
+    SolveTeam<Solver>(A_dev, B_dev);
+  } else {
+    SolveFlat<Solver>(A_dev, B_dev);
+  }
+
+  const auto B = ToHost(B_dev);
+  for (int b = 0; b < nbatch; ++b) {
+    // For X A = B, check the equivalent left solve Aᵀ Xᵀ = Bᵀ
+    const Matrix A = right ? Matrix::Transpose(A0[b]) : A0[b];
+    const Matrix B_rhs = right ? Matrix::Transpose(B0[b]) : B0[b];
+    const Matrix B_out = right ? Matrix::Transpose(B[b]) : B[b];
+    const int n = A.ncols();
+    Matrix X(n, nrhs);
+    for (int r = 0; r < n; ++r) {
+      for (int c = 0; c < nrhs; ++c) {
+        X(r, c) = B_out(r, c);
+      }
+    }
+    CheckNormalEquations(A, B_rhs, X);
+  }
+}
+
 // The SVD and EVD iterate, so compare the (sorted) values against host and
 // check the vectors through orthogonality and the residual.
 void TestSVD(const bool team, const int m, const int n, const unsigned seed) {
@@ -474,6 +590,17 @@ TEST_CASE("Batched LQ decomposition on device", "[qr][device]") {
     for (const int n : {12, 40}) {
       TestFactorization<LQDecomposition>(team, n / 2, n, 200u);
     }
+  }
+}
+
+TEST_CASE("Batched QR solve on device", "[qr_solve][device]") {
+  for (const bool team : {true, false}) {
+    // Square and tall systems, with more and fewer right-hand sides than columns
+    TestSolve<QRSolve>(team, 12, 12, 5, 500u);
+    TestSolve<QRSolve>(team, 40, 20, 3, 600u);
+    TestSolve<QRSolve>(team, 40, 40, 50, 700u);
+    TestSolve<QRSolveRight>(team, 12, 12, 5, 800u);
+    TestSolve<QRSolveRight>(team, 20, 40, 50, 900u);
   }
 }
 

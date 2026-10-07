@@ -35,8 +35,37 @@ needed.
   decomposition of a symmetric matrix, computed by Householder
   tridiagonalization followed by implicit QR. The eigenvalues are not sorted.
 
+Linear solvers
+--------------
+
+The solvers overwrite both the matrix and the right-hand sides. They do not
+check for singular or rank-deficient matrices, which produce inf/NaN in the
+solution.
+
+* ``QRSolve::execute(tm, pA, pB, scratch)``: solves :math:`A X = B` for an
+  :math:`m \times n` matrix with :math:`m \geq n` and an :math:`m \times k`
+  ``*pB``, giving the least-squares solution when :math:`m > n`. Each
+  Householder reflector is applied to :math:`B` as it is built, so :math:`Q` is
+  never formed. On exit the first :math:`n` rows of ``*pB`` hold :math:`X`, and
+  the remaining rows hold the trailing rows of :math:`Q^T B`, whose column norms
+  are the least-squares residuals. The upper triangle of ``*pA`` holds
+  :math:`R`, and the entries below the diagonal are unspecified.
+* ``QRSolveRight::execute(tm, pA, pB, scratch)``: solves :math:`X A = B` for
+  an :math:`n \times m` matrix with :math:`n \leq m` and a :math:`k \times m`
+  ``*pB``, by applying ``QRSolve`` to the transposed problem. On exit the first
+  :math:`n` columns of ``*pB`` hold :math:`X`.
+* ``TriangularSolve::execute(tm, R, pB)``: back substitution for
+  :math:`R X = B` with :math:`R` upper triangular. Only the upper triangle of
+  the leading :math:`n \times n` block of ``R`` is read, and the first
+  :math:`n` rows of ``*pB`` are overwritten with :math:`X`. It needs no
+  workspace.
+
+The workspace size functions of ``QRSolve`` and ``QRSolveRight`` take the
+dimensions of ``A`` and the number of right-hand sides,
+``double_scratch_size(nrows, ncols, nrhs)``.
+
 ``SquareSVD`` and ``SymmetricEVD`` return the number of QR iterations they
-performed. ``QRDecomposition`` and ``LQDecomposition`` return 0.
+performed. ``QRDecomposition``, ``LQDecomposition`` and the solvers return 0.
 
 Workspace
 ---------
