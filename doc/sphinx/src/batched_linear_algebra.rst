@@ -86,8 +86,37 @@ Row selection
   Columns of a wide matrix can be selected by passing its transpose through
   ``matrix_transpose_view_t``. Rank-deficient ``A`` is not checked for.
 
+Low-rank approximation
+----------------------
+
+* ``MatrixCross::execute(tm, A, pC, pR, I, J, rank, scratch,
+  initialize_indices, max_sweeps, tau)``: rank-:math:`r` cross approximation
+  :math:`A \approx C A(I,:)` of an :math:`n \times m` matrix, with
+  :math:`C = A(:,J) A(I,J)^{-1}`. The approximation is exact if
+  :math:`\operatorname{rank} A = r`. Only the :math:`(n + m) r` entries of
+  :math:`A(:,J)` and :math:`A(I,:)` are read per sweep, so ``A`` can be any type
+  satisfying the matrix requirements below, including a functor that computes
+  entries on demand.
+
+  Each sweep orthogonalizes the column fiber :math:`A(:,J)` by QR and selects
+  ``I`` with ``Maxvol`` on its :math:`Q`, then does the same on
+  :math:`A(I,:)^T` to select ``J``. Each ``Maxvol`` call is warm-started from
+  the current indices, and the sweeps stop once a sweep changes neither index
+  set, or after ``max_sweeps`` (default 10). On exit ``*pC``
+  (:math:`n \times r`) holds :math:`C`, and ``I`` and ``J`` (``int`` arrays of
+  length :math:`r`) hold the indices. ``pR`` may be ``nullptr`` (with a pointer
+  type, e.g. ``static_cast<decltype(pC)>(nullptr)``). If it is not null,
+  ``*pR`` (:math:`r \times m`) is filled with :math:`A(I,:)`.
+
+  If ``initialize_indices`` is true (the default), ``J`` starts as :math:`r`
+  evenly spaced columns. Otherwise ``I`` and ``J`` are a warm start, for example
+  from a previous call, with :math:`A(I,J)` nonsingular. The return value is the
+  number of sweeps. The rank is fixed, and no error estimate is made.
+
 ``SquareSVD`` and ``SymmetricEVD`` return the number of QR iterations they
-performed. ``QRDecomposition``, ``LQDecomposition`` and the solvers return 0.
+performed. ``Maxvol`` returns the number of row swaps and ``MatrixCross`` the
+number of sweeps. ``QRDecomposition``, ``LQDecomposition`` and the solvers
+return 0.
 
 Workspace
 ---------

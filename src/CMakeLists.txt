@@ -195,6 +195,7 @@ add_library(parthenon
   batched_linear_algebra/householder.hpp
   batched_linear_algebra/implicit_qr.hpp
   batched_linear_algebra/matmul.hpp
+  batched_linear_algebra/matrix_cross.hpp
   batched_linear_algebra/matrix_utils.hpp
   batched_linear_algebra/maxvol.hpp
   batched_linear_algebra/qr_decomposition.hpp
