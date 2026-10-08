@@ -35,8 +35,88 @@ needed.
   decomposition of a symmetric matrix, computed by Householder
   tridiagonalization followed by implicit QR. The eigenvalues are not sorted.
 
+Linear solvers
+--------------
+
+The solvers overwrite both the matrix and the right-hand sides. They do not
+check for singular or rank-deficient matrices, which produce inf/NaN in the
+solution.
+
+* ``QRSolve::execute(tm, pA, pB, scratch)``: solves :math:`A X = B` for an
+  :math:`m \times n` matrix with :math:`m \geq n` and an :math:`m \times k`
+  ``*pB``, giving the least-squares solution when :math:`m > n`. Each
+  Householder reflector is applied to :math:`B` as it is built, so :math:`Q` is
+  never formed. On exit the first :math:`n` rows of ``*pB`` hold :math:`X`, and
+  the remaining rows hold the trailing rows of :math:`Q^T B`, whose column norms
+  are the least-squares residuals. The upper triangle of ``*pA`` holds
+  :math:`R`, and the entries below the diagonal are unspecified.
+* ``QRSolveRight::execute(tm, pA, pB, scratch)``: solves :math:`X A = B` for
+  an :math:`n \times m` matrix with :math:`n \leq m` and a :math:`k \times m`
+  ``*pB``, by applying ``QRSolve`` to the transposed problem. On exit the first
+  :math:`n` columns of ``*pB`` hold :math:`X`.
+* ``TriangularSolve::execute(tm, R, pB)``: back substitution for
+  :math:`R X = B` with :math:`R` upper triangular. Only the upper triangle of
+  the leading :math:`n \times n` block of ``R`` is read, and the first
+  :math:`n` rows of ``*pB`` are overwritten with :math:`X`. It needs no
+  workspace.
+
+The workspace size functions of ``QRSolve`` and ``QRSolveRight`` take the
+dimensions of ``A`` and the number of right-hand sides,
+``double_scratch_size(nrows, ncols, nrhs)``.
+
+Row selection
+-------------
+
+* ``Maxvol::execute(tm, A, pB, I, scratch, initialize_indices, tau,
+  max_iters)``: for an :math:`n \times r` matrix ``A`` with :math:`n \geq r`,
+  finds :math:`r` rows ``I`` whose submatrix is :math:`\tau`-dominant, meaning
+  every entry of :math:`B = A A(I,:)^{-1}` is at most :math:`\tau` in absolute
+  value. Such a submatrix has close to the largest :math:`|\det|` of all
+  :math:`r \times r` submatrices. ``A`` is only read. On exit ``*pB``
+  (:math:`n \times r`) holds :math:`B`, and ``I`` (an ``int`` array of length
+  :math:`r`) holds the rows.
+
+  If ``initialize_indices`` is true (the default), the starting rows are chosen
+  greedily by eliminating the largest entry of each column in turn. Otherwise
+  ``I`` must hold a starting set with :math:`A(I,:)` nonsingular, which allows
+  warm starts. Each iteration finds the largest :math:`|B(i,j)|`, replaces row
+  ``I[j]`` with row :math:`i`, and updates :math:`B` by a rank-1 correction, until
+  :math:`\max |B| \leq \tau` (default 1.05; it should be greater than 1) or
+  ``max_iters`` (default 100) swaps. The return value is the number of swaps.
+  Columns of a wide matrix can be selected by passing its transpose through
+  ``matrix_transpose_view_t``. Rank-deficient ``A`` is not checked for.
+
+Low-rank approximation
+----------------------
+
+* ``MatrixCross::execute(tm, A, pC, pR, I, J, rank, scratch,
+  initialize_indices, max_sweeps, tau)``: rank-:math:`r` cross approximation
+  :math:`A \approx C A(I,:)` of an :math:`n \times m` matrix, with
+  :math:`C = A(:,J) A(I,J)^{-1}`. The approximation is exact if
+  :math:`\operatorname{rank} A = r`. Only the :math:`(n + m) r` entries of
+  :math:`A(:,J)` and :math:`A(I,:)` are read per sweep, so ``A`` can be any type
+  satisfying the matrix requirements below, including a functor that computes
+  entries on demand.
+
+  Each sweep orthogonalizes the column fiber :math:`A(:,J)` by QR and selects
+  ``I`` with ``Maxvol`` on its :math:`Q`, then does the same on
+  :math:`A(I,:)^T` to select ``J``. Each ``Maxvol`` call is warm-started from
+  the current indices, and the sweeps stop once a sweep changes neither index
+  set, or after ``max_sweeps`` (default 10). On exit ``*pC``
+  (:math:`n \times r`) holds :math:`C`, and ``I`` and ``J`` (``int`` arrays of
+  length :math:`r`) hold the indices. ``pR`` may be ``nullptr`` (with a pointer
+  type, e.g. ``static_cast<decltype(pC)>(nullptr)``). If it is not null,
+  ``*pR`` (:math:`r \times m`) is filled with :math:`A(I,:)`.
+
+  If ``initialize_indices`` is true (the default), ``J`` starts as :math:`r`
+  evenly spaced columns. Otherwise ``I`` and ``J`` are a warm start, for example
+  from a previous call, with :math:`A(I,J)` nonsingular. The return value is the
+  number of sweeps. The rank is fixed, and no error estimate is made.
+
 ``SquareSVD`` and ``SymmetricEVD`` return the number of QR iterations they
-performed. ``QRDecomposition`` and ``LQDecomposition`` return 0.
+performed. ``Maxvol`` returns the number of row swaps and ``MatrixCross`` the
+number of sweeps. ``QRDecomposition``, ``LQDecomposition`` and the solvers
+return 0.
 
 Workspace
 ---------

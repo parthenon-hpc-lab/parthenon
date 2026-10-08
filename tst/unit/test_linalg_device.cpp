@@ -28,11 +28,16 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <functional>
+#include <type_traits>
 #include <vector>
 
 #include <catch2/catch.hpp>
 
+#include "batched_linear_algebra/matrix_cross.hpp"
+#include "batched_linear_algebra/maxvol.hpp"
 #include "batched_linear_algebra/qr_decomposition.hpp"
+#include "batched_linear_algebra/qr_solve.hpp"
 #include "batched_linear_algebra/square_svd.hpp"
 #include "batched_linear_algebra/symmetric_evd.hpp"
 #include "kokkos_abstraction.hpp"
@@ -251,6 +256,193 @@ void FactorFlatLocal(ParArray3D<double> A_dev, ParArray3D<double> Q_dev) {
       });
 }
 
+// The number of right-hand sides is the number of columns of B for QRSolve
+// (A X = B) and the number of rows of B for QRSolveRight (X A = B).
+template <class Solver>
+int NumRhs(const ParArray3D<double> &B_dev) {
+  return std::is_same_v<Solver, QRSolveRight> ? B_dev.extent_int(1) : B_dev.extent_int(2);
+}
+
+template <class Solver>
+void SolveTeam(ParArray3D<double> A_dev, ParArray3D<double> B_dev) {
+  const int am = A_dev.extent_int(1);
+  const int an = A_dev.extent_int(2);
+  const int bm = B_dev.extent_int(1);
+  const int bn = B_dev.extent_int(2);
+  const int nrhs = NumRhs<Solver>(B_dev);
+  const int scratch_level = 0;
+  const std::size_t nwork = Solver::double_scratch_size(am, an, nrhs);
+  const std::size_t scratch_bytes = Solver::total_shmem_scratch_size(am, an, nrhs) +
+                                    ScratchPad2D<double>::shmem_size(am, an) +
+                                    ScratchPad2D<double>::shmem_size(bm, bn);
+  parthenon::par_for_outer(
+      "SolveTeam", scratch_bytes, scratch_level, 0, nbatch - 1,
+      KOKKOS_LAMBDA(team_mbr_t member, const int b) {
+        ScratchPad1D<double> work(member.team_scratch(scratch_level), nwork);
+        ScratchPad2D<double> A(member.team_scratch(scratch_level), am, an);
+        ScratchPad2D<double> B(member.team_scratch(scratch_level), bm, bn);
+        parthenon::par_for_inner(
+            member, 0, am - 1, 0, an - 1,
+            [&](const int r, const int c) { A(r, c) = A_dev(b, r, c); });
+        parthenon::par_for_inner(
+            member, 0, bm - 1, 0, bn - 1,
+            [&](const int r, const int c) { B(r, c) = B_dev(b, r, c); });
+        member.team_barrier();
+
+        Solver::execute(member, &A, &B, work.data());
+        member.team_barrier();
+
+        parthenon::par_for_inner(
+            member, 0, bm - 1, 0, bn - 1,
+            [&](const int r, const int c) { B_dev(b, r, c) = B(r, c); });
+      });
+}
+
+template <class Solver>
+void SolveFlat(ParArray3D<double> A_dev, ParArray3D<double> B_dev) {
+  const int am = A_dev.extent_int(1);
+  const int an = A_dev.extent_int(2);
+  const int nrhs = NumRhs<Solver>(B_dev);
+  ParArray2D<double> work("work", nbatch, Solver::double_scratch_size(am, an, nrhs));
+  const View3D A_view = A_dev;
+  const View3D B_view = B_dev;
+  parthenon::par_for(
+      "SolveFlat", 0, nbatch - 1, KOKKOS_LAMBDA(const int b) {
+        auto A = Kokkos::subview(A_view, b, Kokkos::ALL(), Kokkos::ALL());
+        auto B = Kokkos::subview(B_view, b, Kokkos::ALL(), Kokkos::ALL());
+        Solver::execute(serial_tm_t(), &A, &B, &work(b, 0));
+      });
+}
+
+constexpr double kMaxvolTau = 1.05;
+
+void MaxvolTeam(ParArray3D<double> A_dev, ParArray3D<double> B_dev,
+                ParArray2D<int> I_dev) {
+  const int n = A_dev.extent_int(1);
+  const int r = A_dev.extent_int(2);
+  const int scratch_level = 0;
+  const std::size_t nwork = Maxvol::double_scratch_size(n, r);
+  const std::size_t scratch_bytes = Maxvol::total_shmem_scratch_size(n, r) +
+                                    2 * ScratchPad2D<double>::shmem_size(n, r) +
+                                    ScratchPad1D<int>::shmem_size(r);
+  const double tau = kMaxvolTau;
+  parthenon::par_for_outer(
+      "MaxvolTeam", scratch_bytes, scratch_level, 0, nbatch - 1,
+      KOKKOS_LAMBDA(team_mbr_t member, const int b) {
+        ScratchPad1D<double> work(member.team_scratch(scratch_level), nwork);
+        ScratchPad2D<double> A(member.team_scratch(scratch_level), n, r);
+        ScratchPad2D<double> B(member.team_scratch(scratch_level), n, r);
+        ScratchPad1D<int> I(member.team_scratch(scratch_level), r);
+        parthenon::par_for_inner(
+            member, 0, n - 1, 0, r - 1,
+            [&](const int i, const int c) { A(i, c) = A_dev(b, i, c); });
+        member.team_barrier();
+
+        Maxvol::execute(member, A, &B, I.data(), work.data(), true, tau);
+        member.team_barrier();
+
+        parthenon::par_for_inner(
+            member, 0, n - 1, 0, r - 1,
+            [&](const int i, const int c) { B_dev(b, i, c) = B(i, c); });
+        parthenon::par_for_inner(member, 0, r - 1,
+                                 [&](const int j) { I_dev(b, j) = I(j); });
+      });
+}
+
+void MaxvolFlat(ParArray3D<double> A_dev, ParArray3D<double> B_dev,
+                ParArray2D<int> I_dev) {
+  const int n = A_dev.extent_int(1);
+  const int r = A_dev.extent_int(2);
+  ParArray2D<double> work("work", nbatch, Maxvol::double_scratch_size(n, r));
+  const View3D A_view = A_dev;
+  const View3D B_view = B_dev;
+  const double tau = kMaxvolTau;
+  parthenon::par_for(
+      "MaxvolFlat", 0, nbatch - 1, KOKKOS_LAMBDA(const int b) {
+        auto A = Kokkos::subview(A_view, b, Kokkos::ALL(), Kokkos::ALL());
+        auto B = Kokkos::subview(B_view, b, Kokkos::ALL(), Kokkos::ALL());
+        Maxvol::execute(serial_tm_t(), A, &B, &I_dev(b, 0), &work(b, 0), true, tau);
+      });
+}
+
+// Entries 1/(i + j + 1 + shift) computed on demand inside the kernel
+struct DeviceHilbert {
+  int nrows, ncols;
+  double shift;
+  KOKKOS_INLINE_FUNCTION double operator()(const int i, const int j) const {
+    return 1.0 / (i + j + 1 + shift);
+  }
+};
+KOKKOS_INLINE_FUNCTION int GetNrows(const DeviceHilbert &h) { return h.nrows; }
+KOKKOS_INLINE_FUNCTION int GetNcols(const DeviceHilbert &h) { return h.ncols; }
+
+// The matrix for batch entry b, either a slice of a device array or a lazy one
+struct StoredSource {
+  View3D A;
+  KOKKOS_INLINE_FUNCTION auto operator()(const int b) const {
+    return Kokkos::subview(A, b, Kokkos::ALL(), Kokkos::ALL());
+  }
+};
+struct HilbertSource {
+  int nrows, ncols;
+  KOKKOS_INLINE_FUNCTION DeviceHilbert operator()(const int b) const {
+    return DeviceHilbert{nrows, ncols, static_cast<double>(b)};
+  }
+};
+
+template <class Source>
+void MatrixCrossTeam(const Source source, const int n, const int m, const int r,
+                     ParArray3D<double> C_dev, ParArray3D<double> R_dev,
+                     ParArray2D<int> I_dev, ParArray2D<int> J_dev) {
+  const int scratch_level = 0;
+  const std::size_t nwork = MatrixCross::double_scratch_size(n, m, r);
+  const std::size_t scratch_bytes = MatrixCross::total_shmem_scratch_size(n, m, r) +
+                                    ScratchPad2D<double>::shmem_size(n, r) +
+                                    ScratchPad2D<double>::shmem_size(r, m) +
+                                    2 * ScratchPad1D<int>::shmem_size(r);
+  parthenon::par_for_outer(
+      "MatrixCrossTeam", scratch_bytes, scratch_level, 0, nbatch - 1,
+      KOKKOS_LAMBDA(team_mbr_t member, const int b) {
+        ScratchPad1D<double> work(member.team_scratch(scratch_level), nwork);
+        ScratchPad2D<double> C(member.team_scratch(scratch_level), n, r);
+        ScratchPad2D<double> R(member.team_scratch(scratch_level), r, m);
+        ScratchPad1D<int> I(member.team_scratch(scratch_level), r);
+        ScratchPad1D<int> J(member.team_scratch(scratch_level), r);
+        const auto A = source(b);
+
+        MatrixCross::execute(member, A, &C, &R, I.data(), J.data(), r, work.data());
+        member.team_barrier();
+
+        parthenon::par_for_inner(
+            member, 0, n - 1, 0, r - 1,
+            [&](const int i, const int k) { C_dev(b, i, k) = C(i, k); });
+        parthenon::par_for_inner(
+            member, 0, r - 1, 0, m - 1,
+            [&](const int k, const int j) { R_dev(b, k, j) = R(k, j); });
+        parthenon::par_for_inner(member, 0, r - 1, [&](const int k) {
+          I_dev(b, k) = I(k);
+          J_dev(b, k) = J(k);
+        });
+      });
+}
+
+template <class Source>
+void MatrixCrossFlat(const Source source, const int n, const int m, const int r,
+                     ParArray3D<double> C_dev, ParArray3D<double> R_dev,
+                     ParArray2D<int> I_dev, ParArray2D<int> J_dev) {
+  ParArray2D<double> work("work", nbatch, MatrixCross::double_scratch_size(n, m, r));
+  const View3D C_view = C_dev;
+  const View3D R_view = R_dev;
+  parthenon::par_for(
+      "MatrixCrossFlat", 0, nbatch - 1, KOKKOS_LAMBDA(const int b) {
+        auto C = Kokkos::subview(C_view, b, Kokkos::ALL(), Kokkos::ALL());
+        auto R = Kokkos::subview(R_view, b, Kokkos::ALL(), Kokkos::ALL());
+        const auto A = source(b);
+        MatrixCross::execute(serial_tm_t(), A, &C, &R, &I_dev(b, 0), &J_dev(b, 0), r,
+                             &work(b, 0));
+      });
+}
+
 void SVDTeam(ParArray3D<double> A_dev, ParArray3D<double> U_dev, ParArray3D<double> V_dev,
              ParArray2D<double> s_dev) {
   const int m = A_dev.extent_int(1);
@@ -398,6 +590,193 @@ void TestFactorizationLocal(const unsigned seed) {
   CheckFactorization<Decomposition>(A0, ToHost(A_dev), ToHost(Q_dev));
 }
 
+// Team reductions and fused multiply-adds on GPUs change the rounding, so a
+// direct comparison with the host solution would scale with cond(A). Instead
+// check that the device X satisfies the normal equations Aᵀ (A X - B) = 0 to
+// within a backward-stable tolerance, which holds for square and tall A alike.
+// A, B and X are given in the left-solve form A X = B.
+void CheckNormalEquations(const Matrix &A, const Matrix &B, const Matrix &X) {
+  Matrix res(B.nrows(), B.ncols());
+  Multiply(A, X, res);
+  for (int r = 0; r < B.nrows(); ++r) {
+    for (int c = 0; c < B.ncols(); ++c) {
+      res(r, c) -= B(r, c);
+    }
+  }
+  Matrix normal(X.nrows(), X.ncols());
+  Multiply(Matrix::Transpose(A), res, normal);
+  const double a = A.FrobeniusNorm();
+  REQUIRE(normal.FrobeniusNorm() <
+          1e-13 * a * (a * X.FrobeniusNorm() + B.FrobeniusNorm()));
+}
+
+// Solves A X = B with QRSolve, or X A = B with QRSolveRight, where A is
+// a_rows x a_cols and there are nrhs right-hand sides.
+template <class Solver>
+void TestSolve(const bool team, const int a_rows, const int a_cols, const int nrhs,
+               const unsigned seed) {
+  constexpr bool right = std::is_same_v<Solver, QRSolveRight>;
+  const int b_rows = right ? nrhs : a_rows;
+  const int b_cols = right ? a_cols : nrhs;
+  const auto A0 = RandomBatch(a_rows, a_cols, seed);
+  const auto B0 = RandomBatch(b_rows, b_cols, seed + 1000u);
+  auto A_dev = ToDevice(A0);
+  auto B_dev = ToDevice(B0);
+  if (team) {
+    SolveTeam<Solver>(A_dev, B_dev);
+  } else {
+    SolveFlat<Solver>(A_dev, B_dev);
+  }
+
+  const auto B = ToHost(B_dev);
+  for (int b = 0; b < nbatch; ++b) {
+    // For X A = B, check the equivalent left solve Aᵀ Xᵀ = Bᵀ
+    const Matrix A = right ? Matrix::Transpose(A0[b]) : A0[b];
+    const Matrix B_rhs = right ? Matrix::Transpose(B0[b]) : B0[b];
+    const Matrix B_out = right ? Matrix::Transpose(B[b]) : B[b];
+    const int n = A.ncols();
+    Matrix X(n, nrhs);
+    for (int r = 0; r < n; ++r) {
+      for (int c = 0; c < nrhs; ++c) {
+        X(r, c) = B_out(r, c);
+      }
+    }
+    CheckNormalEquations(A, B_rhs, X);
+  }
+}
+
+// Rounding and tie-breaking differ between host and device, so the selected
+// rows may differ while being equally valid. Check each result on its own:
+// distinct rows, B(I,:) = identity, B A(I,:) = A, and max |B| <= tau.
+void TestMaxvol(const bool team, const int n, const int r, const unsigned seed) {
+  const auto A0 = RandomBatch(n, r, seed);
+  auto A_dev = ToDevice(A0);
+  ParArray3D<double> B_dev("B", nbatch, n, r);
+  ParArray2D<int> I_dev("I", nbatch, r);
+  if (team) {
+    MaxvolTeam(A_dev, B_dev, I_dev);
+  } else {
+    MaxvolFlat(A_dev, B_dev, I_dev);
+  }
+
+  const auto B = ToHost(B_dev);
+  const auto I_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), I_dev);
+  for (int b = 0; b < nbatch; ++b) {
+    std::vector<int> I(r);
+    for (int j = 0; j < r; ++j) {
+      I[j] = I_host(b, j);
+      REQUIRE(I[j] >= 0);
+      REQUIRE(I[j] < n);
+    }
+    std::vector<int> sorted = I;
+    std::sort(sorted.begin(), sorted.end());
+    REQUIRE(std::adjacent_find(sorted.begin(), sorted.end()) == sorted.end());
+
+    Matrix S(r, r);
+    for (int a = 0; a < r; ++a) {
+      for (int c = 0; c < r; ++c) {
+        S(a, c) = A0[b](I[a], c);
+        REQUIRE(std::abs(B[b](I[a], c) - (a == c)) < 1e-12);
+      }
+    }
+    Matrix BS(n, r);
+    Multiply(B[b], S, BS);
+    REQUIRE(MaxAbsDiff(BS, A0[b]) < 1e-12 * A0[b].FrobeniusNorm());
+
+    double bmax = 0.0;
+    for (int i = 0; i < n; ++i) {
+      for (int c = 0; c < r; ++c) {
+        bmax = std::max(bmax, std::abs(B[b](i, c)));
+      }
+    }
+    REQUIRE(bmax <= kMaxvolTau * (1.0 + 1e-12));
+  }
+}
+
+// Runs the cross on device for either stored low-rank matrices or lazily
+// evaluated Hilbert-like ones, and checks each result on its own since the
+// selected indices may differ from host. Low-rank inputs must be recovered
+// exactly; the Hilbert-like ones must be within the maximum-volume bound
+// (r + 1) sigma_{r+1} in the max norm.
+void TestMatrixCross(const bool team, const bool lazy, const int n, const int m,
+                     const int r, const unsigned seed) {
+  std::vector<Matrix> A0;
+  for (int b = 0; b < nbatch; ++b) {
+    Matrix A(n, m);
+    if (lazy) {
+      const DeviceHilbert H{n, m, static_cast<double>(b)};
+      for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < m; ++j) {
+          A(i, j) = H(i, j);
+        }
+      }
+    } else {
+      Multiply(Matrix::RandomGaussian(n, r, seed + b),
+               Matrix::RandomGaussian(r, m, seed + b + 1000u), A);
+    }
+    A0.push_back(A);
+  }
+
+  ParArray3D<double> C_dev("C", nbatch, n, r);
+  ParArray3D<double> R_dev("R", nbatch, r, m);
+  ParArray2D<int> I_dev("I", nbatch, r);
+  ParArray2D<int> J_dev("J", nbatch, r);
+  auto run = [&](const auto source) {
+    if (team) {
+      MatrixCrossTeam(source, n, m, r, C_dev, R_dev, I_dev, J_dev);
+    } else {
+      MatrixCrossFlat(source, n, m, r, C_dev, R_dev, I_dev, J_dev);
+    }
+  };
+  if (lazy) {
+    run(HilbertSource{n, m});
+  } else {
+    run(StoredSource{ToDevice(A0)});
+  }
+
+  const auto C = ToHost(C_dev);
+  const auto R = ToHost(R_dev);
+  const auto I_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), I_dev);
+  const auto J_host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), J_dev);
+  for (int b = 0; b < nbatch; ++b) {
+    std::vector<int> I(r), J(r);
+    for (int k = 0; k < r; ++k) {
+      I[k] = I_host(b, k);
+      J[k] = J_host(b, k);
+      REQUIRE(I[k] >= 0);
+      REQUIRE(I[k] < n);
+      REQUIRE(J[k] >= 0);
+      REQUIRE(J[k] < m);
+    }
+    for (auto idx : {I, J}) {
+      std::sort(idx.begin(), idx.end());
+      REQUIRE(std::adjacent_find(idx.begin(), idx.end()) == idx.end());
+    }
+
+    for (int a = 0; a < r; ++a) {
+      for (int k = 0; k < r; ++k) {
+        REQUIRE(std::abs(C[b](I[a], k) - (a == k)) < 1e-12);
+      }
+      for (int j = 0; j < m; ++j) {
+        REQUIRE(std::abs(R[b](a, j) - A0[b](I[a], j)) <=
+                1e-14 * std::abs(A0[b](I[a], j)));
+      }
+    }
+
+    Matrix CR(n, m);
+    Multiply(C[b], R[b], CR);
+    if (lazy) {
+      Matrix dense = A0[b].GetDeepCopy();
+      std::vector<double> sings(m);
+      SquareSVD::execute(&dense, sings.data());
+      std::sort(sings.begin(), sings.end(), std::greater<double>());
+      REQUIRE(MaxAbsDiff(CR, A0[b]) <= (r + 1) * sings[r]);
+    } else {
+      REQUIRE(MaxAbsDiff(CR, A0[b]) < 1e-12 * A0[b].FrobeniusNorm());
+    }
+  }
+}
+
 // The SVD and EVD iterate, so compare the (sorted) values against host and
 // check the vectors through orthogonality and the residual.
 void TestSVD(const bool team, const int m, const int n, const unsigned seed) {
@@ -473,6 +852,33 @@ TEST_CASE("Batched LQ decomposition on device", "[qr][device]") {
   for (const bool team : {true, false}) {
     for (const int n : {12, 40}) {
       TestFactorization<LQDecomposition>(team, n / 2, n, 200u);
+    }
+  }
+}
+
+TEST_CASE("Batched QR solve on device", "[qr_solve][device]") {
+  for (const bool team : {true, false}) {
+    // Square and tall systems, with more and fewer right-hand sides than columns
+    TestSolve<QRSolve>(team, 12, 12, 5, 500u);
+    TestSolve<QRSolve>(team, 40, 20, 3, 600u);
+    TestSolve<QRSolve>(team, 40, 40, 50, 700u);
+    TestSolve<QRSolveRight>(team, 12, 12, 5, 800u);
+    TestSolve<QRSolveRight>(team, 20, 40, 50, 900u);
+  }
+}
+
+TEST_CASE("Batched maxvol on device", "[maxvol][device]") {
+  for (const bool team : {true, false}) {
+    TestMaxvol(team, 12, 4, 1000u);
+    TestMaxvol(team, 40, 6, 1100u);
+  }
+}
+
+TEST_CASE("Batched matrix cross on device", "[matrix_cross][device]") {
+  for (const bool team : {true, false}) {
+    for (const bool lazy : {false, true}) {
+      TestMatrixCross(team, lazy, 12, 10, 3, 1200u);
+      TestMatrixCross(team, lazy, 40, 24, 5, 1300u);
     }
   }
 }
