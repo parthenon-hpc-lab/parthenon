@@ -51,6 +51,7 @@ list(APPEND unit_tests_SOURCES
     test_state_descriptor.cpp
     test_tensor.cpp
     test_tt_field.cpp
+    test_tt_cross.cpp
     test_swarm.cpp
     test_swarm_amr_remesh.cpp
     test_unit_integrators.cpp
