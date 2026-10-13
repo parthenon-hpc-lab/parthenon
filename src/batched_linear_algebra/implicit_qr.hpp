@@ -24,6 +24,7 @@
 #include "batched_linear_algebra/execution_utils.hpp"
 #include "batched_linear_algebra/givens.hpp"
 #include "kokkos_abstraction.hpp"
+#include "utils/robust.hpp"
 
 namespace parthenon {
 namespace batched_linear_algebra {
@@ -32,7 +33,7 @@ KOKKOS_FORCEINLINE_FUNCTION
 double WilkinsonShift(double a00, double a11, double a01) {
   const double a01_sqr = a01 * a01;
   const double delta = 0.5 * (a00 - a11);
-  return a11 - sign_of(delta) * a01_sqr /
+  return a11 - robust::sgn(delta) * a01_sqr /
                    (std::abs(delta) + std::sqrt(delta * delta + a01_sqr));
 }
 
@@ -192,9 +193,9 @@ KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRBidiag(tm_t tm, double *d, double *b,
         // avoid the d[sp]^2 - shift^2 cancellation; the target g = b[sp] follows
         // by dividing the Gram-matrix pair (t00 - mu, t01) through by d[sp]. Guard
         // the d[sp] == 0 case, which degenerates to a zero-shift start.
-        const double f =
-            d[sp] == 0.0 ? 0.0
-                         : (std::abs(d[sp]) - shift) * (sign_of(d[sp]) + shift / d[sp]);
+        const double f = d[sp] == 0.0 ? 0.0
+                                      : (std::abs(d[sp]) - shift) *
+                                            (robust::sgn(d[sp]) + shift / d[sp]);
         const double g = b[sp];
         const auto [c1, s1] = ComputeGivensZeroSecond(f, g);
         bulge = ApplyGivensRight<true, false>(tm, sp, c1, s1, bulge, d, b);

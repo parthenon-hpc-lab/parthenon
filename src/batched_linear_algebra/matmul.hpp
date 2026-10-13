@@ -49,7 +49,7 @@ MatMulPacked(tm_t tm, const A_t &A, const B_t &B, C_t &C,
 
   PARTHENON_REQUIRE(a_scratch.extent_int(0) >= mb_size * kb_size, "A scratch too small.");
   PARTHENON_REQUIRE(b_scratch.extent_int(0) >= nb_size * kb_size, "B scratch too small.");
-  if (!full_output_tile)
+  if constexpr (!full_output_tile)
     PARTHENON_REQUIRE(c_scratch.extent_int(0) >= mb_size * nb_size,
                       "C scratch too small.");
   auto AT = matrix_wrapper_t<double>(a_scratch.data(), mb_size, kb_size);

@@ -60,7 +60,7 @@ auto ComputeGivensZeroFirst(double a1, double a2) {
 KOKKOS_FORCEINLINE_FUNCTION
 auto ComputeGivensDiagonalize2by2(double d1, double d2, double b1) {
   const double t = (d1 - d2) / (2.0 * b1);
-  const double tau = t + sign_of(t) * std::sqrt(1.0 + t * t);
+  const double tau = t + robust::sgn(t) * std::sqrt(1.0 + t * t);
   const double s = -1.0 / std::sqrt(1.0 + tau * tau);
   const double c = -tau * s;
   return std::make_pair(c, s);
@@ -84,7 +84,7 @@ SVD2by2Result ComputeSVD2by2UpperTriangular(double a11, double a12, double a22) 
 
   // and make the dominant diagonal positive (if there is one)
   if (a11 != 0.0 || a22 != 0.0)
-    scale *= std::abs(a11) > std::abs(a22) ? sign_of(a11) : sign_of(a22);
+    scale *= std::abs(a11) > std::abs(a22) ? sgn(a11) : sgn(a22);
   a11 = ratio(a11, scale);
   a12 = ratio(a12, scale);
   a22 = ratio(a22, scale);
