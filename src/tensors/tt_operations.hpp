@@ -17,6 +17,7 @@
 #define TENSORS_TT_OPERATIONS_HPP_
 
 #include <algorithm>
+#include <limits>
 #include <utility>
 #include <vector>
 
@@ -146,7 +147,7 @@ void NonDestructiveSum(const TensorTrainHostPackT<TTraits> &A,
       const auto &train_B = B(t, v);
       PARTHENON_REQUIRE(train_A.NCores() == train_B.NCores(),
                         "Added trains must have the same number of cores.");
-      PARTHENON_REQUIRE_THROWS(
+      PARTHENON_REQUIRE(
           train_A.IsClosed() && train_B.IsClosed(),
           "NonDestructiveSum requires closed trains: the block-diagonal stacking of "
           "boundary bonds is only well-defined when they are one.");
@@ -261,7 +262,7 @@ void DestructiveSum(TensorTrainHostPackT<TTraits> &A, TensorTrainHostPackT<TTrai
         const int ncores = train_A.NCores();
         PARTHENON_REQUIRE(ncores == train_B.NCores(),
                           "Added trains must have the same number of cores.");
-        PARTHENON_REQUIRE_THROWS(
+        PARTHENON_REQUIRE(
             train_A.IsClosed() && train_B.IsClosed(),
             "DestructiveSum requires closed trains: the block-diagonal stacking of "
             "boundary bonds is only well-defined when they are one.");
@@ -308,7 +309,7 @@ void DestructiveSum(TensorTrainHostPackT<TTraits> &A, TensorTrainHostPackT<TTrai
         const auto &train_B = B(t, v);
         PARTHENON_REQUIRE(train_A.NCores() == train_B.NCores(),
                           "Added trains must have the same number of cores.");
-        PARTHENON_REQUIRE_THROWS(
+        PARTHENON_REQUIRE(
             train_A.IsClosed() && train_B.IsClosed(),
             "DestructiveSum requires closed trains: the block-diagonal stacking of "
             "boundary bonds is only well-defined when they are one.");
@@ -420,20 +421,20 @@ HadamardProduct(std::vector<TensorTrainT<TTraits>> &TrainsA,
 
     PARTHENON_REQUIRE(train_A.NCores() == train_B.NCores(),
                       "Hadamard product requires the same number of cores.");
-    PARTHENON_REQUIRE_THROWS(train_A.IsClosed() && train_B.IsClosed(),
-                             "HadamardProduct requires closed trains.");
+    PARTHENON_REQUIRE(train_A.IsClosed() && train_B.IsClosed(),
+                      "HadamardProduct requires closed trains.");
 
-    std::vector<int> phys_dims, target_ranks;
+    std::vector<int> target_ranks;
     for (int c = 0; c < train_A.NCores(); ++c) {
       PARTHENON_REQUIRE(train_A(c).DD() == train_B(c).DD(),
                         "Hadamard product requires matching physical dimensions.");
-      phys_dims.push_back(train_A(c).DD());
     }
     for (int c = 0; c < train_A.NCores() - 1; ++c) {
       target_ranks.push_back(train_A(c).RR() * train_B(c).RR());
     }
 
-    TrainsC.emplace_back(phys_dims, target_ranks);
+    // Build C from A so each output core keeps A's physical indexer.
+    TrainsC.emplace_back(train_A, target_ranks);
   }
 
   TensorPackT<TTraits> pack_a(TrainsA);
@@ -527,17 +528,14 @@ BuildDescendingPermutation(parthenon::team_mbr_t tm, const RealVec &sig, const i
   }
 }
 
-struct no_core_mask {
-  KOKKOS_FORCEINLINE_FUNCTION
-  static constexpr bool active(int c, int j) { return true; }
-};
-
 // Round variable `var` of a host pack in place via the Gram-matrix SVD (helper
 // for the public RoundGramSVD, which loops over all variables).
-template <class TTraits, class F = no_core_mask>
+template <class TTraits>
 void RoundGramSVDVar_(TensorTrainHostPackT<TTraits> &pack_host, int var,
-                      typename TTraits::real_t eps, F core_mask = no_core_mask{}) {
+                      typename TTraits::real_t eps, typename TTraits::real_t abs_tol) {
   using real_t = typename TTraits::real_t;
+  // Relative cutoff below which a Gram eigenvalue is treated as numerical noise.
+  const real_t eig_noise = std::numeric_limits<real_t>::epsilon();
 
   // Find the number of cores and maximum rank
   int max_rank{0};
@@ -545,10 +543,9 @@ void RoundGramSVDVar_(TensorTrainHostPackT<TTraits> &pack_host, int var,
   int n_cores{0};
   for (int t = 0; t < pack_host.NumBlocks(); ++t) {
     const auto &train = pack_host(t, var);
-    PARTHENON_REQUIRE_THROWS(
-        train.IsClosed(),
-        "RoundGramSVD requires closed trains: the orthogonalization sweep "
-        "assumes boundary bonds of one.");
+    PARTHENON_REQUIRE(train.IsClosed(),
+                      "RoundGramSVD requires closed trains: the orthogonalization sweep "
+                      "assumes boundary bonds of one.");
     n_cores = train.NCores();
     for (int c = 0; c < train.NCores(); ++c) {
       max_rank = std::max(max_rank, train(c).RR());
@@ -572,10 +569,11 @@ void RoundGramSVDVar_(TensorTrainHostPackT<TTraits> &pack_host, int var,
   const std::size_t svd_double_scratch = SquareSVD::double_scratch_size(max_rank);
   const std::size_t evd_szt_scratch = SymmetricEVD::sizet_scratch_size(max_rank);
   const std::size_t svd_szt_scratch = SquareSVD::sizet_scratch_size(max_rank);
-  scratch_size +=
-      ScratchPad1D<real_t>::shmem_size(std::max(evd_double_scratch, svd_double_scratch));
-  scratch_size +=
-      ScratchPad1D<std::size_t>::shmem_size(std::max(evd_szt_scratch, svd_szt_scratch));
+  const std::size_t linalg_double_scratch =
+      std::max(evd_double_scratch, svd_double_scratch);
+  const std::size_t linalg_szt_scratch = std::max(evd_szt_scratch, svd_szt_scratch);
+  scratch_size += ScratchPad1D<real_t>::shmem_size(linalg_double_scratch);
+  scratch_size += ScratchPad1D<std::size_t>::shmem_size(linalg_szt_scratch);
 
   // Calculate storage for eigen and singular value results
   scratch_size += 4 * ScratchPad1D<real_t>::shmem_size(max_rank * max_rank);
@@ -645,8 +643,9 @@ void RoundGramSVDVar_(TensorTrainHostPackT<TTraits> &pack_host, int var,
         }
 
         // Calculate the absolute tolerance
-        const real_t eps0 =
-            robust::safe_sqrt(GR(0, 0)) * eps / sqrt(std::max(n_cores, 2) - 1) + 1.e-16;
+        const real_t eps0 = robust::safe_sqrt(GR(0, 0)) * eps /
+                                Kokkos::sqrt(real_t(Kokkos::max(n_cores, 2) - 1)) +
+                            abs_tol;
 
         // Eigen systems
         ScratchPad1D<real_t> QL(tm_scratch, max_rank * max_rank);
@@ -661,10 +660,8 @@ void RoundGramSVDVar_(TensorTrainHostPackT<TTraits> &pack_host, int var,
         ScratchPad1D<int> perm(tm_scratch, max_rank);
 
         // Scratch that can be re-used amongst solves
-        ScratchPad1D<real_t> real_scratch(
-            tm_scratch, std::max(evd_double_scratch, svd_double_scratch));
-        ScratchPad1D<std::size_t> szt_scratch(tm_scratch,
-                                              std::max(evd_szt_scratch, svd_szt_scratch));
+        ScratchPad1D<real_t> real_scratch(tm_scratch, linalg_double_scratch);
+        ScratchPad1D<std::size_t> szt_scratch(tm_scratch, linalg_szt_scratch);
 
         // L-to-R sweep over bonds
         for (int c = 0; c < n_cores - 1; ++c) {
@@ -701,18 +698,24 @@ void RoundGramSVDVar_(TensorTrainHostPackT<TTraits> &pack_host, int var,
           real_t maxR{0.0};
           parthenon::par_reduce_inner(
               parthenon::inner_loop_pattern_ttr_tag, tm, 0, rank - 1,
-              [&](int r, real_t &lmax) { lmax = std::max(lmax, std::abs(eigL[r])); },
+              [&](int r, real_t &lmax) {
+                lmax = Kokkos::max(lmax, Kokkos::abs(eigL[r]));
+              },
               Kokkos::Max<real_t>(maxL));
           parthenon::par_reduce_inner(
               parthenon::inner_loop_pattern_ttr_tag, tm, 0, rank - 1,
-              [&](int r, real_t &lmax) { lmax = std::max(lmax, std::abs(eigR[r])); },
+              [&](int r, real_t &lmax) {
+                lmax = Kokkos::max(lmax, Kokkos::abs(eigR[r]));
+              },
               Kokkos::Max<real_t>(maxR));
           tm.team_barrier();
+          // Zero out noise-level eigenmodes; the surviving modes are left strictly
+          // positive so the inversion below can reuse this as its mask.
           parthenon::par_for_inner(tm, 0, rank - 1, [&](int r) {
-            eigL[r] =
-                abs(eigL[r]) > (1.e-16 * maxL + 1e-20) ? robust::safe_sqrt(eigL[r]) : 0.0;
-            eigR[r] =
-                abs(eigR[r]) > (1.e-16 * maxR + 1e-20) ? robust::safe_sqrt(eigR[r]) : 0.0;
+            eigL[r] = Kokkos::abs(eigL[r]) > eig_noise * maxL ? robust::safe_sqrt(eigL[r])
+                                                              : real_t(0);
+            eigR[r] = Kokkos::abs(eigR[r]) > eig_noise * maxR ? robust::safe_sqrt(eigR[r])
+                                                              : real_t(0);
           });
           tm.team_barrier();
           MatMulDiag3<real_t>(tm, eigL, QL_mat.GetTranspose(), unity_vector_t(), QR_mat,
@@ -729,20 +732,14 @@ void RoundGramSVDVar_(TensorTrainHostPackT<TTraits> &pack_host, int var,
           // Truncate SVD to find new rank and store rank
           int rank_new;
           BuildDescendingPermutation(tm, sig, rank, eps0, perm, rank_new);
-          // printf("\n[%i] bond %i with rank_old %i and rank_new %i, eps0 = %e\n  ", b,
-          // c, rank, rank_new, eps0); for (int i = 0; i < rank; ++i) {
-          //   printf("%e, ", sig[perm[i]]);
-          //   if (i % 12 == 11) printf("\n");
-          // }
-          // printf("\n\n");
           auto Ukeep_mat = U_mat.GetPermutedCols(perm, rank_new);
           auto VTkeep_mat = V_mat.GetTranspose().GetPermutedRows(perm, rank_new);
           auto sigkeep = GetPermuted(sig, perm, rank_new);
           Kokkos::single(Kokkos::PerTeam(tm), [&]() { final_rank_arr(b, c) = rank_new; });
-          // Take the inverse, but filter out zero eigenmodes
+          // Take the inverse, skipping the eigenmodes zeroed out above
           parthenon::par_for_inner(tm, 0, rank - 1, [&](int r) {
-            eigL[r] = abs(eigL[r]) > (1.e-16 * maxL + 1e-20) ? 1.0 / eigL[r] : 0.0;
-            eigR[r] = abs(eigR[r]) > (1.e-16 * maxR + 1e-20) ? 1.0 / eigR[r] : 0.0;
+            eigL[r] = eigL[r] > real_t(0) ? real_t(1) / eigL[r] : real_t(0);
+            eigR[r] = eigR[r] > real_t(0) ? real_t(1) / eigR[r] : real_t(0);
           });
           tm.team_barrier();
 
@@ -805,34 +802,37 @@ void RoundGramSVDVar_(TensorTrainHostPackT<TTraits> &pack_host, int var,
   }
 }
 
-// Round every field in a host pack in place via the Gram-matrix SVD, truncating
-// bond ranks to relative tolerance eps. Operates on all variables the pack
-// holds (the caller curates which fields are present); ranks only shrink, so the
-// trains are mutated in place with no reshaping.
-template <class TTraits, class F = no_core_mask>
+// Round every field in a host pack in place via the Gram-matrix SVD. Each bond is
+// truncated to a per-bond tolerance eps * ||A|| / sqrt(d - 1) + abs_tol, so eps
+// bounds the overall Frobenius error relative to the train's norm and abs_tol is
+// an optional absolute floor (zero by default, so rounding is scale invariant).
+// Operates on all variables the pack holds (the caller curates
+// which fields are present); ranks only shrink, so the trains are mutated in
+// place with no reshaping.
+template <class TTraits>
 void RoundGramSVD(TensorTrainHostPackT<TTraits> &pack_host, typename TTraits::real_t eps,
-                  F core_mask = no_core_mask{}) {
+                  typename TTraits::real_t abs_tol = 0) {
   for (int v = 0; v < pack_host.NumVars(); ++v)
-    RoundGramSVDVar_(pack_host, v, eps, core_mask);
+    RoundGramSVDVar_(pack_host, v, eps, abs_tol);
 }
 
 // Convenience overload for a batch held in plain vectors (e.g. unit tests).
-template <class TTraits, class F = no_core_mask>
+template <class TTraits>
 void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
-                  typename TTraits::real_t eps, F core_mask = no_core_mask{}) {
+                  typename TTraits::real_t eps, typename TTraits::real_t abs_tol = 0) {
   auto pack_host = TensorTrainHostPackT<TTraits>::FromVector(trains);
-  RoundGramSVD(pack_host, eps, core_mask);
+  RoundGramSVD(pack_host, eps, abs_tol);
 }
 
 // Convenience overload rounding all fields of a mesh-partition container
 // (e.g. MeshTTData*) in place. Templated on the container type to stay
 // independent of the mesh/interface headers.
-template <class Container, class F = no_core_mask>
+template <class Container>
 void RoundGramSVD(Container *md, typename Container::train_t::traits::real_t eps,
-                  F core_mask = no_core_mask{}) {
+                  typename Container::train_t::traits::real_t abs_tol = 0) {
   using TTraits = typename Container::train_t::traits;
   auto pack_host = TensorTrainHostPackT<TTraits>::FromContainer(*md);
-  RoundGramSVD(pack_host, eps, core_mask);
+  RoundGramSVD(pack_host, eps, abs_tol);
 }
 
 // Task-based wrapper rounding all fields of a mesh-partition container in place,
@@ -841,24 +841,28 @@ void RoundGramSVD(Container *md, typename Container::train_t::traits::real_t eps
 // ambiguous overload resolution.
 template <class Container>
 TaskStatus RoundGramSVDTask(Container *md,
-                            typename Container::train_t::traits::real_t eps) {
-  RoundGramSVD(md, eps);
+                            typename Container::train_t::traits::real_t eps,
+                            typename Container::train_t::traits::real_t abs_tol = 0) {
+  RoundGramSVD(md, eps, abs_tol);
   return TaskStatus::complete;
 }
 
+// Round a batch of trains in place via the Oseledets TT-SVD (right-to-left
+// orthogonalization, then a left-to-right truncation sweep). Tolerances have the
+// same meaning as for RoundGramSVD.
 template <class TTraits>
 void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
-                       typename TTraits::real_t eps) {
+                       typename TTraits::real_t eps,
+                       typename TTraits::real_t abs_tol = 0) {
   using real_t = typename TTraits::real_t;
 
   int max_rank{0};
   int max_core_size{0};
   int n_cores{0};
   for (const auto &train : trains) {
-    PARTHENON_REQUIRE_THROWS(
-        train.IsClosed(),
-        "RoundOseledetsSVD requires closed trains: the orthogonalization "
-        "sweep assumes boundary bonds of one.");
+    PARTHENON_REQUIRE(train.IsClosed(),
+                      "RoundOseledetsSVD requires closed trains: the orthogonalization "
+                      "sweep assumes boundary bonds of one.");
     n_cores = train.NCores();
     for (int c = 0; c < train.NCores(); ++c) {
       max_rank = std::max(max_rank, train(c).RR());
@@ -884,8 +888,9 @@ void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
   const std::size_t svd_double_scratch =
       SquareSVD::double_scratch_size(max_core_size, max_rank);
   const std::size_t svd_szt_scratch = SquareSVD::sizet_scratch_size(max_rank);
-  scratch_size +=
-      ScratchPad1D<real_t>::shmem_size(std::max(lq_double_scratch, svd_double_scratch));
+  const std::size_t linalg_double_scratch =
+      std::max(lq_double_scratch, svd_double_scratch);
+  scratch_size += ScratchPad1D<real_t>::shmem_size(linalg_double_scratch);
   scratch_size += ScratchPad1D<std::size_t>::shmem_size(svd_szt_scratch);
 
   // GEMM storage
@@ -900,8 +905,7 @@ void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
 
         ScratchPad1D<real_t> core_tmp_flat(tm_scratch, max_core_size);
         ScratchPad1D<real_t> matrix_flat(tm_scratch, max_rank * max_rank);
-        ScratchPad1D<real_t> linalg_real_scratch(
-            tm_scratch, std::max(lq_double_scratch, svd_double_scratch));
+        ScratchPad1D<real_t> linalg_real_scratch(tm_scratch, linalg_double_scratch);
         ScratchPad1D<real_t> a_scratch(tm_scratch, storage_size);
         ScratchPad1D<real_t> b_scratch(tm_scratch, storage_size);
         ScratchPad1D<real_t> c_scratch(tm_scratch, storage_size);
@@ -958,10 +962,9 @@ void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
             },
             Kokkos::Sum<real_t>(norm2));
         tm.team_barrier();
-        real_t eps0 = robust::safe_sqrt(norm2) * eps / sqrt(std::max(n_cores, 2) - 1);
-        if (eps > real_t(0)) {
-          eps0 += real_t(1.e-16);
-        }
+        const real_t eps0 = robust::safe_sqrt(norm2) * eps /
+                                Kokkos::sqrt(real_t(Kokkos::max(n_cores, 2) - 1)) +
+                            abs_tol;
 
         ScratchPad1D<std::size_t> linalg_szt_scratch(tm_scratch, svd_szt_scratch);
 

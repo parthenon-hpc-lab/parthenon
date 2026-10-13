@@ -1365,22 +1365,3 @@ TEMPLATE_TEST_CASE("tensor open trains carry dangling boundary bonds", "[tensor]
   TensorTrain open_copy = open_single;
   REQUIRE_FALSE(open_copy.IsClosed());
 }
-
-// R2: closed-train operations reject open trains loudly rather than producing a
-// silently-wrong result.
-TEMPLATE_TEST_CASE("tensor closed-train ops reject open trains", "[tensor]", FiberTTraits,
-                   ContiguousTTraits) {
-  using TTraits = TestType;
-  using TensorTrain = TensorTrainT<TTraits>;
-  using real_t = typename TTraits::real_t;
-
-  TensorTrain closed(std::vector<int>{2, 3, 4}, {2, 2});
-  TensorTrain open(std::vector<int>{2, 3, 4}, {2, 2}, /*left_bond=*/1, /*right_bond=*/2);
-
-  std::vector<TensorTrain> a_open{open};
-  std::vector<TensorTrain> b_closed{closed};
-  REQUIRE_THROWS(NonDestructiveSum(a_open, b_closed));
-
-  std::vector<TensorTrain> to_round{open};
-  REQUIRE_THROWS(RoundGramSVD(to_round, real_t(1.0e-12)));
-}

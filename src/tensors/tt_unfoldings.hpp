@@ -35,9 +35,11 @@ struct vertical_unfolding {
   const CoreLike &core;
   int nl, nd, nr;
 
+  KOKKOS_INLINE_FUNCTION
   explicit vertical_unfolding(const CoreLike &core_in)
       : core(core_in), nl(core_in.LR()), nd(core_in.DD()), nr(core_in.RR()) {}
 
+  KOKKOS_INLINE_FUNCTION
   vertical_unfolding(const CoreLike &core_in, int nl, int nd, int nr)
       : core(core_in), nl(nl), nd(nd), nr(nr) {}
 
@@ -62,9 +64,11 @@ struct horizontal_unfolding {
   const CoreLike &core;
   int nl, nd, nr;
 
+  KOKKOS_INLINE_FUNCTION
   explicit horizontal_unfolding(const CoreLike &core_in)
       : core(core_in), nl(core_in.LR()), nd(core_in.DD()), nr(core_in.RR()) {}
 
+  KOKKOS_INLINE_FUNCTION
   horizontal_unfolding(const CoreLike &core_in, int nl, int nd, int nr)
       : core(core_in), nl(nl), nd(nd), nr(nr) {}
 
