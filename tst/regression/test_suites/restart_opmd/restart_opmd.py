@@ -17,9 +17,11 @@ sys.dont_write_bytecode = True
 # The initial run will run to completion (writing hdf5 rst and opmd output with the same cadence).
 # Then the simulation is restarted from the first, non-initial condition opmd output and again run to completion.
 # Finally, the simulation is restarted again but using the hdf5 output generated from the previous restart.
+# A final analysis-only pass loads selected fields from the original openPMD snapshot.
 # For testing all resulting pmd snapshots are compared against each other at the same simulation time.
 # If they agree, restarting from opmd works and also the info contained in the opmd restart matches
-# the info in the hdf5 rst files (and vice versa).
+# the info in the hdf5 rst files (and vice versa). The analysis output is compared directly
+# against its source snapshot.
 class TestCase(utils.test_case.TestCaseAbs):
     def Prepare(self, parameters, step):
         # enable coverage testing on pass where restart
@@ -45,6 +47,13 @@ class TestCase(utils.test_case.TestCaseAbs):
                 "silver.out1.00002.rhdf",
                 "parthenon/output1/file_type=openpmd",
                 "parthenon/job/problem_id=bronze",
+            ]
+        elif step == 4:
+            parameters.driver_cmd_line_args = [
+                "-a",
+                "gold.out1.00001.bp",
+                "-i",
+                f"{parameters.parthenon_path}/tst/regression/test_suites/restart_opmd/parthinput.analysis",
             ]
 
         return parameters
@@ -166,5 +175,23 @@ class TestCase(utils.test_case.TestCaseAbs):
         # compare snaps between initial run and the one restarted twice (once hdf5 and opmd)
         success &= compare_files(3, "gold", "bronze")
         success &= compare_files(4, "gold", "bronze")
+
+        series_source = opmd.Series("gold.out1.%T.bp/", opmd.Access.read_only)
+        series_analysis = opmd.Series("analysis.out0.%T.bp/", opmd.Access.read_only)
+        source_iteration = series_source.iterations[1]
+        analysis_iteration = series_analysis.iterations[0]
+        expected_analysis_fields = ["advected", "my_derived_var"]
+        if (
+            list(analysis_iteration.get_attribute("OutputDatasetNames"))
+            != expected_analysis_fields
+        ):
+            print("OpenPMD analysis field filter produced an unexpected field catalog.")
+            success = False
+        success &= compare_data(
+            analysis_iteration,
+            source_iteration,
+            series_analysis,
+            series_source,
+        )
 
         return success

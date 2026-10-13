@@ -34,6 +34,10 @@
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
+#ifdef PARTHENON_ENABLE_OPENPMD
+#include "outputs/parthenon_opmd.hpp"
+#include "outputs/restart_opmd.hpp"
+#endif
 
 using parthenon::BlockList_t;
 using parthenon::DevExecSpace;
@@ -50,6 +54,92 @@ using parthenon::Real;
 using parthenon::StateDescriptor;
 
 using namespace parthenon::OutputUtils;
+
+#ifdef PARTHENON_ENABLE_OPENPMD
+TEST_CASE("OpenPMD mesh record names recover logical field labels",
+          "[OutputUtils][OpenPMD]") {
+  using parthenon::OpenPMDUtils::GetFieldLabelFromMeshRecordName;
+
+  REQUIRE(GetFieldLabelFromMeshRecordName("advected_lvl0", 2) == "advected");
+  REQUIRE(GetFieldLabelFromMeshRecordName("my_derived_var_lvl12", 2) == "my_derived_var");
+  REQUIRE(GetFieldLabelFromMeshRecordName("face_field_F1_lvl2", 2) == "face_field");
+  REQUIRE(GetFieldLabelFromMeshRecordName("edge_field_E3_lvl1", 2) == "edge_field");
+  REQUIRE(GetFieldLabelFromMeshRecordName("node_field_NN_lvl0", 2) == "node_field");
+  REQUIRE_THROWS(GetFieldLabelFromMeshRecordName("advected_advected_lvl0", 1));
+  REQUIRE_THROWS(GetFieldLabelFromMeshRecordName("advected", 2));
+  REQUIRE_THROWS(GetFieldLabelFromMeshRecordName("advected_lvlx", 2));
+}
+
+TEST_CASE("OpenPMD restart readers discover analysis fields", "[OutputUtils][OpenPMD]") {
+  using parthenon::RestartReaderOPMD;
+
+  SECTION("Field metadata is authoritative and filterable") {
+    const std::string filename = "analysis_fields_metadata.%05T.bp";
+    {
+      auto series = openPMD::Series(filename, openPMD::Access::CREATE);
+      series.setIterationEncoding(openPMD::IterationEncoding::fileBased);
+      auto iteration = series.iterations[0];
+      iteration.setAttribute("OutputFormatVersion", 2);
+      iteration.setAttribute(
+          "OutputDatasetNames",
+          std::vector<std::string>{"advected", "my_derived_var", "sparse_7"});
+    }
+
+    RestartReaderOPMD reader(filename.c_str());
+    REQUIRE(reader.GetFieldNames() ==
+            std::vector<std::string>{"advected", "my_derived_var", "sparse_7"});
+    REQUIRE(reader.GetFieldNames({"missing", "sparse_7", "advected"}) ==
+            std::vector<std::string>{"advected", "sparse_7"});
+  }
+
+  SECTION("Format-version 2 records provide a compatibility catalog") {
+    const std::string filename = "analysis_fields_records.%05T.bp";
+    {
+      auto series = openPMD::Series(filename, openPMD::Access::CREATE);
+      series.setIterationEncoding(openPMD::IterationEncoding::fileBased);
+      auto iteration = series.iterations[0];
+      iteration.setAttribute("OutputFormatVersion", 2);
+      const auto dataset = openPMD::Dataset(openPMD::Datatype::DOUBLE, {1});
+      auto advected_level_0 =
+          iteration.meshes["advected_lvl0"][openPMD::MeshRecordComponent::SCALAR];
+      advected_level_0.resetDataset(dataset);
+      advected_level_0.makeConstant(0.0);
+      auto advected_level_1 =
+          iteration.meshes["advected_lvl1"][openPMD::MeshRecordComponent::SCALAR];
+      advected_level_1.resetDataset(dataset);
+      advected_level_1.makeConstant(0.0);
+      auto face_field =
+          iteration.meshes["face_field_F1_lvl0"][openPMD::MeshRecordComponent::SCALAR];
+      face_field.resetDataset(dataset);
+      face_field.makeConstant(0.0);
+    }
+
+    RestartReaderOPMD reader(filename.c_str());
+    REQUIRE(reader.GetFieldNames() == std::vector<std::string>{"advected", "face_field"});
+  }
+
+  SECTION("Format-version 1 requires an explicit field list") {
+    const std::string filename = "analysis_fields_legacy.%05T.bp";
+    {
+      auto series = openPMD::Series(filename, openPMD::Access::CREATE);
+      series.setIterationEncoding(openPMD::IterationEncoding::fileBased);
+      auto iteration = series.iterations[0];
+      iteration.setAttribute("OutputFormatVersion", 1);
+      const auto dataset = openPMD::Dataset(openPMD::Datatype::DOUBLE, {1});
+      auto advected =
+          iteration
+              .meshes["advected_advected_lvl0"][openPMD::MeshRecordComponent::SCALAR];
+      advected.resetDataset(dataset);
+      advected.makeConstant(0.0);
+    }
+
+    RestartReaderOPMD reader(filename.c_str());
+    REQUIRE_THROWS(reader.GetFieldNames());
+    REQUIRE(reader.GetFieldNames({"missing", "advected"}) ==
+            std::vector<std::string>{"advected"});
+  }
+}
+#endif
 
 TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUtils]") {
   GIVEN("A MeshBlock with some vars on it") {

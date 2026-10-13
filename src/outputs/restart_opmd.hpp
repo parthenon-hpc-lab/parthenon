@@ -180,10 +180,8 @@ class RestartReaderOPMD : public RestartReader {
   void Close();
 
  protected:
-  [[nodiscard]] std::vector<std::string> GetFieldNamesImpl() const override {
-    PARTHENON_FAIL("OPMD restarts do not yet support analysis pathway");
-    return {};
-  }
+  [[nodiscard]] std::vector<std::string>
+  GetFieldNamesImpl(const std::vector<std::string> &filter) const override;
 
  private:
   const std::string filename_;

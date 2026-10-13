@@ -193,7 +193,7 @@ if (PARTHENON_ENABLE_OPENPMD)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart_opmd/parthinput.restart \
-    --num_steps 3")
+    --num_steps 4")
   list(APPEND EXTRA_TEST_LABELS "")
 
   # Smoke test: sparse_advection OpenPMD output is conformant (openable by openpmd_api,
