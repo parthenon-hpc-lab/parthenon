@@ -29,6 +29,7 @@
 #include "tt_pack.hpp"
 #include "tt_traits.hpp"
 #include "tt_types.hpp"
+#include "utils/robust.hpp"
 
 namespace parthenon {
 namespace tensor {
@@ -645,7 +646,7 @@ void RoundGramSVDVar_(TensorTrainHostPackT<TTraits> &pack_host, int var,
 
         // Calculate the absolute tolerance
         const real_t eps0 =
-            safe_sqrt(GR(0, 0)) * eps / sqrt(std::max(n_cores, 2) - 1) + 1.e-16;
+            robust::safe_sqrt(GR(0, 0)) * eps / sqrt(std::max(n_cores, 2) - 1) + 1.e-16;
 
         // Eigen systems
         ScratchPad1D<real_t> QL(tm_scratch, max_rank * max_rank);
@@ -708,8 +709,10 @@ void RoundGramSVDVar_(TensorTrainHostPackT<TTraits> &pack_host, int var,
               Kokkos::Max<real_t>(maxR));
           tm.team_barrier();
           parthenon::par_for_inner(tm, 0, rank - 1, [&](int r) {
-            eigL[r] = abs(eigL[r]) > (1.e-16 * maxL + 1e-20) ? safe_sqrt(eigL[r]) : 0.0;
-            eigR[r] = abs(eigR[r]) > (1.e-16 * maxR + 1e-20) ? safe_sqrt(eigR[r]) : 0.0;
+            eigL[r] =
+                abs(eigL[r]) > (1.e-16 * maxL + 1e-20) ? robust::safe_sqrt(eigL[r]) : 0.0;
+            eigR[r] =
+                abs(eigR[r]) > (1.e-16 * maxR + 1e-20) ? robust::safe_sqrt(eigR[r]) : 0.0;
           });
           tm.team_barrier();
           MatMulDiag3<real_t>(tm, eigL, QL_mat.GetTranspose(), unity_vector_t(), QR_mat,
@@ -955,7 +958,7 @@ void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
             },
             Kokkos::Sum<real_t>(norm2));
         tm.team_barrier();
-        real_t eps0 = safe_sqrt(norm2) * eps / sqrt(std::max(n_cores, 2) - 1);
+        real_t eps0 = robust::safe_sqrt(norm2) * eps / sqrt(std::max(n_cores, 2) - 1);
         if (eps > real_t(0)) {
           eps0 += real_t(1.e-16);
         }
