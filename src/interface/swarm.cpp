@@ -650,17 +650,19 @@ void Swarm::Validate(bool test_comms) const {
                       "This block region of neighbor indices is incorrect!");
   }
 
-  num_err = 0;
-  parthenon::par_reduce(
-      PARTHENON_AUTO_LABEL, 0, nmax_pool_ - num_active_ - 1,
-      KOKKOS_LAMBDA(const int n, int &nerr) {
-        if (mask(empty_indices(n)) == true) {
-          nerr += 1;
-        }
-      },
-      Kokkos::Sum<int>(num_err));
-  PARTHENON_REQUIRE(num_err == 0,
-                    "empty_indices_ array pointing to unmasked particle indices!");
+  if (empty_indices_valid_) {
+    num_err = 0;
+    parthenon::par_reduce(
+        PARTHENON_AUTO_LABEL, 0, nmax_pool_ - num_active_ - 1,
+        KOKKOS_LAMBDA(const int n, int &nerr) {
+          if (mask(empty_indices(n)) == true) {
+            nerr += 1;
+          }
+        },
+        Kokkos::Sum<int>(num_err));
+    PARTHENON_REQUIRE(num_err == 0,
+                      "empty_indices_ array pointing to unmasked particle indices!");
+  }
 }
 
 } // namespace parthenon

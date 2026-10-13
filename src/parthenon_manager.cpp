@@ -21,7 +21,9 @@
 #include <algorithm>
 #include <cstdio>
 #include <exception>
+#include <iomanip>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -137,6 +139,18 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     auto inputString = restartReader->GetInputString();
     std::istringstream is(inputString);
     pinput->LoadFromStream(is);
+
+    if (arg.analysis_flag) {
+      const auto time_info = restartReader->GetTimeInfo();
+      std::ostringstream time_input;
+      time_input << std::setprecision(std::numeric_limits<Real>::max_digits10)
+                 << "<parthenon/time>\n"
+                 << "start_time = " << time_info.time << "\n"
+                 << "dt = " << time_info.dt << "\n"
+                 << "ncycle = " << time_info.ncycle << "\n";
+      std::istringstream time_stream(time_input.str());
+      pinput->LoadFromStream(time_stream);
+    }
   }
   // If an input file was provided
   if (arg.input_filename != nullptr) {
@@ -227,16 +241,12 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader,
                                    packages, arg.analysis_flag);
 
-    // Read simulation time and cycle from restart file and set in input
-    const auto time_info = restartReader->GetTimeInfo();
-    Real tNow = time_info.time;
-    pinput->SetReal("parthenon/time", "start_time", tNow);
-
-    Real dt = time_info.dt;
-    pinput->SetReal("parthenon/time", "dt", dt);
-
-    int ncycle = time_info.ncycle;
-    pinput->SetInteger("parthenon/time", "ncycle", ncycle);
+    if (!arg.analysis_flag) {
+      const auto time_info = restartReader->GetTimeInfo();
+      pinput->SetReal("parthenon/time", "start_time", time_info.time);
+      pinput->SetReal("parthenon/time", "dt", time_info.dt);
+      pinput->SetInteger("parthenon/time", "ncycle", time_info.ncycle);
+    }
 
     // Read package data from restart file
     RestartPackages(*pmesh, *restartReader);

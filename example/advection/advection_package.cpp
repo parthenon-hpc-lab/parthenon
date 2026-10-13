@@ -75,6 +75,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   auto fill_derived = pin->GetOrAddBoolean("Advection", "fill_derived", true);
   pkg->AddParam<>("fill_derived", fill_derived);
+  const auto test_analysis_fields =
+      pin->GetOrAddBoolean("Advection", "test_analysis_fields", false);
+  pkg->AddParam<>("test_analysis_fields", test_analysis_fields);
 
   // For wavevector along coordinate axes, set desired values of ang_2/ang_3.
   //    For example, for 1D problem use ang_2 = ang_3 = 0.0
@@ -195,6 +198,21 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   m = Metadata({Metadata::Cell, Metadata::OneCopy}, std::vector<int>({1}));
   pkg->AddField("my_derived_var", m);
 
+  if (test_analysis_fields) {
+    m = Metadata(
+        {Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::FillGhost});
+    pkg->AddField("analysis_excluded_var", m);
+    pkg->AddField("analysis_omitted_var", m);
+
+    m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy,
+                  Metadata::FillGhost, Metadata::Analysis});
+    pkg->AddField("analysis_only_var", m);
+
+    m = Metadata({Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Sparse,
+                  Metadata::FillGhost, Metadata::Analysis});
+    pkg->AddSparsePool("analysis_only_sparse", m, std::vector<int>{7});
+  }
+
   // Create a Metadata::None variable for IO testing purposes.
   // Only load if test_metadata_none is specified in the Advection block
   auto test_metadata_none =
@@ -247,6 +265,19 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 }
 
 void AdvectionGreetings(Mesh *pmesh, ParameterInput *pin, parthenon::SimTime &tm) {
+  const auto pkg = pmesh->packages.Get("advection_package");
+  if (pkg->Param<bool>("test_analysis_fields")) {
+    if (pin->DoesParameterExist("Advection", "expected_analysis_cfl")) {
+      PARTHENON_REQUIRE(
+          pkg->Param<Real>("cfl") == pin->GetReal("Advection", "expected_analysis_cfl"),
+          "Analysis input or command-line package parameter override was not applied");
+    }
+    if (pin->DoesParameterExist("Advection", "expected_analysis_dt")) {
+      PARTHENON_REQUIRE(
+          tm.dt == pin->GetReal("Advection", "expected_analysis_dt"),
+          "Analysis input or command-line time-step override was not applied");
+    }
+  }
   if (parthenon::Globals::my_rank == 0) {
     std::cout << "Hello from the advection package in the advection example!\n"
               << "This run is a restart: " << parthenon::Globals::is_restart << "\n"

@@ -17,6 +17,7 @@
 // This file was made in part with generative AI.
 
 #include <cstdio>
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -34,6 +35,10 @@
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
+#ifdef ENABLE_HDF5
+#include "outputs/parthenon_hdf5.hpp"
+#include "outputs/restart_hdf5.hpp"
+#endif
 #ifdef PARTHENON_ENABLE_OPENPMD
 #include "outputs/parthenon_opmd.hpp"
 #include "outputs/restart_opmd.hpp"
@@ -54,6 +59,68 @@ using parthenon::Real;
 using parthenon::StateDescriptor;
 
 using namespace parthenon::OutputUtils;
+
+#ifdef ENABLE_HDF5
+namespace {
+class TemporaryHDF5File {
+ public:
+  explicit TemporaryHDF5File(std::string filename) : filename_(std::move(filename)) {}
+  ~TemporaryHDF5File() { std::filesystem::remove(filename_); }
+
+  const std::string &filename() const { return filename_; }
+
+ private:
+  std::string filename_;
+};
+
+void CreateFieldCatalogFixture(const std::string &filename,
+                               const std::vector<std::string> *field_names) {
+  using namespace parthenon::HDF5;
+  H5F file = H5F::FromHIDCheck(
+      H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT));
+  auto info = MakeGroup(file, "Info");
+  auto params = MakeGroup(file, "Params");
+  HDF5WriteAttribute("IncludesGhost", 0, info);
+  HDF5WriteAttribute("OutputFormatVersion", OUTPUT_VERSION_FORMAT, info);
+  if (field_names != nullptr) {
+    HDF5WriteAttribute("OutputDatasetNames", *field_names, info);
+  }
+
+  const hsize_t dimensions[] = {1};
+  const H5S dataspace = H5S::FromHIDCheck(H5Screate_simple(1, dimensions, dimensions));
+  for (const auto &name : {"advected", "pool_7", "SparseInfo", "Levels"}) {
+    H5D dataset = H5D::FromHIDCheck(H5Dcreate2(file, name, H5T_NATIVE_DOUBLE, dataspace,
+                                               H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+  }
+  auto ignored_group = MakeGroup(file, "ignored_group");
+}
+} // namespace
+
+TEST_CASE("HDF5 restart readers discover analysis fields", "[OutputUtils][HDF5]") {
+  using parthenon::RestartReaderHDF5;
+
+  SECTION("OutputDatasetNames is authoritative and filterable") {
+    TemporaryHDF5File file("analysis_fields_metadata.phdf");
+    const std::vector<std::string> fields{"my_derived_var", "advected", "pool_7"};
+    CreateFieldCatalogFixture(file.filename(), &fields);
+
+    RestartReaderHDF5 reader(file.filename().c_str());
+    REQUIRE(reader.GetFieldNames() == fields);
+    REQUIRE(reader.GetFieldNames({"missing", "pool_7", "pool_7", "advected"}) ==
+            std::vector<std::string>{"advected", "pool_7"});
+  }
+
+  SECTION("Root datasets provide a legacy compatibility catalog") {
+    TemporaryHDF5File file("analysis_fields_legacy.phdf");
+    CreateFieldCatalogFixture(file.filename(), nullptr);
+
+    RestartReaderHDF5 reader(file.filename().c_str());
+    REQUIRE(reader.GetFieldNames() == std::vector<std::string>{"advected", "pool_7"});
+    REQUIRE(reader.GetFieldNames({"missing", "pool_7"}) ==
+            std::vector<std::string>{"pool_7"});
+  }
+}
+#endif
 
 #ifdef PARTHENON_ENABLE_OPENPMD
 TEST_CASE("OpenPMD mesh record names recover logical field labels",

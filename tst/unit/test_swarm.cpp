@@ -33,6 +33,7 @@
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
 #include "pack/default_names.hpp"
+#include "pack/pack_utils.hpp"
 
 #include <parthenon/driver.hpp>
 #include <parthenon/package.hpp>
@@ -54,6 +55,12 @@ using parthenon::X1DIR;
 using std::endl;
 
 constexpr int NUMINIT = 10;
+
+TEST_CASE("PackIdx is safely default constructible", "[Swarm][PackIdx]") {
+  parthenon::PackIdx index;
+  REQUIRE(index.VariableIdx() == 0);
+  REQUIRE(index.Offset() == 0);
+}
 
 void SwarmUserInnerX1(std::shared_ptr<Swarm> &swarm) {
   GenericSwarmBC<X1DIR, BCSide::Inner, BCType::Outflow>(swarm);
@@ -244,4 +251,41 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
       });
   failures_h = failures_d.GetHostMirrorAndCopy();
   REQUIRE(failures_h(0) == 0);
+
+  const int active_after_boundary = swarm->GetNumActive();
+  const int max_after_boundary = swarm->GetMaxActiveIndex();
+  swarm->RemoveMarkedParticles();
+  REQUIRE(swarm->GetNumActive() == active_after_boundary);
+  REQUIRE(swarm->GetMaxActiveIndex() == max_after_boundary);
+
+  swarm->ClearParticles();
+  REQUIRE(swarm->GetNumActive() == 0);
+  REQUIRE(swarm->GetMaxActiveIndex() == Swarm::inactive_max_active_index);
+
+  constexpr int batch_size = 4 * NUMINIT + 1;
+  swarm->AddEmptyParticles(batch_size);
+  REQUIRE(swarm->GetNumActive() == batch_size);
+  REQUIRE(swarm->GetMaxActiveIndex() == batch_size - 1);
+  REQUIRE(swarm->GetMask().size() >= batch_size);
+
+  swarm_d = swarm->GetDeviceContext();
+  meshblock->par_for(
+      "Remove highest particle", 0, 0,
+      KOKKOS_LAMBDA(const int) { swarm_d.MarkParticleForRemoval(batch_size - 1); });
+  swarm->RemoveMarkedParticles();
+  REQUIRE(swarm->GetNumActive() == batch_size - 1);
+  REQUIRE(swarm->GetMaxActiveIndex() == batch_size - 2);
+
+  swarm_d = swarm->GetDeviceContext();
+  meshblock->par_for(
+      "Remove all particles", 0, swarm->GetMaxActiveIndex(),
+      KOKKOS_LAMBDA(const int n) { swarm_d.MarkParticleForRemoval(n); });
+  swarm->RemoveMarkedParticles();
+  REQUIRE(swarm->GetNumActive() == 0);
+  REQUIRE(swarm->GetMaxActiveIndex() == Swarm::inactive_max_active_index);
+
+  swarm->AddEmptyParticles(2);
+  REQUIRE(swarm->GetNumActive() == 2);
+  REQUIRE(swarm->GetMaxActiveIndex() == 1);
+  swarm->Validate();
 }

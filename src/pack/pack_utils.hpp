@@ -264,8 +264,8 @@ class PackIdx {
   int Offset() { return offset; }
 
  private:
-  std::size_t vidx;
-  int offset;
+  std::size_t vidx{0};
+  int offset{0};
 };
 // Operator overloads to make calls like `my_pack(b, my_pack_idx + 3, k, j, i)` work
 template <class T>

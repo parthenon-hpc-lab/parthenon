@@ -180,6 +180,12 @@ class TestCase(utils.test_case.TestCaseAbs):
         series_analysis = opmd.Series("analysis.out0.%T.bp/", opmd.Access.read_only)
         source_iteration = series_source.iterations[1]
         analysis_iteration = series_analysis.iterations[0]
+        if analysis_iteration.time != source_iteration.time:
+            print(
+                "OpenPMD analysis output did not preserve its source iteration time: "
+                f"{analysis_iteration.time} versus {source_iteration.time}."
+            )
+            success = False
         expected_analysis_fields = ["advected", "my_derived_var"]
         if (
             list(analysis_iteration.get_attribute("OutputDatasetNames"))

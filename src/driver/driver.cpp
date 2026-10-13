@@ -125,8 +125,10 @@ DriverStatus EvolutionDriver::Execute() {
   }
 
   PreExecute();
-  InitializeBlockTimeSteps();
-  SetGlobalTimeStep();
+  if (signal != OutputSignal::analysis) {
+    InitializeBlockTimeSteps();
+    SetGlobalTimeStep();
+  }
 
   // Before loop do work
   { // UserWorkBeforeLoop

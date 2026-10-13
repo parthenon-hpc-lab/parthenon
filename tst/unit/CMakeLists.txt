@@ -19,6 +19,7 @@
 
 list(APPEND unit_tests_SOURCES
     test_ascii_table_parsing.cpp
+    test_argument_parser.cpp
     test_loop_abstraction.cpp
     test_concepts_lite.cpp
     test_coordinates.cpp

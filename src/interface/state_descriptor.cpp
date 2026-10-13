@@ -587,39 +587,51 @@ std::shared_ptr<StateDescriptor> StateDescriptor::CreateResolvedStateDescriptorA
     auto &package = pair.second;
 
     for (const auto &[var_id, var_metadata] : package->AllFields()) {
-      if (var_metadata.IsSet(Metadata::Analysis)) {
-        if (!added_fields.contains(var_id.label())) {
-          state->AddField(var_id.label(), var_metadata);
-          added_fields.insert(var_id.label());
-        }
-      }
-      if (!var_metadata.IsSet(Metadata::Sparse) &&
-          available_fields.contains(var_id.label())) {
-        available_fields.erase(var_id.label());
-        auto mflags = var_metadata.Flags();
-        std::vector<MetadataFlag> mf;
-        for (auto f : mflags) {
-          if (f != Metadata::Independent && f != Metadata::WithFluxes) {
-            mf.push_back(f);
+      if (var_metadata.IsSet(Metadata::Sparse)) continue;
+
+      const bool available = available_fields.contains(var_id.label());
+      const bool analysis = var_metadata.IsSet(Metadata::Analysis);
+      if (available) available_fields.erase(var_id.label());
+      if (!available && !analysis) continue;
+
+      Metadata metadata = var_metadata;
+      if (available) {
+        std::vector<MetadataFlag> flags;
+        for (const auto flag : var_metadata.Flags()) {
+          if (flag != Metadata::Independent && flag != Metadata::WithFluxes) {
+            flags.push_back(flag);
           }
         }
-        mf.push_back(Metadata::FillGhost);
-        mf.push_back(Metadata::CommunicateOne);
-        mf.push_back(Metadata::Restart);
-        Metadata m(mf, var_metadata.Shape());
-        state->AddField(var_id.label(), m);
+        flags.push_back(Metadata::FillGhost);
+        flags.push_back(Metadata::CommunicateOne);
+        flags.push_back(Metadata::Restart);
+        const auto refinement_functions = var_metadata.HasRefinementOps()
+                                              ? var_metadata.GetRefinementFunctions()
+                                              : refinement::DefaultRefinementFunctions();
+        metadata =
+            Metadata(flags, var_metadata.Shape(), var_metadata.getComponentLabels(),
+                     var_metadata.getAssociated(), refinement_functions);
+      }
+      if (!added_fields.contains(var_id.label())) {
+        state->AddField(var_id.label(), metadata);
+        added_fields.insert(var_id.label());
       }
     }
 
     for (const auto &[pool_name, pool] : package->AllSparsePools()) {
-      // first check if it's available
       std::vector<int> avail_ids;
       std::vector<std::vector<int>> shapes;
       std::vector<MetadataFlag> vector_tensor;
+      bool has_file_backed_id = false;
       for (const auto &[sparse_id, sparse_meta] : pool.pool()) {
-        bool is_avail =
+        const bool is_avail =
             available_fields.contains(MakeVarLabel(pool.base_name(), sparse_id));
-        if (is_avail) {
+        const bool is_analysis = sparse_meta.IsSet(Metadata::Analysis);
+        if (is_avail || is_analysis) {
+          if (is_avail) {
+            available_fields.erase(MakeVarLabel(pool.base_name(), sparse_id));
+            has_file_backed_id = true;
+          }
           avail_ids.push_back(sparse_id);
           shapes.push_back(sparse_meta.Shape());
           if (sparse_meta.IsSet(Metadata::Vector))
@@ -630,14 +642,15 @@ std::shared_ptr<StateDescriptor> StateDescriptor::CreateResolvedStateDescriptorA
             vector_tensor.push_back(Metadata::None);
         }
       }
-      // TODO(JCD): should we support sparse Metadata::Analysis fields?
       if (avail_ids.size() > 0) {
         auto m = pool.shared_metadata();
-        m.Unset(Metadata::Independent);
-        m.Unset(Metadata::WithFluxes);
-        m.Set(Metadata::FillGhost);
-        m.Set(Metadata::CommunicateOne);
-        m.Set(Metadata::Restart);
+        if (has_file_backed_id) {
+          m.Unset(Metadata::Independent);
+          m.Unset(Metadata::WithFluxes);
+          m.Set(Metadata::FillGhost);
+          m.Set(Metadata::CommunicateOne);
+          m.Set(Metadata::Restart);
+        }
         state->AddSparsePool(pool.base_name(), m, avail_ids, shapes, vector_tensor);
       }
     }

@@ -142,6 +142,12 @@ class ArgParse {
                 << "No input file specified for analysis." << std::endl;
       return ArgStatus::error;
     }
+    if (analysis_flag && is_restart) {
+      std::cout << "### FATAL ERROR in main" << std::endl
+                << "Analysis (-a) and restart (-r) modes are mutually exclusive."
+                << std::endl;
+      return ArgStatus::error;
+    }
     return ArgStatus::ok;
   }
 
