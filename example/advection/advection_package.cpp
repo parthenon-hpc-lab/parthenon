@@ -79,7 +79,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   pkg->AddParam<>("fill_derived", fill_derived);
   const auto test_analysis_fields =
       pin->GetOrAddBoolean("Advection", "test_analysis_fields", false);
-  pkg->AddParam<>("test_analysis_fields", test_analysis_fields);
+  if (test_analysis_fields) {
+    pkg->AddParam<>("test_analysis_fields", true);
+  }
 
   // For wavevector along coordinate axes, set desired values of ang_2/ang_3.
   //    For example, for 1D problem use ang_2 = ang_3 = 0.0
@@ -268,7 +270,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
 void AdvectionGreetings(Mesh *pmesh, ParameterInput *pin, parthenon::SimTime &tm) {
   const auto pkg = pmesh->packages.Get("advection_package");
-  if (pkg->Param<bool>("test_analysis_fields")) {
+  if (pkg->AllParams().hasKey("test_analysis_fields") &&
+      pkg->Param<bool>("test_analysis_fields")) {
     if (pin->DoesParameterExist("Advection", "expected_analysis_cfl")) {
       PARTHENON_REQUIRE(
           pkg->Param<Real>("cfl") == pin->GetReal("Advection", "expected_analysis_cfl"),

@@ -273,7 +273,9 @@ void UserMeshWorkBeforeOutput(Mesh *mesh, ParameterInput *pin, SimTime const &) 
         });
 
     const auto pkg = pmb->packages.Get("advection_package");
-    if (!pkg->Param<bool>("test_analysis_fields")) continue;
+    if (!pkg->AllParams().hasKey("test_analysis_fields") ||
+        !pkg->Param<bool>("test_analysis_fields"))
+      continue;
 
     const bool has_excluded = rc->HasVariable("analysis_excluded_var");
     const bool has_omitted = rc->HasVariable("analysis_omitted_var");
