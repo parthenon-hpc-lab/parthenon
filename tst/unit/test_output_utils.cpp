@@ -3,7 +3,7 @@
 // Copyright(C) 2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2024-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -17,9 +17,9 @@
 // This file was made in part with generative AI.
 
 #include <cstdio>
-#include <filesystem>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <catch2/catch.hpp>
@@ -65,7 +65,7 @@ namespace {
 class TemporaryHDF5File {
  public:
   explicit TemporaryHDF5File(std::string filename) : filename_(std::move(filename)) {}
-  ~TemporaryHDF5File() { std::filesystem::remove(filename_); }
+  ~TemporaryHDF5File() { std::remove(filename_.c_str()); }
 
   const std::string &filename() const { return filename_; }
 

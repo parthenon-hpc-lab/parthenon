@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -15,6 +15,7 @@
 #include <iostream>
 #include <memory>
 #include <numeric>
+#include <set>
 #include <sstream>
 #include <string>
 #include <unordered_map>
