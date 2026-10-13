@@ -159,24 +159,43 @@ void Swarm::SetupPersistentMPI() {
   }
 }
 
-void Swarm::LoadBuffers_() {
-  auto swarm_d = GetDeviceContext();
-  auto pmb = GetBlockPointer();
-  const std::size_t particle_size = GetParticleDataSize();
-  vbswarm->particle_size = particle_size;
-  const std::size_t nneighbor = pmb->GetNeighbors().size();
-  // Fence to make sure particles aren't currently being transported locally
-  pmb->exec_space.fence();
+void Swarm::EnsureCommunicationPacks_() {
+  if (communication_packs_valid_) return;
 
-  auto &int_vector = std::get<getType<int>()>(vectors_);
-  auto &uint64_vector = std::get<getType<std::uint64_t>()>(vectors_);
-  auto &real_vector = std::get<getType<Real>()>(vectors_);
   PackIndexMap real_imap;
   PackIndexMap int_imap;
   PackIndexMap uint64_imap;
-  auto vreal = PackAllVariables_<Real>(real_imap);
-  auto vint = PackAllVariables_<int>(int_imap);
-  auto vuint64 = PackAllVariables_<std::uint64_t>(uint64_imap);
+  communication_real_pack_ = PackAllVariables_<Real>(real_imap);
+  communication_int_pack_ = PackAllVariables_<int>(int_imap);
+  communication_uint64_pack_ = PackAllVariables_<std::uint64_t>(uint64_imap);
+  communication_packs_valid_ = true;
+}
+
+void Swarm::LoadBuffers_() {
+
+  // abort early if I have no particles
+  auto pmb = GetBlockPointer();
+  const auto &neighbors = pmb->GetNeighbors();
+
+  const std::size_t particle_size = GetParticleDataSize();
+  vbswarm->particle_size = particle_size;
+
+  if (max_active_index_ < 0) {
+    for (const auto &neighbor : neighbors) {
+      vbswarm->send_size[neighbor.bufid] = 0;
+    }
+    return;
+  }
+
+  auto swarm_d = GetDeviceContext();
+  const std::size_t nneighbor = neighbors.size();
+  // Fence to make sure particles aren't currently being transported locally
+  pmb->exec_space.fence();
+
+  EnsureCommunicationPacks_();
+  const auto vreal = communication_real_pack_;
+  const auto vint = communication_int_pack_;
+  const auto vuint64 = communication_uint64_pack_;
   const int realPackDim = vreal.GetDim(2);
   const int intPackDim = vint.GetDim(2);
   const int uint64PackDim = vuint64.GetDim(2);
@@ -200,7 +219,6 @@ void Swarm::LoadBuffers_() {
             buffer_sorted(n) = SwarmKey(this_block_, n);
           }
         });
-
     // sort by buffer index
     sort(buffer_sorted, SwarmKeyComparator(), 0, max_active_index_);
 
@@ -237,7 +255,6 @@ void Swarm::LoadBuffers_() {
     auto buffer_start_h = buffer_start.GetHostMirrorAndCopy();
 
     // Resize send buffers if too small
-    const auto &neighbors = pmb->GetNeighbors();
     for (std::size_t n = 0; n < neighbors.size(); n++) {
       num_particles_to_send_h(n) -= buffer_start_h(n);
       const int bufid = neighbors[n].bufid;
@@ -285,7 +302,6 @@ void Swarm::LoadBuffers_() {
             }
           }
         });
-
     // Remove particles that were loaded to send to another block from this block
     RemoveMarkedParticles();
   } else {
@@ -339,15 +355,10 @@ void Swarm::UnloadBuffers_() {
 
     auto neighbor_buffer_index = neighbor_buffer_index_;
 
-    auto &int_vector = std::get<getType<int>()>(vectors_);
-    auto &uint64_vector = std::get<getType<std::uint64_t>()>(vectors_);
-    auto &real_vector = std::get<getType<Real>()>(vectors_);
-    PackIndexMap real_imap;
-    PackIndexMap int_imap;
-    PackIndexMap uint64_imap;
-    auto vreal = PackAllVariables_<Real>(real_imap);
-    auto vint = PackAllVariables_<int>(int_imap);
-    auto vuint64 = PackAllVariables_<std::uint64_t>(uint64_imap);
+    EnsureCommunicationPacks_();
+    const auto vreal = communication_real_pack_;
+    const auto vint = communication_int_pack_;
+    const auto vuint64 = communication_uint64_pack_;
     const int realPackDim = vreal.GetDim(2);
     const int intPackDim = vint.GetDim(2);
     const int uint64PackDim = vuint64.GetDim(2);
@@ -364,7 +375,6 @@ void Swarm::UnloadBuffers_() {
       val_prev += val_curr;
     }
     neighbor_received_particles.DeepCopy(neighbor_received_particles_h);
-
     pmb->par_for(
         PARTHENON_AUTO_LABEL, 0, newParticlesContext.GetNewParticlesMaxIndex(),
         // n is both new particle index and index over buffer values

@@ -104,7 +104,8 @@ class StateDescriptor {
   static std::shared_ptr<StateDescriptor>
   CreateResolvedStateDescriptor(Packages_t &packages);
   static std::shared_ptr<StateDescriptor>
-  CreateResolvedStateDescriptorAnalysis(Packages_t &packages, const std::vector<std::string> &available_fields);
+  CreateResolvedStateDescriptorAnalysis(Packages_t &packages,
+                                        const std::vector<std::string> &available_fields);
 
   MetadataFlag GetMetadataFlag() {
     return params_.Get<MetadataFlag>("PackageMetadataFlag_");
@@ -571,7 +572,8 @@ class StateDescriptor {
 inline std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
   return StateDescriptor::CreateResolvedStateDescriptor(packages);
 }
-inline std::shared_ptr<StateDescriptor> ResolvePackagesAnalysis(Packages_t &packages, const std::vector<std::string> &fields) {
+inline std::shared_ptr<StateDescriptor>
+ResolvePackagesAnalysis(Packages_t &packages, const std::vector<std::string> &fields) {
   return StateDescriptor::CreateResolvedStateDescriptorAnalysis(packages, fields);
 }
 

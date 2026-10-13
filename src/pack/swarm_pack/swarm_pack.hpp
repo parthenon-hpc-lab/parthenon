@@ -46,6 +46,7 @@ class SwarmPack : public SwarmPackBase<TYPE> {
   using SwarmPackBase<TYPE>::contexts_;
   using SwarmPackBase<TYPE>::max_active_indices_;
   using SwarmPackBase<TYPE>::flat_index_map_;
+  using SwarmPackBase<TYPE>::flat_index_offset_;
   using SwarmPackBase<TYPE>::nvar_;
   using SwarmPackBase<TYPE>::nblocks_;
   using SwarmPackBase<TYPE>::max_flat_index_;
@@ -103,7 +104,7 @@ class SwarmPack : public SwarmPackBase<TYPE> {
     int b = 0;
     int r = nblocks_;
     while (r - b > 1) {
-      auto c = static_cast<int>(0.5 * (b + r));
+      auto c = b + (r - b) / 2;
       if (flat_index_map_(c) > idx)
         r = c;
       else

@@ -41,13 +41,15 @@ namespace parthenon {
 
 #ifdef ENABLE_HDF5
 namespace {
-herr_t CollectRootDatasets(hid_t group, const char *name, const H5L_info_t *, void *data) {
+herr_t CollectRootDatasets(hid_t group, const char *name, const H5L_info_t *,
+                           void *data) {
   hid_t dataset = -1;
   H5E_BEGIN_TRY { dataset = H5Dopen2(group, name, H5P_DEFAULT); }
   H5E_END_TRY;
   if (dataset >= 0) {
     static const std::set<std::string> non_field_datasets{
-        "SparseInfo", "SparseDeallocCount", "VolumeLocations", "Levels", "LogicalLocations"};
+        "SparseInfo", "SparseDeallocCount", "VolumeLocations", "Levels",
+        "LogicalLocations"};
     if (non_field_datasets.count(name) == 0) {
       static_cast<std::vector<std::string> *>(data)->emplace_back(name);
     }
@@ -88,18 +90,29 @@ RestartReaderHDF5::RestartReaderHDF5(const char *filename) : filename_(filename)
 #endif // ENABLE_HDF5
 }
 
-std::vector<std::string> RestartReaderHDF5::GetFieldNames() const {
+std::vector<std::string>
+RestartReaderHDF5::GetFieldNamesImpl(const std::vector<std::string> &filter) const {
 #ifndef ENABLE_HDF5
   PARTHENON_FAIL("HDF5 functionality is not available because HDF5 is disabled");
 #else
   const H5O obj = H5O::FromHIDCheck(H5Oopen(fh_, "Info", H5P_DEFAULT));
+  std::vector<std::string> allfields;
   if (PARTHENON_HDF5_CHECK(H5Aexists(obj, "OutputDatasetNames")) > 0) {
-    return GetAttrVec<std::string>("Info", "OutputDatasetNames");
+    allfields = GetAttrVec<std::string>("Info", "OutputDatasetNames");
+  } else {
+    hsize_t index = 0;
+    PARTHENON_HDF5_CHECK(H5Literate(fh_, H5_INDEX_NAME, H5_ITER_NATIVE, &index,
+                                    CollectRootDatasets, &allfields));
+  }
+  if (filter.size() == 0) {
+    return allfields;
   }
   std::vector<std::string> fields;
-  hsize_t index = 0;
-  PARTHENON_HDF5_CHECK(H5Literate(fh_, H5_INDEX_NAME, H5_ITER_NATIVE, &index,
-                                  CollectRootDatasets, &fields));
+  for (const auto &f : allfields) {
+    if (std::find(filter.begin(), filter.end(), f) != filter.end()) {
+      fields.push_back(f);
+    }
+  }
   return fields;
 #endif
 }

@@ -224,8 +224,8 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
   } else if (arg.is_restart || arg.analysis_flag) {
     // Open restart file
     // Read Mesh from restart file and create meshblocks
-    pmesh =
-        std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader, packages, arg.analysis_flag);
+    pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader,
+                                   packages, arg.analysis_flag);
 
     // Read simulation time and cycle from restart file and set in input
     const auto time_info = restartReader->GetTimeInfo();
@@ -244,8 +244,8 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     // close hdf5 file to prevent HDF5 hangs and corrupted files
     // if code dies after restart
     restartReader = nullptr;
-  } else if (arg.analysis_flag) {
-    // 
+  } else {
+    PARTHENON_THROW("Something strange is happening during setup...");
   }
 
   // add root_level to all max_level
@@ -265,7 +265,9 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     pinput->SetString("parthenon/job", "output_params_block_regex", arg.params_regex);
   }
 
-  auto init_flag = (arg.is_restart ? MeshInitType::restart : (arg.analysis_flag ? MeshInitType::analysis : MeshInitType::pgen));
+  auto init_flag = (arg.is_restart ? MeshInitType::restart
+                                   : (arg.analysis_flag ? MeshInitType::analysis
+                                                        : MeshInitType::pgen));
   pmesh->Initialize(init_flag, pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);

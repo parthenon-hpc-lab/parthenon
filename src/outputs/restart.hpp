@@ -98,7 +98,10 @@ class RestartReader {
 
   [[nodiscard]] virtual std::string GetInputString() const = 0;
 
-  [[nodiscard]] virtual std::vector<std::string> GetFieldNames() const = 0;
+  std::vector<std::string>
+  GetFieldNames(const std::vector<std::string> &filter = {}) const {
+    return GetFieldNamesImpl(filter);
+  }
 
   // Return output format version number. Return -1 if not existent.
   [[nodiscard]] virtual int GetOutputFormatVersion() const = 0;
@@ -148,6 +151,10 @@ class RestartReader {
   void Close();
 
   [[nodiscard]] virtual int HasGhost() const = 0;
+
+ protected:
+  [[nodiscard]] virtual std::vector<std::string>
+  GetFieldNamesImpl(const std::vector<std::string> &filter) const = 0;
 };
 
 } // namespace parthenon

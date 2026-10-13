@@ -75,7 +75,7 @@ class Packages_t;
 class ParameterInput;
 class RestartReader;
 
-enum class MeshInitType {pgen, restart, analysis};
+enum class MeshInitType { pgen, restart, analysis };
 
 // Map from LogicalLocation to (gid, rank) pair of location
 using LogicalLocMap_t = std::map<LogicalLocation, std::pair<int, int>>;
@@ -95,10 +95,12 @@ class Mesh {
 
   struct base_constructor_selector_t {};
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
-       base_constructor_selector_t, bool analysis = false, const std::vector<std::string> &fields = {});
+       base_constructor_selector_t, bool analysis = false,
+       const std::vector<std::string> &fields = {});
   struct hyper_rectangular_constructor_selector_t {};
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
-       hyper_rectangular_constructor_selector_t, bool analysis = false, const std::vector<std::string> &fields = {});
+       hyper_rectangular_constructor_selector_t, bool analysis = false,
+       const std::vector<std::string> &fields = {});
 
  public:
 #ifdef PARTHENON_ENABLE_FFT

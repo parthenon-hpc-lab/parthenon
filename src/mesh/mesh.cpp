@@ -65,7 +65,8 @@
 
 namespace parthenon {
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
-           base_constructor_selector_t, bool analysis, const std::vector<std::string> &analysis_fields)
+           base_constructor_selector_t, bool analysis,
+           const std::vector<std::string> &analysis_fields)
     : // public members:
       modified(true),
       adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none",
@@ -80,7 +81,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       multigrid(pin->GetOrAddBoolean("parthenon/mesh", "multigrid", false,
                                      "enable a multigrid mesh")),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
-      //resolved_packages(ResolvePackages(packages)),
+      // resolved_packages(ResolvePackages(packages)),
       task_collection_timeout_in_seconds(pin->GetOrAddInteger(
           "parthenon/mesh", "task_collection_timeout_in_seconds", 60 * 5)),
       minimum_number_of_teams_for_boundary_kernel(pin->GetOrAddInteger(
@@ -241,7 +242,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 }
 
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
-           hyper_rectangular_constructor_selector_t, bool analysis, const std::vector<std::string> &fields)
+           hyper_rectangular_constructor_selector_t, bool analysis,
+           const std::vector<std::string> &fields)
     : Mesh(pin, app_in, packages, base_constructor_selector_t(), analysis, fields) {
 
   std::tie(mesh_size, base_block_size) = GetRegionSizes(pin);
@@ -312,11 +314,13 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 // Mesh constructor for restarts/analysis. Load the file
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
            Packages_t &packages, bool analysis)
-    : Mesh(pin, app_in, packages, hyper_rectangular_constructor_selector_t(), analysis, rr.GetFieldNames()) {
+    : Mesh(pin, app_in, packages, hyper_rectangular_constructor_selector_t(), analysis,
+           rr.GetFieldNames(
+               pin->GetOrAddVector<std::string>("parthenon/analysis", "fields", {}))) {
   std::stringstream msg;
 
   // mesh test
-  //if (mesh_test > 0) Globals::nranks = mesh_test;
+  // if (mesh_test > 0) Globals::nranks = mesh_test;
 
   // read the restart file
   // the file is already open and the pointer is set to after <par_end>
@@ -762,8 +766,10 @@ void Mesh::FillDerived() {
 // \!fn void Mesh::Initialize(bool init_problem, ParameterInput *pin)
 // \brief  initialization before the main loop
 
-void Mesh::Initialize(MeshInitType init_flag, ParameterInput *pin, ApplicationInput *app_in) {
+void Mesh::Initialize(MeshInitType init_flag, ParameterInput *pin,
+                      ApplicationInput *app_in) {
   PARTHENON_INSTRUMENT
+  const auto start = std::chrono::steady_clock::now();
   bool init_problem = (init_flag == MeshInitType::pgen);
   bool analysis = (init_flag == MeshInitType::analysis);
   bool init_done = true;
@@ -1005,6 +1011,11 @@ void Mesh::Initialize(MeshInitType init_flag, ParameterInput *pin, ApplicationIn
 
   // Initialize the "base" MeshData object
   mesh_data.Add("base", GetBasePartition());
+
+  const auto stop = std::chrono::steady_clock::now();
+  const double seconds = std::chrono::duration<double>(stop - start).count();
+  if (Globals::my_rank == 0)
+    std::cout << "Mesh initialized in " << seconds << " seconds." << std::endl;
 }
 
 /// Finds location of a block with ID `tgid`.
