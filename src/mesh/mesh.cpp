@@ -65,7 +65,8 @@
 
 namespace parthenon {
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
-           base_constructor_selector_t)
+           base_constructor_selector_t, bool analysis,
+           const std::vector<std::string> &analysis_fields)
     : // public members:
       modified(true),
       adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none",
@@ -80,7 +81,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       multigrid(pin->GetOrAddBoolean("parthenon/mesh", "multigrid", false,
                                      "enable a multigrid mesh")),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
-      resolved_packages(ResolvePackages(packages)),
       task_collection_timeout_in_seconds(pin->GetOrAddInteger(
           "parthenon/mesh", "task_collection_timeout_in_seconds", 60 * 5)),
       minimum_number_of_teams_for_boundary_kernel(pin->GetOrAddInteger(
@@ -116,6 +116,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           pin->GetOrAddInteger("parthenon/mesh", "base_block_coarsenings", 0,
                                "How many times to internally coarsen blocks before going "
                                "to two-level composite grids")} {
+  if (analysis) {
+    resolved_packages = ResolvePackagesAnalysis(packages, analysis_fields);
+  } else {
+    resolved_packages = ResolvePackages(packages);
+  }
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =
@@ -236,8 +241,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 }
 
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
-           hyper_rectangular_constructor_selector_t)
-    : Mesh(pin, app_in, packages, base_constructor_selector_t()) {
+           hyper_rectangular_constructor_selector_t, bool analysis,
+           const std::vector<std::string> &fields)
+    : Mesh(pin, app_in, packages, base_constructor_selector_t(), analysis, fields) {
 
   std::tie(mesh_size, base_block_size) = GetRegionSizes(pin);
 
@@ -304,10 +310,13 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 }
 
 //----------------------------------------------------------------------------------------
-// Mesh constructor for restarts. Load the restart file
+// Mesh constructor for restarts/analysis. Load the file
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
-           Packages_t &packages, int mesh_test)
-    : Mesh(pin, app_in, packages, hyper_rectangular_constructor_selector_t()) {
+           Packages_t &packages, int mesh_test, bool analysis)
+    : Mesh(pin, app_in, packages, hyper_rectangular_constructor_selector_t(), analysis,
+           rr.GetFieldNames(pin->GetOrAddVector<std::string>(
+               "parthenon/analysis", "fields", {},
+               "logical field labels to load during analysis; empty selects all"))) {
   std::stringstream msg;
 
   // mesh test
@@ -757,8 +766,11 @@ void Mesh::FillDerived() {
 // \!fn void Mesh::Initialize(bool init_problem, ParameterInput *pin)
 // \brief  initialization before the main loop
 
-void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in) {
+void Mesh::Initialize(MeshInitType init_flag, ParameterInput *pin,
+                      ApplicationInput *app_in) {
   PARTHENON_INSTRUMENT
+  bool init_problem = (init_flag == MeshInitType::pgen);
+  bool analysis = (init_flag == MeshInitType::analysis);
   bool init_done = true;
   const int nb_initial = nbtotal;
   const bool output_params_and_exit =
@@ -854,13 +866,13 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
                     [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
     }
 
-    PreCommFillDerived();
+    if (!analysis) PreCommFillDerived();
 
     BuildTagMapAndBoundaryBuffers();
 
     CommunicateBoundaries();
 
-    FillDerived();
+    if (!analysis) FillDerived();
 
     if (init_problem && adaptive) {
       for (auto &partition : GetDefaultBlockPartitions()) {

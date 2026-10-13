@@ -1,0 +1,29 @@
+# This file was made in part with generative AI.
+
+<parthenon/job>
+problem_id = analysis_result
+
+<parthenon/mesh>
+ix1_bc = outflow
+ox1_bc = outflow
+
+<Advection>
+fill_derived = false
+test_analysis_fields = true
+cfl = 0.25
+expected_analysis_cfl = 0.5
+expected_analysis_dt = 0.5
+
+<parthenon/analysis>
+fields = advected, my_derived_var, missing_field
+
+<parthenon/time>
+start_time = 0.125
+dt = 0.25
+ncycle = 42
+
+<parthenon/output0>
+file_type = hdf5
+dt = 1.0
+ghost_zones = true
+variables = advected, my_derived_var, analysis_only_var, analysis_only_sparse_7

@@ -4,6 +4,8 @@
 #  Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
 
+# This file was made in part with generative AI.
+
 <parthenon/job>
 problem_id = advection
 
@@ -58,3 +60,4 @@ fill_derived = false # whether to fill one-copy test vars
 file_type = openpmd
 dt = 0.050
 use_final_label = false
+variables = advected, my_derived_var

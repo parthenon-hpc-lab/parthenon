@@ -202,6 +202,14 @@ example), the type can be inferred automatically:
 
 For example ``SwarmPack`` usage, see the ``particle_leapfrog`` example.
 
+Swarm storage and communication packs are maintained automatically. Batched insertion
+grows the particle pool as needed, and removing zero, some, or all particles keeps the
+active count and maximum active index consistent. Adding or removing swarm variables
+and resizing the particle pool invalidates cached communication packs so subsequent
+communication observes the current schema and capacity. Applications should use the
+public insertion, removal, and packing interfaces rather than caching internal swarm
+views across these operations.
+
 
 
 Boundary conditions

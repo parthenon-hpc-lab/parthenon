@@ -244,6 +244,8 @@ struct base_t
 // and/or regexes)
 class PackIdx {
  public:
+  KOKKOS_DEFAULTED_FUNCTION
+  PackIdx() = default;
   KOKKOS_INLINE_FUNCTION
   explicit PackIdx(std::size_t var_idx) : vidx(var_idx), offset(0) {}
   KOKKOS_INLINE_FUNCTION
@@ -262,8 +264,8 @@ class PackIdx {
   int Offset() { return offset; }
 
  private:
-  std::size_t vidx;
-  int offset;
+  std::size_t vidx{0};
+  int offset{0};
 };
 // Operator overloads to make calls like `my_pack(b, my_pack_idx + 3, k, j, i)` work
 template <class T>

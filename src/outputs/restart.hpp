@@ -1,9 +1,11 @@
+// This file was made in part with generative AI.
+
 //========================================================================================
 // Parthenon performance portable AMR framework
 // Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -98,6 +100,13 @@ class RestartReader {
 
   [[nodiscard]] virtual std::string GetInputString() const = 0;
 
+  //! Return discoverable logical field labels, optionally intersected with a filter.
+  //! An empty filter requests every field discoverable by the backend.
+  std::vector<std::string>
+  GetFieldNames(const std::vector<std::string> &filter = {}) const {
+    return GetFieldNamesImpl(filter);
+  }
+
   // Return output format version number. Return -1 if not existent.
   [[nodiscard]] virtual int GetOutputFormatVersion() const = 0;
 
@@ -146,6 +155,10 @@ class RestartReader {
   void Close();
 
   [[nodiscard]] virtual int HasGhost() const = 0;
+
+ protected:
+  [[nodiscard]] virtual std::vector<std::string>
+  GetFieldNamesImpl(const std::vector<std::string> &filter) const = 0;
 };
 
 } // namespace parthenon

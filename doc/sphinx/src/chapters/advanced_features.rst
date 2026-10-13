@@ -1,3 +1,5 @@
+.. This file was made in part with generative AI.
+
 Advanced Features
 =================
 
@@ -9,6 +11,7 @@ and solvers.
    :maxdepth: 1
 
    ../particles
+   ../analysis
    ../interface/sparse
    ../integrators
    ../solvers

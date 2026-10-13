@@ -1,9 +1,11 @@
+// This file was made in part with generative AI.
+
 //========================================================================================
 // Parthenon performance portable AMR framework
 // Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2021. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -60,6 +62,11 @@ class RestartReaderHDF5 : public RestartReader {
   [[nodiscard]] int GetOutputFormatVersion() const override;
 
   [[nodiscard]] int HasGhost() const override { return has_ghost; };
+
+ protected:
+  //! Read logical field labels from OutputDatasetNames or legacy root datasets.
+  [[nodiscard]] std::vector<std::string>
+  GetFieldNamesImpl(const std::vector<std::string> &filter) const override;
 
  private:
 #ifdef ENABLE_HDF5

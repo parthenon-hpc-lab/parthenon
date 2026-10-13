@@ -86,6 +86,13 @@ if (ENABLE_HDF5)
     --num_steps 4")
   list(APPEND EXTRA_TEST_LABELS "")
 
+  list(APPEND TEST_DIRS analysis_data)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/analysis_data/parthinput.producer \
+    --num_steps 2")
+  list(APPEND EXTRA_TEST_LABELS "")
+
   # Restart fine
   list(APPEND TEST_DIRS restart_fine)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
@@ -193,7 +200,7 @@ if (PARTHENON_ENABLE_OPENPMD)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart_opmd/parthinput.restart \
-    --num_steps 3")
+    --num_steps 4")
   list(APPEND EXTRA_TEST_LABELS "")
 
   # Smoke test: sparse_advection OpenPMD output is conformant (openable by openpmd_api,

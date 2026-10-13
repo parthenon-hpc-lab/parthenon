@@ -1,3 +1,5 @@
+// This file was made in part with generative AI.
+
 //========================================================================================
 // Parthenon performance portable AMR framework
 // Copyright(C) 2024-2026 The Parthenon collaboration
@@ -52,7 +54,6 @@ class RestartReaderOPMD : public RestartReader {
   [[nodiscard]] std::string GetInputString() const override {
     return it->getAttribute("InputFile").get<std::string>();
   };
-
   // Return output format version number. Return -1 if not existent.
   [[nodiscard]] int GetOutputFormatVersion() const override;
 
@@ -179,6 +180,11 @@ class RestartReaderOPMD : public RestartReader {
   // closes out the restart file
   // perhaps belongs in a destructor?
   void Close();
+
+ protected:
+  //! Read logical field labels from iteration metadata or compatible record names.
+  [[nodiscard]] std::vector<std::string>
+  GetFieldNamesImpl(const std::vector<std::string> &filter) const override;
 
  private:
   const std::string filename_;

@@ -1,3 +1,5 @@
+// This file was made in part with generative AI.
+
 //========================================================================================
 // Parthenon performance portable AMR framework
 // Copyright(C) 2020-2026 The Parthenon collaboration
@@ -7,7 +9,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -254,7 +256,9 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     // read cartesian mapping option
     op.cartesian_vector = false;
 
-    op.analysis_flag = pin->GetOrAddBoolean(op.block_name, "analysis_output", false);
+    op.analysis_flag = pin->GetOrAddBoolean(
+        op.block_name, "analysis_output", false,
+        "trigger this enabled output block during an analysis-only run");
 
     // read single precision output option
     const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5") ||

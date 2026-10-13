@@ -15,7 +15,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// This file was generated with the assistance of generative AI
+// This file was made in part with generative AI.
 
 #include <memory>
 #include <set>
@@ -45,6 +45,7 @@ using parthenon::Packages_t;
 using parthenon::ParArrayND;
 using parthenon::Real;
 using parthenon::ResolvePackages;
+using parthenon::ResolvePackagesAnalysis;
 using parthenon::SparsePool;
 using parthenon::StateDescriptor;
 using FlagVec = std::vector<MetadataFlag>;
@@ -96,6 +97,76 @@ struct SubsetVariableTwo {
   static std::string name() { return "typed_two"; }
   static bool regex() { return false; }
 };
+
+TEST_CASE("Resolve packages for analysis", "[StateDescriptor][Analysis]") {
+  Packages_t packages;
+  auto package = std::make_shared<StateDescriptor>("analysis_package");
+
+  Metadata dense({Metadata::Cell, Metadata::Independent, Metadata::WithFluxes,
+                  Metadata::FillGhost, Metadata::Vector},
+                 std::vector<int>{3}, std::vector<std::string>{"x", "y", "z"});
+  REQUIRE(package->AddField("dense_vector", dense));
+
+  Metadata omitted({Metadata::Cell, Metadata::Derived, Metadata::OneCopy});
+  REQUIRE(package->AddField("omitted", omitted));
+
+  Metadata analysis_only(
+      {Metadata::Cell, Metadata::Derived, Metadata::OneCopy, Metadata::Analysis});
+  REQUIRE(package->AddField("analysis_only", analysis_only));
+
+  Metadata sparse(
+      {Metadata::Cell, Metadata::Independent, Metadata::WithFluxes, Metadata::Sparse},
+      std::vector<int>{1});
+  REQUIRE(package->AddSparsePool(
+      "pool", sparse, std::vector<int>{3, 7}, std::vector<std::vector<int>>{{2}, {2, 2}},
+      std::vector<MetadataFlag>{Metadata::Vector, Metadata::Tensor}));
+
+  Metadata analysis_sparse({Metadata::Cell, Metadata::Derived, Metadata::OneCopy,
+                            Metadata::Sparse, Metadata::Analysis});
+  REQUIRE(package->AddSparsePool("analysis_pool", analysis_sparse, std::vector<int>{11}));
+
+  Metadata swarm_metadata({Metadata::Particle, Metadata::Analysis});
+  REQUIRE(package->AddSwarm("analysis_swarm", swarm_metadata));
+  REQUIRE(package->AddSwarmValue("value", "analysis_swarm",
+                                 Metadata({Metadata::Particle, Metadata::Real})));
+  packages.Add(package);
+
+  const auto state =
+      ResolvePackagesAnalysis(packages, {"dense_vector", "pool_7", "not_registered"});
+
+  REQUIRE(state->FieldPresent("dense_vector"));
+  REQUIRE_FALSE(state->FieldPresent("omitted"));
+  REQUIRE(state->FieldPresent("analysis_only"));
+  REQUIRE_FALSE(state->FieldPresent("pool", 3));
+  REQUIRE(state->FieldPresent("pool", 7));
+  REQUIRE(state->FieldPresent("analysis_pool", 11));
+  REQUIRE(state->SwarmPresent("analysis_swarm"));
+  REQUIRE(state->AllSwarmValues("analysis_swarm").count("value") == 1);
+
+  const auto &dense_result = state->GetFieldMetadata("dense_vector");
+  REQUIRE_FALSE(dense_result.IsSet(Metadata::Independent));
+  REQUIRE_FALSE(dense_result.IsSet(Metadata::WithFluxes));
+  REQUIRE(dense_result.IsSet(Metadata::Restart));
+  REQUIRE(dense_result.IsSet(Metadata::FillGhost));
+  REQUIRE(dense_result.IsSet(Metadata::CommunicateOne));
+  REQUIRE(dense_result.IsSet(Metadata::Vector));
+  REQUIRE(dense_result.Shape() == std::vector<int>{3});
+  REQUIRE(dense_result.getComponentLabels() == std::vector<std::string>{"x", "y", "z"});
+  REQUIRE_FALSE(dense_result.GetRefinementFunctions().label().empty());
+
+  const auto &sparse_result = state->GetFieldMetadata("pool_7");
+  REQUIRE_FALSE(sparse_result.IsSet(Metadata::Independent));
+  REQUIRE_FALSE(sparse_result.IsSet(Metadata::WithFluxes));
+  REQUIRE(sparse_result.IsSet(Metadata::Restart));
+  REQUIRE(sparse_result.IsSet(Metadata::FillGhost));
+  REQUIRE(sparse_result.IsSet(Metadata::CommunicateOne));
+  REQUIRE(sparse_result.IsSet(Metadata::Tensor));
+  REQUIRE(sparse_result.Shape() == std::vector<int>{2, 2});
+
+  const auto &analysis_sparse_result = state->GetFieldMetadata("analysis_pool_11");
+  REQUIRE(analysis_sparse_result.IsSet(Metadata::Analysis));
+  REQUIRE_FALSE(analysis_sparse_result.IsSet(Metadata::Restart));
+}
 
 TEST_CASE("Test Add/Get in Packages_t", "[Packages_t]") {
   GIVEN("A Packages_t object and a few packages") {

@@ -1,0 +1,22 @@
+# This file was made in part with generative AI.
+
+# ========================================================================================
+# Parthenon performance portable AMR framework
+# Copyright(C) 2026 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for details
+# ========================================================================================
+
+<parthenon/job>
+problem_id = analysis
+
+<parthenon/analysis>
+fields = advected, my_derived_var
+
+<Advection>
+fill_derived = false
+
+<parthenon/output0>
+file_type = hdf5
+dt = 1.0
+analysis_output = true
+variables = advected, my_derived_var

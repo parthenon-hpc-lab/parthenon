@@ -3,7 +3,7 @@
 // Copyright(C) 2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2024-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -19,6 +19,7 @@
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <catch2/catch.hpp>
@@ -34,6 +35,14 @@
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_utils.hpp"
+#ifdef ENABLE_HDF5
+#include "outputs/parthenon_hdf5.hpp"
+#include "outputs/restart_hdf5.hpp"
+#endif
+#ifdef PARTHENON_ENABLE_OPENPMD
+#include "outputs/parthenon_opmd.hpp"
+#include "outputs/restart_opmd.hpp"
+#endif
 
 using parthenon::BlockList_t;
 using parthenon::DevExecSpace;
@@ -50,6 +59,154 @@ using parthenon::Real;
 using parthenon::StateDescriptor;
 
 using namespace parthenon::OutputUtils;
+
+#ifdef ENABLE_HDF5
+namespace {
+class TemporaryHDF5File {
+ public:
+  explicit TemporaryHDF5File(std::string filename) : filename_(std::move(filename)) {}
+  ~TemporaryHDF5File() { std::remove(filename_.c_str()); }
+
+  const std::string &filename() const { return filename_; }
+
+ private:
+  std::string filename_;
+};
+
+void CreateFieldCatalogFixture(const std::string &filename,
+                               const std::vector<std::string> *field_names) {
+  using namespace parthenon::HDF5;
+  H5F file = H5F::FromHIDCheck(
+      H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT));
+  auto info = MakeGroup(file, "Info");
+  auto params = MakeGroup(file, "Params");
+  HDF5WriteAttribute("IncludesGhost", 0, info);
+  HDF5WriteAttribute("OutputFormatVersion", OUTPUT_VERSION_FORMAT, info);
+  if (field_names != nullptr) {
+    HDF5WriteAttribute("OutputDatasetNames", *field_names, info);
+  }
+
+  const hsize_t dimensions[] = {1};
+  const H5S dataspace = H5S::FromHIDCheck(H5Screate_simple(1, dimensions, dimensions));
+  for (const auto &name : {"advected", "pool_7", "SparseInfo", "Levels"}) {
+    H5D dataset = H5D::FromHIDCheck(H5Dcreate2(file, name, H5T_NATIVE_DOUBLE, dataspace,
+                                               H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT));
+  }
+  auto ignored_group = MakeGroup(file, "ignored_group");
+}
+} // namespace
+
+TEST_CASE("HDF5 restart readers discover analysis fields", "[OutputUtils][HDF5]") {
+  using parthenon::RestartReaderHDF5;
+
+  SECTION("OutputDatasetNames is authoritative and filterable") {
+    TemporaryHDF5File file("analysis_fields_metadata.phdf");
+    const std::vector<std::string> fields{"my_derived_var", "advected", "pool_7"};
+    CreateFieldCatalogFixture(file.filename(), &fields);
+
+    RestartReaderHDF5 reader(file.filename().c_str());
+    REQUIRE(reader.GetFieldNames() == fields);
+    REQUIRE(reader.GetFieldNames({"missing", "pool_7", "pool_7", "advected"}) ==
+            std::vector<std::string>{"advected", "pool_7"});
+  }
+
+  SECTION("Root datasets provide a legacy compatibility catalog") {
+    TemporaryHDF5File file("analysis_fields_legacy.phdf");
+    CreateFieldCatalogFixture(file.filename(), nullptr);
+
+    RestartReaderHDF5 reader(file.filename().c_str());
+    REQUIRE(reader.GetFieldNames() == std::vector<std::string>{"advected", "pool_7"});
+    REQUIRE(reader.GetFieldNames({"missing", "pool_7"}) ==
+            std::vector<std::string>{"pool_7"});
+  }
+}
+#endif
+
+#ifdef PARTHENON_ENABLE_OPENPMD
+TEST_CASE("OpenPMD mesh record names recover logical field labels",
+          "[OutputUtils][OpenPMD]") {
+  using parthenon::OpenPMDUtils::GetFieldLabelFromMeshRecordName;
+
+  REQUIRE(GetFieldLabelFromMeshRecordName("advected_lvl0", 2) == "advected");
+  REQUIRE(GetFieldLabelFromMeshRecordName("my_derived_var_lvl12", 2) == "my_derived_var");
+  REQUIRE(GetFieldLabelFromMeshRecordName("face_field_F1_lvl2", 2) == "face_field");
+  REQUIRE(GetFieldLabelFromMeshRecordName("edge_field_E3_lvl1", 2) == "edge_field");
+  REQUIRE(GetFieldLabelFromMeshRecordName("node_field_NN_lvl0", 2) == "node_field");
+  REQUIRE_THROWS(GetFieldLabelFromMeshRecordName("advected_advected_lvl0", 1));
+  REQUIRE_THROWS(GetFieldLabelFromMeshRecordName("advected", 2));
+  REQUIRE_THROWS(GetFieldLabelFromMeshRecordName("advected_lvlx", 2));
+}
+
+TEST_CASE("OpenPMD restart readers discover analysis fields", "[OutputUtils][OpenPMD]") {
+  using parthenon::RestartReaderOPMD;
+
+  SECTION("Field metadata is authoritative and filterable") {
+    const std::string filename = "analysis_fields_metadata.%05T.bp";
+    {
+      auto series = openPMD::Series(filename, openPMD::Access::CREATE);
+      series.setIterationEncoding(openPMD::IterationEncoding::fileBased);
+      auto iteration = series.iterations[0];
+      iteration.setAttribute("OutputFormatVersion", 2);
+      iteration.setAttribute(
+          "OutputDatasetNames",
+          std::vector<std::string>{"advected", "my_derived_var", "sparse_7"});
+    }
+
+    RestartReaderOPMD reader(filename.c_str());
+    REQUIRE(reader.GetFieldNames() ==
+            std::vector<std::string>{"advected", "my_derived_var", "sparse_7"});
+    REQUIRE(reader.GetFieldNames({"missing", "sparse_7", "advected"}) ==
+            std::vector<std::string>{"advected", "sparse_7"});
+  }
+
+  SECTION("Format-version 2 records provide a compatibility catalog") {
+    const std::string filename = "analysis_fields_records.%05T.bp";
+    {
+      auto series = openPMD::Series(filename, openPMD::Access::CREATE);
+      series.setIterationEncoding(openPMD::IterationEncoding::fileBased);
+      auto iteration = series.iterations[0];
+      iteration.setAttribute("OutputFormatVersion", 2);
+      const auto dataset = openPMD::Dataset(openPMD::Datatype::DOUBLE, {1});
+      auto advected_level_0 =
+          iteration.meshes["advected_lvl0"][openPMD::MeshRecordComponent::SCALAR];
+      advected_level_0.resetDataset(dataset);
+      advected_level_0.makeConstant(0.0);
+      auto advected_level_1 =
+          iteration.meshes["advected_lvl1"][openPMD::MeshRecordComponent::SCALAR];
+      advected_level_1.resetDataset(dataset);
+      advected_level_1.makeConstant(0.0);
+      auto face_field =
+          iteration.meshes["face_field_F1_lvl0"][openPMD::MeshRecordComponent::SCALAR];
+      face_field.resetDataset(dataset);
+      face_field.makeConstant(0.0);
+    }
+
+    RestartReaderOPMD reader(filename.c_str());
+    REQUIRE(reader.GetFieldNames() == std::vector<std::string>{"advected", "face_field"});
+  }
+
+  SECTION("Format-version 1 requires an explicit field list") {
+    const std::string filename = "analysis_fields_legacy.%05T.bp";
+    {
+      auto series = openPMD::Series(filename, openPMD::Access::CREATE);
+      series.setIterationEncoding(openPMD::IterationEncoding::fileBased);
+      auto iteration = series.iterations[0];
+      iteration.setAttribute("OutputFormatVersion", 1);
+      const auto dataset = openPMD::Dataset(openPMD::Datatype::DOUBLE, {1});
+      auto advected =
+          iteration
+              .meshes["advected_advected_lvl0"][openPMD::MeshRecordComponent::SCALAR];
+      advected.resetDataset(dataset);
+      advected.makeConstant(0.0);
+    }
+
+    RestartReaderOPMD reader(filename.c_str());
+    REQUIRE_THROWS(reader.GetFieldNames());
+    REQUIRE(reader.GetFieldNames({"missing", "advected"}) ==
+            std::vector<std::string>{"advected"});
+  }
+}
+#endif
 
 TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUtils]") {
   GIVEN("A MeshBlock with some vars on it") {

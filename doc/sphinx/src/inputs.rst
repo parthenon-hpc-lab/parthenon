@@ -1,3 +1,5 @@
+.. This file was made in part with generative AI.
+
 .. _inputs:
 
 Input Parameters
@@ -65,6 +67,24 @@ parameters in ``<parthenon/mesh>`` and ``<parthenon/meshblock>``.
 +========+=========+======+=========================================================+
 | nghost | 2       | int  | Number of ghost cells for each mesh block on each side. |
 +--------+---------+------+---------------------------------------------------------+
+
+
+``<parthenon/analysis>``
+------------------------
+
+Options used when loading a dump or restart file with ``-a``. See :ref:`analysis` for
+the complete workflow.
+
++---------+---------+-----------------+------------------------------------------------------------------------------------+
+| Option  | Default | Type            | Description                                                                        |
++=========+=========+=================+====================================================================================+
+| fields  | empty   | vector<string>  | Logical field labels to load. Empty selects every discoverable registered field.   |
++---------+---------+-----------------+------------------------------------------------------------------------------------+
+
+Each ``<parthenon/output*>`` block also accepts ``analysis_output`` with a default of
+``false``. When set to ``true``, the block is triggered by an analysis run in addition
+to its ordinary time, cycle, and manual triggers. The output block must remain enabled
+with a nonnegative ``dt`` or ``dn``.
 
 
 ``<parthenon/sparse>``
