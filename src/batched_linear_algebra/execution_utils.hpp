@@ -16,8 +16,6 @@
 
 // This file was made in part with generative AI.
 
-#include <algorithm>
-#include <cmath>
 #include <type_traits>
 
 #include "kokkos_abstraction.hpp"
@@ -30,7 +28,8 @@ namespace batched_linear_algebra {
 // thread (serially or through the inner-loop Kokkos patterns), never launched as a
 // kernel, so they should be written as plain [&] lambdas rather than KOKKOS_LAMBDA.
 
-using serial_tm_t = int; // TODO(LFR): parthenon::team_mbr_t;
+// Tag type selecting serial execution on the calling thread
+struct serial_tm_t {};
 
 // The execution handles the wrappers below know how to dispatch on. Anything else
 // would otherwise silently compile to a no-op.
@@ -42,16 +41,6 @@ template <class tm_t>
 KOKKOS_FORCEINLINE_FUNCTION constexpr void check_execution_handle() {
   static_assert(is_supported_tm_v<tm_t>,
                 "Execution handle must be serial_tm_t or parthenon::team_mbr_t.");
-}
-
-KOKKOS_INLINE_FUNCTION
-double safe_sqrt(const double a) { return std::sqrt(std::max(a, 0.)); }
-
-template <typename T>
-KOKKOS_INLINE_FUNCTION int sign_of(T val) {
-  constexpr T zero{0};
-  // Zero is counted as positive for Householder reflector stability
-  return (zero <= val) - (val < zero);
 }
 
 template <class tm_t>
