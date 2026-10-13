@@ -46,7 +46,6 @@ class SwarmPack : public SwarmPackBase<TYPE> {
   using SwarmPackBase<TYPE>::contexts_;
   using SwarmPackBase<TYPE>::max_active_indices_;
   using SwarmPackBase<TYPE>::flat_index_map_;
-  using SwarmPackBase<TYPE>::flat_index_offset_;
   using SwarmPackBase<TYPE>::nvar_;
   using SwarmPackBase<TYPE>::nblocks_;
   using SwarmPackBase<TYPE>::max_flat_index_;
