@@ -73,7 +73,6 @@ class SwarmPackBase {
   contexts_h_t contexts_h_;
   max_active_indices_t max_active_indices_;
   max_active_indices_t flat_index_map_;
-  max_active_indices_t flat_index_offset_;
 
   int nblocks_;
   int nvar_;

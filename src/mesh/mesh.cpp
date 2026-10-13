@@ -81,7 +81,6 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       multigrid(pin->GetOrAddBoolean("parthenon/mesh", "multigrid", false,
                                      "enable a multigrid mesh")),
       nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
-      // resolved_packages(ResolvePackages(packages)),
       task_collection_timeout_in_seconds(pin->GetOrAddInteger(
           "parthenon/mesh", "task_collection_timeout_in_seconds", 60 * 5)),
       minimum_number_of_teams_for_boundary_kernel(pin->GetOrAddInteger(
@@ -313,7 +312,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 //----------------------------------------------------------------------------------------
 // Mesh constructor for restarts/analysis. Load the file
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
-           Packages_t &packages, bool analysis)
+           Packages_t &packages, int mesh_test, bool analysis)
     : Mesh(pin, app_in, packages, hyper_rectangular_constructor_selector_t(), analysis,
            rr.GetFieldNames(pin->GetOrAddVector<std::string>(
                "parthenon/analysis", "fields", {},
@@ -321,7 +320,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
   std::stringstream msg;
 
   // mesh test
-  // if (mesh_test > 0) Globals::nranks = mesh_test;
+  if (mesh_test > 0) Globals::nranks = mesh_test;
 
   // read the restart file
   // the file is already open and the pointer is set to after <par_end>
@@ -386,7 +385,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
     PARTHENON_FAIL(msg);
   }
 
-  BuildBlockList(pin, app_in, packages, 0, dealloc_count);
+  BuildBlockList(pin, app_in, packages, mesh_test, dealloc_count);
 }
 
 void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,

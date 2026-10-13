@@ -239,7 +239,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     // Open restart file
     // Read Mesh from restart file and create meshblocks
     pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader,
-                                   packages, arg.analysis_flag);
+                                   packages, arg.mesh_flag, arg.analysis_flag);
 
     if (!arg.analysis_flag) {
       const auto time_info = restartReader->GetTimeInfo();
@@ -248,8 +248,8 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
       pinput->SetInteger("parthenon/time", "ncycle", time_info.ncycle);
     }
 
-    // Read package data from restart file
-    RestartPackages(*pmesh, *restartReader);
+    // Read package data from restart file unless mesh-test mode omitted block creation.
+    if (!arg.mesh_flag) RestartPackages(*pmesh, *restartReader);
 
     // close hdf5 file to prevent HDF5 hangs and corrupted files
     // if code dies after restart

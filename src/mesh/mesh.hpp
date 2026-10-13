@@ -127,7 +127,7 @@ class Mesh {
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        int test_flag = 0);
   Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &resfile,
-       Packages_t &packages, bool analysis = false);
+       Packages_t &packages, int mesh_test = 0, bool analysis = false);
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        forest::ForestDefinition &forest_def);
   static RegionSize GetBaseMeshBlockSize(ParameterInput *pin,
