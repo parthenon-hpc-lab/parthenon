@@ -97,8 +97,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
     // won't be allocated
     auto dummy_mb = std::make_shared<MeshBlock>(16, 3);
 
-    auto &mbd = *dummy_mb->meshblock_data.Get();
-    mbd.Initialize(pkg, dummy_mb);
+    auto &mbd = *dummy_mb->meshblock_data.Add("base", pkg, dummy_mb);
 
     WHEN("We construct the VariableList by flags") {
       using FS_t = Metadata::FlagCollection;
@@ -353,8 +352,8 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       Metadata meta_sparse({Metadata::Derived, Metadata::Sparse}, scalar_shape);
       pkg->AddSparsePool("vsparse", meta_sparse, std::vector<int>{1, 13, 42});
 
-      // re-initialize MeshBlockData with new fields
-      mbd.Initialize(pkg, dummy_mb);
+      // re-build MeshBlockData with new fields
+      mbd = MeshBlockData<Real>("base", pkg, dummy_mb);
 
       // TODO(JL) test packs with unallocated sparse fields
       dummy_mb->AllocSparseID("vsparse", 1);
@@ -414,7 +413,7 @@ TEST_CASE("Can pull variables from containers based on Metadata",
       std::vector<int> shape_2D{16, 16, 1};
       Metadata m_in_2D({Metadata::Independent, Metadata::WithFluxes}, shape_2D);
       pkg->AddField("v2d", m_in_2D);
-      mbd.Initialize(pkg, dummy_mb);
+      mbd = MeshBlockData<Real>("base", pkg, dummy_mb);
 
       auto packw2d = mbd.PackVariablesAndFluxes({"v2d"}, {"v2d"});
       THEN("The pack knows it is 2d") { REQUIRE(packw2d.GetNdim() == 2); }
@@ -452,8 +451,7 @@ TEST_CASE("Coarse variable from meshblock_data for cell variable",
 
     pkg->AddField("var", m);
 
-    MeshBlockData<Real> mbd("base");
-    mbd.Initialize(pkg, dummy_mb);
+    MeshBlockData<Real> mbd("base", pkg, dummy_mb);
     auto &var = mbd.Get("var");
 
     auto coarse_s = ParArrayND<Real>(
@@ -519,8 +517,7 @@ TEST_CASE("Get the correct access pattern when using FlatIdx", "[FlatIdx]") {
     pkg->AddField("v2", m_tensor2);
     pkg->AddField("v3", m_tensor3);
 
-    auto &pmbd = pmb->meshblock_data.Get();
-    pmbd->Initialize(pkg, pmb);
+    auto &pmbd = pmb->meshblock_data.Add("base", pkg, pmb);
     WHEN("they are initialized to unique values depending on their indices") {
       auto ib = pmb->cellbounds.GetBoundsI(IndexDomain::entire);
       auto jb = pmb->cellbounds.GetBoundsJ(IndexDomain::entire);

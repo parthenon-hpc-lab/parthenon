@@ -98,6 +98,9 @@ TEST_CASE("Swarm memory management", "[Swarm][MPI]") {
     meshblock->boundary_flag[i] = BoundaryFlag::user;
   }
   meshblock->pmy_mesh = mesh.get();
+  // Create the "base" MeshBlockData that swarm cache clearing relies on. Blocks built
+  // through the normal Mesh path get this via MeshBlock::Make; this stub block does not.
+  meshblock->meshblock_data.Add("base", descrip, meshblock);
   Metadata m;
   m.SetInitialSwarmPoolReservation(NUMINIT);
   auto swarm = std::make_shared<Swarm>("test swarm", m);
