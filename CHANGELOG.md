@@ -5,6 +5,9 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1463]](https://github.com/parthenon-hpc-lab/parthenon/pull/1463) Add
+  analysis-only initialization from HDF5 and openPMD outputs, filtered field loading,
+  ``Metadata::Analysis`` state, and analysis-triggered outputs.
 - [[PR 1439]](https://github.com/parthenon-hpc-lab/parthenon/pull/1439) Long-overdue parthenon tutorial
 - [[PR 1443]](https://github.com/parthenon-hpc-lab/parthenon/pull/1443) Allow for specifying topological elements in var views
 - [[PR 1431]](https://github.com/parthenon-hpc-lab/parthenon/pull/1431) Add reductions to the loop abstraction

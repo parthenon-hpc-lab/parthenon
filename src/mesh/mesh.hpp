@@ -75,6 +75,7 @@ class Packages_t;
 class ParameterInput;
 class RestartReader;
 
+//! Select the fresh, restart, or analysis-specific mesh initialization lifecycle.
 enum class MeshInitType { pgen, restart, analysis };
 
 // Map from LogicalLocation to (gid, rank) pair of location

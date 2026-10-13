@@ -180,6 +180,7 @@ class RestartReaderOPMD : public RestartReader {
   void Close();
 
  protected:
+  //! Read logical field labels from iteration metadata or compatible record names.
   [[nodiscard]] std::vector<std::string>
   GetFieldNamesImpl(const std::vector<std::string> &filter) const override;
 

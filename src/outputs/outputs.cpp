@@ -228,7 +228,9 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm) {
     // read cartesian mapping option
     op.cartesian_vector = false;
 
-    op.analysis_flag = pin->GetOrAddBoolean(op.block_name, "analysis_output", false);
+    op.analysis_flag = pin->GetOrAddBoolean(
+        op.block_name, "analysis_output", false,
+        "trigger this enabled output block during an analysis-only run");
 
     // read single precision output option
     const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5") ||

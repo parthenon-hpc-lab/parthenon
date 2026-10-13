@@ -315,8 +315,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
            Packages_t &packages, bool analysis)
     : Mesh(pin, app_in, packages, hyper_rectangular_constructor_selector_t(), analysis,
-           rr.GetFieldNames(
-               pin->GetOrAddVector<std::string>("parthenon/analysis", "fields", {}))) {
+           rr.GetFieldNames(pin->GetOrAddVector<std::string>(
+               "parthenon/analysis", "fields", {},
+               "logical field labels to load during analysis; empty selects all"))) {
   std::stringstream msg;
 
   // mesh test

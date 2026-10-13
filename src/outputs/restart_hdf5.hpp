@@ -62,6 +62,7 @@ class RestartReaderHDF5 : public RestartReader {
   [[nodiscard]] int HasGhost() const override { return has_ghost; };
 
  protected:
+  //! Read logical field labels from OutputDatasetNames or legacy root datasets.
   [[nodiscard]] std::vector<std::string>
   GetFieldNamesImpl(const std::vector<std::string> &filter) const override;
 

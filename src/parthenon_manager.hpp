@@ -51,6 +51,7 @@ class ParthenonManager {
   std::function<Packages_t(std::unique_ptr<ParameterInput> &)> ProcessPackages =
       ProcessPackagesDefault;
 
+  //! True when startup was requested with -a rather than fresh or restart mode.
   bool IsAnalysis() const { return arg.analysis_flag; }
 
   // member data

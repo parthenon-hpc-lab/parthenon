@@ -103,6 +103,8 @@ class StateDescriptor {
 
   static std::shared_ptr<StateDescriptor>
   CreateResolvedStateDescriptor(Packages_t &packages);
+  //! Resolve only source-backed and Metadata::Analysis data for analysis initialization.
+  //! Source-backed fields are identified by their logical labels in available_fields.
   static std::shared_ptr<StateDescriptor>
   CreateResolvedStateDescriptorAnalysis(Packages_t &packages,
                                         const std::vector<std::string> &available_fields);
@@ -572,6 +574,7 @@ class StateDescriptor {
 inline std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
   return StateDescriptor::CreateResolvedStateDescriptor(packages);
 }
+//! Resolve the package state used when loading selected fields for analysis.
 inline std::shared_ptr<StateDescriptor>
 ResolvePackagesAnalysis(Packages_t &packages, const std::vector<std::string> &fields) {
   return StateDescriptor::CreateResolvedStateDescriptorAnalysis(packages, fields);

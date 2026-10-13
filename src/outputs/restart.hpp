@@ -98,6 +98,8 @@ class RestartReader {
 
   [[nodiscard]] virtual std::string GetInputString() const = 0;
 
+  //! Return discoverable logical field labels, optionally intersected with a filter.
+  //! An empty filter requests every field discoverable by the backend.
   std::vector<std::string>
   GetFieldNames(const std::vector<std::string> &filter = {}) const {
     return GetFieldNamesImpl(filter);

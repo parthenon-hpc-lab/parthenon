@@ -9,6 +9,7 @@ and solvers.
    :maxdepth: 1
 
    ../particles
+   ../analysis
    ../interface/sparse
    ../integrators
    ../solvers
