@@ -743,7 +743,8 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounding scaffold on a two-delta train", "[t
 
   // For now this is just a scaffold test: RoundGramSVD is expected to print
   // intermediate Gram matrices while the implementation is being debugged.
-  RoundGramSVD(trains, real_t(0.0e-12));
+  auto trains_host = TensorTrainHostPackT<TTraits>::FromVector(trains);
+  RoundGramSVD(trains_host, real_t(0.0e-12));
 
   // Keep one very weak postcondition so the test at least exercises the whole call.
   REQUIRE(trains.size() == 1);
@@ -825,7 +826,8 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounding scaffold on a mixed two-channel tra
   std::vector<TensorTrain> trains_orig = DeepCopyTrains(trains);
 
   // Run the no-truncation scaffold.
-  RoundGramSVD(trains, real_t(0.0e-12));
+  auto trains_host = TensorTrainHostPackT<TTraits>::FromVector(trains);
+  RoundGramSVD(trains_host, real_t(0.0e-12));
 
   TensorPack rounded_pack(trains);
   TensorPack orig_pack(trains_orig);
@@ -884,7 +886,8 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD no-truncation preserves randomized trains",
 
   auto trains_orig = DeepCopyTrains(trains);
 
-  RoundGramSVD(trains, real_t(0.0));
+  auto trains_host = TensorTrainHostPackT<TTraits>::FromVector(trains);
+  RoundGramSVD(trains_host, real_t(0.0));
   TensorPack rounded_pack(trains);
   TensorPack orig_pack(trains_orig);
 
@@ -929,8 +932,9 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounds duplicate delta terms down to rank on
   // duplicate-delta case the first sweep reduces the left bond to rank one, and a
   // second sweep then sees the updated representation and collapses the remaining
   // bond as well.
-  RoundGramSVD(trains, real_t(1.0e-7));
-  RoundGramSVD(trains, real_t(1.0e-7));
+  auto trains_host = TensorTrainHostPackT<TTraits>::FromVector(trains);
+  RoundGramSVD(trains_host, real_t(1.0e-7));
+  RoundGramSVD(trains_host, real_t(1.0e-7));
 
   TensorPack rounded_pack(trains);
 
@@ -957,6 +961,75 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounds duplicate delta terms down to rank on
                 return err > atol + rtol * scale;
               },
               rounded_pack) == 0);
+}
+
+TEMPLATE_TEST_CASE("tensor rounding collapses every variable of a multi-variable pack",
+                   "[tensor]", FiberTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = TensorTrainT<TTraits>;
+  using TensorTrainHostPack = TensorTrainHostPackT<TTraits>;
+
+  using real_t = typename TTraits::real_t;
+
+  constexpr int nvars = 2;
+  constexpr int nblocks = 3;
+  const std::array<int, 3> dims{4, 4, 4};
+
+  // Each (var, block) train holds two delta terms at the same entry, with an entry
+  // and amplitudes that depend on (v, b), so a kernel that mixed up slots would
+  // reconstruct the wrong tensor.
+  auto entry_of = [](int v, int b) { return std::array<int, 3>{v + 1, b + 1, 2}; };
+  auto amp0_of = [](int v) { return real_t(1.0) + real_t(v); };
+  auto amp1_of = [](int b) { return real_t(0.5) * real_t(b + 1); };
+
+  std::vector<std::vector<TensorTrain>> trains(nvars);
+  for (int v = 0; v < nvars; ++v) {
+    for (int b = 0; b < nblocks; ++b) {
+      const auto entry = entry_of(v, b);
+      trains[v].push_back(MakeSparseDeltaTrain3D<TTraits>(dims, {entry, entry},
+                                                          {amp0_of(v), amp1_of(b)}));
+    }
+  }
+
+  VarBlockGrid<TensorTrain *> grid(nvars, nblocks);
+  for (int v = 0; v < nvars; ++v)
+    for (int b = 0; b < nblocks; ++b)
+      grid(v, b) = &trains[v][b];
+  TensorTrainHostPack trains_host(std::move(grid));
+
+  SECTION("Gram-SVD") {
+    // Two sweeps, as in the single-variable duplicate-delta test.
+    RoundGramSVD(trains_host, real_t(1.0e-7));
+    RoundGramSVD(trains_host, real_t(1.0e-7));
+  }
+  SECTION("Oseledets-SVD") { RoundOseledetsSVD(trains_host, real_t(1.0e-7)); }
+
+  for (int v = 0; v < nvars; ++v) {
+    for (int b = 0; b < nblocks; ++b) {
+      for (int c = 0; c < 3; ++c) {
+        REQUIRE(trains[v][b](c).LR() == 1);
+        REQUIRE(trains[v][b](c).RR() == 1);
+      }
+    }
+  }
+
+  constexpr real_t atol = real_t(1.0e-11);
+  constexpr real_t rtol = real_t(1.0e-10);
+  for (int v = 0; v < nvars; ++v) {
+    auto rounded_pack = trains_host.MakeDevicePackForVar(v);
+    const real_t amp0 = amp0_of(v);
+    REQUIRE(CountDenseMismatches3D(
+                KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t value) {
+                  real_t expected = real_t(0.0);
+                  if (i1 == v + 1 && i2 == b + 1 && i3 == 2) {
+                    expected = amp0 + real_t(0.5) * real_t(b + 1);
+                  }
+                  const real_t err = std::abs(value - expected);
+                  const real_t scale = std::max(std::abs(value), std::abs(expected));
+                  return err > atol + rtol * scale;
+                },
+                rounded_pack) == 0);
+  }
 }
 
 TEMPLATE_TEST_CASE(
@@ -1002,7 +1075,8 @@ TEMPLATE_TEST_CASE(
 
   constexpr real_t eps_rel = real_t(1.0e-1);
 
-  RoundGramSVD(trains, eps_rel);
+  auto trains_host = TensorTrainHostPackT<TTraits>::FromVector(trains);
+  RoundGramSVD(trains_host, eps_rel);
   TensorPack rounded_pack(trains);
 
   using err_view_t = DefaultTTraits::template view_t<real_t *, ManagedTag>;
@@ -1088,7 +1162,8 @@ TEMPLATE_TEST_CASE("tensor Oseledets-SVD no-truncation preserves randomized trai
 
   auto trains_orig = DeepCopyTrains(trains);
 
-  RoundOseledetsSVD(trains, real_t(0.0));
+  auto trains_host = TensorTrainHostPackT<TTraits>::FromVector(trains);
+  RoundOseledetsSVD(trains_host, real_t(0.0));
   TensorPack rounded_pack(trains);
   TensorPack orig_pack(trains_orig);
 
@@ -1148,7 +1223,8 @@ TEMPLATE_TEST_CASE("tensor Oseledets-SVD truncation respects relative Frobenius 
 
   constexpr real_t eps_rel = real_t(1.0e-1);
 
-  RoundOseledetsSVD(trains, eps_rel);
+  auto trains_host = TensorTrainHostPackT<TTraits>::FromVector(trains);
+  RoundOseledetsSVD(trains_host, eps_rel);
   TensorPack rounded_pack(trains);
 
   using err_view_t = DefaultTTraits::template view_t<real_t *, ManagedTag>;

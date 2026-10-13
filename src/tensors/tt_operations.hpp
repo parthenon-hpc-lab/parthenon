@@ -103,16 +103,18 @@ KOKKOS_INLINE_FUNCTION void HadamardCoreBlocks(parthenon::team_mbr_t member,
 
 } // namespace impl
 
-// Set every entry in every core of a tensor-train pack to a single value.
-template <class TTraits>
-void SetTTPackToValue(TensorPackT<TTraits> &pack, typename TTraits::real_t value) {
+// Set every entry in every core of every variable of a tensor-train pack to a
+// single value.
+template <class TTraits, class... var_ts>
+void SetTTPackToValue(TensorPackT<TTraits, var_ts...> &pack,
+                      typename TTraits::real_t value) {
   constexpr int unused_scratch_size = 0;
   constexpr int unused_scratch_level = 1;
   parthenon::par_for_outer(
       PARTHENON_AUTO_LABEL, unused_scratch_size, unused_scratch_level, 0,
-      pack.GetNBlocks() - 1, 0, pack.GetNCores() - 1,
-      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int c) {
-        auto &core = pack(b, 0, c);
+      pack.GetNBlocks() - 1, 0, pack.GetNVars() - 1, 0, pack.GetNCores() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int v, const int c) {
+        auto &core = pack(b, v, c);
         impl::SetCoreBlock(member, core, value, std::pair<int, int>{0, core.LR()},
                            std::pair<int, int>{0, core.RR()});
       });
@@ -528,31 +530,80 @@ BuildDescendingPermutation(parthenon::team_mbr_t tm, const RealVec &sig, const i
   }
 }
 
-// Round variable `var` of a host pack in place via the Gram-matrix SVD (helper
-// for the public RoundGramSVD, which loops over all variables).
-template <class TTraits>
-void RoundGramSVDVar_(TensorTrainHostPackT<TTraits> &pack_host, int var,
-                      typename TTraits::real_t eps, typename TTraits::real_t abs_tol) {
+namespace impl {
+
+// Shape summary over every (block, variable) train of a host pack, used to size
+// the team scratch of the rounding kernels.
+struct RoundingExtents {
+  int n_cores{0};
+  int max_rank{0};
+  int max_core_size{0};
+};
+
+template <class HostPack>
+RoundingExtents GetRoundingExtents(const HostPack &pack_host) {
+  RoundingExtents ext;
+  ext.n_cores = pack_host.NCores();
+  for (int v = 0; v < pack_host.NumVars(); ++v) {
+    for (int b = 0; b < pack_host.NumBlocks(); ++b) {
+      const auto &train = pack_host(b, v);
+      PARTHENON_REQUIRE(train.IsClosed(),
+                        "Rounding requires closed trains: the orthogonalization sweep "
+                        "assumes boundary bonds of one.");
+      PARTHENON_REQUIRE(train.NCores() == ext.n_cores,
+                        "All trains being rounded must have the same number of cores.");
+      for (int c = 0; c < train.NCores(); ++c) {
+        ext.max_rank = std::max(ext.max_rank, train(c).RR());
+        ext.max_core_size =
+            std::max(ext.max_core_size, train(c).LR() * train(c).DD() * train(c).RR());
+      }
+    }
+  }
+  return ext;
+}
+
+// Shrink every train of a host pack to the bond ranks chosen on device, where
+// final_ranks(b, v, c) is the new rank of the bond between cores c and c + 1:
+//   core 0:    (1,                r_0)
+//   core c:    (r_{c-1},          r_c)    for 1 <= c <= ncores-2
+//   core last: (r_{ncores-2},     1)
+template <class HostPack, class FinalRanks>
+void ApplyFinalRanks(HostPack &pack_host, const FinalRanks &final_ranks) {
+  auto final_ranks_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), final_ranks);
+  for (int v = 0; v < pack_host.NumVars(); ++v) {
+    for (int b = 0; b < pack_host.NumBlocks(); ++b) {
+      auto &train = pack_host(b, v);
+      const int ncores = train.NCores();
+      train(0).ReduceSize(1, final_ranks_h(b, v, 0));
+      for (int c = 1; c < ncores - 1; ++c) {
+        train(c).ReduceSize(final_ranks_h(b, v, c - 1), final_ranks_h(b, v, c));
+      }
+      train(ncores - 1).ReduceSize(final_ranks_h(b, v, ncores - 2), 1);
+    }
+  }
+}
+
+} // namespace impl
+
+// Round every train in a host pack in place via the Gram-matrix SVD, all
+// (block, variable) pairs in a single kernel launch. Each bond is truncated to a
+// per-bond tolerance eps * ||A|| / sqrt(d - 1) + abs_tol, so eps bounds the
+// overall Frobenius error relative to the train's norm and abs_tol is an
+// optional absolute floor (zero by default, so rounding is scale invariant).
+// Every train in the pack must be closed and share the same core count and
+// physical dimensions. Ranks only shrink, so the trains are mutated in place.
+template <class TTraits, class... var_ts>
+void RoundGramSVD(TensorTrainHostPackT<TTraits, var_ts...> &pack_host,
+                  typename TTraits::real_t eps, typename TTraits::real_t abs_tol = 0) {
   using real_t = typename TTraits::real_t;
   // Relative cutoff below which a Gram eigenvalue is treated as numerical noise.
   const real_t eig_noise = std::numeric_limits<real_t>::epsilon();
 
-  // Find the number of cores and maximum rank
-  int max_rank{0};
-  int max_core_size{0};
-  int n_cores{0};
-  for (int t = 0; t < pack_host.NumBlocks(); ++t) {
-    const auto &train = pack_host(t, var);
-    PARTHENON_REQUIRE(train.IsClosed(),
-                      "RoundGramSVD requires closed trains: the orthogonalization sweep "
-                      "assumes boundary bonds of one.");
-    n_cores = train.NCores();
-    for (int c = 0; c < train.NCores(); ++c) {
-      max_rank = std::max(max_rank, train(c).RR());
-      max_core_size =
-          std::max(max_core_size, train(c).LR() * train(c).DD() * train(c).RR());
-    }
-  }
+  const auto ext = impl::GetRoundingExtents(pack_host);
+  const int n_cores = ext.n_cores;
+  const int max_rank = ext.max_rank;
+  const int max_core_size = ext.max_core_size;
+  if (n_cores <= 1) return;
 
   int scratch_size{0};
   // Calculate the max storage for Gram matrices
@@ -586,17 +637,19 @@ void RoundGramSVDVar_(TensorTrainHostPackT<TTraits> &pack_host, int var,
   const int storage_size = std::max(max_rank, 32) * std::max(max_rank, 32);
   scratch_size += 3 * ScratchPad1D<real_t>::shmem_size(storage_size);
 
-  TensorPackT<TTraits> pack = pack_host.MakeDevicePackForVar(var);
+  auto pack = pack_host.MakeDevicePack();
 
   // Allocate array for storing final ranks to eventually copy back to host to
   // round
-  using final_rank_arr_t = typename TTraits::template view_t<int **, ManagedTag>;
-  final_rank_arr_t final_rank_arr("Final ranks", pack.GetNBlocks(), n_cores - 1);
+  using final_rank_arr_t = typename TTraits::template view_t<int ***, ManagedTag>;
+  final_rank_arr_t final_rank_arr("Final ranks", pack.GetNBlocks(), pack.GetNVars(),
+                                  n_cores - 1);
 
   constexpr int scratch_level = 1;
   parthenon::par_for_outer(
-      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1,
-      KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int b) {
+      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1, 0,
+      pack.GetNVars() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int b, const int v) {
         // Allocate scratch, we allocate flat in the rank dimensions to make
         // it easier to reuse between cores of different rank size
         auto &tm_scratch = tm.team_scratch(scratch_level);
@@ -612,7 +665,7 @@ void RoundGramSVDVar_(TensorTrainHostPackT<TTraits> &pack_host, int var,
         // Last Gram matrix requires a single reduction
         {
           int c = n_cores - 1;
-          auto &core = pack(b, 0, c);
+          auto &core = pack(b, v, c);
           const int rank = core.LR();
           matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), rank, rank);
           auto Hc = TTraits::GetHorizontalUnfolding(core);
@@ -623,7 +676,7 @@ void RoundGramSVDVar_(TensorTrainHostPackT<TTraits> &pack_host, int var,
         tm.team_barrier();
 
         for (int c = n_cores - 2; c >= 0; --c) {
-          const auto &core = pack(b, 0, c);
+          const auto &core = pack(b, v, c);
           const auto lr = core.LR();
           const auto rr = core.RR();
           const auto dd = core.DD();
@@ -665,9 +718,9 @@ void RoundGramSVDVar_(TensorTrainHostPackT<TTraits> &pack_host, int var,
 
         // L-to-R sweep over bonds
         for (int c = 0; c < n_cores - 1; ++c) {
-          const auto &core = pack(b, 0, c);
+          const auto &core = pack(b, v, c);
           // Make sure we use the left rank that was updated in the previous iteration
-          const auto lr = c == 0 ? core.LR() : final_rank_arr(b, c - 1);
+          const auto lr = c == 0 ? core.LR() : final_rank_arr(b, v, c - 1);
           const auto rr = core.RR();
           const auto dd = core.DD();
           const int rank = rr;
@@ -735,7 +788,8 @@ void RoundGramSVDVar_(TensorTrainHostPackT<TTraits> &pack_host, int var,
           auto Ukeep_mat = U_mat.GetPermutedCols(perm, rank_new);
           auto VTkeep_mat = V_mat.GetTranspose().GetPermutedRows(perm, rank_new);
           auto sigkeep = GetPermuted(sig, perm, rank_new);
-          Kokkos::single(Kokkos::PerTeam(tm), [&]() { final_rank_arr(b, c) = rank_new; });
+          Kokkos::single(Kokkos::PerTeam(tm),
+                         [&]() { final_rank_arr(b, v, c) = rank_new; });
           // Take the inverse, skipping the eigenmodes zeroed out above
           parthenon::par_for_inner(tm, 0, rank - 1, [&](int r) {
             eigL[r] = eigL[r] > real_t(0) ? real_t(1) / eigL[r] : real_t(0);
@@ -759,7 +813,7 @@ void RoundGramSVDVar_(TensorTrainHostPackT<TTraits> &pack_host, int var,
           tm.team_barrier();
 
           // Push SVD Sigma V right
-          auto &coreR = pack(b, 0, c + 1);
+          auto &coreR = pack(b, v, c + 1);
           const int ddR = coreR.DD();
           const int rrR = coreR.RR();
           ScratchCore<TTraits> corerp{rank_new, ddR, rrR, gram_temp_flat.data()};
@@ -779,104 +833,30 @@ void RoundGramSVDVar_(TensorTrainHostPackT<TTraits> &pack_host, int var,
         }
       });
 
-  auto final_rank_arr_h = Kokkos::create_mirror_view(final_rank_arr);
-  Kokkos::deep_copy(final_rank_arr_h, final_rank_arr);
-
-  for (int b = 0; b < pack_host.NumBlocks(); ++b) {
-    auto &train = pack_host(b, var);
-    const int ncores = train.NCores();
-
-    // Bond c stores the rank between core c and core c+1, so:
-    //   core 0:    (1,                r_0)
-    //   core c:    (r_{c-1},          r_c)    for 1 <= c <= ncores-2
-    //   core last: (r_{ncores-2},     1)
-    if (ncores == 1) continue;
-
-    train(0).ReduceSize(1, final_rank_arr_h(b, 0));
-
-    for (int c = 1; c < ncores - 1; ++c) {
-      train(c).ReduceSize(final_rank_arr_h(b, c - 1), final_rank_arr_h(b, c));
-    }
-
-    train(ncores - 1).ReduceSize(final_rank_arr_h(b, ncores - 2), 1);
-  }
+  impl::ApplyFinalRanks(pack_host, final_rank_arr);
 }
 
-// Round every field in a host pack in place via the Gram-matrix SVD. Each bond is
-// truncated to a per-bond tolerance eps * ||A|| / sqrt(d - 1) + abs_tol, so eps
-// bounds the overall Frobenius error relative to the train's norm and abs_tol is
-// an optional absolute floor (zero by default, so rounding is scale invariant).
-// Operates on all variables the pack holds (the caller curates
-// which fields are present); ranks only shrink, so the trains are mutated in
-// place with no reshaping.
-template <class TTraits>
-void RoundGramSVD(TensorTrainHostPackT<TTraits> &pack_host, typename TTraits::real_t eps,
-                  typename TTraits::real_t abs_tol = 0) {
-  for (int v = 0; v < pack_host.NumVars(); ++v)
-    RoundGramSVDVar_(pack_host, v, eps, abs_tol);
-}
-
-// Convenience overload for a batch held in plain vectors (e.g. unit tests).
-template <class TTraits>
-void RoundGramSVD(std::vector<TensorTrainT<TTraits>> &trains,
-                  typename TTraits::real_t eps, typename TTraits::real_t abs_tol = 0) {
-  auto pack_host = TensorTrainHostPackT<TTraits>::FromVector(trains);
-  RoundGramSVD(pack_host, eps, abs_tol);
-}
-
-// Convenience overload rounding all fields of a mesh-partition container
-// (e.g. MeshTTData*) in place. Templated on the container type to stay
-// independent of the mesh/interface headers.
-template <class Container>
-void RoundGramSVD(Container *md, typename Container::train_t::traits::real_t eps,
-                  typename Container::train_t::traits::real_t abs_tol = 0) {
-  using TTraits = typename Container::train_t::traits;
-  auto pack_host = TensorTrainHostPackT<TTraits>::FromContainer(*md);
-  RoundGramSVD(pack_host, eps, abs_tol);
-}
-
-// Task-based wrapper rounding all fields of a mesh-partition container in place,
-// returning a TaskStatus. Given a distinct name (not an overload of
-// RoundGramSVD) so it can be passed by name to TaskList::AddTask without
-// ambiguous overload resolution.
-template <class Container>
-TaskStatus RoundGramSVDTask(Container *md,
-                            typename Container::train_t::traits::real_t eps,
-                            typename Container::train_t::traits::real_t abs_tol = 0) {
-  RoundGramSVD(md, eps, abs_tol);
-  return TaskStatus::complete;
-}
-
-// Round a batch of trains in place via the Oseledets TT-SVD (right-to-left
-// orthogonalization, then a left-to-right truncation sweep). Tolerances have the
-// same meaning as for RoundGramSVD.
-template <class TTraits>
-void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
+// Round every train in a host pack in place via the Oseledets TT-SVD
+// (right-to-left orthogonalization, then a left-to-right truncation sweep), all
+// (block, variable) pairs in a single kernel launch. Tolerances and pack
+// requirements are the same as for RoundGramSVD.
+template <class TTraits, class... var_ts>
+void RoundOseledetsSVD(TensorTrainHostPackT<TTraits, var_ts...> &pack_host,
                        typename TTraits::real_t eps,
                        typename TTraits::real_t abs_tol = 0) {
   using real_t = typename TTraits::real_t;
 
-  int max_rank{0};
-  int max_core_size{0};
-  int n_cores{0};
-  for (const auto &train : trains) {
-    PARTHENON_REQUIRE(train.IsClosed(),
-                      "RoundOseledetsSVD requires closed trains: the orthogonalization "
-                      "sweep assumes boundary bonds of one.");
-    n_cores = train.NCores();
-    for (int c = 0; c < train.NCores(); ++c) {
-      max_rank = std::max(max_rank, train(c).RR());
-      max_core_size =
-          std::max(max_core_size, train(c).LR() * train(c).DD() * train(c).RR());
-    }
-  }
-
+  const auto ext = impl::GetRoundingExtents(pack_host);
+  const int n_cores = ext.n_cores;
+  const int max_rank = ext.max_rank;
+  const int max_core_size = ext.max_core_size;
   if (n_cores <= 1) return;
 
-  TensorPackT<TTraits> pack(trains);
+  auto pack = pack_host.MakeDevicePack();
 
-  using final_rank_arr_t = typename TTraits::template view_t<int **, ManagedTag>;
-  final_rank_arr_t final_rank_arr("Final ranks", pack.GetNBlocks(), n_cores - 1);
+  using final_rank_arr_t = typename TTraits::template view_t<int ***, ManagedTag>;
+  final_rank_arr_t final_rank_arr("Final ranks", pack.GetNBlocks(), pack.GetNVars(),
+                                  n_cores - 1);
 
   int scratch_size{0};
   scratch_size += ScratchPad1D<real_t>::shmem_size(max_core_size);
@@ -899,8 +879,9 @@ void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
 
   constexpr int scratch_level = 1;
   parthenon::par_for_outer(
-      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1,
-      KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int b) {
+      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1, 0,
+      pack.GetNVars() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int b, const int v) {
         auto &tm_scratch = tm.team_scratch(scratch_level);
 
         ScratchPad1D<real_t> core_tmp_flat(tm_scratch, max_core_size);
@@ -912,7 +893,7 @@ void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
 
         // Right-to-left orthogonalization sweep.
         for (int c = n_cores - 1; c >= 1; --c) {
-          auto &core = pack(b, 0, c);
+          auto &core = pack(b, v, c);
           const int lr = core.LR();
           const int dd = core.DD();
           const int rr = core.RR();
@@ -936,7 +917,7 @@ void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
           tm.team_barrier();
 
           // Push L into the next core
-          auto &corem1 = pack(b, 0, c - 1);
+          auto &corem1 = pack(b, v, c - 1);
           auto VGm1 = TTraits::GetVerticalUnfolding(corem1);
           ScratchCore<TTraits> G_tmp{corem1.LR(), corem1.DD(), corem1.RR(),
                                      core_tmp_flat.data()};
@@ -951,7 +932,7 @@ void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
         }
 
         // The global Frobenius norm is invariant under the orthogonalization sweep.
-        auto &first = pack(b, 0, 0);
+        auto &first = pack(b, v, 0);
         real_t norm2{0.0};
         parthenon::par_reduce_inner(
             parthenon::inner_loop_pattern_ttr_tag, tm, 0, first.LR() - 1, 0,
@@ -973,8 +954,8 @@ void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
         ScratchPad1D<int> perm(tm_scratch, max_rank);
 
         for (int c = 0; c < n_cores - 1; ++c) {
-          auto &core = pack(b, 0, c);
-          const int lr = c == 0 ? core.LR() : final_rank_arr(b, c - 1);
+          auto &core = pack(b, v, c);
+          const int lr = c == 0 ? core.LR() : final_rank_arr(b, v, c - 1);
           const int rr = core.RR();
           const int dd = core.DD();
 
@@ -990,7 +971,8 @@ void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
           BuildDescendingPermutation(tm, sig, rr, eps0, perm, rank_new);
           auto VTkeep_mat = V_mat.GetTranspose().GetPermutedRows(perm, rank_new);
           auto sigkeep = GetPermuted(sig, perm, rank_new);
-          Kokkos::single(Kokkos::PerTeam(tm), [&]() { final_rank_arr(b, c) = rank_new; });
+          Kokkos::single(Kokkos::PerTeam(tm),
+                         [&]() { final_rank_arr(b, v, c) = rank_new; });
           tm.team_barrier();
 
           // Overwrite old core with the orthogonalized core
@@ -1000,7 +982,7 @@ void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
           tm.team_barrier();
 
           // Push the rest of the SVD right
-          auto &coreR = pack(b, 0, c + 1);
+          auto &coreR = pack(b, v, c + 1);
           const int ddR = coreR.DD();
           const int rrR = coreR.RR();
           auto Hc = TTraits::GetHorizontalUnfolding(coreR);
@@ -1021,22 +1003,7 @@ void RoundOseledetsSVD(std::vector<TensorTrainT<TTraits>> &trains,
         }
       });
 
-  auto final_rank_arr_h = Kokkos::create_mirror_view(final_rank_arr);
-  Kokkos::deep_copy(final_rank_arr_h, final_rank_arr);
-
-  for (int b = 0; b < trains.size(); ++b) {
-    auto &train = trains[b];
-    const int ncores_local = train.NCores();
-    if (ncores_local == 1) continue;
-
-    train(0).ReduceSize(1, final_rank_arr_h(b, 0));
-
-    for (int c = 1; c < ncores_local - 1; ++c) {
-      train(c).ReduceSize(final_rank_arr_h(b, c - 1), final_rank_arr_h(b, c));
-    }
-
-    train(ncores_local - 1).ReduceSize(final_rank_arr_h(b, ncores_local - 2), 1);
-  }
+  impl::ApplyFinalRanks(pack_host, final_rank_arr);
 }
 
 } // namespace tensor
