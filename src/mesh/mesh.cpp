@@ -769,7 +769,6 @@ void Mesh::FillDerived() {
 void Mesh::Initialize(MeshInitType init_flag, ParameterInput *pin,
                       ApplicationInput *app_in) {
   PARTHENON_INSTRUMENT
-  const auto start = std::chrono::steady_clock::now();
   bool init_problem = (init_flag == MeshInitType::pgen);
   bool analysis = (init_flag == MeshInitType::analysis);
   bool init_done = true;
@@ -1011,11 +1010,6 @@ void Mesh::Initialize(MeshInitType init_flag, ParameterInput *pin,
 
   // Initialize the "base" MeshData object
   mesh_data.Add("base", GetBasePartition());
-
-  const auto stop = std::chrono::steady_clock::now();
-  const double seconds = std::chrono::duration<double>(stop - start).count();
-  if (Globals::my_rank == 0)
-    std::cout << "Mesh initialized in " << seconds << " seconds." << std::endl;
 }
 
 /// Finds location of a block with ID `tgid`.
