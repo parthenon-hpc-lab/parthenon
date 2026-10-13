@@ -71,11 +71,11 @@ build_householder_vector_col(tm_t tm, int row, int col, const matrix_t &A, doubl
       norm_tail);
 
   const double x0 = A(row, col) / xmax;
-  const double norm_x = safe_sqrt(norm_tail + x0 * x0);
+  const double norm_x = robust::safe_sqrt(norm_tail + x0 * x0);
   // Keep the head in a local so v is not written by every thread before the
   // final loop
-  const double vh = x0 + sign_of(x0) * norm_x;
-  const double norm_v = safe_sqrt(norm_tail + vh * vh);
+  const double vh = x0 + robust::sgn(x0) * norm_x;
+  const double norm_v = robust::safe_sqrt(norm_tail + vh * vh);
 
   double inv_norm_v = parthenon::robust::ratio(1.0, norm_v);
   parallel_loop(tm, 0, nrows - 1, [&](const int i) {
@@ -111,11 +111,11 @@ build_householder_vector_row(tm_t tm, int row, int col, const matrix_t &A, doubl
 
   // v[col] = x₀ + sign(x₀) * ||x||, with x = A(row, col:ncols-1) / xmax
   const double x0 = A(row, col) / xmax;
-  const double norm_x = safe_sqrt(norm_tail + x0 * x0);
+  const double norm_x = robust::safe_sqrt(norm_tail + x0 * x0);
   // Keep the head in a local so v is not written by every thread before the
   // final loop
-  const double vh = x0 + sign_of(x0) * norm_x;
-  const double norm_v = safe_sqrt(norm_tail + vh * vh);
+  const double vh = x0 + robust::sgn(x0) * norm_x;
+  const double norm_v = robust::safe_sqrt(norm_tail + vh * vh);
 
   const double inv_norm_v = parthenon::robust::ratio(1.0, norm_v);
 

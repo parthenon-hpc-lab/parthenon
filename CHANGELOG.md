@@ -7,6 +7,7 @@
 ### Added (new features/APIs/variables/...)
 - [[PR 1459]](https://github.com/parthenon-hpc-lab/parthenon/pull/1459) Add core tensor-train types and operations
 - [[PR 1456]](https://github.com/parthenon-hpc-lab/parthenon/pull/1456) Add batched dense linear algebra kernels
+- [[PR 1462]](https://github.com/parthenon-hpc-lab/parthenon/pull/1462) Add user-specified output times that can be combined with dt or dn output schedules
 - [[PR 1439]](https://github.com/parthenon-hpc-lab/parthenon/pull/1439) Long-overdue parthenon tutorial
 - [[PR 1443]](https://github.com/parthenon-hpc-lab/parthenon/pull/1443) Allow for specifying topological elements in var views
 - [[PR 1431]](https://github.com/parthenon-hpc-lab/parthenon/pull/1431) Add reductions to the loop abstraction
