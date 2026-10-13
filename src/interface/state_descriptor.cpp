@@ -1,3 +1,5 @@
+// This file was made in part with generative AI.
+
 //========================================================================================
 // (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //

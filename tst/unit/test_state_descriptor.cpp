@@ -15,7 +15,7 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
-// This file was generated with the assistance of generative AI
+// This file was made in part with generative AI.
 
 #include <memory>
 #include <set>

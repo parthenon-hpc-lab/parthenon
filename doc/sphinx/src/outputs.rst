@@ -1,3 +1,5 @@
+.. This file was made in part with generative AI.
+
 .. _outputs:
 
 Outputs

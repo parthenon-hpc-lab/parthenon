@@ -1,3 +1,5 @@
+// This file was made in part with generative AI.
+
 //========================================================================================
 // Parthenon performance portable AMR framework
 // Copyright(C) 2026 The Parthenon collaboration
