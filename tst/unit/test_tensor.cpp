@@ -493,7 +493,9 @@ TEMPLATE_TEST_CASE("tensor non-destructive sum of constant trains reconstructs c
   SetTTPackToValue(pack_b, b);
   Kokkos::fence();
 
-  auto trains_c = NonDestructiveSum(trains_a, trains_b);
+  std::vector<TensorTrain> trains_c(trains_a.size());
+  TensorTrainHostPackT<TTraits> host_a(trains_a), host_b(trains_b), host_c(trains_c);
+  NonDestructiveSum(host_a, host_b, host_c);
   TensorPack pack_c(trains_c);
 
   REQUIRE(pack_c.GetNBlocks() == 1);
@@ -529,7 +531,9 @@ TEMPLATE_TEST_CASE(
   TensorPack pack_a(trains_a);
   TensorPack pack_b(trains_b);
 
-  auto trains_c = NonDestructiveSum(trains_a, trains_b);
+  std::vector<TensorTrain> trains_c(trains_a.size());
+  TensorTrainHostPackT<TTraits> host_a(trains_a), host_b(trains_b), host_c(trains_c);
+  NonDestructiveSum(host_a, host_b, host_c);
   TensorPack pack_c(trains_c);
 
   REQUIRE(pack_c.GetNBlocks() == 1);
@@ -576,7 +580,8 @@ TEMPLATE_TEST_CASE("tensor destructive sum of constant trains reconstructs corre
   TensorPack pack_ref_a(ref_a);
   TensorPack pack_ref_b(ref_b);
 
-  DestructiveSum(trains_a, trains_b);
+  TensorTrainHostPackT<TTraits> host_a(trains_a), host_b(trains_b);
+  DestructiveSum(host_a, host_b);
 
   // B's train is left empty; A now holds the combined block-diagonal sum.
   REQUIRE(trains_b[0].IsEmpty());
@@ -619,7 +624,8 @@ TEMPLATE_TEST_CASE("tensor destructive sum of sparse delta trains reconstructs c
   std::vector<TensorTrain> trains_a{train_a};
   std::vector<TensorTrain> trains_b{train_b};
 
-  DestructiveSum(trains_a, trains_b);
+  TensorTrainHostPackT<TTraits> host_a(trains_a), host_b(trains_b);
+  DestructiveSum(host_a, host_b);
 
   REQUIRE(trains_b[0].IsEmpty());
   REQUIRE(trains_a[0].NCores() == 3);
@@ -658,7 +664,9 @@ TEMPLATE_TEST_CASE("tensor Hadamard product of constant trains reconstructs corr
   SetTTPackToValue(pack_b, b);
   Kokkos::fence();
 
-  auto trains_c = HadamardProduct(trains_a, trains_b);
+  std::vector<TensorTrain> trains_c(trains_a.size());
+  TensorTrainHostPackT<TTraits> host_a(trains_a), host_b(trains_b), host_c(trains_c);
+  HadamardProduct(host_a, host_b, host_c);
   TensorPack pack_c(trains_c);
 
   REQUIRE(pack_c.GetNBlocks() == 1);
@@ -694,7 +702,9 @@ TEMPLATE_TEST_CASE(
   TensorPack pack_a(trains_a);
   TensorPack pack_b(trains_b);
 
-  auto trains_c = HadamardProduct(trains_a, trains_b);
+  std::vector<TensorTrain> trains_c(trains_a.size());
+  TensorTrainHostPackT<TTraits> host_a(trains_a), host_b(trains_b), host_c(trains_c);
+  HadamardProduct(host_a, host_b, host_c);
   TensorPack pack_c(trains_c);
 
   REQUIRE(pack_c.GetNBlocks() == 1);
@@ -706,6 +716,80 @@ TEMPLATE_TEST_CASE(
                 return vc != va * vb;
               },
               pack_a, pack_b, pack_c) == 0);
+}
+
+TEMPLATE_TEST_CASE("tensor sums and Hadamard product handle multi-variable packs",
+                   "[tensor]", FiberTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using TensorTrain = TensorTrainT<TTraits>;
+  using HostPack = TensorTrainHostPackT<TTraits>;
+  using Trains = std::vector<std::vector<TensorTrain>>;
+
+  using real_t = typename TTraits::real_t;
+
+  constexpr int nvars = 2;
+  constexpr int nblocks = 2;
+  const std::array<int, 3> dims{3, 4, 5};
+
+  // Entries and amplitudes depend on (v, b), so a kernel that mixed up slots would
+  // reconstruct the wrong tensor. A and B share one entry so the product is nonzero.
+  auto make = [&](int v, int b, int which) {
+    const std::array<int, 3> shared{v, b, 2};
+    const std::array<int, 3> own{2 - v, 3 - b, which};
+    return MakeSparseDeltaTrain3D<TTraits>(
+        dims, {shared, own}, {real_t(1 + v + which), real_t(0.5) * real_t(b + 1)});
+  };
+
+  Trains trains_a(nvars), trains_b(nvars), ref_a(nvars), ref_b(nvars);
+  Trains trains_c(nvars, std::vector<TensorTrain>(nblocks));
+  for (int v = 0; v < nvars; ++v) {
+    for (int b = 0; b < nblocks; ++b) {
+      trains_a[v].push_back(make(v, b, 0));
+      trains_b[v].push_back(make(v, b, 1));
+      ref_a[v].push_back(trains_a[v][b].DeepCopy());
+      ref_b[v].push_back(trains_b[v][b].DeepCopy());
+    }
+  }
+  auto host_pack = [&](Trains &trains) {
+    VarBlockGrid<TensorTrain *> grid(nvars, nblocks);
+    for (int v = 0; v < nvars; ++v)
+      for (int b = 0; b < nblocks; ++b)
+        grid(v, b) = &trains[v][b];
+    return HostPack(std::move(grid));
+  };
+  auto host_a = host_pack(trains_a);
+  auto host_b = host_pack(trains_b);
+  auto host_c = host_pack(trains_c);
+  auto host_ref_a = host_pack(ref_a);
+  auto host_ref_b = host_pack(ref_b);
+
+  const HostPack *result = nullptr;
+  bool product = false;
+  SECTION("NonDestructiveSum") {
+    NonDestructiveSum(host_a, host_b, host_c);
+    result = &host_c;
+  }
+  SECTION("HadamardProduct") {
+    HadamardProduct(host_a, host_b, host_c);
+    result = &host_c;
+    product = true;
+  }
+  SECTION("DestructiveSum") {
+    DestructiveSum(host_a, host_b);
+    result = &host_a;
+    for (int v = 0; v < nvars; ++v)
+      for (int b = 0; b < nblocks; ++b)
+        REQUIRE(trains_b[v][b].IsEmpty());
+  }
+
+  for (int v = 0; v < nvars; ++v) {
+    REQUIRE(CountDenseMismatches3D(
+                KOKKOS_LAMBDA(int, int, int, int, real_t vc, real_t va, real_t vb) {
+                  return product ? vc != va * vb : vc != va + vb;
+                },
+                result->MakeDevicePackForVar(v), host_ref_a.MakeDevicePackForVar(v),
+                host_ref_b.MakeDevicePackForVar(v)) == 0);
+  }
 }
 
 TEMPLATE_TEST_CASE("tensor Gram-SVD rounding scaffold on a two-delta train", "[tensor]",
@@ -743,7 +827,7 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounding scaffold on a two-delta train", "[t
 
   // For now this is just a scaffold test: RoundGramSVD is expected to print
   // intermediate Gram matrices while the implementation is being debugged.
-  auto trains_host = TensorTrainHostPackT<TTraits>::FromVector(trains);
+  TensorTrainHostPackT<TTraits> trains_host(trains);
   RoundGramSVD(trains_host, real_t(0.0e-12));
 
   // Keep one very weak postcondition so the test at least exercises the whole call.
@@ -826,7 +910,7 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounding scaffold on a mixed two-channel tra
   std::vector<TensorTrain> trains_orig = DeepCopyTrains(trains);
 
   // Run the no-truncation scaffold.
-  auto trains_host = TensorTrainHostPackT<TTraits>::FromVector(trains);
+  TensorTrainHostPackT<TTraits> trains_host(trains);
   RoundGramSVD(trains_host, real_t(0.0e-12));
 
   TensorPack rounded_pack(trains);
@@ -886,7 +970,7 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD no-truncation preserves randomized trains",
 
   auto trains_orig = DeepCopyTrains(trains);
 
-  auto trains_host = TensorTrainHostPackT<TTraits>::FromVector(trains);
+  TensorTrainHostPackT<TTraits> trains_host(trains);
   RoundGramSVD(trains_host, real_t(0.0));
   TensorPack rounded_pack(trains);
   TensorPack orig_pack(trains_orig);
@@ -932,7 +1016,7 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounds duplicate delta terms down to rank on
   // duplicate-delta case the first sweep reduces the left bond to rank one, and a
   // second sweep then sees the updated representation and collapses the remaining
   // bond as well.
-  auto trains_host = TensorTrainHostPackT<TTraits>::FromVector(trains);
+  TensorTrainHostPackT<TTraits> trains_host(trains);
   RoundGramSVD(trains_host, real_t(1.0e-7));
   RoundGramSVD(trains_host, real_t(1.0e-7));
 
@@ -1075,7 +1159,7 @@ TEMPLATE_TEST_CASE(
 
   constexpr real_t eps_rel = real_t(1.0e-1);
 
-  auto trains_host = TensorTrainHostPackT<TTraits>::FromVector(trains);
+  TensorTrainHostPackT<TTraits> trains_host(trains);
   RoundGramSVD(trains_host, eps_rel);
   TensorPack rounded_pack(trains);
 
@@ -1162,7 +1246,7 @@ TEMPLATE_TEST_CASE("tensor Oseledets-SVD no-truncation preserves randomized trai
 
   auto trains_orig = DeepCopyTrains(trains);
 
-  auto trains_host = TensorTrainHostPackT<TTraits>::FromVector(trains);
+  TensorTrainHostPackT<TTraits> trains_host(trains);
   RoundOseledetsSVD(trains_host, real_t(0.0));
   TensorPack rounded_pack(trains);
   TensorPack orig_pack(trains_orig);
@@ -1223,7 +1307,7 @@ TEMPLATE_TEST_CASE("tensor Oseledets-SVD truncation respects relative Frobenius 
 
   constexpr real_t eps_rel = real_t(1.0e-1);
 
-  auto trains_host = TensorTrainHostPackT<TTraits>::FromVector(trains);
+  TensorTrainHostPackT<TTraits> trains_host(trains);
   RoundOseledetsSVD(trains_host, eps_rel);
   TensorPack rounded_pack(trains);
 
@@ -1379,7 +1463,7 @@ TEMPLATE_TEST_CASE("TensorTrainHostPack from shared_ptr trains", "[tensor]", Fib
   trains.push_back(
       std::make_shared<TensorTrain>(std::vector<int>{4, 3}, std::vector<int>{1}));
 
-  auto host = TensorTrainHostPackT<TTraits>::FromSharedPtrs(trains);
+  TensorTrainHostPackT<TTraits> host(trains);
   REQUIRE(host.NumVars() == 1);
   REQUIRE(host.NumBlocks() == static_cast<int>(trains.size()));
   // The pack aliases (does not copy) the shared trains.

@@ -18,6 +18,8 @@
 
 #include <algorithm>
 #include <limits>
+#include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -100,6 +102,72 @@ KOKKOS_INLINE_FUNCTION void HadamardCoreBlocks(parthenon::team_mbr_t member,
   }
 }
 
+// Require that no train in host pack `out` is also a train of host pack `in`.
+// Ops that reshape their output in place would otherwise clobber an aliased
+// input.
+template <class HostPackIn, class HostPackOut>
+void RequireNoAliasing(const HostPackIn &in, const HostPackOut &out, const char *msg) {
+  std::unordered_set<const void *> in_trains;
+  for (int v = 0; v < in.NumVars(); ++v)
+    for (int b = 0; b < in.NumBlocks(); ++b)
+      in_trains.insert(&in(b, v));
+  for (int v = 0; v < out.NumVars(); ++v)
+    for (int b = 0; b < out.NumBlocks(); ++b)
+      PARTHENON_REQUIRE(in_trains.count(&out(b, v)) == 0, msg);
+}
+
+// Fill every (block, variable, core) of pack_c, already sized to the combined
+// ranks, with the block-diagonal TT sum of pack_a and pack_b in a single kernel.
+template <class Pack>
+void FillBlockDiagonalSum(const Pack &pack_a, const Pack &pack_b, const Pack &pack_c) {
+  using real_t = typename Pack::train_t::traits::real_t;
+  constexpr int unused_scratch_size = 0;
+  constexpr int unused_scratch_level = 1;
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, unused_scratch_size, unused_scratch_level, 0,
+      pack_a.GetNBlocks() - 1, 0, pack_a.GetNVars() - 1, 0, pack_a.GetNCores() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int v, const int c) {
+        auto &core_c = pack_c(b, v, c);
+
+        auto &core_a = pack_a(b, v, c);
+        CopyCoreBlock(member, core_a, core_c, 0, 0);
+
+        auto &core_b = pack_b(b, v, c);
+        const int loffset = (c > 0) * core_a.LR();
+        const int roffset = (c != (pack_a.GetNCores() - 1)) * core_a.RR();
+        CopyCoreBlock(member, core_b, core_c, loffset, roffset);
+
+        if (loffset && roffset) {
+          SetCoreBlock(member, core_c, real_t(0), std::pair<int, int>{0, core_a.LR()},
+                       std::pair<int, int>{core_a.RR(), core_a.RR() + core_b.RR()});
+          SetCoreBlock(member, core_c, real_t(0),
+                       std::pair<int, int>{core_a.LR(), core_a.LR() + core_b.LR()},
+                       std::pair<int, int>{0, core_a.RR()});
+        }
+      });
+}
+
+// Check that A and B can be summed or multiplied slot by slot: same (var, block)
+// grid, closed trains, and matching core counts and physical dimensions.
+template <class HostPackA, class HostPackB>
+void RequireCompatibleClosed(const HostPackA &A, const HostPackB &B, const char *op) {
+  PARTHENON_REQUIRE(B.NumBlocks() == A.NumBlocks() && B.NumVars() == A.NumVars(),
+                    std::string(op) + ": operands must have the same (var, block) grid.");
+  for (int v = 0; v < A.NumVars(); ++v) {
+    for (int b = 0; b < A.NumBlocks(); ++b) {
+      const auto &train_A = A(b, v);
+      const auto &train_B = B(b, v);
+      PARTHENON_REQUIRE(train_A.NCores() == train_B.NCores(),
+                        std::string(op) + ": trains must have the same number of cores.");
+      PARTHENON_REQUIRE(train_A.IsClosed() && train_B.IsClosed(),
+                        std::string(op) + " requires closed trains.");
+      for (int c = 0; c < train_A.NCores(); ++c)
+        PARTHENON_REQUIRE(train_A(c).DD() == train_B(c).DD(),
+                          std::string(op) + ": trains must have matching physical dims.");
+    }
+  }
+}
+
 } // namespace impl
 
 // Set every entry in every core of every variable of a tensor-train pack to a
@@ -129,104 +197,32 @@ void SetTTPackToValue(TensorPackT<TTraits, var_ts...> &pack,
 // packs contain -- the caller curates which fields are present (mirroring how a
 // regular-field task is handed a MeshData packed over just its variables). C
 // must be distinct from A and B (the output trains are reshaped in place, which
-// would clobber an aliased input).
-template <class TTraits>
-void NonDestructiveSum(const TensorTrainHostPackT<TTraits> &A,
-                       const TensorTrainHostPackT<TTraits> &B,
-                       TensorTrainHostPackT<TTraits> &C) {
-  const int nblocks = A.NumBlocks();
-  const int nvars = A.NumVars();
-  PARTHENON_REQUIRE(B.NumBlocks() == nblocks && C.NumBlocks() == nblocks,
-                    "Must be adding the same number of blocks.");
-  PARTHENON_REQUIRE(B.NumVars() == nvars && C.NumVars() == nvars,
-                    "Must be adding the same number of fields.");
+// would clobber an aliased input); this is checked. C's trains may be
+// default-constructed placeholders, since they are rebuilt from A's shape.
+template <class TTraits, class... var_ts>
+void NonDestructiveSum(const TensorTrainHostPackT<TTraits, var_ts...> &A,
+                       const TensorTrainHostPackT<TTraits, var_ts...> &B,
+                       TensorTrainHostPackT<TTraits, var_ts...> &C) {
+  impl::RequireCompatibleClosed(A, B, "NonDestructiveSum");
+  PARTHENON_REQUIRE(C.NumBlocks() == A.NumBlocks() && C.NumVars() == A.NumVars(),
+                    "NonDestructiveSum: C must have the same (var, block) grid as A.");
+  impl::RequireNoAliasing(A, C, "NonDestructiveSum: C must not alias A.");
+  impl::RequireNoAliasing(B, C, "NonDestructiveSum: C must not alias B.");
 
   // Reshape each output train to the combined ranks (metadata op, host-side).
-  for (int v = 0; v < nvars; ++v) {
-    for (int t = 0; t < nblocks; ++t) {
-      const auto &train_A = A(t, v);
-      const auto &train_B = B(t, v);
-      PARTHENON_REQUIRE(train_A.NCores() == train_B.NCores(),
-                        "Added trains must have the same number of cores.");
-      PARTHENON_REQUIRE(
-          train_A.IsClosed() && train_B.IsClosed(),
-          "NonDestructiveSum requires closed trains: the block-diagonal stacking of "
-          "boundary bonds is only well-defined when they are one.");
-      for (int c = 0; c < train_A.NCores(); ++c)
-        PARTHENON_REQUIRE(train_A(c).DD() == train_B(c).DD(),
-                          "Must have equivalent physical dims.");
+  for (int v = 0; v < A.NumVars(); ++v) {
+    for (int b = 0; b < A.NumBlocks(); ++b) {
+      const auto &train_A = A(b, v);
+      const auto &train_B = B(b, v);
       std::vector<int> target_ranks;
       for (int c = 0; c < train_A.NCores() - 1; ++c)
         target_ranks.push_back(train_A(c).RR() + train_B(c).RR());
-      C(t, v) = TensorTrainT<TTraits>(A(t, v), target_ranks);
+      C(b, v) = TensorTrainT<TTraits>(train_A, target_ranks);
     }
   }
 
-  // Build device packs and fill the (now correctly sized) output. Loop over
-  // variables on the host so each launch keeps the proven per-field (block,
-  // core) team structure; nvars is small.
-  auto pack_a = A.MakeDevicePack();
-  auto pack_b = B.MakeDevicePack();
-  auto pack_c = C.MakeDevicePack();
-  constexpr int unused_scratch_size = 0;
-  constexpr int unused_scratch_level = 1;
-  for (int v = 0; v < nvars; ++v) {
-    parthenon::par_for_outer(
-        PARTHENON_AUTO_LABEL, unused_scratch_size, unused_scratch_level, 0,
-        pack_a.GetNBlocks() - 1, 0, pack_a.GetNCores() - 1,
-        KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int c) {
-          auto &core_c = pack_c(b, v, c);
-
-          auto &core_a = pack_a(b, v, c);
-          impl::CopyCoreBlock(member, core_a, core_c, 0, 0);
-
-          auto &core_b = pack_b(b, v, c);
-          const int loffset = (c > 0) * core_a.LR();
-          const int roffset = (c != (pack_a.GetNCores() - 1)) * core_a.RR();
-          impl::CopyCoreBlock(member, core_b, core_c, loffset, roffset);
-
-          if (loffset && roffset) {
-            impl::SetCoreBlock(
-                member, core_c, typename TTraits::real_t(0),
-                std::pair<int, int>{0, core_a.LR()},
-                std::pair<int, int>{core_a.RR(), core_a.RR() + core_b.RR()});
-            impl::SetCoreBlock(
-                member, core_c, typename TTraits::real_t(0),
-                std::pair<int, int>{core_a.LR(), core_a.LR() + core_b.LR()},
-                std::pair<int, int>{0, core_a.RR()});
-          }
-        });
-  }
-}
-
-// Convenience overload for a batch held in plain vectors (e.g. unit tests):
-// returns a freshly-allocated result vector.
-template <class TTraits>
-std::vector<TensorTrainT<TTraits>>
-NonDestructiveSum(std::vector<TensorTrainT<TTraits>> &TrainsA,
-                  std::vector<TensorTrainT<TTraits>> &TrainsB) {
-  PARTHENON_REQUIRE(TrainsA.size() == TrainsB.size(),
-                    "Must be adding the same number of TTs.");
-  std::vector<TensorTrainT<TTraits>> TrainsC(TrainsA.size());
-  auto A = TensorTrainHostPackT<TTraits>::FromVector(TrainsA);
-  auto B = TensorTrainHostPackT<TTraits>::FromVector(TrainsB);
-  auto C = TensorTrainHostPackT<TTraits>::FromVector(TrainsC);
-  NonDestructiveSum(A, B, C);
-  return TrainsC;
-}
-
-// Convenience overload over mesh-partition containers (e.g. MeshTTData*):
-// C = A + B for every field held by the containers. Templated on the container
-// type so this stays independent of the mesh/interface headers. C must be a
-// distinct container/stage from A and B, and all three must hold the same field
-// set.
-template <class Container>
-void NonDestructiveSum(Container *A, Container *B, Container *C) {
-  using TTraits = typename Container::train_t::traits;
-  auto pa = TensorTrainHostPackT<TTraits>::FromContainer(*A);
-  auto pb = TensorTrainHostPackT<TTraits>::FromContainer(*B);
-  auto pc = TensorTrainHostPackT<TTraits>::FromContainer(*C);
-  NonDestructiveSum(pa, pb, pc);
+  // Fill the (now correctly sized) output on device.
+  impl::FillBlockDiagonalSum(A.MakeDevicePack(), B.MakeDevicePack(), C.MakeDevicePack());
 }
 
 // Form the destructive TT sum A <- A + B over every field and block in the host
@@ -240,14 +236,15 @@ void NonDestructiveSum(Container *A, Container *B, Container *C) {
 // the contiguous backend a core is a single buffer that cannot be stitched from
 // two smaller ones, so we fall back to the proven copy-based block-diagonal fill
 // (as in NonDestructiveSum) writing into a fresh combined core, then move it into
-// A. In both cases B is left holding empty trains. A and B must be distinct.
-template <class TTraits>
-void DestructiveSum(TensorTrainHostPackT<TTraits> &A, TensorTrainHostPackT<TTraits> &B) {
+// A. In both cases B is left holding empty trains. A and B must be distinct;
+// this is checked.
+template <class TTraits, class... var_ts>
+void DestructiveSum(TensorTrainHostPackT<TTraits, var_ts...> &A,
+                    TensorTrainHostPackT<TTraits, var_ts...> &B) {
+  impl::RequireCompatibleClosed(A, B, "DestructiveSum");
+  impl::RequireNoAliasing(A, B, "DestructiveSum: A and B must not alias.");
   const int nblocks = A.NumBlocks();
   const int nvars = A.NumVars();
-  PARTHENON_REQUIRE(B.NumBlocks() == nblocks,
-                    "Must be adding the same number of blocks.");
-  PARTHENON_REQUIRE(B.NumVars() == nvars, "Must be adding the same number of fields.");
 
   using train_t = TensorTrainT<TTraits>;
   using core_type = typename train_t::core_type;
@@ -255,24 +252,16 @@ void DestructiveSum(TensorTrainHostPackT<TTraits> &A, TensorTrainHostPackT<TTrai
   if constexpr (TTraits::d_fastest_moving) {
     // Fiber backend: zero-copy block-diagonal assembly, host-side only.
     for (int v = 0; v < nvars; ++v) {
-      for (int t = 0; t < nblocks; ++t) {
-        auto &train_A = A(t, v);
-        auto &train_B = B(t, v);
+      for (int b = 0; b < nblocks; ++b) {
+        auto &train_A = A(b, v);
+        auto &train_B = B(b, v);
         const int ncores = train_A.NCores();
-        PARTHENON_REQUIRE(ncores == train_B.NCores(),
-                          "Added trains must have the same number of cores.");
-        PARTHENON_REQUIRE(
-            train_A.IsClosed() && train_B.IsClosed(),
-            "DestructiveSum requires closed trains: the block-diagonal stacking of "
-            "boundary bonds is only well-defined when they are one.");
 
         std::vector<core_type> combined;
         combined.reserve(ncores);
         for (int c = 0; c < ncores; ++c) {
           auto &core_a = train_A(c);
           auto &core_b = train_B(c);
-          PARTHENON_REQUIRE(core_a.DD() == core_b.DD(),
-                            "Must have equivalent physical dims.");
           const int loffset = (c > 0) * core_a.LR();
           const int roffset = (c != (ncores - 1)) * core_a.RR();
           const int lr_c = loffset ? core_a.LR() + core_b.LR() : core_a.LR();
@@ -301,158 +290,79 @@ void DestructiveSum(TensorTrainHostPackT<TTraits> &A, TensorTrainHostPackT<TTrai
     // Contiguous backend: copy-based fill into fresh combined cores, then move
     // into A. Mirrors NonDestructiveSum's kernel but writes into a temporary and
     // leaves B empty.
-    std::vector<std::vector<train_t>> temps(nvars, std::vector<train_t>(nblocks));
+    // Hold the fresh combined trains in a flat (var, block) vector and point a
+    // host pack at them so the shared block-diagonal fill kernel can target them.
+    std::vector<train_t> temps(nvars * nblocks);
+    VarBlockGrid<train_t *> temp_grid(nvars, nblocks);
     for (int v = 0; v < nvars; ++v) {
-      for (int t = 0; t < nblocks; ++t) {
-        const auto &train_A = A(t, v);
-        const auto &train_B = B(t, v);
-        PARTHENON_REQUIRE(train_A.NCores() == train_B.NCores(),
-                          "Added trains must have the same number of cores.");
-        PARTHENON_REQUIRE(
-            train_A.IsClosed() && train_B.IsClosed(),
-            "DestructiveSum requires closed trains: the block-diagonal stacking of "
-            "boundary bonds is only well-defined when they are one.");
+      for (int b = 0; b < nblocks; ++b) {
+        const auto &train_A = A(b, v);
+        const auto &train_B = B(b, v);
         std::vector<int> target_ranks;
-        for (int c = 0; c < train_A.NCores(); ++c)
-          PARTHENON_REQUIRE(train_A(c).DD() == train_B(c).DD(),
-                            "Must have equivalent physical dims.");
         for (int c = 0; c < train_A.NCores() - 1; ++c)
           target_ranks.push_back(train_A(c).RR() + train_B(c).RR());
-        temps[v][t] = train_t(train_A, target_ranks);
+        auto &temp = temps[v * nblocks + b];
+        temp = train_t(train_A, target_ranks);
+        temp_grid(v, b) = &temp;
       }
     }
+    TensorTrainHostPackT<TTraits, var_ts...> C(std::move(temp_grid));
 
-    // Wrap the temporaries in a host pack sharing A's (var, block) layout so the
-    // existing block-diagonal fill kernel can target them.
-    VarBlockGrid<train_t *> temp_grid(nvars, nblocks);
-    for (int v = 0; v < nvars; ++v)
-      for (int t = 0; t < nblocks; ++t)
-        temp_grid(v, t) = &temps[v][t];
-    TensorTrainHostPackT<TTraits> C(std::move(temp_grid));
-
-    auto pack_a = A.MakeDevicePack();
-    auto pack_b = B.MakeDevicePack();
-    auto pack_c = C.MakeDevicePack();
-    constexpr int unused_scratch_size = 0;
-    constexpr int unused_scratch_level = 1;
-    for (int v = 0; v < nvars; ++v) {
-      parthenon::par_for_outer(
-          PARTHENON_AUTO_LABEL, unused_scratch_size, unused_scratch_level, 0,
-          pack_a.GetNBlocks() - 1, 0, pack_a.GetNCores() - 1,
-          KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int c) {
-            auto &core_c = pack_c(b, v, c);
-
-            auto &core_a = pack_a(b, v, c);
-            impl::CopyCoreBlock(member, core_a, core_c, 0, 0);
-
-            auto &core_b = pack_b(b, v, c);
-            const int loffset = (c > 0) * core_a.LR();
-            const int roffset = (c != (pack_a.GetNCores() - 1)) * core_a.RR();
-            impl::CopyCoreBlock(member, core_b, core_c, loffset, roffset);
-
-            if (loffset && roffset) {
-              impl::SetCoreBlock(
-                  member, core_c, typename TTraits::real_t(0),
-                  std::pair<int, int>{0, core_a.LR()},
-                  std::pair<int, int>{core_a.RR(), core_a.RR() + core_b.RR()});
-              impl::SetCoreBlock(
-                  member, core_c, typename TTraits::real_t(0),
-                  std::pair<int, int>{core_a.LR(), core_a.LR() + core_b.LR()},
-                  std::pair<int, int>{0, core_a.RR()});
-            }
-          });
-    }
-    // Kernels are asynchronous; make sure the fills complete before we move the
+    impl::FillBlockDiagonalSum(A.MakeDevicePack(), B.MakeDevicePack(),
+                               C.MakeDevicePack());
+    // Kernels are asynchronous; make sure the fill completes before we move the
     // temporaries into A and drop B.
     Kokkos::fence();
     for (int v = 0; v < nvars; ++v) {
-      for (int t = 0; t < nblocks; ++t) {
-        A(t, v) = std::move(temps[v][t]);
-        B(t, v).Clear();
+      for (int b = 0; b < nblocks; ++b) {
+        A(b, v) = std::move(temps[v * nblocks + b]);
+        B(b, v).Clear();
       }
     }
   }
 }
 
-// Convenience overload for a batch held in plain vectors (e.g. unit tests): sums
-// TrainsB into TrainsA in place and empties every train in TrainsB.
-template <class TTraits>
-void DestructiveSum(std::vector<TensorTrainT<TTraits>> &TrainsA,
-                    std::vector<TensorTrainT<TTraits>> &TrainsB) {
-  PARTHENON_REQUIRE(TrainsA.size() == TrainsB.size(),
-                    "Must be adding the same number of TTs.");
-  auto A = TensorTrainHostPackT<TTraits>::FromVector(TrainsA);
-  auto B = TensorTrainHostPackT<TTraits>::FromVector(TrainsB);
-  DestructiveSum(A, B);
-}
+// Form the Hadamard (elementwise) product C = A .* B over every field and block in
+// the host packs, all (block, variable, core) slots in a single kernel. The output
+// ranks are the products of the corresponding input ranks, and the core entries
+// are filled by pairwise fiber multiplication. As for NonDestructiveSum, C is
+// rebuilt from A's shape and must not alias A or B (A and B may alias each other).
+template <class TTraits, class... var_ts>
+void HadamardProduct(const TensorTrainHostPackT<TTraits, var_ts...> &A,
+                     const TensorTrainHostPackT<TTraits, var_ts...> &B,
+                     TensorTrainHostPackT<TTraits, var_ts...> &C) {
+  impl::RequireCompatibleClosed(A, B, "HadamardProduct");
+  PARTHENON_REQUIRE(C.NumBlocks() == A.NumBlocks() && C.NumVars() == A.NumVars(),
+                    "HadamardProduct: C must have the same (var, block) grid as A.");
+  impl::RequireNoAliasing(A, C, "HadamardProduct: C must not alias A.");
+  impl::RequireNoAliasing(B, C, "HadamardProduct: C must not alias B.");
 
-// Task-based convenience wrapper over mesh-partition containers (e.g.
-// MeshTTData*): A <- A + B for every field, leaving B's trains empty. Templated
-// on the container type so this stays independent of the mesh/interface
-// headers. A and B must be distinct containers/stages holding the same field
-// set. Given a distinct name (not an overload of DestructiveSum) so it can be
-// passed by name to TaskList::AddTask without ambiguous overload resolution.
-template <class Container>
-TaskStatus DestructiveSumTask(Container *A, Container *B) {
-  using TTraits = typename Container::train_t::traits;
-  auto pa = TensorTrainHostPackT<TTraits>::FromContainer(*A);
-  auto pb = TensorTrainHostPackT<TTraits>::FromContainer(*B);
-  DestructiveSum(pa, pb);
-  return TaskStatus::complete;
-}
-
-// Form the Hadamard product of two batches of tensor trains. The output ranks
-// are the products of the corresponding input ranks, and the core entries are
-// filled by pairwise fiber multiplication.
-template <class TTraits>
-std::vector<TensorTrainT<TTraits>>
-HadamardProduct(std::vector<TensorTrainT<TTraits>> &TrainsA,
-                std::vector<TensorTrainT<TTraits>> &TrainsB) {
-  PARTHENON_REQUIRE(TrainsA.size() == TrainsB.size(),
-                    "Must be taking the Hadamard product of the same number of TTs.");
-
-  std::vector<TensorTrainT<TTraits>> TrainsC;
-  TrainsC.reserve(TrainsA.size());
-
-  for (int t = 0; t < TrainsA.size(); ++t) {
-    const auto &train_A = TrainsA[t];
-    const auto &train_B = TrainsB[t];
-
-    PARTHENON_REQUIRE(train_A.NCores() == train_B.NCores(),
-                      "Hadamard product requires the same number of cores.");
-    PARTHENON_REQUIRE(train_A.IsClosed() && train_B.IsClosed(),
-                      "HadamardProduct requires closed trains.");
-
-    std::vector<int> target_ranks;
-    for (int c = 0; c < train_A.NCores(); ++c) {
-      PARTHENON_REQUIRE(train_A(c).DD() == train_B(c).DD(),
-                        "Hadamard product requires matching physical dimensions.");
+  for (int v = 0; v < A.NumVars(); ++v) {
+    for (int b = 0; b < A.NumBlocks(); ++b) {
+      const auto &train_A = A(b, v);
+      const auto &train_B = B(b, v);
+      std::vector<int> target_ranks;
+      for (int c = 0; c < train_A.NCores() - 1; ++c)
+        target_ranks.push_back(train_A(c).RR() * train_B(c).RR());
+      // Build C from A so each output core keeps A's physical indexer.
+      C(b, v) = TensorTrainT<TTraits>(train_A, target_ranks);
     }
-    for (int c = 0; c < train_A.NCores() - 1; ++c) {
-      target_ranks.push_back(train_A(c).RR() * train_B(c).RR());
-    }
-
-    // Build C from A so each output core keeps A's physical indexer.
-    TrainsC.emplace_back(train_A, target_ranks);
   }
 
-  TensorPackT<TTraits> pack_a(TrainsA);
-  TensorPackT<TTraits> pack_b(TrainsB);
-  TensorPackT<TTraits> pack_c(TrainsC);
-
+  auto pack_a = A.MakeDevicePack();
+  auto pack_b = B.MakeDevicePack();
+  auto pack_c = C.MakeDevicePack();
   constexpr int unused_scratch_size = 0;
   constexpr int unused_scratch_level = 1;
   parthenon::par_for_outer(
       PARTHENON_AUTO_LABEL, unused_scratch_size, unused_scratch_level, 0,
-      pack_a.GetNBlocks() - 1, 0, pack_a.GetNCores() - 1,
-      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int c) {
-        auto &core_a = pack_a(b, 0, c);
-        auto &core_b = pack_b(b, 0, c);
-        auto &core_c = pack_c(b, 0, c);
+      pack_a.GetNBlocks() - 1, 0, pack_a.GetNVars() - 1, 0, pack_a.GetNCores() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int v, const int c) {
+        auto &core_a = pack_a(b, v, c);
+        auto &core_b = pack_b(b, v, c);
+        auto &core_c = pack_c(b, v, c);
         impl::HadamardCoreBlocks(member, core_a, core_b, core_c);
       });
-
-  return TrainsC;
 }
 
 template <class Real, class MatA, class MatB, class MatC, class Diag1, class Diag2,
