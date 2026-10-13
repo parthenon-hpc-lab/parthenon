@@ -26,6 +26,7 @@
 #include "batched_linear_algebra/matrix_utils.hpp"
 #include "kokkos_abstraction.hpp"
 #include "utils/error_checking.hpp"
+#include "utils/robust.hpp"
 
 namespace parthenon {
 namespace batched_linear_algebra {
@@ -90,7 +91,7 @@ class SquareSVD {
           tm, 0, nrows - 1, [&](const int r, double &sum) { sum += A(r, 0) * A(r, 0); },
           sigma2);
 
-      const double sigma = safe_sqrt(sigma2);
+      const double sigma = robust::safe_sqrt(sigma2);
 
       once_per_team(tm, [&]() { sings[0] = sigma; });
 
