@@ -296,7 +296,9 @@ class FiberStorageHost {
       for (int r = 0; r < rr; ++r) {
         host_fibers(l, r) = get_fiber(l, r);
         auto &f = host_fibers(l, r);
-        dd = f.extent(0);
+        PARTHENON_REQUIRE(l + r == 0 || f.extent_int(0) == dd,
+                          "All fibers in a core must have the same length.");
+        dd = f.extent_int(0);
         device_managed_fibers_h(l, r) = fiber_unmanaged_t(f.data(), f.extent(0));
       }
     }
@@ -314,7 +316,7 @@ class UnmanagedStorageDevice {
   using real_t = typename TTraits::real_t;
 
  private:
-  real_t *scratch;
+  real_t *scratch{nullptr};
   int lr{0}, dd{0}, rr{0};
 
  public:

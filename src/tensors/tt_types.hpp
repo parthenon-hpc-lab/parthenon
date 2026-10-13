@@ -148,6 +148,8 @@ class TensorCoreHostT {
   void RebuildFibers(int lr, int rr, const Indexer6D &idxer, Getter &&get_fiber) {
     phys_indexer_ = idxer;
     storage_.RebuildOuterViews(lr, rr, std::forward<Getter>(get_fiber));
+    PARTHENON_REQUIRE(lr == 0 || rr == 0 || DD() == static_cast<int>(idxer.size()),
+                      "RebuildFibers: fiber length does not match the indexer size.");
   }
 
   const auto &Indexer() const { return phys_indexer_; }
@@ -192,17 +194,11 @@ class TensorTrainT {
   // while an "open" train carries dangling boundary bonds (e.g. a single-core
   // buffer that is a factor of a larger train). Operations that require a closed
   // train guard on IsClosed(); see the op definitions in tt_operations.hpp.
-  explicit TensorTrainT(const std::vector<core_type> &cores_in) : cores(cores_in) {
-    for (int c = 1; c < NCores(); ++c) {
-      PARTHENON_REQUIRE(cores[c - 1].RR() == cores[c].LR(),
-                        "Cores must have consistent ranks.");
-    }
-  }
-
-  // Move-construct a train from an already-assembled sequence of cores. Used by
-  // DestructiveSum to install cores whose fiber storage was moved (not copied)
-  // from the summands without re-touching the fiber handles.
-  explicit TensorTrainT(std::vector<core_type> &&cores_in) : cores(std::move(cores_in)) {
+  //
+  // Takes the cores by value: pass an rvalue (as DestructiveSum does) to install
+  // cores whose fiber storage was moved from the summands without copying the
+  // core objects.
+  explicit TensorTrainT(std::vector<core_type> cores_in) : cores(std::move(cores_in)) {
     for (int c = 1; c < NCores(); ++c) {
       PARTHENON_REQUIRE(cores[c - 1].RR() == cores[c].LR(),
                         "Cores must have consistent ranks.");
@@ -216,14 +212,16 @@ class TensorTrainT {
   template <class idx_type>
   TensorTrainT(const std::vector<idx_type> &phys_dims, const std::vector<int> &ranks,
                int left_bond = 1, int right_bond = 1) {
-    PARTHENON_REQUIRE(phys_dims.size() - 1 == ranks.size(),
+    const int ncores = static_cast<int>(phys_dims.size());
+    PARTHENON_REQUIRE(ncores > 0, "A tensor train needs at least one core.");
+    PARTHENON_REQUIRE(ncores - 1 == static_cast<int>(ranks.size()),
                       "Incompatible number of ranks and dimensions.");
-    cores.reserve(phys_dims.size());
-    if (ranks.size() == 0) {
+    cores.reserve(ncores);
+    if (ncores == 1) {
       cores.emplace_back(left_bond, phys_dims[0], right_bond);
     } else {
       cores.emplace_back(left_bond, phys_dims[0], ranks[0]);
-      for (int c = 1; c < phys_dims.size() - 1; ++c) {
+      for (int c = 1; c < ncores - 1; ++c) {
         cores.emplace_back(ranks[c - 1], phys_dims[c], ranks[c]);
       }
       cores.emplace_back(ranks.back(), phys_dims.back(), right_bond);
@@ -243,7 +241,7 @@ class TensorTrainT {
     return out;
   }
 
-  auto NCores() const { return cores.size(); }
+  int NCores() const { return static_cast<int>(cores.size()); }
   auto &GetCoreHost(int c) { return cores[c]; }
   const auto &GetCoreHost(int c) const { return cores[c]; }
 
@@ -284,7 +282,7 @@ class TensorTrainT {
     for (const auto &core : cores) {
       new_cores.push_back(core.DeepCopy());
     }
-    return TensorTrainT(new_cores);
+    return TensorTrainT(std::move(new_cores));
   }
 
  private:

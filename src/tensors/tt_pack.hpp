@@ -88,7 +88,6 @@ struct TensorPackT {
   view_t cores; // (nblocks, nvars, ncores)
   dims_host_view_t physical_dims_h;
   indexer_view_t indexers;
-  int ncores_per_train;
 
   KOKKOS_INLINE_FUNCTION int GetNBlocks() const { return cores.extent_int(0); }
   KOKKOS_INLINE_FUNCTION int GetNVars() const { return cores.extent_int(1); }
@@ -152,7 +151,7 @@ struct TensorPackT {
     const int nblocks = grid.NumBlocks();
     PARTHENON_REQUIRE(nvars > 0 && nblocks > 0,
                       "Cannot construct a TensorPackT with no variables or blocks.");
-    ncores_per_train = grid(0, 0)->NCores();
+    const int ncores_per_train = grid(0, 0)->NCores();
     cores = view_t("TensorPackT", nblocks, nvars, ncores_per_train);
     auto cores_h = Kokkos::create_mirror_view(cores);
     physical_dims_h = dims_host_view_t("TensorPackT physical dims", ncores_per_train);

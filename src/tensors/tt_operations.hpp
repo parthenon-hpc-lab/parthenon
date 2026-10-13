@@ -34,7 +34,6 @@
 
 namespace parthenon {
 namespace tensor {
-using namespace batched_linear_algebra; // NOLINT(build/namespaces)
 namespace impl {
 
 // Copy all fibers from a source core into a destination core with optional
@@ -153,12 +152,10 @@ void NonDestructiveSum(const TensorTrainHostPackT<TTraits> &A,
           train_A.IsClosed() && train_B.IsClosed(),
           "NonDestructiveSum requires closed trains: the block-diagonal stacking of "
           "boundary bonds is only well-defined when they are one.");
-      std::vector<int> phys_dims, target_ranks;
-      for (int c = 0; c < train_A.NCores(); ++c) {
+      for (int c = 0; c < train_A.NCores(); ++c)
         PARTHENON_REQUIRE(train_A(c).DD() == train_B(c).DD(),
                           "Must have equivalent physical dims.");
-        phys_dims.push_back(train_A(c).DD());
-      }
+      std::vector<int> target_ranks;
       for (int c = 0; c < train_A.NCores() - 1; ++c)
         target_ranks.push_back(train_A(c).RR() + train_B(c).RR());
       C(t, v) = TensorTrainT<TTraits>(A(t, v), target_ranks);
@@ -595,6 +592,7 @@ void ApplyFinalRanks(HostPack &pack_host, const FinalRanks &final_ranks) {
 template <class TTraits, class... var_ts>
 void RoundGramSVD(TensorTrainHostPackT<TTraits, var_ts...> &pack_host,
                   typename TTraits::real_t eps, typename TTraits::real_t abs_tol = 0) {
+  using namespace batched_linear_algebra; // NOLINT(build/namespaces)
   using real_t = typename TTraits::real_t;
   // Relative cutoff below which a Gram eigenvalue is treated as numerical noise.
   const real_t eig_noise = std::numeric_limits<real_t>::epsilon();
@@ -844,6 +842,7 @@ template <class TTraits, class... var_ts>
 void RoundOseledetsSVD(TensorTrainHostPackT<TTraits, var_ts...> &pack_host,
                        typename TTraits::real_t eps,
                        typename TTraits::real_t abs_tol = 0) {
+  using namespace batched_linear_algebra; // NOLINT(build/namespaces)
   using real_t = typename TTraits::real_t;
 
   const auto ext = impl::GetRoundingExtents(pack_host);
