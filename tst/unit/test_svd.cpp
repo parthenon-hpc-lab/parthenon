@@ -22,10 +22,12 @@
 
 #include <catch2/catch.hpp>
 
+#include "basic_types.hpp"
 #include "batched_linear_algebra/square_svd.hpp"
 #include "batched_linear_algebra/symmetric_evd.hpp"
 #include "linalg_test_utils.hpp"
 
+using parthenon::Real;
 using namespace parthenon::batched_linear_algebra; // NOLINT(build/namespaces)
 
 // ---------- basic norms / helpers ----------
@@ -36,16 +38,16 @@ static Matrix Multiply2(const Matrix &A, const Matrix &B) {
   return C;
 }
 
-static double OrthoError(const Matrix &Q) {
+static Real OrthoError(const Matrix &Q) {
   // || Q^T Q - I ||_F
   const int n = Q.ncols();
   Matrix Qt = Matrix::Transpose(Q);
   Matrix QtQ = Multiply2(Qt, Q);
 
-  double s = 0.0;
+  Real s = 0.0;
   for (int i = 0; i < n; ++i) {
     for (int j = 0; j < n; ++j) {
-      double e = QtQ(i, j) - (i == j ? 1.0 : 0.0);
+      Real e = QtQ(i, j) - (i == j ? 1.0 : 0.0);
       s += e * e;
     }
   }
@@ -54,8 +56,9 @@ static double OrthoError(const Matrix &Q) {
 
 // Check reconstruction: ||A - U*diag(s)*V^T||_F / max(||A||_F, atol)
 static void CheckSVDReconstruction(const Matrix &A0, const Matrix &U, const Matrix &V,
-                                   const std::vector<double> &sings, double rtol = 1e-10,
-                                   double atol = 1e-12) {
+                                   const std::vector<Real> &sings,
+                                   Real rtol = PrecisionTol(1e-10),
+                                   Real atol = PrecisionTol(1e-12)) {
   Matrix S = Matrix::FromDiagonal(sings);
   Matrix US = Multiply2(U, S);
   Matrix Vt = Matrix::Transpose(V);
@@ -67,42 +70,43 @@ static void CheckSVDReconstruction(const Matrix &A0, const Matrix &U, const Matr
     for (int c = 0; c < A0.ncols(); ++c)
       R(r, c) = A0(r, c) - Ahat(r, c);
 
-  const double denom = std::max(A0.FrobeniusNorm(), atol);
-  const double rel = R.FrobeniusNorm() / denom;
+  const Real denom = std::max(A0.FrobeniusNorm(), atol);
+  const Real rel = R.FrobeniusNorm() / denom;
   REQUIRE(rel < rtol);
 }
 
-static void CheckSingularValueSanity(
-    const std::vector<double> &sings,
-    double floor_rel = 50.0 * std::numeric_limits<double>::epsilon()) {
+static void
+CheckSingularValueSanity(const std::vector<Real> &sings,
+                         Real floor_rel = 50.0 * std::numeric_limits<Real>::epsilon()) {
   // SVD convention: singular values should be non-negative (allow tiny
   // negatives)
-  double smax = 0.0;
-  for (double x : sings)
+  Real smax = 0.0;
+  for (Real x : sings)
     smax = std::max(smax, std::abs(x));
-  double tol = std::max(1.0, smax) * floor_rel;
-  for (double x : sings)
+  Real tol = std::max(Real{1.0}, smax) * floor_rel;
+  for (Real x : sings)
     REQUIRE(x >= -tol);
 }
 
-static double SingularValueEnergy(const std::vector<double> &sings) {
-  double sum = 0.0;
-  for (double x : sings)
+static Real SingularValueEnergy(const std::vector<Real> &sings) {
+  Real sum = 0.0;
+  for (Real x : sings)
     sum += x * x;
   return sum;
 }
 
 static void CheckSingularValueEnergyIdentity(const Matrix &A,
-                                             const std::vector<double> &sings,
-                                             double rtol = 1e-12, double atol = 1e-12) {
-  const double sigma2 = SingularValueEnergy(sings);
-  const double frob2 = A.FrobeniusNorm() * A.FrobeniusNorm();
-  const double denom = std::max(frob2, atol);
+                                             const std::vector<Real> &sings,
+                                             Real rtol = PrecisionTol(1e-12),
+                                             Real atol = PrecisionTol(1e-12)) {
+  const Real sigma2 = SingularValueEnergy(sings);
+  const Real frob2 = A.FrobeniusNorm() * A.FrobeniusNorm();
+  const Real denom = std::max(frob2, atol);
   REQUIRE(std::abs(sigma2 - frob2) / denom < rtol);
 }
 
-static void SortAbs(std::vector<double> &v) {
-  for (double &x : v)
+static void SortAbs(std::vector<Real> &v) {
+  for (Real &x : v)
     x = std::abs(x);
   std::sort(v.begin(), v.end());
 }
@@ -118,7 +122,7 @@ static Matrix ThinOrthogonal(int m, int k, unsigned seed) {
   return T;
 }
 
-static Matrix FromTallSingularValues(int m, int n, const std::vector<double> &sings,
+static Matrix FromTallSingularValues(int m, int n, const std::vector<Real> &sings,
                                      unsigned seed = 12345u) {
   const int k = static_cast<int>(sings.size());
   Matrix U = ThinOrthogonal(m, k, seed * 17u + 1u);
@@ -131,14 +135,25 @@ static Matrix FromTallSingularValues(int m, int n, const std::vector<double> &si
   return A;
 }
 
-static void RunTallSVDStress(int m, int n, const std::vector<double> &sings_template,
-                             int num_realizations, double recon_rtol,
-                             double ortho_rtol = 1e-10, double sv_rtol = 1e-8,
-                             double min_floor = 1e-12, bool explicit_scratch = false) {
+// In the stress drivers below the tolerances are tuned for double precision and
+// converted with PrecisionTol. The singular-value tolerance is relative to a floor of
+// 1e-3 * max(1, s_max), so rescaling it by epsilon would make it meaningless in single
+// precision; it gets an explicit single-precision value instead.
+constexpr double kSingleSvRtol = 1e-2;
+
+static void RunTallSVDStress(int m, int n, const std::vector<Real> &sings_template,
+                             int num_realizations, double recon_rtol_dbl,
+                             double ortho_rtol_dbl = 1e-10, double sv_rtol_dbl = 1e-8,
+                             double min_floor_dbl = 1e-12,
+                             bool explicit_scratch = false) {
+  const Real recon_rtol = PrecisionTol(recon_rtol_dbl);
+  const Real ortho_rtol = PrecisionTol(ortho_rtol_dbl);
+  const Real sv_rtol = PrecisionTol(sv_rtol_dbl, kSingleSvRtol);
+  const Real min_floor = PrecisionTol(min_floor_dbl);
   REQUIRE(m >= n);
   REQUIRE(static_cast<int>(sings_template.size()) == n);
 
-  std::vector<double> s_ref = sings_template;
+  std::vector<Real> s_ref = sings_template;
   SortAbs(s_ref);
 
   for (int r = 0; r < num_realizations; ++r) {
@@ -146,11 +161,11 @@ static void RunTallSVDStress(int m, int n, const std::vector<double> &sings_temp
     Matrix A0 = A.GetDeepCopy();
 
     Matrix U(m, n), V(n, n);
-    std::vector<double> s(n);
+    std::vector<Real> s(n);
 
     int iters = 0;
     if (explicit_scratch) {
-      std::vector<double> scratch(SquareSVD::double_scratch_size(m, n));
+      std::vector<Real> scratch(SquareSVD::Real_scratch_size(m, n));
       std::vector<std::size_t> iscratch(SquareSVD::sizet_scratch_size(n));
       iters = SquareSVD::execute(serial_tm_t(), &A, &U, &V, s.data(), scratch.data(),
                                  iscratch.data());
@@ -159,35 +174,40 @@ static void RunTallSVDStress(int m, int n, const std::vector<double> &sings_temp
     }
     REQUIRE(iters >= 0);
 
-    CheckSVDReconstruction(A0, U, V, s, recon_rtol, /*atol=*/1e-12);
-    REQUIRE(OrthoError(U) / std::max(1.0, std::sqrt(static_cast<double>(n))) <
+    CheckSVDReconstruction(A0, U, V, s, recon_rtol, /*atol=*/PrecisionTol(1e-12));
+    REQUIRE(OrthoError(U) / std::max(Real{1.0}, std::sqrt(static_cast<Real>(n))) <
             ortho_rtol);
-    REQUIRE(OrthoError(V) / std::max(1.0, std::sqrt(static_cast<double>(n))) <
+    REQUIRE(OrthoError(V) / std::max(Real{1.0}, std::sqrt(static_cast<Real>(n))) <
             ortho_rtol);
-    CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/1e-10, /*atol=*/1e-12);
+    CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/PrecisionTol(1e-10),
+                                     /*atol=*/PrecisionTol(1e-12));
 
-    std::vector<double> s_sorted = s;
+    std::vector<Real> s_sorted = s;
     SortAbs(s_sorted);
 
-    double floor_val = min_floor;
+    Real floor_val = min_floor;
     for (int i = 0; i < n; ++i)
-      floor_val = std::max(floor_val, 1e-3 * std::max(1.0, s_ref[i]));
+      floor_val = std::max(floor_val, Real{1e-3} * std::max(Real{1.0}, s_ref[i]));
 
     for (int i = 0; i < n; ++i) {
-      double diff = std::abs(s_sorted[i] - s_ref[i]);
-      double denom = std::max(floor_val, s_ref[i]);
+      Real diff = std::abs(s_sorted[i] - s_ref[i]);
+      Real denom = std::max(floor_val, s_ref[i]);
       REQUIRE(diff / denom < sv_rtol);
     }
   }
 }
 
-static void RunSVDStress(const std::vector<double> &sings_template, int num_realizations,
-                         int max_iter_factor, double recon_rtol,
-                         double ortho_rtol = 1e-10, double sv_rtol = 1e-8,
-                         double min_floor = 1e-12) {
+static void RunSVDStress(const std::vector<Real> &sings_template, int num_realizations,
+                         int max_iter_factor, double recon_rtol_dbl,
+                         double ortho_rtol_dbl = 1e-10, double sv_rtol_dbl = 1e-8,
+                         double min_floor_dbl = 1e-12) {
+  const Real recon_rtol = PrecisionTol(recon_rtol_dbl);
+  const Real ortho_rtol = PrecisionTol(ortho_rtol_dbl);
+  const Real sv_rtol = PrecisionTol(sv_rtol_dbl, kSingleSvRtol);
+  const Real min_floor = PrecisionTol(min_floor_dbl);
   const int n = static_cast<int>(sings_template.size());
 
-  std::vector<double> s_ref = sings_template;
+  std::vector<Real> s_ref = sings_template;
   // Allow caller to pass unsorted; comparisons are order-insensitive.
   SortAbs(s_ref);
 
@@ -196,21 +216,21 @@ static void RunSVDStress(const std::vector<double> &sings_template, int num_real
     Matrix A0 = A.GetDeepCopy();
 
     Matrix U(n, n), V(n, n);
-    std::vector<double> s(n);
+    std::vector<Real> s(n);
 
     int iters = SquareSVD::execute(&A, &U, &V, s.data());
     REQUIRE(iters < max_iter_factor * n);
     REQUIRE(iters > 0);
 
     // 1) reconstruction
-    CheckSVDReconstruction(A0, U, V, s, recon_rtol, /*atol=*/1e-12);
+    CheckSVDReconstruction(A0, U, V, s, recon_rtol, /*atol=*/PrecisionTol(1e-12));
 
     // 2) orthogonality
-    double uerr = OrthoError(U);
-    double verr = OrthoError(V);
+    Real uerr = OrthoError(U);
+    Real verr = OrthoError(V);
     // Scale orthogonality tolerance loosely with n
-    REQUIRE(uerr / std::max(1.0, std::sqrt(static_cast<double>(n))) < ortho_rtol);
-    REQUIRE(verr / std::max(1.0, std::sqrt(static_cast<double>(n))) < ortho_rtol);
+    REQUIRE(uerr / std::max(Real{1.0}, std::sqrt(static_cast<Real>(n))) < ortho_rtol);
+    REQUIRE(verr / std::max(Real{1.0}, std::sqrt(static_cast<Real>(n))) < ortho_rtol);
 
     // 3) singular values sanity + compare to reference spectrum
     // (order-insensitive)
@@ -219,17 +239,17 @@ static void RunSVDStress(const std::vector<double> &sings_template, int num_real
     // in the SquareSVD).
     // CheckSingularValueSanity(s);
 
-    std::vector<double> s_sorted = s;
+    std::vector<Real> s_sorted = s;
     SortAbs(s_sorted);
 
     // floor based on magnitude of reference spectrum
-    double floor_val = min_floor;
+    Real floor_val = min_floor;
     for (int i = 0; i < n; ++i)
-      floor_val = std::max(floor_val, 1e-3 * std::max(1.0, s_ref[i]));
+      floor_val = std::max(floor_val, Real{1e-3} * std::max(Real{1.0}, s_ref[i]));
 
     for (int i = 0; i < n; ++i) {
-      double diff = std::abs(s_sorted[i] - s_ref[i]);
-      double denom = std::max(floor_val, s_ref[i]);
+      Real diff = std::abs(s_sorted[i] - s_ref[i]);
+      Real denom = std::max(floor_val, s_ref[i]);
       REQUIRE(diff / denom < sv_rtol);
     }
   }
@@ -267,8 +287,8 @@ TEST_CASE("Tall-skinny SVD stress tests", "[svd][rect][thin]") {
   }
 
   SECTION("Explicit scratch sizing") {
-    REQUIRE(SquareSVD::double_scratch_size(30, 5) == 90);
-    REQUIRE(SquareSVD::double_scratch_size(5) == 15);
+    REQUIRE(SquareSVD::Real_scratch_size(30, 5) == 90);
+    REQUIRE(SquareSVD::Real_scratch_size(5) == 15);
     RunTallSVDStress(9, 4, {6.0, 2.0, 0.5, 0.1}, 8, recon_rtol,
                      /*ortho_rtol=*/1e-10, sv_rtol, /*min_floor=*/1e-12,
                      /*explicit_scratch=*/true);
@@ -284,26 +304,28 @@ TEST_CASE("Tall-skinny SVD edge cases", "[svd][rect][edge_case]") {
 
     Matrix A0 = A.GetDeepCopy();
     Matrix U(6, 1), V(1, 1);
-    std::vector<double> s(1);
+    std::vector<Real> s(1);
     int iters = SquareSVD::execute(&A, &U, &V, s.data());
     REQUIRE(iters == 0);
-    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/1e-12, /*atol=*/1e-12);
-    REQUIRE(OrthoError(U) < 1e-12);
-    REQUIRE(OrthoError(V) < 1e-12);
+    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/PrecisionTol(1e-12),
+                           /*atol=*/PrecisionTol(1e-12));
+    REQUIRE(OrthoError(U) < PrecisionTol(1e-12));
+    REQUIRE(OrthoError(V) < PrecisionTol(1e-12));
   }
 
   SECTION("Zero matrix") {
     Matrix A(4, 3);
     Matrix A0 = A.GetDeepCopy();
     Matrix U(4, 3), V(3, 3);
-    std::vector<double> s(3);
+    std::vector<Real> s(3);
     int iters = SquareSVD::execute(&A, &U, &V, s.data());
     REQUIRE(iters >= 0);
-    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/1e-12, /*atol=*/1e-12);
-    REQUIRE(OrthoError(U) < 1e-12);
-    REQUIRE(OrthoError(V) < 1e-12);
-    for (double x : s)
-      REQUIRE(std::abs(x) < 1e-12);
+    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/PrecisionTol(1e-12),
+                           /*atol=*/PrecisionTol(1e-12));
+    REQUIRE(OrthoError(U) < PrecisionTol(1e-12));
+    REQUIRE(OrthoError(V) < PrecisionTol(1e-12));
+    for (Real x : s)
+      REQUIRE(std::abs(x) < PrecisionTol(1e-12));
   }
 }
 
@@ -319,12 +341,12 @@ TEST_CASE("ImplicitQR bidiag SVD stress tests over spectra", "[svd][qr][bidiag]"
 
   // 1) Baseline: arithmetic-ish with a big outlier and tiny perturbations
   SECTION("Arithmetic-ish with perturbed tail and large outlier") {
-    std::vector<double> s(n);
+    std::vector<Real> s(n);
     for (int i = 0; i < n; ++i)
       s[i] = 1.0 + 0.25 * i;
 
     for (int i = 1; i <= 8; ++i) {
-      double sign = (i % 2 ? -1.0 : 1.0); // allow mixed signs in construction
+      Real sign = (i % 2 ? -1.0 : 1.0); // allow mixed signs in construction
       s[n - i] = sign * (4.0 + i * 1.e-8);
     }
     s.back() = 1.e4;
@@ -335,7 +357,7 @@ TEST_CASE("ImplicitQR bidiag SVD stress tests over spectra", "[svd][qr][bidiag]"
 
   // 2) Strong clustering (harder deflation / close singular values)
   SECTION("Clustered spectrum around 1.0") {
-    std::vector<double> s(n);
+    std::vector<Real> s(n);
 
     for (int i = 0; i < n / 4; ++i)
       s[i] = 0.1 + 0.01 * i;
@@ -350,7 +372,7 @@ TEST_CASE("ImplicitQR bidiag SVD stress tests over spectra", "[svd][qr][bidiag]"
 
   // 3) Repeated values (multiplicity)
   SECTION("Repeated singular values") {
-    std::vector<double> s(n, 0.0);
+    std::vector<Real> s(n, 0.0);
     for (int i = 0; i < n / 2; ++i)
       s[i] = 2.0;
     for (int i = n / 2; i < n; ++i)
@@ -365,11 +387,11 @@ TEST_CASE("ImplicitQR bidiag SVD stress tests over spectra", "[svd][qr][bidiag]"
 
   // 4) Wide dynamic range (scaling / conditioning)
   SECTION("Wide dynamic range") {
-    std::vector<double> s(n);
+    std::vector<Real> s(n);
     for (int i = 0; i < n; ++i) {
-      double alpha = -10.0 + 20.0 * (static_cast<double>(i) / (n - 1));
-      double val = std::pow(10.0, alpha);
-      double sign = (i % 2 ? -1.0 : 1.0); // allow sign in construction
+      Real alpha = -10.0 + 20.0 * (static_cast<Real>(i) / (n - 1));
+      Real val = std::pow(10.0, alpha);
+      Real sign = (i % 2 ? -1.0 : 1.0); // allow sign in construction
       s[i] = sign * val;
     }
 
@@ -379,7 +401,7 @@ TEST_CASE("ImplicitQR bidiag SVD stress tests over spectra", "[svd][qr][bidiag]"
 
   // 5) Nearly rank-deficient (tiny tail)
   SECTION("Nearly rank-deficient tail") {
-    std::vector<double> s(n, 0.0);
+    std::vector<Real> s(n, 0.0);
     for (int i = 0; i < n - 5; ++i)
       s[i] = 1.0 + 0.1 * i;
     for (int i = n - 5; i < n; ++i)
@@ -393,7 +415,7 @@ TEST_CASE("ImplicitQR bidiag SVD stress tests over spectra", "[svd][qr][bidiag]"
   // 6) Strongly rank-deficient (exact zeros)
   SECTION("Strongly rank-deficient with exact zeros") {
     for (int k = 1; k <= 10; ++k) {
-      std::vector<double> s(n, 0.0);
+      std::vector<Real> s(n, 0.0);
       for (int i = 0; i < k; ++i)
         s[i] = 1.0 + i; // only k nonzero
 
@@ -415,7 +437,7 @@ TEST_CASE("SVD handles single row/column non-zero matrices", "[svd][edge_case]")
 
       Matrix A0 = A.GetDeepCopy();
       Matrix U(n, n), V(n, n);
-      std::vector<double> s(n);
+      std::vector<Real> s(n);
 
       int iters = SquareSVD::execute(&A, &U, &V, s.data());
       REQUIRE(iters < 15 * n);
@@ -431,21 +453,22 @@ TEST_CASE("SVD handles single row/column non-zero matrices", "[svd][edge_case]")
       }
 
       // Verify reconstruction
-      CheckSVDReconstruction(A0, U, V, s, /*rtol=*/1e-9, /*atol=*/1e-12);
+      CheckSVDReconstruction(A0, U, V, s, /*rtol=*/PrecisionTol(1e-9),
+                             /*atol=*/PrecisionTol(1e-12));
 
       // For a single-row matrix, there should be exactly one non-zero singular value
-      double row_norm = 0.0;
+      Real row_norm = 0.0;
       for (int j = 0; j < n; ++j) {
         row_norm += A0(0, j) * A0(0, j);
       }
       row_norm = std::sqrt(row_norm);
 
       // The first singular value should match the norm of the row
-      REQUIRE(std::abs(s[0] - row_norm) / row_norm < 1e-10);
+      REQUIRE(std::abs(s[0] - row_norm) / row_norm < PrecisionTol(1e-10));
 
       // All other singular values should be effectively zero
       for (int i = 1; i < n; ++i) {
-        REQUIRE(std::abs(s[i]) < 1e-10 * row_norm);
+        REQUIRE(std::abs(s[i]) < PrecisionTol(1e-10) * row_norm);
       }
     }
   }
@@ -458,17 +481,19 @@ TEST_CASE("SVD handles 1x1 matrices exactly", "[svd][edge_case]") {
     Matrix A0 = A.GetDeepCopy();
 
     Matrix U(1, 1), V(1, 1);
-    std::vector<double> s(1);
+    std::vector<Real> s(1);
 
     int iters = SquareSVD::execute(&A, &U, &V, s.data());
     REQUIRE(iters == 0);
 
-    REQUIRE(std::abs(s[0] - 0.5) < 1e-14);
+    REQUIRE(std::abs(s[0] - 0.5) < PrecisionTol(1e-14));
     CheckSingularValueSanity(s);
-    CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/1e-14, /*atol=*/1e-14);
-    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/1e-14, /*atol=*/1e-14);
-    REQUIRE(OrthoError(U) < 1e-14);
-    REQUIRE(OrthoError(V) < 1e-14);
+    CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/PrecisionTol(1e-14),
+                                     /*atol=*/PrecisionTol(1e-14));
+    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/PrecisionTol(1e-14),
+                           /*atol=*/PrecisionTol(1e-14));
+    REQUIRE(OrthoError(U) < PrecisionTol(1e-14));
+    REQUIRE(OrthoError(V) < PrecisionTol(1e-14));
   }
 
   SECTION("Negative scalar") {
@@ -477,17 +502,19 @@ TEST_CASE("SVD handles 1x1 matrices exactly", "[svd][edge_case]") {
     Matrix A0 = A.GetDeepCopy();
 
     Matrix U(1, 1), V(1, 1);
-    std::vector<double> s(1);
+    std::vector<Real> s(1);
 
     int iters = SquareSVD::execute(&A, &U, &V, s.data());
     REQUIRE(iters == 0);
 
-    REQUIRE(std::abs(s[0] - 0.5) < 1e-14);
+    REQUIRE(std::abs(s[0] - 0.5) < PrecisionTol(1e-14));
     CheckSingularValueSanity(s);
-    CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/1e-14, /*atol=*/1e-14);
-    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/1e-14, /*atol=*/1e-14);
-    REQUIRE(OrthoError(U) < 1e-14);
-    REQUIRE(OrthoError(V) < 1e-14);
+    CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/PrecisionTol(1e-14),
+                                     /*atol=*/PrecisionTol(1e-14));
+    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/PrecisionTol(1e-14),
+                           /*atol=*/PrecisionTol(1e-14));
+    REQUIRE(OrthoError(U) < PrecisionTol(1e-14));
+    REQUIRE(OrthoError(V) < PrecisionTol(1e-14));
   }
 }
 
@@ -513,17 +540,19 @@ TEST_CASE("SVD handles structured rank-deficient matrices with zero leading entr
 
   Matrix A0 = A.GetDeepCopy();
   Matrix U(4, 4), V(4, 4);
-  std::vector<double> s(4);
+  std::vector<Real> s(4);
 
   int iters = SquareSVD::execute(&A, &U, &V, s.data());
   REQUIRE(iters > 0);
   REQUIRE(iters < 15 * 4);
 
   CheckSingularValueSanity(s);
-  CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/1e-12, /*atol=*/1e-12);
-  CheckSVDReconstruction(A0, U, V, s, /*rtol=*/1e-12, /*atol=*/1e-12);
-  REQUIRE(OrthoError(U) < 1e-12);
-  REQUIRE(OrthoError(V) < 1e-12);
+  CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/PrecisionTol(1e-12),
+                                   /*atol=*/PrecisionTol(1e-12));
+  CheckSVDReconstruction(A0, U, V, s, /*rtol=*/PrecisionTol(1e-12),
+                         /*atol=*/PrecisionTol(1e-12));
+  REQUIRE(OrthoError(U) < PrecisionTol(1e-12));
+  REQUIRE(OrthoError(V) < PrecisionTol(1e-12));
 }
 
 TEST_CASE("SVD vs Gram eigenvalues: singular values match sqrt(eigs(A^T A))",
@@ -536,7 +565,7 @@ TEST_CASE("SVD vs Gram eigenvalues: singular values match sqrt(eigs(A^T A))",
     Matrix A0 = A.GetDeepCopy();
 
     Matrix U(n, n), V(n, n);
-    std::vector<double> s(n);
+    std::vector<Real> s(n);
     int iters = SquareSVD::execute(&A, &U, &V, s.data());
     REQUIRE(iters < 15 * n);
     REQUIRE(iters > 0);
@@ -548,35 +577,38 @@ TEST_CASE("SVD vs Gram eigenvalues: singular values match sqrt(eigs(A^T A))",
 
     // Eigen-decompose G (PSD)
     Matrix Q(n, n);
-    std::vector<double> d(n);
+    std::vector<Real> d(n);
     Matrix G0 = G.GetDeepCopy();
     int iters_e = SymmetricEVD::execute(&G, &Q, d.data());
     REQUIRE(iters_e < 5 * n);
 
     // Compare sorted singular values to sorted sqrt of eigenvalues (clamp tiny
     // negatives)
-    std::vector<double> s_sorted = s;
+    std::vector<Real> s_sorted = s;
     SortAbs(s_sorted);
 
-    std::vector<double> g_sorted = d;
+    std::vector<Real> g_sorted = d;
     std::sort(g_sorted.begin(), g_sorted.end());
-    for (double &x : g_sorted)
+    for (Real &x : g_sorted)
       x = (x < 0.0 ? 0.0 : x);
-    for (double &x : g_sorted)
+    for (Real &x : g_sorted)
       x = std::sqrt(x);
 
     // Relative compare with a floor
-    double smax = std::max(1.0, s_sorted.back());
-    double floor_val = 1e-12 * smax;
-
+    Real smax = std::max(Real{1.0}, s_sorted.back());
+    // sqrt(eigs(A^T A)) has absolute error ~ eps * smax^2 / s, so in single precision
+    // the floor has to be raised well above epsilon for the relative check to mean
+    // anything; neither value is an epsilon rescaling of the double one.
+    Real floor_val = PrecisionTol(1e-12, 1e-2) * smax;
     for (int i = 0; i < n; ++i) {
-      double diff = std::abs(s_sorted[i] - g_sorted[i]);
-      double denom = std::max(floor_val, g_sorted[i]);
-      REQUIRE(diff / denom < 1e-6);
+      Real diff = std::abs(s_sorted[i] - g_sorted[i]);
+      Real denom = std::max(floor_val, g_sorted[i]);
+      REQUIRE(diff / denom < PrecisionTol(1e-6, 1e-2));
     }
 
     // Also enforce reconstruction
-    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/5e-10, /*atol=*/1e-12);
+    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/PrecisionTol(5e-10),
+                           /*atol=*/PrecisionTol(1e-12));
   }
 }
 
@@ -584,7 +616,7 @@ TEST_CASE("SVD handles scaled matrices: scaling singular values", "[svd][scale]"
   const int n = 25;
   const int num_realizations = 30;
 
-  std::vector<double> scales = {1e-12, 1e-6, 1.0, 1e6, 1e12};
+  std::vector<Real> scales = {1e-12, 1e-6, 1.0, 1e6, 1e12};
 
   for (int r = 0; r < num_realizations; ++r) {
     Matrix A = Matrix::RandomGaussian(n, n, /*seed=*/9999u + r);
@@ -592,32 +624,33 @@ TEST_CASE("SVD handles scaled matrices: scaling singular values", "[svd][scale]"
 
     // Baseline SVD
     Matrix U0(n, n), V0(n, n);
-    std::vector<double> s0(n);
+    std::vector<Real> s0(n);
     int iters = SquareSVD::execute(&A, &U0, &V0, s0.data());
     REQUIRE(iters < 5 * n);
     REQUIRE(iters > 0);
     SortAbs(s0);
 
-    for (double alpha : scales) {
+    for (Real alpha : scales) {
       Matrix As = A0.GetDeepCopy();
       for (int i = 0; i < n; ++i)
         for (int j = 0; j < n; ++j)
           As(i, j) *= alpha;
 
       Matrix U(n, n), V(n, n);
-      std::vector<double> s(n);
+      std::vector<Real> s(n);
       int iters = SquareSVD::execute(&As, &U, &V, s.data());
       REQUIRE(iters < 5 * n);
       REQUIRE(iters > 0);
       SortAbs(s);
 
       // Compare s ≈ |alpha| s0
-      double floor_val = 1e-12 * std::max(1.0, std::abs(alpha) * s0.back());
+      Real floor_val =
+          PrecisionTol(1e-12) * std::max(Real{1.0}, std::abs(alpha) * s0.back());
       for (int i = 0; i < n; ++i) {
-        double ref = std::abs(alpha) * s0[i];
-        double diff = std::abs(s[i] - ref);
-        double denom = std::max(floor_val, ref);
-        REQUIRE(diff / denom < 1e-6);
+        Real ref = std::abs(alpha) * s0[i];
+        Real diff = std::abs(s[i] - ref);
+        Real denom = std::max(floor_val, ref);
+        REQUIRE(diff / denom < PrecisionTol(1e-6, 1e-3));
       }
     }
   }

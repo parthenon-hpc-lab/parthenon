@@ -221,7 +221,7 @@ int TTCross(TensorTrainHostPackT<TTraits, var_ts...> &pack_host, const F &f,
   }
 
   const std::size_t work_size =
-      std::max(QRDecomposition::double_scratch_size(max_rows, max_rank),
+      std::max(QRDecomposition::Real_scratch_size(max_rows, max_rank),
                Maxvol::double_scratch_size(max_rows, max_rank));
   int scratch_size{0};
   scratch_size += ScratchPad1D<real_t>::shmem_size(max_core_size);

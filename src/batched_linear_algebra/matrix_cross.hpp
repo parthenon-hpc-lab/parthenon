@@ -165,7 +165,7 @@ class MatrixCross {
     // Fiber and its thin Q, then a work area shared by QR and Maxvol
     const std::size_t max_dim = std::max(nrows, ncols);
     return 2 * max_dim * rank +
-           std::max(QRDecomposition::double_scratch_size(max_dim, rank),
+           std::max(QRDecomposition::Real_scratch_size(max_dim, rank),
                     Maxvol::double_scratch_size(max_dim, rank));
   }
 

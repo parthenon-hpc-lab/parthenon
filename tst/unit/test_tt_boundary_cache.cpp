@@ -234,65 +234,45 @@ TEST_CASE("BuildBoundaryTensors gathers interior cells into the addend ghost lay
   }
 }
 
-TEST_CASE("TT Send/Receive/Set exchanges ghost data between blocks",
-          "[TTField][mesh][MPI]") {
-  parthenon::Globals::nghost = kNGhost;
-  auto app_in = std::make_shared<ApplicationInput>();
-  auto packages = MakePackages();
-  auto mesh = MakeMesh(app_in.get(), packages);
+namespace {
 
-  auto partition = mesh->GetDefaultBlockPartitions()[0];
-  auto md = mesh->tt_data.Add("base", partition);
+// Seed each block b to the constant (b + 1) in its interior and ghost_val in its ghosts,
+// as a rank-1 train (trailing cores all ones, so the reconstructed field equals the
+// spatial core).
+void SeedBlockConstants(std::shared_ptr<parthenon::MeshTTData> &md, double ghost_val) {
+  const auto &cb = md->GetBlockData(0)->GetBlockPointer()->cellbounds;
+  const int ii_s = cb.is(IndexDomain::interior), ii_e = cb.ie(IndexDomain::interior);
+  const int jj_s = cb.js(IndexDomain::interior), jj_e = cb.je(IndexDomain::interior);
+  std::vector<tensor::TensorTrain *> src;
+  for (int b = 0; b < md->NumBlocks(); ++b)
+    src.push_back(&md->GetBlockData(b)->Get("I")->train());
+  auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>(src).MakeDevicePack();
+  parthenon::par_for(
+      parthenon::loop_pattern_flatrange_tag, "SeedConst", DevExecSpace(), 0,
+      pack.GetNBlocks() - 1, KOKKOS_LAMBDA(const int b) {
+        for (int c = 1; c < pack.GetNCores(); ++c) {
+          auto &core = pack(b, 0, c);
+          for (int l = 0; l < core.LR(); ++l)
+            for (int j = 0; j < core.DD(); ++j)
+              for (int r = 0; r < core.RR(); ++r)
+                core(l, j, r) = 1.0;
+        }
+        auto &sc = pack(b, 0, 0);
+        const auto &idxer = pack.indexer(0);
+        for (int idx = 0; idx < sc.DD(); ++idx) {
+          const auto [t, u, v, k, j, i] = idxer(idx);
+          const bool interior = i >= ii_s && i <= ii_e && j >= jj_s && j <= jj_e;
+          for (int r = 0; r < sc.RR(); ++r)
+            sc(0, idx, r) = interior ? (b + 1.0) : ghost_val;
+        }
+      });
+  Kokkos::fence();
+}
 
-  BuildTTBoundaryCache(md);
+// For each boundary, the receiving block's ghost cells that receive from neighbor nb
+// must hold the neighbor block's constant (nb_block + 1).
+void CheckGhostsHoldNeighborConstants(std::shared_ptr<parthenon::MeshTTData> &md) {
   auto &cache = md->GetBoundaryCache();
-
-  auto pmb0 = md->GetBlockData(0)->GetBlockPointer();
-
-  // Seed each block b to the constant (b + 1) in its interior and 0 in its ghosts, as a
-  // rank-1 train (trailing cores all ones). Zero ghosts match the pre-exchange state, so
-  // a received addend carrying neighbor nb's interface constant (nb_block + 1) lands
-  // cleanly in the ghost layer after the additive combine.
-  {
-    const auto &cb = pmb0->cellbounds;
-    const int ii_s = cb.is(IndexDomain::interior), ii_e = cb.ie(IndexDomain::interior);
-    const int jj_s = cb.js(IndexDomain::interior), jj_e = cb.je(IndexDomain::interior);
-    std::vector<tensor::TensorTrain *> src;
-    for (int b = 0; b < md->NumBlocks(); ++b)
-      src.push_back(&md->GetBlockData(b)->Get("I")->train());
-    auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>(src).MakeDevicePack();
-    parthenon::par_for(
-        parthenon::loop_pattern_flatrange_tag, "SeedConst", DevExecSpace(), 0,
-        pack.GetNBlocks() - 1, KOKKOS_LAMBDA(const int b) {
-          // Trailing cores all ones so the reconstructed field equals the spatial core.
-          for (int c = 1; c < pack.GetNCores(); ++c) {
-            auto &core = pack(b, 0, c);
-            for (int l = 0; l < core.LR(); ++l)
-              for (int j = 0; j < core.DD(); ++j)
-                for (int r = 0; r < core.RR(); ++r)
-                  core(l, j, r) = 1.0;
-          }
-          auto &sc = pack(b, 0, 0);
-          const auto &idxer = pack.indexer(0);
-          for (int idx = 0; idx < sc.DD(); ++idx) {
-            const auto [t, u, v, k, j, i] = idxer(idx);
-            const bool interior = i >= ii_s && i <= ii_e && j >= jj_s && j <= jj_e;
-            for (int r = 0; r < sc.RR(); ++r)
-              sc(0, idx, r) = interior ? (b + 1.0) : 0.0;
-          }
-        });
-    Kokkos::fence();
-  }
-
-  // Run one exchange.
-  parthenon::TTSend(md, /*eps=*/1.0e-12);
-  REQUIRE(parthenon::TTReceive(md) == parthenon::TaskStatus::complete);
-  parthenon::TTSetBounds(md, /*eps=*/1.0e-12);
-
-  // For each boundary, the receiving block's ghost cells that receive from neighbor nb
-  // must now hold the neighbor block's constant (nb_block + 1); the block's own interior
-  // is untouched at (b + 1). We know the sending-block constant from the source captured
-  // in the same walk order.
   std::vector<int> src_block;
   {
     // Recover each boundary's sending-block constant: the neighbor gid maps to a block
@@ -341,6 +321,95 @@ TEST_CASE("TT Send/Receive/Set exchanges ghost data between blocks",
           nwrong);
       INFO("boundary " << e << " expects neighbor const " << nb_val);
       REQUIRE(nwrong == 0);
+    }
+  }
+}
+
+} // namespace
+
+TEST_CASE("TT Send/Receive/Set exchanges ghost data between blocks",
+          "[TTField][mesh][MPI]") {
+  parthenon::Globals::nghost = kNGhost;
+  auto app_in = std::make_shared<ApplicationInput>();
+  auto packages = MakePackages();
+  auto mesh = MakeMesh(app_in.get(), packages);
+
+  auto partition = mesh->GetDefaultBlockPartitions()[0];
+  auto md = mesh->tt_data.Add("base", partition);
+
+  BuildTTBoundaryCache(md);
+
+  // Zero ghosts match the pre-exchange state, so a received addend carrying neighbor
+  // nb's interface constant lands cleanly in the ghost layer after the additive combine.
+  SeedBlockConstants(md, /*ghost_val=*/0.0);
+
+  parthenon::TTSend(md, /*eps=*/1.0e-12);
+  REQUIRE(parthenon::TTReceive(md) == parthenon::TaskStatus::complete);
+  parthenon::TTSetBounds(md, /*eps=*/1.0e-12);
+
+  CheckGhostsHoldNeighborConstants(md);
+}
+
+TEST_CASE("TTZeroBoundaries clears stale ghosts before an exchange",
+          "[TTField][mesh][MPI]") {
+  parthenon::Globals::nghost = kNGhost;
+  auto app_in = std::make_shared<ApplicationInput>();
+  auto packages = MakePackages();
+  auto mesh = MakeMesh(app_in.get(), packages);
+
+  auto partition = mesh->GetDefaultBlockPartitions()[0];
+  auto md = mesh->tt_data.Add("base", partition);
+
+  BuildTTBoundaryCache(md);
+
+  // Non-zero ghosts stand in for the data left by a previous exchange. Without zeroing,
+  // Set would leave stale + received in each ghost cell.
+  constexpr double kStale = 100.0;
+  SeedBlockConstants(md, kStale);
+
+  GIVEN("Zeroed boundaries") {
+    REQUIRE(parthenon::TTZeroBoundaries(md) == parthenon::TaskStatus::complete);
+
+    THEN("Every ghost cell is zero and every interior cell is unchanged") {
+      const auto &cb = md->GetBlockData(0)->GetBlockPointer()->cellbounds;
+      const int ii_s = cb.is(IndexDomain::interior), ii_e = cb.ie(IndexDomain::interior);
+      const int jj_s = cb.js(IndexDomain::interior), jj_e = cb.je(IndexDomain::interior);
+      std::vector<tensor::TensorTrain *> trains;
+      for (int b = 0; b < md->NumBlocks(); ++b)
+        trains.push_back(&md->GetBlockData(b)->Get("I")->train());
+      auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>(trains).MakeDevicePack();
+      int nwrong = 0;
+      parthenon::par_reduce(
+          parthenon::loop_pattern_flatrange_tag, "CheckZeroed", DevExecSpace(), 0,
+          pack.GetNBlocks() - 1,
+          KOKKOS_LAMBDA(const int b, int &lwrong) {
+            auto &core0 = pack(b, 0, 0);
+            auto &core1 = pack(b, 0, 1);
+            auto &core2 = pack(b, 0, 2);
+            const auto &idxer = pack.indexer(0);
+            for (int idx = 0; idx < core0.DD(); ++idx) {
+              const auto [t, u, v, k, j, i] = idxer(idx);
+              const bool interior = i >= ii_s && i <= ii_e && j >= jj_s && j <= jj_e;
+              double val = 0.0;
+              for (int r1 = 0; r1 < core0.RR(); ++r1)
+                for (int r2 = 0; r2 < core1.RR(); ++r2)
+                  val += core0(0, idx, r1) * core1(r1, 0, r2) * core2(r2, 0, 0);
+              const double expected = interior ? (b + 1.0) : 0.0;
+              lwrong += (Kokkos::fabs(val - expected) > 1.0e-9);
+            }
+          },
+          nwrong);
+      REQUIRE(nwrong == 0);
+    }
+
+    WHEN("An exchange follows") {
+      parthenon::TTSend(md, /*eps=*/1.0e-12);
+      REQUIRE(parthenon::TTReceive(md) == parthenon::TaskStatus::complete);
+      parthenon::TTSetBounds(md, /*eps=*/1.0e-12);
+
+      THEN("The ghosts hold the neighbor values, not stale + neighbor") {
+        CheckGhostsHoldNeighborConstants(md);
+      }
     }
   }
 }

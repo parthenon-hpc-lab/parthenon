@@ -34,6 +34,7 @@
 
 #include <catch2/catch.hpp>
 
+#include "basic_types.hpp"
 #include "batched_linear_algebra/matrix_cross.hpp"
 #include "batched_linear_algebra/maxvol.hpp"
 #include "batched_linear_algebra/qr_decomposition.hpp"
@@ -46,20 +47,20 @@
 using namespace parthenon::batched_linear_algebra; // NOLINT(build/namespaces)
 using parthenon::ParArray2D;
 using parthenon::ParArray3D;
+using parthenon::Real;
 using parthenon::ScratchPad1D;
 using parthenon::ScratchPad2D;
 using parthenon::team_mbr_t;
-
 namespace linalg_device_test {
 
 constexpr int nbatch = 8;
-using View3D = ParArray3D<double>::base_t;
+using View3D = ParArray3D<Real>::base_t;
 
 // Copy a batch of equally sized host matrices into a device array.
-ParArray3D<double> ToDevice(const std::vector<Matrix> &mats) {
+ParArray3D<Real> ToDevice(const std::vector<Matrix> &mats) {
   const int m = mats[0].nrows();
   const int n = mats[0].ncols();
-  ParArray3D<double> dev("batch", mats.size(), m, n);
+  ParArray3D<Real> dev("batch", mats.size(), m, n);
   auto host = Kokkos::create_mirror_view(dev);
   for (std::size_t b = 0; b < mats.size(); ++b) {
     for (int r = 0; r < m; ++r) {
@@ -73,7 +74,7 @@ ParArray3D<double> ToDevice(const std::vector<Matrix> &mats) {
 }
 
 // Copy a device batch back to host as a vector of matrices.
-std::vector<Matrix> ToHost(const ParArray3D<double> &dev) {
+std::vector<Matrix> ToHost(const ParArray3D<Real> &dev) {
   auto host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), dev);
   std::vector<Matrix> mats;
   for (int b = 0; b < dev.extent_int(0); ++b) {
@@ -88,9 +89,9 @@ std::vector<Matrix> ToHost(const ParArray3D<double> &dev) {
   return mats;
 }
 
-std::vector<std::vector<double>> ToHost(const ParArray2D<double> &dev) {
+std::vector<std::vector<Real>> ToHost(const ParArray2D<Real> &dev) {
   auto host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), dev);
-  std::vector<std::vector<double>> vals(dev.extent_int(0));
+  std::vector<std::vector<Real>> vals(dev.extent_int(0));
   for (int b = 0; b < dev.extent_int(0); ++b) {
     for (int i = 0; i < dev.extent_int(1); ++i) {
       vals[b].push_back(host(b, i));
@@ -121,8 +122,8 @@ std::vector<Matrix> RandomSymmetricBatch(int n, unsigned seed) {
   return mats;
 }
 
-double MaxAbsDiff(const Matrix &A, const Matrix &B) {
-  double mx = 0.0;
+Real MaxAbsDiff(const Matrix &A, const Matrix &B) {
+  Real mx = 0.0;
   for (int r = 0; r < A.nrows(); ++r) {
     for (int c = 0; c < A.ncols(); ++c) {
       mx = std::max(mx, std::abs(A(r, c) - B(r, c)));
@@ -131,10 +132,10 @@ double MaxAbsDiff(const Matrix &A, const Matrix &B) {
   return mx;
 }
 
-double MaxAbsDiff(std::vector<double> a, std::vector<double> b) {
+Real MaxAbsDiff(std::vector<Real> a, std::vector<Real> b) {
   std::sort(a.begin(), a.end());
   std::sort(b.begin(), b.end());
-  double mx = 0.0;
+  Real mx = 0.0;
   for (std::size_t i = 0; i < a.size(); ++i) {
     mx = std::max(mx, std::abs(a[i] - b[i]));
   }
@@ -142,11 +143,11 @@ double MaxAbsDiff(std::vector<double> a, std::vector<double> b) {
 }
 
 // max |(Aᵀ A - I)_ij| for the columns of A
-double ColumnOrthoError(const Matrix &A) {
-  double mx = 0.0;
+Real ColumnOrthoError(const Matrix &A) {
+  Real mx = 0.0;
   for (int i = 0; i < A.ncols(); ++i) {
     for (int j = 0; j < A.ncols(); ++j) {
-      double s = 0.0;
+      Real s = 0.0;
       for (int r = 0; r < A.nrows(); ++r) {
         s += A(r, i) * A(r, j);
       }
@@ -158,12 +159,12 @@ double ColumnOrthoError(const Matrix &A) {
 
 // max |A V - U diag(s)|, i.e. the residual of the pairs (s_i, u_i, v_i). With
 // U = V this is the eigenpair residual A Q - Q diag(eigs).
-double PairResidual(const Matrix &A, const Matrix &U, const Matrix &V,
-                    const std::vector<double> &s) {
-  double mx = 0.0;
+Real PairResidual(const Matrix &A, const Matrix &U, const Matrix &V,
+                  const std::vector<Real> &s) {
+  Real mx = 0.0;
   for (int i = 0; i < V.ncols(); ++i) {
     for (int r = 0; r < A.nrows(); ++r) {
-      double av = 0.0;
+      Real av = 0.0;
       for (int c = 0; c < A.ncols(); ++c) {
         av += A(r, c) * V(c, i);
       }
@@ -178,7 +179,7 @@ double PairResidual(const Matrix &A, const Matrix &U, const Matrix &V,
 // ---------------------------------------------------------------------------
 
 template <class Decomposition>
-void FactorTeam(ParArray3D<double> A_dev, ParArray3D<double> Q_dev) {
+void FactorTeam(ParArray3D<Real> A_dev, ParArray3D<Real> Q_dev) {
   const int m = A_dev.extent_int(1);
   const int n = A_dev.extent_int(2);
   const int qm = Q_dev.extent_int(1);
@@ -186,16 +187,16 @@ void FactorTeam(ParArray3D<double> A_dev, ParArray3D<double> Q_dev) {
   // team_scratch takes the level by reference on CUDA, so it must be a local
   // captured by the lambda rather than a namespace-scope constant
   const int scratch_level = 0;
-  const std::size_t nwork = Decomposition::double_scratch_size(m, n);
+  const std::size_t nwork = Decomposition::Real_scratch_size(m, n);
   const std::size_t scratch_bytes = Decomposition::total_shmem_scratch_size(m, n) +
-                                    ScratchPad2D<double>::shmem_size(m, n) +
-                                    ScratchPad2D<double>::shmem_size(qm, qn);
+                                    ScratchPad2D<Real>::shmem_size(m, n) +
+                                    ScratchPad2D<Real>::shmem_size(qm, qn);
   parthenon::par_for_outer(
       "FactorTeam", scratch_bytes, scratch_level, 0, nbatch - 1,
       KOKKOS_LAMBDA(team_mbr_t member, const int b) {
-        ScratchPad1D<double> work(member.team_scratch(scratch_level), nwork);
-        ScratchPad2D<double> A(member.team_scratch(scratch_level), m, n);
-        ScratchPad2D<double> Q(member.team_scratch(scratch_level), qm, qn);
+        ScratchPad1D<Real> work(member.team_scratch(scratch_level), nwork);
+        ScratchPad2D<Real> A(member.team_scratch(scratch_level), m, n);
+        ScratchPad2D<Real> Q(member.team_scratch(scratch_level), qm, qn);
         parthenon::par_for_inner(
             member, 0, m - 1, 0, n - 1,
             [&](const int r, const int c) { A(r, c) = A_dev(b, r, c); });
@@ -214,10 +215,10 @@ void FactorTeam(ParArray3D<double> A_dev, ParArray3D<double> Q_dev) {
 }
 
 template <class Decomposition>
-void FactorFlat(ParArray3D<double> A_dev, ParArray3D<double> Q_dev) {
+void FactorFlat(ParArray3D<Real> A_dev, ParArray3D<Real> Q_dev) {
   const int m = A_dev.extent_int(1);
   const int n = A_dev.extent_int(2);
-  ParArray2D<double> work("work", nbatch, Decomposition::double_scratch_size(m, n));
+  ParArray2D<Real> work("work", nbatch, Decomposition::Real_scratch_size(m, n));
   // The ParArray subview overload is host only, so slice the underlying views
   const View3D A_view = A_dev;
   const View3D Q_view = Q_dev;
@@ -232,13 +233,13 @@ void FactorFlat(ParArray3D<double> A_dev, ParArray3D<double> Q_dev) {
 // Flat kernel with compile-time sizes, keeping the matrices and workspace in
 // per-thread local arrays (the pattern shown in the docs).
 template <class Decomposition, int m, int n>
-void FactorFlatLocal(ParArray3D<double> A_dev, ParArray3D<double> Q_dev) {
+void FactorFlatLocal(ParArray3D<Real> A_dev, ParArray3D<Real> Q_dev) {
   parthenon::par_for(
       "FactorFlatLocal", 0, nbatch - 1, KOKKOS_LAMBDA(const int b) {
-        constexpr std::size_t kWorkSize = Decomposition::double_scratch_size(m, n);
-        double a_data[m * n], q_data[m * n], work[kWorkSize];
-        matrix_wrapper_t<double> A(a_data, m, n);
-        matrix_wrapper_t<double> Q(q_data, m, n);
+        constexpr std::size_t kWorkSize = Decomposition::Real_scratch_size(m, n);
+        Real a_data[m * n], q_data[m * n], work[kWorkSize];
+        matrix_wrapper_t<Real> A(a_data, m, n);
+        matrix_wrapper_t<Real> Q(q_data, m, n);
         for (int r = 0; r < m; ++r) {
           for (int c = 0; c < n; ++c) {
             A(r, c) = A_dev(b, r, c);
@@ -443,26 +444,26 @@ void MatrixCrossFlat(const Source source, const int n, const int m, const int r,
       });
 }
 
-void SVDTeam(ParArray3D<double> A_dev, ParArray3D<double> U_dev, ParArray3D<double> V_dev,
-             ParArray2D<double> s_dev) {
+void SVDTeam(ParArray3D<Real> A_dev, ParArray3D<Real> U_dev, ParArray3D<Real> V_dev,
+             ParArray2D<Real> s_dev) {
   const int m = A_dev.extent_int(1);
   const int n = A_dev.extent_int(2);
   const int scratch_level = 0;
-  const std::size_t nwork = SquareSVD::double_scratch_size(m, n);
+  const std::size_t nwork = SquareSVD::Real_scratch_size(m, n);
   const std::size_t niwork = SquareSVD::sizet_scratch_size(n);
   const std::size_t scratch_bytes = SquareSVD::total_shmem_scratch_size(m, n) +
-                                    2 * ScratchPad2D<double>::shmem_size(m, n) +
-                                    ScratchPad2D<double>::shmem_size(n, n) +
-                                    ScratchPad1D<double>::shmem_size(n);
+                                    2 * ScratchPad2D<Real>::shmem_size(m, n) +
+                                    ScratchPad2D<Real>::shmem_size(n, n) +
+                                    ScratchPad1D<Real>::shmem_size(n);
   parthenon::par_for_outer(
       "SVDTeam", scratch_bytes, scratch_level, 0, nbatch - 1,
       KOKKOS_LAMBDA(team_mbr_t member, const int b) {
-        ScratchPad1D<double> work(member.team_scratch(scratch_level), nwork);
+        ScratchPad1D<Real> work(member.team_scratch(scratch_level), nwork);
         ScratchPad1D<std::size_t> iwork(member.team_scratch(scratch_level), niwork);
-        ScratchPad2D<double> A(member.team_scratch(scratch_level), m, n);
-        ScratchPad2D<double> U(member.team_scratch(scratch_level), m, n);
-        ScratchPad2D<double> V(member.team_scratch(scratch_level), n, n);
-        ScratchPad1D<double> s(member.team_scratch(scratch_level), n);
+        ScratchPad2D<Real> A(member.team_scratch(scratch_level), m, n);
+        ScratchPad2D<Real> U(member.team_scratch(scratch_level), m, n);
+        ScratchPad2D<Real> V(member.team_scratch(scratch_level), n, n);
+        ScratchPad1D<Real> s(member.team_scratch(scratch_level), n);
         parthenon::par_for_inner(
             member, 0, m - 1, 0, n - 1,
             [&](const int r, const int c) { A(r, c) = A_dev(b, r, c); });
@@ -482,11 +483,11 @@ void SVDTeam(ParArray3D<double> A_dev, ParArray3D<double> U_dev, ParArray3D<doub
       });
 }
 
-void SVDFlat(ParArray3D<double> A_dev, ParArray3D<double> U_dev, ParArray3D<double> V_dev,
-             ParArray2D<double> s_dev) {
+void SVDFlat(ParArray3D<Real> A_dev, ParArray3D<Real> U_dev, ParArray3D<Real> V_dev,
+             ParArray2D<Real> s_dev) {
   const int m = A_dev.extent_int(1);
   const int n = A_dev.extent_int(2);
-  ParArray2D<double> work("work", nbatch, SquareSVD::double_scratch_size(m, n));
+  ParArray2D<Real> work("work", nbatch, SquareSVD::Real_scratch_size(m, n));
   ParArray2D<std::size_t> iwork("iwork", nbatch, SquareSVD::sizet_scratch_size(n));
   const View3D A_view = A_dev;
   const View3D U_view = U_dev;
@@ -501,23 +502,22 @@ void SVDFlat(ParArray3D<double> A_dev, ParArray3D<double> U_dev, ParArray3D<doub
       });
 }
 
-void EVDTeam(ParArray3D<double> A_dev, ParArray3D<double> Q_dev,
-             ParArray2D<double> eigs_dev) {
+void EVDTeam(ParArray3D<Real> A_dev, ParArray3D<Real> Q_dev, ParArray2D<Real> eigs_dev) {
   const int n = A_dev.extent_int(1);
   const int scratch_level = 0;
-  const std::size_t nwork = SymmetricEVD::double_scratch_size(n);
+  const std::size_t nwork = SymmetricEVD::Real_scratch_size(n);
   const std::size_t niwork = SymmetricEVD::sizet_scratch_size(n);
   const std::size_t scratch_bytes = SymmetricEVD::total_shmem_scratch_size(n) +
-                                    2 * ScratchPad2D<double>::shmem_size(n, n) +
-                                    ScratchPad1D<double>::shmem_size(n);
+                                    2 * ScratchPad2D<Real>::shmem_size(n, n) +
+                                    ScratchPad1D<Real>::shmem_size(n);
   parthenon::par_for_outer(
       "EVDTeam", scratch_bytes, scratch_level, 0, nbatch - 1,
       KOKKOS_LAMBDA(team_mbr_t member, const int b) {
-        ScratchPad1D<double> work(member.team_scratch(scratch_level), nwork);
+        ScratchPad1D<Real> work(member.team_scratch(scratch_level), nwork);
         ScratchPad1D<std::size_t> iwork(member.team_scratch(scratch_level), niwork);
-        ScratchPad2D<double> A(member.team_scratch(scratch_level), n, n);
-        ScratchPad2D<double> Q(member.team_scratch(scratch_level), n, n);
-        ScratchPad1D<double> eigs(member.team_scratch(scratch_level), n);
+        ScratchPad2D<Real> A(member.team_scratch(scratch_level), n, n);
+        ScratchPad2D<Real> Q(member.team_scratch(scratch_level), n, n);
+        ScratchPad1D<Real> eigs(member.team_scratch(scratch_level), n);
         parthenon::par_for_inner(
             member, 0, n - 1, 0, n - 1,
             [&](const int r, const int c) { A(r, c) = A_dev(b, r, c); });
@@ -534,10 +534,9 @@ void EVDTeam(ParArray3D<double> A_dev, ParArray3D<double> Q_dev,
       });
 }
 
-void EVDFlat(ParArray3D<double> A_dev, ParArray3D<double> Q_dev,
-             ParArray2D<double> eigs_dev) {
+void EVDFlat(ParArray3D<Real> A_dev, ParArray3D<Real> Q_dev, ParArray2D<Real> eigs_dev) {
   const int n = A_dev.extent_int(1);
-  ParArray2D<double> work("work", nbatch, SymmetricEVD::double_scratch_size(n));
+  ParArray2D<Real> work("work", nbatch, SymmetricEVD::Real_scratch_size(n));
   ParArray2D<std::size_t> iwork("iwork", nbatch, SymmetricEVD::sizet_scratch_size(n));
   const View3D A_view = A_dev;
   const View3D Q_view = Q_dev;
@@ -563,8 +562,8 @@ void CheckFactorization(const std::vector<Matrix> &A0, const std::vector<Matrix>
     Matrix F_host = A0[b].GetDeepCopy();
     Matrix Q_host(Q[b].nrows(), Q[b].ncols());
     REQUIRE(Decomposition::execute(&F_host, &Q_host) == 0);
-    REQUIRE(MaxAbsDiff(F[b], F_host) < 1e-12 * A0[b].FrobeniusNorm());
-    REQUIRE(MaxAbsDiff(Q[b], Q_host) < 1e-12);
+    REQUIRE(MaxAbsDiff(F[b], F_host) < PrecisionTol(1e-12) * A0[b].FrobeniusNorm());
+    REQUIRE(MaxAbsDiff(Q[b], Q_host) < PrecisionTol(1e-12));
   }
 }
 
@@ -572,7 +571,7 @@ template <class Decomposition>
 void TestFactorization(const bool team, const int m, const int n, const unsigned seed) {
   const auto A0 = RandomBatch(m, n, seed);
   auto A_dev = ToDevice(A0);
-  ParArray3D<double> Q_dev("Q", nbatch, m, n);
+  ParArray3D<Real> Q_dev("Q", nbatch, m, n);
   if (team) {
     FactorTeam<Decomposition>(A_dev, Q_dev);
   } else {
@@ -585,7 +584,7 @@ template <class Decomposition, int m, int n>
 void TestFactorizationLocal(const unsigned seed) {
   const auto A0 = RandomBatch(m, n, seed);
   auto A_dev = ToDevice(A0);
-  ParArray3D<double> Q_dev("Q", nbatch, m, n);
+  ParArray3D<Real> Q_dev("Q", nbatch, m, n);
   FactorFlatLocal<Decomposition, m, n>(A_dev, Q_dev);
   CheckFactorization<Decomposition>(A0, ToHost(A_dev), ToHost(Q_dev));
 }
@@ -782,9 +781,9 @@ void TestMatrixCross(const bool team, const bool lazy, const int n, const int m,
 void TestSVD(const bool team, const int m, const int n, const unsigned seed) {
   const auto A0 = RandomBatch(m, n, seed);
   auto A_dev = ToDevice(A0);
-  ParArray3D<double> U_dev("U", nbatch, m, n);
-  ParArray3D<double> V_dev("V", nbatch, n, n);
-  ParArray2D<double> s_dev("s", nbatch, n);
+  ParArray3D<Real> U_dev("U", nbatch, m, n);
+  ParArray3D<Real> V_dev("V", nbatch, n, n);
+  ParArray2D<Real> s_dev("s", nbatch, n);
   if (team) {
     SVDTeam(A_dev, U_dev, V_dev, s_dev);
   } else {
@@ -796,22 +795,22 @@ void TestSVD(const bool team, const int m, const int n, const unsigned seed) {
   const auto s = ToHost(s_dev);
   for (int b = 0; b < nbatch; ++b) {
     Matrix A_host = A0[b].GetDeepCopy();
-    std::vector<double> s_host(n);
+    std::vector<Real> s_host(n);
     SquareSVD::execute(&A_host, s_host.data());
 
-    const double scale = A0[b].FrobeniusNorm();
-    REQUIRE(MaxAbsDiff(s[b], s_host) < 1e-12 * scale);
-    REQUIRE(ColumnOrthoError(U[b]) < 1e-12);
-    REQUIRE(ColumnOrthoError(V[b]) < 1e-12);
-    REQUIRE(PairResidual(A0[b], U[b], V[b], s[b]) < 1e-12 * scale);
+    const Real scale = A0[b].FrobeniusNorm();
+    REQUIRE(MaxAbsDiff(s[b], s_host) < PrecisionTol(1e-12) * scale);
+    REQUIRE(ColumnOrthoError(U[b]) < PrecisionTol(1e-12));
+    REQUIRE(ColumnOrthoError(V[b]) < PrecisionTol(1e-12));
+    REQUIRE(PairResidual(A0[b], U[b], V[b], s[b]) < PrecisionTol(1e-12) * scale);
   }
 }
 
 void TestEVD(const bool team, const int n, const unsigned seed) {
   const auto A0 = RandomSymmetricBatch(n, seed);
   auto A_dev = ToDevice(A0);
-  ParArray3D<double> Q_dev("Q", nbatch, n, n);
-  ParArray2D<double> eigs_dev("eigs", nbatch, n);
+  ParArray3D<Real> Q_dev("Q", nbatch, n, n);
+  ParArray2D<Real> eigs_dev("eigs", nbatch, n);
   if (team) {
     EVDTeam(A_dev, Q_dev, eigs_dev);
   } else {
@@ -822,13 +821,13 @@ void TestEVD(const bool team, const int n, const unsigned seed) {
   const auto eigs = ToHost(eigs_dev);
   for (int b = 0; b < nbatch; ++b) {
     Matrix A_host = A0[b].GetDeepCopy();
-    std::vector<double> eigs_host(n);
+    std::vector<Real> eigs_host(n);
     REQUIRE(SymmetricEVD::execute(&A_host, eigs_host.data()) >= 0);
 
-    const double scale = A0[b].FrobeniusNorm();
-    REQUIRE(MaxAbsDiff(eigs[b], eigs_host) < 1e-12 * scale);
-    REQUIRE(ColumnOrthoError(Q[b]) < 1e-12);
-    REQUIRE(PairResidual(A0[b], Q[b], Q[b], eigs[b]) < 1e-12 * scale);
+    const Real scale = A0[b].FrobeniusNorm();
+    REQUIRE(MaxAbsDiff(eigs[b], eigs_host) < PrecisionTol(1e-12) * scale);
+    REQUIRE(ColumnOrthoError(Q[b]) < PrecisionTol(1e-12));
+    REQUIRE(PairResidual(A0[b], Q[b], Q[b], eigs[b]) < PrecisionTol(1e-12) * scale);
   }
 }
 

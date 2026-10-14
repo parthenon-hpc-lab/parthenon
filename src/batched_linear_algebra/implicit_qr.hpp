@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <limits>
 
+#include "basic_types.hpp"
 #include "batched_linear_algebra/execution_utils.hpp"
 #include "batched_linear_algebra/givens.hpp"
 #include "kokkos_abstraction.hpp"
@@ -30,28 +31,27 @@ namespace parthenon {
 namespace batched_linear_algebra {
 
 KOKKOS_FORCEINLINE_FUNCTION
-double WilkinsonShift(double a00, double a11, double a01) {
-  const double a01_sqr = a01 * a01;
-  const double delta = 0.5 * (a00 - a11);
+Real WilkinsonShift(Real a00, Real a11, Real a01) {
+  const Real a01_sqr = a01 * a01;
+  const Real delta = 0.5 * (a00 - a11);
   return a11 - robust::sgn(delta) * a01_sqr /
                    (std::abs(delta) + std::sqrt(delta * delta + a01_sqr));
 }
 
 template <class tm_t>
-KOKKOS_FORCEINLINE_FUNCTION int Partition(tm_t tm, double *d, double *b,
-                                          std::size_t *start, std::size_t *end,
-                                          int nrows) {
+KOKKOS_FORCEINLINE_FUNCTION int Partition(tm_t tm, Real *d, Real *b, std::size_t *start,
+                                          std::size_t *end, int nrows) {
   int partition{0};
   bool collecting{false};
 
-  const double eps = std::numeric_limits<double>::epsilon();
-  const double tol = 100.0 * eps;
+  const Real eps = std::numeric_limits<Real>::epsilon();
+  const Real tol = 100.0 * eps;
 
   // Global scale for the tridiagonal
-  double scale = 0.0;
+  Real scale = 0.0;
   find_maximum(
       tm, 0, nrows - 2,
-      [&](const int i, double &scale) {
+      [&](const int i, Real &scale) {
         scale = std::max(scale, std::abs(d[i]));
         scale = std::max(scale, std::abs(b[i]));
       },
@@ -60,16 +60,16 @@ KOKKOS_FORCEINLINE_FUNCTION int Partition(tm_t tm, double *d, double *b,
   if (scale == 0.0) scale = 1.0; // avoid all-zero edge case
 
   auto should_split = [&](int i) -> bool {
-    const double bi = std::abs(b[i]);
-    const double di = std::abs(d[i]);
-    const double dj = std::abs(d[i + 1]);
+    const Real bi = std::abs(b[i]);
+    const Real di = std::abs(d[i]);
+    const Real dj = std::abs(d[i + 1]);
 
     // 1) floating-point "negligible" test
     if (di + bi == di) return true;
     if (dj + bi == dj) return true;
 
     // 2) scale-aware relative test with a floor
-    const double thresh = tol * (di + dj + scale);
+    const Real thresh = tol * (di + dj + scale);
     return bi <= thresh;
   };
 
@@ -101,9 +101,9 @@ KOKKOS_FORCEINLINE_FUNCTION int Partition(tm_t tm, double *d, double *b,
 // in place. On return, all elements of b should be ~zero and d should
 // contain the eigenvalues of A.
 template <class tm_t, class matrix_t>
-KOKKOS_FORCEINLINE_FUNCTION int
-ImplicitQRTridiag(tm_t tm, double *d, double *b, matrix_t *pQ, std::size_t *start,
-                  std::size_t *end, const int nrows, const int max_iters) {
+KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRTridiag(tm_t tm, Real *d, Real *b, matrix_t *pQ,
+                                                  std::size_t *start, std::size_t *end,
+                                                  const int nrows, const int max_iters) {
   int iter{0};
   for (iter = 0; iter < max_iters; ++iter) {
     // Collect decoupled regions of the matrix
@@ -115,7 +115,7 @@ ImplicitQRTridiag(tm_t tm, double *d, double *b, matrix_t *pQ, std::size_t *star
     // team members, not obvious how to cleanly abstract this second level of
     // parallelism though, so ignore for now
     for (int partition = 0; partition < npartitions; ++partition) {
-      double bulge{0.0};
+      Real bulge{0.0};
       const int sp = start[partition];
       const int ep = end[partition];
 
@@ -126,7 +126,7 @@ ImplicitQRTridiag(tm_t tm, double *d, double *b, matrix_t *pQ, std::size_t *star
         bulge = ApplyGivensLeftRight<true, true>(tm, sp, c, s, bulge, d, b);
         if (pQ) ApplyGivensRight(tm, sp, c, s, *pQ);
       } else if (ep - sp > 2) {
-        const double mu = WilkinsonShift(d[ep - 2], d[ep - 1], b[ep - 2]);
+        const Real mu = WilkinsonShift(d[ep - 2], d[ep - 1], b[ep - 2]);
         const auto [c, s] = ComputeGivensZeroSecond(d[sp] - mu, b[sp]);
         bulge = ApplyGivensLeftRight<true, false>(tm, sp, c, s, bulge, d, b);
         if (pQ) ApplyGivensRight(tm, sp, c, s, *pQ);
@@ -150,7 +150,7 @@ ImplicitQRTridiag(tm_t tm, double *d, double *b, matrix_t *pQ, std::size_t *star
 // contain the singular values of A. The Gram matrix B = A^T A is never explicitly
 // formed.
 template <class tm_t, class matrix_u_t, class matrix_v_t>
-KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRBidiag(tm_t tm, double *d, double *b,
+KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRBidiag(tm_t tm, Real *d, Real *b,
                                                  matrix_u_t *pU, matrix_v_t *pV,
                                                  std::size_t *start, std::size_t *end,
                                                  const int nrows, const int max_iters) {
@@ -165,7 +165,7 @@ KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRBidiag(tm_t tm, double *d, double *b,
     // team members, not obvious how to cleanly abstract this second level of
     // parallelism though, so ignore for now
     for (int partition = 0; partition < npartitions; ++partition) {
-      double bulge{0.0};
+      Real bulge{0.0};
       const int sp = start[partition];
       const int ep = end[partition];
 
@@ -184,7 +184,7 @@ KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRBidiag(tm_t tm, double *d, double *b,
       } else if (ep - sp > 2) {
         // The shift is the smallest singular value of the trailing 2x2
         // bidiagonal block
-        const double shift =
+        const Real shift =
             ComputeSVD2by2UpperTriangular(d[ep - 2], b[ep - 2], d[ep - 1]).smin;
 
         // Initial rotation zeros the (1,0) entry of T - shift^2 I with T = A^T A.
@@ -193,10 +193,10 @@ KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRBidiag(tm_t tm, double *d, double *b,
         // avoid the d[sp]^2 - shift^2 cancellation; the target g = b[sp] follows
         // by dividing the Gram-matrix pair (t00 - mu, t01) through by d[sp]. Guard
         // the d[sp] == 0 case, which degenerates to a zero-shift start.
-        const double f = d[sp] == 0.0 ? 0.0
-                                      : (std::abs(d[sp]) - shift) *
-                                            (robust::sgn(d[sp]) + shift / d[sp]);
-        const double g = b[sp];
+        const Real f = d[sp] == 0.0 ? 0.0
+                                    : (std::abs(d[sp]) - shift) *
+                                          (robust::sgn(d[sp]) + shift / d[sp]);
+        const Real g = b[sp];
         const auto [c1, s1] = ComputeGivensZeroSecond(f, g);
         bulge = ApplyGivensRight<true, false>(tm, sp, c1, s1, bulge, d, b);
         if (pV) ApplyGivensRight(tm, sp, c1, s1, *pV);
