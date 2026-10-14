@@ -37,14 +37,16 @@ namespace tt_cross_test {
 constexpr int kMaxRank = 16;
 constexpr int kMaxCores = 8;
 
-// Value of tensor b of a pack at the multi-index mi, contracted left to right.
+// Value of the train of block b, variable var of a pack at the multi-index mi,
+// contracted left to right.
 template <class Pack, class MI>
-KOKKOS_INLINE_FUNCTION Real EvaluateTrain(const Pack &pack, const int b, const MI &mi) {
+KOKKOS_INLINE_FUNCTION Real EvaluateTrain(const Pack &pack, const int b, const int var,
+                                          const MI &mi) {
   Real v[kMaxRank];
   Real w[kMaxRank];
   v[0] = 1.0;
   for (int c = 0; c < pack.GetNCores(); ++c) {
-    const auto &core = pack(b, 0, c);
+    const auto &core = pack(b, var, c);
     const int j = mi(c);
     for (int r = 0; r < core.RR(); ++r) {
       Real s = 0.0;
@@ -74,27 +76,27 @@ KOKKOS_INLINE_FUNCTION Real HashToReal(std::uint32_t key) {
   return Real(key) / Real(2147483648.0) - Real(1);
 }
 
-// prod_c g_c(i_c), different for each batch entry: TT rank one.
+// prod_c g_c(i_c), different for each block and variable: TT rank one.
 struct SeparableProduct {
   int ncores;
   template <class MI>
-  KOKKOS_INLINE_FUNCTION Real operator()(const int b, const MI &mi) const {
+  KOKKOS_INLINE_FUNCTION Real operator()(const int b, const int v, const MI &mi) const {
     Real p = 1.0;
     for (int c = 0; c < ncores; ++c)
-      p *= 1.5 + std::cos(0.7 * mi(c) + 0.3 * c + 0.9 * b);
+      p *= 1.5 + std::cos(0.7 * mi(c) + 0.3 * c + 0.9 * b + 0.5 * v);
     return p;
   }
 };
 
-// 1 / (1 + (b + 1) sum_c x_c) on the uniform grid x_c = i_c / n.
+// 1 / (1 + (b + v + 1) sum_c x_c) on the uniform grid x_c = i_c / n.
 struct InverseSum {
   int ncores, n;
   template <class MI>
-  KOKKOS_INLINE_FUNCTION Real operator()(const int b, const MI &mi) const {
+  KOKKOS_INLINE_FUNCTION Real operator()(const int b, const int v, const MI &mi) const {
     Real s = 0.0;
     for (int c = 0; c < ncores; ++c)
       s += Real(mi(c)) / n;
-    return 1.0 / (1.0 + (b + 1) * s);
+    return 1.0 / (1.0 + (b + v + 1) * s);
   }
 };
 
@@ -103,8 +105,8 @@ struct InverseSum {
 struct HashTensor {
   int ncores;
   template <class MI>
-  KOKKOS_INLINE_FUNCTION Real operator()(const int b, const MI &mi) const {
-    std::uint32_t key = 977U * (b + 1);
+  KOKKOS_INLINE_FUNCTION Real operator()(const int b, const int v, const MI &mi) const {
+    std::uint32_t key = 977U * (b + 1) + 7919U * v;
     for (int c = 0; c < ncores; ++c)
       key = 131U * key + mi(c) + 1;
     return HashToReal(key);
@@ -116,8 +118,8 @@ template <class TTraits>
 struct TrainTensor {
   TensorPackT<TTraits> pack;
   template <class MI>
-  KOKKOS_INLINE_FUNCTION Real operator()(const int b, const MI &mi) const {
-    return EvaluateTrain(pack, b, mi);
+  KOKKOS_INLINE_FUNCTION Real operator()(const int b, const int v, const MI &mi) const {
+    return EvaluateTrain(pack, b, v, mi);
   }
 };
 
@@ -156,11 +158,12 @@ std::vector<TensorTrainT<TTraits>> ShapeTrains(const int nbatch,
   return trains;
 }
 
-// Largest |train_b(i) - g(b, i)| over every batch entry and every multi-index.
+// Largest |train_bv(i) - g(b, v, i)| over every block, variable and multi-index.
 template <class TTraits, class G>
-Real MaxDenseError(const std::vector<TensorTrainT<TTraits>> &trains, const G &g) {
-  TensorPackT<TTraits> pack(trains);
-  const int nbatch = pack.GetNBlocks();
+Real MaxDenseError(const TensorTrainHostPackT<TTraits> &host, const G &g) {
+  const auto pack = host.MakeDevicePack();
+  const int nblocks = pack.GetNBlocks();
+  const int nvars = pack.GetNVars();
   const int ncores = pack.GetNCores();
   PARTHENON_REQUIRE(ncores <= kMaxCores, "Too many cores for the dense check.");
   std::vector<int> dims = pack.GetPhysicalDimensions();
@@ -176,15 +179,16 @@ Real MaxDenseError(const std::vector<TensorTrainT<TTraits>> &trains, const G &g)
   Real err{0.0};
   Kokkos::parallel_reduce(
       "TT cross dense error",
-      Kokkos::MDRangePolicy<DevExecSpace, Kokkos::Rank<2>>({0, 0}, {nbatch, total}),
-      KOKKOS_LAMBDA(const int b, const int flat, Real &lmax) {
+      Kokkos::MDRangePolicy<DevExecSpace, Kokkos::Rank<3>>({0, 0, 0},
+                                                           {nblocks, nvars, total}),
+      KOKKOS_LAMBDA(const int b, const int v, const int flat, Real &lmax) {
         flat_multi_index mi;
         int rem = flat;
         for (int c = ncores - 1; c >= 0; --c) {
           mi.idx[c] = rem % dims_d(c);
           rem /= dims_d(c);
         }
-        const Real e = std::abs(EvaluateTrain(pack, b, mi) - g(b, mi));
+        const Real e = std::abs(EvaluateTrain(pack, b, v, mi) - g(b, v, mi));
         lmax = (e > lmax) ? e : lmax;
       },
       Kokkos::Max<Real>(err));
@@ -208,21 +212,51 @@ TEMPLATE_TEST_CASE("TT cross reproduces a separable tensor at rank one",
   using TTraits = TestType;
   const std::vector<int> dims{5, 4, 6, 3};
   auto trains = ShapeTrains<TTraits>(3, dims);
+  TensorTrainHostPackT<TTraits> host(trains);
   const SeparableProduct g{static_cast<int>(dims.size())};
 
-  TTCross(trains, g, {1, 1, 1});
+  TTCross(host, g, {1, 1, 1});
   REQUIRE(InternalRanks(trains[0]) == std::vector<int>{1, 1, 1});
-  REQUIRE(MaxDenseError(trains, g) < 1.0e-12);
+  REQUIRE(MaxDenseError(host, g) < 1.0e-12);
 }
 
 TEMPLATE_TEST_CASE("TT cross of a single-core train is the fiber itself",
                    "[tensor][cross]", FiberTTraits, ContiguousTTraits) {
   using TTraits = TestType;
   auto trains = ShapeTrains<TTraits>(2, {7});
+  TensorTrainHostPackT<TTraits> host(trains);
   const HashTensor g{1};
 
-  TTCross(trains, g, {});
-  REQUIRE(MaxDenseError(trains, g) == 0.0);
+  TTCross(host, g, {});
+  REQUIRE(MaxDenseError(host, g) == 0.0);
+}
+
+TEMPLATE_TEST_CASE("TT cross fills every variable of a multi-variable pack",
+                   "[tensor][cross]", FiberTTraits, ContiguousTTraits) {
+  using TTraits = TestType;
+  using train_t = TensorTrainT<TTraits>;
+  const std::vector<int> dims{2, 3, 2};
+  const int nvars = 3;
+  const int nblocks = 2;
+  std::vector<std::vector<train_t>> trains;
+  for (int v = 0; v < nvars; ++v)
+    trains.push_back(ShapeTrains<TTraits>(nblocks, dims));
+  VarBlockGrid<train_t *> grid(nvars, nblocks);
+  for (int v = 0; v < nvars; ++v)
+    for (int b = 0; b < nblocks; ++b)
+      grid(v, b) = &trains[v][b];
+  TensorTrainHostPackT<TTraits> host(grid);
+
+  // Full-rank cross of a hash that differs per (block, variable) is exact only
+  // if every train is approximated against its own tensor.
+  const HashTensor g{static_cast<int>(dims.size())};
+  TTCrossIndexSetsT<TTraits> sets;
+  TTCross(host, g, {10, 10}, 10, &sets);
+  for (int v = 0; v < nvars; ++v)
+    for (int b = 0; b < nblocks; ++b)
+      REQUIRE(InternalRanks(trains[v][b]) == std::vector<int>{2, 2});
+  REQUIRE(MaxDenseError(host, g) < 1.0e-12);
+  REQUIRE(sets.left.extent_int(1) == nvars);
 }
 
 TEMPLATE_TEST_CASE("TT cross recovers random low-rank trains exactly", "[tensor][cross]",
@@ -234,9 +268,10 @@ TEMPLATE_TEST_CASE("TT cross recovers random low-rank trains exactly", "[tensor]
   const TrainTensor<TTraits> g{TensorPackT<TTraits>(reference)};
 
   auto trains = ShapeTrains<TTraits>(3, dims);
-  TTCross(trains, g, ranks);
+  TensorTrainHostPackT<TTraits> host(trains);
+  TTCross(host, g, ranks);
   REQUIRE(InternalRanks(trains[0]) == ranks);
-  REQUIRE(MaxDenseError(trains, g) < 1.0e-10);
+  REQUIRE(MaxDenseError(host, g) < 1.0e-10);
 }
 
 TEMPLATE_TEST_CASE("TT cross error decreases with rank on a smooth function",
@@ -249,8 +284,9 @@ TEMPLATE_TEST_CASE("TT cross error decreases with rank on a smooth function",
   Real prev_err = 1.0e300;
   for (const int r : {1, 2, 4, 6}) {
     auto trains = ShapeTrains<TTraits>(2, dims);
-    TTCross(trains, g, std::vector<int>(dims.size() - 1, r));
-    const Real err = MaxDenseError(trains, g);
+    TensorTrainHostPackT<TTraits> host(trains);
+    TTCross(host, g, std::vector<int>(dims.size() - 1, r));
+    const Real err = MaxDenseError(host, g);
     INFO("rank " << r << " error " << err);
     REQUIRE(err < prev_err);
     prev_err = err;
@@ -265,9 +301,10 @@ TEMPLATE_TEST_CASE("TT cross clips oversized ranks and is then exact", "[tensor]
   const HashTensor g{static_cast<int>(dims.size())};
 
   auto trains = ShapeTrains<TTraits>(2, dims);
-  TTCross(trains, g, {10, 10});
+  TensorTrainHostPackT<TTraits> host(trains);
+  TTCross(host, g, {10, 10});
   REQUIRE(InternalRanks(trains[0]) == std::vector<int>{2, 2});
-  REQUIRE(MaxDenseError(trains, g) < 1.0e-12);
+  REQUIRE(MaxDenseError(host, g) < 1.0e-12);
 
   REQUIRE(parthenon::tensor::impl::ClipCrossRanks({3, 4, 5, 2}, {100, 100, 100}) ==
           std::vector<int>{3, 10, 2});
@@ -283,18 +320,21 @@ TEMPLATE_TEST_CASE("TT cross warm-starts from persistent index sets", "[tensor][
 
   TTCrossIndexSetsT<TTraits> sets;
   auto first = ShapeTrains<TTraits>(2, dims);
-  const int nfirst = TTCross(first, g, ranks, 10, &sets);
+  TensorTrainHostPackT<TTraits> first_host(first);
+  const int nfirst = TTCross(first_host, g, ranks, 10, &sets);
   REQUIRE(sets.converged);
   REQUIRE(nfirst < 10);
 
   auto second = ShapeTrains<TTraits>(2, dims);
-  REQUIRE(TTCross(second, g, ranks, 10, &sets) == 1);
+  TensorTrainHostPackT<TTraits> second_host(second);
+  REQUIRE(TTCross(second_host, g, ranks, 10, &sets) == 1);
   REQUIRE(sets.converged);
-  REQUIRE(MaxDenseError(second, g) < 1.0e-10);
+  REQUIRE(MaxDenseError(second_host, g) < 1.0e-10);
 
   // Different ranks need different sets, so the warm start is discarded.
   auto third = ShapeTrains<TTraits>(2, dims);
-  TTCross(third, g, {2, 2, 2}, 1, &sets);
+  TensorTrainHostPackT<TTraits> third_host(third);
+  TTCross(third_host, g, {2, 2, 2}, 1, &sets);
   REQUIRE(!sets.converged);
   REQUIRE(sets.Ranks() == std::vector<int>{2, 2, 2});
 }
