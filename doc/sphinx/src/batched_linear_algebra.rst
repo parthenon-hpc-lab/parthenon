@@ -43,7 +43,7 @@ Workspace
 
 Besides the matrices themselves, each routine needs a ``double`` workspace
 and, for ``SquareSVD`` and ``SymmetricEVD``, a ``std::size_t`` workspace.
-Each class reports the required lengths through ``double_scratch_size(...)``
+Each class reports the required lengths through ``Real_scratch_size(...)``
 and ``sizet_scratch_size(...)``. ``total_shmem_scratch_size(...)`` returns
 the number of bytes to request from ``par_for_outer`` for both workspaces.
 
@@ -94,7 +94,7 @@ preallocated device arrays:
 
    parthenon::par_for(
        "BatchedQRFlat", 0, nbatch - 1, KOKKOS_LAMBDA(const int b) {
-         constexpr std::size_t kWorkSize = QRDecomposition::double_scratch_size(m, n);
+         constexpr std::size_t kWorkSize = QRDecomposition::Real_scratch_size(m, n);
          double a_data[m * n], q_data[m * n], work[kWorkSize];
          matrix_wrapper_t<double> A(a_data, m, n);
          matrix_wrapper_t<double> Q(q_data, m, n);
@@ -126,7 +126,7 @@ add one before reading the results:
    using parthenon::ScratchPad1D;
    using parthenon::ScratchPad2D;
    const int m = 12, n = 6;
-   const std::size_t nscratch = QRDecomposition::double_scratch_size(m, n);
+   const std::size_t nscratch = QRDecomposition::Real_scratch_size(m, n);
    // Workspace plus scratch for A (m x n) and a thin Q (m x n)
    const std::size_t scratch_bytes = QRDecomposition::total_shmem_scratch_size(m, n) +
                                      2 * ScratchPad2D<double>::shmem_size(m, n);

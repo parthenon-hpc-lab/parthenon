@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -34,6 +35,14 @@ using namespace parthenon;
 using namespace parthenon::tensor;
 
 namespace {
+
+// Tolerance for comparing reconstructed values of order one, picked by the precision of
+// real_t. The double-precision values leave a wide margin and would be meaninglessly
+// loose if rescaled by epsilon, so the single-precision value is given explicitly.
+template <class real_t>
+constexpr real_t RoundingTol(double double_tol, double single_tol) {
+  return real_t(std::is_same_v<real_t, double> ? double_tol : single_tol);
+}
 
 template <class TTraits>
 TensorTrainT<TTraits>
@@ -152,29 +161,48 @@ void CheckCompatibleDense3D(const Pack0 &pack0, const Packs &...packs) {
   (check_one(packs), ...);
 }
 
-template <class CheckFunctor, class Pack0, class... Packs>
-int CountDenseMismatches3D(CheckFunctor check, const Pack0 &pack0,
-                           const Packs &...packs) {
-  static_assert(sizeof...(packs) >= 0,
-                "CountDenseMismatches3D requires at least one pack.");
-
-  CheckCompatibleDense3D(pack0, packs...);
-
-  const int n0 = pack0.GetPhysicalDimension(0);
-  const int n1 = pack0.GetPhysicalDimension(1);
-  const int n2 = pack0.GetPhysicalDimension(2);
-
+// Sums kernel(b, i1, i2, i3, lnwrong) over every block and dense index of pack0.
+template <class Pack0, class Kernel>
+int ReduceDense3D(const Pack0 &pack0, Kernel kernel) {
   int nwrong{0};
-  par_reduce(
-      loop_pattern_mdrange_tag, "Check TT", DevExecSpace(), 0, pack0.GetNBlocks() - 1, 0,
-      n0 - 1, 0, n1 - 1, 0, n2 - 1,
-      KOKKOS_LAMBDA(int b, int i1, int i2, int i3, int &lnwrong) {
-        lnwrong += check(b, i1, i2, i3, ReconstructDenseValue3D(pack0, b, i1, i2, i3),
-                         ReconstructDenseValue3D(packs, b, i1, i2, i3)...);
-      },
-      nwrong);
-
+  par_reduce(loop_pattern_mdrange_tag, "Check TT", DevExecSpace(), 0,
+             pack0.GetNBlocks() - 1, 0, pack0.GetPhysicalDimension(0) - 1, 0,
+             pack0.GetPhysicalDimension(1) - 1, 0, pack0.GetPhysicalDimension(2) - 1,
+             kernel, nwrong);
   return nwrong;
+}
+
+// Fixed-arity overloads rather than a variadic template: nvcc does not allow an extended
+// device lambda to capture a function parameter pack.
+template <class CheckFunctor, class Pack0>
+int CountDenseMismatches3D(CheckFunctor check, const Pack0 &pack0) {
+  CheckCompatibleDense3D(pack0);
+  return ReduceDense3D(
+      pack0, KOKKOS_LAMBDA(int b, int i1, int i2, int i3, int &lnwrong) {
+        lnwrong += check(b, i1, i2, i3, ReconstructDenseValue3D(pack0, b, i1, i2, i3));
+      });
+}
+
+template <class CheckFunctor, class Pack0, class Pack1>
+int CountDenseMismatches3D(CheckFunctor check, const Pack0 &pack0, const Pack1 &pack1) {
+  CheckCompatibleDense3D(pack0, pack1);
+  return ReduceDense3D(
+      pack0, KOKKOS_LAMBDA(int b, int i1, int i2, int i3, int &lnwrong) {
+        lnwrong += check(b, i1, i2, i3, ReconstructDenseValue3D(pack0, b, i1, i2, i3),
+                         ReconstructDenseValue3D(pack1, b, i1, i2, i3));
+      });
+}
+
+template <class CheckFunctor, class Pack0, class Pack1, class Pack2>
+int CountDenseMismatches3D(CheckFunctor check, const Pack0 &pack0, const Pack1 &pack1,
+                           const Pack2 &pack2) {
+  CheckCompatibleDense3D(pack0, pack1, pack2);
+  return ReduceDense3D(
+      pack0, KOKKOS_LAMBDA(int b, int i1, int i2, int i3, int &lnwrong) {
+        lnwrong += check(b, i1, i2, i3, ReconstructDenseValue3D(pack0, b, i1, i2, i3),
+                         ReconstructDenseValue3D(pack1, b, i1, i2, i3),
+                         ReconstructDenseValue3D(pack2, b, i1, i2, i3));
+      });
 }
 } // namespace
 
@@ -844,10 +872,19 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounding scaffold on a two-delta train", "[t
   REQUIRE(rounded_pack.GetPhysicalDimensions() ==
           std::vector<int>{dims[0], dims[1], dims[2]});
 
-  // No-truncation round should preserve the represented dense tensor exactly.
+  // No-truncation round should preserve the represented dense tensor to around machine
+  // precision. It is exact on host, but fused multiply-adds and reduction order on a GPU
+  // can change the last bits.
+  constexpr real_t atol = RoundingTol<real_t>(1.0e-12, 1.0e-5);
+  constexpr real_t rtol = RoundingTol<real_t>(1.0e-10, 1.0e-5);
   REQUIRE(CountDenseMismatches3D(
               KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val,
-                            real_t rounded_val) { return original_val != rounded_val; },
+                            real_t rounded_val) {
+                const real_t err = Kokkos::abs(original_val - rounded_val);
+                const real_t scale =
+                    Kokkos::max(Kokkos::abs(original_val), Kokkos::abs(rounded_val));
+                return err > atol + rtol * scale;
+              },
               orig_pack, rounded_pack) == 0);
 
   // In the current scaffold, no singular values are dropped, so ranks should stay
@@ -875,35 +912,33 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounding scaffold on a mixed two-channel tra
 
   SetTTPackToValue(pack, real_t(0.0));
 
-  // Core 0: mix the two rank channels.
-  // Interpreted as a 2x2 matrix in (physical, right-rank):
-  // [ 1  1 ]
-  // [ 0  1 ]
-  //
-  // So G_L^(0) should be:
-  // [1 1]
-  // [1 2]
-  {
-    auto &core0 = pack(0, 0, 0);
-    core0(0, 0, 0) = real_t(1.0);
-    core0(0, 0, 1) = real_t(1.0);
-    core0(0, 1, 0) = real_t(0.0);
-    core0(0, 1, 1) = real_t(1.0);
-  }
+  // The cores live in device memory, so set them from a single-iteration kernel.
+  parthenon::par_for(
+      "MixedTwoChannelTrain", 0, 0, KOKKOS_LAMBDA(const int) {
+        // Core 0: mix the two rank channels.
+        // Interpreted as a 2x2 matrix in (physical, right-rank):
+        // [ 1  1 ]
+        // [ 0  1 ]
+        //
+        // So G_L^(0) should be:
+        // [1 1]
+        // [1 2]
+        auto &core0 = pack(0, 0, 0);
+        core0(0, 0, 0) = real_t(1.0);
+        core0(0, 0, 1) = real_t(1.0);
+        core0(0, 1, 0) = real_t(0.0);
+        core0(0, 1, 1) = real_t(1.0);
 
-  // Core 1: diagonal selector in rank space.
-  {
-    auto &core1 = pack(0, 0, 1);
-    core1(0, 0, 0) = real_t(1.0);
-    core1(1, 1, 1) = real_t(1.0);
-  }
+        // Core 1: diagonal selector in rank space.
+        auto &core1 = pack(0, 0, 1);
+        core1(0, 0, 0) = real_t(1.0);
+        core1(1, 1, 1) = real_t(1.0);
 
-  // Core 2: simple amplitudes on the two channels.
-  {
-    auto &core2 = pack(0, 0, 2);
-    core2(0, 0, 0) = real_t(2.0);
-    core2(1, 1, 0) = real_t(1.5);
-  }
+        // Core 2: simple amplitudes on the two channels.
+        auto &core2 = pack(0, 0, 2);
+        core2(0, 0, 0) = real_t(2.0);
+        core2(1, 1, 0) = real_t(1.5);
+      });
 
   Kokkos::fence();
 
@@ -918,14 +953,14 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounding scaffold on a mixed two-channel tra
 
   // No-truncation round should preserve the represented dense tensor to around machine
   // precision.
-  constexpr real_t atol = 1.0e-12;
-  constexpr real_t rtol = 1.0e-10;
+  constexpr real_t atol = RoundingTol<real_t>(1.0e-12, 1.0e-5);
+  constexpr real_t rtol = RoundingTol<real_t>(1.0e-10, 1.0e-5);
   REQUIRE(CountDenseMismatches3D(
               KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val,
                             real_t rounded_val) {
-                const real_t err = std::abs(original_val - rounded_val);
+                const real_t err = Kokkos::abs(original_val - rounded_val);
                 const real_t scale =
-                    std::max(std::abs(original_val), std::abs(rounded_val));
+                    Kokkos::max(Kokkos::abs(original_val), Kokkos::abs(rounded_val));
                 return err > atol + rtol * scale;
               },
               orig_pack, rounded_pack) == 0);
@@ -975,15 +1010,15 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD no-truncation preserves randomized trains",
   TensorPack rounded_pack(trains);
   TensorPack orig_pack(trains_orig);
 
-  constexpr real_t atol = real_t(1.0e-11);
-  constexpr real_t rtol = real_t(1.0e-10);
+  constexpr real_t atol = RoundingTol<real_t>(1.0e-11, 1.0e-5);
+  constexpr real_t rtol = RoundingTol<real_t>(1.0e-10, 1.0e-5);
 
   REQUIRE(CountDenseMismatches3D(
               KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val,
                             real_t rounded_val) {
-                const real_t err = std::abs(original_val - rounded_val);
+                const real_t err = Kokkos::abs(original_val - rounded_val);
                 const real_t scale =
-                    std::max(std::abs(original_val), std::abs(rounded_val));
+                    Kokkos::max(Kokkos::abs(original_val), Kokkos::abs(rounded_val));
                 return err > atol + rtol * scale;
               },
               orig_pack, rounded_pack) == 0);
@@ -1032,16 +1067,17 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounds duplicate delta terms down to rank on
 
   // The represented tensor should be a single delta at the shared entry with
   // amplitude equal to the sum of the two original amplitudes.
-  constexpr real_t atol = real_t(1.0e-11);
-  constexpr real_t rtol = real_t(1.0e-10);
+  constexpr real_t atol = RoundingTol<real_t>(1.0e-11, 1.0e-5);
+  constexpr real_t rtol = RoundingTol<real_t>(1.0e-10, 1.0e-5);
   REQUIRE(CountDenseMismatches3D(
               KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t value) {
                 real_t expected = real_t(0.0);
                 if (i1 == entry[0] && i2 == entry[1] && i3 == entry[2]) {
                   expected = real_t(0.5); // 2.0 + (-1.5)
                 }
-                const real_t err = std::abs(value - expected);
-                const real_t scale = std::max(std::abs(value), std::abs(expected));
+                const real_t err = Kokkos::abs(value - expected);
+                const real_t scale =
+                    Kokkos::max(Kokkos::abs(value), Kokkos::abs(expected));
                 return err > atol + rtol * scale;
               },
               rounded_pack) == 0);
@@ -1097,8 +1133,8 @@ TEMPLATE_TEST_CASE("tensor rounding collapses every variable of a multi-variable
     }
   }
 
-  constexpr real_t atol = real_t(1.0e-11);
-  constexpr real_t rtol = real_t(1.0e-10);
+  constexpr real_t atol = RoundingTol<real_t>(1.0e-11, 1.0e-5);
+  constexpr real_t rtol = RoundingTol<real_t>(1.0e-10, 1.0e-5);
   for (int v = 0; v < nvars; ++v) {
     auto rounded_pack = trains_host.MakeDevicePackForVar(v);
     const real_t amp0 = amp0_of(v);
@@ -1108,8 +1144,9 @@ TEMPLATE_TEST_CASE("tensor rounding collapses every variable of a multi-variable
                   if (i1 == v + 1 && i2 == b + 1 && i3 == 2) {
                     expected = amp0 + real_t(0.5) * real_t(b + 1);
                   }
-                  const real_t err = std::abs(value - expected);
-                  const real_t scale = std::max(std::abs(value), std::abs(expected));
+                  const real_t err = Kokkos::abs(value - expected);
+                  const real_t scale =
+                      Kokkos::max(Kokkos::abs(value), Kokkos::abs(expected));
                   return err > atol + rtol * scale;
                 },
                 rounded_pack) == 0);
@@ -1251,15 +1288,15 @@ TEMPLATE_TEST_CASE("tensor Oseledets-SVD no-truncation preserves randomized trai
   TensorPack rounded_pack(trains);
   TensorPack orig_pack(trains_orig);
 
-  constexpr real_t atol = real_t(1.0e-11);
-  constexpr real_t rtol = real_t(1.0e-10);
+  constexpr real_t atol = RoundingTol<real_t>(1.0e-11, 1.0e-5);
+  constexpr real_t rtol = RoundingTol<real_t>(1.0e-10, 1.0e-5);
 
   REQUIRE(CountDenseMismatches3D(
               KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val,
                             real_t rounded_val) {
-                const real_t err = std::abs(original_val - rounded_val);
+                const real_t err = Kokkos::abs(original_val - rounded_val);
                 const real_t scale =
-                    std::max(std::abs(original_val), std::abs(rounded_val));
+                    Kokkos::max(Kokkos::abs(original_val), Kokkos::abs(rounded_val));
                 return err > atol + rtol * scale;
               },
               orig_pack, rounded_pack) == 0);
@@ -1441,7 +1478,7 @@ SCENARIO("tensor contiguous storage reconstruction agrees with fiber storage",
   // Verify both reconstruct the same values
   int nmismatches = CountDenseMismatches3D(
       KOKKOS_LAMBDA(int, int, int, int, Real fiber_val, Real contig_val) {
-        return (std::abs(fiber_val - contig_val) > Real(1.0e-14)) ? 1 : 0;
+        return (Kokkos::abs(fiber_val - contig_val) > Real(1.0e-14)) ? 1 : 0;
       },
       pack_fiber, pack_contig);
 

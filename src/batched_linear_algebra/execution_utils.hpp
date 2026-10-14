@@ -18,6 +18,7 @@
 
 #include <type_traits>
 
+#include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
 #include "utils/error_checking.hpp"
 
@@ -108,34 +109,34 @@ KOKKOS_FORCEINLINE_FUNCTION void parallel_loop(tm_t tm, const int jl, const int 
 
 template <class tm_t, class F>
 KOKKOS_FORCEINLINE_FUNCTION void summation(tm_t tm, const int il, const int iu,
-                                           const F &func, double &sum) {
+                                           const F &func, Real &sum) {
   check_execution_handle<tm_t>();
   if constexpr (std::is_same_v<tm_t, serial_tm_t>) {
     for (int i = il; i <= iu; ++i)
       func(i, sum);
   } else if constexpr (std::is_same_v<tm_t, parthenon::team_mbr_t>) {
     parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag, tm, il, iu, func,
-                                Kokkos::Sum<double>(sum));
+                                Kokkos::Sum<Real>(sum));
   }
 }
 
 template <class tm_t, class F>
 KOKKOS_FORCEINLINE_FUNCTION void find_maximum(tm_t tm, const int il, const int iu,
-                                              const F &func, double &mx) {
+                                              const F &func, Real &mx) {
   check_execution_handle<tm_t>();
   if constexpr (std::is_same_v<tm_t, serial_tm_t>) {
     for (int i = il; i <= iu; ++i)
       func(i, mx);
   } else if constexpr (std::is_same_v<tm_t, parthenon::team_mbr_t>) {
     parthenon::par_reduce_inner(parthenon::inner_loop_pattern_ttr_tag, tm, il, iu, func,
-                                Kokkos::Max<double>(mx));
+                                Kokkos::Max<Real>(mx));
   }
 }
 
 template <class tm_t, class F>
 KOKKOS_FORCEINLINE_FUNCTION void summation(tm_t tm, const int jl, const int ju,
                                            const int il, const int iu, const F &func,
-                                           double *sum) {
+                                           Real *sum) {
   check_execution_handle<tm_t>();
   if constexpr (std::is_same_v<tm_t, serial_tm_t>) {
     for (int j = jl; j <= ju; ++j) {
