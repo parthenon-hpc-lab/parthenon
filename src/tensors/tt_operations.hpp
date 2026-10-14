@@ -62,8 +62,8 @@ KOKKOS_INLINE_FUNCTION void CopyCoreBlock(parthenon::team_mbr_t member,
 // primarily to zero off-diagonal blocks created by TT addition.
 template <class CoreType, class RealType>
 KOKKOS_INLINE_FUNCTION void SetCoreBlock(parthenon::team_mbr_t member, CoreType &dst,
-                                         RealType value, std::pair<int, int> lrange,
-                                         std::pair<int, int> rrange) {
+                                         RealType value, Kokkos::pair<int, int> lrange,
+                                         Kokkos::pair<int, int> rrange) {
   // TODO(performance): Consider using raw pointer arithmetic for FiberStorage where
   // &dst(l,0,r) + j == &dst(l,j,r), which may be faster than element-wise access.
   // Use element-wise access - works for all storage types
@@ -138,11 +138,11 @@ void FillBlockDiagonalSum(const Pack &pack_a, const Pack &pack_b, const Pack &pa
         CopyCoreBlock(member, core_b, core_c, loffset, roffset);
 
         if (loffset && roffset) {
-          SetCoreBlock(member, core_c, real_t(0), std::pair<int, int>{0, core_a.LR()},
-                       std::pair<int, int>{core_a.RR(), core_a.RR() + core_b.RR()});
+          SetCoreBlock(member, core_c, real_t(0), Kokkos::pair<int, int>{0, core_a.LR()},
+                       Kokkos::pair<int, int>{core_a.RR(), core_a.RR() + core_b.RR()});
           SetCoreBlock(member, core_c, real_t(0),
-                       std::pair<int, int>{core_a.LR(), core_a.LR() + core_b.LR()},
-                       std::pair<int, int>{0, core_a.RR()});
+                       Kokkos::pair<int, int>{core_a.LR(), core_a.LR() + core_b.LR()},
+                       Kokkos::pair<int, int>{0, core_a.RR()});
         }
       });
 }
@@ -182,8 +182,8 @@ void SetTTPackToValue(TensorPackT<TTraits, var_ts...> &pack,
       pack.GetNBlocks() - 1, 0, pack.GetNVars() - 1, 0, pack.GetNCores() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int v, const int c) {
         auto &core = pack(b, v, c);
-        impl::SetCoreBlock(member, core, value, std::pair<int, int>{0, core.LR()},
-                           std::pair<int, int>{0, core.RR()});
+        impl::SetCoreBlock(member, core, value, Kokkos::pair<int, int>{0, core.LR()},
+                           Kokkos::pair<int, int>{0, core.RR()});
       });
 }
 
