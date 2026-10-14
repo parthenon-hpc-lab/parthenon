@@ -19,6 +19,7 @@
 #include <cmath>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "batched_linear_algebra/execution_utils.hpp"
 #include "batched_linear_algebra/matrix_utils.hpp"
 #include "batched_linear_algebra/qr_solve.hpp"
@@ -66,8 +67,8 @@ class Maxvol {
   ///     final B may still have entries larger than tau.
   template <class tm_t, class matrix_a_t, class matrix_b_t>
   KOKKOS_INLINE_FUNCTION static int
-  execute(tm_t tm, const matrix_a_t &A, matrix_b_t *pB, int *I, double *scratch,
-          const bool initialize_indices = true, const double tau = 1.05,
+  execute(tm_t tm, const matrix_a_t &A, matrix_b_t *pB, int *I, Real *scratch,
+          const bool initialize_indices = true, const Real tau = 1.05,
           const int max_iters = 100) {
     PARTHENON_REQUIRE(pB, "B must not be null.");
     auto &B = *pB;
@@ -77,23 +78,23 @@ class Maxvol {
     PARTHENON_REQUIRE(GetNrows(B) == nrows && GetNcols(B) == rank,
                       "B must have the same shape as A.");
 
-    matrix_wrapper_t<double> M(scratch, rank, rank);
+    matrix_wrapper_t<Real> M(scratch, rank, rank);
     // Shared by the greedy start, the solve and the rank-1 updates
-    double *work = &(scratch[rank * rank]);
+    Real *work = &(scratch[rank * rank]);
 
     if (initialize_indices) {
       parallel_loop(tm, 0, nrows - 1, 0, rank - 1,
                     [&](const int r, const int c) { B(r, c) = A(r, c); });
       barrier(tm);
 
-      double *pivot_row = work;
-      double *factors = &(work[rank]);
+      Real *pivot_row = work;
+      Real *factors = &(work[rank]);
       sequential_loop(0, rank - 1, [&](const int k) {
         maxloc_value_t piv;
         find_maximum_location(
             tm, 0, nrows - 1,
             [&](const int i, maxloc_value_t &mx) {
-              const double val = std::abs(B(i, k));
+              const Real val = std::abs(B(i, k));
               if (val > mx.val) {
                 mx.val = val;
                 mx.loc = i;
@@ -105,7 +106,7 @@ class Maxvol {
         const int p = (piv.loc < nrows) ? piv.loc : k;
         once_per_team(tm, [&]() { I[k] = p; });
 
-        const double inv_pivot = 1.0 / B(p, k);
+        const Real inv_pivot = 1.0 / B(p, k);
         parallel_loop(tm, k + 1, rank - 1, [&](const int c) { pivot_row[c] = B(p, c); });
         parallel_loop(tm, 0, nrows - 1, [&](const int i) {
           // x * (1/x) need not round to 1, so set the pivot's factor
@@ -129,15 +130,15 @@ class Maxvol {
     barrier(tm);
     QRSolveRight::execute(tm, &M, pB, work);
 
-    double *col = work;
-    double *row = &(work[nrows]);
+    Real *col = work;
+    Real *row = &(work[nrows]);
     int iter = 0;
     for (; iter < max_iters; ++iter) {
       maxloc_value_t mx;
       find_maximum_location(
           tm, 0, nrows * rank - 1,
           [&](const int idx, maxloc_value_t &m) {
-            const double val = std::abs(B(idx / rank, idx % rank));
+            const Real val = std::abs(B(idx / rank, idx % rank));
             if (val > m.val) {
               m.val = val;
               m.loc = idx;
@@ -151,7 +152,7 @@ class Maxvol {
       once_per_team(tm, [&]() { I[j] = i; });
 
       // B <- B - B(:,j) (B(i,:) - e_jᵀ) / B(i,j), which makes row i equal e_jᵀ
-      const double inv_bij = 1.0 / B(i, j);
+      const Real inv_bij = 1.0 / B(i, j);
       parallel_loop(tm, 0, nrows - 1, [&](const int a) { col[a] = B(a, j); });
       parallel_loop(tm, 0, rank - 1,
                     [&](const int b) { row[b] = (B(i, b) - (b == j)) * inv_bij; });
@@ -166,8 +167,8 @@ class Maxvol {
 
   template <class matrix_a_t, class matrix_b_t>
   KOKKOS_INLINE_FUNCTION static int
-  execute(const matrix_a_t &A, matrix_b_t *pB, int *I, double *scratch,
-          const bool initialize_indices = true, const double tau = 1.05,
+  execute(const matrix_a_t &A, matrix_b_t *pB, int *I, Real *scratch,
+          const bool initialize_indices = true, const Real tau = 1.05,
           const int max_iters = 100) {
     return execute(serial_tm_t(), A, pB, I, scratch, initialize_indices, tau, max_iters);
   }
@@ -175,16 +176,16 @@ class Maxvol {
   // Version that is only callable on host and allocates its own scratch space
   template <class matrix_a_t, class matrix_b_t>
   static int execute(const matrix_a_t &A, matrix_b_t *pB, int *I,
-                     const bool initialize_indices = true, const double tau = 1.05,
+                     const bool initialize_indices = true, const Real tau = 1.05,
                      const int max_iters = 100) {
-    std::vector<double> scratch(double_scratch_size(GetNrows(A), GetNcols(A)));
+    std::vector<Real> scratch(Real_scratch_size(GetNrows(A), GetNcols(A)));
     return execute(serial_tm_t(), A, pB, I, scratch.data(), initialize_indices, tau,
                    max_iters);
   }
 
   // nrows and rank are the dimensions of A.
   KOKKOS_INLINE_FUNCTION static constexpr std::size_t
-  double_scratch_size(std::size_t nrows, std::size_t rank) {
+  Real_scratch_size(std::size_t nrows, std::size_t rank) {
     // M = A(I,:), then a work area that holds the QRSolveRight workspace
     // (rank + nrows), the greedy-start pivot row and factors, or the rank-1
     // update vectors
@@ -192,7 +193,7 @@ class Maxvol {
   }
 
   static std::size_t total_shmem_scratch_size(std::size_t nrows, std::size_t rank) {
-    return parthenon::ScratchPad1D<double>::shmem_size(double_scratch_size(nrows, rank));
+    return parthenon::ScratchPad1D<Real>::shmem_size(Real_scratch_size(nrows, rank));
   }
 };
 

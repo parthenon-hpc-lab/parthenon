@@ -44,18 +44,18 @@ Matrix Block(const Matrix &A, int nrows, int ncols) {
   return out;
 }
 
-double DiffNorm(const Matrix &A, const Matrix &B) {
-  double s = 0.0;
+Real DiffNorm(const Matrix &A, const Matrix &B) {
+  Real s = 0.0;
   for (int r = 0; r < A.nrows(); ++r) {
     for (int c = 0; c < A.ncols(); ++c) {
-      const double e = A(r, c) - B(r, c);
+      const Real e = A(r, c) - B(r, c);
       s += e * e;
     }
   }
   return std::sqrt(s);
 }
 
-double RelativeError(const Matrix &X, const Matrix &X0) {
+Real RelativeError(const Matrix &X, const Matrix &X0) {
   return DiffNorm(X, X0) / X0.FrobeniusNorm();
 }
 
@@ -163,8 +163,8 @@ TEST_CASE("QR solve of least-squares systems", "[qr_solve][lsq]") {
 
       // The trailing rows of Qᵀ B carry the residual norms
       for (int c = 0; c < k; ++c) {
-        double tail = 0.0;
-        double res = 0.0;
+        Real tail = 0.0;
+        Real res = 0.0;
         for (int i = 0; i < m; ++i) {
           if (i >= n) tail += B(i, c) * B(i, c);
           res += r(i, c) * r(i, c);
@@ -180,7 +180,7 @@ TEST_CASE("QR solve robustness", "[qr_solve][robust]") {
   const int k = 3;
 
   SECTION("Ill-conditioned matrix is solved backward stably") {
-    std::vector<double> sings(n);
+    std::vector<Real> sings(n);
     for (int i = 0; i < n; ++i) {
       sings[i] = std::pow(10.0, -10.0 * i / (n - 1));
     }
@@ -196,7 +196,7 @@ TEST_CASE("QR solve robustness", "[qr_solve][robust]") {
   }
 
   SECTION("Uniformly scaled matrices near and beyond the sum-of-squares range") {
-    for (const double scale : {1e-200, 1e-150, 1e150, 1e200}) {
+    for (const Real scale : {1e-200, 1e-150, 1e150, 1e200}) {
       // Scale A but not B, so the solution scales by 1 / scale
       const Matrix A1 = Matrix::RandomGaussian(n, n, 7000u);
       const Matrix X1 = Matrix::RandomGaussian(n, k, 7001u);
@@ -213,12 +213,12 @@ TEST_CASE("QR solve robustness", "[qr_solve][robust]") {
       }
 
       const Matrix X = Solve(A0, B0);
-      double err = 0.0;
-      double nrm = 0.0;
+      Real err = 0.0;
+      Real nrm = 0.0;
       for (int r = 0; r < n; ++r) {
         for (int c = 0; c < k; ++c) {
           // Compare in unscaled units so the check itself cannot overflow
-          const double d = (X(r, c) - X0(r, c)) * scale;
+          const Real d = (X(r, c) - X0(r, c)) * scale;
           err += d * d;
           nrm += X1(r, c) * X1(r, c);
         }

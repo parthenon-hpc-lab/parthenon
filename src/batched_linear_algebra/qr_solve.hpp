@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "batched_linear_algebra/execution_utils.hpp"
 #include "batched_linear_algebra/householder.hpp"
 #include "batched_linear_algebra/matrix_utils.hpp"
@@ -66,7 +67,7 @@ class TriangularSolve {
     // at once, which exposes i * nrhs independent updates per step
     sequential_loop(0, n - 1, [&](const int inv_i) {
       const int i = n - 1 - inv_i;
-      const double rii = R(i, i);
+      const Real rii = R(i, i);
       parallel_loop(tm, 0, nrhs - 1, [&](const int c) { B(i, c) /= rii; });
       barrier(tm);
       parallel_loop(tm, 0, i - 1, 0, nrhs - 1,
@@ -110,7 +111,7 @@ class QRSolve {
   ///   - 0.
   template <class tm_t, class matrix_a_t, class matrix_b_t>
   KOKKOS_INLINE_FUNCTION static int execute(tm_t tm, matrix_a_t *pA, matrix_b_t *pB,
-                                            double *scratch) {
+                                            Real *scratch) {
     PARTHENON_REQUIRE(pA, "A must not be null.");
     PARTHENON_REQUIRE(pB, "B must not be null.");
     auto &A = *pA;
@@ -120,9 +121,9 @@ class QRSolve {
     PARTHENON_REQUIRE(nrows >= ncols, "QRSolve requires nrows >= ncols.");
     PARTHENON_REQUIRE(GetNrows(B) == nrows, "B must have the same number of rows as A.");
 
-    double *v = &(scratch[0]);
+    Real *v = &(scratch[0]);
     // Shared by the A and B updates, so it is sized for the wider of the two
-    double *s = &(scratch[nrows]);
+    Real *s = &(scratch[nrows]);
 
     sequential_loop(0, ncols - 1, [&](const int col) {
       build_householder_vector_col(tm, col, col, A, v);
@@ -140,28 +141,28 @@ class QRSolve {
 
   template <class matrix_a_t, class matrix_b_t>
   KOKKOS_INLINE_FUNCTION static int execute(matrix_a_t *pA, matrix_b_t *pB,
-                                            double *scratch) {
+                                            Real *scratch) {
     return execute(serial_tm_t(), pA, pB, scratch);
   }
 
   template <class matrix_a_t, class matrix_b_t>
   static int execute(matrix_a_t *pA, matrix_b_t *pB) {
-    std::vector<double> scratch(
-        double_scratch_size(GetNrows(*pA), GetNcols(*pA), GetNcols(*pB)));
+    std::vector<Real> scratch(
+        Real_scratch_size(GetNrows(*pA), GetNcols(*pA), GetNcols(*pB)));
     return execute(serial_tm_t(), pA, pB, scratch.data());
   }
 
   // nrows and ncols are the dimensions of A, nrhs the number of columns of B.
   KOKKOS_INLINE_FUNCTION static constexpr std::size_t
-  double_scratch_size(std::size_t nrows, std::size_t ncols, std::size_t nrhs) {
+  Real_scratch_size(std::size_t nrows, std::size_t ncols, std::size_t nrhs) {
     // v + per-column reflector coefficients
     return nrows + std::max(ncols, nrhs);
   }
 
   static std::size_t total_shmem_scratch_size(std::size_t nrows, std::size_t ncols,
                                               std::size_t nrhs) {
-    return parthenon::ScratchPad1D<double>::shmem_size(
-        double_scratch_size(nrows, ncols, nrhs));
+    return parthenon::ScratchPad1D<Real>::shmem_size(
+        Real_scratch_size(nrows, ncols, nrhs));
   }
 };
 
@@ -186,7 +187,7 @@ class QRSolveRight {
   ///   - 0.
   template <class tm_t, class matrix_a_t, class matrix_b_t>
   KOKKOS_INLINE_FUNCTION static int execute(tm_t tm, matrix_a_t *pA, matrix_b_t *pB,
-                                            double *scratch) {
+                                            Real *scratch) {
     PARTHENON_REQUIRE(pA, "A must not be null.");
     PARTHENON_REQUIRE(pB, "B must not be null.");
     matrix_transpose_view_t<matrix_a_t> AT(*pA);
@@ -196,21 +197,21 @@ class QRSolveRight {
 
   template <class matrix_a_t, class matrix_b_t>
   KOKKOS_INLINE_FUNCTION static int execute(matrix_a_t *pA, matrix_b_t *pB,
-                                            double *scratch) {
+                                            Real *scratch) {
     return execute(serial_tm_t(), pA, pB, scratch);
   }
 
   template <class matrix_a_t, class matrix_b_t>
   static int execute(matrix_a_t *pA, matrix_b_t *pB) {
-    std::vector<double> scratch(
-        double_scratch_size(GetNrows(*pA), GetNcols(*pA), GetNrows(*pB)));
+    std::vector<Real> scratch(
+        Real_scratch_size(GetNrows(*pA), GetNcols(*pA), GetNrows(*pB)));
     return execute(serial_tm_t(), pA, pB, scratch.data());
   }
 
   // nrows and ncols are the dimensions of A, nrhs the number of rows of B.
   KOKKOS_INLINE_FUNCTION static constexpr std::size_t
-  double_scratch_size(std::size_t nrows, std::size_t ncols, std::size_t nrhs) {
-    return QRSolve::double_scratch_size(ncols, nrows, nrhs);
+  Real_scratch_size(std::size_t nrows, std::size_t ncols, std::size_t nrhs) {
+    return QRSolve::Real_scratch_size(ncols, nrows, nrhs);
   }
 
   static std::size_t total_shmem_scratch_size(std::size_t nrows, std::size_t ncols,

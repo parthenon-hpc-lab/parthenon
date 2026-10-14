@@ -260,28 +260,28 @@ void FactorFlatLocal(ParArray3D<Real> A_dev, ParArray3D<Real> Q_dev) {
 // The number of right-hand sides is the number of columns of B for QRSolve
 // (A X = B) and the number of rows of B for QRSolveRight (X A = B).
 template <class Solver>
-int NumRhs(const ParArray3D<double> &B_dev) {
+int NumRhs(const ParArray3D<Real> &B_dev) {
   return std::is_same_v<Solver, QRSolveRight> ? B_dev.extent_int(1) : B_dev.extent_int(2);
 }
 
 template <class Solver>
-void SolveTeam(ParArray3D<double> A_dev, ParArray3D<double> B_dev) {
+void SolveTeam(ParArray3D<Real> A_dev, ParArray3D<Real> B_dev) {
   const int am = A_dev.extent_int(1);
   const int an = A_dev.extent_int(2);
   const int bm = B_dev.extent_int(1);
   const int bn = B_dev.extent_int(2);
   const int nrhs = NumRhs<Solver>(B_dev);
   const int scratch_level = 0;
-  const std::size_t nwork = Solver::double_scratch_size(am, an, nrhs);
+  const std::size_t nwork = Solver::Real_scratch_size(am, an, nrhs);
   const std::size_t scratch_bytes = Solver::total_shmem_scratch_size(am, an, nrhs) +
-                                    ScratchPad2D<double>::shmem_size(am, an) +
-                                    ScratchPad2D<double>::shmem_size(bm, bn);
+                                    ScratchPad2D<Real>::shmem_size(am, an) +
+                                    ScratchPad2D<Real>::shmem_size(bm, bn);
   parthenon::par_for_outer(
       "SolveTeam", scratch_bytes, scratch_level, 0, nbatch - 1,
       KOKKOS_LAMBDA(team_mbr_t member, const int b) {
-        ScratchPad1D<double> work(member.team_scratch(scratch_level), nwork);
-        ScratchPad2D<double> A(member.team_scratch(scratch_level), am, an);
-        ScratchPad2D<double> B(member.team_scratch(scratch_level), bm, bn);
+        ScratchPad1D<Real> work(member.team_scratch(scratch_level), nwork);
+        ScratchPad2D<Real> A(member.team_scratch(scratch_level), am, an);
+        ScratchPad2D<Real> B(member.team_scratch(scratch_level), bm, bn);
         parthenon::par_for_inner(
             member, 0, am - 1, 0, an - 1,
             [&](const int r, const int c) { A(r, c) = A_dev(b, r, c); });
@@ -300,11 +300,11 @@ void SolveTeam(ParArray3D<double> A_dev, ParArray3D<double> B_dev) {
 }
 
 template <class Solver>
-void SolveFlat(ParArray3D<double> A_dev, ParArray3D<double> B_dev) {
+void SolveFlat(ParArray3D<Real> A_dev, ParArray3D<Real> B_dev) {
   const int am = A_dev.extent_int(1);
   const int an = A_dev.extent_int(2);
   const int nrhs = NumRhs<Solver>(B_dev);
-  ParArray2D<double> work("work", nbatch, Solver::double_scratch_size(am, an, nrhs));
+  ParArray2D<Real> work("work", nbatch, Solver::Real_scratch_size(am, an, nrhs));
   const View3D A_view = A_dev;
   const View3D B_view = B_dev;
   parthenon::par_for(
@@ -315,24 +315,24 @@ void SolveFlat(ParArray3D<double> A_dev, ParArray3D<double> B_dev) {
       });
 }
 
-constexpr double kMaxvolTau = 1.05;
+constexpr Real kMaxvolTau = 1.05;
 
-void MaxvolTeam(ParArray3D<double> A_dev, ParArray3D<double> B_dev,
+void MaxvolTeam(ParArray3D<Real> A_dev, ParArray3D<Real> B_dev,
                 ParArray2D<int> I_dev) {
   const int n = A_dev.extent_int(1);
   const int r = A_dev.extent_int(2);
   const int scratch_level = 0;
-  const std::size_t nwork = Maxvol::double_scratch_size(n, r);
+  const std::size_t nwork = Maxvol::Real_scratch_size(n, r);
   const std::size_t scratch_bytes = Maxvol::total_shmem_scratch_size(n, r) +
-                                    2 * ScratchPad2D<double>::shmem_size(n, r) +
+                                    2 * ScratchPad2D<Real>::shmem_size(n, r) +
                                     ScratchPad1D<int>::shmem_size(r);
-  const double tau = kMaxvolTau;
+  const Real tau = kMaxvolTau;
   parthenon::par_for_outer(
       "MaxvolTeam", scratch_bytes, scratch_level, 0, nbatch - 1,
       KOKKOS_LAMBDA(team_mbr_t member, const int b) {
-        ScratchPad1D<double> work(member.team_scratch(scratch_level), nwork);
-        ScratchPad2D<double> A(member.team_scratch(scratch_level), n, r);
-        ScratchPad2D<double> B(member.team_scratch(scratch_level), n, r);
+        ScratchPad1D<Real> work(member.team_scratch(scratch_level), nwork);
+        ScratchPad2D<Real> A(member.team_scratch(scratch_level), n, r);
+        ScratchPad2D<Real> B(member.team_scratch(scratch_level), n, r);
         ScratchPad1D<int> I(member.team_scratch(scratch_level), r);
         parthenon::par_for_inner(
             member, 0, n - 1, 0, r - 1,
@@ -350,14 +350,14 @@ void MaxvolTeam(ParArray3D<double> A_dev, ParArray3D<double> B_dev,
       });
 }
 
-void MaxvolFlat(ParArray3D<double> A_dev, ParArray3D<double> B_dev,
+void MaxvolFlat(ParArray3D<Real> A_dev, ParArray3D<Real> B_dev,
                 ParArray2D<int> I_dev) {
   const int n = A_dev.extent_int(1);
   const int r = A_dev.extent_int(2);
-  ParArray2D<double> work("work", nbatch, Maxvol::double_scratch_size(n, r));
+  ParArray2D<Real> work("work", nbatch, Maxvol::Real_scratch_size(n, r));
   const View3D A_view = A_dev;
   const View3D B_view = B_dev;
-  const double tau = kMaxvolTau;
+  const Real tau = kMaxvolTau;
   parthenon::par_for(
       "MaxvolFlat", 0, nbatch - 1, KOKKOS_LAMBDA(const int b) {
         auto A = Kokkos::subview(A_view, b, Kokkos::ALL(), Kokkos::ALL());
@@ -369,8 +369,8 @@ void MaxvolFlat(ParArray3D<double> A_dev, ParArray3D<double> B_dev,
 // Entries 1/(i + j + 1 + shift) computed on demand inside the kernel
 struct DeviceHilbert {
   int nrows, ncols;
-  double shift;
-  KOKKOS_INLINE_FUNCTION double operator()(const int i, const int j) const {
+  Real shift;
+  KOKKOS_INLINE_FUNCTION Real operator()(const int i, const int j) const {
     return 1.0 / (i + j + 1 + shift);
   }
 };
@@ -387,26 +387,26 @@ struct StoredSource {
 struct HilbertSource {
   int nrows, ncols;
   KOKKOS_INLINE_FUNCTION DeviceHilbert operator()(const int b) const {
-    return DeviceHilbert{nrows, ncols, static_cast<double>(b)};
+    return DeviceHilbert{nrows, ncols, static_cast<Real>(b)};
   }
 };
 
 template <class Source>
 void MatrixCrossTeam(const Source source, const int n, const int m, const int r,
-                     ParArray3D<double> C_dev, ParArray3D<double> R_dev,
+                     ParArray3D<Real> C_dev, ParArray3D<Real> R_dev,
                      ParArray2D<int> I_dev, ParArray2D<int> J_dev) {
   const int scratch_level = 0;
-  const std::size_t nwork = MatrixCross::double_scratch_size(n, m, r);
+  const std::size_t nwork = MatrixCross::Real_scratch_size(n, m, r);
   const std::size_t scratch_bytes = MatrixCross::total_shmem_scratch_size(n, m, r) +
-                                    ScratchPad2D<double>::shmem_size(n, r) +
-                                    ScratchPad2D<double>::shmem_size(r, m) +
+                                    ScratchPad2D<Real>::shmem_size(n, r) +
+                                    ScratchPad2D<Real>::shmem_size(r, m) +
                                     2 * ScratchPad1D<int>::shmem_size(r);
   parthenon::par_for_outer(
       "MatrixCrossTeam", scratch_bytes, scratch_level, 0, nbatch - 1,
       KOKKOS_LAMBDA(team_mbr_t member, const int b) {
-        ScratchPad1D<double> work(member.team_scratch(scratch_level), nwork);
-        ScratchPad2D<double> C(member.team_scratch(scratch_level), n, r);
-        ScratchPad2D<double> R(member.team_scratch(scratch_level), r, m);
+        ScratchPad1D<Real> work(member.team_scratch(scratch_level), nwork);
+        ScratchPad2D<Real> C(member.team_scratch(scratch_level), n, r);
+        ScratchPad2D<Real> R(member.team_scratch(scratch_level), r, m);
         ScratchPad1D<int> I(member.team_scratch(scratch_level), r);
         ScratchPad1D<int> J(member.team_scratch(scratch_level), r);
         const auto A = source(b);
@@ -429,9 +429,9 @@ void MatrixCrossTeam(const Source source, const int n, const int m, const int r,
 
 template <class Source>
 void MatrixCrossFlat(const Source source, const int n, const int m, const int r,
-                     ParArray3D<double> C_dev, ParArray3D<double> R_dev,
+                     ParArray3D<Real> C_dev, ParArray3D<Real> R_dev,
                      ParArray2D<int> I_dev, ParArray2D<int> J_dev) {
-  ParArray2D<double> work("work", nbatch, MatrixCross::double_scratch_size(n, m, r));
+  ParArray2D<Real> work("work", nbatch, MatrixCross::Real_scratch_size(n, m, r));
   const View3D C_view = C_dev;
   const View3D R_view = R_dev;
   parthenon::par_for(
@@ -604,7 +604,7 @@ void CheckNormalEquations(const Matrix &A, const Matrix &B, const Matrix &X) {
   }
   Matrix normal(X.nrows(), X.ncols());
   Multiply(Matrix::Transpose(A), res, normal);
-  const double a = A.FrobeniusNorm();
+  const Real a = A.FrobeniusNorm();
   REQUIRE(normal.FrobeniusNorm() <
           1e-13 * a * (a * X.FrobeniusNorm() + B.FrobeniusNorm()));
 }
@@ -650,7 +650,7 @@ void TestSolve(const bool team, const int a_rows, const int a_cols, const int nr
 void TestMaxvol(const bool team, const int n, const int r, const unsigned seed) {
   const auto A0 = RandomBatch(n, r, seed);
   auto A_dev = ToDevice(A0);
-  ParArray3D<double> B_dev("B", nbatch, n, r);
+  ParArray3D<Real> B_dev("B", nbatch, n, r);
   ParArray2D<int> I_dev("I", nbatch, r);
   if (team) {
     MaxvolTeam(A_dev, B_dev, I_dev);
@@ -682,7 +682,7 @@ void TestMaxvol(const bool team, const int n, const int r, const unsigned seed) 
     Multiply(B[b], S, BS);
     REQUIRE(MaxAbsDiff(BS, A0[b]) < 1e-12 * A0[b].FrobeniusNorm());
 
-    double bmax = 0.0;
+    Real bmax = 0.0;
     for (int i = 0; i < n; ++i) {
       for (int c = 0; c < r; ++c) {
         bmax = std::max(bmax, std::abs(B[b](i, c)));
@@ -703,7 +703,7 @@ void TestMatrixCross(const bool team, const bool lazy, const int n, const int m,
   for (int b = 0; b < nbatch; ++b) {
     Matrix A(n, m);
     if (lazy) {
-      const DeviceHilbert H{n, m, static_cast<double>(b)};
+      const DeviceHilbert H{n, m, static_cast<Real>(b)};
       for (int i = 0; i < n; ++i) {
         for (int j = 0; j < m; ++j) {
           A(i, j) = H(i, j);
@@ -716,8 +716,8 @@ void TestMatrixCross(const bool team, const bool lazy, const int n, const int m,
     A0.push_back(A);
   }
 
-  ParArray3D<double> C_dev("C", nbatch, n, r);
-  ParArray3D<double> R_dev("R", nbatch, r, m);
+  ParArray3D<Real> C_dev("C", nbatch, n, r);
+  ParArray3D<Real> R_dev("R", nbatch, r, m);
   ParArray2D<int> I_dev("I", nbatch, r);
   ParArray2D<int> J_dev("J", nbatch, r);
   auto run = [&](const auto source) {
@@ -766,9 +766,9 @@ void TestMatrixCross(const bool team, const bool lazy, const int n, const int m,
     Multiply(C[b], R[b], CR);
     if (lazy) {
       Matrix dense = A0[b].GetDeepCopy();
-      std::vector<double> sings(m);
+      std::vector<Real> sings(m);
       SquareSVD::execute(&dense, sings.data());
-      std::sort(sings.begin(), sings.end(), std::greater<double>());
+      std::sort(sings.begin(), sings.end(), std::greater<Real>());
       REQUIRE(MaxAbsDiff(CR, A0[b]) <= (r + 1) * sings[r]);
     } else {
       REQUIRE(MaxAbsDiff(CR, A0[b]) < 1e-12 * A0[b].FrobeniusNorm());

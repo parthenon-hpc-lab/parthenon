@@ -20,16 +20,17 @@
 
 #include <catch2/catch.hpp>
 
+#include "basic_types.hpp"
 #include "batched_linear_algebra/execution_utils.hpp"
 #include "batched_linear_algebra/maxvol.hpp"
 #include "batched_linear_algebra/qr_decomposition.hpp"
 #include "linalg_test_utils.hpp"
 
 using namespace parthenon::batched_linear_algebra; // NOLINT(build/namespaces)
-
+using parthenon::Real; 
 namespace maxvol_test {
 
-constexpr double kTau = 1.05;
+constexpr Real kTau = 1.05;
 
 // A(I,:) as an r x r matrix.
 Matrix SubRows(const Matrix &A, const std::vector<int> &I) {
@@ -44,18 +45,18 @@ Matrix SubRows(const Matrix &A, const std::vector<int> &I) {
 }
 
 // |det S| from the diagonal of R in S = Q R.
-double AbsDet(const Matrix &S) {
+Real AbsDet(const Matrix &S) {
   Matrix R = S.GetDeepCopy();
   QRDecomposition::execute(&R);
-  double det = 1.0;
+  Real det = 1.0;
   for (int i = 0; i < R.nrows(); ++i) {
     det *= std::abs(R(i, i));
   }
   return det;
 }
 
-double MaxAbs(const Matrix &A) {
-  double mx = 0.0;
+Real MaxAbs(const Matrix &A) {
+  Real mx = 0.0;
   for (int r = 0; r < A.nrows(); ++r) {
     for (int c = 0; c < A.ncols(); ++c) {
       mx = std::max(mx, std::abs(A(r, c)));
@@ -88,10 +89,10 @@ void CheckMaxvol(const Matrix &A, const Matrix &B, const std::vector<int> &I,
   const Matrix S = SubRows(A, I);
   Matrix BS(n, r);
   Multiply(B, S, BS);
-  double err = 0.0;
+  Real err = 0.0;
   for (int i = 0; i < n; ++i) {
     for (int c = 0; c < r; ++c) {
-      const double d = BS(i, c) - A(i, c);
+      const Real d = BS(i, c) - A(i, c);
       err += d * d;
     }
   }
@@ -116,7 +117,7 @@ std::pair<Matrix, std::vector<int>> RunMaxvol(const Matrix &A) {
 using namespace maxvol_test; // NOLINT(build/namespaces)
 
 TEST_CASE("Maximum location helper", "[maxvol][utils]") {
-  const std::vector<double> vals{0.5, -3.0, 2.0, 7.5, -7.0, 1.0};
+  const std::vector<Real> vals{0.5, -3.0, 2.0, 7.5, -7.0, 1.0};
   maxloc_value_t res;
   find_maximum_location(
       serial_tm_t(), 0, static_cast<int>(vals.size()) - 1,
@@ -135,7 +136,7 @@ TEST_CASE("Maximum location helper", "[maxvol][utils]") {
   find_maximum_location(
       serial_tm_t(), 0, 7 * 3 - 1,
       [&](const int idx, maxloc_value_t &m) {
-        const double v = std::abs(A(idx / 3, idx % 3));
+        const Real v = std::abs(A(idx / 3, idx % 3));
         if (v > m.val) {
           m.val = v;
           m.loc = idx;
@@ -166,9 +167,9 @@ TEST_CASE("Maxvol is close to the maximum volume", "[maxvol][volume]") {
   for (unsigned seed = 0; seed < 5; ++seed) {
     const Matrix A = Matrix::RandomGaussian(n, r, 200u + seed);
     const auto [B, I] = RunMaxvol(A);
-    const double det = AbsDet(SubRows(A, I));
+    const Real det = AbsDet(SubRows(A, I));
 
-    double max_det = 0.0;
+    Real max_det = 0.0;
     for (int a = 0; a < n; ++a) {
       for (int b = a + 1; b < n; ++b) {
         for (int c = b + 1; c < n; ++c) {
@@ -240,7 +241,7 @@ TEST_CASE("Maxvol warm start", "[maxvol][warm]") {
   REQUIRE(I2 == I);
   for (int i = 0; i < n; ++i) {
     for (int c = 0; c < r; ++c) {
-      REQUIRE(std::abs(B2(i, c) - B(i, c)) < 1e-12 * std::max(1.0, MaxAbs(B)));
+      REQUIRE(std::abs(B2(i, c) - B(i, c)) < 1e-12 * std::max(Real{1.0}, MaxAbs(B)));
     }
   }
 

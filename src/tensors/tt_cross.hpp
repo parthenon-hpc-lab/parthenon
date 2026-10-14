@@ -20,6 +20,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "batched_linear_algebra/execution_utils.hpp"
 #include "batched_linear_algebra/maxvol.hpp"
 #include "batched_linear_algebra/qr_decomposition.hpp"
@@ -184,11 +185,9 @@ inline std::vector<int> ClipCrossRanks(const std::vector<int> &dims,
 template <class F, class TTraits, class... var_ts>
 int TTCross(TensorTrainHostPackT<TTraits, var_ts...> &pack_host, const F &f,
             const std::vector<int> &ranks, const int nsweeps = 10,
-            TTCrossIndexSetsT<TTraits> *sets = nullptr, const double tau = 1.05) {
+            TTCrossIndexSetsT<TTraits> *sets = nullptr, const Real tau = 1.05) {
   using namespace batched_linear_algebra; // NOLINT(build/namespaces)
   using real_t = typename TTraits::real_t;
-  static_assert(std::is_same_v<real_t, double>,
-                "TTCross uses the double-precision batched linear algebra.");
   PARTHENON_REQUIRE(nsweeps >= 1, "TTCross needs at least one sweep.");
 
   const int nblocks = pack_host.NumBlocks();
@@ -222,10 +221,10 @@ int TTCross(TensorTrainHostPackT<TTraits, var_ts...> &pack_host, const F &f,
 
   const std::size_t work_size =
       std::max(QRDecomposition::Real_scratch_size(max_rows, max_rank),
-               Maxvol::double_scratch_size(max_rows, max_rank));
+               Maxvol::Real_scratch_size(max_rows, max_rank));
   int scratch_size{0};
   scratch_size += ScratchPad1D<real_t>::shmem_size(max_core_size);
-  scratch_size += ScratchPad1D<double>::shmem_size(work_size);
+  scratch_size += ScratchPad1D<Real>::shmem_size(work_size);
   scratch_size += ScratchPad1D<int>::shmem_size(max_rank);
 
   auto pack = pack_host.MakeDevicePack();
@@ -247,7 +246,7 @@ int TTCross(TensorTrainHostPackT<TTraits, var_ts...> &pack_host, const F &f,
       KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int b, const int v) {
         auto &tm_scratch = tm.team_scratch(scratch_level);
         ScratchPad1D<real_t> q_flat(tm_scratch, max_core_size);
-        ScratchPad1D<double> work(tm_scratch, work_size);
+        ScratchPad1D<Real> work(tm_scratch, work_size);
         ScratchPad1D<int> old_piv(tm_scratch, max_rank);
 
         // Overwrite core k with the fiber A(I_k, :, J_k) of the black box.

@@ -62,7 +62,7 @@ solution.
 
 The workspace size functions of ``QRSolve`` and ``QRSolveRight`` take the
 dimensions of ``A`` and the number of right-hand sides,
-``double_scratch_size(nrows, ncols, nrhs)``.
+``Real_scratch_size(nrows, ncols, nrhs)``.
 
 Row selection
 -------------

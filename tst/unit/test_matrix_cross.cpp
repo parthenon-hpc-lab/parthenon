@@ -22,11 +22,13 @@
 
 #include <catch2/catch.hpp>
 
+#include "basic_types.hpp"
 #include "batched_linear_algebra/matrix_cross.hpp"
 #include "batched_linear_algebra/square_svd.hpp"
 #include "linalg_test_utils.hpp"
 
 using namespace parthenon::batched_linear_algebra; // NOLINT(build/namespaces)
+using parthenon::Real;
 
 namespace matrix_cross_test {
 
@@ -35,7 +37,7 @@ constexpr int kMaxSweeps = 10;
 // Entries 1/(i + j + 1) computed on demand, never stored
 struct HilbertLike {
   int nrows, ncols;
-  KOKKOS_INLINE_FUNCTION double operator()(const int i, const int j) const {
+  KOKKOS_INLINE_FUNCTION Real operator()(const int i, const int j) const {
     return 1.0 / (i + j + 1);
   }
 };
@@ -47,7 +49,7 @@ KOKKOS_INLINE_FUNCTION int GetNcols(const HilbertLike &h) { return h.ncols; }
 struct CountingMatrix {
   const Matrix *A;
   int *count;
-  KOKKOS_INLINE_FUNCTION double operator()(const int i, const int j) const {
+  KOKKOS_INLINE_FUNCTION Real operator()(const int i, const int j) const {
     ++(*count);
     return (*A)(i, j);
   }
@@ -111,16 +113,16 @@ CrossResult RunCross(const matrix_t &A, const int r, const CrossResult *warm = n
 
 // Max-norm and Frobenius-norm errors of C R against A
 template <class matrix_t>
-std::pair<double, double> CrossError(const matrix_t &A, const CrossResult &res) {
+std::pair<Real, Real> CrossError(const matrix_t &A, const CrossResult &res) {
   const int n = GetNrows(A);
   const int m = GetNcols(A);
   Matrix CR(n, m);
   Multiply(res.C, res.R, CR);
-  double max_err = 0.0;
-  double frob_err = 0.0;
+  Real max_err = 0.0;
+  Real frob_err = 0.0;
   for (int i = 0; i < n; ++i) {
     for (int j = 0; j < m; ++j) {
-      const double d = CR(i, j) - A(i, j);
+      const Real d = CR(i, j) - A(i, j);
       max_err = std::max(max_err, std::abs(d));
       frob_err += d * d;
     }
@@ -152,15 +154,15 @@ TEST_CASE("Matrix cross of a lazily evaluated matrix", "[matrix_cross][lazy]") {
       dense(i, j) = H(i, j);
     }
   }
-  std::vector<double> sings(H.ncols);
+  std::vector<Real> sings(H.ncols);
   SquareSVD::execute(&dense, sings.data());
-  std::sort(sings.begin(), sings.end(), std::greater<double>());
+  std::sort(sings.begin(), sings.end(), std::greater<Real>());
 
-  double prev_err = 1.0;
+  Real prev_err = 1.0;
   for (const int r : {2, 4, 6, 8, 10}) {
     const auto res = RunCross(H, r);
     REQUIRE(res.sweeps < kMaxSweeps);
-    const double err = CrossError(H, res).first;
+    const Real err = CrossError(H, res).first;
     REQUIRE(err < prev_err);
     // A maximum-volume cross has max-norm error at most (r + 1) sigma_{r+1}
     REQUIRE(err <= (r + 1) * sings[r]);

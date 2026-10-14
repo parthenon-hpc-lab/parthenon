@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "batched_linear_algebra/execution_utils.hpp"
 #include "batched_linear_algebra/matrix_utils.hpp"
 #include "batched_linear_algebra/maxvol.hpp"
@@ -73,8 +74,8 @@ class MatrixCross {
   template <class tm_t, class matrix_a_t, class matrix_c_t, class matrix_r_t>
   KOKKOS_INLINE_FUNCTION static int
   execute(tm_t tm, const matrix_a_t &A, matrix_c_t *pC, matrix_r_t *pR, int *I, int *J,
-          const int rank, double *scratch, const bool initialize_indices = true,
-          const int max_sweeps = 10, const double tau = 1.05) {
+          const int rank, Real *scratch, const bool initialize_indices = true,
+          const int max_sweeps = 10, const Real tau = 1.05) {
     PARTHENON_REQUIRE(pC, "C must not be null.");
     const int nrows = GetNrows(A);
     const int ncols = GetNcols(A);
@@ -88,14 +89,14 @@ class MatrixCross {
     }
 
     const int max_dim = std::max(nrows, ncols);
-    double *fiber_data = scratch;
-    double *q_data = &(scratch[max_dim * rank]);
-    double *work = &(scratch[2 * max_dim * rank]);
+    Real *fiber_data = scratch;
+    Real *q_data = &(scratch[max_dim * rank]);
+    Real *work = &(scratch[2 * max_dim * rank]);
 
     // Rows I from the column fiber A(:,J). Maxvol's B is C.
     auto column_step = [&](const bool greedy) {
-      matrix_wrapper_t<double> F(fiber_data, nrows, rank);
-      matrix_wrapper_t<double> Q(q_data, nrows, rank);
+      matrix_wrapper_t<Real> F(fiber_data, nrows, rank);
+      matrix_wrapper_t<Real> Q(q_data, nrows, rank);
       parallel_loop(tm, 0, nrows - 1, 0, rank - 1,
                     [&](const int a, const int k) { F(a, k) = A(a, J[k]); });
       barrier(tm);
@@ -107,8 +108,8 @@ class MatrixCross {
 
     // Columns J from the row fiber A(I,:)ᵀ. Maxvol's B goes into the dead fiber.
     auto row_step = [&]() {
-      matrix_wrapper_t<double> F(fiber_data, ncols, rank);
-      matrix_wrapper_t<double> Q(q_data, ncols, rank);
+      matrix_wrapper_t<Real> F(fiber_data, ncols, rank);
+      matrix_wrapper_t<Real> Q(q_data, ncols, rank);
       parallel_loop(tm, 0, ncols - 1, 0, rank - 1,
                     [&](const int b, const int k) { F(b, k) = A(I[k], b); });
       barrier(tm);
@@ -143,8 +144,8 @@ class MatrixCross {
   template <class matrix_a_t, class matrix_c_t, class matrix_r_t>
   KOKKOS_INLINE_FUNCTION static int
   execute(const matrix_a_t &A, matrix_c_t *pC, matrix_r_t *pR, int *I, int *J,
-          const int rank, double *scratch, const bool initialize_indices = true,
-          const int max_sweeps = 10, const double tau = 1.05) {
+          const int rank, Real *scratch, const bool initialize_indices = true,
+          const int max_sweeps = 10, const Real tau = 1.05) {
     return execute(serial_tm_t(), A, pC, pR, I, J, rank, scratch, initialize_indices,
                    max_sweeps, tau);
   }
@@ -153,26 +154,26 @@ class MatrixCross {
   template <class matrix_a_t, class matrix_c_t, class matrix_r_t>
   static int execute(const matrix_a_t &A, matrix_c_t *pC, matrix_r_t *pR, int *I, int *J,
                      const int rank, const bool initialize_indices = true,
-                     const int max_sweeps = 10, const double tau = 1.05) {
-    std::vector<double> scratch(double_scratch_size(GetNrows(A), GetNcols(A), rank));
+                     const int max_sweeps = 10, const Real tau = 1.05) {
+    std::vector<Real> scratch(Real_scratch_size(GetNrows(A), GetNcols(A), rank));
     return execute(serial_tm_t(), A, pC, pR, I, J, rank, scratch.data(),
                    initialize_indices, max_sweeps, tau);
   }
 
   // nrows and ncols are the dimensions of A.
   KOKKOS_INLINE_FUNCTION static constexpr std::size_t
-  double_scratch_size(std::size_t nrows, std::size_t ncols, std::size_t rank) {
+  Real_scratch_size(std::size_t nrows, std::size_t ncols, std::size_t rank) {
     // Fiber and its thin Q, then a work area shared by QR and Maxvol
     const std::size_t max_dim = std::max(nrows, ncols);
     return 2 * max_dim * rank +
            std::max(QRDecomposition::Real_scratch_size(max_dim, rank),
-                    Maxvol::double_scratch_size(max_dim, rank));
+                    Maxvol::Real_scratch_size(max_dim, rank));
   }
 
   static std::size_t total_shmem_scratch_size(std::size_t nrows, std::size_t ncols,
                                               std::size_t rank) {
-    return parthenon::ScratchPad1D<double>::shmem_size(
-        double_scratch_size(nrows, ncols, rank));
+    return parthenon::ScratchPad1D<Real>::shmem_size(
+        Real_scratch_size(nrows, ncols, rank));
   }
 };
 
