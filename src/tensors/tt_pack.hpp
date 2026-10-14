@@ -16,6 +16,7 @@
 #ifndef TENSORS_TT_PACK_HPP_
 #define TENSORS_TT_PACK_HPP_
 
+#include <concepts>
 #include <memory>
 #include <string>
 #include <utility>
@@ -195,6 +196,16 @@ struct TensorPackT {
   }
 };
 
+// A mesh-partition container of tensor-train fields (e.g. MeshTTData). Stated as
+// a concept so this header stays free of the mesh/interface headers, and so the
+// container constructors below cannot capture a std::vector argument.
+template <class T>
+concept TTFieldContainer = requires(T &md, int b, const std::string &name) {
+  { md.NumBlocks() } -> std::convertible_to<int>;
+  md.FieldNames();
+  md.GetBlockData(b)->Get(name)->train();
+}; // NOLINT(readability/braces)
+
 // Host-side pack over a (var, block) grid of non-owning train pointers, plus the
 // metadata operations a kernel needs before building a device pack -- querying
 // and reshaping cores. Tensor-train ops frequently reshape a train host-side
@@ -230,6 +241,19 @@ class TensorTrainHostPackT {
   explicit TensorTrainHostPackT(std::vector<std::shared_ptr<train_t>> &trains)
       : TensorTrainHostPackT(SingleVarGrid_(
             trains, [](const std::shared_ptr<train_t> &t) { return t.get(); })) {}
+
+  // Host pack over the fields of a container, one variable per field. An untagged
+  // pack gathers all of the container's fields in its field order; a tagged pack
+  // gathers {var_ts::name()...} in tag order.
+  template <TTFieldContainer Container_t>
+  explicit TensorTrainHostPackT(Container_t &md)
+      : TensorTrainHostPackT(md, DefaultFieldNames_(md)) {}
+
+  // Host pack over an explicit list of named fields of a container. The number of
+  // names must match the pack's tag count (if tagged).
+  template <TTFieldContainer Container_t>
+  TensorTrainHostPackT(Container_t &md, const std::vector<std::string> &names)
+      : TensorTrainHostPackT(NamedFieldGrid_(md, names)) {}
 
   int NumVars() const { return grid_.NumVars(); }
   int NumBlocks() const { return grid_.NumBlocks(); }
@@ -288,6 +312,28 @@ class TensorTrainHostPackT {
     VarBlockGrid<train_t *> grid(1, static_cast<int>(trains.size()));
     for (std::size_t b = 0; b < trains.size(); ++b)
       grid(0, b) = get(trains[b]);
+    return grid;
+  }
+
+  template <class Container_t>
+  static std::vector<std::string> DefaultFieldNames_(Container_t &md) {
+    if constexpr (num_tags > 0) {
+      return {var_ts::name()...};
+    } else {
+      return md.FieldNames();
+    }
+  }
+
+  template <class Container_t>
+  static VarBlockGrid<train_t *> NamedFieldGrid_(Container_t &md,
+                                                 const std::vector<std::string> &names) {
+    PARTHENON_REQUIRE(!names.empty(),
+                      "Cannot build a TensorTrainHostPack from an empty field list.");
+    const int nblocks = md.NumBlocks();
+    VarBlockGrid<train_t *> grid(static_cast<int>(names.size()), nblocks);
+    for (std::size_t v = 0; v < names.size(); ++v)
+      for (int b = 0; b < nblocks; ++b)
+        grid(v, b) = &md.GetBlockData(b)->Get(names[v])->train();
     return grid;
   }
 

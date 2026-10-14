@@ -104,7 +104,7 @@ class TTVariableT {
   train_t train_;
 };
 
-using TTVariable = TTVariableT<DefaultTTraits>;
+using TTVariable = TTVariableT<tensor::DefaultTTraits>;
 
 } // namespace parthenon
 

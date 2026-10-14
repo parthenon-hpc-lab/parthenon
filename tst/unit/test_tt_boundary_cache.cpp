@@ -42,7 +42,6 @@
 using parthenon::ApplicationInput;
 using parthenon::BuildBoundaryTensors;
 using parthenon::BuildTTBoundaryCache;
-using parthenon::DefaultTTraits;
 using parthenon::DevExecSpace;
 using parthenon::IndexDomain;
 using parthenon::Mesh;
@@ -51,6 +50,7 @@ using parthenon::Packages_t;
 using parthenon::ParameterInput;
 using parthenon::StateDescriptor;
 using parthenon::TTFieldMetadata;
+using parthenon::tensor::DefaultTTraits;
 namespace tensor = parthenon::tensor;
 
 namespace {
@@ -169,8 +169,7 @@ TEST_CASE("BuildBoundaryTensors gathers interior cells into the addend ghost lay
     std::vector<tensor::TensorTrain *> src;
     for (int b = 0; b < md->NumBlocks(); ++b)
       src.push_back(&md->GetBlockData(b)->Get("I")->train());
-    auto pack =
-        tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(src).MakeDevicePack();
+    auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>(src).MakeDevicePack();
     parthenon::par_for(
         parthenon::loop_pattern_flatrange_tag, "SeedCores", DevExecSpace(), 0,
         pack.GetNBlocks() - 1, KOKKOS_LAMBDA(const int b) {
@@ -199,8 +198,7 @@ TEST_CASE("BuildBoundaryTensors gathers interior cells into the addend ghost lay
   auto bnd_info = cache.bnd_info;
   for (int e = 0; e < nbound; ++e) {
     std::vector<tensor::TensorTrain *> pair{addends[e].get(), srcs[e]};
-    auto pack =
-        tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(pair).MakeDevicePack();
+    auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>(pair).MakeDevicePack();
 
     int nwrong = 0;
     parthenon::par_reduce(
@@ -262,8 +260,7 @@ TEST_CASE("TT Send/Receive/Set exchanges ghost data between blocks",
     std::vector<tensor::TensorTrain *> src;
     for (int b = 0; b < md->NumBlocks(); ++b)
       src.push_back(&md->GetBlockData(b)->Get("I")->train());
-    auto pack =
-        tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(src).MakeDevicePack();
+    auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>(src).MakeDevicePack();
     parthenon::par_for(
         parthenon::loop_pattern_flatrange_tag, "SeedConst", DevExecSpace(), 0,
         pack.GetNBlocks() - 1, KOKKOS_LAMBDA(const int b) {
@@ -317,8 +314,7 @@ TEST_CASE("TT Send/Receive/Set exchanges ghost data between blocks",
       REQUIRE(src_block[e] >= 0);
       const double nb_val = src_block[e] + 1.0;
       std::vector<tensor::TensorTrain *> one{recv_trains[e]};
-      auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(one)
-                      .MakeDevicePack();
+      auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>(one).MakeDevicePack();
       int nwrong = 0;
       const int ee = static_cast<int>(e);
       parthenon::par_reduce(

@@ -50,7 +50,6 @@
 using parthenon::ApplicationInput;
 using parthenon::BoundaryRelation;
 using parthenon::BuildTTBoundaryCache;
-using parthenon::DefaultTTraits;
 using parthenon::DevExecSpace;
 using parthenon::IndexDomain;
 using parthenon::Mesh;
@@ -59,6 +58,7 @@ using parthenon::Packages_t;
 using parthenon::ParameterInput;
 using parthenon::StateDescriptor;
 using parthenon::TTFieldMetadata;
+using parthenon::tensor::DefaultTTraits;
 namespace tensor = parthenon::tensor;
 
 namespace {
@@ -141,8 +141,7 @@ TEST_CASE("TT boundary comm preserves a constant field across refined interfaces
     std::vector<tensor::TensorTrain *> src;
     for (int b = 0; b < md->NumBlocks(); ++b)
       src.push_back(&md->GetBlockData(b)->Get("I")->train());
-    auto pack =
-        tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(src).MakeDevicePack();
+    auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>(src).MakeDevicePack();
 
     // The whole-block index space is identical for every block (cell count is
     // level-independent), so one indexer's interior bounds cover all blocks.
@@ -186,8 +185,7 @@ TEST_CASE("TT boundary comm preserves a constant field across refined interfaces
     for (int e = 0; e < nbound; ++e) {
       const auto btype = cache.bnd_info_h(e).btype;
       std::vector<tensor::TensorTrain *> one{addends[e].get()};
-      auto p1 = tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(one)
-                    .MakeDevicePack();
+      auto p1 = tensor::TensorTrainHostPackT<DefaultTTraits>(one).MakeDevicePack();
       int nbad = 0, nnz = 0;
       parthenon::par_reduce(
           parthenon::loop_pattern_flatrange_tag, "CheckAddend", DevExecSpace(), 0, 0,
@@ -247,8 +245,7 @@ TEST_CASE("TT boundary comm preserves a constant field across refined interfaces
   std::vector<tensor::TensorTrain *> chk;
   for (int b = 0; b < md->NumBlocks(); ++b)
     chk.push_back(&md->GetBlockData(b)->Get("I")->train());
-  auto pack =
-      tensor::TensorTrainHostPackT<DefaultTTraits>::FromPointers(chk).MakeDevicePack();
+  auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>(chk).MakeDevicePack();
   int nbad = 0;
   parthenon::par_reduce(
       parthenon::loop_pattern_flatrange_tag, "CheckNoBad", DevExecSpace(), 0,

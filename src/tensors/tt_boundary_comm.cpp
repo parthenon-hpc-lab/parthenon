@@ -119,7 +119,7 @@ std::vector<std::shared_ptr<tensor::TensorTrain>>
 BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cache) {
   using namespace loops;
   using train_t = tensor::TensorTrain;
-  using HostPack = tensor::TensorTrainHostPackT<DefaultTTraits>;
+  using HostPack = tensor::TensorTrainHostPackT<tensor::DefaultTTraits>;
 
   // Build all the sets of trains for stages of boundary communication
   std::vector<train_t *> src;
@@ -141,9 +141,9 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
                           "Boundary walk and cache disagree on boundary count.");
   if (nbound == 0) return out;
 
-  auto pack_src = HostPack::FromPointers(src).MakeDevicePack();
-  auto pack_coarse = HostPack::FromSharedPtrs(coarse).MakeDevicePack();
-  auto pack_out = HostPack::FromSharedPtrs(out).MakeDevicePack();
+  auto pack_src = HostPack(src).MakeDevicePack();
+  auto pack_coarse = HostPack(coarse).MakeDevicePack();
+  auto pack_out = HostPack(out).MakeDevicePack();
   auto bnd_info = cache.bnd_info;
 
   // Restrict to coarse trains where required
@@ -257,7 +257,7 @@ TaskStatus TTSend(std::shared_ptr<MeshTTData> &md, Real eps) {
   if (nbound == 0) return TaskStatus::complete;
 
   // Round each addend to keep ranks bounded before shipping.
-  auto pack = tensor::TensorTrainHostPackT<DefaultTTraits>::FromSharedPtrs(addends);
+  tensor::TensorTrainHostPack pack(addends);
   tensor::RoundGramSVD(pack, eps);
 
   // Deposit each addend into its send channel.
@@ -298,15 +298,19 @@ TaskStatus TTSetBounds(std::shared_ptr<MeshTTData> &md, Real eps) {
         auto &chan = pmesh->tt_comm_map[ReceiveKey(pmb, nb, v, BoundaryType::any, id)];
         auto cur = rc->Get(name);
         auto addend = chan.Get();
-        std::vector<train_t> a{cur->train()};
-        std::vector<train_t> b{*addend};
-        auto summed = tensor::NonDestructiveSum(a, b);
-        cur->set_train(std::move(summed[0]));
+        std::vector<train_t *> a{&cur->train()};
+        std::vector<train_t *> b{addend.get()};
+        train_t summed;
+        std::vector<train_t *> c{&summed};
+        tensor::TensorTrainHostPack pa(a), pb(b), pc(c);
+        tensor::NonDestructiveSum(pa, pb, pc);
+        cur->set_train(std::move(summed));
         chan.Stale();
       });
 
   // Round every block's fields once now that all addends are summed in.
-  tensor::RoundGramSVD(md.get(), eps);
+  tensor::TensorTrainHostPack pack(*md);
+  tensor::RoundGramSVD(pack, eps);
   return TaskStatus::complete;
 }
 

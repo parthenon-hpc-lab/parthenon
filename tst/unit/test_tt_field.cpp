@@ -217,10 +217,11 @@ TEST_CASE("MeshTTData assembles over a block partition", "[TTField]") {
       }
 
       // Build host packs directly from the mesh containers (the mesh -> host
-      // pack -> op path an application uses). FromContainer gathers all fields.
+      // pack -> op path an application uses). The container constructor gathers
+      // all fields.
       using parthenon::tensor::TensorTrainHostPack;
-      auto in_pack = TensorTrainHostPack::FromContainer(in);
-      auto out_pack = TensorTrainHostPack::FromContainer(out);
+      TensorTrainHostPack in_pack(in);
+      TensorTrainHostPack out_pack(out);
 
       THEN("NonDestructiveSum(in, in, out) yields combined ranks in out") {
         parthenon::tensor::NonDestructiveSum(in_pack, in_pack, out_pack);
@@ -287,7 +288,7 @@ TEST_CASE("Multi-field packs support integer and tag indexing", "[TTField]") {
 
     WHEN("An untagged host pack is built over all fields") {
       using parthenon::tensor::TensorTrainHostPack;
-      auto host = TensorTrainHostPack::FromContainer(md);
+      TensorTrainHostPack host(md);
 
       THEN("It reports the container's field count") {
         REQUIRE(host.NumVars() == 2);
@@ -297,7 +298,7 @@ TEST_CASE("Multi-field packs support integer and tag indexing", "[TTField]") {
 
     WHEN("An untagged host pack is built from an explicit name list") {
       using parthenon::tensor::TensorTrainHostPack;
-      auto host = TensorTrainHostPack::FromNames(md, {"B"});
+      TensorTrainHostPack host(md, {"B"});
 
       THEN("It gathers only the named fields, in the given order") {
         REQUIRE(host.NumVars() == 1);
@@ -308,7 +309,7 @@ TEST_CASE("Multi-field packs support integer and tag indexing", "[TTField]") {
 
     WHEN("A tagged host pack is built for a specific field set") {
       using parthenon::tensor::TensorTrainHostPackFor;
-      auto host = TensorTrainHostPackFor<tags::A, tags::B>::FromContainer(md);
+      TensorTrainHostPackFor<tags::A, tags::B> host(md);
 
       THEN("The host pack is accessible by tag (block leads)") {
         REQUIRE(host.template VarIndex<tags::A>() == 0);
