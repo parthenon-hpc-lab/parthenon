@@ -152,29 +152,48 @@ void CheckCompatibleDense3D(const Pack0 &pack0, const Packs &...packs) {
   (check_one(packs), ...);
 }
 
-template <class CheckFunctor, class Pack0, class... Packs>
-int CountDenseMismatches3D(CheckFunctor check, const Pack0 &pack0,
-                           const Packs &...packs) {
-  static_assert(sizeof...(packs) >= 0,
-                "CountDenseMismatches3D requires at least one pack.");
-
-  CheckCompatibleDense3D(pack0, packs...);
-
-  const int n0 = pack0.GetPhysicalDimension(0);
-  const int n1 = pack0.GetPhysicalDimension(1);
-  const int n2 = pack0.GetPhysicalDimension(2);
-
+// Sums kernel(b, i1, i2, i3, lnwrong) over every block and dense index of pack0.
+template <class Pack0, class Kernel>
+int ReduceDense3D(const Pack0 &pack0, Kernel kernel) {
   int nwrong{0};
-  par_reduce(
-      loop_pattern_mdrange_tag, "Check TT", DevExecSpace(), 0, pack0.GetNBlocks() - 1, 0,
-      n0 - 1, 0, n1 - 1, 0, n2 - 1,
-      KOKKOS_LAMBDA(int b, int i1, int i2, int i3, int &lnwrong) {
-        lnwrong += check(b, i1, i2, i3, ReconstructDenseValue3D(pack0, b, i1, i2, i3),
-                         ReconstructDenseValue3D(packs, b, i1, i2, i3)...);
-      },
-      nwrong);
-
+  par_reduce(loop_pattern_mdrange_tag, "Check TT", DevExecSpace(), 0,
+             pack0.GetNBlocks() - 1, 0, pack0.GetPhysicalDimension(0) - 1, 0,
+             pack0.GetPhysicalDimension(1) - 1, 0, pack0.GetPhysicalDimension(2) - 1,
+             kernel, nwrong);
   return nwrong;
+}
+
+// Fixed-arity overloads rather than a variadic template: nvcc does not allow an extended
+// device lambda to capture a function parameter pack.
+template <class CheckFunctor, class Pack0>
+int CountDenseMismatches3D(CheckFunctor check, const Pack0 &pack0) {
+  CheckCompatibleDense3D(pack0);
+  return ReduceDense3D(
+      pack0, KOKKOS_LAMBDA(int b, int i1, int i2, int i3, int &lnwrong) {
+        lnwrong += check(b, i1, i2, i3, ReconstructDenseValue3D(pack0, b, i1, i2, i3));
+      });
+}
+
+template <class CheckFunctor, class Pack0, class Pack1>
+int CountDenseMismatches3D(CheckFunctor check, const Pack0 &pack0, const Pack1 &pack1) {
+  CheckCompatibleDense3D(pack0, pack1);
+  return ReduceDense3D(
+      pack0, KOKKOS_LAMBDA(int b, int i1, int i2, int i3, int &lnwrong) {
+        lnwrong += check(b, i1, i2, i3, ReconstructDenseValue3D(pack0, b, i1, i2, i3),
+                         ReconstructDenseValue3D(pack1, b, i1, i2, i3));
+      });
+}
+
+template <class CheckFunctor, class Pack0, class Pack1, class Pack2>
+int CountDenseMismatches3D(CheckFunctor check, const Pack0 &pack0, const Pack1 &pack1,
+                           const Pack2 &pack2) {
+  CheckCompatibleDense3D(pack0, pack1, pack2);
+  return ReduceDense3D(
+      pack0, KOKKOS_LAMBDA(int b, int i1, int i2, int i3, int &lnwrong) {
+        lnwrong += check(b, i1, i2, i3, ReconstructDenseValue3D(pack0, b, i1, i2, i3),
+                         ReconstructDenseValue3D(pack1, b, i1, i2, i3),
+                         ReconstructDenseValue3D(pack2, b, i1, i2, i3));
+      });
 }
 } // namespace
 
