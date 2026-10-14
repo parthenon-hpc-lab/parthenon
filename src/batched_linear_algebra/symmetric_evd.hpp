@@ -19,6 +19,7 @@
 #include <cstddef>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "batched_linear_algebra/execution_utils.hpp"
 #include "batched_linear_algebra/householder.hpp"
 #include "batched_linear_algebra/implicit_qr.hpp"
@@ -53,7 +54,7 @@ class SymmetricEVD {
   ///   - Equivalently, A Q = Q Λ.
   ///
   /// Scratch:
-  ///   - scratch: double workspace used for Householder vectors and tridiagonal
+  ///   - scratch: Real workspace used for Householder vectors and tridiagonal
   ///     off-diagonals.
   ///   - iscratch: integer workspace used for block partitioning in the QR
   ///     stage.
@@ -70,7 +71,7 @@ class SymmetricEVD {
 
   template <class tm_t, class matrix_t>
   KOKKOS_INLINE_FUNCTION static int execute(tm_t tm, matrix_t *pA, matrix_t *pQ,
-                                            double *eigs, double *scratch,
+                                            Real *eigs, Real *scratch,
                                             std::size_t *iscratch) {
     PARTHENON_REQUIRE(pA, "A must not be null.");
     auto &A = *pA;
@@ -85,8 +86,8 @@ class SymmetricEVD {
     }
 
     // Tridiagonalize the symmetric matrix via Householder transformations
-    double *v = &(scratch[0]);
-    double *s = &(scratch[ncols]);
+    Real *v = &(scratch[0]);
+    Real *s = &(scratch[ncols]);
     if (pQ) {
       auto &Q = *pQ;
       // Set Q to the identity
@@ -123,14 +124,14 @@ class SymmetricEVD {
   }
 
   template <class tm_t, class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int execute(tm_t tm, matrix_t *pA, double *eigs,
-                                            double *scratch, std::size_t *iscratch) {
+  KOKKOS_INLINE_FUNCTION static int execute(tm_t tm, matrix_t *pA, Real *eigs,
+                                            Real *scratch, std::size_t *iscratch) {
     matrix_t *pQ = nullptr;
     return execute(tm, pA, pQ, eigs, scratch, iscratch);
   }
 
   template <class matrix_t>
-  KOKKOS_INLINE_FUNCTION static int execute(matrix_t *pA, double *eigs, double *scratch,
+  KOKKOS_INLINE_FUNCTION static int execute(matrix_t *pA, Real *eigs, Real *scratch,
                                             std::size_t *iscratch) {
     matrix_t *pQ = nullptr;
     return execute(serial_tm_t(), pA, pQ, eigs, scratch, iscratch);
@@ -139,24 +140,24 @@ class SymmetricEVD {
   // Version that is only callable on host and allocates its own
   // scratch space
   template <class matrix_t>
-  static int execute(matrix_t *pA, matrix_t *pQ, double *eigs) {
+  static int execute(matrix_t *pA, matrix_t *pQ, Real *eigs) {
     const int ncols = GetNcols(*pA);
-    std::vector<double> scratch(double_scratch_size(ncols));
+    std::vector<Real> scratch(Real_scratch_size(ncols));
     std::vector<std::size_t> iscratch(sizet_scratch_size(ncols));
     return execute(serial_tm_t(), pA, pQ, eigs, scratch.data(), iscratch.data());
   }
 
   template <class matrix_t>
-  static int execute(matrix_t *pA, double *eigs) {
+  static int execute(matrix_t *pA, Real *eigs) {
     const int ncols = GetNcols(*pA);
-    std::vector<double> scratch(double_scratch_size(ncols));
+    std::vector<Real> scratch(Real_scratch_size(ncols));
     std::vector<std::size_t> iscratch(sizet_scratch_size(ncols));
     matrix_t *pQ = nullptr;
     return execute(serial_tm_t(), pA, pQ, eigs, scratch.data(), iscratch.data());
   }
 
   KOKKOS_INLINE_FUNCTION
-  static constexpr std::size_t double_scratch_size(std::size_t ncols) {
+  static constexpr std::size_t Real_scratch_size(std::size_t ncols) {
     return 2 * ncols;
   }
 
@@ -164,7 +165,7 @@ class SymmetricEVD {
   static constexpr std::size_t sizet_scratch_size(std::size_t ncols) { return ncols + 2; }
 
   static std::size_t total_shmem_scratch_size(std::size_t ncols) {
-    return parthenon::ScratchPad1D<double>::shmem_size(double_scratch_size(ncols)) +
+    return parthenon::ScratchPad1D<Real>::shmem_size(Real_scratch_size(ncols)) +
            parthenon::ScratchPad1D<std::size_t>::shmem_size(sizet_scratch_size(ncols));
   }
 };

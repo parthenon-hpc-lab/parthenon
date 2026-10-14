@@ -16,6 +16,7 @@
 
 // This file was made in part with generative AI.
 
+#include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
 
 namespace parthenon {
@@ -28,8 +29,8 @@ namespace batched_linear_algebra {
 
 struct unity_vector_t {
   KOKKOS_INLINE_FUNCTION
-  constexpr double operator()(int) const { return 1.0; }
-  constexpr double operator[](int) const { return 1.0; }
+  constexpr Real operator()(int) const { return 1.0; }
+  constexpr Real operator[](int) const { return 1.0; }
 };
 
 template <class Vec, class PermVec>

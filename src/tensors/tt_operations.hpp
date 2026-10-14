@@ -524,8 +524,8 @@ void RoundGramSVD(TensorTrainHostPackT<TTraits, var_ts...> &pack_host,
   // Calculate the total storage for linear algebra scratch.
   // EVD and SVD share the same buffers here, so size them from the larger
   // of the two solver requirements.
-  const std::size_t evd_double_scratch = SymmetricEVD::double_scratch_size(max_rank);
-  const std::size_t svd_double_scratch = SquareSVD::double_scratch_size(max_rank);
+  const std::size_t evd_double_scratch = SymmetricEVD::Real_scratch_size(max_rank);
+  const std::size_t svd_double_scratch = SquareSVD::Real_scratch_size(max_rank);
   const std::size_t evd_szt_scratch = SymmetricEVD::sizet_scratch_size(max_rank);
   const std::size_t svd_szt_scratch = SquareSVD::sizet_scratch_size(max_rank);
   const std::size_t linalg_double_scratch =
@@ -773,9 +773,9 @@ void RoundOseledetsSVD(TensorTrainHostPackT<TTraits, var_ts...> &pack_host,
   scratch_size += ScratchPad1D<real_t>::shmem_size(max_rank);
 
   const std::size_t lq_double_scratch =
-      LQDecomposition::double_scratch_size(max_rank, max_core_size);
+      LQDecomposition::Real_scratch_size(max_rank, max_core_size);
   const std::size_t svd_double_scratch =
-      SquareSVD::double_scratch_size(max_core_size, max_rank);
+      SquareSVD::Real_scratch_size(max_core_size, max_rank);
   const std::size_t svd_szt_scratch = SquareSVD::sizet_scratch_size(max_rank);
   const std::size_t linalg_double_scratch =
       std::max(lq_double_scratch, svd_double_scratch);

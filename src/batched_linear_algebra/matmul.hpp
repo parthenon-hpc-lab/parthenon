@@ -16,6 +16,7 @@
 
 // This file was made in part with generative AI.
 
+#include "basic_types.hpp"
 #include "batched_linear_algebra/execution_utils.hpp"
 #include "batched_linear_algebra/matrix_utils.hpp"
 #include "kokkos_abstraction.hpp"
@@ -28,9 +29,9 @@ template <int MB = 8, int NB = 8, int KB = 8, bool SymmetricOutput = false, clas
           class A_t, class B_t, class C_t>
 KOKKOS_FORCEINLINE_FUNCTION void
 MatMulPacked(tm_t tm, const A_t &A, const B_t &B, C_t &C,
-             parthenon::ScratchPad1D<double> &a_scratch,
-             parthenon::ScratchPad1D<double> &b_scratch,
-             parthenon::ScratchPad1D<double> &c_scratch) {
+             parthenon::ScratchPad1D<Real> &a_scratch,
+             parthenon::ScratchPad1D<Real> &b_scratch,
+             parthenon::ScratchPad1D<Real> &c_scratch) {
   const int m = GetNrows(A);
   const int k = GetNcols(A);
   const int n = GetNcols(B);
@@ -52,11 +53,11 @@ MatMulPacked(tm_t tm, const A_t &A, const B_t &B, C_t &C,
   if constexpr (!full_output_tile)
     PARTHENON_REQUIRE(c_scratch.extent_int(0) >= mb_size * nb_size,
                       "C scratch too small.");
-  auto AT = matrix_wrapper_t<double>(a_scratch.data(), mb_size, kb_size);
-  auto BT = matrix_wrapper_t<double>(b_scratch.data(), kb_size, nb_size);
+  auto AT = matrix_wrapper_t<Real>(a_scratch.data(), mb_size, kb_size);
+  auto BT = matrix_wrapper_t<Real>(b_scratch.data(), kb_size, nb_size);
   auto CT = full_output_tile
-                ? matrix_wrapper_t<double>(c_scratch.data(), 1, 1)
-                : matrix_wrapper_t<double>(c_scratch.data(), mb_size, nb_size);
+                ? matrix_wrapper_t<Real>(c_scratch.data(), 1, 1)
+                : matrix_wrapper_t<Real>(c_scratch.data(), mb_size, nb_size);
   for (int i0 = 0; i0 < m; i0 += mb_size) {
     const int mb = (i0 + mb_size <= m) ? mb_size : (m - i0);
     const int jstart = SymmetricOutput ? i0 : 0;
@@ -94,7 +95,7 @@ MatMulPacked(tm_t tm, const A_t &A, const B_t &B, C_t &C,
           if constexpr (SymmetricOutput) {
             if (diagonal_tile && jj < ii) return;
           }
-          double sum = 0.0;
+          Real sum = 0.0;
           for (int kk = 0; kk < kb; ++kk) {
             sum += AT(ii, kk) * BT(kk, jj);
           }
