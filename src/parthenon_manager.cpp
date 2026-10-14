@@ -18,6 +18,9 @@
 
 #include "parthenon_manager.hpp"
 
+#include <rummy/deck_base.hpp>
+#include <rummy/full_deck.hpp>
+
 #include <algorithm>
 #include <cstdio>
 #include <exception>
@@ -53,7 +56,39 @@ namespace fs = FS_NAMESPACE;
 
 namespace parthenon {
 
-ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
+ParthenonManager::ParthenonManager() { app_input = std::make_unique<ApplicationInput>(); }
+
+ParthenonManager::~ParthenonManager() = default;
+
+Rummy::FullDeck *ParthenonManager::GetRummyFullDeck() const {
+  return dynamic_cast<Rummy::FullDeck *>(input_deck.get());
+}
+
+ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[],
+                                                   InputDeckType deck_type,
+                                                   const std::string &schema_path) {
+  return ParthenonInitEnvCore_(argc, argv, deck_type, InputParserPolicy::Auto,
+                               schema_path, nullptr);
+}
+
+ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[],
+                                                   InputDeckType deck_type,
+                                                   std::istream &schema_stream) {
+  return ParthenonInitEnvCore_(argc, argv, deck_type, InputParserPolicy::Auto, "",
+                               &schema_stream);
+}
+
+ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[],
+                                                   const InputDeckOptions &options) {
+  return ParthenonInitEnvCore_(argc, argv, ToInputDeckType(options.rummy_mode),
+                               options.parser, options.schema_path, nullptr);
+}
+
+ParthenonStatus ParthenonManager::ParthenonInitEnvCore_(int argc, char *argv[],
+                                                        InputDeckType deck_type,
+                                                        InputParserPolicy parser_policy,
+                                                        const std::string &schema_path,
+                                                        std::istream *schema_stream) {
   if (called_init_env_) {
     PARTHENON_THROW("ParthenonInitEnv called twice!");
   }
@@ -109,6 +144,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // Populate the ParameterInput object.
   // If restart, then ParameterInput in the restart file takes precedence.
+  RestartReader::RummyInputState rummy_restart;
   if (arg.is_restart) {
     // Read input from restart file
     if (fs::path(arg.restart_filename).extension() == ".rhdf") {
@@ -132,26 +168,32 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
       PARTHENON_FAIL("Unsupported restart file format.");
     }
 
-    // Load input stream
+    rummy_restart = restartReader->GetRummyInputState();
     pinput = std::make_unique<ParameterInput>();
-    auto inputString = restartReader->GetInputString();
-    std::istringstream is(inputString);
-    pinput->LoadFromStream(is);
-  }
-  // Determine what parser to use
-  bool is_rummy = false;
-  for (const auto &input_filename : arg.input_filenames) {
-    if (IsRummyFormat(input_filename)) {
-      is_rummy = true;
-      break;
+    if (!rummy_restart.present) {
+      auto inputString = restartReader->GetInputString();
+      std::istringstream is(inputString);
+      pinput->LoadFromStream(is);
     }
   }
-  if (!is_rummy) {
-    for (const auto &mod : arg.modifiers) {
-      std::stringstream ss(mod);
-      if (IsRummyFormat(ss, true)) {
+  // Determine what parser to use
+  bool is_rummy = parser_policy == InputParserPolicy::RummyOnly;
+  if (parser_policy == InputParserPolicy::Auto) {
+    is_rummy = rummy_restart.present;
+    for (const auto &input_filename : arg.input_filenames) {
+      if (is_rummy) break;
+      if (IsRummyFormat(input_filename)) {
         is_rummy = true;
         break;
+      }
+    }
+    if (!is_rummy) {
+      for (const auto &mod : arg.modifiers) {
+        std::stringstream ss(mod);
+        if (IsRummyFormat(ss, true)) {
+          is_rummy = true;
+          break;
+        }
       }
     }
   }
@@ -161,8 +203,24 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     pinput = std::make_unique<ParameterInput>();
   }
   if (is_rummy) {
-    LoadParameterFromRummy(*pinput, arg.input_filenames, arg.modifiers, arg.is_restart);
+    if (rummy_restart.present) {
+      PARTHENON_REQUIRE_THROWS(
+          rummy_restart.version == RummyRestartState::VERSION,
+          "Unsupported Rummy restart state version " +
+              std::to_string(rummy_restart.version));
+      input_deck = LoadParameterFromRummyRestart(
+          *pinput, rummy_restart.source, arg.input_filenames, arg.modifiers,
+          RummyRestartModeToDeckType(rummy_restart.mode));
+    } else if (schema_stream != nullptr) {
+      input_deck = LoadParameterFromRummy(*pinput, arg.input_filenames, arg.modifiers,
+                                          arg.is_restart, deck_type, *schema_stream);
+    } else {
+      input_deck = LoadParameterFromRummy(*pinput, arg.input_filenames, arg.modifiers,
+                                          arg.is_restart, deck_type, schema_path);
+    }
+    pinput->SetRummyDeck(input_deck.get());
   } else {
+    input_deck.reset();
     for (const auto &input_filename : arg.input_filenames) {
       pinput->ReadFile(input_filename);
     }

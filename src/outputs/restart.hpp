@@ -98,6 +98,14 @@ class RestartReader {
 
   [[nodiscard]] virtual std::string GetInputString() const = 0;
 
+  struct RummyInputState {
+    bool present = false;
+    int version = 0;
+    std::string mode;
+    std::string source;
+  };
+  [[nodiscard]] virtual RummyInputState GetRummyInputState() const = 0;
+
   // Return output format version number. Return -1 if not existent.
   [[nodiscard]] virtual int GetOutputFormatVersion() const = 0;
 
