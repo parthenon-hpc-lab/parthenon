@@ -16,7 +16,6 @@
 #include "tensors/tt_boundary_comm.hpp"
 
 #include <memory>
-#include <utility>
 #include <vector>
 
 #include "basic_types.hpp"
@@ -300,11 +299,8 @@ TaskStatus TTSetBounds(std::shared_ptr<MeshTTData> &md, Real eps) {
         auto addend = chan.Get();
         std::vector<train_t *> a{&cur->train()};
         std::vector<train_t *> b{addend.get()};
-        train_t summed;
-        std::vector<train_t *> c{&summed};
-        tensor::TensorTrainHostPack pa(a), pb(b), pc(c);
-        tensor::NonDestructiveSum(pa, pb, pc);
-        cur->set_train(std::move(summed));
+        tensor::TensorTrainHostPack pa(a), pb(b);
+        tensor::DestructiveSum(pa, pb);
         chan.Stale();
       });
 
