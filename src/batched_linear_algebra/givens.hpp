@@ -40,7 +40,7 @@ auto ComputeGivensZeroSecond(Real a1, Real a2) {
   // c^2 (1 - a2^2 / a1^2) = 1
   // c^2 = a1^2 / (a1^2 + a2^2)
   // s^2 = a2^2 / (a1^2 + a2^2)
-  if (a2 == 0.0) return std::make_pair(1.0, 0.0);
+  if (a2 == 0.0) return std::make_pair(Real{1.0}, Real{0.0});
   Real norm = parthenon::robust::ratio(1.0, std::hypot(a1, a2));
   // (c, s)
   return std::make_pair(norm * a1, -norm * a2);
@@ -52,7 +52,7 @@ auto ComputeGivensZeroSecond(Real a1, Real a2) {
 // such that sigma . (a1, a2)^T = (0, alpha)^T
 KOKKOS_FORCEINLINE_FUNCTION
 auto ComputeGivensZeroFirst(Real a1, Real a2) {
-  if (a2 == 0.0) return std::make_pair(1.0, 0.0);
+  if (a2 == 0.0) return std::make_pair(Real{1.0}, Real{0.0});
   Real norm = parthenon::robust::ratio(1.0, std::hypot(a1, a2));
   // (c, s)
   return std::make_pair(norm * a2, norm * a1);
