@@ -16,6 +16,7 @@
 #include "tensors/tt_boundary_comm.hpp"
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "basic_types.hpp"
@@ -23,6 +24,7 @@
 #include "bvals/comms/calc_indices.hpp"
 #include "bvals/neighbor_block.hpp"
 #include "globals.hpp"
+#include "interface/metadata.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/mesh.hpp"
@@ -54,6 +56,15 @@ int CountBoundaries(std::shared_ptr<MeshTTData> &md) {
   return nbound;
 }
 
+// Look up an existing receive channel. operator[] would silently create a fresh stale
+// channel that no sender writes to, and TTReceive would then wait forever.
+TTCommChannel &GetReceiveChannel(Mesh *pmesh, const Mesh::channel_key_t &key) {
+  PARTHENON_REQUIRE(pmesh->tt_comm_map.count(key) > 0,
+                    "No TT comm channel for this receive key. Was BuildTTBoundaryCache "
+                    "called after the last (re)mesh?");
+  return pmesh->tt_comm_map.at(key);
+}
+
 } // namespace
 
 // Build the send-side boundary cache: walk every boundary, record its send channel (keyed
@@ -77,6 +88,8 @@ TaskStatus BuildTTBoundaryCache(std::shared_ptr<MeshTTData> &md) {
         PARTHENON_REQUIRE(
             IsIdentityTransform(nb.lcoord_trans),
             "TT boundary comm currently supports identity-transform boundaries only.");
+        PARTHENON_REQUIRE(nb.rank == Globals::my_rank,
+                          "TT boundary comm supports same-rank neighbors only.");
 
         cache->channels.push_back(
             &pmesh->tt_comm_map[SendKey(pmb, nb, v, BoundaryType::any, id)]);
@@ -249,6 +262,44 @@ BuildBoundaryTensors(std::shared_ptr<MeshTTData> &md, const TTBoundaryCache &cac
   return out;
 }
 
+TaskStatus TTZeroBoundaries(std::shared_ptr<MeshTTData> &md) {
+  if (md->NumBlocks() == 0) return TaskStatus::complete;
+
+  // TODO(LFR): Interior bounds assume cell-centered fields, as in BuildTTBoundaryCache.
+  const IndexRange ib = md->GetBoundsI(IndexDomain::interior);
+  const IndexRange jb = md->GetBoundsJ(IndexDomain::interior);
+  const IndexRange kb = md->GetBoundsK(IndexDomain::interior);
+
+  // Only FillGhost fields take part in boundary comm (see ForEachBoundary).
+  std::vector<std::string> names;
+  for (const auto &name : md->FieldNames())
+    if (md->GetBlockData(0)->Get(name)->IsSet(Metadata::FillGhost)) names.push_back(name);
+  if (names.empty()) return TaskStatus::complete;
+  auto pack = tensor::TensorTrainHostPack(*md, names).MakeDevicePack();
+
+  // One team per (block, field); each team reads its own spatial core's size and
+  // indexer, so nothing here assumes the fields share a shape.
+  constexpr int unused_scratch_size = 0;
+  constexpr int unused_scratch_level = 1;
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, unused_scratch_size, unused_scratch_level, 0,
+      pack.GetNBlocks() - 1, 0, pack.GetNVars() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int v) {
+        auto &sc = pack(b, v, 0);
+        const auto &idxer = pack.indexer(0);
+        const int nrr = sc.RR();
+        parthenon::par_for_inner(member, 0, sc.DD() - 1, [&](const int idx) {
+          const auto [t, u, w, k, j, i] = idxer(idx);
+          const bool interior =
+              i >= ib.s && i <= ib.e && j >= jb.s && j <= jb.e && k >= kb.s && k <= kb.e;
+          if (interior) return;
+          for (int r = 0; r < nrr; ++r)
+            sc(0, idx, r) = 0.0;
+        });
+      });
+  return TaskStatus::complete;
+}
+
 TaskStatus TTSend(std::shared_ptr<MeshTTData> &md, Real eps) {
   TTBoundaryCache &cache = md->GetBoundaryCache();
   auto addends = BuildBoundaryTensors(md, cache);
@@ -273,7 +324,8 @@ TaskStatus TTReceive(std::shared_ptr<MeshTTData> &md) {
   bool all = true;
   ForEachBoundary<BoundaryType::any>(
       md, [&](auto pmb, auto /*rc*/, const NeighborBlock &nb, auto v) {
-        auto &chan = pmesh->tt_comm_map[ReceiveKey(pmb, nb, v, BoundaryType::any, id)];
+        const auto key = ReceiveKey(pmb, nb, v, BoundaryType::any, id);
+        auto &chan = GetReceiveChannel(pmesh, key);
         all = chan.TryReceive() && all;
       });
   if (all) return TaskStatus::complete;
@@ -294,8 +346,13 @@ TaskStatus TTSetBounds(std::shared_ptr<MeshTTData> &md, Real eps) {
   ForEachBoundary<BoundaryType::any>(
       md, [&](auto pmb, auto rc, const NeighborBlock &nb, auto v) {
         const auto name = v->label();
-        auto &chan = pmesh->tt_comm_map[ReceiveKey(pmb, nb, v, BoundaryType::any, id)];
+        const auto key = ReceiveKey(pmb, nb, v, BoundaryType::any, id);
+        auto &chan = GetReceiveChannel(pmesh, key);
+        PARTHENON_REQUIRE(chan.GetState() == BufferState::received,
+                          "TTSetBounds called before TTReceive completed.");
         auto cur = rc->Get(name);
+        // The channel holds the only reference to the addend (TTSend's local vector is
+        // gone), so DestructiveSum may take its fibers.
         auto addend = chan.Get();
         std::vector<train_t *> a{&cur->train()};
         std::vector<train_t *> b{addend.get()};

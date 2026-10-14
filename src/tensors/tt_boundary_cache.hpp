@@ -119,7 +119,8 @@ using TTBndInfoArrHost_t = typename TTBndInfoArr_t::host_mirror_type;
 // bnd_info: flat device array (+ host mirror) of TTBndInfo for the batched launch.
 // channels: send channel per boundary (into Mesh::tt_comm_map), in ForEachBoundary order,
 //   stable within an epoch (like the regular buf_vec).
-// epoch: the channel-map epoch this cache was built against, to detect (re)mesh.
+// epoch: the channel-map epoch this cache was built against. Kept for remesh detection
+//   once AMR is supported; nothing checks it yet.
 //
 // Flattening (k, j, i) to a spatial-core physical index is not held here: the spatial
 // core carries its own logical Indexer6D, exposed per core slot on the device pack
