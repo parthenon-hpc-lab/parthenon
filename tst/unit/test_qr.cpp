@@ -129,8 +129,8 @@ static Real MaxBelowDiagonal(const Matrix &R) {
 // column c, divided out before squaring so the check itself cannot under/overflow.
 // Zero columns fall back to the absolute (scaled) error.
 static Real ColumnRelativeReconstructionError(const Matrix &A0, const Matrix &Q,
-                                                const Matrix &R,
-                                                const std::vector<Real> &col_scale) {
+                                              const Matrix &R,
+                                              const std::vector<Real> &col_scale) {
   Real mx = 0.0;
   for (int c = 0; c < A0.ncols(); ++c) {
     Real e = 0.0;
@@ -166,7 +166,7 @@ static void CheckQR(const Matrix &A0, const std::vector<Real> &col_scale,
     REQUIRE(QRDecomposition::execute(&A, &Q) == 0);
 
     REQUIRE(MaxBelowDiagonal(A) == 0.0);
-    REQUIRE(OrthoError(Q) / std::sqrt(static_cast<Real>(qcols)) < 1e-12);
+    REQUIRE(OrthoError(Q) / std::sqrt(static_cast<Real>(qcols)) < PrecisionTol(1e-12));
     REQUIRE(ColumnRelativeReconstructionError(A0, Q, A, col_scale) < tol);
     if (qcols == m) R_full = A;
   }
@@ -184,10 +184,20 @@ static void CheckQR(const Matrix &A0, const std::vector<Real> &col_scale,
 TEST_CASE("QR decomposition robustness", "[qr][rect][robust]") {
   const int m = 12;
   const int n = 6;
-  const Real tol = 1e-13;
+  const Real tol = PrecisionTol(1e-13);
+
+  // Scales near and beyond where squaring entries under/overflows (about 1e+-154 in
+  // double, 1e+-19 in single), and column grading that spans most of the exponent range.
+#if SINGLE_PRECISION_ENABLED
+  const std::vector<Real> scales = {1e-25, 1e-20, 1e-18, 1e18, 1e20, 1e25};
+  const Real grading_exp10 = -7.0;
+#else
+  const std::vector<Real> scales = {1e-200, 1e-160, 1e-150, 1e150, 1e160, 1e200};
+  const Real grading_exp10 = -40.0;
+#endif
 
   SECTION("Uniformly scaled matrices near and beyond the sum-of-squares range") {
-    for (const Real scale : {1e-200, 1e-160, 1e-150, 1e150, 1e160, 1e200}) {
+    for (const Real scale : scales) {
       Matrix A = Matrix::RandomGaussian(m, n, 4234u);
       for (int r = 0; r < m; ++r) {
         for (int c = 0; c < n; ++c) {
@@ -198,11 +208,11 @@ TEST_CASE("QR decomposition robustness", "[qr][rect][robust]") {
     }
   }
 
-  SECTION("Graded columns spanning 1 to 1e-200") {
+  SECTION("Graded columns spanning most of the exponent range") {
     Matrix A = Matrix::RandomGaussian(m, n, 5234u);
     std::vector<Real> col_scale(n);
     for (int c = 0; c < n; ++c) {
-      col_scale[c] = std::pow(10.0, -40.0 * c);
+      col_scale[c] = std::pow(Real{10.0}, grading_exp10 * c);
       for (int r = 0; r < m; ++r) {
         A(r, c) *= col_scale[c];
       }
@@ -214,7 +224,7 @@ TEST_CASE("QR decomposition robustness", "[qr][rect][robust]") {
     Matrix A = Matrix::RandomGaussian(m, n, 6234u);
     Matrix noise = Matrix::RandomGaussian(m, 1, 6235u);
     for (int r = 0; r < m; ++r) {
-      A(r, 3) = A(r, 0) + 1e-14 * noise(r, 0);
+      A(r, 3) = A(r, 0) + PrecisionTol(1e-14) * noise(r, 0);
     }
     CheckQR(A, std::vector<Real>(n, 1.0), tol);
   }
@@ -229,7 +239,7 @@ TEST_CASE("QR decomposition robustness", "[qr][rect][robust]") {
     // The dependent column should produce a negligible diagonal entry in R.
     Matrix R = A.GetDeepCopy();
     QRDecomposition::execute(&R);
-    REQUIRE(std::abs(R(3, 3)) < 1e-13 * A.FrobeniusNorm());
+    REQUIRE(std::abs(R(3, 3)) < PrecisionTol(1e-13) * A.FrobeniusNorm());
   }
 
   SECTION("Zero columns") {
@@ -277,9 +287,10 @@ TEST_CASE("Tall-skinny QR decomposition", "[qr][rect][thin]") {
         REQUIRE(iters == 0);
 
         const Real scale = std::max(Real{1.0}, A0.FrobeniusNorm());
-        REQUIRE(UpperTrapezoidError(A) / scale < 1e-12);
-        REQUIRE(OrthoError(Q) / std::max(Real{1.0}, std::sqrt(static_cast<Real>(m))) < 1e-12);
-        REQUIRE(ReconstructionError(A0, Q, A) / scale < 1e-11);
+        REQUIRE(UpperTrapezoidError(A) / scale < PrecisionTol(1e-12));
+        REQUIRE(OrthoError(Q) / std::max(Real{1.0}, std::sqrt(static_cast<Real>(m))) <
+                PrecisionTol(1e-12));
+        REQUIRE(ReconstructionError(A0, Q, A) / scale < PrecisionTol(1e-11));
       }
     }
   }
@@ -295,8 +306,9 @@ TEST_CASE("Tall-skinny QR decomposition", "[qr][rect][thin]") {
         REQUIRE(iters == 0);
 
         const Real scale = std::max(Real{1.0}, A0.FrobeniusNorm());
-        REQUIRE(UpperTrapezoidError(A) / scale < Real{1e-12});
-        REQUIRE(OrthoError(Q) / std::max(Real{1.0}, std::sqrt(static_cast<Real>(n))) < Real{1e-12});
+        REQUIRE(UpperTrapezoidError(A) / scale < PrecisionTol(1e-12));
+        REQUIRE(OrthoError(Q) / std::max(Real{1.0}, std::sqrt(static_cast<Real>(n))) <
+                PrecisionTol(1e-12));
 
         // With a thin Q (m x n), R is the top n x n block of the returned A;
         // reconstruct A0 = Q * R from that block.
@@ -306,7 +318,7 @@ TEST_CASE("Tall-skinny QR decomposition", "[qr][rect][thin]") {
             R(r, c) = A(r, c);
           }
         }
-        REQUIRE(ReconstructionError(A0, Q, R) / scale < 1e-11);
+        REQUIRE(ReconstructionError(A0, Q, R) / scale < PrecisionTol(1e-11));
       }
     }
   }
@@ -324,9 +336,10 @@ TEST_CASE("Tall-skinny QR decomposition", "[qr][rect][thin]") {
     REQUIRE(iters == 0);
 
     const Real scale = std::max(Real{1.0}, A0.FrobeniusNorm());
-    REQUIRE(UpperTrapezoidError(A) / scale < 1e-12);
-    REQUIRE(OrthoError(Q) / std::max(Real{1.0}, std::sqrt(Real{7.0})) < 1e-12);
-    REQUIRE(ReconstructionError(A0, Q, A) / scale < 1e-12);
+    REQUIRE(UpperTrapezoidError(A) / scale < PrecisionTol(1e-12));
+    REQUIRE(OrthoError(Q) / std::max(Real{1.0}, std::sqrt(Real{7.0})) <
+            PrecisionTol(1e-12));
+    REQUIRE(ReconstructionError(A0, Q, A) / scale < PrecisionTol(1e-12));
   }
 
   SECTION("Wide matrix LQ decomposition") {
@@ -340,9 +353,9 @@ TEST_CASE("Tall-skinny QR decomposition", "[qr][rect][thin]") {
         REQUIRE(iters == 0);
 
         const Real scale = std::max(Real{1.0}, A0.FrobeniusNorm());
-        REQUIRE(AboveDiagonalError(A) / scale < 1e-12);
+        REQUIRE(AboveDiagonalError(A) / scale < PrecisionTol(1e-12));
         REQUIRE(RowOrthoError(Q) / std::max(Real{1.0}, std::sqrt(static_cast<Real>(m))) <
-                1e-12);
+                PrecisionTol(1e-12));
 
         Matrix L(m, m);
         for (int r = 0; r < m; ++r) {
@@ -351,7 +364,7 @@ TEST_CASE("Tall-skinny QR decomposition", "[qr][rect][thin]") {
           }
         }
 
-        REQUIRE(LQReconstructionError(A0, L, Q) / scale < 1e-11);
+        REQUIRE(LQReconstructionError(A0, L, Q) / scale < PrecisionTol(1e-11));
       }
     }
   }

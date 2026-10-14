@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -34,6 +35,14 @@ using namespace parthenon;
 using namespace parthenon::tensor;
 
 namespace {
+
+// Tolerance for comparing reconstructed values of order one, picked by the precision of
+// real_t. The double-precision values leave a wide margin and would be meaninglessly
+// loose if rescaled by epsilon, so the single-precision value is given explicitly.
+template <class real_t>
+constexpr real_t RoundingTol(double double_tol, double single_tol) {
+  return real_t(std::is_same_v<real_t, double> ? double_tol : single_tol);
+}
 
 template <class TTraits>
 TensorTrainT<TTraits>
@@ -935,8 +944,8 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounding scaffold on a mixed two-channel tra
 
   // No-truncation round should preserve the represented dense tensor to around machine
   // precision.
-  constexpr real_t atol = 1.0e-12;
-  constexpr real_t rtol = 1.0e-10;
+  constexpr real_t atol = RoundingTol<real_t>(1.0e-12, 1.0e-5);
+  constexpr real_t rtol = RoundingTol<real_t>(1.0e-10, 1.0e-5);
   REQUIRE(CountDenseMismatches3D(
               KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val,
                             real_t rounded_val) {
@@ -992,8 +1001,8 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD no-truncation preserves randomized trains",
   TensorPack rounded_pack(trains);
   TensorPack orig_pack(trains_orig);
 
-  constexpr real_t atol = real_t(1.0e-11);
-  constexpr real_t rtol = real_t(1.0e-10);
+  constexpr real_t atol = RoundingTol<real_t>(1.0e-11, 1.0e-5);
+  constexpr real_t rtol = RoundingTol<real_t>(1.0e-10, 1.0e-5);
 
   REQUIRE(CountDenseMismatches3D(
               KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val,
@@ -1049,8 +1058,8 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounds duplicate delta terms down to rank on
 
   // The represented tensor should be a single delta at the shared entry with
   // amplitude equal to the sum of the two original amplitudes.
-  constexpr real_t atol = real_t(1.0e-11);
-  constexpr real_t rtol = real_t(1.0e-10);
+  constexpr real_t atol = RoundingTol<real_t>(1.0e-11, 1.0e-5);
+  constexpr real_t rtol = RoundingTol<real_t>(1.0e-10, 1.0e-5);
   REQUIRE(CountDenseMismatches3D(
               KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t value) {
                 real_t expected = real_t(0.0);
@@ -1114,8 +1123,8 @@ TEMPLATE_TEST_CASE("tensor rounding collapses every variable of a multi-variable
     }
   }
 
-  constexpr real_t atol = real_t(1.0e-11);
-  constexpr real_t rtol = real_t(1.0e-10);
+  constexpr real_t atol = RoundingTol<real_t>(1.0e-11, 1.0e-5);
+  constexpr real_t rtol = RoundingTol<real_t>(1.0e-10, 1.0e-5);
   for (int v = 0; v < nvars; ++v) {
     auto rounded_pack = trains_host.MakeDevicePackForVar(v);
     const real_t amp0 = amp0_of(v);
@@ -1268,8 +1277,8 @@ TEMPLATE_TEST_CASE("tensor Oseledets-SVD no-truncation preserves randomized trai
   TensorPack rounded_pack(trains);
   TensorPack orig_pack(trains_orig);
 
-  constexpr real_t atol = real_t(1.0e-11);
-  constexpr real_t rtol = real_t(1.0e-10);
+  constexpr real_t atol = RoundingTol<real_t>(1.0e-11, 1.0e-5);
+  constexpr real_t rtol = RoundingTol<real_t>(1.0e-10, 1.0e-5);
 
   REQUIRE(CountDenseMismatches3D(
               KOKKOS_LAMBDA(int b, int i1, int i2, int i3, real_t original_val,

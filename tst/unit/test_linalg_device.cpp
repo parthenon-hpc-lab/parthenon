@@ -42,10 +42,10 @@
 using namespace parthenon::batched_linear_algebra; // NOLINT(build/namespaces)
 using parthenon::ParArray2D;
 using parthenon::ParArray3D;
+using parthenon::Real;
 using parthenon::ScratchPad1D;
 using parthenon::ScratchPad2D;
 using parthenon::team_mbr_t;
-using parthenon::Real;
 namespace linalg_device_test {
 
 constexpr int nbatch = 8;
@@ -155,7 +155,7 @@ Real ColumnOrthoError(const Matrix &A) {
 // max |A V - U diag(s)|, i.e. the residual of the pairs (s_i, u_i, v_i). With
 // U = V this is the eigenpair residual A Q - Q diag(eigs).
 Real PairResidual(const Matrix &A, const Matrix &U, const Matrix &V,
-                    const std::vector<Real> &s) {
+                  const std::vector<Real> &s) {
   Real mx = 0.0;
   for (int i = 0; i < V.ncols(); ++i) {
     for (int r = 0; r < A.nrows(); ++r) {
@@ -310,8 +310,7 @@ void SVDFlat(ParArray3D<Real> A_dev, ParArray3D<Real> U_dev, ParArray3D<Real> V_
       });
 }
 
-void EVDTeam(ParArray3D<Real> A_dev, ParArray3D<Real> Q_dev,
-             ParArray2D<Real> eigs_dev) {
+void EVDTeam(ParArray3D<Real> A_dev, ParArray3D<Real> Q_dev, ParArray2D<Real> eigs_dev) {
   const int n = A_dev.extent_int(1);
   const int scratch_level = 0;
   const std::size_t nwork = SymmetricEVD::Real_scratch_size(n);
@@ -343,8 +342,7 @@ void EVDTeam(ParArray3D<Real> A_dev, ParArray3D<Real> Q_dev,
       });
 }
 
-void EVDFlat(ParArray3D<Real> A_dev, ParArray3D<Real> Q_dev,
-             ParArray2D<Real> eigs_dev) {
+void EVDFlat(ParArray3D<Real> A_dev, ParArray3D<Real> Q_dev, ParArray2D<Real> eigs_dev) {
   const int n = A_dev.extent_int(1);
   ParArray2D<Real> work("work", nbatch, SymmetricEVD::Real_scratch_size(n));
   ParArray2D<std::size_t> iwork("iwork", nbatch, SymmetricEVD::sizet_scratch_size(n));
@@ -372,8 +370,8 @@ void CheckFactorization(const std::vector<Matrix> &A0, const std::vector<Matrix>
     Matrix F_host = A0[b].GetDeepCopy();
     Matrix Q_host(Q[b].nrows(), Q[b].ncols());
     REQUIRE(Decomposition::execute(&F_host, &Q_host) == 0);
-    REQUIRE(MaxAbsDiff(F[b], F_host) < 1e-12 * A0[b].FrobeniusNorm());
-    REQUIRE(MaxAbsDiff(Q[b], Q_host) < 1e-12);
+    REQUIRE(MaxAbsDiff(F[b], F_host) < PrecisionTol(1e-12) * A0[b].FrobeniusNorm());
+    REQUIRE(MaxAbsDiff(Q[b], Q_host) < PrecisionTol(1e-12));
   }
 }
 
@@ -422,10 +420,10 @@ void TestSVD(const bool team, const int m, const int n, const unsigned seed) {
     SquareSVD::execute(&A_host, s_host.data());
 
     const Real scale = A0[b].FrobeniusNorm();
-    REQUIRE(MaxAbsDiff(s[b], s_host) < 1e-12 * scale);
-    REQUIRE(ColumnOrthoError(U[b]) < 1e-12);
-    REQUIRE(ColumnOrthoError(V[b]) < 1e-12);
-    REQUIRE(PairResidual(A0[b], U[b], V[b], s[b]) < 1e-12 * scale);
+    REQUIRE(MaxAbsDiff(s[b], s_host) < PrecisionTol(1e-12) * scale);
+    REQUIRE(ColumnOrthoError(U[b]) < PrecisionTol(1e-12));
+    REQUIRE(ColumnOrthoError(V[b]) < PrecisionTol(1e-12));
+    REQUIRE(PairResidual(A0[b], U[b], V[b], s[b]) < PrecisionTol(1e-12) * scale);
   }
 }
 
@@ -448,9 +446,9 @@ void TestEVD(const bool team, const int n, const unsigned seed) {
     REQUIRE(SymmetricEVD::execute(&A_host, eigs_host.data()) >= 0);
 
     const Real scale = A0[b].FrobeniusNorm();
-    REQUIRE(MaxAbsDiff(eigs[b], eigs_host) < 1e-12 * scale);
-    REQUIRE(ColumnOrthoError(Q[b]) < 1e-12);
-    REQUIRE(PairResidual(A0[b], Q[b], Q[b], eigs[b]) < 1e-12 * scale);
+    REQUIRE(MaxAbsDiff(eigs[b], eigs_host) < PrecisionTol(1e-12) * scale);
+    REQUIRE(ColumnOrthoError(Q[b]) < PrecisionTol(1e-12));
+    REQUIRE(PairResidual(A0[b], Q[b], Q[b], eigs[b]) < PrecisionTol(1e-12) * scale);
   }
 }
 

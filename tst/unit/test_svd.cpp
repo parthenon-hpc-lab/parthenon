@@ -56,8 +56,9 @@ static Real OrthoError(const Matrix &Q) {
 
 // Check reconstruction: ||A - U*diag(s)*V^T||_F / max(||A||_F, atol)
 static void CheckSVDReconstruction(const Matrix &A0, const Matrix &U, const Matrix &V,
-                                   const std::vector<Real> &sings, Real rtol = 1e-10,
-                                   Real atol = 1e-12) {
+                                   const std::vector<Real> &sings,
+                                   Real rtol = PrecisionTol(1e-10),
+                                   Real atol = PrecisionTol(1e-12)) {
   Matrix S = Matrix::FromDiagonal(sings);
   Matrix US = Multiply2(U, S);
   Matrix Vt = Matrix::Transpose(V);
@@ -74,9 +75,9 @@ static void CheckSVDReconstruction(const Matrix &A0, const Matrix &U, const Matr
   REQUIRE(rel < rtol);
 }
 
-static void CheckSingularValueSanity(
-    const std::vector<Real> &sings,
-    Real floor_rel = 50.0 * std::numeric_limits<Real>::epsilon()) {
+static void
+CheckSingularValueSanity(const std::vector<Real> &sings,
+                         Real floor_rel = 50.0 * std::numeric_limits<Real>::epsilon()) {
   // SVD convention: singular values should be non-negative (allow tiny
   // negatives)
   Real smax = 0.0;
@@ -96,7 +97,8 @@ static Real SingularValueEnergy(const std::vector<Real> &sings) {
 
 static void CheckSingularValueEnergyIdentity(const Matrix &A,
                                              const std::vector<Real> &sings,
-                                             Real rtol = 1e-12, Real atol = 1e-12) {
+                                             Real rtol = PrecisionTol(1e-12),
+                                             Real atol = PrecisionTol(1e-12)) {
   const Real sigma2 = SingularValueEnergy(sings);
   const Real frob2 = A.FrobeniusNorm() * A.FrobeniusNorm();
   const Real denom = std::max(frob2, atol);
@@ -133,10 +135,21 @@ static Matrix FromTallSingularValues(int m, int n, const std::vector<Real> &sing
   return A;
 }
 
+// In the stress drivers below the tolerances are tuned for double precision and
+// converted with PrecisionTol. The singular-value tolerance is relative to a floor of
+// 1e-3 * max(1, s_max), so rescaling it by epsilon would make it meaningless in single
+// precision; it gets an explicit single-precision value instead.
+constexpr double kSingleSvRtol = 1e-2;
+
 static void RunTallSVDStress(int m, int n, const std::vector<Real> &sings_template,
-                             int num_realizations, Real recon_rtol,
-                             Real ortho_rtol = 1e-10, Real sv_rtol = 1e-8,
-                             Real min_floor = 1e-12, bool explicit_scratch = false) {
+                             int num_realizations, double recon_rtol_dbl,
+                             double ortho_rtol_dbl = 1e-10, double sv_rtol_dbl = 1e-8,
+                             double min_floor_dbl = 1e-12,
+                             bool explicit_scratch = false) {
+  const Real recon_rtol = PrecisionTol(recon_rtol_dbl);
+  const Real ortho_rtol = PrecisionTol(ortho_rtol_dbl);
+  const Real sv_rtol = PrecisionTol(sv_rtol_dbl, kSingleSvRtol);
+  const Real min_floor = PrecisionTol(min_floor_dbl);
   REQUIRE(m >= n);
   REQUIRE(static_cast<int>(sings_template.size()) == n);
 
@@ -161,12 +174,13 @@ static void RunTallSVDStress(int m, int n, const std::vector<Real> &sings_templa
     }
     REQUIRE(iters >= 0);
 
-    CheckSVDReconstruction(A0, U, V, s, recon_rtol, /*atol=*/1e-12);
+    CheckSVDReconstruction(A0, U, V, s, recon_rtol, /*atol=*/PrecisionTol(1e-12));
     REQUIRE(OrthoError(U) / std::max(Real{1.0}, std::sqrt(static_cast<Real>(n))) <
             ortho_rtol);
     REQUIRE(OrthoError(V) / std::max(Real{1.0}, std::sqrt(static_cast<Real>(n))) <
             ortho_rtol);
-    CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/1e-10, /*atol=*/1e-12);
+    CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/PrecisionTol(1e-10),
+                                     /*atol=*/PrecisionTol(1e-12));
 
     std::vector<Real> s_sorted = s;
     SortAbs(s_sorted);
@@ -184,9 +198,13 @@ static void RunTallSVDStress(int m, int n, const std::vector<Real> &sings_templa
 }
 
 static void RunSVDStress(const std::vector<Real> &sings_template, int num_realizations,
-                         int max_iter_factor, Real recon_rtol,
-                         Real ortho_rtol = 1e-10, Real sv_rtol = 1e-8,
-                         Real min_floor = 1e-12) {
+                         int max_iter_factor, double recon_rtol_dbl,
+                         double ortho_rtol_dbl = 1e-10, double sv_rtol_dbl = 1e-8,
+                         double min_floor_dbl = 1e-12) {
+  const Real recon_rtol = PrecisionTol(recon_rtol_dbl);
+  const Real ortho_rtol = PrecisionTol(ortho_rtol_dbl);
+  const Real sv_rtol = PrecisionTol(sv_rtol_dbl, kSingleSvRtol);
+  const Real min_floor = PrecisionTol(min_floor_dbl);
   const int n = static_cast<int>(sings_template.size());
 
   std::vector<Real> s_ref = sings_template;
@@ -205,7 +223,7 @@ static void RunSVDStress(const std::vector<Real> &sings_template, int num_realiz
     REQUIRE(iters > 0);
 
     // 1) reconstruction
-    CheckSVDReconstruction(A0, U, V, s, recon_rtol, /*atol=*/1e-12);
+    CheckSVDReconstruction(A0, U, V, s, recon_rtol, /*atol=*/PrecisionTol(1e-12));
 
     // 2) orthogonality
     Real uerr = OrthoError(U);
@@ -238,8 +256,8 @@ static void RunSVDStress(const std::vector<Real> &sings_template, int num_realiz
 }
 
 TEST_CASE("Tall-skinny SVD stress tests", "[svd][rect][thin]") {
-  const Real recon_rtol = 5e-10;
-  const Real sv_rtol = 1e-8;
+  const double recon_rtol = 5e-10;
+  const double sv_rtol = 1e-8;
 
   SECTION("Auto scratch sizing") {
     RunTallSVDStress(8, 3, {4.0, 1.5, 0.25}, 20, recon_rtol,
@@ -289,9 +307,10 @@ TEST_CASE("Tall-skinny SVD edge cases", "[svd][rect][edge_case]") {
     std::vector<Real> s(1);
     int iters = SquareSVD::execute(&A, &U, &V, s.data());
     REQUIRE(iters == 0);
-    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/1e-12, /*atol=*/1e-12);
-    REQUIRE(OrthoError(U) < 1e-12);
-    REQUIRE(OrthoError(V) < 1e-12);
+    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/PrecisionTol(1e-12),
+                           /*atol=*/PrecisionTol(1e-12));
+    REQUIRE(OrthoError(U) < PrecisionTol(1e-12));
+    REQUIRE(OrthoError(V) < PrecisionTol(1e-12));
   }
 
   SECTION("Zero matrix") {
@@ -301,11 +320,12 @@ TEST_CASE("Tall-skinny SVD edge cases", "[svd][rect][edge_case]") {
     std::vector<Real> s(3);
     int iters = SquareSVD::execute(&A, &U, &V, s.data());
     REQUIRE(iters >= 0);
-    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/1e-12, /*atol=*/1e-12);
-    REQUIRE(OrthoError(U) < 1e-12);
-    REQUIRE(OrthoError(V) < 1e-12);
+    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/PrecisionTol(1e-12),
+                           /*atol=*/PrecisionTol(1e-12));
+    REQUIRE(OrthoError(U) < PrecisionTol(1e-12));
+    REQUIRE(OrthoError(V) < PrecisionTol(1e-12));
     for (Real x : s)
-      REQUIRE(std::abs(x) < 1e-12);
+      REQUIRE(std::abs(x) < PrecisionTol(1e-12));
   }
 }
 
@@ -316,8 +336,8 @@ TEST_CASE("ImplicitQR bidiag SVD stress tests over spectra", "[svd][qr][bidiag]"
   const int num_realizations = 100;
 
   // Reconstruction is the most important contract.
-  const Real recon_rtol = 5e-10;
-  const Real sv_rtol = 1e-8;
+  const double recon_rtol = 5e-10;
+  const double sv_rtol = 1e-8;
 
   // 1) Baseline: arithmetic-ish with a big outlier and tiny perturbations
   SECTION("Arithmetic-ish with perturbed tail and large outlier") {
@@ -433,7 +453,8 @@ TEST_CASE("SVD handles single row/column non-zero matrices", "[svd][edge_case]")
       }
 
       // Verify reconstruction
-      CheckSVDReconstruction(A0, U, V, s, /*rtol=*/1e-9, /*atol=*/1e-12);
+      CheckSVDReconstruction(A0, U, V, s, /*rtol=*/PrecisionTol(1e-9),
+                             /*atol=*/PrecisionTol(1e-12));
 
       // For a single-row matrix, there should be exactly one non-zero singular value
       Real row_norm = 0.0;
@@ -443,11 +464,11 @@ TEST_CASE("SVD handles single row/column non-zero matrices", "[svd][edge_case]")
       row_norm = std::sqrt(row_norm);
 
       // The first singular value should match the norm of the row
-      REQUIRE(std::abs(s[0] - row_norm) / row_norm < 1e-10);
+      REQUIRE(std::abs(s[0] - row_norm) / row_norm < PrecisionTol(1e-10));
 
       // All other singular values should be effectively zero
       for (int i = 1; i < n; ++i) {
-        REQUIRE(std::abs(s[i]) < 1e-10 * row_norm);
+        REQUIRE(std::abs(s[i]) < PrecisionTol(1e-10) * row_norm);
       }
     }
   }
@@ -465,12 +486,14 @@ TEST_CASE("SVD handles 1x1 matrices exactly", "[svd][edge_case]") {
     int iters = SquareSVD::execute(&A, &U, &V, s.data());
     REQUIRE(iters == 0);
 
-    REQUIRE(std::abs(s[0] - 0.5) < 1e-14);
+    REQUIRE(std::abs(s[0] - 0.5) < PrecisionTol(1e-14));
     CheckSingularValueSanity(s);
-    CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/1e-14, /*atol=*/1e-14);
-    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/1e-14, /*atol=*/1e-14);
-    REQUIRE(OrthoError(U) < 1e-14);
-    REQUIRE(OrthoError(V) < 1e-14);
+    CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/PrecisionTol(1e-14),
+                                     /*atol=*/PrecisionTol(1e-14));
+    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/PrecisionTol(1e-14),
+                           /*atol=*/PrecisionTol(1e-14));
+    REQUIRE(OrthoError(U) < PrecisionTol(1e-14));
+    REQUIRE(OrthoError(V) < PrecisionTol(1e-14));
   }
 
   SECTION("Negative scalar") {
@@ -484,12 +507,14 @@ TEST_CASE("SVD handles 1x1 matrices exactly", "[svd][edge_case]") {
     int iters = SquareSVD::execute(&A, &U, &V, s.data());
     REQUIRE(iters == 0);
 
-    REQUIRE(std::abs(s[0] - 0.5) < 1e-14);
+    REQUIRE(std::abs(s[0] - 0.5) < PrecisionTol(1e-14));
     CheckSingularValueSanity(s);
-    CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/1e-14, /*atol=*/1e-14);
-    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/1e-14, /*atol=*/1e-14);
-    REQUIRE(OrthoError(U) < 1e-14);
-    REQUIRE(OrthoError(V) < 1e-14);
+    CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/PrecisionTol(1e-14),
+                                     /*atol=*/PrecisionTol(1e-14));
+    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/PrecisionTol(1e-14),
+                           /*atol=*/PrecisionTol(1e-14));
+    REQUIRE(OrthoError(U) < PrecisionTol(1e-14));
+    REQUIRE(OrthoError(V) < PrecisionTol(1e-14));
   }
 }
 
@@ -522,10 +547,12 @@ TEST_CASE("SVD handles structured rank-deficient matrices with zero leading entr
   REQUIRE(iters < 15 * 4);
 
   CheckSingularValueSanity(s);
-  CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/1e-12, /*atol=*/1e-12);
-  CheckSVDReconstruction(A0, U, V, s, /*rtol=*/1e-12, /*atol=*/1e-12);
-  REQUIRE(OrthoError(U) < 1e-12);
-  REQUIRE(OrthoError(V) < 1e-12);
+  CheckSingularValueEnergyIdentity(A0, s, /*rtol=*/PrecisionTol(1e-12),
+                                   /*atol=*/PrecisionTol(1e-12));
+  CheckSVDReconstruction(A0, U, V, s, /*rtol=*/PrecisionTol(1e-12),
+                         /*atol=*/PrecisionTol(1e-12));
+  REQUIRE(OrthoError(U) < PrecisionTol(1e-12));
+  REQUIRE(OrthoError(V) < PrecisionTol(1e-12));
 }
 
 TEST_CASE("SVD vs Gram eigenvalues: singular values match sqrt(eigs(A^T A))",
@@ -569,16 +596,19 @@ TEST_CASE("SVD vs Gram eigenvalues: singular values match sqrt(eigs(A^T A))",
 
     // Relative compare with a floor
     Real smax = std::max(Real{1.0}, s_sorted.back());
-    Real floor_val = 1e-12 * smax;
-
+    // sqrt(eigs(A^T A)) has absolute error ~ eps * smax^2 / s, so in single precision
+    // the floor has to be raised well above epsilon for the relative check to mean
+    // anything; neither value is an epsilon rescaling of the double one.
+    Real floor_val = PrecisionTol(1e-12, 1e-2) * smax;
     for (int i = 0; i < n; ++i) {
       Real diff = std::abs(s_sorted[i] - g_sorted[i]);
       Real denom = std::max(floor_val, g_sorted[i]);
-      REQUIRE(diff / denom < 1e-6);
+      REQUIRE(diff / denom < PrecisionTol(1e-6, 1e-2));
     }
 
     // Also enforce reconstruction
-    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/5e-10, /*atol=*/1e-12);
+    CheckSVDReconstruction(A0, U, V, s, /*rtol=*/PrecisionTol(5e-10),
+                           /*atol=*/PrecisionTol(1e-12));
   }
 }
 
@@ -614,12 +644,13 @@ TEST_CASE("SVD handles scaled matrices: scaling singular values", "[svd][scale]"
       SortAbs(s);
 
       // Compare s ≈ |alpha| s0
-      Real floor_val = 1e-12 * std::max(Real{1.0}, std::abs(alpha) * s0.back());
+      Real floor_val =
+          PrecisionTol(1e-12) * std::max(Real{1.0}, std::abs(alpha) * s0.back());
       for (int i = 0; i < n; ++i) {
         Real ref = std::abs(alpha) * s0[i];
         Real diff = std::abs(s[i] - ref);
         Real denom = std::max(floor_val, ref);
-        REQUIRE(diff / denom < 1e-6);
+        REQUIRE(diff / denom < PrecisionTol(1e-6, 1e-3));
       }
     }
   }

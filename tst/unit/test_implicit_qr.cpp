@@ -29,6 +29,11 @@
 using namespace parthenon::batched_linear_algebra; // NOLINT(build/namespaces)
 using parthenon::Real;
 
+// Relative eigenpair residual tolerance. The double-precision value already leaves a wide
+// margin, so rescaling it by epsilon would be meaninglessly loose in single precision;
+// the single-precision value is set from the observed errors instead.
+constexpr Real kResidualRtol = PrecisionTol(1e-10, 1e-4);
+
 static Real FrobeniusNorm(const Matrix &A) {
   Real s = 0.0;
   for (int r = 0; r < A.nrows(); ++r)
@@ -53,8 +58,7 @@ static std::vector<Real> GetColumn(const Matrix &Q, int j) {
 }
 
 // Compute residual ||A v - lambda v||_2
-static Real EigenResidual2Norm(const Matrix &A, const std::vector<Real> &v,
-                                 Real lambda) {
+static Real EigenResidual2Norm(const Matrix &A, const std::vector<Real> &v, Real lambda) {
   const int n = A.nrows();
   Real s = 0.0;
   for (int i = 0; i < n; ++i) {
@@ -69,8 +73,8 @@ static Real EigenResidual2Norm(const Matrix &A, const std::vector<Real> &v,
 
 // Check all eigenpairs: columns of Q are eigenvectors, eigs are eigenvalues
 static void CheckEigenpairsResidual(const Matrix &A_orig, const Matrix &Q,
-                                    const std::vector<Real> &eigs, Real rtol = 1e-10,
-                                    Real atol = 1e-12) {
+                                    const std::vector<Real> &eigs,
+                                    Real rtol = kResidualRtol, Real atol = 1e-12) {
   const Real An = FrobeniusNorm(A_orig);
   const Real denomA = std::max(An, atol);
 
@@ -88,7 +92,7 @@ static void CheckEigenpairsResidual(const Matrix &A_orig, const Matrix &Q,
 // Helper: run many random rotations of a given spectrum through the pipeline
 void RunSpectrumTest(const Vector &eigs_template, int num_realizations,
                      int max_iter_factor, Real tol, Real min_val = 1.e-10,
-                     Real eigvec_rtol = 1e-10) {
+                     Real eigvec_rtol = kResidualRtol) {
   std::size_t n = eigs_template.size();
 
   Vector eigen_values = eigs_template;
@@ -129,7 +133,9 @@ void RunSpectrumTest(const Vector &eigs_template, int num_realizations,
 TEST_CASE("ImplicitQR stress tests over spectra", "[eig][qr][tridiag]") {
   const int n = 50;
   const int num_realizations = 100;
-  const Real tol = 1.e-8;
+  // Eigenvalue errors are measured against a floor of 1e-3 times the largest
+  // eigenvalue, so they can be a few times 1e3 * n * eps.
+  const Real tol = PrecisionTol(1e-8, 5e-2);
 
   // 1) Baseline: arithmetic spectrum with a big outlier and tiny perturbations
   SECTION("Arithmetic plus perturbed tail and large outlier") {
@@ -256,7 +262,7 @@ TEST_CASE("Gram matrix eigenvalues: full-rank PSD", "[gram][eig]") {
     Matrix G0 = G.GetDeepCopy();
     int iters = SymmetricEVD::execute(&G, &Q, d.data());
 
-    CheckEigenpairsResidual(G0, Q, d, /*rtol=*/1e-10, /*atol=*/1e-12);
+    CheckEigenpairsResidual(G0, Q, d, kResidualRtol, /*atol=*/1e-12);
 
     REQUIRE(iters < 5 * n); // loose iteration bound for safety
 
@@ -276,7 +282,7 @@ TEST_CASE("Gram matrix eigenvalues: full-rank PSD", "[gram][eig]") {
 
     Real trace_err = std::abs(sum_lambda - traceG);
     Real trace_scale = std::max(std::abs(traceG), Real{1.0});
-    REQUIRE(trace_err / trace_scale < 1e-10);
+    REQUIRE(trace_err / trace_scale < PrecisionTol(1e-10, 1e-5));
   }
 }
 
@@ -317,7 +323,7 @@ TEST_CASE("Gram matrix eigenvalues: nearly rank-deficient", "[gram][eig]") {
     Matrix G0 = G.GetDeepCopy();
     int iters = SymmetricEVD::execute(&G, &Q, d.data());
 
-    CheckEigenpairsResidual(G0, Q, d, /*rtol=*/1e-10, /*atol=*/1e-12);
+    CheckEigenpairsResidual(G0, Q, d, kResidualRtol, /*atol=*/1e-12);
 
     REQUIRE(iters < 6 * n);
 
@@ -331,7 +337,7 @@ TEST_CASE("Gram matrix eigenvalues: nearly rank-deficient", "[gram][eig]") {
     // Near-rank-deficient: smallest eigenvalue should be "small"
     // relative to largest
     Real rel_small = std::abs(d.front()) / std::max(std::abs(lambda_max), Real{1.0});
-    REQUIRE(rel_small < 1e-6);
+    REQUIRE(rel_small < PrecisionTol(1e-6, 1e-4));
   }
 }
 
@@ -367,7 +373,7 @@ TEST_CASE("Gram matrix eigenvalues: strongly rank-deficient", "[gram][eig]") {
     Matrix G0 = G.GetDeepCopy();
     int iters = SymmetricEVD::execute(&G, &Q, d.data());
 
-    CheckEigenpairsResidual(G0, Q, d, /*rtol=*/1e-10, /*atol=*/1e-12);
+    CheckEigenpairsResidual(G0, Q, d, kResidualRtol, /*atol=*/1e-12);
 
     REQUIRE(iters < 6 * n);
 
@@ -382,7 +388,7 @@ TEST_CASE("Gram matrix eigenvalues: strongly rank-deficient", "[gram][eig]") {
     int num_small = 0;
     for (int i = 0; i < n; ++i) {
       Real rel = std::abs(d[i]) / std::max(std::abs(lambda_max), Real{1.0});
-      if (rel < 1e-8) ++num_small;
+      if (rel < PrecisionTol(1e-8, 1e-5)) ++num_small;
     }
     REQUIRE(num_small >= (n - k) / 2);
   }

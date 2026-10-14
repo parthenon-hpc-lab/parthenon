@@ -20,6 +20,8 @@
 // This file was made in part with generative AI.
 
 #include <iosfwd>
+#include <limits>
+#include <type_traits>
 #include <vector>
 
 #include "basic_types.hpp"
@@ -28,6 +30,18 @@
 
 using parthenon::Real;
 using Vector = std::vector<Real>;
+
+// Converts a tolerance chosen for double precision into one for Real. The one-argument
+// form keeps the same number of machine epsilons, which suits backward-error checks
+// (reconstruction, orthogonality, residuals). Where that rescaling would be uselessly
+// loose, the two-argument form gives the single-precision tolerance explicitly.
+constexpr Real PrecisionTol(double double_tol) {
+  return static_cast<Real>(double_tol * (std::numeric_limits<Real>::epsilon() /
+                                         std::numeric_limits<double>::epsilon()));
+}
+constexpr Real PrecisionTol(double double_tol, double single_tol) {
+  return static_cast<Real>(std::is_same_v<Real, double> ? double_tol : single_tol);
+}
 
 class Matrix {
  public:
