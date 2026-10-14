@@ -27,6 +27,10 @@ namespace tensor {
 // These structs provide 2D matrix views of 3D tensor cores for use in
 // matrix operations. They have no dependencies on TensorCore or TensorTraits,
 // so they can be defined independently.
+//
+// An unfolding holds a reference to its core, not a copy. Build it inside the
+// kernel from a core that outlives it (a pack entry or a scratch core); an
+// unfolding built on the host and captured into a lambda would dangle.
 
 // Vertical unfolding: reshape [lr][dd][rr] as [lr*dd, rr]
 // Layout-agnostic since d is always the fastest moving row index

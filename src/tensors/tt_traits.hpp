@@ -23,6 +23,8 @@
 #include "tt_unfoldings.hpp"
 
 namespace parthenon {
+namespace tensor {
+
 struct ManagedTag {};
 struct UnmanagedTag {};
 
@@ -32,13 +34,17 @@ struct UnmanagedTag {};
 // can stay relatively clean. In particular, view_t<DataType, OwnershipTag>
 // gives a device-space Kokkos::View, while host_view_t<DataType, OwnershipTag>
 // gives the corresponding host-mirror-space view with the same ownership mode.
-template <class Device, class RealT = Real, class Layout = Kokkos::LayoutRight,
-          bool DFastestMoving = true>
+//
+// DFastestMoving selects both the storage model and the index order of a core:
+// fiber storage with d fastest, or a single [lr][dd][rr] buffer with r fastest.
+// The layout is fixed to LayoutRight because the r-fastest storage, the scratch
+// cores, and the horizontal unfolding all assume it.
+template <class Device, class RealT = Real, bool DFastestMoving = true>
 struct TensorTraits {
   using device_type = Device;
   using execution_space = typename device_type::execution_space;
   using memory_space = typename device_type::memory_space;
-  using layout = Layout;
+  using layout = Kokkos::LayoutRight;
   using real_t = RealT;
   using scratch_memory_space = Kokkos::ScratchMemorySpace<execution_space>;
 
@@ -63,57 +69,55 @@ struct TensorTraits {
   // Unfolding factory methods
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto GetHorizontalUnfolding(const CoreLike &core) {
-    return tensor::horizontal_unfolding<CoreLike, false, DFastestMoving>(core);
+    return horizontal_unfolding<CoreLike, false, DFastestMoving>(core);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto GetHorizontalUnfolding(const CoreLike &core,
                                                                  int nl, int nd, int nr) {
-    return tensor::horizontal_unfolding<CoreLike, false, DFastestMoving>(core, nl, nd,
-                                                                         nr);
+    return horizontal_unfolding<CoreLike, false, DFastestMoving>(core, nl, nd, nr);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto
   GetHorizontalUnfoldingTranspose(const CoreLike &core) {
-    return tensor::horizontal_unfolding<CoreLike, true, DFastestMoving>(core);
+    return horizontal_unfolding<CoreLike, true, DFastestMoving>(core);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto
   GetHorizontalUnfoldingTranspose(const CoreLike &core, int nl, int nd, int nr) {
-    return tensor::horizontal_unfolding<CoreLike, true, DFastestMoving>(core, nl, nd, nr);
+    return horizontal_unfolding<CoreLike, true, DFastestMoving>(core, nl, nd, nr);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto GetVerticalUnfolding(const CoreLike &core) {
-    return tensor::vertical_unfolding<CoreLike, false>(core);
+    return vertical_unfolding<CoreLike, false>(core);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto GetVerticalUnfolding(const CoreLike &core,
                                                                int nl, int nd, int nr) {
-    return tensor::vertical_unfolding<CoreLike, false>(core, nl, nd, nr);
+    return vertical_unfolding<CoreLike, false>(core, nl, nd, nr);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto
   GetVerticalUnfoldingTranspose(const CoreLike &core) {
-    return tensor::vertical_unfolding<CoreLike, true>(core);
+    return vertical_unfolding<CoreLike, true>(core);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto
   GetVerticalUnfoldingTranspose(const CoreLike &core, int nl, int nd, int nr) {
-    return tensor::vertical_unfolding<CoreLike, true>(core, nl, nd, nr);
+    return vertical_unfolding<CoreLike, true>(core, nl, nd, nr);
   }
 };
 
-// Explicit layout traits
-using FiberTTraits = TensorTraits<Kokkos::Device<DevExecSpace, DevMemSpace>, Real,
-                                  Kokkos::LayoutRight, true>;
-using ContiguousTTraits = TensorTraits<Kokkos::Device<DevExecSpace, DevMemSpace>, Real,
-                                       Kokkos::LayoutRight, false>;
+// Explicit storage-model traits
+using FiberTTraits = TensorTraits<Kokkos::Device<DevExecSpace, DevMemSpace>, Real, true>;
+using ContiguousTTraits =
+    TensorTraits<Kokkos::Device<DevExecSpace, DevMemSpace>, Real, false>;
 
 // Default traits (currently fiber storage, but could be made context-dependent later)
 using DefaultTTraits = FiberTTraits;
@@ -121,8 +125,9 @@ using DefaultTTraits = FiberTTraits;
 // ==============================================================================
 // STORAGE POLICIES FOR TENSOR CORES
 // ==============================================================================
-
-namespace tensor {
+// Naming: the *Host classes are the owning storage and the *Device classes are
+// non-owning descriptors that kernels index. The suffixes do not name a memory
+// space; the data of both lives in TTraits::memory_space.
 
 // Forward declarations for StorageFor
 template <class TTraits>
@@ -134,27 +139,22 @@ class ContiguousStorageHost;
 template <class TTraits>
 class ContiguousStorageDevice;
 
-} // namespace tensor
-
 // Helper to select storage policy based on TTraits layout
 // This selects FiberStorage for dd-fastest (d_fastest_moving=true)
 // and ContiguousStorage for rr-fastest (d_fastest_moving=false)
 template <class TTraits>
 using StorageFor =
-    std::conditional_t<TTraits::d_fastest_moving, tensor::FiberStorageHost<TTraits>,
-                       tensor::ContiguousStorageHost<TTraits>>;
-
-namespace tensor {
+    std::conditional_t<TTraits::d_fastest_moving, FiberStorageHost<TTraits>,
+                       ContiguousStorageHost<TTraits>>;
 
 // FiberView is the fundamental 1D storage unit for tensor-core data.
 template <class TTraits, class OwnershipTag>
 using FiberView =
     typename TTraits::template view_t<typename TTraits::real_t *, OwnershipTag>;
 
-// FiberStorageDevice: Device-side storage policy using fiber-based (view-of-views) layout
-// Extracted from TensorCoreDeviceT. This is a lightweight unmanaged descriptor
-// that wraps a 2D view of fiber handles with dimensions [lr][rr], where each
-// fiber has length dd.
+// FiberStorageDevice: device-side descriptor for fiber storage (level 4 in the
+// FiberStorageHost comment below). It wraps an unmanaged [lr][rr] view of
+// unmanaged fiber views, each of length dd, and owns nothing.
 template <class TTraits>
 class FiberStorageDevice {
  public:
@@ -184,9 +184,26 @@ class FiberStorageDevice {
   KOKKOS_INLINE_FUNCTION int RR() const { return rr; }
 };
 
-// FiberStorageHost: Host-side storage policy using fiber-based (view-of-views) layout
-// Extracted from TensorCoreHostT. This manages both host and device fiber storage
-// and maintains the complex two-level view hierarchy with RebuildOuterViews logic.
+// FiberStorageHost: owning fiber storage for one core. A core is an (lr x rr) grid
+// of fibers, each a length-dd device array. Four levels are involved:
+//
+//   1. fiber data: managed 1D device views, one per (l, r). These hold the numbers.
+//   2. host_fibers: a host view of managed fiber handles. This is what keeps the
+//      fibers alive (via their reference counts).
+//   3. device_managed_fibers: a managed device view of *unmanaged* fiber views
+//      (pointer + length). It owns only its own memory; its pointers are valid
+//      only while a host_fibers holding the same fibers is alive.
+//   4. FiberStorageDevice (via GetDeviceData): an unmanaged view of level 3, owning
+//      nothing. It is valid while this storage is alive and not rebuilt.
+//
+// Invariant: host_fibers and device_managed_fibers always describe the same
+// (lr, rr) grid of the same fibers and change in lock step. RebuildOuterViews is
+// the only routine that builds them, always into freshly allocated views, and
+// Release() is the only other routine that changes them (emptying both). Neither
+// table is ever modified in place.
+//
+// Copies have reference semantics: CopyFrom shares the fibers (level 1) but gives
+// the copy its own levels 2 and 3. DeepCopy() also duplicates the fiber data.
 template <class TTraits>
 class FiberStorageHost {
  public:
@@ -203,8 +220,8 @@ class FiberStorageHost {
 
  private:
   int lr{0}, dd{0}, rr{0};
-  host_fibers_view_t host_fibers;
-  device_managed_fibers_view_t device_managed_fibers;
+  host_fibers_view_t host_fibers;                     // level 2
+  device_managed_fibers_view_t device_managed_fibers; // level 3
 
  public:
   FiberStorageHost() = default;
@@ -281,6 +298,11 @@ class FiberStorageHost {
   // storage (no numeric data is copied); returning a freshly-allocated fiber
   // introduces a zeroed block. The physical dimension dd is inferred from the
   // fibers placed, so it always mirrors the actual fiber length.
+  //
+  // This is the only routine that builds host_fibers and device_managed_fibers
+  // (see the invariant above). Both are replaced before get_fiber is called, so
+  // get_fiber must not read this storage's own tables; ReduceSize holds a handle
+  // to the old host_fibers for exactly this reason.
   template <class ManagedFiberGetter>
   void RebuildOuterViews(int lr_new, int rr_new, ManagedFiberGetter &&get_fiber) {
     lr = lr_new;
@@ -296,7 +318,9 @@ class FiberStorageHost {
       for (int r = 0; r < rr; ++r) {
         host_fibers(l, r) = get_fiber(l, r);
         auto &f = host_fibers(l, r);
-        dd = f.extent(0);
+        PARTHENON_REQUIRE(l + r == 0 || f.extent_int(0) == dd,
+                          "All fibers in a core must have the same length.");
+        dd = f.extent_int(0);
         device_managed_fibers_h(l, r) = fiber_unmanaged_t(f.data(), f.extent(0));
       }
     }
@@ -305,8 +329,8 @@ class FiberStorageHost {
   }
 };
 
-// UnmanagedStorageDevice: Wraps raw pointer for scratch arrays
-// This replaces wrap_3D with a proper storage policy
+// UnmanagedStorageDevice: wraps a raw scratch pointer, indexed [lr][rr][dd] for
+// fiber traits and [lr][dd][rr] for r-fastest traits
 template <class TTraits>
 class UnmanagedStorageDevice {
  public:
@@ -314,7 +338,7 @@ class UnmanagedStorageDevice {
   using real_t = typename TTraits::real_t;
 
  private:
-  real_t *scratch;
+  real_t *scratch{nullptr};
   int lr{0}, dd{0}, rr{0};
 
  public:
