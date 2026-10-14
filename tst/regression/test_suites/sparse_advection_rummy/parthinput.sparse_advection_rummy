@@ -1,0 +1,83 @@
+# ========================================================================================
+#  Athena++ astrophysical MHD code
+#  Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
+#  Licensed under the 3-clause BSD License, see LICENSE file for details
+# ========================================================================================
+#  (C) (or copyright) 2021-2026. Triad National Security, LLC. All rights reserved.
+#
+#  This program was produced under U.S. Government contract 89233218CNA000001 for Los
+#  Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+#  for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+#  in the program are reserved by Triad National Security, LLC, and the U.S. Department
+#  of Energy/National Nuclear Security Administration. The Government is granted for
+#  itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+#  license in this material to reproduce, prepare derivative works, distribute copies to
+#  the public, perform publicly and display publicly, and to permit others to do so.
+# ========================================================================================
+
+# This is an example of a Rummy input file
+
+
+# Global variables
+
+NB = 1 << 3   # Rummy supports bit shifts
+N = NB << 3  
+
+L = 1.0, 1.0, 1.0
+
+
+<parthenon/job>
+problem_id = "sparse"
+
+<parthenon/sparse>
+enable_sparse = true
+alloc_threshold = 1e-6
+dealloc_threshold = 0.1 * alloc_threshold   # 10% of alloc threshold
+dealloc_count = 5
+
+<parthenon/mesh>
+refinement = "adaptive"
+numlevel = 3
+
+nx1 = N
+x1min = -L[0]
+x1max = L[0]
+ix1_bc = "periodic"
+ox1_bc = ix1_bc
+
+nx2 = N
+x2min = -L[1]
+x2max = L[1]
+ix2_bc = "reflecting"
+ox2_bc = "outflow"
+
+nx3 = 1
+x3min = -L[2]
+x3max = L[2]
+ix3_bc = "periodic"
+ox3_bc = ix3_bc
+
+<parthenon/meshblock>
+nx1 = NB
+nx2 = NB
+nx3 = 1
+
+<parthenon/time>
+recv_bdry_buf_timeout_sec = 10
+nlim = -1
+tlim = 1.0
+integrator = "rk2"
+ncycle_out_mesh = -10000
+comm_buffer_reset_cadence = 10
+
+<sparse_advection>
+cfl = 0.45
+speed = 1.5
+
+refine_tol = 0.3    # control the package specific refinement tagging function
+derefine_tol = 0.1 * refine_tol
+
+<parthenon/output0>
+file_type = "hdf5"
+dt = 0.5
+variables = "sparse"

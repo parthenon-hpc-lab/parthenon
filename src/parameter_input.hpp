@@ -50,6 +50,8 @@
 
 namespace parthenon {
 
+std::string SanitizeString(const std::string &input);
+
 //----------------------------------------------------------------------------------------
 // Supported parameter types - single source of truth
 //----------------------------------------------------------------------------------------
@@ -244,11 +246,12 @@ class ParameterInput {
   ParameterInput();
   explicit ParameterInput(std::string input_filename);
   ~ParameterInput();
+  void ReadFile(const std::string &input_filename);
 
   // === PARSING INTERFACE ===
   void LoadFromStream(std::istream &is);
   void LoadFromFile(IOWrapper &input);
-  void ModifyFromCmdline(int argc, char *argv[]);
+  void ModifyFromCmdline(std::vector<std::string> mods);
 
   // === PARSER INTERFACE (for input sources like text files, Python, TOML, etc.) ===
   // Use AddParsedParameter to populate parameters from external input sources
@@ -470,6 +473,8 @@ class ParameterInput {
     SetQueryDependency_(block, name, def);
     return ret;
   }
+
+  const std::vector<Block> &GetBlocks() const { return param_storage_; }
 
  private:
   // === PARAMETER STORAGE (vector-of-vectors, preserves insertion order) ===
