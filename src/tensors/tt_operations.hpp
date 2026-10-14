@@ -1,0 +1,921 @@
+//========================================================================================
+// (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
+//
+// This program was produced under U.S. Government contract 89233218CNA000001 for Los
+// Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+// for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+// in the program are reserved by Triad National Security, LLC, and the U.S. Department
+// of Energy/National Nuclear Security Administration. The Government is granted for
+// itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+// license in this material to reproduce, prepare derivative works, distribute copies to
+// the public, perform publicly and display publicly, and to permit others to do so.
+//========================================================================================
+
+// This file was made in part with generative AI.
+
+#ifndef TENSORS_TT_OPERATIONS_HPP_
+#define TENSORS_TT_OPERATIONS_HPP_
+
+#include <algorithm>
+#include <limits>
+#include <string>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+
+#include "basic_types.hpp"
+#include "batched_linear_algebra/matmul.hpp"
+#include "batched_linear_algebra/qr_decomposition.hpp"
+#include "batched_linear_algebra/square_svd.hpp"
+#include "batched_linear_algebra/symmetric_evd.hpp"
+#include "kokkos_abstraction.hpp"
+#include "tt_pack.hpp"
+#include "tt_traits.hpp"
+#include "tt_types.hpp"
+#include "utils/robust.hpp"
+
+namespace parthenon {
+namespace tensor {
+namespace impl {
+
+// Copy all fibers from a source core into a destination core with optional
+// offsets in left-rank and right-rank space. This is mainly used to assemble
+// block-structured TT operations such as non-destructive sum.
+template <class CoreType>
+KOKKOS_INLINE_FUNCTION void CopyCoreBlock(parthenon::team_mbr_t member,
+                                          const CoreType &src, CoreType &dst,
+                                          int loffset = 0, int roffset = 0) {
+  // TODO(performance): Consider using raw pointer arithmetic for FiberStorage where
+  // &src(l,0,r) + j == &src(l,j,r), which may be faster than element-wise access.
+  // Would require detecting storage type or adding a storage policy parameter.
+  // Use element-wise access - works for all storage types
+  for (int l = 0; l < src.LR(); ++l) {
+    for (int r = 0; r < src.RR(); ++r) {
+      parthenon::par_for_inner(member, 0, src.DD() - 1, [&](const int j) {
+        dst(l + loffset, j, r + roffset) = src(l, j, r);
+      });
+    }
+  }
+}
+
+// Set a rectangular block in rank space to a constant value. This is used
+// primarily to zero off-diagonal blocks created by TT addition.
+template <class CoreType, class RealType>
+KOKKOS_INLINE_FUNCTION void SetCoreBlock(parthenon::team_mbr_t member, CoreType &dst,
+                                         RealType value, Kokkos::pair<int, int> lrange,
+                                         Kokkos::pair<int, int> rrange) {
+  // TODO(performance): Consider using raw pointer arithmetic for FiberStorage where
+  // &dst(l,0,r) + j == &dst(l,j,r), which may be faster than element-wise access.
+  // Use element-wise access - works for all storage types
+  for (int l = lrange.first; l < lrange.second; ++l) {
+    for (int r = rrange.first; r < rrange.second; ++r) {
+      parthenon::par_for_inner(member, 0, dst.DD() - 1,
+                               [&](const int j) { dst(l, j, r) = value; });
+    }
+  }
+}
+
+// Compute the Hadamard product of two tensor cores and write the result into
+// the destination core. The destination rank space is indexed by the product
+// of the input rank spaces.
+template <class CoreType>
+KOKKOS_INLINE_FUNCTION void HadamardCoreBlocks(parthenon::team_mbr_t member,
+                                               const CoreType &core_a,
+                                               const CoreType &core_b, CoreType &core_c) {
+  // TODO(performance): Consider using raw pointer arithmetic for FiberStorage where
+  // &core(l,0,r) + j == &core(l,j,r), which may be faster than element-wise access.
+  // Use element-wise access - works for all storage types
+  for (int la = 0; la < core_a.LR(); ++la) {
+    for (int lb = 0; lb < core_b.LR(); ++lb) {
+      const int lc = la * core_b.LR() + lb;
+
+      for (int ra = 0; ra < core_a.RR(); ++ra) {
+        for (int rb = 0; rb < core_b.RR(); ++rb) {
+          const int rc = ra * core_b.RR() + rb;
+
+          parthenon::par_for_inner(member, 0, core_c.DD() - 1, [&](const int j) {
+            core_c(lc, j, rc) = core_a(la, j, ra) * core_b(lb, j, rb);
+          });
+        }
+      }
+    }
+  }
+}
+
+// Require that no train in host pack `out` is also a train of host pack `in`.
+// Ops that reshape their output in place would otherwise clobber an aliased
+// input.
+template <class HostPackIn, class HostPackOut>
+void RequireNoAliasing(const HostPackIn &in, const HostPackOut &out, const char *msg) {
+  std::unordered_set<const void *> in_trains;
+  for (int v = 0; v < in.NumVars(); ++v)
+    for (int b = 0; b < in.NumBlocks(); ++b)
+      in_trains.insert(&in(b, v));
+  for (int v = 0; v < out.NumVars(); ++v)
+    for (int b = 0; b < out.NumBlocks(); ++b)
+      PARTHENON_REQUIRE(in_trains.count(&out(b, v)) == 0, msg);
+}
+
+// Fill every (block, variable, core) of pack_c, already sized to the combined
+// ranks, with the block-diagonal TT sum of pack_a and pack_b in a single kernel.
+template <class Pack>
+void FillBlockDiagonalSum(const Pack &pack_a, const Pack &pack_b, const Pack &pack_c) {
+  using real_t = typename Pack::train_t::traits::real_t;
+  constexpr int unused_scratch_size = 0;
+  constexpr int unused_scratch_level = 1;
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, unused_scratch_size, unused_scratch_level, 0,
+      pack_a.GetNBlocks() - 1, 0, pack_a.GetNVars() - 1, 0, pack_a.GetNCores() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int v, const int c) {
+        auto &core_c = pack_c(b, v, c);
+
+        auto &core_a = pack_a(b, v, c);
+        CopyCoreBlock(member, core_a, core_c, 0, 0);
+
+        auto &core_b = pack_b(b, v, c);
+        const int loffset = (c > 0) * core_a.LR();
+        const int roffset = (c != (pack_a.GetNCores() - 1)) * core_a.RR();
+        CopyCoreBlock(member, core_b, core_c, loffset, roffset);
+
+        if (loffset && roffset) {
+          SetCoreBlock(member, core_c, real_t(0), Kokkos::pair<int, int>{0, core_a.LR()},
+                       Kokkos::pair<int, int>{core_a.RR(), core_a.RR() + core_b.RR()});
+          SetCoreBlock(member, core_c, real_t(0),
+                       Kokkos::pair<int, int>{core_a.LR(), core_a.LR() + core_b.LR()},
+                       Kokkos::pair<int, int>{0, core_a.RR()});
+        }
+      });
+}
+
+// Check that A and B can be summed or multiplied slot by slot: same (var, block)
+// grid, closed trains, and matching core counts and physical dimensions.
+template <class HostPackA, class HostPackB>
+void RequireCompatibleClosed(const HostPackA &A, const HostPackB &B, const char *op) {
+  PARTHENON_REQUIRE(B.NumBlocks() == A.NumBlocks() && B.NumVars() == A.NumVars(),
+                    std::string(op) + ": operands must have the same (var, block) grid.");
+  for (int v = 0; v < A.NumVars(); ++v) {
+    for (int b = 0; b < A.NumBlocks(); ++b) {
+      const auto &train_A = A(b, v);
+      const auto &train_B = B(b, v);
+      PARTHENON_REQUIRE(train_A.NCores() == train_B.NCores(),
+                        std::string(op) + ": trains must have the same number of cores.");
+      PARTHENON_REQUIRE(train_A.IsClosed() && train_B.IsClosed(),
+                        std::string(op) + " requires closed trains.");
+      for (int c = 0; c < train_A.NCores(); ++c)
+        PARTHENON_REQUIRE(train_A(c).DD() == train_B(c).DD(),
+                          std::string(op) + ": trains must have matching physical dims.");
+    }
+  }
+}
+
+} // namespace impl
+
+// Set every entry in every core of every variable of a tensor-train pack to a
+// single value.
+template <class TTraits, class... var_ts>
+void SetTTPackToValue(TensorPackT<TTraits, var_ts...> &pack,
+                      typename TTraits::real_t value) {
+  constexpr int unused_scratch_size = 0;
+  constexpr int unused_scratch_level = 1;
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, unused_scratch_size, unused_scratch_level, 0,
+      pack.GetNBlocks() - 1, 0, pack.GetNVars() - 1, 0, pack.GetNCores() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int v, const int c) {
+        auto &core = pack(b, v, c);
+        impl::SetCoreBlock(member, core, value, Kokkos::pair<int, int>{0, core.LR()},
+                           Kokkos::pair<int, int>{0, core.RR()});
+      });
+}
+
+// Form the non-destructive TT sum C = A + B over every field and block in the
+// host packs.
+//
+// This is the canonical tensor-train operation shape: it takes host packs
+// (which may hold several same-shaped fields), reshapes the output trains
+// host-side to the combined block-diagonal ranks, builds device packs from the
+// host packs, and fills the output on device. It operates on all variables the
+// packs contain -- the caller curates which fields are present (mirroring how a
+// regular-field task is handed a MeshData packed over just its variables). C
+// must be distinct from A and B (the output trains are reshaped in place, which
+// would clobber an aliased input); this is checked. C's trains may be
+// default-constructed placeholders, since they are rebuilt from A's shape.
+template <class TTraits, class... var_ts>
+void NonDestructiveSum(const TensorTrainHostPackT<TTraits, var_ts...> &A,
+                       const TensorTrainHostPackT<TTraits, var_ts...> &B,
+                       TensorTrainHostPackT<TTraits, var_ts...> &C) {
+  impl::RequireCompatibleClosed(A, B, "NonDestructiveSum");
+  PARTHENON_REQUIRE(C.NumBlocks() == A.NumBlocks() && C.NumVars() == A.NumVars(),
+                    "NonDestructiveSum: C must have the same (var, block) grid as A.");
+  impl::RequireNoAliasing(A, C, "NonDestructiveSum: C must not alias A.");
+  impl::RequireNoAliasing(B, C, "NonDestructiveSum: C must not alias B.");
+
+  // Reshape each output train to the combined ranks (metadata op, host-side).
+  for (int v = 0; v < A.NumVars(); ++v) {
+    for (int b = 0; b < A.NumBlocks(); ++b) {
+      const auto &train_A = A(b, v);
+      const auto &train_B = B(b, v);
+      std::vector<int> target_ranks;
+      for (int c = 0; c < train_A.NCores() - 1; ++c)
+        target_ranks.push_back(train_A(c).RR() + train_B(c).RR());
+      C(b, v) = TensorTrainT<TTraits>(train_A, target_ranks);
+    }
+  }
+
+  // Fill the (now correctly sized) output on device.
+  impl::FillBlockDiagonalSum(A.MakeDevicePack(), B.MakeDevicePack(), C.MakeDevicePack());
+}
+
+// Form the destructive TT sum A <- A + B over every field and block in the host
+// packs, leaving every train in B empty (see TensorTrainT::IsEmpty).
+//
+// Unlike NonDestructiveSum, the result is assembled in place in A by moving core
+// storage rather than copying the existing numeric data. For the fiber storage
+// backend (d_fastest_moving) this is a pure host-side pointer move: A's and B's
+// fibers are placed directly into the block-diagonal result core and only the
+// off-diagonal zero blocks are freshly allocated -- no device kernel runs. For
+// the contiguous backend a core is a single buffer that cannot be stitched from
+// two smaller ones, so we fall back to the proven copy-based block-diagonal fill
+// (as in NonDestructiveSum) writing into a fresh combined core, then move it into
+// A. In both cases B is left holding empty trains. A and B must be distinct;
+// this is checked.
+template <class TTraits, class... var_ts>
+void DestructiveSum(TensorTrainHostPackT<TTraits, var_ts...> &A,
+                    TensorTrainHostPackT<TTraits, var_ts...> &B) {
+  impl::RequireCompatibleClosed(A, B, "DestructiveSum");
+  impl::RequireNoAliasing(A, B, "DestructiveSum: A and B must not alias.");
+  const int nblocks = A.NumBlocks();
+  const int nvars = A.NumVars();
+
+  using train_t = TensorTrainT<TTraits>;
+  using core_type = typename train_t::core_type;
+
+  if constexpr (TTraits::d_fastest_moving) {
+    // Fiber backend: zero-copy block-diagonal assembly, host-side only.
+    for (int v = 0; v < nvars; ++v) {
+      for (int b = 0; b < nblocks; ++b) {
+        auto &train_A = A(b, v);
+        auto &train_B = B(b, v);
+        const int ncores = train_A.NCores();
+
+        std::vector<core_type> combined;
+        combined.reserve(ncores);
+        for (int c = 0; c < ncores; ++c) {
+          auto &core_a = train_A(c);
+          auto &core_b = train_B(c);
+          const int loffset = (c > 0) * core_a.LR();
+          const int roffset = (c != (ncores - 1)) * core_a.RR();
+          const int lr_c = loffset ? core_a.LR() + core_b.LR() : core_a.LR();
+          const int rr_c = roffset ? core_a.RR() + core_b.RR() : core_a.RR();
+
+          // Block-diagonal placement lives here, in the operation: A's fibers
+          // occupy the top-left [0,LR_a) x [0,RR_a) block, B's the block offset
+          // by (loffset, roffset), and every other slot gets a fresh zero fiber.
+          // Existing fibers are shared by handle -- no numeric data is copied.
+          core_type core_c;
+          core_c.RebuildFibers(lr_c, rr_c, core_a.Indexer(), [&](int l, int r) {
+            if (l < core_a.LR() && r < core_a.RR()) return core_a.GetFiber(l, r);
+            if (l >= loffset && l < loffset + core_b.LR() && r >= roffset &&
+                r < roffset + core_b.RR())
+              return core_b.GetFiber(l - loffset, r - roffset);
+            return core_a.MakeZeroFiber();
+          });
+          combined.push_back(std::move(core_c));
+        }
+        train_A = train_t(std::move(combined));
+        train_B.Clear();
+      }
+    }
+    return;
+  } else {
+    // Contiguous backend: copy-based fill into fresh combined cores, then move
+    // into A. Mirrors NonDestructiveSum's kernel but writes into a temporary and
+    // leaves B empty.
+    // Hold the fresh combined trains in a flat (var, block) vector and point a
+    // host pack at them so the shared block-diagonal fill kernel can target them.
+    std::vector<train_t> temps(nvars * nblocks);
+    VarBlockGrid<train_t *> temp_grid(nvars, nblocks);
+    for (int v = 0; v < nvars; ++v) {
+      for (int b = 0; b < nblocks; ++b) {
+        const auto &train_A = A(b, v);
+        const auto &train_B = B(b, v);
+        std::vector<int> target_ranks;
+        for (int c = 0; c < train_A.NCores() - 1; ++c)
+          target_ranks.push_back(train_A(c).RR() + train_B(c).RR());
+        auto &temp = temps[v * nblocks + b];
+        temp = train_t(train_A, target_ranks);
+        temp_grid(v, b) = &temp;
+      }
+    }
+    TensorTrainHostPackT<TTraits, var_ts...> C(std::move(temp_grid));
+
+    impl::FillBlockDiagonalSum(A.MakeDevicePack(), B.MakeDevicePack(),
+                               C.MakeDevicePack());
+    // Kernels are asynchronous; make sure the fill completes before we move the
+    // temporaries into A and drop B.
+    Kokkos::fence();
+    for (int v = 0; v < nvars; ++v) {
+      for (int b = 0; b < nblocks; ++b) {
+        A(b, v) = std::move(temps[v * nblocks + b]);
+        B(b, v).Clear();
+      }
+    }
+  }
+}
+
+// Form the Hadamard (elementwise) product C = A .* B over every field and block in
+// the host packs, all (block, variable, core) slots in a single kernel. The output
+// ranks are the products of the corresponding input ranks, and the core entries
+// are filled by pairwise fiber multiplication. As for NonDestructiveSum, C is
+// rebuilt from A's shape and must not alias A or B (A and B may alias each other).
+template <class TTraits, class... var_ts>
+void HadamardProduct(const TensorTrainHostPackT<TTraits, var_ts...> &A,
+                     const TensorTrainHostPackT<TTraits, var_ts...> &B,
+                     TensorTrainHostPackT<TTraits, var_ts...> &C) {
+  impl::RequireCompatibleClosed(A, B, "HadamardProduct");
+  PARTHENON_REQUIRE(C.NumBlocks() == A.NumBlocks() && C.NumVars() == A.NumVars(),
+                    "HadamardProduct: C must have the same (var, block) grid as A.");
+  impl::RequireNoAliasing(A, C, "HadamardProduct: C must not alias A.");
+  impl::RequireNoAliasing(B, C, "HadamardProduct: C must not alias B.");
+
+  for (int v = 0; v < A.NumVars(); ++v) {
+    for (int b = 0; b < A.NumBlocks(); ++b) {
+      const auto &train_A = A(b, v);
+      const auto &train_B = B(b, v);
+      std::vector<int> target_ranks;
+      for (int c = 0; c < train_A.NCores() - 1; ++c)
+        target_ranks.push_back(train_A(c).RR() * train_B(c).RR());
+      // Build C from A so each output core keeps A's physical indexer.
+      C(b, v) = TensorTrainT<TTraits>(train_A, target_ranks);
+    }
+  }
+
+  auto pack_a = A.MakeDevicePack();
+  auto pack_b = B.MakeDevicePack();
+  auto pack_c = C.MakeDevicePack();
+  constexpr int unused_scratch_size = 0;
+  constexpr int unused_scratch_level = 1;
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, unused_scratch_size, unused_scratch_level, 0,
+      pack_a.GetNBlocks() - 1, 0, pack_a.GetNVars() - 1, 0, pack_a.GetNCores() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b, const int v, const int c) {
+        auto &core_a = pack_a(b, v, c);
+        auto &core_b = pack_b(b, v, c);
+        auto &core_c = pack_c(b, v, c);
+        impl::HadamardCoreBlocks(member, core_a, core_b, core_c);
+      });
+}
+
+template <class Real, class MatA, class MatB, class MatC, class Diag1, class Diag2,
+          class Diag3>
+KOKKOS_INLINE_FUNCTION void MatMulDiag3(parthenon::team_mbr_t tm, const Diag1 &D1,
+                                        const MatA &A, const Diag2 &D2, const MatB &B,
+                                        const Diag3 &D3, MatC &C) {
+  const int m = GetNrows(A);
+  const int k = GetNcols(A);
+  const int n = GetNcols(B);
+
+  PARTHENON_REQUIRE(GetNrows(B) == k, "MatMulDiag3: incompatible inner dimensions.");
+  PARTHENON_REQUIRE(GetNrows(C) == m, "MatMulDiag3: output row dimension mismatch.");
+  PARTHENON_REQUIRE(GetNcols(C) == n, "MatMulDiag3: output column dimension mismatch.");
+
+  for (int i = 0; i < m; ++i) {
+    for (int j = 0; j < n; ++j) {
+      Real sum{0};
+
+      parthenon::par_reduce_inner(
+          parthenon::inner_loop_pattern_ttr_tag, tm, 0, k - 1,
+          [&](int p, Real &lsum) { lsum += A(i, p) * D2(p) * B(p, j); },
+          Kokkos::Sum<Real>(sum));
+
+      Kokkos::single(Kokkos::PerTeam(tm), [&]() { C(i, j) = D1(i) * sum * D3(j); });
+    }
+  }
+  tm.team_barrier();
+}
+
+template <class RealVec, class IntVec, class Real>
+KOKKOS_INLINE_FUNCTION void
+BuildDescendingPermutation(parthenon::team_mbr_t tm, const RealVec &sig, const int rank,
+                           const Real eps0, IntVec &perm, int &rank_new) {
+  Kokkos::single(Kokkos::PerTeam(tm), [&]() {
+    for (int i = 0; i < rank; ++i)
+      perm(i) = i;
+
+    // Selection sort of the permutation by descending singular value.
+    for (int i = 0; i < rank - 1; ++i) {
+      int best = i;
+      for (int j = i + 1; j < rank; ++j) {
+        const int pj = perm(j);
+        const int pb = perm(best);
+        if ((sig(pj) > sig(pb)) || ((sig(pj) == sig(pb)) && (pj < pb))) {
+          best = j;
+        }
+      }
+      if (best != i) {
+        const int tmp = perm(i);
+        perm(i) = perm(best);
+        perm(best) = tmp;
+      }
+    }
+  });
+  tm.team_barrier();
+
+  // All team members compute the same truncated rank from the sorted map.
+  const Real eps02 = eps0 * eps0;
+  Real tail2{0};
+  rank_new = rank;
+
+  for (int i = rank - 1; i >= 1; --i) {
+    const Real s = sig(perm(i));
+    const Real next_tail2 = tail2 + s * s;
+    if (next_tail2 <= eps02) {
+      tail2 = next_tail2;
+      rank_new = i;
+    } else {
+      break;
+    }
+  }
+}
+
+namespace impl {
+
+// Shape summary over every (block, variable) train of a host pack, used to size
+// the team scratch of the rounding kernels.
+struct RoundingExtents {
+  int n_cores{0};
+  int max_rank{0};
+  int max_core_size{0};
+};
+
+template <class HostPack>
+RoundingExtents GetRoundingExtents(const HostPack &pack_host) {
+  RoundingExtents ext;
+  ext.n_cores = pack_host.NCores();
+  for (int v = 0; v < pack_host.NumVars(); ++v) {
+    for (int b = 0; b < pack_host.NumBlocks(); ++b) {
+      const auto &train = pack_host(b, v);
+      PARTHENON_REQUIRE(train.IsClosed(),
+                        "Rounding requires closed trains: the orthogonalization sweep "
+                        "assumes boundary bonds of one.");
+      PARTHENON_REQUIRE(train.NCores() == ext.n_cores,
+                        "All trains being rounded must have the same number of cores.");
+      for (int c = 0; c < train.NCores(); ++c) {
+        ext.max_rank = std::max(ext.max_rank, train(c).RR());
+        ext.max_core_size =
+            std::max(ext.max_core_size, train(c).LR() * train(c).DD() * train(c).RR());
+      }
+    }
+  }
+  return ext;
+}
+
+// Shrink every train of a host pack to the bond ranks chosen on device, where
+// final_ranks(b, v, c) is the new rank of the bond between cores c and c + 1:
+//   core 0:    (1,                r_0)
+//   core c:    (r_{c-1},          r_c)    for 1 <= c <= ncores-2
+//   core last: (r_{ncores-2},     1)
+template <class HostPack, class FinalRanks>
+void ApplyFinalRanks(HostPack &pack_host, const FinalRanks &final_ranks) {
+  auto final_ranks_h = Kokkos::create_mirror_view_and_copy(HostMemSpace(), final_ranks);
+  for (int v = 0; v < pack_host.NumVars(); ++v) {
+    for (int b = 0; b < pack_host.NumBlocks(); ++b) {
+      auto &train = pack_host(b, v);
+      const int ncores = train.NCores();
+      train(0).ReduceSize(1, final_ranks_h(b, v, 0));
+      for (int c = 1; c < ncores - 1; ++c) {
+        train(c).ReduceSize(final_ranks_h(b, v, c - 1), final_ranks_h(b, v, c));
+      }
+      train(ncores - 1).ReduceSize(final_ranks_h(b, v, ncores - 2), 1);
+    }
+  }
+}
+
+} // namespace impl
+
+// Round every train in a host pack in place via the Gram-matrix SVD, all
+// (block, variable) pairs in a single kernel launch. Each bond is truncated to a
+// per-bond tolerance eps * ||A|| / sqrt(d - 1) + abs_tol, so eps bounds the
+// overall Frobenius error relative to the train's norm and abs_tol is an
+// optional absolute floor (zero by default, so rounding is scale invariant).
+// Every train in the pack must be closed and share the same core count and
+// physical dimensions. Ranks only shrink, so the trains are mutated in place.
+template <class TTraits, class... var_ts>
+void RoundGramSVD(TensorTrainHostPackT<TTraits, var_ts...> &pack_host,
+                  typename TTraits::real_t eps, typename TTraits::real_t abs_tol = 0) {
+  using namespace batched_linear_algebra; // NOLINT(build/namespaces)
+  using real_t = typename TTraits::real_t;
+  // Relative cutoff below which a Gram eigenvalue is treated as numerical noise.
+  const real_t eig_noise = std::numeric_limits<real_t>::epsilon();
+
+  const auto ext = impl::GetRoundingExtents(pack_host);
+  const int n_cores = ext.n_cores;
+  const int max_rank = ext.max_rank;
+  const int max_core_size = ext.max_core_size;
+  if (n_cores <= 1) return;
+
+  int scratch_size{0};
+  // Calculate the max storage for Gram matrices
+  scratch_size += ScratchPad2D<real_t>::shmem_size(n_cores, max_rank * max_rank);
+  scratch_size += ScratchPad1D<real_t>::shmem_size(max_rank * max_rank);
+
+  // Storage for temporary when calculating right Gram matrices
+  scratch_size += ScratchPad1D<real_t>::shmem_size(max_core_size);
+
+  // Calculate the total storage for linear algebra scratch.
+  // EVD and SVD share the same buffers here, so size them from the larger
+  // of the two solver requirements.
+  const std::size_t evd_double_scratch = SymmetricEVD::Real_scratch_size(max_rank);
+  const std::size_t svd_double_scratch = SquareSVD::Real_scratch_size(max_rank);
+  const std::size_t evd_szt_scratch = SymmetricEVD::sizet_scratch_size(max_rank);
+  const std::size_t svd_szt_scratch = SquareSVD::sizet_scratch_size(max_rank);
+  const std::size_t linalg_double_scratch =
+      std::max(evd_double_scratch, svd_double_scratch);
+  const std::size_t linalg_szt_scratch = std::max(evd_szt_scratch, svd_szt_scratch);
+  scratch_size += ScratchPad1D<real_t>::shmem_size(linalg_double_scratch);
+  scratch_size += ScratchPad1D<std::size_t>::shmem_size(linalg_szt_scratch);
+
+  // Calculate storage for eigen and singular value results
+  scratch_size += 4 * ScratchPad1D<real_t>::shmem_size(max_rank * max_rank);
+  scratch_size += 3 * ScratchPad1D<real_t>::shmem_size(max_rank);
+
+  // Singular value permutation array
+  scratch_size += ScratchPad1D<int>::shmem_size(max_rank);
+
+  // GEMM storage
+  const int storage_size = std::max(max_rank, 32) * std::max(max_rank, 32);
+  scratch_size += 3 * ScratchPad1D<real_t>::shmem_size(storage_size);
+
+  auto pack = pack_host.MakeDevicePack();
+
+  // Allocate array for storing final ranks to eventually copy back to host to
+  // round
+  using final_rank_arr_t = typename TTraits::template view_t<int ***, ManagedTag>;
+  final_rank_arr_t final_rank_arr("Final ranks", pack.GetNBlocks(), pack.GetNVars(),
+                                  n_cores - 1);
+
+  constexpr int scratch_level = 1;
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1, 0,
+      pack.GetNVars() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int b, const int v) {
+        // Allocate scratch, we allocate flat in the rank dimensions to make
+        // it easier to reuse between cores of different rank size
+        auto &tm_scratch = tm.team_scratch(scratch_level);
+        // Gram matrices, need to store all right Gram matrices
+        ScratchPad2D<real_t> GR(tm_scratch, n_cores, max_rank * max_rank);
+        ScratchPad1D<real_t> GL(tm_scratch, max_rank * max_rank);
+        ScratchPad1D<real_t> gram_temp_flat(tm_scratch, max_core_size);
+        ScratchPad1D<real_t> a_scratch(tm_scratch, storage_size);
+        ScratchPad1D<real_t> b_scratch(tm_scratch, storage_size);
+        ScratchPad1D<real_t> c_scratch(tm_scratch, storage_size);
+
+        // R-to-L sweep over cores
+        // Last Gram matrix requires a single reduction
+        {
+          int c = n_cores - 1;
+          auto &core = pack(b, v, c);
+          const int rank = core.LR();
+          matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), rank, rank);
+          auto Hc = TTraits::GetHorizontalUnfolding(core);
+          auto HcT = TTraits::GetHorizontalUnfoldingTranspose(core);
+          MatMulPacked<32, 32, 16, true>(tm, Hc, HcT, GR_mat, a_scratch, b_scratch,
+                                         c_scratch);
+        }
+        tm.team_barrier();
+
+        for (int c = n_cores - 2; c >= 0; --c) {
+          const auto &core = pack(b, v, c);
+          const auto lr = core.LR();
+          const auto rr = core.RR();
+          const auto dd = core.DD();
+
+          ScratchCore<TTraits> gram_temp{lr, dd, rr, gram_temp_flat.data()};
+          matrix_wrapper_t<real_t> GR_prev_mat(&GR(c + 1, 0), rr, rr);
+          auto gram_temp_vert = TTraits::GetVerticalUnfolding(gram_temp);
+          auto Vc = TTraits::GetVerticalUnfolding(core);
+          MatMulPacked<16, 16, 16>(tm, Vc, GR_prev_mat, gram_temp_vert, a_scratch,
+                                   b_scratch, c_scratch);
+
+          matrix_wrapper_t<real_t> GR_mat(&GR(c, 0), lr, lr);
+          auto gram_temp_horizT = TTraits::GetHorizontalUnfoldingTranspose(gram_temp);
+          auto Hc = TTraits::GetHorizontalUnfolding(core);
+          MatMulPacked<8, 8, 16, true>(tm, Hc, gram_temp_horizT, GR_mat, a_scratch,
+                                       b_scratch, c_scratch);
+        }
+
+        // Calculate the absolute tolerance
+        const real_t eps0 = robust::safe_sqrt(GR(0, 0)) * eps /
+                                Kokkos::sqrt(real_t(Kokkos::max(n_cores, 2) - 1)) +
+                            abs_tol;
+
+        // Eigen systems
+        ScratchPad1D<real_t> QL(tm_scratch, max_rank * max_rank);
+        ScratchPad1D<real_t> eigL(tm_scratch, max_rank);
+        ScratchPad1D<real_t> QR(tm_scratch, max_rank * max_rank);
+        ScratchPad1D<real_t> eigR(tm_scratch, max_rank);
+
+        // SVD
+        ScratchPad1D<real_t> U(tm_scratch, max_rank * max_rank);
+        ScratchPad1D<real_t> V(tm_scratch, max_rank * max_rank);
+        ScratchPad1D<real_t> sig(tm_scratch, max_rank);
+        ScratchPad1D<int> perm(tm_scratch, max_rank);
+
+        // Scratch that can be re-used amongst solves
+        ScratchPad1D<real_t> real_scratch(tm_scratch, linalg_double_scratch);
+        ScratchPad1D<std::size_t> szt_scratch(tm_scratch, linalg_szt_scratch);
+
+        // L-to-R sweep over bonds
+        for (int c = 0; c < n_cores - 1; ++c) {
+          const auto &core = pack(b, v, c);
+          // Make sure we use the left rank that was updated in the previous iteration
+          const auto lr = c == 0 ? core.LR() : final_rank_arr(b, v, c - 1);
+          const auto rr = core.RR();
+          const auto dd = core.DD();
+          const int rank = rr;
+          // Compute left Gram matrix
+          matrix_wrapper_t<real_t> GL_mat(GL.data(), rank, rank);
+          {
+            auto Vc = TTraits::GetVerticalUnfolding(core, lr, dd, rr);
+            auto VcT = TTraits::GetVerticalUnfoldingTranspose(core, lr, dd, rr);
+            MatMulPacked<32, 32, 1, true>(tm, VcT, Vc, GL_mat, a_scratch, b_scratch,
+                                          c_scratch);
+          }
+
+          // Compute eigen decomposition of L and R Gram matrices
+          matrix_wrapper_t<real_t> QL_mat(QL.data(), rank, rank);
+          SymmetricEVD::execute(tm, &GL_mat, &QL_mat, eigL.data(), real_scratch.data(),
+                                szt_scratch.data());
+          tm.team_barrier();
+
+          matrix_wrapper_t<real_t> GR_mat(&GR(c + 1, 0), rank, rank);
+          matrix_wrapper_t<real_t> QR_mat(QR.data(), rank, rank);
+          SymmetricEVD::execute(tm, &GR_mat, &QR_mat, eigR.data(), real_scratch.data(),
+                                szt_scratch.data());
+          tm.team_barrier();
+
+          // Compute M = eig_L^{1/2} Q_L^T Q_R eig_R^{1/2}
+          auto &M_mat = GL_mat; // Just reuse GL, since we are done with it
+          real_t maxL{0.0};
+          real_t maxR{0.0};
+          parthenon::par_reduce_inner(
+              parthenon::inner_loop_pattern_ttr_tag, tm, 0, rank - 1,
+              [&](int r, real_t &lmax) {
+                lmax = Kokkos::max(lmax, Kokkos::abs(eigL[r]));
+              },
+              Kokkos::Max<real_t>(maxL));
+          parthenon::par_reduce_inner(
+              parthenon::inner_loop_pattern_ttr_tag, tm, 0, rank - 1,
+              [&](int r, real_t &lmax) {
+                lmax = Kokkos::max(lmax, Kokkos::abs(eigR[r]));
+              },
+              Kokkos::Max<real_t>(maxR));
+          tm.team_barrier();
+          // Zero out noise-level eigenmodes; the surviving modes are left strictly
+          // positive so the inversion below can reuse this as its mask.
+          parthenon::par_for_inner(tm, 0, rank - 1, [&](int r) {
+            eigL[r] = Kokkos::abs(eigL[r]) > eig_noise * maxL ? robust::safe_sqrt(eigL[r])
+                                                              : real_t(0);
+            eigR[r] = Kokkos::abs(eigR[r]) > eig_noise * maxR ? robust::safe_sqrt(eigR[r])
+                                                              : real_t(0);
+          });
+          tm.team_barrier();
+          MatMulDiag3<real_t>(tm, eigL, QL_mat.GetTranspose(), unity_vector_t(), QR_mat,
+                              eigR, M_mat);
+          tm.team_barrier();
+
+          // Compute SVD of M
+          matrix_wrapper_t<real_t> U_mat(U.data(), rank, rank);
+          matrix_wrapper_t<real_t> V_mat(V.data(), rank, rank);
+          SquareSVD::execute(tm, &M_mat, &U_mat, &V_mat, sig.data(), real_scratch.data(),
+                             szt_scratch.data());
+          tm.team_barrier();
+
+          // Truncate SVD to find new rank and store rank
+          int rank_new;
+          BuildDescendingPermutation(tm, sig, rank, eps0, perm, rank_new);
+          auto Ukeep_mat = U_mat.GetPermutedCols(perm, rank_new);
+          auto VTkeep_mat = V_mat.GetTranspose().GetPermutedRows(perm, rank_new);
+          auto sigkeep = GetPermuted(sig, perm, rank_new);
+          Kokkos::single(Kokkos::PerTeam(tm),
+                         [&]() { final_rank_arr(b, v, c) = rank_new; });
+          // Take the inverse, skipping the eigenmodes zeroed out above
+          parthenon::par_for_inner(tm, 0, rank - 1, [&](int r) {
+            eigL[r] = eigL[r] > real_t(0) ? real_t(1) / eigL[r] : real_t(0);
+            eigR[r] = eigR[r] > real_t(0) ? real_t(1) / eigR[r] : real_t(0);
+          });
+          tm.team_barrier();
+
+          // Push SVD U left [V(core_L) = V(core_L) Q_L eig_L^{-1/2} U]
+          matrix_wrapper_t<real_t> T_Lmat(GL.data(), rank, rank_new);
+          MatMulDiag3<real_t>(tm, unity_vector_t(), QL_mat, eigL, Ukeep_mat,
+                              unity_vector_t(), T_Lmat);
+          ScratchCore<TTraits> corelp{lr, dd, rank_new, gram_temp_flat.data()};
+          auto Vc = TTraits::GetVerticalUnfolding(core, lr, dd, rr);
+          auto Vcorelp = TTraits::GetVerticalUnfolding(corelp);
+          MatMulPacked<16, -1, -1>(tm, Vc, T_Lmat, Vcorelp, a_scratch, b_scratch,
+                                   c_scratch);
+
+          parthenon::par_for_inner(
+              tm, 0, lr - 1, 0, rank_new - 1, 0, dd - 1,
+              [&](int l, int r, int j) { core(l, j, r) = corelp(l, j, r); });
+          tm.team_barrier();
+
+          // Push SVD Sigma V right
+          auto &coreR = pack(b, v, c + 1);
+          const int ddR = coreR.DD();
+          const int rrR = coreR.RR();
+          ScratchCore<TTraits> corerp{rank_new, ddR, rrR, gram_temp_flat.data()};
+          matrix_wrapper_t<real_t> T_Rmat(GL.data(), rank_new, rank);
+          MatMulDiag3<real_t>(tm, sigkeep, VTkeep_mat, eigR, QR_mat.GetTranspose(),
+                              unity_vector_t(), T_Rmat);
+
+          auto Hc = TTraits::GetHorizontalUnfolding(coreR);
+          auto Hcorerp = TTraits::GetHorizontalUnfolding(corerp);
+          MatMulPacked<-1, 16, -1>(tm, T_Rmat, Hc, Hcorerp, a_scratch, b_scratch,
+                                   c_scratch);
+
+          parthenon::par_for_inner(
+              tm, 0, rank_new - 1, 0, rrR - 1, 0, ddR - 1,
+              [&](int l, int r, int j) { coreR(l, j, r) = corerp(l, j, r); });
+          tm.team_barrier();
+        }
+      });
+
+  impl::ApplyFinalRanks(pack_host, final_rank_arr);
+}
+
+// Round every train in a host pack in place via the Oseledets TT-SVD
+// (right-to-left orthogonalization, then a left-to-right truncation sweep), all
+// (block, variable) pairs in a single kernel launch. Tolerances and pack
+// requirements are the same as for RoundGramSVD.
+template <class TTraits, class... var_ts>
+void RoundOseledetsSVD(TensorTrainHostPackT<TTraits, var_ts...> &pack_host,
+                       typename TTraits::real_t eps,
+                       typename TTraits::real_t abs_tol = 0) {
+  using namespace batched_linear_algebra; // NOLINT(build/namespaces)
+  using real_t = typename TTraits::real_t;
+
+  const auto ext = impl::GetRoundingExtents(pack_host);
+  const int n_cores = ext.n_cores;
+  const int max_rank = ext.max_rank;
+  const int max_core_size = ext.max_core_size;
+  if (n_cores <= 1) return;
+
+  auto pack = pack_host.MakeDevicePack();
+
+  using final_rank_arr_t = typename TTraits::template view_t<int ***, ManagedTag>;
+  final_rank_arr_t final_rank_arr("Final ranks", pack.GetNBlocks(), pack.GetNVars(),
+                                  n_cores - 1);
+
+  int scratch_size{0};
+  scratch_size += ScratchPad1D<real_t>::shmem_size(max_core_size);
+  scratch_size += ScratchPad1D<real_t>::shmem_size(max_rank * max_rank);
+  scratch_size += ScratchPad1D<real_t>::shmem_size(max_rank);
+
+  const std::size_t lq_double_scratch =
+      LQDecomposition::Real_scratch_size(max_rank, max_core_size);
+  const std::size_t svd_double_scratch =
+      SquareSVD::Real_scratch_size(max_core_size, max_rank);
+  const std::size_t svd_szt_scratch = SquareSVD::sizet_scratch_size(max_rank);
+  const std::size_t linalg_double_scratch =
+      std::max(lq_double_scratch, svd_double_scratch);
+  scratch_size += ScratchPad1D<real_t>::shmem_size(linalg_double_scratch);
+  scratch_size += ScratchPad1D<std::size_t>::shmem_size(svd_szt_scratch);
+
+  // GEMM storage
+  const int storage_size = std::max(max_rank, 32) * std::max(max_rank, 32);
+  scratch_size += 3 * ScratchPad1D<real_t>::shmem_size(storage_size);
+
+  constexpr int scratch_level = 1;
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, scratch_size, scratch_level, 0, pack.GetNBlocks() - 1, 0,
+      pack.GetNVars() - 1,
+      KOKKOS_LAMBDA(parthenon::team_mbr_t tm, const int b, const int v) {
+        auto &tm_scratch = tm.team_scratch(scratch_level);
+
+        ScratchPad1D<real_t> core_tmp_flat(tm_scratch, max_core_size);
+        ScratchPad1D<real_t> matrix_flat(tm_scratch, max_rank * max_rank);
+        ScratchPad1D<real_t> linalg_real_scratch(tm_scratch, linalg_double_scratch);
+        ScratchPad1D<real_t> a_scratch(tm_scratch, storage_size);
+        ScratchPad1D<real_t> b_scratch(tm_scratch, storage_size);
+        ScratchPad1D<real_t> c_scratch(tm_scratch, storage_size);
+
+        // Right-to-left orthogonalization sweep.
+        for (int c = n_cores - 1; c >= 1; --c) {
+          auto &core = pack(b, v, c);
+          const int lr = core.LR();
+          const int dd = core.DD();
+          const int rr = core.RR();
+
+          ScratchCore<TTraits> Q_tmp{lr, dd, rr, core_tmp_flat.data()};
+          auto HQ = TTraits::GetHorizontalUnfolding(Q_tmp, lr, dd, rr);
+          auto HG = TTraits::GetHorizontalUnfolding(core, lr, dd, rr);
+          LQDecomposition::execute(tm, &HG, &HQ, linalg_real_scratch.data());
+          tm.team_barrier();
+
+          // Store L temporarily
+          matrix_wrapper_t<real_t> Lmat(matrix_flat.data(), lr, lr);
+          parallel_loop(tm, 0, lr - 1, 0, lr - 1,
+                        [&](int i, int j) { Lmat(i, j) = HG(i, j); });
+          tm.team_barrier();
+
+          // Overwrite old core with orthogonalized core
+          parthenon::par_for_inner(
+              tm, 0, lr - 1, 0, rr - 1, 0, dd - 1,
+              [&](int l, int r, int j) { core(l, j, r) = Q_tmp(l, j, r); });
+          tm.team_barrier();
+
+          // Push L into the next core
+          auto &corem1 = pack(b, v, c - 1);
+          auto VGm1 = TTraits::GetVerticalUnfolding(corem1);
+          ScratchCore<TTraits> G_tmp{corem1.LR(), corem1.DD(), corem1.RR(),
+                                     core_tmp_flat.data()};
+          auto VGm1_tmp = TTraits::GetVerticalUnfolding(G_tmp);
+          MatMulPacked<16, 16, 16>(tm, VGm1, Lmat, VGm1_tmp, a_scratch, b_scratch,
+                                   c_scratch);
+          tm.team_barrier();
+          parthenon::par_for_inner(
+              tm, 0, corem1.LR() - 1, 0, corem1.RR() - 1, 0, corem1.DD() - 1,
+              [&](int l, int r, int j) { corem1(l, j, r) = G_tmp(l, j, r); });
+          tm.team_barrier();
+        }
+
+        // The global Frobenius norm is invariant under the orthogonalization sweep.
+        auto &first = pack(b, v, 0);
+        real_t norm2{0.0};
+        parthenon::par_reduce_inner(
+            parthenon::inner_loop_pattern_ttr_tag, tm, 0, first.LR() - 1, 0,
+            first.DD() - 1, 0, first.RR() - 1,
+            [&](const int l, const int j, const int r, real_t &accum) {
+              const real_t val = first(l, j, r);
+              accum += val * val;
+            },
+            Kokkos::Sum<real_t>(norm2));
+        tm.team_barrier();
+        const real_t eps0 = robust::safe_sqrt(norm2) * eps /
+                                Kokkos::sqrt(real_t(Kokkos::max(n_cores, 2) - 1)) +
+                            abs_tol;
+
+        ScratchPad1D<std::size_t> linalg_szt_scratch(tm_scratch, svd_szt_scratch);
+
+        // Left-to-right truncation sweep.
+        ScratchPad1D<real_t> sig(tm_scratch, max_rank);
+        ScratchPad1D<int> perm(tm_scratch, max_rank);
+
+        for (int c = 0; c < n_cores - 1; ++c) {
+          auto &core = pack(b, v, c);
+          const int lr = c == 0 ? core.LR() : final_rank_arr(b, v, c - 1);
+          const int rr = core.RR();
+          const int dd = core.DD();
+
+          ScratchCore<TTraits> core_out{lr, dd, rr, core_tmp_flat.data()};
+          auto U_mat = TTraits::GetVerticalUnfolding(core_out, lr, dd, rr);
+          auto G = TTraits::GetVerticalUnfolding(core, lr, dd, rr);
+          auto V_mat = matrix_wrapper_t<real_t>(matrix_flat.data(), rr, rr);
+          SquareSVD::execute(tm, &G, &U_mat, &V_mat, sig.data(),
+                             linalg_real_scratch.data(), linalg_szt_scratch.data());
+
+          // Truncate the SVD
+          int rank_new{0};
+          BuildDescendingPermutation(tm, sig, rr, eps0, perm, rank_new);
+          auto VTkeep_mat = V_mat.GetTranspose().GetPermutedRows(perm, rank_new);
+          auto sigkeep = GetPermuted(sig, perm, rank_new);
+          Kokkos::single(Kokkos::PerTeam(tm),
+                         [&]() { final_rank_arr(b, v, c) = rank_new; });
+          tm.team_barrier();
+
+          // Overwrite old core with the orthogonalized core
+          parthenon::par_for_inner(
+              tm, 0, lr - 1, 0, rank_new - 1, 0, dd - 1,
+              [&](int l, int r, int j) { core(l, j, r) = core_out(l, j, perm(r)); });
+          tm.team_barrier();
+
+          // Push the rest of the SVD right
+          auto &coreR = pack(b, v, c + 1);
+          const int ddR = coreR.DD();
+          const int rrR = coreR.RR();
+          auto Hc = TTraits::GetHorizontalUnfolding(coreR);
+          ScratchCore<TTraits> core_tmp{rank_new, ddR, rrR, core_tmp_flat.data()};
+          auto Hc_new = TTraits::GetHorizontalUnfolding(core_tmp, rank_new, ddR, rrR);
+
+          parallel_loop(tm, 0, rank_new - 1, 0, rr - 1, [&](int rnew, int rold) {
+            VTkeep_mat(rnew, rold) = sigkeep(rnew) * VTkeep_mat(rnew, rold);
+          });
+          tm.team_barrier();
+
+          MatMulPacked<16, 16, 16>(tm, VTkeep_mat, Hc, Hc_new, a_scratch, b_scratch,
+                                   c_scratch);
+          parthenon::par_for_inner(
+              tm, 0, rank_new - 1, 0, rrR - 1, 0, ddR - 1,
+              [&](int l, int r, int j) { coreR(l, j, r) = core_tmp(l, j, r); });
+          tm.team_barrier();
+        }
+      });
+
+  impl::ApplyFinalRanks(pack_host, final_rank_arr);
+}
+
+} // namespace tensor
+} // namespace parthenon
+
+#endif // TENSORS_TT_OPERATIONS_HPP_

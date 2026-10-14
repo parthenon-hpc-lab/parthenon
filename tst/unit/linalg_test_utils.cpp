@@ -48,7 +48,7 @@ Matrix Matrix::Identity(int nrows, int ncols) {
   return I;
 }
 
-Matrix Matrix::FromDiagonal(const std::vector<double> &diag) {
+Matrix Matrix::FromDiagonal(const std::vector<Real> &diag) {
   Matrix A(diag.size());
   for (int i = 0; i < diag.size(); ++i)
     A(i, i) = diag[i];
@@ -58,7 +58,7 @@ Matrix Matrix::FromDiagonal(const std::vector<double> &diag) {
 // Generate n×n matrix with i.i.d. Gaussian N(0,1) entries.
 Matrix Matrix::RandomGaussian(int m, int n, unsigned seed) {
   std::mt19937_64 rng(seed);
-  std::normal_distribution<double> dist(0.0, 1.0);
+  std::normal_distribution<Real> dist(0.0, 1.0);
 
   Matrix M(m, n);
   for (int i = 0; i < m; ++i)
@@ -77,7 +77,7 @@ Matrix Matrix::RandomOrthogonal(int n, unsigned seed) {
 
 // Build symmetric matrix A = Q Λ Qᵀ
 // where Λ holds the given eigenvalues.
-Matrix Matrix::FromSpectrum(const std::vector<double> &lambda, unsigned seed) {
+Matrix Matrix::FromSpectrum(const std::vector<Real> &lambda, unsigned seed) {
   const int n = static_cast<int>(lambda.size());
 
   // Step 1: random Orthogongal matrix
@@ -94,7 +94,7 @@ Matrix Matrix::FromSpectrum(const std::vector<double> &lambda, unsigned seed) {
   return A;
 }
 
-Matrix Matrix::FromSingularValues(const std::vector<double> &lambda, unsigned seed) {
+Matrix Matrix::FromSingularValues(const std::vector<Real> &lambda, unsigned seed) {
   const int n = static_cast<int>(lambda.size());
 
   Matrix U = Matrix::RandomOrthogonal(n, seed * 17 + 1);
@@ -110,13 +110,13 @@ Matrix Matrix::FromSingularValues(const std::vector<double> &lambda, unsigned se
   return out;
 }
 
-void Matrix::SetRow(int row, std::vector<double> vals) {
+void Matrix::SetRow(int row, std::vector<Real> vals) {
   for (int c = 0; c < ncols_; ++c)
     (*this)(row, c) = vals[c];
 }
 
-double Matrix::FrobeniusNorm() const {
-  double s = 0.0;
+Real Matrix::FrobeniusNorm() const {
+  Real s = 0.0;
   for (int r = 0; r < nrows_; ++r)
     for (int c = 0; c < ncols_; ++c)
       s += data_(r, c) * data_(r, c);

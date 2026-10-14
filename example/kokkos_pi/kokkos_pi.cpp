@@ -77,16 +77,15 @@ typedef struct result_t {
 } result_t;
 
 // simple giga-ops calculator
-static double calcGops(const int &nops, const double &t, const int &n_block3,
-                       const int &n_mesh3, const int &n_iter) {
+static Real calcGops(const int &nops, const Real &t, const int &n_block3,
+                     const int &n_mesh3, const int &n_iter) {
   return (static_cast<Real>(nops * n_iter) / t / 1.0e9 * static_cast<Real>(n_block3) *
           static_cast<Real>(n_mesh3));
 }
 
 // Test wrapper to run a function multiple times
 template <typename PerfFunc>
-static double kernel_timer_wrapper(const int n_burn, const int n_perf,
-                                   PerfFunc perf_func) {
+static Real kernel_timer_wrapper(const int n_burn, const int n_perf, PerfFunc perf_func) {
   // Initialize the timer and test
   Kokkos::Timer timer;
 
@@ -103,7 +102,7 @@ static double kernel_timer_wrapper(const int n_burn, const int n_perf,
 
   // Time it
   Kokkos::fence();
-  double perf_time = timer.seconds();
+  Real perf_time = timer.seconds();
 
   return perf_time;
 }
@@ -120,22 +119,22 @@ static void usage(std::string program) {
             << std::endl;
 }
 
-static double sumArray(BlockList_t &blocks, const int &n_block) {
+static Real sumArray(BlockList_t &blocks, const int &n_block) {
   // This policy is over one block
   const int n_block2 = n_block * n_block;
   const int n_block3 = n_block * n_block * n_block;
   auto policyBlock = Kokkos::RangePolicy<>(Kokkos::DefaultExecutionSpace(), 0, n_block3,
                                            Kokkos::ChunkSize(512));
-  double theSum = 0.0;
+  Real theSum = 0.0;
   // reduce the sum on the device
   // I'm pretty sure I can do this better, but not worried about performance for this
   for (auto &pmb : blocks) {
     auto &base = pmb->meshblock_data.Get();
     auto inOrOut = base->PackVariables({Metadata::Independent});
-    double oneSum;
+    Real oneSum;
     Kokkos::parallel_reduce(
         "Reduce Sum", policyBlock,
-        KOKKOS_LAMBDA(const int &idx, double &mySum) {
+        KOKKOS_LAMBDA(const int &idx, Real &mySum) {
           const int k_grid = idx / n_block2;
           const int j_grid = (idx - k_grid * n_block2) / n_block;
           const int i_grid = idx - k_grid * n_block2 - j_grid * n_block;
@@ -149,7 +148,7 @@ static double sumArray(BlockList_t &blocks, const int &n_block) {
   return theSum;
 }
 
-static BlockList_t setupMesh(const int &n_block, const int &n_mesh, const double &radius,
+static BlockList_t setupMesh(const int &n_block, const int &n_mesh, const Real &radius,
                              View2D &xyz, const int NG = 0) {
   // *** Kludge warning ***
   // Since our mesh is not GPU friendly we set up a hacked up
@@ -170,7 +169,7 @@ static BlockList_t setupMesh(const int &n_block, const int &n_mesh, const double
   block_list.reserve(n_mesh * n_mesh * n_mesh);
 
   // compute an offset due to ghost cells
-  double delta = dxyzCell * static_cast<Real>(NG);
+  Real delta = dxyzCell * static_cast<Real>(NG);
 
   int idx = 0; // an index into Block coordinate array
   for (int k_mesh = 0; k_mesh < n_mesh; k_mesh++) {
@@ -195,15 +194,15 @@ static BlockList_t setupMesh(const int &n_block, const int &n_mesh, const double
   return block_list;
 }
 
-result_t naiveKokkos(int n_block, int n_mesh, int n_iter, double radius) {
+result_t naiveKokkos(int n_block, int n_mesh, int n_iter, Real radius) {
   // creates a mesh and rusn a basic Kokkos implementation for looping through blocks.
 
   // Setup auxilliary variables
   const int n_block2 = n_block * n_block;
   const int n_block3 = n_block * n_block * n_block;
   const int n_mesh3 = n_mesh * n_mesh * n_mesh;
-  const double radius2 = radius * radius;
-  const double radius3 = radius * radius * radius;
+  const Real radius2 = radius * radius;
+  const Real radius3 = radius * radius * radius;
   const Real dxyzCell = radius / static_cast<Real>(n_mesh * n_block);
   const Real dVol = radius3 / static_cast<Real>(n_mesh3) / static_cast<Real>(n_block3);
 
@@ -216,7 +215,7 @@ result_t naiveKokkos(int n_block, int n_mesh, int n_iter, double radius) {
   auto policyBlock = Kokkos::RangePolicy<>(Kokkos::DefaultExecutionSpace(), 0, n_block3,
                                            Kokkos::ChunkSize(512));
 
-  double time_basic = kernel_timer_wrapper(0, n_iter, [&]() {
+  Real time_basic = kernel_timer_wrapper(0, n_iter, [&]() {
     auto pmb = blocks.begin();
     for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb++) {
       auto &base = (*pmb)->meshblock_data.Get();
@@ -251,14 +250,14 @@ result_t naiveKokkos(int n_block, int n_mesh, int n_iter, double radius) {
   return r;
 }
 
-result_t naiveParFor(int n_block, int n_mesh, int n_iter, double radius) {
+result_t naiveParFor(int n_block, int n_mesh, int n_iter, Real radius) {
   // creates a mesh and rusn a basic par_for implementation for looping through blocks.
 
   // Setup auxilliary variables
   const int n_block3 = n_block * n_block * n_block;
   const int n_mesh3 = n_mesh * n_mesh * n_mesh;
-  const double radius2 = radius * radius;
-  const double radius3 = radius * radius * radius;
+  const Real radius2 = radius * radius;
+  const Real radius3 = radius * radius * radius;
   const Real dxyzCell = radius / static_cast<Real>(n_mesh * n_block);
   const Real dVol = radius3 / static_cast<Real>(n_mesh3) / static_cast<Real>(n_block3);
 
@@ -266,7 +265,7 @@ result_t naiveParFor(int n_block, int n_mesh, int n_iter, double radius) {
   View2D xyz("xyzBlocks", 3, n_mesh3);
   auto blocks = setupMesh(n_block, n_mesh, radius, xyz, nghost);
 
-  double time_basic = kernel_timer_wrapper(0, n_iter, [&]() {
+  Real time_basic = kernel_timer_wrapper(0, n_iter, [&]() {
     auto pmb = blocks.begin();
     for (int iMesh = 0; iMesh < n_mesh3; iMesh++, pmb++) {
       auto &base = (*pmb)->meshblock_data.Get();
@@ -294,7 +293,8 @@ result_t naiveParFor(int n_block, int n_mesh, int n_iter, double radius) {
   // formulate result struct
   constexpr int niops = 0;
   constexpr int nfops = 11;
-  auto r = result_t{"Naive_ParFor", (6.0 * sumArray(blocks, n_block) * dVol / radius3),
+  auto r = result_t{"Naive_ParFor",
+                    (static_cast<Real>(6.0 * sumArray(blocks, n_block) * dVol / radius3)),
                     time_basic, niops, nfops};
 
   return r;
@@ -339,7 +339,7 @@ int main(int argc, char *argv[]) {
     int64_t iterBlockMesh = static_cast<int64_t>(n_iter) * static_cast<int64_t>(n_mesh3) *
                             static_cast<int64_t>(n_block3);
     for (auto &test : results) {
-      double cps = static_cast<Real>(iterBlockMesh) / test.t;
+      Real cps = static_cast<Real>(iterBlockMesh) / test.t;
       printf("%s,%.8lf,%10g,%.4lf,%.14lf\n", test.name.c_str(), test.t, cps,
              calcGops(test.fops, test.t, n_block3, n_mesh3, n_iter), test.pi);
     }

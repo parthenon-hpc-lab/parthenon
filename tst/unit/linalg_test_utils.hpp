@@ -20,12 +20,28 @@
 // This file was made in part with generative AI.
 
 #include <iosfwd>
+#include <limits>
+#include <type_traits>
 #include <vector>
 
+#include "basic_types.hpp"
 #include "kokkos_abstraction.hpp"
 #include "parthenon_arrays.hpp"
 
-using Vector = std::vector<double>;
+using parthenon::Real;
+using Vector = std::vector<Real>;
+
+// Converts a tolerance chosen for double precision into one for Real. The one-argument
+// form keeps the same number of machine epsilons, which suits backward-error checks
+// (reconstruction, orthogonality, residuals). Where that rescaling would be uselessly
+// loose, the two-argument form gives the single-precision tolerance explicitly.
+constexpr Real PrecisionTol(double double_tol) {
+  return static_cast<Real>(double_tol * (std::numeric_limits<Real>::epsilon() /
+                                         std::numeric_limits<double>::epsilon()));
+}
+constexpr Real PrecisionTol(double double_tol, double single_tol) {
+  return static_cast<Real>(std::is_same_v<Real, double> ? double_tol : single_tol);
+}
 
 class Matrix {
  public:
@@ -33,13 +49,13 @@ class Matrix {
   explicit Matrix(int nrows) : Matrix(nrows, nrows) {}
 
   KOKKOS_FORCEINLINE_FUNCTION
-  double &operator()(int row, int col) const { return data_(row, col); }
+  Real &operator()(int row, int col) const { return data_(row, col); }
 
   static Matrix Transpose(const Matrix &A);
   static Matrix Identity(const Matrix &A);
   static Matrix Identity(int nrows, int ncols);
 
-  static Matrix FromDiagonal(const std::vector<double> &diag);
+  static Matrix FromDiagonal(const std::vector<Real> &diag);
 
   // Generate n×n matrix with i.i.d. Gaussian N(0,1) entries.
   static Matrix RandomGaussian(int n, unsigned seed = 12345) {
@@ -51,12 +67,12 @@ class Matrix {
 
   // Build symmetric matrix A = Q Λ Qᵀ
   // where Λ holds the given eigenvalues.
-  static Matrix FromSpectrum(const std::vector<double> &lambda, unsigned seed = 12345);
+  static Matrix FromSpectrum(const std::vector<Real> &lambda, unsigned seed = 12345);
 
-  static Matrix FromSingularValues(const std::vector<double> &lambda,
+  static Matrix FromSingularValues(const std::vector<Real> &lambda,
                                    unsigned seed = 12345);
 
-  void SetRow(int row, std::vector<double> vals);
+  void SetRow(int row, std::vector<Real> vals);
 
   KOKKOS_FORCEINLINE_FUNCTION
   int nrows() const { return nrows_; }
@@ -69,7 +85,7 @@ class Matrix {
 
   auto &GetData() { return data_; }
 
-  double FrobeniusNorm() const;
+  Real FrobeniusNorm() const;
 
   Matrix GetDeepCopy() const {
     Matrix other(nrows_, ncols_);
@@ -78,7 +94,7 @@ class Matrix {
   }
 
  private:
-  parthenon::ParArray2D<double>::HostMirror data_;
+  parthenon::ParArray2D<Real>::HostMirror data_;
   int ncols_, nrows_;
 };
 

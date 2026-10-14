@@ -14,3 +14,4 @@ and solvers.
    ../solvers
    ../fourier_transforms
    ../batched_linear_algebra
+   ../tensor_trains
