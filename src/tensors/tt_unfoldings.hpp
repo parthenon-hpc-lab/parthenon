@@ -59,6 +59,16 @@ struct vertical_unfolding {
       return core(rl, d, i);
     }
   }
+
+  // Split a row index of the (tall) untransposed unfolding into the left-rank
+  // index l and the physical index d it addresses.
+  KOKKOS_FORCEINLINE_FUNCTION
+  void RowIndices(int row, int &l, int &d) const {
+    static_assert(!transpose,
+                  "RowIndices is only defined for the tall [lr*dd, rr] form.");
+    l = row / nd;
+    d = row % nd;
+  }
 };
 
 // Horizontal unfolding: reshape [lr][dd][rr] as [lr, dd*rr]
@@ -102,6 +112,20 @@ struct horizontal_unfolding {
         const int rr = col % nr;
         return core(row, d, rr);
       }
+    }
+  }
+
+  // Split a row index of the (tall) transposed unfolding into the physical index
+  // d and the right-rank index r it addresses.
+  KOKKOS_FORCEINLINE_FUNCTION
+  void RowIndices(int row, int &d, int &r) const {
+    static_assert(transpose, "RowIndices is only defined for the tall [dd*rr, lr] form.");
+    if constexpr (d_fastest_moving) {
+      r = row / nd;
+      d = row % nd;
+    } else {
+      d = row / nr;
+      r = row % nr;
     }
   }
 };

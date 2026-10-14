@@ -51,12 +51,16 @@ list(APPEND unit_tests_SOURCES
     test_state_descriptor.cpp
     test_tensor.cpp
     test_tt_field.cpp
+    test_tt_cross.cpp
     test_swarm.cpp
     test_swarm_amr_remesh.cpp
     test_unit_integrators.cpp
     test_upper_bound.cpp
     linalg_test_utils.cpp
     test_qr.cpp
+    test_qr_solve.cpp
+    test_maxvol.cpp
+    test_matrix_cross.cpp
     test_svd.cpp
     test_implicit_qr.cpp
     test_linalg_device.cpp

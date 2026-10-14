@@ -195,8 +195,11 @@ add_library(parthenon
   batched_linear_algebra/householder.hpp
   batched_linear_algebra/implicit_qr.hpp
   batched_linear_algebra/matmul.hpp
+  batched_linear_algebra/matrix_cross.hpp
   batched_linear_algebra/matrix_utils.hpp
+  batched_linear_algebra/maxvol.hpp
   batched_linear_algebra/qr_decomposition.hpp
+  batched_linear_algebra/qr_solve.hpp
   batched_linear_algebra/square_svd.hpp
   batched_linear_algebra/symmetric_evd.hpp
 
@@ -316,12 +319,14 @@ add_library(parthenon
   time_integration/low_storage_integrator.cpp
   time_integration/staged_integrator.cpp
   time_integration/staged_integrator.hpp
+
   tensors/tt_boundary_cache.hpp
   tensors/tt_boundary_comm.cpp
   tensors/tt_boundary_comm.hpp
   tensors/tt_comm_channel.hpp
   tensors/tt_container.cpp
   tensors/tt_container.hpp
+  tensors/tt_cross.hpp
   tensors/tt_field_metadata.hpp
   tensors/tt_operations.hpp
   tensors/tt_pack.hpp
