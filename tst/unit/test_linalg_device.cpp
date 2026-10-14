@@ -181,7 +181,7 @@ void FactorTeam(ParArray3D<double> A_dev, ParArray3D<double> Q_dev) {
   // team_scratch takes the level by reference on CUDA, so it must be a local
   // captured by the lambda rather than a namespace-scope constant
   const int scratch_level = 0;
-  const std::size_t nwork = Decomposition::double_scratch_size(m, n);
+  const std::size_t nwork = Decomposition::Real_scratch_size(m, n);
   const std::size_t scratch_bytes = Decomposition::total_shmem_scratch_size(m, n) +
                                     ScratchPad2D<double>::shmem_size(m, n) +
                                     ScratchPad2D<double>::shmem_size(qm, qn);
@@ -212,7 +212,7 @@ template <class Decomposition>
 void FactorFlat(ParArray3D<double> A_dev, ParArray3D<double> Q_dev) {
   const int m = A_dev.extent_int(1);
   const int n = A_dev.extent_int(2);
-  ParArray2D<double> work("work", nbatch, Decomposition::double_scratch_size(m, n));
+  ParArray2D<double> work("work", nbatch, Decomposition::Real_scratch_size(m, n));
   // The ParArray subview overload is host only, so slice the underlying views
   const View3D A_view = A_dev;
   const View3D Q_view = Q_dev;
@@ -230,7 +230,7 @@ template <class Decomposition, int m, int n>
 void FactorFlatLocal(ParArray3D<double> A_dev, ParArray3D<double> Q_dev) {
   parthenon::par_for(
       "FactorFlatLocal", 0, nbatch - 1, KOKKOS_LAMBDA(const int b) {
-        constexpr std::size_t kWorkSize = Decomposition::double_scratch_size(m, n);
+        constexpr std::size_t kWorkSize = Decomposition::Real_scratch_size(m, n);
         double a_data[m * n], q_data[m * n], work[kWorkSize];
         matrix_wrapper_t<double> A(a_data, m, n);
         matrix_wrapper_t<double> Q(q_data, m, n);
@@ -256,7 +256,7 @@ void SVDTeam(ParArray3D<double> A_dev, ParArray3D<double> U_dev, ParArray3D<doub
   const int m = A_dev.extent_int(1);
   const int n = A_dev.extent_int(2);
   const int scratch_level = 0;
-  const std::size_t nwork = SquareSVD::double_scratch_size(m, n);
+  const std::size_t nwork = SquareSVD::Real_scratch_size(m, n);
   const std::size_t niwork = SquareSVD::sizet_scratch_size(n);
   const std::size_t scratch_bytes = SquareSVD::total_shmem_scratch_size(m, n) +
                                     2 * ScratchPad2D<double>::shmem_size(m, n) +
@@ -294,7 +294,7 @@ void SVDFlat(ParArray3D<double> A_dev, ParArray3D<double> U_dev, ParArray3D<doub
              ParArray2D<double> s_dev) {
   const int m = A_dev.extent_int(1);
   const int n = A_dev.extent_int(2);
-  ParArray2D<double> work("work", nbatch, SquareSVD::double_scratch_size(m, n));
+  ParArray2D<double> work("work", nbatch, SquareSVD::Real_scratch_size(m, n));
   ParArray2D<std::size_t> iwork("iwork", nbatch, SquareSVD::sizet_scratch_size(n));
   const View3D A_view = A_dev;
   const View3D U_view = U_dev;
@@ -313,7 +313,7 @@ void EVDTeam(ParArray3D<double> A_dev, ParArray3D<double> Q_dev,
              ParArray2D<double> eigs_dev) {
   const int n = A_dev.extent_int(1);
   const int scratch_level = 0;
-  const std::size_t nwork = SymmetricEVD::double_scratch_size(n);
+  const std::size_t nwork = SymmetricEVD::Real_scratch_size(n);
   const std::size_t niwork = SymmetricEVD::sizet_scratch_size(n);
   const std::size_t scratch_bytes = SymmetricEVD::total_shmem_scratch_size(n) +
                                     2 * ScratchPad2D<double>::shmem_size(n, n) +
@@ -345,7 +345,7 @@ void EVDTeam(ParArray3D<double> A_dev, ParArray3D<double> Q_dev,
 void EVDFlat(ParArray3D<double> A_dev, ParArray3D<double> Q_dev,
              ParArray2D<double> eigs_dev) {
   const int n = A_dev.extent_int(1);
-  ParArray2D<double> work("work", nbatch, SymmetricEVD::double_scratch_size(n));
+  ParArray2D<double> work("work", nbatch, SymmetricEVD::Real_scratch_size(n));
   ParArray2D<std::size_t> iwork("iwork", nbatch, SymmetricEVD::sizet_scratch_size(n));
   const View3D A_view = A_dev;
   const View3D Q_view = Q_dev;

@@ -150,7 +150,7 @@ static void RunTallSVDStress(int m, int n, const std::vector<double> &sings_temp
 
     int iters = 0;
     if (explicit_scratch) {
-      std::vector<double> scratch(SquareSVD::double_scratch_size(m, n));
+      std::vector<double> scratch(SquareSVD::Real_scratch_size(m, n));
       std::vector<std::size_t> iscratch(SquareSVD::sizet_scratch_size(n));
       iters = SquareSVD::execute(serial_tm_t(), &A, &U, &V, s.data(), scratch.data(),
                                  iscratch.data());
@@ -267,8 +267,8 @@ TEST_CASE("Tall-skinny SVD stress tests", "[svd][rect][thin]") {
   }
 
   SECTION("Explicit scratch sizing") {
-    REQUIRE(SquareSVD::double_scratch_size(30, 5) == 90);
-    REQUIRE(SquareSVD::double_scratch_size(5) == 15);
+    REQUIRE(SquareSVD::Real_scratch_size(30, 5) == 90);
+    REQUIRE(SquareSVD::Real_scratch_size(5) == 15);
     RunTallSVDStress(9, 4, {6.0, 2.0, 0.5, 0.1}, 8, recon_rtol,
                      /*ortho_rtol=*/1e-10, sv_rtol, /*min_floor=*/1e-12,
                      /*explicit_scratch=*/true);
