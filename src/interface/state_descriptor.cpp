@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
 
 #include <iomanip>
 #include <iostream>
@@ -382,6 +384,15 @@ std::vector<std::string> StateDescriptor::Swarms() noexcept {
   return names;
 }
 
+std::vector<std::string> StateDescriptor::TTFields() noexcept {
+  std::vector<std::string> names;
+  names.reserve(ttFieldMetadataMap_.size());
+  for (auto &x : ttFieldMetadataMap_) {
+    names.push_back(x.first);
+  }
+  return names;
+}
+
 bool StateDescriptor::FlagsPresent(std::vector<MetadataFlag> const &flags,
                                    bool matchAny) {
   for (auto &pair : metadataMap_)
@@ -542,6 +553,21 @@ StateDescriptor::CreateResolvedStateDescriptor(Packages_t &packages) {
           "Swarms always use Real precision, even for ParticleVariables containing "
           "time data, while Parthenon time variables are fixed to double precision. This "
           "may cause inaccurate comparisons with cycle beginning and end times.")
+    }
+
+    // Fold tensor-train fields into the resolved descriptor. Stage 1 does not
+    // support cross-package dependency resolution for TT fields, so we require
+    // globally unique names and copy the descriptors directly. Without this the
+    // per-block TT containers (initialized from the resolved descriptor) would
+    // never see any registered TT fields.
+    for (const auto &pair : package->AllTTFields()) {
+      const auto &tt_name = pair.first;
+      PARTHENON_REQUIRE_THROWS(
+          !state->TTFieldPresent(tt_name),
+          "Tensor-train field \"" + tt_name +
+              "\" is registered by more than one package. TT field names must be "
+              "globally unique.");
+      state->AddTTField(tt_name, pair.second);
     }
 
     // Add package registered boundary conditions

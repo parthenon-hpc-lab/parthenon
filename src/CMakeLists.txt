@@ -119,6 +119,7 @@ add_library(parthenon
   bvals/comms/bnd_info.cpp
   bvals/comms/bnd_info.hpp
   bvals/comms/boundary_communication.cpp
+  bvals/comms/calc_indices.hpp
   bvals/comms/coalesced_buffers.cpp
   bvals/comms/coalesced_buffers.hpp
   bvals/comms/tag_map.cpp
@@ -315,11 +316,19 @@ add_library(parthenon
   time_integration/low_storage_integrator.cpp
   time_integration/staged_integrator.cpp
   time_integration/staged_integrator.hpp
+  tensors/tt_boundary_cache.hpp
+  tensors/tt_boundary_comm.cpp
+  tensors/tt_boundary_comm.hpp
+  tensors/tt_comm_channel.hpp
+  tensors/tt_container.cpp
+  tensors/tt_container.hpp
+  tensors/tt_field_metadata.hpp
   tensors/tt_operations.hpp
   tensors/tt_pack.hpp
   tensors/tt_traits.hpp
   tensors/tt_types.hpp
   tensors/tt_unfoldings.hpp
+  tensors/tt_variable.hpp
 
   utils/alias_method.cpp
   utils/alias_method.hpp

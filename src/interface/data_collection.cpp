@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -11,6 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #include <memory>
 #include <string>
 
@@ -19,6 +21,7 @@
 #include "interface/meshblock_data.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "tensors/tt_container.hpp"
 #include "utils/partition_stl_containers.hpp"
 
 namespace parthenon {
@@ -86,5 +89,7 @@ std::shared_ptr<T> &DataCollection<T>::Get(const std::string &name) {
 
 template class DataCollection<MeshData<Real>>;
 template class DataCollection<MeshBlockData<Real>>;
+template class DataCollection<MeshBlockTTData>;
+template class DataCollection<MeshTTData>;
 
 } // namespace parthenon
