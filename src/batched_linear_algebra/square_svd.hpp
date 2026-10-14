@@ -76,8 +76,8 @@ class SquareSVD {
 
   template <class tm_t, class matrix_a_t, class matrix_u_t, class matrix_v_t>
   KOKKOS_INLINE_FUNCTION static int execute(tm_t tm, matrix_a_t *pA, matrix_u_t *pU,
-                                            matrix_v_t *pV, Real *sings,
-                                            Real *scratch, std::size_t *iscratch) {
+                                            matrix_v_t *pV, Real *sings, Real *scratch,
+                                            std::size_t *iscratch) {
     PARTHENON_REQUIRE(pA, "A must not be null.");
     auto &A = *pA;
     const int ncols = GetNcols(A);
@@ -248,8 +248,7 @@ class SquareSVD {
   static constexpr std::size_t sizet_scratch_size(std::size_t ncols) { return ncols + 2; }
 
   static std::size_t total_shmem_scratch_size(std::size_t nrows, std::size_t ncols) {
-    return parthenon::ScratchPad1D<Real>::shmem_size(
-               Real_scratch_size(nrows, ncols)) +
+    return parthenon::ScratchPad1D<Real>::shmem_size(Real_scratch_size(nrows, ncols)) +
            parthenon::ScratchPad1D<std::size_t>::shmem_size(sizet_scratch_size(ncols));
   }
 

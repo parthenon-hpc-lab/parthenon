@@ -78,15 +78,14 @@ typedef struct result_t {
 
 // simple giga-ops calculator
 static Real calcGops(const int &nops, const Real &t, const int &n_block3,
-                       const int &n_mesh3, const int &n_iter) {
+                     const int &n_mesh3, const int &n_iter) {
   return (static_cast<Real>(nops * n_iter) / t / 1.0e9 * static_cast<Real>(n_block3) *
           static_cast<Real>(n_mesh3));
 }
 
 // Test wrapper to run a function multiple times
 template <typename PerfFunc>
-static Real kernel_timer_wrapper(const int n_burn, const int n_perf,
-                                   PerfFunc perf_func) {
+static Real kernel_timer_wrapper(const int n_burn, const int n_perf, PerfFunc perf_func) {
   // Initialize the timer and test
   Kokkos::Timer timer;
 
@@ -294,7 +293,8 @@ result_t naiveParFor(int n_block, int n_mesh, int n_iter, Real radius) {
   // formulate result struct
   constexpr int niops = 0;
   constexpr int nfops = 11;
-  auto r = result_t{"Naive_ParFor", (Real{6.0} * sumArray(blocks, n_block) * dVol / radius3),
+  auto r = result_t{"Naive_ParFor",
+                    (static_cast<Real>(6.0 * sumArray(blocks, n_block) * dVol / radius3)),
                     time_basic, niops, nfops};
 
   return r;

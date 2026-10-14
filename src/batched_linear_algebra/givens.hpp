@@ -160,9 +160,8 @@ KOKKOS_FORCEINLINE_FUNCTION Real ValueAtIndexOrZero(int idx, Real *arr) {
 // diagonal elements d and off-diagonal elements b, and bulge element bulge at
 // (gidx - 1, gidx + 1) and (gidx + 1, gidx - 1).
 template <bool first, bool last, class tm_t>
-KOKKOS_FORCEINLINE_FUNCTION Real ApplyGivensLeftRight(tm_t tm, int gidx, Real c,
-                                                        Real s, Real bulge, Real *d,
-                                                        Real *b) {
+KOKKOS_FORCEINLINE_FUNCTION Real ApplyGivensLeftRight(tm_t tm, int gidx, Real c, Real s,
+                                                      Real bulge, Real *d, Real *b) {
   const Real d1 = d[gidx];
   const Real d2 = d[gidx + 1];
   const Real b0 = ValueAtIndexOrZero<first>(gidx - 1, b);
@@ -194,7 +193,7 @@ KOKKOS_FORCEINLINE_FUNCTION Real ApplyGivensLeftRight(tm_t tm, int gidx, Real c,
 // Bulge starts at element (gidx + 1, gidx)
 template <bool first, bool last, class tm_t>
 KOKKOS_FORCEINLINE_FUNCTION Real ApplyGivensLeft(tm_t tm, int gidx, Real c, Real s,
-                                                   Real bulge, Real *d, Real *b) {
+                                                 Real bulge, Real *d, Real *b) {
   const Real d1 = d[gidx];
   const Real d2 = d[gidx + 1];
   const Real b1 = b[gidx];
@@ -220,7 +219,7 @@ KOKKOS_FORCEINLINE_FUNCTION Real ApplyGivensLeft(tm_t tm, int gidx, Real c, Real
 // Bulge starts at element (gidx - 1, gidx + 1)
 template <bool first, bool last, class tm_t>
 KOKKOS_FORCEINLINE_FUNCTION Real ApplyGivensRight(tm_t tm, int gidx, Real c, Real s,
-                                                    Real bulge, Real *d, Real *b) {
+                                                  Real bulge, Real *d, Real *b) {
   const Real d1 = d[gidx];
   const Real d2 = d[gidx + 1];
   const Real b0 = ValueAtIndexOrZero<first>(gidx - 1, b);

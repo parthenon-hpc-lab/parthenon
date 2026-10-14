@@ -27,11 +27,10 @@ namespace batched_linear_algebra {
 
 template <int MB = 8, int NB = 8, int KB = 8, bool SymmetricOutput = false, class tm_t,
           class A_t, class B_t, class C_t>
-KOKKOS_FORCEINLINE_FUNCTION void
-MatMulPacked(tm_t tm, const A_t &A, const B_t &B, C_t &C,
-             parthenon::ScratchPad1D<Real> &a_scratch,
-             parthenon::ScratchPad1D<Real> &b_scratch,
-             parthenon::ScratchPad1D<Real> &c_scratch) {
+KOKKOS_FORCEINLINE_FUNCTION void MatMulPacked(tm_t tm, const A_t &A, const B_t &B, C_t &C,
+                                              parthenon::ScratchPad1D<Real> &a_scratch,
+                                              parthenon::ScratchPad1D<Real> &b_scratch,
+                                              parthenon::ScratchPad1D<Real> &c_scratch) {
   const int m = GetNrows(A);
   const int k = GetNcols(A);
   const int n = GetNcols(B);
@@ -55,9 +54,8 @@ MatMulPacked(tm_t tm, const A_t &A, const B_t &B, C_t &C,
                       "C scratch too small.");
   auto AT = matrix_wrapper_t<Real>(a_scratch.data(), mb_size, kb_size);
   auto BT = matrix_wrapper_t<Real>(b_scratch.data(), kb_size, nb_size);
-  auto CT = full_output_tile
-                ? matrix_wrapper_t<Real>(c_scratch.data(), 1, 1)
-                : matrix_wrapper_t<Real>(c_scratch.data(), mb_size, nb_size);
+  auto CT = full_output_tile ? matrix_wrapper_t<Real>(c_scratch.data(), 1, 1)
+                             : matrix_wrapper_t<Real>(c_scratch.data(), mb_size, nb_size);
   for (int i0 = 0; i0 < m; i0 += mb_size) {
     const int mb = (i0 + mb_size <= m) ? mb_size : (m - i0);
     const int jstart = SymmetricOutput ? i0 : 0;

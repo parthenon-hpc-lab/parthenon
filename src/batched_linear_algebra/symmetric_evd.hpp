@@ -157,9 +157,7 @@ class SymmetricEVD {
   }
 
   KOKKOS_INLINE_FUNCTION
-  static constexpr std::size_t Real_scratch_size(std::size_t ncols) {
-    return 2 * ncols;
-  }
+  static constexpr std::size_t Real_scratch_size(std::size_t ncols) { return 2 * ncols; }
 
   KOKKOS_INLINE_FUNCTION
   static constexpr std::size_t sizet_scratch_size(std::size_t ncols) { return ncols + 2; }

@@ -39,9 +39,8 @@ Real WilkinsonShift(Real a00, Real a11, Real a01) {
 }
 
 template <class tm_t>
-KOKKOS_FORCEINLINE_FUNCTION int Partition(tm_t tm, Real *d, Real *b,
-                                          std::size_t *start, std::size_t *end,
-                                          int nrows) {
+KOKKOS_FORCEINLINE_FUNCTION int Partition(tm_t tm, Real *d, Real *b, std::size_t *start,
+                                          std::size_t *end, int nrows) {
   int partition{0};
   bool collecting{false};
 
@@ -102,9 +101,9 @@ KOKKOS_FORCEINLINE_FUNCTION int Partition(tm_t tm, Real *d, Real *b,
 // in place. On return, all elements of b should be ~zero and d should
 // contain the eigenvalues of A.
 template <class tm_t, class matrix_t>
-KOKKOS_FORCEINLINE_FUNCTION int
-ImplicitQRTridiag(tm_t tm, Real *d, Real *b, matrix_t *pQ, std::size_t *start,
-                  std::size_t *end, const int nrows, const int max_iters) {
+KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRTridiag(tm_t tm, Real *d, Real *b, matrix_t *pQ,
+                                                  std::size_t *start, std::size_t *end,
+                                                  const int nrows, const int max_iters) {
   int iter{0};
   for (iter = 0; iter < max_iters; ++iter) {
     // Collect decoupled regions of the matrix
@@ -195,8 +194,8 @@ KOKKOS_FORCEINLINE_FUNCTION int ImplicitQRBidiag(tm_t tm, Real *d, Real *b,
         // by dividing the Gram-matrix pair (t00 - mu, t01) through by d[sp]. Guard
         // the d[sp] == 0 case, which degenerates to a zero-shift start.
         const Real f = d[sp] == 0.0 ? 0.0
-                                      : (std::abs(d[sp]) - shift) *
-                                            (robust::sgn(d[sp]) + shift / d[sp]);
+                                    : (std::abs(d[sp]) - shift) *
+                                          (robust::sgn(d[sp]) + shift / d[sp]);
         const Real g = b[sp];
         const auto [c1, s1] = ComputeGivensZeroSecond(f, g);
         bulge = ApplyGivensRight<true, false>(tm, sp, c1, s1, bulge, d, b);

@@ -56,11 +56,12 @@ void Swarm::SetNeighborIndices_() {
       for (int i = 0; i < 4; i++) {
         // Midpoint of meshblock at highest possible refinement level in this i,j,k
         // ghost halo.
-        std::array<Real, 3> x_test = {bsize.xmin_[0] + (i - Real{0.5}) * dx_test[0],
-                                      ndim < 2 ? (bsize.xmin_[1] + bsize.xmax_[1]) / Real{2.}
-                                               : bsize.xmin_[1] + (j - Real{0.5}) * dx_test[1],
-                                      ndim < 3 ? (bsize.xmin_[2] + bsize.xmax_[2]) / Real{2.}
-                                               : bsize.xmin_[2] + (k - Real{0.5}) * dx_test[2]};
+        std::array<Real, 3> x_test = {
+            bsize.xmin_[0] + (i - Real{0.5}) * dx_test[0],
+            ndim < 2 ? (bsize.xmin_[1] + bsize.xmax_[1]) / Real{2.}
+                     : bsize.xmin_[1] + (j - Real{0.5}) * dx_test[1],
+            ndim < 3 ? (bsize.xmin_[2] + bsize.xmax_[2]) / Real{2.}
+                     : bsize.xmin_[2] + (k - Real{0.5}) * dx_test[2]};
 
         // Account for periodic boundary conditions by applying BCs to x_test
         // Assumes mesh is hyper-rectangular and Mesh::mesh_size represents the entire
