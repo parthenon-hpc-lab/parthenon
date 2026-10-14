@@ -31,7 +31,6 @@
 
 namespace parthenon {
 namespace tensor {
-using namespace batched_linear_algebra; // NOLINT(build/namespaces)
 
 // One full multi-index (i_0, ..., i_{d-1}) of a black-box tensor, as seen by the
 // functor passed to TTCross. Entry c is a flat index into [0, DD_c) of core c;
@@ -148,6 +147,7 @@ template <class TTraits, class F>
 int TTCrossVar_(TensorTrainHostPackT<TTraits> &pack_host, const int var, const F &f,
                 const std::vector<int> &ranks, const int nsweeps,
                 TTCrossIndexSetsT<TTraits> *sets, const double tau) {
+  using namespace batched_linear_algebra; // NOLINT(build/namespaces)
   using real_t = typename TTraits::real_t;
   static_assert(std::is_same_v<real_t, double>,
                 "TTCross uses the double-precision batched linear algebra.");
@@ -413,7 +413,7 @@ template <class TTraits, class F>
 int TTCross(std::vector<TensorTrainT<TTraits>> &trains, const F &f,
             const std::vector<int> &ranks, const int nsweeps = 10,
             TTCrossIndexSetsT<TTraits> *sets = nullptr, const double tau = 1.05) {
-  auto pack_host = TensorTrainHostPackT<TTraits>::FromVector(trains);
+  TensorTrainHostPackT<TTraits> pack_host(trains);
   return TTCrossVar_(pack_host, 0, f, ranks, nsweeps, sets, tau);
 }
 
