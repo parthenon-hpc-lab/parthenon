@@ -44,9 +44,7 @@ Type                                       Default alias                Role
 ``TensorPackT<TTraits>``                   ``TensorPack``               Device view of core descriptors
 =========================================  ===========================  ======================================
 
-The ``Host`` and ``Device`` suffixes mean *owning* and *descriptor*. They do not
-name a memory space: the numerical data always lives in
-``TTraits::memory_space``. ``TensorCoreHostT`` is the host-side object that owns
+``TensorCoreHostT`` is the host-side object that owns
 device data. ``TensorCoreDeviceT`` is a small value type that a kernel can
 capture and index as ``core(l, d, r)``.
 
