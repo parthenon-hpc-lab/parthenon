@@ -28,11 +28,9 @@ namespace parthenon {
 namespace tensor {
 
 // Lightweight device-side descriptor for one tensor core. This owns no memory;
-// it only wraps an unmanaged device view of fibers together with the logical
-// core dimensions (left rank, physical dimension, right rank). This is the
-// object kernels should use.
-//
-// Now refactored to use a storage policy pattern for flexibility.
+// it wraps a device storage descriptor (FiberStorageDevice,
+// ContiguousStorageDevice, or UnmanagedStorageDevice for scratch) together with
+// the logical core dimensions (left rank, physical dimension, right rank).
 template <class TTraits, class Storage>
 class TensorCoreDeviceT {
  public:
@@ -66,9 +64,8 @@ class TensorCoreDeviceT {
 };
 
 // Host-side owning representation of one tensor core. This is the persistent
-// object that keeps fiber storage alive.
-//
-// Now refactored to use a storage policy pattern for flexibility.
+// object that keeps the core's storage (FiberStorageHost or
+// ContiguousStorageHost) alive.
 template <class TTraits, class Storage>
 class TensorCoreHostT {
  public:
@@ -300,7 +297,7 @@ DeepCopyTrains(const std::vector<TensorTrainT<TTraits>> &trains) {
   return out;
 }
 
-// Type alias to replace wrap_3D - scratch arrays using unmanaged storage
+// A core view over a raw scratch buffer, in the index order of TTraits
 template <class TTraits>
 using ScratchCore = TensorCoreDeviceT<TTraits, UnmanagedStorageDevice<TTraits>>;
 
