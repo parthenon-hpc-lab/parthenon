@@ -23,6 +23,8 @@
 #include "tt_unfoldings.hpp"
 
 namespace parthenon {
+namespace tensor {
+
 struct ManagedTag {};
 struct UnmanagedTag {};
 
@@ -67,49 +69,48 @@ struct TensorTraits {
   // Unfolding factory methods
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto GetHorizontalUnfolding(const CoreLike &core) {
-    return tensor::horizontal_unfolding<CoreLike, false, DFastestMoving>(core);
+    return horizontal_unfolding<CoreLike, false, DFastestMoving>(core);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto GetHorizontalUnfolding(const CoreLike &core,
                                                                  int nl, int nd, int nr) {
-    return tensor::horizontal_unfolding<CoreLike, false, DFastestMoving>(core, nl, nd,
-                                                                         nr);
+    return horizontal_unfolding<CoreLike, false, DFastestMoving>(core, nl, nd, nr);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto
   GetHorizontalUnfoldingTranspose(const CoreLike &core) {
-    return tensor::horizontal_unfolding<CoreLike, true, DFastestMoving>(core);
+    return horizontal_unfolding<CoreLike, true, DFastestMoving>(core);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto
   GetHorizontalUnfoldingTranspose(const CoreLike &core, int nl, int nd, int nr) {
-    return tensor::horizontal_unfolding<CoreLike, true, DFastestMoving>(core, nl, nd, nr);
+    return horizontal_unfolding<CoreLike, true, DFastestMoving>(core, nl, nd, nr);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto GetVerticalUnfolding(const CoreLike &core) {
-    return tensor::vertical_unfolding<CoreLike, false>(core);
+    return vertical_unfolding<CoreLike, false>(core);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto GetVerticalUnfolding(const CoreLike &core,
                                                                int nl, int nd, int nr) {
-    return tensor::vertical_unfolding<CoreLike, false>(core, nl, nd, nr);
+    return vertical_unfolding<CoreLike, false>(core, nl, nd, nr);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto
   GetVerticalUnfoldingTranspose(const CoreLike &core) {
-    return tensor::vertical_unfolding<CoreLike, true>(core);
+    return vertical_unfolding<CoreLike, true>(core);
   }
 
   template <class CoreLike>
   static KOKKOS_FORCEINLINE_FUNCTION auto
   GetVerticalUnfoldingTranspose(const CoreLike &core, int nl, int nd, int nr) {
-    return tensor::vertical_unfolding<CoreLike, true>(core, nl, nd, nr);
+    return vertical_unfolding<CoreLike, true>(core, nl, nd, nr);
   }
 };
 
@@ -124,8 +125,9 @@ using DefaultTTraits = FiberTTraits;
 // ==============================================================================
 // STORAGE POLICIES FOR TENSOR CORES
 // ==============================================================================
-
-namespace tensor {
+// Naming: the *Host classes are the owning storage and the *Device classes are
+// non-owning descriptors that kernels index. The suffixes do not name a memory
+// space; the data of both lives in TTraits::memory_space.
 
 // Forward declarations for StorageFor
 template <class TTraits>
@@ -137,17 +139,13 @@ class ContiguousStorageHost;
 template <class TTraits>
 class ContiguousStorageDevice;
 
-} // namespace tensor
-
 // Helper to select storage policy based on TTraits layout
 // This selects FiberStorage for dd-fastest (d_fastest_moving=true)
 // and ContiguousStorage for rr-fastest (d_fastest_moving=false)
 template <class TTraits>
 using StorageFor =
-    std::conditional_t<TTraits::d_fastest_moving, tensor::FiberStorageHost<TTraits>,
-                       tensor::ContiguousStorageHost<TTraits>>;
-
-namespace tensor {
+    std::conditional_t<TTraits::d_fastest_moving, FiberStorageHost<TTraits>,
+                       ContiguousStorageHost<TTraits>>;
 
 // FiberView is the fundamental 1D storage unit for tensor-core data.
 template <class TTraits, class OwnershipTag>
