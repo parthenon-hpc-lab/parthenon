@@ -894,35 +894,33 @@ TEMPLATE_TEST_CASE("tensor Gram-SVD rounding scaffold on a mixed two-channel tra
 
   SetTTPackToValue(pack, real_t(0.0));
 
-  // Core 0: mix the two rank channels.
-  // Interpreted as a 2x2 matrix in (physical, right-rank):
-  // [ 1  1 ]
-  // [ 0  1 ]
-  //
-  // So G_L^(0) should be:
-  // [1 1]
-  // [1 2]
-  {
-    auto &core0 = pack(0, 0, 0);
-    core0(0, 0, 0) = real_t(1.0);
-    core0(0, 0, 1) = real_t(1.0);
-    core0(0, 1, 0) = real_t(0.0);
-    core0(0, 1, 1) = real_t(1.0);
-  }
+  // The cores live in device memory, so set them from a single-iteration kernel.
+  parthenon::par_for(
+      "MixedTwoChannelTrain", 0, 0, KOKKOS_LAMBDA(const int) {
+        // Core 0: mix the two rank channels.
+        // Interpreted as a 2x2 matrix in (physical, right-rank):
+        // [ 1  1 ]
+        // [ 0  1 ]
+        //
+        // So G_L^(0) should be:
+        // [1 1]
+        // [1 2]
+        auto &core0 = pack(0, 0, 0);
+        core0(0, 0, 0) = real_t(1.0);
+        core0(0, 0, 1) = real_t(1.0);
+        core0(0, 1, 0) = real_t(0.0);
+        core0(0, 1, 1) = real_t(1.0);
 
-  // Core 1: diagonal selector in rank space.
-  {
-    auto &core1 = pack(0, 0, 1);
-    core1(0, 0, 0) = real_t(1.0);
-    core1(1, 1, 1) = real_t(1.0);
-  }
+        // Core 1: diagonal selector in rank space.
+        auto &core1 = pack(0, 0, 1);
+        core1(0, 0, 0) = real_t(1.0);
+        core1(1, 1, 1) = real_t(1.0);
 
-  // Core 2: simple amplitudes on the two channels.
-  {
-    auto &core2 = pack(0, 0, 2);
-    core2(0, 0, 0) = real_t(2.0);
-    core2(1, 1, 0) = real_t(1.5);
-  }
+        // Core 2: simple amplitudes on the two channels.
+        auto &core2 = pack(0, 0, 2);
+        core2(0, 0, 0) = real_t(2.0);
+        core2(1, 1, 0) = real_t(1.5);
+      });
 
   Kokkos::fence();
 
