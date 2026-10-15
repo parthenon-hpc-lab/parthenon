@@ -554,6 +554,59 @@ The following is a minimal example to plot a 1D and 2D histogram from the output
       plt.pcolormesh(x,y,z,)
       plt.show()
 
+User
+----
+
+Parthenon provides a simple callback for downstream codes to enroll their own
+output routines.
+In the input file, include a ``<parthenon/output*>`` block and specify
+``file_type = my_user_type`` where the latter is an arbitrary string.
+Output frequency is controlled via ``dt``, ``dn``, or ``times`` as for other output
+types.
+Using this callback requires a downstream code to implement a derived
+``OutputType`` class and to enroll it with the ``my_user_type`` string name.
+
+.. code:: c++
+
+  pman.app_input->RegisterUserOutput<MyOutput>("my_user_type");
+
+where ``MyOutput`` has to minimally implement a constructor and ``WriteOutputFile``
+
+.. code:: c++
+
+   class MyOutput : public OutputType {
+    public:
+     MyOutput(const OutputParameters &oparams, ParameterInput *pin)
+         : OutputType(oparams) {}
+     void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                          const SignalHandler::OutputSignal signal) override;
+   };
+
+A new ``MyOutput`` object is created for each ``<parthenon/output*>`` block with
+``file_type = my_user_type``, so the same user output type can be used in multiple
+blocks (e.g., with different cadences).
+Block specific parameters can be read in the constructor from the
+``oparams.block_name`` block of ``pin``.
+The constructor may also only take ``const OutputParameters &``.
+The ``WriteOutputFile`` implementation is responsible for advancing the output
+counters by calling ``UpdateNextOutput_`` (see example below).
+
+For full control over object creation, a factory can be enrolled instead, which is
+called once for each matching output block, e.g., to share state between blocks
+
+.. code:: c++
+
+  auto shared_state = std::make_shared<MyState>();
+  pman.app_input->RegisterUserOutput(
+      "my_user_type", [shared_state](const OutputParameters &op, ParameterInput *pin) {
+        return std::make_shared<MyOutput>(op, pin, shared_state);
+      });
+
+A minimal implementation is demonstrated in the
+`particle_leapfrog <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/particle_leapfrog/particle_leapfrog.cpp>`__
+example.
+
+
 Ascent (optional)
 -----------------
 

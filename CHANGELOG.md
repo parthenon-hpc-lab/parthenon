@@ -5,6 +5,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR 1362]](https://github.com/parthenon-hpc-lab/parthenon/pull/1362) Add support for completely custom "user" output
 - [[PR 1456]](https://github.com/parthenon-hpc-lab/parthenon/pull/1456) Add batched dense linear algebra kernels
 - [[PR 1462]](https://github.com/parthenon-hpc-lab/parthenon/pull/1462) Add user-specified output times that can be combined with dt or dn output schedules
 - [[PR 1439]](https://github.com/parthenon-hpc-lab/parthenon/pull/1439) Long-overdue parthenon tutorial
