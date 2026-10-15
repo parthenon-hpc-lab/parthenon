@@ -499,12 +499,15 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, ApplicationInput *papp_in, SimTi
           << std::endl;
       PARTHENON_FAIL(msg);
 #endif // ifdef ENABLE_HDF5
-       // Finally, check if block is an enrolled user output.
     } else {
-      pnew_type = papp_in->GetUserOutput(op.file_type);
-      if (pnew_type) {
-        // Update empty OutputParams op with actual ones
-        pnew_type->output_params = op;
+      // Finally, check if block is an enrolled user output.
+      const auto user_output_factory = papp_in->GetUserOutputFactory(op.file_type);
+      if (user_output_factory) {
+        // Create a new user output object for this block
+        pnew_type = user_output_factory(op, pin);
+        PARTHENON_REQUIRE_THROWS(pnew_type != nullptr,
+                                 "Factory for user output '" + op.file_type +
+                                     "' returned nullptr in block " + op.block_name);
       } else {
         msg << "### FATAL ERROR in Outputs constructor" << std::endl
             << "Unrecognized file format = '" << op.file_type << "' in output block '"

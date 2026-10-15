@@ -65,24 +65,28 @@ class TestCase(utils.test_case.TestCaseAbs):
             print("TEST FAIL: Error between actual and reference data too large.")
             success = False
 
-        if not os.path.isfile("user_output.0"):
-            print("TEST FAIL: Missing initial custom enrolled user output.")
-            success = False
-        else:
-            with open("user_output.0", "r") as infile:
+        # Two output blocks use the same custom user output type with different
+        # cadences (dt = 2.0 -> initial and final, dn = 20) and file prefixes.
+        expected_user_outputs = {
+            "user_output.0": "cycle = 0",
+            "user_output.1": "cycle = 50",
+            "user_output_dn.0": "cycle = 0",
+            "user_output_dn.1": "cycle = 20",
+            "user_output_dn.2": "cycle = 40",
+            "user_output_dn.3": "cycle = 50",
+        }
+        for fname, expected in expected_user_outputs.items():
+            if not os.path.isfile(fname):
+                print("TEST FAIL: Missing custom enrolled user output", fname)
+                success = False
+                continue
+            with open(fname, "r") as infile:
                 line = infile.readline()
-                if line != "cycle = 0":
-                    print("TEST FAIL: Wrong content in initial user outfile.", line)
+                if line != expected:
+                    print("TEST FAIL: Wrong content in user output", fname, line)
                     success = False
-
-        if not os.path.isfile("user_output.1"):
-            print("TEST FAIL: Missing final custom enrolled user output.")
+        if os.path.isfile("user_output_dn.4") or os.path.isfile("user_output.2"):
+            print("TEST FAIL: Unexpected additional user output files.")
             success = False
-        else:
-            with open("user_output.1", "r") as infile:
-                line = infile.readline()
-                if line != "cycle = 50":
-                    print("TEST FAIL: Wrong content in final user outfile.", line)
-                    success = False
 
         return success

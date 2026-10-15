@@ -109,26 +109,27 @@ SBValFunc ApplicationInput::GetSwarmBoundaryCondition(BoundaryFace face,
   }
   return swarm_boundary_conditions_[face].at(name);
 }
+
 void ApplicationInput::RegisterUserOutput(const std::string &name,
-                                          std::shared_ptr<OutputType> output_type) {
+                                          UserOutputFactory factory) {
   PARTHENON_REQUIRE_THROWS(!(name == "hst" || name == "rst" || name == "hdf5" ||
                              name == "corehdf5" || name == "histogram" ||
                              name == "ascent" || name == "openpmd" || name == "spectrum"),
                            "Trying to enroll UserOutput with name in conflict with "
                            "internal Parthenon file_type.");
-  if (user_outputs_.count(name) > 0) {
+  PARTHENON_REQUIRE_THROWS(factory != nullptr,
+                           "Trying to enroll UserOutput " + name + " without factory.");
+  if (user_output_factories_.count(name) > 0) {
     PARTHENON_THROW("User OutputType " + name + " already registered.");
   }
-  user_outputs_[name] = output_type;
+  user_output_factories_[name] = factory;
 }
 
-// Returns pointer to user output (if it exists) or nullptr if not found.
-std::shared_ptr<OutputType> ApplicationInput::GetUserOutput(const std::string &name) {
-  if (user_outputs_.count(name) == 0) {
+UserOutputFactory ApplicationInput::GetUserOutputFactory(const std::string &name) const {
+  if (user_output_factories_.count(name) == 0) {
     return nullptr;
-  } else {
-    return user_outputs_[name];
   }
+  return user_output_factories_.at(name);
 }
 
 } // namespace parthenon

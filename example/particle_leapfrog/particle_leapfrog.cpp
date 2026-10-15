@@ -56,12 +56,21 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
 // It is highly recommend to look at the other default Parthenon internal OutputTypes
 // for more detailed code on typical output boilerplate.
 // *************************************************//
+// The constructor is called once per output block, so block specific parameters can be
+// read (and checked) here.
+ParticleUserOutput::ParticleUserOutput(const OutputParameters &oparams,
+                                       ParameterInput *pin)
+    : OutputType(oparams) {
+  prefix_ = pin->GetOrAddString(output_params.block_name, "prefix", "user_output",
+                                "Prefix of the user output files.");
+}
+
 void ParticleUserOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                          const SignalHandler::OutputSignal signal) {
   // For simplicitly, only rank 0 writes the current cycle.
   // Typically writing is a parallel operation.
   if (Globals::my_rank == 0) {
-    std::ofstream outfile("user_output." + std::to_string(output_params.file_number));
+    std::ofstream outfile(prefix_ + "." + std::to_string(output_params.file_number));
     if (outfile.is_open()) {
       outfile << "cycle = " << tm->ncycle;
       outfile.close();

@@ -20,6 +20,7 @@
 // This file was made in part with generative AI.
 
 #include <memory>
+#include <string>
 
 #include "Kokkos_Random.hpp"
 
@@ -54,9 +55,12 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
 
 class ParticleUserOutput : public OutputType {
  public:
-  explicit ParticleUserOutput() : OutputType({}) {}
+  ParticleUserOutput(const OutputParameters &oparams, ParameterInput *pin);
   void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                        const SignalHandler::OutputSignal signal) override;
+
+ private:
+  std::string prefix_; // output file prefix (block specific)
 };
 
 namespace Particles {

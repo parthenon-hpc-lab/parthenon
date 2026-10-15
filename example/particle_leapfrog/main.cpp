@@ -17,8 +17,6 @@
 
 // This file was made in part with generative AI.
 
-#include <memory>
-
 #include "parthenon_manager.hpp"
 
 #include "particle_leapfrog.hpp"
@@ -33,9 +31,10 @@ int main(int argc, char *argv[]) {
   pman.app_input->ProblemGenerator = particles_leapfrog::ProblemGenerator;
   pman.app_input->PostInitialization = particles_leapfrog::PostInitialization;
 
-  // Create user output and enroll
-  pman.app_input->RegisterUserOutput(
-      "particle_user_output", std::make_shared<particles_leapfrog::ParticleUserOutput>());
+  // Enroll user output. A new ParticleUserOutput is created for each output block
+  // with file_type = particle_user_output.
+  pman.app_input->RegisterUserOutput<particles_leapfrog::ParticleUserOutput>(
+      "particle_user_output");
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInitEnv(argc, argv);

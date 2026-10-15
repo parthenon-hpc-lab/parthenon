@@ -61,3 +61,8 @@ my_particles_variables = id, v, vv
 <parthenon/output1>
 file_type = particle_user_output # this is a custom user output defined by the application
 dt = 2.0
+
+<parthenon/output2>
+file_type = particle_user_output # second block of the same custom user output type
+dn = 20
+prefix = user_output_dn
