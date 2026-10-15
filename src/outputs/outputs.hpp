@@ -32,7 +32,6 @@
 
 #include "Kokkos_ScatterView.hpp"
 
-#include "application_input.hpp"
 #include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
 #include "interface/mesh_data.hpp"
@@ -45,6 +44,7 @@
 namespace parthenon {
 
 // forward declarations
+class ApplicationInput;
 class Mesh;
 class ParameterInput;
 

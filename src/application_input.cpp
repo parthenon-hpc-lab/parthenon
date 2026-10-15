@@ -21,6 +21,7 @@
 #include "application_input.hpp"
 #include "basic_types.hpp"
 #include "bvals/boundary_conditions.hpp"
+#include "outputs/outputs.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {

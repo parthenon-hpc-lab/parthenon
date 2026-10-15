@@ -28,7 +28,6 @@
 #include "basic_types.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "defs.hpp"
-#include "outputs/outputs.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
@@ -36,6 +35,7 @@ class Mesh;
 class MeshBlock;
 class MeshBlockApplicationData;
 class OutputParameters;
+class OutputType;
 class Packages_t;
 class ParameterInput;
 template <typename T>
