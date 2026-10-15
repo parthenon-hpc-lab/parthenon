@@ -153,6 +153,10 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   {
     Kokkos::Profiling::pushRegion("write Info");
     HDF5WriteAttribute("OutputFormatVersion", OUTPUT_VERSION_FORMAT, info_group);
+    const auto output_type = output_params.mode == DumpOutputMode::Restart ? "restart"
+                             : output_params.mode == DumpOutputMode::Core  ? "core"
+                                                                           : "data";
+    HDF5WriteAttribute("OutputType", output_type, info_group);
 
     if (tm != nullptr) {
       HDF5WriteAttribute("NCycle", tm->ncycle, info_group);

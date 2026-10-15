@@ -65,7 +65,8 @@ do_fine_advection = true
 do_CT_advection = true
 
 <parthenon/output1>
-file_type = rst
+file_type = hdf5
+output_type = restart
 dt = 0.05
 
 <parthenon/output0>

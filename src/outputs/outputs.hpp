@@ -212,18 +212,7 @@ class PHDF5Output : public OutputType {
                         const std::vector<std::string> &sparse_names, hsize_t num_sparse,
                         hid_t file, const HDF5::H5P &pl, std::size_t offset,
                         hsize_t max_blocks_global) const;
-  std::string FilePostfix_() const {
-    if (output_params.mode == DumpOutputMode::Data) {
-      return ".phdf";
-    } else if (output_params.mode == DumpOutputMode::Restart) {
-      return ".rhdf";
-    } else if (output_params.mode == DumpOutputMode::Core) {
-      return ".chdf";
-    } else {
-      PARTHENON_FAIL("Unknown dump output mode");
-      return "";
-    }
-  }
+  std::string FilePostfix_() const { return ".phdf"; }
 };
 
 //----------------------------------------------------------------------------------------

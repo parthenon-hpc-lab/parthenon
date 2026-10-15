@@ -56,5 +56,6 @@ fill_derived = false # whether to fill one-copy test vars
 
 <parthenon/output1>
 file_type = openpmd
+output_type = restart
 dt = 0.050
 use_final_label = false

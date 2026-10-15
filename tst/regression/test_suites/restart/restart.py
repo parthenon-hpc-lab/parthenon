@@ -37,7 +37,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         elif step == 2:
             parameters.driver_cmd_line_args = [
                 "-r",
-                "gold.out0.00001.rhdf",
+                "gold.restart.00001.phdf",
                 "-i",
                 f"{parameters.parthenon_path}/tst/regression/test_suites/restart/parthinput_override.restart",
                 "-t",
@@ -48,14 +48,14 @@ class TestCase(utils.test_case.TestCaseAbs):
         elif step == 3:
             parameters.driver_cmd_line_args = [
                 "-r",
-                "gold.out0.00009.rhdf",
+                "gold.restart.00009.phdf",
                 "parthenon/job/problem_id=silver9",
             ]
         # now restart from the walltime based output
         else:
             parameters.driver_cmd_line_args = [
                 "-r",
-                "silver.out0.final.rhdf",
+                "silver.restart.final.phdf",
             ]
 
         return parameters
@@ -78,8 +78,8 @@ class TestCase(utils.test_case.TestCaseAbs):
         def compare_files(name, base="silver"):
             delta = compare(
                 [
-                    "gold.out0.%s.rhdf" % name,
-                    "{}.out0.{}.rhdf".format(base, name),
+                    "gold.restart.%s.phdf" % name,
+                    "{}.restart.{}.phdf".format(base, name),
                 ],
                 one=True,
             )

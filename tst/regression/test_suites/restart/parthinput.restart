@@ -63,5 +63,6 @@ derefine_tol = 0.01 # with larger value test will fail because de-refinement cou
 compute_error = false
 
 <parthenon/output0>
-file_type = rst
+file_type = hdf5
+output_type = restart
 dt = 0.05

@@ -69,7 +69,8 @@ refine_tol = 0.3    # control the package specific refinement tagging function
 derefine_tol = 0.03
 
 <parthenon/output1>
-file_type = rst
+file_type = hdf5
+output_type = restart
 dt = 0.5
 
 <parthenon/output0>
