@@ -26,8 +26,8 @@
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
-#include "pack/make_pack_descriptor.hpp"
-#include "pack/sparse_pack.hpp"
+#include "pack/sparse_pack/make_pack_descriptor.hpp"
+#include "pack/sparse_pack/sparse_pack.hpp"
 #include "sparse/sparse_management.hpp"
 
 namespace parthenon {

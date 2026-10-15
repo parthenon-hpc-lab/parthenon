@@ -12,3 +12,5 @@ and solvers.
    ../interface/sparse
    ../integrators
    ../solvers
+   ../fourier_transforms
+   ../batched_linear_algebra

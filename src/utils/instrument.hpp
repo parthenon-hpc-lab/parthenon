@@ -32,7 +32,7 @@ namespace parthenon {
 
 inline std::string build_auto_label(const std::string &fullpath, const int line,
                                     const std::string &name) {
-  size_t pos = fullpath.find_last_of("/\\");
+  std::size_t pos = fullpath.find_last_of("/\\");
   std::string file = (pos != std::string::npos ? fullpath.substr(pos + 1) : fullpath);
   return file + "::" + std::to_string(line) + "::" + name;
 }

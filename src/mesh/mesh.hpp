@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -21,11 +21,14 @@
 //  The Mesh is the overall grid structure, and MeshBlocks are local patches of data
 //  (potentially on different levels) that tile the entire domain.
 
+// This file was made in part with generative AI.
+
 #include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -48,13 +51,18 @@
 #include "mesh/forest/forest_topology.hpp"
 #include "mesh/meshblock_pack.hpp"
 #include "outputs/io_wrapper.hpp"
-#include "pack/pack_descriptor.hpp"
+#include "pack/sparse_pack/pack_descriptor.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/communication_buffer.hpp"
 #include "utils/hash.hpp"
 #include "utils/object_pool.hpp"
 #include "utils/partition_stl_containers.hpp"
+
+#ifdef PARTHENON_ENABLE_FFT
+#include "utils/fft_manager.hpp"
+#include "utils/uniform_grid_helper.hpp"
+#endif
 
 namespace parthenon {
 
@@ -81,6 +89,7 @@ class Mesh {
   friend class HistoryOutput;
   friend class MeshBlock;
   friend class MeshRefinement;
+  friend class FFTManager;
 
   struct base_constructor_selector_t {};
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
@@ -90,6 +99,25 @@ class Mesh {
        hyper_rectangular_constructor_selector_t);
 
  public:
+#ifdef PARTHENON_ENABLE_FFT
+  std::unique_ptr<parthenon::FFTManager> fft_manager;
+
+  FFTManager *GetFFTManager() {
+    if (!fft_manager) {
+      fft_manager = std::make_unique<FFTManager>(this);
+    }
+    return fft_manager.get();
+  }
+
+  std::unique_ptr<parthenon::UniformGridHelper> uniform_grid_helper;
+
+  UniformGridHelper *GetUniformGridHelper() {
+    if (!uniform_grid_helper) {
+      uniform_grid_helper = std::make_unique<UniformGridHelper>(this);
+    }
+    return uniform_grid_helper.get();
+  }
+#endif
   // 2x function overloads of ctor: normal and restarted simulation
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        int test_flag = 0);
@@ -111,8 +139,8 @@ class Mesh {
   // TODO(JMM): Move block_size into mesh.
   int GetNumberOfMeshBlockCells() const;
   const RegionSize &GetDefaultBlockSize() const { return base_block_size; }
-  RegionSize GetBlockSize(const LogicalLocation &loc) const {
-    return forest.GetBlockDomain(loc);
+  RegionSize GetBlockSize(const LogicalLocation &loc, std::size_t coarsenings = 0) const {
+    return forest.GetBlockDomain(loc, coarsenings);
   }
   const IndexShape GetLeafBlockCellBounds(CellLevel level = CellLevel::same) const;
 
@@ -147,21 +175,19 @@ class Mesh {
 
   DataCollection<MeshData<Real>> mesh_data;
 
-  const BlockList_t &GetGMGBlockList(int level) const {
-    PARTHENON_REQUIRE(multigrid, "Asking for multigrid blocks on a Mesh that was created "
-                                 "without parthenon/mesh/multigrid = true set.");
-    PARTHENON_REQUIRE(gmg_block_lists_.count(level),
-                      "Asking for a multigrid level that doesn't exist.");
-    return gmg_block_lists_.at(level);
-  }
   int GetGMGMaxLevel() const { return current_level; }
-  int GetGMGMinLevel() const { return gmg_min_logical_level_; }
+  int GetGMGMinLevel() const { return gmg_min_level_; }
+  GridIdentifier GetGMGGrid(int gmg_level) {
+    if (gmg_grids_.count(gmg_level)) return gmg_grids_[gmg_level];
+    return GridIdentifier::none();
+  }
 
   // functions
   void Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *app_in);
 
   bool SetBlockSizeAndBoundaries(LogicalLocation loc, RegionSize &block_size,
-                                 BoundaryFlag *block_bcs);
+                                 BoundaryFlag *block_bcs,
+                                 std::size_t block_coarsenings = 0);
   void OutputCycleDiagnostics();
   void LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                               ApplicationInput *app_in);
@@ -193,10 +219,19 @@ class Mesh {
   }
 
   const std::vector<std::shared_ptr<BlockListPartition>> &
-  GetDefaultBlockPartitions(GridIdentifier grid = GridIdentifier::leaf()) const {
-    if (grid.type == GridType::two_level_composite)
-      PARTHENON_REQUIRE(multigrid, "Asking for a partition of a multigrid grid when "
-                                   "parthenon/mesh/multigrid = false.")
+  GetDefaultBlockPartitions() const {
+    auto grid = GridIdentifier::leaf();
+    PARTHENON_REQUIRE(
+        block_partitions_.count(grid),
+        "There isn't a block partition available for this grid for some reason.");
+    return block_partitions_.at(grid);
+  }
+
+  const std::vector<std::shared_ptr<BlockListPartition>> &
+  GetMultigridBlockPartitions(int gmg_level) const {
+    auto grid = gmg_grids_.at(gmg_level);
+    PARTHENON_REQUIRE(multigrid, "Asking for a partition of a multigrid grid when "
+                                 "parthenon/mesh/multigrid = false.")
     PARTHENON_REQUIRE(
         block_partitions_.count(grid),
         "There isn't a block partition available for this grid for some reason.");
@@ -214,6 +249,8 @@ class Mesh {
 
   // defined in either the prob file or default_pgen.cpp in ../pgen/
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> ProblemGenerator =
+      nullptr;
+  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostProblemGenerator =
       nullptr;
   std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostInitialization =
       nullptr;
@@ -263,10 +300,86 @@ class Mesh {
   // between two blocks for a given variable
   using channel_key_t = std::tuple<int, int, std::string, int, int>;
   using comm_buf_t = CommBuffer<buf_pool_t<Real>::owner_t>;
-  std::unordered_map<int, buf_pool_t<Real>> pool_map;
-  using comm_buf_map_t = std::unordered_map<channel_key_t, comm_buf_t>;
+  class comm_buf_map_t {
+   public:
+    using map_t = std::unordered_map<channel_key_t, comm_buf_t>;
+    using key_type = map_t::key_type;
+    using mapped_type = map_t::mapped_type;
+
+   private:
+    // On initial meshing and after remeshing, the comm buffer map is cleared and
+    // rebuilt. The member epoch_ stores the number of times the comm buffers have
+    // been built so that various boundary cache objects that point to the comm
+    // buffers can easily check if they point to buffers from an old mesh
+    // configuration that have been cleared.
+    std::size_t epoch_{1};
+    map_t m_;
+
+   public:
+    auto &operator[](const key_type &k) { return m_[k]; }
+    auto &at(const key_type &k) { return m_.at(k); }
+    auto count(const key_type &k) const { return m_.count(k); }
+
+    auto begin() noexcept { return m_.begin(); }
+    auto end() noexcept { return m_.end(); }
+    auto begin() const noexcept { return m_.begin(); }
+    auto end() const noexcept { return m_.end(); }
+
+    auto GetCurrentEpoch() const { return epoch_; }
+    void clear() {
+      m_.clear();
+      epoch_++;
+    }
+  };
+
+  ObjectPoolMap<BufArray1D<Real>> pool_map;
   comm_buf_map_t boundary_comm_map;
   TagMap tag_map;
+  int minimum_number_of_teams_for_boundary_kernel;
+  int boundary_buffer_work_chunk_size;
+
+  // Sets the number of communication buffers that can be in-flight concurrently
+  // for a given boundary type. This *must* be called before build boundary buffers
+  // is called internally, so use beyond the defaults with care
+  void SetNumberOfCommChannels(BoundaryType bound, std::size_t n_channels) {
+    // TODO(LFR): Fix this, there is no fundamental issue just requires work
+    PARTHENON_REQUIRE(!do_coalesced_comms || n_channels == 1,
+                      "Currently coalesced comms and multiple communication stages can't "
+                      "be used concurrently.");
+
+    if (locked_comm_channel_numbers_.count(bound))
+      PARTHENON_FAIL("Trying to reset the number of comm channels after boundary buffers "
+                     "have been set up.");
+    if (number_of_comm_channels_.count(bound) &&
+        number_of_comm_channels_[bound] > n_channels)
+      PARTHENON_WARN(
+          "You are reducing the number of comm channels from a previously set value.");
+    number_of_comm_channels_[bound] = n_channels;
+
+    // Need to set the complementary channels to the same value
+    if (!IsSender(bound))
+      number_of_comm_channels_[GetAssociatedSender(bound)] = n_channels;
+    if (!IsReceiver(bound))
+      number_of_comm_channels_[GetAssociatedReceiver(bound)] = n_channels;
+  }
+
+  void LockCommChannelNumbers(BoundaryType bound) {
+    locked_comm_channel_numbers_.insert(GetAssociatedSender(bound));
+    locked_comm_channel_numbers_.insert(GetAssociatedReceiver(bound));
+  }
+
+  std::size_t GetNumberOfCommChannels(BoundaryType bound) const {
+    if (number_of_comm_channels_.count(bound)) return number_of_comm_channels_.at(bound);
+    // We default to only having a single communication channel
+    return 1;
+  }
+
+  template <BoundaryType bound_type>
+  void AddToTagMap(std::shared_ptr<MeshData<Real>> &md) {
+    LockCommChannelNumbers(bound_type);
+    int channels = GetNumberOfCommChannels(bound_type);
+    tag_map.AddMeshDataToMap<bound_type>(md, channels);
+  }
 
   std::shared_ptr<CoalescedComms> pcoalesced_comms;
 
@@ -287,7 +400,7 @@ class Mesh {
 
   uint64_t GetBufferPoolSizeInBytes() const {
     std::uint64_t buffer_memory = 0;
-    for (auto &p : pool_map) {
+    for (auto &p : pool_map.GetMap()) {
       buffer_memory += p.second.SizeInBytes();
     }
     return buffer_memory;
@@ -306,6 +419,8 @@ class Mesh {
   int root_level, max_level, current_level;
   int max_level_ref_; // the max level as interpreted by the input deck/user
   int num_mesh_threads_;
+  int base_block_coarsenings;
+
   /// Maps Global Block IDs to which rank the block is mapped to.
   std::vector<int> ranklist;
   /// Maps rank to start of local block IDs.
@@ -325,11 +440,14 @@ class Mesh {
   // the last 4x should be std::size_t, but are limited to int by MPI
   // Refinement tags used by MeshData checks
   ParArray1D<AmrTag> amr_tags;
+  std::map<BoundaryType, std::size_t> number_of_comm_channels_;
+  std::set<BoundaryType> locked_comm_channel_numbers_;
 
   std::vector<LogicalLocation> loclist;
 
   // Block lists for internal nodes in the tree corresponding to multigrid levels
-  std::map<int, BlockList_t> gmg_block_lists_;
+  std::map<int, GridIdentifier> gmg_grids_;
+  std::map<int, BlockList_t> gmg_block_lists_; // maps from *GMG* level to blocks list
 
   // flags are false if using non-uniform or user meshgen function
   bool use_uniform_meshgen_fn_[4];
@@ -352,7 +470,7 @@ class Mesh {
   // footprint.
   Real buffer_reset_frac_;
 
-  int gmg_min_logical_level_ = 0;
+  int gmg_min_level_ = 0;
 
 #ifdef MPI_PARALLEL
   // Global map of MPI comms for separate variables
@@ -382,10 +500,6 @@ class Mesh {
                                        int ntot);
   void BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in);
   void SetGMGNeighbors();
-  void
-  SetMeshBlockNeighbors(GridIdentifier grid_id, BlockList_t &block_list,
-                        const std::vector<int> &ranklist,
-                        const std::unordered_set<LogicalLocation> &newly_refined = {});
 
   // Optionally defined in the problem file
   std::function<void(Mesh *, ParameterInput *)> InitUserMeshData = nullptr;

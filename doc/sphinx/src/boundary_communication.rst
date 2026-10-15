@@ -302,6 +302,44 @@ On host a lot of this functionality could be replicated with
 be able to exist on device (even though the reference counting doesn’t
 work there).
 
+It is often convenient to hold multiple pools, one for each different
+size of object that we might want to pool. (For example for
+differently shaped comm buffers.) We implement that via the
+``ObjectPoolMap<T>`` type, which owns an arbitrary number of
+pools. The main functionality that it provides is it can construct a
+pool with an allocation strategy that allocates buffers in chunks of
+contiguous blocks of memory, reducing the number of malloc calls
+required. For example, the code
+
+.. code:: cpp
+
+  ObjectPoolMap<ParArray1D<Real>> pool_map;
+  pool_map.AddPool(buf_len, nbufs);
+
+tells the pool map that you would like a pool of objects of size
+``buf_len`` that allocates ``nbufs`` at once when it runs out of
+memory, minimizing allocation costs. Objects can be explicitly added
+to the pool with
+
+.. code:: cpp
+
+  pool_map.AddFreeObjectsToPool(buf_len, nbufs);
+
+A pool for objects of a given size may be requested with
+``pool_map.GetPool(buf_len)``, a ``weak_t`` buffer may be requested
+with ``pool_map.GetBuffer(buf_len)`` and an ``owning_t`` may be
+requested with ``GetOwningBuffer``. The existence of a pool for
+objects may be checked with ``pool_map.Contains(buf_len)`` and all
+pools may be cleared and their buffers deallocated with
+``pool_map.Clear()``. Finally, the underlying map may be accessed for,
+e.g., iteration, with ``pool_map.GetMap()``.
+
+.. note::
+
+   The pool map is bounds checking. It will not add a new pool of
+   objects of a given shape unless they are requested. If you request
+   a buffer from a non-existent pool, the code will throw an error.
+
 Sparse boundary communication implementation
 --------------------------------------------
 

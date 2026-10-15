@@ -106,21 +106,21 @@ using ParArray8D = ParArrayGeneric<ParArray8DRaw<T>, State>;
 
 // Host mirrors
 template <typename T>
-using HostArray0D = typename ParArray0D<T>::HostMirror;
+using HostArray0D = typename ParArray0D<T>::host_mirror_type;
 template <typename T>
-using HostArray1D = typename ParArray1D<T>::HostMirror;
+using HostArray1D = typename ParArray1D<T>::host_mirror_type;
 template <typename T>
-using HostArray2D = typename ParArray2D<T>::HostMirror;
+using HostArray2D = typename ParArray2D<T>::host_mirror_type;
 template <typename T>
-using HostArray3D = typename ParArray3D<T>::HostMirror;
+using HostArray3D = typename ParArray3D<T>::host_mirror_type;
 template <typename T>
-using HostArray4D = typename ParArray4D<T>::HostMirror;
+using HostArray4D = typename ParArray4D<T>::host_mirror_type;
 template <typename T>
-using HostArray5D = typename ParArray5D<T>::HostMirror;
+using HostArray5D = typename ParArray5D<T>::host_mirror_type;
 template <typename T>
-using HostArray6D = typename ParArray6D<T>::HostMirror;
+using HostArray6D = typename ParArray6D<T>::host_mirror_type;
 template <typename T>
-using HostArray7D = typename ParArray7D<T>::HostMirror;
+using HostArray7D = typename ParArray7D<T>::host_mirror_type;
 
 using team_policy = Kokkos::TeamPolicy<>;
 using team_mbr_t = Kokkos::TeamPolicy<>::member_type;
@@ -147,7 +147,7 @@ template <typename T, typename Layout = LayoutWrapper>
 using device_view_t =
     Kokkos::View<multi_pointer_t<T, MAX_VARIABLE_DIMENSION>, Layout, DevMemSpace>;
 template <typename T, typename Layout = LayoutWrapper>
-using host_view_t = typename device_view_t<T, Layout>::HostMirror;
+using host_view_t = typename device_view_t<T, Layout>::host_mirror_type;
 
 template <typename ND, typename State = empty_state_t>
 struct ParArrayND_impl {
@@ -165,7 +165,7 @@ using ParArray = typename ParArrayND_impl<std::integral_constant<std::size_t, ND
 
 template <std::size_t ND, typename T>
 using HostArray = typename ParArrayND_impl<
-    std::integral_constant<std::size_t, ND>>::template type<T>::HostMirror;
+    std::integral_constant<std::size_t, ND>>::template type<T>::host_mirror_type;
 
 template <std::size_t ND, typename T>
 using ScratchPad =

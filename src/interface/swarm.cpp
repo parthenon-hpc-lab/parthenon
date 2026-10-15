@@ -1,5 +1,9 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2026 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was modified with the assistance of generative AI.
+
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
@@ -21,7 +27,7 @@
 
 #include "interface/metadata.hpp"
 #include "mesh/mesh.hpp"
-#include "pack/swarm_default_names.hpp"
+#include "pack/default_names.hpp"
 #include "swarm.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/sort.hpp"
@@ -81,9 +87,6 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata,
       neighbor_received_particles_("neighbor_received_particles_", NMAX_NEIGHBORS),
       cell_sorted_("cell_sorted_", nmax_pool_),
       buffer_sorted_("buffer_sorted_", nmax_pool_), mpiStatus(true) {
-  PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
-                           "SwarmDeviceContext only supports a uniform Cartesian mesh!");
-
   uid_ = get_uid_(label_);
 
   // Add default swarm fields
@@ -116,7 +119,8 @@ std::shared_ptr<Swarm> Swarm::AllocateCopy(MeshBlock * /*pmb*/) {
 }
 
 ///
-/// The routine for allocating a particle variable in the current swarm.
+/// The routine for allocating a particle variable in the current swarm, with a type
+/// limited to those types contained in SwarmPackTypes type list
 ///
 /// @param label the name of the variable
 /// @param metadata the metadata associated with the particle
@@ -140,8 +144,8 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
   } else if (newm.Type() == Metadata::Real) {
     Add_<Real>(label, newm);
   } else {
-    throw std::invalid_argument("swarm variable " + label +
-                                " does not have a valid type during Add()");
+    PARTHENON_FAIL("swarm variable " + label +
+                   " does not have a valid type during Add()");
   }
 }
 
@@ -381,6 +385,15 @@ void Swarm::RemoveMarkedParticles() {
   UpdateEmptyIndices();
 }
 
+void Swarm::ClearParticles() {
+  Kokkos::deep_copy(mask_, false);
+  Kokkos::deep_copy(marked_for_removal_, false);
+  num_active_ = 0;
+  max_active_index_ = inactive_max_active_index;
+  new_indices_max_idx_ = -1;
+  UpdateEmptyIndices();
+}
+
 void Swarm::Defrag() {
   if (GetNumActive() == 0) {
     return;
@@ -441,9 +454,9 @@ void Swarm::Defrag() {
   auto vreal = PackAllVariables_<Real>(real_imap);
   auto vint = PackAllVariables_<int>(int_imap);
   auto vuint64 = PackAllVariables_<std::uint64_t>(uint64_imap);
-  int real_vars_size = real_vector.size();
-  int int_vars_size = int_vector.size();
-  int uint64_vars_size = uint64_vector.size();
+  std::size_t real_vars_size = real_vector.size();
+  std::size_t int_vars_size = int_vector.size();
+  std::size_t uint64_vars_size = uint64_vector.size();
   auto real_map = real_imap.Map();
   auto int_map = int_imap.Map();
   auto uint64_map = uint64_imap.Map();
@@ -494,7 +507,7 @@ void Swarm::SortParticlesByCell() {
                     "Too many cells for an int32 to store cell_idx_1d below!");
 
   auto cell_sorted = cell_sorted_;
-  int ncells = pmb->cellbounds.GetTotal(IndexDomain::entire);
+  std::size_t ncells = pmb->cellbounds.GetTotal(IndexDomain::entire);
   int num_active = num_active_;
   int max_active_index = max_active_index_;
 

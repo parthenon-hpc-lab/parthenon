@@ -16,7 +16,6 @@ problem_id = boundary_exchange
 
 <parthenon/mesh>
 refinement = static
-numlevel = 1
 
 nx1 = 8
 x1min = 0.0

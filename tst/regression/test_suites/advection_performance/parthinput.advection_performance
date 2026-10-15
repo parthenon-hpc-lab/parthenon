@@ -23,7 +23,6 @@ enable_sparse = true
 
 <parthenon/mesh>
 refinement = none
-numlevel = 2
 
 nx1 = 64
 x1min = -0.5

@@ -72,7 +72,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   if (use_stencil) {
     std::vector<Real> wgts;
     if (use_jacobi) {
-      wgts = std::vector<Real>({1.0, -2.0 * ndim, 1.0, 1.0, 1.0, 1.0, 1.0});
+      wgts = std::vector<Real>(
+          {1.0, static_cast<Real>(-2.0 * ndim), 1.0, 1.0, 1.0, 1.0, 1.0});
     } else {
       const Real w0 = 1.0 / (2.0 * ndim);
       wgts = std::vector<Real>({w0, -1.0, w0, w0, w0, w0, w0});
@@ -99,10 +100,10 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // This first loop is actually unnecessary,
   // as Kokkos initializes to zero automatically.
   // We show it here just for illustration.
-  for (int i = 0; i < view_reduce.val.size(); i++) {
+  for (std::size_t i = 0; i < view_reduce.val.size(); i++) {
     view_reduce.val(i) = 0;
   }
-  for (int i = 0; i < view_reduce.val.size(); i++) {
+  for (std::size_t i = 0; i < view_reduce.val.size(); i++) {
     view_reduce.val(i) += i;
   }
   pkg->AddParam("view_reduce", view_reduce, true);

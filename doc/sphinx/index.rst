@@ -27,8 +27,10 @@ Community
 ^^^^^^^^^^
 
 * `Chat room on matrix.org`_
+* :doc:`Code of Conduct <src/code_of_conduct>`
 
 .. _`Chat room on matrix.org`: https://app.element.io/#/room/#parthenon-general:matrix.org
+
 
 
 .. toctree::

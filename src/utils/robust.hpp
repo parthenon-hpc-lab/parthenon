@@ -1,11 +1,11 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2024 The Parthenon collaboration
+// Copyright(C) 2024-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // Copied from https://github.com/lanl/phoebus
 //========================================================================================
-// (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2024-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -19,7 +19,10 @@
 #ifndef UTILS_ROBUST_HPP_
 #define UTILS_ROBUST_HPP_
 
+// This file was made in part with generative AI.
+
 #include <algorithm>
+#include <cmath>
 #include <limits>
 
 #include <config.hpp>
@@ -48,12 +51,17 @@ KOKKOS_FORCEINLINE_FUNCTION auto make_positive(const T val) {
 
 KOKKOS_FORCEINLINE_FUNCTION
 Real make_bounded(const Real val, const Real vmin, const Real vmax) {
-  return std::min(std::max(val, vmin + EPS()), vmax * (1.0 - EPS()));
+  return std::min(std::max(val, vmin + EPS()), vmax * (static_cast<Real>(1.0) - EPS()));
 }
 
 template <typename T>
 KOKKOS_INLINE_FUNCTION int sgn(const T &val) {
   return (T(0) <= val) - (val < T(0));
+}
+// Square root with negative arguments (e.g. from roundoff) clamped to zero
+template <typename T>
+KOKKOS_INLINE_FUNCTION T safe_sqrt(const T &val) {
+  return std::sqrt(std::max(val, T(0)));
 }
 template <typename A, typename B>
 KOKKOS_INLINE_FUNCTION auto ratio(const A &a, const B &b) {

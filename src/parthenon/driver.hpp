@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -43,6 +43,8 @@ using ::parthenon::AllReduce;
 using ::parthenon::ApplicationInput;
 using ::parthenon::ApplyBoundaryConditions;
 using ::parthenon::BlockList_t;
+using ::parthenon::DefragAllSwarmsMesh;
+using ::parthenon::DefragSwarmsMesh;
 using ::parthenon::Driver;
 using ::parthenon::DriverStatus;
 using ::parthenon::EvolutionDriver;
@@ -57,7 +59,11 @@ using ::parthenon::Outputs;
 using ::parthenon::Packages_t;
 using ::parthenon::ParameterInput;
 using ::parthenon::ParthenonManager;
+using ::parthenon::ReceiveSwarmsMesh;
 using ::parthenon::Reduce;
+using ::parthenon::RemoveMarkedParticlesMesh;
+using ::parthenon::ResetSwarmsCommunicationMesh;
+using ::parthenon::SendSwarmsMesh;
 using ::parthenon::StagedIntegrator;
 using ::parthenon::Task;
 using ::parthenon::TaskCollection;

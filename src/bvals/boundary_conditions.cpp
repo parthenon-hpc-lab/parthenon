@@ -41,6 +41,10 @@ TaskStatus ApplyBoundaryConditionsOnCoarseOrFine(std::shared_ptr<MeshBlockData<R
   Mesh *pmesh = pmb->pmy_mesh;
   const int ndim = pmesh->ndim;
 
+  // We only need to call the BC on the coarse buffer if one of the neighbors
+  // is at a coarser level than us.
+  if (coarse && !pmb->HasCoarserNeighbors()) return TaskStatus::complete;
+
   auto &tree_bnd_func = pmesh->forest.GetTreePtr(pmb->loc.tree())->MeshBndryFnctn;
   auto &tree_bnd_func_user =
       pmesh->forest.GetTreePtr(pmb->loc.tree())->UserBoundaryFunctions;

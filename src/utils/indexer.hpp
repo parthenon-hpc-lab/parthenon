@@ -13,6 +13,7 @@
 #ifndef UTILS_INDEXER_HPP_
 #define UTILS_INDEXER_HPP_
 
+#include <algorithm>
 #include <array>
 #include <string>
 #include <tuple>
@@ -21,6 +22,7 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "basic_types.hpp"
 #include "utils/concepts_lite.hpp"
 #include "utils/type_list.hpp"
 #include "utils/utils.hpp"
@@ -72,7 +74,7 @@ struct block_ownership_t {
 template <class... Ts>
 struct Indexer {
   KOKKOS_INLINE_FUNCTION
-  Indexer() : N{}, start{} {};
+  Indexer() : start{}, N{} {}
 
   std::string GetRangesString() const {
     auto end = End();
@@ -85,14 +87,14 @@ struct Indexer {
 
   KOKKOS_INLINE_FUNCTION
   explicit Indexer(std::pair<Ts, Ts>... Ns)
-      : N{GetFactors({(Ns.second - Ns.first + 1)...},
-                     std::make_index_sequence<sizeof...(Ts)>())},
-        start{Ns.first...} {}
+      : start{Ns.first...}, N{GetFactors({(Ns.second - Ns.first + 1)...},
+                                         std::make_index_sequence<sizeof...(Ts)>())} {}
 
   template <class... IndRngs>
   KOKKOS_INLINE_FUNCTION explicit Indexer(IndRngs... Ns)
-      : N{GetFactors({(Ns.e - Ns.s + 1)...}, std::make_index_sequence<sizeof...(Ts)>())},
-        start{Ns.s...} {}
+      : start{Ns.s...},
+        N{GetFactors({(Ns.e - Ns.s + 1)...}, std::make_index_sequence<sizeof...(Ts)>())} {
+  }
 
   KOKKOS_FORCEINLINE_FUNCTION std::size_t size() const { return N[0]; }
 
@@ -102,7 +104,7 @@ struct Indexer {
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  std::size_t GetFlatIdx(Ts... ts) const {
+  int GetFlatIdx(Ts... ts) const {
     return GetFlatIndexImpl(ts..., std::make_index_sequence<sizeof...(Ts)>());
   }
 
@@ -159,9 +161,9 @@ struct Indexer {
   }
 
   template <std::size_t... Is>
-  KOKKOS_FORCEINLINE_FUNCTION std::size_t
-  GetFlatIndexImpl(Ts... idxs, std::index_sequence<Is...>) const {
-    std::size_t out{0};
+  KOKKOS_FORCEINLINE_FUNCTION int GetFlatIndexImpl(Ts... idxs,
+                                                   std::index_sequence<Is...>) const {
+    int out{0};
     (
         [&] {
           idxs -= start[Is];
@@ -190,7 +192,7 @@ struct Indexer {
 
  private:
   template <std::size_t I>
-  KOKKOS_FORCEINLINE_FUNCTION const auto GetN() const {
+  KOKKOS_FORCEINLINE_FUNCTION auto GetN() const {
     if constexpr (I == sizeof...(Ts) - 1) return 1;
 
     return N[I + 1];
@@ -209,10 +211,10 @@ struct Indexer {
 template <class... Ts>
 struct IndexRanger {
   KOKKOS_INLINE_FUNCTION
-  IndexRanger() : N{}, _size{} {};
+  IndexRanger() : N{}, _size{} {}
 
   KOKKOS_INLINE_FUNCTION
-  explicit IndexRanger(Ts... IdrsA) {}
+  explicit IndexRanger(Ts... IdrsA) : N{IdrsA...}, _size{} {}
 
   Kokkos::Array<IndexRange, sizeof...(Ts)> N;
   std::size_t _size;
@@ -222,7 +224,7 @@ template <>
 struct Indexer<> {
   // this is a dummy and shouldn't ever actually get used to index an array
   KOKKOS_FORCEINLINE_FUNCTION
-  Kokkos::Array<int, 1> GetIdxArray(int idx) const { return {-1}; }
+  Kokkos::Array<int, 1> GetIdxArray(int) const { return {-1}; }
 };
 
 template <class... Ts>
@@ -265,6 +267,41 @@ using Indexer7D = Indexer<int, int, int, int, int, int, int>;
 using Indexer8D = Indexer<int, int, int, int, int, int, int, int>;
 
 using SpatiallyMaskedIndexer6D = SpatiallyMaskedIndexer<int, int, int, int, int, int>;
+
+class SplitFlatIndexRangeAmongTeams {
+ public:
+  KOKKOS_FORCEINLINE_FUNCTION
+  SplitFlatIndexRangeAmongTeams(int nteams, int work_chunk_size, int total_work)
+      : nteams(nteams), work_chunk_size(work_chunk_size), total_work(total_work) {
+    n_work_units_tot =
+        total_work / work_chunk_size + ((total_work % work_chunk_size) > 0);
+    n_work_per_team = n_work_units_tot / nteams;
+    n_extra_work_tot = n_work_units_tot % nteams;
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  auto GetIdxRange(int team) const {
+    return std::make_pair(GetStart(team), GetEnd(team));
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int GetStart(int team) const {
+    return std::min((team * n_work_per_team + std::min(team, n_extra_work_tot)) *
+                        work_chunk_size,
+                    total_work);
+  }
+
+  KOKKOS_FORCEINLINE_FUNCTION
+  int GetEnd(int team) const { return GetStart(team + 1); }
+
+ private:
+  int nteams;
+  int work_chunk_size;
+  int total_work;
+  int n_work_units_tot;
+  int n_work_per_team;
+  int n_extra_work_tot;
+};
 
 template <class... Ts>
 KOKKOS_FORCEINLINE_FUNCTION auto MakeIndexer(const std::pair<Ts, Ts> &...ranges) {

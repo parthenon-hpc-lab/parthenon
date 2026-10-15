@@ -1,6 +1,6 @@
 #========================================================================================
 # Parthenon performance portable AMR framework
-# Copyright(C) 2021 The Parthenon collaboration
+# Copyright(C) 2021-2026 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 #========================================================================================
 # (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
@@ -19,7 +19,6 @@ message(STATUS "Loading machine configuration for GitHub Actions CI. ")
 
 # common options
 set(NUM_MPI_PROC_TESTING "2" CACHE STRING "CI runs tests with 2 MPI ranks")
-set(Kokkos_ENABLE_ROCTHRUST OFF CACHE BOOL "Temporarily disabled as the container needs to be updated to the `-complete` base image.")
 
 set(CMAKE_CXX_FLAGS_DBGNOSYM "-O0" CACHE STRING "Debug build without symbols")
 
@@ -44,10 +43,22 @@ if (${MACHINE_VARIANT} MATCHES "mpi")
   # not using the following as the default is determined correctly
   #set(TEST_MPIEXEC mpiexec CACHE STRING "Command to launch MPI applications")
   list(APPEND TEST_MPIOPTS "--allow-run-as-root")
-  set(HDF5_ROOT /usr/local/hdf5/parallel CACHE STRING "HDF5 path")
+  # ROCM/HIP build uses container with default HDF5 install, other need custom
+  if (NOT ${MACHINE_VARIANT} MATCHES "hip")
+    set(HDF5_ROOT /usr/local/hdf5/parallel CACHE STRING "HDF5 path")
+  endif()
+  set(PARTHENON_USE_SYSTEM_OPENPMD ON CACHE BOOL "Use API in container")
+
 else()
-  set(HDF5_ROOT /usr/local/hdf5/serial CACHE STRING "HDF5 path")
+  # ROCM/HIP build uses container with default HDF5 install, other need custom
+  if (NOT ${MACHINE_VARIANT} MATCHES "hip")
+    set(HDF5_ROOT /usr/local/hdf5/serial CACHE STRING "HDF5 path")
+  endif()
   set(PARTHENON_DISABLE_MPI ON CACHE BOOL "Disable MPI")
+  # testing auto fetch and compile
+  set(PARTHENON_USE_SYSTEM_OPENPMD OFF CACHE BOOL "Use API in container")
 endif()
+
+set(PARTHENON_DISABLE_OPENPMD OFF CACHE BOOL "Always use OpenPMD build in CI env")
 
 set(CMAKE_CXX_FLAGS "${MACHINE_CXX_FLAGS}" CACHE STRING "Default flags for this config")

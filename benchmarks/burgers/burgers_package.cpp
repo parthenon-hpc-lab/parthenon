@@ -148,7 +148,7 @@ void CalculateDerived(MeshData<Real> *md) {
   std::vector<std::string> vars({"derived", "U"});
   auto &v = md->PackVariables(vars);
   const int nblocks = md->NumBlocks();
-  size_t scratch_size = 0;
+  std::size_t scratch_size = 0;
   constexpr int scratch_level = 0;
   parthenon::par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), scratch_size,
@@ -187,12 +187,13 @@ Real EstimateTimestepMesh(MeshData<Real> *md) {
       md->NumBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
       KOKKOS_LAMBDA(const int b, const int k, const int j, const int i, Real &ldt) {
         auto &coords = v.GetCoords(b);
-        ldt = std::min(
-            ldt,
-            1.0 /
-                ((std::abs(v(b, 0, k, j, i))) / coords.Dxc<X1DIR>(k, j, i) +
-                 (ndim > 1) * (std::abs(v(b, 1, k, j, i))) / coords.Dxc<X2DIR>(k, j, i) +
-                 (ndim > 2) * (std::abs(v(b, 2, k, j, i))) / coords.Dxc<X3DIR>(k, j, i)));
+        ldt = Kokkos::min(
+            ldt, static_cast<Real>(
+                     1.0 / ((Kokkos::abs(v(b, 0, k, j, i))) / coords.Dxc<X1DIR>(k, j, i) +
+                            (ndim > 1) * (Kokkos::abs(v(b, 1, k, j, i))) /
+                                coords.Dxc<X2DIR>(k, j, i) +
+                            (ndim > 2) * (Kokkos::abs(v(b, 2, k, j, i))) /
+                                coords.Dxc<X3DIR>(k, j, i))));
       },
       Kokkos::Min<Real>(min_dt));
 
@@ -231,7 +232,7 @@ TaskStatus CalculateFluxes(MeshData<Real> *md) {
   const int dj = (ndim > 1 ? 1 : 0);
 
   // first we'll reconstruct the state to faces
-  size_t scratch_size = 0;
+  std::size_t scratch_size = 0;
   constexpr int scratch_level = 0;
   parthenon::par_for_outer(
       DEFAULT_OUTER_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), scratch_size,

@@ -3,7 +3,7 @@
 // Copyright(C) 2021-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -15,9 +15,12 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #include <memory>
 
 #include "parthenon_manager.hpp"
+
 #include "particle_leapfrog.hpp"
 
 int main(int argc, char *argv[]) {
@@ -28,6 +31,7 @@ int main(int argc, char *argv[]) {
   // Redefine parthenon defaults
   pman.app_input->ProcessPackages = particles_leapfrog::ProcessPackages;
   pman.app_input->ProblemGenerator = particles_leapfrog::ProblemGenerator;
+  pman.app_input->PostInitialization = particles_leapfrog::PostInitialization;
 
   // Create user output and enroll
   pman.app_input->RegisterUserOutput(

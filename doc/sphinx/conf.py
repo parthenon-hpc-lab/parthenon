@@ -18,7 +18,7 @@
 # -- Project information -----------------------------------------------------
 
 project = "Parthenon"
-copyright = "2023, The Parthenon Collaboration and Triad National Security"
+copyright = "2023-2026, The Parthenon Collaboration and Triad National Security"
 author = "The Parthenon Collaboration"
 
 
@@ -27,7 +27,9 @@ author = "The Parthenon Collaboration"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["sphinx_multiversion"]
+extensions = ["sphinx_multiversion", "myst_parser"]
+
+myst_heading_anchors = 6
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]

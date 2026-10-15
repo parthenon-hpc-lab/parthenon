@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2024 The Parthenon collaboration
+// Copyright(C) 2024-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2021-2024. Triad National Security, LLC. All rights reserved.
@@ -28,6 +28,7 @@
 #include "mesh/forest/forest.hpp"
 
 using namespace parthenon::forest;
+using parthenon::Real;
 namespace {
 void DerefineAllPossibleLocations(Forest &forest) {
   auto locs = forest.GetMeshBlockListAndResolveGids();
@@ -59,14 +60,15 @@ Forest n_blocks(int nblocks_min, int nblocks_max) {
   ForestDefinition forest_def;
   int nc = 0;
   int fc = 0;
-  parthenon::Real xoffset = 0.0;
+  Real xoffset = 0.0;
   for (int nblocks = nblocks_min; nblocks <= nblocks_max; ++nblocks) {
     for (int point = 0; point < 2 * nblocks; ++point) {
-      nodes[nc + point] =
-          Node::create(nc + point, {std::sin(point * M_PI / nblocks) + xoffset,
-                                    std::cos(point * M_PI / nblocks)});
+      nodes[nc + point] = Node::create(
+          nc + point, {static_cast<Real>(std::sin(point * M_PI / nblocks) + xoffset),
+                       static_cast<Real>(std::cos(point * M_PI / nblocks))});
     }
-    nodes[nc + 2 * nblocks] = Node::create(nc + 2 * nblocks, {0.0 + xoffset, 0.0});
+    nodes[nc + 2 * nblocks] =
+        Node::create(nc + 2 * nblocks, {static_cast<Real>(0.0 + xoffset), 0.0});
     auto &n = nodes;
     for (int t = 0; t < nblocks; ++t)
       forest_def.AddFace(fc + t,

@@ -286,7 +286,7 @@ class IndexShape {
 
   // Kept basic for kokkos
   KOKKOS_INLINE_FUNCTION
-  int GetTotal(const IndexDomain &domain, TE el = TE::CC) const noexcept {
+  std::size_t GetTotal(const IndexDomain &domain, TE el = TE::CC) const noexcept {
     if (NDIM == 0) return 0;
     return ncellsi(domain, el) * ncellsj(domain, el) * ncellsk(domain, el);
   }

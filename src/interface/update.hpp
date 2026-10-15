@@ -27,8 +27,8 @@
 #include "interface/metadata.hpp"
 #include "interface/params.hpp"
 #include "interface/state_descriptor.hpp"
-#include "pack/make_pack_descriptor.hpp"
-#include "pack/sparse_pack.hpp"
+#include "pack/sparse_pack/make_pack_descriptor.hpp"
+#include "pack/sparse_pack/sparse_pack.hpp"
 #include "sparse/sparse_management.hpp"
 #include "time_integration/staged_integrator.hpp"
 

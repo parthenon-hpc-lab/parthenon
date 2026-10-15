@@ -26,7 +26,11 @@ void MeshData<T>::Initialize(BlockList_t blocks, Mesh *pmesh,
     block_data_[i] = blocks[i]->meshblock_data.Add(stage_name_, blocks[i]);
   }
   if (gmg_level) {
-    grid = GridIdentifier::two_level_composite(*gmg_level);
+    if (pmesh) {
+      grid = pmesh->GetGMGGrid(*gmg_level);
+    } else {
+      PARTHENON_FAIL("Cannot initialize MeshData without Mesh.");
+    }
   } else {
     grid = GridIdentifier::leaf();
   }
@@ -38,6 +42,15 @@ template <typename T>
 void MeshData<T>::SetMeshProperties(Mesh *pmesh) {
   pmy_mesh_ = pmesh;
   ndim_ = pmesh == nullptr ? 0 : pmesh->ndim;
+}
+
+template <typename T>
+void MeshData<T>::SetBoundBufferId(BoundaryType btype, int id) {
+  PARTHENON_REQUIRE(id < pmy_mesh_->GetNumberOfCommChannels(btype),
+                    "Trying to set MeshData to communicate on a non-existent channel.");
+  // We do not enforce symmetry here between associated senders and
+  // receivers for maximum flexibility.
+  bound_buffer_ids_[btype] = id;
 }
 
 template class MeshData<Real>;

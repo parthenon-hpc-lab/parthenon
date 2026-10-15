@@ -1,27 +1,17 @@
-FROM rocm/dev-ubuntu-24.04:6.2
+FROM rocm/dev-ubuntu-24.04:7.2.4-complete
 
 RUN apt-get clean && apt-get update -y && \
-    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib lcov curl cmake ninja-build openmpi-bin libopenmpi-dev adios2-mpi-bin adios2-serial-bin libadios2-mpi-c++11-dev libadios2-mpi-core-dev libadios2-serial-core-dev libadios2-serial-c++11-dev && \
+    DEBIAN_FRONTEND="noninteractive" TZ=America/New_York apt-get install -y --no-install-recommends git python3-minimal libpython3-stdlib bc hwloc wget openssh-client python3-numpy python3-h5py python3-matplotlib lcov curl cmake ninja-build openmpi-bin libopenmpi-dev adios2-mpi-bin adios2-serial-bin libadios2-mpi-c++11-dev libadios2-mpi-core-dev libadios2-serial-core-dev libadios2-serial-c++11-dev libhdf5-dev libhdf5-openmpi-dev && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
-
-RUN cd /tmp && \
-    wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.8/src/hdf5-1.10.8.tar.gz && \
-    tar xzf hdf5-1.10.8.tar.gz && \
-    cd hdf5-1.10.8 && \
-    mkdir -p /usr/local/hdf5/serial /usr/local/hdf5/parallel && \
-    ./configure --prefix=/usr/local/hdf5/serial --enable-hl --enable-build-mode=production && make -j8 && make install && make clean && \
-    ./configure --prefix=/usr/local/hdf5/parallel --enable-hl --enable-build-mode=production --enable-parallel && make -j8 && make install && \
-    cd / && \
-    rm -rf /tmp/hdf5-1.10.8*
 
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 10
 
-# commit version is ver 0.16.1
+# commit version is ver 0.17.1
 RUN mkdir /tmp/build-openpmd && cd /tmp/build-openpmd && \
-    wget https://github.com/openPMD/openPMD-api/archive/3a60e77.tar.gz && \
-    tar xzf 3a60e77.tar.gz && \
+    wget https://github.com/openPMD/openPMD-api/archive/f0033b4.tar.gz && \
+    tar xzf f0033b4.tar.gz && \
     mkdir openPMD-api-build && cd openPMD-api-build && \
-    cmake ../openPMD-api-3a60e7714f6143c8fc7bf89809f2167d058359ee -DopenPMD_USE_PYTHON=ON -DPython_EXECUTABLE=$(which python3) -DopenPMD_USE_ADIOS2=ON && \
+    cmake ../openPMD-api-f0033b4deee00ec2b76cafcdd765e960b4906e31 -DopenPMD_USE_PYTHON=ON -DPython_EXECUTABLE=$(which python3) -DopenPMD_USE_ADIOS2=ON && \
     cmake --build . -j 16 && \
     cmake --build . --target install && \
     cd / && \

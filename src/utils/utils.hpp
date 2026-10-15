@@ -23,6 +23,7 @@
 #include <csignal>
 #include <cstdint>
 #include <cstdio>
+#include <set>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -36,6 +37,13 @@ namespace parthenon {
 
 void ChangeRunDir(const char *pdir);
 void ShowConfig();
+
+template <typename T, typename... Args>
+T SetUnion(const T &a, const Args &...args) {
+  std::set<typename T::value_type> s(a.begin(), a.end());
+  (s.insert(args.begin(), args.end()), ...);
+  return T(s.begin(), s.end());
+}
 
 // Lets us "printf" into a `std::string` safely. Much more readable
 // than, and just as safe as, streams. std::format (C++20) makes this
@@ -72,6 +80,10 @@ constexpr auto get_array_from_tuple(tuple_t &&tuple) {
     return std::array{std::forward<decltype(x)>(x)...};
   };
   return std::apply(get_array, std::forward<tuple_t>(tuple));
+}
+
+namespace WatchDog {
+void WatchDog(int timeout);
 }
 
 //----------------------------------------------------------------------------------------
@@ -118,7 +130,7 @@ namespace Impl {
 // Then the implementation for size_t is always enabled and the implementation
 // for hsize_t is enabled ONLY if HDF5 is available, and hsize_t != size_t.
 template <typename T,
-          typename std::enable_if<!std::is_same<T, size_t>::value, bool>::type = true
+          typename std::enable_if<!std::is_same<T, std::size_t>::value, bool>::type = true
 #ifdef ENABLE_HDF5
           ,
           typename std::enable_if<!std::is_same<T, hsize_t>::value, bool>::type = true>
@@ -157,15 +169,16 @@ T parse_unsigned(const std::string &strvalue) {
 }
 
 template <typename T,
-          typename std::enable_if<std::is_same<T, size_t>::value, bool>::type = true>
+          typename std::enable_if<std::is_same<T, std::size_t>::value, bool>::type = true>
 inline T parse_value(std::string &strvalue) {
-  return parse_unsigned<size_t>(strvalue);
+  return parse_unsigned<std::size_t>(strvalue);
 }
 
 #ifdef ENABLE_HDF5
-template <typename T,
-          typename std::enable_if<std::is_same<T, hsize_t>::value, bool>::type = true,
-          typename std::enable_if<!std::is_same<T, size_t>::value, bool>::type = true>
+template <
+    typename T,
+    typename std::enable_if<std::is_same<T, hsize_t>::value, bool>::type = true,
+    typename std::enable_if<!std::is_same<T, std::size_t>::value, bool>::type = true>
 inline T parse_value(std::string &strvalue) {
   return parse_unsigned<hsize_t>(strvalue);
 }

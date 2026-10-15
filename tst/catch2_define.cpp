@@ -29,18 +29,24 @@
 
 #include <Kokkos_Core.hpp>
 
+#include "globals.hpp"
+
 #ifdef CATCH2_MPI_PARALLEL
 template <class T>
 bool HasMPITests(const T &config) {
   // Used to check if a given test in the suite matches the requsted
   // test specification
   const auto &test_spec = config.testSpec();
+  const bool has_filters = test_spec.hasFilters();
 
   const auto &all_test_cases = Catch::getAllTestCasesSorted(config);
   for (auto const &test_case : all_test_cases) {
-    auto &tags = test_case.getTestCaseInfo().tags;
-    if (test_spec.matches(test_case) &&
-        std::find(tags.begin(), tags.end(), "MPI") != tags.end()) {
+    const auto &info = test_case.getTestCaseInfo();
+    const auto &tags = info.tags;
+    // if the spec is empty, i.e., all tests are requested, we have to special case.
+    const bool selected = has_filters ? test_spec.matches(test_case) : !info.isHidden();
+    const bool is_mpi = std::find(tags.begin(), tags.end(), "MPI") != tags.end();
+    if (selected && is_mpi) {
       return true;
     }
   }
@@ -49,6 +55,9 @@ bool HasMPITests(const T &config) {
 #endif // CATCH2_MPI_PARALLEL
 
 int main(int argc, char *argv[]) {
+  parthenon::Globals::my_rank = 0; // overwritten below as needed
+  parthenon::Globals::nranks = 1;
+
   // With Catch2 >2.13.4 catch_discover_tests() is used to discover tests by calling the
   // test executable with `--list-test-names-only` and parsing the results.
   // However, we have to init Kokkos first, which potentially shows warnings that are
@@ -70,13 +79,18 @@ int main(int argc, char *argv[]) {
 #ifdef CATCH2_MPI_PARALLEL
   bool running_mpi_tests = HasMPITests(config);
   if (running_mpi_tests) {
-    int already_initialized;
+    int already_initialized = 0;
     MPI_Initialized(&already_initialized);
-    if (!already_initialized && (MPI_SUCCESS != MPI_Init(&argc, &argv))) {
-      std::cerr << "### FATAL ERROR in ParthenonInit" << std::endl
-                << "MPI Initialization failed." << std::endl;
-      return -1;
+    if (!already_initialized) {
+      int status = MPI_Init(&argc, &argv);
+      if (status != MPI_SUCCESS) {
+        std::cerr << "### FATAL ERROR in ParthenonInit" << std::endl
+                  << "MPI Initialization failed." << std::endl;
+        return -1;
+      }
     }
+    MPI_Comm_rank(MPI_COMM_WORLD, &parthenon::Globals::my_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &parthenon::Globals::nranks);
   }
 #endif // CATCH2_MPI_PARALLEL
 

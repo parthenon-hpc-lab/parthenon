@@ -32,9 +32,10 @@ namespace Globals {
 int nghost;
 
 // all of these global variables are set at the start of main():
-int my_rank;     // MPI rank of this process
-int nranks;      // total number of MPI ranks
-bool is_restart; // Whether this simulation is restarted from a checkpoint file
+int my_rank;           // MPI rank of this process
+int nranks;            // total number of MPI ranks
+bool is_restart;       // Whether this simulation is restarted from a checkpoint file
+bool watchdog_enabled; // Whether the simulation uses a global watchdog
 
 // sparse configuration values that are needed in various places
 SparseConfig sparse_config;

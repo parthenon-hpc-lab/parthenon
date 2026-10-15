@@ -179,7 +179,7 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
         TaskQualifier::local_sync, none,
         [](std::vector<int> *vec) {
           auto &v = *vec;
-          for (int n = 0; n < v.size(); n++)
+          for (std::size_t n = 0; n < v.size(); n++)
             v[n] += n;
           return TaskStatus::complete;
         },
@@ -199,12 +199,12 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
           if (Globals::my_rank == 0) {
             auto &v = *vec;
             std::cout << "Vec reduction: ";
-            for (int n = 0; n < v.size(); n++) {
+            for (std::size_t n = 0; n < v.size(); n++) {
               std::cout << v[n] << " ";
             }
             std::cout << std::endl;
             std::cout << "Should be:     ";
-            for (int n = 0; n < v.size(); n++) {
+            for (std::size_t n = 0; n < v.size(); n++) {
               std::cout << n * num_partitions * Globals::nranks << " ";
             }
             std::cout << std::endl;
@@ -229,12 +229,12 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
           if (Globals::my_rank == 0) {
             auto &v = *view;
             std::cout << "View reduction: ";
-            for (int n = 0; n < v.size(); n++) {
+            for (std::size_t n = 0; n < v.size(); n++) {
               std::cout << v(n) << " ";
             }
             std::cout << std::endl;
             std::cout << "Should be:     ";
-            for (int n = 0; n < v.size(); n++) {
+            for (std::size_t n = 0; n < v.size(); n++) {
               std::cout << n * num_partitions * Globals::nranks << " ";
             }
             std::cout << std::endl;
