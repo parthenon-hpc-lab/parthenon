@@ -28,7 +28,7 @@
 #include "basic_types.hpp"
 #include "bvals/boundary_conditions.hpp"
 #include "defs.hpp"
-#include "interface/outputs.hpp"
+#include "outputs/outputs.hpp"
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
