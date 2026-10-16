@@ -1,0 +1,31 @@
+# This file was made in part with generative AI
+#
+# Single source of truth for the formatting (clang-format, black) and linting (cpplint)
+# tools and their versions. Used both locally and by the "Check Formatting" CI workflow.
+#
+# Install the git hook once per clone with:
+#   pip install pre-commit && pre-commit install
+# Check/format all files manually with:
+#   pre-commit run --all-files
+repos:
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v20.1.8
+    hooks:
+      - id: clang-format
+        # Only C/C++ files (the hook defaults also include, e.g., JSON and Java)
+        types_or: [c, c++]
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    # Updating to black >= 26 changes the formatting of existing files, so the version
+    # should be bumped in a dedicated PR (listing the reformatting commit in a
+    # .git-blame-ignore-revs file).
+    rev: 25.12.0
+    hooks:
+      - id: black
+  # cpplint is vendored, see tst/style/cpplint.py and CPPLINT.cfg for its configuration
+  - repo: local
+    hooks:
+      - id: cpplint
+        name: cpplint
+        entry: python tst/style/cpplint.py --counting=detailed --quiet
+        language: python
+        files: ^(src|example|tst)/.*\.(cpp|hpp)$

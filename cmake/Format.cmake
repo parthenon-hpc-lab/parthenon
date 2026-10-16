@@ -10,6 +10,20 @@
 # license in this material to reproduce, prepare derivative works, distribute copies to
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
+# This file was made in part with generative AI
+
+# Preferred: use the tool versions pinned in .pre-commit-config.yaml
+find_program(PRE_COMMIT NAMES pre-commit)
+if (PRE_COMMIT)
+  add_custom_target(format
+    COMMAND ${PROJECT_SOURCE_DIR}/scripts/format.sh
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    VERBATIM)
+  return()
+endif()
+
+message(STATUS "pre-commit not found. The format target uses locally installed \
+clang-format and black, whose versions may differ from the ones used in the CI.")
 
 find_program(
     CLANG_FORMAT

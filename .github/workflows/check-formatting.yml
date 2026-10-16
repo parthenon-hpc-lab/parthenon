@@ -1,11 +1,30 @@
+# This file was made in part with generative AI
 name: Check Formatting
-on: push
+
+# Using pull_request (rather than push) so that the check also runs for and
+# reports on PRs opened from forks.
+on:
+  pull_request:
+  push:
+    branches:
+      - develop
+
+permissions:
+  contents: read
+
 jobs:
   check-formatting:
+    # Name kept to match the existing required status check.
     name: Check Python and C++ Formatting
     runs-on: ubuntu-latest
     steps:
-    - uses: pgrete/cpp-py-formatter/check@v0.4.0
+    - uses: actions/checkout@v4
       with:
-        clangFormatVersion: 20
-        token: ${{ secrets.GITHUB_TOKEN }}
+        persist-credentials: false
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Install pre-commit
+      run: python -m pip install pre-commit
+    - name: Run clang-format, black, and cpplint
+      run: pre-commit run --all-files --show-diff-on-failure --color=always
