@@ -7,9 +7,11 @@
 #   pip install pre-commit && pre-commit install
 # Check/format all files manually with:
 #   pre-commit run --all-files
+# Hook revisions are frozen to commit hashes. Update them with
+#   pre-commit autoupdate --freeze
 repos:
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v20.1.8
+    rev: 182152eb8c5ce1cf5299b956b04392c86bd8a126  # frozen: v20.1.8
     hooks:
       - id: clang-format
         # Only C/C++ files (the hook defaults also include, e.g., JSON and Java)
@@ -18,7 +20,7 @@ repos:
     # Updating to black >= 26 changes the formatting of existing files, so the version
     # should be bumped in a dedicated PR (listing the reformatting commit in a
     # .git-blame-ignore-revs file).
-    rev: 25.12.0
+    rev: 831207fd435b47aeffdf6af853097e64322b4d44  # frozen: 25.12.0
     hooks:
       - id: black
   # cpplint is vendored, see tst/style/cpplint.py and CPPLINT.cfg for its configuration
