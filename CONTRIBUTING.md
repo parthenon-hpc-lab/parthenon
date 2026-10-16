@@ -133,12 +133,14 @@ cmake -DPARTHENON_LINT_DEFAULT=ON .
 We use clang-format to automatically format the C++ code and black for Python code.
 If you have the pre-commit hooks installed (see above), staged files are formatted
 automatically on commit.
-Alternatively, you can format all files by running `./scripts/format.sh` (requires
-`pre-commit`), or by executing `make format` or `cmake --build . --target format` from
-your build directory.
-If `pre-commit` is not available, the `format` target falls back to locally installed
-clang-format and black, whose versions may differ from the ones pinned in
-`.pre-commit-config.yaml` (and thus give different results).
+Alternatively, you can format all files by running `./scripts/format.sh`, or by executing
+`make format` or `cmake --build . --target format` from your build directory (which
+calls the same script).
+If `pre-commit` is not available (or when running `./scripts/format.sh --local`), the
+script falls back to locally installed clang-format and black (which can be set via the
+`CLANG_FORMAT` and `BLACK` environment or CMake variables).
+It warns if their major versions differ from the ones pinned in `.pre-commit-config.yaml`,
+as the formatting may then differ from the one checked in the CI.
 
 If you don't have the tools installed locally, our "Hermes" automation can always
 format the code for you. Just create the following comment in your PR, and Hermes will
