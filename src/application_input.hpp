@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2020-2026 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -19,6 +23,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "basic_types.hpp"
@@ -31,10 +36,14 @@ class Mesh;
 class MeshBlock;
 class MeshBlockApplicationData;
 class OutputParameters;
+class OutputType;
 class Packages_t;
 class ParameterInput;
 template <typename T>
 class MeshData;
+
+using UserOutputFactory = std::function<std::shared_ptr<OutputType>(
+    const OutputParameters &op, ParameterInput *pin)>;
 
 class ApplicationInput {
  public:
@@ -98,9 +107,35 @@ class ApplicationInput {
   BValFunc GetBoundaryCondition(BoundaryFace face, const std::string &name) const;
   SBValFunc GetSwarmBoundaryCondition(BoundaryFace face, const std::string &name) const;
 
+  // Custom user outputs
+  // The factory is called once for every <parthenon/output*> block whose file_type
+  // matches the registered name, i.e., each block gets its own OutputType object.
+  void RegisterUserOutput(const std::string &name, UserOutputFactory factory);
+  // Convenience overload for the common case of constructing a new T for each block.
+  // T must derive from OutputType and be constructible from either
+  // (const OutputParameters &, ParameterInput *) or (const OutputParameters &).
+  template <typename T>
+  void RegisterUserOutput(const std::string &name) {
+    RegisterUserOutput(
+        name,
+        [](const OutputParameters &op,
+           ParameterInput *pin) -> std::shared_ptr<OutputType> {
+          if constexpr (std::is_constructible_v<T, const OutputParameters &,
+                                                ParameterInput *>) {
+            return std::make_shared<T>(op, pin);
+          } else {
+            return std::make_shared<T>(op);
+          }
+        });
+  }
+  // Returns the factory for the user output (if it exists) or nullptr if not found.
+  UserOutputFactory GetUserOutputFactory(const std::string &name) const;
+
  private:
   Dictionary<BValFunc> boundary_conditions_[BOUNDARY_NFACES];
   Dictionary<SBValFunc> swarm_boundary_conditions_[BOUNDARY_NFACES];
+
+  Dictionary<UserOutputFactory> user_output_factories_;
 };
 
 } // namespace parthenon
