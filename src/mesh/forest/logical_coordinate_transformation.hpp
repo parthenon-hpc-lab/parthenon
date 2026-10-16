@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2024-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
+
 #ifndef MESH_FOREST_LOGICAL_COORDINATE_TRANSFORMATION_HPP_
 #define MESH_FOREST_LOGICAL_COORDINATE_TRANSFORMATION_HPP_
 
@@ -107,6 +110,9 @@ struct LogicalCoordinateTransformation {
 LogicalCoordinateTransformation
 ComposeTransformations(const LogicalCoordinateTransformation &first,
                        const LogicalCoordinateTransformation &second);
+
+LogicalCoordinateTransformation
+GetInverseTransform(const LogicalCoordinateTransformation &t);
 
 struct NeighborLocation {
   NeighborLocation(const LogicalLocation &g, const LogicalLocation &o,
