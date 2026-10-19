@@ -60,6 +60,7 @@
 - [[PR 1360]](https://github.com/parthenon-hpc-lab/parthenon/pull/1360) Fix boundary cache clearing in different MeshData partitions
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1467]](https://github.com/parthenon-hpc-lab/parthenon/pull/1467) Use pre-commit for formatting/linting checks (incl. PRs from forks) and pin tool versions
 - [[PR 1432]](https://github.com/parthenon-hpc-lab/parthenon/pull/1432) Instantiate default refinement ops once instead of at every Metadata call site
 - [[PR 1436]](https://github.com/parthenon-hpc-lab/parthenon/pull/1436) Add explicit single-precision compile CI jobs and label build precision in job names
 - [[PR 1414]](https://github.com/parthenon-hpc-lab/parthenon/pull/1414) Bump ROCM CI Container to rocm 7.2.4
