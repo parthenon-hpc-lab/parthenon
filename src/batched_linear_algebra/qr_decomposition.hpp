@@ -198,6 +198,92 @@ class QRDecomposition {
   static std::size_t total_shmem_scratch_size(std::size_t nrows) {
     return total_shmem_scratch_size(nrows, nrows);
   }
+
+  /// Solve a square linear system A x = b using a previously computed
+  /// QR factorization A = Q R.
+  ///
+  /// The solution is obtained by first computing x = Q^T b, followed
+  /// by back substitution to solve R x = Q^T b. The factorization
+  /// matrices Q and R are not modified and may be reused for multiple
+  /// right-hand sides without repeating the QR decomposition.
+  ///
+  /// On entry:
+  ///   - R must be an n x n upper triangular matrix produced by
+  ///     QRDecomposition::execute().
+  ///   - Q must be the corresponding n x n orthogonal matrix.
+  ///   - b must contain the n-element right-hand-side vector.
+  ///   - x must provide storage for the n-element solution vector.
+  ///   - b and x must not alias.
+  ///
+  /// On exit:
+  ///   - x contains the solution if the routine succeeds.
+  ///   - Q, R, and b are unchanged.
+  ///   - If the solve fails, x may contain a partial result.
+  ///
+  /// Numerical singularity is detected when a diagonal entry of R
+  /// satisfies |R(i,i)| <= rtol * max_j |R(j,j)|.
+  ///
+  /// The routine performs no dynamic allocations and is callable
+  /// from host code or Kokkos device kernels.
+  ///
+  /// Returns:
+  ///   - 0 on success.
+  ///   - 1 if R is singular or numerically singular.
+  template <class matrix_r_t, class matrix_q_t, class vector_b_t, class vector_x_t>
+  KOKKOS_INLINE_FUNCTION static int solve(const matrix_r_t &R, const matrix_q_t &Q,
+                                          const vector_b_t &b, vector_x_t &x,
+                                          const double rtol = 1e-14) {
+    const int n = GetNrows(R);
+
+    PARTHENON_REQUIRE(GetNcols(R) == n, "QR solve requires square R.");
+    PARTHENON_REQUIRE(GetNrows(Q) == n && GetNcols(Q) == n,
+                      "QR solve requires square Q.");
+
+    // Find a scale for detecting a numerically singular R.
+    double rscale = 0.0;
+    for (int i = 0; i < n; ++i) {
+      const double rii = R(i, i);
+      const double arii = (rii >= 0.0) ? rii : -rii;
+      rscale = std::max(rscale, arii);
+    }
+
+    if (rscale == 0.0) return 1;
+
+    // x <- Q^T b
+    //
+    // We use x itself as temporary storage for Q^T b, so b and x
+    // should not alias.
+    for (int i = 0; i < n; ++i) {
+      double sum = 0.0;
+
+      for (int j = 0; j < n; ++j) {
+        sum += Q(j, i) * b[j];
+      }
+
+      x[i] = sum;
+    }
+
+    // Back substitution:
+    //
+    //   R x = Q^T b
+    //
+    for (int i = n - 1; i >= 0; --i) {
+      double rhs = x[i];
+
+      for (int j = i + 1; j < n; ++j) {
+        rhs -= R(i, j) * x[j];
+      }
+
+      const double rii = R(i, i);
+      const double arii = (rii >= 0.0) ? rii : -rii;
+
+      if (arii <= rtol * rscale) return 1;
+
+      x[i] = rhs / rii;
+    }
+
+    return 0;
+  }
 };
 
 class LQDecomposition {
