@@ -208,13 +208,13 @@ class TestCase(utils.test_case.TestCaseAbs):
         elif step == 2:
             parameters.driver_cmd_line_args = [
                 "-r",
-                "gold.out0.00004.rhdf",
+                "gold.restart.00004.phdf",
                 "parthenon/job/problem_id=silver",
             ]
         elif step == 3:
             parameters.driver_cmd_line_args = [
                 "-r",
-                "gold.out0.00004.rhdf",
+                "gold.restart.00004.phdf",
                 "parthenon/job/problem_id=silver_coalesced",
                 "parthenon/mesh/do_coalesced_comms=true",
             ]
@@ -222,7 +222,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         else:
             parameters.driver_cmd_line_args = [
                 "-r",
-                "gold.out0.00005.rhdf",
+                "gold.restart.00005.phdf",
                 "parthenon/job/problem_id=bronze",
                 "parthenon/output1/file_type=hdf5",
                 "parthenon/output1/dt=0.25",
@@ -249,8 +249,8 @@ class TestCase(utils.test_case.TestCaseAbs):
         def compare_files(name, base="silver"):
             delta = compare(
                 [
-                    "gold.out0.%s.rhdf" % name,
-                    "{}.out0.{}.rhdf".format(base, name),
+                    "gold.restart.%s.phdf" % name,
+                    "{}.restart.{}.phdf".format(base, name),
                 ],
                 one=True,
                 tol=0.0,

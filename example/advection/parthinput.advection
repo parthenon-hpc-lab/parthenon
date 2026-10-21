@@ -66,7 +66,8 @@ vec_size = 1 # size of each variable
 fill_derived = false # whether to fill one-copy test vars
 
 <parthenon/output1>
-file_type = rst
+file_type = hdf5
+output_type = restart
 dt = 0.05
 
 <parthenon/output0>

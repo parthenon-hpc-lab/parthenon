@@ -17,6 +17,7 @@
 //! \file restart.cpp
 //  \brief writes restart files
 
+#include <filesystem>
 #include <memory>
 #include <numeric>
 #include <string>
@@ -55,6 +56,19 @@ RestartReaderHDF5::RestartReaderHDF5(const char *filename) : filename_(filename)
   // Open the HDF file in read only mode
   fh_ = H5F::FromHIDCheck(H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT));
   params_group_ = H5G::FromHIDCheck(H5Oopen(fh_, "Params", H5P_DEFAULT));
+
+  // The input dump contains every output block, so inspect the marker on this
+  // particular file rather than looking for a restart block in the saved input.
+  // Legacy .rhdf files have no marker and remain valid restart files.
+  if (std::filesystem::path(filename).extension() == ".phdf") {
+    const H5O info = H5O::FromHIDCheck(H5Oopen(fh_, "Info", H5P_DEFAULT));
+    const bool marked_restart = PARTHENON_HDF5_CHECK(H5Aexists(info, "OutputType")) > 0 &&
+                                GetAttr<std::string>("Info", "OutputType") == "restart";
+    if (!marked_restart && Globals::my_rank == 0) {
+      PARTHENON_WARN("Restarting from an HDF5 file not written with output_type=restart. "
+                     "The file may not contain all data required for a restart.");
+    }
+  }
 
   has_ghost = GetAttr<int>("Info", "IncludesGhost");
 
