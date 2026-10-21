@@ -199,6 +199,7 @@ class QRDecomposition {
     return total_shmem_scratch_size(nrows, nrows);
   }
 
+  /// [This documentation was generated with assistance from generative AI]
   /// Solve a square linear system A x = b using a previously computed
   /// QR factorization A = Q R.
   ///
