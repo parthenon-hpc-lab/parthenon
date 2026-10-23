@@ -5,6 +5,28 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+
+
+### Changed (changing behavior/API/variables/...)
+
+
+### Fixed (not changing behavior/API/variables/...)
+
+
+### Infrastructure (changes irrelevant to downstream codes)
+
+
+### Removed (removing behavior/API/variables/...)
+
+
+### Incompatibilities (i.e. breaking changes)
+
+
+
+## Release 26.10
+Date: 2026-10-23
+
+### Added (new features/APIs/variables/...)
 - [[PR 1457]](https://github.com/parthenon-hpc-lab/parthenon/pull/1457) Extract CalcIndices into a MeshBlock-free header and add supporting infrastructure for tensor trains
 - [[PR 1362]](https://github.com/parthenon-hpc-lab/parthenon/pull/1362) Add support for completely custom "user" output
 - [[PR 1456]](https://github.com/parthenon-hpc-lab/parthenon/pull/1456) Add batched dense linear algebra kernels
