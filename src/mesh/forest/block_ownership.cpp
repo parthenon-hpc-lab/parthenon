@@ -41,6 +41,7 @@ namespace parthenon {
 block_ownership_t
 DetermineOwnership(const LogicalLocation &main_block,
                    const std::vector<forest::NeighborLocation> &allowed_neighbors,
+                   const std::array<bool, 3> self_border_block,
                    const std::unordered_set<LogicalLocation> &newly_refined) {
   block_ownership_t main_owns;
 
@@ -63,6 +64,19 @@ DetermineOwnership(const LogicalLocation &main_block,
     return a.morton() < b.morton();
   };
 
+  // Does this block border itself over this face, and are we on the left side?
+  // Then Morton number would say we own the face/edge/corner, but we don't
+  // (the right side does).
+  auto self_border_left = [self_border_block](int ox1, int ox2, int ox3) {
+    // Can take care of each direction independently, corners follow
+    if ((self_border_block[0] && ox1 < 0) || (self_border_block[1] && ox2 < 0) ||
+        (self_border_block[2] && ox3 < 0)) {
+      return true;
+    } else {
+      return false;
+    }
+  };
+
   for (int ox1 : {-1, 0, 1}) {
     for (int ox2 : {-1, 0, 1}) {
       for (int ox3 : {-1, 0, 1}) {
@@ -70,6 +84,10 @@ DetermineOwnership(const LogicalLocation &main_block,
         for (const auto &n : allowed_neighbors) {
           if (ownership_less_than(main_block, n.global_loc) &&
               main_block.IsNeighborOfTE(n.origin_loc, {ox1, ox2, ox3})) {
+            main_owns(ox1, ox2, ox3) = false;
+            break;
+          } else if (main_block.level() == 0 && main_block == n.global_loc &&
+                     self_border_left(ox1, ox2, ox3)) {
             main_owns(ox1, ox2, ox3) = false;
             break;
           }
