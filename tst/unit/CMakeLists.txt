@@ -18,6 +18,7 @@
 # This file was made in part with generative AI.
 
 list(APPEND unit_tests_SOURCES
+    test_reverse_neighbor.cpp
     test_ascii_table_parsing.cpp
     test_loop_abstraction.cpp
     test_concepts_lite.cpp
@@ -50,6 +51,11 @@ list(APPEND unit_tests_SOURCES
     test_swarm_amr_remesh.cpp
     test_unit_integrators.cpp
     test_upper_bound.cpp
+    linalg_test_utils.cpp
+    test_qr.cpp
+    test_svd.cpp
+    test_implicit_qr.cpp
+    test_linalg_device.cpp
 )
 
 add_executable(unit_tests "${unit_tests_SOURCES}")

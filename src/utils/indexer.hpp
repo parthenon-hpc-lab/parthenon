@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
+
 #ifndef UTILS_INDEXER_HPP_
 #define UTILS_INDEXER_HPP_
 
@@ -208,6 +211,16 @@ struct Indexer {
   Kokkos::Array<int, sizeof...(Ts)> N;
 };
 
+template <std::size_t I, class INDEXER>
+KOKKOS_FORCEINLINE_FUNCTION auto StartIdx(const INDEXER &idxer) {
+  return idxer.template StartIdx<I>();
+}
+
+template <std::size_t I, class INDEXER>
+KOKKOS_FORCEINLINE_FUNCTION auto EndIdx(const INDEXER &idxer) {
+  return idxer.template EndIdx<I>();
+}
+
 template <class... Ts>
 struct IndexRanger {
   KOKKOS_INLINE_FUNCTION
@@ -252,6 +265,9 @@ class SpatiallyMaskedIndexer : public Indexer<Ts...> {
     const int kidx = (k == kend) - (k == kstart);
     return active_(iidx, jidx, kidx);
   }
+
+  KOKKOS_INLINE_FUNCTION
+  const block_ownership_t &GetOwnership() const { return active_; }
 
  private:
   block_ownership_t active_;
