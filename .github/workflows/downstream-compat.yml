@@ -1,0 +1,24 @@
+name: Downstream / Parthenon-Hydro
+
+on:
+  pull_request:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: parthenon-downstream-hydro-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  hydro:
+    name: Hydro compatibility
+    uses: parthenon-hpc-lab/parthenon-hydro/.github/workflows/ci.yml@main
+    with:
+      hydro_ref: main
+      # Tests the synthetic merge of develop + PR.
+      parthenon_ref: ${{ github.ref }}
+      # Don't execute matrix build tests. Just (build and) run the code.
+      run_only: true
+
