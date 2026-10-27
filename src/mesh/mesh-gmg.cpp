@@ -65,21 +65,6 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
                     {ndim > 2 ? -1 : 0, ndim > 2 ? 1 : 0});
   BufferID buffer_id(ndim, multilevel);
 
-  // If we're periodic with just 1 block in any direction,
-  // we must treat ownership specially
-  auto block_size = pmesh->GetDefaultBlockSize();
-  std::array<bool, 3> self_border_block{
-      !pmesh->mesh_size.symmetry(X1DIR) &&
-          pmesh->mesh_size.nx(X1DIR) / block_size.nx(X1DIR) == 1 &&
-          pmesh->mesh_bcs[BoundaryFace::inner_x1] == BoundaryFlag::periodic,
-      !pmesh->mesh_size.symmetry(X2DIR) &&
-          pmesh->mesh_size.nx(X2DIR) / block_size.nx(X2DIR) == 1 &&
-          pmesh->mesh_bcs[BoundaryFace::inner_x2] == BoundaryFlag::periodic,
-      !pmesh->mesh_size.symmetry(X3DIR) &&
-          pmesh->mesh_size.nx(X3DIR) / block_size.nx(X3DIR) == 1 &&
-          pmesh->mesh_bcs[BoundaryFace::inner_x3] == BoundaryFlag::periodic,
-  };
-
   for (auto &pmb : block_list) {
     std::vector<NeighborBlock> all_neighbors;
     const auto &loc = pmb->loc;
@@ -108,8 +93,8 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
       auto &nb = all_neighbors.back();
       auto neighbor_neighbors = forest.FindNeighbors(nloc.global_loc, grid_id);
 
-      nb.ownership = DetermineOwnership(nloc.global_loc, neighbor_neighbors,
-                                        self_border_block, newly_refined);
+      nb.ownership =
+          DetermineOwnership(nloc.global_loc, neighbor_neighbors, true, newly_refined);
       nb.ownership.initialized = true;
 
       // Set logical coordinate transformation from this block to the neighbor
@@ -124,8 +109,7 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
       }
       // Store this block's own ownership of shared topological elements (in its own
       // logical frame), computed exactly as for a neighbor but for the block itself.
-      pmb->ownership =
-          DetermineOwnership(loc, neighbors, self_border_block, newly_refined);
+      pmb->ownership = DetermineOwnership(loc, neighbors, false, newly_refined);
       pmb->ownership.initialized = true;
     } else if (grid_id.type() == GridType::two_level_composite &&
                pmb->loc.level() == grid_id.logical_level()) {
@@ -476,7 +460,7 @@ void Mesh::SetGMGNeighbors() {
           neighbor_locs.emplace_back(n.loc, n.loc,
                                      forest::LogicalCoordinateTransformation());
         for (auto &n : pmb->gmg_finer_neighbors)
-          n.ownership = DetermineOwnership(n.loc, neighbor_locs);
+          n.ownership = DetermineOwnership(n.loc, neighbor_locs, true);
       }
     }
   }

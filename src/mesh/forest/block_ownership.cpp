@@ -41,7 +41,7 @@ namespace parthenon {
 block_ownership_t
 DetermineOwnership(const LogicalLocation &main_block,
                    const std::vector<forest::NeighborLocation> &allowed_neighbors,
-                   const std::array<bool, 3> self_border_block,
+                   bool neighbor_neighbor,
                    const std::unordered_set<LogicalLocation> &newly_refined) {
   block_ownership_t main_owns;
 
@@ -53,30 +53,29 @@ DetermineOwnership(const LogicalLocation &main_block,
     return 2 * a.level();
   };
 
-  auto ownership_less_than = [ownership_level](const LogicalLocation &a,
-                                               const LogicalLocation &b, bool left) {
-    // Ownership is first determined by block with the highest level, then by maximum
-    // (tree, Morton) number this is reversed in precedence from the normal comparators
-    // where (tree, Morton) number takes precedence
+  auto ownership_less_than = [ownership_level,
+                              neighbor_neighbor](const LogicalLocation &a,
+                                                 const forest::NeighborLocation &nb) {
+    const auto &b = nb.global_loc;
+
+    // Ownership is first determined by block with the highest effective level,
+    // then by maximum (tree, Morton) number.
     if (ownership_level(a) != ownership_level(b))
       return ownership_level(a) < ownership_level(b);
     if (a.tree() != b.tree()) return a.tree() < b.tree();
-    if (a.tree() != b.tree()) return (a.tree() < b.tree());
     if (a.morton() != b.morton()) return a.morton() < b.morton();
-    return left;
-  };
 
-  // Does this block border itself over this face, and are we on the left side?
-  // Then Morton number would say we own the face/edge/corner, but we don't
-  // (the right side does).
-  auto self_border_left = [self_border_block](int ox1, int ox2, int ox3) {
-    // Can take care of each direction independently, corners follow
-    if ((self_border_block[0] && ox1 < 0) || (self_border_block[1] && ox2 < 0) ||
-        (self_border_block[2] && ox3 < 0)) {
-      return true;
-    } else {
-      return false;
-    }
+    // If this is the same logical block, order its different images using
+    // the neighbor offset in each block's own logical frame.
+    const CellCentOffsets offsets(a.GetSameLevelOffsets(nb.origin_loc));
+    const auto offsets_in_neighbor_frame = nb.lcoord_trans.Transform(offsets);
+    const auto reverse_idx = offsets_in_neighbor_frame.GetReverseIdx();
+
+    if (offsets.GetIdx() != reverse_idx) return offsets.GetIdx() < reverse_idx;
+
+    // The connection maps the block back onto the same topological element.
+    // The real block owns the element; a NeighborBlock image does not.
+    return neighbor_neighbor;
   };
 
   for (int ox1 : {-1, 0, 1}) {
@@ -84,8 +83,7 @@ DetermineOwnership(const LogicalLocation &main_block,
       for (int ox3 : {-1, 0, 1}) {
         main_owns(ox1, ox2, ox3) = true;
         for (const auto &n : allowed_neighbors) {
-          if (ownership_less_than(main_block, n.global_loc,
-                                  self_border_left(ox1, ox2, ox3)) &&
+          if (ownership_less_than(main_block, n) &&
               main_block.IsNeighborOfTE(n.origin_loc, {ox1, ox2, ox3})) {
             main_owns(ox1, ox2, ox3) = false;
             break;
