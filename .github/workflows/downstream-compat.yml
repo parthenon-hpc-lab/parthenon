@@ -1,19 +1,22 @@
-name: Downstream / Parthenon-Hydro
+# This file was made in part with generative AI.
+
+name: Downstream compatibility
 
 on:
   pull_request:
     branches: [develop]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
 
 concurrency:
-  group: parthenon-downstream-hydro-${{ github.event.pull_request.number }}
+  group: downstream-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   hydro:
-    name: Hydro compatibility
+    name: parthenon-hydro compatibility
     uses: parthenon-hpc-lab/parthenon-hydro/.github/workflows/ci.yml@main
     with:
       hydro_ref: main

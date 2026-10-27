@@ -14,7 +14,7 @@
 
 
 ### Infrastructure (changes irrelevant to downstream codes)
-
+- [[PR 1471]](https://github.com/parthenon-hpc-lab/parthenon/pull/1471) Add break-downstream test for parthenon-hydro
 
 ### Removed (removing behavior/API/variables/...)
 
@@ -33,6 +33,7 @@ Date: 2026-10-23
 - [[PR 1462]](https://github.com/parthenon-hpc-lab/parthenon/pull/1462) Add user-specified output times that can be combined with dt or dn output schedules
 - [[PR 1439]](https://github.com/parthenon-hpc-lab/parthenon/pull/1439) Long-overdue parthenon tutorial
 - [[PR 1443]](https://github.com/parthenon-hpc-lab/parthenon/pull/1443) Allow for specifying topological elements in var views
+- [[PR 1322]](https://github.com/parthenon-hpc-lab/parthenon/pull/1322) Support for virtual fields (with packing and slicing)
 - [[PR 1431]](https://github.com/parthenon-hpc-lab/parthenon/pull/1431) Add reductions to the loop abstraction
 - [[PR 1429]](https://github.com/parthenon-hpc-lab/parthenon/pull/1429) Fixes to swarm tensor xdmf
 - [[PR 1428]](https://github.com/parthenon-hpc-lab/parthenon/pull/1428) Permit larger input file sizes
