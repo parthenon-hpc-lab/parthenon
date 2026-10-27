@@ -124,7 +124,8 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
       }
       // Store this block's own ownership of shared topological elements (in its own
       // logical frame), computed exactly as for a neighbor but for the block itself.
-      pmb->ownership = DetermineOwnership(loc, neighbors, self_border_block, newly_refined);
+      pmb->ownership =
+          DetermineOwnership(loc, neighbors, self_border_block, newly_refined);
       pmb->ownership.initialized = true;
     } else if (grid_id.type() == GridType::two_level_composite &&
                pmb->loc.level() == grid_id.logical_level()) {

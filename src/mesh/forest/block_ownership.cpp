@@ -54,8 +54,7 @@ DetermineOwnership(const LogicalLocation &main_block,
   };
 
   auto ownership_less_than = [ownership_level](const LogicalLocation &a,
-                                               const LogicalLocation &b,
-                                               bool left) {
+                                               const LogicalLocation &b, bool left) {
     // Ownership is first determined by block with the highest level, then by maximum
     // (tree, Morton) number this is reversed in precedence from the normal comparators
     // where (tree, Morton) number takes precedence
@@ -85,7 +84,8 @@ DetermineOwnership(const LogicalLocation &main_block,
       for (int ox3 : {-1, 0, 1}) {
         main_owns(ox1, ox2, ox3) = true;
         for (const auto &n : allowed_neighbors) {
-          if (ownership_less_than(main_block, n.global_loc, self_border_left(ox1, ox2, ox3)) &&
+          if (ownership_less_than(main_block, n.global_loc,
+                                  self_border_left(ox1, ox2, ox3)) &&
               main_block.IsNeighborOfTE(n.origin_loc, {ox1, ox2, ox3})) {
             main_owns(ox1, ox2, ox3) = false;
             break;
