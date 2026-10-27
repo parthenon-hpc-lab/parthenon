@@ -460,7 +460,7 @@ void Mesh::SetGMGNeighbors() {
           neighbor_locs.emplace_back(n.loc, n.loc,
                                      forest::LogicalCoordinateTransformation());
         for (auto &n : pmb->gmg_finer_neighbors)
-          n.ownership = DetermineOwnership(n.loc, neighbor_locs, true);
+          n.ownership = DetermineOwnership(n.loc, neighbor_locs, false);
       }
     }
   }
