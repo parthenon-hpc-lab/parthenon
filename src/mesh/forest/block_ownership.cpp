@@ -74,7 +74,6 @@ DetermineOwnership(const LogicalLocation &main_block,
     if (offsets.GetIdx() != reverse_offset) return offsets.GetIdx() < reverse_offset;
 
     // Break ties of same block, same image by prioritizing "real" blocks.
-    // Neighbors
     return neighbor_neighbor;
   };
 
