@@ -137,13 +137,13 @@ void SetSignalFlag(int s) {
   case SIGTERM:
     signalflag[ITERM] += 1;
     if (signalflag[ITERM] >= SIGNAL_REPEAT_THROW)
-      PARTHENON_THROW("Terminating immediately on repeated SIGTERM");
+      PARTHENON_THROW("Terminating immediately on repeated terminate signal (SIGTERM)");
     signal(s, SetSignalFlag);
     break;
   case SIGINT:
     signalflag[IINT] += 1;
     if (signalflag[IINT] >= SIGNAL_REPEAT_THROW)
-      PARTHENON_THROW("Terminating immediately on repeated SIGINT");
+      PARTHENON_THROW("Terminating immediately on repeated interrupt signal (SIGINT)");
     signal(s, SetSignalFlag);
     break;
   case SIGALRM:
@@ -177,9 +177,9 @@ void CancelWallTimeAlarm() {
 
 void Report() {
   if (SignalHandler::GetSignalFlag(SIGTERM) != 0) {
-    std::cout << std::endl << "Terminating on Terminate signal" << std::endl;
+    std::cout << std::endl << "Terminating on terminate signal (SIGTERM) or stop_now file" << std::endl;
   } else if (SignalHandler::GetSignalFlag(SIGINT) != 0) {
-    std::cout << std::endl << "Terminating on Interrupt signal" << std::endl;
+    std::cout << std::endl << "Terminating on interrupt signal (SIGINT)" << std::endl;
   } else if (SignalHandler::GetSignalFlag(SIGALRM) != 0) {
     std::cout << std::endl << "Terminating on wall-time limit" << std::endl;
   }
