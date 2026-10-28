@@ -1,3 +1,5 @@
+<!-- This file was made in part with generative AI. -->
+
 # Parthenon Development Guide
 
 The following sections cover the current guidelines that all developers are expected
@@ -11,6 +13,7 @@ and revision any time as necessary.
     - [Contributing Code](#contributing-code)
     - [Merging Code](#merging-code)
         * [Merging Code from a Fork](#merging-code-from-a-fork)
+    - [Pre-commit Hooks](#pre-commit-hooks)
     - [Linting Code](#linting-code)
     - [Formatting Code](#formatting-code)
     - [Use of agentic coding](#use-of-agentic-coding)
@@ -94,13 +97,28 @@ PRs can be opened as usual from forks.
 Unfortunately, the CI will not automatically trigger for forks. This is for security
 reasons. One maintainer with write access to the main repository needs to manually
 approve the workflow (after having had a first look at the changes).
-The style check is currently not properly reporting on forks.
-Once the style check has been confirmed manually, the PR from the fork can be force-merged
-(by temporarily allowing to override branch proection rules).
+
+### Pre-commit Hooks
+Formatting (clang-format for C++, black for Python) and linting (cpplint) are configured
+via [pre-commit](https://pre-commit.com) in `.pre-commit-config.yaml`, which also pins
+the versions of the tools.
+The "Check Formatting" CI runs exactly these checks on all files.
+
+Installing the git hook is optional but recommended, as it checks (and fixes the
+formatting of) staged files whenever you commit:
+```
+pip install pre-commit
+pre-commit install
+```
+Note that the first run requires internet access to install the tools.
+To run all checks on all files manually, use
+```
+pre-commit run --all-files
+```
 
 ### Linting Code
-cpplint will automatically run as part of the CI. You can run the lint explicitly by
-building the `lint` target.
+cpplint will automatically run as part of the CI and the pre-commit hooks (see above).
+You can also run the lint explicitly by building the `lint` target.
 ```
 cmake --build . --target lint
 ```
@@ -112,11 +130,19 @@ cmake -DPARTHENON_LINT_DEFAULT=ON .
 ```
 
 ### Formatting Code
-We use clang-format to automatically format the C++ code. If you have clang-format installed
-locally, you can always execute `make format` or `cmake --build . --target format` from
-your build directory to automatically format the code.
+We use clang-format to automatically format the C++ code and black for Python code.
+If you have the pre-commit hooks installed (see above), staged files are formatted
+automatically on commit.
+Alternatively, you can format all files by running `./scripts/format.sh`, or by executing
+`make format` or `cmake --build . --target format` from your build directory (which
+calls the same script).
+If `pre-commit` is not available (or when running `./scripts/format.sh --local`), the
+script falls back to locally installed clang-format and black (which can be set via the
+`CLANG_FORMAT` and `BLACK` environment or CMake variables).
+It warns if their major versions differ from the ones pinned in `.pre-commit-config.yaml`,
+as the formatting may then differ from the one checked in the CI.
 
-If you don't have clang-format installed locally, our "Hermes" automation can always
+If you don't have the tools installed locally, our "Hermes" automation can always
 format the code for you. Just create the following comment in your PR, and Hermes will
 format the code and automatically commit it:
 ```

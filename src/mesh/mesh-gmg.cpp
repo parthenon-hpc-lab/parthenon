@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2020-2024 The Parthenon collaboration
+// Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
+
 //! \file mesh_amr.cpp
 //  \brief implementation of Mesh::AdaptiveMeshRefinement() and related utilities
 
@@ -104,6 +107,10 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
       for (const auto &n : all_neighbors) {
         if (n.loc.level() < pmb->loc.level()) pmb->has_coarser_neighbors_ = true;
       }
+      // Store this block's own ownership of shared topological elements (in its own
+      // logical frame), computed exactly as for a neighbor but for the block itself.
+      pmb->ownership = DetermineOwnership(loc, neighbors, newly_refined);
+      pmb->ownership.initialized = true;
     } else if (grid_id.type() == GridType::two_level_composite &&
                pmb->loc.level() == grid_id.logical_level()) {
       pmb->gmg_same_neighbors = all_neighbors;

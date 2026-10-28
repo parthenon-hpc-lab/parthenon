@@ -5,6 +5,33 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+
+
+### Changed (changing behavior/API/variables/...)
+- [[PR 782]](https://github.com/parthenon-hpc-lab/parthenon/pull/782) Die on repeatedly receiving SIGINT
+
+### Fixed (not changing behavior/API/variables/...)
+
+
+### Infrastructure (changes irrelevant to downstream codes)
+
+
+### Removed (removing behavior/API/variables/...)
+
+
+### Incompatibilities (i.e. breaking changes)
+
+
+
+## Release 26.10
+Date: 2026-10-23
+
+### Added (new features/APIs/variables/...)
+- [[PR 1457]](https://github.com/parthenon-hpc-lab/parthenon/pull/1457) Extract CalcIndices into a MeshBlock-free header and add supporting infrastructure for tensor trains
+- [[PR 1362]](https://github.com/parthenon-hpc-lab/parthenon/pull/1362) Add support for completely custom "user" output
+- [[PR 1456]](https://github.com/parthenon-hpc-lab/parthenon/pull/1456) Add batched dense linear algebra kernels
+- [[PR 1462]](https://github.com/parthenon-hpc-lab/parthenon/pull/1462) Add user-specified output times that can be combined with dt or dn output schedules
+- [[PR 1439]](https://github.com/parthenon-hpc-lab/parthenon/pull/1439) Long-overdue parthenon tutorial
 - [[PR 1443]](https://github.com/parthenon-hpc-lab/parthenon/pull/1443) Allow for specifying topological elements in var views
 - [[PR 1431]](https://github.com/parthenon-hpc-lab/parthenon/pull/1431) Add reductions to the loop abstraction
 - [[PR 1429]](https://github.com/parthenon-hpc-lab/parthenon/pull/1429) Fixes to swarm tensor xdmf
@@ -29,15 +56,17 @@
 
 
 ### Changed (changing behavior/API/variables/...)
-- [[PR 782]](https://github.com/parthenon-hpc-lab/parthenon/pull/782) Die on repeatedly receiving SIGINT
+- [[PR 1450]](https://github.com/parthenon-hpc-lab/parthenon/pull/1450) Remove throw on swarms with curvilinear
+- [[PR 1441]](https://github.com/parthenon-hpc-lab/parthenon/pull/1441) Make it so you can safely create particles in a problem generator.
 - [[PR 1438]](https://github.com/parthenon-hpc-lab/parthenon/pull/1438) Performance tuning for the loop abstraction machinery and add loop abstraction OpenMP support
-- [[PR 1416][(https://github.com/parthenon-hpc-lab/parthenon/pull/1416) Remove virtual tag from destructors in sparse and swarm pack base classes
+- [[PR 1416]](https://github.com/parthenon-hpc-lab/parthenon/pull/1416) Remove virtual tag from destructors in sparse and swarm pack base classes
 - [[PR 1401]](https://github.com/parthenon-hpc-lab/parthenon/pull/1401) Sparse Field Component Names
 - [[PR 1331]](https://github.com/parthenon-hpc-lab/parthenon/pull/1331) Use `size_t` for sizes
 - [[PR 1355]](https://github.com/parthenon-hpc-lab/parthenon/pull/1355) Allow disabling format and lint targets
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 
 ### Fixed (not changing behavior/API/variables/...)
+- [[PR 1448]](https://github.com/parthenon-hpc-lab/parthenon/pull/1448) Fix bugs: CellMemAligned and Independent buffer overrun, var_view bad access
 - [[PR 1435]](https://github.com/parthenon-hpc-lab/parthenon/pull/1435) Fix loop abstraction scratch sizing for multi-axis (corner) halos
 - [[PR 1434]](https://github.com/parthenon-hpc-lab/parthenon/pull/1434) Repair nodal field output in XDMF.
 - [[PR 1430]](https://github.com/parthenon-hpc-lab/parthenon/pull/1430) Fix BiCGSTAB returning NaN when a solve converges in its first half step
@@ -53,6 +82,8 @@
 - [[PR 1360]](https://github.com/parthenon-hpc-lab/parthenon/pull/1360) Fix boundary cache clearing in different MeshData partitions
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1467]](https://github.com/parthenon-hpc-lab/parthenon/pull/1467) Use pre-commit for formatting/linting checks (incl. PRs from forks) and pin tool versions
+- [[PR 1432]](https://github.com/parthenon-hpc-lab/parthenon/pull/1432) Instantiate default refinement ops once instead of at every Metadata call site
 - [[PR 1436]](https://github.com/parthenon-hpc-lab/parthenon/pull/1436) Add explicit single-precision compile CI jobs and label build precision in job names
 - [[PR 1414]](https://github.com/parthenon-hpc-lab/parthenon/pull/1414) Bump ROCM CI Container to rocm 7.2.4
 - [[PR 1397]](https://github.com/parthenon-hpc-lab/parthenon/pull/1397) Add Code of Conduct
@@ -68,6 +99,7 @@
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1441]](https://github.com/parthenon-hpc-lab/parthenon/pull/1441) Clear particles in problem generator, meaning that particles can no longer be seeded in the problem generator at the root level and be appropriately refined at pgen.
 - [[PR 1385]](https://github.com/parthenon-hpc-lab/parthenon/pull/1385) ParameterInput internal storage refactor removes direct access to linked list (`pfirst_block`). Use `GetBlocksWithPrefix()` or `GetBlockNames()` instead.
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
 - [[PR 1377]](https://github.com/parthenon-hpc-lab/parthenon/pull/1377) Extend Initialization Hierarchy

@@ -1,6 +1,6 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2021-2024 The Parthenon collaboration
+// Copyright(C) 2021-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
@@ -47,6 +47,45 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   Packages_t packages;
   packages.Add(Particles::Initialize(pin.get()));
   return packages;
+}
+
+// *************************************************//
+// Example (very simple) on how to enroll a custom output function that follows
+// all the standard logic (i.e., time, cycle or signal based) and can implement
+// any kind of logic/output.
+// It is highly recommend to look at the other default Parthenon internal OutputTypes
+// for more detailed code on typical output boilerplate.
+// *************************************************//
+// The constructor is called once per output block, so block specific parameters can be
+// read (and checked) here.
+ParticleUserOutput::ParticleUserOutput(const OutputParameters &oparams,
+                                       ParameterInput *pin)
+    : OutputType(oparams) {
+  prefix_ = pin->GetOrAddString(output_params.block_name, "prefix", "user_output",
+                                "Prefix of the user output files.");
+}
+
+void ParticleUserOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                                         const SignalHandler::OutputSignal signal) {
+  // For simplicitly, only rank 0 writes the current cycle.
+  // Typically writing is a parallel operation.
+  if (Globals::my_rank == 0) {
+    std::ofstream outfile(prefix_ + "." + std::to_string(output_params.file_number));
+    if (outfile.is_open()) {
+      outfile << "cycle = " << tm->ncycle;
+      outfile.close();
+    }
+  }
+
+  // Advance file ids and times.
+  // This has to be done on all ranks (so no rank filter) for consistency.
+  if (signal == SignalHandler::OutputSignal::none) {
+    // After file has been opened with the current number, already advance output
+    // parameters so that for restarts the file is not immediatly overwritten again.
+    // Only applies to default time-based data dumps, so that writing "now" and "final"
+    // outputs does not change the desired output numbering.
+    UpdateNextOutput_(pm, tm);
+  }
 }
 
 // *************************************************//

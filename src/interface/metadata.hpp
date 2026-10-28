@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -12,6 +12,8 @@
 //========================================================================================
 #ifndef INTERFACE_METADATA_HPP_
 #define INTERFACE_METADATA_HPP_
+
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <bitset>
@@ -336,25 +338,20 @@ class Metadata {
 
   // 4 constructors, this is the general constructor called by all other constructors, so
   // we do some sanity checks here
-  Metadata(
-      const std::vector<MetadataFlag> &bits, const std::vector<MetadataFlag> &flux_bits,
-      const std::vector<int> &shape = {},
-      const std::vector<std::string> &component_labels = {},
-      const std::string &associated = "",
-      const refinement::RefinementFunctions_t ref_funcs_ =
-          refinement::RefinementFunctions_t::RegisterOps<
-              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>(),
-      const refinement::RefinementFunctions_t flux_ref_funcs_ =
-          refinement::RefinementFunctions_t::RegisterOps<
-              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>());
+  Metadata(const std::vector<MetadataFlag> &bits,
+           const std::vector<MetadataFlag> &flux_bits, const std::vector<int> &shape = {},
+           const std::vector<std::string> &component_labels = {},
+           const std::string &associated = "",
+           const refinement::RefinementFunctions_t ref_funcs_ =
+               refinement::DefaultRefinementFunctions(),
+           const refinement::RefinementFunctions_t flux_ref_funcs_ =
+               refinement::DefaultRefinementFunctions());
 
-  Metadata(
-      const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
-      const std::vector<std::string> &component_labels = {},
-      const std::string &associated = "",
-      const refinement::RefinementFunctions_t ref_funcs_ =
-          refinement::RefinementFunctions_t::RegisterOps<
-              refinement_ops::ProlongateSharedMinMod, refinement_ops::RestrictAverage>())
+  Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape = {},
+           const std::vector<std::string> &component_labels = {},
+           const std::string &associated = "",
+           const refinement::RefinementFunctions_t ref_funcs_ =
+               refinement::DefaultRefinementFunctions())
       : Metadata(bits, {}, shape, component_labels, associated, ref_funcs_, ref_funcs_) {}
 
   Metadata(const std::vector<MetadataFlag> &bits, const std::vector<int> &shape,
@@ -503,6 +500,7 @@ class Metadata {
   // get the dims of the 6D array
   std::array<int, MAX_VARIABLE_DIMENSION> GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
                                                        bool coarse) const;
+  std::array<int, MAX_VARIABLE_DIMENSION> GetArrayDims(MeshBlock *pmb, bool coarse) const;
 
   /// Returns the attribute flags as a string of 1/0
   std::string MaskAsString() const {
