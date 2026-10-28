@@ -22,6 +22,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -39,6 +40,7 @@
 #include "parameter_input.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "tasks/tasks.hpp"
+#include "utils/callback_registration.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -490,42 +492,51 @@ class StateDescriptor {
 
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
 
-  std::function<void(MeshBlockData<Real> *rc)> PreCommFillDerivedBlock = nullptr;
-  std::function<void(MeshData<Real> *rc)> PreCommFillDerivedMesh = nullptr;
-  std::function<void(MeshBlockData<Real> *rc)> PreFillDerivedBlock = nullptr;
-  std::function<void(MeshData<Real> *rc)> PreFillDerivedMesh = nullptr;
-  std::function<void(MeshBlockData<Real> *rc)> PostFillDerivedBlock = nullptr;
-  std::function<void(MeshData<Real> *rc)> PostFillDerivedMesh = nullptr;
-  std::function<void(MeshBlockData<Real> *rc)> FillDerivedBlock = nullptr;
-  std::function<void(MeshData<Real> *rc)> FillDerivedMesh = nullptr;
-  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkBeforeLoopMesh =
-      nullptr;
-  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkBeforeOutputMesh =
-      nullptr;
-  std::function<void(Mesh *, ParameterInput *, SimTime &, OutputParameters *)>
-      UserWorkBeforeRestartOutputMesh = nullptr;
+  CallbackRegistration<std::function<void(MeshBlockData<Real> *rc)>>
+      PreCommFillDerivedBlock;
+  CallbackRegistration<std::function<void(MeshData<Real> *rc)>> PreCommFillDerivedMesh;
+  CallbackRegistration<std::function<void(MeshBlockData<Real> *rc)>> PreFillDerivedBlock;
+  CallbackRegistration<std::function<void(MeshData<Real> *rc)>> PreFillDerivedMesh;
+  CallbackRegistration<std::function<void(MeshBlockData<Real> *rc)>> PostFillDerivedBlock;
+  CallbackRegistration<std::function<void(MeshData<Real> *rc)>> PostFillDerivedMesh;
+  CallbackRegistration<std::function<void(MeshBlockData<Real> *rc)>> FillDerivedBlock;
+  CallbackRegistration<std::function<void(MeshData<Real> *rc)>> FillDerivedMesh;
+  CallbackRegistration<std::function<void(Mesh *, ParameterInput *, SimTime &)>>
+      UserWorkBeforeLoopMesh;
+  CallbackRegistration<std::function<void(Mesh *, ParameterInput *, SimTime &)>>
+      UserWorkBeforeOutputMesh;
+  CallbackRegistration<
+      std::function<void(Mesh *, ParameterInput *, SimTime &, OutputParameters *)>>
+      UserWorkBeforeRestartOutputMesh;
 
-  std::function<void(SimTime const &simtime, MeshData<Real> *rc)> PreStepDiagnosticsMesh =
-      nullptr;
-  std::function<void(SimTime const &simtime, MeshData<Real> *rc)>
-      PostStepDiagnosticsMesh = nullptr;
+  CallbackRegistration<std::function<void(SimTime const &simtime, MeshData<Real> *rc)>>
+      PreStepDiagnosticsMesh;
+  CallbackRegistration<std::function<void(SimTime const &simtime, MeshData<Real> *rc)>>
+      PostStepDiagnosticsMesh;
 
-  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)>
-      PostProblemGeneratorMesh = nullptr;
-  std::function<void(MeshBlock *, ParameterInput *)> PostProblemGeneratorBlock = nullptr;
-  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostInitializationMesh =
-      nullptr;
-  std::function<void(MeshBlock *, ParameterInput *)> PostInitializationBlock = nullptr;
+  CallbackRegistration<std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)>>
+      PostProblemGeneratorMesh;
+  CallbackRegistration<std::function<void(MeshBlock *, ParameterInput *)>>
+      PostProblemGeneratorBlock;
+  CallbackRegistration<std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)>>
+      PostInitializationMesh;
+  CallbackRegistration<std::function<void(MeshBlock *, ParameterInput *)>>
+      PostInitializationBlock;
 
-  std::function<Real(MeshBlockData<Real> *rc)> EstimateTimestepBlock = nullptr;
-  std::function<Real(MeshData<Real> *rc)> EstimateTimestepMesh = nullptr;
+  CallbackRegistration<std::function<Real(MeshBlockData<Real> *rc)>>
+      EstimateTimestepBlock;
+  CallbackRegistration<std::function<Real(MeshData<Real> *rc)>> EstimateTimestepMesh;
 
-  std::function<AmrTag(MeshBlockData<Real> *rc)> CheckRefinementBlock = nullptr;
-  std::function<void(MeshData<Real> *rc, ParArray1D<AmrTag> &delta_level)>
-      CheckRefinementMesh = nullptr;
+  CallbackRegistration<std::function<AmrTag(MeshBlockData<Real> *rc)>>
+      CheckRefinementBlock;
+  CallbackRegistration<
+      std::function<void(MeshData<Real> *rc, ParArray1D<AmrTag> &delta_level)>>
+      CheckRefinementMesh;
 
-  std::function<void(MeshData<Real> *rc)> InitNewlyAllocatedVarsMesh = nullptr;
-  std::function<void(MeshBlockData<Real> *rc)> InitNewlyAllocatedVarsBlock = nullptr;
+  CallbackRegistration<std::function<void(MeshData<Real> *rc)>>
+      InitNewlyAllocatedVarsMesh;
+  CallbackRegistration<std::function<void(MeshBlockData<Real> *rc)>>
+      InitNewlyAllocatedVarsBlock;
 
   friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);
   std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
@@ -565,6 +576,17 @@ class StateDescriptor {
   Dictionary<MeshDataDescriptor> submeshdata_map_;
   std::map<TopologicalType, std::size_t> num_scratch_;
 };
+
+// Selects the Mesh or Block variant of a StateDescriptor callback for data type T, e.g.
+// MeshOrBlock<T>(&StateDescriptor::FillDerivedMesh, &StateDescriptor::FillDerivedBlock)
+template <typename T, typename MeshMember, typename BlockMember>
+constexpr auto MeshOrBlock(MeshMember mesh_member, BlockMember block_member) {
+  if constexpr (std::is_same_v<T, MeshData<Real>>) {
+    return mesh_member;
+  } else {
+    return block_member;
+  }
+}
 
 inline std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
   return StateDescriptor::CreateResolvedStateDescriptor(packages);

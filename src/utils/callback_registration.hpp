@@ -14,6 +14,7 @@
 #define UTILS_CALLBACK_REGISTRATION_HPP_
 // This file was made in part with generative AI.
 
+#include <cstddef>
 #include <string>
 #include <utility>
 #include <vector>
@@ -84,6 +85,12 @@ struct CallbackRegistration {
   /// Implicit conversion to bool for checking registration status.
   /// @return true if callback is registered
   explicit operator bool() const { return IsRegistered(); }
+
+  /// Compare against nullptr, matching the std::function interface.
+  /// @return true if no callback is registered
+  friend bool operator==(const CallbackRegistration &reg, std::nullptr_t) {
+    return !reg.IsRegistered();
+  }
 };
 
 } // namespace parthenon

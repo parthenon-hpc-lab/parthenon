@@ -83,37 +83,37 @@ several useful features and functions.
   function, which provides a list of variables gathered from all the package
   ``StateDescriptor``\s.
 - ``void FillDerivedBlock(MeshBlockData<Real>* rc)`` delgates to the
-  ``std::function`` member ``FillDerivedBlock`` if set (defaults to
+  ``CallbackRegistration`` member ``FillDerivedBlock`` if set (defaults to
   ``nullptr`` and therefore a no-op) that allows an application to provide
   a function that fills in derived quantities from independent state per
   ``MeshBlockData<Real>``.
 - ``void FillDerivedMesh(MeshData<Real>* rc)``
-  delegates to the ``std::function`` member ``FillDerivedMesh`` if set
+  delegates to the ``CallbackRegistration`` member ``FillDerivedMesh`` if set
   (defaults to ``nullptr`` and therefore a no-op) that allows an
   application to provide a function that fills in derived quantities from
   independent state per ``MeshData<Real>``.
 - ``Real EstimateTimestepBlock(MeshBlockData<Real>* rc)`` delgates to the
-  ``std::function`` member ``EstimateTimestepBlock`` if set (defaults to
+  ``CallbackRegistration`` member ``EstimateTimestepBlock`` if set (defaults to
   ``nullptr`` and therefore a no-op) that allows an application to provide
   a means of computing stable/accurate timesteps for a mesh block.
 - ``Real EstimateTimestepMesh(MeshData<Real>* rc)`` delgates to the
-  ``std::function`` member ``EstimateTimestepBlock`` if set (defaults to
+  ``CallbackRegistration`` member ``EstimateTimestepBlock`` if set (defaults to
   ``nullptr`` and therefore a no-op) that allows an application to provide
   a means of computing stable/accurate timesteps for a mesh block.
 - ``AmrTag CheckRefinement(MeshBlockData<Real>* rc)`` delegates to the
-  ``std::function`` member ``CheckRefinementBlock`` if set (defaults to
+  ``CallbackRegistration`` member ``CheckRefinementBlock`` if set (defaults to
   ``nullptr`` and therefore a no-op) that allows an application to define
   an application-specific refinement/de-refinement tagging function.
 - ``void CheckRefinement(MeshData<Real>* md)`` delegates to the
-  ``std::function`` member ``CheckRefinementMesh`` if set (defaults to
+  ``CallbackRegistration`` member ``CheckRefinementMesh`` if set (defaults to
   ``nullptr`` and therefore a no-op) that allows an application to define
   an application-specific refinement/de-refinement tagging function.
 - ``void PreStepDiagnostics(SimTime const &simtime, MeshData<Real> *rc)``
-  deletgates to the ``std::function`` member ``PreStepDiagnosticsMesh`` if
+  deletgates to the ``CallbackRegistration`` member ``PreStepDiagnosticsMesh`` if
   set (defaults to ``nullptr`` an therefore a no-op) to print diagnostics
   before the time-integration advance.
 - ``void PostStepDiagnostics(SimTime const &simtime, MeshData<Real> *rc)``
-  deletgates to the ``std::function`` member ``PostStepDiagnosticsMesh``
+  deletgates to the ``CallbackRegistration`` member ``PostStepDiagnosticsMesh``
   if set (defaults to ``nullptr`` an therefore a no-op) to print
   diagnostics after the time-integration advance
 - ``void UserWorkBeforeLoopMesh(Mesh *, ParameterInput *pin, SimTime
@@ -136,6 +136,53 @@ several useful features and functions.
   SMR, or a uniform grid. Both mesh level and block-level versions of
   ``PostInitialization`` are provided (i.e., ``PostInitializationMesh`` and
   ``PostInitializationBlock``, respectively).
+
+Each of these callbacks is a ``CallbackRegistration`` (see
+``utils/callback_registration.hpp``), which wraps a ``std::function`` and
+can be assigned to directly, e.g.
+``pkg->FillDerivedMesh = MyFillDerived``. A callback can also be registered
+with the names of other packages it must run after and/or before:
+
+.. code:: cpp
+
+   // run after "eos" and before "hydro"
+   pkg->FillDerivedMesh.Register(MyFillDerived, {"eos"}, {"hydro"});
+
+Parthenon runs each of these callbacks across packages in an order that
+satisfies these dependencies. Packages without dependencies run in an
+unspecified order, as before. The order is rebuilt each time the callback
+runs, so callbacks can be registered or changed at any time. A cyclic
+dependency throws an error when the order is built. The
+Mesh and Block variants of ``PostProblemGenerator`` and
+``PostInitialization`` are ordered together, so dependencies may cross
+between them.
+
+Downstream code can run these callbacks the same way. ``Callbacks``
+returns the registrations of a callback member in execution order, and
+they can be called directly:
+
+.. code:: cpp
+
+   for (const auto &fill : packages.Callbacks<&StateDescriptor::FillDerivedMesh>()) {
+     fill(md);
+   }
+
+``ForEachInOrder<Members...>(f)`` instead calls ``f(StateDescriptor *)`` on
+each package registering any of the given members, which orders several
+members together, e.g. ``ForEachInOrder<&StateDescriptor::PostInitializationMesh,
+&StateDescriptor::PostInitializationBlock>``.
+``ExecutionOrder<...>()`` returns the order without
+running anything.
+
+For other callbacks, ``Packages_t`` also provides helpers that
+take a getter returning the ``CallbackRegistration`` of a
+``StateDescriptor *`` and a name used in error messages:
+``AddTasksDAG(getter, executor, name)`` runs the executor on each
+registered package in order, ``BuildExecutionOrder(getter, name)`` returns
+the order without running anything, and ``WriteCallbackGraph`` writes the
+dependency graph in GraphViz DOT format.
+Dependencies on packages that don't have the callback registered are
+ignored, and a cyclic dependency throws an error.
 
 
 The reasoning for providing ``FillDerived*`` and ``EstimateTimestep*``

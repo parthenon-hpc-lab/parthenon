@@ -270,9 +270,11 @@ template <typename T>
 TaskStatus EstimateTimestep(T *rc) {
   PARTHENON_INSTRUMENT
   Real dt_min = std::numeric_limits<Real>::max();
-  for (const auto &pkg : rc->GetParentPointer()->packages.AllPackages()) {
-    Real dt = pkg.second->EstimateTimestep(rc);
-    dt_min = std::min(dt_min, dt);
+  const Packages_t &packages = rc->GetParentPointer()->packages;
+  for (const auto &estimate :
+       packages.Callbacks<MeshOrBlock<T>(&StateDescriptor::EstimateTimestepMesh,
+                                         &StateDescriptor::EstimateTimestepBlock)>()) {
+    dt_min = std::min(dt_min, estimate(rc));
   }
   rc->SetAllowedDt(dt_min);
   return TaskStatus::complete;
@@ -281,9 +283,11 @@ TaskStatus EstimateTimestep(T *rc) {
 template <typename T>
 TaskStatus PreCommFillDerived(T *rc) {
   PARTHENON_INSTRUMENT
-  auto pm = rc->GetParentPointer();
-  for (const auto &pkg : pm->packages.AllPackages()) {
-    pkg.second->PreCommFillDerived(rc);
+  const Packages_t &packages = rc->GetParentPointer()->packages;
+  for (const auto &fill :
+       packages.Callbacks<MeshOrBlock<T>(&StateDescriptor::PreCommFillDerivedMesh,
+                                         &StateDescriptor::PreCommFillDerivedBlock)>()) {
+    fill(rc);
   }
   return TaskStatus::complete;
 }
@@ -291,23 +295,29 @@ TaskStatus PreCommFillDerived(T *rc) {
 template <typename T>
 TaskStatus FillDerived(T *rc) {
   PARTHENON_INSTRUMENT
-  auto pm = rc->GetParentPointer();
+  const Packages_t &packages = rc->GetParentPointer()->packages;
   { // PreFillDerived region
     PARTHENON_INSTRUMENT
-    for (const auto &pkg : pm->packages.AllPackages()) {
-      pkg.second->PreFillDerived(rc);
+    for (const auto &fill :
+         packages.Callbacks<MeshOrBlock<T>(&StateDescriptor::PreFillDerivedMesh,
+                                           &StateDescriptor::PreFillDerivedBlock)>()) {
+      fill(rc);
     }
   } // PreFillDerived region
   { // FillDerived region
     PARTHENON_INSTRUMENT
-    for (const auto &pkg : pm->packages.AllPackages()) {
-      pkg.second->FillDerived(rc);
+    for (const auto &fill :
+         packages.Callbacks<MeshOrBlock<T>(&StateDescriptor::FillDerivedMesh,
+                                           &StateDescriptor::FillDerivedBlock)>()) {
+      fill(rc);
     }
   } // FillDerived region
   { // PostFillDerived region
     PARTHENON_INSTRUMENT
-    for (const auto &pkg : pm->packages.AllPackages()) {
-      pkg.second->PostFillDerived(rc);
+    for (const auto &fill :
+         packages.Callbacks<MeshOrBlock<T>(&StateDescriptor::PostFillDerivedMesh,
+                                           &StateDescriptor::PostFillDerivedBlock)>()) {
+      fill(rc);
     }
   } // PostFillDerived region
   return TaskStatus::complete;

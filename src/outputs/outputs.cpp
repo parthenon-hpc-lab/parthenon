@@ -578,15 +578,18 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
            ptype->output_params.analysis_flag)))) {
       if (first && ptype->output_params.file_type != "hst") {
         pm->ApplyUserWorkBeforeOutput(pm, pin, *tm);
-        for (const auto &pkg : pm->packages.AllPackages()) {
-          pkg.second->UserWorkBeforeOutput(pm, pin, *tm);
+        for (const auto &work :
+             pm->packages.Callbacks<&StateDescriptor::UserWorkBeforeOutputMesh>()) {
+          work(pm, pin, *tm);
         }
         first = false;
       }
       if (ptype->output_params.mode == DumpOutputMode::Restart) {
         pm->ApplyUserWorkBeforeRestartOutput(pm, pin, *tm, &(ptype->output_params));
-        for (const auto &pkg : pm->packages.AllPackages()) {
-          pkg.second->UserWorkBeforeRestartOutput(pm, pin, *tm, &(ptype->output_params));
+        for (const auto &work :
+             pm->packages
+                 .Callbacks<&StateDescriptor::UserWorkBeforeRestartOutputMesh>()) {
+          work(pm, pin, *tm, &(ptype->output_params));
         }
       }
       // Poke the dog before each output to not trigger an accidental kill for many
