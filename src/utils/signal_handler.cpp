@@ -23,7 +23,6 @@
 
 // first 2x macros and signal() are the only ISO C features; rest are POSIX C extensions
 #include <csignal>
-#include <filesystem>
 #include <iostream>
 
 #include FS_HEADER
@@ -65,8 +64,11 @@ void SignalHandlerInit() {
 
 OutputSignal CheckSignalFlags() {
   if (Globals::my_rank == 0) {
-    // if file "output_now" exists
-    if (fs::exists("output_now")) {
+    // A signal file output_now in Parthenon's dir triggers output (custom "signal"),
+    // a file stop_now acts like a single SIGTERM
+    if (fs::exists("stop_now")) {
+      signalflag[ITERM] = 1;
+    } else if (fs::exists("output_now")) {
       signalflag[nsignal] = 1;
     }
   }
@@ -134,12 +136,14 @@ void SetSignalFlag(int s) {
   switch (s) {
   case SIGTERM:
     signalflag[ITERM] += 1;
+    if (signalflag[ITERM] >= SIGNAL_REPEAT_THROW)
+      PARTHENON_THROW("Terminating immediately on repeated SIGTERM");
     signal(s, SetSignalFlag);
     break;
   case SIGINT:
     signalflag[IINT] += 1;
-    if (signalflag[IINT] >= SIGINTS_BEFORE_THROW)
-      PARTHENON_THROW("Terminating immediately on repeated Terminate signal");
+    if (signalflag[IINT] >= SIGNAL_REPEAT_THROW)
+      PARTHENON_THROW("Terminating immediately on repeated SIGINT");
     signal(s, SetSignalFlag);
     break;
   case SIGALRM:

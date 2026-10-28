@@ -100,8 +100,9 @@ constexpr int nsignal = 3;
 // using the +1 for signaling based on a trigger file
 static volatile int signalflag[nsignal + 1];
 
-// Immediately throw upon receiving 3+ SIGINT without clearing them
-constexpr int SIGINTS_BEFORE_THROW = 3;
+// Immediately throw upon receiving 3+ SIGINTs or SIGTERMs,
+// without clearing them by starting a new step
+constexpr int SIGNAL_REPEAT_THROW = 3;
 
 static sigset_t mask;
 void SignalHandlerInit();
