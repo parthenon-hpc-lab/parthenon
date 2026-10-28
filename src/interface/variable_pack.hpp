@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //=======================================================================================
+// This file was made in part with generative AI
 #ifndef INTERFACE_VARIABLE_PACK_HPP_
 #define INTERFACE_VARIABLE_PACK_HPP_
 
@@ -65,7 +66,7 @@ class FlatIdx {
     if (shape.size() > 3) {
       PARTHENON_THROW("Requested rank larger than three.");
     }
-    for (int i = 0; i < shape.size(); ++i)
+    for (std::size_t i = 0; i < shape.size(); ++i)
       shape_[i] = shape[i];
   }
 
@@ -233,7 +234,7 @@ class PackIndexMap {
 
   // for debugging
   void print() const {
-    for (const auto itr : map_) {
+    for (const auto &itr : map_) {
       printf("%s: %i - %i\n", itr.first.c_str(), itr.second.first, itr.second.second);
     }
   }
@@ -443,7 +444,7 @@ class VariableFluxPack : public VariablePack<T> {
                    const ParArray1D<bool> &allocated, const std::array<int, 4> &dims,
                    int fsize)
       : VariablePack<T>(view, sparse_ids, vector_component, allocated, dims),
-        f_({f0, f1, f2}), flux_allocated_(flux_allocated), fsize_(fsize) {
+        f_({f0, f1, f2}), fsize_(fsize), flux_allocated_(flux_allocated) {
     // don't check flux_allocation_status (see note in constructor of VariablePack)
     assert(fsize == f0.extent(0));
     assert(fsize == f1.extent(0));
@@ -637,7 +638,7 @@ void FillSwarmVarView(const vpack_types::SwarmVarList<T> &vars,
   auto host_cv = create_view_of_view_mirror(cv_out);
 
   int vindex = 0;
-  for (const auto v : vars) {
+  for (const auto &v : vars) {
     int vstart = vindex;
     for (int l = 0; l < v->GetDim(6); l++) {
       for (int m = 0; m < v->GetDim(5); m++) {

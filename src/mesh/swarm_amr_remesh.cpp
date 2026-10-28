@@ -14,6 +14,7 @@
 // This file was made in part with generative AI.
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -331,7 +332,7 @@ void UnpackReceivedParticles(const std::shared_ptr<Swarm> &swarm,
 // Convert per-rank counts into starting offsets and return the total size.
 int BuildOffsets(const std::vector<int> &counts, std::vector<int> &offsets) {
   int total = 0;
-  for (int rank = 0; rank < counts.size(); ++rank) {
+  for (std::size_t rank = 0; rank < counts.size(); ++rank) {
     offsets[rank] = total;
     total += counts[rank];
   }

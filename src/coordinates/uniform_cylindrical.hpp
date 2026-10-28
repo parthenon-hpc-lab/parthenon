@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 #ifndef COORDINATES_UNIFORM_CYLINDRICAL_HPP_
 #define COORDINATES_UNIFORM_CYLINDRICAL_HPP_
 
@@ -69,7 +70,6 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
   template <int dir, TopologicalElement el>
   KOKKOS_FORCEINLINE_FUNCTION Real Scale(const int k, const int j, const int i) const {
     static_assert(dir > 0 && dir < 4);
-    using TE = TopologicalElement;
     if constexpr (dir == X1DIR || dir == X2DIR) return 1.0;
     // phi direction scale factor is r
     return std::abs(X<X1DIR, el>(k, j, i));
@@ -81,7 +81,6 @@ class UniformCylindrical : public UniformCoordinates<UniformCylindrical> {
   template <int dir>
   KOKKOS_FORCEINLINE_FUNCTION Real CellWidth(const int k, const int j,
                                              const int i) const {
-    using TE = TopologicalElement;
     static_assert(dir > 0 && dir < 4);
     if constexpr (dir == X1DIR || dir == X2DIR) return Dx<dir>();
     // phi direction = r * dphi

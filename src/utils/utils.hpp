@@ -3,6 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
+// This file was made in part with generative AI
 // (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -21,6 +22,7 @@
 
 #include <cctype>
 #include <csignal>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <set>
@@ -96,7 +98,7 @@ constexpr int nsignal = 3;
 // using the +1 for signaling based on "output_now" trigger
 static volatile int signalflag[nsignal + 1];
 const int ITERM = 0, IINT = 1, IALRM = 2;
-static sigset_t mask;
+[[maybe_unused]] static sigset_t mask;
 void SignalHandlerInit();
 OutputSignal CheckSignalFlags();
 int GetSignalFlag(int s);

@@ -10,9 +10,11 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <limits>
 #include <map>
 #include <memory>
@@ -46,13 +48,12 @@ std::vector<LogicalLocation> Forest::GetMeshBlockListAndResolveGids() {
     mb_list.insert(mb_list.end(), std::make_move_iterator(tree_mbs.begin()),
                    std::make_move_iterator(tree_mbs.end()));
     std::size_t end = mb_list.size();
-    for (int i = start; i < end; ++i)
+    for (std::size_t i = start; i < end; ++i)
       tree->InsertGid(mb_list[i], gid++);
   }
 
   // Assign gids to the internal nodes
   for (auto &[id, tree] : trees) {
-    std::size_t start = mb_list.size();
     auto tree_int_locs = tree->GetSortedInternalNodeList();
     for (auto &loc : tree_int_locs)
       tree->InsertGid(loc, gid++);
@@ -112,7 +113,8 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
 
   std::map<LogicalLocation, std::pair<RegionSize, std::shared_ptr<Tree>>> ll_map;
 
-  for (int n = 0; n < idxer.size(); ++n) {
+  const int num_idxer_indices = static_cast<int>(idxer.size());
+  for (int n = 0; n < num_idxer_indices; ++n) {
     auto [ix1, ix2, ix3] = idxer(n);
     RegionSize tree_domain = block_size;
     tree_domain.xmin(X1DIR) = mesh_size.SymmetrizedLogicalToActualPosition(
@@ -162,11 +164,13 @@ Forest Forest::HyperRectangular(RegionSize mesh_size, RegionSize block_size,
   Indexer3D offsets({ndim > 0 ? -1 : 0, ndim > 0 ? 1 : 0},
                     {ndim > 1 ? -1 : 0, ndim > 1 ? 1 : 0},
                     {ndim > 2 ? -1 : 0, ndim > 2 ? 1 : 0});
-  for (int n = 0; n < idxer.size(); ++n) {
+  const int num_neighbor_indices = static_cast<int>(idxer.size());
+  for (int n = 0; n < num_neighbor_indices; ++n) {
     auto [ix1, ix2, ix3] = idxer(n);
     LogicalLocation loc(level, ix1, ix2, ix3);
     std::array<int, 3> ix{ix1, ix2, ix3};
-    for (int o = 0; o < offsets.size(); ++o) {
+    const int num_offsets_indices = static_cast<int>(offsets.size());
+    for (int o = 0; o < num_offsets_indices; ++o) {
       CellCentOffsets ox(offsets.GetIdxArray(o));
       std::array<int, 3> nx;
       bool add = true;
@@ -257,7 +261,7 @@ Forest Forest::Make2D(ForestDefinition &forest_def) {
   // Build the list of trees and set neighbors
   std::unordered_map<std::int64_t, std::shared_ptr<Tree>> trees;
   Real x_offset = 0.0;
-  for (int f = 0; f < faces.size(); ++f) {
+  for (std::size_t f = 0; f < faces.size(); ++f) {
     const auto &face = faces[f];
     const auto &face_size = forest_def.face_sizes[f];
     RegionSize tree_domain = forest_def.block_size;
@@ -268,7 +272,6 @@ Forest Forest::Make2D(ForestDefinition &forest_def) {
     tree_domain.xmax(X2DIR) = face_size.xmax(X2DIR);
     tree_domain.xmin(X3DIR) = face_size.xmin(X3DIR);
     tree_domain.xmax(X3DIR) = face_size.xmax(X3DIR);
-    auto &bcs = tree_bcs[face->GetId()];
     trees[face->GetId()] = Tree::create(face->GetId(), 2, 0, tree_domain,
                                         tree_bcs[face->GetId()], face->nodes);
     x_offset += 2.0;

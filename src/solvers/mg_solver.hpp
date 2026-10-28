@@ -10,10 +10,12 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 #ifndef SOLVERS_MG_SOLVER_HPP_
 #define SOLVERS_MG_SOLVER_HPP_
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdio>
 #include <limits>
 #include <memory>
@@ -113,9 +115,9 @@ class MGSolver : public SolverBase, MGSolverCounter {
            const std::string &container_rhs, MGParams params_in,
            equations_t eq_in = equations_t(), prolongator_t prol_in = prolongator_t(),
            restrictor_t rest_in = restrictor_t())
-      : SolverBase(container_base, container_u, container_rhs), params_(params_in),
-        iter_counter(0), eqs_(eq_in), prolongator_(prol_in), initial_guess_is_zero{false},
-        constant_prolongation{false}, restrictor_(rest_in) {
+      : SolverBase(container_base, container_u, container_rhs),
+        initial_guess_is_zero{false}, constant_prolongation{false}, params_(params_in),
+        iter_counter(0), eqs_(eq_in), prolongator_(prol_in), restrictor_(rest_in) {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
     std::string solver_id = "mg" + std::to_string(id++);
@@ -178,7 +180,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
         TimingAccumulatorGuard(solver_timings.GetOrAddAndRegister("MG: Residual", tl));
 
     auto partitions = pmesh->GetDefaultBlockPartitions();
-    if (default_partition_idx >= partitions.size())
+    if (default_partition_idx < 0 ||
+        static_cast<std::size_t>(default_partition_idx) >= partitions.size())
       PARTHENON_FAIL("Does not work with non-default partitioning.");
     auto partition = partitions[default_partition_idx];
 
@@ -236,7 +239,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
     auto mg = pre_sync;
     for (int level = max_level; level >= min_level; --level) {
       auto partitions = pmesh->GetMultigridBlockPartitions(level);
-      if (default_partition_idx < partitions.size()) {
+      if (default_partition_idx >= 0 &&
+          static_cast<std::size_t>(default_partition_idx) < partitions.size()) {
         mg = mg | AddMultiGridTasksPartitionLevel(
                       tl, dependence, partitions[default_partition_idx], pmesh);
       }
@@ -255,7 +259,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
     auto mg_setup = dependence;
     for (int level = max_level; level >= min_level; --level) {
       auto partitions = pmesh->GetMultigridBlockPartitions(level);
-      if (default_partition_idx < partitions.size()) {
+      if (default_partition_idx >= 0 &&
+          static_cast<std::size_t>(default_partition_idx) < partitions.size()) {
         mg_setup =
             mg_setup | AddMultiGridSetupPartitionLevel(
                            tl, dependence, partitions[default_partition_idx], pmesh);
@@ -285,7 +290,6 @@ class MGSolver : public SolverBase, MGSolverCounter {
                     std::shared_ptr<MeshData<Real>> &md_xold,
                     std::shared_ptr<MeshData<Real>> &md_xnew, double weight) {
     using namespace parthenon;
-    const int ndim = md_rhs->GetMeshPointer()->ndim;
     using TE = parthenon::TopologicalElement;
     TE te = TE::CC;
     IndexRange ib = md_rhs->GetBoundsI(IndexDomain::interior, te);
@@ -463,7 +467,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
     auto &md_res_err = pmesh->mesh_data.Add(container_res_err, partition, sol_fields);
     auto &md_temp = pmesh->mesh_data.Add(container_temp, partition, sol_fields);
     auto &md_u0 = pmesh->mesh_data.Add(container_u0, partition, sol_fields);
-    auto &md_diag = pmesh->mesh_data.Add(container_diag, partition, sol_fields);
+    pmesh->mesh_data.Add(container_diag, partition, sol_fields);
     md_res_err->SetBoundBufferId(BoundaryType::gmg_restrict_send,
                                  1); // Use a separate set of communication buffers
     md_res_err->SetBoundBufferId(BoundaryType::gmg_restrict_recv,

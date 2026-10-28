@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 #include <math.h>
 #include <sstream>
 #include <string>
@@ -62,9 +63,6 @@ void ProblemGenerator(Mesh *pm, ParameterInput *pin, MeshData<Real> *md) {
         Real x1f = coords.X<1, TE::F1>(k, j, i);
         Real x2f = coords.X<2, TE::F2>(k, j, i);
         Real x3f = coords.X<3, TE::F3>(k, j, i);
-        Real dx1 = coords.Dxc<1>(k, j, i);
-        Real dx2 = coords.Dxc<2>(k, j, i);
-        Real dx3 = coords.Dxc<3>(k, j, i);
         Real rad = (x1 - x0) * (x1 - x0);
         if (ndim > 1) rad += (x2 - y0) * (x2 - y0);
         if (ndim > 2) rad += (x3 - z0) * (x3 - z0);

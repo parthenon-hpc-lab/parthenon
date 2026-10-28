@@ -9,8 +9,10 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include <algorithm>
+#include <cinttypes>
 #include <cstdio>
 #include <limits>
 #include <memory>
@@ -180,7 +182,8 @@ void PostStepDiagnosticsInLoop(Mesh *mesh, ParameterInput *pin, const SimTime &t
     }
     std::printf("\n");
     Real mem_avg = static_cast<Real>(mem_tot) / static_cast<Real>(blocks_tot);
-    std::printf("\tMem used/block in bytes [min, max, avg] = [%llu, %llu, %.14e]\n",
+    std::printf("\tMem used/block in bytes [min, max, avg] = [%" PRIu64 ", %" PRIu64
+                ", %.14e]\n",
                 mem_min, mem_max, mem_avg);
   }
 }

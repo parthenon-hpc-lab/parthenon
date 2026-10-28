@@ -10,10 +10,12 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #ifndef LOOP_BOUNDS_HPP_
 #define LOOP_BOUNDS_HPP_
 
+#include <cstddef>
 #include <type_traits>
 #include <utility>
 
@@ -60,7 +62,6 @@ KOKKOS_INLINE_FUNCTION void GetIndexRanges(const int &idx,
                                            Kokkos::Array<IndexRange, N> &bound_arr,
                                            Bnds &&...bounds) {
   if constexpr (sizeof...(Bnds) > 0) {
-    using TL = TypeList<Bnds...>;
     using NextBound = typename TypeList<Bnds...>::template type<0>;
     ProcessLoopBound<base_type<NextBound>>::GetIndexRanges(idx, bound_arr,
                                                            std::forward<Bnds>(bounds)...);

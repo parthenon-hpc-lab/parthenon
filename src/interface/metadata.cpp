@@ -16,6 +16,7 @@
 #include "interface/metadata.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <exception>
 #include <iostream>
 #include <memory>
@@ -155,7 +156,8 @@ Metadata::Metadata(const std::vector<MetadataFlag> &bits,
     }
 
     PARTHENON_REQUIRE_THROWS(component_labels.size() == 0 ||
-                                 (component_labels.size() == num_comp),
+                                 component_labels.size() ==
+                                     static_cast<std::size_t>(num_comp),
                              "Must provide either 0 component labels or the same "
                              "number as the number of components");
   }
@@ -397,9 +399,9 @@ std::array<int, MAX_VARIABLE_DIMENSION> Metadata::GetArrayDims(MeshBlock *pmb,
   } else if (IsSet(Particle)) {
     assert(N <= MAX_VARIABLE_DIMENSION - 1);
     arrDims[0] = 1; // To be updated by swarm based on pool size before allocation
-    for (int i = 0; i < N; i++)
+    for (std::size_t i = 0; i < N; i++)
       arrDims[i + 1] = shape[i];
-    for (int i = N; i < MAX_VARIABLE_DIMENSION - 1; i++)
+    for (std::size_t i = N; i < MAX_VARIABLE_DIMENSION - 1; i++)
       arrDims[i + 1] = 1;
   } else if (IsSet(Swarm)) {
     // No dimensions

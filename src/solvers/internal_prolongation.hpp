@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 #ifndef SOLVERS_INTERNAL_PROLONGATION_HPP_
 #define SOLVERS_INTERNAL_PROLONGATION_HPP_
 
@@ -121,8 +122,6 @@ class ProlongationBlockInteriorZeroDirichlet {
     IndexRange cib = md->GetBoundsI(CellLevel::coarse, IndexDomain::interior);
     IndexRange cjb = md->GetBoundsJ(CellLevel::coarse, IndexDomain::interior);
     IndexRange ckb = md->GetBoundsK(CellLevel::coarse, IndexDomain::interior);
-
-    using TE = parthenon::TopologicalElement;
 
     const auto desc = parthenon::MakePackDescriptorFromTypeList<VarTL>(md.get());
     const auto desc_coarse = parthenon::MakePackDescriptorFromTypeList<VarTL>(

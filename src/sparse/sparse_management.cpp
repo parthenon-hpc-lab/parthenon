@@ -10,9 +10,12 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
+#include <cstddef>
 #include <string>
 #include <unordered_set>
+#include <utility>
 
 #include "sparse/sparse_management.hpp"
 
@@ -101,10 +104,6 @@ void SparseDeallocOnCount(T *rc, std::size_t count,
   auto packIdx = desc.GetMap();
   if (pack.GetNBlocks() < 1) return;
 
-  const IndexRange ib = rc->GetBoundsI(IndexDomain::entire);
-  const IndexRange jb = rc->GetBoundsJ(IndexDomain::entire);
-  const IndexRange kb = rc->GetBoundsK(IndexDomain::entire);
-
   ParArray2D<bool> is_zero("IsZero", pack.GetNBlocks(), pack.GetMaxNumberOfVars());
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
@@ -154,7 +153,7 @@ void SparseDeallocOnCount(T *rc, std::size_t count,
         } else {
           counter = 0;
         }
-        if (counter > count) {
+        if (std::cmp_greater(counter, count)) {
           // this variable has been flagged for deallocation deallocation_count times in
           // a row, now deallocate it
           counter = 0;

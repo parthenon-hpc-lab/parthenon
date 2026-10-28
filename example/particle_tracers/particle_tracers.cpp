@@ -91,7 +91,6 @@ Real EstimateTimestepMesh(MeshData<Real> *md) {
   std::array<Real, 3> dx;
   dx.fill(std::numeric_limits<Real>::max());
   for (auto &pmb : pm->block_list) {
-    const auto &reg = pmb->block_size;
     dx[0] = std::min(dx[0], pmb->coords.Dxc<X1DIR>(0));
     dx[1] = std::min(dx[1], pmb->coords.Dxc<X2DIR>(0));
     dx[2] = std::min(dx[2], pmb->coords.Dxc<X3DIR>(0));
@@ -185,7 +184,6 @@ Real EstimateTimestepMesh(MeshData<Real> *md) {
   auto pm = md->GetParentPointer();
   auto adv_pkg = pm->packages.Get("advection_package");
 
-  const auto &cfl = adv_pkg->Param<Real>("cfl");
   const auto &vx = adv_pkg->Param<Real>("vx");
   const auto &vy = adv_pkg->Param<Real>("vy");
   const auto &vz = adv_pkg->Param<Real>("vz");
@@ -194,7 +192,6 @@ Real EstimateTimestepMesh(MeshData<Real> *md) {
   std::array<Real, 3> dx;
   dx.fill(std::numeric_limits<Real>::max());
   for (auto &pmb : pm->block_list) {
-    const auto &reg = pmb->block_size;
     dx[0] = std::min(dx[0], pmb->coords.Dxc<X1DIR>(0));
     dx[1] = std::min(dx[1], pmb->coords.Dxc<X2DIR>(0));
     dx[2] = std::min(dx[2], pmb->coords.Dxc<X3DIR>(0));
@@ -484,7 +481,7 @@ TaskCollection ParticleDriver::StepTasks() {
   // MeshData Registers
   auto &base = pmesh->mesh_data.Get();
   auto &u0 = pmesh->mesh_data.AddShallow("u0", base);
-  auto &u1 = pmesh->mesh_data.Add("u1", u0);
+  pmesh->mesh_data.Add("u1", u0);
 
   TaskID none(0);
   const auto any = parthenon::BoundaryType::any;

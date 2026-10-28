@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include "parthenon_manager.hpp"
 
@@ -40,14 +41,13 @@ int main(int argc, char *argv[]) {
   pman.ParthenonInitPackagesAndMesh();
 
   // This needs to be scoped so that the driver object is destructed before Finalize
-  bool success = true;
   {
     // Initialize the driver
     poisson_example::PoissonDriver driver(pman.pinput.get(), pman.app_input.get(),
                                           pman.pmesh.get());
 
     // This line actually runs the simulation
-    auto driver_status = driver.Execute();
+    driver.Execute();
   }
   // call MPI_Finalize and Kokkos::finalize if necessary
   pman.ParthenonFinalize();

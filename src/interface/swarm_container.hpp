@@ -10,12 +10,15 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 // This file was modified with the assistance of generative AI.
 
 #ifndef INTERFACE_SWARM_CONTAINER_HPP_
 #define INTERFACE_SWARM_CONTAINER_HPP_
 
 #include <algorithm>
+#include <cstddef>
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
@@ -115,7 +118,11 @@ class SwarmContainer {
   std::shared_ptr<Swarm> &Get(const int index) { return swarmVector_[index]; }
 
   int Index(const std::string &label) const {
-    for (int i = 0; i < swarmVector_.size(); i++) {
+    PARTHENON_REQUIRE(swarmVector_.size() <=
+                          static_cast<std::size_t>(std::numeric_limits<int>::max()),
+                      "Collection size exceeds the int index range.");
+    const int count = static_cast<int>(swarmVector_.size());
+    for (int i = 0; i < count; i++) {
       if (!swarmVector_[i]->label().compare(label)) return i;
     }
     return -1;

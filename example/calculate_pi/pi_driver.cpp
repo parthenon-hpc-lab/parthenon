@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 // Standard Includes
 #include <fstream>
@@ -55,7 +56,7 @@ int main(int argc, char *argv[]) {
   {
     PiDriver driver(pman.pinput.get(), pman.app_input.get(), pman.pmesh.get());
 
-    auto driver_status = driver.Execute();
+    driver.Execute();
   }
   // call MPI_Finalize if necessary
   pman.ParthenonFinalize();

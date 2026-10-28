@@ -10,8 +10,10 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdio>
 #include <functional>
 #include <limits>
@@ -182,7 +184,7 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
 
     // Initialize block refinement levels to current block level to provide default if
     // neighbors not present
-    for (int n = 0; n < bp_idxer.size(); n++) {
+    for (int n = 0; n < static_cast<int>(bp_idxer.size()); n++) {
       pack.block_props_h_(blidx, n) = pmb->loc.level();
     }
     // This block's gid stored at the end of the flattened array
@@ -239,10 +241,12 @@ SparsePackBase SparsePackBase::Build(T *pmd, const PackDescriptor &desc,
         if (uid_map.count(uid) > 0) {
           const auto pv = uid_map.at(uid);
           if (pv->IsAllocated()) {
-            Variable<Real> *pvf;
+            Variable<Real> *pvf = nullptr;
             if (desc.with_fluxes && pv->IsSet(Metadata::WithFluxes)) {
               std::string flux_name = pv->metadata().GetFluxName();
-              if (flux_name != "") pvf = &pmbd->Get(flux_name);
+              PARTHENON_REQUIRE(!flux_name.empty(),
+                                "Variable marked WithFluxes has no flux name.");
+              pvf = &pmbd->Get(flux_name);
             }
             for (int t = 0; t < pv->GetDim(6); ++t) {
               for (int u = 0; u < pv->GetDim(5); ++u) {

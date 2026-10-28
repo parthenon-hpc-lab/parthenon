@@ -16,6 +16,7 @@
 // This file was made in part with generative AI
 
 #include <algorithm>
+#include <cstddef>
 #include <limits>
 #include <map>
 #include <memory>
@@ -269,7 +270,7 @@ class MeshData {
     SetMeshProperties(part->pmesh);
     auto &bl = part->block_list;
     block_data_.resize(bl.size());
-    for (int i = 0; i < bl.size(); ++i)
+    for (std::size_t i = 0; i < bl.size(); ++i)
       block_data_[i] = bl[i]->meshblock_data.Add(stage_name_, bl[i], vars);
     grid = part->grid;
     partition = part->partition;
@@ -296,17 +297,17 @@ class MeshData {
   void Initialize(BlockList_t blocks, Mesh *pmesh, std::optional<int> gmg_level = {});
 
   MeshBlockData<T> *GetBlockDataRawPointer(int n) {
-    assert(n >= 0 && n < block_data_.size());
+    assert(n >= 0 && static_cast<std::size_t>(n) < block_data_.size());
     return block_data_[n].get();
   }
 
   const std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) const {
-    assert(n >= 0 && n < block_data_.size());
+    assert(n >= 0 && static_cast<std::size_t>(n) < block_data_.size());
     return block_data_[n];
   }
 
   std::shared_ptr<MeshBlockData<T>> &GetBlockData(int n) {
-    assert(n >= 0 && n < block_data_.size());
+    assert(n >= 0 && static_cast<std::size_t>(n) < block_data_.size());
     return block_data_[n];
   }
 
@@ -507,7 +508,7 @@ class MeshData {
   }
 
   std::shared_ptr<SwarmContainer> GetSwarmData(int n) {
-    PARTHENON_REQUIRE(n >= 0 && n < block_data_.size(),
+    PARTHENON_REQUIRE(n >= 0 && static_cast<std::size_t>(n) < block_data_.size(),
                       "MeshData::GetSwarmData requires n within [0, block_data_.size()]");
     return block_data_[n]->GetSwarmData();
   }

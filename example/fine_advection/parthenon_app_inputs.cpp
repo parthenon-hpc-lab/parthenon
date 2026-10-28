@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include <memory>
 #include <sstream>
@@ -85,9 +86,6 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         PARTHENON_AUTO_LABEL, pack.GetLowerBoundHost(b, phi()),
         pack.GetUpperBoundHost(b, phi()), kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
         KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-          const int kf = ndim > 2 ? (k - nghost) * 2 + nghost : k;
-          const int jf = ndim > 1 ? (j - nghost) * 2 + nghost : j;
-          const int fi = ndim > 0 ? (i - nghost) * 2 + nghost : i;
           if (profile_type == 0) {
             PARTHENON_FAIL("Profile type wave not implemented.");
           } else if (profile_type == 1) {

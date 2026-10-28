@@ -108,7 +108,6 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
                            BvarsSubCache_t *pcache, F KeyFunc) {
   using namespace loops;
   using namespace loops::shorthands;
-  Mesh *pmesh = md->GetMeshPointer();
 
   pcache->clear();
 

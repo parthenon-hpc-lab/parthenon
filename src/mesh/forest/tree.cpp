@@ -10,9 +10,11 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <limits>
 #include <map>
 #include <memory>
@@ -39,7 +41,7 @@ namespace parthenon {
 namespace forest {
 
 Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level)
-    : my_id(id), ndim(ndim) {
+    : ndim(ndim), my_id(id) {
   // Add internal and leaf nodes of the initial tree
   for (int l = 0; l <= root_level; ++l) {
     for (int k = 0; k < (ndim > 2 ? (1LL << l) : 1); ++k) {
@@ -66,7 +68,7 @@ Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level,
 
 int Tree::AddMeshBlock(const LogicalLocation &loc, bool enforce_proper_nesting) {
   PARTHENON_REQUIRE(
-      loc.tree() == my_id,
+      std::cmp_equal(loc.tree(), my_id),
       "Trying to add a meshblock to a tree with a LogicalLocation on a different tree.");
   if (internal_nodes.count(loc)) return -1;
   if (leaves.count(loc)) return 0;
@@ -90,7 +92,7 @@ int Tree::AddMeshBlock(const LogicalLocation &loc, bool enforce_proper_nesting) 
 
 int Tree::Refine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
   PARTHENON_REQUIRE(
-      ref_loc.tree() == my_id,
+      std::cmp_equal(ref_loc.tree(), my_id),
       "Trying to refine a tree with a LogicalLocation on a different tree.");
   // Check that this is a valid refinement location
   if (!leaves.count(ref_loc)) return 0; // Can't refine a block that doesn't exist
@@ -136,7 +138,8 @@ std::vector<NeighborLocation> Tree::FindNeighbors(const LogicalLocation &loc,
                           {ndim > 1 ? -1 : 0, ndim > 1 ? 1 : 0},
                           {ndim > 2 ? -1 : 0, ndim > 2 ? 1 : 0});
   std::vector<NeighborLocation> neighbor_locs;
-  for (int o = 0; o < offsets.size(); ++o) {
+  const int num_offsets_indices = static_cast<int>(offsets.size());
+  for (int o = 0; o < num_offsets_indices; ++o) {
     auto [ox1, ox2, ox3] = offsets(o);
     if (std::abs(ox1) + std::abs(ox2) + std::abs(ox3) == 0) continue;
     FindNeighborsImpl(loc, ox1, ox2, ox3, &neighbor_locs, grid_id);
@@ -156,7 +159,7 @@ void Tree::FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int o
                              std::vector<NeighborLocation> *neighbor_locs,
                              GridIdentifier grid_id) const {
   PARTHENON_REQUIRE(
-      loc.tree() == my_id,
+      std::cmp_equal(loc.tree(), my_id),
       "Trying to find neighbors in a tree with a LogicalLocation on a different tree.");
   PARTHENON_REQUIRE((leaves.count(loc) == 1 || internal_nodes.count(loc) == 1),
                     "Location must be in the tree to find neighbors.");
@@ -183,6 +186,8 @@ void Tree::FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int o
     } else {
       PARTHENON_FAIL("Logic is wrong somewhere.");
     }
+  } else {
+    PARTHENON_FAIL("Neighbor lookup requires a leaf or two-level composite grid.");
   }
 
   for (auto &[neighbor_tree, lcoord_trans] : neighbors[n_idx]) {
@@ -221,7 +226,7 @@ void Tree::FindNeighborsImpl(const LogicalLocation &loc, int ox1, int ox2, int o
 
 int Tree::Derefine(const LogicalLocation &ref_loc, bool enforce_proper_nesting) {
   PARTHENON_REQUIRE(
-      ref_loc.tree() == my_id,
+      std::cmp_equal(ref_loc.tree(), my_id),
       "Trying to derefine a tree with a LogicalLocation on a different tree.");
 
   // ref_loc is the block to be added and its daughters are the blocks to be removed

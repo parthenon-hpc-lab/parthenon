@@ -12,6 +12,9 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 
+- Clean up unused declarations, unnecessary copies, loop signedness, fixed-width integer formatting, and constructor initializer order in examples, metadata, swarms, loop abstractions, solver/output/task utilities, and mesh/communication code.
+- Reject missing sparse-pack flux names, invalid fine-advection face directions, and neighbor grid types, and check communication counts, indexer factor multiplication, and swarm pool requests before integer conversions.
+
 
 ### Infrastructure (changes irrelevant to downstream codes)
 

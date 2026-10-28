@@ -10,7 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
@@ -88,7 +90,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   auto partitions = pmesh->GetDefaultBlockPartitions();
   TaskRegion &single_tasklist_per_pack_region = tc.AddRegion(partitions.size());
 
-  for (int i = 0; i < partitions.size(); i++) {
+  for (std::size_t i = 0; i < partitions.size(); i++) {
     auto &tl = single_tasklist_per_pack_region[i];
     auto &mbase = pmesh->mesh_data.Add("base", partitions[i]);
     auto &mc0 = pmesh->mesh_data.Add(stage_name[stage - 1], mbase);

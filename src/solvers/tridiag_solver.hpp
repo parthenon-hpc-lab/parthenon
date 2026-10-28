@@ -10,9 +10,11 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 #ifndef SOLVERS_TRIDIAG_SOLVER_HPP_
 #define SOLVERS_TRIDIAG_SOLVER_HPP_
 
+#include <cstddef>
 #include <cstdio>
 #include <limits>
 #include <memory>
@@ -272,7 +274,6 @@ class TridiagSolver : public SolverBase, TridiagSolverCounter {
     auto &md_r = pmesh->mesh_data.Add(container_r, partitions[partition], sol_fields);
 
     iter_counter = 0;
-    bool multilevel = pmesh->multilevel;
 
     auto masks = tl.AddTask(dependence, SetMasks, md_100, md_010, md_001);
     auto Ax100 = eqs_.Ax(tl, masks, md_base, md_100, md_100_out);

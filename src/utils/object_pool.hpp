@@ -3,6 +3,7 @@
 // Copyright(C) 2022-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
+// This file was made in part with generative AI
 // (C) (or copyright) 2022-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -18,7 +19,8 @@
 #ifndef UTILS_OBJECT_POOL_HPP_
 #define UTILS_OBJECT_POOL_HPP_
 
-#include <math.h>
+#include <cmath>
+#include <cstddef>
 
 #include <cstdint>
 #include <iostream>
@@ -346,7 +348,7 @@ class ObjectPoolMap {
     auto label =
         "pool buffer of size " + std::to_string(shape) + " x " + std::to_string(nobjs);
     T chunk(label, pool_size);
-    for (int i = 0; i < nobjs; ++i) {
+    for (std::size_t i = 0; i < nobjs; ++i) {
       pool.AddFreeObjectToPool(T(chunk, std::make_pair(i * shape, (i + 1) * shape)));
     }
   }

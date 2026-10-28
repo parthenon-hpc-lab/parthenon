@@ -10,7 +10,10 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
+#include <cstddef>
 #include <cstdio>
+#include <limits>
 #include <map>
 #include <memory>
 #include <set>
@@ -35,40 +38,55 @@ namespace parthenon {
 //----------------------------------------------------------------------------------------
 CoalescedBuffer::CoalescedBuffer(bool sender, int partition, int other_rank,
                                  BoundaryType b_type, mpi_comm_t comm, Mesh *pmesh)
-    : sender(sender), partition(partition), other_rank(other_rank), b_type(b_type),
-      comm(comm), pmesh(pmesh), current_size(0),
+    : b_type(b_type), other_rank(other_rank), partition(partition), comm(comm),
+      pmesh(pmesh), sender(sender),
       coalesced_comm_buffer(
           2 * partition, sender ? Globals::my_rank : other_rank,
           sender ? other_rank : Globals::my_rank, comm,
-          [](int size) { return buf_t("Combined Buffer", 2 * size); }, true),
+          [](int size) {
+            return buf_t("Combined Buffer", 2 * static_cast<std::size_t>(size));
+          },
+          true),
       sparse_status_buffer(
           2 * partition + 1, sender ? Globals::my_rank : other_rank,
           sender ? other_rank : Globals::my_rank, comm,
-          [](int size) { return std::vector<int>(size); }, true) {}
+          [](int size) { return std::vector<int>(size); }, true),
+      current_size(0) {}
 
 //----------------------------------------------------------------------------------------
 ParArray1DRaw<BndId> &CoalescedBuffer::GetBndIdsOnDevice(const std::set<Uid_t> &vars,
                                                          int *pcomb_size) {
   const auto &var_set = vars.size() == 0 ? all_vars : vars;
-  int nbnd_id{0};
+  std::size_t nbnd_id{0};
   std::size_t comb_size{0};
   for (auto uid : var_set) {
     // Skip this variable if it is not communicated in this BoundaryType
     if (coalesced_info_buf.count(uid) == 0) continue;
-    nbnd_id += coalesced_info_buf.at(uid).size();
+    const auto count = coalesced_info_buf.at(uid).size();
+    PARTHENON_REQUIRE(count <= static_cast<std::size_t>(std::numeric_limits<int>::max()) -
+                                   nbnd_id,
+                      "Boundary count exceeds the int league-index range.");
+    nbnd_id += count;
     for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
       auto buf_state = pvbbuf->GetState();
-      if ((buf_state == BufferState::sending) || (buf_state == BufferState::received))
-        comb_size += bnd_id.size();
+      if ((buf_state == BufferState::sending) || (buf_state == BufferState::received)) {
+        PARTHENON_REQUIRE(
+            bnd_id.size() >= 0 &&
+                static_cast<std::size_t>(bnd_id.size()) <=
+                    static_cast<std::size_t>(std::numeric_limits<int>::max()) - comb_size,
+            "Combined buffer size exceeds the int message-size range.");
+        comb_size += static_cast<std::size_t>(bnd_id.size());
+      }
     }
   }
-  if (pcomb_size != nullptr) *pcomb_size = comb_size;
+  const int combined_size = static_cast<int>(comb_size);
+  if (pcomb_size != nullptr) *pcomb_size = combined_size;
 
   bool updated = false;
   if (comb_size > coalesced_comm_buffer.buffer().size()) {
     PARTHENON_REQUIRE(
         sender, "Something bad is going on if we are doing this on a receiving buffer.");
-    coalesced_comm_buffer.Allocate(comb_size);
+    coalesced_comm_buffer.Allocate(combined_size);
     updated = true;
   }
 
@@ -87,8 +105,9 @@ ParArray1DRaw<BndId> &CoalescedBuffer::GetBndIdsOnDevice(const std::set<Uid_t> &
     updated = true;
   }
 
-  int idx{0};
-  std::size_t c_buf_idx{0}; // Index at which v-b buffer starts in combined buffer
+  std::size_t idx{0};
+  // The checked combined size above bounds every offset by INT_MAX.
+  int c_buf_idx{0}; // Index at which v-b buffer starts in combined buffer
   for (auto uid : var_set) {
     // Skip this variable if it is not communicated in this BoundaryType
     if (coalesced_info_buf.count(uid) == 0) continue;
@@ -262,8 +281,8 @@ void CoalescedBuffer::AddVarBoundary(MeshBlock *pmb, const NeighborBlock &nb,
 //----------------------------------------------------------------------------------------
 CoalescedBuffersRank::CoalescedBuffersRank(int o_rank, BoundaryType b_type, bool send,
                                            mpi_comm_t comm, Mesh *pmesh)
-    : other_rank(o_rank), b_type(b_type), sender(send), buffers_built(false), comm(comm),
-      pmesh(pmesh) {
+    : b_type(b_type), other_rank(o_rank), buffers_built(false), comm(comm), pmesh(pmesh),
+      sender(send) {
 
   int tag = static_cast<int>(GetAssociatedSender(b_type));
   if (sender) {
@@ -305,7 +324,7 @@ bool CoalescedBuffersRank::TryReceiveBufInfo() {
     for (int p = 0; p < npartitions; ++p) {
       const int partition = mess_buf[idx++];
       const int nbuf = mess_buf[idx++];
-      const int total_size = mess_buf[idx++];
+      ++idx; // Skip the unused total-size field.
 
       // Create the new partition
       coalesced_bufs.emplace(std::make_pair(

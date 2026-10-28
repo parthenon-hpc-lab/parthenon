@@ -10,8 +10,10 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include <algorithm>
+#include <cstddef>
 #include <limits>
 #include <memory>
 #include <string>
@@ -383,17 +385,6 @@ TaskStatus TransportParticles(MeshBlock *pmb, const double t0, const double dt) 
   const Real &dx_k = pmb->coords.Dxf<3>(pmb->cellbounds.ks(IndexDomain::interior));
   const Real &dx_push = std::min<Real>(dx_i, std::min<Real>(dx_j, dx_k));
 
-  const IndexRange &ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior);
-  const IndexRange &jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior);
-  const IndexRange &kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior);
-
-  const Real &x_min = pmb->coords.Xf<1>(ib.s);
-  const Real &y_min = pmb->coords.Xf<2>(jb.s);
-  const Real &z_min = pmb->coords.Xf<3>(kb.s);
-  const Real &x_max = pmb->coords.Xf<1>(ib.e + 1);
-  const Real &y_max = pmb->coords.Xf<2>(jb.e + 1);
-  const Real &z_max = pmb->coords.Xf<3>(kb.e + 1);
-
   auto swarm_d = swarm->GetDeviceContext();
 
   // Simple particle push: push particles half the smallest zone width until they have
@@ -493,9 +484,6 @@ TaskListStatus ParticleDriver::Step() {
   PARTHENON_REQUIRE(integrator.nstages == 1,
                     "Only first order time integration supported!");
 
-  BlockList_t &blocks = pmesh->block_list;
-  auto num_task_lists_executed_independently = blocks.size();
-
   // Create all the particles that will be created during the step
   status = MakeParticlesCreationTaskCollection().Execute();
   PARTHENON_REQUIRE(status == TaskListStatus::complete,
@@ -522,7 +510,7 @@ TaskCollection ParticleDriver::MakeParticlesCreationTaskCollection() const {
 
   auto num_task_lists_executed_independently = blocks.size();
   TaskRegion &async_region0 = tc.AddRegion(num_task_lists_executed_independently);
-  for (int i = 0; i < blocks.size(); i++) {
+  for (std::size_t i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
     auto &tl = async_region0[i];
     auto create_some_particles = tl.AddTask(none, CreateSomeParticles, pmb.get(), t0);
@@ -626,7 +614,7 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
   auto num_task_lists_executed_independently = blocks.size();
   TaskRegion &async_region1 = tc.AddRegion(num_task_lists_executed_independently);
 
-  for (int i = 0; i < blocks.size(); i++) {
+  for (std::size_t i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
     auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
     auto &sc1 = pmb->meshblock_data.Get();

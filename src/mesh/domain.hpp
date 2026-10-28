@@ -3,6 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
+// This file was made in part with generative AI
 // (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -20,6 +21,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <type_traits>
 #include <vector>
 
@@ -91,7 +93,7 @@ class IndexShape {
   std::array<int, NDIM> entire_ncells_;
 
   bool DimensionProvided_(const std::vector<int> &interior_dims, int dim) {
-    return dim <= interior_dims.size();
+    return static_cast<std::size_t>(dim) <= interior_dims.size();
   }
 
   KOKKOS_INLINE_FUNCTION

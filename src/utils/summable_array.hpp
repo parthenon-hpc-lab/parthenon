@@ -10,9 +10,13 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #ifndef UTILS_SUMMABLE_ARRAY_HPP_
 #define UTILS_SUMMABLE_ARRAY_HPP_
+
+#include <cstddef>
+
 namespace parthenon {
 
 template <class T, std::size_t N>
@@ -27,19 +31,19 @@ struct summable_array_t {
 
   KOKKOS_INLINE_FUNCTION
   summable_array_t(const summable_array_t &rhs) {
-    for (int i = 0; i < N; i++)
+    for (std::size_t i = 0; i < N; i++)
       data_[i] = rhs.data_[i];
   }
 
   KOKKOS_INLINE_FUNCTION
   void init() {
-    for (int i = 0; i < N; i++)
+    for (std::size_t i = 0; i < N; i++)
       data_[i] = 0;
   }
 
   KOKKOS_INLINE_FUNCTION
   summable_array_t &operator+=(const summable_array_t &src) {
-    for (int i = 0; i < N; i++)
+    for (std::size_t i = 0; i < N; i++)
       data_[i] += src.data_[i];
     return *this;
   }

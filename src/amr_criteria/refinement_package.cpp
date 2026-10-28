@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include "amr_criteria/refinement_package.hpp"
 
@@ -50,7 +51,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 }
 
 ParArray1D<AmrTag> CheckAllRefinement(MeshData<Real> *md) {
-  const int nblocks = md->NumBlocks();
   Mesh *pm = md->GetMeshPointer();
   auto amr_tags = pm->GetAmrTags();
   Kokkos::deep_copy(amr_tags.KokkosView(), AmrTag::derefine);

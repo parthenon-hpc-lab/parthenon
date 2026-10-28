@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include "interface/meshblock_data.hpp"
 
@@ -309,7 +310,7 @@ MeshBlockData<T>::GetVariablesByName(const std::vector<std::string> &names,
       const auto &sparse_pool = resolved_packages->GetSparsePool(name);
 
       // add all sparse ids of the pool
-      for (const auto iter : sparse_pool.pool()) {
+      for (const auto &iter : sparse_pool.pool()) {
         // this variable must exist, if it doesn't something is very wrong
         const auto &v = varMap_.at(MakeVarLabel(name, iter.first));
         const auto &m = v->metadata();

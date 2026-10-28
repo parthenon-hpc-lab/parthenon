@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 #ifndef EXAMPLE_FINE_ADVECTION_ADVECTION_PACKAGE_HPP_
 #define EXAMPLE_FINE_ADVECTION_ADVECTION_PACKAGE_HPP_
 
@@ -89,6 +90,8 @@ TaskStatus CalculateFluxes(pack_desc_t &desc, parthenon::TopologicalElement FACE
   } else if (FACE == TE::F3) {
     v = pkg->Param<Real>("vz");
     if (v > 0) koff = -1;
+  } else {
+    PARTHENON_THROW("CalculateFluxes requires a face direction (F1, F2, or F3).");
   }
 
   auto pack = desc.GetPack(md);

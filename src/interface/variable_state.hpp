@@ -10,9 +10,11 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 #ifndef INTERFACE_VARIABLE_STATE_HPP_
 #define INTERFACE_VARIABLE_STATE_HPP_
 
+#include <cstddef>
 #include <limits>
 
 #include "basic_types.hpp"
@@ -32,8 +34,8 @@ struct VariableState : public empty_state_t {
       const Metadata &md, int sparse_id = InvalidSparseID,
       const std::array<int, MAX_VARIABLE_DIMENSION> &dims = [] {
         std::array<int, MAX_VARIABLE_DIMENSION> d;
-        for (int i = 0; i < MAX_VARIABLE_DIMENSION; ++i)
-          d[i] = 1;
+        for (auto &dim : d)
+          dim = 1;
         return d;
       }());
 

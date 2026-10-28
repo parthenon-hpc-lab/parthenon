@@ -3,6 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
+// This file was made in part with generative AI
 // Parthenon performance portable AMR framework
 // Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
@@ -23,6 +24,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -55,12 +57,12 @@ class LogicalLocation { // aggregate and POD type
   // No check is provided that the requested LogicalLocation is in the allowed
   // range of logical location in the requested level.
   LogicalLocation(int lev, std::int64_t l1, std::int64_t l2, std::int64_t l3)
-      : l_{l1, l2, l3}, level_{lev}, tree_idx_{-1},
-        morton_(std::max(lev, 0), l1, l2, l3) {}
+      : l_{l1, l2, l3}, tree_idx_{-1}, morton_(std::max(lev, 0), l1, l2, l3),
+        level_{lev} {}
   LogicalLocation(std::int64_t tree, int lev, std::int64_t l1, std::int64_t l2,
                   std::int64_t l3)
-      : l_{l1, l2, l3}, level_{lev}, tree_idx_{tree},
-        morton_(std::max(lev, 0), l1, l2, l3) {}
+      : l_{l1, l2, l3}, tree_idx_{tree}, morton_(std::max(lev, 0), l1, l2, l3),
+        level_{lev} {}
   LogicalLocation() : LogicalLocation(0, 0, 0, 0) {}
 
   static Real IndexToSymmetrizedCoordinate(int index, BlockLocation bloc, int range);

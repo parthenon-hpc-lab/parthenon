@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include <vector>
 
@@ -30,7 +31,8 @@ BoundaryFace CellCentOffsets::Face() const {
 
 std::vector<CoordinateDirection> CellCentOffsets::GetTangentDirections() const {
   std::vector<CoordinateDirection> dirs;
-  CoordinateDirection missed;
+  // Only read when exactly one direction was excluded.
+  CoordinateDirection missed = X1DIR;
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {
     uint dir_idx = static_cast<uint>(dir);
     if (!static_cast<int>(u[dir_idx - 1])) { // This direction has no offset, so must be
@@ -48,7 +50,8 @@ std::vector<CoordinateDirection> CellCentOffsets::GetTangentDirections() const {
 
 std::vector<std::pair<CoordinateDirection, Offset>> CellCentOffsets::GetNormals() const {
   std::vector<std::pair<CoordinateDirection, Offset>> dirs;
-  CoordinateDirection missed;
+  // Only read when exactly one direction was excluded.
+  CoordinateDirection missed = X1DIR;
   for (auto dir : {X1DIR, X2DIR, X3DIR}) {
     uint dir_idx = dir - 1;
     if (static_cast<int>(u[dir_idx])) {

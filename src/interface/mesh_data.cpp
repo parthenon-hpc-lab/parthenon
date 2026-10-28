@@ -10,7 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 #include "mesh_data.hpp"
+#include <cstddef>
 
 #include "mesh/mesh.hpp"
 
@@ -46,7 +48,8 @@ void MeshData<T>::SetMeshProperties(Mesh *pmesh) {
 
 template <typename T>
 void MeshData<T>::SetBoundBufferId(BoundaryType btype, int id) {
-  PARTHENON_REQUIRE(id < pmy_mesh_->GetNumberOfCommChannels(btype),
+  PARTHENON_REQUIRE(id >= 0 && static_cast<std::size_t>(id) <
+                                   pmy_mesh_->GetNumberOfCommChannels(btype),
                     "Trying to set MeshData to communicate on a non-existent channel.");
   // We do not enforce symmetry here between associated senders and
   // receivers for maximum flexibility.

@@ -3,6 +3,7 @@
 // Copyright(C) 2023-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
+// This file was made in part with generative AI
 // (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -20,6 +21,7 @@
 //========================================================================================
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <iomanip>
@@ -88,7 +90,7 @@ void HistoryOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
   // Populated with all blocks
   if (md_base->NumBlocks() == 0) {
     md_base->Initialize(pm->block_list, pm);
-  } else if (md_base->NumBlocks() != pm->block_list.size()) {
+  } else if (static_cast<std::size_t>(md_base->NumBlocks()) != pm->block_list.size()) {
     PARTHENON_WARN(
         "Resetting \"base\" MeshData to contain all blocks. This indicates that "
         "the \"base\" MeshData container has been modified elsewhere. Double check "

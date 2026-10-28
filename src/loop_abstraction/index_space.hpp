@@ -22,6 +22,7 @@
 // GetPerTeamScratchSize lives in the scratch header; only a forward declaration is
 // needed here so IndexSpace::AddPerPointScratch can call it.
 
+#include <cstddef>
 #include <optional>
 #include <type_traits>
 
@@ -148,8 +149,6 @@ class IndexSpace {
         memory_kji.template EndIdx<0>() - memory_kji.template StartIdx<0>() + 1;
     const int nj =
         memory_kji.template EndIdx<1>() - memory_kji.template StartIdx<1>() + 1;
-    const int ni =
-        memory_kji.template EndIdx<2>() - memory_kji.template StartIdx<2>() + 1;
     if constexpr (inner_tag_v == inner_tag::logical_coords) {
       if (dir == parthenon::X1DIR) return Index3{0, 0, 1};
       if (dir == parthenon::X2DIR) return Index3{0, nj > 1, 0};
@@ -206,10 +205,10 @@ class IndexSpace {
   template <class MeshDataOrMeshBlockData>
   IndexSpace(NInner ninner, ID domain, int halo, int nblocks,
              const MeshDataOrMeshBlockData *md, TE domain_te, TE memory_te = TE::CC)
-      : nblocks(nblocks), ninner(ninner),
-        memory_kji(md->GetBoundsK(ID::entire, memory_te),
+      : memory_kji(md->GetBoundsK(ID::entire, memory_te),
                    md->GetBoundsJ(ID::entire, memory_te),
-                   md->GetBoundsI(ID::entire, memory_te)) {
+                   md->GetBoundsI(ID::entire, memory_te)),
+        nblocks(nblocks), ninner(ninner) {
     auto ib = md->GetBoundsI(domain, domain_te);
     auto jb = md->GetBoundsJ(domain, domain_te);
     auto kb = md->GetBoundsK(domain, domain_te);

@@ -54,6 +54,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
@@ -196,7 +197,8 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
   constexpr int kBufSize = 4096;
   constexpr IOWrapperSizeT kMaxInputHeaderSize = 10 * 1024 * 1024; // 10 MiB
   char buf[kBufSize];
-  IOWrapperSizeT header = 0, ret, loc;
+  IOWrapperSizeT header = 0, ret;
+  std::string::size_type loc;
 
   // search <par_end> or EOF.
   do {
@@ -213,7 +215,9 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
     std::string sbuf = par.str();    // create string for search
     loc = sbuf.find("<par_end>", 0); // search from the top of the stream
     if (loc != std::string::npos) {  // found <par_end>
-      header = loc + 10;             // store the header length
+      PARTHENON_REQUIRE(std::in_range<IOWrapperSizeT>(loc + 10),
+                        "Input header size exceeds the I/O byte-count range.");
+      header = static_cast<IOWrapperSizeT>(loc + 10); // store the header length
       break;
     }
     if (header > kMaxInputHeaderSize) {

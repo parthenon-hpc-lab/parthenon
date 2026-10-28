@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 #ifndef EXAMPLE_POISSON_GMG_POISSON_EQUATION_HPP_
 #define EXAMPLE_POISSON_GMG_POISSON_EQUATION_HPP_
 
@@ -152,8 +153,6 @@ class PoissonEquation {
 
     using TE = parthenon::TopologicalElement;
 
-    int nblocks = md->NumBlocks();
-
     auto desc = parthenon::MakePackDescriptor<var_t>(md.get(), {}, {PDOpt::WithFluxes});
     auto pack = desc.GetPack(md.get());
     auto desc_mat = parthenon::MakePackDescriptor<D_t>(md_mat.get(), {});
@@ -233,7 +232,6 @@ class PoissonEquation {
         scratch_size_in_bytes, scratch_level, 0, pack.GetNBlocks() - 1,
         KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
           const auto &coords = pack.GetCoordinates(b);
-          const int gid = pack.GetGID(b);
           const int level = pack.GetLevel(b, 0, 0, 0);
           for (int face = 0; face < ndim * 2; ++face) {
             const auto &idxer = idxers[face];
@@ -295,7 +293,6 @@ class PoissonEquation {
         "FluxMultiplyMatrix", 0, pack.GetNBlocks() - 1, kb.s, kb.e, jb.s, jb.e, ib.s,
         ib.e, KOKKOS_LAMBDA(const int b, const int k, const int j, const int i) {
           const auto &coords = pack.GetCoordinates(b);
-          Real dx1 = coords.template Dxc<X1DIR>(k, j, i);
           pack_out(b, te, var_t(), k, j, i) = -alpha * pack(b, te, var_t(), k, j, i);
           pack_out(b, te, var_t(), k, j, i) +=
               (pack.flux(b, X1DIR, var_t(), k, j, i) *

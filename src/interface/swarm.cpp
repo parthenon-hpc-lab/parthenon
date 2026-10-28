@@ -3,6 +3,7 @@
 // Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
+// This file was made in part with generative AI
 // (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -17,6 +18,7 @@
 // This file was modified with the assistance of generative AI.
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
@@ -223,8 +225,11 @@ void Swarm::Remove(const std::string &label) {
 }
 
 void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
-  PARTHENON_REQUIRE(nmax_pool > nmax_pool_, "Must request larger pool size!");
-  std::int64_t n_new = nmax_pool - nmax_pool_;
+  PARTHENON_REQUIRE(std::in_range<std::size_t>(nmax_pool),
+                    "Requested swarm pool size is outside the size_t range.");
+  const auto requested_size = static_cast<std::size_t>(nmax_pool);
+  PARTHENON_REQUIRE(requested_size > nmax_pool_, "Must request larger pool size!");
+  const std::size_t n_new = requested_size - nmax_pool_;
 
   auto pmb = GetBlockPointer();
   auto pm = pmb->pmy_mesh;
@@ -270,7 +275,7 @@ void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
     pmb->LogMemUsage(n_new * sizeof(Real));
   }
 
-  nmax_pool_ = nmax_pool;
+  nmax_pool_ = requested_size;
 
   // Populate new empty indices
   UpdateEmptyIndices();
@@ -289,7 +294,7 @@ NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
   auto pmb = GetBlockPointer();
 
   if (num_to_add > 0) {
-    while (nmax_pool_ - num_active_ < num_to_add) {
+    while (nmax_pool_ - num_active_ < static_cast<std::size_t>(num_to_add)) {
       IncreasePoolMax();
     }
 
@@ -445,18 +450,12 @@ void Swarm::Defrag() {
       });
 
   // Get all dynamical variables in swarm
-  auto &int_vector = std::get<getType<int>()>(vectors_);
-  auto &uint64_vector = std::get<getType<std::uint64_t>()>(vectors_);
-  auto &real_vector = std::get<getType<Real>()>(vectors_);
   PackIndexMap real_imap;
   PackIndexMap int_imap;
   PackIndexMap uint64_imap;
   auto vreal = PackAllVariables_<Real>(real_imap);
   auto vint = PackAllVariables_<int>(int_imap);
   auto vuint64 = PackAllVariables_<std::uint64_t>(uint64_imap);
-  std::size_t real_vars_size = real_vector.size();
-  std::size_t int_vars_size = int_vector.size();
-  std::size_t uint64_vars_size = uint64_vector.size();
   auto real_map = real_imap.Map();
   auto int_map = int_imap.Map();
   auto uint64_map = uint64_imap.Map();

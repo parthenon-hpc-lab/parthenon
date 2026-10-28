@@ -3,6 +3,7 @@
 // Copyright(C) 2020 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
+// This file was made in part with generative AI
 // (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -81,15 +82,19 @@ inline TaskStatus ProlongateBoundaries(std::shared_ptr<MeshData<Real>> &md) {
   return ProlongateBounds<BoundaryType::any>(md);
 }
 
+[[maybe_unused]]
 static TaskStatus StartReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   return StartReceiveBoundBufs<BoundaryType::flxcor_recv>(md);
 }
+[[maybe_unused]]
 static TaskStatus LoadAndSendFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   return SendBoundBufs<BoundaryType::flxcor_send>(md);
 }
+[[maybe_unused]]
 static TaskStatus ReceiveFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   return ReceiveBoundBufs<BoundaryType::flxcor_recv>(md);
 }
+[[maybe_unused]]
 static TaskStatus SetFluxCorrections(std::shared_ptr<MeshData<Real>> &md) {
   return SetBounds<BoundaryType::flxcor_recv>(md);
 }
