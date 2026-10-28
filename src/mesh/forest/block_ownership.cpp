@@ -65,16 +65,16 @@ DetermineOwnership(const LogicalLocation &main_block,
     if (a.tree() != b.tree()) return a.tree() < b.tree();
     if (a.morton() != b.morton()) return a.morton() < b.morton();
 
-    // If this is the same logical block, order its different images using
-    // the neighbor offset in each block's own logical frame.
+    // If we neighbor the same logical block via e.g. a periodic boundary
+    // (an "image"), order the block and its images using the neighbor
+    // offset: smaller/leftward offsets are owned.
     const CellCentOffsets offsets(a.GetSameLevelOffsets(nb.origin_loc));
     const auto offsets_in_neighbor_frame = nb.lcoord_trans.Transform(offsets);
-    const auto reverse_idx = offsets_in_neighbor_frame.GetReverseIdx();
+    const auto reverse_offset = offsets_in_neighbor_frame.GetReverseIdx();
+    if (offsets.GetIdx() != reverse_offset) return offsets.GetIdx() < reverse_offset;
 
-    if (offsets.GetIdx() != reverse_idx) return offsets.GetIdx() < reverse_idx;
-
-    // The connection maps the block back onto the same topological element.
-    // The real block owns the element; a NeighborBlock image does not.
+    // Break ties of same block, same image by prioritizing "real" blocks.
+    // Neighbors
     return neighbor_neighbor;
   };
 
