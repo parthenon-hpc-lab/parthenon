@@ -17,6 +17,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <set>
 #include <string>
 #include <type_traits>
 #include <typeinfo>
@@ -31,6 +32,7 @@
 #include "pack/sparse_pack/sparse_pack.hpp"
 #include "sparse/sparse_management.hpp"
 #include "time_integration/staged_integrator.hpp"
+#include "utils/indexer.hpp"
 
 #include "kokkos_abstraction.hpp"
 #include "mesh/domain.hpp"
@@ -39,19 +41,92 @@ namespace parthenon {
 
 namespace Update {
 
+namespace impl {
+template <typename F, typename T>
+auto MakeUpdatePackDescriptor(const F &flags, T *data,
+                              const std::set<PDOpt> &options = {}) {
+  auto *block_data = data->GetBlockDataRawPointer(0);
+  const auto uids = [&] {
+    if constexpr (std::is_same_v<F, std::vector<MetadataFlag>>) {
+      return block_data->GetVariableUIDs(Metadata::FlagCollection(flags));
+    } else {
+      return block_data->GetVariableUIDs(flags);
+    }
+  }();
+  return MakePackDescriptor(block_data->GetBlockPointer()->resolved_packages.get(), uids,
+                            {}, options);
+}
+
+// A common descriptor gives fields a common order, but sparse allocation must also
+// match before component indices can be reused between operands.
+template <typename... Packs>
+void CheckPackLayouts(const SparsePack<>::Descriptor &desc, const SparsePack<> &first,
+                      const Packs &...others) {
+  auto check = [&](const auto &other) {
+    PARTHENON_REQUIRE_THROWS(first.GetNBlocks() == other.GetNBlocks(),
+                             "Update operands must contain the same blocks.");
+    for (int b = 0; b < first.GetNBlocks(); ++b) {
+      for (int v = 0; v < desc.nvar_groups; ++v) {
+        const PackIdx idx(v);
+        PARTHENON_REQUIRE_THROWS(
+            first.GetLowerBoundHost(b, idx) == other.GetLowerBoundHost(b, idx) &&
+                first.GetUpperBoundHost(b, idx) == other.GetUpperBoundHost(b, idx),
+            "Update operands must have matching allocated fields.");
+      }
+    }
+  };
+  (check(others), ...);
+}
+
+template <typename Function>
+void ForEachCell(const SparsePack<> &pack, const IndexRange &ib, const IndexRange &jb,
+                 const IndexRange &kb, const Function &function) {
+  const Indexer3D idxer(kb, jb, ib);
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, 0, 0, 0, pack.GetNBlocks() - 1,
+      KOKKOS_LAMBDA(team_mbr_t member, const int b) {
+        for (int l = pack.GetLowerBound(b); l <= pack.GetUpperBound(b); ++l) {
+          parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
+            const auto [k, j, i] = idxer(idx);
+            function(b, l, k, j, i);
+          });
+        }
+      });
+}
+
+template <typename Function>
+void ForEachCell(const SparsePack<> &pack, const Function &function) {
+  parthenon::par_for_outer(
+      PARTHENON_AUTO_LABEL, 0, 0, 0, pack.GetNBlocks() - 1,
+      KOKKOS_LAMBDA(team_mbr_t member, const int b) {
+        for (int l = pack.GetLowerBound(b); l <= pack.GetUpperBound(b); ++l) {
+          const auto &var = pack(b, l);
+          const Indexer3D idxer({0, var.GetDim(3) - 1}, {0, var.GetDim(2) - 1},
+                                {0, var.GetDim(1) - 1});
+          parthenon::par_for_inner(member, 0, idxer.size() - 1, [&](const int idx) {
+            const auto [k, j, i] = idxer(idx);
+            function(b, l, k, j, i);
+          });
+        }
+      });
+}
+} // namespace impl
+
 // Calculate the flux divergence for a specific component l of a variable v
-KOKKOS_FORCEINLINE_FUNCTION
-Real FluxDivHelper(const int l, const int k, const int j, const int i, const int ndim,
-                   const Coordinates_t &coords, const VariableFluxPack<Real> &v) {
-  Real du = (coords.FaceArea<X1DIR>(k, j, i + 1) * v.flux(X1DIR, l, k, j, i + 1) -
-             coords.FaceArea<X1DIR>(k, j, i) * v.flux(X1DIR, l, k, j, i));
+template <typename... Ts>
+KOKKOS_FORCEINLINE_FUNCTION Real FluxDivHelper(const int b, const int l, const int k,
+                                               const int j, const int i, const int ndim,
+                                               const Coordinates_t &coords,
+                                               const SparsePack<Ts...> &v) {
+  Real du = (coords.FaceArea<X1DIR>(k, j, i + 1) * v.flux(b, X1DIR, l, k, j, i + 1) -
+             coords.FaceArea<X1DIR>(k, j, i) * v.flux(b, X1DIR, l, k, j, i));
   if (ndim >= 2) {
-    du += (coords.FaceArea<X2DIR>(k, j + 1, i) * v.flux(X2DIR, l, k, j + 1, i) -
-           coords.FaceArea<X2DIR>(k, j, i) * v.flux(X2DIR, l, k, j, i));
+    du += (coords.FaceArea<X2DIR>(k, j + 1, i) * v.flux(b, X2DIR, l, k, j + 1, i) -
+           coords.FaceArea<X2DIR>(k, j, i) * v.flux(b, X2DIR, l, k, j, i));
   }
   if (ndim == 3) {
-    du += (coords.FaceArea<X3DIR>(k + 1, j, i) * v.flux(X3DIR, l, k + 1, j, i) -
-           coords.FaceArea<X3DIR>(k, j, i) * v.flux(X3DIR, l, k, j, i));
+    du += (coords.FaceArea<X3DIR>(k + 1, j, i) * v.flux(b, X3DIR, l, k + 1, j, i) -
+           coords.FaceArea<X3DIR>(k, j, i) * v.flux(b, X3DIR, l, k, j, i));
   }
   return -du / coords.CellVolume(k, j, i);
 }
@@ -72,19 +147,15 @@ template <typename F, typename T>
 TaskStatus WeightedSumData(const F &flags, T *in1, T *in2, const Real w1, const Real w2,
                            T *out) {
   PARTHENON_INSTRUMENT
-  const auto &x = in1->PackVariables(flags);
-  const auto &y = in2->PackVariables(flags);
-  const auto &z = out->PackVariables(flags);
-  parthenon::par_for(
-      PARTHENON_AUTO_LABEL, 0, x.GetDim(5) - 1, 0, x.GetDim(4) - 1, 0, x.GetDim(3) - 1, 0,
-      x.GetDim(2) - 1, 0, x.GetDim(1) - 1,
-      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
-        // TOOD(someone) This is potentially dangerous and/or not intended behavior
-        // as we still may want to update (or populate) z if any of those vars are
-        // not allocated yet.
-        if (x.IsAllocated(b, l) && y.IsAllocated(b, l) && z.IsAllocated(b, l)) {
-          z(b, l, k, j, i) = w1 * x(b, l, k, j, i) + w2 * y(b, l, k, j, i);
-        }
+  if (in1->NumBlocks() == 0) return TaskStatus::complete;
+  const auto desc = impl::MakeUpdatePackDescriptor(flags, in1);
+  const auto x = desc.GetPack(in1, false);
+  const auto y = desc.GetPack(in2, false);
+  const auto z = desc.GetPack(out, false);
+  impl::CheckPackLayouts(desc, x, y, z);
+  impl::ForEachCell(
+      x, KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
+        z(b, l, k, j, i) = w1 * x(b, l, k, j, i) + w2 * y(b, l, k, j, i);
       });
   return TaskStatus::complete;
 }
@@ -97,14 +168,12 @@ TaskStatus CopyData(const F &flags, T *in, T *out) {
 template <typename F, typename T>
 TaskStatus SetDataToConstant(const F &flags, T *data, const Real val) {
   PARTHENON_INSTRUMENT
-  const auto &x = data->PackVariables(flags);
-  parthenon::par_for(
-      PARTHENON_AUTO_LABEL, 0, x.GetDim(5) - 1, 0, x.GetDim(4) - 1, 0, x.GetDim(3) - 1, 0,
-      x.GetDim(2) - 1, 0, x.GetDim(1) - 1,
-      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
-        if (x.IsAllocated(b, l)) {
-          x(b, l, k, j, i) = val;
-        }
+  if (data->NumBlocks() == 0) return TaskStatus::complete;
+  const auto desc = impl::MakeUpdatePackDescriptor(flags, data);
+  const auto x = desc.GetPack(data, false);
+  impl::ForEachCell(
+      x, KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
+        x(b, l, k, j, i) = val;
       });
   return TaskStatus::complete;
 }
@@ -148,9 +217,12 @@ TaskStatus Update2S(const F &flags, T *s0_data, T *s1_data, T *rhs_data,
                     const LowStorageIntegrator *pint, Real dt, int stage,
                     bool update_s1) {
   PARTHENON_INSTRUMENT
-  const auto &s0 = s0_data->PackVariables(flags);
-  const auto &s1 = s1_data->PackVariables(flags);
-  const auto &rhs = rhs_data->PackVariables(flags);
+  if (s0_data->NumBlocks() == 0) return TaskStatus::complete;
+  const auto desc = impl::MakeUpdatePackDescriptor(flags, s0_data);
+  const auto s0 = desc.GetPack(s0_data, false);
+  const auto s1 = desc.GetPack(s1_data, false);
+  const auto rhs = desc.GetPack(rhs_data, false);
+  impl::CheckPackLayouts(desc, s0, s1, rhs);
 
   const IndexDomain interior = IndexDomain::interior;
   const IndexRange ib = s0_data->GetBoundsI(interior);
@@ -161,17 +233,14 @@ TaskStatus Update2S(const F &flags, T *s0_data, T *s1_data, T *rhs_data,
   Real beta = pint->beta[stage - 1];
   Real gam0 = pint->gam0[stage - 1];
   Real gam1 = pint->gam1[stage - 1];
-  parthenon::par_for(
-      PARTHENON_AUTO_LABEL, 0, s0.GetDim(5) - 1, 0, s0.GetDim(4) - 1, kb.s, kb.e, jb.s,
-      jb.e, ib.s, ib.e,
+  impl::ForEachCell(
+      s0, ib, jb, kb,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
-        if (s0.IsAllocated(b, l) && s1.IsAllocated(b, l) && rhs.IsAllocated(b, l)) {
-          if (update_s1) {
-            s1(b, l, k, j, i) = s1(b, l, k, j, i) + delta * s0(b, l, k, j, i);
-          }
-          s0(b, l, k, j, i) = gam0 * s0(b, l, k, j, i) + gam1 * s1(b, l, k, j, i) +
-                              beta * dt * rhs(b, l, k, j, i);
+        if (update_s1) {
+          s1(b, l, k, j, i) = s1(b, l, k, j, i) + delta * s0(b, l, k, j, i);
         }
+        s0(b, l, k, j, i) = gam0 * s0(b, l, k, j, i) + gam1 * s1(b, l, k, j, i) +
+                            beta * dt * rhs(b, l, k, j, i);
       });
   return TaskStatus::complete;
 }
@@ -193,30 +262,28 @@ TaskStatus SumButcher(const F &flags, std::shared_ptr<T> base_data,
                       std::shared_ptr<T> out_data, const ButcherIntegrator *pint, Real dt,
                       int stage) {
   PARTHENON_INSTRUMENT
-  const auto &out = out_data->PackVariables(flags);
-  const auto &in = base_data->PackVariables(flags);
+  if (out_data->NumBlocks() == 0) return TaskStatus::complete;
+  const auto desc = impl::MakeUpdatePackDescriptor(flags, base_data.get());
+  const auto out = desc.GetPack(out_data.get(), false);
+  const auto in = desc.GetPack(base_data.get(), false);
+  impl::CheckPackLayouts(desc, out, in);
   const IndexDomain interior = IndexDomain::interior;
   const IndexRange ib = out_data->GetBoundsI(interior);
   const IndexRange jb = out_data->GetBoundsJ(interior);
   const IndexRange kb = out_data->GetBoundsK(interior);
-  parthenon::par_for(
-      PARTHENON_AUTO_LABEL, 0, out.GetDim(5) - 1, 0, out.GetDim(4) - 1, kb.s, kb.e, jb.s,
-      jb.e, ib.s, ib.e,
+  impl::ForEachCell(
+      out, ib, jb, kb,
       KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
-        if (out.IsAllocated(b, l) && in.IsAllocated(b, l)) {
-          out(b, l, k, j, i) = in(b, l, k, j, i);
-        }
+        out(b, l, k, j, i) = in(b, l, k, j, i);
       });
   for (int prev = 0; prev < stage; ++prev) {
     Real a = pint->a[stage - 1][prev];
-    const auto &in = stage_data[stage]->PackVariables(flags);
-    parthenon::par_for(
-        PARTHENON_AUTO_LABEL, 0, out.GetDim(5) - 1, 0, out.GetDim(4) - 1, kb.s, kb.e,
-        jb.s, jb.e, ib.s, ib.e,
+    const auto in = desc.GetPack(stage_data[prev].get(), false);
+    impl::CheckPackLayouts(desc, out, in);
+    impl::ForEachCell(
+        out, ib, jb, kb,
         KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
-          if (out.IsAllocated(b, l) && in.IsAllocated(b, l)) {
-            out(b, l, k, j, i) += dt * a * in(b, l, k, j, i);
-          }
+          out(b, l, k, j, i) += dt * a * in(b, l, k, j, i);
         });
   }
   return TaskStatus::complete;
@@ -237,7 +304,9 @@ TaskStatus UpdateButcher(const F &flags, std::vector<std::shared_ptr<T>> stage_d
                          Real dt) {
   PARTHENON_INSTRUMENT
 
-  const auto &out = out_data->PackVariables(flags);
+  if (out_data->NumBlocks() == 0) return TaskStatus::complete;
+  const auto desc = impl::MakeUpdatePackDescriptor(flags, out_data.get());
+  const auto out = desc.GetPack(out_data.get(), false);
   const IndexDomain interior = IndexDomain::interior;
   const IndexRange ib = out_data->GetBoundsI(interior);
   const IndexRange jb = out_data->GetBoundsJ(interior);
@@ -246,24 +315,22 @@ TaskStatus UpdateButcher(const F &flags, std::vector<std::shared_ptr<T>> stage_d
   const int nstages = pint->nstages;
   for (int stage = 0; stage < nstages; ++stage) {
     const Real butcher_b = pint->b[stage];
-    const auto &in = stage_data[stage]->PackVariables(flags);
-    parthenon::par_for(
-        PARTHENON_AUTO_LABEL, 0, out.GetDim(5) - 1, 0, out.GetDim(4) - 1, kb.s, kb.e,
-        jb.s, jb.e, ib.s, ib.e,
+    const auto in = desc.GetPack(stage_data[stage].get(), false);
+    impl::CheckPackLayouts(desc, out, in);
+    impl::ForEachCell(
+        out, ib, jb, kb,
         KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
-          if (out.IsAllocated(b, l) && in.IsAllocated(b, l)) {
-            out(b, l, k, j, i) += dt * b * in(b, l, k, j, i);
-          }
+          out(b, l, k, j, i) += dt * butcher_b * in(b, l, k, j, i);
         });
   }
   return TaskStatus::complete;
 }
-template <typename F, typename T>
+template <typename T>
 TaskStatus UpdateButcherIndependent(std::vector<std::shared_ptr<T>> stage_data,
                                     std::shared_ptr<T> out_data,
                                     const ButcherIntegrator *pint, Real dt) {
-  return UpdateButcherIndependent(std::vector<MetadataFlag>({Metadata::Independent}),
-                                  stage_data, out_data, pint, dt);
+  return UpdateButcher(std::vector<MetadataFlag>({Metadata::Independent}), stage_data,
+                       out_data, pint, dt);
 }
 
 template <typename T>
