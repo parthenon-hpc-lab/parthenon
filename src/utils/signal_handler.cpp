@@ -177,7 +177,9 @@ void CancelWallTimeAlarm() {
 
 void Report() {
   if (SignalHandler::GetSignalFlag(SIGTERM) != 0) {
-    std::cout << std::endl << "Terminating on terminate signal (SIGTERM) or stop_now file" << std::endl;
+    std::cout << std::endl
+              << "Terminating on terminate signal (SIGTERM) or stop_now file"
+              << std::endl;
   } else if (SignalHandler::GetSignalFlag(SIGINT) != 0) {
     std::cout << std::endl << "Terminating on interrupt signal (SIGINT)" << std::endl;
   } else if (SignalHandler::GetSignalFlag(SIGALRM) != 0) {
