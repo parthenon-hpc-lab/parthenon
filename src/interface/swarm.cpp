@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was modified with the assistance of generative AI.
+
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
@@ -85,9 +87,6 @@ Swarm::Swarm(const std::string &label, const Metadata &metadata,
       neighbor_received_particles_("neighbor_received_particles_", NMAX_NEIGHBORS),
       cell_sorted_("cell_sorted_", nmax_pool_),
       buffer_sorted_("buffer_sorted_", nmax_pool_), mpiStatus(true) {
-  PARTHENON_REQUIRE_THROWS(typeid(Coordinates_t) == typeid(UniformCartesian),
-                           "SwarmDeviceContext only supports a uniform Cartesian mesh!");
-
   uid_ = get_uid_(label_);
 
   // Add default swarm fields
@@ -383,6 +382,15 @@ void Swarm::RemoveMarkedParticles() {
 
   num_active_ -= num_removed;
 
+  UpdateEmptyIndices();
+}
+
+void Swarm::ClearParticles() {
+  Kokkos::deep_copy(mask_, false);
+  Kokkos::deep_copy(marked_for_removal_, false);
+  num_active_ = 0;
+  max_active_index_ = inactive_max_active_index;
+  new_indices_max_idx_ = -1;
   UpdateEmptyIndices();
 }
 

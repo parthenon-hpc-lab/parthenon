@@ -198,6 +198,9 @@ class Swarm {
   /// Remove particles marked for removal and update internal indexing
   void RemoveMarkedParticles();
 
+  /// Mark all particle slots inactive while retaining the allocated pool.
+  void ClearParticles();
+
   /// Open up memory for new empty particles, return a mask to these particles
   NewParticlesContext AddEmptyParticles(const int num_to_add);
 

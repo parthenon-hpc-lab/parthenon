@@ -9,6 +9,7 @@ so you can run your first example quickly.
    :maxdepth: 1
 
    ../README
+   ../tutorial
    ../building
    ../inputs
    ../outputs

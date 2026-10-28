@@ -212,6 +212,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   auto tr_pkg = std::make_shared<StateDescriptor>("particles_package");
 
   tr_pkg->AddParam("num_tracers", pin->GetOrAddInteger("Tracers", "num_tracers", 100));
+  const bool source_in_problem_generator =
+      pin->GetOrAddBoolean("Tracers", "source_in_problem_generator", true);
+  tr_pkg->AddParam("source_in_problem_generator", source_in_problem_generator);
 
   // `NoPersistentParticleIds` is just passed to test this aspect in the regression tests.
   // For typical tracers, persistent ids might be important.
@@ -221,8 +224,11 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // Assign package timestep hook
   tr_pkg->EstimateTimestepMesh = EstimateTimestepMesh;
 
-  // Assign package final initialization hook
-  tr_pkg->PostInitializationBlock = SourceTracers;
+  // Source particles from the ProblemGenerator by default. Alternatively, source them
+  // after initialization AMR has resolved.
+  if (!source_in_problem_generator) {
+    tr_pkg->PostInitializationBlock = SourceTracers;
+  }
 
   return tr_pkg;
 }
@@ -554,10 +560,9 @@ TaskCollection ParticleDriver::StepTasks() {
 }
 
 // *************************************************//
-// Define the ProblemGenerator. Initializing the,  *//
-// advected field.  Recall that initial particle   *//
-// sourcing is handled in FinalInitialization      *//
-// owned by the particles package.                 */
+// Define the ProblemGenerator, initializing the   *//
+// advected field and, when selected, the initial  *//
+// tracer particles.                               *//
 // *************************************************//
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
@@ -568,6 +573,7 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
 
   // Advection package params
   auto &adv_pkg = pmb->packages.Get("advection_package");
+  auto &tr_pkg = pmb->packages.Get("particles_package");
   const Real &advected_mean = adv_pkg->Param<Real>("advected_mean");
   const Real &advected_amp = adv_pkg->Param<Real>("advected_amp");
 
@@ -594,6 +600,10 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         pack(0, field::advected(), k, j, i) =
             advected_mean + advected_amp * std::sin(kwave * x1v);
       });
+
+  if (tr_pkg->Param<bool>("source_in_problem_generator")) {
+    particles_package::SourceTracers(pmb, pin);
+  }
 }
 
 } // namespace tracers_example

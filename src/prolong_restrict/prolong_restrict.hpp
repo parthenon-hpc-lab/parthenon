@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2022. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2022-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -19,6 +19,8 @@
 
 #ifndef PROLONG_RESTRICT_PROLONG_RESTRICT_HPP_
 #define PROLONG_RESTRICT_PROLONG_RESTRICT_HPP_
+
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <functional> // std::function
@@ -173,6 +175,13 @@ struct RefinementFunctionsHasher {
     return std::hash<std::string>{}(f.label());
   }
 };
+
+// Default refinement ops (ProlongateSharedMinMod + RestrictAverage). Declared
+// here but defined out-of-line in prolong_restrict.cpp so the underlying kernel
+// template chain (DoProlongationRestrictionOp -> ProlongationRestrictionLoop ->
+// par_for_*) is instantiated in exactly one TU rather than at every Metadata
+// call site that relies on the default refinement functions.
+const RefinementFunctions_t &DefaultRefinementFunctions();
 
 } // namespace refinement
 } // namespace parthenon

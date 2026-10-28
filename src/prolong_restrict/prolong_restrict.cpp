@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
 // for Los Alamos National Laboratory (LANL), which is operated by Triad
@@ -16,6 +16,8 @@
 // the public, perform publicly and display publicly, and to permit others to do
 // so.
 //========================================================================================
+
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <tuple> // std::tuple
@@ -31,6 +33,16 @@
 
 namespace parthenon {
 namespace refinement {
+
+// Single instantiation point for the default refinement ops. Every
+// default-constructed Metadata shares this instance, so the expensive kernel
+// template chain is instantiated here once instead of in every calling TU.
+const RefinementFunctions_t &DefaultRefinementFunctions() {
+  static const RefinementFunctions_t funcs =
+      RefinementFunctions_t::RegisterOps<refinement_ops::ProlongateSharedMinMod,
+                                         refinement_ops::RestrictAverage>();
+  return funcs;
+}
 
 // TODO(JMM): Add a prolongate when prolongation is called in-one
 // TODO(JMM): Is this actually the API we want?
