@@ -26,9 +26,8 @@ jobs:
       run_only: true
   riot:
     name: riot compatibility
-    uses: lanl/riot/.github/workflows/unit-tests.yml@jmm/ci
+    uses: lanl/riot/.github/workflows/unit-tests.yml@main
     with:
-      # Temporary
-      riot_ref: jmm/ci
+      riot_ref: main
       # Tests the synthetic merge of develop + PR.
       parthenon_ref: ${{ github.ref }}
