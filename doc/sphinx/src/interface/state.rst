@@ -138,7 +138,7 @@ several useful features and functions.
   ``PostInitializationBlock``, respectively).
 
 Each of these callbacks is a ``CallbackRegistration`` (see
-``utils/callback_registration.hpp``), which wraps a ``std::function`` and
+``utils/callbacks.hpp``), which wraps a ``std::function`` and
 can be assigned to directly, e.g.
 ``pkg->FillDerivedMesh = MyFillDerived``. A callback can also be registered
 with the names of other packages it must run after and/or before:
@@ -170,22 +170,13 @@ they can be called directly:
 ``ForEachInOrder<Members...>(f)`` instead calls ``f(StateDescriptor *)`` on
 each package registering any of the given members, which orders several
 members together, e.g. ``ForEachInOrder<&StateDescriptor::PostInitializationMesh,
-&StateDescriptor::PostInitializationBlock>``.
-``ExecutionOrder<...>()`` returns the order without
-running anything.
-
-For other callbacks, ``Packages_t`` also provides helpers that
-take a getter returning the ``CallbackRegistration`` of a
-``StateDescriptor *`` and a name used in error messages:
-``AddTasksDAG(getter, executor, name)`` runs the executor on each
-registered package in order, ``BuildExecutionOrder(getter, name)`` returns
-the order without running anything, and ``WriteCallbackGraph`` writes the
-dependency graph in GraphViz DOT format.
-Dependencies on packages that don't have the callback registered are
-ignored, and a cyclic dependency throws an error.
+&StateDescriptor::PostInitializationBlock>``, and
+``WriteCallbackGraph<Members...>(stream, name)`` writes the dependency
+graph in GraphViz DOT format. Dependencies on packages that don't have the
+callback registered are ignored.
 
 These methods forward to ``CallbackOrder<StateDescriptor>`` (see
-``utils/callback_order.hpp``), which ``Packages_t::CallbackOrders()`` also
+``utils/callbacks.hpp``), which ``Packages_t::CallbackOrders()`` also
 returns. ``CallbackOrder<T>`` works for any type ``T`` with
 ``CallbackRegistration`` members, so downstream codes can order callbacks
 of their own types the same way. It is built from a map of names to

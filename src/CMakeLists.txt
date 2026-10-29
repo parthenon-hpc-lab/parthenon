@@ -321,10 +321,8 @@ add_library(parthenon
   utils/alias_method.hpp
   utils/array_to_tuple.hpp
   utils/bit_hacks.hpp
-  utils/callback_dag.hpp
-  utils/callback_dag.cpp
-  utils/callback_order.hpp
-  utils/callback_registration.hpp
+  utils/callbacks.cpp
+  utils/callbacks.hpp
   utils/cell_center_offsets.cpp
   utils/cell_center_offsets.hpp
   utils/change_rundir.cpp

@@ -27,7 +27,7 @@ list(APPEND unit_tests_SOURCES
     test_taskid.cpp
     test_tasklist.cpp
     test_tasklist_fail.cpp
-    test_callback_dag.cpp
+    test_callbacks.cpp
     test_unit_params.cpp
     test_unit_constants.cpp
     test_unit_domain.cpp

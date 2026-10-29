@@ -33,7 +33,7 @@
 
 namespace parthenon {
 
-// Declared extern in packages.hpp
+// Declared extern in state_descriptor.hpp
 template class CallbackOrder<StateDescriptor>;
 
 void RefinementFunctionMaps::Register(const Metadata &m, std::string varname) {

@@ -14,7 +14,6 @@
 #ifndef INTERFACE_PACKAGES_HPP_
 #define INTERFACE_PACKAGES_HPP_
 
-#include <functional>
 #include <memory>
 #include <ostream>
 #include <string>
@@ -22,14 +21,11 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "utils/callback_order.hpp"
+#include "utils/callbacks.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
 class StateDescriptor; // forward declaration
-// Compiled once, in state_descriptor.cpp
-extern template class CallbackOrder<StateDescriptor>;
-
 class Packages_t {
  public:
   Packages_t() = default;
@@ -93,38 +89,9 @@ class Packages_t {
   }
 
   // Orders the packages' callbacks by the dependencies of their CallbackRegistrations,
-  // see utils/callback_order.hpp. The methods below forward to it.
+  // see utils/callbacks.hpp. The methods below forward to it.
   CallbackOrder<StateDescriptor> CallbackOrders() const {
     return CallbackOrder<StateDescriptor>(packages_, "StateDescriptor");
-  }
-
-  template <CallbackRegistrationGetter<StateDescriptor> Getter>
-  std::vector<std::string> BuildExecutionOrder(Getter getter,
-                                               const std::string &callback_name) const {
-    return CallbackOrders().BuildExecutionOrder(getter, callback_name);
-  }
-
-  template <CallbackRegistrationGetter<StateDescriptor> Getter>
-  void AddTasksDAG(Getter getter, const std::function<void(StateDescriptor *)> &executor,
-                   const std::string &callback_name) const {
-    CallbackOrders().AddTasksDAG(getter, executor, callback_name);
-  }
-
-  template <CallbackRegistrationGetter<StateDescriptor> Getter>
-  void AddTasksDAG(const std::vector<std::string> &order, Getter getter,
-                   const std::function<void(StateDescriptor *)> &executor) const {
-    CallbackOrders().AddTasksDAG(order, getter, executor);
-  }
-
-  template <CallbackRegistrationGetter<StateDescriptor> Getter>
-  void WriteCallbackGraph(std::ostream &stream, Getter getter,
-                          const std::string &callback_name) const {
-    CallbackOrders().WriteCallbackGraph(stream, getter, callback_name);
-  }
-
-  template <auto... Members>
-  std::vector<std::string> ExecutionOrder() const {
-    return CallbackOrders().ExecutionOrder<Members...>();
   }
 
   // Registrations of a StateDescriptor callback member in execution order, e.g.
@@ -136,9 +103,17 @@ class Packages_t {
     return CallbackOrders().Callbacks<Member>();
   }
 
+  // Call f(StateDescriptor *) on each package registering any of the callback members,
+  // in execution order, e.g. to order the Mesh and Block variants of a callback together
   template <auto... Members, typename F>
   void ForEachInOrder(F &&f) const {
     CallbackOrders().ForEachInOrder<Members...>(std::forward<F>(f));
+  }
+
+  // Write the dependency graph of the callback members in GraphViz DOT format
+  template <auto... Members>
+  void WriteCallbackGraph(std::ostream &stream, const std::string &callback_name) const {
+    CallbackOrders().WriteCallbackGraph<Members...>(stream, callback_name);
   }
 
  private:

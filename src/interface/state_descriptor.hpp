@@ -40,7 +40,7 @@
 #include "parameter_input.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "tasks/tasks.hpp"
-#include "utils/callback_registration.hpp"
+#include "utils/callbacks.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -577,6 +577,9 @@ class StateDescriptor {
   Dictionary<MeshDataDescriptor> submeshdata_map_;
   std::map<TopologicalType, std::size_t> num_scratch_;
 };
+
+// Compiled once, in state_descriptor.cpp
+extern template class CallbackOrder<StateDescriptor>;
 
 // Selects the Mesh or Block variant of a StateDescriptor callback for data type T, e.g.
 // MeshOrBlock<T>(&StateDescriptor::FillDerivedMesh, &StateDescriptor::FillDerivedBlock)
