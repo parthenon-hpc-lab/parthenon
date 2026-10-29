@@ -8,7 +8,7 @@
 
 
 ### Changed (changing behavior/API/variables/...)
-- [[PR 782]](https://github.com/parthenon-hpc-lab/parthenon/pull/782) Die on repeatedly receiving SIGINT
+- [[PR 1446]](https://github.com/parthenon-hpc-lab/parthenon/pull/1446) Die on repeatedly receiving SIGINT
 
 ### Fixed (not changing behavior/API/variables/...)
 
