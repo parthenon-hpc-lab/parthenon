@@ -11,6 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #ifndef PARTHENON_PACKAGE_HPP_
 #define PARTHENON_PACKAGE_HPP_
 
@@ -24,6 +26,8 @@
 #include <interface/state_descriptor.hpp>
 #include <interface/variable_pack.hpp>
 #include <kokkos_abstraction.hpp>
+#include <lukewarm/lukewarm_pack.hpp>
+#include <lukewarm/lukewarm_relocate.hpp>
 #include <mesh/mesh.hpp>
 #include <mesh/meshblock.hpp>
 #include <mesh/meshblock_pack.hpp>
@@ -52,6 +56,7 @@ using ::parthenon::BlockList_t;
 using ::parthenon::DevExecSpace;
 using ::parthenon::HostExecSpace;
 using ::parthenon::IndexSplit;
+using ::parthenon::LukewarmPack;
 using ::parthenon::Mesh;
 using ::parthenon::MeshBlock;
 using ::parthenon::MeshBlockPack;

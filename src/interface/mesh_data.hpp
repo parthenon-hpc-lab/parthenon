@@ -13,7 +13,7 @@
 #ifndef INTERFACE_MESH_DATA_HPP_
 #define INTERFACE_MESH_DATA_HPP_
 
-// This file was made in part with generative AI
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <limits>
@@ -27,6 +27,7 @@
 #include "bvals/comms/bnd_info.hpp"
 #include "interface/variable_pack.hpp"
 #include "kokkos_abstraction.hpp"
+#include "lukewarm/lukewarm_container.hpp"
 #include "mesh/domain.hpp"
 #include "mesh/meshblock.hpp"
 #include "mesh/meshblock_pack.hpp"
@@ -512,6 +513,33 @@ class MeshData {
     return block_data_[n]->GetSwarmData();
   }
 
+  // Lukewarms are particle collections owned by a MeshData rather than by its blocks.
+  // They live only on the "base" MeshData of each default block partition.
+  void InitializeLukewarms(const StateDescriptor *resolved_packages,
+                           std::map<std::string, LukewarmIdCounter> &id_counters) {
+    PARTHENON_REQUIRE_THROWS(stage_name_ == "base",
+                             "Lukewarms live on the \"base\" MeshData only");
+    lukewarms_ = std::make_shared<LukewarmContainer>(resolved_packages, id_counters);
+  }
+  bool HasLukewarms() const { return lukewarms_ != nullptr; }
+  // Hand over the lukewarms, leaving this MeshData without any
+  std::shared_ptr<LukewarmContainer> ReleaseLukewarms() { return std::move(lukewarms_); }
+  LukewarmContainer &GetLukewarmContainer() const {
+    PARTHENON_REQUIRE_THROWS(HasLukewarms(),
+                             "This MeshData has no lukewarms. Lukewarms live on the "
+                             "\"base\" MeshData of each default block partition.");
+    return *lukewarms_;
+  }
+  const std::shared_ptr<Lukewarm> &GetLukewarmPtr(const std::string &name) const {
+    return GetLukewarmContainer().GetLukewarmPtr(name);
+  }
+  Lukewarm &GetLukewarm(const std::string &name) const {
+    return GetLukewarmContainer().GetLukewarm(name);
+  }
+  const LukewarmGeometry &GetLukewarmGeometry() const {
+    return GetLukewarmContainer().GetGeometry();
+  }
+
   SparsePackCache &GetSparsePackCache() { return sparse_pack_cache_; }
 
   template <typename TYPE>
@@ -540,6 +568,8 @@ class MeshData {
   SwarmPackCaches swarm_pack_caches_;
   // caches for boundary information
   BvarsCache_t bvars_cache_;
+  // particles owned by this MeshData, null unless this is a base MeshData
+  std::shared_ptr<LukewarmContainer> lukewarms_;
 };
 
 template <typename T, typename... Args>

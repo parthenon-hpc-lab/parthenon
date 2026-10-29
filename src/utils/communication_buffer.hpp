@@ -15,6 +15,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #ifndef UTILS_COMMUNICATION_BUFFER_HPP_
 #define UTILS_COMMUNICATION_BUFFER_HPP_
 
@@ -53,6 +55,7 @@ class CommBuffer {
   std::shared_ptr<bool> started_irecv_;
   std::shared_ptr<int> nrecv_tries_;
   std::shared_ptr<mpi_request_t> my_request_;
+  std::shared_ptr<int> message_size_;
 
   using get_resource_func_t = std::function<T(int)>;
 
@@ -128,6 +131,10 @@ class CommBuffer {
 
   BufferState GetState() { return *state_; }
 
+  // Number of elements in the last message sent, or received once TryReceive() returns
+  // true. This can be less than the size of the buffer.
+  int GetMessageSize() const { return *message_size_; }
+
   void Send(bool local = false, int size = -1) noexcept;
   void SendNull(bool local = false) noexcept;
 
@@ -171,8 +178,8 @@ CommBuffer<T>::CommBuffer(int tag, int send_rank, int recv_rank, mpi_comm_t comm
 #ifdef MPI_PARALLEL
       my_request_(std::make_shared<MPI_Request>(MPI_REQUEST_NULL)),
 #endif
-      tag_(tag), send_rank_(send_rank), recv_rank_(recv_rank), comm_(comm),
-      get_resource_(get_resource), buf_() {
+      message_size_(std::make_shared<int>(0)), tag_(tag), send_rank_(send_rank),
+      recv_rank_(recv_rank), comm_(comm), get_resource_(get_resource), buf_() {
   my_rank = Globals::my_rank;
   if (send_rank == recv_rank) {
     assert(my_rank == send_rank);
@@ -193,9 +200,9 @@ template <class U>
 CommBuffer<T>::CommBuffer(const CommBuffer<U> &in)
     : buf_(in.buf_), state_(in.state_), comm_type_(in.comm_type_),
       started_irecv_(in.started_irecv_), nrecv_tries_(in.nrecv_tries_),
-      my_request_(in.my_request_), tag_(in.tag_), send_rank_(in.send_rank_),
-      recv_rank_(in.recv_rank_), comm_(in.comm_), active_(in.active_),
-      get_resource_(in.get_resource_) {
+      my_request_(in.my_request_), message_size_(in.message_size_), tag_(in.tag_),
+      send_rank_(in.send_rank_), recv_rank_(in.recv_rank_), comm_(in.comm_),
+      active_(in.active_), get_resource_(in.get_resource_) {
   my_rank = Globals::my_rank;
 }
 
@@ -229,6 +236,7 @@ CommBuffer<T> &CommBuffer<T>::operator=(const CommBuffer<U> &in) {
   started_irecv_ = in.started_irecv_;
   nrecv_tries_ = in.nrecv_tries_;
   my_request_ = in.my_request_;
+  message_size_ = in.message_size_;
   tag_ = in.tag_;
   send_rank_ = in.send_rank_;
   recv_rank_ = in.recv_rank_;
@@ -249,6 +257,8 @@ void CommBuffer<T>::Send(bool local, int size) noexcept {
   PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::stale,
                           "Trying to send from buffer that hasn't been staled.");
   *state_ = BufferState::sending;
+  if (size < 0) size = buf_.size();
+  *message_size_ = size;
   if (*comm_type_ == BuffCommType::sender && !local) {
 // Make sure that this request isn't still out,
 // this could be blocking
@@ -256,7 +266,6 @@ void CommBuffer<T>::Send(bool local, int size) noexcept {
     PARTHENON_REQUIRE(
         buf_.size() > 0,
         "Trying to send zero size buffer, which will be interpreted as sending_null.");
-    if (size < 0) size = buf_.size();
     PARTHENON_REQUIRE(size <= buf_.size(), "Asking to send too much");
     PARTHENON_MPI_CHECK(MPI_Wait(my_request_.get(), MPI_STATUS_IGNORE));
     PARTHENON_MPI_CHECK(MPI_Isend(buf_.data(), size, MPITypeMap<buf_base_t>::type(),
@@ -274,6 +283,7 @@ void CommBuffer<T>::SendNull(bool local) noexcept {
   PARTHENON_DEBUG_REQUIRE(*state_ == BufferState::stale,
                           "Trying to send_null from buffer that hasn't been staled.");
   *state_ = BufferState::sending_null;
+  *message_size_ = 0;
   if (*comm_type_ == BuffCommType::sender && !local) {
 // Make sure that this request isn't still out,
 // this could be blocking
@@ -411,6 +421,7 @@ bool CommBuffer<T>::TryReceive(bool local) noexcept {
         // Set flags based on a finished receive
         *started_irecv_ = false;
         *nrecv_tries_ = 0;
+        *message_size_ = size;
         if (size > 0)
           *state_ = BufferState::received;
         else

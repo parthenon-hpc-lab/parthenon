@@ -230,6 +230,21 @@ class StateDescriptor {
     return AddSwarmValue(T::name(), V::name(), m);
   }
 
+  // lukewarm addition / retrieval routines. A lukewarm is a collection of particles owned
+  // by a MeshData. Every lukewarm carries the default fields lukewarm::x, lukewarm::y,
+  // lukewarm::z, and lukewarm::id, which are added by AddLukewarm.
+  bool AddLukewarm(const std::string &lukewarm_name, const Metadata &m_in);
+  template <typename T>
+  bool AddLukewarm(const Metadata &m) {
+    return AddLukewarm(T::name(), m);
+  }
+  bool AddLukewarmField(const std::string &lukewarm_name, const std::string &field_name,
+                        const Metadata &m_in);
+  template <typename T>
+  bool AddLukewarmField(const std::string &lukewarm_name, const Metadata &m) {
+    return AddLukewarmField(lukewarm_name, T::name(), m);
+  }
+
   // field addition / retrieval routines
   bool AddField(const std::string &field_name, const Metadata &m_in,
                 const std::string &controlling_field = "");
@@ -303,6 +318,9 @@ class StateDescriptor {
   // retrieve all swarm names
   std::vector<std::string> Swarms() noexcept;
 
+  // retrieve all lukewarm names
+  std::vector<std::string> Lukewarms() const noexcept;
+
   const auto GetFieldVarID(const VarID &id) const {
     PARTHENON_REQUIRE_THROWS(
         metadataMap_.count(id),
@@ -325,6 +343,9 @@ class StateDescriptor {
     // automatically have x, y, z.
     return swarmValueMetadataMap_[swarm_name];
   }
+  const auto &AllLukewarms() const noexcept { return lukewarmMetadataMap_; }
+  const std::map<std::string, Metadata> &
+  AllLukewarmFields(const std::string &lukewarm_name) const;
   std::vector<std::string> GetVariableNames(const std::vector<std::string> &req_names,
                                             const Metadata::FlagCollection &flags,
                                             const std::vector<int> &sparse_ids);
@@ -372,6 +393,11 @@ class StateDescriptor {
   }
   bool SwarmValuePresent(const std::string &value_name,
                          const std::string &swarm_name) const noexcept;
+  bool LukewarmPresent(const std::string &lukewarm_name) const noexcept {
+    return lukewarmMetadataMap_.count(lukewarm_name) > 0;
+  }
+  bool LukewarmFieldPresent(const std::string &lukewarm_name,
+                            const std::string &field_name) const noexcept;
 
   std::string GetFieldController(const std::string &field_name);
   bool ControlVariablesSet() { return (allocControllerMap_.size() > 0); }
@@ -385,6 +411,8 @@ class StateDescriptor {
   Metadata &SwarmMetadata(const std::string &swarm_name) noexcept {
     return swarmMetadataMap_[swarm_name];
   }
+  // retrieve metadata for a specific lukewarm
+  const Metadata &LukewarmMetadata(const std::string &lukewarm_name) const;
   const auto &GetSparsePool(const std::string &base_name) const noexcept {
     const auto itr = sparsePoolMap_.find(base_name);
     PARTHENON_REQUIRE_THROWS(itr != sparsePoolMap_.end(),
@@ -560,6 +588,9 @@ class StateDescriptor {
 
   Dictionary<Metadata> swarmMetadataMap_;
   Dictionary<Dictionary<Metadata>> swarmValueMetadataMap_;
+  // Ordered so that every process lays out lukewarm storage identically
+  std::map<std::string, Metadata> lukewarmMetadataMap_;
+  std::map<std::string, std::map<std::string, Metadata>> lukewarmFieldMetadataMap_;
 
   RefinementFunctionMaps refinementFuncMaps_;
   Dictionary<MeshDataDescriptor> submeshdata_map_;

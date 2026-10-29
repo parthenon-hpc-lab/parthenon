@@ -17,6 +17,7 @@
 // This file was made in part with generative AI.
 
 #include <limits>
+#include <type_traits>
 #include <vector>
 
 #include "parthenon_mpi.hpp"
@@ -30,8 +31,13 @@ namespace parthenon {
 template <typename T>
 struct MPITypeMap {
   static MPI_Datatype type() {
-    PARTHENON_THROW("Type not available in MPITypeMap.");
-    return MPI_DATATYPE_NULL;
+    // std::uint64_t is not std::size_t on every platform, e.g., macOS
+    if constexpr (std::is_integral_v<T> && std::is_unsigned_v<T> && sizeof(T) == 8) {
+      return MPI_UINT64_T;
+    } else {
+      PARTHENON_THROW("Type not available in MPITypeMap.");
+      return MPI_DATATYPE_NULL;
+    }
   }
 };
 

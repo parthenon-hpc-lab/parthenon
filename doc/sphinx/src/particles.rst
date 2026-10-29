@@ -6,6 +6,10 @@ Kokkos accelerated parallel dispatch of compute operations. Particle
 memory is allocated as a separate pool for each variable in the
 particle.
 
+This page describes swarms, whose particles are owned by individual
+``MeshBlock``\ s. For particle collections owned by a ``MeshData``, see
+:doc:`lukewarms`.
+
 Swarms
 ------
 

@@ -64,6 +64,20 @@ list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/particle_leapfrog/
 --num_steps 1")
 list(APPEND EXTRA_TEST_LABELS "")
 
+list(APPEND TEST_DIRS lukewarm_tracers)
+list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/lukewarm_tracers/lukewarm-tracers \
+--driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/lukewarm_tracers/parthinput.lukewarm_tracers \
+--num_steps 3")
+list(APPEND EXTRA_TEST_LABELS "")
+
+list(APPEND TEST_DIRS lukewarm_transport)
+list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/lukewarm_transport/lukewarm-transport \
+--driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/lukewarm_transport/parthinput.lukewarm_transport \
+--num_steps 1")
+list(APPEND EXTRA_TEST_LABELS "")
+
 # Fourier transform FFT round-trip accuracy test (only when HeFTe/FFT is enabled)
 if(PARTHENON_ENABLE_FFT)
   list(APPEND TEST_DIRS fourier_transform)
