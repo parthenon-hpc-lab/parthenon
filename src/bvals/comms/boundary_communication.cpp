@@ -207,18 +207,24 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
   return TaskStatus::complete;
 }
 
-template TaskStatus SendBoundBufsWithRestrictOption<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &, bool);
-template TaskStatus SendBoundBufsWithRestrictOption<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &, bool);
 template TaskStatus
-SendBoundBufsWithRestrictOption<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &, bool);
+SendBoundBufsWithRestrictOption<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &,
+                                                   bool);
 template TaskStatus
-SendBoundBufsWithRestrictOption<BoundaryType::gmg_restrict_send>(std::shared_ptr<MeshData<Real>> &, bool);
+SendBoundBufsWithRestrictOption<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &,
+                                                     bool);
 template TaskStatus
-SendBoundBufsWithRestrictOption<BoundaryType::gmg_prolongate_send>(std::shared_ptr<MeshData<Real>> &, bool);
+SendBoundBufsWithRestrictOption<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &,
+                                                        bool);
+template TaskStatus SendBoundBufsWithRestrictOption<BoundaryType::gmg_restrict_send>(
+    std::shared_ptr<MeshData<Real>> &, bool);
+template TaskStatus SendBoundBufsWithRestrictOption<BoundaryType::gmg_prolongate_send>(
+    std::shared_ptr<MeshData<Real>> &, bool);
+template TaskStatus SendBoundBufsWithRestrictOption<BoundaryType::flxcor_send>(
+    std::shared_ptr<MeshData<Real>> &, bool);
 template TaskStatus
-SendBoundBufsWithRestrictOption<BoundaryType::flxcor_send>(std::shared_ptr<MeshData<Real>> &, bool);
-template TaskStatus
-SendBoundBufsWithRestrictOption<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &, bool);
+SendBoundBufsWithRestrictOption<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &,
+                                                        bool);
 
 template <BoundaryType bound_type>
 TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
