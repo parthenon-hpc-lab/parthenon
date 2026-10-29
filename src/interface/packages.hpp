@@ -14,8 +14,6 @@
 #ifndef INTERFACE_PACKAGES_HPP_
 #define INTERFACE_PACKAGES_HPP_
 
-#include <concepts>
-#include <exception>
 #include <functional>
 #include <memory>
 #include <ostream>
@@ -24,21 +22,13 @@
 #include <vector>
 
 #include "basic_types.hpp"
-#include "utils/callback_dag.hpp"
+#include "utils/callback_order.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
 class StateDescriptor; // forward declaration
-
-// A callable mapping a StateDescriptor * to its registration of a callback: something
-// with IsRegistered() and the depends_on/required_by package names, such as a
-// CallbackRegistration.
-template <typename Getter>
-concept CallbackRegistrationGetter = requires(Getter getter, StateDescriptor *pkg) {
-  { getter(pkg).IsRegistered() } -> std::convertible_to<bool>;
-  { getter(pkg).depends_on } -> std::convertible_to<const std::vector<std::string> &>;
-  { getter(pkg).required_by } -> std::convertible_to<const std::vector<std::string> &>;
-}; // NOLINT(readability/braces)
+// Compiled once, in state_descriptor.cpp
+extern template class CallbackOrder<StateDescriptor>;
 
 class Packages_t {
  public:
@@ -102,170 +92,56 @@ class Packages_t {
     return sub_list;
   }
 
-  // Compute the execution order of a callback across all packages, based on the
-  // depends_on/required_by lists of each package's CallbackRegistration. getter maps a
-  // StateDescriptor* to its CallbackRegistration. Only packages with the callback
-  // registered are included, and dependencies on packages without it are ignored.
-  // Throws on cycles.
-  template <CallbackRegistrationGetter Getter>
+  // Orders the packages' callbacks by the dependencies of their CallbackRegistrations,
+  // see utils/callback_order.hpp. The methods below forward to it.
+  CallbackOrder<StateDescriptor> CallbackOrders() const {
+    return CallbackOrder<StateDescriptor>(packages_, "StateDescriptor");
+  }
+
+  template <CallbackRegistrationGetter<StateDescriptor> Getter>
   std::vector<std::string> BuildExecutionOrder(Getter getter,
                                                const std::string &callback_name) const {
-    try {
-      return BuildCallbackDAG(getter).TopologicalSort();
-    } catch (const std::exception &e) {
-      PARTHENON_THROW("Error building execution order for " + callback_name +
-                      " callbacks: " + e.what());
-    }
+    return CallbackOrders().BuildExecutionOrder(getter, callback_name);
   }
 
-  // Call executor on each package with the callback registered, in dependency order.
-  template <CallbackRegistrationGetter Getter>
+  template <CallbackRegistrationGetter<StateDescriptor> Getter>
   void AddTasksDAG(Getter getter, const std::function<void(StateDescriptor *)> &executor,
                    const std::string &callback_name) const {
-    AddTasksDAG(BuildExecutionOrder(getter, callback_name), getter, executor);
+    CallbackOrders().AddTasksDAG(getter, executor, callback_name);
   }
 
-  // As above, but with a precomputed order from BuildExecutionOrder.
-  template <CallbackRegistrationGetter Getter>
+  template <CallbackRegistrationGetter<StateDescriptor> Getter>
   void AddTasksDAG(const std::vector<std::string> &order, Getter getter,
                    const std::function<void(StateDescriptor *)> &executor) const {
-    for (const auto &name : order) {
-      StateDescriptor *package = packages_.at(name).get();
-      if (getter(package).IsRegistered()) executor(package);
-    }
+    CallbackOrders().AddTasksDAG(order, getter, executor);
   }
 
-  // Write the dependency graph of a callback in GraphViz DOT format.
-  template <CallbackRegistrationGetter Getter>
+  template <CallbackRegistrationGetter<StateDescriptor> Getter>
   void WriteCallbackGraph(std::ostream &stream, Getter getter,
                           const std::string &callback_name) const {
-    stream << "// Callback execution order for: " << callback_name << "\n";
-    stream << BuildCallbackDAG(getter);
+    CallbackOrders().WriteCallbackGraph(stream, getter, callback_name);
   }
 
-  // Execution order of a StateDescriptor callback member, e.g.
-  // ExecutionOrder<&StateDescriptor::FillDerivedMesh>(). With several members, e.g. the
-  // Mesh and Block variants of a callback, the packages registering any of them are
-  // ordered together using the dependencies of all of them.
   template <auto... Members>
   std::vector<std::string> ExecutionOrder() const {
-    return BuildExecutionOrder(CallbackGetter<Members...>(), "StateDescriptor");
+    return CallbackOrders().ExecutionOrder<Members...>();
   }
-
-  // The CallbackRegistrations of one StateDescriptor callback member across packages,
-  // in execution order, skipping packages that don't register it. Iterating yields
-  // const references to the registrations, which can be called directly.
-  template <auto Member>
-  class OrderedCallbacks {
-   public:
-    using Order = std::vector<StateDescriptor *>;
-
-    class iterator {
-     public:
-      explicit iterator(std::vector<StateDescriptor *>::const_iterator it) : it_(it) {}
-      const auto &operator*() const { return (*it_)->*Member; }
-      iterator &operator++() {
-        ++it_;
-        return *this;
-      }
-      bool operator!=(const iterator &other) const { return it_ != other.it_; }
-
-     private:
-      std::vector<StateDescriptor *>::const_iterator it_;
-    };
-
-    explicit OrderedCallbacks(Order order) : order_(std::move(order)) {}
-    iterator begin() const { return iterator(order_.begin()); }
-    iterator end() const { return iterator(order_.end()); }
-    std::size_t size() const { return order_.size(); }
-
-   private:
-    Order order_;
-  };
 
   // Registrations of a StateDescriptor callback member in execution order, e.g.
   //   for (const auto &fill_derived_mesh :
   //        packages.Callbacks<&StateDescriptor::FillDerivedMesh>())
   //     fill_derived_mesh(md);
-  // The order is rebuilt on every call.
   template <auto Member>
-  OrderedCallbacks<Member> Callbacks() const {
-    return OrderedCallbacks<Member>(OrderedPackages<Member>());
+  auto Callbacks() const {
+    return CallbackOrders().Callbacks<Member>();
   }
 
-  // Call f(StateDescriptor *) on each package registering any of the callback members,
-  // in execution order. Useful to order several members together, e.g. the Mesh and
-  // Block variants of a callback.
   template <auto... Members, typename F>
   void ForEachInOrder(F &&f) const {
-    for (auto *package : OrderedPackages<Members...>()) {
-      f(package);
-    }
+    CallbackOrders().ForEachInOrder<Members...>(std::forward<F>(f));
   }
 
  private:
-  // Dependencies of whichever of several callback members a package registers
-  struct CallbackDeps {
-    bool registered = false;
-    std::vector<std::string> depends_on;
-    std::vector<std::string> required_by;
-    bool IsRegistered() const { return registered; }
-  };
-
-  template <auto First, auto... Rest>
-  static auto CallbackGetter() {
-    if constexpr (sizeof...(Rest) == 0) {
-      return [](StateDescriptor *sd) -> auto & { return sd->*First; };
-    } else {
-      return [](StateDescriptor *sd) {
-        CallbackDeps deps;
-        auto add = [&](const auto &reg) {
-          if (!reg.IsRegistered()) return;
-          deps.registered = true;
-          deps.depends_on.insert(deps.depends_on.end(), reg.depends_on.begin(),
-                                 reg.depends_on.end());
-          deps.required_by.insert(deps.required_by.end(), reg.required_by.begin(),
-                                  reg.required_by.end());
-        };
-        add(sd->*First);
-        (add(sd->*Rest), ...);
-        return deps;
-      };
-    }
-  }
-
-  template <auto... Members>
-  std::vector<StateDescriptor *> OrderedPackages() const {
-    std::vector<StateDescriptor *> order;
-    for (const auto &name : ExecutionOrder<Members...>()) {
-      order.push_back(packages_.at(name).get());
-    }
-    return order;
-  }
-
-  template <CallbackRegistrationGetter Getter>
-  CallbackDAG BuildCallbackDAG(Getter getter) const {
-    Dictionary<StateDescriptor *> registered;
-    for (const auto &[name, package] : packages_) {
-      if (getter(package.get()).IsRegistered()) registered[name] = package.get();
-    }
-
-    CallbackDAG dag;
-    for (const auto &[name, package] : registered) {
-      dag.AddNode(name);
-      const auto &registration = getter(package);
-      // DependsOn: this package runs after those packages
-      for (const auto &dependency : registration.depends_on) {
-        if (registered.count(dependency) > 0) dag.AddEdge(dependency, name);
-      }
-      // RequiredBy: this package runs before those packages
-      for (const auto &dependent : registration.required_by) {
-        if (registered.count(dependent) > 0) dag.AddEdge(name, dependent);
-      }
-    }
-    return dag;
-  }
-
   Dictionary<std::shared_ptr<StateDescriptor>> packages_;
   // A map from category of meshdata subset requirements to state
   // descriptors containing subsets of that category. Makes it easy to

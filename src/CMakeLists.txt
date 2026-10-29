@@ -323,6 +323,7 @@ add_library(parthenon
   utils/bit_hacks.hpp
   utils/callback_dag.hpp
   utils/callback_dag.cpp
+  utils/callback_order.hpp
   utils/callback_registration.hpp
   utils/cell_center_offsets.cpp
   utils/cell_center_offsets.hpp

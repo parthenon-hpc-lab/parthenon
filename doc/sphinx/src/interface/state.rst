@@ -184,6 +184,21 @@ dependency graph in GraphViz DOT format.
 Dependencies on packages that don't have the callback registered are
 ignored, and a cyclic dependency throws an error.
 
+These methods forward to ``CallbackOrder<StateDescriptor>`` (see
+``utils/callback_order.hpp``), which ``Packages_t::CallbackOrders()`` also
+returns. ``CallbackOrder<T>`` works for any type ``T`` with
+``CallbackRegistration`` members, so downstream codes can order callbacks
+of their own types the same way. It is built from a map of names to
+(smart) pointers to ``T``:
+
+.. code:: cpp
+
+   std::map<std::string, std::shared_ptr<Unit>> units = ...;
+   CallbackOrder<Unit> order(units, "Unit");  // "Unit" names T in errors
+   for (const auto &setup : order.Callbacks<&Unit::Setup>()) {
+     setup();
+   }
+
 
 The reasoning for providing ``FillDerived*`` and ``EstimateTimestep*``
 function pointers appropriate for usage with both ``MeshData`` and

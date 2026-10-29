@@ -27,6 +27,7 @@
 #include "interface/packages.hpp"
 #include "interface/state_descriptor.hpp"
 #include "utils/callback_dag.hpp"
+#include "utils/callback_order.hpp"
 #include "utils/callback_registration.hpp"
 
 using Catch::Matchers::Contains;
@@ -259,10 +260,12 @@ TEST_CASE("Packages_t callback DAG helpers", "[Packages_t][CallbackDAG]") {
   auto noop = [](parthenon::MeshData<parthenon::Real> *) {};
 
   // getters must return something with IsRegistered, depends_on and required_by
-  static_assert(parthenon::CallbackRegistrationGetter<decltype(getter)>);
+  using parthenon::CallbackRegistrationGetter;
+  static_assert(CallbackRegistrationGetter<decltype(getter), StateDescriptor>);
   auto not_a_registration = [](StateDescriptor *p) { return p->label(); };
-  static_assert(!parthenon::CallbackRegistrationGetter<decltype(not_a_registration)>);
-  static_assert(!parthenon::CallbackRegistrationGetter<int>);
+  static_assert(
+      !CallbackRegistrationGetter<decltype(not_a_registration), StateDescriptor>);
+  static_assert(!CallbackRegistrationGetter<int, StateDescriptor>);
 
   Packages_t packages;
   auto add = [&](const std::string &name) {
@@ -410,5 +413,53 @@ TEST_CASE("Packages_t ordered callbacks", "[Packages_t][CallbackDAG]") {
     // a single variant only sees its own registrations
     REQUIRE(packages.ExecutionOrder<&SD::PostInitializationMesh>() ==
             std::vector<std::string>{"hydro"});
+  }
+}
+
+// Downstream codes can order the callbacks of their own types the same way
+struct Unit {
+  Registration Setup;
+  Registration Finalize;
+};
+
+TEST_CASE("CallbackOrder of a downstream type", "[CallbackOrder][CallbackDAG]") {
+  using parthenon::CallbackOrder;
+  std::vector<std::string> called;
+  auto record = [&](const std::string &name) {
+    return [&called, name]() { called.push_back(name); };
+  };
+
+  std::map<std::string, std::shared_ptr<Unit>> units;
+  for (const auto &name : {"eos", "grid", "hydro"}) {
+    units[name] = std::make_shared<Unit>();
+  }
+  units["grid"]->Setup.Register(record("grid"));
+  units["hydro"]->Setup.Register(record("hydro"), /*after=*/{"grid"});
+  units["eos"]->Setup.Register(record("eos"), /*after=*/{"grid"}, /*before=*/{"hydro"});
+  units["hydro"]->Finalize.Register(record("hydro"));
+
+  const CallbackOrder<Unit> order(units, "Unit");
+
+  SECTION("Callbacks run in dependency order") {
+    for (const auto &setup : order.Callbacks<&Unit::Setup>()) {
+      setup();
+    }
+    REQUIRE(called == std::vector<std::string>{"grid", "eos", "hydro"});
+    REQUIRE(order.ExecutionOrder<&Unit::Finalize>() == std::vector<std::string>{"hydro"});
+  }
+
+  SECTION("Getter-based helpers") {
+    auto setup = [](Unit *unit) -> auto & { return unit->Setup; };
+    REQUIRE(order.BuildExecutionOrder(setup, "Setup") ==
+            std::vector<std::string>{"grid", "eos", "hydro"});
+    order.AddTasksDAG(setup, [](Unit *unit) { unit->Setup(); }, "Setup");
+    REQUIRE(called == std::vector<std::string>{"grid", "eos", "hydro"});
+  }
+
+  SECTION("Cycles name the type") {
+    units["grid"]->Setup.Register(record("grid"), /*after=*/{"hydro"});
+    const CallbackOrder<Unit> cyclic(units, "Unit");
+    REQUIRE_THROWS_WITH(cyclic.ExecutionOrder<&Unit::Setup>(),
+                        Contains("Unit callbacks") && Contains("Cyclic dependency"));
   }
 }
