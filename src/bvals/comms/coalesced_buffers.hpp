@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2024-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -11,6 +11,8 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 
+// This file was made in part with generative AI.
+
 #ifndef BVALS_COMMS_COALESCED_BUFFERS_HPP_
 #define BVALS_COMMS_COALESCED_BUFFERS_HPP_
 
@@ -18,6 +20,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -43,6 +46,7 @@ struct CoalescedBuffer {
   BoundaryType b_type;
   int other_rank;
   int partition;
+  int lane;
   mpi_comm_t comm;
   Mesh *pmesh;
   bool sender;
@@ -57,8 +61,8 @@ struct CoalescedBuffer {
   CommBuffer<std::vector<int>> sparse_status_buffer;
   int current_size;
 
-  CoalescedBuffer(bool sender, int partition, int other_rank, BoundaryType b_type,
-                  mpi_comm_t comm, Mesh *pmesh);
+  CoalescedBuffer(bool sender, int partition, int lane, int other_rank,
+                  BoundaryType b_type, mpi_comm_t comm, Mesh *pmesh);
 
   std::size_t TotalBuffers() const {
     std::size_t total_buffers{0};
@@ -92,13 +96,14 @@ struct CoalescedBuffersRank {
   // Rank that these buffers communicate with
   BoundaryType b_type;
   int other_rank;
+  int lane;
 
   // map from partion id to coalesced message structure for communication
   // partition id of the sender will be the mpi tag we use
   bool buffers_built{false};
 
-  // Map from MeshData partition id to the coalesced buffer associated
-  // with that partition
+  // Map from the sender's partition tag (see CoalescedComms::partition_tags) to the
+  // coalesced buffer associated with that partition
   std::map<int, CoalescedBuffer> coalesced_bufs;
 
   static constexpr int nglobal{1};
@@ -111,7 +116,7 @@ struct CoalescedBuffersRank {
   Mesh *pmesh;
   bool sender{true};
 
-  explicit CoalescedBuffersRank(int o_rank, BoundaryType b_type, bool send,
+  explicit CoalescedBuffersRank(int o_rank, BoundaryType b_type, int lane, bool send,
                                 mpi_comm_t comm, Mesh *pmesh);
 
   void AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
@@ -129,9 +134,14 @@ struct CoalescedBuffersRank {
 };
 
 struct CoalescedComms {
-  // Combined buffers for each rank
-  std::map<std::pair<int, BoundaryType>, CoalescedBuffersRank> coalesced_send_buffers;
-  std::map<std::pair<int, BoundaryType>, CoalescedBuffersRank> coalesced_recv_buffers;
+  // Combined buffers for each (rank, BoundaryType, comm lane)
+  using rank_key_t = std::tuple<int, BoundaryType, int>;
+  std::map<rank_key_t, CoalescedBuffersRank> coalesced_send_buffers;
+  std::map<rank_key_t, CoalescedBuffersRank> coalesced_recv_buffers;
+
+  // Map from each registered partition to an integer tag that is unique on this rank.
+  // Receiving ranks learn these tags from the buffer info messages.
+  std::map<const BlockListPartition *, int> partition_tags;
 
   std::map<BoundaryType, mpi_comm_t> comms;
 
@@ -143,11 +153,15 @@ struct CoalescedComms {
 
   void clear();
 
-  void AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
-                     const std::shared_ptr<Variable<Real>> &var, BoundaryType b_type);
+  void RegisterPartition(const BlockListPartition *partition);
+
+  void AddSendBuffer(const BlockListPartition *partition, MeshBlock *pmb,
+                     const NeighborBlock &nb, const std::shared_ptr<Variable<Real>> &var,
+                     BoundaryType b_type, int lane);
 
   void AddRecvBuffer(MeshBlock *pmb, const NeighborBlock &nb,
-                     const std::shared_ptr<Variable<Real>>, BoundaryType b_type);
+                     const std::shared_ptr<Variable<Real>>, BoundaryType b_type,
+                     int lane);
 
   void ResolveAndSendSendBuffers();
 
@@ -158,6 +172,9 @@ struct CoalescedComms {
   bool TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type);
 
   bool IsAvailableForWrite(MeshData<Real> *pmd, BoundaryType b_type);
+
+  // Get the tag of the partition pmd was built from
+  int GetPartitionTag(MeshData<Real> *pmd) const;
 };
 
 } // namespace parthenon

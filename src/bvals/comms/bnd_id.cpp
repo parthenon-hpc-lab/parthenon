@@ -3,7 +3,7 @@
 // Copyright(C) 2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <cstdio>
@@ -42,9 +44,8 @@ namespace parthenon {
 
 BndId BndId::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
                      std::shared_ptr<Variable<Real>> v, BoundaryType b_type,
-                     int partition, int start_idx) {
-  // TODO(LFR): This needs to be fixed for unique buffer ids
-  auto [send_gid, recv_gid, vlabel, loc, extra_id] = SendKey(pmb, nb, v, b_type, 0);
+                     int partition, int start_idx, int lane) {
+  auto [send_gid, recv_gid, vlabel, loc, extra_id] = SendKey(pmb, nb, v, b_type, lane);
   BndId out;
   out.send_gid() = send_gid;
   out.recv_gid() = recv_gid;

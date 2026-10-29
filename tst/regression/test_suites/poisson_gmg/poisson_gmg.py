@@ -71,6 +71,29 @@ class TestCase(utils.test_case.TestCaseAbs):
                 "max_final_error": 1.0e-10,
                 "min_final_error": 0.0,
             },
+            {
+                "name": "GMG, Flux Correction, AMR, base block coarsening, D_all=1, coalesced comms",
+                "input": "parthinput.poisson",
+                "args": [
+                    "parthenon/mesh/base_block_coarsenings=1",
+                    "poisson/flux_correct=true",
+                    "parthenon/mesh/do_coalesced_comms=true",
+                ],
+                "max_final_error": 1.0e-12,
+                "min_final_error": 0.0,
+            },
+            {
+                "name": "MG-BiCSTAB, Flux Correction, AMR, base block coarsening, D_all=1, coalesced comms",
+                "input": "parthinput.poisson",
+                "args": [
+                    "parthenon/mesh/base_block_coarsenings=1",
+                    "poisson/flux_correct=true",
+                    "poisson/solver=BiCGSTAB",
+                    "parthenon/mesh/do_coalesced_comms=true",
+                ],
+                "max_final_error": 1.0e-10,
+                "min_final_error": 0.0,
+            },
         ]
 
     def Prepare(self, parameters, step):
