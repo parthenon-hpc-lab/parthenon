@@ -3,7 +3,7 @@
 // Copyright(C) 2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2022-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2022-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <cstddef>
@@ -117,10 +119,10 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
 
     // Build send buffer (unless this is a receiving flux boundary)
     if constexpr (IsSender(BTYPE)) {
-      pmesh->LockCommChannelNumbers(BTYPE);
-      for (int id = 0; id < pmesh->GetNumberOfCommChannels(BTYPE); ++id) {
-        auto s_key = SendKey(pmb, nb, v, BTYPE, id);
-        const int tag = pmesh->tag_map.GetTag(pmb, nb, id);
+      pmesh->LockCommLaneNumbers(BTYPE);
+      for (int lane = 0; lane < pmesh->GetNumberOfCommLanes(BTYPE); ++lane) {
+        auto s_key = SendKey(pmb, nb, v, BTYPE, lane);
+        const int tag = pmesh->tag_map.GetTag(pmb, nb, lane);
         if (buf_map.count(s_key) == 0)
           buf_map[s_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
               tag, sender_rank, receiver_rank, comm, get_resource_method,
@@ -131,10 +133,10 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     // Also build the non-local receive buffers here
     if constexpr (IsReceiver(BTYPE)) {
       if (sender_rank != receiver_rank) {
-        pmesh->LockCommChannelNumbers(BTYPE);
-        for (int id = 0; id < pmesh->GetNumberOfCommChannels(BTYPE); ++id) {
-          auto r_key = ReceiveKey(pmb, nb, v, BTYPE, id);
-          const int tag = pmesh->tag_map.GetTag(pmb, nb, id);
+        pmesh->LockCommLaneNumbers(BTYPE);
+        for (int lane = 0; lane < pmesh->GetNumberOfCommLanes(BTYPE); ++lane) {
+          auto r_key = ReceiveKey(pmb, nb, v, BTYPE, lane);
+          const int tag = pmesh->tag_map.GetTag(pmb, nb, lane);
           if (buf_map.count(r_key) == 0)
             buf_map[r_key] = CommBuffer<buf_pool_t<Real>::owner_t>(
                 tag, receiver_rank, sender_rank, comm, get_resource_method,
@@ -148,16 +150,29 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
 template <BoundaryType BTYPE>
 void RegisterCoalescedCommsSubset(std::shared_ptr<MeshData<Real>> &md) {
   Mesh *pmesh = md->GetMeshPointer();
+  // Register the partition even if it has no off-rank neighbors, so that coalesced
+  // communication on it is a no-op rather than an error
+  if constexpr (IsSender(BTYPE)) {
+    PARTHENON_REQUIRE(
+        md->partition != nullptr,
+        "Coalesced comms require MeshData built from a BlockListPartition.");
+    pmesh->pcoalesced_comms->RegisterPartition(md->partition.get());
+  }
+  pmesh->LockCommLaneNumbers(BTYPE);
+  const int nlanes = pmesh->GetNumberOfCommLanes(BTYPE);
   ForEachBoundary<BTYPE>(
       md, [&](auto pmb, sp_mbd_t /*rc*/, const nb_t &nb, const sp_cv_t v) {
         const int receiver_rank = nb.rank;
         const int sender_rank = Globals::my_rank;
         if (receiver_rank != sender_rank) {
-          if constexpr (IsSender(BTYPE)) {
-            pmesh->pcoalesced_comms->AddSendBuffer(md->partition, pmb, nb, v, BTYPE);
-          }
-          if constexpr (IsReceiver(BTYPE)) {
-            pmesh->pcoalesced_comms->AddRecvBuffer(pmb, nb, v, BTYPE);
+          for (int lane = 0; lane < nlanes; ++lane) {
+            if constexpr (IsSender(BTYPE)) {
+              pmesh->pcoalesced_comms->AddSendBuffer(md->partition.get(), pmb, nb, v,
+                                                     BTYPE, lane);
+            }
+            if constexpr (IsReceiver(BTYPE)) {
+              pmesh->pcoalesced_comms->AddRecvBuffer(pmb, nb, v, BTYPE, lane);
+            }
           }
         }
       });

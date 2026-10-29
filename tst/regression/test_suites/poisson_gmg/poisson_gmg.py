@@ -3,7 +3,7 @@
 # Copyright(C) 2020 The Parthenon collaboration
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 # ========================================================================================
-# (C) (or copyright) 2021. Triad National Security, LLC. All rights reserved.
+# (C) (or copyright) 2021-2026. Triad National Security, LLC. All rights reserved.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -69,6 +69,41 @@ class TestCase(utils.test_case.TestCaseAbs):
                     "poisson/interior_D=1e5",
                 ],
                 "max_final_error": 1.0e-10,
+                "min_final_error": 0.0,
+            },
+            {
+                "name": "GMG, Flux Correction, AMR, base block coarsening, D_all=1, coalesced comms",
+                "input": "parthinput.poisson",
+                "args": [
+                    "parthenon/mesh/base_block_coarsenings=1",
+                    "poisson/flux_correct=true",
+                    "parthenon/mesh/do_coalesced_comms=true",
+                ],
+                "max_final_error": 1.0e-12,
+                "min_final_error": 0.0,
+            },
+            {
+                "name": "MG-BiCSTAB, Flux Correction, AMR, base block coarsening, D_all=1, coalesced comms",
+                "input": "parthinput.poisson",
+                "args": [
+                    "parthenon/mesh/base_block_coarsenings=1",
+                    "poisson/flux_correct=true",
+                    "poisson/solver=BiCGSTAB",
+                    "parthenon/mesh/do_coalesced_comms=true",
+                ],
+                "max_final_error": 1.0e-10,
+                "min_final_error": 0.0,
+            },
+            {
+                # Flux corrections are communicated between ranks on GMG levels
+                "name": "GMG, Flux Correction, AMR, 2 base block coarsenings, D_all=1, coalesced comms",
+                "input": "parthinput.poisson",
+                "args": [
+                    "parthenon/mesh/base_block_coarsenings=2",
+                    "poisson/flux_correct=true",
+                    "parthenon/mesh/do_coalesced_comms=true",
+                ],
+                "max_final_error": 1.0e-12,
                 "min_final_error": 0.0,
             },
         ]

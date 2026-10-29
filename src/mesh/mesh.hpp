@@ -338,47 +338,51 @@ class Mesh {
   int minimum_number_of_teams_for_boundary_kernel;
   int boundary_buffer_work_chunk_size;
 
-  // Sets the number of communication buffers that can be in-flight concurrently
-  // for a given boundary type. This *must* be called before build boundary buffers
+  // Sets the number of comm lanes for a given boundary type. Each comm lane is an
+  // independent set of communication buffers, so different MeshData (e.g. in different
+  // stages) can communicate concurrently by using different lanes (see
+  // MeshData::SetCommLane). This *must* be called before build boundary buffers
   // is called internally, so use beyond the defaults with care
-  void SetNumberOfCommChannels(BoundaryType bound, std::size_t n_channels) {
-    // TODO(LFR): Fix this, there is no fundamental issue just requires work
-    PARTHENON_REQUIRE(!do_coalesced_comms || n_channels == 1,
-                      "Currently coalesced comms and multiple communication stages can't "
-                      "be used concurrently.");
-
-    if (locked_comm_channel_numbers_.count(bound))
-      PARTHENON_FAIL("Trying to reset the number of comm channels after boundary buffers "
+  void SetNumberOfCommLanes(BoundaryType bound, std::size_t n_lanes) {
+    if (locked_comm_lane_numbers_.count(bound))
+      PARTHENON_FAIL("Trying to reset the number of comm lanes after boundary buffers "
                      "have been set up.");
-    if (number_of_comm_channels_.count(bound) &&
-        number_of_comm_channels_[bound] > n_channels)
+    if (number_of_comm_lanes_.count(bound) && number_of_comm_lanes_[bound] > n_lanes)
       PARTHENON_WARN(
-          "You are reducing the number of comm channels from a previously set value.");
-    number_of_comm_channels_[bound] = n_channels;
+          "You are reducing the number of comm lanes from a previously set value.");
+    number_of_comm_lanes_[bound] = n_lanes;
 
-    // Need to set the complementary channels to the same value
-    if (!IsSender(bound))
-      number_of_comm_channels_[GetAssociatedSender(bound)] = n_channels;
-    if (!IsReceiver(bound))
-      number_of_comm_channels_[GetAssociatedReceiver(bound)] = n_channels;
+    // Need to set the complementary lanes to the same value
+    if (!IsSender(bound)) number_of_comm_lanes_[GetAssociatedSender(bound)] = n_lanes;
+    if (!IsReceiver(bound)) number_of_comm_lanes_[GetAssociatedReceiver(bound)] = n_lanes;
   }
 
-  void LockCommChannelNumbers(BoundaryType bound) {
-    locked_comm_channel_numbers_.insert(GetAssociatedSender(bound));
-    locked_comm_channel_numbers_.insert(GetAssociatedReceiver(bound));
+  [[deprecated("Use SetNumberOfCommLanes")]] void
+  SetNumberOfCommChannels(BoundaryType bound, std::size_t n_channels) {
+    SetNumberOfCommLanes(bound, n_channels);
   }
 
-  std::size_t GetNumberOfCommChannels(BoundaryType bound) const {
-    if (number_of_comm_channels_.count(bound)) return number_of_comm_channels_.at(bound);
-    // We default to only having a single communication channel
+  void LockCommLaneNumbers(BoundaryType bound) {
+    locked_comm_lane_numbers_.insert(GetAssociatedSender(bound));
+    locked_comm_lane_numbers_.insert(GetAssociatedReceiver(bound));
+  }
+
+  std::size_t GetNumberOfCommLanes(BoundaryType bound) const {
+    if (number_of_comm_lanes_.count(bound)) return number_of_comm_lanes_.at(bound);
+    // We default to only having a single comm lane
     return 1;
+  }
+
+  [[deprecated("Use GetNumberOfCommLanes")]] std::size_t
+  GetNumberOfCommChannels(BoundaryType bound) const {
+    return GetNumberOfCommLanes(bound);
   }
 
   template <BoundaryType bound_type>
   void AddToTagMap(std::shared_ptr<MeshData<Real>> &md) {
-    LockCommChannelNumbers(bound_type);
-    int channels = GetNumberOfCommChannels(bound_type);
-    tag_map.AddMeshDataToMap<bound_type>(md, channels);
+    LockCommLaneNumbers(bound_type);
+    int lanes = GetNumberOfCommLanes(bound_type);
+    tag_map.AddMeshDataToMap<bound_type>(md, lanes);
   }
 
   std::shared_ptr<CoalescedComms> pcoalesced_comms;
@@ -440,8 +444,8 @@ class Mesh {
   // the last 4x should be std::size_t, but are limited to int by MPI
   // Refinement tags used by MeshData checks
   ParArray1D<AmrTag> amr_tags;
-  std::map<BoundaryType, std::size_t> number_of_comm_channels_;
-  std::set<BoundaryType> locked_comm_channel_numbers_;
+  std::map<BoundaryType, std::size_t> number_of_comm_lanes_;
+  std::set<BoundaryType> locked_comm_lane_numbers_;
 
   std::vector<LogicalLocation> loclist;
 
