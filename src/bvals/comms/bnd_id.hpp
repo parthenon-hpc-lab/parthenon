@@ -67,7 +67,7 @@ struct BndId {
   // Coalesced comms tag of the *sender's* partition (unique per sending rank)
   // not set by constructors and only necessary for coalesced comms
   KOKKOS_FORCEINLINE_FUNCTION
-  int &partition() { return data[7]; }
+  int &partition_tag() { return data[7]; }
   KOKKOS_FORCEINLINE_FUNCTION
   int &size() { return data[8]; }
   KOKKOS_FORCEINLINE_FUNCTION
@@ -108,7 +108,7 @@ struct BndId {
 
   static BndId GetSend(MeshBlock *pmb, const NeighborBlock &nb,
                        std::shared_ptr<Variable<Real>> v, BoundaryType b_type,
-                       int partition, int start_idx, int lane);
+                       int partition_tag, int start_idx, int lane);
 };
 } // namespace parthenon
 

@@ -44,7 +44,7 @@ namespace parthenon {
 
 BndId BndId::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
                      std::shared_ptr<Variable<Real>> v, BoundaryType b_type,
-                     int partition, int start_idx, int lane) {
+                     int partition_tag, int start_idx, int lane) {
   auto [send_gid, recv_gid, vlabel, loc, extra_id] = SendKey(pmb, nb, v, b_type, lane);
   BndId out;
   out.send_gid() = send_gid;
@@ -54,7 +54,7 @@ BndId BndId::GetSend(MeshBlock *pmb, const NeighborBlock &nb,
   out.extra_id() = extra_id;
   out.rank_send() = Globals::my_rank;
   out.rank_recv() = nb.rank;
-  out.partition() = partition;
+  out.partition_tag() = partition_tag;
   out.size() = BndInfo::GetSendBndInfo(pmb, nb, v, nullptr).size();
   out.start_idx() = start_idx;
   return out;

@@ -45,7 +45,9 @@ struct CoalescedBuffer {
   // Rank that these buffers communicate with
   BoundaryType b_type;
   int other_rank;
-  int partition;
+  // Tag of the sending partition (see CoalescedComms::partition_tags), which is combined
+  // with the comm lane to build the MPI tags of the messages
+  int partition_tag;
   int lane;
   mpi_comm_t comm;
   Mesh *pmesh;
@@ -61,7 +63,7 @@ struct CoalescedBuffer {
   CommBuffer<std::vector<int>> sparse_status_buffer;
   int current_size;
 
-  CoalescedBuffer(bool sender, int partition, int lane, int other_rank,
+  CoalescedBuffer(bool sender, int partition_tag, int lane, int other_rank,
                   BoundaryType b_type, mpi_comm_t comm, Mesh *pmesh);
 
   std::size_t TotalBuffers() const {
@@ -98,8 +100,6 @@ struct CoalescedBuffersRank {
   int other_rank;
   int lane;
 
-  // map from partion id to coalesced message structure for communication
-  // partition id of the sender will be the mpi tag we use
   bool buffers_built{false};
 
   // Map from the sender's partition tag (see CoalescedComms::partition_tags) to the
@@ -119,7 +119,7 @@ struct CoalescedBuffersRank {
   explicit CoalescedBuffersRank(int o_rank, BoundaryType b_type, int lane, bool send,
                                 mpi_comm_t comm, Mesh *pmesh);
 
-  void AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
+  void AddSendBuffer(int partition_tag, MeshBlock *pmb, const NeighborBlock &nb,
                      const std::shared_ptr<Variable<Real>> &var);
 
   bool TryReceiveBufInfo();
@@ -128,7 +128,7 @@ struct CoalescedBuffersRank {
 
   void PackAndSend(MeshData<Real> *pmd);
 
-  bool TryReceiveAndUnpack(MeshData<Real> *pmd, int partition);
+  bool TryReceiveAndUnpack(MeshData<Real> *pmd, int partition_tag);
 
   bool IsAvailableForWrite(MeshData<Real> *pmd);
 };
