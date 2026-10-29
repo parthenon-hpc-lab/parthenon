@@ -52,6 +52,7 @@
 // treats .vtk velocity output from Athena++. The workaround is to import the
 // vis/visit/*.xml expressions file, which can pack these HDF5 scalars into a vector.
 //========================================================================================
+// This file was made in part with generative AI.
 
 #include "outputs/outputs.hpp"
 
@@ -73,6 +74,7 @@
 #include "basic_types.hpp"
 #include "coordinates/coordinates.hpp"
 #include "defs.hpp"
+#include FS_HEADER
 #include "globals.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
@@ -80,8 +82,11 @@
 #include "pack/default_names.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
+#include "parthenon_mpi.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/utils.hpp"
+
+namespace fs = FS_NAMESPACE;
 
 namespace parthenon {
 
@@ -255,6 +260,12 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, ApplicationInput *papp_in, SimTi
     op.cartesian_vector = false;
 
     op.analysis_flag = pin->GetOrAddBoolean(op.block_name, "analysis_output", false);
+
+    op.on_request = pin->GetOrAddBoolean(
+        op.block_name, "on_request", false,
+        "Only write output if the file <problem_id>.<id>.request exists (e.g., created "
+        "by a live viewer). dt and dn are ignored and the output is not written on "
+        "final.");
 
     // read single precision output option
     const bool is_hdf5_output = (op.file_type == "rst") || (op.file_type == "hdf5") ||
@@ -453,8 +464,16 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, ApplicationInput *papp_in, SimTi
           op.block_name, "openpmd_format_version", OpenPMDOutput::OUTPUT_VERSION_FORMAT,
           "OpenPMD output format version (1 = legacy, 2 = standard-compliant vectors)");
 
+      const auto stream_engine = pin->GetOrAddString(
+          op.block_name, "stream_engine", "none",
+          std::vector<std::string>{"none", "sst", "bp5"},
+          "Write all outputs to a single stream (one step per output) instead of one "
+          "file per output, e.g., for live visualization.");
+      PARTHENON_REQUIRE_THROWS(stream_engine == "none" || op.mode != Restart,
+                               "Restart outputs cannot be streamed.");
+
       pnew_type = std::make_shared<OpenPMDOutput>(op, backend_config, coarsening_factor,
-                                                  format_version);
+                                                  format_version, stream_engine);
 #else
       msg << "### FATAL ERROR in Outputs constructor" << std::endl
           << "Executable not configured for OpenPMD outputs, but OpenPMD file format "
@@ -542,6 +561,24 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, ApplicationInput *papp_in, SimTi
 }
 
 //----------------------------------------------------------------------------------------
+//! \fn bool CheckAndClearRequest(const std::string &filename)
+//  \brief Returns (on all ranks) whether the request file exists and removes it.
+//  The file is removed before the output is written so that a new request (e.g., issued
+//  by a viewer after having received the output) cannot be lost.
+static bool CheckAndClearRequest(const std::string &filename) {
+  int requested = 0;
+  if (Globals::my_rank == 0 && fs::exists(filename)) {
+    PARTHENON_REQUIRE_THROWS(std::remove(filename.c_str()) == 0,
+                             "Could not remove request file " + filename);
+    requested = 1;
+  }
+#ifdef MPI_PARALLEL
+  PARTHENON_MPI_CHECK(MPI_Bcast(&requested, 1, MPI_INT, 0, MPI_COMM_WORLD));
+#endif
+  return requested == 1;
+}
+
+//----------------------------------------------------------------------------------------
 //! \fn void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, bool wtflag)
 //  \brief scans through singly linked list of OutputTypes and makes any outputs needed.
 
@@ -554,10 +591,17 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
         tm != nullptr &&
         ptype->output_params.current_time_index < ptype->output_params.times.size() &&
         tm->time >= ptype->output_params.times[ptype->output_params.current_time_index];
+    // Outputs on request ignore all other triggers (and are not written on final).
+    const bool on_request = ptype->output_params.on_request;
+    const bool requested =
+        on_request && signal != SignalHandler::OutputSignal::final &&
+        CheckAndClearRequest(ptype->output_params.file_basename + "." +
+                             ptype->output_params.file_id + ".request");
 
-    if ((tm == nullptr) ||
+    if (requested || (!on_request && (tm == nullptr)) ||
         // output is not soft disabled and
-        (((ptype->output_params.dt >= 0.0) || (ptype->output_params.dn >= 0) ||
+        (!on_request &&
+         ((ptype->output_params.dt >= 0.0) || (ptype->output_params.dn >= 0) ||
           ptype->output_params.times.size() > 0) &&
          // either dump initial data
          ((tm->ncycle == 0) ||
@@ -594,7 +638,9 @@ void Outputs::MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm,
       if (Globals::watchdog_enabled) {
         WatchDog::WatchDog(0);
       }
-      ptype->WriteOutputFile(pm, pin, tm, signal);
+      // requested outputs are treated as regular outputs (e.g., for file numbering)
+      ptype->WriteOutputFile(pm, pin, tm,
+                             requested ? SignalHandler::OutputSignal::none : signal);
       // JJ: safety if we pass multiple required output times in one timestep
       if (tm != nullptr) {
         while (ptype->output_params.current_time_index <
