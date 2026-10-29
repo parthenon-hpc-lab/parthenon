@@ -271,10 +271,10 @@ TaskStatus EstimateTimestep(T *rc) {
   PARTHENON_INSTRUMENT
   Real dt_min = std::numeric_limits<Real>::max();
   const Packages_t &packages = rc->GetParentPointer()->packages;
-  for (const auto &estimate :
+  for (const auto &estimate_timestep :
        packages.Callbacks<MeshOrBlock<T>(&StateDescriptor::EstimateTimestepMesh,
                                          &StateDescriptor::EstimateTimestepBlock)>()) {
-    dt_min = std::min(dt_min, estimate(rc));
+    dt_min = std::min(dt_min, estimate_timestep(rc));
   }
   rc->SetAllowedDt(dt_min);
   return TaskStatus::complete;
@@ -284,10 +284,10 @@ template <typename T>
 TaskStatus PreCommFillDerived(T *rc) {
   PARTHENON_INSTRUMENT
   const Packages_t &packages = rc->GetParentPointer()->packages;
-  for (const auto &fill :
+  for (const auto &pre_comm_fill_derived :
        packages.Callbacks<MeshOrBlock<T>(&StateDescriptor::PreCommFillDerivedMesh,
                                          &StateDescriptor::PreCommFillDerivedBlock)>()) {
-    fill(rc);
+    pre_comm_fill_derived(rc);
   }
   return TaskStatus::complete;
 }
@@ -298,26 +298,26 @@ TaskStatus FillDerived(T *rc) {
   const Packages_t &packages = rc->GetParentPointer()->packages;
   { // PreFillDerived region
     PARTHENON_INSTRUMENT
-    for (const auto &fill :
+    for (const auto &pre_fill_derived :
          packages.Callbacks<MeshOrBlock<T>(&StateDescriptor::PreFillDerivedMesh,
                                            &StateDescriptor::PreFillDerivedBlock)>()) {
-      fill(rc);
+      pre_fill_derived(rc);
     }
   } // PreFillDerived region
   { // FillDerived region
     PARTHENON_INSTRUMENT
-    for (const auto &fill :
+    for (const auto &fill_derived :
          packages.Callbacks<MeshOrBlock<T>(&StateDescriptor::FillDerivedMesh,
                                            &StateDescriptor::FillDerivedBlock)>()) {
-      fill(rc);
+      fill_derived(rc);
     }
   } // FillDerived region
   { // PostFillDerived region
     PARTHENON_INSTRUMENT
-    for (const auto &fill :
+    for (const auto &post_fill_derived :
          packages.Callbacks<MeshOrBlock<T>(&StateDescriptor::PostFillDerivedMesh,
                                            &StateDescriptor::PostFillDerivedBlock)>()) {
-      fill(rc);
+      post_fill_derived(rc);
     }
   } // PostFillDerived region
   return TaskStatus::complete;

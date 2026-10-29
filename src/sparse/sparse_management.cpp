@@ -80,11 +80,11 @@ TaskStatus InitNewlyAllocatedVars(T *rc) {
   // since the boundaries of allocated blocks could have received default data
   // In any case
   const Packages_t &packages = rc->GetParentPointer()->packages;
-  for (const auto &init :
+  for (const auto &init_newly_allocated_vars :
        packages
            .Callbacks<MeshOrBlock<T>(&StateDescriptor::InitNewlyAllocatedVarsMesh,
                                      &StateDescriptor::InitNewlyAllocatedVarsBlock)>()) {
-    init(rc);
+    init_newly_allocated_vars(rc);
   }
 
   // Don't worry about flagging variables as initialized

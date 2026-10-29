@@ -145,8 +145,7 @@ with the names of other packages it must run after and/or before:
 
 .. code:: cpp
 
-   // run after "eos" and before "hydro"
-   pkg->FillDerivedMesh.Register(MyFillDerived, {"eos"}, {"hydro"});
+   pkg->FillDerivedMesh.Register(MyFillDerived, /*after=*/{"eos"}, /*before=*/{"hydro"});
 
 Parthenon runs each of these callbacks across packages in an order that
 satisfies these dependencies. Packages without dependencies run in an
@@ -163,8 +162,9 @@ they can be called directly:
 
 .. code:: cpp
 
-   for (const auto &fill : packages.Callbacks<&StateDescriptor::FillDerivedMesh>()) {
-     fill(md);
+   for (const auto &fill_derived_mesh :
+        packages.Callbacks<&StateDescriptor::FillDerivedMesh>()) {
+     fill_derived_mesh(md);
    }
 
 ``ForEachInOrder<Members...>(f)`` instead calls ``f(StateDescriptor *)`` on

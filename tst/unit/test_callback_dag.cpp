@@ -258,6 +258,12 @@ TEST_CASE("Packages_t callback DAG helpers", "[Packages_t][CallbackDAG]") {
   auto getter = [](StateDescriptor *p) -> auto & { return p->FillDerivedMesh; };
   auto noop = [](parthenon::MeshData<parthenon::Real> *) {};
 
+  // getters must return something with IsRegistered, depends_on and required_by
+  static_assert(parthenon::CallbackRegistrationGetter<decltype(getter)>);
+  auto not_a_registration = [](StateDescriptor *p) { return p->label(); };
+  static_assert(!parthenon::CallbackRegistrationGetter<decltype(not_a_registration)>);
+  static_assert(!parthenon::CallbackRegistrationGetter<int>);
+
   Packages_t packages;
   auto add = [&](const std::string &name) {
     auto pkg = std::make_shared<StateDescriptor>(name);
@@ -388,8 +394,8 @@ TEST_CASE("Packages_t ordered callbacks", "[Packages_t][CallbackDAG]") {
 
     auto callbacks = packages.Callbacks<&SD::FillDerivedMesh>();
     REQUIRE(callbacks.size() == 3);
-    for (const auto &cb : callbacks) {
-      cb(nullptr);
+    for (const auto &fill_derived_mesh : callbacks) {
+      fill_derived_mesh(nullptr);
     }
     REQUIRE(called == expected);
   }

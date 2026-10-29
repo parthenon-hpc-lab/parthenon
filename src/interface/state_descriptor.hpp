@@ -492,15 +492,16 @@ class StateDescriptor {
 
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
 
-  CallbackRegistration<std::function<void(MeshBlockData<Real> *rc)>>
+  CallbackRegistration<std::function<void(MeshBlockData<Real> *mbd)>>
       PreCommFillDerivedBlock;
-  CallbackRegistration<std::function<void(MeshData<Real> *rc)>> PreCommFillDerivedMesh;
-  CallbackRegistration<std::function<void(MeshBlockData<Real> *rc)>> PreFillDerivedBlock;
-  CallbackRegistration<std::function<void(MeshData<Real> *rc)>> PreFillDerivedMesh;
-  CallbackRegistration<std::function<void(MeshBlockData<Real> *rc)>> PostFillDerivedBlock;
-  CallbackRegistration<std::function<void(MeshData<Real> *rc)>> PostFillDerivedMesh;
-  CallbackRegistration<std::function<void(MeshBlockData<Real> *rc)>> FillDerivedBlock;
-  CallbackRegistration<std::function<void(MeshData<Real> *rc)>> FillDerivedMesh;
+  CallbackRegistration<std::function<void(MeshData<Real> *md)>> PreCommFillDerivedMesh;
+  CallbackRegistration<std::function<void(MeshBlockData<Real> *mbd)>> PreFillDerivedBlock;
+  CallbackRegistration<std::function<void(MeshData<Real> *md)>> PreFillDerivedMesh;
+  CallbackRegistration<std::function<void(MeshBlockData<Real> *mbd)>>
+      PostFillDerivedBlock;
+  CallbackRegistration<std::function<void(MeshData<Real> *md)>> PostFillDerivedMesh;
+  CallbackRegistration<std::function<void(MeshBlockData<Real> *mbd)>> FillDerivedBlock;
+  CallbackRegistration<std::function<void(MeshData<Real> *md)>> FillDerivedMesh;
   CallbackRegistration<std::function<void(Mesh *, ParameterInput *, SimTime &)>>
       UserWorkBeforeLoopMesh;
   CallbackRegistration<std::function<void(Mesh *, ParameterInput *, SimTime &)>>
@@ -509,9 +510,9 @@ class StateDescriptor {
       std::function<void(Mesh *, ParameterInput *, SimTime &, OutputParameters *)>>
       UserWorkBeforeRestartOutputMesh;
 
-  CallbackRegistration<std::function<void(SimTime const &simtime, MeshData<Real> *rc)>>
+  CallbackRegistration<std::function<void(SimTime const &simtime, MeshData<Real> *md)>>
       PreStepDiagnosticsMesh;
-  CallbackRegistration<std::function<void(SimTime const &simtime, MeshData<Real> *rc)>>
+  CallbackRegistration<std::function<void(SimTime const &simtime, MeshData<Real> *md)>>
       PostStepDiagnosticsMesh;
 
   CallbackRegistration<std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)>>
@@ -523,19 +524,19 @@ class StateDescriptor {
   CallbackRegistration<std::function<void(MeshBlock *, ParameterInput *)>>
       PostInitializationBlock;
 
-  CallbackRegistration<std::function<Real(MeshBlockData<Real> *rc)>>
+  CallbackRegistration<std::function<Real(MeshBlockData<Real> *mbd)>>
       EstimateTimestepBlock;
-  CallbackRegistration<std::function<Real(MeshData<Real> *rc)>> EstimateTimestepMesh;
+  CallbackRegistration<std::function<Real(MeshData<Real> *md)>> EstimateTimestepMesh;
 
-  CallbackRegistration<std::function<AmrTag(MeshBlockData<Real> *rc)>>
+  CallbackRegistration<std::function<AmrTag(MeshBlockData<Real> *mbd)>>
       CheckRefinementBlock;
   CallbackRegistration<
-      std::function<void(MeshData<Real> *rc, ParArray1D<AmrTag> &delta_level)>>
+      std::function<void(MeshData<Real> *md, ParArray1D<AmrTag> &delta_level)>>
       CheckRefinementMesh;
 
-  CallbackRegistration<std::function<void(MeshData<Real> *rc)>>
+  CallbackRegistration<std::function<void(MeshData<Real> *md)>>
       InitNewlyAllocatedVarsMesh;
-  CallbackRegistration<std::function<void(MeshBlockData<Real> *rc)>>
+  CallbackRegistration<std::function<void(MeshBlockData<Real> *mbd)>>
       InitNewlyAllocatedVarsBlock;
 
   friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);

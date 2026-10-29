@@ -14,6 +14,7 @@
 #ifndef INTERFACE_PACKAGES_HPP_
 #define INTERFACE_PACKAGES_HPP_
 
+#include <concepts>
 #include <exception>
 #include <functional>
 #include <memory>
@@ -28,6 +29,17 @@
 
 namespace parthenon {
 class StateDescriptor; // forward declaration
+
+// A callable mapping a StateDescriptor * to its registration of a callback: something
+// with IsRegistered() and the depends_on/required_by package names, such as a
+// CallbackRegistration.
+template <typename Getter>
+concept CallbackRegistrationGetter = requires(Getter getter, StateDescriptor *pkg) {
+  { getter(pkg).IsRegistered() } -> std::convertible_to<bool>;
+  { getter(pkg).depends_on } -> std::convertible_to<const std::vector<std::string> &>;
+  { getter(pkg).required_by } -> std::convertible_to<const std::vector<std::string> &>;
+}; // NOLINT(readability/braces)
+
 class Packages_t {
  public:
   Packages_t() = default;
@@ -95,7 +107,7 @@ class Packages_t {
   // StateDescriptor* to its CallbackRegistration. Only packages with the callback
   // registered are included, and dependencies on packages without it are ignored.
   // Throws on cycles.
-  template <typename Getter>
+  template <CallbackRegistrationGetter Getter>
   std::vector<std::string> BuildExecutionOrder(Getter getter,
                                                const std::string &callback_name) const {
     try {
@@ -107,14 +119,14 @@ class Packages_t {
   }
 
   // Call executor on each package with the callback registered, in dependency order.
-  template <typename Getter>
+  template <CallbackRegistrationGetter Getter>
   void AddTasksDAG(Getter getter, const std::function<void(StateDescriptor *)> &executor,
                    const std::string &callback_name) const {
     AddTasksDAG(BuildExecutionOrder(getter, callback_name), getter, executor);
   }
 
   // As above, but with a precomputed order from BuildExecutionOrder.
-  template <typename Getter>
+  template <CallbackRegistrationGetter Getter>
   void AddTasksDAG(const std::vector<std::string> &order, Getter getter,
                    const std::function<void(StateDescriptor *)> &executor) const {
     for (const auto &name : order) {
@@ -124,7 +136,7 @@ class Packages_t {
   }
 
   // Write the dependency graph of a callback in GraphViz DOT format.
-  template <typename Getter>
+  template <CallbackRegistrationGetter Getter>
   void WriteCallbackGraph(std::ostream &stream, Getter getter,
                           const std::string &callback_name) const {
     stream << "// Callback execution order for: " << callback_name << "\n";
@@ -172,8 +184,9 @@ class Packages_t {
   };
 
   // Registrations of a StateDescriptor callback member in execution order, e.g.
-  //   for (const auto &cb : packages.Callbacks<&StateDescriptor::FillDerivedMesh>())
-  //     cb(md);
+  //   for (const auto &fill_derived_mesh :
+  //        packages.Callbacks<&StateDescriptor::FillDerivedMesh>())
+  //     fill_derived_mesh(md);
   // The order is rebuilt on every call.
   template <auto Member>
   OrderedCallbacks<Member> Callbacks() const {
@@ -230,7 +243,7 @@ class Packages_t {
     return order;
   }
 
-  template <typename Getter>
+  template <CallbackRegistrationGetter Getter>
   CallbackDAG BuildCallbackDAG(Getter getter) const {
     Dictionary<StateDescriptor *> registered;
     for (const auto &[name, package] : packages_) {

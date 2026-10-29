@@ -28,17 +28,17 @@ namespace parthenon {
 
 void Mesh::PreStepUserDiagnosticsInLoopDefault(Mesh *pmesh, ParameterInput *,
                                                SimTime const &simtime) {
-  for (const auto &diagnostics :
+  for (const auto &pre_step_diagnostics_mesh :
        pmesh->packages.Callbacks<&StateDescriptor::PreStepDiagnosticsMesh>()) {
-    diagnostics(simtime, pmesh->mesh_data.Get().get());
+    pre_step_diagnostics_mesh(simtime, pmesh->mesh_data.Get().get());
   }
 }
 
 void Mesh::PostStepUserDiagnosticsInLoopDefault(Mesh *pmesh, ParameterInput *,
                                                 SimTime const &simtime) {
-  for (const auto &diagnostics :
+  for (const auto &post_step_diagnostics_mesh :
        pmesh->packages.Callbacks<&StateDescriptor::PostStepDiagnosticsMesh>()) {
-    diagnostics(simtime, pmesh->mesh_data.Get().get());
+    post_step_diagnostics_mesh(simtime, pmesh->mesh_data.Get().get());
   }
 }
 
