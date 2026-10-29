@@ -1338,7 +1338,10 @@ void Mesh::BuildAndRegisterCommBuffers_() {
         auto &mdg = mesh_data.Add("base", partition);
         BuildBoundaryBuffers(mdg);
         BuildGMGBoundaryBuffers(mdg);
-        if (do_coalesced_comms) RegisterCoalescedCommsGMG(mdg);
+        if (do_coalesced_comms) {
+          RegisterCoalescedComms(mdg);
+          RegisterCoalescedCommsGMG(mdg);
+        }
       }
     }
   }

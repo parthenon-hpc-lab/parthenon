@@ -152,7 +152,7 @@ if (ENABLE_HDF5)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/poisson_gmg/poisson-gmg-example \
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/poisson_gmg/parthinput.poisson \
-    --num_steps 6")
+    --num_steps 7")
   list(APPEND EXTRA_TEST_LABELS "poisson_gmg")
 
   list(APPEND TEST_DIRS sparse_advection)
