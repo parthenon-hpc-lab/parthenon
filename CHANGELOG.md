@@ -8,10 +8,10 @@
 
 
 ### Changed (changing behavior/API/variables/...)
-
+- [[PR 1473]](https://github.com/parthenon-hpc-lab/parthenon/pull/1473) Rename boundary buffer ids/comm channels to comm lanes (`MeshData::SetBoundBufferId` -> `MeshData::SetCommLane`, `Mesh::SetNumberOfCommChannels` -> `Mesh::SetNumberOfCommLanes`, old names are deprecated) and make `MeshData::partition` a pointer to the `BlockListPartition` the `MeshData` was built from
 
 ### Fixed (not changing behavior/API/variables/...)
-
+- [[PR 1473]](https://github.com/parthenon-hpc-lab/parthenon/pull/1473) Support coalesced communication with multiple comm lanes (e.g. multigrid with `do_coalesced_comms=true`), fix coalesced communication for partitions that don't communicate with every neighboring rank and for partitions on different grids
 
 ### Infrastructure (changes irrelevant to downstream codes)
 

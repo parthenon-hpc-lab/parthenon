@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2023-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2023-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
+
 #ifndef SOLVERS_MG_SOLVER_HPP_
 #define SOLVERS_MG_SOLVER_HPP_
 
@@ -464,10 +467,9 @@ class MGSolver : public SolverBase, MGSolverCounter {
     auto &md_temp = pmesh->mesh_data.Add(container_temp, partition, sol_fields);
     auto &md_u0 = pmesh->mesh_data.Add(container_u0, partition, sol_fields);
     auto &md_diag = pmesh->mesh_data.Add(container_diag, partition, sol_fields);
-    md_res_err->SetBoundBufferId(BoundaryType::gmg_restrict_send,
-                                 1); // Use a separate set of communication buffers
-    md_res_err->SetBoundBufferId(BoundaryType::gmg_restrict_recv,
-                                 1); // Use a separate set of communication buffers
+    // Use a separate comm lane (i.e. set of communication buffers)
+    md_res_err->SetCommLane(BoundaryType::gmg_restrict_send, 1);
+    md_res_err->SetCommLane(BoundaryType::gmg_restrict_recv, 1);
     auto timer_guard_total = TimingAccumulatorGuard(
         solver_timings.GetOrAddAndRegister(GetTimeLabel("Total", partition), tl));
 

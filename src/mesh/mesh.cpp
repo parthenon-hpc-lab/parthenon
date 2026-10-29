@@ -218,7 +218,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
     max_level = max_level_ref_;
   }
 
-  if (multigrid) SetNumberOfCommChannels(BoundaryType::gmg_restrict_send, 2);
+  if (multigrid) SetNumberOfCommLanes(BoundaryType::gmg_restrict_send, 2);
 
   SetupMPIComms();
 
