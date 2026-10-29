@@ -25,23 +25,19 @@ namespace parthenon {
 void CallbackDAG::AddNode(const std::string &name) { nodes_.insert(name); }
 
 void CallbackDAG::AddEdge(const std::string &from, const std::string &to) {
-  // Ensure both nodes exist
   nodes_.insert(from);
   nodes_.insert(to);
 
-  // Add edge to adjacency list
   adjacency_list_[from].push_back(to);
 }
 
 std::vector<std::string> CallbackDAG::TopologicalSort() const {
-  // First validate that the graph is acyclic
   ValidateAcyclic();
 
   std::set<std::string> visited;
   std::set<std::string> rec_stack;
   std::vector<std::string> result;
 
-  // Visit all nodes
   for (const auto &node : nodes_) {
     if (visited.find(node) == visited.end()) {
       TopologicalSortDFS(node, visited, rec_stack, result);
@@ -60,7 +56,6 @@ void CallbackDAG::TopologicalSortDFS(const std::string &node,
   visited.insert(node);
   rec_stack.insert(node);
 
-  // Visit all neighbors
   auto it = adjacency_list_.find(node);
   if (it != adjacency_list_.end()) {
     for (const auto &neighbor : it->second) {
@@ -102,7 +97,6 @@ bool CallbackDAG::DetectCycleDFS(const std::string &node, std::set<std::string> 
   rec_stack.insert(node);
   path.push_back(node);
 
-  // Visit all neighbors
   auto it = adjacency_list_.find(node);
   if (it != adjacency_list_.end()) {
     for (const auto &neighbor : it->second) {

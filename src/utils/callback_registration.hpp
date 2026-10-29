@@ -24,7 +24,7 @@ namespace parthenon {
 /// Wrapper for callbacks with dependency information.
 ///
 /// This template wraps a callback function along with metadata about its
-/// dependencies on other units' callbacks. It supports expressing both
+/// dependencies on other packages' callbacks. It supports expressing both
 /// "run after" and "run before" relationships.
 ///
 /// @tparam Func The function type (typically std::function<...>)
@@ -68,9 +68,11 @@ struct CallbackRegistration {
     return *this;
   }
 
-  /// Check if a callback has been registered.
-  /// @return true if callback is not nullptr
   bool IsRegistered() const { return callback != nullptr; }
+
+  /// Implicit conversion to bool for checking registration status.
+  /// @return true if callback is registered
+  explicit operator bool() const { return IsRegistered(); }
 
   /// Call the underlying callback function.
   ///
@@ -81,10 +83,6 @@ struct CallbackRegistration {
   auto operator()(Args &&...args) const {
     return callback(std::forward<Args>(args)...);
   }
-
-  /// Implicit conversion to bool for checking registration status.
-  /// @return true if callback is registered
-  explicit operator bool() const { return IsRegistered(); }
 
   /// Compare against nullptr, matching the std::function interface.
   /// @return true if no callback is registered
