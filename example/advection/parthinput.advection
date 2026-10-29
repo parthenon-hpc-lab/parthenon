@@ -14,6 +14,7 @@
 #  license in this material to reproduce, prepare derivative works, distribute copies to
 #  the public, perform publicly and display publicly, and to permit others to do so.
 # ========================================================================================
+# This file was made in part with generative AI.
 
 <parthenon/job>
 problem_id = advection
@@ -55,7 +56,7 @@ ncycle_out_mesh = -10000
 cfl = 0.45
 vx = 1.0
 vy = 1.0
-vz = 1.0
+vz = 0.0 # nonzero vz requires a lower cfl in 3D (the timestep is limited per direction)
 profile = hard_sphere
 
 refine_tol = 0.3    # control the package specific refinement tagging function

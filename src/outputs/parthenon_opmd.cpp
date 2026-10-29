@@ -352,6 +352,9 @@ GetChunkOffsetAndExtent(Mesh *pm, std::shared_ptr<MeshBlock> pmb,
 //  \brief  Write output in OpenPMD format
 void OpenPMDOutput::WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
                                     const SignalHandler::OutputSignal signal) {
+  // Streams only contain regular (or requested) outputs so that iteration indices are
+  // unique and the stream is not blocked by extra outputs, e.g., on final.
+  if (stream_engine_ != "none" && signal != SignalHandler::OutputSignal::none) return;
   if (output_params.single_precision_output) {
     this->template WriteOutputFileImpl<true>(pm, pin, tm, signal);
   } else {
@@ -381,17 +384,26 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // will be accessed through the iteration idx below. The file suffix maps to the chosen
   // backend.
   // Prepending @ indicates that the config is a file to be read and parsed.
+  // By default, an SST writer neither waits for readers nor blocks on slow readers so
+  // that the simulation is never held up by (or without) a live viewer. The WAN (TCP)
+  // transport is used as it is available everywhere (and sufficient for visualization).
+  const bool stream = stream_engine_ != "none";
   std::string backend_config =
-      backend_config_ == "default" ? "{}" : "@" + backend_config_;
+      backend_config_ != "default" ? "@" + backend_config_
+      : stream_engine_ == "sst"
+          ? R"({"adios2": {"engine": {"parameters": {"RendezvousReaderCount": "0",
+               "QueueLimit": "1", "QueueFullPolicy": "Discard",
+               "DataTransport": "WAN"}}}})"
+          : "{}";
 
   auto filename = output_params.file_basename + "." + output_params.file_id;
 
   // Write meta file (to be used by ParaView and Visit to recognize time series)
-  if (Globals::my_rank == 0) {
+  if (Globals::my_rank == 0 && stream_engine_ != "sst") {
     const auto meta_filename = filename + ".pmd";
     if (!fs::is_regular_file(meta_filename)) {
       std::ofstream outfile(meta_filename);
-      outfile << filename << ".%05T.bp\n";
+      outfile << filename << (stream ? ".bp\n" : ".%05T.bp\n");
       outfile.close();
     }
   }
@@ -401,42 +413,50 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
              output_params.file_label_final) {
     filename.append(".final");
   }
-  filename.append(".%05T");
+  if (!stream) filename.append(".%05T");
+  filename.append(stream_engine_ == "sst" ? ".sst" : ".bp");
 
-  filename.append(".bp");
-  Series series = Series(filename, Access::CREATE,
+  // A stream is only opened once and then kept open (with one step per output).
+  const bool new_series = !stream || series_ == nullptr;
+  if (new_series) {
+    series_ = std::make_shared<Series>(filename,
+                                       stream ? Access::CREATE_LINEAR : Access::CREATE,
 #ifdef MPI_PARALLEL
-                         MPI_COMM_WORLD,
+                                       MPI_COMM_WORLD,
 #endif
-                         backend_config);
+                                       backend_config);
+  }
+  Series &series = *series_;
   // TODO(pgrete) How to handle downstream info, e.g.,  on how/what defines a vector?
   // TODO(pgrete) Should we update for restart or only set this once? Or make it per
   // iteration?
 
-  // Set default info when present
-  if (pin->DoesParameterExist("parthenon/job", "author")) {
-    const auto author = pin->Get<std::string>("parthenon/job", "author");
-    series.setAuthor(author);
-  }
-  if (pin->DoesParameterExist("parthenon/job", "comment")) {
-    const auto comment = pin->Get<std::string>("parthenon/job", "comment");
-    series.setComment(comment);
-  }
-  if (pin->DoesParameterExist("parthenon/job", "machine")) {
-    const auto machine = pin->Get<std::string>("parthenon/job", "machine");
-    series.setMachine(machine);
-  }
-  series.setSoftware("Parthenon + X");
-  const auto now = std::chrono::system_clock::now();
-  series.setDate(std::format("{:%F %T}", now));
+  // Set series wide info (once for streams)
+  if (new_series) {
+    if (pin->DoesParameterExist("parthenon/job", "author")) {
+      series.setAuthor(pin->Get<std::string>("parthenon/job", "author"));
+    }
+    if (pin->DoesParameterExist("parthenon/job", "comment")) {
+      series.setComment(pin->Get<std::string>("parthenon/job", "comment"));
+    }
+    if (pin->DoesParameterExist("parthenon/job", "machine")) {
+      series.setMachine(pin->Get<std::string>("parthenon/job", "machine"));
+    }
+    series.setSoftware("Parthenon + X");
+    const auto now = std::chrono::system_clock::now();
+    series.setDate(std::format("{:%F %T}", now));
 
-  // TODO(someone) Handle units
+    // TODO(someone) Handle units
 
-  // In line with existing outputs, we write one file per iteration/snapshot
-  series.setIterationEncoding(openPMD::IterationEncoding::fileBased);
+    // In line with existing outputs, we write one file per iteration/snapshot (or one
+    // ADIOS2 step per iteration for streams, as recommended by openPMD for streaming)
+    series.setIterationEncoding(stream ? openPMD::IterationEncoding::variableBased
+                                       : openPMD::IterationEncoding::fileBased);
+  }
 
   // open iteration (corresponding to a timestep in OpenPMD naming)
-  auto it = series.iterations[output_params.file_number];
+  auto it = stream ? series.snapshots()[output_params.file_number]
+                   : series.iterations[output_params.file_number];
   it.open(); // explicit open() is important when run in parallel
 
   if (signal == SignalHandler::OutputSignal::none) {
@@ -1044,7 +1064,10 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
   // The iteration's content will be flushed automatically.
   // An iteration once closed cannot (yet) be reopened.
   it.close();
-  series.close();
+  if (!stream) {
+    series.close();
+    series_ = nullptr;
+  }
   Kokkos::Profiling::popRegion(); // WriteOutputFile???Prec
 }
 // explicit template instantiation

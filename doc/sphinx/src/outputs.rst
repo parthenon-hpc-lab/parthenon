@@ -1,5 +1,7 @@
 .. _outputs:
 
+.. This file was made in part with generative AI.
+
 Outputs
 =======
 
@@ -199,7 +201,97 @@ is written (``single_file.toml``):
    [adios2.engine.parameters]
    NumSubFiles = "1"
 
+Streaming and live visualization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+By default, every openPMD output is written to a separate file.
+With ``stream_engine = sst`` or ``stream_engine = bp5`` all outputs of a block are
+instead written to a single stream (with one ADIOS2 step per output), which can be
+consumed while the simulation is running.
+
+- ``sst`` uses the ADIOS2 SST engine (``<problem_id>.<id>.sst``) to stage data in memory,
+  i.e., no data is written to disk.
+  By default (i.e., without a ``backend_config``), the simulation neither waits for a
+  reader to connect nor for a slow reader, i.e., steps that cannot be queued are dropped,
+  and data is transferred via TCP.
+  These defaults correspond to the SST engine parameters
+  ``RendezvousReaderCount = 0``, ``QueueLimit = 1``, ``QueueFullPolicy = Discard`` and
+  ``DataTransport = WAN``. A user-provided ``backend_config`` replaces all of them.
+- ``bp5`` writes a single ``<problem_id>.<id>.bp`` file that can be read while being written
+  (and as a regular openPMD series afterwards).
+  As the regions covered by each refinement level change over time with AMR, the
+  valid chunks of a given step are only reported correctly when reading step by step
+  (``Access::READ_LINEAR``). With random access, ``available_chunks()`` returns the
+  chunks of all steps.
+
+Streams only contain regular outputs, i.e., outputs triggered by signals (such as
+the ``final`` output at the end of a simulation) are not written to a stream.
+Restart outputs cannot be streamed and restarting a simulation overwrites ``bp5`` streams.
+
+For live visualization it is typically sufficient (and much cheaper) to only write data
+when a viewer is ready for it.
+For outputs (of any type) with ``on_request = true``, ``dt`` and ``dn`` are ignored and
+the output is only written if the file ``<problem_id>.<id>.request`` exists, which
+is removed when the output is written.
+
+::
+
+   <parthenon/output2>
+   file_type     = openpmd
+   stream_engine = sst
+   on_request    = true
+   id            = live
+   variables     = advected
+
+The ``opmd_live.py`` script from the ``parthenon_tools`` Python package (requires
+``openpmd_api`` and ``matplotlib``) plots a variable from such a stream (2D data
+directly, 3D data as a slice) and requests the next step whenever a step has been
+received. All refinement levels are combined on a uniform (float32) grid of the level
+given by ``--level`` (default: 0, i.e., the root grid), where negative levels coarsen
+below the root grid. Finer data is averaged and coarser data is repeated.
+For example,
+
+::
+
+   ./example/advection/advection-example -i ../example/advection/parthinput.advection \
+     parthenon/mesh/refinement=none parthenon/time/tlim=100 \
+     parthenon/output0/dt=-1 parthenon/output1/dt=-1 \
+     parthenon/output2/file_type=openpmd parthenon/output2/stream_engine=sst \
+     parthenon/output2/on_request=true parthenon/output2/id=live \
+     parthenon/output2/variables=advected
+   # in a second terminal in the same directory
+   opmd_live.py advection.live.sst advected
+
+With a viewer attached, the simulation writes a step as soon as the previous one has been
+received. Use ``--min-interval <seconds>`` to limit the rate of requests (and thereby the
+overhead for the simulation).
+Note that the ``sst`` contact file and the request file need to be accessible on a
+file system shared by the viewer and the first rank of the simulation.
+
+With ``--volume``, 3D data is volume rendered with `PyVista <https://pyvista.org>`_
+(``--opacity`` sets the opacity transfer function), e.g., for the advection example in 3D
+
+::
+
+   ./example/advection/advection-example -i ../example/advection/parthinput.advection \
+     parthenon/mesh/nx3=64 parthenon/meshblock/nx3=16 parthenon/time/tlim=100 \
+     parthenon/output0/dt=-1 parthenon/output1/dt=-1 \
+     parthenon/output2/file_type=openpmd parthenon/output2/stream_engine=sst \
+     parthenon/output2/on_request=true parthenon/output2/id=live \
+     parthenon/output2/variables=advected
+   opmd_live.py advection.live.sst advected --volume --level 1
+
+To reduce the amount of data that is transferred for large simulations, combine
+``coarsening_factor`` (every n-th cell is written) and ``single_precision_output`` in
+the output block with a (coarse) ``--level``.
+
+With ``--outdir``, frames are rendered off-screen and saved as png files.
+This is the recommended approach for simulations on remote (e.g., supercomputer)
+systems: run the viewer on a (GPU) node of the same allocation as the simulation, so
+that the data stays within the computing center, and only look at the resulting images
+(e.g., through the Jupyter service of the center).
+For interactive viewers (e.g., in a Jupyter notebook), the ``frames()`` generator and
+``composite()`` function of ``parthenon_tools.opmd_live`` can be used directly.
 
 HDF5
 ----
