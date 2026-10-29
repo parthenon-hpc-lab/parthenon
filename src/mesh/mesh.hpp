@@ -47,6 +47,8 @@
 #include "interface/mesh_data.hpp"
 #include "interface/state_descriptor.hpp"
 #include "kokkos_abstraction.hpp"
+#include "lukewarm/lukewarm.hpp"
+#include "lukewarm/lukewarm_comms.hpp"
 #include "mesh/forest/forest.hpp"
 #include "mesh/forest/forest_topology.hpp"
 #include "mesh/meshblock_pack.hpp"
@@ -240,6 +242,11 @@ class Mesh {
 
   auto GetBasePartition() const { return base_block_partition_; }
 
+  // Give the "base" MeshData of every default block partition its lukewarms, leaving
+  // the particles of any that already have them untouched, and build the channels
+  // lukewarm particles travel through. This is collective over all ranks.
+  void BuildLukewarms();
+
   std::shared_ptr<MeshBlock> FindMeshBlock(int tgid) const;
 
   void ApplyUserWorkBeforeOutput(Mesh *mesh, ParameterInput *pin, SimTime const &time);
@@ -334,6 +341,7 @@ class Mesh {
 
   ObjectPoolMap<BufArray1D<Real>> pool_map;
   comm_buf_map_t boundary_comm_map;
+  lukewarm_comm_map_t lukewarm_comm_map;
   TagMap tag_map;
   int minimum_number_of_teams_for_boundary_kernel;
   int boundary_buffer_work_chunk_size;
@@ -519,6 +527,8 @@ class Mesh {
   std::map<GridIdentifier, std::vector<std::shared_ptr<BlockListPartition>>>
       block_partitions_;
   std::shared_ptr<BlockListPartition> base_block_partition_;
+  // Shared by every MeshData's copy of a lukewarm, and outlives any one MeshData
+  std::map<std::string, LukewarmIdCounter> lukewarm_id_counters_;
 };
 
 } // namespace parthenon
