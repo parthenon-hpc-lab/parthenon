@@ -23,8 +23,10 @@
 #include <algorithm>
 
 // Parthenon includes
+#include <Kokkos_Array.hpp>
 #include <coordinates/coordinates.hpp>
 #include <kokkos_abstraction.hpp>
+#include <pack/sparse_pack/sparse_pack.hpp>
 #include <parthenon/package.hpp>
 #include <utils/error_checking.hpp>
 #include <utils/robust.hpp>
@@ -157,6 +159,63 @@ KOKKOS_INLINE_FUNCTION Real Do(int b, const Real X1, const Real X2, const Real X
     return Do2D(b, X1, X2, p, v);
   } else { // 1D
     return Do1D(b, X1, p, v);
+  }
+}
+
+// Sparse packs do not store spatial extents. ncells contains the cell counts,
+// including ghost zones, in X1, X2, and X3 for block b.
+template <class... Ts>
+KOKKOS_INLINE_FUNCTION Real Do3D(int b, const Real X1, const Real X2, const Real X3,
+                                 const SparsePack<Ts...> &p, int v,
+                                 const Kokkos::Array<int, 3> &ncells) {
+  const auto &coords = p.GetCoordinates(b);
+  int i, j, k;
+  weights_t wi, wj, wk;
+  GetWeights<X1DIR>(X1, ncells[0], coords, i, wi);
+  GetWeights<X2DIR>(X2, ncells[1], coords, j, wj);
+  GetWeights<X3DIR>(X3, ncells[2], coords, k, wk);
+  return wk[0] *
+             (wj[0] * (wi[0] * p(b, v, k, j, i) + wi[1] * p(b, v, k, j, i + 1)) +
+              wj[1] * (wi[0] * p(b, v, k, j + 1, i) + wi[1] * p(b, v, k, j + 1, i + 1))) +
+         wk[1] *
+             (wj[0] * (wi[0] * p(b, v, k + 1, j, i) + wi[1] * p(b, v, k + 1, j, i + 1)) +
+              wj[1] * (wi[0] * p(b, v, k + 1, j + 1, i) +
+                       wi[1] * p(b, v, k + 1, j + 1, i + 1)));
+}
+
+template <class... Ts>
+KOKKOS_INLINE_FUNCTION Real Do2D(int b, const Real X1, const Real X2,
+                                 const SparsePack<Ts...> &p, int v,
+                                 const Kokkos::Array<int, 3> &ncells) {
+  const auto &coords = p.GetCoordinates(b);
+  int i, j;
+  weights_t wi, wj;
+  GetWeights<X1DIR>(X1, ncells[0], coords, i, wi);
+  GetWeights<X2DIR>(X2, ncells[1], coords, j, wj);
+  return wj[0] * (wi[0] * p(b, v, 0, j, i) + wi[1] * p(b, v, 0, j, i + 1)) +
+         wj[1] * (wi[0] * p(b, v, 0, j + 1, i) + wi[1] * p(b, v, 0, j + 1, i + 1));
+}
+
+template <class... Ts>
+KOKKOS_INLINE_FUNCTION Real Do1D(int b, const Real X1, const SparsePack<Ts...> &p, int v,
+                                 const Kokkos::Array<int, 3> &ncells) {
+  const auto &coords = p.GetCoordinates(b);
+  int i;
+  weights_t wi;
+  GetWeights<X1DIR>(X1, ncells[0], coords, i, wi);
+  return wi[0] * p(b, v, 0, 0, i) + wi[1] * p(b, v, 0, 0, i + 1);
+}
+
+template <class... Ts>
+KOKKOS_INLINE_FUNCTION Real Do(int b, const Real X1, const Real X2, const Real X3,
+                               const SparsePack<Ts...> &p, int v,
+                               const Kokkos::Array<int, 3> &ncells) {
+  if (ncells[2] > 1) {
+    return Do3D(b, X1, X2, X3, p, v, ncells);
+  } else if (ncells[1] > 1) {
+    return Do2D(b, X1, X2, p, v, ncells);
+  } else {
+    return Do1D(b, X1, p, v, ncells);
   }
 }
 
