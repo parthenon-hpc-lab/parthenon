@@ -244,24 +244,54 @@ is removed when the output is written.
    variables     = advected
 
 The ``opmd_live.py`` script from the ``parthenon_tools`` Python package (requires
-``openpmd_api`` and ``matplotlib``) plots a record from such a stream (2D data directly,
-3D data as a slice) and requests the next step whenever a step has been received, e.g.,
+``openpmd_api`` and ``matplotlib``) plots a variable from such a stream (2D data
+directly, 3D data as a slice) and requests the next step whenever a step has been
+received. All refinement levels are combined on a uniform (float32) grid of the level
+given by ``--level`` (default: 0, i.e., the root grid), where negative levels coarsen
+below the root grid. Finer data is averaged and coarser data is repeated.
+For example,
 
 ::
 
    ./example/advection/advection-example -i ../example/advection/parthinput.advection \
      parthenon/mesh/refinement=none parthenon/time/tlim=100 \
+     parthenon/output0/dt=-1 parthenon/output1/dt=-1 \
      parthenon/output2/file_type=openpmd parthenon/output2/stream_engine=sst \
      parthenon/output2/on_request=true parthenon/output2/id=live \
      parthenon/output2/variables=advected
    # in a second terminal in the same directory
-   opmd_live.py advection.live.sst advected_lvl0
+   opmd_live.py advection.live.sst advected
 
 With a viewer attached, the simulation writes a step as soon as the previous one has been
 received. Use ``--min-interval <seconds>`` to limit the rate of requests (and thereby the
 overhead for the simulation).
 Note that the ``sst`` contact file and the request file need to be accessible on a
 file system shared by the viewer and the first rank of the simulation.
+
+With ``--volume``, 3D data is volume rendered with `PyVista <https://pyvista.org>`_
+(``--opacity`` sets the opacity transfer function), e.g., for the advection example in 3D
+
+::
+
+   ./example/advection/advection-example -i ../example/advection/parthinput.advection \
+     parthenon/mesh/nx3=64 parthenon/meshblock/nx3=16 parthenon/time/tlim=100 \
+     parthenon/output0/dt=-1 parthenon/output1/dt=-1 \
+     parthenon/output2/file_type=openpmd parthenon/output2/stream_engine=sst \
+     parthenon/output2/on_request=true parthenon/output2/id=live \
+     parthenon/output2/variables=advected
+   opmd_live.py advection.live.sst advected --volume --level 1
+
+To reduce the amount of data that is transferred for large simulations, combine
+``coarsening_factor`` (every n-th cell is written) and ``single_precision_output`` in
+the output block with a (coarse) ``--level``.
+
+With ``--outdir``, frames are rendered off-screen and saved as png files.
+This is the recommended approach for simulations on remote (e.g., supercomputer)
+systems: run the viewer on a (GPU) node of the same allocation as the simulation, so
+that the data stays within the computing center, and only look at the resulting images
+(e.g., through the Jupyter service of the center).
+For interactive viewers (e.g., in a Jupyter notebook), the ``frames()`` generator and
+``composite()`` function of ``parthenon_tools.opmd_live`` can be used directly.
 
 HDF5
 ----

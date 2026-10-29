@@ -68,3 +68,13 @@ stream_engine = bp5
 on_request = true
 id = request
 variables = advected
+
+# coarsened (every 2nd cell) single precision stream
+<parthenon/output3>
+file_type = openpmd
+stream_engine = bp5
+coarsening_factor = 2
+single_precision_output = true
+id = coarse
+dt = 0.25
+variables = advected

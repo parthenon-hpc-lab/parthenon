@@ -72,12 +72,26 @@ The first target is a simple Python (`openpmd_api` + matplotlib) viewer and the
    4. `--min-interval` limits the request rate, and thereby the overhead for the
       simulation (10–20% when a viewer is attached for the whole run).
 
+4. Volume rendering and AMR (follow-up):
+   - `composite()` combines all records `<var>_lvl<N>` on a uniform float32 grid of
+     `--level L`. Finer blocks are averaged and coarser blocks are repeated, so negative
+     levels coarse grain below the root grid.
+   - The existing `coarsening_factor` (every n-th cell) and `single_precision_output`
+     reduce the transferred data on the simulation side.
+   - `--volume` renders with PyVista, which works in a local window, off-screen
+     (`--outdir`, e.g., on a GPU node next to a simulation on a supercomputer, so that
+     only images leave the computing center), and in Jupyter (trame). napari was ruled
+     out as it is a desktop-only application.
+
 ## Testing
 
 - Regression test `stream_opmd` (advection with AMR, so that records of finer levels
   appear during the run). It runs a `stream_engine=bp5`
   block next to a file-based block with the same cadence, and checks that both contain
   identical data (all level records and chunks) for every streamed iteration.
+  A third stream with `coarsening_factor = 2` and `single_precision_output = true` must
+  match every 2nd cell of the file output, and `composite()` must conserve the mean for
+  levels -2 to 2.
 - Manual test of `sst` with `on_request=true` and `opmd_live.py`.
 
 ## Changes made
@@ -86,3 +100,5 @@ The first target is a simple Python (`openpmd_api` + matplotlib) viewer and the
 - `scripts/python/packages/parthenon_tools/parthenon_tools/opmd_live.py`
 - `tst/regression/test_suites/stream_opmd/`
 - `doc/sphinx/src/outputs.rst`, `CHANGELOG.md`
+- `example/advection/parthinput.advection`: `vz = 0` so that the deck is stable in 3D
+  (with `cfl = 0.45`) and the motion is not along the default camera axis

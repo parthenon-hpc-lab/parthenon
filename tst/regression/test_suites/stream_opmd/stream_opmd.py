@@ -24,10 +24,16 @@ class TestCase(utils.test_case.TestCaseAbs):
         return parameters
 
     def Analyse(self, parameters):
+        sys.path.insert(
+            1,
+            parameters.parthenon_path
+            + "/scripts/python/packages/parthenon_tools/parthenon_tools",
+        )
         try:
             import openpmd_api as opmd
+            from opmd_live import composite
         except ModuleNotFoundError:
-            print("Couldn't find required openpmd_api module.")
+            print("Couldn't find required openpmd_api or opmd_live module.")
             return False
 
         def read(series, iterations):
@@ -51,6 +57,8 @@ class TestCase(utils.test_case.TestCaseAbs):
         streamed = read(stream, stream.snapshots().items())
         requested = opmd.Series("advection.request.bp", opmd.Access.read_linear)
         num_requested = len(read(requested, requested.snapshots().items()))
+        coarse = opmd.Series("advection.coarse.bp", opmd.Access.read_linear)
+        coarsened = read(coarse, coarse.snapshots().items())
 
         success = True
         # the final output (only written to file with the 'final' label) is not streamed
@@ -68,6 +76,34 @@ class TestCase(utils.test_case.TestCaseAbs):
             ):
                 print(f"Data of streamed iteration {idx} does not match file output.")
                 success = False
+        # coarsened output contains every 2nd cell (starting with the first one per block)
+        for idx, (time, values) in coarsened.items():
+            ref_values = {
+                (n, tuple(o // 2 for o in off), tuple(e // 2 for e in ext)): v[::2, ::2]
+                for (n, off, ext), v in ref[idx][1].items()
+            }
+            if (
+                values.keys() != ref_values.keys()
+                or any(v.dtype != np.float32 for v in values.values())
+                or not all(
+                    np.array_equal(v, ref_values[k].astype(np.float32))
+                    for k, v in values.items()
+                )
+            ):
+                print(f"Data of coarsened iteration {idx} does not match file output.")
+                success = False
+        if sorted(coarsened) != sorted(streamed):
+            print(f"Mismatch in coarsened iterations: {sorted(coarsened)}")
+            success = False
+        # combining all levels on a uniform grid of any level conserves the mean
+        files = opmd.Series("advection.out0.%05T.bp", opmd.Access.read_only)
+        it = files.iterations[max(ref)]
+        means = [np.mean(composite(files, it, "advected", l)[0]) for l in range(-2, 3)]
+        if not np.all(np.isfinite(means)) or not np.allclose(
+            means, means[0], rtol=1e-5
+        ):
+            print(f"Composite data not conservative: {means}")
+            success = False
         if num_requested != 1:
             print(f"Expected one requested output but found {num_requested}.")
             success = False
