@@ -11,7 +11,7 @@
 
 
 ### Fixed (not changing behavior/API/variables/...)
-
+- [[PR 1445]](https://github.com/parthenon-hpc-lab/parthenon/pull/1445) Fix ownership for self-bordering blocks
 
 ### Infrastructure (changes irrelevant to downstream codes)
 
