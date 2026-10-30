@@ -195,7 +195,8 @@ class DataCollection {
     //      and check that set against name_creation_fields_ if the base name exists,
     //      otherwise store the field set in name_creation_fields_ since this is the first
     //      container created with that base name. [Should we be checking that this is a
-    //      subset of the parent container? Yes, probably.]
+    //      subset of the parent container? Theoretically yes, in practice this is likely an edge case
+    //      no downstream code exercises]
     //   2. fields is empty but src has a base name set (which means it is a MeshBlockData
     //   or MeshData),
     //      then we inherit the field set from base.
