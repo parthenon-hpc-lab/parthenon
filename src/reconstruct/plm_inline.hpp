@@ -29,6 +29,7 @@
 
 #include "coordinates/coordinates.hpp"
 #include "mesh/mesh.hpp"
+#include "pack/sparse_pack/sparse_pack.hpp"
 
 namespace parthenon {
 
@@ -39,13 +40,11 @@ template <typename T>
 KOKKOS_INLINE_FUNCTION void
 PiecewiseLinearX1(parthenon::team_mbr_t const &member, const int k, const int j,
                   const int il, const int iu, const Coordinates_t &coords, const T &q,
-                  ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc,
-                  ScratchPad2D<Real> &dql, ScratchPad2D<Real> &dqr,
-                  ScratchPad2D<Real> &dqm) {
-  const int nu = q.GetDim(4) - 1;
-
+                  const int nl, const int nu, ScratchPad2D<Real> &ql,
+                  ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc, ScratchPad2D<Real> &dql,
+                  ScratchPad2D<Real> &dqr, ScratchPad2D<Real> &dqm) {
   // compute L/R slopes for each variable
-  for (int n = 0; n <= nu; ++n) {
+  for (int n = nl; n <= nu; ++n) {
     parthenon::par_for_inner(member, il, iu, [&](const int i) {
       // renamed dw* -> dq* from plm.cpp
       dql(n, i) = (q(n, k, j, i) - q(n, k, j, i - 1));
@@ -59,7 +58,7 @@ PiecewiseLinearX1(parthenon::team_mbr_t const &member, const int k, const int j,
   // with uniform mesh spacing
   //  if (uniform[X1DIR]) {
   if (true) { // TODO(pgrete) make this work again
-    for (int n = 0; n <= nu; ++n) {
+    for (int n = nl; n <= nu; ++n) {
       parthenon::par_for_inner(member, il, iu, [&](const int i) {
         Real dq2 = dql(n, i) * dqr(n, i);
         dqm(n, i) = 2.0 * dq2 / (dql(n, i) + dqr(n, i));
@@ -71,7 +70,7 @@ PiecewiseLinearX1(parthenon::team_mbr_t const &member, const int k, const int j,
     // Apply general VL limiter expression w/ the Mignone correction for a Cartesian-like
     // coordinate with nonuniform mesh spacing
   } else {
-    for (int n = 0; n <= nu; ++n) {
+    for (int n = nl; n <= nu; ++n) {
       parthenon::par_for_inner(member, il, iu, [&](const int i) {
         Real dqF = dqr(n, i) * coords.Dxf<1>(i) / coords.Dxc<1>(i);
         Real dqB = dql(n, i) * coords.Dxf<1>(i) / coords.Dxc<1>(i - 1);
@@ -98,7 +97,7 @@ PiecewiseLinearX1(parthenon::team_mbr_t const &member, const int k, const int j,
   }
 
   // compute ql_(i+1/2) and qr_(i-1/2) using limited slopes
-  for (int n = 0; n <= nu; ++n) {
+  for (int n = nl; n <= nu; ++n) {
     parthenon::par_for_inner(member, il, iu, [&](const int i) {
       // Mignone equation 30
       ql(n, i + 1) =
@@ -117,13 +116,11 @@ template <typename T>
 KOKKOS_INLINE_FUNCTION void
 PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const int j,
                   const int il, const int iu, const Coordinates_t &coords, const T &q,
-                  ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc,
-                  ScratchPad2D<Real> &dql, ScratchPad2D<Real> &dqr,
-                  ScratchPad2D<Real> &dqm) {
-  const int nu = q.GetDim(4) - 1;
-
+                  const int nl, const int nu, ScratchPad2D<Real> &ql,
+                  ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc, ScratchPad2D<Real> &dql,
+                  ScratchPad2D<Real> &dqr, ScratchPad2D<Real> &dqm) {
   // compute L/R slopes for each variable
-  for (int n = 0; n <= nu; ++n) {
+  for (int n = nl; n <= nu; ++n) {
     parthenon::par_for_inner(member, il, iu, [&](const int i) {
       // renamed dw* -> dq* from plm.cpp
       dql(n, i) = (q(n, k, j, i) - q(n, k, j - 1, i));
@@ -137,7 +134,7 @@ PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const int j,
   // with uniform mesh spacing
   // if (uniform[X2DIR]) {
   if (true) { // TODO(pgrete) make work again
-    for (int n = 0; n <= nu; ++n) {
+    for (int n = nl; n <= nu; ++n) {
       parthenon::par_for_inner(member, il, iu, [&](const int i) {
         Real dq2 = dql(n, i) * dqr(n, i);
         dqm(n, i) = 2.0 * dq2 / (dql(n, i) + dqr(n, i));
@@ -154,7 +151,7 @@ PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const int j,
     Real dxF = coords.Dxf<2>(j) /
                coords.Dxc<2>(j); // dimensionless, not technically a dx quantity
     Real dxB = coords.Dxf<2>(j) / coords.Dxc<2>(j - 1);
-    for (int n = 0; n <= nu; ++n) {
+    for (int n = nl; n <= nu; ++n) {
       parthenon::par_for_inner(member, il, iu, [&](const int i) {
         Real dqF = dqr(n, i) * dxF;
         Real dqB = dql(n, i) * dxB;
@@ -177,7 +174,7 @@ PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const int j,
   // dimensionless, not technically a "dx" quantity
   Real dxp = (coords.Xf<2>(j + 1) - coords.Xc<2>(j)) / coords.Dxf<2>(j);
   Real dxm = (coords.Xc<2>(j) - coords.Xf<2>(j)) / coords.Dxf<2>(j);
-  for (int n = 0; n <= nu; ++n) {
+  for (int n = nl; n <= nu; ++n) {
     parthenon::par_for_inner(member, il, iu, [&](const int i) {
       ql(n, i) = qc(n, i) + dxp * dqm(n, i);
       qr(n, i) = qc(n, i) - dxm * dqm(n, i);
@@ -192,13 +189,11 @@ template <typename T>
 KOKKOS_INLINE_FUNCTION void
 PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const int j,
                   const int il, const int iu, const Coordinates_t &coords, const T &q,
-                  ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc,
-                  ScratchPad2D<Real> &dql, ScratchPad2D<Real> &dqr,
-                  ScratchPad2D<Real> &dqm) {
-  const int nu = q.GetDim(4) - 1;
-
+                  const int nl, const int nu, ScratchPad2D<Real> &ql,
+                  ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc, ScratchPad2D<Real> &dql,
+                  ScratchPad2D<Real> &dqr, ScratchPad2D<Real> &dqm) {
   // compute L/R slopes for each variable
-  for (int n = 0; n <= nu; ++n) {
+  for (int n = nl; n <= nu; ++n) {
     parthenon::par_for_inner(member, il, iu, [&](const int i) {
       // renamed dw* -> dq* from plm.cpp
       dql(n, i) = (q(n, k, j, i) - q(n, k - 1, j, i));
@@ -212,7 +207,7 @@ PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const int j,
   // with uniform mesh spacing
   // if (uniform[X3DIR]) {
   if (true) { // TODO(pgrete) make conditional work again
-    for (int n = 0; n <= nu; ++n) {
+    for (int n = nl; n <= nu; ++n) {
       parthenon::par_for_inner(member, il, iu, [&](const int i) {
         Real dq2 = dql(n, i) * dqr(n, i);
         dqm(n, i) = 2.0 * dq2 / (dql(n, i) + dqr(n, i));
@@ -226,7 +221,7 @@ PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const int j,
   } else {
     Real dxF = coords.Dxf<3>(k) / coords.Dxc<3>(k);
     Real dxB = coords.Dxf<3>(k) / coords.Dxc<3>(k - 1);
-    for (int n = 0; n <= nu; ++n) {
+    for (int n = nl; n <= nu; ++n) {
       parthenon::par_for_inner(member, il, iu, [&](const int i) {
         Real dqF = dqr(n, i) * dxF;
         Real dqB = dql(n, i) * dxB;
@@ -245,12 +240,87 @@ PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const int j,
   // compute ql_(k+1/2) and qr_(k-1/2) using limited slopes
   Real dxp = (coords.Xf<3>(k + 1) - coords.Xc<3>(k)) / coords.Dxf<3>(k);
   Real dxm = (coords.Xc<3>(k) - coords.Xf<3>(k)) / coords.Dxf<3>(k);
-  for (int n = 0; n <= nu; ++n) {
+  for (int n = nl; n <= nu; ++n) {
     parthenon::par_for_inner(member, il, iu, [&](const int i) {
       ql(n, i) = qc(n, i) + dxp * dqm(n, i);
       qr(n, i) = qc(n, i) - dxm * dqm(n, i);
     });
   }
+}
+
+template <typename T>
+KOKKOS_INLINE_FUNCTION void
+PiecewiseLinearX1(parthenon::team_mbr_t const &member, const int k, const int j,
+                  const int il, const int iu, const Coordinates_t &coords, const T &q,
+                  ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc,
+                  ScratchPad2D<Real> &dql, ScratchPad2D<Real> &dqr,
+                  ScratchPad2D<Real> &dqm) {
+  PiecewiseLinearX1(member, k, j, il, iu, coords, q, 0, q.GetDim(4) - 1, ql, qr, qc, dql,
+                    dqr, dqm);
+}
+
+template <typename... Ts>
+KOKKOS_INLINE_FUNCTION void
+PiecewiseLinearX1(parthenon::team_mbr_t const &member, const int b, const int k,
+                  const int j, const int il, const int iu, const Coordinates_t &coords,
+                  const SparsePack<Ts...> &q, ScratchPad2D<Real> &ql,
+                  ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc, ScratchPad2D<Real> &dql,
+                  ScratchPad2D<Real> &dqr, ScratchPad2D<Real> &dqm) {
+  auto values = [&](const int n, const int k, const int j, const int i) -> Real & {
+    return q(b, n, k, j, i);
+  };
+  PiecewiseLinearX1(member, k, j, il, iu, coords, values, q.GetLowerBound(b),
+                    q.GetUpperBound(b), ql, qr, qc, dql, dqr, dqm);
+}
+
+template <typename T>
+KOKKOS_INLINE_FUNCTION void
+PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int k, const int j,
+                  const int il, const int iu, const Coordinates_t &coords, const T &q,
+                  ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc,
+                  ScratchPad2D<Real> &dql, ScratchPad2D<Real> &dqr,
+                  ScratchPad2D<Real> &dqm) {
+  PiecewiseLinearX2(member, k, j, il, iu, coords, q, 0, q.GetDim(4) - 1, ql, qr, qc, dql,
+                    dqr, dqm);
+}
+
+template <typename... Ts>
+KOKKOS_INLINE_FUNCTION void
+PiecewiseLinearX2(parthenon::team_mbr_t const &member, const int b, const int k,
+                  const int j, const int il, const int iu, const Coordinates_t &coords,
+                  const SparsePack<Ts...> &q, ScratchPad2D<Real> &ql,
+                  ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc, ScratchPad2D<Real> &dql,
+                  ScratchPad2D<Real> &dqr, ScratchPad2D<Real> &dqm) {
+  auto values = [&](const int n, const int k, const int j, const int i) -> Real & {
+    return q(b, n, k, j, i);
+  };
+  PiecewiseLinearX2(member, k, j, il, iu, coords, values, q.GetLowerBound(b),
+                    q.GetUpperBound(b), ql, qr, qc, dql, dqr, dqm);
+}
+
+template <typename T>
+KOKKOS_INLINE_FUNCTION void
+PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int k, const int j,
+                  const int il, const int iu, const Coordinates_t &coords, const T &q,
+                  ScratchPad2D<Real> &ql, ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc,
+                  ScratchPad2D<Real> &dql, ScratchPad2D<Real> &dqr,
+                  ScratchPad2D<Real> &dqm) {
+  PiecewiseLinearX3(member, k, j, il, iu, coords, q, 0, q.GetDim(4) - 1, ql, qr, qc, dql,
+                    dqr, dqm);
+}
+
+template <typename... Ts>
+KOKKOS_INLINE_FUNCTION void
+PiecewiseLinearX3(parthenon::team_mbr_t const &member, const int b, const int k,
+                  const int j, const int il, const int iu, const Coordinates_t &coords,
+                  const SparsePack<Ts...> &q, ScratchPad2D<Real> &ql,
+                  ScratchPad2D<Real> &qr, ScratchPad2D<Real> &qc, ScratchPad2D<Real> &dql,
+                  ScratchPad2D<Real> &dqr, ScratchPad2D<Real> &dqm) {
+  auto values = [&](const int n, const int k, const int j, const int i) -> Real & {
+    return q(b, n, k, j, i);
+  };
+  PiecewiseLinearX3(member, k, j, il, iu, coords, values, q.GetLowerBound(b),
+                    q.GetUpperBound(b), ql, qr, qc, dql, dqr, dqm);
 }
 
 } // namespace parthenon

@@ -21,11 +21,9 @@
 #include "globals.hpp"
 #include "interface/meshblock_data.hpp"
 #include "interface/metadata.hpp"
-#include "interface/variable_pack.hpp"
 #include "kokkos_abstraction.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
-#include "mesh/meshblock_pack.hpp"
 #include "pack/sparse_pack/make_pack_descriptor.hpp"
 #include "pack/sparse_pack/sparse_pack.hpp"
 #include "sparse/sparse_management.hpp"
@@ -34,110 +32,86 @@ namespace parthenon {
 
 namespace Update {
 
-template <>
-TaskStatus FluxDivergence(MeshBlockData<Real> *in, MeshBlockData<Real> *dudt_cont) {
-  MeshBlock *pmb = in->GetBlockPointer();
+namespace impl {
+template <typename T>
+TaskStatus FluxDivergence(T *in, T *dudt_data) {
+  if (in->NumBlocks() == 0) return TaskStatus::complete;
+  const auto desc = MakeUpdatePackDescriptor(
+      std::vector<MetadataFlag>{Metadata::WithFluxes, Metadata::Cell}, in);
+  const auto flux_desc = MakeUpdatePackDescriptor(
+      std::vector<MetadataFlag>{Metadata::WithFluxes, Metadata::Cell}, in,
+      {PDOpt::WithFluxes});
+  const auto vin = flux_desc.GetPack(in, false);
+  const auto dudt = desc.GetPack(dudt_data, false);
+  CheckPackLayouts(desc, vin, dudt);
 
-  const IndexDomain interior = IndexDomain::interior;
-  const IndexRange ib = in->GetBoundsI(interior);
-  const IndexRange jb = in->GetBoundsJ(interior);
-  const IndexRange kb = in->GetBoundsK(interior);
-
-  const auto &vin = in->PackVariablesAndFluxes({Metadata::WithFluxes, Metadata::Cell});
-  auto dudt = dudt_cont->PackVariables({Metadata::WithFluxes, Metadata::Cell});
-
-  const auto &coords = pmb->coords;
-  const int ndim = pmb->pmy_mesh->ndim;
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-        if (dudt.IsAllocated(l) && vin.IsAllocated(l)) {
-          dudt(l, k, j, i) = FluxDivHelper(l, k, j, i, ndim, coords, vin);
-        }
+  const IndexRange ib = in->GetBoundsI(IndexDomain::interior);
+  const IndexRange jb = in->GetBoundsJ(IndexDomain::interior);
+  const IndexRange kb = in->GetBoundsK(IndexDomain::interior);
+  const auto entire_j = in->GetBoundsJ(IndexDomain::entire);
+  const auto entire_k = in->GetBoundsK(IndexDomain::entire);
+  const int ndim = entire_k.e > entire_k.s ? 3 : (entire_j.e > entire_j.s ? 2 : 1);
+  ForEachCell(
+      vin, ib, jb, kb,
+      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
+        dudt(b, l, k, j, i) =
+            FluxDivHelper(b, l, k, j, i, ndim, vin.GetCoordinates(b), vin);
       });
-
   return TaskStatus::complete;
 }
 
-template <>
-TaskStatus FluxDivergence(MeshData<Real> *in_obj, MeshData<Real> *dudt_obj) {
-  const IndexDomain interior = IndexDomain::interior;
+template <typename T>
+TaskStatus UpdateWithFluxDivergence(T *u0_data, T *u1_data, const Real gam0,
+                                    const Real gam1, const Real beta_dt) {
+  if (u0_data->NumBlocks() == 0) return TaskStatus::complete;
+  const auto desc = MakeUpdatePackDescriptor(
+      std::vector<MetadataFlag>{Metadata::WithFluxes, Metadata::Cell}, u0_data);
+  const auto flux_desc = MakeUpdatePackDescriptor(
+      std::vector<MetadataFlag>{Metadata::WithFluxes, Metadata::Cell}, u0_data,
+      {PDOpt::WithFluxes});
+  const auto u0 = flux_desc.GetPack(u0_data, false);
+  const auto u1 = desc.GetPack(u1_data, false);
+  CheckPackLayouts(desc, u0, u1);
 
-  std::vector<MetadataFlag> flags({Metadata::WithFluxes, Metadata::Cell});
-  const auto &vin = in_obj->PackVariablesAndFluxes(flags);
-  auto dudt = dudt_obj->PackVariables(flags);
-  const IndexRange ib = in_obj->GetBoundsI(interior);
-  const IndexRange jb = in_obj->GetBoundsJ(interior);
-  const IndexRange kb = in_obj->GetBoundsK(interior);
-
-  const int ndim = vin.GetNdim();
-  parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0, vin.GetDim(5) - 1, 0,
-      vin.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int m, const int l, const int k, const int j, const int i) {
-        if (dudt.IsAllocated(m, l) && vin.IsAllocated(m, l)) {
-          const auto &coords = vin.GetCoords(m);
-          const auto &v = vin(m);
-          dudt(m, l, k, j, i) = FluxDivHelper(l, k, j, i, ndim, coords, v);
-        }
+  const IndexRange ib = u0_data->GetBoundsI(IndexDomain::interior);
+  const IndexRange jb = u0_data->GetBoundsJ(IndexDomain::interior);
+  const IndexRange kb = u0_data->GetBoundsK(IndexDomain::interior);
+  const auto entire_j = u0_data->GetBoundsJ(IndexDomain::entire);
+  const auto entire_k = u0_data->GetBoundsK(IndexDomain::entire);
+  const int ndim = entire_k.e > entire_k.s ? 3 : (entire_j.e > entire_j.s ? 2 : 1);
+  ForEachCell(
+      u0, ib, jb, kb,
+      KOKKOS_LAMBDA(const int b, const int l, const int k, const int j, const int i) {
+        u0(b, l, k, j, i) =
+            gam0 * u0(b, l, k, j, i) + gam1 * u1(b, l, k, j, i) +
+            beta_dt * FluxDivHelper(b, l, k, j, i, ndim, u0.GetCoordinates(b), u0);
       });
   return TaskStatus::complete;
+}
+} // namespace impl
+
+template <>
+TaskStatus FluxDivergence(MeshBlockData<Real> *in, MeshBlockData<Real> *dudt_data) {
+  return impl::FluxDivergence(in, dudt_data);
+}
+
+template <>
+TaskStatus FluxDivergence(MeshData<Real> *in, MeshData<Real> *dudt_data) {
+  return impl::FluxDivergence(in, dudt_data);
 }
 
 template <>
 TaskStatus UpdateWithFluxDivergence(MeshBlockData<Real> *u0_data,
                                     MeshBlockData<Real> *u1_data, const Real gam0,
                                     const Real gam1, const Real beta_dt) {
-  MeshBlock *pmb = u0_data->GetBlockPointer();
-
-  const IndexDomain interior = IndexDomain::interior;
-  const IndexRange ib = u0_data->GetBoundsI(interior);
-  const IndexRange jb = u0_data->GetBoundsJ(interior);
-  const IndexRange kb = u0_data->GetBoundsK(interior);
-
-  auto u0 = u0_data->PackVariablesAndFluxes({Metadata::WithFluxes, Metadata::Cell});
-  const auto &u1 = u1_data->PackVariables({Metadata::WithFluxes, Metadata::Cell});
-
-  const auto &coords = pmb->coords;
-  const int ndim = pmb->pmy_mesh->ndim;
-  pmb->par_for(
-      PARTHENON_AUTO_LABEL, 0, u0.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int l, const int k, const int j, const int i) {
-        if (u0.IsAllocated(l) && u1.IsAllocated(l)) {
-          u0(l, k, j, i) = gam0 * u0(l, k, j, i) + gam1 * u1(l, k, j, i) +
-                           beta_dt * FluxDivHelper(l, k, j, i, ndim, coords, u0);
-        }
-      });
-
-  return TaskStatus::complete;
+  return impl::UpdateWithFluxDivergence(u0_data, u1_data, gam0, gam1, beta_dt);
 }
 
 template <>
 TaskStatus UpdateWithFluxDivergence(MeshData<Real> *u0_data, MeshData<Real> *u1_data,
                                     const Real gam0, const Real gam1,
                                     const Real beta_dt) {
-  const IndexDomain interior = IndexDomain::interior;
-
-  std::vector<MetadataFlag> flags({Metadata::WithFluxes, Metadata::Cell});
-  auto u0_pack = u0_data->PackVariablesAndFluxes(flags);
-  const auto &u1_pack = u1_data->PackVariables(flags);
-  const IndexRange ib = u0_data->GetBoundsI(interior);
-  const IndexRange jb = u0_data->GetBoundsJ(interior);
-  const IndexRange kb = u0_data->GetBoundsK(interior);
-
-  const int ndim = u0_pack.GetNdim();
-  parthenon::par_for(
-      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
-      u0_pack.GetDim(5) - 1, 0, u0_pack.GetDim(4) - 1, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
-      KOKKOS_LAMBDA(const int m, const int l, const int k, const int j, const int i) {
-        if (u0_pack.IsAllocated(m, l) && u1_pack.IsAllocated(m, l)) {
-          const auto &coords = u0_pack.GetCoords(m);
-          const auto &u0 = u0_pack(m);
-          u0_pack(m, l, k, j, i) = gam0 * u0(l, k, j, i) + gam1 * u1_pack(m, l, k, j, i) +
-                                   beta_dt * FluxDivHelper(l, k, j, i, ndim, coords, u0);
-        }
-      });
-  return TaskStatus::complete;
+  return impl::UpdateWithFluxDivergence(u0_data, u1_data, gam0, gam1, beta_dt);
 }
 
 } // namespace Update
