@@ -55,11 +55,12 @@ ParArray1D<AmrTag> CheckAllRefinement(MeshData<Real> *md) {
   auto amr_tags = pm->GetAmrTags();
   Kokkos::deep_copy(amr_tags.KokkosView(), AmrTag::derefine);
 
+  for (const auto &check_refinement_mesh :
+       pm->packages.Callbacks<&StateDescriptor::CheckRefinementMesh>()) {
+    check_refinement_mesh(md, amr_tags);
+  }
   for (auto &pkg : pm->packages.AllPackages()) {
-    auto &desc = pkg.second;
-    desc->CheckRefinement(md, amr_tags);
-
-    for (auto &amr : desc->amr_criteria) {
+    for (auto &amr : pkg.second->amr_criteria) {
       (*amr)(md, amr_tags);
     }
   }
@@ -84,9 +85,9 @@ AmrTag CheckAllRefinement(MeshBlockData<Real> *rc, const AmrTag &level) {
   // delta_level holds the max over all criteria.  default to derefining, or level from
   // MeshData check.
   AmrTag delta_level = level;
-  for (auto &pkg : pmb->packages.AllPackages()) {
-    auto &desc = pkg.second;
-    delta_level = std::max(delta_level, desc->CheckRefinement(rc));
+  for (const auto &check_refinement_block :
+       pmb->packages.Callbacks<&StateDescriptor::CheckRefinementBlock>()) {
+    delta_level = std::max(delta_level, check_refinement_block(rc));
     if (delta_level == AmrTag::refine) {
       // since 1 is the max, we can return without having to look at anything else
       return AmrTag::refine;

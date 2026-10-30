@@ -17,11 +17,11 @@
 
 #include <functional>
 #include <iostream>
-#include <limits>
 #include <map>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -39,6 +39,7 @@
 #include "parameter_input.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "tasks/tasks.hpp"
+#include "utils/callbacks.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -415,117 +416,54 @@ class StateDescriptor {
 
   bool FlagsPresent(std::vector<MetadataFlag> const &flags, bool matchAny = false);
 
-  void PreCommFillDerived(MeshBlockData<Real> *rc) const {
-    if (PreCommFillDerivedBlock != nullptr) PreCommFillDerivedBlock(rc);
-  }
-  void PreCommFillDerived(MeshData<Real> *rc) const {
-    if (PreCommFillDerivedMesh != nullptr) PreCommFillDerivedMesh(rc);
-  }
-  void PreFillDerived(MeshBlockData<Real> *rc) const {
-    if (PreFillDerivedBlock != nullptr) PreFillDerivedBlock(rc);
-  }
-  void PreFillDerived(MeshData<Real> *rc) const {
-    if (PreFillDerivedMesh != nullptr) PreFillDerivedMesh(rc);
-  }
-  void PostFillDerived(MeshBlockData<Real> *rc) const {
-    if (PostFillDerivedBlock != nullptr) PostFillDerivedBlock(rc);
-  }
-  void PostFillDerived(MeshData<Real> *rc) const {
-    if (PostFillDerivedMesh != nullptr) PostFillDerivedMesh(rc);
-  }
-  void FillDerived(MeshBlockData<Real> *rc) const {
-    if (FillDerivedBlock != nullptr) FillDerivedBlock(rc);
-  }
-  void FillDerived(MeshData<Real> *rc) const {
-    if (FillDerivedMesh != nullptr) FillDerivedMesh(rc);
-  }
-
-  void PreStepDiagnostics(SimTime const &simtime, MeshData<Real> *rc) const {
-    if (PreStepDiagnosticsMesh != nullptr) PreStepDiagnosticsMesh(simtime, rc);
-  }
-  void PostStepDiagnostics(SimTime const &simtime, MeshData<Real> *rc) const {
-    if (PostStepDiagnosticsMesh != nullptr) PostStepDiagnosticsMesh(simtime, rc);
-  }
-
-  Real EstimateTimestep(MeshBlockData<Real> *rc) const {
-    if (EstimateTimestepBlock != nullptr) return EstimateTimestepBlock(rc);
-    return std::numeric_limits<Real>::max();
-  }
-  Real EstimateTimestep(MeshData<Real> *rc) const {
-    if (EstimateTimestepMesh != nullptr) return EstimateTimestepMesh(rc);
-    return std::numeric_limits<Real>::max();
-  }
-
-  AmrTag CheckRefinement(MeshBlockData<Real> *rc) const {
-    if (CheckRefinementBlock != nullptr) return CheckRefinementBlock(rc);
-    return AmrTag::derefine;
-  }
-
-  void CheckRefinement(MeshData<Real> *mc, ParArray1D<AmrTag> &delta_level) const {
-    if (CheckRefinementMesh != nullptr) CheckRefinementMesh(mc, delta_level);
-  }
-
-  void InitNewlyAllocatedVars(MeshData<Real> *rc) const {
-    if (InitNewlyAllocatedVarsMesh != nullptr) return InitNewlyAllocatedVarsMesh(rc);
-  }
-
-  void InitNewlyAllocatedVars(MeshBlockData<Real> *rc) const {
-    if (InitNewlyAllocatedVarsBlock != nullptr) return InitNewlyAllocatedVarsBlock(rc);
-  }
-
-  void UserWorkBeforeLoop(Mesh *pmesh, ParameterInput *pin, SimTime &tm) const {
-    if (UserWorkBeforeLoopMesh != nullptr) return UserWorkBeforeLoopMesh(pmesh, pin, tm);
-  }
-
-  void UserWorkBeforeOutput(Mesh *pmesh, ParameterInput *pin, SimTime &tm) const {
-    if (UserWorkBeforeOutputMesh != nullptr)
-      return UserWorkBeforeOutputMesh(pmesh, pin, tm);
-  }
-
-  void UserWorkBeforeRestartOutput(Mesh *pmesh, ParameterInput *pin, SimTime &tm,
-                                   OutputParameters *pparams) const {
-    if (UserWorkBeforeRestartOutputMesh != nullptr)
-      return UserWorkBeforeRestartOutputMesh(pmesh, pin, tm, pparams);
-  }
-
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
 
-  std::function<void(MeshBlockData<Real> *rc)> PreCommFillDerivedBlock = nullptr;
-  std::function<void(MeshData<Real> *rc)> PreCommFillDerivedMesh = nullptr;
-  std::function<void(MeshBlockData<Real> *rc)> PreFillDerivedBlock = nullptr;
-  std::function<void(MeshData<Real> *rc)> PreFillDerivedMesh = nullptr;
-  std::function<void(MeshBlockData<Real> *rc)> PostFillDerivedBlock = nullptr;
-  std::function<void(MeshData<Real> *rc)> PostFillDerivedMesh = nullptr;
-  std::function<void(MeshBlockData<Real> *rc)> FillDerivedBlock = nullptr;
-  std::function<void(MeshData<Real> *rc)> FillDerivedMesh = nullptr;
-  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkBeforeLoopMesh =
-      nullptr;
-  std::function<void(Mesh *, ParameterInput *, SimTime &)> UserWorkBeforeOutputMesh =
-      nullptr;
-  std::function<void(Mesh *, ParameterInput *, SimTime &, OutputParameters *)>
-      UserWorkBeforeRestartOutputMesh = nullptr;
+  CallbackRegistration<std::function<void(MeshBlockData<Real> *mbd)>>
+      PreCommFillDerivedBlock;
+  CallbackRegistration<std::function<void(MeshData<Real> *md)>> PreCommFillDerivedMesh;
+  CallbackRegistration<std::function<void(MeshBlockData<Real> *mbd)>> PreFillDerivedBlock;
+  CallbackRegistration<std::function<void(MeshData<Real> *md)>> PreFillDerivedMesh;
+  CallbackRegistration<std::function<void(MeshBlockData<Real> *mbd)>>
+      PostFillDerivedBlock;
+  CallbackRegistration<std::function<void(MeshData<Real> *md)>> PostFillDerivedMesh;
+  CallbackRegistration<std::function<void(MeshBlockData<Real> *mbd)>> FillDerivedBlock;
+  CallbackRegistration<std::function<void(MeshData<Real> *md)>> FillDerivedMesh;
+  CallbackRegistration<std::function<void(Mesh *, ParameterInput *, SimTime &)>>
+      UserWorkBeforeLoopMesh;
+  CallbackRegistration<std::function<void(Mesh *, ParameterInput *, SimTime &)>>
+      UserWorkBeforeOutputMesh;
+  CallbackRegistration<
+      std::function<void(Mesh *, ParameterInput *, SimTime &, OutputParameters *)>>
+      UserWorkBeforeRestartOutputMesh;
 
-  std::function<void(SimTime const &simtime, MeshData<Real> *rc)> PreStepDiagnosticsMesh =
-      nullptr;
-  std::function<void(SimTime const &simtime, MeshData<Real> *rc)>
-      PostStepDiagnosticsMesh = nullptr;
+  CallbackRegistration<std::function<void(SimTime const &simtime, MeshData<Real> *md)>>
+      PreStepDiagnosticsMesh;
+  CallbackRegistration<std::function<void(SimTime const &simtime, MeshData<Real> *md)>>
+      PostStepDiagnosticsMesh;
 
-  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)>
-      PostProblemGeneratorMesh = nullptr;
-  std::function<void(MeshBlock *, ParameterInput *)> PostProblemGeneratorBlock = nullptr;
-  std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)> PostInitializationMesh =
-      nullptr;
-  std::function<void(MeshBlock *, ParameterInput *)> PostInitializationBlock = nullptr;
+  CallbackRegistration<std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)>>
+      PostProblemGeneratorMesh;
+  CallbackRegistration<std::function<void(MeshBlock *, ParameterInput *)>>
+      PostProblemGeneratorBlock;
+  CallbackRegistration<std::function<void(Mesh *, ParameterInput *, MeshData<Real> *)>>
+      PostInitializationMesh;
+  CallbackRegistration<std::function<void(MeshBlock *, ParameterInput *)>>
+      PostInitializationBlock;
 
-  std::function<Real(MeshBlockData<Real> *rc)> EstimateTimestepBlock = nullptr;
-  std::function<Real(MeshData<Real> *rc)> EstimateTimestepMesh = nullptr;
+  CallbackRegistration<std::function<Real(MeshBlockData<Real> *mbd)>>
+      EstimateTimestepBlock;
+  CallbackRegistration<std::function<Real(MeshData<Real> *md)>> EstimateTimestepMesh;
 
-  std::function<AmrTag(MeshBlockData<Real> *rc)> CheckRefinementBlock = nullptr;
-  std::function<void(MeshData<Real> *rc, ParArray1D<AmrTag> &delta_level)>
-      CheckRefinementMesh = nullptr;
+  CallbackRegistration<std::function<AmrTag(MeshBlockData<Real> *mbd)>>
+      CheckRefinementBlock;
+  CallbackRegistration<
+      std::function<void(MeshData<Real> *md, ParArray1D<AmrTag> &delta_level)>>
+      CheckRefinementMesh;
 
-  std::function<void(MeshData<Real> *rc)> InitNewlyAllocatedVarsMesh = nullptr;
-  std::function<void(MeshBlockData<Real> *rc)> InitNewlyAllocatedVarsBlock = nullptr;
+  CallbackRegistration<std::function<void(MeshData<Real> *md)>>
+      InitNewlyAllocatedVarsMesh;
+  CallbackRegistration<std::function<void(MeshBlockData<Real> *mbd)>>
+      InitNewlyAllocatedVarsBlock;
 
   friend std::ostream &operator<<(std::ostream &os, const StateDescriptor &sd);
   std::array<std::vector<BValFunc>, BOUNDARY_NFACES> UserBoundaryFunctions;
@@ -565,6 +503,20 @@ class StateDescriptor {
   Dictionary<MeshDataDescriptor> submeshdata_map_;
   std::map<TopologicalType, std::size_t> num_scratch_;
 };
+
+// Compiled once, in state_descriptor.cpp
+extern template class CallbackOrder<StateDescriptor>;
+
+// Selects the Mesh or Block variant of a StateDescriptor callback for data type T, e.g.
+// MeshOrBlock<T>(&StateDescriptor::FillDerivedMesh, &StateDescriptor::FillDerivedBlock)
+template <typename T, typename MeshMember, typename BlockMember>
+constexpr auto MeshOrBlock(MeshMember mesh_member, BlockMember block_member) {
+  if constexpr (std::is_same_v<T, MeshData<Real>>) {
+    return mesh_member;
+  } else {
+    return block_member;
+  }
+}
 
 inline std::shared_ptr<StateDescriptor> ResolvePackages(Packages_t &packages) {
   return StateDescriptor::CreateResolvedStateDescriptor(packages);

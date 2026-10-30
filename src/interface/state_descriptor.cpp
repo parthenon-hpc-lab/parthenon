@@ -33,6 +33,9 @@
 
 namespace parthenon {
 
+// Declared extern in state_descriptor.hpp
+template class CallbackOrder<StateDescriptor>;
+
 void RefinementFunctionMaps::Register(const Metadata &m, std::string varname) {
   if (m.HasRefinementOps()) {
     const auto &funcs = m.GetRefinementFunctions();

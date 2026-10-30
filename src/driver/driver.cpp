@@ -136,8 +136,9 @@ DriverStatus EvolutionDriver::Execute() {
       app_input->UserWorkBeforeLoop(pmesh, pinput, tm);
     }
     // packages version
-    for (auto &[name, pkg] : pmesh->packages.AllPackages()) {
-      pkg->UserWorkBeforeLoop(pmesh, pinput, tm);
+    for (const auto &user_work_before_loop_mesh :
+         pmesh->packages.Callbacks<&StateDescriptor::UserWorkBeforeLoopMesh>()) {
+      user_work_before_loop_mesh(pmesh, pinput, tm);
     }
   } // UserWorkBeforeLoop
 
