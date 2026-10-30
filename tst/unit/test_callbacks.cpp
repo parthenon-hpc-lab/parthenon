@@ -37,14 +37,6 @@ std::ptrdiff_t Position(const std::vector<std::string> &order, const std::string
   return std::find(order.begin(), order.end(), name) - order.begin();
 }
 
-// Labels of the packages registering any of the callback members, in execution order
-template <auto... Members>
-std::vector<std::string> Visited(const parthenon::Packages_t &packages) {
-  std::vector<std::string> names;
-  packages.ForEachInOrder<Members...>(
-      [&](parthenon::StateDescriptor *p) { names.push_back(p->label()); });
-  return names;
-}
 } // namespace
 
 TEST_CASE("CallbackDAG topological sort", "[CallbackDAG]") {
@@ -269,10 +261,13 @@ TEST_CASE("Packages_t ordered callbacks", "[Packages_t][CallbackDAG]") {
   static_assert(!parthenon::CallbackMemberOf<&SD::amr_criteria, SD>);
   static_assert(!parthenon::CallbackMemberOf<0, SD>);
 
-  auto noop = [](parthenon::MeshData<parthenon::Real> *) {};
-  auto noop_block = [](parthenon::MeshBlock *, parthenon::ParameterInput *) {};
-  auto noop_mesh = [](parthenon::Mesh *, parthenon::ParameterInput *,
-                      parthenon::MeshData<parthenon::Real> *) {};
+  // FillDerivedMesh callbacks record the name of their package when called
+  std::vector<std::string> called;
+  auto record = [&](const std::string &name) {
+    return [&called, name](parthenon::MeshData<parthenon::Real> *) {
+      called.push_back(name);
+    };
+  };
 
   Packages_t packages;
   auto add = [&](const std::string &name) {
@@ -286,33 +281,42 @@ TEST_CASE("Packages_t ordered callbacks", "[Packages_t][CallbackDAG]") {
   auto hydro = add("hydro");
   auto eos = add("eos");
   add("io");
-  grid->FillDerivedMesh.Register(noop);
-  hydro->FillDerivedMesh.Register(noop, /*after=*/{"grid"});
-  eos->FillDerivedMesh.Register(noop, /*after=*/{"grid"}, /*before=*/{"hydro"});
+  grid->FillDerivedMesh.Register(record("grid"));
+  hydro->FillDerivedMesh.Register(record("hydro"), /*after=*/{"grid"});
+  eos->FillDerivedMesh.Register(record("eos"), /*after=*/{"grid"}, /*before=*/{"hydro"});
 
-  auto fill_derived = [&]() { return Visited<&SD::FillDerivedMesh>(packages); };
+  // Packages whose FillDerivedMesh ran, in order
+  auto fill_derived = [&]() {
+    called.clear();
+    for (const auto &fill_derived_mesh : packages.Callbacks<&SD::FillDerivedMesh>()) {
+      fill_derived_mesh(nullptr);
+    }
+    return called;
+  };
   const std::vector<std::string> expected{"grid", "eos", "hydro"};
 
-  SECTION("ForEachInOrder visits registered packages in order") {
+  SECTION("Callbacks yields the registrations in order") {
+    REQUIRE(packages.Callbacks<&SD::FillDerivedMesh>().size() == 3);
     REQUIRE(fill_derived() == expected);
-    REQUIRE(Visited<&SD::FillDerivedBlock>(packages).empty());
+    // other callbacks have their own order
+    REQUIRE(packages.Callbacks<&SD::FillDerivedBlock>().size() == 0);
   }
 
   SECTION("Dependencies on packages without the callback are ignored") {
-    add("driver")->FillDerivedMesh.Register(noop, /*after=*/{"io"},
+    add("driver")->FillDerivedMesh.Register(record("driver"), /*after=*/{"io"},
                                             /*before=*/{"missing"});
     REQUIRE(fill_derived().size() == 4);
   }
 
   SECTION("Cycles throw") {
-    grid->FillDerivedMesh.Register(noop, /*after=*/{"hydro"});
+    grid->FillDerivedMesh.Register(record("grid"), /*after=*/{"hydro"});
     REQUIRE_THROWS_WITH(fill_derived(), Contains("StateDescriptor callbacks") &&
                                             Contains("Cyclic dependency"));
   }
 
   SECTION("Adding a package updates the order") {
     REQUIRE(fill_derived() == expected);
-    add("driver")->FillDerivedMesh.Register(noop, /*after=*/{"hydro"});
+    add("driver")->FillDerivedMesh.Register(record("driver"), /*after=*/{"hydro"});
     REQUIRE(fill_derived() == std::vector<std::string>{"grid", "eos", "hydro", "driver"});
   }
 
@@ -322,42 +326,11 @@ TEST_CASE("Packages_t ordered callbacks", "[Packages_t][CallbackDAG]") {
     eos->FillDerivedMesh = nullptr;
     REQUIRE(fill_derived() == std::vector<std::string>{"grid", "hydro"});
     // changing dependencies
-    hydro->FillDerivedMesh.Register(noop, /*after=*/{}, /*before=*/{"grid"});
+    hydro->FillDerivedMesh.Register(record("hydro"), /*after=*/{}, /*before=*/{"grid"});
     REQUIRE(fill_derived() == std::vector<std::string>{"hydro", "grid"});
     // swapping the function keeps the order
-    grid->FillDerivedMesh = noop;
+    grid->FillDerivedMesh = record("grid");
     REQUIRE(fill_derived() == std::vector<std::string>{"hydro", "grid"});
-  }
-
-  SECTION("Callbacks yields the registrations in order") {
-    std::vector<std::string> called;
-    auto record = [&](const std::string &name) {
-      return [&called, name](parthenon::MeshData<parthenon::Real> *) {
-        called.push_back(name);
-      };
-    };
-    grid->FillDerivedMesh.Register(record("grid"));
-    hydro->FillDerivedMesh.Register(record("hydro"), /*after=*/{"grid"});
-    eos->FillDerivedMesh.Register(record("eos"), /*after=*/{"grid"},
-                                  /*before=*/{"hydro"});
-
-    auto callbacks = packages.Callbacks<&SD::FillDerivedMesh>();
-    REQUIRE(callbacks.size() == 3);
-    for (const auto &fill_derived_mesh : callbacks) {
-      fill_derived_mesh(nullptr);
-    }
-    REQUIRE(called == expected);
-  }
-
-  SECTION("Mesh and Block variants are ordered together") {
-    grid->PostInitializationBlock.Register(noop_block);
-    hydro->PostInitializationMesh.Register(noop_mesh, /*after=*/{"grid"});
-    eos->PostInitializationBlock.Register(noop_block, /*after=*/{}, /*before=*/{"grid"});
-    REQUIRE(Visited<&SD::PostInitializationMesh, &SD::PostInitializationBlock>(
-                packages) == std::vector<std::string>{"eos", "grid", "hydro"});
-    // a single variant only sees its own registrations
-    REQUIRE(Visited<&SD::PostInitializationMesh>(packages) ==
-            std::vector<std::string>{"hydro"});
   }
 
   SECTION("WriteCallbackGraph") {
@@ -401,10 +374,11 @@ TEST_CASE("CallbackOrder of a downstream type", "[CallbackOrder][CallbackDAG]") 
     }
     REQUIRE(called == std::vector<std::string>{"grid", "eos", "hydro"});
 
-    std::vector<std::string> finalized;
-    order.ForEachInOrder<&Unit::Finalize>(
-        [&](Unit *unit) { finalized.push_back(unit->name); });
-    REQUIRE(finalized == std::vector<std::string>{"hydro"});
+    called.clear();
+    for (const auto &finalize : order.Callbacks<&Unit::Finalize>()) {
+      finalize();
+    }
+    REQUIRE(called == std::vector<std::string>{"hydro"});
   }
 
   SECTION("Cycles name the type") {

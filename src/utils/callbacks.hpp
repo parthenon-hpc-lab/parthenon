@@ -197,50 +197,31 @@ class CallbackOrder {
     return OrderedCallbacks<Member>(OrderedItems(&MemberDeps<Member>));
   }
 
-  // Call f(T *) on each item registering any of the callback members, in execution
-  // order. Useful to order several members together, e.g. the Mesh and Block variants
-  // of a callback.
-  template <auto... Members, typename F>
-    requires(CallbackMemberOf<Members, T> && ...)
-  void ForEachInOrder(F &&f) const {
-    for (T *item : OrderedItems(&MemberDeps<Members...>)) {
-      f(item);
-    }
-  }
-
-  // Write the dependency graph of the callback members in GraphViz DOT format.
-  template <auto... Members>
-    requires(CallbackMemberOf<Members, T> && ...)
+  // Write the dependency graph of a callback member in GraphViz DOT format.
+  template <auto Member>
+    requires CallbackMemberOf<Member, T>
   void WriteCallbackGraph(std::ostream &stream, const std::string &callback_name) const {
     stream << "// Callback execution order for: " << callback_name << "\n";
-    stream << BuildDAG(&MemberDeps<Members...>);
+    stream << BuildDAG(&MemberDeps<Member>);
   }
 
  private:
-  // Dependencies of whichever of the callback members an item registers
+  // Dependencies of an item's registration of a callback member
   struct Deps {
     bool registered = false;
-    std::vector<std::string> depends_on;
-    std::vector<std::string> required_by;
+    const std::vector<std::string> *depends_on = nullptr;
+    const std::vector<std::string> *required_by = nullptr;
   };
   using DepsOf = Deps (*)(T *);
 
-  template <auto... Members>
+  template <auto Member>
   static Deps MemberDeps(T *item) {
-    Deps deps;
-    auto add = [&](const auto &registration) {
-      if (!registration.IsRegistered()) return;
-      deps.registered = true;
-      deps.depends_on.insert(deps.depends_on.end(), registration.depends_on.begin(),
-                             registration.depends_on.end());
-      deps.required_by.insert(deps.required_by.end(), registration.required_by.begin(),
-                              registration.required_by.end());
-    };
-    (add(item->*Members), ...);
-    return deps;
+    const auto &registration = item->*Member;
+    return {registration.IsRegistered(), &registration.depends_on,
+            &registration.required_by};
   }
 
-  // Not templated on the members, so these are compiled once per T (and only once for
+  // Not templated on the member, so these are compiled once per T (and only once for
   // types with an explicit instantiation, such as StateDescriptor)
   CallbackDAG BuildDAG(DepsOf deps_of) const;
   std::vector<T *> OrderedItems(DepsOf deps_of) const;
@@ -254,18 +235,18 @@ CallbackDAG CallbackOrder<T>::BuildDAG(DepsOf deps_of) const {
   std::unordered_map<std::string, Deps> registered;
   for (const auto &[name, item] : items_) {
     auto deps = deps_of(item);
-    if (deps.registered) registered.emplace(name, std::move(deps));
+    if (deps.registered) registered.emplace(name, deps);
   }
 
   CallbackDAG dag;
   for (const auto &[name, deps] : registered) {
     dag.AddNode(name);
     // depends_on: this item runs after those items
-    for (const auto &dependency : deps.depends_on) {
+    for (const auto &dependency : *deps.depends_on) {
       if (registered.count(dependency) > 0) dag.AddEdge(dependency, name);
     }
     // required_by: this item runs before those items
-    for (const auto &dependent : deps.required_by) {
+    for (const auto &dependent : *deps.required_by) {
       if (registered.count(dependent) > 0) dag.AddEdge(name, dependent);
     }
   }

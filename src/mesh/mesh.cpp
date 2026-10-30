@@ -828,30 +828,28 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       }
 
       // Call per-package initialization
-      // Mesh and Block variants are ordered together
-      packages.ForEachInOrder<&StateDescriptor::PostProblemGeneratorMesh,
-                              &StateDescriptor::PostProblemGeneratorBlock>(
-          [&](StateDescriptor *pkg) {
-            PARTHENON_REQUIRE_THROWS(
-                !(pkg->PostProblemGeneratorMesh != nullptr &&
-                  (pkg->PostProblemGeneratorBlock != nullptr)),
-                "Mesh and MeshBlock PostProblemGenerators are defined for package " +
-                    pkg->label() + ". Please use only one.");
-
-            // first on the mesh...
-            if (pkg->PostProblemGeneratorMesh != nullptr) {
-              for (auto &partition : GetDefaultBlockPartitions()) {
-                auto &md = mesh_data.Add("base", partition);
-                pkg->PostProblemGeneratorMesh(this, pin, md.get());
-              }
-            }
-            // and then per block
-            if (pkg->PostProblemGeneratorBlock != nullptr) {
-              for (auto &pmb : block_list) {
-                pkg->PostProblemGeneratorBlock(pmb.get(), pin);
-              }
-            }
-          });
+      for (const auto &[name, pkg] : packages.AllPackages()) {
+        PARTHENON_REQUIRE_THROWS(
+            !(pkg->PostProblemGeneratorMesh != nullptr &&
+              (pkg->PostProblemGeneratorBlock != nullptr)),
+            "Mesh and MeshBlock PostProblemGenerators are defined for package " + name +
+                ". Please use only one.");
+      }
+      // first on the mesh...
+      for (const auto &post_problem_generator_mesh :
+           packages.Callbacks<&StateDescriptor::PostProblemGeneratorMesh>()) {
+        for (auto &partition : GetDefaultBlockPartitions()) {
+          auto &md = mesh_data.Add("base", partition);
+          post_problem_generator_mesh(this, pin, md.get());
+        }
+      }
+      // and then per block
+      for (const auto &post_problem_generator_block :
+           packages.Callbacks<&StateDescriptor::PostProblemGeneratorBlock>()) {
+        for (auto &pmb : block_list) {
+          post_problem_generator_block(pmb.get(), pin);
+        }
+      }
 
       std::for_each(block_list.begin(), block_list.end(),
                     [](auto &sp_block) { sp_block->SetAllVariablesToInitialized(); });
@@ -925,29 +923,28 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
     }
 
     // Call per-package final initialization
-    // Mesh and Block variants are ordered together
-    packages.ForEachInOrder<&StateDescriptor::PostInitializationMesh,
-                            &StateDescriptor::PostInitializationBlock>(
-        [&](StateDescriptor *pkg) {
-          PARTHENON_REQUIRE_THROWS(
-              !(pkg->PostInitializationMesh != nullptr &&
-                (pkg->PostInitializationBlock != nullptr)),
-              "Mesh and MeshBlock PostInitializations are defined for package " +
-                  pkg->label() + ". Please use only one.");
-
-          // first on the mesh...
-          if (pkg->PostInitializationMesh != nullptr) {
-            auto &base = mesh_data.Add("base", GetBasePartition());
-            pkg->PostInitializationMesh(this, pin, base.get());
-          }
-          // and then per block
-          if (pkg->PostInitializationBlock != nullptr) {
-            for (auto &pmb : block_list) {
-              pkg->PostInitializationBlock(pmb.get(), pin);
-            }
-          }
-          post_init_invoked = true;
-        });
+    for (const auto &[name, pkg] : packages.AllPackages()) {
+      PARTHENON_REQUIRE_THROWS(
+          !(pkg->PostInitializationMesh != nullptr &&
+            (pkg->PostInitializationBlock != nullptr)),
+          "Mesh and MeshBlock PostInitializations are defined for package " + name +
+              ". Please use only one.");
+    }
+    // first on the mesh...
+    for (const auto &post_initialization_mesh :
+         packages.Callbacks<&StateDescriptor::PostInitializationMesh>()) {
+      auto &base = mesh_data.Add("base", GetBasePartition());
+      post_initialization_mesh(this, pin, base.get());
+      post_init_invoked = true;
+    }
+    // and then per block
+    for (const auto &post_initialization_block :
+         packages.Callbacks<&StateDescriptor::PostInitializationBlock>()) {
+      for (auto &pmb : block_list) {
+        post_initialization_block(pmb.get(), pin);
+      }
+      post_init_invoked = true;
+    }
 
     if (post_init_invoked) {
       PreCommFillDerived();

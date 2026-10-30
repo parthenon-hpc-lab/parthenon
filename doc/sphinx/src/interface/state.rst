@@ -151,10 +151,10 @@ Parthenon runs each of these callbacks across packages in an order that
 satisfies these dependencies. Packages without dependencies run in an
 unspecified order, as before. The order is rebuilt each time the callback
 runs, so callbacks can be registered or changed at any time. A cyclic
-dependency throws an error when the order is built. The
-Mesh and Block variants of ``PostProblemGenerator`` and
-``PostInitialization`` are ordered together, so dependencies may cross
-between them.
+dependency throws an error when the order is built. Each callback is
+ordered separately, so the Mesh and Block variants of a callback have
+independent orders; e.g. all ``PostInitializationMesh`` callbacks run
+before any ``PostInitializationBlock`` callback.
 
 Downstream code can run these callbacks the same way. ``Callbacks``
 returns the registrations of a callback member in execution order, and
@@ -167,12 +167,8 @@ they can be called directly:
      fill_derived_mesh(md);
    }
 
-``ForEachInOrder<Members...>(f)`` instead calls ``f(StateDescriptor *)`` on
-each package registering any of the given members, which orders several
-members together, e.g. ``ForEachInOrder<&StateDescriptor::PostInitializationMesh,
-&StateDescriptor::PostInitializationBlock>``, and
-``WriteCallbackGraph<Members...>(stream, name)`` writes the dependency
-graph in GraphViz DOT format. Dependencies on packages that don't have the
+``WriteCallbackGraph<Member>(stream, name)`` writes the dependency graph
+of a callback member in GraphViz DOT format. Dependencies on packages that don't have the
 callback registered are ignored.
 
 These methods forward to ``CallbackOrder<StateDescriptor>`` (see

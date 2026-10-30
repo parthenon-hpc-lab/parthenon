@@ -17,7 +17,6 @@
 #include <memory>
 #include <ostream>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "basic_types.hpp"
@@ -103,17 +102,10 @@ class Packages_t {
     return CallbackOrders().Callbacks<Member>();
   }
 
-  // Call f(StateDescriptor *) on each package registering any of the callback members,
-  // in execution order, e.g. to order the Mesh and Block variants of a callback together
-  template <auto... Members, typename F>
-  void ForEachInOrder(F &&f) const {
-    CallbackOrders().ForEachInOrder<Members...>(std::forward<F>(f));
-  }
-
-  // Write the dependency graph of the callback members in GraphViz DOT format
-  template <auto... Members>
+  // Write the dependency graph of a callback member in GraphViz DOT format
+  template <auto Member>
   void WriteCallbackGraph(std::ostream &stream, const std::string &callback_name) const {
-    CallbackOrders().WriteCallbackGraph<Members...>(stream, callback_name);
+    CallbackOrders().WriteCallbackGraph<Member>(stream, callback_name);
   }
 
  private:
