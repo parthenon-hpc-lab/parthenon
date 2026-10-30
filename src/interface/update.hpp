@@ -40,9 +40,11 @@ namespace parthenon {
 namespace Update {
 
 // Calculate the flux divergence for a specific component l of a variable v
-KOKKOS_FORCEINLINE_FUNCTION
-Real FluxDivHelper(const int l, const int k, const int j, const int i, const int ndim,
-                   const Coordinates_t &coords, const VariableFluxPack<Real> &v) {
+template <typename View>
+KOKKOS_FORCEINLINE_FUNCTION Real FluxDivHelper(const int l, const int k, const int j,
+                                               const int i, const int ndim,
+                                               const Coordinates_t &coords,
+                                               const View &v) {
   Real du = (coords.FaceArea<X1DIR>(k, j, i + 1) * v.flux(X1DIR, l, k, j, i + 1) -
              coords.FaceArea<X1DIR>(k, j, i) * v.flux(X1DIR, l, k, j, i));
   if (ndim >= 2) {
@@ -52,6 +54,25 @@ Real FluxDivHelper(const int l, const int k, const int j, const int i, const int
   if (ndim == 3) {
     du += (coords.FaceArea<X3DIR>(k + 1, j, i) * v.flux(X3DIR, l, k + 1, j, i) -
            coords.FaceArea<X3DIR>(k, j, i) * v.flux(X3DIR, l, k, j, i));
+  }
+  return -du / coords.CellVolume(k, j, i);
+}
+
+// Sparse-pack overload with an explicit meshblock index b.
+template <class... Ts>
+KOKKOS_FORCEINLINE_FUNCTION Real FluxDivHelper(const int b, const int l, const int k,
+                                               const int j, const int i, const int ndim,
+                                               const Coordinates_t &coords,
+                                               const SparsePack<Ts...> &v) {
+  Real du = (coords.FaceArea<X1DIR>(k, j, i + 1) * v.flux(b, X1DIR, l, k, j, i + 1) -
+             coords.FaceArea<X1DIR>(k, j, i) * v.flux(b, X1DIR, l, k, j, i));
+  if (ndim >= 2) {
+    du += (coords.FaceArea<X2DIR>(k, j + 1, i) * v.flux(b, X2DIR, l, k, j + 1, i) -
+           coords.FaceArea<X2DIR>(k, j, i) * v.flux(b, X2DIR, l, k, j, i));
+  }
+  if (ndim == 3) {
+    du += (coords.FaceArea<X3DIR>(k + 1, j, i) * v.flux(b, X3DIR, l, k + 1, j, i) -
+           coords.FaceArea<X3DIR>(k, j, i) * v.flux(b, X3DIR, l, k, j, i));
   }
   return -du / coords.CellVolume(k, j, i);
 }
