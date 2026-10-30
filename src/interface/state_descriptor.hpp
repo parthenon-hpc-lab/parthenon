@@ -17,7 +17,6 @@
 
 #include <functional>
 #include <iostream>
-#include <limits>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -416,79 +415,6 @@ class StateDescriptor {
   auto &GetAllMeshDataSubsets() { return submeshdata_map_; }
 
   bool FlagsPresent(std::vector<MetadataFlag> const &flags, bool matchAny = false);
-
-  void PreCommFillDerived(MeshBlockData<Real> *rc) const {
-    if (PreCommFillDerivedBlock != nullptr) PreCommFillDerivedBlock(rc);
-  }
-  void PreCommFillDerived(MeshData<Real> *rc) const {
-    if (PreCommFillDerivedMesh != nullptr) PreCommFillDerivedMesh(rc);
-  }
-  void PreFillDerived(MeshBlockData<Real> *rc) const {
-    if (PreFillDerivedBlock != nullptr) PreFillDerivedBlock(rc);
-  }
-  void PreFillDerived(MeshData<Real> *rc) const {
-    if (PreFillDerivedMesh != nullptr) PreFillDerivedMesh(rc);
-  }
-  void PostFillDerived(MeshBlockData<Real> *rc) const {
-    if (PostFillDerivedBlock != nullptr) PostFillDerivedBlock(rc);
-  }
-  void PostFillDerived(MeshData<Real> *rc) const {
-    if (PostFillDerivedMesh != nullptr) PostFillDerivedMesh(rc);
-  }
-  void FillDerived(MeshBlockData<Real> *rc) const {
-    if (FillDerivedBlock != nullptr) FillDerivedBlock(rc);
-  }
-  void FillDerived(MeshData<Real> *rc) const {
-    if (FillDerivedMesh != nullptr) FillDerivedMesh(rc);
-  }
-
-  void PreStepDiagnostics(SimTime const &simtime, MeshData<Real> *rc) const {
-    if (PreStepDiagnosticsMesh != nullptr) PreStepDiagnosticsMesh(simtime, rc);
-  }
-  void PostStepDiagnostics(SimTime const &simtime, MeshData<Real> *rc) const {
-    if (PostStepDiagnosticsMesh != nullptr) PostStepDiagnosticsMesh(simtime, rc);
-  }
-
-  Real EstimateTimestep(MeshBlockData<Real> *rc) const {
-    if (EstimateTimestepBlock != nullptr) return EstimateTimestepBlock(rc);
-    return std::numeric_limits<Real>::max();
-  }
-  Real EstimateTimestep(MeshData<Real> *rc) const {
-    if (EstimateTimestepMesh != nullptr) return EstimateTimestepMesh(rc);
-    return std::numeric_limits<Real>::max();
-  }
-
-  AmrTag CheckRefinement(MeshBlockData<Real> *rc) const {
-    if (CheckRefinementBlock != nullptr) return CheckRefinementBlock(rc);
-    return AmrTag::derefine;
-  }
-
-  void CheckRefinement(MeshData<Real> *mc, ParArray1D<AmrTag> &delta_level) const {
-    if (CheckRefinementMesh != nullptr) CheckRefinementMesh(mc, delta_level);
-  }
-
-  void InitNewlyAllocatedVars(MeshData<Real> *rc) const {
-    if (InitNewlyAllocatedVarsMesh != nullptr) return InitNewlyAllocatedVarsMesh(rc);
-  }
-
-  void InitNewlyAllocatedVars(MeshBlockData<Real> *rc) const {
-    if (InitNewlyAllocatedVarsBlock != nullptr) return InitNewlyAllocatedVarsBlock(rc);
-  }
-
-  void UserWorkBeforeLoop(Mesh *pmesh, ParameterInput *pin, SimTime &tm) const {
-    if (UserWorkBeforeLoopMesh != nullptr) return UserWorkBeforeLoopMesh(pmesh, pin, tm);
-  }
-
-  void UserWorkBeforeOutput(Mesh *pmesh, ParameterInput *pin, SimTime &tm) const {
-    if (UserWorkBeforeOutputMesh != nullptr)
-      return UserWorkBeforeOutputMesh(pmesh, pin, tm);
-  }
-
-  void UserWorkBeforeRestartOutput(Mesh *pmesh, ParameterInput *pin, SimTime &tm,
-                                   OutputParameters *pparams) const {
-    if (UserWorkBeforeRestartOutputMesh != nullptr)
-      return UserWorkBeforeRestartOutputMesh(pmesh, pin, tm, pparams);
-  }
 
   std::vector<std::shared_ptr<AMRCriteria>> amr_criteria;
 
