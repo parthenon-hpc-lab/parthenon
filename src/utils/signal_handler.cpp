@@ -64,8 +64,11 @@ void SignalHandlerInit() {
 
 OutputSignal CheckSignalFlags() {
   if (Globals::my_rank == 0) {
-    // if file "output_now" exists
-    if (fs::exists("output_now")) {
+    // A signal file output_now in Parthenon's dir triggers output (custom "signal"),
+    // a file stop_now acts like a single SIGTERM
+    if (fs::exists("stop_now")) {
+      signalflag[ITERM] = 1;
+    } else if (fs::exists("output_now")) {
       signalflag[nsignal] = 1;
     }
   }
@@ -132,15 +135,19 @@ void SetSignalFlag(int s) {
   // Signal handler functions must have C linkage; C++ linkage is implemantation-defined
   switch (s) {
   case SIGTERM:
-    signalflag[ITERM] = 1;
+    signalflag[ITERM] += 1;
+    if (signalflag[ITERM] >= SIGNAL_REPEAT_THROW)
+      PARTHENON_THROW("Terminating immediately on repeated terminate signal (SIGTERM)");
     signal(s, SetSignalFlag);
     break;
   case SIGINT:
-    signalflag[IINT] = 1;
+    signalflag[IINT] += 1;
+    if (signalflag[IINT] >= SIGNAL_REPEAT_THROW)
+      PARTHENON_THROW("Terminating immediately on repeated interrupt signal (SIGINT)");
     signal(s, SetSignalFlag);
     break;
   case SIGALRM:
-    signalflag[IALRM] = 1;
+    signalflag[IALRM] += 1;
     signal(s, SetSignalFlag);
     break;
   default:
@@ -170,9 +177,11 @@ void CancelWallTimeAlarm() {
 
 void Report() {
   if (SignalHandler::GetSignalFlag(SIGTERM) != 0) {
-    std::cout << std::endl << "Terminating on Terminate signal" << std::endl;
+    std::cout << std::endl
+              << "Terminating on terminate signal (SIGTERM) or stop_now file"
+              << std::endl;
   } else if (SignalHandler::GetSignalFlag(SIGINT) != 0) {
-    std::cout << std::endl << "Terminating on Interrupt signal" << std::endl;
+    std::cout << std::endl << "Terminating on interrupt signal (SIGINT)" << std::endl;
   } else if (SignalHandler::GetSignalFlag(SIGALRM) != 0) {
     std::cout << std::endl << "Terminating on wall-time limit" << std::endl;
   }
