@@ -72,7 +72,7 @@ namespace OpenPMDUtils {
 void CheckValidName(const std::string &name) {
   // also including \v as special char used for scalar records
   auto is_alnum_underscore = [](char c) {
-    return (isalnum(c) || (c == '_') || c == '\v');
+    return (isalnum(c) || (c == '_') || c == '\v' || c == '.');
   };
   PARTHENON_REQUIRE_THROWS(
       find_if_not(name.begin(), name.end(), is_alnum_underscore) == name.end(),
