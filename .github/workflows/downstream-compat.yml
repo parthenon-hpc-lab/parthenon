@@ -24,9 +24,6 @@ jobs:
       parthenon_ref: ${{ github.ref }}
       # Don't execute matrix build tests. Just (build and) run the code.
       run_only: true
-<<<<<<< HEAD
-
-=======
   riot:
     name: riot compatibility
     uses: lanl/riot/.github/workflows/unit-tests.yml@main
@@ -34,4 +31,9 @@ jobs:
       riot_ref: main
       # Tests the synthetic merge of develop + PR.
       parthenon_ref: ${{ github.ref }}
->>>>>>> develop
+  kharma:
+    name: KHARMA compatibility
+    uses: parthenon-hpc-lab/kharma/.github/workflows/regression-cpu.yml@dev
+    with:
+      kharma_ref: dev
+      parthenon_ref: ${{ github.ref }}
