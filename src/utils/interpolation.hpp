@@ -22,8 +22,9 @@
 
 #include <algorithm>
 
-// Parthenon includes
 #include <Kokkos_Array.hpp>
+
+// Parthenon includes
 #include <coordinates/coordinates.hpp>
 #include <kokkos_abstraction.hpp>
 #include <pack/sparse_pack/sparse_pack.hpp>
