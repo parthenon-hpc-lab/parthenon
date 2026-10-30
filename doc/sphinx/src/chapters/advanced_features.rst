@@ -9,7 +9,6 @@ and solvers.
    :maxdepth: 1
 
    ../particles
-   ../interface/sparse
    ../integrators
    ../solvers
    ../fourier_transforms

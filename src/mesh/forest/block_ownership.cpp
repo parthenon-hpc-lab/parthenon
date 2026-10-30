@@ -41,6 +41,7 @@ namespace parthenon {
 block_ownership_t
 DetermineOwnership(const LogicalLocation &main_block,
                    const std::vector<forest::NeighborLocation> &allowed_neighbors,
+                   bool neighbor_neighbor,
                    const std::unordered_set<LogicalLocation> &newly_refined) {
   block_ownership_t main_owns;
 
@@ -52,15 +53,29 @@ DetermineOwnership(const LogicalLocation &main_block,
     return 2 * a.level();
   };
 
-  auto ownership_less_than = [ownership_level](const LogicalLocation &a,
-                                               const LogicalLocation &b) {
-    // Ownership is first determined by block with the highest level, then by maximum
-    // (tree, Morton) number this is reversed in precedence from the normal comparators
-    // where (tree, Morton) number takes precedence
+  auto ownership_less_than = [ownership_level,
+                              neighbor_neighbor](const LogicalLocation &a,
+                                                 const forest::NeighborLocation &nb) {
+    const auto &b = nb.global_loc;
+
+    // Ownership is first determined by block with the highest effective level,
+    // then by maximum (tree, Morton) number.
     if (ownership_level(a) != ownership_level(b))
       return ownership_level(a) < ownership_level(b);
     if (a.tree() != b.tree()) return a.tree() < b.tree();
-    return a.morton() < b.morton();
+    if (a.morton() != b.morton()) return a.morton() < b.morton();
+
+    // If we neighbor the same logical block via e.g. a periodic boundary
+    // (an "image"), order the block and its images using the neighbor
+    // offset: smaller/leftward offsets are owned.
+    const CellCentOffsets offsets(a.GetSameLevelOffsets(nb.origin_loc));
+    const auto offsets_in_neighbor_frame = nb.lcoord_trans.Transform(offsets);
+    const auto reverse_offset = offsets_in_neighbor_frame.GetReverseIdx();
+    if (offsets.GetIdx() != reverse_offset) return offsets.GetIdx() < reverse_offset;
+
+    // Break ties of same offset for block and image (e.g. a reflecting boundary) by
+    // prioritizing "real" blocks.
+    return neighbor_neighbor;
   };
 
   for (int ox1 : {-1, 0, 1}) {
@@ -68,7 +83,7 @@ DetermineOwnership(const LogicalLocation &main_block,
       for (int ox3 : {-1, 0, 1}) {
         main_owns(ox1, ox2, ox3) = true;
         for (const auto &n : allowed_neighbors) {
-          if (ownership_less_than(main_block, n.global_loc) &&
+          if (ownership_less_than(main_block, n) &&
               main_block.IsNeighborOfTE(n.origin_loc, {ox1, ox2, ox3})) {
             main_owns(ox1, ox2, ox3) = false;
             break;
