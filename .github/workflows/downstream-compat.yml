@@ -24,4 +24,14 @@ jobs:
       parthenon_ref: ${{ github.ref }}
       # Don't execute matrix build tests. Just (build and) run the code.
       run_only: true
+<<<<<<< HEAD
 
+=======
+  riot:
+    name: riot compatibility
+    uses: lanl/riot/.github/workflows/unit-tests.yml@main
+    with:
+      riot_ref: main
+      # Tests the synthetic merge of develop + PR.
+      parthenon_ref: ${{ github.ref }}
+>>>>>>> develop
