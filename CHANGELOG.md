@@ -8,13 +8,13 @@
 
 
 ### Changed (changing behavior/API/variables/...)
-
+- [[PR 1446]](https://github.com/parthenon-hpc-lab/parthenon/pull/1446) Die on repeatedly receiving SIGINT
 
 ### Fixed (not changing behavior/API/variables/...)
-
+- [[PR 1445]](https://github.com/parthenon-hpc-lab/parthenon/pull/1445) Fix ownership for self-bordering blocks
 
 ### Infrastructure (changes irrelevant to downstream codes)
-
+- [[PR 1471]](https://github.com/parthenon-hpc-lab/parthenon/pull/1471) Add break-downstream test for parthenon-hydro
 
 ### Removed (removing behavior/API/variables/...)
 
@@ -33,6 +33,7 @@ Date: 2026-10-23
 - [[PR 1462]](https://github.com/parthenon-hpc-lab/parthenon/pull/1462) Add user-specified output times that can be combined with dt or dn output schedules
 - [[PR 1439]](https://github.com/parthenon-hpc-lab/parthenon/pull/1439) Long-overdue parthenon tutorial
 - [[PR 1443]](https://github.com/parthenon-hpc-lab/parthenon/pull/1443) Allow for specifying topological elements in var views
+- [[PR 1322]](https://github.com/parthenon-hpc-lab/parthenon/pull/1322) Support for virtual fields (with packing and slicing)
 - [[PR 1431]](https://github.com/parthenon-hpc-lab/parthenon/pull/1431) Add reductions to the loop abstraction
 - [[PR 1429]](https://github.com/parthenon-hpc-lab/parthenon/pull/1429) Fixes to swarm tensor xdmf
 - [[PR 1428]](https://github.com/parthenon-hpc-lab/parthenon/pull/1428) Permit larger input file sizes
@@ -59,7 +60,7 @@ Date: 2026-10-23
 - [[PR 1450]](https://github.com/parthenon-hpc-lab/parthenon/pull/1450) Remove throw on swarms with curvilinear
 - [[PR 1441]](https://github.com/parthenon-hpc-lab/parthenon/pull/1441) Make it so you can safely create particles in a problem generator.
 - [[PR 1438]](https://github.com/parthenon-hpc-lab/parthenon/pull/1438) Performance tuning for the loop abstraction machinery and add loop abstraction OpenMP support
-- [[PR 1416][(https://github.com/parthenon-hpc-lab/parthenon/pull/1416) Remove virtual tag from destructors in sparse and swarm pack base classes
+- [[PR 1416]](https://github.com/parthenon-hpc-lab/parthenon/pull/1416) Remove virtual tag from destructors in sparse and swarm pack base classes
 - [[PR 1401]](https://github.com/parthenon-hpc-lab/parthenon/pull/1401) Sparse Field Component Names
 - [[PR 1331]](https://github.com/parthenon-hpc-lab/parthenon/pull/1331) Use `size_t` for sizes
 - [[PR 1355]](https://github.com/parthenon-hpc-lab/parthenon/pull/1355) Allow disabling format and lint targets
