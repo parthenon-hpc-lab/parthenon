@@ -5,9 +5,35 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+
+
+### Changed (changing behavior/API/variables/...)
+- [[PR 1446]](https://github.com/parthenon-hpc-lab/parthenon/pull/1446) Die on repeatedly receiving SIGINT
+
+### Fixed (not changing behavior/API/variables/...)
+- [[PR 1445]](https://github.com/parthenon-hpc-lab/parthenon/pull/1445) Fix ownership for self-bordering blocks
+
+### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1471]](https://github.com/parthenon-hpc-lab/parthenon/pull/1471) Add break-downstream test for parthenon-hydro
+
+### Removed (removing behavior/API/variables/...)
+
+
+### Incompatibilities (i.e. breaking changes)
+
+
+
+## Release 26.10
+Date: 2026-10-23
+
+### Added (new features/APIs/variables/...)
+- [[PR 1457]](https://github.com/parthenon-hpc-lab/parthenon/pull/1457) Extract CalcIndices into a MeshBlock-free header and add supporting infrastructure for tensor trains
+- [[PR 1362]](https://github.com/parthenon-hpc-lab/parthenon/pull/1362) Add support for completely custom "user" output
+- [[PR 1456]](https://github.com/parthenon-hpc-lab/parthenon/pull/1456) Add batched dense linear algebra kernels
 - [[PR 1462]](https://github.com/parthenon-hpc-lab/parthenon/pull/1462) Add user-specified output times that can be combined with dt or dn output schedules
 - [[PR 1439]](https://github.com/parthenon-hpc-lab/parthenon/pull/1439) Long-overdue parthenon tutorial
 - [[PR 1443]](https://github.com/parthenon-hpc-lab/parthenon/pull/1443) Allow for specifying topological elements in var views
+- [[PR 1322]](https://github.com/parthenon-hpc-lab/parthenon/pull/1322) Support for virtual fields (with packing and slicing)
 - [[PR 1431]](https://github.com/parthenon-hpc-lab/parthenon/pull/1431) Add reductions to the loop abstraction
 - [[PR 1429]](https://github.com/parthenon-hpc-lab/parthenon/pull/1429) Fixes to swarm tensor xdmf
 - [[PR 1428]](https://github.com/parthenon-hpc-lab/parthenon/pull/1428) Permit larger input file sizes
@@ -35,7 +61,7 @@
 - [[PR 1450]](https://github.com/parthenon-hpc-lab/parthenon/pull/1450) Remove throw on swarms with curvilinear
 - [[PR 1441]](https://github.com/parthenon-hpc-lab/parthenon/pull/1441) Make it so you can safely create particles in a problem generator.
 - [[PR 1438]](https://github.com/parthenon-hpc-lab/parthenon/pull/1438) Performance tuning for the loop abstraction machinery and add loop abstraction OpenMP support
-- [[PR 1416][(https://github.com/parthenon-hpc-lab/parthenon/pull/1416) Remove virtual tag from destructors in sparse and swarm pack base classes
+- [[PR 1416]](https://github.com/parthenon-hpc-lab/parthenon/pull/1416) Remove virtual tag from destructors in sparse and swarm pack base classes
 - [[PR 1401]](https://github.com/parthenon-hpc-lab/parthenon/pull/1401) Sparse Field Component Names
 - [[PR 1331]](https://github.com/parthenon-hpc-lab/parthenon/pull/1331) Use `size_t` for sizes
 - [[PR 1355]](https://github.com/parthenon-hpc-lab/parthenon/pull/1355) Allow disabling format and lint targets
@@ -58,6 +84,7 @@
 - [[PR 1360]](https://github.com/parthenon-hpc-lab/parthenon/pull/1360) Fix boundary cache clearing in different MeshData partitions
 
 ### Infrastructure (changes irrelevant to downstream codes)
+- [[PR 1467]](https://github.com/parthenon-hpc-lab/parthenon/pull/1467) Use pre-commit for formatting/linting checks (incl. PRs from forks) and pin tool versions
 - [[PR 1432]](https://github.com/parthenon-hpc-lab/parthenon/pull/1432) Instantiate default refinement ops once instead of at every Metadata call site
 - [[PR 1436]](https://github.com/parthenon-hpc-lab/parthenon/pull/1436) Add explicit single-precision compile CI jobs and label build precision in job names
 - [[PR 1414]](https://github.com/parthenon-hpc-lab/parthenon/pull/1414) Bump ROCM CI Container to rocm 7.2.4

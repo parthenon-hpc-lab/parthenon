@@ -29,25 +29,10 @@ the block's ``dt < 0.0`` and ``dn < 0`` (which is also happening by default
 if the paramter is not provided in the input file).
 
 In addition to time or cycle based outputs, two additional options to trigger
-outputs (applies to OpenPMD, HDF5, restart, and histogram outputs) exist.
-
--  Signaling: If ``Parthenon`` catches a signal, e.g., ``SIGALRM`` which
-   is often sent by schedulers such as Slurm to signal a job of
-   exceeding the job's allocated walltime, ``Parthenon`` will gracefully
-   terminate and write output files with a ``final`` id rather than a
-   number. This also applies to the ``Parthenon`` internal walltime
-   limit, e.g., when executing an application with the ``-t HH:MM:SS``
-   parameter on the command line.
--  File trigger: If a user places a file with the name ``output_now`` in
-   the working directory of a running application, ``Parthenon`` will
-   write output files with a ``now`` id rather than a number. After the
-   output is being written the ``output_now`` file is removed and the
-   simulation continues normally. The user can repeat the process any
-   time by creating a new ``output_now`` file.
-
-Note, in both cases the original numbering of the output will be
-unaffected and the ``final`` and ``now`` files will be overwritten each
-time without warning.
+outputs (applies to OpenPMD, HDF5, restart, and histogram outputs) exist,
+described in :ref:`signals`.  These get special labels ``now`` and ``final``,
+rather than numbers.  Named outputs always overwrite existing versions, and
+do not affect the numbering of normal numbered outputs.
 
 openPMD
 -------
@@ -553,6 +538,59 @@ The following is a minimal example to plot a 1D and 2D histogram from the output
       z = infile["other_name/data"][:].T   # note the transpose here (so that the data matches the axis for the pcolormesh)
       plt.pcolormesh(x,y,z,)
       plt.show()
+
+User
+----
+
+Parthenon provides a simple callback for downstream codes to enroll their own
+output routines.
+In the input file, include a ``<parthenon/output*>`` block and specify
+``file_type = my_user_type`` where the latter is an arbitrary string.
+Output frequency is controlled via ``dt``, ``dn``, or ``times`` as for other output
+types.
+Using this callback requires a downstream code to implement a derived
+``OutputType`` class and to enroll it with the ``my_user_type`` string name.
+
+.. code:: c++
+
+  pman.app_input->RegisterUserOutput<MyOutput>("my_user_type");
+
+where ``MyOutput`` has to minimally implement a constructor and ``WriteOutputFile``
+
+.. code:: c++
+
+   class MyOutput : public OutputType {
+    public:
+     MyOutput(const OutputParameters &oparams, ParameterInput *pin)
+         : OutputType(oparams) {}
+     void WriteOutputFile(Mesh *pm, ParameterInput *pin, SimTime *tm,
+                          const SignalHandler::OutputSignal signal) override;
+   };
+
+A new ``MyOutput`` object is created for each ``<parthenon/output*>`` block with
+``file_type = my_user_type``, so the same user output type can be used in multiple
+blocks (e.g., with different cadences).
+Block specific parameters can be read in the constructor from the
+``oparams.block_name`` block of ``pin``.
+The constructor may also only take ``const OutputParameters &``.
+The ``WriteOutputFile`` implementation is responsible for advancing the output
+counters by calling ``UpdateNextOutput_`` (see example below).
+
+For full control over object creation, a factory can be enrolled instead, which is
+called once for each matching output block, e.g., to share state between blocks
+
+.. code:: c++
+
+  auto shared_state = std::make_shared<MyState>();
+  pman.app_input->RegisterUserOutput(
+      "my_user_type", [shared_state](const OutputParameters &op, ParameterInput *pin) {
+        return std::make_shared<MyOutput>(op, pin, shared_state);
+      });
+
+A minimal implementation is demonstrated in the
+`particle_leapfrog <https://github.com/parthenon-hpc-lab/parthenon/blob/develop/example/particle_leapfrog/particle_leapfrog.cpp>`__
+example.
+
 
 Ascent (optional)
 -----------------
