@@ -1,0 +1,460 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tensor Trains &mdash; Parthenon  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=e2af37d4" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Reference" href="chapters/reference.html" />
+    <link rel="prev" title="Batched Linear Algebra" href="batched_linear_algebra.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Parthenon
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Chapters</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="chapters/getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/core_concepts.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/parallelism_performance.html">Parallelism and Performance</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="chapters/advanced_features.html">Advanced Features</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="particles.html">Particles</a></li>
+<li class="toctree-l2"><a class="reference internal" href="interface/sparse.html">Sparse implementation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="integrators.html">Integrators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="solvers.html">Solvers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fourier_transforms.html">Fourier Transforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="batched_linear_algebra.html">Batched Linear Algebra</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Tensor Trains</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#types">Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#storage-models">Storage models</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#the-fiber-core-invariant">The fiber-core invariant</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#copy-semantics">Copy semantics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#packs-and-lifetimes">Packs and lifetimes</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/api_reference.html">API Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chapters/developer_guide.html">Developer Guide</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Parthenon</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="chapters/advanced_features.html">Advanced Features</a></li>
+      <li class="breadcrumb-item active">Tensor Trains</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/src/tensor_trains.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="tensor-trains">
+<h1>Tensor Trains<a class="headerlink" href="#tensor-trains" title="Link to this heading"></a></h1>
+<p>Parthenon provides tensor-train (TT) types and operations in <code class="docutils literal notranslate"><span class="pre">src/tensors/</span></code>
+(namespace <code class="docutils literal notranslate"><span class="pre">parthenon::tensor</span></code>). This page describes the data model: what each
+type owns, what copying a train does, and when a device pack stays valid. The
+operations themselves are documented in <code class="docutils literal notranslate"><span class="pre">tt_operations.hpp</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This page is for developers working on the tensor-train layer itself.
+Tensor-train fields on the mesh are meant to hide these details from
+application code.</p>
+</div>
+<p>A tensor train is a sequence of cores. Core <span class="math notranslate nohighlight">\(c\)</span> is a three-index array of
+shape <span class="math notranslate nohighlight">\(r_{c-1} \times n_c \times r_c\)</span>, where <span class="math notranslate nohighlight">\(n_c\)</span> is the physical
+dimension of the core and <span class="math notranslate nohighlight">\(r_{c-1}\)</span> and <span class="math notranslate nohighlight">\(r_c\)</span> are its left and right
+bond ranks. In the code these are <code class="docutils literal notranslate"><span class="pre">LR()</span></code>, <code class="docutils literal notranslate"><span class="pre">DD()</span></code> and <code class="docutils literal notranslate"><span class="pre">RR()</span></code>. A train whose
+outer bonds are both one is <em>closed</em> and represents a scalar-valued tensor. A
+train with dangling outer bonds is <em>open</em>. Sums and rounding require closed
+trains.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>In application code, hold trains through <code class="docutils literal notranslate"><span class="pre">std::shared_ptr&lt;TensorTrain&gt;</span></code> and
+pass them around by pointer. Avoid copying <code class="docutils literal notranslate"><span class="pre">TensorTrain</span></code> or
+<code class="docutils literal notranslate"><span class="pre">TensorCoreHost</span></code> objects. A copy is neither a deep copy nor a clean alias
+(see <a class="reference internal" href="#copy-semantics">Copy semantics</a>), and the rules below only matter if you make one. Use
+<code class="docutils literal notranslate"><span class="pre">DeepCopy()</span></code> when you need an independent train. Host packs take
+<code class="docutils literal notranslate"><span class="pre">std::vector&lt;std::shared_ptr&lt;train_t&gt;&gt;</span></code> directly.</p>
+</div>
+<section id="types">
+<h2>Types<a class="headerlink" href="#types" title="Link to this heading"></a></h2>
+<p>All types are templated on a traits class <code class="docutils literal notranslate"><span class="pre">TTraits</span></code>, and each has a default
+alias that uses <code class="docutils literal notranslate"><span class="pre">DefaultTTraits</span></code>.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Type</p></th>
+<th class="head"><p>Default alias</p></th>
+<th class="head"><p>Role</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">TensorTraits&lt;Device,</span> <span class="pre">Real,</span> <span class="pre">bool&gt;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DefaultTTraits</span></code></p></td>
+<td><p>Device, scalar type and storage model</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">TensorTrainT&lt;TTraits&gt;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TensorTrain</span></code></p></td>
+<td><p>Owns a <code class="docutils literal notranslate"><span class="pre">std::vector</span></code> of host cores</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">TensorCoreHostT&lt;TTraits,</span> <span class="pre">Storage&gt;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TensorCoreHost</span></code></p></td>
+<td><p>Owns the storage of one core</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">TensorCoreDeviceT&lt;TTraits,</span> <span class="pre">Storage&gt;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TensorCoreDevice</span></code></p></td>
+<td><p>Non-owning core descriptor for kernels</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">TensorTrainHostPackT&lt;TTraits&gt;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TensorTrainHostPack</span></code></p></td>
+<td><p>Non-owning (var, block) grid of trains</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">TensorPackT&lt;TTraits&gt;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TensorPack</span></code></p></td>
+<td><p>Device view of core descriptors</p></td>
+</tr>
+</tbody>
+</table>
+<p>The <code class="docutils literal notranslate"><span class="pre">Host</span></code> and <code class="docutils literal notranslate"><span class="pre">Device</span></code> suffixes mean <em>owning</em> and <em>descriptor</em>. They do not
+name a memory space: the numerical data always lives in
+<code class="docutils literal notranslate"><span class="pre">TTraits::memory_space</span></code>. <code class="docutils literal notranslate"><span class="pre">TensorCoreHostT</span></code> is the host-side object that owns
+device data. <code class="docutils literal notranslate"><span class="pre">TensorCoreDeviceT</span></code> is a small value type that a kernel can
+capture and index as <code class="docutils literal notranslate"><span class="pre">core(l,</span> <span class="pre">d,</span> <span class="pre">r)</span></code>.</p>
+<p>Ownership runs in one direction:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>std::shared_ptr&lt;TensorTrain&gt;          (application)
+  -&gt; TensorTrain                       owns its cores
+     -&gt; TensorCoreHost                 owns its storage
+        -&gt; storage (fibers or buffer)  owns the numbers
+TensorTrainHostPack                    points at trains, owns nothing
+  -&gt; TensorPack                        owns a device array of descriptors,
+     -&gt; TensorCoreDevice               which point into the storage
+</pre></div>
+</div>
+</section>
+<section id="storage-models">
+<h2>Storage models<a class="headerlink" href="#storage-models" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">TensorTraits</span></code>’ boolean parameter <code class="docutils literal notranslate"><span class="pre">DFastestMoving</span></code> selects one of two storage
+models. The two exist so they can be benchmarked against each other. Kernels
+index cores only through <code class="docutils literal notranslate"><span class="pre">core(l,</span> <span class="pre">d,</span> <span class="pre">r)</span></code> and the unfoldings in <code class="docutils literal notranslate"><span class="pre">TTraits</span></code>, so
+they compile for both.</p>
+<ul class="simple">
+<li><p><strong>Fiber storage</strong> (<code class="docutils literal notranslate"><span class="pre">d_fastest_moving</span> <span class="pre">=</span> <span class="pre">true</span></code>, <code class="docutils literal notranslate"><span class="pre">FiberTTraits</span></code>, the default).
+A core is an <span class="math notranslate nohighlight">\(r_{c-1} \times r_c\)</span> grid of <em>fibers</em>, and each fiber is a
+separately allocated device array of length <span class="math notranslate nohighlight">\(n_c\)</span>. Access along the
+physical index is contiguous, which coalesces on the large spatial core.
+Changing a core’s ranks can reuse existing fibers by handle instead of
+copying data. For example, the fiber <code class="docutils literal notranslate"><span class="pre">DestructiveSum</span></code> assembles the
+block-diagonal result without running a kernel.</p></li>
+<li><p><strong>r-fastest storage</strong> (<code class="docutils literal notranslate"><span class="pre">d_fastest_moving</span> <span class="pre">=</span> <span class="pre">false</span></code>, <code class="docutils literal notranslate"><span class="pre">ContiguousTTraits</span></code>). A
+core is one <code class="docutils literal notranslate"><span class="pre">[lr][dd][rr]</span></code> buffer with the right rank index fastest. Changing
+a core’s ranks allocates a new buffer and copies into it.</p></li>
+</ul>
+<p>The layout is always <code class="docutils literal notranslate"><span class="pre">Kokkos::LayoutRight</span></code>. The r-fastest indexing, the
+scratch cores and the unfoldings all assume it.</p>
+<section id="the-fiber-core-invariant">
+<h3>The fiber-core invariant<a class="headerlink" href="#the-fiber-core-invariant" title="Link to this heading"></a></h3>
+<p>A fiber core involves four levels:</p>
+<ol class="arabic simple">
+<li><p><strong>Fiber data:</strong> managed 1-D device views, one per <span class="math notranslate nohighlight">\((l, r)\)</span>. These hold
+the numbers.</p></li>
+<li><p><strong>host_fibers:</strong> a host view of managed fiber handles. This table keeps the
+fibers alive through their reference counts.</p></li>
+<li><p><strong>device_managed_fibers:</strong> a managed device view of <em>unmanaged</em> fiber views.
+It owns only its own memory. Its pointers are valid only while a
+<code class="docutils literal notranslate"><span class="pre">host_fibers</span></code> table that holds the same fibers is alive.</p></li>
+<li><p><strong>FiberStorageDevice:</strong> an unmanaged view of level 3, owning nothing. This is
+what a <code class="docutils literal notranslate"><span class="pre">TensorCoreDevice</span></code> in a pack holds.</p></li>
+</ol>
+<p><code class="docutils literal notranslate"><span class="pre">host_fibers</span></code> and <code class="docutils literal notranslate"><span class="pre">device_managed_fibers</span></code> always describe the same grid of
+the same fibers. Only two routines change them. <code class="docutils literal notranslate"><span class="pre">RebuildOuterViews</span></code> builds both
+into freshly allocated views, and <code class="docutils literal notranslate"><span class="pre">Release()</span></code> empties both. Neither table is
+ever modified in place. Every operation that changes a fiber core’s ranks goes
+through <code class="docutils literal notranslate"><span class="pre">RebuildOuterViews</span></code>. This includes <code class="docutils literal notranslate"><span class="pre">ReduceSize</span></code>, <code class="docutils literal notranslate"><span class="pre">RebuildFibers</span></code>
+and the fiber <code class="docutils literal notranslate"><span class="pre">DestructiveSum</span></code>.</p>
+</section>
+</section>
+<section id="copy-semantics">
+<h2>Copy semantics<a class="headerlink" href="#copy-semantics" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">TensorTrain</span></code> and <code class="docutils literal notranslate"><span class="pre">TensorCoreHost</span></code> have <em>reference semantics</em>. Copying one
+makes a new handle to the same numbers:</p>
+<ul class="simple">
+<li><p><strong>Copy construction or assignment</strong> shares the numerical data. For fiber
+storage it shares the fibers (level 1) and gives the copy its own levels 2
+and 3. For r-fastest storage it shares the buffer.</p></li>
+<li><p><strong>Move</strong> transfers everything and leaves the source empty.</p></li>
+<li><p><strong>DeepCopy()</strong> duplicates the data. <code class="docutils literal notranslate"><span class="pre">DeepCopyTrains</span></code> does the same for a
+vector of trains.</p></li>
+</ul>
+<p>A copy is not a full alias. It shares the numbers but not the structure (the
+ranks and the tables). After a copy:</p>
+<ul class="simple">
+<li><p>Writes through either object’s device pack are seen by both, as long as
+neither object has been reshaped.</p></li>
+<li><p>Reshaping one object rebinds only that object. Reshaping includes
+<code class="docutils literal notranslate"><span class="pre">BuildFresh</span></code>, <code class="docutils literal notranslate"><span class="pre">ReduceSize</span></code>, <code class="docutils literal notranslate"><span class="pre">Clear</span></code>, assigning a new train, and every op
+that changes ranks. The other object keeps its old shape and data.</p></li>
+<li><p>An in-place op on one object can therefore leave the other inconsistent:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">RoundGramSVD</span></code> and <code class="docutils literal notranslate"><span class="pre">RoundOseledetsSVD</span></code> overwrite the existing cores and
+then shrink them. A copy taken before rounding keeps the old ranks over data
+that has been partly overwritten.</p></li>
+<li><p>With fiber storage, <code class="docutils literal notranslate"><span class="pre">DestructiveSum(A,</span> <span class="pre">B)</span></code> moves A’s and B’s fibers into
+A’s new cores. A copy of B taken beforehand still points at fibers that now
+belong to A. With r-fastest storage the result is a new buffer and the copy
+is unaffected. The behaviour differs between the storage models.</p></li>
+</ul>
+</li>
+</ul>
+<p>These semantics exist so that <code class="docutils literal notranslate"><span class="pre">std::vector&lt;TensorTrain&gt;</span></code> can copy and move
+its elements safely. Holding trains through <code class="docutils literal notranslate"><span class="pre">std::shared_ptr</span></code> avoids the
+question entirely, because there is only ever one train object.</p>
+</section>
+<section id="packs-and-lifetimes">
+<h2>Packs and lifetimes<a class="headerlink" href="#packs-and-lifetimes" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">TensorTrainHostPackT</span></code> is a host-side <code class="docutils literal notranslate"><span class="pre">(var,</span> <span class="pre">block)</span></code> grid of non-owning
+<code class="docutils literal notranslate"><span class="pre">train_t</span> <span class="pre">*</span></code>. It can be built from:</p>
+<ul class="simple">
+<li><p>a <code class="docutils literal notranslate"><span class="pre">std::vector&lt;train_t&gt;&amp;</span></code></p></li>
+<li><p>a <code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">std::vector&lt;train_t*&gt;&amp;</span></code></p></li>
+<li><p>a <code class="docutils literal notranslate"><span class="pre">std::vector&lt;std::shared_ptr&lt;train_t&gt;&gt;&amp;</span></code></p></li>
+<li><p>a <code class="docutils literal notranslate"><span class="pre">VarBlockGrid&lt;train_t*&gt;</span></code>, for several variables</p></li>
+</ul>
+<p>Every operation takes host packs. The operation reshapes the pointed-to trains
+in place, so the owner sees the result without rebinding. Each operation then
+builds its own device packs.</p>
+<p><code class="docutils literal notranslate"><span class="pre">TensorPackT</span></code> holds a device array of <code class="docutils literal notranslate"><span class="pre">TensorCoreDevice</span></code> descriptors indexed
+<code class="docutils literal notranslate"><span class="pre">(block,</span> <span class="pre">var,</span> <span class="pre">core)</span></code>. It is built by <code class="docutils literal notranslate"><span class="pre">MakeDevicePack()</span></code>. The descriptors
+point into the trains’ storage without owning it, so a device pack is valid only
+while:</p>
+<ul class="simple">
+<li><p>every train it was built from is alive, and</p></li>
+<li><p>no core of those trains has been reshaped.</p></li>
+</ul>
+<p>After any reshape, build a new device pack. Never cache one across an operation
+that may change ranks.</p>
+<p>Device-side unfoldings (<code class="docutils literal notranslate"><span class="pre">TTraits::GetHorizontalUnfolding</span></code> and the others) hold
+a reference to a core. Build them inside the kernel. One built on the host and
+captured by a lambda would dangle.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This file was made in part with generative AI.</p>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="batched_linear_algebra.html" class="btn btn-neutral float-left" title="Batched Linear Algebra" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="chapters/reference.html" class="btn btn-neutral float-right" title="Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023-2026, The Parthenon Collaboration and Triad National Security.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: lroberts36/tt-cross
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../regression-gold-v15/index.html">regression-gold-v15</a></dd>
+      <dd><a href="../../../regression-gold-v16/index.html">regression-gold-v16</a></dd>
+      <dd><a href="../../../regression-gold-v17/index.html">regression-gold-v17</a></dd>
+      <dd><a href="../../../regression-gold-v18/index.html">regression-gold-v18</a></dd>
+      <dd><a href="../../../regression-gold-v19/index.html">regression-gold-v19</a></dd>
+      <dd><a href="../../../regression-gold-v20/index.html">regression-gold-v20</a></dd>
+      <dd><a href="../../../regression-gold-v21/index.html">regression-gold-v21</a></dd>
+      <dd><a href="../../../regression-gold-v22/index.html">regression-gold-v22</a></dd>
+      <dd><a href="../../../regression-gold-v23/index.html">regression-gold-v23</a></dd>
+      <dd><a href="../../../regression-gold-v24/index.html">regression-gold-v24</a></dd>
+      <dd><a href="../../../regression-gold-v25/index.html">regression-gold-v25</a></dd>
+      <dd><a href="../../../regression-gold-v26/index.html">regression-gold-v26</a></dd>
+      <dd><a href="../../../regression-gold-v27/index.html">regression-gold-v27</a></dd>
+      <dd><a href="../../../regression-gold-v28/index.html">regression-gold-v28</a></dd>
+      <dd><a href="../../../v0.8.0/index.html">v0.8.0</a></dd>
+      <dd><a href="../../../v23.11/index.html">v23.11</a></dd>
+      <dd><a href="../../../v24.03/index.html">v24.03</a></dd>
+      <dd><a href="../../../v24.08/index.html">v24.08</a></dd>
+      <dd><a href="../../../v25.05/index.html">v25.05</a></dd>
+      <dd><a href="../../../v25.12/index.html">v25.12</a></dd>
+      <dd><a href="../../../v26.10/index.html">v26.10</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="../../../develop/index.html">develop</a></dd>
+      <dd><a href="../../../BenWibking/mainloop-debug-output-callback/index.html">BenWibking/mainloop-debug-output-callback</a></dd>
+      <dd><a href="../../../BenWibking/move-params/index.html">BenWibking/move-params</a></dd>
+      <dd><a href="../../../HEAD/index.html">HEAD</a></dd>
+      <dd><a href="../../../acreyes/callbacks/index.html">acreyes/callbacks</a></dd>
+      <dd><a href="../../../acreyes/hypre-diffusion-example/index.html">acreyes/hypre-diffusion-example</a></dd>
+      <dd><a href="../../../ats5/index.html">ats5</a></dd>
+      <dd><a href="../../../ats5-cali/index.html">ats5-cali</a></dd>
+      <dd><a href="../../../ats5-debug/index.html">ats5-debug</a></dd>
+      <dd><a href="../../../bdw/gauss-quad/index.html">bdw/gauss-quad</a></dd>
+      <dd><a href="../../../blb/toml/index.html">blb/toml</a></dd>
+      <dd><a href="../../../bprather/fix-mpi-comms-again/index.html">bprather/fix-mpi-comms-again</a></dd>
+      <dd><a href="../../../bprather/mbd_add_niceties/index.html">bprather/mbd_add_niceties</a></dd>
+      <dd><a href="../../../brryan/kokkos_sort/index.html">brryan/kokkos_sort</a></dd>
+      <dd><a href="../../../brryan/mesh_swarm_bc_funcs/index.html">brryan/mesh_swarm_bc_funcs</a></dd>
+      <dd><a href="../../../brryan/swarm_mpi_tags/index.html">brryan/swarm_mpi_tags</a></dd>
+      <dd><a href="../../../brryan/swarm_tag_map_2/index.html">brryan/swarm_tag_map_2</a></dd>
+      <dd><a href="../../../c-prather/boundary-templates/index.html">c-prather/boundary-templates</a></dd>
+      <dd><a href="../../../c-prather/kharma-downstream-ci/index.html">c-prather/kharma-downstream-ci</a></dd>
+      <dd><a href="../../../cep/allow-phdf/index.html">cep/allow-phdf</a></dd>
+      <dd><a href="../../../cep/one-block-mesh/index.html">cep/one-block-mesh</a></dd>
+      <dd><a href="../../../dempsey/rummy/index.html">dempsey/rummy</a></dd>
+      <dd><a href="../../../dempsey/rummy2/index.html">dempsey/rummy2</a></dd>
+      <dd><a href="../../../dempsey/rummy3/index.html">dempsey/rummy3</a></dd>
+      <dd><a href="../../../dempsey/swarm_amr/index.html">dempsey/swarm_amr</a></dd>
+      <dd><a href="../../../fglines-nv/optimize-burgers/index.html">fglines-nv/optimize-burgers</a></dd>
+      <dd><a href="../../../forrestglines/cuda-with-nvc++-fix/index.html">forrestglines/cuda-with-nvc++-fix</a></dd>
+      <dd><a href="../../../forrestglines/curvilinear/index.html">forrestglines/curvilinear</a></dd>
+      <dd><a href="../../../ianfreeman519/cpu-compiler-warnings/index.html">ianfreeman519/cpu-compiler-warnings</a></dd>
+      <dd><a href="../../../jdolence/analysis/index.html">jdolence/analysis</a></dd>
+      <dd><a href="../../../jdolence/analysis_refresh/index.html">jdolence/analysis_refresh</a></dd>
+      <dd><a href="../../../jdolence/hi_analysis/index.html">jdolence/hi_analysis</a></dd>
+      <dd><a href="../../../jdolence/loop-benchmarks/index.html">jdolence/loop-benchmarks</a></dd>
+      <dd><a href="../../../jdolence/thread_safe/index.html">jdolence/thread_safe</a></dd>
+      <dd><a href="../../../jdolence/timer_based_loadbalancing/index.html">jdolence/timer_based_loadbalancing</a></dd>
+      <dd><a href="../../../jdolence/trace/index.html">jdolence/trace</a></dd>
+      <dd><a href="../../../jmm/agentsfile/index.html">jmm/agentsfile</a></dd>
+      <dd><a href="../../../jmm/diffusion-hack/index.html">jmm/diffusion-hack</a></dd>
+      <dd><a href="../../../jmm/docstrings-2-blockref-boogaloo/index.html">jmm/docstrings-2-blockref-boogaloo</a></dd>
+      <dd><a href="../../../jmm/fix-block-less-than-ranks/index.html">jmm/fix-block-less-than-ranks</a></dd>
+      <dd><a href="../../../jmm/openpmd-fix/index.html">jmm/openpmd-fix</a></dd>
+      <dd><a href="../../../jmm/pyproxy/index.html">jmm/pyproxy</a></dd>
+      <dd><a href="../../../jmm/shrinkcores/index.html">jmm/shrinkcores</a></dd>
+      <dd><a href="../../../jmm/submeshdata-2/index.html">jmm/submeshdata-2</a></dd>
+      <dd><a href="../../../jmm/token-scratch/index.html">jmm/token-scratch</a></dd>
+      <dd><a href="../../../lkasselm/fft/index.html">lkasselm/fft</a></dd>
+      <dd><a href="../../../lkasselm/fft-backup/index.html">lkasselm/fft-backup</a></dd>
+      <dd><a href="../../../lrobert36/update-index-split-manual/index.html">lrobert36/update-index-split-manual</a></dd>
+      <dd><a href="../../add-callback-taskstatus/index.html">lroberts36/add-callback-taskstatus</a></dd>
+      <dd><a href="../../add-densitization-solver-option/index.html">lroberts36/add-densitization-solver-option</a></dd>
+      <dd><a href="../../add-sparse-indices/index.html">lroberts36/add-sparse-indices</a></dd>
+      <dd><a href="../../boundary-comms-perforfmance-upgrades/index.html">lroberts36/boundary-comms-perforfmance-upgrades</a></dd>
+      <dd><a href="../../calc-indices-unit-tests/index.html">lroberts36/calc-indices-unit-tests</a></dd>
+      <dd><a href="../../coalesced-comms-multi-id/index.html">lroberts36/coalesced-comms-multi-id</a></dd>
+      <dd><a href="../../fix-multigrid-flag-error/index.html">lroberts36/fix-multigrid-flag-error</a></dd>
+      <dd><a href="../../fix-multiple-solvers/index.html">lroberts36/fix-multiple-solvers</a></dd>
+      <dd><a href="../../fix-sptr-cycle-tree/index.html">lroberts36/fix-sptr-cycle-tree</a></dd>
+      <dd><a href="../../generalize-par-dispatch/index.html">lroberts36/generalize-par-dispatch</a></dd>
+      <dd><a href="../../imex-advection/index.html">lroberts36/imex-advection</a></dd>
+      <dd><a href="../../loop-benchmarks-bench/index.html">lroberts36/loop-benchmarks-bench</a></dd>
+      <dd><a href="../../python-field-init/index.html">lroberts36/python-field-init</a></dd>
+      <dd><a href="../../python-input-support/index.html">lroberts36/python-input-support</a></dd>
+      <dd><a href="../../solver-noncell-vars/index.html">lroberts36/solver-noncell-vars</a></dd>
+      <dd><a href="../../solver-speedups/index.html">lroberts36/solver-speedups</a></dd>
+      <dd><a href="../../solver-timing/index.html">lroberts36/solver-timing</a></dd>
+      <dd><a href="../../speedup-buffer-kernel-split/index.html">lroberts36/speedup-buffer-kernel-split</a></dd>
+      <dd><a href="../../switch-to-weak-ptrs/index.html">lroberts36/switch-to-weak-ptrs</a></dd>
+      <dd><a href="../../temp-p1-branch/index.html">lroberts36/temp-p1-branch</a></dd>
+      <dd><a href="../../tensor-library-packs/index.html">lroberts36/tensor-library-packs</a></dd>
+      <dd><a href="../../test-forest-mesh/index.html">lroberts36/test-forest-mesh</a></dd>
+      <dd><a href="tensor_trains.html">lroberts36/tt-cross</a></dd>
+      <dd><a href="../../tt-infrastructure/index.html">lroberts36/tt-infrastructure</a></dd>
+      <dd><a href="../../tt-mesh/src/tensor_trains.html">lroberts36/tt-mesh</a></dd>
+      <dd><a href="../../tt-tensors/src/tensor_trains.html">lroberts36/tt-tensors</a></dd>
+      <dd><a href="../../update-diffusion-example/index.html">lroberts36/update-diffusion-example</a></dd>
+      <dd><a href="../../update-sparse-ids/index.html">lroberts36/update-sparse-ids</a></dd>
+      <dd><a href="../../../morarumaxim/neigh_collectives/index.html">morarumaxim/neigh_collectives</a></dd>
+      <dd><a href="../../../neighborhood_ats5/index.html">neighborhood_ats5</a></dd>
+      <dd><a href="../../../pdmullen/bndry-flx/index.html">pdmullen/bndry-flx</a></dd>
+      <dd><a href="../../../pdmullen/swarm-rewrite/index.html">pdmullen/swarm-rewrite</a></dd>
+      <dd><a href="../../../pdmullen/towards-curv-swarm/index.html">pdmullen/towards-curv-swarm</a></dd>
+      <dd><a href="../../../pgrete/async-io/index.html">pgrete/async-io</a></dd>
+      <dd><a href="../../../pgrete/ci-hamilton/index.html">pgrete/ci-hamilton</a></dd>
+      <dd><a href="../../../pgrete/energy-transfer/index.html">pgrete/energy-transfer</a></dd>
+      <dd><a href="../../../pgrete/enspec/index.html">pgrete/enspec</a></dd>
+      <dd><a href="../../../pgrete/fix-chunk/index.html">pgrete/fix-chunk</a></dd>
+      <dd><a href="../../../pgrete/jupiter/index.html">pgrete/jupiter</a></dd>
+      <dd><a href="../../../pgrete/jupiter-26/index.html">pgrete/jupiter-26</a></dd>
+      <dd><a href="../../../pgrete/metadata-allow-new-field-restart/index.html">pgrete/metadata-allow-new-field-restart</a></dd>
+      <dd><a href="../../../pgrete/opmd-streaming/index.html">pgrete/opmd-streaming</a></dd>
+      <dd><a href="../../../pgrete/pmd-output-wuser/index.html">pgrete/pmd-output-wuser</a></dd>
+      <dd><a href="../../../pgrete/remove-legacy-packs-1/index.html">pgrete/remove-legacy-packs-1</a></dd>
+      <dd><a href="../../../pgrete/remove-rhdf-suffix/index.html">pgrete/remove-rhdf-suffix</a></dd>
+      <dd><a href="../../../pgrete/unique-ids/index.html">pgrete/unique-ids</a></dd>
+      <dd><a href="../../../romerotony/apk-pack-update/index.html">romerotony/apk-pack-update</a></dd>
+      <dd><a href="../../../swjones/asym_halos/index.html">swjones/asym_halos</a></dd>
+      <dd><a href="../../../swjones/dt_package_reporting/index.html">swjones/dt_package_reporting</a></dd>
+      <dd><a href="../../../swjones/rk34_integrator-unit-test/index.html">swjones/rk34_integrator-unit-test</a></dd>
+      <dd><a href="../../../swjones/tensor-library/index.html">swjones/tensor-library</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

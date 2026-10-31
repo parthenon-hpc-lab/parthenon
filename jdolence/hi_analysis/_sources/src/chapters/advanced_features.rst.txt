@@ -1,0 +1,18 @@
+.. This file was made in part with generative AI.
+
+Advanced Features
+=================
+
+Explore optional and specialized capabilities you can layer onto
+applications, including particles, sparse fields, advanced integrators,
+and solvers.
+
+.. toctree::
+   :maxdepth: 1
+
+   ../particles
+   ../analysis
+   ../interface/sparse
+   ../integrators
+   ../solvers
+   ../fourier_transforms
