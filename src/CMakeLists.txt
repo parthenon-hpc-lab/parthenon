@@ -121,6 +121,7 @@ add_library(parthenon
   bvals/comms/boundary_communication.cpp
   bvals/comms/coalesced_buffers.cpp
   bvals/comms/coalesced_buffers.hpp
+  bvals/comms/nccl_utils.hpp
   bvals/comms/tag_map.cpp
   bvals/comms/tag_map.hpp
 
@@ -405,6 +406,10 @@ endif()
 
 if (ENABLE_MPI)
   target_link_libraries(parthenon PUBLIC MPI::MPI_CXX)
+endif()
+
+if (ENABLE_NCCL)
+  target_link_libraries(parthenon PUBLIC NCCL::NCCL)
 endif()
 
 if (PARTHENON_ENABLE_RAW_OPENMP)

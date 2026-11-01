@@ -15,6 +15,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -239,6 +240,117 @@ bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
 }
 
 //----------------------------------------------------------------------------------------
+void CoalescedBuffer::InitializeNCCLBuffers() {
+#ifdef ENABLE_NCCL
+  if (current_size > 0) coalesced_comm_buffer.Allocate(current_size);
+  nccl_status_buffer = BufArray1D<int>(
+      Kokkos::view_alloc(Kokkos::WithoutInitializing, "NCCL sparse status"),
+      TotalBuffers());
+  nccl_status_host = Kokkos::create_mirror_view(nccl_status_buffer);
+#else
+  PARTHENON_FAIL("NCCL buffers requested in a build without NCCL support.");
+#endif
+}
+
+//----------------------------------------------------------------------------------------
+void CoalescedBuffer::PrepareNCCL(const std::set<Uid_t> &vars, const DevExecSpace &exec) {
+#ifdef ENABLE_NCCL
+  PARTHENON_REQUIRE(sender, "Only sender buffers can be prepared for NCCL.");
+  PARTHENON_REQUIRE(!nccl_prepared, "NCCL buffer was prepared twice.");
+
+  nccl_vars = vars;
+  int comb_size;
+  auto &bids = GetBndIdsOnDevice(vars, &comb_size);
+  PARTHENON_REQUIRE(comb_size <= current_size,
+                    "Packed NCCL message exceeds its registered maximum size.");
+
+  int idx{0};
+  for (auto &[uid, entries] : coalesced_info_buf) {
+    const bool selected = vars.empty() || vars.count(uid) > 0;
+    for (auto &[bnd_id, pvbbuf] : entries) {
+      const auto state = pvbbuf->GetState();
+      nccl_status_host(idx++) = selected && state == BufferState::sending ? 1 : 0;
+    }
+  }
+
+  DevExecSpace default_exec;
+  nccl_pack_ready.Record(default_exec.cuda_stream());
+  nccl_pack_ready.Wait(exec.cuda_stream());
+  Kokkos::deep_copy(exec, nccl_status_buffer, nccl_status_host);
+
+  Kokkos::parallel_for(
+      PARTHENON_AUTO_LABEL,
+      Kokkos::TeamPolicy<DevExecSpace>(exec, bids.size(), Kokkos::AUTO),
+      KOKKOS_LAMBDA(team_mbr_t team_member) {
+        const int b = team_member.league_rank();
+        if (bids[b].buf_allocated) {
+          Real *combined = &(bids[b].coalesced_buf(bids[b].start_idx()));
+          Real *individual = &(bids[b].buf(0));
+          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, bids[b].size()),
+                               [&](const int i) { combined[i] = individual[i]; });
+        }
+      });
+  nccl_prepared = true;
+#else
+  PARTHENON_FAIL("NCCL preparation requested in a build without NCCL support.");
+#endif
+}
+
+//----------------------------------------------------------------------------------------
+void CoalescedBuffer::ApplyNCCLStatusAndUnpack(const std::set<Uid_t> &vars,
+                                               const DevExecSpace &exec) {
+#ifdef ENABLE_NCCL
+  PARTHENON_REQUIRE(!sender, "Only receiver buffers can be unpacked from NCCL.");
+
+  int idx{0};
+  for (auto &[uid, entries] : coalesced_info_buf) {
+    const bool selected = vars.empty() || vars.count(uid) > 0;
+    for (auto &[bnd_id, pvbbuf] : entries) {
+      if (selected) {
+        if (nccl_status_host(idx) == 1) {
+          pvbbuf->SetReceived();
+          if (!pvbbuf->IsActive()) pvbbuf->Allocate();
+        } else {
+          pvbbuf->SetReceivedNull();
+          if (pvbbuf->IsActive()) pvbbuf->Free();
+        }
+      }
+      ++idx;
+    }
+  }
+
+  auto &bids = GetBndIdsOnDevice(vars);
+  Kokkos::parallel_for(
+      PARTHENON_AUTO_LABEL,
+      Kokkos::TeamPolicy<DevExecSpace>(exec, bids.size(), Kokkos::AUTO),
+      KOKKOS_LAMBDA(team_mbr_t team_member) {
+        const int b = team_member.league_rank();
+        if (bids[b].buf_allocated) {
+          Real *combined = &(bids[b].coalesced_buf(bids[b].start_idx()));
+          Real *individual = &(bids[b].buf(0));
+          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, bids[b].size()),
+                               [&](const int i) { individual[i] = combined[i]; });
+        }
+      });
+#else
+  PARTHENON_FAIL("NCCL unpack requested in a build without NCCL support.");
+#endif
+}
+
+//----------------------------------------------------------------------------------------
+void CoalescedBuffer::FinishNCCLSend() {
+#ifdef ENABLE_NCCL
+  for (auto &[uid, entries] : coalesced_info_buf) {
+    if (!nccl_vars.empty() && nccl_vars.count(uid) == 0) continue;
+    for (auto &[bnd_id, pvbbuf] : entries)
+      pvbbuf->Stale();
+  }
+  nccl_vars.clear();
+  nccl_prepared = false;
+#endif
+}
+
+//----------------------------------------------------------------------------------------
 void CoalescedBuffer::AddVarBoundary(BndId &bnd_id) {
   auto key = GetChannelKey(bnd_id);
   PARTHENON_REQUIRE(pmesh->boundary_comm_map.count(key), "Buffer doesn't exist.");
@@ -406,10 +518,32 @@ CoalescedComms::CoalescedComms(Mesh *pmesh) : pmesh(pmesh) {
     comm = 0;
 #endif
   }
+
+  if (pmesh->UseNCCLCoalescedComms()) {
+#ifdef ENABLE_NCCL
+    nccl_exec = SpaceInstance<DevExecSpace>::create();
+#else
+    PARTHENON_FAIL(
+        "coalesced_comm_backend=nccl requested without PARTHENON_ENABLE_NCCL.");
+#endif
+  }
 }
 
 //----------------------------------------------------------------------------------------
 CoalescedComms::~CoalescedComms() {
+#ifdef ENABLE_NCCL
+  if (nccl_initialized) {
+    const auto stream = nccl_exec.cuda_stream();
+    nccl_exec.fence();
+    for (auto &[b_type, state] : nccl_states)
+      PARTHENON_NCCL_CHECK(ncclCommDestroy(state->comm));
+    nccl_states.clear();
+    // Release Kokkos' reference before destroying the externally-created stream.
+    // Otherwise the Kokkos::Cuda destructor tries to synchronize a destroyed stream.
+    nccl_exec = DevExecSpace();
+    PARTHENON_CUDA_EVENT_CHECK(cudaStreamDestroy(stream));
+  }
+#endif
 #ifdef MPI_PARALLEL
   for (auto &[b_type, comm] : comms)
     PARTHENON_MPI_CHECK(MPI_Comm_free(&comm));
@@ -418,6 +552,15 @@ CoalescedComms::~CoalescedComms() {
 
 //----------------------------------------------------------------------------------------
 void CoalescedComms::clear() {
+#ifdef ENABLE_NCCL
+  if (nccl_initialized) {
+    nccl_exec.fence();
+    for (auto &[b_type, state] : nccl_states)
+      PARTHENON_NCCL_CHECK(ncclCommDestroy(state->comm));
+    nccl_states.clear();
+    nccl_initialized = false;
+  }
+#endif
   bool can_delete;
   int iter{0};
   const int max_iters = 1e8;
@@ -488,6 +631,12 @@ void CoalescedComms::ReceiveBufferInfo() {
 
 //----------------------------------------------------------------------------------------
 bool CoalescedComms::IsAvailableForWrite(MeshData<Real> *pmd, BoundaryType b_type) {
+  if (UsesNCCL(b_type)) {
+#ifdef ENABLE_NCCL
+    const auto canonical = GetAssociatedSender(b_type);
+    return !nccl_states.at(canonical)->in_flight;
+#endif
+  }
   bool available{true};
   for (int rank = 0; rank < Globals::nranks; ++rank) {
     if (coalesced_send_buffers.count({rank, b_type})) {
@@ -496,6 +645,170 @@ bool CoalescedComms::IsAvailableForWrite(MeshData<Real> *pmd, BoundaryType b_typ
     }
   }
   return available;
+}
+
+//----------------------------------------------------------------------------------------
+bool CoalescedComms::UsesNCCL(BoundaryType b_type) const {
+  if (!pmesh->UseNCCLCoalescedComms()) return false;
+  const auto canonical = GetAssociatedSender(b_type);
+  // Restriction/prolongation GMG exchanges use custom task graphs that are not yet
+  // region-coordinated. Keep those exchanges on the tagged MPI path.
+  return canonical == BoundaryType::any || canonical == BoundaryType::flxcor_send ||
+         canonical == BoundaryType::gmg_same;
+}
+
+//----------------------------------------------------------------------------------------
+void CoalescedComms::InitializeNCCLBuffers() {
+  if (!pmesh->UseNCCLCoalescedComms()) return;
+#ifdef ENABLE_NCCL
+  // Finish the MPI metadata handshake before starting NCCL proxy threads. In
+  // particular, an active NCCL communicator can starve progress of the nonblocking
+  // metadata messages when several ranks share one host.
+  if (!nccl_initialized) {
+    for (auto b_type :
+         {BoundaryType::any, BoundaryType::flxcor_send, BoundaryType::gmg_same,
+          BoundaryType::gmg_restrict_send, BoundaryType::gmg_prolongate_send}) {
+      auto state = std::make_unique<NCCLExchangeState>();
+      ncclUniqueId id;
+      if (Globals::my_rank == 0) PARTHENON_NCCL_CHECK(ncclGetUniqueId(&id));
+      PARTHENON_MPI_CHECK(MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, comms.at(b_type)));
+      PARTHENON_NCCL_CHECK(
+          ncclCommInitRank(&state->comm, Globals::nranks, id, Globals::my_rank));
+      nccl_states.emplace(b_type, std::move(state));
+    }
+    nccl_initialized = true;
+  }
+#endif
+  for (auto &[key, rank_buffers] : coalesced_send_buffers)
+    for (auto &[partition, buffer] : rank_buffers.coalesced_bufs)
+      buffer.InitializeNCCLBuffers();
+  for (auto &[key, rank_buffers] : coalesced_recv_buffers)
+    for (auto &[partition, buffer] : rank_buffers.coalesced_bufs)
+      buffer.InitializeNCCLBuffers();
+}
+
+//----------------------------------------------------------------------------------------
+void CoalescedComms::PrepareNCCLSend(MeshData<Real> *pmd, BoundaryType b_type) {
+  PARTHENON_REQUIRE(UsesNCCL(b_type), "Preparing NCCL on an unsupported boundary type.");
+#ifdef ENABLE_NCCL
+  auto &state = *nccl_states.at(GetAssociatedSender(b_type));
+  const auto &vars = pmd->GetUids();
+  if (!state.vars.empty() && !vars.empty())
+    PARTHENON_REQUIRE(
+        state.vars == vars,
+        "All partitions in an NCCL exchange must select the same variables.");
+  if (!vars.empty()) state.vars = vars;
+
+  for (int rank = 0; rank < Globals::nranks; ++rank) {
+    auto it = coalesced_send_buffers.find({rank, b_type});
+    if (it == coalesced_send_buffers.end()) continue;
+    auto &rank_buffers = it->second;
+    auto buffer = rank_buffers.coalesced_bufs.find(pmd->partition);
+    if (buffer != rank_buffers.coalesced_bufs.end())
+      buffer->second.PrepareNCCL(vars, nccl_exec);
+  }
+#endif
+}
+
+//----------------------------------------------------------------------------------------
+TaskStatus CoalescedComms::LaunchNCCLExchange(BoundaryType send_type,
+                                              BoundaryType recv_type) {
+  PARTHENON_REQUIRE(UsesNCCL(send_type), "Launching an unsupported NCCL exchange.");
+#ifdef ENABLE_NCCL
+  auto &state = *nccl_states.at(GetAssociatedSender(send_type));
+  PARTHENON_REQUIRE(!state.in_flight, "NCCL exchange is already in flight.");
+  const auto real_type = std::is_same_v<Real, float> ? ncclFloat32 : ncclFloat64;
+
+  PARTHENON_NCCL_CHECK(ncclGroupStart());
+  for (int rank = 0; rank < Globals::nranks; ++rank) {
+    auto it = coalesced_recv_buffers.find({rank, recv_type});
+    if (it == coalesced_recv_buffers.end()) continue;
+    for (auto &[partition, buffer] : it->second.coalesced_bufs) {
+      PARTHENON_NCCL_CHECK(ncclRecv(buffer.coalesced_comm_buffer.buffer().data(),
+                                    buffer.current_size, real_type, rank, state.comm,
+                                    nccl_exec.cuda_stream()));
+      PARTHENON_NCCL_CHECK(ncclRecv(buffer.nccl_status_buffer.data(),
+                                    buffer.TotalBuffers(), ncclInt32, rank, state.comm,
+                                    nccl_exec.cuda_stream()));
+    }
+  }
+  for (int rank = 0; rank < Globals::nranks; ++rank) {
+    auto it = coalesced_send_buffers.find({rank, send_type});
+    if (it == coalesced_send_buffers.end()) continue;
+    for (auto &[partition, buffer] : it->second.coalesced_bufs) {
+      PARTHENON_REQUIRE(buffer.nccl_prepared,
+                        "NCCL send buffer was not prepared before exchange.");
+      PARTHENON_NCCL_CHECK(ncclSend(buffer.coalesced_comm_buffer.buffer().data(),
+                                    buffer.current_size, real_type, rank, state.comm,
+                                    nccl_exec.cuda_stream()));
+      PARTHENON_NCCL_CHECK(ncclSend(buffer.nccl_status_buffer.data(),
+                                    buffer.TotalBuffers(), ncclInt32, rank, state.comm,
+                                    nccl_exec.cuda_stream()));
+    }
+  }
+  PARTHENON_NCCL_CHECK(ncclGroupEnd());
+
+  for (int rank = 0; rank < Globals::nranks; ++rank) {
+    auto it = coalesced_recv_buffers.find({rank, recv_type});
+    if (it == coalesced_recv_buffers.end()) continue;
+    for (auto &[partition, buffer] : it->second.coalesced_bufs)
+      Kokkos::deep_copy(nccl_exec, buffer.nccl_status_host, buffer.nccl_status_buffer);
+  }
+  state.transfer_complete.Record(nccl_exec.cuda_stream());
+  state.in_flight = true;
+  state.unpack_recorded = false;
+  return TaskStatus::complete;
+#else
+  return TaskStatus::fail;
+#endif
+}
+
+//----------------------------------------------------------------------------------------
+TaskStatus CoalescedComms::PollNCCLExchange(BoundaryType send_type) {
+#ifdef ENABLE_NCCL
+  auto &state = *nccl_states.at(GetAssociatedSender(send_type));
+  if (!state.in_flight) return TaskStatus::complete;
+  return state.transfer_complete.Query() ? TaskStatus::complete : TaskStatus::incomplete;
+#else
+  return TaskStatus::fail;
+#endif
+}
+
+//----------------------------------------------------------------------------------------
+TaskStatus CoalescedComms::FinalizeNCCLExchange(BoundaryType send_type,
+                                                BoundaryType recv_type) {
+#ifdef ENABLE_NCCL
+  auto &state = *nccl_states.at(GetAssociatedSender(send_type));
+  PARTHENON_REQUIRE(state.in_flight && state.transfer_complete.Query(),
+                    "Finalizing NCCL before transfer completion.");
+
+  for (int rank = 0; rank < Globals::nranks; ++rank) {
+    auto send = coalesced_send_buffers.find({rank, send_type});
+    if (send != coalesced_send_buffers.end())
+      for (auto &[partition, buffer] : send->second.coalesced_bufs)
+        buffer.FinishNCCLSend();
+
+    auto recv = coalesced_recv_buffers.find({rank, recv_type});
+    if (recv != coalesced_recv_buffers.end())
+      for (auto &[partition, buffer] : recv->second.coalesced_bufs)
+        buffer.ApplyNCCLStatusAndUnpack(state.vars, nccl_exec);
+  }
+  state.unpack_complete.Record(nccl_exec.cuda_stream());
+  state.unpack_recorded = true;
+  state.in_flight = false;
+  state.vars.clear();
+  return TaskStatus::complete;
+#else
+  return TaskStatus::fail;
+#endif
+}
+
+//----------------------------------------------------------------------------------------
+void CoalescedComms::WaitForNCCLUnpack(BoundaryType send_type, const DevExecSpace &exec) {
+#ifdef ENABLE_NCCL
+  auto &state = *nccl_states.at(GetAssociatedSender(send_type));
+  if (state.unpack_recorded) state.unpack_complete.Wait(exec.cuda_stream());
+#endif
 }
 
 //----------------------------------------------------------------------------------------

@@ -39,6 +39,8 @@ option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by defaul
 option(PARTHENON_DISABLE_OPENPMD "OpenPMD is enabled by default if found, set this to ON to disable OpenPMD" ON)
 option(PARTHENON_USE_SYSTEM_OPENPMD "OpenPMD API is downloaded and installed automatically by default. Set this to ON to find and use a version installed on the system." OFF)
 option(PARTHENON_ENABLE_RAW_OPENMP "Enable OpenMP for raw host loops" OFF)
+option(PARTHENON_ENABLE_NCCL
+  "Use NCCL as an optional transport for coalesced CUDA communication" OFF)
 option(PARTHENON_DISABLE_SPARSE "Sparse capability is enabled by default, set this to True to compile-time disable all sparse capability" OFF)
 option(PARTHENON_ENABLE_ASCENT "Enable Ascent for in situ visualization and analysis" OFF)
 option(PARTHENON_LINT_DEFAULT "Linting is turned off by default, use the \"lint\" target or set \
@@ -186,6 +188,34 @@ if (NOT PARTHENON_DISABLE_MPI)
     "If you want to build Parthenon without MPI, please rerun CMake with -DPARTHENON_DISABLE_MPI=ON")
   endif()
   set(ENABLE_MPI ON)
+endif()
+
+set(ENABLE_NCCL OFF)
+if(PARTHENON_ENABLE_NCCL)
+  if(NOT ENABLE_MPI)
+    message(FATAL_ERROR "PARTHENON_ENABLE_NCCL requires MPI for bootstrap")
+  endif()
+  if(NOT Kokkos_ENABLE_CUDA)
+    message(FATAL_ERROR "PARTHENON_ENABLE_NCCL requires Kokkos_ENABLE_CUDA")
+  endif()
+
+  find_path(NCCL_INCLUDE_DIR NAMES nccl.h
+    HINTS ENV NCCL_ROOT ENV NCCL_HOME PATH_SUFFIXES include)
+  find_library(NCCL_LIBRARY NAMES nccl
+    HINTS ENV NCCL_ROOT ENV NCCL_HOME PATH_SUFFIXES lib lib64)
+  if(NOT NCCL_INCLUDE_DIR OR NOT NCCL_LIBRARY)
+    message(FATAL_ERROR
+      "NCCL was requested but nccl.h or libnccl was not found. "
+      "Set NCCL_ROOT or NCCL_HOME.")
+  endif()
+
+  if(NOT TARGET NCCL::NCCL)
+    add_library(NCCL::NCCL UNKNOWN IMPORTED)
+    set_target_properties(NCCL::NCCL PROPERTIES
+      IMPORTED_LOCATION "${NCCL_LIBRARY}"
+      INTERFACE_INCLUDE_DIRECTORIES "${NCCL_INCLUDE_DIR}")
+  endif()
+  set(ENABLE_NCCL ON)
 endif()
 
 set(ENABLE_SPARSE ON)

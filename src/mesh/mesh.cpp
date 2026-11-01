@@ -98,10 +98,14 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       nref(Globals::nranks), nderef(Globals::nranks), rdisp(Globals::nranks),
       ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
       brdisp(Globals::nranks), bddisp(Globals::nranks),
-      pcoalesced_comms(std::make_shared<CoalescedComms>(this)),
       do_coalesced_comms{pin->GetOrAddBoolean(
           "parthenon/mesh", "do_coalesced_comms", false,
           "Use coalesced MPI messages for inter-block communication")},
+      coalesced_comm_backend{
+          pin->GetOrAddString("parthenon/mesh", "coalesced_comm_backend", "mpi",
+                              std::vector<std::string>{"mpi", "nccl"},
+                              "Transport used for coalesced inter-rank communication")},
+      pcoalesced_comms(std::make_shared<CoalescedComms>(this)),
       nbuf_add_{pin->GetOrAddInteger(
           "parthenon/mesh", "comm_buffer_chunk_size", -1,
           "Number of comm buffers to allocate when more are required. Default is a "
@@ -1347,6 +1351,7 @@ void Mesh::BuildAndRegisterCommBuffers_() {
     pcoalesced_comms->ResolveAndSendSendBuffers();
     // This operation is blocking
     pcoalesced_comms->ReceiveBufferInfo();
+    pcoalesced_comms->InitializeNCCLBuffers();
   }
 }
 

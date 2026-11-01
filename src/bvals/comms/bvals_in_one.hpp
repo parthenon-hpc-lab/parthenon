@@ -41,7 +41,8 @@ class Variable;
 
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
-                                           bool do_restriction);
+                                           bool do_restriction,
+                                           bool perform_transport = true);
 
 template <BoundaryType bound_type>
 inline TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -51,6 +52,11 @@ inline TaskStatus SendBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
 template <BoundaryType bound_type>
 inline TaskStatus SendBoundBufsNoRestrict(std::shared_ptr<MeshData<Real>> &md) {
   return SendBoundBufsWithRestrictOption<bound_type>(md, false);
+}
+
+template <BoundaryType bound_type>
+inline TaskStatus PrepareNCCLBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
+  return SendBoundBufsWithRestrictOption<bound_type>(md, true, false);
 }
 
 template <BoundaryType bound_type>
@@ -102,6 +108,15 @@ using BValOnMDFunc_t = std::function<TaskStatus(std::shared_ptr<MeshData<Real>> 
 using BValOnMDTasks_t =
     std::function<TaskID(TaskID, TaskList *, std::shared_ptr<MeshData<Real>>, bool)>;
 bool IsMeshMultilevel(std::shared_ptr<MeshData<Real>> &md);
+bool UsesNCCLCoalescedComms(std::shared_ptr<MeshData<Real>> &md, BoundaryType btype);
+TaskStatus NCCLTaskRendezvous();
+
+template <BoundaryType send_type, BoundaryType recv_type>
+TaskStatus LaunchNCCLExchange(std::shared_ptr<MeshData<Real>> &md);
+template <BoundaryType send_type>
+TaskStatus PollNCCLExchange(std::shared_ptr<MeshData<Real>> &md);
+template <BoundaryType send_type, BoundaryType recv_type>
+TaskStatus FinalizeNCCLExchange(std::shared_ptr<MeshData<Real>> &md);
 
 // Adds all relevant boundary communication to a single task list
 template <BoundaryType bounds = BoundaryType::any>
@@ -109,6 +124,29 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
                                 std::shared_ptr<MeshData<Real>> &md, bool multilevel,
                                 BValOnMDTasks_t ApplyBCs) {
   static_assert(bounds == BoundaryType::any || bounds == BoundaryType::gmg_same);
+
+  if (UsesNCCLCoalescedComms(md, bounds)) {
+    auto pack = tl.AddTask(dependency, TF(PrepareNCCLBoundBufs<bounds>), md);
+    auto rendezvous = tl.AddTask(TaskQualifier::local_sync, pack, TF(NCCLTaskRendezvous));
+    auto launch = tl.AddTask(TaskQualifier::once_per_region, rendezvous,
+                             TF((LaunchNCCLExchange<bounds, bounds>)), md);
+    auto poll = tl.AddTask(TaskQualifier::once_per_region, launch,
+                           TF((PollNCCLExchange<bounds>)), md);
+    auto finalize = tl.AddTask(TaskQualifier::once_per_region, poll,
+                               TF((FinalizeNCCLExchange<bounds, bounds>)), md);
+    auto recv = tl.AddTask(finalize, TF(ReceiveBoundBufs<bounds>), md);
+    auto set = tl.AddTask(recv, TF(SetBounds<bounds>), md);
+
+    auto pro = set;
+    if (IsMeshMultilevel(md)) {
+      auto cbound = ApplyBCs(set, &tl, md, true);
+      pro = tl.AddTask(cbound, TF(ProlongateBounds<bounds>), md);
+    }
+    auto fbound = ApplyBCs(pro, &tl, md, false);
+    if (IsMeshMultilevel(md))
+      fbound = tl.AddTask(fbound, TF(ProlongateInternalBounds<bounds>), md);
+    return fbound;
+  }
 
   auto send = tl.AddTask(dependency, TF(SendBoundBufs<bounds>), md);
   auto recv = tl.AddTask(dependency, TF(ReceiveBoundBufs<bounds>), md);

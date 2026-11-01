@@ -61,7 +61,7 @@ int GetNteamsPerBoundaryBuffer(const Mesh *pmesh, const int nbound) {
 
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
-                                           bool do_restriction) {
+                                           bool do_restriction, bool perform_transport) {
   PARTHENON_INSTRUMENT
 
   Mesh *pmesh = md->GetMeshPointer();
@@ -200,8 +200,16 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
       }
     }
   }
-  if (pmesh->do_coalesced_comms)
-    pmesh->pcoalesced_comms->PackAndSend(md.get(), bound_type);
+  if (pmesh->do_coalesced_comms) {
+    if (pmesh->pcoalesced_comms->UsesNCCL(bound_type)) {
+      PARTHENON_REQUIRE(!perform_transport,
+                        "NCCL coalesced communication must use the coordinated task "
+                        "exchange.");
+      pmesh->pcoalesced_comms->PrepareNCCLSend(md.get(), bound_type);
+    } else {
+      pmesh->pcoalesced_comms->PackAndSend(md.get(), bound_type);
+    }
+  }
 
   return TaskStatus::complete;
 }
@@ -261,7 +269,8 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                                       ReceiveKey);
 
   const bool coal_comm = pmesh->do_coalesced_comms;
-  if (coal_comm) pmesh->pcoalesced_comms->TryReceiveAny(md.get(), bound_type);
+  if (coal_comm && !pmesh->pcoalesced_comms->UsesNCCL(bound_type))
+    pmesh->pcoalesced_comms->TryReceiveAny(md.get(), bound_type);
   bool all_received = true;
   std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                 [&all_received, coal_comm](auto pbuf) {
@@ -334,6 +343,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   auto &bnd_info = cache.bnd_info;
   const int nteams_per_buffer = GetNteamsPerBoundaryBuffer(pmesh, nbound);
   const int work_chunk_size = pmesh->boundary_buffer_work_chunk_size;
+
+  if (pmesh->pcoalesced_comms->UsesNCCL(bound_type))
+    pmesh->pcoalesced_comms->WaitForNCCLUnpack(bound_type, DevExecSpace());
 
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
@@ -521,9 +533,70 @@ bool IsMeshMultilevel(std::shared_ptr<MeshData<Real>> &md) {
   return md->GetMeshPointer()->multilevel;
 }
 
+bool UsesNCCLCoalescedComms(std::shared_ptr<MeshData<Real>> &md, BoundaryType btype) {
+  return md->GetMeshPointer()->pcoalesced_comms->UsesNCCL(btype);
+}
+
+TaskStatus NCCLTaskRendezvous() { return TaskStatus::complete; }
+
+template <BoundaryType send_type, BoundaryType recv_type>
+TaskStatus LaunchNCCLExchange(std::shared_ptr<MeshData<Real>> &md) {
+  return md->GetMeshPointer()->pcoalesced_comms->LaunchNCCLExchange(send_type, recv_type);
+}
+
+template <BoundaryType send_type>
+TaskStatus PollNCCLExchange(std::shared_ptr<MeshData<Real>> &md) {
+  return md->GetMeshPointer()->pcoalesced_comms->PollNCCLExchange(send_type);
+}
+
+template <BoundaryType send_type, BoundaryType recv_type>
+TaskStatus FinalizeNCCLExchange(std::shared_ptr<MeshData<Real>> &md) {
+  return md->GetMeshPointer()->pcoalesced_comms->FinalizeNCCLExchange(send_type,
+                                                                      recv_type);
+}
+
+template TaskStatus LaunchNCCLExchange<BoundaryType::any, BoundaryType::any>(
+    std::shared_ptr<MeshData<Real>> &);
+template TaskStatus LaunchNCCLExchange<BoundaryType::gmg_same, BoundaryType::gmg_same>(
+    std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+PollNCCLExchange<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+PollNCCLExchange<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+LaunchNCCLExchange<BoundaryType::flxcor_send, BoundaryType::flxcor_recv>(
+    std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+PollNCCLExchange<BoundaryType::flxcor_send>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus FinalizeNCCLExchange<BoundaryType::any, BoundaryType::any>(
+    std::shared_ptr<MeshData<Real>> &);
+template TaskStatus FinalizeNCCLExchange<BoundaryType::gmg_same, BoundaryType::gmg_same>(
+    std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+FinalizeNCCLExchange<BoundaryType::flxcor_send, BoundaryType::flxcor_recv>(
+    std::shared_ptr<MeshData<Real>> &);
+
 TaskID AddFluxCorrectionTasks(TaskID dependency, TaskList &tl,
                               std::shared_ptr<MeshData<Real>> &md, bool multilevel) {
   if (!multilevel) return dependency;
+  if (UsesNCCLCoalescedComms(md, BoundaryType::flxcor_send)) {
+    auto pack =
+        tl.AddTask(dependency, TF(PrepareNCCLBoundBufs<BoundaryType::flxcor_send>), md);
+    auto rendezvous = tl.AddTask(TaskQualifier::local_sync, pack, TF(NCCLTaskRendezvous));
+    auto launch = tl.AddTask(
+        TaskQualifier::once_per_region, rendezvous,
+        TF((LaunchNCCLExchange<BoundaryType::flxcor_send, BoundaryType::flxcor_recv>)),
+        md);
+    auto poll = tl.AddTask(TaskQualifier::once_per_region, launch,
+                           TF((PollNCCLExchange<BoundaryType::flxcor_send>)), md);
+    auto finalize = tl.AddTask(
+        TaskQualifier::once_per_region, poll,
+        TF((FinalizeNCCLExchange<BoundaryType::flxcor_send, BoundaryType::flxcor_recv>)),
+        md);
+    auto receive =
+        tl.AddTask(finalize, TF(ReceiveBoundBufs<BoundaryType::flxcor_recv>), md);
+    return tl.AddTask(receive, TF(SetBounds<BoundaryType::flxcor_recv>), md);
+  }
   tl.AddTask(dependency, TF(SendBoundBufs<BoundaryType::flxcor_send>), md);
   auto receive =
       tl.AddTask(dependency, TF(ReceiveBoundBufs<BoundaryType::flxcor_recv>), md);
