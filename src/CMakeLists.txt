@@ -407,6 +407,16 @@ if (ENABLE_MPI)
   target_link_libraries(parthenon PUBLIC MPI::MPI_CXX)
 endif()
 
+if(PARTHENON_ENABLE_NVSHMEM)
+  if(NOT Kokkos_ENABLE_CUDA)
+    message(FATAL_ERROR "PARTHENON_ENABLE_NVSHMEM currently requires the CUDA backend")
+  endif()
+  target_include_directories(parthenon PRIVATE ${NVSHMEM_INCLUDE_DIR})
+  target_link_libraries(parthenon PUBLIC
+    ${NVSHMEM_HOST_LIBRARY}
+    ${NVSHMEM_DEVICE_LIBRARY})
+endif()
+
 if (PARTHENON_ENABLE_RAW_OPENMP)
   target_link_libraries(parthenon PUBLIC OpenMP::OpenMP_CXX)
 endif()

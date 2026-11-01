@@ -1344,9 +1344,15 @@ void Mesh::BuildAndRegisterCommBuffers_() {
   }
 
   if (do_coalesced_comms) {
+#ifdef PARTHENON_ENABLE_NVSHMEM
+    pcoalesced_comms->PrepareNvshmemMetadata();
+#endif
     pcoalesced_comms->ResolveAndSendSendBuffers();
     // This operation is blocking
     pcoalesced_comms->ReceiveBufferInfo();
+#ifdef PARTHENON_ENABLE_NVSHMEM
+    pcoalesced_comms->SetupNvshmemArena();
+#endif
   }
 }
 

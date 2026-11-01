@@ -14,6 +14,8 @@
 #ifndef BVALS_COMMS_COALESCED_BUFFERS_HPP_
 #define BVALS_COMMS_COALESCED_BUFFERS_HPP_
 
+#include <cstddef>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <set>
@@ -27,6 +29,7 @@
 #include "bvals/comms/bvals_utils.hpp"
 #include "bvals/neighbor_block.hpp"
 #include "coordinates/coordinates.hpp"
+#include "config.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
@@ -57,6 +60,31 @@ struct CoalescedBuffer {
   CommBuffer<std::vector<int>> sparse_status_buffer;
   int current_size;
 
+#ifdef PARTHENON_ENABLE_NVSHMEM
+  bool use_nvshmem{false};
+  std::size_t local_data_offset{0};
+  std::size_t remote_data_offset{0};
+  std::size_t local_completion_index{0};
+  std::size_t remote_completion_index{0};
+  std::size_t local_ack_index{0};
+  std::size_t remote_ack_index{0};
+  std::uint64_t send_epoch{0};
+  std::uint64_t receive_epoch{0};
+  Real *local_symmetric_data{nullptr};
+  Real *remote_symmetric_data{nullptr};
+  std::uint64_t *local_signals{nullptr};
+  std::uint64_t *remote_completion_signal{nullptr};
+  std::uint64_t *remote_ack_signal{nullptr};
+
+  void ConfigureNvshmemSender(Real *local_data, std::uint64_t *signals,
+                              std::size_t remote_offset,
+                              std::size_t remote_completion);
+  void ConfigureNvshmemReceiver(Real *local_data, std::uint64_t *signals,
+                                std::size_t local_offset,
+                                std::size_t local_completion);
+  void WarnMpiFallback(const char *operation) const;
+#endif
+
   CoalescedBuffer(bool sender, int partition, int other_rank, BoundaryType b_type,
                   mpi_comm_t comm, Mesh *pmesh);
 
@@ -72,13 +100,11 @@ struct CoalescedBuffer {
   void AddVarBoundary(MeshBlock *pmb, const NeighborBlock &nb,
                       const std::shared_ptr<Variable<Real>> &var);
 
-  bool IsAvailableForWrite() {
-    return sparse_status_buffer.IsAvailableForWrite() &&
-           coalesced_comm_buffer.IsAvailableForWrite();
-  }
+  bool IsAvailableForWrite();
 
   ParArray1DRaw<BndId> &GetBndIdsOnDevice(const std::set<Uid_t> &vars,
-                                          int *pcomb_size = nullptr);
+                                          int *pcomb_size = nullptr,
+                                          bool use_combined_buffer = true);
 
   void PackAndSend(const std::set<Uid_t> &vars);
 
@@ -102,7 +128,11 @@ struct CoalescedBuffersRank {
   std::map<int, CoalescedBuffer> coalesced_bufs;
 
   static constexpr int nglobal{1};
+#ifdef PARTHENON_ENABLE_NVSHMEM
+  static constexpr int nper_part{4};
+#else
   static constexpr int nper_part{3};
+#endif
 
   using com_buf_t = CommBuffer<std::vector<int>>;
   com_buf_t message;
@@ -137,6 +167,13 @@ struct CoalescedComms {
 
   Mesh *pmesh;
 
+#ifdef PARTHENON_ENABLE_NVSHMEM
+  Real *symmetric_data{nullptr};
+  std::uint64_t *symmetric_signals{nullptr};
+  std::size_t symmetric_data_size{0};
+  std::size_t symmetric_signal_count{0};
+#endif
+
   explicit CoalescedComms(Mesh *pmesh);
 
   ~CoalescedComms();
@@ -152,6 +189,12 @@ struct CoalescedComms {
   void ResolveAndSendSendBuffers();
 
   void ReceiveBufferInfo();
+
+#ifdef PARTHENON_ENABLE_NVSHMEM
+  void PrepareNvshmemMetadata();
+  void SetupNvshmemArena();
+  void ReleaseNvshmemArena();
+#endif
 
   void PackAndSend(MeshData<Real> *pmd, BoundaryType b_type);
 

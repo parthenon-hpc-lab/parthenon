@@ -43,6 +43,9 @@
 // define PARTHENON_ENABLE_HOST_COMM_BUFFERS or not at all
 #cmakedefine PARTHENON_ENABLE_HOST_COMM_BUFFERS
 
+// use NVSHMEM direct peer access for coalesced communication
+#cmakedefine PARTHENON_ENABLE_NVSHMEM
+
 // defne ENABLE_HDF5 or not at all
 #cmakedefine ENABLE_HDF5
 

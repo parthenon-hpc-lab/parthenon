@@ -34,6 +34,8 @@ include(CTest)
 option(PARTHENON_SINGLE_PRECISION "Run in single precision" OFF)
 option(PARTHENON_DISABLE_MPI "MPI is enabled by default if found, set this to True to disable MPI" OFF)
 option(PARTHENON_ENABLE_HOST_COMM_BUFFERS "CUDA/HIP Only: Allocate communication buffers on host (may be slower)" OFF)
+option(PARTHENON_ENABLE_NVSHMEM
+  "Use NVSHMEM direct peer access for coalesced communication when available" OFF)
 option(PARTHENON_DISABLE_HDF5 "HDF5 is enabled by default if found, set this to True to disable HDF5" OFF)
 option(PARTHENON_DISABLE_HDF5_COMPRESSION "HDF5 compression is enabled by default, set this to True to disable compression in HDF5 output/restart files" OFF)
 option(PARTHENON_DISABLE_OPENPMD "OpenPMD is enabled by default if found, set this to ON to disable OpenPMD" ON)
@@ -64,6 +66,34 @@ option(ENABLE_ASAN "Turn on ASAN" OFF)
 option(ENABLE_HWASAN "Turn on HWASAN (currently ARM-only)" OFF)
 option(PARTHENON_USE_SERIAL_POOL "Disable threaded tasking" ON)
 option(PARTHENON_DEBUG_SCRATCH "Enable debugging for scratch variables" OFF)
+
+if(PARTHENON_ENABLE_NVSHMEM)
+  if(PARTHENON_DISABLE_MPI)
+    message(FATAL_ERROR "PARTHENON_ENABLE_NVSHMEM requires MPI")
+  endif()
+  if(PARTHENON_ENABLE_HOST_COMM_BUFFERS)
+    message(FATAL_ERROR
+      "PARTHENON_ENABLE_NVSHMEM is incompatible with host communication buffers")
+  endif()
+  set(Kokkos_ENABLE_CUDA_RELOCATABLE_DEVICE_CODE ON CACHE BOOL
+    "Required for NVSHMEM device APIs" FORCE)
+
+  find_path(NVSHMEM_INCLUDE_DIR nvshmem.h
+    HINTS ENV NVSHMEM_HOME
+    PATH_SUFFIXES include)
+  find_library(NVSHMEM_HOST_LIBRARY nvshmem_host
+    HINTS ENV NVSHMEM_HOME
+    PATH_SUFFIXES lib lib64)
+  find_library(NVSHMEM_DEVICE_LIBRARY nvshmem_device
+    HINTS ENV NVSHMEM_HOME
+    PATH_SUFFIXES lib lib64)
+  if(NOT NVSHMEM_INCLUDE_DIR OR NOT NVSHMEM_HOST_LIBRARY OR
+      NOT NVSHMEM_DEVICE_LIBRARY)
+    message(FATAL_ERROR
+      "NVSHMEM was requested but nvshmem.h, libnvshmem_host, or "
+      "libnvshmem_device was not found. Set NVSHMEM_HOME or CMAKE_PREFIX_PATH.")
+  endif()
+endif()
 
 option(PARTHENON_USE_SYSTEM_PACKAGES "Enables search for system packages when available" OFF)
 if (PARTHENON_USE_SYSTEM_PACKAGES)

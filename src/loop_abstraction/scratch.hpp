@@ -49,7 +49,6 @@ template <std::size_t... Dims>
 struct ctime_flat_indexer {
   static constexpr std::size_t ndim = sizeof...(Dims);
   static constexpr std::size_t size = (Dims * ... * std::size_t{1});
-  static constexpr std::array<std::size_t, ndim> dim_sizes{Dims...};
 
   template <class... Args>
     requires(sizeof...(Args) >=
@@ -63,6 +62,7 @@ struct ctime_flat_indexer {
   template <std::size_t... I, class Tuple>
   KOKKOS_FORCEINLINE_FUNCTION static constexpr std::size_t
   GetFlatImpl(std::index_sequence<I...>, Tuple &&tup) {
+    constexpr std::array<std::size_t, ndim> dim_sizes{Dims...};
     std::size_t flat_idx{0};
     (
         [&] {

@@ -34,6 +34,10 @@
 #include "amr_criteria/amr_criteria.hpp"
 #include "amr_criteria/refinement_package.hpp"
 #include "config.hpp"
+#ifdef PARTHENON_ENABLE_NVSHMEM
+#include <nvshmem.h>
+#include <nvshmemx.h>
+#endif
 #include FS_HEADER
 #include "globals.hpp"
 #include "mesh/domain.hpp"
@@ -78,6 +82,18 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 #endif // MPI_PARALLEL
 
   Kokkos::initialize(argc, argv);
+
+#ifdef PARTHENON_ENABLE_NVSHMEM
+  MPI_Comm nvshmem_bootstrap_comm = MPI_COMM_WORLD;
+  nvshmemx_init_attr_t nvshmem_attr = NVSHMEMX_INIT_ATTR_INITIALIZER;
+  nvshmem_attr.mpi_comm = &nvshmem_bootstrap_comm;
+  const int nvshmem_status =
+      nvshmemx_init_attr(NVSHMEMX_INIT_WITH_MPI_COMM, &nvshmem_attr);
+  PARTHENON_REQUIRE_THROWS(nvshmem_status == 0, "NVSHMEM initialization failed");
+  PARTHENON_REQUIRE_THROWS(
+      nvshmem_my_pe() == Globals::my_rank && nvshmem_n_pes() == Globals::nranks,
+      "NVSHMEM PE numbering must match MPI_COMM_WORLD rank numbering");
+#endif
 
   // pgrete: This is a hack to disable allocation tracking until the Kokkos
   // tools provide a more fine grained control out of the box.
@@ -269,6 +285,10 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
 
 ParthenonStatus ParthenonManager::ParthenonFinalize() {
   pmesh.reset();
+#ifdef PARTHENON_ENABLE_NVSHMEM
+  Kokkos::fence();
+  nvshmem_finalize();
+#endif
   Kokkos::finalize();
 #ifdef MPI_PARALLEL
   int mpi_finalized;
