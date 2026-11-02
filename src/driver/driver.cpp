@@ -1,5 +1,7 @@
 //========================================================================================
 // (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// AI was used to assist with GPU timestep reduction and timing diagnostics.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
