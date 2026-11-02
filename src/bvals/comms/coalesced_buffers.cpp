@@ -11,8 +11,10 @@
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
 #include <algorithm>
-#include <cstdio>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <map>
 #include <memory>
@@ -39,6 +41,112 @@
 #endif
 
 namespace parthenon {
+namespace {
+
+int CoalescedTeamsPerBuffer(const Mesh *pmesh, int buffers) {
+  static const bool enabled = []() {
+    const char *value = std::getenv("RIOT_COALESCED_TEAMS");
+    return value && std::strcmp(value, "1") == 0;
+  }();
+  if (!enabled || buffers == 0) return 1;
+  return std::max(1, (pmesh->minimum_number_of_teams_for_boundary_kernel + buffers - 1) /
+                         buffers);
+}
+
+int CoalescedCopyChunk() {
+  static const int chunk = []() {
+    const char *value = std::getenv("RIOT_COALESCED_CHUNK");
+    if (!value) return 0;
+    char *end = nullptr;
+    const long n = std::strtol(value, &end, 10);
+    PARTHENON_REQUIRE(end != value && *end == '\0' &&
+                          (n == 0 || (n >= 256 && n <= 1048576)),
+                      "RIOT_COALESCED_CHUNK must be 0 or 256..1048576 elements");
+    return static_cast<int>(n);
+  }();
+  return chunk;
+}
+
+bool DenseStaticComms() {
+  static const bool enabled = []() {
+    const char *value = std::getenv("RIOT_DENSE_STATIC_COMMS");
+    return value && std::strcmp(value, "1") == 0;
+  }();
+  return enabled;
+}
+
+// Each team owns a disjoint interval of the combined buffer. Find the first
+// source/destination boundary by offset, then copy intersections with the tile.
+// The combined pointer may address either the local MPI buffer or an NVSHMEM arena.
+template <bool Pack>
+void CoalescedChunkCopy(const ParArray1DRaw<BndId> &bids, std::size_t total,
+                        Real *combined) {
+  const std::size_t chunk = CoalescedCopyChunk();
+  const int count = static_cast<int>(bids.size());
+  Kokkos::parallel_for(
+      Pack ? "RIOT::ChunkPack" : "RIOT::ChunkUnpack",
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), (total + chunk - 1) / chunk, 256),
+      KOKKOS_LAMBDA(parthenon::team_mbr_t team) {
+        std::size_t begin = static_cast<std::size_t>(team.league_rank()) * chunk;
+        const std::size_t end = begin + chunk < total ? begin + chunk : total;
+        int lo = 0;
+        int hi = count;
+        while (lo < hi) {
+          const int mid = lo + (hi - lo) / 2;
+          if (static_cast<std::size_t>(bids[mid].start_idx()) <= begin) {
+            lo = mid + 1;
+          } else {
+            hi = mid;
+          }
+        }
+        int b = lo - 1;
+        if (b < 0) b = 0;
+        while (begin < end && b < count) {
+          if (bids[b].buf_allocated) {
+            const std::size_t start = bids[b].start_idx();
+            const std::size_t stop = start + bids[b].size();
+            const std::size_t piece_end = end < stop ? end : stop;
+            Real *com = combined + start;
+            Real *buf = &(bids[b].buf(0));
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange<>(team, begin - start, piece_end - start),
+                [&](const std::size_t i) {
+                  if constexpr (Pack) {
+                    com[i] = buf[i];
+                  } else {
+                    buf[i] = com[i];
+                  }
+                });
+            begin = piece_end;
+          }
+          ++b;
+        }
+      });
+
+  const char *verify = std::getenv("RIOT_VERIFY_COPIES");
+  if (verify && std::strcmp(verify, "1") == 0) {
+    int errors = 0;
+    Kokkos::parallel_reduce(
+        "RIOT::VerifyCoalescedCopy",
+        Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), count, Kokkos::AUTO),
+        KOKKOS_LAMBDA(parthenon::team_mbr_t team, int &bad) {
+          const int b = team.league_rank();
+          int local = 0;
+          if (bids[b].buf_allocated) {
+            Real *com = combined + bids[b].start_idx();
+            Real *buf = &(bids[b].buf(0));
+            Kokkos::parallel_reduce(
+                Kokkos::TeamThreadRange<>(team, bids[b].size()),
+                [&](const int i, int &n) { n += com[i] != buf[i]; }, local);
+          }
+          Kokkos::single(Kokkos::PerTeam(team), [&]() { bad += local; });
+        },
+        errors);
+    PARTHENON_REQUIRE(errors == 0, "Coalesced copy element comparison failed");
+  }
+}
+
+} // namespace
 
 //----------------------------------------------------------------------------------------
 CoalescedBuffer::CoalescedBuffer(bool sender, int partition, int other_rank,
@@ -138,10 +246,10 @@ bool CoalescedBuffer::IsAvailableForWrite() {
 #ifdef PARTHENON_ENABLE_NVSHMEM
   if (use_nvshmem) {
     std::uint64_t acknowledged;
-    PARTHENON_REQUIRE(
-        cudaMemcpy(&acknowledged, local_signals + local_ack_index,
-                   sizeof(acknowledged), cudaMemcpyDeviceToHost) == cudaSuccess,
-        "Unable to read the local NVSHMEM acknowledgement");
+    PARTHENON_REQUIRE(cudaMemcpy(&acknowledged, local_signals + local_ack_index,
+                                 sizeof(acknowledged),
+                                 cudaMemcpyDeviceToHost) == cudaSuccess,
+                      "Unable to read the local NVSHMEM acknowledgement");
     return status_available && acknowledged >= send_epoch;
   }
 #endif
@@ -150,8 +258,7 @@ bool CoalescedBuffer::IsAvailableForWrite() {
 
 #ifdef PARTHENON_ENABLE_NVSHMEM
 //----------------------------------------------------------------------------------------
-void CoalescedBuffer::ConfigureNvshmemSender(Real *local_data,
-                                             std::uint64_t *signals,
+void CoalescedBuffer::ConfigureNvshmemSender(Real *local_data, std::uint64_t *signals,
                                              std::size_t remote_offset,
                                              std::size_t remote_completion) {
   local_symmetric_data = local_data;
@@ -160,23 +267,21 @@ void CoalescedBuffer::ConfigureNvshmemSender(Real *local_data,
   remote_completion_index = remote_completion;
   remote_symmetric_data =
       static_cast<Real *>(nvshmem_ptr(local_data + remote_offset, other_rank));
-  remote_completion_signal = static_cast<std::uint64_t *>(
-      nvshmem_ptr(signals + remote_completion, other_rank));
-  use_nvshmem =
-      (remote_symmetric_data != nullptr && remote_completion_signal != nullptr);
+  remote_completion_signal =
+      static_cast<std::uint64_t *>(nvshmem_ptr(signals + remote_completion, other_rank));
+  use_nvshmem = (remote_symmetric_data != nullptr && remote_completion_signal != nullptr);
 }
 
 //----------------------------------------------------------------------------------------
-void CoalescedBuffer::ConfigureNvshmemReceiver(Real *local_data,
-                                               std::uint64_t *signals,
+void CoalescedBuffer::ConfigureNvshmemReceiver(Real *local_data, std::uint64_t *signals,
                                                std::size_t local_offset,
                                                std::size_t local_completion) {
   local_symmetric_data = local_data;
   local_signals = signals;
   local_data_offset = local_offset;
   local_completion_index = local_completion;
-  remote_ack_signal = static_cast<std::uint64_t *>(
-      nvshmem_ptr(signals + remote_ack_index, other_rank));
+  remote_ack_signal =
+      static_cast<std::uint64_t *>(nvshmem_ptr(signals + remote_ack_index, other_rank));
   // CUDA peer access is symmetric on supported NVSHMEM transports. The sender performs
   // the authoritative nvshmem_ptr lookup for the actual destination pointer.
   use_nvshmem =
@@ -186,8 +291,7 @@ void CoalescedBuffer::ConfigureNvshmemReceiver(Real *local_data,
 //----------------------------------------------------------------------------------------
 void CoalescedBuffer::WarnMpiFallback(const char *operation) const {
   PARTHENON_WARN("NVSHMEM coalesced payload fell back to MPI: operation=" +
-                 std::string(operation) + ", rank=" +
-                 std::to_string(Globals::my_rank) +
+                 std::string(operation) + ", rank=" + std::to_string(Globals::my_rank) +
                  ", peer_rank=" + std::to_string(other_rank) +
                  ", boundary_type=" + std::to_string(static_cast<int>(b_type)) +
                  ", partition=" + std::to_string(partition));
@@ -207,37 +311,60 @@ void CoalescedBuffer::PackAndSend(const std::set<Uid_t> &vars) {
                       "Trying to write to a buffer that is in use.");
   }
   int comb_size;
-  auto &bids = GetBndIdsOnDevice(
-      vars, &comb_size,
+  auto &bids = GetBndIdsOnDevice(vars, &comb_size,
 #ifdef PARTHENON_ENABLE_NVSHMEM
-      !use_nvshmem
+                                 !use_nvshmem
 #else
-      true
+                                 true
 #endif
   );
 #ifdef PARTHENON_ENABLE_NVSHMEM
   Real *nvshmem_destination = remote_symmetric_data;
   const bool direct_nvshmem = use_nvshmem;
 #endif
-  Kokkos::parallel_for(
-      PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(), Kokkos::AUTO),
-      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        const int b = team_member.league_rank();
-        if (bids[b].buf_allocated) {
-          const std::size_t buf_size = bids[b].size();
-          Real *buf = &(bids[b].buf(0));
+  Real *combined = coalesced_comm_buffer.buffer().data();
 #ifdef PARTHENON_ENABLE_NVSHMEM
-          Real *com_buf = direct_nvshmem
-                              ? &(nvshmem_destination[bids[b].start_idx()])
-                              : &(bids[b].coalesced_buf(bids[b].start_idx()));
-#else
-          Real *com_buf = &(bids[b].coalesced_buf(bids[b].start_idx()));
+  if (direct_nvshmem) combined = nvshmem_destination;
 #endif
-          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
-                               [&](const int idx) { com_buf[idx] = buf[idx]; });
-        }
-      });
+  if (CoalescedCopyChunk()) {
+    CoalescedChunkCopy<true>(bids, comb_size, combined);
+  } else {
+    const int nteams_per_buffer =
+        CoalescedTeamsPerBuffer(pmesh, static_cast<int>(bids.size()));
+    if (nteams_per_buffer == 1) {
+      Kokkos::parallel_for(
+          PARTHENON_AUTO_LABEL,
+          Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(), Kokkos::AUTO),
+          KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
+            const int b = team_member.league_rank();
+            if (bids[b].buf_allocated) {
+              const std::size_t buf_size = bids[b].size();
+              Real *com_buf = combined + bids[b].start_idx();
+              Real *buf = &(bids[b].buf(0));
+              Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
+                                   [&](const int idx) { com_buf[idx] = buf[idx]; });
+            }
+          });
+    } else {
+      Kokkos::parallel_for(
+          PARTHENON_AUTO_LABEL,
+          Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size() * nteams_per_buffer,
+                               Kokkos::AUTO),
+          KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
+            const int b = team_member.league_rank() / nteams_per_buffer;
+            const int bteam = team_member.league_rank() % nteams_per_buffer;
+            if (bids[b].buf_allocated) {
+              const std::size_t buf_size = bids[b].size();
+              Real *com_buf = combined + bids[b].start_idx();
+              Real *buf = &(bids[b].buf(0));
+              Kokkos::parallel_for(Kokkos::TeamThreadRange<>(
+                                       team_member, buf_size * bteam / nteams_per_buffer,
+                                       buf_size * (bteam + 1) / nteams_per_buffer),
+                                   [&](const int idx) { com_buf[idx] = buf[idx]; });
+            }
+          });
+    }
+  }
 #ifdef MPI_PARALLEL
   Kokkos::fence();
 #endif
@@ -254,12 +381,13 @@ void CoalescedBuffer::PackAndSend(const std::set<Uid_t> &vars) {
 #endif
   {
 #ifdef PARTHENON_ENABLE_NVSHMEM
-    WarnMpiFallback("send");
+    if (pmesh->UseNvshmemCoalescedComms()) WarnMpiFallback("send");
 #endif
     coalesced_comm_buffer.Send(false, comb_size);
   }
 
   // Send the sparse null info as well
+  const bool dense_static = DenseStaticComms() && bids.size() > 0;
   if (bids.size() != sparse_status_buffer.buffer().size()) {
     sparse_status_buffer.Allocate(bids.size());
   }
@@ -276,11 +404,13 @@ void CoalescedBuffer::PackAndSend(const std::set<Uid_t> &vars) {
                             state == BufferState::sending_null,
                         "Bad state.");
       int send_type = (state == BufferState::sending);
+      PARTHENON_REQUIRE(!dense_static || send_type == 1,
+                        "Dense static communication requires all channels active");
       stat[idx] = send_type;
       ++idx;
     }
   }
-  sparse_status_buffer.Send();
+  if (!dense_static) sparse_status_buffer.Send();
 
   // Information in these send buffers is no longer required
   for (auto uid : var_set) {
@@ -310,15 +440,23 @@ bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
     }
   }
 
+  // For dense static communication, allocation metadata is known to be all-one and does
+  // not need a separate MPI message.
+  if (DenseStaticComms() && nbuf > 0) {
+    sparse_status_buffer.Allocate(nbuf);
+    auto &dense_status = sparse_status_buffer.buffer();
+    std::fill(dense_status.begin(), dense_status.end(), 1);
+    sparse_status_buffer.SetReceived();
+  }
   auto received_sparse = sparse_status_buffer.TryReceive();
   bool received;
 #ifdef PARTHENON_ENABLE_NVSHMEM
   if (use_nvshmem) {
     std::uint64_t completed;
-    PARTHENON_REQUIRE(
-        cudaMemcpy(&completed, local_signals + local_completion_index,
-                   sizeof(completed), cudaMemcpyDeviceToHost) == cudaSuccess,
-        "Unable to read the local NVSHMEM completion signal");
+    PARTHENON_REQUIRE(cudaMemcpy(&completed, local_signals + local_completion_index,
+                                 sizeof(completed),
+                                 cudaMemcpyDeviceToHost) == cudaSuccess,
+                      "Unable to read the local NVSHMEM completion signal");
     received = completed >= (receive_epoch + 1);
   } else
 #endif
@@ -328,7 +466,7 @@ bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
   if (!received || !received_sparse) return false;
 
 #ifdef PARTHENON_ENABLE_NVSHMEM
-  if (!use_nvshmem) WarnMpiFallback("receive");
+  if (!use_nvshmem && pmesh->UseNvshmemCoalescedComms()) WarnMpiFallback("receive");
 #endif
 
   // Allocate and free buffers as required
@@ -349,45 +487,70 @@ bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
     }
   }
 
-  auto &bids = GetBndIdsOnDevice(
-      vars, nullptr,
+  int comb_size;
+  auto &bids = GetBndIdsOnDevice(vars, &comb_size,
 #ifdef PARTHENON_ENABLE_NVSHMEM
-      !use_nvshmem
+                                 !use_nvshmem
 #else
-      true
+                                 true
 #endif
   );
 #ifdef PARTHENON_ENABLE_NVSHMEM
   Real *nvshmem_source = local_symmetric_data + local_data_offset;
   const bool direct_nvshmem = use_nvshmem;
 #endif
-  Kokkos::parallel_for(
-      PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(), Kokkos::AUTO),
-      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        const int b = team_member.league_rank();
-        if (bids[b].buf_allocated) {
-          const std::size_t buf_size = bids[b].size();
+  Real *combined = coalesced_comm_buffer.buffer().data();
 #ifdef PARTHENON_ENABLE_NVSHMEM
-          Real *com_buf = direct_nvshmem
-                              ? &(nvshmem_source[bids[b].start_idx()])
-                              : &(bids[b].coalesced_buf(bids[b].start_idx()));
-#else
-          Real *com_buf = &(bids[b].coalesced_buf(bids[b].start_idx()));
+  if (direct_nvshmem) combined = nvshmem_source;
 #endif
-          Real *buf = &(bids[b].buf(0));
-          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
-                               [&](const int idx) { buf[idx] = com_buf[idx]; });
-        }
-      });
+  if (CoalescedCopyChunk()) {
+    CoalescedChunkCopy<false>(bids, comb_size, combined);
+  } else {
+    const int nteams_per_buffer =
+        CoalescedTeamsPerBuffer(pmesh, static_cast<int>(bids.size()));
+    if (nteams_per_buffer == 1) {
+      Kokkos::parallel_for(
+          PARTHENON_AUTO_LABEL,
+          Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(), Kokkos::AUTO),
+          KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
+            const int b = team_member.league_rank();
+            if (bids[b].buf_allocated) {
+              const std::size_t buf_size = bids[b].size();
+              Real *com_buf = combined + bids[b].start_idx();
+              Real *buf = &(bids[b].buf(0));
+              Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
+                                   [&](const int idx) { buf[idx] = com_buf[idx]; });
+            }
+          });
+    } else {
+      Kokkos::parallel_for(
+          PARTHENON_AUTO_LABEL,
+          Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size() * nteams_per_buffer,
+                               Kokkos::AUTO),
+          KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
+            const int b = team_member.league_rank() / nteams_per_buffer;
+            const int bteam = team_member.league_rank() % nteams_per_buffer;
+            if (bids[b].buf_allocated) {
+              const std::size_t buf_size = bids[b].size();
+              Real *com_buf = combined + bids[b].start_idx();
+              Real *buf = &(bids[b].buf(0));
+              Kokkos::parallel_for(Kokkos::TeamThreadRange<>(
+                                       team_member, buf_size * bteam / nteams_per_buffer,
+                                       buf_size * (bteam + 1) / nteams_per_buffer),
+                                   [&](const int idx) { buf[idx] = com_buf[idx]; });
+            }
+          });
+    }
+  }
 #ifdef PARTHENON_ENABLE_NVSHMEM
   if (use_nvshmem) {
     Kokkos::fence();
     ++receive_epoch;
     auto *ack_signal = remote_ack_signal;
     const auto epoch = receive_epoch;
-    Kokkos::parallel_for("Acknowledge NVSHMEM coalesced receive", 1,
-                         KOKKOS_LAMBDA(const int) { *ack_signal = epoch; });
+    Kokkos::parallel_for(
+        "Acknowledge NVSHMEM coalesced receive", 1,
+        KOKKOS_LAMBDA(const int) { *ack_signal = epoch; });
     Kokkos::fence();
   } else
 #endif
@@ -518,10 +681,9 @@ void CoalescedBuffersRank::ResolveAndSendBufInfo() {
     mess_buf[idx++] =
         coalesced_buf.current_size; // combined size of buffers (now probably unused)
 #ifdef PARTHENON_ENABLE_NVSHMEM
-    PARTHENON_REQUIRE(
-        coalesced_buf.local_ack_index <=
-            static_cast<std::size_t>(std::numeric_limits<int>::max()),
-        "Too many NVSHMEM acknowledgement signals");
+    PARTHENON_REQUIRE(coalesced_buf.local_ack_index <=
+                          static_cast<std::size_t>(std::numeric_limits<int>::max()),
+                      "Too many NVSHMEM acknowledgement signals");
     mess_buf[idx++] = static_cast<int>(coalesced_buf.local_ack_index);
 #endif
     for (auto &[uid, v] : coalesced_buf.coalesced_info_buf) {
@@ -582,6 +744,13 @@ CoalescedComms::CoalescedComms(Mesh *pmesh) : pmesh(pmesh) {
     comm = 0;
 #endif
   }
+
+  if (pmesh->UseNvshmemCoalescedComms()) {
+#ifndef PARTHENON_ENABLE_NVSHMEM
+    PARTHENON_FAIL(
+        "coalesced_comm_backend=nvshmem requested without PARTHENON_ENABLE_NVSHMEM");
+#endif
+  }
 }
 
 #ifdef PARTHENON_ENABLE_NVSHMEM
@@ -599,14 +768,12 @@ void CoalescedComms::PrepareNvshmemMetadata() {
 void CoalescedComms::SetupNvshmemArena() {
   PARTHENON_REQUIRE(symmetric_data == nullptr && symmetric_signals == nullptr,
                     "NVSHMEM arena must be released before it is rebuilt");
-  PARTHENON_REQUIRE(
-      nvshmem_my_pe() == Globals::my_rank,
-      "NVSHMEM PE " + std::to_string(nvshmem_my_pe()) +
-          " does not match MPI rank " + std::to_string(Globals::my_rank));
+  PARTHENON_REQUIRE(nvshmem_my_pe() == Globals::my_rank,
+                    "NVSHMEM PE " + std::to_string(nvshmem_my_pe()) +
+                        " does not match MPI rank " + std::to_string(Globals::my_rank));
 
   constexpr std::size_t alignment_bytes = 128;
-  const std::size_t alignment =
-      std::max<std::size_t>(1, alignment_bytes / sizeof(Real));
+  const std::size_t alignment = std::max<std::size_t>(1, alignment_bytes / sizeof(Real));
   const auto align_up = [alignment](std::size_t value) {
     return ((value + alignment - 1) / alignment) * alignment;
   };
@@ -624,13 +791,12 @@ void CoalescedComms::SetupNvshmemArena() {
 
   std::uint64_t local_sizes[2] = {local_data_size, next_signal};
   std::uint64_t global_sizes[2] = {};
-  PARTHENON_MPI_CHECK(MPI_Allreduce(local_sizes, global_sizes, 2, MPI_UINT64_T, MPI_MAX,
-                                    MPI_COMM_WORLD));
+  PARTHENON_MPI_CHECK(
+      MPI_Allreduce(local_sizes, global_sizes, 2, MPI_UINT64_T, MPI_MAX, MPI_COMM_WORLD));
 
   symmetric_data_size = std::max<std::size_t>(1, global_sizes[0]);
   symmetric_signal_count = std::max<std::size_t>(1, global_sizes[1]);
-  symmetric_data =
-      static_cast<Real *>(nvshmem_calloc(symmetric_data_size, sizeof(Real)));
+  symmetric_data = static_cast<Real *>(nvshmem_calloc(symmetric_data_size, sizeof(Real)));
   symmetric_signals = static_cast<std::uint64_t *>(
       nvshmem_calloc(symmetric_signal_count, sizeof(std::uint64_t)));
   PARTHENON_REQUIRE(symmetric_data != nullptr && symmetric_signals != nullptr,
@@ -639,9 +805,9 @@ void CoalescedComms::SetupNvshmemArena() {
 
   for (auto &[key, rank_buffers] : coalesced_recv_buffers) {
     for (auto &[partition, buffer] : rank_buffers.coalesced_bufs) {
-      buffer.ConfigureNvshmemReceiver(
-          symmetric_data, symmetric_signals, buffer.local_data_offset,
-          buffer.local_completion_index);
+      buffer.ConfigureNvshmemReceiver(symmetric_data, symmetric_signals,
+                                      buffer.local_data_offset,
+                                      buffer.local_completion_index);
     }
   }
 
@@ -654,8 +820,7 @@ void CoalescedComms::SetupNvshmemArena() {
     const auto b_type = key.second;
     auto &message = per_rank[source_rank];
     for (auto &[partition, buffer] : rank_buffers.coalesced_bufs) {
-      message.push_back(
-          static_cast<std::uint64_t>(GetAssociatedSender(b_type)));
+      message.push_back(static_cast<std::uint64_t>(GetAssociatedSender(b_type)));
       message.push_back(static_cast<std::uint64_t>(partition));
       message.push_back(buffer.local_data_offset);
       message.push_back(buffer.local_completion_index);
@@ -668,15 +833,14 @@ void CoalescedComms::SetupNvshmemArena() {
   std::vector<int> send_displs(Globals::nranks, 0);
   std::vector<int> recv_displs(Globals::nranks, 0);
   for (int rank = 0; rank < Globals::nranks; ++rank) {
-    PARTHENON_REQUIRE(
-        per_rank[rank].size() <=
-            static_cast<std::size_t>(std::numeric_limits<int>::max()),
-        "NVSHMEM layout message is too large for MPI_Alltoallv");
+    PARTHENON_REQUIRE(per_rank[rank].size() <=
+                          static_cast<std::size_t>(std::numeric_limits<int>::max()),
+                      "NVSHMEM layout message is too large for MPI_Alltoallv");
     send_counts[rank] = static_cast<int>(per_rank[rank].size());
     if (rank > 0) send_displs[rank] = send_displs[rank - 1] + send_counts[rank - 1];
   }
   PARTHENON_MPI_CHECK(MPI_Alltoall(send_counts.data(), 1, MPI_INT, recv_counts.data(), 1,
-                                  MPI_INT, MPI_COMM_WORLD));
+                                   MPI_INT, MPI_COMM_WORLD));
   for (int rank = 1; rank < Globals::nranks; ++rank)
     recv_displs[rank] = recv_displs[rank - 1] + recv_counts[rank - 1];
 
@@ -688,10 +852,10 @@ void CoalescedComms::SetupNvshmemArena() {
     std::copy(per_rank[rank].begin(), per_rank[rank].end(),
               send_data.begin() + send_displs[rank]);
 
-  PARTHENON_MPI_CHECK(MPI_Alltoallv(
-      send_data.data(), send_counts.data(), send_displs.data(), MPI_UINT64_T,
-      recv_data.data(), recv_counts.data(), recv_displs.data(), MPI_UINT64_T,
-      MPI_COMM_WORLD));
+  PARTHENON_MPI_CHECK(MPI_Alltoallv(send_data.data(), send_counts.data(),
+                                    send_displs.data(), MPI_UINT64_T, recv_data.data(),
+                                    recv_counts.data(), recv_displs.data(), MPI_UINT64_T,
+                                    MPI_COMM_WORLD));
 
   for (int rank = 0; rank < Globals::nranks; ++rank) {
     PARTHENON_REQUIRE(recv_counts[rank] % fields_per_channel == 0,
@@ -707,18 +871,16 @@ void CoalescedComms::SetupNvshmemArena() {
       PARTHENON_REQUIRE(
           rank_it != coalesced_send_buffers.end(),
           "Received NVSHMEM layout for unknown peer: rank=" + std::to_string(rank) +
-              ", boundary_type=" +
-              std::to_string(static_cast<int>(b_type)) +
+              ", boundary_type=" + std::to_string(static_cast<int>(b_type)) +
               ", partition=" + std::to_string(partition));
       auto buffer_it = rank_it->second.coalesced_bufs.find(partition);
       PARTHENON_REQUIRE(
           buffer_it != rank_it->second.coalesced_bufs.end(),
-          "Received NVSHMEM layout for unknown partition: rank=" +
-              std::to_string(rank) + ", boundary_type=" +
-              std::to_string(static_cast<int>(b_type)) +
+          "Received NVSHMEM layout for unknown partition: rank=" + std::to_string(rank) +
+              ", boundary_type=" + std::to_string(static_cast<int>(b_type)) +
               ", partition=" + std::to_string(partition));
-      buffer_it->second.ConfigureNvshmemSender(
-          symmetric_data, symmetric_signals, remote_offset, remote_completion);
+      buffer_it->second.ConfigureNvshmemSender(symmetric_data, symmetric_signals,
+                                               remote_offset, remote_completion);
       buffer_it->second.use_nvshmem =
           buffer_it->second.use_nvshmem && receiver_direct_capable;
     }
