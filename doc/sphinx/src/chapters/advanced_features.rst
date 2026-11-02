@@ -10,7 +10,6 @@ advanced integrators, and solvers.
 
    ../particles
    ../lukewarms
-   ../interface/sparse
    ../integrators
    ../solvers
    ../fourier_transforms
