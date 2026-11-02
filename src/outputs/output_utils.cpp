@@ -14,8 +14,10 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI.
 
 #include <algorithm>
+#include <array>
 #include <functional>
 #include <map>
 #include <memory>
@@ -30,6 +32,8 @@
 #include "interface/swarm.hpp"
 #include "interface/swarm_container.hpp"
 #include "interface/variable.hpp"
+#include "lukewarm/lukewarm.hpp"
+#include "lukewarm/lukewarm_relocate.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
@@ -269,6 +273,129 @@ AllSwarmInfo::AllSwarmInfo(BlockList_t &block_list,
     info.global_count = tot_count;
   }
 }
+
+AllLukewarmInfo::AllLukewarmInfo(
+    Mesh *pm, const std::map<std::string, std::set<std::string>> &lukewarm_fields) {
+  // Particles are written by block, in block list order
+  const int nblocks = pm->block_list.size();
+  std::map<int, int> output_index; // of each block, by gid
+  for (int i = 0; i < nblocks; ++i) {
+    output_index[pm->block_list[i]->gid] = i;
+  }
+  const int npartitions = pm->DefaultNumPartitions();
+  auto Owner = [&](const int i) { return pm->mesh_data.GetOrAdd("base", i).get(); };
+
+  for (const auto &[name, field_names] : lukewarm_fields) {
+    // As for swarms, a requested lukewarm that does not exist is not written
+    if (!pm->resolved_packages->LukewarmPresent(name)) continue;
+    // Only a settled particle is sure to be in the block it remembers
+    RelocateLukewarm(pm, name);
+
+    auto &info = all_info[name];
+    info.counts.assign(nblocks, 0);
+
+    // Each particle's place in the output, by the order of blocks and then of particles
+    std::vector<std::vector<int>> particle_block(npartitions);
+    for (int i = 0; i < npartitions; ++i) {
+      auto *md = Owner(i);
+      const auto &lukewarm = md->GetLukewarm(name);
+      const int n = lukewarm.NumParticles();
+      auto integer = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),
+                                                         lukewarm.GetData<int>());
+      particle_block[i].resize(n);
+      for (int p = 0; p < n; ++p) {
+        const int b = integer(Lukewarm::block_row, p);
+        PARTHENON_REQUIRE(0 <= b && b < md->NumBlocks(),
+                          "A settled particle must be in a block of its MeshData");
+        const int ob = output_index.at(md->GetBlockData(b)->GetBlockPointer()->gid);
+        particle_block[i][p] = ob;
+        info.counts[ob]++;
+      }
+    }
+    info.offsets.assign(nblocks, 0);
+    for (int ob = 0; ob < nblocks; ++ob) {
+      info.offsets[ob] = info.count_on_rank;
+      info.count_on_rank += info.counts[ob];
+    }
+
+    // Shapes of the requested fields, which are the same on every MeshData
+    const auto &first = Owner(0)->GetLukewarm(name);
+    LukewarmTypes::IterateTypes([&](auto t) {
+      using T = decltype(t);
+      for (const auto &var : first.GetVariables<T>()) {
+        if (field_names.count(var->label()) == 0) continue;
+        // In the file, components are a C-ordered array of the field's shape, then
+        // the particle index
+        const auto &shape = var->GetShape();
+        const int rank = shape.size();
+        std::array<int, 5> n = {1, 1, 1, 1, 1}; // n2, ..., n6
+        for (int d = 0; d < rank; ++d) {
+          n[d] = shape[rank - 1 - d];
+        }
+        const std::string type = std::is_same_v<T, Real>  ? "Float"
+                                 : std::is_same_v<T, int> ? "Int"
+                                                          : "UInt";
+        info.var_info[var->label()] = SwarmVarInfo(n[4], n[3], n[2], n[1], n[0], rank,
+                                                   type, var->IsSet(Metadata::Vector));
+        info.Data<T>()[var->label()].resize(var->NumComponents() * info.count_on_rank);
+      }
+    });
+
+    std::vector<std::size_t> next(nblocks);
+    for (int i = 0; i < npartitions; ++i) {
+      const auto &lukewarm = Owner(i)->GetLukewarm(name);
+      const int n = lukewarm.NumParticles();
+      std::vector<std::size_t> place(n);
+      for (int p = 0; p < n; ++p) {
+        const int ob = particle_block[i][p];
+        place[p] = info.offsets[ob] + next[ob]++;
+      }
+      LukewarmTypes::IterateTypes([&](auto t) {
+        using T = decltype(t);
+        auto &fields = info.Data<T>();
+        if (fields.empty()) return;
+        auto host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),
+                                                        lukewarm.template GetData<T>());
+        for (const auto &var : lukewarm.template GetVariables<T>()) {
+          if (fields.count(var->label()) == 0) continue;
+          auto &out = fields.at(var->label());
+          for (int c = 0; c < var->NumComponents(); ++c) {
+            for (int p = 0; p < n; ++p) {
+              out[c * info.count_on_rank + place[p]] = host(var->GetOffset() + c, p);
+            }
+          }
+        }
+      });
+    }
+
+    std::size_t tot_count;
+    info.global_offset = MPIPrefixSum(info.count_on_rank, tot_count);
+    for (auto &offset : info.offsets) {
+      offset += info.global_offset;
+    }
+    info.global_count = tot_count;
+
+    // Every copy of a lukewarm on a rank shares its ids
+    info.id_bound = first.NextId();
+#ifdef MPI_PARALLEL
+    PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, &info.id_bound, 1, MPI_UINT64_T,
+                                      MPI_MAX, MPI_COMM_WORLD));
+#endif
+  }
+}
+
+AllLukewarmInfo::AllLukewarmInfo(Mesh *pm)
+    : AllLukewarmInfo(pm, [pm] {
+        std::map<std::string, std::set<std::string>> everything;
+        for (const auto &[name, m] : pm->resolved_packages->AllLukewarms()) {
+          auto &fields = everything[name];
+          for (const auto &[field, field_m] :
+               pm->resolved_packages->AllLukewarmFields(name)) {
+            fields.insert(field);
+          }
+        }
+        return everything;
+      }()) {}
 
 // Tools that can be shared accross Output types
 

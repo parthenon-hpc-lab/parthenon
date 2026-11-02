@@ -14,6 +14,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI.
 
 // options for building
 #include "config.hpp"
@@ -24,7 +25,9 @@
 #ifdef ENABLE_HDF5
 
 #include <algorithm>
+#include <array>
 #include <limits>
+#include <map>
 #include <memory>
 #include <numeric>
 #include <set>
@@ -36,6 +39,7 @@
 
 #include "driver/driver.hpp"
 #include "interface/metadata.hpp"
+#include "lukewarm/lukewarm_variable.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_parameters.hpp"
@@ -595,11 +599,89 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   }
   Kokkos::Profiling::popRegion(); // write particle data
 
-  if (output_params.write_xdmf || output_params.write_swarm_xdmf) {
+  // -------------------------------------------------------------------------------- //
+  //   WRITING LUKEWARM DATA                                                          //
+  // -------------------------------------------------------------------------------- //
+
+  // Lukewarms are written in the layout swarms use, but with their fields in a group
+  // LukewarmVars. Restarts and core dumps hold every field of every lukewarm.
+  Kokkos::Profiling::pushRegion("write lukewarm data");
+  auto lukewarm_info = output_params.mode == DumpOutputMode::Data
+                           ? AllLukewarmInfo(pm, output_params.lukewarms)
+                           : AllLukewarmInfo(pm);
+  for (auto &[name, info] : lukewarm_info.all_info) {
+    // Swarms and lukewarms each get a group named after them
+    PARTHENON_REQUIRE_THROWS(swarm_info.all_info.count(name) == 0,
+                             "'" + name + "' is both a swarm and a lukewarm, so they " +
+                                 "cannot both be written");
+    const H5G g_lukewarm = MakeGroup(file, name);
+    // So that particles created after a restart get ids no particle has had
+    HDF5WriteAttribute("id_bound", info.id_bound, g_lukewarm);
+    // Particles per block and where each block's particles start
+    hsize_t local_offset[6] = {static_cast<hsize_t>(my_offset), 0, 0, 0, 0, 0};
+    hsize_t local_count[6] = {static_cast<hsize_t>(num_blocks_local), 0, 0, 0, 0, 0};
+    hsize_t global_count[6] = {static_cast<hsize_t>(max_blocks_global), 0, 0, 0, 0, 0};
+    HDF5Write1D(g_lukewarm, "counts", info.counts.data(), local_offset, local_count,
+                global_count, pl_xfer);
+    HDF5Write1D(g_lukewarm, "offsets", info.offsets.data(), local_offset, local_count,
+                global_count, pl_xfer);
+
+    const H5G g_var = MakeGroup(g_lukewarm, "LukewarmVars");
+    if (info.global_count == 0) {
+      continue;
+    }
+    // Each dataset is particles of this rank along dimension particle_dim, and whole
+    // along every other
+    auto SetCounts = [&](const int particle_dim) {
+      for (int i = 0; i < 6; ++i) {
+        local_offset[i] = 0;
+        local_count[i] = global_count[i] = 0;
+      }
+      local_offset[particle_dim] = info.global_offset;
+      local_count[particle_dim] = info.count_on_rank;
+      global_count[particle_dim] = info.global_count;
+    };
+    LukewarmTypes::IterateTypes([&](auto t) {
+      using T = decltype(t);
+      for (const auto &[field_name, host_data] : info.Data<T>()) {
+        // The field's shape, then the particle index
+        const auto &vinfo = info.var_info.at(field_name);
+        const int rank = vinfo.tensor_rank;
+        SetCounts(rank);
+        for (int i = 0; i < rank; ++i) {
+          local_count[i] = global_count[i] = vinfo.GetN(rank + 1 - i);
+        }
+        HDF5WriteND(g_var, field_name, host_data.data(), rank + 1, local_offset,
+                    local_count, global_count, pl_xfer, H5P_DEFAULT);
+      }
+    });
+    if (output_params.write_lukewarm_xdmf) {
+      // XDMF reads positions as (particle, direction)
+      const auto &reals = info.Data<Real>();
+      const std::array<const std::vector<Real> *, 3> x = {&reals.at(lukewarm::x::name()),
+                                                          &reals.at(lukewarm::y::name()),
+                                                          &reals.at(lukewarm::z::name())};
+      std::vector<Real> positions(3 * info.count_on_rank);
+      for (std::size_t p = 0; p < info.count_on_rank; ++p) {
+        for (int d = 0; d < 3; ++d) {
+          positions[3 * p + d] = (*x[d])[p];
+        }
+      }
+      SetCounts(0);
+      local_count[1] = global_count[1] = 3;
+      HDF5WriteND(g_var, "lukewarm_positions", positions.data(), 2, local_offset,
+                  local_count, global_count, pl_xfer, H5P_DEFAULT);
+    }
+  }
+  Kokkos::Profiling::popRegion(); // write lukewarm data
+
+  if (output_params.write_xdmf || output_params.write_swarm_xdmf ||
+      output_params.write_lukewarm_xdmf) {
     Kokkos::Profiling::pushRegion("genXDMF");
     // generate XDMF companion file
     XDMF::genXDMF(filename, pm, tm, theDomain, nx1, nx2, nx3, all_vars_info, swarm_info,
-                  output_params.write_xdmf, output_params.write_swarm_xdmf);
+                  lukewarm_info, output_params.write_xdmf, output_params.write_swarm_xdmf,
+                  output_params.write_lukewarm_xdmf);
     Kokkos::Profiling::popRegion(); // genXDMF
   }
 

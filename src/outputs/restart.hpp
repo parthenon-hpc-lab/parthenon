@@ -16,10 +16,12 @@
 //========================================================================================
 #ifndef OUTPUTS_RESTART_HPP_
 #define OUTPUTS_RESTART_HPP_
+// This file was made in part with generative AI.
 //! \file io_wrapper.hpp
 //  \brief defines a set of small wrapper functions for MPI versus Serial Output.
 
 #include <cinttypes>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -134,9 +136,26 @@ class RestartReader {
                                                    std::vector<std::size_t> &counts,
                                                    std::vector<std::size_t> &offsets) = 0;
 
+  // Lukewarms are written in the layout of swarms, so GetSwarmCounts reads them too.
+  // Gets the data of a lukewarm field on the current rank, as ReadSwarmVar does for a
+  // swarm variable.
+  virtual void ReadLukewarmField(const std::string &lukewarm, const std::string &field,
+                                 const std::size_t count, const std::size_t offset,
+                                 const Metadata &m, std::vector<Real> &data_vec) = 0;
+  virtual void ReadLukewarmField(const std::string &lukewarm, const std::string &field,
+                                 const std::size_t count, const std::size_t offset,
+                                 const Metadata &m,
+                                 std::vector<std::uint64_t> &data_vec) = 0;
+  virtual void ReadLukewarmField(const std::string &lukewarm, const std::string &field,
+                                 const std::size_t count, const std::size_t offset,
+                                 const Metadata &m, std::vector<int> &data_vec) = 0;
+  // Every id handed out before the file was written is below this
+  [[nodiscard]] virtual std::uint64_t
+  GetLukewarmIdBound(const std::string &lukewarm) const = 0;
+
   virtual void ReadParams(const std::string &name, Params &p) = 0;
 
-  enum class DataType { Field, Swarm, SwarmVar };
+  enum class DataType { Field, Swarm, SwarmVar, Lukewarm, LukewarmField };
   [[nodiscard]] virtual bool
   VariableExists(const std::string &name, const DataType data_type,
                  const std::string swarmvarname = "") const = 0;

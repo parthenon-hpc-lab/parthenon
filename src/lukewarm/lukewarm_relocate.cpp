@@ -196,4 +196,28 @@ TaskID AddLukewarmExchangeTasks(TaskID dependency, TaskList &tl, MeshData<Real> 
   return tl.AddTask(start_recv | send, TF(ReceiveLukewarm), md, name);
 }
 
+TaskID AddLukewarmCompletionTasks(TaskID dependency, TaskList &tl, MeshData<Real> *md,
+                                  AllReduce<int> *num_left,
+                                  const std::function<int(MeshData<Real> *)> &count) {
+  auto zero = tl.AddTask(TaskQualifier::once_per_region | TaskQualifier::local_sync,
+                         dependency, "ZeroLukewarmCount", [num_left]() {
+                           num_left->val = 0;
+                           return TaskStatus::complete;
+                         });
+  auto add = tl.AddTask(TaskQualifier::local_sync, zero, "CountLukewarm",
+                        [md, num_left, count]() {
+                          num_left->val += count(md);
+                          return TaskStatus::complete;
+                        });
+  auto start_reduce = tl.AddTask(TaskQualifier::once_per_region, add,
+                                 &AllReduce<int>::StartReduce, num_left, MPI_SUM);
+  auto finish_reduce =
+      tl.AddTask(TaskQualifier::once_per_region | TaskQualifier::local_sync, start_reduce,
+                 &AllReduce<int>::CheckReduce, num_left);
+  return tl.AddTask(
+      TaskQualifier::completion, finish_reduce, "LukewarmCompletion", [num_left]() {
+        return num_left->val > 0 ? TaskStatus::iterate : TaskStatus::complete;
+      });
+}
+
 } // namespace parthenon

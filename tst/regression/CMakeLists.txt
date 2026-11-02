@@ -75,7 +75,7 @@ list(APPEND TEST_DIRS lukewarm_transport)
 list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
 list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/lukewarm_transport/lukewarm-transport \
 --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/lukewarm_transport/parthinput.lukewarm_transport \
---num_steps 1")
+--num_steps 2")
 list(APPEND EXTRA_TEST_LABELS "")
 
 # Fourier transform FFT round-trip accuracy test (only when HeFTe/FFT is enabled)
@@ -91,6 +91,21 @@ if (ENABLE_HDF5)
 
   # h5py is needed for restart and hdf5 test
   list(APPEND REQUIRED_PYTHON_MODULES h5py)
+
+  # Lukewarm output
+  list(APPEND TEST_DIRS lukewarm_output)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/lukewarm_tracers/lukewarm-tracers \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/lukewarm_output/parthinput.lukewarm_output \
+    --num_steps 2")
+  list(APPEND EXTRA_TEST_LABELS "")
+
+  list(APPEND TEST_DIRS lukewarm_restart)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/lukewarm_tracers/lukewarm-tracers \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/lukewarm_restart/parthinput.lukewarm_restart \
+    --num_steps 4")
+  list(APPEND EXTRA_TEST_LABELS "")
 
   # Restart
   list(APPEND TEST_DIRS restart)
@@ -209,6 +224,12 @@ if (PARTHENON_ENABLE_OPENPMD)
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/restart_opmd/parthinput.restart \
     --num_steps 3")
   list(APPEND EXTRA_TEST_LABELS "")
+
+  # The lukewarm_restart_opmd test (restarting lukewarms from openPMD files, compared
+  # through HDF5 data outputs) is not run yet: its tracer fields are named with '.', which
+  # openPMD record names cannot hold. Once they can, add it back here, inside an
+  # if (ENABLE_HDF5), with the lukewarm-transport driver, the input
+  # test_suites/lukewarm_transport/parthinput.lukewarm_transport, and --num_steps 4.
 
   # Smoke test: sparse_advection OpenPMD output is conformant (openable by openpmd_api,
   # no ghost mesh records, valid component shapes for all sparse and dense fields).

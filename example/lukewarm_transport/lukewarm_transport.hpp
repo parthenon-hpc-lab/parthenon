@@ -27,6 +27,7 @@
 #include <parthenon/package.hpp>
 
 #include "pack/default_names.hpp"
+#include "utils/reductions.hpp"
 
 using namespace parthenon::driver::prelude;
 using namespace parthenon::package::prelude;
@@ -60,6 +61,9 @@ class TracerDriver : public EvolutionDriver {
  private:
   // Iterations of the push so far this step, per partition
   std::vector<int> push_iterations_;
+  // Tracers short of the end of the step after an exchange, summed over every MeshData
+  // of every rank
+  AllReduce<int> num_unfinished_;
 };
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin);
@@ -77,8 +81,8 @@ void SourceTracers(Mesh *pm, ParameterInput *pin, MeshData<Real> *md);
 // tracer that enters a block of another MeshData
 TaskStatus PushTracers(MeshData<Real> *md, const Real t_start, const Real dt,
                        int *iteration);
-// Iterate while any tracer on md has not reached t_end
-TaskStatus CheckCompletion(MeshData<Real> *md, const Real t_end);
+// Count the tracers on md that have not reached t_end
+int CountUnfinished(MeshData<Real> *md, const Real t_end);
 // Fail unless every tracer on md has reached t_end
 TaskStatus CheckTracersFinished(MeshData<Real> *md, const Real t_end);
 TaskStatus DepositTracers(MeshData<Real> *md);

@@ -29,34 +29,48 @@ NUM_TRACERS = 1600
 
 class TestCase(utils.test_case.TestCaseAbs):
     def Prepare(self, parameters, step):
-        parameters.driver_cmd_line_args = ["parthenon/job/problem_id=default"]
+        # One MeshData per rank, then one per block
+        if step == 1:
+            parameters.driver_cmd_line_args = ["parthenon/job/problem_id=default"]
+        else:
+            parameters.driver_cmd_line_args = [
+                "parthenon/job/problem_id=packed",
+                "parthenon/mesh/pack_size=1",
+            ]
         return parameters
 
     def Analyse(self, parameters):
         success = True
-        # Columns: time, dt, cycle, nbtotal, num_tracers, total_deposition,
-        # num_iterations
-        hst = np.genfromtxt("default.out0.hst")
-        time, num_tracers = hst[:, 0], hst[:, 4]
-        deposition, num_iterations = hst[:, 5], hst[:, 6]
+        for name in ["default", "packed"]:
+            # Columns: time, dt, cycle, nbtotal, num_tracers, total_deposition,
+            # num_iterations
+            hst = np.genfromtxt(f"{name}.out0.hst")
+            time, num_tracers = hst[:, 0], hst[:, 4]
+            deposition, num_iterations = hst[:, 5], hst[:, 6]
 
-        # Tracers cross several blocks per step, but are never lost on a periodic mesh
-        if not (num_tracers == NUM_TRACERS).all():
-            print("TEST FAIL: Tracers were lost or duplicated:")
-            print(num_tracers)
-            success = False
-        # Every tracer is pushed to the end of the step and deposited exactly once, in a
-        # block of the MeshData holding it. The deposition is first computed in the first
-        # cycle.
-        if not (deposition[time > 0] == NUM_TRACERS).all():
-            print("TEST FAIL: Tracers were not all deposited once:")
-            print(deposition)
-            success = False
-        # With one MeshData per rank, tracers only drop out of the push when they move to
-        # another rank, which takes more than one iteration
-        expected = (lambda n: n > 1) if parameters.num_ranks > 1 else (lambda n: n == 1)
-        if not all(expected(n) for n in num_iterations[time > 0]):
-            print(f"TEST FAIL: Unexpected iterations on {parameters.num_ranks} ranks:")
-            print(num_iterations)
-            success = False
+            # Tracers cross several blocks per step, but are never lost on a periodic
+            # mesh
+            if not (num_tracers == NUM_TRACERS).all():
+                print(f"TEST FAIL: {name}: Tracers were lost or duplicated:")
+                print(num_tracers)
+                success = False
+            # Every tracer is pushed to the end of the step and deposited exactly once, in
+            # a block of the MeshData holding it. The deposition is first computed in the
+            # first cycle.
+            if not (deposition[time > 0] == NUM_TRACERS).all():
+                print(f"TEST FAIL: {name}: Tracers were not all deposited once:")
+                print(deposition)
+                success = False
+            # Tracers only drop out of the push when they move to another MeshData, which
+            # takes more than one iteration. With one MeshData per rank, that is another
+            # rank.
+            several = name == "packed" or parameters.num_ranks > 1
+            expected = (lambda n: n > 1) if several else (lambda n: n == 1)
+            if not all(expected(n) for n in num_iterations[time > 0]):
+                print(
+                    f"TEST FAIL: {name}: Unexpected iterations on "
+                    f"{parameters.num_ranks} ranks:"
+                )
+                print(num_iterations)
+                success = False
         return success

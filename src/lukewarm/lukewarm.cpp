@@ -130,6 +130,20 @@ IndexRange Lukewarm::Create(const int n) {
   return range;
 }
 
+std::uint64_t Lukewarm::NextId() const {
+  const std::uint64_t nranks = Globals::nranks;
+  const std::uint64_t rank = Globals::my_rank;
+  return *next_id_ * nranks + rank;
+}
+
+void Lukewarm::ReserveIdsBelow(const std::uint64_t bound) {
+  // The k-th id is k * nranks + rank, so skip to the first k where that reaches bound
+  const std::uint64_t nranks = Globals::nranks;
+  const std::uint64_t rank = Globals::my_rank;
+  if (bound <= rank) return;
+  *next_id_ = std::max(*next_id_, (bound - rank + nranks - 1) / nranks);
+}
+
 ParArray1DRaw<int> Lukewarm::Create(const ParArray1DRaw<int> &counts) {
   const int nitems = counts.extent_int(0);
   ParArray1DRaw<int> offsets("Lukewarm::" + label_ + "::create offsets", nitems + 1);

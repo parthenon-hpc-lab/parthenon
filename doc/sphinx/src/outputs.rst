@@ -61,6 +61,9 @@ To enable openPMD support configure Parthenon with ``PARTHENON_DISABLE_OPENPMD=O
 Simulation metadata provided by the optional ``author``, ``machine``, and ``comment``
 parameter in the ``<parthenon/job>`` input block are automatically forwarded to the
 respective openPMD standard fields.
+openPMD record names may only hold letters, digits, and ``_``, so a field whose name has
+a ``.``, such as any declared with ``PAR_VAR``, cannot be written to openPMD outputs,
+including restarts.
 
 The most simple output block for openPMD output is
 
@@ -258,6 +261,14 @@ cell. The files will be identified by a 6-digit ID, and the output file
 generated upon completion of the simulation will be labeled
 ``*.final.*`` rather than with the integer ID.
 
+:ref:`Lukewarms <lukewarms>` are selected the same way, with ``lukewarms``
+and ``lukewarm_variables``, and with ``<name>_variables`` for a single
+lukewarm. HDF5 outputs write them in the layout swarms use, and
+``write_lukewarm_xdmf`` describes them in ``<file>.lukewarm.xdmf`` as
+``write_swarm_xdmf`` does swarms in ``<file>.swarm.xdmf``. openPMD outputs write
+them as particle species, and as for swarms write every lukewarm if ``lukewarms``
+is not given.
+
 HDF5 and restart files write variable field data with inline compression
 by default. This is especially helpful when there are sparse variables
 allocated only in a few blocks, because all other blocks would write
@@ -356,7 +367,8 @@ the restart file with input parameters updated (or added) from the input file.
 For physics developers: The fields to be output are automatically
 selected as all the variables that have either the ``Independent`` or
 ``Restart`` ``Metadata`` flags specified. No other intervention is
-required by the developer.
+required by the developer. HDF5 and openPMD restart files also hold every field of
+every lukewarm (see :ref:`lukewarms`).
 
 Additional user work at the per-mesh and per-meshblock levels can be performed
 immediately prior to restart files being written with the optional
@@ -932,3 +944,6 @@ For example, the following methods are valid to load data with ``yt``
    ds = yt.load(filename,units_override=units_override,gamma=5./3.)
 
 The ``yt`` frontend for Parthenon is availble in ``yt >= 4.4``.
+
+.. note::
+    This file was made in part with generative AI.

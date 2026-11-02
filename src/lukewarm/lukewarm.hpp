@@ -98,6 +98,12 @@ class Lukewarm {
   // Append n new particles and give each a unique id. They start unlocated, and the
   // caller sets every other field.
   IndexRange Create(const int n);
+  // The smallest id this rank can hand out next. Every id handed out so far, on any
+  // rank, is below the largest of these over all ranks.
+  std::uint64_t NextId() const;
+  // Hand out no id below bound from now on, e.g., so that a restart keeps ids unique
+  // even on a different number of ranks. Every MeshData's copy on this rank is affected.
+  void ReserveIdsBelow(const std::uint64_t bound);
   // Append n particles without giving them ids, e.g., to receive particles that already
   // have them. Every field is left for the caller to set.
   IndexRange Append(const int n);

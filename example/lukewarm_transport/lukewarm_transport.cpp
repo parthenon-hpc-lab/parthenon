@@ -280,23 +280,22 @@ TaskStatus PushTracers(MeshData<Real> *md, const Real t_start, const Real dt,
   return TaskStatus::complete;
 }
 
-TaskStatus CheckCompletion(MeshData<Real> *md, const Real t_end) {
+int CountUnfinished(MeshData<Real> *md, const Real t_end) {
   PARTHENON_INSTRUMENT
   // Only tracers the last exchange delivered can still have time left
   const auto range = GetLastReceived(md, lukewarm_name);
-  if (range.size() == 0) return TaskStatus::complete;
+  if (range.size() == 0) return 0;
 
   static auto desc = MakeLukewarmPackDescriptor<tracer::time>(md, lukewarm_name);
   auto pack = desc.GetPack(md);
 
-  int num_unfinished = 0;
+  int count = 0;
   parthenon::par_reduce(
-      parthenon::loop_pattern_flatrange_tag, "CheckCompletion", DevExecSpace(), range.s,
+      parthenon::loop_pattern_flatrange_tag, "CountUnfinished", DevExecSpace(), range.s,
       range.e,
       KOKKOS_LAMBDA(const int n, int &sum) { sum += pack(tracer::time(), n) < t_end; },
-      Kokkos::Sum<int>(num_unfinished));
-
-  return num_unfinished > 0 ? TaskStatus::iterate : TaskStatus::complete;
+      Kokkos::Sum<int>(count));
+  return count;
 }
 
 TaskStatus CheckTracersFinished(MeshData<Real> *md, const Real t_end) {
@@ -367,12 +366,7 @@ TaskCollection TracerDriver::StepTasks() {
   TaskCollection tc;
   TaskID none(0);
 
-  // The completion check runs once per region, so its verdict only covers every
-  // MeshData if there is one per rank
   const int num_partitions = pmesh->DefaultNumPartitions();
-  PARTHENON_REQUIRE(num_partitions == 1,
-                    "The iterative tracer push needs one MeshData per rank, "
-                    "parthenon/mesh/pack_size = -1");
   auto &pkg = pmesh->packages.Get("tracers_package");
   const int max_iterations = pkg->Param<int>("max_iterations");
   const Real t_end = tm.time + tm.dt;
@@ -399,10 +393,11 @@ TaskCollection TracerDriver::StepTasks() {
         itl.AddTask(none, PushTracers, base.get(), tm.time, tm.dt, &push_iterations_[i]);
     auto exchange =
         parthenon::AddLukewarmExchangeTasks(push_tracers, itl, base.get(), lukewarm_name);
-    auto complete =
-        itl.AddTask(TaskQualifier::once_per_region | TaskQualifier::global_sync |
-                        TaskQualifier::completion,
-                    exchange, CheckCompletion, base.get(), t_end);
+    // Every MeshData iterates until no tracer on any MeshData of any rank is short of
+    // the end of the step
+    auto complete = parthenon::AddLukewarmCompletionTasks(
+        exchange, itl, base.get(), &num_unfinished_,
+        [t_end](MeshData<Real> *md) { return CountUnfinished(md, t_end); });
 
     auto finished = tl.AddTask(push, CheckTracersFinished, base.get(), t_end);
     auto deposit = tl.AddTask(finished, DepositTracers, base.get());

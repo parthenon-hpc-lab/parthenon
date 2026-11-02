@@ -37,7 +37,7 @@ x3max = 0.5
 ix3_bc = periodic
 ox3_bc = periodic
 
-# The iterative push needs one MeshData per rank
+# Lukewarms are owned by MeshData, so this is how many blocks share them
 pack_size = -1
 
 <parthenon/meshblock>

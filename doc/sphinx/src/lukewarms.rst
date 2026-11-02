@@ -281,8 +281,23 @@ moves of any length.
          }
        });
 
-``lukewarm_transport`` builds this loop with ``AddSublist`` and a ``completion`` task. It
-also shows how to check whether every rank has finished.
+Since a particle may arrive on any ``MeshData``, every ``MeshData`` has to keep pushing
+and exchanging until no particle on any ``MeshData`` of any rank has work left.
+``AddLukewarmCompletionTasks`` ends an ``AddSublist`` loop this way. It takes a function
+giving how many particles a ``MeshData`` has left, and sums these over the ``TaskRegion``
+and over ranks in an ``AllReduce<int>``. All task lists of the region share that
+``AllReduce``, which must outlive the task collection, e.g., as a member of the driver:
+
+.. code:: cpp
+
+   auto [itl, push_id] = tl.AddSublist(start, {1, max_iterations});
+   auto push = itl.AddTask(none, PushTracers, base.get(), dt);
+   auto exchange = AddLukewarmExchangeTasks(push, itl, base.get(), "tracers");
+   auto complete =
+       AddLukewarmCompletionTasks(exchange, itl, base.get(), &num_left_, CountUnfinished);
+   auto deposit = tl.AddTask(push_id, DepositTracers, base.get());
+
+This works with any ``pack_size``. ``lukewarm_transport`` shows the whole loop.
 
 The individual steps of a round are also available as task functions:
 
@@ -320,9 +335,79 @@ during ``Mesh::RedistributeAndRefineMeshBlocks``:
 Particle values are carried over unchanged. Particle indices and blocks change, so
 packs and ranges from before the remesh must not be reused.
 
-.. warning::
+Output
+------
 
-   Lukewarms are not yet written to outputs or restart files.
+HDF5 and openPMD outputs write lukewarms named in the output block, much as they write
+swarms:
+
+::
+
+   <parthenon/output1>
+   file_type = hdf5
+   dt = 0.1
+   lukewarms = tracers, markers            # nonexistent lukewarms are ignored
+   lukewarm_variables = tracer.time        # fields written for every lukewarm
+   tracers_variables = tracer.velocity     # fields written for one lukewarm
+   write_lukewarm_xdmf = true              # also describe lukewarms in XDMF
+
+``lukewarm::x``, ``lukewarm::y``, ``lukewarm::z``, and ``lukewarm::id`` are always
+written, and a requested field that a lukewarm lacks is skipped. A lukewarm may not
+share a name with a swarm in the same output. An HDF5 output without ``lukewarms``
+writes none, while an openPMD output without it writes every field of every lukewarm,
+as each does for swarms.
+
+In HDF5 files the layout is the one swarms use, but with fields in ``LukewarmVars``
+where a swarm has ``SwarmVars``. ``phdf(filename).GetLukewarm("tracers")`` reads one, and
+gives positions through ``.x``, ``.y``, and ``.z``. Each lukewarm has a group ``/<name>``
+with:
+
+* ``counts`` and ``offsets``, with one entry per block in gid order, give each block's
+  number of particles and where they start.
+* ``LukewarmVars/<field>`` holds a field, with its shape first and the particle index
+  last.
+  Particles are ordered by block.
+* ``LukewarmVars/lukewarm_positions`` holds positions as (particle, direction) when
+  ``write_lukewarm_xdmf`` is set, for the XDMF file ``<file>.lukewarm.xdmf``.
+* The attribute ``id_bound`` is above every id handed out so far, on any rank.
+
+In openPMD files each lukewarm is a particle species ``<name>``, with particles ordered
+by block, and with:
+
+* the attributes ``counts`` and ``offsets``, as in HDF5 files, and ``id_bound``.
+* the records ``position`` (components ``x``, ``y``, and ``z``), ``positionOffset``
+  (zero), and ``id``, as the openPMD standard names them.
+* a record for every other field, named after the field. A scalar field has the
+  component ``openPMD::RecordComponent::SCALAR``, and any other field has components
+  ``0``, ``1``, and so on, in the order HDF5 files store them. A field may not be named
+  ``position``, ``positionOffset``, or ``id``.
+
+A lukewarm with no particles still has these records, with zero length, since openPMD
+readers skip a species without records.
+
+To place every particle in its block, writing a lukewarm first calls
+``RelocateLukewarm``. This also removes particles that are marked or have left the mesh.
+
+Restarts
+--------
+
+HDF5 and openPMD restart files hold every field of every lukewarm, with no input
+needed. On restart, each block's particles go to the MeshData that now owns the block, so
+a restart may use a different number of ranks or a different ``pack_size``. Particles
+keep their ids, and particles created after the restart never get the id of any
+particle before it, even one since removed. Package hooks that create particles at
+initialization, such as ``PostInitializationMesh``, are not called on restart, as for
+every other initialization hook.
+
+A field missing from the restart file, e.g., one added since the file was written, is
+set to zero. A lukewarm missing from the file starts empty.
+
+.. note::
+
+   openPMD record names may only hold letters, digits, and ``_``, so, as for mesh fields
+   and swarm variables, a lukewarm field whose name has a ``.``, such as any declared
+   with ``PAR_VAR``, cannot be written to openPMD files. An openPMD restart, which holds
+   every field of every lukewarm, fails if any of them is named with a ``.``.
 
 Examples
 --------
@@ -335,7 +420,8 @@ Examples
   * depositing onto a field through ``Locate`` and ``GetCellIndices``.
 
 * ``example/lukewarm_transport`` pushes tracers that may cross many blocks in a step.
-  It uses the iterative push with ``GetLastReceived``.
+  It uses the iterative push with ``GetLastReceived`` and
+  ``AddLukewarmCompletionTasks``.
 
 .. note::
     This file was made in part with generative AI.

@@ -15,10 +15,12 @@
 
 // This file was made in part with generative AI.
 
+#include <functional>
 #include <string>
 
 #include "basic_types.hpp"
 #include "tasks/tasks.hpp"
+#include "utils/reductions.hpp"
 
 namespace parthenon {
 
@@ -77,6 +79,22 @@ void RelocateLukewarm(Mesh *pmesh, const std::string &name);
 // limited by a CFL condition. Otherwise use RelocateLukewarm().
 TaskID AddLukewarmExchangeTasks(TaskID dependency, TaskList &tl, MeshData<Real> *md,
                                 const std::string &name);
+
+// Add the completion task of an iterative sublist (see TaskList::AddSublist) that ends
+// its iterations once no MeshData on any rank has particles left to work on. count(md)
+// gives how many md has, and these are summed over the TaskRegion and over ranks into
+// num_left, which every task list of the region shares. Since a particle may arrive on
+// any MeshData, a MeshData with none left keeps iterating until every one is done, so
+// every MeshData of the mesh has to take part, as for AddLukewarmExchangeTasks(). E.g.,
+// with an iterative push:
+//   auto [itl, push_id] = tl.AddSublist(dependency, {1, max_iterations});
+//   auto push = itl.AddTask(none, Push, md);
+//   auto exchange = AddLukewarmExchangeTasks(push, itl, md, "tracers");
+//   auto complete =
+//       AddLukewarmCompletionTasks(exchange, itl, md, &num_left, CountUnfinished);
+TaskID AddLukewarmCompletionTasks(TaskID dependency, TaskList &tl, MeshData<Real> *md,
+                                  AllReduce<int> *num_left,
+                                  const std::function<int(MeshData<Real> *)> &count);
 
 } // namespace parthenon
 

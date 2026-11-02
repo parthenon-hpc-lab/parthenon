@@ -21,6 +21,7 @@
 
 #ifndef OUTPUTS_OUTPUT_PARAMETERS_HPP_
 #define OUTPUTS_OUTPUT_PARAMETERS_HPP_
+// This file was made in part with generative AI.
 
 #include <cstddef>
 #include <map>
@@ -51,6 +52,8 @@ struct OutputParameters {
   std::vector<std::string> component_labels;
   std::map<std::string, std::set<std::string>> swarms;
   std::vector<std::string> swarm_vars;
+  // Lukewarms to write, each with the names of the fields to write
+  std::map<std::string, std::set<std::string>> lukewarms;
   std::string file_type;
   std::string data_format;
   std::string meshdata_name;
@@ -65,6 +68,7 @@ struct OutputParameters {
   int hdf5_compression_level = 5;
   bool write_xdmf = false;
   bool write_swarm_xdmf = false;
+  bool write_lukewarm_xdmf = false;
   DumpOutputMode mode = DumpOutputMode::Unspecified;
 
   // These change after initialization, the other parameters do not.

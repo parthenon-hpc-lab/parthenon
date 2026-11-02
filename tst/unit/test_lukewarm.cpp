@@ -501,7 +501,8 @@ TEST_CASE("Creating and removing lukewarm particles", "[Lukewarm]") {
   REQUIRE(lw.Capacity() >= 3);
   REQUIRE(*next_id == 103);
 
-  // Capacity grows geometrically, so repeated small emissions rarely reallocate
+  // Capacity grows geometrically, so repeatedly creating a few particles rarely
+  // reallocates
   range = lw.Create(1);
   REQUIRE(range.s == 3);
   REQUIRE(lw.Capacity() >= 6);
@@ -533,6 +534,27 @@ TEST_CASE("Creating and removing lukewarm particles", "[Lukewarm]") {
     const std::uint64_t rank = parthenon::Globals::my_rank;
     for (int n = 0; n < lw.NumParticles(); ++n) {
       REQUIRE(id(0, n) == (100 + n) * nranks + rank);
+    }
+  }
+
+  SECTION("ids below a restart's bound are never handed out") {
+    const std::uint64_t nranks = parthenon::Globals::nranks;
+    const std::uint64_t rank = parthenon::Globals::my_rank;
+    // Every id handed out so far is below NextId()
+    REQUIRE(lw.NextId() == 104 * nranks + rank);
+    // A bound this rank is already past changes nothing
+    lw.ReserveIdsBelow(lw.NextId());
+    REQUIRE(*next_id == 104);
+    // The bound may come from any rank, and from a run on any number of ranks
+    const std::uint64_t bound = 1000 * nranks + 7;
+    lw.ReserveIdsBelow(bound);
+    REQUIRE(lw.NextId() >= bound);
+    REQUIRE(lw.NextId() < bound + nranks);
+    lw.Create(2);
+    auto id = ToHost(lw.Get<std::uint64_t>(lukewarm::id::name()).data);
+    for (int n = 4; n < 6; ++n) {
+      REQUIRE(id(0, n) >= bound);
+      REQUIRE(id(0, n) % nranks == rank);
     }
   }
 
@@ -1117,4 +1139,44 @@ TEST_CASE("Lukewarm particles survive remeshing", "[Lukewarm][MPI]") {
   mesh->LoadBalancingAndAdaptiveMeshRefinement(pin.get(), &app_in);
   REQUIRE(mesh->nbtotal == 4);
   check();
+}
+
+TEST_CASE("Ending lukewarm iterations", "[Lukewarm][MPI]") {
+  using parthenon::TaskID;
+  using parthenon::TaskStatus;
+  const int rank = parthenon::Globals::my_rank;
+  const int nranks = parthenon::Globals::nranks;
+
+  // Each list of a region has particles left to work on for some iterations, the last
+  // one for the longest and longer on later ranks, and every list has to keep iterating
+  // until the last one of the last rank is done
+  for (const int nlists : {1, 3}) {
+    const int last = nlists - 1;
+    std::vector<int> busy_for(nlists, 0);
+    busy_for[0] = 1;
+    busy_for[last] = 2 + 3 * rank;
+    const int expected = 2 + 3 * (nranks - 1);
+
+    parthenon::TaskCollection tc;
+    parthenon::AllReduce<int> num_left;
+    std::vector<int> iterations(nlists, 0);
+    auto &region = tc.AddRegion(nlists);
+    for (int i = 0; i < nlists; ++i) {
+      auto &tl = region[i];
+      auto start = tl.AddTask(TaskID(0), []() { return TaskStatus::complete; });
+      auto [itl, push] = tl.AddSublist(start, {1, 100});
+      auto work = itl.AddTask(TaskID(0), [&iterations, i]() {
+        ++iterations[i];
+        return TaskStatus::complete;
+      });
+      parthenon::AddLukewarmCompletionTasks(
+          work, itl, nullptr, &num_left, [&iterations, &busy_for, i](MeshData<Real> *) {
+            return std::max(0, busy_for[i] - iterations[i]);
+          });
+    }
+    REQUIRE(tc.Execute() == parthenon::TaskListStatus::complete);
+    for (int i = 0; i < nlists; ++i) {
+      REQUIRE(iterations[i] == expected);
+    }
+  }
 }

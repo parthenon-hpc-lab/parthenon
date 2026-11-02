@@ -18,6 +18,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI.
+//========================================================================================
 //! \file outputs.cpp
 //  \brief implements functions for Parthenon outputs
 //
@@ -377,6 +379,32 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, ApplicationInput *papp_in, SimTi
           op.swarms[swname].insert(coords.begin(), coords.end());
         }
       }
+      // Lukewarm fields are chosen like swarm variables: lukewarm_variables applies to
+      // every lukewarm, and <name>_variables to one. A requested field that a lukewarm
+      // lacks is not written.
+      op.lukewarms.clear();
+      if (pin->DoesParameterExist(op.block_name, "lukewarms")) {
+        const auto lukewarm_names = pin->GetVector<std::string>(
+            op.block_name, "lukewarms", "lukewarms to output");
+        for (const auto &name : lukewarm_names) {
+          // Swarms and lukewarms each get a group named after them in the file
+          PARTHENON_REQUIRE_THROWS(op.swarms.count(name) == 0,
+                                   "'" + name + "' is requested in block '" +
+                                       op.block_name +
+                                       "' as both a swarm and a lukewarm");
+          auto &fields = op.lukewarms[name];
+          for (const auto &key :
+               {std::string("lukewarm_variables"), name + "_variables"}) {
+            if (pin->DoesParameterExist(op.block_name, key)) {
+              const auto names = pin->GetVector<std::string>(op.block_name, key);
+              fields.insert(names.begin(), names.end());
+            }
+          }
+          // Positions and ids are always written, so that vis tools can show particles
+          fields.insert({lukewarm::id::name(), lukewarm::x::name(), lukewarm::y::name(),
+                         lukewarm::z::name()});
+        }
+      }
     }
     op.data_format = pin->GetOrAddString(op.block_name, "data_format", "%12.5e");
     op.data_format.insert(0, " "); // prepend with blank to separate columns
@@ -490,6 +518,8 @@ Outputs::Outputs(Mesh *pm, ParameterInput *pin, ApplicationInput *papp_in, SimTi
       op.write_xdmf = pin->GetOrAddBoolean(op.block_name, "write_xdmf", true);
       op.write_swarm_xdmf =
           pin->GetOrAddBoolean(op.block_name, "write_swarm_xdmf", false);
+      op.write_lukewarm_xdmf =
+          pin->GetOrAddBoolean(op.block_name, "write_lukewarm_xdmf", false);
       pnew_type = std::make_shared<PHDF5Output>(op);
 #else
       msg << "### FATAL ERROR in Outputs constructor" << std::endl

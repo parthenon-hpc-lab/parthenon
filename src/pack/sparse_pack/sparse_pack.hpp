@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -13,7 +13,10 @@
 #ifndef PACK_SPARSE_PACK_SPARSE_PACK_HPP_
 #define PACK_SPARSE_PACK_SPARSE_PACK_HPP_
 
+// This file was made in part with generative AI.
+
 #include <algorithm>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -40,6 +43,10 @@ IndexShape GetIndexShape(const ParArray3D<Real, VariableState> &arr, int ng) {
 
 template <class... Ts>
 class SparsePack : public SparsePackBase {
+  // Fields hold Real data, so a variable name of another type would be read as Real
+  static_assert((std::is_same_v<typename Ts::data_type, Real> && ...),
+                "SparsePack variable names must have data type Real, e.g., from PAR_VAR");
+
  public:
   SparsePack() = default;
 
