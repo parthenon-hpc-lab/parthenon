@@ -85,8 +85,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           "parthenon/mesh", "task_collection_timeout_in_seconds", 60 * 5)),
       minimum_number_of_teams_for_boundary_kernel(pin->GetOrAddInteger(
           "parthenon/mesh", "minimum_number_of_teams_for_boundary_kernel", 1,
-          "Minimum number of teams to launch when filling or applying boundary "
-          "buffers. Additional teams are distributed evenly across buffers.")),
+          "Minimum number of teams to launch when filling, applying, or coalescing "
+          "boundary buffers. Additional teams are distributed evenly across buffers.")),
       boundary_buffer_work_chunk_size(
           pin->GetOrAddInteger("parthenon/mesh", "boundary_buffer_work_chunk_size", 1)),
       // private members:

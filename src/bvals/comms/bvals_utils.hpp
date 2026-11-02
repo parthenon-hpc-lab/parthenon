@@ -40,6 +40,14 @@
 #include "utils/loop_utils.hpp"
 
 namespace parthenon {
+inline int GetNteamsPerBoundaryBuffer(const Mesh *pmesh, const int nbound) {
+  PARTHENON_REQUIRE_THROWS(
+      nbound > 0,
+      "Cannot calculate the number of teams per boundary buffer without boundaries.");
+  return std::max(1, (pmesh->minimum_number_of_teams_for_boundary_kernel + nbound - 1) /
+                         nbound);
+}
+
 inline auto &GetSenderGid(Mesh::channel_key_t &key) { return std::get<0>(key); }
 inline auto &GetReceiverGid(Mesh::channel_key_t &key) { return std::get<1>(key); }
 inline auto &GetVariable(Mesh::channel_key_t &key) { return std::get<2>(key); }

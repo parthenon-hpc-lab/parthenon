@@ -127,16 +127,26 @@ void CoalescedBuffer::PackAndSend(const std::set<Uid_t> &vars) {
                     "Trying to write to a buffer that is in use.");
   int comb_size;
   auto &bids = GetBndIdsOnDevice(vars, &comb_size);
+  const int nbound = static_cast<int>(bids.size());
+  const int nteams_per_buffer =
+      nbound > 0 ? GetNteamsPerBoundaryBuffer(pmesh, nbound) : 1;
+  const int work_chunk_size = pmesh->boundary_buffer_work_chunk_size;
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(), Kokkos::AUTO),
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound * nteams_per_buffer,
+                           Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        const int b = team_member.league_rank();
+        const int b = team_member.league_rank() / nteams_per_buffer;
+        const int bteam = team_member.league_rank() % nteams_per_buffer;
         if (bids[b].buf_allocated) {
-          const std::size_t buf_size = bids[b].size();
+          const int buf_size = bids[b].size();
           Real *com_buf = &(bids[b].coalesced_buf(bids[b].start_idx()));
           Real *buf = &(bids[b].buf(0));
-          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
+          const SplitFlatIndexRangeAmongTeams split(nteams_per_buffer, work_chunk_size,
+                                                    buf_size);
+          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member,
+                                                         split.GetStart(bteam),
+                                                         split.GetEnd(bteam)),
                                [&](const int idx) { com_buf[idx] = buf[idx]; });
         }
       });
@@ -219,16 +229,26 @@ bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
   }
 
   auto &bids = GetBndIdsOnDevice(vars);
+  const int nbound = static_cast<int>(bids.size());
+  const int nteams_per_buffer =
+      nbound > 0 ? GetNteamsPerBoundaryBuffer(pmesh, nbound) : 1;
+  const int work_chunk_size = pmesh->boundary_buffer_work_chunk_size;
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(), Kokkos::AUTO),
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound * nteams_per_buffer,
+                           Kokkos::AUTO),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        const int b = team_member.league_rank();
+        const int b = team_member.league_rank() / nteams_per_buffer;
+        const int bteam = team_member.league_rank() % nteams_per_buffer;
         if (bids[b].buf_allocated) {
-          const std::size_t buf_size = bids[b].size();
+          const int buf_size = bids[b].size();
           Real *com_buf = &(bids[b].coalesced_buf(bids[b].start_idx()));
           Real *buf = &(bids[b].buf(0));
-          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
+          const SplitFlatIndexRangeAmongTeams split(nteams_per_buffer, work_chunk_size,
+                                                    buf_size);
+          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member,
+                                                         split.GetStart(bteam),
+                                                         split.GetEnd(bteam)),
                                [&](const int idx) { buf[idx] = com_buf[idx]; });
         }
       });

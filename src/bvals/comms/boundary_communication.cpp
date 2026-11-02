@@ -49,16 +49,6 @@ namespace parthenon {
 using namespace loops;
 using namespace loops::shorthands;
 
-namespace {
-int GetNteamsPerBoundaryBuffer(const Mesh *pmesh, const int nbound) {
-  PARTHENON_REQUIRE_THROWS(
-      nbound > 0,
-      "Cannot calculate the number of teams per boundary buffer without boundaries.");
-  return std::max(1, (pmesh->minimum_number_of_teams_for_boundary_kernel + nbound - 1) /
-                         nbound);
-}
-} // namespace
-
 template <BoundaryType bound_type>
 TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
                                            bool do_restriction) {
