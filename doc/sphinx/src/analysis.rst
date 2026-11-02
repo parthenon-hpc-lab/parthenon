@@ -112,7 +112,7 @@ Input precedence and source time
 Analysis parameters are assembled in this order, with each later source overriding
 earlier values:
 
-#. The input embedded in the source output.
+#. The input embedded in the source dump (or restart) file.
 #. The source iteration's actual ``start_time``, ``dt``, and ``ncycle`` metadata.
 #. The required analysis input supplied with ``-i``.
 #. Command-line assignments.

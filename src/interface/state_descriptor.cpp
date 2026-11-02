@@ -670,11 +670,6 @@ std::shared_ptr<StateDescriptor> StateDescriptor::CreateResolvedStateDescriptorA
         }
       }
     }
-
-    // for (int i = 0; i < 6; ++i)
-    // state->UserBoundaryFunctions[i].insert(state->UserBoundaryFunctions[i].end(),
-    // package->UserBoundaryFunctions[i].begin(),
-    // package->UserBoundaryFunctions[i].end());
   }
   return state;
 }
