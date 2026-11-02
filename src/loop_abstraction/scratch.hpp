@@ -1,5 +1,7 @@
 //========================================================================================
 // (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
+// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// AI was used to assist with CUDA compatibility updates.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -12,8 +14,6 @@
 //========================================================================================
 #ifndef LOOP_ABSTRACTION_SCRATCH_HPP_
 #define LOOP_ABSTRACTION_SCRATCH_HPP_
-
-// This file was made in part with generative AI.
 
 // Per-point scratch buffers and their sizing. Provides the compile-time HaloBox and
 // ctime_flat_indexer helpers, the three backend scratch implementations
