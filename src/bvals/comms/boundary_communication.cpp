@@ -19,6 +19,8 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream> // debug
 #include <memory>
 #include <random>
@@ -50,6 +52,26 @@ using namespace loops;
 using namespace loops::shorthands;
 
 namespace {
+int BoundaryVectorLength() {
+  static const int length = []() {
+    const char *value = std::getenv("RIOT_BOUNDARY_VECTOR_LENGTH");
+    if (value == nullptr) return 1;
+    char *end = nullptr;
+    const long n = std::strtol(value, &end, 10);
+    PARTHENON_REQUIRE(end != value && *end == '\0' &&
+                          (n == 1 || n == 2 || n == 4 || n == 8 || n == 16 || n == 32),
+                      "RIOT_BOUNDARY_VECTOR_LENGTH must be a power of two from 1 to 32");
+    return static_cast<int>(n);
+  }();
+  return length;
+}
+
+bool SkipDenseScan() {
+  const char *value = std::getenv("RIOT_SKIP_DENSE_SCAN");
+  return !Globals::sparse_config.enabled && value != nullptr &&
+         std::strcmp(value, "1") == 0;
+}
+
 int GetNteamsPerBoundaryBuffer(const Mesh *pmesh, const int nbound) {
   PARTHENON_REQUIRE_THROWS(
       nbound > 0,
@@ -111,6 +133,7 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
   PARTHENON_DEBUG_REQUIRE(bnd_info.size() == nbound, "Need same size for boundary info");
   const int nteams_per_buffer = GetNteamsPerBoundaryBuffer(pmesh, nbound);
   const int work_chunk_size = pmesh->boundary_buffer_work_chunk_size;
+  const bool skip_dense_scan = SkipDenseScan();
   auto &sending_nonzero_flags = cache.sending_non_zero_flags;
   auto &sending_nonzero_flags_h = cache.sending_non_zero_flags_h;
   if (sending_nonzero_flags.size() != (nbound * nteams_per_buffer)) {
@@ -122,7 +145,7 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound * nteams_per_buffer,
-                           Kokkos::AUTO),
+                           Kokkos::AUTO, BoundaryVectorLength()),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank() / nteams_per_buffer;
         const int bteam = team_member.league_rank() % nteams_per_buffer;
@@ -157,13 +180,14 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
                 Kokkos::parallel_for(Kokkos::ThreadVectorRange<>(team_member, Ni),
                                      [&](int m) { buf[m] = var[m]; });
 
-                bool mnon_zero = false;
-                Kokkos::parallel_reduce(
-                    Kokkos::ThreadVectorRange<>(team_member, Ni),
-                    [&](int m, bool &llnon_zero) {
-                      llnon_zero = llnon_zero || (std::abs(buf[m]) >= threshold);
-                    },
-                    Kokkos::LOr<bool, parthenon::DevMemSpace>(mnon_zero));
+                bool mnon_zero = skip_dense_scan;
+                if (!skip_dense_scan)
+                  Kokkos::parallel_reduce(
+                      Kokkos::ThreadVectorRange<>(team_member, Ni),
+                      [&](int m, bool &llnon_zero) {
+                        llnon_zero = llnon_zero || (std::abs(buf[m]) >= threshold);
+                      },
+                      Kokkos::LOr<bool, parthenon::DevMemSpace>(mnon_zero));
 
                 lnon_zero = lnon_zero || mnon_zero;
                 if (bound_type == BoundaryType::flxcor_send) lnon_zero = true;
@@ -350,7 +374,7 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
   Kokkos::parallel_for(
       PARTHENON_AUTO_LABEL,
       Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound * nteams_per_buffer,
-                           Kokkos::AUTO),
+                           Kokkos::AUTO, BoundaryVectorLength()),
       KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
         const int b = team_member.league_rank() / nteams_per_buffer;
         const int bteam = team_member.league_rank() % nteams_per_buffer;

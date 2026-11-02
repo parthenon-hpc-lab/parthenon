@@ -13,6 +13,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -98,7 +100,7 @@ void Driver::PostExecute(DriverStatus status) {
         pmesh->mbcnt * static_cast<std::uint64_t>(pmesh->GetNumberOfMeshBlockCells());
 
     auto wtime = timer_main.seconds();
-    std::cout << std::endl << "walltime used = " << wtime << std::endl;
+    std::cout << std::endl << "walltime used = " << std::setprecision(8) << wtime << std::endl;
     std::cout << "zone-cycles/wallsecond = " << static_cast<double>(zonecycles) / wtime
               << std::endl;
   }
@@ -308,8 +310,28 @@ void EvolutionDriver::SetGlobalTimeStep() {
     // Force timestep to be in the allowable range
     tm.dt = std::max(dt_floor, std::min(tm.dt, dt_ceil));
 #ifdef MPI_PARALLEL
+    static const bool gpu_dt = []() {
+      const char *value = std::getenv("RIOT_GPU_DT_REDUCE");
+      return value && std::strcmp(value, "1") == 0;
+    }();
+    if (gpu_dt) {
+      using DeviceScalar = Kokkos::View<Real *, DevMemSpace>;
+      using HostScalar = Kokkos::View<Real *, Kokkos::HostSpace,
+                                     Kokkos::MemoryTraits<Kokkos::Unmanaged>>;
+      static DeviceScalar device_dt;
+      if (!device_dt.is_allocated()) {
+        device_dt = DeviceScalar("RIOT GPU timestep", 1);
+        Kokkos::push_finalize_hook([]() { device_dt = DeviceScalar(); });
+      }
+      HostScalar host_dt(&tm.dt, 1);
+      Kokkos::deep_copy(device_dt, host_dt);
+      PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, device_dt.data(), 1,
+                                        MPI_PARTHENON_REAL, MPI_MIN, MPI_COMM_WORLD));
+      Kokkos::deep_copy(host_dt, device_dt);
+    } else {
     PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, &tm.dt, 1, MPI_PARTHENON_REAL,
                                       MPI_MIN, MPI_COMM_WORLD));
+    }
 #endif
   }
 
@@ -355,7 +377,7 @@ void EvolutionDriver::OutputCycleDiagnostics() {
       const auto wtime = timer_main.seconds();
       std::cout << "cycle=" << tm.ncycle << std::scientific
                 << std::setprecision(dt_precision) << " time=" << tm.time
-                << " dt=" << tm.dt << std::setprecision(2) << " zone-cycles/wsec_step="
+                << " dt=" << tm.dt << std::setprecision(6) << " zone-cycles/wsec_step="
                 << static_cast<double>(zonecycles) / time_cycle_step
                 << " wsec_total=" << wtime << " wsec_step=" << time_cycle_step;
 

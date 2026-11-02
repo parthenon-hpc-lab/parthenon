@@ -10,7 +10,10 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+#include <algorithm>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <map>
 #include <memory>
 #include <set>
@@ -32,6 +35,165 @@
 #include "utils/communication_buffer.hpp"
 
 namespace parthenon {
+namespace {
+
+int CoalescedTeamsPerBuffer(const Mesh *pmesh, int buffers) {
+  static const bool enabled = []() {
+    const char *value = std::getenv("RIOT_COALESCED_TEAMS");
+    return value != nullptr && std::strcmp(value, "1") == 0;
+  }();
+  if (!enabled || buffers == 0) return 1;
+  return std::max(1, (pmesh->minimum_number_of_teams_for_boundary_kernel + buffers - 1) /
+                         buffers);
+}
+
+int CoalescedCopyChunk() {
+  static const int chunk = []() {
+    const char *value = std::getenv("RIOT_COALESCED_CHUNK");
+    if (value == nullptr) return 0;
+    char *end = nullptr;
+    const long n = std::strtol(value, &end, 10);
+    PARTHENON_REQUIRE(end != value && *end == '\0' &&
+                          (n == 0 || (n >= 256 && n <= 1048576)),
+                      "RIOT_COALESCED_CHUNK must be 0 or 256..1048576 elements");
+    return static_cast<int>(n);
+  }();
+  return chunk;
+}
+
+bool DenseStaticComms() {
+  static const bool enabled = []() {
+    const char *value = std::getenv("RIOT_DENSE_STATIC_COMMS");
+    return value != nullptr && std::strcmp(value, "1") == 0;
+  }();
+  return enabled;
+}
+
+// Each team owns a disjoint interval of the combined buffer. Find the first
+// source/destination boundary by offset, then copy intersections with the tile.
+// No new metadata cache or allocation lifetime is introduced.
+template <bool Pack>
+void CoalescedChunkCopy(const ParArray1DRaw<BndId> &bids, std::size_t total,
+                        const DevExecSpace &exec) {
+  const std::size_t chunk = CoalescedCopyChunk();
+  if (total == 0) return;
+  const int count = static_cast<int>(bids.size());
+  Kokkos::parallel_for(
+      Pack ? "RIOT::ChunkPack" : "RIOT::ChunkUnpack",
+      Kokkos::TeamPolicy<DevExecSpace>(exec, (total + chunk - 1) / chunk, 256),
+      KOKKOS_LAMBDA(team_mbr_t team) {
+        std::size_t begin = static_cast<std::size_t>(team.league_rank()) * chunk;
+        const std::size_t end = std::min(begin + chunk, total);
+        int lo = 0;
+        int hi = count;
+        while (lo < hi) {
+          const int mid = lo + (hi - lo) / 2;
+          if (static_cast<std::size_t>(bids[mid].start_idx()) <= begin)
+            lo = mid + 1;
+          else
+            hi = mid;
+        }
+        int b = lo - 1;
+        while (begin < end && b < count) {
+          if (bids[b].buf_allocated) {
+            const std::size_t start = bids[b].start_idx();
+            const std::size_t stop = start + bids[b].size();
+            const std::size_t piece_end = std::min(end, stop);
+            Real *combined = &(bids[b].coalesced_buf(start));
+            Real *individual = &(bids[b].buf(0));
+            Kokkos::parallel_for(
+                Kokkos::TeamThreadRange<>(team, begin - start, piece_end - start),
+                [&](const std::size_t i) {
+                  if constexpr (Pack)
+                    combined[i] = individual[i];
+                  else
+                    individual[i] = combined[i];
+                });
+            begin = piece_end;
+          }
+          ++b;
+        }
+      });
+
+  const char *verify = std::getenv("RIOT_VERIFY_COPIES");
+  if (verify != nullptr && std::strcmp(verify, "1") == 0) {
+    int errors = 0;
+    Kokkos::parallel_reduce(
+        "RIOT::VerifyCoalescedCopy",
+        Kokkos::TeamPolicy<DevExecSpace>(exec, count, Kokkos::AUTO),
+        KOKKOS_LAMBDA(team_mbr_t team, int &bad) {
+          const int b = team.league_rank();
+          int local = 0;
+          if (bids[b].buf_allocated) {
+            Real *combined = &(bids[b].coalesced_buf(bids[b].start_idx()));
+            Real *individual = &(bids[b].buf(0));
+            Kokkos::parallel_reduce(
+                Kokkos::TeamThreadRange<>(team, bids[b].size()),
+                [&](const int i, int &n) { n += combined[i] != individual[i]; }, local);
+          }
+          Kokkos::single(Kokkos::PerTeam(team), [&]() { bad += local; });
+        },
+        errors);
+    PARTHENON_REQUIRE(errors == 0, "Coalesced copy element comparison failed");
+  }
+}
+
+template <bool Pack>
+void CoalescedCopy(const ParArray1DRaw<BndId> &bids, std::size_t total, const Mesh *pmesh,
+                   const DevExecSpace &exec) {
+  if (CoalescedCopyChunk() != 0) {
+    CoalescedChunkCopy<Pack>(bids, total, exec);
+    return;
+  }
+
+  const int nteams_per_buffer =
+      CoalescedTeamsPerBuffer(pmesh, static_cast<int>(bids.size()));
+  if (nteams_per_buffer == 1) {
+    Kokkos::parallel_for(
+        PARTHENON_AUTO_LABEL,
+        Kokkos::TeamPolicy<DevExecSpace>(exec, bids.size(), Kokkos::AUTO),
+        KOKKOS_LAMBDA(team_mbr_t team) {
+          const int b = team.league_rank();
+          if (bids[b].buf_allocated) {
+            Real *combined = &(bids[b].coalesced_buf(bids[b].start_idx()));
+            Real *individual = &(bids[b].buf(0));
+            Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team, bids[b].size()),
+                                 [&](const int i) {
+                                   if constexpr (Pack)
+                                     combined[i] = individual[i];
+                                   else
+                                     individual[i] = combined[i];
+                                 });
+          }
+        });
+    return;
+  }
+
+  Kokkos::parallel_for(
+      PARTHENON_AUTO_LABEL,
+      Kokkos::TeamPolicy<DevExecSpace>(exec, bids.size() * nteams_per_buffer,
+                                       Kokkos::AUTO),
+      KOKKOS_LAMBDA(team_mbr_t team) {
+        const int b = team.league_rank() / nteams_per_buffer;
+        const int bteam = team.league_rank() % nteams_per_buffer;
+        if (bids[b].buf_allocated) {
+          const std::size_t size = bids[b].size();
+          Real *combined = &(bids[b].coalesced_buf(bids[b].start_idx()));
+          Real *individual = &(bids[b].buf(0));
+          Kokkos::parallel_for(
+              Kokkos::TeamThreadRange<>(team, size * bteam / nteams_per_buffer,
+                                        size * (bteam + 1) / nteams_per_buffer),
+              [&](const int i) {
+                if constexpr (Pack)
+                  combined[i] = individual[i];
+                else
+                  individual[i] = combined[i];
+              });
+        }
+      });
+}
+
+} // namespace
 
 //----------------------------------------------------------------------------------------
 CoalescedBuffer::CoalescedBuffer(bool sender, int partition, int other_rank,
@@ -128,25 +290,14 @@ void CoalescedBuffer::PackAndSend(const std::set<Uid_t> &vars) {
                     "Trying to write to a buffer that is in use.");
   int comb_size;
   auto &bids = GetBndIdsOnDevice(vars, &comb_size);
-  Kokkos::parallel_for(
-      PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(), Kokkos::AUTO),
-      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        const int b = team_member.league_rank();
-        if (bids[b].buf_allocated) {
-          const std::size_t buf_size = bids[b].size();
-          Real *com_buf = &(bids[b].coalesced_buf(bids[b].start_idx()));
-          Real *buf = &(bids[b].buf(0));
-          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
-                               [&](const int idx) { com_buf[idx] = buf[idx]; });
-        }
-      });
+  CoalescedCopy<true>(bids, comb_size, pmesh, DevExecSpace());
 #ifdef MPI_PARALLEL
   Kokkos::fence();
 #endif
   coalesced_comm_buffer.Send(false, comb_size);
 
   // Send the sparse null info as well
+  const bool dense_static = DenseStaticComms() && bids.size() > 0;
   if (bids.size() != sparse_status_buffer.buffer().size()) {
     sparse_status_buffer.Allocate(bids.size());
   }
@@ -162,12 +313,14 @@ void CoalescedBuffer::PackAndSend(const std::set<Uid_t> &vars) {
       PARTHENON_REQUIRE(state == BufferState::sending ||
                             state == BufferState::sending_null,
                         "Bad state.");
-      int send_type = (state == BufferState::sending);
+      const int send_type = (state == BufferState::sending);
+      PARTHENON_REQUIRE(!dense_static || send_type == 1,
+                        "Dense static communication requires all channels active");
       stat[idx] = send_type;
       ++idx;
     }
   }
-  sparse_status_buffer.Send();
+  if (!dense_static) sparse_status_buffer.Send();
 
   // Information in these send buffers is no longer required
   for (auto uid : var_set) {
@@ -197,6 +350,14 @@ bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
     }
   }
 
+  // Dense communication has no sparse-null information to transmit. The sender verifies
+  // that every selected channel is active, so synthesize the all-active status locally.
+  if (DenseStaticComms() && nbuf > 0) {
+    sparse_status_buffer.Allocate(nbuf);
+    auto &dense_status = sparse_status_buffer.buffer();
+    std::fill(dense_status.begin(), dense_status.end(), 1);
+    sparse_status_buffer.SetReceived();
+  }
   auto received_sparse = sparse_status_buffer.TryReceive();
   auto received = coalesced_comm_buffer.TryReceive();
   if (!received || !received_sparse) return false;
@@ -219,20 +380,9 @@ bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
     }
   }
 
-  auto &bids = GetBndIdsOnDevice(vars);
-  Kokkos::parallel_for(
-      PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(), Kokkos::AUTO),
-      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        const int b = team_member.league_rank();
-        if (bids[b].buf_allocated) {
-          const std::size_t buf_size = bids[b].size();
-          Real *com_buf = &(bids[b].coalesced_buf(bids[b].start_idx()));
-          Real *buf = &(bids[b].buf(0));
-          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
-                               [&](const int idx) { buf[idx] = com_buf[idx]; });
-        }
-      });
+  int comb_size;
+  auto &bids = GetBndIdsOnDevice(vars, &comb_size);
+  CoalescedCopy<false>(bids, comb_size, pmesh, DevExecSpace());
   coalesced_comm_buffer.Stale();
   sparse_status_buffer.Stale();
 
@@ -278,18 +428,7 @@ void CoalescedBuffer::PrepareNCCL(const std::set<Uid_t> &vars, const DevExecSpac
   nccl_pack_ready.Wait(exec.cuda_stream());
   Kokkos::deep_copy(exec, nccl_status_buffer, nccl_status_host);
 
-  Kokkos::parallel_for(
-      PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<DevExecSpace>(exec, bids.size(), Kokkos::AUTO),
-      KOKKOS_LAMBDA(team_mbr_t team_member) {
-        const int b = team_member.league_rank();
-        if (bids[b].buf_allocated) {
-          Real *combined = &(bids[b].coalesced_buf(bids[b].start_idx()));
-          Real *individual = &(bids[b].buf(0));
-          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, bids[b].size()),
-                               [&](const int i) { combined[i] = individual[i]; });
-        }
-      });
+  CoalescedCopy<true>(bids, comb_size, pmesh, exec);
   nccl_prepared = true;
 #else
   PARTHENON_FAIL("NCCL preparation requested in a build without NCCL support.");
@@ -319,19 +458,9 @@ void CoalescedBuffer::ApplyNCCLStatusAndUnpack(const std::set<Uid_t> &vars,
     }
   }
 
-  auto &bids = GetBndIdsOnDevice(vars);
-  Kokkos::parallel_for(
-      PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<DevExecSpace>(exec, bids.size(), Kokkos::AUTO),
-      KOKKOS_LAMBDA(team_mbr_t team_member) {
-        const int b = team_member.league_rank();
-        if (bids[b].buf_allocated) {
-          Real *combined = &(bids[b].coalesced_buf(bids[b].start_idx()));
-          Real *individual = &(bids[b].buf(0));
-          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, bids[b].size()),
-                               [&](const int i) { individual[i] = combined[i]; });
-        }
-      });
+  int comb_size;
+  auto &bids = GetBndIdsOnDevice(vars, &comb_size);
+  CoalescedCopy<false>(bids, comb_size, pmesh, exec);
 #else
   PARTHENON_FAIL("NCCL unpack requested in a build without NCCL support.");
 #endif
