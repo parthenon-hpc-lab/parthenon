@@ -168,6 +168,11 @@ class Mesh {
   int task_collection_timeout_in_seconds;
 
   const bool do_coalesced_comms;
+  const std::string coalesced_comm_backend;
+
+  bool UseNvshmemCoalescedComms() const {
+    return do_coalesced_comms && coalesced_comm_backend == "nvshmem";
+  }
 
   BlockList_t block_list;
   Packages_t packages;

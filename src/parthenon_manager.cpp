@@ -83,18 +83,6 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   Kokkos::initialize(argc, argv);
 
-#ifdef PARTHENON_ENABLE_NVSHMEM
-  MPI_Comm nvshmem_bootstrap_comm = MPI_COMM_WORLD;
-  nvshmemx_init_attr_t nvshmem_attr = NVSHMEMX_INIT_ATTR_INITIALIZER;
-  nvshmem_attr.mpi_comm = &nvshmem_bootstrap_comm;
-  const int nvshmem_status =
-      nvshmemx_init_attr(NVSHMEMX_INIT_WITH_MPI_COMM, &nvshmem_attr);
-  PARTHENON_REQUIRE_THROWS(nvshmem_status == 0, "NVSHMEM initialization failed");
-  PARTHENON_REQUIRE_THROWS(
-      nvshmem_my_pe() == Globals::my_rank && nvshmem_n_pes() == Globals::nranks,
-      "NVSHMEM PE numbering must match MPI_COMM_WORLD rank numbering");
-#endif
-
   // pgrete: This is a hack to disable allocation tracking until the Kokkos
   // tools provide a more fine grained control out of the box.
   bool unused;
@@ -170,6 +158,34 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // Modify based on command line inputs
   pinput->ModifyFromCmdline(argc, argv);
+
+  const bool do_coalesced_comms = pinput->GetOrAddBoolean(
+      "parthenon/mesh", "do_coalesced_comms", false,
+      "Use coalesced messages for inter-block communication");
+  const auto coalesced_comm_backend = pinput->GetOrAddString(
+      "parthenon/mesh", "coalesced_comm_backend", "mpi",
+      std::vector<std::string>{"mpi", "nvshmem"},
+      "Transport used for coalesced inter-rank communication");
+  const bool use_nvshmem =
+      do_coalesced_comms && coalesced_comm_backend == "nvshmem";
+#ifdef PARTHENON_ENABLE_NVSHMEM
+  if (use_nvshmem) {
+    MPI_Comm nvshmem_bootstrap_comm = MPI_COMM_WORLD;
+    nvshmemx_init_attr_t nvshmem_attr = NVSHMEMX_INIT_ATTR_INITIALIZER;
+    nvshmem_attr.mpi_comm = &nvshmem_bootstrap_comm;
+    const int nvshmem_status =
+        nvshmemx_init_attr(NVSHMEMX_INIT_WITH_MPI_COMM, &nvshmem_attr);
+    PARTHENON_REQUIRE_THROWS(nvshmem_status == 0, "NVSHMEM initialization failed");
+    nvshmem_initialized_ = true;
+    PARTHENON_REQUIRE_THROWS(
+        nvshmem_my_pe() == Globals::my_rank && nvshmem_n_pes() == Globals::nranks,
+        "NVSHMEM PE numbering must match MPI_COMM_WORLD rank numbering");
+  }
+#else
+  PARTHENON_REQUIRE_THROWS(
+      !use_nvshmem,
+      "coalesced_comm_backend=nvshmem requested without PARTHENON_ENABLE_NVSHMEM");
+#endif
 
   // Finalize parsing phase - parsers can no longer add parameters
   pinput->FinalizeParsing();
@@ -286,8 +302,11 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
 ParthenonStatus ParthenonManager::ParthenonFinalize() {
   pmesh.reset();
 #ifdef PARTHENON_ENABLE_NVSHMEM
-  Kokkos::fence();
-  nvshmem_finalize();
+  if (nvshmem_initialized_) {
+    Kokkos::fence();
+    nvshmem_finalize();
+    nvshmem_initialized_ = false;
+  }
 #endif
   Kokkos::finalize();
 #ifdef MPI_PARALLEL

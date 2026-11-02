@@ -61,6 +61,7 @@ class ParthenonManager {
   ArgParse arg;
   bool called_init_env_ = false;
   bool called_init_packages_and_mesh_ = false;
+  bool nvshmem_initialized_ = false;
 
   template <typename T>
   void ReadSwarmVars_(const SP_Swarm &pswarm, const BlockList_t &block_list,
