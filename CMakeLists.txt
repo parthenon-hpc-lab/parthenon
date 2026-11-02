@@ -4,6 +4,8 @@
 # Licensed under the 3-clause BSD License, see LICENSE file for details
 #=========================================================================================
 # (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
+# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# AI was used to assist with NCCL build configuration.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC

@@ -1,5 +1,7 @@
 //========================================================================================
 // (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
+// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// AI was used to assist with NCCL error handling and CUDA event management.
 //========================================================================================
 #ifndef BVALS_COMMS_NCCL_UTILS_HPP_
 #define BVALS_COMMS_NCCL_UTILS_HPP_
