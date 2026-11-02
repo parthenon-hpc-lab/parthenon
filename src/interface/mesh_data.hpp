@@ -201,16 +201,27 @@ class MeshData {
   explicit MeshData(const std::string &name) : stage_name_(name) {}
 
   GridIdentifier grid;
-  int partition{-1};
+  // The partition this MeshData was built from (null if it was not built from one)
+  std::shared_ptr<BlockListPartition> partition;
 
-  void SetBoundBufferId(BoundaryType btype, int id);
+  // Select the comm lane (i.e. the independent set of communication buffers, see
+  // Mesh::SetNumberOfCommLanes) this MeshData uses for boundary type btype
+  void SetCommLane(BoundaryType btype, int lane);
 
-  int GetBoundBufferId(BoundaryType btype) const {
-    if (bound_buffer_ids_.count(btype)) return bound_buffer_ids_.at(btype);
+  int GetCommLane(BoundaryType btype) const {
+    if (comm_lanes_.count(btype)) return comm_lanes_.at(btype);
     return 0;
   }
 
-  std::map<BoundaryType, int> bound_buffer_ids_{};
+  [[deprecated("Use SetCommLane")]] void SetBoundBufferId(BoundaryType btype, int id) {
+    SetCommLane(btype, id);
+  }
+
+  [[deprecated("Use GetCommLane")]] int GetBoundBufferId(BoundaryType btype) const {
+    return GetCommLane(btype);
+  }
+
+  std::map<BoundaryType, int> comm_lanes_{};
 
   const auto &StageName() const { return stage_name_; }
 
@@ -272,7 +283,7 @@ class MeshData {
     for (int i = 0; i < bl.size(); ++i)
       block_data_[i] = bl[i]->meshblock_data.Add(stage_name_, bl[i], vars);
     grid = part->grid;
-    partition = part->partition;
+    partition = part;
   }
 
   template <typename ID_t>

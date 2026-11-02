@@ -3,7 +3,7 @@
 // Copyright(C) 2020-2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
 
 #ifndef BVALS_COMMS_TAG_MAP_HPP_
 #define BVALS_COMMS_TAG_MAP_HPP_
@@ -78,7 +80,7 @@ class NeighborBlock;
 class TagMap {
   // Unique keys defined by a two-way communication channel
   using rank_pair_t = UnorderedPair<BlockGeometricElementId>;
-  // Map between a communication channel key (+ buffer id on that channel) and a unique
+  // Map between a communication channel key (+ comm lane on that channel) and a unique
   // MPI tag
   using rank_pair_map_t = std::map<std::pair<rank_pair_t, int>, int>;
   // Map of maps where the key corresponds to the MPI rank of the
@@ -98,7 +100,7 @@ class TagMap {
 
   // Inserts all of the communication channels known about by MeshData md into the map
   template <BoundaryType BOUND>
-  void AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md, int channels_per_pair = 1);
+  void AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md, int lanes_per_pair = 1);
 
   // Once all MeshData objects have inserted their known channels into the map, we can
   // iterate through a map for a given rank pair (which is already ordered by key because
@@ -108,7 +110,7 @@ class TagMap {
 
   // After the map has been resolved, get the tag for a particular MeshBlock NeighborBlock
   // pair
-  int GetTag(const MeshBlock *pmb, const NeighborBlock &nb, int id = 0);
+  int GetTag(const MeshBlock *pmb, const NeighborBlock &nb, int lane = 0);
 };
 } // namespace parthenon
 

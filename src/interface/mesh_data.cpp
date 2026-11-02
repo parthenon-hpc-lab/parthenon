@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
+
 #include "mesh_data.hpp"
 
 #include "mesh/mesh.hpp"
@@ -45,12 +48,12 @@ void MeshData<T>::SetMeshProperties(Mesh *pmesh) {
 }
 
 template <typename T>
-void MeshData<T>::SetBoundBufferId(BoundaryType btype, int id) {
-  PARTHENON_REQUIRE(id < pmy_mesh_->GetNumberOfCommChannels(btype),
-                    "Trying to set MeshData to communicate on a non-existent channel.");
+void MeshData<T>::SetCommLane(BoundaryType btype, int lane) {
+  PARTHENON_REQUIRE(lane < pmy_mesh_->GetNumberOfCommLanes(btype),
+                    "Trying to set MeshData to communicate on a non-existent comm lane.");
   // We do not enforce symmetry here between associated senders and
   // receivers for maximum flexibility.
-  bound_buffer_ids_[btype] = id;
+  comm_lanes_[btype] = lane;
 }
 
 template class MeshData<Real>;
