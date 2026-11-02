@@ -1,4 +1,8 @@
 //========================================================================================
+// Parthenon performance portable AMR framework
+// Copyright(C) 2021-2026 The Parthenon collaboration
+// Licensed under the 3-clause BSD License, see LICENSE file for details
+//========================================================================================
 // (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -26,6 +30,11 @@ int main(int argc, char *argv[]) {
   pman.app_input->ProcessPackages = particles_leapfrog::ProcessPackages;
   pman.app_input->ProblemGenerator = particles_leapfrog::ProblemGenerator;
   pman.app_input->PostInitialization = particles_leapfrog::PostInitialization;
+
+  // Enroll user output. A new ParticleUserOutput is created for each output block
+  // with file_type = particle_user_output.
+  pman.app_input->RegisterUserOutput<particles_leapfrog::ParticleUserOutput>(
+      "particle_user_output");
 
   // call ParthenonInit to initialize MPI and Kokkos, parse the input deck, and set up
   auto manager_status = pman.ParthenonInitEnv(argc, argv);

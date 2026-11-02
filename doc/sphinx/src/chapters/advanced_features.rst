@@ -16,3 +16,4 @@ and solvers.
    ../integrators
    ../solvers
    ../fourier_transforms
+   ../batched_linear_algebra

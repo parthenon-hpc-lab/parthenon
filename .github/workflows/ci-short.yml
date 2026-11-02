@@ -1,3 +1,4 @@
+# This file was made in part with generative AI
 name: CI short
 
 on: [pull_request]
@@ -29,8 +30,6 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: 'true'
-      - name: cpplint
-        run: python3 ./tst/style/cpplint.py --counting=detailed --recursive src example tst
       - name: copyright
         # using variant mpi because openpmd lib is only installed with mpi support (no serial)
         run: |

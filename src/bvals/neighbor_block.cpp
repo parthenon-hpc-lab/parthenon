@@ -3,7 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2020-2023. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
+
 //! \file neighbor_block.cpp
 //  \brief utility functions for neighbors and buffers
 
@@ -36,6 +39,15 @@
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
+
+BlockInfo::BlockInfo(const MeshBlock *pmb)
+    : rank{Globals::my_rank}, gid{pmb->gid}, loc{pmb->loc},
+      block_coarsenings{pmb->block_coarsenings}, block_size{pmb->block_size},
+      ownership{pmb->ownership} {}
+
+BlockInfo::BlockInfo(const NeighborBlock &nb)
+    : rank{nb.rank}, gid{nb.gid}, loc{nb.loc}, block_coarsenings{nb.block_coarsenings},
+      block_size{nb.block_size}, ownership{nb.ownership} {}
 
 NeighborBlock::NeighborBlock()
     : rank{-1}, gid{-1}, bufid{-1}, targetid{-1}, loc(), fi1{-1}, fi2{-1}, block_size(),

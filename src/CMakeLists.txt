@@ -119,6 +119,7 @@ add_library(parthenon
   bvals/comms/bnd_info.cpp
   bvals/comms/bnd_info.hpp
   bvals/comms/boundary_communication.cpp
+  bvals/comms/calc_indices.hpp
   bvals/comms/coalesced_buffers.cpp
   bvals/comms/coalesced_buffers.hpp
   bvals/comms/tag_map.cpp
@@ -188,6 +189,16 @@ add_library(parthenon
   loop_abstraction/types.hpp
   loop_abstraction/view.hpp
   loop_abstraction/loop_abstraction.hpp
+
+  batched_linear_algebra/execution_utils.hpp
+  batched_linear_algebra/givens.hpp
+  batched_linear_algebra/householder.hpp
+  batched_linear_algebra/implicit_qr.hpp
+  batched_linear_algebra/matmul.hpp
+  batched_linear_algebra/matrix_utils.hpp
+  batched_linear_algebra/qr_decomposition.hpp
+  batched_linear_algebra/square_svd.hpp
+  batched_linear_algebra/symmetric_evd.hpp
 
   mesh/domain.hpp
   mesh/forest/block_ownership.cpp
