@@ -84,6 +84,16 @@ inline Mesh::channel_key_t ReceiveKey(const MeshBlock *pmb, const NeighborBlock 
   return {sender_id, receiver_id, pcv->label(), location_idx, other};
 }
 
+// Number of teams to assign to each of nbound buffers so that a kernel over all of the
+// buffers launches at least minimum_number_of_teams_for_boundary_kernel teams
+inline int GetNteamsPerBoundaryBuffer(const Mesh *pmesh, const int nbound) {
+  PARTHENON_REQUIRE_THROWS(
+      nbound > 0,
+      "Cannot calculate the number of teams per boundary buffer without boundaries.");
+  return std::max(1, (pmesh->minimum_number_of_teams_for_boundary_kernel + nbound - 1) /
+                         nbound);
+}
+
 inline Mesh::channel_key_t GetChannelKey(BndId &in) {
   return {in.send_gid(), in.recv_gid(), Variable<Real>::GetLabel(in.var_id()),
           in.loc_idx(), in.extra_id()};

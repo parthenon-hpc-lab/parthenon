@@ -40,13 +40,25 @@ struct LogicalCoordinateTransformation {
   KOKKOS_INLINE_FUNCTION
   LogicalCoordinateTransformation()
       : dir_connection{0, 1, 2}, dir_connection_inverse{0, 1, 2},
-        dir_flip{false, false, false}, offset{0, 0, 0} {};
+        dir_flip{false, false, false}, offset{0, 0, 0}, is_identity(true) {};
 
   void SetDirection(CoordinateDirection origin, CoordinateDirection neighbor,
                     bool reversed = false) {
     dir_connection[origin - 1] = neighbor - 1;
     dir_connection_inverse[neighbor - 1] = origin - 1;
     dir_flip[origin - 1] = reversed;
+    UpdateIsIdentity();
+  }
+
+  // True if the transformation does not permute or flip any directions, so that index
+  // and topological element transformations are trivial (offsets are not considered)
+  KOKKOS_INLINE_FUNCTION
+  bool IsIdentity() const { return is_identity; }
+
+  void UpdateIsIdentity() {
+    is_identity = true;
+    for (int dir = 0; dir < 3; ++dir)
+      is_identity = is_identity && (dir_connection[dir] == dir) && !dir_flip[dir];
   }
 
   LogicalLocation Transform(const LogicalLocation &loc_in,
@@ -105,6 +117,7 @@ struct LogicalCoordinateTransformation {
   std::array<int, 3> dir_connection, dir_connection_inverse;
   std::array<bool, 3> dir_flip;
   int ncell;
+  bool is_identity;
 };
 
 LogicalCoordinateTransformation

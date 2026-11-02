@@ -43,6 +43,40 @@ int CoalescedDataTag(Mesh *pmesh, BoundaryType b_type, int partition_tag, int la
   const int nlanes = pmesh->GetNumberOfCommLanes(GetAssociatedSender(b_type));
   return 2 * (nlanes * partition_tag + lane);
 }
+
+// Copy between the var-boundary buffers and the coalesced buffer, splitting each buffer
+// among enough teams that the kernel launches at least
+// minimum_number_of_teams_for_boundary_kernel teams
+template <bool TO_COALESCED>
+void CopyCoalesced(Mesh *pmesh, ParArray1DRaw<BndId> &bids) {
+  const int nbound = bids.size();
+  if (nbound == 0) return;
+  const int nteams_per_buffer = GetNteamsPerBoundaryBuffer(pmesh, nbound);
+  Kokkos::parallel_for(
+      PARTHENON_AUTO_LABEL,
+      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), nbound * nteams_per_buffer,
+                           Kokkos::AUTO),
+      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
+        const int b = team_member.league_rank() / nteams_per_buffer;
+        const int bteam = team_member.league_rank() % nteams_per_buffer;
+        if (bids[b].buf_allocated) {
+          const SplitFlatIndexRangeAmongTeams split(nteams_per_buffer, 1,
+                                                    bids[b].size());
+          Real *com_buf = &(bids[b].coalesced_buf(bids[b].start_idx()));
+          Real *buf = &(bids[b].buf(0));
+          Kokkos::parallel_for(
+              Kokkos::TeamThreadRange<>(team_member, split.GetStart(bteam),
+                                        split.GetEnd(bteam)),
+              [&](const int idx) {
+                if constexpr (TO_COALESCED) {
+                  com_buf[idx] = buf[idx];
+                } else {
+                  buf[idx] = com_buf[idx];
+                }
+              });
+        }
+      });
+}
 } // namespace
 
 //----------------------------------------------------------------------------------------
@@ -140,19 +174,7 @@ void CoalescedBuffer::PackAndSend(const std::set<Uid_t> &vars) {
                     "Trying to write to a buffer that is in use.");
   int comb_size;
   auto &bids = GetBndIdsOnDevice(vars, &comb_size);
-  Kokkos::parallel_for(
-      PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(), Kokkos::AUTO),
-      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        const int b = team_member.league_rank();
-        if (bids[b].buf_allocated) {
-          const std::size_t buf_size = bids[b].size();
-          Real *com_buf = &(bids[b].coalesced_buf(bids[b].start_idx()));
-          Real *buf = &(bids[b].buf(0));
-          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
-                               [&](const int idx) { com_buf[idx] = buf[idx]; });
-        }
-      });
+  CopyCoalesced<true>(pmesh, bids);
 #ifdef MPI_PARALLEL
   Kokkos::fence();
 #endif
@@ -232,19 +254,7 @@ bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
   }
 
   auto &bids = GetBndIdsOnDevice(vars);
-  Kokkos::parallel_for(
-      PARTHENON_AUTO_LABEL,
-      Kokkos::TeamPolicy<>(parthenon::DevExecSpace(), bids.size(), Kokkos::AUTO),
-      KOKKOS_LAMBDA(parthenon::team_mbr_t team_member) {
-        const int b = team_member.league_rank();
-        if (bids[b].buf_allocated) {
-          const std::size_t buf_size = bids[b].size();
-          Real *com_buf = &(bids[b].coalesced_buf(bids[b].start_idx()));
-          Real *buf = &(bids[b].buf(0));
-          Kokkos::parallel_for(Kokkos::TeamThreadRange<>(team_member, buf_size),
-                               [&](const int idx) { buf[idx] = com_buf[idx]; });
-        }
-      });
+  CopyCoalesced<false>(pmesh, bids);
   coalesced_comm_buffer.Stale();
   sparse_status_buffer.Stale();
 
