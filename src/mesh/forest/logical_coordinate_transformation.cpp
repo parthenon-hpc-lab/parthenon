@@ -116,6 +116,7 @@ ComposeTransformations(const LogicalCoordinateTransformation &first,
   for (int dir : {0, 1, 2})
     out.dir_connection_inverse[out.dir_connection[dir]] = dir;
   out.use_offset = first.use_offset && second.use_offset;
+  out.UpdateIsIdentity();
   return out;
 }
 
@@ -133,6 +134,7 @@ GetInverseTransform(const LogicalCoordinateTransformation &t) {
   }
   inv.use_offset = t.use_offset;
   inv.ncell = t.ncell;
+  inv.UpdateIsIdentity();
   return inv;
 }
 
