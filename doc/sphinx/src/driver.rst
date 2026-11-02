@@ -1,3 +1,5 @@
+.. This file was made in part with generative AI.
+
 .. _driver:
 
 Application Drivers
@@ -82,3 +84,69 @@ desired, as demonstrated in the example
 The ``EvolutionDriver``, which already defines the ``Execute`` function,
 extends the ``PostExecute`` function with additional reporting and calls
 both methods.
+
+Analysis execution
+------------------
+
+The standard ``EvolutionDriver`` recognizes the analysis signal installed by
+``ParthenonManager``. In analysis mode it skips block timestep initialization, global
+timestep selection, and every call to ``Step``. The driver instead performs the
+following sequence once:
+
+#. ``PreExecute``.
+#. Application and package ``UserWorkBeforeLoop`` callbacks.
+#. The output pass, including ``UserWorkBeforeOutput`` for selected non-history outputs.
+#. ``UserWorkAfterLoop``.
+#. ``PostExecute``.
+
+The ordinary final-output pass is skipped because the analysis output pass has already
+been performed. The source cycle and time therefore remain unchanged unless the
+analysis input or command line overrides them. See :ref:`analysis` for output selection
+and initialization details.
+
+Initialization callback summary
+--------------------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Operation
+     - Fresh
+     - Restart
+     - Analysis
+   * - Problem generator
+     - yes
+     - no
+     - no
+   * - Post-problem-generator callbacks
+     - yes
+     - no
+     - no
+   * - Pre-communication derived fills
+     - yes
+     - yes
+     - no
+   * - Boundary communication
+     - yes
+     - yes
+     - yes
+   * - Post-communication derived fills
+     - yes
+     - yes
+     - no
+   * - Post-initialization callbacks
+     - yes
+     - no
+     - no
+   * - ``UserWorkBeforeLoop``
+     - yes
+     - yes
+     - yes
+   * - Evolution ``Step``
+     - yes
+     - yes
+     - no
+   * - ``UserWorkBeforeOutput``
+     - when selected
+     - when selected
+     - when selected

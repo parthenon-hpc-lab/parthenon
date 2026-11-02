@@ -1,3 +1,5 @@
+// This file was made in part with generative AI.
+
 //========================================================================================
 // Parthenon performance portable AMR framework
 // Copyright(C) 2024-2026 The Parthenon collaboration
@@ -23,7 +25,9 @@
 #include <functional>
 #include <memory>
 #include <numeric>
+#include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 // OpenPMD headers
@@ -80,6 +84,54 @@ int RestartReaderOPMD::GetOutputFormatVersion() const {
   } else {
     return -1;
   }
+}
+
+std::vector<std::string>
+RestartReaderOPMD::GetFieldNamesImpl(const std::vector<std::string> &filter) const {
+  std::vector<std::string> all_fields;
+  if (it->containsAttribute("OutputDatasetNames")) {
+    all_fields = it->getAttribute("OutputDatasetNames").get<std::vector<std::string>>();
+  } else if (format_version_ >= 2) {
+    std::set<std::string> seen;
+    for (const auto &record : it->meshes) {
+      auto field_name =
+          OpenPMDUtils::GetFieldLabelFromMeshRecordName(record.first, format_version_);
+      if (seen.insert(field_name).second) {
+        all_fields.push_back(std::move(field_name));
+      }
+    }
+    if (it->containsAttribute("SparseFields")) {
+      for (const auto &field_name :
+           it->getAttribute("SparseFields").get<std::vector<std::string>>()) {
+        if (seen.insert(field_name).second) {
+          all_fields.push_back(field_name);
+        }
+      }
+    }
+  } else {
+    PARTHENON_REQUIRE_THROWS(
+        !filter.empty(),
+        "OpenPMD format-version 1 files do not contain an unambiguous field catalog. "
+        "Supply parthenon/analysis/fields explicitly.");
+    for (const auto &field_name : filter) {
+      if (VariableExists(field_name, DataType::Field)) {
+        all_fields.push_back(field_name);
+      }
+    }
+    return all_fields;
+  }
+
+  if (filter.empty()) {
+    return all_fields;
+  }
+
+  std::vector<std::string> fields;
+  for (const auto &field_name : all_fields) {
+    if (std::find(filter.begin(), filter.end(), field_name) != filter.end()) {
+      fields.push_back(field_name);
+    }
+  }
+  return fields;
 }
 
 RestartReaderOPMD::SparseInfo RestartReaderOPMD::GetSparseInfo() const {

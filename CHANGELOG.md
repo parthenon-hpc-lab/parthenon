@@ -6,6 +6,9 @@
 
 ### Added (new features/APIs/variables/...)
 - [[PR 1475]](https://github.com/parthenon-hpc-lab/parthenon/pull/1475) Add `Lukewarm`s
+- [[PR 1463]](https://github.com/parthenon-hpc-lab/parthenon/pull/1463) Add
+  analysis-only initialization from HDF5 and openPMD outputs, filtered field loading,
+  ``Metadata::Analysis`` state, and analysis-triggered outputs.
 
 
 ### Changed (changing behavior/API/variables/...)

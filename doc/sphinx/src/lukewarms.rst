@@ -402,6 +402,11 @@ every other initialization hook.
 A field missing from the restart file, e.g., one added since the file was written, is
 set to zero. A lukewarm missing from the file starts empty.
 
+An analysis run (``-a``, see :ref:`analysis`) keeps a lukewarm only if it was added with
+``Metadata::Analysis``, and reads its particles as a restart does, from either a restart
+file or a data output that lists it in ``lukewarms``. A ``Metadata::Private`` lukewarm
+keeps the ``package::name`` it is written under.
+
 .. note::
 
    openPMD record names may only hold letters, digits, and ``_``, so, as for mesh fields

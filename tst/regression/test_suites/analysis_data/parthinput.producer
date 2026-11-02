@@ -1,0 +1,62 @@
+# This file was made in part with generative AI.
+
+<parthenon/job>
+problem_id = analysis_source
+
+<parthenon/mesh>
+refinement = static
+numlevel = 2
+nghost = 2
+nx1 = 16
+x1min = 0.0
+x1max = 1.0
+ix1_bc = periodic
+ox1_bc = periodic
+nx2 = 1
+x2min = 0.0
+x2max = 1.0
+ix2_bc = periodic
+ox2_bc = periodic
+nx3 = 1
+x3min = 0.0
+x3max = 1.0
+ix3_bc = periodic
+ox3_bc = periodic
+
+<parthenon/meshblock>
+nx1 = 4
+nx2 = 1
+nx3 = 1
+
+<parthenon/static_refinement0>
+level = 1
+x1min = 0.25
+x1max = 0.75
+x2min = 0.0
+x2max = 1.0
+x3min = 0.0
+x3max = 1.0
+
+<parthenon/time>
+integrator = rk2
+nlim = 1
+tlim = 0.1
+
+<Advection>
+cfl = 0.45
+vx = 1.0
+vy = 0.0
+vz = 0.0
+profile = wave
+refine_tol = 0.3
+derefine_tol = 0.03
+num_vars = 1
+vec_size = 1
+fill_derived = true
+test_analysis_fields = true
+
+<parthenon/output0>
+file_type = hdf5
+dt = 1.0
+ghost_zones = true
+variables = advected, my_derived_var, bnd_flux::advected, analysis_excluded_var

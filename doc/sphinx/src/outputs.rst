@@ -1,3 +1,5 @@
+.. This file was made in part with generative AI.
+
 .. _outputs:
 
 Outputs
@@ -28,11 +30,16 @@ To disable an output block without removing it from the input file set
 the block's ``dt < 0.0`` and ``dn < 0`` (which is also happening by default
 if the paramter is not provided in the input file).
 
-In addition to time or cycle based outputs, two additional options to trigger
-outputs (applies to OpenPMD, HDF5, restart, and histogram outputs) exist,
-described in :ref:`signals`.  These get special labels ``now`` and ``final``,
-rather than numbers.  Named outputs always overwrite existing versions, and
-do not affect the numbering of normal numbered outputs.
+In addition to time or cycle based outputs, manual and analysis triggers are
+available for OpenPMD, HDF5, restart, and histogram outputs.
+
+-  Signals and the ``output_now`` file trigger outputs as described in
+   :ref:`signals`. These get special labels ``now`` and ``final``, rather than
+   numbers. Named outputs always overwrite existing versions, and do not affect
+   the numbering of normal numbered outputs.
+-  Analysis trigger: During an :ref:`analysis` run, an enabled output block with
+   ``analysis_output = true`` is processed regardless of whether its normal ``dt`` or
+   ``dn`` cadence is due. The block must still have a nonnegative ``dt`` or ``dn``.
 
 openPMD
 -------
@@ -312,7 +319,7 @@ contains everything.
   It is unwise to output ``corehdf5`` files routinely as they might be
   very large. These should be used only strategically.
 
-Restart Files (openPMD and HDf5)
+Restart Files (openPMD and HDF5)
 --------------------------------
 
 Parthenon allows users to output restart files for restarting a
@@ -361,6 +368,21 @@ immediately prior to restart files being written with the optional
 ``ApplicationInput``) or the per-package level (via ``StateDescriptor``). Both
 callbacks (if provided) will be called in that order before restart files are
 written.
+
+Logical field catalogs
+----------------------
+
+Current HDF5 and openPMD field outputs store an ``OutputDatasetNames`` attribute in the
+HDF5 ``Info`` group or on the openPMD iteration, respectively. This attribute is an
+ordered catalog of logical Parthenon field labels and is used when an :ref:`analysis`
+run discovers fields in a source file. Sparse fields appear with their full labels,
+including the sparse ID suffix.
+
+For compatibility, HDF5 readers can discover fields from root datasets in files that do
+not contain this attribute. OpenPMD format-version-2 readers can recover logical labels
+from mesh-record names and sparse metadata. OpenPMD format-version-1 names are not
+always reversible; analysis of those files requires an explicit
+``<parthenon/analysis>/fields`` list.
 
 
 .. _output hist files:
@@ -659,24 +681,9 @@ Postprocessing and data analysis
 Native Parthenon-based
 ----------------------
 
-A rudimentary postprocessing option is available to analyze data in
-restart files within the downstream/Parthenon framework, i.e., making use of
-native compute capabilities.
-
-To trigger this kind of analysis, restart with ``-a /PATH/TO/RESTART/OUTPUT``
-(instead of ``-r``).
-This will launch the standard driver as if a simulation would be restarted,
-but never call the main time loop.
-Only the callbacks ``UserWorkBeforeLoop`` are executed.
-Afterwards, all output blocks that have the parameter ``analysis_output=true`` are
-going to be processed including ``UserWorkBeforeOutput`` callbacks.
-
-Note, the standard modifications to the original input parameters via the command line
-or via an input file apply.
-A typical use case is, for example, to calculate histograms a posteriori, i.e., a new
-output block is specified in a file called ``sample_hist.in`` with all necessary details
-(particularly the ``analysis_output=true`` parameter within said block) and then the
-data can be processed via ``-a /PATH/TO/RESTART/OUTPUT -i sample_hist.in``.
+Parthenon can load selected fields from HDF5 or openPMD outputs and run application-native
+diagnostics without advancing the simulation. See :ref:`analysis` for the command-line
+interface, field selection, callback ordering, parameter precedence, and output controls.
 
 Python scripts
 --------------
@@ -929,6 +936,3 @@ For example, the following methods are valid to load data with ``yt``
    ds = yt.load(filename,units_override=units_override,gamma=5./3.)
 
 The ``yt`` frontend for Parthenon is availble in ``yt >= 4.4``.
-
-.. note::
-    This file was made in part with generative AI.

@@ -14,7 +14,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
-// This file was modified with the assistance of generative AI.
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <cstdint>
@@ -147,6 +147,7 @@ void Swarm::Add(const std::string &label, const Metadata &metadata) {
     PARTHENON_FAIL("swarm variable " + label +
                    " does not have a valid type during Add()");
   }
+  InvalidateCommunicationPacks_();
 }
 
 ///
@@ -182,6 +183,7 @@ void Swarm::Remove(const std::string &label) {
 
     // Also remove variable from map
     int_map.erase(label);
+    InvalidateCommunicationPacks_();
     return;
   }
 
@@ -199,6 +201,7 @@ void Swarm::Remove(const std::string &label) {
     if (real_vector.size() > 1) real_vector[idx] = std::move(real_vector.back());
     real_vector.pop_back();
     real_map.erase(label);
+    InvalidateCommunicationPacks_();
     return;
   }
 
@@ -216,6 +219,7 @@ void Swarm::Remove(const std::string &label) {
     if (uint64_vector.size() > 1) uint64_vector[idx] = std::move(uint64_vector.back());
     uint64_vector.pop_back();
     uint64_map.erase(label);
+    InvalidateCommunicationPacks_();
     return;
   }
 
@@ -271,9 +275,8 @@ void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
   }
 
   nmax_pool_ = nmax_pool;
-
-  // Populate new empty indices
-  UpdateEmptyIndices();
+  InvalidateCommunicationPacks_();
+  empty_indices_valid_ = false;
 
   // Eliminate any cached SwarmPacks, as they will need to be rebuilt following SetPoolMax
   pmb->meshblock_data.Get()->ClearSwarmCaches();
@@ -289,9 +292,19 @@ NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
   auto pmb = GetBlockPointer();
 
   if (num_to_add > 0) {
-    while (nmax_pool_ - num_active_ < num_to_add) {
-      IncreasePoolMax();
+    const std::int64_t required_pool_size =
+        static_cast<std::int64_t>(num_active_) + num_to_add;
+    if (static_cast<std::int64_t>(nmax_pool_) < required_pool_size) {
+      std::int64_t new_pool_size = nmax_pool_;
+      while (new_pool_size < required_pool_size) {
+        PARTHENON_REQUIRE(new_pool_size <= std::numeric_limits<std::int64_t>::max() / 2,
+                          "Swarm pool size overflow while adding particles");
+        new_pool_size *= 2;
+      }
+      SetPoolMax(new_pool_size);
     }
+
+    EnsureEmptyIndices_();
 
     auto &new_indices = new_indices_;
     auto &empty_indices = empty_indices_;
@@ -314,8 +327,7 @@ NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
 
     new_indices_max_idx_ = num_to_add - 1;
     num_active_ += num_to_add;
-
-    UpdateEmptyIndices();
+    empty_indices_valid_ = false;
   } else {
     new_indices_max_idx_ = -1;
   }
@@ -326,6 +338,10 @@ NewParticlesContext Swarm::AddEmptyParticles(const int num_to_add) {
 
 // Updates the empty_indices_ array so the first N elements contain an ascending list of
 // indices into empty elements of the swarm pool, where N is the number of empty indices
+void Swarm::EnsureEmptyIndices_() {
+  if (!empty_indices_valid_) UpdateEmptyIndices();
+}
+
 void Swarm::UpdateEmptyIndices() {
   auto &mask = mask_;
   auto &empty_indices = empty_indices_;
@@ -354,35 +370,31 @@ void Swarm::UpdateEmptyIndices() {
           empty_indices(empty_indices_scan(n) - 1) = n;
         }
       });
+  empty_indices_valid_ = true;
 }
 
 // No active particles: nmax_active_index = inactive_max_active_index (= -1)
 // No particles removed: nmax_active_index unchanged
 // Particles removed: nmax_active_index is new max active index
 void Swarm::RemoveMarkedParticles() {
-  int &max_active_index = max_active_index_;
-
+  if (num_active_ == 0) {
+    max_active_index_ = inactive_max_active_index;
+    return;
+  }
   auto &mask = mask_;
   auto &marked_for_removal = marked_for_removal_;
 
-  // Update mask, count number of removed particles
-  int num_removed = 0;
-  parthenon::par_reduce(
-      PARTHENON_AUTO_LABEL, 0, max_active_index,
-      KOKKOS_LAMBDA(const int n, int &removed) {
-        if (mask(n)) {
-          if (marked_for_removal(n)) {
-            mask(n) = false;
-            marked_for_removal(n) = false;
-            removed += 1;
-          }
-        }
-      },
-      Kokkos::Sum<int>(num_removed));
+  using Reduction =
+      RemoveParticlesReduction<decltype(mask), decltype(marked_for_removal)>;
+  Reduction::value_type result;
 
-  num_active_ -= num_removed;
+  // Update mask, count number of removed particles, reset max active index
+  parthenon::par_reduce(PARTHENON_AUTO_LABEL, 0, max_active_index_,
+                        Reduction(mask, marked_for_removal), result);
 
-  UpdateEmptyIndices();
+  num_active_ -= result.num_removed;
+  if (result.num_removed > 0) empty_indices_valid_ = false;
+  max_active_index_ = (num_active_ == 0 ? inactive_max_active_index : result.max_index);
 }
 
 void Swarm::ClearParticles() {
@@ -391,7 +403,7 @@ void Swarm::ClearParticles() {
   num_active_ = 0;
   max_active_index_ = inactive_max_active_index;
   new_indices_max_idx_ = -1;
-  UpdateEmptyIndices();
+  empty_indices_valid_ = false;
 }
 
 void Swarm::Defrag() {
@@ -485,6 +497,7 @@ void Swarm::Defrag() {
 
   // Update max_active_index_
   max_active_index_ = num_active_ - 1;
+  empty_indices_valid_ = false;
 }
 
 ///
@@ -637,17 +650,19 @@ void Swarm::Validate(bool test_comms) const {
                       "This block region of neighbor indices is incorrect!");
   }
 
-  num_err = 0;
-  parthenon::par_reduce(
-      PARTHENON_AUTO_LABEL, 0, nmax_pool_ - num_active_ - 1,
-      KOKKOS_LAMBDA(const int n, int &nerr) {
-        if (mask(empty_indices(n)) == true) {
-          nerr += 1;
-        }
-      },
-      Kokkos::Sum<int>(num_err));
-  PARTHENON_REQUIRE(num_err == 0,
-                    "empty_indices_ array pointing to unmasked particle indices!");
+  if (empty_indices_valid_) {
+    num_err = 0;
+    parthenon::par_reduce(
+        PARTHENON_AUTO_LABEL, 0, nmax_pool_ - num_active_ - 1,
+        KOKKOS_LAMBDA(const int n, int &nerr) {
+          if (mask(empty_indices(n)) == true) {
+            nerr += 1;
+          }
+        },
+        Kokkos::Sum<int>(num_err));
+    PARTHENON_REQUIRE(num_err == 0,
+                      "empty_indices_ array pointing to unmasked particle indices!");
+  }
 }
 
 } // namespace parthenon

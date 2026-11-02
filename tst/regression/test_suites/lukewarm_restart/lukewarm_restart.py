@@ -16,6 +16,7 @@
 # ========================================================================================
 
 # This file was made in part with generative AI.
+import glob
 import numpy as np
 import sys
 import utils.test_case
@@ -49,11 +50,22 @@ class TestCase(utils.test_case.TestCaseAbs):
             parameters.driver_cmd_line_args = [
                 "parthenon/job/problem_id=amr_gold"
             ] + AMR
-        else:
+        elif step == 4:
             parameters.driver_cmd_line_args = [
                 "-r",
                 "amr_gold.out1.00002.rhdf",
                 "parthenon/job/problem_id=amr_silver",
+                "parthenon/mesh/pack_size=2",
+            ]
+        else:
+            # Analysis runs load the tracers from a data output
+            prefix = "" if step == 5 else "amr_"
+            parameters.driver_cmd_line_args = [
+                "-a",
+                f"{prefix}gold.out0.00003.phdf",
+                "-i",
+                f"{parameters.parthenon_path}/tst/regression/test_suites/lukewarm_restart/parthinput.analysis",
+                f"parthenon/job/problem_id={prefix}analysis",
                 "parthenon/mesh/pack_size=2",
             ]
         return parameters
@@ -118,4 +130,32 @@ class TestCase(utils.test_case.TestCaseAbs):
                             break
                     gold.close()
                     silver.close()
+
+            # An analysis run writes the tracers it loaded, unchanged and in their blocks
+            outputs = glob.glob(f"{prefix}analysis.out0.*.phdf")
+            if len(outputs) != 1:
+                Fail(f"{prefix}analysis wrote {outputs} rather than one output")
+                continue
+            source = phdf(f"{prefix}gold.out0.00003.phdf")
+            result = phdf(outputs[0])
+            if source.Time != result.Time:
+                Fail(f"{outputs[0]} is at time {result.Time}, not {source.Time}")
+            tracers = [data.GetLukewarm("tracers") for data in [source, result]]
+            if len(tracers[0].id) == 0:
+                Fail(f"{prefix}gold.out0.00003.phdf holds no tracers")
+            if not (tracers[0].counts == tracers[1].counts).all():
+                Fail(f"{outputs[0]} has different tracers in its blocks")
+                continue
+            # Within each block, tracers may be written in another order
+            for b in range(source.NumBlocks):
+                s = slice(
+                    tracers[0].offsets[b], tracers[0].offsets[b] + tracers[0].counts[b]
+                )
+                order = [np.argsort(t.id[s]) for t in tracers]
+                for x in ["id", "x", "y", "z"]:
+                    a, c = [getattr(t, x)[s][o] for t, o in zip(tracers, order)]
+                    if not (a == c).all():
+                        Fail(f"{outputs[0]}: block {b} differs in {x}")
+            source.close()
+            result.close()
         return success

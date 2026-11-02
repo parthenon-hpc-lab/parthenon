@@ -1,3 +1,5 @@
+.. This file was made in part with generative AI.
+
 Advanced Features
 =================
 
@@ -10,10 +12,8 @@ advanced integrators, and solvers.
 
    ../particles
    ../lukewarms
+   ../analysis
    ../integrators
    ../solvers
    ../fourier_transforms
    ../batched_linear_algebra
-
-.. note::
-    This file was made in part with generative AI.

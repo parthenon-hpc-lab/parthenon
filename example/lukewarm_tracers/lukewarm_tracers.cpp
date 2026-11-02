@@ -215,8 +215,9 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
 
   tr_pkg->AddParam("num_tracers", pin->GetOrAddInteger("Tracers", "num_tracers", 100));
 
-  // Every lukewarm carries positions and persistent ids
-  Metadata m({Metadata::Provides});
+  // Every lukewarm carries positions and persistent ids. An analysis run (-a) loads the
+  // tracers from the file it starts from.
+  Metadata m({Metadata::Provides, Metadata::Analysis});
   tr_pkg->AddLukewarm(lukewarm_name, m);
 
   // Assign package timestep hook
