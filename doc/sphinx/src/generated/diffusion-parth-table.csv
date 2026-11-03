@@ -30,6 +30,7 @@ block,parameters,type,default,description
 "parthenon/mesh","refinement","string","none","mesh refinement mode; Allowed values: adaptive, none, static"
 "parthenon/mesh","refinement_in_one_min_nbufs","int","64",""
 "parthenon/mesh","task_collection_timeout_in_seconds","int","300",""
+"parthenon/mesh","variable_pool_chunk_size","int","1","Number of same-shaped variable allocations to add to a variable pool when it is exhausted. The conservative default of one avoids increasing the variable-memory high water mark."
 "parthenon/mesh","x1max","Real","","maximum x1 value of domain"
 "parthenon/mesh","x1min","Real","","minimum x1 value of domain"
 "parthenon/mesh","x1rat","Real","1","unused"

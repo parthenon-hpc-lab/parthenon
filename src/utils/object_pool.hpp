@@ -21,9 +21,11 @@
 #include <math.h>
 
 #include <cstdint>
+#include <functional>
 #include <iostream>
 #include <sstream>
 #include <stack>
+#include <string>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -276,90 +278,119 @@ bool UsingSameResource(const T &lhs, const U &rhs) {
   return lhs.GetKey() == rhs.GetKey();
 }
 
-/*
-  TODO(JMM): Currently the key type here is always size_t. It can
-  easily be extended to vector types such as std::tuple if needed,
-  but I didn't bother since we don't need that right now.
+// A host-side map of homogeneous object pools. The allocation callback is responsible
+// for making one backing chunk, adding all but one of its subobjects to pool, and
+// returning the remaining subobject. The callback's key-specific subdivision is kept
+// outside this class so that it can support arbitrary view ranks and layouts.
+template <typename Key, typename T, typename Hash = std::hash<Key>>
+class ChunkedObjectPoolMap {
+ public:
+  using pool_t = ObjectPool<T>;
+  using owner_t = typename pool_t::owner_t;
+  using weak_t = typename pool_t::weak_t;
+  using map_t = std::unordered_map<Key, pool_t, Hash>;
+  using allocation_strategy_t = std::function<T(pool_t *, const Key &, std::size_t)>;
 
-  This means that right now, T really needs to be a 1D Kokkos view
-  under the hood.
+  explicit ChunkedObjectPoolMap(allocation_strategy_t allocation_strategy)
+      : allocation_strategy_(std::move(allocation_strategy)) {}
 
-  Also note this is not thread safe, so will need to be updated if we
-  ever worry about that.
- */
+  auto &GetPool(const Key &key) {
+    if (!Contains(key)) {
+      PARTHENON_THROW("ChunkedObjectPoolMap does not contain the requested object pool.");
+    }
+    return map_.at(key);
+  }
+
+  auto Get(const Key &key) { return GetPool(key).Get(); }
+
+  owner_t GetOwning(const Key &key) { return static_cast<owner_t>(Get(key)); }
+
+  void AddPool(const Key &key, const std::size_t chunk_size) {
+    if (Contains(key)) return;
+
+    const auto allocate_chunk = allocation_strategy_;
+    auto allocation_strategy = [allocate_chunk, key, chunk_size](pool_t *pool) {
+      return allocate_chunk(pool, key, chunk_size);
+    };
+    map_.emplace(key, pool_t(allocation_strategy));
+  }
+
+  void AddFreeObjectsToPool(const Key &key, const std::size_t nobjs) {
+    if (nobjs == 0) return;
+    auto &pool = GetPool(key);
+    pool.AddFreeObjectToPool(allocation_strategy_(&pool, key, nobjs));
+  }
+
+  void Clear() {
+    for (auto &[key, pool] : map_)
+      pool.Clear();
+  }
+
+  const auto &GetMap() const { return map_; }
+  bool Contains(const Key &key) const { return map_.count(key) > 0; }
+
+ private:
+  allocation_strategy_t allocation_strategy_;
+  map_t map_;
+};
+
+// Compatibility facade for the rank-1 communication-buffer API. The generic map above
+// owns all keyed pool mechanics; this class only defines how a rank-1 chunk is split.
 template <typename T>
   requires(KokkosView<T>)
 class ObjectPoolMap {
  public:
-  using pool_t = ObjectPool<T>;
-  using map_t = std::unordered_map<std::size_t, pool_t>;
-  using owner_t = typename pool_t::owner_t;
-  using weak_t = typename pool_t::weak_t;
+  using impl_t = ChunkedObjectPoolMap<std::size_t, T>;
+  using pool_t = typename impl_t::pool_t;
+  using map_t = typename impl_t::map_t;
+  using owner_t = typename impl_t::owner_t;
+  using weak_t = typename impl_t::weak_t;
   using data_t = typename T::data_type;
 
-  auto &GetPool(const std::size_t shape) {
-    if (!Contains(shape)) {
-      std::stringstream msg;
-      msg << "ObjectPoolMap must contain an ObjectPool " << "for objects of shape "
-          << shape << "!" << std::endl;
-      PARTHENON_THROW(msg);
-    }
-    return map_.at(shape);
-  }
-  auto GetBuffer(const std::size_t shape) { return GetPool(shape).Get(); }
+  ObjectPoolMap() : impl_(AllocateChunk) {}
+
+  auto &GetPool(const std::size_t shape) { return impl_.GetPool(shape); }
+  auto GetBuffer(const std::size_t shape) { return impl_.Get(shape); }
   // Sometimes the compiler complains about requiring a static cast
   // when going from weak_t to owner_t. This just is syntatic sugar
   // for that cast.
-  auto GetOwningBuffer(const std::size_t shape) {
-    return static_cast<owner_t>(GetBuffer(shape));
-  }
-  // TODO(JMM): This assumes the pool is of a 1D Kokkos view-like object
+  auto GetOwningBuffer(const std::size_t shape) { return impl_.GetOwning(shape); }
+
   void AddPool(const std::size_t shape, const std::size_t chunk_size) {
     static_assert(
         std::is_pointer_v<std::remove_reference_t<data_t>> &&
             !std::is_pointer_v<std::remove_pointer_t<std::remove_reference_t<data_t>>>,
         "Underlying view must be 1D");
-    if (map_.count(shape) > 0) return;
-    // This lambda is called whenever a buffer is requested but no
-    // buffers remain in the pool
-    auto allocation_strategy = [shape, chunk_size](ObjectPool<T> *pool) {
-      static std::size_t counter = 0; // per shape/chunk size. NOT thread safe.
-      const auto pool_size = shape * chunk_size;
-      auto label = "pool buffer " + std::to_string(counter++) + " of size " +
-                   std::to_string(shape) + " x " + std::to_string(chunk_size);
-      T chunk(label, pool_size);
-      for (std::size_t i = 1; i < chunk_size; ++i) {
-        pool->AddFreeObjectToPool(T(chunk, std::make_pair(i * shape, (i + 1) * shape)));
-      }
-      return T(chunk, std::make_pair(static_cast<std::size_t>(0), shape));
-    };
-    map_.emplace(shape, ObjectPool<T>(allocation_strategy));
+    impl_.AddPool(shape, chunk_size);
   }
-  // TODO(JMM): This assumes the pool is of a 1D Kokkos view-like object
+
   void AddFreeObjectsToPool(const std::size_t shape, const std::size_t nobjs) {
     static_assert(
         std::is_pointer_v<std::remove_reference_t<data_t>> &&
             !std::is_pointer_v<std::remove_pointer_t<std::remove_reference_t<data_t>>>,
         "Underlying view must be 1D");
-    auto &pool = GetPool(shape);
-    const auto pool_size = shape * nobjs;
-    auto label =
-        "pool buffer of size " + std::to_string(shape) + " x " + std::to_string(nobjs);
-    T chunk(label, pool_size);
-    for (int i = 0; i < nobjs; ++i) {
-      pool.AddFreeObjectToPool(T(chunk, std::make_pair(i * shape, (i + 1) * shape)));
-    }
+    impl_.AddFreeObjectsToPool(shape, nobjs);
   }
-  void Clear() {
-    for (auto &[k, p] : map_) {
-      p.Clear();
-    }
-  }
-  auto &GetMap() const { return map_; }
-  bool Contains(const std::size_t shape) const { return map_.count(shape) > 0; }
+
+  void Clear() { impl_.Clear(); }
+  const auto &GetMap() const { return impl_.GetMap(); }
+  bool Contains(const std::size_t shape) const { return impl_.Contains(shape); }
 
  private:
-  map_t map_;
+  static T AllocateChunk(pool_t *pool, const std::size_t &shape,
+                         const std::size_t chunk_size) {
+    static std::size_t counter = 0; // NOT thread safe.
+    const auto pool_size = shape * chunk_size;
+    auto label = "pool buffer " + std::to_string(counter++) + " of size " +
+                 std::to_string(shape) + " x " + std::to_string(chunk_size);
+    T chunk(label, pool_size);
+    for (std::size_t i = 1; i < chunk_size; ++i) {
+      pool->AddFreeObjectToPool(T(chunk, std::make_pair(i * shape, (i + 1) * shape)));
+    }
+    return T(chunk, std::make_pair(static_cast<std::size_t>(0), shape));
+  }
+
+  impl_t impl_;
 };
 
 } // namespace parthenon

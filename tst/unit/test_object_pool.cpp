@@ -24,6 +24,7 @@
 #include "kokkos_abstraction.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/object_pool.hpp"
+#include "utils/variable_pool.hpp"
 
 using parthenon::Real;
 using array_t = parthenon::ParArray1DRaw<Real>;
@@ -69,6 +70,42 @@ SCENARIO("Object pools", "[ObjectPool]") {
           REQUIRE(pool.NumBuffersInPool() == chunk_sizes[1]);
           REQUIRE(pool.NumBuffersInUse() == 0);
         }
+      }
+    }
+  }
+}
+
+SCENARIO("Variable pools", "[VariablePool]") {
+  using variable_pool_t = parthenon::VariablePoolMap<Real>;
+  constexpr std::array<int, parthenon::MAX_VARIABLE_DIMENSION> dims{2, 3, 1, 1, 1, 1, 1};
+  variable_pool_t pool(2);
+
+  GIVEN("a pool with a two-slot rank-8 backing chunk") {
+    REQUIRE(pool.SizeInBytes() == 0);
+    WHEN("two same-shaped variables are acquired") {
+      auto first = pool.Acquire(dims);
+      auto second = pool.Acquire(dims);
+
+      THEN("each lease has the requested rank-7 shape") {
+        for (int dim = 1; dim <= parthenon::MAX_VARIABLE_DIMENSION; ++dim) {
+          REQUIRE(first.view().GetDim(dim) == dims[dim - 1]);
+          REQUIRE(second.view().GetDim(dim) == dims[dim - 1]);
+        }
+        REQUIRE(first.view().data() != second.view().data());
+        REQUIRE(pool.NumObjectsInUse() == 2);
+        REQUIRE(pool.SizeInBytes() == 2 * first.view().size() * sizeof(Real));
+      }
+    }
+    WHEN("a lease is released") {
+      auto first = pool.Acquire(dims);
+      auto *first_data = first.view().data();
+      first.Reset();
+
+      auto recycled = pool.Acquire(dims);
+      THEN("its slot is reused without a new backing allocation") {
+        REQUIRE(recycled.view().data() == first_data);
+        REQUIRE(pool.NumObjectsInUse() == 1);
+        REQUIRE(pool.SizeInBytes() == 2 * recycled.view().size() * sizeof(Real));
       }
     }
   }

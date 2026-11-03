@@ -32,7 +32,7 @@ namespace parthenon {
 template <typename T>
 Variable<T>::Variable(const std::string &base_name, const Metadata &metadata,
                       int sparse_id, std::weak_ptr<MeshBlock> wpmb)
-    : m_(metadata), base_name_(base_name), sparse_id_(sparse_id),
+    : m_(metadata), pmy_block_(wpmb), base_name_(base_name), sparse_id_(sparse_id),
       dims_(m_.GetArrayDims(wpmb, false)), coarse_dims_(m_.GetArrayDims(wpmb, true)) {
   PARTHENON_REQUIRE_THROWS(m_.IsSet(Metadata::Real),
                            "Only Real data type is currently supported for Variable");
@@ -111,8 +111,14 @@ void Variable<T>::AllocateData(MeshBlock *pmb, bool flag_uninitialized) {
   PARTHENON_REQUIRE_THROWS(
       !is_allocated_,
       "Tried to allocate data for variable that's already allocated: " + label());
-  data = std::make_from_tuple<ParArrayND<T, VariableState>>(std::tuple_cat(
-      std::make_tuple(label(), MakeVariableState()), ArrayToReverseTuple(dims_)));
+  if (pmb != nullptr && pmb->pmy_mesh != nullptr) {
+    fine_storage_ = pmb->pmy_mesh->variable_pool.Acquire(dims_);
+  } else {
+    fine_storage_ = VariableStorage<T>(std::make_from_tuple<ParArrayND<T>>(
+        std::tuple_cat(std::make_tuple(label()), ArrayToReverseTuple(dims_))));
+  }
+  data = ParArrayND<T, VariableState>(fine_storage_.view().KokkosView(),
+                                      MakeVariableState());
 
   ++num_alloc_;
 
@@ -143,9 +149,9 @@ void Variable<T>::AllocateCoarse(std::weak_ptr<MeshBlock> wpmb) {
     std::shared_ptr<MeshBlock> pmb = wpmb.lock();
 
     if (pmb->pmy_mesh != nullptr && pmb->pmy_mesh->multilevel) {
-      coarse_s = std::make_from_tuple<ParArrayND<T, VariableState>>(
-          std::tuple_cat(std::make_tuple(label() + ".coarse", MakeVariableState()),
-                         ArrayToReverseTuple(coarse_dims_)));
+      coarse_storage_ = pmb->pmy_mesh->variable_pool.Acquire(coarse_dims_);
+      coarse_s = ParArrayND<T, VariableState>(coarse_storage_.view().KokkosView(),
+                                              MakeVariableState());
       pmb->LogMemUsage(coarse_s.size() * sizeof(T));
     }
   }
@@ -161,10 +167,20 @@ std::int64_t Variable<T>::Deallocate() {
 
   mem_size += data.size() * sizeof(T);
   data.Reset();
+  if (auto pmb = pmy_block_.lock(); pmb != nullptr && pmb->pmy_mesh != nullptr) {
+    pmb->pmy_mesh->RetireVariableStorage(fine_storage_);
+  } else {
+    fine_storage_.Reset();
+  }
 
   if (RequiresCoarseBuffer()) {
     mem_size += coarse_s.size() * sizeof(T);
     coarse_s.Reset();
+    if (auto pmb = pmy_block_.lock(); pmb != nullptr && pmb->pmy_mesh != nullptr) {
+      pmb->pmy_mesh->RetireVariableStorage(coarse_storage_);
+    } else {
+      coarse_storage_.Reset();
+    }
   }
 
   is_allocated_ = false;

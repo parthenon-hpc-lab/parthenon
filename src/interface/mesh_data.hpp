@@ -463,12 +463,15 @@ class MeshData {
     return PackVariablesImpl(nullptr, coarse);
   }
 
-  void ClearCaches() {
+  // Invalidate cached objects that retain copies of variable views. In particular,
+  // do not clear block_data_: it is the stage's data, rather than a cache.
+  void ClearVariableCaches() {
     sparse_pack_cache_.clear();
-    block_data_.clear();
     varPackMap_.clear();
     varFluxPackMap_.clear();
     bvars_cache_.clear();
+    for (auto &block_data : block_data_)
+      block_data->ClearVariableCaches();
   }
 
   int GetNDim() const { return ndim_; }
