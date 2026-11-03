@@ -91,8 +91,7 @@ BlockList_t MakeBlockList(const std::shared_ptr<StateDescriptor> pkg, const int 
   block_list.reserve(NBLOCKS);
   for (int i = 0; i < NBLOCKS; ++i) {
     auto pmb = std::make_shared<MeshBlock>(NSIDE, NDIM);
-    auto &pmbd = pmb->meshblock_data.Get();
-    pmbd->Initialize(pkg, pmb);
+    auto &pmbd = pmb->meshblock_data.Add("base", pkg, pmb);
     block_list.push_back(pmb);
   }
   return block_list;
@@ -711,8 +710,7 @@ void RunPackViewCase(const PackViewSpec &spec, const int ninner, const bool kji_
   pkg->AddField<v5>(m);
 
   BlockList_t block_list = MakeBlockList(pkg, spec.nblocks, spec.ncell, 3);
-  MeshData<Real> mesh_data("base");
-  mesh_data.Initialize(block_list, nullptr);
+  MeshData<Real> mesh_data("base", block_list, nullptr);
 
   std::array<std::string, 3> var_names{v1::name(), v2::name(), v5::name()};
   const auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
@@ -820,8 +818,7 @@ void RunFacePackViewCase(const PackViewSpec &spec, const int ninner) {
   pkg->AddField<v2>(m_cell);
 
   BlockList_t block_list = MakeBlockList(pkg, spec.nblocks, spec.ncell, 3);
-  MeshData<Real> mesh_data("base");
-  mesh_data.Initialize(block_list, nullptr);
+  MeshData<Real> mesh_data("base", block_list, nullptr);
 
   using TE = TopologicalElement;
   using IndexSpaceType = IndexSpace<LOOP_TAG, INNER_TAG>;
@@ -899,8 +896,7 @@ void RunFluxViewCase(const PackViewSpec &spec, const int ninner, const int dir) 
   pkg->AddField<v5>(m);
 
   BlockList_t block_list = MakeBlockList(pkg, spec.nblocks, spec.ncell, 3);
-  MeshData<Real> mesh_data("base");
-  mesh_data.Initialize(block_list, nullptr);
+  MeshData<Real> mesh_data("base", block_list, nullptr);
 
   using IndexSpaceType = IndexSpace<LOOP_TAG, INNER_TAG>;
   IndexSpaceType idx_space(spec.nblocks, spec.ncell, spec.ncell, spec.ncell, spec.nghost,
@@ -982,8 +978,7 @@ void RunVarViewCase(const PackViewSpec &spec, const int ninner) {
   pkg->AddField<v5>(m);
 
   BlockList_t block_list = MakeBlockList(pkg, spec.nblocks, spec.ncell, 3);
-  MeshData<Real> mesh_data("base");
-  mesh_data.Initialize(block_list, nullptr);
+  MeshData<Real> mesh_data("base", block_list, nullptr);
 
   using IndexSpaceType = IndexSpace<LOOP_TAG, INNER_TAG>;
   IndexSpaceType idx_space(spec.nblocks, spec.ncell, spec.ncell, spec.ncell, spec.nghost,
@@ -1063,8 +1058,7 @@ void RunVarViewDenseOffsetCase(const PackViewSpec &spec, const int ninner) {
   pkg->AddField<v5>(scalar_m);
 
   BlockList_t block_list = MakeBlockList(pkg, spec.nblocks, spec.ncell, 3);
-  MeshData<Real> mesh_data("base");
-  mesh_data.Initialize(block_list, nullptr);
+  MeshData<Real> mesh_data("base", block_list, nullptr);
 
   auto desc = parthenon::MakePackDescriptor<v1, var_view_vec3, v5>(pkg.get());
   auto sparse_pack = desc.GetPack(&mesh_data);
@@ -1162,8 +1156,7 @@ void RunVarFluxViewCase(const PackViewSpec &spec, const int ninner, const int di
   pkg->AddField<v5>(m);
 
   BlockList_t block_list = MakeBlockList(pkg, spec.nblocks, spec.ncell, 3);
-  MeshData<Real> mesh_data("base");
-  mesh_data.Initialize(block_list, nullptr);
+  MeshData<Real> mesh_data("base", block_list, nullptr);
 
   using IndexSpaceType = IndexSpace<LOOP_TAG, INNER_TAG>;
   IndexSpaceType idx_space(spec.nblocks, spec.ncell, spec.ncell, spec.ncell, spec.nghost,
@@ -2041,8 +2034,7 @@ void RunHalo2DMeshSingleTouchCase(int nblocks, int nside, int nghost) {
   pkg->AddField<v1>(m);
 
   BlockList_t block_list = MakeBlockList(pkg, nblocks, nside, /*NDIM=*/2);
-  MeshData<Real> mesh_data("base");
-  mesh_data.Initialize(block_list, nullptr);
+  MeshData<Real> mesh_data("base", block_list, nullptr);
 
   using IndexSpaceType = IndexSpace<loop_tag::bvoi, INNER_TAG>;
   IndexSpaceType idx_space(

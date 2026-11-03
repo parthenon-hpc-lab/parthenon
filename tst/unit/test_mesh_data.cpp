@@ -51,8 +51,7 @@ BlockList_t MakeBlockList(const std::shared_ptr<StateDescriptor> pkg, const int 
   block_list.reserve(NBLOCKS);
   for (int i = 0; i < NBLOCKS; ++i) {
     auto pmb = std::make_shared<MeshBlock>(NSIDE, NDIM);
-    auto &pmbd = pmb->meshblock_data.Get();
-    pmbd->Initialize(pkg, pmb);
+    auto &pmbd = pmb->meshblock_data.Add("base", pkg, pmb);
     block_list.push_back(pmb);
   }
   return block_list;
@@ -77,8 +76,7 @@ TEST_CASE("MeshData works as expected for simple packs", "[MeshData]") {
     pkg->AddField("v6", m_face);
     BlockList_t block_list = MakeBlockList(pkg, NBLOCKS, N, NDIM);
 
-    MeshData<Real> mesh_data("base");
-    mesh_data.Initialize(block_list, nullptr);
+    MeshData<Real> mesh_data("base", block_list, nullptr);
 
     THEN("The number of blocks is correct") { REQUIRE(mesh_data.NumBlocks() == NBLOCKS); }
 
