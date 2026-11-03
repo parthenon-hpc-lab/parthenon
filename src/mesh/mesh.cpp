@@ -386,6 +386,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
                           Packages_t &packages, int mesh_test,
                           const std::unordered_map<LogicalLocation, int> &dealloc_count) {
+  Kokkos::Profiling::pushRegion("Mesh::BuildBlockList");
   // LFR: This routine should work for general block lists
   std::stringstream msg;
 
@@ -450,6 +451,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
   SetMeshBlockNeighbors(this, GridIdentifier::leaf(), block_list, ranklist);
   SetGMGNeighbors();
   ResetLoadBalanceVariables();
+  Kokkos::Profiling::popRegion();
 }
 
 //----------------------------------------------------------------------------------------
@@ -801,34 +803,42 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
       // Call Mesh ProblemGenerator
       if (ProblemGenerator != nullptr) {
+	Kokkos::Profiling::pushRegion("mesh problem generator");
         for (auto &partition : GetDefaultBlockPartitions()) {
           auto &md = mesh_data.Add("base", partition);
           ProblemGenerator(this, pin, md.get());
         }
+	Kokkos::Profiling::popRegion();
         // Call individual MeshBlock ProblemGenerator
       } else {
+	Kokkos::Profiling::pushRegion("meshblock problem generator");
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
           if (pmb->ProblemGenerator != nullptr) {
             pmb->ProblemGenerator(pmb.get(), pin);
           }
         }
+	Kokkos::Profiling::popRegion();
       }
 
       // Call Mesh PostProblemGenerator
       if (PostProblemGenerator != nullptr) {
+	Kokkos::Profiling::pushRegion("mesh post problem generator");
         for (auto &partition : GetDefaultBlockPartitions()) {
           auto &md = mesh_data.Add("base", partition);
           PostProblemGenerator(this, pin, md.get());
         }
+	Kokkos::Profiling::popRegion();
         // Call individual MeshBlock PostProblemGenerator
       } else {
+	Kokkos::Profiling::pushRegion("meshblock post problem generator");
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
           if (pmb->PostProblemGenerator != nullptr) {
             pmb->PostProblemGenerator(pmb.get(), pin);
           }
         }
+	Kokkos::Profiling::popRegion();
       }
 
       // Call per-package initialization
@@ -840,18 +850,22 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
                 ". Please use only one.");
 
         // first on the mesh...
+	Kokkos::Profiling::pushRegion("pkg mesh post problem generator");
         if (pkg->PostProblemGeneratorMesh != nullptr) {
           for (auto &partition : GetDefaultBlockPartitions()) {
             auto &md = mesh_data.Add("base", partition);
             pkg->PostProblemGeneratorMesh(this, pin, md.get());
           }
         }
+	Kokkos::Profiling::popRegion();
         // and then per block
+	Kokkos::Profiling::pushRegion("pkg meshblock post problem generator");
         if (pkg->PostProblemGeneratorBlock != nullptr) {
           for (auto &pmb : block_list) {
             pkg->PostProblemGeneratorBlock(pmb.get(), pin);
           }
         }
+	Kokkos::Profiling::popRegion();
       }
 
       std::for_each(block_list.begin(), block_list.end(),

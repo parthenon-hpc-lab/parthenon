@@ -3,7 +3,7 @@
 // Copyright(C) 2022-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2022-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2022-2026. Triad National Security, LLC. All rights reserved.
 // Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // AI was used to assist with boundary communication kernel optimization.
 //

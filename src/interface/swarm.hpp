@@ -356,6 +356,50 @@ class Swarm {
   bool mpiStatus;
 };
 
+template <typename MaskView, typename RemovalView>
+struct RemoveParticlesReduction {
+  struct value_type {
+    int num_removed;
+    int max_index;
+    value_type &operator+=(const value_type &other) {
+      num_removed += other.num_removed;
+      max_index = max_index > other.max_index ? max_index : other.max_index;
+      return *this;
+    }
+  };
+
+  MaskView mask;
+  RemovalView marked_for_removal;
+
+  RemoveParticlesReduction(MaskView mask_, RemovalView marked_for_removal_)
+      : mask(mask_), marked_for_removal(marked_for_removal_) {}
+
+  KOKKOS_INLINE_FUNCTION
+  void init(value_type &v) const {
+    v.num_removed = 0;
+    v.max_index = -1;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void join(value_type &dst, const value_type &src) const {
+    dst.num_removed += src.num_removed;
+    dst.max_index = dst.max_index > src.max_index ? dst.max_index : src.max_index;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(const int n, value_type &v) const {
+    if (mask(n)) {
+      if (marked_for_removal(n)) {
+        mask(n) = false;
+        marked_for_removal(n) = false;
+        ++v.num_removed;
+      } else {
+        v.max_index = n > v.max_index ? n : v.max_index;
+      }
+    }
+  }
+};
+
 template <class T>
 inline vpack_types::SwarmVarList<T>
 Swarm::MakeVarList_(const std::vector<std::string> &names) {
