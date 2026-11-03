@@ -270,6 +270,12 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
                 [&all_received, coal_comm](auto pbuf) {
                   all_received = pbuf->TryReceive(coal_comm) && all_received;
                 });
+  // Some MPI implementations only progress rendezvous sends while the sending rank is
+  // inside MPI, so if we leave the exchange with sends in flight the receiving rank
+  // can be stalled until we next call MPI
+  if (coal_comm && all_received && pmesh->coalesced_wait_for_sends)
+    all_received = pmesh->pcoalesced_comms->IsAvailableForWrite(
+        md.get(), GetAssociatedSender(bound_type));
 
   int ibound = 0;
   if (Globals::sparse_config.enabled && all_received) {
