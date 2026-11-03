@@ -13,6 +13,8 @@
 
 // This file was made in part with generative AI.
 
+#include <string>
+
 #include "mesh_data.hpp"
 
 #include "mesh/mesh.hpp"
@@ -20,8 +22,9 @@
 namespace parthenon {
 
 template <typename T>
-void MeshData<T>::Initialize(BlockList_t blocks, Mesh *pmesh,
-                             std::optional<int> gmg_level) {
+MeshData<T>::MeshData(const std::string &name, BlockList_t blocks, Mesh *pmesh,
+                      std::optional<int> gmg_level)
+    : stage_name_(name) {
   const int nblocks = blocks.size();
   block_data_.resize(nblocks);
   SetMeshProperties(pmesh);

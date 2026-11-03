@@ -13,3 +13,4 @@ so you can run your first example quickly.
    ../building
    ../inputs
    ../outputs
+   ../signals
