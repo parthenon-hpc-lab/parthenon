@@ -110,6 +110,11 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           "parthenon/mesh", "comm_buffer_chunk_size", -1,
           "Number of comm buffers to allocate when more are required. Default is a "
           "heuristic.")},
+      nvar_add_{pin->GetOrAddInteger(
+          "parthenon/mesh", "variable_pool_chunk_size", 1,
+          "Number of same-shaped variable allocations to add to a variable pool when "
+          "it is exhausted. The conservative default of one avoids increasing the "
+          "variable-memory high water mark.")},
       buffer_reset_frac_{pin->GetOrAddReal(
           "parthenon/mesh", "comm_buffer_reset_fraction", 0.8,
           "When a check for comm buffer realocation is made (see "
@@ -120,6 +125,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           pin->GetOrAddInteger("parthenon/mesh", "base_block_coarsenings", 0,
                                "How many times to internally coarsen blocks before going "
                                "to two-level composite grids")} {
+  variable_pool.SetChunkSize(
+      static_cast<std::size_t>(std::max<std::int64_t>(nvar_add_, 1)));
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =
@@ -463,6 +470,19 @@ Mesh::~Mesh() {
   }
   mpi_comm_map_.clear();
 #endif
+}
+
+void Mesh::RecycleVariablePool() {
+  if (!HasRetiredVariableStorage()) return;
+
+  // Variable packs hold copies of variable views. Do not make a retired pool slot
+  // reusable until all work using those views has completed and the framework caches
+  // that can retain them have been invalidated.
+  Kokkos::fence();
+  for (auto &[label, pdata] : mesh_data.Stages()) {
+    pdata->ClearVariableCaches();
+  }
+  retired_variable_storage_.clear();
 }
 
 //----------------------------------------------------------------------------------------

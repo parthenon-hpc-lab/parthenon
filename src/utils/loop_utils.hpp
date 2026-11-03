@@ -1,9 +1,9 @@
 //========================================================================================
 // Parthenon performance portable AMR framework
-// Copyright(C) 2022 The Parthenon collaboration
+// Copyright(C) 2022-2026 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2022-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2022-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,6 +14,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
+
 #ifndef UTILS_LOOP_UTILS_HPP_
 #define UTILS_LOOP_UTILS_HPP_
 
@@ -99,8 +102,8 @@ inline auto &GetNeighborsOnFinerGMGGrid(MeshBlock *pmb, const GridIdentifier &gr
 // routines and allows for easy selection of a subset of the boundaries based
 // on the template parameter BoundaryType. [Really, this probably does not
 // need to be a template parameter, it could just be a function argument]
-template <BoundaryType bound = BoundaryType::any, class F>
-inline void ForEachBoundary(std::shared_ptr<MeshData<Real>> &md, F func) {
+template <BoundaryType bound = BoundaryType::any, class MD, class F>
+inline void ForEachBoundary(std::shared_ptr<MD> &md, F func) {
   int fine_level = md->grid.logical_level();
   for (int block = 0; block < md->NumBlocks(); ++block) {
     auto &rc = md->GetBlockData(block);

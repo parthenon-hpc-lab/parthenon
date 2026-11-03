@@ -22,6 +22,7 @@
 #ifndef OUTPUTS_OUTPUT_PARAMETERS_HPP_
 #define OUTPUTS_OUTPUT_PARAMETERS_HPP_
 
+#include <cstddef>
 #include <map>
 #include <set>
 #include <string>
@@ -56,6 +57,7 @@ struct OutputParameters {
   std::vector<std::string> packages;
   Real dt = -1.0;
   int dn = -1;
+  std::vector<Real> times;
   bool include_ghost_zones = false;
   bool cartesian_vector = false;
   bool single_precision_output = false;
@@ -66,6 +68,7 @@ struct OutputParameters {
   DumpOutputMode mode = DumpOutputMode::Unspecified;
 
   // These change after initialization, the other parameters do not.
+  std::size_t current_time_index = 0;
   Real last_time;
   Real next_time = 0.0;
   int last_n;

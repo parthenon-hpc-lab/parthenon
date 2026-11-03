@@ -44,6 +44,7 @@
 namespace parthenon {
 
 // forward declarations
+class ApplicationInput;
 class Mesh;
 class ParameterInput;
 
@@ -289,7 +290,8 @@ class HistogramOutput : public OutputType {
 
 class Outputs {
  public:
-  Outputs(Mesh *pm, ParameterInput *pin, SimTime *tm = nullptr);
+  Outputs(Mesh *pm, ParameterInput *pin, ApplicationInput *papp_in,
+          SimTime *tm = nullptr);
 
   void
   MakeOutputs(Mesh *pm, ParameterInput *pin, SimTime *tm = nullptr,

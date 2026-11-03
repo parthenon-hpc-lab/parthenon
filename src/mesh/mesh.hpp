@@ -58,6 +58,7 @@
 #include "utils/hash.hpp"
 #include "utils/object_pool.hpp"
 #include "utils/partition_stl_containers.hpp"
+#include "utils/variable_pool.hpp"
 
 #ifdef PARTHENON_ENABLE_FFT
 #include "utils/fft_manager.hpp"
@@ -174,11 +175,32 @@ class Mesh {
     return do_coalesced_comms && coalesced_comm_backend == "nccl";
   }
 
+  // Must be declared before block_list so that pooled variable leases are destroyed
+  // before the pool itself.
+  VariablePoolMap<Real> variable_pool;
+  std::vector<VariableStorage<Real>> retired_variable_storage_;
+
   BlockList_t block_list;
   Packages_t packages;
   std::shared_ptr<StateDescriptor> resolved_packages;
 
   DataCollection<MeshData<Real>> mesh_data;
+
+  void RetireVariableStorage(VariableStorage<Real> &storage) {
+    if (!storage.pooled()) {
+      storage.Reset();
+      return;
+    }
+    retired_variable_storage_.push_back(storage);
+    storage.Reset();
+  }
+
+  bool HasRetiredVariableStorage() const { return !retired_variable_storage_.empty(); }
+  // May only be called at a quiescent point. Application code must not retain a raw
+  // variable or Kokkos view across a variable deallocation and this call.
+  void RecycleVariablePool();
+
+  std::uint64_t GetVariablePoolSizeInBytes() const { return variable_pool.SizeInBytes(); }
 
   int GetGMGMaxLevel() const { return current_level; }
   int GetGMGMinLevel() const { return gmg_min_level_; }
@@ -470,6 +492,11 @@ class Mesh {
   // number of comm buffers to add when more need to be allocated
   // TODO(JMM): Stash this in globals or a param maybe?
   std::int64_t nbuf_add_;
+
+  // Variable-pool chunks are deliberately conservative by default: unlike boundary
+  // buffers, a variable shape can be much larger than one meshblock's communication
+  // buffer.
+  std::int64_t nvar_add_;
 
   // Tracking for when to re-allocate comm-buffers to minimize memory
   // footprint.

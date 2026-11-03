@@ -90,7 +90,8 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, true);
 
   if (cache.RequiresReinitialize(pmesh))
-    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache, SendKey);
+    InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache,
+                                      SendKey<sp_cv_t>);
 
   auto [rebuild, nbound, other_communication_unfinished] =
       CheckSendBufferCacheForRebuild<bound_type, true>(md);
@@ -238,18 +239,24 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
   return TaskStatus::complete;
 }
 
-template TaskStatus SendBoundBufs<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &);
-template TaskStatus SendBoundBufs<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
-SendBoundBufs<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &);
+SendBoundBufsWithRestrictOption<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &,
+                                                   bool);
 template TaskStatus
-SendBoundBufs<BoundaryType::gmg_restrict_send>(std::shared_ptr<MeshData<Real>> &);
+SendBoundBufsWithRestrictOption<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &,
+                                                     bool);
 template TaskStatus
-SendBoundBufs<BoundaryType::gmg_prolongate_send>(std::shared_ptr<MeshData<Real>> &);
+SendBoundBufsWithRestrictOption<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &,
+                                                        bool);
+template TaskStatus SendBoundBufsWithRestrictOption<BoundaryType::gmg_restrict_send>(
+    std::shared_ptr<MeshData<Real>> &, bool);
+template TaskStatus SendBoundBufsWithRestrictOption<BoundaryType::gmg_prolongate_send>(
+    std::shared_ptr<MeshData<Real>> &, bool);
+template TaskStatus SendBoundBufsWithRestrictOption<BoundaryType::flxcor_send>(
+    std::shared_ptr<MeshData<Real>> &, bool);
 template TaskStatus
-SendBoundBufs<BoundaryType::flxcor_send>(std::shared_ptr<MeshData<Real>> &);
-template TaskStatus
-SendBoundBufs<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
+SendBoundBufsWithRestrictOption<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &,
+                                                        bool);
 
 template <BoundaryType bound_type>
 TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -258,7 +265,7 @@ TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.RequiresReinitialize(pmesh))
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache,
-                                      ReceiveKey);
+                                      ReceiveKey<sp_cv_t>);
   if (!pmesh->do_coalesced_comms) {
     std::for_each(std::begin(cache.buf_vec), std::end(cache.buf_vec),
                   [](auto pbuf) { pbuf->TryStartReceive(); });
@@ -290,7 +297,7 @@ TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
   auto &cache = md->GetBvarsCache().GetSubCache(bound_type, false);
   if (cache.RequiresReinitialize(pmesh))
     InitializeBufferCache<bound_type>(md, &(pmesh->boundary_comm_map), &cache,
-                                      ReceiveKey);
+                                      ReceiveKey<sp_cv_t>);
 
   const bool coal_comm = pmesh->do_coalesced_comms;
   if (coal_comm && !pmesh->pcoalesced_comms->UsesNCCL(bound_type))

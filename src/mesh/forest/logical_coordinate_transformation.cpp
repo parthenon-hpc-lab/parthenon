@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2024-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,8 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <array>
@@ -115,6 +117,23 @@ ComposeTransformations(const LogicalCoordinateTransformation &first,
     out.dir_connection_inverse[out.dir_connection[dir]] = dir;
   out.use_offset = first.use_offset && second.use_offset;
   return out;
+}
+
+LogicalCoordinateTransformation
+GetInverseTransform(const LogicalCoordinateTransformation &t) {
+  LogicalCoordinateTransformation inv;
+  // dir_flip and offset are indexed by the transform's *origin* dir, which for the
+  // inverse is nd, so they move to slot nd.
+  for (int d = 0; d < 3; ++d) {
+    const int nd = t.dir_connection[d];
+    inv.dir_connection[nd] = d;
+    inv.dir_connection_inverse[d] = nd;
+    inv.dir_flip[nd] = t.dir_flip[d];
+    inv.offset[nd] = t.dir_flip[d] ? t.offset[d] : -t.offset[d];
+  }
+  inv.use_offset = t.use_offset;
+  inv.ncell = t.ncell;
+  return inv;
 }
 
 } // namespace forest
