@@ -33,6 +33,7 @@
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "utils/comms_trace.hpp"
 #include "utils/communication_buffer.hpp"
 
 namespace parthenon {
@@ -63,6 +64,16 @@ struct CoalescedBuffer {
   CommBuffer<std::vector<int>> sparse_status_buffer;
   int current_size;
 
+  // Tracing of the exchange in flight (see utils/comms_trace.hpp)
+  comms_trace::ExchangeRecord trace_rec;
+  // Stored record of the last send, whose completion time is filled in lazily
+  comms_trace::ExchangeRecord *trace_send_rec{nullptr};
+  bool trace_open{false};
+  int trace_nexchange{0};
+  double trace_last_poll{0.0};
+  void TraceOpen(double t0);
+  void TraceClose();
+
   CoalescedBuffer(bool sender, int partition_tag, int lane, int other_rank,
                   BoundaryType b_type, mpi_comm_t comm, Mesh *pmesh);
 
@@ -79,8 +90,13 @@ struct CoalescedBuffer {
                       const std::shared_ptr<Variable<Real>> &var);
 
   bool IsAvailableForWrite() {
-    return sparse_status_buffer.IsAvailableForWrite() &&
-           coalesced_comm_buffer.IsAvailableForWrite();
+    const bool available = sparse_status_buffer.IsAvailableForWrite() &&
+                           coalesced_comm_buffer.IsAvailableForWrite();
+    if (available && trace_send_rec != nullptr) {
+      if (comms_trace::Recording()) trace_send_rec->t[4] = comms_trace::Now();
+      trace_send_rec = nullptr;
+    }
+    return available;
   }
 
   ParArray1DRaw<BndId> &GetBndIdsOnDevice(const std::set<Uid_t> &vars,
@@ -166,6 +182,9 @@ struct CoalescedComms {
   void ResolveAndSendSendBuffers();
 
   void ReceiveBufferInfo();
+
+  // Print the size and number of all coalesced messages sent by every rank. Collective.
+  void PrintCensus();
 
   void PackAndSend(MeshData<Real> *pmd, BoundaryType b_type);
 

@@ -339,6 +339,8 @@ add_library(parthenon
   utils/cell_center_offsets.cpp
   utils/cell_center_offsets.hpp
   utils/change_rundir.cpp
+  utils/comms_trace.cpp
+  utils/comms_trace.hpp
   utils/communication_buffer.hpp
   utils/bump_arena.hpp
   utils/cleantypes.hpp

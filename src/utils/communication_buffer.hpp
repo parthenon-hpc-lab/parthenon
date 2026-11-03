@@ -135,6 +135,10 @@ class CommBuffer {
   // true. This can be less than the size of the buffer.
   int GetMessageSize() const { return *message_size_; }
 
+  // True once the receive has been posted (for sparse receivers, once the message
+  // envelope has been seen)
+  bool ReceiveStarted() const { return *started_irecv_; }
+
   void Send(bool local = false, int size = -1) noexcept;
   void SendNull(bool local = false) noexcept;
 
