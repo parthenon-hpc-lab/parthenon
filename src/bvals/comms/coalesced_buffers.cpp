@@ -13,6 +13,10 @@
 
 // This file was made in part with generative AI.
 
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <map>
 #include <memory>
@@ -31,6 +35,7 @@
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
+#include "utils/comms_trace.hpp"
 #include "utils/communication_buffer.hpp"
 
 namespace parthenon {
@@ -169,16 +174,52 @@ ParArray1DRaw<BndId> &CoalescedBuffer::GetBndIdsOnDevice(const std::set<Uid_t> &
 }
 
 //----------------------------------------------------------------------------------------
+void CoalescedBuffer::TraceOpen(double t0) {
+  trace_rec = comms_trace::ExchangeRecord();
+  trace_rec.cycle = comms_trace::CurrentCycle();
+  trace_rec.build = comms_trace::CurrentBuild();
+  trace_rec.in_step = comms_trace::InStep();
+  trace_rec.exchange = trace_nexchange++;
+  trace_rec.is_send = sender;
+  trace_rec.peer = other_rank;
+  // Record the sender type on both sides so that sends and receives can be matched
+  trace_rec.btype = static_cast<int>(GetAssociatedSender(b_type));
+  trace_rec.lane = lane;
+  trace_rec.partition_tag = partition_tag;
+  trace_rec.t[0] = t0;
+  trace_last_poll = t0;
+  trace_open = true;
+}
+
+void CoalescedBuffer::TraceClose() {
+  auto *stored = comms_trace::RecordExchange(trace_rec);
+  if (sender) trace_send_rec = stored;
+  trace_open = false;
+}
+
+//----------------------------------------------------------------------------------------
 void CoalescedBuffer::PackAndSend(const std::set<Uid_t> &vars) {
+  // The completion of the previous send was never observed
+  trace_send_rec = nullptr;
   PARTHENON_REQUIRE(coalesced_comm_buffer.IsAvailableForWrite(),
                     "Trying to write to a buffer that is in use.");
+  if (comms_trace::Active()) TraceOpen(comms_trace::Now());
   int comb_size;
   auto &bids = GetBndIdsOnDevice(vars, &comb_size);
   CopyCoalesced<true>(pmesh, bids);
 #ifdef MPI_PARALLEL
+  const double t_fence = comms_trace::Now();
   Kokkos::fence();
+  const double t_fence_done = comms_trace::Now();
+  comms_trace::AddFenceTime(t_fence_done - t_fence);
+  if (trace_open) trace_rec.t[1] = t_fence_done;
 #endif
   coalesced_comm_buffer.Send(false, comb_size);
+  if (trace_open) {
+    trace_rec.t[2] = comms_trace::Now();
+    trace_rec.bytes = static_cast<std::int64_t>(comb_size) * sizeof(Real);
+    trace_rec.nbuf = bids.size();
+  }
 
   // Send the sparse null info as well
   if (bids.size() != sparse_status_buffer.buffer().size()) {
@@ -202,6 +243,10 @@ void CoalescedBuffer::PackAndSend(const std::set<Uid_t> &vars) {
     }
   }
   sparse_status_buffer.Send();
+  if (trace_open) {
+    trace_rec.t[3] = comms_trace::Now();
+    TraceClose();
+  }
 
   // Information in these send buffers is no longer required
   for (auto uid : var_set) {
@@ -231,8 +276,28 @@ bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
     }
   }
 
+  if (trace_open || comms_trace::Active()) {
+    const double now = comms_trace::Now();
+    if (!trace_open) {
+      TraceOpen(now);
+    } else {
+      trace_rec.max_poll_gap = std::max(trace_rec.max_poll_gap, now - trace_last_poll);
+      trace_last_poll = now;
+    }
+    trace_rec.npolls++;
+  }
+
   auto received_sparse = sparse_status_buffer.TryReceive();
   auto received = coalesced_comm_buffer.TryReceive();
+  if (trace_open) {
+    const double now = comms_trace::Now();
+    auto &t = trace_rec.t;
+    if (t[1] < 0.0 && (received_sparse || sparse_status_buffer.ReceiveStarted()))
+      t[1] = now;
+    if (t[2] < 0.0 && (received || coalesced_comm_buffer.ReceiveStarted())) t[2] = now;
+    if (t[3] < 0.0 && received_sparse) t[3] = now;
+    if (t[4] < 0.0 && received) t[4] = now;
+  }
   if (!received || !received_sparse) return false;
 
   // Allocate and free buffers as required
@@ -253,10 +318,17 @@ bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
     }
   }
 
-  auto &bids = GetBndIdsOnDevice(vars);
+  int comb_size;
+  auto &bids = GetBndIdsOnDevice(vars, &comb_size);
   CopyCoalesced<false>(pmesh, bids);
   coalesced_comm_buffer.Stale();
   sparse_status_buffer.Stale();
+  if (trace_open) {
+    trace_rec.t[5] = comms_trace::Now();
+    trace_rec.bytes = static_cast<std::int64_t>(comb_size) * sizeof(Real);
+    trace_rec.nbuf = bids.size();
+    TraceClose();
+  }
 
   return true;
 }
@@ -530,6 +602,164 @@ void CoalescedComms::ReceiveBufferInfo() {
   PARTHENON_REQUIRE(
       receive_iters < max_it,
       "Too many iterations waiting to receive boundary communication buffers.");
+}
+
+//----------------------------------------------------------------------------------------
+void CoalescedComms::PrintCensus() {
+  const int build = comms_trace::CurrentBuild();
+
+  // One row per coalesced message: src, dst, b_type, lane, partition_tag, nbuf, size
+  // (in Reals, assuming every variable is communicated and allocated)
+  constexpr int NR = 7;
+  std::vector<int> local;
+  for (auto &[key, cbr] : coalesced_send_buffers) {
+    for (auto &[ptag, cb] : cbr.coalesced_bufs) {
+      local.insert(local.end(),
+                   {Globals::my_rank, cb.other_rank, static_cast<int>(cb.b_type), cb.lane,
+                    ptag, static_cast<int>(cb.TotalBuffers()), cb.current_size});
+    }
+  }
+  const int nranks = Globals::nranks;
+  std::vector<int> all = local;
+#ifdef MPI_PARALLEL
+  int nlocal = local.size();
+  std::vector<int> counts(nranks), displs(nranks);
+  PARTHENON_MPI_CHECK(
+      MPI_Gather(&nlocal, 1, MPI_INT, counts.data(), 1, MPI_INT, 0, MPI_COMM_WORLD));
+  if (Globals::my_rank == 0) {
+    int tot = 0;
+    for (int r = 0; r < nranks; ++r) {
+      displs[r] = tot;
+      tot += counts[r];
+    }
+    all.resize(tot);
+  }
+  PARTHENON_MPI_CHECK(MPI_Gatherv(local.data(), nlocal, MPI_INT, all.data(),
+                                  counts.data(), displs.data(), MPI_INT, 0,
+                                  MPI_COMM_WORLD));
+#endif
+  if (Globals::my_rank != 0) return;
+
+  auto btype_name = [](int b) {
+    switch (static_cast<BoundaryType>(b)) {
+    case BoundaryType::local:
+      return "local";
+    case BoundaryType::nonlocal:
+      return "nonlocal";
+    case BoundaryType::any:
+      return "any";
+    case BoundaryType::flxcor_send:
+      return "flxcor_send";
+    case BoundaryType::flxcor_recv:
+      return "flxcor_recv";
+    case BoundaryType::gmg_same:
+      return "gmg_same";
+    case BoundaryType::gmg_restrict_send:
+      return "gmg_restrict_send";
+    case BoundaryType::gmg_restrict_recv:
+      return "gmg_restrict_recv";
+    case BoundaryType::gmg_prolongate_send:
+      return "gmg_prolongate_send";
+    case BoundaryType::gmg_prolongate_recv:
+      return "gmg_prolongate_recv";
+    }
+    return "unknown";
+  };
+  const double kib = sizeof(Real) / 1024.0;
+  const int nmsg = all.size() / NR;
+  auto row = [&](int m) { return &all[NR * m]; };
+  auto on_node = [](const int *r) {
+    return comms_trace::NodeOfRank(r[0]) == comms_trace::NodeOfRank(r[1]);
+  };
+
+  std::printf("\n==== Coalesced comms census (build %d): %d ranks on %d nodes, %d "
+              "messages per exchange of all variables ====\n",
+              build, nranks, comms_trace::NumNodes(), nmsg);
+  std::printf("Each message is accompanied by a status message of nbuf ints. Sizes assume "
+              "every variable is communicated.\n");
+  for (int n = 0; n < comms_trace::NumNodes(); ++n) {
+    std::printf("  node %d:", n);
+    std::string host;
+    for (int r = 0; r < nranks; ++r) {
+      if (comms_trace::NodeOfRank(r) == n) {
+        std::printf(" %d", r);
+        host = comms_trace::HostOfRank(r);
+      }
+    }
+    std::printf("  (%s)\n", host.c_str());
+  }
+
+  // Per rank, per boundary type totals
+  struct Tot {
+    int nmsg[2]{0, 0};
+    double kib[2]{0.0, 0.0};
+    int nbuf[2]{0, 0};
+    double min_kib{1e300}, max_kib{0.0};
+  };
+  std::map<std::pair<int, int>, Tot> tots;
+  for (int m = 0; m < nmsg; ++m) {
+    const int *r = row(m);
+    auto &t = tots[{r[0], r[2]}];
+    const int off = on_node(r) ? 0 : 1;
+    const double sz = r[6] * kib;
+    t.nmsg[off]++;
+    t.kib[off] += sz;
+    t.nbuf[off] += r[5];
+    t.min_kib = std::min(t.min_kib, sz);
+    t.max_kib = std::max(t.max_kib, sz);
+  }
+  std::printf("\n%6s %-20s | %8s %10s %8s | %8s %10s %8s | %10s %10s\n", "rank", "btype",
+              "on_msgs", "on_KiB", "on_nbuf", "off_msgs", "off_KiB", "off_nbuf",
+              "min_KiB", "max_KiB");
+  for (const auto &[k, t] : tots) {
+    std::printf("%6d %-20s | %8d %10.1f %8d | %8d %10.1f %8d | %10.2f %10.2f\n", k.first,
+                btype_name(k.second), t.nmsg[0], t.kib[0], t.nbuf[0], t.nmsg[1],
+                t.kib[1], t.nbuf[1], t.min_kib, t.max_kib);
+  }
+
+  // Histogram of message sizes in power of two KiB buckets
+  std::map<int, std::array<int, 2>> hist;
+  for (int m = 0; m < nmsg; ++m) {
+    const int *r = row(m);
+    const double sz = r[6] * kib;
+    int b = 0;
+    while (std::pow(2.0, b) < sz)
+      b++;
+    if (sz < 1.0) b = 0;
+    hist[b][on_node(r) ? 0 : 1]++;
+  }
+  std::printf("\nMessage size histogram (KiB bucket upper bound)\n%12s %8s %8s\n",
+              "<= KiB", "on_node", "off_node");
+  for (const auto &[b, h] : hist)
+    std::printf("%12.0f %8d %8d\n", std::pow(2.0, b), h[0], h[1]);
+
+  if (comms_trace::CensusPrintMessages()) {
+    std::printf("\n%6s %6s %4s %-20s %4s %6s %6s %10s\n", "src", "dst", "node",
+                "btype", "lane", "ptag", "nbuf", "KiB");
+    for (int m = 0; m < nmsg; ++m) {
+      const int *r = row(m);
+      std::printf("%6d %6d %4s %-20s %4d %6d %6d %10.2f\n", r[0], r[1],
+                  on_node(r) ? "on" : "off", btype_name(r[2]), r[3], r[4], r[5],
+                  r[6] * kib);
+    }
+  }
+  std::printf("==== End census ====\n\n");
+  std::fflush(stdout);
+
+  const std::string fname =
+      comms_trace::Prefix() + ".census." + std::to_string(build) + ".csv";
+  FILE *f = std::fopen(fname.c_str(), "w");
+  if (f != nullptr) {
+    std::fprintf(f, "src,dst,src_node,dst_node,btype,lane,partition_tag,nbuf,bytes\n");
+    for (int m = 0; m < nmsg; ++m) {
+      const int *r = row(m);
+      std::fprintf(f, "%d,%d,%d,%d,%s,%d,%d,%d,%lld\n", r[0], r[1],
+                   comms_trace::NodeOfRank(r[0]), comms_trace::NodeOfRank(r[1]),
+                   btype_name(r[2]), r[3], r[4], r[5],
+                   static_cast<long long>(r[6]) * static_cast<long long>(sizeof(Real)));
+    }
+    std::fclose(f);
+  }
 }
 
 //----------------------------------------------------------------------------------------

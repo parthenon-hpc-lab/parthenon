@@ -30,6 +30,7 @@
 #include "outputs/outputs.hpp"
 #include "parameter_input.hpp"
 #include "parthenon_mpi.hpp"
+#include "utils/comms_trace.hpp"
 #include "utils/utils.hpp"
 
 namespace parthenon {
@@ -173,7 +174,9 @@ DriverStatus EvolutionDriver::Execute() {
         }
       }
 
+      comms_trace::BeginStep(tm.ncycle);
       TaskListStatus status = Step();
+      comms_trace::StepDone();
       if (status != TaskListStatus::complete) {
         std::cerr << "Step failed to complete all tasks." << std::endl;
         return DriverStatus::failed;
@@ -205,6 +208,7 @@ DriverStatus EvolutionDriver::Execute() {
       if (pmesh->modified) InitializeBlockTimeSteps();
       time_LBandAMR += timer_LBandAMR.seconds();
       SetGlobalTimeStep();
+      comms_trace::EndStep();
 
       // check for signals
       signal = SignalHandler::CheckSignalFlags();
@@ -242,6 +246,8 @@ DriverStatus EvolutionDriver::Execute() {
 }
 
 void EvolutionDriver::PostExecute(DriverStatus status) {
+  comms_trace::Finalize();
+
   // Print diagnostic messages related to the end of the simulation
   if (Globals::my_rank == 0) {
     OutputCycleDiagnostics();
@@ -308,8 +314,10 @@ void EvolutionDriver::SetGlobalTimeStep() {
     // Force timestep to be in the allowable range
     tm.dt = std::max(dt_floor, std::min(tm.dt, dt_ceil));
 #ifdef MPI_PARALLEL
+    const double t_allreduce = comms_trace::Now();
     PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, &tm.dt, 1, MPI_PARTHENON_REAL,
                                       MPI_MIN, MPI_COMM_WORLD));
+    comms_trace::AddAllreduceTime(comms_trace::Now() - t_allreduce);
 #endif
   }
 

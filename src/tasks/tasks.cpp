@@ -25,6 +25,7 @@
 
 #include "tasks.hpp"
 #include "thread_pool.hpp"
+#include "utils/comms_trace.hpp"
 #include "utils/error_checking.hpp"
 
 namespace parthenon {
@@ -145,7 +146,12 @@ TaskListStatus TaskRegion::Execute(Pool_t &pool) {
       return TaskStatus::fail;
     }
 
+    const bool trace = comms_trace::Active();
+    const double t_task = trace ? comms_trace::Now() : 0.0;
     auto status = task->operator()();
+    if (trace)
+      comms_trace::AddTaskTime(status != TaskStatus::incomplete,
+                               comms_trace::Now() - t_task);
     if (status == TaskStatus::fail) {
       task_failed.store(true, std::memory_order_release);
       return status;

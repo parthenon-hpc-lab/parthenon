@@ -60,6 +60,7 @@
 #include "parameter_input.hpp"
 #include "parthenon_arrays.hpp"
 #include "prolong_restrict/prolong_restrict.hpp"
+#include "utils/comms_trace.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/partition_stl_containers.hpp"
 
@@ -116,6 +117,8 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           pin->GetOrAddInteger("parthenon/mesh", "base_block_coarsenings", 0,
                                "How many times to internally coarsen blocks before going "
                                "to two-level composite grids")} {
+  comms_trace::Initialize(pin);
+
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =
@@ -1321,6 +1324,7 @@ void Mesh::BuildAndRegisterCommBuffers_() {
   // Clear boundary communication buffers
   boundary_comm_map.clear();
   pcoalesced_comms->clear();
+  comms_trace::NewBuild();
 
   // JMM: Estimates about chunk size, pre-allocation, etc., are tuned to
   // all blocks on a rank, so we use the base partition.
@@ -1350,6 +1354,9 @@ void Mesh::BuildAndRegisterCommBuffers_() {
     pcoalesced_comms->ResolveAndSendSendBuffers();
     // This operation is blocking
     pcoalesced_comms->ReceiveBufferInfo();
+    if (comms_trace::CensusEnabled()) pcoalesced_comms->PrintCensus();
+  } else if (comms_trace::CensusEnabled() && Globals::my_rank == 0) {
+    std::printf("comms_trace: census requested but coalesced comms are disabled\n");
   }
 }
 
