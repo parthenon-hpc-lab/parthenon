@@ -383,6 +383,15 @@ class MeshBlockData {
     std::apply([](auto &...caches) { (caches.clear(), ...); }, swarm_pack_caches_);
   }
 
+  // Invalidate cached objects that retain copies of variable views without changing
+  // the MeshBlockData's variables or ownership structure.
+  void ClearVariableCaches() {
+    varPackMap_.clear();
+    coarseVarPackMap_.clear();
+    varFluxPackMap_.clear();
+    sparse_pack_cache_.clear();
+  }
+
   /// Pack variables and fluxes by separate variables and fluxes names
   const VariableFluxPack<T> &
   PackVariablesAndFluxes(const std::vector<std::string> &var_names,

@@ -186,6 +186,10 @@ DriverStatus EvolutionDriver::Execute() {
         pmesh->PostStepUserDiagnosticsInLoop(pmesh, pinput, tm);
       }
 
+      // Sparse deallocation can retire variable-pool slots during Step(). This is a
+      // quiescent point: all tasks and user post-step work have completed.
+      pmesh->RecycleVariablePool();
+
       tm.ncycle++;
       tm.time += tm.dt;
       pmesh->mbcnt += pmesh->nbtotal;

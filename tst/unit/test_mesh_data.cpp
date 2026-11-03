@@ -82,6 +82,14 @@ TEST_CASE("MeshData works as expected for simple packs", "[MeshData]") {
 
     THEN("The number of blocks is correct") { REQUIRE(mesh_data.NumBlocks() == NBLOCKS); }
 
+    WHEN("variable-view caches are invalidated") {
+      mesh_data.ClearVariableCaches();
+      THEN("the stage still owns its block data") {
+        REQUIRE(mesh_data.NumBlocks() == NBLOCKS);
+        REQUIRE(mesh_data.GetBlockData(0)->GetBlockPointer() == block_list[0].get());
+      }
+    }
+
     WHEN("We initialize the independent variables by hand") {
       auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
       auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::entire);

@@ -46,6 +46,7 @@
 #include "prolong_restrict/prolong_restrict.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/unique_id.hpp"
+#include "utils/variable_pool.hpp"
 
 namespace parthenon {
 
@@ -181,6 +182,7 @@ class Variable {
   VariableState MakeVariableState() const { return VariableState(m_, sparse_id_, dims_); }
 
   Metadata m_;
+  std::weak_ptr<MeshBlock> pmy_block_;
   const std::string base_name_;
   const int sparse_id_;
   const std::array<int, MAX_VARIABLE_DIMENSION> dims_, coarse_dims_;
@@ -194,6 +196,8 @@ class Variable {
   inline static UniqueIDGenerator<std::string> get_uid_;
 
   bool is_allocated_ = false;
+  VariableStorage<T> fine_storage_;
+  VariableStorage<T> coarse_storage_;
 };
 
 template <typename T>
