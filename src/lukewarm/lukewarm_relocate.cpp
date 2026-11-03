@@ -76,7 +76,8 @@ int LocateLukewarm(MeshData<Real> *md, const std::string &name) {
         if (marks(i) != 0) return;
         const auto loc = pack.Locate(i);
         if (loc.InOtherMeshData()) {
-          const int nb = geometry.NeighborIndex(loc.Gid());
+          // the pack's geometry, so the kernel does not capture a second copy of it
+          const int nb = pack.GetGeometry().NeighborIndex(loc.Gid());
           if (nb < 0) {
             lost += 1;
             return;

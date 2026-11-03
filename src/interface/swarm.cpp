@@ -381,16 +381,17 @@ void Swarm::RemoveMarkedParticles() {
     max_active_index_ = inactive_max_active_index;
     return;
   }
-  auto &mask = mask_;
-  auto &marked_for_removal = marked_for_removal_;
-
-  using Reduction =
-      RemoveParticlesReduction<decltype(mask), decltype(marked_for_removal)>;
+  // The functor holds the views by value, so the device does not dereference host memory
+  using Reduction = RemoveParticlesReduction<ParArray1D<bool>, ParArray1D<bool>>;
   Reduction::value_type result;
 
-  // Update mask, count number of removed particles, reset max active index
-  parthenon::par_reduce(PARTHENON_AUTO_LABEL, 0, max_active_index_,
-                        Reduction(mask, marked_for_removal), result);
+  // Update mask, count number of removed particles, reset max active index. Kokkos is
+  // called directly, as parthenon's flat loop pattern (the GPU default) wraps the functor
+  // in a lambda and loses its init and join
+  Kokkos::parallel_reduce(
+      PARTHENON_AUTO_LABEL,
+      Kokkos::RangePolicy<>(DevExecSpace(), 0, max_active_index_ + 1),
+      Reduction(mask_, marked_for_removal_), result);
 
   num_active_ -= result.num_removed;
   if (result.num_removed > 0) empty_indices_valid_ = false;
