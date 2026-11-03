@@ -17,12 +17,18 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <deque>
 #include <limits>
 #include <map>
+#include <mutex>
 #include <string>
 #include <vector>
+
+#include <cxxabi.h>
+#include <dlfcn.h>
 
 #include "globals.hpp"
 #include "parameter_input.hpp"
@@ -39,6 +45,43 @@ struct ClockSync {
   double rtt{0.0};    // Round trip time of the best ping-pong
 };
 
+struct TaskRecord {
+  int cycle;
+  int in_step;
+  double t0;
+  double dt;
+  int complete;
+  const void *fn;
+  std::string label;
+};
+
+// Name of the function at addr, its module and its offset in the module (for addr2line
+// when the symbol is not exported, e.g. in an executable linked without -rdynamic)
+struct FunctionInfo {
+  std::string name{"?"};
+  std::string module{"?"};
+  std::uintptr_t offset{0};
+};
+
+FunctionInfo ResolveFunction(const void *addr) {
+  FunctionInfo out;
+  if (addr == nullptr) return out;
+  Dl_info info;
+  if (dladdr(addr, &info) == 0) return out;
+  if (info.dli_fname != nullptr) out.module = info.dli_fname;
+  out.offset = reinterpret_cast<std::uintptr_t>(addr) -
+               reinterpret_cast<std::uintptr_t>(info.dli_fbase);
+  if (info.dli_sname != nullptr &&
+      reinterpret_cast<std::uintptr_t>(info.dli_saddr) ==
+          reinterpret_cast<std::uintptr_t>(addr)) {
+    int status;
+    char *demangled = abi::__cxa_demangle(info.dli_sname, nullptr, nullptr, &status);
+    out.name = (status == 0 && demangled != nullptr) ? demangled : info.dli_sname;
+    std::free(demangled);
+  }
+  return out;
+}
+
 struct State {
   bool initialized{false};
   bool enabled{false};
@@ -49,6 +92,7 @@ struct State {
   int summary_interval{0};
   std::string prefix{"comms_trace"};
   std::size_t max_records{4000000};
+  double long_task{1.0e-3};
 
   bool started{false};
   bool finalized{false};
@@ -65,6 +109,8 @@ struct State {
   std::deque<ExchangeRecord> exchanges;
   std::size_t dropped{0};
   std::vector<StepRecord> steps;
+  std::vector<TaskRecord> tasks;
+  std::mutex tasks_mutex;
   StepRecord cur;
   std::size_t summary_from{0};
 
@@ -236,6 +282,30 @@ void WriteFiles() {
     }
   }
 
+  {
+    const std::string fname = s.prefix + ".tasks." + std::to_string(rank) + ".csv";
+    FILE *f = std::fopen(fname.c_str(), "w");
+    if (f != nullptr) {
+      std::fprintf(f, "cycle,rank,in_step,t0,dt,complete,label,function,module,offset,"
+                      "addr\n");
+      std::map<const void *, FunctionInfo> fns;
+      for (const auto &t : s.tasks) {
+        if (fns.count(t.fn) == 0) fns[t.fn] = ResolveFunction(t.fn);
+        const auto &fi = fns.at(t.fn);
+        auto quote = [](std::string str) {
+          std::replace(str.begin(), str.end(), '"', '\'');
+          return "\"" + str + "\"";
+        };
+        std::fprintf(f, "%d,%d,%d,%.9f,%.9f,%d,%s,%s,%s,0x%llx,0x%llx\n", t.cycle, rank,
+                     t.in_step, t.t0, t.dt, t.complete, quote(t.label).c_str(),
+                     quote(fi.name).c_str(), quote(fi.module).c_str(),
+                     static_cast<unsigned long long>(fi.offset),
+                     static_cast<unsigned long long>(reinterpret_cast<std::uintptr_t>(t.fn)));
+      }
+      std::fclose(f);
+    }
+  }
+
   // Clock offsets, gathered to rank 0
   constexpr int NC = 7;
   double loc[NC] = {s.sync_start.local, s.sync_start.offset, s.sync_start.rtt,
@@ -262,7 +332,8 @@ void WriteFiles() {
       }
       std::fclose(f);
     }
-    std::printf("comms_trace: wrote %s.{exchanges,steps}.<rank>.csv and %s.clock.csv\n",
+    std::printf(
+        "comms_trace: wrote %s.{exchanges,steps,tasks}.<rank>.csv and %s.clock.csv\n",
                 s.prefix.c_str(), s.prefix.c_str());
     std::fflush(stdout);
   }
@@ -295,6 +366,8 @@ void Initialize(ParameterInput *pin) {
   s.prefix = pin->GetOrAddString(block, "prefix", "comms_trace", "Output file prefix");
   s.max_records = pin->GetOrAddInteger(block, "max_records", 4000000,
                                        "Maximum number of exchange records per rank");
+  s.long_task = 1.0e-3 * pin->GetOrAddReal(block, "long_task_ms", 1.0,
+                                           "Record task calls longer than this (ms)");
 
 #ifdef MPI_PARALLEL
   PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &s.comm));
@@ -423,6 +496,17 @@ void AddFenceTime(double dt) {
 void AddAllreduceTime(double dt) {
   auto &s = S();
   if (s.step_open) s.cur.allreduce_time += dt;
+}
+
+double LongTaskThreshold() { return S().long_task; }
+
+void RecordTask(const std::string &label, const void *fn, double t0, double dt,
+                bool complete) {
+  auto &s = S();
+  if (!s.step_open) return;
+  std::lock_guard<std::mutex> lock(s.tasks_mutex);
+  if (s.tasks.size() >= s.max_records) return;
+  s.tasks.push_back({s.cycle, s.in_step ? 1 : 0, t0, dt, complete ? 1 : 0, fn, label});
 }
 
 ExchangeRecord *RecordExchange(const ExchangeRecord &rec) {

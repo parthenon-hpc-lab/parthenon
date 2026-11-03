@@ -149,9 +149,13 @@ TaskListStatus TaskRegion::Execute(Pool_t &pool) {
     const bool trace = comms_trace::Active();
     const double t_task = trace ? comms_trace::Now() : 0.0;
     auto status = task->operator()();
-    if (trace)
-      comms_trace::AddTaskTime(status != TaskStatus::incomplete,
-                               comms_trace::Now() - t_task);
+    if (trace) {
+      const double dt = comms_trace::Now() - t_task;
+      comms_trace::AddTaskTime(status != TaskStatus::incomplete, dt);
+      if (dt > comms_trace::LongTaskThreshold())
+        comms_trace::RecordTask(task->GetLabel(), task->GetFunctionAddress(), t_task, dt,
+                                status != TaskStatus::incomplete);
+    }
     if (status == TaskStatus::fail) {
       task_failed.store(true, std::memory_order_release);
       return status;
