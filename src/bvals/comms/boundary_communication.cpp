@@ -119,6 +119,8 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
       RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
                                            ProResInfo::GetSend);
     }
+    if (pmesh->pcoalesced_comms->UsesNCCL(bound_type))
+      pmesh->pcoalesced_comms->SetNCCLDirectBuffers(&cache, bound_type, true);
   }
   // Restrict
   if (md->NumBlocks() > 0 && do_restriction) {
@@ -175,7 +177,9 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
               [&](const int idx, bool &lnon_zero) {
                 const auto [t, u, v, k, j, i] = idxer(idx * Ni);
                 Real *var = &bnd_info(b).var(iel, t, u, v, k, j, i);
-                Real *buf = &bnd_info(b).buf(idx * Ni + idx_offset);
+                Real *buf = bnd_info(b).direct_buf != nullptr
+                                ? bnd_info(b).direct_buf + idx * Ni + idx_offset
+                                : &bnd_info(b).buf(idx * Ni + idx_offset);
 
                 Kokkos::parallel_for(Kokkos::ThreadVectorRange<>(team_member, Ni),
                                      [&](int m) { buf[m] = var[m]; });
@@ -362,6 +366,8 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
                                             ProResInfo::GetSet);
     }
+    if (pmesh->pcoalesced_comms->UsesNCCL(bound_type))
+      pmesh->pcoalesced_comms->SetNCCLDirectBuffers(&cache, bound_type, false);
   }
   // const Real threshold = Globals::sparse_config.allocation_threshold;
   auto &bnd_info = cache.bnd_info;
@@ -400,7 +406,9 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
                   Kokkos::TeamThreadRange<>(team_member, split.GetStart(bteam),
                                             split.GetEnd(bteam)),
                   [&](const int idx) {
-                    Real *buf = &bnd_info(b).buf(idx * Ni + idx_offset);
+                    Real *buf = bnd_info(b).direct_buf != nullptr
+                                    ? bnd_info(b).direct_buf + idx * Ni + idx_offset
+                                    : &bnd_info(b).buf(idx * Ni + idx_offset);
                     const auto [t, u, v, k, j, i] = idxer(idx * Ni);
                     // Have to do this because of some weird issue about structure
                     // bindings being captured

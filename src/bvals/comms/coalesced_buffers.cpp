@@ -405,17 +405,28 @@ void CoalescedBuffer::InitializeNCCLBuffers() {
 }
 
 //----------------------------------------------------------------------------------------
+bool CoalescedBuffer::SetNCCLDirectBuffer(var_buf_t *buffer, BndInfo *bnd_info) {
+  for (auto &[uid, entries] : coalesced_info_buf) {
+    for (auto &[bnd_id, boundary_buffer] : entries) {
+      if (boundary_buffer != buffer) continue;
+      const std::size_t begin = bnd_id.start_idx();
+      const std::size_t end = begin + bnd_id.size();
+      PARTHENON_REQUIRE(end <= coalesced_comm_buffer.buffer().size(),
+                        "Direct NCCL boundary buffer exceeds its coalesced allocation.");
+      bnd_info->direct_buf = coalesced_comm_buffer.buffer().data() + begin;
+      return true;
+    }
+  }
+  return false;
+}
+
+//----------------------------------------------------------------------------------------
 void CoalescedBuffer::PrepareNCCL(const std::set<Uid_t> &vars, const DevExecSpace &exec) {
 #ifdef ENABLE_NCCL
   PARTHENON_REQUIRE(sender, "Only sender buffers can be prepared for NCCL.");
   PARTHENON_REQUIRE(!nccl_prepared, "NCCL buffer was prepared twice.");
 
   nccl_vars = vars;
-  int comb_size;
-  auto &bids = GetBndIdsOnDevice(vars, &comb_size);
-  PARTHENON_REQUIRE(comb_size <= current_size,
-                    "Packed NCCL message exceeds its registered maximum size.");
-
   int idx{0};
   for (auto &[uid, entries] : coalesced_info_buf) {
     const bool selected = vars.empty() || vars.count(uid) > 0;
@@ -430,7 +441,6 @@ void CoalescedBuffer::PrepareNCCL(const std::set<Uid_t> &vars, const DevExecSpac
   nccl_pack_ready.Wait(exec.cuda_stream());
   Kokkos::deep_copy(exec, nccl_status_buffer, nccl_status_host);
 
-  CoalescedCopy<true>(bids, comb_size, pmesh, exec);
   nccl_prepared = true;
 #else
   PARTHENON_FAIL("NCCL preparation requested in a build without NCCL support.");
@@ -440,6 +450,7 @@ void CoalescedBuffer::PrepareNCCL(const std::set<Uid_t> &vars, const DevExecSpac
 //----------------------------------------------------------------------------------------
 void CoalescedBuffer::ApplyNCCLStatusAndUnpack(const std::set<Uid_t> &vars,
                                                const DevExecSpace &exec) {
+  (void)exec;
 #ifdef ENABLE_NCCL
   PARTHENON_REQUIRE(!sender, "Only receiver buffers can be unpacked from NCCL.");
 
@@ -460,9 +471,6 @@ void CoalescedBuffer::ApplyNCCLStatusAndUnpack(const std::set<Uid_t> &vars,
     }
   }
 
-  int comb_size;
-  auto &bids = GetBndIdsOnDevice(vars, &comb_size);
-  CoalescedCopy<false>(bids, comb_size, pmesh, exec);
 #else
   PARTHENON_FAIL("NCCL unpack requested in a build without NCCL support.");
 #endif
@@ -486,9 +494,9 @@ void CoalescedBuffer::AddVarBoundary(BndId &bnd_id) {
   auto key = GetChannelKey(bnd_id);
   PARTHENON_REQUIRE(pmesh->boundary_comm_map.count(key), "Buffer doesn't exist.");
   var_buf_t *pbuf = &(pmesh->boundary_comm_map.at(key));
+  if (bnd_id.start_idx() < 0) bnd_id.start_idx() = current_size;
   coalesced_info_buf[bnd_id.var_id()].push_back(std::make_pair(bnd_id, pbuf));
-  current_size += bnd_id.size(); // This will be the maximum size of communication since
-                                 // it includes all variables
+  current_size = std::max(current_size, bnd_id.start_idx() + bnd_id.size());
   all_vars.insert(bnd_id.var_id());
 }
 
@@ -793,6 +801,26 @@ bool CoalescedComms::UsesNCCL(BoundaryType b_type) const {
 #else
   return supported;
 #endif
+}
+
+//----------------------------------------------------------------------------------------
+void CoalescedComms::SetNCCLDirectBuffers(BvarsSubCache_t *cache, BoundaryType b_type,
+                                          bool sender) {
+  auto &buffers = sender ? coalesced_send_buffers : coalesced_recv_buffers;
+  for (std::size_t i = 0; i < cache->buf_vec.size(); ++i) {
+    for (auto &[key, rank_buffers] : buffers) {
+      if (key.second != b_type) continue;
+      bool found = false;
+      for (auto &[partition, buffer] : rank_buffers.coalesced_bufs) {
+        if (buffer.SetNCCLDirectBuffer(cache->buf_vec[i], &cache->bnd_info_h(i))) {
+          found = true;
+          break;
+        }
+      }
+      if (found) break;
+    }
+  }
+  Kokkos::deep_copy(cache->bnd_info, cache->bnd_info_h);
 }
 
 //----------------------------------------------------------------------------------------

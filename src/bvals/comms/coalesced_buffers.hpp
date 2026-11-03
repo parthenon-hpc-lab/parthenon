@@ -97,6 +97,7 @@ struct CoalescedBuffer {
   bool TryReceiveAndUnpack(const std::set<Uid_t> &vars);
 
   void InitializeNCCLBuffers();
+  bool SetNCCLDirectBuffer(var_buf_t *buffer, BndInfo *bnd_info);
   void PrepareNCCL(const std::set<Uid_t> &vars, const DevExecSpace &exec);
   void ApplyNCCLStatusAndUnpack(const std::set<Uid_t> &vars, const DevExecSpace &exec);
   void FinishNCCLSend();
@@ -192,6 +193,7 @@ struct CoalescedComms {
 
   bool UsesNCCL(BoundaryType b_type) const;
   void InitializeNCCLBuffers();
+  void SetNCCLDirectBuffers(BvarsSubCache_t *cache, BoundaryType b_type, bool sender);
   void PrepareNCCLSend(MeshData<Real> *pmd, BoundaryType b_type);
   TaskStatus LaunchNCCLExchange(BoundaryType send_type, BoundaryType recv_type);
   TaskStatus PollNCCLExchange(BoundaryType send_type);
