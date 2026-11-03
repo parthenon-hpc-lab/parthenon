@@ -297,6 +297,10 @@ class Swarm {
 
   void SetNeighborIndices_();
 
+  void EnsureEmptyIndices_();
+  void EnsureCommunicationPacks_();
+  void InvalidateCommunicationPacks_() { communication_packs_valid_ = false; }
+
   template <class T>
   SwarmVariablePack<T> PackAllVariables_(PackIndexMap &vmap);
 
@@ -307,6 +311,7 @@ class Swarm {
   inline static UniqueIDGenerator<std::string> get_uid_;
   int max_active_index_ = inactive_max_active_index;
   int num_active_ = 0;
+  bool empty_indices_valid_ = false;
   std::string label_;
   Metadata m_;
   std::size_t nmax_pool_;
@@ -316,6 +321,11 @@ class Swarm {
       vectors_;
 
   std::tuple<MapToParticle<int>, MapToParticle<Real>, MapToParticle<uint64_t>> maps_;
+
+  bool communication_packs_valid_ = false;
+  SwarmVariablePack<Real> communication_real_pack_;
+  SwarmVariablePack<int> communication_int_pack_;
+  SwarmVariablePack<std::uint64_t> communication_uint64_pack_;
 
   ParArray1D<bool> mask_;
   ParArray1D<bool> marked_for_removal_;
@@ -354,6 +364,45 @@ class Swarm {
 
  public:
   bool mpiStatus;
+};
+
+template <typename MaskView, typename RemovalView>
+struct RemoveParticlesReduction {
+  struct value_type {
+    int num_removed;
+    int max_index;
+  };
+
+  MaskView mask;
+  RemovalView marked_for_removal;
+
+  RemoveParticlesReduction(MaskView mask_, RemovalView marked_for_removal_)
+      : mask(mask_), marked_for_removal(marked_for_removal_) {}
+
+  KOKKOS_INLINE_FUNCTION
+  void init(value_type &v) const {
+    v.num_removed = 0;
+    v.max_index = -1;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void join(value_type &dst, const value_type &src) const {
+    dst.num_removed += src.num_removed;
+    dst.max_index = dst.max_index > src.max_index ? dst.max_index : src.max_index;
+  }
+
+  KOKKOS_INLINE_FUNCTION
+  void operator()(const int n, value_type &v) const {
+    if (mask(n)) {
+      if (marked_for_removal(n)) {
+        mask(n) = false;
+        marked_for_removal(n) = false;
+        ++v.num_removed;
+      } else {
+        v.max_index = n > v.max_index ? n : v.max_index;
+      }
+    }
+  }
 };
 
 template <class T>

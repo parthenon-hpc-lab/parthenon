@@ -21,7 +21,9 @@
 #include <algorithm>
 #include <cstdio>
 #include <exception>
+#include <iomanip>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -108,9 +110,10 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // Populate the ParameterInput object.
   // If restart, then ParameterInput in the restart file takes precedence.
-  if (arg.is_restart) {
-    // Read input from restart file
-    if (fs::path(arg.restart_filename).extension() == ".rhdf") {
+  if (arg.is_restart || arg.analysis_flag) {
+    // Read input from restart/dump file
+    if (fs::path(arg.restart_filename).extension() == ".rhdf" ||
+        fs::path(arg.restart_filename).extension() == ".phdf") {
 #ifdef ENABLE_HDF5
       restartReader = std::make_unique<RestartReaderHDF5>(arg.restart_filename);
 #else // HDF5 disabled
@@ -136,11 +139,23 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
     auto inputString = restartReader->GetInputString();
     std::istringstream is(inputString);
     pinput->LoadFromStream(is);
+
+    if (arg.analysis_flag) {
+      const auto time_info = restartReader->GetTimeInfo();
+      std::ostringstream time_input;
+      time_input << std::setprecision(std::numeric_limits<Real>::max_digits10)
+                 << "<parthenon/time>\n"
+                 << "start_time = " << time_info.time << "\n"
+                 << "dt = " << time_info.dt << "\n"
+                 << "ncycle = " << time_info.ncycle << "\n";
+      std::istringstream time_stream(time_input.str());
+      pinput->LoadFromStream(time_stream);
+    }
   }
   // If an input file was provided
   if (arg.input_filename != nullptr) {
     // Modify info read from restart file
-    if (arg.is_restart) {
+    if (arg.is_restart || arg.analysis_flag) {
       IOWrapper infile;
       infile.Open(arg.input_filename, IOWrapper::FileMode::read);
       pinput->LoadFromFile(infile);
@@ -217,32 +232,30 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
   packages.Add(OutputsPackage::Initialize(pinput.get()));
   if (forest_def) {
     pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, *forest_def);
-  } else if (!arg.is_restart) {
+  } else if (!arg.is_restart && !arg.analysis_flag) {
     pmesh =
         std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, arg.mesh_flag);
-  } else {
+  } else if (arg.is_restart || arg.analysis_flag) {
     // Open restart file
     // Read Mesh from restart file and create meshblocks
-    pmesh =
-        std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader, packages);
+    pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader,
+                                   packages, arg.mesh_flag, arg.analysis_flag);
 
-    // Read simulation time and cycle from restart file and set in input
-    const auto time_info = restartReader->GetTimeInfo();
-    Real tNow = time_info.time;
-    pinput->SetReal("parthenon/time", "start_time", tNow);
+    if (!arg.analysis_flag) {
+      const auto time_info = restartReader->GetTimeInfo();
+      pinput->SetReal("parthenon/time", "start_time", time_info.time);
+      pinput->SetReal("parthenon/time", "dt", time_info.dt);
+      pinput->SetInteger("parthenon/time", "ncycle", time_info.ncycle);
+    }
 
-    Real dt = time_info.dt;
-    pinput->SetReal("parthenon/time", "dt", dt);
-
-    int ncycle = time_info.ncycle;
-    pinput->SetInteger("parthenon/time", "ncycle", ncycle);
-
-    // Read package data from restart file
-    RestartPackages(*pmesh, *restartReader);
+    // Read package data from restart file unless mesh-test mode omitted block creation.
+    if (!arg.mesh_flag) RestartPackages(*pmesh, *restartReader);
 
     // close hdf5 file to prevent HDF5 hangs and corrupted files
     // if code dies after restart
     restartReader = nullptr;
+  } else {
+    PARTHENON_THROW("Something strange is happening during setup...");
   }
 
   // add root_level to all max_level
@@ -262,7 +275,10 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
     pinput->SetString("parthenon/job", "output_params_block_regex", arg.params_regex);
   }
 
-  pmesh->Initialize(!arg.is_restart, pinput.get(), app_input.get());
+  auto init_flag = (arg.is_restart ? MeshInitType::restart
+                                   : (arg.analysis_flag ? MeshInitType::analysis
+                                                        : MeshInitType::pgen));
+  pmesh->Initialize(init_flag, pinput.get(), app_input.get());
 
   ChangeRunDir(arg.prundir);
 }

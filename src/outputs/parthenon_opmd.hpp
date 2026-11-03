@@ -1,3 +1,5 @@
+// This file was made in part with generative AI.
+
 //========================================================================================
 // Parthenon performance portable AMR framework
 // Copyright(C) 2024-2026 The Parthenon collaboration
@@ -61,6 +63,12 @@ void CheckValidName(const std::string &name);
 std::tuple<std::string, std::string> GetMeshRecordAndComponentNames(
     const OutputUtils::VarInfo &vinfo, const TopologicalElement te, const int comp_idx,
     const int level, const int format_version = OpenPMDOutput::OUTPUT_VERSION_FORMAT);
+
+// Recover the logical Parthenon field label from a format-version 2 mesh record name.
+// This is used only as a compatibility path for files written before
+// OutputDatasetNames was added to OpenPMD output.
+std::string GetFieldLabelFromMeshRecordName(const std::string &record_name,
+                                            const int format_version);
 
 // Calculate logical location on effective mesh (i.e., a mesh with size that matches full
 // coverage at given resolution on a particular level)

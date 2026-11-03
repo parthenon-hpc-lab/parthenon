@@ -1,9 +1,11 @@
+// This file was made in part with generative AI.
+
 //========================================================================================
 // Parthenon performance portable AMR framework
 // Copyright(C) 2021-2025 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
-// (C) (or copyright) 2021-2025. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2021-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -60,7 +62,6 @@ class ArgParse {
           break;
         case 'a': // -a <restart_file>
           invalid = invalid_arg();
-          is_restart = true;
           analysis_flag = true;
           restart_filename = argv[++i];
           break;
@@ -101,7 +102,8 @@ class ArgParse {
             std::cout << "Options:" << std::endl;
             std::cout << "  -i <file>       specify input file [athinput]\n";
             std::cout << "  -r <file>       restart with this file\n";
-            std::cout << "  -a <file>       analyze/postprocess this file\n";
+            std::cout
+                << "  -a <file>       analyze/postprocess this file (requires -i)\n";
             std::cout << "  -d <directory>  specify run dir [current dir]\n";
             std::cout << "  -p [regex]      parse input file, report parameters\n"
                       << "                  for blocks matching regex in table and quit\n"
@@ -135,6 +137,18 @@ class ArgParse {
       // no input file is given
       std::cout << "### FATAL ERROR in main" << std::endl
                 << "No input file or restart file is specified." << std::endl;
+      return ArgStatus::error;
+    }
+    if (analysis_flag && input_filename == nullptr) {
+      // no input file
+      std::cout << "### FATAL ERROR in main" << std::endl
+                << "No input file specified for analysis." << std::endl;
+      return ArgStatus::error;
+    }
+    if (analysis_flag && is_restart) {
+      std::cout << "### FATAL ERROR in main" << std::endl
+                << "Analysis (-a) and restart (-r) modes are mutually exclusive."
+                << std::endl;
       return ArgStatus::error;
     }
     return ArgStatus::ok;

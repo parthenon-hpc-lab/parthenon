@@ -22,7 +22,7 @@ function
    ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv);
 
 reads the input deck and populates the ``ParameterInput`` object
-pointer ``pman.pin``, and sets up the ``MPI``, and ``Kokkos``
+pointer ``pman.pinput``, and sets up the ``MPI``, and ``Kokkos``
 runtimes. The function
 
 .. code:: cpp
@@ -31,8 +31,9 @@ runtimes. The function
 
 Calls the ``Initialize(ParameterInput *pin)`` function of all packages
 to be utilized and creates the grid hierarchy, including the ``Mesh``
-and ``MeshBlock`` objects, and calls the ``ProblemGenerator`` (and
-``PostProblemGenerator`` and ``PostInitialization``) routines.
+and ``MeshBlock`` objects. For fresh initialization it also calls the
+``ProblemGenerator``, ``PostProblemGenerator``, and ``PostInitialization``
+routines. Restart and analysis initialization load their state from an output instead.
 
 The reason these functions are split out is to enable decisions to be
 made by the application between reading the input deck and setting up
@@ -63,7 +64,7 @@ required AMR, SMR, or no refinement at all. A common use-case is:
 
   // Redefine parthenon defaults
   pman.app_input->ProcessPackages = MyProcessPackages;
-  std::string prob = pman.pin->GetString("app", "problem");
+  std::string prob = pman.pinput->GetString("app", "problem");
   if (prob == "problem1") {
     pman.app_input->ProblemGenerator = Problem1Generator;
     pman.app_input->PostProblemGenerator = Problem1PostProblemGenerator;
@@ -72,6 +73,37 @@ required AMR, SMR, or no refinement at all. A common use-case is:
   }
 
   pman.ParthenonInitPackagesAndMesh();
+
+Analysis initialization
+-----------------------
+
+When the command line contains ``-a``, ``ParthenonInitEnv`` constructs the reader for
+the selected HDF5 or openPMD source and assembles the input parameters before package
+initialization. The precedence order is:
+
+#. Input embedded in the source output.
+#. The source iteration's actual time, timestep, and cycle.
+#. The analysis input supplied with ``-i``.
+#. Command-line assignments.
+
+``ParthenonInitPackagesAndMesh`` then resolves an analysis-specific package state,
+constructs the mesh hierarchy from the source, loads the selected fields, and performs
+the analysis initialization path. Problem generators, derived-fill callbacks, and
+post-problem-generator callbacks are not run during this path. Boundary communication is
+performed so loaded fields can be consumed by analysis callbacks.
+
+Applications can query the manager after ``ParthenonInitEnv``:
+
+.. code:: cpp
+
+  if (pman.IsAnalysis()) {
+    // Configure callbacks or application behavior for analysis mode.
+  }
+
+``IsAnalysis()`` is distinct from ``Globals::is_restart``. Analysis mode deliberately
+leaves ``Globals::is_restart`` false so existing application logic does not treat a
+filtered analysis state as a complete restart state. See :ref:`analysis` for the full
+workflow.
 
 .. note::
     This file was made in part with generative AI.

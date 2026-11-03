@@ -1,3 +1,5 @@
+.. This file was made in part with generative AI.
+
 .. _metadata:
 
 Metadata
@@ -86,7 +88,11 @@ These flags specify how a variable interacts with I/O. Enable them to
 enable output properties.
 
 -  ``Metadata::Restart`` implies a variable is required in restart files
-- ``Metadata::CoordinatesVec`` implies a variable should be used to
+-  ``Metadata::Analysis`` includes a dense field, sparse field, or swarm in the
+   resolved analysis state even when it is absent from the source file. The application
+   is responsible for initializing analysis-only data, typically in
+   ``UserWorkBeforeOutput``. See :ref:`analysis`.
+-  ``Metadata::CoordinatesVec`` implies a variable should be used to
    describe coordinate positions of nodes. Must be a node-centered
    variable with 3 components.
 
