@@ -168,6 +168,9 @@ class Mesh {
   int task_collection_timeout_in_seconds;
 
   const bool do_coalesced_comms;
+  // Don't complete a coalesced receive task until this rank's coalesced sends for the
+  // same partition and boundary type have completed
+  const bool coalesced_wait_for_sends;
 
   BlockList_t block_list;
   Packages_t packages;
