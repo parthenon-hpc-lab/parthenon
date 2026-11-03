@@ -77,8 +77,7 @@ SCENARIO("Object pools", "[ObjectPool]") {
 
 SCENARIO("Variable pools", "[VariablePool]") {
   using variable_pool_t = parthenon::VariablePoolMap<Real>;
-  constexpr std::array<int, parthenon::MAX_VARIABLE_DIMENSION> dims{2, 3, 1, 1, 1, 1,
-                                                                      1};
+  constexpr std::array<int, parthenon::MAX_VARIABLE_DIMENSION> dims{2, 3, 1, 1, 1, 1, 1};
   variable_pool_t pool(2);
 
   GIVEN("a pool with a two-slot rank-8 backing chunk") {

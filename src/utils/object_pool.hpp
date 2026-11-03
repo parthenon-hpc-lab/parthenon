@@ -322,7 +322,8 @@ class ChunkedObjectPoolMap {
   }
 
   void Clear() {
-    for (auto &[key, pool] : map_) pool.Clear();
+    for (auto &[key, pool] : map_)
+      pool.Clear();
   }
 
   const auto &GetMap() const { return map_; }
@@ -348,9 +349,7 @@ class ObjectPoolMap {
 
   ObjectPoolMap() : impl_(AllocateChunk) {}
 
-  auto &GetPool(const std::size_t shape) {
-    return impl_.GetPool(shape);
-  }
+  auto &GetPool(const std::size_t shape) { return impl_.GetPool(shape); }
   auto GetBuffer(const std::size_t shape) { return impl_.Get(shape); }
   // Sometimes the compiler complains about requiring a static cast
   // when going from weak_t to owner_t. This just is syntatic sugar

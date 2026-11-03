@@ -117,8 +117,8 @@ void Variable<T>::AllocateData(MeshBlock *pmb, bool flag_uninitialized) {
     fine_storage_ = VariableStorage<T>(std::make_from_tuple<ParArrayND<T>>(
         std::tuple_cat(std::make_tuple(label()), ArrayToReverseTuple(dims_))));
   }
-  data =
-      ParArrayND<T, VariableState>(fine_storage_.view().KokkosView(), MakeVariableState());
+  data = ParArrayND<T, VariableState>(fine_storage_.view().KokkosView(),
+                                      MakeVariableState());
 
   ++num_alloc_;
 
@@ -151,7 +151,7 @@ void Variable<T>::AllocateCoarse(std::weak_ptr<MeshBlock> wpmb) {
     if (pmb->pmy_mesh != nullptr && pmb->pmy_mesh->multilevel) {
       coarse_storage_ = pmb->pmy_mesh->variable_pool.Acquire(coarse_dims_);
       coarse_s = ParArrayND<T, VariableState>(coarse_storage_.view().KokkosView(),
-                                               MakeVariableState());
+                                              MakeVariableState());
       pmb->LogMemUsage(coarse_s.size() * sizeof(T));
     }
   }

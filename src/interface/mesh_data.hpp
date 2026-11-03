@@ -470,7 +470,8 @@ class MeshData {
     varPackMap_.clear();
     varFluxPackMap_.clear();
     bvars_cache_.clear();
-    for (auto &block_data : block_data_) block_data->ClearVariableCaches();
+    for (auto &block_data : block_data_)
+      block_data->ClearVariableCaches();
   }
 
   int GetNDim() const { return ndim_; }

@@ -52,11 +52,11 @@ class VariableStorage {
   explicit VariableStorage(const raw_t &direct) : direct_(direct) {}
   explicit VariableStorage(const owner_t &owner) : owner_(owner), pooled_(true) {}
 
-  raw_t view() const {
-    return pooled_ ? static_cast<raw_t>(owner_) : direct_;
-  }
+  raw_t view() const { return pooled_ ? static_cast<raw_t>(owner_) : direct_; }
   bool pooled() const { return pooled_; }
-  bool allocated() const { return pooled_ ? owner_.is_allocated() : direct_.is_allocated(); }
+  bool allocated() const {
+    return pooled_ ? owner_.is_allocated() : direct_.is_allocated();
+  }
 
   void Reset() {
     direct_.Reset();
@@ -99,36 +99,36 @@ class VariablePoolMap {
 
   std::uint64_t SizeInBytes() const {
     std::uint64_t size = 0;
-    for (const auto &[key, pool] : impl_.GetMap()) size += pool.SizeInBytes();
+    for (const auto &[key, pool] : impl_.GetMap())
+      size += pool.SizeInBytes();
     return size;
   }
 
   std::size_t NumObjectsInUse() const {
     std::size_t size = 0;
-    for (const auto &[key, pool] : impl_.GetMap()) size += pool.NumBuffersInUse();
+    for (const auto &[key, pool] : impl_.GetMap())
+      size += pool.NumBuffersInUse();
     return size;
   }
 
  private:
-  void AddPool(const VariablePoolKey &key) {
-    impl_.AddPool(key, chunk_size_);
-  }
+  void AddPool(const VariablePoolKey &key) { impl_.AddPool(key, chunk_size_); }
 
   static raw_t AllocateChunk(pool_t *pool, const VariablePoolKey &key,
                              const std::size_t chunk_size) {
     static std::size_t counter = 0; // NOT thread safe.
     const auto &dims = key.dims;
     const auto label = "variable pool chunk " + std::to_string(counter++);
-    ParArray8DRaw<T> chunk(label, chunk_size, dims[6], dims[5], dims[4], dims[3],
-                            dims[2], dims[1], dims[0]);
+    ParArray8DRaw<T> chunk(label, chunk_size, dims[6], dims[5], dims[4], dims[3], dims[2],
+                           dims[1], dims[0]);
     for (std::size_t i = 1; i < chunk_size; ++i) {
-      pool->AddFreeObjectToPool(raw_t(Kokkos::subview(
-          chunk, i, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(),
-          Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL())));
+      pool->AddFreeObjectToPool(raw_t(
+          Kokkos::subview(chunk, i, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(),
+                          Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL())));
     }
-    return raw_t(Kokkos::subview(chunk, 0, Kokkos::ALL(), Kokkos::ALL(),
+    return raw_t(Kokkos::subview(chunk, 0, Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(),
                                  Kokkos::ALL(), Kokkos::ALL(), Kokkos::ALL(),
-                                 Kokkos::ALL(), Kokkos::ALL()));
+                                 Kokkos::ALL()));
   }
 
   impl_t impl_;
