@@ -609,7 +609,11 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
   auto lukewarm_info = output_params.mode == DumpOutputMode::Data
                            ? AllLukewarmInfo(pm, output_params.lukewarms)
                            : AllLukewarmInfo(pm);
-  for (auto &[name, info] : lukewarm_info.all_info) {
+  // Not a structured binding: in this function template nvcc takes one's type as
+  // dependent, and then does not parse info.Data<T>() as a call of a member template
+  for (auto &entry : lukewarm_info.all_info) {
+    const auto &name = entry.first;
+    auto &info = entry.second;
     // Swarms and lukewarms each get a group named after them
     PARTHENON_REQUIRE_THROWS(swarm_info.all_info.count(name) == 0,
                              "'" + name + "' is both a swarm and a lukewarm, so they " +
@@ -643,8 +647,6 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     };
     LukewarmTypes::IterateTypes([&](auto t) {
       using T = decltype(t);
-      // nvcc cannot parse this loop in a generic lambda when written with a
-      // structured binding and without the template keyword
       for (const auto &field : info.template Data<T>()) {
         const auto &field_name = field.first;
         const auto &host_data = field.second;
@@ -661,7 +663,7 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     });
     if (output_params.write_lukewarm_xdmf) {
       // XDMF reads positions as (particle, direction)
-      const auto &reals = info.Data<Real>();
+      const auto &reals = info.template Data<Real>();
       const std::array<const std::vector<Real> *, 3> x = {&reals.at(lukewarm::x::name()),
                                                           &reals.at(lukewarm::y::name()),
                                                           &reals.at(lukewarm::z::name())};
