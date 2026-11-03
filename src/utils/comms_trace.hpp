@@ -26,6 +26,7 @@
 //   summary_interval (0)     print a per-cycle summary every this many cycles (0 = never)
 //   prefix           ("comms_trace") prefix of the output files
 //   max_records      (4000000) maximum number of exchange records kept per rank
+//   long_task_ms     (1.0)   record every task call that takes longer than this
 
 #ifndef UTILS_COMMS_TRACE_HPP_
 #define UTILS_COMMS_TRACE_HPP_
@@ -119,6 +120,14 @@ void Finalize();
 void AddTaskTime(bool complete, double dt);
 void AddFenceTime(double dt);
 void AddAllreduceTime(double dt);
+
+// Task calls longer than this (seconds) should be passed to RecordTask
+double LongTaskThreshold();
+// Record a single long task call starting at t0 and taking dt. fn is the address of the
+// task function (or nullptr), which is resolved to a symbol name when writing the files.
+// Thread safe.
+void RecordTask(const std::string &label, const void *fn, double t0, double dt,
+                bool complete);
 
 // Store a finished (or, for sends, posted) exchange. Returns a pointer to the stored copy
 // that stays valid for the rest of the run so that late events can be filled in, or

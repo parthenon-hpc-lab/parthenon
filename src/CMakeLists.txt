@@ -340,6 +340,8 @@ add_library(parthenon
   utils/interpolation.hpp
   utils/loop_utils.hpp
   utils/morton_number.hpp
+  utils/mpi_progress.cpp
+  utils/mpi_progress.hpp
   utils/mpi_types.hpp
   utils/multi_pointer.hpp
   utils/object_pool.hpp
@@ -449,7 +451,7 @@ if (Kokkos_ENABLE_CUDA AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
    target_compile_options(parthenon PUBLIC $<$<COMPILE_LANGUAGE:CXX>:--expt-relaxed-constexpr>)
 endif()
 
-target_link_libraries(parthenon PUBLIC Kokkos::kokkos Threads::Threads)
+target_link_libraries(parthenon PUBLIC Kokkos::kokkos Threads::Threads ${CMAKE_DL_LIBS})
 
 if (PARTHENON_ENABLE_ASCENT)
   if (ENABLE_MPI)

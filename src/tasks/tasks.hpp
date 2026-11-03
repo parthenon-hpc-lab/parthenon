@@ -123,6 +123,10 @@ class Task {
   TaskStatus operator()();
   TaskID GetID() { return this; }
   std::string GetLabel() const { return label_; }
+  // Address of the task function if it is a free function, used to identify unlabeled
+  // tasks in comms_trace
+  const void *GetFunctionAddress() const { return fn_addr_; }
+  void SetFunctionAddress(const void *addr) { fn_addr_ = addr; }
   bool ready();
   void AddDependency(Task *t) { dependencies.insert(t); }
   std::unordered_set<Task *> &GetDependencies() { return dependencies; }
@@ -160,6 +164,7 @@ class Task {
   std::mutex mutex;
   int verbose_level_;
   std::string label_;
+  const void *fn_addr_{nullptr};
 };
 
 std::ostream &WriteTaskGraph(std::ostream &stream,
@@ -465,12 +470,19 @@ class TaskList {
   template <class F, class... Args>
   void AddUserTask(TaskID &dep, const std::optional<std::string> &label, int verbose,
                    F &&func, Args &&...args) {
+    using FD = std::decay_t<F>;
+    const void *fn_addr = nullptr;
+    if constexpr (std::is_pointer_v<FD> && std::is_function_v<std::remove_pointer_t<FD>>) {
+      FD fp = func;
+      fn_addr = reinterpret_cast<const void *>(fp);
+    }
     tasks.push_back(std::make_shared<Task>(
         dep, MakeUserTaskLabel<F>(label), verbose,
         [=, func = std::forward<F>(func)]() mutable -> TaskStatus {
           return func(std::forward<Args>(args)...);
         },
         exec_limits));
+    tasks.back()->SetFunctionAddress(fn_addr);
   }
 };
 

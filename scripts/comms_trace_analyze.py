@@ -83,6 +83,126 @@ def fmt_ms(x):
     return f"{1e3 * x:9.3f}" if np.isfinite(x) else f"{'-':>9s}"
 
 
+def short_name(fn):
+    """Strip the return type and argument list from a demangled function signature."""
+    s = fn.strip()
+    if s.endswith(")"):
+        depth = 0
+        for i in range(len(s) - 1, -1, -1):
+            depth += {")": 1, "(": -1}.get(s[i], 0)
+            if depth == 0:
+                s = s[:i]
+                break
+    depth = 0
+    for i, c in enumerate(s):
+        depth += {"<": 1, ">": -1}.get(c, 0)
+        if c == " " and depth == 0:
+            return s[i + 1 :]
+    return s
+
+
+def load_tasks(prefix):
+    files = sorted(glob.glob(f"{prefix}.tasks.*.csv"))
+    if not files:
+        return None
+    tasks = pd.concat([pd.read_csv(f) for f in files], ignore_index=True)
+    # Fill in names dladdr could not resolve (executables linked without -rdynamic)
+    import shutil
+    import subprocess
+
+    if shutil.which("addr2line") is not None:
+        unresolved = tasks[(tasks["function"] == "?") & (tasks["module"] != "?")]
+        for (mod, off, addr), _ in unresolved.groupby(["module", "offset", "addr"]):
+            name = "?"
+            for a in (off, addr):
+                try:
+                    out = subprocess.run(
+                        ["addr2line", "-f", "-C", "-e", mod, a],
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    ).stdout.split("\n")[0]
+                except Exception:
+                    out = "??"
+                if out and out != "??":
+                    name = out
+                    break
+            sel = (tasks["module"] == mod) & (tasks["offset"] == off)
+            tasks.loc[sel, "function"] = name
+    tasks["task"] = [
+        short_name(f) if f != "?" else l.strip()
+        for f, l in zip(tasks["function"], tasks["label"])
+    ]
+    return tasks
+
+
+def long_task_report(tasks, steps, ex, m, gt):
+    tasks = tasks[tasks["in_step"] == 1].copy()
+    tasks["t0g"] = gt(tasks["rank"].values, tasks["t0"].values)
+    tasks["t1g"] = tasks["t0g"] + tasks["dt"]
+    ncyc = steps["cycle"].nunique()
+    nranks = steps["rank"].nunique()
+    print("\nLong task calls inside Step() (ms per cycle, averaged over ranks):")
+    g = tasks.groupby("task").agg(
+        per_cycle=("dt", lambda x: 1e3 * x.sum() / (ncyc * nranks)),
+        calls_per_cycle=("dt", lambda x: len(x) / (ncyc * nranks)),
+        mean_call=("dt", lambda x: 1e3 * x.mean()),
+        max_call=("dt", lambda x: 1e3 * x.max()),
+    )
+    with pd.option_context("display.width", 250, "display.max_colwidth", 120):
+        print(g.sort_values("per_cycle", ascending=False).round(3).head(20).to_string())
+
+    # For slow off-node receives, what was the sender doing while it was not in MPI?
+    off = m[m["off_node"]]
+    if len(off) == 0:
+        return
+    thresh = max(5 * off["recv_complete"].median(), 2e-3)
+    slow = off[off["recv_complete"] > thresh]
+    print(
+        f"\n{len(slow)} of {len(off)} off-node receives took more than "
+        f"{1e3 * thresh:.3f} ms from envelope to completion"
+    )
+    if len(slow) == 0:
+        return
+    # Times at which each rank was known to be in comm code
+    ev = {}
+    for r, e in ex.groupby("rank"):
+        ts = e[TCOLS].values.ravel()  # already in global time
+        s = steps[steps["rank"] == r]
+        ts = np.concatenate(
+            [ts, s[["t_start_g", "t_step_done_g", "t_end_g"]].values.ravel()]
+        )
+        ev[r] = np.sort(ts[np.isfinite(ts)])
+    rows = []
+    cover = {}
+    total_gap = 0.0
+    for row in slow.itertuples():
+        ts = ev[row.src]
+        w = ts[(ts >= row.r_t2) & (ts <= row.r_t4 + 1e-3)]
+        w = np.concatenate([[row.r_t2], w, [row.r_t4]])
+        k = np.diff(w).argmax()
+        g0, g1 = w[k], w[k + 1]
+        rows.append((g1 - g0, row.r_t4 - g1))
+        total_gap += g1 - g0
+        st = tasks[(tasks["rank"] == row.src) & (tasks["t1g"] > g0) & (tasks["t0g"] < g1)]
+        for t in st.itertuples():
+            ov = min(t.t1g, g1) - max(t.t0g, g0)
+            cover[t.task] = cover.get(t.task, 0.0) + ov
+    rows = np.array(rows)
+    print(
+        "Sender's longest stretch without comm activity during the slow receive: median "
+        f"{1e3 * np.median(rows[:, 0]):.3f} ms; receive completed a median "
+        f"{1e3 * np.median(rows[:, 1]):.3f} ms after the stretch ended"
+    )
+    print("Fraction of those stretches covered by long tasks on the sender:")
+    for name, t in sorted(cover.items(), key=lambda x: -x[1]):
+        print(f"  {100 * t / total_gap:6.1f}%  {name}")
+    print(
+        f"  {100 * (1 - sum(cover.values()) / total_gap):6.1f}%  (not in any long task: "
+        "short tasks, task loop, or code outside task lists)"
+    )
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("prefix", nargs="?", default="comms_trace")
@@ -331,6 +451,10 @@ def main():
                 }
             ).to_string()
         )
+
+    tasks = load_tasks(args.prefix)
+    if tasks is not None and len(tasks) > 0:
+        long_task_report(tasks, steps, ex, m, gt)
 
     if args.csv_out:
         m.to_csv(args.csv_out, index=False)
