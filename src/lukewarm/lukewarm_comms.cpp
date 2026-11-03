@@ -253,7 +253,10 @@ bool SendLukewarmParticles(Lukewarm &lukewarm, LukewarmComms &comms) {
       using T = decltype(t);
       const int size = counts_h(nb) * lukewarm.template NumComponents<T>();
       auto &buf = comms.send[nb]->template Get<T>();
-      if (size > 0) buf.Allocate(size);
+      // The buffer only grows: a new device buffer for every change of size has UCX map
+      // reused addresses again ("cuIpcOpenMemHandle() failed: resource already mapped")
+      if (size > 0 && (!buf.IsActive() || buf.buffer().size() < std::size_t(size)))
+        buf.Allocate(size);
       messages_h(nb).template Get<T>() = size > 0 ? buf.buffer().data() : nullptr;
     });
   }
