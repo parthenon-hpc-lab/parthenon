@@ -60,7 +60,7 @@ LukewarmBuffers MakeBuffers(const int channel, const int send_rank, const int re
     constexpr int idx = LukewarmTypes::GetIdx<T>();
     const int tag = LukewarmTypes::n_types * channel + idx;
     // Message sizes are not known ahead of time, so receivers probe for them
-    buffers.Get<T>() = LukewarmBuffers::buffer_t<T>(
+    buffers.template Get<T>() = LukewarmBuffers::buffer_t<T>(
         tag, send_rank, recv_rank, comm,
         BufferResource<T>(label + "::buffer" + std::to_string(idx)), true);
   });
@@ -228,7 +228,7 @@ KOKKOS_INLINE_FUNCTION void Unpack(const T *message, const int k, const int coun
 template <class F>
 void ForEachBuffer(const std::vector<LukewarmBuffers *> &buffers, const F &func) {
   for (auto *b : buffers) {
-    LukewarmTypes::IterateTypes([&](auto t) { func(b->Get<decltype(t)>()); });
+    LukewarmTypes::IterateTypes([&](auto t) { func(b->template Get<decltype(t)>()); });
   }
 }
 } // namespace
@@ -251,8 +251,8 @@ bool SendLukewarmParticles(Lukewarm &lukewarm, LukewarmComms &comms) {
   for (int nb = 0; nb < nchannels; ++nb) {
     LukewarmTypes::IterateTypes([&](auto t) {
       using T = decltype(t);
-      const int size = counts_h(nb) * lukewarm.NumComponents<T>();
-      auto &buf = comms.send[nb]->Get<T>();
+      const int size = counts_h(nb) * lukewarm.template NumComponents<T>();
+      auto &buf = comms.send[nb]->template Get<T>();
       if (size > 0) buf.Allocate(size);
       messages_h(nb).template Get<T>() = size > 0 ? buf.buffer().data() : nullptr;
     });
@@ -300,8 +300,8 @@ bool SendLukewarmParticles(Lukewarm &lukewarm, LukewarmComms &comms) {
   for (int nb = 0; nb < nchannels; ++nb) {
     LukewarmTypes::IterateTypes([&](auto t) {
       using T = decltype(t);
-      const int size = counts_h(nb) * lukewarm.NumComponents<T>();
-      auto &buf = comms.send[nb]->Get<T>();
+      const int size = counts_h(nb) * lukewarm.template NumComponents<T>();
+      auto &buf = comms.send[nb]->template Get<T>();
       if (size > 0) {
         buf.Send(false, size);
       } else {
@@ -338,8 +338,8 @@ bool ReceiveLukewarmParticles(Lukewarm &lukewarm, LukewarmComms &comms,
     int count = -1;
     LukewarmTypes::IterateTypes([&](auto t) {
       using T = decltype(t);
-      const int ncomp = lukewarm.NumComponents<T>();
-      auto &buf = comms.receive[nb]->Get<T>();
+      const int ncomp = lukewarm.template NumComponents<T>();
+      auto &buf = comms.receive[nb]->template Get<T>();
       const int size = buf.GetMessageSize();
       messages_h(nb).template Get<T>() = size > 0 ? buf.buffer().data() : nullptr;
       if (ncomp == 0) return;

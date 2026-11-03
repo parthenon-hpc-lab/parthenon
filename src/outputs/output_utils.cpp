@@ -322,7 +322,7 @@ AllLukewarmInfo::AllLukewarmInfo(
     const auto &first = Owner(0)->GetLukewarm(name);
     LukewarmTypes::IterateTypes([&](auto t) {
       using T = decltype(t);
-      for (const auto &var : first.GetVariables<T>()) {
+      for (const auto &var : first.template GetVariables<T>()) {
         if (field_names.count(var->label()) == 0) continue;
         // In the file, components are a C-ordered array of the field's shape, then
         // the particle index
@@ -337,7 +337,7 @@ AllLukewarmInfo::AllLukewarmInfo(
                                                           : "UInt";
         info.var_info[var->label()] = SwarmVarInfo(n[4], n[3], n[2], n[1], n[0], rank,
                                                    type, var->IsSet(Metadata::Vector));
-        info.Data<T>()[var->label()].resize(var->NumComponents() * info.count_on_rank);
+        info.template Data<T>()[var->label()].resize(var->NumComponents() * info.count_on_rank);
       }
     });
 
@@ -352,7 +352,7 @@ AllLukewarmInfo::AllLukewarmInfo(
       }
       LukewarmTypes::IterateTypes([&](auto t) {
         using T = decltype(t);
-        auto &fields = info.Data<T>();
+        auto &fields = info.template Data<T>();
         if (fields.empty()) return;
         auto host = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),
                                                         lukewarm.template GetData<T>());

@@ -643,7 +643,11 @@ void PHDF5Output::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *tm
     };
     LukewarmTypes::IterateTypes([&](auto t) {
       using T = decltype(t);
-      for (const auto &[field_name, host_data] : info.Data<T>()) {
+      // nvcc cannot parse this loop in a generic lambda when written with a
+      // structured binding and without the template keyword
+      for (const auto &field : info.template Data<T>()) {
+        const auto &field_name = field.first;
+        const auto &host_data = field.second;
         // The field's shape, then the particle index
         const auto &vinfo = info.var_info.at(field_name);
         const int rank = vinfo.tensor_rank;
