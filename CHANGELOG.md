@@ -12,6 +12,7 @@
 
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 1445]](https://github.com/parthenon-hpc-lab/parthenon/pull/1445) Fix ownership for self-bordering blocks
+- [[PR 1487]](https://github.com/parthenon-hpc-lab/parthenon/pull/1487) Checkout submodules once for doc build
 
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 1471]](https://github.com/parthenon-hpc-lab/parthenon/pull/1471) Add break-downstream test for parthenon-hydro
