@@ -663,7 +663,7 @@ CoalescedComms::CoalescedComms(Mesh *pmesh) : pmesh(pmesh) {
 //----------------------------------------------------------------------------------------
 CoalescedComms::~CoalescedComms() {
 #ifdef ENABLE_NCCL
-  if (nccl_initialized) {
+  if (pmesh->UseNCCLCoalescedComms()) {
     const auto stream = nccl_exec.cuda_stream();
     nccl_exec.fence();
     for (auto &[b_type, state] : nccl_states)
@@ -684,12 +684,13 @@ CoalescedComms::~CoalescedComms() {
 //----------------------------------------------------------------------------------------
 void CoalescedComms::clear() {
 #ifdef ENABLE_NCCL
-  if (nccl_initialized) {
+  if (!nccl_states.empty()) {
     nccl_exec.fence();
-    for (auto &[b_type, state] : nccl_states)
-      PARTHENON_NCCL_CHECK(ncclCommDestroy(state->comm));
-    nccl_states.clear();
-    nccl_initialized = false;
+    for (auto &[b_type, state] : nccl_states) {
+      state->in_flight = false;
+      state->unpack_recorded = false;
+      state->vars.clear();
+    }
   }
 #endif
   bool can_delete;
@@ -784,8 +785,14 @@ bool CoalescedComms::UsesNCCL(BoundaryType b_type) const {
   const auto canonical = GetAssociatedSender(b_type);
   // Restriction/prolongation GMG exchanges use custom task graphs that are not yet
   // region-coordinated. Keep those exchanges on the tagged MPI path.
-  return canonical == BoundaryType::any || canonical == BoundaryType::flxcor_send ||
-         canonical == BoundaryType::gmg_same;
+  const bool supported = canonical == BoundaryType::any ||
+                         canonical == BoundaryType::flxcor_send ||
+                         canonical == BoundaryType::gmg_same;
+#ifdef ENABLE_NCCL
+  return supported && nccl_states.count(canonical) > 0;
+#else
+  return supported;
+#endif
 }
 
 //----------------------------------------------------------------------------------------
@@ -795,19 +802,26 @@ void CoalescedComms::InitializeNCCLBuffers() {
   // Finish the MPI metadata handshake before starting NCCL proxy threads. In
   // particular, an active NCCL communicator can starve progress of the nonblocking
   // metadata messages when several ranks share one host.
-  if (!nccl_initialized) {
-    for (auto b_type :
-         {BoundaryType::any, BoundaryType::flxcor_send, BoundaryType::gmg_same,
-          BoundaryType::gmg_restrict_send, BoundaryType::gmg_prolongate_send}) {
-      auto state = std::make_unique<NCCLExchangeState>();
-      ncclUniqueId id;
-      if (Globals::my_rank == 0) PARTHENON_NCCL_CHECK(ncclGetUniqueId(&id));
-      PARTHENON_MPI_CHECK(MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, comms.at(b_type)));
-      PARTHENON_NCCL_CHECK(
-          ncclCommInitRank(&state->comm, Globals::nranks, id, Globals::my_rank));
-      nccl_states.emplace(b_type, std::move(state));
-    }
-    nccl_initialized = true;
+  for (auto b_type :
+       {BoundaryType::any, BoundaryType::flxcor_send, BoundaryType::gmg_same}) {
+    if (nccl_states.count(b_type) > 0) continue;
+
+    int active = 0;
+    for (const auto &entry : coalesced_send_buffers)
+      active = active || GetAssociatedSender(entry.first.second) == b_type;
+    for (const auto &entry : coalesced_recv_buffers)
+      active = active || GetAssociatedSender(entry.first.second) == b_type;
+    PARTHENON_MPI_CHECK(
+        MPI_Allreduce(MPI_IN_PLACE, &active, 1, MPI_INT, MPI_MAX, comms.at(b_type)));
+    if (active == 0) continue;
+
+    auto state = std::make_unique<NCCLExchangeState>();
+    ncclUniqueId id;
+    if (Globals::my_rank == 0) PARTHENON_NCCL_CHECK(ncclGetUniqueId(&id));
+    PARTHENON_MPI_CHECK(MPI_Bcast(&id, sizeof(id), MPI_BYTE, 0, comms.at(b_type)));
+    PARTHENON_NCCL_CHECK(
+        ncclCommInitRank(&state->comm, Globals::nranks, id, Globals::my_rank));
+    nccl_states.emplace(b_type, std::move(state));
   }
 #endif
   for (auto &[key, rank_buffers] : coalesced_send_buffers)

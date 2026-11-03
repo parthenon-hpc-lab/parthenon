@@ -166,7 +166,6 @@ struct CoalescedComms {
 
   DevExecSpace nccl_exec;
   std::map<BoundaryType, std::unique_ptr<NCCLExchangeState>> nccl_states;
-  bool nccl_initialized{false};
 #endif
 
   explicit CoalescedComms(Mesh *pmesh);

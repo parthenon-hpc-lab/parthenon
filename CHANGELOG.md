@@ -4,6 +4,9 @@
 
 ## Current develop
 
+### Fixed (not changing behavior/API/variables/...)
+- Preserve NCCL communicators across boundary-buffer rebuilds and skip unused channels
+
 ### Added (new features/APIs/variables/...)
 - [[PR 1439]](https://github.com/parthenon-hpc-lab/parthenon/pull/1439) Long-overdue parthenon tutorial
 - [[PR 1443]](https://github.com/parthenon-hpc-lab/parthenon/pull/1443) Allow for specifying topological elements in var views
