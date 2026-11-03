@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2020-2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -13,6 +13,8 @@
 #ifndef PACK_DEFAULT_NAMES_HPP_
 #define PACK_DEFAULT_NAMES_HPP_
 
+// This file was made in part with generative AI.
+
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -25,6 +27,18 @@
     template <class... Ts>                                                               \
     KOKKOS_INLINE_FUNCTION varname(Ts &&...args)                                         \
         : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}         \
+    static std::string name() { return #ns "." #varname; }                               \
+  }
+
+// Like PAR_VAR, but for a variable whose data type is not Real
+#define PAR_TYPED_VAR(type, ns, varname)                                                 \
+  struct varname : public parthenon::variable_names::var_base_impl_t<                    \
+                       false, type, parthenon::TopologicalType::Cell> {                  \
+    template <class... Ts>                                                               \
+    KOKKOS_INLINE_FUNCTION varname(Ts &&...args)                                         \
+        : parthenon::variable_names::var_base_impl_t<false, type,                        \
+                                                     parthenon::TopologicalType::Cell>(  \
+              std::forward<Ts>(args)...) {}                                              \
     static std::string name() { return #ns "." #varname; }                               \
   }
 
@@ -42,5 +56,13 @@ PAR_SWARMVAR(parthenon::Real, swarm, x);
 PAR_SWARMVAR(parthenon::Real, swarm, y);
 PAR_SWARMVAR(parthenon::Real, swarm, z);
 } // namespace swarm_position
+
+// Fields that every lukewarm carries
+namespace lukewarm {
+PAR_VAR(lukewarm, x);
+PAR_VAR(lukewarm, y);
+PAR_VAR(lukewarm, z);
+PAR_TYPED_VAR(std::uint64_t, lukewarm, id);
+} // namespace lukewarm
 
 #endif // PACK_DEFAULT_NAMES_HPP_

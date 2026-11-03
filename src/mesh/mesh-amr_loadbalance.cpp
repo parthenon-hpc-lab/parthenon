@@ -41,6 +41,7 @@
 #include "defs.hpp"
 #include "globals.hpp"
 #include "interface/update.hpp"
+#include "lukewarm/lukewarm_remesh.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_neighbors.hpp"
 #include "mesh/mesh_refinement.hpp"
@@ -649,6 +650,8 @@ bool Mesh::GatherCostListAndCheckBalance() {
 void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
                                            int ntot) {
   PARTHENON_INSTRUMENT
+  // Lukewarms are owned by MeshData, so they are taken off the old MeshData first
+  auto detached_lukewarms = DetachLukewarms(this, loclist, ranklist);
   // kill all old MeshData
   mesh_data.clear();
 
@@ -1002,6 +1005,9 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
     // Initialize the "base" MeshData object
     mesh_data.Add("base", GetBasePartition());
+    // The new MeshData get empty lukewarms, and then the particles of the old ones
+    BuildLukewarms();
+    RemeshLukewarms(this, std::move(detached_lukewarms), oldtonew, loclist, ranklist);
   } // AMR Recv and unpack data
 
   ResetLoadBalanceVariables();

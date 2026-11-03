@@ -48,6 +48,7 @@
 #include "globals.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/variable_state.hpp"
+#include "lukewarm/lukewarm_variable.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/meshblock.hpp"
 #include "outputs/output_attr.hpp"
@@ -227,6 +228,62 @@ GetParticleRecordAndComponentNames(const std::string &vname, const int rank,
   CheckValidName(particle_record);
   CheckValidName(particle_record_component);
   return {particle_record, particle_record_component};
+}
+
+std::tuple<std::string, std::string>
+GetLukewarmRecordAndComponentNames(const std::string &field, const int rank,
+                                   const int flat_comp_idx) {
+  std::string record;
+  std::string component;
+  if (field == lukewarm::x::name()) {
+    record = "position";
+    component = "x";
+  } else if (field == lukewarm::y::name()) {
+    record = "position";
+    component = "y";
+  } else if (field == lukewarm::z::name()) {
+    record = "position";
+    component = "z";
+  } else if (field == lukewarm::id::name()) {
+    record = "id";
+    component = openPMD::RecordComponent::SCALAR;
+  } else {
+    record = field;
+    // These records belong to the positions and ids
+    PARTHENON_REQUIRE_THROWS(
+        record != "position" && record != "positionOffset" && record != "id",
+        "Lukewarm field '" + field +
+            "' would be written as the reserved openPMD record '" + record + "'");
+    component =
+        rank == 0 ? openPMD::RecordComponent::SCALAR : std::to_string(flat_comp_idx);
+  }
+  CheckValidName(record);
+  CheckValidName(component);
+  return {record, component};
+}
+
+template <typename T>
+void WriteLukewarmFields(LukewarmInfo &info, openPMD::ParticleSpecies species) {
+  for (auto &[field, host_data] : info.Data<T>()) {
+    const auto &vinfo = info.var_info.at(field);
+    const auto dataset =
+        openPMD::Dataset(openPMD::determineDatatype<T>(), {info.global_count});
+    for (int n = 0; n < vinfo.nvar; ++n) {
+      const auto [record, component] =
+          GetLukewarmRecordAndComponentNames(field, vinfo.tensor_rank, n);
+      openPMD::RecordComponent rc = species[record][component];
+      rc.resetDataset(dataset);
+      if (info.count_on_rank != 0) {
+        rc.storeChunkRaw(&host_data[n * info.count_on_rank], {info.global_offset},
+                         {info.count_on_rank});
+      }
+      if (record == "position") {
+        auto rc_offset = species["positionOffset"][component];
+        rc_offset.resetDataset(dataset);
+        rc_offset.makeConstant(0.0);
+      }
+    }
+  }
 }
 
 std::tuple<std::string, std::string>
@@ -1039,6 +1096,32 @@ void OpenPMDOutput::WriteOutputFileImpl(Mesh *pm, ParameterInput *pin, SimTime *
                                "Particles should always carry a unique, persistent id!");
     }
     Kokkos::Profiling::popRegion(); // write particle data
+
+    // Lukewarms are particle species too, laid out as swarms are. As for swarms, every
+    // field of every lukewarm is written for restarts or if none are given.
+    Kokkos::Profiling::pushRegion("write lukewarm data");
+    auto lukewarm_info = output_params.mode == Restart || output_params.lukewarms.empty()
+                             ? AllLukewarmInfo(pm)
+                             : AllLukewarmInfo(pm, output_params.lukewarms);
+    for (auto &[name, info] : lukewarm_info.all_info) {
+      PARTHENON_REQUIRE_THROWS(swarm_infos.count(name) == 0,
+                               "'" + name + "' is both a swarm and a lukewarm, so they " +
+                                   "cannot both be written as openPMD particles");
+      openPMD::ParticleSpecies species = it.particles[name];
+      species.setAttribute("counts",
+                           FlattenedLocalToGlobal<std::size_t>(pm, info.counts));
+      species.setAttribute("offsets",
+                           FlattenedLocalToGlobal<std::size_t>(pm, info.offsets));
+      // So that particles created after a restart get ids no particle has had
+      species.setAttribute("id_bound", info.id_bound);
+      // Records are written even with no particles, as zero-length datasets, since
+      // openPMD drops a species without records on read, and with it id_bound
+      LukewarmTypes::IterateTypes(
+          [&](auto t) { OpenPMDUtils::WriteLukewarmFields<decltype(t)>(info, species); });
+    }
+    // The host buffers are in lukewarm_info, which is about to go away
+    it.seriesFlush();
+    Kokkos::Profiling::popRegion(); // write lukewarm data
   }
   // The iteration can be closed in order to help free up resources.
   // The iteration's content will be flushed automatically.

@@ -30,7 +30,9 @@
 #include <hdf5.h>
 
 // C++
+#include <array>
 #include <iostream>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -65,20 +67,26 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
                                      const bool do_lowerd, const bool isVector,
                                      MetadataFlag where);
 static std::string ParticlePositionRef(const std::string &prefix,
-                                       const std::string &swmname,
+                                       const std::string &vars_group,
                                        const std::string &varname,
                                        const std::string &hdffile,
                                        const std::string &datatype,
                                        const std::string &extradims, int particle_count);
 static std::string ParticleDatasetRef(const std::string &prefix,
-                                      const std::string &swmname,
+                                      const std::string &vars_group,
                                       const std::string &varname,
                                       const std::string &hdffile,
                                       const std::string &datatype,
                                       const std::string &extradims, int particle_count);
 static void ParticleVariableRef(std::ofstream &xdmf, const std::string &varname,
                                 const SwarmVarInfo &varinfo, const std::string &swmname,
-                                const std::string &hdffile, int particle_count);
+                                const std::string &vars_group, const std::string &hdffile,
+                                int particle_count);
+static void ParticleGridRef(std::ofstream &pxdmf, const std::string &swmname,
+                            const std::string &vars_group, const std::string &positions,
+                            const std::map<std::string, SwarmVarInfo> &var_info,
+                            const std::array<std::string, 4> &id_xyz,
+                            const std::string &hdffile, int particle_count);
 static void BlockCoordRegularRef(std::ofstream &xdmf, int nbtot, int ib, int nx,
                                  const std::string &hdfFile, const std::string &dir);
 static std::string LocationToStringRef(MetadataFlag where);
@@ -86,8 +94,8 @@ static std::string LocationToStringRef(MetadataFlag where);
 
 void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int nx1,
              int nx2, int nx3, const std::vector<VarInfo> &var_list,
-             const AllSwarmInfo &all_swarm_info, const bool mesh_xdmf,
-             const bool swarm_xdmf) {
+             const AllSwarmInfo &all_swarm_info, const AllLukewarmInfo &all_lukewarm_info,
+             const bool mesh_xdmf, const bool swarm_xdmf, const bool lukewarm_xdmf) {
   using namespace HDF5;
   using namespace OutputUtils;
   using namespace impl;
@@ -222,13 +230,10 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
     xdmf.close();
   }
 
-  // Particles are defined as their own "mesh"
-  if (swarm_xdmf && all_swarm_info.all_info.size() > 0) {
-    std::string sfilename_aux = hdfFile + ".swarm.xdmf";
-    std::ofstream pxdmf;
-
-    // open file
-    pxdmf = std::ofstream(sfilename_aux.c_str(), std::ofstream::trunc);
+  // Particles are defined as their own "mesh", with a file for swarms and one for
+  // lukewarms
+  auto WriteParticleXDMF = [&](const std::string &filename, const auto &write_grids) {
+    std::ofstream pxdmf(filename.c_str(), std::ofstream::trunc);
 
     // Write header
     pxdmf << R"(<?xml version="1.0" ?>)" << std::endl;
@@ -243,41 +248,36 @@ void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int
       pxdmf << R"(    <Time Value=")" << tm->time << R"("/>)" << std::endl;
     }
 
-    for (const auto &[swmname, swminfo] : all_swarm_info.all_info) {
-      pxdmf << StringPrintf("    <Grid GridType=\"Uniform\" Name=\"%s\">\n"
-                            "      <Topology TopologyType=\"Polyvertex\" "
-                            "NodesPerElement=\"%d\">\n"
-                            "      </Topology>\n"
-                            "      <Geometry GeometryType=\"XYZ\">\n",
-                            swmname.c_str(), swminfo.global_count, swminfo.global_count,
-                            swminfo.global_count, hdfFile.c_str(), swmname.c_str());
-      pxdmf << ParticlePositionRef("        ", swmname, "swarm_positions", hdfFile,
-                                   "Float", "", swminfo.global_count);
-      pxdmf << "      </Geometry>" << std::endl;
-      for (const auto &[varname, varinfo] : swminfo.var_info) {
-        if ((varname == swarm_position::x::name()) ||
-            (varname == swarm_position::y::name()) ||
-            (varname == swarm_position::z::name())) {
-          continue; // We already did this one!
-        }
-        ParticleVariableRef(pxdmf, varname, varinfo, swmname, hdfFile,
-                            swminfo.global_count);
-      }
-      // Write info for default (auto-generated) "id"s in case there's no native id field
-      // for the given swarm nor a custom "id" field.
-      if (swminfo.var_info.count(swarm_position::id::name()) == 0 &&
-          swminfo.var_info.count("id") == 0) {
-        auto swid = SwarmVarInfo(1, 1, 1, 1, 1, 0, "Int", false);
-        ParticleVariableRef(pxdmf, "id", swid, swmname, hdfFile, swminfo.global_count);
-      }
-      pxdmf << "    </Grid>" << std::endl;
-    }
+    write_grids(pxdmf);
 
     // Cleanup
     pxdmf << "    </Grid>" << std::endl;
     pxdmf << "  </Domain>" << std::endl;
     pxdmf << "</Xdmf>" << std::endl;
     pxdmf.close();
+  };
+
+  if (swarm_xdmf && all_swarm_info.all_info.size() > 0) {
+    WriteParticleXDMF(hdfFile + ".swarm.xdmf", [&](std::ofstream &pxdmf) {
+      for (const auto &[swmname, swminfo] : all_swarm_info.all_info) {
+        ParticleGridRef(pxdmf, swmname, swmname + "/SwarmVars", "swarm_positions",
+                        swminfo.var_info,
+                        {swarm_position::id::name(), swarm_position::x::name(),
+                         swarm_position::y::name(), swarm_position::z::name()},
+                        hdfFile, swminfo.global_count);
+      }
+    });
+  }
+  if (lukewarm_xdmf && all_lukewarm_info.all_info.size() > 0) {
+    WriteParticleXDMF(hdfFile + ".lukewarm.xdmf", [&](std::ofstream &pxdmf) {
+      for (const auto &[name, info] : all_lukewarm_info.all_info) {
+        ParticleGridRef(pxdmf, name, name + "/LukewarmVars", "lukewarm_positions",
+                        info.var_info,
+                        {lukewarm::id::name(), lukewarm::x::name(), lukewarm::y::name(),
+                         lukewarm::z::name()},
+                        hdfFile, info.global_count);
+      }
+    });
   }
 }
 
@@ -403,7 +403,7 @@ static void writeXdmfSlabVariableRef(std::ofstream &fid, const std::string &name
   // TODO(BRR) Support tensor dims 2 and 3
 }
 static std::string ParticlePositionRef(const std::string &prefix,
-                                       const std::string &swmname,
+                                       const std::string &vars_group,
                                        const std::string &varname,
                                        const std::string &hdffile,
                                        const std::string &datatype,
@@ -413,15 +413,15 @@ static std::string ParticlePositionRef(const std::string &prefix,
   auto part =
       StringPrintf("%s<DataItem Format=\"HDF\" Dimensions=\"%s%d 3\" Name=\"%s\" "
                    "NumberType=\"%s\"%s>\n"
-                   "%s  %s:/%s/SwarmVars/%s\n"
+                   "%s  %s:/%s/%s\n"
                    "%s</DataItem>\n",
                    prefix.c_str(), extradims.c_str(), particle_count, varname.c_str(),
                    datatype.c_str(), precision_string.c_str(), prefix.c_str(),
-                   hdffile.c_str(), swmname.c_str(), varname.c_str(), prefix.c_str());
+                   hdffile.c_str(), vars_group.c_str(), varname.c_str(), prefix.c_str());
   return part;
 }
 static std::string ParticleDatasetRef(const std::string &prefix,
-                                      const std::string &swmname,
+                                      const std::string &vars_group,
                                       const std::string &varname,
                                       const std::string &hdffile,
                                       const std::string &datatype,
@@ -431,20 +431,24 @@ static std::string ParticleDatasetRef(const std::string &prefix,
   // Some vis tools (like Visit) expect an "id" field for particles in the xdmf file.
   // If we use the proper internal id field (rather than the autogenerated one), we'll
   // override the internal name with the expected name.
-  auto known_varname = varname == swarm_position::id::name() ? "id" : varname;
+  auto known_varname =
+      (varname == swarm_position::id::name() || varname == lukewarm::id::name())
+          ? "id"
+          : varname;
   auto part = StringPrintf("%s<DataItem Format=\"HDF\" Dimensions=\"%s%d\" Name=\"%s\" "
                            "NumberType=\"%s\"%s>\n"
-                           "%s  %s:/%s/SwarmVars/%s\n"
+                           "%s  %s:/%s/%s\n"
                            "%s</DataItem>\n",
                            prefix.c_str(), extradims.c_str(), particle_count,
                            known_varname.c_str(), datatype.c_str(),
                            precision_string.c_str(), prefix.c_str(), hdffile.c_str(),
-                           swmname.c_str(), varname.c_str(), prefix.c_str());
+                           vars_group.c_str(), varname.c_str(), prefix.c_str());
   return part;
 }
 static void ParticleVariableRef(std::ofstream &xdmf, const std::string &varname,
                                 const SwarmVarInfo &varinfo, const std::string &swmname,
-                                const std::string &hdffile, int particle_count) {
+                                const std::string &vars_group, const std::string &hdffile,
+                                int particle_count) {
   const char fmt[] =
       "      <Attribute Name=\"%s\" AttributeType=\"%s\" Center=\"Node\">\n";
   if (varinfo.vector) { // vector logic
@@ -462,7 +466,7 @@ static void ParticleVariableRef(std::ofstream &xdmf, const std::string &varname,
           "              1 %d\n"
           "            </DataItem>\n",
           particle_count, d, particle_count);
-      xdmf << ParticleDatasetRef("            ", swmname, varname, hdffile,
+      xdmf << ParticleDatasetRef("            ", vars_group, varname, hdffile,
                                  varinfo.swtype, "3 ", particle_count);
       xdmf << "          </DataItem>" << std::endl;
     }
@@ -509,12 +513,12 @@ static void ParticleVariableRef(std::ofstream &xdmf, const std::string &varname,
                     "          </DataItem>\n",
                     particle_count, rank + 1, starts.c_str(), strides.c_str(),
                     counts.c_str(), particle_count);
-                xdmf << ParticleDatasetRef("          ", swmname, varname, hdffile,
+                xdmf << ParticleDatasetRef("          ", vars_group, varname, hdffile,
                                            varinfo.swtype, extradims.c_str(),
                                            particle_count);
                 xdmf << "        </DataItem>\n";
               } else {
-                xdmf << ParticleDatasetRef("        ", swmname, varname, hdffile,
+                xdmf << ParticleDatasetRef("        ", vars_group, varname, hdffile,
                                            varinfo.swtype, "", particle_count);
               }
               xdmf << "      </Attribute>" << std::endl;
@@ -524,6 +528,39 @@ static void ParticleVariableRef(std::ofstream &xdmf, const std::string &varname,
       }
     }
   }
+}
+
+// One particle collection, a swarm or a lukewarm, as a grid of points. Its variables are
+// in the HDF5 group vars_group, with its positions as (particle, direction) in the
+// dataset positions, and id_xyz names its id and position variables.
+static void ParticleGridRef(std::ofstream &pxdmf, const std::string &swmname,
+                            const std::string &vars_group, const std::string &positions,
+                            const std::map<std::string, SwarmVarInfo> &var_info,
+                            const std::array<std::string, 4> &id_xyz,
+                            const std::string &hdffile, int particle_count) {
+  pxdmf << StringPrintf("    <Grid GridType=\"Uniform\" Name=\"%s\">\n"
+                        "      <Topology TopologyType=\"Polyvertex\" "
+                        "NodesPerElement=\"%d\">\n"
+                        "      </Topology>\n"
+                        "      <Geometry GeometryType=\"XYZ\">\n",
+                        swmname.c_str(), particle_count);
+  pxdmf << ParticlePositionRef("        ", vars_group, positions, hdffile, "Float", "",
+                               particle_count);
+  pxdmf << "      </Geometry>" << std::endl;
+  for (const auto &[varname, varinfo] : var_info) {
+    if ((varname == id_xyz[1]) || (varname == id_xyz[2]) || (varname == id_xyz[3])) {
+      continue; // We already did this one!
+    }
+    ParticleVariableRef(pxdmf, varname, varinfo, swmname, vars_group, hdffile,
+                        particle_count);
+  }
+  // Write info for default (auto-generated) "id"s in case there's no native id field
+  // for the given swarm nor a custom "id" field.
+  if (var_info.count(id_xyz[0]) == 0 && var_info.count("id") == 0) {
+    auto swid = SwarmVarInfo(1, 1, 1, 1, 1, 0, "Int", false);
+    ParticleVariableRef(pxdmf, "id", swid, swmname, vars_group, hdffile, particle_count);
+  }
+  pxdmf << "    </Grid>" << std::endl;
 }
 
 static void BlockCoordRegularRef(std::ofstream &xdmf, int nbtot, int ib, int nx,

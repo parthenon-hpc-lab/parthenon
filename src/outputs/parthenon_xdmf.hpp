@@ -17,6 +17,7 @@
 
 #ifndef OUTPUTS_PARTHENON_XDMF_HPP_
 #define OUTPUTS_PARTHENON_XDMF_HPP_
+// This file was made in part with generative AI.
 
 // C++ includes
 #include <string>
@@ -30,8 +31,9 @@ namespace parthenon {
 namespace XDMF {
 void genXDMF(std::string hdfFile, Mesh *pm, SimTime *tm, IndexDomain domain, int nx1,
              int nx2, int nx3, const std::vector<OutputUtils::VarInfo> &var_list,
-             const OutputUtils::AllSwarmInfo &all_swarm_info, const bool mesh_xdmf,
-             const bool swarm_xdmf);
+             const OutputUtils::AllSwarmInfo &all_swarm_info,
+             const OutputUtils::AllLukewarmInfo &all_lukewarm_info, const bool mesh_xdmf,
+             const bool swarm_xdmf, const bool lukewarm_xdmf);
 } // namespace XDMF
 } // namespace parthenon
 

@@ -16,6 +16,7 @@
 //========================================================================================
 #ifndef OUTPUTS_RESTART_OPMD_HPP_
 #define OUTPUTS_RESTART_OPMD_HPP_
+// This file was made in part with generative AI.
 //! \file restart_opmd.hpp
 //  \brief Provides support for restarting from OpenPMD output
 
@@ -119,6 +120,56 @@ class RestartReaderOPMD : public RestartReader {
     ReadSwarmVar<>(swarmname, varname, count, offset, m, dataVec);
   };
 
+  // A lukewarm is a particle species laid out as a swarm is, but its records are named
+  // by GetLukewarmRecordAndComponentNames
+  template <typename T>
+  void ReadLukewarmField(const std::string &lukewarm, const std::string &field,
+                         const std::size_t count, const std::size_t offset,
+                         const Metadata &m, std::vector<T> &data_vec) {
+    openPMD::ParticleSpecies species = it->particles[lukewarm];
+    const auto &shape = m.Shape();
+    const int rank = shape.size();
+    std::size_t ncomp = 1;
+    for (const auto n : shape) {
+      ncomp *= n;
+    }
+    if (data_vec.size() < ncomp * count) {
+      data_vec.resize(ncomp * count);
+    }
+    // With no particles on this rank there is nothing to load, and data_vec may have no
+    // storage, but flush() is collective, so every rank calls it
+    if (count != 0) {
+      for (std::size_t n = 0; n < ncomp; ++n) {
+        const auto [record, component] =
+            OpenPMDUtils::GetLukewarmRecordAndComponentNames(field, rank, n);
+        openPMD::RecordComponent rc = species[record][component];
+        rc.loadChunkRaw(&data_vec[n * count], {offset}, {count});
+      }
+    }
+    it->seriesFlush();
+  }
+  void ReadLukewarmField(const std::string &lukewarm, const std::string &field,
+                         const std::size_t count, const std::size_t offset,
+                         const Metadata &m, std::vector<Real> &data_vec) override {
+    ReadLukewarmField<>(lukewarm, field, count, offset, m, data_vec);
+  }
+  void ReadLukewarmField(const std::string &lukewarm, const std::string &field,
+                         const std::size_t count, const std::size_t offset,
+                         const Metadata &m,
+                         std::vector<std::uint64_t> &data_vec) override {
+    ReadLukewarmField<>(lukewarm, field, count, offset, m, data_vec);
+  }
+  void ReadLukewarmField(const std::string &lukewarm, const std::string &field,
+                         const std::size_t count, const std::size_t offset,
+                         const Metadata &m, std::vector<int> &data_vec) override {
+    ReadLukewarmField<>(lukewarm, field, count, offset, m, data_vec);
+  }
+
+  [[nodiscard]] std::uint64_t
+  GetLukewarmIdBound(const std::string &lukewarm) const override {
+    return it->particles[lukewarm].getAttribute("id_bound").get<std::uint64_t>();
+  }
+
   // Gets the counts and offsets for MPI ranks for the meshblocks set
   // by the indexrange. Returns the total count on this rank.
   [[nodiscard]] std::size_t GetSwarmCounts(const std::string &swarm,
@@ -173,6 +224,16 @@ class RestartReaderOPMD : public RestartReader {
       auto [particle_record, particle_record_component] =
           OpenPMDUtils::GetParticleRecordAndComponentNames(swarmvarname, 0, 0);
       return it->particles[name].contains(particle_record);
+    } else if (data_type == DataType::Lukewarm) {
+      return it->particles.contains(name);
+    } else if (data_type == DataType::LukewarmField) {
+      if (!it->particles.contains(name)) return false;
+      // A field has a record of its own, except that positions share one
+      const auto [record, component] =
+          OpenPMDUtils::GetLukewarmRecordAndComponentNames(swarmvarname, 0, 0);
+      auto species = it->particles[name];
+      if (!species.contains(record)) return false;
+      return record != "position" || species[record].contains(component);
     }
     return false;
   }

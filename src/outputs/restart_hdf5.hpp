@@ -16,9 +16,11 @@
 //========================================================================================
 #ifndef OUTPUTS_RESTART_HDF5_HPP_
 #define OUTPUTS_RESTART_HDF5_HPP_
+// This file was made in part with generative AI.
 //! \file io_wrapper.hpp
 //  \brief defines a set of small wrapper functions for MPI versus Serial Output.
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -130,36 +132,7 @@ class RestartReaderHDF5 : public RestartReader {
   void ReadSwarmVar(const std::string &swarmname, const std::string &varname,
                     const std::size_t count, const std::size_t offset, const Metadata &m,
                     std::vector<T> &dataVec) {
-#ifndef ENABLE_HDF5
-    PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
-#else
-    auto hdl = OpenDataset<T>(swarmname + "/SwarmVars/" + varname);
-
-    constexpr int CHUNK_MAX_DIM = 6;
-    hsize_t h5_offset[CHUNK_MAX_DIM];
-    hsize_t h5_count[CHUNK_MAX_DIM];
-    const auto &shape = m.Shape();
-    const auto rank = shape.size();
-    const bool is_vector = m.IsSet(Metadata::Vector);
-    std::size_t total_count = count;
-    for (int i = 0; i < CHUNK_MAX_DIM; ++i) {
-      h5_offset[i] = h5_count[i] = 0;
-    }
-    for (std::size_t i = 0; i < rank; ++i) {
-      h5_count[i] = shape[rank - 1 - i];
-      total_count *= shape[rank - 1 - i];
-    }
-    h5_count[rank] = count;
-    h5_offset[rank] = offset;
-    if (dataVec.size() < total_count) { // greedy re-alloc
-      dataVec.resize(total_count);
-    }
-    PARTHENON_HDF5_CHECK(H5Sselect_hyperslab(hdl.dataspace, H5S_SELECT_SET, h5_offset,
-                                             NULL, h5_count, NULL));
-    const H5S memspace = H5S::FromHIDCheck(H5Screate_simple(rank + 1, h5_count, NULL));
-    PARTHENON_HDF5_CHECK(H5Dread(hdl.dataset, hdl.type, memspace, hdl.dataspace,
-                                 H5P_DEFAULT, dataVec.data()));
-#endif // ENABLE_HDF5
+    ReadParticleDataset_(swarmname + "/SwarmVars/" + varname, count, offset, m, dataVec);
   }
 
   // Reads an array dataset from file as a 1D vector.
@@ -232,6 +205,29 @@ class RestartReaderHDF5 : public RestartReader {
                                            std::vector<std::size_t> &counts,
                                            std::vector<std::size_t> &offsets) override;
 
+  // A lukewarm field is stored as a swarm variable is, but in the group LukewarmVars
+  void ReadLukewarmField(const std::string &lukewarm, const std::string &field,
+                         const std::size_t count, const std::size_t offset,
+                         const Metadata &m, std::vector<Real> &data_vec) override {
+    ReadParticleDataset_(lukewarm + "/LukewarmVars/" + field, count, offset, m, data_vec);
+  }
+  void ReadLukewarmField(const std::string &lukewarm, const std::string &field,
+                         const std::size_t count, const std::size_t offset,
+                         const Metadata &m,
+                         std::vector<std::uint64_t> &data_vec) override {
+    ReadParticleDataset_(lukewarm + "/LukewarmVars/" + field, count, offset, m, data_vec);
+  }
+  void ReadLukewarmField(const std::string &lukewarm, const std::string &field,
+                         const std::size_t count, const std::size_t offset,
+                         const Metadata &m, std::vector<int> &data_vec) override {
+    ReadParticleDataset_(lukewarm + "/LukewarmVars/" + field, count, offset, m, data_vec);
+  }
+
+  [[nodiscard]] std::uint64_t
+  GetLukewarmIdBound(const std::string &lukewarm) const override {
+    return GetAttr<std::uint64_t>(lukewarm, "id_bound");
+  }
+
   void ReadParams(const std::string &name, Params &p) override;
 
   [[nodiscard]] bool VariableExists(const std::string &name, const DataType data_type,
@@ -247,6 +243,8 @@ class RestartReaderHDF5 : public RestartReader {
     std::string full_name = name;
     if (data_type == DataType::SwarmVar) {
       full_name = name + "/SwarmVars/" + swarmvarname;
+    } else if (data_type == DataType::LukewarmField) {
+      full_name = name + "/LukewarmVars/" + swarmvarname;
     }
     H5Eset_auto(H5E_DEFAULT, NULL, NULL);
     auto status =
@@ -263,6 +261,44 @@ class RestartReaderHDF5 : public RestartReader {
   void Close();
 
  private:
+  // Reads count particles, starting at offset, of a dataset of a swarm variable or a
+  // lukewarm field, with its shape first and the particle index last
+  template <typename T>
+  void ReadParticleDataset_(const std::string &dataset, const std::size_t count,
+                            const std::size_t offset, const Metadata &m,
+                            std::vector<T> &dataVec) {
+#ifndef ENABLE_HDF5
+    PARTHENON_FAIL("Restart functionality is not available because HDF5 is disabled");
+#else
+    auto hdl = OpenDataset<T>(dataset);
+
+    constexpr int CHUNK_MAX_DIM = 6;
+    hsize_t h5_offset[CHUNK_MAX_DIM];
+    hsize_t h5_count[CHUNK_MAX_DIM];
+    const auto &shape = m.Shape();
+    const auto rank = shape.size();
+    const bool is_vector = m.IsSet(Metadata::Vector);
+    std::size_t total_count = count;
+    for (int i = 0; i < CHUNK_MAX_DIM; ++i) {
+      h5_offset[i] = h5_count[i] = 0;
+    }
+    for (std::size_t i = 0; i < rank; ++i) {
+      h5_count[i] = shape[rank - 1 - i];
+      total_count *= shape[rank - 1 - i];
+    }
+    h5_count[rank] = count;
+    h5_offset[rank] = offset;
+    if (dataVec.size() < total_count) { // greedy re-alloc
+      dataVec.resize(total_count);
+    }
+    PARTHENON_HDF5_CHECK(H5Sselect_hyperslab(hdl.dataspace, H5S_SELECT_SET, h5_offset,
+                                             NULL, h5_count, NULL));
+    const H5S memspace = H5S::FromHIDCheck(H5Screate_simple(rank + 1, h5_count, NULL));
+    PARTHENON_HDF5_CHECK(H5Dread(hdl.dataset, hdl.type, memspace, hdl.dataspace,
+                                 H5P_DEFAULT, dataVec.data()));
+#endif // ENABLE_HDF5
+  }
+
   const std::string filename_;
 
   // Does file have ghost cells?

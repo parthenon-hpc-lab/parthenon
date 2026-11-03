@@ -37,6 +37,7 @@ list(APPEND unit_tests_SOURCES
     test_forest.cpp
     test_metadata.cpp
     test_meshblock_data_iterator.cpp
+    test_lukewarm.cpp
     test_mesh_data.cpp
     test_output_utils.cpp
     test_pararrays.cpp
@@ -83,6 +84,16 @@ if (PARTHENON_ENABLE_RAW_OPENMP)
         LABELS openmp
         PROCESSORS 4
         ENVIRONMENT "PARTHENON_TEST_EXPECT_OPENMP=1")
+endif()
+if (ENABLE_MPI)
+  # Lukewarm particles move between ranks, so their tests also run on several
+  add_test(
+      NAME "lukewarm:mpi"
+      COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${NUM_MPI_PROC_TESTING}
+              ${MPIEXEC_PREFLAGS} $<TARGET_FILE:unit_tests> ${MPIEXEC_POSTFLAGS} "[Lukewarm]")
+  set_tests_properties("lukewarm:mpi" PROPERTIES
+      LABELS "unit;mpi"
+      PROCESSORS ${NUM_MPI_PROC_TESTING})
 endif()
 
 get_property(ALL_TESTS DIRECTORY . PROPERTY TESTS)

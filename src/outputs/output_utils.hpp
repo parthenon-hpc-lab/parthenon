@@ -17,6 +17,7 @@
 
 #ifndef OUTPUTS_OUTPUT_UTILS_HPP_
 #define OUTPUTS_OUTPUT_UTILS_HPP_
+// This file was made in part with generative AI.
 
 // C++
 #include <algorithm>
@@ -315,6 +316,37 @@ struct AllSwarmInfo {
   AllSwarmInfo(BlockList_t &block_list,
                const std::map<std::string, std::set<std::string>> &swarmnames,
                DumpOutputMode mode, const std::string &meshdata_name = "base");
+};
+
+// Everything needed to write a lukewarm in the layout swarms use, so that the same tools
+// read both. The particles on this rank, from every MeshData that owns them, are gathered
+// on the host and ordered by block, in block list order.
+struct LukewarmInfo {
+  template <typename T>
+  using MapToData = std::map<std::string, std::vector<T>>;
+  // Each field's components one after another, each over every particle on this rank
+  std::tuple<MapToData<int>, MapToData<Real>, MapToData<std::uint64_t>> data;
+  std::map<std::string, SwarmVarInfo> var_info; // shape of each field in the file
+  std::size_t count_on_rank = 0;
+  std::size_t global_offset = 0;
+  std::size_t global_count = 0;
+  // Every id handed out so far, on any rank, is below this
+  std::uint64_t id_bound = 0;
+  std::vector<std::size_t> counts;  // on local blocks
+  std::vector<std::size_t> offsets; // global offset of each local block
+  template <typename T>
+  MapToData<T> &Data() {
+    return std::get<MapToData<T>>(data);
+  }
+};
+struct AllLukewarmInfo {
+  std::map<std::string, LukewarmInfo> all_info;
+  AllLukewarmInfo() = default;
+  // Collective: settles every requested lukewarm in its blocks first
+  AllLukewarmInfo(Mesh *pm,
+                  const std::map<std::string, std::set<std::string>> &lukewarm_fields);
+  // Collective: every field of every lukewarm, as restarts need
+  explicit AllLukewarmInfo(Mesh *pm);
 };
 
 template <typename T, typename Function_t>

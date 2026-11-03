@@ -11,6 +11,8 @@
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
 
+# This file was made in part with generative AI.
+
 add_subdirectory(stochastic_subgrid)
 add_subdirectory(advection)
 add_subdirectory(boundary_exchange)
@@ -20,6 +22,8 @@ add_subdirectory(kokkos_pi)
 add_subdirectory(particles)
 add_subdirectory(particle_leapfrog)
 add_subdirectory(particle_tracers)
+add_subdirectory(lukewarm_tracers)
+add_subdirectory(lukewarm_transport)
 add_subdirectory(poisson)
 add_subdirectory(poisson_gmg)
 add_subdirectory(diffusion)

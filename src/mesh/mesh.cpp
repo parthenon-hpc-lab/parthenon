@@ -452,6 +452,8 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
 // destructor
 
 Mesh::~Mesh() {
+  // Lukewarm buffers wait on their messages, so they go before the communicators
+  lukewarm_comm_map.clear();
 #ifdef MPI_PARALLEL
   // Cleanup MPI comms
   for (auto &pair : mpi_comm_map_) {
@@ -476,6 +478,20 @@ void Mesh::BuildBlockPartitions(GridIdentifier grid) {
   if (!grid.IsMultigrid())
     base_block_partition_ =
         std::make_shared<BlockListPartition>(id++, grid, block_list, this);
+}
+
+//----------------------------------------------------------------------------------------
+//  \brief Give each default partition's "base" MeshData the declared lukewarms
+
+void Mesh::BuildLukewarms() {
+  if (resolved_packages->AllLukewarms().empty()) return;
+  for (auto &partition : GetDefaultBlockPartitions()) {
+    auto &md = mesh_data.Add("base", partition);
+    if (!md->HasLukewarms()) {
+      md->InitializeLukewarms(resolved_packages.get(), lukewarm_id_counters_);
+    }
+  }
+  BuildLukewarmComms(this);
 }
 
 //----------------------------------------------------------------------------------------
@@ -777,6 +793,9 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
     const int num_partitions = DefaultNumPartitions();
 
+    // After an AMR pass the new MeshData need their lukewarms
+    BuildLukewarms();
+
     // problem generator
     if (init_problem) {
       PARTHENON_REQUIRE_THROWS(
@@ -793,6 +812,13 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
       // than appending to them. Keep the allocated pools for reuse.
       for (int i = 0; i < nmb; ++i) {
         block_list[i]->meshblock_data.Get()->GetSwarmData()->ClearParticles();
+      }
+      for (auto &partition : GetDefaultBlockPartitions()) {
+        auto &md = mesh_data.Add("base", partition);
+        if (!md->HasLukewarms()) continue;
+        for (const auto &[name, lukewarm] : md->GetLukewarmContainer().GetLukewarms()) {
+          lukewarm->Clear();
+        }
       }
 
       // Call Mesh ProblemGenerator
@@ -908,8 +934,10 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
           (nmb != 0 && block_list[0]->PostInitialization != nullptr)),
         "Mesh and MeshBlock PostInitializations are defined. Please use only one.");
     if (PostInitialization != nullptr) {
-      auto &base = mesh_data.Add("base", GetBasePartition());
-      PostInitialization(this, pin, base.get());
+      for (auto &partition : GetDefaultBlockPartitions()) {
+        auto &md = mesh_data.Add("base", partition);
+        PostInitialization(this, pin, md.get());
+      }
       post_init_invoked = true;
     } else {
       for (int i = 0; i < nmb; ++i) {
@@ -931,8 +959,10 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
 
       // first on the mesh...
       if (pkg->PostInitializationMesh != nullptr) {
-        auto &base = mesh_data.Add("base", GetBasePartition());
-        pkg->PostInitializationMesh(this, pin, base.get());
+        for (auto &partition : GetDefaultBlockPartitions()) {
+          auto &md = mesh_data.Add("base", partition);
+          pkg->PostInitializationMesh(this, pin, md.get());
+        }
         post_init_invoked = true;
       }
       // and then per block
@@ -1113,6 +1143,12 @@ void Mesh::SetupMPIComms() {
     MPI_Comm mpi_comm;
     PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
     const auto ret = mpi_comm_map_.insert({pair.first, mpi_comm});
+    PARTHENON_REQUIRE_THROWS(ret.second, "Communicator with same name already in map");
+  }
+  for (auto &pair : resolved_packages->AllLukewarms()) {
+    MPI_Comm mpi_comm;
+    PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
+    const auto ret = mpi_comm_map_.insert({LukewarmCommLabel(pair.first), mpi_comm});
     PARTHENON_REQUIRE_THROWS(ret.second, "Communicator with same name already in map");
   }
   // TODO(everying during a sync) we should discuss what to do with face vars as they

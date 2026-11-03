@@ -190,6 +190,21 @@ add_library(parthenon
   loop_abstraction/view.hpp
   loop_abstraction/loop_abstraction.hpp
 
+  lukewarm/lukewarm.cpp
+  lukewarm/lukewarm.hpp
+  lukewarm/lukewarm_comms.cpp
+  lukewarm/lukewarm_comms.hpp
+  lukewarm/lukewarm_container.cpp
+  lukewarm/lukewarm_container.hpp
+  lukewarm/lukewarm_geometry.cpp
+  lukewarm/lukewarm_geometry.hpp
+  lukewarm/lukewarm_pack.hpp
+  lukewarm/lukewarm_relocate.cpp
+  lukewarm/lukewarm_relocate.hpp
+  lukewarm/lukewarm_remesh.cpp
+  lukewarm/lukewarm_remesh.hpp
+  lukewarm/lukewarm_variable.hpp
+
   batched_linear_algebra/execution_utils.hpp
   batched_linear_algebra/givens.hpp
   batched_linear_algebra/householder.hpp
