@@ -21,6 +21,7 @@
 
 #ifndef OUTPUTS_OUTPUT_PARAMETERS_HPP_
 #define OUTPUTS_OUTPUT_PARAMETERS_HPP_
+// This file was made in part with generative AI.
 
 #include <cstddef>
 #include <map>
@@ -45,7 +46,8 @@ struct OutputParameters {
   int file_number_width;
   bool file_label_final;
   bool include_in_final;
-  bool analysis_flag; // write this output for analysis/postprocessing restarts
+  bool analysis_flag;      // write this output for analysis/postprocessing restarts
+  bool on_request = false; // only write if file <basename>.<id>.request exists
   std::string file_id;
   std::vector<std::string> variables;
   std::vector<std::string> component_labels;

@@ -205,6 +205,14 @@ if (PARTHENON_ENABLE_OPENPMD)
     --num_steps 1")
   list(APPEND EXTRA_TEST_LABELS "")
 
+  # Streamed (single file, one step per output) and on request openPMD outputs
+  list(APPEND TEST_DIRS stream_opmd)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/stream_opmd/parthinput.stream_opmd \
+    --num_steps 1")
+  list(APPEND EXTRA_TEST_LABELS "")
+
   endif()
 
 # Any external modules that are required by python can be added to REQUIRED_PYTHON_MODULES
