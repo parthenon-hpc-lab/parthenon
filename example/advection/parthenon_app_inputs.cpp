@@ -278,7 +278,10 @@ Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {
   packages.Add(pkg);
 
   auto app = std::make_shared<StateDescriptor>("advection_app");
-  app->PreFillDerivedBlock = advection_package::PreFill;
+  // PreFill computes one_minus_advected, which the advection package's FillDerived
+  // (SquareIt) uses, so it must run before it
+  app->FillDerivedBlock.Register(advection_package::PreFill, /*after=*/{},
+                                 /*before=*/{"advection_package"});
   app->PostFillDerivedBlock = advection_package::PostFill;
   packages.Add(app);
 

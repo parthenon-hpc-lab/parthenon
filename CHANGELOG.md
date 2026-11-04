@@ -8,6 +8,7 @@
 
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1480]](https://github.com/parthenon-hpc-lab/parthenon/pull/1480) Order package callbacks by dependencies declared with `CallbackRegistration`
 - [[PR 1446]](https://github.com/parthenon-hpc-lab/parthenon/pull/1446) Die on repeatedly receiving SIGINT
 
 ### Fixed (not changing behavior/API/variables/...)

@@ -79,9 +79,12 @@ TaskStatus InitNewlyAllocatedVars(T *rc) {
   // This has to be done even in the case where no blocks have been allocated
   // since the boundaries of allocated blocks could have received default data
   // In any case
-  auto pm = rc->GetParentPointer();
-  for (const auto &pkg : pm->packages.AllPackages()) {
-    pkg.second->InitNewlyAllocatedVars(rc);
+  const Packages_t &packages = rc->GetParentPointer()->packages;
+  for (const auto &init_newly_allocated_vars :
+       packages
+           .Callbacks<MeshOrBlock<T>(&StateDescriptor::InitNewlyAllocatedVarsMesh,
+                                     &StateDescriptor::InitNewlyAllocatedVarsBlock)>()) {
+    init_newly_allocated_vars(rc);
   }
 
   // Don't worry about flagging variables as initialized
