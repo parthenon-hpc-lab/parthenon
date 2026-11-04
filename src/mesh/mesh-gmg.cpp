@@ -94,7 +94,7 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
       auto neighbor_neighbors = forest.FindNeighbors(nloc.global_loc, grid_id);
 
       nb.ownership =
-          DetermineOwnership(nloc.global_loc, neighbor_neighbors, newly_refined);
+          DetermineOwnership(nloc.global_loc, neighbor_neighbors, true, newly_refined);
       nb.ownership.initialized = true;
 
       // Set logical coordinate transformation from this block to the neighbor
@@ -109,7 +109,7 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
       }
       // Store this block's own ownership of shared topological elements (in its own
       // logical frame), computed exactly as for a neighbor but for the block itself.
-      pmb->ownership = DetermineOwnership(loc, neighbors, newly_refined);
+      pmb->ownership = DetermineOwnership(loc, neighbors, false, newly_refined);
       pmb->ownership.initialized = true;
     } else if (grid_id.type() == GridType::two_level_composite &&
                pmb->loc.level() == grid_id.logical_level()) {
@@ -460,7 +460,7 @@ void Mesh::SetGMGNeighbors() {
           neighbor_locs.emplace_back(n.loc, n.loc,
                                      forest::LogicalCoordinateTransformation());
         for (auto &n : pmb->gmg_finer_neighbors)
-          n.ownership = DetermineOwnership(n.loc, neighbor_locs);
+          n.ownership = DetermineOwnership(n.loc, neighbor_locs, false);
       }
     }
   }
