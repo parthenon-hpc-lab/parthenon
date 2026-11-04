@@ -54,6 +54,7 @@
 #include "outputs/restart_opmd.hpp"
 #endif
 #include "utils/error_checking.hpp"
+#include "utils/mpi_progress.hpp"
 #include "utils/utils.hpp"
 
 namespace fs = FS_NAMESPACE;
@@ -70,7 +71,7 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 #ifdef MPI_PARALLEL
   int mpi_initialized;
   PARTHENON_MPI_CHECK(MPI_Initialized(&mpi_initialized));
-  if (!mpi_initialized && (MPI_SUCCESS != MPI_Init(&argc, &argv))) {
+  if (!mpi_initialized && (MPI_SUCCESS != mpi_progress::InitMPI(&argc, &argv))) {
     std::cerr << "### FATAL ERROR in ParthenonInit" << std::endl
               << "MPI Initialization failed." << std::endl;
     return ParthenonStatus::error;
@@ -80,6 +81,10 @@ ParthenonStatus ParthenonManager::ParthenonInitEnv(int argc, char *argv[]) {
 
   // Get total number of MPI processes (ranks)
   PARTHENON_MPI_CHECK(MPI_Comm_size(MPI_COMM_WORLD, &Globals::nranks));
+
+  // Start the progress thread before Kokkos creates any host threads, so that they
+  // inherit the main thread's affinity mask without the progress thread's CPU
+  mpi_progress::Start();
 #else  // no MPI
   Globals::my_rank = 0;
   Globals::nranks = 1;
@@ -295,7 +300,10 @@ ParthenonStatus ParthenonManager::ParthenonFinalize() {
 #ifdef MPI_PARALLEL
   int mpi_finalized;
   PARTHENON_MPI_CHECK(MPI_Finalized(&mpi_finalized));
-  if (!mpi_finalized) PARTHENON_MPI_CHECK(MPI_Finalize());
+  if (!mpi_finalized) {
+    mpi_progress::Stop();
+    PARTHENON_MPI_CHECK(MPI_Finalize());
+  }
 #endif
   return ParthenonStatus::complete;
 }

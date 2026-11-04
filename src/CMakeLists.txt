@@ -353,6 +353,8 @@ add_library(parthenon
   utils/interpolation.hpp
   utils/loop_utils.hpp
   utils/morton_number.hpp
+  utils/mpi_progress.cpp
+  utils/mpi_progress.hpp
   utils/mpi_types.hpp
   utils/multi_pointer.hpp
   utils/object_pool.hpp
