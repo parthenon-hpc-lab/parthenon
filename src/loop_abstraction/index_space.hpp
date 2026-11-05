@@ -303,6 +303,22 @@ class IndexSpace {
     return per_team_scratch_size_in_bytes;
   }
 
+  // Optional boiv scheduling permutation. When non-empty, boiv work item n visits the
+  // cell with flat index cell_order(n), where flat = b * ncells + local and local is the
+  // logical-indexer flat index of (k, j, i) within block b (the same decomposition boiv
+  // uses for its own work-item index). It must therefore be a permutation of
+  // [0, nblocks * ncells). This is purely a scheduling hint -- e.g. to group cells of
+  // similar cost into the same warp -- and relies on outer() iterations being
+  // independent. Loop tags other than boiv, and the reduction paths (where reordering
+  // would change floating-point results), ignore it.
+  using cell_order_t = Kokkos::View<const std::int64_t *, parthenon::DevMemSpace>;
+  IndexSpace WithCellOrder(cell_order_t order) const {
+    IndexSpace out = *this;
+    out.cell_order = order;
+    return out;
+  }
+  KOKKOS_INLINE_FUNCTION const cell_order_t &GetCellOrder() const { return cell_order; }
+
   // Rebind this space onto a reducer, reusing its bounds/scratch/ninner. The result is a
   // reduction space (reduction_t == NewReduction) usable with outer_reduce; the original
   // is untouched. Typically NewReduction is a Kokkos reducer, e.g.
@@ -332,6 +348,8 @@ class IndexSpace {
   int nblocks;
   NInner ninner;
   std::size_t per_team_scratch_size_in_bytes = 0;
+  // Not copied by WithReducer: reductions do not honor a cell order.
+  cell_order_t cell_order;
 };
 
 // Spell a reduction index space without naming the backend (which users should almost

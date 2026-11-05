@@ -1790,6 +1790,62 @@ Real RunReduceInstanceBound(const ProblemSpec &spec, const int ninner) {
   return result;
 }
 
+
+// boiv + kokkos with an attached cell order (IndexSpace::WithCellOrder): every cell is
+// visited exactly once, and with a serial device space, work item n visits order(n).
+template <inner_tag INNER_TAG>
+void RunBoivCellOrderCase(const ProblemSpec &spec) {
+  using IndexSpaceType =
+      PatternIndexSpace<loop_tag::boiv, INNER_TAG, loop_backend::kokkos>;
+  IndexSpaceType base(spec.nblocks, spec.nx, spec.ny, spec.nz, spec.nghost);
+  const auto lidx = base.GetLogicalIndexer();
+  const std::int64_t ncells = lidx.size();
+  const std::int64_t total = spec.nblocks * ncells;
+
+  // A non-trivial permutation: reverse the cells of each block, and reverse block order.
+  Kokkos::View<std::int64_t *, parthenon::DevMemSpace> order("order", total);
+  Kokkos::parallel_for(
+      Kokkos::RangePolicy<DevExecSpace>(0, total), KOKKOS_LAMBDA(const std::int64_t n) {
+        const std::int64_t b = n / ncells;
+        const std::int64_t local = n % ncells;
+        order(n) = (spec.nblocks - 1 - b) * ncells + (ncells - 1 - local);
+      });
+  const auto idx_space = base.WithCellOrder(order);
+
+  Kokkos::View<int *, parthenon::DevMemSpace> nvisits("nvisits", total);
+  Kokkos::View<std::int64_t *, parthenon::DevMemSpace> visit_seq("visit_seq", total);
+  Kokkos::View<std::int64_t, parthenon::DevMemSpace> counter("counter");
+  loop_abstraction::outer(
+      idx_space, KOKKOS_LAMBDA(const InnerIndexRange<IndexSpaceType> &idx_range, int b) {
+        const std::int64_t cell =
+            b * ncells + lidx.GetFlatIdx(idx_range.ks, idx_range.js, idx_range.is);
+        Kokkos::atomic_add(&nvisits(cell), 1);
+        visit_seq(cell) = Kokkos::atomic_fetch_add(&counter(), std::int64_t(1));
+        // The inner loop still sees the permuted point.
+        loop_abstraction::inner(idx_range, [&](auto idx) {
+          const auto [k, j, i] = idx_range.GetKJI(idx);
+          const std::int64_t inner_cell = b * ncells + lidx.GetFlatIdx(k, j, i);
+          if (inner_cell != cell) Kokkos::atomic_add(&nvisits(cell), 100);
+        });
+      });
+
+  auto nvisits_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), nvisits);
+  auto seq_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), visit_seq);
+  auto order_h = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), order);
+  int bad_visits = 0;
+  for (std::int64_t c = 0; c < total; ++c)
+    bad_visits += (nvisits_h(c) != 1);
+  REQUIRE(bad_visits == 0);
+#ifdef KOKKOS_ENABLE_SERIAL
+  if constexpr (std::is_same_v<DevExecSpace, Kokkos::Serial>) {
+    int bad_order = 0;
+    for (std::int64_t n = 0; n < total; ++n)
+      bad_order += (seq_h(order_h(n)) != n);
+    REQUIRE(bad_order == 0);
+  }
+#endif
+}
+
 } // namespace
 
 // The TEST_CASEs below enumerate every valid (loop_tag, inner_tag) pair. The
@@ -2227,4 +2283,10 @@ TEST_CASE("loop abstraction reduction instance-bound reducer",
         std::integral_constant<inner_tag, inner_tag::memory>{});
   check(std::integral_constant<loop_tag, loop_tag::boiv>{},
         std::integral_constant<inner_tag, inner_tag::logical_coords>{});
+}
+
+TEST_CASE("loop abstraction boiv kokkos cell order", "[loop_abstraction][contract]") {
+  constexpr ProblemSpec spec{3, 4, 3, 2, 2};
+  RunBoivCellOrderCase<inner_tag::logical_flat>(spec);
+  RunBoivCellOrderCase<inner_tag::logical_coords>(spec);
 }

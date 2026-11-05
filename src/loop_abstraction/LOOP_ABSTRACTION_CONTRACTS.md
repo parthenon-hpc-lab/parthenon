@@ -64,6 +64,12 @@ Shape: block -> outer -> inner -> var
   size one, but it requires its own code path for performance reasons.
 - The range object carries the current `(k, j, i)` point directly.so
 - Direct memory access is relative to the current `(k, j, i)` index.
+- Optional cell order: `idx_space.WithCellOrder(order)` attaches a device permutation of
+  the flat work-item space `b * ncells + local` (`local` = logical-indexer flat index).
+  On the Kokkos backend, work item `n` then visits cell `order(n)`, which lets a caller
+  group cells of similar cost into the same warp. It is a scheduling hint only: `outer()`
+  iterations must already be independent, and the raw backend, the other loop tags, and
+  `outer_reduce()` ignore it.
 
 ## Inner Tags
 

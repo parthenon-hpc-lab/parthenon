@@ -43,10 +43,19 @@ void outer_kokkos(IndexSpaceType idx_space, F &&f) {
     const std::int64_t cells_per_block =
         static_cast<std::int64_t>(idx_space.GetLogicalIndexer().size());
     const std::int64_t total = idx_space.GetNBlocks() * cells_per_block;
+    // Optional scheduling permutation (see IndexSpace::WithCellOrder). The branch is
+    // uniform across the launch, so it introduces no divergence.
+    const auto cell_order = idx_space.GetCellOrder();
+    const bool use_cell_order = cell_order.extent(0) > 0;
+    PARTHENON_REQUIRE(!use_cell_order ||
+                          static_cast<std::int64_t>(cell_order.extent(0)) == total,
+                      "boiv cell order must be a permutation of all nblocks * ncells "
+                      "work items.");
     Kokkos::parallel_for(
         "loop_abstraction::outer_kokkos_boiv",
         Kokkos::RangePolicy<parthenon::DevExecSpace>(0, total),
-        KOKKOS_LAMBDA(const std::int64_t flat) {
+        KOKKOS_LAMBDA(const std::int64_t n) {
+          const std::int64_t flat = use_cell_order ? cell_order(n) : n;
 #if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
           // JMM: THis is a known compiler bug in AMD where these
           // variables are not detected as constant deeper in
