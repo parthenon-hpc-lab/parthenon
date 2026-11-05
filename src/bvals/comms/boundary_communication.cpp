@@ -245,22 +245,22 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
 
 template TaskStatus
 SendBoundBufsWithRestrictOption<BoundaryType::any>(std::shared_ptr<MeshData<Real>> &,
-                                                   bool);
+                                                   bool, bool);
 template TaskStatus
 SendBoundBufsWithRestrictOption<BoundaryType::local>(std::shared_ptr<MeshData<Real>> &,
-                                                     bool);
+                                                     bool, bool);
 template TaskStatus
 SendBoundBufsWithRestrictOption<BoundaryType::nonlocal>(std::shared_ptr<MeshData<Real>> &,
-                                                        bool);
+                                                        bool, bool);
 template TaskStatus SendBoundBufsWithRestrictOption<BoundaryType::gmg_restrict_send>(
-    std::shared_ptr<MeshData<Real>> &, bool);
+    std::shared_ptr<MeshData<Real>> &, bool, bool);
 template TaskStatus SendBoundBufsWithRestrictOption<BoundaryType::gmg_prolongate_send>(
-    std::shared_ptr<MeshData<Real>> &, bool);
+    std::shared_ptr<MeshData<Real>> &, bool, bool);
 template TaskStatus SendBoundBufsWithRestrictOption<BoundaryType::flxcor_send>(
-    std::shared_ptr<MeshData<Real>> &, bool);
+    std::shared_ptr<MeshData<Real>> &, bool, bool);
 template TaskStatus
 SendBoundBufsWithRestrictOption<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &,
-                                                        bool);
+                                                        bool, bool);
 
 template <BoundaryType bound_type>
 TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
