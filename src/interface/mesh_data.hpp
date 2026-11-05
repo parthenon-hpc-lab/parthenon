@@ -211,6 +211,7 @@ class MeshData {
   void SetCommLane(BoundaryType btype, int lane);
 
   int GetCommLane(BoundaryType btype) const {
+    btype = GetCommLaneBoundaryType(btype);
     if (comm_lanes_.count(btype)) return comm_lanes_.at(btype);
     return 0;
   }

@@ -52,6 +52,7 @@ void MeshData<T>::SetMeshProperties(Mesh *pmesh) {
 
 template <typename T>
 void MeshData<T>::SetCommLane(BoundaryType btype, int lane) {
+  btype = GetCommLaneBoundaryType(btype);
   PARTHENON_REQUIRE(lane < pmy_mesh_->GetNumberOfCommLanes(btype),
                     "Trying to set MeshData to communicate on a non-existent comm lane.");
   // We do not enforce symmetry here between associated senders and

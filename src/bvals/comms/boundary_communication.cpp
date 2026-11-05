@@ -221,6 +221,8 @@ template TaskStatus SendBoundBufsWithRestrictOption<BoundaryType::flxcor_send>(
 template TaskStatus
 SendBoundBufsWithRestrictOption<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &,
                                                         bool);
+template TaskStatus SendBoundBufsWithRestrictOption<BoundaryType::faces_only_send>(
+    std::shared_ptr<MeshData<Real>> &, bool);
 
 template <BoundaryType bound_type>
 TaskStatus StartReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -252,6 +254,8 @@ template TaskStatus
 StartReceiveBoundBufs<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 StartReceiveBoundBufs<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+StartReceiveBoundBufs<BoundaryType::faces_only_recv>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ReceiveBoundBufs(std::shared_ptr<MeshData<Real>> &md) {
@@ -313,6 +317,8 @@ template TaskStatus
 ReceiveBoundBufs<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ReceiveBoundBufs<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ReceiveBoundBufs<BoundaryType::faces_only_recv>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
@@ -456,6 +462,8 @@ SetBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 SetBounds<BoundaryType::flxcor_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus SetBounds<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+SetBounds<BoundaryType::faces_only_recv>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ProlongateBounds(std::shared_ptr<MeshData<Real>> &md) {
@@ -496,6 +504,8 @@ template TaskStatus
 ProlongateBounds<BoundaryType::gmg_prolongate_recv>(std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ProlongateBounds<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus
+ProlongateBounds<BoundaryType::faces_only_recv>(std::shared_ptr<MeshData<Real>> &);
 
 template <BoundaryType bound_type>
 TaskStatus ProlongateInternalBounds(std::shared_ptr<MeshData<Real>> &md) {
@@ -539,6 +549,8 @@ template TaskStatus ProlongateInternalBounds<BoundaryType::gmg_prolongate_recv>(
     std::shared_ptr<MeshData<Real>> &);
 template TaskStatus
 ProlongateInternalBounds<BoundaryType::gmg_same>(std::shared_ptr<MeshData<Real>> &);
+template TaskStatus ProlongateInternalBounds<BoundaryType::faces_only_recv>(
+    std::shared_ptr<MeshData<Real>> &);
 
 bool IsMeshMultilevel(std::shared_ptr<MeshData<Real>> &md) {
   return md->GetMeshPointer()->multilevel;

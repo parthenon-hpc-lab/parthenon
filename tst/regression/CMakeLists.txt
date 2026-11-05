@@ -144,6 +144,14 @@ if (ENABLE_HDF5)
   --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/boundary_exchange/parthinput.boundary_exchange")
   list(APPEND EXTRA_TEST_LABELS "")
 
+  # Faces-only boundary exchange checked against BoundaryType::any
+  list(APPEND TEST_DIRS boundary_exchange_faces_only)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/boundary_exchange/boundary-exchange-example \
+  --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/boundary_exchange_faces_only/parthinput.forest \
+  --num_steps 5")
+  list(APPEND EXTRA_TEST_LABELS "")
+
   # Advection test
   list(APPEND TEST_DIRS advection_convergence)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})

@@ -214,6 +214,8 @@ TaskStatus RegisterCoalescedComms(std::shared_ptr<MeshData<Real>> &md) {
   RegisterCoalescedCommsSubset<BoundaryType::any>(md);
   RegisterCoalescedCommsSubset<BoundaryType::flxcor_send>(md);
   RegisterCoalescedCommsSubset<BoundaryType::flxcor_recv>(md);
+  RegisterCoalescedCommsSubset<BoundaryType::faces_only_send>(md);
+  RegisterCoalescedCommsSubset<BoundaryType::faces_only_recv>(md);
 
   return TaskStatus::complete;
 }

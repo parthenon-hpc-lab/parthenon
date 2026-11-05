@@ -68,7 +68,7 @@ enum class RefinementOp_t { Prolongation, Restriction, None };
 enum class CellLevel : int { coarse = -1, same = 0, fine = 1 };
 // JMM: Not clear this is the best place for this but it minimizes
 // circular dependency nonsense.
-constexpr int NUM_BNDRY_TYPES = 10;
+constexpr int NUM_BNDRY_TYPES = 12;
 enum class BoundaryType : int {
   local,
   nonlocal,
@@ -79,13 +79,16 @@ enum class BoundaryType : int {
   gmg_restrict_send,
   gmg_restrict_recv,
   gmg_prolongate_send,
-  gmg_prolongate_recv
+  gmg_prolongate_recv,
+  faces_only_send,
+  faces_only_recv
 };
 
 inline constexpr bool IsSender(BoundaryType btype) {
   if (btype == BoundaryType::flxcor_recv) return false;
   if (btype == BoundaryType::gmg_restrict_recv) return false;
   if (btype == BoundaryType::gmg_prolongate_recv) return false;
+  if (btype == BoundaryType::faces_only_recv) return false;
   return true;
 }
 
@@ -93,6 +96,7 @@ inline constexpr bool IsReceiver(BoundaryType btype) {
   if (btype == BoundaryType::flxcor_send) return false;
   if (btype == BoundaryType::gmg_restrict_send) return false;
   if (btype == BoundaryType::gmg_prolongate_send) return false;
+  if (btype == BoundaryType::faces_only_send) return false;
   return true;
 }
 
@@ -101,6 +105,7 @@ inline constexpr BoundaryType GetAssociatedReceiver(BoundaryType btype) {
   if (btype == BoundaryType::gmg_restrict_send) return BoundaryType::gmg_restrict_recv;
   if (btype == BoundaryType::gmg_prolongate_send)
     return BoundaryType::gmg_prolongate_recv;
+  if (btype == BoundaryType::faces_only_send) return BoundaryType::faces_only_recv;
   return btype;
 }
 
@@ -109,6 +114,15 @@ inline constexpr BoundaryType GetAssociatedSender(BoundaryType btype) {
   if (btype == BoundaryType::gmg_restrict_recv) return BoundaryType::gmg_restrict_send;
   if (btype == BoundaryType::gmg_prolongate_recv)
     return BoundaryType::gmg_prolongate_send;
+  if (btype == BoundaryType::faces_only_recv) return BoundaryType::faces_only_send;
+  return btype;
+}
+
+// Boundary types that communicate a subset of the BoundaryType::any buffers share the
+// comm lanes of BoundaryType::any
+inline constexpr BoundaryType GetCommLaneBoundaryType(BoundaryType btype) {
+  if (btype == BoundaryType::faces_only_send) return BoundaryType::any;
+  if (btype == BoundaryType::faces_only_recv) return BoundaryType::any;
   return btype;
 }
 

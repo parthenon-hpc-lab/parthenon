@@ -1,0 +1,62 @@
+# ========================================================================================
+# Parthenon performance portable AMR framework
+# Copyright(C) 2026 The Parthenon collaboration
+# Licensed under the 3-clause BSD License, see LICENSE file for details
+# ========================================================================================
+# (C) (or copyright) 2026. Triad National Security, LLC. All rights reserved.
+#
+# This program was produced under U.S. Government contract 89233218CNA000001 for Los
+# Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
+# for the U.S. Department of Energy/National Nuclear Security Administration. All rights
+# in the program are reserved by Triad National Security, LLC, and the U.S. Department
+# of Energy/National Nuclear Security Administration. The Government is granted for
+# itself and others acting on its behalf a nonexclusive, paid-up, irrevocable worldwide
+# license in this material to reproduce, prepare derivative works, distribute copies to
+# the public, perform publicly and display publicly, and to permit others to do so.
+# ========================================================================================
+# Statically refined 3D mesh with three levels, checks faces-only against any
+
+<parthenon/job>
+problem_id = boundary_exchange
+<parthenon/mesh>
+refinement = static
+numlevel = 3
+nx1 = 16
+x1min = 0.0
+x1max = 1.0
+ix1_bc = outflow
+ox1_bc = outflow
+nx2 = 16
+x2min = 0.0
+x2max = 1.0
+ix2_bc = outflow
+ox2_bc = outflow
+nx3 = 16
+x3min = 0.0
+x3max = 1.0
+ix3_bc = outflow
+ox3_bc = outflow
+pack_size = 3
+<parthenon/meshblock>
+nx1 = 4
+nx2 = 4
+nx3 = 4
+<parthenon/static_refinement0>
+level = 2
+x1min = 0.3
+x1max = 0.45
+x2min = 0.6
+x2max = 0.7
+x3min = 0.2
+x3max = 0.3
+<parthenon/static_refinement1>
+level = 1
+x1min = 0.0
+x1max = 0.1
+x2min = 0.0
+x2max = 0.1
+x3min = 0.95
+x3max = 1.0
+<boundary_exchange>
+check_faces_only = true
+use_forest = false

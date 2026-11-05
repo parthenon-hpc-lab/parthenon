@@ -77,6 +77,57 @@ The different ``BoundaryType``\ s are:
   communication. *It is probably not necessary to have separate 
   communicators for sending and receiving, but for now this is the way 
   if was written* 
+- ``faces_only_send`` and ``faces_only_recv``: Communicates the subset of
+  the ``any`` ghost halos needed to fill the *face* ghost zones of leaf
+  blocks, see :ref:`faces only comm`. ``faces_only_send`` must be used for
+  ``SendBoundBufs`` and ``faces_only_recv`` for the receiving routines.
+  ``AddBoundaryExchangeTasks<BoundaryType::faces_only_recv>(...)`` sets up the
+  full exchange.
+
+.. _faces only comm:
+
+Faces-only communication
+------------------------
+
+Stencils that only reach across block faces (e.g. dimensionally split
+reconstruction) do not need edge and corner ghost zones, but ``any`` still
+communicates with every edge and corner neighbor (26 neighbors per block in
+3D). With ``faces_only_send``/``faces_only_recv`` a block receiving at
+offset ``o`` (in its own logical frame) from a neighbor receives that
+neighbor's data if
+
+- ``o`` is a face offset, or
+- the receiving block has a *coarser* face neighbor at the unit offset
+  ``s e_d`` and ``o[d] == s``.
+
+The second case keeps prolongation identical to ``any``. When a coarse face
+neighbor's data is prolongated into the face ghosts of a fine block, the
+limited slopes read coarse buffer cells in the edge and corner ghost regions on
+the same side of the block. Those cells come either from a coarser neighbor
+directly or from restricting (in ``SetBounds``) the data received from a same
+level or finer neighbor, so those neighbors must also communicate.
+
+The flags that select which neighbors communicate
+(``NeighborBlock::faces_only_send`` and ``NeighborBlock::faces_only_recv``)
+are computed once per remesh in ``SetMeshBlockNeighbors`` using the neighbors
+of each neighbor, so the sending block knows whether the receiver has a
+coarser face neighbor. This works across trees with different logical
+coordinate orientations.
+
+Faces-only communication reuses the communication buffers, MPI tags, and comm
+lanes of ``any`` (so the comm lane for ``any`` also applies to
+``faces_only_*``), and the same ``MeshData`` must not have ``any`` and
+faces-only exchanges in flight at the same time. With
+``do_coalesced_comms=true`` the faces-only subset gets its own coalesced
+messages.
+
+After a faces-only exchange, the face ghost zones are identical to those
+after an ``any`` exchange. Edge and corner ghost zones are not guaranteed to
+be filled. For fields that are not cell centered, shared elements owned by an
+edge or corner neighbor are not updated either, so faces-only communication is
+mainly intended for cell centered fields. The ``boundary_exchange`` example
+with ``boundary_exchange/check_faces_only=true`` checks faces-only exchanges
+against ``any``.
 
 .. _sparse boundary comm:
 

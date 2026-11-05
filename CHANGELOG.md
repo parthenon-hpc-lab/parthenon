@@ -5,6 +5,7 @@
 ## Current develop
 
 ### Added (new features/APIs/variables/...)
+- [[PR XXXX]](https://github.com/parthenon-hpc-lab/parthenon/pull/XXXX) Add `BoundaryType::faces_only_send`/`faces_only_recv` that only communicate the ghost halos needed to fill face ghost zones (including at fine-coarse boundaries)
 - [[PR 1475]](https://github.com/parthenon-hpc-lab/parthenon/pull/1475) Add `Lukewarm`s
 - [[PR 1463]](https://github.com/parthenon-hpc-lab/parthenon/pull/1463) Add
   analysis-only initialization from HDF5 and openPMD outputs, filtered field loading,

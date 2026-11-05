@@ -95,7 +95,12 @@ int main(int argc, char *argv[]) {
   forest_def.AddBC(edge_t({n[7], n[8]}));
 
   forest_def.AddInitialRefinement(parthenon::LogicalLocation(0, 1, 0, 0, 0));
-  pman.ParthenonInitPackagesAndMesh(forest_def);
+  // The mesh can instead be built from the input file, e.g. to test 3D meshes
+  if (pman.pinput->GetOrAddBoolean("boundary_exchange", "use_forest", true)) {
+    pman.ParthenonInitPackagesAndMesh(forest_def);
+  } else {
+    pman.ParthenonInitPackagesAndMesh();
+  }
 
   // This needs to be scoped so that the driver object is destructed before Finalize
   {
@@ -134,12 +139,21 @@ parthenon::DriverStatus BoundaryExchangeDriver::Execute() {
   ConstructAndExecuteTaskLists<>(this);
   pouts->MakeOutputs(pmesh, pinput);
 
+  auto pkg = pmesh->packages.Get("boundary_exchange");
+  if (pkg->Param<bool>("check_faces_only")) {
+    const int nmismatch = boundary_exchange::CheckFacesOnlyConsistency(pmesh);
+    const bool passed = boundary_exchange::ReportFacesOnlyCheck(pmesh);
+    if (nmismatch > 0 || !passed) return DriverStatus::failed;
+  }
+
   return DriverStatus::complete;
 }
 
 template <typename T>
 TaskCollection BoundaryExchangeDriver::MakeTaskCollection(T &blocks) {
   const int num_partitions = pmesh->DefaultNumPartitions();
+  const bool check_faces_only =
+      pmesh->packages.Get("boundary_exchange")->Param<bool>("check_faces_only");
 
   TaskCollection tc;
   TaskRegion &async_region = tc.AddRegion(num_partitions);
@@ -151,6 +165,24 @@ TaskCollection BoundaryExchangeDriver::MakeTaskCollection(T &blocks) {
       TaskID none(0);
       auto fill = tl.AddTask(none, SetBlockValues, md.get());
       auto bound = AddBoundaryExchangeTasks(fill, tl, md, true);
+      if (check_faces_only) {
+        // Save the BoundaryType::any result and reset the ghost zones
+        auto copy = tl.AddTask(bound, boundary_exchange::CopyToReference, md.get());
+        tl.AddTask(copy, SetBlockValues, md.get());
+      }
+    }
+  }
+
+  if (check_faces_only) {
+    // Redo the exchange with faces-only communication and compare to the reference
+    TaskRegion &faces_region = tc.AddRegion(num_partitions);
+    for (int i = 0; i < num_partitions; i++) {
+      auto &tl = faces_region[i];
+      auto &md = pmesh->mesh_data.GetOrAdd("base", i);
+      TaskID none(0);
+      auto bound = AddBoundaryExchangeTasks<parthenon::BoundaryType::faces_only_recv>(
+          none, tl, md, true);
+      tl.AddTask(bound, boundary_exchange::CompareFaceGhosts, md.get());
     }
   }
 

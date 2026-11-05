@@ -108,16 +108,21 @@ template <BoundaryType bounds = BoundaryType::any>
 TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
                                 std::shared_ptr<MeshData<Real>> &md, bool multilevel,
                                 BValOnMDTasks_t ApplyBCs) {
-  static_assert(bounds == BoundaryType::any || bounds == BoundaryType::gmg_same);
+  static_assert(bounds == BoundaryType::any || bounds == BoundaryType::gmg_same ||
+                bounds == BoundaryType::faces_only_send ||
+                bounds == BoundaryType::faces_only_recv);
+  // Either half of the faces_only send/recv pair selects faces-only communication
+  constexpr BoundaryType send_bounds = GetAssociatedSender(bounds);
+  constexpr BoundaryType recv_bounds = GetAssociatedReceiver(bounds);
 
-  auto send = tl.AddTask(dependency, TF(SendBoundBufs<bounds>), md);
-  auto recv = tl.AddTask(dependency, TF(ReceiveBoundBufs<bounds>), md);
-  auto set = tl.AddTask(recv, TF(SetBounds<bounds>), md);
+  auto send = tl.AddTask(dependency, TF(SendBoundBufs<send_bounds>), md);
+  auto recv = tl.AddTask(dependency, TF(ReceiveBoundBufs<recv_bounds>), md);
+  auto set = tl.AddTask(recv, TF(SetBounds<recv_bounds>), md);
 
   auto pro = set;
   if (IsMeshMultilevel(md)) {
     auto cbound = ApplyBCs(set, &tl, md, true);
-    pro = tl.AddTask(cbound, TF(ProlongateBounds<bounds>), md);
+    pro = tl.AddTask(cbound, TF(ProlongateBounds<recv_bounds>), md);
   }
   auto fbound = ApplyBCs(pro, &tl, md, false);
   if (IsMeshMultilevel(md)) {
@@ -125,7 +130,7 @@ TaskID AddBoundaryExchangeTasks(TaskID dependency, TaskList &tl,
     // conditions, since the internal prolongation uses the values of the
     // normal buffer on shared elements (rather than values in the coarse)
     // buffer for prolongation.
-    fbound = tl.AddTask(fbound, TF(ProlongateInternalBounds<bounds>), md);
+    fbound = tl.AddTask(fbound, TF(ProlongateInternalBounds<recv_bounds>), md);
   }
   return fbound;
 }

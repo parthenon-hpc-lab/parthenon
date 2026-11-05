@@ -166,6 +166,10 @@ inline void ForEachBoundary(std::shared_ptr<MD> &md, F func) {
               if (nb.rank == Globals::my_rank) continue;
             } else if constexpr (bound == BoundaryType::any) {
               if (!v->IsSet(Metadata::FillGhost)) continue;
+            } else if constexpr (bound == BoundaryType::faces_only_send) {
+              if (!v->IsSet(Metadata::FillGhost) || !nb.faces_only_send) continue;
+            } else if constexpr (bound == BoundaryType::faces_only_recv) {
+              if (!v->IsSet(Metadata::FillGhost) || !nb.faces_only_recv) continue;
             } else if constexpr (flx_bound) {
               if (!v->IsSet(Metadata::Flux)) continue;
               // Check if this boundary requires flux correction

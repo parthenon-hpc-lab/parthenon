@@ -52,6 +52,39 @@
 
 namespace parthenon {
 
+namespace {
+// Bit 2 * d + (s > 0) is set if the face neighbor of self at unit offset s * e_d is
+// coarser than self. Offsets are in the logical frame of self.
+int CoarserFaceMask(const LogicalLocation &self,
+                    const std::vector<forest::NeighborLocation> &nbrs) {
+  int mask = 0;
+  for (const auto &n : nbrs) {
+    if (n.global_loc.level() >= self.level()) continue;
+    CellCentOffsets off(self.GetSameLevelOffsets(n.origin_loc));
+    if (!off.IsFace()) continue;
+    for (int d = 0; d < 3; ++d) {
+      const int o = static_cast<int>(off[d]);
+      if (o != 0) mask |= 1 << (2 * d + (o > 0));
+    }
+  }
+  return mask;
+}
+
+// Whether a receiving block with coarser face mask recv_mask needs data from the
+// neighbor at offset o (in the receiver's frame) for faces-only communication. Face
+// neighbors are always needed. Non-face neighbors are needed if they are on the same
+// side as a coarser face neighbor, since they provide (restricted) data in the slope
+// stencils used to prolongate the coarse face neighbor's data.
+bool FacesOnlyNeeded(const CellCentOffsets &o, int recv_mask) {
+  if (o.IsFace()) return true;
+  for (int d = 0; d < 3; ++d) {
+    const int od = static_cast<int>(o[d]);
+    if (od != 0 && (recv_mask & (1 << (2 * d + (od > 0))))) return true;
+  }
+  return false;
+}
+} // namespace
+
 void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &block_list,
                            const std::vector<int> &ranklist,
                            const std::unordered_set<LogicalLocation> &newly_refined) {
@@ -69,6 +102,7 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
     std::vector<NeighborBlock> all_neighbors;
     const auto &loc = pmb->loc;
     auto neighbors = forest.FindNeighbors(loc, grid_id);
+    const int self_coarser_face_mask = CoarserFaceMask(loc, neighbors);
 
     // Build NeighborBlocks for unique neighbors
     for (const auto &nloc : neighbors) {
@@ -99,6 +133,16 @@ void SetMeshBlockNeighbors(Mesh *pmesh, GridIdentifier grid_id, BlockList_t &blo
 
       // Set logical coordinate transformation from this block to the neighbor
       nb.lcoord_trans = nloc.lcoord_trans;
+
+      // Determine which neighbors participate in faces-only communication. The offset
+      // of this block as seen from the neighbor uses the same convention as ReceiveKey.
+      nb.faces_only_recv = FacesOnlyNeeded(nb.offsets, self_coarser_face_mask);
+      const auto nb_offsets = nb.lcoord_trans.Transform(nb.offsets);
+      const CellCentOffsets offsets_from_nb(-static_cast<int>(nb_offsets[0]),
+                                            -static_cast<int>(nb_offsets[1]),
+                                            -static_cast<int>(nb_offsets[2]));
+      nb.faces_only_send = FacesOnlyNeeded(
+          offsets_from_nb, CoarserFaceMask(nloc.global_loc, neighbor_neighbors));
     }
 
     if (grid_id.type() == GridType::leaf) {

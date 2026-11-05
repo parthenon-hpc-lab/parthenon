@@ -93,6 +93,12 @@ struct NeighborBlock {
   block_ownership_t ownership;
   // Logical coordinate transformation from the main block to this neighbor
   forest::LogicalCoordinateTransformation lcoord_trans;
+  // Whether this neighbor needs data from the main block (faces_only_send) or the main
+  // block needs data from this neighbor (faces_only_recv) under faces-only communication.
+  // These include face neighbors plus the non-face neighbors that touch a coarser face
+  // neighbor of the receiving block (needed for prolongation stencils).
+  bool faces_only_send = false;
+  bool faces_only_recv = false;
 
   NeighborBlock();
   NeighborBlock(Mesh *mesh, LogicalLocation loc, LogicalLocation origin_loc, int rank,

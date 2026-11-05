@@ -492,9 +492,9 @@ bool CoalescedBuffersRank::TryReceiveAndUnpack(MeshData<Real> *pmd, int partitio
 //----------------------------------------------------------------------------------------
 CoalescedComms::CoalescedComms(Mesh *pmesh) : pmesh(pmesh) {
   // TODO(LFR): Switch to a different communicator for each BoundaryType pair
-  for (auto b_type :
-       {BoundaryType::any, BoundaryType::flxcor_send, BoundaryType::gmg_same,
-        BoundaryType::gmg_restrict_send, BoundaryType::gmg_prolongate_send}) {
+  for (auto b_type : {BoundaryType::any, BoundaryType::flxcor_send,
+                      BoundaryType::gmg_same, BoundaryType::gmg_restrict_send,
+                      BoundaryType::gmg_prolongate_send, BoundaryType::faces_only_send}) {
     auto &comm = comms[b_type];
 #ifdef MPI_PARALLEL
     PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &comm));
@@ -662,6 +662,10 @@ void CoalescedComms::PrintCensus() {
       return "gmg_prolongate_send";
     case BoundaryType::gmg_prolongate_recv:
       return "gmg_prolongate_recv";
+    case BoundaryType::faces_only_send:
+      return "faces_only_send";
+    case BoundaryType::faces_only_recv:
+      return "faces_only_recv";
     }
     return "unknown";
   };

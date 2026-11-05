@@ -360,6 +360,7 @@ class Mesh {
   // MeshData::SetCommLane). This *must* be called before build boundary buffers
   // is called internally, so use beyond the defaults with care
   void SetNumberOfCommLanes(BoundaryType bound, std::size_t n_lanes) {
+    bound = GetCommLaneBoundaryType(bound);
     if (locked_comm_lane_numbers_.count(bound))
       PARTHENON_FAIL("Trying to reset the number of comm lanes after boundary buffers "
                      "have been set up.");
@@ -379,11 +380,13 @@ class Mesh {
   }
 
   void LockCommLaneNumbers(BoundaryType bound) {
+    bound = GetCommLaneBoundaryType(bound);
     locked_comm_lane_numbers_.insert(GetAssociatedSender(bound));
     locked_comm_lane_numbers_.insert(GetAssociatedReceiver(bound));
   }
 
   std::size_t GetNumberOfCommLanes(BoundaryType bound) const {
+    bound = GetCommLaneBoundaryType(bound);
     if (number_of_comm_lanes_.count(bound)) return number_of_comm_lanes_.at(bound);
     // We default to only having a single comm lane
     return 1;

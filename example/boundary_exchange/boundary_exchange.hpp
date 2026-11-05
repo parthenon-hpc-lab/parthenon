@@ -34,7 +34,36 @@ struct neighbor_info : public parthenon::variable_names::base_t<false, 4> {
   static std::string name() { return "neighbor_info"; }
 };
 
+// Fields used to check BoundaryType::faces_only_* against BoundaryType::any
+struct linear_field : public parthenon::variable_names::base_t<false> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION linear_field(Ts &&...args)
+      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "linear_field"; }
+};
+
+struct neighbor_info_ref : public parthenon::variable_names::base_t<false, 8> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION neighbor_info_ref(Ts &&...args)
+      : parthenon::variable_names::base_t<false, 8>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "neighbor_info_ref"; }
+};
+
+struct linear_field_ref : public parthenon::variable_names::base_t<false> {
+  template <class... Ts>
+  KOKKOS_INLINE_FUNCTION linear_field_ref(Ts &&...args)
+      : parthenon::variable_names::base_t<false>(std::forward<Ts>(args)...) {}
+  static std::string name() { return "linear_field_ref"; }
+};
+
 TaskStatus SetBlockValues(MeshData<Real> *rc);
+TaskStatus CopyToReference(MeshData<Real> *md);
+TaskStatus CompareFaceGhosts(MeshData<Real> *md);
+// Returns the number of mismatches between the send and receive sides of faces-only
+// communication over all ranks
+int CheckFacesOnlyConsistency(parthenon::Mesh *pmesh);
+// Prints a summary of the faces-only check and returns true if it passed
+bool ReportFacesOnlyCheck(parthenon::Mesh *pmesh);
 std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin);
 
 } // namespace boundary_exchange
