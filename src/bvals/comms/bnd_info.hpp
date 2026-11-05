@@ -73,6 +73,7 @@ struct BndInfo {
   bool same_to_same = false;
 
   buf_pool_t<Real>::weak_t buf;        // comm buffer from pool
+  Real *direct_buf = nullptr;          // direct coalesced communication buffer
   ParArrayND<Real, VariableState> var; // data variable used for comms
   Coordinates_t coords;
 

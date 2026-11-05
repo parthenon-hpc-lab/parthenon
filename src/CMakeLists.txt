@@ -4,6 +4,8 @@
 # Licensed under the 3-clause BSD License, see LICENSE file for detail
 #=========================================================================================
 # (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
+# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# AI was used to assist with adding NCCL sources and linkage.
 #
 # This program was produced under U.S. Government contract 89233218CNA000001 for Los
 # Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -14,8 +16,6 @@
 # license in this material to reproduce, prepare derivative works, distribute copies to
 # the public, perform publicly and display publicly, and to permit others to do so.
 #=========================================================================================
-
-# This file was made in part with generative AI.
 
 # Configure config.hpp
 set(PROBLEM_GENERATOR "<not-implemented>") # TODO: Figure out what to put here
@@ -122,6 +122,7 @@ add_library(parthenon
   bvals/comms/calc_indices.hpp
   bvals/comms/coalesced_buffers.cpp
   bvals/comms/coalesced_buffers.hpp
+  bvals/comms/nccl_utils.hpp
   bvals/comms/tag_map.cpp
   bvals/comms/tag_map.hpp
 
@@ -433,6 +434,10 @@ endif()
 
 if (ENABLE_MPI)
   target_link_libraries(parthenon PUBLIC MPI::MPI_CXX)
+endif()
+
+if (ENABLE_NCCL)
+  target_link_libraries(parthenon PUBLIC NCCL::NCCL)
 endif()
 
 if (PARTHENON_ENABLE_RAW_OPENMP)

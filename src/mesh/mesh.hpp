@@ -4,6 +4,8 @@
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
+// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// AI was used to assist with the coalesced communication backend interface.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -20,8 +22,6 @@
 //  \brief defines Mesh and MeshBlock classes, and various structs used in them
 //  The Mesh is the overall grid structure, and MeshBlocks are local patches of data
 //  (potentially on different levels) that tile the entire domain.
-
-// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <cstdint>
@@ -175,6 +175,11 @@ class Mesh {
   int task_collection_timeout_in_seconds;
 
   const bool do_coalesced_comms;
+  const std::string coalesced_comm_backend;
+
+  bool UseNCCLCoalescedComms() const {
+    return do_coalesced_comms && coalesced_comm_backend == "nccl";
+  }
 
   BlockList_t block_list;
   Packages_t packages;

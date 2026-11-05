@@ -1,5 +1,7 @@
 //========================================================================================
 // (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
+// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// AI was used to assist with NCCL coalesced-buffer state and interfaces.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -25,7 +27,9 @@
 #include "basic_types.hpp"
 #include "bvals/comms/bnd_id.hpp"
 #include "bvals/comms/bvals_utils.hpp"
+#include "bvals/comms/nccl_utils.hpp"
 #include "bvals/neighbor_block.hpp"
+#include "config.hpp"
 #include "coordinates/coordinates.hpp"
 #include "interface/variable.hpp"
 #include "mesh/mesh.hpp"
@@ -57,6 +61,14 @@ struct CoalescedBuffer {
   CommBuffer<std::vector<int>> sparse_status_buffer;
   int current_size;
 
+#ifdef ENABLE_NCCL
+  BufArray1D<int> nccl_status_buffer;
+  typename BufArray1D<int>::host_mirror_type nccl_status_host;
+  std::set<Uid_t> nccl_vars;
+  bool nccl_prepared{false};
+  CudaEvent nccl_pack_ready;
+#endif
+
   CoalescedBuffer(bool sender, int partition, int other_rank, BoundaryType b_type,
                   mpi_comm_t comm, Mesh *pmesh);
 
@@ -83,6 +95,12 @@ struct CoalescedBuffer {
   void PackAndSend(const std::set<Uid_t> &vars);
 
   bool TryReceiveAndUnpack(const std::set<Uid_t> &vars);
+
+  void InitializeNCCLBuffers();
+  bool SetNCCLDirectBuffer(var_buf_t *buffer, BndInfo *bnd_info);
+  void PrepareNCCL(const std::set<Uid_t> &vars, const DevExecSpace &exec);
+  void ApplyNCCLStatusAndUnpack(const std::set<Uid_t> &vars, const DevExecSpace &exec);
+  void FinishNCCLSend();
 };
 
 struct CoalescedBuffersRank {
@@ -137,6 +155,20 @@ struct CoalescedComms {
 
   Mesh *pmesh;
 
+#ifdef ENABLE_NCCL
+  struct NCCLExchangeState {
+    ncclComm_t comm{nullptr};
+    CudaEvent transfer_complete;
+    CudaEvent unpack_complete;
+    bool in_flight{false};
+    bool unpack_recorded{false};
+    std::set<Uid_t> vars;
+  };
+
+  DevExecSpace nccl_exec;
+  std::map<BoundaryType, std::unique_ptr<NCCLExchangeState>> nccl_states;
+#endif
+
   explicit CoalescedComms(Mesh *pmesh);
 
   ~CoalescedComms();
@@ -158,6 +190,15 @@ struct CoalescedComms {
   bool TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type);
 
   bool IsAvailableForWrite(MeshData<Real> *pmd, BoundaryType b_type);
+
+  bool UsesNCCL(BoundaryType b_type) const;
+  void InitializeNCCLBuffers();
+  void SetNCCLDirectBuffers(BvarsSubCache_t *cache, BoundaryType b_type, bool sender);
+  void PrepareNCCLSend(MeshData<Real> *pmd, BoundaryType b_type);
+  TaskStatus LaunchNCCLExchange(BoundaryType send_type, BoundaryType recv_type);
+  TaskStatus PollNCCLExchange(BoundaryType send_type);
+  TaskStatus FinalizeNCCLExchange(BoundaryType send_type, BoundaryType recv_type);
+  void WaitForNCCLUnpack(BoundaryType send_type, const DevExecSpace &exec);
 };
 
 } // namespace parthenon

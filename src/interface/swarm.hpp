@@ -371,6 +371,11 @@ struct RemoveParticlesReduction {
   struct value_type {
     int num_removed;
     int max_index;
+    value_type &operator+=(const value_type &other) {
+      num_removed += other.num_removed;
+      max_index = max_index > other.max_index ? max_index : other.max_index;
+      return *this;
+    }
   };
 
   MaskView mask;

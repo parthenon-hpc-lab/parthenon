@@ -4,6 +4,8 @@
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
 // (C) (or copyright) 2020-2026. Triad National Security, LLC. All rights reserved.
+// Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// AI was used to assist with NCCL transport selection and buffer initialization.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -16,8 +18,6 @@
 //========================================================================================
 //! \file mesh.cpp
 //  \brief implementation of functions in Mesh class
-
-// This file was made in part with generative AI.
 
 #include <algorithm>
 #include <cinttypes>
@@ -98,10 +98,14 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       nref(Globals::nranks), nderef(Globals::nranks), rdisp(Globals::nranks),
       ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
       brdisp(Globals::nranks), bddisp(Globals::nranks),
-      pcoalesced_comms(std::make_shared<CoalescedComms>(this)),
       do_coalesced_comms{pin->GetOrAddBoolean(
           "parthenon/mesh", "do_coalesced_comms", false,
           "Use coalesced MPI messages for inter-block communication")},
+      coalesced_comm_backend{
+          pin->GetOrAddString("parthenon/mesh", "coalesced_comm_backend", "mpi",
+                              std::vector<std::string>{"mpi", "nccl"},
+                              "Transport used for coalesced inter-rank communication")},
+      pcoalesced_comms(std::make_shared<CoalescedComms>(this)),
       nbuf_add_{pin->GetOrAddInteger(
           "parthenon/mesh", "comm_buffer_chunk_size", -1,
           "Number of comm buffers to allocate when more are required. Default is a "
@@ -391,6 +395,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
 void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
                           Packages_t &packages, int mesh_test,
                           const std::unordered_map<LogicalLocation, int> &dealloc_count) {
+  Kokkos::Profiling::pushRegion("Mesh::BuildBlockList");
   // LFR: This routine should work for general block lists
   std::stringstream msg;
 
@@ -455,6 +460,7 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
   SetMeshBlockNeighbors(this, GridIdentifier::leaf(), block_list, ranklist);
   SetGMGNeighbors();
   ResetLoadBalanceVariables();
+  Kokkos::Profiling::popRegion();
 }
 
 //----------------------------------------------------------------------------------------
@@ -835,34 +841,42 @@ void Mesh::Initialize(MeshInitType init_flag, ParameterInput *pin,
 
       // Call Mesh ProblemGenerator
       if (ProblemGenerator != nullptr) {
+	Kokkos::Profiling::pushRegion("mesh problem generator");
         for (auto &partition : GetDefaultBlockPartitions()) {
           auto &md = mesh_data.Add("base", partition);
           ProblemGenerator(this, pin, md.get());
         }
+	Kokkos::Profiling::popRegion();
         // Call individual MeshBlock ProblemGenerator
       } else {
+	Kokkos::Profiling::pushRegion("meshblock problem generator");
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
           if (pmb->ProblemGenerator != nullptr) {
             pmb->ProblemGenerator(pmb.get(), pin);
           }
         }
+	Kokkos::Profiling::popRegion();
       }
 
       // Call Mesh PostProblemGenerator
       if (PostProblemGenerator != nullptr) {
+	Kokkos::Profiling::pushRegion("mesh post problem generator");
         for (auto &partition : GetDefaultBlockPartitions()) {
           auto &md = mesh_data.Add("base", partition);
           PostProblemGenerator(this, pin, md.get());
         }
+	Kokkos::Profiling::popRegion();
         // Call individual MeshBlock PostProblemGenerator
       } else {
+	Kokkos::Profiling::pushRegion("meshblock post problem generator");
         for (int i = 0; i < nmb; ++i) {
           auto &pmb = block_list[i];
           if (pmb->PostProblemGenerator != nullptr) {
             pmb->PostProblemGenerator(pmb.get(), pin);
           }
         }
+	Kokkos::Profiling::popRegion();
       }
 
       // Call per-package initialization
@@ -874,18 +888,22 @@ void Mesh::Initialize(MeshInitType init_flag, ParameterInput *pin,
                 ". Please use only one.");
 
         // first on the mesh...
+	Kokkos::Profiling::pushRegion("pkg mesh post problem generator");
         if (pkg->PostProblemGeneratorMesh != nullptr) {
           for (auto &partition : GetDefaultBlockPartitions()) {
             auto &md = mesh_data.Add("base", partition);
             pkg->PostProblemGeneratorMesh(this, pin, md.get());
           }
         }
+	Kokkos::Profiling::popRegion();
         // and then per block
+	Kokkos::Profiling::pushRegion("pkg meshblock post problem generator");
         if (pkg->PostProblemGeneratorBlock != nullptr) {
           for (auto &pmb : block_list) {
             pkg->PostProblemGeneratorBlock(pmb.get(), pin);
           }
         }
+	Kokkos::Profiling::popRegion();
       }
 
       std::for_each(block_list.begin(), block_list.end(),
@@ -1395,6 +1413,7 @@ void Mesh::BuildAndRegisterCommBuffers_() {
     pcoalesced_comms->ResolveAndSendSendBuffers();
     // This operation is blocking
     pcoalesced_comms->ReceiveBufferInfo();
+    pcoalesced_comms->InitializeNCCLBuffers();
   }
 }
 
