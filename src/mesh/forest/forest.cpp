@@ -269,10 +269,20 @@ Forest Forest::Make2D(ForestDefinition &forest_def) {
     tree_domain.xmin(X3DIR) = face_size.xmin(X3DIR);
     tree_domain.xmax(X3DIR) = face_size.xmax(X3DIR);
     auto &bcs = tree_bcs[face->GetId()];
-    trees[face->GetId()] = Tree::create(face->GetId(), 2, 0, tree_domain,
-                                        tree_bcs[face->GetId()], face->nodes);
+    trees[face->GetId()] = Tree::create(face->GetId(), 2, forest_def.root_level,
+                                        tree_domain, tree_bcs[face->GetId()], face->nodes);
+    trees[face->GetId()]->patch = forest_def.face_patches[f];
     x_offset += 2.0;
   }
+
+  // Give each tree a distinct legacy (Athena++) location, laid out along x1, so that
+  // outputs that store legacy block locations are unambiguous. These locations carry
+  // no topological meaning.
+  int legacy_level = 0;
+  while ((1LL << legacy_level) < static_cast<std::int64_t>(faces.size()))
+    ++legacy_level;
+  for (int f = 0; f < faces.size(); ++f)
+    trees[faces[f]->GetId()]->athena_forest_loc = LogicalLocation(legacy_level, f, 0, 0);
 
   for (const auto &face : faces) {
     for (int ox1 = -1; ox1 < 2; ++ox1) {
@@ -287,9 +297,54 @@ Forest Forest::Make2D(ForestDefinition &forest_def) {
   }
 
   Forest fout;
-  fout.root_level = 0;
-  fout.forest_level = 0;
+  fout.root_level = forest_def.root_level;
+  fout.forest_level = legacy_level;
   for (auto &[id, tree] : trees)
+    fout.AddTree(tree);
+
+  // Add requested refinement to base forest
+  for (const auto &loc : forest_def.refinement_locations)
+    fout.AddMeshBlock(loc);
+
+  return fout;
+}
+
+Forest Forest::Make3D(ForestDefinition &forest_def) {
+  const auto &hexes = forest_def.hexes;
+  PARTHENON_REQUIRE(forest_def.faces.empty(),
+                    "A forest definition cannot have both faces and hexes.");
+  const auto neighbors = FindHexNeighbors(hexes);
+  const auto tree_bcs = GetHexBCs(hexes, neighbors, forest_def.bc_quads);
+
+  std::vector<std::shared_ptr<Tree>> trees(hexes.size());
+  for (int h = 0; h < hexes.size(); ++h) {
+    const auto &hex_size = forest_def.hex_sizes[h];
+    RegionSize tree_domain = forest_def.block_size;
+    for (auto dir : {X1DIR, X2DIR, X3DIR}) {
+      tree_domain.xmin(dir) = hex_size.xmin(dir);
+      tree_domain.xmax(dir) = hex_size.xmax(dir);
+    }
+    trees[h] =
+        Tree::create(hexes[h].id, 3, forest_def.root_level, tree_domain, tree_bcs[h]);
+    trees[h]->patch3d = forest_def.hex_patches[h];
+  }
+
+  // Distinct legacy (Athena++) locations along x1, as in Make2D
+  int legacy_level = 0;
+  while ((1LL << legacy_level) < static_cast<std::int64_t>(hexes.size()))
+    ++legacy_level;
+  for (int h = 0; h < hexes.size(); ++h)
+    trees[h]->athena_forest_loc = LogicalLocation(legacy_level, h, 0, 0);
+
+  for (int h = 0; h < hexes.size(); ++h) {
+    for (const auto &n : neighbors[h])
+      trees[h]->AddNeighborTree(n.offset, trees[n.index], n.ct, false);
+  }
+
+  Forest fout;
+  fout.root_level = forest_def.root_level;
+  fout.forest_level = legacy_level;
+  for (auto &tree : trees)
     fout.AddTree(tree);
 
   // Add requested refinement to base forest

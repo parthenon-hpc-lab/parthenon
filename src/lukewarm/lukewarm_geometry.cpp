@@ -88,11 +88,17 @@ LukewarmGeometry::LukewarmGeometry(MeshData<Real> *md, const std::vector<int> &o
   auto neighbor_blocks = Kokkos::create_mirror_view(neighbor_blocks_);
   auto neighbor_gids = Kokkos::create_mirror_view(neighbor_gids_);
   auto shifts = Kokkos::create_mirror_view(shifts_);
+  if constexpr (IsMappedCoord()) {
+    coords_ = ParArray1DRaw<Coordinates_t>(ViewOfViewAlloc("LukewarmGeometry::coords"),
+                                           nblocks_);
+  }
+  auto coords = create_view_of_view_mirror(coords_);
 
   for (int b = 0; b < nblocks_; ++b) {
     const MeshBlock *pmb = md->GetBlockData(b)->GetBlockPointer();
     const LogicalLocation &loc = pmb->loc;
     gids(b) = pmb->gid;
+    if constexpr (IsMappedCoord()) coords(b) = pmb->coords;
     // The midplane comes from a daughter so that it is right on stretched meshes
     const RegionSize daughter = pmesh->GetBlockSize(loc.GetDaughter(0, 0, 0));
     for (int d = 0; d < 3; ++d) {
@@ -111,12 +117,21 @@ LukewarmGeometry::LukewarmGeometry(MeshData<Real> *md, const std::vector<int> &o
       }
       // The half-block at one finer level, in the frame of this block's tree
       std::int64_t l[3];
-      bool outside = false;
+      int outside = 0;
+      bool physical = false;
       for (int d = 0; d < 3; ++d) {
         l[d] = 2 * loc.l(d) + (active_[d] ? half[d] - 1 : 0);
-        outside = outside || (active_[d] && (half[d] == 0 || half[d] == 3));
+        if (active_[d] && (half[d] == 0 || half[d] == 3)) {
+          ++outside;
+          const BoundaryFlag flag = pmb->boundary_flag[2 * d + (half[d] == 3)];
+          physical =
+              physical || (flag != BoundaryFlag::block && flag != BoundaryFlag::periodic);
+        }
       }
-      if (!outside) continue;
+      if (outside == 0) continue;
+      // Where three trees meet at an edge or node of a forest, an edge or corner
+      // half-block may lie in no neighbor although no physical boundary is crossed
+      if (outside > 1 && !physical) neighbor_gids(b, h) = hole_;
       const LogicalLocation target(loc.tree(), loc.level() + 1, l[0], l[1], l[2]);
 
       for (const auto &nb : pmb->GetNeighbors()) {
@@ -134,6 +149,9 @@ LukewarmGeometry::LukewarmGeometry(MeshData<Real> *md, const std::vector<int> &o
                                        " belongs to a MeshData that is not a neighbor");
           neighbor_of_gid[nb.gid] = neighbor - neighbors.begin();
         }
+        // Trees of a mapped mesh have frames of their own, and the position is
+        // physical, so it moves into a neighboring tree as it is
+        if (IsMappedCoord() && nb.loc.tree() != loc.tree()) break;
         // Find which periodic image of a point in the half-block lies in the neighbor.
         // Anything but the point itself means a periodic boundary is crossed.
         const RegionSize nb_size = pmesh->GetBlockSize(nb.loc);
@@ -167,6 +185,7 @@ LukewarmGeometry::LukewarmGeometry(MeshData<Real> *md, const std::vector<int> &o
   Kokkos::deep_copy(neighbor_blocks_, neighbor_blocks);
   Kokkos::deep_copy(neighbor_gids_, neighbor_gids);
   Kokkos::deep_copy(shifts_, shifts);
+  Kokkos::deep_copy(coords_, coords);
   ToDevice(local_of_gid, "LukewarmGeometry::local", local_gids_, local_index_);
   ToDevice(neighbor_of_gid, "LukewarmGeometry::remote", remote_gids_, remote_neighbor_);
 }

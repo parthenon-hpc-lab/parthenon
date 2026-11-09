@@ -25,6 +25,8 @@
 
 #include "basic_types.hpp"
 #include "bvals/boundary_conditions.hpp"
+#include "coordinates/mapped_patch.hpp"
+#include "coordinates/mapped_patch_3d.hpp"
 #include "defs.hpp"
 #include "mesh/forest/forest_node.hpp"
 #include "mesh/forest/logical_coordinate_transformation.hpp"
@@ -118,6 +120,11 @@ class Tree : public std::enable_shared_from_this<Tree> {
 
   // TODO(LFR): Eventually remove this.
   LogicalLocation athena_forest_loc;
+
+  // Map from the logical coordinates of the tree to physical coordinates, used by
+  // mapped coordinate systems
+  MappedPatch patch;
+  MappedPatch3D patch3d;
 
   std::vector<std::shared_ptr<Node>> forest_nodes;
 

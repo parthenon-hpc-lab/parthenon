@@ -154,8 +154,12 @@ struct RestrictAverage {
     }
     // KGF: add the off-centered quantities first to preserve FP
     // symmetry
-    const Real tvol = ((vol[0][0][0] + vol[0][1][0]) + (vol[0][0][1] + vol[0][1][1])) +
-                      ((vol[1][0][0] + vol[1][1][0]) + (vol[1][0][1] + vol[1][1][1]));
+    Real tvol = ((vol[0][0][0] + vol[0][1][0]) + (vol[0][0][1] + vol[0][1][1])) +
+                ((vol[1][0][0] + vol[1][1][0]) + (vol[1][0][1] + vol[1][1][1]));
+    // On mapped meshes the coarse face is not the union of the fine faces, so normalize
+    // face data (fluxes) by the coarse area so the coarse block sees the fine total
+    if constexpr (IsMappedCoord() && (el == TE::F1 || el == TE::F2 || el == TE::F3))
+      tvol = coarse_coords.Volume<el>(ck, cj, ci);
     coarse(element_idx, l, m, n, ck, cj, ci) =
         tvol > 0.0
             ? (((terms[0][0][0] + terms[0][1][0]) + (terms[0][0][1] + terms[0][1][1])) +
@@ -283,6 +287,29 @@ struct ProlongateSharedGeneral {
     if constexpr (INCLUDE_X3 && INCLUDE_X2 && INCLUDE_X1)
       fine(element_idx, l, m, n, fk + 1, fj + 1, fi + 1) =
           fc + (gx1p * dx1fp + gx2p * dx2fp + gx3p * dx3fp);
+
+    // On mapped meshes the slopes are logical, so shift the children to make their
+    // volume weighted mean the coarse value (the inverse of RestrictAverage)
+    if constexpr (IsMappedCoord() && el == TE::CC && !piecewise_constant) {
+      Real vsum = 0.0, qsum = 0.0;
+      for (int ok = 0; ok < 1 + INCLUDE_X3; ++ok) {
+        for (int oj = 0; oj < 1 + INCLUDE_X2; ++oj) {
+          for (int oi = 0; oi < 1 + INCLUDE_X1; ++oi) {
+            const Real v = coords.Volume<el>(fk + ok, fj + oj, fi + oi);
+            vsum += v;
+            qsum += v * fine(element_idx, l, m, n, fk + ok, fj + oj, fi + oi);
+          }
+        }
+      }
+      const Real shift = (vsum > 0.0) ? qsum / vsum - fc : 0.0;
+      for (int ok = 0; ok < 1 + INCLUDE_X3; ++ok) {
+        for (int oj = 0; oj < 1 + INCLUDE_X2; ++oj) {
+          for (int oi = 0; oi < 1 + INCLUDE_X1; ++oi) {
+            fine(element_idx, l, m, n, fk + ok, fj + oj, fi + oi) -= shift;
+          }
+        }
+      }
+    }
   }
 };
 

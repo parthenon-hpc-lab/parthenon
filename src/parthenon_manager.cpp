@@ -241,7 +241,7 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
   // always add the Refinement package
   packages.Add(Refinement::Initialize(pinput.get()));
   packages.Add(OutputsPackage::Initialize(pinput.get()));
-  if (forest_def) {
+  if (forest_def && !arg.is_restart && !arg.analysis_flag) {
     pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), packages, *forest_def);
   } else if (!arg.is_restart && !arg.analysis_flag) {
     pmesh =
@@ -249,8 +249,14 @@ void ParthenonManager::ParthenonInitPackagesAndMesh(
   } else if (arg.is_restart || arg.analysis_flag) {
     // Open restart file
     // Read Mesh from restart file and create meshblocks
-    pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader,
-                                   packages, arg.mesh_flag, arg.analysis_flag);
+    if (forest_def) {
+      pmesh =
+          std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader, packages,
+                                 *forest_def, arg.mesh_flag, arg.analysis_flag);
+    } else {
+      pmesh = std::make_unique<Mesh>(pinput.get(), app_input.get(), *restartReader,
+                                     packages, arg.mesh_flag, arg.analysis_flag);
+    }
 
     if (!arg.analysis_flag) {
       const auto time_info = restartReader->GetTimeInfo();

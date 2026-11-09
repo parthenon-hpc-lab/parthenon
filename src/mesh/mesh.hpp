@@ -104,6 +104,10 @@ class Mesh {
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        hyper_rectangular_constructor_selector_t, bool analysis = false,
        const std::vector<std::string> &fields = {});
+  struct forest_constructor_selector_t {};
+  Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
+       forest::ForestDefinition &forest_def, forest_constructor_selector_t,
+       bool analysis = false, const std::vector<std::string> &fields = {});
 
  public:
 #ifdef PARTHENON_ENABLE_FFT
@@ -132,6 +136,9 @@ class Mesh {
        Packages_t &packages, int mesh_test = 0, bool analysis = false);
   Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
        forest::ForestDefinition &forest_def);
+  Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &resfile,
+       Packages_t &packages, forest::ForestDefinition &forest_def, int mesh_test = 0,
+       bool analysis = false);
   static RegionSize GetBaseMeshBlockSize(ParameterInput *pin,
                                          const RegionSize &mesh_size);
   static std::pair<RegionSize, RegionSize> GetRegionSizes(ParameterInput *pin);
@@ -501,6 +508,8 @@ class Mesh {
 #endif
 
   void SetBCNames_(ParameterInput *pin);
+  void BuildBlockListFromRestart_(ParameterInput *pin, ApplicationInput *app_in,
+                                  RestartReader &rr, Packages_t &packages, int mesh_test);
   std::array<BoundaryFlag, BOUNDARY_NFACES>
   GetBCsFromNames_(const BValNames_t &names) const;
 

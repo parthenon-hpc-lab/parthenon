@@ -30,6 +30,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 
 #include "bvals/bvals.hpp"
 #include "coordinates/coordinates.hpp"
@@ -46,6 +47,23 @@
 #include "parthenon_arrays.hpp"
 
 namespace parthenon {
+
+namespace {
+// Construct block coordinates, passing the tree's patch to coordinates that take one
+template <typename Coords>
+Coords MakeCoordinates(const RegionSize &rs, ParameterInput *pin, Mesh *pm,
+                       const LogicalLocation &loc) {
+  if constexpr (std::is_constructible_v<Coords, const RegionSize &, ParameterInput *,
+                                        const MappedPatch &>) {
+    return Coords(rs, pin, pm ? pm->forest.GetTreePatch(loc) : MappedPatch());
+  } else if constexpr (std::is_constructible_v<Coords, const RegionSize &,
+                                               ParameterInput *, const MappedPatch3D &>) {
+    return Coords(rs, pin, pm ? pm->forest.GetTreePatch3D(loc) : MappedPatch3D());
+  } else {
+    return Coords(rs, pin);
+  }
+}
+} // namespace
 
 //----------------------------------------------------------------------------------------
 // MeshBlock constructor: constructs coordinate, boundary condition, field
@@ -131,9 +149,11 @@ void MeshBlock::Initialize(int igid, int ilid, LogicalLocation iloc,
   // conditions for the simulation are set in problem generator called from main
 
   // Coords has host and device objects
-  coords = Coordinates_t(block_size, pin);
-  coords_device = ParArray0D<Coordinates_t>("coords on device");
-  auto coords_host_mirror = Kokkos::create_mirror_view(coords_device);
+  coords = MakeCoordinates<Coordinates_t>(block_size, pin, pm, loc);
+  // a view of views when the coordinates tabulate their geometry
+  coords_device = ParArray0D<Coordinates_t>(
+      ParArray0DRaw<Coordinates_t>(ViewOfViewAlloc("coords on device")));
+  auto coords_host_mirror = create_view_of_view_mirror(coords_device.KokkosView());
   coords_host_mirror() = coords;
   Kokkos::deep_copy(coords_device, coords_host_mirror);
 

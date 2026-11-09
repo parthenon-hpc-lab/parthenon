@@ -282,23 +282,33 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
 }
 
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
-           forest::ForestDefinition &forest_def)
-    : Mesh(pin, app_in, packages, base_constructor_selector_t()) {
-  mesh_size =
-      RegionSize({0, 0, 0}, {1, 1, 0}, {1, 1, 1}, {1, 1, 1}, {false, false, true});
+           forest::ForestDefinition &forest_def, forest_constructor_selector_t,
+           bool analysis, const std::vector<std::string> &fields)
+    : Mesh(pin, app_in, packages, base_constructor_selector_t(), analysis, fields) {
+  const bool is3d = forest_def.Is3D();
+  mesh_size = RegionSize({0, 0, 0}, {1, 1, is3d ? 1.0 : 0.0}, {1, 1, 1}, {1, 1, 1},
+                         {false, false, !is3d});
 
   SetBCNames_(pin);
   mesh_bcs = GetBCsFromNames_(mesh_bc_names);
   base_block_size = GetBaseMeshBlockSize(pin, mesh_size);
   forest_def.SetBlockSize(base_block_size);
 
-  ndim = 2;
+  ndim = is3d ? 3 : 2;
   // Load balancing flag and parameters
-  forest = forest::Forest::Make2D(forest_def);
+  forest = is3d ? forest::Forest::Make3D(forest_def) : forest::Forest::Make2D(forest_def);
   root_level = forest.root_level;
   forest.EnrollBndryFncts(app_in, mesh_bc_names, mesh_swarm_bc_names,
                           resolved_packages->UserBoundaryFunctions,
                           resolved_packages->UserSwarmBoundaryFunctions);
+
+  // SMR / AMR: refinement levels are counted from the root level of the trees
+  if (adaptive) max_level = max_level_ref_ + root_level - 1;
+}
+
+Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
+           forest::ForestDefinition &forest_def)
+    : Mesh(pin, app_in, packages, forest_def, forest_constructor_selector_t()) {
   BuildBlockList(pin, app_in, packages, 0);
 }
 
@@ -324,6 +334,25 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
            rr.GetFieldNames(pin->GetOrAddVector<std::string>(
                "parthenon/analysis", "fields", {},
                "logical field labels to load during analysis; empty selects all"))) {
+  BuildBlockListFromRestart_(pin, app_in, rr, packages, mesh_test);
+}
+
+//----------------------------------------------------------------------------------------
+// Mesh constructor for restarts/analysis of meshes built from a forest definition (the
+// same definition as the run that wrote the file)
+Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, RestartReader &rr,
+           Packages_t &packages, forest::ForestDefinition &forest_def, int mesh_test,
+           bool analysis)
+    : Mesh(pin, app_in, packages, forest_def, forest_constructor_selector_t(), analysis,
+           rr.GetFieldNames(pin->GetOrAddVector<std::string>(
+               "parthenon/analysis", "fields", {},
+               "logical field labels to load during analysis; empty selects all"))) {
+  BuildBlockListFromRestart_(pin, app_in, rr, packages, mesh_test);
+}
+
+void Mesh::BuildBlockListFromRestart_(ParameterInput *pin, ApplicationInput *app_in,
+                                      RestartReader &rr, Packages_t &packages,
+                                      int mesh_test) {
   std::stringstream msg;
 
   // mesh test

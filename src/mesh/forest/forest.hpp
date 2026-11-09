@@ -25,6 +25,7 @@
 
 #include "basic_types.hpp"
 #include "defs.hpp"
+#include "mesh/forest/forest_hex.hpp"
 #include "mesh/forest/forest_topology.hpp"
 #include "mesh/forest/logical_location.hpp"
 #include "mesh/forest/tree.hpp"
@@ -52,15 +53,39 @@ class ForestDefinition {
   std::vector<ForestBC<Edge>> bc_edges;
   std::vector<LogicalLocation> refinement_locations;
   std::vector<RegionSize> face_sizes;
+  std::vector<MappedPatch> face_patches;
+  // 3D forests of hexahedral trees
+  std::vector<Hex> hexes;
+  std::vector<RegionSize> hex_sizes;
+  std::vector<MappedPatch3D> hex_patches;
+  std::vector<HexBC> bc_quads;
+  int root_level = 0;
 
  public:
   using ar3_t = std::array<Real, 3>;
   using ai3_t = std::array<int, 3>;
   void AddFace(std::size_t id, std::array<std::shared_ptr<Node>, 4> nodes_in,
-               ar3_t xmin = {0.0, 0.0, 0.0}, ar3_t xmax = {1.0, 1.0, 1.0}) {
+               ar3_t xmin = {0.0, 0.0, 0.0}, ar3_t xmax = {1.0, 1.0, 1.0},
+               MappedPatch patch = MappedPatch()) {
     faces.emplace_back(Face::create(id, nodes_in));
     face_sizes.emplace_back(xmin, xmax, ar3_t{1.0, 1.0, 1.0}, ai3_t{1, 1, 1});
+    face_patches.push_back(patch);
   }
+
+  // Add a hexahedral tree of a 3D forest, with corner n = i + 2 j + 4 k at logical
+  // position (i, j, k). A forest is either 2D (faces) or 3D (hexes).
+  void AddHex(std::int64_t id, std::array<std::int64_t, 8> nodes_in,
+              ar3_t xmin = {0.0, 0.0, 0.0}, ar3_t xmax = {1.0, 1.0, 1.0},
+              MappedPatch3D patch = MappedPatch3D()) {
+    hexes.push_back(Hex{id, nodes_in});
+    hex_sizes.emplace_back(xmin, xmax, ar3_t{1.0, 1.0, 1.0}, ai3_t{1, 1, 1});
+    hex_patches.push_back(patch);
+  }
+
+  bool Is3D() const { return !hexes.empty(); }
+
+  // Number of times each tree is uniformly refined in the base grid
+  void SetRootLevel(int level) { root_level = level; }
 
   void AddBC(Edge edge, BoundaryFlag bf = BoundaryFlag::user,
              std::optional<Edge> periodic_connection = {}) {
@@ -68,6 +93,13 @@ class ForestDefinition {
       PARTHENON_REQUIRE(periodic_connection,
                         "Must specify another edge for periodic boundary conditions.");
     bc_edges.emplace_back(ForestBC<Edge>{edge, bf, periodic_connection});
+  }
+
+  // Boundary condition on the face of a 3D forest with the given nodes (in any order)
+  void AddBC(std::array<std::int64_t, 4> quad, BoundaryFlag bf = BoundaryFlag::user) {
+    PARTHENON_REQUIRE(bf != BoundaryFlag::periodic,
+                      "Periodic boundaries are not supported on 3D forests.");
+    bc_quads.push_back(HexBC{quad, bf});
   }
 
   void AddInitialRefinement(const LogicalLocation &loc) {
@@ -134,6 +166,14 @@ class Forest {
   std::array<BoundaryFlag, BOUNDARY_NFACES>
   GetBlockBCs(const LogicalLocation &loc) const {
     return trees.at(loc.tree())->GetBlockBCs(loc);
+  }
+
+  const MappedPatch &GetTreePatch(const LogicalLocation &loc) const {
+    return trees.at(loc.tree())->patch;
+  }
+
+  const MappedPatch3D &GetTreePatch3D(const LogicalLocation &loc) const {
+    return trees.at(loc.tree())->patch3d;
   }
 
   void EnrollBndryFncts(ApplicationInput *app_in, const BValNames_t &names,
@@ -210,6 +250,8 @@ class Forest {
                                  std::array<BoundaryFlag, BOUNDARY_NFACES> mesh_bcs);
 
   static Forest Make2D(ForestDefinition &forest_def);
+
+  static Forest Make3D(ForestDefinition &forest_def);
 };
 
 } // namespace forest

@@ -20,6 +20,7 @@
 #include <Kokkos_Core.hpp>
 
 #include "basic_types.hpp"
+#include "coordinates/coordinates.hpp"
 #include "kokkos_abstraction.hpp"
 #include "utils/error_checking.hpp"
 
@@ -73,7 +74,10 @@ class LukewarmLocation {
 };
 
 // Device-side map of the blocks of one MeshData, used to follow particles from block to
-// block inside a kernel. Positions are in the mesh's coordinates.
+// block inside a kernel. Positions are in the mesh's coordinates, which on mapped meshes
+// (forests) are the physical coordinates. There every block is placed in the logical
+// frame of its tree, and positions are carried to that frame by the inverse of the map
+// of the tree before they are compared with the block.
 //
 // Each block is split in half along every active direction, and space just outside it
 // is a half-block wide. That gives a 4x4x4 grid of half-blocks, indexed 0 (beyond the
@@ -92,7 +96,8 @@ class LukewarmGeometry {
   // Global id of local block b
   KOKKOS_FORCEINLINE_FUNCTION
   int Gid(const int b) const { return gids_(b); }
-  // Lower and upper faces of local block b along dir, as in its block_size
+  // Lower and upper faces of local block b along dir, as in its block_size (logical on
+  // mapped meshes)
   KOKKOS_FORCEINLINE_FUNCTION
   Real Xmin(const int b, const CoordinateDirection dir) const {
     return bounds_(b, dir - 1, 0);
@@ -106,8 +111,10 @@ class LukewarmGeometry {
   // for LogicalLocation::GetDaughter(ox1, ox2, ox3). Along inactive directions oxd = 0.
   KOKKOS_INLINE_FUNCTION
   int Daughter(const int b, const Real x1, const Real x2, const Real x3) const {
-    return (HalfIndex_(b, 0, x1) >= 2) + 2 * (HalfIndex_(b, 1, x2) >= 2) +
-           4 * (HalfIndex_(b, 2, x3) >= 2);
+    Real l[3];
+    Logical_(b, x1, x2, x3, l);
+    return (HalfIndex_(b, 0, l[0]) >= 2) + 2 * (HalfIndex_(b, 1, l[1]) >= 2) +
+           4 * (HalfIndex_(b, 2, l[2]) >= 2);
   }
 
   // Local index of the block with global id gid, or -1 if it is not in this MeshData
@@ -122,8 +129,11 @@ class LukewarmGeometry {
 
   KOKKOS_INLINE_FUNCTION
   bool Contains(const int b, const Real x1, const Real x2, const Real x3) const {
-    return IsInside_(HalfIndex_(b, 0, x1)) && IsInside_(HalfIndex_(b, 1, x2)) &&
-           IsInside_(HalfIndex_(b, 2, x3));
+    Real l[3];
+    Logical_(b, x1, x2, x3, l);
+    const int half[3] = {HalfIndex_(b, 0, l[0]), HalfIndex_(b, 1, l[1]),
+                         HalfIndex_(b, 2, l[2])};
+    return InBlock_(b, l, half);
   }
 
   // Local index of the block containing the position, or -1 if no block of this
@@ -143,9 +153,11 @@ class LukewarmGeometry {
   KOKKOS_FORCEINLINE_FUNCTION
   void Xtoijk(const int b, const Real x1, const Real x2, const Real x3, int &i, int &j,
               int &k) const {
-    i = CellIndex_(b, 0, x1);
-    j = CellIndex_(b, 1, x2);
-    k = CellIndex_(b, 2, x3);
+    Real l[3];
+    Logical_(b, x1, x2, x3, l);
+    i = CellIndex_(b, 0, l[0]);
+    j = CellIndex_(b, 1, l[1]);
+    k = CellIndex_(b, 2, l[2]);
   }
 
   // Follow a particle starting in local block b to the block containing its position,
@@ -165,15 +177,38 @@ class LukewarmGeometry {
     if (b < 0) b = NearestBlock_(x, shift);
     LukewarmLocation result(Status::Lost, -1, -1);
     for (int hop = 0; hop < max_hops_; ++hop) {
-      const int i = HalfIndex_(b, 0, x[0] + shift[0] * length_[0]);
-      const int j = HalfIndex_(b, 1, x[1] + shift[1] * length_[1]);
-      const int k = HalfIndex_(b, 2, x[2] + shift[2] * length_[2]);
-      if (IsInside_(i) && IsInside_(j) && IsInside_(k)) {
+      Real l[3];
+      Logical_(b, x[0] + shift[0] * length_[0], x[1] + shift[1] * length_[1],
+               x[2] + shift[2] * length_[2], l);
+      const int i = HalfIndex_(b, 0, l[0]);
+      const int j = HalfIndex_(b, 1, l[1]);
+      const int k = HalfIndex_(b, 2, l[2]);
+      const int half[3] = {i, j, k};
+      if (InBlock_(b, l, half)) {
         result = LukewarmLocation(Status::InMeshData, b, gids_(b));
         break;
       }
-      const int h = i + 4 * (j + 4 * k);
-      const int gid = neighbor_gids_(b, h);
+      int h = i + 4 * (j + 4 * k);
+      int gid = neighbor_gids_(b, h);
+      // At a hole, move to the half-block next to it along every direction but the one
+      // the position is farthest out in, pulling one direction in at a time
+      for (int pull[3] = {i, j, k}; gid == hole_;) {
+        int dmin = -1;
+        Real emin = 0.0;
+        for (int d = 0; d < 3; ++d) {
+          if (IsInside_(pull[d])) continue;
+          const Real e =
+              (pull[d] == 0 ? bounds_(b, d, 0) - l[d] : l[d] - bounds_(b, d, 2)) /
+              (bounds_(b, d, 2) - bounds_(b, d, 0));
+          if (dmin < 0 || e < emin) {
+            dmin = d;
+            emin = e;
+          }
+        }
+        pull[dmin] = (pull[dmin] == 0) ? 1 : 2;
+        h = pull[0] + 4 * (pull[1] + 4 * pull[2]);
+        gid = neighbor_gids_(b, h);
+      }
       if (gid < 0) {
         result = LukewarmLocation(Status::LeftMesh, -1, -1);
         break;
@@ -213,6 +248,42 @@ class LukewarmGeometry {
   KOKKOS_FORCEINLINE_FUNCTION
   static bool IsInside_(const int half) { return half == 1 || half == 2; }
 
+  // Whether a position, at logical l and half-block indices half, is in local block b.
+  // On mapped meshes the inverse maps can put a position on the face between two trees
+  // just outside both by roundoff, so there a position this close to a block is in it.
+  KOKKOS_FORCEINLINE_FUNCTION
+  bool InBlock_(const int b, const Real l[3], const int half[3]) const {
+    for (int d = 0; d < 3; ++d) {
+      if (IsInside_(half[d])) continue;
+      if constexpr (!IsMappedCoord()) return false;
+      const Real lo = bounds_(b, d, 0), hi = bounds_(b, d, 2);
+      const Real tol = face_tolerance_ * (hi - lo);
+      if (!(l[d] >= lo - tol && l[d] < hi + tol)) return false;
+    }
+    return true;
+  }
+
+  // The position in the frame of the bounds of local block b: the position itself, or on
+  // mapped meshes its logical coordinates in the tree of b
+  KOKKOS_FORCEINLINE_FUNCTION
+  void Logical_(const int b, const Real x1, const Real x2, const Real x3,
+                Real l[3]) const {
+    ToLogical_(coords_, b, x1, x2, x3, l);
+  }
+  // A template, so that only mapped coordinates need PhysicalToLogical()
+  template <typename View>
+  KOKKOS_FORCEINLINE_FUNCTION static void ToLogical_(const View &coords, const int b,
+                                                     const Real x1, const Real x2,
+                                                     const Real x3, Real l[3]) {
+    if constexpr (IsMappedCoord()) {
+      coords(b).PhysicalToLogical(x1, x2, x3, l[0], l[1], l[2]);
+    } else {
+      l[0] = x1;
+      l[1] = x2;
+      l[2] = x3;
+    }
+  }
+
   KOKKOS_FORCEINLINE_FUNCTION
   int CellIndex_(const int b, const int d, const Real x) const {
     const int c =
@@ -230,6 +301,23 @@ class LukewarmGeometry {
     for (int b = 0; b < nblocks_; ++b) {
       Real distance = 0.0;
       int image[3] = {0, 0, 0};
+      if constexpr (IsMappedCoord()) {
+        // Trees have frames of their own, so the distance is in widths of the block
+        Real l[3];
+        Logical_(b, x[0], x[1], x[2], l);
+        for (int d = 0; d < 3; ++d) {
+          if (!active_[d]) continue;
+          const Real gap = Gap_(b, d, l[d]) / (bounds_(b, d, 2) - bounds_(b, d, 0));
+          distance += gap * gap;
+        }
+        // An inverse map that fails far from its tree gives NaN, which is never nearest
+        if (distance != distance) distance = Kokkos::Experimental::finite_max_v<Real>;
+        if (b == 0 || distance < nearest_distance) {
+          nearest = b;
+          nearest_distance = distance;
+        }
+        continue;
+      }
       for (int d = 0; d < 3; ++d) {
         if (!active_[d]) continue;
         Real gap = Gap_(b, d, x[d]);
@@ -274,11 +362,18 @@ class LukewarmGeometry {
   // direction. The inverse width is zero along inactive directions.
   ParArray3DRaw<Real> bounds_;
   ParArray1DRaw<int> gids_;
+  // Coordinates of each block, on mapped meshes only
+  ParArray1DRaw<Coordinates_t> coords_;
   // For each block and outside half-block: the local index of the block it lies in, or
   // -1 if that block belongs to another MeshData
   ParArray2DRaw<int> neighbor_blocks_;
-  // ... and the global id of that block, or -1 beyond a non-periodic boundary
+  // ... and the global id of that block, -1 beyond a non-periodic boundary, or hole_ at
+  // the edges and nodes of a forest where no block is next to an edge or corner
   ParArray2DRaw<int> neighbor_gids_;
+  static constexpr int hole_ = -2;
+  // Relative to the block width, how far outside a block of a mapped mesh a position
+  // may be and still be in it
+  static constexpr Real face_tolerance_ = 1.0e-10;
   // ... and the multiple of the mesh length to add to a position moving into it, which
   // is nonzero only across a periodic boundary
   ParArray3DRaw<int> shifts_;

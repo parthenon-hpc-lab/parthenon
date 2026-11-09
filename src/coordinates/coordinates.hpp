@@ -15,6 +15,8 @@
 
 #include "config.hpp"
 
+#include "mapped_cartesian.hpp"
+#include "mapped_cylindrical.hpp"
 #include "uniform_cartesian.hpp"
 #include "uniform_cylindrical.hpp"
 #include "uniform_spherical.hpp"
@@ -26,6 +28,11 @@ using Coordinates_t = COORDINATE_TYPE;
 template <typename T>
 constexpr bool IsCoord() {
   return std::is_same_v<T, Coordinates_t>;
+}
+
+// True for coordinates whose blocks carry a per-tree MappedPatch (or MappedPatch3D)
+constexpr bool IsMappedCoord() {
+  return IsCoord<MappedCylindrical>() || IsCoord<MappedCartesian>();
 }
 
 } // namespace parthenon

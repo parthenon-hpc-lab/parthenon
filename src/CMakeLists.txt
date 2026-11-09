@@ -96,7 +96,7 @@ set(COMPILED_WITH ${CMAKE_CXX_COMPILER})
 set(COMPILER_COMMAND "<not-implemented>") # TODO: Put something more descriptive here
 set(COMPILER_FLAGS "<not-implemented>") # TODO: Put something more descriptive here
 
-set(COORDINATES_AVAILABLE UniformCartesian UniformCylindrical UniformSpherical)
+set(COORDINATES_AVAILABLE UniformCartesian UniformCylindrical UniformSpherical MappedCylindrical MappedCartesian)
 set(PARTHENON_COORDINATES "UniformCartesian" CACHE STRING "Set the coordinate system from \{${COORDINATES_AVAILABLE}\} with UniformCartesian the default")
 if (${PARTHENON_COORDINATES} IN_LIST COORDINATES_AVAILABLE)
   set(COORDINATE_TYPE ${PARTHENON_COORDINATES})
@@ -137,6 +137,10 @@ add_library(parthenon
   coordinates/coordinates.hpp
   coordinates/uniform_cartesian.hpp
   coordinates/uniform_coordinates.hpp
+  coordinates/mapped_cartesian.hpp
+  coordinates/mapped_cylindrical.hpp
+  coordinates/mapped_patch.hpp
+  coordinates/mapped_patch_3d.hpp
   coordinates/uniform_cylindrical.hpp
   coordinates/uniform_spherical.hpp
 
@@ -223,6 +227,8 @@ add_library(parthenon
   mesh/forest/forest_topology.hpp
   mesh/forest/forest.cpp
   mesh/forest/forest.hpp
+  mesh/forest/forest_hex.cpp
+  mesh/forest/forest_hex.hpp
   mesh/forest/logical_coordinate_transformation.hpp
   mesh/forest/logical_coordinate_transformation.cpp
   mesh/forest/tree.hpp
