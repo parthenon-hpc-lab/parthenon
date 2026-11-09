@@ -30,13 +30,16 @@ namespace parthenon {
 // own the table, so it is built with them when a block (or its coarse buffer) is made,
 // which includes the blocks made by remeshing, load balancing and restarts, and copies
 // of the coordinates share it.  A default table is empty, Has() is then false and the
-// coordinates evaluate the geometry directly.
+// coordinates evaluate the geometry directly.  The table is kept in device memory and
+// mirrored on the host, so the geometry can be read from host code (e.g., problem
+// generators and boundary setup) as well as from kernels.
 class GeometryTable {
  public:
   GeometryTable() = default;
   // a table of nq quantities over the (nk, nj, ni) indices from 0
   GeometryTable(const char *label, const int nq, const int nk, const int nj, const int ni)
-      : q_(label, nq, nk, nj, ni), nk_(nk), nj_(nj), ni_(ni) {}
+      : q_(label, nq, nk, nj, ni), q_h_(Kokkos::create_mirror_view(q_)), nk_(nk),
+        nj_(nj), ni_(ni) {}
 
   // Whether (k, j, i) is in the table
   KOKKOS_FORCEINLINE_FUNCTION bool Has(const int k, const int j, const int i) const {
@@ -46,7 +49,8 @@ class GeometryTable {
   }
   KOKKOS_FORCEINLINE_FUNCTION Real operator()(const int n, const int k, const int j,
                                               const int i) const {
-    return q_(n, k, j, i);
+    KOKKOS_IF_ON_DEVICE((return q_(n, k, j, i);))
+    KOKKOS_IF_ON_HOST((return q_h_(n, k, j, i);))
   }
 
   // Fills the table, f(q, k, j, i) setting q(n, k, j, i) for every n
@@ -58,6 +62,7 @@ class GeometryTable {
         Kokkos::MDRangePolicy<Kokkos::Rank<3>, DevExecSpace>({0, 0, 0}, {nk_, nj_, ni_}),
         KOKKOS_LAMBDA(const int k, const int j, const int i) { f(q, k, j, i); });
     Kokkos::fence("GeometryTable::Fill");
+    Kokkos::deep_copy(q_h_, q_);
   }
 
   // The number of cells (with ghosts) along each direction of the block of the region
@@ -80,6 +85,7 @@ class GeometryTable {
 
  private:
   ParArray4DRaw<Real> q_;
+  typename ParArray4DRaw<Real>::HostMirror q_h_;
   int nk_ = 0, nj_ = 0, ni_ = 0;
 };
 
