@@ -71,7 +71,7 @@ class MappedCylindrical : public UniformCoordinates<MappedCylindrical> {
   }
   constexpr static const char *name_ = "MappedCylindrical";
 
-  const MappedPatch &Patch() const { return patch_; }
+  KOKKOS_INLINE_FUNCTION const MappedPatch &Patch() const { return patch_; }
 
   //----------------------------------------
   // Map: physical (R, z) of the logical point (x1, x2)

@@ -71,7 +71,7 @@ class MappedCartesian : public UniformCoordinates<MappedCartesian> {
   }
   constexpr static const char *name_ = "MappedCartesian";
 
-  const MappedPatch3D &Patch() const { return patch_; }
+  KOKKOS_INLINE_FUNCTION const MappedPatch3D &Patch() const { return patch_; }
 
   //----------------------------------------
   // Map: physical (x, y, z) of the logical point (x1, x2, x3)
