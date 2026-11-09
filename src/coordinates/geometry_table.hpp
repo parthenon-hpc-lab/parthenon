@@ -85,7 +85,7 @@ class GeometryTable {
 
  private:
   ParArray4DRaw<Real> q_;
-  typename ParArray4DRaw<Real>::HostMirror q_h_;
+  typename ParArray4DRaw<Real>::host_mirror_type q_h_;
   int nk_ = 0, nj_ = 0, ni_ = 0;
 };
 
