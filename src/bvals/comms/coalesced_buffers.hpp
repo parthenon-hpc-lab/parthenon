@@ -61,7 +61,10 @@ struct CoalescedBuffer {
   std::unordered_map<std::set<Uid_t>, ParArray1DRaw<BndId>::host_mirror_type>
       bnd_ids_host_map;
   CommBuffer<buf_t> coalesced_comm_buffer;
+  // One entry per buffer: 1 if allocated, 0 if null, and not_in_message if its variable
+  // was not sent (messages can contain a subset of the variables, see PackAndSend)
   CommBuffer<std::vector<int>> sparse_status_buffer;
+  static constexpr int not_in_message = -1;
   int current_size;
 
   // Tracing of the exchange in flight (see utils/comms_trace.hpp)
@@ -104,7 +107,7 @@ struct CoalescedBuffer {
 
   void PackAndSend(const std::set<Uid_t> &vars);
 
-  bool TryReceiveAndUnpack(const std::set<Uid_t> &vars);
+  bool TryReceiveAndUnpack();
 };
 
 struct CoalescedBuffersRank {

@@ -221,23 +221,28 @@ void CoalescedBuffer::PackAndSend(const std::set<Uid_t> &vars) {
     trace_rec.nbuf = bids.size();
   }
 
-  // Send the sparse null info as well
-  if (bids.size() != sparse_status_buffer.buffer().size()) {
-    sparse_status_buffer.Allocate(bids.size());
+  // Send the sparse null info as well. This has an entry for every buffer, not just the
+  // ones in var_set, since the receiver may unpack this message while it is working on
+  // a MeshData with a different set of variables and so must learn var_set from here
+  const std::size_t nbuf_total = TotalBuffers();
+  if (nbuf_total != sparse_status_buffer.buffer().size()) {
+    sparse_status_buffer.Allocate(nbuf_total);
   }
 
   const auto &var_set = vars.size() == 0 ? all_vars : vars;
   auto &stat = sparse_status_buffer.buffer();
   int idx{0};
-  for (auto uid : var_set) {
-    // Skip this variable if it is not communicated in this BoundaryType
-    if (coalesced_info_buf.count(uid) == 0) continue;
-    for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
-      const auto state = pvbbuf->GetState();
-      PARTHENON_REQUIRE(state == BufferState::sending ||
-                            state == BufferState::sending_null,
-                        "Bad state.");
-      int send_type = (state == BufferState::sending);
+  for (auto &[uid, v] : coalesced_info_buf) {
+    const bool in_message = var_set.count(uid) > 0;
+    for (auto &[bnd_id, pvbbuf] : v) {
+      int send_type = not_in_message;
+      if (in_message) {
+        const auto state = pvbbuf->GetState();
+        PARTHENON_REQUIRE(state == BufferState::sending ||
+                              state == BufferState::sending_null,
+                          "Bad state.");
+        send_type = (state == BufferState::sending);
+      }
       stat[idx] = send_type;
       ++idx;
     }
@@ -259,22 +264,10 @@ void CoalescedBuffer::PackAndSend(const std::set<Uid_t> &vars) {
 }
 
 //----------------------------------------------------------------------------------------
-bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
+bool CoalescedBuffer::TryReceiveAndUnpack() {
   if ((sparse_status_buffer.GetState() == BufferState::received) &&
       (coalesced_comm_buffer.GetState() == BufferState::received))
     return true;
-
-  const auto &var_set = vars.size() == 0 ? all_vars : vars;
-  // Make sure the var-boundary buffers are available to write to
-  int nbuf{0};
-  for (auto uid : var_set) {
-    // Skip this variable if it is not communicated in this BoundaryType
-    if (coalesced_info_buf.count(uid) == 0) continue;
-    for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
-      if (pvbbuf->GetState() != BufferState::stale) return false;
-      nbuf++;
-    }
-  }
 
   if (trace_open || comms_trace::Active()) {
     const double now = comms_trace::Now();
@@ -287,30 +280,52 @@ bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
     trace_rec.npolls++;
   }
 
+  // The status message tells us which variables the sender put in this message
   auto received_sparse = sparse_status_buffer.TryReceive();
-  auto received = coalesced_comm_buffer.TryReceive();
   if (trace_open) {
     const double now = comms_trace::Now();
     auto &t = trace_rec.t;
     if (t[1] < 0.0 && (received_sparse || sparse_status_buffer.ReceiveStarted()))
       t[1] = now;
-    if (t[2] < 0.0 && (received || coalesced_comm_buffer.ReceiveStarted())) t[2] = now;
     if (t[3] < 0.0 && received_sparse) t[3] = now;
+  }
+  if (!received_sparse) return false;
+  auto &stat = sparse_status_buffer.buffer();
+  PARTHENON_REQUIRE(sparse_status_buffer.GetMessageSize() ==
+                        static_cast<int>(TotalBuffers()),
+                    "Coalesced status message does not cover all buffers.");
+
+  std::set<Uid_t> var_set;
+  int idx{0};
+  for (auto &[uid, v] : coalesced_info_buf) {
+    if (v.size() > 0 && stat[idx] != not_in_message) var_set.insert(uid);
+    idx += v.size();
+  }
+
+  // Make sure the var-boundary buffers are available to write to
+  for (auto uid : var_set) {
+    for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
+      if (pvbbuf->GetState() != BufferState::stale) return false;
+    }
+  }
+
+  auto received = coalesced_comm_buffer.TryReceive();
+  if (trace_open) {
+    const double now = comms_trace::Now();
+    auto &t = trace_rec.t;
+    if (t[2] < 0.0 && (received || coalesced_comm_buffer.ReceiveStarted())) t[2] = now;
     if (t[4] < 0.0 && received) t[4] = now;
   }
-  if (!received || !received_sparse) return false;
+  if (!received) return false;
 
   // Allocate and free buffers as required
-  int idx{0};
-  auto &stat = sparse_status_buffer.buffer();
-  for (auto uid : var_set) {
-    // Skip this variable if it is not communicated in this BoundaryType
-    if (coalesced_info_buf.count(uid) == 0) continue;
-    for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
+  idx = 0;
+  for (auto &[uid, v] : coalesced_info_buf) {
+    for (auto &[bnd_id, pvbbuf] : v) {
       if (stat[idx] == 1) {
         pvbbuf->SetReceived();
         if (!pvbbuf->IsActive()) pvbbuf->Allocate();
-      } else {
+      } else if (stat[idx] == 0) {
         pvbbuf->SetReceivedNull();
         if (pvbbuf->IsActive()) pvbbuf->Free();
       }
@@ -318,15 +333,18 @@ bool CoalescedBuffer::TryReceiveAndUnpack(const std::set<Uid_t> &vars) {
     }
   }
 
-  int comb_size;
-  auto &bids = GetBndIdsOnDevice(vars, &comb_size);
-  CopyCoalesced<false>(pmesh, bids);
+  // An empty var_set would mean all variables to GetBndIdsOnDevice
+  int comb_size{0};
+  if (var_set.size() > 0) {
+    auto &bids = GetBndIdsOnDevice(var_set, &comb_size);
+    CopyCoalesced<false>(pmesh, bids);
+    if (trace_open) trace_rec.nbuf = bids.size();
+  }
   coalesced_comm_buffer.Stale();
   sparse_status_buffer.Stale();
   if (trace_open) {
     trace_rec.t[5] = comms_trace::Now();
     trace_rec.bytes = static_cast<std::int64_t>(comb_size) * sizeof(Real);
-    trace_rec.nbuf = bids.size();
     TraceClose();
   }
 
@@ -484,7 +502,7 @@ bool CoalescedBuffersRank::TryReceiveAndUnpack(MeshData<Real> *pmd, int partitio
                     "Trying to recv combined buffers before they have been built");
   PARTHENON_REQUIRE(coalesced_bufs.count(partition_tag) > 0,
                     "Trying to receive on a non-existent combined receive buffer.");
-  return coalesced_bufs.at(partition_tag).TryReceiveAndUnpack(pmd->GetUids());
+  return coalesced_bufs.at(partition_tag).TryReceiveAndUnpack();
 }
 
 //----------------------------------------------------------------------------------------
@@ -800,7 +818,7 @@ bool CoalescedComms::TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type) {
     if (coalesced_recv_buffers.count(key)) {
       auto &coal_bufs = coalesced_recv_buffers.at(key);
       for (auto &[partition_tag, coal_buf] : coal_bufs.coalesced_bufs) {
-        bool received = coal_buf.TryReceiveAndUnpack(pmd->GetUids());
+        bool received = coal_buf.TryReceiveAndUnpack();
         all_received = all_received && received;
       }
     }
