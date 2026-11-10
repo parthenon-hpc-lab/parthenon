@@ -389,8 +389,10 @@ void Swarm::RemoveMarkedParticles() {
   Reduction::value_type result;
 
   // Update mask, count number of removed particles, reset max active index
-  parthenon::par_reduce(PARTHENON_AUTO_LABEL, 0, max_active_index_,
-                        Reduction(mask, marked_for_removal), result);
+  // Pass the functor directly so Kokkos sees its custom init/join operations.
+  Kokkos::parallel_reduce(PARTHENON_AUTO_LABEL,
+                          Kokkos::RangePolicy<DevExecSpace>(0, max_active_index_ + 1),
+                          Reduction(mask, marked_for_removal), result);
 
   num_active_ -= result.num_removed;
   if (result.num_removed > 0) empty_indices_valid_ = false;
