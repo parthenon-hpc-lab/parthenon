@@ -22,6 +22,7 @@
 //  \brief defines a set of small wrapper functions for MPI versus Serial Output.
 
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "config.hpp"
@@ -100,6 +101,13 @@ class RestartReaderHDF5 : public RestartReader {
     handle.type = getHDF5Type(typepointer);
     const H5T dset_type = H5T::FromHIDCheck(H5Dget_type(handle.dataset));
     status = PARTHENON_HDF5_CHECK(H5Tequal(handle.type, dset_type));
+    // Allow float32 fields to be widened into double-precision storage.
+    // Keep handle.type as the destination memory datatype for H5Dread().
+    if constexpr (std::is_same_v<T, double>) {
+      if (status == 0) {
+        status = PARTHENON_HDF5_CHECK(H5Tequal(H5T_NATIVE_FLOAT, dset_type));
+      }
+    }
     PARTHENON_REQUIRE_THROWS(status > 0, "Type mismatch for dataset " + name);
 
     // get rank and dims
