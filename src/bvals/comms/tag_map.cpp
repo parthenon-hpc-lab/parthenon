@@ -46,18 +46,17 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md, int lanes_per
     auto pmb = rc->GetBlockPointer();
     // type_t var = []{...}() pattern defines and uses a lambda that
     // returns  to reduce initializations of var
+    // The inter-grid neighbors must match the ones ForEachBoundary communicates with,
+    // since both ranks of a pair need the same channels to agree on tags
     const auto &neighbors = [&pmb, &md] {
       if constexpr (BOUND == BoundaryType::gmg_restrict_send)
-        return pmb->loc.level() == md->grid.logical_level()
-                   ? pmb->GetGMGCoarserNeighbors()
-                   : pmb->GetGMGSelfNeighbors();
+        return GetNeighborsOnCoarserGMGGrid(pmb, md->grid);
       if constexpr (BOUND == BoundaryType::gmg_restrict_recv)
-        return pmb->GetGMGFinerNeighbors().size() > 0 ? pmb->GetGMGFinerNeighbors()
-                                                      : pmb->GetGMGSelfNeighbors();
+        return GetNeighborsOnFinerGMGGrid(pmb, md->grid);
       if constexpr (BOUND == BoundaryType::gmg_prolongate_send)
-        return pmb->GetGMGFinerNeighbors();
+        return GetNeighborsOnFinerGMGGrid(pmb, md->grid);
       if constexpr (BOUND == BoundaryType::gmg_prolongate_recv)
-        return pmb->GetGMGCoarserNeighbors();
+        return GetNeighborsOnCoarserGMGGrid(pmb, md->grid);
       if constexpr (BOUND == BoundaryType::gmg_same) {
         if (md->grid.type() == GridType::leaf) return pmb->GetNeighbors();
         return pmb->loc.level() == md->grid.logical_level()

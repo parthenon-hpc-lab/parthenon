@@ -118,11 +118,23 @@ int GetBufferSize(const MeshBlock *const pmb, const NeighborBlock &nb,
   auto &cb = v->IsSet(Metadata::Fine) ? pmb->f_cellbounds : pmb->cellbounds;
   int topo_comp = (v->IsSet(Metadata::Face) || v->IsSet(Metadata::Edge)) ? 3 : 1;
   const IndexDomain in = IndexDomain::entire;
-  // The plus 2 instead of 1 is to account for the possible size of face, edge, and nodal
-  // fields
-  const int isize = cb.ie(in) - cb.is(in) + 2;
-  const int jsize = cb.je(in) - cb.js(in) + 2;
-  const int ksize = cb.ke(in) - cb.ks(in) + 2;
+  const IndexDomain interior = IndexDomain::interior;
+  // Size the buffer for the finer of the two blocks, so that both ranks agree on it when
+  // the neighbor has fewer block coarsenings (e.g. a leaf block restricting to its
+  // coarsened copy on another rank)
+  const int shift = std::max(0, static_cast<int>(pmb->block_coarsenings) -
+                                    static_cast<int>(nb.block_coarsenings));
+  auto size = [shift](int s, int e, int is, int ie) {
+    const int n_all = e - s + 1;
+    const int n_inner = ie - is + 1;
+    // A direction without ghosts is unused, so there is nothing to scale
+    const int n = (n_all > n_inner) ? (n_inner << shift) + (n_all - n_inner) : n_all;
+    // The plus 1 is to account for the possible size of face, edge, and nodal fields
+    return n + 1;
+  };
+  const int isize = size(cb.is(in), cb.ie(in), cb.is(interior), cb.ie(interior));
+  const int jsize = size(cb.js(in), cb.je(in), cb.js(interior), cb.je(interior));
+  const int ksize = size(cb.ks(in), cb.ke(in), cb.ks(interior), cb.ke(interior));
   return (nb.offsets(X1DIR) == 0 ? isize : Globals::nghost + 1) *
          (nb.offsets(X2DIR) == 0 ? jsize : Globals::nghost + 1) *
          (nb.offsets(X3DIR) == 0 ? ksize : Globals::nghost + 1) * v->GetDim(6) *
