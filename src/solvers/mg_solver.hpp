@@ -49,6 +49,7 @@ struct MGParams {
   std::string postsmoother = "SRJ2";
   int max_coarsenings = std::numeric_limits<int>::max();
   std::string prolongation = "OldLinear";
+  bool print_per_step = false;
 
   MGParams() = default;
   MGParams(ParameterInput *pin, const std::string &input_block) {
@@ -71,6 +72,7 @@ struct MGParams {
     max_coarsenings = pin->GetOrAddInteger(
         input_block, "max_coarsenings", max_coarsenings,
         "Maximum number of levels to include in the multigrid hierarchy.");
+    print_per_step = pin->GetOrAddBoolean(input_block, "print_per_step", print_per_step);
   }
 };
 
@@ -167,9 +169,10 @@ class MGSolver : public SolverBase, MGSolverCounter {
     iter_counter = -1;
     auto update_iter = itl.AddTask(
         TaskQualifier::local_sync | TaskQualifier::once_per_region, none, "print",
-        [](int *iter_counter) {
+        [print = this->params_.print_per_step](int *iter_counter) {
           (*iter_counter)++;
-          if (*iter_counter > 1 || Globals::my_rank != 0) return TaskStatus::complete;
+          if (!print || *iter_counter > 1 || Globals::my_rank != 0)
+            return TaskStatus::complete;
           printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
           return TaskStatus::complete;
         },
@@ -204,7 +207,8 @@ class MGSolver : public SolverBase, MGSolverCounter {
         TaskQualifier::completion, get_res, "Check residual",
         [default_partition_idx](MGSolver *solver, Mesh *pmesh) {
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
-          if (Globals::my_rank == 0 && default_partition_idx == 0)
+          if (solver->params_.print_per_step && Globals::my_rank == 0 &&
+              default_partition_idx == 0)
             printf("%i %e\n", solver->iter_counter, rms_res);
           solver->final_residual = rms_res;
           solver->final_iteration = solver->iter_counter;

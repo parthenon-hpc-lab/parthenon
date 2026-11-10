@@ -50,14 +50,18 @@ template <>
 std::shared_ptr<MeshData<Real>> &
 DataCollection<MeshData<Real>>::GetOrAdd(const std::string &mbd_label,
                                          const int &partition_id) {
-  return Add(mbd_label, pmy_mesh_->GetDefaultBlockPartitions()[partition_id]);
+  // Build from the field list the name was first created from (empty if never added)
+  return Add(mbd_label, pmy_mesh_->GetDefaultBlockPartitions()[partition_id],
+             GetCreationFields(mbd_label));
 }
 
 template <>
 std::shared_ptr<MeshData<Real>> &
 DataCollection<MeshData<Real>>::GetOrAdd(int gmg_level, const std::string &mbd_label,
                                          const int &partition_id) {
-  return Add(mbd_label, pmy_mesh_->GetMultigridBlockPartitions(gmg_level)[partition_id]);
+  // Build from the field list the name was first created from (empty if never added)
+  return Add(mbd_label, pmy_mesh_->GetMultigridBlockPartitions(gmg_level)[partition_id],
+             GetCreationFields(mbd_label));
 }
 
 template <class T>
