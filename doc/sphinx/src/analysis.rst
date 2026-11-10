@@ -194,6 +194,12 @@ enabled. The source and destination backends do not need to match.
 The regression fixtures in ``tst/regression/test_suites/analysis_data`` and
 ``tst/regression/test_suites/restart_opmd`` provide maintained HDF5 and openPMD examples.
 
+PHDF-to-openPMD conversion example
+---------------------------------
+
+A tested conversion command, analysis input, and validation limitations are
+available in the :doc:`phdf_to_openpmd` guide.
+
 Troubleshooting
 ---------------
 
