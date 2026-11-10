@@ -191,6 +191,8 @@ class Mesh {
     if (gmg_grids_.count(gmg_level)) return gmg_grids_[gmg_level];
     return GridIdentifier::none();
   }
+  // Rank that owns the GMG block at loc with the given number of block coarsenings
+  int GetGMGRank(const LogicalLocation &loc, int block_coarsenings) const;
 
   // functions
   void Initialize(MeshInitType flag, ParameterInput *pin, ApplicationInput *app_in);
@@ -494,6 +496,10 @@ class Mesh {
   Real buffer_reset_frac_;
 
   int gmg_min_level_ = 0;
+  // Agglomeration of multigrid blocks onto fewer ranks: maps a logical level to the
+  // stride of the ranks that own its movable blocks (levels with a stride of one are not
+  // stored)
+  std::map<int, int> gmg_rank_stride_;
 
 #ifdef MPI_PARALLEL
   // Global map of MPI comms for separate variables

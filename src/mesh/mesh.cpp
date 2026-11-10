@@ -485,6 +485,11 @@ Mesh::~Mesh() {
 void Mesh::BuildBlockPartitions(GridIdentifier grid) {
   auto &bl = grid.IsMultigrid() ? gmg_block_lists_[grid.multigrid_level()] : block_list;
   auto partition_blocklists = partition::ToSizeN(bl, DefaultPackSize());
+  // Tasks on a multigrid grid are only added for the partitions that have a matching
+  // leaf grid partition, so use larger partitions if this rank has more multigrid blocks
+  // than leaf blocks (which happens when they are agglomerated, see Mesh::GetGMGRank)
+  if (grid.IsMultigrid() && partition_blocklists.size() > DefaultNumPartitions())
+    partition_blocklists = partition::ToNPartitions(bl, DefaultNumPartitions());
   std::vector<std::shared_ptr<BlockListPartition>> out;
   int id = 0;
   for (auto &part_bl : partition_blocklists) {

@@ -106,6 +106,32 @@ class TestCase(utils.test_case.TestCaseAbs):
                 "max_final_error": 1.0e-12,
                 "min_final_error": 0.0,
             },
+            {
+                # A large minimum puts all of the movable multigrid blocks on rank 0, so
+                # inter-grid neighbors end up on other ranks
+                "name": "GMG, Flux Correction, AMR, base block coarsening, D_all=1, coalesced comms, agglomerated",
+                "input": "parthinput.poisson",
+                "args": [
+                    "parthenon/mesh/base_block_coarsenings=1",
+                    "poisson/flux_correct=true",
+                    "parthenon/mesh/do_coalesced_comms=true",
+                    "parthenon/mesh/gmg_min_blocks_per_rank=1000",
+                ],
+                "max_final_error": 1.0e-12,
+                "min_final_error": 0.0,
+            },
+            {
+                "name": "MG-BiCSTAB, Flux Correction, AMR, no base block coarsening, D_interior=1e5, agglomerated",
+                "input": "parthinput.poisson",
+                "args": [
+                    "poisson/flux_correct=true",
+                    "poisson/solver=BiCGSTAB",
+                    "poisson/interior_D=1e5",
+                    "parthenon/mesh/gmg_min_blocks_per_rank=2",
+                ],
+                "max_final_error": 1.0e-10,
+                "min_final_error": 0.0,
+            },
         ]
 
     def Prepare(self, parameters, step):
