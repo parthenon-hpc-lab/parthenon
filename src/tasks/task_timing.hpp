@@ -48,7 +48,7 @@ class TimingAccumulator : public std::enable_shared_from_this<TimingAccumulator>
  private:
   bool collecting{false};
   std::vector<timing_chunk_t> timings;
-  Real total_time;
+  Real total_time{0.0};
   int ntasks{0};
 
   class private_t {};
