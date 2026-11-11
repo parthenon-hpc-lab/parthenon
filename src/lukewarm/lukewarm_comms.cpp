@@ -38,11 +38,11 @@
 namespace parthenon {
 
 namespace {
-// Hands out buffers of at least the size asked for. It keeps the largest one so far, so a
-// buffer dropped after an empty message comes back without a new allocation.
+// Hands out buffers of at least the size asked for. It keeps the largest one so far in
+// spare, so a buffer dropped after an empty message comes back without a new allocation.
 template <typename T>
-std::function<BufArray1D<T>(int)> BufferResource(const std::string &label) {
-  auto spare = std::make_shared<BufArray1D<T>>();
+std::function<BufArray1D<T>(int)> BufferResource(const std::string &label,
+                                                 std::shared_ptr<BufArray1D<T>> spare) {
   return [label, spare](const int size) {
     if (spare->extent_int(0) < size) {
       *spare = BufArray1D<T>(label, std::max(size, 2 * spare->extent_int(0)));
@@ -51,18 +51,29 @@ std::function<BufArray1D<T>(int)> BufferResource(const std::string &label) {
   };
 }
 
-// Messages of a channel get consecutive tags, one per field type
-LukewarmBuffers MakeBuffers(const int channel, const int send_rank, const int recv_rank,
-                            mpi_comm_t comm, const std::string &label) {
+// Messages of a channel get consecutive tags, one per field type. Channels between ranks
+// keep their storage in the mesh's LukewarmBufferStorage. Channels within a rank are all
+// channel 0 and never go through MPI, so they get their own.
+LukewarmBuffers MakeBuffers(Mesh *pmesh, const std::string &name, const int channel,
+                            const int send_rank, const int recv_rank, mpi_comm_t comm,
+                            const std::string &label) {
   LukewarmBuffers buffers;
   LukewarmTypes::IterateTypes([&](auto t) {
     using T = decltype(t);
     constexpr int idx = LukewarmTypes::GetIdx<T>();
     const int tag = LukewarmTypes::n_types * channel + idx;
+    auto spare = std::make_shared<BufArray1D<T>>();
+    if (send_rank != recv_rank) {
+      auto &stored =
+          pmesh->lukewarm_buffer_storage
+              .template Get<T>()[std::make_tuple(name, send_rank, recv_rank, channel)];
+      if (!stored) stored = spare;
+      spare = stored;
+    }
     // Message sizes are not known ahead of time, so receivers probe for them
     buffers.template Get<T>() = LukewarmBuffers::buffer_t<T>(
         tag, send_rank, recv_rank, comm,
-        BufferResource<T>(label + "::buffer" + std::to_string(idx)), true);
+        BufferResource<T>(label + "::buffer" + std::to_string(idx), spare), true);
   });
   return buffers;
 }
@@ -140,7 +151,8 @@ void AddLukewarmBuffers(Mesh *pmesh, const std::string &name,
     }
     const std::string label = "Lukewarm::" + name + "::" + std::to_string(c.sender) +
                               "->" + std::to_string(c.receiver);
-    map.emplace(key, MakeBuffers(channel, c.send_rank, c.recv_rank, comm, label));
+    map.emplace(key,
+                MakeBuffers(pmesh, name, channel, c.send_rank, c.recv_rank, comm, label));
   }
 }
 

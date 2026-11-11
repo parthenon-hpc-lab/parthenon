@@ -352,6 +352,7 @@ class Mesh {
   ObjectPoolMap<BufArray1D<Real>> pool_map;
   comm_buf_map_t boundary_comm_map;
   lukewarm_comm_map_t lukewarm_comm_map;
+  LukewarmBufferStorage lukewarm_buffer_storage;
   TagMap tag_map;
   int minimum_number_of_teams_for_boundary_kernel;
   int boundary_buffer_work_chunk_size;

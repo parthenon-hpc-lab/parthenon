@@ -16,6 +16,7 @@
 #ifndef BVALS_COMMS_COALESCED_BUFFERS_HPP_
 #define BVALS_COMMS_COALESCED_BUFFERS_HPP_
 
+#include <functional>
 #include <map>
 #include <memory>
 #include <set>
@@ -164,9 +165,24 @@ struct CoalescedComms {
 
   std::map<BoundaryType, mpi_comm_t> comms;
 
+  // Device storage of the combined buffers, by (sender, other rank, BoundaryType, comm
+  // lane, partition tag). It is kept through clear() and null messages, so the address
+  // of a combined buffer only changes when it has to grow. CUDA IPC in UCX caches the
+  // mappings of remote buffers, and a buffer freed and reallocated at a reused address
+  // can hit a stale mapping ("cuIpcOpenMemHandle() failed: resource already mapped"),
+  // which is fatal on receives.
+  using storage_key_t = std::tuple<bool, int, BoundaryType, int, int>;
+  std::map<storage_key_t, std::shared_ptr<BufArray1D<Real>>> combined_storage;
+
   Mesh *pmesh;
 
   explicit CoalescedComms(Mesh *pmesh);
+
+  // Hands out the stored combined buffer of a channel, growing it when it is smaller
+  // than the size asked for
+  std::function<BufArray1D<Real>(int)>
+  GetCombinedBufferResource(bool sender, int other_rank, BoundaryType b_type, int lane,
+                            int partition_tag);
 
   ~CoalescedComms();
 

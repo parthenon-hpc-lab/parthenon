@@ -18,6 +18,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <functional>
 #include <map>
 #include <memory>
 #include <set>
@@ -89,10 +90,12 @@ CoalescedBuffer::CoalescedBuffer(bool sender, int partition_tag, int lane, int o
                                  BoundaryType b_type, mpi_comm_t comm, Mesh *pmesh)
     : sender(sender), partition_tag(partition_tag), lane(lane), other_rank(other_rank),
       b_type(b_type), comm(comm), pmesh(pmesh), current_size(0),
-      coalesced_comm_buffer(
-          CoalescedDataTag(pmesh, b_type, partition_tag, lane),
-          sender ? Globals::my_rank : other_rank, sender ? other_rank : Globals::my_rank,
-          comm, [](int size) { return buf_t("Combined Buffer", 2 * size); }, true),
+      coalesced_comm_buffer(CoalescedDataTag(pmesh, b_type, partition_tag, lane),
+                            sender ? Globals::my_rank : other_rank,
+                            sender ? other_rank : Globals::my_rank, comm,
+                            pmesh->pcoalesced_comms->GetCombinedBufferResource(
+                                sender, other_rank, b_type, lane, partition_tag),
+                            true),
       sparse_status_buffer(
           CoalescedDataTag(pmesh, b_type, partition_tag, lane) + 1,
           sender ? Globals::my_rank : other_rank, sender ? other_rank : Globals::my_rank,
@@ -550,6 +553,19 @@ void CoalescedComms::clear() {
   coalesced_send_buffers.clear();
   coalesced_recv_buffers.clear();
   partition_tags.clear();
+}
+
+//----------------------------------------------------------------------------------------
+std::function<BufArray1D<Real>(int)> CoalescedComms::GetCombinedBufferResource(
+    bool sender, int other_rank, BoundaryType b_type, int lane, int partition_tag) {
+  auto &spare =
+      combined_storage[std::make_tuple(sender, other_rank, b_type, lane, partition_tag)];
+  if (!spare) spare = std::make_shared<BufArray1D<Real>>();
+  return [spare](int size) {
+    if (spare->extent_int(0) < size)
+      *spare = BufArray1D<Real>("Combined Buffer", 2 * size);
+    return *spare;
+  };
 }
 
 //----------------------------------------------------------------------------------------

@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -56,6 +57,25 @@ struct LukewarmBuffers {
 // MeshData and the name of the lukewarm. Both ends of a channel within a rank share one
 // buffer.
 using lukewarm_comm_map_t = std::map<std::tuple<int, int, std::string>, LukewarmBuffers>;
+
+// Device storage of the buffers of channels between ranks, by the name of the lukewarm,
+// the sending and receiving ranks, and the channel between them. It is kept when the
+// buffers are rebuilt after a remesh, so the address of a buffer only changes when it
+// has to grow: CUDA IPC in UCX caches the mappings of remote buffers, and a buffer freed
+// and reallocated at a reused address can hit a stale mapping ("cuIpcOpenMemHandle()
+// failed: resource already mapped").
+struct LukewarmBufferStorage {
+  using key_t = std::tuple<std::string, int, int, int>;
+  template <typename T>
+  using map_t = std::map<key_t, std::shared_ptr<BufArray1D<T>>>;
+
+  std::tuple<map_t<Real>, map_t<int>, map_t<std::uint64_t>> storage;
+
+  template <typename T>
+  map_t<T> &Get() {
+    return std::get<LukewarmTypes::GetIdx<T>()>(storage);
+  }
+};
 
 // A MeshData with a block next to a block of this one
 struct LukewarmNeighbor {
