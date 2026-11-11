@@ -50,6 +50,7 @@ struct MGParams {
   int max_coarsenings = std::numeric_limits<int>::max();
   std::string prolongation = "OldLinear";
   bool print_per_step = false;
+  bool check_initial_residual = false;
 
   MGParams() = default;
   MGParams(ParameterInput *pin, const std::string &input_block) {
@@ -73,6 +74,10 @@ struct MGParams {
         input_block, "max_coarsenings", max_coarsenings,
         "Maximum number of levels to include in the multigrid hierarchy.");
     print_per_step = pin->GetOrAddBoolean(input_block, "print_per_step", print_per_step);
+    check_initial_residual = pin->GetOrAddBoolean(
+        input_block, "check_initial_residual", check_initial_residual,
+        "Compute the residual of the initial guess and skip the solve if it is already "
+        "below residual_tolerance. Ignored if the initial guess is zero.");
   }
 };
 
@@ -165,23 +170,6 @@ class MGSolver : public SolverBase, MGSolverCounter {
                   Mesh *pmesh) {
     using namespace utils;
     TaskID none;
-    auto [itl, solve_id] = tl.AddSublist(dependence, {1, this->params_.max_iters});
-    iter_counter = -1;
-    auto update_iter = itl.AddTask(
-        TaskQualifier::local_sync | TaskQualifier::once_per_region, none, "print",
-        [print = this->params_.print_per_step](int *iter_counter) {
-          (*iter_counter)++;
-          if (!print || *iter_counter > 1 || Globals::my_rank != 0)
-            return TaskStatus::complete;
-          printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
-          return TaskStatus::complete;
-        },
-        &iter_counter);
-    auto mg_finest =
-        AddLinearOperatorTasks(itl, update_iter, default_partition_idx, pmesh);
-
-    auto timing_guard =
-        TimingAccumulatorGuard(solver_timings.GetOrAddAndRegister("MG: Residual", tl));
 
     auto partitions = pmesh->GetDefaultBlockPartitions();
     if (default_partition_idx >= partitions.size())
@@ -193,15 +181,76 @@ class MGSolver : public SolverBase, MGSolverCounter {
     auto &md_u = pmesh->mesh_data.Add(container_u, partition, sol_fields);
     auto &md_res_err = pmesh->mesh_data.Add(container_res_err, partition, sol_fields);
     auto &md_rhs = pmesh->mesh_data.Add(container_rhs, partition, sol_fields);
-    auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(mg_finest, itl, md_u,
-                                                            pmesh->multilevel, BCFunc);
 
-    auto calc_pointwise_res = eqs_.Ax(itl, comm, md, md_u, md_res_err);
-    calc_pointwise_res =
-        itl.AddTask(calc_pointwise_res, TF(AddFieldsAndStoreInteriorSelect<FieldTL>),
-                    md_rhs, md_res_err, md_res_err, 1.0, -1.0, false);
-    auto get_res =
-        DotProduct<FieldTL>(calc_pointwise_res, itl, &residual, md_res_err, md_res_err);
+    // A zero initial guess is not stored in md_u, so its residual cannot be checked
+    const bool check_initial = params_.check_initial_residual && !initial_guess_is_zero;
+    // Reset the iteration counter at the start of every solve, not just when the task
+    // list is built, so that GetFinalIterations() counts the V-cycles of this solve
+    auto start = tl.AddTask(
+        TaskQualifier::local_sync | TaskQualifier::once_per_region, dependence,
+        "Reset iteration counter",
+        [](int *iter_counter) {
+          *iter_counter = -1;
+          return TaskStatus::complete;
+        },
+        &iter_counter);
+    // Per-list flag so that only the first pass through the sublist can skip the solve
+    auto first_pass = std::make_shared<bool>(true);
+    if (check_initial) {
+      auto timing_guard =
+          TimingAccumulatorGuard(solver_timings.GetOrAddAndRegister("MG: Residual", tl));
+      auto get_res = AddResidualTasks(tl, start, md, md_u, md_res_err, md_rhs, pmesh);
+      start = tl.AddTask(
+          get_res, "Initial residual",
+          [first_pass](MGSolver *solver, Mesh *pmesh) {
+            *first_pass = true;
+            solver->initial_residual =
+                std::sqrt(solver->residual.val / pmesh->GetTotalCells());
+            return TaskStatus::complete;
+          },
+          this, pmesh);
+    }
+
+    // The initial residual check is also a completion task, so it counts towards the
+    // iteration limit. Allow one extra pass so that max_iters V-cycles can still run.
+    auto [itl, solve_id] =
+        tl.AddSublist(start, {1, this->params_.max_iters + check_initial});
+    TaskID iter_start = none;
+    if (check_initial) {
+      iter_start = itl.AddTask(
+          TaskQualifier::completion, none, "Check initial residual",
+          [first_pass, default_partition_idx](MGSolver *solver) {
+            if (!*first_pass) return TaskStatus::iterate;
+            *first_pass = false;
+            const Real rms_res = solver->initial_residual;
+            if (solver->params_.print_per_step && Globals::my_rank == 0 &&
+                default_partition_idx == 0)
+              printf("# initial rms-residual %e\n", rms_res);
+            if (rms_res > solver->params_.residual_tolerance) return TaskStatus::iterate;
+            // Converged without any V-cycles, GetFinalIterations() returns zero
+            solver->final_residual = rms_res;
+            solver->final_iteration = -1;
+            return TaskStatus::complete;
+          },
+          this);
+    }
+    auto update_iter = itl.AddTask(
+        TaskQualifier::local_sync | TaskQualifier::once_per_region, iter_start, "print",
+        [print = this->params_.print_per_step](int *iter_counter) {
+          (*iter_counter)++;
+          if (!print || *iter_counter > 0 || Globals::my_rank != 0)
+            return TaskStatus::complete;
+          printf("# [0] v-cycle\n# [1] rms-residual\n# [2] rms-error\n");
+          return TaskStatus::complete;
+        },
+        &iter_counter);
+    auto mg_finest =
+        AddLinearOperatorTasks(itl, update_iter, default_partition_idx, pmesh);
+
+    auto timing_guard =
+        TimingAccumulatorGuard(solver_timings.GetOrAddAndRegister("MG: Residual", tl));
+
+    auto get_res = AddResidualTasks(itl, mg_finest, md, md_u, md_res_err, md_rhs, pmesh);
 
     auto check = itl.AddTask(
         TaskQualifier::completion, get_res, "Check residual",
@@ -209,7 +258,7 @@ class MGSolver : public SolverBase, MGSolverCounter {
           Real rms_res = std::sqrt(solver->residual.val / pmesh->GetTotalCells());
           if (solver->params_.print_per_step && Globals::my_rank == 0 &&
               default_partition_idx == 0)
-            printf("%i %e\n", solver->iter_counter, rms_res);
+            printf("%i %e\n", solver->iter_counter + 1, rms_res);
           solver->final_residual = rms_res;
           solver->final_iteration = solver->iter_counter;
           if (rms_res > solver->params_.residual_tolerance) return TaskStatus::iterate;
@@ -218,6 +267,23 @@ class MGSolver : public SolverBase, MGSolverCounter {
         this, pmesh);
 
     return solve_id;
+  }
+
+  // Adds tasks that store rhs - A u in md_res_err and its global squared sum in residual
+  TaskID AddResidualTasks(TaskList &tl, TaskID dependence,
+                          std::shared_ptr<MeshData<Real>> &md,
+                          std::shared_ptr<MeshData<Real>> &md_u,
+                          std::shared_ptr<MeshData<Real>> &md_res_err,
+                          std::shared_ptr<MeshData<Real>> &md_rhs, Mesh *pmesh) {
+    using namespace utils;
+    auto comm = AddBoundaryExchangeTasks<BoundaryType::any>(dependence, tl, md_u,
+                                                            pmesh->multilevel, BCFunc);
+
+    auto calc_pointwise_res = eqs_.Ax(tl, comm, md, md_u, md_res_err);
+    calc_pointwise_res =
+        tl.AddTask(calc_pointwise_res, TF(AddFieldsAndStoreInteriorSelect<FieldTL>),
+                   md_rhs, md_res_err, md_res_err, 1.0, -1.0, false);
+    return DotProduct<FieldTL>(calc_pointwise_res, tl, &residual, md_res_err, md_res_err);
   }
 
   auto GetMinMaxLevel(Mesh *pmesh) const {
