@@ -72,6 +72,9 @@ class ApplicationInput;
 class CoalescedComms;
 class MeshBlock;
 class MeshRefinement;
+namespace remesh {
+struct InventoryPlan;
+}
 class Packages_t;
 class ParameterInput;
 class RestartReader;
@@ -498,7 +501,8 @@ class Mesh {
   remesh::TopologyPlan PlanAdaptiveMeshTopology();
   bool GatherCostListAndCheckBalance();
   void ExecuteLegacyRemeshPlan(ParameterInput *pin, ApplicationInput *app_in, int ntot,
-                               const remesh::TopologyPlan *topology = nullptr);
+                               const remesh::TopologyPlan *topology = nullptr,
+                               const remesh::InventoryPlan *inventory = nullptr);
   void BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in);
   void SetGMGNeighbors();
 

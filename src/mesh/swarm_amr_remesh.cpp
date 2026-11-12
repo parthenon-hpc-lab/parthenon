@@ -86,6 +86,74 @@ std::array<int, 8> GetRefinedDestinationGids(
   return child_gids;
 }
 
+} // namespace
+
+std::vector<remesh::ParticleRoute>
+ClassifySwarmParticlesForRemesh(const std::shared_ptr<Swarm> &swarm, const Mesh *pmesh,
+                                const remesh::TopologyPlan &topology, const int old_gid) {
+  std::vector<remesh::ParticleRoute> routes;
+  routes.reserve(swarm->GetNumActive());
+  if (swarm->GetNumActive() == 0) return routes;
+
+  const LogicalLocation *old_loc = nullptr;
+  for (const auto &leaf : topology.leaves) {
+    const auto source = std::find_if(
+        leaf.sources.begin(), leaf.sources.end(),
+        [old_gid](const auto &candidate) { return candidate.source.gid == old_gid; });
+    if (source != leaf.sources.end()) {
+      old_loc = &source->source_key.loc;
+      break;
+    }
+  }
+  PARTHENON_REQUIRE(old_loc != nullptr, "Remesh source has no topology provenance");
+  const auto &successors = topology.successors[old_gid];
+  PARTHENON_REQUIRE(!successors.empty(), "Remesh source has no particle destination");
+  auto mask_h = swarm->GetMask().GetHostMirrorAndCopy();
+  if (successors.size() == 1) {
+    for (int n = 0; n <= swarm->GetMaxActiveIndex(); ++n) {
+      if (mask_h(n)) routes.push_back({n, successors.front()});
+    }
+    return routes;
+  }
+
+  std::unordered_map<LogicalLocation, int> new_gid_by_loc;
+  for (const auto &leaf : topology.leaves)
+    new_gid_by_loc.emplace(leaf.key.loc, leaf.new_gid);
+  const auto child_gids_h = GetRefinedDestinationGids(pmesh, *old_loc, new_gid_by_loc);
+  ParArray1D<int> child_gids("swarm_remesh_inventory_child_gids", child_gids_h.size());
+  auto child_gids_host = Kokkos::View<const int *, Kokkos::HostSpace,
+                                      Kokkos::MemoryTraits<Kokkos::Unmanaged>>(
+      child_gids_h.data(), child_gids_h.size());
+  Kokkos::deep_copy(child_gids.KokkosView(), child_gids_host);
+  ParArray1D<int> destinations("swarm_remesh_inventory_destinations",
+                               swarm->GetMaxActiveIndex() + 1);
+  const auto block = pmesh->GetBlockSize(*old_loc);
+  const Real x_mid = 0.5 * (block.xmin(X1DIR) + block.xmax(X1DIR));
+  const Real y_mid = 0.5 * (block.xmin(X2DIR) + block.xmax(X2DIR));
+  const Real z_mid = 0.5 * (block.xmin(X3DIR) + block.xmax(X3DIR));
+  auto mask = swarm->GetMask();
+  auto x = swarm->Get<Real>(swarm_position::x::name()).Get();
+  auto y = swarm->Get<Real>(swarm_position::y::name()).Get();
+  auto z = swarm->Get<Real>(swarm_position::z::name()).Get();
+  const int ndim = pmesh->ndim;
+  parthenon::par_for(
+      DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
+      swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
+        if (!mask(n)) return;
+        const int ox1 = x(n) > x_mid;
+        const int ox2 = ndim > 1 ? y(n) > y_mid : 0;
+        const int ox3 = ndim > 2 ? z(n) > z_mid : 0;
+        destinations(n) = child_gids(ox1 + 2 * ox2 + 4 * ox3);
+      });
+  auto destinations_h = destinations.GetHostMirrorAndCopy();
+  for (int n = 0; n <= swarm->GetMaxActiveIndex(); ++n) {
+    if (mask_h(n)) routes.push_back({n, destinations_h(n)});
+  }
+  return routes;
+}
+
+namespace {
+
 //----------------------------------------------------------------------------------------
 // Build one rank-partitioned send plan for one old MeshBlock.
 //
@@ -97,7 +165,8 @@ std::array<int, 8> GetRefinedDestinationGids(
 BlockSendPlan
 BuildBlockSendPlan(const std::shared_ptr<Swarm> &swarm, const Mesh *pmesh,
                    const SwarmRemeshContext &context, const int old_gid,
-                   const std::unordered_map<LogicalLocation, int> &new_gid_by_loc) {
+                   const std::unordered_map<LogicalLocation, int> &new_gid_by_loc,
+                   const std::vector<remesh::ParticleRoute> *cached_routes) {
   const int nranks = Globals::nranks;
   BlockSendPlan plan{ParArray1D<char>(), std::vector<int>(nranks, 0),
                      std::vector<int>(nranks, 0)};
@@ -107,17 +176,9 @@ BuildBlockSendPlan(const std::shared_ptr<Swarm> &swarm, const Mesh *pmesh,
   if (swarm->GetNumActive() == 0) return plan;
 
   const int new_gid = context.NewGid(old_gid);
-  const auto &old_loc = context.OldLoc(old_gid);
-  const auto &new_loc = context.NewLoc(new_gid);
-  const bool refined = new_loc.level() > old_loc.level();
   // This format stores one leading destination gid followed by the full swarm record for
   // that particle in byte form.
   const int record_size = sizeof(int) + swarm->GetRecordSize();
-
-  // Particle activity lives on device. Ownership decisions below are branchy and rely on
-  // topology metadata, so we pull the mask to host once and build a simple host-side send
-  // schedule before doing one device packing kernel.
-  auto mask_h = swarm->GetMask().GetHostMirrorAndCopy();
 
   // The remesh exchange is rank-partitioned. For this one old block we first collect
   // "which source particle goes to which destination gid on which rank" and only later
@@ -125,62 +186,68 @@ BuildBlockSendPlan(const std::shared_ptr<Swarm> &swarm, const Mesh *pmesh,
   std::vector<std::vector<int>> source_indices_by_rank(nranks);
   std::vector<std::vector<int>> dest_gids_by_rank(nranks);
 
-  if (!refined) {
-    // Same-level remaps and derefinement both have one unique topological destination for
-    // every particle in this old block. There is no need to inspect positions.
-    const int dest_rank = context.NewRank(new_gid);
-    auto &source_indices = source_indices_by_rank[dest_rank];
-    auto &dest_gids = dest_gids_by_rank[dest_rank];
-    source_indices.reserve(swarm->GetNumActive());
-    dest_gids.reserve(swarm->GetNumActive());
-    for (int n = 0; n <= swarm->GetMaxActiveIndex(); ++n) {
-      if (!mask_h(n)) continue;
-      source_indices.push_back(n);
-      dest_gids.push_back(new_gid);
+  if (cached_routes != nullptr) {
+    for (const auto &route : *cached_routes) {
+      const int dest_rank = context.NewRank(route.destination_gid);
+      source_indices_by_rank[dest_rank].push_back(route.source_index);
+      dest_gids_by_rank[dest_rank].push_back(route.destination_gid);
     }
   } else {
     // Refinement is the only case where particles from one old block fan out to several
     // new leaf blocks. Compute that daughter ownership on device and only copy back the
     // compact destination-gid result, rather than mirroring full coordinate arrays.
-    const auto block = pmesh->GetBlockSize(old_loc);
-    const Real x_mid = 0.5 * (block.xmin(X1DIR) + block.xmax(X1DIR));
-    const Real y_mid = 0.5 * (block.xmin(X2DIR) + block.xmax(X2DIR));
-    const Real z_mid = 0.5 * (block.xmin(X3DIR) + block.xmax(X3DIR));
+    const auto &old_loc = context.OldLoc(old_gid);
+    const auto &new_loc = context.NewLoc(new_gid);
+    const bool refined = new_loc.level() > old_loc.level();
+    auto mask_h = swarm->GetMask().GetHostMirrorAndCopy();
+    if (!refined) {
+      const int dest_rank = context.NewRank(new_gid);
+      for (int n = 0; n <= swarm->GetMaxActiveIndex(); ++n) {
+        if (!mask_h(n)) continue;
+        source_indices_by_rank[dest_rank].push_back(n);
+        dest_gids_by_rank[dest_rank].push_back(new_gid);
+      }
+    } else {
+      const auto block = pmesh->GetBlockSize(old_loc);
+      const Real x_mid = 0.5 * (block.xmin(X1DIR) + block.xmax(X1DIR));
+      const Real y_mid = 0.5 * (block.xmin(X2DIR) + block.xmax(X2DIR));
+      const Real z_mid = 0.5 * (block.xmin(X3DIR) + block.xmax(X3DIR));
 
-    auto child_gids_h = GetRefinedDestinationGids(pmesh, old_loc, new_gid_by_loc);
-    ParArray1D<int> child_gids("swarm_amr_remesh_child_gids", child_gids_h.size());
-    auto child_gids_host = Kokkos::View<const int *, Kokkos::HostSpace,
-                                        Kokkos::MemoryTraits<Kokkos::Unmanaged>>(
-        child_gids_h.data(), child_gids_h.size());
-    Kokkos::deep_copy(child_gids.KokkosView(), child_gids_host);
+      auto child_gids_h = GetRefinedDestinationGids(pmesh, old_loc, new_gid_by_loc);
+      ParArray1D<int> child_gids("swarm_amr_remesh_child_gids", child_gids_h.size());
+      auto child_gids_host = Kokkos::View<const int *, Kokkos::HostSpace,
+                                          Kokkos::MemoryTraits<Kokkos::Unmanaged>>(
+          child_gids_h.data(), child_gids_h.size());
+      Kokkos::deep_copy(child_gids.KokkosView(), child_gids_host);
 
-    ParArray1D<int> refined_dest_gids("swarm_amr_remesh_refined_dest_gids",
-                                      swarm->GetMaxActiveIndex() + 1);
-    auto mask = swarm->GetMask();
-    auto x = swarm->Get<Real>(swarm_position::x::name()).Get();
-    auto y = swarm->Get<Real>(swarm_position::y::name()).Get();
-    auto z = swarm->Get<Real>(swarm_position::z::name()).Get();
-    const int ndim = pmesh->ndim;
-    parthenon::par_for(
-        DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
-        swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
-          if (!mask(n)) return;
-          const int ox1 = x(n) > x_mid;
-          // Inactive mesh directions do not participate in refinement, so they always
-          // contribute daughter bit 0 even if particles carry nontrivial coordinates in
-          // those directions.
-          const int ox2 = ndim > 1 ? y(n) > y_mid : 0;
-          const int ox3 = ndim > 2 ? z(n) > z_mid : 0;
-          refined_dest_gids(n) = child_gids(ox1 + 2 * ox2 + 4 * ox3);
-        });
+      ParArray1D<int> refined_dest_gids("swarm_amr_remesh_refined_dest_gids",
+                                        swarm->GetMaxActiveIndex() + 1);
+      auto mask = swarm->GetMask();
+      auto x = swarm->Get<Real>(swarm_position::x::name()).Get();
+      auto y = swarm->Get<Real>(swarm_position::y::name()).Get();
+      auto z = swarm->Get<Real>(swarm_position::z::name()).Get();
+      const int ndim = pmesh->ndim;
+      parthenon::par_for(
+          DEFAULT_LOOP_PATTERN, PARTHENON_AUTO_LABEL, DevExecSpace(), 0,
+          swarm->GetMaxActiveIndex(), KOKKOS_LAMBDA(const int n) {
+            if (!mask(n)) return;
+            const int ox1 = x(n) > x_mid;
+            // Inactive mesh directions do not participate in refinement, so they always
+            // contribute daughter bit 0 even if particles carry nontrivial coordinates in
+            // those directions.
+            const int ox2 = ndim > 1 ? y(n) > y_mid : 0;
+            const int ox3 = ndim > 2 ? z(n) > z_mid : 0;
+            refined_dest_gids(n) = child_gids(ox1 + 2 * ox2 + 4 * ox3);
+          });
 
-    auto refined_dest_gids_h = refined_dest_gids.GetHostMirrorAndCopy();
-    for (int n = 0; n <= swarm->GetMaxActiveIndex(); ++n) {
-      if (!mask_h(n)) continue;
-      const int dest_gid = refined_dest_gids_h(n);
-      const int dest_rank = context.NewRank(dest_gid);
-      source_indices_by_rank[dest_rank].push_back(n);
-      dest_gids_by_rank[dest_rank].push_back(dest_gid);
+      auto refined_dest_gids_h = refined_dest_gids.GetHostMirrorAndCopy();
+      for (int n = 0; n <= swarm->GetMaxActiveIndex(); ++n) {
+        if (!mask_h(n)) continue;
+        const int dest_gid = refined_dest_gids_h(n);
+        const int dest_rank = context.NewRank(dest_gid);
+        source_indices_by_rank[dest_rank].push_back(n);
+        dest_gids_by_rank[dest_rank].push_back(dest_gid);
+      }
     }
   }
 
@@ -430,7 +497,8 @@ BuildRemeshNeighborRanks(const Mesh *pmesh, const SwarmRemeshContext &context,
 // This routine therefore performs a separate ownership-based remap for each swarm.
 void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
                   const BlockList_t &old_block_list, Mesh *pmesh,
-                  const SwarmRemeshContext &context) {
+                  const SwarmRemeshContext &context,
+                  const std::vector<remesh::LocalSwarmRoutes> *routes) {
   // Parthenon packages may define no swarms at all. In that case the field AMR remap is
   // sufficient and the swarm-specific pass is skipped entirely.
   if (resolved_packages->AllSwarms().empty()) return;
@@ -475,7 +543,18 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
       if (!old_swarm_container->Contains(swarm_name)) continue;
 
       auto swarm = old_swarm_container->Get(swarm_name);
-      auto plan = BuildBlockSendPlan(swarm, pmesh, context, on, new_gid_by_loc);
+      const std::vector<remesh::ParticleRoute> *cached_routes = nullptr;
+      if (routes != nullptr) {
+        const auto route =
+            std::find_if(routes->begin(), routes->end(), [&](const auto &r) {
+              return r.source_gid == on && r.swarm_name == swarm_name;
+            });
+        PARTHENON_REQUIRE(route != routes->end(),
+                          "Missing cached particle routes for remesh source");
+        cached_routes = &route->particles;
+      }
+      auto plan =
+          BuildBlockSendPlan(swarm, pmesh, context, on, new_gid_by_loc, cached_routes);
       if (plan.buffer.size() == 0) continue;
 
       for (int rank = 0; rank < nranks; ++rank) {
