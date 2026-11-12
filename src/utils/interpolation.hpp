@@ -163,8 +163,6 @@ KOKKOS_INLINE_FUNCTION Real Do(int b, const Real X1, const Real X2, const Real X
   }
 }
 
-// Sparse packs do not store spatial extents. ncells contains the cell counts,
-// including ghost zones, in X1, X2, and X3 for block b.
 template <class... Ts>
 KOKKOS_INLINE_FUNCTION Real Do3D(int b, const Real X1, const Real X2, const Real X3,
                                  const SparsePack<Ts...> &p, int v,
