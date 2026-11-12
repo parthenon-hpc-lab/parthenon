@@ -302,6 +302,7 @@ void ApplyPlannedFieldAllocations(const InventoryPlan &inventory,
     const auto &planned_block = inventory.blocks[gid];
     auto &block = blocks[local_id];
     for (const auto &field : planned_block.fields) {
+      if (!field.state_survives_remesh) continue;
       const auto label = inventory.field_schema[field.field].id.label();
       auto variable = block->meshblock_data.Get()->GetVarPtr(label);
       if (field.allocated_after_transfer && !variable->IsAllocated()) {
@@ -313,6 +314,7 @@ void ApplyPlannedFieldAllocations(const InventoryPlan &inventory,
       }
     }
     for (const auto &field : planned_block.fields) {
+      if (!field.state_survives_remesh) continue;
       auto variable = GetField(block, inventory, field.field);
       if (field.counters.inherited) {
         variable->dealloc_count = field.counters.deallocation_count;
