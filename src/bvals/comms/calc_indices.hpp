@@ -35,6 +35,7 @@
 #include "mesh/domain.hpp"
 #include "mesh/forest/block_ownership.hpp"
 #include "mesh/forest/logical_coordinate_transformation.hpp"
+#include "mesh/index_shape.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/indexer.hpp"
 
@@ -69,19 +70,7 @@ inline bool NeighborIsSame(MeshBlock *pmb, const NeighborBlock &nb) {
 // Reconstruct a block's fine/regular/coarse index shapes from its size alone, matching
 // GetIndexShapes in meshblock.cpp (using block_size.symmetry in place of mesh_size).
 inline std::array<IndexShape, 3> CalcIndexShapes(const RegionSize &block_size) {
-  // Symmetry directions carry nx==1 in RegionSize but must be treated as zero-dimensional
-  // (as MeshBlock does by passing 0 for inactive directions to InitializeIndexShapes).
-  const int nx1 = block_size.symmetry(X1DIR) ? 0 : block_size.nx(X1DIR);
-  const int nx2 = block_size.symmetry(X2DIR) ? 0 : block_size.nx(X2DIR);
-  const int nx3 = block_size.symmetry(X3DIR) ? 0 : block_size.nx(X3DIR);
-  IndexShape cellbounds(nx3, nx2, nx1, Globals::nghost);
-  IndexShape f_cellbounds(2 * nx3, 2 * nx2, 2 * nx1, Globals::nghost);
-  // Prevent the coarse bounds from going to zero
-  const int cnx1 = block_size.symmetry(X1DIR) ? 0 : std::max(1, nx1 / 2);
-  const int cnx2 = block_size.symmetry(X2DIR) ? 0 : std::max(1, nx2 / 2);
-  const int cnx3 = block_size.symmetry(X3DIR) ? 0 : std::max(1, nx3 / 2);
-  IndexShape c_cellbounds(cnx3, cnx2, cnx1, Globals::nghost);
-  return {cellbounds, f_cellbounds, c_cellbounds};
+  return GetIndexShapes(block_size);
 }
 
 // Compute the 6D index range (and ownership mask) of a boundary region on a block. The

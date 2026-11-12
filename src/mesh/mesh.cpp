@@ -51,6 +51,7 @@
 #include "interface/packages.hpp"
 #include "interface/state_descriptor.hpp"
 #include "interface/update.hpp"
+#include "mesh/index_shape.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_neighbors.hpp"
 #include "mesh/mesh_refinement.hpp"
@@ -1039,9 +1040,7 @@ int Mesh::GetNumberOfMeshBlockCells() const {
 }
 
 const IndexShape Mesh::GetLeafBlockCellBounds(CellLevel level) const {
-  auto shapes = GetIndexShapes(
-      ndim > 0 ? base_block_size.nx(X1DIR) : 0, ndim > 1 ? base_block_size.nx(X2DIR) : 0,
-      ndim > 2 ? base_block_size.nx(X3DIR) : 0, multilevel, this);
+  auto shapes = GetIndexShapes(base_block_size, multilevel);
   if (level == CellLevel::same) {
     return shapes[0];
   } else if (level == CellLevel::fine) {

@@ -82,12 +82,25 @@ class Forest {
   std::map<std::int64_t, std::shared_ptr<Tree>> trees;
 
  public:
+  Forest() = default;
+  Forest(const Forest &) = delete;
+  Forest &operator=(const Forest &) = delete;
+  Forest(Forest &&) = default;
+  Forest &operator=(Forest &&) = default;
+
   int root_level;
   std::optional<int> forest_level{};
 
   std::vector<std::shared_ptr<Tree>> GetTrees() {
     std::vector<std::shared_ptr<Tree>> trees_out;
     for (auto &[id, tree] : trees)
+      trees_out.push_back(tree);
+    return trees_out;
+  }
+
+  std::vector<std::shared_ptr<const Tree>> GetTrees() const {
+    std::vector<std::shared_ptr<const Tree>> trees_out;
+    for (const auto &[id, tree] : trees)
       trees_out.push_back(tree);
     return trees_out;
   }
@@ -118,6 +131,8 @@ class Forest {
   }
 
   std::vector<LogicalLocation> GetMeshBlockListAndResolveGids();
+
+  Forest CloneForRemesh() const;
 
   int count(const LogicalLocation &loc) const {
     if (trees.count(loc.tree()) > 0) {

@@ -127,6 +127,19 @@ pointer to point at the packages function. An example is demonstrated
 Ensuring your data is consistent after re-meshing
 -------------------------------------------------
 
+Remeshing is planned before the active mesh topology is changed. Effective
+``AmrTag`` values are collected once, complete sibling groups are checked for
+derefinement, and refinement/proper-nesting changes are applied to an isolated
+forest clone. The resulting plan records every old-to-new relationship
+explicitly (unchanged block, refined child, or coarsened parent). Parthenon
+currently supports one AMR generation per remesh event.
+
+The initial ownership adapter keeps each rank's global block IDs contiguous.
+This preserves existing lookup and communication assumptions while topology
+and placement remain separate planning stages. Field restriction,
+prolongation, swarm redistribution, ownership reconciliation, boundary fills,
+and derived fills retain the ordering described below.
+
 When re-meshing happens, a few operations happen, which can be plugged
 in to in various ways. The operations performed (in order) are: - The
 function ``InitMeshBlockUserData`` is called. This function can be set
