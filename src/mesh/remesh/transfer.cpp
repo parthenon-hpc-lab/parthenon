@@ -179,23 +179,13 @@ void ApplyAllocatedRecord(const FieldTransferRecord &record,
 
 void ApplyAbsentRecord(const FieldTransferRecord &record, const InventoryPlan &inventory,
                        const BlockList_t &new_blocks, const int new_first_gid) {
+  if (record.operation != RemeshOperation::copy) return;
   auto block = FindLocalBlock(new_blocks, new_first_gid, record.destination_gid);
   auto variable = GetField(block, inventory, record.field);
-  if (!variable->IsAllocated()) return;
-  const auto default_value =
-      inventory.field_schema[record.field].metadata.GetDefaultValue();
-  if (record.operation == RemeshOperation::copy) {
-    Kokkos::deep_copy(variable->data, default_value);
-    if (record.source_counters.inherited)
-      variable->dealloc_count = record.source_counters.deallocation_count;
-  } else {
-    Kokkos::deep_copy(variable->coarse_s, default_value);
-    if (record.operation == RemeshOperation::fine_to_coarse) {
-      const auto &source = record.child.value;
-      const auto fine_loc = block->loc.GetDaughter(source[0], source[1], source[2]);
-      InjectFineChild(fine_loc, variable, variable, block.get());
-    }
-  }
+  if (record.source_counters.inherited)
+    variable->dealloc_count = record.source_counters.deallocation_count;
+  block->pmr->DerefinementCount() =
+      inventory.blocks[record.destination_gid].derefinement_count;
 }
 
 template <typename Buffer>
