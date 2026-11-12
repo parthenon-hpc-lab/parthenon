@@ -724,8 +724,9 @@ void Mesh::ExecuteLegacyRemeshPlan(ParameterInput *pin, ApplicationInput *app_in
   if (topology != nullptr && topology->changed) {
     PARTHENON_REQUIRE(inventory != nullptr && placement != nullptr,
                       "Accepted remesh topology requires inventory and placement");
-    field_transfer = remesh::PlanFieldTransfers(*topology, *inventory, ranklist,
-                                                placement->ownership, do_coalesced_comms);
+    field_transfer =
+        remesh::PlanFieldTransfers(*topology, *inventory, ranklist, placement->ownership,
+                                   do_coalesced_comms, remesh_max_payload_count);
   }
 
   // Calculate new load balance

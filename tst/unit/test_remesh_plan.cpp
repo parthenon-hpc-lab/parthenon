@@ -1,4 +1,5 @@
 #include <limits>
+#include <string>
 #include <vector>
 
 #include <catch2/catch.hpp>
@@ -186,8 +187,10 @@ TEST_CASE("Field transfer manifests are deterministic and explicit",
 
   InventoryPlan inventory;
   StorageLayout layout;
-  layout.data_bytes = 8 * sizeof(parthenon::Real);
+  layout.data_bytes = 12 * sizeof(parthenon::Real);
   layout.coarse_bytes = 4 * sizeof(parthenon::Real);
+  layout.interior_count = 8;
+  layout.restricted_counts.fill(4);
   inventory.field_schema.push_back({parthenon::VarID("field"),
                                     parthenon::Metadata({parthenon::Metadata::Cell}),
                                     layout, true, "field"});
@@ -227,6 +230,9 @@ TEST_CASE("Field transfer manifests are deterministic and explicit",
   REQUIRE(plan.batches[1].destination_rank == 1);
   REQUIRE_FALSE(plan.batches[1].records[0].source_allocated);
   REQUIRE(plan.batches[1].payload_count == 0);
+  REQUIRE(plan.baseline_payload_count == 16);
+  REQUIRE(plan.logical_payload_count == 12);
+  REQUIRE(plan.payload_count == 12);
 
   const auto uncoalesced =
       PlanFieldTransfers(topology, inventory, {0, 1}, ownership, false);
@@ -243,4 +249,51 @@ TEST_CASE("Peer transport validates MPI count limits", "[remesh][transfer]") {
   REQUIRE(CheckedMpiCount(17) == 17);
   REQUIRE_THROWS(
       CheckedMpiCount(static_cast<std::uint64_t>(std::numeric_limits<int>::max()) + 1));
+}
+
+TEST_CASE("C2F manifests deduplicate parent payloads into bounded waves",
+          "[remesh][transfer]") {
+  using namespace parthenon::remesh;
+  TopologyPlan topology;
+  topology.changed = true;
+  topology.successors = {{0, 1}};
+  topology.leaves = {
+      {{}, 0, {}, Relation::refined_child, {{{0, 0}, {}, 0, {{0, 0, 0}}}}},
+      {{}, 1, {}, Relation::refined_child, {{{0, 0}, {}, 0, {{1, 0, 0}}}}}};
+
+  InventoryPlan inventory;
+  StorageLayout layout;
+  layout.data_bytes = 8 * sizeof(parthenon::Real);
+  for (int field = 0; field < 2; ++field) {
+    inventory.field_schema.push_back({parthenon::VarID("field" + std::to_string(field)),
+                                      parthenon::Metadata({parthenon::Metadata::Cell}),
+                                      layout, true, "field" + std::to_string(field)});
+  }
+  inventory.blocks.resize(2);
+  for (auto &block : inventory.blocks) {
+    for (int field = 0; field < 2; ++field) {
+      block.fields.push_back({static_cast<FieldSchemaId>(field),
+                              true,
+                              true,
+                              false,
+                              layout.data_bytes,
+                              0,
+                              {},
+                              {{0, true, {1, 0, true}}}});
+    }
+  }
+
+  OwnershipMap ownership;
+  ownership.owner = {1, 1};
+  const auto plan = PlanFieldTransfers(topology, inventory, {0}, ownership, true, 8);
+  REQUIRE(plan.logical_payload_count == 32);
+  REQUIRE(plan.payload_count == 16);
+  REQUIRE(plan.peak_batch_count == 8);
+  REQUIRE(plan.batches.size() == 2);
+  for (const auto &batch : plan.batches) {
+    REQUIRE(batch.records.size() == 2);
+    REQUIRE(batch.records[0].payload_offset == 0);
+    REQUIRE(batch.records[1].payload_offset == 0);
+  }
+  REQUIRE_THROWS(PlanFieldTransfers(topology, inventory, {0}, ownership, true, 7));
 }

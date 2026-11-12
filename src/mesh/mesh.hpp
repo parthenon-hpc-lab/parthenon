@@ -172,6 +172,7 @@ class Mesh {
   int task_collection_timeout_in_seconds;
 
   const bool do_coalesced_comms;
+  const int remesh_max_payload_count;
 
   BlockList_t block_list;
   Packages_t packages;

@@ -45,6 +45,56 @@ std::uint64_t CheckedAdd(const std::uint64_t left, const std::uint64_t right) {
   return left + right;
 }
 
+std::uint64_t InteriorCount(const Metadata &metadata,
+                            const std::array<IndexShape, 3> &index_shapes,
+                            const std::array<int, MAX_VARIABLE_DIMENSION> &dims) {
+  if (!metadata.IsMeshTied()) return CheckedProduct(dims, 1);
+  const auto &bounds = metadata.IsSet(Metadata::Fine) ? index_shapes[1] : index_shapes[0];
+  const auto elements = GetTopologicalElements(GetTopologicalType(metadata));
+  const auto tensor_count = CheckedMultiply(
+      CheckedMultiply(static_cast<std::uint64_t>(dims[3]), dims[4]), dims[5]);
+  std::uint64_t count = 0;
+  for (const auto element : elements) {
+    const auto memory_element =
+        metadata.IsSet(Metadata::CellMemAligned) ? TE::CC : element;
+    const auto ib = bounds.GetBoundsI(IndexDomain::interior, memory_element);
+    const auto jb = bounds.GetBoundsJ(IndexDomain::interior, memory_element);
+    const auto kb = bounds.GetBoundsK(IndexDomain::interior, memory_element);
+    auto element_count = CheckedMultiply(ib.e - ib.s + 1, jb.e - jb.s + 1);
+    element_count = CheckedMultiply(element_count, kb.e - kb.s + 1);
+    count = CheckedAdd(count, CheckedMultiply(element_count, tensor_count));
+  }
+  return count;
+}
+
+std::uint64_t RestrictedCount(const Metadata &metadata,
+                              const std::array<IndexShape, 3> &index_shapes,
+                              const std::array<int, MAX_VARIABLE_DIMENSION> &dims,
+                              const int ox1, const int ox2, const int ox3) {
+  if (!metadata.IsMeshTied()) return CheckedProduct(dims, 1);
+  const auto &bounds = metadata.IsSet(Metadata::Fine) ? index_shapes[0] : index_shapes[2];
+  const bool active_x2 = bounds.GetBoundsJ(IndexDomain::interior, TE::CC).e >
+                         bounds.GetBoundsJ(IndexDomain::interior, TE::CC).s;
+  const bool active_x3 = bounds.GetBoundsK(IndexDomain::interior, TE::CC).e >
+                         bounds.GetBoundsK(IndexDomain::interior, TE::CC).s;
+  const auto elements = GetTopologicalElements(GetTopologicalType(metadata));
+  const auto tensor_count = CheckedMultiply(
+      CheckedMultiply(static_cast<std::uint64_t>(dims[3]), dims[4]), dims[5]);
+  std::uint64_t count = 0;
+  for (const auto element : elements) {
+    auto ib = bounds.GetBoundsI(IndexDomain::interior, element);
+    auto jb = bounds.GetBoundsJ(IndexDomain::interior, element);
+    auto kb = bounds.GetBoundsK(IndexDomain::interior, element);
+    if (ox1 == 0) ib.e -= TopologicalOffsetI(element);
+    if (ox2 == 0 && active_x2) jb.e -= TopologicalOffsetJ(element);
+    if (ox3 == 0 && active_x3) kb.e -= TopologicalOffsetK(element);
+    auto element_count = CheckedMultiply(ib.e - ib.s + 1, jb.e - jb.s + 1);
+    element_count = CheckedMultiply(element_count, kb.e - kb.s + 1);
+    count = CheckedAdd(count, CheckedMultiply(element_count, tensor_count));
+  }
+  return count;
+}
+
 int CheckedMpiCount(const std::size_t count) {
   PARTHENON_REQUIRE_THROWS(count <= std::numeric_limits<int>::max(),
                            "Remesh inventory MPI count exceeds INT_MAX");
@@ -156,6 +206,15 @@ StorageLayout GetStorageLayout(const Metadata &metadata,
   layout.coarse_dims = metadata.IsMeshTied() ? metadata.GetArrayDims(index_shapes, true)
                                              : metadata.GetArrayDims(nullptr, true);
   layout.data_bytes = CheckedProduct(layout.data_dims, sizeof(Real));
+  layout.interior_count = InteriorCount(metadata, index_shapes, layout.data_dims);
+  for (int ox3 = 0; ox3 <= 1; ++ox3) {
+    for (int ox2 = 0; ox2 <= 1; ++ox2) {
+      for (int ox1 = 0; ox1 <= 1; ++ox1) {
+        layout.restricted_counts[ox1 + 2 * ox2 + 4 * ox3] =
+            RestrictedCount(metadata, index_shapes, layout.coarse_dims, ox1, ox2, ox3);
+      }
+    }
+  }
   const bool requires_coarse =
       metadata.IsSet(Metadata::FillGhost) || metadata.IsSet(Metadata::Independent) ||
       metadata.IsSet(Metadata::ForceRemeshComm) || metadata.IsSet(Metadata::Flux) ||

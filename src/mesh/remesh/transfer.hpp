@@ -1,6 +1,8 @@
 #ifndef MESH_REMESH_TRANSFER_HPP_
 #define MESH_REMESH_TRANSFER_HPP_
 
+#include <cstdint>
+#include <limits>
 #include <vector>
 
 #include "mesh/remesh/inventory.hpp"
@@ -14,10 +16,11 @@ using BlockList_t = std::vector<std::shared_ptr<MeshBlock>>;
 
 namespace remesh {
 
-FieldTransferPlan PlanFieldTransfers(const TopologyPlan &topology,
-                                     const InventoryPlan &inventory,
-                                     const std::vector<int> &old_ranks,
-                                     const OwnershipMap &ownership, bool coalesce = true);
+FieldTransferPlan PlanFieldTransfers(
+    const TopologyPlan &topology, const InventoryPlan &inventory,
+    const std::vector<int> &old_ranks, const OwnershipMap &ownership,
+    bool coalesce = true,
+    std::uint64_t max_payload_count = std::numeric_limits<std::uint64_t>::max());
 
 void ApplyPlannedFieldAllocations(const InventoryPlan &inventory,
                                   const BlockList_t &blocks, int first_gid);
