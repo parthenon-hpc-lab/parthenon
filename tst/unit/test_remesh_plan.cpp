@@ -85,6 +85,28 @@ TEST_CASE("Incomplete sibling permission does not derefine", "[remesh]") {
   REQUIRE(active.CountLeafMeshBlock() == 4);
 }
 
+TEST_CASE("Migration topology preserves identity provenance", "[remesh]") {
+  auto active = MakeResolvedForest();
+  active.Refine(LogicalLocation(0, 0, 0, 0, 0));
+  active.GetMeshBlockListAndResolveGids();
+  const auto plan = parthenon::remesh::PlanMigrationTopology(active, {0, 0, 1, 1}, 9);
+
+  REQUIRE(plan.changed);
+  REQUIRE_FALSE(plan.candidate.has_value());
+  REQUIRE(plan.added_blocks == 0);
+  REQUIRE(plan.removed_blocks == 0);
+  REQUIRE(plan.leaves.size() == 4);
+  REQUIRE(plan.successors == std::vector<std::vector<std::int64_t>>{{0}, {1}, {2}, {3}});
+  for (std::size_t gid = 0; gid < plan.leaves.size(); ++gid) {
+    const auto &leaf = plan.leaves[gid];
+    REQUIRE(leaf.new_gid == gid);
+    REQUIRE(leaf.relation == Relation::unchanged);
+    REQUIRE(leaf.sources.size() == 1);
+    REQUIRE(leaf.sources.front().source.epoch == 9);
+    REQUIRE(leaf.sources.front().source.gid == gid);
+  }
+}
+
 TEST_CASE("Compatibility placement returns contiguous ownership", "[remesh]") {
   const auto ownership =
       parthenon::remesh::PlaceBlocksContiguously({1.0, 2.0, 1.0, 4.0}, 2);
