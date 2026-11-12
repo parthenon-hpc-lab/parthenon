@@ -75,18 +75,18 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
   std::shared_ptr<MeshBlock> pmb = GetBlockPointer();
   int aret = std::max(-1, static_cast<int>(flag));
 
-  if (aret == 0) refine_flag_ = 0;
+  if (aret == 0) refine_flag_ = AmrTag::same;
 
   if (aret >= 0) deref_count_ = 0;
   if (aret > 0) {
     if (pmb->loc.level() == pmb->pmy_mesh->max_level) {
-      refine_flag_ = 0;
+      refine_flag_ = AmrTag::same;
     } else {
-      refine_flag_ = 1;
+      refine_flag_ = AmrTag::refine;
     }
   } else if (aret < 0) {
     if (pmb->loc.level() == pmb->pmy_mesh->root_level) {
-      refine_flag_ = 0;
+      refine_flag_ = AmrTag::same;
       deref_count_ = 0;
     } else {
       deref_count_++;
@@ -95,12 +95,12 @@ void MeshRefinement::SetRefinement(AmrTag flag) {
         if (nb.loc.level() > pmb->loc.level()) ec++;
       }
       if (ec > 0) {
-        refine_flag_ = 0;
+        refine_flag_ = AmrTag::same;
       } else {
         if (deref_count_ >= deref_threshold_) {
-          refine_flag_ = -1;
+          refine_flag_ = AmrTag::derefine;
         } else {
-          refine_flag_ = 0;
+          refine_flag_ = AmrTag::same;
         }
       }
     }

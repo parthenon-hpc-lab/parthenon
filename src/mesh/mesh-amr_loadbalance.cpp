@@ -45,6 +45,8 @@
 #include "mesh/mesh_neighbors.hpp"
 #include "mesh/mesh_refinement.hpp"
 #include "mesh/meshblock.hpp"
+#include "mesh/remesh/placement.hpp"
+#include "mesh/remesh/topology.hpp"
 #include "mesh/swarm_amr_remesh.hpp"
 #include "parthenon_arrays.hpp"
 #include "utils/error_checking.hpp"
@@ -317,12 +319,13 @@ bool TryRecvSameToSame(int lid_recv, int send_rank, Variable<Real> *var, MeshBlo
 void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
                                                   ApplicationInput *app_in) {
   PARTHENON_INSTRUMENT
-  int nnew = 0, ndel = 0;
+  remesh::TopologyPlan topology;
 
   if (adaptive) {
-    UpdateMeshBlockTree(nnew, ndel);
-    nbnew += nnew;
-    nbdel += ndel;
+    topology = PlanAdaptiveMeshTopology();
+    nbnew += topology.added_blocks;
+    nbdel += topology.removed_blocks;
+    if (topology.changed) forest = std::move(*topology.candidate);
   }
 
   lb_flag_ |= lb_automatic_;
@@ -330,71 +333,20 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
   UpdateCostList();
 
   modified = false;
-  if (nnew != 0 || ndel != 0) { // at least one (de)refinement happened
+  if (topology.changed) {
     GatherCostListAndCheckBalance();
-    RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal + nnew - ndel);
+    ExecuteLegacyRemeshPlan(pin, app_in,
+                            nbtotal + topology.added_blocks - topology.removed_blocks,
+                            &topology);
     modified = true;
   } else if (lb_flag_ && step_since_lb >= lb_interval_) {
     if (!GatherCostListAndCheckBalance()) { // load imbalance detected
-      RedistributeAndRefineMeshBlocks(pin, app_in, nbtotal);
+      ExecuteLegacyRemeshPlan(pin, app_in, nbtotal);
       modified = true;
     }
     lb_flag_ = false;
   }
 }
-
-// Private routines
-namespace {
-/**
- * @brief This routine assigns blocks to ranks by attempting to place index-contiguous
- * blocks of equal total cost on each rank.
- *
- * @param costlist (Input) A map of global block ID to a relative weight.
- * @param ranklist (Output) A map of global block ID to ranks.
- */
-void AssignBlocks(std::vector<double> const &costlist, std::vector<int> &ranklist) {
-  ranklist.resize(costlist.size());
-
-  double const total_cost = std::accumulate(costlist.begin(), costlist.end(), 0.0);
-
-  int rank = (Globals::nranks)-1;
-  double target_cost = total_cost / Globals::nranks;
-  double my_cost = 0.0;
-  double remaining_cost = total_cost;
-  // create rank list from the end: the master MPI rank should have less load
-  for (int block_id = costlist.size() - 1; block_id >= 0; block_id--) {
-    if (target_cost == 0.0) {
-      std::stringstream msg;
-      msg << "### FATAL ERROR in CalculateLoadBalance" << std::endl
-          << "There is at least one process which has no MeshBlock" << std::endl
-          << "Decrease the number of processes or use smaller MeshBlocks." << std::endl;
-      PARTHENON_FAIL(msg);
-    }
-    my_cost += costlist[block_id];
-    ranklist[block_id] = rank;
-    if (my_cost >= target_cost && rank > 0) {
-      rank--;
-      remaining_cost -= my_cost;
-      my_cost = 0.0;
-      target_cost = remaining_cost / (rank + 1);
-    }
-  }
-}
-
-void UpdateBlockList(std::vector<int> const &ranklist, std::vector<int> &nslist,
-                     std::vector<int> &nblist) {
-  // First count the number of blocks on each rank
-  nblist = std::vector<int>(Globals::nranks, 0);
-  for (int b = ranklist.size() - 1; b >= 0; --b)
-    nblist[ranklist[b]]++;
-
-  // Then find the starting gid of the blocks, assuming they
-  // are apportioned in increasing order
-  nslist = std::vector<int>(Globals::nranks, 0);
-  for (int b = 1; b < nslist.size(); ++b)
-    nslist[b] = nslist[b - 1] + nblist[b - 1];
-}
-} // namespace
 
 //----------------------------------------------------------------------------------------
 // \brief Calculate distribution of MeshBlocks based on the cost list
@@ -410,12 +362,10 @@ void Mesh::CalculateLoadBalance(std::vector<double> const &costlist,
   double const mincost = min_max.first == costlist.begin() ? 0.0 : *min_max.first;
   double const maxcost = min_max.second == costlist.begin() ? 0.0 : *min_max.second;
 
-  // Assigns blocks to ranks on a rougly cost-equal basis.
-  AssignBlocks(costlist, ranklist);
-
-  // Updates nslist with the ID of the starting block on each rank and the count of blocks
-  // on each rank.
-  UpdateBlockList(ranklist, nslist, nblist);
+  auto ownership = remesh::PlaceBlocksContiguously(costlist, Globals::nranks);
+  ranklist = std::move(ownership.owner);
+  nslist = std::move(ownership.rank_starts);
+  nblist = std::move(ownership.rank_counts);
 
 #ifdef MPI_PARALLEL
   if (total_blocks % (Globals::nranks) != 0 && !adaptive && !lb_flag_ &&
@@ -483,10 +433,10 @@ void Mesh::UpdateCostList() {
 }
 
 //----------------------------------------------------------------------------------------
-// \!fn void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel)
-// \brief collect refinement flags and manipulate the MeshBlockTree
+// \!fn remesh::TopologyPlan Mesh::PlanAdaptiveMeshTopology()
+// \brief collect effective tags and build an isolated candidate topology
 
-void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
+remesh::TopologyPlan Mesh::PlanAdaptiveMeshTopology() {
   PARTHENON_INSTRUMENT
   // compute nleaf= number of leaf MeshBlocks per refined block
   int nleaf = 2;
@@ -498,8 +448,8 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   nref[Globals::my_rank] = 0;   // n to refine. Local per rank.
   nderef[Globals::my_rank] = 0; // n to derefine. Local per rank.
   for (auto const &pmb : block_list) {
-    if (pmb->pmr->refine_flag_ == 1) nref[Globals::my_rank]++;
-    if (pmb->pmr->refine_flag_ == -1) nderef[Globals::my_rank]++;
+    if (pmb->pmr->GetRefinementTag() == AmrTag::refine) nref[Globals::my_rank]++;
+    if (pmb->pmr->GetRefinementTag() == AmrTag::derefine) nderef[Globals::my_rank]++;
   }
 #ifdef MPI_PARALLEL
   PARTHENON_MPI_CHECK(
@@ -514,9 +464,7 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
     tnref += nref[n];
     tnderef += nderef[n];
   }
-  if (tnref == 0 && tnderef < nleaf) { // nothing to do
-    return;
-  }
+  if (tnref == 0 && tnderef < nleaf) return {};
 
   int rd = 0, dd = 0;
   for (int n = 0; n < Globals::nranks; n++) {
@@ -535,18 +483,16 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   }
 
   // allocate memory for the location arrays
-  std::vector<LogicalLocation> lref, lderef, clderef;
+  std::vector<LogicalLocation> lref, lderef;
   if (tnref > 0) lref.resize(tnref);
-  if (tnderef >= nleaf) {
-    lderef.resize(tnderef);
-    clderef.resize(tnderef / nleaf);
-  }
+  if (tnderef >= nleaf) lderef.resize(tnderef);
 
   // collect the locations and costs
   int iref = rdisp[Globals::my_rank], ideref = ddisp[Globals::my_rank];
   for (auto const &pmb : block_list) {
-    if (pmb->pmr->refine_flag_ == 1) lref[iref++] = pmb->loc;
-    if (pmb->pmr->refine_flag_ == -1 && tnderef >= nleaf) lderef[ideref++] = pmb->loc;
+    if (pmb->pmr->GetRefinementTag() == AmrTag::refine) lref[iref++] = pmb->loc;
+    if (pmb->pmr->GetRefinementTag() == AmrTag::derefine && tnderef >= nleaf)
+      lderef[ideref++] = pmb->loc;
   }
 #ifdef MPI_PARALLEL
   if (tnref > 0) {
@@ -561,53 +507,14 @@ void Mesh::UpdateMeshBlockTree(int &nnew, int &ndel) {
   }
 #endif
 
-  // calculate the list of the newly derefined blocks
-  int ctnd = 0;
-  if (tnderef >= nleaf) {
-    int lk = !mesh_size.symmetry(X3DIR);
-    int lj = !mesh_size.symmetry(X2DIR);
-    for (int n = 0; n < tnderef; n++) {
-      if (lderef[n].IsLowerLeftCornerOfParent()) {
-        int r = n, rr = 0;
-        // offsets from "bottom left" corner of parent block
-        for (std::int64_t ok = 0; ok <= lk; ok++) {
-          for (std::int64_t oj = 0; oj <= lj; oj++) {
-            for (std::int64_t oi = 0; oi <= 1; oi++) {
-              if (r < tnderef) {
-                if (lderef[n].GetSameLevelNeighbor(oi, oj, ok) == lderef[r]) {
-                  rr++;
-                }
-                r++;
-              }
-            }
-          }
-        }
-        if (rr == nleaf) {
-          clderef[ctnd] = lderef[n].GetParent();
-          ctnd++;
-        }
-      }
-    }
-  }
-  // sort the lists by level
-  if (ctnd > 1) {
-    std::sort(&(clderef[0]), &(clderef[ctnd - 1]),
-              [](const LogicalLocation &left, const LogicalLocation &right) {
-                return left.level() > right.level();
-              });
-  }
-
-  // Now the lists of the blocks to be refined and derefined are completed
-  // Start tree manipulation
-  // Step 1. perform refinement
-  for (int n = 0; n < tnref; n++) {
-    nnew += forest.Refine(lref[n]);
-  }
-
-  // Step 2. perform derefinement
-  for (int n = 0; n < ctnd; n++) {
-    ndel += forest.Derefine(clderef[n]);
-  }
+  std::vector<remesh::TaggedLeaf> tags;
+  tags.reserve(lref.size() + lderef.size());
+  for (const auto &loc : lref)
+    tags.push_back({{loc}, AmrTag::refine});
+  for (const auto &loc : lderef)
+    tags.push_back({{loc}, AmrTag::derefine});
+  const int ndim = mesh_size.symmetry(X2DIR) ? 1 : mesh_size.symmetry(X3DIR) ? 2 : 3;
+  return remesh::PlanTopology(forest, tags, ranklist, ndim);
 }
 
 //----------------------------------------------------------------------------------------
@@ -643,11 +550,11 @@ bool Mesh::GatherCostListAndCheckBalance() {
 }
 
 //----------------------------------------------------------------------------------------
-// \!fn void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, int ntot)
-// \brief redistribute MeshBlocks according to the new load balance
+// \!fn void Mesh::ExecuteLegacyRemeshPlan(ParameterInput *pin, int ntot)
+// \brief execute an accepted topology with the compatibility transfer path
 
-void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
-                                           int ntot) {
+void Mesh::ExecuteLegacyRemeshPlan(ParameterInput *pin, ApplicationInput *app_in,
+                                   int ntot, const remesh::TopologyPlan *topology) {
   PARTHENON_INSTRUMENT
   // kill all old MeshData
   mesh_data.clear();
@@ -671,26 +578,40 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
 
   { // Construct new list region
     PARTHENON_INSTRUMENT
-    newloc = forest.GetMeshBlockListAndResolveGids();
-    nbtotal = newloc.size();
-    for (int ib = 0; ib < nbtotal; ++ib)
-      newtoold[ib] = forest.GetOldGid(newloc[ib]);
-
-    // create a list mapping the previous gid to the current one
-    oldtonew[0] = 0;
-    int mb_idx = 1;
-    for (int n = 1; n < ntot; n++) {
-      if (newtoold[n] == newtoold[n - 1] + 1) { // normal
-        oldtonew[mb_idx++] = n;
-      } else if (newtoold[n] == newtoold[n - 1] + nleaf) { // derefined
-        for (int j = 0; j < nleaf - 1; j++)
-          oldtonew[mb_idx++] = n - 1;
-        oldtonew[mb_idx++] = n;
+    if (topology != nullptr && topology->changed) {
+      PARTHENON_REQUIRE(topology->leaves.size() == ntot,
+                        "Accepted remesh topology has the wrong leaf count");
+      for (const auto &leaf : topology->leaves) {
+        const int new_gid = leaf.new_gid;
+        newloc[new_gid] = leaf.key.loc;
+        newtoold[new_gid] = leaf.sources.front().source.gid;
       }
+      for (int old_gid = 0; old_gid < topology->successors.size(); ++old_gid) {
+        PARTHENON_REQUIRE(!topology->successors[old_gid].empty(),
+                          "Accepted remesh source has no successor");
+        oldtonew[old_gid] = topology->successors[old_gid].front();
+      }
+      nbtotal = topology->leaves.size();
+    } else {
+      newloc = forest.GetMeshBlockListAndResolveGids();
+      nbtotal = newloc.size();
+      for (int ib = 0; ib < nbtotal; ++ib)
+        newtoold[ib] = forest.GetOldGid(newloc[ib]);
+
+      oldtonew[0] = 0;
+      int mb_idx = 1;
+      for (int n = 1; n < ntot; n++) {
+        if (newtoold[n] == newtoold[n - 1] + 1) {
+          oldtonew[mb_idx++] = n;
+        } else if (newtoold[n] == newtoold[n - 1] + nleaf) {
+          for (int j = 0; j < nleaf - 1; j++)
+            oldtonew[mb_idx++] = n - 1;
+          oldtonew[mb_idx++] = n;
+        }
+      }
+      for (; mb_idx < nbtold; mb_idx++)
+        oldtonew[mb_idx] = ntot - 1;
     }
-    // fill the last block
-    for (; mb_idx < nbtold; mb_idx++)
-      oldtonew[mb_idx] = ntot - 1;
 
     current_level = 0;
     for (int n = 0; n < ntot; n++) {

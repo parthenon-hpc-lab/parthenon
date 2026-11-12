@@ -50,6 +50,7 @@
 #include "mesh/forest/forest.hpp"
 #include "mesh/forest/forest_topology.hpp"
 #include "mesh/meshblock_pack.hpp"
+#include "mesh/remesh/remesh_plan.hpp"
 #include "outputs/io_wrapper.hpp"
 #include "pack/sparse_pack/pack_descriptor.hpp"
 #include "parameter_input.hpp"
@@ -494,10 +495,10 @@ class Mesh {
 
   // Mesh::LoadBalancingAndAdaptiveMeshRefinement() helper functions:
   void UpdateCostList();
-  void UpdateMeshBlockTree(int &nnew, int &ndel);
+  remesh::TopologyPlan PlanAdaptiveMeshTopology();
   bool GatherCostListAndCheckBalance();
-  void RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput *app_in,
-                                       int ntot);
+  void ExecuteLegacyRemeshPlan(ParameterInput *pin, ApplicationInput *app_in, int ntot,
+                               const remesh::TopologyPlan *topology = nullptr);
   void BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in);
   void SetGMGNeighbors();
 

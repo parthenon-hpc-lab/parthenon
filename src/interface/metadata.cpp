@@ -362,39 +362,20 @@ Metadata::GetArrayDims(std::weak_ptr<MeshBlock> wpmb, bool coarse) const {
 }
 std::array<int, MAX_VARIABLE_DIMENSION> Metadata::GetArrayDims(MeshBlock *pmb,
                                                                bool coarse) const {
+  if (IsMeshTied()) {
+    PARTHENON_REQUIRE_THROWS(pmb != nullptr,
+                             "Cannot determine array dimensions for mesh-tied entity "
+                             "without index shapes");
+    return GetArrayDims(
+        std::array<IndexShape, 3>{pmb->cellbounds, pmb->f_cellbounds, pmb->c_cellbounds},
+        coarse);
+  }
+
   std::array<int, MAX_VARIABLE_DIMENSION> arrDims;
   const auto &shape = shape_;
   const std::size_t N = shape.size();
 
-  if (IsMeshTied()) {
-    // Let the FaceVariable, EdgeVariable, and NodeVariable
-    // classes add the +1's where needed.  They all expect
-    // these dimensions to be the number of cells in each
-    // direction, NOT the size of the arrays
-    assert(N <= 3);
-
-    auto bnds = coarse ? pmb->c_cellbounds : pmb->cellbounds;
-    if (IsSet(Fine)) bnds = coarse ? pmb->cellbounds : pmb->f_cellbounds;
-    arrDims[0] = bnds.ncellsi(IndexDomain::entire);
-    arrDims[1] = bnds.ncellsj(IndexDomain::entire);
-    arrDims[2] = bnds.ncellsk(IndexDomain::entire);
-    for (std::size_t i = 0; i < N; i++)
-      arrDims[i + 3] = shape[i];
-    for (int i = N; i < 3; i++)
-      arrDims[i + 3] = 1;
-    if (IsSet(Cell)) {
-      arrDims[MAX_VARIABLE_DIMENSION - 1] = 1; // Only one cell center per cell
-    } else if (IsSet(Face) || IsSet(Edge)) {
-      arrDims[MAX_VARIABLE_DIMENSION - 1] = 3; // Three faces and edges per cell
-    } else if (IsSet(Node)) {
-      arrDims[MAX_VARIABLE_DIMENSION - 1] = 1; // Only one lower left node per cell
-    }
-    if (!IsSet(CellMemAligned) && !IsSet(Cell)) {
-      arrDims[0]++;
-      if (arrDims[1] > 1) arrDims[1]++;
-      if (arrDims[2] > 1) arrDims[2]++;
-    }
-  } else if (IsSet(Particle)) {
+  if (IsSet(Particle)) {
     assert(N <= MAX_VARIABLE_DIMENSION - 1);
     arrDims[0] = 1; // To be updated by swarm based on pool size before allocation
     for (int i = 0; i < N; i++)
@@ -417,6 +398,44 @@ std::array<int, MAX_VARIABLE_DIMENSION> Metadata::GetArrayDims(MeshBlock *pmb,
     if (IsSet(Flux)) arrDims[MAX_VARIABLE_DIMENSION - 1] = 3;
   }
 
+  return arrDims;
+}
+
+std::array<int, MAX_VARIABLE_DIMENSION>
+Metadata::GetArrayDims(const std::array<IndexShape, 3> &index_shapes, bool coarse) const {
+  PARTHENON_REQUIRE_THROWS(IsMeshTied(),
+                           "Index shapes are only valid for mesh-tied entities");
+  std::array<int, MAX_VARIABLE_DIMENSION> arrDims;
+  const auto &shape = shape_;
+  const std::size_t N = shape.size();
+
+  // Let the FaceVariable, EdgeVariable, and NodeVariable
+  // classes add the +1's where needed.  They all expect
+  // these dimensions to be the number of cells in each
+  // direction, NOT the size of the arrays
+  assert(N <= 3);
+
+  auto bnds = coarse ? index_shapes[2] : index_shapes[0];
+  if (IsSet(Fine)) bnds = coarse ? index_shapes[0] : index_shapes[1];
+  arrDims[0] = bnds.ncellsi(IndexDomain::entire);
+  arrDims[1] = bnds.ncellsj(IndexDomain::entire);
+  arrDims[2] = bnds.ncellsk(IndexDomain::entire);
+  for (std::size_t i = 0; i < N; i++)
+    arrDims[i + 3] = shape[i];
+  for (int i = N; i < 3; i++)
+    arrDims[i + 3] = 1;
+  if (IsSet(Cell)) {
+    arrDims[MAX_VARIABLE_DIMENSION - 1] = 1; // Only one cell center per cell
+  } else if (IsSet(Face) || IsSet(Edge)) {
+    arrDims[MAX_VARIABLE_DIMENSION - 1] = 3; // Three faces and edges per cell
+  } else if (IsSet(Node)) {
+    arrDims[MAX_VARIABLE_DIMENSION - 1] = 1; // Only one lower left node per cell
+  }
+  if (!IsSet(CellMemAligned) && !IsSet(Cell)) {
+    arrDims[0]++;
+    if (arrDims[1] > 1) arrDims[1]++;
+    if (arrDims[2] > 1) arrDims[2]++;
+  }
   return arrDims;
 }
 

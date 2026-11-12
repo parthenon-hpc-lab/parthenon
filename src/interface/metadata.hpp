@@ -501,6 +501,8 @@ class Metadata {
   std::array<int, MAX_VARIABLE_DIMENSION> GetArrayDims(std::weak_ptr<MeshBlock> wpmb,
                                                        bool coarse) const;
   std::array<int, MAX_VARIABLE_DIMENSION> GetArrayDims(MeshBlock *pmb, bool coarse) const;
+  std::array<int, MAX_VARIABLE_DIMENSION>
+  GetArrayDims(const std::array<IndexShape, 3> &index_shapes, bool coarse) const;
 
   /// Returns the attribute flags as a string of 1/0
   std::string MaskAsString() const {
