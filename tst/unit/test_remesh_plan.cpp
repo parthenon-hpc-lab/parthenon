@@ -90,3 +90,80 @@ TEST_CASE("Compatibility placement returns contiguous ownership", "[remesh]") {
   REQUIRE(ownership.rank_counts == std::vector<int>{3, 1});
   REQUIRE(ownership.rank_costs == std::vector<double>{4.0, 4.0});
 }
+
+TEST_CASE("Compatibility placement permits idle leading ranks", "[remesh]") {
+  const auto ownership = parthenon::remesh::PlaceBlocksContiguously({2.0}, 3);
+  REQUIRE(ownership.owner == std::vector<int>{2});
+  REQUIRE(ownership.rank_starts == std::vector<int>{0, 0, 0});
+  REQUIRE(ownership.rank_counts == std::vector<int>{0, 0, 1});
+}
+
+TEST_CASE("Remesh cost policies use descriptor provenance", "[remesh][cost]") {
+  using namespace parthenon::remesh;
+  TopologyPlan topology;
+  topology.changed = true;
+  topology.successors.resize(4);
+  topology.leaves = {{{}, 0, {}, Relation::unchanged, {{{0, 0}, {}, 0, {}}}},
+                     {{}, 1, {}, Relation::refined_child, {{{0, 1}, {}, 0, {}}}},
+                     {{},
+                      2,
+                      {},
+                      Relation::coarsened_parent,
+                      {{{0, 2}, {}, 0, {}}, {{0, 3}, {}, 0, {}}}}};
+  InventoryPlan inventory;
+  inventory.blocks.resize(3);
+  inventory.blocks[1].footprint.device_owned = 3 * sizeof(parthenon::Real);
+  inventory.blocks[1].swarms.push_back({0, 2, 2});
+
+  REQUIRE(PlanRemeshCosts(topology, inventory, {2.0, 4.0, 6.0, 10.0},
+                          CostPolicy::inherit) == std::vector<double>{2.0, 4.0, 8.0});
+  const auto framework =
+      PlanRemeshCosts(topology, inventory, {2.0, 4.0, 6.0, 10.0}, CostPolicy::parthenon);
+  REQUIRE(framework[0] == 1.0);
+  REQUIRE(framework[1] == 5.0);
+
+  const auto application = PlanRemeshCosts(
+      topology, inventory, {2.0, 4.0, 6.0, 10.0}, CostPolicy::application,
+      [](const CostContext &context) {
+        return CostEstimate{static_cast<double>(context.old_costs.size()), {}};
+      });
+  REQUIRE(application == std::vector<double>{1.0, 1.0, 2.0});
+  REQUIRE_THROWS(
+      PlanRemeshCosts(topology, inventory, {2.0, 4.0, 6.0, 10.0}, CostPolicy::application,
+                      [](const CostContext &) { return CostEstimate{0.0, {}}; }));
+}
+
+TEST_CASE("Memory constrained placement is contiguous or rejects", "[remesh][budget]") {
+  using namespace parthenon::remesh;
+  std::vector<MemoryFootprint> footprints(3);
+  for (auto &footprint : footprints) {
+    footprint.device_owned = 6;
+    footprint.quality = EstimateQuality::conservative_bound;
+  }
+  MemoryBudget budget;
+  budget.device_bytes = 10;
+  const auto ownership = PlaceBlocksContiguously({1.0, 3.0, 2.0}, footprints, 3, budget);
+  REQUIRE(ownership.owner == std::vector<int>{0, 1, 2});
+  REQUIRE(ownership.rank_device_bytes == std::vector<std::uint64_t>{6, 6, 6});
+  REQUIRE_THROWS(PlaceBlocksContiguously({1.0, 3.0, 2.0}, footprints, 2, budget));
+
+  footprints[0].quality = EstimateQuality::estimate;
+  budget.require_hard_guarantee = true;
+  REQUIRE_THROWS(PlaceBlocksContiguously({1.0, 3.0, 2.0}, footprints, 3, budget));
+}
+
+TEST_CASE("Remesh peak budget includes live sources", "[remesh][budget]") {
+  using namespace parthenon::remesh;
+  TopologyPlan topology;
+  topology.changed = true;
+  topology.successors.resize(1);
+  topology.leaves = {{{}, 0, {}, Relation::unchanged, {{{0, 0}, {}, 0, {}}}}};
+  InventoryPlan inventory;
+  inventory.blocks.resize(1);
+  inventory.blocks[0].footprint.device_owned = 6;
+  inventory.blocks[0].footprint.quality = EstimateQuality::conservative_bound;
+  MemoryBudget budget;
+  budget.device_bytes = 15;
+  REQUIRE_THROWS(PlanRemeshPlacement(topology, inventory, {1.0}, {5}, 1,
+                                     CostPolicy::inherit, budget));
+}

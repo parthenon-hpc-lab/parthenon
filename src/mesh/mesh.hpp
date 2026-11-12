@@ -502,7 +502,8 @@ class Mesh {
   bool GatherCostListAndCheckBalance();
   void ExecuteLegacyRemeshPlan(ParameterInput *pin, ApplicationInput *app_in, int ntot,
                                const remesh::TopologyPlan *topology = nullptr,
-                               const remesh::InventoryPlan *inventory = nullptr);
+                               const remesh::InventoryPlan *inventory = nullptr,
+                               const remesh::PlacementPlan *placement = nullptr);
   void BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in);
   void SetGMGNeighbors();
 

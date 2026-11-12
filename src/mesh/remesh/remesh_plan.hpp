@@ -3,8 +3,10 @@
 
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "basic_types.hpp"
@@ -96,6 +98,27 @@ struct BlockInventory {
   MemoryFootprint footprint;
 };
 
+enum class CostPolicy { inherit, parthenon, application };
+
+struct CostObservation {
+  EpochBlockId source;
+  double cost;
+  double volume_weight;
+};
+
+struct CostEstimate {
+  double value;
+  std::vector<std::pair<std::string, double>> diagnostics;
+};
+
+struct CostContext {
+  const PlannedLeaf &leaf;
+  const BlockInventory &inventory;
+  const std::vector<CostObservation> &old_costs;
+};
+
+using CostCallback = std::function<CostEstimate(const CostContext &)>;
+
 struct ParticleRoute {
   int source_index;
   std::int64_t destination_gid;
@@ -114,6 +137,33 @@ struct OwnershipMap {
   std::vector<int> rank_starts;
   std::vector<int> rank_counts;
   std::vector<double> rank_costs;
+  std::vector<std::uint64_t> rank_host_bytes;
+  std::vector<std::uint64_t> rank_device_bytes;
+};
+
+struct MemoryBudget {
+  std::optional<std::uint64_t> host_bytes;
+  std::optional<std::uint64_t> device_bytes;
+  bool require_hard_guarantee{false};
+};
+
+struct RankMemoryFootprint {
+  std::uint64_t source_resident{0};
+  std::uint64_t immediate_resident{0};
+  std::uint64_t next_advance_reserve{0};
+  std::uint64_t finalization_reserve{0};
+  std::uint64_t transfer_reserve{0};
+  std::uint64_t runtime_overhead{0};
+  std::uint64_t peak{0};
+  EstimateQuality quality{EstimateQuality::exact_array_request};
+};
+
+struct PlacementPlan {
+  std::vector<double> costs;
+  OwnershipMap ownership;
+  std::vector<RankMemoryFootprint> host_memory;
+  std::vector<RankMemoryFootprint> device_memory;
+  bool hard_memory_guarantee{false};
 };
 
 struct TaggedLeaf {
