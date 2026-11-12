@@ -105,16 +105,17 @@ void ExtractCoarseChild(const LogicalLocation &fine_loc,
 }
 
 void InjectFineChild(const LogicalLocation &fine_loc,
-                     const std::shared_ptr<Variable<Real>> &var, MeshBlock *block) {
+                     const std::shared_ptr<Variable<Real>> &source,
+                     const std::shared_ptr<Variable<Real>> &target, MeshBlock *block) {
   const int ndim = block->pmy_mesh->ndim;
-  auto coarse = var->coarse_s;
-  auto fine = var->data;
+  auto coarse = source->coarse_s;
+  auto fine = target->data;
   const int nt = fine.GetDim(6) - 1;
   const int nu = fine.GetDim(5) - 1;
   const int nv = fine.GetDim(4) - 1;
   auto &coarse_bounds =
-      var->IsSet(Metadata::Fine) ? block->cellbounds : block->c_cellbounds;
-  for (const auto element : var->GetTopologicalElements()) {
+      target->IsSet(Metadata::Fine) ? block->cellbounds : block->c_cellbounds;
+  for (const auto element : target->GetTopologicalElements()) {
     auto ib = coarse_bounds.GetBoundsI(IndexDomain::interior, element);
     auto jb = coarse_bounds.GetBoundsJ(IndexDomain::interior, element);
     auto kb = coarse_bounds.GetBoundsK(IndexDomain::interior, element);
@@ -172,7 +173,7 @@ void ApplyAllocatedRecord(const FieldTransferRecord &record,
   } else {
     const auto &source = record.child.value;
     const auto fine_loc = block->loc.GetDaughter(source[0], source[1], source[2]);
-    InjectFineChild(fine_loc, variable, block.get());
+    InjectFineChild(fine_loc, variable, variable, block.get());
   }
 }
 
@@ -192,7 +193,7 @@ void ApplyAbsentRecord(const FieldTransferRecord &record, const InventoryPlan &i
     if (record.operation == RemeshOperation::fine_to_coarse) {
       const auto &source = record.child.value;
       const auto fine_loc = block->loc.GetDaughter(source[0], source[1], source[2]);
-      InjectFineChild(fine_loc, variable, block.get());
+      InjectFineChild(fine_loc, variable, variable, block.get());
     }
   }
 }
@@ -420,8 +421,15 @@ void ExecuteFieldTransfers(const FieldTransferPlan &plan, const InventoryPlan &i
                           "Allocated remesh payload has an unallocated destination");
         ExtractCoarseChild(target_block->loc, variable, target, target_block.get());
       } else if (record.operation == RemeshOperation::fine_to_coarse) {
-        auto source = Flatten(variable->coarse_s);
-        ApplyAllocatedRecord(record, inventory, source, new_blocks, new_first_gid);
+        auto target_block =
+            FindLocalBlock(new_blocks, new_first_gid, record.destination_gid);
+        auto target = GetField(target_block, inventory, record.field);
+        PARTHENON_REQUIRE(target->IsAllocated(),
+                          "Allocated remesh payload has an unallocated destination");
+        const auto &child = record.child.value;
+        const auto fine_loc =
+            target_block->loc.GetDaughter(child[0], child[1], child[2]);
+        InjectFineChild(fine_loc, variable, target, target_block.get());
       } else {
         auto source = Flatten(variable->data);
         ApplyAllocatedRecord(record, inventory, source, new_blocks, new_first_gid);
