@@ -146,8 +146,7 @@ void ApplyAllocatedRecord(const FieldTransferRecord &record,
                           const BlockList_t &new_blocks, const int new_first_gid) {
   auto block = FindLocalBlock(new_blocks, new_first_gid, record.destination_gid);
   auto variable = GetField(block, inventory, record.field);
-  PARTHENON_REQUIRE(variable->IsAllocated(),
-                    "Allocated remesh payload has an unallocated destination");
+  if (!variable->IsAllocated()) block->AllocateSparse(variable->label());
   if (record.operation == RemeshOperation::copy ||
       record.operation == RemeshOperation::coarse_to_fine) {
     PARTHENON_REQUIRE(variable->data.size() == record.payload_count,
@@ -289,29 +288,6 @@ void ApplyPlannedFieldAllocations(const InventoryPlan &inventory,
     const auto gid = first_gid + local_id;
     PARTHENON_REQUIRE(gid >= 0 && gid < inventory.blocks.size(),
                       "Remesh target block is absent from inventory");
-    const auto &planned_block = inventory.blocks[gid];
-    auto &block = blocks[local_id];
-    for (const auto &field : planned_block.fields) {
-      if (!field.state_survives_remesh) continue;
-      const auto label = inventory.field_schema[field.field].id.label();
-      auto variable = block->meshblock_data.Get()->GetVarPtr(label);
-      if (field.allocated_after_transfer && !variable->IsAllocated()) {
-        block->AllocateSparse(label);
-      } else if (!field.allocated_after_transfer && variable->IsAllocated() &&
-                 variable->IsSparse() &&
-                 !variable->metadata().IsSet(Metadata::ForceAllocOnNewBlocks)) {
-        block->DeallocateSparse(label);
-      }
-    }
-    for (const auto &field : planned_block.fields) {
-      if (!field.state_survives_remesh) continue;
-      auto variable = GetField(block, inventory, field.field);
-      if (field.counters.inherited) {
-        variable->dealloc_count = field.counters.deallocation_count;
-        variable->RestoreAllocationStatusForRemesh(field.counters.allocation_count);
-      }
-    }
-    block->pmr->DerefinementCount() = planned_block.derefinement_count;
   }
 }
 
@@ -409,15 +385,13 @@ void ExecuteFieldTransfers(const FieldTransferPlan &plan, const InventoryPlan &i
         auto target_block =
             FindLocalBlock(new_blocks, new_first_gid, record.destination_gid);
         auto target = GetField(target_block, inventory, record.field);
-        PARTHENON_REQUIRE(target->IsAllocated(),
-                          "Allocated remesh payload has an unallocated destination");
+        if (!target->IsAllocated()) target_block->AllocateSparse(target->label());
         ExtractCoarseChild(target_block->loc, variable, target, target_block.get());
       } else if (record.operation == RemeshOperation::fine_to_coarse) {
         auto target_block =
             FindLocalBlock(new_blocks, new_first_gid, record.destination_gid);
         auto target = GetField(target_block, inventory, record.field);
-        PARTHENON_REQUIRE(target->IsAllocated(),
-                          "Allocated remesh payload has an unallocated destination");
+        if (!target->IsAllocated()) target_block->AllocateSparse(target->label());
         const auto &child = record.child.value;
         const auto fine_loc =
             target_block->loc.GetDaughter(child[0], child[1], child[2]);
