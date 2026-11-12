@@ -72,11 +72,10 @@ TEST_CASE("Sparse pack linear interpolation", "[Interpolation][SparsePack]") {
     block->coords_device =
         parthenon::ParArray0D<parthenon::Coordinates_t>("interpolation coordinates");
     Kokkos::deep_copy(block->coords_device, block->coords);
-    block->meshblock_data.Get()->Initialize(pkg, block);
+    block->meshblock_data.Add("base", pkg, block);
     blocks.push_back(block);
   }
-  parthenon::MeshData<parthenon::Real> mesh_data("base");
-  mesh_data.Initialize(blocks, nullptr);
+  parthenon::MeshData<parthenon::Real> mesh_data("base", blocks, nullptr);
   auto desc = parthenon::MakePackDescriptor(pkg.get(), std::vector<std::string>{"field"});
   const auto pack = desc.GetPack(&mesh_data);
   const auto ib = blocks[0]->cellbounds.GetBoundsI(parthenon::IndexDomain::entire);

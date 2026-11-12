@@ -60,11 +60,10 @@ TEST_CASE("Flux divergence helper supports sparse and legacy packs",
     block->coords_device =
         parthenon::ParArray0D<parthenon::Coordinates_t>("update coordinates");
     Kokkos::deep_copy(block->coords_device, block->coords);
-    block->meshblock_data.Get()->Initialize(pkg, block);
+    block->meshblock_data.Add("base", pkg, block);
     blocks.push_back(block);
   }
-  parthenon::MeshData<parthenon::Real> mesh_data("base");
-  mesh_data.Initialize(blocks, nullptr);
+  parthenon::MeshData<parthenon::Real> mesh_data("base", blocks, nullptr);
   auto desc = parthenon::MakePackDescriptor(pkg.get(), std::vector<std::string>{"field"},
                                             {}, {parthenon::PDOpt::WithFluxes});
   const auto pack = desc.GetPack(&mesh_data);
