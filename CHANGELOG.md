@@ -13,6 +13,7 @@
 ### Fixed (not changing behavior/API/variables/...)
 - [[PR 1445]](https://github.com/parthenon-hpc-lab/parthenon/pull/1445) Fix ownership for self-bordering blocks
 - [[PR 1479]](https://github.com/parthenon-hpc-lab/parthenon/pull/1479) Added overloads to helper functions for compatibility with sparse packs
+- [[PR 1487]](https://github.com/parthenon-hpc-lab/parthenon/pull/1487) Checkout submodules once for doc build
 
 ### Infrastructure (changes irrelevant to downstream codes)
 - [[PR 1471]](https://github.com/parthenon-hpc-lab/parthenon/pull/1471) Add break-downstream test for parthenon-hydro
@@ -58,6 +59,7 @@ Date: 2026-10-23
 
 
 ### Changed (changing behavior/API/variables/...)
+- [[PR 1449]](https://github.com/parthenon-hpc-lab/parthenon/pull/1449) Require all containers with the same base name in a DataCollection be made from the same field set
 - [[PR 1450]](https://github.com/parthenon-hpc-lab/parthenon/pull/1450) Remove throw on swarms with curvilinear
 - [[PR 1441]](https://github.com/parthenon-hpc-lab/parthenon/pull/1441) Make it so you can safely create particles in a problem generator.
 - [[PR 1438]](https://github.com/parthenon-hpc-lab/parthenon/pull/1438) Performance tuning for the loop abstraction machinery and add loop abstraction OpenMP support
@@ -101,6 +103,7 @@ Date: 2026-10-23
 
 
 ### Incompatibilities (i.e. breaking changes)
+- [[PR 1449]](https://github.com/parthenon-hpc-lab/parthenon/pull/1449) Require all containers with the same base name in a DataCollection be made from the same field set
 - [[PR 1441]](https://github.com/parthenon-hpc-lab/parthenon/pull/1441) Clear particles in problem generator, meaning that particles can no longer be seeded in the problem generator at the root level and be appropriately refined at pgen.
 - [[PR 1385]](https://github.com/parthenon-hpc-lab/parthenon/pull/1385) ParameterInput internal storage refactor removes direct access to linked list (`pfirst_block`). Use `GetBlocksWithPrefix()` or `GetBlockNames()` instead.
 - [[PR 1351]](https://github.com/parthenon-hpc-lab/parthenon/pull/1351) Bump Kokkos 5 & C++20
