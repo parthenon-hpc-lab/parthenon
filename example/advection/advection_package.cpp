@@ -215,7 +215,6 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   // as the coarse data (including ghost zones) used for prolongation is valid.
   const bool remesh_test_fields =
       pin->GetOrAddBoolean("Advection", "remesh_test_fields", false);
-  pkg->AddParam<bool>("remesh_test_fields", remesh_test_fields);
   if (remesh_test_fields) {
     pkg->AddField("remesh_tracer_cc", Metadata({Metadata::Cell, Metadata::ForceRemeshComm}));
     pkg->AddField("remesh_tracer_face",
