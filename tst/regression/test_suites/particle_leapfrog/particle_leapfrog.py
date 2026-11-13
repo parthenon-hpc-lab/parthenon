@@ -44,7 +44,7 @@ class TestCase(utils.test_case.TestCaseAbs):
         else:  # step == 2:
             parameters.driver_cmd_line_args = [
                 "-r",
-                "gold.out1.00001.rhdf",
+                "gold.restart.00001.phdf",
                 "parthenon/job/problem_id=particles",
             ]
         return parameters
