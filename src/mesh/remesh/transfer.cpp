@@ -257,17 +257,21 @@ void TransferRestrictedLocal(const LogicalLocation &fine_loc,
 }
 
 void ExtractCoarseChild(const LogicalLocation &fine_loc,
-                        const std::shared_ptr<Variable<Real>> &var, MeshBlock *block) {
-  auto fine = var->data;
-  auto coarse = var->coarse_s;
+                        const std::shared_ptr<Variable<Real>> &source,
+                        const std::shared_ptr<Variable<Real>> &target,
+                        MeshBlock *block) {
+  auto fine = source->data;
+  auto coarse = target->coarse_s;
   const int nt = fine.GetDim(6) - 1;
   const int nu = fine.GetDim(5) - 1;
   const int nv = fine.GetDim(4) - 1;
-  auto &cellbounds = var->IsSet(Metadata::Fine) ? block->f_cellbounds : block->cellbounds;
+  auto &cellbounds = target->IsSet(Metadata::Fine) ? block->f_cellbounds
+                                                   : block->cellbounds;
   auto &coarse_bounds =
-      var->IsSet(Metadata::Fine) ? block->cellbounds : block->c_cellbounds;
-  for (const auto element : var->GetTopologicalElements()) {
-    const auto entire_element = var->IsSet(Metadata::CellMemAligned) ? TE::CC : element;
+      target->IsSet(Metadata::Fine) ? block->cellbounds : block->c_cellbounds;
+  for (const auto element : target->GetTopologicalElements()) {
+    const auto entire_element =
+        target->IsSet(Metadata::CellMemAligned) ? TE::CC : element;
     const auto ib = coarse_bounds.GetBoundsI(IndexDomain::entire, entire_element);
     const auto jb = coarse_bounds.GetBoundsJ(IndexDomain::entire, entire_element);
     const auto kb = coarse_bounds.GetBoundsK(IndexDomain::entire, entire_element);
@@ -290,16 +294,17 @@ void ExtractCoarseChild(const LogicalLocation &fine_loc,
 }
 
 void InjectFineChild(const LogicalLocation &fine_loc,
-                     const std::shared_ptr<Variable<Real>> &var, MeshBlock *block) {
+                     const std::shared_ptr<Variable<Real>> &source,
+                     const std::shared_ptr<Variable<Real>> &target, MeshBlock *block) {
   const int ndim = block->pmy_mesh->ndim;
-  auto coarse = var->coarse_s;
-  auto fine = var->data;
+  auto coarse = source->coarse_s;
+  auto fine = target->data;
   const int nt = fine.GetDim(6) - 1;
   const int nu = fine.GetDim(5) - 1;
   const int nv = fine.GetDim(4) - 1;
   auto &coarse_bounds =
-      var->IsSet(Metadata::Fine) ? block->cellbounds : block->c_cellbounds;
-  for (const auto element : var->GetTopologicalElements()) {
+      target->IsSet(Metadata::Fine) ? block->cellbounds : block->c_cellbounds;
+  for (const auto element : target->GetTopologicalElements()) {
     auto ib = coarse_bounds.GetBoundsI(IndexDomain::interior, element);
     auto jb = coarse_bounds.GetBoundsJ(IndexDomain::interior, element);
     auto kb = coarse_bounds.GetBoundsK(IndexDomain::interior, element);
@@ -330,8 +335,7 @@ void ApplyAllocatedRecord(const FieldTransferRecord &record,
                           const BlockList_t &new_blocks, const int new_first_gid) {
   auto block = FindLocalBlock(new_blocks, new_first_gid, record.destination_gid);
   auto variable = GetField(block, inventory, record.field);
-  PARTHENON_REQUIRE(variable->IsAllocated(),
-                    "Allocated remesh payload has an unallocated destination");
+  if (!variable->IsAllocated()) block->AllocateSparse(variable->label());
   if (record.operation == RemeshOperation::copy &&
       record.payload_mode == FieldPayloadMode::interior) {
     TransferInterior(variable, block.get(), source, false);
@@ -361,33 +365,23 @@ void ApplyAllocatedRecord(const FieldTransferRecord &record,
     block->pmr->DerefinementCount() =
         inventory.blocks[record.destination_gid].derefinement_count;
   } else if (record.operation == RemeshOperation::coarse_to_fine) {
-    ExtractCoarseChild(block->loc, variable, block.get());
+    ExtractCoarseChild(block->loc, variable, variable, block.get());
   } else {
     const auto &source = record.child.value;
     const auto fine_loc = block->loc.GetDaughter(source[0], source[1], source[2]);
-    InjectFineChild(fine_loc, variable, block.get());
+    InjectFineChild(fine_loc, variable, variable, block.get());
   }
 }
 
 void ApplyAbsentRecord(const FieldTransferRecord &record, const InventoryPlan &inventory,
                        const BlockList_t &new_blocks, const int new_first_gid) {
+  if (record.operation != RemeshOperation::copy) return;
   auto block = FindLocalBlock(new_blocks, new_first_gid, record.destination_gid);
   auto variable = GetField(block, inventory, record.field);
-  if (!variable->IsAllocated()) return;
-  const auto default_value =
-      inventory.field_schema[record.field].metadata.GetDefaultValue();
-  if (record.operation == RemeshOperation::copy) {
-    Kokkos::deep_copy(variable->data, default_value);
-    if (record.source_counters.inherited)
-      variable->dealloc_count = record.source_counters.deallocation_count;
-  } else {
-    Kokkos::deep_copy(variable->coarse_s, default_value);
-    if (record.operation == RemeshOperation::fine_to_coarse) {
-      const auto &source = record.child.value;
-      const auto fine_loc = block->loc.GetDaughter(source[0], source[1], source[2]);
-      InjectFineChild(fine_loc, variable, block.get());
-    }
-  }
+  if (record.source_counters.inherited)
+    variable->dealloc_count = record.source_counters.deallocation_count;
+  block->pmr->DerefinementCount() =
+      inventory.blocks[record.destination_gid].derefinement_count;
 }
 
 template <typename Buffer>
@@ -533,27 +527,6 @@ void ApplyPlannedFieldAllocations(const InventoryPlan &inventory,
     const auto gid = first_gid + local_id;
     PARTHENON_REQUIRE(gid >= 0 && gid < inventory.blocks.size(),
                       "Remesh target block is absent from inventory");
-    const auto &planned_block = inventory.blocks[gid];
-    auto &block = blocks[local_id];
-    for (const auto &field : planned_block.fields) {
-      const auto label = inventory.field_schema[field.field].id.label();
-      auto variable = block->meshblock_data.Get()->GetVarPtr(label);
-      if (field.allocated_after_transfer && !variable->IsAllocated()) {
-        block->AllocateSparse(label);
-      } else if (!field.allocated_after_transfer && variable->IsAllocated() &&
-                 variable->IsSparse() &&
-                 !variable->metadata().IsSet(Metadata::ForceAllocOnNewBlocks)) {
-        block->DeallocateSparse(label);
-      }
-    }
-    for (const auto &field : planned_block.fields) {
-      auto variable = GetField(block, inventory, field.field);
-      if (field.counters.inherited) {
-        variable->dealloc_count = field.counters.deallocation_count;
-        variable->RestoreAllocationStatusForRemesh(field.counters.allocation_count);
-      }
-    }
-    block->pmr->DerefinementCount() = planned_block.derefinement_count;
   }
 }
 
@@ -582,11 +555,18 @@ void ExecuteFieldTransfers(const FieldTransferPlan &plan, const InventoryPlan &i
           auto target_block =
               FindLocalBlock(new_blocks, new_first_gid, record.destination_gid);
           auto target = GetField(target_block, inventory, record.field);
+          if (!target->IsAllocated()) target_block->AllocateSparse(target->label());
           const auto &child = record.child.value;
           const auto fine_loc =
               target_block->loc.GetDaughter(child[0], child[1], child[2]);
           TransferRestrictedLocal(fine_loc, variable, block.get(), target,
                                   target_block.get());
+        } else if (record.operation == RemeshOperation::coarse_to_fine) {
+          auto target_block =
+              FindLocalBlock(new_blocks, new_first_gid, record.destination_gid);
+          auto target = GetField(target_block, inventory, record.field);
+          if (!target->IsAllocated()) target_block->AllocateSparse(target->label());
+          ExtractCoarseChild(target_block->loc, variable, target, target_block.get());
         } else if (record.operation == RemeshOperation::fine_to_coarse) {
           auto source = Flatten(variable->coarse_s);
           ApplyAllocatedRecord(record, inventory, source, new_blocks, new_first_gid);

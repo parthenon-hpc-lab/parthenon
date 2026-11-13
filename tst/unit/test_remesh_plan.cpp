@@ -57,6 +57,8 @@ TEST_CASE("Topology plans preserve direct provenance", "[remesh]") {
     REQUIRE(leaf.sources.size() == 1);
     REQUIRE(leaf.sources[0].source.epoch == 7);
     REQUIRE(leaf.sources[0].source.gid == 0);
+    REQUIRE(leaf.sources[0].child.value[0] == (leaf.key.loc.lx1() & 1));
+    REQUIRE(leaf.sources[0].child.value[1] == (leaf.key.loc.lx2() & 1));
   }
 
   auto refined = std::move(*refine_plan.candidate);
@@ -72,6 +74,10 @@ TEST_CASE("Topology plans preserve direct provenance", "[remesh]") {
   REQUIRE(derefine_plan.leaves.size() == 1);
   REQUIRE(derefine_plan.leaves[0].relation == Relation::coarsened_parent);
   REQUIRE(derefine_plan.leaves[0].sources.size() == 4);
+  for (const auto &source : derefine_plan.leaves[0].sources) {
+    REQUIRE(source.child.value[0] == (source.source_key.loc.lx1() & 1));
+    REQUIRE(source.child.value[1] == (source.source_key.loc.lx2() & 1));
+  }
 }
 
 TEST_CASE("Incomplete sibling permission does not derefine", "[remesh]") {
