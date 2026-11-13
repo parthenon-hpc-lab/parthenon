@@ -174,6 +174,7 @@ struct PlacementPlan {
 };
 
 enum class RemeshOperation { copy, coarse_to_fine, fine_to_coarse };
+enum class FieldPayloadMode { full, interior, restricted };
 
 struct FieldTransferRecord {
   std::int64_t source_gid;
@@ -187,6 +188,7 @@ struct FieldTransferRecord {
   CounterPolicy source_counters;
   std::uint64_t payload_offset;
   std::uint64_t payload_count;
+  FieldPayloadMode payload_mode{FieldPayloadMode::full};
 };
 
 struct PeerTransferBatch {
@@ -198,6 +200,10 @@ struct PeerTransferBatch {
 
 struct FieldTransferPlan {
   std::vector<PeerTransferBatch> batches;
+  std::uint64_t baseline_payload_count{0};
+  std::uint64_t logical_payload_count{0};
+  std::uint64_t payload_count{0};
+  std::uint64_t peak_batch_count{0};
 };
 
 struct TaggedLeaf {
