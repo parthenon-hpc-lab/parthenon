@@ -89,6 +89,10 @@ enum class BoundaryType : int {
   remesh_halo
 };
 
+inline constexpr bool IsRemeshTransfer(BoundaryType btype) {
+  return btype == BoundaryType::remesh_send || btype == BoundaryType::remesh_recv;
+}
+
 inline constexpr bool IsSender(BoundaryType btype) {
   if (btype == BoundaryType::flxcor_recv) return false;
   if (btype == BoundaryType::gmg_restrict_recv) return false;

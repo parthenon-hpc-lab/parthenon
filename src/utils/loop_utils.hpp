@@ -144,8 +144,7 @@ inline void ForEachBoundary(std::shared_ptr<MD> &md, F func) {
             if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;
           }
         }
-      } else if constexpr (bound == BoundaryType::remesh_send ||
-                           bound == BoundaryType::remesh_recv) {
+      } else if constexpr (IsRemeshTransfer(bound)) {
         if (IsRemeshedVariable(v)) {
           for (auto &nb : pmb->GetRemeshNeighbors()) {
             if (func_caller(func, pmb, rc, nb, v) == LoopControl::break_out) return;

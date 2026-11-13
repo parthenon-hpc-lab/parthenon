@@ -57,9 +57,7 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md,
         return pmb->GetGMGFinerNeighbors();
       if constexpr (BOUND == BoundaryType::gmg_prolongate_recv)
         return pmb->GetGMGCoarserNeighbors();
-      if constexpr (BOUND == BoundaryType::remesh_send ||
-                    BOUND == BoundaryType::remesh_recv)
-        return pmb->GetRemeshNeighbors();
+      if constexpr (IsRemeshTransfer(BOUND)) return pmb->GetRemeshNeighbors();
       if constexpr (BOUND == BoundaryType::gmg_same) {
         if (md->grid.type() == GridType::leaf) return pmb->GetNeighbors();
         return pmb->loc.level() == md->grid.logical_level()

@@ -232,7 +232,8 @@ TaskStatus BuildRemeshHaloBuffers(std::shared_ptr<MeshData<Real>> &md) {
   PARTHENON_INSTRUMENT
   Mesh *pmesh = md->GetMeshPointer();
   BuildBoundaryBufferSubset<BoundaryType::remesh_halo>(md, pmesh->boundary_comm_map);
-  if (pmesh->do_coalesced_comms) RegisterCoalescedCommsSubset<BoundaryType::remesh_halo>(md);
+  if (pmesh->do_coalesced_comms)
+    RegisterCoalescedCommsSubset<BoundaryType::remesh_halo>(md);
   return TaskStatus::complete;
 }
 

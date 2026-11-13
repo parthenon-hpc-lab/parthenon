@@ -216,7 +216,8 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   const bool remesh_test_fields =
       pin->GetOrAddBoolean("Advection", "remesh_test_fields", false);
   if (remesh_test_fields) {
-    pkg->AddField("remesh_tracer_cc", Metadata({Metadata::Cell, Metadata::ForceRemeshComm}));
+    pkg->AddField("remesh_tracer_cc",
+                  Metadata({Metadata::Cell, Metadata::ForceRemeshComm}));
     pkg->AddField("remesh_tracer_face",
                   Metadata({Metadata::Face, Metadata::ForceRemeshComm}));
   }
@@ -225,14 +226,12 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
   parthenon::HstVar_list hst_vars = {};
   if (remesh_test_fields) {
     hst_vars.emplace_back(parthenon::HistoryOutputVar(
-        UserHistoryOperation::max, [](MeshData<Real> *md) {
-          return RemeshTracerError(md, "remesh_tracer_cc");
-        },
+        UserHistoryOperation::max,
+        [](MeshData<Real> *md) { return RemeshTracerError(md, "remesh_tracer_cc"); },
         "remesh_tracer_cc_err"));
     hst_vars.emplace_back(parthenon::HistoryOutputVar(
-        UserHistoryOperation::max, [](MeshData<Real> *md) {
-          return RemeshTracerError(md, "remesh_tracer_face");
-        },
+        UserHistoryOperation::max,
+        [](MeshData<Real> *md) { return RemeshTracerError(md, "remesh_tracer_face"); },
         "remesh_tracer_face_err"));
   }
   // Now we add a couple of callback functions
@@ -556,8 +555,8 @@ Real RemeshTracerElement(MeshBlock *pmb, ParArrayND<Real, VariableState> q, bool
         const Real y = coords.X<X2DIR, TE>(k, j, i);
         const Real z = coords.X<X3DIR, TE>(k, j, i);
         if (std::abs(x) < 0.4 && std::abs(y) < 0.4) {
-          lerr = std::max(lerr, std::abs(q(te, 0, 0, 0, k, j, i) -
-                                         RemeshTracerProfile(x, y, z)));
+          lerr = std::max(
+              lerr, std::abs(q(te, 0, 0, 0, k, j, i) - RemeshTracerProfile(x, y, z)));
         }
       },
       Kokkos::Max<Real>(err));
@@ -568,9 +567,12 @@ Real RemeshTracer(MeshBlock *pmb, const std::string &label, bool fill) {
   auto var = pmb->meshblock_data.Get()->GetVarPtr(label);
   Real err = 0.0;
   for (auto te : var->GetTopologicalElements()) {
-    if (te == TE::CC) err = std::max(err, RemeshTracerElement<TE::CC>(pmb, var->data, fill));
-    if (te == TE::F1) err = std::max(err, RemeshTracerElement<TE::F1>(pmb, var->data, fill));
-    if (te == TE::F2) err = std::max(err, RemeshTracerElement<TE::F2>(pmb, var->data, fill));
+    if (te == TE::CC)
+      err = std::max(err, RemeshTracerElement<TE::CC>(pmb, var->data, fill));
+    if (te == TE::F1)
+      err = std::max(err, RemeshTracerElement<TE::F1>(pmb, var->data, fill));
+    if (te == TE::F2)
+      err = std::max(err, RemeshTracerElement<TE::F2>(pmb, var->data, fill));
     if (te == TE::F3 && pmb->pmy_mesh->ndim > 2)
       err = std::max(err, RemeshTracerElement<TE::F3>(pmb, var->data, fill));
   }
@@ -586,7 +588,8 @@ void InitRemeshTracers(MeshBlock *pmb) {
 Real RemeshTracerError(MeshData<Real> *md, const std::string &label) {
   Real err = 0.0;
   for (int b = 0; b < md->NumBlocks(); ++b)
-    err = std::max(err, RemeshTracer(md->GetBlockData(b)->GetBlockPointer(), label, false));
+    err =
+        std::max(err, RemeshTracer(md->GetBlockData(b)->GetBlockPointer(), label, false));
   return err;
 }
 

@@ -45,8 +45,8 @@
 #include "bvals/comms/coalesced_buffers.hpp"
 #include "defs.hpp"
 #include "globals.hpp"
-#include "interface/update.hpp"
 #include "interface/mesh_data.hpp"
+#include "interface/update.hpp"
 #include "mesh/forest/block_ownership.hpp"
 #include "mesh/mesh.hpp"
 #include "mesh/mesh_neighbors.hpp"
@@ -116,7 +116,8 @@ std::vector<std::string> GetNonFillGhostRemeshedVariables(StateDescriptor *pkg,
                                                           bool only_non_cell = false) {
   std::vector<std::string> names;
   for (const auto &[vid, m] : pkg->AllFields()) {
-    const bool remeshed = m.IsSet(Metadata::Independent) || m.IsSet(Metadata::FillGhost) ||
+    const bool remeshed = m.IsSet(Metadata::Independent) ||
+                          m.IsSet(Metadata::FillGhost) ||
                           m.IsSet(Metadata::ForceRemeshComm);
     if (!remeshed || m.IsSet(Metadata::FillGhost)) continue;
     if (only_non_cell &&
@@ -129,11 +130,13 @@ std::vector<std::string> GetNonFillGhostRemeshedVariables(StateDescriptor *pkg,
 
 // Gids of the blocks in the other mesh (described by gid_of) that overlap loc. For a
 // one-level remesh this is the same location, its parent, or all of its daughters.
-std::vector<int> GetOverlappingGids(const LogicalLocation &loc,
-                                    const std::unordered_map<LogicalLocation, int> &gid_of,
-                                    int ndim) {
-  if (auto it = gid_of.find(loc); it != gid_of.end()) return {it->second};
-  if (auto it = gid_of.find(loc.GetParent()); it != gid_of.end()) return {it->second};
+std::vector<int>
+GetOverlappingGids(const LogicalLocation &loc,
+                   const std::unordered_map<LogicalLocation, int> &gid_of, int ndim) {
+  auto same = gid_of.find(loc);
+  if (same != gid_of.end()) return std::vector<int>{same->second};
+  auto parent = gid_of.find(loc.GetParent());
+  if (parent != gid_of.end()) return std::vector<int>{parent->second};
   std::vector<int> gids;
   for (const auto &d : loc.GetDaughters(ndim)) {
     auto it = gid_of.find(d);
@@ -274,7 +277,6 @@ void Mesh::ExchangeRemeshCounters_(const BlockList_t &old_blocks, int onbs,
   }
 #endif
 }
-
 
 //----------------------------------------------------------------------------------------
 // \!fn void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin)
@@ -733,8 +735,8 @@ void Mesh::RedistributeAndRefineMeshBlocks(ParameterInput *pin, ApplicationInput
     tag_map.ResolveMap();
     BuildRemeshBoundaryBuffers(md_old, md_new);
     ExchangeCoalescedBufferInfo(this);
-    ExchangeBoundaryBuffers<BoundaryType::remesh_send, BoundaryType::remesh_recv>(
-        md_old, md_new);
+    ExchangeBoundaryBuffers<BoundaryType::remesh_send, BoundaryType::remesh_recv>(md_old,
+                                                                                  md_new);
     ExchangeRemeshCounters_(block_list, onbs, new_block_list, nbs, oldtonew, newtoold,
                             newloc, newrank);
     Kokkos::fence();

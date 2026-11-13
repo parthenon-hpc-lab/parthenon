@@ -88,8 +88,11 @@ TaskStatus SendBoundBufsWithRestrictOption(std::shared_ptr<MeshData<Real>> &md,
   }
 
   if (rebuild) {
-    if constexpr (bound_type == BoundaryType::gmg_restrict_send ||
-                  bound_type == BoundaryType::remesh_send) {
+    if constexpr (bound_type == BoundaryType::gmg_restrict_send) {
+      RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
+                                           ProResInfo::GetInteriorRestrict);
+    } else if constexpr (bound_type == BoundaryType::remesh_send) {
+      // Restrict old blocks into their coarse buffers where the new block is coarser
       RebuildBufferCache<bound_type, true>(md, nbound, BndInfo::GetSendBndInfo,
                                            ProResInfo::GetInteriorRestrict);
     } else if constexpr (bound_type == BoundaryType::gmg_prolongate_send) {
@@ -346,8 +349,12 @@ TaskStatus SetBounds(std::shared_ptr<MeshData<Real>> &md) {
     if constexpr (bound_type == BoundaryType::gmg_prolongate_recv) {
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
                                             ProResInfo::GetInteriorProlongate);
-    } else if constexpr (bound_type == BoundaryType::gmg_restrict_recv ||
-                         bound_type == BoundaryType::remesh_recv) {
+    } else if constexpr (bound_type == BoundaryType::gmg_restrict_recv) {
+      RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
+                                            ProResInfo::GetNull);
+    } else if constexpr (bound_type == BoundaryType::remesh_recv) {
+      // Prolongation onto newly refined blocks happens after all remesh data has
+      // arrived, so nothing is prolongated or restricted when setting
       RebuildBufferCache<bound_type, false>(md, nbound, BndInfo::GetSetBndInfo,
                                             ProResInfo::GetNull);
     } else {
