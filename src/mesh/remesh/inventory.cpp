@@ -246,6 +246,20 @@ InventoryPlan PlanInventory(const Mesh &mesh, const TopologyPlan &topology) {
 
   const std::size_t old_count = topology.successors.size();
   const std::size_t field_count = plan.field_schema.size();
+  std::vector<std::size_t> variable_indices(field_count);
+  if (!mesh.block_list.empty()) {
+    const auto &variables = mesh.block_list.front()->meshblock_data.Get()->GetVariableVector();
+    for (std::size_t field = 0; field < field_count; ++field) {
+      const auto &label = plan.field_schema[field].id.label();
+      const auto variable = std::find_if(
+          variables.begin(), variables.end(), [&](const auto &candidate) {
+            return candidate->label() == label;
+          });
+      PARTHENON_REQUIRE(variable != variables.end(),
+                        "Remesh inventory field is absent from source block");
+      variable_indices[field] = std::distance(variables.begin(), variable);
+    }
+  }
   std::vector<int> allocated(old_count * field_count, 0);
   std::vector<int> alloc_count(old_count * field_count, 0);
   std::vector<int> dealloc_count(old_count * field_count, 0);
@@ -253,8 +267,9 @@ InventoryPlan PlanInventory(const Mesh &mesh, const TopologyPlan &topology) {
   for (const auto &block : mesh.block_list) {
     derefinement_count[block->gid] = block->pmr->DerefinementCount();
     const auto data = block->meshblock_data.Get();
+    const auto &variables = data->GetVariableVector();
     for (std::size_t field = 0; field < field_count; ++field) {
-      const auto variable = data->GetVarPtr(plan.field_schema[field].id.label());
+      const auto &variable = variables[variable_indices[field]];
       const auto offset = block->gid * field_count + field;
       allocated[offset] = variable->IsAllocated();
       alloc_count[offset] = variable->GetAllocationStatus();
@@ -262,18 +277,59 @@ InventoryPlan PlanInventory(const Mesh &mesh, const TopologyPlan &topology) {
     }
   }
 #ifdef MPI_PARALLEL
-  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, allocated.data(),
-                                    CheckedMpiCount(allocated.size()), MPI_INT, MPI_MAX,
+  const auto record_size = CheckedMpiCount(1 + 3 * field_count);
+  std::vector<int> local_state(mesh.block_list.size() * record_size);
+  for (std::size_t local_id = 0; local_id < mesh.block_list.size(); ++local_id) {
+    const auto gid = mesh.block_list[local_id]->gid;
+    const auto local_offset = local_id * record_size;
+    local_state[local_offset] = derefinement_count[gid];
+    for (std::size_t field = 0; field < field_count; ++field) {
+      const auto source_offset = gid * field_count + field;
+      const auto target_offset = local_offset + 1 + 3 * field;
+      local_state[target_offset] = allocated[source_offset];
+      local_state[target_offset + 1] = alloc_count[source_offset];
+      local_state[target_offset + 2] = dealloc_count[source_offset];
+    }
+  }
+
+  std::vector<int> global_state(old_count * record_size);
+  std::vector<int> receive_counts(Globals::nranks);
+  std::vector<int> displacements(Globals::nranks);
+  const auto local_block_count = CheckedMpiCount(mesh.block_list.size());
+  std::vector<int> rank_block_counts(Globals::nranks);
+  PARTHENON_MPI_CHECK(MPI_Allgather(&local_block_count, 1, MPI_INT,
+                                    rank_block_counts.data(), 1, MPI_INT,
                                     MPI_COMM_WORLD));
-  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, alloc_count.data(),
-                                    CheckedMpiCount(alloc_count.size()), MPI_INT, MPI_MAX,
-                                    MPI_COMM_WORLD));
-  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, dealloc_count.data(),
-                                    CheckedMpiCount(dealloc_count.size()), MPI_INT,
-                                    MPI_MAX, MPI_COMM_WORLD));
-  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, derefinement_count.data(),
-                                    CheckedMpiCount(derefinement_count.size()), MPI_INT,
-                                    MPI_MAX, MPI_COMM_WORLD));
+  std::size_t displacement = 0;
+  for (int rank = 0; rank < Globals::nranks; ++rank) {
+    displacements[rank] = CheckedMpiCount(displacement);
+    receive_counts[rank] = CheckedMpiCount(
+        static_cast<std::size_t>(rank_block_counts[rank]) * record_size);
+    displacement += receive_counts[rank];
+  }
+  PARTHENON_REQUIRE(displacement == global_state.size(),
+                    "Remesh inventory block counts disagree with topology");
+  const auto local_gid_begin = displacements[Globals::my_rank] / record_size;
+  for (std::size_t local_id = 0; local_id < mesh.block_list.size(); ++local_id) {
+    PARTHENON_REQUIRE(mesh.block_list[local_id]->gid == local_gid_begin + local_id,
+                      "Remesh inventory requires contiguous rank ownership");
+  }
+  PARTHENON_MPI_CHECK(MPI_Allgatherv(
+      local_state.data(), CheckedMpiCount(local_state.size()), MPI_INT,
+      global_state.data(), receive_counts.data(), displacements.data(), MPI_INT,
+      MPI_COMM_WORLD));
+
+  for (std::size_t gid = 0; gid < old_count; ++gid) {
+    const auto global_offset = gid * record_size;
+    derefinement_count[gid] = global_state[global_offset];
+    for (std::size_t field = 0; field < field_count; ++field) {
+      const auto source_offset = global_offset + 1 + 3 * field;
+      const auto target_offset = gid * field_count + field;
+      allocated[target_offset] = global_state[source_offset];
+      alloc_count[target_offset] = global_state[source_offset + 1];
+      dealloc_count[target_offset] = global_state[source_offset + 2];
+    }
+  }
 #endif
 
   std::unordered_map<std::string, std::vector<std::size_t>> fields_by_controller;
@@ -303,6 +359,7 @@ InventoryPlan PlanInventory(const Mesh &mesh, const TopologyPlan &topology) {
                               exists ? schema.layout.coarse_bytes : 0,
                               {},
                               {}});
+      block.fields.back().sources.reserve(leaf.sources.size());
       for (const auto &source : leaf.sources) {
         const auto offset = source.source.gid * field_count + field;
         block.fields.back().sources.push_back(

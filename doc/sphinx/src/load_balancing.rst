@@ -93,6 +93,9 @@ across this boundary.
 ``parthenon/mesh/remesh_max_payload_count`` bounds the number of ``Real`` values
 staged in one field-transfer wave. Records are never split internally, so the
 limit must be at least as large as the largest indivisible field payload.
+``parthenon/mesh/remesh_do_coalesced_comms`` controls aggregation of field records
+within those bounded waves independently of ordinary boundary communication
+coalescing. It defaults to ``false``.
 
 .. note::
 

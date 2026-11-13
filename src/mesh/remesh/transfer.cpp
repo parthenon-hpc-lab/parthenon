@@ -323,7 +323,6 @@ void InjectFineChild(const LogicalLocation &fine_loc,
               coarse(element_index, t, u, v, k, j, i);
         });
   }
-  Kokkos::fence();
 }
 
 template <typename SourceView>
@@ -424,6 +423,14 @@ FieldTransferPlan PlanFieldTransfers(const TopologyPlan &topology,
   for (const auto &leaf : topology.leaves) {
     const auto destination_gid = leaf.new_gid;
     const auto destination_rank = ownership.owner[destination_gid];
+    if (leaf.relation == Relation::unchanged) {
+      PARTHENON_REQUIRE_THROWS(leaf.sources.size() == 1,
+                               "Unchanged remesh leaf must have one source");
+      const auto source_gid = leaf.sources.front().source.gid;
+      PARTHENON_REQUIRE_THROWS(source_gid >= 0 && source_gid < old_ranks.size(),
+                               "Transfer source GID is invalid");
+      if (old_ranks[source_gid] == destination_rank) continue;
+    }
     const auto &block = inventory.blocks[destination_gid];
     PARTHENON_REQUIRE_THROWS(block.fields.size() == inventory.field_schema.size(),
                              "Transfer inventory has incomplete field schema");
@@ -435,9 +442,6 @@ FieldTransferPlan PlanFieldTransfers(const TopologyPlan &topology,
         PARTHENON_REQUIRE_THROWS(source_gid >= 0 && source_gid < old_ranks.size(),
                                  "Transfer source GID is invalid");
         const auto source_rank = old_ranks[source_gid];
-        if (leaf.relation == Relation::unchanged && source_rank == destination_rank)
-          continue;
-
         const auto operation = leaf.relation == Relation::unchanged
                                    ? RemeshOperation::copy
                                    : (leaf.relation == Relation::refined_child
@@ -450,7 +454,7 @@ FieldTransferPlan PlanFieldTransfers(const TopologyPlan &topology,
                                  "Field transfer payload is not Real-aligned");
         const auto &source = FindSource(leaf, source_gid);
         const auto payload_mode =
-            operation == RemeshOperation::copy && schema.metadata.IsMeshTied()
+            coalesce && operation == RemeshOperation::copy && schema.metadata.IsMeshTied()
                 ? FieldPayloadMode::interior
             : operation == RemeshOperation::fine_to_coarse && schema.metadata.IsMeshTied()
                 ? FieldPayloadMode::restricted
@@ -466,14 +470,33 @@ FieldTransferPlan PlanFieldTransfers(const TopologyPlan &topology,
                                         : full_count;
         plan.baseline_payload_count = CheckedAdd(plan.baseline_payload_count, full_count);
         plan.logical_payload_count = CheckedAdd(plan.logical_payload_count, count);
+        const auto counters =
+            operation == RemeshOperation::copy ? field.counters : source_state.counters;
+        if (!coalesce) {
+          PARTHENON_REQUIRE_THROWS(count <= max_payload_count,
+                                   "A remesh record exceeds remesh_max_payload_count");
+          FieldTransferRecord record{source_gid,
+                                     destination_gid,
+                                     source_rank,
+                                     destination_rank,
+                                     field.field,
+                                     operation,
+                                     source.child,
+                                     source_state.allocated,
+                                     counters,
+                                     0,
+                                     count};
+          record.payload_mode = payload_mode;
+          plan.batches.push_back(
+              {source_rank, destination_rank, {std::move(record)}, count});
+          continue;
+        }
         auto &batch = batches[{source_rank, destination_rank}];
         batch.source_rank = source_rank;
         batch.destination_rank = destination_rank;
-        const auto counters =
-            operation == RemeshOperation::copy ? field.counters : source_state.counters;
         auto payload_offset = batch.payload_count;
         bool add_payload = source_state.allocated;
-        if (coalesce && operation == RemeshOperation::coarse_to_fine && add_payload) {
+        if (operation == RemeshOperation::coarse_to_fine && add_payload) {
           const auto key = std::make_tuple(source_gid, destination_rank, field.field);
           const auto previous = coarse_to_fine_payloads.find(key);
           if (previous == coarse_to_fine_payloads.end()) {
@@ -498,18 +521,6 @@ FieldTransferPlan PlanFieldTransfers(const TopologyPlan &topology,
   if (coalesce) {
     for (const auto &[key, batch] : batches)
       AppendBatchWaves(batch, max_payload_count, plan.batches);
-  } else {
-    for (auto &[key, batch] : batches) {
-      for (auto &record : batch.records) {
-        PARTHENON_REQUIRE_THROWS(record.payload_count <= max_payload_count,
-                                 "A remesh record exceeds remesh_max_payload_count");
-        record.payload_offset = 0;
-        plan.batches.push_back({batch.source_rank,
-                                batch.destination_rank,
-                                {std::move(record)},
-                                record.payload_count});
-      }
-    }
   }
   for (const auto &batch : plan.batches) {
     plan.payload_count = CheckedAdd(plan.payload_count, batch.payload_count);
@@ -533,8 +544,7 @@ void ExecuteFieldTransfers(const FieldTransferPlan &plan, const InventoryPlan &i
                            Mesh *mesh) {
   PARTHENON_REQUIRE(mesh != nullptr, "Remesh field transfer requires a mesh");
 #ifdef MPI_PARALLEL
-  MPI_Comm communicator;
-  PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &communicator));
+  const auto communicator = mesh->GetRemeshMPIComm();
   constexpr int payload_tag = 0;
 #endif
 
@@ -576,6 +586,51 @@ void ExecuteFieldTransfers(const FieldTransferPlan &plan, const InventoryPlan &i
     }
 
 #ifdef MPI_PARALLEL
+    if (batch.records.size() == 1 && batch.records.front().source_allocated &&
+        batch.records.front().operation == RemeshOperation::copy &&
+        batch.records.front().payload_mode == FieldPayloadMode::full) {
+      const auto &record = batch.records.front();
+      std::vector<mpi_request_t> receive_requests;
+      if (batch.destination_rank == Globals::my_rank) {
+        auto block = FindLocalBlock(new_blocks, new_first_gid, record.destination_gid);
+        auto variable = GetField(block, inventory, record.field);
+        if (!variable->IsAllocated()) block->AllocateSparse(variable->label());
+        auto target = Flatten(variable->data);
+        PARTHENON_REQUIRE(target.size() == record.payload_count,
+                          "Direct remesh receive size disagrees with target field");
+        peer_transport::PostReceives(target.data(), record.payload_count,
+                                     batch.source_rank, payload_tag, communicator,
+                                     receive_requests);
+      }
+      std::vector<mpi_request_t> send_requests;
+      if (batch.source_rank == Globals::my_rank) {
+        auto block = FindLocalBlock(old_blocks, old_first_gid, record.source_gid);
+        auto variable = GetField(block, inventory, record.field);
+        PARTHENON_REQUIRE(variable->IsAllocated(),
+                          "Remesh manifest disagrees with source allocation");
+        auto source = Flatten(variable->data);
+        PARTHENON_REQUIRE(source.size() == record.payload_count,
+                          "Direct remesh send size disagrees with source field");
+        peer_transport::PostSends(source.data(), record.payload_count,
+                                  batch.destination_rank, payload_tag, communicator,
+                                  send_requests);
+      }
+      WaitAll(receive_requests);
+      if (batch.destination_rank == Globals::my_rank) {
+        auto block = FindLocalBlock(new_blocks, new_first_gid, record.destination_gid);
+        auto variable = GetField(block, inventory, record.field);
+        if (record.source_counters.inherited) {
+          variable->dealloc_count = record.source_counters.deallocation_count;
+          variable->RestoreAllocationStatusForRemesh(
+              record.source_counters.allocation_count);
+        }
+        block->pmr->DerefinementCount() =
+            inventory.blocks[record.destination_gid].derefinement_count;
+      }
+      WaitAll(send_requests);
+      continue;
+    }
+
     buf_pool_t<Real>::owner_t buffer;
     if (batch.payload_count > 0 && (batch.source_rank == Globals::my_rank ||
                                     batch.destination_rank == Globals::my_rank)) {
@@ -639,9 +694,6 @@ void ExecuteFieldTransfers(const FieldTransferPlan &plan, const InventoryPlan &i
 #endif
   }
 
-#ifdef MPI_PARALLEL
-  PARTHENON_MPI_CHECK(MPI_Comm_free(&communicator));
-#endif
 }
 
 } // namespace parthenon::remesh

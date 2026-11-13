@@ -16,10 +16,21 @@ std::vector<LogicalLocation> GetLeaves(const forest::Forest &forest) {
     auto tree_leaves = tree->GetSortedMeshBlockList();
     leaves.insert(leaves.end(), tree_leaves.begin(), tree_leaves.end());
   }
-  std::sort(leaves.begin(), leaves.end(), [&](const auto &left, const auto &right) {
-    return forest.GetGid(left) < forest.GetGid(right);
-  });
-  return leaves;
+  std::vector<LogicalLocation> ordered(leaves.size());
+  std::vector<bool> present(leaves.size(), false);
+  for (const auto &leaf : leaves) {
+    const auto gid = forest.GetGid(leaf);
+    PARTHENON_REQUIRE(gid >= 0 && gid < ordered.size(),
+                      "Forest leaf has an invalid resolved GID");
+    PARTHENON_REQUIRE(!present[gid], "Forest leaf GID is not unique");
+    ordered[gid] = leaf;
+    present[gid] = true;
+  }
+  PARTHENON_REQUIRE(std::all_of(present.begin(), present.end(), [](const bool value) {
+                      return value;
+                    }),
+                    "Forest leaf GIDs are not contiguous");
+  return ordered;
 }
 
 SourceContribution MakeSource(const forest::Forest &active,

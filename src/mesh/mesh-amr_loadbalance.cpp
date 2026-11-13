@@ -94,17 +94,21 @@ remesh::MemoryBudget GetRemeshMemoryBudget(ParameterInput *pin) {
 }
 
 std::vector<std::uint64_t> GatherSourceMemory(const Mesh &mesh) {
-  std::vector<std::uint64_t> source_bytes(Globals::nranks, 0);
+  std::uint64_t local_source_bytes = 0;
   for (const auto &block : mesh.block_list) {
-    PARTHENON_REQUIRE(source_bytes[Globals::my_rank] <=
-                          std::numeric_limits<std::uint64_t>::max() -
-                              block->ReportMemUsage(),
+    const auto block_bytes = block->ReportMemUsage();
+    PARTHENON_REQUIRE(local_source_bytes <=
+                          std::numeric_limits<std::uint64_t>::max() - block_bytes,
                       "Source mesh memory accounting exceeds uint64_t");
-    source_bytes[Globals::my_rank] += block->ReportMemUsage();
+    local_source_bytes += block_bytes;
   }
+  std::vector<std::uint64_t> source_bytes(Globals::nranks);
 #ifdef MPI_PARALLEL
-  PARTHENON_MPI_CHECK(MPI_Allreduce(MPI_IN_PLACE, source_bytes.data(), Globals::nranks,
-                                    MPI_UINT64_T, MPI_SUM, MPI_COMM_WORLD));
+  PARTHENON_MPI_CHECK(MPI_Allgather(&local_source_bytes, 1, MPI_UINT64_T,
+                                    source_bytes.data(), 1, MPI_UINT64_T,
+                                    MPI_COMM_WORLD));
+#else
+  source_bytes.front() = local_source_bytes;
 #endif
   return source_bytes;
 }
@@ -137,6 +141,8 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
   remesh::TopologyPlan topology;
   remesh::InventoryPlan inventory;
   remesh::PlacementPlan placement;
+  const bool has_cost_callback =
+      app_in != nullptr && static_cast<bool>(app_in->EstimateRemeshBlockCost);
 
   if (adaptive) {
     topology = PlanAdaptiveMeshTopology();
@@ -156,7 +162,7 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
         topology, inventory, costlist, GatherSourceMemory(*this), Globals::nranks,
         GetRemeshCostPolicy(pin), GetRemeshMemoryBudget(pin),
         app_in == nullptr ? nullptr : app_in->EstimateRemeshBlockCost);
-    ValidateCostsCollectively(placement.costs);
+    if (has_cost_callback) ValidateCostsCollectively(placement.costs);
     nbnew += topology.added_blocks;
     nbdel += topology.removed_blocks;
     forest = std::move(*topology.candidate);
@@ -170,7 +176,7 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
           topology, inventory, costlist, GatherSourceMemory(*this), Globals::nranks,
           GetRemeshCostPolicy(pin), GetRemeshMemoryBudget(pin),
           app_in == nullptr ? nullptr : app_in->EstimateRemeshBlockCost);
-      ValidateCostsCollectively(placement.costs);
+      if (has_cost_callback) ValidateCostsCollectively(placement.costs);
       ExecuteRemeshPlan(pin, app_in, topology, inventory, placement);
       modified = true;
     }
@@ -438,7 +444,7 @@ void Mesh::ExecuteRemeshPlan(ParameterInput *pin, ApplicationInput *app_in,
 
   const auto field_transfer =
       remesh::PlanFieldTransfers(topology, inventory, ranklist, placement.ownership,
-                                 do_coalesced_comms, remesh_max_payload_count);
+                                 remesh_do_coalesced_comms, remesh_max_payload_count);
 
   newrank = placement.ownership.owner;
   nslist = placement.ownership.rank_starts;

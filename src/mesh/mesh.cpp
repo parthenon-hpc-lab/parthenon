@@ -103,6 +103,9 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
       do_coalesced_comms{pin->GetOrAddBoolean(
           "parthenon/mesh", "do_coalesced_comms", false,
           "Use coalesced MPI messages for inter-block communication")},
+      remesh_do_coalesced_comms{pin->GetOrAddBoolean(
+          "parthenon/mesh", "remesh_do_coalesced_comms", false,
+          "Use bounded coalesced MPI messages for remesh field transfers")},
       remesh_max_payload_count{pin->GetOrAddInteger(
           "parthenon/mesh", "remesh_max_payload_count", 16 * 1024 * 1024,
           "Maximum number of Real values staged in one remesh transfer wave")},
@@ -460,6 +463,8 @@ void Mesh::BuildBlockList(ParameterInput *pin, ApplicationInput *app_in,
 Mesh::~Mesh() {
 #ifdef MPI_PARALLEL
   // Cleanup MPI comms
+  if (remesh_mpi_comm_ != MPI_COMM_NULL)
+    PARTHENON_MPI_CHECK(MPI_Comm_free(&remesh_mpi_comm_));
   for (auto &pair : mpi_comm_map_) {
     PARTHENON_MPI_CHECK(MPI_Comm_free(&(pair.second)));
   }
@@ -1098,6 +1103,7 @@ void Mesh::RegisterLoadBalancing_(ParameterInput *pin) {
 // As variables are identical across all blocks, we just use the info from the first.
 void Mesh::SetupMPIComms() {
 #ifdef MPI_PARALLEL
+  PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &remesh_mpi_comm_));
 
   for (auto &pair : resolved_packages->AllFields()) {
     auto &metadata = pair.second;

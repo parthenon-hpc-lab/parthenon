@@ -220,7 +220,14 @@ OwnershipMap PlaceBlocksContiguously(const std::vector<double> &costs,
   }
   if (!budget.host_bytes && !budget.device_bytes) {
     auto ownership = PlaceBlocksContiguously(costs, nranks);
-    return BuildOwnership(ownership.owner, costs, &footprints, nranks);
+    for (std::size_t gid = 0; gid < footprints.size(); ++gid) {
+      const auto rank = ownership.owner[gid];
+      ownership.rank_host_bytes[rank] =
+          CheckedAdd(ownership.rank_host_bytes[rank], footprints[gid].host_owned);
+      ownership.rank_device_bytes[rank] =
+          CheckedAdd(ownership.rank_device_bytes[rank], footprints[gid].device_owned);
+    }
+    return ownership;
   }
 
   const auto chunks = BuildFeasibleChunks(costs, footprints, nranks, budget);
@@ -270,22 +277,16 @@ std::vector<double> PlanRemeshCosts(const TopologyPlan &topology,
   for (const auto &leaf : topology.leaves) {
     PARTHENON_REQUIRE_THROWS(leaf.new_gid >= 0 && leaf.new_gid < inventory.blocks.size(),
                              "Invalid remesh destination GID");
-    std::vector<CostObservation> observations;
-    observations.reserve(leaf.sources.size());
-    for (const auto &source : leaf.sources) {
-      PARTHENON_REQUIRE_THROWS(source.source.gid >= 0 &&
-                                   source.source.gid < old_costs.size(),
-                               "Invalid remesh source GID");
-      observations.push_back({source.source, old_costs[source.source.gid], 1.0});
-    }
-
     double cost = 0.0;
     if (policy == CostPolicy::inherit) {
       double weighted_cost = 0.0;
       double total_weight = 0.0;
-      for (const auto &observation : observations) {
-        weighted_cost += observation.cost * observation.volume_weight;
-        total_weight += observation.volume_weight;
+      for (const auto &source : leaf.sources) {
+        PARTHENON_REQUIRE_THROWS(source.source.gid >= 0 &&
+                                     source.source.gid < old_costs.size(),
+                                 "Invalid remesh source GID");
+        weighted_cost += old_costs[source.source.gid];
+        total_weight += 1.0;
       }
       PARTHENON_REQUIRE_THROWS(total_weight > 0.0, "Remesh leaf has no source cost");
       cost = weighted_cost / total_weight;
@@ -298,6 +299,14 @@ std::vector<double> PlanRemeshCosts(const TopologyPlan &topology,
                                    static_cast<double>(sizeof(Real)) +
                                static_cast<double>(particles));
     } else {
+      std::vector<CostObservation> observations;
+      observations.reserve(leaf.sources.size());
+      for (const auto &source : leaf.sources) {
+        PARTHENON_REQUIRE_THROWS(source.source.gid >= 0 &&
+                                     source.source.gid < old_costs.size(),
+                                 "Invalid remesh source GID");
+        observations.push_back({source.source, old_costs[source.source.gid], 1.0});
+      }
       cost = application_cost({leaf, inventory.blocks[leaf.new_gid], observations}).value;
     }
     PARTHENON_REQUIRE_THROWS(

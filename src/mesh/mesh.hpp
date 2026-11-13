@@ -172,6 +172,7 @@ class Mesh {
   int task_collection_timeout_in_seconds;
 
   const bool do_coalesced_comms;
+  const bool remesh_do_coalesced_comms;
   const int remesh_max_payload_count;
 
   BlockList_t block_list;
@@ -392,6 +393,7 @@ class Mesh {
 
 #ifdef MPI_PARALLEL
   MPI_Comm GetMPIComm(const std::string &label) const { return mpi_comm_map_.at(label); }
+  MPI_Comm GetRemeshMPIComm() const { return remesh_mpi_comm_; }
 #endif
 
   void SetAllVariablesToInitialized() {
@@ -480,6 +482,7 @@ class Mesh {
 #ifdef MPI_PARALLEL
   // Global map of MPI comms for separate variables
   std::unordered_map<std::string, MPI_Comm> mpi_comm_map_;
+  MPI_Comm remesh_mpi_comm_{MPI_COMM_NULL};
 #endif
 
   void SetBCNames_(ParameterInput *pin);
