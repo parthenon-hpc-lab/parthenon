@@ -218,6 +218,8 @@ add_library(parthenon
   mesh/mesh_refinement.hpp
   mesh/index_shape.hpp
   mesh/remesh/remesh_plan.hpp
+  mesh/remesh/inventory.hpp
+  mesh/remesh/inventory.cpp
   mesh/remesh/topology.hpp
   mesh/remesh/topology.cpp
   mesh/remesh/placement.hpp

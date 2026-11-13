@@ -28,6 +28,8 @@
 #include "interface/state_descriptor.hpp"
 #include "interface/swarm.hpp"
 #include "mesh/mesh.hpp"
+#include "mesh/remesh/inventory.hpp"
+#include "mesh/remesh/topology.hpp"
 #include "mesh/swarm_amr_remesh.hpp"
 #include "pack/default_names.hpp"
 
@@ -182,6 +184,18 @@ TEST_CASE("Swarm particles remesh onto refined blocks", "[swarm][amr][MPI]") {
   AddParticles(GetSwarm(coarse_mesh->block_list.front()),
                {{0.25, 0.25}, {0.75, 0.25}, {0.25, 0.75}, {0.75, 0.75}});
 
+  const std::vector<parthenon::remesh::TaggedLeaf> tags{
+      {{{coarse_mesh->block_list.front()->loc}}, parthenon::AmrTag::refine}};
+  auto topology = parthenon::remesh::PlanTopology(coarse_mesh->forest, tags,
+                                                  std::vector<int>{0}, coarse_mesh->ndim);
+  auto inventory = parthenon::remesh::PlanInventory(*coarse_mesh, topology);
+  REQUIRE(inventory.blocks.size() == 4);
+  for (const auto &block : inventory.blocks) {
+    REQUIRE(block.swarms.size() == 1);
+    REQUIRE(block.swarms.front().active_count == 1);
+    REQUIRE(block.swarms.front().capacity == kPoolSize);
+  }
+
   const auto old_locs = coarse_mesh->GetLocList();
   const auto new_locs = refined_mesh->GetLocList();
   const std::vector<int> old_to_new = {0};
@@ -191,7 +205,7 @@ TEST_CASE("Swarm particles remesh onto refined blocks", "[swarm][amr][MPI]") {
                                    new_ranks);
 
   parthenon::RemeshSwarms(refined_mesh->resolved_packages, coarse_mesh->block_list,
-                          refined_mesh.get(), context);
+                          refined_mesh.get(), context, &inventory.local_swarm_routes);
 
   const std::map<LogicalLocation, std::array<Real, 2>> expected = {
       {LogicalLocation(0, 1, 0, 0, 0), {0.25, 0.25}},
@@ -227,6 +241,17 @@ TEST_CASE("Swarm particles remesh onto derefined blocks", "[swarm][amr][MPI]") {
   AddParticles(GetSwarm(FindBlock(refined_mesh, LogicalLocation(0, 1, 1, 1, 0))),
                {{0.75, 0.75}});
 
+  std::vector<parthenon::remesh::TaggedLeaf> tags;
+  for (const auto &block : refined_mesh->block_list) {
+    tags.push_back({{block->loc}, parthenon::AmrTag::derefine});
+  }
+  auto topology = parthenon::remesh::PlanTopology(
+      refined_mesh->forest, tags, std::vector<int>(4, 0), refined_mesh->ndim);
+  auto inventory = parthenon::remesh::PlanInventory(*refined_mesh, topology);
+  REQUIRE(inventory.blocks.size() == 1);
+  REQUIRE(inventory.blocks.front().swarms.front().active_count == 4);
+  REQUIRE(inventory.blocks.front().swarms.front().capacity == kPoolSize);
+
   const auto old_locs = refined_mesh->GetLocList();
   const auto new_locs = coarse_mesh->GetLocList();
   const std::vector<int> old_to_new(old_locs.size(), 0);
@@ -236,7 +261,7 @@ TEST_CASE("Swarm particles remesh onto derefined blocks", "[swarm][amr][MPI]") {
                                    old_ranks, new_ranks);
 
   parthenon::RemeshSwarms(coarse_mesh->resolved_packages, refined_mesh->block_list,
-                          coarse_mesh.get(), context);
+                          coarse_mesh.get(), context, &inventory.local_swarm_routes);
 
   REQUIRE(GetParticles(GetSwarm(coarse_mesh->block_list.front())) ==
           std::vector<std::array<Real, 2>>{

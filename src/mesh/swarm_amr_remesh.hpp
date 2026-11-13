@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "mesh/mesh.hpp"
+#include "mesh/remesh/remesh_plan.hpp"
 
 namespace parthenon {
 
@@ -57,9 +58,14 @@ struct SwarmRemeshContext {
   const std::vector<int> &new_ranks;
 };
 
+std::vector<remesh::ParticleRoute>
+ClassifySwarmParticlesForRemesh(const std::shared_ptr<Swarm> &swarm, const Mesh *pmesh,
+                                const remesh::TopologyPlan &topology, int old_gid);
+
 void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
                   const BlockList_t &old_block_list, Mesh *pmesh,
-                  const SwarmRemeshContext &context);
+                  const SwarmRemeshContext &context,
+                  const std::vector<remesh::LocalSwarmRoutes> *routes = nullptr);
 
 void ClearSwarmCachesAfterRemesh(Mesh *pmesh, const BlockList_t &block_list);
 

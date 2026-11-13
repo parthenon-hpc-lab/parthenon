@@ -20,6 +20,7 @@
 /// A swarm contains all particles of a particular species
 /// Date: August 21, 2019
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <list>
@@ -185,6 +186,9 @@ class Swarm {
   /// Get number of active particles
   int GetNumActive() const { return num_active_; }
 
+  /// Get the number of particle slots currently reserved
+  std::size_t GetPoolMax() const { return nmax_pool_; }
+
   /// Get mask variable
   auto GetMask() const { return mask_; }
 
@@ -259,6 +263,7 @@ class Swarm {
     for (const auto &var : vars) {
       names.push_back(var->label());
     }
+    std::sort(names.begin(), names.end());
     return names;
   }
 
