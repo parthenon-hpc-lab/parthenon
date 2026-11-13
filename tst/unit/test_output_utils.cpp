@@ -93,8 +93,7 @@ TEST_CASE("The VarInfo object produces appropriate ranges", "[VarInfo][OutputUti
                                                 vector_face, scalar_edge};
 
     auto pmb = std::make_shared<MeshBlock>(NSIDE, NDIM);
-    auto pmbd = pmb->meshblock_data.Get();
-    pmbd->Initialize(pkg, pmb);
+    auto pmbd = pmb->meshblock_data.Add("base", pkg, pmb);
 
     IndexShape cellbounds = pmb->cellbounds;
     IndexShape f_cellbounds = pmb->f_cellbounds;
@@ -298,8 +297,7 @@ TEST_CASE("Sparse labeled components use base-name output labels",
   pkg->AddField("density", dense_scalar_md);
 
   auto pmb = std::make_shared<MeshBlock>(8, 3);
-  auto pmbd = pmb->meshblock_data.Get();
-  pmbd->Initialize(pkg, pmb);
+  auto pmbd = pmb->meshblock_data.Add("base", pkg, pmb);
 
   auto sparse_scalar = VarInfo(pmbd->GetVarPtr("shape_shift_1"), pmb->cellbounds);
   REQUIRE(sparse_scalar.label == "shape_shift_1");
@@ -323,8 +321,7 @@ TEST_CASE("Duplicate output component names fail metadata generation",
                      std::vector<std::string>{"scalar", "scalar"});
 
   auto pmb = std::make_shared<MeshBlock>(8, 3);
-  auto pmbd = pmb->meshblock_data.Get();
-  pmbd->Initialize(pkg, pmb);
+  auto pmbd = pmb->meshblock_data.Add("base", pkg, pmb);
 
   auto vars = parthenon::GetAnyVariables(pmbd->GetVariableVector(),
                                          {parthenon::Metadata::Independent});

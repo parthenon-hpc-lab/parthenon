@@ -57,8 +57,7 @@ BlockList_t MakeBlockList(const std::shared_ptr<StateDescriptor> pkg, const int 
   block_list.reserve(NBLOCKS);
   for (int i = 0; i < NBLOCKS; ++i) {
     auto pmb = std::make_shared<MeshBlock>(NSIDE, NDIM);
-    auto &pmbd = pmb->meshblock_data.Get();
-    pmbd->Initialize(pkg, pmb);
+    auto &pmbd = pmb->meshblock_data.Add("base", pkg, pmb);
     block_list.push_back(pmb);
   }
   return block_list;
@@ -340,8 +339,7 @@ void RunPackViewCase(const PackViewSpec &spec, const int ninner, const bool kji_
 
   // Build the relevant block list
   BlockList_t block_list = MakeBlockList(pkg, spec.nblocks, spec.ncell, 3);
-  MeshData<Real> mesh_data("base");
-  mesh_data.Initialize(block_list, nullptr);
+  MeshData<Real> mesh_data("base", block_list, nullptr);
 
   std::vector<std::string> var_names{v1::name(), v2::name(), v5::name()};
   // Initialize the fields
@@ -423,8 +421,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
     pkg->AddField<v7>(m_tensor);
     BlockList_t block_list = MakeBlockList(pkg, NBLOCKS, N, NDIM);
 
-    MeshData<Real> mesh_data("base");
-    mesh_data.Initialize(block_list, nullptr);
+    MeshData<Real> mesh_data("base", block_list, nullptr);
 
     WHEN("We initialize the independent variables by hand and deallocate one") {
       auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
@@ -491,8 +488,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
     pkg->AddField(v5::name(), m);
     BlockList_t block_list = MakeBlockList(pkg, NBLOCKS, N, NDIM);
 
-    MeshData<Real> mesh_data("base");
-    mesh_data.Initialize(block_list, nullptr);
+    MeshData<Real> mesh_data("base", block_list, nullptr);
 
     WHEN("We initialize the independent variables by hand and deallocate one") {
       auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
@@ -928,8 +924,7 @@ TEST_CASE("Test behavior of sparse packs", "[SparsePack]") {
     pkg->AddField(v3::name(), m_vector);
     BlockList_t block_list = MakeBlockList(pkg, NBLOCKS, N, NDIM);
 
-    MeshData<Real> mesh_data("base");
-    mesh_data.Initialize(block_list, nullptr);
+    MeshData<Real> mesh_data("base", block_list, nullptr);
     auto ib = block_list[0]->cellbounds.GetBoundsI(IndexDomain::entire);
     auto jb = block_list[0]->cellbounds.GetBoundsJ(IndexDomain::entire);
     auto kb = block_list[0]->cellbounds.GetBoundsK(IndexDomain::entire);
