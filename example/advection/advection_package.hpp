@@ -14,6 +14,7 @@
 #define EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include <parthenon/package.hpp>
@@ -33,6 +34,8 @@ template <typename T>
 Real AdvectionHst(MeshData<Real> *md);
 template <typename T>
 std::vector<Real> AdvectionVecHst(MeshData<Real> *md);
+void InitRemeshTracers(MeshBlock *pmb);
+Real RemeshTracerError(MeshData<Real> *md, const std::string &label);
 } // namespace advection_package
 
 #endif // EXAMPLE_ADVECTION_ADVECTION_PACKAGE_HPP_

@@ -148,6 +148,13 @@ TaskStatus BuildGMGBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus RegisterCoalescedComms(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus RegisterCoalescedCommsGMG(std::shared_ptr<MeshData<Real>> &md);
 TaskStatus RegisterCoalescedComms(Mesh *pmesh);
+// Build communication buffers (and coalesced comms, if enabled) for the channels between
+// the pre-remesh blocks in md_old and the post-remesh blocks in md_new, as described by
+// the blocks' remesh neighbor lists
+TaskStatus BuildRemeshBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md_old,
+                                      std::shared_ptr<MeshData<Real>> &md_new);
+// Build halo communication buffers for remeshed variables that are not FillGhost
+TaskStatus BuildRemeshHaloBuffers(std::shared_ptr<MeshData<Real>> &md);
 } // namespace parthenon
 
 #endif // BVALS_COMMS_BVALS_IN_ONE_HPP_

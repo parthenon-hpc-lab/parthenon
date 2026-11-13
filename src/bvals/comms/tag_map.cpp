@@ -57,6 +57,7 @@ void TagMap::AddMeshDataToMap(std::shared_ptr<MeshData<Real>> &md,
         return pmb->GetGMGFinerNeighbors();
       if constexpr (BOUND == BoundaryType::gmg_prolongate_recv)
         return pmb->GetGMGCoarserNeighbors();
+      if constexpr (IsRemeshTransfer(BOUND)) return pmb->GetRemeshNeighbors();
       if constexpr (BOUND == BoundaryType::gmg_same) {
         if (md->grid.type() == GridType::leaf) return pmb->GetNeighbors();
         return pmb->loc.level() == md->grid.logical_level()
@@ -88,6 +89,15 @@ template void TagMap::AddMeshDataToMap<BoundaryType::gmg_prolongate_recv>(
     std::shared_ptr<MeshData<Real>> &md, int);
 template void TagMap::AddMeshDataToMap<BoundaryType::gmg_restrict_recv>(
     std::shared_ptr<MeshData<Real>> &md, int);
+template void
+TagMap::AddMeshDataToMap<BoundaryType::remesh_send>(std::shared_ptr<MeshData<Real>> &md,
+                                                    int);
+template void
+TagMap::AddMeshDataToMap<BoundaryType::remesh_recv>(std::shared_ptr<MeshData<Real>> &md,
+                                                    int);
+template void
+TagMap::AddMeshDataToMap<BoundaryType::remesh_halo>(std::shared_ptr<MeshData<Real>> &md,
+                                                    int);
 
 void TagMap::ResolveMap() {
 #ifdef MPI_PARALLEL

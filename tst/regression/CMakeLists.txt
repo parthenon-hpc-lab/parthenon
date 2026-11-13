@@ -129,6 +129,12 @@ if (ENABLE_HDF5)
     --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/advection_outflow/parthinput.advection_outflow")
   list(APPEND EXTRA_TEST_LABELS "")
 
+  list(APPEND TEST_DIRS remesh_nonfillghost)
+  list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
+  list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
+    --driver_input ${CMAKE_CURRENT_SOURCE_DIR}/test_suites/remesh_nonfillghost/parthinput.remesh_nonfillghost")
+  list(APPEND EXTRA_TEST_LABELS "")
+
   list(APPEND TEST_DIRS advection_undersubscribed)
   list(APPEND TEST_PROCS ${NUM_MPI_PROC_TESTING})
   list(APPEND TEST_ARGS "--driver ${PROJECT_BINARY_DIR}/example/advection/advection-example \
