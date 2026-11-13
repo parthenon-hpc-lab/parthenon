@@ -634,6 +634,7 @@ void ExecuteFieldTransfers(const FieldTransferPlan &plan, const InventoryPlan &i
     WaitAll(receive_requests);
     if (batch.destination_rank == Globals::my_rank) {
       ApplyBatch(batch, buffer, inventory, new_blocks, new_first_gid);
+      Kokkos::fence();
     }
     WaitAll(send_requests);
 #else
