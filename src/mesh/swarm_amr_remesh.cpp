@@ -34,6 +34,7 @@
 #include "utils/byte_utils.hpp"
 #include "utils/error_checking.hpp"
 #include "utils/mpi_types.hpp"
+#include "utils/peer_transport.hpp"
 
 namespace parthenon {
 
@@ -609,16 +610,12 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
     // sent too, because the topology can say "communication is possible" even when this
     // particular swarm instance has no particles taking that path.
     for (const int rank : neighbors.recv_ranks) {
-      MPI_Request req;
-      PARTHENON_MPI_CHECK(
-          MPI_Irecv(&recv_counts[rank], 1, MPI_INT, rank, count_tag, swarm_comm, &req));
-      count_recv_reqs.push_back(req);
+      peer_transport::PostReceives(&recv_counts[rank], 1, rank, count_tag, swarm_comm,
+                                   count_recv_reqs);
     }
     for (const int rank : neighbors.send_ranks) {
-      MPI_Request req;
-      PARTHENON_MPI_CHECK(
-          MPI_Isend(&send_counts[rank], 1, MPI_INT, rank, count_tag, swarm_comm, &req));
-      count_send_reqs.push_back(req);
+      peer_transport::PostSends(&send_counts[rank], 1, rank, count_tag, swarm_comm,
+                                count_send_reqs);
     }
 
     WaitAll(count_recv_reqs);
@@ -663,19 +660,15 @@ void RemeshSwarms(const std::shared_ptr<StateDescriptor> &resolved_packages,
     // resident, so GPU-aware MPI can still move particle data directly device-to-device.
     for (const int rank : neighbors.recv_ranks) {
       if (recv_counts[rank] == 0) continue;
-      MPI_Request req;
-      PARTHENON_MPI_CHECK(MPI_Irecv(recv_buffer.data() + recv_offsets[rank],
-                                    recv_counts[rank], MPI_BYTE, rank, payload_tag,
-                                    swarm_comm, &req));
-      payload_recv_reqs.push_back(req);
+      peer_transport::PostReceives(recv_buffer.data() + recv_offsets[rank],
+                                   recv_counts[rank], rank, payload_tag, swarm_comm,
+                                   payload_recv_reqs);
     }
     for (const int rank : neighbors.send_ranks) {
       if (send_counts[rank] == 0) continue;
-      MPI_Request req;
-      PARTHENON_MPI_CHECK(MPI_Isend(send_buffer.data() + send_offsets[rank],
-                                    send_counts[rank], MPI_BYTE, rank, payload_tag,
-                                    swarm_comm, &req));
-      payload_send_reqs.push_back(req);
+      peer_transport::PostSends(send_buffer.data() + send_offsets[rank],
+                                send_counts[rank], rank, payload_tag, swarm_comm,
+                                payload_send_reqs);
     }
 
     WaitAll(payload_recv_reqs);
