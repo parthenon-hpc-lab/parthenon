@@ -1,5 +1,5 @@
 //========================================================================================
-// (C) (or copyright) 2024. Triad National Security, LLC. All rights reserved.
+// (C) (or copyright) 2024-2026. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
 // Alamos National Laboratory (LANL), which is operated by Triad National Security, LLC
@@ -10,6 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+
+// This file was made in part with generative AI.
+
 #include <cstdio>
 #include <map>
 #include <memory>
@@ -32,19 +35,29 @@
 
 namespace parthenon {
 
+namespace {
+// All comm lanes of a sender BoundaryType share a communicator, so combine the partition
+// tag and the lane into a unique MPI tag for the data message (the sparse status message
+// uses this tag + 1)
+int CoalescedDataTag(Mesh *pmesh, BoundaryType b_type, int partition_tag, int lane) {
+  const int nlanes = pmesh->GetNumberOfCommLanes(GetAssociatedSender(b_type));
+  return 2 * (nlanes * partition_tag + lane);
+}
+} // namespace
+
 //----------------------------------------------------------------------------------------
-CoalescedBuffer::CoalescedBuffer(bool sender, int partition, int other_rank,
+CoalescedBuffer::CoalescedBuffer(bool sender, int partition_tag, int lane, int other_rank,
                                  BoundaryType b_type, mpi_comm_t comm, Mesh *pmesh)
-    : sender(sender), partition(partition), other_rank(other_rank), b_type(b_type),
-      comm(comm), pmesh(pmesh), current_size(0),
+    : sender(sender), partition_tag(partition_tag), lane(lane), other_rank(other_rank),
+      b_type(b_type), comm(comm), pmesh(pmesh), current_size(0),
       coalesced_comm_buffer(
-          2 * partition, sender ? Globals::my_rank : other_rank,
-          sender ? other_rank : Globals::my_rank, comm,
-          [](int size) { return buf_t("Combined Buffer", 2 * size); }, true),
+          CoalescedDataTag(pmesh, b_type, partition_tag, lane),
+          sender ? Globals::my_rank : other_rank, sender ? other_rank : Globals::my_rank,
+          comm, [](int size) { return buf_t("Combined Buffer", 2 * size); }, true),
       sparse_status_buffer(
-          2 * partition + 1, sender ? Globals::my_rank : other_rank,
-          sender ? other_rank : Globals::my_rank, comm,
-          [](int size) { return std::vector<int>(size); }, true) {}
+          CoalescedDataTag(pmesh, b_type, partition_tag, lane) + 1,
+          sender ? Globals::my_rank : other_rank, sender ? other_rank : Globals::my_rank,
+          comm, [](int size) { return std::vector<int>(size); }, true) {}
 
 //----------------------------------------------------------------------------------------
 ParArray1DRaw<BndId> &CoalescedBuffer::GetBndIdsOnDevice(const std::set<Uid_t> &vars,
@@ -253,19 +266,21 @@ void CoalescedBuffer::AddVarBoundary(MeshBlock *pmb, const NeighborBlock &nb,
                                      const std::shared_ptr<Variable<Real>> &var) {
   // Store both the variable-boundary buffer information and a pointer to the v-b buffer
   // itself associated with var ids
-  BndId bnd_id = BndId::GetSend(pmb, nb, var, b_type, partition, -1);
+  BndId bnd_id = BndId::GetSend(pmb, nb, var, b_type, partition_tag, -1, lane);
   AddVarBoundary(bnd_id);
 }
 
 //----------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------
-CoalescedBuffersRank::CoalescedBuffersRank(int o_rank, BoundaryType b_type, bool send,
-                                           mpi_comm_t comm, Mesh *pmesh)
-    : other_rank(o_rank), b_type(b_type), sender(send), buffers_built(false), comm(comm),
-      pmesh(pmesh) {
+CoalescedBuffersRank::CoalescedBuffersRank(int o_rank, BoundaryType b_type, int lane,
+                                           bool send, mpi_comm_t comm, Mesh *pmesh)
+    : other_rank(o_rank), b_type(b_type), lane(lane), sender(send), buffers_built(false),
+      comm(comm), pmesh(pmesh) {
 
-  int tag = static_cast<int>(GetAssociatedSender(b_type));
+  // There is a separate communicator for each sender BoundaryType, so the comm lane is
+  // sufficient to make the info message tag unique
+  int tag = lane;
   if (sender) {
     message = com_buf_t(tag, Globals::my_rank, other_rank, comm,
                         [](int size) { return std::vector<int>(size); });
@@ -278,15 +293,15 @@ CoalescedBuffersRank::CoalescedBuffersRank(int o_rank, BoundaryType b_type, bool
 }
 
 //----------------------------------------------------------------------------------------
-void CoalescedBuffersRank::AddSendBuffer(int partition, MeshBlock *pmb,
+void CoalescedBuffersRank::AddSendBuffer(int partition_tag, MeshBlock *pmb,
                                          const NeighborBlock &nb,
                                          const std::shared_ptr<Variable<Real>> &var) {
-  if (coalesced_bufs.count(partition) == 0)
-    coalesced_bufs.emplace(
-        std::make_pair(partition, CoalescedBuffer(true, partition, other_rank, b_type,
-                                                  comm, pmb->pmy_mesh)));
+  if (coalesced_bufs.count(partition_tag) == 0)
+    coalesced_bufs.emplace(std::make_pair(
+        partition_tag, CoalescedBuffer(true, partition_tag, lane, other_rank, b_type,
+                                       comm, pmb->pmy_mesh)));
 
-  auto &coal_buf = coalesced_bufs.at(partition);
+  auto &coal_buf = coalesced_bufs.at(partition_tag);
   coal_buf.AddVarBoundary(pmb, nb, var);
 }
 
@@ -303,14 +318,15 @@ bool CoalescedBuffersRank::TryReceiveBufInfo() {
     int idx{nglobal};
 
     for (int p = 0; p < npartitions; ++p) {
-      const int partition = mess_buf[idx++];
+      const int partition_tag = mess_buf[idx++];
       const int nbuf = mess_buf[idx++];
       const int total_size = mess_buf[idx++];
 
       // Create the new partition
       coalesced_bufs.emplace(std::make_pair(
-          partition, CoalescedBuffer(false, partition, other_rank, b_type, comm, pmesh)));
-      auto &coal_buf = coalesced_bufs.at(partition);
+          partition_tag,
+          CoalescedBuffer(false, partition_tag, lane, other_rank, b_type, comm, pmesh)));
+      auto &coal_buf = coalesced_bufs.at(partition_tag);
 
       for (int b = 0; b < nbuf; ++b) {
         BndId bnd_id(&(mess_buf[idx]));
@@ -330,7 +346,7 @@ bool CoalescedBuffersRank::TryReceiveBufInfo() {
 void CoalescedBuffersRank::ResolveAndSendBufInfo() {
   // First calculate the total size of the message
   int total_buffers{0};
-  for (auto &[partition, coalesced_buf] : coalesced_bufs)
+  for (auto &[partition_tag, coalesced_buf] : coalesced_bufs)
     total_buffers += coalesced_buf.TotalBuffers();
   std::size_t total_partitions = coalesced_bufs.size();
 
@@ -343,8 +359,8 @@ void CoalescedBuffersRank::ResolveAndSendBufInfo() {
 
   // Pack the data
   int idx{nglobal};
-  for (auto &[partition, coalesced_buf] : coalesced_bufs) {
-    mess_buf[idx++] = partition;                    // Used as the comm tag
+  for (auto &[partition_tag, coalesced_buf] : coalesced_bufs) {
+    mess_buf[idx++] = partition_tag;                // Used as the comm tag
     mess_buf[idx++] = coalesced_buf.TotalBuffers(); // Number of buffers
     mess_buf[idx++] =
         coalesced_buf.current_size; // combined size of buffers (now probably unused)
@@ -365,30 +381,28 @@ void CoalescedBuffersRank::ResolveAndSendBufInfo() {
 void CoalescedBuffersRank::PackAndSend(MeshData<Real> *pmd) {
   PARTHENON_REQUIRE(buffers_built,
                     "Trying to send combined buffers before they have been built");
-  if (coalesced_bufs.count(pmd->partition)) {
-    coalesced_bufs.at(pmd->partition).PackAndSend(pmd->GetUids());
-  } else {
-    PARTHENON_FAIL("Trying to do coalesced communication using a partition that is "
-                   "unregistered (i.e. not a default partition).");
-  }
-
-  return;
+  // A registered partition may have no boundaries shared with other_rank, in which case
+  // there is nothing to send
+  const int partition_tag = pmesh->pcoalesced_comms->GetPartitionTag(pmd);
+  if (coalesced_bufs.count(partition_tag))
+    coalesced_bufs.at(partition_tag).PackAndSend(pmd->GetUids());
 }
 
 //----------------------------------------------------------------------------------------
 bool CoalescedBuffersRank::IsAvailableForWrite(MeshData<Real> *pmd) {
   PARTHENON_REQUIRE(sender, "Shouldn't be checking this on non-sender.");
-  if (coalesced_bufs.count(pmd->partition) == 0) return true;
-  return coalesced_bufs.at(pmd->partition).IsAvailableForWrite();
+  const int partition_tag = pmesh->pcoalesced_comms->GetPartitionTag(pmd);
+  if (coalesced_bufs.count(partition_tag) == 0) return true;
+  return coalesced_bufs.at(partition_tag).IsAvailableForWrite();
 }
 
 //----------------------------------------------------------------------------------------
-bool CoalescedBuffersRank::TryReceiveAndUnpack(MeshData<Real> *pmd, int partition) {
+bool CoalescedBuffersRank::TryReceiveAndUnpack(MeshData<Real> *pmd, int partition_tag) {
   PARTHENON_REQUIRE(buffers_built,
                     "Trying to recv combined buffers before they have been built");
-  PARTHENON_REQUIRE(coalesced_bufs.count(partition) > 0,
+  PARTHENON_REQUIRE(coalesced_bufs.count(partition_tag) > 0,
                     "Trying to receive on a non-existent combined receive buffer.");
-  return coalesced_bufs.at(partition).TryReceiveAndUnpack(pmd->GetUids());
+  return coalesced_bufs.at(partition_tag).TryReceiveAndUnpack(pmd->GetUids());
 }
 
 //----------------------------------------------------------------------------------------
@@ -435,32 +449,54 @@ void CoalescedComms::clear() {
 
   coalesced_send_buffers.clear();
   coalesced_recv_buffers.clear();
+  partition_tags.clear();
 }
 
 //----------------------------------------------------------------------------------------
-void CoalescedComms::AddSendBuffer(int partition, MeshBlock *pmb, const NeighborBlock &nb,
+void CoalescedComms::RegisterPartition(const BlockListPartition *partition) {
+  if (partition_tags.count(partition) == 0) {
+    const int tag = partition_tags.size();
+    partition_tags[partition] = tag;
+  }
+}
+
+//----------------------------------------------------------------------------------------
+int CoalescedComms::GetPartitionTag(MeshData<Real> *pmd) const {
+  const auto it = partition_tags.find(pmd->partition.get());
+  if (it == partition_tags.end())
+    PARTHENON_FAIL("Trying to do coalesced communication using a partition that is "
+                   "unregistered (i.e. not a default or multigrid partition).");
+  return it->second;
+}
+
+//----------------------------------------------------------------------------------------
+void CoalescedComms::AddSendBuffer(const BlockListPartition *partition, MeshBlock *pmb,
+                                   const NeighborBlock &nb,
                                    const std::shared_ptr<Variable<Real>> &var,
-                                   BoundaryType b_type) {
-  if (coalesced_send_buffers.count({nb.rank, b_type}) == 0)
-    coalesced_send_buffers.emplace(
-        std::make_pair(std::make_pair(nb.rank, b_type),
-                       CoalescedBuffersRank(nb.rank, b_type, true,
-                                            comms[GetAssociatedSender(b_type)], pmesh)));
-  coalesced_send_buffers.at({nb.rank, b_type}).AddSendBuffer(partition, pmb, nb, var);
+                                   BoundaryType b_type, int lane) {
+  PARTHENON_REQUIRE(partition_tags.count(partition),
+                    "Partition must be registered before adding buffers.");
+  const rank_key_t key{nb.rank, b_type, lane};
+  if (coalesced_send_buffers.count(key) == 0)
+    coalesced_send_buffers.emplace(std::make_pair(
+        key, CoalescedBuffersRank(nb.rank, b_type, lane, true,
+                                  comms[GetAssociatedSender(b_type)], pmesh)));
+  coalesced_send_buffers.at(key).AddSendBuffer(partition_tags.at(partition), pmb, nb,
+                                               var);
 }
 
 //----------------------------------------------------------------------------------------
 void CoalescedComms::AddRecvBuffer(MeshBlock *pmb, const NeighborBlock &nb,
                                    const std::shared_ptr<Variable<Real>>,
-                                   BoundaryType b_type) {
+                                   BoundaryType b_type, int lane) {
   // We don't actually know enough here to register this particular buffer, but we do
   // know that it's existence implies that we need to receive a message from the
   // neighbor block rank eventually telling us the details
-  if (coalesced_recv_buffers.count({nb.rank, b_type}) == 0)
-    coalesced_recv_buffers.emplace(
-        std::make_pair(std::make_pair(nb.rank, b_type),
-                       CoalescedBuffersRank(nb.rank, b_type, false,
-                                            comms[GetAssociatedSender(b_type)], pmesh)));
+  const rank_key_t key{nb.rank, b_type, lane};
+  if (coalesced_recv_buffers.count(key) == 0)
+    coalesced_recv_buffers.emplace(std::make_pair(
+        key, CoalescedBuffersRank(nb.rank, b_type, lane, false,
+                                  comms[GetAssociatedSender(b_type)], pmesh)));
 }
 
 //----------------------------------------------------------------------------------------
@@ -488,11 +524,12 @@ void CoalescedComms::ReceiveBufferInfo() {
 
 //----------------------------------------------------------------------------------------
 bool CoalescedComms::IsAvailableForWrite(MeshData<Real> *pmd, BoundaryType b_type) {
+  const int lane = pmd->GetCommLane(b_type);
   bool available{true};
   for (int rank = 0; rank < Globals::nranks; ++rank) {
-    if (coalesced_send_buffers.count({rank, b_type})) {
-      available =
-          available && coalesced_send_buffers.at({rank, b_type}).IsAvailableForWrite(pmd);
+    const rank_key_t key{rank, b_type, lane};
+    if (coalesced_send_buffers.count(key)) {
+      available = available && coalesced_send_buffers.at(key).IsAvailableForWrite(pmd);
     }
   }
   return available;
@@ -500,9 +537,11 @@ bool CoalescedComms::IsAvailableForWrite(MeshData<Real> *pmd, BoundaryType b_typ
 
 //----------------------------------------------------------------------------------------
 void CoalescedComms::PackAndSend(MeshData<Real> *pmd, BoundaryType b_type) {
+  const int lane = pmd->GetCommLane(b_type);
   for (int rank = 0; rank < Globals::nranks; ++rank) {
-    if (coalesced_send_buffers.count({rank, b_type})) {
-      coalesced_send_buffers.at({rank, b_type}).PackAndSend(pmd);
+    const rank_key_t key{rank, b_type, lane};
+    if (coalesced_send_buffers.count(key)) {
+      coalesced_send_buffers.at(key).PackAndSend(pmd);
     }
   }
 }
@@ -510,11 +549,13 @@ void CoalescedComms::PackAndSend(MeshData<Real> *pmd, BoundaryType b_type) {
 //----------------------------------------------------------------------------------------
 bool CoalescedComms::TryReceiveAny(MeshData<Real> *pmd, BoundaryType b_type) {
 #ifdef MPI_PARALLEL
+  const int lane = pmd->GetCommLane(b_type);
   bool all_received = true;
   for (int rank = 0; rank < Globals::nranks; ++rank) {
-    if (coalesced_recv_buffers.count({rank, b_type})) {
-      auto &coal_bufs = coalesced_recv_buffers.at({rank, b_type});
-      for (auto &[partition, coal_buf] : coal_bufs.coalesced_bufs) {
+    const rank_key_t key{rank, b_type, lane};
+    if (coalesced_recv_buffers.count(key)) {
+      auto &coal_bufs = coalesced_recv_buffers.at(key);
+      for (auto &[partition_tag, coal_buf] : coal_bufs.coalesced_bufs) {
         bool received = coal_buf.TryReceiveAndUnpack(pmd->GetUids());
         all_received = all_received && received;
       }
