@@ -100,6 +100,8 @@ void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
         }
       });
 
+  if (pkg->Param<bool>("remesh_test_fields")) advection_package::InitRemeshTracers(pmb);
+
   const auto block_id = pmb->gid;
   // initialize some arbitrary cells in the first block that move in all 6 directions
   if (profile_type == 3 && block_id == 0) {

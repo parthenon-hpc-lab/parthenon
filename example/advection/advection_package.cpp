@@ -209,8 +209,33 @@ std::shared_ptr<StateDescriptor> Initialize(ParameterInput *pin) {
     pkg->AddField("metadata_none_var", m);
   }
 
+  // Optional fields for testing remeshing of data that is neither evolved nor
+  // communicated in ordinary ghost exchanges (ForceRemeshComm without FillGhost). They
+  // hold a linear profile, which prolongation and restriction reproduce exactly as long
+  // as the coarse data (including ghost zones) used for prolongation is valid.
+  const bool remesh_test_fields =
+      pin->GetOrAddBoolean("Advection", "remesh_test_fields", false);
+  pkg->AddParam<bool>("remesh_test_fields", remesh_test_fields);
+  if (remesh_test_fields) {
+    pkg->AddField("remesh_tracer_cc", Metadata({Metadata::Cell, Metadata::ForceRemeshComm}));
+    pkg->AddField("remesh_tracer_face",
+                  Metadata({Metadata::Face, Metadata::ForceRemeshComm}));
+  }
+
   // List (vector) of HistoryOutputVar that will all be enrolled as output variables
   parthenon::HstVar_list hst_vars = {};
+  if (remesh_test_fields) {
+    hst_vars.emplace_back(parthenon::HistoryOutputVar(
+        UserHistoryOperation::max, [](MeshData<Real> *md) {
+          return RemeshTracerError(md, "remesh_tracer_cc");
+        },
+        "remesh_tracer_cc_err"));
+    hst_vars.emplace_back(parthenon::HistoryOutputVar(
+        UserHistoryOperation::max, [](MeshData<Real> *md) {
+          return RemeshTracerError(md, "remesh_tracer_face");
+        },
+        "remesh_tracer_face_err"));
+  }
   // Now we add a couple of callback functions
   // Note that the specialization of AdvectionHst is completely artificial here and used
   // in the function to differentiate between different behavior.
@@ -491,6 +516,79 @@ Real AdvectionHst(MeshData<Real> *md) {
       reducer);
 
   return result;
+}
+
+namespace {
+using parthenon::ParArrayND;
+using parthenon::TE;
+using parthenon::TopologicalElement;
+using parthenon::VariableState;
+
+KOKKOS_INLINE_FUNCTION Real RemeshTracerProfile(Real x, Real y, Real z) {
+  return 1.0 + 2.0 * x + 3.0 * y + 0.5 * z;
+}
+
+// Fill (fill == true) or measure the maximum error of (fill == false) one topological
+// element of a remesh test field. Errors are only measured away from the physical
+// boundary, since ghost zones of non-FillGhost fields are never set there.
+template <TopologicalElement TE>
+Real RemeshTracerElement(MeshBlock *pmb, ParArrayND<Real, VariableState> q, bool fill) {
+  const auto ib = pmb->cellbounds.GetBoundsI(IndexDomain::interior, TE);
+  const auto jb = pmb->cellbounds.GetBoundsJ(IndexDomain::interior, TE);
+  const auto kb = pmb->cellbounds.GetBoundsK(IndexDomain::interior, TE);
+  const auto coords = pmb->coords;
+  const int te = static_cast<int>(TE) % 3;
+  if (fill) {
+    pmb->par_for(
+        PARTHENON_AUTO_LABEL, kb.s, kb.e, jb.s, jb.e, ib.s, ib.e,
+        KOKKOS_LAMBDA(const int k, const int j, const int i) {
+          q(te, 0, 0, 0, k, j, i) = RemeshTracerProfile(coords.X<X1DIR, TE>(k, j, i),
+                                                        coords.X<X2DIR, TE>(k, j, i),
+                                                        coords.X<X3DIR, TE>(k, j, i));
+        });
+    return 0.0;
+  }
+  Real err = 0.0;
+  parthenon::par_reduce(
+      parthenon::loop_pattern_mdrange_tag, PARTHENON_AUTO_LABEL, DevExecSpace(), kb.s,
+      kb.e, jb.s, jb.e, ib.s, ib.e,
+      KOKKOS_LAMBDA(const int k, const int j, const int i, Real &lerr) {
+        const Real x = coords.X<X1DIR, TE>(k, j, i);
+        const Real y = coords.X<X2DIR, TE>(k, j, i);
+        const Real z = coords.X<X3DIR, TE>(k, j, i);
+        if (std::abs(x) < 0.4 && std::abs(y) < 0.4) {
+          lerr = std::max(lerr, std::abs(q(te, 0, 0, 0, k, j, i) -
+                                         RemeshTracerProfile(x, y, z)));
+        }
+      },
+      Kokkos::Max<Real>(err));
+  return err;
+}
+
+Real RemeshTracer(MeshBlock *pmb, const std::string &label, bool fill) {
+  auto var = pmb->meshblock_data.Get()->GetVarPtr(label);
+  Real err = 0.0;
+  for (auto te : var->GetTopologicalElements()) {
+    if (te == TE::CC) err = std::max(err, RemeshTracerElement<TE::CC>(pmb, var->data, fill));
+    if (te == TE::F1) err = std::max(err, RemeshTracerElement<TE::F1>(pmb, var->data, fill));
+    if (te == TE::F2) err = std::max(err, RemeshTracerElement<TE::F2>(pmb, var->data, fill));
+    if (te == TE::F3 && pmb->pmy_mesh->ndim > 2)
+      err = std::max(err, RemeshTracerElement<TE::F3>(pmb, var->data, fill));
+  }
+  return err;
+}
+} // namespace
+
+void InitRemeshTracers(MeshBlock *pmb) {
+  RemeshTracer(pmb, "remesh_tracer_cc", true);
+  RemeshTracer(pmb, "remesh_tracer_face", true);
+}
+
+Real RemeshTracerError(MeshData<Real> *md, const std::string &label) {
+  Real err = 0.0;
+  for (int b = 0; b < md->NumBlocks(); ++b)
+    err = std::max(err, RemeshTracer(md->GetBlockData(b)->GetBlockPointer(), label, false));
+  return err;
 }
 
 // provide the routine that estimates a stable timestep for this package

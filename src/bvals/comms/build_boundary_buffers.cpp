@@ -215,6 +215,27 @@ TaskStatus RegisterCoalescedCommsGMG(std::shared_ptr<MeshData<Real>> &md) {
   return TaskStatus::complete;
 }
 
+TaskStatus BuildRemeshBoundaryBuffers(std::shared_ptr<MeshData<Real>> &md_old,
+                                      std::shared_ptr<MeshData<Real>> &md_new) {
+  PARTHENON_INSTRUMENT
+  Mesh *pmesh = md_old->GetMeshPointer();
+  BuildBoundaryBufferSubset<BoundaryType::remesh_send>(md_old, pmesh->boundary_comm_map);
+  BuildBoundaryBufferSubset<BoundaryType::remesh_recv>(md_new, pmesh->boundary_comm_map);
+  if (pmesh->do_coalesced_comms) {
+    RegisterCoalescedCommsSubset<BoundaryType::remesh_send>(md_old);
+    RegisterCoalescedCommsSubset<BoundaryType::remesh_recv>(md_new);
+  }
+  return TaskStatus::complete;
+}
+
+TaskStatus BuildRemeshHaloBuffers(std::shared_ptr<MeshData<Real>> &md) {
+  PARTHENON_INSTRUMENT
+  Mesh *pmesh = md->GetMeshPointer();
+  BuildBoundaryBufferSubset<BoundaryType::remesh_halo>(md, pmesh->boundary_comm_map);
+  if (pmesh->do_coalesced_comms) RegisterCoalescedCommsSubset<BoundaryType::remesh_halo>(md);
+  return TaskStatus::complete;
+}
+
 TaskStatus RegisterCoalescedComms(Mesh *pmesh) {
   for (auto &partition : pmesh->GetDefaultBlockPartitions()) {
     auto &md = pmesh->mesh_data.Add("base", partition);

@@ -1109,6 +1109,13 @@ void Mesh::SetupMPIComms() {
       PARTHENON_REQUIRE_THROWS(ret.second, "Communicator with same name already in map");
     }
   }
+  {
+    // Communicator for the integer counters that accompany remeshed blocks
+    MPI_Comm mpi_comm;
+    PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
+    const auto ret = mpi_comm_map_.insert({remesh_counter_comm_label, mpi_comm});
+    PARTHENON_REQUIRE_THROWS(ret.second, "Communicator with same name already in map");
+  }
   for (auto &pair : resolved_packages->AllSwarms()) {
     MPI_Comm mpi_comm;
     PARTHENON_MPI_CHECK(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
