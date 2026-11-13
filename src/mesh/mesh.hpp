@@ -501,10 +501,24 @@ class Mesh {
   void UpdateCostList();
   remesh::TopologyPlan PlanAdaptiveMeshTopology();
   bool GatherCostListAndCheckBalance();
-  void ExecuteLegacyRemeshPlan(ParameterInput *pin, ApplicationInput *app_in, int ntot,
-                               const remesh::TopologyPlan *topology = nullptr,
-                               const remesh::InventoryPlan *inventory = nullptr,
-                               const remesh::PlacementPlan *placement = nullptr);
+  struct RemeshFinalizationState {
+    BlockList_t old_blocks;
+    int old_first_gid;
+    int old_last_gid;
+    std::vector<int> old_to_new;
+    std::vector<int> new_to_old;
+    std::vector<LogicalLocation> new_locations;
+    std::vector<int> new_ranks;
+    std::vector<double> new_costs;
+    std::unordered_set<LogicalLocation> newly_refined;
+  };
+  void ExecuteRemeshPlan(ParameterInput *pin, ApplicationInput *app_in,
+                         const remesh::TopologyPlan &topology,
+                         const remesh::InventoryPlan &inventory,
+                         const remesh::PlacementPlan &placement);
+  void FinalizeRemesh(ParameterInput *pin, ApplicationInput *app_in,
+                      const remesh::InventoryPlan &inventory,
+                      RemeshFinalizationState state);
   void BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in);
   void SetGMGNeighbors();
 

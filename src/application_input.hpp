@@ -67,6 +67,9 @@ class ApplicationInput {
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>
       PostStepMeshUserWorkInLoop = nullptr;
 
+  // Planning-only hook. It receives immutable topology/inventory descriptors and must
+  // return the same finite positive estimate on every rank. It must not allocate block
+  // data, communicate, or perform field/particle transfer.
   remesh::CostCallback EstimateRemeshBlockCost = nullptr;
 
   std::function<void(Mesh *, ParameterInput *, SimTime const &)>

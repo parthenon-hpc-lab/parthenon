@@ -146,4 +146,27 @@ TopologyPlan PlanTopology(const forest::Forest &active,
   return plan;
 }
 
+TopologyPlan PlanMigrationTopology(const forest::Forest &active,
+                                   const std::vector<int> &old_owners,
+                                   const std::uint64_t old_epoch) {
+  const auto leaves = GetLeaves(active);
+  PARTHENON_REQUIRE(old_owners.size() == leaves.size(),
+                    "Remesh owner list does not match the active topology");
+
+  TopologyPlan plan;
+  plan.changed = true;
+  plan.successors.resize(leaves.size());
+  plan.leaves.reserve(leaves.size());
+  for (const auto &loc : leaves) {
+    const auto gid = active.GetGid(loc);
+    plan.leaves.push_back({{loc},
+                           gid,
+                           active.GetBlockDomain(loc),
+                           Relation::unchanged,
+                           {MakeSource(active, old_owners, loc, loc, old_epoch)}});
+    plan.successors[gid] = {gid};
+  }
+  return plan;
+}
+
 } // namespace parthenon::remesh
