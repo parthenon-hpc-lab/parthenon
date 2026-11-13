@@ -22,9 +22,6 @@ FieldTransferPlan PlanFieldTransfers(
     bool coalesce = true,
     std::uint64_t max_payload_count = std::numeric_limits<std::uint64_t>::max());
 
-void ApplyPlannedFieldAllocations(const InventoryPlan &inventory,
-                                  const BlockList_t &blocks, int first_gid);
-
 void ExecuteFieldTransfers(const FieldTransferPlan &plan, const InventoryPlan &inventory,
                            const BlockList_t &old_blocks, int old_first_gid,
                            const BlockList_t &new_blocks, int new_first_gid, Mesh *mesh);

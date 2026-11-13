@@ -158,9 +158,13 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
   modified = false;
   if (topology.changed) {
     GatherCostListAndCheckBalance();
+    const auto memory_budget = GetRemeshMemoryBudget(pin);
+    const bool estimate_memory = memory_budget.host_bytes || memory_budget.device_bytes ||
+                                 memory_budget.require_hard_guarantee;
     placement = remesh::PlanRemeshPlacement(
-        topology, inventory, costlist, GatherSourceMemory(*this), Globals::nranks,
-        GetRemeshCostPolicy(pin), GetRemeshMemoryBudget(pin),
+        topology, inventory, costlist,
+        estimate_memory ? GatherSourceMemory(*this) : std::vector<std::uint64_t>{},
+        Globals::nranks, GetRemeshCostPolicy(pin), memory_budget,
         app_in == nullptr ? nullptr : app_in->EstimateRemeshBlockCost);
     if (has_cost_callback) ValidateCostsCollectively(placement.costs);
     nbnew += topology.added_blocks;
@@ -170,11 +174,15 @@ void Mesh::LoadBalancingAndAdaptiveMeshRefinement(ParameterInput *pin,
     modified = true;
   } else if (lb_flag_ && step_since_lb >= lb_interval_) {
     if (!GatherCostListAndCheckBalance()) { // load imbalance detected
-      topology = remesh::PlanMigrationTopology(forest, ranklist);
+      topology = remesh::PlanMigrationTopology(forest, loclist, ranklist);
       inventory = remesh::PlanInventory(*this, topology);
+      const auto memory_budget = GetRemeshMemoryBudget(pin);
+      const bool estimate_memory = memory_budget.host_bytes || memory_budget.device_bytes ||
+                                   memory_budget.require_hard_guarantee;
       placement = remesh::PlanRemeshPlacement(
-          topology, inventory, costlist, GatherSourceMemory(*this), Globals::nranks,
-          GetRemeshCostPolicy(pin), GetRemeshMemoryBudget(pin),
+          topology, inventory, costlist,
+          estimate_memory ? GatherSourceMemory(*this) : std::vector<std::uint64_t>{},
+          Globals::nranks, GetRemeshCostPolicy(pin), memory_budget,
           app_in == nullptr ? nullptr : app_in->EstimateRemeshBlockCost);
       if (has_cost_callback) ValidateCostsCollectively(placement.costs);
       ExecuteRemeshPlan(pin, app_in, topology, inventory, placement);
@@ -274,83 +282,55 @@ void Mesh::UpdateCostList() {
 
 remesh::TopologyPlan Mesh::PlanAdaptiveMeshTopology() {
   PARTHENON_INSTRUMENT
-  // compute nleaf= number of leaf MeshBlocks per refined block
-  int nleaf = 2;
-  if (!mesh_size.symmetry(X2DIR)) nleaf = 4;
-  if (!mesh_size.symmetry(X3DIR)) nleaf = 8;
-
-  // collect refinement flags from all the meshblocks
-  // count the number of the blocks to be (de)refined
-  nref[Globals::my_rank] = 0;   // n to refine. Local per rank.
-  nderef[Globals::my_rank] = 0; // n to derefine. Local per rank.
-  for (auto const &pmb : block_list) {
-    if (pmb->pmr->GetRefinementTag() == AmrTag::refine) nref[Globals::my_rank]++;
-    if (pmb->pmr->GetRefinementTag() == AmrTag::derefine) nderef[Globals::my_rank]++;
-  }
-#ifdef MPI_PARALLEL
-  PARTHENON_MPI_CHECK(
-      MPI_Allgather(MPI_IN_PLACE, 1, MPI_INT, nref.data(), 1, MPI_INT, MPI_COMM_WORLD));
-  PARTHENON_MPI_CHECK(
-      MPI_Allgather(MPI_IN_PLACE, 1, MPI_INT, nderef.data(), 1, MPI_INT, MPI_COMM_WORLD));
-#endif
-
-  // count the number of the blocks to be (de)refined and displacement
-  int tnref = 0, tnderef = 0; // totals to refine/de-refine. Not local per rank.
-  for (int n = 0; n < Globals::nranks; n++) {
-    tnref += nref[n];
-    tnderef += nderef[n];
-  }
-  if (tnref == 0 && tnderef < nleaf) return {};
-
-  int rd = 0, dd = 0;
-  for (int n = 0; n < Globals::nranks; n++) {
-    rdisp[n] = rd;
-    ddisp[n] = dd;
-    // technically could overflow, since sizeof() operator returns
-    // std::size_t = long unsigned int > int
-    // on many platforms (LP64). However, these are used below in MPI calls for
-    // integer arguments (recvcounts, displs). MPI does not support > 64-bit count ranges
-    bnref[n] = static_cast<int>(nref[n] * sizeof(LogicalLocation));
-    bnderef[n] = static_cast<int>(nderef[n] * sizeof(LogicalLocation));
-    brdisp[n] = static_cast<int>(rd * sizeof(LogicalLocation));
-    bddisp[n] = static_cast<int>(dd * sizeof(LogicalLocation));
-    rd += nref[n];
-    dd += nderef[n];
-  }
-
-  // allocate memory for the location arrays
-  std::vector<LogicalLocation> lref, lderef;
-  if (tnref > 0) lref.resize(tnref);
-  if (tnderef >= nleaf) lderef.resize(tnderef);
-
-  // collect the locations and costs
-  int iref = rdisp[Globals::my_rank], ideref = ddisp[Globals::my_rank];
-  for (auto const &pmb : block_list) {
-    if (pmb->pmr->GetRefinementTag() == AmrTag::refine) lref[iref++] = pmb->loc;
-    if (pmb->pmr->GetRefinementTag() == AmrTag::derefine && tnderef >= nleaf)
-      lderef[ideref++] = pmb->loc;
-  }
-#ifdef MPI_PARALLEL
-  if (tnref > 0) {
-    PARTHENON_MPI_CHECK(MPI_Allgatherv(MPI_IN_PLACE, bnref[Globals::my_rank], MPI_BYTE,
-                                       lref.data(), bnref.data(), brdisp.data(), MPI_BYTE,
-                                       MPI_COMM_WORLD));
-  }
-  if (tnderef >= nleaf) {
-    PARTHENON_MPI_CHECK(MPI_Allgatherv(MPI_IN_PLACE, bnderef[Globals::my_rank], MPI_BYTE,
-                                       lderef.data(), bnderef.data(), bddisp.data(),
-                                       MPI_BYTE, MPI_COMM_WORLD));
-  }
-#endif
-
-  std::vector<remesh::TaggedLeaf> tags;
-  tags.reserve(lref.size() + lderef.size());
-  for (const auto &loc : lref)
-    tags.push_back({{loc}, AmrTag::refine});
-  for (const auto &loc : lderef)
-    tags.push_back({{loc}, AmrTag::derefine});
   const int ndim = mesh_size.symmetry(X2DIR) ? 1 : mesh_size.symmetry(X3DIR) ? 2 : 3;
-  return remesh::PlanTopology(forest, tags, ranklist, ndim);
+  const int daughter_count = 1 << ndim;
+  std::array<int, 2> local_counts{0, 0};
+  for (const auto &block : block_list) {
+    if (block->pmr->GetRefinementTag() == AmrTag::refine) ++local_counts[0];
+    if (block->pmr->GetRefinementTag() == AmrTag::derefine) ++local_counts[1];
+  }
+  std::vector<std::array<int, 2>> rank_counts(Globals::nranks);
+#ifdef MPI_PARALLEL
+  PARTHENON_MPI_CHECK(MPI_Allgather(local_counts.data(), 2, MPI_INT, rank_counts.data(), 2,
+                                    MPI_INT, MPI_COMM_WORLD));
+#else
+  rank_counts.front() = local_counts;
+#endif
+
+  int refine_count = 0;
+  int derefine_count = 0;
+  for (const auto &counts : rank_counts) {
+    refine_count += counts[0];
+    derefine_count += counts[1];
+  }
+  if (refine_count == 0 && derefine_count < daughter_count) return {};
+
+  const bool gather_derefine = derefine_count >= daughter_count;
+  std::vector<int> receive_counts(Globals::nranks);
+  std::vector<int> displacements(Globals::nranks);
+  int tag_count = 0;
+  for (int rank = 0; rank < Globals::nranks; ++rank) {
+    displacements[rank] = tag_count * sizeof(remesh::TaggedLeaf);
+    const auto count = rank_counts[rank][0] +
+                       (gather_derefine ? rank_counts[rank][1] : 0);
+    receive_counts[rank] = count * sizeof(remesh::TaggedLeaf);
+    tag_count += count;
+  }
+  std::vector<remesh::TaggedLeaf> tags(tag_count);
+  auto local_tag = tags.begin() + displacements[Globals::my_rank] /
+                                      sizeof(remesh::TaggedLeaf);
+  for (const auto &block : block_list) {
+    const auto tag = block->pmr->GetRefinementTag();
+    if (tag == AmrTag::refine || (gather_derefine && tag == AmrTag::derefine)) {
+      *local_tag++ = {{block->loc}, tag};
+    }
+  }
+#ifdef MPI_PARALLEL
+  PARTHENON_MPI_CHECK(MPI_Allgatherv(MPI_IN_PLACE, receive_counts[Globals::my_rank],
+                                     MPI_BYTE, tags.data(), receive_counts.data(),
+                                     displacements.data(), MPI_BYTE, MPI_COMM_WORLD));
+#endif
+  return remesh::PlanTopology(forest, loclist, tags, ranklist, ndim);
 }
 
 //----------------------------------------------------------------------------------------
@@ -512,8 +492,6 @@ void Mesh::ExecuteRemeshPlan(ParameterInput *pin, ApplicationInput *app_in,
       }
     }
   } // AMR Construct new MeshBlockList region
-
-  remesh::ApplyPlannedFieldAllocations(inventory, new_block_list, nbs);
 
   // Replace the MeshBlock list
   auto old_block_list = std::move(block_list);

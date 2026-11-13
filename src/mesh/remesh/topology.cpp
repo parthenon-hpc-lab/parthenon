@@ -1,37 +1,13 @@
 #include "mesh/remesh/topology.hpp"
 
 #include <algorithm>
-#include <map>
-#include <set>
+#include <unordered_map>
 #include <utility>
 
 #include "utils/error_checking.hpp"
 
 namespace parthenon::remesh {
 namespace {
-
-std::vector<LogicalLocation> GetLeaves(const forest::Forest &forest) {
-  std::vector<LogicalLocation> leaves;
-  for (const auto &tree : forest.GetTrees()) {
-    auto tree_leaves = tree->GetSortedMeshBlockList();
-    leaves.insert(leaves.end(), tree_leaves.begin(), tree_leaves.end());
-  }
-  std::vector<LogicalLocation> ordered(leaves.size());
-  std::vector<bool> present(leaves.size(), false);
-  for (const auto &leaf : leaves) {
-    const auto gid = forest.GetGid(leaf);
-    PARTHENON_REQUIRE(gid >= 0 && gid < ordered.size(),
-                      "Forest leaf has an invalid resolved GID");
-    PARTHENON_REQUIRE(!present[gid], "Forest leaf GID is not unique");
-    ordered[gid] = leaf;
-    present[gid] = true;
-  }
-  PARTHENON_REQUIRE(std::all_of(present.begin(), present.end(), [](const bool value) {
-                      return value;
-                    }),
-                    "Forest leaf GIDs are not contiguous");
-  return ordered;
-}
 
 SourceContribution MakeSource(const forest::Forest &active,
                               const std::vector<int> &old_owners,
@@ -54,23 +30,24 @@ SourceContribution MakeSource(const forest::Forest &active,
 } // namespace
 
 TopologyPlan PlanTopology(const forest::Forest &active,
+                          const std::vector<LogicalLocation> &old_leaves,
                           const std::vector<TaggedLeaf> &tags,
                           const std::vector<int> &old_owners, int ndim,
                           std::uint64_t old_epoch) {
   PARTHENON_REQUIRE(ndim >= 1 && ndim <= 3, "Invalid remesh dimensionality");
-  const auto old_leaves = GetLeaves(active);
   PARTHENON_REQUIRE(old_owners.size() == old_leaves.size(),
                     "Remesh owner list does not match the active topology");
 
   std::vector<LogicalLocation> refine;
-  std::map<LogicalLocation, std::set<LogicalLocation>> derefine_by_parent;
+  std::unordered_map<LogicalLocation, unsigned int> derefine_by_parent;
   for (const auto &tagged : tags) {
     PARTHENON_REQUIRE(active.count(tagged.key.loc) == 1,
                       "Refinement tag refers to a non-leaf block");
     if (tagged.tag == AmrTag::refine) {
       refine.push_back(tagged.key.loc);
     } else if (tagged.tag == AmrTag::derefine) {
-      derefine_by_parent[tagged.key.loc.GetParent()].insert(tagged.key.loc);
+      const auto [ox1, ox2, ox3] = tagged.key.loc.GetLocationInParent();
+      derefine_by_parent[tagged.key.loc.GetParent()] |= 1U << (ox1 + 2 * ox2 + 4 * ox3);
     }
   }
   if (refine.empty() && derefine_by_parent.empty()) return {};
@@ -80,10 +57,10 @@ TopologyPlan PlanTopology(const forest::Forest &active,
   std::vector<LogicalLocation> derefine;
   for (const auto &[parent, tagged_children] : derefine_by_parent) {
     const auto daughters = parent.GetDaughters(ndim);
-    if (tagged_children.size() != daughters.size()) continue;
+    if (tagged_children != (1U << daughters.size()) - 1) continue;
     const bool complete =
         std::all_of(daughters.begin(), daughters.end(), [&](const auto &daughter) {
-          return active.count(daughter) == 1 && tagged_children.count(daughter) == 1;
+          return active.count(daughter) == 1;
         });
     if (complete) derefine.push_back(parent);
   }
@@ -104,15 +81,13 @@ TopologyPlan PlanTopology(const forest::Forest &active,
   TopologyPlan plan;
   plan.changed = true;
   plan.successors.resize(old_leaves.size());
-  std::set<std::int64_t> refined_sources;
-  std::set<std::int64_t> coarsened_sources;
+  int refined_children = 0;
+  int coarsened_parents = 0;
   plan.leaves.reserve(new_leaves.size());
-  for (const auto &destination : new_leaves) {
-    PlannedLeaf leaf{{destination},
-                     candidate.GetGid(destination),
-                     candidate.GetBlockDomain(destination),
-                     Relation::unchanged,
-                     {}};
+  for (std::size_t new_gid = 0; new_gid < new_leaves.size(); ++new_gid) {
+    const auto &destination = new_leaves[new_gid];
+    PlannedLeaf leaf{{destination}, static_cast<std::int64_t>(new_gid),
+                     Relation::unchanged, {}};
     if (active.count(destination) == 1) {
       leaf.sources.push_back(
           MakeSource(active, old_owners, destination, destination, old_epoch));
@@ -122,9 +97,12 @@ TopologyPlan PlanTopology(const forest::Forest &active,
         PARTHENON_REQUIRE(destination.level() == parent.level() + 1,
                           "Remesh supports one refinement generation per event");
         leaf.relation = Relation::refined_child;
+        leaf.sources.reserve(1);
         leaf.sources.push_back(
             MakeSource(active, old_owners, parent, destination, old_epoch));
-        refined_sources.insert(leaf.sources.front().source.gid);
+        auto &successors = plan.successors[leaf.sources.front().source.gid];
+        if (successors.empty()) successors.reserve(1 << ndim);
+        ++refined_children;
       } else {
         const auto daughters = destination.GetDaughters(ndim);
         PARTHENON_REQUIRE(std::all_of(daughters.begin(), daughters.end(),
@@ -133,10 +111,11 @@ TopologyPlan PlanTopology(const forest::Forest &active,
                                       }),
                           "New remesh leaf has no complete direct provenance");
         leaf.relation = Relation::coarsened_parent;
+        leaf.sources.reserve(daughters.size());
+        ++coarsened_parents;
         for (const auto &daughter : daughters) {
           leaf.sources.push_back(
               MakeSource(active, old_owners, daughter, destination, old_epoch));
-          coarsened_sources.insert(leaf.sources.back().source.gid);
         }
       }
     }
@@ -150,17 +129,18 @@ TopologyPlan PlanTopology(const forest::Forest &active,
     PARTHENON_REQUIRE(!successors.empty(), "Old remesh leaf has no successor");
   }
   const int daughter_count = 1 << ndim;
-  plan.added_blocks = static_cast<int>(refined_sources.size()) * (daughter_count - 1);
-  plan.removed_blocks =
-      static_cast<int>(coarsened_sources.size() / daughter_count) * (daughter_count - 1);
+  PARTHENON_REQUIRE(refined_children % daughter_count == 0,
+                    "Refined remesh leaves do not form complete families");
+  plan.added_blocks = refined_children / daughter_count * (daughter_count - 1);
+  plan.removed_blocks = coarsened_parents * (daughter_count - 1);
   plan.candidate.emplace(std::move(candidate));
   return plan;
 }
 
 TopologyPlan PlanMigrationTopology(const forest::Forest &active,
+                                   const std::vector<LogicalLocation> &leaves,
                                    const std::vector<int> &old_owners,
                                    const std::uint64_t old_epoch) {
-  const auto leaves = GetLeaves(active);
   PARTHENON_REQUIRE(old_owners.size() == leaves.size(),
                     "Remesh owner list does not match the active topology");
 
@@ -168,14 +148,12 @@ TopologyPlan PlanMigrationTopology(const forest::Forest &active,
   plan.changed = true;
   plan.successors.resize(leaves.size());
   plan.leaves.reserve(leaves.size());
-  for (const auto &loc : leaves) {
-    const auto gid = active.GetGid(loc);
-    plan.leaves.push_back({{loc},
-                           gid,
-                           active.GetBlockDomain(loc),
-                           Relation::unchanged,
+  for (std::size_t index = 0; index < leaves.size(); ++index) {
+    const auto gid = static_cast<std::int64_t>(index);
+    const auto &loc = leaves[index];
+    plan.leaves.push_back({{loc}, gid, Relation::unchanged,
                            {MakeSource(active, old_owners, loc, loc, old_epoch)}});
-    plan.successors[gid] = {gid};
+    plan.successors[index] = {gid};
   }
   return plan;
 }

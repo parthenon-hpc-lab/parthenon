@@ -41,7 +41,6 @@ struct SourceContribution {
 struct PlannedLeaf {
   BlockKey key;
   std::int64_t new_gid;
-  RegionSize geometry;
   Relation relation;
   std::vector<SourceContribution> sources;
 };

@@ -64,6 +64,18 @@ Tree::Tree(Tree::private_t, std::int64_t id, int ndim, int root_level,
   boundary_conditions = bcs_in;
 }
 
+Tree::Tree(Tree::private_t, const Tree &other)
+    : athena_forest_loc(other.athena_forest_loc), forest_nodes(other.forest_nodes),
+      UserBoundaryFunctions(other.UserBoundaryFunctions),
+      UserSwarmBoundaryFunctions(other.UserSwarmBoundaryFunctions), ndim(other.ndim),
+      my_id(other.my_id), leaves(other.leaves), internal_nodes(other.internal_nodes),
+      boundary_conditions(other.boundary_conditions), domain(other.domain) {
+  std::copy(std::begin(other.MeshBndryFnctn), std::end(other.MeshBndryFnctn),
+            std::begin(MeshBndryFnctn));
+  std::copy(std::begin(other.SwarmBndryFnctn), std::end(other.SwarmBndryFnctn),
+            std::begin(SwarmBndryFnctn));
+}
+
 int Tree::AddMeshBlock(const LogicalLocation &loc, bool enforce_proper_nesting) {
   PARTHENON_REQUIRE(
       loc.tree() == my_id,

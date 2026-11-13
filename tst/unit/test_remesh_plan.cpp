@@ -43,7 +43,9 @@ TEST_CASE("Topology plans preserve direct provenance", "[remesh]") {
   auto active = MakeResolvedForest();
   const LogicalLocation root(0, 0, 0, 0, 0);
   const std::vector<TaggedLeaf> refine_tags{{{root}, AmrTag::refine}};
-  auto refine_plan = parthenon::remesh::PlanTopology(active, refine_tags, {0}, 2, 7);
+  const auto root_leaves = active.GetMeshBlockListAndResolveGids();
+  auto refine_plan =
+      parthenon::remesh::PlanTopology(active, root_leaves, refine_tags, {0}, 2, 7);
 
   REQUIRE(refine_plan.changed);
   REQUIRE(refine_plan.added_blocks == 3);
@@ -62,12 +64,14 @@ TEST_CASE("Topology plans preserve direct provenance", "[remesh]") {
   }
 
   auto refined = std::move(*refine_plan.candidate);
+  const auto refined_leaves = refined.GetMeshBlockListAndResolveGids();
   std::vector<TaggedLeaf> derefine_tags;
   for (const auto &leaf : refine_plan.leaves) {
     derefine_tags.push_back({leaf.key, AmrTag::derefine});
   }
   auto derefine_plan =
-      parthenon::remesh::PlanTopology(refined, derefine_tags, {0, 0, 0, 0}, 2);
+      parthenon::remesh::PlanTopology(refined, refined_leaves, derefine_tags,
+                                     {0, 0, 0, 0}, 2);
   REQUIRE(derefine_plan.changed);
   REQUIRE(derefine_plan.added_blocks == 0);
   REQUIRE(derefine_plan.removed_blocks == 3);
@@ -85,7 +89,8 @@ TEST_CASE("Incomplete sibling permission does not derefine", "[remesh]") {
   active.Refine(LogicalLocation(0, 0, 0, 0, 0));
   const auto leaves = active.GetMeshBlockListAndResolveGids();
   const std::vector<TaggedLeaf> tags{{{leaves.front()}, AmrTag::derefine}};
-  auto plan = parthenon::remesh::PlanTopology(active, tags, {0, 0, 0, 0}, 2);
+  auto plan =
+      parthenon::remesh::PlanTopology(active, leaves, tags, {0, 0, 0, 0}, 2);
   REQUIRE_FALSE(plan.changed);
   REQUIRE_FALSE(plan.candidate.has_value());
   REQUIRE(active.CountLeafMeshBlock() == 4);
@@ -94,8 +99,9 @@ TEST_CASE("Incomplete sibling permission does not derefine", "[remesh]") {
 TEST_CASE("Migration topology preserves identity provenance", "[remesh]") {
   auto active = MakeResolvedForest();
   active.Refine(LogicalLocation(0, 0, 0, 0, 0));
-  active.GetMeshBlockListAndResolveGids();
-  const auto plan = parthenon::remesh::PlanMigrationTopology(active, {0, 0, 1, 1}, 9);
+  const auto leaves = active.GetMeshBlockListAndResolveGids();
+  const auto plan =
+      parthenon::remesh::PlanMigrationTopology(active, leaves, {0, 0, 1, 1}, 9);
 
   REQUIRE(plan.changed);
   REQUIRE_FALSE(plan.candidate.has_value());
@@ -135,11 +141,10 @@ TEST_CASE("Remesh cost policies use descriptor provenance", "[remesh][cost]") {
   TopologyPlan topology;
   topology.changed = true;
   topology.successors.resize(4);
-  topology.leaves = {{{}, 0, {}, Relation::unchanged, {{{0, 0}, {}, 0, {}}}},
-                     {{}, 1, {}, Relation::refined_child, {{{0, 1}, {}, 0, {}}}},
+  topology.leaves = {{{}, 0, Relation::unchanged, {{{0, 0}, {}, 0, {}}}},
+                     {{}, 1, Relation::refined_child, {{{0, 1}, {}, 0, {}}}},
                      {{},
                       2,
-                      {},
                       Relation::coarsened_parent,
                       {{{0, 2}, {}, 0, {}}, {{0, 3}, {}, 0, {}}}}};
   InventoryPlan inventory;
@@ -189,7 +194,7 @@ TEST_CASE("Remesh peak budget includes live sources", "[remesh][budget]") {
   TopologyPlan topology;
   topology.changed = true;
   topology.successors.resize(1);
-  topology.leaves = {{{}, 0, {}, Relation::unchanged, {{{0, 0}, {}, 0, {}}}}};
+  topology.leaves = {{{}, 0, Relation::unchanged, {{{0, 0}, {}, 0, {}}}}};
   InventoryPlan inventory;
   inventory.blocks.resize(1);
   inventory.blocks[0].footprint.device_owned = 6;
@@ -206,10 +211,9 @@ TEST_CASE("Field transfer manifests are deterministic and explicit",
   TopologyPlan topology;
   topology.changed = true;
   topology.successors.resize(2);
-  topology.leaves = {{{}, 0, {}, Relation::unchanged, {{{3, 0}, {}, 0, {}}}},
+  topology.leaves = {{{}, 0, Relation::unchanged, {{{3, 0}, {}, 0, {}}}},
                      {{},
                       1,
-                      {},
                       Relation::coarsened_parent,
                       {{{3, 0}, {}, 0, {{0, 0, 0}}}, {{3, 1}, {}, 1, {{1, 0, 0}}}}}};
 
@@ -286,8 +290,8 @@ TEST_CASE("C2F manifests deduplicate parent payloads into bounded waves",
   topology.changed = true;
   topology.successors = {{0, 1}};
   topology.leaves = {
-      {{}, 0, {}, Relation::refined_child, {{{0, 0}, {}, 0, {{0, 0, 0}}}}},
-      {{}, 1, {}, Relation::refined_child, {{{0, 0}, {}, 0, {{1, 0, 0}}}}}};
+      {{}, 0, Relation::refined_child, {{{0, 0}, {}, 0, {{0, 0, 0}}}}},
+      {{}, 1, Relation::refined_child, {{{0, 0}, {}, 0, {{1, 0, 0}}}}}};
 
   InventoryPlan inventory;
   StorageLayout layout;

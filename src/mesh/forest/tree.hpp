@@ -57,6 +57,8 @@ class Tree : public std::enable_shared_from_this<Tree> {
   Tree(private_t, std::int64_t id, int ndim, int root_level,
        std::vector<std::shared_ptr<Node>> nodes);
 
+  Tree(private_t, const Tree &other);
+
   template <class STD_CONTAINER_TYPE>
   Tree(private_t, std::int64_t id, int ndim, int root_level, RegionSize domain,
        std::array<BoundaryFlag, BOUNDARY_NFACES> bcs, STD_CONTAINER_TYPE nodes)

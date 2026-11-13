@@ -186,8 +186,9 @@ TEST_CASE("Swarm particles remesh onto refined blocks", "[swarm][amr][MPI]") {
 
   const std::vector<parthenon::remesh::TaggedLeaf> tags{
       {{{coarse_mesh->block_list.front()->loc}}, parthenon::AmrTag::refine}};
-  auto topology = parthenon::remesh::PlanTopology(coarse_mesh->forest, tags,
-                                                  std::vector<int>{0}, coarse_mesh->ndim);
+  auto topology = parthenon::remesh::PlanTopology(
+      coarse_mesh->forest, coarse_mesh->GetLocList(), tags, std::vector<int>{0},
+      coarse_mesh->ndim);
   auto inventory = parthenon::remesh::PlanInventory(*coarse_mesh, topology);
   REQUIRE(inventory.blocks.size() == 4);
   for (const auto &block : inventory.blocks) {
@@ -246,7 +247,8 @@ TEST_CASE("Swarm particles remesh onto derefined blocks", "[swarm][amr][MPI]") {
     tags.push_back({{block->loc}, parthenon::AmrTag::derefine});
   }
   auto topology = parthenon::remesh::PlanTopology(
-      refined_mesh->forest, tags, std::vector<int>(4, 0), refined_mesh->ndim);
+      refined_mesh->forest, refined_mesh->GetLocList(), tags, std::vector<int>(4, 0),
+      refined_mesh->ndim);
   auto inventory = parthenon::remesh::PlanInventory(*refined_mesh, topology);
   REQUIRE(inventory.blocks.size() == 1);
   REQUIRE(inventory.blocks.front().swarms.front().active_count == 4);

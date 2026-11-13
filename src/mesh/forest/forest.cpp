@@ -70,21 +70,7 @@ Forest Forest::CloneForRemesh() const {
   clone.forest_level = forest_level;
 
   for (const auto &[id, tree] : trees) {
-    auto cloned_tree = Tree::create(tree->my_id, tree->ndim, root_level, tree->domain,
-                                    tree->boundary_conditions);
-    cloned_tree->leaves = tree->leaves;
-    cloned_tree->internal_nodes = tree->internal_nodes;
-    cloned_tree->athena_forest_loc = tree->athena_forest_loc;
-    cloned_tree->forest_nodes = tree->forest_nodes;
-    std::copy(std::begin(tree->MeshBndryFnctn), std::end(tree->MeshBndryFnctn),
-              std::begin(cloned_tree->MeshBndryFnctn));
-    std::copy(std::begin(tree->SwarmBndryFnctn), std::end(tree->SwarmBndryFnctn),
-              std::begin(cloned_tree->SwarmBndryFnctn));
-    cloned_tree->UserBoundaryFunctions = tree->UserBoundaryFunctions;
-    cloned_tree->UserSwarmBoundaryFunctions = tree->UserSwarmBoundaryFunctions;
-    for (auto &neighbors : cloned_tree->neighbors)
-      neighbors.clear();
-    clone.trees.emplace(id, std::move(cloned_tree));
+    clone.trees.emplace(id, std::make_shared<Tree>(Tree::private_t{}, *tree));
   }
 
   for (const auto &[id, tree] : trees) {

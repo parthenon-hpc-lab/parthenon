@@ -8,11 +8,13 @@
 namespace parthenon::remesh {
 
 TopologyPlan PlanTopology(const forest::Forest &active,
+                          const std::vector<LogicalLocation> &old_leaves,
                           const std::vector<TaggedLeaf> &tags,
                           const std::vector<int> &old_owners, int ndim,
                           std::uint64_t old_epoch = 0);
 
 TopologyPlan PlanMigrationTopology(const forest::Forest &active,
+                                   const std::vector<LogicalLocation> &old_leaves,
                                    const std::vector<int> &old_owners,
                                    std::uint64_t old_epoch = 0);
 

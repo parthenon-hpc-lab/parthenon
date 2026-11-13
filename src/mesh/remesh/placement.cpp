@@ -324,10 +324,15 @@ PlacementPlan PlanRemeshPlacement(const TopologyPlan &topology,
                                   const int nranks, const CostPolicy policy,
                                   const MemoryBudget &budget,
                                   const CostCallback &application_cost) {
-  PARTHENON_REQUIRE_THROWS(source_device_bytes.size() == nranks,
+  PARTHENON_REQUIRE_THROWS(source_device_bytes.empty() ||
+                               source_device_bytes.size() == nranks,
                            "Remesh source memory count disagrees with rank count");
   PlacementPlan plan;
   plan.costs = PlanRemeshCosts(topology, inventory, old_costs, policy, application_cost);
+  if (source_device_bytes.empty()) {
+    plan.ownership = PlaceBlocksContiguously(plan.costs, nranks);
+    return plan;
+  }
   std::vector<MemoryFootprint> footprints;
   footprints.reserve(inventory.blocks.size());
   for (const auto &block : inventory.blocks)

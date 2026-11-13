@@ -22,7 +22,6 @@
 
 #include <algorithm>
 #include <memory>
-#include <random>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -126,16 +125,6 @@ void InitializeBufferCache(std::shared_ptr<MeshData<Real>> &md, COMM_MAP *comm_m
         key_order.push_back({recvr_idx, boundary_idx, key});
         ++boundary_idx;
       });
-
-  // If desired, sort the keys and boundary indices by receiver_idx
-  // std::sort(key_order.begin(), key_order.end(),
-  //          [](auto a, auto b) { return std::get<0>(a) < std::get<0>(b); });
-
-  // Or, what the hell, you could put them in random order if you want, which
-  // frighteningly seems to run faster in some cases
-  std::random_device rd;
-  std::mt19937 g(rd());
-  std::shuffle(key_order.begin(), key_order.end(), g);
 
   int buff_idx = 0;
   pcache->buf_vec.clear();

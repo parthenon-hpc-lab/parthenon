@@ -529,15 +529,6 @@ FieldTransferPlan PlanFieldTransfers(const TopologyPlan &topology,
   return plan;
 }
 
-void ApplyPlannedFieldAllocations(const InventoryPlan &inventory,
-                                  const BlockList_t &blocks, const int first_gid) {
-  for (std::size_t local_id = 0; local_id < blocks.size(); ++local_id) {
-    const auto gid = first_gid + local_id;
-    PARTHENON_REQUIRE(gid >= 0 && gid < inventory.blocks.size(),
-                      "Remesh target block is absent from inventory");
-  }
-}
-
 void ExecuteFieldTransfers(const FieldTransferPlan &plan, const InventoryPlan &inventory,
                            const BlockList_t &old_blocks, const int old_first_gid,
                            const BlockList_t &new_blocks, const int new_first_gid,
