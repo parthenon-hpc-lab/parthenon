@@ -184,9 +184,6 @@ void TransferRestrictedBuffer(const LogicalLocation &fine_loc,
     const int ni = ib.e - ib.s + 1;
     const int nj = jb.e - jb.s + 1;
     const int nk = kb.e - kb.s + 1;
-    const int is = ox1 == 0 ? 0 : ni - TopologicalOffsetI(element);
-    const int js = (ox2 == 0 || ndim < 2) ? 0 : nj - TopologicalOffsetJ(element);
-    const int ks = (ox3 == 0 || ndim < 3) ? 0 : nk - TopologicalOffsetK(element);
     const auto element_offset = offset;
     const int element_index = static_cast<int>(element) % 3;
     parthenon::par_for(
@@ -204,7 +201,7 @@ void TransferRestrictedBuffer(const LogicalLocation &fine_loc,
           if (pack)
             buffer(index) = coarse(element_index, t, u, v, k, j, i);
           else
-            fine(element_index, t, u, v, k + ks, j + js, i + is) = buffer(index);
+            coarse(element_index, t, u, v, k, j, i) = buffer(index);
         });
     auto count = CheckedMultiply(nt, nu);
     count = CheckedMultiply(count, nv);
