@@ -248,7 +248,7 @@ void MeshBlock::InitializeIndexShapes(const int nx1, const int nx2, const int nx
 
 void MeshBlock::SetCostForLoadBalancing(double cost) {
   if (pmy_mesh->lb_manual_) {
-    cost_ = std::min(cost, TINY_NUMBER);
+    cost_ = std::max(cost, TINY_NUMBER);
     pmy_mesh->lb_flag_ = true;
   }
 }
