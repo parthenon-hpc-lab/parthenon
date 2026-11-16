@@ -40,6 +40,7 @@ list(APPEND unit_tests_SOURCES
     test_mesh_data.cpp
     test_output_utils.cpp
     test_pararrays.cpp
+    test_prolongation.cpp
     test_sparse_pack.cpp
     test_parameter_input.cpp
     test_error_checking.cpp
