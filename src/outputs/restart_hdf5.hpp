@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "config.hpp"
+#include "globals.hpp"
 #include "outputs/restart.hpp"
 #ifdef ENABLE_HDF5
 #include <hdf5.h>
@@ -106,6 +107,13 @@ class RestartReaderHDF5 : public RestartReader {
     if constexpr (std::is_same_v<T, double>) {
       if (status == 0) {
         status = PARTHENON_HDF5_CHECK(H5Tequal(H5T_NATIVE_FLOAT, dset_type));
+        if (status > 0 && Globals::my_rank == 0) {
+          PARTHENON_WARN("Loading float32 dataset '" + name + "' from HDF5 file '" +
+                         filename_ +
+                         "' into double-precision storage. "
+                         "Widening preserves saved values but cannot recover "
+                         "precision lost in the original output.");
+        }
       }
     }
     PARTHENON_REQUIRE_THROWS(status > 0, "Type mismatch for dataset " + name);
