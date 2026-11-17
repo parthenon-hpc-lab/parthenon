@@ -3,6 +3,7 @@
 // Copyright(C) 2022 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
+// This file was made in part with generative AI
 // (C) (or copyright) 2022-2025. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -77,7 +78,6 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     if (pmb->gid == nb.gid && nb.offsets.IsCell()) buf_size = 0;
 
     // Add a buffer pool if one does not exist for this size
-    using buf_t = buf_pool_t<Real>::base_t;
     if (!pmesh->pool_map.Contains(buf_size)) {
       // Minimum number of comm buffers to initialize a pool of a
       // given shape with. As an upper bound, we use the maximum
@@ -118,7 +118,9 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     // Build send buffer (unless this is a receiving flux boundary)
     if constexpr (IsSender(BTYPE)) {
       pmesh->LockCommChannelNumbers(BTYPE);
-      for (int id = 0; id < pmesh->GetNumberOfCommChannels(BTYPE); ++id) {
+      const auto channel_count = pmesh->GetNumberOfCommChannels(BTYPE);
+      const int num_channels = static_cast<int>(channel_count);
+      for (int id = 0; id < num_channels; ++id) {
         auto s_key = SendKey(pmb, nb, v, BTYPE, id);
         const int tag = pmesh->tag_map.GetTag(pmb, nb, id);
         if (buf_map.count(s_key) == 0)
@@ -132,7 +134,9 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     if constexpr (IsReceiver(BTYPE)) {
       if (sender_rank != receiver_rank) {
         pmesh->LockCommChannelNumbers(BTYPE);
-        for (int id = 0; id < pmesh->GetNumberOfCommChannels(BTYPE); ++id) {
+        const auto channel_count = pmesh->GetNumberOfCommChannels(BTYPE);
+        const int num_channels = static_cast<int>(channel_count);
+        for (int id = 0; id < num_channels; ++id) {
           auto r_key = ReceiveKey(pmb, nb, v, BTYPE, id);
           const int tag = pmesh->tag_map.GetTag(pmb, nb, id);
           if (buf_map.count(r_key) == 0)

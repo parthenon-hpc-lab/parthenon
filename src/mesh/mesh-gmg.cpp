@@ -23,6 +23,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <limits>
@@ -273,8 +274,6 @@ void Mesh::BuildGMGBlockLists(ParameterInput *pin, ApplicationInput *app_in) {
   for (auto &b : block_list)
     all_blocks[{b->loc, b->block_coarsenings}] = b;
 
-  const std::size_t nnodes =
-      forest.CountLeafMeshBlock() + forest.CountInternalMeshBlock();
   for (int gmg_level = GetGMGMaxLevel(); gmg_level >= GetGMGMinLevel(); --gmg_level) {
     auto grid = gmg_grids_[gmg_level];
     auto &cur_block_list = gmg_block_lists_[gmg_level];
@@ -352,7 +351,6 @@ void Mesh::SetGMGNeighbors() {
            std::to_string(in.block_coarsenings) + "}";
   };
   if (!multigrid) return;
-  const int gmg_min_level = GetGMGMinLevel();
   // Sort the gmg block lists by gid and find neighbors
   for (auto &[gmg_level, bl] : gmg_block_lists_) {
     auto cur_grid = gmg_grids_[gmg_level];

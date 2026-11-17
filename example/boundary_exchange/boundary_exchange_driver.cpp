@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 // Standard Includes
 #include <fstream>
@@ -71,7 +72,6 @@ int main(int argc, char *argv[]) {
 
   using edge_t = parthenon::forest::Edge;
   using ar3_t = std::array<Real, 3>;
-  using ai3_t = std::array<int, 3>;
   forest_def.AddFace(0, {n[1], n[2], n[0], n[3]}, ar3_t{0.0, 0.0, 0.0},
                      ar3_t{1.0, 1.0, 1.0});
   // forest_def.AddFace(0, {n[0], n[1], n[3], n[2]}, ar3_t{0.0, 0.0, 0.0},
@@ -98,16 +98,17 @@ int main(int argc, char *argv[]) {
   pman.ParthenonInitPackagesAndMesh(forest_def);
 
   // This needs to be scoped so that the driver object is destructed before Finalize
+  parthenon::DriverStatus driver_status;
   {
     BoundaryExchangeDriver driver(pman.pinput.get(), pman.app_input.get(),
                                   pman.pmesh.get());
 
-    auto driver_status = driver.Execute();
+    driver_status = driver.Execute();
   }
   // call MPI_Finalize if necessary
   pman.ParthenonFinalize();
 
-  return 0;
+  return driver_status != parthenon::DriverStatus::complete;
 }
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {

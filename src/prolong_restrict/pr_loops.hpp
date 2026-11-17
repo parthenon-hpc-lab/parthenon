@@ -3,6 +3,7 @@
 // Copyright(C) 2020-2024 The Parthenon collaboration
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
+// This file was made in part with generative AI
 // (C) (or copyright) 2022-2024. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001
@@ -21,6 +22,7 @@
 #define PROLONG_RESTRICT_PR_LOOPS_HPP_
 
 #include <algorithm>
+#include <cstddef>
 #include <utility> // std::forward
 #include <vector>
 
@@ -227,7 +229,7 @@ ProlongationRestrictionLoop(const ProResInfoArrHost_t &info_h,
   auto kb = cellbounds.GetBoundsK(interior); // into the stencil directly.
   auto jb = cellbounds.GetBoundsJ(interior);
   auto ib = cellbounds.GetBoundsI(interior);
-  for (int sub_idx = 0; sub_idx < nbuffers; ++sub_idx) {
+  for (std::size_t sub_idx = 0; sub_idx < nbuffers; ++sub_idx) {
     const std::size_t buf = buffer_idxs_h(sub_idx);
     if (DoRefinementOp(info_h(buf), op)) {
       using TE = TopologicalElement;
@@ -265,7 +267,7 @@ ProlongationRestrictionLoop(const ProResInfoArr_t &info,
                             const IdxHost_t &buffer_idxs_h, const IndexShape &cellbounds,
                             const IndexShape &c_cellbounds, const RefinementOp_t op,
                             const std::size_t nbuffers) {
-  if (nbuffers > Globals::refinement::min_num_bufs) {
+  if (std::cmp_greater(nbuffers, Globals::refinement::min_num_bufs)) {
     ProlongationRestrictionLoop<DIM, Stencil>(info, buffer_idxs, cellbounds, c_cellbounds,
                                               op, nbuffers);
   } else {

@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include <algorithm>
 #include <iostream>
@@ -44,17 +45,13 @@ TaskCollection PoissonDriver::MakeTaskCollection(BlockList_t &blocks) {
   TaskCollection tc;
   TaskID none(0);
 
-  for (int i = 0; i < blocks.size(); i++) {
-    auto &pmb = blocks[i];
+  for (auto &pmb : blocks) {
     auto &base = pmb->meshblock_data.Get();
     pmb->meshblock_data.Add("delta", base);
   }
 
   auto pkg = pmesh->packages.Get("poisson_package");
   auto max_iters = pkg->Param<int>("max_iterations");
-  auto check_interval = pkg->Param<int>("check_interval");
-  auto fail_flag = pkg->Param<bool>("fail_without_convergence");
-  auto warn_flag = pkg->Param<bool>("warn_without_convergence");
 
   auto partitions = pmesh->GetDefaultBlockPartitions();
   const int num_partitions = partitions.size();

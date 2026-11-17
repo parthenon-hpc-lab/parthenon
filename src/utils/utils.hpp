@@ -3,6 +3,7 @@
 // Copyright(C) 2014 James M. Stone <jmstone@princeton.edu> and other code contributors
 // Licensed under the 3-clause BSD License, see LICENSE file for details
 //========================================================================================
+// This file was made in part with generative AI
 // (C) (or copyright) 2020-2022. Triad National Security, LLC. All rights reserved.
 //
 // This program was produced under U.S. Government contract 89233218CNA000001 for Los
@@ -21,6 +22,7 @@
 
 #include <cctype>
 #include <csignal>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <set>
@@ -99,12 +101,11 @@ constexpr int nsignal = 3;
 // Flag/counter of signals received of each type
 // using the +1 for signaling based on a trigger file
 static volatile int signalflag[nsignal + 1];
-
 // Immediately throw upon receiving 3+ SIGINTs or SIGTERMs,
 // without clearing them by starting a new step
 constexpr int SIGNAL_REPEAT_THROW = 3;
 
-static sigset_t mask;
+[[maybe_unused]] static sigset_t mask;
 void SignalHandlerInit();
 OutputSignal CheckSignalFlags();
 int GetSignalFlag(int s);

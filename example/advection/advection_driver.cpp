@@ -10,7 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
@@ -76,7 +78,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
     // Initialize other MeshData objects based on the base container
     auto &mc0 = pmesh->mesh_data.Add(stage_name[stage - 1], mbase);
     auto &mc1 = pmesh->mesh_data.Add(stage_name[stage], mbase);
-    auto &mdudt = pmesh->mesh_data.Add("dUdt", mbase);
+    pmesh->mesh_data.Add("dUdt", mbase);
 
     const auto any = parthenon::BoundaryType::any;
 
@@ -92,18 +94,12 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
   TaskRegion &async_region1 = tc.AddRegion(num_task_lists_executed_independently);
 
   assert(blocks.size() == async_region1.size());
-  for (int i = 0; i < blocks.size(); i++) {
+  for (std::size_t i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
     auto &tl = async_region1[i];
 
     // pull out the container we'll use to get fluxes and/or compute RHSs
     auto &sc0 = pmb->meshblock_data.Get(stage_name[stage - 1]);
-    // pull out a container we'll use to store dU/dt.
-    // This is just -flux_divergence in this example
-    auto &dudt = pmb->meshblock_data.Get("dUdt");
-    // pull out the container that will hold the updated state
-    // effectively, sc1 = sc0 + dudt*dt
-    auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);
 
     auto advect_flux = tl.AddTask(none, advection_package::CalculateFluxes, sc0);
   }
@@ -136,7 +132,7 @@ TaskCollection AdvectionDriver::MakeTaskCollection(BlockList_t &blocks, const in
 
   TaskRegion &async_region2 = tc.AddRegion(num_task_lists_executed_independently);
   assert(blocks.size() == async_region2.size());
-  for (int i = 0; i < blocks.size(); i++) {
+  for (std::size_t i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
     auto &tl = async_region2[i];
     auto &sc1 = pmb->meshblock_data.Get(stage_name[stage]);

@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include <algorithm>
 
@@ -58,7 +59,6 @@ IndexSplit::IndexSplit(MeshData<Real> *md, IndexDomain domain, const int nkp,
 void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
   const int total_k = kbe - kbs_ + 1;
   const int total_j = jbe - jbs_ + 1;
-  const int total_i = ibe_ - ibs_ + 1;
 
   // Compute max parallelism (at outer loop level) from Kokkos
   // equivalent to NSMS in Kokkos

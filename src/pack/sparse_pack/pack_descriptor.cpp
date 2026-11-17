@@ -10,7 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
+#include <cstddef>
 #include <cstdio>
 #include <string>
 
@@ -21,7 +23,7 @@ namespace impl {
 
 void PackDescriptor::Print() const {
   printf("--------------------\n");
-  for (int i = 0; i < var_group_names.size(); ++i) {
+  for (std::size_t i = 0; i < var_group_names.size(); ++i) {
     printf("group name: %s\n", var_group_names[i].c_str());
     printf("--------------------\n");
     for (const auto &[var_name, uid] : var_groups[i]) {

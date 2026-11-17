@@ -10,10 +10,12 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 #ifndef SOLVERS_SOLVER_UTILS_HPP_
 #define SOLVERS_SOLVER_UTILS_HPP_
 
 #include <algorithm>
+#include <cstddef>
 #include <limits>
 #include <memory>
 #include <string>
@@ -47,9 +49,12 @@ struct SparseMatrixAccessor {
         nstencil(n) {
     PARTHENON_REQUIRE_THROWS(off.size() == 3,
                              "Offset array must have dimensions off[3][*]");
-    PARTHENON_REQUIRE_THROWS(off[0].size() >= n, "Offset array off[0][*] too small");
-    PARTHENON_REQUIRE_THROWS(off[1].size() >= n, "Offset array off[1][*] too small");
-    PARTHENON_REQUIRE_THROWS(off[2].size() >= n, "Offset array off[2][*] too small");
+    PARTHENON_REQUIRE_THROWS(n >= 0 && off[0].size() >= static_cast<std::size_t>(n),
+                             "Offset array off[0][*] too small");
+    PARTHENON_REQUIRE_THROWS(n >= 0 && off[1].size() >= static_cast<std::size_t>(n),
+                             "Offset array off[1][*] too small");
+    PARTHENON_REQUIRE_THROWS(n >= 0 && off[2].size() >= static_cast<std::size_t>(n),
+                             "Offset array off[2][*] too small");
     auto ioff_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), ioff);
     auto joff_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), joff);
     auto koff_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), koff);
@@ -105,10 +110,14 @@ struct Stencil {
         koff(label + "_koff", n), nstencil(n) {
     PARTHENON_REQUIRE_THROWS(off.size() == 3,
                              "Offset array must have dimensions off[3][*]");
-    PARTHENON_REQUIRE_THROWS(wgt.size() >= n, "Weight array too small");
-    PARTHENON_REQUIRE_THROWS(off[0].size() >= n, "Offset array off[0][*] too small");
-    PARTHENON_REQUIRE_THROWS(off[1].size() >= n, "Offset array off[1][*] too small");
-    PARTHENON_REQUIRE_THROWS(off[2].size() >= n, "Offset array off[2][*] too small");
+    PARTHENON_REQUIRE_THROWS(n >= 0 && wgt.size() >= static_cast<std::size_t>(n),
+                             "Weight array too small");
+    PARTHENON_REQUIRE_THROWS(n >= 0 && off[0].size() >= static_cast<std::size_t>(n),
+                             "Offset array off[0][*] too small");
+    PARTHENON_REQUIRE_THROWS(n >= 0 && off[1].size() >= static_cast<std::size_t>(n),
+                             "Offset array off[1][*] too small");
+    PARTHENON_REQUIRE_THROWS(n >= 0 && off[2].size() >= static_cast<std::size_t>(n),
+                             "Offset array off[2][*] too small");
     auto w_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), w);
     auto ioff_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), ioff);
     auto joff_h = Kokkos::create_mirror_view(Kokkos::HostSpace(), joff);
@@ -217,7 +226,6 @@ TaskStatus CopyData(const std::shared_ptr<MeshData<Real>> &md_in,
 
 template <class TL, bool only_fine_on_composite = true>
 TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
-  int nblocks = md->NumBlocks();
   using TE = parthenon::TopologicalElement;
   TE te = TE::CC;
   static auto desc = [&] {
@@ -236,7 +244,6 @@ TaskStatus SetToZero(const std::shared_ptr<MeshData<Real>> &md) {
       scratch_size_in_bytes, scratch_level, 0, pack.GetNBlocks() - 1,
       KOKKOS_LAMBDA(parthenon::team_mbr_t member, const int b) {
         auto cb = GetIndexShape(pack(b, te, 0), ng);
-        const auto &coords = pack.GetCoordinates(b);
         IndexRange ib = cb.GetBoundsI(IndexDomain::interior, te);
         IndexRange jb = cb.GetBoundsJ(IndexDomain::interior, te);
         IndexRange kb = cb.GetBoundsK(IndexDomain::interior, te);
@@ -570,7 +577,6 @@ template <class TL, bool VolumeWeight = false>
 TaskStatus DoubleDotProductLocal(const std::shared_ptr<MeshData<Real>> &md_a,
                                  const std::shared_ptr<MeshData<Real>> &md_b,
                                  AllReduce<summable_array_t<Real, 2>> *adotb) {
-  using TE = parthenon::TopologicalElement;
   IndexRange ib = md_a->GetBoundsI(IndexDomain::interior);
   IndexRange jb = md_a->GetBoundsJ(IndexDomain::interior);
   IndexRange kb = md_a->GetBoundsK(IndexDomain::interior);

@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 #ifndef TASKS_TASKS_HPP_
 #define TASKS_TASKS_HPP_
 
@@ -17,6 +18,7 @@
 #include <array>
 #include <cassert>
 #include <chrono>
+#include <cstddef>
 #include <functional>
 #include <list>
 #include <map>
@@ -105,7 +107,7 @@ class Task {
   template <typename TID>
   Task(TID &&dep, const std::string &label, int verbose_level,
        const std::function<TaskStatus()> &func, std::pair<int, int> limits = {1, 1})
-      : label_(label), verbose_level_(verbose_level), f(func), exec_limits(limits) {
+      : f(func), exec_limits(limits), verbose_level_(verbose_level), label_(label) {
     if (dep.GetIDs().size() == 0 && dep.GetTask()) {
       dependencies.insert(dep.GetTask());
     } else {

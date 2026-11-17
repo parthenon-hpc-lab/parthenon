@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include <algorithm>
 #include <cmath>
@@ -191,7 +192,6 @@ TaskStatus CalculateFluxes(std::shared_ptr<MeshBlockData<Real>> &rc) {
   auto pkg = pmb->packages.Get("sparse_advection_package");
   const auto &vx = pkg->Param<RealArr_t>("vx");
   const auto &vy = pkg->Param<RealArr_t>("vy");
-  const auto &vz = pkg->Param<RealArr_t>("vz");
 
   const auto &v =
       rc->PackVariablesAndFluxes(std::vector<MetadataFlag>{Metadata::WithFluxes});

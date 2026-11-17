@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #include <sstream>
 #include <string>
@@ -34,10 +35,6 @@ namespace burgers_benchmark {
 
 void ProblemGenerator(MeshBlock *pmb, ParameterInput *pin) {
   using parthenon::MetadataFlag;
-
-  const Real kx_fact = pin->GetOrAddReal("burgers", "kx_fact", 1.0);
-  const Real ky_fact = pin->GetOrAddReal("burgers", "ky_fact", 1.0);
-  const Real kz_fact = pin->GetOrAddReal("burgers", "kz_fact", 1.0);
 
   auto &data = pmb->meshblock_data.Get();
 

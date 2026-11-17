@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -185,7 +186,7 @@ struct Indexer {
         [&] {
           constexpr std::size_t idx = sizeof...(Ts) - (Is + 1);
           cur *= Nt[idx];
-          N[idx] = cur;
+          N[idx] = static_cast<int>(cur);
         }(),
         ...);
     return N;
@@ -249,7 +250,7 @@ class SpatiallyMaskedIndexer : public Indexer<Ts...> {
   template <class... Args>
   KOKKOS_INLINE_FUNCTION SpatiallyMaskedIndexer(const block_ownership_t &active,
                                                 std::pair<Ts, Ts>... Ns)
-      : active_(active), Indexer<Ts...>(Ns...) {}
+      : Indexer<Ts...>(Ns...), active_(active) {}
 
   KOKKOS_INLINE_FUNCTION
   bool IsActive(int k, int j, int i) const {

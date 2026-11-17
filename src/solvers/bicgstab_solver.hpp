@@ -10,9 +10,11 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 #ifndef SOLVERS_BICGSTAB_SOLVER_HPP_
 #define SOLVERS_BICGSTAB_SOLVER_HPP_
 
+#include <cstddef>
 #include <cstdio>
 #include <memory>
 #include <string>
@@ -107,10 +109,10 @@ class BiCGSTABSolver : public SolverBase, BiCGSTABSolverCounter {
   BiCGSTABSolver(const std::string &container_base, const std::string &container_u,
                  const std::string &container_rhs, ParameterInput *pin,
                  const std::string &input_block, equations_t eq_in = equations_t())
-      : preconditioner(container_base, container_u, container_rhs, pin, input_block,
+      : SolverBase(container_base, container_u, container_rhs),
+        preconditioner(container_base, container_u, container_rhs, pin, input_block,
                        eq_in),
-        SolverBase(container_base, container_u, container_rhs), params_(pin, input_block),
-        iter_counter(0), eqs_(eq_in) {
+        params_(pin, input_block), iter_counter(0), eqs_(eq_in) {
     FieldTL::IterateTypes(
         [this](auto t) { this->sol_fields.push_back(decltype(t)::name()); });
     std::string solver_id = "bicgstab" + std::to_string(id++);

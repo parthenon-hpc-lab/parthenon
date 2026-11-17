@@ -10,7 +10,9 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
+#include <cstddef>
 #include <vector>
 
 #include "interface/mesh_data.hpp"
@@ -25,7 +27,7 @@ template <class T>
 inline void GetBlockSelection(T *pmd, const block_selector_func_t &block_selector,
                               std::vector<bool> &include_block,
                               bool only_fine_two_level_composite_blocks) {
-  PARTHENON_REQUIRE(include_block.size() == pmd->NumBlocks() ||
+  PARTHENON_REQUIRE(include_block.size() == static_cast<std::size_t>(pmd->NumBlocks()) ||
                         (include_block.size() == 0),
                     "Must specify inclusion status for all blocks.");
 

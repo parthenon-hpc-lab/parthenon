@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cinttypes>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -66,8 +67,7 @@
 namespace parthenon {
 Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
            base_constructor_selector_t)
-    : // public members:
-      modified(true),
+    : modified(true),
       adaptive(pin->GetOrAddString("parthenon/mesh", "refinement", "none",
                                    std::vector<std::string>{"none", "static", "adaptive"},
                                    "mesh refinement mode") == "adaptive"
@@ -79,29 +79,32 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
                                        "enable a multigrid mesh"))),
       multigrid(pin->GetOrAddBoolean("parthenon/mesh", "multigrid", false,
                                      "enable a multigrid mesh")),
-      nbnew(), nbdel(), step_since_lb(), gflag(), packages(packages),
-      resolved_packages(ResolvePackages(packages)),
+      nbnew(), nbdel(), step_since_lb(), gflag(),
       task_collection_timeout_in_seconds(pin->GetOrAddInteger(
           "parthenon/mesh", "task_collection_timeout_in_seconds", 60 * 5)),
+      do_coalesced_comms{pin->GetOrAddBoolean(
+          "parthenon/mesh", "do_coalesced_comms", false,
+          "Use coalesced MPI messages for inter-block communication")},
+      packages(packages), resolved_packages(ResolvePackages(packages)),
       minimum_number_of_teams_for_boundary_kernel(pin->GetOrAddInteger(
           "parthenon/mesh", "minimum_number_of_teams_for_boundary_kernel", 1,
           "Minimum number of teams to launch when filling or applying boundary "
           "buffers. Additional teams are distributed evenly across buffers.")),
       boundary_buffer_work_chunk_size(
           pin->GetOrAddInteger("parthenon/mesh", "boundary_buffer_work_chunk_size", 1)),
-      // private members:
+      pcoalesced_comms(std::make_shared<CoalescedComms>(this)),
       num_mesh_threads_(
           pin->GetOrAddInteger("parthenon/mesh", "num_threads", 1,
                                "number of host threads for infrastructure; unused")),
-      use_uniform_meshgen_fn_{true, true, true, true}, lb_flag_(true), lb_automatic_(),
-      lb_manual_(), nslist(Globals::nranks), nblist(Globals::nranks),
-      nref(Globals::nranks), nderef(Globals::nranks), rdisp(Globals::nranks),
-      ddisp(Globals::nranks), bnref(Globals::nranks), bnderef(Globals::nranks),
-      brdisp(Globals::nranks), bddisp(Globals::nranks),
-      pcoalesced_comms(std::make_shared<CoalescedComms>(this)),
-      do_coalesced_comms{pin->GetOrAddBoolean(
-          "parthenon/mesh", "do_coalesced_comms", false,
-          "Use coalesced MPI messages for inter-block communication")},
+      base_block_coarsenings{
+          pin->GetOrAddInteger("parthenon/mesh", "base_block_coarsenings", 0,
+                               "How many times to internally coarsen blocks before going "
+                               "to two-level composite grids")},
+      nslist(Globals::nranks), nblist(Globals::nranks), nref(Globals::nranks),
+      nderef(Globals::nranks), rdisp(Globals::nranks), ddisp(Globals::nranks),
+      bnref(Globals::nranks), bnderef(Globals::nranks), brdisp(Globals::nranks),
+      bddisp(Globals::nranks), use_uniform_meshgen_fn_{true, true, true, true},
+      lb_flag_(true), lb_automatic_(), lb_manual_(),
       nbuf_add_{pin->GetOrAddInteger(
           "parthenon/mesh", "comm_buffer_chunk_size", -1,
           "Number of comm buffers to allocate when more are required. Default is a "
@@ -111,11 +114,7 @@ Mesh::Mesh(ParameterInput *pin, ApplicationInput *app_in, Packages_t &packages,
           "When a check for comm buffer realocation is made (see "
           "comm_buffer_reallocate_cadence), reallocation happens only if the number of "
           "buffers in use divided by the number of buffers allocated is less than this "
-          "variable.")},
-      base_block_coarsenings{
-          pin->GetOrAddInteger("parthenon/mesh", "base_block_coarsenings", 0,
-                               "How many times to internally coarsen blocks before going "
-                               "to two-level composite grids")} {
+          "variable.")} {
   // pack size
   bool pack_size_exists = pin->DoesParameterExist("parthenon/mesh", "pack_size");
   bool num_partitions_exists =
@@ -650,7 +649,6 @@ void Mesh::ApplyUserWorkBeforeRestartOutput(Mesh *mesh, ParameterInput *pin,
 }
 
 void Mesh::BuildTagMapAndBoundaryBuffers() {
-  const int num_partitions = DefaultNumPartitions();
   const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
 
   // Build densely populated communication tags
@@ -722,7 +720,6 @@ void Mesh::CommunicateBoundaries(std::string md_name,
 }
 
 void Mesh::PreCommFillDerived() {
-  const int num_partitions = DefaultNumPartitions();
   const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
   // Pre comm fill derived
   for (int i = 0; i < nmb; ++i) {
@@ -738,7 +735,6 @@ void Mesh::PreCommFillDerived() {
 }
 
 void Mesh::FillDerived() {
-  const int num_partitions = DefaultNumPartitions();
   const int nmb = GetNumMeshBlocksThisRank(Globals::my_rank);
   for (auto &partition : GetDefaultBlockPartitions()) {
     auto &md = mesh_data.Add("base", partition);
@@ -774,8 +770,6 @@ void Mesh::Initialize(bool init_problem, ParameterInput *pin, ApplicationInput *
         pmb->InitMeshBlockUserData(pmb, pin);
       }
     }
-
-    const int num_partitions = DefaultNumPartitions();
 
     // problem generator
     if (init_problem) {
@@ -1057,7 +1051,7 @@ ParArray1D<AmrTag> &Mesh::GetAmrTags() {
     amr_tags.KokkosView() = Kokkos::View<AmrTag *>(
         Kokkos::view_alloc(Kokkos::WithoutInitializing, "amr_tags"), nblocks);
   }
-  if (amr_tags.KokkosView().size() != nblocks) {
+  if (amr_tags.KokkosView().size() != static_cast<std::size_t>(nblocks)) {
     Kokkos::realloc(amr_tags.KokkosView(), nblocks);
   }
   return amr_tags;

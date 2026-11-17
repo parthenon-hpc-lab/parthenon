@@ -25,6 +25,7 @@
 // TODO(felker): deduplicate forward declarations
 // TODO(felker): consider moving enums and structs in a new file? bvals_structs.hpp?
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <vector>
@@ -115,7 +116,9 @@ class BufferID {
 
   int GetID(int ox1, int ox2, int ox3, int f1, int f2) const {
     NeighborIndexes in{ox1, ox2, ox3, f1, f2};
-    for (int i = 0; i < nis.size(); ++i) {
+
+    const int count = static_cast<int>(nis.size());
+    for (int i = 0; i < count; ++i) {
       if (nis[i] == in) return i;
     }
     return -1;

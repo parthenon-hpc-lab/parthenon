@@ -10,6 +10,7 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 
 #ifndef DRIVER_DRIVER_HPP_
 #define DRIVER_DRIVER_HPP_
@@ -38,7 +39,7 @@ enum class DriverStatus { complete, timeout, failed };
 class Driver {
  public:
   Driver(ParameterInput *pin, ApplicationInput *app_in, Mesh *pm)
-      : pinput(pin), app_input(app_in), pmesh(pm), mbcnt_prev(), time_LBandAMR() {}
+      : pinput(pin), app_input(app_in), pmesh(pm), time_LBandAMR(), mbcnt_prev() {}
   virtual DriverStatus Execute() = 0;
   void InitializeOutputs() {
     pouts = std::make_unique<Outputs>(pmesh, pinput, app_input);

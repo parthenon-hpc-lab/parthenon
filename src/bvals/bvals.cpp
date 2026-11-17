@@ -113,7 +113,8 @@ void BoundarySwarm::Send(BoundaryCommSubset phase) {
           target_block.pbswarm->bswarms[bswarm_index];
       if (send_size[nb.bufid] > 0) {
         // Ensure target buffer is large enough
-        if (send_size[nb.bufid] > ptarget_bswarm->bd_var_.recv[nb.targetid].extent(0)) {
+        if (static_cast<std::size_t>(send_size[nb.bufid]) >
+            ptarget_bswarm->bd_var_.recv[nb.targetid].extent(0)) {
           ptarget_bswarm->bd_var_.recv[nb.targetid] =
               BufArray1D<Real>("Buffer", send_size[nb.bufid]);
         }

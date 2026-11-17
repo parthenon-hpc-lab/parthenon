@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <fstream>
 #include <iomanip>
@@ -338,7 +339,7 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
 
   TaskRegion &sync_region0 = tc.AddRegion(1);
   {
-    for (int i = 0; i < blocks.size(); i++) {
+    for (std::size_t i = 0; i < blocks.size(); i++) {
       auto &tl = sync_region0[0];
       auto &pmb = blocks[i];
       auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
@@ -354,7 +355,7 @@ TaskCollection ParticleDriver::MakeParticlesUpdateTaskCollection() const {
   }
 
   TaskRegion &async_region0 = tc.AddRegion(num_task_lists_executed_independently);
-  for (int i = 0; i < blocks.size(); i++) {
+  for (std::size_t i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
 
     auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
@@ -378,7 +379,7 @@ TaskCollection ParticleDriver::MakeFinalizationTaskCollection() const {
   auto num_task_lists_executed_independently = blocks.size();
   TaskRegion &async_region1 = tc.AddRegion(num_task_lists_executed_independently);
 
-  for (int i = 0; i < blocks.size(); i++) {
+  for (std::size_t i = 0; i < blocks.size(); i++) {
     auto &pmb = blocks[i];
     auto &sc = pmb->meshblock_data.Get()->GetSwarmData();
     auto &tl = async_region1[i];

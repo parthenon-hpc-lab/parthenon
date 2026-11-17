@@ -10,10 +10,12 @@
 // license in this material to reproduce, prepare derivative works, distribute copies to
 // the public, perform publicly and display publicly, and to permit others to do so.
 //========================================================================================
+// This file was made in part with generative AI
 #ifndef PACK_SPARSE_PACK_SPARSE_PACK_HPP_
 #define PACK_SPARSE_PACK_SPARSE_PACK_HPP_
 
 #include <algorithm>
+#include <cstddef>
 #include <utility>
 #include <vector>
 
@@ -358,7 +360,6 @@ class SparsePack : public SparsePackBase {
     static_assert(
         TypeList<Ts...>::IsIn(typename Tin::independent_vars()),
         "SparsePack must pack all independent_vars needed for virtual variable");
-    using sub_pack_type = decltype(SubPack<typename Tin::pack_type>(*this, b, k, j, i));
     return t.evaluate(SubPack<typename Tin::pack_type>(*this, b, k, j, i),
                       std::forward<Args>(args)...);
   }
@@ -370,7 +371,6 @@ class SparsePack : public SparsePackBase {
     static_assert(
         TypeList<Ts...>::IsIn(typename Tin::independent_vars()),
         "SparsePack must pack all independent_vars needed for virtual variable");
-    using sub_pack_type = decltype(SubPack<typename Tin::pack_type>(*this, b, k, j, i));
     return t.evaluate(SubPack<typename Tin::pack_type>(*this, b, k, j, i), el,
                       std::forward<Args>(args)...);
   }
