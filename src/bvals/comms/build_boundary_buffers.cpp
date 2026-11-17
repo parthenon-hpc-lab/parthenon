@@ -19,7 +19,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <iostream> // debug
-#include <limits>
 #include <memory>
 #include <random>
 #include <string>
@@ -120,9 +119,6 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
     if constexpr (IsSender(BTYPE)) {
       pmesh->LockCommChannelNumbers(BTYPE);
       const auto channel_count = pmesh->GetNumberOfCommChannels(BTYPE);
-      PARTHENON_REQUIRE(channel_count <=
-                            static_cast<std::size_t>(std::numeric_limits<int>::max()),
-                        "Communication channel count exceeds the int channel-ID range.");
       const int num_channels = static_cast<int>(channel_count);
       for (int id = 0; id < num_channels; ++id) {
         auto s_key = SendKey(pmb, nb, v, BTYPE, id);
@@ -139,9 +135,6 @@ void BuildBoundaryBufferSubset(std::shared_ptr<MeshData<Real>> &md,
       if (sender_rank != receiver_rank) {
         pmesh->LockCommChannelNumbers(BTYPE);
         const auto channel_count = pmesh->GetNumberOfCommChannels(BTYPE);
-        PARTHENON_REQUIRE(
-            channel_count <= static_cast<std::size_t>(std::numeric_limits<int>::max()),
-            "Communication channel count exceeds the int channel-ID range.");
         const int num_channels = static_cast<int>(channel_count);
         for (int id = 0; id < num_channels; ++id) {
           auto r_key = ReceiveKey(pmb, nb, v, BTYPE, id);

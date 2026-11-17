@@ -212,11 +212,9 @@ void ParameterInput::LoadFromFile(IOWrapper &input) {
 #endif
     par.write(buf, ret); // add the buffer into the stream
     header += ret;
-    std::string sbuf = par.str();    // create string for search
-    loc = sbuf.find("<par_end>", 0); // search from the top of the stream
-    if (loc != std::string::npos) {  // found <par_end>
-      PARTHENON_DEBUG_REQUIRE(std::in_range<IOWrapperSizeT>(loc + 10),
-                              "Input header size exceeds the I/O byte-count range.");
+    std::string sbuf = par.str();                     // create string for search
+    loc = sbuf.find("<par_end>", 0);                  // search from the top of the stream
+    if (loc != std::string::npos) {                   // found <par_end>
       header = static_cast<IOWrapperSizeT>(loc + 10); // store the header length
       break;
     }

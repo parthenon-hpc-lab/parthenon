@@ -19,7 +19,6 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <limits>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -29,7 +28,6 @@
 
 #include "basic_types.hpp"
 #include "utils/concepts_lite.hpp"
-#include "utils/error_checking.hpp"
 #include "utils/type_list.hpp"
 #include "utils/utils.hpp"
 
@@ -187,13 +185,7 @@ struct Indexer {
     (
         [&] {
           constexpr std::size_t idx = sizeof...(Ts) - (Is + 1);
-          PARTHENON_REQUIRE(Nt[idx] >= 0, "Indexer extents must be nonnegative.");
-          const auto extent = static_cast<std::size_t>(Nt[idx]);
-          PARTHENON_REQUIRE(extent == 0 || cur <= static_cast<std::size_t>(
-                                                      std::numeric_limits<int>::max()) /
-                                                      extent,
-                            "Indexer size exceeds the int index range.");
-          cur *= extent;
+          cur *= Nt[idx];
           N[idx] = static_cast<int>(cur);
         }(),
         ...);

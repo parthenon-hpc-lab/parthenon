@@ -16,7 +16,6 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <limits>
 #include <set>
 #include <string>
 #include <tuple>
@@ -72,9 +71,6 @@ struct PackDescriptor {
   static int GetNVarsTotal(const std::vector<VariableGroup_t> &var_groups) {
     int nvar_tot = 0;
     for (const auto &group : var_groups) {
-      PARTHENON_REQUIRE(group.size() <= static_cast<std::size_t>(
-                                            std::numeric_limits<int>::max() - nvar_tot),
-                        "Pack variable count exceeds the int range.");
       nvar_tot += static_cast<int>(group.size());
     }
     return nvar_tot;

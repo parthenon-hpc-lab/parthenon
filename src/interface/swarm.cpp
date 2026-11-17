@@ -225,10 +225,9 @@ void Swarm::Remove(const std::string &label) {
 }
 
 void Swarm::SetPoolMax(const std::int64_t nmax_pool) {
-  PARTHENON_REQUIRE(std::in_range<std::size_t>(nmax_pool),
-                    "Requested swarm pool size is outside the size_t range.");
+  PARTHENON_REQUIRE(std::cmp_greater(nmax_pool, nmax_pool_),
+                    "Must request larger pool size!");
   const auto requested_size = static_cast<std::size_t>(nmax_pool);
-  PARTHENON_REQUIRE(requested_size > nmax_pool_, "Must request larger pool size!");
   const std::size_t n_new = requested_size - nmax_pool_;
 
   auto pmb = GetBlockPointer();

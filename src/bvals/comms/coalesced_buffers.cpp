@@ -63,9 +63,6 @@ ParArray1DRaw<BndId> &CoalescedBuffer::GetBndIdsOnDevice(const std::set<Uid_t> &
     // Skip this variable if it is not communicated in this BoundaryType
     if (coalesced_info_buf.count(uid) == 0) continue;
     const auto count = coalesced_info_buf.at(uid).size();
-    PARTHENON_REQUIRE(count <= static_cast<std::size_t>(std::numeric_limits<int>::max()) -
-                                   nbnd_id,
-                      "Boundary count exceeds the int league-index range.");
     nbnd_id += count;
     for (auto &[bnd_id, pvbbuf] : coalesced_info_buf.at(uid)) {
       auto buf_state = pvbbuf->GetState();

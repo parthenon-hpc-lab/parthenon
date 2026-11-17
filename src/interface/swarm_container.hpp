@@ -18,7 +18,6 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <limits>
 #include <map>
 #include <memory>
 #include <string>
@@ -118,9 +117,6 @@ class SwarmContainer {
   std::shared_ptr<Swarm> &Get(const int index) { return swarmVector_[index]; }
 
   int Index(const std::string &label) const {
-    PARTHENON_DEBUG_REQUIRE(swarmVector_.size() <=
-                                static_cast<std::size_t>(std::numeric_limits<int>::max()),
-                            "Collection size exceeds the int index range.");
     const int count = static_cast<int>(swarmVector_.size());
     for (int i = 0; i < count; i++) {
       if (!swarmVector_[i]->label().compare(label)) return i;
