@@ -65,6 +65,7 @@ void IndexSplit::Init(MeshData<Real> *md, const int kbe, const int jbe) {
   // TODO(JMM): I'm not sure if this is really the best way to do
   // this. Based on discussion on Kokkos slack.
 #ifdef PARTHENON_ENABLE_GPU
+  const int total_i = ibe_ - ibs_ + 1;
   const auto space = DevExecSpace();
   team_policy policy(space, (md->NumBlocks()) * total_k, Kokkos::AUTO);
   // JMM: In principle, should pass a realistic functor here. Using a
