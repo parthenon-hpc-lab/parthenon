@@ -51,18 +51,19 @@ int main(int argc, char *argv[]) {
 
   pman.ParthenonInitPackagesAndMesh();
   // This needs to be scoped so that the driver object is destructed before Finalize
+  parthenon::DriverStatus driver_status;
   {
     // Initialize the driver
     particles_leapfrog::ParticleDriver driver(pman.pinput.get(), pman.app_input.get(),
                                               pman.pmesh.get());
 
     // This line actually runs the simulation
-    driver.Execute();
+    driver_status = driver.Execute();
   }
   // call MPI_Finalize and Kokkos::finalize if necessary
   pman.ParthenonFinalize();
 
   // MPI and Kokkos can no longer be used
 
-  return (0);
+  return driver_status != parthenon::DriverStatus::complete;
 }

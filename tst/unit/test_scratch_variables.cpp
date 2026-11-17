@@ -42,8 +42,7 @@ MakeBlockList(const std::shared_ptr<parthenon::StateDescriptor> pkg, const int N
   block_list.reserve(NBLOCKS);
   for (int i = 0; i < NBLOCKS; ++i) {
     auto pmb = std::make_shared<parthenon::MeshBlock>(NSIDE, NDIM);
-    auto &pmbd = pmb->meshblock_data.Get();
-    pmbd->Initialize(pkg, pmb);
+    auto &pmbd = pmb->meshblock_data.Add("base", pkg, pmb);
     block_list.push_back(pmb);
   }
   return block_list;
@@ -93,8 +92,7 @@ TEST_CASE("Test registering scratch variables to different StateDescriptors",
       auto jb = block_list[0]->cellbounds.GetBoundsJ(parthenon::IndexDomain::entire);
       auto kb = block_list[0]->cellbounds.GetBoundsK(parthenon::IndexDomain::entire);
 
-      parthenon::MeshData<parthenon::Real> mesh_data("base");
-      mesh_data.Initialize(block_list, nullptr);
+      parthenon::MeshData<parthenon::Real> mesh_data("base", block_list, nullptr);
 
       using First = parthenon::First;
       using Second = parthenon::Second;

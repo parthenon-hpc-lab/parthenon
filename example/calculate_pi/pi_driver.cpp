@@ -53,15 +53,16 @@ int main(int argc, char *argv[]) {
 
   // This needs to be scoped so that the driver object is destructed before Finalize
   pman.ParthenonInitPackagesAndMesh();
+  parthenon::DriverStatus driver_status;
   {
     PiDriver driver(pman.pinput.get(), pman.app_input.get(), pman.pmesh.get());
 
-    driver.Execute();
+    driver_status = driver.Execute();
   }
   // call MPI_Finalize if necessary
   pman.ParthenonFinalize();
 
-  return 0;
+  return driver_status != parthenon::DriverStatus::complete;
 }
 
 Packages_t ProcessPackages(std::unique_ptr<ParameterInput> &pin) {

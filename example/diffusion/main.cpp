@@ -1,3 +1,4 @@
+// This file was made in part with generative AI
 //========================================================================================
 // (C) (or copyright) 2023-2025. Triad National Security, LLC. All rights reserved.
 //
@@ -40,19 +41,18 @@ int main(int argc, char *argv[]) {
   pman.ParthenonInitPackagesAndMesh();
 
   // This needs to be scoped so that the driver object is destructed before Finalize
-  bool success = true;
+  parthenon::DriverStatus driver_status;
   {
     // Initialize the driver
     diffusion_example::DiffusionDriver driver(pman.pinput.get(), pman.app_input.get(),
                                               pman.pmesh.get());
 
     // This line actually runs the simulation
-    auto driver_status = driver.Execute();
-    success = (driver_status == parthenon::DriverStatus::complete);
+    driver_status = driver.Execute();
   }
   // call MPI_Finalize and Kokkos::finalize if necessary
   pman.ParthenonFinalize();
 
   // MPI and Kokkos can no longer be used
-  return static_cast<int>(!success);
+  return driver_status != parthenon::DriverStatus::complete;
 }

@@ -196,7 +196,7 @@ TEST_CASE("Logical Location", "[Logical Location]") {
 
     THEN("We can find the ownership array of a block") {
       LogicalLocation base_loc(2, 2, 3, 3);
-      auto owns = DetermineOwnership(base_loc, neighbor_locs);
+      auto owns = DetermineOwnership(base_loc, neighbor_locs, false);
 
       // Determined by drawing and inspecting diagram
       block_ownership_t by_hand;
@@ -226,7 +226,7 @@ TEST_CASE("Logical Location", "[Logical Location]") {
 
     THEN("We can find the ownership array of another block") {
       LogicalLocation base_loc(2, 1, 1, 1);
-      auto owns = DetermineOwnership(base_loc, neighbor_locs);
+      auto owns = DetermineOwnership(base_loc, neighbor_locs, false);
 
       // Determined by drawing and inspecting diagram
       block_ownership_t by_hand;
@@ -248,7 +248,7 @@ TEST_CASE("Logical Location", "[Logical Location]") {
 
     THEN("We can find the ownership array of yet another block") {
       LogicalLocation base_loc(2, 0, 0, 0);
-      auto owns = DetermineOwnership(base_loc, neighbor_locs);
+      auto owns = DetermineOwnership(base_loc, neighbor_locs, false);
 
       // Determined by drawing and inspecting diagram, this should be the
       // ownership structure for every block in a uniform grid
@@ -277,7 +277,7 @@ TEST_CASE("Logical Location", "[Logical Location]") {
 
     THEN("We can find the ownership array of yet another block") {
       LogicalLocation base_loc(3, 7, 7, 7);
-      auto owns = DetermineOwnership(base_loc, neighbor_locs);
+      auto owns = DetermineOwnership(base_loc, neighbor_locs, false);
 
       // Determined by drawing and inspecting diagram, this is
       // the upper rightmost block in the grid on the finest refinement

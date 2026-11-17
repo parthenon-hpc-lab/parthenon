@@ -1,0 +1,94 @@
+# This file was made in part with generative AI.
+
+name: Label downstream compatibility
+
+# Workflow adds label to a PR when any of the downstream code tests fail.
+# Label is removed if subsequent updates to the PR make the downstream
+# codes work again.
+# Runs separately with write permissions, so untrusted PR code is tested
+# with a read-only token. This file must be on Parthenon's default branch.
+on:
+  workflow_run:
+    workflows: ["Downstream compatibility"]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  label:
+    # Canceled/superseded runs must not change the label.
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      (github.event.workflow_run.conclusion == 'success' ||
+       github.event.workflow_run.conclusion == 'failure')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      # Need write permission to add label.
+      # This is why this is a separate workflow run as it only interacts
+      # with the workflow actions/results and not changes in the repo itself.
+      pull-requests: write
+
+    steps:
+      - name: Synchronize breaks-downstream label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const { owner, repo } = context.repo;
+            const label = 'breaks-downstream';
+
+            // GitHub sometimes returns [] for workflow_run.pull_requests,
+            // particularly for PRs from forks. Use the current PR's
+            // head SHA or synthetic test-merge SHA instead.
+            const prs = await github.paginate(github.rest.pulls.list, {
+              owner, repo, state: 'open', base: 'develop', per_page: 100
+            });
+            const matches = prs.filter(pr =>
+              pr.merge_commit_sha === run.head_sha ||
+              (pr.head.sha === run.head_sha &&
+               (!run.head_branch || pr.head.ref === run.head_branch))
+            );
+
+            // Don't apply results to unrelated PRs or ambiguous commits.
+            if (matches.length !== 1) {
+              core.warning(`Expected one current PR for run ${run.id} (${run.head_sha}); got ${matches.length}. Skipping.`);
+              return;
+            }
+            const pr = matches[0];
+
+            // A completed old test must not overwrite the result of a newer
+            // test of this same revision (including a re-run attempt).
+            const { data: history } = await github.rest.actions.listWorkflowRuns({
+              owner, repo, workflow_id: run.workflow_id,
+              event: 'pull_request', head_sha: run.head_sha, per_page: 100
+            });
+            const newer = history.workflow_runs.some(other =>
+              other.head_branch === run.head_branch &&
+              (other.run_number > run.run_number ||
+               (other.id === run.id && other.run_attempt > run.run_attempt))
+            );
+            if (newer) {
+              core.notice(`Run ${run.id} has been superseded; leaving #${pr.number} unchanged.`);
+              return;
+            }
+
+            const labels = await github.paginate(github.rest.issues.listLabelsOnIssue, {
+              owner, repo, issue_number: pr.number, per_page: 100
+            });
+            const hasLabel = labels.some(item => item.name === label);
+
+            if (run.conclusion === 'failure' && !hasLabel) {
+              await github.rest.issues.addLabels({
+                owner, repo, issue_number: pr.number, labels: [label]
+              });
+              core.notice(`Added ${label} to #${pr.number}: ${run.html_url}`);
+            } else if (run.conclusion === 'success' && hasLabel) {
+              await github.rest.issues.removeLabel({
+                owner, repo, issue_number: pr.number, name: label
+              });
+              core.notice(`Removed ${label} from #${pr.number}: ${run.html_url}`);
+            } else {
+              core.notice(`#${pr.number} already has the correct label state (${run.conclusion}).`);
+            }

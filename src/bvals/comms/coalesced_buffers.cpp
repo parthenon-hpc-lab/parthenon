@@ -324,7 +324,7 @@ bool CoalescedBuffersRank::TryReceiveBufInfo() {
     for (int p = 0; p < npartitions; ++p) {
       const int partition = mess_buf[idx++];
       const int nbuf = mess_buf[idx++];
-      ++idx; // Skip the unused total-size field.
+      ++idx;
 
       // Create the new partition
       coalesced_bufs.emplace(std::make_pair(

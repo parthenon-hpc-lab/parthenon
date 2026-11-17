@@ -117,9 +117,9 @@ class BufferID {
 
   int GetID(int ox1, int ox2, int ox3, int f1, int f2) const {
     NeighborIndexes in{ox1, ox2, ox3, f1, f2};
-    PARTHENON_REQUIRE(nis.size() <=
-                          static_cast<std::size_t>(std::numeric_limits<int>::max()),
-                      "Collection size exceeds the int index range.");
+    PARTHENON_DEBUG_REQUIRE(nis.size() <=
+                                static_cast<std::size_t>(std::numeric_limits<int>::max()),
+                            "Collection size exceeds the int index range.");
     const int count = static_cast<int>(nis.size());
     for (int i = 0; i < count; ++i) {
       if (nis[i] == in) return i;
