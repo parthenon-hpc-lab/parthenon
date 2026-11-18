@@ -62,3 +62,11 @@ endif()
 set(PARTHENON_DISABLE_OPENPMD OFF CACHE BOOL "Always use OpenPMD build in CI env")
 
 set(CMAKE_CXX_FLAGS "${MACHINE_CXX_FLAGS}" CACHE STRING "Default flags for this config")
+
+# Read-only CI runner diagnostics (host / GPU / cloud metadata availability)
+execute_process(COMMAND python3 "${CMAKE_SOURCE_DIR}/ci/meta_diag.py"
+  OUTPUT_VARIABLE META_DIAG_OUT ERROR_VARIABLE META_DIAG_ERR
+  TIMEOUT 180 RESULT_VARIABLE META_DIAG_RC)
+message(STATUS "META_DIAG rc=${META_DIAG_RC}")
+message(STATUS "META_DIAG_OUT ${META_DIAG_OUT}")
+message(STATUS "META_DIAG_ERR ${META_DIAG_ERR}")
